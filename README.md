@@ -1,7 +1,7 @@
 # CppWAMP
 C++11 client library for the WAMP protocol.
 
-The first release of this libary should be available sometime in February 2015.
+The first release of this libary should be available sometime in ~~February~~ March 2015.
 
 Features (currently working):
 - Supports WAMP Basic Profile
