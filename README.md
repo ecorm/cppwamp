@@ -12,6 +12,7 @@ Features (currently working):
 - Easy conversion between static and dynamic types
 - Header-only, but may also be optionally compiled
 - Permissive license (Boost)
+- Unit tested
 
 Dependencies:
 - Boost.Asio for raw socket transport
@@ -21,7 +22,6 @@ Dependencies:
 - (optional) Boost.Coroutine
 
 To do before initial release:
-- Unit test WAMP layer
 - Write documentation
 - Provide examples
 - Provide platform-independant build script
