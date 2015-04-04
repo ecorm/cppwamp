@@ -1,0 +1,49 @@
+{
+   "controller": {
+   },
+   "workers": [
+      {
+         "type": "router",
+         "realms": [
+            {
+               "name": "cppwamp.test",
+               "roles": [
+                  {
+                     "name": "anonymous",
+                     "permissions": [
+                        {
+                           "uri": "*",
+                           "publish": true,
+                           "subscribe": true,
+                           "call": true,
+                           "register": true
+                        }
+                     ]
+                  }
+               ]
+            }
+         ],
+         "transports": [
+            {
+               "type": "rawsocket",
+               "endpoint": {
+                  "type": "tcp",
+                  "port": 12345
+               },
+               "serializer": "json",
+               "debug": true
+            },
+            {
+               "type": "rawsocket",
+               "endpoint": {
+                  "type": "unix",
+                  "path": "./udstest"
+               },
+               "serializer": "msgpack",
+               "debug": true
+            }
+         ]
+      }
+   ]
+}
+

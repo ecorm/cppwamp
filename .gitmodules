@@ -1,0 +1,12 @@
+[submodule "ext/endian"]
+	path = ext/endian
+	url = https://github.com/boostorg/endian
+[submodule "ext/rapidjson"]
+	path = ext/rapidjson
+	url = https://github.com/miloyip/rapidjson
+[submodule "ext/msgpack-c"]
+	path = ext/msgpack-c
+	url = https://github.com/msgpack/msgpack-c
+[submodule "ext/Catch"]
+	path = ext/Catch
+	url = https://github.com/philsquared/Catch

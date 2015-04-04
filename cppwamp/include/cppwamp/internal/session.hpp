@@ -1,0 +1,474 @@
+/*------------------------------------------------------------------------------
+                Copyright Butterfly Energy Systems 2014-2015.
+           Distributed under the Boost Software License, Version 1.0.
+              (See accompanying file LICENSE_1_0.txt or copy at
+                    http://www.boost.org/LICENSE_1_0.txt)
+------------------------------------------------------------------------------*/
+
+#ifndef CPPWAMP_INTERNAL_SESSION_HPP
+#define CPPWAMP_INTERNAL_SESSION_HPP
+
+#include <cassert>
+#include <functional>
+#include <map>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <utility>
+#include "../args.hpp"
+#include "../codec.hpp"
+#include "../error.hpp"
+#include "../variant.hpp"
+#include "../wampdefs.hpp"
+#include "wampmessage.hpp"
+
+namespace wamp
+{
+
+namespace internal
+{
+
+//------------------------------------------------------------------------------
+template <typename TCodec, typename TTransport>
+class Session : public std::enable_shared_from_this<Session<TCodec, TTransport>>
+{
+public:
+    using Codec        = TCodec;
+    using Transport    = TTransport;
+    using TransportPtr = std::shared_ptr<Transport>;
+    using State        = SessionState;
+
+    State state() const {return state_;}
+
+    const std::string& realm() const {return realm_;}
+
+protected:
+    using Message      = WampMessage;
+    using Handler      = std::function<void (std::error_code, Message)>;
+    using RxHandler    = std::function<void (Message)>;
+    using LogHandler   = std::function<void (std::string)>;
+
+    Session(TransportPtr&& transport)
+        : transport_(std::move(transport))
+    {
+        initMessages();
+    }
+
+    virtual bool isMsgSupported(const MessageTraits& traits) = 0;
+
+    virtual void onInbound(Message msg) = 0;
+
+    void start(std::string realm)
+    {
+        assert(state_ == State::closed || state_ == State::disconnected);
+        realm_ = std::move(realm);
+        state_ = State::establishing;
+
+        if (!transport_->isStarted())
+        {
+            std::weak_ptr<Session> self(this->shared_from_this());
+
+            transport_->start(
+                        [self](Buffer buf)
+                        {
+                            if (!self.expired())
+                                self.lock()->onTransportRx(buf);
+                        },
+                        [self](std::error_code ec)
+                        {
+                            if (!self.expired())
+                                self.lock()->checkError(ec);
+                        }
+            );
+        }
+    }
+
+    void adjourn(std::string reason, Object details, Handler handler)
+    {
+        assert(state_ == State::established);
+
+        state_ = State::shuttingDown;
+        Message msg = { WampMsgType::goodbye,
+                        {0u, std::move(details), std::move(reason)} };
+        auto self = this->shared_from_this();
+        request(msg,
+            [this, self, handler](std::error_code ec, Message reply)
+            {
+                if (!ec)
+                {
+                    state_ = State::closed;
+                    abortPending(make_error_code(WampErrc::sessionEnded));
+                    post(handler, make_error_code(ProtocolErrc::success),
+                         std::move(reply));
+                }
+                else
+                    post(handler, ec, Message());
+
+                realm_.clear();
+            });
+    }
+
+    void close(bool terminating)
+    {
+        state_ = State::disconnected;
+        abortPending(make_error_code(WampErrc::sessionEnded), terminating);
+        realm_.clear();
+        transport_->close();
+    }
+
+    void send(Message& msg)
+    {
+        sendMessage(msg);
+    }
+
+    void sendError(WampMsgType reqType, RequestId reqId, std::string reason,
+                   Object details = Object())
+    {
+        auto& f = errorMsg_.fields;
+        f.at(1) = static_cast<Int>(reqType);
+        f.at(2) = reqId;
+        f.at(3) = std::move(details);
+        f.at(4) = std::move(reason);
+        send(errorMsg_);
+    }
+
+    void sendError(WampMsgType reqType, RequestId reqId, std::string reason,
+                   Args args)
+    {
+        using std::move;
+        sendError(reqType, reqId, move(reason), Object(), move(args));
+    }
+
+    void sendError(WampMsgType reqType, RequestId reqId, std::string reason,
+                   Object details, Args args)
+    {
+        using std::move;
+
+        if (!args.map.empty())
+        {
+            auto& f = errorWithKvArgsMsg_.fields;
+            f.at(1) = static_cast<Int>(reqType);
+            f.at(2) = reqId;
+            f.at(3) = move(details);
+            f.at(4) = move(reason);
+            f.at(5) = move(args.list);
+            f.at(6) = move(args.map);
+            send(errorWithKvArgsMsg_);
+        }
+        else if (!args.list.empty())
+        {
+            auto& f = errorWithArgsMsg_.fields;
+            f.at(1) = static_cast<Int>(reqType);
+            f.at(2) = reqId;
+            f.at(3) = move(details);
+            f.at(4) = move(reason);
+            f.at(5) = move(args.list);
+            send(errorWithArgsMsg_);
+        }
+        else
+            sendError(reqType, reqId, move(reason), move(details));
+    }
+
+    void request(Message& msg, Handler&& handler)
+    {
+        sendMessage(msg, std::move(handler));
+    }
+
+    template <typename TErrorValue>
+    void fail(TErrorValue errc)
+    {
+        fail(make_error_code(errc));
+    }
+
+    void setTraceHandler(LogHandler handler) {traceHandler_ = handler;}
+
+    template <typename TFunctor>
+    void post(TFunctor&& fn) {transport_->post(std::forward<TFunctor>(fn));}
+
+    template <typename TFunctor, typename... TArgs>
+    void post(TFunctor&& fn, TArgs&&... args)
+    {
+        transport_->post(std::bind(std::forward<TFunctor>(fn),
+                         std::forward<TArgs>(args)...));
+    }
+
+private:
+    using Buffer     = typename Transport::Buffer;
+    using RequestKey = typename Message::RequestKey;
+    using RequestMap = std::map<RequestKey, Handler>;
+
+    void sendMessage(Message& msg, Handler&& handler = nullptr)
+    {
+        assert(msg.type != WampMsgType::none);
+
+        msg.fields.at(0) = static_cast<Int>(msg.type);
+
+        auto idPos = msg.traits().idPosition;
+        if (idPos > 0)
+            msg.fields.at(idPos) = nextRequestId();
+
+        trace(msg, true);
+
+        auto buf = newBuffer(msg);
+        if (buf->length() > transport_->maxSendLength())
+            throw error::Wamp(make_error_code(TransportErrc::badTxLength));
+
+        if (handler)
+            requestMap_[msg.requestKey()] = std::move(handler);
+
+        transport_->send(std::move(buf));
+    }
+
+    RequestId nextRequestId()
+    {
+        if (nextRequestId_ >= maxRequestId_)
+            nextRequestId_ = 0;
+        return ++nextRequestId_;
+    }
+
+    Buffer newBuffer(const Message& msg)
+    {
+        Buffer buf = transport_->getBuffer();
+        Codec::encodeBuffer(msg.fields, *buf);
+        return std::move(buf);
+    }
+
+    void onTransportRx(Buffer buf)
+    {
+        if (state_ == State::establishing ||
+            state_ == State::established ||
+            state_ == State::shuttingDown)
+        {
+            Variant v;
+            if (checkError(decode(buf, v)) &&
+                check(v.is<Array>(), ProtocolErrc::badSchema))
+            {
+                std::error_code ec;
+                auto msg = Message::parse(std::move(v.as<Array>()), ec);
+                if ( checkError(ec) && checkValidMsg(msg.type) )
+                {
+                    trace(msg, false);
+                    processMessage(std::move(msg));
+                }
+            }
+        }
+    }
+
+    std::error_code decode(const Buffer& buf, Variant& v)
+    {
+        auto result = make_error_code(ProtocolErrc::success);
+        try
+        {
+            Codec::decodeBuffer(*buf, v);
+        }
+        catch(const error::Decode& e)
+        {
+            result = make_error_code(ProtocolErrc::badDecode);
+        }
+        return result;
+    }
+
+    void processMessage(Message&& msg)
+    {
+        if (msg.repliesTo() != WampMsgType::none)
+        {
+            processWampReply( RequestKey(msg.repliesTo(), msg.requestId()),
+                              std::move(msg) );
+        }
+        else switch(msg.type)
+        {
+            case WampMsgType::hello:
+                processHello(std::move(msg));
+                break;
+
+            case WampMsgType::welcome:
+                processWelcome(std::move(msg));
+                break;
+
+            case WampMsgType::abort:
+                processAbort(std::move(msg));
+                break;
+
+            case WampMsgType::goodbye:
+                processGoodbye(std::move(msg));
+                break;
+
+            case WampMsgType::error:
+                processWampReply(msg.requestKey(), std::move(msg));
+                break;
+
+            default:
+                // Role-specific unsolicited messages. Ignore them if we're
+                // shutting down.
+                if (state_ != State::shuttingDown)
+                {
+                    auto self = this->shared_from_this();
+                    post(std::bind(&Session::onInbound, self, std::move(msg)));
+                }
+                break;
+        }
+    }
+
+    void processWampReply(const RequestKey& key, Message&& msg)
+    {
+        auto kv = requestMap_.find(key);
+        if (kv != requestMap_.end())
+        {
+            auto handler = std::move(kv->second);
+            requestMap_.erase(kv);
+            post(handler, make_error_code(ProtocolErrc::success),
+                 std::move(msg));
+        }
+    }
+
+    void processHello(Message&& msg)
+    {
+        assert(state_ == State::establishing);
+        state_ = State::established;
+        auto self = this->shared_from_this();
+        post(std::bind(&Session::onInbound, self, std::move(msg)));
+    }
+
+    void processWelcome(Message&& msg)
+    {
+        assert(state_ == State::establishing);
+        state_ = State::established;
+        processWampReply( RequestKey(WampMsgType::hello, msg.requestId()),
+                          std::move(msg) );
+    }
+
+    void processAbort(Message&& msg)
+    {
+        assert(state_ == State::establishing);
+        state_ = State::closed;
+        processWampReply( RequestKey(WampMsgType::hello, msg.requestId()),
+                          std::move(msg) );
+    }
+
+    void processGoodbye(Message&& msg)
+    {
+        if (state_ == State::shuttingDown)
+        {
+            state_ = State::closed;
+            processWampReply(msg.requestKey(), std::move(msg));
+        }
+        else
+        {
+            WampErrc errc = WampErrc::closeRealm;
+            auto reason = msg.fields.at(2).as<String>();
+            lookupWampErrorUri(reason, errc);
+            abortPending(make_error_code(errc));
+            Message reply{ WampMsgType::goodbye,
+                           {0u, Object{}, "wamp.error.goodbye_and_out"} };
+            send(reply);
+            state_ = State::closed;
+        }
+    }
+
+    bool checkError(std::error_code ec)
+    {
+        bool success = !ec;
+        if (!success)
+            fail(ec);
+        return success;
+    }
+
+    bool check(bool condition, ProtocolErrc errc)
+    {
+        if (!condition)
+            fail(errc);
+        return condition;
+    }
+
+    bool checkValidMsg(WampMsgType type)
+    {
+        auto traits = MessageTraits::lookup(type);
+        bool valid = isMsgSupported(traits);
+
+        if (!valid)
+            fail(ProtocolErrc::unsupportedMsg);
+        else
+        {
+            switch (state_)
+            {
+            case State::establishing:
+                valid = traits.forEstablishing;
+                break;
+
+            case State::established:
+            case State::shuttingDown:
+                valid = traits.forEstablished;
+                break;
+
+            default:
+                valid = false;
+                break;
+            }
+
+            if (!valid)
+                fail(ProtocolErrc::unexpectedMsg);
+        }
+
+        return valid;
+    }
+
+    void fail(std::error_code ec)
+    {
+        state_ = State::failed;
+        abortPending(ec);
+        transport_->close();
+    }
+
+    void abortPending(std::error_code ec, bool terminating = false)
+    {
+        if (!terminating)
+            for (const auto& kv: requestMap_)
+                post(std::bind(kv.second, ec, Message()));
+        requestMap_.clear();
+    }
+
+    void trace(const Message& msg, bool isTx)
+    {
+        if (traceHandler_)
+        {
+            std::ostringstream oss;
+            oss << (isTx ? "Tx" : "Rx") << " message: " << msg.fields;
+            traceHandler_(oss.str());
+        }
+    }
+
+    void initMessages()
+    {
+        using M = Message;
+        using T = WampMsgType;
+
+        Int n = 0;
+        String s;
+        Array a;
+        Object o;
+
+        errorMsg_           = M{ T::error, {n, n, n, o, s} };
+        errorWithArgsMsg_   = M{ T::error, {n, n, n, o, s, a} };
+        errorWithKvArgsMsg_ = M{ T::error, {n, n, n, o, s, a, o} };
+    }
+
+    TransportPtr transport_;
+    LogHandler traceHandler_;
+    std::string realm_;
+    State state_ = State::closed;
+    RequestMap requestMap_;
+    RequestId nextRequestId_ = 0;
+    Buffer rxBuffer_;
+
+    Message errorMsg_;
+    Message errorWithArgsMsg_;
+    Message errorWithKvArgsMsg_;
+
+    static constexpr RequestId maxRequestId_ = 9007199254740992ull;
+};
+
+} // namespace internal
+
+} // namespace wamp
+
+#endif // CPPWAMP_INTERNAL_SESSION_HPP

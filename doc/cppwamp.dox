@@ -1,0 +1,81 @@
+/*------------------------------------------------------------------------------
+                Copyright Butterfly Energy Systems 2014-2015.
+           Distributed under the Boost Software License, Version 1.0.
+              (See accompanying file LICENSE_1_0.txt or copy at
+                    http://www.boost.org/LICENSE_1_0.txt)
+------------------------------------------------------------------------------*/
+
+/**
+@namespace wamp
+Namespace for all identifiers defined by the CppWAMP library.
+*/
+
+/**
+@namespace wamp::error
+Namespace containing exception types thrown by the CppWAMP library.
+*/
+
+/**
+@namespace wamp::legacy
+Contains interim Connector types for connecting to routers that do not
+supporting handshaking on raw socket transports.
+*/
+
+/**
+@mainpage
+This is the reference documentation for the CppWAMP library. CppWAMP is a C++11
+implementation of the [WAMP][wamp] protocol's client roles (caller, callee,
+publisher, and subscriber).
+
+The CppWAMP open-source project is hosted at
+[https://github.com/ecorm/cppwamp][cppwamp], and is released under the
+[Boost License][license].
+
+For an **overview of the library's classes**, structs, typedefs, enums, etc.,
+consult the @ref wamp Namespace Reference.
+
+For a **tutorial-style overview**, please consult the library's
+[GitHub page][cppwamp].
+
+For an **example chat program**, please see @ref examples/chat/main.cpp.
+
+For a brief **architectural overview** of the library, see @ref Architecture.
+
+- - -
+
+<b>Copyright &copy; 2014-2015 Butterfly Energy Systems</b>
+
+@include LICENSE_1_0.txt
+
+[wamp]: http://wamp.ws/
+[cppwamp]: https://github.com/ecorm/cppwamp
+[license]: http://www.boost.org/users/license.html
+[cppwamp]: https://github.com/ecorm/cppwamp
+*/
+
+/**
+@page Architecture Architectural Overview
+
+@tableofcontents
+
+@section Layers Layers
+![](layers.svg)
+
+@section Client_API Client API
+![](client_api.svg)
+
+@section Subs_and_Regs Subscriptions and Registrations
+![](subs_and_regs.svg)
+
+@section Messaging WAMP Sessions and Messaging
+![](messaging.svg)
+
+@section Transport_Establishment Transport Establishment
+![](transport.svg)
+*/
+
+// Examples
+/**
+@example examples/chat/main.cpp
+*/
+

@@ -1,0 +1,6 @@
+syntax: glob
+*.pro.user
+ext/*
+doc/html
+*.vpp~*
+CMakeLists.txt.user
