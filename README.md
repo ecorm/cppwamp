@@ -91,14 +91,17 @@ void add(wamp::Invocation inv, int n, int m)
 boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 {
     ...
-    client->enroll<int, int>("add", &add, yield);
+    auto reg = client->enroll<int, int>("add", &add, yield);
+    ...
 });
 ```
 
 ### Calling a remote procedure
 ```c++
 auto result = client->call("add", {2, 2}, yield);
-std::cout << "2 + 2 is " << result[0].to<Int>() << "\n";
+int sum = 0;
+result.to(sum);
+std::cout << "2 + 2 is " << sum << "\n";
 ```
 
 ### Subscribing to a topic
@@ -112,7 +115,9 @@ void sensorSampled(wamp::PublicationId pid, float value)
 boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 {
     ...
-    client->subscribe<float>("sensorSampled", &sensorSampled, yield);
+    auto sub = client->subscribe<float>("sensorSampled", &sensorSampled,
+                                        yield);
+    ...
 });
 ```
 

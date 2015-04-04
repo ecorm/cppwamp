@@ -14,7 +14,7 @@ The library currently supports two types of connectors:
 Connector      | Declared in                  | For Transport
 -------------- | ---------------------------- | -----------
 `TcpConnector` | `<cppwamp/tcpconnector.hpp>` | TCP raw socket
-`UdsConnector` | `<cppwamp/tcpconnector.hpp>` | Unix Domain Socket
+`UdsConnector` | `<cppwamp/udsconnector.hpp>` | Unix Domain Socket
 
 The above connectors support raw socket handshaking, introduced in [version e2c4e57][e2c4e57] of the advanced WAMP specification.
 
@@ -22,10 +22,10 @@ The above connectors support raw socket handshaking, introduced in [version e2c4
 
 For WAMP routers that do not yet support handshaking, alternate connectors are available under the `wamp::legacy` namespace:
 
-Connector              | Declared in                  | For Transport
----------------------- | ---------------------------- | -------------
-`legacy::TcpConnector` | `<cppwamp/tcpconnector.hpp>` | Legacy TCP raw socket
-`legacy::UdsConnector` | `<cppwamp/tcpconnector.hpp>` | Legacy Unix Domain Socket
+Connector              | Declared in                        | For Transport
+---------------------- | ---------------------------------- | -------------
+`legacy::TcpConnector` | `<cppwamp/legacytcpconnector.hpp>` | Legacy TCP raw socket
+`legacy::UdsConnector` | `<cppwamp/legacyudsconnector.hpp>` | Legacy Unix Domain Socket
 
 When creating a connector, you must specify which serialization (aka codec) to use for encoding WAMP messages. The following serializers are currently supported:
 

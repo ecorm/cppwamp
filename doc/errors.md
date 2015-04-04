@@ -80,4 +80,4 @@ boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 
 ```
 
-Note that `CoroErrcClient` will still throw `error::Logic` exceptions whenever preconditions are not met. Preconditions for API functions are listed in the reference documentation.
+Note that `CoroErrcClient` will still throw `error::Logic` exceptions whenever preconditions are not met. Preconditions for API functions are listed in the [reference documentation](http://ecorm.github.io/cppwamp/doc/index.html).

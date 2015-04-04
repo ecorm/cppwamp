@@ -10,7 +10,7 @@ Publish/Subscribe
 Publishing Events
 -----------------
 
-The `publish` operation is used to publish events related to a topic. There are two kinds of `publish` overloads: one that takes an `Args` bungle, and another that doesn't. The latter overload is used when there are no arguments associated with an event.
+The `publish` operation is used to publish events related to a topic. There are two kinds of `publish` overloads: one that takes an `Args` bundle, and another that doesn't. The latter overload is used when there are no arguments associated with an event.
 
 ```c++
 boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)

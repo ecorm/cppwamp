@@ -10,7 +10,7 @@ Remote Procedure Calls
 Calling RPCs
 ------------
 
-The `call` operation is used to call remote procedures. There are two `call` overloads: one that takes an `Args` bungle, and another that doesn't. The latter overload is used when the remote procedure does not expect any arguments. For either overload, `call` returns an `Args` object, which contains the results returned by the remote procedure.
+The `call` operation is used to call remote procedures. There are two `call` overloads: one that takes an `Args` bundle, and another that doesn't. The latter overload is used when the remote procedure does not expect any arguments. For either overload, `call` returns an `Args` object, which contains the results returned by the remote procedure.
 
 ```c++
 boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
