@@ -1,3 +1,7 @@
 ext/
 build/
+.hgtags
+.hg/
+*.pro.user
+CMakeLists.txt.user
 

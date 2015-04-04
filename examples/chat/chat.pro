@@ -73,7 +73,7 @@ LIBS += -pthread
 
 #Assets to deploy with executable
 deploy.files += $$files(assets/*)
-crossbar.files += $$files(./.crossbar/*)
+crossbar.files += $$files(../.crossbar/*)
 
 #Add the deployment files to the install list
 INSTALLS += deploy crossbar

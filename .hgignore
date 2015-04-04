@@ -4,3 +4,4 @@ ext/*
 doc/html
 *.vpp~*
 CMakeLists.txt.user
+.git

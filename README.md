@@ -1,16 +1,10 @@
-<!-- ---------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
-         Distributed under the Boost Software License, Version 1.0.
-             (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
----------------------------------------------------------------------------- -->
-
 CppWAMP
 =======
 
 C++11 client library for the [WAMP][wamp] protocol.
 
 **Features**:
+
 - Supports the [WAMP Basic Profile][wamp-basic]
 - Roles: _Caller_, _Callee_, _Subscriber_, _Publisher_
 - Transports: TCP and Unix domain raw sockets (with and without handshaking support)
@@ -23,6 +17,7 @@ C++11 client library for the [WAMP][wamp] protocol.
 - Permissive license (Boost)
 
 **Dependencies**:
+
 - [Boost.Asio][boost-asio] for raw socket transport
 - [Boost.Endian][boost-endian] (requires [Boost][boost] 1.57.0 or greater)
 - [RapidJSON][rapidjson]
@@ -51,11 +46,13 @@ CHANGE WITHOUT WARNING.**
 
 Installation
 -------------
+
 - [Using as a Header-Only Library](https://github.com/ecorm/cppwamp/wiki/Header-Only-Use)
 - [Building Library, Unit Tests, and Examples](https://github.com/ecorm/cppwamp/wiki/Building)
 
 Documentation
 -------------
+
 - [Tutorial](https://github.com/ecorm/cppwamp/wiki/Tutorial)
 - [Reference Documentation](http://ecorm.github.io/cppwamp/doc/index.html)
 
@@ -170,4 +167,4 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 * * *
-_Copyright &copy; Butterfly Energy Systems, 2014-2015_
+_Copyright © Butterfly Energy Systems, 2014-2015_
