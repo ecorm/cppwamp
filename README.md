@@ -49,10 +49,13 @@ Project Status
 **THIS LIBRARY IS STILL IN A PRELIMINARY STATE, AND ITS API IS SUBJECT TO
 CHANGE WITHOUT WARNING.**
 
-Documentation
+Installation
 -------------
 - [Using as a Header-Only Library](./doc/usingheaderonly.md)
 - [Building Library, Unit Tests, and Examples](./doc/building.md)
+
+Documentation
+-------------
 - [Tutorial](./doc/tutorial.md)
 - [Reference Documentation](http://ecorm.github.io/cppwamp/doc/index.html)
 
