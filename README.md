@@ -56,6 +56,13 @@ Documentation
 - [Tutorial](https://github.com/ecorm/cppwamp/wiki/Tutorial)
 - [Reference Documentation](http://ecorm.github.io/cppwamp/doc/index.html)
 
+Tested Platforms
+----------------
+
+This library has been tested on:
+
+- Linux Mint 17, x64 (based on Ubuntu 14.04)
+
 Usage Examples
 --------------
 
