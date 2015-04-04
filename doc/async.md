@@ -7,17 +7,11 @@
 Asynchronous Client API
 =======================
 
-The `wamp::Client` class provides an asynchronous API that should be familiar
-to those who have used Boost.Asio. Wherever `CoroClient` expects an yield
-context parameter, `Client` instead expects a callable entity that is invoked
-when the asynchronous operation is completed.
+The `wamp::Client` class provides an asynchronous API that should be familiar to those who have used Boost.Asio. Wherever `CoroClient` expects an yield context parameter, `Client` instead expects a callable entity that is invoked when the asynchronous operation is completed.
 
-For asynchronous operations that can fail, `Client` expects a handler taking an
-`AsyncResult` as a parameter. `AsyncResult` makes it impossible for handlers to
-ignore error conditions when accessing the result of an asynchronous operation.
+For asynchronous operations that can fail, `Client` expects a handler taking an `AsyncResult` as a parameter. `AsyncResult` makes it impossible for handlers to ignore error conditions when accessing the result of an asynchronous operation.
 
-The following example shows how to establish a connection using the asynchronous
-`Client` API:
+The following example shows how to establish a connection using the asynchronous `Client` API:
 
 ```c++
 #include <cppwamp/client.hpp>
@@ -41,9 +35,8 @@ client->connect( [](AsyncResult<size_t> result)
 
 iosvc.run();
 ```
-Instead of letting `AsyncResult::get` throw an exception upon failure,
-`AsyncResult::operator bool` and `AsyncResult::errorCode` can be used to check
-the error status of an asynchronous operation:
+
+Instead of letting `AsyncResult::get` throw an exception upon failure, `AsyncResult::operator bool` and `AsyncResult::errorCode` can be used to check the error status of an asynchronous operation:
 
 ```c++
 client->connect( [](AsyncResult<size_t> result)
@@ -60,8 +53,7 @@ client->connect( [](AsyncResult<size_t> result)
 });
 ```
 
-The following example shows how to call member functions within asynchronous
-handlers, and how to chain one asynchronous operation after another:
+The following example shows how to call member functions within asynchronous handlers, and how to chain one asynchronous operation after another:
 
 ```c++
 class App
@@ -97,6 +89,4 @@ private:
 };
 ```
 
-With this asynchronous style of programming, it is not immediately obvious
-how the program control flows. The coroutine-based API is therefore useful in
-implementing asynchronous logic in a more synchronous, sequential manner.
+With this asynchronous style of programming, it is not immediately obvious how the program control flows. The coroutine-based API is therefore useful in implementing asynchronous logic in a more synchronous, sequential manner.

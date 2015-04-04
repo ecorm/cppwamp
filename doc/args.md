@@ -7,8 +7,7 @@
 Args
 ====
 
-`Args` is used by the `Client` APIs to bundle variants into positional and/or
-keyword arguments.
+`Args` is used by the `Client` APIs to bundle variants into positional and/or keyword arguments.
 
 Passing Arguments
 -----------------
@@ -20,8 +19,7 @@ using namespace wamp;
 
 void call(std::string procedure, Args args);
 ```
-the following examples show various ways to pass positional and keyword
-arguments.
+the following examples show various ways to pass positional and keyword arguments.
 
 **Passing positional arguments with a C++11 braced initializer list:**
 ```c++
@@ -59,8 +57,7 @@ call("rpc", {with, array, object});
 Accessing Arguments
 -------------------
 
-The examples in this section assume that there's an `Args` instance, named
-`args`, containing both positional and keyword arguments:
+The examples in this section assume that there's an `Args` instance, named `args`, containing both positional and keyword arguments:
 ```c++
 #include <cppwamp/Args.hpp>
 using namespace wamp;
@@ -98,8 +95,7 @@ Object keywords = args.map;             // Copy keyword arguments
 Object moved = std::move(args.map);     // Move keyword arguments
 ```
 
-`Args` overloads `operator[](String)` so that individual keyword arguments
-can be accessed:
+`Args` overloads `operator[](String)` so that individual keyword arguments can be accessed:
 ```c++
 args["cost"] = 5;
 std::cout << args["cost"] << "\n"; // Prints 5
@@ -107,8 +103,7 @@ std::cout << args["cost"] << "\n"; // Prints 5
 
 ### Converting positional arguments
 
-Positional arguments can be converted and assigned to destination variables
-using `Args::to`:
+Positional arguments can be converted and assigned to destination variables using `Args::to`:
 ```c++
 std::string s;
 bool b;
@@ -116,8 +111,7 @@ int n;
 args.to(s, b, n);
 std::cout << s << "," << b << "," << n << "\n"; // Prints "foo,1,42"
 ```
-If any of the arguments can't be converted to their target type, an
-`error::Conversion` exception is thrown.
+If any of the arguments can't be converted to their target type, an `error::Conversion` exception is thrown.
 
 ### Moving positional arguments
 
@@ -129,6 +123,4 @@ Int n;
 args.move(s, b, n);
 std::cout << s << "," << b << "," << n << "\n"; // Prints "foo,1,42"
 ```
-This can be useful to avoid copying large objects, such as strings or arrays.
-If any of the arguments don't exactly match their target type, an
-`error::Access` exception is thrown.
+This can be useful to avoid copying large objects, such as strings or arrays. If any of the arguments don't exactly match their target type, an `error::Access` exception is thrown.

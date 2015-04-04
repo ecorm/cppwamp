@@ -10,10 +10,7 @@ Publish/Subscribe
 Publishing Events
 -----------------
 
-The `publish` operation is used to publish events related to a topic. There are
-two kinds of `publish` overloads: one that takes an `Args` bungle, and another
-that doesn't. The latter overload is used when there are no arguments associated
-with an event.
+The `publish` operation is used to publish events related to a topic. There are two kinds of `publish` overloads: one that takes an `Args` bungle, and another that doesn't. The latter overload is used when there are no arguments associated with an event.
 
 ```c++
 boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
@@ -33,9 +30,7 @@ boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 });
 ```
 
-The above uses a non-blocking publish, which enqueues the event for
-transmission. If you need to obtain the publication ID of a published event,
-then you need to use the "blocking" versions that take a yield context:
+The above uses a non-blocking publish, which enqueues the event for transmission. If you need to obtain the publication ID of a published event, then you need to use the "blocking" versions that take a yield context:
 
 ```c++
 PublicationId pid = client->publish("topic", {12, "foo"}, yield);
@@ -44,9 +39,7 @@ PublicationId pid = client->publish("topic", {12, "foo"}, yield);
 Event Slots
 ----------
 
-CppWamp allows you to register callback functions that will be executed whenever
-an event with a certain topic is received from a broker. Such callback
-functions are named _event slots_. Event slots can be any callable entity that
+CppWamp allows you to register callback functions that will be executed whenever an event with a certain topic is received from a broker. Such callback functions are named _event slots_. Event slots can be any callable entity that
 can be stored into a [`std::function`][stdfunction]:
 - free functions,
 - member functions (via [`std::bind`][stdbind]),
@@ -59,28 +52,19 @@ can be stored into a [`std::function`][stdfunction]:
 Subscribing to Parameterless (_void_) Events
 --------------------------------------------
 
-A _void_ event is an event that does not have an arguments payload. An event
-slot handling such an event must have the following signature:
+A _void_ event is an event that does not have an arguments payload. An event slot handling such an event must have the following signature:
 ```c++
 void handler(wamp::PublicationId)
 ```
-where `wamp::PublicationId` is an ephemeral numeric ID associated with that
-particular event publication.
+where `wamp::PublicationId` is an ephemeral numeric ID associated with that particular event publication.
 
-`subscribe<void>()` is used to register a parameterless event handler for a
-given topic. `subscribe` returns a reference-counting `Subscription` handle.
-Every time a copy of this handle is made, the reference count increases.
-Conversely, every time a bound `Subscription` handle is destroyed, the reference
-count decreases. When the reference count reaches zero, the topic is
-automatically unsubscribed. This reference counting scheme is provided to help
+`subscribe<void>()` is used to register a parameterless event handler for a given topic. `subscribe` returns a reference-counting `Subscription` handle. Every time a copy of this handle is made, the reference count increases.
+Conversely, every time a bound `Subscription` handle is destroyed, the reference count decreases. When the reference count reaches zero, the topic is automatically unsubscribed. This reference counting scheme is provided to help
 automate the management of event subscriptions using RAII techniques.
 
-Note that event topics can be manually unsubscribed via
-`Subscription::unsubscribe`. Duplicate unsubscriptions are safely ignored by
-the library.
+Note that event topics can be manually unsubscribed via `Subscription::unsubscribe`. Duplicate unsubscriptions are safely ignored by the library.
 
-The following example demonstrates the subscription and automatic unsubscription
-of an event topic:
+The following example demonstrates the subscription and automatic unsubscription of an event topic:
 
 ```c++
 // The event slot to be used for the "sensorReady" topic
@@ -119,9 +103,7 @@ boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 Subscribing to Statically-Typed Events
 --------------------------------------
 
-Certain event handlers may expect a fixed number of statically-typed
-arguments. For these situations, the following form of the `subscribe` method
-is used:
+Certain event handlers may expect a fixed number of statically-typed arguments. For these situations, the following form of the `subscribe` method is used:
 ```c++
 subscribe<StaticTypeList...>("topic", slot, yield);
 ```
@@ -150,9 +132,7 @@ client->subscribe<float>("sensorSampled", &onSensorSampled, yield);
 Subscribing to Dynamically-Typed Events
 ---------------------------------------
 
-For some  topics, it may not be possible to know the number and types of the
-arguments passed by the remote publisher. For these situations, the following
-form of the `subscribe` method is used:
+For some  topics, it may not be possible to know the number and types of the arguments passed by the remote publisher. For these situations, the following form of the `subscribe` method is used:
 ```c++
 subscribe<Args>("topic", slot, yield);
 ```

@@ -10,11 +10,7 @@ Remote Procedure Calls
 Calling RPCs
 ------------
 
-The `call` operation is used to call remote procedures. There are two `call`
-overloads: one that takes an `Args` bungle, and another that doesn't. The
-latter overload is used when the remote procedure does not expect any arguments.
-For either overload, `call` returns an `Args` object, which contains the results
-returned by the remote procedure.
+The `call` operation is used to call remote procedures. There are two `call` overloads: one that takes an `Args` bungle, and another that doesn't. The latter overload is used when the remote procedure does not expect any arguments. For either overload, `call` returns an `Args` object, which contains the results returned by the remote procedure.
 
 ```c++
 boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
@@ -42,10 +38,7 @@ boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 Call Slots
 ----------
 
-CppWamp allows you to register callback functions that will be executed whenever
-a procedure with a certain name is invoked remotely by a dealer. Such callback
-functions are named _call slots_. Call slots can be any callable entity that can
-be stored into a [`std::function`][stdfunction]:
+CppWamp allows you to register callback functions that will be executed whenever a procedure with a certain name is invoked remotely by a dealer. Such callback functions are named _call slots_. Call slots can be any callable entity that can be stored into a [`std::function`][stdfunction]:
 - free functions,
 - member functions (via [`std::bind`][stdbind]),
 - function objects, or,
@@ -57,27 +50,19 @@ be stored into a [`std::function`][stdfunction]:
 Registering Parameterless (_void_) Procedures
 ---------------------------------------------
 
-A _void_ procedure is an RPC that does not expect any arguments. A call slot
-handling such a procedure must have the following signature:
+A _void_ procedure is an RPC that does not expect any arguments. A call slot handling such a procedure must have the following signature:
 ```c++
 void procedure(wamp::Invocation)
 ```
-where `wamp::Invocation` is an object that provides the means for returning a
-`YIELD` or `ERROR` result back to the remote caller.
+where `wamp::Invocation` is an object that provides the means for returning a `YIELD` or `ERROR` result back to the remote caller.
 
-`enroll<void>()` is used to register a parameterless RPC. `enroll` returns a
-reference-counting `Registration` handle. Every time a copy of this handle is
-made, the reference count increases. Conversely, every time a bound
-`Registration` handle is destroyed, the reference count decreases. When the
-reference count reaches zero, the RPC is automatically unregistered. This
-reference counting scheme is provided to help automate the management of RPC
+`enroll<void>()` is used to register a parameterless RPC. `enroll` returns a reference-counting `Registration` handle. Every time a copy of this handle is made, the reference count increases. Conversely, every time a bound
+`Registration` handle is destroyed, the reference count decreases. When the reference count reaches zero, the RPC is automatically unregistered. This reference counting scheme is provided to help automate the management of RPC
 registrations using RAII techniques.
 
-Note that RPCs can be manually unregistered via `Registration::unregister`.
-Duplicate unregistrations are safely ignored by the library.
+Note that RPCs can be manually unregistered via `Registration::unregister`. Duplicate unregistrations are safely ignored by the library.
 
-The following example demonstrates the registering and automatic unregistering
-of a remote procedure call:
+The following example demonstrates the registering and automatic unregistering of a remote procedure call:
 
 ```c++
 // The call slot to be used for the "getDiceRoll" RPC
@@ -129,9 +114,7 @@ boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 Registering Statically-Typed Procedures
 ---------------------------------------
 
-Certain remote procedures may expect a fixed number of statically-typed
-arguments. For these situations, the following form of the `enroll` method
-is used:
+Certain remote procedures may expect a fixed number of statically-typed arguments. For these situations, the following form of the `enroll` method is used:
 ```c++
 enroll<StaticTypeList...>("procedure", slot, yield);
 ```
@@ -159,9 +142,7 @@ client->enroll<std::string, int>("addToCart", &addToCart, yield);
 Registering Dynamically-Typed Procedures
 ----------------------------------------
 
-For some remote procedures, it may not be possible to know the number and
-types of the arguments passed in by the remote callee. For these situations, the
-following form of the `enroll` method is used:
+For some remote procedures, it may not be possible to know the number and types of the arguments passed in by the remote callee. For these situations, the following form of the `enroll` method is used:
 ```c++
 enroll<Args>("procedure", slot, yield);
 ```
@@ -189,9 +170,7 @@ client->enroll<Args>("addToCart", &addToCart, yield);
 
 Returning an ERROR Response to a Callee
 ---------------------------------------
-`Invocation::fail` can be used to return an `ERROR` response to a callee. This
-would happen, for example, when invalid arguments are passed to a dynamically
-typed remote procedure:
+`Invocation::fail` can be used to return an `ERROR` response to a callee. This would happen, for example, when invalid arguments are passed to a dynamically typed remote procedure:
 
 ```c++
 void addToCart(Invocation inv, Args args)

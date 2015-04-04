@@ -10,9 +10,7 @@ Error Handling with Couroutines
 Exceptions
 ----------
 
-Whenever a `CoroClient` operation fails, it throws an `error::Wamp` exception.
-`error::Wamp` derives from [`std::system_error`][system_error], thus it contains
-a [`std::error_code`][error_code] that represents the cause of the error.
+Whenever a `CoroClient` operation fails, it throws an `error::Wamp` exception. `error::Wamp` derives from [`std::system_error`][system_error], thus it contains a [`std::error_code`][error_code] that represents the cause of the error.
 
 [system_error]: http://en.cppreference.com/w/cpp/error/system_error
 [error_code]: http://en.cppreference.com/w/cpp/error/error_code
@@ -49,9 +47,7 @@ iosvc.run();
 Error Codes
 -----------
 
-An error code can either belong to [`std::generic_category`][generic_category],
-or to one of the error categories defined by the library in
-`<cppwamp/error.hpp>`:
+An error code can either belong to [`std::generic_category`][generic_category], or to one of the error categories defined by the library in `<cppwamp/error.hpp>`:
 
 Error category            | Values                | Used for reporting
 ------------------------- | ----------------------| ------------------
@@ -66,9 +62,7 @@ Error category            | Values                | Used for reporting
 CoroErrcClient API
 ------------------
 
-If you prefer that operations return error codes instead of throwing exceptions,
-you may use the `CoroErrcClient` API instead. `CoroErrcClient` is the same
-as `CoroClient`, except that operations which can fail take an additional
+If you prefer that operations return error codes instead of throwing exceptions, you may use the `CoroErrcClient` API instead. `CoroErrcClient` is the same as `CoroClient`, except that operations which can fail take an additional
 `std::error_code` parameter by reference.
 
 ```c++
@@ -86,6 +80,4 @@ boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 
 ```
 
-Note that `CoroErrcClient` will still throw `error::Logic` exceptions whenever
-preconditions are not met. Preconditions for API functions are listed in
-the reference documentation.
+Note that `CoroErrcClient` will still throw `error::Logic` exceptions whenever preconditions are not met. Preconditions for API functions are listed in the reference documentation.

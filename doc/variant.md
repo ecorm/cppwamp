@@ -7,10 +7,7 @@
 Variants
 ========
 
-A `wamp::Variant` is a discriminated union container that represents a JSON
-value. It behaves similarly to a dynamically-typed Javascript variable. Its
-underlying type can change at runtime, depending on the actual values assigned
-to them. Variants play a central role in CppWAMP, as they are used to represent dynamic data exchanged with a WAMP peer.
+A `wamp::Variant` is a discriminated union container that represents a JSON value. It behaves similarly to a dynamically-typed Javascript variable. Its underlying type can change at runtime, depending on the actual values assigned to them. Variants play a central role in CppWAMP, as they are used to represent dynamic data exchanged with a WAMP peer.
 
 Variants can hold any of the following value types:
 - `Null` : represents an empty or missing value
@@ -22,8 +19,7 @@ Variants can hold any of the following value types:
 - `Array` : dynamically-sized lists of variants
 - `Object` : dictionaries having string keys and variant values
 
-`Array` and `Object` variants are recursive composites: their element values are
-also variants which can themselves be arrays or objects.
+`Array` and `Object` variants are recursive composites: their element values are also variants which can themselves be arrays or objects.
 
 Construction and Assignment
 ---------------------------
@@ -53,9 +49,7 @@ v = Array{123, false, "foo"}; // v becomes an array of variants
 Checking Dynamic Type
 ---------------------
 
-Each `Variant` stores its current dynamic type as a `wamp::TypeId` enumerator.
-The dynamic type can be checked with `Variant::typeId()` or `Variant::is<T>()`.
-In addition, `operator bool` can be used to determine if the variant is null.
+Each `Variant` stores its current dynamic type as a `wamp::TypeId` enumerator. The dynamic type can be checked with `Variant::typeId()` or `Variant::is<T>()`. In addition, `operator bool` can be used to determine if the variant is null.
 
 ```c++
 Variant v;    // v starts out being null
@@ -73,9 +67,7 @@ assert( v.is<Int>() );
 assert( v.is<TypeId::integer>() );
 ```
 
-The `isNumber` non-member function can be used to check if a Variant is
-currently a number (`Int`, `UInt`, or `Real`). The `isScalar` non-member
-function checks if a variant is a boolean or a number:
+The `isNumber` non-member function can be used to check if a Variant is currently a number (`Int`, `UInt`, or `Real`). The `isScalar` non-member function checks if a variant is a boolean or a number:
 ```c++
 Variant v("hello"); // v starts out as a string
 assert( !isNumber(v) );
@@ -93,9 +85,7 @@ assert ( isScalar(v) );
 Accessing Values
 ----------------
 
-`Variant` values can be accessed directly using `Variant::as<T>()`. If the
-variant does not match the target type, a `wamp::error::access` exception is
-thrown.
+`Variant` values can be accessed directly using `Variant::as<T>()`. If the variant does not match the target type, a `wamp::error::access` exception is thrown.
 ```c++
 Variant v(42); // v starts out as an Int
 std::cout << v.as<Int>() << "\n"; // Prints 42
@@ -115,9 +105,7 @@ catch (const error::Access& e)
 Conversions
 -----------
 
-Sometimes, it's not possible to know what numeric type to expect from a WAMP
-peer. `Variant::to` lets you convert from any scalar type to a known
-destination type.
+Sometimes, it's not possible to know what numeric type to expect from a WAMP peer. `Variant::to` lets you convert from any scalar type to a known destination type.
 ```c++
 Variant v;
 Real x;
@@ -144,11 +132,8 @@ catch (const error::Conversion& e)
 Comparisons
 -----------
 
-`Variant` objects can be compared with each other, or with other values. For the
-comparison to be equal, both types must match. However, all numeric types are
-considered to be the same type for comparison purposes (this is to more closely
-match the behavior of the ``===`` operator in Javascript, where it does not
-distinguish between signed/unsigned or integer/floating-point numbers).
+`Variant` objects can be compared with each other, or with other values. For the comparison to be equal, both types must match. However, all numeric types are considered to be the same type for comparison purposes (this is to more closely
+match the behavior of the ``===`` operator in Javascript, where it does not distinguish between signed/unsigned or integer/floating-point numbers).
 ```c++
 Variant v; // Starts as null
 Variant w; // Starts as null
@@ -174,7 +159,7 @@ assert( v == "hello" );
 Output
 ------
 
-`Variant`, `Array`, and `Object` objects can be output to a `std::ostream`:
+`Variant`, `Array`, and `Object` objects can be outputted to a `std::ostream`:
 ```c++
 Variant v;
 std::cout << v << "\n"; // Prints "null"
