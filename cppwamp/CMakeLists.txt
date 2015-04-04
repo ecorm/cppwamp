@@ -92,15 +92,6 @@ set(INLINES
 set(DOCUMENTS
     ${PROJECT_SOURCE_DIR}/doc/concepts.dox
     ${PROJECT_SOURCE_DIR}/doc/cppwamp.dox
-    ${PROJECT_SOURCE_DIR}/doc/args.md
-    ${PROJECT_SOURCE_DIR}/doc/async.md
-    ${PROJECT_SOURCE_DIR}/doc/connectors.md
-    ${PROJECT_SOURCE_DIR}/doc/errors.md
-    ${PROJECT_SOURCE_DIR}/doc/pubsub.md
-    ${PROJECT_SOURCE_DIR}/doc/rpc.md
-    ${PROJECT_SOURCE_DIR}/doc/sessions.md
-    ${PROJECT_SOURCE_DIR}/doc/tutorial.md
-    ${PROJECT_SOURCE_DIR}/doc/variant.md
 )
 
 # Treat *.ipp files as header files
