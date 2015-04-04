@@ -51,12 +51,12 @@ CHANGE WITHOUT WARNING.**
 
 Installation
 -------------
-- [Using as a Header-Only Library](./doc/usingheaderonly.md)
-- [Building Library, Unit Tests, and Examples](./doc/building.md)
+- [Using as a Header-Only Library](https://github.com/ecorm/cppwamp/wiki/Header-Only-Use)
+- [Building Library, Unit Tests, and Examples](https://github.com/ecorm/cppwamp/wiki/Building)
 
 Documentation
 -------------
-- [Tutorial](./doc/tutorial.md)
+- [Tutorial](https://github.com/ecorm/cppwamp/wiki/Tutorial)
 - [Reference Documentation](http://ecorm.github.io/cppwamp/doc/index.html)
 
 Usage Examples

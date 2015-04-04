@@ -34,8 +34,8 @@ The CppWAMP open-source project is hosted at
 For an **overview of the library's classes**, structs, typedefs, enums, etc.,
 consult the @ref wamp Namespace Reference.
 
-For a **tutorial-style overview**, please consult the library's
-[GitHub page][cppwamp].
+For a **tutorial-style overview**, please consult the [Tutorial][tutorial] wiki page
+on GitHub.
 
 For an **example chat program**, please see @ref examples/chat/main.cpp.
 
@@ -49,8 +49,9 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 
 [wamp]: http://wamp.ws/
 [cppwamp]: https://github.com/ecorm/cppwamp
-[license]: http://www.boost.org/users/license.html
 [cppwamp]: https://github.com/ecorm/cppwamp
+[license]: http://www.boost.org/users/license.html
+[tutorial]: https://github.com/ecorm/cppwamp/wiki/Tutorial
 */
 
 /**
