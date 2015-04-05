@@ -59,9 +59,9 @@ Documentation
 Tested Platforms
 ----------------
 
-This library has been tested on:
+This library has been tested with:
 
-- Linux Mint 17, x64 (based on Ubuntu 14.04)
+- GCC 4.8.2, x86_64-linux-gnu, on Linux Mint 17 (based on Ubuntu 14.04)
 
 Usage Examples
 --------------
