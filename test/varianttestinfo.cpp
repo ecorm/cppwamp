@@ -29,6 +29,7 @@ SCENARIO( "Variant type information", "[Variant]" )
             CHECK( !v );
             CHECK( v.is<Null>() );
             CHECK( v.is<I::null>() );
+            CHECK( v.size() == 0 );
             CHECK( !isNumber(v) );
             CHECK( !isScalar(v) );
         }
@@ -43,6 +44,7 @@ SCENARIO( "Variant type information", "[Variant]" )
             CHECK( !v );
             CHECK( v.is<Null>() );
             CHECK( v.is<I::null>() );
+            CHECK( v.size() == 0 );
             CHECK( !isNumber(v) );
             CHECK( !isScalar(v) );
         }
@@ -57,6 +59,7 @@ SCENARIO( "Variant type information", "[Variant]" )
             CHECK( !!v );
             CHECK( v.is<Bool>() );
             CHECK( v.is<I::boolean>() );
+            CHECK( v.size() == 1 );
             CHECK( !isNumber(v) );
             CHECK( isScalar(v) );
         }
@@ -71,6 +74,7 @@ SCENARIO( "Variant type information", "[Variant]" )
             CHECK( !!v );
             CHECK( v.is<Int>() );
             CHECK( v.is<I::integer>() );
+            CHECK( v.size() == 1 );
             CHECK( isNumber(v) );
             CHECK( isScalar(v) );
         }
@@ -85,6 +89,7 @@ SCENARIO( "Variant type information", "[Variant]" )
             CHECK( !!v );
             CHECK( v.is<UInt>() );
             CHECK( v.is<I::uint>() );
+            CHECK( v.size() == 1 );
             CHECK( isNumber(v) );
             CHECK( isScalar(v) );
         }
@@ -99,6 +104,7 @@ SCENARIO( "Variant type information", "[Variant]" )
             CHECK( !!v );
             CHECK( v.is<Real>() );
             CHECK( v.is<I::real>() );
+            CHECK( v.size() == 1 );
             CHECK( isNumber(v) );
             CHECK( isScalar(v) );
         }
@@ -113,6 +119,7 @@ SCENARIO( "Variant type information", "[Variant]" )
             CHECK( !!v );
             CHECK( v.is<String>() );
             CHECK( v.is<I::string>() );
+            CHECK( v.size() == 1 );
             CHECK( !isNumber(v) );
             CHECK( !isScalar(v) );
         }
@@ -127,6 +134,7 @@ SCENARIO( "Variant type information", "[Variant]" )
             CHECK( !!v );
             CHECK( v.is<Array>() );
             CHECK( v.is<I::array>() );
+            CHECK( v.size() == 3 );
             CHECK( !isNumber(v) );
             CHECK( !isScalar(v) );
         }
@@ -141,6 +149,7 @@ SCENARIO( "Variant type information", "[Variant]" )
             CHECK( !!v );
             CHECK( v.is<Object>() );
             CHECK( v.is<I::object>() );
+            CHECK( v.size() == 2 );
             CHECK( !isNumber(v) );
             CHECK( !isScalar(v) );
         }

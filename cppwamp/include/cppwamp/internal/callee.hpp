@@ -11,8 +11,9 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include "../args.hpp"
 #include "../asyncresult.hpp"
+#include "../dialoguedata.hpp"
+#include "../sessiondata.hpp"
 #include "../variant.hpp"
 
 namespace wamp
@@ -38,12 +39,9 @@ public:
     virtual void unregister(RegistrationId regId,
                             UnregisterHandler handler) = 0;
 
-    virtual void yield(RequestId reqId) = 0;
+    virtual void yield(RequestId reqId, wamp::Result&& result) = 0;
 
-    virtual void yield(RequestId reqId, Args&& args) = 0;
-
-    virtual void fail(RequestId reqId, std::string&& reason, Object&& details,
-                      Args&& args) = 0;
+    virtual void yield(RequestId reqId, wamp::Error&& failure) = 0;
 };
 
 } // namespace internal

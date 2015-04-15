@@ -18,11 +18,11 @@
 namespace wamp
 {
 
-using SessionId      = uint64_t; ///< Ephemeral ID associated with a WAMP session
-using RequestId      = uint64_t; ///< Ephemeral ID associated with a WAMP request
-using SubscriptionId = uint64_t; ///< Ephemeral ID associated with an topic subscription
-using PublicationId  = uint64_t; ///< Ephemeral ID associated with an event publication
-using RegistrationId = uint64_t; ///< Ephemeral ID associated with an RPC registration
+using SessionId      = int64_t; ///< Ephemeral ID associated with a WAMP session
+using RequestId      = int64_t; ///< Ephemeral ID associated with a WAMP request
+using SubscriptionId = int64_t; ///< Ephemeral ID associated with an topic subscription
+using PublicationId  = int64_t; ///< Ephemeral ID associated with an event publication
+using RegistrationId = int64_t; ///< Ephemeral ID associated with an RPC registration
 
 /** Enumerates the possible states that a client or router session can be in. */
 enum class SessionState

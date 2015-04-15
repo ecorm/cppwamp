@@ -4,4 +4,5 @@ build/
 .hg/
 *.pro.user
 CMakeLists.txt.user
+*.vpp~*
 

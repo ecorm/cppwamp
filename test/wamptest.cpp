@@ -14,8 +14,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <catch.hpp>
-#include <cppwamp/coroerrcclient.hpp>
-#include <cppwamp/coroclient.hpp>
+#include <cppwamp/corosession.hpp>
 #include <cppwamp/legacytcpconnector.hpp>
 #include <cppwamp/legacyudsconnector.hpp>
 #include <cppwamp/json.hpp>
@@ -37,123 +36,116 @@ struct PubSubFixture
     using PubVec = std::vector<PublicationId>;
 
     PubSubFixture(legacy::TcpConnector::Ptr cnct)
-        : publisher(CoroClient<>::create(cnct)),
-          subscriber(CoroClient<>::create(cnct)),
-          voidSubscriber(CoroClient<>::create(cnct))
+        : publisher(CoroSession<>::create(cnct)),
+          subscriber(CoroSession<>::create(cnct)),
+          otherSubscriber(CoroSession<>::create(cnct))
     {}
 
     void join(boost::asio::yield_context yield)
     {
         publisher->connect(yield);
-        publisher->join(testRealm, yield);
+        publisher->join(Realm(testRealm), yield);
         subscriber->connect(yield);
-        subscriber->join(testRealm, yield);
-        voidSubscriber->connect(yield);
-        voidSubscriber->join(testRealm, yield);
+        subscriber->join(Realm(testRealm), yield);
+        otherSubscriber->connect(yield);
+        otherSubscriber->join(Realm(testRealm), yield);
     }
 
     void subscribe(boost::asio::yield_context yield)
     {
         using namespace std::placeholders;
-        dynamicSub = subscriber->subscribe<Args>(
-                "str.num",
-                std::bind(&PubSubFixture::onDynamicEvent, this, _1, _2),
+        dynamicSub = subscriber->subscribe(
+                Topic("str.num"),
+                std::bind(&PubSubFixture::onDynamicEvent, this, _1),
                 yield);
 
         staticSub = subscriber->subscribe<std::string, int>(
-                "str.num",
+                Topic("str.num"),
                 std::bind(&PubSubFixture::onStaticEvent, this, _1, _2, _3),
                 yield);
 
-        voidSub = voidSubscriber->subscribe<void>(
-                "void",
-                std::bind(&PubSubFixture::onVoidEvent, this, _1),
+        otherSub = otherSubscriber->subscribe(
+                Topic("other"),
+                std::bind(&PubSubFixture::onOtherEvent, this, _1),
                 yield);
     }
 
-    void onDynamicEvent(PublicationId pid, Args args)
+    void onDynamicEvent(Event event)
     {
         INFO( "in onDynamicEvent" );
-        CHECK( pid <= 9007199254740992ull );
-        dynamicArgs = args;
-        dynamicPubs.push_back(pid);
+        CHECK( event.pubId() <= 9007199254740992ull );
+        dynamicArgs = event.args();
+        dynamicPubs.push_back(event.pubId());
     }
 
-    void onStaticEvent(PublicationId pid, std::string str, int num)
+    void onStaticEvent(Event event, std::string str, int num)
     {
         INFO( "in onStaticEvent" );
-        CHECK( pid <= 9007199254740992ull );
-        staticArgs = Args{{str, num}};
-        staticPubs.push_back(pid);
+        CHECK( event.pubId() <= 9007199254740992ull );
+        staticArgs = Array{{str, num}};
+        staticPubs.push_back(event.pubId());
     }
 
-    void onVoidEvent(PublicationId pid)
+    void onOtherEvent(Event event)
     {
-        INFO( "in onVoidEvent" );
-        CHECK( pid <= 9007199254740992ull );
-        voidPubs.push_back(pid);
+        INFO( "in onOtherEvent" );
+        CHECK( event.pubId() <= 9007199254740992ull );
+        otherPubs.push_back(event.pubId());
     }
 
-    CoroClient<>::Ptr publisher;
-    CoroClient<>::Ptr subscriber;
-    CoroClient<>::Ptr voidSubscriber;
+    CoroSession<>::Ptr publisher;
+    CoroSession<>::Ptr subscriber;
+    CoroSession<>::Ptr otherSubscriber;
 
-    Subscription dynamicSub;
-    Subscription staticSub;
-    Subscription voidSub;
+    Subscription::Ptr dynamicSub;
+    Subscription::Ptr staticSub;
+    Subscription::Ptr otherSub;
 
     PubVec dynamicPubs;
     PubVec staticPubs;
-    PubVec voidPubs;
+    PubVec otherPubs;
 
-    Args dynamicArgs;
-    Args staticArgs;
+    Array dynamicArgs;
+    Array staticArgs;
 };
 
 //------------------------------------------------------------------------------
 struct RpcFixture
 {
-    using ClientType = CoroErrcClient<CoroClient<>>;
-
     RpcFixture(legacy::TcpConnector::Ptr cnct)
-        : caller(ClientType::create(cnct)),
-          callee(ClientType::create(cnct))
+        : caller(CoroSession<>::create(cnct)),
+          callee(CoroSession<>::create(cnct))
     {}
 
     void join(boost::asio::yield_context yield)
     {
         caller->connect(yield);
-        caller->join(testRealm, yield);
+        caller->join(Realm(testRealm), yield);
         callee->connect(yield);
-        callee->join(testRealm, yield);
+        callee->join(Realm(testRealm), yield);
     }
 
     void enroll(boost::asio::yield_context yield)
     {
         using namespace std::placeholders;
-        dynamicReg = callee->enroll<Args>(
-                "dynamic",
-                std::bind(&RpcFixture::dynamicRpc, this, _1, _2),
+        dynamicReg = callee->enroll(
+                Procedure("dynamic"),
+                std::bind(&RpcFixture::dynamicRpc, this, _1),
                 yield);
 
         staticReg = callee->enroll<std::string, int>(
-                "static",
+                Procedure("static"),
                 std::bind(&RpcFixture::staticRpc, this, _1, _2, _3),
-                yield);
-
-        voidReg = callee->enroll<void>(
-                "void",
-                std::bind(&RpcFixture::voidRpc, this, _1),
                 yield);
     }
 
-    void dynamicRpc(Invocation inv, Args args)
+    void dynamicRpc(Invocation inv)
     {
         INFO( "in RPC handler" );
         CHECK( inv.requestId() <= 9007199254740992ull );
         ++dynamicCount;
         // Echo back the call arguments as the yield result.
-        inv.yield(args);
+        inv.yield(Result().withArgs(inv.args()));
     }
 
     void staticRpc(Invocation inv, std::string str, int num)
@@ -165,24 +157,14 @@ struct RpcFixture
         inv.yield({str, num});
     }
 
-    void voidRpc(Invocation inv)
-    {
-        INFO( "in RPC handler" );
-        CHECK( inv.requestId() <= 9007199254740992ull );
-        // Return the call count.
-        inv.yield({++voidCount});
-    }
+    CoroSession<>::Ptr caller;
+    CoroSession<>::Ptr callee;
 
-    ClientType::Ptr caller;
-    ClientType::Ptr callee;
-
-    Registration dynamicReg;
-    Registration staticReg;
-    Registration voidReg;
+    Registration::Ptr dynamicReg;
+    Registration::Ptr staticReg;
 
     int dynamicCount = 0;
     int staticCount = 0;
-    int voidCount = 0;
 };
 
 //------------------------------------------------------------------------------
@@ -195,21 +177,21 @@ void checkInvalidUri(TThrowDelegate&& throwDelegate,
     auto cnct = TcpConnector::create(iosvc, "localhost", validPort, Json::id());
     boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
     {
-        auto client = CoroErrcClient<CoroClient<>>::create(cnct);
-        client->connect(yield);
+        auto session = CoroSession<>::create(cnct);
+        session->connect(yield);
         if (joined)
-            client->join(testRealm, yield);
-        CHECK_THROWS_AS( throwDelegate(*client, yield), error::Wamp );
-        client->disconnect();
+            session->join(Realm(testRealm), yield);
+        CHECK_THROWS_AS( throwDelegate(*session, yield), error::Failure );
+        session->disconnect();
 
-        client->connect(yield);
+        session->connect(yield);
         if (joined)
-            client->join(testRealm, yield);
+            session->join(Realm(testRealm), yield);
         std::error_code ec;
-        errcDelegate(*client, yield, ec);
+        errcDelegate(*session, yield, ec);
         CHECK( ec );
-        if (client->state() == SessionState::established)
-            CHECK( ec == WampErrc::invalidUri );
+        if (session->state() == SessionState::established)
+            CHECK( ec == SessionErrc::invalidUri );
     });
 
     iosvc.run();
@@ -226,102 +208,102 @@ void checkDisconnect(TDelegate&& delegate)
     AsyncResult<TResult> result;
     boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
     {
-        auto client = CoroClient<>::create(cnct);
-        client->connect(yield);
-        delegate(*client, yield, completed, result);
-        client->disconnect();
-        CHECK( client->state() == SessionState::disconnected );
+        auto session = CoroSession<>::create(cnct);
+        session->connect(yield);
+        delegate(*session, yield, completed, result);
+        session->disconnect();
+        CHECK( session->state() == SessionState::disconnected );
     });
 
     iosvc.run();
     CHECK( completed );
     CHECK_FALSE( !result.errorCode() );
-    CHECK( result.errorCode() == WampErrc::sessionEnded );
-    CHECK_THROWS_AS( result.get(), error::Wamp );
+    CHECK( result.errorCode() == SessionErrc::sessionEnded );
+    CHECK_THROWS_AS( result.get(), error::Failure );
 }
 
 //------------------------------------------------------------------------------
-void checkInvalidConnect(CoroErrcClient<CoroClient<>>::Ptr client,
+void checkInvalidConnect(CoroSession<>::Ptr session,
                          boost::asio::yield_context yield)
 {
     std::error_code ec;
 
-    CHECK_THROWS_AS( client->connect([](AsyncResult<size_t>){}), error::Logic );
-    CHECK_THROWS_AS( client->connect(yield), error::Logic );
-    CHECK_THROWS_AS( client->connect(yield, ec), error::Logic );
+    CHECK_THROWS_AS( session->connect([](AsyncResult<size_t>){}), error::Logic );
+    CHECK_THROWS_AS( session->connect(yield), error::Logic );
+    CHECK_THROWS_AS( session->connect(yield, &ec), error::Logic );
 }
 
-void checkInvalidJoin(CoroErrcClient<CoroClient<>>::Ptr client,
+void checkInvalidJoin(CoroSession<>::Ptr session,
                       boost::asio::yield_context yield)
 {
     std::error_code ec;
 
-    CHECK_THROWS_AS( client->join(testRealm, [](AsyncResult<SessionId>){}),
+    CHECK_THROWS_AS( session->join(Realm(testRealm),
+                                   [](AsyncResult<SessionInfo>){}),
                      error::Logic );
-    CHECK_THROWS_AS( client->join(testRealm, yield), error::Logic );
-    CHECK_THROWS_AS( client->join(testRealm, yield, ec), error::Logic );
+    CHECK_THROWS_AS( session->join(Realm(testRealm), yield), error::Logic );
+    CHECK_THROWS_AS( session->join(Realm(testRealm), yield, &ec), error::Logic );
 }
 
-void checkInvalidLeave(CoroErrcClient<CoroClient<>>::Ptr client,
+void checkInvalidLeave(CoroSession<>::Ptr session,
                        boost::asio::yield_context yield)
 {
     std::error_code ec;
 
-    CHECK_THROWS_AS( client->leave([](AsyncResult<std::string>){}),
+    CHECK_THROWS_AS( session->leave(Reason(), [](AsyncResult<Reason>){}),
                      error::Logic );
-    CHECK_THROWS_AS( client->leave(yield), error::Logic );
-    CHECK_THROWS_AS( client->leave(yield, ec), error::Logic );
-
-    CHECK_THROWS_AS( client->leave("reason", [](AsyncResult<std::string>){}),
-                     error::Logic );
-    CHECK_THROWS_AS( client->leave("reason", yield), error::Logic );
-    CHECK_THROWS_AS( client->leave("reason", yield, ec), error::Logic );
+    CHECK_THROWS_AS( session->leave(Reason(), yield), error::Logic );
+    CHECK_THROWS_AS( session->leave(Reason(), yield, &ec), error::Logic );
 }
 
-void checkInvalidOps(CoroErrcClient<CoroClient<>>::Ptr client,
+void checkInvalidOps(CoroSession<>::Ptr session,
                      boost::asio::yield_context yield)
 {
     std::error_code ec;
 
-    CHECK_THROWS_AS( client->subscribe<void>("topic", [](PublicationId){},
-                                            [](AsyncResult<Subscription>){}),
+    CHECK_THROWS_AS( session->subscribe(Topic("topic"),
+                        [](Event){}, [](AsyncResult<Subscription::Ptr>){}),
                      error::Logic );
-    CHECK_THROWS_AS( client->publish("topic", [](AsyncResult<PublicationId>) {}),
+    CHECK_THROWS_AS( session->publish(Pub("topic"),
+                                     [](AsyncResult<PublicationId>) {}),
                      error::Logic );
-    CHECK_THROWS_AS( client->publish("topic", {42},
-                                    [](AsyncResult<PublicationId>) {}),
+    CHECK_THROWS_AS( session->publish(Pub("topic").withArgs({42}),
+                                     [](AsyncResult<PublicationId>) {}),
                      error::Logic );
-    CHECK_THROWS_AS( client->enroll<void>("rpc", [](Invocation){},
-                                         [](AsyncResult<Registration>){}),
+    CHECK_THROWS_AS( session->enroll(Procedure("rpc"), [](Invocation){},
+                                    [](AsyncResult<Registration::Ptr>){}),
                      error::Logic );
-    CHECK_THROWS_AS( client->call("rpc", [](AsyncResult<Args>) {}),
+    CHECK_THROWS_AS( session->call(Rpc("rpc"), [](AsyncResult<Result>) {}),
                      error::Logic );
-    CHECK_THROWS_AS( client->call("rpc", {42}, [](AsyncResult<Args>) {}),
+    CHECK_THROWS_AS( session->call(Rpc("rpc").withArgs({42}),
+                                  [](AsyncResult<Result>) {}),
                      error::Logic );
 
-    CHECK_THROWS_AS( client->leave(yield), error::Logic );
-    CHECK_THROWS_AS( client->leave("because", yield), error::Logic );
-    CHECK_THROWS_AS( client->subscribe<void>("topic",
-            [](PublicationId){}, yield), error::Logic );
-    CHECK_THROWS_AS( client->publish("topic", yield), error::Logic );
-    CHECK_THROWS_AS( client->publish("topic", {42}, yield),
+    CHECK_THROWS_AS( session->leave(Reason(), yield), error::Logic );
+    CHECK_THROWS_AS( session->subscribe(Topic("topic"), [](Event){}, yield),
                      error::Logic );
-    CHECK_THROWS_AS( client->enroll<void>("rpc",
-            [](Invocation){}, yield), error::Logic );
-    CHECK_THROWS_AS( client->call("rpc", yield), error::Logic );
-    CHECK_THROWS_AS( client->call("rpc", {42}, yield), error::Logic );
+    CHECK_THROWS_AS( session->publish(Pub("topic"), yield), error::Logic );
+    CHECK_THROWS_AS( session->publish(Pub("topic").withArgs({42}), yield),
+                     error::Logic );
+    CHECK_THROWS_AS( session->enroll(Procedure("rpc"), [](Invocation){}, yield),
+                     error::Logic );
+    CHECK_THROWS_AS( session->call(Rpc("rpc"), yield), error::Logic );
+    CHECK_THROWS_AS( session->call(Rpc("rpc").withArgs({42}), yield),
+                     error::Logic );
 
-    CHECK_THROWS_AS( client->leave(yield, ec), error::Logic );
-    CHECK_THROWS_AS( client->leave("because", yield, ec), error::Logic );
-    CHECK_THROWS_AS( client->subscribe<void>("topic",
-            [](PublicationId){}, yield, ec), error::Logic );
-    CHECK_THROWS_AS( client->publish("topic", yield, ec), error::Logic );
-    CHECK_THROWS_AS( client->publish("topic", {42}, yield, ec),
+    CHECK_THROWS_AS( session->leave(Reason(), yield, &ec), error::Logic );
+    CHECK_THROWS_AS( session->subscribe(Topic("topic"), [](Event){}, yield, &ec),
                      error::Logic );
-    CHECK_THROWS_AS( client->enroll<void>("rpc",
-            [](Invocation){}, yield, ec), error::Logic );
-    CHECK_THROWS_AS( client->call("rpc", yield, ec), error::Logic );
-    CHECK_THROWS_AS( client->call("rpc", {42}, yield, ec), error::Logic );
+    CHECK_THROWS_AS( session->publish(Pub("topic"), yield, &ec),
+                     error::Logic );
+    CHECK_THROWS_AS( session->publish(Pub("topic").withArgs({42}), yield, &ec),
+                     error::Logic );
+    CHECK_THROWS_AS( session->enroll(Procedure("rpc"), [](Invocation){},
+                                    yield, &ec),
+                     error::Logic );
+    CHECK_THROWS_AS( session->call(Rpc("rpc"), yield, &ec), error::Logic );
+    CHECK_THROWS_AS( session->call(Rpc("rpc").withArgs({42}), yield, &ec),
+                     error::Logic );
 }
 
 } // anonymous namespace
@@ -330,7 +312,7 @@ using legacy::TcpConnector;
 using legacy::UdsConnector;
 
 //------------------------------------------------------------------------------
-SCENARIO( "Using WAMP client interface", "[WAMP]" )
+SCENARIO( "Using WAMP session interface", "[WAMP]" )
 {
 #if CPPWAMP_TEST_SPAWN_CROSSBAR == 1
 auto pid = fork();
@@ -361,44 +343,32 @@ else
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             {
-                // Connect and disconnect a client->
-                auto c = CoroClient<>::create(cnct);
-                CHECK( c->state() == SessionState::disconnected );
-                CHECK( c->connect(yield) == 0 );
-                CHECK( c->state() == SessionState::closed );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
-                CHECK_NOTHROW( c->disconnect() );
-                CHECK( c->state() == SessionState::disconnected );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                // Connect and disconnect a session->
+                auto s = CoroSession<>::create(cnct);
+                CHECK( s->state() == SessionState::disconnected );
+                CHECK( s->connect(yield) == 0 );
+                CHECK( s->state() == SessionState::closed );
+                CHECK_NOTHROW( s->disconnect() );
+                CHECK( s->state() == SessionState::disconnected );
 
                 // Disconnecting again should be harmless
-                CHECK_NOTHROW( c->disconnect() );
-                CHECK( c->state() == SessionState::disconnected );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                CHECK_NOTHROW( s->disconnect() );
+                CHECK( s->state() == SessionState::disconnected );
 
                 // Check that we can reconnect.
-                CHECK( c->connect(yield) == 0 );
-                CHECK( c->state() == SessionState::closed );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                CHECK( s->connect(yield) == 0 );
+                CHECK( s->state() == SessionState::closed );
 
-                // Reset by letting client instance go out of scope.
+                // Reset by letting session instance go out of scope.
             }
 
             // Check that another client can connect and disconnect.
-            auto c2 = CoroClient<>::create(cnct);
-            CHECK( c2->state() == SessionState::disconnected );
-            CHECK( c2->connect(yield) == 0 );
-            CHECK( c2->state() == SessionState::closed );
-            CHECK( c2->realm().empty() );
-            CHECK( c2->peerInfo().empty() );
-            CHECK_NOTHROW( c2->disconnect() );
-            CHECK( c2->state() == SessionState::disconnected );
-            CHECK( c2->realm().empty() );
-            CHECK( c2->peerInfo().empty() );
+            auto s2 = CoroSession<>::create(cnct);
+            CHECK( s2->state() == SessionState::disconnected );
+            CHECK( s2->connect(yield) == 0 );
+            CHECK( s2->state() == SessionState::closed );
+            CHECK_NOTHROW( s2->disconnect() );
+            CHECK( s2->state() == SessionState::disconnected );
         });
 
         iosvc.run();
@@ -406,57 +376,55 @@ else
 
     WHEN( "joining and leaving" )
     {
-        auto c = CoroClient<>::create(cnct);
+        auto s = CoroSession<>::create(cnct);
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            c->connect(yield);
-            CHECK( c->state() == SessionState::closed );
+            s->connect(yield);
+            CHECK( s->state() == SessionState::closed );
 
             {
                 // Check joining.
-                SessionId sid = c->join(testRealm, yield);
-                CHECK ( sid <= 9007199254740992ull );
-                CHECK( c->state() == SessionState::established );
-                CHECK( c->realm() == testRealm );
-                Object info = c->peerInfo();
-                REQUIRE( info.count("roles") );
-                REQUIRE( info["roles"].is<Object>() );
-                Object roles = info["roles"].as<Object>();
+                SessionInfo info = s->join(Realm(testRealm), yield);
+                CHECK( s->state() == SessionState::established );
+                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK( info.realm()  == testRealm );
+                Object details = info.options();
+                REQUIRE( details.count("roles") );
+                REQUIRE( details["roles"].is<Object>() );
+                Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
+                CHECK( info.supportsRoles({"broker", "dealer"}) );
 
                 // Check leaving.
-                std::string reason = c->leave(yield);
-                CHECK_FALSE( reason.empty() );
-                CHECK( c->state() == SessionState::closed );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                Reason reason = s->leave(Reason(), yield);
+                CHECK_FALSE( reason.uri().empty() );
+                CHECK( s->state() == SessionState::closed );
             }
 
             {
                 // Check that the same client can rejoin and leave.
-                SessionId sid = c->join(testRealm, yield);
-                CHECK ( sid <= 9007199254740992ull );
-                CHECK( c->state() == SessionState::established );
-                CHECK( c->realm() == testRealm );
-                Object info = c->peerInfo();
-                REQUIRE( info.count("roles") );
-                REQUIRE( info["roles"].is<Object>() );
-                Object roles = info["roles"].as<Object>();
+                SessionInfo info = s->join(Realm(testRealm), yield);
+                CHECK( s->state() == SessionState::established );
+                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK( info.realm()  == testRealm );
+                Object details = info.options();
+                REQUIRE( details.count("roles") );
+                REQUIRE( details["roles"].is<Object>() );
+                Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
+                CHECK( info.supportsRoles({"broker", "dealer"}) );
 
                 // Try leaving with a reason URI this time.
-                std::string reason = c->leave("wamp.error.system_shutdown",
-                                             yield);
-                CHECK_FALSE( reason.empty() );
-                CHECK( c->state() == SessionState::closed );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                Reason reason = s->leave(Reason("wamp.error.system_shutdown"),
+                                         yield);
+                CHECK_FALSE( reason.uri().empty() );
+                CHECK( s->state() == SessionState::closed );
             }
 
-            CHECK_NOTHROW( c->disconnect() );
-            CHECK( c->state() == SessionState::disconnected );
+            CHECK_NOTHROW( s->disconnect() );
+            CHECK( s->state() == SessionState::disconnected );
         });
 
         iosvc.run();
@@ -464,76 +432,55 @@ else
 
     WHEN( "connecting, joining, leaving, and disconnecting" )
     {
-        auto c = CoroClient<>::create(cnct);
+        auto s = CoroSession<>::create(cnct);
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             {
                 // Connect
-                CHECK( c->state() == SessionState::disconnected );
-                CHECK( c->connect(yield) == 0 );
-                CHECK( c->state() == SessionState::closed );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                CHECK( s->state() == SessionState::disconnected );
+                CHECK( s->connect(yield) == 0 );
+                CHECK( s->state() == SessionState::closed );
 
                 // Join
-                SessionId sid = c->join(testRealm, yield);
-                CHECK ( sid <= 9007199254740992ull );
-                CHECK( c->state() == SessionState::established );
-                CHECK( c->realm() == testRealm );
-                Object info = c->peerInfo();
-                REQUIRE( info.count("roles") );
-                REQUIRE( info["roles"].is<Object>() );
-                Object roles = info["roles"].as<Object>();
-                CHECK( roles.count("broker") );
-                CHECK( roles.count("dealer") );
+                s->join(Realm(testRealm), yield);
+                CHECK( s->state() == SessionState::established );
 
                 // Leave
-                std::string reason = c->leave(yield);
-                CHECK_FALSE( reason.empty() );
-                CHECK( c->state() == SessionState::closed );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                Reason reason = s->leave(Reason(), yield);
+                CHECK_FALSE( reason.uri().empty() );
+                CHECK( s->state() == SessionState::closed );
 
                 // Disconnect
-                CHECK_NOTHROW( c->disconnect() );
-                CHECK( c->state() == SessionState::disconnected );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
-                CHECK( c->peerInfo().empty() );
+                CHECK_NOTHROW( s->disconnect() );
+                CHECK( s->state() == SessionState::disconnected );
             }
 
             {
                 // Connect
-                CHECK( c->connect(yield) == 0 );
-                CHECK( c->state() == SessionState::closed );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                CHECK( s->connect(yield) == 0 );
+                CHECK( s->state() == SessionState::closed );
 
                 // Join
-                SessionId sid = c->join(testRealm, yield);
-                CHECK ( sid <= 9007199254740992ull );
-                CHECK( c->state() == SessionState::established );
-                CHECK( c->realm() == testRealm );
-                Object info = c->peerInfo();
-                REQUIRE( info.count("roles") );
-                REQUIRE( info["roles"].is<Object>() );
-                Object roles = info["roles"].as<Object>();
+                SessionInfo info = s->join(Realm(testRealm), yield);
+                CHECK( s->state() == SessionState::established );
+                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK( info.realm()  == testRealm );
+                Object details = info.options();
+                REQUIRE( details.count("roles") );
+                REQUIRE( details["roles"].is<Object>() );
+                Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
+                CHECK( info.supportsRoles({"broker", "dealer"}) );
 
                 // Leave
-                std::string reason = c->leave(yield);
-                CHECK_FALSE( reason.empty() );
-                CHECK( c->state() == SessionState::closed );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                Reason reason = s->leave(Reason(), yield);
+                CHECK_FALSE( reason.uri().empty() );
+                CHECK( s->state() == SessionState::closed );
 
                 // Disconnect
-                CHECK_NOTHROW( c->disconnect() );
-                CHECK( c->state() == SessionState::disconnected );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
-                CHECK( c->peerInfo().empty() );
+                CHECK_NOTHROW( s->disconnect() );
+                CHECK( s->state() == SessionState::disconnected );
             }
         });
 
@@ -543,21 +490,21 @@ else
     WHEN( "disconnecting during connect" )
     {
         std::error_code ec;
-        auto c = Client::create(cnct);
-        c->connect([&](AsyncResult<size_t> result)
+        auto s = Session::create(cnct);
+        s->connect([&](AsyncResult<size_t> result)
         {
             ec = result.errorCode();
         });
-        c->disconnect();
+        s->disconnect();
 
         iosvc.run();
         iosvc.reset();
         CHECK( ec == TransportErrc::aborted );
 
-        c->reset();
+        s->reset();
         ec.clear();
         bool connected = false;
-        c->connect([&](AsyncResult<size_t> result)
+        s->connect([&](AsyncResult<size_t> result)
         {
             ec = result.errorCode();
             connected = !ec;
@@ -572,18 +519,18 @@ else
     {
         std::error_code ec;
         bool connected = false;
-        auto c = CoroClient<>::create(cnct);
+        auto s = CoroSession<>::create(cnct);
         bool disconnectTriggered = false;
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             try
             {
-                c->connect(yield);
+                s->connect(yield);
                 disconnectTriggered = true;
-                c->join(testRealm, yield);
+                s->join(Realm(testRealm), yield);
                 connected = true;
             }
-            catch (const error::Wamp& e)
+            catch (const error::Failure& e)
             {
                 ec = e.code();
             }
@@ -593,24 +540,24 @@ else
         {
             while (!disconnectTriggered)
                 iosvc.post(yield);
-            c->disconnect();
+            s->disconnect();
         });
 
         iosvc.run();
         iosvc.reset();
         CHECK_FALSE( connected );
-        CHECK( ec == WampErrc::sessionEnded );
+        CHECK( ec == SessionErrc::sessionEnded );
     }
 
     WHEN( "resetting during connect" )
     {
         bool handlerWasInvoked = false;
-        auto c = Client::create(cnct);
-        c->connect([&handlerWasInvoked](AsyncResult<size_t>)
+        auto s = Session::create(cnct);
+        s->connect([&handlerWasInvoked](AsyncResult<size_t>)
         {
             handlerWasInvoked = true;
         });
-        c->reset();
+        s->reset();
         iosvc.run();
 
         CHECK_FALSE( handlerWasInvoked );
@@ -619,34 +566,34 @@ else
     WHEN( "resetting during join" )
     {
         bool handlerWasInvoked = false;
-        auto c = Client::create(cnct);
-        c->connect([&](AsyncResult<size_t>)
+        auto s = Session::create(cnct);
+        s->connect([&](AsyncResult<size_t>)
         {
-            c->join(testRealm, [&](AsyncResult<SessionId>)
+            s->join(Realm(testRealm), [&](AsyncResult<SessionInfo>)
             {
                 handlerWasInvoked = true;
             });
-            c->reset();
+            s->reset();
         });
         iosvc.run();
 
         CHECK_FALSE( handlerWasInvoked );
     }
 
-    WHEN( "client goes out of scope during connect" )
+    WHEN( "session goes out of scope during connect" )
     {
         bool handlerWasInvoked = false;
 
-        auto client = Client::create(cnct);
-        std::weak_ptr<Client> weakClient(client);
+        auto session = Session::create(cnct);
+        std::weak_ptr<Session> weakClient(session);
 
-        client->connect([&handlerWasInvoked](AsyncResult<size_t>)
+        session->connect([&handlerWasInvoked](AsyncResult<size_t>)
         {
             handlerWasInvoked = true;
         });
 
-        // Reduce client reference count to zero
-        client = nullptr;
+        // Reduce session reference count to zero
+        session = nullptr;
         REQUIRE( weakClient.expired() );
 
         iosvc.run();
@@ -658,57 +605,55 @@ else
     {
         auto cnct2 = UdsConnector::create(iosvc, testUdsPath, Msgpack::id());
 
-        auto c = CoroClient<>::create(cnct2);
+        auto s = CoroSession<>::create(cnct2);
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            c->connect(yield);
-            CHECK( c->state() == SessionState::closed );
+            s->connect(yield);
+            CHECK( s->state() == SessionState::closed );
 
             {
                 // Check joining.
-                SessionId sid = c->join(testRealm, yield);
-                CHECK ( sid <= 9007199254740992ull );
-                CHECK( c->state() == SessionState::established );
-                CHECK( c->realm() == testRealm );
-                Object info = c->peerInfo();
-                REQUIRE( info.count("roles") );
-                REQUIRE( info["roles"].is<Object>() );
-                Object roles = info["roles"].as<Object>();
+                SessionInfo info = s->join(Realm(testRealm), yield);
+                CHECK( s->state() == SessionState::established );
+                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK( info.realm()  == testRealm );
+                Object details = info.options();
+                REQUIRE( details.count("roles") );
+                REQUIRE( details["roles"].is<Object>() );
+                Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
+                CHECK( info.supportsRoles({"broker", "dealer"}) );
 
                 // Check leaving.
-                std::string reason = c->leave(yield);
-                CHECK_FALSE( reason.empty() );
-                CHECK( c->state() == SessionState::closed );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                Reason reason = s->leave(Reason(), yield);
+                CHECK_FALSE( reason.uri().empty() );
+                CHECK( s->state() == SessionState::closed );
             }
 
             {
                 // Check that the same client can rejoin and leave.
-                SessionId sid = c->join(testRealm, yield);
-                CHECK ( sid <= 9007199254740992ull );
-                CHECK( c->state() == SessionState::established );
-                CHECK( c->realm() == testRealm );
-                Object info = c->peerInfo();
-                REQUIRE( info.count("roles") );
-                REQUIRE( info["roles"].is<Object>() );
-                Object roles = info["roles"].as<Object>();
+                SessionInfo info = s->join(Realm(testRealm), yield);
+                CHECK( s->state() == SessionState::established );
+                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK( info.realm()  == testRealm );
+                Object details = info.options();
+                REQUIRE( details.count("roles") );
+                REQUIRE( details["roles"].is<Object>() );
+                Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
+                CHECK( info.supportsRoles({"broker", "dealer"}) );
 
                 // Try leaving with a reason URI this time.
-                std::string reason = c->leave("wamp.error.system_shutdown",
-                                             yield);
-                CHECK_FALSE( reason.empty() );
-                CHECK( c->state() == SessionState::closed );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                Reason reason = s->leave(Reason("wamp.error.system_shutdown"),
+                                         yield);
+                CHECK_FALSE( reason.uri().empty() );
+                CHECK( s->state() == SessionState::closed );
             }
 
-            CHECK_NOTHROW( c->disconnect() );
-            CHECK( c->state() == SessionState::disconnected );
+            CHECK_NOTHROW( s->disconnect() );
+            CHECK( s->state() == SessionState::disconnected );
         });
 
         iosvc.run();
@@ -724,77 +669,80 @@ else
             f.subscribe(yield);
 
             // Check dynamic and static subscriptions.
-            f.publisher->publish("str.num", {"one", 1});
-            pid = f.publisher->publish("str.num", {"two", 2}, yield);
+            f.publisher->publish(Pub("str.num").withArgs({"one", 1}));
+            pid = f.publisher->publish(Pub("str.num").withArgs({"two", 2}),
+                                       yield);
             while (f.dynamicPubs.size() < 2)
                 f.subscriber->suspend(yield);
 
             REQUIRE( f.dynamicPubs.size() == 2 );
             CHECK( f.dynamicPubs.back() == pid );
-            CHECK(( f.dynamicArgs == Args{{"two", 2}} ));
+            CHECK(( f.dynamicArgs == Array{"two", 2} ));
             REQUIRE( f.staticPubs.size() == 2 );
             CHECK( f.staticPubs.back() == pid );
-            CHECK(( f.staticArgs == Args{{"two", 2}} ));
-            CHECK( f.voidPubs.empty() );
+            CHECK(( f.staticArgs == Array{"two", 2} ));
+            CHECK( f.otherPubs.empty() );
 
-            // Check void subscription.
-            f.publisher->publish("void");
-            pid = f.publisher->publish("void", yield);
-            while (f.voidPubs.size() < 2)
-                f.voidSubscriber->suspend(yield);
+            // Check subscription from another client.
+            f.publisher->publish(Pub("other"));
+            pid = f.publisher->publish(Pub("other"), yield);
+            while (f.otherPubs.size() < 2)
+                f.otherSubscriber->suspend(yield);
             CHECK( f.dynamicPubs.size() == 2 );
             CHECK( f.staticPubs.size() == 2 );
-            REQUIRE( f.voidPubs.size() == 2 );
-            CHECK( f.voidPubs.back() == pid );
+            REQUIRE( f.otherPubs.size() == 2 );
+            CHECK( f.otherPubs.back() == pid );
 
             // Unsubscribe the dynamic subscription manually.
             f.subscriber->unsubscribe(f.dynamicSub, yield);
 
             // Check that the dynamic slot no longer fires, and that the
             // static slot still fires.
-            pid = f.publisher->publish("str.num", {"three", 3}, yield);
+            pid = f.publisher->publish(Pub("str.num").withArgs({"three", 3}),
+                                       yield);
             while (f.staticPubs.size() < 3)
-                f.voidSubscriber->suspend(yield);
+                f.otherSubscriber->suspend(yield);
             REQUIRE( f.dynamicPubs.size() == 2 );
             REQUIRE( f.staticPubs.size() == 3 );
             CHECK( f.staticPubs.back() == pid );
-            CHECK(( f.staticArgs == Args{{"three", 3}} ));
+            CHECK(( f.staticArgs == Array{"three", 3} ));
 
             // Unsubscribe the static subscription via RAII.
-            f.staticSub = Subscription();
+            f.staticSub.reset();
 
             // Check that the dynamic and static slots no longer fire, and
-            // that the void slot still fires.
-            f.publisher->publish("str.num", {"four", 4}, yield);
-            pid = f.publisher->publish("void", yield);
-            while (f.voidPubs.size() < 3)
+            // that the "other" slot still fires.
+            f.publisher->publish(Pub("str.num").withArgs({"four", 4}), yield);
+            pid = f.publisher->publish(Pub("other"), yield);
+            while (f.otherPubs.size() < 3)
                 f.subscriber->suspend(yield);
             CHECK( f.dynamicPubs.size() == 2 );
             CHECK( f.staticPubs.size() == 3 );
-            REQUIRE( f.voidPubs.size() == 3 );
-            CHECK( f.voidPubs.back() == pid );
+            REQUIRE( f.otherPubs.size() == 3 );
+            CHECK( f.otherPubs.back() == pid );
 
-            // Make the void subscriber leave and rejoin the session.
-            f.voidSubscriber->leave(yield);
-            f.voidSubscriber->join(testRealm, yield);
+            // Make the "other" subscriber leave and rejoin the realm.
+            f.otherSubscriber->leave(Reason(), yield);
+            f.otherSubscriber->join(Realm(testRealm), yield);
 
             // Reestablish the dynamic subscription.
             using namespace std::placeholders;
-            f.dynamicSub = f.subscriber->subscribe<Args>(
-                    "str.num",
-                    std::bind(&PubSubFixture::onDynamicEvent, &f, _1, _2),
+            f.dynamicSub = f.subscriber->subscribe(
+                    Topic("str.num"),
+                    std::bind(&PubSubFixture::onDynamicEvent, &f, _1),
                     yield);
 
             // Check that only the dynamic slot still fires.
-            f.publisher->publish("void", yield);
-            pid = f.publisher->publish("str.num", {"five", 5}, yield);
+            f.publisher->publish(Pub("other"), yield);
+            pid = f.publisher->publish(Pub("str.num").withArgs({"five", 5}),
+                                       yield);
             while (f.dynamicPubs.size() < 3)
                 f.subscriber->suspend(yield);
             CHECK( f.dynamicPubs.size() == 3 );
             CHECK( f.staticPubs.size() == 3 );
-            REQUIRE( f.voidPubs.size() == 3 );
+            REQUIRE( f.otherPubs.size() == 3 );
             CHECK( f.dynamicPubs.back() == pid );
-            CHECK(( f.dynamicArgs == Args{{"five", 5}} ));
+            CHECK(( f.dynamicArgs == Array{"five", 5} ));
         });
 
         iosvc.run();
@@ -810,14 +758,15 @@ else
             f.subscribe(yield);
 
             // Unsubscribe the dynamic subscription manually.
-            f.dynamicSub.unsubscribe();
+            f.dynamicSub->unsubscribe();
 
             // Unsubscribe the dynamic subscription again via RAII.
-            f.dynamicSub = Subscription();
+            f.dynamicSub.reset();
 
             // Check that the dynamic slot no longer fires, and that the
             // static slot still fires.
-            pid = f.publisher->publish("str.num", {"foo", 42}, yield);
+            pid = f.publisher->publish(Pub("str.num").withArgs({"foo", 42}),
+                                       yield);
             while (f.staticPubs.size() < 1)
                 f.subscriber->suspend(yield);
             REQUIRE( f.dynamicPubs.size() == 0 );
@@ -828,25 +777,25 @@ else
             f.subscriber->unsubscribe(f.staticSub, yield);
 
             // Unsubscribe the static subscription again manually.
-            f.staticSub.unsubscribe();
+            f.staticSub->unsubscribe();
 
             // Check that the dynamic and static slots no longer fire.
-            // Publish to the void subscription so that we know when
+            // Publish to the "other" subscription so that we know when
             // to stop polling.
-            f.publisher->publish("str.num", {"foo", 42}, yield);
-            pid = f.publisher->publish("void", yield);
-            while (f.voidPubs.size() < 1)
-                f.voidSubscriber->suspend(yield);
+            f.publisher->publish(Pub("str.num").withArgs({"foo", 42}), yield);
+            pid = f.publisher->publish(Pub("other"), yield);
+            while (f.otherPubs.size() < 1)
+                f.otherSubscriber->suspend(yield);
             CHECK( f.dynamicPubs.size() == 0 );
             CHECK( f.staticPubs.size() == 1 );
-            REQUIRE( f.voidPubs.size() == 1 );
-            CHECK( f.voidPubs.back() == pid );
+            REQUIRE( f.otherPubs.size() == 1 );
+            CHECK( f.otherPubs.back() == pid );
         });
 
         iosvc.run();
     }
 
-    WHEN( "unsubscribing after client is destroyed" )
+    WHEN( "unsubscribing after session is destroyed" )
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
@@ -855,26 +804,26 @@ else
             f.join(yield);
             f.subscribe(yield);
 
-            // Destroy the subscriber client->
+            // Destroy the subscriber session
             f.subscriber.reset();
 
             // Unsubscribe the dynamic subscription manually.
-            REQUIRE_NOTHROW( f.dynamicSub.unsubscribe() );
+            REQUIRE_NOTHROW( f.dynamicSub->unsubscribe() );
 
             // Unsubscribe the static subscription via RAII.
-            REQUIRE_NOTHROW( f.staticSub = Subscription() );
+            REQUIRE_NOTHROW( f.staticSub.reset() );
 
             // Check that the dynamic and static slots no longer fire.
-            // Publish to the void subscription so that we know when
+            // Publish to the "other" subscription so that we know when
             // to stop polling.
-            f.publisher->publish("str.num", {"foo", 42}, yield);
-            pid = f.publisher->publish("void", yield);
-            while (f.voidPubs.size() < 1)
-                f.voidSubscriber->suspend(yield);
+            f.publisher->publish(Pub("str.num").withArgs({"foo", 42}), yield);
+            pid = f.publisher->publish(Pub("other"), yield);
+            while (f.otherPubs.size() < 1)
+                f.otherSubscriber->suspend(yield);
             CHECK( f.dynamicPubs.size() == 0 );
             CHECK( f.staticPubs.size() == 0 );
-            REQUIRE( f.voidPubs.size() == 1 );
-            CHECK( f.voidPubs.back() == pid );
+            REQUIRE( f.otherPubs.size() == 1 );
+            CHECK( f.otherPubs.back() == pid );
         });
 
         iosvc.run();
@@ -890,27 +839,27 @@ else
             f.subscribe(yield);
 
             // Make the subscriber client leave the session.
-            f.subscriber->leave(yield);
+            f.subscriber->leave(Reason(), yield);
 
             // Unsubscribe the dynamic subscription via RAII.
-            REQUIRE_NOTHROW( f.dynamicSub = Subscription() );
+            REQUIRE_NOTHROW( f.dynamicSub.reset() );
 
             // Unsubscribe the static subscription manually.
             CHECK_THROWS_AS( f.subscriber->unsubscribe(f.staticSub, yield),
                              error::Logic );
-            REQUIRE_NOTHROW( f.staticSub.unsubscribe() );
+            REQUIRE_NOTHROW( f.staticSub->unsubscribe() );
 
             // Check that the dynamic and static slots no longer fire.
-            // Publish to the void subscription so that we know when
+            // Publish to the "other" subscription so that we know when
             // to stop polling.
-            f.publisher->publish("str.num", {"foo", 42}, yield);
-            pid = f.publisher->publish("void", yield);
-            while (f.voidPubs.size() < 1)
-                f.voidSubscriber->suspend(yield);
+            f.publisher->publish(Pub("str.num").withArgs({"foo", 42}), yield);
+            pid = f.publisher->publish(Pub("other"), yield);
+            while (f.otherPubs.size() < 1)
+                f.otherSubscriber->suspend(yield);
             CHECK( f.dynamicPubs.size() == 0 );
             CHECK( f.staticPubs.size() == 0 );
-            REQUIRE( f.voidPubs.size() == 1 );
-            CHECK( f.voidPubs.back() == pid );
+            REQUIRE( f.otherPubs.size() == 1 );
+            CHECK( f.otherPubs.back() == pid );
         });
 
         iosvc.run();
@@ -931,22 +880,22 @@ else
             // Unsubscribe the dynamic subscription manually.
             CHECK_THROWS_AS( f.subscriber->unsubscribe(f.dynamicSub, yield),
                              error::Logic );
-            REQUIRE_NOTHROW( f.dynamicSub.unsubscribe() );
+            REQUIRE_NOTHROW( f.dynamicSub->unsubscribe() );
 
             // Unsubscribe the static subscription via RAII.
-            REQUIRE_NOTHROW( f.staticSub = Subscription() );
+            REQUIRE_NOTHROW( f.staticSub.reset() );
 
             // Check that the dynamic and static slots no longer fire.
-            // Publish to the void subscription so that we know when
+            // Publish to the "other" subscription so that we know when
             // to stop polling.
-            f.publisher->publish("str.num", {"foo", 42}, yield);
-            pid = f.publisher->publish("void", yield);
-            while (f.voidPubs.size() < 1)
-                f.voidSubscriber->suspend(yield);
+            f.publisher->publish(Pub("str.num").withArgs({"foo", 42}), yield);
+            pid = f.publisher->publish(Pub("other"), yield);
+            while (f.otherPubs.size() < 1)
+                f.otherSubscriber->suspend(yield);
             CHECK( f.dynamicPubs.size() == 0 );
             CHECK( f.staticPubs.size() == 0 );
-            REQUIRE( f.voidPubs.size() == 1 );
-            CHECK( f.voidPubs.back() == pid );
+            REQUIRE( f.otherPubs.size() == 1 );
+            CHECK( f.otherPubs.back() == pid );
         });
 
         iosvc.run();
@@ -965,19 +914,19 @@ else
             f.subscriber.reset();
 
             // Unsubscribe the static subscription via RAII.
-            REQUIRE_NOTHROW( f.staticSub = Subscription() );
+            REQUIRE_NOTHROW( f.staticSub.reset() );
 
             // Check that the dynamic and static slots no longer fire.
-            // Publish to the void subscription so that we know when
+            // Publish to the "other" subscription so that we know when
             // to stop polling.
-            f.publisher->publish("str.num", {"foo", 42}, yield);
-            pid = f.publisher->publish("void", yield);
-            while (f.voidPubs.size() < 1)
-                f.voidSubscriber->suspend(yield);
+            f.publisher->publish(Pub("str.num").withArgs({"foo", 42}), yield);
+            pid = f.publisher->publish(Pub("other"), yield);
+            while (f.otherPubs.size() < 1)
+                f.otherSubscriber->suspend(yield);
             CHECK( f.dynamicPubs.size() == 0 );
             CHECK( f.staticPubs.size() == 0 );
-            REQUIRE( f.voidPubs.size() == 1 );
-            CHECK( f.voidPubs.back() == pid );
+            REQUIRE( f.otherPubs.size() == 1 );
+            CHECK( f.otherPubs.back() == pid );
         });
 
         iosvc.run();
@@ -987,40 +936,45 @@ else
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            Args result;
+            Result result;
             std::error_code ec;
             RpcFixture f(cnct);
             f.join(yield);
             f.enroll(yield);
 
             // Check normal RPC
-            result = f.caller->call("dynamic", {"one", 1}, yield);
+            result = f.caller->call(Rpc("dynamic").withArgs({"one", 1}),
+                                    yield);
             CHECK( f.dynamicCount == 1 );
-            CHECK(( result == Args{{"one", 1}} ));
-            result = f.caller->call("dynamic", {"two", 2}, yield);
+            CHECK(( result.args() == Array{"one", 1} ));
+            result = f.caller->call(Rpc("dynamic").withArgs({"two", 2}),
+                                    yield);
             CHECK( f.dynamicCount == 2 );
-            CHECK(( result == Args{{"two", 2}} ));
+            CHECK(( result.args() == Array{"two", 2} ));
 
             // Manually unregister the slot.
             f.callee->unregister(f.dynamicReg, yield);
 
             // The router should now report an error when attempting
             // to call the unregistered RPC.
-            CHECK_THROWS_AS( f.caller->call("dynamic", {"three", 3}, yield),
-                             error::Wamp);
-            f.caller->call("dynamic", {"three", 3}, yield, ec);
-            CHECK( ec == WampErrc::callError );
-            CHECK( ec == WampErrc::noSuchProcedure );
+            CHECK_THROWS_AS( f.caller->call(
+                                 Rpc("dynamic").withArgs({"three", 3}),
+                                 yield),
+                             error::Failure);
+            f.caller->call(Rpc("dynamic").withArgs({"three", 3}), yield, &ec);
+            CHECK( ec == SessionErrc::callError );
+            CHECK( ec == SessionErrc::noSuchProcedure );
 
             // Calling should work after re-registering the slot.
             using namespace std::placeholders;
-            f.dynamicReg = f.callee->enroll<Args>(
-                "dynamic",
-                std::bind(&RpcFixture::dynamicRpc, &f, _1, _2),
+            f.dynamicReg = f.callee->enroll(
+                Procedure("dynamic"),
+                std::bind(&RpcFixture::dynamicRpc, &f, _1),
                 yield);
-            result = f.caller->call("dynamic", {"four", 4}, yield);
+            result = f.caller->call(Rpc("dynamic").withArgs({"four", 4}),
+                                    yield);
             CHECK( f.dynamicCount == 3 );
-            CHECK(( result == Args{{"four", 4}} ));
+            CHECK(( result.args() == Array{"four", 4} ));
         });
         iosvc.run();
     }
@@ -1029,91 +983,51 @@ else
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            Args result;
+            Result result;
             std::error_code ec;
             RpcFixture f(cnct);
             f.join(yield);
             f.enroll(yield);
 
             // Check normal RPC
-            result = f.caller->call("static", {"one", 1}, yield);
+            result = f.caller->call(Rpc("static").withArgs({"one", 1}),
+                                    yield);
             CHECK( f.staticCount == 1 );
-            CHECK(( result == Args{{"one", 1}} ));
+            CHECK(( result.args() == Array{"one", 1} ));
 
             // Extra arguments should be ignored.
-            result = f.caller->call("static", {"two", 2, true}, yield);
+            result = f.caller->call(Rpc("static").withArgs({"two", 2, true}),
+                                    yield);
             CHECK( f.staticCount == 2 );
-            CHECK(( result == Args{{"two", 2}} ));
+            CHECK(( result.args() == Array{"two", 2} ));
 
             // Unregister the slot via RAII.
-            f.staticReg = Registration();
+            f.staticReg.reset();
 
             // The router should now report an error when attempting
             // to call the unregistered RPC.
-            CHECK_THROWS_AS( f.caller->call("static", {"three", 3}, yield),
-                             error::Wamp);
-            f.caller->call("static", {"three", 3}, yield, ec);
-            CHECK( ec == WampErrc::callError );
-            CHECK( ec == WampErrc::noSuchProcedure );
+            CHECK_THROWS_AS( f.caller->call(
+                                 Rpc("static").withArgs({"three", 3}),
+                                 yield),
+                             error::Failure );
+            f.caller->call(Rpc("static").withArgs({"three", 3}), yield, &ec);
+            CHECK( ec == SessionErrc::callError );
+            CHECK( ec == SessionErrc::noSuchProcedure );
 
             // Calling should work after re-registering the slot.
             using namespace std::placeholders;
             f.staticReg = f.callee->enroll<std::string, int>(
-                "static",
+                Procedure("static"),
                 std::bind(&RpcFixture::staticRpc, &f, _1, _2, _3),
                 yield);
-            result = f.caller->call("static", {"four", 4}, yield);
+            result = f.caller->call(Rpc("static").withArgs({"four", 4}), yield);
             CHECK( f.staticCount == 3 );
-            CHECK(( result == Args{{"four", 4}} ));
+            CHECK(( result.args() == Array{"four", 4} ));
         });
         iosvc.run();
     }
 
-    WHEN( "calling remote procedures taking no arguments" )
-    {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
-        {
-            Args result;
-            std::error_code ec;
-            RpcFixture f(cnct);
-            f.join(yield);
-            f.enroll(yield);
-
-            // Check normal RPC
-            result = f.caller->call("void", yield);
-            CHECK( f.voidCount == 1 );
-            CHECK(( result == Args{{1}} ));
-            result = f.caller->call("void", yield);
-            CHECK( f.voidCount == 2 );
-            CHECK(( result == Args{{2}} ));
-
-            // Unregister the slot manually.
-            f.callee->unregister(f.voidReg, yield);
-
-            // Unregister the RPC again via RAII.
-            f.voidReg = Registration();
-
-            // The router should now report an error when attempting
-            // to call the unregistered RPC.
-            CHECK_THROWS_AS( f.caller->call("void", yield), error::Wamp);
-            f.caller->call("void", yield, ec);
-            CHECK( ec == WampErrc::callError );
-            CHECK( ec == WampErrc::noSuchProcedure );
-
-            // Calling should work after re-registering the slot.
-            using namespace std::placeholders;
-            f.voidReg = f.callee->enroll<void>(
-                "void",
-                std::bind(&RpcFixture::voidRpc, &f, _1),
-                yield);
-            result = f.caller->call("void", yield);
-            CHECK( f.voidCount == 3 );
-            CHECK(( result == Args{{3}} ));
-        });
-        iosvc.run();
-    }
-
-    WHEN( "unregistering after a client is destroyed" )
+    WHEN( "unregistering after a session is destroyed" )
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
@@ -1122,26 +1036,28 @@ else
             f.join(yield);
             f.enroll(yield);
 
-            // Destroy the callee client->
+            // Destroy the callee session
             f.callee.reset();
 
             // Manually unregister a RPC.
-            REQUIRE_NOTHROW( f.dynamicReg.unregister() );
+            REQUIRE_NOTHROW( f.dynamicReg->unregister() );
 
             // Unregister an RPC via RAII.
-            REQUIRE_NOTHROW( f.staticReg = Registration() );
+            REQUIRE_NOTHROW( f.staticReg.reset() );
 
             // The router should report an error when attempting
             // to call the unregistered RPCs.
-            CHECK_THROWS_AS( f.caller->call("dynamic", {"one", 1}, yield),
-                             error::Wamp );
-            f.caller->call("dynamic", {"one", 1}, yield, ec);
-            CHECK( ec == WampErrc::noSuchProcedure );
+            CHECK_THROWS_AS( f.caller->call(Rpc("dynamic").withArgs({"one", 1}),
+                                            yield),
+                             error::Failure );
+            f.caller->call(Rpc("dynamic").withArgs({"one", 1}), yield, &ec);
+            CHECK( ec == SessionErrc::noSuchProcedure );
 
-            CHECK_THROWS_AS( f.caller->call("static", {"two", 2}, yield),
-                             error::Wamp );
-            f.caller->call("dynamic", {"two", 2}, yield, ec);
-            CHECK( ec == WampErrc::noSuchProcedure );
+            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs({"two", 2}),
+                                            yield),
+                             error::Failure );
+            f.caller->call(Rpc("dynamic").withArgs({"two", 2}), yield, &ec);
+            CHECK( ec == SessionErrc::noSuchProcedure );
         });
         iosvc.run();
     }
@@ -1156,27 +1072,29 @@ else
             f.enroll(yield);
 
             // Make the callee leave the session.
-            f.callee->leave(yield);
+            f.callee->leave(Reason(), yield);
 
             // Manually unregister a RPC.
             CHECK_THROWS_AS( f.callee->unregister(f.dynamicReg, yield),
                              error::Logic );
-            REQUIRE_NOTHROW( f.dynamicReg.unregister() );
+            REQUIRE_NOTHROW( f.dynamicReg->unregister() );
 
             // Unregister an RPC via RAII.
-            REQUIRE_NOTHROW( f.staticReg = Registration() );
+            REQUIRE_NOTHROW( f.staticReg.reset() );
 
             // The router should report an error when attempting
             // to call the unregistered RPCs.
-            CHECK_THROWS_AS( f.caller->call("dynamic", {"one", 1}, yield),
-                             error::Wamp );
-            f.caller->call("dynamic", {"one", 1}, yield, ec);
-            CHECK( ec == WampErrc::noSuchProcedure );
+            CHECK_THROWS_AS( f.caller->call(Rpc("dynamic").withArgs({"one", 1}),
+                                            yield),
+                             error::Failure );
+            f.caller->call(Rpc("dynamic").withArgs({"one", 1}), yield, &ec);
+            CHECK( ec == SessionErrc::noSuchProcedure );
 
-            CHECK_THROWS_AS( f.caller->call("static", {"two", 2}, yield),
-                             error::Wamp );
-            f.caller->call("dynamic", {"two", 2}, yield, ec);
-            CHECK( ec == WampErrc::noSuchProcedure );
+            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs({"two", 2}),
+                                            yield),
+                             error::Failure );
+            f.caller->call(Rpc("dynamic").withArgs({"two", 2}), yield, &ec);
+            CHECK( ec == SessionErrc::noSuchProcedure );
         });
         iosvc.run();
     }
@@ -1196,22 +1114,24 @@ else
             // Manually unregister a RPC.
             CHECK_THROWS_AS( f.callee->unregister(f.dynamicReg, yield),
                              error::Logic );
-            REQUIRE_NOTHROW( f.dynamicReg.unregister() );
+            REQUIRE_NOTHROW( f.dynamicReg->unregister() );
 
             // Unregister an RPC via RAII.
-            REQUIRE_NOTHROW( f.staticReg = Registration() );
+            REQUIRE_NOTHROW( f.staticReg.reset() );
 
             // The router should report an error when attempting
             // to call the unregistered RPCs.
-            CHECK_THROWS_AS( f.caller->call("dynamic", {"one", 1}, yield),
-                             error::Wamp );
-            f.caller->call("dynamic", {"one", 1}, yield, ec);
-            CHECK( ec == WampErrc::noSuchProcedure );
+            CHECK_THROWS_AS( f.caller->call(Rpc("dynamic").withArgs({"one", 1}),
+                                            yield),
+                             error::Failure );
+            f.caller->call(Rpc("dynamic").withArgs({"one", 1}), yield, &ec);
+            CHECK( ec == SessionErrc::noSuchProcedure );
 
-            CHECK_THROWS_AS( f.caller->call("static", {"two", 2}, yield),
-                             error::Wamp );
-            f.caller->call("dynamic", {"two", 2}, yield, ec);
-            CHECK( ec == WampErrc::noSuchProcedure );
+            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs({"two", 2}),
+                                            yield),
+                             error::Failure );
+            f.caller->call(Rpc("dynamic").withArgs({"two", 2}), yield, &ec);
+            CHECK( ec == SessionErrc::noSuchProcedure );
         });
         iosvc.run();
     }
@@ -1229,19 +1149,21 @@ else
             f.callee.reset();
 
             // Unregister an RPC via RAII.
-            REQUIRE_NOTHROW( f.staticReg = Registration() );
+            REQUIRE_NOTHROW( f.staticReg.reset() );
 
             // The router should report an error when attempting
             // to call the unregistered RPCs.
-            CHECK_THROWS_AS( f.caller->call("dynamic", {"one", 1}, yield),
-                             error::Wamp );
-            f.caller->call("dynamic", {"one", 1}, yield, ec);
-            CHECK( ec == WampErrc::noSuchProcedure );
+            CHECK_THROWS_AS( f.caller->call(Rpc("dynamic").withArgs({"one", 1}),
+                                            yield),
+                             error::Failure );
+            f.caller->call(Rpc("dynamic").withArgs({"one", 1}), yield, &ec);
+            CHECK( ec == SessionErrc::noSuchProcedure );
 
-            CHECK_THROWS_AS( f.caller->call("static", {"two", 2}, yield),
-                             error::Wamp );
-            f.caller->call("dynamic", {"two", 2}, yield, ec);
-            CHECK( ec == WampErrc::noSuchProcedure );
+            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs({"two", 2}),
+                                            yield),
+                             error::Failure );
+            f.caller->call(Rpc("dynamic").withArgs({"two", 2}), yield, &ec);
+            CHECK( ec == SessionErrc::noSuchProcedure );
         });
         iosvc.run();
     }
@@ -1253,13 +1175,13 @@ else
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto client = CoroErrcClient<CoroClient<>>::create(badCnct);
+            auto session = CoroSession<>::create(badCnct);
             bool throws = false;
             try
             {
-                client->connect(yield);
+                session->connect(yield);
             }
-            catch (const error::Wamp& e)
+            catch (const error::Failure& e)
             {
                 throws = true;
                 CHECK( e.code() == TransportErrc::failed );
@@ -1267,8 +1189,8 @@ else
             CHECK( throws );
 
             std::error_code ec;
-            client->disconnect();
-            client->connect(yield, ec);
+            session->disconnect();
+            session->connect(yield, &ec);
             CHECK( ec == TransportErrc::failed );
         });
 
@@ -1283,53 +1205,49 @@ else
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto c = CoroClient<>::create(connectors);
+            auto s = CoroSession<>::create(connectors);
 
             {
                 // Connect
-                CHECK( c->state() == SessionState::disconnected );
-                CHECK( c->connect(yield) == 1 );
-                CHECK( c->state() == SessionState::closed );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                CHECK( s->state() == SessionState::disconnected );
+                CHECK( s->connect(yield) == 1 );
+                CHECK( s->state() == SessionState::closed );
 
                 // Join
-                SessionId sid = c->join(testRealm, yield);
-                CHECK ( sid <= 9007199254740992ull );
-                CHECK( c->state() == SessionState::established );
-                CHECK( c->realm() == testRealm );
-                Object info = c->peerInfo();
-                REQUIRE( info.count("roles") );
-                REQUIRE( info["roles"].is<Object>() );
-                Object roles = info["roles"].as<Object>();
+                SessionInfo info = s->join(Realm(testRealm), yield);
+                CHECK( s->state() == SessionState::established );
+                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK( info.realm()  == testRealm );
+                Object details = info.options();
+                REQUIRE( details.count("roles") );
+                REQUIRE( details["roles"].is<Object>() );
+                Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
+                CHECK( info.supportsRoles({"broker", "dealer"}) );
 
                 // Disconnect
-                CHECK_NOTHROW( c->disconnect() );
-                CHECK( c->state() == SessionState::disconnected );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                CHECK_NOTHROW( s->disconnect() );
+                CHECK( s->state() == SessionState::disconnected );
             }
 
             {
                 // Connect
-                CHECK( c->connect(yield) == 1 );
-                CHECK( c->state() == SessionState::closed );
-                CHECK( c->realm().empty() );
-                CHECK( c->peerInfo().empty() );
+                CHECK( s->connect(yield) == 1 );
+                CHECK( s->state() == SessionState::closed );
 
                 // Join
-                SessionId sid = c->join(testRealm, yield);
-                CHECK ( sid <= 9007199254740992ull );
-                CHECK( c->state() == SessionState::established );
-                CHECK( c->realm() == testRealm );
-                Object info = c->peerInfo();
-                REQUIRE( info.count("roles") );
-                REQUIRE( info["roles"].is<Object>() );
-                Object roles = info["roles"].as<Object>();
+                SessionInfo info = s->join(Realm(testRealm), yield);
+                CHECK( s->state() == SessionState::established );
+                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK( info.realm()  == testRealm );
+                Object details = info.options();
+                REQUIRE( details.count("roles") );
+                REQUIRE( details["roles"].is<Object>() );
+                Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
+                CHECK( info.supportsRoles({"broker", "dealer"}) );
             }
         });
 
@@ -1345,14 +1263,16 @@ else
             f.enroll(yield);
 
             std::error_code ec;
-            Registration reg;
+            Registration::Ptr reg;
             auto handler = [](Invocation) {};
 
-            CHECK_THROWS_AS( f.callee->enroll<void>("void", handler, yield),
-                             error::Wamp );
-            f.callee->enroll<void>("void", handler, yield, ec);
-            CHECK( ec == WampErrc::registerError );
-            CHECK( ec == WampErrc::procedureAlreadyExists );
+            CHECK_THROWS_AS( f.callee->enroll(Procedure("dynamic"), handler,
+                                              yield),
+                             error::Failure );
+            reg = f.callee->enroll(Procedure("dynamic"), handler, yield, &ec);
+            CHECK( ec == SessionErrc::registerError );
+            CHECK( ec == SessionErrc::procedureAlreadyExists );
+            CHECK( !reg );
         });
         iosvc.run();
     }
@@ -1367,50 +1287,20 @@ else
             f.join(yield);
             f.enroll(yield);
 
-            auto reg = f.callee->enroll<void>(
-                "rpc",
+            auto reg = f.callee->enroll(
+                Procedure("rpc"),
                 [&callCount](Invocation inv)
                 {
                     ++callCount;
-                    inv.fail("wamp.error.not_authorized");
+                    inv.yield(Error("wamp.error.not_authorized"));
                 },
                 yield);
 
-            CHECK_THROWS_AS( f.caller->call("rpc", yield), error::Wamp );
-            f.caller->call("rpc", yield, ec);
-            CHECK( ec == WampErrc::notAuthorized );
+            CHECK_THROWS_AS( f.caller->call(Rpc("rpc"), yield),
+                             error::Failure );
+            f.caller->call(Rpc("rpc"), yield, &ec);
+            CHECK( ec == SessionErrc::notAuthorized );
             CHECK( callCount == 2 );
-        });
-        iosvc.run();
-    }
-
-    WHEN( "yielding an invocation more than once" )
-    {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
-        {
-            bool thrown = false;
-            RpcFixture f(cnct);
-            f.join(yield);
-            f.enroll(yield);
-
-            auto reg = f.callee->enroll<void>(
-                "rpc",
-                [&thrown](Invocation inv)
-                {
-                    inv.yield();
-                    try
-                    {
-                        inv.yield();
-                    }
-                    catch(const error::Logic& e)
-                    {
-                        thrown = true;
-                    }
-                },
-                yield);
-
-            CHECK_NOTHROW( f.caller->call("rpc", yield) );
-            CHECK( thrown );
         });
         iosvc.run();
     }
@@ -1425,19 +1315,21 @@ else
             f.enroll(yield);
 
             // Check type mismatch
-            CHECK_THROWS_AS( f.caller->call("static", {42, 42}, yield),
-                             error::Wamp );
-            f.caller->call("static", {42, 42}, yield, ec);
-            CHECK( ec == WampErrc::callError );
-            CHECK( ec == WampErrc::invalidArgument );
+            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs({42, 42}),
+                                            yield),
+                             error::Failure );
+            f.caller->call(Rpc("static").withArgs({42, 42}), yield, &ec);
+            CHECK( ec == SessionErrc::callError );
+            CHECK( ec == SessionErrc::invalidArgument );
             CHECK( f.staticCount == 0 );
 
             // Check insufficient arguments
-            CHECK_THROWS_AS( f.caller->call("static", {42}, yield),
-                             error::Wamp );
-            f.caller->call("static", {42}, yield, ec);
-            CHECK( ec == WampErrc::callError );
-            CHECK( ec == WampErrc::invalidArgument );
+            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs({42}),
+                                            yield),
+                             error::Failure );
+            f.caller->call(Rpc("static").withArgs({42}), yield, &ec);
+            CHECK( ec == SessionErrc::callError );
+            CHECK( ec == SessionErrc::invalidArgument );
             CHECK( f.staticCount == 0 );
         });
         iosvc.run();
@@ -1453,10 +1345,12 @@ else
             f.subscribe(yield);
 
             // Publications with invalid arguments should be ignored.
-            CHECK_NOTHROW( f.publisher->publish("str.num", {42, 42}, yield ) );
+            CHECK_NOTHROW( f.publisher->publish(
+                               Pub("str.num").withArgs({42, 42}), yield ) );
 
             // Publish with valid types so that we know when to stop polling.
-            pid = f.publisher->publish("str.num", {"foo", 42}, yield);
+            pid = f.publisher->publish(Pub("str.num").withArgs({"foo", 42}),
+                                       yield);
             while (f.staticPubs.size() < 1)
                 f.subscriber->suspend(yield);
             REQUIRE( f.staticPubs.size() == 1 );
@@ -1464,8 +1358,8 @@ else
 
             // Publications with extra arguments should be handled,
             // as long as the required arguments have valid types.
-            CHECK_NOTHROW( pid = f.publisher->publish("str.num",
-                    {"foo", 42, true}, yield) );
+            CHECK_NOTHROW( pid = f.publisher->publish(
+                    Pub("str.num").withArgs({"foo", 42, true}), yield) );
             while (f.staticPubs.size() < 2)
                 f.subscriber->suspend(yield);
             REQUIRE( f.staticPubs.size() == 2 );
@@ -1476,88 +1370,87 @@ else
 
     WHEN( "joining with an invalid realm URI" )
     {
-        using ClientType = CoroErrcClient<CoroClient<>>;
         using Yield = boost::asio::yield_context;
         checkInvalidUri(
-            [](ClientType& client, Yield yield)
-                {client.join("#bad", yield);},
-            [](ClientType& client, Yield yield, std::error_code& ec)
-                {client.join("#bad", yield, ec);},
+            [](CoroSession<>& session, Yield yield)
+                {session.join(Realm("#bad"), yield);},
+            [](CoroSession<>& session, Yield yield, std::error_code& ec)
+                {session.join(Realm("#bad"), yield, &ec);},
             false );
     }
 
     WHEN( "leaving with an invalid reason URI" )
     {
-        using ClientType = CoroErrcClient<CoroClient<>>;
         using Yield = boost::asio::yield_context;
         checkInvalidUri(
-            [](ClientType& client, Yield yield)
-                {client.leave("#bad", yield);},
-            [](ClientType& client, Yield yield, std::error_code& ec)
-                {client.leave("#bad", yield, ec);} );
+            [](CoroSession<>& session, Yield yield)
+                {session.leave(Reason("#bad"), yield);},
+            [](CoroSession<>& session, Yield yield, std::error_code& ec)
+                {session.leave(Reason("#bad"), yield, &ec);} );
     }
 
     WHEN( "subscribing with an invalid topic URI" )
     {
-        using ClientType = CoroErrcClient<CoroClient<>>;
         using Yield = boost::asio::yield_context;
         checkInvalidUri(
-            [](ClientType& client, Yield yield)
-                {client.subscribe<void>("#bad", [](PublicationId) {}, yield);},
-            [](ClientType& client, Yield yield, std::error_code& ec)
-                {client.subscribe<void>("#bad", [](PublicationId) {},
-                                        yield, ec);} );
+            [](CoroSession<>& session, Yield yield)
+                {session.subscribe(Topic("#bad"), [](Event) {}, yield);},
+            [](CoroSession<>& session, Yield yield, std::error_code& ec)
+                {session.subscribe(Topic("#bad"), [](Event) {}, yield, &ec);} );
     }
 
     WHEN( "publishing with an invalid topic URI" )
     {
-        using ClientType = CoroErrcClient<CoroClient<>>;
         using Yield = boost::asio::yield_context;
         checkInvalidUri(
-            [](ClientType& client, Yield yield)
-                {client.publish("#bad", yield);},
-            [](ClientType& client, Yield yield, std::error_code& ec)
-                {client.publish("#bad", yield, ec);} );
+            [](CoroSession<>& session, Yield yield)
+                {session.publish(Pub("#bad"), yield);},
+            [](CoroSession<>& session, Yield yield, std::error_code& ec)
+                {session.publish(Pub("#bad"), yield, &ec);} );
 
         AND_WHEN( "publishing with args" )
         {
             checkInvalidUri(
-                [](ClientType& client, Yield yield)
-                    {client.publish("#bad", {42}, yield);},
-                [](ClientType& client, Yield yield, std::error_code& ec)
-                    {client.publish("#bad", {42}, yield, ec);} );
+                [](CoroSession<>& session, Yield yield)
+                    {session.publish(Pub("#bad").withArgs({42}), yield);},
+                [](CoroSession<>& session, Yield yield, std::error_code& ec)
+                {
+                    session.publish(Pub("#bad").withArgs({42}), yield, &ec);
+                });
         }
     }
 
     WHEN( "enrolling with an invalid procedure URI" )
     {
-        using ClientType = CoroErrcClient<CoroClient<>>;
         using Yield = boost::asio::yield_context;
         checkInvalidUri(
-            [](ClientType& client, Yield yield)
-                {client.enroll<void>("#bad", [](Invocation) {}, yield);},
-            [](ClientType& client, Yield yield, std::error_code& ec)
-                {client.enroll<void>("#bad", [](Invocation) {},
-                                     yield, ec);} );
+            [](CoroSession<>& session, Yield yield)
+            {
+                session.enroll(Procedure("#bad"), [](Invocation) {}, yield);
+            },
+            [](CoroSession<>& session, Yield yield, std::error_code& ec)
+            {
+                session.enroll(Procedure("#bad"), [](Invocation) {}, yield, &ec);
+            }
+        );
     }
 
     WHEN( "calling with an invalid procedure URI" )
     {
-        using ClientType = CoroErrcClient<CoroClient<>>;
         using Yield = boost::asio::yield_context;
         checkInvalidUri(
-            [](ClientType& client, Yield yield)
-                {client.call("#bad", yield);},
-            [](ClientType& client, Yield yield, std::error_code& ec)
-                {client.call("#bad", yield, ec);} );
+            [](CoroSession<>& session, Yield yield)
+                {session.call(Rpc("#bad"), yield);},
+            [](CoroSession<>& session, Yield yield, std::error_code& ec)
+                {session.call(Rpc("#bad"), yield, &ec);} );
 
         AND_WHEN( "calling with args" )
         {
             checkInvalidUri(
-                [](ClientType& client, Yield yield)
-                    {client.call("#bad", {42}, yield);},
-                [](ClientType& client, Yield yield, std::error_code& ec)
-                    {client.call("#bad", {42}, yield, ec);} );
+                [](CoroSession<>& session, Yield yield)
+                    {session.call(Rpc("#bad").withArgs({42}), yield);},
+                [](CoroSession<>& session, Yield yield, std::error_code& ec)
+                    {session.call(Rpc("#bad").withArgs({42}), yield, &ec);} );
         }
     }
 
@@ -1565,34 +1458,34 @@ else
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto client = CoroErrcClient<CoroClient<>>::create(cnct);
-            client->connect(yield);
+            auto session = CoroSession<>::create(cnct);
+            session->connect(yield);
 
             bool throws = false;
             try
             {
-                client->join("nonexistent", yield);
+                session->join(Realm("nonexistent"), yield);
             }
-            catch (const error::Wamp& e)
+            catch (const error::Failure& e)
             {
                 throws = true;
-                CHECK( e.code() == WampErrc::joinError );
-                CHECK( e.code() == WampErrc::noSuchRealm );
+                CHECK( e.code() == SessionErrc::joinError );
+                CHECK( e.code() == SessionErrc::noSuchRealm );
             }
             CHECK( throws );
 
             std::error_code ec;
-            client->join("nonexistent", yield, ec);
-            CHECK( ec == WampErrc::joinError );
-            CHECK( ec == WampErrc::noSuchRealm );
+            session->join(Realm("nonexistent"), yield, &ec);
+            CHECK( ec == SessionErrc::joinError );
+            CHECK( ec == SessionErrc::noSuchRealm );
         });
 
         iosvc.run();
     }
 
-    WHEN( "constructing a client with an empty connector list" )
+    WHEN( "constructing a session with an empty connector list" )
     {
-        CHECK_THROWS_AS( Client::create(ConnectorList{}), error::Logic );
+        CHECK_THROWS_AS( Session::create(ConnectorList{}), error::Logic );
     }
 
     WHEN( "using invalid operations while disconnected" )
@@ -1600,11 +1493,11 @@ else
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            auto client = CoroErrcClient<CoroClient<>>::create(cnct);
-            REQUIRE( client->state() == SessionState::disconnected );
-            checkInvalidJoin(client, yield);
-            checkInvalidLeave(client, yield);
-            checkInvalidOps(client, yield);
+            auto session = CoroSession<>::create(cnct);
+            REQUIRE( session->state() == SessionState::disconnected );
+            checkInvalidJoin(session, yield);
+            checkInvalidLeave(session, yield);
+            checkInvalidOps(session, yield);
         });
 
         iosvc.run();
@@ -1612,18 +1505,18 @@ else
 
     WHEN( "using invalid operations while connecting" )
     {
-        auto client = CoroErrcClient<CoroClient<>>::create(cnct);
-        client->connect( [](AsyncResult<size_t>){} );
+        auto session = CoroSession<>::create(cnct);
+        session->connect( [](AsyncResult<size_t>){} );
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             iosvc.stop();
             iosvc.reset();
-            REQUIRE( client->state() == SessionState::connecting );
-            checkInvalidConnect(client, yield);
-            checkInvalidJoin(client, yield);
-            checkInvalidLeave(client, yield);
-            checkInvalidOps(client, yield);
+            REQUIRE( session->state() == SessionState::connecting );
+            checkInvalidConnect(session, yield);
+            checkInvalidJoin(session, yield);
+            checkInvalidLeave(session, yield);
+            checkInvalidOps(session, yield);
         });
 
         iosvc.run();
@@ -1636,12 +1529,12 @@ else
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto client = CoroErrcClient<CoroClient<>>::create(badCnct);
-            CHECK_THROWS( client->connect(yield) );
-            REQUIRE( client->state() == SessionState::failed );
-            checkInvalidJoin(client, yield);
-            checkInvalidLeave(client, yield);
-            checkInvalidOps(client, yield);
+            auto session = CoroSession<>::create(badCnct);
+            CHECK_THROWS( session->connect(yield) );
+            REQUIRE( session->state() == SessionState::failed );
+            checkInvalidJoin(session, yield);
+            checkInvalidLeave(session, yield);
+            checkInvalidOps(session, yield);
         });
 
         iosvc.run();
@@ -1651,12 +1544,12 @@ else
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto client = CoroErrcClient<CoroClient<>>::create(cnct);
-            client->connect(yield);
-            REQUIRE( client->state() == SessionState::closed );
-            checkInvalidConnect(client, yield);
-            checkInvalidLeave(client, yield);
-            checkInvalidOps(client, yield);
+            auto session = CoroSession<>::create(cnct);
+            session->connect(yield);
+            REQUIRE( session->state() == SessionState::closed );
+            checkInvalidConnect(session, yield);
+            checkInvalidLeave(session, yield);
+            checkInvalidOps(session, yield);
         });
 
         iosvc.run();
@@ -1664,24 +1557,24 @@ else
 
     WHEN( "using invalid operations while establishing" )
     {
-        auto client = CoroErrcClient<CoroClient<>>::create(cnct);
+        auto session = CoroSession<>::create(cnct);
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            client->connect(yield);
+            session->connect(yield);
         });
 
         iosvc.run();
 
-        client->join(testRealm, [](AsyncResult<SessionId>){});
+        session->join(Realm(testRealm), [](AsyncResult<SessionInfo>){});
 
         AsioService iosvc2;
         boost::asio::spawn(iosvc2, [&](boost::asio::yield_context yield)
         {
-            REQUIRE( client->state() == SessionState::establishing );
-            checkInvalidConnect(client, yield);
-            checkInvalidJoin(client, yield);
-            checkInvalidLeave(client, yield);
-            checkInvalidOps(client, yield);
+            REQUIRE( session->state() == SessionState::establishing );
+            checkInvalidConnect(session, yield);
+            checkInvalidJoin(session, yield);
+            checkInvalidLeave(session, yield);
+            checkInvalidOps(session, yield);
         });
 
         CHECK_NOTHROW( iosvc2.run() );
@@ -1691,12 +1584,12 @@ else
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto client = CoroErrcClient<CoroClient<>>::create(cnct);
-            client->connect(yield);
-            client->join(testRealm, yield);
-            REQUIRE( client->state() == SessionState::established );
-            checkInvalidConnect(client, yield);
-            checkInvalidJoin(client, yield);
+            auto session = CoroSession<>::create(cnct);
+            session->connect(yield);
+            session->join(Realm(testRealm), yield);
+            REQUIRE( session->state() == SessionState::established );
+            checkInvalidConnect(session, yield);
+            checkInvalidJoin(session, yield);
         });
 
         iosvc.run();
@@ -1704,70 +1597,54 @@ else
 
     WHEN( "using invalid operations while shutting down" )
     {
-        auto client = CoroErrcClient<CoroClient<>>::create(cnct);
+        auto session = CoroSession<>::create(cnct);
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            client->connect(yield);
-            client->join(testRealm, yield);
+            session->connect(yield);
+            session->join(Realm(testRealm), yield);
             iosvc.stop();
         });
         iosvc.run();
         iosvc.reset();
 
-        client->leave([](AsyncResult<std::string>){});
+        session->leave(Reason(), [](AsyncResult<Reason>){});
 
         AsioService iosvc2;
         boost::asio::spawn(iosvc2, [&](boost::asio::yield_context yield)
         {
-            REQUIRE( client->state() == SessionState::shuttingDown );
-            checkInvalidConnect(client, yield);
-            checkInvalidJoin(client, yield);
-            checkInvalidLeave(client, yield);
-            checkInvalidOps(client, yield);
+            REQUIRE( session->state() == SessionState::shuttingDown );
+            checkInvalidConnect(session, yield);
+            checkInvalidJoin(session, yield);
+            checkInvalidLeave(session, yield);
+            checkInvalidOps(session, yield);
         });
         CHECK_NOTHROW( iosvc2.run() );
     }
 
     WHEN( "disconnecting during async join" )
     {
-        checkDisconnect<SessionId>([](CoroClient<>& client,
-                                      boost::asio::yield_context,
-                                      bool& completed,
-                                      AsyncResult<SessionId>& result)
+        checkDisconnect<SessionInfo>([](CoroSession<>& session,
+                                        boost::asio::yield_context,
+                                        bool& completed,
+                                        AsyncResult<SessionInfo>& result)
         {
-            client.join(testRealm, [&](AsyncResult<SessionId> sid)
+            session.join(Realm(testRealm), [&](AsyncResult<SessionInfo> info)
             {
                 completed = true;
-                result = sid;
+                result = info;
             });
         });
     }
 
     WHEN( "disconnecting during async leave" )
     {
-        checkDisconnect<std::string>([](CoroClient<>& client,
-                                        boost::asio::yield_context yield,
-                                        bool& completed,
-                                        AsyncResult<std::string>& result)
+        checkDisconnect<Reason>([](CoroSession<>& session,
+                                   boost::asio::yield_context yield,
+                                   bool& completed,
+                                   AsyncResult<Reason>& result)
         {
-            client.join(testRealm, yield);
-            client.leave([&](AsyncResult<std::string> reason)
-            {
-                completed = true;
-                result = reason;
-            });
-        });
-    }
-
-    WHEN( "disconnecting during async leave with reason" )
-    {
-        checkDisconnect<std::string>([](CoroClient<>& client,
-                                        boost::asio::yield_context yield,
-                                        bool& completed,
-                                        AsyncResult<std::string>& result)
-        {
-            client.join(testRealm, yield);
-            client.leave("because", [&](AsyncResult<std::string> reason)
+            session.join(Realm(testRealm), yield);
+            session.leave(Reason(), [&](AsyncResult<Reason> reason)
             {
                 completed = true;
                 result = reason;
@@ -1777,14 +1654,15 @@ else
 
     WHEN( "disconnecting during async subscribe" )
     {
-        checkDisconnect<Subscription>([](CoroClient<>& client,
-                                         boost::asio::yield_context yield,
-                                         bool& completed,
-                                         AsyncResult<Subscription>& result)
+        checkDisconnect<Subscription::Ptr>(
+                    [](CoroSession<>& session,
+                    boost::asio::yield_context yield,
+                    bool& completed,
+                    AsyncResult<Subscription::Ptr>& result)
         {
-            client.join(testRealm, yield);
-            client.subscribe<void>("topic", [] (PublicationId) {},
-                [&](AsyncResult<Subscription> sub)
+            session.join(Realm(testRealm), yield);
+            session.subscribe(Topic("topic"), [] (Event) {},
+                [&](AsyncResult<Subscription::Ptr> sub)
                 {
                     completed = true;
                     result = sub;
@@ -1794,15 +1672,14 @@ else
 
     WHEN( "disconnecting during async unsubscribe" )
     {
-        checkDisconnect<bool>([](CoroClient<>& client,
+        checkDisconnect<bool>([](CoroSession<>& session,
                                  boost::asio::yield_context yield,
                                  bool& completed,
                                  AsyncResult<bool>& result)
         {
-            client.join(testRealm, yield);
-            auto sub = client.subscribe<void>("topic", [] (PublicationId) {},
-                    yield);
-            sub.unsubscribe([&](AsyncResult<bool> unsubscribed)
+            session.join(Realm(testRealm), yield);
+            auto sub = session.subscribe(Topic("topic"), [] (Event) {}, yield);
+            sub->unsubscribe([&](AsyncResult<bool> unsubscribed)
             {
                 completed = true;
                 result = unsubscribed;
@@ -1810,17 +1687,16 @@ else
         });
     }
 
-    WHEN( "disconnecting during async unsubscribe via client" )
+    WHEN( "disconnecting during async unsubscribe via session" )
     {
-        checkDisconnect<bool>([](CoroClient<>& client,
+        checkDisconnect<bool>([](CoroSession<>& session,
                                  boost::asio::yield_context yield,
                                  bool& completed,
                                  AsyncResult<bool>& result)
         {
-            client.join(testRealm, yield);
-            auto sub = client.subscribe<void>("topic", [] (PublicationId) {},
-                    yield);
-            client.unsubscribe(sub, [&](AsyncResult<bool> unsubscribed)
+            session.join(Realm(testRealm), yield);
+            auto sub = session.subscribe(Topic("topic"), [](Event) {}, yield);
+            session.unsubscribe(sub, [&](AsyncResult<bool> unsubscribed)
             {
                 completed = true;
                 result = unsubscribed;
@@ -1830,13 +1706,13 @@ else
 
     WHEN( "disconnecting during async publish" )
     {
-        checkDisconnect<PublicationId>([](CoroClient<>& client,
+        checkDisconnect<PublicationId>([](CoroSession<>& session,
                                           boost::asio::yield_context yield,
                                           bool& completed,
                                           AsyncResult<PublicationId>& result)
         {
-            client.join(testRealm, yield);
-            client.publish("topic", [&](AsyncResult<PublicationId> pid)
+            session.join(Realm(testRealm), yield);
+            session.publish(Pub("topic"), [&](AsyncResult<PublicationId> pid)
             {
                 completed = true;
                 result = pid;
@@ -1846,30 +1722,32 @@ else
 
     WHEN( "disconnecting during async publish with args" )
     {
-        checkDisconnect<PublicationId>([](CoroClient<>& client,
+        checkDisconnect<PublicationId>([](CoroSession<>& session,
                                           boost::asio::yield_context yield,
                                           bool& completed,
                                           AsyncResult<PublicationId>& result)
         {
-            client.join(testRealm, yield);
-            client.publish("topic", {"foo"}, [&](AsyncResult<PublicationId> pid)
-            {
-                completed = true;
-                result = pid;
-            });
+            session.join(Realm(testRealm), yield);
+            session.publish(Pub("topic").withArgs({"foo"}),
+                [&](AsyncResult<PublicationId> pid)
+                {
+                    completed = true;
+                    result = pid;
+                });
         });
     }
 
     WHEN( "disconnecting during async enroll" )
     {
-        checkDisconnect<Registration>([](CoroClient<>& client,
-                                         boost::asio::yield_context yield,
-                                         bool& completed,
-                                         AsyncResult<Registration>& result)
+        checkDisconnect<Registration::Ptr>(
+                    [](CoroSession<>& session,
+                    boost::asio::yield_context yield,
+                    bool& completed,
+                    AsyncResult<Registration::Ptr>& result)
         {
-            client.join(testRealm, yield);
-            client.enroll<void>("rpc", [] (Invocation) {},
-                [&](AsyncResult<Registration> reg)
+            session.join(Realm(testRealm), yield);
+            session.enroll(Procedure("rpc"), [] (Invocation) {},
+                [&](AsyncResult<Registration::Ptr> reg)
                 {
                     completed = true;
                     result = reg;
@@ -1879,14 +1757,14 @@ else
 
     WHEN( "disconnecting during async unregister" )
     {
-        checkDisconnect<bool>([](CoroClient<>& client,
+        checkDisconnect<bool>([](CoroSession<>& session,
                                  boost::asio::yield_context yield,
                                  bool& completed,
                                  AsyncResult<bool>& result)
         {
-            client.join(testRealm, yield);
-            auto reg = client.enroll<void>("rpc", [] (Invocation) {}, yield);
-            reg.unregister([&](AsyncResult<bool> unregistered)
+            session.join(Realm(testRealm), yield);
+            auto reg = session.enroll(Procedure("rpc"), [](Invocation){}, yield);
+            reg->unregister([&](AsyncResult<bool> unregistered)
             {
                 completed = true;
                 result = unregistered;
@@ -1894,16 +1772,16 @@ else
         });
     }
 
-    WHEN( "disconnecting during async unregister via client" )
+    WHEN( "disconnecting during async unregister via session" )
     {
-        checkDisconnect<bool>([](CoroClient<>& client,
+        checkDisconnect<bool>([](CoroSession<>& session,
                                  boost::asio::yield_context yield,
                                  bool& completed,
                                  AsyncResult<bool>& result)
         {
-            client.join(testRealm, yield);
-            auto reg = client.enroll<void>("rpc", [] (Invocation) {}, yield);
-            client.unregister(reg, [&](AsyncResult<bool> unregistered)
+            session.join(Realm(testRealm), yield);
+            auto reg = session.enroll(Procedure("rpc"), [](Invocation){}, yield);
+            session.unregister(reg, [&](AsyncResult<bool> unregistered)
             {
                 completed = true;
                 result = unregistered;
@@ -1913,49 +1791,18 @@ else
 
     WHEN( "disconnecting during async call" )
     {
-        checkDisconnect<Args>([](CoroClient<>& client,
-                                 boost::asio::yield_context yield,
-                                 bool& completed,
-                                 AsyncResult<Args>& result)
+        checkDisconnect<Result>([](CoroSession<>& session,
+                                   boost::asio::yield_context yield,
+                                   bool& completed,
+                                   AsyncResult<Result>& result)
         {
-            client.join(testRealm, yield);
-            client.call("rpc", [&](AsyncResult<Args> args)
-            {
-                completed = true;
-                result = args;
-            });
-        });
-    }
-
-    WHEN( "disconnecting during async call with args" )
-    {
-        checkDisconnect<Args>([](CoroClient<>& client,
-                                 boost::asio::yield_context yield,
-                                 bool& completed,
-                                 AsyncResult<Args>& result)
-        {
-            client.join(testRealm, yield);
-            client.call("rpc", {"foo"}, [&](AsyncResult<Args> args)
-            {
-                completed = true;
-                result = args;
-            });
-        });
-    }
-
-    WHEN( "disconnecting during async call with args" )
-    {
-        checkDisconnect<Args>([](CoroClient<>& client,
-                                 boost::asio::yield_context yield,
-                                 bool& completed,
-                                 AsyncResult<Args>& result)
-        {
-            client.join(testRealm, yield);
-            client.call("rpc", {"foo"}, [&](AsyncResult<Args> args)
-            {
-                completed = true;
-                result = args;
-            });
+            session.join(Realm(testRealm), yield);
+            session.call(Rpc("rpc").withArgs({"foo"}),
+                [&](AsyncResult<Result> callResult)
+                {
+                    completed = true;
+                    result = callResult;
+                });
         });
     }
 
@@ -1964,13 +1811,13 @@ else
         bool published = false;
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto c = CoroClient<>::create(cnct);
-            c->connect(yield);
-            c->join(testRealm, yield);
-            c->publish("topic",
-                      [&](AsyncResult<PublicationId>) {published = true;});
-            c->leave(yield);
-            CHECK( c->state() == SessionState::closed );
+            auto s = CoroSession<>::create(cnct);
+            s->connect(yield);
+            s->join(Realm(testRealm), yield);
+            s->publish(Pub("topic"),
+                       [&](AsyncResult<PublicationId>) {published = true;});
+            s->leave(Reason(), yield);
+            CHECK( s->state() == SessionState::closed );
         });
 
         iosvc.run();

@@ -5,8 +5,8 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_SESSION_HPP
-#define CPPWAMP_INTERNAL_SESSION_HPP
+#ifndef CPPWAMP_INTERNAL_DIALOGUE_HPP
+#define CPPWAMP_INTERNAL_DIALOGUE_HPP
 
 #include <cassert>
 #include <functional>
@@ -15,8 +15,8 @@
 #include <sstream>
 #include <string>
 #include <utility>
-#include "../args.hpp"
 #include "../codec.hpp"
+#include "../dialoguedata.hpp"
 #include "../error.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
@@ -29,8 +29,12 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+// Base class providing session functionality common to both clients and
+// routers. This class is extended by Client to implement a client session.
+//------------------------------------------------------------------------------
 template <typename TCodec, typename TTransport>
-class Session : public std::enable_shared_from_this<Session<TCodec, TTransport>>
+class Dialogue :
+        public std::enable_shared_from_this<Dialogue<TCodec, TTransport>>
 {
 public:
     using Codec        = TCodec;
@@ -40,15 +44,13 @@ public:
 
     State state() const {return state_;}
 
-    const std::string& realm() const {return realm_;}
-
 protected:
     using Message      = WampMessage;
     using Handler      = std::function<void (std::error_code, Message)>;
     using RxHandler    = std::function<void (Message)>;
     using LogHandler   = std::function<void (std::string)>;
 
-    Session(TransportPtr&& transport)
+    Dialogue(TransportPtr&& transport)
         : transport_(std::move(transport))
     {
         initMessages();
@@ -58,15 +60,14 @@ protected:
 
     virtual void onInbound(Message msg) = 0;
 
-    void start(std::string realm)
+    void start()
     {
         assert(state_ == State::closed || state_ == State::disconnected);
-        realm_ = std::move(realm);
         state_ = State::establishing;
 
         if (!transport_->isStarted())
         {
-            std::weak_ptr<Session> self(this->shared_from_this());
+            std::weak_ptr<Dialogue> self(this->shared_from_this());
 
             transport_->start(
                         [self](Buffer buf)
@@ -83,13 +84,14 @@ protected:
         }
     }
 
-    void adjourn(std::string reason, Object details, Handler handler)
+    void adjourn(Reason reason, Handler handler)
     {
         assert(state_ == State::established);
 
         state_ = State::shuttingDown;
+        using std::move;
         Message msg = { WampMsgType::goodbye,
-                        {0u, std::move(details), std::move(reason)} };
+                        {0u, move(reason.options({})), move(reason.uri({}))} };
         auto self = this->shared_from_this();
         request(msg,
             [this, self, handler](std::error_code ec, Message reply)
@@ -97,22 +99,19 @@ protected:
                 if (!ec)
                 {
                     state_ = State::closed;
-                    abortPending(make_error_code(WampErrc::sessionEnded));
+                    abortPending(make_error_code(SessionErrc::sessionEnded));
                     post(handler, make_error_code(ProtocolErrc::success),
-                         std::move(reply));
+                         move(reply));
                 }
                 else
                     post(handler, ec, Message());
-
-                realm_.clear();
             });
     }
 
     void close(bool terminating)
     {
         state_ = State::disconnected;
-        abortPending(make_error_code(WampErrc::sessionEnded), terminating);
-        realm_.clear();
+        abortPending(make_error_code(SessionErrc::sessionEnded), terminating);
         transport_->close();
     }
 
@@ -121,52 +120,40 @@ protected:
         sendMessage(msg);
     }
 
-    void sendError(WampMsgType reqType, RequestId reqId, std::string reason,
-                   Object details = Object())
-    {
-        auto& f = errorMsg_.fields;
-        f.at(1) = static_cast<Int>(reqType);
-        f.at(2) = reqId;
-        f.at(3) = std::move(details);
-        f.at(4) = std::move(reason);
-        send(errorMsg_);
-    }
-
-    void sendError(WampMsgType reqType, RequestId reqId, std::string reason,
-                   Args args)
-    {
-        using std::move;
-        sendError(reqType, reqId, move(reason), Object(), move(args));
-    }
-
-    void sendError(WampMsgType reqType, RequestId reqId, std::string reason,
-                   Object details, Args args)
+    void sendError(WampMsgType reqType, RequestId reqId, Error failure)
     {
         using std::move;
 
-        if (!args.map.empty())
+        if (!failure.kwargs().empty())
         {
-            auto& f = errorWithKvArgsMsg_.fields;
+            auto& f = errorWithKwargsMsg_.fields;
             f.at(1) = static_cast<Int>(reqType);
             f.at(2) = reqId;
-            f.at(3) = move(details);
-            f.at(4) = move(reason);
-            f.at(5) = move(args.list);
-            f.at(6) = move(args.map);
-            send(errorWithKvArgsMsg_);
+            f.at(3) = move(failure.options({}));
+            f.at(4) = move(failure.reason({}));
+            f.at(5) = move(failure.args({}));
+            f.at(6) = move(failure.kwargs({}));
+            send(errorWithKwargsMsg_);
         }
-        else if (!args.list.empty())
+        else if (!failure.args().empty())
         {
             auto& f = errorWithArgsMsg_.fields;
             f.at(1) = static_cast<Int>(reqType);
             f.at(2) = reqId;
-            f.at(3) = move(details);
-            f.at(4) = move(reason);
-            f.at(5) = move(args.list);
+            f.at(3) = move(failure.options({}));
+            f.at(4) = move(failure.reason({}));
+            f.at(5) = move(failure.args({}));
             send(errorWithArgsMsg_);
         }
         else
-            sendError(reqType, reqId, move(reason), move(details));
+        {
+            auto& f = errorMsg_.fields;
+            f.at(1) = static_cast<Int>(reqType);
+            f.at(2) = reqId;
+            f.at(3) = move(failure.options({}));
+            f.at(4) = move(failure.reason({}));
+            send(errorMsg_);
+        }
     }
 
     void request(Message& msg, Handler&& handler)
@@ -211,7 +198,7 @@ private:
 
         auto buf = newBuffer(msg);
         if (buf->length() > transport_->maxSendLength())
-            throw error::Wamp(make_error_code(TransportErrc::badTxLength));
+            throw error::Failure(make_error_code(TransportErrc::badTxLength));
 
         if (handler)
             requestMap_[msg.requestKey()] = std::move(handler);
@@ -303,7 +290,7 @@ private:
                 if (state_ != State::shuttingDown)
                 {
                     auto self = this->shared_from_this();
-                    post(std::bind(&Session::onInbound, self, std::move(msg)));
+                    post(std::bind(&Dialogue::onInbound, self, std::move(msg)));
                 }
                 break;
         }
@@ -326,7 +313,7 @@ private:
         assert(state_ == State::establishing);
         state_ = State::established;
         auto self = this->shared_from_this();
-        post(std::bind(&Session::onInbound, self, std::move(msg)));
+        post(std::bind(&Dialogue::onInbound, self, std::move(msg)));
     }
 
     void processWelcome(Message&& msg)
@@ -354,9 +341,8 @@ private:
         }
         else
         {
-            WampErrc errc = WampErrc::closeRealm;
             auto reason = msg.fields.at(2).as<String>();
-            lookupWampErrorUri(reason, errc);
+            auto errc = lookupWampErrorUri(reason, SessionErrc::closeRealm);
             abortPending(make_error_code(errc));
             Message reply{ WampMsgType::goodbye,
                            {0u, Object{}, "wamp.error.goodbye_and_out"} };
@@ -449,12 +435,11 @@ private:
 
         errorMsg_           = M{ T::error, {n, n, n, o, s} };
         errorWithArgsMsg_   = M{ T::error, {n, n, n, o, s, a} };
-        errorWithKvArgsMsg_ = M{ T::error, {n, n, n, o, s, a, o} };
+        errorWithKwargsMsg_ = M{ T::error, {n, n, n, o, s, a, o} };
     }
 
     TransportPtr transport_;
     LogHandler traceHandler_;
-    std::string realm_;
     State state_ = State::closed;
     RequestMap requestMap_;
     RequestId nextRequestId_ = 0;
@@ -462,7 +447,7 @@ private:
 
     Message errorMsg_;
     Message errorWithArgsMsg_;
-    Message errorWithKvArgsMsg_;
+    Message errorWithKwargsMsg_;
 
     static constexpr RequestId maxRequestId_ = 9007199254740992ull;
 };
@@ -471,4 +456,4 @@ private:
 
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_SESSION_HPP
+#endif // CPPWAMP_INTERNAL_DIALOGUE_HPP

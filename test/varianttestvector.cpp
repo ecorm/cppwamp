@@ -30,6 +30,11 @@ void checkVec(const std::vector<T>& vector, bool convertible = true)
         Variant v;
         v = vector;
         CHECK( v == expected );
+        CHECK( v.size() == vector.size() );
+        for (Variant::SizeType i=0; i<v.size(); ++i)
+        {
+            CHECK( v[i] == vector.at(i) );
+        }
         CHECK( v.convertsTo<Vector>() == convertible );
         Vector converted;
         if (convertible)

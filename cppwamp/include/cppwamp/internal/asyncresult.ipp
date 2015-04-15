@@ -41,10 +41,10 @@ AsyncResult<T>::operator bool() const {return !errorCode_;}
 
 //------------------------------------------------------------------------------
 /** @details
-    If the AsyncResult contains a non-zero error code, then an error::Wamp
-    exception is thrown. The `error::Wamp::code` function of the thrown
+    If the AsyncResult contains a non-zero error code, then an error::Failure
+    exception is thrown. The `error::Failure::code` function of the thrown
     exception will return the same error code as `AsyncResult::errorCode`.
-    @throws error::Wamp if `this->errorCode() == true`. */
+    @throws error::Failure if `this->errorCode() == true`. */
 //------------------------------------------------------------------------------
 template <typename T>
 T& AsyncResult<T>::get()
@@ -72,7 +72,7 @@ std::error_code AsyncResult<T>::errorCode() const {return errorCode_;}
 
 //------------------------------------------------------------------------------
 /** @details
-    This text is also used as the `info` string of an error::Wamp
+    This text is also used as the `info` string of an error::Failure
     exception that might be thrown during AsyncResult::get. */
 //------------------------------------------------------------------------------
 template <typename T>
@@ -120,9 +120,9 @@ void AsyncResult<T>::checkError() const
     if (errorCode_)
     {
         if (errorInfo_.empty())
-            throw error::Wamp(errorCode_);
+            throw error::Failure(errorCode_);
         else
-            throw error::Wamp(errorCode_, errorInfo_);
+            throw error::Failure(errorCode_, errorInfo_);
     }
 }
 

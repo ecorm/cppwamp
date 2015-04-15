@@ -121,7 +121,7 @@ inline Variant::~Variant() {*this = null;}
 inline TypeId Variant::typeId() const {return typeId_;}
 
 //------------------------------------------------------------------------------
-inline Variant::operator bool() {return typeId_ != TypeId::null;}
+inline Variant::operator bool() const {return typeId_ != TypeId::null;}
 
 //------------------------------------------------------------------------------
 template <typename TBound> bool Variant::is() const
@@ -134,6 +134,88 @@ template <typename TBound> bool Variant::is() const
 template <TypeId id> bool Variant::is() const
 {
     return is<BoundTypeForId<id>>();
+}
+
+//------------------------------------------------------------------------------
+/** @details
+    The variant is deemed convertible to the target type according to the
+    following table:
+| Target,  Variant->    | Null  | Bool  | Int   | UInt  | Real  | String | Array | Object |
+|-----------------------|-------|-------|-------|-------|-------|--------|-------|--------|
+| Null                  | true  | false | false | false | false | false  | false | false  |
+| Bool                  | false | true  | true  | true  | true  | false  | false | false  |
+| _integer type_        | false | true  | true  | true  | true  | false  | false | false  |
+| _floating point type_ | false | true  | true  | true  | true  | false  | false | false  |
+| String                | false | false | false | false | false | true   | false | false  |
+| Array                 | false | false | false | false | false | false  | true  | false  |
+| std::vector<T>        | false | false | false | false | false | false  | maybe | false  |
+| Object                | false | false | false | false | false | false  | false | true   |
+| std::map<String,T>    | false | false | false | false | false | false  | false | maybe  |
+
+    An `Array` is convertible to `std::vector<T>` iff all `Array` elements are
+    convertible to `T`.
+
+    An `Object` is convertible to `std::map<String,T>` iff all Object values
+    are convertible to `T`.
+
+    @tparam T The target type to check for convertibility.
+    @see Variant::to */
+//------------------------------------------------------------------------------
+template <typename T> bool Variant::convertsTo() const
+{
+    return applyWithOperand(ConvertibleTo(), *this, Tag<T>());
+}
+
+//------------------------------------------------------------------------------
+/** @tparam T The target type to convert to.
+    @return The converted value.
+    @pre `this->convertsTo<T>() == true`
+    @throws error::Conversion if the variant is not convertible to
+            the destination type.
+    @see Variant::convertsTo */
+//------------------------------------------------------------------------------
+template <typename T> T Variant::to() const
+{
+    T result;
+    applyWithOperand(ConvertTo(), *this, result);
+    return result;
+}
+
+//------------------------------------------------------------------------------
+/** @tparam T The target type to convert to.
+    @pre `this->convertsTo<T>() == true`
+    @throws error::Conversion if the variant is not convertible to
+            the destination type. */
+//------------------------------------------------------------------------------
+template <typename T> void Variant::to(T& value) const
+{
+    value = to<T>();
+}
+
+//------------------------------------------------------------------------------
+/** @tparam T The target type of the result.
+    @pre `this->is<Null>() || (this->convertsTo<T>() == true)`
+    @throws error::Conversion if the variant is not null and is not convertible
+            to the destination type. */
+//------------------------------------------------------------------------------
+template <typename T>
+Variant::ValueTypeOf<T> Variant::valueOr(T&& fallback) const
+{
+    if (!*this)
+        return std::forward<T>(fallback);
+    else
+        return this->to< ValueTypeOf<T> >();
+}
+
+//------------------------------------------------------------------------------
+/** @returns `0` if the variant is null
+    @returns `1` if the variant is a boolean, number, or string
+    @returns The number of elements if the variant is an array
+    @returns The number of members if the variant is an object */
+//------------------------------------------------------------------------------
+inline Variant::SizeType Variant::size() const
+{
+    return apply(ElementCount(), *this);
 }
 
 //------------------------------------------------------------------------------
@@ -181,59 +263,38 @@ const Variant::BoundTypeForId<id>& Variant::as() const
 }
 
 //------------------------------------------------------------------------------
+/** @pre `this->is<Array>() == true`
+    @pre `this->size() > index`
+    @throws error::Access if `this->is<Array>() == false`
+    @throws std::out_of_range if `index >= this->size()`. */
+//------------------------------------------------------------------------------
+inline Variant& Variant::operator[](SizeType index)
+{
+    return as<Array>().at(index);
+}
+
+//------------------------------------------------------------------------------
+/** @pre `this->is<Array>() == true`
+    @pre `this->size() > index`
+    @throws error::Access if `this->is<Array>() == false`
+    @throws std::out_of_range if `index >= this->size()`. */
+//------------------------------------------------------------------------------
+inline const Variant& Variant::operator[](SizeType index) const
+{
+    return as<Array>().at(index);
+}
+
+//------------------------------------------------------------------------------
 /** @details
-    The variant is deemed convertible to the target type according to the
-    following table:
-| Target,  Variant->    | Null  | Bool  | Int   | UInt  | Real  | String | Array | Object |
-|-----------------------|-------|-------|-------|-------|-------|--------|-------|--------|
-| Null                  | true  | false | false | false | false | false  | false | false  |
-| Bool                  | false | true  | true  | true  | true  | false  | false | false  |
-| _integer type_        | false | true  | true  | true  | true  | false  | false | false  |
-| _floating point type_ | false | true  | true  | true  | true  | false  | false | false  |
-| String                | false | false | false | false | false | true   | false | false  |
-| Array                 | false | false | false | false | false | false  | true  | false  |
-| std::vector<T>        | false | false | false | false | false | false  | maybe | false  |
-| Object                | false | false | false | false | false | false  | false | true   |
-| std::map<String,T>    | false | false | false | false | false | false  | false | maybe  |
-
-    An `Array` is convertible to `std::vector<T>` iff all `Array` elements are
-    convertible to `T`.
-
-    An `Object` is convertible to `std::map<String,T>` iff all Object values
-    are convertible to `T`.
-
-    @tparam T The target type to check for convertibility.
-    @see Variant::to */
+    If there is no element under the given key, a null variant will be
+    automatically inserted under that key before the reference is returned.
+    @pre `this->is<Object>() == true`
+    @throws error::Access if `this->is<Object>() == false`
+    @throws std::out_of_range if `index >= this->size()`. */
 //------------------------------------------------------------------------------
-template <typename T> bool Variant::convertsTo() const
+inline Variant& Variant::operator[](const String& key)
 {
-    return applyWithOperand(ConvertibleTo(), *this, Tag<T>());
-}
-
-//------------------------------------------------------------------------------
-/** @tparam T The target type to convert to.
-    @return The converted value.
-    @pre `this->convertsTo<T>() == true`
-    @throws error::Conversion if the variant is not convertible to
-            the destination type.
-    @see Variant::convertsTo */
-//------------------------------------------------------------------------------
-template <typename T> T Variant::to() const
-{
-    T result = T();
-    applyWithOperand(ConvertTo(), *this, result);
-    return result;
-}
-
-//------------------------------------------------------------------------------
-/** @tparam T The target type to convert to.
-    @pre `this->convertsTo<T>() == true`
-    @throws error::Conversion if the variant is not convertible to
-            the destination type. */
-//------------------------------------------------------------------------------
-template <typename T> void Variant::to(T& value) const
-{
-    value = to<T>();
+    return as<Object>()[key];
 }
 
 //------------------------------------------------------------------------------

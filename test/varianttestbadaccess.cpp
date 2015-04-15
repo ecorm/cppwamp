@@ -88,7 +88,7 @@ void checkBadAccess(const T& value)
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "Variant bad access", "[Variant]" )
+SCENARIO( "Variant bad type access", "[Variant]" )
 {
 GIVEN( "assorted Variants" )
 {
@@ -134,6 +134,55 @@ GIVEN( "assorted Variants" )
     checkBadAccess(Object{ {"",""} });
     checkBadAccess(Object{ {"",Array{}} });
     checkBadAccess(Object{ {"",Object{}} });
+}
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Variant bad index access", "[Variant]" )
+{
+GIVEN( "a non-composite variant" )
+{
+    Variant v(42);
+
+    WHEN( "accessing an element by index" )
+    {
+        CHECK_THROWS_AS( v[0], error::Access );
+    }
+    WHEN( "accessing an element by key" )
+    {
+        CHECK_THROWS_AS( v["foo"], error::Access );
+    }
+}
+GIVEN( "an array variant" )
+{
+    Variant v(Array{42, "foo"});
+
+    WHEN( "accessing out of range" )
+    {
+        CHECK_THROWS_AS( v[2], std::out_of_range );
+    }
+    WHEN( "accessing an element by key" )
+    {
+        CHECK_THROWS_AS( v["foo"], error::Access );
+    }
+}
+GIVEN( "an object variant" )
+{
+    Variant v(Object{{"0", true}});
+
+    WHEN( "accessing an element by index" )
+    {
+        CHECK_THROWS_AS( v[0], error::Access );
+    }
+    WHEN( "accessing a non-exitent element" )
+    {
+        auto& elem = v["foo"];
+        THEN( "a null element is automatically inserted" )
+        {
+            CHECK( v.size() == 2 );
+            CHECK( elem.is<Null>() );
+        }
+    }
 }
 }
 

@@ -6,70 +6,52 @@
 ------------------------------------------------------------------------------*/
 
 #include <utility>
-#include "subscriptionimpl.hpp"
 #include "config.hpp"
+#include "subscriber.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** @post `!!*this == false`
-    @post `this->useCount() == 0` */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Subscription::Subscription() {}
+CPPWAMP_INLINE Subscription::~Subscription() {unsubscribe();}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Subscription::operator bool() const
-{
-    return !!impl_;
-}
+CPPWAMP_INLINE const Topic& Subscription::topic() const {return topic_;}
 
 //------------------------------------------------------------------------------
-/** @pre `!!*this == true` */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE const std::string& Subscription::topic() const
-{
-    return impl_->topic();
-}
+CPPWAMP_INLINE SubscriptionId Subscription::id() const {return id_;}
 
 //------------------------------------------------------------------------------
-/** @pre `!!*this == true` */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE SubscriptionId Subscription::id() const
-{
-    return impl_->id();
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE long Subscription::useCount() const
-{
-    return impl_.use_count();
-}
-
-//------------------------------------------------------------------------------
-/** @note Duplicate unsubscriptions are safely ignored.
-    @pre `!!*this == true` */
+/** @note Duplicate unsubscriptions are safely ignored. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Subscription::unsubscribe()
 {
-    impl_->unsubscribe();
+    auto sub = subscriber_.lock();
+    if (sub)
+        sub->unsubscribe(this);
 }
 
 //------------------------------------------------------------------------------
 /** @details
-    Equivalent to Client::unsubscribe(Subscription, AsyncHandler<bool>).
-    @note Duplicate unsubscriptions are safely ignored.
-    @pre `!!*this == true` */
+    Equivalent to Session::unsubscribe(Subscription::Ptr, AsyncHandler<bool>).
+    @note Duplicate unsubscriptions are safely ignored. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Subscription::unsubscribe(UnsubscribeHandler handler)
+CPPWAMP_INLINE void Subscription::unsubscribe(AsyncHandler<bool> handler)
 {
-    impl_->unsubscribe(std::move(handler));
+    auto sub = subscriber_.lock();
+    if (sub)
+        sub->unsubscribe(this, std::move(handler));
 }
 
-#ifndef CPPWAMP_FOR_DOXYGEN
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Subscription::Subscription(internal::SubscriptionBase::Ptr impl)
-    : impl_(std::move(impl)) {}
-#endif
+CPPWAMP_INLINE Subscription::Subscription(SubscriberPtr subscriber,
+                                          Topic&& topic)
+    : subscriber_(subscriber),
+      topic_(std::move(topic))
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Subscription::setId(SubscriptionId id, internal::PassKey)
+    {id_ = id;}
 
 } // namespace wamp

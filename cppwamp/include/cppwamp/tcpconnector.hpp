@@ -16,8 +16,8 @@
 #include <memory>
 #include <string>
 #include "asiodefs.hpp"
-#include "client.hpp"
 #include "codec.hpp"
+#include "connector.hpp"
 #include "error.hpp"
 #include "rawsockdefs.hpp"
 

@@ -10,101 +10,113 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains the declaration of the Registration handle. */
+    Contains the declaration of the Registration class. */
 //------------------------------------------------------------------------------
 
 #include <memory>
 #include <string>
 #include "asyncresult.hpp"
+#include "sessiondata.hpp"
 #include "wampdefs.hpp"
+#include "./internal/passkey.hpp"
 
 namespace wamp
 {
 
-// Forward declarations
-namespace internal
-{
-    template <typename, typename> class ClientImpl;
-    class RegistrationBase;
-}
+// Forward declaration
+namespace internal { class Callee; }
 
 //------------------------------------------------------------------------------
-/** Reference-counting handle used to manage the lifetime of an RPC
-    registration.
-    Registration handles are returned by the `enroll` member function of the
-    client family of classes (see Client::enroll, CoroClient::enroll,
-    CoroErrcClient::enroll). These handles point to an underlying RPC
-    registration object managed by a client. This underlying registration
-    object is used to dispatch RPC invocations to a registered @ref CallSlot.
+/** Manages the lifetime of an RPC registration.
 
-    Registration handles are reference counting, meaning that every time a copy
-    of a handle is made, the reference count increases. Every time a bound
-    Registration handle is destroyed, the reference count decreases. When the
-    reference count reaches zero, the RPC is automatically unregistered. This
-    reference counting scheme is provided to help automate the management of
-    RPC registrations using RAII techniques.
+    Registration objects are returned by the `enroll` member functions of
+    the _Session_ family of classes. These objects are used internally by
+    Session to dispatch remote procedure calls to a registered _event slot_.
 
-    Here's a (contrived) example illustrating the reference counting nature of
-    Registration:
+    Registration objects are returned via reference-counting shared pointers.
+    When the reference count reaches zero, the procedure is automatically
+    unregistered. This reference counting scheme is provided to help automate
+    the lifetime management of RPC registrations using RAII techniques.
 
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    boost::asio::io_service iosvc;
-    boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+    Here's an example illustrating how shared pointers can be used
+    to manage the lifetime of a registration:
+
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    struct Delegate
     {
-        auto client = CoroClient<>::create(connectorList);
-        client->connect(yield);
-        SessionId sid = client->join("somerealm", yield);
-        {
-            auto reg = client->enroll<void>("procedure", slot, yield);
+        void rpc(Invocation inv);
 
-            // The reg object gets destroyed as it leaves this scope.
-            // Since there are no other Registration handles sharing the same
-            // underlying registration object, the registration will be
-            // automatically unregistered.
-        }
-    });
-    iosvc.run();
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Registration::Ptr reg;
+    }
+
+    int main()
+    {
+        boost::asio::io_service iosvc;
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            auto session = CoroSession<>::create(connectorList);
+            session->connect(yield);
+            session->join("somerealm", yield);
+
+            {
+                using std::placeholders;
+                Delegate delegate;
+                delegate.reg = session->enroll(
+                                "procedure",
+                                std::bind(&Delegate::rpc, delegate, _1),
+                                yield);
+
+            }  // When the 'delegate' object leaves this scope, the Registration
+               // shared pointer reference count drops to zero. This will
+               // automatically unregister the registration, thereby avoiding
+               // further member function calls on the deleted 'delegate' object.
+        });
+        iosvc.run();
+    }
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     Registrations can also be manually unregistered via
-    Registration::unregister. */
+    Registration::unregister.
+
+    @see Session::enroll, CoroSession::enroll */
 //------------------------------------------------------------------------------
 class Registration
 {
 public:
-    /// Asyncronous completion handler type used for unregistering
-    using UnregisterHandler = AsyncHandler<bool>;
+    using Ptr     = std::shared_ptr<Registration>;
+    using WeakPtr = std::weak_ptr<Registration>;
 
-    /** Default constructor. */
-    Registration();
+    /** Automatically unregisters the RPC. */
+    virtual ~Registration();
 
-    /** Conversion to `bool` operator returning `true` if this handle is bound
-        to a registration. */
-    explicit operator bool() const;
+    /** Obtains the procedure information associated with this registration. */
+    const Procedure& procedure() const;
 
-    /** Returns the procedure URI associated with this registration. */
-    const std::string& procedure() const;
-
-    /** Returns the ID number of this registration. */
+    /** Obtains the ID number of this registration. */
     RegistrationId id() const;
-
-    /** Returns the number of Registration handles managing the same
-        registration as this one does. */
-    long useCount() const;
 
     /** Explicitly unregisters the RPC. */
     void unregister();
 
     /** Asynchronously unregisters the RPC, waiting for an acknowledgement
         from the dealer. */
-    void unregister(UnregisterHandler handler);
+    void unregister(AsyncHandler<bool> handler);
+
+protected:
+    using CalleePtr = std::weak_ptr<internal::Callee>;
+
+    Registration(CalleePtr callee, Procedure&& procedure);
 
 private:
-    Registration(std::shared_ptr<internal::RegistrationBase> impl);
+    CalleePtr callee_;
+    Procedure procedure_;
+    RegistrationId id_ = -1;
 
-    std::shared_ptr<internal::RegistrationBase> impl_;
+public:
+    // Internal use only
+    virtual void invoke(Invocation&& invocation, internal::PassKey) = 0;
+    void setId(RegistrationId id, internal::PassKey);
 
-    template <typename, typename> friend class internal::ClientImpl;
 };
 
 } // namespace wamp

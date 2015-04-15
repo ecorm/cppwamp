@@ -5,3 +5,4 @@ doc/html
 *.vpp~*
 CMakeLists.txt.user
 .git
+*.vpp.working

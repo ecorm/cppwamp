@@ -55,7 +55,7 @@ struct LoopbackFixture
             [&](std::error_code ec, CodecId codec, TransportPtr transport)
             {
                 if (ec)
-                    throw error::Wamp(ec);
+                    throw error::Failure(ec);
                 serverCodec = codec;
                 server = std::move(transport);
             });
@@ -64,7 +64,7 @@ struct LoopbackFixture
             [&](std::error_code ec, CodecId codec, TransportPtr transport)
             {
                 if (ec)
-                    throw error::Wamp(ec);
+                    throw error::Failure(ec);
                 clientCodec = codec;
                 client = transport;
             });

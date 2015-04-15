@@ -16,10 +16,12 @@
 #include <functional>
 #include <memory>
 #include <vector>
-#include "internal/clientimplbase.hpp"
 
 namespace wamp
 {
+
+// Forward declaration
+namespace internal {class ClientInterface;}
 
 //------------------------------------------------------------------------------
 /** Abstract base class for establishing client transport endpoints.
@@ -28,7 +30,7 @@ namespace wamp
     implementation having the appropriate serializer and transport
     facilities.
 
-    The Client class uses these Connector objects when attempting to
+    The Session class uses these Connector objects when attempting to
     establish a connection to the router.
     @see TcpConnector
     @see UdsConnector
@@ -46,8 +48,9 @@ public:
 
 protected:
     /** Asynchronous handler function type called by Connector::establish. */
-    using Handler = std::function<void (std::error_code ec,
-                                        internal::ClientImplBase::Ptr)>;
+    using Handler =
+        std::function<void (std::error_code,
+                            std::shared_ptr<internal::ClientInterface>)>;
 
     /** Creates a deep copy of this Connector object. */
     virtual Connector::Ptr clone() const = 0;
@@ -60,7 +63,7 @@ protected:
         Connector::establish asynchronous handler. */
     virtual void cancel() = 0;
 
-    friend class Client;
+    friend class Session;
 };
 
 

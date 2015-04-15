@@ -15,10 +15,10 @@
 namespace wamp
 {
 
+class Subscription;
+
 namespace internal
 {
-
-class SubscriptionBase;
 
 //------------------------------------------------------------------------------
 class Subscriber
@@ -30,9 +30,9 @@ public:
 
     virtual ~Subscriber() {}
 
-    virtual void unsubscribe(SubscriptionBase* sub) = 0;
+    virtual void unsubscribe(wamp::Subscription* sub) = 0;
 
-    virtual void unsubscribe(SubscriptionBase* sub,
+    virtual void unsubscribe(wamp::Subscription* sub,
                              UnsubscribeHandler handler) = 0;
 };
 

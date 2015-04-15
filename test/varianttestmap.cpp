@@ -29,6 +29,11 @@ void checkMap(const std::map<String, T>& map, bool convertible = true)
         Variant v;
         v = map;
         CHECK( v == expected );
+        CHECK( v.size() == map.size() );
+        for (const auto& kv: map)
+        {
+            CHECK( v[kv.first] == kv.second );
+        }
         CHECK( v.convertsTo<Map>() == convertible );
         Map converted;
         if (convertible)

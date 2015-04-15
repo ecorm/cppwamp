@@ -26,7 +26,7 @@ namespace wamp
     operation are not transported to the associated handler function. To work
     around this problem, this class provides a safe mechanism for transporting
     such errors back to asynchronous handlers. If the asynchronous handler
-    attempts to access the value of a failed AsyncResult, an error::Wamp is
+    attempts to access the value of a failed AsyncResult, an error::Failure is
     thrown.
 
     @tparam T The value type of the asynchronous result. It must be copyable

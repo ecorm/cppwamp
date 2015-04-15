@@ -8,11 +8,8 @@
 #ifndef CPPWAMP_INTERNAL_SUBSCRIPTIONIMPL_HPP
 #define CPPWAMP_INTERNAL_SUBSCRIPTIONIMPL_HPP
 
-#include <cstdint>
-#include <functional>
-#include <memory>
-#include <string>
-#include "../args.hpp"
+#include "../subscription.hpp"
+#include "passkey.hpp"
 #include "subscriber.hpp"
 
 namespace wamp
@@ -22,122 +19,58 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class SubscriptionBase
+class DynamicSubscription : public wamp::Subscription
 {
 public:
-    using Id                 = uint64_t;
-    using PublicationId      = uint64_t;
-    using SubscriberPtr      = Subscriber::WeakPtr;
-    using Ptr                = std::shared_ptr<SubscriptionBase>;
-    using WeakPtr            = std::weak_ptr<SubscriptionBase>;
-    using UnsubscribeHandler = Subscriber::UnsubscribeHandler;
+    using Slot = std::function<void (Event)>;
 
-    virtual ~SubscriptionBase() {unsubscribe();}
-
-    const std::string& topic() const {return topic_;}
-
-    Id id() const {return id_;}
-
-    void setId(Id id) {id_ = id;}
-
-    virtual void invoke(PublicationId pubId, const Args& args) = 0;
-
-    void unsubscribe()
+    static Ptr create(Subscriber::Ptr subscriber, Topic&& topic, Slot&& slot)
     {
-        if (!subscriber_.expired())
-            subscriber_.lock()->unsubscribe(this);
-    }
-
-    void unsubscribe(UnsubscribeHandler handler)
-    {
-        if (!subscriber_.expired())
-            subscriber_.lock()->unsubscribe(this, std::move(handler));
+        return Ptr(new DynamicSubscription(subscriber, std::move(topic),
+                                           std::move(slot)));
     }
 
 protected:
-    SubscriptionBase(SubscriberPtr subscriber, std::string&& procedure)
-        : subscriber_(subscriber), topic_(std::move(procedure)), id_(0)
-    {}
+    virtual void invoke(Event&& event, internal::PassKey) override
+    {
+        slot_(std::move(event));
+    }
 
 private:
-    SubscriberPtr subscriber_;
-    std::string topic_;
-    Id id_;
+    DynamicSubscription(SubscriberPtr subscriber, Topic&& topic, Slot&& slot)
+        : Subscription(subscriber, std::move(topic)),
+          slot_(std::move(slot))
+    {}
+
+    Slot slot_;
 };
 
 //------------------------------------------------------------------------------
 template <typename... TParams>
-class SubscriptionImpl : public SubscriptionBase
+class StaticSubscription : public wamp::Subscription
 {
 public:
-    using Slot = std::function<void (PublicationId, TParams...)>;
+    using Slot = std::function<void (Event, TParams...)>;
 
-    static Ptr create(SubscriberPtr subscriber, std::string topic, Slot slot)
+    static Ptr create(Subscriber::Ptr subscriber, Topic&& topic, Slot&& slot)
     {
-        using std::move;
-        return Ptr(new SubscriptionImpl(subscriber, move(topic), move(slot)));
+        return Ptr(new StaticSubscription(subscriber, std::move(topic),
+                                          std::move(slot)));
     }
 
-    virtual void invoke(PublicationId pubId, const Args& args) override
+protected:
+    virtual void invoke(Event&& event, internal::PassKey) override
     {
-        wamp::Unmarshall<TParams...>::apply(slot_, args.list, pubId);
+        // A copy of event.args() must be made because of unspecified evaluation
+        // order: http://stackoverflow.com/questions/15680489
+        Array args = event.args();
+        wamp::Unmarshall<TParams...>::apply(slot_, args, std::move(event));
     }
 
 private:
-    SubscriptionImpl(SubscriberPtr subscriber, std::string&& topic, Slot&& slot)
-        : SubscriptionBase(subscriber, std::move(topic)), slot_(std::move(slot))
-    {}
-
-    Slot slot_;
-};
-
-//------------------------------------------------------------------------------
-template <>
-class SubscriptionImpl<Args> : public SubscriptionBase
-{
-public:
-    using Slot = std::function<void (PublicationId, Args)>;
-
-    static Ptr create(SubscriberPtr subscriber, std::string topic, Slot slot)
-    {
-        using std::move;
-        return Ptr(new SubscriptionImpl(subscriber, move(topic), move(slot)));
-    }
-
-    virtual void invoke(PublicationId pubId, const Args& args) override
-    {
-        slot_(pubId, args);
-    }
-
-private:
-    SubscriptionImpl(SubscriberPtr subscriber, std::string&& topic, Slot&& slot)
-        : SubscriptionBase(subscriber, std::move(topic)), slot_(std::move(slot))
-    {}
-
-    Slot slot_;
-};
-
-//------------------------------------------------------------------------------
-template <>
-class SubscriptionImpl<void> : public SubscriptionBase
-{
-public:
-    using Slot = std::function<void (PublicationId)>;
-
-    static Ptr create(SubscriberPtr subscriber, std::string topic, Slot slot)
-    {
-        using std::move;
-        return Ptr(new SubscriptionImpl(subscriber, move(topic), move(slot)));
-    }
-
-    virtual void invoke(PublicationId pubId, const Args&) override
-    {
-        slot_(pubId);
-    }
-
-private:
-    SubscriptionImpl(SubscriberPtr subscriber, std::string&& topic, Slot&& slot)
-        : SubscriptionBase(subscriber, std::move(topic)), slot_(std::move(slot))
+    StaticSubscription(SubscriberPtr subscriber, Topic&& topic, Slot&& slot)
+        : Subscription(subscriber, std::move(topic)),
+          slot_(std::move(slot))
     {}
 
     Slot slot_;

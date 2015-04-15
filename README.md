@@ -55,6 +55,7 @@ Documentation
 
 - [Tutorial](https://github.com/ecorm/cppwamp/wiki/Tutorial)
 - [Reference Documentation](http://ecorm.github.io/cppwamp/doc/index.html)
+- [Release Notes](./CHANGELOG.md)
 
 Tested Platforms
 ----------------
@@ -63,8 +64,8 @@ This library has been tested with:
 
 - GCC 4.8.2, x86_64-linux-gnu, on Linux Mint 17 (based on Ubuntu 14.04)
 
-Usage Examples
---------------
+Usage Examples (using coroutines)
+---------------------------------
 
 ### Establishing a WAMP session
 ```c++
@@ -75,10 +76,11 @@ boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
     auto tcp = wamp::legacy::TcpConnector::create(iosvc, "localhost",
                                                   8001, wamp::Json::id());
 
-    auto client = wamp::CoroClient<>::create(tcp);
-    client->connect(yield);
-    auto sid = client->join("realm", yield);
-    std::cout << "Client joined. Session ID = " << sid << "\n";
+    auto session = wamp::CoroSession<>::create(tcp);
+    session->connect(yield);
+    auto sessionInfo = session->join(Realm("myrealm"), yield);
+    std::cout << "Client joined. Session ID = "
+              << sessionInfo.id() << "\n";
 
     // etc.
 });
@@ -94,41 +96,41 @@ void add(wamp::Invocation inv, int n, int m)
 
 boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 {
-    ...
-    auto reg = client->enroll<int, int>("add", &add, yield);
-    ...
+    :::
+    auto reg = session->enroll<int, int>(Procedure("add"), &add, yield);
+    :::
 });
 ```
 
 ### Calling a remote procedure
 ```c++
-auto result = client->call("add", {2, 2}, yield);
+auto result = session->call(Rpc("add").withArgs({2, 2}), yield);
 int sum = 0;
-result.to(sum);
+result.convertTo(sum);
 std::cout << "2 + 2 is " << sum << "\n";
 ```
 
 ### Subscribing to a topic
 ```c++
-void sensorSampled(wamp::PublicationId pid, float value)
+void sensorSampled(wamp::Event event, float value)
 {
-    std::cout << "Sensor sampled, publication ID = " << pid
+    std::cout << "Sensor sampled, publication ID = " << event.pubId()
               << " value = " << value << "\n";
 }
 
 boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 {
-    ...
-    auto sub = client->subscribe<float>("sensorSampled", &sensorSampled,
-                                        yield);
-    ...
+    :::
+    auto sub = session->subscribe<float>(Topic("sensorSampled"),
+                                         &sensorSampled, yield);
+    :::
 });
 ```
 
 ### Publishing an event
 ```c++
 float value = std::rand() % 10;
-client->publish("sensorSampled", {value});
+session->publish(Pub("sensorSampled").withArgs({value}));
 ```
 
 Questions, Discussions, and Issues

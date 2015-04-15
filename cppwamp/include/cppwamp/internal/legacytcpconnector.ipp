@@ -6,7 +6,7 @@
 ------------------------------------------------------------------------------*/
 
 #include <utility>
-#include "clientimpl.hpp"
+#include "client.hpp"
 #include "config.hpp"
 #include "legacyasioendpoint.hpp"
 #include "tcpopener.hpp"
@@ -54,10 +54,10 @@ CPPWAMP_INLINE void TcpConnector::establish(Handler handler)
     impl_->establish([this, self, handler](std::error_code ec, CodecId codecId,
                                            Impl::Transport::Ptr trnsp)
     {
-        internal::ClientImplBase::Ptr clientImpl;
+        internal::ClientInterface::Ptr client;
         if (!ec)
-            clientImpl = internal::createClientImpl(codecId, std::move(trnsp));
-        info_.iosvc.post(std::bind(handler, ec, clientImpl));
+            client = internal::createClient(codecId, std::move(trnsp));
+        info_.iosvc.post(std::bind(handler, ec, client));
         impl_.reset();
     });
 }

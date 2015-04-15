@@ -9,6 +9,7 @@ set(SOURCES
     codectestjson.cpp
     codectestmsgpack.cpp
     legacytransporttest.cpp
+    payloadtest.cpp
     transporttest.cpp
     varianttestassign.cpp
     varianttestbadaccess.cpp
@@ -22,7 +23,6 @@ set(SOURCES
     varianttestvector.cpp
     varianttestvisitation.cpp
     wamptest.cpp
-    wamptestargs.cpp
     main.cpp
 )
 

@@ -10,102 +10,112 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains the declaration of the Subscription handle. */
+    Contains the declaration of the Subscription class. */
 //------------------------------------------------------------------------------
 
 #include <memory>
 #include <string>
 #include "asyncresult.hpp"
+#include "sessiondata.hpp"
 #include "wampdefs.hpp"
+#include "./internal/passkey.hpp"
 
 namespace wamp
 {
 
-// Forward declarations
-namespace internal
-{
-    template <typename, typename> class ClientImpl;
-    class SubscriptionBase;
-}
+// Forward declaration
+namespace internal { class Subscriber; }
 
 //------------------------------------------------------------------------------
-/** Reference-counting handle used to manage the lifetime of a pub/sub
-    event subscription.
-    Subscription handles are returned by the `subscribe` member function of the
-    client family of classes (see Client::subscribe, CoroClient::subscribe,
-    CoroErrcClient::subscribe). These handles point to an underlying event
-    subscription object managed by a client. This underlying subscription
-    object is used to dispatch topic events to a registered @ref EventSlot.
+/** Manages the lifetime of a pub/sub event subscription.
 
-    Subscription handles are reference counting, meaning that every time a copy
-    of a handle is made, the reference count increases. Every time a bound
-    Subscription handle is destroyed, the reference count decreases. When the
-    reference count reaches zero, the topic is automatically unsubscribed. This
-    reference counting scheme is provided to help automate the management of
-    topic subscriptions using RAII techniques.
+    Subscription objects are returned by the `subscribe` member functions of
+    the _Session_ family of classes. These objects are used internally by
+    Session to dispatch pub/sub events to a registered _event slot_.
 
-    Here's a (contrived) example illustrating the reference counting nature of
-    Subscription:
+    Subscription objects are returned via reference-counting shared pointers.
+    When the reference count reaches zero, the topic is automatically
+    unsubscribed. This reference counting scheme is provided to help automate
+    the lifetime management of topic subscriptions using RAII techniques.
 
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    boost::asio::io_service iosvc;
-    boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+    Here's an example illustrating how shared pointers can be used
+    to manage the lifetime of a Subscription:
+
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    struct Observer
     {
-        auto client = CoroClient<>::create(connectorList);
-        client->connect(yield);
-        SessionId sid = client->join("somerealm", yield);
-        {
-            auto sub = client->subscribe<void>("topic", slot, yield);
+        void onEvent(Event event);
 
-            // The sub object gets destroyed as it leaves this scope.
-            // Since there are no other Subscription handles sharing the same
-            // underlying subscription object, the subscription will be
-            // automatically unsubscribed.
-        }
-    });
-    iosvc.run();
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Subscription::Ptr sub;
+    }
+
+    int main()
+    {
+        boost::asio::io_service iosvc;
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            auto session = CoroSession<>::create(connectorList);
+            session->connect(yield);
+            session->join("somerealm", yield);
+
+            {
+                using std::placeholders;
+                Observer observer;
+                observer.sub = session->subscribe(
+                                "topic",
+                                std::bind(&Observer::onEvent, observer, _1),
+                                yield);
+
+            }  // When the 'observer' object leaves this scope, the Subscription
+               // shared pointer reference count drops to zero. This will
+               // automatically unsubscribe the subscription, thereby avoiding
+               // further member function calls on the deleted 'observer' object.
+        });
+        iosvc.run();
+    }
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     Subscriptions can also be manually unsubscribed via
-    Subscription::unsubscribe. */
+    Subscription::unsubscribe.
+
+    @see Session::subscribe, CoroSession::subscribe */
 //------------------------------------------------------------------------------
 class Subscription
 {
 public:
-    /// Asyncronous completion handler type used for unsubscribing
-    using UnsubscribeHandler = AsyncHandler<bool>;
+    using Ptr     = std::shared_ptr<Subscription>;
+    using WeakPtr = std::weak_ptr<Subscription>;
 
-    /** Default constructor. */
-    Subscription();
+    /** Automatically unsubscribes from the topic. */
+    virtual ~Subscription();
 
-    /** Conversion to `bool` operator returning `true` if this handle is bound
-        to a subscription. */
-    explicit operator bool() const;
+    /** Obtains the topic information associated with this subscription. */
+    const Topic& topic() const;
 
-    /** Returns the topic URI associated with this subscription. */
-    const std::string& topic() const;
-
-    /** Returns the ID number of this subscription. */
+    /** Obtains the ID number of this subscription. */
     SubscriptionId id() const;
 
-    /** Returns the number of Subscription handles managing the same
-        subscription as this one does. */
-    long useCount() const;
-
-    /** Explicitly unsubscribes the topic. */
+    /** Explicitly unsubscribes from the topic. */
     void unsubscribe();
 
-    /** Asynchronously unsubscribes the topic, waiting for an acknowledgement
-        from the broker. */
-    void unsubscribe(UnsubscribeHandler handler);
+    /** Asynchronously unsubscribes from the topic, waiting for an
+        acknowledgement from the broker. */
+    void unsubscribe(AsyncHandler<bool> handler);
+
+protected:
+    using SubscriberPtr = std::weak_ptr<internal::Subscriber>;
+
+    Subscription(SubscriberPtr subscriber, Topic&& topic);
 
 private:
-    Subscription(std::shared_ptr<internal::SubscriptionBase> impl);
+    SubscriberPtr subscriber_;
+    Topic topic_;
+    SubscriptionId id_ = -1;
 
-    std::shared_ptr<internal::SubscriptionBase> impl_;
-
-    friend class Client;
-    template <typename, typename> friend class internal::ClientImpl;
+public:
+    // Internal use only
+    virtual void invoke(Event&& event, internal::PassKey) = 0;
+    void setId(SubscriptionId id, internal::PassKey);
 };
 
 } // namespace wamp

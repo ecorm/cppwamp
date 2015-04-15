@@ -26,9 +26,14 @@ void checkConvert(int level, const Variant& from, const TTo& to)
           "' to '" << to << "'");
     REQUIRE( from.convertsTo<TTo>() );
     CHECK( from.to<TTo>() == to );
+    CHECK( from.valueOr(to) == to );
+    CHECK( from.valueOr(TTo()) == to );
     TTo val;
     from.to(val);
     CHECK( val == to );
+
+    Variant nullVariant;
+    CHECK( nullVariant.valueOr(to) == to );
 }
 
 //------------------------------------------------------------------------------
@@ -68,6 +73,8 @@ template <typename TTo, typename... TTos> struct CheckBadConvert<TTo, TTos...>
             CHECK_THROWS_AS( from.to<TTo>(), error::Conversion );
             TTo val;
             CHECK_THROWS_AS( from.to(val), error::Conversion );
+            if (!!from)
+                CHECK_THROWS_AS( from.valueOr(val), error::Conversion );
         }
         CheckBadConvert<TTos...>::check(from, level+1);
     }

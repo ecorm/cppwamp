@@ -6,72 +6,57 @@
 ------------------------------------------------------------------------------*/
 
 #include <utility>
+#include "callee.hpp"
 #include "config.hpp"
-#include "registrationimpl.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** @post `!!*this == false`
-    @post `this->useCount() == 0` */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Registration::Registration() {}
+CPPWAMP_INLINE Registration::~Registration() {unregister();}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Registration::operator bool() const
+CPPWAMP_INLINE const Procedure& Registration::procedure() const
 {
-    return !!impl_;
+    return procedure_;
 }
 
 //------------------------------------------------------------------------------
-/** @pre `!!*this == true` */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE const std::string& Registration::procedure() const
-{
-    return impl_->procedure();
-}
+CPPWAMP_INLINE RegistrationId Registration::id() const {return id_;}
 
 //------------------------------------------------------------------------------
-/** @pre `!!*this == true` */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE RegistrationId Registration::id() const
-{
-    return impl_->id();
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE long Registration::useCount() const
-{
-    return impl_.use_count();
-}
-
-//------------------------------------------------------------------------------
-/** @note Duplicate unregistrations are safely ignored.
-    @pre `!!*this == true` */
+/** @note Duplicate unregistrations are safely ignored. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Registration::unregister()
 {
-    impl_->unregister();
+    auto callee = callee_.lock();
+    if (callee)
+        callee->unregister(id_);
 }
 
 //------------------------------------------------------------------------------
 /** @details
-    Equivalent to Client::unregister(Registration, AsyncHandler<bool>).
-    @note Duplicate unregistrations are safely ignored.
-    @pre `!!*this == true` */
+    Equivalent to Session::unregister(Registration::Ptr, AsyncHandler<bool>).
+    @note Duplicate unregistrations are safely ignored. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Registration::unregister(UnregisterHandler handler)
+CPPWAMP_INLINE void Registration::unregister(AsyncHandler<bool> handler)
 {
-    impl_->unregister(handler);
+    auto callee = callee_.lock();
+    if (callee)
+        callee->unregister(id_, std::move(handler));
 }
 
-#ifndef CPPWAMP_FOR_DOXYGEN
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Registration::Registration(
-        std::shared_ptr<wamp::internal::RegistrationBase> impl)
-    : impl_(std::move(impl))
+CPPWAMP_INLINE Registration::Registration(CalleePtr callee,
+                                          Procedure&& procedure)
+    : callee_(callee),
+      procedure_(std::move(procedure))
 {}
-#endif
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Registration::setId(RegistrationId id, internal::PassKey)
+{
+    id_ = id;
+}
 
 } // namespace wamp

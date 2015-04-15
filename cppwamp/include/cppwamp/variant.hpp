@@ -110,6 +110,11 @@ public:
         particular @ref TypeId. */
     template <TypeId typeId>
     using BoundTypeForId = typename internal::FieldTypeForId<typeId>::Type;
+
+    /** Metafunction used to obtain the plain value type of a parameter
+        passed by universal reference. */
+    template <typename T>
+    using ValueTypeOf = typename std::decay<T>::type;
     /// @}
 
     /// @name Bound Types
@@ -123,6 +128,9 @@ public:
     using Array  = std::vector<Variant>;        ///< Dynamic array of variants
     using Object = std::map<String, Variant>;   ///< Dictionary of variants
     /// @}
+
+    /** Integer type used to access array elements. */
+    using SizeType = Array::size_type;
 
     /** Character type used by string variants. */
     using CharType = String::value_type;
@@ -168,7 +176,7 @@ public:
     TypeId typeId() const;
 
     /** Returns `false` iff the variant is currently null. */
-    explicit operator bool();
+    explicit operator bool() const;
 
     /** Returns `true` iff the variant's current dynamic type matches the
         given `TBound` type parameter. */
@@ -177,6 +185,30 @@ public:
     /** Returns `true` iff the variant's current dynamic type matches the
         given `id` template parameter. */
     template <TypeId id> bool is() const;
+
+    /** Returns `true` iff the variant is currently convertible to the given
+        type. */
+    template <typename T> bool convertsTo() const;
+
+    /** Converts the variant's bound value to the given type. */
+    template <typename T> T to() const;
+
+    /** Converts the variant's bound value to the given type, and assigns the
+        result to the given `value` reference. */
+    template <typename T> void to(T& value) const;
+
+    /** Obtains the variant's value converted to the given type, or the given
+        fallback value if the variant is null. */
+    template <typename T>
+    ValueTypeOf<T> valueOr(T&& fallback) const;
+
+    /** Returns the number of elements contained by the variant. */
+    SizeType size() const;
+
+    /// @}
+
+    /// @name Access
+    /// @{
 
     /** Returns a reference to the variant's bound value. */
     template <typename TBound> TBound& as();
@@ -190,16 +222,14 @@ public:
     /** Returns a constant reference to the variant's bound value. */
     template <TypeId id> const BoundTypeForId<id>& as() const;
 
-    /** Returns `true` iff the variant is currently convertible to the given
-        type. */
-    template <typename T> bool convertsTo() const;
+    /** Accesses an array element by index. */
+    Variant& operator[](SizeType index);
 
-    /** Converts the variant's bound value to the given type. */
-    template <typename T> T to() const;
+    /** Accesses a constant array element by index. */
+    const Variant& operator[](SizeType index) const;
 
-    /** Converts the variant's bound value to the given type, and assigns the
-        result to the given `value` reference. */
-    template <typename T> void to(T& value) const;
+    /** Accesses an object value by key. */
+    Variant& operator[](const String& key);
 
     /// @}
 
@@ -269,6 +299,7 @@ private:
     class LessThan;
     class ConvertibleTo;
     class ConvertTo;
+    class ElementCount;
 
     template <typename TValue, typename TArg> void constructAs(TArg&& value);
 

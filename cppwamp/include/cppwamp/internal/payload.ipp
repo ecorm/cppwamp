@@ -6,6 +6,7 @@
 ------------------------------------------------------------------------------*/
 
 #include <utility>
+#include "config.hpp"
 
 namespace wamp
 {
@@ -89,141 +90,190 @@ void Unmarshall<N,T,Ts...>::apply(TFunctor&& fn, const Array& array,
 
 
 //------------------------------------------------------------------------------
-inline Args::Args() {}
+/** @post `std::equal(list.begin(), list.end(), this->args()) == true` */
+//------------------------------------------------------------------------------
+template <typename D>
+Payload<D>::Payload(std::initializer_list<Variant> list)
+    : args_(list) {}
 
 //------------------------------------------------------------------------------
-/** @post `std::equal(positional.begin(), positional.end(), this->list) == true` */
+/** @post `std::equal(list.begin(), list.end(), this->args()) == true` */
 //------------------------------------------------------------------------------
-inline Args::Args(std::initializer_list<Variant> positional)
-    : list(positional) {}
+template <typename D>
+D& Payload<D>::withArgs(Array args)
+{
+    args_ = std::move(args);
+    return static_cast<D&>(*this);
+}
 
 //------------------------------------------------------------------------------
-/** @param withPairs Tag value used to distinguish from the other
-                     `initializer_list` overload. Use the wamp::withPairs
-                     constant for this parameter.
-    @param pairs Braced initializer list of keyword/variant pairs. */
+/** @post `std::equal(map.begin(), map.end(), this->kwargs()) == true` */
 //------------------------------------------------------------------------------
-inline Args::Args(WithPairs, PairInitializerList pairs)
-    : map(pairs)
-{}
+template <typename D>
+D& Payload<D>::withKwargs(Object kwargs)
+{
+    kwargs_ = std::move(kwargs);
+    return static_cast<D&>(*this);
+}
+
+#if CPPWAMP_HAS_REF_QUALIFIERS
+
+//------------------------------------------------------------------------------
+template <typename D>
+const Array& Payload<D>::args() const & {return args_;}
+
+#else
+
+//------------------------------------------------------------------------------
+template <typename D>
+const Array& Payload<D>::args() const {return args_;}
+
+#endif
+
+#if CPPWAMP_HAS_REF_QUALIFIERS
+//------------------------------------------------------------------------------
+/** @details
+    This overload takes effect when `*this` is an r-value. For example:
+    ~~~
+    Array mine = std::move(payload).args();
+    ~~~
+    @post this->args().empty() == true */
+//------------------------------------------------------------------------------
+template <typename D>
+Array Payload<D>::args() && {return moveArgs();}
+#endif
 
 //------------------------------------------------------------------------------
 /** @details
-    The array of variants is copied to the Args::list public member.
-    @param with Tag value used to distinguish from the `initializer_list`
-                overloads. Use the wamp::with constant for this parameter.
-    @param list An array of variants to copy to the Args::list member.
-    @post `this->list == list` */
+    This function is provided as a workaround for platforms that don't support
+    ref qualifiers.
+    @post this->args().empty() == true */
 //------------------------------------------------------------------------------
-inline Args::Args(With, Array list)
-    : list(std::move(list))
-{}
+template <typename D>
+Array Payload<D>::moveArgs()
+{
+    Array result = std::move(args_);
+    args_.clear();
+    return std::move(result);
+}
+
+//------------------------------------------------------------------------------
+template <typename D>
+const Object& Payload<D>::kwargs() const & {return kwargs_;}
 
 //------------------------------------------------------------------------------
 /** @details
-    The map of variants is copied to the Args::map public member.
-    @param with Tag value used to distinguish from the `initializer_list`
-                overloads. Use the wamp::with constant for this parameter.
-    @param map A map of variants to copy to the Args::map member.
-    @post `this->map == map` */
+    This overload takes effect when `*this` is an r-value. For example:
+    ~~~
+    Object mine = std::move(payload).kwargs();
+    ~~~
+    @post this->kwargs().empty() == true */
 //------------------------------------------------------------------------------
-inline Args::Args(With, Object map)
-    : map(std::move(map))
-{}
+template <typename D>
+Object Payload<D>::kwargs() &&  {return moveKwargs();}
+
+//------------------------------------------------------------------------------
+/** @post this->kwargs().empty() == true */
+//------------------------------------------------------------------------------
+template <typename D>
+Object Payload<D>::moveKwargs()
+{
+    Object result = std::move(kwargs_);
+    kwargs_.clear();
+    return std::move(result);
+}
 
 //------------------------------------------------------------------------------
 /** @details
-    The array of variants is copied to the Args::list public member.
-    The map of variants is copied to the Args::map public member.
-    @param with Tag value used to distinguish from the `initializer_list`
-                overloads. Use the wamp::with constant for this parameter.
-    @param list An array of variants to copy to the Args::list member.
-    @param map A map of variants to copy to the Args::map member.
-    @post `this->list == array`
-    @post `this->map == map` */
+    @pre `this->args().size() > index`
+    @throws std::out_of_range if the given index is not within the range
+            of this->args(). */
 //------------------------------------------------------------------------------
-inline Args::Args(With, Array list, Object map)
-    : list(std::move(list)), map(std::move(map))
-{}
+template <typename D>
+Variant& Payload<D>::operator[](size_t index) {return args_.at(index);}
 
 //------------------------------------------------------------------------------
-/** @return The number of elements that were converted
-    @pre Args::list elements are convertible to their target types
-    @post `std::min(this->list->size(), sizeof...(Ts))` elements are converted
+/** @details
+    @pre `this->args().size() > index`
+    @throws std::out_of_range if the given index is not within the range
+            of this->args(). */
+//------------------------------------------------------------------------------
+template <typename D>
+const Variant& Payload<D>::operator[](size_t index) const
+    {return args_.at(index);}
+
+//------------------------------------------------------------------------------
+/** @details
+    If the key doesn't exist, a null variant is inserted under the key
+    before the reference is returned. */
+//------------------------------------------------------------------------------
+template <typename D>
+Variant& Payload<D>::operator[](const std::string& keyword)
+    {return kwargs_[keyword];}
+
+//------------------------------------------------------------------------------
+/** @par Example
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Result derives from Payload
+    Result result = session->call("rpc", yield);
+    std::string s;
+    int n = 0;
+    result.convertTo(s, n);
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    @return The number of elements that were converted
+    @pre `this->args()` elements are convertible to their target types
+    @post `std::min(this->args()->size(), sizeof...(Ts))` elements are converted
     @throws error::Conversion if an argument cannot be converted to the
             target type. */
 //------------------------------------------------------------------------------
+template <typename D>
 template <typename... Ts>
-size_t Args::to(Ts&... vars) const
+size_t Payload<D>::convertTo(Ts&... values) const
 {
     size_t index = 0;
-    internal::unbundleTo(list, index, vars...);
+    internal::unbundleTo(args_, index, values...);
     return index;
 }
 
 //------------------------------------------------------------------------------
-/** @return The number of elements that were moved
+/** @par Example
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Result derives from Payload
+    Result result = session->call("rpc", yield);
+    String s;
+    Int n = 0;
+    result.moveTo(s, n);
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    @return The number of elements that were moved
     @pre Args::list elements are accessible as their target types
     @post `std::min(this->list->size(), sizeof...(Ts))` elements are moved
-    @post The moved elements in Args::list are nullified
+    @post The moved elements in this->args() are nullified
     @throws error::Access if an argument's dynamic type does not match its
             associated target type. */
 //------------------------------------------------------------------------------
+template <typename D>
 template <typename... Ts>
-size_t Args::move(Ts&... vars)
+size_t Payload<D>::moveTo(Ts&... values)
 {
     size_t index = 0;
-    internal::unbundleAs(list, index, vars...);
+    internal::unbundleAs(args_, index, values...);
     return index;
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    This is a convenience function identical to using `args.list.at(index)`.
-    @pre `this->list.size() > index`
-    @throws std::out_of_range if the given index is not within the range
-            of Args::list. */
-//------------------------------------------------------------------------------
-inline Variant& Args::operator[](size_t index) {return list.at(index);}
+template <typename D>
+Payload<D>::Payload() {}
 
 //------------------------------------------------------------------------------
-/** @details
-    This is a convenience function identical to using `args.list.at(index)`.
-    @pre `this->list.size() > index`
-    @throws std::out_of_range if the given index is not within the range
-            of Args::list. */
-//------------------------------------------------------------------------------
-inline const Variant& Args::operator[](size_t index) const
-    {return list.at(index);}
+template <typename D>
+Array& Payload<D>::args(internal::PassKey) {return args_;}
 
 //------------------------------------------------------------------------------
-/** @details
-    This is a convenience function identical to using `args.map[key]`. */
-//------------------------------------------------------------------------------
-inline Variant& Args::operator[](const std::string& keyword)
-    {return map[keyword];}
+template <typename D>
+Object& Payload<D>::kwargs(internal::PassKey) {return kwargs_;}
 
-//------------------------------------------------------------------------------
-/** @return `true` iff `this->list == rhs.list && this->map == rhs.map` */
-//------------------------------------------------------------------------------
-inline bool Args::operator==(const Args& rhs) const
-{
-    return (list == rhs.list) && (map == rhs.map);
-}
-
-//------------------------------------------------------------------------------
-/** @return `true` iff `this->list != rhs.list || this->map != rhs.map` */
-//------------------------------------------------------------------------------
-inline bool Args::operator!=(const Args& rhs) const
-{
-    return (list != rhs.list) || (map != rhs.map);
-}
-
-//------------------------------------------------------------------------------
-inline std::ostream& operator<<(std::ostream& out, const Args& args)
-{
-    return out << "Args{" << args.list << ',' << args.map << '}';
-}
 
 //------------------------------------------------------------------------------
 /** @tparam TFunction (Deduced) The type of the callable target

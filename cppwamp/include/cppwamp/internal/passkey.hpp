@@ -5,16 +5,23 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#include <cppwamp/internal/config.hpp>
+#ifndef CPPWAMP_PASSKEY_HPP
+#define CPPWAMP_PASSKEY_HPP
 
-#ifdef CPPWAMP_COMPILED_LIB
+namespace wamp
+{
 
-#include <cppwamp/tcpconnector.hpp>
-#include <cppwamp/internal/tcpconnector.ipp>
+namespace internal
+{
+    class PassKey
+    {
+        PassKey() {}
 
-#if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-#include <cppwamp/udsconnector.hpp>
-#include <cppwamp/internal/udsconnector.ipp>
-#endif
+        template <typename, typename> friend class Dialogue;
+        template <typename, typename> friend class Client;
+    };
+}
 
-#endif
+}
+
+#endif // CPPWAMP_PASSKEY_HPP

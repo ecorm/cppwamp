@@ -21,30 +21,29 @@ namespace error
 {
 
 //------------------------------------------------------------------------------
-// error::Wamp exception
+// error::Failure exception
 //------------------------------------------------------------------------------
 
-CPPWAMP_INLINE Wamp::Wamp(std::error_code ec)
+CPPWAMP_INLINE Failure::Failure(std::error_code ec)
     : std::system_error(ec, makeMessage(ec))
 {}
 
-CPPWAMP_INLINE Wamp::Wamp(std::error_code ec,
-                                    const std::string& info)
+CPPWAMP_INLINE Failure::Failure(std::error_code ec, const std::string& info)
     : std::system_error(ec, makeMessage(ec, info))
 {}
 
-CPPWAMP_INLINE std::string Wamp::makeMessage(std::error_code ec)
+CPPWAMP_INLINE std::string Failure::makeMessage(std::error_code ec)
 {
     std::ostringstream oss;
-    oss << "error::Wamp: \n"
+    oss << "error::Failure: \n"
            "    error value = " << ec.value() << "\n"
            "    category = \"" << ec.category().name() << "\"\n"
            "    message = \"" << ec.message() << "\"\n";
     return oss.str();
 }
 
-CPPWAMP_INLINE std::string Wamp::makeMessage(std::error_code ec,
-                                                  const std::string& info)
+CPPWAMP_INLINE std::string Failure::makeMessage(std::error_code ec,
+                                                const std::string& info)
 {
     return makeMessage(ec) + "    info = \"" + info + "\"\n";
 }
@@ -90,12 +89,12 @@ CPPWAMP_INLINE void Logic::check(
 // WAMP Error Codes
 //------------------------------------------------------------------------------
 
-CPPWAMP_INLINE const char* WampCategory::name() const noexcept
+CPPWAMP_INLINE const char* SessionCategory::name() const noexcept
 {
-    return "wamp::Wamp";
+    return "wamp::SessionCategory";
 }
 
-CPPWAMP_INLINE std::string WampCategory::message(int ev) const
+CPPWAMP_INLINE std::string SessionCategory::message(int ev) const
 {
     static const std::string msg[] =
     {
@@ -116,7 +115,7 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* procedureAlreadyExists */ "A procedure with the given URI is already registered",
 /* noSuchRegistration     */ "Could not unregister; the given registration is not active",
 /* noSuchSubscription     */ "Could not unsubscribe; the given subscription is not active",
-/* invalidArgument        */ "The given argument types/values are not acceptable to the called procedure",
+/* invalidArgument        */ "The given argument types/values are not acceptable to the callee",
 /* systemShutdown         */ "The other peer is shutting down",
 /* closeRealm             */ "The other peer is leaving the realm",
 /* goodbyeAndOut          */ "Session ended successfully",
@@ -132,7 +131,7 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
         return "Unknown error";
 }
 
-CPPWAMP_INLINE bool WampCategory::equivalent(const std::error_code& code,
+CPPWAMP_INLINE bool SessionCategory::equivalent(const std::error_code& code,
                                              int condition) const noexcept
 {
     if (code.category() == wampCategory())
@@ -141,87 +140,87 @@ CPPWAMP_INLINE bool WampCategory::equivalent(const std::error_code& code,
             return true;
         else
         {
-            auto value = static_cast<WampErrc>(code.value());
-            switch (static_cast<WampErrc>(condition))
+            auto value = static_cast<SessionErrc>(code.value());
+            switch (static_cast<SessionErrc>(condition))
             {
-            case WampErrc::joinError:
-                return value == WampErrc::noSuchRealm ||
-                       value == WampErrc::noSuchRole;
+            case SessionErrc::joinError:
+                return value == SessionErrc::noSuchRealm ||
+                       value == SessionErrc::noSuchRole;
 
-            case WampErrc::sessionEndedByPeer:
-                return value == WampErrc::systemShutdown ||
-                       value == WampErrc::closeRealm;
+            case SessionErrc::sessionEndedByPeer:
+                return value == SessionErrc::systemShutdown ||
+                       value == SessionErrc::closeRealm;
 
-            case WampErrc::unsubscribeError:
-                return value == WampErrc::noSuchSubscription;
+            case SessionErrc::unsubscribeError:
+                return value == SessionErrc::noSuchSubscription;
 
-            case WampErrc::registerError:
-                return value == WampErrc::procedureAlreadyExists;
+            case SessionErrc::registerError:
+                return value == SessionErrc::procedureAlreadyExists;
 
-            case WampErrc::unregisterError:
-                return value == WampErrc::noSuchRegistration;
+            case SessionErrc::unregisterError:
+                return value == SessionErrc::noSuchRegistration;
 
-            case WampErrc::callError:
-                return value == WampErrc::noSuchProcedure ||
-                       value == WampErrc::invalidArgument;
+            case SessionErrc::callError:
+                return value == SessionErrc::noSuchProcedure ||
+                       value == SessionErrc::invalidArgument;
 
             default: return false;
             }
         }
     }
-    else if (condition == (int)WampErrc::success)
+    else if (condition == (int)SessionErrc::success)
         return !code;
     else return false;
 }
 
-CPPWAMP_INLINE WampCategory::WampCategory() {}
+CPPWAMP_INLINE SessionCategory::SessionCategory() {}
 
-CPPWAMP_INLINE WampCategory& wampCategory()
+CPPWAMP_INLINE SessionCategory& wampCategory()
 {
-    static WampCategory instance;
+    static SessionCategory instance;
     return instance;
 }
 
-CPPWAMP_INLINE std::error_code make_error_code(WampErrc errc)
+CPPWAMP_INLINE std::error_code make_error_code(SessionErrc errc)
 {
     return std::error_code(static_cast<int>(errc), wampCategory());
 }
 
-CPPWAMP_INLINE std::error_condition make_error_condition(WampErrc errc)
+CPPWAMP_INLINE std::error_condition make_error_condition(SessionErrc errc)
 {
     return std::error_condition(static_cast<int>(errc), wampCategory());
 }
 
 //------------------------------------------------------------------------------
-/** @return `true` if a matching WampErrc enumerator was found. */
+/** @return `true` if a matching SessionErrc enumerator was found. */
 //-----------------------------------------------------------------------------
-CPPWAMP_INLINE bool lookupWampErrorUri(
+CPPWAMP_INLINE SessionErrc lookupWampErrorUri(
     const std::string& uri, ///< The URI to search under.
-    WampErrc& errc          ///< Out parameter to contain the result, if found.
+    SessionErrc fallback    ///< Defaul value to used if the URI was not found.
 )
 {
-    static std::map<std::string, WampErrc> table =
+    static std::map<std::string, SessionErrc> table =
     {
-        {"wamp.error.invalid_uri",              WampErrc::invalidUri},
-        {"wamp.error.no_such_procedure",        WampErrc::noSuchProcedure},
-        {"wamp.error.procedure_already_exists", WampErrc::procedureAlreadyExists},
-        {"wamp.error.no_such_registration",     WampErrc::noSuchRegistration},
-        {"wamp.error.no_such_subscription",     WampErrc::noSuchSubscription},
-        {"wamp.error.invalid_argument",         WampErrc::invalidArgument},
-        {"wamp.error.system_shutdown",          WampErrc::systemShutdown},
-        {"wamp.error.close_realm",              WampErrc::closeRealm},
-        {"wamp.error.goodbye_and_out",          WampErrc::goodbyeAndOut},
-        {"wamp.error.not_authorized",           WampErrc::notAuthorized},
-        {"wamp.error.authorization_failed",     WampErrc::authorizationFailed},
-        {"wamp.error.no_such_realm",            WampErrc::noSuchRealm},
-        {"wamp.error.no_such_role",             WampErrc::noSuchRole},
+        {"wamp.error.invalid_uri",              SessionErrc::invalidUri},
+        {"wamp.error.no_such_procedure",        SessionErrc::noSuchProcedure},
+        {"wamp.error.procedure_already_exists", SessionErrc::procedureAlreadyExists},
+        {"wamp.error.no_such_registration",     SessionErrc::noSuchRegistration},
+        {"wamp.error.no_such_subscription",     SessionErrc::noSuchSubscription},
+        {"wamp.error.invalid_argument",         SessionErrc::invalidArgument},
+        {"wamp.error.system_shutdown",          SessionErrc::systemShutdown},
+        {"wamp.error.close_realm",              SessionErrc::closeRealm},
+        {"wamp.error.goodbye_and_out",          SessionErrc::goodbyeAndOut},
+        {"wamp.error.not_authorized",           SessionErrc::notAuthorized},
+        {"wamp.error.authorization_failed",     SessionErrc::authorizationFailed},
+        {"wamp.error.no_such_realm",            SessionErrc::noSuchRealm},
+        {"wamp.error.no_such_role",             SessionErrc::noSuchRole},
     };
 
+    SessionErrc result = fallback;
     auto kv = table.find(uri);
-    bool found = kv != table.end();
-    if (found)
-        errc = kv->second;
-    return found;
+    if (kv != table.end())
+        result = kv->second;
+    return result;
 }
 
 
@@ -231,7 +230,7 @@ CPPWAMP_INLINE bool lookupWampErrorUri(
 
 CPPWAMP_INLINE const char* ProtocolCategory::name() const noexcept
 {
-    return "wamp::Protocol";
+    return "wamp::ProtocolCategory";
 }
 
 CPPWAMP_INLINE std::string ProtocolCategory::message(int ev) const
@@ -286,7 +285,7 @@ CPPWAMP_INLINE std::error_condition make_error_condition(ProtocolErrc errc)
 
 CPPWAMP_INLINE const char* TransportCategory::name() const noexcept
 {
-    return "wamp::Transport";
+    return "wamp::TransportCategory";
 }
 
 CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
@@ -364,7 +363,7 @@ CPPWAMP_INLINE std::error_condition make_error_condition(TransportErrc errc)
 
 CPPWAMP_INLINE const char* RawsockCategory::name() const noexcept
 {
-    return "wamp::Rawsock";
+    return "wamp::RawsockCategory";
 }
 
 CPPWAMP_INLINE std::string RawsockCategory::message(int ev) const

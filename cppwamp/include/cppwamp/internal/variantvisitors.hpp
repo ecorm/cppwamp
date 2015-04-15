@@ -413,6 +413,22 @@ public:
     }
 };
 
+//------------------------------------------------------------------------------
+class Variant::ElementCount : public Visitor<Variant::SizeType>
+{
+public:
+    using SizeType = Variant::SizeType;
+
+    template <typename T>
+    SizeType operator()(const T&) {return 1u;}
+
+    SizeType operator()(const Null&) {return 0u;}
+
+    SizeType operator()(const Array& a) {return a.size();}
+
+    SizeType operator()(const Object& o) {return o.size();}
+};
+
 } // namespace wamp
 
 #endif // CPPWAMP_INTERNAL_VARIANT_VISITORS_HPP

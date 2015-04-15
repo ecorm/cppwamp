@@ -6,7 +6,7 @@
 ------------------------------------------------------------------------------*/
 
 #include <iostream>
-#include <cppwamp/coroclient.hpp>
+#include <cppwamp/corosession.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/legacytcpconnector.hpp>
 
@@ -22,18 +22,18 @@ public:
 
     void start(wamp::ConnectorList connectors, Yield yield)
     {
-        client_ = wamp::CoroClient<>::create(connectors);
+        session_ = wamp::CoroSession<>::create(connectors);
 
-        auto index = client_->connect(yield);
+        auto index = session_->connect(yield);
         std::cout << "Chat service connected on transport #"
                   << (index + 1) << "\n";
 
-        auto sid = client_->join(realm, yield);
-        std::cout << "Chat service joined, session ID = " << sid << "\n";
+        auto info = session_->join(wamp::Realm(realm), yield);
+        std::cout << "Chat service joined, session ID = " << info.id() << "\n";
 
         using namespace std::placeholders;
-        registration_ = client_->enroll<std::string, std::string>(
-            "say",
+        registration_ = session_->enroll<std::string, std::string>(
+            wamp::Procedure("say"),
             std::bind(&ChatService::say, this, _1, _2, _3),
             yield
         );
@@ -41,21 +41,21 @@ public:
 
     void quit(Yield yield)
     {
-        registration_.unregister();
-        client_->leave(yield);
-        client_->disconnect();
+        registration_.reset();
+        session_->leave(wamp::Reason(), yield);
+        session_->disconnect();
     }
 
 private:
     void say(wamp::Invocation inv, std::string user, std::string message)
     {
         // Rebroadcast message to all subscribers
-        client_->publish("said", {user, message});
+        session_->publish( wamp::Pub("said").withArgs({user, message}) );
         inv.yield();
     }
 
-    wamp::CoroClient<>::Ptr client_;
-    wamp::Registration registration_;
+    wamp::CoroSession<>::Ptr session_;
+    wamp::Registration::Ptr registration_;
 };
 
 
@@ -69,44 +69,44 @@ public:
 
     void join(wamp::ConnectorList connectors, Yield yield)
     {
-        client_ = wamp::CoroClient<>::create(connectors);
+        session_ = wamp::CoroSession<>::create(connectors);
 
-        auto index = client_->connect(yield);
+        auto index = session_->connect(yield);
         std::cout << user_ << " connected on transport #" << index << "\n";
 
-        auto sid = client_->join(realm, yield);
-        std::cout << user_ << " joined, session ID = " << sid << "\n";
+        auto info = session_->join(wamp::Realm(realm), yield);
+        std::cout << user_ << " joined, session ID = " << info.id() << "\n";
 
         using namespace std::placeholders;
-        subscription_ = client_->subscribe<std::string, std::string>(
-                "said",
+        subscription_ = session_->subscribe<std::string, std::string>(
+                wamp::Topic("said"),
                 std::bind(&ChatClient::said, this, _1, _2, _3),
                 yield);
     }
 
     void leave(Yield yield)
     {
-        subscription_.unsubscribe();
-        client_->leave(yield);
-        client_.reset();
+        subscription_.reset();
+        session_->leave(wamp::Reason(), yield);
+        session_.reset();
     }
 
     void say(const std::string& message, Yield yield)
     {
         std::cout << user_ << " says \"" << message << "\"\n";
-        client_->call("say", {user_, message}, yield);
+        session_->call(wamp::Rpc("say").withArgs({user_, message}), yield);
     }
 
 private:
-    void said(wamp::PublicationId, std::string from, std::string message)
+    void said(wamp::Event, std::string from, std::string message)
     {
         std::cout << user_ << " received message from " << from << ": \""
                   << message << "\"\n";
     }
 
     std::string user_;
-    wamp::CoroClient<>::Ptr client_;
-    wamp::Subscription subscription_;
+    wamp::CoroSession<>::Ptr session_;
+    wamp::Subscription::Ptr subscription_;
 };
 
 

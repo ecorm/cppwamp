@@ -47,7 +47,7 @@ namespace error
 //------------------------------------------------------------------------------
 /** General purpose runtime exception that wraps a std::error_code. */
 //------------------------------------------------------------------------------
-class Wamp : public std::system_error
+class Failure : public std::system_error
 {
 public:
     /** Obtains a human-readable message from the given error code. */
@@ -58,10 +58,10 @@ public:
     static std::string makeMessage(std::error_code ec, const std::string& info);
 
     /** Constructor taking an error code. */
-    explicit Wamp(std::error_code ec);
+    explicit Failure(std::error_code ec);
 
     /** Constructor taking an error code and informational string. */
-    Wamp(std::error_code ec, const std::string& info);
+    Failure(std::error_code ec, const std::string& info);
 };
 
 
@@ -85,11 +85,11 @@ struct Logic : public std::logic_error
 
 
 //******************************************************************************
-// WAMP Error Codes
+// Session Error Codes
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** Error code values used with the WampCategory error category.
+/** Error code values used with the SessionCategory error category.
     The equivalencies between these codes are as follows:
 
     std::error_code                         | Equivalent condition value
@@ -103,7 +103,7 @@ struct Logic : public std::logic_error
     make_error_code(noSuchProcedure)        | callError
     make_error_code(invalidArgument)        | callError */
 //------------------------------------------------------------------------------
-enum class WampErrc
+enum class SessionErrc
 {
     // Generic errors
     success = 0,            ///< Operation successful
@@ -135,10 +135,10 @@ enum class WampErrc
 };
 
 //------------------------------------------------------------------------------
-/** std::error_category used for reporting errors at the WAMP layer.
-    @see WampErrc */
+/** std::error_category used for reporting errors at the WAMP session layer.
+    @see SessionErrc */
 //------------------------------------------------------------------------------
-class WampCategory : public std::error_category
+class SessionCategory : public std::error_category
 {
 public:
     /** Obtains the name of the category. */
@@ -152,34 +152,34 @@ public:
                             int condition) const noexcept override;
 
 private:
-    WampCategory();
+    SessionCategory();
 
-    friend WampCategory& wampCategory();
+    friend SessionCategory& wampCategory();
 };
 
 //------------------------------------------------------------------------------
 /** Obtains a reference to the static error category object for Wamp errors.
-    @relates WampCategory */
+    @relates SessionCategory */
 //------------------------------------------------------------------------------
-WampCategory& wampCategory();
+SessionCategory& wampCategory();
 
 //------------------------------------------------------------------------------
-/** Creates an error code value from an WampErrc enumerator.
-    @relates WampCategory */
+/** Creates an error code value from an SessionErrc enumerator.
+    @relates SessionCategory */
 //-----------------------------------------------------------------------------
-std::error_code make_error_code(WampErrc errc);
+std::error_code make_error_code(SessionErrc errc);
 
 //------------------------------------------------------------------------------
-/** Creates an error condition value from an WampErrc enumerator.
-    @relates WampCategory */
+/** Creates an error condition value from an SessionErrc enumerator.
+    @relates SessionCategory */
 //-----------------------------------------------------------------------------
-std::error_condition make_error_condition(WampErrc errc);
+std::error_condition make_error_condition(SessionErrc errc);
 
 //------------------------------------------------------------------------------
-/** Looks up the WampErrc enumerator that corresponds to the given error URI.
-    @relates WampCategory */
+/** Looks up the SessionErrc enumerator that corresponds to the given error URI.
+    @relates SessionCategory */
 //-----------------------------------------------------------------------------
-bool lookupWampErrorUri(const std::string& uri, WampErrc& errc);
+SessionErrc lookupWampErrorUri(const std::string& uri, SessionErrc fallback);
 
 
 //******************************************************************************
@@ -322,7 +322,8 @@ enum class RawsockErrc
 
 //------------------------------------------------------------------------------
 /** std::error_category used for reporting errors specific to raw socket
-    transports. */
+    transports.
+    @see RawsockErrc */
 //------------------------------------------------------------------------------
 class RawsockCategory : public std::error_category
 {
@@ -370,7 +371,7 @@ namespace std
 {
 
 template <>
-struct is_error_condition_enum<wamp::WampErrc> : public true_type {};
+struct is_error_condition_enum<wamp::SessionErrc> : public true_type {};
 
 template <>
 struct is_error_condition_enum<wamp::ProtocolErrc> : public true_type {};
