@@ -6,6 +6,7 @@ C++11 client library for the [WAMP][wamp] protocol.
 **Features**:
 
 - Supports the [WAMP Basic Profile][wamp-basic]
+- Supports [some advanced WAMP profile features](#advanced)
 - Roles: _Caller_, _Callee_, _Subscriber_, _Publisher_
 - Transports: TCP and Unix domain raw sockets (with and without handshaking support)
 - Serializations: JSON and MsgPack
@@ -132,6 +133,15 @@ boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 float value = std::rand() % 10;
 session->publish(Pub("sensorSampled").withArgs({value}));
 ```
+
+<a name="advanced"></a>Supported Advanced Profile Features
+----------------------------------------------------------
+
+- General: agent identification, feature announcement
+- _Callee_: `call_trustlevels`, `caller_identification`, `pattern_based_registration`, `progressive_call_results`
+- _Caller_: `call_timeout`, `callee_blackwhite_listing`, `caller_exclusion`, `caller_identification`
+- _Publisher_: `publisher_exclusion`, `publisher_identification`, `subscriber_blackwhite_listing`
+- _Subscriber_: `pattern_based_subscription`, `publication_trustlevels`, `publisher_identification`
 
 Questions, Discussions, and Issues
 ----------------------------------
