@@ -32,8 +32,7 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// Specifies the interface required for classes that implement the
-// wamp::Session class.
+// Specifies the interface required for classes that implement wamp::Session.
 //------------------------------------------------------------------------------
 class ClientInterface : public Callee, public Subscriber
 {
@@ -74,7 +73,7 @@ public:
     virtual void postpone(std::function<void ()> functor) = 0;
 };
 
-const Object& ClientInterface::roles()
+inline const Object& ClientInterface::roles()
 {
     static const Object roles =
     {

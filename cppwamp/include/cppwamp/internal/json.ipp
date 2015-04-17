@@ -96,7 +96,7 @@ struct EncodeJson : public Visitor<>
     void operator()(Real x, TBuffer& buf) const
     {
         char str[32];
-        auto length = std::snprintf(str, sizeof(str), "%e.17", x);
+        auto length = std::snprintf(str, sizeof(str), "%.17e", x);
         assert(length < sizeof(str));
         buf.write(str, length);
     }

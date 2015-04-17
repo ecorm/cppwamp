@@ -283,7 +283,7 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Event& event)
         out << ", Details|dict = " << event.options();
     if (!event.args().empty())
         out << ", Arguments|list = " << event.args();
-    if (!event.args().empty())
+    if (!event.kwargs().empty())
         out << ", ArgumentsKw|dict = " << event.kwargs();
     return out << " ]";
 }
@@ -427,7 +427,7 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Result& result)
         out << ", Details|dict = " << result.options();
     if (!result.args().empty())
         out << ", Arguments|list = " << result.args();
-    if (!result.args().empty())
+    if (!result.kwargs().empty())
         out << ", ArgumentsKw|dict = " << result.kwargs();
     return out << " ]";
 }
@@ -524,7 +524,7 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
         out << ", Details|dict = " << inv.options();
     if (!inv.args().empty())
         out << ", Arguments|list = " << inv.args();
-    if (!inv.args().empty())
+    if (!inv.kwargs().empty())
         out << ", ArgumentsKw|dict = " << inv.kwargs();
     return out << " ]";
 }

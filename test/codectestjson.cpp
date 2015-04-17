@@ -93,12 +93,12 @@ void checkInteger(const std::string& json, TInteger n)
 void checkReal(const std::string& json, double x)
 {
     INFO( "For JSON string \"" << json << "\"" );
-
+    auto epsilon = std::numeric_limits<Real>::epsilon()*10.0;
     {
         Variant v;
         CHECK_NOTHROW( Json::decode(json, v) );
         REQUIRE( v.is<Real>() );
-        CHECK( v.as<Real>() == Approx(x).epsilon(0.001) );
+        CHECK( v.as<Real>() == Approx(x).epsilon(epsilon) );
     }
 
     {
@@ -106,7 +106,7 @@ void checkReal(const std::string& json, double x)
         std::istringstream iss(json);
         CHECK_NOTHROW( Json::decode(iss, v) );
         REQUIRE( v.is<Real>() );
-        CHECK( v.as<Real>() == Approx(x).epsilon(0.001) );
+        CHECK( v.as<Real>() == Approx(x).epsilon(epsilon) );
     }
 }
 
@@ -145,7 +145,7 @@ GIVEN( "valid JSON numeric strings" )
     checkReal("0.0", 0.0);
     checkReal("1.0", 1.0);
     checkReal("-1.0", -1.0);
-    checkReal("3.14", 3.14);
+    checkReal("3.14159265358979324", 3.14159265358979324);
     checkReal("2.9979e8", 2.9979e8);
 }
 GIVEN( "valid JSON strings" )
