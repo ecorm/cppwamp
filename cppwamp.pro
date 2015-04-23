@@ -23,12 +23,5 @@ OTHER_FILES += \
     Doxyfile.in \
     doc/concepts.dox \
     doc/cppwamp.dox \
-    doc/args.md \
-    doc/async.md \
-    doc/connectors.md \
-    doc/errors.md \
-    doc/pubsub.md \
-    doc/rpc.md \
-    doc/sessions.md \
-    doc/tutorial.md \
-    doc/variant.md
+    doc/registrations.dox \
+    doc/subscriptions.dox

@@ -62,19 +62,19 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 @section Layers Layers
 ![](layers.svg)
 
-@section Client_API Client API
+@section Client_API_UML Client API
 ![](client_api.svg)
 
-@section Subriptions Subscriptions
+@section Subriptions_UML Subscriptions
 ![](subscriptions.svg)
 
-@section Registrations Registrations
+@section Registrations_UML Registrations
 ![](registrations.svg)
 
-@section Messaging WAMP Sessions and Messaging
+@section Messaging_UML WAMP Sessions and Messaging
 ![](messaging.svg)
 
-@section Transport_Establishment Transport Establishment
+@section Transport_Establishment_UML Transport Establishment
 ![](transport.svg)
 */
 

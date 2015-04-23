@@ -95,30 +95,6 @@ public:
     Object& kwargs(internal::PassKey);
 };
 
-
-//------------------------------------------------------------------------------
-/** Utility class used to split @ref Array elements into separate arguments
-    to be passed to a function.
-    This class is used internally by Session to invoke event slots and call
-    slots taking extra, statically-typed parameters.
-    @tparam TArgs List of target argument types to which the Array elements
-            will be split and converted. */
-//------------------------------------------------------------------------------
-template <typename... TArgs>
-struct Unmarshall
-{
-    /** Calls the given function with the given array elements split up as
-        distinct function arguments. */
-    template <typename TFunction>
-    static void apply(TFunction&& fn, const Array& array);
-
-    /** Calls the given function with the given array elements split up as
-        distinct function arguments. */
-    template <typename TFunction, typename... TPreargs>
-    static void apply(TFunction&& fn, const Array& array,
-                      TPreargs&&... preargs);
-};
-
 } // namespace wamp
 
 #include "internal/payload.ipp"

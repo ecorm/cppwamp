@@ -8,6 +8,7 @@
 #ifndef CPPWAMP_SESSIONDATA_HPP
 #define CPPWAMP_SESSIONDATA_HPP
 
+#include <cassert>
 #include <initializer_list>
 #include <memory>
 #include <set>
@@ -293,9 +294,86 @@ std::ostream& operator<<(std::ostream& out, const Result& result);
 
 namespace internal { class Callee; } // Forward declaration
 
+
 //------------------------------------------------------------------------------
-/** Provides the means for returning a `YIELD` or `ERROR` result back to
-    the RPC caller. */
+/** Contains the outcome of an RPC invocation.
+    @see @ref RpcOutcomes */
+//------------------------------------------------------------------------------
+class Outcome
+{
+public:
+    /** Enumerators representing the type of outcome being held by
+        this object. */
+    enum class Type
+    {
+        deferred, ///< A `YIELD` has been, or will be, sent manually.
+        result,   ///< Contains a wamp::Result to be yielded back to the caller.
+        error     ///< Contains a wamp::Error to be yielded back to the caller.
+    };
+
+    /** Constructs an Outcome having Type::deferred. */
+    static Outcome deferred();
+
+    /** Default-constructs an outcome containing an empty Result object. */
+    Outcome();
+
+    /** Converting constructor taking a Result object. */
+    Outcome(Result result);
+
+    /** Converting constructor taking a braced initializer list of positional
+        arguments to be stored in a Result. */
+    Outcome(std::initializer_list<Variant> args);
+
+    /** Converting constructor taking an Error object. */
+    Outcome(Error error);
+
+    /** Copy constructor. */
+    Outcome(const Outcome& other);
+
+    /** Move constructor. */
+    Outcome(Outcome&& other);
+
+    /** Destructor. */
+    ~Outcome();
+
+    /** Obtains the object type being contained. */
+    Type type() const;
+
+    /** Copy-assignment operator. */
+    Outcome& operator=(const Outcome& other);
+
+    /** Move-assignment operator. */
+    Outcome& operator=(Outcome&& other);
+
+private:
+    explicit Outcome(std::nullptr_t);
+    void copyFrom(const Outcome& other);
+    void moveFrom(Outcome&& other);
+    void destruct();
+
+    Type type_;
+
+    union Value
+    {
+        Value() {}
+        ~Value() {}
+
+        Result result;
+        Error error;
+    } value_;
+
+public:
+    // Internal use only
+    Result& result(internal::PassKey);
+    Error& error(internal::PassKey);
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains payload arguments and other details related to a remote procedure
+    call invocation.
+    This class also provides the means for manually sending a `YIELD` or
+    `ERROR` result back to the RPC caller. */
 //------------------------------------------------------------------------------
 class Invocation : public Options<Invocation>, public Payload<Invocation>
 {
@@ -323,10 +401,10 @@ public:
         this call. */
     Variant procedure() const;
 
-    /** Sends a `YIELD` result back to the callee. */
+    /** Manually sends a `YIELD` result back to the callee. */
     void yield(Result result = Result());
 
-    /** Sends an `ERROR` result back to the callee. */
+    /** Manually sends an `ERROR` result back to the callee. */
     void yield(Error error);
 
 public:

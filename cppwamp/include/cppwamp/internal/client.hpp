@@ -22,11 +22,12 @@
 #include "../codec.hpp"
 #include "../json.hpp"
 #include "../msgpack.hpp"
+#include "../registration.hpp"
+#include "../subscription.hpp"
+#include "../unpacker.hpp"
 #include "../version.hpp"
 #include "clientinterface.hpp"
 #include "dialogue.hpp"
-#include "registrationimpl.hpp"
-#include "subscriptionimpl.hpp"
 
 namespace wamp
 {
@@ -133,14 +134,17 @@ public:
         this->close(true);
     }
 
-    virtual void subscribe(Subscription::Ptr sub,
-                           AsyncHandler<Subscription::Ptr>&& handler) override
+    virtual void subscribe(Topic&& topic, EventSlot&& slot,
+                           AsyncHandler<Subscription> handler) override
     {
-        auto kv = topics_.find(sub->topic().uri());
+        using std::move;
+        SubscriptionRecord sub = {move(topic), move(slot)};
+
+        auto kv = topics_.find(sub.topic.uri());
         if (kv == topics_.end())
         {
-            subscribeMsg_.at(2) = sub->topic().options();
-            subscribeMsg_.at(3) = sub->topic().uri();
+            subscribeMsg_.at(2) = sub.topic.options();
+            subscribeMsg_.at(3) = sub.topic.uri();
             auto self = this->shared_from_this();
             this->request(subscribeMsg_,
                 [this, self, sub, handler](std::error_code ec, Message reply)
@@ -149,59 +153,69 @@ public:
                                    SessionErrc::subscribeError, handler))
                     {
                         auto subId = reply.to<SubscriptionId>(2);
-                        sub->setId(subId, {});
-                        topics_.emplace(sub->topic().uri(), subId);
-                        readership_[subId].emplace(sub.get(), sub);
-                        this->post(handler, sub);
+                        auto slotId = nextSlotId();
+                        Subscription handle(self, subId, slotId, {});
+                        topics_.emplace(sub.topic.uri(), subId);
+                        readership_[subId][slotId] = move(sub);
+                        this->post(handler, move(handle));
                     }
                 });
         }
         else
         {
             auto subId = kv->second;
-            sub->setId(subId, {});
-            readership_[subId].emplace(sub.get(), sub);
-            this->post(handler, sub);
+            auto slotId = nextSlotId();
+            Subscription handle{this->shared_from_this(), subId, slotId, {}};
+            readership_[subId][slotId] = move(sub);
+            this->post(handler, move(handle));
         }
     }
 
-    virtual void unsubscribe(Subscription* sub) override
+    virtual void unsubscribe(const Subscription& handle) override
     {
-        assert(sub);
-        auto kv = readership_.find(sub->id());
+        auto kv = readership_.find(handle.id());
         if (kv != readership_.end())
         {
-            auto& subs = kv->second;
-            if (!subs.empty())
+            auto& subMap = kv->second;
+            if (!subMap.empty())
             {
-                subs.erase(sub);
-                if (subs.empty())
+                auto subKv = subMap.find(handle.slotId({}));
+                if (subKv != subMap.end())
                 {
-                    topics_.erase(sub->topic().uri());
-                        sendUnsubscribe(sub->id());
+                    if (subMap.size() == 1u)
+                        topics_.erase(subKv->second.topic.uri());
+
+                    subMap.erase(subKv);
+                    if (subMap.empty())
+                        sendUnsubscribe(handle.id());
                 }
             }
         }
     }
 
-    virtual void unsubscribe(Subscription* sub,
+    virtual void unsubscribe(const Subscription& handle,
                              AsyncHandler<bool> handler) override
     {
-        assert(sub);
         bool unsubscribed = false;
-        auto kv = readership_.find(sub->id());
+        auto kv = readership_.find(handle.id());
         if (kv != readership_.end())
         {
-            auto& subs = kv->second;
-            if (!subs.empty())
+            auto& subMap = kv->second;
+            if (!subMap.empty())
             {
-                subs.erase(sub);
-                unsubscribed = true;
-                if (subs.empty())
+                auto subKv = subMap.find(handle.slotId({}));
+                if (subKv != subMap.end())
                 {
-                    topics_.erase(sub->topic().uri());
-                    sendUnsubscribe(sub->id(), std::move(handler));
-                    handler = nullptr;
+                    unsubscribed = true;
+                    if (subMap.size() == 1u)
+                        topics_.erase(subKv->second.topic.uri());
+
+                    subMap.erase(subKv);
+                    if (subMap.empty())
+                    {
+                        sendUnsubscribe(handle.id(), std::move(handler));
+                        handler = nullptr;
+                    }
                 }
             }
         }
@@ -231,35 +245,37 @@ public:
             });
     }
 
-    virtual void enroll(Registration::Ptr reg,
-                        AsyncHandler<Registration::Ptr>&& handler) override
+    virtual void enroll(Procedure&& procedure, CallSlot&& slot,
+                        AsyncHandler<Registration>&& handler) override
     {
-        enrollMsg_.at(2) = reg->procedure().options();
-        enrollMsg_.at(3) = reg->procedure().uri();
+        using std::move;
+        RegistrationRecord reg{move(procedure), move(slot)};
+        enrollMsg_.at(2) = reg.procedure.options();
+        enrollMsg_.at(3) = reg.procedure.uri();
         auto self = this->shared_from_this();
         this->request(enrollMsg_,
             [this, self, reg, handler](std::error_code ec, Message reply)
             {
-                if (checkReply<Registration::Ptr>(WampMsgType::registered, ec,
+                if (checkReply<Registration>(WampMsgType::registered, ec,
                         reply, SessionErrc::registerError, handler))
                 {
                     auto regId = reply.to<RegistrationId>(2);
-                    reg->setId(regId, {});
-                    registry_[regId] = reg;
-                    this->post(handler, reg);
+                    Registration handle(self, regId, {});
+                    registry_[regId] = move(reg);
+                    this->post(handler, move(handle));
                 }
             });
     }
 
-    virtual void unregister(RegistrationId regId) override
+    virtual void unregister(const Registration& handle) override
     {
-        auto kv = registry_.find(regId);
+        auto kv = registry_.find(handle.id());
         if (kv != registry_.end())
         {
             registry_.erase(kv);
             if (state() == State::established)
             {
-                unregisterMsg_.at(2) = regId;
+                unregisterMsg_.at(2) = handle.id();
                 auto self = this->shared_from_this();
                 this->request( unregisterMsg_,
                     [this, self](std::error_code ec, Message reply)
@@ -273,16 +289,16 @@ public:
         }
     }
 
-    virtual void unregister(RegistrationId regId,
+    virtual void unregister(const Registration& handle,
                             AsyncHandler<bool> handler) override
     {
         CPPWAMP_LOGIC_CHECK(state() == State::established,
                             "Session is not established");
-        auto kv = registry_.find(regId);
+        auto kv = registry_.find(handle.id());
         if (kv != registry_.end())
         {
             registry_.erase(kv);
-            unregisterMsg_.at(2) = regId;
+            unregisterMsg_.at(2) = handle.id();
             auto self = this->shared_from_this();
             this->request( unregisterMsg_,
                 [this, self, handler](std::error_code ec, Message reply)
@@ -367,13 +383,42 @@ public:
     }
 
 private:
-    using Base        = Dialogue<Codec, Transport>;
-    using WampMsgType = internal::WampMsgType;
-    using Message     = internal::WampMessage;
-    using Subscribers = std::map<Subscription*, Subscription::WeakPtr>;
-    using Readership  = std::map<SubscriptionId, Subscribers>;
-    using TopicMap    = std::map<std::string, SubscriptionId>;
-    using Registry    = std::map<RegistrationId, Registration::WeakPtr>;
+    struct SubscriptionRecord
+    {
+        using Slot = std::function<void (Event)>;
+
+        SubscriptionRecord() : topic("") {}
+
+        SubscriptionRecord(Topic&& topic, Slot&& slot)
+            : topic(std::move(topic)), slot(std::move(slot))
+        {}
+
+        Topic topic;
+        Slot slot;
+    };
+
+    struct RegistrationRecord
+    {
+        using Slot = std::function<Outcome (Invocation)>;
+
+        RegistrationRecord() : procedure("") {}
+
+        RegistrationRecord(Procedure&& procedure, Slot&& slot)
+            : procedure(std::move(procedure)), slot(std::move(slot))
+        {}
+
+        Procedure procedure;
+        Slot slot;
+    };
+
+    using Base          = Dialogue<Codec, Transport>;
+    using WampMsgType   = internal::WampMsgType;
+    using Message       = internal::WampMessage;
+    using SlotId        = uint64_t;
+    using LocalSubs     = std::map<SlotId, SubscriptionRecord>;
+    using Readership    = std::map<SubscriptionId, LocalSubs>;
+    using TopicMap      = std::map<std::string, SubscriptionId>;
+    using Registry      = std::map<RegistrationId, RegistrationRecord>;
 
     Client(TransportPtr transport)
         : Base(std::move(transport))
@@ -408,7 +453,7 @@ private:
         }
     }
 
-    void sendUnsubscribe(SubscriptionId subId, UnsubscribeHandler&& handler)
+    void sendUnsubscribe(SubscriptionId subId, AsyncHandler<bool>&& handler)
     {
         CPPWAMP_LOGIC_CHECK((this->state() == State::established),
                             "Session is not established");
@@ -497,72 +542,62 @@ private:
     {
         using std::move;
 
-        auto subId = msg.to<SubscriptionId>(1);
-        auto kv = readership_.find(subId);
+        Event event({},
+                    msg.to<SubscriptionId>(1),
+                    msg.to<PublicationId>(2),
+                    move(msg.as<Object>(3)));
+
+        auto kv = readership_.find(event.subId());
         if (kv != readership_.end())
         {
-            Event event({}, subId, msg.to<PublicationId>(2),
-                        move(move(msg.as<Object>(3))));
             if (msg.fields.size() >= 5)
                 event.args({}) = move(msg.as<Array>(4));
             if (msg.fields.size() >= 6)
                 event.kwargs({}) = move(msg.as<Object>(5));
 
             auto self = this->shared_from_this();
-            const auto& subscribers = kv->second;
-            if (subscribers.size() == 1)
-            {
-                this->post(&Client::dispatchEvent, self,
-                           subscribers.begin()->second, move(event));
-            }
-            else
-            {
-                for (auto& subKv: subscribers)
-                    this->post(&Client::dispatchEvent, self,
-                               subKv.second, event);
-            }
-        }
-    }
-
-    void dispatchEvent(Subscription::WeakPtr subscription, Event event)
-    {
-        // Copy the publication ID before the Event object gets moved away.
-        auto pubId = event.pubId();
-
-        auto sub = subscription.lock();
-        if (sub)
-        {
-            const char* warningMsg = nullptr;
-            try
-            {
-                sub->invoke(std::move(event), {});
-            }
-            catch (const std::out_of_range&)
-            {
-                warningMsg = "Received an EVENT with insufficient positional "
-                             "arguments";
-            }
-            catch (const error::Conversion&)
-            {
-                warningMsg = "Received an EVENT with invalid positional "
-                             "arguments types";
-            }
-            if (warningMsg && warningHandler_)
-            {
-                std::ostringstream oss;
-                oss << warningMsg << " (with topic=\"" << sub->topic().uri()
-                    << "\", subId=" << sub->id() << " pubId=" << pubId << ")";
-                warn(oss.str());
-            }
+            const auto& localSubs = kv->second;
+            for (const auto& subKv: localSubs)
+                dispatchEvent(subKv.second, event);
         }
         else if (warningHandler_)
         {
             std::ostringstream oss;
-            oss << "Received an EVENT that is no longer subscribed for "
-                   "(with subId=" << event.subId() << " pubId=" << pubId << ")";
+            oss << "Received an EVENT that is not subscribed to "
+                   "(with subId=" << event.subId()
+                << " pubId=" << event.pubId() << ")";
             warn(oss.str());
         }
+    }
 
+    void dispatchEvent(const SubscriptionRecord& sub, const Event& event)
+    {
+        auto self = this->shared_from_this();
+        const auto& slot = sub.slot;
+        this->post([this, self, slot, event]()
+        {
+            // Copy the subscription and publication IDs before the Event
+            // object gets moved away.
+            auto subId = event.subId();
+            auto pubId = event.pubId();
+
+            try
+            {
+                slot(std::move(event));
+            }
+            catch (const internal::UnpackError& e)
+            {
+                if (warningHandler_)
+                {
+                    std::ostringstream oss;
+                    oss << "Received an EVENT with invalid arguments: "
+                        << e.reason
+                        << " (with subId=" << subId
+                        << " pubId=" << pubId << ")";
+                    warn(oss.str());
+                }
+            }
+        });
     }
 
     void onInvocation(Message&& msg)
@@ -581,8 +616,7 @@ private:
             if (msg.fields.size() >= 6)
                 inv.kwargs({}) = move(msg.as<Object>(5));
 
-            this->post(&Client::dispatchInvocation, self,
-                       kv->second, move(inv));
+            dispatchInvocation(kv->second, inv);
         }
         else
         {
@@ -592,38 +626,48 @@ private:
         }
     }
 
-    void dispatchInvocation(Registration::WeakPtr registration,
-                            Invocation invocation)
+    void dispatchInvocation(const RegistrationRecord& reg,
+                            const Invocation& invocation)
     {
-        // Copy the request ID before the Invocation object gets moved away.
-        auto reqId = invocation.requestId();
-
-        auto reg = registration.lock();
-        if (reg)
+        auto self = this->shared_from_this();
+        const auto& slot = reg.slot;
+        this->post([this, self, slot, invocation]()
         {
+            // Copy the request ID before the Invocation object gets moved away.
+            auto reqId = invocation.requestId();
+
             try
             {
-                reg->invoke(std::move(invocation), {});
+                Outcome outcome(slot(std::move(invocation)));
+                switch (outcome.type())
+                {
+                case Outcome::Type::deferred:
+                    // Do nothing
+                    break;
+
+                case Outcome::Type::result:
+                    yield(reqId, std::move(outcome.result({})));
+                    break;
+
+                case Outcome::Type::error:
+                    yield(reqId, std::move(outcome.error({})));
+                    break;
+
+                default:
+                    assert(false && "unexpected Outcome::Type");
+                }
             }
-            catch (const std::out_of_range&)
+            catch (internal::UnpackError e)
             {
                 this->sendError(WampMsgType::invocation, reqId,
                         Error("wamp.error.invalid_argument")
-                            .withArgs({"Insufficient arguments"}));
+                            .withArgs({std::move(e.reason)}));
             }
-            catch (const error::Conversion& e)
+            catch (Error error)
             {
-                this->sendError(WampMsgType::invocation, reqId,
-                        Error("wamp.error.invalid_argument")
-                            .withArgs({"Argument type mismatch", e.what()}));
+                yield(reqId, std::move(error));
             }
-        }
-        else
-        {
-            this->sendError(WampMsgType::invocation, reqId,
-                    Error("wamp.error.no_such_procedure")
-                        .withArgs({"The called procedure no longer exists"}));
-        }
+        });
     }
 
     template <typename THandler>
@@ -707,6 +751,9 @@ private:
         yieldWithKwargsMsg_    = M{ T::yield,       {n, n, o, a, o} };
     }
 
+    SlotId nextSlotId() {return nextSlotId_++;}
+
+    SlotId nextSlotId_ = 0;
     TopicMap topics_;
     Readership readership_;
     Registry registry_;

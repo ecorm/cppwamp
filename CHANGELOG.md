@@ -1,3 +1,15 @@
+v0.3.0
+======
+Made further refinements to the API. The minimal Boost library version required is now 1.58.0.
+
+### Details
+- The library now depends on Boost 1.58, which now includes Boost.Endian. This removes the dependency on the "standalone" Boost.Endian (closes #5).
+- Revamped subscriptions and registrations to more closely model Boost.Signals2 connection management. Users are no longer forced to keep `Subscription`/`Registration` objects alive. `ScopedSubscription` and `ScopedRegistraton` have been added to permit automatic lifetime management, if desired (closes #45).
+- RPC handlers are now required to return an `Outcome` object. This makes it harder to forget returning a result from within an RPC handler (closes #46).
+- Statically-typed call/event handlers are now handled by `EventUnpacker` and `InvocationUnpacker` wrappers. This eliminates the need for `Session::subscribe` and `Session::enroll` overloads, and greatly simplifies subscription/registration management (closes #51).
+- Unpacking of positional arguments for statically-typed call/event slots now uses a simpler technique inspired by `std::integer_sequence` (closes #52)
+- Updated examples and tests to use raw socket handshaking, which is now supported on Crossbar (closes #54).
+
 v0.2.0
 ======
 Overhauled API to make use of fluent API techniques. Some Advanced WAMP Profile features are now supported.

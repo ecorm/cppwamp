@@ -70,16 +70,18 @@ protected:
             std::weak_ptr<Dialogue> self(this->shared_from_this());
 
             transport_->start(
-                        [self](Buffer buf)
-                        {
-                            if (!self.expired())
-                                self.lock()->onTransportRx(buf);
-                        },
-                        [self](std::error_code ec)
-                        {
-                            if (!self.expired())
-                                self.lock()->checkError(ec);
-                        }
+                [self](Buffer buf)
+                {
+                    auto me = self.lock();
+                    if (me)
+                        me->onTransportRx(buf);
+                },
+                [self](std::error_code ec)
+                {
+                    auto me = self.lock();
+                    if (me)
+                        me->checkError(ec);
+                }
             );
         }
     }

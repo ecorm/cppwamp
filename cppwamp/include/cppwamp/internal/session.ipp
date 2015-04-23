@@ -224,28 +224,10 @@ CPPWAMP_INLINE void Session::reset()
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    A _slot_ is a function that is called in response to a _signal_
-    (the signal being the event topic in this case). The term _slot_, borrowed
-    from [Qt's signals and slots][qt_sig], is used to distinguish these
-    handlers from asynchronous operation handlers.
+/** @see @ref Subscriptions
 
-    For this `subscribe` overload, the event slot must be a _callable target_
-    with the following signature:
-
-    ~~~~~~~~~~~~~~~~~~~~
-    void function(Event)
-    ~~~~~~~~~~~~~~~~~~~~
-
-    where:
-    - _callable target_ is a free function, bound member function,
-      function object, lambda function, etc., and,
-    - `Event` is an object containing information related to the publication
-
-    [qt_sig]: http://doc.qt.io/qt-5/signalsandslots.html
-
-    @return A `std::shared_ptr` to a Subscription object, therafter used to
-            manage the subscription's lifetime.
+    @return A Subscription object, therafter used to manage the subscription's
+            lifetime.
     @pre `this->state() == SessionState::established`
     @par Error Codes
         - SessionErrc::subscribeError if the router replied with an `ERROR`
@@ -257,16 +239,14 @@ CPPWAMP_INLINE void Session::subscribe(
     Topic topic,    /**< The topic to subscribe to. */
     EventSlot slot, /**< The callable target to invoke when a matching
                          event is received. */
-    AsyncHandler<Subscription::Ptr> handler /**< Handler to invoke when the
-                                                 subscribe operation completes. */
+    AsyncHandler<Subscription> handler /**< Handler to invoke when the
+                                            subscribe operation completes. */
 )
 {
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
     using std::move;
-    auto sub = internal::DynamicSubscription::create(impl_, move(topic),
-                                                     move(slot));
-    doSubscribe(move(sub), move(handler));
+    impl_->subscribe(move(topic), move(slot), move(handler));
 }
 
 //------------------------------------------------------------------------------
@@ -274,15 +254,16 @@ CPPWAMP_INLINE void Session::subscribe(
     This function can be safely called during any session state. If the
     subscription is no longer applicable, then the unsubscribe operation
     will effectively do nothing.
-    @note Duplicate unsubscribes using the same Subscription handle
+    @see Subscription, ScopedSubscription
+    @note Duplicate unsubscribes using the same Subscription object
           are safely ignored. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unsubscribe(
-    Subscription::Ptr sub /**< The subscription to unsubscribe from. */
+    const Subscription& sub /**< The subscription to unsubscribe from. */
 )
 {
-    if (impl_ && sub)
-        impl_->unsubscribe(sub.get());
+    if (impl_)
+        impl_->unsubscribe(sub);
 }
 
 //------------------------------------------------------------------------------
@@ -290,6 +271,7 @@ CPPWAMP_INLINE void Session::unsubscribe(
     If there are other local subscriptions on this session remaining for the
     same topic, then the session does not send an `UNSUBSCRIBE` message to
     the router.
+    @see Subscription, ScopedSubscription
     @returns `false` if the subscription was already removed, `true` otherwise.
     @note Duplicate unsubscribes using the same Subscription handle
           are safely ignored.
@@ -305,15 +287,14 @@ CPPWAMP_INLINE void Session::unsubscribe(
     @throws error::Logic if `this->state() != SessionState::established` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unsubscribe(
-    Subscription::Ptr sub,     /**< The subscription to unsubscribe from. */
+    const Subscription& sub,   /**< The subscription to unsubscribe from. */
     AsyncHandler<bool> handler /**< Handler to invoke when the operation
                                     completes. */
 )
 {
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
-    if (impl_ && sub)
-        impl_->unsubscribe(sub.get(), std::move(handler));
+    impl_->unsubscribe(sub, std::move(handler));
 }
 
 //------------------------------------------------------------------------------
@@ -352,29 +333,10 @@ CPPWAMP_INLINE void Session::publish(
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    A _slot_ is a function that is called in response to a _signal_ (the signal
-    being the call invocation in this case). The term _slot_, borrowed from
-    [Qt's signals and slots][qt_sig], is used to distinguish the call handler
-    from asynchronous operation handlers.
+/** @see @ref Registrations
 
-    For this `enroll` overload, the call slot must be a _callable target_ with
-    the following signature:
-
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
-    void function(Invocation)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    where:
-    - _callable target_ is a free function, bound member function,
-      function object, lambda function, etc., and,
-    - `Invocation` is an object containing information related to the
-      invocation
-
-    [qt_sig]: http://doc.qt.io/qt-5/signalsandslots.html
-
-    @return A `shared_ptr` to a Registration handle, therafter used to manage
-            the registration's lifetime.
+    @return A Registration object, therafter used to manage the registration's
+            lifetime.
     @note This function was named `enroll` because `register` is a reserved
           C++ keyword.
     @pre `this->state() == SessionState::established`
@@ -386,14 +348,12 @@ CPPWAMP_INLINE void Session::publish(
     @throws error::Logic if `this->state() != SessionState::established` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::enroll(Procedure procedure, CallSlot slot,
-                                    AsyncHandler<Registration::Ptr> handler)
+                                    AsyncHandler<Registration> handler)
 {
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
     using std::move;
-    auto reg = internal::DynamicRegistration::create(impl_, move(procedure),
-                                                     move(slot));
-    doEnroll(move(reg), move(handler));
+    impl_->enroll(move(procedure), move(slot), move(handler));
 }
 
 //------------------------------------------------------------------------------
@@ -401,19 +361,21 @@ CPPWAMP_INLINE void Session::enroll(Procedure procedure, CallSlot slot,
     This function can be safely called during any session state. If the
     registration is no longer applicable, then the unregister operation
     will effectively do nothing.
+    @see Registration, ScopedRegistration
     @note Duplicate unregistrations using the same Registration handle
           are safely ignored. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unregister(
-    Registration::Ptr reg /**< The RPC registration to unregister. */
+    const Registration& reg /**< The RPC registration to unregister. */
 )
 {
-    if (impl_ && reg)
-        impl_->unregister(reg->id());
+    if (impl_)
+        impl_->unregister(reg);
 }
 
 //------------------------------------------------------------------------------
-/** @returns `false` if the registration was already removed, `true` otherwise.
+/** @see Registration, ScopedRegistration
+    @returns `false` if the registration was already removed, `true` otherwise.
     @note Duplicate unregistrations using the same Registration handle
           are safely ignored.
     @pre `this->state() == SessionState::established`
@@ -428,15 +390,15 @@ CPPWAMP_INLINE void Session::unregister(
     @throws error::Logic if `this->state() != SessionState::established` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unregister(
-    Registration::Ptr reg,     /**< The RPC registration to unregister. */
+    const Registration& reg,   /**< The RPC registration to unregister. */
     AsyncHandler<bool> handler /**< Handler to invoke when the operation
                                     completes. */
 )
 {
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
-    if (impl_ && reg)
-        impl_->unregister(reg->id(), std::move(handler));
+    if (impl_)
+        impl_->unregister(reg, std::move(handler));
 }
 
 //------------------------------------------------------------------------------
@@ -519,20 +481,6 @@ CPPWAMP_INLINE void Session::doConnect(size_t index,
                 }
             }
         });
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::doSubscribe(Subscription::Ptr sub,
-        AsyncHandler<Subscription::Ptr>&& handler)
-{
-    impl_->subscribe(sub, std::move(handler));
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::doEnroll(Registration::Ptr reg,
-                                     AsyncHandler<Registration::Ptr>&& handler)
-{
-    impl_->enroll(reg, std::move(handler));
 }
 
 //------------------------------------------------------------------------------

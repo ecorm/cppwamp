@@ -30,7 +30,7 @@
                   "type": "tcp",
                   "port": 12345
                },
-               "serializer": "json",
+               "serializers": ["json"],
                "debug": true
             },
             {
@@ -39,7 +39,7 @@
                   "type": "unix",
                   "path": "./udstest"
                },
-               "serializer": "msgpack",
+               "serializers": ["msgpack"],
                "debug": true
             }
          ]

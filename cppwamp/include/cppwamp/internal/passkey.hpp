@@ -11,6 +11,8 @@
 namespace wamp
 {
 
+class Session;
+
 namespace internal
 {
     class PassKey
@@ -19,6 +21,7 @@ namespace internal
 
         template <typename, typename> friend class Dialogue;
         template <typename, typename> friend class Client;
+        friend class wamp::Session;
     };
 }
 

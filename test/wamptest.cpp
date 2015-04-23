@@ -15,10 +15,22 @@
 #include <sys/wait.h>
 #include <catch.hpp>
 #include <cppwamp/corosession.hpp>
-#include <cppwamp/legacytcpconnector.hpp>
-#include <cppwamp/legacyudsconnector.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/msgpack.hpp>
+#include <cppwamp/unpacker.hpp>
+
+#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
+#include <cppwamp/legacytcpconnector.hpp>
+#include <cppwamp/legacyudsconnector.hpp>
+using TcpConnectorType = wamp::legacy::TcpConnector;
+using UdsConnectorType = wamp::legacy::UdsConnector;
+#else
+#include <cppwamp/tcpconnector.hpp>
+#include <cppwamp/udsconnector.hpp>
+using TcpConnectorType = wamp::TcpConnector;
+using UdsConnectorType = wamp::UdsConnector;
+#endif
+
 
 using namespace wamp;
 
@@ -35,7 +47,7 @@ struct PubSubFixture
 {
     using PubVec = std::vector<PublicationId>;
 
-    PubSubFixture(legacy::TcpConnector::Ptr cnct)
+    PubSubFixture(TcpConnectorType::Ptr cnct)
         : publisher(CoroSession<>::create(cnct)),
           subscriber(CoroSession<>::create(cnct)),
           otherSubscriber(CoroSession<>::create(cnct))
@@ -59,9 +71,11 @@ struct PubSubFixture
                 std::bind(&PubSubFixture::onDynamicEvent, this, _1),
                 yield);
 
-        staticSub = subscriber->subscribe<std::string, int>(
+        staticSub = subscriber->subscribe(
                 Topic("str.num"),
-                std::bind(&PubSubFixture::onStaticEvent, this, _1, _2, _3),
+                unpackedEvent<std::string, int>(
+                            std::bind(&PubSubFixture::onStaticEvent, this,
+                                      _1, _2, _3)),
                 yield);
 
         otherSub = otherSubscriber->subscribe(
@@ -97,9 +111,9 @@ struct PubSubFixture
     CoroSession<>::Ptr subscriber;
     CoroSession<>::Ptr otherSubscriber;
 
-    Subscription::Ptr dynamicSub;
-    Subscription::Ptr staticSub;
-    Subscription::Ptr otherSub;
+    ScopedSubscription dynamicSub;
+    ScopedSubscription staticSub;
+    ScopedSubscription otherSub;
 
     PubVec dynamicPubs;
     PubVec staticPubs;
@@ -112,7 +126,7 @@ struct PubSubFixture
 //------------------------------------------------------------------------------
 struct RpcFixture
 {
-    RpcFixture(legacy::TcpConnector::Ptr cnct)
+    RpcFixture(TcpConnectorType::Ptr cnct)
         : caller(CoroSession<>::create(cnct)),
           callee(CoroSession<>::create(cnct))
     {}
@@ -133,35 +147,36 @@ struct RpcFixture
                 std::bind(&RpcFixture::dynamicRpc, this, _1),
                 yield);
 
-        staticReg = callee->enroll<std::string, int>(
+        staticReg = callee->enroll(
                 Procedure("static"),
-                std::bind(&RpcFixture::staticRpc, this, _1, _2, _3),
+                unpackedRpc<std::string, int>(std::bind(&RpcFixture::staticRpc,
+                                                        this, _1, _2, _3)),
                 yield);
     }
 
-    void dynamicRpc(Invocation inv)
+    Outcome dynamicRpc(Invocation inv)
     {
         INFO( "in RPC handler" );
         CHECK( inv.requestId() <= 9007199254740992ull );
         ++dynamicCount;
-        // Echo back the call arguments as the yield result.
-        inv.yield(Result().withArgs(inv.args()));
+        // Echo back the call arguments as the result.
+        return Result().withArgs(inv.args());
     }
 
-    void staticRpc(Invocation inv, std::string str, int num)
+    Outcome staticRpc(Invocation inv, std::string str, int num)
     {
         INFO( "in RPC handler" );
         CHECK( inv.requestId() <= 9007199254740992ull );
         ++staticCount;
         // Echo back the call arguments as the yield result.
-        inv.yield({str, num});
+        return {str, num};
     }
 
     CoroSession<>::Ptr caller;
     CoroSession<>::Ptr callee;
 
-    Registration::Ptr dynamicReg;
-    Registration::Ptr staticReg;
+    ScopedRegistration dynamicReg;
+    ScopedRegistration staticReg;
 
     int dynamicCount = 0;
     int staticCount = 0;
@@ -173,8 +188,8 @@ void checkInvalidUri(TThrowDelegate&& throwDelegate,
                      TErrcDelegate&& errcDelegate, bool joined = true)
 {
     AsioService iosvc;
-    using legacy::TcpConnector;
-    auto cnct = TcpConnector::create(iosvc, "localhost", validPort, Json::id());
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Json::id());
     boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
     {
         auto session = CoroSession<>::create(cnct);
@@ -202,8 +217,7 @@ template <typename TResult, typename TDelegate>
 void checkDisconnect(TDelegate&& delegate)
 {
     AsioService iosvc;
-    using legacy::TcpConnector;
-    auto cnct = TcpConnector::create(iosvc, "localhost", validPort, Json::id());
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort, Json::id());
     bool completed = false;
     AsyncResult<TResult> result;
     boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
@@ -262,7 +276,7 @@ void checkInvalidOps(CoroSession<>::Ptr session,
     std::error_code ec;
 
     CHECK_THROWS_AS( session->subscribe(Topic("topic"),
-                        [](Event){}, [](AsyncResult<Subscription::Ptr>){}),
+                        [](Event){}, [](AsyncResult<Subscription>){}),
                      error::Logic );
     CHECK_THROWS_AS( session->publish(Pub("topic"),
                                      [](AsyncResult<PublicationId>) {}),
@@ -270,8 +284,9 @@ void checkInvalidOps(CoroSession<>::Ptr session,
     CHECK_THROWS_AS( session->publish(Pub("topic").withArgs({42}),
                                      [](AsyncResult<PublicationId>) {}),
                      error::Logic );
-    CHECK_THROWS_AS( session->enroll(Procedure("rpc"), [](Invocation){},
-                                    [](AsyncResult<Registration::Ptr>){}),
+    CHECK_THROWS_AS( session->enroll(Procedure("rpc"),
+                                     [](Invocation)->Outcome {return {};},
+                                     [](AsyncResult<Registration>){}),
                      error::Logic );
     CHECK_THROWS_AS( session->call(Rpc("rpc"), [](AsyncResult<Result>) {}),
                      error::Logic );
@@ -285,7 +300,9 @@ void checkInvalidOps(CoroSession<>::Ptr session,
     CHECK_THROWS_AS( session->publish(Pub("topic"), yield), error::Logic );
     CHECK_THROWS_AS( session->publish(Pub("topic").withArgs({42}), yield),
                      error::Logic );
-    CHECK_THROWS_AS( session->enroll(Procedure("rpc"), [](Invocation){}, yield),
+    CHECK_THROWS_AS( session->enroll(Procedure("rpc"),
+                                     [](Invocation)->Outcome{return {};},
+                     yield),
                      error::Logic );
     CHECK_THROWS_AS( session->call(Rpc("rpc"), yield), error::Logic );
     CHECK_THROWS_AS( session->call(Rpc("rpc").withArgs({42}), yield),
@@ -298,7 +315,8 @@ void checkInvalidOps(CoroSession<>::Ptr session,
                      error::Logic );
     CHECK_THROWS_AS( session->publish(Pub("topic").withArgs({42}), yield, &ec),
                      error::Logic );
-    CHECK_THROWS_AS( session->enroll(Procedure("rpc"), [](Invocation){},
+    CHECK_THROWS_AS( session->enroll(Procedure("rpc"),
+                                     [](Invocation)->Outcome{return {};},
                                     yield, &ec),
                      error::Logic );
     CHECK_THROWS_AS( session->call(Rpc("rpc"), yield, &ec), error::Logic );
@@ -308,8 +326,6 @@ void checkInvalidOps(CoroSession<>::Ptr session,
 
 } // anonymous namespace
 
-using legacy::TcpConnector;
-using legacy::UdsConnector;
 
 //------------------------------------------------------------------------------
 SCENARIO( "Using WAMP session interface", "[WAMP]" )
@@ -335,8 +351,8 @@ else
     GIVEN( "an IO service and a TCP connector" )
     {
         AsioService iosvc;
-        auto cnct = TcpConnector::create(iosvc, "localhost", validPort,
-                                         Json::id());
+        auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                             Json::id());
 
     WHEN( "connecting and disconnecting" )
     {
@@ -603,7 +619,8 @@ else
 
     WHEN( "joining using a UDS transport and Msgpack serializer" )
     {
-        auto cnct2 = UdsConnector::create(iosvc, testUdsPath, Msgpack::id());
+        auto cnct2 = UdsConnectorType::create(iosvc, testUdsPath,
+                                              Msgpack::id());
 
         auto s = CoroSession<>::create(cnct2);
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
@@ -708,7 +725,7 @@ else
             CHECK(( f.staticArgs == Array{"three", 3} ));
 
             // Unsubscribe the static subscription via RAII.
-            f.staticSub.reset();
+            f.staticSub = ScopedSubscription();
 
             // Check that the dynamic and static slots no longer fire, and
             // that the "other" slot still fires.
@@ -758,10 +775,10 @@ else
             f.subscribe(yield);
 
             // Unsubscribe the dynamic subscription manually.
-            f.dynamicSub->unsubscribe();
+            f.dynamicSub.unsubscribe();
 
             // Unsubscribe the dynamic subscription again via RAII.
-            f.dynamicSub.reset();
+            f.dynamicSub = ScopedSubscription();
 
             // Check that the dynamic slot no longer fires, and that the
             // static slot still fires.
@@ -777,7 +794,7 @@ else
             f.subscriber->unsubscribe(f.staticSub, yield);
 
             // Unsubscribe the static subscription again manually.
-            f.staticSub->unsubscribe();
+            f.staticSub.unsubscribe();
 
             // Check that the dynamic and static slots no longer fire.
             // Publish to the "other" subscription so that we know when
@@ -808,10 +825,10 @@ else
             f.subscriber.reset();
 
             // Unsubscribe the dynamic subscription manually.
-            REQUIRE_NOTHROW( f.dynamicSub->unsubscribe() );
+            REQUIRE_NOTHROW( f.dynamicSub.unsubscribe() );
 
             // Unsubscribe the static subscription via RAII.
-            REQUIRE_NOTHROW( f.staticSub.reset() );
+            REQUIRE_NOTHROW( f.staticSub = ScopedSubscription() );
 
             // Check that the dynamic and static slots no longer fire.
             // Publish to the "other" subscription so that we know when
@@ -842,12 +859,12 @@ else
             f.subscriber->leave(Reason(), yield);
 
             // Unsubscribe the dynamic subscription via RAII.
-            REQUIRE_NOTHROW( f.dynamicSub.reset() );
+            REQUIRE_NOTHROW( f.dynamicSub = ScopedSubscription() );
 
             // Unsubscribe the static subscription manually.
             CHECK_THROWS_AS( f.subscriber->unsubscribe(f.staticSub, yield),
                              error::Logic );
-            REQUIRE_NOTHROW( f.staticSub->unsubscribe() );
+            REQUIRE_NOTHROW( f.staticSub.unsubscribe() );
 
             // Check that the dynamic and static slots no longer fire.
             // Publish to the "other" subscription so that we know when
@@ -880,10 +897,10 @@ else
             // Unsubscribe the dynamic subscription manually.
             CHECK_THROWS_AS( f.subscriber->unsubscribe(f.dynamicSub, yield),
                              error::Logic );
-            REQUIRE_NOTHROW( f.dynamicSub->unsubscribe() );
+            REQUIRE_NOTHROW( f.dynamicSub.unsubscribe() );
 
             // Unsubscribe the static subscription via RAII.
-            REQUIRE_NOTHROW( f.staticSub.reset() );
+            REQUIRE_NOTHROW( f.staticSub= ScopedSubscription() );
 
             // Check that the dynamic and static slots no longer fire.
             // Publish to the "other" subscription so that we know when
@@ -914,7 +931,7 @@ else
             f.subscriber.reset();
 
             // Unsubscribe the static subscription via RAII.
-            REQUIRE_NOTHROW( f.staticSub.reset() );
+            REQUIRE_NOTHROW( f.staticSub = ScopedSubscription() );
 
             // Check that the dynamic and static slots no longer fire.
             // Publish to the "other" subscription so that we know when
@@ -1002,7 +1019,7 @@ else
             CHECK(( result.args() == Array{"two", 2} ));
 
             // Unregister the slot via RAII.
-            f.staticReg.reset();
+            f.staticReg = ScopedRegistration();
 
             // The router should now report an error when attempting
             // to call the unregistered RPC.
@@ -1016,9 +1033,10 @@ else
 
             // Calling should work after re-registering the slot.
             using namespace std::placeholders;
-            f.staticReg = f.callee->enroll<std::string, int>(
+            f.staticReg = f.callee->enroll(
                 Procedure("static"),
-                std::bind(&RpcFixture::staticRpc, &f, _1, _2, _3),
+                unpackedRpc<std::string, int>(std::bind(&RpcFixture::staticRpc,
+                                                        &f, _1, _2, _3)),
                 yield);
             result = f.caller->call(Rpc("static").withArgs({"four", 4}), yield);
             CHECK( f.staticCount == 3 );
@@ -1040,10 +1058,10 @@ else
             f.callee.reset();
 
             // Manually unregister a RPC.
-            REQUIRE_NOTHROW( f.dynamicReg->unregister() );
+            REQUIRE_NOTHROW( f.dynamicReg.unregister() );
 
             // Unregister an RPC via RAII.
-            REQUIRE_NOTHROW( f.staticReg.reset() );
+            REQUIRE_NOTHROW( f.staticReg = ScopedRegistration() );
 
             // The router should report an error when attempting
             // to call the unregistered RPCs.
@@ -1077,10 +1095,10 @@ else
             // Manually unregister a RPC.
             CHECK_THROWS_AS( f.callee->unregister(f.dynamicReg, yield),
                              error::Logic );
-            REQUIRE_NOTHROW( f.dynamicReg->unregister() );
+            REQUIRE_NOTHROW( f.dynamicReg.unregister() );
 
             // Unregister an RPC via RAII.
-            REQUIRE_NOTHROW( f.staticReg.reset() );
+            REQUIRE_NOTHROW( f.staticReg = ScopedRegistration() );
 
             // The router should report an error when attempting
             // to call the unregistered RPCs.
@@ -1114,10 +1132,10 @@ else
             // Manually unregister a RPC.
             CHECK_THROWS_AS( f.callee->unregister(f.dynamicReg, yield),
                              error::Logic );
-            REQUIRE_NOTHROW( f.dynamicReg->unregister() );
+            REQUIRE_NOTHROW( f.dynamicReg.unregister() );
 
             // Unregister an RPC via RAII.
-            REQUIRE_NOTHROW( f.staticReg.reset() );
+            REQUIRE_NOTHROW( f.staticReg = ScopedRegistration() );
 
             // The router should report an error when attempting
             // to call the unregistered RPCs.
@@ -1149,7 +1167,7 @@ else
             f.callee.reset();
 
             // Unregister an RPC via RAII.
-            REQUIRE_NOTHROW( f.staticReg.reset() );
+            REQUIRE_NOTHROW( f.staticReg = ScopedRegistration() );
 
             // The router should report an error when attempting
             // to call the unregistered RPCs.
@@ -1170,8 +1188,8 @@ else
 
     WHEN( "connecting to an invalid port" )
     {
-        auto badCnct = TcpConnector::create(iosvc, "localhost", invalidPort,
-                                            Json::id());
+        auto badCnct = TcpConnectorType::create(iosvc, "localhost", invalidPort,
+                                                Json::id());
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
@@ -1199,8 +1217,8 @@ else
 
     WHEN( "connecting with multiple transports" )
     {
-        auto badCnct = TcpConnector::create(iosvc, "localhost", invalidPort,
-                                            Json::id());
+        auto badCnct = TcpConnectorType::create(iosvc, "localhost", invalidPort,
+                                                Json::id());
         ConnectorList connectors = {badCnct, cnct};
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
@@ -1263,8 +1281,8 @@ else
             f.enroll(yield);
 
             std::error_code ec;
-            Registration::Ptr reg;
-            auto handler = [](Invocation) {};
+            Registration reg;
+            auto handler = [](Invocation)->Outcome {return {};};
 
             CHECK_THROWS_AS( f.callee->enroll(Procedure("dynamic"), handler,
                                               yield),
@@ -1272,7 +1290,7 @@ else
             reg = f.callee->enroll(Procedure("dynamic"), handler, yield, &ec);
             CHECK( ec == SessionErrc::registerError );
             CHECK( ec == SessionErrc::procedureAlreadyExists );
-            CHECK( !reg );
+            CHECK( reg.id() == -1 );
         });
         iosvc.run();
     }
@@ -1289,10 +1307,39 @@ else
 
             auto reg = f.callee->enroll(
                 Procedure("rpc"),
-                [&callCount](Invocation inv)
+                [&callCount](Invocation)->Outcome
                 {
                     ++callCount;
-                    inv.yield(Error("wamp.error.not_authorized"));
+                    return Error("wamp.error.not_authorized");
+                },
+                yield);
+
+            CHECK_THROWS_AS( f.caller->call(Rpc("rpc"), yield),
+                             error::Failure );
+            f.caller->call(Rpc("rpc"), yield, &ec);
+            CHECK( ec == SessionErrc::notAuthorized );
+            CHECK( callCount == 2 );
+        });
+        iosvc.run();
+    }
+
+    WHEN( "an RPC throws an error URI" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            std::error_code ec;
+            int callCount = 0;
+            RpcFixture f(cnct);
+            f.join(yield);
+            f.enroll(yield);
+
+            auto reg = f.callee->enroll(
+                Procedure("rpc"),
+                [&callCount](Invocation)->Outcome
+                {
+                    ++callCount;
+                    throw Error("wamp.error.not_authorized");
+                    return {};
                 },
                 yield);
 
@@ -1426,11 +1473,15 @@ else
         checkInvalidUri(
             [](CoroSession<>& session, Yield yield)
             {
-                session.enroll(Procedure("#bad"), [](Invocation) {}, yield);
+                session.enroll(Procedure("#bad"),
+                               [](Invocation)->Outcome {return {};},
+                yield);
             },
             [](CoroSession<>& session, Yield yield, std::error_code& ec)
             {
-                session.enroll(Procedure("#bad"), [](Invocation) {}, yield, &ec);
+                session.enroll(Procedure("#bad"),
+                               [](Invocation)->Outcome {return {};},
+                yield, &ec);
             }
         );
     }
@@ -1524,8 +1575,8 @@ else
 
     WHEN( "using invalid operations while failed" )
     {
-        auto badCnct = TcpConnector::create(iosvc, "localhost", invalidPort,
-                                            Json::id());
+        auto badCnct = TcpConnectorType::create(iosvc, "localhost", invalidPort,
+                                                Json::id());
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
@@ -1654,15 +1705,15 @@ else
 
     WHEN( "disconnecting during async subscribe" )
     {
-        checkDisconnect<Subscription::Ptr>(
+        checkDisconnect<Subscription>(
                     [](CoroSession<>& session,
                     boost::asio::yield_context yield,
                     bool& completed,
-                    AsyncResult<Subscription::Ptr>& result)
+                    AsyncResult<Subscription>& result)
         {
             session.join(Realm(testRealm), yield);
             session.subscribe(Topic("topic"), [] (Event) {},
-                [&](AsyncResult<Subscription::Ptr> sub)
+                [&](AsyncResult<Subscription> sub)
                 {
                     completed = true;
                     result = sub;
@@ -1679,7 +1730,7 @@ else
         {
             session.join(Realm(testRealm), yield);
             auto sub = session.subscribe(Topic("topic"), [] (Event) {}, yield);
-            sub->unsubscribe([&](AsyncResult<bool> unsubscribed)
+            session.unsubscribe(sub, [&](AsyncResult<bool> unsubscribed)
             {
                 completed = true;
                 result = unsubscribed;
@@ -1739,19 +1790,20 @@ else
 
     WHEN( "disconnecting during async enroll" )
     {
-        checkDisconnect<Registration::Ptr>(
+        checkDisconnect<Registration>(
                     [](CoroSession<>& session,
                     boost::asio::yield_context yield,
                     bool& completed,
-                    AsyncResult<Registration::Ptr>& result)
+                    AsyncResult<Registration>& result)
         {
             session.join(Realm(testRealm), yield);
-            session.enroll(Procedure("rpc"), [] (Invocation) {},
-                [&](AsyncResult<Registration::Ptr> reg)
-                {
-                    completed = true;
-                    result = reg;
-                });
+            session.enroll(Procedure("rpc"),
+                           [](Invocation)->Outcome {return {};},
+                           [&](AsyncResult<Registration> reg)
+                           {
+                               completed = true;
+                               result = reg;
+                           });
         });
     }
 
@@ -1763,8 +1815,10 @@ else
                                  AsyncResult<bool>& result)
         {
             session.join(Realm(testRealm), yield);
-            auto reg = session.enroll(Procedure("rpc"), [](Invocation){}, yield);
-            reg->unregister([&](AsyncResult<bool> unregistered)
+            auto reg = session.enroll(Procedure("rpc"),
+                                      [](Invocation)->Outcome{return {};},
+                    yield);
+            session.unregister(reg, [&](AsyncResult<bool> unregistered)
             {
                 completed = true;
                 result = unregistered;
@@ -1780,7 +1834,9 @@ else
                                  AsyncResult<bool>& result)
         {
             session.join(Realm(testRealm), yield);
-            auto reg = session.enroll(Procedure("rpc"), [](Invocation){}, yield);
+            auto reg = session.enroll(Procedure("rpc"),
+                                      [](Invocation)->Outcome{return {};},
+                                      yield);
             session.unregister(reg, [&](AsyncResult<bool> unregistered)
             {
                 completed = true;

@@ -27,96 +27,82 @@ namespace wamp
 namespace internal { class Callee; }
 
 //------------------------------------------------------------------------------
-/** Manages the lifetime of an RPC registration.
+/** Represents a remote procedure registration.
 
-    Registration objects are returned by the `enroll` member functions of
-    the _Session_ family of classes. These objects are used internally by
-    Session to dispatch remote procedure calls to a registered _event slot_.
+    A Registration is a lightweight object returned by the `enroll` member
+    functions of the _Session_ family of classes. This objects allows users to
+    unregister the RPC registration.
 
-    Registration objects are returned via reference-counting shared pointers.
-    When the reference count reaches zero, the procedure is automatically
-    unregistered. This reference counting scheme is provided to help automate
-    the lifetime management of RPC registrations using RAII techniques.
+    It is always safe to unregister via a Registration object. If the Session
+    or the registration no longer exists, an unregister operation effectively
+    does nothing.
 
-    Here's an example illustrating how shared pointers can be used
-    to manage the lifetime of a registration:
-
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    struct Delegate
-    {
-        void rpc(Invocation inv);
-
-        Registration::Ptr reg;
-    }
-
-    int main()
-    {
-        boost::asio::io_service iosvc;
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
-        {
-            auto session = CoroSession<>::create(connectorList);
-            session->connect(yield);
-            session->join("somerealm", yield);
-
-            {
-                using std::placeholders;
-                Delegate delegate;
-                delegate.reg = session->enroll(
-                                "procedure",
-                                std::bind(&Delegate::rpc, delegate, _1),
-                                yield);
-
-            }  // When the 'delegate' object leaves this scope, the Registration
-               // shared pointer reference count drops to zero. This will
-               // automatically unregister the registration, thereby avoiding
-               // further member function calls on the deleted 'delegate' object.
-        });
-        iosvc.run();
-    }
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    Registrations can also be manually unregistered via
-    Registration::unregister.
-
-    @see Session::enroll, CoroSession::enroll */
+    @see ScopedRegistration, Session::enroll, CoroSession::enroll */
 //------------------------------------------------------------------------------
 class Registration
 {
 public:
-    using Ptr     = std::shared_ptr<Registration>;
-    using WeakPtr = std::weak_ptr<Registration>;
-
-    /** Automatically unregisters the RPC. */
-    virtual ~Registration();
-
-    /** Obtains the procedure information associated with this registration. */
-    const Procedure& procedure() const;
+    /** Default constructor */
+    Registration();
 
     /** Obtains the ID number of this registration. */
     RegistrationId id() const;
 
-    /** Explicitly unregisters the RPC. */
-    void unregister();
-
-    /** Asynchronously unregisters the RPC, waiting for an acknowledgement
-        from the dealer. */
-    void unregister(AsyncHandler<bool> handler);
-
-protected:
-    using CalleePtr = std::weak_ptr<internal::Callee>;
-
-    Registration(CalleePtr callee, Procedure&& procedure);
-
-private:
-    CalleePtr callee_;
-    Procedure procedure_;
-    RegistrationId id_ = -1;
+    /** Unregisters the RPC. */
+    void unregister() const;
 
 public:
     // Internal use only
-    virtual void invoke(Invocation&& invocation, internal::PassKey) = 0;
-    void setId(RegistrationId id, internal::PassKey);
+    using CalleePtr = std::weak_ptr<internal::Callee>;
+    Registration(CalleePtr callee, RegistrationId id, internal::PassKey);
 
+private:
+    CalleePtr callee_;
+    RegistrationId id_ = -1;
+};
+
+
+//------------------------------------------------------------------------------
+/** Limits a Registration's lifetime to a particular scope.
+
+    @see @ref ScopedRegistrations
+    @see Registration, Session::enroll, CoroSession::enroll */
+//------------------------------------------------------------------------------
+class ScopedRegistration : public Registration
+{
+// This class is modeled after boost::signals2::scoped_connection.
+public:
+    /** Default constructs an empty ScopedRegistration. */
+    ScopedRegistration();
+
+    /** Move constructor. */
+    ScopedRegistration(ScopedRegistration&& other);
+
+    /** Converting constructor taking a Registration object to manage. */
+    ScopedRegistration(Registration registration);
+
+    /** Destructor which automatically unsubscribes the subscription. */
+    ~ScopedRegistration();
+
+    /** Move assignment. */
+    ScopedRegistration& operator=(ScopedRegistration&& other);
+
+    /** Assigns another Regisration to manage.
+        The old registration is automatically unregistered. */
+    ScopedRegistration& operator=(Registration subscription);
+
+    /** Releases the registration so that it will no longer be automatically
+        unregistered if the ScopedRegistration is destroyed or reassigned. */
+    void release();
+
+    /** Non-copyable. */
+    ScopedRegistration(const ScopedRegistration&) = delete;
+
+    /** Non-copyable. */
+    ScopedRegistration& operator=(const ScopedRegistration&) = delete;
+
+private:
+    using Base = Registration;
 };
 
 } // namespace wamp

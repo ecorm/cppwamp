@@ -28,8 +28,6 @@
 #include "subscription.hpp"
 #include "wampdefs.hpp"
 #include "internal/clientinterface.hpp"
-#include "internal/registrationimpl.hpp"
-#include "internal/subscriptionimpl.hpp"
 
 namespace wamp
 {
@@ -92,7 +90,7 @@ public:
     using EventSlot = std::function<void (Event)>;
 
     /** Function type for handling remote procedure calls. */
-    using CallSlot = std::function<void (Invocation)>;
+    using CallSlot = std::function<Outcome (Invocation)>;
 
     /** Creates a new Session instance. */
     static Ptr create(const Connector::Ptr& connector);
@@ -150,19 +148,14 @@ public:
     /// @{
     /** Subscribes to WAMP pub/sub events having the given topic. */
     void subscribe(Topic topic, EventSlot slot,
-                   AsyncHandler<Subscription::Ptr> handler);
-
-    /** Subscribes to WAMP pub/sub events having the given topic. */
-    template <typename THead, typename... TTail, typename TEventSlot>
-    void subscribe(Topic topic, TEventSlot&& slot,
-                   AsyncHandler<Subscription::Ptr> handler);
+                   AsyncHandler<Subscription> handler);
 
     /** Unsubscribes a subscription to a topic. */
-    void unsubscribe(Subscription::Ptr sub);
+    void unsubscribe(const Subscription& sub);
 
     /** Unsubscribes a subscription to a topic and waits for router
         acknowledgement, if necessary. */
-    void unsubscribe(Subscription::Ptr sub, AsyncHandler<bool> handler);
+    void unsubscribe(const Subscription& sub, AsyncHandler<bool> handler);
 
     /** Publishes an event. */
     void publish(Pub pub);
@@ -175,19 +168,14 @@ public:
     /// @{
     /** Registers a WAMP remote procedure call. */
     void enroll(Procedure procedure, CallSlot slot,
-                AsyncHandler<Registration::Ptr> handler);
-
-    /** Registers a WAMP remote procedure call. */
-    template <typename THead, typename... TTail, typename TCallSlot>
-    void enroll(Procedure procedure, TCallSlot&& slot,
-                AsyncHandler<Registration::Ptr> handler);
+                AsyncHandler<Registration> handler);
 
     /** Unregisters a remote procedure call. */
-    void unregister(Registration::Ptr reg);
+    void unregister(const Registration& reg);
 
     /** Unregisters a remote procedure call and waits for router
         acknowledgement. */
-    void unregister(Registration::Ptr reg, AsyncHandler<bool> handler);
+    void unregister(const Registration& reg, AsyncHandler<bool> handler);
 
     /** Calls a remote procedure. */
     void call(Rpc procedure, AsyncHandler<Result> handler);
@@ -199,12 +187,6 @@ protected:
     explicit Session(const ConnectorList& connectors);
 
     void doConnect(size_t index, AsyncHandler<size_t> handler);
-
-    void doSubscribe(Subscription::Ptr sub,
-                     AsyncHandler<Subscription::Ptr>&& handler);
-
-    void doEnroll(Registration::Ptr reg,
-                  AsyncHandler<Registration::Ptr>&& handler);
 
     std::shared_ptr<internal::ClientInterface> impl();
 
@@ -221,179 +203,7 @@ private:
 };
 
 
-//------------------------------------------------------------------------------
-/** @details
-    This overload is used to register an _event slot_ that takes additional,
-    statically-typed payload arguments.
-
-    A _slot_ is a function that is called in response to a _signal_ (the signal
-    being the event topic in this case). The term _slot_, borrowed from
-    [Qt's signals and slots][qt_sig], is used to distinguish the event handler
-    from asynchronous operation handlers.
-
-    For this `subscribe` overload, an event slot must be a _callable target_
-    with the following signature:
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    void function(Event, THead, TTail...)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    where
-    - _callable target_ is a free function, bound member function,
-      function object, lambda function, etc.,
-    - `Event` is an object containing information related to the publication,
-    - `THead` is the first template parameter passed to Session::subscribe, and,
-    - `TTail` is zero or more additional template parameters that were passed
-      to Session::subscribe.
-
-    Examples of compliant slots are:
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    void onSensorSampled(Event event, float value) { ... }
-    //                           THead^^^^^
-
-    void onPurchase(Event event, std::string item, int cost, int qty) { ... }
-    //                                  ^          ^           ^
-    //                                THead        |---TTail---|
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    The above slots are registered as follows:
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    session->subscribe<float>("sensorSampled", &onSensorSampled, handler);
-
-    session->subscribe<std::string, int, int>("itemPurchased", &onPurchase,
-                                              handler);
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    where `handler` is the asynchronous handler (or coroutine yield context)
-    for the **subscribe operation itself**.
-
-    Whenever a Session dispatches an event to the above slots, it automatically
-    unmarshalls the event payload positional arguments, and passes them to the
-    slots' argument list. If Session cannot convert the event payload arguments
-    to their target types, it issues a warning that can be captured via
-    Session::setWarningHandler.
-
-    [qt_sig]: http://doc.qt.io/qt-5/signalsandslots.html
-
-    @tparam THead The first parameter type that the slot function expects
-            after the Event parameter.
-    @tparam TTail List of additional parameter types, following THead, that the
-            slot function expects after the Event parameter.
-    @tparam TEventSlot Callable target type of the slot. Must be move-assignable
-            to `std::function<Event, THead, TTail...>`.
-    @return A `std::shared_ptr` to a Subscription object, therafter used to
-            manage the subscription's lifetime.
-    @pre `this->state() == SessionState::established`
-    @par Error Codes
-        - SessionErrc::subscribeError if the router replied with an `ERROR`
-          response.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throws error::Logic if `this->state() != SessionState::established` */
-//------------------------------------------------------------------------------
-template <typename THead, typename... TTail, typename TEventSlot>
-void Session::subscribe(
-    Topic topic, /**< The topic to subscribe to. */
-    TEventSlot&& slot,
-        /**< Callable target to invoke when a matching event is received. */
-    AsyncHandler<Subscription::Ptr> handler
-        /**< Handler to invoke when the subscribe operation completes. */
-)
-{
-    CPPWAMP_LOGIC_CHECK(state() == State::established,
-                        "Session is not established");
-    using Sub = internal::StaticSubscription<THead, TTail...>;
-    auto sub = Sub::create(impl_, std::move(topic),
-                           std::forward<TEventSlot>(slot));
-    doSubscribe(sub, std::move(handler));
-}
-
-//------------------------------------------------------------------------------
-/** @details
-    This overload is used to register a _call slot_ that takes additional,
-    statically-typed payload arguments.
-
-    A _slot_ is a function that is called in response to a _signal_ (the signal
-    being the call invocation in this case). The term _slot_, borrowed from
-    [Qt's signals and slots][qt_sig], is used to distinguish the call handler
-    from asynchronous operation handlers.
-
-    For this `enroll` overload, an event slot must be a _callable target_ with
-    the following signature:
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    void function(Invocation, THead, TTail...)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    where
-    - _callable target_ is a free function, bound member function,
-      function object, lambda function, etc,
-    - `Invocation` is an object containing information related to the
-      invocation,
-    - `THead` is the first template parameter passed to Session::enroll, and,
-    - `TTail` is zero or more additional template parameters that were passed
-      to Session::enroll.
-
-    Examples of compliant slots are:
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    void setSpeed(Invocation inv, float speed) { ... }
-    //                       THead^^^^^
-
-    void purchase(Invocation inv, std::string item, int cost, int qty) { ... }
-    //                                   ^          ^           ^
-    //                                 THead        |---TTail---|
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    The above slots are registered as follows:
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    session->enroll<float>("setSpeed", &setSpeed, handler);
-
-    session->enroll<std::string, int, int>("purchase", &purchase, handler);
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    where `handler` is the asynchronous handler (or coroutine yield context)
-    for the **enroll operation itself**.
-
-    Whenever a Session dispatches a remote procedure call to the above slots,
-    it automatically unmarshalls the invocation payload positional arguments,
-    and passes them to the slots' argument list. If Session cannot convert the
-    invocation payload arguments to their target types, it automatically sends
-    an `ERROR` reply back to the router.
-
-    [qt_sig]: http://doc.qt.io/qt-5/signalsandslots.html
-
-    @tparam THead The first parameter type that the slot function expects
-            after the Event parameter.
-    @tparam TTail List of additional parameter types, following THead, that the
-            slot function expects after the Event parameter.
-    @tparam TCallSlot Callable target type of the slot. Must be move-assignable
-            to `std::function<Invocation, THead, TTail...>`.
-    @return A `shared_ptr` to a Registration handle, therafter used to manage
-            the registration's lifetime.
-    @note This function was named `enroll` because `register` is a reserved
-          C++ keyword.
-    @pre `this->state() == SessionState::established`
-    @par Error Codes
-        - SessionErrc::procedureAlreadyExists if the router reports that the
-          procedure has already been registered for this realm.
-        - SessionErrc::registerError if the router reports some other error.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throws error::Logic if `this->state() != SessionState::established` */
-//------------------------------------------------------------------------------
-template <typename THead, typename... TTail, typename TCallSlot>
-void Session::enroll(
-    Procedure procedure, /**< The procedure to register. */
-    TCallSlot&& slot,    /**< Callable target to invoke when a matching RPC
-                              invocation is received. */
-    AsyncHandler<Registration::Ptr> handler
-        /**< Handler to invoke when the enroll operation completes. */
-)
-{
-    CPPWAMP_LOGIC_CHECK(state() == State::established,
-                        "Session is not established");
-    using Reg = internal::StaticRegistration<THead, TTail...>;
-    auto reg = Reg::create(impl_, std::move(procedure),
-                           std::forward<TCallSlot>(slot));
-    doEnroll(reg, std::move(handler));
-}
-
 } // namespace wamp
-
 
 #ifndef CPPWAMP_COMPILED_LIB
 #include "internal/session.ipp"

@@ -25,11 +25,11 @@
 namespace wamp
 {
 
-class Registration;
-class Subscription;
-
 namespace internal
 {
+
+class RegistrationImpl;
+class SubscriptionImpl;
 
 //------------------------------------------------------------------------------
 // Specifies the interface required for classes that implement wamp::Session.
@@ -39,6 +39,8 @@ class ClientInterface : public Callee, public Subscriber
 public:
     using Ptr        = std::shared_ptr<ClientInterface>;
     using WeakPtr    = std::weak_ptr<ClientInterface>;
+    using EventSlot  = std::function<void (Event)>;
+    using CallSlot   = std::function<Outcome (Invocation)>;
     using LogHandler = std::function<void (std::string)>;
 
     static const Object& roles();
@@ -55,15 +57,15 @@ public:
 
     virtual void terminate() = 0;
 
-    virtual void subscribe(std::shared_ptr<Subscription> sub,
-            AsyncHandler<std::shared_ptr<Subscription>>&& handler) = 0;
+    virtual void subscribe(Topic&& topic, EventSlot&& slot,
+                           AsyncHandler<Subscription> handler) = 0;
 
     virtual void publish(Pub&& pub) = 0;
 
     virtual void publish(Pub&& pub, AsyncHandler<PublicationId>&& handler) = 0;
 
-    virtual void enroll(std::shared_ptr<Registration> reg,
-            AsyncHandler<std::shared_ptr<Registration>>&& handler) = 0;
+    virtual void enroll(Procedure&& procedure, CallSlot&& slot,
+                        AsyncHandler<Registration>&& handler) = 0;
 
     virtual void call(Rpc&& rpc, AsyncHandler<Result>&& handler) = 0;
 

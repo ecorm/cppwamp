@@ -34,6 +34,7 @@ HEADERS += \
     include/cppwamp/subscription.hpp \
     include/cppwamp/tcpconnector.hpp \
     include/cppwamp/udsconnector.hpp \
+    include/cppwamp/unpacker.hpp \
     include/cppwamp/variant.hpp \
     include/cppwamp/varianttuple.hpp \
     include/cppwamp/version.hpp \
@@ -55,13 +56,12 @@ HEADERS += \
     include/cppwamp/internal/precompiled.hpp \
     include/cppwamp/internal/rawsockhandshake.hpp \
     include/cppwamp/internal/rawsockheader.hpp \
-    include/cppwamp/internal/registrationimpl.hpp \
     include/cppwamp/internal/subscriber.hpp \
-    include/cppwamp/internal/subscriptionimpl.hpp \
     include/cppwamp/internal/tcpacceptor.hpp \
     include/cppwamp/internal/tcpopener.hpp \
     include/cppwamp/internal/udsacceptor.hpp \
     include/cppwamp/internal/udsopener.hpp \
+    include/cppwamp/internal/unpacker.ipp \
     include/cppwamp/internal/variantbuilder.hpp \
     include/cppwamp/internal/varianttraits.hpp \
     include/cppwamp/internal/varianttraitsfwd.hpp \
@@ -107,8 +107,8 @@ QMAKE_CXXFLAGS += -std=c++11
 #Enable support for threads
 QMAKE_CXXFLAGS += -pthread
 
-#Stop compiling at first error
-#QMAKE_CXXFLAGS += -Wfatal-errors
+#Stop compiling after N errors
+QMAKE_CXXFLAGS += -fmax-errors=3
 
 #Add debugging symbols if in debug configuration
 CONFIG(debug, debug|release) {
@@ -120,7 +120,6 @@ CONFIG(debug, debug|release) {
 INCLUDEPATH += \
     $$PWD/include \
     $$PWD/../ext/boost \
-    $$PWD/../ext/endian/include \
     $$PWD/../ext/msgpack-c/include \
     $$PWD/../ext/rapidjson/include
 

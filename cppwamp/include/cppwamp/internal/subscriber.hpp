@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include "../asyncresult.hpp"
+#include "../wampdefs.hpp"
 
 namespace wamp
 {
@@ -24,16 +25,14 @@ namespace internal
 class Subscriber
 {
 public:
-    using Ptr                = std::shared_ptr<Subscriber>;
-    using WeakPtr            = std::weak_ptr<Subscriber>;
-    using UnsubscribeHandler = AsyncHandler<bool>;
+    using WeakPtr = std::weak_ptr<Subscriber>;
 
     virtual ~Subscriber() {}
 
-    virtual void unsubscribe(wamp::Subscription* sub) = 0;
+    virtual void unsubscribe(const Subscription& handle) = 0;
 
-    virtual void unsubscribe(wamp::Subscription* sub,
-                             UnsubscribeHandler handler) = 0;
+    virtual void unsubscribe(const Subscription& handle,
+                             AsyncHandler<bool> handler) = 0;
 };
 
 } // namespace internal

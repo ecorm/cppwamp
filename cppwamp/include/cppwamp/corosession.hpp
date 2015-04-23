@@ -106,7 +106,7 @@ public:
     using EventSlot = std::function<void (Event)>;
 
     /** Function type for handling remote procedure calls. */
-    using CallSlot = std::function<void (Invocation)>;
+    using CallSlot = std::function<Outcome (Invocation)>;
 
     /** Yield context type used by the boost::asio::spawn handler. */
     template <typename TSpawnHandler>
@@ -150,19 +150,13 @@ public:
     /// @{
     /** Subscribes to WAMP pub/sub events having the given topic. */
     template <typename H>
-    Subscription::Ptr subscribe(Topic topic, EventSlot slot,
-            YieldContext<H> yield, std::error_code* ec = nullptr);
-
-    /** Subscribes to WAMP pub/sub events having the given topic. */
-    template <typename THead, typename... TTail,
-              typename TEventSlot, typename H>
-    Subscription::Ptr subscribe(Topic topic, TEventSlot&& slot,
+    Subscription subscribe(Topic topic, EventSlot slot,
             YieldContext<H> yield, std::error_code* ec = nullptr);
 
     /** Unsubscribes a subscription to a topic and waits for router
         acknowledgement if necessary. */
     template <typename H>
-    bool unsubscribe(Subscription::Ptr sub, YieldContext<H> yield,
+    bool unsubscribe(const Subscription& sub, YieldContext<H> yield,
                      std::error_code* ec = nullptr);
 
     /** Publishes an event and waits for an acknowledgement from the router. */
@@ -175,18 +169,12 @@ public:
     /// @{
     /** Registers a WAMP remote procedure call. */
     template <typename H>
-    Registration::Ptr enroll(Procedure procedure, CallSlot slot,
-            YieldContext<H> yield, std::error_code* ec = nullptr);
-
-    /** Registers a WAMP remote procedure call. */
-    template <typename THead, typename... TTail,
-              typename TCallSlot, typename H>
-    Registration::Ptr enroll(Procedure procedure, TCallSlot&& slot,
+    Registration enroll(Procedure procedure, CallSlot slot,
             YieldContext<H> yield, std::error_code* ec = nullptr);
 
     /** Unregisters a remote procedure call. */
     template <typename H>
-    bool unregister(Registration::Ptr reg, YieldContext<H> yield,
+    bool unregister(const Registration& reg, YieldContext<H> yield,
                     std::error_code* ec = nullptr);
 
     /** Calls a remote procedure */

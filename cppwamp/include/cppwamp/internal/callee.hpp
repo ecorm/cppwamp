@@ -14,10 +14,12 @@
 #include "../asyncresult.hpp"
 #include "../dialoguedata.hpp"
 #include "../sessiondata.hpp"
-#include "../variant.hpp"
+#include "../wampdefs.hpp"
 
 namespace wamp
 {
+
+class Registration;
 
 namespace internal
 {
@@ -26,18 +28,14 @@ namespace internal
 class Callee
 {
 public:
-    using Ptr               = std::shared_ptr<Callee>;
-    using WeakPtr           = std::weak_ptr<Callee>;
-    using RegistrationId    = uint64_t;
-    using RequestId         = uint64_t;
-    using UnregisterHandler = AsyncHandler<bool>;
+    using WeakPtr = std::weak_ptr<Callee>;
 
     virtual ~Callee() {}
 
-    virtual void unregister(RegistrationId regId) = 0;
+    virtual void unregister(const Registration& handle) = 0;
 
-    virtual void unregister(RegistrationId regId,
-                            UnregisterHandler handler) = 0;
+    virtual void unregister(const Registration& handle,
+                            AsyncHandler<bool> handler) = 0;
 
     virtual void yield(RequestId reqId, wamp::Result&& result) = 0;
 

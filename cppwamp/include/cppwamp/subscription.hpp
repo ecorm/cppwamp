@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-            Copyright Emile Cormier, Butterfly Energy Systems, 2014.
+                Copyright Butterfly Energy Systems 2014-2015.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -16,7 +16,6 @@
 #include <memory>
 #include <string>
 #include "asyncresult.hpp"
-#include "sessiondata.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
 
@@ -27,96 +26,88 @@ namespace wamp
 namespace internal { class Subscriber; }
 
 //------------------------------------------------------------------------------
-/** Manages the lifetime of a pub/sub event subscription.
+/** Represents a pub/sub event subscription.
 
-    Subscription objects are returned by the `subscribe` member functions of
-    the _Session_ family of classes. These objects are used internally by
-    Session to dispatch pub/sub events to a registered _event slot_.
+    A Subscription is a lightweight object returned by the `subscribe` member
+    functions of the _Session_ family of classes. This objects allows users to
+    unsubscribe the subscription.
 
-    Subscription objects are returned via reference-counting shared pointers.
-    When the reference count reaches zero, the topic is automatically
-    unsubscribed. This reference counting scheme is provided to help automate
-    the lifetime management of topic subscriptions using RAII techniques.
+    It is always safe to unsubscribe via a Subscription object. If the Session
+    or the subscription no longer exists, an unsubscribe operation effectively
+    does nothing.
 
-    Here's an example illustrating how shared pointers can be used
-    to manage the lifetime of a Subscription:
-
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    struct Observer
-    {
-        void onEvent(Event event);
-
-        Subscription::Ptr sub;
-    }
-
-    int main()
-    {
-        boost::asio::io_service iosvc;
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
-        {
-            auto session = CoroSession<>::create(connectorList);
-            session->connect(yield);
-            session->join("somerealm", yield);
-
-            {
-                using std::placeholders;
-                Observer observer;
-                observer.sub = session->subscribe(
-                                "topic",
-                                std::bind(&Observer::onEvent, observer, _1),
-                                yield);
-
-            }  // When the 'observer' object leaves this scope, the Subscription
-               // shared pointer reference count drops to zero. This will
-               // automatically unsubscribe the subscription, thereby avoiding
-               // further member function calls on the deleted 'observer' object.
-        });
-        iosvc.run();
-    }
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    Subscriptions can also be manually unsubscribed via
-    Subscription::unsubscribe.
-
-    @see Session::subscribe, CoroSession::subscribe */
+    @see ScopedSubscription, Session::subscribe, CoroSession::subscribe */
 //------------------------------------------------------------------------------
 class Subscription
 {
 public:
-    using Ptr     = std::shared_ptr<Subscription>;
-    using WeakPtr = std::weak_ptr<Subscription>;
-
-    /** Automatically unsubscribes from the topic. */
-    virtual ~Subscription();
-
-    /** Obtains the topic information associated with this subscription. */
-    const Topic& topic() const;
+    /** Default constructor */
+    Subscription();
 
     /** Obtains the ID number of this subscription. */
     SubscriptionId id() const;
 
-    /** Explicitly unsubscribes from the topic. */
-    void unsubscribe();
-
-    /** Asynchronously unsubscribes from the topic, waiting for an
-        acknowledgement from the broker. */
-    void unsubscribe(AsyncHandler<bool> handler);
-
-protected:
-    using SubscriberPtr = std::weak_ptr<internal::Subscriber>;
-
-    Subscription(SubscriberPtr subscriber, Topic&& topic);
-
-private:
-    SubscriberPtr subscriber_;
-    Topic topic_;
-    SubscriptionId id_ = -1;
+    /** Unsubscribes from the topic. */
+    void unsubscribe() const;
 
 public:
     // Internal use only
-    virtual void invoke(Event&& event, internal::PassKey) = 0;
-    void setId(SubscriptionId id, internal::PassKey);
+    using SlotId = uint64_t;
+    using SubscriberPtr = std::weak_ptr<internal::Subscriber>;
+    Subscription(SubscriberPtr subscriber, SubscriptionId subId, SlotId slotId,
+                 internal::PassKey);
+    SlotId slotId(internal::PassKey) const;
+
+private:
+    SubscriberPtr subscriber_;
+    SubscriptionId subId_ = -1;
+    SlotId slotId_ = -1;
 };
+
+
+//------------------------------------------------------------------------------
+/** Limits a Subscription's lifetime to a particular scope.
+
+    @see @ref ScopedSubscriptions
+    @see Subscription, Session::subscribe, CoroSession::subscribe */
+//------------------------------------------------------------------------------
+class ScopedSubscription : public Subscription
+{
+// This class is modeled after boost::signals2::scoped_connection.
+public:
+    /** Default constructs an empty ScopedSubscription. */
+    ScopedSubscription();
+
+    /** Move constructor. */
+    ScopedSubscription(ScopedSubscription&& other);
+
+    /** Converting constructor taking a Subscription object to manage. */
+    ScopedSubscription(Subscription subscription);
+
+    /** Destructor which automatically unsubscribes the subscription. */
+    ~ScopedSubscription();
+
+    /** Move assignment. */
+    ScopedSubscription& operator=(ScopedSubscription&& other);
+
+    /** Assigns another Subscription to manage.
+        The old subscription is automatically unsubscribed. */
+    ScopedSubscription& operator=(Subscription subscription);
+
+    /** Releases the subscription so that it will no longer be automatically
+        unsubscribed if the ScopedSubscription is destroyed or reassigned. */
+    void release();
+
+    /** Non-copyable. */
+    ScopedSubscription(const ScopedSubscription&) = delete;
+
+    /** Non-copyable. */
+    ScopedSubscription& operator=(const ScopedSubscription&) = delete;
+
+private:
+    using Base = Subscription;
+};
+
 
 } // namespace wamp
 

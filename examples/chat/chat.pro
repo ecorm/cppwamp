@@ -27,8 +27,8 @@ QMAKE_CXXFLAGS += -std=c++11
 #Enable support for threads
 QMAKE_CXXFLAGS += -pthread
 
-#Stop compiling at first error
-QMAKE_CXXFLAGS += -Wfatal-errors
+#Stop compiling after N errors
+QMAKE_CXXFLAGS += -fmax-errors=3
 
 #Add debugging symbols if in debug configuration
 CONFIG(debug, debug|release) {
@@ -41,7 +41,6 @@ INCLUDEPATH += \
     $$PWD/../../cppwamp/include \
     $$PWD/../../ext/boost \
     $$PWD/../../ext/Catch/include \
-    $$PWD/../../ext/endian/include \
     $$PWD/../../ext/msgpack-c/include \
     $$PWD/../../ext/rapidjson/include
 

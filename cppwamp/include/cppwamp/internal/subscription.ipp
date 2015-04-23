@@ -12,46 +12,72 @@
 namespace wamp
 {
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Subscription::~Subscription() {unsubscribe();}
+/*******************************************************************************
+ * Subscription
+*******************************************************************************/
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE const Topic& Subscription::topic() const {return topic_;}
+CPPWAMP_INLINE Subscription::Subscription() {}
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE SubscriptionId Subscription::id() const {return id_;}
+CPPWAMP_INLINE SubscriptionId Subscription::id() const {return subId_;}
 
-//------------------------------------------------------------------------------
-/** @note Duplicate unsubscriptions are safely ignored. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Subscription::unsubscribe()
+CPPWAMP_INLINE void Subscription::unsubscribe() const
 {
-    auto sub = subscriber_.lock();
-    if (sub)
-        sub->unsubscribe(this);
+    auto subscriber = subscriber_.lock();
+    if (subscriber)
+        subscriber->unsubscribe(*this);
 }
 
-//------------------------------------------------------------------------------
-/** @details
-    Equivalent to Session::unsubscribe(Subscription::Ptr, AsyncHandler<bool>).
-    @note Duplicate unsubscriptions are safely ignored. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Subscription::unsubscribe(AsyncHandler<bool> handler)
-{
-    auto sub = subscriber_.lock();
-    if (sub)
-        sub->unsubscribe(this, std::move(handler));
-}
-
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE Subscription::Subscription(SubscriberPtr subscriber,
-                                          Topic&& topic)
+        SubscriptionId subId, SlotId slotId, internal::PassKey)
     : subscriber_(subscriber),
-      topic_(std::move(topic))
+      subId_(subId),
+      slotId_(slotId)
 {}
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Subscription::setId(SubscriptionId id, internal::PassKey)
-    {id_ = id;}
+CPPWAMP_INLINE Subscription::SlotId
+Subscription::slotId(internal::PassKey) const {return slotId_;}
+
+
+/*******************************************************************************
+ * ScopedSubscription
+*******************************************************************************/
+
+CPPWAMP_INLINE ScopedSubscription::ScopedSubscription() {}
+
+CPPWAMP_INLINE
+ScopedSubscription::ScopedSubscription(ScopedSubscription&& other)
+    : Base(std::move(other))
+{}
+
+CPPWAMP_INLINE
+ScopedSubscription::ScopedSubscription(Subscription subscription)
+    : Base(std::move(subscription))
+{}
+
+CPPWAMP_INLINE ScopedSubscription::~ScopedSubscription()
+{
+    unsubscribe();
+}
+
+CPPWAMP_INLINE ScopedSubscription&
+ScopedSubscription::operator=(ScopedSubscription&& other)
+{
+    unsubscribe();
+    Base::operator=(std::move(other));
+    return *this;
+}
+
+CPPWAMP_INLINE ScopedSubscription&
+ScopedSubscription::operator=(Subscription subscription)
+{
+    unsubscribe();
+    Base::operator=(std::move(subscription));
+    return *this;
+}
+
+CPPWAMP_INLINE void ScopedSubscription::release()
+{
+    Base::operator=(Subscription());
+}
 
 } // namespace wamp

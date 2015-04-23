@@ -433,6 +433,177 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Result& result)
 }
 
 //******************************************************************************
+// Outcome
+//******************************************************************************
+
+CPPWAMP_INLINE  Outcome Outcome::deferred() {return Outcome(nullptr);}
+
+/** @post `this->type() == Type::result` */
+CPPWAMP_INLINE Outcome::Outcome() : Outcome(Result()) {}
+
+/** @post `this->type() == Type::result` */
+CPPWAMP_INLINE Outcome::Outcome(Result result) : type_(Type::result)
+{
+    new (&value_.result) Result(std::move(result));
+}
+
+/** @post `this->type() == Type::result` */
+CPPWAMP_INLINE Outcome::Outcome(std::initializer_list<Variant> args)
+    : Outcome(Result(args))
+{}
+
+/** @post `this->type() == Type::error` */
+CPPWAMP_INLINE Outcome::Outcome(Error error) : type_(Type::error)
+{
+    new (&value_.error) Error(std::move(error));
+}
+
+/** @post `this->type() == other.type()` */
+CPPWAMP_INLINE Outcome::Outcome(const Outcome& other) {copyFrom(other);}
+
+/** @post `this->type() == other.type()`
+    @post `other.type() == Type::deferred` */
+CPPWAMP_INLINE Outcome::Outcome(wamp::Outcome&& other)
+{
+    moveFrom(std::move(other));
+}
+
+CPPWAMP_INLINE Outcome::~Outcome()
+{
+    destruct();
+    type_ = Type::deferred;
+}
+
+CPPWAMP_INLINE Outcome::Type Outcome::type() const {return type_;}
+
+/** @post `this->type() == other.type()` */
+CPPWAMP_INLINE Outcome& Outcome::operator=(const Outcome& other)
+{
+    if (type_ != other.type_)
+    {
+        destruct();
+        copyFrom(other);
+    }
+    else switch (type_)
+    {
+    case Type::result:
+        value_.result = other.value_.result;
+        break;
+
+    case Type::error:
+        value_.error = other.value_.error;
+        break;
+
+    default:
+        // Do nothing
+        break;
+    }
+
+    return *this;
+}
+
+/** @post `this->type() == other.type()`
+    @post `other.type() == Type::deferred` */
+CPPWAMP_INLINE Outcome& Outcome::operator=(Outcome&& other)
+{
+    if (type_ != other.type_)
+    {
+        destruct();
+        moveFrom(std::move(other));
+    }
+    else switch (type_)
+    {
+    case Type::result:
+        value_.result = std::move(other.value_.result);
+        break;
+
+    case Type::error:
+        value_.error = std::move(other.value_.error);
+        break;
+
+    default:
+        // Do nothing
+        break;
+    }
+
+    return *this;
+}
+
+CPPWAMP_INLINE Outcome::Outcome(std::nullptr_t) : type_(Type::deferred) {}
+
+CPPWAMP_INLINE void Outcome::copyFrom(const Outcome& other)
+{
+    type_ = other.type_;
+    switch(type_)
+    {
+    case Type::result:
+        new (&value_.result) Result(other.value_.result);
+        break;
+
+    case Type::error:
+        new (&value_.error) Error(other.value_.error);
+        break;
+
+    default:
+        // Do nothing
+        break;
+    }
+}
+
+CPPWAMP_INLINE void Outcome::moveFrom(Outcome&& other)
+{
+    type_ = other.type_;
+    switch(type_)
+    {
+    case Type::result:
+        new (&value_.result) Result(std::move(other.value_.result));
+        break;
+
+    case Type::error:
+        new (&value_.error) Error(std::move(other.value_.error));
+        break;
+
+    default:
+        // Do nothing
+        break;
+    }
+
+    other.destruct();
+    other.type_ = Type::deferred;
+}
+
+CPPWAMP_INLINE void Outcome::destruct()
+{
+    switch(type_)
+    {
+    case Type::result:
+        value_.result.~Result();
+        break;
+
+    case Type::error:
+        value_.error.~Error();
+        break;
+
+    default:
+        // Do nothing
+        break;
+    }
+}
+
+CPPWAMP_INLINE Result& Outcome::result(internal::PassKey)
+{
+    assert(type_ == Type::result);
+    return value_.result;
+}
+
+CPPWAMP_INLINE Error& Outcome::error(internal::PassKey)
+{
+    assert(type_ == Type::error);
+    return value_.error;
+}
+
+
+//******************************************************************************
 // Invocation
 //******************************************************************************
 

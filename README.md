@@ -20,7 +20,7 @@ C++11 client library for the [WAMP][wamp] protocol.
 **Dependencies**:
 
 - [Boost.Asio][boost-asio] for raw socket transport
-- [Boost.Endian][boost-endian] (requires [Boost][boost] 1.57.0 or greater)
+- [Boost.Endian][boost-endian] (requires [Boost][boost] 1.58.0 or greater)
 - [RapidJSON][rapidjson]
 - [msgpack-c][msgpack-c]
 - (optional) [Boost.Coroutine][boost-coroutine] and
@@ -68,6 +68,8 @@ This library has been tested with:
 Usage Examples (using coroutines)
 ---------------------------------
 
+_For a more comprehensive overview, check out the [Tutorials](https://github.com/ecorm/cppwamp/wiki/Tutorial) in the wiki._
+
 ### Establishing a WAMP session
 ```c++
 wamp::AsioService iosvc;
@@ -90,15 +92,12 @@ iosvc.run();
 
 ### Registering a remote procedure
 ```c++
-void add(wamp::Invocation inv, int n, int m)
-{
-    inv.yield({n + m});
-}
-
 boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 {
     :::
-    auto reg = session->enroll<int, int>(Procedure("add"), &add, yield);
+    session->enroll(Procedure("add"), unpackedRpc<int, int>(
+                    [](wamp::Invocation inv, int n, int m) {return {n+m};}),
+                    yield);
     :::
 });
 ```
@@ -106,9 +105,7 @@ boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 ### Calling a remote procedure
 ```c++
 auto result = session->call(Rpc("add").withArgs({2, 2}), yield);
-int sum = 0;
-result.convertTo(sum);
-std::cout << "2 + 2 is " << sum << "\n";
+std::cout << "2 + 2 is " << result[0].to<int>() << "\n";
 ```
 
 ### Subscribing to a topic
@@ -122,8 +119,9 @@ void sensorSampled(wamp::Event event, float value)
 boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 {
     :::
-    auto sub = session->subscribe<float>(Topic("sensorSampled"),
-                                         &sensorSampled, yield);
+    session->subscribe(Topic("sensorSampled"),
+                       unpackedEvent<float>(&sensorSampled),
+                       yield);
     :::
 });
 ```
@@ -146,7 +144,7 @@ session->publish(Pub("sensorSampled").withArgs({value}));
 Questions, Discussions, and Issues
 ----------------------------------
 
-For general questions and discussion regarding CppWAMP, please use the
+For general questions and discussions regarding CppWAMP, please use the
 [CppWAMP Google Group][googlegroup] (membership required).
 
 For reporting bugs or for suggesting enhancements, please use the GitHub

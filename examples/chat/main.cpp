@@ -8,7 +8,15 @@
 #include <iostream>
 #include <cppwamp/corosession.hpp>
 #include <cppwamp/json.hpp>
+#include <cppwamp/unpacker.hpp>
+
+#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
 #include <cppwamp/legacytcpconnector.hpp>
+using wamp::legacy::TcpConnector;
+#else
+#include <cppwamp/tcpconnector.hpp>
+using wamp::TcpConnector;
+#endif
 
 const std::string realm = "cppwamp.demo.chat";
 const std::string address = "localhost";
@@ -22,40 +30,43 @@ public:
 
     void start(wamp::ConnectorList connectors, Yield yield)
     {
-        session_ = wamp::CoroSession<>::create(connectors);
+        using namespace wamp;
+        session_ = CoroSession<>::create(connectors);
 
         auto index = session_->connect(yield);
         std::cout << "Chat service connected on transport #"
                   << (index + 1) << "\n";
 
-        auto info = session_->join(wamp::Realm(realm), yield);
+        auto info = session_->join(Realm(realm), yield);
         std::cout << "Chat service joined, session ID = " << info.id() << "\n";
 
         using namespace std::placeholders;
-        registration_ = session_->enroll<std::string, std::string>(
-            wamp::Procedure("say"),
-            std::bind(&ChatService::say, this, _1, _2, _3),
+
+        registration_ = session_->enroll(
+            Procedure("say"),
+            unpackedRpc<std::string, std::string>(std::bind(&ChatService::say,
+                                                            this, _1, _2, _3)),
             yield
         );
     }
 
     void quit(Yield yield)
     {
-        registration_.reset();
+        registration_.unregister();
         session_->leave(wamp::Reason(), yield);
         session_->disconnect();
     }
 
 private:
-    void say(wamp::Invocation inv, std::string user, std::string message)
+    wamp::Outcome say(wamp::Invocation, std::string user, std::string message)
     {
         // Rebroadcast message to all subscribers
         session_->publish( wamp::Pub("said").withArgs({user, message}) );
-        inv.yield();
+        return {};
     }
 
     wamp::CoroSession<>::Ptr session_;
-    wamp::Registration::Ptr registration_;
+    wamp::ScopedRegistration registration_;
 };
 
 
@@ -69,24 +80,26 @@ public:
 
     void join(wamp::ConnectorList connectors, Yield yield)
     {
-        session_ = wamp::CoroSession<>::create(connectors);
+        using namespace wamp;
+        session_ = CoroSession<>::create(connectors);
 
         auto index = session_->connect(yield);
         std::cout << user_ << " connected on transport #" << index << "\n";
 
-        auto info = session_->join(wamp::Realm(realm), yield);
+        auto info = session_->join(Realm(realm), yield);
         std::cout << user_ << " joined, session ID = " << info.id() << "\n";
 
         using namespace std::placeholders;
-        subscription_ = session_->subscribe<std::string, std::string>(
-                wamp::Topic("said"),
-                std::bind(&ChatClient::said, this, _1, _2, _3),
+        subscription_ = session_->subscribe(
+                Topic("said"),
+                unpackedEvent<std::string, std::string>(
+                                std::bind(&ChatClient::said, this, _1, _2, _3)),
                 yield);
     }
 
     void leave(Yield yield)
     {
-        subscription_.reset();
+        subscription_.unsubscribe();
         session_->leave(wamp::Reason(), yield);
         session_.reset();
     }
@@ -106,7 +119,7 @@ private:
 
     std::string user_;
     wamp::CoroSession<>::Ptr session_;
-    wamp::Subscription::Ptr subscription_;
+    wamp::ScopedSubscription subscription_;
 };
 
 
@@ -114,8 +127,8 @@ private:
 int main()
 {
     wamp::AsioService iosvc;
-    auto tcp = wamp::legacy::TcpConnector::create(iosvc, "localhost",
-                                                  12345, wamp::Json::id());
+    auto tcp = TcpConnector::create(iosvc, "localhost", 12345,
+                                    wamp::Json::id());
 
     // Normally, the service and client instances would be in separate programs.
     // We run them all here in the same coroutine for demonstration purposes.

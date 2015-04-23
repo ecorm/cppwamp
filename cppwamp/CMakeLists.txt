@@ -29,6 +29,7 @@ set(HEADERS
     include/cppwamp/subscription.hpp
     include/cppwamp/tcpconnector.hpp
     include/cppwamp/udsconnector.hpp
+    include/cppwamp/unpacker.hpp
     include/cppwamp/variant.hpp
     include/cppwamp/varianttuple.hpp
     include/cppwamp/version.hpp
@@ -47,15 +48,15 @@ set(HEADERS
     include/cppwamp/internal/legacyasioendpoint.hpp
     include/cppwamp/internal/legacyasiotransport.hpp
     include/cppwamp/internal/messagetraits.hpp
+    include/cppwamp/internal/precompiled.hpp
     include/cppwamp/internal/rawsockhandshake.hpp
     include/cppwamp/internal/rawsockheader.hpp
-    include/cppwamp/internal/registrationimpl.hpp
     include/cppwamp/internal/subscriber.hpp
-    include/cppwamp/internal/subscriptionimpl.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
+    include/cppwamp/internal/unpacker.ipp
     include/cppwamp/internal/variantbuilder.hpp
     include/cppwamp/internal/varianttraits.hpp
     include/cppwamp/internal/varianttraitsfwd.hpp
@@ -93,6 +94,8 @@ set(INLINES
 set(DOCUMENTS
     ${PROJECT_SOURCE_DIR}/doc/concepts.dox
     ${PROJECT_SOURCE_DIR}/doc/cppwamp.dox
+    ${PROJECT_SOURCE_DIR}/doc/registrations.dox
+    ${PROJECT_SOURCE_DIR}/doc/subscriptions.dox
 )
 
 # Treat *.ipp files as header files

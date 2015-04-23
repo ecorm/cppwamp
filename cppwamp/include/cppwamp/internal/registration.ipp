@@ -12,51 +12,74 @@
 namespace wamp
 {
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Registration::~Registration() {unregister();}
+/*******************************************************************************
+ * Registration
+*******************************************************************************/
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE const Procedure& Registration::procedure() const
-{
-    return procedure_;
-}
+CPPWAMP_INLINE Registration::Registration() {}
 
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE RegistrationId Registration::id() const {return id_;}
 
-//------------------------------------------------------------------------------
-/** @note Duplicate unregistrations are safely ignored. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Registration::unregister()
+CPPWAMP_INLINE void Registration::unregister() const
 {
     auto callee = callee_.lock();
     if (callee)
-        callee->unregister(id_);
+        callee->unregister(*this);
 }
 
-//------------------------------------------------------------------------------
-/** @details
-    Equivalent to Session::unregister(Registration::Ptr, AsyncHandler<bool>).
-    @note Duplicate unregistrations are safely ignored. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Registration::unregister(AsyncHandler<bool> handler)
-{
-    auto callee = callee_.lock();
-    if (callee)
-        callee->unregister(id_, std::move(handler));
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Registration::Registration(CalleePtr callee,
-                                          Procedure&& procedure)
+CPPWAMP_INLINE Registration::Registration(CalleePtr callee, RegistrationId id,
+                                          internal::PassKey)
     : callee_(callee),
-      procedure_(std::move(procedure))
+      id_(id)
+{}
+
+
+/*******************************************************************************
+    ScopedRegistration
+*******************************************************************************/
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE ScopedRegistration::ScopedRegistration() {}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE
+ScopedRegistration::ScopedRegistration(ScopedRegistration&& other)
+    : Base(std::move(other))
 {}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Registration::setId(RegistrationId id, internal::PassKey)
+CPPWAMP_INLINE
+ScopedRegistration::ScopedRegistration(Registration registration)
+    : Base(std::move(registration))
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE ScopedRegistration::~ScopedRegistration()
 {
-    id_ = id;
+    unregister();
 }
 
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE ScopedRegistration&
+ScopedRegistration::operator=(ScopedRegistration&& other)
+{
+    unregister();
+    Base::operator=(std::move(other));
+    return *this;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE ScopedRegistration&
+ScopedRegistration::operator=(Registration subscription)
+{
+    unregister();
+    Base::operator=(std::move(subscription));
+    return *this;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void ScopedRegistration::release()
+{
+    Base::operator=(Registration());
+}
 } // namespace wamp

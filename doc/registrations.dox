@@ -1,0 +1,244 @@
+/*------------------------------------------------------------------------------
+                Copyright Butterfly Energy Systems 2014-2015.
+           Distributed under the Boost Software License, Version 1.0.
+              (See accompanying file LICENSE_1_0.txt or copy at
+                    http://www.boost.org/LICENSE_1_0.txt)
+------------------------------------------------------------------------------*/
+
+
+/**
+@page Registrations Registrations
+
+@tableofcontents
+
+@section CallSlots Call Slots
+A _slot_ is a _callable target_ that is called in response to a _signal_
+(the signal being the call invocation in this case). The term _slot_, borrowed
+from [Qt's signals and slots][qt_sig], is used to distinguish a call handler
+from an asynchronous operation handler.
+
+A _callable target_ can be:
+- a free function,
+- a bound member function (using `std::bind`),
+- a function object,
+- a lambda function, etc.
+
+[qt_sig]: http://doc.qt.io/qt-5/signalsandslots.html
+
+A _call slot_ represents an RPC handler that does not have any expectations on
+the invocation payload arguments. If necessary, the payload arguments must be
+checked during runtime, in the body of the call handler.
+
+wamp::Session::enroll expects a call slot with the following signature:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+wamp::Outcome function(wamp::Invocation)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+where:
+- wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
+  to the caller, and,
+- wamp::Invocation is an object containing information and payload
+  arguments related to the RPC invocation.
+
+@section UnpackedCallSlots Unpacked Call Slots
+An _unpacked call slot_ represents an RPC handler that expects one or more
+payload arguments having specific, static types. The [wamp::unpackedRpc]
+(@ref wamp::InvocationUnpacker::unpackedRpc) function can be used when
+registering such call slots. It takes an unpacked call slot, and converts it
+into a regular event slot that can be passed to wamp::Session::enroll.
+
+`wamp::unpackedRpc` expects a call slot with the following signature:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+wamp::Outcome function(wamp::Invocation, TArgs...)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+where
+- wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
+  to the caller, and,
+- wamp::Invocation is an object containing information and payload arguments
+  related to the RPC invocation,
+- `TArgs...` matches the template parameter pack that was passed to
+  `wamp::unpackedRpc`.
+
+Examples of static call slots are:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Outcome setSpeed(Invocation inv, float speed) { ... }
+//                                 ^
+//                               TArgs
+
+Outcome purchase(Invocation inv, std::string item, int cost, int qty) { ... }
+//                                       ^          ^         ^
+//                                       \----------|---------/
+//                                                TArgs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The above slots can be registered as follows:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+session->enroll(Procedure("setSpeed"),
+                unpackedRpc<float>(&setSpeed),
+                handler);
+
+session->enroll(Procedure("purchase"),
+                unpackedRpc<std::string, int, int>(&purchase),
+                handler);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+where `handler` is the asynchronous handler (or coroutine yield context)
+for the **enroll operation itself**.
+
+Whenever a wamp::Session dispatches an RPC invocation to the above slots, it
+automatically unpacks the invocation payload positional arguments, and
+passes them to the slot's argument list. If `Session` cannot convert the
+invocation payload arguments to their target types, it automatically sends
+an `ERROR` reply back to the router.
+
+@section RpcOutcomes RPC Outcomes
+
+RPC call slots are required to return a wamp::Outcome object. `Outcome` is a
+discriminated union (i.e. variant) that can contain either:
+- a wamp::Result object, which contains positional/keyword return arguments,
+- a wamp::Error object, which contains an error URI and other
+  error-related information, or,
+- none of the above, which means that the outcome is _deferred_.
+
+@subsection ResultOutcomes Result Outcomes
+
+An RPC call slot can send a result back to the caller by returning a
+wamp::Result object:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Outcome add(Invocation, int a, int b)
+{
+    return Result().withArgs({a + b});
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If only positional arguments need to be returned, they can be returned directly
+via a braced initializer list:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Outcome add(Invocation, int a, int b)
+{
+    return {a + b};
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If an empty result needs to be returned, an empty initializer list can be used:
+
+~~~~~~~~~~~~~~~~~~~~~~
+Outcome doSomething()
+{
+    // Do something...
+    return {};
+}
+~~~~~~~~~~~~~~~~~~~~~~
+
+@subsection ErrorOutcomes Error Outcomes
+
+An RPC call slot can send an error back to the caller by returning a
+wamp::Error object:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Outcome divide(Invocation, int a, int b)
+{
+    if (b == 0)
+        return Error("myapp.divide_by_zero");
+    else
+        return {a/b};
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Instead of returning an `Error` object via the `Outcome` return parameter,
+a call slot can also throw an `Error` object as an exception. The library
+will catch such exceptions and will send a corresponding `ERROR` message back
+to the caller:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Outcome divide(Invocation, int a, int b)
+{
+    if (b == 0)
+        throw Error("myapp.divide_by_zero");
+    return {a/b};
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+@note Thrown exception types other than wamp::Error are _not_ handled by the
+      library, and will result in the exception being rethrown by
+      `boost::asio::io_service::run`.
+
+@subsection DeferredOutcomes Deferred Outcomes
+
+A _deferred_ outcome means that the call slot does not return anything, and
+that measures will be taken by the callee to manually yield a `Result` or
+`Error` object back to the caller (via wamp::Invocation::yield). This can be
+useful when the call result can only be determined in a different asynchronous
+context.
+
+Example:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Outcome Client::addPerson(Invocation inv, Object person)
+{
+    // We need to issue another RPC to the database service before we can
+    // fulfill this RPC.
+    boost::asio::spawn(iosvc_, [this, inv](boost::asio::yield_context yield)
+    {
+        auto dbResult = session_->call( Rpc("db.add").withArgs({person}),
+                                        yield );
+        // Manually send the result back to the caller
+        auto personId = dbResult[0].to<int>();
+        inv.yield({personId});
+    });
+
+    // We don't know the result yet as this point. Return a deferred outcome
+    // to indicate that we'll send the result manually in a different
+    // asynchronous context.
+    return Outcome::deferred();
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+@section ScopedRegistrations Scoped Registrations
+
+A wamp::ScopedRegistration object can be used to limit a registration's
+lifetime to a particular scope. When a `ScopedRegistration` object is destroyed,
+it automatically unregisters the registration. This helps in automating the
+lifetime management of RPC registrations using RAII techniques.
+
+Here's an example illustrating how `ScopedRegistration` can be used
+to manage the lifetime of a registration:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+struct Delegate
+{
+    Outcome rpc(Invocation inv);
+
+    ScopedRegistration reg;
+}
+
+int main()
+{
+    boost::asio::io_service iosvc;
+    boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+    {
+        auto session = CoroSession<>::create(connectorList);
+        session->connect(yield);
+        session->join("somerealm", yield);
+
+        {
+            using std::placeholders;
+            Delegate delegate;
+            delegate.reg = session->enroll(
+                            Procedure("someprocedure"),
+                            std::bind(&Delegate::rpc, delegate, _1),
+                            yield);
+
+        }  // When the 'delegate' object leaves this scope, its
+           // ScopedRegisration member gets destroyed. This will
+           // automatically unregister the regisration, thereby avoiding
+           // further member function calls on the deleted 'delegate' object.
+    });
+    iosvc.run();
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*/

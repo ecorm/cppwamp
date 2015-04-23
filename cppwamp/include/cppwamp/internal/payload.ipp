@@ -40,52 +40,6 @@ void unbundleAs(Array& array, size_t& index, T& head, Ts&... tail)
     }
 }
 
-//------------------------------------------------------------------------------
-template <size_t N, typename T, typename... Ts>
-struct Unmarshall
-{
-    template <typename TFunctor, typename... TArgs>
-    static void apply(TFunctor&& fn, const Array& array);
-
-    template <typename TFunctor, typename... TArgs>
-    static void apply(TFunctor&& fn, const Array& array, TArgs&&... args);
-};
-
-template <size_t N, typename T>
-struct Unmarshall<N, T>
-{
-    template <typename TFunctor>
-    static void apply(TFunctor&& fn, const Array& array)
-    {
-        fn(array.at(N).to<T>());
-    }
-
-    template <typename TFunctor, typename... TArgs>
-    static void apply(TFunctor&& fn, const Array& array, TArgs&&... args)
-    {
-        fn(std::forward<TArgs>(args)..., array.at(N).to<T>());
-    }
-};
-
-template <size_t N, typename T, typename... Ts>
-template <typename TFunctor, typename... TArgs>
-void Unmarshall<N,T,Ts...>::apply(TFunctor&& fn, const Array& array)
-{
-    using std::forward;
-    Unmarshall<N+1, Ts...>::apply(forward<TFunctor>(fn), array,
-                                  array.at(N).to<T>());
-}
-
-template <size_t N, typename T, typename... Ts>
-template <typename TFunctor, typename... TArgs>
-void Unmarshall<N,T,Ts...>::apply(TFunctor&& fn, const Array& array,
-                                  TArgs&&... args)
-{
-    using std::forward;
-    Unmarshall<N+1, Ts...>::apply(forward<TFunctor>(fn), array,
-            forward<TArgs>(args)..., array.at(N).to<T>());
-}
-
 } // namespace internal
 
 
@@ -122,15 +76,6 @@ D& Payload<D>::withKwargs(Object kwargs)
 template <typename D>
 const Array& Payload<D>::args() const & {return args_;}
 
-#else
-
-//------------------------------------------------------------------------------
-template <typename D>
-const Array& Payload<D>::args() const {return args_;}
-
-#endif
-
-#if CPPWAMP_HAS_REF_QUALIFIERS
 //------------------------------------------------------------------------------
 /** @details
     This overload takes effect when `*this` is an r-value. For example:
@@ -141,6 +86,11 @@ const Array& Payload<D>::args() const {return args_;}
 //------------------------------------------------------------------------------
 template <typename D>
 Array Payload<D>::args() && {return moveArgs();}
+
+#else
+//------------------------------------------------------------------------------
+template <typename D>
+const Array& Payload<D>::args() const {return args_;}
 #endif
 
 //------------------------------------------------------------------------------
@@ -274,45 +224,5 @@ Array& Payload<D>::args(internal::PassKey) {return args_;}
 template <typename D>
 Object& Payload<D>::kwargs(internal::PassKey) {return kwargs_;}
 
-
-//------------------------------------------------------------------------------
-/** @tparam TFunction (Deduced) The type of the callable target
-    @pre The Array elements must be convertible to `TArgs...`
-    @throws error::Conversion if an Array element is not convertible to its
-            associated function argument types. */
-//------------------------------------------------------------------------------
-template <typename... TArgs>
-template <typename TFunction>
-void Unmarshall<TArgs...>::apply(
-    TFunction&& fn,     /**< The target function to call. */
-    const Array& array  /**< An array of variants representing positional
-                             arguments. */
-)
-{
-    internal::Unmarshall<0,TArgs...>::apply(std::forward<TFunction>(fn), array);
-}
-
-//------------------------------------------------------------------------------
-/** @details
-    This overload allows the caller to pass extra arguments (`preargs`)
-    _before_ the ones generated from the Array elements.
-    @tparam TFunction (Deduced) The type of the callable target
-    @pre The Array elements must be convertible to `TArgs...`
-    @throws error::Conversion if an Array element is not convertible to its
-            associated function argument types. */
-//------------------------------------------------------------------------------
-template <typename... TArgs>
-template <typename TFunction, typename... TPreargs>
-void Unmarshall<TArgs...>::apply(
-    TFunction&& fn,       /**< The target function to call. */
-    const Array& array,   /**< An array of variants representing positional
-                               arguments. */
-    TPreargs&&... preargs /**< Extra arguments to be passed before the ones
-                               generated from the Array elements. */
-)
-{
-    internal::Unmarshall<0,TArgs...>::apply(std::forward<TFunction>(fn), array,
-                                            std::forward<TPreargs>(preargs)...);
-}
 
 } // namespace wamp
