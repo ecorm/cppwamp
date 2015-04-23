@@ -1,6 +1,3 @@
-[submodule "ext/endian"]
-	path = ext/endian
-	url = https://github.com/boostorg/endian
 [submodule "ext/rapidjson"]
 	path = ext/rapidjson
 	url = https://github.com/miloyip/rapidjson
