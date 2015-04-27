@@ -172,7 +172,8 @@ public:
     Registration enroll(Procedure procedure, CallSlot slot,
             YieldContext<H> yield, std::error_code* ec = nullptr);
 
-    /** Unregisters a remote procedure call. */
+    /** Unregisters a remote procedure call and waits for router
+        acknowledgement. */
     template <typename H>
     bool unregister(const Registration& reg, YieldContext<H> yield,
                     std::error_code* ec = nullptr);

@@ -20,6 +20,8 @@ OTHER_FILES += \
 
 #Preprocessor macros
 DEFINES += CPPWAMP_COMPILED_LIB
+DEFINES += BOOST_THREAD_VERSION=4
+DEFINES += BOOST_THREAD_PROVIDES_EXECUTORS
 
 #Enable C++11 support
 QMAKE_CXXFLAGS += -std=c++11
@@ -56,7 +58,7 @@ linux-g++ {
 }
 
 #The Boost shared libraries we're using
-BOOST_LIBS = coroutine context thread system
+BOOST_LIBS = thread system
 
 #Add the Boost libraries to the linker flags
 for(i, BOOST_LIBS) {

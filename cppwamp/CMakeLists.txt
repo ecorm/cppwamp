@@ -9,12 +9,14 @@ set(SOURCES src/cppwamp.cpp)
 
 set(HEADERS
     include/cppwamp/asiodefs.hpp
+    include/cppwamp/asioexecutor.hpp
     include/cppwamp/asyncresult.hpp
     include/cppwamp/codec.hpp
     include/cppwamp/connector.hpp
     include/cppwamp/corosession.hpp
     include/cppwamp/dialoguedata.hpp
     include/cppwamp/error.hpp
+    include/cppwamp/futusession.hpp
     include/cppwamp/json.hpp
     include/cppwamp/legacytcpconnector.hpp
     include/cppwamp/legacyudsconnector.hpp
@@ -65,11 +67,13 @@ set(HEADERS
 )
 
 set(INLINES
+    include/cppwamp/internal/asioexecutor.ipp
     include/cppwamp/internal/asyncresult.ipp
     include/cppwamp/internal/corosession.ipp
     include/cppwamp/internal/dialoguedata.ipp
     include/cppwamp/internal/endian.ipp
     include/cppwamp/internal/error.ipp
+    include/cppwamp/internal/futusession.ipp
     include/cppwamp/internal/json.ipp
     include/cppwamp/internal/legacytcpconnector.ipp
     include/cppwamp/internal/legacyudsconnector.ipp

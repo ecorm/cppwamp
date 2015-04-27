@@ -9,6 +9,7 @@
 
 #ifdef CPPWAMP_COMPILED_LIB
 
+#include <cppwamp/asioexecutor.hpp>
 #include <cppwamp/dialoguedata.hpp>
 #include <cppwamp/error.hpp>
 #include <cppwamp/legacytcpconnector.hpp>
@@ -20,6 +21,7 @@
 #include <cppwamp/version.hpp>
 #include <cppwamp/internal/messagetraits.hpp>
 
+#include <cppwamp/internal/asioexecutor.ipp>
 #include <cppwamp/internal/dialoguedata.ipp>
 #include <cppwamp/internal/error.ipp>
 #include <cppwamp/internal/legacytcpconnector.ipp>

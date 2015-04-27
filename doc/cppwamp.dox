@@ -81,5 +81,6 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 // Examples
 /**
 @example examples/chat/main.cpp
+@example examples/futucalc/main.cpp
 */
 

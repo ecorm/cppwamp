@@ -10,12 +10,17 @@ TEMPLATE = subdirs
 chatexample.subdir = examples/chat
 chatexample.target = chat
 
+futucalcexample.subdir = examples/futucalc
+futucalcexample.target = futucalc
+
 SUBDIRS = cppwamp \
           test \
-          chatexample
+          chatexample \
+          futucalcexample
 
 test.depends = cppwamp
 chatexample.depends = cppwamp
+futucalcexample.depends = cppwamp
 
 OTHER_FILES += \
     CMakeLists.txt \

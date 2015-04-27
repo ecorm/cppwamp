@@ -3,6 +3,8 @@ syntax: glob
 ext/*
 doc/html
 *.vpp~*
+*.vpp.working
 CMakeLists.txt.user
 .git
-*.vpp.working
+.gitmodules
+.gitignore

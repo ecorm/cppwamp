@@ -5,13 +5,16 @@
 #                   http://www.boost.org/LICENSE_1_0.txt)
 #-------------------------------------------------------------------------------
 
-add_subdirectory(chat)
-add_subdirectory(futucalc)
+# Add executable target for futucalc example program
+add_executable (futucalc main.cpp)
 
-# Copy Crossbar node configuration to build directory
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/.crossbar/config.json
-    ${CMAKE_CURRENT_BINARY_DIR}/.crossbar/config.json
-    COPYONLY
+# Add required preprocessor macro definitions
+add_definitions(
+    -DCPPWAMP_COMPILED_LIB
+    -DBOOST_THREAD_VERSION=4
+    -DBOOST_THREAD_PROVIDES_EXECUTORS
 )
+
+# Link against cppwamp and Boost libraries
+target_link_libraries(futucalc cppwamp ${Boost_LIBRARIES})
 

@@ -6,6 +6,23 @@
          "type": "router",
          "realms": [
             {
+               "name": "cppwamp.demo.futucalc",
+               "roles": [
+                  {
+                     "name": "anonymous",
+                     "permissions": [
+                        {
+                           "uri": "*",
+                           "publish": true,
+                           "subscribe": true,
+                           "call": true,
+                           "register": true
+                        }
+                     ]
+                  }
+               ]
+            },
+            {
                "name": "cppwamp.demo.chat",
                "roles": [
                   {
