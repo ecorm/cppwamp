@@ -9,7 +9,6 @@
 #include "asioconnector.hpp"
 #include "client.hpp"
 #include "config.hpp"
-#include "udsopener.hpp"
 
 namespace wamp
 {

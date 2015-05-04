@@ -152,7 +152,7 @@ void Msgpack::decodeBuffer(const TBuffer& from, Variant& to)
     {
         using namespace msgpack;
         auto result = unpack(from.data(), from.length(),
-            [] (type::object_type, uint64_t, void*) {return true;});
+            [] (type::object_type, std::size_t, void*) {return true;});
         const auto& obj = result.get();
 
         Variant v;

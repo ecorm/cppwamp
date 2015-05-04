@@ -212,6 +212,7 @@ SCENARIO( "Comparing variants to vectors", "[Variant]" )
     WHEN ( "performing lexicographical comparisons" )
     {
         using V = vector<Int>;
+        CHECK( same   (V{0},     V{0}) );
         CHECK( differs(V{0},     V{1}) );
         CHECK( differs(V{-1},    V{0}) );
         CHECK( differs(V{0},     V{0,0}) );
@@ -225,6 +226,14 @@ SCENARIO( "Comparing variants to vectors", "[Variant]" )
         CHECK( differs(V{0,1},   V{1,1}) );
         CHECK( differs(V{1,0},   V{1,1}) );
         CHECK( differs(V{1,0,0}, V{1,1}) );
+    }
+    WHEN ( "boolean-related value comparisons" )
+    {
+        CHECK( same   (vector<Bool>{false}, vector<Bool>{false}) );
+        CHECK( same   (vector<Bool>{true},  vector<Bool>{true}) );
+        CHECK( differs(vector<Bool>{false}, vector<Bool>{true}) );
+        CHECK( differs(vector<Bool>{false}, vector<Int>{0}) );
+        CHECK( differs(vector<Bool>{true},  vector<Int>{1}) );
     }
     WHEN ( "elements are of numeric type" )
     {

@@ -20,6 +20,7 @@
 #include "connector.hpp"
 #include "error.hpp"
 #include "rawsockdefs.hpp"
+#include "./internal/udsopener.hpp"
 
 namespace wamp
 {
@@ -28,7 +29,6 @@ namespace wamp
 namespace internal
 {
     template <typename TEstablisher> class AsioConnector;
-    class UdsOpener;
 }
 
 //------------------------------------------------------------------------------

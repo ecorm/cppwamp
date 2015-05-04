@@ -24,6 +24,14 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+// The !std::is_same is required because std::vector<bool>::const_reference may
+// or may not just be bool.
+template <typename T>
+using EnableIfBoolRef =
+    typename std::enable_if<
+        isBool<T>() && !std::is_same<T, bool>::value, int
+    >::type;
+
 template <typename T, typename U>
 constexpr bool bothAreNumbers() {return isNumber<T>() && isNumber<U>();}
 
@@ -63,19 +71,30 @@ public:
     bool operator()(const TField& lhs, const TField& rhs) const
         {return lhs == rhs;}
 
+    template <typename TArg, EnableIfBoolRef<TArg> = 0>
+    bool operator()(const bool lhs, const TArg rhs) const
+        {return lhs == bool(rhs);}
+
     template <typename TField, typename TArg,
               DisableIfBothAreNumbers<TField,TArg> = 0>
     bool operator()(const TField&, const TArg&) const {return false;}
 
     template <typename TField, typename TArg,
               EnableIfBothAreNumbers<TField,TArg> = 0>
-    bool operator()(TField lhs, TArg rhs) const {return lhs == rhs;}
+    bool operator()(const TField lhs, const TArg rhs) const
+        {return lhs == rhs;}
 
     template <typename TElem, EnableIfNotVariant<TElem> = 0>
     bool operator()(const Array& lhs, const std::vector<TElem>& rhs) const
     {
-        return (lhs.size() == rhs.size()) ?
-            std::equal(lhs.cbegin(), lhs.cend(), rhs.cbegin()) : false;
+        using VecConstRef = typename std::vector<TElem>::const_reference;
+        // clang libc++ parameterizes equality comparison for default binary
+        // predicate on iterator value type instead of const reference type,
+        // which leads to an ambiguous function resolution.
+        return (lhs.size() != rhs.size()) ? false :
+            std::equal(lhs.cbegin(), lhs.cend(), rhs.cbegin(),
+                       [](const Variant& lElem, VecConstRef rElem)
+                       {return lElem == rElem;});
     }
 
     template <typename TValue, EnableIfNotVariant<TValue> = 0>
@@ -103,6 +122,10 @@ public:
     bool operator()(const TField& lhs, const TField& rhs) const
         {return lhs != rhs;}
 
+    template <typename TArg, EnableIfBoolRef<TArg> = 0>
+    bool operator()(const bool lhs, const TArg rhs) const
+        {return lhs != rhs;}
+
     template <typename TField, typename TArg,
               DisableIfBothAreNumbers<TField,TArg> = 0>
     bool operator()(const TField&, const TArg&) const {return true;}
@@ -114,9 +137,14 @@ public:
     template <typename TElem, EnableIfNotVariant<TElem> = 0>
     bool operator()(const Array& lhs, const std::vector<TElem>& rhs) const
     {
+        using VecConstRef = typename std::vector<TElem>::const_reference;
+        // clang libc++ parameterizes equality comparison for default binary
+        // predicate on iterator value type instead of const reference type,
+        // which leads to an ambiguous function resolution.
         return (lhs.size() != rhs.size()) ? true :
-            ( std::mismatch(lhs.cbegin(), lhs.cend(), rhs.cbegin()).first !=
-              lhs.end() );
+            std::mismatch(lhs.cbegin(), lhs.cend(), rhs.cbegin(),
+                          [](const Variant& lElem, VecConstRef rElem)
+                          {return lElem == rElem;}).first != lhs.cend();
     }
 
     template <typename TValue, EnableIfNotVariant<TValue> = 0>
