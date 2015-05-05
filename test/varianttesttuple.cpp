@@ -20,9 +20,11 @@ SCENARIO( "Variant initialization from a tuple", "[Variant]" )
 GIVEN( "a tuple of valid types" )
 {
     auto tuple = std::make_tuple(null, false, true, 0u, -1, 42.0, "foo",
-                                 Array{"a", 123}, Object{{"o", 321}});
+                                 Array{"a", 123}, Object{{"o", 321}},
+                                 std::make_tuple("b", 124));
     Variant expected = Array{null, false, true, 0u, -1, 42.0, "foo",
-                             Array{"a", 123}, Object{{"o", 321}}};
+                             Array{"a", 123}, Object{{"o", 321}},
+                             Array{"b", 124}};
     WHEN( "a variant is constructed with the tuple" )
     {
         Variant v(toArray(tuple));

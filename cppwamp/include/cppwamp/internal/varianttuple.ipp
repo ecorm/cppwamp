@@ -27,17 +27,20 @@ using EnableIfTupleEnd =
 
 //------------------------------------------------------------------------------
 template <typename T>
-void assignFromTupleElement(Variant& v, T&& elem)
+T&& forwardTupleElement(T&& elem)
 {
     static_assert(ArgTraits<T>::isValid,
                   "wamp::fromTuple - Invalid tuple element type");
-    v = std::move(elem);
+    // Normally this should be std::forward, but this function is only called by
+    // assignFromTuple below, so elem is always actually an rvalue reference, so
+    // using std::move is sufficient.
+    return std::move(elem);
 }
 
 template <typename... Ts>
-void assignFromTupleElement(Variant& v, std::tuple<Ts...>&& tuple)
+Array forwardTupleElement(std::tuple<Ts...>&& tuple)
 {
-    v = toArray(std::move(tuple));
+    return toArray(std::move(tuple));
 }
 
 template<std::size_t N = 0, typename... Ts, EnableIfTupleEnd<N, Ts...> = 0>
@@ -46,8 +49,7 @@ void assignFromTuple(Array&, std::tuple<Ts...>&&) {}
 template<std::size_t N = 0, typename... Ts, EnableIfTupleElement<N, Ts...> = 0>
 void assignFromTuple(Array& array, std::tuple<Ts...>&& tuple)
 {
-    array.emplace_back();
-    assignFromTupleElement(array.back(), std::get<N>(std::move(tuple)));
+    array.emplace_back(forwardTupleElement(std::get<N>(std::move(tuple))));
     assignFromTuple<N+1, Ts...>(array, std::move(tuple));
 }
 
