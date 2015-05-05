@@ -46,7 +46,7 @@ void assignFromTuple(Array&, std::tuple<Ts...>&&) {}
 template<std::size_t N = 0, typename... Ts, EnableIfTupleElement<N, Ts...> = 0>
 void assignFromTuple(Array& array, std::tuple<Ts...>&& tuple)
 {
-    array.push_back(Variant());
+    array.emplace_back();
     assignFromTupleElement(array.back(), std::get<N>(std::move(tuple)));
     assignFromTuple<N+1, Ts...>(array, std::move(tuple));
 }
