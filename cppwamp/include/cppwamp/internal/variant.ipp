@@ -477,7 +477,7 @@ template <typename TField, typename V> TField& Variant::get(V&& variant)
 {
     using FieldType = typename std::remove_const<TField>::type;
     static_assert(FieldTraits<FieldType>::isValid, "Invalid field type");
-    if (!variant.is<FieldType>())
+    if (!variant.template is<FieldType>())
         throw error::Access(wamp::typeNameOf(variant),
                             FieldTraits<FieldType>::typeName());
     return Access<FieldType>::get(&variant.field_);

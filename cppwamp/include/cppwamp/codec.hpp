@@ -15,6 +15,7 @@
 
 #include <set>
 #include <stdexcept>
+#include <string>
 
 namespace wamp
 {

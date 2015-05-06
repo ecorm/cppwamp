@@ -71,7 +71,7 @@ Options<D>::optionOr(
 {
     auto iter = options_.find(key);
     if (iter != options_.end())
-        return iter->second.to<ValueTypeOf<T>>();
+        return iter->second.template to<ValueTypeOf<T>>();
     else
         return std::forward<T>(fallback);
 }

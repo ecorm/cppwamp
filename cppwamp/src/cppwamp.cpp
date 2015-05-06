@@ -20,6 +20,11 @@
 #include <cppwamp/version.hpp>
 #include <cppwamp/internal/messagetraits.hpp>
 
+#if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
+#include <cppwamp/udsconnector.hpp>
+#include <cppwamp/legacyudsconnector.hpp>
+#endif
+
 #include <cppwamp/internal/dialoguedata.ipp>
 #include <cppwamp/internal/error.ipp>
 #include <cppwamp/internal/legacytcpconnector.ipp>
@@ -32,9 +37,6 @@
 #include <cppwamp/internal/version.ipp>
 
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-#include <cppwamp/udsconnector.hpp>
-#include <cppwamp/legacyudsconnector.hpp>
-
 #include <cppwamp/internal/udsconnector.ipp>
 #include <cppwamp/internal/legacyudsconnector.ipp>
 #endif

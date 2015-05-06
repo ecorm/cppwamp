@@ -14,37 +14,42 @@ namespace wamp
 namespace internal
 {
 
-template<typename TResult, std::size_t N, typename... Ts>
-using TupleResult = typename std::enable_if<N != sizeof...(Ts), TResult>::type;
+//------------------------------------------------------------------------------
+// This should be possible with return type deduction, but clang doesn't like
+// that for some reason: http://stackoverflow.com/q/24454664.
+template <std::size_t N, typename... Ts>
+using EnableIfTupleElement =
+    typename std::enable_if<N != sizeof...(Ts), int>::type;
 
-template<typename TResult, std::size_t N, typename... Ts>
-using TupleLastResult =
-    typename std::enable_if<N == sizeof...(Ts), TResult>::type;
+template <std::size_t N, typename... Ts>
+using EnableIfTupleEnd =
+    typename std::enable_if<N == sizeof...(Ts), int>::type;
 
 //------------------------------------------------------------------------------
 template <typename T>
-void assignFromTupleElement(Variant& v, T&& elem)
+T&& forwardTupleElement(T&& elem)
 {
     static_assert(ArgTraits<T>::isValid,
                   "wamp::fromTuple - Invalid tuple element type");
-    v = std::move(elem);
+    // Normally this should be std::forward, but this function is only called by
+    // assignFromTuple below, so elem is always actually an rvalue reference, so
+    // using std::move is sufficient.
+    return std::move(elem);
 }
 
 template <typename... Ts>
-void assignFromTupleElement(Variant& v, std::tuple<Ts...>&& tuple)
+Array forwardTupleElement(std::tuple<Ts...>&& tuple)
 {
-    v = toArray(std::move(tuple));
+    return toArray(std::move(tuple));
 }
 
-template<std::size_t N=0, typename... Ts>
-TupleLastResult<void,N,Ts...> assignFromTuple(Array&, std::tuple<Ts...>&&) { }
+template<std::size_t N = 0, typename... Ts, EnableIfTupleEnd<N, Ts...> = 0>
+void assignFromTuple(Array&, std::tuple<Ts...>&&) {}
 
-template<std::size_t N=0, typename... Ts>
-TupleResult<void,N,Ts...> assignFromTuple(Array& array,
-                                          std::tuple<Ts...>&& tuple)
+template<std::size_t N = 0, typename... Ts, EnableIfTupleElement<N, Ts...> = 0>
+void assignFromTuple(Array& array, std::tuple<Ts...>&& tuple)
 {
-    array.push_back(Variant());
-    assignFromTupleElement(array.back(), std::get<N>(std::move(tuple)));
+    array.emplace_back(forwardTupleElement(std::get<N>(std::move(tuple))));
     assignFromTuple<N+1, Ts...>(array, std::move(tuple));
 }
 
@@ -70,12 +75,11 @@ void assignToTupleElement(const Variant& v, std::tuple<Ts...>& tuple)
     toTuple(v.as<Array>(), tuple);
 }
 
-template<std::size_t N=0, typename... Ts>
-TupleLastResult<void,N,Ts...> assignToTuple(const Array&, std::tuple<Ts...>&) {}
+template<std::size_t N = 0, typename... Ts, EnableIfTupleEnd<N, Ts...> = 0>
+void assignToTuple(const Array&, std::tuple<Ts...>&) {}
 
-template<std::size_t N=0, typename... Ts>
-TupleResult<void,N,Ts...> assignToTuple(const Array& array,
-                                        std::tuple<Ts...>& tuple)
+template<std::size_t N = 0, typename... Ts, EnableIfTupleElement<N, Ts...> = 0>
+void assignToTuple(const Array& array, std::tuple<Ts...>& tuple)
 {
     using ElemType = typename std::tuple_element<N, std::tuple<Ts...>>::type;
     static_assert(ArgTraits<ElemType>::isValid,
@@ -97,9 +101,12 @@ TupleResult<void,N,Ts...> assignToTuple(const Array& array,
 //------------------------------------------------------------------------------
 template <typename T> struct TupleTag {};
 
-// Foward declaration
-template<std::size_t N=0, typename... Ts>
-TupleResult<bool,N,Ts...> isConvertibleToTuple(const Array& array);
+// Forward declarations.
+template<std::size_t N = 0, typename... Ts, EnableIfTupleEnd<N, Ts...> = 0>
+bool isConvertibleToTuple(const Array& array);
+
+template<std::size_t N = 0, typename... Ts, EnableIfTupleElement<N, Ts...> = 0>
+bool isConvertibleToTuple(const Array& array);
 
 template <typename T>
 bool isConvertibleToTupleElement(const Variant& v, TupleTag<T>)
@@ -114,11 +121,12 @@ bool isConvertibleToTupleElement(const Variant& v, TupleTag<std::tuple<Ts...>>)
            isConvertibleToTuple<0,Ts...>(v.as<Array>());
 }
 
-template<std::size_t N=0, typename... Ts>
-TupleLastResult<bool,N,Ts...> isConvertibleToTuple(const Array&) {return true;}
+// Template defaults given in forward declaration.
+template<std::size_t N, typename... Ts, EnableIfTupleEnd<N, Ts...>>
+bool isConvertibleToTuple(const Array&) {return true;}
 
-template<std::size_t N=0, typename... Ts>
-TupleResult<bool,N,Ts...> isConvertibleToTuple(const Array& array)
+template<std::size_t N, typename... Ts, EnableIfTupleElement<N, Ts...>>
+bool isConvertibleToTuple(const Array& array)
 {
     using ElemType = typename std::tuple_element<N, std::tuple<Ts...>>::type;
     bool result = isConvertibleToTupleElement(array.at(N),
@@ -128,16 +136,14 @@ TupleResult<bool,N,Ts...> isConvertibleToTuple(const Array& array)
 
 
 //------------------------------------------------------------------------------
-template<std::size_t N=0, typename... Ts>
-TupleLastResult<bool,N,Ts...> equalsTuple(const Array&,
-                                          const std::tuple<Ts...>&)
+template<std::size_t N = 0, typename... Ts, EnableIfTupleEnd<N, Ts...> = 0>
+bool equalsTuple(const Array&, const std::tuple<Ts...>&)
 {
     return true;
 }
 
-template<std::size_t N=0, typename... Ts>
-TupleResult<bool,N,Ts...> equalsTuple(const Array& array,
-                                      const std::tuple<Ts...>& tuple)
+template<std::size_t N = 0, typename... Ts, EnableIfTupleElement<N, Ts...> = 0>
+bool equalsTuple(const Array& array, const std::tuple<Ts...>& tuple)
 {
     using ElemType = typename std::tuple_element<N, std::tuple<Ts...>>::type;
     static_assert(ArgTraits<ElemType>::isValid,
@@ -149,16 +155,14 @@ TupleResult<bool,N,Ts...> equalsTuple(const Array& array,
 }
 
 //------------------------------------------------------------------------------
-template<std::size_t N=0, typename... Ts>
-TupleLastResult<bool,N,Ts...> notEqualsTuple(const Array&,
-                                             const std::tuple<Ts...>&)
+template<std::size_t N = 0, typename... Ts, EnableIfTupleEnd<N, Ts...> = 0>
+bool notEqualsTuple(const Array&, const std::tuple<Ts...>&)
 {
     return false;
 }
 
-template<std::size_t N=0, typename... Ts>
-TupleResult<bool,N,Ts...> notEqualsTuple(const Array& array,
-                                         const std::tuple<Ts...>& tuple)
+template<std::size_t N = 0, typename... Ts, EnableIfTupleElement<N, Ts...> = 0>
+bool notEqualsTuple(const Array& array, const std::tuple<Ts...>& tuple)
 {
     using ElemType = typename std::tuple_element<N, std::tuple<Ts...>>::type;
     static_assert(ArgTraits<ElemType>::isValid,

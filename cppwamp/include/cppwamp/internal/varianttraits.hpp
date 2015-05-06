@@ -22,23 +22,32 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+template <typename T> constexpr bool isBool()
+{
+    // std::vector<bool>::const_reference is not just bool in clang/libc++.
+    return std::is_same<T, Bool>::value ||
+           std::is_same<T, std::vector<bool>::reference>::value ||
+           std::is_same<T, std::vector<bool>::const_reference>::value;
+}
+
+//------------------------------------------------------------------------------
 template <typename T> constexpr bool isNumber()
 {
-    return std::is_arithmetic<T>::value && !std::is_same<T, bool>::value;
+    return std::is_arithmetic<T>::value && !std::is_same<T, Bool>::value;
 }
 
 //------------------------------------------------------------------------------
 template <typename T> constexpr bool isSignedInteger()
 {
     return std::is_integral<T>::value && std::is_signed<T>::value &&
-           !std::is_same<T,Bool>::value;
+           !std::is_same<T, Bool>::value;
 }
 
 //------------------------------------------------------------------------------
 template <typename T> constexpr bool isUnsignedInteger()
 {
     return std::is_integral<T>::value && !std::is_signed<T>::value &&
-           !std::is_same<T,Bool>::value;
+           !std::is_same<T, Bool>::value;
 }
 
 //------------------------------------------------------------------------------
@@ -132,17 +141,12 @@ template <> struct ArgTraits<Null>
     using FieldType                 = Null;
 };
 
-template <> struct ArgTraits<Bool>
+template <typename TField>
+struct ArgTraits<TField, typename std::enable_if<
+        isBool<TField>() >::type >
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "Bool";}
-    using FieldType                 = Bool;
-};
-
-template <> struct ArgTraits<std::vector<bool>::reference>
-{
-    static constexpr bool isValid   = true;
-    static String typeName()        {return "std::vector<bool>::reference>";}
     using FieldType                 = Bool;
 };
 

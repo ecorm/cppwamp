@@ -35,6 +35,9 @@ namespace wamp
 //------------------------------------------------------------------------------
 struct Null
 {
+    /// Default constructor. For instantiating const object.
+    constexpr Null() {}
+
     /// Compares two `Null` objects for equality. @return always `true`.
     bool operator==(Null) const;
 
