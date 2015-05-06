@@ -55,6 +55,11 @@ void checkVec(const std::vector<T>& vector, bool convertible = true)
         v = std::move(vec);
         CHECK( v == expected );
     }
+
+    {
+        Variant v(vector);
+        CHECK( v == expected );
+    }
 }
 
 template <typename T>
