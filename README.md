@@ -64,6 +64,8 @@ Tested Platforms
 This library has been tested with:
 
 - GCC 4.8.2, x86_64-linux-gnu, on Linux Mint 17 (based on Ubuntu 14.04)
+- GCC 4.9.2 on Debian 8.0 "jessie"
+- Xcode 6.3.1 (Clang 602.0.49) on OS X 10.10.3
 
 Usage Examples (using coroutines)
 ---------------------------------
