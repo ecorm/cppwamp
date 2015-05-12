@@ -665,7 +665,7 @@ CPPWAMP_INLINE Variant Invocation::procedure() const
 }
 
 /** @pre `this->calleeHasExpired == false` */
-CPPWAMP_INLINE void Invocation::yield(Result result)
+CPPWAMP_INLINE void Invocation::yield(Result result) const
 {
     auto callee = callee_.lock();
     CPPWAMP_LOGIC_CHECK(!!callee, "Client no longer exists");
@@ -673,7 +673,7 @@ CPPWAMP_INLINE void Invocation::yield(Result result)
 }
 
 /** @pre `this->calleeHasExpired == false` */
-CPPWAMP_INLINE void Invocation::yield(Error error)
+CPPWAMP_INLINE void Invocation::yield(Error error) const
 {
     auto callee = callee_.lock();
     CPPWAMP_LOGIC_CHECK(!!callee, "Client no longer exists");

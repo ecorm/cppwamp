@@ -28,6 +28,7 @@ SOURCES += \
     varianttestvector.cpp \
     varianttestvisitation.cpp \
     wamptest.cpp \
+    wamptestadvanced.cpp \
     main.cpp
 
 HEADERS += \
@@ -47,7 +48,6 @@ DEFINES += CPPWAMP_TESTING_VARIANT=1
 DEFINES += CPPWAMP_TESTING_CODEC=1
 DEFINES += CPPWAMP_TESTING_TRANSPORT=1
 DEFINES += CPPWAMP_TESTING_WAMP=1
-DEFINES += CPPWAMP_TEST_SPAWN_CROSSBAR=0
 
 #Enable C++11 support
 QMAKE_CXXFLAGS += -std=c++11

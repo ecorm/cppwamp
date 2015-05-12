@@ -35,8 +35,8 @@ namespace wamp
 class Realm : public Options<Realm>
 {
 public:
-    /** Constructor taking a realm URI. */
-    explicit Realm(String uri);
+    /** Converting constructor taking a realm URI. */
+    Realm(String uri);
 
     /** Obtains the realm URI. */
     const String& uri() const;
@@ -101,8 +101,8 @@ std::ostream& operator<<(std::ostream& out, const SessionInfo& info);
 class Topic : public Options<Topic>
 {
 public:
-    /** Constructor taking a topic URI. */
-    explicit Topic(String uri);
+    /** Converting constructor taking a topic URI. */
+    Topic(String uri);
 
     /** Specifies that the _prefix-matching policy_ is to be used for this
         subscription. */
@@ -128,8 +128,8 @@ public:
 class Pub : public Options<Pub>, public Payload<Pub>
 {
 public:
-    /** Constructor taking a topic URI. */
-    explicit Pub(String topic);
+    /** Converting constructor taking a topic URI. */
+    Pub(String topic);
 
     /** Specifies the list of (potential) _Subscriber_ session IDs that
         won't receive the published event. */
@@ -197,8 +197,8 @@ std::ostream& operator<<(std::ostream& out, const Event& event);
 class Procedure : public Options<Procedure>
 {
 public:
-    /** Constructor taking a procedure URI. */
-    explicit Procedure(String uri);
+    /** Converting constructor taking a procedure URI. */
+    Procedure(String uri);
 
     /** Specifies that the _prefix-matching policy_ is to be used for this
         registration. */
@@ -228,8 +228,8 @@ public:
 class Rpc : public Options<Rpc>, public Payload<Rpc>
 {
 public:
-    /** Constructor taking a procedure URI. */
-    explicit Rpc(String procedure);
+    /** Converting constructor taking a procedure URI. */
+    Rpc(String procedure);
 
     /** Requests that the dealer cancels the call after the specified
         timeout duration. */
@@ -402,10 +402,10 @@ public:
     Variant procedure() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
-    void yield(Result result = Result());
+    void yield(Result result = Result()) const;
 
     /** Manually sends an `ERROR` result back to the callee. */
-    void yield(Error error);
+    void yield(Error error) const;
 
 public:
     // Internal use only

@@ -79,9 +79,10 @@ EventUnpacker<S,A...>::get(const Array& args)
 }
 
 template <typename... TArgs, typename TSlot>
-EventUnpacker<TSlot, TArgs...> unpackedEvent(TSlot&& slot)
+EventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedEvent(TSlot&& slot)
 {
-    return EventUnpacker<TSlot, TArgs...>(std::forward<TSlot>(slot));
+    return EventUnpacker<DecayedSlot<TSlot>, TArgs...>(
+                std::forward<TSlot>(slot));
 }
 
 
@@ -138,9 +139,10 @@ InvocationUnpacker<S,A...>::get(const Array& args)
 }
 
 template <typename... TArgs, typename TSlot>
-InvocationUnpacker<TSlot, TArgs...> unpackedRpc(TSlot&& slot)
+InvocationUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedRpc(TSlot&& slot)
 {
-    return InvocationUnpacker<TSlot, TArgs...>(std::forward<TSlot>(slot));
+    return InvocationUnpacker<DecayedSlot<TSlot>, TArgs...>(
+                std::forward<TSlot>(slot) );
 }
 
 } // namespace wamp

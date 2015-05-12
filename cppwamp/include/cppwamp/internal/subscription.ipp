@@ -16,7 +16,13 @@ namespace wamp
  * Subscription
 *******************************************************************************/
 
+/** @post `!!(*this) == false` */
 CPPWAMP_INLINE Subscription::Subscription() {}
+
+CPPWAMP_INLINE Subscription::operator bool() const
+{
+    return subId_ != invalidId_;
+}
 
 CPPWAMP_INLINE SubscriptionId Subscription::id() const {return subId_;}
 

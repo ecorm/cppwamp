@@ -1,3 +1,17 @@
+v0.3.1
+======
+Fixes and additional tests.
+
+### Details
+- Added as many test cases as possible for supported advanced WAMP features. Some features cannot be tested because they are not supported on Crossbar, or they are not "symmetrically" supported on CppWAMP (closes #43).
+- Added test cases where asynchronous Session operations are executed within call/event slots (closes #44).
+- Made changes to allow building with Clang on OS X (thanks taion!) (fixes #55).
+- Added test case for constructing `Variant` from `std::vector` (closes #58).
+- `Rpc`, `Procedure`, `Pub`, `Topic`, and friends now have converting (implicit) constructors (closes #60).
+- NaN and infinite `Real` values are now encoded as `null` over JSON (fixes #61).
+- Fixed `unpackedEvent` and `unpackedRpc` so that they can take a lambda functions by value.
+- Reorganized `wamptest.cpp` so that related test cases are grouped in `SCENARIO` blocks. The Crossbar router process can no longer be forked from the test suite because of this.
+
 v0.3.0
 ======
 Made further refinements to the API. The minimal Boost library version required is now 1.58.0.

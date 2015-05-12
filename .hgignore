@@ -6,3 +6,6 @@ doc/html
 CMakeLists.txt.user
 .git
 *.vpp.working
+.gitignore
+.gitmodules
+

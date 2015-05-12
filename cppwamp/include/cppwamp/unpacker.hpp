@@ -37,6 +37,13 @@ struct UnpackError
 
 
 //------------------------------------------------------------------------------
+/** Metafunction that removes const/reference decorations off a slot type */
+//------------------------------------------------------------------------------
+template <typename TSlot>
+using DecayedSlot = typename std::decay<TSlot>::type;
+
+
+//------------------------------------------------------------------------------
 /** Wrapper around an event slot which automatically unpacks positional
     payload arguments.
     The [wamp::unpackedEvent](@ref EventUnpacker::unpackedEvent) convenience
@@ -86,7 +93,7 @@ private:
     @tparam TSlot (deduced) Function type to be converted. */
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-EventUnpacker<TSlot, TArgs...> unpackedEvent(TSlot&& slot);
+EventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedEvent(TSlot&& slot);
 
 
 
@@ -129,6 +136,8 @@ private:
     Slot slot_;
 };
 
+
+
 //------------------------------------------------------------------------------
 /** @relates InvocationUnpacker
     Converts an unpacked call slot into a regular slot than can be passed
@@ -140,7 +149,7 @@ private:
     @tparam TSlot (deduced) Function type to be converted. */
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-InvocationUnpacker<TSlot, TArgs...> unpackedRpc(TSlot&& slot);
+InvocationUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedRpc(TSlot&& slot);
 
 
 } // namespace wamp

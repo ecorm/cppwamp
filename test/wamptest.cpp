@@ -5,30 +5,31 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-// TODO: Test publishing/calling from within slot.
-
 #if CPPWAMP_TESTING_WAMP
 
-#include <signal.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+#include <algorithm>
+#include <cctype>
 #include <catch.hpp>
 #include <cppwamp/corosession.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/msgpack.hpp>
 #include <cppwamp/unpacker.hpp>
+#include <cppwamp/internal/config.hpp>
 
 #ifdef CPPWAMP_USE_LEGACY_CONNECTORS
-#include <cppwamp/legacytcpconnector.hpp>
-#include <cppwamp/legacyudsconnector.hpp>
-using TcpConnectorType = wamp::legacy::TcpConnector;
-using UdsConnectorType = wamp::legacy::UdsConnector;
+    #include <cppwamp/legacytcpconnector.hpp>
+    using TcpConnectorType = wamp::legacy::TcpConnector;
+    #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
+        #include <cppwamp/legacyudsconnector.hpp>
+        using UdsConnectorType = wamp::legacy::UdsConnector;
+    #endif
 #else
-#include <cppwamp/tcpconnector.hpp>
-#include <cppwamp/udsconnector.hpp>
-using TcpConnectorType = wamp::TcpConnector;
-using UdsConnectorType = wamp::UdsConnector;
+    #include <cppwamp/tcpconnector.hpp>
+    using TcpConnectorType = wamp::TcpConnector;
+    #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
+        #include <cppwamp/udsconnector.hpp>
+        using UdsConnectorType = wamp::UdsConnector;
+    #endif
 #endif
 
 
@@ -328,31 +329,13 @@ void checkInvalidOps(CoroSession<>::Ptr session,
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "Using WAMP session interface", "[WAMP]" )
+SCENARIO( "WAMP session management", "[WAMP]" )
 {
-#if CPPWAMP_TEST_SPAWN_CROSSBAR == 1
-auto pid = fork();
-REQUIRE( pid != -1 );
-
-if (pid == 0)
+GIVEN( "an IO service and a TCP connector" )
 {
-    int fd = ::open("crossbar.log", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-    ::dup2(fd, 1); // make stdout go to file
-    ::dup2(fd, 2); // make stderr go to file
-    ::close(fd);
-
-    assert(::execlp("crossbar", "crossbar", "start", (char*)0) != -1);
-}
-else
-{
-    sleep(5);
-#endif
-
-    GIVEN( "an IO service and a TCP connector" )
-    {
-        AsioService iosvc;
-        auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                             Json::id());
+    AsioService iosvc;
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Json::id());
 
     WHEN( "connecting and disconnecting" )
     {
@@ -616,13 +599,26 @@ else
 
         CHECK_FALSE( handlerWasInvoked );
     }
+}}
 
-    WHEN( "joining using a UDS transport and Msgpack serializer" )
+
+//------------------------------------------------------------------------------
+SCENARIO( "Using alternate transport and serializer", "[WAMP]" )
+{
+GIVEN( "an IO service and a TCP connector" )
+{
+    AsioService iosvc;
+
+#if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
+    auto cnct = UdsConnectorType::create(iosvc, testUdsPath, Msgpack::id());
+#else
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Msgpack::id());
+#endif
+
+    WHEN( "joining and leaving" )
     {
-        auto cnct2 = UdsConnectorType::create(iosvc, testUdsPath,
-                                              Msgpack::id());
-
-        auto s = CoroSession<>::create(cnct2);
+        auto s = CoroSession<>::create(cnct);
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             s->connect(yield);
@@ -675,6 +671,17 @@ else
 
         iosvc.run();
     }
+}}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP Pub-Sub", "[WAMP]" )
+{
+GIVEN( "an IO service and a TCP connector" )
+{
+    AsioService iosvc;
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Json::id());
 
     WHEN( "publishing and subscribing" )
     {
@@ -764,6 +771,17 @@ else
 
         iosvc.run();
     }
+}}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP Subscription Lifetimes", "[WAMP]" )
+{
+GIVEN( "an IO service and a TCP connector" )
+{
+    AsioService iosvc;
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Json::id());
 
     WHEN( "unsubscribing multiple times" )
     {
@@ -948,6 +966,17 @@ else
 
         iosvc.run();
     }
+}}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP RPCs", "[WAMP]" )
+{
+GIVEN( "an IO service and a TCP connector" )
+{
+    AsioService iosvc;
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Json::id());
 
     WHEN( "calling remote procedures taking dynamically-typed args" )
     {
@@ -1044,6 +1073,17 @@ else
         });
         iosvc.run();
     }
+}}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP Registation Lifetimes", "[WAMP]" )
+{
+GIVEN( "an IO service and a TCP connector" )
+{
+    AsioService iosvc;
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Json::id());
 
     WHEN( "unregistering after a session is destroyed" )
     {
@@ -1185,12 +1225,339 @@ else
         });
         iosvc.run();
     }
+}}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "Nested WAMP RPCs and Events", "[WAMP]" )
+{
+GIVEN( "these test fixture objects" )
+{
+    AsioService iosvc;
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Json::id());
+    auto session1 = CoroSession<>::create(cnct);
+    auto session2 = CoroSession<>::create(cnct);
+
+    // Regular RPC handler
+    auto upperify = [](Invocation, std::string str) -> Outcome
+    {
+        std::transform(str.begin(), str.end(), str.begin(),
+                       ::toupper);
+        return {str};
+    };
+
+    WHEN( "calling remote procedures within an invocation" )
+    {
+        auto uppercat = [&iosvc, session2](Invocation inv, std::string str1,
+                                           std::string str2) -> Outcome
+        {
+            // We need a separate yield context here
+            boost::asio::spawn(iosvc, [session2, inv, str1, str2]
+                (boost::asio::yield_context yield)
+                {
+                    auto upper1 = session2->call(
+                            Rpc("upperify").withArgs({str1}), yield);
+                    auto upper2 = session2->call(
+                            Rpc("upperify").withArgs({str2}), yield);
+                    auto concatted = upper1[0].to<std::string>() +
+                                     upper2[0].to<std::string>();
+                    inv.yield(Result({concatted}));
+                });
+            return Outcome::deferred();
+        };
+
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            session1->connect(yield);
+            session1->join(Realm(testRealm), yield);
+            session1->enroll(Procedure("upperify"),
+                             unpackedRpc<std::string>(upperify), yield);
+
+
+            session2->connect(yield);
+            session2->join(Realm(testRealm), yield);
+            session2->enroll(Procedure("uppercat"),
+                             unpackedRpc<std::string, std::string>(uppercat),
+                             yield);
+
+            std::string s1 = "hello ";
+            std::string s2 = "world";
+            auto result = session1->call(Rpc("uppercat").withArgs({s1, s2}),
+                                         yield);
+            CHECK( result[0] == "HELLO WORLD" );
+            session1->disconnect();
+            session2->disconnect();
+        });
+
+        iosvc.run();
+    }
+
+    WHEN( "calling remote procedures within an event handler" )
+    {
+        auto callee = session1;
+        auto subscriber = session2;
+
+        std::string upperized;
+        auto onEvent = [&iosvc, &upperized, subscriber]
+            (Event event, std::string str)
+            {
+                // We need a separate yield context here
+                boost::asio::spawn(iosvc, [&upperized, subscriber, event, str]
+                    (boost::asio::yield_context yield)
+                    {
+                        auto result = subscriber->call(Rpc("upperify")
+                                                       .withArgs({str}), yield);
+                        upperized = result[0].to<std::string>();
+                    });
+            };
+
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            callee->connect(yield);
+            callee->join(Realm(testRealm), yield);
+            callee->enroll(Procedure("upperify"),
+                           unpackedRpc<std::string>(upperify), yield);
+
+            subscriber->connect(yield);
+            subscriber->join(Realm(testRealm), yield);
+            subscriber->subscribe(Topic("onEvent"),
+                                  unpackedEvent<std::string>(onEvent),
+                                  yield);
+
+            callee->publish(Pub("onEvent").withArgs({"Hello"}), yield);
+            while (upperized.empty())
+                callee->suspend(yield);
+            CHECK_THAT( upperized, Equals("HELLO") );
+            callee->disconnect();
+            subscriber->disconnect();
+        });
+
+        iosvc.run();
+    }
+
+    WHEN( "publishing within an invocation" )
+    {
+        auto callee = session1;
+        auto subscriber = session2;
+
+        std::string upperized;
+        auto onEvent = [&iosvc, &upperized](Event, std::string str)
+        {
+            upperized = str;
+        };
+
+        auto shout =
+            [&iosvc, callee](Invocation inv, std::string str) -> Outcome
+            {
+                // We need a separate yield context here for a blocking
+                // publish.
+                boost::asio::spawn(iosvc, [callee, inv, str]
+                    (boost::asio::yield_context yield)
+                    {
+                        std::string upper = str;
+                        std::transform(upper.begin(), upper.end(),
+                                       upper.begin(), ::toupper);
+                        callee->publish(Pub("grapevine").withArgs({upper}),
+                                        yield);
+                        inv.yield(Result({upper}));
+                    });
+                return Outcome::deferred();
+            };
+
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            callee->connect(yield);
+            callee->join(Realm(testRealm), yield);
+            callee->enroll(Procedure("shout"),
+                           unpackedRpc<std::string>(shout), yield);
+
+            subscriber->connect(yield);
+            subscriber->join(Realm(testRealm), yield);
+            subscriber->subscribe(Topic("grapevine"),
+                                  unpackedEvent<std::string>(onEvent),
+                                  yield);
+
+            subscriber->call(Rpc("shout").withArgs({"hello"}), yield);
+            while (upperized.empty())
+                subscriber->suspend(yield);
+            CHECK_THAT( upperized, Equals("HELLO") );
+            callee->disconnect();
+            subscriber->disconnect();
+        });
+
+        iosvc.run();
+    }
+
+    WHEN( "unregistering within an invocation" )
+    {
+        auto callee = session1;
+        auto caller = session2;
+
+        int callCount = 0;
+        Registration reg;
+
+        auto oneShot =
+            [&iosvc, &callCount, &reg, callee](Invocation inv) -> Outcome
+            {
+                // We need a separate yield context here for a blocking
+                // unregister.
+                boost::asio::spawn(iosvc, [&callCount, &reg, callee, inv]
+                    (boost::asio::yield_context yield)
+                    {
+                        ++callCount;
+                        callee->unregister(reg, yield);
+                        inv.yield(Result({callCount}));
+                    });
+                return Outcome::deferred();
+            };
+
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            callee->connect(yield);
+            callee->join(Realm(testRealm), yield);
+            reg = callee->enroll(Procedure("oneShot"), oneShot, yield);
+
+            caller->connect(yield);
+            caller->join(Realm(testRealm), yield);
+
+            auto result = caller->call(Rpc("oneShot"), yield);
+            while (callCount == 0)
+                caller->suspend(yield);
+            CHECK( result[0] == 1 );
+
+            std::error_code ec;
+            caller->call(Rpc("oneShot"), yield, &ec);
+            CHECK( ec == SessionErrc::noSuchProcedure );
+
+            callee->disconnect();
+            caller->disconnect();
+        });
+
+        iosvc.run();
+    }
+
+    WHEN( "publishing within an event" )
+    {
+        std::string upperized;
+
+        auto onTalk = [&iosvc, session1](Event, std::string str)
+        {
+            // We need a separate yield context here for a blocking
+            // publish.
+            boost::asio::spawn(iosvc, [session1, str]
+                (boost::asio::yield_context yield)
+                {
+                    std::string upper = str;
+                    std::transform(upper.begin(), upper.end(),
+                                   upper.begin(), ::toupper);
+                    session1->publish(Pub("onShout").withArgs({upper}),
+                                      yield);
+                });
+        };
+
+        auto onShout = [&upperized](Event, std::string str)
+        {
+            upperized = str;
+        };
+
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            session1->connect(yield);
+            session1->join(Realm(testRealm), yield);
+            session1->subscribe(Topic("onTalk"),
+                                unpackedEvent<std::string>(onTalk), yield);
+
+            session2->connect(yield);
+            session2->join(Realm(testRealm), yield);
+            session2->subscribe(Topic("onShout"),
+                                unpackedEvent<std::string>(onShout), yield);
+
+            session2->publish(Pub("onTalk").withArgs({"hello"}), yield);
+            while (upperized.empty())
+                session2->suspend(yield);
+            CHECK_THAT( upperized, Equals("HELLO") );
+            session1->disconnect();
+            session2->disconnect();
+        });
+
+        iosvc.run();
+    }
+
+    WHEN( "unsubscribing within an event" )
+    {
+        auto publisher = session1;
+        auto subscriber = session2;
+
+        int eventCount = 0;
+        Subscription sub;
+
+        auto onEvent = [&iosvc, &eventCount, &sub, subscriber](Event)
+        {
+            // We need a separate yield context here for a blocking
+            // unsubscribe.
+            boost::asio::spawn(iosvc, [&eventCount, &sub, subscriber]
+                (boost::asio::yield_context yield)
+                {
+                    ++eventCount;
+                    subscriber->unsubscribe(sub, yield);
+                });
+        };
+
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            publisher->connect(yield);
+            publisher->join(Realm(testRealm), yield);
+
+            subscriber->connect(yield);
+            subscriber->join(Realm(testRealm), yield);
+            sub = subscriber->subscribe(Topic("onEvent"), onEvent, yield);
+
+            // Dummy RPC used to end polling
+            int rpcCount = 0;
+            subscriber->enroll(Procedure("dummy"),
+                [&rpcCount](Invocation) -> Outcome
+                {
+                   ++rpcCount;
+                   return {};
+                },
+                yield);
+
+            publisher->publish(Pub("onEvent"), yield);
+            while (eventCount == 0)
+                publisher->suspend(yield);
+
+            // This publish should not have any subscribers
+            publisher->publish(Pub("onEvent"), yield);
+
+            // Invoke dummy RPC so that we know when to stop
+            publisher->call(Rpc("dummy"), yield);
+
+            // The event count should still be one
+            CHECK( eventCount == 1 );
+
+            publisher->disconnect();
+            subscriber->disconnect();
+        });
+
+        iosvc.run();
+    }
+}}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP Connection Failures", "[WAMP]" )
+{
+GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
+{
+    AsioService iosvc;
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Json::id());
+    auto badCnct = TcpConnectorType::create(iosvc, "localhost", invalidPort,
+                                            Json::id());
 
     WHEN( "connecting to an invalid port" )
     {
-        auto badCnct = TcpConnectorType::create(iosvc, "localhost", invalidPort,
-                                                Json::id());
-
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             auto session = CoroSession<>::create(badCnct);
@@ -1217,8 +1584,6 @@ else
 
     WHEN( "connecting with multiple transports" )
     {
-        auto badCnct = TcpConnectorType::create(iosvc, "localhost", invalidPort,
-                                                Json::id());
         ConnectorList connectors = {badCnct, cnct};
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
@@ -1271,6 +1636,17 @@ else
 
         iosvc.run();
     }
+}}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP RPC Failures", "[WAMP]" )
+{
+GIVEN( "an IO service and a TCP connector" )
+{
+    AsioService iosvc;
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Json::id());
 
     WHEN( "registering an already existing procedure" )
     {
@@ -1414,6 +1790,16 @@ else
         });
         iosvc.run();
     }
+}}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Invalid WAMP URIs", "[WAMP]" )
+{
+GIVEN( "an IO service and a TCP connector" )
+{
+    AsioService iosvc;
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Json::id());
 
     WHEN( "joining with an invalid realm URI" )
     {
@@ -1533,6 +1919,17 @@ else
 
         iosvc.run();
     }
+}}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP Precondition Failures", "[WAMP]" )
+{
+GIVEN( "an IO service and a TCP connector" )
+{
+    AsioService iosvc;
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Json::id());
 
     WHEN( "constructing a session with an empty connector list" )
     {
@@ -1671,6 +2068,17 @@ else
         });
         CHECK_NOTHROW( iosvc2.run() );
     }
+}}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP Disconnect/Leave During Async Ops", "[WAMP]" )
+{
+GIVEN( "an IO service and a TCP connector" )
+{
+    AsioService iosvc;
+    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
+                                         Json::id());
 
     WHEN( "disconnecting during async join" )
     {
@@ -1879,21 +2287,6 @@ else
         iosvc.run();
         CHECK( published == true );
     }
-
-    } // GIVEN( "an IO service and a TCP connector" )
-
-#if CPPWAMP_TEST_SPAWN_CROSSBAR == 1
-    ::kill(pid, SIGTERM);
-    ::sleep(3);
-    int status = 0;
-    if (::waitpid(pid, &status, WNOHANG) != pid)
-    {
-        ::kill(pid, SIGKILL);
-        ::waitpid(pid, &status, 0);
-    }
-}
-#endif
-}
+}}
 
 #endif // #if CPPWAMP_TESTING_WAMP
-

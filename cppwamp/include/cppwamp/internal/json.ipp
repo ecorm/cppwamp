@@ -6,6 +6,7 @@
 ------------------------------------------------------------------------------*/
 
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <sstream>
 #include <rapidjson/reader.h>
@@ -95,10 +96,23 @@ struct EncodeJson : public Visitor<>
 
     void operator()(Real x, TBuffer& buf) const
     {
-        char str[32];
-        auto length = std::snprintf(str, sizeof(str), "%.17e", x);
-        assert(length < sizeof(str));
-        buf.write(str, length);
+        static const std::string nullStr("null");
+
+        if (std::isfinite(x))
+        {
+            char str[32];
+            auto length = std::snprintf(str, sizeof(str), "%.17e", x);
+            assert(length < sizeof(str));
+            buf.write(str, length);
+        }
+        else
+        {
+            // ECMA-262, NOTE 4, p.208:
+            // "Finite numbers are stringified as if by calling
+            //  ToString(number). NaN and Infinity regardless of sign are
+            // represented as the String null.
+            write(buf, nullStr);
+        }
     }
 
     void operator()(const std::string& s, TBuffer& buf) const

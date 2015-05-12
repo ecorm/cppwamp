@@ -256,12 +256,15 @@ CPPWAMP_INLINE void Session::subscribe(
     will effectively do nothing.
     @see Subscription, ScopedSubscription
     @note Duplicate unsubscribes using the same Subscription object
-          are safely ignored. */
+          are safely ignored.
+    @pre `!!sub == true`
+    @throws error::Logic if the given subscription is empty */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unsubscribe(
     const Subscription& sub /**< The subscription to unsubscribe from. */
 )
 {
+    CPPWAMP_LOGIC_CHECK(!!sub, "The subscription is empty");
     if (impl_)
         impl_->unsubscribe(sub);
 }
@@ -275,6 +278,7 @@ CPPWAMP_INLINE void Session::unsubscribe(
     @returns `false` if the subscription was already removed, `true` otherwise.
     @note Duplicate unsubscribes using the same Subscription handle
           are safely ignored.
+    @pre `!!sub == true`
     @pre `this->state() == SessionState::established`
     @par Error Codes
         - SessionErrc::sessionEnded if the operation was aborted.
@@ -284,6 +288,7 @@ CPPWAMP_INLINE void Session::unsubscribe(
         - SessionErrc::unsubscribeError if the router reports some other
           error.
         - Some other `std::error_code` for protocol and transport errors.
+    @throws error::Logic if the given subscription is empty
     @throws error::Logic if `this->state() != SessionState::established` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unsubscribe(
@@ -292,6 +297,7 @@ CPPWAMP_INLINE void Session::unsubscribe(
                                     completes. */
 )
 {
+    CPPWAMP_LOGIC_CHECK(!!sub, "The subscription is empty");
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
     impl_->unsubscribe(sub, std::move(handler));
@@ -363,12 +369,15 @@ CPPWAMP_INLINE void Session::enroll(Procedure procedure, CallSlot slot,
     will effectively do nothing.
     @see Registration, ScopedRegistration
     @note Duplicate unregistrations using the same Registration handle
-          are safely ignored. */
+          are safely ignored.
+    @pre `!!reg == true`
+    @throws error::Logic if the given registration is empty */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unregister(
     const Registration& reg /**< The RPC registration to unregister. */
 )
 {
+    CPPWAMP_LOGIC_CHECK(!!reg, "The registration is empty");
     if (impl_)
         impl_->unregister(reg);
 }
@@ -378,6 +387,7 @@ CPPWAMP_INLINE void Session::unregister(
     @returns `false` if the registration was already removed, `true` otherwise.
     @note Duplicate unregistrations using the same Registration handle
           are safely ignored.
+    @pre `!!reg == true`
     @pre `this->state() == SessionState::established`
     @par Error Codes
         - SessionErrc::sessionEnded if the operation was aborted.
@@ -387,6 +397,7 @@ CPPWAMP_INLINE void Session::unregister(
         - SessionErrc::unregisterError if the router reports some other
           error.
         - Some other `std::error_code` for protocol and transport errors.
+    @throws error::Logic if the given registration is empty
     @throws error::Logic if `this->state() != SessionState::established` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unregister(
@@ -395,6 +406,7 @@ CPPWAMP_INLINE void Session::unregister(
                                     completes. */
 )
 {
+    CPPWAMP_LOGIC_CHECK(!!reg, "The registration is empty");
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
     if (impl_)

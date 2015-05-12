@@ -17,13 +17,13 @@
 #define CPPWAMP_MAJOR_VERSION 0
 
 /// Minor version with functionality added in a backwards-compatible manner.
-#define CPPWAMP_MINOR_VERSION 2
+#define CPPWAMP_MINOR_VERSION 3
 
 /// Patch version for backwards-compatible bug fixes.
-#define CPPWAMP_PATCH_VERSION 0
+#define CPPWAMP_PATCH_VERSION 1
 
 /// Integer version number, computed as `(major*10000) + (minor*100) + patch`
-#define CPPWAMP_VERSION 200
+#define CPPWAMP_VERSION 301
 
 namespace wamp
 {

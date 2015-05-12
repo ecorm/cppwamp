@@ -16,7 +16,10 @@ namespace wamp
  * Registration
 *******************************************************************************/
 
+/** @post `!!(*this) == false` */
 CPPWAMP_INLINE Registration::Registration() {}
+
+CPPWAMP_INLINE Registration::operator bool() const {return id_ != invalidId_;}
 
 CPPWAMP_INLINE RegistrationId Registration::id() const {return id_;}
 

@@ -23,6 +23,7 @@ set(SOURCES
     varianttestvector.cpp
     varianttestvisitation.cpp
     wamptest.cpp
+    wamptestadvanced.cpp
     main.cpp
 )
 
@@ -42,7 +43,6 @@ add_definitions(
     -DCPPWAMP_TESTING_CODEC=1
     -DCPPWAMP_TESTING_TRANSPORT=1
     -DCPPWAMP_TESTING_WAMP=1
-    -DCPPWAMP_TEST_SPAWN_CROSSBAR=0
 )
 
 # Add include path for Catch unit test framework

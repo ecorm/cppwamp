@@ -28,8 +28,8 @@ namespace wamp
 class Reason : public Options<Reason>
 {
 public:
-    /** Constructor taking an optional reason URI. */
-    explicit Reason(String uri = "");
+    /** Converting constructor taking an optional reason URI. */
+    Reason(String uri = "");
 
     /** Obtains the reason URI. */
     const String& uri() const;
@@ -48,8 +48,8 @@ public:
 class Error : public Options<Error>, public Payload<Error>
 {
 public:
-    /** Constructor taking a reason URI. */
-    explicit Error(String reason);
+    /** Converting constructor taking a reason URI. */
+    Error(String reason);
 
     /** Obtains the reason URI. */
     const String& reason() const;

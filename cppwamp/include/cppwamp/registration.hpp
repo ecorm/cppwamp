@@ -42,8 +42,11 @@ namespace internal { class Callee; }
 class Registration
 {
 public:
-    /** Default constructor */
+    /** Constructs an empty registration. */
     Registration();
+
+    /** Returns false if the registration is empty. */
+    explicit operator bool() const;
 
     /** Obtains the ID number of this registration. */
     RegistrationId id() const;
@@ -57,8 +60,10 @@ public:
     Registration(CalleePtr callee, RegistrationId id, internal::PassKey);
 
 private:
+    static constexpr RegistrationId invalidId_ = -1;
+
     CalleePtr callee_;
-    RegistrationId id_ = -1;
+    RegistrationId id_ = invalidId_;
 };
 
 

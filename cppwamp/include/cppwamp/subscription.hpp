@@ -41,8 +41,11 @@ namespace internal { class Subscriber; }
 class Subscription
 {
 public:
-    /** Default constructor */
+    /** Constructs an empty subscription */
     Subscription();
+
+    /** Returns false if the subscription is empty. */
+    explicit operator bool() const;
 
     /** Obtains the ID number of this subscription. */
     SubscriptionId id() const;
@@ -59,9 +62,11 @@ public:
     SlotId slotId(internal::PassKey) const;
 
 private:
+    static constexpr RegistrationId invalidId_ = -1;
+
     SubscriberPtr subscriber_;
-    SubscriptionId subId_ = -1;
-    SlotId slotId_ = -1;
+    SubscriptionId subId_ = invalidId_;
+    SlotId slotId_ = invalidId_;
 };
 
 

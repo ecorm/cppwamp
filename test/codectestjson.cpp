@@ -7,6 +7,8 @@
 
 #if CPPWAMP_TESTING_CODEC
 
+#include <cmath>
+#include <limits>
 #include <sstream>
 #include <catch.hpp>
 #include <cppwamp/variant.hpp>
@@ -217,6 +219,36 @@ GIVEN( "invalid JSON strings" )
     checkError(R"({"foo":"bar")");
     checkError(R"({"foo":"bar"])");
     checkError(R"({42:"bar"})");
+}
+GIVEN( "non-finite real numbers" )
+{
+    WHEN( "serializing NaN" )
+    {
+        Variant v(std::numeric_limits<Real>::quiet_NaN());
+        std::string str;
+        Json::encode(v, str);
+        CHECK( std::isnan(v.as<Real>()) );
+        CHECK_THAT( str, Equals("null") );
+    }
+    WHEN( "serializing positive infinity" )
+    {
+        Variant v(std::numeric_limits<Real>::infinity());
+        std::string str;
+        Json::encode(v, str);
+        CHECK( std::isinf(v.as<Real>()) );
+        CHECK_THAT( str, Equals("null") );
+    }
+    WHEN( "serializing negative infinity" )
+    {
+        if (std::numeric_limits<Real>::is_iec559)
+        {
+            Variant v(-std::numeric_limits<Real>::infinity());
+            std::string str;
+            Json::encode(v, str);
+            CHECK( std::isinf(v.as<Real>()) );
+            CHECK_THAT( str, Equals("null") );
+        }
+    }
 }
 }
 
