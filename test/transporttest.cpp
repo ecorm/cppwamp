@@ -7,6 +7,7 @@
 
 #if CPPWAMP_TESTING_TRANSPORT
 
+#include <set>
 #include <thread>
 #include <cppwamp/internal/asioconnector.hpp>
 #include <cppwamp/internal/asiolistener.hpp>
@@ -26,6 +27,8 @@ using UdsAsioListener  = internal::AsioListener<internal::UdsAcceptor>;
 using TcpTransport     = TcpAsioConnector::Transport;
 using UdsTransport     = UdsAsioConnector::Transport;
 
+using CodecIds = std::set<int>;
+
 namespace
 {
 
@@ -35,12 +38,12 @@ struct TcpLoopbackFixture :
 {
     TcpLoopbackFixture(
                 bool connected = true,
-                CodecId clientCodec = Json::id(),
+                int clientCodec = Json::id(),
                 CodecIds serverCodecs = {Json::id()},
                 RawsockMaxLength clientMaxRxLength = RawsockMaxLength::kB_64,
                 RawsockMaxLength serverMaxRxLength = RawsockMaxLength::kB_64 )
         : LoopbackFixture(
-              internal::TcpOpener(csvc, tcpLoopbackAddr, tcpTestPort),
+              internal::TcpOpener(csvc, {tcpLoopbackAddr, tcpTestPort}),
               clientCodec,
               clientMaxRxLength,
               internal::TcpAcceptor(ssvc, tcpTestPort),
@@ -56,12 +59,12 @@ struct UdsLoopbackFixture :
 {
     UdsLoopbackFixture(
                 bool connected = true,
-                CodecId clientCodec = Json::id(),
+                int clientCodec = Json::id(),
                 CodecIds serverCodecs = {Json::id()},
                 RawsockMaxLength clientMaxRxLength = RawsockMaxLength::kB_64,
                 RawsockMaxLength serverMaxRxLength = RawsockMaxLength::kB_64 )
         : LoopbackFixture(
-              internal::UdsOpener(csvc, udsTestPath),
+              internal::UdsOpener(csvc, {udsTestPath}),
               clientCodec,
               clientMaxRxLength,
               internal::UdsAcceptor(ssvc, udsTestPath, true),
@@ -139,13 +142,13 @@ void checkUnsupportedSerializer(TFixture& f)
 {
     using TransportPtr = typename TFixture::TransportPtr;
 
-    f.lstn.establish([&](std::error_code ec, CodecId, TransportPtr transport)
+    f.lstn.establish([&](std::error_code ec, int, TransportPtr transport)
     {
         CHECK( ec == RawsockErrc::badSerializer );
         CHECK_FALSE( transport );
     });
 
-    f.cnct.establish([&](std::error_code ec, CodecId, TransportPtr transport)
+    f.cnct.establish([&](std::error_code ec, int, TransportPtr transport)
     {
         CHECK( ec == RawsockErrc::badSerializer );
         CHECK_FALSE( transport );
@@ -167,14 +170,14 @@ inline void checkCannedServerHandshake(uint32_t cannedHandshake,
                                    RawsockMaxLength::kB_64);
     lstn.setCannedHandshake(cannedHandshake);
 
-    internal::TcpOpener opnr(iosvc, tcpLoopbackAddr, tcpTestPort);
+    internal::TcpOpener opnr(iosvc, {tcpLoopbackAddr, tcpTestPort});
     AsioConnector cnct(std::move(opnr), Json::id(), RawsockMaxLength::kB_64);
 
-    lstn.establish( [](std::error_code, CodecId, TransportPtr) {} );
+    lstn.establish( [](std::error_code, int, TransportPtr) {} );
 
     bool aborted = false;
     cnct.establish(
-        [&](std::error_code ec, CodecId, TransportPtr transport)
+        [&](std::error_code ec, int, TransportPtr transport)
         {
             CHECK( ec == expectedErrorCode );
             CHECK_FALSE( transport );
@@ -203,7 +206,7 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
     using TransportPtr = AsioListener::TransportPtr;
 
     AsioService iosvc;
-    internal::TcpOpener opnr(iosvc, tcpLoopbackAddr, tcpTestPort);
+    internal::TcpOpener opnr(iosvc, {tcpLoopbackAddr, tcpTestPort});
     FakeHandshakeAsioConnector cnct(std::move(opnr), Json::id(),
                                     RawsockMaxLength::kB_64);
     cnct.setCannedHandshake(cannedHandshake);
@@ -213,7 +216,7 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
 
     bool serverAborted = false;
     lstn.establish(
-        [&](std::error_code ec, CodecId, TransportPtr transport)
+        [&](std::error_code ec, int, TransportPtr transport)
         {
             CHECK( ec == expectedServerCode );
             CHECK_FALSE( transport );
@@ -222,7 +225,7 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
 
     bool clientAborted = false;
     cnct.establish(
-        [&](std::error_code ec, CodecId, TransportPtr transport)
+        [&](std::error_code ec, int, TransportPtr transport)
         {
             CHECK( ec == expectedClientCode );
             CHECK_FALSE( transport );
@@ -563,7 +566,7 @@ std::string tooLong(64*1024 + 1, 'A');
 GIVEN ( "A server tricked into sending overly long messages to a client" )
 {
     AsioService iosvc;
-    internal::TcpOpener opnr(iosvc, tcpLoopbackAddr, tcpTestPort);
+    internal::TcpOpener opnr(iosvc, {tcpLoopbackAddr, tcpTestPort});
     FakeHandshakeAsioConnector cnct(std::move(opnr), Json::id(),
                                     RawsockMaxLength::kB_64);
     cnct.setCannedHandshake(0x7F810000);
@@ -575,14 +578,14 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
     TransportPtr client;
 
     lstn.establish(
-        [&](std::error_code ec, CodecId, TransportPtr transport)
+        [&](std::error_code ec, int, TransportPtr transport)
         {
             REQUIRE_FALSE( ec );
             server = std::move(transport);
         });
 
     cnct.establish(
-        [&](std::error_code ec, CodecId, TransportPtr transport)
+        [&](std::error_code ec, int, TransportPtr transport)
         {
             REQUIRE_FALSE( ec );
             client = std::move(transport);
@@ -640,21 +643,21 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
                                    RawsockMaxLength::kB_64);
     lstn.setCannedHandshake(0x7F810000);
 
-    internal::TcpOpener opnr(iosvc, tcpLoopbackAddr, tcpTestPort);
+    internal::TcpOpener opnr(iosvc, {tcpLoopbackAddr, tcpTestPort});
     AsioConnector cnct(std::move(opnr), Json::id(), RawsockMaxLength::kB_64);
 
     TransportPtr server;
     TransportPtr client;
 
     lstn.establish(
-        [&](std::error_code ec, CodecId, TransportPtr transport)
+        [&](std::error_code ec, int, TransportPtr transport)
         {
             REQUIRE_FALSE( ec );
             server = std::move(transport);
         });
 
     cnct.establish(
-        [&](std::error_code ec, CodecId, TransportPtr transport)
+        [&](std::error_code ec, int, TransportPtr transport)
         {
             REQUIRE_FALSE( ec );
             client = std::move(transport);
@@ -723,21 +726,21 @@ GIVEN ( "A fake server that sends an invalid message type" )
     FakeMsgTypeAsioListener lstn(std::move(acpt), {Json::id()},
                                  RawsockMaxLength::kB_64);
 
-    internal::TcpOpener opnr(iosvc, tcpLoopbackAddr, tcpTestPort);
+    internal::TcpOpener opnr(iosvc, {tcpLoopbackAddr, tcpTestPort});
     AsioConnector cnct(std::move(opnr), Json::id(), RawsockMaxLength::kB_64);
 
     FakeTransportPtr server;
     TransportPtr client;
 
     lstn.establish(
-        [&](std::error_code ec, CodecId, TransportPtr transport)
+        [&](std::error_code ec, int, TransportPtr transport)
         {
             REQUIRE_FALSE( ec );
             server = std::static_pointer_cast<FakeTransport>(transport);
         });
 
     cnct.establish(
-        [&](std::error_code ec, CodecId, TransportPtr transport)
+        [&](std::error_code ec, int, TransportPtr transport)
         {
             REQUIRE_FALSE( ec );
             client = std::move(transport);
@@ -791,7 +794,7 @@ GIVEN ( "A fake server that sends an invalid message type" )
 GIVEN ( "A fake client that sends an invalid message type" )
 {
     AsioService iosvc;
-    internal::TcpOpener opnr(iosvc, tcpLoopbackAddr, tcpTestPort);
+    internal::TcpOpener opnr(iosvc, {tcpLoopbackAddr, tcpTestPort});
     FakeMsgTypeAsioConnector cnct(std::move(opnr), Json::id(),
                                   RawsockMaxLength::kB_64);
 
@@ -802,14 +805,14 @@ GIVEN ( "A fake client that sends an invalid message type" )
     FakeTransportPtr client;
 
     lstn.establish(
-        [&](std::error_code ec, CodecId, TransportPtr transport)
+        [&](std::error_code ec, int, TransportPtr transport)
         {
             REQUIRE_FALSE( ec );
             server = std::move(transport);
         });
 
     cnct.establish(
-        [&](std::error_code ec, CodecId, TransportPtr transport)
+        [&](std::error_code ec, int, TransportPtr transport)
         {
             REQUIRE_FALSE( ec );
             client = std::static_pointer_cast<FakeTransport>(transport);

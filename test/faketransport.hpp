@@ -38,7 +38,7 @@ public:
     virtual void onHandshakeSent(Handshake) override
     {
         Base::onHandshakeSent(
-            Handshake().setCodec(Json::id())
+            Handshake().setCodecId(Json::id())
                        .setMaxLength(RawsockMaxLength::kB_64) );
     }
 
@@ -145,7 +145,7 @@ public:
             Base::fail(RawsockErrc::badHandshake);
         else if (hs.reserved() != 0)
             Base::fail(RawsockErrc::reservedBitsUsed);
-        else if (hs.codec() == Json::id())
+        else if (hs.codecId() == Json::id())
         {
             auto trnsp = FakeMsgTypeTransport::create(std::move(socket_),
                                                       64*1024, 64*1024);

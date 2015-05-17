@@ -23,7 +23,7 @@
 #include <boost/system/error_code.hpp>
 #include "../asiodefs.hpp"
 #include "../error.hpp"
-#include "../rawsockdefs.hpp"
+#include "../rawsockoptions.hpp"
 #include "config.hpp"
 #include "rawsockheader.hpp"
 

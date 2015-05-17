@@ -10,16 +10,8 @@
 #include <catch.hpp>
 #include <cppwamp/corosession.hpp>
 #include <cppwamp/json.hpp>
+#include <cppwamp/tcp.hpp>
 #include <cppwamp/internal/config.hpp>
-
-#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
-    #include <cppwamp/legacytcpconnector.hpp>
-    using TcpConnectorType = wamp::legacy::TcpConnector;
-#else
-    #include <cppwamp/tcpconnector.hpp>
-    using TcpConnectorType = wamp::TcpConnector;
-#endif
-
 
 using namespace wamp;
 
@@ -29,10 +21,20 @@ namespace
 const std::string testRealm = "cppwamp.test";
 const short testPort = 12345;
 
+Connector::Ptr tcp(AsioService& iosvc)
+{
+#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
+    return legacyConnector<Json>(iosvc, TcpHost("localhost", testPort));
+#else
+    return connector<Json>(iosvc, TcpHost("localhost", testPort));
+#endif
+}
+
 //------------------------------------------------------------------------------
 struct RpcFixture
 {
-    RpcFixture(TcpConnectorType::Ptr cnct)
+    template <typename TConnector>
+    RpcFixture(TConnector cnct)
         : caller(CoroSession<>::create(cnct)),
           callee(CoroSession<>::create(cnct))
     {}
@@ -60,7 +62,8 @@ struct RpcFixture
 //------------------------------------------------------------------------------
 struct PubSubFixture
 {
-    PubSubFixture(TcpConnectorType::Ptr cnct)
+    template <typename TConnector>
+    PubSubFixture(TConnector cnct)
         : publisher(CoroSession<>::create(cnct)),
           subscriber(CoroSession<>::create(cnct))
     {}
@@ -95,9 +98,7 @@ SCENARIO( "WAMP RPC advanced features", "[WAMP]" )
 GIVEN( "a caller and a callee" )
 {
     AsioService iosvc;
-    auto tcp = TcpConnectorType::create(iosvc, "localhost", testPort,
-                                        Json::id());
-    RpcFixture f(tcp);
+    RpcFixture f(tcp(iosvc));
 
     WHEN( "using caller identification" )
     {
@@ -174,9 +175,7 @@ SCENARIO( "WAMP pub/sub advanced features", "[WAMP]" )
 GIVEN( "a publisher and a subscriber" )
 {
     AsioService iosvc;
-    auto tcp = TcpConnectorType::create(iosvc, "localhost", testPort,
-                                        Json::id());
-    PubSubFixture f(tcp);
+    PubSubFixture f(tcp(iosvc));
 
     WHEN( "using publisher identification" )
     {
@@ -292,7 +291,7 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using subscriber black/white listing" )
     {
-        auto subscriber2 = CoroSession<>::create(tcp);
+        auto subscriber2 = CoroSession<>::create(tcp(iosvc));
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {

@@ -15,11 +15,6 @@ Namespace for all identifiers defined by the CppWAMP library.
 Namespace containing exception types thrown by the CppWAMP library.
 */
 
-/**
-@namespace wamp::legacy
-Contains interim Connector types for connecting to routers that do not yet
-supporting handshaking on raw socket transports.
-*/
 
 /**
 @mainpage

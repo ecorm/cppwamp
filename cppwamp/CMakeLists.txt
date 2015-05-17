@@ -22,13 +22,15 @@ set(HEADERS
     include/cppwamp/null.hpp
     include/cppwamp/options.hpp
     include/cppwamp/payload.hpp
-    include/cppwamp/rawsockdefs.hpp
+    include/cppwamp/rawsockoptions.hpp
     include/cppwamp/registration.hpp
     include/cppwamp/session.hpp
     include/cppwamp/sessiondata.hpp
     include/cppwamp/subscription.hpp
-    include/cppwamp/tcpconnector.hpp
-    include/cppwamp/udsconnector.hpp
+    include/cppwamp/tcp.hpp
+    include/cppwamp/tcphost.hpp
+    include/cppwamp/uds.hpp
+    include/cppwamp/udspath.hpp
     include/cppwamp/unpacker.hpp
     include/cppwamp/variant.hpp
     include/cppwamp/varianttuple.hpp
@@ -49,6 +51,7 @@ set(HEADERS
     include/cppwamp/internal/legacyasiotransport.hpp
     include/cppwamp/internal/messagetraits.hpp
     include/cppwamp/internal/precompiled.hpp
+    include/cppwamp/internal/rawsockconnector.hpp
     include/cppwamp/internal/rawsockhandshake.hpp
     include/cppwamp/internal/rawsockheader.hpp
     include/cppwamp/internal/subscriber.hpp
@@ -56,7 +59,6 @@ set(HEADERS
     include/cppwamp/internal/tcpopener.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
-    include/cppwamp/internal/unpacker.ipp
     include/cppwamp/internal/variantbuilder.hpp
     include/cppwamp/internal/varianttraits.hpp
     include/cppwamp/internal/varianttraitsfwd.hpp
@@ -79,12 +81,16 @@ set(INLINES
     include/cppwamp/internal/options.ipp
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/payload.ipp
+    include/cppwamp/internal/rawsockoptions.ipp
     include/cppwamp/internal/registration.ipp
     include/cppwamp/internal/session.ipp
     include/cppwamp/internal/sessiondata.ipp
     include/cppwamp/internal/subscription.ipp
-    include/cppwamp/internal/tcpconnector.ipp
-    include/cppwamp/internal/udsconnector.ipp
+    include/cppwamp/internal/tcp.ipp
+    include/cppwamp/internal/tcphost.ipp
+    include/cppwamp/internal/uds.ipp
+    include/cppwamp/internal/udspath.ipp
+    include/cppwamp/internal/unpacker.ipp
     include/cppwamp/internal/variant.ipp
     include/cppwamp/internal/varianttuple.ipp
     include/cppwamp/internal/version.ipp

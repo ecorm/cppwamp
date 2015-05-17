@@ -9,6 +9,7 @@
 #define CPPWAMP_TRANSPORTTEST_HPP
 
 #include <iostream>
+#include <vector>
 #include <catch.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/msgpack.hpp>
@@ -34,16 +35,17 @@ struct LoopbackFixture
     using Transport    = typename Connector::Transport;
     using TransportPtr = std::shared_ptr<Transport>;
 
-    template <typename TServerCodecs>
+    template <typename TServerCodecIds>
     LoopbackFixture(Opener&& opener,
-                    CodecId clientCodec,
+                    int clientCodec,
                     RawsockMaxLength clientMaxRxLength,
                     Acceptor&& acceptor,
-                    TServerCodecs&& serverCodecs,
+                    TServerCodecIds&& serverCodecs,
                     RawsockMaxLength serverMaxRxLength,
                     bool connected = true)
         : cnct(std::move(opener), clientCodec, clientMaxRxLength),
-          lstn(std::move(acceptor), serverCodecs, serverMaxRxLength)
+          lstn(std::move(acceptor), std::forward<TServerCodecIds>(serverCodecs),
+               serverMaxRxLength)
     {
         if (connected)
             connect();
@@ -52,7 +54,7 @@ struct LoopbackFixture
     void connect()
     {
         lstn.establish(
-            [&](std::error_code ec, CodecId codec, TransportPtr transport)
+            [&](std::error_code ec, int codec, TransportPtr transport)
             {
                 if (ec)
                     throw error::Failure(ec);
@@ -61,7 +63,7 @@ struct LoopbackFixture
             });
 
         cnct.establish(
-            [&](std::error_code ec, CodecId codec, TransportPtr transport)
+            [&](std::error_code ec, int codec, TransportPtr transport)
             {
                 if (ec)
                     throw error::Failure(ec);
@@ -99,19 +101,19 @@ struct LoopbackFixture
     boost::asio::io_service ssvc;
     Connector cnct;
     Listener  lstn;
-    CodecId clientCodec;
-    CodecId serverCodec;
+    int clientCodec;
+    int serverCodec;
     TransportPtr client;
     TransportPtr server;
 };
 
 //------------------------------------------------------------------------------
 template <typename TFixture>
-void checkConnection(TFixture& f, CodecId expectedCodec,
+void checkConnection(TFixture& f, int expectedCodec,
         size_t clientMaxRxLength = 64*1024, size_t serverMaxRxLength = 64*1024)
 {
     using TransportPtr = typename TFixture::TransportPtr;
-    f.lstn.establish([&](std::error_code ec, CodecId codec,
+    f.lstn.establish([&](std::error_code ec, int codec,
                          TransportPtr transport)
     {
         REQUIRE_FALSE( ec );
@@ -122,7 +124,7 @@ void checkConnection(TFixture& f, CodecId expectedCodec,
         f.server = transport;
     });
 
-    f.cnct.establish([&](std::error_code ec, CodecId codec,
+    f.cnct.establish([&](std::error_code ec, int codec,
                          TransportPtr transport)
     {
         REQUIRE_FALSE( ec );
@@ -260,7 +262,7 @@ void checkCommunications(TFixture& f)
     receivedReply = false;
 
     f.lstn.establish(
-        [&](std::error_code ec, CodecId codec, TransportPtr transport)
+        [&](std::error_code ec, int codec, TransportPtr transport)
         {
             REQUIRE_FALSE( ec );
             REQUIRE( transport );
@@ -272,7 +274,7 @@ void checkCommunications(TFixture& f)
         });
 
     f.cnct.establish(
-        [&](std::error_code ec, CodecId codec, TransportPtr transport)
+        [&](std::error_code ec, int codec, TransportPtr transport)
         {
             REQUIRE_FALSE( ec );
             REQUIRE( transport );
@@ -397,7 +399,7 @@ template <typename TFixture>
 void checkCancelListen(TFixture& f)
 {
     using TransportPtr = typename TFixture::TransportPtr;
-    f.lstn.establish([&](std::error_code ec, CodecId, TransportPtr transport)
+    f.lstn.establish([&](std::error_code ec, int, TransportPtr transport)
     {
         CHECK( ec == TransportErrc::aborted );
         CHECK_FALSE( transport );
@@ -414,8 +416,7 @@ void checkCancelConnect(TFixture& f)
     WHEN( "the client cancels before the connection is established" )
     {
         bool listenCompleted = false;
-        f.lstn.establish([&](std::error_code ec, CodecId,
-                             TransportPtr transport)
+        f.lstn.establish([&](std::error_code ec, int, TransportPtr transport)
         {
             if (!ec)
             {
@@ -429,7 +430,7 @@ void checkCancelConnect(TFixture& f)
         bool connectCanceled = false;
         bool connectCompleted = false;
         f.cnct.establish(
-            [&](std::error_code ec, CodecId, TransportPtr transport)
+            [&](std::error_code ec, int, TransportPtr transport)
             {
                 REQUIRE(( !ec || ec == TransportErrc::aborted ));
                 if (ec)
@@ -518,14 +519,14 @@ void checkCancelSend(TFixture& f)
     using TransportPtr = typename TFixture::TransportPtr;
     using Buffer       = typename TFixture::Transport::Buffer;
 
-    f.lstn.establish([&](std::error_code ec, CodecId, TransportPtr transport)
+    f.lstn.establish([&](std::error_code ec, int, TransportPtr transport)
     {
         REQUIRE_FALSE( ec );
         REQUIRE( transport );
         f.server = transport;
     });
 
-    f.cnct.establish([&](std::error_code ec, CodecId, TransportPtr transport)
+    f.cnct.establish([&](std::error_code ec, int, TransportPtr transport)
     {
         REQUIRE_FALSE( ec );
         REQUIRE( transport );

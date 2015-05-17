@@ -11,7 +11,7 @@
 #include <cstdint>
 #include "../codec.hpp"
 #include "../error.hpp"
-#include "../rawsockdefs.hpp"
+#include "../rawsockoptions.hpp"
 #include "asioendpoint.hpp"
 
 namespace wamp
@@ -27,8 +27,7 @@ class AsioConnector : public AsioEndpoint<TEstablisher>
 public:
     using Establisher = TEstablisher;
 
-    AsioConnector(Establisher&& est, CodecId codecId,
-                  RawsockMaxLength maxRxLength)
+    AsioConnector(Establisher&& est, int codecId, RawsockMaxLength maxRxLength)
         : Base(std::move(est)),
           codecId_(codecId),
           maxRxLength_(maxRxLength)
@@ -42,7 +41,7 @@ protected:
 
     virtual void onEstablished() override
     {
-        Base::sendHandshake( Handshake().setCodec(codecId_)
+        Base::sendHandshake( Handshake().setCodecId(codecId_)
                                         .setMaxLength(maxRxLength_) );
     }
 
@@ -54,7 +53,7 @@ protected:
             Base::fail(RawsockErrc::badHandshake);
         else if (hs.reserved() != 0)
             Base::fail(RawsockErrc::reservedBitsUsed);
-        else if (hs.codec() == codecId_)
+        else if (hs.codecId() == codecId_)
             Base::complete(codecId_, hs.maxLengthInBytes(),
                            Handshake::byteLengthOf(maxRxLength_));
         else if (hs.hasError())
@@ -64,7 +63,7 @@ protected:
     }
 
 private:
-    CodecId codecId_;
+    int codecId_;
     RawsockMaxLength maxRxLength_;
 };
 

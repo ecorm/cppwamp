@@ -32,10 +32,7 @@ namespace internal {class ClientInterface;}
 
     The Session class uses these Connector objects when attempting to
     establish a connection to the router.
-    @see TcpConnector
-    @see UdsConnector
-    @see legacy::TcpConnector
-    @see legacy::UdsConnector */
+    @see connector, legacyConnector */
 //------------------------------------------------------------------------------
 class Connector : public std::enable_shared_from_this<Connector>
 {

@@ -14,7 +14,6 @@
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
-#include "../codec.hpp"
 #include "../error.hpp"
 #include "asiotransport.hpp"
 #include "config.hpp"
@@ -40,7 +39,7 @@ public:
     using Socket       = typename Establisher::Socket;
     using Transport    = TTransport<Socket>;
     using TransportPtr = std::shared_ptr<Transport>;
-    using Handler      = std::function<void (std::error_code, CodecId,
+    using Handler      = std::function<void (std::error_code, int codecId,
                                              TransportPtr)>;
 
     explicit AsioEndpoint(Establisher&& est)
@@ -109,7 +108,7 @@ protected:
             });
     }
 
-    void complete(CodecId codecId, size_t maxTxLength, size_t maxRxLength)
+    void complete(int codecId, size_t maxTxLength, size_t maxRxLength)
     {
         auto transport = Transport::create(std::move(socket_), maxTxLength,
                                     maxRxLength);
@@ -122,8 +121,7 @@ protected:
     void fail(RawsockErrc errc)
     {
         socket_.reset();
-        iosvc_.post(std::bind(handler_, make_error_code(errc),
-                    CodecId::json, nullptr));
+        iosvc_.post(std::bind(handler_, make_error_code(errc), 0, nullptr));
         handler_ = nullptr;
     }
 
@@ -133,7 +131,7 @@ protected:
         {
             auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
             socket_.reset();
-            iosvc_.post(std::bind(handler_, ec, CodecId::json, nullptr));
+            iosvc_.post(std::bind(handler_, ec, 0, nullptr));
             handler_ = nullptr;
         }
         return !asioEc;

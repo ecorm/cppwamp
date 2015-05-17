@@ -10,7 +10,7 @@
 
 #include <utility>
 #include "../asiodefs.hpp"
-#include "../rawsockdefs.hpp"
+#include "../rawsockoptions.hpp"
 #include "asioendpoint.hpp"
 #include "legacyasiotransport.hpp"
 #include "rawsockhandshake.hpp"
@@ -29,7 +29,7 @@ class LegacyAsioEndpoint :
 public:
     using Establisher = TEstablisher;
 
-    LegacyAsioEndpoint(Establisher&& est, CodecId codecId,
+    LegacyAsioEndpoint(Establisher&& est, int codecId,
                        RawsockMaxLength maxLength)
         : Base(std::move(est)),
           codecId_(codecId),
@@ -53,7 +53,7 @@ protected:
 private:
     using Base = AsioEndpoint<TEstablisher, LegacyAsioTransport>;
 
-    CodecId codecId_;
+    int codecId_;
     RawsockMaxLength maxLength_;
 };
 

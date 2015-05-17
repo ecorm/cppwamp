@@ -14,6 +14,7 @@
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include "../asiodefs.hpp"
+#include "../tcphost.hpp"
 
 namespace wamp
 {
@@ -25,17 +26,13 @@ namespace internal
 class TcpOpener
 {
 public:
+    using Info      = TcpHost;
     using Socket    = boost::asio::ip::tcp::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
-    TcpOpener(AsioService& iosvc, const std::string& hostName,
-              const std::string& serviceName)
-        : iosvc_(iosvc), query_(hostName, serviceName)
-    {}
-
-    TcpOpener(AsioService& iosvc, const std::string& hostName,
-              unsigned short port)
-        : iosvc_(iosvc), query_(hostName, std::to_string(port))
+    TcpOpener(AsioService& iosvc, Info info)
+        : iosvc_(iosvc),
+          info_(std::move(info))
     {}
 
     AsioService& iosvc() {return iosvc_;}
@@ -47,8 +44,10 @@ public:
 
         resolver_.reset(new tcp::resolver(iosvc_));
 
+        tcp::resolver::query query(info_.hostName(), info_.serviceName());
+
         // AsioConnector will keep this object alive until completion.
-        resolver_->async_resolve(query_,
+        resolver_->async_resolve(query,
             [this, callback](AsioErrorCode ec, tcp::resolver::iterator iterator)
             {
                 if (ec)
@@ -77,6 +76,8 @@ private:
     {
         assert(!socket_);
         socket_.reset(new Socket(iosvc_));
+        socket_->open(boost::asio::ip::tcp::v4());
+        internal::applyRawsockOptions(info_, *socket_);
 
         // AsioConnector will keep this object alive until completion.
         boost::asio::async_connect(*socket_, iterator,
@@ -91,7 +92,7 @@ private:
     }
 
     AsioService& iosvc_;
-    tcp::resolver::query query_;
+    Info info_;
     std::unique_ptr<tcp::resolver> resolver_;
     SocketPtr socket_;
 };

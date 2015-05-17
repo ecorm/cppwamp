@@ -13,23 +13,12 @@
 #include <cppwamp/corosession.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/msgpack.hpp>
+#include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/internal/config.hpp>
 
-#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
-    #include <cppwamp/legacytcpconnector.hpp>
-    using TcpConnectorType = wamp::legacy::TcpConnector;
-    #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-        #include <cppwamp/legacyudsconnector.hpp>
-        using UdsConnectorType = wamp::legacy::UdsConnector;
-    #endif
-#else
-    #include <cppwamp/tcpconnector.hpp>
-    using TcpConnectorType = wamp::TcpConnector;
-    #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-        #include <cppwamp/udsconnector.hpp>
-        using UdsConnectorType = wamp::UdsConnector;
-    #endif
+#if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
+    #include <cppwamp/uds.hpp>
 #endif
 
 
@@ -39,16 +28,48 @@ namespace
 {
 
 const std::string testRealm = "cppwamp.test";
-const short validPort = 12345;
-const short invalidPort = 54321;
+const unsigned short validPort = 12345;
+const unsigned short invalidPort = 54321;
 const std::string testUdsPath = "./.crossbar/udstest";
+
+Connector::Ptr tcp(AsioService& iosvc)
+{
+#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
+    return legacyConnector<Json>(iosvc, TcpHost("localhost", validPort));
+#else
+    return connector<Json>(iosvc, TcpHost("localhost", validPort));
+#endif
+}
+
+Connector::Ptr invalidTcp(AsioService& iosvc)
+{
+#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
+    return legacyConnector<Json>(iosvc, TcpHost("localhost", invalidPort));
+#else
+    return connector<Json>(iosvc, TcpHost("localhost", invalidPort));
+#endif
+}
+
+
+#if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
+    Connector::Ptr udsMsgpack(AsioService& iosvc)
+    {
+    #ifdef CPPWAMP_USE_LEGACY_CONNECTORS
+        return legacyConnector<Msgpack>(iosvc, UdsPath(testUdsPath));
+    #else
+        return connector<Msgpack>(iosvc, UdsPath(testUdsPath));
+    #endif
+    }
+#endif
+
 
 //------------------------------------------------------------------------------
 struct PubSubFixture
 {
     using PubVec = std::vector<PublicationId>;
 
-    PubSubFixture(TcpConnectorType::Ptr cnct)
+    template <typename TConnector>
+    PubSubFixture(TConnector cnct)
         : publisher(CoroSession<>::create(cnct)),
           subscriber(CoroSession<>::create(cnct)),
           otherSubscriber(CoroSession<>::create(cnct))
@@ -127,7 +148,8 @@ struct PubSubFixture
 //------------------------------------------------------------------------------
 struct RpcFixture
 {
-    RpcFixture(TcpConnectorType::Ptr cnct)
+    template <typename TConnector>
+    RpcFixture(TConnector cnct)
         : caller(CoroSession<>::create(cnct)),
           callee(CoroSession<>::create(cnct))
     {}
@@ -189,11 +211,9 @@ void checkInvalidUri(TThrowDelegate&& throwDelegate,
                      TErrcDelegate&& errcDelegate, bool joined = true)
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Json::id());
     boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(cnct);
+        auto session = CoroSession<>::create(tcp(iosvc));
         session->connect(yield);
         if (joined)
             session->join(Realm(testRealm), yield);
@@ -218,12 +238,11 @@ template <typename TResult, typename TDelegate>
 void checkDisconnect(TDelegate&& delegate)
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort, Json::id());
     bool completed = false;
     AsyncResult<TResult> result;
     boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(cnct);
+        auto session = CoroSession<>::create(tcp(iosvc));
         session->connect(yield);
         delegate(*session, yield, completed, result);
         session->disconnect();
@@ -334,8 +353,7 @@ SCENARIO( "WAMP session management", "[WAMP]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Json::id());
+    auto cnct = tcp(iosvc);
 
     WHEN( "connecting and disconnecting" )
     {
@@ -610,10 +628,9 @@ GIVEN( "an IO service and a TCP connector" )
     AsioService iosvc;
 
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-    auto cnct = UdsConnectorType::create(iosvc, testUdsPath, Msgpack::id());
+    auto cnct = udsMsgpack(iosvc);
 #else
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Msgpack::id());
+    auto cnct = tcp(iosvc);
 #endif
 
     WHEN( "joining and leaving" )
@@ -680,8 +697,7 @@ SCENARIO( "WAMP Pub-Sub", "[WAMP]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Json::id());
+    auto cnct = tcp(iosvc);
 
     WHEN( "publishing and subscribing" )
     {
@@ -780,8 +796,7 @@ SCENARIO( "WAMP Subscription Lifetimes", "[WAMP]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Json::id());
+    auto cnct = tcp(iosvc);
 
     WHEN( "unsubscribing multiple times" )
     {
@@ -975,8 +990,7 @@ SCENARIO( "WAMP RPCs", "[WAMP]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Json::id());
+    auto cnct = tcp(iosvc);
 
     WHEN( "calling remote procedures taking dynamically-typed args" )
     {
@@ -1082,8 +1096,7 @@ SCENARIO( "WAMP Registation Lifetimes", "[WAMP]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Json::id());
+    auto cnct = tcp(iosvc);
 
     WHEN( "unregistering after a session is destroyed" )
     {
@@ -1234,8 +1247,7 @@ SCENARIO( "Nested WAMP RPCs and Events", "[WAMP]" )
 GIVEN( "these test fixture objects" )
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Json::id());
+    auto cnct = tcp(iosvc);
     auto session1 = CoroSession<>::create(cnct);
     auto session2 = CoroSession<>::create(cnct);
 
@@ -1551,10 +1563,8 @@ SCENARIO( "WAMP Connection Failures", "[WAMP]" )
 GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Json::id());
-    auto badCnct = TcpConnectorType::create(iosvc, "localhost", invalidPort,
-                                            Json::id());
+    auto cnct = tcp(iosvc);
+    auto badCnct = invalidTcp(iosvc);
 
     WHEN( "connecting to an invalid port" )
     {
@@ -1645,8 +1655,7 @@ SCENARIO( "WAMP RPC Failures", "[WAMP]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Json::id());
+    auto cnct = tcp(iosvc);
 
     WHEN( "registering an already existing procedure" )
     {
@@ -1798,8 +1807,7 @@ SCENARIO( "Invalid WAMP URIs", "[WAMP]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Json::id());
+    auto cnct = tcp(iosvc);
 
     WHEN( "joining with an invalid realm URI" )
     {
@@ -1928,8 +1936,7 @@ SCENARIO( "WAMP Precondition Failures", "[WAMP]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Json::id());
+    auto cnct = tcp(iosvc);
 
     WHEN( "constructing a session with an empty connector list" )
     {
@@ -1972,12 +1979,9 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "using invalid operations while failed" )
     {
-        auto badCnct = TcpConnectorType::create(iosvc, "localhost", invalidPort,
-                                                Json::id());
-
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto session = CoroSession<>::create(badCnct);
+            auto session = CoroSession<>::create(invalidTcp(iosvc));
             CHECK_THROWS( session->connect(yield) );
             REQUIRE( session->state() == SessionState::failed );
             checkInvalidJoin(session, yield);
@@ -2077,8 +2081,7 @@ SCENARIO( "WAMP Disconnect/Leave During Async Ops", "[WAMP]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioService iosvc;
-    auto cnct = TcpConnectorType::create(iosvc, "localhost", validPort,
-                                         Json::id());
+    auto cnct = tcp(iosvc);
 
     WHEN( "disconnecting during async join" )
     {

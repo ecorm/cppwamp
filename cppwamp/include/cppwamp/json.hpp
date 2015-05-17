@@ -23,26 +23,21 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Codec specialization for JSON serialization.
+/** JSON codec.
     This static-only class is used to serialize/deserialize between JSON
-    payloads and Variant objects.
+    payloads and Variant objects. This class uses
+    [RapidJSON](https://github.com/miloyip/rapidjson).
 
     @par Type Requirements
-    Meets the requirements of the @ref Serializer concept.
+    Meets the requirements of the @ref Codec concept.
 
-    @note The more readable @ref Json alias should be used instead of
-          `Codec<CodecId::json>`, wherever possible.
-    @see Codec
-    @see Json
     @see Msgpack */
 //------------------------------------------------------------------------------
-template <>
-class Codec<CodecId::json>
+class Json
 {
 public:
-    /** Returns the @ref CodecId enumerator associated with this
-        Codec specialization. */
-    static constexpr CodecId id() {return CodecId::json;}
+    /** Obtains a numeric identifier associated with this codec. */
+    static constexpr int id() {return 1;}
 
     /** Deserializes from the given transport buffer to the given variant. */
     template <typename TBuffer>
@@ -65,11 +60,6 @@ public:
     static void encode(const Variant& from, std::string& to);
 };
 
-//------------------------------------------------------------------------------
-/** Convenient shorthand for the JSON codec.
-    @see Codec<CodecId::json> */
-//------------------------------------------------------------------------------
-using Json = Codec<CodecId::json>;
 
 } // namespace wamp
 

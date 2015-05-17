@@ -11,9 +11,8 @@
 #include <cassert>
 #include <cstdint>
 #include <string>
-#include "../codec.hpp"
 #include "../error.hpp"
-#include "../rawsockdefs.hpp"
+#include "../rawsockoptions.hpp"
 #include "endian.hpp"
 
 namespace wamp
@@ -50,8 +49,8 @@ public:
 
     uint16_t reserved() const {return get<uint16_t>(reservedMask_);}
 
-    CodecId codec() const
-        {return static_cast<CodecId>(get<>(codecMask_, codecPos_) - 1);}
+    int codecId() const
+        {return get<int>(codecMask_, codecPos_);}
 
     RawsockMaxLength maxLength() const
         {return get<RawsockMaxLength>(lengthMask_, lengthPos_);}
@@ -71,8 +70,8 @@ public:
 
     uint32_t toHostOrder() const {return hs_;}
 
-    RawsockHandshake& setCodec(CodecId codec)
-        {return put(static_cast<uint32_t>(codec) + 1, codecPos_);}
+    RawsockHandshake& setCodecId(int codecId)
+        {return put(codecId, codecPos_);}
 
     RawsockHandshake& setMaxLength(RawsockMaxLength length)
         {return put(length, lengthPos_);}

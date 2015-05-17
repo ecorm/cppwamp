@@ -19,9 +19,6 @@
 #include <system_error>
 #include <utility>
 #include <vector>
-#include "../codec.hpp"
-#include "../json.hpp"
-#include "../msgpack.hpp"
 #include "../registration.hpp"
 #include "../subscription.hpp"
 #include "../unpacker.hpp"
@@ -774,24 +771,6 @@ private:
     Message yieldWithKwargsMsg_;
 };
 
-
-//------------------------------------------------------------------------------
-template <typename TTransportPtr>
-ClientInterface::Ptr createClient(CodecId codecId, TTransportPtr&& trn)
-{
-    using Transport = typename TTransportPtr::element_type;
-    switch (codecId)
-    {
-    case CodecId::json:
-        return Client<Json, Transport>::create(std::move(trn));
-
-    case CodecId::msgpack:
-        return Client<Msgpack, Transport>::create(std::move(trn));
-
-    default:
-        assert(false && "Unexpected CodecId");
-    }
-}
 
 } // namespace internal
 

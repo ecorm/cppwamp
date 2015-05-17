@@ -8,15 +8,8 @@
 #include <iostream>
 #include <cppwamp/corosession.hpp>
 #include <cppwamp/json.hpp>
+#include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
-
-#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
-#include <cppwamp/legacytcpconnector.hpp>
-using wamp::legacy::TcpConnector;
-#else
-#include <cppwamp/tcpconnector.hpp>
-using wamp::TcpConnector;
-#endif
 
 const std::string realm = "cppwamp.demo.chat";
 const std::string address = "localhost";
@@ -127,8 +120,14 @@ private:
 int main()
 {
     wamp::AsioService iosvc;
-    auto tcp = TcpConnector::create(iosvc, "localhost", 12345,
-                                    wamp::Json::id());
+
+#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
+    auto tcp = wamp::legacyConnector<wamp::Json>( iosvc,
+            wamp::TcpHost("localhost", 12345) );
+#else
+    auto tcp = wamp::connector<wamp::Json>( iosvc,
+                                            wamp::TcpHost("localhost", 12345) );
+#endif
 
     // Normally, the service and client instances would be in separate programs.
     // We run them all here in the same coroutine for demonstration purposes.

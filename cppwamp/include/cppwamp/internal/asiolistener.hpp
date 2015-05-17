@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 #include "../error.hpp"
-#include "../rawsockdefs.hpp"
+#include "../rawsockoptions.hpp"
 #include "asioendpoint.hpp"
 
 namespace wamp
@@ -26,7 +26,8 @@ template <typename TEstablisher>
 class AsioListener : public AsioEndpoint<TEstablisher>
 {
 public:
-    using Establisher    = TEstablisher;
+    using Establisher = TEstablisher;
+    using CodecIds    = std::set<int>;
 
     AsioListener(Establisher&& est, CodecIds codecIds,
                  RawsockMaxLength maxRxLength)
@@ -46,7 +47,7 @@ protected:
 
     virtual void onHandshakeReceived(Handshake hs) override
     {
-        auto peerCodec = hs.codec();
+        auto peerCodec = hs.codecId();
 
         if (!hs.hasMagicOctet())
             Base::fail(RawsockErrc::badHandshake);
@@ -56,7 +57,7 @@ protected:
         {
             maxTxLength_ = hs.maxLength();
             Base::sendHandshake(Handshake().setMaxLength(maxRxLength_)
-                                           .setCodec(peerCodec));
+                                           .setCodecId(peerCodec));
         }
         else
             Base::sendHandshake(Handshake::eUnsupportedFormat());
@@ -65,7 +66,7 @@ protected:
     virtual void onHandshakeSent(Handshake hs) override
     {
         if (!hs.hasError())
-            Base::complete(hs.codec(), Handshake::byteLengthOf(maxTxLength_),
+            Base::complete(hs.codecId(), Handshake::byteLengthOf(maxTxLength_),
                            Handshake::byteLengthOf(maxRxLength_));
         else
             Base::fail(hs.errorCode());

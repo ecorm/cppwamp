@@ -1,3 +1,14 @@
+v0.4.0
+======
+Connection API improvements.
+
+### Breaking Changes
+- `TcpConnector` and `UdsConnector` have been replaced with `connector` factory functions in `<cppwamp/tcp.hpp>` and `<cppwamp/uds.hpp>`. The new interface uses a fluent API which allows the user to specify `setsockopt` socket options (closes #63). Consult the revised tutorials and documentation to learn how to migrate your app code to the revised connection interface.
+- Revised connection API so that unused serialization libraries are not needed when using CppWAMP in a header-only fashion (fixes #64).
+
+### Other Changes
+- Raw socket transports now use 16MB as the default maximum length for incoming messages (closes #39).
+
 v0.3.1
 ======
 Fixes and additional tests.

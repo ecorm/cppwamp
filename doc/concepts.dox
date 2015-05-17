@@ -10,7 +10,7 @@
 Describes restrictions on types used by generic facilities.
 Concepts:
 - @subpage VisitorConcept
-- @subpage Serializer
+- @subpage Codec
 - @subpage TransportBuffer
 - @subpage Transport
 - @subpage Establisher
@@ -87,25 +87,24 @@ Expression                         | Effect
 */
 
 //------------------------------------------------------------------------------
-/** @page Serializer Serializer
-A `Serializer` is a specialization of the wamp::Codec template class, where the
-following expressions must be valid:
+/** @page Codec Codec
+A `Codec` is a static-only class supporting the following expressions:
 
-Expression                                  | Effect
-------------------------------------------- | ------
-`Serializer::decodeBuffer(buffer, variant)` | Deserializes from a @ref TransportBuffer to a wamp::Variant.
-`Serializer::encodeBuffer(variant, buffer)` | Serializes from wamp::Variant to a @ref TransportBuffer.
+Expression                             | Effect
+-------------------------------------- | ------
+`Codec::id()`                          | Returns the `int` ID to use during raw socket handshaking.
+`Codec::decodeBuffer(buffer, variant)` | Deserializes from a @ref TransportBuffer to a wamp::Variant.
+`Codec::encodeBuffer(variant, buffer)` | Serializes from wamp::Variant to a @ref TransportBuffer.
 
 where @ref TransportBuffer is the C++ concept for buffers used by the
 transport layer.
 
-`Serializer::decodeBuffer` is expected to throw a
+`Codec::decodeBuffer` is expected to throw a
 @ref wamp::error::Decode exception if it fails to deserialize the buffer.
 
-The following classes meet the requirements of `Serializer`:
-- wamp::Codec<CodeId::json> (aka wamp::Json)
-- wamp::Codec<CodeId::msgpack> (aka wamp::Msgpack)
-
+The following classes meet the requirements of `Codec`:
+- wamp::Json
+- wamp::Msgpack
 */
 
 //------------------------------------------------------------------------------

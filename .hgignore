@@ -1,11 +1,11 @@
 syntax: glob
 *.pro.user
+CMakeLists.txt.user
 ext/*
 doc/html
 *.vpp~*
-CMakeLists.txt.user
-.git
 *.vpp.working
+*.bak
+.git
 .gitignore
 .gitmodules
-

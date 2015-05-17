@@ -34,11 +34,11 @@ struct TcpLoopbackFixture :
 {
     TcpLoopbackFixture(
                 bool connected = true,
-                CodecId codec = Json::id(),
+                int codec = Json::id(),
                 RawsockMaxLength clientMaxRxLength = RawsockMaxLength::kB_64,
                 RawsockMaxLength serverMaxRxLength = RawsockMaxLength::kB_64 )
         : LoopbackFixture(
-              internal::TcpOpener(csvc, tcpLoopbackAddr, tcpTestPort),
+              internal::TcpOpener(csvc, {tcpLoopbackAddr, tcpTestPort}),
               codec,
               clientMaxRxLength,
               internal::TcpAcceptor(ssvc, tcpTestPort),
@@ -54,11 +54,11 @@ struct UdsLoopbackFixture :
 {
     UdsLoopbackFixture(
                 bool connected = true,
-                CodecId codec = Json::id(),
+                int codec = Json::id(),
                 RawsockMaxLength clientMaxRxLength = RawsockMaxLength::kB_64,
                 RawsockMaxLength serverMaxRxLength = RawsockMaxLength::kB_64 )
         : LoopbackFixture(
-              internal::UdsOpener(csvc, udsTestPath),
+              internal::UdsOpener(csvc, {udsTestPath}),
               codec,
               clientMaxRxLength,
               internal::UdsAcceptor(ssvc, udsTestPath, true),

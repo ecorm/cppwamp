@@ -13,6 +13,7 @@
 #include <string>
 #include <boost/asio/local/stream_protocol.hpp>
 #include "../asiodefs.hpp"
+#include "../udspath.hpp"
 
 namespace wamp
 {
@@ -24,11 +25,13 @@ namespace internal
 class UdsOpener
 {
 public:
+    using Info      = UdsPath;
     using Socket    = boost::asio::local::stream_protocol::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
-    UdsOpener(AsioService& iosvc, const std::string& path)
-        : iosvc_(iosvc), path_(path)
+    UdsOpener(AsioService& iosvc, Info info)
+        : iosvc_(iosvc),
+          info_(std::move(info))
     {}
 
     AsioService& iosvc() {return iosvc_;}
@@ -39,15 +42,18 @@ public:
         assert(!socket_ && "Connect already in progress");
 
         socket_.reset(new Socket(iosvc_));
+        socket_->open();
+        internal::applyRawsockOptions(info_, *socket_);
 
         // AsioConnector will keep this object alive until completion.
-        socket_->async_connect(path_, [this, callback](AsioErrorCode ec)
-        {
-            if (ec)
+        socket_->async_connect(info_.pathName(),
+            [this, callback](AsioErrorCode ec)
+            {
+                if (ec)
+                    socket_.reset();
+                callback(ec, std::move(socket_));
                 socket_.reset();
-            callback(ec, std::move(socket_));
-            socket_.reset();
-        });
+            });
     }
 
     void cancel()
@@ -58,7 +64,7 @@ public:
 
 private:
     AsioService& iosvc_;
-    std::string path_;
+    Info info_;
     SocketPtr socket_;
 };
 

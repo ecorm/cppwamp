@@ -23,25 +23,21 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Codec specialization for Msgpack serialization.
+/** Msgpack codec.
     This static-only class is used to serialize/deserialize between Msgpack
-    payloads and Variant objects.
+    payloads and Variant objects. This class uses
+    [msgpack-c](https://github.com/msgpack/msgpack-c).
 
     @par Type Requirements
-    Meets the requirements of the @ref Serializer concept.
+    Meets the requirements of the @ref Codec concept.
 
-    @note The more readable @ref Msgpack alias should be used instead of
-          `Codec<CodecId::msgpack>`, wherever possible.
-    @see Codec
-    @see Msgpack
     @see Json */
 //------------------------------------------------------------------------------
-template <>
-struct Codec<CodecId::msgpack>
+class Msgpack
 {
-    /** Returns the @ref CodecId enumerator associated with this
-        Codec specialization. */
-    static constexpr CodecId id() {return CodecId::msgpack;}
+public:
+    /** Obtains a numeric identifier associated with this codec. */
+    static constexpr int id() {return 2;}
 
     /** Deserializes from the given transport buffer to the given variant. */
     template <typename TBuffer>
@@ -63,12 +59,6 @@ struct Codec<CodecId::msgpack>
     /** Serializes from the given variant to the given string. */
     static void encode(const Variant& from, std::string& to);
 };
-
-//------------------------------------------------------------------------------
-/** Convenient shorthand for the Msgpack codec.
-    @see Codec<CodecId::msgpack> */
-//------------------------------------------------------------------------------
-using Msgpack = Codec<CodecId::msgpack>;
 
 } // namespace wamp
 
