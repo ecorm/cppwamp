@@ -147,7 +147,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "./internal/rawsockoptions.hpp"
+#include "./internal/rawsockoptions.ipp"
 #endif
 
 #endif // CPPWAMP_RAWSOCKOPTIONS_HPP
