@@ -16,8 +16,6 @@ set(HEADERS
     include/cppwamp/dialoguedata.hpp
     include/cppwamp/error.hpp
     include/cppwamp/json.hpp
-    include/cppwamp/legacytcpconnector.hpp
-    include/cppwamp/legacyudsconnector.hpp
     include/cppwamp/msgpack.hpp
     include/cppwamp/null.hpp
     include/cppwamp/options.hpp
@@ -73,8 +71,6 @@ set(INLINES
     include/cppwamp/internal/endian.ipp
     include/cppwamp/internal/error.ipp
     include/cppwamp/internal/json.ipp
-    include/cppwamp/internal/legacytcpconnector.ipp
-    include/cppwamp/internal/legacyudsconnector.ipp
     include/cppwamp/internal/messagetraits.ipp
     include/cppwamp/internal/msgpack.ipp
     include/cppwamp/internal/null.ipp
