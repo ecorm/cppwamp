@@ -8,6 +8,12 @@
 #ifndef CPPWAMP_UDSPATH_HPP
 #define CPPWAMP_UDSPATH_HPP
 
+//------------------------------------------------------------------------------
+/** @file
+    Contains facilities for specifying Unix domain socket transport parameters
+    and options. */
+//------------------------------------------------------------------------------
+
 #include <string>
 #include "rawsockoptions.hpp"
 

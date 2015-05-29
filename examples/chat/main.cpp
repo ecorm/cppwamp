@@ -54,7 +54,7 @@ private:
     wamp::Outcome say(wamp::Invocation, std::string user, std::string message)
     {
         // Rebroadcast message to all subscribers
-        session_->publish( wamp::Pub("said").withArgs({user, message}) );
+        session_->publish( wamp::Pub("said").withArgs(user, message) );
         return {};
     }
 
@@ -100,7 +100,7 @@ public:
     void say(const std::string& message, Yield yield)
     {
         std::cout << user_ << " says \"" << message << "\"\n";
-        session_->call(wamp::Rpc("say").withArgs({user_, message}), yield);
+        session_->call(wamp::Rpc("say").withArgs(user_, message), yield);
     }
 
 private:

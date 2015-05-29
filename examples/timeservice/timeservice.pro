@@ -19,7 +19,7 @@ OTHER_FILES += \
     CMakeLists.txt
 
 #Preprocessor macros
-DEFINES += CPPWAMP_COMPILED_LIB
+#DEFINES +=
 
 #Enable C++11 support
 QMAKE_CXXFLAGS += -std=c++11
@@ -40,9 +40,7 @@ CONFIG(debug, debug|release) {
 INCLUDEPATH += \
     $$PWD/../../cppwamp/include \
     $$PWD/../../ext/boost \
-    $$PWD/../../ext/Catch/include \
-    $$PWD/../../ext/msgpack-c/include \
-    $$PWD/../../ext/rapidjson/include
+    $$PWD/../../ext/msgpack-c/include
 
 #These are to suppress warnings from library headers
 QMAKE_CXXFLAGS += \
@@ -83,7 +81,3 @@ DEPENDPATH += \
     $$PWD/../../cppwamp/include/cppwamp/types \
     $$PWD/../../cppwamp/include/cppwamp/types/internal
 
-#Add linker flags for cppwamp dependency
-win32:CONFIG(release, debug|release): LIBS += -L$$OUT_PWD/../../cppwamp/release/ -lcppwamp
-else:win32:CONFIG(debug, debug|release): LIBS += -L$$OUT_PWD/../../cppwamp/debug/ -lcppwamp
-else:unix: LIBS += -L$$OUT_PWD/../../cppwamp/ -lcppwamp

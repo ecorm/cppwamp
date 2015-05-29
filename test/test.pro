@@ -20,11 +20,14 @@ SOURCES += \
     varianttestbadaccess.cpp \
     varianttestcomparison.cpp \
     varianttestconvert.cpp \
+    varianttestconverter.cpp \
+    varianttestconvertboost.cpp \
+    varianttestconvertcontainers.cpp \
+    varianttestconverttuple.cpp \
     varianttestinfo.cpp \
     varianttestinit.cpp \
     varianttestmap.cpp \
     varianttestoutput.cpp \
-    varianttesttuple.cpp \
     varianttestvector.cpp \
     varianttestvisitation.cpp \
     wamptest.cpp \
@@ -110,7 +113,9 @@ INSTALLS += deploy crossbar
 
 DEPENDPATH += \
     $$PWD/../cppwamp/include/cppwamp \
-    $$PWD/../cppwamp/include/cppwamp/internal
+    $$PWD/../cppwamp/include/cppwamp/internal \
+    $$PWD/../cppwamp/include/cppwamp/types \
+    $$PWD/../cppwamp/include/cppwamp/types/internal
 
 #Add linker flags for cppwamp dependency
 win32:CONFIG(release, debug|release): LIBS += -L$$OUT_PWD/../cppwamp/release/ -lcppwamp

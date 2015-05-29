@@ -11,6 +11,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "../conversion.hpp"
 #include "varianttraits.hpp"
 #include "variantvisitors.hpp"
 
@@ -28,6 +29,13 @@ inline Access::Access(const std::string& from,
 {}
 
 } // namespace error
+
+//------------------------------------------------------------------------------
+template <typename TValue>
+Variant Variant::from(TValue&& value)
+{
+    return convertFrom(std::forward<TValue>(value));
+}
 
 //------------------------------------------------------------------------------
 inline Variant::Variant() noexcept : typeId_(TypeId::null) {}
@@ -51,6 +59,7 @@ inline Variant::Variant(Variant&& other) noexcept
 /** @details
     The @ref EnableIfValidArg metafunction is used to disable this function for
     invalid value types. The second template parameter should not specified.
+    @see Variant::from
     @tparam T (Deduced) Value type which must be convertible to a bound type.
     @post `*this == value` */
 //------------------------------------------------------------------------------
@@ -158,48 +167,38 @@ template <TypeId id> bool Variant::is() const
     An `Object` is convertible to `std::map<String,T>` iff all Object values
     are convertible to `T`.
 
-    @tparam T The target type to check for convertibility.
-    @see Variant::to */
-//------------------------------------------------------------------------------
-template <typename T> bool Variant::convertsTo() const
-{
-    return applyWithOperand(ConvertibleTo(), *this, Tag<T>());
-}
-
-//------------------------------------------------------------------------------
-/** @tparam T The target type to convert to.
+    @tparam T The target type to convert to.
     @return The converted value.
-    @pre `this->convertsTo<T>() == true`
+    @pre The variant is convertible to the destination type.
     @throws error::Conversion if the variant is not convertible to
-            the destination type.
-    @see Variant::convertsTo */
+            the destination type. */
 //------------------------------------------------------------------------------
 template <typename T> T Variant::to() const
 {
     T result;
-    applyWithOperand(ConvertTo(), *this, result);
+    convertTo(result);
     return result;
 }
 
 //------------------------------------------------------------------------------
 /** @tparam T The target type to convert to.
-    @pre `this->convertsTo<T>() == true`
+    @pre The variant is convertible to the destination type.
     @throws error::Conversion if the variant is not convertible to
             the destination type. */
 //------------------------------------------------------------------------------
 template <typename T> void Variant::to(T& value) const
 {
-    value = to<T>();
+    convertTo(value);
 }
 
 //------------------------------------------------------------------------------
 /** @tparam T The target type of the result.
-    @pre `this->is<Null>() || (this->convertsTo<T>() == true)`
+    @pre The variant is null, or is convertible to the destination type.
     @throws error::Conversion if the variant is not null and is not convertible
             to the destination type. */
 //------------------------------------------------------------------------------
 template <typename T>
-Variant::ValueTypeOf<T> Variant::valueOr(T&& fallback) const
+ValueTypeOf<T> Variant::valueOr(T&& fallback) const
 {
     if (!*this)
         return std::forward<T>(fallback);
@@ -471,6 +470,38 @@ template <typename TField> void Variant::destructAs()
 
 //------------------------------------------------------------------------------
 inline void Variant::destruct() {apply(Destruct(&field_), *this);}
+
+//------------------------------------------------------------------------------
+template <typename T, Variant::EnableIfValidArg<ValueTypeOf<T>>>
+Variant Variant::convertFrom(T&& value)
+{
+    return Variant(std::forward<T>(value));
+}
+
+//------------------------------------------------------------------------------
+template <typename T, Variant::DisableIfValidArg<ValueTypeOf<T>>>
+Variant Variant::convertFrom(const T& value)
+{
+    Variant v;
+    ToVariantConverter conv(v);
+    convert(conv, const_cast<T&>(value));
+    return v;
+}
+
+//------------------------------------------------------------------------------
+template <typename T, Variant::EnableIfValidArg<T>>
+void Variant::convertTo(T& value) const
+{
+    applyWithOperand(ConvertTo(), *this, value);
+}
+
+//------------------------------------------------------------------------------
+template <typename T, Variant::DisableIfValidArg<T>>
+void Variant::convertTo(T& value) const
+{
+    FromVariantConverter conv(*this);
+    convert(conv, value);
+}
 
 //------------------------------------------------------------------------------
 template <typename TField, typename V> TField& Variant::get(V&& variant)

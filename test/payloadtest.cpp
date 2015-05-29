@@ -35,7 +35,7 @@ SCENARIO( "Initializing Payload", "[Payload]" )
 {
     WHEN( "initializing from a list" )
     {
-        auto p = TestPayload().withArgs(testList);
+        auto p = TestPayload().withArgList(testList);
         CHECK( p.args() == testList );
         CHECK( p.kwargs().empty() );
     }
@@ -49,7 +49,7 @@ SCENARIO( "Initializing Payload", "[Payload]" )
 
     WHEN( "initializing from a list and a map" )
     {
-        auto p = TestPayload().withArgs(testList).withKwargs(testMap);
+        auto p = TestPayload().withArgList(testList).withKwargs(testMap);
         CHECK( p.args() == testList );
         CHECK( p.kwargs() == testMap );
     }
@@ -59,6 +59,12 @@ SCENARIO( "Initializing Payload", "[Payload]" )
         TestPayload p{null, true, 42, "foo"};
         CHECK( p.args() == testList );
     }
+
+    WHEN( "initializing from a parameter pack" )
+    {
+        auto p = TestPayload().withArgs(null, true, 42, "foo");
+        CHECK( p.args() == testList );
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -66,7 +72,7 @@ SCENARIO( "Unbundling Payload to variables, with conversions", "[Payload]" )
 {
 GIVEN( "a Payload object and a set of variables" )
 {
-    const auto p = TestPayload().withArgs(testList);
+    const auto p = TestPayload().withArgList(testList);
     Null n;
     bool b = false;
     double x = 0.0;
@@ -113,7 +119,7 @@ SCENARIO( "Moving Payload to variables, without conversion", "[Payload]" )
 {
 GIVEN( "a Payload object and a set of variables" )
 {
-    auto p = TestPayload().withArgs(testList);
+    auto p = TestPayload().withArgList(testList);
     Null n;
     bool b = false;
     Int i = 0;
@@ -161,19 +167,11 @@ SCENARIO( "Moving payload argument lists and maps", "[Payload]" )
 {
 GIVEN( "a Payload object with positional and keyword arguments" )
 {
-    auto p = TestPayload().withArgs(testList).withKwargs(testMap);
+    auto p = TestPayload().withArgList(testList).withKwargs(testMap);
 
     WHEN( "moving positional arguments" )
     {
         Array list = std::move(p).args();
-        CHECK( list == testList );
-        CHECK( p.args().empty() );
-        CHECK( p.kwargs() == testMap );
-    }
-
-    WHEN( "moving positional arguments, alternate method" )
-    {
-        Array list = p.moveArgs();
         CHECK( list == testList );
         CHECK( p.args().empty() );
         CHECK( p.kwargs() == testMap );
@@ -186,14 +184,6 @@ GIVEN( "a Payload object with positional and keyword arguments" )
         CHECK( p.kwargs().empty() );
         CHECK( p.args() == testList  );
     }
-
-    WHEN( "moving positional positional arguments, alternate method" )
-    {
-        Object map = p.moveKwargs();
-        CHECK( map == testMap );
-        CHECK( p.kwargs().empty() );
-        CHECK( p.args() == testList  );
-    }
 }
 }
 
@@ -202,7 +192,7 @@ SCENARIO( "Indexing Payload elements", "[Payload]" )
 {
 GIVEN( "a Payload object with positional and keyword arguments" )
 {
-    auto p = TestPayload().withArgs(testList).withKwargs(testMap);
+    auto p = TestPayload().withArgList(testList).withKwargs(testMap);
 
     WHEN( "indexing positional arguments" )
     {

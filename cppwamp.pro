@@ -10,12 +10,22 @@ TEMPLATE = subdirs
 chatexample.subdir = examples/chat
 chatexample.target = chat
 
+timeservice.subdir = examples/timeservice
+timeservice.target = timeservice
+
+timeclient.subdir = examples/timeclient
+timeclient.target = timeclient
+
 SUBDIRS = cppwamp \
           test \
-          chatexample
+          chatexample \
+          timeservice \
+          timeclient
 
 test.depends = cppwamp
 chatexample.depends = cppwamp
+timeservice.depends = cppwamp
+timeclient.depends = cppwamp
 
 OTHER_FILES += \
     CMakeLists.txt \

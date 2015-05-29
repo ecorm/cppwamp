@@ -183,7 +183,7 @@ struct RpcFixture
         CHECK( inv.requestId() <= 9007199254740992ull );
         ++dynamicCount;
         // Echo back the call arguments as the result.
-        return Result().withArgs(inv.args());
+        return Result().withArgList(inv.args());
     }
 
     Outcome staticRpc(Invocation inv, std::string str, int num)
@@ -301,7 +301,7 @@ void checkInvalidOps(CoroSession<>::Ptr session,
     CHECK_THROWS_AS( session->publish(Pub("topic"),
                                      [](AsyncResult<PublicationId>) {}),
                      error::Logic );
-    CHECK_THROWS_AS( session->publish(Pub("topic").withArgs({42}),
+    CHECK_THROWS_AS( session->publish(Pub("topic").withArgs(42),
                                      [](AsyncResult<PublicationId>) {}),
                      error::Logic );
     CHECK_THROWS_AS( session->enroll(Procedure("rpc"),
@@ -310,7 +310,7 @@ void checkInvalidOps(CoroSession<>::Ptr session,
                      error::Logic );
     CHECK_THROWS_AS( session->call(Rpc("rpc"), [](AsyncResult<Result>) {}),
                      error::Logic );
-    CHECK_THROWS_AS( session->call(Rpc("rpc").withArgs({42}),
+    CHECK_THROWS_AS( session->call(Rpc("rpc").withArgs(42),
                                   [](AsyncResult<Result>) {}),
                      error::Logic );
 
@@ -318,14 +318,14 @@ void checkInvalidOps(CoroSession<>::Ptr session,
     CHECK_THROWS_AS( session->subscribe(Topic("topic"), [](Event){}, yield),
                      error::Logic );
     CHECK_THROWS_AS( session->publish(Pub("topic"), yield), error::Logic );
-    CHECK_THROWS_AS( session->publish(Pub("topic").withArgs({42}), yield),
+    CHECK_THROWS_AS( session->publish(Pub("topic").withArgs(42), yield),
                      error::Logic );
     CHECK_THROWS_AS( session->enroll(Procedure("rpc"),
                                      [](Invocation)->Outcome{return {};},
                      yield),
                      error::Logic );
     CHECK_THROWS_AS( session->call(Rpc("rpc"), yield), error::Logic );
-    CHECK_THROWS_AS( session->call(Rpc("rpc").withArgs({42}), yield),
+    CHECK_THROWS_AS( session->call(Rpc("rpc").withArgs(42), yield),
                      error::Logic );
 
     CHECK_THROWS_AS( session->leave(Reason(), yield, &ec), error::Logic );
@@ -333,14 +333,14 @@ void checkInvalidOps(CoroSession<>::Ptr session,
                      error::Logic );
     CHECK_THROWS_AS( session->publish(Pub("topic"), yield, &ec),
                      error::Logic );
-    CHECK_THROWS_AS( session->publish(Pub("topic").withArgs({42}), yield, &ec),
+    CHECK_THROWS_AS( session->publish(Pub("topic").withArgs(42), yield, &ec),
                      error::Logic );
     CHECK_THROWS_AS( session->enroll(Procedure("rpc"),
                                      [](Invocation)->Outcome{return {};},
                                     yield, &ec),
                      error::Logic );
     CHECK_THROWS_AS( session->call(Rpc("rpc"), yield, &ec), error::Logic );
-    CHECK_THROWS_AS( session->call(Rpc("rpc").withArgs({42}), yield, &ec),
+    CHECK_THROWS_AS( session->call(Rpc("rpc").withArgs(42), yield, &ec),
                      error::Logic );
 }
 
@@ -709,8 +709,8 @@ GIVEN( "an IO service and a TCP connector" )
             f.subscribe(yield);
 
             // Check dynamic and static subscriptions.
-            f.publisher->publish(Pub("str.num").withArgs({"one", 1}));
-            pid = f.publisher->publish(Pub("str.num").withArgs({"two", 2}),
+            f.publisher->publish(Pub("str.num").withArgs("one", 1));
+            pid = f.publisher->publish(Pub("str.num").withArgs("two", 2),
                                        yield);
             while (f.dynamicPubs.size() < 2)
                 f.subscriber->suspend(yield);
@@ -738,7 +738,7 @@ GIVEN( "an IO service and a TCP connector" )
 
             // Check that the dynamic slot no longer fires, and that the
             // static slot still fires.
-            pid = f.publisher->publish(Pub("str.num").withArgs({"three", 3}),
+            pid = f.publisher->publish(Pub("str.num").withArgs("three", 3),
                                        yield);
             while (f.staticPubs.size() < 3)
                 f.otherSubscriber->suspend(yield);
@@ -752,7 +752,7 @@ GIVEN( "an IO service and a TCP connector" )
 
             // Check that the dynamic and static slots no longer fire, and
             // that the "other" slot still fires.
-            f.publisher->publish(Pub("str.num").withArgs({"four", 4}), yield);
+            f.publisher->publish(Pub("str.num").withArgs("four", 4), yield);
             pid = f.publisher->publish(Pub("other"), yield);
             while (f.otherPubs.size() < 3)
                 f.subscriber->suspend(yield);
@@ -774,7 +774,7 @@ GIVEN( "an IO service and a TCP connector" )
 
             // Check that only the dynamic slot still fires.
             f.publisher->publish(Pub("other"), yield);
-            pid = f.publisher->publish(Pub("str.num").withArgs({"five", 5}),
+            pid = f.publisher->publish(Pub("str.num").withArgs("five", 5),
                                        yield);
             while (f.dynamicPubs.size() < 3)
                 f.subscriber->suspend(yield);
@@ -815,7 +815,7 @@ GIVEN( "an IO service and a TCP connector" )
 
             // Check that the dynamic slot no longer fires, and that the
             // static slot still fires.
-            pid = f.publisher->publish(Pub("str.num").withArgs({"foo", 42}),
+            pid = f.publisher->publish(Pub("str.num").withArgs("foo", 42),
                                        yield);
             while (f.staticPubs.size() < 1)
                 f.subscriber->suspend(yield);
@@ -832,7 +832,7 @@ GIVEN( "an IO service and a TCP connector" )
             // Check that the dynamic and static slots no longer fire.
             // Publish to the "other" subscription so that we know when
             // to stop polling.
-            f.publisher->publish(Pub("str.num").withArgs({"foo", 42}), yield);
+            f.publisher->publish(Pub("str.num").withArgs("foo", 42), yield);
             pid = f.publisher->publish(Pub("other"), yield);
             while (f.otherPubs.size() < 1)
                 f.otherSubscriber->suspend(yield);
@@ -866,7 +866,7 @@ GIVEN( "an IO service and a TCP connector" )
             // Check that the dynamic and static slots no longer fire.
             // Publish to the "other" subscription so that we know when
             // to stop polling.
-            f.publisher->publish(Pub("str.num").withArgs({"foo", 42}), yield);
+            f.publisher->publish(Pub("str.num").withArgs("foo", 42), yield);
             pid = f.publisher->publish(Pub("other"), yield);
             while (f.otherPubs.size() < 1)
                 f.otherSubscriber->suspend(yield);
@@ -902,7 +902,7 @@ GIVEN( "an IO service and a TCP connector" )
             // Check that the dynamic and static slots no longer fire.
             // Publish to the "other" subscription so that we know when
             // to stop polling.
-            f.publisher->publish(Pub("str.num").withArgs({"foo", 42}), yield);
+            f.publisher->publish(Pub("str.num").withArgs("foo", 42), yield);
             pid = f.publisher->publish(Pub("other"), yield);
             while (f.otherPubs.size() < 1)
                 f.otherSubscriber->suspend(yield);
@@ -938,7 +938,7 @@ GIVEN( "an IO service and a TCP connector" )
             // Check that the dynamic and static slots no longer fire.
             // Publish to the "other" subscription so that we know when
             // to stop polling.
-            f.publisher->publish(Pub("str.num").withArgs({"foo", 42}), yield);
+            f.publisher->publish(Pub("str.num").withArgs("foo", 42), yield);
             pid = f.publisher->publish(Pub("other"), yield);
             while (f.otherPubs.size() < 1)
                 f.otherSubscriber->suspend(yield);
@@ -969,7 +969,7 @@ GIVEN( "an IO service and a TCP connector" )
             // Check that the dynamic and static slots no longer fire.
             // Publish to the "other" subscription so that we know when
             // to stop polling.
-            f.publisher->publish(Pub("str.num").withArgs({"foo", 42}), yield);
+            f.publisher->publish(Pub("str.num").withArgs("foo", 42), yield);
             pid = f.publisher->publish(Pub("other"), yield);
             while (f.otherPubs.size() < 1)
                 f.otherSubscriber->suspend(yield);
@@ -1003,11 +1003,11 @@ GIVEN( "an IO service and a TCP connector" )
             f.enroll(yield);
 
             // Check normal RPC
-            result = f.caller->call(Rpc("dynamic").withArgs({"one", 1}),
+            result = f.caller->call(Rpc("dynamic").withArgs("one", 1),
                                     yield);
             CHECK( f.dynamicCount == 1 );
             CHECK(( result.args() == Array{"one", 1} ));
-            result = f.caller->call(Rpc("dynamic").withArgs({"two", 2}),
+            result = f.caller->call(Rpc("dynamic").withArgs("two", 2),
                                     yield);
             CHECK( f.dynamicCount == 2 );
             CHECK(( result.args() == Array{"two", 2} ));
@@ -1018,10 +1018,10 @@ GIVEN( "an IO service and a TCP connector" )
             // The router should now report an error when attempting
             // to call the unregistered RPC.
             CHECK_THROWS_AS( f.caller->call(
-                                 Rpc("dynamic").withArgs({"three", 3}),
+                                 Rpc("dynamic").withArgs("three", 3),
                                  yield),
                              error::Failure);
-            f.caller->call(Rpc("dynamic").withArgs({"three", 3}), yield, &ec);
+            f.caller->call(Rpc("dynamic").withArgs("three", 3), yield, &ec);
             CHECK( ec == SessionErrc::callError );
             CHECK( ec == SessionErrc::noSuchProcedure );
 
@@ -1031,7 +1031,7 @@ GIVEN( "an IO service and a TCP connector" )
                 Procedure("dynamic"),
                 std::bind(&RpcFixture::dynamicRpc, &f, _1),
                 yield);
-            result = f.caller->call(Rpc("dynamic").withArgs({"four", 4}),
+            result = f.caller->call(Rpc("dynamic").withArgs("four", 4),
                                     yield);
             CHECK( f.dynamicCount == 3 );
             CHECK(( result.args() == Array{"four", 4} ));
@@ -1050,13 +1050,13 @@ GIVEN( "an IO service and a TCP connector" )
             f.enroll(yield);
 
             // Check normal RPC
-            result = f.caller->call(Rpc("static").withArgs({"one", 1}),
+            result = f.caller->call(Rpc("static").withArgs("one", 1),
                                     yield);
             CHECK( f.staticCount == 1 );
             CHECK(( result.args() == Array{"one", 1} ));
 
             // Extra arguments should be ignored.
-            result = f.caller->call(Rpc("static").withArgs({"two", 2, true}),
+            result = f.caller->call(Rpc("static").withArgs("two", 2, true),
                                     yield);
             CHECK( f.staticCount == 2 );
             CHECK(( result.args() == Array{"two", 2} ));
@@ -1067,10 +1067,10 @@ GIVEN( "an IO service and a TCP connector" )
             // The router should now report an error when attempting
             // to call the unregistered RPC.
             CHECK_THROWS_AS( f.caller->call(
-                                 Rpc("static").withArgs({"three", 3}),
+                                 Rpc("static").withArgs("three", 3),
                                  yield),
                              error::Failure );
-            f.caller->call(Rpc("static").withArgs({"three", 3}), yield, &ec);
+            f.caller->call(Rpc("static").withArgs("three", 3), yield, &ec);
             CHECK( ec == SessionErrc::callError );
             CHECK( ec == SessionErrc::noSuchProcedure );
 
@@ -1081,7 +1081,7 @@ GIVEN( "an IO service and a TCP connector" )
                 unpackedRpc<std::string, int>(std::bind(&RpcFixture::staticRpc,
                                                         &f, _1, _2, _3)),
                 yield);
-            result = f.caller->call(Rpc("static").withArgs({"four", 4}), yield);
+            result = f.caller->call(Rpc("static").withArgs("four", 4), yield);
             CHECK( f.staticCount == 3 );
             CHECK(( result.args() == Array{"four", 4} ));
         });
@@ -1118,16 +1118,16 @@ GIVEN( "an IO service and a TCP connector" )
 
             // The router should report an error when attempting
             // to call the unregistered RPCs.
-            CHECK_THROWS_AS( f.caller->call(Rpc("dynamic").withArgs({"one", 1}),
+            CHECK_THROWS_AS( f.caller->call(Rpc("dynamic").withArgs("one", 1),
                                             yield),
                              error::Failure );
-            f.caller->call(Rpc("dynamic").withArgs({"one", 1}), yield, &ec);
+            f.caller->call(Rpc("dynamic").withArgs("one", 1), yield, &ec);
             CHECK( ec == SessionErrc::noSuchProcedure );
 
-            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs({"two", 2}),
+            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs("two", 2),
                                             yield),
                              error::Failure );
-            f.caller->call(Rpc("dynamic").withArgs({"two", 2}), yield, &ec);
+            f.caller->call(Rpc("dynamic").withArgs("two", 2), yield, &ec);
             CHECK( ec == SessionErrc::noSuchProcedure );
         });
         iosvc.run();
@@ -1155,16 +1155,16 @@ GIVEN( "an IO service and a TCP connector" )
 
             // The router should report an error when attempting
             // to call the unregistered RPCs.
-            CHECK_THROWS_AS( f.caller->call(Rpc("dynamic").withArgs({"one", 1}),
+            CHECK_THROWS_AS( f.caller->call(Rpc("dynamic").withArgs("one", 1),
                                             yield),
                              error::Failure );
-            f.caller->call(Rpc("dynamic").withArgs({"one", 1}), yield, &ec);
+            f.caller->call(Rpc("dynamic").withArgs("one", 1), yield, &ec);
             CHECK( ec == SessionErrc::noSuchProcedure );
 
-            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs({"two", 2}),
+            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs("two", 2),
                                             yield),
                              error::Failure );
-            f.caller->call(Rpc("dynamic").withArgs({"two", 2}), yield, &ec);
+            f.caller->call(Rpc("dynamic").withArgs("two", 2), yield, &ec);
             CHECK( ec == SessionErrc::noSuchProcedure );
         });
         iosvc.run();
@@ -1192,16 +1192,16 @@ GIVEN( "an IO service and a TCP connector" )
 
             // The router should report an error when attempting
             // to call the unregistered RPCs.
-            CHECK_THROWS_AS( f.caller->call(Rpc("dynamic").withArgs({"one", 1}),
+            CHECK_THROWS_AS( f.caller->call(Rpc("dynamic").withArgs("one", 1),
                                             yield),
                              error::Failure );
-            f.caller->call(Rpc("dynamic").withArgs({"one", 1}), yield, &ec);
+            f.caller->call(Rpc("dynamic").withArgs("one", 1), yield, &ec);
             CHECK( ec == SessionErrc::noSuchProcedure );
 
-            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs({"two", 2}),
+            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs("two", 2),
                                             yield),
                              error::Failure );
-            f.caller->call(Rpc("dynamic").withArgs({"two", 2}), yield, &ec);
+            f.caller->call(Rpc("dynamic").withArgs("two", 2), yield, &ec);
             CHECK( ec == SessionErrc::noSuchProcedure );
         });
         iosvc.run();
@@ -1224,16 +1224,16 @@ GIVEN( "an IO service and a TCP connector" )
 
             // The router should report an error when attempting
             // to call the unregistered RPCs.
-            CHECK_THROWS_AS( f.caller->call(Rpc("dynamic").withArgs({"one", 1}),
+            CHECK_THROWS_AS( f.caller->call(Rpc("dynamic").withArgs("one", 1),
                                             yield),
                              error::Failure );
-            f.caller->call(Rpc("dynamic").withArgs({"one", 1}), yield, &ec);
+            f.caller->call(Rpc("dynamic").withArgs("one", 1), yield, &ec);
             CHECK( ec == SessionErrc::noSuchProcedure );
 
-            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs({"two", 2}),
+            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs("two", 2),
                                             yield),
                              error::Failure );
-            f.caller->call(Rpc("dynamic").withArgs({"two", 2}), yield, &ec);
+            f.caller->call(Rpc("dynamic").withArgs("two", 2), yield, &ec);
             CHECK( ec == SessionErrc::noSuchProcedure );
         });
         iosvc.run();
@@ -1269,9 +1269,9 @@ GIVEN( "these test fixture objects" )
                 (boost::asio::yield_context yield)
                 {
                     auto upper1 = session2->call(
-                            Rpc("upperify").withArgs({str1}), yield);
+                            Rpc("upperify").withArgs(str1), yield);
                     auto upper2 = session2->call(
-                            Rpc("upperify").withArgs({str2}), yield);
+                            Rpc("upperify").withArgs(str2), yield);
                     auto concatted = upper1[0].to<std::string>() +
                                      upper2[0].to<std::string>();
                     inv.yield(Result({concatted}));
@@ -1295,7 +1295,7 @@ GIVEN( "these test fixture objects" )
 
             std::string s1 = "hello ";
             std::string s2 = "world";
-            auto result = session1->call(Rpc("uppercat").withArgs({s1, s2}),
+            auto result = session1->call(Rpc("uppercat").withArgs(s1, s2),
                                          yield);
             CHECK( result[0] == "HELLO WORLD" );
             session1->disconnect();
@@ -1319,7 +1319,7 @@ GIVEN( "these test fixture objects" )
                     (boost::asio::yield_context yield)
                     {
                         auto result = subscriber->call(Rpc("upperify")
-                                                       .withArgs({str}), yield);
+                                                       .withArgs(str), yield);
                         upperized = result[0].to<std::string>();
                     });
             };
@@ -1337,7 +1337,7 @@ GIVEN( "these test fixture objects" )
                                   unpackedEvent<std::string>(onEvent),
                                   yield);
 
-            callee->publish(Pub("onEvent").withArgs({"Hello"}), yield);
+            callee->publish(Pub("onEvent").withArgs("Hello"), yield);
             while (upperized.empty())
                 callee->suspend(yield);
             CHECK_THAT( upperized, Equals("HELLO") );
@@ -1370,7 +1370,7 @@ GIVEN( "these test fixture objects" )
                         std::string upper = str;
                         std::transform(upper.begin(), upper.end(),
                                        upper.begin(), ::toupper);
-                        callee->publish(Pub("grapevine").withArgs({upper}),
+                        callee->publish(Pub("grapevine").withArgs(upper),
                                         yield);
                         inv.yield(Result({upper}));
                     });
@@ -1390,7 +1390,7 @@ GIVEN( "these test fixture objects" )
                                   unpackedEvent<std::string>(onEvent),
                                   yield);
 
-            subscriber->call(Rpc("shout").withArgs({"hello"}), yield);
+            subscriber->call(Rpc("shout").withArgs("hello"), yield);
             while (upperized.empty())
                 subscriber->suspend(yield);
             CHECK_THAT( upperized, Equals("HELLO") );
@@ -1463,8 +1463,7 @@ GIVEN( "these test fixture objects" )
                     std::string upper = str;
                     std::transform(upper.begin(), upper.end(),
                                    upper.begin(), ::toupper);
-                    session1->publish(Pub("onShout").withArgs({upper}),
-                                      yield);
+                    session1->publish(Pub("onShout").withArgs(upper), yield);
                 });
         };
 
@@ -1485,7 +1484,7 @@ GIVEN( "these test fixture objects" )
             session2->subscribe(Topic("onShout"),
                                 unpackedEvent<std::string>(onShout), yield);
 
-            session2->publish(Pub("onTalk").withArgs({"hello"}), yield);
+            session2->publish(Pub("onTalk").withArgs("hello"), yield);
             while (upperized.empty())
                 session2->suspend(yield);
             CHECK_THAT( upperized, Equals("HELLO") );
@@ -1747,19 +1746,18 @@ GIVEN( "an IO service and a TCP connector" )
             f.enroll(yield);
 
             // Check type mismatch
-            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs({42, 42}),
+            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs(42, 42),
                                             yield),
                              error::Failure );
-            f.caller->call(Rpc("static").withArgs({42, 42}), yield, &ec);
+            f.caller->call(Rpc("static").withArgs(42, 42), yield, &ec);
             CHECK( ec == SessionErrc::callError );
             CHECK( ec == SessionErrc::invalidArgument );
             CHECK( f.staticCount == 0 );
 
             // Check insufficient arguments
-            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs({42}),
-                                            yield),
+            CHECK_THROWS_AS( f.caller->call(Rpc("static").withArgs(42), yield),
                              error::Failure );
-            f.caller->call(Rpc("static").withArgs({42}), yield, &ec);
+            f.caller->call(Rpc("static").withArgs(42), yield, &ec);
             CHECK( ec == SessionErrc::callError );
             CHECK( ec == SessionErrc::invalidArgument );
             CHECK( f.staticCount == 0 );
@@ -1778,10 +1776,10 @@ GIVEN( "an IO service and a TCP connector" )
 
             // Publications with invalid arguments should be ignored.
             CHECK_NOTHROW( f.publisher->publish(
-                               Pub("str.num").withArgs({42, 42}), yield ) );
+                               Pub("str.num").withArgs(42, 42), yield ) );
 
             // Publish with valid types so that we know when to stop polling.
-            pid = f.publisher->publish(Pub("str.num").withArgs({"foo", 42}),
+            pid = f.publisher->publish(Pub("str.num").withArgs("foo", 42),
                                        yield);
             while (f.staticPubs.size() < 1)
                 f.subscriber->suspend(yield);
@@ -1791,7 +1789,7 @@ GIVEN( "an IO service and a TCP connector" )
             // Publications with extra arguments should be handled,
             // as long as the required arguments have valid types.
             CHECK_NOTHROW( pid = f.publisher->publish(
-                    Pub("str.num").withArgs({"foo", 42, true}), yield) );
+                    Pub("str.num").withArgs("foo", 42, true), yield) );
             while (f.staticPubs.size() < 2)
                 f.subscriber->suspend(yield);
             REQUIRE( f.staticPubs.size() == 2 );
@@ -1853,10 +1851,10 @@ GIVEN( "an IO service and a TCP connector" )
         {
             checkInvalidUri(
                 [](CoroSession<>& session, Yield yield)
-                    {session.publish(Pub("#bad").withArgs({42}), yield);},
+                    {session.publish(Pub("#bad").withArgs(42), yield);},
                 [](CoroSession<>& session, Yield yield, std::error_code& ec)
                 {
-                    session.publish(Pub("#bad").withArgs({42}), yield, &ec);
+                    session.publish(Pub("#bad").withArgs(42), yield, &ec);
                 });
         }
     }
@@ -1893,9 +1891,9 @@ GIVEN( "an IO service and a TCP connector" )
         {
             checkInvalidUri(
                 [](CoroSession<>& session, Yield yield)
-                    {session.call(Rpc("#bad").withArgs({42}), yield);},
+                    {session.call(Rpc("#bad").withArgs(42), yield);},
                 [](CoroSession<>& session, Yield yield, std::error_code& ec)
-                    {session.call(Rpc("#bad").withArgs({42}), yield, &ec);} );
+                    {session.call(Rpc("#bad").withArgs(42), yield, &ec);} );
         }
     }
 
@@ -2190,7 +2188,7 @@ GIVEN( "an IO service and a TCP connector" )
                                           AsyncResult<PublicationId>& result)
         {
             session.join(Realm(testRealm), yield);
-            session.publish(Pub("topic").withArgs({"foo"}),
+            session.publish(Pub("topic").withArgs("foo"),
                 [&](AsyncResult<PublicationId> pid)
                 {
                     completed = true;
@@ -2264,7 +2262,7 @@ GIVEN( "an IO service and a TCP connector" )
                                    AsyncResult<Result>& result)
         {
             session.join(Realm(testRealm), yield);
-            session.call(Rpc("rpc").withArgs({"foo"}),
+            session.call(Rpc("rpc").withArgs("foo"),
                 [&](AsyncResult<Result> callResult)
                 {
                     completed = true;

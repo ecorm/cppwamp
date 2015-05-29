@@ -36,35 +36,27 @@ public:
     Payload(std::initializer_list<Variant> list);
 
     /** Sets the positional arguments for this payload. */
-    TDerived& withArgs(Array args);
+    template <typename... Ts>
+    TDerived& withArgs(Ts&&... args);
+
+    /** Sets the positional arguments for this payload from
+        an array of variants. */
+    TDerived& withArgList(Array args);
 
     /** Sets the keyword arguments for this payload. */
     TDerived& withKwargs(Object kwargs);
 
-#if CPPWAMP_HAS_REF_QUALIFIERS
     /** Accesses the constant list of positional arguments. */
     const Array& args() const &;
-#else
-    /** Accesses the constant list of positional arguments. */
-    const Array& args() const;
-#endif
 
-#if CPPWAMP_HAS_REF_QUALIFIERS
     /** Returns the moved list of positional arguments. */
     Array args() &&;
-#endif
-
-    /** Returns the moved list of positional arguments. */
-    Array moveArgs();
 
     /** Accesses the constant map of keyword arguments. */
     const Object& kwargs() const &;
 
     /** Returns the moved map of keyword arguments. */
     Object kwargs() &&;
-
-    /** Returns the moved map of keyword arguments. */
-    Object moveKwargs();
 
     /** Accesses a positional argument by index. */
     Variant& operator[](size_t index);

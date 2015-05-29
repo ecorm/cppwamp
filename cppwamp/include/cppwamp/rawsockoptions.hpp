@@ -8,6 +8,11 @@
 #ifndef CPPWAMP_RAWSOCKOPTIONS_HPP
 #define CPPWAMP_RAWSOCKOPTIONS_HPP
 
+//------------------------------------------------------------------------------
+/** @file
+    Contains facilities for specifying raw socket parameters and options. */
+//------------------------------------------------------------------------------
+
 #include "asiodefs.hpp"
 #include "./internal/socketoptions.hpp"
 

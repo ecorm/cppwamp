@@ -12,7 +12,7 @@ namespace wamp { namespace internal {
 
 template <typename T> struct FieldTraits;
 
-template <typename T, typename Enable = void> struct ArgTraits;
+template <typename T, typename Enable = int> struct ArgTraits;
 
 template <typename T> struct Access;
 

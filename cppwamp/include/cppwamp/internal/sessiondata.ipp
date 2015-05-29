@@ -396,7 +396,7 @@ CPPWAMP_INLINE Result::Result() {}
 
 CPPWAMP_INLINE Result::Result(std::initializer_list<Variant> list)
 {
-    withArgs(Array(list));
+    withArgList(Array(list));
 }
 
 /** @details

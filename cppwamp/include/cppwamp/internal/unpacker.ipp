@@ -11,22 +11,6 @@
 namespace wamp
 {
 
-#ifndef CPPWAMP_FOR_DOXYGEN // GenSequence confuses the Doxygen parse
-namespace internal
-{
-
-template<int N, int ...S>
-struct GenSequence : GenSequence<N-1, N-1, S...> { };
-
-template<int ...S>
-struct GenSequence<0, S...>
-{
-    using type = Sequence<S...>;
-};
-
-} // namespace internal
-#endif
-
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
 EventUnpacker<S,A...>::EventUnpacker(Slot slot)
@@ -46,13 +30,14 @@ void EventUnpacker<S,A...>::operator()(Event&& event)
 
     // Use the integer parameter pack technique shown in
     // http://stackoverflow.com/a/7858971/245265
-    using Seq = typename internal::GenSequence<sizeof...(A)>::type;
+    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
     invoke(std::move(event), Seq());
 }
 
 template <typename S, typename... A>
 template <int ...Seq>
-void EventUnpacker<S,A...>::invoke(Event&& event, internal::Sequence<Seq...>)
+void EventUnpacker<S,A...>::invoke(Event&& event,
+                                   internal::IntegerSequence<Seq...>)
 {
     Array args = event.args();
     slot_(std::move(event), get<Seq>(args)...);
@@ -105,14 +90,14 @@ Outcome InvocationUnpacker<S,A...>::operator()(Invocation&& inv)
 
     // Use the integer parameter pack technique shown in
     // http://stackoverflow.com/a/7858971/245265
-    using Seq = typename internal::GenSequence<sizeof...(A)>::type;
+    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
     return invoke(std::move(inv), Seq());
 }
 
 template <typename S, typename... A>
 template <int ...Seq>
 Outcome InvocationUnpacker<S,A...>::invoke(Invocation&& inv,
-                                           internal::Sequence<Seq...>)
+                                           internal::IntegerSequence<Seq...>)
 {
     Array args = inv.args();
     return slot_(std::move(inv), get<Seq>(args)...);

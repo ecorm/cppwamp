@@ -24,18 +24,13 @@ Connector::Ptr connector(AsioService& iosvc, UdsPath path)
 }
 
 
-namespace legacy
-{
-
 //------------------------------------------------------------------------------
 template <typename TCodec>
-Connector::Ptr connector(AsioService& iosvc, UdsPath path)
+Connector::Ptr legacyConnector(AsioService& iosvc, UdsPath path)
 {
     using Endpoint = internal::LegacyAsioEndpoint<internal::UdsOpener>;
     using ConcreteConnector = internal::RawsockConnector<TCodec, Endpoint>;
     return ConcreteConnector::create(iosvc, std::move(path));
 }
-
-} // namespace legacy
 
 } // namespace wamp

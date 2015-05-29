@@ -107,15 +107,15 @@ discriminated union (i.e. variant) that can contain either:
 An RPC call slot can send a result back to the caller by returning a
 wamp::Result object:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Outcome add(Invocation, int a, int b)
 {
-    return Result().withArgs({a + b});
+    return Result().withArgs(a + b);
 }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If only positional arguments need to be returned, they can be returned directly
-via a braced initializer list:
+If only positional `Variant` arguments need to be returned, they can be returned
+directly via a braced initializer list:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Outcome add(Invocation, int a, int b)
@@ -183,7 +183,7 @@ Outcome Client::addPerson(Invocation inv, Object person)
     // fulfill this RPC.
     boost::asio::spawn(iosvc_, [this, inv](boost::asio::yield_context yield)
     {
-        auto dbResult = session_->call( Rpc("db.add").withArgs({person}),
+        auto dbResult = session_->call( Rpc("db.add").withArgs(person),
                                         yield );
         // Manually send the result back to the caller
         auto personId = dbResult[0].to<int>();

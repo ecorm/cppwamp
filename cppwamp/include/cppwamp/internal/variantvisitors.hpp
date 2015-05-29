@@ -14,6 +14,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include "../traits.hpp"
 #include "../visitor.hpp"
 #include "varianttraits.hpp"
 
@@ -24,36 +25,29 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// The !std::is_same is required because std::vector<bool>::const_reference may
+// The !isSameType is required because std::vector<bool>::const_reference may
 // or may not just be bool.
 template <typename T>
-using EnableIfBoolRef =
-    typename std::enable_if<
-        isBool<T>() && !std::is_same<T, bool>::value, int
-    >::type;
+using EnableIfBoolRef = EnableIf<isBool<T>() && !isSameType<T, bool>()>;
 
 template <typename T, typename U>
 constexpr bool bothAreNumbers() {return isNumber<T>() && isNumber<U>();}
 
 template <typename T, typename U>
-using EnableIfBothAreNumbers =
-    typename std::enable_if<bothAreNumbers<T, U>(), int>::type;
+using EnableIfBothAreNumbers = EnableIf<bothAreNumbers<T, U>()>;
 
 template <typename T, typename U>
-using DisableIfBothAreNumbers =
-    typename std::enable_if<!bothAreNumbers<T, U>(), int>::type;
+using DisableIfBothAreNumbers = DisableIf<bothAreNumbers<T, U>()>;
 
 template <typename T>
-using EnableIfNotVariant =
-    typename std::enable_if<!std::is_same<T, Variant>::value, int>::type;
+using DisableIfVariant = DisableIf<isSameType<T, Variant>()>;
 
 template <typename TFrom, typename TTo>
-using EnableIfConvertible =
-    typename std::enable_if<std::is_convertible<TFrom,TTo>::value, int>::type;
+using EnableIfConvertible = EnableIf<std::is_convertible<TFrom,TTo>::value>;
 
 template <typename TFrom, typename TTo>
-using EnableIfNotConvertible =
-    typename std::enable_if<!std::is_convertible<TFrom,TTo>::value, int>::type;
+using DisableIfConvertible = DisableIf<std::is_convertible<TFrom,TTo>::value>;
+
 
 //------------------------------------------------------------------------------
 class TypeName : public Visitor<String>
@@ -84,7 +78,7 @@ public:
     bool operator()(const TField lhs, const TArg rhs) const
         {return lhs == rhs;}
 
-    template <typename TElem, EnableIfNotVariant<TElem> = 0>
+    template <typename TElem, DisableIfVariant<TElem> = 0>
     bool operator()(const Array& lhs, const std::vector<TElem>& rhs) const
     {
         using VecConstRef = typename std::vector<TElem>::const_reference;
@@ -97,7 +91,7 @@ public:
                        {return lElem == rElem;});
     }
 
-    template <typename TValue, EnableIfNotVariant<TValue> = 0>
+    template <typename TValue, DisableIfVariant<TValue> = 0>
     bool operator()(const Object& lhs,
                     const std::map<String, TValue>& rhs) const
     {
@@ -134,7 +128,7 @@ public:
               EnableIfBothAreNumbers<TField,TArg> = 0>
     bool operator()(TField lhs, TArg rhs) const {return lhs != rhs;}
 
-    template <typename TElem, EnableIfNotVariant<TElem> = 0>
+    template <typename TElem, DisableIfVariant<TElem> = 0>
     bool operator()(const Array& lhs, const std::vector<TElem>& rhs) const
     {
         using VecConstRef = typename std::vector<TElem>::const_reference;
@@ -147,7 +141,7 @@ public:
                           {return lElem == rElem;}).first != lhs.cend();
     }
 
-    template <typename TValue, EnableIfNotVariant<TValue> = 0>
+    template <typename TValue, DisableIfVariant<TValue> = 0>
     bool operator()(const Object& lhs,
                     const std::map<String, TValue>& rhs) const
     {
@@ -338,11 +332,11 @@ public:
 
     // Invalid conversions
     template <typename TField, typename TResult,
-              internal::EnableIfNotConvertible<TField,TResult> = 0>
+              internal::DisableIfConvertible<TField,TResult> = 0>
     bool operator()(const TField&, Tag<TResult>) const {return false;}
 
     // Vector conversions
-    template <typename TElem, internal::EnableIfNotVariant<TElem> = 0>
+    template <typename TElem, internal::DisableIfVariant<TElem> = 0>
     bool operator()(const Array& from, Tag<std::vector<TElem>>) const
     {
         if (from.empty())
@@ -357,7 +351,7 @@ public:
     }
 
     // Map conversions
-    template <typename TValue, internal::EnableIfNotVariant<TValue> = 0>
+    template <typename TValue, internal::DisableIfVariant<TValue> = 0>
     bool operator()(const Object& from, Tag<std::map<String, TValue>>) const
     {
         if (from.empty())
@@ -388,7 +382,7 @@ public:
 
     // Invalid conversions
     template <typename TField, typename TResult,
-              internal::EnableIfNotConvertible<TField,TResult> = 0>
+              internal::DisableIfConvertible<TField,TResult> = 0>
     void operator()(const TField&, TResult&) const
     {
         throw error::Conversion(
@@ -398,7 +392,7 @@ public:
     }
 
     // Vector conversions
-    template <typename TElem, internal::EnableIfNotVariant<TElem> = 0>
+    template <typename TElem, internal::DisableIfVariant<TElem> = 0>
     void operator()(const Array& from, std::vector<TElem>& to) const
     {
         TElem toElem;
@@ -419,7 +413,7 @@ public:
     }
 
     // Map conversions
-    template <typename TValue, internal::EnableIfNotVariant<TValue> = 0>
+    template <typename TValue, internal::DisableIfVariant<TValue> = 0>
     void operator()(const Object& from, std::map<String, TValue>& to) const
     {
         TValue toValue;

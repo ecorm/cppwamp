@@ -24,18 +24,13 @@ Connector::Ptr connector(AsioService& iosvc, TcpHost host)
 }
 
 
-namespace legacy
-{
-
 //------------------------------------------------------------------------------
 template <typename TCodec>
-Connector::Ptr connector(AsioService& iosvc, TcpHost host)
+Connector::Ptr legacyConnector(AsioService& iosvc, TcpHost host)
 {
     using Endpoint = internal::LegacyAsioEndpoint<internal::TcpOpener>;
     using ConcreteConnector = internal::RawsockConnector<TCodec, Endpoint>;
     return ConcreteConnector::create(iosvc, std::move(host));
 }
-
-} // namespace legacy
 
 } // namespace wamp

@@ -15,11 +15,14 @@ set(SOURCES
     varianttestbadaccess.cpp
     varianttestcomparison.cpp
     varianttestconvert.cpp
+    varianttestconverter.cpp
+    varianttestconvertboost.cpp
+    varianttestconvertcontainers.cpp
+    varianttestconverttuple.cpp
     varianttestinfo.cpp
     varianttestinit.cpp
     varianttestmap.cpp
     varianttestoutput.cpp
-    varianttesttuple.cpp
     varianttestvector.cpp
     varianttestvisitation.cpp
     wamptest.cpp

@@ -57,7 +57,7 @@ Connector::Ptr legacyConnector(
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/tcp.ipp"
+#include "internal/uds.ipp"
 #endif
 
-#endif // CPPWAMP_TCP_HPP
+#endif // CPPWAMP_UDS_HPP

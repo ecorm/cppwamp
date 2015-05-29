@@ -5,14 +5,11 @@
 #                   http://www.boost.org/LICENSE_1_0.txt)
 #-------------------------------------------------------------------------------
 
-add_subdirectory(chat)
-add_subdirectory(timeservice)
-add_subdirectory(timeclient)
+# Add executable target for chat example program
+add_executable (timeservice main.cpp)
 
-# Copy Crossbar node configuration to build directory
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/.crossbar/config.json
-    ${CMAKE_CURRENT_BINARY_DIR}/.crossbar/config.json
-    COPYONLY
-)
+# Link against Boost libraries
+target_link_libraries(timeservice ${Boost_LIBRARIES})
 
+# Add include path for CppWAMP
+include_directories(timeservice ../../cppwamp/include)

@@ -8,6 +8,12 @@
 #ifndef CPPWAMP_TCPHOST_HPP
 #define CPPWAMP_TCPHOST_HPP
 
+//------------------------------------------------------------------------------
+/** @file
+    Contains facilities for specifying TCP transport parameters and
+    options. */
+//------------------------------------------------------------------------------
+
 #include <string>
 #include "rawsockoptions.hpp"
 

@@ -51,12 +51,8 @@ namespace wamp
 
 template Connector::Ptr connector<Json>(AsioService& iosvc, TcpHost host);
 template Connector::Ptr connector<Msgpack>(AsioService& iosvc, TcpHost host);
-
-namespace legacy
-{
-    template Connector::Ptr connector<Json>(AsioService& iosvc, TcpHost host);
-    template Connector::Ptr connector<Msgpack>(AsioService& iosvc, TcpHost host);
-}
+template Connector::Ptr legacyConnector<Json>(AsioService& iosvc, TcpHost host);
+template Connector::Ptr legacyConnector<Msgpack>(AsioService& iosvc, TcpHost host);
 
 namespace internal
 {
@@ -68,12 +64,8 @@ namespace internal
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
 template Connector::Ptr connector<Json>(AsioService& iosvc, UdsPath path);
 template Connector::Ptr connector<Msgpack>(AsioService& iosvc, UdsPath path);
-
-namespace legacy
-{
-    template Connector::Ptr connector<Json>(AsioService& iosvc, UdsPath path);
-    template Connector::Ptr connector<Msgpack>(AsioService& iosvc, UdsPath path);
-}
+template Connector::Ptr legacyConnector<Json>(AsioService& iosvc, UdsPath path);
+template Connector::Ptr legacyConnector<Msgpack>(AsioService& iosvc, UdsPath path);
 
 namespace internal
 {

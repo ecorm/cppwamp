@@ -21,6 +21,23 @@
                      ]
                   }
                ]
+            },
+            {
+               "name": "cppwamp.demo.time",
+               "roles": [
+                  {
+                     "name": "anonymous",
+                     "permissions": [
+                        {
+                           "uri": "*",
+                           "publish": true,
+                           "subscribe": true,
+                           "call": true,
+                           "register": true
+                        }
+                     ]
+                  }
+               ]
             }
          ],
          "transports": [
@@ -31,6 +48,15 @@
                   "port": 12345
                },
                "serializers": ["json"],
+               "debug": true
+            },
+            {
+               "type": "rawsocket",
+               "endpoint": {
+                  "type": "unix",
+                  "path": "./uds-examples"
+               },
+               "serializers": ["msgpack"],
                "debug": true
             }
          ]

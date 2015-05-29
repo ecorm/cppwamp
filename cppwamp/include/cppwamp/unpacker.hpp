@@ -18,14 +18,13 @@
 #include <tuple>
 #include "sessiondata.hpp"
 #include "variant.hpp"
+#include "./internal/integersequence.hpp"
 
 namespace wamp
 {
 
 namespace internal
 {
-
-template<int ...> struct Sequence { };
 
 struct UnpackError
 {
@@ -74,7 +73,7 @@ private:
         typename std::tuple_element<N, std::tuple<Ts...>>::type;
 
     template <int ...S>
-    void invoke(Event&& event, internal::Sequence<S...>);
+    void invoke(Event&& event, internal::IntegerSequence<S...>);
 
     template <int N>
     static NthTypeOf<N, TArgs...> get(const Array& args);
@@ -128,7 +127,7 @@ private:
         typename std::tuple_element<N, std::tuple<Ts...>>::type;
 
     template <int ...S>
-    Outcome invoke(Invocation&& inv, internal::Sequence<S...>);
+    Outcome invoke(Invocation&& inv, internal::IntegerSequence<S...>);
 
     template <int N>
     static NthTypeOf<N, TArgs...> get(const Array& args);

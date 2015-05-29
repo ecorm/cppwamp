@@ -766,6 +766,7 @@ WARN_LOGFILE           =
 
 INPUT                  = cppwamp/include/cppwamp \
                          cppwamp/include/cppwamp/internal \
+                         cppwamp/include/cppwamp/types \
                          doc
 
 # This tag can be used to specify the character encoding of the source files

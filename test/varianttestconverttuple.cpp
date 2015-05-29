@@ -10,7 +10,7 @@
 #include <tuple>
 #include <catch.hpp>
 #include <cppwamp/variant.hpp>
-#include <cppwamp/varianttuple.hpp>
+#include <cppwamp/types/tuple.hpp>
 
 using namespace wamp;
 
@@ -25,9 +25,9 @@ GIVEN( "a tuple of valid types" )
     Variant expected = Array{null, false, true, 0u, -1, 42.0, "foo",
                              Array{"a", 123}, Object{{"o", 321}},
                              Array{"b", 124}};
-    WHEN( "a variant is constructed with the tuple" )
+    WHEN( "a variant is constructed from the tuple" )
     {
-        Variant v(toArray(tuple));
+        auto v = Variant::from(tuple);
         CHECK( v == expected );
     }
     WHEN( "the tuple is assigned to a variant" )
@@ -41,9 +41,9 @@ GIVEN( "an empty tuple" )
 {
     std::tuple<> tuple;
     Variant expected = Array{};
-    WHEN( "a variant is constructed with the tuple" )
+    WHEN( "a variant is constructed from the tuple" )
     {
-        Variant v(toArray(tuple));
+        auto v = Variant::from(tuple);
         CHECK( v == expected );
     }
     WHEN( "the tuple is assigned to a variant" )
@@ -53,7 +53,7 @@ GIVEN( "an empty tuple" )
         CHECK( v == expected );
     }
 }
-// The following should cause 4 static assertion failures:
+// The following should cause 2 static assertion failures:
 //GIVEN( "a tuple with an invalid type" )
 //{
 //    struct Invalid {};
@@ -61,8 +61,6 @@ GIVEN( "an empty tuple" )
 //    Array array;
 //    array = toArray(tuple);
 //    toTuple(array, tuple);
-//    bool equal = array == tuple;
-//    bool notequal = array != tuple;
 //}
 }
 
@@ -76,10 +74,9 @@ SCENARIO( "Variant conversion/comparison to tuple", "[Variant]" )
 
         WHEN( "a matching variant is converted to the tuple" )
         {
-            Variant v(toArray(tuple));
+            auto v = Variant::from(tuple);
             TupleType result;
-            CHECK( convertsToTuple(v.as<Array>(), tuple) );
-            REQUIRE_NOTHROW( toTuple(v.as<Array>(), result) );
+            REQUIRE_NOTHROW( v.to(result) );
             CHECK(( result == tuple ));
             CHECK(( v == tuple ));
             CHECK(( v.as<Array>() == tuple ));
@@ -88,7 +85,7 @@ SCENARIO( "Variant conversion/comparison to tuple", "[Variant]" )
         }
         WHEN( "a matching variant differs by only one value" )
         {
-            Variant v(toArray(tuple));
+            auto v = Variant::from(tuple);
             v.as<Array>().at(3).as<UInt>() = 666u;
             CHECK_FALSE(( v == tuple ));
             CHECK_FALSE(( v.as<Array>() == tuple ));
@@ -98,21 +95,22 @@ SCENARIO( "Variant conversion/comparison to tuple", "[Variant]" )
     }
     GIVEN( "a tuple of convertible types" )
     {
-        struct Bogus{};
-        auto tuple = std::make_tuple(false, 3, 42.0, String("123"));
+        auto tuple = std::make_tuple(false, 3, 42.0);
         using TupleType = decltype(tuple);
 
         WHEN( "a compatible variant is converted to the tuple" )
         {
-            Variant v(Array{0, 3u, 42, String("123")});
+            Variant v(Array{0, 3u, 42});
             TupleType result;
-            CHECK( convertsToTuple(v.as<Array>(), tuple) );
+            REQUIRE_NOTHROW( v.to(result) );
+            CHECK(( result == tuple ));
+            result = TupleType();
             REQUIRE_NOTHROW( toTuple(v.as<Array>(), result) );
             CHECK(( result == tuple ));
         }
         WHEN( "a compatible variant is compared to the tuple" )
         {
-            Variant v(Array{false, 3u, 42, "123"});
+            Variant v(Array{false, 3u, 42});
             CHECK(( v == tuple ));
             CHECK(( v.as<Array>() == tuple ));
             CHECK_FALSE(( v != tuple ));
@@ -120,7 +118,7 @@ SCENARIO( "Variant conversion/comparison to tuple", "[Variant]" )
         }
         WHEN( "a compatible variant differs by only one value" )
         {
-            Variant v(Array{false, 3u, 41, "123"});
+            Variant v(Array{false, 3u, 41});
             CHECK_FALSE(( v == tuple ));
             CHECK_FALSE(( v.as<Array>() == tuple ));
             CHECK(( v != tuple ));
@@ -136,7 +134,9 @@ SCENARIO( "Variant conversion/comparison to tuple", "[Variant]" )
         {
             Variant v(Array{});
             TupleType result;
-            CHECK( convertsToTuple(v.as<Array>(), tuple) );
+            REQUIRE_NOTHROW( v.to(result) );
+            CHECK(( result == tuple ));
+            result = TupleType();
             REQUIRE_NOTHROW( toTuple(v.as<Array>(), result) );
             CHECK(( result == tuple ));
             CHECK(( v == tuple ));
@@ -148,7 +148,7 @@ SCENARIO( "Variant conversion/comparison to tuple", "[Variant]" )
         {
             Variant v(Array{null});
             TupleType result;
-            CHECK_FALSE( convertsToTuple(v.as<Array>(), tuple) );
+            REQUIRE_THROWS_AS( v.to(result), error::Conversion );
             REQUIRE_THROWS_AS( toTuple(v.as<Array>(), result),
                                error::Conversion );
             CHECK_FALSE(( v == tuple ));
@@ -172,7 +172,7 @@ SCENARIO( "Variant conversion/comparison to tuple", "[Variant]" )
         {
             Variant v(Array{true});
             TupleType result;
-            CHECK_FALSE( convertsToTuple(v.as<Array>(), tuple) );
+            REQUIRE_THROWS_AS( v.to(result), error::Conversion );
             REQUIRE_THROWS_AS( toTuple(v.as<Array>(), result),
                                error::Conversion );
             CHECK_FALSE(( v == tuple ));
@@ -184,7 +184,7 @@ SCENARIO( "Variant conversion/comparison to tuple", "[Variant]" )
         {
             Variant v(Array{true, 42, null});
             TupleType result;
-            CHECK_FALSE( convertsToTuple(v.as<Array>(), tuple) );
+            REQUIRE_THROWS_AS( v.to(result), error::Conversion );
             REQUIRE_THROWS_AS( toTuple(v.as<Array>(), result),
                                error::Conversion );
             CHECK_FALSE(( v == tuple ));
@@ -202,7 +202,7 @@ SCENARIO( "Variant conversion/comparison to tuple", "[Variant]" )
         {
             Variant v(Array{true, null, 42});
             TupleType result;
-            CHECK_FALSE( convertsToTuple(v.as<Array>(), tuple) );
+            REQUIRE_THROWS_AS( v.to(result), error::Conversion );
             REQUIRE_THROWS_AS( toTuple(v.as<Array>(), result),
                                error::Conversion );
             CHECK_FALSE(( v == tuple ));

@@ -17,6 +17,7 @@ HEADERS += \
     include/cppwamp/asyncresult.hpp \
     include/cppwamp/codec.hpp \
     include/cppwamp/connector.hpp \
+    include/cppwamp/conversion.hpp \
     include/cppwamp/corosession.hpp \
     include/cppwamp/dialoguedata.hpp \
     include/cppwamp/error.hpp \
@@ -32,11 +33,11 @@ HEADERS += \
     include/cppwamp/subscription.hpp \
     include/cppwamp/tcp.hpp \
     include/cppwamp/tcphost.hpp \
+    include/cppwamp/traits.hpp \
     include/cppwamp/uds.hpp \
     include/cppwamp/udspath.hpp \
     include/cppwamp/unpacker.hpp \
     include/cppwamp/variant.hpp \
-    include/cppwamp/varianttuple.hpp \
     include/cppwamp/version.hpp \
     include/cppwamp/visitor.hpp \
     include/cppwamp/wampdefs.hpp \
@@ -50,6 +51,7 @@ HEADERS += \
     include/cppwamp/internal/config.hpp \
     include/cppwamp/internal/dialogue.hpp \
     include/cppwamp/internal/endian.hpp \
+    include/cppwamp/internal/integersequence.hpp \
     include/cppwamp/internal/legacyasioendpoint.hpp \
     include/cppwamp/internal/legacyasiotransport.hpp \
     include/cppwamp/internal/messagetraits.hpp \
@@ -67,8 +69,12 @@ HEADERS += \
     include/cppwamp/internal/varianttraitsfwd.hpp \
     include/cppwamp/internal/variantvisitors.hpp \
     include/cppwamp/internal/wampmessage.hpp \
+    include/cppwamp/types/tuple.hpp \
+    include/cppwamp/types/boostoptional.hpp \
+    include/cppwamp/types/unorderedmap.hpp \
     \
     include/cppwamp/internal/asyncresult.ipp \
+    include/cppwamp/internal/conversion.ipp \
     include/cppwamp/internal/corosession.ipp \
     include/cppwamp/internal/dialoguedata.ipp \
     include/cppwamp/internal/endian.ipp \
@@ -91,9 +97,9 @@ HEADERS += \
     include/cppwamp/internal/udspath.ipp \
     include/cppwamp/internal/unpacker.ipp \
     include/cppwamp/internal/variant.ipp \
-    include/cppwamp/internal/varianttuple.ipp \
     include/cppwamp/internal/version.ipp \
-    include/cppwamp/internal/visitor.ipp
+    include/cppwamp/internal/visitor.ipp \
+    include/cppwamp/types/internal/tuple.ipp
 
 OTHER_FILES += \
     CMakeLists.txt
@@ -132,4 +138,8 @@ QMAKE_CXXFLAGS += \
 
 LIBS += -pthread
 
-DEPENDPATH += ./include ./include/internal
+DEPENDPATH += \
+    ./include \
+    ./include/internal \
+    ./include/types \
+    ./include/types/internal

@@ -13,6 +13,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include "../traits.hpp"
 #include "varianttraitsfwd.hpp"
 
 namespace wamp
@@ -20,35 +21,6 @@ namespace wamp
 
 namespace internal
 {
-
-//------------------------------------------------------------------------------
-template <typename T> constexpr bool isBool()
-{
-    // std::vector<bool>::const_reference is not just bool in clang/libc++.
-    return std::is_same<T, Bool>::value ||
-           std::is_same<T, std::vector<bool>::reference>::value ||
-           std::is_same<T, std::vector<bool>::const_reference>::value;
-}
-
-//------------------------------------------------------------------------------
-template <typename T> constexpr bool isNumber()
-{
-    return std::is_arithmetic<T>::value && !std::is_same<T, Bool>::value;
-}
-
-//------------------------------------------------------------------------------
-template <typename T> constexpr bool isSignedInteger()
-{
-    return std::is_integral<T>::value && std::is_signed<T>::value &&
-           !std::is_same<T, Bool>::value;
-}
-
-//------------------------------------------------------------------------------
-template <typename T> constexpr bool isUnsignedInteger()
-{
-    return std::is_integral<T>::value && !std::is_signed<T>::value &&
-           !std::is_same<T, Bool>::value;
-}
 
 //------------------------------------------------------------------------------
 template <TypeId typeId> struct FieldTypeForId {};
@@ -142,8 +114,7 @@ template <> struct ArgTraits<Null>
 };
 
 template <typename TField>
-struct ArgTraits<TField, typename std::enable_if<
-        isBool<TField>() >::type >
+struct ArgTraits<TField, EnableIf<isBool<TField>()>>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "Bool";}
@@ -151,8 +122,7 @@ struct ArgTraits<TField, typename std::enable_if<
 };
 
 template <typename TField>
-struct ArgTraits<TField, typename std::enable_if<
-        isSignedInteger<TField>() >::type >
+struct ArgTraits<TField, EnableIf<isSignedInteger<TField>()>>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "[signed integer]";}
@@ -160,8 +130,7 @@ struct ArgTraits<TField, typename std::enable_if<
 };
 
 template <typename TField>
-struct ArgTraits<TField, typename std::enable_if<
-        isUnsignedInteger<TField>() >::type >
+struct ArgTraits<TField, EnableIf<isUnsignedInteger<TField>()>>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "[unsigned integer]";}
@@ -169,8 +138,7 @@ struct ArgTraits<TField, typename std::enable_if<
 };
 
 template <typename TField>
-struct ArgTraits<TField, typename std::enable_if<
-        std::is_floating_point<TField>::value >::type>
+struct ArgTraits<TField, EnableIf<std::is_floating_point<TField>::value>>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "[floating point]";}
@@ -221,8 +189,7 @@ template <> struct ArgTraits<Array>
 };
 
 template <typename TElem>
-struct ArgTraits<std::vector<TElem>,
-        typename std::enable_if<!std::is_same<TElem,Variant>::value >::type>
+struct ArgTraits<std::vector<TElem>, DisableIf<isSameType<TElem,Variant>()>>
 {
     static constexpr bool isValid   = ArgTraits<TElem>::isValid;
     static String typeName()        {return "std::vector<" +
@@ -239,7 +206,7 @@ template <> struct ArgTraits<Object>
 
 template <typename TValue>
 struct ArgTraits<std::map<String, TValue>,
-        typename std::enable_if<!std::is_same<TValue,Variant>::value >::type>
+                 DisableIf<isSameType<TValue, Variant>()>>
 {
     static constexpr bool isValid   = ArgTraits<TValue>::isValid;
     static String typeName()        {return "std::map<String, "

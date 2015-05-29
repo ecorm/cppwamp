@@ -1,3 +1,19 @@
+v0.5.0
+======
+User-defined type support.
+
+### New Features
+- Users may now register custom types that can be converted to/from `Variant`. These registered custom types may be passed directly to RPC and pub/sub operations and handlers. See *Custom Variant Conversions* in the tutorial for usage examples (closes #69).
+- `timeservice` and `timeclient` examples have been provided which showcase the use of conversion facilities. These examples use the CppWAMP library in a header-only fashion (closes #67).
+- Converters have been provided for `std::unordered_map` and `boost::optional` (closes #68).
+
+### Breaking Changes
+- `Payload::withArgs` now takes variadic arguments, instead of a `std::initializer_list<Variant>`. This change makes it possible for registered user-defined types to be automatically converted to `Variant`. Wherever you do `Rpc("foo").withArgs({"hello", 42})` should be changed to `Rpc("foo").withArgs("hello", 42)` (notice the removed curly braces).
+- `std::tuple` support is now provided via the new conversion facilities, in `<cppwamp/types/tuple.hpp>`.
+
+### Other Changes
+- Fixed compile errors that occur only when the library is used in a header-only fashion.
+
 v0.4.0
 ======
 Connection API improvements.

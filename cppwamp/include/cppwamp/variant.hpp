@@ -22,6 +22,7 @@
 #include <type_traits>
 #include <vector>
 #include "null.hpp"
+#include "traits.hpp"
 #include "internal/varianttraitsfwd.hpp"
 
 namespace wamp
@@ -101,20 +102,19 @@ private:
 public:
     /// @name Metafunctions
     /// @{
-    /** Metafunction used for enabling overloads on valid argument types. */
-    template <typename T>
-    using EnableIfValidArg =
-        typename std::enable_if<ArgTraits<T>::isValid>::type*;
-
     /** Metafunction used to obtain the bound type associated with a
         particular @ref TypeId. */
     template <TypeId typeId>
     using BoundTypeForId = typename internal::FieldTypeForId<typeId>::Type;
 
-    /** Metafunction used to obtain the plain value type of a parameter
-        passed by universal reference. */
+    /** Metafunction used for enabling overloads for valid argument types. */
     template <typename T>
-    using ValueTypeOf = typename std::decay<T>::type;
+    using EnableIfValidArg = EnableIf<ArgTraits<ValueTypeOf<T>>::isValid>;
+
+    /** Metafunction used for disabling overloads for valid argument types. */
+    template <typename T>
+    using DisableIfValidArg = DisableIf<ArgTraits<ValueTypeOf<T>>::isValid>;
+
     /// @}
 
     /// @name Bound Types
@@ -138,6 +138,10 @@ public:
     /// @name Construction
     /// @{
 
+    /** Constructs a variant from a custom type. */
+    template <typename TValue>
+    static Variant from(TValue&& value);
+
     /** Constructs a null variant. */
     Variant() noexcept;
 
@@ -148,7 +152,7 @@ public:
     Variant(Variant&& other) noexcept;
 
     /** Converting constructor taking an initial value. */
-    template <typename T, EnableIfValidArg<T> = nullptr>
+    template <typename T, EnableIfValidArg<T> = 0>
     Variant(T value);
 
     /** Converting constructor taking an initial Array value. */
@@ -185,10 +189,6 @@ public:
     /** Returns `true` iff the variant's current dynamic type matches the
         given `id` template parameter. */
     template <TypeId id> bool is() const;
-
-    /** Returns `true` iff the variant is currently convertible to the given
-        type. */
-    template <typename T> bool convertsTo() const;
 
     /** Converts the variant's bound value to the given type. */
     template <typename T> T to() const;
@@ -306,6 +306,18 @@ private:
     template <typename TField> void destructAs();
 
     void destruct();
+
+    template <typename T, EnableIfValidArg<ValueTypeOf<T>> = 0>
+    static Variant convertFrom(T&& value);
+
+    template <typename T, DisableIfValidArg<ValueTypeOf<T>> = 0>
+    static Variant convertFrom(const T& value);
+
+    template <typename T, EnableIfValidArg<T> = 0>
+    void convertTo(T& value) const;
+
+    template <typename T, DisableIfValidArg<T> = 0>
+    void convertTo(T& value) const;
 
     template <typename TField, typename V> static TField& get(V&& variant);
 

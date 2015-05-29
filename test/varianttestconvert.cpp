@@ -24,7 +24,6 @@ void checkConvert(int level, const Variant& from, const TTo& to)
 {
     INFO( "For type#" << level << ", converting from '" << from <<
           "' to '" << to << "'");
-    REQUIRE( from.convertsTo<TTo>() );
     CHECK( from.to<TTo>() == to );
     CHECK( from.valueOr(to) == to );
     CHECK( from.valueOr(TTo()) == to );
@@ -43,7 +42,6 @@ void checkConvert(int level, const Variant& from, const TTo& to, TTos... tos)
     {
         INFO( "For type#" << level << ", converting from '" << from <<
               "' to '" << to << "'");
-        REQUIRE( from.convertsTo<TTo>() );
         CHECK( from.to<TTo>() == to );
     }
     checkConvert(level+1, from, tos...);
@@ -69,7 +67,6 @@ template <typename TTo, typename... TTos> struct CheckBadConvert<TTo, TTos...>
     {
         {
             INFO( "For type #" << level );
-            CHECK( !from.convertsTo<TTo>() );
             CHECK_THROWS_AS( from.to<TTo>(), error::Conversion );
             TTo val;
             CHECK_THROWS_AS( from.to(val), error::Conversion );

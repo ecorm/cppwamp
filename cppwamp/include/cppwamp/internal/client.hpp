@@ -505,7 +505,7 @@ private:
                                   move(reply.as<Object>(2)));
 
                     if (reply.size() >= 4)
-                        result.withArgs(move(reply.as<Array>(3)));
+                        result.withArgList(move(reply.as<Array>(3)));
                     if (reply.size() >= 5)
                         result.withKwargs(move(reply.as<Object>(4)));
                     this->post(handler, std::move(result));
@@ -619,7 +619,7 @@ private:
         {
             this->sendError(WampMsgType::invocation, requestId,
                     Error("wamp.error.no_such_procedure")
-                        .withArgs({"The called procedure does not exist"}));
+                        .withArgs("The called procedure does not exist"));
         }
     }
 
@@ -658,7 +658,7 @@ private:
             {
                 this->sendError(WampMsgType::invocation, reqId,
                         Error("wamp.error.invalid_argument")
-                            .withArgs({std::move(e.reason)}));
+                            .withArgs(std::move(e.reason)));
             }
             catch (Error error)
             {

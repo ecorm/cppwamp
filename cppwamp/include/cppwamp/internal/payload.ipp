@@ -15,6 +15,16 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+inline void bundle(Array&) {}
+
+template <typename T, typename... Ts>
+void bundle(Array& array, T&& head, Ts&&... tail)
+{
+    array.emplace_back(Variant::from(std::forward<T>(head)));
+    internal::bundle(array, tail...);
+}
+
+//------------------------------------------------------------------------------
 inline void unbundleTo(const Array&, size_t&) {}
 
 template <typename T, typename... Ts>
@@ -51,10 +61,24 @@ Payload<D>::Payload(std::initializer_list<Variant> list)
     : args_(list) {}
 
 //------------------------------------------------------------------------------
+/** Each argument is converted to a Variant using Variant::from. This allows
+    custom types to be passed in, as long as the `convert` function is
+    specialized for those custom types. */
+//------------------------------------------------------------------------------
+template <typename D>
+template <typename... Ts>
+D& Payload<D>::withArgs(Ts&&... args)
+{
+    Array array;
+    internal::bundle(array, std::forward<Ts>(args)...);
+    return withArgList(std::move(array));
+}
+
+//------------------------------------------------------------------------------
 /** @post `std::equal(list.begin(), list.end(), this->args()) == true` */
 //------------------------------------------------------------------------------
 template <typename D>
-D& Payload<D>::withArgs(Array args)
+D& Payload<D>::withArgList(Array args)
 {
     args_ = std::move(args);
     return static_cast<D&>(*this);
@@ -70,8 +94,6 @@ D& Payload<D>::withKwargs(Object kwargs)
     return static_cast<D&>(*this);
 }
 
-#if CPPWAMP_HAS_REF_QUALIFIERS
-
 //------------------------------------------------------------------------------
 template <typename D>
 const Array& Payload<D>::args() const & {return args_;}
@@ -85,22 +107,7 @@ const Array& Payload<D>::args() const & {return args_;}
     @post this->args().empty() == true */
 //------------------------------------------------------------------------------
 template <typename D>
-Array Payload<D>::args() && {return moveArgs();}
-
-#else
-//------------------------------------------------------------------------------
-template <typename D>
-const Array& Payload<D>::args() const {return args_;}
-#endif
-
-//------------------------------------------------------------------------------
-/** @details
-    This function is provided as a workaround for platforms that don't support
-    ref qualifiers.
-    @post this->args().empty() == true */
-//------------------------------------------------------------------------------
-template <typename D>
-Array Payload<D>::moveArgs()
+Array Payload<D>::args() &&
 {
     Array result = std::move(args_);
     args_.clear();
@@ -120,13 +127,7 @@ const Object& Payload<D>::kwargs() const & {return kwargs_;}
     @post this->kwargs().empty() == true */
 //------------------------------------------------------------------------------
 template <typename D>
-Object Payload<D>::kwargs() &&  {return moveKwargs();}
-
-//------------------------------------------------------------------------------
-/** @post this->kwargs().empty() == true */
-//------------------------------------------------------------------------------
-template <typename D>
-Object Payload<D>::moveKwargs()
+Object Payload<D>::kwargs() &&
 {
     Object result = std::move(kwargs_);
     kwargs_.clear();

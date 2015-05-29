@@ -25,6 +25,15 @@ constexpr const char tcpLoopbackAddr[] = "127.0.0.1";
 constexpr const char udsTestPath[] = "cppwamptestuds";
 
 //------------------------------------------------------------------------------
+struct LoopbackFixtureBase
+{
+    // These members need to be already initialized when initializing
+    // TcpLoopbackFixture and UdsLoopbackFixture
+    boost::asio::io_service clientService;
+    boost::asio::io_service serverService;
+};
+
+//------------------------------------------------------------------------------
 template <typename TConnector, typename TListener>
 struct LoopbackFixture
 {
@@ -36,14 +45,18 @@ struct LoopbackFixture
     using TransportPtr = std::shared_ptr<Transport>;
 
     template <typename TServerCodecIds>
-    LoopbackFixture(Opener&& opener,
+    LoopbackFixture(AsioService& clientService,
+                    AsioService& serverService,
+                    Opener&& opener,
                     int clientCodec,
                     RawsockMaxLength clientMaxRxLength,
                     Acceptor&& acceptor,
                     TServerCodecIds&& serverCodecs,
                     RawsockMaxLength serverMaxRxLength,
                     bool connected = true)
-        : cnct(std::move(opener), clientCodec, clientMaxRxLength),
+        : csvc(clientService),
+          ssvc(serverService),
+          cnct(std::move(opener), clientCodec, clientMaxRxLength),
           lstn(std::move(acceptor), std::forward<TServerCodecIds>(serverCodecs),
                serverMaxRxLength)
     {
@@ -97,8 +110,8 @@ struct LoopbackFixture
         csvc.stop();
     }
 
-    boost::asio::io_service csvc;
-    boost::asio::io_service ssvc;
+    boost::asio::io_service& csvc;
+    boost::asio::io_service& ssvc;
     Connector cnct;
     Listener  lstn;
     int clientCodec;

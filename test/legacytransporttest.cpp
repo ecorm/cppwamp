@@ -30,6 +30,7 @@ namespace
 
 //------------------------------------------------------------------------------
 struct TcpLoopbackFixture :
+        protected LoopbackFixtureBase,
         public LoopbackFixture<TcpAsioConnector, TcpAsioListener>
 {
     TcpLoopbackFixture(
@@ -38,10 +39,12 @@ struct TcpLoopbackFixture :
                 RawsockMaxLength clientMaxRxLength = RawsockMaxLength::kB_64,
                 RawsockMaxLength serverMaxRxLength = RawsockMaxLength::kB_64 )
         : LoopbackFixture(
-              internal::TcpOpener(csvc, {tcpLoopbackAddr, tcpTestPort}),
+              clientService,
+              serverService,
+              internal::TcpOpener(clientService, {tcpLoopbackAddr, tcpTestPort}),
               codec,
               clientMaxRxLength,
-              internal::TcpAcceptor(ssvc, tcpTestPort),
+              internal::TcpAcceptor(serverService, tcpTestPort),
               codec,
               serverMaxRxLength,
               connected )
@@ -50,6 +53,7 @@ struct TcpLoopbackFixture :
 
 //------------------------------------------------------------------------------
 struct UdsLoopbackFixture :
+        protected LoopbackFixtureBase,
         public LoopbackFixture<UdsAsioConnector, UdsAsioListener>
 {
     UdsLoopbackFixture(
@@ -58,10 +62,12 @@ struct UdsLoopbackFixture :
                 RawsockMaxLength clientMaxRxLength = RawsockMaxLength::kB_64,
                 RawsockMaxLength serverMaxRxLength = RawsockMaxLength::kB_64 )
         : LoopbackFixture(
-              internal::UdsOpener(csvc, {udsTestPath}),
+              clientService,
+              serverService,
+              internal::UdsOpener(clientService, {udsTestPath}),
               codec,
               clientMaxRxLength,
-              internal::UdsAcceptor(ssvc, udsTestPath, true),
+              internal::UdsAcceptor(serverService, udsTestPath, true),
               codec,
               serverMaxRxLength,
               connected )
