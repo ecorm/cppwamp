@@ -1,3 +1,12 @@
+v0.5.1
+======
+Minor fixes and enhancements to v0.5.0 release.
+
+- Fixed namespace-related errors that occur for user-defined conversions.
+- Can now specify a fallback value when extracting an object member during conversion.
+- Added Rpc::captureError which allows users to retrieve ERROR message details returned by a callee.
+- Variant-to-Variant conversion is now handled properly.
+
 v0.5.0
 ======
 User-defined type support.
