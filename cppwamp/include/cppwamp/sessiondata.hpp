@@ -231,6 +231,10 @@ public:
     /** Converting constructor taking a procedure URI. */
     Rpc(String procedure);
 
+    /** Specifies the Error object in which to store call errors returned
+        by the callee. */
+    Rpc& captureError(Error& error);
+
     /** Requests that the dealer cancels the call after the specified
         timeout duration. */
     Rpc& withDealerTimeout(Int milliseconds);
@@ -253,9 +257,11 @@ public:
 
 private:
     String procedure_;
+    Error* error_ = nullptr;
 
 public:
     String& procedure(internal::PassKey); // Internal use only
+    Error* error(internal::PassKey); // Internal use only
 };
 
 

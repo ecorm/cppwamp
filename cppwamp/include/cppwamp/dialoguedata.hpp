@@ -48,8 +48,14 @@ public:
 class Error : public Options<Error>, public Payload<Error>
 {
 public:
+    /** Constructs an empty error. */
+    Error();
+
     /** Converting constructor taking a reason URI. */
     Error(String reason);
+
+    /** Conversion to bool operator, returning false if the error is empty. */
+    explicit operator bool() const;
 
     /** Obtains the reason URI. */
     const String& reason() const;

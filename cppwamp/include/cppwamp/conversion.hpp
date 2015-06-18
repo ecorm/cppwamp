@@ -34,15 +34,15 @@
     void convertTo(ToVariantConverter&, const Type&)
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 //------------------------------------------------------------------------------
-#define CPPWAMP_CONVERSION_SPLIT_FREE(Type)         \
-void convert(FromVariantConverter& c, Type& obj)    \
-{                                                   \
-    convertFrom(c, obj);                            \
-}                                                   \
-                                                    \
-void convert(ToVariantConverter& c, Type& obj)      \
-{                                                   \
-    convertTo(c, const_cast<const Type&>(obj));     \
+#define CPPWAMP_CONVERSION_SPLIT_FREE(Type)                     \
+inline void convert(::wamp::FromVariantConverter& c, Type& obj) \
+{                                                               \
+    convertFrom(c, obj);                                        \
+}                                                               \
+                                                                \
+inline void convert(::wamp::ToVariantConverter& c, Type& obj)   \
+{                                                               \
+    convertTo(c, const_cast<const Type&>(obj));                 \
 }
 
 //------------------------------------------------------------------------------
@@ -63,16 +63,16 @@ void convert(ToVariantConverter& c, Type& obj)      \
     void CustomType::convertTo(ToVariantConverter&) const
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 //------------------------------------------------------------------------------
-#define CPPWAMP_CONVERSION_SPLIT_MEMBER(Type)       \
-void convert(FromVariantConverter& c, Type& obj)    \
-{                                                   \
-    ConversionAccess::convertFrom(c, obj);          \
-}                                                   \
-                                                    \
-void convert(ToVariantConverter& c, Type& obj)      \
-{                                                   \
-    const auto& constObj = obj;                     \
-    ConversionAccess::convertTo(c, constObj);       \
+#define CPPWAMP_CONVERSION_SPLIT_MEMBER(Type)                   \
+inline void convert(::wamp::FromVariantConverter& c, Type& obj) \
+{                                                               \
+    wamp::ConversionAccess::convertFrom(c, obj);                \
+}                                                               \
+                                                                \
+inline void convert(::wamp::ToVariantConverter& c, Type& obj)   \
+{                                                               \
+    const auto& constObj = obj;                                 \
+    wamp::ConversionAccess::convertTo(c, constObj);             \
 }
 
 namespace wamp
@@ -114,6 +114,10 @@ public:
     /** Appends an object member to the variant. */
     template <typename T>
     ToVariantConverter& operator()(String key, T&& value);
+
+    /** Appends an object member to the variant. */
+    template <typename T, typename U>
+    ToVariantConverter& operator()(String key, T&& value, U&& ignored);
 
     /** Returns a reference to the wrapped variant. */
     Variant& variant();
@@ -159,6 +163,11 @@ public:
     /** Retrieves a member from an Object variant. */
     template <typename T>
     FromVariantConverter& operator()(const String& key, T& value);
+
+    /** Retrieves a member from an Object variant, with a fallback value
+        if the member is not found. */
+    template <typename T, typename U>
+    FromVariantConverter& operator()(const String& key, T& value, U&& fallback);
 
     /** Returns a constant reference to the wrapped variant. */
     const Variant& variant() const;

@@ -489,6 +489,33 @@ Variant Variant::convertFrom(const T& value)
 }
 
 //------------------------------------------------------------------------------
+template <typename T, Variant::EnableIfVariantArg<ValueTypeOf<T>>>
+Variant Variant::convertFrom(const T& variant)
+{
+    return variant;
+}
+
+//------------------------------------------------------------------------------
+template <typename T, Variant::DisableIfValidArg<T>>
+Variant Variant::convertFrom(const std::vector<T>& vec)
+{
+    Variant::Array array;
+    for (const auto& elem: vec)
+        array.emplace_back(Variant::convertFrom(elem));
+    return Variant(std::move(array));
+}
+
+//------------------------------------------------------------------------------
+template <typename T, Variant::DisableIfValidArg<T>>
+Variant Variant::convertFrom(const std::map<String, T>& map)
+{
+    Variant::Object object;
+    for (const auto& kv: map)
+        object.emplace(kv.first, Variant::convertFrom(kv.second));
+    return Variant(std::move(object));
+}
+
+//------------------------------------------------------------------------------
 template <typename T, Variant::EnableIfValidArg<T>>
 void Variant::convertTo(T& value) const
 {
@@ -501,6 +528,39 @@ void Variant::convertTo(T& value) const
 {
     FromVariantConverter conv(*this);
     convert(conv, value);
+}
+
+//------------------------------------------------------------------------------
+template <typename T, Variant::EnableIfVariantArg<T>>
+void Variant::convertTo(T& variant) const
+{
+    variant = *this;
+}
+
+//------------------------------------------------------------------------------
+template <typename T, Variant::DisableIfValidArg<T>>
+void Variant::convertTo(std::vector<T>& vec) const
+{
+    const auto& array = this->as<Array>();
+    for (const auto& elem: array)
+    {
+        T value;
+        elem.convertTo(value);
+        vec.emplace_back(std::move(value));
+    }
+}
+
+//------------------------------------------------------------------------------
+template <typename T, Variant::DisableIfValidArg<T>>
+void Variant::convertTo(std::map<String, T>& map) const
+{
+    const auto& object = this->as<Object>();
+    for (const auto& kv: map)
+    {
+        T value;
+        kv.second.convertTo(value);
+        map.emplace(std::move(kv.first), std::move(value));
+    }
 }
 
 //------------------------------------------------------------------------------

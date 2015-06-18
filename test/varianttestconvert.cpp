@@ -84,6 +84,20 @@ void checkBadConvert(const Variant& from)
     CheckBadConvert<TTos...>::check(from);
 }
 
+//------------------------------------------------------------------------------
+void checkVariantToVariantConvert(Variant v)
+{
+    INFO( "For Variant = " << v );
+
+    auto to = v.to<Variant>();
+    CHECK( to.typeId() == v.typeId() );
+    CHECK( to == v );
+
+    Variant from = Variant::from(v);
+    CHECK( from.typeId() == v.typeId() );
+    CHECK( from == v );
+}
+
 } // namespace anonymous
 
 //------------------------------------------------------------------------------
@@ -299,6 +313,26 @@ GIVEN( "Object Variants" )
                 String, Array>(Variant(Object{ {"[]",Array{}} }));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
                 String, Array>(Variant(Object{ {"{}",Object{}} }));
+    }
+}
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Variant-to-Variant Conversions", "[Variant]" )
+{
+GIVEN( "an assortment of variants" )
+{
+    WHEN ( "converting to a variant" )
+    {
+        checkVariantToVariantConvert(null);
+        checkVariantToVariantConvert(false);
+        checkVariantToVariantConvert(true);
+        checkVariantToVariantConvert(42);
+        checkVariantToVariantConvert(123u);
+        checkVariantToVariantConvert(3.14);
+        checkVariantToVariantConvert("hello");
+        checkVariantToVariantConvert(Array{null, true, 42, 123u, 3.14, "hello"});
+        checkVariantToVariantConvert(Object{ {{"a"},{1}}, {{"b"},{"foo"}} });
     }
 }
 }

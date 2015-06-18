@@ -312,26 +312,28 @@ public:
     virtual void call(Rpc&& rpc, AsyncHandler<Result>&& handler) override
     {
         using std::move;
+        Error* errorPtr = rpc.error({});
+
         if (!rpc.kwargs().empty())
         {
             callWithKwargsMsg_.at(2) = move(rpc.options({}));
             callWithKwargsMsg_.at(3) = move(rpc.procedure({}));
             callWithKwargsMsg_.at(4) = move(rpc.args({}));
             callWithKwargsMsg_.at(5) = move(rpc.kwargs({}));
-            callProcedure(callWithKwargsMsg_, move(handler));
+            callProcedure(callWithKwargsMsg_, errorPtr, move(handler));
         }
         else if (!rpc.args().empty())
         {
             callWithArgsMsg_.at(2) = move(rpc.options({}));
             callWithArgsMsg_.at(3) = move(rpc.procedure({}));
             callWithArgsMsg_.at(4) = move(rpc.args({}));
-            callProcedure(callWithArgsMsg_, move(handler));
+            callProcedure(callWithArgsMsg_, errorPtr, move(handler));
         }
         else
         {
             callMsg_.at(2) = move(rpc.options({}));
             callMsg_.at(3) = move(rpc.procedure({}));
-            callProcedure(callMsg_, move(handler));
+            callProcedure(callMsg_, errorPtr, move(handler));
         }
     }
 
@@ -491,12 +493,22 @@ private:
         }
     }
 
-    void callProcedure(Message& msg, AsyncHandler<Result>&& handler)
+    void callProcedure(Message& msg, Error* errorPtr,
+                       AsyncHandler<Result>&& handler)
     {
         auto self = this->shared_from_this();
         this->request(msg,
-            [this, self, handler](std::error_code ec, Message reply)
+            [this, self, errorPtr, handler](std::error_code ec, Message reply)
             {
+                if ((reply.type == WampMsgType::error) && (errorPtr != nullptr))
+                {
+                    *errorPtr = Error(reply.as<String>(4));
+                    if (reply.size() >= 6)
+                        errorPtr->withArgList(reply.as<Array>(5));
+                    if (reply.size() >= 7)
+                        errorPtr->withKwargs(reply.as<Object>(6));
+                }
+
                 if (checkReply<Result>(WampMsgType::result, ec, reply,
                                        SessionErrc::callError, handler))
                 {

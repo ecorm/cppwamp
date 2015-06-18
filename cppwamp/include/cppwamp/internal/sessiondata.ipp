@@ -338,6 +338,12 @@ CPPWAMP_INLINE String& Procedure::uri(internal::PassKey) {return uri_;}
 
 CPPWAMP_INLINE Rpc::Rpc(String procedure) : procedure_(std::move(procedure)) {}
 
+CPPWAMP_INLINE Rpc& Rpc::captureError(Error& error)
+{
+    error_ = &error;
+    return *this;
+}
+
 CPPWAMP_INLINE Rpc& Rpc::withDealerTimeout(Int milliseconds)
 {
     return withOption("timeout", milliseconds);
@@ -386,6 +392,8 @@ CPPWAMP_INLINE Rpc& Rpc::withDiscloseMe(bool disclosed)
 }
 
 CPPWAMP_INLINE String& Rpc::procedure(internal::PassKey) {return procedure_;}
+
+CPPWAMP_INLINE Error* Rpc::error(internal::PassKey) {return error_;}
 
 
 //******************************************************************************

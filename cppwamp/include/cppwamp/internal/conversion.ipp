@@ -66,6 +66,16 @@ ToVariantConverter& ToVariantConverter::operator()(String key, T&& value)
     return *this;
 }
 
+/** @details
+    If the destination Variant is not already an Object, it will be transformed
+    into an object and all previously stored values will be cleared.
+    @post `this->variant().is<Object> == true` */
+template <typename T, typename U>
+ToVariantConverter& ToVariantConverter::operator()(String key, T&& value, U&&)
+{
+    return operator()(std::move(key), std::forward<T>(value));
+}
+
 inline Variant& ToVariantConverter::variant() {return var_;}
 
 
@@ -137,6 +147,19 @@ FromVariantConverter& FromVariantConverter::operator()(const String& key,
                                                        T& value)
 {
     var_.as<Object>().at(key).to(value);
+    return *this;
+}
+
+template <typename T, typename U>
+FromVariantConverter& FromVariantConverter::operator()(const String& key,
+                                                       T& value, U&& fallback)
+{
+    auto& obj = var_.as<Object>();
+    auto kv = obj.find(key);
+    if (kv != obj.end())
+        kv->second.to(value);
+    else
+        value = std::forward<U>(fallback);
     return *this;
 }
 

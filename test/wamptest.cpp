@@ -507,7 +507,7 @@ GIVEN( "an IO service and a TCP connector" )
     WHEN( "disconnecting during connect" )
     {
         std::error_code ec;
-        auto s = Session::create(cnct);
+        auto s = Session::create(ConnectorList({invalidTcp(iosvc), cnct}));
         s->connect([&](AsyncResult<size_t> result)
         {
             ec = result.errorCode();
@@ -518,6 +518,7 @@ GIVEN( "an IO service and a TCP connector" )
         iosvc.reset();
         CHECK( ec == TransportErrc::aborted );
 
+        // Check that we can reconnect.
         s->reset();
         ec.clear();
         bool connected = false;
@@ -1003,8 +1004,11 @@ GIVEN( "an IO service and a TCP connector" )
             f.enroll(yield);
 
             // Check normal RPC
-            result = f.caller->call(Rpc("dynamic").withArgs("one", 1),
-                                    yield);
+            Error error;
+            result = f.caller->call(Rpc("dynamic").withArgs("one", 1)
+                                    .captureError(error), yield);
+            CHECK( !error );
+            CHECK( error.reason().empty() );
             CHECK( f.dynamicCount == 1 );
             CHECK(( result.args() == Array{"one", 1} ));
             result = f.caller->call(Rpc("dynamic").withArgs("two", 2),
@@ -1694,14 +1698,35 @@ GIVEN( "an IO service and a TCP connector" )
                 [&callCount](Invocation)->Outcome
                 {
                     ++callCount;
-                    return Error("wamp.error.not_authorized");
+                    return Error("wamp.error.not_authorized")
+                           .withArgs(123)
+                           .withKwargs(Object{{{"foo"},{"bar"}}});
                 },
                 yield);
 
-            CHECK_THROWS_AS( f.caller->call(Rpc("rpc"), yield),
-                             error::Failure );
-            f.caller->call(Rpc("rpc"), yield, &ec);
-            CHECK( ec == SessionErrc::notAuthorized );
+            {
+                Error error;
+                CHECK_THROWS_AS( f.caller->call(Rpc("rpc").captureError(error),
+                                                yield),
+                                 error::Failure );
+                CHECK( !!error );
+                CHECK_THAT( error.reason(),
+                            Equals("wamp.error.not_authorized") );
+                CHECK( error.args() == Array{123} );
+                CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
+            }
+
+            {
+                Error error;
+                f.caller->call(Rpc("rpc").captureError(error), yield, &ec);
+                CHECK( ec == SessionErrc::notAuthorized );
+                CHECK( !!error );
+                CHECK_THAT( error.reason(),
+                            Equals("wamp.error.not_authorized") );
+                CHECK( error.args() == Array{123} );
+                CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
+            }
+
             CHECK( callCount == 2 );
         });
         iosvc.run();
@@ -1722,15 +1747,36 @@ GIVEN( "an IO service and a TCP connector" )
                 [&callCount](Invocation)->Outcome
                 {
                     ++callCount;
-                    throw Error("wamp.error.not_authorized");
+                    throw Error("wamp.error.not_authorized")
+                          .withArgs(123)
+                          .withKwargs(Object{{{"foo"},{"bar"}}});;
                     return {};
                 },
                 yield);
 
-            CHECK_THROWS_AS( f.caller->call(Rpc("rpc"), yield),
-                             error::Failure );
-            f.caller->call(Rpc("rpc"), yield, &ec);
-            CHECK( ec == SessionErrc::notAuthorized );
+            {
+                Error error;
+                CHECK_THROWS_AS( f.caller->call(Rpc("rpc").captureError(error),
+                                                yield),
+                                 error::Failure );
+                CHECK( !!error );
+                CHECK_THAT( error.reason(),
+                            Equals("wamp.error.not_authorized") );
+                CHECK( error.args() == Array{123} );
+                CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
+            }
+
+            {
+                Error error;
+                f.caller->call(Rpc("rpc").captureError(error), yield, &ec);
+                CHECK( ec == SessionErrc::notAuthorized );
+                CHECK( !!error );
+                CHECK_THAT( error.reason(),
+                            Equals("wamp.error.not_authorized") );
+                CHECK( error.args() == Array{123} );
+                CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
+            }
+
             CHECK( callCount == 2 );
         });
         iosvc.run();

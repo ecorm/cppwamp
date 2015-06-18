@@ -113,7 +113,12 @@ public:
 
     /** Metafunction used for disabling overloads for valid argument types. */
     template <typename T>
-    using DisableIfValidArg = DisableIf<ArgTraits<ValueTypeOf<T>>::isValid>;
+    using DisableIfValidArg = DisableIf<ArgTraits<ValueTypeOf<T>>::isValid ||
+                                        isSameType<T, Variant>()>;
+
+    /** Metafunction used for enabling overloads for Variant arguments. */
+    template <typename T>
+    using EnableIfVariantArg = EnableIf<isSameType<T, Variant>()>;
 
     /// @}
 
@@ -256,7 +261,7 @@ public:
     /** Move-assigns from one variant into another. */
     Variant& operator=(Variant&& other) noexcept;
 
-    /** Assigns a value to variant. */
+    /** Assigns a value to a variant. */
     template <typename T> Variant& operator=(T value);
 
     /** Assigns an array variant to a variant. */
@@ -313,11 +318,29 @@ private:
     template <typename T, DisableIfValidArg<ValueTypeOf<T>> = 0>
     static Variant convertFrom(const T& value);
 
+    template <typename T, EnableIfVariantArg<ValueTypeOf<T>> = 0>
+    static Variant convertFrom(const T& variant);
+
+    template <typename T, DisableIfValidArg<T> = 0>
+    static Variant convertFrom(const std::vector<T>& vec);
+
+    template <typename T, DisableIfValidArg<T> = 0>
+    static Variant convertFrom(const std::map<String, T>& map);
+
     template <typename T, EnableIfValidArg<T> = 0>
     void convertTo(T& value) const;
 
     template <typename T, DisableIfValidArg<T> = 0>
     void convertTo(T& value) const;
+
+    template <typename T, EnableIfVariantArg<T> = 0>
+    void convertTo(T& variant) const;
+
+    template <typename T, DisableIfValidArg<T> = 0>
+    void convertTo(std::vector<T>& vec) const;
+
+    template <typename T, DisableIfValidArg<T> = 0>
+    void convertTo(std::map<String, T>& map) const;
 
     template <typename TField, typename V> static TField& get(V&& variant);
 
