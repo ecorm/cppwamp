@@ -1,3 +1,10 @@
+v0.5.2
+======
+More fixes for v0.5.0 release.
+
+- Fixed JSON encoding of control characters (fixes #72)
+- Added test case for converting derived DTO classes (see #70)
+
 v0.5.1
 ======
 Minor fixes and enhancements to v0.5.0 release.
