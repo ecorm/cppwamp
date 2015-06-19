@@ -13,7 +13,7 @@
 
 using namespace wamp;
 
-namespace
+namespace user
 {
 
 //------------------------------------------------------------------------------
@@ -199,8 +199,33 @@ private:
 
 CPPWAMP_CONVERSION_SPLIT_MEMBER(CustomContainer)
 
-} // anonymous namespace
+//------------------------------------------------------------------------------
+class DerivedDto : public SimpleDto
+{
+public:
+    std::string extra;
 
+    bool operator==(const DerivedDto& other) const
+    {
+        return (static_cast<const Base&>(*this) ==
+                static_cast<const Base&>(other)) &&
+               (extra == other.extra);
+    }
+
+private:
+    using Base = SimpleDto;
+
+    template <typename TConverter>
+    void convert(TConverter& conv)
+    {
+        conv(static_cast<Base&>(*this))
+            ("extra", extra);
+    }
+
+    friend class wamp::ConversionAccess;
+};
+
+} // namespace user
 
 
 //------------------------------------------------------------------------------
@@ -213,7 +238,7 @@ SCENARIO( "Using converters directly", "[Variant]" )
 
     GIVEN( "a simple DTO" )
     {
-        SimpleDto dto{true, 2, 3.0f, "4"};
+        user::SimpleDto dto{true, 2, 3.0f, "4"};
 
         WHEN( "Saving the DTO" )
         {
@@ -224,7 +249,7 @@ SCENARIO( "Using converters directly", "[Variant]" )
         WHEN( "Loading the DTO" )
         {
             v = object;
-            SimpleDto loaded;
+            user::SimpleDto loaded;
             fromConverter(loaded);
             CHECK( loaded == dto );
         }
@@ -232,7 +257,7 @@ SCENARIO( "Using converters directly", "[Variant]" )
 
     GIVEN( "a simple DTO with intrusive converter" )
     {
-        IntrusiveSimpleDto dto{true, 2, 3.0f, "4"};
+        user::IntrusiveSimpleDto dto{true, 2, 3.0f, "4"};
 
         WHEN( "Saving the DTO" )
         {
@@ -243,7 +268,7 @@ SCENARIO( "Using converters directly", "[Variant]" )
         WHEN( "Loading the DTO" )
         {
             v = object;
-            IntrusiveSimpleDto loaded;
+            user::IntrusiveSimpleDto loaded;
             convert(fromConverter, loaded);
             CHECK( loaded == dto );
         }
@@ -257,7 +282,7 @@ SCENARIO( "Converting to/from variants", "[Variant]" )
 
     GIVEN( "a simple DTO" )
     {
-        SimpleDto dto{true, 2, 3.0f, "4"};
+        user::SimpleDto dto{true, 2, 3.0f, "4"};
 
         WHEN( "Saving the DTO" )
         {
@@ -268,14 +293,14 @@ SCENARIO( "Converting to/from variants", "[Variant]" )
         WHEN( "Loading the DTO" )
         {
             Variant v = object;
-            auto loaded = v.to<SimpleDto>();
+            auto loaded = v.to<user::SimpleDto>();
             CHECK( loaded == dto );
         }
     }
 
     GIVEN( "a simple DTO with intrusive converter" )
     {
-        IntrusiveSimpleDto dto{true, 2, 3.0f, "4"};
+        user::IntrusiveSimpleDto dto{true, 2, 3.0f, "4"};
 
         WHEN( "Saving the DTO" )
         {
@@ -286,7 +311,7 @@ SCENARIO( "Converting to/from variants", "[Variant]" )
         WHEN( "Loading the DTO" )
         {
             Variant v = object;
-            auto loaded = v.to<IntrusiveSimpleDto>();
+            auto loaded = v.to<user::IntrusiveSimpleDto>();
             CHECK( loaded == dto );
         }
     }
@@ -301,7 +326,8 @@ SCENARIO( "Composite DTOs", "[Variant]" )
 
     GIVEN( "a composite DTO" )
     {
-        CompositeDto dto{ {true, 2, 3.0f, "4"}, {false, -2, -3.0f, "-4"} };
+        user::CompositeDto dto{ {true, 2, 3.0f, "4"},
+                                {false, -2, -3.0f, "-4"} };
 
         WHEN( "Saving the DTO" )
         {
@@ -312,15 +338,15 @@ SCENARIO( "Composite DTOs", "[Variant]" )
         WHEN( "Loading the DTO" )
         {
             Variant v = compositeObject;
-            auto loaded = v.to<CompositeDto>();
+            auto loaded = v.to<user::CompositeDto>();
             CHECK( loaded == dto );
         }
     }
 
     GIVEN( "a simple DTO with intrusive converter" )
     {
-        IntrusiveCompositeDto dto{ {true, 2, 3.0f, "4"},
-                                   {false, -2, -3.0f, "-4"} };
+        user::IntrusiveCompositeDto dto{ {true, 2, 3.0f, "4"},
+                                         {false, -2, -3.0f, "-4"} };
 
         WHEN( "Saving the DTO" )
         {
@@ -331,7 +357,7 @@ SCENARIO( "Composite DTOs", "[Variant]" )
         WHEN( "Loading the DTO" )
         {
             Variant v = compositeObject;
-            auto loaded = v.to<IntrusiveCompositeDto>();
+            auto loaded = v.to<user::IntrusiveCompositeDto>();
             CHECK( loaded == dto );
         }
     }
@@ -345,7 +371,7 @@ SCENARIO( "Using split conversions", "[Variant]" )
 
     GIVEN( "a simple DTO" )
     {
-        SplitDto dto{true, 2, 3.0f, "4"};
+        user::SplitDto dto{true, 2, 3.0f, "4"};
 
         WHEN( "Saving the DTO" )
         {
@@ -356,14 +382,14 @@ SCENARIO( "Using split conversions", "[Variant]" )
         WHEN( "Loading the DTO" )
         {
             Variant v = object1;
-            auto loaded = v.to<SplitDto>();
+            auto loaded = v.to<user::SplitDto>();
             CHECK( loaded == dto );
         }
     }
 
     GIVEN( "a simple DTO with intrusive converter" )
     {
-        IntrusiveSplitDto dto{true, 2, 3.0f, "4"};
+        user::IntrusiveSplitDto dto{true, 2, 3.0f, "4"};
 
         WHEN( "Saving the DTO" )
         {
@@ -374,7 +400,7 @@ SCENARIO( "Using split conversions", "[Variant]" )
         WHEN( "Loading the DTO" )
         {
             Variant v = object1;
-            auto loaded = v.to<IntrusiveSplitDto>();
+            auto loaded = v.to<user::IntrusiveSplitDto>();
             CHECK( loaded == dto );
         }
     }
@@ -385,7 +411,7 @@ SCENARIO( "Converting custom sequence collections", "[Variant]" )
 {
     GIVEN( "a custom sequence collection" )
     {
-        CustomContainer seq;
+        user::CustomContainer seq;
         seq.data = {1, 2, 3};
 
         WHEN( "converted to a variant" )
@@ -405,12 +431,42 @@ SCENARIO( "Converting custom sequence collections", "[Variant]" )
 
         WHEN( "converted to a custom sequence collection" )
         {
-            auto seq = v.to<CustomContainer>();
+            auto seq = v.to<user::CustomContainer>();
 
             THEN( "the collection is as expected" )
             {
                 CHECK( seq.data == (std::vector<int>{1, 2, 3}) );
             }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Derived DTOs", "[Variant]" )
+{
+    Variant derivedObject = Object{{"b",true}, {"n",2}, {"x",3.0f}, {"s","4"},
+                                   {"extra", "5"}};
+
+    GIVEN( "a derived DTO" )
+    {
+        user::DerivedDto dto;
+        dto.b = true;
+        dto.n = 2;
+        dto.x = 3.0f;
+        dto.s = "4";
+        dto.extra = "5";
+
+        WHEN( "Saving the DTO" )
+        {
+            auto v = Variant::from(dto);
+            CHECK( v == derivedObject );
+        }
+
+        WHEN( "Loading the DTO" )
+        {
+            Variant v = derivedObject;
+            auto loaded = v.to<user::DerivedDto>();
+            CHECK( loaded == dto );
         }
     }
 }

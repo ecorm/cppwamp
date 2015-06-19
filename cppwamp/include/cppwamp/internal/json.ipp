@@ -117,48 +117,71 @@ struct EncodeJson : public Visitor<>
 
     void operator()(const std::string& s, TBuffer& buf) const
     {
-        static const std::string quote("\"");
-        write(buf, quote);
-        write(buf, s);
-        write(buf, quote);
+        writeChar(buf, '\"');
+        for (char c: s)
+            writeEncodedChar(buf, c);
+        writeChar(buf, '\"');
     }
 
     void operator()(const Array& a, TBuffer& buf) const
     {
-        static const std::string openBracket("[");
-        static const std::string closeBracket("]");
-        static const std::string comma(",");
-        write(buf, openBracket);
+        writeChar(buf, '[');
         for (const auto& v: a)
         {
             if (&v != &a.front())
-                write(buf, comma);
+                writeChar(buf, ',');
             applyWithOperand(*this, v, buf);
         }
-        write(buf, closeBracket);
+        writeChar(buf, ']');
     }
 
     void operator()(const Object& o, TBuffer& buf) const
     {
-        static const std::string openBrace("{");
-        static const std::string closeBrace("}");
-        static const std::string colon(":");
-        static const std::string comma(",");
-        write(buf, openBrace);
+        writeChar(buf, '{');
         for (auto kv = o.cbegin(); kv != o.cend(); ++kv)
         {
             if (kv != o.cbegin())
-                write(buf, comma);
+                writeChar(buf, ',');
             this->operator()(kv->first, buf);
-            write(buf, colon);
+            writeChar(buf, ':');
             applyWithOperand(*this, kv->second, buf);
         }
-        write(buf, closeBrace);
+        writeChar(buf, '}');
     }
 
     static void write(TBuffer& buf, const std::string& s)
     {
         buf.write(s.data(), s.length());
+    }
+
+    static void writeChar(TBuffer& buf, char c)
+    {
+        buf.write(&c, 1);
+    }
+
+    static void writeEncodedChar(TBuffer& buf, char c)
+    {
+        switch (c)
+        {
+        case '\"': writeChar(buf, '\\'); writeChar(buf, '\"'); return;
+        case '\\': writeChar(buf, '\\'); writeChar(buf, '\\'); return;
+        case '\b': writeChar(buf, '\\'); writeChar(buf, 'b'); return;
+        case '\f': writeChar(buf, '\\'); writeChar(buf, 'f'); return;
+        case '\n': writeChar(buf, '\\'); writeChar(buf, 'n'); return;
+        case '\r': writeChar(buf, '\\'); writeChar(buf, 'r'); return;
+        case '\t': writeChar(buf, '\\'); writeChar(buf, 't'); return;
+        }
+
+        if (c <= 0x1f)
+        {
+            auto n = static_cast<unsigned int>(c);
+            char str[8];
+            auto length = std::snprintf(str, sizeof(str), "\\u%04X", n);
+            assert(length < sizeof(str));
+            buf.write(str, length);
+        }
+        else
+            writeChar(buf, c);
     }
 };
 

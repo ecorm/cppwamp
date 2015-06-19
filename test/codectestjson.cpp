@@ -250,6 +250,50 @@ GIVEN( "non-finite real numbers" )
         }
     }
 }
+GIVEN( "a string Variant with control characters" )
+{
+    std::string s;
+    for (char c = 0; c<=0x1f; ++c)
+        s += c;
+    s += '\"';
+    s += '\\';
+    Variant v = s;
+
+    WHEN( "encoding to JSON and decoding back" )
+    {
+        std::string encoded;
+        Json::encode(v, encoded);
+        Variant decoded;
+        Json::decode(encoded, decoded);
+
+        THEN( "the decoded Variant matches the original" )
+        {
+            CHECK( decoded == v );
+        }
+    }
+}
+GIVEN( "an object Variant with control characters in a key" )
+{
+    std::string key;
+    for (char c = 0; c<=0x1f; ++c)
+        key += c;
+    key += '\"';
+    key += '\\';
+    Variant v = Object{{{key, 123}}};
+
+    WHEN( "encoding to JSON and decoding back" )
+    {
+        std::string encoded;
+        Json::encode(v, encoded);
+        Variant decoded;
+        Json::decode(encoded, decoded);
+
+        THEN( "the decoded Variant matches the original" )
+        {
+            CHECK( decoded == v );
+        }
+    }
+}
 }
 
 #endif // #if CPPWAMP_TESTING_CODEC

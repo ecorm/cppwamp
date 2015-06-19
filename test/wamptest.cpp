@@ -508,29 +508,39 @@ GIVEN( "an IO service and a TCP connector" )
     {
         std::error_code ec;
         auto s = Session::create(ConnectorList({invalidTcp(iosvc), cnct}));
+        bool connectHandlerInvoked = false;
         s->connect([&](AsyncResult<size_t> result)
         {
+            connectHandlerInvoked = true;
             ec = result.errorCode();
         });
         s->disconnect();
 
         iosvc.run();
         iosvc.reset();
-        CHECK( ec == TransportErrc::aborted );
+        CHECK( connectHandlerInvoked );
 
-        // Check that we can reconnect.
-        s->reset();
-        ec.clear();
-        bool connected = false;
-        s->connect([&](AsyncResult<size_t> result)
+        // Depending on how Asio schedules things, the connect operation
+        // sometimes completes successfully before the cancellation request
+        // can go through.
+        if (ec)
         {
-            ec = result.errorCode();
-            connected = !ec;
-        });
+            CHECK( ec == TransportErrc::aborted );
 
-        iosvc.run();
-        CHECK( ec == TransportErrc::success );
-        CHECK( connected );
+            // Check that we can reconnect.
+            s->reset();
+            ec.clear();
+            bool connected = false;
+            s->connect([&](AsyncResult<size_t> result)
+            {
+                ec = result.errorCode();
+                connected = !ec;
+            });
+
+            iosvc.run();
+            CHECK( ec == TransportErrc::success );
+            CHECK( connected );
+        }
     }
 
     WHEN( "disconnecting during coroutine join" )
