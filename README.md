@@ -5,7 +5,7 @@ C++11 client library for the [WAMP][wamp] protocol.
 
 **Features**:
 
-- Supports the [WAMP Basic Profile][wamp-basic]
+- Supports the WAMP _Basic Profile_
 - Supports [some advanced WAMP profile features](#advanced)
 - Roles: _Caller_, _Callee_, _Subscriber_, _Publisher_
 - Transports: TCP and Unix domain raw sockets (with and without handshaking support)
@@ -28,8 +28,7 @@ C++11 client library for the [WAMP][wamp] protocol.
   [Boost.Context][boost-context]
 - (for testing) [CMake][cmake] and the [Catch][catch] unit test framework
 
-[wamp]: http://wamp.ws/
-[wamp-basic]: https://github.com/tavendo/WAMP/blob/master/spec/basic.md
+[wamp]: http://wamp-proto.org/
 [boost-asio]: http://www.boost.org/doc/libs/release/doc/html/boost_asio.html
 [boost-endian]: https://github.com/boostorg/endian
 [boost]: http://boost.org
@@ -96,8 +95,8 @@ iosvc.run();
 boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 {
     :::
-    session->enroll(Procedure("add"), unpackedRpc<int, int>(
-                    [](wamp::Invocation inv, int n, int m) {return {n+m};}),
+    session->enroll(Procedure("add"), basicRpc<int, int, int>(
+                    [](int n, int m) -> int {return n+m;}),
                     yield);
     :::
 });
@@ -111,17 +110,16 @@ std::cout << "2 + 2 is " << result[0].to<int>() << "\n";
 
 ### Subscribing to a topic
 ```c++
-void sensorSampled(wamp::Event event, float value)
+void sensorSampled(float value)
 {
-    std::cout << "Sensor sampled, publication ID = " << event.pubId()
-              << " value = " << value << "\n";
+    std::cout << "Sensor sampled, value = " << value << "\n";
 }
 
 boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 {
     :::
     session->subscribe(Topic("sensorSampled"),
-                       unpackedEvent<float>(&sensorSampled),
+                       basicEvent<float>(&sensorSampled),
                        yield);
     :::
 });
@@ -138,7 +136,7 @@ session->publish(Pub("sensorSampled").withArgs(value));
 
 - General: agent identification, feature announcement
 - _Callee_: `call_trustlevels`, `caller_identification`, `pattern_based_registration`, `progressive_call_results`
-- _Caller_: `call_timeout`, `callee_blackwhite_listing`, `caller_exclusion`, `caller_identification`
+- _Caller_: `call_timeout`, `caller_identification`
 - _Publisher_: `publisher_exclusion`, `publisher_identification`, `subscriber_blackwhite_listing`
 - _Subscriber_: `pattern_based_subscription`, `publication_trustlevels`, `publisher_identification`
 

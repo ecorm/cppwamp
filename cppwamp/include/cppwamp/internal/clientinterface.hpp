@@ -87,7 +87,7 @@ inline const Object& ClientInterface::roles()
         }}}}},
         {"caller", Object{{"features", Object{{
             {"call_timeout", true},
-            {"callee_blackwhite_listing", true},
+            {"callee_blackwhite_listing", true}, // Deprecated
             {"caller_exclusion", true},
             {"caller_identification", true}
         }}}}},
