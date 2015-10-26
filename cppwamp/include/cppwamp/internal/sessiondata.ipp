@@ -150,7 +150,7 @@ CPPWAMP_INLINE Topic::Topic(String uri) : uri_(std::move(uri)) {}
     See [Pattern-based Subscriptions][pattern_based_sub] in the advanced
     WAMP spec.
     [pattern_based_sub]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#pattern-based-subscription */
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.6.4 */
 CPPWAMP_INLINE Topic& Topic::usingPrefixMatch()
 {
     return withOption("match", "prefix");
@@ -161,7 +161,7 @@ CPPWAMP_INLINE Topic& Topic::usingPrefixMatch()
     See [Pattern-based Subscriptions][pattern_based_sub] in the advanced
     WAMP spec.
     [pattern_based_sub]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#pattern-based-subscriptions */
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.6.4 */
 CPPWAMP_INLINE Topic& Topic::usingWildcardMatch()
 {
     return withOption("match", "wildcard");
@@ -183,10 +183,43 @@ CPPWAMP_INLINE Pub::Pub(String topic) : topic_(std::move(topic)) {}
     [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
     advanced WAMP spec.
     [sub_black_whitelisting]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#subscriber-black--and-whitelisting */
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
 CPPWAMP_INLINE Pub& Pub::withBlacklist(Array blacklist)
 {
     return withOption("exclude", std::move(blacklist));
+}
+
+/** @details
+    This sets the `PUBLISH.Options.exclude|list` option. See
+    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
+    advanced WAMP spec.
+    [sub_black_whitelisting]:
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
+CPPWAMP_INLINE Pub& Pub::withExcludedSessions(Array sessionIds)
+{
+    return withOption("exclude", std::move(sessionIds));
+}
+
+/** @details
+    This sets the `PUBLISH.Options.exclude_authid|list` option. See
+    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
+    advanced WAMP spec.
+    [sub_black_whitelisting]:
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
+CPPWAMP_INLINE Pub& Pub::withExcludedAuthIds(Array authIds)
+{
+    return withOption("exclude_authid", std::move(authIds));
+}
+
+/** @details
+    This sets the `PUBLISH.Options.exclude_authrole|list` option. See
+    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
+    advanced WAMP spec.
+    [sub_black_whitelisting]:
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
+CPPWAMP_INLINE Pub& Pub::withExcludedAuthRoles(Array authRoles)
+{
+    return withOption("exclude_authrole", std::move(authRoles));
 }
 
 /** @details
@@ -194,17 +227,50 @@ CPPWAMP_INLINE Pub& Pub::withBlacklist(Array blacklist)
     [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
     advanced WAMP spec.
     [sub_black_whitelisting]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#subscriber-black--and-whitelisting */
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
 CPPWAMP_INLINE Pub& Pub::withWhitelist(Array whitelist)
 {
     return withOption("eligible", std::move(whitelist));
 }
 
 /** @details
+    This sets the `PUBLISH.Options.eligible|list` option. See
+    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
+    advanced WAMP spec.
+    [sub_black_whitelisting]:
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
+CPPWAMP_INLINE Pub& Pub::withEligibleSessions(Array sessionIds)
+{
+    return withOption("eligible", std::move(sessionIds));
+}
+
+/** @details
+    This sets the `PUBLISH.Options.eligible_authid|list` option. See
+    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
+    advanced WAMP spec.
+    [sub_black_whitelisting]:
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
+CPPWAMP_INLINE Pub& Pub::withEligibleAuthIds(Array authIds)
+{
+    return withOption("eligible_authid", std::move(authIds));
+}
+
+/** @details
+    This sets the `PUBLISH.Options.eligible_authrole|list` option. See
+    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
+    advanced WAMP spec.
+    [sub_black_whitelisting]:
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
+CPPWAMP_INLINE Pub& Pub::withEligibleAuthRoles(Array authRoles)
+{
+    return withOption("eligible_authrole", std::move(authRoles));
+}
+
+/** @details
     This sets the `PUBLISH.Options.exclude_me|bool` option. See
     [Publisher Exclusion][pub_exclusion] in the advanced WAMP spec.
     [pub_exclusion]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#publisher-exclusion */
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.4.2 */
 CPPWAMP_INLINE Pub& Pub::withExcludeMe(bool excluded)
 {
     return withOption("exclude_me", excluded);
@@ -214,7 +280,7 @@ CPPWAMP_INLINE Pub& Pub::withExcludeMe(bool excluded)
     This sets the `PUBLISH.Options.disclose_me|bool` option. See
     [Publisher Identification][pub_ident] in the advanced WAMP spec.
     [pub_ident]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#publisher-identification */
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.6.1 */
 CPPWAMP_INLINE Pub& Pub::withDiscloseMe(bool disclosed)
 {
     return withOption("disclose_me", disclosed);
@@ -237,7 +303,7 @@ CPPWAMP_INLINE PublicationId Event::pubId() const {return pubId_;}
     This function checks the value of the `EVENT.Details.publisher|integer`
     detail. See [Publisher Identification][pub_ident] in the advanced WAMP spec.
     [pub_ident]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#publisher-identification
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.6.1
     @returns An integer variant if the publisher ID is available. Otherwise,
              a null variant is returned. */
 CPPWAMP_INLINE Variant Event::publisher() const
@@ -249,7 +315,7 @@ CPPWAMP_INLINE Variant Event::publisher() const
     This function checks the value of the `EVENT.Details.trustlevel|integer`
     detail. See [Publication Trust Levels][pub_trust] in the advanced WAMP spec.
     [pub_trust]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#publication-trust-levels
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.6.2
     @returns An integer variant if the trust level is available. Otherwise,
              a null variant is returned. */
 CPPWAMP_INLINE Variant Event::trustLevel() const
@@ -261,7 +327,7 @@ CPPWAMP_INLINE Variant Event::trustLevel() const
     This function checks the value of the `EVENT.Details.topic|uri` detail. See
     [Pattern-based Subscriptions][pattern_based_subs] in the advanced WAMP spec.
     [pattern_based_subs]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#pattern-based-subscriptions
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.6.4
     @returns A string variant if the topic URI is available. Otherwise,
              a null variant is returned. */
 CPPWAMP_INLINE Variant Event::topic() const
@@ -300,7 +366,7 @@ CPPWAMP_INLINE Procedure::Procedure(String uri) : uri_(std::move(uri)) {}
     See [Pattern-based Registrations][pattern_based_reg] in the advanced
     WAMP spec.
     [pattern_based_reg]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#pattern-based-registrations */
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.8 */
 CPPWAMP_INLINE Procedure& Procedure::usingPrefixMatch()
 {
     return withOption("match", "prefix");
@@ -311,7 +377,7 @@ CPPWAMP_INLINE Procedure& Procedure::usingPrefixMatch()
     See [Pattern-based Registrations][pattern_based_reg] in the advanced
     WAMP spec.
     [pattern_based_reg]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#pattern-based-registrations */
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.8 */
 CPPWAMP_INLINE Procedure& Procedure::usingWildcardMatch()
 {
     return withOption("match", "wildcard");
@@ -321,7 +387,7 @@ CPPWAMP_INLINE Procedure& Procedure::usingWildcardMatch()
     This sets the `REGISTER.Options.disclose_caller|bool` option. See
     [Caller Identification][caller_ident] in the advanced WAMP spec.
     [caller_ident]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#caller-identification */
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.5 */
 CPPWAMP_INLINE Procedure& Procedure::withDiscloseCaller(bool disclosed)
 {
     return withOption("disclose_caller", disclosed);
@@ -350,32 +416,21 @@ CPPWAMP_INLINE Rpc& Rpc::withDealerTimeout(Int milliseconds)
 }
 
 /** @details
-    This sets the `CALL.Options.exclude|list` option. See
-    [Callee Black- and Whitelisting][callee_black_whitelisting] in the
-    advanced WAMP spec.
-    [callee_black_whitelisting]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#callee-black--and-whitelisting */
+    This sets the depricated `CALL.Options.exclude|list` option. */
 CPPWAMP_INLINE Rpc& Rpc::withBlacklist(Array blacklist)
 {
     return withOption("exclude", std::move(blacklist));
 }
 
 /** @details
-    This sets the `CALL.Options.eligible|list` option. See
-    [Callee Black- and Whitelisting][callee_black_whitelisting] in the
-    advanced WAMP spec.
-    [callee_black_whitelisting]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#callee-black--and-whitelisting */
+    This sets the depricated `CALL.Options.eligible|list` option. */
 CPPWAMP_INLINE Rpc& Rpc::withWhitelist(Array whitelist)
 {
     return withOption("eligible", std::move(whitelist));
 }
 
 /** @details
-    This sets the `CALL.Options.exclude_me|bool` option. See
-    [Caller Exclusion][caller_exclusion] in the advanced WAMP spec.
-    [caller_exclusion]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#caller-exclusion */
+    This sets the depricated `CALL.Options.exclude_me|bool` option. */
 CPPWAMP_INLINE Rpc& Rpc::withExcludeMe(bool excluded)
 {
     return withOption("exclude_me", excluded);
@@ -385,7 +440,7 @@ CPPWAMP_INLINE Rpc& Rpc::withExcludeMe(bool excluded)
     This sets the `CALL.Options.disclose_me|bool` option. See
     [Caller Identification][caller_ident] in the advanced WAMP spec.
     [caller_ident]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#caller-identification */
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.5 */
 CPPWAMP_INLINE Rpc& Rpc::withDiscloseMe(bool disclosed)
 {
     return withOption("disclose_me", disclosed);
@@ -411,7 +466,7 @@ CPPWAMP_INLINE Result::Result(std::initializer_list<Variant> list)
     This sets the `YIELD.Options.progress|bool` option. See
     [Progressive Call Results][prog_calls] in the advanced WAMP spec.
     [prog_calls]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#progressive-call-results */
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.1 */
 CPPWAMP_INLINE Result& Result::withProgress(bool progressive)
 {
     return withOption("progress", progressive);
@@ -629,7 +684,7 @@ CPPWAMP_INLINE RequestId Invocation::requestId() const {return id_;}
     detail is `true`. See [Progressive Call Results][prog_calls] in the advanced
     WAMP spec.
     [prog_calls]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#progressive-call-results */
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.1 */
 CPPWAMP_INLINE bool Invocation::isProgressive() const
 {
     return optionOr("receive_progress", false);
@@ -639,7 +694,7 @@ CPPWAMP_INLINE bool Invocation::isProgressive() const
     This function checks the value of the `INVOCATION.Details.caller|integer`
     detail. See [Caller Identification][caller_ident] in the advanced WAMP spec.
     [caller_ident]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#caller-identification
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.5
     @returns An integer variant if the caller ID is available. Otherwise,
              a null variant is returned.*/
 CPPWAMP_INLINE Variant Invocation::caller() const
@@ -651,7 +706,7 @@ CPPWAMP_INLINE Variant Invocation::caller() const
     This function checks the value of the `INVOCATION.Details.trustlevel|integer`
     detail. See [Call Trust Levels][call_trust] in the advanced WAMP spec.
     [call_trust]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#call-trust-levels
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.6
     @returns An integer variant if the trust level is available. Otherwise,
              a null variant is returned. */
 CPPWAMP_INLINE Variant Invocation::trustLevel() const
@@ -664,7 +719,7 @@ CPPWAMP_INLINE Variant Invocation::trustLevel() const
     detail. See [Pattern-based Registrations][pattern_based_reg] in the
     advanced WAMP spec.
     [pattern_based_reg]:
-        https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#pattern-based-registrations
+        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.8
     @returns A string variant if the procedure URI is available. Otherwise,
              a null variant is returned. */
 CPPWAMP_INLINE Variant Invocation::procedure() const

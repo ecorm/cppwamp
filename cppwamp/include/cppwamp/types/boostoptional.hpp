@@ -5,8 +5,8 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_BOOSTOPTIONAL_HPP
-#define CPPWAMP_BOOSTOPTIONAL_HPP
+#ifndef CPPWAMP_TYPES_BOOSTOPTIONAL_HPP
+#define CPPWAMP_TYPES_BOOSTOPTIONAL_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -83,4 +83,4 @@ bool operator!=(const boost::optional<T> o, const Variant& v)
 
 }
 
-#endif // CPPWAMP_BOOSTOPTIONAL_HPP
+#endif // CPPWAMP_TYPES_BOOSTOPTIONAL_HPP

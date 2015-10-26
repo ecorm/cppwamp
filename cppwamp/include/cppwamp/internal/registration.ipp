@@ -19,9 +19,41 @@ namespace wamp
 /** @post `!!(*this) == false` */
 CPPWAMP_INLINE Registration::Registration() {}
 
+CPPWAMP_INLINE Registration::Registration(const Registration& other)
+    : callee_(other.callee_),
+      id_(other.id_)
+{}
+
+/** @post `!other == true` */
+CPPWAMP_INLINE Registration::Registration(Registration&& other) noexcept
+    : callee_(other.callee_),
+      id_(other.id_)
+{
+    other.callee_.reset();
+    other.id_ = invalidId_;
+}
+
 CPPWAMP_INLINE Registration::operator bool() const {return id_ != invalidId_;}
 
 CPPWAMP_INLINE RegistrationId Registration::id() const {return id_;}
+
+CPPWAMP_INLINE Registration& Registration::operator=(const Registration& other)
+{
+    callee_ = other.callee_;
+    id_ = other.id_;
+    return *this;
+}
+
+/** @post `!other == true` */
+CPPWAMP_INLINE Registration&
+Registration::operator=(Registration&& other) noexcept
+{
+    callee_ = other.callee_;
+    id_ = other.id_;
+    other.callee_.reset();
+    other.id_ = invalidId_;
+    return *this;
+}
 
 CPPWAMP_INLINE void Registration::unregister() const
 {
@@ -46,7 +78,7 @@ CPPWAMP_INLINE ScopedRegistration::ScopedRegistration() {}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE
-ScopedRegistration::ScopedRegistration(ScopedRegistration&& other)
+ScopedRegistration::ScopedRegistration(ScopedRegistration&& other) noexcept
     : Base(std::move(other))
 {}
 
@@ -64,7 +96,7 @@ CPPWAMP_INLINE ScopedRegistration::~ScopedRegistration()
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ScopedRegistration&
-ScopedRegistration::operator=(ScopedRegistration&& other)
+ScopedRegistration::operator=(ScopedRegistration&& other) noexcept
 {
     unregister();
     Base::operator=(std::move(other));

@@ -41,12 +41,64 @@ where:
 - wamp::Invocation is an object containing information and payload
   arguments related to the RPC invocation.
 
+@section BasicCallSlots Basic Call Slots
+A _basic call slot_ represents an RPC handler that expects one or more
+payload arguments having specific, static types. The [wamp::basicRpc]
+(@ref wamp::BasicInvocationUnpacker::basicRpc) function can be used when
+registering such call slots. It takes a basic call slot, and converts it
+into a regular call slot that can be passed to wamp::Session::enroll.
+
+`wamp::basicRpc` expects a call slot with the following signature:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+TResult function(TArgs...)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+where
+- `TResult` is a static return type that will be automatically converted
+  to a single wamp::Result payload argument and then returned as a
+  wamp::Outcome. This return type may be `void` if the RPC is not expected
+  to return a value.
+- `TArgs...` matches the template parameter pack that was passed to
+  `wamp::basicRpc`.
+
+Examples of basic call slots are:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void setSpeed(float speed) { ... }
+// ^            ^
+// TResult    TArgs
+
+int purchase(std::string item, int cost, int qty) { ... }
+//^                  ^          ^         ^
+// \                 \----------|---------/
+// TResult                    TArgs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The above slots can be registered as follows:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+session->enroll(Procedure("setSpeed"),
+                basicRpc<void, float>(&setSpeed),
+                handler);
+
+session->enroll(Procedure("purchase"),
+                basicRpc<int, std::string, int, int>(&purchase),
+                handler);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+where `handler` is the asynchronous handler (or coroutine yield context)
+for the **enroll operation itself**.
+
+Whenever a wamp::Session dispatches an RPC invocation to the above slots, it
+automatically unpacks the invocation payload positional arguments, and
+passes them to the slot's argument list. If `Session` cannot convert the
+invocation payload arguments to their target types, it automatically sends
+an `ERROR` reply back to the router.
+
 @section UnpackedCallSlots Unpacked Call Slots
 An _unpacked call slot_ represents an RPC handler that expects one or more
 payload arguments having specific, static types. The [wamp::unpackedRpc]
 (@ref wamp::InvocationUnpacker::unpackedRpc) function can be used when
 registering such call slots. It takes an unpacked call slot, and converts it
-into a regular event slot that can be passed to wamp::Session::enroll.
+into a regular call slot that can be passed to wamp::Session::enroll.
 
 `wamp::unpackedRpc` expects a call slot with the following signature:
 
@@ -55,13 +107,23 @@ wamp::Outcome function(wamp::Invocation, TArgs...)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 where
 - wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
-  to the caller, and,
+  to the caller,
 - wamp::Invocation is an object containing information and payload arguments
-  related to the RPC invocation,
+  related to the RPC invocation, and,
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::unpackedRpc`.
 
-Examples of static call slots are:
+@note Unpacked call slots differ from basic call slots in the following ways:
+- Unpacked call slots are passed a wamp::Invocation object, which contains
+  metadata on the call invocation itself. It also allows the slot to manually
+  send a `YIELD` message back to the caller in a separate asynchronous task.
+- Unpacked call slots are expected to return a wamp::Outcome object. This
+  allows such slots to return Outcome::deferred(), which indicates to the
+  library that the callee will manually send a `YIELD` message back to
+  the caller.
+
+
+Examples of unpacked call slots are:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Outcome setSpeed(Invocation inv, float speed) { ... }
 //                                 ^

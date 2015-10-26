@@ -132,12 +132,34 @@ public:
     Pub(String topic);
 
     /** Specifies the list of (potential) _Subscriber_ session IDs that
-        won't receive the published event. */
+        won't receive the published event.
+        @deprecated Use withExcludedSessions() instead. */
     Pub& withBlacklist(Array blacklist);
 
     /** Specifies the list of (potential) _Subscriber_ session IDs that
-        are allowed to receive the published event. */
+        won't receive the published event. */
+    Pub& withExcludedSessions(Array sessionIds);
+
+    /** Specifies a blacklist of authid strings. */
+    Pub& withExcludedAuthIds(Array authIds);
+
+    /** Specifies a blacklist of authrole strings. */
+    Pub& withExcludedAuthRoles(Array authRoles);
+
+    /** Specifies the list of (potential) _Subscriber_ session IDs that
+        are allowed to receive the published event.
+        @deprecated Use withEligibleSessions() instead. */
     Pub& withWhitelist(Array whitelist);
+
+    /** Specifies the list of (potential) _Subscriber_ session IDs that
+        are allowed to receive the published event. */
+    Pub& withEligibleSessions(Array sessionIds);
+
+    /** Specifies a whitelist of authid strings. */
+    Pub& withEligibleAuthIds(Array authIds);
+
+    /** Specifies a whitelist of authrole strings. */
+    Pub& withEligibleAuthRoles(Array authRoles);
 
     /** Specifies if this session should be excluded from receiving the
         event. */
@@ -240,15 +262,18 @@ public:
     Rpc& withDealerTimeout(Int milliseconds);
 
     /** Specifies the list of (potential) _Callee_ session IDs that a call
-        won't be forwarded to. */
+        won't be forwarded to.
+        @deprecated This feature has been removed from the WAMP spec. */
     Rpc& withBlacklist(Array blacklist);
 
     /** Specifies the list of (potential) _Callee_ session IDs that are
-        issued the call. */
+        issued the call.
+        @deprecated This feature has been removed from the WAMP spec. */
     Rpc& withWhitelist(Array whitelist);
 
     /** Specifies if this session should be excluded from receiving the
-        call invocation. */
+        call invocation.
+        @deprecated This feature has been removed from the WAMP spec. */
     Rpc& withExcludeMe(bool excluded = true);
 
     /** Requests that the identity (session ID) of this session be disclosed

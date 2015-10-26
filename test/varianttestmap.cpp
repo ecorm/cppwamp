@@ -142,6 +142,8 @@ GIVEN( "an assortment of maps of valid types" )
     checkMap<String>({ {"key", ""} });
     checkMap<String>({ {"key1", "One"}, {"key2", "Two"}, {"key3", "Three"} });
     checkMap<const char*>({ {"key1", "One"}, {"key2", "Two"} }, false);
+    checkMap<Blob>({ {"", Blob{}} });
+    checkMap<Blob>({ {"key", Blob{0x42}} });
     checkMap<Array>({ {"key1", {"foo", 42}}, {"key2", {null, false}} });
     checkMap<std::vector<int>>({ {"key1", {1, 2, 3}}, {"key2", {4, 5, 6}} });
     checkMap<Object>({ {"key1", {{"one", 1}}}, {"key2", {{"two", 2.0}}} });
@@ -162,6 +164,7 @@ GIVEN( "an assortment of valid empty maps" )
     checkMap<float>({});
     checkMap<String>({});
     checkMap<const char*>({});
+    checkMap<Blob>({});
     checkMap<Array>({});
     checkMap<std::vector<int>>({});
     checkMap<std::vector<int>>({{}});
@@ -206,16 +209,18 @@ SCENARIO( "Comparing variants to maps", "[Variant]" )
         CHECK( differs(map<S,UInt>{},   map<S,UInt>{ {"", 0u} }) );
         CHECK( differs(map<S,Real>{},   map<S,Real>{ {"", 0.0} }) );
         CHECK( differs(map<S,String>{}, map<S,String>{ {"", ""} }) );
+        CHECK( differs(map<S,Blob>{},   map<S,Blob>{ {"", Blob{}} }) );
         CHECK( differs(map<S,Array>{},  map<S,Array>{ {"", Array{}} }) );
         CHECK( differs(map<S,Object>{}, map<S,Object>{ {"", Object{}} }) );
     }
     WHEN( "both sides have a single, identical key" )
     {
-        CHECK( differs(map<S,Bool>{ {"k", false} }, map<S,Bool>{ {"k", true} }) );
-        CHECK( differs(map<S,Int>{ {"k", -1} },     map<S,Int>{ {"k", 0} }) );
-        CHECK( differs(map<S,UInt>{ {"k", 0u} },    map<S,UInt>{ {"k", 1u} }) );
-        CHECK( differs(map<S,Real>{ {"k", 0.0} },   map<S,Real>{ {"k", 1.0} }) );
-        CHECK( differs(map<S,String>{ {"k", "A"} }, map<S,String>{ {"k", "B"} }) );
+        CHECK( differs(map<S,Bool>{ {"k", false} },   map<S,Bool>{ {"k", true} }) );
+        CHECK( differs(map<S,Int>{ {"k", -1} },       map<S,Int>{ {"k", 0} }) );
+        CHECK( differs(map<S,UInt>{ {"k", 0u} },      map<S,UInt>{ {"k", 1u} }) );
+        CHECK( differs(map<S,Real>{ {"k", 0.0} },     map<S,Real>{ {"k", 1.0} }) );
+        CHECK( differs(map<S,String>{ {"k", "A"} },   map<S,String>{ {"k", "B"} }) );
+        CHECK( differs(map<S,Blob>{ {"k", Blob{0}} }, map<S,Blob>{ {"k", Blob{1}} }) );
         CHECK( differs(map<S,Array>{ {"k", Array{}}},
                        map<S,Array>{ {"k", Array{null}}}) );
         CHECK( differs(map<S,Object>{ {"k", Object{}} },
@@ -232,9 +237,10 @@ SCENARIO( "Comparing variants to maps", "[Variant]" )
     }
     WHEN ( "performing lexicographical comparisons on both key and value" )
     {
-        CHECK( differs(map<S,Bool>{ {"A", true} },  map<S,Bool>{ {"AA", false} }) );
-        CHECK( differs(map<S,Int>{ {"A", 0} },      map<S,Int>{ {"B",  -1} }) );
-        CHECK( differs(map<S,String>{ {"A", "a"} }, map<S,String>{ {"a", "A"} }) );
+        CHECK( differs(map<S,Bool>{ {"A", true} },     map<S,Bool>{ {"AA", false} }) );
+        CHECK( differs(map<S,Int>{ {"A", 0} },         map<S,Int>{ {"B",  -1} }) );
+        CHECK( differs(map<S,String>{ {"A", "a"} },    map<S,String>{ {"a", "A"} }) );
+        CHECK( differs(map<S,Blob>{ {" A", Blob{1}} }, map<S,Blob>{ {"A",  Blob{0}} }) );
         CHECK( differs(map<S,Array>{ {"B", Array{null}} },
                        map<S,Array>{ {"BA", Array{}} }) );
         CHECK( differs(map<S,Object>{ {"B", Object{{"",null}}} },

@@ -37,8 +37,8 @@ public:
 
         registration_ = session_->enroll(
             Procedure("say"),
-            unpackedRpc<std::string, std::string>(std::bind(&ChatService::say,
-                                                            this, _1, _2, _3)),
+            basicRpc<void, std::string, std::string>(
+                                std::bind(&ChatService::say, this, _1, _2)),
             yield
         );
     }
@@ -51,11 +51,10 @@ public:
     }
 
 private:
-    wamp::Outcome say(wamp::Invocation, std::string user, std::string message)
+    void say(std::string user, std::string message)
     {
         // Rebroadcast message to all subscribers
         session_->publish( wamp::Pub("said").withArgs(user, message) );
-        return {};
     }
 
     wamp::CoroSession<>::Ptr session_;
@@ -85,8 +84,8 @@ public:
         using namespace std::placeholders;
         subscription_ = session_->subscribe(
                 Topic("said"),
-                unpackedEvent<std::string, std::string>(
-                                std::bind(&ChatClient::said, this, _1, _2, _3)),
+                basicEvent<std::string, std::string>(
+                        std::bind(&ChatClient::said, this, _1, _2)),
                 yield);
     }
 
@@ -104,7 +103,7 @@ public:
     }
 
 private:
-    void said(wamp::Event, std::string from, std::string message)
+    void said(std::string from, std::string message)
     {
         std::cout << user_ << " received message from " << from << ": \""
                   << message << "\"\n";

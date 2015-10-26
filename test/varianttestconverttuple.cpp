@@ -20,10 +20,10 @@ SCENARIO( "Variant initialization from a tuple", "[Variant]" )
 GIVEN( "a tuple of valid types" )
 {
     auto tuple = std::make_tuple(null, false, true, 0u, -1, 42.0, "foo",
-                                 Array{"a", 123}, Object{{"o", 321}},
+                                 Blob{0x42}, Array{"a", 123}, Object{{"o", 321}},
                                  std::make_tuple("b", 124));
     Variant expected = Array{null, false, true, 0u, -1, 42.0, "foo",
-                             Array{"a", 123}, Object{{"o", 321}},
+                             Blob{0x42}, Array{"a", 123}, Object{{"o", 321}},
                              Array{"b", 124}};
     WHEN( "a variant is constructed from the tuple" )
     {
@@ -69,7 +69,7 @@ SCENARIO( "Variant conversion/comparison to tuple", "[Variant]" )
     GIVEN( "a tuple of valid types" )
     {
         auto tuple = std::make_tuple(null, false, true, 0u, -1, 42.0,
-                String("foo"), Array{"a", 123}, Object{{"o", 321}});
+                String("foo"), Blob{0x42}, Array{"a", 123}, Object{{"o", 321}});
         using TupleType = decltype(tuple);
 
         WHEN( "a matching variant is converted to the tuple" )

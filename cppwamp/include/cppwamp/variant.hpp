@@ -21,6 +21,7 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+#include "blob.hpp"
 #include "null.hpp"
 #include "traits.hpp"
 #include "internal/varianttraitsfwd.hpp"
@@ -61,10 +62,13 @@ enum class TypeId : uint8_t
     uint,       ///< For Variant::UInt
     real,       ///< For Variant::Real
     string,     ///< For Variant::String
+    blob,       ///< For Variant::Blob
     array,      ///< For Variant::Array
     object      ///< For Variant::Object
 };
 
+
+//------------------------------------------------------------------------------
 // Forward declaration
 namespace internal {template <TypeId typeId> struct FieldTypeForId;}
 
@@ -82,6 +86,7 @@ namespace internal {template <TypeId typeId> struct FieldTypeForId;}
     - **Numbers**: as integer (@ref Int, @ref UInt),
                    or floating point (@ref Real)
     - @ref String : only UTF-8 encoded strings are currently supported
+    - @ref Blob : binary data as an array of bytes
     - @ref Array : dynamically-sized lists of variants
     - @ref Object : dictionaries having string keys and variant values
 
@@ -130,6 +135,7 @@ public:
     using UInt   = std::uint64_t;               ///< Unsigned integer type
     using Real   = double;                      ///< Floating-point number type
     using String = std::string;                 ///< String type
+    using Blob   = wamp::Blob;                  ///< Binary data as an array of bytes
     using Array  = std::vector<Variant>;        ///< Dynamic array of variants
     using Object = std::map<String, Variant>;   ///< Dictionary of variants
     /// @}
@@ -360,6 +366,7 @@ private:
         UInt    uint;
         Real    real;
         String  string;
+        Blob    blob;
         Array*  array;
         Object* object;
     } field_;
@@ -441,17 +448,18 @@ Variant::String typeNameOf();
 
 /** Compares a variant with a non-variant value for equality.
     The comparison is performed according to the following matrix:
-| Value, Variant->      | Null  | Bool  | Int   | UInt  | Real  | String | Array | Object |
-|-----------------------|-------|-------|-------|-------|-------|--------|-------|--------|
-| Null                  | true  | false | false | false | false | false  | false | false  |
-| Bool                  | false | L==R  | false | false | false | false  | false | false  |
-| _integer type_        | false | false | L==R  | L==R  | L==R  | false  | false | false  |
-| _floating point type_ | false | false | L==R  | L==R  | L==R  | false  | false | false  |
-| String                | false | false | false | false | false | L==R   | false | false  |
-| Array                 | false | false | false | false | false | false  | L==R  | false  |
-| std::vector<T>        | false | false | false | false | false | false  | L==R  | false  |
-| Object                | false | false | false | false | false | false  | false | L==R   |
-| std::map<String,T>    | false | false | false | false | false | false  | false | L==R   |
+| Value, Variant->      | Null  | Bool  | Int   | UInt  | Real  | String | Blob  | Array | Object |
+|-----------------------|-------|-------|-------|-------|-------|--------|-------|-------|--------|
+| Null                  | true  | false | false | false | false | false  | false | false | false  |
+| Bool                  | false | L==R  | false | false | false | false  | false | false | false  |
+| _integer type_        | false | false | L==R  | L==R  | L==R  | false  | false | false | false  |
+| _floating point type_ | false | false | L==R  | L==R  | L==R  | false  | false | false | false  |
+| String                | false | false | false | false | false | L==R   | false | false | false  |
+| Blob                  | false | false | false | false | false | false  | L==R  | false | false  |
+| Array                 | false | false | false | false | false | false  | false | L==R  | false  |
+| std::vector<T>        | false | false | false | false | false | false  | false | L==R  | false  |
+| Object                | false | false | false | false | false | false  | false | false | L==R   |
+| std::map<String,T>    | false | false | false | false | false | false  | false | false | L==R   |
     @relates Variant */
 template <typename T>
 bool operator==(const Variant& variant, const T& value);

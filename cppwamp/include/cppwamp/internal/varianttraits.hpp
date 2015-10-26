@@ -30,6 +30,7 @@ template <> struct FieldTypeForId<TypeId::integer> {using Type = Int;};
 template <> struct FieldTypeForId<TypeId::uint>    {using Type = UInt;};
 template <> struct FieldTypeForId<TypeId::real>    {using Type = Real;};
 template <> struct FieldTypeForId<TypeId::string>  {using Type = String;};
+template <> struct FieldTypeForId<TypeId::blob>    {using Type = Blob;};
 template <> struct FieldTypeForId<TypeId::array>   {using Type = Array;};
 template <> struct FieldTypeForId<TypeId::object>  {using Type = Object;};
 
@@ -82,6 +83,13 @@ template <> struct FieldTraits<String>
     static constexpr bool isValid   = true;
     static constexpr TypeId typeId  = TypeId::string;
     static String typeName()        {return "String";}
+};
+
+template <> struct FieldTraits<Blob>
+{
+    static constexpr bool isValid   = true;
+    static constexpr TypeId typeId  = TypeId::blob;
+    static String typeName()        {return "Blob";}
 };
 
 template <> struct FieldTraits<Array>
@@ -181,6 +189,13 @@ struct ArgTraits<const Variant::CharType[N]>
     using FieldType                 = String;
 };
 
+template <> struct ArgTraits<Blob>
+{
+    static constexpr bool isValid   = true;
+    static String typeName()        {return "Blob";}
+    using FieldType                 = Blob;
+};
+
 template <> struct ArgTraits<Array>
 {
     static constexpr bool isValid   = true;
@@ -242,6 +257,20 @@ template <> struct Access<String>
 
     static const String& get(const void* field)
         {return *static_cast<const String*>(field);}
+};
+
+template <> struct Access<Blob>
+{
+    template <typename U> static void construct(U&& value, void* field)
+        {new (field) Blob(std::forward<U>(value));}
+
+    static void destruct(void* field) {get(field).~Blob();}
+
+    static Blob& get(void* field)
+        {return *static_cast<Blob*>(field);}
+
+    static const Blob& get(const void* field)
+        {return *static_cast<const Blob*>(field);}
 };
 
 template <> struct Access<Array>

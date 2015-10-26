@@ -112,6 +112,9 @@ GIVEN( "an assortment of variants" )
     checkMsgpack("true");
     checkMsgpack("0");
     checkMsgpack("1");
+    checkMsgpack(Blob{});
+    checkMsgpack(Blob{0x00});
+    checkMsgpack(Blob{0x01, 0x02, 0x03});
     checkMsgpack(Array{});
     checkMsgpack(Array{null});
     checkMsgpack(Array{false});

@@ -8,6 +8,7 @@
 #ifndef CPPWAMP_INTERNAL_VARIANTBUILDER_HPP
 #define CPPWAMP_INTERNAL_VARIANTBUILDER_HPP
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <limits>
@@ -51,6 +52,19 @@ public:
 
     bool String(const char* str, SizeType length, bool /*copy*/)
         {return put(VString(str, length));}
+
+    bool Bin(const char* data, SizeType length)
+    {
+        Blob::Data bytes;
+        bytes.reserve(length);
+        std::copy(data, data + length, std::back_inserter(bytes));
+        return put(Blob(std::move(bytes)));
+    }
+
+    bool Bin(Blob::Data&& data)
+    {
+        return put(Blob(std::move(data)));
+    }
 
     bool StartObject()
     {

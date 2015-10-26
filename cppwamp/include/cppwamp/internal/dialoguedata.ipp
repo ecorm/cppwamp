@@ -25,6 +25,8 @@ CPPWAMP_INLINE Error::Error() {}
 
 CPPWAMP_INLINE Error::Error(String reason) : reason_(std::move(reason)) {}
 
+CPPWAMP_INLINE Error::~Error() {}
+
 CPPWAMP_INLINE const String& Error::reason() const {return reason_;}
 
 CPPWAMP_INLINE Error::operator bool() const {return !reason_.empty();}

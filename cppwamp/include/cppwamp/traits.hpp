@@ -8,8 +8,9 @@
 #ifndef CPPWAMP_TRAITS_HPP
 #define CPPWAMP_TRAITS_HPP
 
-#include <vector>
+#include <tuple>
 #include <type_traits>
+#include <vector>
 
 //------------------------------------------------------------------------------
 /** @file
@@ -83,7 +84,29 @@ template <typename T> constexpr bool isUnsignedInteger()
            !isSameType<T, bool>();
 }
 
-}
+//------------------------------------------------------------------------------
+/** Metafunction that obtains the Nth type of a parameter pack. */
+//------------------------------------------------------------------------------
+template<int N, typename... Ts> using NthTypeOf =
+    typename std::tuple_element<N, std::tuple<Ts...>>::type;
+
+//------------------------------------------------------------------------------
+/** Equivalent to std::bool_constant provided in C++17. */
+//------------------------------------------------------------------------------
+template <bool B>
+using BoolConstant = std::integral_constant<bool, B>;
+
+//------------------------------------------------------------------------------
+/** Equivalent to std::true_type provided in C++17. */
+//------------------------------------------------------------------------------
+using TrueType = BoolConstant<true>;
+
+//------------------------------------------------------------------------------
+/** Equivalent to std::false_type provided in C++17. */
+//------------------------------------------------------------------------------
+using FalseType = BoolConstant<false>;
+
+} // namespace wamp
 
 //------------------------------------------------------------------------------
 /** Generates a metafunction that checks for the presence of a member.

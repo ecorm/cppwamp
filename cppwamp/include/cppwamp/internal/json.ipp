@@ -9,9 +9,11 @@
 #include <cmath>
 #include <cstdio>
 #include <sstream>
+#include <utility>
 #include <rapidjson/reader.h>
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/error/en.h>
+#include "base64.hpp"
 #include "variantbuilder.hpp"
 
 namespace wamp
@@ -21,11 +23,33 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+class JsonVariantBuilder : public VariantBuilder
+{
+public:
+    using VariantBuilder::VariantBuilder;
+
+    bool String(const char* str, SizeType length, bool /*copy*/)
+    {
+        if ( (length > 0) && (str[0] == '\0') )
+        {
+            Blob::Data data;
+            Base64::decode(str + 1, length - 1, data);
+            return Base::Bin(std::move(data));
+        }
+        else
+            return Base::String(str, length, true);
+    }
+
+private:
+    using Base = VariantBuilder;
+};
+
+//------------------------------------------------------------------------------
 template <typename TStream>
 void decodeJson(TStream& in, Variant& variant)
 {
     Variant v;
-    VariantBuilder builder(v);
+    JsonVariantBuilder builder(v);
     auto result = rapidjson::Reader().Parse(in, builder);
     if (result.IsError())
     {
@@ -120,6 +144,14 @@ struct EncodeJson : public Visitor<>
         writeChar(buf, '\"');
         for (char c: s)
             writeEncodedChar(buf, c);
+        writeChar(buf, '\"');
+    }
+
+    void operator()(const Blob& b, TBuffer& buf) const
+    {
+        writeChar(buf, '\"');
+        writeEncodedChar(buf, '\0');
+        Base64::encode(b.data(), buf);
         writeChar(buf, '\"');
     }
 

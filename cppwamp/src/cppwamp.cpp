@@ -9,6 +9,7 @@
 
 #ifdef CPPWAMP_COMPILED_LIB
 
+#include <cppwamp/blob.hpp>
 #include <cppwamp/dialoguedata.hpp>
 #include <cppwamp/error.hpp>
 #include <cppwamp/json.hpp>
@@ -28,6 +29,7 @@
 #include <cppwamp/uds.hpp>
 #endif
 
+#include <cppwamp/internal/blob.ipp>
 #include <cppwamp/internal/dialoguedata.ipp>
 #include <cppwamp/internal/error.ipp>
 #include <cppwamp/internal/messagetraits.ipp>

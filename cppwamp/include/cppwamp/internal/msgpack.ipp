@@ -83,7 +83,8 @@ inline void decodeMsgpackObject(VariantBuilder& builder,
             break;
 
         case type::BIN:
-            throw error::Decode("Msgpack BIN format is not supported");
+            builder.Bin(obj.via.bin.ptr, obj.via.bin.size);
+            break;
 
         case type::ARRAY:
             decodeMsgpackArray(builder, obj.via.array);
@@ -111,6 +112,13 @@ struct EncodeMsgpack : public Visitor<>
     template <typename TField>
     void operator()(const TField& field, Packer& packer) const
         {packer << field;}
+
+    void operator()(const Blob& blob, Packer& packer) const
+    {
+        packer.pack_bin(blob.data().size());
+        const char* data = reinterpret_cast<const char*>(blob.data().data());
+        packer.pack_bin_body(data, blob.data().size());
+    }
 
     void operator()(const Array& array, Packer& packer) const
     {

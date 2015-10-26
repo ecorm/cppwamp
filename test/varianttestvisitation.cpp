@@ -91,6 +91,7 @@ void checkBinaryVisitation(const T& left)
     checkBinaryVisitation(left, UInt(0u));
     checkBinaryVisitation(left, Real(0.0));
     checkBinaryVisitation(left, String(""));
+    checkBinaryVisitation(left, Blob{});
     checkBinaryVisitation(left, Array{});
     checkBinaryVisitation(left, Object{});
 }
@@ -125,6 +126,9 @@ GIVEN( "assorted variants" )
     checkVisitation(String("false"));
     checkVisitation(String("0"));
     checkVisitation(String("1"));
+    checkVisitation(Blob{});
+    checkVisitation(Blob{0x00});
+    checkVisitation(Blob{0x00, 0x01, 0x02});
     checkVisitation(Array{});
     checkVisitation(Array{null});
     checkVisitation(Array{true});
@@ -133,6 +137,7 @@ GIVEN( "assorted variants" )
     checkVisitation(Array{0u});
     checkVisitation(Array{0.0});
     checkVisitation(Array{""});
+    checkVisitation(Array{Blob{}});
     checkVisitation(Array{Array{}});
     checkVisitation(Array{Object{}});
     checkVisitation(Object{ {"",null} });
@@ -142,6 +147,7 @@ GIVEN( "assorted variants" )
     checkVisitation(Object{ {"",0u} });
     checkVisitation(Object{ {"",0.0} });
     checkVisitation(Object{ {"",""} });
+    checkVisitation(Object{ {"",Blob{}} });
     checkVisitation(Object{ {"",Array{}} });
     checkVisitation(Object{ {"",Object{}} });
 }
@@ -159,6 +165,8 @@ GIVEN( "assorted pairs of variants" )
     checkBinaryVisitation(String("false"));
     checkBinaryVisitation(String("0"));
     checkBinaryVisitation(String("1"));
+    checkBinaryVisitation(Blob{0x00});
+    checkBinaryVisitation(Blob{0x00, 0x01, 0x02});
     checkBinaryVisitation(Array{null});
     checkBinaryVisitation(Array{true});
     checkBinaryVisitation(Array{false});

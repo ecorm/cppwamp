@@ -149,6 +149,9 @@ void checkCompositeAssign(const TComposite& to)
     checkAssign<T>("{0}",    to);
     checkAssign<T>("[0]",    to);
     checkAssign<T>("0",      to);
+    checkAssign<T>(Blob{},              to);
+    checkAssign<T>(Blob{0x00},          to);
+    checkAssign<T>(Blob{0x00,0x01,0x02},to);
     checkAssign<T>(Array{},             to);
     checkAssign<T>(Array{0},            to);
     checkAssign<T>(Array{""},           to);
@@ -227,6 +230,23 @@ GIVEN( "assorted variants" )
     {
         checkNumberAssign<Real,float>();
         checkNumberAssign<Real,Real>();
+    }
+    WHEN( "assigning to String" )
+    {
+        checkCompositeAssign(String{"foo"});
+        checkCompositeAssign(String{""});
+        checkCompositeAssign(String{"null"});
+        checkCompositeAssign(String{"true"});
+        checkCompositeAssign(String{"false"});
+        checkCompositeAssign(String{"0"});
+        checkCompositeAssign(String{"{}"});
+        checkCompositeAssign(String{"[]"});
+    }
+    WHEN( "assigning to Blob" )
+    {
+        checkCompositeAssign(Blob{});
+        checkCompositeAssign(Blob{0x00});
+        checkCompositeAssign(Blob{0x00, 0x01, 0x02});
     }
     WHEN( "assigning to Array" )
     {

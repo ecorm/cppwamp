@@ -166,6 +166,17 @@ GIVEN( "valid JSON strings" )
     checkJson(R"("true")",  "true");
     checkJson(R"("0")",     "0");
     checkJson(R"("1")",     "1");
+    checkJson(R"("\u0000")",         Blob{});
+    checkJson(R"("\u0000AA==")",     Blob{0x00});
+    checkJson(R"("\u0000Zg==")",     Blob{'f'});
+    checkJson(R"("\u0000Zm8=")",     Blob{'f','o'});
+    checkJson(R"("\u0000Zm9v")",     Blob{'f','o','o'});
+    checkJson(R"("\u0000Zm9vYg==")", Blob{'f','o','o','b'});
+    checkJson(R"("\u0000Zm9vYmE=")", Blob{'f','o','o','b','a'});
+    checkJson(R"("\u0000Zm9vYmFy")", Blob{'f','o','o','b','a','r'});
+    checkJson(R"("\u0000FPucAw==")", Blob{0x14, 0xfb, 0x9c, 0x03});
+    checkJson(R"("\u0000FPucA9k=")", Blob{0x14, 0xfb, 0x9c, 0x03, 0xd9});
+    checkJson(R"("\u0000FPucA9l+")", Blob{0x14, 0xfb, 0x9c, 0x03, 0xd9, 0x7e});
     checkJson(R"([])",      Array{});
     checkJson(R"([null])",  Array{null});
     checkJson(R"([false])", Array{false});
@@ -177,8 +188,8 @@ GIVEN( "valid JSON strings" )
     checkJson(R"([""])",    Array{""});
     checkJson(R"([[]])",    Array{Array{}});
     checkJson(R"([{}])",    Array{Object{}});
-    checkJson(R"([null,false,true,42,-42,"hello",[],{}])",
-              Array{null,false,true,42u,-42,"hello",Array{},Object{}});
+    checkJson(R"([null,false,true,42,-42,"hello","\u0000Qg==",[],{}])",
+              Array{null,false,true,42u,-42,"hello",Blob{0x42},Array{},Object{}});
     checkJson(R"([[["foo",42]],[{"foo":42}]])",
               Array{ Array{Array{"foo",42u} }, Array{ Object{{"foo",42u}} } });
     checkJson(R"({})",          Object{});
@@ -193,10 +204,10 @@ GIVEN( "valid JSON strings" )
     checkJson(R"({"s":""})",    Object{ {"s","" } });
     checkJson(R"({"a":[]})",    Object{ {"a",Array{}} });
     checkJson(R"({"o":{}})",    Object{ {"o",Object{}} });
-    checkJson(R"({"":null,"f":false,"t":true,"u":0,"n":-1,"s":"abc","a":[],"o":{}})",
-              Object{ {"",null}, {"f",false}, {"t",true}, {"u",0u}, {"n",-1},
-                      {"s","abc"}, {"a",Array{}}, {"o",Object{}} },
-                R"({"":null,"a":[],"f":false,"n":-1,"o":{},"s":"abc","t":true,"u":0})");
+    checkJson(R"({"":null,"f":false,"t":true,"u":0,"n":-1,"s":"abc","b":"\u0000Qg==","a":[],"o":{}})",
+              Object{ {"",null}, {"b",Blob{0x42}}, {"f",false}, {"t",true}, {"u",0u},
+                      {"n",-1}, {"s","abc"}, {"a",Array{}}, {"o",Object{}} },
+                R"({"":null,"a":[],"b":"\u0000Qg==","f":false,"n":-1,"o":{},"s":"abc","t":true,"u":0})");
     checkJson(R"({"a":{"b":{"c":42}}})",
               Object{ {"a", Object{ {"b", Object{ {"c",42u} }} } } });
 }
@@ -210,6 +221,23 @@ GIVEN( "invalid JSON strings" )
     checkError(R"(42!)");
     checkError(R"(Hello)");
     checkError(R"(Hello)");
+    checkError(R"("\u0000====")");
+    checkError(R"("\u0000A===")");
+    checkError(R"("\u0000AA=A")");
+    checkError(R"("\u0000=AA=")");
+    checkError(R"("\u0000A")");
+    checkError(R"("\u0000AA==A")");
+    checkError(R"("\u0000AAAAA")");
+    checkError(R"("\u0000AA=")");
+    checkError(R"("\u0000AAA ")");
+    checkError(R"("\u0000AAA.")");
+    checkError(R"("\u0000AAA:")");
+    checkError(R"("\u0000AAA@")");
+    checkError(R"("\u0000AAA[")");
+    checkError(R"("\u0000AAA`")");
+    checkError(R"("\u0000AAA{")");
+    checkError(R"("\u0000AAA-")");
+    checkError(R"("\u0000AAA_")");
     checkError(R"([42,false,"Hello)");
     checkError(R"([42,false,"Hello]])");
     checkError(R"([42,false,"Hello})");
@@ -253,7 +281,7 @@ GIVEN( "non-finite real numbers" )
 GIVEN( "a string Variant with control characters" )
 {
     std::string s;
-    for (char c = 0; c<=0x1f; ++c)
+    for (char c = 1; c<=0x1f; ++c)
         s += c;
     s += '\"';
     s += '\\';
@@ -275,7 +303,7 @@ GIVEN( "a string Variant with control characters" )
 GIVEN( "an object Variant with control characters in a key" )
 {
     std::string key;
-    for (char c = 0; c<=0x1f; ++c)
+    for (char c = 1; c<=0x1f; ++c)
         key += c;
     key += '\"';
     key += '\\';

@@ -45,11 +45,23 @@ public:
     /** Constructs an empty registration. */
     Registration();
 
+    /** Copy constructor. */
+    Registration(const Registration& other);
+
+    /** Move constructor. */
+    Registration(Registration&& other) noexcept;
+
     /** Returns false if the registration is empty. */
     explicit operator bool() const;
 
     /** Obtains the ID number of this registration. */
     RegistrationId id() const;
+
+    /** Copy assignment. */
+    Registration& operator=(const Registration& other);
+
+    /** Move assignment. */
+    Registration& operator=(Registration&& other) noexcept;
 
     /** Unregisters the RPC. */
     void unregister() const;
@@ -81,7 +93,7 @@ public:
     ScopedRegistration();
 
     /** Move constructor. */
-    ScopedRegistration(ScopedRegistration&& other);
+    ScopedRegistration(ScopedRegistration&& other) noexcept;
 
     /** Converting constructor taking a Registration object to manage. */
     ScopedRegistration(Registration registration);
@@ -90,7 +102,7 @@ public:
     ~ScopedRegistration();
 
     /** Move assignment. */
-    ScopedRegistration& operator=(ScopedRegistration&& other);
+    ScopedRegistration& operator=(ScopedRegistration&& other) noexcept;
 
     /** Assigns another Regisration to manage.
         The old registration is automatically unregistered. */

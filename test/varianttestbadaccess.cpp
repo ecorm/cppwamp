@@ -68,6 +68,13 @@ void checkBadAccess(const T& value)
         CHECK_THROWS_AS( v.as<TypeId::string>(), error::Access );
         CHECK_THROWS_AS( cv.as<TypeId::string>(), error::Access );
     }
+    if (!v.is<Blob>())
+    {
+        CHECK_THROWS_AS( v.as<Blob>(), error::Access );
+        CHECK_THROWS_AS( cv.as<Blob>(), error::Access );
+        CHECK_THROWS_AS( v.as<TypeId::blob>(), error::Access );
+        CHECK_THROWS_AS( cv.as<TypeId::blob>(), error::Access );
+    }
     if (!v.is<Array>())
     {
         CHECK_THROWS_AS( v.as<Array>(), error::Access );
@@ -115,6 +122,9 @@ GIVEN( "assorted Variants" )
     checkBadAccess("false");
     checkBadAccess("0");
     checkBadAccess("1");
+    checkBadAccess(Blob{});
+    checkBadAccess(Blob{0x00});
+    checkBadAccess(Blob{0x00, 0x01, 0x02});
     checkBadAccess(Array{});
     checkBadAccess(Array{null});
     checkBadAccess(Array{true});

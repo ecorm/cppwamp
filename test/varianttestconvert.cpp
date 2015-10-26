@@ -109,7 +109,7 @@ GIVEN( "a Null Variant" )
     WHEN ( "converted to invalid types" )
     {
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                        String, Array, Object>(v);
+                        String, Blob, Array, Object>(v);
     }
 }
 GIVEN( "Bool Variants" )
@@ -123,8 +123,8 @@ GIVEN( "Bool Variants" )
     }
     WHEN ( "converted to invalid types" )
     {
-        checkBadConvert<Null, String, Array, Object>(Variant(false));
-        checkBadConvert<Null, String, Array, Object>(Variant(true));
+        checkBadConvert<Null, String, Blob, Array, Object>(Variant(false));
+        checkBadConvert<Null, String, Blob, Array, Object>(Variant(true));
     }
 }
 GIVEN( "Int Variants" )
@@ -140,9 +140,9 @@ GIVEN( "Int Variants" )
     }
     WHEN ( "converted to invalid types" )
     {
-        checkBadConvert<Null, String, Array, Object>(Variant(0));
-        checkBadConvert<Null, String, Array, Object>(Variant(1));
-        checkBadConvert<Null, String, Array, Object>(Variant(-1));
+        checkBadConvert<Null, String, Blob, Array, Object>(Variant(0));
+        checkBadConvert<Null, String, Blob, Array, Object>(Variant(1));
+        checkBadConvert<Null, String, Blob, Array, Object>(Variant(-1));
     }
 }
 GIVEN( "UInt Variants" )
@@ -162,9 +162,9 @@ GIVEN( "UInt Variants" )
     }
     WHEN ( "converted to invalid types" )
     {
-        checkBadConvert<Null, String, Array, Object>(Variant(0u));
-        checkBadConvert<Null, String, Array, Object>(Variant(1u));
-        checkBadConvert<Null, String, Array, Object>(Variant(-1u));
+        checkBadConvert<Null, String, Blob, Array, Object>(Variant(0u));
+        checkBadConvert<Null, String, Blob, Array, Object>(Variant(1u));
+        checkBadConvert<Null, String, Blob, Array, Object>(Variant(-1u));
     }
 }
 GIVEN( "Real Variants" )
@@ -183,10 +183,10 @@ GIVEN( "Real Variants" )
     }
     WHEN ( "converted to invalid types" )
     {
-        checkBadConvert<Null, String, Array, Object>(Variant(0.0));
-        checkBadConvert<Null, String, Array, Object>(Variant(1.0));
-        checkBadConvert<Null, String, Array, Object>(Variant(-1.0));
-        checkBadConvert<Null, String, Array, Object>(Variant(42.1));
+        checkBadConvert<Null, String, Blob, Array, Object>(Variant(0.0));
+        checkBadConvert<Null, String, Blob, Array, Object>(Variant(1.0));
+        checkBadConvert<Null, String, Blob, Array, Object>(Variant(-1.0));
+        checkBadConvert<Null, String, Blob, Array, Object>(Variant(42.1));
     }
 }
 GIVEN( "String Variants" )
@@ -204,19 +204,38 @@ GIVEN( "String Variants" )
     WHEN ( "converted to invalid types" )
     {
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                Array, Object, const char*>(Variant("Hello"));
+                Blob, Array, Object, const char*>(Variant("Hello"));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                Array, Object, const char*>(Variant(""));
+                Blob, Array, Object, const char*>(Variant(""));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                Array, Object, const char*>(Variant("null"));
+                Blob, Array, Object, const char*>(Variant("null"));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                Array, Object, const char*>(Variant("false"));
+                Blob, Array, Object, const char*>(Variant("false"));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                Array, Object, const char*>(Variant("true"));
+                Blob, Array, Object, const char*>(Variant("true"));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                Array, Object, const char*>(Variant("0"));
+                Blob, Array, Object, const char*>(Variant("0"));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                Array, Object, const char*>(Variant("1"));
+                Blob, Array, Object, const char*>(Variant("1"));
+    }
+}
+GIVEN( "Blob Variants" )
+{
+    WHEN( "converted to valid types" )
+    {
+        checkConvert(Variant(Blob{}),     Blob({}));
+        checkConvert(Variant(Blob{0x00}), Blob({0x00}));
+        checkConvert(Variant(Blob{0x42}), Blob({0x42}));
+        checkConvert(Variant(Blob{0x01, 0x02, 0x03}), Blob({0x01, 0x02, 0x03}));
+    }
+    WHEN ( "converted to invalid types" )
+    {
+        checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
+                String, Array, Object, const char*>(Variant(Blob{}));
+        checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
+                String, Array, Object, const char*>(Variant(Blob{0x00}));
+        checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
+                String, Array, Object, const char*>(Variant(Blob{0x01}));
     }
 }
 GIVEN( "Array Variants" )
@@ -241,25 +260,25 @@ GIVEN( "Array Variants" )
     WHEN ( "converted to invalid types" )
     {
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Object>(Variant(Array{}));
+                Blob, String, Object>(Variant(Array{}));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Object>(Variant(Array{null}));
+                Blob, String, Object>(Variant(Array{null}));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Object>(Variant(Array{false}));
+                Blob, String, Object>(Variant(Array{false}));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Object>(Variant(Array{true}));
+                Blob, String, Object>(Variant(Array{true}));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Object>(Variant(Array{0u}));
+                Blob, String, Object>(Variant(Array{0u}));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Object>(Variant(Array{-1}));
+                Blob, String, Object>(Variant(Array{-1}));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Object>(Variant(Array{0.0}));
+                Blob, String, Object>(Variant(Array{0.0}));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Object>(Variant(Array{""}));
+                Blob, String, Object>(Variant(Array{""}));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Object>(Variant(Array{Array{}}));
+                Blob, String, Object>(Variant(Array{Array{}}));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Object>(Variant(Array{Object{}}));
+                Blob, String, Object>(Variant(Array{Object{}}));
     }
 }
 GIVEN( "Object Variants" )
@@ -294,25 +313,25 @@ GIVEN( "Object Variants" )
     WHEN ( "converted to invalid types" )
     {
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Array>(Variant(Object{}));
+                String, Blob, Array>(Variant(Object{}));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Array>(Variant(Object{ {"null",null} }));
+                String, Blob, Array>(Variant(Object{ {"null",null} }));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Array>(Variant(Object{ {"false",false} }));
+                String, Blob, Array>(Variant(Object{ {"false",false} }));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Array>(Variant(Object{ {"true",true} }));
+                String, Blob, Array>(Variant(Object{ {"true",true} }));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Array>(Variant(Object{ {"0",0u} }));
+                String, Blob, Array>(Variant(Object{ {"0",0u} }));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Array>(Variant(Object{ {"-1",-1} }));
+                String, Blob, Array>(Variant(Object{ {"-1",-1} }));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Array>(Variant(Object{ {"0.0",0.0} }));
+                String, Blob, Array>(Variant(Object{ {"0.0",0.0} }));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Array>(Variant(Object{ {"",""} }));
+                String, Blob, Array>(Variant(Object{ {"",""} }));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Array>(Variant(Object{ {"[]",Array{}} }));
+                String, Blob, Array>(Variant(Object{ {"[]",Array{}} }));
         checkBadConvert<Bool,signed char, unsigned short, int, Int, UInt, Real,
-                String, Array>(Variant(Object{ {"{}",Object{}} }));
+                String, Blob, Array>(Variant(Object{ {"{}",Object{}} }));
     }
 }
 }
@@ -331,6 +350,7 @@ GIVEN( "an assortment of variants" )
         checkVariantToVariantConvert(123u);
         checkVariantToVariantConvert(3.14);
         checkVariantToVariantConvert("hello");
+        checkVariantToVariantConvert(Blob{0x42});
         checkVariantToVariantConvert(Array{null, true, 42, 123u, 3.14, "hello"});
         checkVariantToVariantConvert(Object{ {{"a"},{1}}, {{"b"},{"foo"}} });
     }

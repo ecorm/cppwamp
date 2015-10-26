@@ -15,6 +15,7 @@ SOURCES += \
 HEADERS += \
     include/cppwamp/asiodefs.hpp \
     include/cppwamp/asyncresult.hpp \
+    include/cppwamp/blob.hpp \
     include/cppwamp/codec.hpp \
     include/cppwamp/connector.hpp \
     include/cppwamp/conversion.hpp \
@@ -74,6 +75,8 @@ HEADERS += \
     include/cppwamp/types/unorderedmap.hpp \
     \
     include/cppwamp/internal/asyncresult.ipp \
+    include/cppwamp/internal/base64.hpp \
+    include/cppwamp/internal/blob.ipp \
     include/cppwamp/internal/conversion.ipp \
     include/cppwamp/internal/corosession.ipp \
     include/cppwamp/internal/dialoguedata.ipp \

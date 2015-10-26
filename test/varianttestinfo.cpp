@@ -124,6 +124,21 @@ SCENARIO( "Variant type information", "[Variant]" )
             CHECK( !isScalar(v) );
         }
     }
+    GIVEN( "a Blob Variant" )
+    {
+        Variant v(Blob{0x00, 0x01, 0x02});
+        THEN( "The type information is as expected" )
+        {
+            CHECK( (v.typeId() == I::blob) );
+            CHECK_THAT( typeNameOf(v), Equals("Blob") );
+            CHECK( !!v );
+            CHECK( v.is<Blob>() );
+            CHECK( v.is<I::blob>() );
+            CHECK( v.size() == 1 );
+            CHECK( !isNumber(v) );
+            CHECK( !isScalar(v) );
+        }
+    }
     GIVEN( "an Array Variant" )
     {
         Variant v(Array{42, "hello", false});

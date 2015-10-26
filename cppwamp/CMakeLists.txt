@@ -10,6 +10,7 @@ set(SOURCES src/cppwamp.cpp)
 set(HEADERS
     include/cppwamp/asiodefs.hpp
     include/cppwamp/asyncresult.hpp
+    include/cppwamp/blob.hpp
     include/cppwamp/codec.hpp
     include/cppwamp/connector.hpp
     include/cppwamp/conversion.hpp
@@ -71,6 +72,8 @@ set(HEADERS
 
 set(INLINES
     include/cppwamp/internal/asyncresult.ipp
+    include/cppwamp/internal/base64.hpp
+    include/cppwamp/internal/blob.ipp
     include/cppwamp/internal/conversion.ipp
     include/cppwamp/internal/corosession.ipp
     include/cppwamp/internal/dialoguedata.ipp
@@ -117,6 +120,13 @@ add_definitions(-DCPPWAMP_COMPILED_LIB)
 
 # Set include path for other targets that are dependant on this library
 target_include_directories(cppwamp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+if(APPLE)
+    # Link boost libraries (command is redundant in linux)
+    target_link_libraries(cppwamp
+        ${Boost_LIBRARIES}
+    )
+endif()
 
 # Add a GUI variable that let's the user choose if a shared or static library
 # will be built.

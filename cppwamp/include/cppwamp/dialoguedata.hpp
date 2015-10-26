@@ -54,6 +54,9 @@ public:
     /** Converting constructor taking a reason URI. */
     Error(String reason);
 
+    /** Destructor. */
+    virtual ~Error();
+
     /** Conversion to bool operator, returning false if the error is empty. */
     explicit operator bool() const;
 

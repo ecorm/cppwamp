@@ -19,12 +19,50 @@ namespace wamp
 /** @post `!!(*this) == false` */
 CPPWAMP_INLINE Subscription::Subscription() {}
 
+CPPWAMP_INLINE Subscription::Subscription(const Subscription& other)
+    : subscriber_(other.subscriber_),
+      subId_(other.subId_),
+      slotId_(other.slotId_)
+{}
+
+/** @post `!other == true` */
+CPPWAMP_INLINE Subscription::Subscription(Subscription&& other) noexcept
+    : subscriber_(other.subscriber_),
+      subId_(other.subId_),
+      slotId_(other.slotId_)
+{
+    other.subscriber_.reset();
+    other.subId_ = invalidId_;
+    other.slotId_ = invalidId_;
+}
+
 CPPWAMP_INLINE Subscription::operator bool() const
 {
     return subId_ != invalidId_;
 }
 
 CPPWAMP_INLINE SubscriptionId Subscription::id() const {return subId_;}
+
+CPPWAMP_INLINE Subscription& Subscription::operator=(const Subscription& other)
+{
+    subscriber_ = other.subscriber_;
+    subId_ = other.subId_;
+    slotId_ = other.slotId_;
+    return *this;
+}
+
+/** @post `!other == true` */
+CPPWAMP_INLINE Subscription&
+Subscription::operator=(Subscription&& other) noexcept
+{
+    subscriber_ = other.subscriber_;
+    subId_ = other.subId_;
+    slotId_ = other.slotId_;
+    other.subscriber_.reset();
+    other.subId_ = invalidId_;
+    other.slotId_ = invalidId_;
+    return *this;
+}
 
 CPPWAMP_INLINE void Subscription::unsubscribe() const
 {
@@ -51,7 +89,7 @@ Subscription::slotId(internal::PassKey) const {return slotId_;}
 CPPWAMP_INLINE ScopedSubscription::ScopedSubscription() {}
 
 CPPWAMP_INLINE
-ScopedSubscription::ScopedSubscription(ScopedSubscription&& other)
+ScopedSubscription::ScopedSubscription(ScopedSubscription&& other) noexcept
     : Base(std::move(other))
 {}
 
@@ -66,7 +104,7 @@ CPPWAMP_INLINE ScopedSubscription::~ScopedSubscription()
 }
 
 CPPWAMP_INLINE ScopedSubscription&
-ScopedSubscription::operator=(ScopedSubscription&& other)
+ScopedSubscription::operator=(ScopedSubscription&& other) noexcept
 {
     unsubscribe();
     Base::operator=(std::move(other));

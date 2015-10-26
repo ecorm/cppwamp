@@ -38,6 +38,53 @@ void function(wamp::Event)
 where wamp::Event is an object containing information and payload arguments
 related to the publication.
 
+@section BasicEventSlots Basic Event Slots
+An _basic event slot_ represents an event handler that expects one or more
+payload arguments having specific, static types. The [wamp::basicEvent]
+(@ref wamp::BasicEventUnpacker::basicEvent) function can be used when
+registering such event slots. It takes a basic event slot, and converts it
+into a regular event slot that can be passed to wamp::Session::subscribe.
+
+`wamp::basicEvent` expects an event slot with the following signature:
+
+~~~~~~~~~~~~~~~~~~~~~~~
+void function(TArgs...)
+~~~~~~~~~~~~~~~~~~~~~~~
+where `TArgs...` matches the template parameter pack that was passed to
+`wamp::basicEvent`.
+
+Examples of basic event slots are:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void onSensorSampled(float value) { ... }
+//                     ^
+//                    TArgs
+
+void onPurchase(std::string item, int cost, int qty) { ... }
+//                      ^          ^          ^
+//                      \----------|----------/
+//                               TArgs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The above slots can be registered as follows:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+session->subscribe(Topic("sensorSampled"),
+                   basicEvent<float>(&onSensorSampled),
+                   handler);
+
+session->subscribe(Topic("itemPurchased"),
+                   basicEvent<std::string, int, int>(&onPurchase),
+                   handler);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+where `handler` is the asynchronous handler (or coroutine yield context)
+for the **subscribe operation itself**.
+
+Whenever a wamp::Session dispatches an event to the above slots, it
+automatically unpacks the event payload positional arguments, and passes
+them to the slot's argument list. If `Session` cannot convert the event payload
+arguments to their target types, it issues a warning that can be captured via
+wamp::Session::setWarningHandler.
+
 @section UnpackedEventSlots Unpacked Event Slots
 An _unpacked event slot_ represents an event handler that expects one or more
 payload arguments having specific, static types. The [wamp::unpackedEvent]
@@ -52,11 +99,15 @@ void function(wamp::Event, TArgs...)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 where
 - wamp::Event is an object containing information and payload arguments related
-  to the publication,
+  to the publication, and,
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::unpackedEvent`.
 
-Examples of static event slots are:
+@note Unpacked event slots differ from basic event slots in the following way:
+      Unpacked event slots are passed a wamp::Event object, which contains
+      metadata on the event itself.
+
+Examples of unpacked event slots are:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void onSensorSampled(Event event, float value) { ... }
 //                                  ^

@@ -798,6 +798,30 @@ GIVEN( "an IO service and a TCP connector" )
 
         iosvc.run();
     }
+
+    WHEN( "subscribing basic events" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            PublicationId pid = 0;
+            PubSubFixture f(cnct);
+            f.join(yield);
+            f.staticSub = f.subscriber->subscribe(
+                Topic("str.num"),
+                basicEvent<std::string, int>([&](std::string s, int n)
+                {
+                    f.staticArgs = Array{{s, n}};
+                }),
+                yield);
+
+            f.publisher->publish(Pub("str.num").withArgs("one", 1));
+
+            while (f.staticArgs.size() < 2)
+                f.subscriber->suspend(yield);
+            CHECK(( f.staticArgs == Array{"one", 1} ));
+        });
+        iosvc.run();
+    }
 }}
 
 
@@ -992,6 +1016,57 @@ GIVEN( "an IO service and a TCP connector" )
 
         iosvc.run();
     }
+
+    WHEN( "moving a ScopedSubscription" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            PubSubFixture f(cnct);
+            f.join(yield);
+            f.subscribe(yield);
+
+            // Check move construction.
+            {
+                ScopedSubscription sub(std::move(f.dynamicSub));
+                CHECK( !!sub );
+                CHECK( sub.id() >= 0 );
+                CHECK( !f.dynamicSub );
+
+                f.publisher->publish(Pub("str.num").withArgs("", 0), yield);
+                while (f.dynamicPubs.size() < 1)
+                    f.subscriber->suspend(yield);
+                CHECK( f.dynamicPubs.size() == 1 );
+                CHECK( f.staticPubs.size() == 1 );
+            }
+            // 'sub' goes out of scope here.
+            f.publisher->publish(Pub("str.num").withArgs("", 0), yield);
+            f.publisher->publish(Pub("other"), yield);
+            while (f.staticPubs.size() < 2)
+                f.subscriber->suspend(yield);
+            CHECK( f.dynamicPubs.size() == 1 );
+            CHECK( f.staticPubs.size() == 2 );
+
+            // Check move assignment.
+            {
+                ScopedSubscription sub;
+                sub = std::move(f.staticSub);
+                CHECK( !!sub );
+                CHECK( sub.id() >= 0 );
+                CHECK( !f.staticSub );
+
+                f.publisher->publish(Pub("str.num").withArgs("", 0), yield);
+                while (f.staticPubs.size() < 3)
+                    f.subscriber->suspend(yield);
+                CHECK( f.staticPubs.size() == 3 );
+            }
+            // 'sub' goes out of scope here.
+            f.publisher->publish(Pub("str.num").withArgs("", 0), yield);
+            f.publisher->publish(Pub("other"), yield);
+            CHECK( f.staticPubs.size() == 3 );
+            CHECK( f.otherPubs.size() == 1 );
+        });
+        iosvc.run();
+    }
 }}
 
 
@@ -1098,6 +1173,66 @@ GIVEN( "an IO service and a TCP connector" )
             result = f.caller->call(Rpc("static").withArgs("four", 4), yield);
             CHECK( f.staticCount == 3 );
             CHECK(( result.args() == Array{"four", 4} ));
+        });
+        iosvc.run();
+    }
+
+    WHEN( "calling basic remote procedures" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            Result result;
+            std::error_code ec;
+            RpcFixture f(cnct);
+            f.join(yield);
+
+            f.staticReg = f.callee->enroll(
+                    Procedure("static"),
+                    basicRpc<int, std::string, int>([&](std::string s, int n)
+                    {
+                        ++f.staticCount;
+                        return n; // Echo back the integer argument
+                    }),
+                    yield);
+
+            // Check normal RPC
+            result = f.caller->call(Rpc("static").withArgs("one", 1),
+                                    yield);
+            CHECK( f.staticCount == 1 );
+            CHECK(( result.args() == Array{1} ));
+
+            // Extra arguments should be ignored.
+            result = f.caller->call(Rpc("static").withArgs("two", 2, true),
+                                    yield);
+            CHECK( f.staticCount == 2 );
+            CHECK(( result.args() == Array{2} ));
+
+            // Unregister the slot via RAII.
+            f.staticReg = ScopedRegistration();
+
+            // The router should now report an error when attempting
+            // to call the unregistered RPC.
+            CHECK_THROWS_AS( f.caller->call(
+                                 Rpc("static").withArgs("three", 3),
+                                 yield),
+                             error::Failure );
+            f.caller->call(Rpc("static").withArgs("three", 3), yield, &ec);
+            CHECK( ec == SessionErrc::callError );
+            CHECK( ec == SessionErrc::noSuchProcedure );
+
+            // Calling should work after re-registering the slot.
+            using namespace std::placeholders;
+            f.staticReg = f.callee->enroll(
+                    Procedure("static"),
+                    basicRpc<int, std::string, int>([&](std::string s, int n)
+                    {
+                        ++f.staticCount;
+                        return n; // Echo back the integer argument
+                    }),
+                    yield);
+            result = f.caller->call(Rpc("static").withArgs("four", 4), yield);
+            CHECK( f.staticCount == 3 );
+            CHECK(( result.args() == Array{4} ));
         });
         iosvc.run();
     }
@@ -1252,8 +1387,48 @@ GIVEN( "an IO service and a TCP connector" )
         });
         iosvc.run();
     }
-}}
+    WHEN( "moving a ScopedRegistration" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            RpcFixture f(cnct);
+            f.join(yield);
+            f.enroll(yield);
 
+            // Check move construction.
+            {
+                ScopedRegistration reg(std::move(f.dynamicReg));
+                CHECK( !!reg );
+                CHECK( reg.id() >= 0 );
+                CHECK( !f.dynamicReg );
+
+                f.caller->call(Rpc("dynamic"), yield);
+                CHECK( f.dynamicCount == 1 );
+            }
+            // 'reg' goes out of scope here.
+            CHECK_THROWS( f.caller->call(Rpc("dynamic"), yield) );
+            CHECK( f.dynamicCount == 1 );
+
+            // Check move assignment.
+            {
+                ScopedRegistration reg;
+                reg = std::move(f.staticReg);
+                CHECK( !!reg );
+                CHECK( reg.id() >= 0 );
+                CHECK( !f.staticReg );
+
+                f.caller->call(Rpc("static").withArgs("", 0), yield);
+                CHECK( f.staticCount == 1 );
+            }
+            // 'reg' goes out of scope here.
+            CHECK_THROWS( f.caller->call(Rpc("static").withArgs("", 0),
+                                         yield) );
+            CHECK( f.staticCount == 1 );
+        });
+        iosvc.run();
+    }
+}
+}
 
 //------------------------------------------------------------------------------
 SCENARIO( "Nested WAMP RPCs and Events", "[WAMP]" )

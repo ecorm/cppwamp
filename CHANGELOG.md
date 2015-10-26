@@ -1,3 +1,21 @@
+v0.5.3
+======
+Fixes and enhancements.
+
+- Added support for binary WAMP payloads (closes #50)
+- Fixed wrong header guard in <cppwamp/types/unorderedmap.hpp> (fixes #73)
+- Added `SessionErrc` mappings to new predefined error URIs added to
+  the spec (closes #77)
+- Added recently proposed `exclude_authid`, `exclude_authrole`,
+  `eligible_authid`, `eligible_authrole` options (closes #80).
+- Fixed `ScopedRegistration`s and `ScopedSubscription`s that weren't being
+  moved properly (fixes #82).
+- Added `basicRpc` and `basicEvent` functions. `basicRpc` allows the
+  registration of statically-typed RPC handlers that don't take an `Invocation`
+  parameter and don't return an `Outcome` result. Likewise, `basicEvent` allows
+  the registration of statically-typed event handlers that don't take an
+  `Event` parameter (closes #84).
+
 v0.5.2
 ======
 More fixes for v0.5.0 release.

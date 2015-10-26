@@ -23,9 +23,10 @@ ResultTypeOf<V> apply(V&& visitor, T&& variant)
     case I::uint:    return visitor(variant.template as<I::uint>());
     case I::real:    return visitor(variant.template as<I::real>());
     case I::string:  return visitor(variant.template as<I::string>());
+    case I::blob:    return visitor(variant.template as<I::blob>());
     case I::array:   return visitor(variant.template as<I::array>());
     case I::object:  return visitor(variant.template as<I::object>());
-    default:                 assert(false);
+    default:         assert(false);
     }
 }
 
@@ -44,6 +45,7 @@ ResultTypeOf<V> apply(V&& v, L&& l, R&& r)
     case I::uint:    return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::uint>());
     case I::real:    return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::real>());
     case I::string:  return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::string>());
+    case I::blob:    return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::blob>());
     case I::array:   return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::array>());
     case I::object:  return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::object>());
     default:         assert(false);
@@ -65,6 +67,7 @@ ResultTypeOf<V> applyWithOperand(V&& v, T&& l, O&& o)
     case I::uint:    return v(l.template as<I::uint>(),    forward<O>(o));
     case I::real:    return v(l.template as<I::real>(),    forward<O>(o));
     case I::string:  return v(l.template as<I::string>(),  forward<O>(o));
+    case I::blob:    return v(l.template as<I::blob>(),    forward<O>(o));
     case I::array:   return v(l.template as<I::array>(),   forward<O>(o));
     case I::object:  return v(l.template as<I::object>(),  forward<O>(o));
     default:         assert(false);

@@ -40,10 +40,10 @@ CPPWAMP_INLINE Session::Ptr Session::create(
 //------------------------------------------------------------------------------
 /** @details
     The dictionary is structured as per `HELLO.Details.roles`, as desribed in
-    the [Feature Announcement][feature-announcement] section of the advanced
-    WAMP specification.
+    the ["Client: Role and Feature Announcement"][feature-announcement]
+    section of the advanced WAMP specification.
 
-    [feature-announcement]: https://github.com/tavendo/WAMP/blob/master/spec/advanced.md#feature-announcement */
+    [feature-announcement]: https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-7.1.1.1 */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE const Object& Session::roles()
 {

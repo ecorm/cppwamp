@@ -195,6 +195,16 @@ GIVEN( "Variants initialized with string values" )
     const char* constCharPtr = "constCharPtr";
     checkInit<T,id>(constCharPtr);
 }
+GIVEN( "Variants initialized with Blob values" )
+{
+    using T = Blob;
+    constexpr TypeId id = TypeId::blob;
+    checkInit<T,id>(T{});
+    checkInit<T,id>(T{});
+    checkInit<T,id>(T{0x00, 0x01, 0x02});
+    std::vector<uint8_t> data{0x00, 0x01, 0x02};
+    checkInit<T,id>(T(data));
+}
 GIVEN( "Variants initialized with array values" )
 {
     using T = Array;

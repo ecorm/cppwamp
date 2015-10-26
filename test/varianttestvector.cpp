@@ -147,6 +147,8 @@ GIVEN( "an assortment of vectors of valid types" )
     checkVec<String>({""});
     checkVec<String>({"One", "Two", "Three"});
     checkVec<const char*>({"One", "Two", "Three"}, false);
+    checkVec<Blob>({Blob{}});
+    checkVec<Blob>({Blob{0x00}, Blob{0x00, 0x01}, Blob{0x00, 0x01, 0x02}});
     checkVec<Array>({{"foo", 42}, {null, false}});
     checkVec<std::vector<int>>({{1, 2, 3}, {4, 5, 6}});
     checkVec<Object>({ {{"one", 1}}, {{"two", 2.0}, {"three", 3u}} });
@@ -167,6 +169,7 @@ GIVEN( "an assortment of valid empty vectors" )
     checkVec<float>({});
     checkVec<String>({});
     checkVec<const char*>({});
+    checkVec<Blob>({});
     checkVec<Array>({});
     checkVec<std::vector<int>>({});
     checkVec<std::vector<int>>({{}});
@@ -210,6 +213,7 @@ SCENARIO( "Comparing variants to vectors", "[Variant]" )
         CHECK( differs(vector<UInt>{},   vector<UInt>{0u}) );
         CHECK( differs(vector<Real>{},   vector<Real>{0.0}) );
         CHECK( differs(vector<String>{}, vector<String>{""}) );
+        CHECK( differs(vector<Blob>{},   vector<Blob>{Blob{}}) );
         CHECK( differs(vector<Array>{},  vector<Array>{Array{}}) );
         CHECK( differs(vector<Object>{}, vector<Object>{Object{}}) );
     }

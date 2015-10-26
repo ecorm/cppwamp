@@ -131,7 +131,12 @@ enum class SessionErrc
     notAuthorized,          ///< This peer is not authorized to perform the operation
     authorizationFailed,    ///< The authorization operation failed
     noSuchRealm,            ///< Attempt to join non-existent realm
-    noSuchRole              ///< Attempt to authenticate under unsupported role
+    noSuchRole,             ///< Attempt to authenticate under unsupported role
+    cancelled,              ///< Dealer or Callee canceled a call previously issued
+    optionNotAllowed,       ///< Option is disallowed by the router
+    noEligibleCallee,       ///< Call options lead to the exclusion of all callees providing the procedure
+    discloseMeDisallowed,   ///< Router rejected client request to disclose its identity
+    networkFailure          ///< Router encountered a network failure
 };
 
 //------------------------------------------------------------------------------

@@ -18,6 +18,7 @@ const std::string realm = "cppwamp.demo.time";
 const std::string udsPath1 = "./.crossbar/uds-examples";
 const std::string udsPath2 = "../.crossbar/uds-examples";
 
+//------------------------------------------------------------------------------
 namespace wamp
 {
     // Convert a std::tm to/from an object variant.
@@ -37,11 +38,10 @@ namespace wamp
 }
 
 //------------------------------------------------------------------------------
-wamp::Outcome getTime(wamp::Invocation)
+std::tm getTime()
 {
     auto t = std::time(nullptr);
-    const std::tm* local = std::localtime(&t);
-    return wamp::Result().withArgs(*local);
+    return *std::localtime(&t);
 }
 
 //------------------------------------------------------------------------------
@@ -66,7 +66,8 @@ int main()
     {
         session->connect(yield);
         session->join(Realm(realm), yield);
-        session->enroll(Procedure("get_time"), &getTime, yield);
+        session->enroll(Procedure("get_time"), basicRpc<std::tm>(&getTime),
+                        yield);
 
         auto deadline = std::chrono::steady_clock::now();
         while (true)

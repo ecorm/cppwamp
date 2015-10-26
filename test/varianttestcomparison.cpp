@@ -22,6 +22,8 @@ namespace
 template <typename TLower, typename TGreater>
 bool differs(const TLower& lower, const TGreater& greater)
 {
+    INFO( "with lower=" << lower << " greater=" << greater );
+
     using V = Variant;
     bool b[18] = {false};
     int i = 0;
@@ -56,6 +58,8 @@ bool differs(const TLower& lower, const TGreater& greater)
 template <typename TLeft, typename TRight>
 bool same(const TLeft& lhs, const TRight& rhs)
 {
+    INFO( "with lhs=" << lhs << " rhs=" << rhs );
+
     using V = Variant;
     bool b[14] = {false};
     int i = 0;
@@ -130,6 +134,22 @@ GIVEN( "Variants of the same dynamic type" )
         CHECK( differs("A", "B") );
         CHECK( differs("A", "a") );
         CHECK( differs("B", "a") );
+    }
+    WHEN( "using Blob Variants" )
+    {
+        WHEN( "the left side is an empty Blob" )
+        {
+            CHECK( differs(Blob{}, Blob{0x00}) );
+            CHECK( differs(Blob{}, Blob{0x00, 0x01, 0x02}) );
+        }
+        WHEN ( "performing lexicographical comparisons" )
+        {
+            CHECK( differs(Blob{0x00}, Blob{0x01}) );
+            CHECK( differs(Blob{0x00}, Blob{0x00, 0x00}) );
+            CHECK( differs(Blob{0x01}, Blob{0x01, 0x00}) );
+            CHECK( differs(Blob{0x01}, Blob{0x01, 0x01}) );
+            CHECK( differs(Blob{0x00, 0x00}, Blob{0x01}) );
+        }
     }
     WHEN( "using Array Variants" )
     {
@@ -296,6 +316,14 @@ GIVEN( "Variants of different dynamic types" )
     CHECK( differs("Z",         Array{}) );
     CHECK( differs("A",         Array{"A"}) );
     CHECK( differs("Z",         Array{"A"}) );
+
+    CHECK( differs("",          Blob{}) );
+    CHECK( differs("Z",         Blob{}) );
+    CHECK( differs("A",         Blob{'A'}) );
+    CHECK( differs("Z",         Blob{'Z'}) );
+
+    CHECK( differs(Blob{},      Array{}) );
+    CHECK( differs(Blob{0x00},  Array{0}) );
 
     CHECK( differs(Array{},     Object{}) );
     CHECK( differs(Array{"Z"},  Object{}) );

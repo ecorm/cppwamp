@@ -17,6 +17,7 @@ const std::string realm = "cppwamp.demo.time";
 const std::string address = "localhost";
 const short port = 12345;
 
+//------------------------------------------------------------------------------
 namespace wamp
 {
     // Convert a std::tm to/from an object variant.
@@ -35,7 +36,8 @@ namespace wamp
     }
 }
 
-void onTimeTick(wamp::Event, std::tm time)
+//------------------------------------------------------------------------------
+void onTimeTick(std::tm time)
 {
     std::cout << "The current time is: " << std::asctime(&time) << "\n";
 }
@@ -65,7 +67,7 @@ int main()
         std::cout << "The current time is: " << std::asctime(&time) << "\n";
 
         session->subscribe(Topic("time_tick"),
-                           wamp::unpackedEvent<std::tm>(&onTimeTick),
+                           wamp::basicEvent<std::tm>(&onTimeTick),
                            yield);
     });
 

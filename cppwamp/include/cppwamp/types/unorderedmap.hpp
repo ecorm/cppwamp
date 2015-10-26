@@ -5,8 +5,8 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_BOOSTOPTIONAL_HPP
-#define CPPWAMP_BOOSTOPTIONAL_HPP
+#ifndef CPPWAMP_TYPES_UNORDEREDMAP_HPP
+#define CPPWAMP_TYPES_UNORDEREDMAP_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -70,4 +70,4 @@ void convert(ToVariantConverter& conv, std::unordered_map<String, T>& map)
 
 }
 
-#endif // CPPWAMP_BOOSTOPTIONAL_HPP
+#endif // CPPWAMP_TYPES_UNORDEREDMAP_HPP

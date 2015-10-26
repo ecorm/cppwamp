@@ -44,11 +44,23 @@ public:
     /** Constructs an empty subscription */
     Subscription();
 
+    /** Copy constructor. */
+    Subscription(const Subscription& other);
+
+    /** Move constructor. */
+    Subscription(Subscription&& other) noexcept;
+
     /** Returns false if the subscription is empty. */
     explicit operator bool() const;
 
     /** Obtains the ID number of this subscription. */
     SubscriptionId id() const;
+
+    /** Copy assignment. */
+    Subscription& operator=(const Subscription& other);
+
+    /** Move assignment. */
+    Subscription& operator=(Subscription&& other) noexcept;
 
     /** Unsubscribes from the topic. */
     void unsubscribe() const;
@@ -62,7 +74,7 @@ public:
     SlotId slotId(internal::PassKey) const;
 
 private:
-    static constexpr RegistrationId invalidId_ = -1;
+    static constexpr SubscriptionId invalidId_ = -1;
 
     SubscriberPtr subscriber_;
     SubscriptionId subId_ = invalidId_;
@@ -84,7 +96,7 @@ public:
     ScopedSubscription();
 
     /** Move constructor. */
-    ScopedSubscription(ScopedSubscription&& other);
+    ScopedSubscription(ScopedSubscription&& other) noexcept;
 
     /** Converting constructor taking a Subscription object to manage. */
     ScopedSubscription(Subscription subscription);
@@ -93,7 +105,7 @@ public:
     ~ScopedSubscription();
 
     /** Move assignment. */
-    ScopedSubscription& operator=(ScopedSubscription&& other);
+    ScopedSubscription& operator=(ScopedSubscription&& other) noexcept;
 
     /** Assigns another Subscription to manage.
         The old subscription is automatically unsubscribed. */

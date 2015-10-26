@@ -122,7 +122,12 @@ CPPWAMP_INLINE std::string SessionCategory::message(int ev) const
 /* notAuthorized          */ "This peer is not authorized to perform the operation",
 /* authorizationFailed    */ "The authorization operation failed",
 /* noSuchRealm            */ "Attempt to join non-existent realm",
-/* noSuchRole             */ "Attempt to authenticate under unsupported role"
+/* noSuchRole             */ "Attempt to authenticate under unsupported role",
+/* cancelled              */ "Dealer or Callee canceled a call previously issued",
+/* optionNotAllowed       */ "Option is disallowed by the router",
+/* noEligibleCallee       */ "Call options lead to the exclusion of all callees providing the procedure",
+/* discloseMeDisallowed   */ "Router rejected client request to disclose its identity",
+/* networkFailure         */ "Router encountered a network failure"
     };
 
     if (ev >= 0 && ev < (int)std::extent<decltype(msg)>::value)
@@ -192,28 +197,35 @@ CPPWAMP_INLINE std::error_condition make_error_condition(SessionErrc errc)
 }
 
 //------------------------------------------------------------------------------
-/** @return `true` if a matching SessionErrc enumerator was found. */
+/** @return The error code corresponding to the given URI, or the given
+            fallback value if not found. */
 //-----------------------------------------------------------------------------
 CPPWAMP_INLINE SessionErrc lookupWampErrorUri(
     const std::string& uri, ///< The URI to search under.
     SessionErrc fallback    ///< Defaul value to used if the URI was not found.
 )
 {
+    using SE = SessionErrc;
     static std::map<std::string, SessionErrc> table =
     {
-        {"wamp.error.invalid_uri",              SessionErrc::invalidUri},
-        {"wamp.error.no_such_procedure",        SessionErrc::noSuchProcedure},
-        {"wamp.error.procedure_already_exists", SessionErrc::procedureAlreadyExists},
-        {"wamp.error.no_such_registration",     SessionErrc::noSuchRegistration},
-        {"wamp.error.no_such_subscription",     SessionErrc::noSuchSubscription},
-        {"wamp.error.invalid_argument",         SessionErrc::invalidArgument},
-        {"wamp.error.system_shutdown",          SessionErrc::systemShutdown},
-        {"wamp.error.close_realm",              SessionErrc::closeRealm},
-        {"wamp.error.goodbye_and_out",          SessionErrc::goodbyeAndOut},
-        {"wamp.error.not_authorized",           SessionErrc::notAuthorized},
-        {"wamp.error.authorization_failed",     SessionErrc::authorizationFailed},
-        {"wamp.error.no_such_realm",            SessionErrc::noSuchRealm},
-        {"wamp.error.no_such_role",             SessionErrc::noSuchRole},
+        {"wamp.error.invalid_uri",                   SE::invalidUri},
+        {"wamp.error.no_such_procedure",             SE::noSuchProcedure},
+        {"wamp.error.procedure_already_exists",      SE::procedureAlreadyExists},
+        {"wamp.error.no_such_registration",          SE::noSuchRegistration},
+        {"wamp.error.no_such_subscription",          SE::noSuchSubscription},
+        {"wamp.error.invalid_argument",              SE::invalidArgument},
+        {"wamp.error.system_shutdown",               SE::systemShutdown},
+        {"wamp.error.close_realm",                   SE::closeRealm},
+        {"wamp.error.goodbye_and_out",               SE::goodbyeAndOut},
+        {"wamp.error.not_authorized",                SE::notAuthorized},
+        {"wamp.error.authorization_failed",          SE::authorizationFailed},
+        {"wamp.error.no_such_realm",                 SE::noSuchRealm},
+        {"wamp.error.no_such_role",                  SE::noSuchRole},
+        {"wamp.error.canceled",                      SE::cancelled},
+        {"wamp.error.option_not_allowed",            SE::optionNotAllowed},
+        {"wamp.error.no_eligible_callee",            SE::noEligibleCallee},
+        {"wamp.error.option_disallowed.disclose_me", SE::discloseMeDisallowed},
+        {"wamp.error.network_failure",               SE::networkFailure}
     };
 
     SessionErrc result = fallback;

@@ -76,6 +76,11 @@ GIVEN( "an assortment of variants" )
     checkOutput("true", "true");
     checkOutput("0", "0");
     checkOutput("1", "1");
+    checkOutput(Blob{}, "");
+    checkOutput(Blob{0x00}, "AA==");
+    checkOutput(Blob{0x00, 0x01}, "AAE=");
+    checkOutput(Blob{0x00, 0x01, 0x02}, "AAEC");
+    checkOutput(Blob{0x00, 0x01, 0x02, 0x03}, "AAECAw==");
     checkOutput(Array{},         "[]");
     checkOutput(Array{null},     "[null]");
     checkOutput(Array{false},    "[false]");

@@ -63,7 +63,7 @@ namespace wamp
     iosvc.run();
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     [asiocoro]: http://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/core/spawn.html
-    [yieldcontext]: http://www.boost.org/doc/libs/1_57_0/doc/html/boost_asio/reference/yield_context.html
+    [yieldcontext]: http://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/yield_context.html
     [spawn]: http://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/spawn.html
 
     @par Aborting Coroutine Operations

@@ -5,8 +5,8 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_CONVERTERS_TUPLE_HPP
-#define CPPWAMP_CONVERTERS_TUPLE_HPP
+#ifndef CPPWAMP_TYPES_TUPLE_HPP
+#define CPPWAMP_TYPES_TUPLE_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -105,4 +105,4 @@ bool operator!=(const std::tuple<Ts...>& tuple, const Variant& variant);
 
 #include "./internal/tuple.ipp"
 
-#endif // CPPWAMP_CONVERTERS_TUPLE_HPP
+#endif // CPPWAMP_TYPES_TUPLE_HPP
