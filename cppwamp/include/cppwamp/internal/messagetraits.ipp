@@ -35,7 +35,7 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
 //                           minSize ------+  |  |  |  |  |  |
 //                        idPosition ---+  |  |  |  |  |  |  |
 //                                      |  |  |  |  |  |  |  |
-// id  messsage        repliesTo        |  |  |  |  |  |  |  |
+// id  message         repliesTo        |  |  |  |  |  |  |  |
 /*  0, ---          */ {W::none,        0, 0, 0, 0, 0, 0, 0, 0, {i,n,n,n,n,n,n}},
 /*  1, hello        */ {W::none,        0, 3, 3, 0, 1, 1, 0, 0, {i,s,o,n,n,n,n}},
 /*  2, welcome      */ {W::none,        0, 3, 3, 1, 0, 1, 0, 0, {i,i,o,n,n,n,n}},
@@ -78,7 +78,7 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
 //                           minSize ------+  |  |  |  |  |  |
 //                        idPosition ---+  |  |  |  |  |  |  |
 //                                      |  |  |  |  |  |  |  |
-// id  messsage        repliesTo        |  |  |  |  |  |  |  |
+// id  message         repliesTo        |  |  |  |  |  |  |  |
 /* 32, subscribe    */ {W::none,        1, 4, 4, 0, 1, 0, 0, 1, {i,i,o,s,n,n,n}},
 /* 33, subscribed   */ {W::subscribe,   1, 3, 3, 1, 0, 0, 0, 1, {i,i,i,n,n,n,n}},
 /* 34, unsubscribe  */ {W::none,        1, 3, 3, 0, 1, 0, 0, 1, {i,i,i,n,n,n,n}},
