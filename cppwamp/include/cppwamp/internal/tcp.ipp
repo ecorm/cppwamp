@@ -7,7 +7,6 @@
 
 #include <utility>
 #include "asioconnector.hpp"
-#include "legacyasioendpoint.hpp"
 #include "rawsockconnector.hpp"
 #include "tcpopener.hpp"
 
@@ -19,16 +18,6 @@ template <typename TCodec>
 Connector::Ptr connector(AsioService& iosvc, TcpHost host)
 {
     using Endpoint = internal::AsioConnector<internal::TcpOpener>;
-    using ConcreteConnector = internal::RawsockConnector<TCodec, Endpoint>;
-    return ConcreteConnector::create(iosvc, std::move(host));
-}
-
-
-//------------------------------------------------------------------------------
-template <typename TCodec>
-Connector::Ptr legacyConnector(AsioService& iosvc, TcpHost host)
-{
-    using Endpoint = internal::LegacyAsioEndpoint<internal::TcpOpener>;
     using ConcreteConnector = internal::RawsockConnector<TCodec, Endpoint>;
     return ConcreteConnector::create(iosvc, std::move(host));
 }

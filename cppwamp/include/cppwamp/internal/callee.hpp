@@ -11,10 +11,10 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include "../asyncresult.hpp"
-#include "../dialoguedata.hpp"
+#include "../peerdata.hpp"
 #include "../sessiondata.hpp"
 #include "../wampdefs.hpp"
+#include "asynctask.hpp"
 
 namespace wamp
 {
@@ -32,10 +32,10 @@ public:
 
     virtual ~Callee() {}
 
-    virtual void unregister(const Registration& handle) = 0;
+    virtual void unregister(const Registration& reg) = 0;
 
-    virtual void unregister(const Registration& handle,
-                            AsyncHandler<bool> handler) = 0;
+    virtual void unregister(const Registration& reg,
+                            AsyncTask<bool>&& handler) = 0;
 
     virtual void yield(RequestId reqId, wamp::Result&& result) = 0;
 

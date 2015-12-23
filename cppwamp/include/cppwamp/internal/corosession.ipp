@@ -13,11 +13,13 @@ namespace wamp
 //------------------------------------------------------------------------------
 template <typename B>
 typename CoroSession<B>::Ptr CoroSession<B>::create(
+    AsioService& userIosvc,         /**< IO service used for executing
+                                         user handlers. */
     const Connector::Ptr& connector /**< Connection details for the transport
                                          to use. */
 )
 {
-    return Ptr(new CoroSession(connector));
+    return Ptr(new CoroSession(userIosvc, {connector}));
 }
 
 //------------------------------------------------------------------------------
@@ -25,11 +27,13 @@ typename CoroSession<B>::Ptr CoroSession<B>::create(
 //------------------------------------------------------------------------------
 template <typename B>
 typename CoroSession<B>::Ptr CoroSession<B>::create(
+    AsioService& userIosvc,         /**< IO service used for executing
+                                         user handlers. */
     const ConnectorList& connectors /**< A list of connection details for
                                          the transports to use. */
 )
 {
-    return Ptr(new CoroSession(connectors));
+    return Ptr(new CoroSession(userIosvc, connectors));
 }
 
 //------------------------------------------------------------------------------
@@ -245,32 +249,22 @@ Result CoroSession<B>::call(
 //------------------------------------------------------------------------------
 /** @details
     Has the same effect as
-    ~~~~~~~~~~~~~~~~~~
-    iosvc.post(yield);
-    ~~~~~~~~~~~~~~~~~~
-    where `iosvc` is the asynchronous I/O service used by the client's
-    underlying transport.
-
-    @pre The client must have already established a transport connection. */
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    this->userIosvc().post(yield);
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 //------------------------------------------------------------------------------
 template <typename B>
 template <typename H>
 void CoroSession<B>::suspend(YieldContext<H> yield)
 {
-    CPPWAMP_LOGIC_CHECK(!!this->impl(), "Session is not connected");
-    using boost::asio::handler_type;
-    using Handler = typename handler_type<YieldContext<H>, void()>::type;
-    Handler handler(yield);
-    boost::asio::async_result<Handler> result(handler);
-    this->postpone(handler);
-    return result.get();
+    this->userIosvc().post(yield);
 }
 
 //------------------------------------------------------------------------------
 template <typename B>
 template <typename TResult, typename TYieldContext, typename TDelegate>
 TResult CoroSession<B>::run(TYieldContext&& yield, std::error_code* ec,
-                           TDelegate&& delegate)
+                            TDelegate&& delegate)
 {
     using boost::asio::handler_type;
     using Handler = typename handler_type<TYieldContext,

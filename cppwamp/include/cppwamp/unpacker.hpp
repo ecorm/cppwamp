@@ -49,7 +49,7 @@ using DecayedSlot = typename std::decay<TSlot>::type;
     The [wamp::unpackedEvent](@ref EventUnpacker::unpackedEvent) convenience
     function should be used to construct instances of EventUnpacker.
     @see [wamp::unpackedEvent](@ref EventUnpacker::unpackedEvent)
-    @see @ref UnpackedCallSlots
+    @see @ref UnpackedEventSlots
     @tparam TSlot Function type to be wrapped.
     @tparam TArgs List of static types the event slot expects following the
             Event parameter. */
@@ -99,7 +99,7 @@ EventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedEvent(TSlot&& slot);
     This class differs from EventUnpacker in that the slot type is not
     expected to take an Event as the first parameter.
     @see [wamp::basicEvent](@ref BasicEventUnpacker::basicEvent)
-    @see @ref UnpackedCallSlots
+    @see @ref UnpackedEventSlots
     @tparam TSlot Function type to be wrapped.
     @tparam TArgs List of static types the event slot expects as arguments. */
 //------------------------------------------------------------------------------
@@ -193,7 +193,7 @@ InvocationUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedRpc(TSlot&& slot);
     The [wamp::basicRpc](@ref BasicInvocationUnpacker::basicRpc) convenience
     function should be used to construct instances of InvocationUnpacker.
     This class differs from InvocationUnpacker in that the slot type returns
-    void and is not expected to take an Invocation as the first parameter.
+    `TResult` and is not expected to take an Invocation as the first parameter.
     @see [wamp::basicRpc](@ref BasicInvocationUnpacker::basicRpc)
     @see @ref UnpackedCallSlots
     @tparam TSlot Function type to be wrapped.

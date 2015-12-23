@@ -293,11 +293,22 @@ CPPWAMP_INLINE String&Pub::topic(internal::PassKey) {return topic_;}
 // Event
 //******************************************************************************
 
+/** @post `this->empty() == true` */
 CPPWAMP_INLINE Event::Event() {}
+
+CPPWAMP_INLINE bool Event::empty() const {return iosvc_ == nullptr;}
 
 CPPWAMP_INLINE SubscriptionId Event::subId() const {return subId_;}
 
 CPPWAMP_INLINE PublicationId Event::pubId() const {return pubId_;}
+
+/** @returns the same object as Session::userIosvc().
+    @pre `this->empty() == false` */
+CPPWAMP_INLINE AsioService& Event::iosvc() const
+{
+    CPPWAMP_LOGIC_CHECK(!empty(), "Event is empty");
+    return *iosvc_;
+}
 
 /** @details
     This function checks the value of the `EVENT.Details.publisher|integer`
@@ -336,10 +347,11 @@ CPPWAMP_INLINE Variant Event::topic() const
 }
 
 CPPWAMP_INLINE Event::Event(internal::PassKey, SubscriptionId subId,
-                            PublicationId pubId, Object&& details)
+            PublicationId pubId, AsioService* iosvc, Object&& details)
     : Options<Event>(std::move(details)),
       subId_(subId),
-      pubId_(pubId)
+      pubId_(pubId),
+      iosvc_(iosvc)
 {}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Event& event)
@@ -539,6 +551,34 @@ CPPWAMP_INLINE Outcome::~Outcome()
 
 CPPWAMP_INLINE Outcome::Type Outcome::type() const {return type_;}
 
+/** @pre this->type() == Type::result */
+CPPWAMP_INLINE const Result& Outcome::asResult() const &
+{
+    assert(type_ == Type::result);
+    return value_.result;
+}
+
+/** @pre this->type() == Type::result */
+CPPWAMP_INLINE Result&& Outcome::asResult() &&
+{
+    assert(type_ == Type::result);
+    return std::move(value_.result);
+}
+
+/** @pre this->type() == Type::error */
+CPPWAMP_INLINE const Error& Outcome::asError() const &
+{
+    assert(type_ == Type::error);
+    return value_.error;
+}
+
+/** @pre this->type() == Type::error */
+CPPWAMP_INLINE Error&& Outcome::asError() &&
+{
+    assert(type_ == Type::error);
+    return std::move(value_.error);
+}
+
 /** @post `this->type() == other.type()` */
 CPPWAMP_INLINE Outcome& Outcome::operator=(const Outcome& other)
 {
@@ -653,24 +693,15 @@ CPPWAMP_INLINE void Outcome::destruct()
     }
 }
 
-CPPWAMP_INLINE Result& Outcome::result(internal::PassKey)
-{
-    assert(type_ == Type::result);
-    return value_.result;
-}
-
-CPPWAMP_INLINE Error& Outcome::error(internal::PassKey)
-{
-    assert(type_ == Type::error);
-    return value_.error;
-}
-
 
 //******************************************************************************
 // Invocation
 //******************************************************************************
 
+/** @post `this->empty() == true` */
 CPPWAMP_INLINE Invocation::Invocation() {}
+
+CPPWAMP_INLINE bool Invocation::empty() const {return iosvc_ == nullptr;}
 
 CPPWAMP_INLINE bool Invocation::calleeHasExpired() const
 {
@@ -678,6 +709,14 @@ CPPWAMP_INLINE bool Invocation::calleeHasExpired() const
 }
 
 CPPWAMP_INLINE RequestId Invocation::requestId() const {return id_;}
+
+/** @returns the same object as Session::userIosvc().
+    @pre `this->empty() == false` */
+CPPWAMP_INLINE AsioService& Invocation::iosvc() const
+{
+    CPPWAMP_LOGIC_CHECK(!empty(), "Invocation is empty");
+    return *iosvc_;
+}
 
 /** @details
     This function checks if the `INVOCATION.Details.receive_progress|bool`
@@ -744,10 +783,11 @@ CPPWAMP_INLINE void Invocation::yield(Error error) const
 }
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,
-                                      RequestId id, Object&& details)
+        RequestId id, AsioService* iosvc, Object&& details)
     : Options<Invocation>(std::move(details)),
       callee_(callee),
-      id_(id)
+      id_(id),
+      iosvc_(iosvc)
 {}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,

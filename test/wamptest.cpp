@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cctype>
 #include <catch.hpp>
+#include <cppwamp/corounpacker.hpp>
 #include <cppwamp/corosession.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/msgpack.hpp>
@@ -34,32 +35,19 @@ const std::string testUdsPath = "./.crossbar/udstest";
 
 Connector::Ptr tcp(AsioService& iosvc)
 {
-#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
-    return legacyConnector<Json>(iosvc, TcpHost("localhost", validPort));
-#else
     return connector<Json>(iosvc, TcpHost("localhost", validPort));
-#endif
 }
 
 Connector::Ptr invalidTcp(AsioService& iosvc)
 {
-#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
-    return legacyConnector<Json>(iosvc, TcpHost("localhost", invalidPort));
-#else
     return connector<Json>(iosvc, TcpHost("localhost", invalidPort));
-#endif
 }
 
-
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-    Connector::Ptr udsMsgpack(AsioService& iosvc)
-    {
-    #ifdef CPPWAMP_USE_LEGACY_CONNECTORS
-        return legacyConnector<Msgpack>(iosvc, UdsPath(testUdsPath));
-    #else
-        return connector<Msgpack>(iosvc, UdsPath(testUdsPath));
-    #endif
-    }
+Connector::Ptr udsMsgpack(AsioService& iosvc)
+{
+    return connector<Msgpack>(iosvc, UdsPath(testUdsPath));
+}
 #endif
 
 
@@ -69,10 +57,11 @@ struct PubSubFixture
     using PubVec = std::vector<PublicationId>;
 
     template <typename TConnector>
-    PubSubFixture(TConnector cnct)
-        : publisher(CoroSession<>::create(cnct)),
-          subscriber(CoroSession<>::create(cnct)),
-          otherSubscriber(CoroSession<>::create(cnct))
+    PubSubFixture(AsioService& iosvc, TConnector cnct)
+        : iosvc(iosvc),
+          publisher(CoroSession<>::create(iosvc, cnct)),
+          subscriber(CoroSession<>::create(iosvc, cnct)),
+          otherSubscriber(CoroSession<>::create(iosvc, cnct))
     {}
 
     void join(boost::asio::yield_context yield)
@@ -110,6 +99,7 @@ struct PubSubFixture
     {
         INFO( "in onDynamicEvent" );
         CHECK( event.pubId() <= 9007199254740992ull );
+        CHECK( &event.iosvc() == &iosvc );
         dynamicArgs = event.args();
         dynamicPubs.push_back(event.pubId());
     }
@@ -118,6 +108,7 @@ struct PubSubFixture
     {
         INFO( "in onStaticEvent" );
         CHECK( event.pubId() <= 9007199254740992ull );
+        CHECK( &event.iosvc() == &iosvc );
         staticArgs = Array{{str, num}};
         staticPubs.push_back(event.pubId());
     }
@@ -126,8 +117,11 @@ struct PubSubFixture
     {
         INFO( "in onOtherEvent" );
         CHECK( event.pubId() <= 9007199254740992ull );
+        CHECK( &event.iosvc() == &iosvc );
         otherPubs.push_back(event.pubId());
     }
+
+    AsioService& iosvc;
 
     CoroSession<>::Ptr publisher;
     CoroSession<>::Ptr subscriber;
@@ -149,9 +143,10 @@ struct PubSubFixture
 struct RpcFixture
 {
     template <typename TConnector>
-    RpcFixture(TConnector cnct)
-        : caller(CoroSession<>::create(cnct)),
-          callee(CoroSession<>::create(cnct))
+    RpcFixture(AsioService& iosvc, TConnector cnct)
+        : iosvc(iosvc),
+          caller(CoroSession<>::create(iosvc, cnct)),
+          callee(CoroSession<>::create(iosvc, cnct))
     {}
 
     void join(boost::asio::yield_context yield)
@@ -181,6 +176,7 @@ struct RpcFixture
     {
         INFO( "in RPC handler" );
         CHECK( inv.requestId() <= 9007199254740992ull );
+        CHECK( &inv.iosvc() == &iosvc );
         ++dynamicCount;
         // Echo back the call arguments as the result.
         return Result().withArgList(inv.args());
@@ -190,10 +186,13 @@ struct RpcFixture
     {
         INFO( "in RPC handler" );
         CHECK( inv.requestId() <= 9007199254740992ull );
+        CHECK( &inv.iosvc() == &iosvc );
         ++staticCount;
         // Echo back the call arguments as the yield result.
         return {str, num};
     }
+
+    AsioService& iosvc;
 
     CoroSession<>::Ptr caller;
     CoroSession<>::Ptr callee;
@@ -213,7 +212,7 @@ void checkInvalidUri(TThrowDelegate&& throwDelegate,
     AsioService iosvc;
     boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(tcp(iosvc));
+        auto session = CoroSession<>::create(iosvc, tcp(iosvc));
         session->connect(yield);
         if (joined)
             session->join(Realm(testRealm), yield);
@@ -242,7 +241,7 @@ void checkDisconnect(TDelegate&& delegate)
     AsyncResult<TResult> result;
     boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(tcp(iosvc));
+        auto session = CoroSession<>::create(iosvc, tcp(iosvc));
         session->connect(yield);
         delegate(*session, yield, completed, result);
         session->disconnect();
@@ -311,7 +310,7 @@ void checkInvalidOps(CoroSession<>::Ptr session,
     CHECK_THROWS_AS( session->call(Rpc("rpc"), [](AsyncResult<Result>) {}),
                      error::Logic );
     CHECK_THROWS_AS( session->call(Rpc("rpc").withArgs(42),
-                                  [](AsyncResult<Result>) {}),
+                                   [](AsyncResult<Result>) {}),
                      error::Logic );
 
     CHECK_THROWS_AS( session->leave(Reason(), yield), error::Logic );
@@ -361,7 +360,7 @@ GIVEN( "an IO service and a TCP connector" )
         {
             {
                 // Connect and disconnect a session->
-                auto s = CoroSession<>::create(cnct);
+                auto s = CoroSession<>::create(iosvc, cnct);
                 CHECK( s->state() == SessionState::disconnected );
                 CHECK( s->connect(yield) == 0 );
                 CHECK( s->state() == SessionState::closed );
@@ -380,7 +379,7 @@ GIVEN( "an IO service and a TCP connector" )
             }
 
             // Check that another client can connect and disconnect.
-            auto s2 = CoroSession<>::create(cnct);
+            auto s2 = CoroSession<>::create(iosvc, cnct);
             CHECK( s2->state() == SessionState::disconnected );
             CHECK( s2->connect(yield) == 0 );
             CHECK( s2->state() == SessionState::closed );
@@ -393,7 +392,7 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "joining and leaving" )
     {
-        auto s = CoroSession<>::create(cnct);
+        auto s = CoroSession<>::create(iosvc, cnct);
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             s->connect(yield);
@@ -449,7 +448,7 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "connecting, joining, leaving, and disconnecting" )
     {
-        auto s = CoroSession<>::create(cnct);
+        auto s = CoroSession<>::create(iosvc, cnct);
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             {
@@ -507,7 +506,8 @@ GIVEN( "an IO service and a TCP connector" )
     WHEN( "disconnecting during connect" )
     {
         std::error_code ec;
-        auto s = Session::create(ConnectorList({invalidTcp(iosvc), cnct}));
+        auto s = Session::create(iosvc,
+                                 ConnectorList({invalidTcp(iosvc), cnct}));
         bool connectHandlerInvoked = false;
         s->connect([&](AsyncResult<size_t> result)
         {
@@ -547,7 +547,7 @@ GIVEN( "an IO service and a TCP connector" )
     {
         std::error_code ec;
         bool connected = false;
-        auto s = CoroSession<>::create(cnct);
+        auto s = CoroSession<>::create(iosvc, cnct);
         bool disconnectTriggered = false;
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
@@ -580,7 +580,7 @@ GIVEN( "an IO service and a TCP connector" )
     WHEN( "resetting during connect" )
     {
         bool handlerWasInvoked = false;
-        auto s = Session::create(cnct);
+        auto s = Session::create(iosvc, cnct);
         s->connect([&handlerWasInvoked](AsyncResult<size_t>)
         {
             handlerWasInvoked = true;
@@ -594,7 +594,7 @@ GIVEN( "an IO service and a TCP connector" )
     WHEN( "resetting during join" )
     {
         bool handlerWasInvoked = false;
-        auto s = Session::create(cnct);
+        auto s = Session::create(iosvc, cnct);
         s->connect([&](AsyncResult<size_t>)
         {
             s->join(Realm(testRealm), [&](AsyncResult<SessionInfo>)
@@ -612,7 +612,7 @@ GIVEN( "an IO service and a TCP connector" )
     {
         bool handlerWasInvoked = false;
 
-        auto session = Session::create(cnct);
+        auto session = Session::create(iosvc, cnct);
         std::weak_ptr<Session> weakClient(session);
 
         session->connect([&handlerWasInvoked](AsyncResult<size_t>)
@@ -646,7 +646,7 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "joining and leaving" )
     {
-        auto s = CoroSession<>::create(cnct);
+        auto s = CoroSession<>::create(iosvc, cnct);
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             s->connect(yield);
@@ -715,7 +715,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(cnct);
+            PubSubFixture f(iosvc, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -804,7 +804,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(cnct);
+            PubSubFixture f(iosvc, cnct);
             f.join(yield);
             f.staticSub = f.subscriber->subscribe(
                 Topic("str.num"),
@@ -838,7 +838,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(cnct);
+            PubSubFixture f(iosvc, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -885,7 +885,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(cnct);
+            PubSubFixture f(iosvc, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -919,7 +919,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(cnct);
+            PubSubFixture f(iosvc, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -955,7 +955,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(cnct);
+            PubSubFixture f(iosvc, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -991,7 +991,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(cnct);
+            PubSubFixture f(iosvc, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -1021,7 +1021,7 @@ GIVEN( "an IO service and a TCP connector" )
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            PubSubFixture f(cnct);
+            PubSubFixture f(iosvc, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -1084,7 +1084,7 @@ GIVEN( "an IO service and a TCP connector" )
         {
             Result result;
             std::error_code ec;
-            RpcFixture f(cnct);
+            RpcFixture f(iosvc, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1134,7 +1134,7 @@ GIVEN( "an IO service and a TCP connector" )
         {
             Result result;
             std::error_code ec;
-            RpcFixture f(cnct);
+            RpcFixture f(iosvc, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1183,12 +1183,12 @@ GIVEN( "an IO service and a TCP connector" )
         {
             Result result;
             std::error_code ec;
-            RpcFixture f(cnct);
+            RpcFixture f(iosvc, cnct);
             f.join(yield);
 
             f.staticReg = f.callee->enroll(
                     Procedure("static"),
-                    basicRpc<int, std::string, int>([&](std::string s, int n)
+                    basicRpc<int, std::string, int>([&](std::string, int n)
                     {
                         ++f.staticCount;
                         return n; // Echo back the integer argument
@@ -1224,7 +1224,7 @@ GIVEN( "an IO service and a TCP connector" )
             using namespace std::placeholders;
             f.staticReg = f.callee->enroll(
                     Procedure("static"),
-                    basicRpc<int, std::string, int>([&](std::string s, int n)
+                    basicRpc<int, std::string, int>([&](std::string, int n)
                     {
                         ++f.staticCount;
                         return n; // Echo back the integer argument
@@ -1252,7 +1252,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            RpcFixture f(cnct);
+            RpcFixture f(iosvc, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1287,7 +1287,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            RpcFixture f(cnct);
+            RpcFixture f(iosvc, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1324,7 +1324,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            RpcFixture f(cnct);
+            RpcFixture f(iosvc, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1361,7 +1361,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            RpcFixture f(cnct);
+            RpcFixture f(iosvc, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1391,7 +1391,7 @@ GIVEN( "an IO service and a TCP connector" )
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            RpcFixture f(cnct);
+            RpcFixture f(iosvc, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1435,10 +1435,12 @@ SCENARIO( "Nested WAMP RPCs and Events", "[WAMP]" )
 {
 GIVEN( "these test fixture objects" )
 {
+    using Yield = boost::asio::yield_context;
+
     AsioService iosvc;
     auto cnct = tcp(iosvc);
-    auto session1 = CoroSession<>::create(cnct);
-    auto session2 = CoroSession<>::create(cnct);
+    auto session1 = CoroSession<>::create(iosvc, cnct);
+    auto session2 = CoroSession<>::create(iosvc, cnct);
 
     // Regular RPC handler
     auto upperify = [](Invocation, std::string str) -> Outcome
@@ -1450,22 +1452,14 @@ GIVEN( "these test fixture objects" )
 
     WHEN( "calling remote procedures within an invocation" )
     {
-        auto uppercat = [&iosvc, session2](Invocation inv, std::string str1,
-                                           std::string str2) -> Outcome
+        auto uppercat = [session2](std::string str1, std::string str2,
+                boost::asio::yield_context yield) -> String
         {
-            // We need a separate yield context here
-            boost::asio::spawn(iosvc, [session2, inv, str1, str2]
-                (boost::asio::yield_context yield)
-                {
-                    auto upper1 = session2->call(
-                            Rpc("upperify").withArgs(str1), yield);
-                    auto upper2 = session2->call(
-                            Rpc("upperify").withArgs(str2), yield);
-                    auto concatted = upper1[0].to<std::string>() +
-                                     upper2[0].to<std::string>();
-                    inv.yield(Result({concatted}));
-                });
-            return Outcome::deferred();
+            auto upper1 = session2->call(
+                    Rpc("upperify").withArgs(str1), yield);
+            auto upper2 = session2->call(
+                    Rpc("upperify").withArgs(str2), yield);
+            return upper1[0].to<std::string>() + upper2[0].to<std::string>();
         };
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
@@ -1478,9 +1472,10 @@ GIVEN( "these test fixture objects" )
 
             session2->connect(yield);
             session2->join(Realm(testRealm), yield);
-            session2->enroll(Procedure("uppercat"),
-                             unpackedRpc<std::string, std::string>(uppercat),
-                             yield);
+            session2->enroll(
+                Procedure("uppercat"),
+                basicCoroRpc<std::string, std::string, std::string>(uppercat),
+                yield);
 
             std::string s1 = "hello ";
             std::string s2 = "world";
@@ -1500,17 +1495,13 @@ GIVEN( "these test fixture objects" )
         auto subscriber = session2;
 
         std::string upperized;
-        auto onEvent = [&iosvc, &upperized, subscriber]
-            (Event event, std::string str)
+        auto onEvent =
+            [&upperized, subscriber](std::string str,
+                                     boost::asio::yield_context yield)
             {
-                // We need a separate yield context here
-                boost::asio::spawn(iosvc, [&upperized, subscriber, event, str]
-                    (boost::asio::yield_context yield)
-                    {
-                        auto result = subscriber->call(Rpc("upperify")
-                                                       .withArgs(str), yield);
-                        upperized = result[0].to<std::string>();
-                    });
+                auto result = subscriber->call(Rpc("upperify").withArgs(str),
+                                               yield);
+                upperized = result[0].to<std::string>();
             };
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
@@ -1523,7 +1514,7 @@ GIVEN( "these test fixture objects" )
             subscriber->connect(yield);
             subscriber->join(Realm(testRealm), yield);
             subscriber->subscribe(Topic("onEvent"),
-                                  unpackedEvent<std::string>(onEvent),
+                                  basicCoroEvent<std::string>(onEvent),
                                   yield);
 
             callee->publish(Pub("onEvent").withArgs("Hello"), yield);
@@ -1549,21 +1540,13 @@ GIVEN( "these test fixture objects" )
         };
 
         auto shout =
-            [&iosvc, callee](Invocation inv, std::string str) -> Outcome
+            [callee](Invocation, std::string str, Yield yield) -> Outcome
             {
-                // We need a separate yield context here for a blocking
-                // publish.
-                boost::asio::spawn(iosvc, [callee, inv, str]
-                    (boost::asio::yield_context yield)
-                    {
-                        std::string upper = str;
-                        std::transform(upper.begin(), upper.end(),
-                                       upper.begin(), ::toupper);
-                        callee->publish(Pub("grapevine").withArgs(upper),
-                                        yield);
-                        inv.yield(Result({upper}));
-                    });
-                return Outcome::deferred();
+                std::string upper = str;
+                std::transform(upper.begin(), upper.end(),
+                               upper.begin(), ::toupper);
+                callee->publish(Pub("grapevine").withArgs(upper), yield);
+                return Result({upper});
             };
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
@@ -1571,7 +1554,7 @@ GIVEN( "these test fixture objects" )
             callee->connect(yield);
             callee->join(Realm(testRealm), yield);
             callee->enroll(Procedure("shout"),
-                           unpackedRpc<std::string>(shout), yield);
+                           unpackedCoroRpc<std::string>(shout), yield);
 
             subscriber->connect(yield);
             subscriber->join(Realm(testRealm), yield);
@@ -1598,34 +1581,27 @@ GIVEN( "these test fixture objects" )
         int callCount = 0;
         Registration reg;
 
-        auto oneShot =
-            [&iosvc, &callCount, &reg, callee](Invocation inv) -> Outcome
-            {
-                // We need a separate yield context here for a blocking
-                // unregister.
-                boost::asio::spawn(iosvc, [&callCount, &reg, callee, inv]
-                    (boost::asio::yield_context yield)
-                    {
-                        ++callCount;
-                        callee->unregister(reg, yield);
-                        inv.yield(Result({callCount}));
-                    });
-                return Outcome::deferred();
-            };
+        auto oneShot = [&callCount, &reg, callee](Yield yield)
+        {
+            // We need a yield context here for a blocking unregister.
+            ++callCount;
+            callee->unregister(reg, yield);
+        };
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             callee->connect(yield);
             callee->join(Realm(testRealm), yield);
-            reg = callee->enroll(Procedure("oneShot"), oneShot, yield);
+            reg = callee->enroll(Procedure("oneShot"),
+                                 basicCoroRpc<void>(oneShot), yield);
 
             caller->connect(yield);
             caller->join(Realm(testRealm), yield);
 
-            auto result = caller->call(Rpc("oneShot"), yield);
+            caller->call(Rpc("oneShot"), yield);
             while (callCount == 0)
                 caller->suspend(yield);
-            CHECK( result[0] == 1 );
+            CHECK( callCount == 1 );
 
             std::error_code ec;
             caller->call(Rpc("oneShot"), yield, &ec);
@@ -1642,18 +1618,14 @@ GIVEN( "these test fixture objects" )
     {
         std::string upperized;
 
-        auto onTalk = [&iosvc, session1](Event, std::string str)
+        auto onTalk = [session1](std::string str, Yield yield)
         {
             // We need a separate yield context here for a blocking
             // publish.
-            boost::asio::spawn(iosvc, [session1, str]
-                (boost::asio::yield_context yield)
-                {
-                    std::string upper = str;
-                    std::transform(upper.begin(), upper.end(),
-                                   upper.begin(), ::toupper);
-                    session1->publish(Pub("onShout").withArgs(upper), yield);
-                });
+            std::string upper = str;
+            std::transform(upper.begin(), upper.end(),
+                           upper.begin(), ::toupper);
+            session1->publish(Pub("onShout").withArgs(upper), yield);
         };
 
         auto onShout = [&upperized](Event, std::string str)
@@ -1666,7 +1638,7 @@ GIVEN( "these test fixture objects" )
             session1->connect(yield);
             session1->join(Realm(testRealm), yield);
             session1->subscribe(Topic("onTalk"),
-                                unpackedEvent<std::string>(onTalk), yield);
+                                basicCoroEvent<std::string>(onTalk), yield);
 
             session2->connect(yield);
             session2->join(Realm(testRealm), yield);
@@ -1692,16 +1664,11 @@ GIVEN( "these test fixture objects" )
         int eventCount = 0;
         Subscription sub;
 
-        auto onEvent = [&iosvc, &eventCount, &sub, subscriber](Event)
+        auto onEvent = [&eventCount, &sub, subscriber](Event, Yield yield)
         {
-            // We need a separate yield context here for a blocking
-            // unsubscribe.
-            boost::asio::spawn(iosvc, [&eventCount, &sub, subscriber]
-                (boost::asio::yield_context yield)
-                {
-                    ++eventCount;
-                    subscriber->unsubscribe(sub, yield);
-                });
+            // We need a yield context here for a blocking unsubscribe.
+            ++eventCount;
+            subscriber->unsubscribe(sub, yield);
         };
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
@@ -1711,7 +1678,9 @@ GIVEN( "these test fixture objects" )
 
             subscriber->connect(yield);
             subscriber->join(Realm(testRealm), yield);
-            sub = subscriber->subscribe(Topic("onEvent"), onEvent, yield);
+            sub = subscriber->subscribe(Topic("onEvent"),
+                                        unpackedCoroEvent(onEvent),
+                                        yield);
 
             // Dummy RPC used to end polling
             int rpcCount = 0;
@@ -1758,7 +1727,7 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto session = CoroSession<>::create(badCnct);
+            auto session = CoroSession<>::create(iosvc, badCnct);
             bool throws = false;
             try
             {
@@ -1786,7 +1755,7 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto s = CoroSession<>::create(connectors);
+            auto s = CoroSession<>::create(iosvc, connectors);
 
             {
                 // Connect
@@ -1849,7 +1818,7 @@ GIVEN( "an IO service and a TCP connector" )
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            RpcFixture f(cnct);
+            RpcFixture f(iosvc, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1874,7 +1843,7 @@ GIVEN( "an IO service and a TCP connector" )
         {
             std::error_code ec;
             int callCount = 0;
-            RpcFixture f(cnct);
+            RpcFixture f(iosvc, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1923,7 +1892,7 @@ GIVEN( "an IO service and a TCP connector" )
         {
             std::error_code ec;
             int callCount = 0;
-            RpcFixture f(cnct);
+            RpcFixture f(iosvc, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1972,7 +1941,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            RpcFixture f(cnct);
+            RpcFixture f(iosvc, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -2001,7 +1970,8 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(cnct);
+            PubSubFixture f(iosvc, cnct);
+            f.subscriber->setWarningHandler( [](std::string){} );
             f.join(yield);
             f.subscribe(yield);
 
@@ -2132,7 +2102,7 @@ GIVEN( "an IO service and a TCP connector" )
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto session = CoroSession<>::create(cnct);
+            auto session = CoroSession<>::create(iosvc, cnct);
             session->connect(yield);
 
             bool throws = false;
@@ -2169,7 +2139,8 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "constructing a session with an empty connector list" )
     {
-        CHECK_THROWS_AS( Session::create(ConnectorList{}), error::Logic );
+        CHECK_THROWS_AS( Session::create(iosvc, ConnectorList{}),
+                         error::Logic );
     }
 
     WHEN( "using invalid operations while disconnected" )
@@ -2177,7 +2148,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            auto session = CoroSession<>::create(cnct);
+            auto session = CoroSession<>::create(iosvc, cnct);
             REQUIRE( session->state() == SessionState::disconnected );
             checkInvalidJoin(session, yield);
             checkInvalidLeave(session, yield);
@@ -2189,7 +2160,7 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "using invalid operations while connecting" )
     {
-        auto session = CoroSession<>::create(cnct);
+        auto session = CoroSession<>::create(iosvc, cnct);
         session->connect( [](AsyncResult<size_t>){} );
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
@@ -2210,7 +2181,7 @@ GIVEN( "an IO service and a TCP connector" )
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto session = CoroSession<>::create(invalidTcp(iosvc));
+            auto session = CoroSession<>::create(iosvc, invalidTcp(iosvc));
             CHECK_THROWS( session->connect(yield) );
             REQUIRE( session->state() == SessionState::failed );
             checkInvalidJoin(session, yield);
@@ -2225,7 +2196,7 @@ GIVEN( "an IO service and a TCP connector" )
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto session = CoroSession<>::create(cnct);
+            auto session = CoroSession<>::create(iosvc, cnct);
             session->connect(yield);
             REQUIRE( session->state() == SessionState::closed );
             checkInvalidConnect(session, yield);
@@ -2238,7 +2209,7 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "using invalid operations while establishing" )
     {
-        auto session = CoroSession<>::create(cnct);
+        auto session = CoroSession<>::create(iosvc, cnct);
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             session->connect(yield);
@@ -2265,7 +2236,7 @@ GIVEN( "an IO service and a TCP connector" )
     {
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto session = CoroSession<>::create(cnct);
+            auto session = CoroSession<>::create(iosvc, cnct);
             session->connect(yield);
             session->join(Realm(testRealm), yield);
             REQUIRE( session->state() == SessionState::established );
@@ -2278,7 +2249,7 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "using invalid operations while shutting down" )
     {
-        auto session = CoroSession<>::create(cnct);
+        auto session = CoroSession<>::create(iosvc, cnct);
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
             session->connect(yield);
@@ -2507,7 +2478,7 @@ GIVEN( "an IO service and a TCP connector" )
         bool published = false;
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {
-            auto s = CoroSession<>::create(cnct);
+            auto s = CoroSession<>::create(iosvc, cnct);
             s->connect(yield);
             s->join(Realm(testRealm), yield);
             s->publish(Pub("topic"),

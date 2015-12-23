@@ -16,10 +16,11 @@
 #include <string>
 #include <utility>
 #include "../codec.hpp"
-#include "../dialoguedata.hpp"
+#include "../peerdata.hpp"
 #include "../error.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
+#include "asynctask.hpp"
 #include "wampmessage.hpp"
 
 namespace wamp
@@ -30,11 +31,10 @@ namespace internal
 
 //------------------------------------------------------------------------------
 // Base class providing session functionality common to both clients and
-// routers. This class is extended by Client to implement a client session.
+// router peers. This class is extended by Client to implement a client session.
 //------------------------------------------------------------------------------
 template <typename TCodec, typename TTransport>
-class Dialogue :
-        public std::enable_shared_from_this<Dialogue<TCodec, TTransport>>
+class Peer : public std::enable_shared_from_this<Peer<TCodec, TTransport>>
 {
 public:
     using Codec        = TCodec;
@@ -50,7 +50,7 @@ protected:
     using RxHandler    = std::function<void (Message)>;
     using LogHandler   = std::function<void (std::string)>;
 
-    Dialogue(TransportPtr&& transport)
+    Peer(TransportPtr&& transport)
         : transport_(std::move(transport))
     {
         initMessages();
@@ -67,7 +67,7 @@ protected:
 
         if (!transport_->isStarted())
         {
-            std::weak_ptr<Dialogue> self(this->shared_from_this());
+            std::weak_ptr<Peer> self(this->shared_from_this());
 
             transport_->start(
                 [self](Buffer buf)
@@ -169,7 +169,8 @@ protected:
         fail(make_error_code(errc));
     }
 
-    void setTraceHandler(LogHandler handler) {traceHandler_ = handler;}
+    void setTraceHandler(AsyncTask<std::string> handler)
+        {traceHandler_ = std::move(handler);}
 
     template <typename TFunctor>
     void post(TFunctor&& fn) {transport_->post(std::forward<TFunctor>(fn));}
@@ -292,7 +293,7 @@ private:
                 if (state_ != State::shuttingDown)
                 {
                     auto self = this->shared_from_this();
-                    post(std::bind(&Dialogue::onInbound, self, std::move(msg)));
+                    post(std::bind(&Peer::onInbound, self, std::move(msg)));
                 }
                 break;
         }
@@ -315,7 +316,7 @@ private:
         assert(state_ == State::establishing);
         state_ = State::established;
         auto self = this->shared_from_this();
-        post(std::bind(&Dialogue::onInbound, self, std::move(msg)));
+        post(std::bind(&Peer::onInbound, self, std::move(msg)));
     }
 
     void processWelcome(Message&& msg)
@@ -441,7 +442,7 @@ private:
     }
 
     TransportPtr transport_;
-    LogHandler traceHandler_;
+    AsyncTask<std::string> traceHandler_;
     State state_ = State::closed;
     RequestMap requestMap_;
     RequestId nextRequestId_ = 0;

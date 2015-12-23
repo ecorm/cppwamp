@@ -11,14 +11,14 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include "../asyncresult.hpp"
-#include "../dialoguedata.hpp"
+#include "../peerdata.hpp"
 #include "../error.hpp"
 #include "../registration.hpp"
 #include "../sessiondata.hpp"
 #include "../subscription.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
+#include "asynctask.hpp"
 #include "callee.hpp"
 #include "subscriber.hpp"
 
@@ -41,7 +41,6 @@ public:
     using WeakPtr    = std::weak_ptr<ClientInterface>;
     using EventSlot  = std::function<void (Event)>;
     using CallSlot   = std::function<Outcome (Invocation)>;
-    using LogHandler = std::function<void (std::string)>;
 
     static const Object& roles();
 
@@ -49,30 +48,28 @@ public:
 
     virtual SessionState state() const = 0;
 
-    virtual void join(Realm&& realm, AsyncHandler<SessionInfo> handler) = 0;
+    virtual void join(Realm&& realm, AsyncTask<SessionInfo>&& hander) = 0;
 
-    virtual void leave(Reason&& reason, AsyncHandler<Reason>&& handler) = 0;
+    virtual void leave(Reason&& reason, AsyncTask<Reason>&& handler) = 0;
 
     virtual void disconnect() = 0;
 
     virtual void terminate() = 0;
 
     virtual void subscribe(Topic&& topic, EventSlot&& slot,
-                           AsyncHandler<Subscription> handler) = 0;
+                           AsyncTask<Subscription>&& handler) = 0;
 
     virtual void publish(Pub&& pub) = 0;
 
-    virtual void publish(Pub&& pub, AsyncHandler<PublicationId>&& handler) = 0;
+    virtual void publish(Pub&& pub, AsyncTask<PublicationId>&& handler) = 0;
 
     virtual void enroll(Procedure&& procedure, CallSlot&& slot,
-                        AsyncHandler<Registration>&& handler) = 0;
+                        AsyncTask<Registration>&& handler) = 0;
 
-    virtual void call(Rpc&& rpc, AsyncHandler<Result>&& handler) = 0;
+    virtual void call(Rpc&& rpc, AsyncTask<Result>&& handler) = 0;
 
-    virtual void setLogHandlers(LogHandler warningHandler,
-                                LogHandler traceHandler) = 0;
-
-    virtual void postpone(std::function<void ()> functor) = 0;
+    virtual void setLogHandlers(AsyncTask<std::string> warningHandler,
+                                AsyncTask<std::string> traceHandler) = 0;
 };
 
 inline const Object& ClientInterface::roles()

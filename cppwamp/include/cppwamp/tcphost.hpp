@@ -27,7 +27,7 @@ namespace wamp
 
 //------------------------------------------------------------------------------
 /** Contains TCP host address information, as well as other socket options.
-    @see IpOptions, RawsockOptions, connector, legacyConnector */
+    @see IpOptions, RawsockOptions, connector */
 //------------------------------------------------------------------------------
 class TcpHost : public IpOptions<TcpHost, boost::asio::ip::tcp>
 {

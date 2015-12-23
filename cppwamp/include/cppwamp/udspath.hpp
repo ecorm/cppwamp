@@ -27,7 +27,7 @@ namespace wamp
 
 //------------------------------------------------------------------------------
 /** Contains a Unix domain socket path, as well as other socket options.
-    @see RawsockOptions, connector, legacyConnector */
+    @see RawsockOptions, connector */
 //------------------------------------------------------------------------------
 class UdsPath : public RawsockOptions<UdsPath,
                                       boost::asio::local::stream_protocol>

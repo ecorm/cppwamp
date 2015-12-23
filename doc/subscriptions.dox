@@ -11,7 +11,9 @@
 
 @tableofcontents
 
+
 @section EventSlots Event Slots
+
 A _slot_ is a _callable target_ that is called in response to a _signal_
 (the signal being the event topic in this case). The term _slot_, borrowed from
 [Qt's signals and slots][qt_sig], is used to distinguish an event handler
@@ -38,8 +40,21 @@ void function(wamp::Event)
 where wamp::Event is an object containing information and payload arguments
 related to the publication.
 
+The following table summarizes the different types of event slots that can
+be used with the library:
+
+| Slot Type                                                         | Wrapper Function                    | Slot Signature                          |
+|-------------------------------------------------------------------|-------------------------------------|-----------------------------------------|
+| [Basic Event Slot](@ref BasicEventSlots)                          | `wamp::basicEvent<TArgs...>`        | `void function(TArgs...)`               |
+| [Basic Coroutine Event Slot](@ref BasicCoroutineEventSlots)       | `wamp::basicCoroEvent<TArgs...>`    | `void function(TArgs..., Yield)`        |
+| [Unpacked Event Slot](@ref UnpackedEventSlots)                    | `wamp::unpackedEvent<TArgs...>`     | `void function(Event, TArgs...)`        |
+| [Unpacked Coroutine Event Slot](@ref UnpackedCoroutineEventSlots) | `wamp::unpackedCoroEvent<TArgs...>` | `void function(Event, TArgs..., Yield)` |
+
+where `Yield` represents the type `boost::asio::yield_context`.
+
 @section BasicEventSlots Basic Event Slots
-An _basic event slot_ represents an event handler that expects one or more
+
+A _basic event slot_ represents an event handler that expects one or more
 payload arguments having specific, static types. The [wamp::basicEvent]
 (@ref wamp::BasicEventUnpacker::basicEvent) function can be used when
 registering such event slots. It takes a basic event slot, and converts it
@@ -85,7 +100,65 @@ them to the slot's argument list. If `Session` cannot convert the event payload
 arguments to their target types, it issues a warning that can be captured via
 wamp::Session::setWarningHandler.
 
+
+@section BasicCoroutineEventSlots Basic Coroutine Event Slots
+
+A _basic coroutine event slot_ is like a regular _basic event slot_, except
+that it is executed within the context of a coroutine. This is useful for
+event handlers that need to perform asynchronous operations themselves. The
+[wamp::basicCoroEvent](@ref wamp::BasicCoroEventUnpacker::basicCoroEvent)
+function can be used when registering such event slots. It takes a basic
+coroutine event slot, and converts it into a regular event slot that can be
+passed to wamp::Session::subscribe.
+
+`wamp::basicCoroEvent` expects an event slot with the following signature:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void function(TArgs..., boost::asio::yield_context)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+where
+- `TArgs...` matches the template parameter pack that was passed to
+  `wamp::basicEvent`.
+- `boost::asio::yield_context` represents the event handler's coroutine context.
+
+Examples of basic coroutine event slots are:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+using Yield = boost::asio::yield_context;
+
+void onSensorSampled(float value, Yield yield) { ... }
+//                     ^
+//                    TArgs
+
+void onPurchase(std::string item, int cost, int qty, Yield yield) { ... }
+//                      ^          ^          ^
+//                      \----------|----------/
+//                               TArgs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The above slots can be registered as follows:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+session->subscribe(Topic("sensorSampled"),
+                   basicCoroEvent<float>(&onSensorSampled),
+                   handler);
+
+session->subscribe(Topic("itemPurchased"),
+                   basicCoroEvent<std::string, int, int>(&onPurchase),
+                   handler);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+where `handler` is the asynchronous handler (or coroutine yield context)
+for the **subscribe operation itself**.
+
+Whenever a wamp::Session dispatches an event to the above slots, it
+spawns a new coroutine to be executed on wamp::Session::userIosvc(). It then
+automatically unpacks the event payload positional arguments, and passes
+them to the slot's argument list. If `Session` cannot convert the event payload
+arguments to their target types, it issues a warning that can be captured via
+wamp::Session::setWarningHandler.
+
+
 @section UnpackedEventSlots Unpacked Event Slots
+
 An _unpacked event slot_ represents an event handler that expects one or more
 payload arguments having specific, static types. The [wamp::unpackedEvent]
 (@ref wamp::EventUnpacker::unpackedEvent) function can be used when
@@ -138,6 +211,28 @@ automatically unpacks the event payload positional arguments, and passes
 them to the slot's argument list. If `Session` cannot convert the event payload
 arguments to their target types, it issues a warning that can be captured via
 wamp::Session::setWarningHandler.
+
+
+@section UnpackedCoroutineEventSlots Unpacked Coroutine Event Slots
+
+An _unpacked coroutine event slot_ is like an [unpacked event slot]
+(@ref UnpackedEventSlots), except that the slot is
+executed within the context of a coroutine. The [wamp::unpackedCoroEvent]
+(@ref wamp::CoroEventUnpacker::unpackedCoroEvent) function can be used when
+registering such event slots.
+
+`wamp::unpackedCoroEvent` expects an event slot with the following signature:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void function(wamp::Event, TArgs..., boost::asio::yield_context)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+where
+- wamp::Event is an object containing information and payload arguments related
+  to the publication, and,
+- `TArgs...` matches the template parameter pack that was passed to
+  `wamp::unpackedEvent`.
+- `boost::asio::yield_context` represents the event handler's coroutine context.
+
 
 @section ScopedSubscriptions Scoped Subscriptions
 

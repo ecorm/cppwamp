@@ -37,12 +37,6 @@ set(PATH_INCLUDE_MSGPACK ${PROJECT_SOURCE_DIR}/ext/msgpack-c/include CACHE PATH
 set(PATH_INCLUDE_CATCH ${PROJECT_SOURCE_DIR}/ext/Catch/include CACHE PATH
     "Catch include path")
 
-# Add GUI variables that let the user specify that legacy connectors should be
-# used for tests and examples.
-option(CPPWAMP_USE_NON_HANDSHAKING_TRANSPORTS
-       "Use non-handshaking raw socket transports in tests and examples"
-       OFF)
-
 # Confirm that the user's choices for the Boost library paths are valid.
 unset(BOOST_ROOT)
 set(BOOST_INCLUDEDIR ${PATH_INCLUDE_BOOST})

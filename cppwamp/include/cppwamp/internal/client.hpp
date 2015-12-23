@@ -9,7 +9,6 @@
 #define CPPWAMP_INTERNAL_CLIENT_HPP
 
 #include <cassert>
-#include <iostream>
 #include <map>
 #include <memory>
 #include <queue>
@@ -17,6 +16,7 @@
 #include <sstream>
 #include <string>
 #include <system_error>
+#include <type_traits>
 #include <utility>
 #include <vector>
 #include "../registration.hpp"
@@ -24,7 +24,7 @@
 #include "../unpacker.hpp"
 #include "../version.hpp"
 #include "clientinterface.hpp"
-#include "dialogue.hpp"
+#include "peer.hpp"
 
 namespace wamp
 {
@@ -36,7 +36,7 @@ namespace internal
 // Provides the implementation of the wamp::Session class.
 //------------------------------------------------------------------------------
 template <typename TCodec, typename TTransport>
-class Client : public ClientInterface, public Dialogue<TCodec, TTransport>
+class Client : public ClientInterface, public Peer<TCodec, TTransport>
 {
 public:
     using Ptr          = std::shared_ptr<Client>;
@@ -53,7 +53,7 @@ public:
 
     virtual State state() const override {return Base::state();}
 
-    virtual void join(Realm&& realm, AsyncHandler<SessionInfo> handler) override
+    virtual void join(Realm&& realm, AsyncTask<SessionInfo>&& handler) override
     {
         using std::move;
 
@@ -73,11 +73,10 @@ public:
                 {
                     if (reply.type == WampMsgType::welcome)
                     {
-                        this->post(handler,
-                                   SessionInfo({},
-                                               move(realmUri),
-                                               move(reply.as<Int>(1)),
-                                               move(reply.as<Object>(2))));
+                        move(handler)(SessionInfo({},
+                                                  move(realmUri),
+                                                  move(reply.as<Int>(1)),
+                                                  move(reply.as<Object>(2))));
                     }
                     else
                     {
@@ -93,14 +92,13 @@ public:
 
                         AsyncResult<SessionInfo> result(make_error_code(errc),
                                                         oss.str());
-                        this->post(handler, move(result));
+                        move(handler)(move(result));
                     }
                 }
             });
     }
 
-    virtual void leave(Reason&& reason,
-                       AsyncHandler<Reason>&& handler) override
+    virtual void leave(Reason&& reason, AsyncTask<Reason>&& handler) override
     {
         using std::move;
         if (reason.uri().empty())
@@ -113,7 +111,7 @@ public:
                 {
                     auto reason = Reason(move(reply.as<String>(2)))
                                     .withOptions(move(reply.as<Object>(1)));
-                    this->post(handler, move(reason));
+                    move(handler)(move(reason));
                 }
                 readership_.clear();
                 registry_.clear();
@@ -127,34 +125,35 @@ public:
 
     virtual void terminate() override
     {
-        setLogHandlers(nullptr, nullptr);
+        using Handler = AsyncTask<std::string>;
+        setLogHandlers(Handler(), Handler());
         this->close(true);
     }
 
     virtual void subscribe(Topic&& topic, EventSlot&& slot,
-                           AsyncHandler<Subscription> handler) override
+                           AsyncTask<Subscription>&& handler) override
     {
         using std::move;
-        SubscriptionRecord sub = {move(topic), move(slot)};
+        SubscriptionRecord rec = {move(topic), move(slot), handler.iosvc()};
 
-        auto kv = topics_.find(sub.topic.uri());
+        auto kv = topics_.find(rec.topic.uri());
         if (kv == topics_.end())
         {
-            subscribeMsg_.at(2) = sub.topic.options();
-            subscribeMsg_.at(3) = sub.topic.uri();
+            subscribeMsg_.at(2) = rec.topic.options();
+            subscribeMsg_.at(3) = rec.topic.uri();
             auto self = this->shared_from_this();
             this->request(subscribeMsg_,
-                [this, self, sub, handler](std::error_code ec, Message reply)
+                [this, self, rec, handler](std::error_code ec, Message reply)
                 {
                     if (checkReply(WampMsgType::subscribed, ec, reply,
                                    SessionErrc::subscribeError, handler))
                     {
                         auto subId = reply.to<SubscriptionId>(2);
                         auto slotId = nextSlotId();
-                        Subscription handle(self, subId, slotId, {});
-                        topics_.emplace(sub.topic.uri(), subId);
-                        readership_[subId][slotId] = move(sub);
-                        this->post(handler, move(handle));
+                        Subscription sub(self, subId, slotId, {});
+                        topics_.emplace(rec.topic.uri(), subId);
+                        readership_[subId][slotId] = move(rec);
+                        std::move(handler)(std::move(sub));
                     }
                 });
         }
@@ -162,21 +161,21 @@ public:
         {
             auto subId = kv->second;
             auto slotId = nextSlotId();
-            Subscription handle{this->shared_from_this(), subId, slotId, {}};
-            readership_[subId][slotId] = move(sub);
-            this->post(handler, move(handle));
+            Subscription sub{this->shared_from_this(), subId, slotId, {}};
+            readership_[subId][slotId] = move(rec);
+            std::move(handler)(move(sub));
         }
     }
 
-    virtual void unsubscribe(const Subscription& handle) override
+    virtual void unsubscribe(const Subscription& sub) override
     {
-        auto kv = readership_.find(handle.id());
+        auto kv = readership_.find(sub.id());
         if (kv != readership_.end())
         {
             auto& subMap = kv->second;
             if (!subMap.empty())
             {
-                auto subKv = subMap.find(handle.slotId({}));
+                auto subKv = subMap.find(sub.slotId({}));
                 if (subKv != subMap.end())
                 {
                     if (subMap.size() == 1u)
@@ -184,23 +183,23 @@ public:
 
                     subMap.erase(subKv);
                     if (subMap.empty())
-                        sendUnsubscribe(handle.id());
+                        sendUnsubscribe(sub.id());
                 }
             }
         }
     }
 
-    virtual void unsubscribe(const Subscription& handle,
-                             AsyncHandler<bool> handler) override
+    virtual void unsubscribe(const Subscription& sub,
+                             AsyncTask<bool>&& handler) override
     {
         bool unsubscribed = false;
-        auto kv = readership_.find(handle.id());
+        auto kv = readership_.find(sub.id());
         if (kv != readership_.end())
         {
             auto& subMap = kv->second;
             if (!subMap.empty())
             {
-                auto subKv = subMap.find(handle.slotId({}));
+                auto subKv = subMap.find(sub.slotId({}));
                 if (subKv != subMap.end())
                 {
                     unsubscribed = true;
@@ -210,15 +209,15 @@ public:
                     subMap.erase(subKv);
                     if (subMap.empty())
                     {
-                        sendUnsubscribe(handle.id(), std::move(handler));
-                        handler = nullptr;
+                        sendUnsubscribe(sub.id(), std::move(handler));
+                        handler = AsyncTask<bool>();
                     }
                 }
             }
         }
 
         if (handler)
-            this->post(handler, unsubscribed);
+            std::move(handler)(unsubscribed);
     }
 
     virtual void publish(Pub&& pub) override
@@ -226,53 +225,52 @@ public:
         this->send(marshallPublish(std::move(pub)));
     }
 
-    virtual void publish(Pub&& pub,
-                         AsyncHandler<PublicationId>&& handler) override
+    virtual void publish(Pub&& pub, AsyncTask<PublicationId>&& handler) override
     {
         pub.options({}).emplace("acknowledge", true);
         auto self = this->shared_from_this();
         this->request(marshallPublish(std::move(pub)),
             [this, self, handler](std::error_code ec, Message reply)
             {
-                if (checkReply<PublicationId>(WampMsgType::published, ec, reply,
-                        SessionErrc::publishError, handler))
+                if (checkReply(WampMsgType::published, ec, reply,
+                               SessionErrc::publishError, handler))
                 {
-                    this->post(handler, reply.to<PublicationId>(2));
+                    std::move(handler)(reply.to<PublicationId>(2));
                 }
             });
     }
 
     virtual void enroll(Procedure&& procedure, CallSlot&& slot,
-                        AsyncHandler<Registration>&& handler) override
+                        AsyncTask<Registration>&& handler) override
     {
         using std::move;
-        RegistrationRecord reg{move(procedure), move(slot)};
-        enrollMsg_.at(2) = reg.procedure.options();
-        enrollMsg_.at(3) = reg.procedure.uri();
+        RegistrationRecord rec{move(procedure), move(slot), handler.iosvc()};
+        enrollMsg_.at(2) = rec.procedure.options();
+        enrollMsg_.at(3) = rec.procedure.uri();
         auto self = this->shared_from_this();
         this->request(enrollMsg_,
-            [this, self, reg, handler](std::error_code ec, Message reply)
+            [this, self, rec, handler](std::error_code ec, Message reply)
             {
-                if (checkReply<Registration>(WampMsgType::registered, ec,
-                        reply, SessionErrc::registerError, handler))
+                if (checkReply(WampMsgType::registered, ec, reply,
+                               SessionErrc::registerError, handler))
                 {
                     auto regId = reply.to<RegistrationId>(2);
-                    Registration handle(self, regId, {});
-                    registry_[regId] = move(reg);
-                    this->post(handler, move(handle));
+                    Registration reg(self, regId, {});
+                    registry_[regId] = move(rec);
+                    move(handler)(move(reg));
                 }
             });
     }
 
-    virtual void unregister(const Registration& handle) override
+    virtual void unregister(const Registration& reg) override
     {
-        auto kv = registry_.find(handle.id());
+        auto kv = registry_.find(reg.id());
         if (kv != registry_.end())
         {
             registry_.erase(kv);
             if (state() == State::established)
             {
-                unregisterMsg_.at(2) = handle.id();
+                unregisterMsg_.at(2) = reg.id();
                 auto self = this->shared_from_this();
                 this->request( unregisterMsg_,
                     [this, self](std::error_code ec, Message reply)
@@ -286,30 +284,30 @@ public:
         }
     }
 
-    virtual void unregister(const Registration& handle,
-                            AsyncHandler<bool> handler) override
+    virtual void unregister(const Registration& reg,
+                            AsyncTask<bool>&& handler) override
     {
         CPPWAMP_LOGIC_CHECK(state() == State::established,
                             "Session is not established");
-        auto kv = registry_.find(handle.id());
+        auto kv = registry_.find(reg.id());
         if (kv != registry_.end())
         {
             registry_.erase(kv);
-            unregisterMsg_.at(2) = handle.id();
+            unregisterMsg_.at(2) = reg.id();
             auto self = this->shared_from_this();
             this->request( unregisterMsg_,
                 [this, self, handler](std::error_code ec, Message reply)
                 {
                     if (checkReply(WampMsgType::unregistered, ec, reply,
                                    SessionErrc::unregisterError, handler))
-                        this->post(handler, true);
+                        std::move(handler)(true);
                 });
         }
         else
-            this->post(handler, false);
+            std::move(handler)(false);
     }
 
-    virtual void call(Rpc&& rpc, AsyncHandler<Result>&& handler) override
+    virtual void call(Rpc&& rpc, AsyncTask<Result>&& handler) override
     {
         using std::move;
         Error* errorPtr = rpc.error({});
@@ -369,16 +367,11 @@ public:
         this->sendError(WampMsgType::invocation, reqId, move(failure));
     }
 
-    virtual void setLogHandlers(LogHandler warningHandler,
-                                LogHandler traceHandler) override
+    virtual void setLogHandlers(AsyncTask<std::string> warningHandler,
+                                AsyncTask<std::string> traceHandler) override
     {
         warningHandler_ = std::move(warningHandler);
         this->setTraceHandler(std::move(traceHandler));
-    }
-
-    virtual void postpone(std::function<void ()> functor) override
-    {
-        this->post(functor);
     }
 
 private:
@@ -386,31 +379,36 @@ private:
     {
         using Slot = std::function<void (Event)>;
 
-        SubscriptionRecord() : topic("") {}
+        SubscriptionRecord() : topic(""), iosvc(nullptr) {}
 
-        SubscriptionRecord(Topic&& topic, Slot&& slot)
-            : topic(std::move(topic)), slot(std::move(slot))
+        SubscriptionRecord(Topic&& topic, Slot&& slot, AsioService& iosvc)
+            : topic(std::move(topic)), slot(std::move(slot)), iosvc(&iosvc)
         {}
 
         Topic topic;
         Slot slot;
+        AsioService* iosvc;
     };
 
     struct RegistrationRecord
     {
         using Slot = std::function<Outcome (Invocation)>;
 
-        RegistrationRecord() : procedure("") {}
+        RegistrationRecord() : procedure(""), iosvc(nullptr) {}
 
-        RegistrationRecord(Procedure&& procedure, Slot&& slot)
-            : procedure(std::move(procedure)), slot(std::move(slot))
+        RegistrationRecord(Procedure&& procedure, Slot&& slot,
+                           AsioService& iosvc)
+            : procedure(std::move(procedure)),
+              slot(std::move(slot)),
+              iosvc(&iosvc)
         {}
 
         Procedure procedure;
         Slot slot;
+        AsioService* iosvc = nullptr;
     };
 
-    using Base          = Dialogue<Codec, Transport>;
+    using Base          = Peer<Codec, Transport>;
     using WampMsgType   = internal::WampMsgType;
     using Message       = internal::WampMessage;
     using SlotId        = uint64_t;
@@ -422,11 +420,6 @@ private:
     Client(TransportPtr transport)
         : Base(std::move(transport))
     {
-        warningHandler_ = [](const std::string& log)
-        {
-            std::cerr << "[CppWAMP] Warning: " << log << "\n";
-        };
-
         initMessages();
     }
 
@@ -452,7 +445,7 @@ private:
         }
     }
 
-    void sendUnsubscribe(SubscriptionId subId, AsyncHandler<bool>&& handler)
+    void sendUnsubscribe(SubscriptionId subId, AsyncTask<bool>&& handler)
     {
         CPPWAMP_LOGIC_CHECK((this->state() == State::established),
                             "Session is not established");
@@ -463,7 +456,7 @@ private:
             {
                 if (checkReply(WampMsgType::unsubscribed, ec, reply,
                                SessionErrc::unsubscribeError, handler))
-                    this->post(handler, true);
+                    std::move(handler)(true);
             });
     }
 
@@ -494,7 +487,7 @@ private:
     }
 
     void callProcedure(Message& msg, Error* errorPtr,
-                       AsyncHandler<Result>&& handler)
+                       AsyncTask<Result>&& handler)
     {
         auto self = this->shared_from_this();
         this->request(msg,
@@ -509,8 +502,8 @@ private:
                         errorPtr->withKwargs(reply.as<Object>(6));
                 }
 
-                if (checkReply<Result>(WampMsgType::result, ec, reply,
-                                       SessionErrc::callError, handler))
+                if (checkReply(WampMsgType::result, ec, reply,
+                               SessionErrc::callError, handler))
                 {
                     using std::move;
                     Result result({}, reply.to<RequestId>(1),
@@ -520,7 +513,7 @@ private:
                         result.withArgList(move(reply.as<Array>(3)));
                     if (reply.size() >= 5)
                         result.withKwargs(move(reply.as<Object>(4)));
-                    this->post(handler, std::move(result));
+                    move(handler)(move(result));
                 }
             });
     }
@@ -551,21 +544,26 @@ private:
     {
         using std::move;
 
-        Event event({},
-                    msg.to<SubscriptionId>(1),
-                    msg.to<PublicationId>(2),
-                    move(msg.as<Object>(3)));
+        auto subId = msg.to<SubscriptionId>(1);
+        auto pubId = msg.to<PublicationId>(2);
 
-        auto kv = readership_.find(event.subId());
+        auto kv = readership_.find(subId);
         if (kv != readership_.end())
         {
+            const auto& localSubs = kv->second;
+            assert(!localSubs.empty());
+            Event event({},
+                        msg.to<SubscriptionId>(1),
+                        msg.to<PublicationId>(2),
+                        localSubs.begin()->second.iosvc,
+                        move(msg.as<Object>(3)));
+
             if (msg.fields.size() >= 5)
                 event.args({}) = move(msg.as<Array>(4));
             if (msg.fields.size() >= 6)
                 event.kwargs({}) = move(msg.as<Object>(5));
 
             auto self = this->shared_from_this();
-            const auto& localSubs = kv->second;
             for (const auto& subKv: localSubs)
                 dispatchEvent(subKv.second, event);
         }
@@ -573,8 +571,7 @@ private:
         {
             std::ostringstream oss;
             oss << "Received an EVENT that is not subscribed to "
-                   "(with subId=" << event.subId()
-                << " pubId=" << event.pubId() << ")";
+                   "(with subId=" << subId << " pubId=" << pubId << ")";
             warn(oss.str());
         }
     }
@@ -583,7 +580,7 @@ private:
     {
         auto self = this->shared_from_this();
         const auto& slot = sub.slot;
-        this->post([this, self, slot, event]()
+        sub.iosvc->post([this, self, slot, event]()
         {
             // Copy the subscription and publication IDs before the Event
             // object gets moved away.
@@ -619,7 +616,8 @@ private:
         if (kv != registry_.end())
         {
             auto self = this->shared_from_this();
-            Invocation inv({}, self, requestId, move(msg.as<Object>(3)));
+            Invocation inv({}, self, requestId, kv->second.iosvc,
+                           move(msg.as<Object>(3)));
             if (msg.fields.size() >= 5)
                 inv.args({}) = move(msg.as<Array>(4));
             if (msg.fields.size() >= 6)
@@ -640,7 +638,7 @@ private:
     {
         auto self = this->shared_from_this();
         const auto& slot = reg.slot;
-        this->post([this, self, slot, invocation]()
+        reg.iosvc->post([this, self, slot, invocation]()
         {
             // Copy the request ID before the Invocation object gets moved away.
             auto reqId = invocation.requestId();
@@ -655,11 +653,11 @@ private:
                     break;
 
                 case Outcome::Type::result:
-                    yield(reqId, std::move(outcome.result({})));
+                    yield(reqId, std::move(outcome).asResult());
                     break;
 
                 case Outcome::Type::error:
-                    yield(reqId, std::move(outcome.error({})));
+                    yield(reqId, std::move(outcome).asError());
                     break;
 
                 default:
@@ -680,16 +678,16 @@ private:
     }
 
     template <typename THandler>
-    bool checkError(std::error_code ec, THandler& handler)
+    bool checkError(std::error_code ec, THandler&& handler)
     {
         if (ec)
-            this->post(handler, ec);
+            std::forward<THandler>(handler)(ec);
         return !ec;
     }
 
-    template <typename TResult>
+    template <typename THandler>
     bool checkReply(WampMsgType type, std::error_code ec, const Message& reply,
-                    SessionErrc defaultErrc, const AsyncHandler<TResult>& handler)
+                    SessionErrc defaultErrc, THandler&& handler)
     {
         bool success = checkError(ec, handler);
         if (success)
@@ -707,8 +705,10 @@ private:
                 if (reply.size() >= 7 && !reply.as<Object>(6).empty())
                     oss << ", ArgsKv=" << reply.at(6);
 
-                AsyncResult<TResult> result(make_error_code(errc), oss.str());
-                this->post(handler, result);
+                using ResultType = typename ResultTypeOfHandler<
+                        typename std::decay<THandler>::type >::Type;
+                ResultType result(make_error_code(errc), oss.str());
+                std::forward<THandler>(handler)(std::move(result));
             }
             else
                 assert((reply.type == type) && "Unexpected WAMP message type");
@@ -720,13 +720,13 @@ private:
                    SessionErrc defaultErrc)
     {
         auto self = this->shared_from_this();
-        checkReply<bool>(type, ec, reply, defaultErrc,
+        checkReply(type, ec, reply, defaultErrc, AsyncHandler<bool>(
             [this, self](AsyncResult<bool> result)
             {
                 if (!result)
                     warn(error::Failure::makeMessage(result.errorCode(),
                                                      result.errorInfo()));
-            });
+            }));
     }
 
     void warn(const std::string& log)
@@ -766,7 +766,7 @@ private:
     TopicMap topics_;
     Readership readership_;
     Registry registry_;
-    LogHandler warningHandler_;
+    AsyncTask<std::string> warningHandler_;
 
     Message publishMsg_;
     Message publishArgsMsg_;

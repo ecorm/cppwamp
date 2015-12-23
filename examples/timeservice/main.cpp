@@ -47,19 +47,11 @@ std::tm getTime()
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::AsioService iosvc;
-
-#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
-    auto uds = wamp::legacyConnector<wamp::Msgpack>(iosvc,
-                                                    wamp::UdsPath(udsPath));
-#else
-    auto uds1 = wamp::connector<wamp::Msgpack>(iosvc, wamp::UdsPath(udsPath1));
-    auto uds2 = wamp::connector<wamp::Msgpack>(iosvc, wamp::UdsPath(udsPath2));
-#endif
-
     using namespace wamp;
-    auto session = CoroSession<>::create({uds1, uds2});
-
+    AsioService iosvc;
+    auto uds1 = connector<Msgpack>(iosvc, UdsPath(udsPath1));
+    auto uds2 = connector<Msgpack>(iosvc, UdsPath(udsPath2));
+    auto session = CoroSession<>::create(iosvc, {uds1, uds2});
     boost::asio::steady_timer timer(iosvc);
 
     boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)

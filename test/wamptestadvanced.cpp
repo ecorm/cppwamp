@@ -23,20 +23,16 @@ const short testPort = 12345;
 
 Connector::Ptr tcp(AsioService& iosvc)
 {
-#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
-    return legacyConnector<Json>(iosvc, TcpHost("localhost", testPort));
-#else
     return connector<Json>(iosvc, TcpHost("localhost", testPort));
-#endif
 }
 
 //------------------------------------------------------------------------------
 struct RpcFixture
 {
     template <typename TConnector>
-    RpcFixture(TConnector cnct)
-        : caller(CoroSession<>::create(cnct)),
-          callee(CoroSession<>::create(cnct))
+    RpcFixture(AsioService& iosvc, TConnector cnct)
+        : caller(CoroSession<>::create(iosvc, cnct)),
+          callee(CoroSession<>::create(iosvc, cnct))
     {}
 
     void join(boost::asio::yield_context yield)
@@ -63,9 +59,9 @@ struct RpcFixture
 struct PubSubFixture
 {
     template <typename TConnector>
-    PubSubFixture(TConnector cnct)
-        : publisher(CoroSession<>::create(cnct)),
-          subscriber(CoroSession<>::create(cnct))
+    PubSubFixture(AsioService& iosvc, TConnector cnct)
+        : publisher(CoroSession<>::create(iosvc, cnct)),
+          subscriber(CoroSession<>::create(iosvc, cnct))
     {}
 
     void join(boost::asio::yield_context yield)
@@ -98,7 +94,7 @@ SCENARIO( "WAMP RPC advanced features", "[WAMP]" )
 GIVEN( "a caller and a callee" )
 {
     AsioService iosvc;
-    RpcFixture f(tcp(iosvc));
+    RpcFixture f(iosvc, tcp(iosvc));
 
     WHEN( "using caller identification" )
     {
@@ -175,7 +171,7 @@ SCENARIO( "WAMP pub/sub advanced features", "[WAMP]" )
 GIVEN( "a publisher and a subscriber" )
 {
     AsioService iosvc;
-    PubSubFixture f(tcp(iosvc));
+    PubSubFixture f(iosvc, tcp(iosvc));
 
     WHEN( "using publisher identification" )
     {
@@ -291,7 +287,7 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using subscriber black/white listing" )
     {
-        auto subscriber2 = CoroSession<>::create(tcp(iosvc));
+        auto subscriber2 = CoroSession<>::create(iosvc, tcp(iosvc));
 
         boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
         {

@@ -7,7 +7,6 @@
 
 #include <utility>
 #include "asioconnector.hpp"
-#include "legacyasioendpoint.hpp"
 #include "rawsockconnector.hpp"
 #include "udsopener.hpp"
 
@@ -19,16 +18,6 @@ template <typename TCodec>
 Connector::Ptr connector(AsioService& iosvc, UdsPath path)
 {
     using Endpoint = internal::AsioConnector<internal::UdsOpener>;
-    using ConcreteConnector = internal::RawsockConnector<TCodec, Endpoint>;
-    return ConcreteConnector::create(iosvc, std::move(path));
-}
-
-
-//------------------------------------------------------------------------------
-template <typename TCodec>
-Connector::Ptr legacyConnector(AsioService& iosvc, UdsPath path)
-{
-    using Endpoint = internal::LegacyAsioEndpoint<internal::UdsOpener>;
     using ConcreteConnector = internal::RawsockConnector<TCodec, Endpoint>;
     return ConcreteConnector::create(iosvc, std::move(path));
 }

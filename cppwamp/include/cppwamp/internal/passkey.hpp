@@ -19,7 +19,7 @@ namespace internal
     {
         PassKey() {}
 
-        template <typename, typename> friend class Dialogue;
+        template <typename, typename> friend class Peer;
         template <typename, typename> friend class Client;
         friend class wamp::Session;
     };

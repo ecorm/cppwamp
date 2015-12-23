@@ -13,7 +13,8 @@
 #include <memory>
 #include <set>
 #include <string>
-#include "dialoguedata.hpp"
+#include "asiodefs.hpp"
+#include "peerdata.hpp"
 #include "options.hpp"
 #include "payload.hpp"
 #include "variant.hpp"
@@ -185,11 +186,18 @@ public:
     /** Default constructor. */
     Event();
 
+    /** Returns `false` if the Event has been initialized and is ready
+        for use. */
+    bool empty() const;
+
     /** Obtains the subscription ID associated with this event. */
     PublicationId subId() const;
 
     /** Obtains the publication ID associated with this event. */
     PublicationId pubId() const;
+
+    /** Obtains the IO service used to execute user-provided handlers. */
+    AsioService& iosvc() const;
 
     /** Obtains an optional publisher ID integer. */
     Variant publisher() const;
@@ -203,12 +211,13 @@ public:
 
 private:
     SubscriptionId subId_ = -1;
-    PublicationId pubId_ = -1;
+    PublicationId pubId_  = -1;
+    AsioService* iosvc_   = nullptr;
 
 public:
     // Internal use only
     Event(internal::PassKey, SubscriptionId subId, PublicationId pubId,
-          Object&& details);
+          AsioService* iosvc, Object&& details);
 };
 
 std::ostream& operator<<(std::ostream& out, const Event& event);
@@ -370,6 +379,18 @@ public:
     /** Obtains the object type being contained. */
     Type type() const;
 
+    /** Accesses the stored Result object. */
+    const Result& asResult() const &;
+
+    /** Steals the stored Result object. */
+    Result&& asResult() &&;
+
+    /** Accesses the stored Error object. */
+    const Error& asError() const &;
+
+    /** Steals the stored Error object. */
+    Error&& asError() &&;
+
     /** Copy-assignment operator. */
     Outcome& operator=(const Outcome& other);
 
@@ -392,11 +413,6 @@ private:
         Result result;
         Error error;
     } value_;
-
-public:
-    // Internal use only
-    Result& result(internal::PassKey);
-    Error& error(internal::PassKey);
 };
 
 
@@ -412,12 +428,19 @@ public:
     /** Default constructor */
     Invocation();
 
+    /** Returns `false` if the Invocation has been initialized and is ready
+        for use. */
+    bool empty() const;
+
     /** Determines if the Session object that dispatched this
         invocation still exists or has expired. */
     bool calleeHasExpired() const;
 
     /** Returns the request ID associated with this RPC invocation. */
     RequestId requestId() const;
+
+    /** Obtains the IO service used to execute user-provided handlers. */
+    AsioService& iosvc() const;
 
     /** Checks if the caller requested progressive results. */
     bool isProgressive() const;
@@ -442,11 +465,12 @@ public:
     // Internal use only
     using CalleePtr = std::weak_ptr<internal::Callee>;
     Invocation(internal::PassKey, CalleePtr callee, RequestId id,
-               Object&& details);
+               AsioService* iosvc, Object&& details);
 
 private:
     CalleePtr callee_;
     RequestId id_ = -1;
+    AsioService* iosvc_ = nullptr;
 };
 
 std::ostream& operator<<(std::ostream& out, const Invocation& inv);

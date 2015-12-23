@@ -16,7 +16,7 @@ namespace internal
 
 //------------------------------------------------------------------------------
 template <typename... A>
-struct UnpackedArgGetter
+struct UnpackedCoroArgGetter
 {
     template <int N>
     static NthTypeOf<N, A...> get(const Array& args)
@@ -42,12 +42,12 @@ struct UnpackedArgGetter
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-EventUnpacker<S,A...>::EventUnpacker(Slot slot)
-    : slot_(std::move(slot))
+CoroEventUnpacker<S,A...>::CoroEventUnpacker(Slot slot)
+    : slot_(std::make_shared<Slot>(std::move(slot)))
 {}
 
 template <typename S, typename... A>
-void EventUnpacker<S,A...>::operator()(Event&& event)
+void CoroEventUnpacker<S,A...>::operator()(Event&& event)
 {
     if (event.args().size() < sizeof...(A))
     {
@@ -65,30 +65,34 @@ void EventUnpacker<S,A...>::operator()(Event&& event)
 
 template <typename S, typename... A>
 template <int ...Seq>
-void EventUnpacker<S,A...>::invoke(Event&& event,
+void CoroEventUnpacker<S,A...>::invoke(Event&& event,
                                    internal::IntegerSequence<Seq...>)
 {
-    Array args = event.args();
-    using Getter = internal::UnpackedArgGetter<A...>;
-    slot_(std::move(event), Getter::template get<Seq>(args)...);
+    auto slot = slot_;
+    boost::asio::spawn(event.iosvc(), [slot, event](Yield yield)
+    {
+        Array args = event.args();
+        using Getter = internal::UnpackedCoroArgGetter<A...>;
+        (*slot)(std::move(event), Getter::template get<Seq>(args)..., yield);
+    });
 }
 
 template <typename... TArgs, typename TSlot>
-EventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedEvent(TSlot&& slot)
+CoroEventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedCoroEvent(TSlot&& slot)
 {
-    return EventUnpacker<DecayedSlot<TSlot>, TArgs...>(
+    return CoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>(
                 std::forward<TSlot>(slot));
 }
 
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-BasicEventUnpacker<S,A...>::BasicEventUnpacker(Slot slot)
-    : slot_(std::move(slot))
+BasicCoroEventUnpacker<S,A...>::BasicCoroEventUnpacker(Slot slot)
+    : slot_(std::make_shared<Slot>(std::move(slot)))
 {}
 
 template <typename S, typename... A>
-void BasicEventUnpacker<S,A...>::operator()(Event&& event)
+void BasicCoroEventUnpacker<S,A...>::operator()(Event&& event)
 {
     if (event.args().size() < sizeof...(A))
     {
@@ -106,30 +110,36 @@ void BasicEventUnpacker<S,A...>::operator()(Event&& event)
 
 template <typename S, typename... A>
 template <int ...Seq>
-void BasicEventUnpacker<S,A...>::invoke(Event&& event,
-                                        internal::IntegerSequence<Seq...>)
+void BasicCoroEventUnpacker<S,A...>::invoke(Event&& event,
+                                       internal::IntegerSequence<Seq...>)
 {
+    auto slot = slot_;
     Array args = std::move(event).args();
-    using Getter = internal::UnpackedArgGetter<A...>;
-    slot_(Getter::template get<Seq>(args)...);
+
+    boost::asio::spawn(event.iosvc(), [slot, args](Yield yield)
+    {
+        using Getter = internal::UnpackedCoroArgGetter<A...>;
+        (*slot)(Getter::template get<Seq>(args)..., yield);
+    });
 }
 
 template <typename... TArgs, typename TSlot>
-BasicEventUnpacker<DecayedSlot<TSlot>, TArgs...> basicEvent(TSlot&& slot)
+BasicCoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>
+basicCoroEvent(TSlot&& slot)
 {
-    return BasicEventUnpacker<DecayedSlot<TSlot>, TArgs...>(
+    return BasicCoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>(
                 std::forward<TSlot>(slot));
 }
 
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-InvocationUnpacker<S,A...>::InvocationUnpacker(Slot slot)
-    : slot_(std::move(slot))
+CoroInvocationUnpacker<S,A...>::CoroInvocationUnpacker(Slot slot)
+    : slot_(std::make_shared<Slot>(std::move(slot)))
 {}
 
 template <typename S, typename... A>
-Outcome InvocationUnpacker<S,A...>::operator()(Invocation&& inv)
+Outcome CoroInvocationUnpacker<S,A...>::operator()(Invocation&& inv)
 {
     if (inv.args().size() < sizeof...(A))
     {
@@ -142,35 +152,69 @@ Outcome InvocationUnpacker<S,A...>::operator()(Invocation&& inv)
     // Use the integer parameter pack technique shown in
     // http://stackoverflow.com/a/7858971/245265
     using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
-    return invoke(std::move(inv), Seq());
+    invoke(std::move(inv), Seq());
+
+    return Outcome::deferred();
 }
 
 template <typename S, typename... A>
 template <int ...Seq>
-Outcome InvocationUnpacker<S,A...>::invoke(Invocation&& inv,
+void CoroInvocationUnpacker<S,A...>::invoke(Invocation&& inv,
                                            internal::IntegerSequence<Seq...>)
 {
-    Array args = inv.args();
-    using Getter = internal::UnpackedArgGetter<A...>;
-    return slot_(std::move(inv), Getter::template get<Seq>(args)...);
+    auto slot = slot_;
+    boost::asio::spawn(inv.iosvc(), [slot, inv](Yield yield)
+    {
+        try
+        {
+            Array args = inv.args();
+            using Getter = internal::UnpackedCoroArgGetter<A...>;
+            Outcome outcome = (*slot)(std::move(inv),
+                                      Getter::template get<Seq>(args)...,
+                                      yield);
+
+            switch (outcome.type())
+            {
+            case Outcome::Type::deferred:
+                // Do nothing
+                break;
+
+            case Outcome::Type::result:
+                inv.yield(std::move(outcome).asResult());
+                break;
+
+            case Outcome::Type::error:
+                inv.yield(std::move(outcome).asError());
+                break;
+
+            default:
+                assert(false && "Unexpected wamp::Outcome::Type enumerator");
+            }
+
+        }
+        catch (const Error& e)
+        {
+            inv.yield(e);
+        }
+    });
 }
 
 template <typename... TArgs, typename TSlot>
-InvocationUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedRpc(TSlot&& slot)
+CoroInvocationUnpacker<DecayedSlot<TSlot>, TArgs...>
+unpackedCoroRpc(TSlot&& slot)
 {
-    return InvocationUnpacker<DecayedSlot<TSlot>, TArgs...>(
+    return CoroInvocationUnpacker<DecayedSlot<TSlot>, TArgs...>(
                 std::forward<TSlot>(slot) );
 }
 
-
 //------------------------------------------------------------------------------
 template <typename S, typename R, typename... A>
-BasicInvocationUnpacker<S,R,A...>::BasicInvocationUnpacker(Slot slot)
-    : slot_(std::move(slot))
+BasicCoroInvocationUnpacker<S,R,A...>::BasicCoroInvocationUnpacker(Slot slot)
+    : slot_(std::make_shared<Slot>(std::move(slot)))
 {}
 
 template <typename S, typename R, typename... A>
-Outcome BasicInvocationUnpacker<S,R,A...>::operator()(Invocation&& inv)
+Outcome BasicCoroInvocationUnpacker<S,R,A...>::operator()(Invocation&& inv)
 {
     if (inv.args().size() < sizeof...(A))
     {
@@ -184,36 +228,61 @@ Outcome BasicInvocationUnpacker<S,R,A...>::operator()(Invocation&& inv)
     // http://stackoverflow.com/a/7858971/245265
     using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
     using IsVoidResult = BoolConstant<std::is_same<ResultType, void>::value>;
-    return invoke(IsVoidResult{}, std::move(inv), Seq());
+    invoke(IsVoidResult{}, std::move(inv), Seq());
+
+    return Outcome::deferred();
 }
 
 template <typename S, typename R, typename... A>
 template <int ...Seq>
-Outcome BasicInvocationUnpacker<S,R,A...>::invoke(TrueType, Invocation&& inv,
+void BasicCoroInvocationUnpacker<S,R,A...>::invoke(TrueType, Invocation&& inv,
         internal::IntegerSequence<Seq...>)
 {
-    Array args = std::move(inv).args();
-    using Getter = internal::UnpackedArgGetter<A...>;
-    slot_(Getter::template get<Seq>(args)...);
-    return {};
+    auto slot = slot_;
+    boost::asio::spawn(inv.iosvc(), [slot, inv](Yield yield)
+    {
+        try
+        {
+            Array args = std::move(inv).args();
+            using Getter = internal::UnpackedCoroArgGetter<A...>;
+            (*slot)(Getter::template get<Seq>(args)..., yield);
+            inv.yield();
+        }
+        catch (const Error& e)
+        {
+            inv.yield(e);
+        }
+    });
 }
 
 template <typename S, typename R, typename... A>
 template <int ...Seq>
-Outcome BasicInvocationUnpacker<S,R,A...>::invoke(FalseType, Invocation&& inv,
+void BasicCoroInvocationUnpacker<S,R,A...>::invoke(FalseType, Invocation&& inv,
             internal::IntegerSequence<Seq...>)
 {
-    Array args = std::move(inv).args();
-    using Getter = internal::UnpackedArgGetter<A...>;
-    ResultType result = slot_(Getter::template get<Seq>(args)...);
-    return Result().withArgs(std::move(result));
+    auto slot = slot_;
+    boost::asio::spawn(inv.iosvc(), [slot, inv](Yield yield)
+    {
+        try
+        {
+            Array args = std::move(inv).args();
+            using Getter = internal::UnpackedCoroArgGetter<A...>;
+            ResultType result = (*slot)(Getter::template get<Seq>(args)...,
+                                        yield);
+            inv.yield(Result().withArgs(std::move(result)));
+        }
+        catch (const Error& e)
+        {
+            inv.yield(e);
+        }
+    });
 }
 
 template <typename TResult, typename... TArgs, typename TSlot>
-BasicInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
-basicRpc(TSlot&& slot)
+BasicCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
+basicCoroRpc(TSlot&& slot)
 {
-    return BasicInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>(
+    return BasicCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>(
                 std::forward<TSlot>(slot) );
 }
 

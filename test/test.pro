@@ -13,7 +13,6 @@ CONFIG -= qt
 SOURCES += \
     codectestjson.cpp \
     codectestmsgpack.cpp \
-    legacytransporttest.cpp \
     payloadtest.cpp \
     transporttest.cpp \
     varianttestassign.cpp \

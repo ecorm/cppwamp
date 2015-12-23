@@ -15,13 +15,14 @@ set(HEADERS
     include/cppwamp/connector.hpp
     include/cppwamp/conversion.hpp
     include/cppwamp/corosession.hpp
-    include/cppwamp/dialoguedata.hpp
+    include/cppwamp/corounpacker.hpp
     include/cppwamp/error.hpp
     include/cppwamp/json.hpp
     include/cppwamp/msgpack.hpp
     include/cppwamp/null.hpp
     include/cppwamp/options.hpp
     include/cppwamp/payload.hpp
+    include/cppwamp/peerdata.hpp
     include/cppwamp/rawsockoptions.hpp
     include/cppwamp/registration.hpp
     include/cppwamp/session.hpp
@@ -37,20 +38,21 @@ set(HEADERS
     include/cppwamp/version.hpp
     include/cppwamp/visitor.hpp
     include/cppwamp/wampdefs.hpp
+    include/cppwamp/internal/asynctask.hpp
     include/cppwamp/internal/asioconnector.hpp
     include/cppwamp/internal/asioendpoint.hpp
     include/cppwamp/internal/asiolistener.hpp
     include/cppwamp/internal/asiotransport.hpp
+    include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/callee.hpp
     include/cppwamp/internal/client.hpp
     include/cppwamp/internal/clientinterface.hpp
     include/cppwamp/internal/config.hpp
-    include/cppwamp/internal/dialogue.hpp
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/integersequence.hpp
-    include/cppwamp/internal/legacyasioendpoint.hpp
-    include/cppwamp/internal/legacyasiotransport.hpp
     include/cppwamp/internal/messagetraits.hpp
+    include/cppwamp/internal/passkey.hpp
+    include/cppwamp/internal/peer.hpp
     include/cppwamp/internal/precompiled.hpp
     include/cppwamp/internal/rawsockconnector.hpp
     include/cppwamp/internal/rawsockhandshake.hpp
@@ -65,18 +67,19 @@ set(HEADERS
     include/cppwamp/internal/varianttraitsfwd.hpp
     include/cppwamp/internal/variantvisitors.hpp
     include/cppwamp/internal/wampmessage.hpp
+    include/cppwamp/types/set.hpp
     include/cppwamp/types/tuple.hpp
     include/cppwamp/types/boostoptional.hpp
     include/cppwamp/types/unorderedmap.hpp
+    include/cppwamp/types/unorderedset.hpp
 )
 
 set(INLINES
     include/cppwamp/internal/asyncresult.ipp
-    include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/blob.ipp
     include/cppwamp/internal/conversion.ipp
     include/cppwamp/internal/corosession.ipp
-    include/cppwamp/internal/dialoguedata.ipp
+    include/cppwamp/internal/corounpacker.ipp
     include/cppwamp/internal/endian.ipp
     include/cppwamp/internal/error.ipp
     include/cppwamp/internal/json.ipp
@@ -84,8 +87,8 @@ set(INLINES
     include/cppwamp/internal/msgpack.ipp
     include/cppwamp/internal/null.ipp
     include/cppwamp/internal/options.ipp
-    include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/payload.ipp
+    include/cppwamp/internal/peerdata.ipp
     include/cppwamp/internal/rawsockoptions.ipp
     include/cppwamp/internal/registration.ipp
     include/cppwamp/internal/session.ipp

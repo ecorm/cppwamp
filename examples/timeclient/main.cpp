@@ -45,17 +45,11 @@ void onTimeTick(std::tm time)
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::AsioService iosvc;
-
-#ifdef CPPWAMP_USE_LEGACY_CONNECTORS
-    auto tcp = wamp::legacyConnector<wamp::Json>(iosvc,
-                                                 wamp::TcpHost(address, port));
-#else
-    auto tcp = wamp::connector<wamp::Json>(iosvc, wamp::TcpHost(address, port));
-#endif
-
     using namespace wamp;
-    auto session = CoroSession<>::create(tcp);
+
+    AsioService iosvc;
+    auto tcp = connector<Json>(iosvc, TcpHost(address, port));
+    auto session = CoroSession<>::create(iosvc, tcp);
 
     boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
     {

@@ -5,8 +5,8 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_DIALOGUEDATA_HPP
-#define CPPWAMP_DIALOGUEDATA_HPP
+#ifndef CPPWAMP_PEERDATA_HPP
+#define CPPWAMP_PEERDATA_HPP
 
 #include "options.hpp"
 #include "payload.hpp"
@@ -74,7 +74,7 @@ public:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "./internal/dialoguedata.ipp"
+#include "./internal/peerdata.ipp"
 #endif
 
-#endif // CPPWAMP_DIALOGUEDATA_HPP
+#endif // CPPWAMP_PEERDATA_HPP

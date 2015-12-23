@@ -10,8 +10,8 @@
 
 #include <functional>
 #include <memory>
-#include "../asyncresult.hpp"
 #include "../wampdefs.hpp"
+#include "asynctask.hpp"
 
 namespace wamp
 {
@@ -29,10 +29,10 @@ public:
 
     virtual ~Subscriber() {}
 
-    virtual void unsubscribe(const Subscription& handle) = 0;
+    virtual void unsubscribe(const Subscription& sub) = 0;
 
-    virtual void unsubscribe(const Subscription& handle,
-                             AsyncHandler<bool> handler) = 0;
+    virtual void unsubscribe(const Subscription& sub,
+                             AsyncTask<bool>&& handler) = 0;
 };
 
 } // namespace internal

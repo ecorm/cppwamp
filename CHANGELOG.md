@@ -1,3 +1,24 @@
+v0.6.0
+======
+Better support for asynchronous RPC and event handlers.
+
+Breaking Changes:
+- `Session` and `CoroSession` now take an extra `boost::asio::io_service`
+  argument in their `create()` functions. This IO service is now used for
+  executing user-provided handlers. It can be the same one used by the
+  transport connectors.
+- Support for non-handshaking raw socket transports has been
+  removed (closes #92).
+
+Enhancements:
+- Added `basicCoroRpc()`, `basicCoroEvent()`, `unpackedCoroRpc()`, and
+  `unpackedCoroEvent()` wrappers, which execute a call/event slot within the
+  context of a coroutine. This should make it easier to implement RPC/event
+  handlers that need to run asynchronously themselves (closes #91).
+- `Invocation` and `Event` now have an `iosvc()` getter, which returns the
+  user-provided `asio::io_service` (closes #91).
+- Added `Variant` conversion facilities for `std::set` and `set::unordered_set`.
+
 v0.5.3
 ======
 Fixes and enhancements.

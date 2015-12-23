@@ -113,10 +113,10 @@ public:
     using YieldContext = boost::asio::basic_yield_context<TSpawnHandler>;
 
     /** Creates a new CoroSession instance. */
-    static Ptr create(const Connector::Ptr& connector);
+    static Ptr create(AsioService& userIosvc, const Connector::Ptr& connector);
 
     /** Creates a new CoroSession instance. */
-    static Ptr create(const ConnectorList& connectors);
+    static Ptr create(AsioService& userIosvc, const ConnectorList& connectors);
 
     using Base::connect;
     using Base::join;

@@ -19,14 +19,16 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "asiodefs.hpp"
 #include "asyncresult.hpp"
-#include "dialoguedata.hpp"
+#include "peerdata.hpp"
 #include "connector.hpp"
 #include "error.hpp"
 #include "registration.hpp"
 #include "sessiondata.hpp"
 #include "subscription.hpp"
 #include "wampdefs.hpp"
+#include "internal/asynctask.hpp"
 #include "internal/clientinterface.hpp"
 
 namespace wamp
@@ -53,6 +55,10 @@ namespace wamp
     @note In the detailed documentation of asynchronous operations, items
           listed under **Returns** refer to results that are returned via
           AsyncResult.
+
+    The `boost::asio::io_service` passed via `create()` is used when executing
+    handler functions passed-in by the user. This can be the same, or different
+    than the `io_service` passed to the `Connector` creation functions.
 
     @par Aborting Asynchronous Operations
     All pending asynchronous operations can be _aborted_ by dropping the client
@@ -93,10 +99,10 @@ public:
     using CallSlot = std::function<Outcome (Invocation)>;
 
     /** Creates a new Session instance. */
-    static Ptr create(const Connector::Ptr& connector);
+    static Ptr create(AsioService& userIosvc, const Connector::Ptr& connector);
 
     /** Creates a new Session instance. */
-    static Ptr create(const ConnectorList& connectors);
+    static Ptr create(AsioService& userIosvc, const ConnectorList& connectors);
 
     /** Obtains a dictionary of roles and features supported on the client
         side. */
@@ -113,6 +119,10 @@ public:
 
     /// @name Observers
     /// @{
+
+    /** Obtains the IO service used to execute user-provided handlers. */
+    AsioService& userIosvc() const;
+
     /** Returns the current state of the session. */
     SessionState state() const;
     /// @}
@@ -182,26 +192,22 @@ public:
     /// @}
 
 protected:
-    explicit Session(const Connector::Ptr& connector);
+    explicit Session(AsioService& userIosvc, const ConnectorList& connectors);
 
-    explicit Session(const ConnectorList& connectors);
-
-    void doConnect(size_t index, AsyncHandler<size_t> handler);
+    void doConnect(size_t index, AsyncTask<size_t> handler);
 
     std::shared_ptr<internal::ClientInterface> impl();
 
-    void postpone(std::function<void ()> functor);
-
 private:
+    AsioService& userIosvc_;
     ConnectorList connectors_;
     Connector::Ptr currentConnector_;
-    LogHandler warningHandler_;
-    LogHandler traceHandler_;
+    AsyncTask<std::string> warningHandler_;
+    AsyncTask<std::string> traceHandler_;
     SessionState state_ = State::disconnected;
     bool isTerminating_ = false;
     std::shared_ptr<internal::ClientInterface> impl_;
 };
-
 
 } // namespace wamp
 

@@ -69,7 +69,7 @@
       ><path d="M-7 -7 L136 -7 L136 150 L-7 150 L-7 -7 Z"
       /></clipPath
       ><clipPath clipPathUnits="userSpaceOnUse" id="clipPath22"
-      ><path d="M0 0 L86 0 L86 20 L0 20 L0 0 Z"
+      ><path d="M0 0 L61 0 L61 20 L0 20 L0 0 Z"
       /></clipPath
       ><clipPath clipPathUnits="userSpaceOnUse" id="clipPath23"
       ><path d="M-7 -7 L423 -7 L423 202 L-7 202 L-7 -7 Z"
@@ -120,16 +120,16 @@
       ><path d="M0 0 L13 0 L13 20 L0 20 L0 0 Z"
       /></clipPath
       ><clipPath clipPathUnits="userSpaceOnUse" id="clipPath39"
-      ><path d="M-7 -7 L53 -7 L53 53 L-7 53 L-7 -7 Z"
-      /></clipPath
-      ><clipPath clipPathUnits="userSpaceOnUse" id="clipPath40"
-      ><path d="M0 0 L42 0 L42 42 L0 42 L0 0 Z"
-      /></clipPath
-      ><clipPath clipPathUnits="userSpaceOnUse" id="clipPath41"
       ><path d="M-7 -7 L51 -7 L51 51 L-7 51 L-7 -7 Z"
       /></clipPath
-      ><clipPath clipPathUnits="userSpaceOnUse" id="clipPath42"
+      ><clipPath clipPathUnits="userSpaceOnUse" id="clipPath40"
       ><path d="M0 0 L40 0 L40 40 L0 40 L0 0 Z"
+      /></clipPath
+      ><clipPath clipPathUnits="userSpaceOnUse" id="clipPath41"
+      ><path d="M-7 -7 L53 -7 L53 53 L-7 53 L-7 -7 Z"
+      /></clipPath
+      ><clipPath clipPathUnits="userSpaceOnUse" id="clipPath42"
+      ><path d="M0 0 L42 0 L42 42 L0 42 L0 0 Z"
       /></clipPath
       ><clipPath clipPathUnits="userSpaceOnUse" id="clipPath43"
       ><path d="M-7 -7 L65 -7 L65 65 L-7 65 L-7 -7 Z"
@@ -294,19 +294,19 @@
     ><path fill="none" d="M0 20 L85 20 L85 49 L0 49 L0 0 L17 0 L17 20" clip-path="url(#clipPath19)"
     /></g
     ><g font-size="11" transform="translate(395,127)" fill-opacity="1" fill="black" text-rendering="geometricPrecision" font-family="sans-serif" stroke="black" stroke-opacity="1"
-    ><text x="4" xml:space="preserve" y="11" clip-path="url(#clipPath20)" stroke="none"
-      >DialogueData</text
+    ><text x="17" xml:space="preserve" y="11" clip-path="url(#clipPath20)" stroke="none"
+      >PeerData</text
     ></g
     ><g font-size="11" transform="translate(9,418)" fill-opacity="1" fill="rgb(122,207,245)" text-rendering="geometricPrecision" font-family="sans-serif" stroke="rgb(122,207,245)" stroke-opacity="1"
-    ><rect x="0" width="86" height="20" y="0" clip-path="url(#clipPath21)" stroke="none"
+    ><rect x="0" width="61" height="20" y="0" clip-path="url(#clipPath21)" stroke="none"
       /><rect x="0" width="124" height="118" y="20" clip-path="url(#clipPath21)" stroke="none"
     /></g
     ><g font-size="11" stroke-linecap="butt" transform="translate(9,418)" fill-opacity="1" fill="black" text-rendering="geometricPrecision" font-family="sans-serif" stroke-linejoin="round" stroke="black" stroke-opacity="1" stroke-miterlimit="0"
-    ><path fill="none" d="M0 20 L124 20 L124 138 L0 138 L0 0 L86 0 L86 20" clip-path="url(#clipPath21)"
+    ><path fill="none" d="M0 20 L124 20 L124 138 L0 138 L0 0 L61 0 L61 20" clip-path="url(#clipPath21)"
     /></g
     ><g font-size="11" transform="translate(9,418)" fill-opacity="1" fill="black" text-rendering="geometricPrecision" font-family="sans-serif" stroke="black" stroke-opacity="1"
     ><text x="5" xml:space="preserve" y="14" clip-path="url(#clipPath22)" stroke="none"
-      >DialogueData</text
+      >PeerData</text
     ></g
     ><g font-size="11" transform="translate(22,501)" fill-opacity="1" fill="rgb(255,255,192)" text-rendering="geometricPrecision" font-family="sans-serif" stroke="rgb(255,255,192)" font-weight="bold" stroke-opacity="1"
     ><rect x="0" width="80" height="40" y="0" clip-path="url(#clipPath7)" stroke="none"
@@ -510,16 +510,12 @@
     ><text x="3" xml:space="preserve" y="14" clip-path="url(#clipPath38)" stroke="none"
       >T</text
     ></g
-    ><g font-size="11" transform="translate(97,443)" fill-opacity="1" fill="black" text-rendering="geometricPrecision" font-family="sans-serif" stroke="black" stroke-opacity="1"
-    ><text x="9" xml:space="preserve" y="25" clip-path="url(#clipPath40)" stroke="none"
-      >0..1</text
-    ></g
     ><g font-size="11" transform="translate(203,277)" fill-opacity="1" fill="black" text-rendering="geometricPrecision" font-family="sans-serif" stroke="black" stroke-opacity="1"
-    ><text x="9" xml:space="preserve" y="24" clip-path="url(#clipPath42)" stroke="none"
+    ><text x="9" xml:space="preserve" y="24" clip-path="url(#clipPath40)" stroke="none"
       >1..*</text
     ></g
     ><g font-size="11" transform="translate(227,519)" fill-opacity="1" fill="black" text-rendering="geometricPrecision" font-family="sans-serif" stroke="black" stroke-opacity="1"
-    ><text x="9" xml:space="preserve" y="25" clip-path="url(#clipPath40)" stroke="none"
+    ><text x="9" xml:space="preserve" y="25" clip-path="url(#clipPath42)" stroke="none"
       >0..1</text
     ></g
     ><g font-size="11" transform="translate(314,270)" fill-opacity="1" fill="black" text-rendering="geometricPrecision" font-family="sans-serif" stroke="black" stroke-opacity="1"
@@ -527,8 +523,12 @@
       >state_</text
     ></g
     ><g font-size="11" transform="translate(288,277)" fill-opacity="1" fill="black" text-rendering="geometricPrecision" font-family="sans-serif" stroke="black" stroke-opacity="1"
-    ><text x="16" xml:space="preserve" y="24" clip-path="url(#clipPath42)" stroke="none"
+    ><text x="16" xml:space="preserve" y="24" clip-path="url(#clipPath40)" stroke="none"
       >1</text
+    ></g
+    ><g font-size="11" transform="translate(97,443)" fill-opacity="1" fill="black" text-rendering="geometricPrecision" font-family="sans-serif" stroke="black" stroke-opacity="1"
+    ><text x="9" xml:space="preserve" y="25" clip-path="url(#clipPath42)" stroke="none"
+      >0..1</text
     ></g
     ><g font-size="11" stroke-linecap="butt" transform="translate(85,-27)" fill-opacity="1" fill="black" text-rendering="geometricPrecision" font-family="sans-serif" stroke-linejoin="round" stroke="black" stroke-opacity="1"
     ><line y2="50" fill="none" x1="81" clip-path="url(#clipPath45)" x2="50" y1="50"

@@ -11,7 +11,9 @@
 
 @tableofcontents
 
+
 @section CallSlots Call Slots
+
 A _slot_ is a _callable target_ that is called in response to a _signal_
 (the signal being the call invocation in this case). The term _slot_, borrowed
 from [Qt's signals and slots][qt_sig], is used to distinguish a call handler
@@ -41,7 +43,21 @@ where:
 - wamp::Invocation is an object containing information and payload
   arguments related to the RPC invocation.
 
+The following table summarizes the different types of call slots that can
+be used with the library:
+
+| Slot Type                                                       | Wrapper Function                        | Slot Signature                                  |
+|-----------------------------------------------------------------|-----------------------------------------|-------------------------------------------------|
+| [Basic Call Slot](@ref BasicCallSlots)                          | `wamp::basicRpc<TResult, TArgs...>`     | `TResult function(TArgs...)`                    |
+| [Basic Coroutine Call Slot](@ref BasicCoroutineCallSlots)       | `wamp::basicCoroRpc<TResult, TArgs...>` | `TResult function(TArgs..., Yield)`             |
+| [Unpacked Call Slot](@ref UnpackedCallSlots)                    | `wamp::unpackedRpc<TArgs...>`           | `Outcome function(Invocation, TArgs...)`        |
+| [Unpacked Coroutine Call Slot](@ref UnpackedCoroutineCallSlots) | `wamp::unpackedCoroRpc<TArgs...>`       | `Outcome function(Invocation, TArgs..., Yield)` |
+
+where `Yield` represents the type `boost::asio::yield_context`.
+
+
 @section BasicCallSlots Basic Call Slots
+
 A _basic call slot_ represents an RPC handler that expects one or more
 payload arguments having specific, static types. The [wamp::basicRpc]
 (@ref wamp::BasicInvocationUnpacker::basicRpc) function can be used when
@@ -93,7 +109,69 @@ passes them to the slot's argument list. If `Session` cannot convert the
 invocation payload arguments to their target types, it automatically sends
 an `ERROR` reply back to the router.
 
+
+@section BasicCoroutineCallSlots Basic Coroutine Call Slots
+
+A _basic coroutine call slot_ is like a regular _basic call slot_, except
+that it is executed within the context of a coroutine. This is useful for
+RPC handlers that need to perform asynchronous operations themselves. The
+[wamp::basicCoroRpc](@ref wamp::BasicCoroInvocationUnpacker::basicCoroRpc)
+function can be used when registering such call slots. It takes a basic
+coroutine call slot, and converts it into a regular call slot that can be
+passed to wamp::Session::enroll.
+
+`wamp::basicCoroRpc` expects a call slot with the following signature:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+TResult function(TArgs..., boost::asio::yield_context)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+where
+- `TResult` is a static return type that will be automatically converted
+  to a single wamp::Result payload argument and then returned as a
+  wamp::Outcome. This return type may be `void` if the RPC is not expected
+  to return a value.
+- `TArgs...` matches the template parameter pack that was passed to
+  `wamp::basicCoroRpc`.
+- `boost::asio::yield_context` represents the RPC's coroutine context.
+
+Examples of basic coroutine call slots are:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+using Yield = boost::asio::yield_context;
+
+void setSpeed(float speed, Yield yield) { ... }
+// ^            ^
+// TResult    TArgs
+
+int purchase(std::string item, int cost, int qty, Yield yield) { ... }
+//^                  ^          ^         ^
+// \                 \----------|---------/
+// TResult                    TArgs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The above slots can be registered as follows:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+session->enroll(Procedure("setSpeed"),
+                basicCoroRpc<void, float>(&setSpeed),
+                handler);
+
+session->enroll(Procedure("purchase"),
+                basicCoroRpc<int, std::string, int, int>(&purchase),
+                handler);
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+where `handler` is the asynchronous handler (or coroutine yield context)
+for the **enroll operation itself**.
+
+Whenever a wamp::Session dispatches an RPC invocation to the above slots, it
+spawns a new coroutine to be executed on wamp::Session::userIosvc(). It then
+automatically unpacks the invocation payload positional arguments, and passes
+them to the slot's argument list. If `Session` cannot convert the invocation
+payload arguments to their target types, it automatically sends an `ERROR`
+reply back to the router.
+
+
 @section UnpackedCallSlots Unpacked Call Slots
+
 An _unpacked call slot_ represents an RPC handler that expects one or more
 payload arguments having specific, static types. The [wamp::unpackedRpc]
 (@ref wamp::InvocationUnpacker::unpackedRpc) function can be used when
@@ -154,6 +232,30 @@ automatically unpacks the invocation payload positional arguments, and
 passes them to the slot's argument list. If `Session` cannot convert the
 invocation payload arguments to their target types, it automatically sends
 an `ERROR` reply back to the router.
+
+
+@section UnpackedCoroutineCallSlots Unpacked Coroutine Call Slots
+
+An _unpacked coroutine call slot_ is like an
+[unpacked call slot](@ref UnpackedCallSlots), except that the slot is
+executed within the context of a coroutine. The [wamp::unpackedCoroRpc]
+(@ref wamp::CoroInvocationUnpacker::unpackedCoroRpc) function can be used when
+registering such call slots.
+
+`wamp::unpackedCoroRpc` expects a call slot with the following signature:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+wamp::Outcome function(wamp::Invocation, TArgs..., boost::asio::yield_context)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+where
+- wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
+  to the caller,
+- wamp::Invocation is an object containing information and payload arguments
+  related to the RPC invocation, and,
+- `TArgs...` matches the template parameter pack that was passed to
+  `wamp::unpackedRpc`.
+- `boost::asio::yield_context` represents the RPC's coroutine context.
+
 
 @section RpcOutcomes RPC Outcomes
 
@@ -243,14 +345,15 @@ Outcome Client::addPerson(Invocation inv, Object person)
 {
     // We need to issue another RPC to the database service before we can
     // fulfill this RPC.
-    boost::asio::spawn(iosvc_, [this, inv](boost::asio::yield_context yield)
-    {
-        auto dbResult = session_->call( Rpc("db.add").withArgs(person),
-                                        yield );
-        // Manually send the result back to the caller
-        auto personId = dbResult[0].to<int>();
-        inv.yield({personId});
-    });
+    boost::asio::spawn(inv.iosvc(),
+        [this, inv](boost::asio::yield_context yield)
+        {
+            auto dbResult = session_->call( Rpc("db.add").withArgs(person),
+                                            yield );
+            // Manually send the result back to the caller
+            auto personId = dbResult[0].to<int>();
+            inv.yield({personId});
+        });
 
     // We don't know the result yet as this point. Return a deferred outcome
     // to indicate that we'll send the result manually in a different
@@ -258,6 +361,7 @@ Outcome Client::addPerson(Invocation inv, Object person)
     return Outcome::deferred();
 }
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 @section ScopedRegistrations Scoped Registrations
 

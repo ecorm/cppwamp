@@ -80,7 +80,7 @@ boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
 {
     // Specify a TCP transport and JSON serialization
     auto tcp = connector<Json>(iosvc, TcpHost("localhost", 8001));
-    auto session = wamp::CoroSession<>::create(tcp);
+    auto session = wamp::CoroSession<>::create(iosvc, tcp);
     session->connect(yield);
     auto sessionInfo = session->join(Realm("myrealm"), yield);
     std::cout << "Client joined. Session ID = "

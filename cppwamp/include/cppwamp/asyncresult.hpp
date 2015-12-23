@@ -87,6 +87,20 @@ private:
 //------------------------------------------------------------------------------
 template <typename T> using AsyncHandler = std::function<void (AsyncResult<T>)>;
 
+
+//------------------------------------------------------------------------------
+/** Type traits template used to obtain the result type of an asynchronous
+    handler. */
+//------------------------------------------------------------------------------
+template <typename THandler>
+struct ResultTypeOfHandler {};
+
+//------------------------------------------------------------------------------
+/** ResultTypeOfHandler specialization for AsyncHandler */
+//------------------------------------------------------------------------------
+template <typename T>
+struct ResultTypeOfHandler<AsyncHandler<T>> {using Type = AsyncResult<T>;};
+
 } // namespace wamp
 
 #include "internal/asyncresult.ipp"
