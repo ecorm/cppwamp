@@ -322,6 +322,24 @@ GIVEN( "an object Variant with control characters in a key" )
         }
     }
 }
+GIVEN( "a string Variant with multi-byte UTF-8 characters" )
+{
+    std::string s = "\u0080\u07ff\u0800\uffff\u00010000\u0010ffff";
+    Variant v = s;
+
+    WHEN( "encoding to JSON and decoding back" )
+    {
+        std::string encoded;
+        Json::encode(v, encoded);
+        Variant decoded;
+        Json::decode(encoded, decoded);
+
+        THEN( "the decoded Variant matches the original" )
+        {
+            CHECK( decoded == v );
+        }
+    }
+}
 }
 
 #endif // #if CPPWAMP_TESTING_CODEC

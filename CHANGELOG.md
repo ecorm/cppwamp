@@ -1,3 +1,10 @@
+v0.6.1
+======
+Bug fixes.
+
+- Fixed encoding of multibyte UTF-8 sequences to JSON (fixes #96).
+- Added test case for converting multibyte UTF-8 sequences to JSON.
+
 v0.6.0
 ======
 Better support for asynchronous RPC and event handlers.

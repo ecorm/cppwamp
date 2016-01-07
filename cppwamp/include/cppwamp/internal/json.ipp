@@ -204,9 +204,9 @@ struct EncodeJson : public Visitor<>
         case '\t': writeChar(buf, '\\'); writeChar(buf, 't'); return;
         }
 
-        if (c <= 0x1f)
+        auto n = static_cast<unsigned int>(c);
+        if (n <= 0x1f)
         {
-            auto n = static_cast<unsigned int>(c);
             char str[8];
             auto length = std::snprintf(str, sizeof(str), "\\u%04X", n);
             assert(length < sizeof(str));
