@@ -1,3 +1,16 @@
+v0.6.2
+======
+Variant conversion enhancements.
+
+- ConversionAccess can now access private default constructors (closes #98).
+- To/FromVariantConverter now throws error::Conversion exclusively.
+- All RPC argument conversion failures are now propagated back to caller
+  (fixes #97).
+- Added test cases for bad From/ToVariantConverter conversions.
+- Enforced Client::LocalSubs non-empty invariant during unsubscribe.
+- Added Variant::at accessors (closes #95).
+- Updated config.json test/example files for Crossbar 0.13.0.
+
 v0.6.1
 ======
 Bug fixes.

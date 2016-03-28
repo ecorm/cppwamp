@@ -172,18 +172,21 @@ public:
         auto kv = readership_.find(sub.id());
         if (kv != readership_.end())
         {
-            auto& subMap = kv->second;
-            if (!subMap.empty())
+            auto& localSubs = kv->second;
+            if (!localSubs.empty())
             {
-                auto subKv = subMap.find(sub.slotId({}));
-                if (subKv != subMap.end())
+                auto subKv = localSubs.find(sub.slotId({}));
+                if (subKv != localSubs.end())
                 {
-                    if (subMap.size() == 1u)
+                    if (localSubs.size() == 1u)
                         topics_.erase(subKv->second.topic.uri());
 
-                    subMap.erase(subKv);
-                    if (subMap.empty())
+                    localSubs.erase(subKv);
+                    if (localSubs.empty())
+                    {
+                        readership_.erase(kv);
                         sendUnsubscribe(sub.id());
+                    }
                 }
             }
         }
@@ -196,19 +199,20 @@ public:
         auto kv = readership_.find(sub.id());
         if (kv != readership_.end())
         {
-            auto& subMap = kv->second;
-            if (!subMap.empty())
+            auto& localSubs = kv->second;
+            if (!localSubs.empty())
             {
-                auto subKv = subMap.find(sub.slotId({}));
-                if (subKv != subMap.end())
+                auto subKv = localSubs.find(sub.slotId({}));
+                if (subKv != localSubs.end())
                 {
                     unsubscribed = true;
-                    if (subMap.size() == 1u)
+                    if (localSubs.size() == 1u)
                         topics_.erase(subKv->second.topic.uri());
 
-                    subMap.erase(subKv);
-                    if (subMap.empty())
+                    localSubs.erase(subKv);
+                    if (localSubs.empty())
                     {
+                        readership_.erase(kv);
                         sendUnsubscribe(sub.id(), std::move(handler));
                         handler = AsyncTask<bool>();
                     }
@@ -591,13 +595,13 @@ private:
             {
                 slot(std::move(event));
             }
-            catch (const internal::UnpackError& e)
+            catch (const Error& e)
             {
                 if (warningHandler_)
                 {
                     std::ostringstream oss;
                     oss << "Received an EVENT with invalid arguments: "
-                        << e.reason
+                        << e.args()
                         << " (with subId=" << subId
                         << " pubId=" << pubId << ")";
                     warn(oss.str());
@@ -629,7 +633,8 @@ private:
         {
             this->sendError(WampMsgType::invocation, requestId,
                     Error("wamp.error.no_such_procedure")
-                        .withArgs("The called procedure does not exist"));
+                        .withArgs("There is no RPC with registration ID " +
+                                  std::to_string(regId)));
         }
     }
 
@@ -664,13 +669,7 @@ private:
                     assert(false && "unexpected Outcome::Type");
                 }
             }
-            catch (internal::UnpackError e)
-            {
-                this->sendError(WampMsgType::invocation, reqId,
-                        Error("wamp.error.invalid_argument")
-                            .withArgs(std::move(e.reason)));
-            }
-            catch (Error error)
+            catch (Error& error)
             {
                 yield(reqId, std::move(error));
             }

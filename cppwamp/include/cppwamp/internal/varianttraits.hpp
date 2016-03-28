@@ -262,15 +262,24 @@ template <> struct Access<String>
 template <> struct Access<Blob>
 {
     template <typename U> static void construct(U&& value, void* field)
-        {new (field) Blob(std::forward<U>(value));}
+        {ptr(field) = new Blob(std::forward<U>(value));}
 
-    static void destruct(void* field) {get(field).~Blob();}
+    static void destruct(void* field)
+    {
+        Blob*& b = ptr(field);
+        delete b;
+        b = nullptr;
+    }
 
-    static Blob& get(void* field)
-        {return *static_cast<Blob*>(field);}
+    static Blob& get(void* field) {return *ptr(field);}
 
     static const Blob& get(const void* field)
-        {return *static_cast<const Blob*>(field);}
+    {
+        const Blob* b = Access<const Blob*>::get(field);
+        return *b;
+    }
+
+    static Blob*& ptr(void* field) {return Access<Blob*>::get(field);}
 };
 
 template <> struct Access<Array>

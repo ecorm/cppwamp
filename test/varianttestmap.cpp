@@ -33,6 +33,7 @@ void checkMap(const std::map<String, T>& map, bool convertible = true)
         for (const auto& kv: map)
         {
             CHECK( v[kv.first] == kv.second );
+            CHECK( v.at(kv.first) == kv.second );
         }
         Map converted;
         if (convertible)

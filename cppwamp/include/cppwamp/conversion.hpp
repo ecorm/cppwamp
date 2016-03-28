@@ -195,6 +195,9 @@ public:
     template <typename TObject>
     static void convertTo(ToVariantConverter& c, const TObject& obj);
 
+    template <typename TObject>
+    static TObject defaultConstruct();
+
 private:
     CPPWAMP_GENERATE_HAS_MEMBER(convert)
     CPPWAMP_GENERATE_HAS_MEMBER(convertFrom)

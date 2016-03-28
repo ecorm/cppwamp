@@ -24,18 +24,6 @@
 namespace wamp
 {
 
-namespace internal
-{
-
-struct UnpackError
-{
-    explicit UnpackError(std::string reason) : reason(std::move(reason)) {}
-    std::string reason;
-};
-
-} // namespace internal
-
-
 //------------------------------------------------------------------------------
 /** Metafunction that removes const/reference decorations off a slot type */
 //------------------------------------------------------------------------------

@@ -6,13 +6,19 @@
 ------------------------------------------------------------------------------*/
 
 #include <sstream>
-#include "varianttraits.hpp"
+#include "../peerdata.hpp"
 
 namespace wamp
 {
 
 namespace internal
 {
+
+//------------------------------------------------------------------------------
+struct UnpackCoroError : public Error
+{
+    UnpackCoroError() : Error("wamp.error.invalid_argument") {}
+};
 
 //------------------------------------------------------------------------------
 template <typename... A>
@@ -26,13 +32,13 @@ struct UnpackedCoroArgGetter
         {
             return args.at(N).to<TargetType>();
         }
-        catch(const error::Conversion&)
+        catch(const error::Conversion& e)
         {
             std::ostringstream oss;
-            oss << "Expected type " << ArgTraits<TargetType>::typeName()
-                << " for arg index " << N
-                << ", but got type " << typeNameOf(args.at(N));
-            throw UnpackError(oss.str());
+            oss << "Type " << typeNameOf(args.at(N))
+                << " at arg index " << N
+                << " is not convertible to the RPC's target type";
+            throw UnpackCoroError().withArgs(oss.str(), e.what());
         }
     }
 };
@@ -54,7 +60,7 @@ void CoroEventUnpacker<S,A...>::operator()(Event&& event)
         std::ostringstream oss;
         oss << "Expected " << sizeof...(A)
             << " args, but only got " << event.args().size();
-        throw internal::UnpackError(oss.str());
+        throw internal::UnpackCoroError().withArgs(oss.str());
     }
 
     // Use the integer parameter pack technique shown in
@@ -99,7 +105,7 @@ void BasicCoroEventUnpacker<S,A...>::operator()(Event&& event)
         std::ostringstream oss;
         oss << "Expected " << sizeof...(A)
             << " args, but only got " << event.args().size();
-        throw internal::UnpackError(oss.str());
+        throw internal::UnpackCoroError().withArgs(oss.str());
     }
 
     // Use the integer parameter pack technique shown in
@@ -146,7 +152,7 @@ Outcome CoroInvocationUnpacker<S,A...>::operator()(Invocation&& inv)
         std::ostringstream oss;
         oss << "Expected " << sizeof...(A)
             << " args, but only got " << inv.args().size();
-        throw internal::UnpackError(oss.str());
+        throw internal::UnpackCoroError().withArgs(oss.str());
     }
 
     // Use the integer parameter pack technique shown in
@@ -221,7 +227,7 @@ Outcome BasicCoroInvocationUnpacker<S,R,A...>::operator()(Invocation&& inv)
         std::ostringstream oss;
         oss << "Expected " << sizeof...(A)
             << " args, but only got " << inv.args().size();
-        throw internal::UnpackError(oss.str());
+        throw internal::UnpackCoroError().withArgs(oss.str());
     }
 
     // Use the integer parameter pack technique shown in

@@ -22,8 +22,7 @@ namespace error
 {
 
 //------------------------------------------------------------------------------
-inline Access::Access(const std::string& from,
-                                          const std::string& to)
+inline Access::Access(const std::string& from, const std::string& to)
     : std::runtime_error("wamp::error::Access: "
         "Attemping to access field type " + from + " as " + to)
 {}
@@ -167,7 +166,9 @@ template <TypeId id> bool Variant::is() const
     An `Object` is convertible to `std::map<String,T>` iff all Object values
     are convertible to `T`.
 
-    @tparam T The target type to convert to.
+    @tparam T The target type to convert to. Must be default-constructable.
+            If T's default constructor is private, then T must grant friendship
+            to wamp::ConversionAccess.
     @return The converted value.
     @pre The variant is convertible to the destination type.
     @throws error::Conversion if the variant is not convertible to
@@ -175,7 +176,7 @@ template <TypeId id> bool Variant::is() const
 //------------------------------------------------------------------------------
 template <typename T> T Variant::to() const
 {
-    T result;
+    T result(std::move(ConversionAccess::defaultConstruct<T>()));
     convertTo(result);
     return result;
 }
@@ -269,7 +270,7 @@ const Variant::BoundTypeForId<id>& Variant::as() const
 //------------------------------------------------------------------------------
 inline Variant& Variant::operator[](SizeType index)
 {
-    return as<Array>().at(index);
+    return at(index);
 }
 
 //------------------------------------------------------------------------------
@@ -280,6 +281,28 @@ inline Variant& Variant::operator[](SizeType index)
 //------------------------------------------------------------------------------
 inline const Variant& Variant::operator[](SizeType index) const
 {
+    return at(index);
+}
+
+//------------------------------------------------------------------------------
+/** @pre `this->is<Array>() == true`
+    @pre `this->size() > index`
+    @throws error::Access if `this->is<Array>() == false`
+    @throws std::out_of_range if `index >= this->size()`. */
+//------------------------------------------------------------------------------
+inline Variant& Variant::at(SizeType index)
+{
+    return as<Array>().at(index);
+}
+
+//------------------------------------------------------------------------------
+/** @pre `this->is<Array>() == true`
+    @pre `this->size() > index`
+    @throws error::Access if `this->is<Array>() == false`
+    @throws std::out_of_range if `index >= this->size()`. */
+//------------------------------------------------------------------------------
+inline const Variant& Variant::at(SizeType index) const
+{
     return as<Array>().at(index);
 }
 
@@ -288,12 +311,33 @@ inline const Variant& Variant::operator[](SizeType index) const
     If there is no element under the given key, a null variant will be
     automatically inserted under that key before the reference is returned.
     @pre `this->is<Object>() == true`
-    @throws error::Access if `this->is<Object>() == false`
-    @throws std::out_of_range if `index >= this->size()`. */
+    @throws error::Access if `this->is<Object>() == false` */
 //------------------------------------------------------------------------------
 inline Variant& Variant::operator[](const String& key)
 {
     return as<Object>()[key];
+}
+
+//------------------------------------------------------------------------------
+/** @pre `this->is<Object>() == true`
+    @pre `this->as<Object>().count(key) > 0`
+    @throws error::Access if `this->is<Object>() == false`
+    @throws std::out_of_range if the key does not exist. */
+//------------------------------------------------------------------------------
+inline Variant& Variant::at(const String& key)
+{
+    return as<Object>().at(key);
+}
+
+//------------------------------------------------------------------------------
+/** @pre `this->is<Object>() == true`
+    @pre `this->as<Object>().count(key) > 0`
+    @throws error::Access if `this->is<Object>() == false`
+    @throws std::out_of_range if the key does not exist. */
+//------------------------------------------------------------------------------
+inline const Variant& Variant::at(const String& key) const
+{
+    return as<Object>().at(key);
 }
 
 //------------------------------------------------------------------------------

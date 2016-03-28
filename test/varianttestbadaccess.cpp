@@ -157,10 +157,12 @@ GIVEN( "a non-composite variant" )
     WHEN( "accessing an element by index" )
     {
         CHECK_THROWS_AS( v[0], error::Access );
+        CHECK_THROWS_AS( v.at(0), error::Access );
     }
     WHEN( "accessing an element by key" )
     {
         CHECK_THROWS_AS( v["foo"], error::Access );
+        CHECK_THROWS_AS( v.at("foo"), error::Access );
     }
 }
 GIVEN( "an array variant" )
@@ -170,10 +172,12 @@ GIVEN( "an array variant" )
     WHEN( "accessing out of range" )
     {
         CHECK_THROWS_AS( v[2], std::out_of_range );
+        CHECK_THROWS_AS( v.at(2), std::out_of_range );
     }
     WHEN( "accessing an element by key" )
     {
         CHECK_THROWS_AS( v["foo"], error::Access );
+        CHECK_THROWS_AS( v.at("foo"), error::Access );
     }
 }
 GIVEN( "an object variant" )
@@ -183,8 +187,9 @@ GIVEN( "an object variant" )
     WHEN( "accessing an element by index" )
     {
         CHECK_THROWS_AS( v[0], error::Access );
+        CHECK_THROWS_AS( v.at(0), error::Access );
     }
-    WHEN( "accessing a non-exitent element" )
+    WHEN( "accessing a non-exitent element using operator[]" )
     {
         auto& elem = v["foo"];
         THEN( "a null element is automatically inserted" )
@@ -192,6 +197,10 @@ GIVEN( "an object variant" )
             CHECK( v.size() == 2 );
             CHECK( elem.is<Null>() );
         }
+    }
+    WHEN( "accessing a non-exitent element using at()" )
+    {
+        CHECK_THROWS_AS( v.at("foo"), std::out_of_range );
     }
 }
 }

@@ -239,8 +239,20 @@ public:
     /** Accesses a constant array element by index. */
     const Variant& operator[](SizeType index) const;
 
+    /** Accesses an array element by index. */
+    Variant& at(SizeType index);
+
+    /** Accesses a constant array element by index. */
+    const Variant& at(SizeType index) const;
+
     /** Accesses an object value by key. */
     Variant& operator[](const String& key);
+
+    /** Accesses an object value by key. */
+    Variant& at(const String& key);
+
+    /** Accesses a constant object value by key. */
+    const Variant& at(const String& key) const;
 
     /// @}
 
@@ -366,7 +378,7 @@ private:
         UInt    uint;
         Real    real;
         String  string;
-        Blob    blob;
+        Blob*   blob;
         Array*  array;
         Object* object;
     } field_;

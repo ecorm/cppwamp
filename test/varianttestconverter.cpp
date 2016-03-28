@@ -66,6 +66,30 @@ private:
 };
 
 //------------------------------------------------------------------------------
+struct NonDefaultConstructibleDto
+{
+    int n;
+
+    NonDefaultConstructibleDto(int n) : n(n) {}
+
+    bool operator==(const NonDefaultConstructibleDto& other) const
+    {
+        return  n == other.n;
+    }
+
+private:
+    NonDefaultConstructibleDto() : n(0) {}
+
+    template <typename TConverter>
+    void convert(TConverter& conv)
+    {
+        conv("n", n);
+    }
+
+    friend class wamp::ConversionAccess;
+};
+
+//------------------------------------------------------------------------------
 struct CompositeDto
 {
     SimpleDto sub1;
@@ -284,13 +308,13 @@ SCENARIO( "Converting to/from variants", "[Variant]" )
     {
         user::SimpleDto dto{true, 2, 3.0f, "4"};
 
-        WHEN( "Saving the DTO" )
+        WHEN( "saving the DTO" )
         {
             auto v = Variant::from(dto);
             CHECK( v == object );
         }
 
-        WHEN( "Loading the DTO" )
+        WHEN( "loading the DTO" )
         {
             Variant v = object;
             auto loaded = v.to<user::SimpleDto>();
@@ -314,6 +338,96 @@ SCENARIO( "Converting to/from variants", "[Variant]" )
             auto loaded = v.to<user::IntrusiveSimpleDto>();
             CHECK( loaded == dto );
         }
+    }
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Converting to/from non-default-constructible DTOs", "[Variant]" )
+{
+    Object object{{"n",42}};
+
+    GIVEN( "a non-default-constructible DTO" )
+    {
+        user::NonDefaultConstructibleDto dto{42};
+
+        WHEN( "saving the DTO" )
+        {
+            auto v = Variant::from(dto);
+            CHECK( v == object );
+        }
+
+        WHEN( "loading the DTO" )
+        {
+            Variant v = object;
+            user::NonDefaultConstructibleDto loaded(0);
+            loaded = v.to<user::NonDefaultConstructibleDto>();
+            CHECK( loaded == dto );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Bad non-composite conversions", "[Variant]" )
+{
+    GIVEN( "a variant of having an incompatible dynamic type" )
+    {
+        Variant v = 42;
+        FromVariantConverter conv(v);
+        String s;
+        CHECK_THROWS_AS( conv(s), error::Conversion );
+    }
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Bad array conversions", "[Variant]" )
+{
+    GIVEN( "an array with too few elements" )
+    {
+        Variant v = Array{1, 2};
+        FromVariantConverter conv(v);
+        int n = 0;
+        conv[n];
+        conv[n];
+        CHECK_THROWS_AS( conv[n], error::Conversion );
+    }
+
+    GIVEN( "an array element of the wrong type" )
+    {
+        Variant v = Array{1, "2"};
+        FromVariantConverter conv(v);
+        int n = 0;
+        conv[n];
+        CHECK_THROWS_AS( conv[n], error::Conversion );
+    }
+
+    GIVEN( "a non-array variant" )
+    {
+        Variant v = Object{{"b",true}, {"n",2}, {"x",3.0f}, {"s",4}};
+        FromVariantConverter conv(v);
+        int n = 0;
+        CHECK_THROWS_AS( conv[n], error::Conversion );
+    }
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Bad object conversions", "[Variant]" )
+{
+    GIVEN( "an object with a missing member" )
+    {
+        Variant v = Object{{"b",true}, {"n",2}, {"x",3.0f} /*, {"s","4"}*/};
+        CHECK_THROWS_AS( v.to<user::SimpleDto>(), error::Conversion );
+    }
+
+    GIVEN( "an object member of the wrong type" )
+    {
+        Variant v = Object{{"b",true}, {"n",2}, {"x",3.0f}, {"s",4}};
+        CHECK_THROWS_AS( v.to<user::SimpleDto>(), error::Conversion );
+    }
+
+    GIVEN( "a non-object variant" )
+    {
+        Variant v = Array{true , 2, 3.0f ,"4"};
+        CHECK_THROWS_AS( v.to<user::SimpleDto>(), error::Conversion );
     }
 }
 

@@ -5,6 +5,7 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
+#include <sstream>
 #include <utility>
 #include "../error.hpp"
 #include "../variant.hpp"
@@ -119,16 +120,40 @@ FromVariantConverter& FromVariantConverter::operator()(T& value)
     @pre The variant is an array.
     @pre There are elements left in the variant array.
     @pre The element is convertible to the destination type.
-    @throws error::Access if the variant is not an array.
-    @throws std::out_of_range if there are no elements left in the
+    @throws error::Conversion if the variant is not an array.
+    @throws error::Conversion if there are no elements left in the
             variant array.
     @throws error::Conversion if the element is not convertible to the
             destination type. */
 template <typename T>
 FromVariantConverter& FromVariantConverter::operator[](T& value)
 {
-    var_.as<Array>().at(index_).to(value);
-    ++index_;
+    try
+    {
+        var_.at(index_).to(value);
+        ++index_;
+    }
+    catch (const error::Conversion& e)
+    {
+        std::ostringstream oss;
+        oss << e.what() << ", for array index " << index_;
+        throw error::Conversion(oss.str());
+    }
+    catch (const error::Access&)
+    {
+        std::ostringstream oss;
+        oss << "wamp::error::Conversion: Attemping to access field type "
+            << typeNameOf(var_) << "as array";
+        throw error::Conversion(oss.str());
+    }
+    catch (const std::out_of_range&)
+    {
+        std::ostringstream oss;
+        oss << "wamp::error::Conversion: Cannot extract more than " << index_
+            << " elements from the array";
+        throw error::Conversion(oss.str());
+    }
+
     return *this;
 }
 
@@ -137,8 +162,8 @@ FromVariantConverter& FromVariantConverter::operator[](T& value)
     @pre The variant is an object.
     @pre There exists a member with the given key.
     @pre The member is convertible to the destination type.
-    @throws error::Access if the variant is not an object.
-    @throws std::out_of_range if there doesn't exist a member with the
+    @throws error::Conversion if the variant is not an object.
+    @throws error::Conversion if there doesn't exist a member with the
             given key.
     @throws error::Conversion if the member is not convertible to the
             destination type. */
@@ -146,20 +171,68 @@ template <typename T>
 FromVariantConverter& FromVariantConverter::operator()(const String& key,
                                                        T& value)
 {
-    var_.as<Object>().at(key).to(value);
+    try
+    {
+        var_.at(key).to(value);
+    }
+    catch (const error::Conversion& e)
+    {
+        std::ostringstream oss;
+        oss << e.what() << ", for object member \"" << key << '"';
+        throw error::Conversion(oss.str());
+    }
+    catch (const error::Access&)
+    {
+        std::ostringstream oss;
+        oss << "wamp::error::Conversion: Attemping to access field type "
+            << typeNameOf(var_) << "as object using key \"" << key << '"';
+        throw error::Conversion(oss.str());
+    }
+    catch (const std::out_of_range&)
+    {
+        std::ostringstream oss;
+        oss << "wamp::error::Conversion: Key \"" << key
+            << "\" not found in object";
+        throw error::Conversion(oss.str());
+    }
+
     return *this;
 }
 
+/** @details
+    The member is converted to the destination type via Variant::to.
+    @pre The variant is an object.
+    @pre The member, if it exists, is convertible to the destination type.
+    @throws error::Conversion if the variant is not an object.
+    @throws error::Conversion if the existing member is not convertible to the
+            destination type. */
 template <typename T, typename U>
 FromVariantConverter& FromVariantConverter::operator()(const String& key,
                                                        T& value, U&& fallback)
 {
-    auto& obj = var_.as<Object>();
-    auto kv = obj.find(key);
-    if (kv != obj.end())
-        kv->second.to(value);
-    else
-        value = std::forward<U>(fallback);
+    try
+    {
+        auto& obj = var_.as<Object>();
+        auto kv = obj.find(key);
+        if (kv != obj.end())
+            kv->second.to(value);
+        else
+            value = std::forward<U>(fallback);
+    }
+    catch (const error::Conversion& e)
+    {
+        std::ostringstream oss;
+        oss << e.what() << ", for object member \""  << key << '"';
+        throw error::Conversion(oss.str());
+    }
+    catch (const error::Access&)
+    {
+        std::ostringstream oss;
+        oss << "wamp::error::Conversion: Attemping to access field type "
+            << typeNameOf(var_) << "as object using key \"" << key << '"';
+        throw error::Conversion(oss.str());
+    }
+
     return *this;
 }
 
@@ -181,7 +254,7 @@ template <typename TObject>
 void ConversionAccess::convertFrom(FromVariantConverter& c, TObject& obj)
 {
     static_assert(has_member_convertFrom<TObject>(),
-        "The 'convertFrom' member function has not provided "
+        "The 'convertFrom' member function has not been provided "
         "for this type.");
     obj.convertFrom(c);
 }
@@ -190,10 +263,12 @@ template <typename TObject>
 void ConversionAccess::convertTo(ToVariantConverter& c, const TObject& obj)
 {
     static_assert(has_member_convertTo<TObject>(),
-        "The 'convertTo' member function has not provided "
-        "for this type.");
+        "The 'convertTo' member function has not been provided for this type.");
     obj.convertTo(c);
 }
+
+template <typename TObject>
+TObject ConversionAccess::defaultConstruct() {return TObject();}
 
 
 //------------------------------------------------------------------------------

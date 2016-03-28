@@ -34,6 +34,7 @@ void checkVec(const std::vector<T>& vector, bool convertible = true)
         for (Variant::SizeType i=0; i<v.size(); ++i)
         {
             CHECK( v[i] == vector.at(i) );
+            CHECK( v.at(i) == vector.at(i) );
         }
         Vector converted;
         if (convertible)
