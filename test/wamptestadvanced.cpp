@@ -14,6 +14,7 @@
 #include <cppwamp/internal/config.hpp>
 
 using namespace wamp;
+using namespace Catch::Matchers;
 
 namespace
 {

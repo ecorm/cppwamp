@@ -143,7 +143,7 @@ FromVariantConverter& FromVariantConverter::operator[](T& value)
     {
         std::ostringstream oss;
         oss << "wamp::error::Conversion: Attemping to access field type "
-            << typeNameOf(var_) << "as array";
+            << typeNameOf(var_) << " as array";
         throw error::Conversion(oss.str());
     }
     catch (const std::out_of_range&)
@@ -185,7 +185,7 @@ FromVariantConverter& FromVariantConverter::operator()(const String& key,
     {
         std::ostringstream oss;
         oss << "wamp::error::Conversion: Attemping to access field type "
-            << typeNameOf(var_) << "as object using key \"" << key << '"';
+            << typeNameOf(var_) << " as object using key \"" << key << '"';
         throw error::Conversion(oss.str());
     }
     catch (const std::out_of_range&)
@@ -229,7 +229,7 @@ FromVariantConverter& FromVariantConverter::operator()(const String& key,
     {
         std::ostringstream oss;
         oss << "wamp::error::Conversion: Attemping to access field type "
-            << typeNameOf(var_) << "as object using key \"" << key << '"';
+            << typeNameOf(var_) << " as object using key \"" << key << '"';
         throw error::Conversion(oss.str());
     }
 

@@ -47,6 +47,11 @@ add_definitions(
     -DCPPWAMP_TESTING_WAMP=1
 )
 
+# Silence GCC warnings from Catch comparison checks
+if(CMAKE_COMPILER_IS_GNUCXX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses")
+endif()
+
 # Add include path for Catch unit test framework
 include_directories(${PATH_INCLUDE_CATCH})
 

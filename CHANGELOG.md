@@ -1,3 +1,11 @@
+v0.6.3
+======
+Update for latest 3rd-party dependencies.
+
+- Updated 3rd-party subrepos.
+- Fixed missing RawNumber for RapidJSON parser (fixes #100).
+- Added missing spaces in conversion exception messages (fixes #101).
+
 v0.6.2
 ======
 Variant conversion enhancements.
@@ -10,6 +18,8 @@ Variant conversion enhancements.
 - Enforced Client::LocalSubs non-empty invariant during unsubscribe.
 - Added Variant::at accessors (closes #95).
 - Updated config.json test/example files for Crossbar 0.13.0.
+- Blob is now stored via a pointer within the Variant::Field union, to reduce
+  the size of a Variant object.
 
 v0.6.1
 ======

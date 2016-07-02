@@ -14,6 +14,7 @@
 #include <cppwamp/variant.hpp>
 
 using namespace wamp;
+using namespace Catch::Matchers;
 
 //------------------------------------------------------------------------------
 SCENARIO( "Variant type information", "[Variant]" )

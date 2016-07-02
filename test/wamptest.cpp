@@ -24,6 +24,7 @@
 
 
 using namespace wamp;
+using namespace Catch::Matchers;
 
 namespace
 {

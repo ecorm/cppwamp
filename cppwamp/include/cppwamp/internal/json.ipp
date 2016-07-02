@@ -40,6 +40,14 @@ public:
             return Base::String(str, length, true);
     }
 
+    // Only used if kParseNumbersAsStringsFlag is set
+    bool RawNumber(const char* /*str*/, SizeType /*length*/, bool /*copy*/)
+    {
+        // kParseNumbersAsStringsFlag should never be set in CppWAMP.
+        assert(false && "RapidJSON kParseNumbersAsStringsFlag not supported");
+        return false;
+    }
+
 private:
     using Base = VariantBuilder;
 };

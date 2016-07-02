@@ -57,6 +57,9 @@ QMAKE_CXXFLAGS += -std=c++11
 #Enable support for threads
 QMAKE_CXXFLAGS += -pthread
 
+#Silence warnings from Catch comparison checks
+QMAKE_CXXFLAGS += -Wno-parentheses
+
 #Stop compiling after N errors
 QMAKE_CXXFLAGS += -fmax-errors=3
 
