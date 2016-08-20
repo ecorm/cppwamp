@@ -1,8 +1,11 @@
 ext/
 build/
+key.priv
+key.pub
 .hgtags
 .hg/
 *.pro.user
 CMakeLists.txt.user
 *.vpp~*
 *.vpp.bak
+

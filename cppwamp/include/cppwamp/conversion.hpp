@@ -198,6 +198,9 @@ public:
     template <typename TObject>
     static TObject defaultConstruct();
 
+    template <typename TObject>
+    static TObject* defaultHeapConstruct();
+
 private:
     CPPWAMP_GENERATE_HAS_MEMBER(convert)
     CPPWAMP_GENERATE_HAS_MEMBER(convertFrom)

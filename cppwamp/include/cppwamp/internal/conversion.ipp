@@ -270,6 +270,9 @@ void ConversionAccess::convertTo(ToVariantConverter& c, const TObject& obj)
 template <typename TObject>
 TObject ConversionAccess::defaultConstruct() {return TObject();}
 
+template <typename TObject>
+TObject* ConversionAccess::defaultHeapConstruct() {return new TObject;}
+
 
 //------------------------------------------------------------------------------
 template <typename TConverter, typename TValue>
