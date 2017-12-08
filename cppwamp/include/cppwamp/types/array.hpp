@@ -25,34 +25,35 @@ namespace wamp
     Users should not use this function directly. Use Variant::to instead. */
 //------------------------------------------------------------------------------
 template <typename T, std::size_t Size>
-void convert(wamp::FromVariantConverter& conv, std::array<T, Size>& array)
+void convert(FromVariantConverter& conv, std::array<T, Size>& array)
 {
     using namespace wamp;
     const auto& variant = conv.variant();
     if (variant.is<Array>() == false)
     {
-        throw wamp::error::Conversion("Attempting to convert non-array variant "
-                                      "to std::array");
+        throw error::Conversion("Attempting to convert non-array variant "
+                                "to std::array");
     }
 
     std::array<T, Size> newArray;
     const auto& variantArray = variant.as<Array>();
     if (variantArray.size() != Size)
     {
-        throw wamp::error::Conversion("Size mismatched");
+        throw error::Conversion("Variant array size does not match that "
+            "of std::array<T," + std::to_string(Size) + ">");
     }
 
     for (Array::size_type i=0; i<variantArray.size(); ++i)
     {
         try
         {
-            newArray[i] = (variantArray[i].to<T>());
+            newArray[i] = variantArray[i].to<T>();
         }
-        catch (const wamp::error::Conversion& e)
+        catch (const error::Conversion& e)
         {
             std::string msg = e.what();
             msg += " (for element #" + std::to_string(i) + ")";
-            throw wamp::error::Conversion(msg);
+            throw error::Conversion(msg);
         }
     }
     array = std::move(newArray);
@@ -63,7 +64,7 @@ void convert(wamp::FromVariantConverter& conv, std::array<T, Size>& array)
     Users should not use this function directly. Use Variant::from instead. */
 //------------------------------------------------------------------------------
 template <typename T, std::size_t Size>
-void convert(wamp::ToVariantConverter& conv, std::array<T, Size>& array)
+void convert(ToVariantConverter& conv, std::array<T, Size>& array)
 {
     using namespace wamp;
     Array variantArray;
