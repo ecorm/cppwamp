@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <catch.hpp>
+#include <cppwamp/types/array.hpp>
 #include <cppwamp/types/set.hpp>
 #include <cppwamp/types/unorderedmap.hpp>
 #include <cppwamp/types/unorderedset.hpp>
@@ -83,6 +84,58 @@ GIVEN( "an invalid variant object type" )
     {
         using MapType = std::unordered_map<String, int>;
         CHECK_THROWS_AS( v.to<MapType>(), error::Conversion );
+    }
+}
+}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "Converting to/from std::array", "[Variant]" )
+{
+GIVEN( "a valid variant array type" )
+{
+    Variant v(Array{1, 3, 2});
+    WHEN( "converting to a std::array" )
+    {
+        auto array = v.to<std::array<int, 3>>();
+        THEN( "the array is as expected" )
+        {
+            REQUIRE( array.size() == 3 );
+            auto iter = array.begin();
+            CHECK( *iter++ == 1 );
+            CHECK( *iter++ == 3 );
+            CHECK( *iter++ == 2 );
+        }
+    }
+}
+GIVEN( "a variant array of 4 elements" )
+{
+    Variant v(Array{1, 2, 3, 4});
+    WHEN( "converting to a std::array of 3 elements" )
+    {
+        using ArraytType = std::array<int, 3>;
+        CHECK_THROWS_AS( v.to<ArraytType>(), error::Conversion );
+    }
+}
+GIVEN( "a valid std::array type" )
+{
+    std::array<String, 3> array{"a", "b", "c"};
+    WHEN( "converting to a variant" )
+    {
+        auto v = Variant::from(array);
+        THEN( "the variant is as expected" )
+        {
+            CHECK( v == (Array{"a", "b", "c"}) );
+        }
+    }
+}
+GIVEN( "an invalid variant array type" )
+{
+    Variant v(Array{"a", null});
+    WHEN( "converting to a std::array" )
+    {
+        using ArrayType = std::array<String, 3>;
+        CHECK_THROWS_AS( v.to<ArrayType>(), error::Conversion );
     }
 }
 }

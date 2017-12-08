@@ -72,6 +72,7 @@ HEADERS += \
     include/cppwamp/internal/varianttraitsfwd.hpp \
     include/cppwamp/internal/variantvisitors.hpp \
     include/cppwamp/internal/wampmessage.hpp \
+    include/cppwamp/types/array.hpp \
     include/cppwamp/types/set.hpp \
     include/cppwamp/types/tuple.hpp \
     include/cppwamp/types/boostoptional.hpp \
