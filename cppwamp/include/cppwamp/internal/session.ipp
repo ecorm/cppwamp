@@ -119,6 +119,22 @@ CPPWAMP_INLINE void Session::setTraceHandler(
 }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::setChallengeHandler(
+    ChallengeHandler handler /**< Function called to handle
+                                  authentication challenges. */
+)
+{
+    challengeHandler_ = AsyncTask<Challenge>
+    {
+        userIosvc_,
+        [handler](AsyncResult<Challenge> challenge)
+        {
+            handler(std::move(challenge.get()));
+        }
+    };
+}
+
+//------------------------------------------------------------------------------
 /** @details
     The session will attempt to connect using the transports that were
     specified by the Connector objects passed during create().
@@ -171,6 +187,17 @@ CPPWAMP_INLINE void Session::join(
 {
     CPPWAMP_LOGIC_CHECK(state() == State::closed, "Session is not closed");
     impl_->join(std::move(realm), {userIosvc_, std::move(handler)});
+}
+
+//------------------------------------------------------------------------------
+/** @pre `this->state() == SessionState::authenticating`
+    @throw error::Logic if `this->state() != SessionState::authenticating` */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::authenticate(Authentication auth)
+{
+    CPPWAMP_LOGIC_CHECK(state() == State::authenticating,
+                        "Session is not authenticating");
+    impl_->authenticate(std::move(auth));
 }
 
 //------------------------------------------------------------------------------
@@ -514,6 +541,7 @@ CPPWAMP_INLINE void Session::doConnect(size_t index, AsyncTask<size_t> handler)
                     state_ = State::closed;
                     impl_ = impl;
                     impl_->setLogHandlers(warningHandler_, traceHandler_);
+                    impl_->setChallengeHandler(challengeHandler_);
                     std::move(handler)(index);
                 }
             }

@@ -42,6 +42,12 @@ public:
     /** Obtains the realm URI. */
     const String& uri() const;
 
+    /** Sets the `HELLO.Details.authmethods` option. */
+    Realm& withAuthMethods(std::vector<String> methods);
+
+    /** Sets the `HELLO.Details.authid` option. */
+    Realm& withAuthId(String authId);
+
 private:
     String uri_;
 
@@ -56,7 +62,7 @@ class SessionInfo : public Options<SessionInfo>
 {
 public:
     /** A set of role strings. */
-    using RoleSet    = std::set<String>;
+    using RoleSet = std::set<String>;
 
     /** A set of feature strings. */
     using FeatureSet = std::set<String>;

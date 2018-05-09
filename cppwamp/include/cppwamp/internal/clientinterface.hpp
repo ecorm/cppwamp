@@ -48,7 +48,9 @@ public:
 
     virtual SessionState state() const = 0;
 
-    virtual void join(Realm&& realm, AsyncTask<SessionInfo>&& hander) = 0;
+    virtual void join(Realm&& realm, AsyncTask<SessionInfo>&& handler) = 0;
+
+    virtual void authenticate(Authentication&& authentication) = 0;
 
     virtual void leave(Reason&& reason, AsyncTask<Reason>&& handler) = 0;
 
@@ -70,6 +72,8 @@ public:
 
     virtual void setLogHandlers(AsyncTask<std::string> warningHandler,
                                 AsyncTask<std::string> traceHandler) = 0;
+
+    virtual void setChallengeHandler(AsyncTask<Challenge> handler) = 0;
 };
 
 inline const Object& ClientInterface::roles()

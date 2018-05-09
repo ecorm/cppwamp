@@ -226,6 +226,7 @@ private:
     void onTransportRx(Buffer buf)
     {
         if (state_ == State::establishing ||
+            state_ == State::authenticating ||
             state_ == State::established ||
             state_ == State::shuttingDown)
         {
@@ -269,6 +270,10 @@ private:
         {
             case WampMsgType::hello:
                 processHello(std::move(msg));
+                break;
+
+            case WampMsgType::challenge:
+                processChallenge(std::move(msg));
                 break;
 
             case WampMsgType::welcome:
@@ -319,9 +324,18 @@ private:
         post(std::bind(&Peer::onInbound, self, std::move(msg)));
     }
 
-    void processWelcome(Message&& msg)
+    void processChallenge(Message&& msg)
     {
         assert(state_ == State::establishing);
+        state_ = State::authenticating;
+        auto self = this->shared_from_this();
+        post(std::bind(&Peer::onInbound, self, std::move(msg)));
+    }
+
+    void processWelcome(Message&& msg)
+    {
+        assert((state_ == State::establishing) ||
+               (state_ == State::authenticating));
         state_ = State::established;
         processWampReply( RequestKey(WampMsgType::hello, msg.requestId()),
                           std::move(msg) );
@@ -329,7 +343,8 @@ private:
 
     void processAbort(Message&& msg)
     {
-        assert(state_ == State::establishing);
+        assert((state_ == State::establishing) ||
+               (state_ == State::authenticating));
         state_ = State::closed;
         processWampReply( RequestKey(WampMsgType::hello, msg.requestId()),
                           std::move(msg) );
@@ -382,6 +397,10 @@ private:
             {
             case State::establishing:
                 valid = traits.forEstablishing;
+                break;
+
+            case State::authenticating:
+                valid = traits.forChallenging;
                 break;
 
             case State::established:

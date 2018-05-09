@@ -92,6 +92,9 @@ public:
     /** Handler type used for processing log events. */
     using LogHandler = std::function<void (std::string)>;
 
+    /** Function type handling authtication challenges. */
+    using ChallengeHandler = std::function<void (Challenge)>;
+
     /** Function type for handling pub/sub events. */
     using EventSlot = std::function<void (Event)>;
 
@@ -134,6 +137,9 @@ public:
 
     /** Sets the log handler for debug traces. */
     void setTraceHandler(LogHandler handler);
+
+    /** Sets the handler for authentication challenges. */
+    void setChallengeHandler(ChallengeHandler handler);
     /// @}
 
     /// @name Session Management
@@ -143,6 +149,9 @@ public:
 
     /** Asynchronously attempts to join the given WAMP realm. */
     void join(Realm realm, AsyncHandler<SessionInfo> handler);
+
+    /** Sends an `AUTHENTICATE` in response to a `CHALLENGE`. */
+    void authenticate(Authentication auth);
 
     /** Asynchronously leaves the WAMP session. */
     void leave(Reason reason, AsyncHandler<Reason> handler);
@@ -204,6 +213,7 @@ private:
     Connector::Ptr currentConnector_;
     AsyncTask<std::string> warningHandler_;
     AsyncTask<std::string> traceHandler_;
+    AsyncTask<Challenge> challengeHandler_;
     SessionState state_ = State::disconnected;
     bool isTerminating_ = false;
     std::shared_ptr<internal::ClientInterface> impl_;

@@ -27,13 +27,14 @@ using RegistrationId = int64_t; ///< Ephemeral ID associated with an RPC registr
 /** Enumerates the possible states that a client or router session can be in. */
 enum class SessionState
 {
-    disconnected, ///< The transport connection is not yet established
-    connecting,   ///< Transport connection is in progress
-    closed,       ///< Transport connected, but WAMP session is closed
-    establishing, ///< WAMP session establishment is in progress
-    established,  ///< WAMP session is established
-    shuttingDown, ///< WAMP session is closing
-    failed        ///< WAMP session or transport connection has failed
+    disconnected,   ///< The transport connection is not yet established
+    connecting,     ///< Transport connection is in progress
+    closed,         ///< Transport connected, but WAMP session is closed
+    establishing,   ///< WAMP session establishment is in progress
+    authenticating, ///< WAMP authentication is in progress
+    established,    ///< WAMP session is established
+    shuttingDown,   ///< WAMP session is closing
+    failed          ///< WAMP session or transport connection has failed
 };
 
 } // namespace wamp

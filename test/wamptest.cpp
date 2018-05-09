@@ -279,6 +279,15 @@ void checkInvalidJoin(CoroSession<>::Ptr session,
     CHECK_THROWS_AS( session->join(Realm(testRealm), yield, &ec), error::Logic );
 }
 
+void checkInvalidAuthenticate(CoroSession<>::Ptr session,
+                              boost::asio::yield_context yield)
+{
+    std::error_code ec;
+
+    CHECK_THROWS_AS( session->authenticate(Authentication("signature")),
+                     error::Logic );
+}
+
 void checkInvalidLeave(CoroSession<>::Ptr session,
                        boost::asio::yield_context yield)
 {
@@ -2152,6 +2161,7 @@ GIVEN( "an IO service and a TCP connector" )
             auto session = CoroSession<>::create(iosvc, cnct);
             REQUIRE( session->state() == SessionState::disconnected );
             checkInvalidJoin(session, yield);
+            checkInvalidAuthenticate(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });
@@ -2171,6 +2181,7 @@ GIVEN( "an IO service and a TCP connector" )
             REQUIRE( session->state() == SessionState::connecting );
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
+            checkInvalidAuthenticate(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });
@@ -2186,6 +2197,7 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK_THROWS( session->connect(yield) );
             REQUIRE( session->state() == SessionState::failed );
             checkInvalidJoin(session, yield);
+            checkInvalidAuthenticate(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });
@@ -2201,6 +2213,7 @@ GIVEN( "an IO service and a TCP connector" )
             session->connect(yield);
             REQUIRE( session->state() == SessionState::closed );
             checkInvalidConnect(session, yield);
+            checkInvalidAuthenticate(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });
@@ -2226,6 +2239,7 @@ GIVEN( "an IO service and a TCP connector" )
             REQUIRE( session->state() == SessionState::establishing );
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
+            checkInvalidAuthenticate(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });
@@ -2243,6 +2257,7 @@ GIVEN( "an IO service and a TCP connector" )
             REQUIRE( session->state() == SessionState::established );
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
+            checkInvalidAuthenticate(session, yield);
         });
 
         iosvc.run();
@@ -2268,6 +2283,7 @@ GIVEN( "an IO service and a TCP connector" )
             REQUIRE( session->state() == SessionState::shuttingDown );
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
+            checkInvalidAuthenticate(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });

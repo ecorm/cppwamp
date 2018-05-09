@@ -13,6 +13,8 @@
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/internal/config.hpp>
 
+#include <iostream>
+
 using namespace wamp;
 using namespace Catch::Matchers;
 
@@ -21,10 +23,17 @@ namespace
 
 const std::string testRealm = "cppwamp.test";
 const short testPort = 12345;
+const std::string authTestRealm = "cppwamp.authtest";
+const short authTestPort = 23456;
 
 Connector::Ptr tcp(AsioService& iosvc)
 {
     return connector<Json>(iosvc, TcpHost("localhost", testPort));
+}
+
+Connector::Ptr authTcp(AsioService& iosvc)
+{
+    return connector<Json>(iosvc, TcpHost("localhost", authTestPort));
 }
 
 //------------------------------------------------------------------------------
@@ -84,6 +93,41 @@ struct PubSubFixture
 
     SessionId publisherId = -1;
     SessionId subscriberId = -1;
+};
+
+//------------------------------------------------------------------------------
+struct TicketAuthFixture
+{
+    template <typename TConnector>
+    TicketAuthFixture(AsioService& iosvc, TConnector cnct)
+        : session(CoroSession<>::create(iosvc, cnct))
+    {
+        session->setChallengeHandler( [this](Challenge c){onChallenge(c);} );
+    }
+
+    void join(String authId, String signature, boost::asio::yield_context yield)
+    {
+        this->signature = std::move(signature);
+        session->connect(yield);
+        info = session->join(Realm(authTestRealm).withAuthMethods({"ticket"})
+                                                 .withAuthId(std::move(authId)),
+                             yield);
+    }
+
+    void onChallenge(Challenge authChallenge)
+    {
+        ++challengeCount;
+        challenge = authChallenge;
+        challengeState = session->state();
+        session->authenticate(Authentication(signature));
+    }
+
+    CoroSession<>::Ptr session;
+    String signature;
+    SessionState challengeState = SessionState::closed;
+    unsigned challengeCount = 0;
+    Challenge challenge;
+    SessionInfo info;
 };
 
 } // anonymous namespace
@@ -330,6 +374,34 @@ GIVEN( "a publisher and a subscriber" )
             subscriber2->disconnect();
         });
         iosvc.run();
+    }
+}}
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP ticket authentication", "[WAMP]" )
+{
+GIVEN( "a Session with a registered challenge handler" )
+{
+    AsioService iosvc;
+    TicketAuthFixture f(iosvc, authTcp(iosvc));
+
+    WHEN( "joining with ticket authentication requested" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            f.join("alice", "password123", yield);
+            f.session->disconnect();
+        });
+        iosvc.run();
+
+        THEN( "the challenge was received and the authentication accepted" )
+        {
+            REQUIRE( f.challengeCount == 1 );
+            CHECK( f.challengeState == SessionState::authenticating );
+            CHECK( f.challenge.method() == "ticket" );
+            CHECK( f.info.optionByKey("authmethod") == "ticket" );
+            CHECK( f.info.optionByKey("authrole") == "ticketrole" );
+        }
     }
 }}
 

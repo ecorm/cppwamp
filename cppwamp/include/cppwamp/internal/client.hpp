@@ -98,6 +98,13 @@ public:
             });
     }
 
+    virtual void authenticate(Authentication&& auth) override
+    {
+        authenticateMsg_.at(1) = move(auth.signature(PassKey{}));
+        authenticateMsg_.at(2) = move(auth.options(PassKey{}));
+        this->send(authenticateMsg_);
+    }
+
     virtual void leave(Reason&& reason, AsyncTask<Reason>&& handler) override
     {
         using std::move;
@@ -378,6 +385,11 @@ public:
         this->setTraceHandler(std::move(traceHandler));
     }
 
+    virtual void setChallengeHandler(AsyncTask<Challenge> handler) override
+    {
+        challengeHandler_ = std::move(handler);
+    }
+
 private:
     struct SubscriptionRecord
     {
@@ -531,6 +543,10 @@ private:
     {
         switch (msg.type)
         {
+        case WampMsgType::challenge:
+            onChallenge(std::move(msg));
+            break;
+
         case WampMsgType::event:
             onEvent(std::move(msg));
             break;
@@ -541,6 +557,32 @@ private:
 
         default:
             assert(false);
+        }
+    }
+
+    void onChallenge(Message&& msg)
+    {
+        using std::move;
+
+        Challenge challenge(std::move(msg.as<String>(1)));
+        challenge.withOptions(std::move(msg.as<Object>(2)));
+
+        if (challengeHandler_)
+        {
+            challengeHandler_(std::move(challenge));
+        }
+        else
+        {
+            if (warningHandler_)
+            {
+                std::ostringstream oss;
+                oss << "Received a CHALLENGE with no registered handler "
+                       "(with method=" << challenge.method() << " extra="
+                    << challenge.options() << ")";
+                warn(oss.str());
+            }
+
+            // TODO: Send empty signature
         }
     }
 
@@ -744,19 +786,20 @@ private:
         Array a;
         Object o;
 
-        publishMsg_            = M{ T::publish,     {n, n, o, s} };
-        publishArgsMsg_        = M{ T::publish,     {n, n, o, s, a} };
-        publishKwargsMsg_      = M{ T::publish,     {n, n, o, s, a, o} };
-        subscribeMsg_          = M{ T::subscribe,   {n, n, o, s} };
-        unsubscribeMsg_        = M{ T::unsubscribe, {n, n, n} };
-        enrollMsg_             = M{ T::enroll,      {n, n, o, s} };
-        unregisterMsg_         = M{ T::unregister,  {n, n, n} };
-        callMsg_               = M{ T::call,        {n, n, o, s} };
-        callWithArgsMsg_       = M{ T::call,        {n, n, o, s, a} };
-        callWithKwargsMsg_     = M{ T::call,        {n, n, o, s, a, o} };
-        yieldMsg_              = M{ T::yield,       {n, n, o} };
-        yieldWithArgsMsg_      = M{ T::yield,       {n, n, o, a} };
-        yieldWithKwargsMsg_    = M{ T::yield,       {n, n, o, a, o} };
+        authenticateMsg_       = M{ T::authenticate, {n, s, o} };
+        publishMsg_            = M{ T::publish,      {n, n, o, s} };
+        publishArgsMsg_        = M{ T::publish,      {n, n, o, s, a} };
+        publishKwargsMsg_      = M{ T::publish,      {n, n, o, s, a, o} };
+        subscribeMsg_          = M{ T::subscribe,    {n, n, o, s} };
+        unsubscribeMsg_        = M{ T::unsubscribe,  {n, n, n} };
+        enrollMsg_             = M{ T::enroll,       {n, n, o, s} };
+        unregisterMsg_         = M{ T::unregister,   {n, n, n} };
+        callMsg_               = M{ T::call,         {n, n, o, s} };
+        callWithArgsMsg_       = M{ T::call,         {n, n, o, s, a} };
+        callWithKwargsMsg_     = M{ T::call,         {n, n, o, s, a, o} };
+        yieldMsg_              = M{ T::yield,        {n, n, o} };
+        yieldWithArgsMsg_      = M{ T::yield,        {n, n, o, a} };
+        yieldWithKwargsMsg_    = M{ T::yield,        {n, n, o, a, o} };
     }
 
     SlotId nextSlotId() {return nextSlotId_++;}
@@ -766,7 +809,9 @@ private:
     Readership readership_;
     Registry registry_;
     AsyncTask<std::string> warningHandler_;
+    AsyncTask<Challenge> challengeHandler_;
 
+    Message authenticateMsg_;
     Message publishMsg_;
     Message publishArgsMsg_;
     Message publishKwargsMsg_;

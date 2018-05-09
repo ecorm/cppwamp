@@ -23,6 +23,16 @@ CPPWAMP_INLINE const String& Realm::uri() const {return uri_;}
 
 CPPWAMP_INLINE String& Realm::uri(internal::PassKey) {return uri_;}
 
+CPPWAMP_INLINE Realm& Realm::withAuthMethods(std::vector<String> methods)
+{
+    return withOption("authmethods", std::move(methods));
+}
+
+CPPWAMP_INLINE Realm& Realm::withAuthId(String authId)
+{
+    return withOption("authid", std::move(authId));
+}
+
 
 //******************************************************************************
 // SessionInfo
