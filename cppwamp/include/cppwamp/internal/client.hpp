@@ -674,15 +674,19 @@ private:
                 yield(reqId, std::move(error));
             }
 
-            // TODO: Workaround to prevent aborting emcd when
+            // TODO: Workaround to prevent aborting when
             //       Variant conversion fails.
             catch (const error::Access& e)
             {
-                yield(reqId, Error("emc.error.invalid_argument"));
+                Error err = Error("wamp.error.invalid_argument");
+                err.withArgList(Array{e.what()});
+                yield(reqId, std::move(err));
             }
             catch (const error::Conversion& e)
             {
-                yield(reqId, Error("emc.error.invalid_argument"));
+                Error err = Error("wamp.error.invalid_argument");
+                err.withArgList(Array{e.what()});
+                yield(reqId, std::move(err));
             }
         });
     }
