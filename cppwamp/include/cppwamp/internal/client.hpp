@@ -673,6 +673,17 @@ private:
             {
                 yield(reqId, std::move(error));
             }
+
+            // TODO: Workaround to prevent aborting emcd when
+            //       Variant conversion fails.
+            catch (const error::Access& e)
+            {
+                yield(reqId, Error("emc.error.invalid_argument"));
+            }
+            catch (const error::Conversion& e)
+            {
+                yield(reqId, Error("emc.error.invalid_argument"));
+            }
         });
     }
 
