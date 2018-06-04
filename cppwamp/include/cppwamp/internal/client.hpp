@@ -607,6 +607,20 @@ private:
                     warn(oss.str());
                 }
             }
+
+            // Forward Variant conversion exceptions as ERROR messages.
+            catch (const error::Access& e)
+            {
+                Error err = Error("wamp.error.invalid_argument");
+                err.withArgList(Array{e.what()});
+                yield(reqId, std::move(err));
+            }
+            catch (const error::Conversion& e)
+            {
+                Error err = Error("wamp.error.invalid_argument");
+                err.withArgList(Array{e.what()});
+                yield(reqId, std::move(err));
+            }
         });
     }
 
@@ -674,8 +688,7 @@ private:
                 yield(reqId, std::move(error));
             }
 
-            // TODO: Workaround to prevent aborting when
-            //       Variant conversion fails.
+            // Forward Variant conversion exceptions as ERROR messages.
             catch (const error::Access& e)
             {
                 Error err = Error("wamp.error.invalid_argument");
