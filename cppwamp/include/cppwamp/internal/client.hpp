@@ -613,13 +613,29 @@ private:
             {
                 Error err = Error("wamp.error.invalid_argument");
                 err.withArgList(Array{e.what()});
-                yield(reqId, std::move(err));
+                if (warningHandler_)
+                {
+                    std::ostringstream oss;
+                    oss << "Received an EVENT with invalid arguments: "
+                        << err.args()
+                        << " (with subId=" << subId
+                        << " pubId=" << pubId << ")";
+                    warn(oss.str());
+                }
             }
             catch (const error::Conversion& e)
             {
                 Error err = Error("wamp.error.invalid_argument");
                 err.withArgList(Array{e.what()});
-                yield(reqId, std::move(err));
+                if (warningHandler_)
+                {
+                    std::ostringstream oss;
+                    oss << "Received an EVENT with invalid arguments: "
+                        << err.args()
+                        << " (with subId=" << subId
+                        << " pubId=" << pubId << ")";
+                    warn(oss.str());
+                }
             }
         });
     }
