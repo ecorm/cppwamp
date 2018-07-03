@@ -1051,10 +1051,11 @@ GIVEN( "an IO service and a TCP connector" )
             // 'sub' goes out of scope here.
             f.publisher->publish(Pub("str.num").withArgs("", 0), yield);
             f.publisher->publish(Pub("other"), yield);
-            while (f.staticPubs.size() < 2)
+            while (f.otherPubs.size() < 1)
                 f.subscriber->suspend(yield);
             CHECK( f.dynamicPubs.size() == 1 );
             CHECK( f.staticPubs.size() == 2 );
+            CHECK( f.otherPubs.size() == 1 );
 
             // Check move assignment.
             {
@@ -1072,8 +1073,10 @@ GIVEN( "an IO service and a TCP connector" )
             // 'sub' goes out of scope here.
             f.publisher->publish(Pub("str.num").withArgs("", 0), yield);
             f.publisher->publish(Pub("other"), yield);
-            CHECK( f.staticPubs.size() == 3 );
-            CHECK( f.otherPubs.size() == 1 );
+            while (f.otherPubs.size() < 2)
+                f.subscriber->suspend(yield);
+            CHECK( f.staticPubs.size() == 3 ); // staticPubs count the same
+            CHECK( f.otherPubs.size() == 2 );
         });
         iosvc.run();
     }
@@ -2005,6 +2008,138 @@ GIVEN( "an IO service and a TCP connector" )
                 f.subscriber->suspend(yield);
             REQUIRE( f.staticPubs.size() == 2 );
             CHECK( f.staticPubs.back() == pid );
+        });
+        iosvc.run();
+    }
+
+    WHEN( "invoking an RPC that throws a wamp::error::BadType exceptions" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            std::error_code ec;
+            RpcFixture f(iosvc, cnct);
+            f.join(yield);
+
+            f.callee->enroll(
+                Procedure("bad_conversion"),
+                [](Invocation inv)
+                {
+                    inv.args().front().to<String>();
+                    return Result();
+                },
+                yield);
+
+            f.callee->enroll(
+                Procedure("bad_conv_coro"),
+                basicCoroRpc<void, Variant>(
+                [](Variant v, boost::asio::yield_context yield)
+                {
+                    v.to<String>();
+                }),
+                yield);
+
+            f.callee->enroll(
+                Procedure("bad_access"),
+                basicRpc<void, Variant>( [](Variant v){v.as<String>();} ),
+                yield);
+
+            f.callee->enroll(
+                Procedure("bad_access_coro"),
+                unpackedCoroRpc<Variant>(
+                [](Invocation inv, Variant v, boost::asio::yield_context yield)
+                {
+                    v.as<String>();
+                    return Result();
+                }),
+                yield);
+
+
+            // Check bad conversion
+            CHECK_THROWS_AS( f.caller->call(Rpc("bad_conversion").withArgs(42),
+                                            yield),
+                             error::Failure );
+
+            f.caller->call(Rpc("bad_conversion").withArgs(42), yield, &ec);
+            CHECK( ec == SessionErrc::callError );
+            CHECK( ec == SessionErrc::invalidArgument );
+
+            // Check bad conversion in coroutine handler
+            CHECK_THROWS_AS( f.caller->call(Rpc("bad_conv_coro").withArgs(42),
+                                            yield),
+                             error::Failure );
+
+            f.caller->call(Rpc("bad_conv_coro").withArgs(42), yield, &ec);
+            CHECK( ec == SessionErrc::callError );
+            CHECK( ec == SessionErrc::invalidArgument );
+
+            // Check bad access
+            CHECK_THROWS_AS( f.caller->call(Rpc("bad_access").withArgs(42),
+                                            yield),
+                             error::Failure );
+
+            f.caller->call(Rpc("bad_access").withArgs(42), yield, &ec);
+            CHECK( ec == SessionErrc::callError );
+            CHECK( ec == SessionErrc::invalidArgument );
+
+            // Check bad access in couroutine handler
+            CHECK_THROWS_AS( f.caller->call(Rpc("bad_access_coro").withArgs(42),
+                                            yield),
+                             error::Failure );
+
+            f.caller->call(Rpc("bad_access_coro").withArgs(42), yield, &ec);
+            CHECK( ec == SessionErrc::callError );
+            CHECK( ec == SessionErrc::invalidArgument );
+        });
+        iosvc.run();
+    }
+
+    WHEN( "an event handler throws wamp::error::BadType exceptions" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            unsigned warningCount = 0;
+            PubSubFixture f(iosvc, cnct);
+            f.subscriber->setWarningHandler([&](std::string){++warningCount;});
+            f.join(yield);
+            f.subscribe(yield);
+
+            f.subscriber->subscribe(
+                Topic("bad_conversion"),
+                basicEvent<Variant>([](Variant v) {v.to<String>();}),
+                yield);
+
+            f.subscriber->subscribe(
+                Topic("bad_access"),
+                [](Event event) {event.args().front().as<String>();},
+                yield);
+
+            f.subscriber->subscribe(
+                Topic("bad_conversion_coro"),
+                basicCoroEvent<Variant>(
+                    [](Variant v, boost::asio::yield_context y)
+                    {
+                        v.to<String>();
+                    }),
+                yield);
+
+            f.subscriber->subscribe(
+                Topic("bad_access_coro"),
+                unpackedCoroEvent<Variant>(
+                    [](Event ev, Variant v, boost::asio::yield_context y)
+                    {
+                        v.to<String>();
+                    }),
+                yield);
+
+            f.publisher->publish(Pub("bad_conversion").withArgs(42));
+            f.publisher->publish(Pub("bad_access").withArgs(42));
+            f.publisher->publish(Pub("bad_conversion_coro").withArgs(42));
+            f.publisher->publish(Pub("bad_access_coro").withArgs(42));
+            f.publisher->publish(Pub("other"));
+
+            while (f.otherPubs.empty())
+                f.subscriber->suspend(yield);
+            CHECK( warningCount == 2 );
         });
         iosvc.run();
     }

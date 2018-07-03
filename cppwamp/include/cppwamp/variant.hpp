@@ -33,19 +33,27 @@ namespace error
 {
 
 //------------------------------------------------------------------------------
+/** Base class for exceptions involving invalid Variant types. */
+//------------------------------------------------------------------------------
+struct BadType : public std::runtime_error
+{
+    explicit BadType(const std::string& what);
+};
+
+//------------------------------------------------------------------------------
 /** Exception type thrown when accessing a Variant as an invalid type. */
 //------------------------------------------------------------------------------
-struct Access : public std::runtime_error
+struct Access : public BadType
 {
-    explicit Access(const std::string& from, const std::string& to);
+    Access(const std::string& from, const std::string& to);
 };
 
 //------------------------------------------------------------------------------
 /** Exception type thrown when converting a Variant to an invalid type. */
 //------------------------------------------------------------------------------
-struct Conversion : public std::runtime_error
+struct Conversion : public BadType
 {
-    using std::runtime_error::runtime_error;
+    explicit Conversion(const std::string& what);
 };
 
 } // namespace error

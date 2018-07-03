@@ -79,6 +79,10 @@ if(CPPWAMP_USE_NON_HANDSHAKING_TRANSPORTS)
     add_definitions(-DCPPWAMP_USE_LEGACY_CONNECTORS)
 endif()
 
+# Disable Boost.Coroutine deprecation warning
+add_definitions(-DBOOST_COROUTINE_NO_DEPRECATION_WARNING)
+add_definitions(-DBOOST_COROUTINES_NO_DEPRECATION_WARNING)
+
 # Add targets for the cppwamp library itself, units tests, and examples.
 add_subdirectory(cppwamp)
 add_subdirectory(test)

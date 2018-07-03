@@ -25,6 +25,12 @@ CPPWAMP_INLINE Error::Error() {}
 
 CPPWAMP_INLINE Error::Error(String reason) : reason_(std::move(reason)) {}
 
+CPPWAMP_INLINE Error::Error(const error::BadType& e)
+    : reason_("wamp.error.invalid_argument")
+{
+    withArgs(String{e.what()});
+}
+
 CPPWAMP_INLINE Error::~Error() {}
 
 CPPWAMP_INLINE const String& Error::reason() const {return reason_;}

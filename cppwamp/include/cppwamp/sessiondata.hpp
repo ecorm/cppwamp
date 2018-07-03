@@ -197,7 +197,7 @@ public:
     bool empty() const;
 
     /** Obtains the subscription ID associated with this event. */
-    PublicationId subId() const;
+    SubscriptionId subId() const;
 
     /** Obtains the publication ID associated with this event. */
     PublicationId pubId() const;

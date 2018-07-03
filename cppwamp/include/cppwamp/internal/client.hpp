@@ -633,6 +633,8 @@ private:
             auto subId = event.subId();
             auto pubId = event.pubId();
 
+            /*  The catch clauses are to prevent the publisher crashing
+                subscribers when it passes arguments having incorrect type. */
             try
             {
                 slot(std::move(event));
@@ -640,46 +642,25 @@ private:
             catch (const Error& e)
             {
                 if (warningHandler_)
-                {
-                    std::ostringstream oss;
-                    oss << "Received an EVENT with invalid arguments: "
-                        << e.args()
-                        << " (with subId=" << subId
-                        << " pubId=" << pubId << ")";
-                    warn(oss.str());
-                }
+                    warnEventError(e, subId, pubId);
             }
-
-            // Forward Variant conversion exceptions as ERROR messages.
-            catch (const error::Access& e)
+            catch (const error::BadType& e)
             {
-                Error err = Error("wamp.error.invalid_argument");
-                err.withArgList(Array{e.what()});
                 if (warningHandler_)
-                {
-                    std::ostringstream oss;
-                    oss << "Received an EVENT with invalid arguments: "
-                        << err.args()
-                        << " (with subId=" << subId
-                        << " pubId=" << pubId << ")";
-                    warn(oss.str());
-                }
-            }
-            catch (const error::Conversion& e)
-            {
-                Error err = Error("wamp.error.invalid_argument");
-                err.withArgList(Array{e.what()});
-                if (warningHandler_)
-                {
-                    std::ostringstream oss;
-                    oss << "Received an EVENT with invalid arguments: "
-                        << err.args()
-                        << " (with subId=" << subId
-                        << " pubId=" << pubId << ")";
-                    warn(oss.str());
-                }
+                    warnEventError(Error(e), subId, pubId);
             }
         });
+    }
+
+    void warnEventError(const Error& e, SubscriptionId subId,
+                        PublicationId pubId)
+    {
+        std::ostringstream oss;
+        oss << "EVENT handler reported an error: "
+            << e.args()
+            << " (with subId=" << subId
+            << " pubId=" << pubId << ")";
+        warn(oss.str());
     }
 
     void onInvocation(Message&& msg)
@@ -745,19 +726,10 @@ private:
             {
                 yield(reqId, std::move(error));
             }
-
-            // Forward Variant conversion exceptions as ERROR messages.
-            catch (const error::Access& e)
+            catch (const error::BadType& e)
             {
-                Error err = Error("wamp.error.invalid_argument");
-                err.withArgList(Array{e.what()});
-                yield(reqId, std::move(err));
-            }
-            catch (const error::Conversion& e)
-            {
-                Error err = Error("wamp.error.invalid_argument");
-                err.withArgList(Array{e.what()});
-                yield(reqId, std::move(err));
+                // Forward Variant conversion exceptions as ERROR messages.
+                yield(reqId, Error(e));
             }
         });
     }

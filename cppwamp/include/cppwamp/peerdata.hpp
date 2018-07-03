@@ -54,6 +54,10 @@ public:
     /** Converting constructor taking a reason URI. */
     Error(String reason);
 
+    /** Constructor taking an error::BadType exception and
+        interpreting it as a `wamp.error.invalid_argument` reason URI. */
+    explicit Error(const error::BadType& e);
+
     /** Destructor. */
     virtual ~Error();
 
