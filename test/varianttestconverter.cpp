@@ -339,6 +339,66 @@ SCENARIO( "Converting to/from variants", "[Variant]" )
             CHECK( loaded == dto );
         }
     }
+
+    GIVEN( "a vector of DTOs" )
+    {
+        using DtoVector = std::vector<user::IntrusiveSimpleDto>;
+
+        DtoVector dtos =
+        {
+            {true, 2, 3.0f, "4"},
+            {false, 5, 6.0f, "7"}
+        };
+
+        Array array =
+        {
+            Variant::from(dtos.at(0)),
+            Variant::from(dtos.at(1))
+        };
+
+        WHEN( "Saving the vector of DTOs" )
+        {
+            auto v = Variant::from(dtos);
+            CHECK( v == array );
+        }
+
+        WHEN( "Loading the vector of DTO" )
+        {
+            Variant v = array;
+            auto loaded = v.to<DtoVector>();
+            CHECK( loaded == dtos );
+        }
+    }
+
+    GIVEN( "a map of DTOs" )
+    {
+        using DtoMap = std::map<String, user::IntrusiveSimpleDto>;
+
+        DtoMap dtos =
+        {
+            {"first",  {true,  2, 3.0f, "4"}},
+            {"second", {false, 5, 6.0f, "7"}}
+        };
+
+        Object object =
+        {
+            {"first",  Variant::from(dtos.at("first"))},
+            {"second", Variant::from(dtos.at("second"))}
+        };
+
+        WHEN( "Saving the map of DTOs" )
+        {
+            auto v = Variant::from(dtos);
+            CHECK( v == object );
+        }
+
+        WHEN( "Loading the map of DTO" )
+        {
+            Variant v = object;
+            auto loaded = v.to<DtoMap>();
+            CHECK( loaded == dtos );
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

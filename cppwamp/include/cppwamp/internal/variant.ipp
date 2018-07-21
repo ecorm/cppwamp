@@ -609,7 +609,7 @@ template <typename T, Variant::DisableIfValidArg<T>>
 void Variant::convertTo(std::map<String, T>& map) const
 {
     const auto& object = this->as<Object>();
-    for (const auto& kv: map)
+    for (const auto& kv: object)
     {
         T value;
         kv.second.convertTo(value);
