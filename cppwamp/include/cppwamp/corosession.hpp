@@ -128,6 +128,7 @@ public:
     using Base::enroll;
     using Base::unregister;
     using Base::call;
+    using Base::cancel;
 
     /// @name Session Management
     /// @{

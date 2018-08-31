@@ -127,6 +127,7 @@ public:
 
     virtual void disconnect() override
     {
+        pendingInvocations_.clear();
         this->close(false);
     }
 
@@ -134,6 +135,7 @@ public:
     {
         using Handler = AsyncTask<std::string>;
         setLogHandlers(Handler(), Handler());
+        pendingInvocations_.clear();
         this->close(true);
     }
 
@@ -251,11 +253,13 @@ public:
             });
     }
 
-    virtual void enroll(Procedure&& procedure, CallSlot&& slot,
+    virtual void enroll(Procedure&& procedure, CallSlot&& callSlot,
+                        InterruptSlot&& interruptSlot,
                         AsyncTask<Registration>&& handler) override
     {
         using std::move;
-        RegistrationRecord rec{move(procedure), move(slot), handler.iosvc()};
+        RegistrationRecord rec{ move(procedure), move(callSlot),
+                                move(interruptSlot), handler.iosvc() };
         enrollMsg_.at(2) = rec.procedure.options();
         enrollMsg_.at(3) = rec.procedure.uri();
         auto self = this->shared_from_this();
@@ -318,10 +322,11 @@ public:
             std::move(handler)(false);
     }
 
-    virtual void call(Rpc&& rpc, AsyncTask<Result>&& handler) override
+    virtual RequestId call(Rpc&& rpc, AsyncTask<Result>&& handler) override
     {
         using std::move;
         Error* errorPtr = rpc.error({});
+        RequestId id = 0;
 
         if (!rpc.kwargs().empty())
         {
@@ -329,25 +334,36 @@ public:
             callWithKwargsMsg_.at(3) = move(rpc.procedure({}));
             callWithKwargsMsg_.at(4) = move(rpc.args({}));
             callWithKwargsMsg_.at(5) = move(rpc.kwargs({}));
-            callProcedure(callWithKwargsMsg_, errorPtr, move(handler));
+            id = callProcedure(callWithKwargsMsg_, errorPtr, move(handler));
         }
         else if (!rpc.args().empty())
         {
             callWithArgsMsg_.at(2) = move(rpc.options({}));
             callWithArgsMsg_.at(3) = move(rpc.procedure({}));
             callWithArgsMsg_.at(4) = move(rpc.args({}));
-            callProcedure(callWithArgsMsg_, errorPtr, move(handler));
+            id = callProcedure(callWithArgsMsg_, errorPtr, move(handler));
         }
         else
         {
             callMsg_.at(2) = move(rpc.options({}));
             callMsg_.at(3) = move(rpc.procedure({}));
-            callProcedure(callMsg_, errorPtr, move(handler));
+            id = callProcedure(callMsg_, errorPtr, move(handler));
         }
+
+        return id;
+    }
+
+    virtual void cancel(Cancellation&& cancellation) override
+    {
+        cancelMsg_.at(1) = cancellation.requestId();
+        cancelMsg_.at(2) = move(cancellation.options({}));
+        this->send(cancelMsg_);
     }
 
     virtual void yield(RequestId reqId, Result&& result) override
     {
+        pendingInvocations_.erase(reqId);
+
         using std::move;
         if (!result.kwargs().empty())
         {
@@ -374,8 +390,8 @@ public:
 
     virtual void yield(RequestId reqId, Error&& failure) override
     {
-        using std::move;
-        this->sendError(WampMsgType::invocation, reqId, move(failure));
+        pendingInvocations_.erase(reqId);
+        this->sendError(WampMsgType::invocation, reqId, std::move(failure));
     }
 
     virtual void setLogHandlers(AsyncTask<std::string> warningHandler,
@@ -408,19 +424,22 @@ private:
 
     struct RegistrationRecord
     {
-        using Slot = std::function<Outcome (Invocation)>;
+        using CallSlot = std::function<Outcome (Invocation)>;
+        using InterruptSlot = std::function<Outcome (Interruption)>;
 
         RegistrationRecord() : procedure(""), iosvc(nullptr) {}
 
-        RegistrationRecord(Procedure&& procedure, Slot&& slot,
-                           AsioService& iosvc)
+        RegistrationRecord(Procedure&& procedure, CallSlot&& callSlot,
+                           InterruptSlot&& interruptSlot, AsioService& iosvc)
             : procedure(std::move(procedure)),
-              slot(std::move(slot)),
+              callSlot(std::move(callSlot)),
+              interruptSlot(std::move(interruptSlot)),
               iosvc(&iosvc)
         {}
 
         Procedure procedure;
-        Slot slot;
+        CallSlot callSlot;
+        InterruptSlot interruptSlot;
         AsioService* iosvc = nullptr;
     };
 
@@ -432,6 +451,7 @@ private:
     using Readership    = std::map<SubscriptionId, LocalSubs>;
     using TopicMap      = std::map<std::string, SubscriptionId>;
     using Registry      = std::map<RegistrationId, RegistrationRecord>;
+    using InvocationMap = std::map<RequestId, RegistrationId>;
 
     Client(TransportPtr transport)
         : Base(std::move(transport))
@@ -502,11 +522,11 @@ private:
         }
     }
 
-    void callProcedure(Message& msg, Error* errorPtr,
-                       AsyncTask<Result>&& handler)
+    RequestId callProcedure(Message& msg, Error* errorPtr,
+                            AsyncTask<Result>&& handler)
     {
         auto self = this->shared_from_this();
-        this->request(msg,
+        return this->request(msg,
             [this, self, errorPtr, handler](std::error_code ec, Message reply)
             {
                 if ((reply.type == WampMsgType::error) && (errorPtr != nullptr))
@@ -553,6 +573,10 @@ private:
 
         case WampMsgType::invocation:
             onInvocation(std::move(msg));
+            break;
+
+        case WampMsgType::interrupt:
+            onInterrupt(std::move(msg));
             break;
 
         default:
@@ -673,14 +697,16 @@ private:
         if (kv != registry_.end())
         {
             auto self = this->shared_from_this();
-            Invocation inv({}, self, requestId, kv->second.iosvc,
+            const RegistrationRecord& rec = kv->second;
+            Invocation inv({}, self, requestId, rec.iosvc,
                            move(msg.as<Object>(3)));
             if (msg.fields.size() >= 5)
                 inv.args({}) = move(msg.as<Array>(4));
             if (msg.fields.size() >= 6)
                 inv.kwargs({}) = move(msg.as<Object>(5));
 
-            dispatchInvocation(kv->second, inv);
+            pendingInvocations_[requestId] = regId;
+            dispatchRpcRequest(*rec.iosvc, rec.callSlot, inv);
         }
         else
         {
@@ -691,19 +717,42 @@ private:
         }
     }
 
-    void dispatchInvocation(const RegistrationRecord& reg,
-                            const Invocation& invocation)
+    void onInterrupt(Message&& msg)
+    {
+        using std::move;
+
+        auto requestId = msg.to<RequestId>(1);
+
+        auto found = pendingInvocations_.find(requestId);
+        if (found != pendingInvocations_.end())
+        {
+            auto registrationId = found->second;
+            auto kv = registry_.find(registrationId);
+            if ((kv != registry_.end()) &&
+                (kv->second.interruptSlot != nullptr))
+            {
+                auto self = this->shared_from_this();
+                const RegistrationRecord& rec = kv->second;
+                Interruption intr({}, self, requestId, rec.iosvc,
+                                  move(msg.as<Object>(2)));
+                dispatchRpcRequest(*rec.iosvc, rec.interruptSlot, intr);
+            }
+        }
+    }
+
+    template <typename TSlot, typename TRequest>
+    void dispatchRpcRequest(AsioService& iosvc, const TSlot& slot,
+                            const TRequest& request)
     {
         auto self = this->shared_from_this();
-        const auto& slot = reg.slot;
-        reg.iosvc->post([this, self, slot, invocation]()
+        iosvc.post([this, self, slot, request]()
         {
-            // Copy the request ID before the Invocation object gets moved away.
-            auto reqId = invocation.requestId();
+            // Copy the request ID before the request object gets moved away.
+            auto requestId = request.requestId();
 
             try
             {
-                Outcome outcome(slot(std::move(invocation)));
+                Outcome outcome(slot(std::move(request)));
                 switch (outcome.type())
                 {
                 case Outcome::Type::deferred:
@@ -711,11 +760,11 @@ private:
                     break;
 
                 case Outcome::Type::result:
-                    yield(reqId, std::move(outcome).asResult());
+                    yield(requestId, std::move(outcome).asResult());
                     break;
 
                 case Outcome::Type::error:
-                    yield(reqId, std::move(outcome).asError());
+                    yield(requestId, std::move(outcome).asError());
                     break;
 
                 default:
@@ -724,12 +773,12 @@ private:
             }
             catch (Error& error)
             {
-                yield(reqId, std::move(error));
+                yield(requestId, std::move(error));
             }
             catch (const error::BadType& e)
             {
                 // Forward Variant conversion exceptions as ERROR messages.
-                yield(reqId, Error(e));
+                yield(requestId, Error(e));
             }
         });
     }
@@ -813,6 +862,7 @@ private:
         callMsg_               = M{ T::call,         {n, n, o, s} };
         callWithArgsMsg_       = M{ T::call,         {n, n, o, s, a} };
         callWithKwargsMsg_     = M{ T::call,         {n, n, o, s, a, o} };
+        cancelMsg_             = M{ T::cancel,       {n, n, o} };
         yieldMsg_              = M{ T::yield,        {n, n, o} };
         yieldWithArgsMsg_      = M{ T::yield,        {n, n, o, a} };
         yieldWithKwargsMsg_    = M{ T::yield,        {n, n, o, a, o} };
@@ -824,6 +874,7 @@ private:
     TopicMap topics_;
     Readership readership_;
     Registry registry_;
+    InvocationMap pendingInvocations_;
     AsyncTask<std::string> warningHandler_;
     AsyncTask<Challenge> challengeHandler_;
 
@@ -838,6 +889,7 @@ private:
     Message callMsg_;
     Message callWithArgsMsg_;
     Message callWithKwargsMsg_;
+    Message cancelMsg_;
     Message yieldMsg_;
     Message yieldWithArgsMsg_;
     Message yieldWithKwargsMsg_;

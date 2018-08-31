@@ -101,6 +101,9 @@ public:
     /** Function type for handling remote procedure calls. */
     using CallSlot = std::function<Outcome (Invocation)>;
 
+    /** Function type for handling RPC interruptions. */
+    using InterruptSlot = std::function<Outcome (Interruption)>;
+
     /** Creates a new Session instance. */
     static Ptr create(AsioService& userIosvc, const Connector::Ptr& connector);
 
@@ -186,7 +189,11 @@ public:
     /// @name Remote Procedures
     /// @{
     /** Registers a WAMP remote procedure call. */
-    void enroll(Procedure procedure, CallSlot slot,
+    void enroll(Procedure procedure, CallSlot callSlot,
+                AsyncHandler<Registration> handler);
+
+    /** Registers a WAMP remote procedure call with an interruption handler. */
+    void enroll(Procedure procedure, CallSlot slot, InterruptSlot interruptSlot,
                 AsyncHandler<Registration> handler);
 
     /** Unregisters a remote procedure call. */
@@ -197,7 +204,10 @@ public:
     void unregister(const Registration& reg, AsyncHandler<bool> handler);
 
     /** Calls a remote procedure. */
-    void call(Rpc procedure, AsyncHandler<Result> handler);
+    RequestId call(Rpc procedure, AsyncHandler<Result> handler);
+
+    /** Cancels a remote procedure. */
+    void cancel(Cancellation cancellation);
     /// @}
 
 protected:

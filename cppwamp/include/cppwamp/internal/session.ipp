@@ -409,7 +409,38 @@ CPPWAMP_INLINE void Session::enroll(
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
     using std::move;
-    impl_->enroll(move(procedure), move(slot), {userIosvc_, move(handler)});
+    impl_->enroll( move(procedure), move(slot), nullptr,
+                   {userIosvc_, move(handler)} );
+}
+
+//------------------------------------------------------------------------------
+/** @see @ref Registrations
+
+    @return A Registration object, therafter used to manage the registration's
+            lifetime.
+    @note This function was named `enroll` because `register` is a reserved
+          C++ keyword.
+    @pre `this->state() == SessionState::established`
+    @par Error Codes
+        - SessionErrc::procedureAlreadyExists if the router reports that the
+          procedure has already been registered for this realm.
+        - SessionErrc::registerError if the router reports some other error.
+        - Some other `std::error_code` for protocol and transport errors.
+    @throws error::Logic if `this->state() != SessionState::established` */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::enroll(
+    Procedure procedure, /**< The procedure to register. */
+    CallSlot callSlot,   /**< The handler to execute when the RPC is invoked. */
+    InterruptSlot interruptSlot, /** Handler to execute when RPC in interrupted. */
+    AsyncHandler<Registration> handler /**< Handler to invoke when
+                                            the enroll operation completes. */
+)
+{
+    CPPWAMP_LOGIC_CHECK(state() == State::established,
+                        "Session is not established");
+    using std::move;
+    impl_->enroll( move(procedure), move(callSlot), move(interruptSlot),
+                   {userIosvc_, move(handler)} );
 }
 
 //------------------------------------------------------------------------------
@@ -477,7 +508,7 @@ CPPWAMP_INLINE void Session::unregister(
         - Some other `std::error_code` for protocol and transport errors.
     @throws error::Logic if `this->state() != SessionState::established` */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::call(
+CPPWAMP_INLINE RequestId Session::call(
     Rpc rpc,                     /**< Details about the RPC. */
     AsyncHandler<Result> handler /**< Handler to invoke when the
                                        operation completes. */
@@ -485,7 +516,15 @@ CPPWAMP_INLINE void Session::call(
 {
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
-    impl_->call(std::move(rpc), {userIosvc_, std::move(handler)});
+    return impl_->call(std::move(rpc), {userIosvc_, std::move(handler)});
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::cancel(Cancellation cancellation)
+{
+    CPPWAMP_LOGIC_CHECK(state() == State::established,
+                        "Session is not established");
+    return impl_->cancel(std::move(cancellation));
 }
 
 //------------------------------------------------------------------------------

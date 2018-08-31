@@ -158,9 +158,9 @@ protected:
         }
     }
 
-    void request(Message& msg, Handler&& handler)
+    RequestId request(Message& msg, Handler&& handler)
     {
-        sendMessage(msg, std::move(handler));
+        return sendMessage(msg, std::move(handler));
     }
 
     template <typename TErrorValue>
@@ -187,15 +187,19 @@ private:
     using RequestKey = typename Message::RequestKey;
     using RequestMap = std::map<RequestKey, Handler>;
 
-    void sendMessage(Message& msg, Handler&& handler = nullptr)
+    RequestId sendMessage(Message& msg, Handler&& handler = nullptr)
     {
         assert(msg.type != WampMsgType::none);
 
         msg.fields.at(0) = static_cast<Int>(msg.type);
 
+        RequestId requestId = 0;
         auto idPos = msg.traits().idPosition;
         if (idPos > 0)
-            msg.fields.at(idPos) = nextRequestId();
+        {
+            requestId = nextRequestId();
+            msg.fields.at(idPos) = requestId;
+        }
 
         trace(msg, true);
 
@@ -207,6 +211,8 @@ private:
             requestMap_[msg.requestKey()] = std::move(handler);
 
         transport_->send(std::move(buf));
+
+        return requestId;
     }
 
     RequestId nextRequestId()

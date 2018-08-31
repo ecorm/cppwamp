@@ -96,7 +96,7 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
 /* 46, ---          */ {W::none,        0, 0, 0, 0, 0, 0, 0, 0, {i,n,n,n,n,n,n}},
 /* 47, ---          */ {W::none,        0, 0, 0, 0, 0, 0, 0, 0, {i,n,n,n,n,n,n}},
 /* 48, call         */ {W::none,        1, 4, 6, 0, 1, 0, 0, 1, {i,i,o,s,a,o,n}},
-/* 49, cancel       */ {W::none,        0, 3, 3, 0, 0, 0, 0, 1, {i,i,o,n,n,n,n}},
+/* 49, cancel       */ {W::none,        0, 3, 3, 0, 1, 0, 0, 1, {i,i,o,n,n,n,n}},
 /* 50, result       */ {W::call,        1, 3, 5, 1, 0, 0, 0, 1, {i,i,o,a,o,n,n}},
 /* 51, ---          */ {W::none,        0, 0, 0, 0, 0, 0, 0, 0, {i,n,n,n,n,n,n}},
 /* 52, ---          */ {W::none,        0, 0, 0, 0, 0, 0, 0, 0, {i,n,n,n,n,n,n}},
@@ -116,7 +116,7 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
 /* 66, unregister   */ {W::none,        1, 3, 3, 0, 1, 0, 0, 1, {i,i,i,n,n,n,n}},
 /* 67, unregistered */ {W::unregister,  1, 2, 2, 1, 0, 0, 0, 1, {i,i,n,n,n,n,n}},
 /* 68, invocation   */ {W::none,        1, 4, 6, 1, 0, 0, 0, 1, {i,i,i,o,a,o,n}},
-/* 69, interrupt    */ {W::none,        0, 3, 3, 0, 0, 0, 0, 1, {i,i,o,n,n,n,n}},
+/* 69, interrupt    */ {W::none,        0, 3, 3, 1, 0, 0, 0, 1, {i,i,o,n,n,n,n}},
 /* 70, yield        */ {W::invocation,  0, 3, 5, 0, 1, 0, 0, 1, {i,i,o,a,o,n,n}}
     };
 
