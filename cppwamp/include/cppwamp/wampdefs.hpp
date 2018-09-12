@@ -44,10 +44,9 @@ enum class SessionState
 //------------------------------------------------------------------------------
 enum class CancelMode
 {
-    unspecified, ///< The cancel mode was not specified
-    skip,        ///< No INTERRUPT sent to callee; router immediately returns ERROR
-    kill,        ///< INTERRUPT sent to callee; RESULT or ERROR returned, depending on callee
-    killNoWait   ///< INTERRUPT sent to callee; router immediately returns ERROR
+    kill,       ///< INTERRUPT sent to callee; RESULT or ERROR returned, depending on callee
+    killNoWait, ///< INTERRUPT sent to callee; router immediately returns ERROR
+    skip        ///< No INTERRUPT sent to callee; router immediately returns ERROR
 };
 
 } // namespace wamp

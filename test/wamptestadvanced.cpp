@@ -405,4 +405,120 @@ GIVEN( "a Session with a registered challenge handler" )
     }
 }}
 
+//------------------------------------------------------------------------------
+SCENARIO( "RPC Cancellation", "[WAMP]" )
+{
+GIVEN( "a caller and a callee" )
+{
+    AsioService iosvc;
+    RpcFixture f(iosvc, tcp(iosvc));
+
+    WHEN( "cancelling an RPC in kill mode before it returns" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            RequestId callRequestId = 0;
+            RequestId invocationRequestId = 0;
+            RequestId interruptionRequestId = 0;
+            bool responseReceived = false;
+            AsyncResult<Result> response;
+
+            f.join(yield);
+
+            f.callee->enroll(
+                Procedure("rpc"),
+                [&invocationRequestId](Invocation inv) -> Outcome
+                {
+                    invocationRequestId = inv.requestId();
+                    return Outcome::deferred();
+                },
+                [&interruptionRequestId](Interruption intr) -> Outcome
+                {
+                    interruptionRequestId = intr.requestId();
+                    return Error("wamp.error.canceled");
+                },
+                yield);
+
+            callRequestId = f.caller->call(Rpc("rpc"),
+                [&response, &responseReceived](AsyncResult<Result> callResponse)
+                {
+                    responseReceived = true;
+                    response = std::move(callResponse);
+                });
+
+            REQUIRE( callRequestId != 0 );
+
+            while (invocationRequestId == 0)
+                f.caller->suspend(yield);
+
+            REQUIRE( invocationRequestId != 0 );
+
+            f.caller->cancel(Cancellation(callRequestId, CancelMode::kill));
+
+            while (!responseReceived)
+                f.caller->suspend(yield);
+
+            CHECK( interruptionRequestId == invocationRequestId );
+            CHECK( response.errorCode() == SessionErrc::cancelled );
+
+            f.disconnect();
+        });
+        iosvc.run();
+    }
+
+    WHEN( "cancelling an RPC after it returns" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            RequestId callRequestId = 0;
+            RequestId invocationRequestId = 0;
+            RequestId interruptionRequestId = 0;
+            bool responseReceived = false;
+            AsyncResult<Result> response;
+
+            f.join(yield);
+
+            f.callee->enroll(
+                Procedure("rpc"),
+                [&invocationRequestId](Invocation inv) -> Outcome
+                {
+                    invocationRequestId = inv.requestId();
+                    return Result{Variant{"completed"}};
+                },
+                [&interruptionRequestId](Interruption intr) -> Outcome
+                {
+                    interruptionRequestId = intr.requestId();
+                    return Error("wamp.error.canceled");
+                },
+                yield);
+
+            callRequestId = f.caller->call(Rpc("rpc"),
+                [&response, &responseReceived](AsyncResult<Result> callResponse)
+                {
+                    responseReceived = true;
+                    response = std::move(callResponse);
+                });
+
+            while (!responseReceived)
+                f.caller->suspend(yield);
+
+            REQUIRE( response.get().args() == Array{Variant{"completed"}} );
+
+            f.caller->cancel(Cancellation(callRequestId, CancelMode::kill));
+
+            /* Router should not treat late CANCEL as a protocol error, and
+               should allow clients to continue calling RPCs. */
+            f.caller->call(Rpc("rpc"), yield);
+
+            /* Router should discard INTERRUPT messages for non-pending RPCs. */
+            CHECK( interruptionRequestId == 0 );
+
+            f.disconnect();
+        });
+        iosvc.run();
+    }
+
+    // TODO: Test other cancel modes once they're supported by Crossbar
+}}
+
 #endif // #if CPPWAMP_TESTING_WAMP

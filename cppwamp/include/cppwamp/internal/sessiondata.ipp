@@ -483,20 +483,16 @@ Cancellation::Cancellation(RequestId reqId, CancelMode cancelMode)
     String modeStr;
     switch (cancelMode)
     {
-    case CancelMode::unspecified:
-        // Do nothing
-        break;
-
-    case CancelMode::skip:
-        modeStr = "skip";
-        break;
-
     case CancelMode::kill:
         modeStr = "kill";
         break;
 
     case CancelMode::killNoWait:
         modeStr = "killNoWait";
+        break;
+
+    case CancelMode::skip:
+        modeStr = "skip";
         break;
 
     default:

@@ -431,7 +431,7 @@ CPPWAMP_INLINE void Session::enroll(
 CPPWAMP_INLINE void Session::enroll(
     Procedure procedure, /**< The procedure to register. */
     CallSlot callSlot,   /**< The handler to execute when the RPC is invoked. */
-    InterruptSlot interruptSlot, /** Handler to execute when RPC in interrupted. */
+    InterruptSlot interruptSlot, /** Handler to execute when RPC is interrupted. */
     AsyncHandler<Registration> handler /**< Handler to invoke when
                                             the enroll operation completes. */
 )

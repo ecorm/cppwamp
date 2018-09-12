@@ -727,6 +727,7 @@ private:
         if (found != pendingInvocations_.end())
         {
             auto registrationId = found->second;
+            pendingInvocations_.erase(found);
             auto kv = registry_.find(registrationId);
             if ((kv != registry_.end()) &&
                 (kv->second.interruptSlot != nullptr))

@@ -189,11 +189,11 @@ public:
     /// @name Remote Procedures
     /// @{
     /** Registers a WAMP remote procedure call. */
-    void enroll(Procedure procedure, CallSlot callSlot,
+    void enroll(Procedure procedure, CallSlot slot,
                 AsyncHandler<Registration> handler);
 
     /** Registers a WAMP remote procedure call with an interruption handler. */
-    void enroll(Procedure procedure, CallSlot slot, InterruptSlot interruptSlot,
+    void enroll(Procedure procedure, CallSlot callSlot, InterruptSlot interruptSlot,
                 AsyncHandler<Registration> handler);
 
     /** Unregisters a remote procedure call. */

@@ -202,6 +202,36 @@ Registration CoroSession<B>::enroll(
 }
 
 //------------------------------------------------------------------------------
+/** @copydetails Session::enroll
+    @throws error::Failure with an error code if a runtime error occured and
+            the `ec` parameter is null. */
+//------------------------------------------------------------------------------
+template <typename B>
+template <typename H>
+Registration CoroSession<B>::enroll(
+    Procedure procedure,   /**< The procedure URI to register. */
+    CallSlot callSlot,     /**< Callable target to invoke when a matching RPC
+                                invocation is received. */
+    InterruptSlot interruptSlot, /** Handler to execute when RPC is interrupted. */
+    YieldContext<H> yield, /**< Represents the current coroutine. */
+    std::error_code* ec    /**< Optional pointer to an error code to set,
+                                instead of throwing an exception upon
+                                failure. */
+)
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::established,
+                        "Session is not established");
+
+    return run<Registration>(yield, ec,
+        [this, &procedure, &callSlot, &interruptSlot]
+                             (CoroHandler<H, Registration>& handler)
+        {
+            this->enroll(std::move(procedure), std::move(callSlot),
+                         std::move(interruptSlot), handler);
+        });
+}
+
+//------------------------------------------------------------------------------
 /** @copydetails Session::unregister(const Registration&, AsyncHandler<bool>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null. */

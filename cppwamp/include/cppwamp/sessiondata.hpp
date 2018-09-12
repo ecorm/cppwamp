@@ -312,7 +312,7 @@ class Cancellation : public Options<Cancellation>
 {
 public:
     /** Converting constructor. */
-    Cancellation(RequestId reqId, CancelMode cancelMode = CancelMode::skip);
+    Cancellation(RequestId reqId, CancelMode cancelMode = CancelMode::kill);
 
     RequestId requestId() const;
 
