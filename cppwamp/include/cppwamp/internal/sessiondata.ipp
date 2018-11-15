@@ -477,7 +477,7 @@ CPPWAMP_INLINE Error* Rpc::error(internal::PassKey) {return error_;}
 // Cancellation
 //******************************************************************************
 
-Cancellation::Cancellation(RequestId reqId, CancelMode cancelMode)
+CPPWAMP_INLINE Cancellation::Cancellation(RequestId reqId, CancelMode cancelMode)
     : requestId_(reqId)
 {
     String modeStr;
@@ -504,7 +504,7 @@ Cancellation::Cancellation(RequestId reqId, CancelMode cancelMode)
         withOption("mode", std::move(modeStr));
 }
 
-RequestId Cancellation::requestId() const {return requestId_;}
+CPPWAMP_INLINE RequestId Cancellation::requestId() const {return requestId_;}
 
 
 //******************************************************************************
