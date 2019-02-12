@@ -177,31 +177,38 @@ protected:
 
         message->prepare(type);
         if (txQueue_.empty())
-            transmit(std::move(message));
+        {
+            txQueue_.push(std::move(message));
+            transmit();
+        }
         else
             txQueue_.push(std::move(message));
     }
 
-    void transmit(Buffer message)
+
+    void transmit()
     {
-        if (socket_)
+        if (socket_ and (!txQueue_.empty()))
         {
-            auto self = this->shared_from_this();
-            boost::asio::async_write(*socket_, message->gatherBuffers(),
-                [this, self, message](AsioErrorCode ec, size_t)
-                {
-                    if (ec)
+            if (auto message = txQueue_.front())
+            {
+                auto self = this->shared_from_this();
+                boost::asio::async_write(*socket_, message->gatherBuffers(),
+                    [this, self, message](AsioErrorCode ec, size_t)
                     {
-                        txQueue_ = TransmitQueue();
-                        socket_.reset();
-                    }
-                    else if (!txQueue_.empty())
-                    {
-                        auto msg = txQueue_.front();
-                        txQueue_.pop();
-                        transmit(std::move(msg));
-                    }
-                });
+                        if (ec)
+                        {
+                            txQueue_ = TransmitQueue();
+                            socket_.reset();
+                        }
+                        else
+                        {
+                            // Message transmitted, remove it from the queue.
+                            txQueue_.pop();
+                        }
+                        transmit();
+                    });
+            }
         }
     }
 
