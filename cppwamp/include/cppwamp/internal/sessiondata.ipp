@@ -23,6 +23,16 @@ CPPWAMP_INLINE const String& Realm::uri() const {return uri_;}
 
 CPPWAMP_INLINE String& Realm::uri(internal::PassKey) {return uri_;}
 
+CPPWAMP_INLINE Realm& Realm::withAuthMethods(std::vector<String> methods)
+{
+    return withOption("authmethods", std::move(methods));
+}
+
+CPPWAMP_INLINE Realm& Realm::withAuthId(String authId)
+{
+    return withOption("authid", std::move(authId));
+}
+
 
 //******************************************************************************
 // SessionInfo
@@ -464,6 +474,40 @@ CPPWAMP_INLINE Error* Rpc::error(internal::PassKey) {return error_;}
 
 
 //******************************************************************************
+// Cancellation
+//******************************************************************************
+
+Cancellation::Cancellation(RequestId reqId, CancelMode cancelMode)
+    : requestId_(reqId)
+{
+    String modeStr;
+    switch (cancelMode)
+    {
+    case CancelMode::kill:
+        modeStr = "kill";
+        break;
+
+    case CancelMode::killNoWait:
+        modeStr = "killNoWait";
+        break;
+
+    case CancelMode::skip:
+        modeStr = "skip";
+        break;
+
+    default:
+        assert(false && "Unexpected CancelMode enumerator");
+        break;
+    }
+
+    if (!modeStr.empty())
+        withOption("mode", std::move(modeStr));
+}
+
+RequestId Cancellation::requestId() const {return requestId_;}
+
+
+//******************************************************************************
 // Result
 //******************************************************************************
 
@@ -803,5 +847,62 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
     return out << " ]";
 }
 
+
+//******************************************************************************
+// Interruption
+//******************************************************************************
+
+/** @post `this->empty() == true` */
+CPPWAMP_INLINE Interruption::Interruption() {}
+
+CPPWAMP_INLINE bool Interruption::empty() const {return iosvc_ == nullptr;}
+
+CPPWAMP_INLINE bool Interruption::calleeHasExpired() const
+{
+    return callee_.expired();
+}
+
+CPPWAMP_INLINE RequestId Interruption::requestId() const {return id_;}
+
+/** @returns the same object as Session::userIosvc().
+    @pre `this->empty() == false` */
+CPPWAMP_INLINE AsioService& Interruption::iosvc() const
+{
+    CPPWAMP_LOGIC_CHECK(!empty(), "Interruption is empty");
+    return *iosvc_;
+}
+
+/** @pre `this->calleeHasExpired == false` */
+CPPWAMP_INLINE void Interruption::yield(Result result) const
+{
+    auto callee = callee_.lock();
+    CPPWAMP_LOGIC_CHECK(!!callee, "Client no longer exists");
+    callee->yield(id_, std::move(result));
+}
+
+/** @pre `this->calleeHasExpired == false` */
+CPPWAMP_INLINE void Interruption::yield(Error error) const
+{
+    auto callee = callee_.lock();
+    CPPWAMP_LOGIC_CHECK(!!callee, "Client no longer exists");
+    callee->yield(id_, std::move(error));
+}
+
+CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,
+        RequestId id, AsioService* iosvc, Object&& details)
+    : Options<Interruption>(std::move(details)),
+      callee_(callee),
+      id_(id),
+      iosvc_(iosvc)
+{}
+
+CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
+                                        const Interruption& intr)
+{
+    out << "[ Request|id = " << intr.requestId();
+    if (!intr.options().empty())
+        out << ", Details|dict = " << intr.options();
+    return out << " ]";
+}
 
 } // namespace wamp

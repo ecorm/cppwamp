@@ -42,6 +42,12 @@ public:
     /** Obtains the realm URI. */
     const String& uri() const;
 
+    /** Sets the `HELLO.Details.authmethods` option. */
+    Realm& withAuthMethods(std::vector<String> methods);
+
+    /** Sets the `HELLO.Details.authid` option. */
+    Realm& withAuthId(String authId);
+
 private:
     String uri_;
 
@@ -56,7 +62,7 @@ class SessionInfo : public Options<SessionInfo>
 {
 public:
     /** A set of role strings. */
-    using RoleSet    = std::set<String>;
+    using RoleSet = std::set<String>;
 
     /** A set of feature strings. */
     using FeatureSet = std::set<String>;
@@ -191,7 +197,7 @@ public:
     bool empty() const;
 
     /** Obtains the subscription ID associated with this event. */
-    PublicationId subId() const;
+    SubscriptionId subId() const;
 
     /** Obtains the publication ID associated with this event. */
     PublicationId pubId() const;
@@ -296,6 +302,22 @@ private:
 public:
     String& procedure(internal::PassKey); // Internal use only
     Error* error(internal::PassKey); // Internal use only
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains the request ID and options passed to Session::cancel. */
+//------------------------------------------------------------------------------
+class Cancellation : public Options<Cancellation>
+{
+public:
+    /** Converting constructor. */
+    Cancellation(RequestId reqId, CancelMode cancelMode = CancelMode::kill);
+
+    RequestId requestId() const;
+
+private:
+    RequestId requestId_;
 };
 
 
@@ -475,6 +497,51 @@ private:
 
 std::ostream& operator<<(std::ostream& out, const Invocation& inv);
 
+
+//------------------------------------------------------------------------------
+/** Contains details related to a remote procedure cancellation.
+    This class also provides the means for manually sending a `YIELD` or
+    `ERROR` result back to the RPC caller. */
+//------------------------------------------------------------------------------
+class Interruption : public Options<Interruption>
+{
+public:
+    /** Default constructor */
+    Interruption();
+
+    /** Returns `false` if the Interruption has been initialized and is ready
+        for use. */
+    bool empty() const;
+
+    /** Determines if the Session object that dispatched this
+        interruption still exists or has expired. */
+    bool calleeHasExpired() const;
+
+    /** Returns the request ID associated with this interruption. */
+    RequestId requestId() const;
+
+    /** Obtains the IO service used to execute user-provided handlers. */
+    AsioService& iosvc() const;
+
+    /** Manually sends a `YIELD` result back to the callee. */
+    void yield(Result result = Result()) const;
+
+    /** Manually sends an `ERROR` result back to the callee. */
+    void yield(Error error) const;
+
+public:
+    // Internal use only
+    using CalleePtr = std::weak_ptr<internal::Callee>;
+    Interruption(internal::PassKey, CalleePtr callee, RequestId id,
+                 AsioService* iosvc, Object&& details);
+
+private:
+    CalleePtr callee_;
+    RequestId id_ = -1;
+    AsioService* iosvc_ = nullptr;
+};
+
+std::ostream& operator<<(std::ostream& out, const Interruption& cncltn);
 
 } // namespace wamp
 

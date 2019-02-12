@@ -37,10 +37,11 @@ class SubscriptionImpl;
 class ClientInterface : public Callee, public Subscriber
 {
 public:
-    using Ptr        = std::shared_ptr<ClientInterface>;
-    using WeakPtr    = std::weak_ptr<ClientInterface>;
-    using EventSlot  = std::function<void (Event)>;
-    using CallSlot   = std::function<Outcome (Invocation)>;
+    using Ptr           = std::shared_ptr<ClientInterface>;
+    using WeakPtr       = std::weak_ptr<ClientInterface>;
+    using EventSlot     = std::function<void (Event)>;
+    using CallSlot      = std::function<Outcome (Invocation)>;
+    using InterruptSlot = std::function<Outcome (Interruption)>;
 
     static const Object& roles();
 
@@ -48,7 +49,9 @@ public:
 
     virtual SessionState state() const = 0;
 
-    virtual void join(Realm&& realm, AsyncTask<SessionInfo>&& hander) = 0;
+    virtual void join(Realm&& realm, AsyncTask<SessionInfo>&& handler) = 0;
+
+    virtual void authenticate(Authentication&& authentication) = 0;
 
     virtual void leave(Reason&& reason, AsyncTask<Reason>&& handler) = 0;
 
@@ -63,13 +66,18 @@ public:
 
     virtual void publish(Pub&& pub, AsyncTask<PublicationId>&& handler) = 0;
 
-    virtual void enroll(Procedure&& procedure, CallSlot&& slot,
+    virtual void enroll(Procedure&& procedure, CallSlot&& callSlot,
+                        InterruptSlot&& interruptSlot,
                         AsyncTask<Registration>&& handler) = 0;
 
-    virtual void call(Rpc&& rpc, AsyncTask<Result>&& handler) = 0;
+    virtual RequestId call(Rpc&& rpc, AsyncTask<Result>&& handler) = 0;
+
+    virtual void cancel(Cancellation&& cancellation) = 0;
 
     virtual void setLogHandlers(AsyncTask<std::string> warningHandler,
                                 AsyncTask<std::string> traceHandler) = 0;
+
+    virtual void setChallengeHandler(AsyncTask<Challenge> handler) = 0;
 };
 
 inline const Object& ClientInterface::roles()
@@ -77,14 +85,15 @@ inline const Object& ClientInterface::roles()
     static const Object roles =
     {
         {"callee", Object{{"features", Object{{
+            {"call_canceling", true},
             {"call_trustlevels", true},
             {"caller_identification", true},
             {"pattern_based_registration", true},
             {"progressive_call_results", true}
         }}}}},
         {"caller", Object{{"features", Object{{
+            {"call_canceling", true},
             {"call_timeout", true},
-            {"callee_blackwhite_listing", true}, // Deprecated
             {"caller_exclusion", true},
             {"caller_identification", true}
         }}}}},

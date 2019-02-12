@@ -72,14 +72,24 @@ void CoroEventUnpacker<S,A...>::operator()(Event&& event)
 template <typename S, typename... A>
 template <int ...Seq>
 void CoroEventUnpacker<S,A...>::invoke(Event&& event,
-                                   internal::IntegerSequence<Seq...>)
+                                       internal::IntegerSequence<Seq...>)
 {
     auto slot = slot_;
     boost::asio::spawn(event.iosvc(), [slot, event](Yield yield)
     {
         Array args = event.args();
         using Getter = internal::UnpackedCoroArgGetter<A...>;
-        (*slot)(std::move(event), Getter::template get<Seq>(args)..., yield);
+        try
+        {
+            (*slot)(std::move(event), Getter::template get<Seq>(args)...,
+                    yield);
+        }
+        catch (const error::BadType& e)
+        {
+            /*  Do nothing. This is to prevent the publisher crashing
+                subscribers when it passes Variant objects having
+                incorrect schema. */
+        }
     });
 }
 
@@ -125,7 +135,16 @@ void BasicCoroEventUnpacker<S,A...>::invoke(Event&& event,
     boost::asio::spawn(event.iosvc(), [slot, args](Yield yield)
     {
         using Getter = internal::UnpackedCoroArgGetter<A...>;
-        (*slot)(Getter::template get<Seq>(args)..., yield);
+        try
+        {
+            (*slot)(Getter::template get<Seq>(args)..., yield);
+        }
+        catch (const error::BadType& e)
+        {
+            /*  Do nothing. This is to prevent the publisher crashing
+                subscribers when it passes Variant objects having
+                incorrect schema. */
+        }
     });
 }
 
@@ -202,6 +221,11 @@ void CoroInvocationUnpacker<S,A...>::invoke(Invocation&& inv,
         {
             inv.yield(e);
         }
+        catch (const error::BadType& e)
+        {
+            // Forward Variant conversion exceptions as ERROR messages.
+            inv.yield(Error(e));
+        }
     });
 }
 
@@ -258,6 +282,11 @@ void BasicCoroInvocationUnpacker<S,R,A...>::invoke(TrueType, Invocation&& inv,
         {
             inv.yield(e);
         }
+        catch (const error::BadType& e)
+        {
+            // Forward Variant conversion exceptions as ERROR messages.
+            inv.yield(Error(e));
+        }
     });
 }
 
@@ -280,6 +309,11 @@ void BasicCoroInvocationUnpacker<S,R,A...>::invoke(FalseType, Invocation&& inv,
         catch (const Error& e)
         {
             inv.yield(e);
+        }
+        catch (const error::BadType& e)
+        {
+            // Forward Variant conversion exceptions as ERROR messages.
+            inv.yield(Error(e));
         }
     });
 }

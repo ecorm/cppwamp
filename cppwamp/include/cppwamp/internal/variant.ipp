@@ -22,9 +22,19 @@ namespace error
 {
 
 //------------------------------------------------------------------------------
+inline BadType::BadType(const std::string& what)
+    : std::runtime_error(what)
+{}
+
+//------------------------------------------------------------------------------
 inline Access::Access(const std::string& from, const std::string& to)
-    : std::runtime_error("wamp::error::Access: "
+    : BadType("wamp::error::Access: "
         "Attemping to access field type " + from + " as " + to)
+{}
+
+//------------------------------------------------------------------------------
+inline Conversion::Conversion(const std::string& what)
+    : BadType("wamp::error::Conversion: " + what)
 {}
 
 } // namespace error
@@ -599,7 +609,7 @@ template <typename T, Variant::DisableIfValidArg<T>>
 void Variant::convertTo(std::map<String, T>& map) const
 {
     const auto& object = this->as<Object>();
-    for (const auto& kv: map)
+    for (const auto& kv: object)
     {
         T value;
         kv.second.convertTo(value);

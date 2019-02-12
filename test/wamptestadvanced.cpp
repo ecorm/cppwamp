@@ -13,6 +13,8 @@
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/internal/config.hpp>
 
+#include <iostream>
+
 using namespace wamp;
 using namespace Catch::Matchers;
 
@@ -21,10 +23,17 @@ namespace
 
 const std::string testRealm = "cppwamp.test";
 const short testPort = 12345;
+const std::string authTestRealm = "cppwamp.authtest";
+const short authTestPort = 23456;
 
 Connector::Ptr tcp(AsioService& iosvc)
 {
     return connector<Json>(iosvc, TcpHost("localhost", testPort));
+}
+
+Connector::Ptr authTcp(AsioService& iosvc)
+{
+    return connector<Json>(iosvc, TcpHost("localhost", authTestPort));
 }
 
 //------------------------------------------------------------------------------
@@ -84,6 +93,41 @@ struct PubSubFixture
 
     SessionId publisherId = -1;
     SessionId subscriberId = -1;
+};
+
+//------------------------------------------------------------------------------
+struct TicketAuthFixture
+{
+    template <typename TConnector>
+    TicketAuthFixture(AsioService& iosvc, TConnector cnct)
+        : session(CoroSession<>::create(iosvc, cnct))
+    {
+        session->setChallengeHandler( [this](Challenge c){onChallenge(c);} );
+    }
+
+    void join(String authId, String signature, boost::asio::yield_context yield)
+    {
+        this->signature = std::move(signature);
+        session->connect(yield);
+        info = session->join(Realm(authTestRealm).withAuthMethods({"ticket"})
+                                                 .withAuthId(std::move(authId)),
+                             yield);
+    }
+
+    void onChallenge(Challenge authChallenge)
+    {
+        ++challengeCount;
+        challenge = authChallenge;
+        challengeState = session->state();
+        session->authenticate(Authentication(signature));
+    }
+
+    CoroSession<>::Ptr session;
+    String signature;
+    SessionState challengeState = SessionState::closed;
+    unsigned challengeCount = 0;
+    Challenge challenge;
+    SessionInfo info;
 };
 
 } // anonymous namespace
@@ -331,6 +375,150 @@ GIVEN( "a publisher and a subscriber" )
         });
         iosvc.run();
     }
+}}
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP ticket authentication", "[WAMP]" )
+{
+GIVEN( "a Session with a registered challenge handler" )
+{
+    AsioService iosvc;
+    TicketAuthFixture f(iosvc, authTcp(iosvc));
+
+    WHEN( "joining with ticket authentication requested" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            f.join("alice", "password123", yield);
+            f.session->disconnect();
+        });
+        iosvc.run();
+
+        THEN( "the challenge was received and the authentication accepted" )
+        {
+            REQUIRE( f.challengeCount == 1 );
+            CHECK( f.challengeState == SessionState::authenticating );
+            CHECK( f.challenge.method() == "ticket" );
+            CHECK( f.info.optionByKey("authmethod") == "ticket" );
+            CHECK( f.info.optionByKey("authrole") == "ticketrole" );
+        }
+    }
+}}
+
+//------------------------------------------------------------------------------
+SCENARIO( "RPC Cancellation", "[WAMP]" )
+{
+GIVEN( "a caller and a callee" )
+{
+    AsioService iosvc;
+    RpcFixture f(iosvc, tcp(iosvc));
+
+    WHEN( "cancelling an RPC in kill mode before it returns" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            RequestId callRequestId = 0;
+            RequestId invocationRequestId = 0;
+            RequestId interruptionRequestId = 0;
+            bool responseReceived = false;
+            AsyncResult<Result> response;
+
+            f.join(yield);
+
+            f.callee->enroll(
+                Procedure("rpc"),
+                [&invocationRequestId](Invocation inv) -> Outcome
+                {
+                    invocationRequestId = inv.requestId();
+                    return Outcome::deferred();
+                },
+                [&interruptionRequestId](Interruption intr) -> Outcome
+                {
+                    interruptionRequestId = intr.requestId();
+                    return Error("wamp.error.canceled");
+                },
+                yield);
+
+            callRequestId = f.caller->call(Rpc("rpc"),
+                [&response, &responseReceived](AsyncResult<Result> callResponse)
+                {
+                    responseReceived = true;
+                    response = std::move(callResponse);
+                });
+
+            REQUIRE( callRequestId != 0 );
+
+            while (invocationRequestId == 0)
+                f.caller->suspend(yield);
+
+            REQUIRE( invocationRequestId != 0 );
+
+            f.caller->cancel(Cancellation(callRequestId, CancelMode::kill));
+
+            while (!responseReceived)
+                f.caller->suspend(yield);
+
+            CHECK( interruptionRequestId == invocationRequestId );
+            CHECK( response.errorCode() == SessionErrc::cancelled );
+
+            f.disconnect();
+        });
+        iosvc.run();
+    }
+
+    WHEN( "cancelling an RPC after it returns" )
+    {
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            RequestId callRequestId = 0;
+            RequestId invocationRequestId = 0;
+            RequestId interruptionRequestId = 0;
+            bool responseReceived = false;
+            AsyncResult<Result> response;
+
+            f.join(yield);
+
+            f.callee->enroll(
+                Procedure("rpc"),
+                [&invocationRequestId](Invocation inv) -> Outcome
+                {
+                    invocationRequestId = inv.requestId();
+                    return Result{Variant{"completed"}};
+                },
+                [&interruptionRequestId](Interruption intr) -> Outcome
+                {
+                    interruptionRequestId = intr.requestId();
+                    return Error("wamp.error.canceled");
+                },
+                yield);
+
+            callRequestId = f.caller->call(Rpc("rpc"),
+                [&response, &responseReceived](AsyncResult<Result> callResponse)
+                {
+                    responseReceived = true;
+                    response = std::move(callResponse);
+                });
+
+            while (!responseReceived)
+                f.caller->suspend(yield);
+
+            REQUIRE( response.get().args() == Array{Variant{"completed"}} );
+
+            f.caller->cancel(Cancellation(callRequestId, CancelMode::kill));
+
+            /* Router should not treat late CANCEL as a protocol error, and
+               should allow clients to continue calling RPCs. */
+            f.caller->call(Rpc("rpc"), yield);
+
+            /* Router should discard INTERRUPT messages for non-pending RPCs. */
+            CHECK( interruptionRequestId == 0 );
+
+            f.disconnect();
+        });
+        iosvc.run();
+    }
+
+    // TODO: Test other cancel modes once they're supported by Crossbar
 }}
 
 #endif // #if CPPWAMP_TESTING_WAMP

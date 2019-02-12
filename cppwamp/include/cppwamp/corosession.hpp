@@ -108,6 +108,9 @@ public:
     /** Function type for handling remote procedure calls. */
     using CallSlot = std::function<Outcome (Invocation)>;
 
+    /** Function type for handling RPC interruptions. */
+    using InterruptSlot = std::function<Outcome (Interruption)>;
+
     /** Yield context type used by the boost::asio::spawn handler. */
     template <typename TSpawnHandler>
     using YieldContext = boost::asio::basic_yield_context<TSpawnHandler>;
@@ -128,6 +131,7 @@ public:
     using Base::enroll;
     using Base::unregister;
     using Base::call;
+    using Base::cancel;
 
     /// @name Session Management
     /// @{
@@ -171,6 +175,12 @@ public:
     template <typename H>
     Registration enroll(Procedure procedure, CallSlot slot,
             YieldContext<H> yield, std::error_code* ec = nullptr);
+
+    /** Registers a WAMP remote procedure call with an interruption handler. */
+    template <typename H>
+    Registration enroll(Procedure procedure, CallSlot slot,
+                        InterruptSlot interruptSlot, YieldContext<H> yield,
+                        std::error_code* ec = nullptr);
 
     /** Unregisters a remote procedure call. */
     template <typename H>

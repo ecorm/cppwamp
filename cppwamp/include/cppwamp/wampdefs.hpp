@@ -24,16 +24,29 @@ using SubscriptionId = int64_t; ///< Ephemeral ID associated with an topic subsc
 using PublicationId  = int64_t; ///< Ephemeral ID associated with an event publication
 using RegistrationId = int64_t; ///< Ephemeral ID associated with an RPC registration
 
+//------------------------------------------------------------------------------
 /** Enumerates the possible states that a client or router session can be in. */
+//------------------------------------------------------------------------------
 enum class SessionState
 {
-    disconnected, ///< The transport connection is not yet established
-    connecting,   ///< Transport connection is in progress
-    closed,       ///< Transport connected, but WAMP session is closed
-    establishing, ///< WAMP session establishment is in progress
-    established,  ///< WAMP session is established
-    shuttingDown, ///< WAMP session is closing
-    failed        ///< WAMP session or transport connection has failed
+    disconnected,   ///< The transport connection is not yet established
+    connecting,     ///< Transport connection is in progress
+    closed,         ///< Transport connected, but WAMP session is closed
+    establishing,   ///< WAMP session establishment is in progress
+    authenticating, ///< WAMP authentication is in progress
+    established,    ///< WAMP session is established
+    shuttingDown,   ///< WAMP session is closing
+    failed          ///< WAMP session or transport connection has failed
+};
+
+//------------------------------------------------------------------------------
+/** Enumerates the possible call cancelling modes. */
+//------------------------------------------------------------------------------
+enum class CancelMode
+{
+    kill,       ///< INTERRUPT sent to callee; RESULT or ERROR returned, depending on callee
+    killNoWait, ///< INTERRUPT sent to callee; router immediately returns ERROR
+    skip        ///< No INTERRUPT sent to callee; router immediately returns ERROR
 };
 
 } // namespace wamp

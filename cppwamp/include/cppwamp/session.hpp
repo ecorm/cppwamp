@@ -92,11 +92,17 @@ public:
     /** Handler type used for processing log events. */
     using LogHandler = std::function<void (std::string)>;
 
+    /** Function type handling authtication challenges. */
+    using ChallengeHandler = std::function<void (Challenge)>;
+
     /** Function type for handling pub/sub events. */
     using EventSlot = std::function<void (Event)>;
 
     /** Function type for handling remote procedure calls. */
     using CallSlot = std::function<Outcome (Invocation)>;
+
+    /** Function type for handling RPC interruptions. */
+    using InterruptSlot = std::function<Outcome (Interruption)>;
 
     /** Creates a new Session instance. */
     static Ptr create(AsioService& userIosvc, const Connector::Ptr& connector);
@@ -134,6 +140,9 @@ public:
 
     /** Sets the log handler for debug traces. */
     void setTraceHandler(LogHandler handler);
+
+    /** Sets the handler for authentication challenges. */
+    void setChallengeHandler(ChallengeHandler handler);
     /// @}
 
     /// @name Session Management
@@ -143,6 +152,9 @@ public:
 
     /** Asynchronously attempts to join the given WAMP realm. */
     void join(Realm realm, AsyncHandler<SessionInfo> handler);
+
+    /** Sends an `AUTHENTICATE` in response to a `CHALLENGE`. */
+    void authenticate(Authentication auth);
 
     /** Asynchronously leaves the WAMP session. */
     void leave(Reason reason, AsyncHandler<Reason> handler);
@@ -180,6 +192,10 @@ public:
     void enroll(Procedure procedure, CallSlot slot,
                 AsyncHandler<Registration> handler);
 
+    /** Registers a WAMP remote procedure call with an interruption handler. */
+    void enroll(Procedure procedure, CallSlot callSlot, InterruptSlot interruptSlot,
+                AsyncHandler<Registration> handler);
+
     /** Unregisters a remote procedure call. */
     void unregister(const Registration& reg);
 
@@ -188,7 +204,10 @@ public:
     void unregister(const Registration& reg, AsyncHandler<bool> handler);
 
     /** Calls a remote procedure. */
-    void call(Rpc procedure, AsyncHandler<Result> handler);
+    RequestId call(Rpc procedure, AsyncHandler<Result> handler);
+
+    /** Cancels a remote procedure. */
+    void cancel(Cancellation cancellation);
     /// @}
 
 protected:
@@ -204,6 +223,7 @@ private:
     Connector::Ptr currentConnector_;
     AsyncTask<std::string> warningHandler_;
     AsyncTask<std::string> traceHandler_;
+    AsyncTask<Challenge> challengeHandler_;
     SessionState state_ = State::disconnected;
     bool isTerminating_ = false;
     std::shared_ptr<internal::ClientInterface> impl_;

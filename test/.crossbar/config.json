@@ -55,6 +55,60 @@
                     "debug": true
                 }
             ]
+        },
+        {
+            "type": "router",
+            "realms": [
+                {
+                    "name": "cppwamp.authtest",
+                    "roles": [
+                        {
+                            "name": "ticketrole",
+                            "permissions": [
+                                {
+                                    "uri": "",
+                                    "match": "prefix",
+                                    "allow": {
+                                        "call": true,
+                                        "register": true,
+                                        "publish": true,
+                                        "subscribe": true
+                                    },
+                                    "disclose": {
+                                        "caller": true,
+                                        "publisher": true
+                                    },
+                                    "cache": true
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "transports": [
+                {
+                    "type": "rawsocket",
+                    "endpoint": {
+                        "type": "tcp",
+                        "port": 23456
+                    },
+                    "serializers": [
+                        "json"
+                    ],
+                    "auth": {
+                        "ticket": {
+                            "type": "static",
+                            "principals": {
+                                "alice": {
+                                    "ticket": "password123",
+                                    "role": "ticketrole"
+                                }
+                            }
+                        }
+                    },
+                    "debug": true
+                }
+            ]
         }
     ]
 }

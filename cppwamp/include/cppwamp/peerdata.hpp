@@ -43,7 +43,7 @@ public:
 
 //------------------------------------------------------------------------------
 /** Provides the _reason_ URI, options, and payload arguments contained
-    within WAMP ERROR messages. */
+    within WAMP `ERROR` messages. */
 //------------------------------------------------------------------------------
 class Error : public Options<Error>, public Payload<Error>
 {
@@ -53,6 +53,10 @@ public:
 
     /** Converting constructor taking a reason URI. */
     Error(String reason);
+
+    /** Constructor taking an error::BadType exception and
+        interpreting it as a `wamp.error.invalid_argument` reason URI. */
+    explicit Error(const error::BadType& e);
 
     /** Destructor. */
     virtual ~Error();
@@ -68,6 +72,52 @@ private:
 
 public:
     String& reason(internal::PassKey); // Internal use only
+};
+
+//------------------------------------------------------------------------------
+/** Provides the _AuthMethod_ and _Extra_ dictionary contained within
+    WAMP `CHALLENGE` messages. */
+//------------------------------------------------------------------------------
+class Challenge : public Options<Challenge>
+{
+public:
+    /** Constructs an empty challenge. */
+    Challenge();
+
+    /** Converting constructor taking the authentication method string. */
+    explicit Challenge(String method);
+
+    /** Obtains the authentication method string. */
+    const String& method() const;
+
+private:
+    String method_;
+
+public:
+    String& method(internal::PassKey); // Internal use only
+};
+
+//------------------------------------------------------------------------------
+/** Provides the _Signature_ and _Extra_ dictionary contained within
+    WAMP `AUTHENTICATE` messages. */
+//------------------------------------------------------------------------------
+class Authentication : public Options<Authentication>
+{
+public:
+    /** Constructs an empty challenge. */
+    Authentication();
+
+    /** Converting constructor taking the authentication signature. */
+    Authentication(String signature);
+
+    /** Obtains the authentication signature. */
+    const String& signature() const;
+
+private:
+    String signature_;
+
+public:
+    String& signature(internal::PassKey); // Internal use only
 };
 
 
