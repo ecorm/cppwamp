@@ -203,8 +203,11 @@ protected:
                         }
                         else
                         {
-                            // Message transmitted, remove it from the queue.
-                            txQueue_.pop();
+                            // Message transmitted, and can be remove from
+                            // the queue, but first check the queue and the
+                            // socket haven't been destroyed in disconnect().
+                            if (socket_ and (!txQueue_.empty()))
+                                txQueue_.pop();
                         }
                         transmit();
                     });
