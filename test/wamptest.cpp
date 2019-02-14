@@ -2644,4 +2644,87 @@ GIVEN( "an IO service and a TCP connector" )
     }
 }}
 
+
+//------------------------------------------------------------------------------
+SCENARIO( "Outbound Messages are Properly Enqueued", "[WAMP]" )
+{
+GIVEN( "these test fixture objects" )
+{
+    using Yield = boost::asio::yield_context;
+
+    AsioService iosvc;
+    auto cnct = tcp(iosvc);
+    auto session1 = CoroSession<>::create(iosvc, cnct);
+    auto session2 = CoroSession<>::create(iosvc, cnct);
+
+    WHEN( "an RPC is invoked while a large event payload is being transmitted" )
+    {
+        auto callee = session1;
+        auto subscriber = session2;
+        std::string eventString;
+
+        // Fill large string with repeating character sequence
+        std::string largeString(1024*1024, ' ');
+        for (size_t i=0; i<largeString.length(); ++i)
+            largeString[i] = '0' + (i % 64);
+
+        auto onEvent = [&iosvc, &eventString](Event, std::string str)
+        {
+            eventString = std::move(str);
+        };
+
+        // Simple RPC that returns the string argument back to the caller.
+        auto echo =
+            [callee](Invocation, std::string str) -> Outcome
+            {
+                return Result({str});
+            };
+
+        // RPC that triggers the publishing of a large event payload
+        auto trigger =
+            [callee, &largeString] (Invocation) -> Outcome
+            {
+                callee->publish(Pub("grapevine").withArgs(largeString));
+                return Result();
+            };
+
+        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        {
+            callee->connect(yield);
+            callee->join(Realm(testRealm), yield);
+            callee->enroll(Procedure("echo"), unpackedRpc<std::string>(echo),
+                           yield);
+            callee->enroll(Procedure("trigger"), trigger, yield);
+
+            subscriber->connect(yield);
+            subscriber->join(Realm(testRealm), yield);
+            subscriber->subscribe(Topic("grapevine"),
+                                  unpackedEvent<std::string>(onEvent),
+                                  yield);
+
+            for (int i=0; i<10; ++i)
+            {
+                // Use async call so that it doesn't block until completion.
+                subscriber->call(Rpc("trigger").withArgs("hello"),
+                                 [](AsyncResult<Result>) {});
+
+                /*  Try to get callee to send an RPC response while it's still
+                    transmitting the large event payload. AsioTransport should
+                    properly enqueue the RPC response while the large event
+                    payload is being transmitted. */
+                while (eventString.empty())
+                    subscriber->call(Rpc("echo").withArgs("hello"), yield);
+
+                CHECK_THAT( eventString, Equals(largeString) );
+                eventString.clear();
+            }
+            callee->disconnect();
+            subscriber->disconnect();
+        });
+
+        iosvc.run();
+    }
+}
+}
+
 #endif // #if CPPWAMP_TESTING_WAMP

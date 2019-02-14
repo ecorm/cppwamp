@@ -176,33 +176,41 @@ protected:
                "Outgoing message is longer than allowed by peer");
 
         message->prepare(type);
-        if (txQueue_.empty())
-            transmit(std::move(message));
-        else
-            txQueue_.push(std::move(message));
+        txQueue_.push(std::move(message));
+        transmit();
     }
 
-    void transmit(Buffer message)
+private:
+    void transmit()
     {
-        if (socket_)
+        if (isReadyToTransmit())
         {
+            txBuffer_ = txQueue_.front();
+            txQueue_.pop();
+
             auto self = this->shared_from_this();
-            boost::asio::async_write(*socket_, message->gatherBuffers(),
-                [this, self, message](AsioErrorCode ec, size_t)
+            boost::asio::async_write(*socket_, txBuffer_->gatherBuffers(),
+                [this, self](AsioErrorCode ec, size_t size)
                 {
+                    txBuffer_.reset();
                     if (ec)
                     {
                         txQueue_ = TransmitQueue();
                         socket_.reset();
                     }
-                    else if (!txQueue_.empty())
+                    else
                     {
-                        auto msg = txQueue_.front();
-                        txQueue_.pop();
-                        transmit(std::move(msg));
+                        transmit();
                     }
                 });
         }
+    }
+
+    bool isReadyToTransmit() const
+    {
+        return socket_ &&           // Socket is still open
+               !txBuffer_ &&        // No async_write is in progress
+               !txQueue_.empty();   // One or more messages are enqueued
     }
 
     void receive()
@@ -336,6 +344,7 @@ protected:
     Buffer rxBuffer_;
     Buffer pingBuffer_;
     TransmitQueue txQueue_;
+    Buffer txBuffer_;
     TimePoint pingStart_;
     TimePoint pingStop_;
 };
