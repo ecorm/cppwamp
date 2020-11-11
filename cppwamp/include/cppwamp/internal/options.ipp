@@ -61,7 +61,7 @@ template <typename T>
 #ifdef CPPWAMP_FOR_DOXYGEN
 ValueTypeOf<T>
 #else
-Options<D>::ValueTypeOf<T>
+typename Options<D>::template ValueTypeOf<T>
 #endif
 Options<D>::optionOr(
     const String& key, /**< The key to search under. */
