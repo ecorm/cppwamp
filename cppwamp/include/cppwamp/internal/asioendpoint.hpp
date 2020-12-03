@@ -110,7 +110,7 @@ protected:
 
     void complete(int codecId, size_t maxTxLength, size_t maxRxLength)
     {
-        auto transport = Transport::create(std::move(socket_), maxTxLength,
+        auto transport = Transport::create(iosvc_, std::move(socket_), maxTxLength,
                                     maxRxLength);
         std::error_code ec = make_error_code(TransportErrc::success);
         iosvc_.post(std::bind(handler_, ec, codecId, std::move(transport)));

@@ -98,10 +98,10 @@ public:
     using Socket      = TSocket;
     using SocketPtr   = std::unique_ptr<Socket>;
 
-    static Ptr create(SocketPtr&& socket, size_t maxTxLength,
+    static Ptr create(AsioService &iosvc, SocketPtr&& socket, size_t maxTxLength,
                       size_t maxRxLength)
     {
-        return Ptr(new AsioTransport(std::move(socket), maxTxLength,
+        return Ptr(new AsioTransport(iosvc, std::move(socket), maxTxLength,
                                      maxRxLength));
     }
 
@@ -162,9 +162,9 @@ protected:
     using TransmitQueue = std::queue<Buffer>;
     using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
-    AsioTransport(SocketPtr&& socket, size_t maxTxLength, size_t maxRxLength)
+    AsioTransport(AsioService &iosvc, SocketPtr&& socket, size_t maxTxLength, size_t maxRxLength)
         : socket_(std::move(socket)),
-          iosvc_(socket_->get_io_service()),
+          iosvc_(iosvc),
           maxTxLength_(maxTxLength),
           maxRxLength_(maxRxLength)
     {}
