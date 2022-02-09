@@ -8,6 +8,7 @@
 #ifndef CPPWAMP_OPTIONS_HPP
 #define CPPWAMP_OPTIONS_HPP
 
+#include "traits.hpp"
 #include "variant.hpp"
 #include "./internal/passkey.hpp"
 
@@ -26,10 +27,6 @@ template <typename TDerived>
 class Options
 {
 public:
-    /** Metafunction used to obtain the plain value type of a parameter
-        passed by universal reference. */
-    template <typename T> using ValueTypeOf = typename std::decay<T>::type;
-
     /** Adds an option. */
     TDerived& withOption(String key, Variant value);
 

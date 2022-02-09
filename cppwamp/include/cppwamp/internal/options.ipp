@@ -58,12 +58,7 @@ Variant Options<D>::optionByKey(const String& key) const
 //------------------------------------------------------------------------------
 template <typename D>
 template <typename T>
-#ifdef CPPWAMP_FOR_DOXYGEN
-ValueTypeOf<T>
-#else
-Options<D>::ValueTypeOf<T>
-#endif
-Options<D>::optionOr(
+ValueTypeOf<T> Options<D>::optionOr(
     const String& key, /**< The key to search under. */
     T&& fallback       /**< The fallback value to return if the key was
                             not found. */
