@@ -41,8 +41,8 @@ C++11 client library for the [WAMP][wamp] protocol.
 Documentation
 -------------
 
-- [Tutorial](http://ecorm.github.io/cppwamp/doc/html/_tutorial.html)
-- [Reference Documentation](http://ecorm.github.io/cppwamp/doc/index.html)
+- [Tutorial](http://ecorm.github.io/cppwamp/_tutorial.html)
+- [Reference Documentation](http://ecorm.github.io/cppwamp)
 - [Release Notes](./CHANGELOG.md)
 
 
