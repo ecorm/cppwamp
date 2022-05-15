@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+            Copyright Butterfly Energy Systems 2014-2015, 2017, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,12 +10,14 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Provides facilities allowing Variant to interoperate with std::array. */
+    @brief Provides facilities allowing Variant to interoperate
+           with std::array. */
 //------------------------------------------------------------------------------
 
 #include <array>
-#include "../conversion.hpp"
+#include "../api.hpp"
 #include "../error.hpp"
+#include "../variant.hpp"
 
 namespace wamp
 {
@@ -25,7 +27,7 @@ namespace wamp
     Users should not use this function directly. Use Variant::to instead. */
 //------------------------------------------------------------------------------
 template <typename T, std::size_t Size>
-void convert(FromVariantConverter& conv, std::array<T, Size>& array)
+CPPWAMP_API void convert(FromVariantConverter& conv, std::array<T, Size>& array)
 {
     using namespace wamp;
     const auto& variant = conv.variant();
@@ -64,7 +66,7 @@ void convert(FromVariantConverter& conv, std::array<T, Size>& array)
     Users should not use this function directly. Use Variant::from instead. */
 //------------------------------------------------------------------------------
 template <typename T, std::size_t Size>
-void convert(ToVariantConverter& conv, std::array<T, Size>& array)
+CPPWAMP_API void convert(ToVariantConverter& conv, std::array<T, Size>& array)
 {
     using namespace wamp;
     Array variantArray;

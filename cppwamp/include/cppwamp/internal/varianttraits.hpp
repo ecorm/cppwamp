@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -13,14 +13,22 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include "../blob.hpp"
+#include "../null.hpp"
 #include "../traits.hpp"
-#include "varianttraitsfwd.hpp"
+#include "../variantdefs.hpp"
 
 namespace wamp
 {
 
 namespace internal
 {
+
+template <typename T> struct FieldTraits;
+
+template <typename T, typename Enable = int> struct ArgTraits;
+
+template <typename T> struct Access;
 
 //------------------------------------------------------------------------------
 template <TypeId typeId> struct FieldTypeForId {};
@@ -160,21 +168,21 @@ template <> struct ArgTraits<String>
     using FieldType                 = String;
 };
 
-template <> struct ArgTraits<Variant::CharType*>
+template <> struct ArgTraits<String::value_type*>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "[character array]";}
     using FieldType                 = String;
 };
 
-template <> struct ArgTraits<const Variant::CharType*>
+template <> struct ArgTraits<const String::value_type*>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "[character array]";}
     using FieldType                 = String;
 };
 
-template <size_t N> struct ArgTraits<Variant::CharType[N]>
+template <size_t N> struct ArgTraits<String::value_type[N]>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "[character array]";}
@@ -182,7 +190,7 @@ template <size_t N> struct ArgTraits<Variant::CharType[N]>
 };
 
 template <size_t N>
-struct ArgTraits<const Variant::CharType[N]>
+struct ArgTraits<const String::value_type[N]>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "[character array]";}
@@ -329,7 +337,6 @@ template <> struct Access<Object>
 
     static Object*& ptr(void* field) {return Access<Object*>::get(field);}
 };
-
 
 } // namespace internal
 

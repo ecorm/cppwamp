@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,13 +10,14 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Provides facilities allowing Variant to interoperate
-    with std::unordered_set. */
+    @brief Provides facilities allowing Variant to interoperate
+           with std::unordered_set. */
 //------------------------------------------------------------------------------
 
 #include <unordered_set>
-#include "../conversion.hpp"
+#include "../api.hpp"
 #include "../error.hpp"
+#include "../variant.hpp"
 
 namespace wamp
 {
@@ -26,7 +27,7 @@ namespace wamp
     Users should not use this function directly. Use Variant::to instead. */
 //------------------------------------------------------------------------------
 template <typename T>
-void convert(FromVariantConverter& conv, std::unordered_set<T>& set)
+CPPWAMP_API void convert(FromVariantConverter& conv, std::unordered_set<T>& set)
 {
     const auto& variant = conv.variant();
     if (!variant.is<Array>())
@@ -58,7 +59,7 @@ void convert(FromVariantConverter& conv, std::unordered_set<T>& set)
     Users should not use this function directly. Use Variant::from instead. */
 //------------------------------------------------------------------------------
 template <typename T>
-void convert(ToVariantConverter& conv, std::unordered_set<T>& set)
+CPPWAMP_API void convert(ToVariantConverter& conv, std::unordered_set<T>& set)
 {
     Array array;
     for (const auto& elem: set)

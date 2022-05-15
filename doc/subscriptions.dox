@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -33,9 +33,9 @@ checked during runtime, in the body of the event handler.
 
 wamp::Session::subscribe expects an event slot with the following signature:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 void function(wamp::Event)
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 where wamp::Event is an object containing information and payload arguments
 related to the publication.
@@ -62,14 +62,14 @@ into a regular event slot that can be passed to wamp::Session::subscribe.
 
 `wamp::basicEvent` expects an event slot with the following signature:
 
-~~~~~~~~~~~~~~~~~~~~~~~
+```
 void function(TArgs...)
-~~~~~~~~~~~~~~~~~~~~~~~
+```
 where `TArgs...` matches the template parameter pack that was passed to
 `wamp::basicEvent`.
 
 Examples of basic event slots are:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 void onSensorSampled(float value) { ... }
 //                     ^
 //                    TArgs
@@ -78,10 +78,10 @@ void onPurchase(std::string item, int cost, int qty) { ... }
 //                      ^          ^          ^
 //                      \----------|----------/
 //                               TArgs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 The above slots can be registered as follows:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 session->subscribe(Topic("sensorSampled"),
                    basicEvent<float>(&onSensorSampled),
                    handler);
@@ -89,7 +89,7 @@ session->subscribe(Topic("sensorSampled"),
 session->subscribe(Topic("itemPurchased"),
                    basicEvent<std::string, int, int>(&onPurchase),
                    handler);
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 where `handler` is the asynchronous handler (or coroutine yield context)
 for the **subscribe operation itself**.
@@ -113,16 +113,16 @@ passed to wamp::Session::subscribe.
 
 `wamp::basicCoroEvent` expects an event slot with the following signature:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 void function(TArgs..., boost::asio::yield_context)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 where
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::basicEvent`.
 - `boost::asio::yield_context` represents the event handler's coroutine context.
 
 Examples of basic coroutine event slots are:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 using Yield = boost::asio::yield_context;
 
 void onSensorSampled(float value, Yield yield) { ... }
@@ -133,10 +133,10 @@ void onPurchase(std::string item, int cost, int qty, Yield yield) { ... }
 //                      ^          ^          ^
 //                      \----------|----------/
 //                               TArgs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 The above slots can be registered as follows:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 session->subscribe(Topic("sensorSampled"),
                    basicCoroEvent<float>(&onSensorSampled),
                    handler);
@@ -144,7 +144,7 @@ session->subscribe(Topic("sensorSampled"),
 session->subscribe(Topic("itemPurchased"),
                    basicCoroEvent<std::string, int, int>(&onPurchase),
                    handler);
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 where `handler` is the asynchronous handler (or coroutine yield context)
 for the **subscribe operation itself**.
@@ -167,9 +167,9 @@ into a regular event slot that can be passed to wamp::Session::subscribe.
 
 `wamp::unpackedEvent` expects an event slot with the following signature:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 void function(wamp::Event, TArgs...)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 where
 - wamp::Event is an object containing information and payload arguments related
   to the publication, and,
@@ -181,7 +181,7 @@ where
       metadata on the event itself.
 
 Examples of unpacked event slots are:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 void onSensorSampled(Event event, float value) { ... }
 //                                  ^
 //                                TArgs
@@ -190,10 +190,10 @@ void onPurchase(Event event, std::string item, int cost, int qty) { ... }
 //                                  ^          ^          ^
 //                                  \----------|----------/
 //                                           TArgs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 The above slots can be registered as follows:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 session->subscribe(Topic("sensorSampled"),
                    unpackedEvent<float>(&onSensorSampled),
                    handler);
@@ -201,7 +201,7 @@ session->subscribe(Topic("sensorSampled"),
 session->subscribe(Topic("itemPurchased"),
                    unpackedEvent<std::string, int, int>(&onPurchase),
                    handler);
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 where `handler` is the asynchronous handler (or coroutine yield context)
 for the **subscribe operation itself**.
@@ -223,9 +223,9 @@ registering such event slots.
 
 `wamp::unpackedCoroEvent` expects an event slot with the following signature:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 void function(wamp::Event, TArgs..., boost::asio::yield_context)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 where
 - wamp::Event is an object containing information and payload arguments related
   to the publication, and,
@@ -244,7 +244,7 @@ lifetime management of topic subscriptions using RAII techniques.
 Here's an example illustrating how `ScopedSubscription` can be used
 to manage the lifetime of a subscription:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 struct Observer
 {
     void onEvent(Event event);
@@ -276,6 +276,5 @@ int main()
     });
     iosvc.run();
 }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+```
 */

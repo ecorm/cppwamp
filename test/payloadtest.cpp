@@ -5,11 +5,9 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_WAMP
-
 #include <stdexcept>
 #include <utility>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/payload.hpp>
 
 using namespace wamp;
@@ -31,7 +29,7 @@ struct TestPayload : public Payload<TestPayload>
 } // anonymous namespace
 
 //------------------------------------------------------------------------------
-SCENARIO( "Initializing Payload", "[Payload]" )
+SCENARIO( "Initializing Payload", "[Variant][Payload]" )
 {
     WHEN( "initializing from a list" )
     {
@@ -68,7 +66,8 @@ SCENARIO( "Initializing Payload", "[Payload]" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Unbundling Payload to variables, with conversions", "[Payload]" )
+SCENARIO( "Unbundling Payload to variables, with conversions",
+          "[Variant][Payload]" )
 {
 GIVEN( "a Payload object and a set of variables" )
 {
@@ -115,7 +114,8 @@ GIVEN( "a Payload object and a set of variables" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Moving Payload to variables, without conversion", "[Payload]" )
+SCENARIO( "Moving Payload to variables, without conversion",
+          "[Variant][Payload]" )
 {
 GIVEN( "a Payload object and a set of variables" )
 {
@@ -163,7 +163,7 @@ GIVEN( "a Payload object and a set of variables" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Moving payload argument lists and maps", "[Payload]" )
+SCENARIO( "Moving payload argument lists and maps", "[Variant][Payload]" )
 {
 GIVEN( "a Payload object with positional and keyword arguments" )
 {
@@ -188,7 +188,7 @@ GIVEN( "a Payload object with positional and keyword arguments" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Indexing Payload elements", "[Payload]" )
+SCENARIO( "Indexing Payload elements", "[Variant][Payload]" )
 {
 GIVEN( "a Payload object with positional and keyword arguments" )
 {
@@ -241,6 +241,3 @@ GIVEN( "a Payload object with positional and keyword arguments" )
     }
 }
 }
-
-
-#endif // #if CPPWAMP_TESTING_WAMP

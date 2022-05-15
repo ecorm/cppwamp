@@ -1,0 +1,458 @@
+/*------------------------------------------------------------------------------
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
+           Distributed under the Boost Software License, Version 1.0.
+              (See accompanying file LICENSE_1_0.txt or copy at
+                    http://www.boost.org/LICENSE_1_0.txt)
+------------------------------------------------------------------------------*/
+
+/**
+@page RpcTutorial Remote Procedure Calls
+
+@tableofcontents
+
+Calling RPCs
+------------
+
+The @ref wamp::CoroSession::call "call" operation is used to call remote
+procedures. It takes a wamp::Rpc object as a parameter, which contains the
+following information related to the call:
+
+- the procedure URI to call,
+- positional wamp::Variant arguments, if applicable,
+- a wamp::Object containing keyword arguments, if applicable, and,
+- an wamp::Options dictionary for advanced WAMP features
+
+`call` returns a wamp::Result object, which contains the result payload and
+other details returned by the callee.
+
+```
+using namespace wamp;
+boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+{
+    auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
+    session->connect(yield);
+    session->join("somerealm", yield);
+
+    // Call a remote procedure that takes no arguments
+    Result result = session->call(Rpc("getElapsed"), yield);
+    int elapsed = 0;
+    result.convertTo(elapsed); // Will throw error::Conversion
+                               // if conversion fails
+    std::cout << "The elapsed number of seconds is " << elapsed << "\n";
+
+    // Call a remote procedure that takes two positional arguments
+    auto sum = session->call(Rpc("add").withArgs(12, 34), yield);
+    std::cout << "12 + 34 is " << sum[0] << "\n";
+
+    // Call a remote procedure that takes a single keyword argument and
+    // does not return any result. Also enable the 'disclose_me'
+    // advanced feature.
+    session->call( Rpc("setProperties").withKwargs({{"name", "John"}})
+                                       .withDiscloseMe(),
+                   yield );
+});
+```
+
+Call Slots
+----------
+
+CppWamp allows you to register callback functions that will be executed whenever
+a procedure with a certain name is invoked remotely by a dealer. Such callback
+functions are named _call slots_. Call slots can be any callable entity that can
+be stored into a [`std::function`][stdfunction]:
+- free functions,
+- member functions (via [`std::bind`][stdbind]),
+- function objects,
+- lambdas, etc.
+
+[stdfunction]: http://en.cppreference.com/w/cpp/utility/functional/function
+[stdbind]: http://en.cppreference.com/w/cpp/utility/functional/bind
+
+
+Registering Procedures
+----------------------
+
+@ref wamp::CoroSession::enroll "enroll()" is used to register a remote
+procedure call slot:
+```
+Registration reg = session->enroll(Procedure("name"), slot, yield);
+```
+where:
+- @ref wamp::Registration "Registration" is a lightweight object that can be
+later used to unregister the procedure,
+- @ref wamp::Procedure "Procedure" is an object containing the procedure URI,
+plus other optional information related to advanced WAMP features, and,
+- `slot` is the handler function to be invoked for the registered RPC.
+
+`enroll` expects a call slot with the following signature:
+```
+wamp::Outcome function(wamp::Invocation)
+```
+where:
+- wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
+to the caller, and,
+- wamp::Invocation is an object containing information and payload arguments
+related to the RPC invocation.
+
+Example:
+```
+using namespace wamp;
+
+Outcome addToCart(Invocation inv)
+{
+    std::string item;
+    int cost;
+    inv.args().convertTo(item, cost); // throws if conversions fail
+    // Process invocation...
+    int total = ...
+    return {total}; // Send a single positional argument back to the caller
+}
+
+// Within coroutine
+auto reg = session->enroll(
+    Procedure("addToCart").withDiscloseCaller(),
+    &addToCart,
+    yield);
+// :::
+// Unregistering
+reg.unregister();
+```
+
+
+Registering Statically-Typed Procedures
+---------------------------------------
+
+Certain remote procedures may expect a fixed number of statically-typed
+arguments. For these situations, the
+@ref wamp::BasicInvocationUnpacker::basicRpc "wamp::basicRpc" template
+function can be used:
+```
+#include <cppwamp/unpacker.hpp>
+// :::
+using namespace wamp;
+Registration reg =
+    session->enroll(Procedure("name"),
+                    basicRpc<ReturnType, StaticTypeList...>(slot),
+                    yield);
+```
+where:
+- _ReturnType_ is the type returned by the RPC (may be `void`)
+- _StaticTypeList..._ is a parameter pack of static types
+- _slot_ has the signature:
+    ```
+    ReturnType function(StaticTypeList...)
+    ```
+
+Example:
+```
+float sum(float x, float y)
+{
+    return x + y;
+}
+
+// Within coroutine
+using namespace wamp;
+session->enroll(Procedure("sum"),
+                basicRpc<float, float, float>(&sum), yield);
+//                       ^^^^^^^^^^^^^^^^^^^
+//  Note that these types match the ones in the 'sum' signature
+//  (return type + parameters).
+```
+
+If the `wamp::Invocation` object is required within a statically-typed RPC, or
+if the RPC must return a `wamp::Outcome`, then the
+@ref wamp::InvocationUnpacker::unpackedRpc "wamp::unpackedRpc" template
+function can be used instead:
+```
+#include <cppwamp/unpacker.hpp>
+// :::
+using namespace wamp;
+Registration reg = session->enroll(Procedure("name"),
+                                   unpackedRpc<StaticTypeList...>(slot),
+                                   yield);
+```
+where:
+- _StaticTypeList..._ is a parameter pack of static types
+- _slot_ has the signature:
+   ```
+   wamp::Outcome function(wamp::Invocation, StaticTypeList...)
+   ```
+
+Example:
+```
+Outcome sum(Invocation inv, float x, float y)
+{
+    return {x + y};
+}
+
+// Within coroutine
+using namespace wamp;
+session->enroll(Procedure("sum"),
+                unpackedRpc<float, float>(&sum), yield);
+//                          ^^^^^^^^^^^^
+//  Note that these types match the ones in the 'sum' signature
+//  (following the Invocation parameter).
+```
+
+Registering Coroutine Procedures
+--------------------------------
+
+If the remote procedure must perform it's work in an asynchronous fashion
+within the context of a coroutine, then
+@ref wamp::BasicCoroInvocationUnpacker::basicCoroRpc "wamp::basicCoroRpc" or
+@ref wamp::CoroInvocationUnpacker::unpackedCoroRpc "wamp::unpackedCoroRpc" may
+be used:
+
+```
+using namespace wamp;
+
+std::string getName(std::string id, boost::asio::yield_context yield)
+{
+    // Perform asynchronous operation within RPC handler
+    auto result = session->call(Rpc("db.lookup").withArgs(id), yield);
+    return result.kwargs["name"];
+}
+
+// Within coroutine
+session->enroll(Procedure("getName"),
+                basicCoroRpc<std::string, std::string>(&getName),
+                yield);
+```
+
+@note This will spawn a new coroutine every time the RPC is invoked.
+
+
+Returning an ERROR Response to the Callee
+-----------------------------------------
+
+A wamp::Error object can be returned from a call slot, which results in an
+`ERROR` message being sent back to the callee. This would be used, for example,
+when invalid arguments are passed to a remote procedure:
+
+```
+using namespace wamp;
+
+Outcome addToCart(Invocation inv)
+{
+    std::string item;
+    int cost = 0;
+    try
+    {
+        inv.args().convertTo(item, cost);
+    }
+    catch (const error::Conversion& e)
+    {
+        // Send an ERROR back to caller
+        return Error("wamp.error.invalid_argument")
+                     .withArgs("expected [String, Int] arguments") );
+    }
+
+    // Process invocation...
+    int total = computeTotal(currentTotal, item, cost);
+    return {total}; // Send result back to caller
+}
+```
+
+Alternatively, you can throw an `Error` object from a call slot:
+```
+using namespace wamp;
+
+Outcome addToCart(Invocation inv)
+{
+    std::string item;
+    int cost = 0;
+    try
+    {
+        inv.args().convertTo(item, cost);
+    }
+    catch (const error::Conversion& e)
+    {
+        // Send an ERROR back to caller
+        throw Error("wamp.error.invalid_argument")
+                     .withArgs("expected [String, Int] arguments") );
+    }
+
+    // Process invocation...
+
+    int total = computeTotal(currentTotal, item, cost);
+    return {total}; // Send result back to caller
+}
+```
+
+Capturing an ERROR Response from the Caller
+-------------------------------------------
+
+When calling an RPC, `ERROR` messages returned by the caller can be captured
+via the `wamp::Rpc::captureError` option:
+
+```
+using namespace wamp;
+
+Error error;
+try
+{
+    session->call(Rpc("foo").withArgs(42)
+                            .captureError(error),
+                  yield);
+}
+catch (error::Failure& e)
+{
+    if (!error)
+    {
+        std::cout << "Got error URI: " << error.reason() << "\n"
+                  << "with args: " << error.args() << "\n";
+    }
+}
+```
+
+Scoped Registrations
+--------------------
+
+A wamp::ScopedRegistration object can be used to limit an RPC registration's
+lifetime to a particular scope. When a `ScopedRegistration` object is destroyed,
+it automatically unregisters the registration. This helps in automating the
+lifetime management of RPC registrations using
+[RAII](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization)
+techniques.
+
+Here's an example illustrating how `ScopedRegistration` can be used to manage
+the lifetime of a registration:
+
+```
+using namespace wamp;
+
+struct Delegate
+{
+    Outcome rpc(Invocation inv);
+
+    ScopedRegistration reg;
+}
+
+int main()
+{
+    AsioContext ioctx;
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    {
+        auto session = CoroSession<>::create(connectorList);
+        session->connect(yield);
+        session->join("somerealm", yield);
+
+        {
+            using std::placeholders;
+            Delegate delegate;
+            delegate.reg = session->enroll(
+                            Procedure("someprocedure"),
+                            std::bind(&Delegate::rpc, delegate, _1),
+                            yield);
+
+        }  // When the 'delegate' object leaves this scope, its
+           // ScopedRegisration member gets destroyed. This will
+           // automatically unregister the registration, thereby avoiding
+           // further member function calls on the deleted 'delegate'
+           // object.
+    });
+    ioctx.run();
+}
+```
+
+For a more in-depth discussion on registrations, consult the
+@ref Registrations page.
+
+Cancelling RPCs
+---------------
+If supported by the router, a caller may cancel an RPC in progress via the
+session's @ref wamp::Session::cancel "cancel" method.
+
+A callee wanting to make an RPC interruptible may pass an additional
+@ref wamp::Session::InterruptSlot "InterruptSlot" argument to the `enroll`
+method.
+
+Example interruptible callee:
+
+```
+using namespace wamp;
+AsioContext ioctx;
+boost::asio::deadline_timer timer(ioctx);
+
+Outcome delayedEcho(Invocation inv)
+{
+    // This is a poor example because the same timer could be used
+    // by multiple invocations before it expires. A more elaborate
+    // example would use a scheduler which maps request IDs to
+    // deadlines.
+    boost::asio::spawn(inv.executor(),
+        [&timer, inv](boost::asio::yield_context yield)
+        {
+            std::string message;
+            int seconds;
+            inv.args().convertTo(message, seconds);
+            timer.expires_from_now(std::chrono::seconds(seconds);
+            boost::system::error_code ec;
+            timer.async_wait(yield[ec]);
+            if (ec = boost::asio::error::operation_aborted)
+                inv.yield(Error{"myapp.aborted"});
+            else
+                inv.yield(Result{reminder});
+        });
+
+    return Outcome::deferred();
+}
+
+void cancelEcho(Interruption intr)
+{
+    // A more elaborate example would use a scheduler that
+    // cancels only the operation associated with intr.requestId().
+    timer.cancel();
+}
+
+void run(AsioContext& ioctx)
+{
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    {
+        auto session = CoroSession<>::create(ioctx, tcp);
+        session->connect(yield);
+        session->join("somerealm", yield);
+
+        // Note the additional InterruptSlot argument for enroll.
+        auto reg = session->enroll(
+            Procedure("remind_me"), &delayedEcho, &cancelEcho, yield);
+
+        // Etc.
+    });
+}
+```
+
+Example caller issuing an interruption:
+```
+using namespace wamp;
+boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+{
+    auto session = CoroSession<>::create(ioctx, tcp);
+    session->connect(yield);
+    session->join("somerealm", yield);
+
+    // Call a remote procedure that takes a while to respond.
+    // Note that the callback-based overload is used, which immediately
+    // returns a request ID.
+    auto requestId = session->call(
+        Rpc("getElapsed").withArgs("hello", 10),
+        [](AsyncResult<Result> message)
+        {
+            if (message)
+                std::cout << "Message: " << message.get() << "\n";
+            else
+                std::cout << "Error: " << message.errorInfo() << "\n";
+        });
+
+    // Cancel the RPC before it completes.
+    boost::asio::deadline_timer timer(ioctx, std::chrono::seconds(5));
+    timer.async_wait(yield);
+    session->cancel(Cancellation(requestId, CancelMode::kill));
+});
+```
+
+- - -
+
+Next: @ref PubSubTutorial
+
+*/

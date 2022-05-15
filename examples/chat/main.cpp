@@ -6,10 +6,10 @@
 ------------------------------------------------------------------------------*/
 
 #include <iostream>
-#include <cppwamp/corosession.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
+#include <cppwamp/coro/corosession.hpp>
 
 const std::string realm = "cppwamp.demo.chat";
 const std::string address = "localhost";
@@ -21,14 +21,14 @@ class ChatService
 public:
     using Yield = boost::asio::yield_context;
 
-    explicit ChatService(wamp::AsioService& iosvc)
-        : iosvc_(iosvc)
+    explicit ChatService(wamp::AsioContext& ioctx)
+        : ioctx_(ioctx)
     {}
 
     void start(wamp::ConnectorList connectors, Yield yield)
     {
         using namespace wamp;
-        session_ = CoroSession<>::create(iosvc_, connectors);
+        session_ = CoroSession<>::create(ioctx_, connectors);
 
         auto index = session_->connect(yield);
         std::cout << "Chat service connected on transport #"
@@ -61,7 +61,7 @@ private:
         session_->publish( wamp::Pub("said").withArgs(user, message) );
     }
 
-    wamp::AsioService& iosvc_;
+    wamp::AsioContext& ioctx_;
     wamp::CoroSession<>::Ptr session_;
     wamp::ScopedRegistration registration_;
 };
@@ -73,15 +73,15 @@ class ChatClient
 public:
     using Yield = boost::asio::yield_context;
 
-    ChatClient(wamp::AsioService& iosvc, std::string user)
-        : iosvc_(iosvc),
+    ChatClient(wamp::AsioContext& ioctx, std::string user)
+        : ioctx_(ioctx),
           user_(std::move(user))
     {}
 
     void join(wamp::ConnectorList connectors, Yield yield)
     {
         using namespace wamp;
-        session_ = CoroSession<>::create(iosvc_, connectors);
+        session_ = CoroSession<>::create(ioctx_, connectors);
 
         auto index = session_->connect(yield);
         std::cout << user_ << " connected on transport #" << index << "\n";
@@ -117,7 +117,7 @@ private:
                   << message << "\"\n";
     }
 
-    wamp::AsioService& iosvc_;
+    wamp::AsioContext& ioctx_;
     std::string user_;
     wamp::CoroSession<>::Ptr session_;
     wamp::ScopedSubscription subscription_;
@@ -127,18 +127,18 @@ private:
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::AsioService iosvc;
+    wamp::AsioContext ioctx;
 
-    auto tcp = wamp::connector<wamp::Json>( iosvc,
+    auto tcp = wamp::connector<wamp::Json>( ioctx,
                                             wamp::TcpHost("localhost", 12345) );
 
     // Normally, the service and client instances would be in separate programs.
     // We run them all here in the same coroutine for demonstration purposes.
-    ChatService chat(iosvc);
-    ChatClient alice(iosvc, "Alice");
-    ChatClient bob(iosvc, "Bob");
+    ChatService chat(ioctx);
+    ChatClient alice(ioctx, "Alice");
+    ChatClient bob(ioctx, "Bob");
 
-    boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
         chat.start({tcp}, yield);
 
@@ -156,7 +156,7 @@ int main()
         chat.quit(yield);
     });
 
-    iosvc.run();
+    ioctx.run();
 
     return 0;
 }

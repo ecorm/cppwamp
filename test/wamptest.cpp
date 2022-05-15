@@ -5,23 +5,41 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_WAMP
+#if defined(CPPWAMP_TEST_HAS_JSON) || defined(CPPWAMP_TEST_HAS_MSGPACK)
+    #define CPPWAMP_TEST_HAS_SERIALIZER 1
+#endif
+
+#if defined(CPPWAMP_TEST_HAS_JSON) && defined(CPPWAMP_TEST_HAS_MSGPACK)
+    #define CPPWAMP_TEST_HAS_ALTERNATE_SERIALIZER 1
+#endif
+
+#if defined(CPPWAMP_TEST_HAS_ALTERNATE_SERIALIZER) || \
+    CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
+        #define CPPWAMP_TEST_HAS_ALTERNATE_CONNECTOR 1
+#endif
+
+#if defined(CPPWAMP_TEST_HAS_CORO) && defined(CPPWAMP_TEST_HAS_SERIALIZER)
 
 #include <algorithm>
 #include <cctype>
-#include <catch.hpp>
-#include <cppwamp/corounpacker.hpp>
-#include <cppwamp/corosession.hpp>
-#include <cppwamp/json.hpp>
-#include <cppwamp/msgpack.hpp>
+#include <catch2/catch.hpp>
+#include <cppwamp/coro/corounpacker.hpp>
+#include <cppwamp/coro/corosession.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/internal/config.hpp>
 
+#ifdef CPPWAMP_TEST_HAS_JSON
+    #include <cppwamp/json.hpp>
+#endif
+
+#ifdef CPPWAMP_TEST_HAS_MSGPACK
+    #include <cppwamp/msgpack.hpp>
+#endif
+
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     #include <cppwamp/uds.hpp>
 #endif
-
 
 using namespace wamp;
 using namespace Catch::Matchers;
@@ -29,27 +47,44 @@ using namespace Catch::Matchers;
 namespace
 {
 
+#ifndef CPPWAMP_NO_JSON
+    using PreferredCodec = Json;
+#else
+    using PreferredCodec = Msgpack;
+#endif
+
 const std::string testRealm = "cppwamp.test";
 const unsigned short validPort = 12345;
 const unsigned short invalidPort = 54321;
 const std::string testUdsPath = "./.crossbar/udstest";
 
-Connector::Ptr tcp(AsioService& iosvc)
+Connector::Ptr tcp(AsioContext& ioctx)
 {
-    return connector<Json>(iosvc, TcpHost("localhost", validPort));
+    return connector<PreferredCodec>(ioctx, TcpHost("localhost", validPort));
 }
 
-Connector::Ptr invalidTcp(AsioService& iosvc)
+Connector::Ptr invalidTcp(AsioContext& ioctx)
 {
-    return connector<Json>(iosvc, TcpHost("localhost", invalidPort));
+    return connector<PreferredCodec>(ioctx, TcpHost("localhost", invalidPort));
 }
 
+#ifdef CPPWAMP_TEST_HAS_ALTERNATE_CONNECTOR
+Connector::Ptr alternateTcp(AsioContext& ioctx)
+{
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-Connector::Ptr udsMsgpack(AsioService& iosvc)
-{
-    return connector<Msgpack>(iosvc, UdsPath(testUdsPath));
-}
+    auto where = UdsPath(testUdsPath);
+#else
+    auto where = TcpHost("localhost", validPort);
 #endif
+#ifndef CPPWAMP_NO_MSGPACK
+    using CodecType = Msgpack;
+#else
+    using CodecType = Json;
+#endif
+
+    return connector<CodecType>(ioctx, where);
+}
+#endif // CPPWAMP_TEST_HAS_ALTERNATE_CONNECTOR
 
 
 //------------------------------------------------------------------------------
@@ -58,11 +93,11 @@ struct PubSubFixture
     using PubVec = std::vector<PublicationId>;
 
     template <typename TConnector>
-    PubSubFixture(AsioService& iosvc, TConnector cnct)
-        : iosvc(iosvc),
-          publisher(CoroSession<>::create(iosvc, cnct)),
-          subscriber(CoroSession<>::create(iosvc, cnct)),
-          otherSubscriber(CoroSession<>::create(iosvc, cnct))
+    PubSubFixture(AsioContext& ioctx, TConnector cnct)
+        : ioctx(ioctx),
+          publisher(CoroSession<>::create(ioctx, cnct)),
+          subscriber(CoroSession<>::create(ioctx, cnct)),
+          otherSubscriber(CoroSession<>::create(ioctx, cnct))
     {}
 
     void join(boost::asio::yield_context yield)
@@ -99,8 +134,8 @@ struct PubSubFixture
     void onDynamicEvent(Event event)
     {
         INFO( "in onDynamicEvent" );
-        CHECK( event.pubId() <= 9007199254740992ull );
-        CHECK( &event.iosvc() == &iosvc );
+        CHECK( event.pubId() <= 9007199254740992ll );
+        CHECK( event.executor() == ioctx.get_executor() );
         dynamicArgs = event.args();
         dynamicPubs.push_back(event.pubId());
     }
@@ -108,8 +143,8 @@ struct PubSubFixture
     void onStaticEvent(Event event, std::string str, int num)
     {
         INFO( "in onStaticEvent" );
-        CHECK( event.pubId() <= 9007199254740992ull );
-        CHECK( &event.iosvc() == &iosvc );
+        CHECK( event.pubId() <= 9007199254740992ll );
+        CHECK( event.executor() == ioctx.get_executor() );
         staticArgs = Array{{str, num}};
         staticPubs.push_back(event.pubId());
     }
@@ -117,12 +152,12 @@ struct PubSubFixture
     void onOtherEvent(Event event)
     {
         INFO( "in onOtherEvent" );
-        CHECK( event.pubId() <= 9007199254740992ull );
-        CHECK( &event.iosvc() == &iosvc );
+        CHECK( event.pubId() <= 9007199254740992ll );
+        CHECK( event.executor() == ioctx.get_executor() );
         otherPubs.push_back(event.pubId());
     }
 
-    AsioService& iosvc;
+    AsioContext& ioctx;
 
     CoroSession<>::Ptr publisher;
     CoroSession<>::Ptr subscriber;
@@ -144,10 +179,10 @@ struct PubSubFixture
 struct RpcFixture
 {
     template <typename TConnector>
-    RpcFixture(AsioService& iosvc, TConnector cnct)
-        : iosvc(iosvc),
-          caller(CoroSession<>::create(iosvc, cnct)),
-          callee(CoroSession<>::create(iosvc, cnct))
+    RpcFixture(AsioContext& ioctx, TConnector cnct)
+        : ioctx(ioctx),
+          caller(CoroSession<>::create(ioctx, cnct)),
+          callee(CoroSession<>::create(ioctx, cnct))
     {}
 
     void join(boost::asio::yield_context yield)
@@ -176,8 +211,8 @@ struct RpcFixture
     Outcome dynamicRpc(Invocation inv)
     {
         INFO( "in RPC handler" );
-        CHECK( inv.requestId() <= 9007199254740992ull );
-        CHECK( &inv.iosvc() == &iosvc );
+        CHECK( inv.requestId() <= 9007199254740992ll );
+        CHECK( inv.executor() == ioctx.get_executor() );
         ++dynamicCount;
         // Echo back the call arguments as the result.
         return Result().withArgList(inv.args());
@@ -186,14 +221,14 @@ struct RpcFixture
     Outcome staticRpc(Invocation inv, std::string str, int num)
     {
         INFO( "in RPC handler" );
-        CHECK( inv.requestId() <= 9007199254740992ull );
-        CHECK( &inv.iosvc() == &iosvc );
+        CHECK( inv.requestId() <= 9007199254740992ll );
+        CHECK( inv.executor() == ioctx.get_executor() );
         ++staticCount;
         // Echo back the call arguments as the yield result.
         return {str, num};
     }
 
-    AsioService& iosvc;
+    AsioContext& ioctx;
 
     CoroSession<>::Ptr caller;
     CoroSession<>::Ptr callee;
@@ -210,10 +245,10 @@ template <typename TThrowDelegate, typename TErrcDelegate>
 void checkInvalidUri(TThrowDelegate&& throwDelegate,
                      TErrcDelegate&& errcDelegate, bool joined = true)
 {
-    AsioService iosvc;
-    boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+    AsioContext ioctx;
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(iosvc, tcp(iosvc));
+        auto session = CoroSession<>::create(ioctx, tcp(ioctx));
         session->connect(yield);
         if (joined)
             session->join(Realm(testRealm), yield);
@@ -230,26 +265,26 @@ void checkInvalidUri(TThrowDelegate&& throwDelegate,
             CHECK( ec == SessionErrc::invalidUri );
     });
 
-    iosvc.run();
+    ioctx.run();
 }
 
 //------------------------------------------------------------------------------
 template <typename TResult, typename TDelegate>
 void checkDisconnect(TDelegate&& delegate)
 {
-    AsioService iosvc;
+    AsioContext ioctx;
     bool completed = false;
     AsyncResult<TResult> result;
-    boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(iosvc, tcp(iosvc));
+        auto session = CoroSession<>::create(ioctx, tcp(ioctx));
         session->connect(yield);
         delegate(*session, yield, completed, result);
         session->disconnect();
         CHECK( session->state() == SessionState::disconnected );
     });
 
-    iosvc.run();
+    ioctx.run();
     CHECK( completed );
     CHECK_FALSE( !result.errorCode() );
     CHECK( result.errorCode() == SessionErrc::sessionEnded );
@@ -357,20 +392,20 @@ void checkInvalidOps(CoroSession<>::Ptr session,
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP session management", "[WAMP]" )
+SCENARIO( "WAMP session management", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
-    AsioService iosvc;
-    auto cnct = tcp(iosvc);
+    AsioContext ioctx;
+    auto cnct = tcp(ioctx);
 
     WHEN( "connecting and disconnecting" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             {
                 // Connect and disconnect a session->
-                auto s = CoroSession<>::create(iosvc, cnct);
+                auto s = CoroSession<>::create(ioctx, cnct);
                 CHECK( s->state() == SessionState::disconnected );
                 CHECK( s->connect(yield) == 0 );
                 CHECK( s->state() == SessionState::closed );
@@ -389,7 +424,7 @@ GIVEN( "an IO service and a TCP connector" )
             }
 
             // Check that another client can connect and disconnect.
-            auto s2 = CoroSession<>::create(iosvc, cnct);
+            auto s2 = CoroSession<>::create(ioctx, cnct);
             CHECK( s2->state() == SessionState::disconnected );
             CHECK( s2->connect(yield) == 0 );
             CHECK( s2->state() == SessionState::closed );
@@ -397,13 +432,13 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( s2->state() == SessionState::disconnected );
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "joining and leaving" )
     {
-        auto s = CoroSession<>::create(iosvc, cnct);
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        auto s = CoroSession<>::create(ioctx, cnct);
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             s->connect(yield);
             CHECK( s->state() == SessionState::closed );
@@ -412,7 +447,7 @@ GIVEN( "an IO service and a TCP connector" )
                 // Check joining.
                 SessionInfo info = s->join(Realm(testRealm), yield);
                 CHECK( s->state() == SessionState::established );
-                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
                 REQUIRE( details.count("roles") );
@@ -432,7 +467,7 @@ GIVEN( "an IO service and a TCP connector" )
                 // Check that the same client can rejoin and leave.
                 SessionInfo info = s->join(Realm(testRealm), yield);
                 CHECK( s->state() == SessionState::established );
-                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
                 REQUIRE( details.count("roles") );
@@ -453,13 +488,13 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( s->state() == SessionState::disconnected );
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "connecting, joining, leaving, and disconnecting" )
     {
-        auto s = CoroSession<>::create(iosvc, cnct);
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        auto s = CoroSession<>::create(ioctx, cnct);
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             {
                 // Connect
@@ -489,7 +524,7 @@ GIVEN( "an IO service and a TCP connector" )
                 // Join
                 SessionInfo info = s->join(Realm(testRealm), yield);
                 CHECK( s->state() == SessionState::established );
-                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
                 REQUIRE( details.count("roles") );
@@ -510,14 +545,14 @@ GIVEN( "an IO service and a TCP connector" )
             }
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "disconnecting during connect" )
     {
         std::error_code ec;
-        auto s = Session::create(iosvc,
-                                 ConnectorList({invalidTcp(iosvc), cnct}));
+        auto s = Session::create(ioctx,
+                                 ConnectorList({invalidTcp(ioctx), cnct}));
         bool connectHandlerInvoked = false;
         s->connect([&](AsyncResult<size_t> result)
         {
@@ -526,8 +561,8 @@ GIVEN( "an IO service and a TCP connector" )
         });
         s->disconnect();
 
-        iosvc.run();
-        iosvc.reset();
+        ioctx.run();
+        ioctx.reset();
         CHECK( connectHandlerInvoked );
 
         // Depending on how Asio schedules things, the connect operation
@@ -547,7 +582,7 @@ GIVEN( "an IO service and a TCP connector" )
                 connected = !ec;
             });
 
-            iosvc.run();
+            ioctx.run();
             CHECK( ec == TransportErrc::success );
             CHECK( connected );
         }
@@ -557,9 +592,9 @@ GIVEN( "an IO service and a TCP connector" )
     {
         std::error_code ec;
         bool connected = false;
-        auto s = CoroSession<>::create(iosvc, cnct);
+        auto s = CoroSession<>::create(ioctx, cnct);
         bool disconnectTriggered = false;
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             try
             {
@@ -574,15 +609,15 @@ GIVEN( "an IO service and a TCP connector" )
             }
         });
 
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             while (!disconnectTriggered)
-                iosvc.post(yield);
+                ioctx.post(yield);
             s->disconnect();
         });
 
-        iosvc.run();
-        iosvc.reset();
+        ioctx.run();
+        ioctx.reset();
         CHECK_FALSE( connected );
         CHECK( ec == SessionErrc::sessionEnded );
     }
@@ -590,13 +625,13 @@ GIVEN( "an IO service and a TCP connector" )
     WHEN( "resetting during connect" )
     {
         bool handlerWasInvoked = false;
-        auto s = Session::create(iosvc, cnct);
+        auto s = Session::create(ioctx, cnct);
         s->connect([&handlerWasInvoked](AsyncResult<size_t>)
         {
             handlerWasInvoked = true;
         });
         s->reset();
-        iosvc.run();
+        ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
     }
@@ -604,7 +639,7 @@ GIVEN( "an IO service and a TCP connector" )
     WHEN( "resetting during join" )
     {
         bool handlerWasInvoked = false;
-        auto s = Session::create(iosvc, cnct);
+        auto s = Session::create(ioctx, cnct);
         s->connect([&](AsyncResult<size_t>)
         {
             s->join(Realm(testRealm), [&](AsyncResult<SessionInfo>)
@@ -613,7 +648,7 @@ GIVEN( "an IO service and a TCP connector" )
             });
             s->reset();
         });
-        iosvc.run();
+        ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
     }
@@ -622,7 +657,7 @@ GIVEN( "an IO service and a TCP connector" )
     {
         bool handlerWasInvoked = false;
 
-        auto session = Session::create(iosvc, cnct);
+        auto session = Session::create(ioctx, cnct);
         std::weak_ptr<Session> weakClient(session);
 
         session->connect([&handlerWasInvoked](AsyncResult<size_t>)
@@ -634,30 +669,26 @@ GIVEN( "an IO service and a TCP connector" )
         session = nullptr;
         REQUIRE( weakClient.expired() );
 
-        iosvc.run();
+        ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
     }
 }}
 
 
+#ifdef CPPWAMP_TEST_HAS_ALTERNATE_CONNECTOR
 //------------------------------------------------------------------------------
-SCENARIO( "Using alternate transport and serializer", "[WAMP]" )
+SCENARIO( "Using alternate transport and/or serializer", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
-    AsioService iosvc;
-
-#if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-    auto cnct = udsMsgpack(iosvc);
-#else
-    auto cnct = tcp(iosvc);
-#endif
+    AsioContext ioctx;
+    auto cnct = alternateTcp(ioctx);
 
     WHEN( "joining and leaving" )
     {
-        auto s = CoroSession<>::create(iosvc, cnct);
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        auto s = CoroSession<>::create(ioctx, cnct);
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             s->connect(yield);
             CHECK( s->state() == SessionState::closed );
@@ -666,7 +697,7 @@ GIVEN( "an IO service and a TCP connector" )
                 // Check joining.
                 SessionInfo info = s->join(Realm(testRealm), yield);
                 CHECK( s->state() == SessionState::established );
-                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
                 REQUIRE( details.count("roles") );
@@ -686,7 +717,7 @@ GIVEN( "an IO service and a TCP connector" )
                 // Check that the same client can rejoin and leave.
                 SessionInfo info = s->join(Realm(testRealm), yield);
                 CHECK( s->state() == SessionState::established );
-                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
                 REQUIRE( details.count("roles") );
@@ -707,25 +738,26 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( s->state() == SessionState::disconnected );
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 }}
+#endif // CPPWAMP_TEST_HAS_ALTERNATE_TRANSPORT
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP Pub-Sub", "[WAMP]" )
+SCENARIO( "WAMP Pub-Sub", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
-    AsioService iosvc;
-    auto cnct = tcp(iosvc);
+    AsioContext ioctx;
+    auto cnct = tcp(ioctx);
 
     WHEN( "publishing and subscribing" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(iosvc, cnct);
+            PubSubFixture f(ioctx, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -806,15 +838,14 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK(( f.dynamicArgs == Array{"five", 5} ));
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "subscribing basic events" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            PublicationId pid = 0;
-            PubSubFixture f(iosvc, cnct);
+            PubSubFixture f(ioctx, cnct);
             f.join(yield);
             f.staticSub = f.subscriber->subscribe(
                 Topic("str.num"),
@@ -830,25 +861,25 @@ GIVEN( "an IO service and a TCP connector" )
                 f.subscriber->suspend(yield);
             CHECK(( f.staticArgs == Array{"one", 1} ));
         });
-        iosvc.run();
+        ioctx.run();
     }
 }}
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP Subscription Lifetimes", "[WAMP]" )
+SCENARIO( "WAMP Subscription Lifetimes", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
-    AsioService iosvc;
-    auto cnct = tcp(iosvc);
+    AsioContext ioctx;
+    auto cnct = tcp(ioctx);
 
     WHEN( "unsubscribing multiple times" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(iosvc, cnct);
+            PubSubFixture f(ioctx, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -887,15 +918,15 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( f.otherPubs.back() == pid );
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "unsubscribing after session is destroyed" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(iosvc, cnct);
+            PubSubFixture f(ioctx, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -921,15 +952,15 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( f.otherPubs.back() == pid );
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "unsubscribing after leaving" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(iosvc, cnct);
+            PubSubFixture f(ioctx, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -957,15 +988,15 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( f.otherPubs.back() == pid );
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "unsubscribing after disconnecting" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(iosvc, cnct);
+            PubSubFixture f(ioctx, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -993,15 +1024,15 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( f.otherPubs.back() == pid );
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "unsubscribing after reset" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(iosvc, cnct);
+            PubSubFixture f(ioctx, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -1024,14 +1055,14 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( f.otherPubs.back() == pid );
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "moving a ScopedSubscription" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            PubSubFixture f(iosvc, cnct);
+            PubSubFixture f(ioctx, cnct);
             f.join(yield);
             f.subscribe(yield);
 
@@ -1078,26 +1109,26 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( f.staticPubs.size() == 3 ); // staticPubs count the same
             CHECK( f.otherPubs.size() == 2 );
         });
-        iosvc.run();
+        ioctx.run();
     }
 }}
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP RPCs", "[WAMP]" )
+SCENARIO( "WAMP RPCs", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
-    AsioService iosvc;
-    auto cnct = tcp(iosvc);
+    AsioContext ioctx;
+    auto cnct = tcp(ioctx);
 
     WHEN( "calling remote procedures taking dynamically-typed args" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             Result result;
             std::error_code ec;
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1138,16 +1169,16 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( f.dynamicCount == 3 );
             CHECK(( result.args() == Array{"four", 4} ));
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "calling remote procedures taking statically-typed args" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             Result result;
             std::error_code ec;
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1187,16 +1218,16 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( f.staticCount == 3 );
             CHECK(( result.args() == Array{"four", 4} ));
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "calling basic remote procedures" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             Result result;
             std::error_code ec;
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
 
             f.staticReg = f.callee->enroll(
@@ -1247,25 +1278,25 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( f.staticCount == 3 );
             CHECK(( result.args() == Array{4} ));
         });
-        iosvc.run();
+        ioctx.run();
     }
 }}
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP Registation Lifetimes", "[WAMP]" )
+SCENARIO( "WAMP Registation Lifetimes", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
-    AsioService iosvc;
-    auto cnct = tcp(iosvc);
+    AsioContext ioctx;
+    auto cnct = tcp(ioctx);
 
     WHEN( "unregistering after a session is destroyed" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1292,15 +1323,15 @@ GIVEN( "an IO service and a TCP connector" )
             f.caller->call(Rpc("dynamic").withArgs("two", 2), yield, &ec);
             CHECK( ec == SessionErrc::noSuchProcedure );
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "unregistering after leaving" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1329,15 +1360,15 @@ GIVEN( "an IO service and a TCP connector" )
             f.caller->call(Rpc("dynamic").withArgs("two", 2), yield, &ec);
             CHECK( ec == SessionErrc::noSuchProcedure );
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "unregistering after disconnecting" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1366,15 +1397,15 @@ GIVEN( "an IO service and a TCP connector" )
             f.caller->call(Rpc("dynamic").withArgs("two", 2), yield, &ec);
             CHECK( ec == SessionErrc::noSuchProcedure );
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "unregistering after reset" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1398,13 +1429,13 @@ GIVEN( "an IO service and a TCP connector" )
             f.caller->call(Rpc("dynamic").withArgs("two", 2), yield, &ec);
             CHECK( ec == SessionErrc::noSuchProcedure );
         });
-        iosvc.run();
+        ioctx.run();
     }
     WHEN( "moving a ScopedRegistration" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1438,22 +1469,22 @@ GIVEN( "an IO service and a TCP connector" )
                                          yield) );
             CHECK( f.staticCount == 1 );
         });
-        iosvc.run();
+        ioctx.run();
     }
 }
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Nested WAMP RPCs and Events", "[WAMP]" )
+SCENARIO( "Nested WAMP RPCs and Events", "[WAMP][Basic]" )
 {
 GIVEN( "these test fixture objects" )
 {
     using Yield = boost::asio::yield_context;
 
-    AsioService iosvc;
-    auto cnct = tcp(iosvc);
-    auto session1 = CoroSession<>::create(iosvc, cnct);
-    auto session2 = CoroSession<>::create(iosvc, cnct);
+    AsioContext ioctx;
+    auto cnct = tcp(ioctx);
+    auto session1 = CoroSession<>::create(ioctx, cnct);
+    auto session2 = CoroSession<>::create(ioctx, cnct);
 
     // Regular RPC handler
     auto upperify = [](Invocation, std::string str) -> Outcome
@@ -1475,7 +1506,7 @@ GIVEN( "these test fixture objects" )
             return upper1[0].to<std::string>() + upper2[0].to<std::string>();
         };
 
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             session1->connect(yield);
             session1->join(Realm(testRealm), yield);
@@ -1499,7 +1530,7 @@ GIVEN( "these test fixture objects" )
             session2->disconnect();
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "calling remote procedures within an event handler" )
@@ -1517,7 +1548,7 @@ GIVEN( "these test fixture objects" )
                 upperized = result[0].to<std::string>();
             };
 
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             callee->connect(yield);
             callee->join(Realm(testRealm), yield);
@@ -1538,7 +1569,7 @@ GIVEN( "these test fixture objects" )
             subscriber->disconnect();
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "publishing within an invocation" )
@@ -1547,7 +1578,7 @@ GIVEN( "these test fixture objects" )
         auto subscriber = session2;
 
         std::string upperized;
-        auto onEvent = [&iosvc, &upperized](Event, std::string str)
+        auto onEvent = [&upperized](Event, std::string str)
         {
             upperized = str;
         };
@@ -1562,7 +1593,7 @@ GIVEN( "these test fixture objects" )
                 return Result({upper});
             };
 
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             callee->connect(yield);
             callee->join(Realm(testRealm), yield);
@@ -1583,7 +1614,7 @@ GIVEN( "these test fixture objects" )
             subscriber->disconnect();
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "unregistering within an invocation" )
@@ -1601,7 +1632,7 @@ GIVEN( "these test fixture objects" )
             callee->unregister(reg, yield);
         };
 
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             callee->connect(yield);
             callee->join(Realm(testRealm), yield);
@@ -1624,7 +1655,7 @@ GIVEN( "these test fixture objects" )
             caller->disconnect();
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "publishing within an event" )
@@ -1646,7 +1677,7 @@ GIVEN( "these test fixture objects" )
             upperized = str;
         };
 
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             session1->connect(yield);
             session1->join(Realm(testRealm), yield);
@@ -1666,7 +1697,7 @@ GIVEN( "these test fixture objects" )
             session2->disconnect();
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "unsubscribing within an event" )
@@ -1684,7 +1715,7 @@ GIVEN( "these test fixture objects" )
             subscriber->unsubscribe(sub, yield);
         };
 
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             publisher->connect(yield);
             publisher->join(Realm(testRealm), yield);
@@ -1722,25 +1753,25 @@ GIVEN( "these test fixture objects" )
             subscriber->disconnect();
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 }}
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP Connection Failures", "[WAMP]" )
+SCENARIO( "WAMP Connection Failures", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
 {
-    AsioService iosvc;
-    auto cnct = tcp(iosvc);
-    auto badCnct = invalidTcp(iosvc);
+    AsioContext ioctx;
+    auto cnct = tcp(ioctx);
+    auto badCnct = invalidTcp(ioctx);
 
     WHEN( "connecting to an invalid port" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            auto session = CoroSession<>::create(iosvc, badCnct);
+            auto session = CoroSession<>::create(ioctx, badCnct);
             bool throws = false;
             try
             {
@@ -1759,16 +1790,16 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
             CHECK( ec == TransportErrc::failed );
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "connecting with multiple transports" )
     {
         ConnectorList connectors = {badCnct, cnct};
 
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            auto s = CoroSession<>::create(iosvc, connectors);
+            auto s = CoroSession<>::create(ioctx, connectors);
 
             {
                 // Connect
@@ -1779,7 +1810,7 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
                 // Join
                 SessionInfo info = s->join(Realm(testRealm), yield);
                 CHECK( s->state() == SessionState::established );
-                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
                 REQUIRE( details.count("roles") );
@@ -1802,7 +1833,7 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
                 // Join
                 SessionInfo info = s->join(Realm(testRealm), yield);
                 CHECK( s->state() == SessionState::established );
-                CHECK ( info.id() <= 9007199254740992ull );
+                CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
                 REQUIRE( details.count("roles") );
@@ -1814,24 +1845,24 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
             }
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 }}
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP RPC Failures", "[WAMP]" )
+SCENARIO( "WAMP RPC Failures", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
-    AsioService iosvc;
-    auto cnct = tcp(iosvc);
+    AsioContext ioctx;
+    auto cnct = tcp(ioctx);
 
     WHEN( "registering an already existing procedure" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1847,16 +1878,16 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( ec == SessionErrc::procedureAlreadyExists );
             CHECK( reg.id() == -1 );
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "an RPC returns an error URI" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
             int callCount = 0;
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1896,16 +1927,16 @@ GIVEN( "an IO service and a TCP connector" )
 
             CHECK( callCount == 2 );
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "an RPC throws an error URI" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
             int callCount = 0;
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1946,15 +1977,15 @@ GIVEN( "an IO service and a TCP connector" )
 
             CHECK( callCount == 2 );
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "invoking a statically-typed RPC with invalid argument types" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
             f.enroll(yield);
 
@@ -1975,15 +2006,15 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( ec == SessionErrc::invalidArgument );
             CHECK( f.staticCount == 0 );
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "receiving a statically-typed event with invalid argument types" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             PublicationId pid = 0;
-            PubSubFixture f(iosvc, cnct);
+            PubSubFixture f(ioctx, cnct);
             f.subscriber->setWarningHandler( [](std::string){} );
             f.join(yield);
             f.subscribe(yield);
@@ -2009,15 +2040,15 @@ GIVEN( "an IO service and a TCP connector" )
             REQUIRE( f.staticPubs.size() == 2 );
             CHECK( f.staticPubs.back() == pid );
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "invoking an RPC that throws a wamp::error::BadType exceptions" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            RpcFixture f(iosvc, cnct);
+            RpcFixture f(ioctx, cnct);
             f.join(yield);
 
             f.callee->enroll(
@@ -2090,16 +2121,18 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( ec == SessionErrc::callError );
             CHECK( ec == SessionErrc::invalidArgument );
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "an event handler throws wamp::error::BadType exceptions" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             unsigned warningCount = 0;
-            PubSubFixture f(iosvc, cnct);
-            f.subscriber->setWarningHandler([&](std::string){++warningCount;});
+            PubSubFixture f(ioctx, cnct);
+            f.subscriber->setWarningHandler(
+                [&warningCount](std::string){++warningCount;}
+                );
             f.join(yield);
             f.subscribe(yield);
 
@@ -2137,21 +2170,26 @@ GIVEN( "an IO service and a TCP connector" )
             f.publisher->publish(Pub("bad_access_coro").withArgs(42));
             f.publisher->publish(Pub("other"));
 
-            while (f.otherPubs.empty())
+            while (f.otherPubs.empty() || warningCount < 2)
                 f.subscriber->suspend(yield);
+
+            // The coroutine event handlers will not trigger
+            // warning logs because the error::BadType exeception cannot
+            // be propagated to Client by time it's thrown from within
+            // the coroutine.
             CHECK( warningCount == 2 );
         });
-        iosvc.run();
+        ioctx.run();
     }
 }}
 
 //------------------------------------------------------------------------------
-SCENARIO( "Invalid WAMP URIs", "[WAMP]" )
+SCENARIO( "Invalid WAMP URIs", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
-    AsioService iosvc;
-    auto cnct = tcp(iosvc);
+    AsioContext ioctx;
+    auto cnct = tcp(ioctx);
 
     WHEN( "joining with an invalid realm URI" )
     {
@@ -2245,9 +2283,9 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "joining a non-existing realm" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            auto session = CoroSession<>::create(iosvc, cnct);
+            auto session = CoroSession<>::create(ioctx, cnct);
             session->connect(yield);
 
             bool throws = false;
@@ -2269,31 +2307,31 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( ec == SessionErrc::noSuchRealm );
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 }}
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP Precondition Failures", "[WAMP]" )
+SCENARIO( "WAMP Precondition Failures", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
-    AsioService iosvc;
-    auto cnct = tcp(iosvc);
+    AsioContext ioctx;
+    auto cnct = tcp(ioctx);
 
     WHEN( "constructing a session with an empty connector list" )
     {
-        CHECK_THROWS_AS( Session::create(iosvc, ConnectorList{}),
+        CHECK_THROWS_AS( Session::create(ioctx, ConnectorList{}),
                          error::Logic );
     }
 
     WHEN( "using invalid operations while disconnected" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             std::error_code ec;
-            auto session = CoroSession<>::create(iosvc, cnct);
+            auto session = CoroSession<>::create(ioctx, cnct);
             REQUIRE( session->state() == SessionState::disconnected );
             checkInvalidJoin(session, yield);
             checkInvalidAuthenticate(session, yield);
@@ -2301,18 +2339,18 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidOps(session, yield);
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "using invalid operations while connecting" )
     {
-        auto session = CoroSession<>::create(iosvc, cnct);
+        auto session = CoroSession<>::create(ioctx, cnct);
         session->connect( [](AsyncResult<size_t>){} );
 
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            iosvc.stop();
-            iosvc.reset();
+            ioctx.stop();
+            ioctx.reset();
             REQUIRE( session->state() == SessionState::connecting );
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
@@ -2321,14 +2359,14 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidOps(session, yield);
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "using invalid operations while failed" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            auto session = CoroSession<>::create(iosvc, invalidTcp(iosvc));
+            auto session = CoroSession<>::create(ioctx, invalidTcp(ioctx));
             CHECK_THROWS( session->connect(yield) );
             REQUIRE( session->state() == SessionState::failed );
             checkInvalidJoin(session, yield);
@@ -2337,14 +2375,14 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidOps(session, yield);
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "using invalid operations while closed" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            auto session = CoroSession<>::create(iosvc, cnct);
+            auto session = CoroSession<>::create(ioctx, cnct);
             session->connect(yield);
             REQUIRE( session->state() == SessionState::closed );
             checkInvalidConnect(session, yield);
@@ -2353,23 +2391,23 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidOps(session, yield);
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "using invalid operations while establishing" )
     {
-        auto session = CoroSession<>::create(iosvc, cnct);
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        auto session = CoroSession<>::create(ioctx, cnct);
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             session->connect(yield);
         });
 
-        iosvc.run();
+        ioctx.run();
 
         session->join(Realm(testRealm), [](AsyncResult<SessionInfo>){});
 
-        AsioService iosvc2;
-        boost::asio::spawn(iosvc2, [&](boost::asio::yield_context yield)
+        AsioContext ioctx2;
+        boost::asio::spawn(ioctx2, [&](boost::asio::yield_context yield)
         {
             REQUIRE( session->state() == SessionState::establishing );
             checkInvalidConnect(session, yield);
@@ -2379,14 +2417,14 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidOps(session, yield);
         });
 
-        CHECK_NOTHROW( iosvc2.run() );
+        CHECK_NOTHROW( ioctx2.run() );
     }
 
     WHEN( "using invalid operations while established" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            auto session = CoroSession<>::create(iosvc, cnct);
+            auto session = CoroSession<>::create(ioctx, cnct);
             session->connect(yield);
             session->join(Realm(testRealm), yield);
             REQUIRE( session->state() == SessionState::established );
@@ -2395,25 +2433,25 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidAuthenticate(session, yield);
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "using invalid operations while shutting down" )
     {
-        auto session = CoroSession<>::create(iosvc, cnct);
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        auto session = CoroSession<>::create(ioctx, cnct);
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             session->connect(yield);
             session->join(Realm(testRealm), yield);
-            iosvc.stop();
+            ioctx.stop();
         });
-        iosvc.run();
-        iosvc.reset();
+        ioctx.run();
+        ioctx.reset();
 
         session->leave(Reason(), [](AsyncResult<Reason>){});
 
-        AsioService iosvc2;
-        boost::asio::spawn(iosvc2, [&](boost::asio::yield_context yield)
+        AsioContext ioctx2;
+        boost::asio::spawn(ioctx2, [&](boost::asio::yield_context yield)
         {
             REQUIRE( session->state() == SessionState::shuttingDown );
             checkInvalidConnect(session, yield);
@@ -2422,18 +2460,18 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });
-        CHECK_NOTHROW( iosvc2.run() );
+        CHECK_NOTHROW( ioctx2.run() );
     }
 }}
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP Disconnect/Leave During Async Ops", "[WAMP]" )
+SCENARIO( "WAMP Disconnect/Leave During Async Ops", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
-    AsioService iosvc;
-    auto cnct = tcp(iosvc);
+    AsioContext ioctx;
+    auto cnct = tcp(ioctx);
 
     WHEN( "disconnecting during async join" )
     {
@@ -2628,9 +2666,9 @@ GIVEN( "an IO service and a TCP connector" )
     WHEN( "issuing an asynchronous operation just before leaving" )
     {
         bool published = false;
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            auto s = CoroSession<>::create(iosvc, cnct);
+            auto s = CoroSession<>::create(ioctx, cnct);
             s->connect(yield);
             s->join(Realm(testRealm), yield);
             s->publish(Pub("topic"),
@@ -2639,23 +2677,21 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( s->state() == SessionState::closed );
         });
 
-        iosvc.run();
+        ioctx.run();
         CHECK( published == true );
     }
 }}
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "Outbound Messages are Properly Enqueued", "[WAMP]" )
+SCENARIO( "Outbound Messages are Properly Enqueued", "[WAMP][Basic]" )
 {
 GIVEN( "these test fixture objects" )
 {
-    using Yield = boost::asio::yield_context;
-
-    AsioService iosvc;
-    auto cnct = tcp(iosvc);
-    auto session1 = CoroSession<>::create(iosvc, cnct);
-    auto session2 = CoroSession<>::create(iosvc, cnct);
+    AsioContext ioctx;
+    auto cnct = tcp(ioctx);
+    auto session1 = CoroSession<>::create(ioctx, cnct);
+    auto session2 = CoroSession<>::create(ioctx, cnct);
 
     WHEN( "an RPC is invoked while a large event payload is being transmitted" )
     {
@@ -2668,7 +2704,7 @@ GIVEN( "these test fixture objects" )
         for (size_t i=0; i<largeString.length(); ++i)
             largeString[i] = '0' + (i % 64);
 
-        auto onEvent = [&iosvc, &eventString](Event, std::string str)
+        auto onEvent = [&eventString](Event, std::string str)
         {
             eventString = std::move(str);
         };
@@ -2688,7 +2724,7 @@ GIVEN( "these test fixture objects" )
                 return Result();
             };
 
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             callee->connect(yield);
             callee->join(Realm(testRealm), yield);
@@ -2722,9 +2758,9 @@ GIVEN( "these test fixture objects" )
             subscriber->disconnect();
         });
 
-        iosvc.run();
+        ioctx.run();
     }
 }
 }
 
-#endif // #if CPPWAMP_TESTING_WAMP
+#endif // defined(CPPWAMP_TEST_HAS_CORO) && defined(CPPWAMP_TEST_HAS_SERIALIZER)

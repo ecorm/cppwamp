@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,12 +10,14 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains the declaration of the Connector abstract base class. */
+    @brief Contains the declaration of the Connector abstract base class. */
 //------------------------------------------------------------------------------
 
 #include <functional>
 #include <memory>
+#include <system_error>
 #include <vector>
+#include "api.hpp"
 
 namespace wamp
 {
@@ -34,7 +36,7 @@ namespace internal {class ClientInterface;}
     establish a connection to the router.
     @see connector */
 //------------------------------------------------------------------------------
-class Connector : public std::enable_shared_from_this<Connector>
+class CPPWAMP_API Connector : public std::enable_shared_from_this<Connector>
 {
 public:
     /// Shared pointer to a Connector
@@ -55,7 +57,7 @@ protected:
     /** Starts establishing a transport connection. */
     virtual void establish(Handler handler) = 0;
 
-    /** Cancels a transport connection is progress.
+    /** Cancels a transport connection in progress.
         A TransportErrc::aborted error code will be returned via the
         Connector::establish asynchronous handler. */
     virtual void cancel() = 0;

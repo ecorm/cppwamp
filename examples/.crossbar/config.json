@@ -71,11 +71,11 @@
                 {
                     "type": "rawsocket",
                     "endpoint": {
-                        "type": "unix",
-                        "path": "./uds-examples"
+                        "type": "tcp",
+                        "port": 54321
                     },
                     "serializers": [
-                        "msgpack"
+                        "json"
                     ],
                     "debug": true
                 }

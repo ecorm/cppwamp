@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -9,14 +9,15 @@
 #include <ctime>
 #include <iostream>
 #include <boost/asio/steady_timer.hpp>
-#include <cppwamp/conversion.hpp>
-#include <cppwamp/corosession.hpp>
-#include <cppwamp/msgpack.hpp>
-#include <cppwamp/uds.hpp>
+#include <cppwamp/json.hpp>
+#include <cppwamp/tcp.hpp>
+#include <cppwamp/unpacker.hpp>
+#include <cppwamp/variant.hpp>
+#include <cppwamp/coro/corosession.hpp>
 
 const std::string realm = "cppwamp.demo.time";
-const std::string udsPath1 = "./.crossbar/uds-examples";
-const std::string udsPath2 = "../.crossbar/uds-examples";
+const std::string address = "localhost";
+const short port = 54321u;
 
 //------------------------------------------------------------------------------
 namespace wamp
@@ -48,13 +49,12 @@ std::tm getTime()
 int main()
 {
     using namespace wamp;
-    AsioService iosvc;
-    auto uds1 = connector<Msgpack>(iosvc, UdsPath(udsPath1));
-    auto uds2 = connector<Msgpack>(iosvc, UdsPath(udsPath2));
-    auto session = CoroSession<>::create(iosvc, {uds1, uds2});
-    boost::asio::steady_timer timer(iosvc);
+    AsioContext ioctx;
+    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
+    auto session = CoroSession<>::create(ioctx, tcp);
+    boost::asio::steady_timer timer(ioctx);
 
-    boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
         session->connect(yield);
         session->join(Realm(realm), yield);
@@ -75,7 +75,7 @@ int main()
         }
     });
 
-    iosvc.run();
+    ioctx.run();
 
     return 0;
 }

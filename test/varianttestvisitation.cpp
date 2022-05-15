@@ -5,12 +5,10 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_VARIANT
-
 #include <cstdlib>
 #include <limits>
 #include <type_traits>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 
 using namespace wamp;
@@ -187,5 +185,3 @@ GIVEN( "assorted pairs of variants" )
     checkBinaryVisitation(Object{ {"",Object{}} });
 }
 }
-
-#endif // #if CPPWAMP_TESTING_VARIANT

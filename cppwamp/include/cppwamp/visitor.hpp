@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,10 +10,14 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains facilities for applying _static visitors_ to Variant objects . */
+    @brief Contains facilities for applying _static visitors_
+           to Variant objects . */
 //------------------------------------------------------------------------------
 
+#include <cassert>
 #include <type_traits>
+#include <utility>
+#include "api.hpp"
 
 namespace wamp
 {
@@ -23,7 +27,7 @@ namespace wamp
     @ref StaticVisitor. */
 //------------------------------------------------------------------------------
 template <typename TResult = void>
-class Visitor
+class CPPWAMP_API Visitor
 {
 public:
     /** The return type for all of the visitor's dispatch functions. */
@@ -46,7 +50,7 @@ using ResultTypeOf = typename std::remove_reference<TVisitor>::type::Result;
     @relates Variant */
 //------------------------------------------------------------------------------
 template <typename V, typename T>
-ResultTypeOf<V> apply(V&& visitor, T&& variant);
+CPPWAMP_API ResultTypeOf<V> apply(V&& visitor, T&& variant);
 
 //------------------------------------------------------------------------------
 /** Applies the given _binary visitor_ functor to the two given variants.
@@ -56,7 +60,8 @@ ResultTypeOf<V> apply(V&& visitor, T&& variant);
     @relates Variant */
 //------------------------------------------------------------------------------
 template <typename V, typename L, typename R>
-ResultTypeOf<V> apply(V&& visitor, L&& leftVariant, R&& rightVariant);
+CPPWAMP_API ResultTypeOf<V> apply(V&& visitor, L&& leftVariant,
+                                  R&& rightVariant);
 
 //------------------------------------------------------------------------------
 /** Applies the given _static visitor_ functor, with an operand value, to the
@@ -67,13 +72,90 @@ ResultTypeOf<V> apply(V&& visitor, L&& leftVariant, R&& rightVariant);
     @relates Variant */
 //------------------------------------------------------------------------------
 template <typename V, typename T, typename O>
-ResultTypeOf<V> applyWithOperand(V&& visitor, T&& variant, O&& operand);
+CPPWAMP_API ResultTypeOf<V> applyWithOperand(V&& visitor, T&& variant,
+                                             O&& operand);
 
 /// @}
 
 
-} // namespace wamp
+//******************************************************************************
+// Visitation implementations
+//******************************************************************************
 
-#include "internal/visitor.ipp"
+//------------------------------------------------------------------------------
+template <typename V, typename T>
+ResultTypeOf<V> apply(V&& visitor, T&& variant)
+{
+    using I = decltype(variant.typeId());
+    switch (variant.typeId())
+    {
+    case I::null:    return visitor(variant.template as<I::null>());
+    case I::boolean: return visitor(variant.template as<I::boolean>());
+    case I::integer: return visitor(variant.template as<I::integer>());
+    case I::uint:    return visitor(variant.template as<I::uint>());
+    case I::real:    return visitor(variant.template as<I::real>());
+    case I::string:  return visitor(variant.template as<I::string>());
+    case I::blob:    return visitor(variant.template as<I::blob>());
+    case I::array:   return visitor(variant.template as<I::array>());
+    case I::object:  return visitor(variant.template as<I::object>());
+    default:         assert(false);
+    }
+
+    // Unreachable. Return null case to silence warning.
+    return visitor(variant.template as<I::null>());
+}
+
+//------------------------------------------------------------------------------
+template <typename V, typename L, typename R>
+ResultTypeOf<V> apply(V&& v, L&& l, R&& r)
+{
+    using std::forward;
+    using I = decltype(l.typeId());
+
+    switch(r.typeId())
+    {
+    case I::null:    return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::null>());
+    case I::boolean: return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::boolean>());
+    case I::integer: return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::integer>());
+    case I::uint:    return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::uint>());
+    case I::real:    return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::real>());
+    case I::string:  return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::string>());
+    case I::blob:    return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::blob>());
+    case I::array:   return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::array>());
+    case I::object:  return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::object>());
+    default:         assert(false);
+    }
+
+    // Unreachable. Return null case to silence warning.
+    return applyWithOperand(forward<V>(v), forward<L>(l),
+                            r.template as<I::null>());
+}
+
+//------------------------------------------------------------------------------
+template <typename V, typename T, typename O>
+ResultTypeOf<V> applyWithOperand(V&& v, T&& l, O&& o)
+{
+    using std::forward;
+    using I = decltype(l.typeId());
+
+    switch(l.typeId())
+    {
+    case I::null:    return v(l.template as<I::null>(),    forward<O>(o));
+    case I::boolean: return v(l.template as<I::boolean>(), forward<O>(o));
+    case I::integer: return v(l.template as<I::integer>(), forward<O>(o));
+    case I::uint:    return v(l.template as<I::uint>(),    forward<O>(o));
+    case I::real:    return v(l.template as<I::real>(),    forward<O>(o));
+    case I::string:  return v(l.template as<I::string>(),  forward<O>(o));
+    case I::blob:    return v(l.template as<I::blob>(),    forward<O>(o));
+    case I::array:   return v(l.template as<I::array>(),   forward<O>(o));
+    case I::object:  return v(l.template as<I::object>(),  forward<O>(o));
+    default:         assert(false);
+    }
+
+    // Unreachable. Return null case to silence warning.
+    return v(l.template as<I::null>(), forward<O>(o));
+}
+
+} // namespace wamp
 
 #endif // CPPWAMP_VISITOR_HPP

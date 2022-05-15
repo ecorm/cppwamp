@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,35 +10,80 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains facilities for creating Unix domain socket transport connectors. */
+    @brief Contains facilities for creating Unix domain socket
+           transport connectors. */
 //------------------------------------------------------------------------------
 
+#include <cassert>
 #include <memory>
 #include <string>
+#include <utility>
+#include "api.hpp"
 #include "asiodefs.hpp"
 #include "connector.hpp"
+#include "traits.hpp"
 #include "udspath.hpp"
+
+#ifndef CPPWAMP_COMPILED_LIB
+#include "internal/asioconnector.hpp"
+#include "internal/rawsockconnector.hpp"
+#include "internal/udsopener.hpp"
+#endif
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
 /** Creates a Connector that can establish a Unix domain socket transport.
+
+    This overload takes an executor that is convertible to
+    the boost::asio::any_io_executor polymorphic wrapper.
+
     @relates UdsPath
     @returns a `std::shared_ptr` to a Connector
     @tparam TCodec The serialization to use over this transport.
     @see Connector, Json, Msgpack */
 //------------------------------------------------------------------------------
 template <typename TCodec>
-Connector::Ptr connector(
-    AsioService& iosvc, ///< The I/O service to be used by the transport.
-    UdsPath host        ///< Unix domain socket path and other socket options.
+CPPWAMP_API Connector::Ptr connector(
+    AnyExecutor exec, ///< The executor to be used by the transport.
+    UdsPath path      ///< Unix domain socket path and other socket options.
 );
 
-} // namespace wamp
-
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/uds.ipp"
+template <typename TCodec>
+CPPWAMP_API Connector::Ptr connector(AnyExecutor exec, UdsPath path)
+{
+    using Endpoint = internal::AsioConnector<internal::UdsOpener>;
+    using ConcreteConnector = internal::RawsockConnector<TCodec, Endpoint>;
+    return ConcreteConnector::create(exec, std::move(path));
+}
 #endif
+
+
+//------------------------------------------------------------------------------
+/** Creates a Connector that can establish a TCP raw socket transport.
+
+    Only participates in overload resolution when
+    `isExecutionContext<TExecutionContext>() == true`
+
+    @relates TcpHost
+    @returns a `std::shared_ptr` to a Connector
+    @tparam TCodec The serialization to use over this transport.
+    @tparam TExecutionContext The given execution context type (deduced).
+    @see Connector, Json, Msgpack */
+//------------------------------------------------------------------------------
+template <typename TCodec, typename TExecutionContext>
+CPPWAMP_ENABLED_TYPE(Connector::Ptr, isExecutionContext<TExecutionContext>())
+connector(
+    TExecutionContext& context, /**< The I/O context containing the executor
+                                     to be used by the transport. */
+    UdsPath path ///< Unix domain socket path and other socket options.
+)
+{
+    return connector<TCodec>(context.get_executor(), std::move(path));
+}
+
+} // namespace wamp
 
 #endif // CPPWAMP_UDS_HPP

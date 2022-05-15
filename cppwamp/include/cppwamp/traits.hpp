@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -11,11 +11,22 @@
 #include <tuple>
 #include <type_traits>
 #include <vector>
+#include "api.hpp"
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains general-purpose type traits. */
+    @brief Contains general-purpose type traits. */
 //------------------------------------------------------------------------------
+
+/* Hides EnableIf decorations in order to keep the generated Doxygen
+   documentation clean. */
+#ifdef CPPWAMP_FOR_DOXYGEN
+#define CPPWAMP_ENABLE_IF(cond)
+#define CPPWAMP_ENABLED_TYPE(type, cond) type
+#else
+#define CPPWAMP_ENABLE_IF(cond) EnableIf<(cond)>
+#define CPPWAMP_ENABLED_TYPE(type, cond) EnableIf<(cond), type>
+#endif
 
 namespace wamp
 {
@@ -37,18 +48,20 @@ using DisableIf = typename std::enable_if<!B,T>::type;
     passed by universal reference. */
 //------------------------------------------------------------------------------
 template <typename T>
-using ValueTypeOf = typename std::decay<T>::type;
+using ValueTypeOf =
+    typename std::remove_cv<typename std::remove_reference<T>::type>::type;
 
 //------------------------------------------------------------------------------
 /** Determines if a type is the same as another. */
 //------------------------------------------------------------------------------
 template<typename T, typename U>
-constexpr bool isSameType() {return std::is_same<T, U>::value;}
+CPPWAMP_API constexpr bool isSameType() {return std::is_same<T, U>::value;}
 
 //------------------------------------------------------------------------------
 /** Determines if the given type is considered a boolean. */
 //------------------------------------------------------------------------------
-template <typename T> constexpr bool isBool()
+template <typename T>
+CPPWAMP_API constexpr bool isBool()
 {
     // std::vector<bool>::const_reference is not just bool in clang/libc++.
     return isSameType<T, bool>() ||
@@ -61,7 +74,8 @@ template <typename T> constexpr bool isBool()
     @note To be consitent with Javascript's strict equality, a boolean is not
     considered a number, */
 //------------------------------------------------------------------------------
-template <typename T> constexpr bool isNumber()
+template <typename T>
+CPPWAMP_API constexpr bool isNumber()
 {
     return std::is_arithmetic<T>::value && !isSameType<T, bool>();
 }
@@ -69,7 +83,8 @@ template <typename T> constexpr bool isNumber()
 //------------------------------------------------------------------------------
 /** Determines if the given type is a signed integer. */
 //------------------------------------------------------------------------------
-template <typename T> constexpr bool isSignedInteger()
+template <typename T>
+CPPWAMP_API constexpr bool isSignedInteger()
 {
     return std::is_integral<T>::value && std::is_signed<T>::value &&
            !isSameType<T, bool>();
@@ -78,7 +93,8 @@ template <typename T> constexpr bool isSignedInteger()
 //------------------------------------------------------------------------------
 /** Determines if the given type is an unsigned integer. */
 //------------------------------------------------------------------------------
-template <typename T> constexpr bool isUnsignedInteger()
+template <typename T>
+CPPWAMP_API constexpr bool isUnsignedInteger()
 {
     return std::is_integral<T>::value && !std::is_signed<T>::value &&
            !isSameType<T, bool>();
@@ -107,35 +123,5 @@ using TrueType = BoolConstant<true>;
 using FalseType = BoolConstant<false>;
 
 } // namespace wamp
-
-//------------------------------------------------------------------------------
-/** Generates a metafunction that checks for the presence of a member.
-    Adapted from
-    http://en.wikibooks.org/wiki/More_C%2B%2B_Idioms/Member_Detector. */
-//------------------------------------------------------------------------------
-#define CPPWAMP_GENERATE_HAS_MEMBER(member)                             \
-                                                                        \
-template <typename T>                                                   \
-class HasMember_##member                                                \
-{                                                                       \
-private:                                                                \
-    using Yes = char[2];                                                \
-    using  No = char[1];                                                \
-                                                                        \
-    struct Fallback { int member; };                                    \
-    struct Derived : T, Fallback { };                                   \
-                                                                        \
-    template <typename U> static No& test ( decltype(U::member)* );     \
-    template <typename U> static Yes& test ( U* );                      \
-                                                                        \
-public:                                                                 \
-    static constexpr bool result =                                      \
-        sizeof(test<Derived>(nullptr)) == sizeof(Yes);                  \
-};                                                                      \
-                                                                        \
-template < class T >                                                    \
-struct has_member_##member                                              \
-: public std::integral_constant<bool, HasMember_##member<T>::result>    \
-{};
 
 #endif // CPPWAMP_TRAITS_HPP

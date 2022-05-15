@@ -5,9 +5,7 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_VARIANT
-
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <boost/optional/optional_io.hpp>
 #include <cppwamp/types/boostoptional.hpp>
 
@@ -130,5 +128,3 @@ GIVEN( "non empty variants and optionals" )
     checkDifferent( Variant("42"), optional<String>("") );
 }
 }
-
-#endif // #if CPPWAMP_TESTING_VARIANT

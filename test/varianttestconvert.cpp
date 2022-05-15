@@ -5,12 +5,10 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_VARIANT
-
 #include <cstdlib>
 #include <limits>
 #include <type_traits>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 
 using namespace wamp;
@@ -156,9 +154,9 @@ GIVEN( "UInt Variants" )
         checkConvert(Variant((UInt)-1), true, (unsigned char)-1,
                      (signed short)-1, -1u, -1l, -1ull);
         CHECK( Variant((UInt)-1).to<float>() ==
-               Approx(1.845e19).epsilon(0.001e19));
+               Approx(1.845e19).epsilon(0.001));
         CHECK( Variant((UInt)-1).to<double>() ==
-               Approx(1.845e19).epsilon(0.001e19));
+               Approx(1.845e19).epsilon(0.001));
     }
     WHEN ( "converted to invalid types" )
     {
@@ -356,5 +354,3 @@ GIVEN( "an assortment of variants" )
     }
 }
 }
-
-#endif // #if CPPWAMP_TESTING_VARIANT

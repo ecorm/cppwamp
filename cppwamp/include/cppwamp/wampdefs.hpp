@@ -1,16 +1,16 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+            Copyright Butterfly Energy Systems 2014-2015, 2018, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_SESSION_STATE_HPP
-#define CPPWAMP_SESSION_STATE_HPP
+#ifndef CPPWAMP_WAMPDEFS_HPP
+#define CPPWAMP_WAMPDEFS_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains type definitions related to WAMP IDs and sessions. */
+    @brief Contains type definitions related to WAMP IDs and sessions. */
 //------------------------------------------------------------------------------
 
 #include <cstdint>
@@ -51,4 +51,4 @@ enum class CancelMode
 
 } // namespace wamp
 
-#endif // CPPWAMP_SESSION_STATE_HPP
+#endif // CPPWAMP_WAMPDEFS_HPP

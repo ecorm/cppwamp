@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -8,6 +8,7 @@
 #ifndef CPPWAMP_PEERDATA_HPP
 #define CPPWAMP_PEERDATA_HPP
 
+#include "api.hpp"
 #include "options.hpp"
 #include "payload.hpp"
 #include "variant.hpp"
@@ -15,7 +16,7 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains declarations for data types exchanged with WAMP sessions. */
+    @brief Contains declarations for data types exchanged with WAMP sessions. */
 //------------------------------------------------------------------------------
 
 namespace wamp
@@ -25,7 +26,7 @@ namespace wamp
 /** Provides the _reason_ URI and other options contained within
     `GOODBYE` messages. */
 //------------------------------------------------------------------------------
-class Reason : public Options<Reason>
+class CPPWAMP_API Reason : public Options<Reason>
 {
 public:
     /** Converting constructor taking an optional reason URI. */
@@ -45,7 +46,7 @@ public:
 /** Provides the _reason_ URI, options, and payload arguments contained
     within WAMP `ERROR` messages. */
 //------------------------------------------------------------------------------
-class Error : public Options<Error>, public Payload<Error>
+class CPPWAMP_API Error : public Options<Error>, public Payload<Error>
 {
 public:
     /** Constructs an empty error. */
@@ -78,7 +79,7 @@ public:
 /** Provides the _AuthMethod_ and _Extra_ dictionary contained within
     WAMP `CHALLENGE` messages. */
 //------------------------------------------------------------------------------
-class Challenge : public Options<Challenge>
+class CPPWAMP_API Challenge : public Options<Challenge>
 {
 public:
     /** Constructs an empty challenge. */
@@ -94,14 +95,14 @@ private:
     String method_;
 
 public:
-    String& method(internal::PassKey); // Internal use only
+    CPPWAMP_HIDDEN String& method(internal::PassKey); // Internal use only
 };
 
 //------------------------------------------------------------------------------
 /** Provides the _Signature_ and _Extra_ dictionary contained within
     WAMP `AUTHENTICATE` messages. */
 //------------------------------------------------------------------------------
-class Authentication : public Options<Authentication>
+class CPPWAMP_API Authentication : public Options<Authentication>
 {
 public:
     /** Constructs an empty challenge. */

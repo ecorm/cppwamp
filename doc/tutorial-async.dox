@@ -1,0 +1,122 @@
+/*------------------------------------------------------------------------------
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
+           Distributed under the Boost Software License, Version 1.0.
+              (See accompanying file LICENSE_1_0.txt or copy at
+                    http://www.boost.org/LICENSE_1_0.txt)
+------------------------------------------------------------------------------*/
+
+/**
+@page AsyncTutorial Asynchronous API
+
+@tableofcontents
+
+The `wamp::Session` class provides an asynchronous API that should be familiar
+to those who have used Boost.Asio. Wherever wamp::CoroSession expects a yield
+context parameter, wamp::Session instead expects a callable entity that is
+invoked when the asynchronous operation is completed.
+
+For asynchronous operations that can fail, `Session` expects a handler taking
+an @ref wamp::AsyncResult "wamp::AsyncResult<T>" as a parameter.
+`AsyncResult<T>` makes it hard for handlers to ignore error conditions
+when accessing the result of an asynchronous operation.
+
+The following example shows how to establish a connection using the
+asynchronous `Session` API:
+
+```
+#include <cppwamp/session.hpp>
+#include <cppwamp/json.hpp>
+#include <cppwamp/tcp.hpp>
+using namespace wamp;
+
+int main()
+{
+    AsioContext ioctx;
+    auto tcp = connector<Json>(ioctx, TcpHost("localhost", 8001));
+
+    auto session = Session::create(ioctx, tcp);
+
+    // Asynchronously connect to the router, using a lambda function for
+    // the handler
+    session->connect( [](AsyncResult<size_t> result)
+    {
+        // Obtain the result of the connect operation, which is the index of
+        // the connector used to establish the transport connection.
+        // AsyncResult::get throws an error::Session exception if the
+        // operation failed.
+        auto index = result.get();
+    });
+
+    ioctx.run();
+    return 0;
+}
+```
+
+Instead of letting wamp::AsyncResult::get throw an exception upon failure,
+@ref wamp::AsyncResult::operator bool() and wamp::AsyncResult::errorCode can be
+used to check the error status of an asynchronous operation:
+
+```
+using namespace wamp;
+session->connect( [](AsyncResult<size_t> result)
+{
+    if (result)
+    {
+        auto index = result.get();
+        // Continue as normal...
+    }
+    else
+    {
+        std::cerr << "Failure connecting: " << result.errorCode() << "\n";
+    }
+});
+```
+
+The following example shows how to call member functions within asynchronous
+handlers, and how to chain one asynchronous operation after another:
+
+```
+using namespace wamp;
+
+class App
+{
+public:
+    explicit App(wamp::Connector::Ptr connector)
+        : session_(wamp::Session::create(connector))
+    {}
+
+    void start()
+    {
+        session_->connect( [this](wamp::AsyncHandler<size_t> result)
+        {
+            result.get(); // throws if connection failed
+            this->join();
+        });
+    }
+
+private:
+    void join()
+    {
+        session_->join(Realm("somerealm"),
+            [this](wamp::AsyncHandler<wamp::SessionInfo> result)
+            {
+                sessionInfo_ = result.get();
+                // Continue with other asynchronous operations...
+            }
+        );
+    }
+
+    wamp::Session::Ptr session_;
+    wamp::SessionInfo sessionInfo_;
+};
+```
+
+With this asynchronous style of programming, it is not immediately obvious how
+the program control flows. The coroutine-based API is therefore useful in
+implementing asynchronous logic in a more synchronous, sequential manner.
+
+- - -
+
+Next: @ref ConversionsTutorial
+
+*/

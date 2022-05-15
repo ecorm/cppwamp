@@ -1,14 +1,15 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
+#include "../error.hpp"
 #include <map>
 #include <sstream>
 #include <type_traits>
-#include "config.hpp"
+#include "../api.hpp"
 
 namespace wamp
 {
@@ -80,6 +81,25 @@ CPPWAMP_INLINE void Logic::check(
     if (!condition)
         raise(file, line, msg);
 }
+
+//------------------------------------------------------------------------------
+// error::BadType exception and its subclasses
+//------------------------------------------------------------------------------
+
+CPPWAMP_INLINE BadType::BadType(const std::string& what)
+    : std::runtime_error(what)
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Access::Access(const std::string& from, const std::string& to)
+    : BadType("wamp::error::Access: "
+              "Attemping to access field type " + from + " as " + to)
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Conversion::Conversion(const std::string& what)
+    : BadType("wamp::error::Conversion: " + what)
+{}
 
 
 } // namespace error

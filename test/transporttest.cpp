@@ -5,10 +5,9 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_TRANSPORT
-
 #include <set>
 #include <thread>
+#include <cppwamp/codec.hpp>
 #include <cppwamp/internal/asioconnector.hpp>
 #include <cppwamp/internal/asiolistener.hpp>
 #include <cppwamp/internal/tcpopener.hpp>
@@ -26,8 +25,12 @@ using UdsAsioConnector = internal::AsioConnector<internal::UdsOpener>;
 using UdsAsioListener  = internal::AsioListener<internal::UdsAcceptor>;
 using TcpTransport     = TcpAsioConnector::Transport;
 using UdsTransport     = UdsAsioConnector::Transport;
+using RML              = RawsockMaxLength;
 
 using CodecIds = std::set<int>;
+
+static constexpr auto jsonId = KnownCodecIds::json();
+static constexpr auto msgpackId = KnownCodecIds::msgpack();
 
 namespace
 {
@@ -39,17 +42,18 @@ struct TcpLoopbackFixture :
 {
     TcpLoopbackFixture(
                 bool connected = true,
-                int clientCodec = Json::id(),
-                CodecIds serverCodecs = {Json::id()},
-                RawsockMaxLength clientMaxRxLength = RawsockMaxLength::kB_64,
-                RawsockMaxLength serverMaxRxLength = RawsockMaxLength::kB_64 )
+                int clientCodec = jsonId,
+                CodecIds serverCodecs = {jsonId},
+                RawsockMaxLength clientMaxRxLength = RML::kB_64,
+                RawsockMaxLength serverMaxRxLength = RML::kB_64 )
         : LoopbackFixture(
               clientService,
               serverService,
-              internal::TcpOpener(clientService, {tcpLoopbackAddr, tcpTestPort}),
+              internal::TcpOpener(clientService.get_executor(),
+                                  {tcpLoopbackAddr, tcpTestPort}),
               clientCodec,
               clientMaxRxLength,
-              internal::TcpAcceptor(serverService, tcpTestPort),
+              internal::TcpAcceptor(serverService.get_executor(), tcpTestPort),
               serverCodecs,
               serverMaxRxLength,
               connected )
@@ -63,17 +67,18 @@ struct UdsLoopbackFixture :
 {
     UdsLoopbackFixture(
                 bool connected = true,
-                int clientCodec = Json::id(),
-                CodecIds serverCodecs = {Json::id()},
-                RawsockMaxLength clientMaxRxLength = RawsockMaxLength::kB_64,
-                RawsockMaxLength serverMaxRxLength = RawsockMaxLength::kB_64 )
+                int clientCodec = jsonId,
+                CodecIds serverCodecs = {jsonId},
+                RawsockMaxLength clientMaxRxLength = RML::kB_64,
+                RawsockMaxLength serverMaxRxLength = RML::kB_64 )
         : LoopbackFixture(
               clientService,
               serverService,
-              internal::UdsOpener(clientService, {udsTestPath}),
+              internal::UdsOpener(clientService.get_executor(), {udsTestPath}),
               clientCodec,
               clientMaxRxLength,
-              internal::UdsAcceptor(serverService, udsTestPath, true),
+              internal::UdsAcceptor(serverService.get_executor(), udsTestPath,
+                                    true),
               serverCodecs,
               serverMaxRxLength,
               connected )
@@ -170,14 +175,14 @@ inline void checkCannedServerHandshake(uint32_t cannedHandshake,
     using AsioConnector = internal::AsioConnector<internal::TcpOpener>;
     using TransportPtr = AsioConnector::TransportPtr;
 
-    AsioService iosvc;
-    internal::TcpAcceptor acpt(iosvc, tcpTestPort);
-    FakeHandshakeAsioListener lstn(std::move(acpt), {Json::id()},
-                                   RawsockMaxLength::kB_64);
+    AsioContext ioctx;
+    internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
+    FakeHandshakeAsioListener lstn(std::move(acpt), {jsonId}, RML::kB_64);
     lstn.setCannedHandshake(cannedHandshake);
 
-    internal::TcpOpener opnr(iosvc, {tcpLoopbackAddr, tcpTestPort});
-    AsioConnector cnct(std::move(opnr), Json::id(), RawsockMaxLength::kB_64);
+    internal::TcpOpener opnr(ioctx.get_executor(),
+                             {tcpLoopbackAddr, tcpTestPort});
+    AsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
 
     lstn.establish( [](std::error_code, int, TransportPtr) {} );
 
@@ -190,7 +195,7 @@ inline void checkCannedServerHandshake(uint32_t cannedHandshake,
             aborted = true;
         });
 
-    CHECK_NOTHROW( iosvc.run() );
+    CHECK_NOTHROW( ioctx.run() );
     CHECK( aborted );
 }
 
@@ -211,14 +216,14 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
     using AsioListener = internal::AsioListener<internal::TcpAcceptor>;
     using TransportPtr = AsioListener::TransportPtr;
 
-    AsioService iosvc;
-    internal::TcpOpener opnr(iosvc, {tcpLoopbackAddr, tcpTestPort});
-    FakeHandshakeAsioConnector cnct(std::move(opnr), Json::id(),
-                                    RawsockMaxLength::kB_64);
+    AsioContext ioctx;
+    internal::TcpOpener opnr(ioctx.get_executor(),
+                             {tcpLoopbackAddr, tcpTestPort});
+    FakeHandshakeAsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
     cnct.setCannedHandshake(cannedHandshake);
 
-    internal::TcpAcceptor acpt(iosvc, tcpTestPort);
-    AsioListener lstn(std::move(acpt), {Json::id()}, RawsockMaxLength::kB_64);
+    internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
+    AsioListener lstn(std::move(acpt), {jsonId}, RML::kB_64);
 
     bool serverAborted = false;
     lstn.establish(
@@ -238,7 +243,7 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
             clientAborted = true;
         });
 
-    CHECK_NOTHROW( iosvc.run() );
+    CHECK_NOTHROW( ioctx.run() );
     CHECK( clientAborted );
     CHECK( serverAborted );
 }
@@ -252,54 +257,52 @@ GIVEN( "an unconnected TCP connector/listener pair" )
 {
     WHEN( "the client and server use JSON" )
     {
-        TcpLoopbackFixture f(false, Json::id(), {Json::id()},
-                    RawsockMaxLength::kB_32, RawsockMaxLength::kB_128 );
-        checkConnection(f, Json::id(), 32*1024, 128*1024);
+        TcpLoopbackFixture f(false, jsonId, {jsonId}, RML::kB_32, RML::kB_128);
+        checkConnection(f, jsonId, 32*1024, 128*1024);
     }
     WHEN( "the client uses JSON and the server supports both" )
     {
-        TcpLoopbackFixture f(false, Json::id(), {Json::id(), Msgpack::id()},
-                    RawsockMaxLength::kB_32, RawsockMaxLength::kB_128 );
-        checkConnection(f, Json::id(), 32*1024, 128*1024);
+        TcpLoopbackFixture f(false, jsonId, {jsonId, msgpackId},
+                             RML::kB_32, RML::kB_128 );
+        checkConnection(f, jsonId, 32*1024, 128*1024);
     }
     WHEN( "the client and server use Msgpack" )
     {
-        TcpLoopbackFixture f(false, Msgpack::id(), {Msgpack::id()},
-                    RawsockMaxLength::kB_32, RawsockMaxLength::kB_128 );
-        checkConnection(f, Msgpack::id(), 32*1024, 128*1024);
+        TcpLoopbackFixture f(false, msgpackId, {msgpackId},
+                             RML::kB_32, RML::kB_128 );
+        checkConnection(f, msgpackId, 32*1024, 128*1024);
     }
     WHEN( "the client uses Msgpack and the server supports both" )
     {
-        TcpLoopbackFixture f(false, Msgpack::id(), {Json::id(), Msgpack::id()},
-                RawsockMaxLength::kB_32, RawsockMaxLength::kB_128 );
-        checkConnection(f, Msgpack::id(), 32*1024, 128*1024);
+        TcpLoopbackFixture f(false, msgpackId, {jsonId, msgpackId},
+                             RML::kB_32, RML::kB_128 );
+        checkConnection(f, msgpackId, 32*1024, 128*1024);
     }
 }
 GIVEN( "an unconnected UDS connector/listener pair" )
 {
     WHEN( "the client and server use JSON" )
     {
-        UdsLoopbackFixture f(false, Json::id(), {Json::id()},
-                    RawsockMaxLength::kB_32, RawsockMaxLength::kB_128 );
-        checkConnection(f, Json::id(), 32*1024, 128*1024);
+        UdsLoopbackFixture f(false, jsonId, {jsonId}, RML::kB_32, RML::kB_128 );
+        checkConnection(f, jsonId, 32*1024, 128*1024);
     }
     WHEN( "the client uses JSON and the server supports both" )
     {
-        UdsLoopbackFixture f(false, Json::id(), {Json::id(), Msgpack::id()},
-                    RawsockMaxLength::kB_32, RawsockMaxLength::kB_128 );
-        checkConnection(f, Json::id(), 32*1024, 128*1024);
+        UdsLoopbackFixture f(false, jsonId, {jsonId, msgpackId},
+                             RML::kB_32, RML::kB_128 );
+        checkConnection(f, jsonId, 32*1024, 128*1024);
     }
     WHEN( "the client and server use Msgpack" )
     {
-        UdsLoopbackFixture f(false, Msgpack::id(), {Msgpack::id()},
-                    RawsockMaxLength::kB_32, RawsockMaxLength::kB_128 );
-        checkConnection(f, Msgpack::id(), 32*1024, 128*1024);
+        UdsLoopbackFixture f(false, msgpackId, {msgpackId},
+                             RML::kB_32, RML::kB_128 );
+        checkConnection(f, msgpackId, 32*1024, 128*1024);
     }
     WHEN( "the client uses Msgpack and the server supports both" )
     {
-        UdsLoopbackFixture f(false, Msgpack::id(), {Json::id(), Msgpack::id()},
-                RawsockMaxLength::kB_32, RawsockMaxLength::kB_128 );
-        checkConnection(f, Msgpack::id(), 32*1024, 128*1024);
+        UdsLoopbackFixture f(false, msgpackId, {jsonId, msgpackId},
+                             RML::kB_32, RML::kB_128 );
+        checkConnection(f, msgpackId, 32*1024, 128*1024);
     }
 }
 }
@@ -405,14 +408,14 @@ SCENARIO( "Cancel listen", "[Transport]" )
     {
         TcpLoopbackFixture f(false);
         checkCancelListen(f);
-        checkConnection(f, Json::id());
+        checkConnection(f, jsonId);
         checkSendReply(f, "Hello", "World");
     }
     GIVEN( "an unconnected UDS listener/connector pair" )
     {
         UdsLoopbackFixture f(false);
         checkCancelListen(f);
-        checkConnection(f, Json::id());
+        checkConnection(f, jsonId);
         checkSendReply(f, "Hello", "World");
     }
 }
@@ -455,14 +458,14 @@ SCENARIO( "Cancel send", "[Transport]" )
 
     GIVEN( "a connected TCP listener/connector pair" )
     {
-        TcpLoopbackFixture f(false, Json::id(), {Json::id()},
-                RawsockMaxLength::MB_16, RawsockMaxLength::MB_16);
+        TcpLoopbackFixture f(false, jsonId, {jsonId},
+                RML::MB_16, RML::MB_16);
         checkCancelSend(f);
     }
     GIVEN( "a connected UDS listener/connector pair" )
     {
-        UdsLoopbackFixture f(false, Json::id(), {Json::id()},
-                RawsockMaxLength::MB_16, RawsockMaxLength::MB_16);
+        UdsLoopbackFixture f(false, jsonId, {jsonId},
+                RML::MB_16, RML::MB_16);
         checkCancelSend(f);
     }
 }
@@ -472,22 +475,22 @@ SCENARIO( "Unsupported serializer", "[Transport]" )
 {
 GIVEN( "a TCP JSON client and a TCP Msgpack server" )
 {
-    TcpLoopbackFixture f(false, Json::id(), {Msgpack::id()});
+    TcpLoopbackFixture f(false, jsonId, {msgpackId});
     checkUnsupportedSerializer(f);
 }
 GIVEN( "a TCP Msgpack client and a TCP JSON server" )
 {
-    TcpLoopbackFixture f(false, Msgpack::id(), {Json::id()});
+    TcpLoopbackFixture f(false, msgpackId, {jsonId});
     checkUnsupportedSerializer(f);
 }
 GIVEN( "a UDS JSON client and a UDS Msgpack server" )
 {
-    UdsLoopbackFixture f(false, Json::id(), {Msgpack::id()});
+    UdsLoopbackFixture f(false, jsonId, {msgpackId});
     checkUnsupportedSerializer(f);
 }
 GIVEN( "a UDS Msgpack client and a UDS JSON server" )
 {
-    UdsLoopbackFixture f(false, Msgpack::id(), {Json::id()});
+    UdsLoopbackFixture f(false, msgpackId, {jsonId});
     checkUnsupportedSerializer(f);
 }
 }
@@ -571,14 +574,14 @@ std::string tooLong(64*1024 + 1, 'A');
 
 GIVEN ( "A server tricked into sending overly long messages to a client" )
 {
-    AsioService iosvc;
-    internal::TcpOpener opnr(iosvc, {tcpLoopbackAddr, tcpTestPort});
-    FakeHandshakeAsioConnector cnct(std::move(opnr), Json::id(),
-                                    RawsockMaxLength::kB_64);
+    AsioContext ioctx;
+    internal::TcpOpener opnr(ioctx.get_executor(),
+                             {tcpLoopbackAddr, tcpTestPort});
+    FakeHandshakeAsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
     cnct.setCannedHandshake(0x7F810000);
 
-    internal::TcpAcceptor acpt(iosvc, tcpTestPort);
-    AsioListener lstn(std::move(acpt), {Json::id()}, RawsockMaxLength::kB_64);
+    internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
+    AsioListener lstn(std::move(acpt), {jsonId}, RML::kB_64);
 
     TransportPtr server;
     TransportPtr client;
@@ -597,8 +600,8 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
             client = std::move(transport);
         });
 
-    CHECK_NOTHROW( iosvc.run() );
-    iosvc.reset();
+    CHECK_NOTHROW( ioctx.run() );
+    ioctx.reset();
     REQUIRE( server );
     REQUIRE( client );
 
@@ -633,7 +636,7 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
 
         THEN( "the client obtains an error while receiving" )
         {
-            CHECK_NOTHROW( iosvc.run() );
+            CHECK_NOTHROW( ioctx.run() );
             CHECK( clientFailed );
             CHECK( serverFailed );
             CHECK_FALSE( client->isOpen() );
@@ -643,14 +646,14 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
 }
 GIVEN ( "A client tricked into sending overly long messages to a server" )
 {
-    AsioService iosvc;
-    internal::TcpAcceptor acpt(iosvc, tcpTestPort);
-    FakeHandshakeAsioListener lstn(std::move(acpt), {Json::id()},
-                                   RawsockMaxLength::kB_64);
+    AsioContext ioctx;
+    internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
+    FakeHandshakeAsioListener lstn(std::move(acpt), {jsonId}, RML::kB_64);
     lstn.setCannedHandshake(0x7F810000);
 
-    internal::TcpOpener opnr(iosvc, {tcpLoopbackAddr, tcpTestPort});
-    AsioConnector cnct(std::move(opnr), Json::id(), RawsockMaxLength::kB_64);
+    internal::TcpOpener opnr(ioctx.get_executor(),
+                             {tcpLoopbackAddr, tcpTestPort});
+    AsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
 
     TransportPtr server;
     TransportPtr client;
@@ -669,8 +672,8 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
             client = std::move(transport);
         });
 
-    CHECK_NOTHROW( iosvc.run() );
-    iosvc.reset();
+    CHECK_NOTHROW( ioctx.run() );
+    ioctx.reset();
     REQUIRE( server );
     REQUIRE( client );
 
@@ -705,7 +708,7 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
 
         THEN( "the server obtains an error while receiving" )
         {
-            CHECK_NOTHROW( iosvc.run() );
+            CHECK_NOTHROW( ioctx.run() );
             CHECK( clientFailed );
             CHECK( serverFailed );
             CHECK_FALSE( client->isOpen() );
@@ -727,13 +730,13 @@ using Buffer           = AsioConnector::Transport::Buffer;
 
 GIVEN ( "A fake server that sends an invalid message type" )
 {
-    AsioService iosvc;
-    internal::TcpAcceptor acpt(iosvc, tcpTestPort);
-    FakeMsgTypeAsioListener lstn(std::move(acpt), {Json::id()},
-                                 RawsockMaxLength::kB_64);
+    AsioContext ioctx;
+    internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
+    FakeMsgTypeAsioListener lstn(std::move(acpt), {jsonId}, RML::kB_64);
 
-    internal::TcpOpener opnr(iosvc, {tcpLoopbackAddr, tcpTestPort});
-    AsioConnector cnct(std::move(opnr), Json::id(), RawsockMaxLength::kB_64);
+    internal::TcpOpener opnr(ioctx.get_executor(),
+                             {tcpLoopbackAddr, tcpTestPort});
+    AsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
 
     FakeTransportPtr server;
     TransportPtr client;
@@ -752,8 +755,8 @@ GIVEN ( "A fake server that sends an invalid message type" )
             client = std::move(transport);
         });
 
-    CHECK_NOTHROW( iosvc.run() );
-    iosvc.reset();
+    CHECK_NOTHROW( ioctx.run() );
+    ioctx.reset();
     REQUIRE( server );
     REQUIRE( client );
 
@@ -789,7 +792,7 @@ GIVEN ( "A fake server that sends an invalid message type" )
 
         THEN( "the client obtains an error while receiving" )
         {
-            CHECK_NOTHROW( iosvc.run() );
+            CHECK_NOTHROW( ioctx.run() );
             CHECK( clientFailed );
             CHECK( serverFailed );
             CHECK_FALSE( client->isOpen() );
@@ -799,13 +802,13 @@ GIVEN ( "A fake server that sends an invalid message type" )
 }
 GIVEN ( "A fake client that sends an invalid message type" )
 {
-    AsioService iosvc;
-    internal::TcpOpener opnr(iosvc, {tcpLoopbackAddr, tcpTestPort});
-    FakeMsgTypeAsioConnector cnct(std::move(opnr), Json::id(),
-                                  RawsockMaxLength::kB_64);
+    AsioContext ioctx;
+    internal::TcpOpener opnr(ioctx.get_executor(),
+                             {tcpLoopbackAddr, tcpTestPort});
+    FakeMsgTypeAsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
 
-    internal::TcpAcceptor acpt(iosvc, tcpTestPort);
-    AsioListener lstn(std::move(acpt), {Json::id()}, RawsockMaxLength::kB_64);
+    internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
+    AsioListener lstn(std::move(acpt), {jsonId}, RML::kB_64);
 
     TransportPtr server;
     FakeTransportPtr client;
@@ -824,8 +827,8 @@ GIVEN ( "A fake client that sends an invalid message type" )
             client = std::static_pointer_cast<FakeTransport>(transport);
         });
 
-    CHECK_NOTHROW( iosvc.run() );
-    iosvc.reset();
+    CHECK_NOTHROW( ioctx.run() );
+    ioctx.reset();
     REQUIRE( server );
     REQUIRE( client );
 
@@ -861,7 +864,7 @@ GIVEN ( "A fake client that sends an invalid message type" )
 
         THEN( "the server obtains an error while receiving" )
         {
-            CHECK_NOTHROW( iosvc.run() );
+            CHECK_NOTHROW( ioctx.run() );
             CHECK( clientFailed );
             CHECK( serverFailed );
             CHECK_FALSE( client->isOpen() );
@@ -870,6 +873,3 @@ GIVEN ( "A fake client that sends an invalid message type" )
     }
 }
 }
-
-#endif // #if CPPWAMP_TESTING_TRANSPORT
-

@@ -8,8 +8,8 @@
 #ifndef CPPWAMP_TEST_FAKETRANSPORT_HPP
 #define CPPWAMP_TEST_FAKETRANSPORT_HPP
 
-#include <cppwamp/json.hpp>
-#include <cppwamp/msgpack.hpp>
+#include <boost/asio/post.hpp>
+#include <cppwamp/codec.hpp>
 #include <cppwamp/internal/asioconnector.hpp>
 #include <cppwamp/internal/asiolistener.hpp>
 #include <cppwamp/internal/asiotransport.hpp>
@@ -38,7 +38,7 @@ public:
     virtual void onHandshakeSent(Handshake) override
     {
         Base::onHandshakeSent(
-            Handshake().setCodecId(Json::id())
+            Handshake().setCodecId(KnownCodecIds::json())
                        .setMaxLength(RawsockMaxLength::kB_64) );
     }
 
@@ -117,7 +117,9 @@ public:
             auto trnsp = FakeMsgTypeTransport::create(std::move(socket_),
                                                       64*1024, 64*1024);
             std::error_code ec = make_error_code(TransportErrc::success);
-            iosvc_.post(std::bind(handler_, ec, Json::id(), std::move(trnsp)));
+            boost::asio::post(executor_,
+                              std::bind(handler_, ec, KnownCodecIds::json(),
+                                        std::move(trnsp)));
             socket_.reset();
             handler_ = nullptr;
         }
@@ -145,12 +147,14 @@ public:
             Base::fail(RawsockErrc::badHandshake);
         else if (hs.reserved() != 0)
             Base::fail(RawsockErrc::reservedBitsUsed);
-        else if (hs.codecId() == Json::id())
+        else if (hs.codecId() == KnownCodecIds::json())
         {
             auto trnsp = FakeMsgTypeTransport::create(std::move(socket_),
                                                       64*1024, 64*1024);
             std::error_code ec = make_error_code(TransportErrc::success);
-            iosvc_.post(std::bind(handler_, ec, Json::id(), std::move(trnsp)));
+            boost::asio::post(executor_,
+                              std::bind(handler_, ec, KnownCodecIds::json(),
+                                        std::move(trnsp)));
             socket_.reset();
             handler_ = nullptr;
         }

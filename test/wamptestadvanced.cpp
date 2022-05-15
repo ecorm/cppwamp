@@ -5,15 +5,21 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_WAMP
+#if defined(CPPWAMP_TEST_HAS_JSON) || defined(CPPWAMP_TEST_HAS_MSGPACK)
+    #define CPPWAMP_TEST_HAS_SERIALIZER 1
+#endif
 
-#include <catch.hpp>
-#include <cppwamp/corosession.hpp>
-#include <cppwamp/json.hpp>
+#if defined(CPPWAMP_TEST_HAS_CORO) && defined(CPPWAMP_TEST_HAS_SERIALIZER)
+
+#include <catch2/catch.hpp>
 #include <cppwamp/tcp.hpp>
-#include <cppwamp/internal/config.hpp>
+#include <cppwamp/coro/corosession.hpp>
 
-#include <iostream>
+#ifdef CPPWAMP_TEST_HAS_JSON
+    #include <cppwamp/json.hpp>
+#else
+    #include <cppwamp/msgpack.hpp>
+#endif
 
 using namespace wamp;
 using namespace Catch::Matchers;
@@ -21,28 +27,34 @@ using namespace Catch::Matchers;
 namespace
 {
 
+#ifdef CPPWAMP_TEST_HAS_JSON
+using PreferredCodec = Json;
+#else
+using PreferredCodec = Msgpack;
+#endif
+
 const std::string testRealm = "cppwamp.test";
 const short testPort = 12345;
 const std::string authTestRealm = "cppwamp.authtest";
 const short authTestPort = 23456;
 
-Connector::Ptr tcp(AsioService& iosvc)
+Connector::Ptr tcp(AsioContext& ioctx)
 {
-    return connector<Json>(iosvc, TcpHost("localhost", testPort));
+    return connector<PreferredCodec>(ioctx, TcpHost("localhost", testPort));
 }
 
-Connector::Ptr authTcp(AsioService& iosvc)
+Connector::Ptr authTcp(AsioContext& ioctx)
 {
-    return connector<Json>(iosvc, TcpHost("localhost", authTestPort));
+    return connector<PreferredCodec>(ioctx, TcpHost("localhost", authTestPort));
 }
 
 //------------------------------------------------------------------------------
 struct RpcFixture
 {
     template <typename TConnector>
-    RpcFixture(AsioService& iosvc, TConnector cnct)
-        : caller(CoroSession<>::create(iosvc, cnct)),
-          callee(CoroSession<>::create(iosvc, cnct))
+    RpcFixture(AsioContext& ioctx, TConnector cnct)
+        : caller(CoroSession<>::create(ioctx, cnct)),
+          callee(CoroSession<>::create(ioctx, cnct))
     {}
 
     void join(boost::asio::yield_context yield)
@@ -69,9 +81,9 @@ struct RpcFixture
 struct PubSubFixture
 {
     template <typename TConnector>
-    PubSubFixture(AsioService& iosvc, TConnector cnct)
-        : publisher(CoroSession<>::create(iosvc, cnct)),
-          subscriber(CoroSession<>::create(iosvc, cnct))
+    PubSubFixture(AsioContext& ioctx, TConnector cnct)
+        : publisher(CoroSession<>::create(ioctx, cnct)),
+          subscriber(CoroSession<>::create(ioctx, cnct))
     {}
 
     void join(boost::asio::yield_context yield)
@@ -99,8 +111,8 @@ struct PubSubFixture
 struct TicketAuthFixture
 {
     template <typename TConnector>
-    TicketAuthFixture(AsioService& iosvc, TConnector cnct)
-        : session(CoroSession<>::create(iosvc, cnct))
+    TicketAuthFixture(AsioContext& ioctx, TConnector cnct)
+        : session(CoroSession<>::create(ioctx, cnct))
     {
         session->setChallengeHandler( [this](Challenge c){onChallenge(c);} );
     }
@@ -134,16 +146,16 @@ struct TicketAuthFixture
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP RPC advanced features", "[WAMP]" )
+SCENARIO( "WAMP RPC advanced features", "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
-    AsioService iosvc;
-    RpcFixture f(iosvc, tcp(iosvc));
+    AsioContext ioctx;
+    RpcFixture f(ioctx, tcp(ioctx));
 
     WHEN( "using caller identification" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             SessionId disclosedId = -1;
 
@@ -162,12 +174,12 @@ GIVEN( "a caller and a callee" )
             CHECK( disclosedId == f.callerId );
             f.disconnect();
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "using pattern-based registrations" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             int prefixMatchCount = 0;
             int wildcardMatchCount = 0;
@@ -206,21 +218,21 @@ GIVEN( "a caller and a callee" )
 
             f.disconnect();
         });
-        iosvc.run();
+        ioctx.run();
     }
 }}
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP pub/sub advanced features", "[WAMP]" )
+SCENARIO( "WAMP pub/sub advanced features", "[WAMP][Advanced]" )
 {
 GIVEN( "a publisher and a subscriber" )
 {
-    AsioService iosvc;
-    PubSubFixture f(iosvc, tcp(iosvc));
+    AsioContext ioctx;
+    PubSubFixture f(ioctx, tcp(ioctx));
 
     WHEN( "using publisher identification" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             SessionId disclosedId = -1;
             int eventCount = 0;
@@ -242,12 +254,12 @@ GIVEN( "a publisher and a subscriber" )
             CHECK( disclosedId == f.publisherId );
             f.disconnect();
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "using pattern-based subscriptions" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             int prefixMatchCount = 0;
             int wildcardMatchCount = 0;
@@ -298,12 +310,12 @@ GIVEN( "a publisher and a subscriber" )
 
             f.disconnect();
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "using publisher exclusion" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             int subscriberEventCount = 0;
             int publisherEventCount = 0;
@@ -327,14 +339,14 @@ GIVEN( "a publisher and a subscriber" )
             CHECK( publisherEventCount == 1 );
             f.disconnect();
         });
-        iosvc.run();
+        ioctx.run();
     }
 
     WHEN( "using subscriber black/white listing" )
     {
-        auto subscriber2 = CoroSession<>::create(iosvc, tcp(iosvc));
+        auto subscriber2 = CoroSession<>::create(ioctx, tcp(ioctx));
 
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             int eventCount1 = 0;
             int eventCount2 = 0;
@@ -354,16 +366,18 @@ GIVEN( "a publisher and a subscriber" )
                 [&eventCount2](Event) {++eventCount2;},
                 yield);
 
-            // Blacklist subscriber2
-            f.publisher->publish(Pub("onEvent").withBlacklist({subscriber2Id}),
+            // Block subscriber2
+            f.publisher->publish(Pub("onEvent")
+                                     .withExcludedSessions({subscriber2Id}),
                                  yield);
             while (eventCount1 < 1)
                 f.publisher->suspend(yield);
             CHECK( eventCount1 == 1 );
             CHECK( eventCount2 == 0 );
 
-            // Whitelist subscriber2
-            f.publisher->publish(Pub("onEvent").withWhitelist({subscriber2Id}),
+            // Allow subscriber2
+            f.publisher->publish(Pub("onEvent")
+                                     .withEligibleSessions({subscriber2Id}),
                                  yield);
             while (eventCount2 < 1)
                 f.publisher->suspend(yield);
@@ -373,26 +387,26 @@ GIVEN( "a publisher and a subscriber" )
             f.disconnect();
             subscriber2->disconnect();
         });
-        iosvc.run();
+        ioctx.run();
     }
 }}
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP ticket authentication", "[WAMP]" )
+SCENARIO( "WAMP ticket authentication", "[WAMP][Advanced]" )
 {
 GIVEN( "a Session with a registered challenge handler" )
 {
-    AsioService iosvc;
-    TicketAuthFixture f(iosvc, authTcp(iosvc));
+    AsioContext ioctx;
+    TicketAuthFixture f(ioctx, authTcp(ioctx));
 
     WHEN( "joining with ticket authentication requested" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             f.join("alice", "password123", yield);
             f.session->disconnect();
         });
-        iosvc.run();
+        ioctx.run();
 
         THEN( "the challenge was received and the authentication accepted" )
         {
@@ -406,16 +420,16 @@ GIVEN( "a Session with a registered challenge handler" )
 }}
 
 //------------------------------------------------------------------------------
-SCENARIO( "RPC Cancellation", "[WAMP]" )
+SCENARIO( "RPC Cancellation", "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
-    AsioService iosvc;
-    RpcFixture f(iosvc, tcp(iosvc));
+    AsioContext ioctx;
+    RpcFixture f(ioctx, tcp(ioctx));
 
     WHEN( "cancelling an RPC in kill mode before it returns" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             RequestId callRequestId = 0;
             RequestId invocationRequestId = 0;
@@ -463,12 +477,125 @@ GIVEN( "a caller and a callee" )
 
             f.disconnect();
         });
-        iosvc.run();
+        ioctx.run();
     }
+
+    WHEN( "cancelling an RPC in killnowait mode before it returns" )
+    {
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        {
+            RequestId callRequestId = 0;
+            RequestId invocationRequestId = 0;
+            RequestId interruptionRequestId = 0;
+            bool responseReceived = false;
+            AsyncResult<Result> response;
+
+            f.join(yield);
+
+            f.callee->enroll(
+                Procedure("rpc"),
+                [&invocationRequestId](Invocation inv) -> Outcome
+                {
+                    invocationRequestId = inv.requestId();
+                    return Outcome::deferred();
+                },
+                [&interruptionRequestId](Interruption intr) -> Outcome
+                {
+                    interruptionRequestId = intr.requestId();
+                    return Error("wamp.error.canceled");
+                },
+                yield);
+
+            callRequestId = f.caller->call(Rpc("rpc"),
+                [&response, &responseReceived](AsyncResult<Result> callResponse)
+                {
+                    responseReceived = true;
+                    response = std::move(callResponse);
+                });
+
+            REQUIRE( callRequestId != 0 );
+
+            while (invocationRequestId == 0)
+                f.caller->suspend(yield);
+
+            REQUIRE( invocationRequestId != 0 );
+
+            f.caller->cancel(Cancellation(callRequestId,
+                                          CancelMode::killNoWait));
+
+            while (!responseReceived || interruptionRequestId == 0)
+                f.caller->suspend(yield);
+
+            CHECK( interruptionRequestId == invocationRequestId );
+            CHECK( response.errorCode() == SessionErrc::cancelled );
+
+            f.disconnect();
+        });
+        ioctx.run();
+    }
+
+// Skip mode cancellation currently does not work properly with Crossbar.
+// https://github.com/crossbario/crossbar/issues/1377#issuecomment-1123050045
+#if 0
+    WHEN( "cancelling an RPC in skip mode before it returns" )
+    {
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        {
+            RequestId callRequestId = 0;
+            RequestId invocationRequestId = 0;
+            bool responseReceived = false;
+            bool interruptionReceived = false;
+            AsyncResult<Result> response;
+            Invocation invocation;
+
+            f.join(yield);
+
+            f.callee->enroll(
+                Procedure("rpc"),
+                [&invocationRequestId, &invocation](Invocation inv) -> Outcome
+                {
+                    invocationRequestId = inv.requestId();
+                    invocation = std::move(inv);
+                    return Outcome::deferred();
+                },
+                [&interruptionReceived](Interruption intr) -> Outcome
+                {
+                    interruptionReceived = true;
+                    return Error("wamp.error.canceled");
+                },
+                yield);
+
+            callRequestId = f.caller->call(Rpc("rpc"),
+                [&response, &responseReceived](AsyncResult<Result> callResponse)
+                {
+                    responseReceived = true;
+                    response = std::move(callResponse);
+                });
+
+            REQUIRE( callRequestId != 0 );
+
+            while (invocationRequestId == 0)
+                f.caller->suspend(yield);
+            REQUIRE( invocationRequestId != 0 );
+
+            f.caller->cancel(Cancellation(callRequestId, CancelMode::skip));
+
+            while (!responseReceived)
+                f.caller->suspend(yield);
+            invocation.yield(); // Will be discarded by router
+
+            CHECK_FALSE( interruptionReceived );
+            CHECK( response.errorCode() == SessionErrc::cancelled );
+
+            f.disconnect();
+        });
+        ioctx.run();
+    }
+#endif
 
     WHEN( "cancelling an RPC after it returns" )
     {
-        boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             RequestId callRequestId = 0;
             RequestId invocationRequestId = 0;
@@ -515,10 +642,8 @@ GIVEN( "a caller and a callee" )
 
             f.disconnect();
         });
-        iosvc.run();
+        ioctx.run();
     }
-
-    // TODO: Test other cancel modes once they're supported by Crossbar
 }}
 
-#endif // #if CPPWAMP_TESTING_WAMP
+#endif // defined(CPPWAMP_TEST_HAS_CORO) && defined(CPPWAMP_TEST_HAS_SERIALIZER)

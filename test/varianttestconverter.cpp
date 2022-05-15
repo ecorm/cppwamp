@@ -5,11 +5,9 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_VARIANT
-
 #include <vector>
-#include <catch.hpp>
-#include <cppwamp/conversion.hpp>
+#include <catch2/catch.hpp>
+#include <cppwamp/variant.hpp>
 
 using namespace wamp;
 
@@ -644,5 +642,3 @@ SCENARIO( "Derived DTOs", "[Variant]" )
         }
     }
 }
-
-#endif // #if CPPWAMP_TESTING_VARIANT

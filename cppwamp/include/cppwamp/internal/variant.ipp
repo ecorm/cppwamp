@@ -1,9 +1,11 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
+
+#include "../variant.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -11,53 +13,202 @@
 #include <type_traits>
 #include <utility>
 
-#include "../conversion.hpp"
 #include "varianttraits.hpp"
-#include "variantvisitors.hpp"
+#include "../api.hpp"
 
 namespace wamp
 {
 
-namespace error
+//------------------------------------------------------------------------------
+class Variant::Construct : public Visitor<>
 {
+public:
+    explicit Construct(Variant& dest) : dest_(dest) {}
+
+    template <typename TField> void operator()(const TField& field) const
+    {
+        dest_.template constructAs<TField>(field);
+    }
+
+private:
+    Variant& dest_;
+};
 
 //------------------------------------------------------------------------------
-inline BadType::BadType(const std::string& what)
-    : std::runtime_error(what)
-{}
-
-//------------------------------------------------------------------------------
-inline Access::Access(const std::string& from, const std::string& to)
-    : BadType("wamp::error::Access: "
-        "Attemping to access field type " + from + " as " + to)
-{}
-
-//------------------------------------------------------------------------------
-inline Conversion::Conversion(const std::string& what)
-    : BadType("wamp::error::Conversion: " + what)
-{}
-
-} // namespace error
-
-//------------------------------------------------------------------------------
-template <typename TValue>
-Variant Variant::from(TValue&& value)
+class Variant::MoveConstruct : public Visitor<>
 {
-    return convertFrom(std::forward<TValue>(value));
-}
+public:
+    explicit MoveConstruct(Variant& dest) : dest_(dest) {}
+
+    template <typename TField> void operator()(TField& field) const
+    {
+        dest_.template constructAs<TField>(std::move(field));
+    }
+
+private:
+    Variant& dest_;
+};
 
 //------------------------------------------------------------------------------
-inline Variant::Variant() noexcept : typeId_(TypeId::null) {}
+class Variant::MoveAssign : public Visitor<>
+{
+public:
+    explicit MoveAssign(Variant& dest) : dest_(dest) {}
+
+    template <typename TField>
+    void operator()(TField& leftField, TField& rightField) const
+    {
+        leftField = std::move(rightField);
+    }
+
+    template <typename TOld, typename TNew>
+    void operator()(TOld&, TNew& rhs) const
+    {
+        dest_.template destructAs<TOld>();
+        dest_.template constructAs<TNew>(std::move(rhs));
+        dest_.typeId_ = FieldTraits<TNew>::typeId;
+    }
+
+private:
+    Variant& dest_;
+};
 
 //------------------------------------------------------------------------------
-inline Variant::Variant(const Variant& other)
+class Variant::Destruct : public Visitor<>
+{
+public:
+    Destruct(void* field) : field_(field) {}
+
+    template <typename TField>
+    void operator()(TField&) const {Access<TField>::destruct(field_);}
+
+private:
+    void* field_;
+};
+
+//------------------------------------------------------------------------------
+class Variant::Swap : public Visitor<>
+{
+public:
+    Swap(Variant& leftVariant, Variant& rightVariant)
+        : leftVariant_(leftVariant), rightVariant_(rightVariant) {}
+
+    template <typename TField>
+    void operator()(TField& leftField, TField& rightField) const
+    {
+        using std::swap;
+        swap(leftField, rightField);
+    }
+
+    template <typename TLeft, typename TRight>
+    void operator()(TLeft& leftField, TRight& rightField) const
+    {
+        TLeft leftTemp = std::move(leftField);
+        leftField = TLeft{};
+        leftVariant_.template destructAs<TLeft>();
+        leftVariant_.template constructAs<TRight>(std::move(rightField));
+        rightField = TRight{};
+        rightVariant_.template destructAs<TRight>();
+        rightVariant_.template constructAs<TLeft>(std::move(leftTemp));
+        std::swap(leftVariant_.typeId_, rightVariant_.typeId_);
+    }
+
+private:
+    Variant& leftVariant_;
+    Variant& rightVariant_;
+};
+
+//------------------------------------------------------------------------------
+class Variant::ElementCount : public Visitor<typename Variant::SizeType>
+{
+public:
+    using SizeType = typename Variant::SizeType;
+
+    template <typename T>
+    SizeType operator()(const T&) {return 1u;}
+
+    SizeType operator()(const Null&) {return 0u;}
+
+    SizeType operator()(const Array& a) {return a.size();}
+
+    SizeType operator()(const Object& o) {return o.size();}
+};
+
+//------------------------------------------------------------------------------
+class Variant::LessThan : public Visitor<bool>
+{
+public:
+    template <typename TField>
+    bool operator()(const TField& leftField, const TField& rightField) const
+    {
+        return leftField < rightField;
+    }
+
+    template <typename TLeft, typename TRight,
+             internal::DisableIfBothAreNumbers<TLeft,TRight> = 0>
+    bool operator()(const TLeft&, const TRight&) const
+    {
+        return FieldTraits<TLeft>::typeId < FieldTraits<TRight>::typeId;
+    }
+
+    template <typename TLeft, typename TRight,
+             internal::EnableIfBothAreNumbers<TLeft,TRight> = 0>
+    bool operator()(TLeft lhs, TRight rhs) const
+    {
+        // Avoid directly comparing mixed signed/unsigned numbers
+        using LhsIsSigned = typename std::is_signed<TLeft>;
+        using RhsIsSigned = typename std::is_signed<TRight>;
+        return compareNumbers(LhsIsSigned(), RhsIsSigned(), lhs, rhs);
+    }
+
+private:
+    template <typename TLeft, typename TRight>
+    static bool compareNumbers(FalseType, FalseType,
+                               const TLeft lhs, const TRight rhs)
+    {
+        return lhs < rhs;
+    }
+
+    template <typename TLeft, typename TRight>
+    static bool compareNumbers(FalseType, TrueType,
+                               const TLeft lhs, const TRight rhs)
+    {
+        if (rhs < 0)
+            return false;
+        using CT = typename std::common_type<TLeft, TRight>::type;
+        return static_cast<CT>(lhs) < static_cast<CT>(rhs);
+    }
+
+    template <typename TLeft, typename TRight>
+    static bool compareNumbers(TrueType, FalseType,
+                               const TLeft lhs, const TRight rhs)
+    {
+        if (lhs < 0)
+            return true;
+        using CT = typename std::common_type<TLeft, TRight>::type;
+        return static_cast<CT>(lhs) < static_cast<CT>(rhs);
+    }
+
+    template <typename TLeft, typename TRight>
+    static bool compareNumbers(TrueType, TrueType,
+                               const TLeft lhs, const TRight rhs)
+    {
+        return lhs < rhs;
+    }
+};
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Variant::Variant() noexcept : typeId_(TypeId::null) {}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Variant::Variant(const Variant& other)
     : typeId_(other.typeId_)
 {
     apply(Construct(*this), other);
 }
 
 //------------------------------------------------------------------------------
-inline Variant::Variant(Variant&& other) noexcept
+CPPWAMP_INLINE Variant::Variant(Variant&& other) noexcept
     : typeId_(other.typeId_)
 {
     apply(MoveConstruct(*this), other);
@@ -65,45 +216,12 @@ inline Variant::Variant(Variant&& other) noexcept
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    The @ref EnableIfValidArg metafunction is used to disable this function for
-    invalid value types. The second template parameter should not specified.
-    @see Variant::from
-    @tparam T (Deduced) Value type which must be convertible to a bound type.
-    @post `*this == value` */
-//------------------------------------------------------------------------------
-template <typename T, Variant::EnableIfValidArg<T>>
-Variant::Variant(T value)
-{
-    static_assert(ArgTraits<T>::isValid, "Invalid argument type");
-    using FieldType = typename ArgTraits<T>::FieldType;
-    typeId_ = FieldTraits<FieldType>::typeId;
-    constructAs<FieldType>(std::move(value));
-}
-
-//------------------------------------------------------------------------------
 /** @post `this->is<Array>() == true`
     @post `*this == array` */
 //------------------------------------------------------------------------------
-inline Variant::Variant(Array array)
+CPPWAMP_INLINE Variant::Variant(Array array)
     : typeId_(TypeId::array)
 {
-    constructAs<Array>(std::move(array));
-}
-
-//------------------------------------------------------------------------------
-/** @pre The vector elements must be convertible to a bound type
-         (checked at compile time).
-    @post `this->is<Array>() == true`
-    @post `*this == vec` */
-//------------------------------------------------------------------------------
-template <typename T> Variant::Variant(std::vector<T> vec)
-    : typeId_(TypeId::array)
-{
-    static_assert(ArgTraits<T>::isValid, "Invalid vector element type");
-    Array array;
-    array.reserve(vec.size());
-    std::move(vec.begin(), vec.end(), std::back_inserter(array));
     constructAs<Array>(std::move(array));
 }
 
@@ -111,111 +229,21 @@ template <typename T> Variant::Variant(std::vector<T> vec)
 /** @post `this->is<Object>() == true`
     @post `*this == object` */
 //------------------------------------------------------------------------------
-inline Variant::Variant(Object object)
+CPPWAMP_INLINE Variant::Variant(Object object)
     : typeId_(TypeId::object)
 {
     constructAs<Object>(std::move(object));
 }
 
 //------------------------------------------------------------------------------
-/** @post `this->is<Object>() == true`
-    @post `*this == map`
-    @pre The map values must be convertible to bound types
-         (checked at compile time). */
-//------------------------------------------------------------------------------
-template <typename T> Variant::Variant(std::map<String, T> map)
-    : typeId_(TypeId::object)
-{
-    static_assert(ArgTraits<T>::isValid, "Invalid map value type");
-    Object object;
-    std::move(map.begin(), map.end(), std::inserter(object, object.begin()));
-    constructAs<Object>(std::move(object));
-}
+CPPWAMP_INLINE Variant::~Variant() {*this = null;}
 
 //------------------------------------------------------------------------------
-inline Variant::~Variant() {*this = null;}
+CPPWAMP_INLINE TypeId Variant::typeId() const {return typeId_;}
 
 //------------------------------------------------------------------------------
-inline TypeId Variant::typeId() const {return typeId_;}
+CPPWAMP_INLINE Variant::operator bool() const {return typeId_ != TypeId::null;}
 
-//------------------------------------------------------------------------------
-inline Variant::operator bool() const {return typeId_ != TypeId::null;}
-
-//------------------------------------------------------------------------------
-template <typename TBound> bool Variant::is() const
-{
-    static_assert(FieldTraits<TBound>::isValid, "Invalid field type");
-    return typeId_ == FieldTraits<TBound>::typeId;
-}
-
-//------------------------------------------------------------------------------
-template <TypeId id> bool Variant::is() const
-{
-    return is<BoundTypeForId<id>>();
-}
-
-//------------------------------------------------------------------------------
-/** @details
-    The variant is deemed convertible to the target type according to the
-    following table:
-| Target,  Variant->    | Null  | Bool  | Int   | UInt  | Real  | String | Array | Object |
-|-----------------------|-------|-------|-------|-------|-------|--------|-------|--------|
-| Null                  | true  | false | false | false | false | false  | false | false  |
-| Bool                  | false | true  | true  | true  | true  | false  | false | false  |
-| _integer type_        | false | true  | true  | true  | true  | false  | false | false  |
-| _floating point type_ | false | true  | true  | true  | true  | false  | false | false  |
-| String                | false | false | false | false | false | true   | false | false  |
-| Array                 | false | false | false | false | false | false  | true  | false  |
-| std::vector<T>        | false | false | false | false | false | false  | maybe | false  |
-| Object                | false | false | false | false | false | false  | false | true   |
-| std::map<String,T>    | false | false | false | false | false | false  | false | maybe  |
-
-    An `Array` is convertible to `std::vector<T>` iff all `Array` elements are
-    convertible to `T`.
-
-    An `Object` is convertible to `std::map<String,T>` iff all Object values
-    are convertible to `T`.
-
-    @tparam T The target type to convert to. Must be default-constructable.
-            If T's default constructor is private, then T must grant friendship
-            to wamp::ConversionAccess.
-    @return The converted value.
-    @pre The variant is convertible to the destination type.
-    @throws error::Conversion if the variant is not convertible to
-            the destination type. */
-//------------------------------------------------------------------------------
-template <typename T> T Variant::to() const
-{
-    T result(std::move(ConversionAccess::defaultConstruct<T>()));
-    convertTo(result);
-    return result;
-}
-
-//------------------------------------------------------------------------------
-/** @tparam T The target type to convert to.
-    @pre The variant is convertible to the destination type.
-    @throws error::Conversion if the variant is not convertible to
-            the destination type. */
-//------------------------------------------------------------------------------
-template <typename T> void Variant::to(T& value) const
-{
-    convertTo(value);
-}
-
-//------------------------------------------------------------------------------
-/** @tparam T The target type of the result.
-    @pre The variant is null, or is convertible to the destination type.
-    @throws error::Conversion if the variant is not null and is not convertible
-            to the destination type. */
-//------------------------------------------------------------------------------
-template <typename T>
-ValueTypeOf<T> Variant::valueOr(T&& fallback) const
-{
-    if (!*this)
-        return std::forward<T>(fallback);
-    else
-        return this->to< ValueTypeOf<T> >();
-}
 
 //------------------------------------------------------------------------------
 /** @returns `0` if the variant is null
@@ -223,62 +251,18 @@ ValueTypeOf<T> Variant::valueOr(T&& fallback) const
     @returns The number of elements if the variant is an array
     @returns The number of members if the variant is an object */
 //------------------------------------------------------------------------------
-inline Variant::SizeType Variant::size() const
+CPPWAMP_INLINE Variant::SizeType Variant::size() const
 {
     return apply(ElementCount(), *this);
 }
 
 //------------------------------------------------------------------------------
-/** @tparam TBound The bound type under which to interpret the variant.
-    @pre `TBound` must match the variant's current bound type.
-    @throws error::Access if `TBound` does not match the variant's
-            current bound type. */
-//------------------------------------------------------------------------------
-template <typename TBound> TBound& Variant::as()
-{
-    return get<TBound>(*this);
-}
-
-//------------------------------------------------------------------------------
-/** @tparam TBound The bound type under which to interpret the variant.
-    @pre `TBound` must match the variant's current bound type.
-    @throws error::Access if `TBound` does not match the variant's
-            current bound type. */
-//------------------------------------------------------------------------------
-template <typename TBound> const TBound& Variant::as() const
-{
-    return get<const TBound>(*this);
-}
-
-//------------------------------------------------------------------------------
-/** @tparam id The bound type id under which to interpret the variant.
-    @pre `this->typeId() == id`
-    @throws error::Access if `this->typeId() != id`. */
-//------------------------------------------------------------------------------
-template <TypeId id>
-Variant::BoundTypeForId<id>& Variant::as()
-{
-    return as<BoundTypeForId<id>>();
-}
-
-//------------------------------------------------------------------------------
-/** @tparam id The bound type id under which to interpret the variant.
-    @pre `this->typeId() == id`
-    @throws error::Access if `this->typeId() != id`. */
-//------------------------------------------------------------------------------
-template <TypeId id>
-const Variant::BoundTypeForId<id>& Variant::as() const
-{
-    return as<BoundTypeForId<id>>();
-}
-
-//------------------------------------------------------------------------------
 /** @pre `this->is<Array>() == true`
     @pre `this->size() > index`
     @throws error::Access if `this->is<Array>() == false`
     @throws std::out_of_range if `index >= this->size()`. */
 //------------------------------------------------------------------------------
-inline Variant& Variant::operator[](SizeType index)
+CPPWAMP_INLINE Variant& Variant::operator[](SizeType index)
 {
     return at(index);
 }
@@ -289,7 +273,7 @@ inline Variant& Variant::operator[](SizeType index)
     @throws error::Access if `this->is<Array>() == false`
     @throws std::out_of_range if `index >= this->size()`. */
 //------------------------------------------------------------------------------
-inline const Variant& Variant::operator[](SizeType index) const
+CPPWAMP_INLINE const Variant& Variant::operator[](SizeType index) const
 {
     return at(index);
 }
@@ -300,7 +284,7 @@ inline const Variant& Variant::operator[](SizeType index) const
     @throws error::Access if `this->is<Array>() == false`
     @throws std::out_of_range if `index >= this->size()`. */
 //------------------------------------------------------------------------------
-inline Variant& Variant::at(SizeType index)
+CPPWAMP_INLINE Variant& Variant::at(SizeType index)
 {
     return as<Array>().at(index);
 }
@@ -311,7 +295,7 @@ inline Variant& Variant::at(SizeType index)
     @throws error::Access if `this->is<Array>() == false`
     @throws std::out_of_range if `index >= this->size()`. */
 //------------------------------------------------------------------------------
-inline const Variant& Variant::at(SizeType index) const
+CPPWAMP_INLINE const Variant& Variant::at(SizeType index) const
 {
     return as<Array>().at(index);
 }
@@ -323,7 +307,7 @@ inline const Variant& Variant::at(SizeType index) const
     @pre `this->is<Object>() == true`
     @throws error::Access if `this->is<Object>() == false` */
 //------------------------------------------------------------------------------
-inline Variant& Variant::operator[](const String& key)
+CPPWAMP_INLINE Variant& Variant::operator[](const String& key)
 {
     return as<Object>()[key];
 }
@@ -334,7 +318,7 @@ inline Variant& Variant::operator[](const String& key)
     @throws error::Access if `this->is<Object>() == false`
     @throws std::out_of_range if the key does not exist. */
 //------------------------------------------------------------------------------
-inline Variant& Variant::at(const String& key)
+CPPWAMP_INLINE Variant& Variant::at(const String& key)
 {
     return as<Object>().at(key);
 }
@@ -345,7 +329,7 @@ inline Variant& Variant::at(const String& key)
     @throws error::Access if `this->is<Object>() == false`
     @throws std::out_of_range if the key does not exist. */
 //------------------------------------------------------------------------------
-inline const Variant& Variant::at(const String& key) const
+CPPWAMP_INLINE const Variant& Variant::at(const String& key) const
 {
     return as<Object>().at(key);
 }
@@ -366,9 +350,9 @@ inline const Variant& Variant::at(const String& key) const
 | Array      | false | false | false | false | false | false  | L==R  | false  |
 | Object     | false | false | false | false | false | false  | false | L==R   | */
 //------------------------------------------------------------------------------
-inline bool Variant::operator==(const Variant& other) const
+CPPWAMP_INLINE bool Variant::operator==(const Variant& other) const
 {
-    return apply(internal::EquivalentTo(), *this, other);
+    return apply(internal::VariantEquivalentTo<Variant>(), *this, other);
 }
 
 //------------------------------------------------------------------------------
@@ -376,7 +360,7 @@ inline bool Variant::operator==(const Variant& other) const
     The result is equivalant to `!(lhs == rhs)`
     @see Variant::operator== */
 //------------------------------------------------------------------------------
-inline bool Variant::operator!=(const Variant& other) const
+CPPWAMP_INLINE bool Variant::operator!=(const Variant& other) const
 {
     return !(*this == other);
 }
@@ -398,7 +382,7 @@ inline bool Variant::operator!=(const Variant& other) const
 | Array      | false | false | false | false | false | false  | L<R   | false  |
 | Object     | false | false | false | false | false | false  | false | L<R    | */
 //------------------------------------------------------------------------------
-inline bool Variant::operator<(const Variant &other) const
+CPPWAMP_INLINE bool Variant::operator<(const Variant &other) const
 {
     return apply(LessThan(), *this, other);
 }
@@ -407,7 +391,7 @@ inline bool Variant::operator<(const Variant &other) const
 /** @post `this->typeId() == other.typeId()`
     @post `*this == other` */
 //------------------------------------------------------------------------------
-inline Variant& Variant::operator=(const Variant& other)
+CPPWAMP_INLINE Variant& Variant::operator=(const Variant& other)
 {
     if (&other != this)
         Variant(other).swap(*this);
@@ -417,7 +401,7 @@ inline Variant& Variant::operator=(const Variant& other)
 //------------------------------------------------------------------------------
 /** @post `other == null` */
 //------------------------------------------------------------------------------
-inline Variant& Variant::operator=(Variant&& other) noexcept
+CPPWAMP_INLINE Variant& Variant::operator=(Variant&& other) noexcept
 {
     if (&other != this)
     {
@@ -428,241 +412,49 @@ inline Variant& Variant::operator=(Variant&& other) noexcept
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    The variant's dynamic type will change to accomodate the assigned
-    value.
-    @pre The value must be convertible to a bound type
-         (checked at compile time).
-    @post `*this == value` */
-//------------------------------------------------------------------------------
-template <typename T> Variant& Variant::operator=(T value)
-{
-    static_assert(ArgTraits<T>::isValid, "Invalid argument type");
-
-    using FieldType = typename ArgTraits<T>::FieldType;
-    if (is<FieldType>())
-        as<FieldType>() = std::move(value);
-    else
-    {
-        destruct();
-        constructAs<FieldType>(std::move(value));
-        typeId_ = FieldTraits<FieldType>::typeId;
-    }
-    return *this;
-}
-
-//------------------------------------------------------------------------------
 /** @post `this->typeId() == TypeId::array`
     @post `*this == array` */
 //------------------------------------------------------------------------------
-inline Variant& Variant::operator=(Array array)
+CPPWAMP_INLINE Variant& Variant::operator=(Array array)
 {
     return this->operator=<Array>(std::move(array));
-}
-
-//------------------------------------------------------------------------------
-/** @pre The vector elements must be convertible to a bound type
-         (checked at compile time).
-    @post `this->typeId() == TypeId::array`
-    @post `*this == vec` */
-//------------------------------------------------------------------------------
-template <typename T>
-Variant& Variant::operator=(std::vector<T> vec)
-{
-    static_assert(ArgTraits<T>::isValid, "Invalid vector element type");
-
-    Array array;
-    array.reserve(vec.size());
-    std::move(vec.begin(), vec.end(), std::back_inserter(array));
-    return *this = std::move(array);
 }
 
 //------------------------------------------------------------------------------
 /** @post `this->typeId() == TypeId::object`
     @post `*this == object` */
 //------------------------------------------------------------------------------
-inline Variant& Variant::operator=(Object object)
+CPPWAMP_INLINE Variant& Variant::operator=(Object object)
 {
     return this->operator=<Object>(std::move(object));
 }
 
 //------------------------------------------------------------------------------
-/** @pre The map values must be convertible to a bound type
-         (checked at compile time).
-    @post `this->typeId() == TypeId::object`
-    @post `*this == map` */
-//------------------------------------------------------------------------------
-template <typename T>
-Variant& Variant::operator=(std::map<String,T> map)
-{
-    static_assert(ArgTraits<T>::isValid, "Invalid map value type");
-    Object object(map.cbegin(), map.cend());
-    return *this = std::move(object);
-}
-
-//------------------------------------------------------------------------------
 /** @see void swap(Variant& v, Variant& w) noexcept */
 //------------------------------------------------------------------------------
-inline void Variant::swap(Variant &other) noexcept
+CPPWAMP_INLINE void Variant::swap(Variant &other) noexcept
 {
     if (&other != this)
         apply(Swap(*this, other), *this, other);
 }
 
 //------------------------------------------------------------------------------
-template <typename TField, typename TArg>
-void Variant::constructAs(TArg&& value)
+CPPWAMP_INLINE void Variant::destruct()
 {
-    Access<TField>::construct(std::forward<TArg>(value), &field_);
+    apply(Destruct(&field_), *this);
 }
 
 //------------------------------------------------------------------------------
-template <typename TField> void Variant::destructAs()
-{
-    Access<TField>::destruct(&field_);
-}
+CPPWAMP_INLINE Variant::Field::Field() : nullValue(null) {}
 
 //------------------------------------------------------------------------------
-inline void Variant::destruct() {apply(Destruct(&field_), *this);}
+CPPWAMP_INLINE Variant::Field::~Field() {}
 
 //------------------------------------------------------------------------------
-template <typename T, Variant::EnableIfValidArg<ValueTypeOf<T>>>
-Variant Variant::convertFrom(T&& value)
-{
-    return Variant(std::forward<T>(value));
-}
+CPPWAMP_INLINE void swap(Variant& v, Variant& w) noexcept {v.swap(w);}
 
 //------------------------------------------------------------------------------
-template <typename T, Variant::DisableIfValidArg<ValueTypeOf<T>>>
-Variant Variant::convertFrom(const T& value)
-{
-    Variant v;
-    ToVariantConverter conv(v);
-    convert(conv, const_cast<T&>(value));
-    return v;
-}
-
-//------------------------------------------------------------------------------
-template <typename T, Variant::EnableIfVariantArg<ValueTypeOf<T>>>
-Variant Variant::convertFrom(const T& variant)
-{
-    return variant;
-}
-
-//------------------------------------------------------------------------------
-template <typename T, Variant::DisableIfValidArg<T>>
-Variant Variant::convertFrom(const std::vector<T>& vec)
-{
-    Variant::Array array;
-    for (const auto& elem: vec)
-        array.emplace_back(Variant::convertFrom(elem));
-    return Variant(std::move(array));
-}
-
-//------------------------------------------------------------------------------
-template <typename T, Variant::DisableIfValidArg<T>>
-Variant Variant::convertFrom(const std::map<String, T>& map)
-{
-    Variant::Object object;
-    for (const auto& kv: map)
-        object.emplace(kv.first, Variant::convertFrom(kv.second));
-    return Variant(std::move(object));
-}
-
-//------------------------------------------------------------------------------
-template <typename T, Variant::EnableIfValidArg<T>>
-void Variant::convertTo(T& value) const
-{
-    applyWithOperand(ConvertTo(), *this, value);
-}
-
-//------------------------------------------------------------------------------
-template <typename T, Variant::DisableIfValidArg<T>>
-void Variant::convertTo(T& value) const
-{
-    FromVariantConverter conv(*this);
-    convert(conv, value);
-}
-
-//------------------------------------------------------------------------------
-template <typename T, Variant::EnableIfVariantArg<T>>
-void Variant::convertTo(T& variant) const
-{
-    variant = *this;
-}
-
-//------------------------------------------------------------------------------
-template <typename T, Variant::DisableIfValidArg<T>>
-void Variant::convertTo(std::vector<T>& vec) const
-{
-    const auto& array = this->as<Array>();
-    for (const auto& elem: array)
-    {
-        T value;
-        elem.convertTo(value);
-        vec.emplace_back(std::move(value));
-    }
-}
-
-//------------------------------------------------------------------------------
-template <typename T, Variant::DisableIfValidArg<T>>
-void Variant::convertTo(std::map<String, T>& map) const
-{
-    const auto& object = this->as<Object>();
-    for (const auto& kv: object)
-    {
-        T value;
-        kv.second.convertTo(value);
-        map.emplace(std::move(kv.first), std::move(value));
-    }
-}
-
-//------------------------------------------------------------------------------
-template <typename TField, typename V> TField& Variant::get(V&& variant)
-{
-    using FieldType = typename std::remove_const<TField>::type;
-    static_assert(FieldTraits<FieldType>::isValid, "Invalid field type");
-    if (!variant.template is<FieldType>())
-        throw error::Access(wamp::typeNameOf(variant),
-                            FieldTraits<FieldType>::typeName());
-    return Access<FieldType>::get(&variant.field_);
-}
-
-//------------------------------------------------------------------------------
-inline std::ostream& Variant::output(std::ostream& out, const Array& array)
-{
-    internal::Output visitor;
-    visitor(array, out);
-    return out;
-}
-
-//------------------------------------------------------------------------------
-inline std::ostream& Variant::output(std::ostream& out, const Object& object)
-{
-    internal::Output visitor;
-    visitor(object, out);
-    return out;
-}
-
-//------------------------------------------------------------------------------
-inline std::ostream& Variant::output(std::ostream& out,
-                                      const Variant& variant)
-{
-    applyWithOperand(internal::Output(), variant, out);
-    return out;
-}
-
-//------------------------------------------------------------------------------
-inline Variant::Field::Field() : nullValue(null) {}
-
-//------------------------------------------------------------------------------
-inline Variant::Field::~Field() {}
-
-//------------------------------------------------------------------------------
-inline void swap(Variant& v, Variant& w) noexcept {v.swap(w);}
-
-//------------------------------------------------------------------------------
-inline bool isNumber(const Variant& v)
+CPPWAMP_INLINE bool isNumber(const Variant& v)
 {
     using T = TypeId;
     switch(v.typeId())
@@ -675,7 +467,7 @@ inline bool isNumber(const Variant& v)
 }
 
 //------------------------------------------------------------------------------
-inline bool isScalar(const Variant& v)
+CPPWAMP_INLINE bool isScalar(const Variant& v)
 {
     using T = TypeId;
     switch(v.typeId())
@@ -688,94 +480,82 @@ inline bool isScalar(const Variant& v)
 }
 
 //------------------------------------------------------------------------------
-inline Variant::String typeNameOf(const Variant& v)
+CPPWAMP_INLINE Variant::String typeNameOf(const Variant& v)
 {
-    return apply(internal::TypeName(), v);
+    return apply(internal::VariantTypeName(), v);
 }
 
 //------------------------------------------------------------------------------
-template <typename TBound>
-Variant::String typeNameOf()
+CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Array& a)
 {
-    return internal::FieldTraits<TBound>::typeName();
+    internal::VariantOutput visitor;
+    visitor(a, out);
+    return out;
 }
 
 //------------------------------------------------------------------------------
-template <typename T>
-bool operator==(const Variant& variant, const T& value)
+CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Object& o)
 {
-    static_assert(internal::ArgTraits<T>::isValid,
-                  "Invalid value type");
-    return applyWithOperand(internal::EquivalentTo(), variant, value);
+    internal::VariantOutput visitor;
+    visitor(o, out);
+    return out;
 }
 
 //------------------------------------------------------------------------------
-template <typename T>
-bool operator==(const T& value, const Variant& variant)
+CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Variant& v)
 {
-    return variant == value;
+    applyWithOperand(internal::VariantOutput(), v, out);
+    return out;
 }
 
 //------------------------------------------------------------------------------
-inline bool operator==(const Variant& variant, const Variant::CharType* str)
+CPPWAMP_INLINE bool operator==(const Variant& variant,
+                               const Variant::CharType* str)
 {
     return variant.is<String>() && (variant.as<String>() == str);
 }
 
 //------------------------------------------------------------------------------
-inline bool operator==(const Variant::CharType* str, const Variant& variant)
+CPPWAMP_INLINE bool operator==(const Variant::CharType* str,
+                               const Variant& variant)
 {
     return variant == str;
 }
 
 //------------------------------------------------------------------------------
-inline bool operator==(const Variant& variant, Variant::CharType* str)
+CPPWAMP_INLINE bool operator==(const Variant& variant, Variant::CharType* str)
 {
     return variant == static_cast<const Variant::CharType*>(str);
 }
 
 //------------------------------------------------------------------------------
-inline bool operator==(Variant::CharType* str, const Variant& variant)
+CPPWAMP_INLINE bool operator==(Variant::CharType* str, const Variant& variant)
 {
     return variant == static_cast<const Variant::CharType*>(str);
 }
 
 //------------------------------------------------------------------------------
-template <typename T>
-bool operator!=(const Variant& variant, const T& value)
-{
-    static_assert(internal::ArgTraits<T>::isValid,
-                  "Invalid value type");
-    return applyWithOperand(internal::NotEquivalentTo(), variant, value);
-}
-
-//------------------------------------------------------------------------------
-template <typename T>
-bool operator!=(const T& value, const Variant& variant)
-{
-    return variant != value;
-}
-
-//------------------------------------------------------------------------------
-inline bool operator!=(const Variant& variant, const Variant::CharType* str)
+CPPWAMP_INLINE bool operator!=(const Variant& variant,
+                               const Variant::CharType* str)
 {
     return !variant.is<String>() || (variant.as<String>() != str);
 }
 
 //------------------------------------------------------------------------------
-inline bool operator!=(const Variant::CharType* str, const Variant& variant)
+CPPWAMP_INLINE bool operator!=(const Variant::CharType* str,
+                               const Variant& variant)
 {
     return variant != str;
 }
 
 //------------------------------------------------------------------------------
-inline bool operator!=(const Variant& variant, Variant::CharType* str)
+CPPWAMP_INLINE bool operator!=(const Variant& variant, Variant::CharType* str)
 {
     return variant != static_cast<const Variant::CharType*>(str);
 }
 
 //------------------------------------------------------------------------------
-inline bool operator!=(Variant::CharType* str, const Variant& variant)
+CPPWAMP_INLINE bool operator!=(Variant::CharType* str, const Variant& variant)
 {
     return variant != static_cast<const Variant::CharType*>(str);
 }

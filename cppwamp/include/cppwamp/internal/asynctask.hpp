@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,6 +10,7 @@
 
 #include <cassert>
 #include <functional>
+#include <boost/asio/post.hpp>
 #include "../asiodefs.hpp"
 #include "../asyncresult.hpp"
 
@@ -17,7 +18,7 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-// Bundles an AsyncHandler along with the AsioService in which the handler
+// Bundles an AsyncHandler along with the executor in which the handler
 // is to be posted.
 //------------------------------------------------------------------------------
 template <typename TResult>
@@ -26,52 +27,53 @@ class AsyncTask
 public:
     using ValueType = TResult;
 
-    AsyncTask() : iosvc_(nullptr) {}
+    AsyncTask() : executor_(nullptr) {}
 
-    AsyncTask(AsioService& iosvc, AsyncHandler<TResult> handler)
-        : iosvc_(&iosvc),
+    AsyncTask(AnyExecutor exec, AsyncHandler<TResult> handler)
+        : executor_(exec),
           handler_(std::move(handler))
     {}
 
     AsyncTask(const AsyncTask& other) = default;
 
     AsyncTask(AsyncTask&& other) noexcept
-        : iosvc_(other.iosvc_),
+        : executor_(std::move(other.executor_)),
           handler_(std::move(other.handler_))
     {
-        other.iosvc_ = nullptr;
+        other.executor_ = nullptr;
     }
 
     AsyncTask& operator=(const AsyncTask& other) = default;
 
     AsyncTask& operator=(AsyncTask&& other) noexcept
     {
-        iosvc_ = other.iosvc_;
+        executor_ = std::move(other.executor_);
         handler_ = std::move(other.handler_);
-        other.iosvc_ = nullptr;
+        other.executor_ = nullptr;
         return *this;
     }
 
-    explicit operator bool() const {return iosvc_ != nullptr;}
+    explicit operator bool() const {return executor_ != nullptr;}
 
-    AsioService& iosvc() const {return *iosvc_;}
+    AnyExecutor executor() const {return executor_;}
 
     const AsyncHandler<ValueType>& handler() const {return handler_;}
 
     void operator()(AsyncResult<ValueType> result) const &
     {
-        assert(iosvc_ && "Invoking uninitialized AsyncTask");
-        iosvc_->post(std::bind(handler_, std::move(result)));
+        assert(executor_ && "Invoking uninitialized AsyncTask");
+        boost::asio::post(executor_, std::bind(handler_, std::move(result)));
     }
 
     void operator()(AsyncResult<ValueType> result) &&
     {
-        assert(iosvc_ && "Invoking uninitialized AsyncTask");
-        iosvc_->post(std::bind(std::move(handler_), std::move(result)));
+        assert(executor_ && "Invoking uninitialized AsyncTask");
+        boost::asio::post(executor_, std::bind(std::move(handler_),
+                                               std::move(result)));
     }
 
 private:
-    AsioService* iosvc_;
+    AnyExecutor executor_;
     AsyncHandler<ValueType> handler_;
 };
 

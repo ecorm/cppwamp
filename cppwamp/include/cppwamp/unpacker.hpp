@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2016, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,13 +10,14 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains utilities for unpacking positional arguments passed to
-    event slots and call slots. */
+    @brief Contains utilities for unpacking positional arguments passed to
+           event slots and call slots. */
 //------------------------------------------------------------------------------
 
 #include <functional>
 #include <tuple>
 #include <type_traits>
+#include "api.hpp"
 #include "sessiondata.hpp"
 #include "variant.hpp"
 #include "./internal/integersequence.hpp"
@@ -43,7 +44,7 @@ using DecayedSlot = typename std::decay<TSlot>::type;
             Event parameter. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename... TArgs>
-class EventUnpacker
+class CPPWAMP_API EventUnpacker
 {
 public:
     /// The function type to be wrapped.
@@ -75,7 +76,8 @@ private:
     @tparam TSlot (deduced) Function type to be converted. */
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-EventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedEvent(TSlot&& slot);
+CPPWAMP_API EventUnpacker<DecayedSlot<TSlot>, TArgs...>
+unpackedEvent(TSlot&& slot);
 
 
 //------------------------------------------------------------------------------
@@ -92,7 +94,7 @@ EventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedEvent(TSlot&& slot);
     @tparam TArgs List of static types the event slot expects as arguments. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename... TArgs>
-class BasicEventUnpacker
+class CPPWAMP_API BasicEventUnpacker
 {
 public:
     /// The function type to be wrapped.
@@ -108,7 +110,7 @@ public:
 
 private:
     template <int ...S>
-    void invoke(Event&& event, internal::IntegerSequence<S...>);
+    CPPWAMP_HIDDEN void invoke(Event&& event, internal::IntegerSequence<S...>);
 
     Slot slot_;
 };
@@ -125,7 +127,8 @@ private:
     @tparam TSlot (deduced) Function type to be converted. */
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-BasicEventUnpacker<DecayedSlot<TSlot>, TArgs...> basicEvent(TSlot&& slot);
+CPPWAMP_API BasicEventUnpacker<DecayedSlot<TSlot>, TArgs...>
+basicEvent(TSlot&& slot);
 
 
 //------------------------------------------------------------------------------
@@ -140,7 +143,7 @@ BasicEventUnpacker<DecayedSlot<TSlot>, TArgs...> basicEvent(TSlot&& slot);
             Invocation parameter. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename... TArgs>
-class InvocationUnpacker
+class CPPWAMP_API InvocationUnpacker
 {
 public:
     /// The function type to be wrapped.
@@ -156,7 +159,8 @@ public:
 
 private:
     template <int ...S>
-    Outcome invoke(Invocation&& inv, internal::IntegerSequence<S...>);
+    CPPWAMP_HIDDEN Outcome invoke(Invocation&& inv,
+                                  internal::IntegerSequence<S...>);
 
     Slot slot_;
 };
@@ -172,7 +176,8 @@ private:
     @tparam TSlot (deduced) Function type to be converted. */
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
-InvocationUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedRpc(TSlot&& slot);
+CPPWAMP_API InvocationUnpacker<DecayedSlot<TSlot>, TArgs...>
+unpackedRpc(TSlot&& slot);
 
 
 //------------------------------------------------------------------------------
@@ -189,7 +194,7 @@ InvocationUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedRpc(TSlot&& slot);
     @tparam TArgs List of static types the call slot expects as arguments. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename TResult, typename... TArgs>
-class BasicInvocationUnpacker
+class CPPWAMP_API BasicInvocationUnpacker
 {
 public:
     /// The function type to be wrapped.
@@ -231,12 +236,258 @@ private:
     @tparam TSlot (deduced) Function type to be converted. */
 //------------------------------------------------------------------------------
 template <typename TResult, typename... TArgs, typename TSlot>
-BasicInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
+CPPWAMP_API BasicInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
 basicRpc(TSlot&& slot);
 
 
-} // namespace wamp
+//******************************************************************************
+// Internal helper types
+//******************************************************************************
 
-#include "./internal/unpacker.ipp"
+namespace internal
+{
+
+//------------------------------------------------------------------------------
+// This is caught internally by Client while dispatching RPCs and is never
+// propagated through the API.
+//------------------------------------------------------------------------------
+struct UnpackError : public Error
+{
+    UnpackError() : Error("wamp.error.invalid_argument") {}
+};
+
+//------------------------------------------------------------------------------
+template <typename... A>
+struct UnpackedArgGetter
+{
+    template <int N>
+    static NthTypeOf<N, A...> get(const Array& args)
+    {
+        using TargetType = NthTypeOf<N, A...>;
+        try
+        {
+            return args.at(N).to<TargetType>();
+        }
+        catch (const error::Conversion& e)
+        {
+            std::ostringstream oss;
+            oss << "Type " << typeNameOf(args.at(N))
+                << " at arg index " << N
+                << " is not convertible to the RPC's target type";
+            throw UnpackError().withArgs(oss.str(), e.what());
+        }
+    }
+};
+
+} // namespace internal
+
+
+//******************************************************************************
+// EventUnpacker implementation
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+template <typename S, typename... A>
+EventUnpacker<S,A...>::EventUnpacker(Slot slot)
+    : slot_(std::move(slot))
+{}
+
+//------------------------------------------------------------------------------
+template <typename S, typename... A>
+void EventUnpacker<S,A...>::operator()(Event&& event)
+{
+    if (event.args().size() < sizeof...(A))
+    {
+        std::ostringstream oss;
+        oss << "Expected " << sizeof...(A)
+            << " args, but only got " << event.args().size();
+        throw internal::UnpackError().withArgs(oss.str());
+    }
+
+    // Use the integer parameter pack technique shown in
+    // http://stackoverflow.com/a/7858971/245265
+    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
+    invoke(std::move(event), Seq());
+}
+
+//------------------------------------------------------------------------------
+template <typename S, typename... A>
+template <int ...Seq>
+void EventUnpacker<S,A...>::invoke(Event&& event,
+                                    internal::IntegerSequence<Seq...>)
+{
+    Array args = event.args();
+    using Getter = internal::UnpackedArgGetter<A...>;
+    slot_(std::move(event), Getter::template get<Seq>(args)...);
+}
+
+//------------------------------------------------------------------------------
+template <typename... TArgs, typename TSlot>
+EventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedEvent(TSlot&& slot)
+{
+    return EventUnpacker<DecayedSlot<TSlot>, TArgs...>(
+        std::forward<TSlot>(slot));
+}
+
+
+//******************************************************************************
+// BasicEventUnpacker implementation
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+template <typename S, typename... A>
+BasicEventUnpacker<S,A...>::BasicEventUnpacker(Slot slot)
+    : slot_(std::move(slot))
+{}
+
+//------------------------------------------------------------------------------
+template <typename S, typename... A>
+void BasicEventUnpacker<S,A...>::operator()(Event&& event)
+{
+    if (event.args().size() < sizeof...(A))
+    {
+        std::ostringstream oss;
+        oss << "Expected " << sizeof...(A)
+            << " args, but only got " << event.args().size();
+        throw internal::UnpackError().withArgs(oss.str());
+    }
+
+    // Use the integer parameter pack technique shown in
+    // http://stackoverflow.com/a/7858971/245265
+    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
+    invoke(std::move(event), Seq());
+}
+
+//------------------------------------------------------------------------------
+template <typename S, typename... A>
+template <int ...Seq>
+void BasicEventUnpacker<S,A...>::invoke(Event&& event,
+                                         internal::IntegerSequence<Seq...>)
+{
+    Array args = std::move(event).args();
+    using Getter = internal::UnpackedArgGetter<A...>;
+    slot_(Getter::template get<Seq>(args)...);
+}
+
+//------------------------------------------------------------------------------
+template <typename... TArgs, typename TSlot>
+BasicEventUnpacker<DecayedSlot<TSlot>, TArgs...> basicEvent(TSlot&& slot)
+{
+    return BasicEventUnpacker<DecayedSlot<TSlot>, TArgs...>(
+        std::forward<TSlot>(slot));
+}
+
+
+//******************************************************************************
+// InvocationUnpacker implementation
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+template <typename S, typename... A>
+InvocationUnpacker<S,A...>::InvocationUnpacker(Slot slot)
+    : slot_(std::move(slot))
+{}
+
+//------------------------------------------------------------------------------
+template <typename S, typename... A>
+Outcome InvocationUnpacker<S,A...>::operator()(Invocation&& inv)
+{
+    if (inv.args().size() < sizeof...(A))
+    {
+        std::ostringstream oss;
+        oss << "Expected " << sizeof...(A)
+            << " args, but only got " << inv.args().size();
+        throw internal::UnpackError().withArgs(oss.str());
+    }
+
+    // Use the integer parameter pack technique shown in
+    // http://stackoverflow.com/a/7858971/245265
+    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
+    return invoke(std::move(inv), Seq());
+}
+
+//------------------------------------------------------------------------------
+template <typename S, typename... A>
+template <int ...Seq>
+Outcome InvocationUnpacker<S,A...>::invoke(Invocation&& inv,
+                                            internal::IntegerSequence<Seq...>)
+{
+    Array args = inv.args();
+    using Getter = internal::UnpackedArgGetter<A...>;
+    return slot_(std::move(inv), Getter::template get<Seq>(args)...);
+}
+
+//------------------------------------------------------------------------------
+template <typename... TArgs, typename TSlot>
+InvocationUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedRpc(TSlot&& slot)
+{
+    return InvocationUnpacker<DecayedSlot<TSlot>, TArgs...>(
+        std::forward<TSlot>(slot) );
+}
+
+
+//******************************************************************************
+// BasicInvocationUnpacker implementation
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+template <typename S, typename R, typename... A>
+BasicInvocationUnpacker<S,R,A...>::BasicInvocationUnpacker(Slot slot)
+    : slot_(std::move(slot))
+{}
+
+//------------------------------------------------------------------------------
+template <typename S, typename R, typename... A>
+Outcome BasicInvocationUnpacker<S,R,A...>::operator()(Invocation&& inv)
+{
+    if (inv.args().size() < sizeof...(A))
+    {
+        std::ostringstream oss;
+        oss << "Expected " << sizeof...(A)
+            << " args, but only got " << inv.args().size();
+        throw internal::UnpackError().withArgs(oss.str());
+    }
+
+    // Use the integer parameter pack technique shown in
+    // http://stackoverflow.com/a/7858971/245265
+    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
+    using IsVoidResult = BoolConstant<std::is_same<ResultType, void>::value>;
+    return invoke(IsVoidResult{}, std::move(inv), Seq());
+}
+
+//------------------------------------------------------------------------------
+template <typename S, typename R, typename... A>
+template <int ...Seq>
+Outcome BasicInvocationUnpacker<S,R,A...>::invoke(
+    TrueType, Invocation&& inv, internal::IntegerSequence<Seq...>)
+{
+    Array args = std::move(inv).args();
+    using Getter = internal::UnpackedArgGetter<A...>;
+    slot_(Getter::template get<Seq>(args)...);
+    return {};
+}
+
+//------------------------------------------------------------------------------
+template <typename S, typename R, typename... A>
+template <int ...Seq>
+Outcome BasicInvocationUnpacker<S,R,A...>::invoke(
+    FalseType, Invocation&& inv, internal::IntegerSequence<Seq...>)
+{
+    Array args = std::move(inv).args();
+    using Getter = internal::UnpackedArgGetter<A...>;
+    ResultType result = slot_(Getter::template get<Seq>(args)...);
+    return Result().withArgs(std::move(result));
+}
+
+//------------------------------------------------------------------------------
+template <typename TResult, typename... TArgs, typename TSlot>
+BasicInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
+basicRpc(TSlot&& slot)
+{
+    return BasicInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>(
+        std::forward<TSlot>(slot) );
+}
+
+} // namespace wamp
 
 #endif // CPPWAMP_UNPACKER_HPP

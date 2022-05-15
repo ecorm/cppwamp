@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -8,22 +8,25 @@
 #ifndef CPPWAMP_VERSION_HPP
 #define CPPWAMP_VERSION_HPP
 
+#include <string>
+#include "api.hpp"
+
 //------------------------------------------------------------------------------
 /** @file
-    Contains version information on the CppWAMP library. */
+    @brief Contains version information on the CppWAMP library. */
 //------------------------------------------------------------------------------
 
 /// Major version with incompatible API changes
 #define CPPWAMP_MAJOR_VERSION 0
 
 /// Minor version with functionality added in a backwards-compatible manner.
-#define CPPWAMP_MINOR_VERSION 6
+#define CPPWAMP_MINOR_VERSION 7
 
 /// Patch version for backwards-compatible bug fixes.
-#define CPPWAMP_PATCH_VERSION 3
+#define CPPWAMP_PATCH_VERSION 0
 
 /// Integer version number, computed as `(major*10000) + (minor*100) + patch`
-#define CPPWAMP_VERSION 603
+#define CPPWAMP_VERSION 700
 
 namespace wamp
 {
@@ -35,7 +38,7 @@ namespace wamp
     @see CPPWAMP_PATCH_VERSION
     @see CPPWAMP_VERSION */
 //------------------------------------------------------------------------------
-struct Version
+struct CPPWAMP_API Version
 {
     /// Major version with incompatible API changes
     int major;

@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -7,15 +7,15 @@
 
 #include <ctime>
 #include <iostream>
-#include <cppwamp/conversion.hpp>
-#include <cppwamp/corosession.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
+#include <cppwamp/variant.hpp>
+#include <cppwamp/coro/corosession.hpp>
 
 const std::string realm = "cppwamp.demo.time";
 const std::string address = "localhost";
-const short port = 12345;
+const short port = 12345u;
 
 //------------------------------------------------------------------------------
 namespace wamp
@@ -47,11 +47,11 @@ int main()
 {
     using namespace wamp;
 
-    AsioService iosvc;
-    auto tcp = connector<Json>(iosvc, TcpHost(address, port));
-    auto session = CoroSession<>::create(iosvc, tcp);
+    AsioContext ioctx;
+    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
+    auto session = CoroSession<>::create(ioctx, tcp);
 
-    boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
         session->connect(yield);
         session->join(Realm(realm), yield);
@@ -65,7 +65,7 @@ int main()
                            yield);
     });
 
-    iosvc.run();
+    ioctx.run();
 
     return 0;
 }

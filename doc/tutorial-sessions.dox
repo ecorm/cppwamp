@@ -1,0 +1,132 @@
+/*------------------------------------------------------------------------------
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
+           Distributed under the Boost Software License, Version 1.0.
+              (See accompanying file LICENSE_1_0.txt or copy at
+                    http://www.boost.org/LICENSE_1_0.txt)
+------------------------------------------------------------------------------*/
+
+/**
+@page SessionsTutorial Sessions
+
+@tableofcontents
+
+Because it makes things easier to demonstrate, the following tutorial pages
+will use the coroutine-based session API. The asynchronous session API is
+covered in @ref AsyncTutorial.
+
+Creating the Session Object
+---------------------------
+
+Once one or more wamp::Connector objects have been created, they are passed to
+the @ref wamp::CoroSession::create "create" factory method of the session API.
+`create` then returns a `std::shared_ptr` to the newly created
+wamp::CoroSession object.
+
+```
+#include <cppwamp/corosession.hpp>
+#include <cppwamp/json/json.hpp>
+#include <cppwamp/msgpack/msgpack.hpp>
+#include <cppwamp/tcp.hpp>
+using namespace wamp;
+
+AsioContext ioctx;
+auto tcpJson = connector<Json>(ioctx, TcpHost("localhost", 8001));
+auto tcpPack = connector<Msgpack>(ioctx, TcpHost("localhost", 8001));
+
+// Create the Session object:
+auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
+```
+
+Connecting and Joining
+----------------------
+
+After the session object is created, the
+@ref wamp::CoroSession::connect "connect" operation is used to establish a
+transport connection to a WAMP router. The
+@ref wamp::CoroSession::join "join" operation is then used to join a WAMP realm
+on the router.
+
+All "blocking" operations of `CoroSession` must be executed within the context
+of a _coroutine_. Coroutines are initiated via [boost::asio::spawn]
+(https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/spawn.html).
+For any `CoroSession` operation that needs to "block" until completion, a
+_yield context_ must be provided. The following example shows how to spawn a
+coroutine, and how a yield context is passed to the `connect` and `join`
+operations.
+
+```
+using namespace wamp;
+AsioContext ioctx;
+auto tcpJson = connector<Json>(ioctx, TcpHost("localhost", 8001));
+auto tcpPack = connector<Msgpack>(ioctx, TcpHost("localhost", 8001));
+
+boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+{
+    auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
+    session->connect(yield);
+    auto sessionInfo = session->join("somerealm", yield);
+    // etc.
+});
+
+ioctx.run();
+
+```
+
+Note that while a coroutine operation is suspended, it yields control so that
+other asynchronous operations can be executed via the I/O context.
+
+Leaving and Disconnecting
+-------------------------
+
+To gracefully end a WAMP session, the @ref wamp::CoroSession::leave "leave" and
+@ref wamp::CoroSession::disconnect "disconnect" operations are used:
+
+```
+using namespace wamp;
+boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+{
+    auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
+    session->connect(yield);
+    session->join("somerealm", yield);
+
+    while (!finished)
+    {
+        // Interact with the WAMP session
+    }
+
+    auto reason = session->leave(yield); // returns the Reason URI and
+                                         // other details from the router's
+                                         // GOODBYE message
+    session->disconnect(); // non-blocking
+});
+```
+
+To abruptly end a WAMP session, you can skip the `leave` operation and just
+`disconnect`. This may be useful when handling error conditions. Alternatively,
+you can let the session `shared_ptr` reference count drop to zero, and the
+session will abruptly terminate the connection in its destructor:
+
+```
+using namespace wamp;
+boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+{
+    auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
+    session->connect(yield);
+    session->join("somerealm", yield);
+
+    while (!finished)
+    {
+        // Interact with the WAMP session
+    }
+
+    // The session reference count will drop to zero when this lambda
+    // function exits. The session destructor will then terminate the
+    // connection.
+});
+```
+
+- - -
+
+Next: @ref ErrorsTutorial
+
+*/

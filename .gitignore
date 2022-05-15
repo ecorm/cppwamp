@@ -1,11 +1,9 @@
-ext/
-build/
+build*/
+_*/
+CMakeLists.txt.user
+CMakeUserPresets.json
 key.priv
 key.pub
-.hgtags
-.hg/
-*.pro.user
-CMakeLists.txt.user
+*.autosave
 *.vpp~*
 *.vpp.bak
-

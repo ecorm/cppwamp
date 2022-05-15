@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -13,6 +13,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include "api.hpp"
 #include "asiodefs.hpp"
 #include "peerdata.hpp"
 #include "options.hpp"
@@ -23,8 +24,8 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains declarations for data types exchanged via the client session
-    interfaces. */
+    @brief Contains declarations for data types exchanged via the client session
+           interfaces. */
 //------------------------------------------------------------------------------
 
 namespace wamp
@@ -33,7 +34,7 @@ namespace wamp
 //------------------------------------------------------------------------------
 /** %Realm URI and other options passed to Session::join. */
 //------------------------------------------------------------------------------
-class Realm : public Options<Realm>
+class CPPWAMP_API Realm : public Options<Realm>
 {
 public:
     /** Converting constructor taking a realm URI. */
@@ -58,7 +59,7 @@ public:
 //------------------------------------------------------------------------------
 /** Session information returned by Session::join. */
 //------------------------------------------------------------------------------
-class SessionInfo : public Options<SessionInfo>
+class CPPWAMP_API SessionInfo : public Options<SessionInfo>
 {
 public:
     /** A set of role strings. */
@@ -100,12 +101,13 @@ public:
     SessionInfo(internal::PassKey, String realm, SessionId id, Object details);
 };
 
-std::ostream& operator<<(std::ostream& out, const SessionInfo& info);
+CPPWAMP_API std::ostream& operator<<(std::ostream& out,
+                                     const SessionInfo& info);
 
 //------------------------------------------------------------------------------
 /** %Topic URI and other options passed to Session::subscribe. */
 //------------------------------------------------------------------------------
-class Topic : public Options<Topic>
+class CPPWAMP_API Topic : public Options<Topic>
 {
 public:
     /** Converting constructor taking a topic URI. */
@@ -126,22 +128,17 @@ private:
     String uri_;
 
 public:
-    String& uri(internal::PassKey); // Internal use only
+    CPPWAMP_HIDDEN String& uri(internal::PassKey); // Internal use only
 };
 
 //------------------------------------------------------------------------------
 /** Contains the topic URI, options, and payload passed to Session::publish. */
 //------------------------------------------------------------------------------
-class Pub : public Options<Pub>, public Payload<Pub>
+class CPPWAMP_API Pub : public Options<Pub>, public Payload<Pub>
 {
 public:
     /** Converting constructor taking a topic URI. */
     Pub(String topic);
-
-    /** Specifies the list of (potential) _Subscriber_ session IDs that
-        won't receive the published event.
-        @deprecated Use withExcludedSessions() instead. */
-    Pub& withBlacklist(Array blacklist);
 
     /** Specifies the list of (potential) _Subscriber_ session IDs that
         won't receive the published event. */
@@ -152,11 +149,6 @@ public:
 
     /** Specifies a blacklist of authrole strings. */
     Pub& withExcludedAuthRoles(Array authRoles);
-
-    /** Specifies the list of (potential) _Subscriber_ session IDs that
-        are allowed to receive the published event.
-        @deprecated Use withEligibleSessions() instead. */
-    Pub& withWhitelist(Array whitelist);
 
     /** Specifies the list of (potential) _Subscriber_ session IDs that
         are allowed to receive the published event. */
@@ -186,7 +178,7 @@ public:
 //------------------------------------------------------------------------------
 /** Represents a published event */
 //------------------------------------------------------------------------------
-class Event : public Options<Event>, public Payload<Event>
+class CPPWAMP_API Event : public Options<Event>, public Payload<Event>
 {
 public:
     /** Default constructor. */
@@ -202,8 +194,8 @@ public:
     /** Obtains the publication ID associated with this event. */
     PublicationId pubId() const;
 
-    /** Obtains the IO service used to execute user-provided handlers. */
-    AsioService& iosvc() const;
+    /** Obtains the executor used to execute user-provided handlers. */
+    AnyExecutor executor() const;
 
     /** Obtains an optional publisher ID integer. */
     Variant publisher() const;
@@ -218,20 +210,20 @@ public:
 private:
     SubscriptionId subId_ = -1;
     PublicationId pubId_  = -1;
-    AsioService* iosvc_   = nullptr;
+    AnyExecutor executor_;
 
 public:
     // Internal use only
     Event(internal::PassKey, SubscriptionId subId, PublicationId pubId,
-          AsioService* iosvc, Object&& details);
+          AnyExecutor executor, Object&& details);
 };
 
-std::ostream& operator<<(std::ostream& out, const Event& event);
+CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Event& event);
 
 //------------------------------------------------------------------------------
 /** %Procedure URI and other options passed to Session::enroll. */
 //------------------------------------------------------------------------------
-class Procedure : public Options<Procedure>
+class CPPWAMP_API Procedure : public Options<Procedure>
 {
 public:
     /** Converting constructor taking a procedure URI. */
@@ -256,13 +248,13 @@ private:
     String uri_;
 
 public:
-    String& uri(internal::PassKey); // Internal use only
+    CPPWAMP_HIDDEN String& uri(internal::PassKey); // Internal use only
 };
 
 //------------------------------------------------------------------------------
 /** Contains the procedure URI, options, and payload passed to Session::call. */
 //------------------------------------------------------------------------------
-class Rpc : public Options<Rpc>, public Payload<Rpc>
+class CPPWAMP_API Rpc : public Options<Rpc>, public Payload<Rpc>
 {
 public:
     /** Converting constructor taking a procedure URI. */
@@ -275,21 +267,6 @@ public:
     /** Requests that the dealer cancels the call after the specified
         timeout duration. */
     Rpc& withDealerTimeout(Int milliseconds);
-
-    /** Specifies the list of (potential) _Callee_ session IDs that a call
-        won't be forwarded to.
-        @deprecated This feature has been removed from the WAMP spec. */
-    Rpc& withBlacklist(Array blacklist);
-
-    /** Specifies the list of (potential) _Callee_ session IDs that are
-        issued the call.
-        @deprecated This feature has been removed from the WAMP spec. */
-    Rpc& withWhitelist(Array whitelist);
-
-    /** Specifies if this session should be excluded from receiving the
-        call invocation.
-        @deprecated This feature has been removed from the WAMP spec. */
-    Rpc& withExcludeMe(bool excluded = true);
 
     /** Requests that the identity (session ID) of this session be disclosed
         in the call invocation. */
@@ -308,7 +285,7 @@ public:
 //------------------------------------------------------------------------------
 /** Contains the request ID and options passed to Session::cancel. */
 //------------------------------------------------------------------------------
-class Cancellation : public Options<Cancellation>
+class CPPWAMP_API Cancellation : public Options<Cancellation>
 {
 public:
     /** Converting constructor. */
@@ -325,7 +302,7 @@ private:
 /** Contains a remote procedure result yielded by a _callee_ or received by
     a _caller_. */
 //------------------------------------------------------------------------------
-class Result : public Options<Result>, public Payload<Result>
+class CPPWAMP_API Result : public Options<Result>, public Payload<Result>
 {
 public:
     /** Default constructor. */
@@ -351,7 +328,7 @@ public:
     Result(internal::PassKey, RequestId reqId, Object&& details);
 };
 
-std::ostream& operator<<(std::ostream& out, const Result& result);
+CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Result& result);
 
 
 namespace internal { class Callee; } // Forward declaration
@@ -361,7 +338,7 @@ namespace internal { class Callee; } // Forward declaration
 /** Contains the outcome of an RPC invocation.
     @see @ref RpcOutcomes */
 //------------------------------------------------------------------------------
-class Outcome
+class CPPWAMP_API Outcome
 {
 public:
     /** Enumerators representing the type of outcome being held by
@@ -420,14 +397,14 @@ public:
     Outcome& operator=(Outcome&& other);
 
 private:
-    explicit Outcome(std::nullptr_t);
-    void copyFrom(const Outcome& other);
-    void moveFrom(Outcome&& other);
-    void destruct();
+    CPPWAMP_HIDDEN explicit Outcome(std::nullptr_t);
+    CPPWAMP_HIDDEN void copyFrom(const Outcome& other);
+    CPPWAMP_HIDDEN void moveFrom(Outcome&& other);
+    CPPWAMP_HIDDEN void destruct();
 
     Type type_;
 
-    union Value
+    union CPPWAMP_HIDDEN Value
     {
         Value() {}
         ~Value() {}
@@ -444,7 +421,8 @@ private:
     This class also provides the means for manually sending a `YIELD` or
     `ERROR` result back to the RPC caller. */
 //------------------------------------------------------------------------------
-class Invocation : public Options<Invocation>, public Payload<Invocation>
+class CPPWAMP_API Invocation : public Options<Invocation>,
+                               public Payload<Invocation>
 {
 public:
     /** Default constructor */
@@ -461,8 +439,8 @@ public:
     /** Returns the request ID associated with this RPC invocation. */
     RequestId requestId() const;
 
-    /** Obtains the IO service used to execute user-provided handlers. */
-    AsioService& iosvc() const;
+    /** Obtains the executor used to execute user-provided handlers. */
+    AnyExecutor executor() const;
 
     /** Checks if the caller requested progressive results. */
     bool isProgressive() const;
@@ -487,15 +465,15 @@ public:
     // Internal use only
     using CalleePtr = std::weak_ptr<internal::Callee>;
     Invocation(internal::PassKey, CalleePtr callee, RequestId id,
-               AsioService* iosvc, Object&& details);
+               AnyExecutor executor, Object&& details);
 
 private:
     CalleePtr callee_;
     RequestId id_ = -1;
-    AsioService* iosvc_ = nullptr;
+    AnyExecutor executor_ = nullptr;
 };
 
-std::ostream& operator<<(std::ostream& out, const Invocation& inv);
+CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Invocation& inv);
 
 
 //------------------------------------------------------------------------------
@@ -503,7 +481,7 @@ std::ostream& operator<<(std::ostream& out, const Invocation& inv);
     This class also provides the means for manually sending a `YIELD` or
     `ERROR` result back to the RPC caller. */
 //------------------------------------------------------------------------------
-class Interruption : public Options<Interruption>
+class CPPWAMP_API Interruption : public Options<Interruption>
 {
 public:
     /** Default constructor */
@@ -520,8 +498,8 @@ public:
     /** Returns the request ID associated with this interruption. */
     RequestId requestId() const;
 
-    /** Obtains the IO service used to execute user-provided handlers. */
-    AsioService& iosvc() const;
+    /** Obtains the executor used to execute user-provided handlers. */
+    AnyExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
     void yield(Result result = Result()) const;
@@ -533,15 +511,16 @@ public:
     // Internal use only
     using CalleePtr = std::weak_ptr<internal::Callee>;
     Interruption(internal::PassKey, CalleePtr callee, RequestId id,
-                 AsioService* iosvc, Object&& details);
+                 AnyExecutor executor, Object&& details);
 
 private:
     CalleePtr callee_;
     RequestId id_ = -1;
-    AsioService* iosvc_ = nullptr;
+    AnyExecutor executor_ = nullptr;
 };
 
-std::ostream& operator<<(std::ostream& out, const Interruption& cncltn);
+CPPWAMP_API std::ostream& operator<<(std::ostream& out,
+                                     const Interruption& cncltn);
 
 } // namespace wamp
 

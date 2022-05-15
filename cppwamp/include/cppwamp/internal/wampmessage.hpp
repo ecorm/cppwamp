@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -58,8 +58,8 @@ struct WampMessage
 
     WampMessage() : type(WampMsgType::none) {}
 
-    WampMessage(WampMsgType type, Array fields)
-        : type(type), fields(std::move(fields))
+    WampMessage(WampMsgType type, Array messageFields)
+        : type(type), fields(std::move(messageFields))
     {
         if (fields.empty())
             fields.push_back(static_cast<Int>(type));

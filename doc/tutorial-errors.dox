@@ -1,0 +1,107 @@
+/*------------------------------------------------------------------------------
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
+           Distributed under the Boost Software License, Version 1.0.
+              (See accompanying file LICENSE_1_0.txt or copy at
+                    http://www.boost.org/LICENSE_1_0.txt)
+------------------------------------------------------------------------------*/
+
+/**
+@page ErrorsTutorial Error Handling
+
+@tableofcontents
+
+This page describes how error handling is done using the coroutine-based API.
+
+Exceptions
+----------
+
+Whenever a wamp::CoroSession operation fails, it throws a wamp::error::Failure
+exception. Since `Failure` derives from [`std::system_error`][system_error],
+it contains a [`std::error_code`][error_code] that represents the cause of the
+error.
+
+```
+using namespace wamp;
+AsioContext ioctx;
+auto tcp = TcpConnector::create<Json>(ioctx, {"localhost", 8001});
+
+boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+{
+    auto session = CoroSession<>::create(ioctx, tcp);
+    try
+    {
+        session->connect(yield);
+        session->join("somerealm", yield);
+        // etc.
+    }
+    catch (const error::Failure& e)
+    {
+        // Print a message describing the error
+        std::cerr << e.what() << "\n";
+
+        // Obtain the std::error_code associated with the exception
+        auto ec = e.code();
+        if (ec == SessionErrc::noSuchRealm)
+            std::cerr << "The realm doesn't exist\n";
+        else
+            std::cerr << "Unexpected error: " << ec << "\n";
+    }
+});
+
+ioctx.run();
+
+```
+
+Error Codes
+-----------
+
+An error code can either belong to [`std::generic_category`][generic_category],
+or to one of the error categories defined by the library in `<cppwamp/error.hpp>`:
+
+Error category            | Values                | Used for reporting
+------------------------- | ----------------------| ------------------
+`wamp::SessionCategory`   | `wamp::SessionErrc`   | WAMP session errors
+`wamp::ProtocolCategory`  | `wamp::ProtocolErrc`  | invalid WAMP messages
+`wamp::TransportCategory` | `wamp::TransportErrc` | general transport layer errors
+`wamp::RawsockCategory`   | `wamp::RawsockErrc`   | raw socket transport errors
+[`std::generic_category`][generic_category] | [`std::errc`][std_errc] | OS-level socket errors
+
+Passing an Error Code Pointer
+-----------------------------
+
+If you prefer that operations return error codes instead of throwing exceptions,
+you may pass a [`std::error_code`][error_code] pointer as the last argument
+in wamp::CoroSession member functions. If a runtime error occurs, `CoroSession`
+will set the pointed-to error code, instead of throwing an
+wamp::error::Failure exception.
+
+```
+boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+{
+    auto session = CoroSession<>::create(ioctx, tcp);
+    std::error_code ec;
+    session->connect(yield, &ec);
+    if (ec)
+    {
+        std::cerr << "Error: " << ec << "\n";
+    }
+    // etc.
+});
+
+```
+
+Note that `CoroSession` will always throw wamp::error::Logic exceptions
+whenever preconditions are not met, whether or not a `std::error_code` pointer
+was passed in. Preconditions for API functions are listed in this reference
+documentation.
+
+[system_error]: http://en.cppreference.com/w/cpp/error/system_error
+[error_code]: http://en.cppreference.com/w/cpp/error/error_code
+[generic_category]: http://en.cppreference.com/w/cpp/error/generic_category
+[std_errc]: https://en.cppreference.com/w/cpp/error/errc
+
+- - -
+
+Next: @ref RpcTutorial
+
+*/

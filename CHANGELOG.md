@@ -1,3 +1,51 @@
+v0.7.0
+======
+Migrated to newer Boost.Asio, CMake, and Catch.
+
+### Dependencies
+
+- Migrated to newer Boost.Asio: Boost 1.74 or above now required.
+- Removed Boost.Endian dependency.
+- Migrated test framework to Catch2: version 2.3 or greater now required.
+- RapidJSON and Msgpack-c dependencies are no longer mandatory if their respective codecs are not needed.
+- CMake minimum version is now 3.12.
+- Migrated to newer Doxygen for generating docs (tested with version 1.8.17)
+
+### CMake
+
+- Overhauled CMake build to adopt modern practices.
+- CMake package config now provided when built and installed.
+- Separate CMake targets now provided for easy import into another CMake project: `CppWAMP::headers`, `CppWAMP::core`, `CppWAMP::json`, `CppWAMP::msgpack`, and `CppWAMP::coro`.
+
+### Breaking API Changes
+
+- `AsioService` now aliases `boost::asio::io_context`
+- `iosvc()` method in `Event`, `Invocation`, and `Interruption` replaced with `executor()` method.
+- Signed/unsigned comparisons of numeric `Variants` are now performed correctly (in the mathematical sense).
+- Removed the following deprecated methods: `Pub::withBlacklist`, `Pub::withWhiteList`, `Rpc::withBlacklist`, `Rpc::withWhitelist`, `Rpc::withExcludeMe`
+
+### Other API Changes
+
+- Added API visibility macros for shared library builds.
+- `Session`, `CoroSession`, and `connect(...)` now have overloads that accept boost::asio::any_executor.
+- Added `TcpOptions` and `UdsOptions` which encapsulate socket options.
+- `TcpHost` and `UsdPath` now prefer to take socket options via `TcpOptions` and `UdsOptions` respectively in their constructors.
+- Allow passing `SO_OOBINLINE` socket option.
+- `wamp::ValueTypeOf` now mimics `std::remove_cvref_t` instead of `std::decay_t`.
+
+### Miscellaneous
+
+- Removed git submodules in favor of CMake FetchContent.
+- Removed vestigial Qt Creator and Mercurial stuff.
+- Fixed json.hpp and msgpack.hpp leaking internals in `CPPWAMP_COMPILED_LIB` mode.
+- Removed CPPWAMP_TESTING_FOO macros in favor of Catch2 runtime tags.
+- WAMP tests now use any available codec.
+- Made header files self-contained to avoid clangd error messages.
+- Fixed `-Wall` warnings.
+- An `AUTHENTICATE` message with empty signature is now sent to a router if a `CHALLENGE` message is received and there is no registered challenge handler. This is to prevent deadlocking.
+- Installation directions are now in README instead of GitHub wiki.
+- Tutorials are now located in repo instead of GitHub wiki.
+
 v0.6.3
 ======
 Update for latest 3rd-party dependencies.

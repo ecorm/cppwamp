@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -33,9 +33,9 @@ checked during runtime, in the body of the call handler.
 
 wamp::Session::enroll expects a call slot with the following signature:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 wamp::Outcome function(wamp::Invocation)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 where:
 - wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
@@ -66,9 +66,9 @@ into a regular call slot that can be passed to wamp::Session::enroll.
 
 `wamp::basicRpc` expects a call slot with the following signature:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 TResult function(TArgs...)
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 where
 - `TResult` is a static return type that will be automatically converted
   to a single wamp::Result payload argument and then returned as a
@@ -78,7 +78,7 @@ where
   `wamp::basicRpc`.
 
 Examples of basic call slots are:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 void setSpeed(float speed) { ... }
 // ^            ^
 // TResult    TArgs
@@ -87,10 +87,10 @@ int purchase(std::string item, int cost, int qty) { ... }
 //^                  ^          ^         ^
 // \                 \----------|---------/
 // TResult                    TArgs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 The above slots can be registered as follows:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 session->enroll(Procedure("setSpeed"),
                 basicRpc<void, float>(&setSpeed),
                 handler);
@@ -98,7 +98,7 @@ session->enroll(Procedure("setSpeed"),
 session->enroll(Procedure("purchase"),
                 basicRpc<int, std::string, int, int>(&purchase),
                 handler);
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 where `handler` is the asynchronous handler (or coroutine yield context)
 for the **enroll operation itself**.
@@ -122,9 +122,9 @@ passed to wamp::Session::enroll.
 
 `wamp::basicCoroRpc` expects a call slot with the following signature:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 TResult function(TArgs..., boost::asio::yield_context)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 where
 - `TResult` is a static return type that will be automatically converted
   to a single wamp::Result payload argument and then returned as a
@@ -135,7 +135,7 @@ where
 - `boost::asio::yield_context` represents the RPC's coroutine context.
 
 Examples of basic coroutine call slots are:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 using Yield = boost::asio::yield_context;
 
 void setSpeed(float speed, Yield yield) { ... }
@@ -146,10 +146,10 @@ int purchase(std::string item, int cost, int qty, Yield yield) { ... }
 //^                  ^          ^         ^
 // \                 \----------|---------/
 // TResult                    TArgs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 The above slots can be registered as follows:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 session->enroll(Procedure("setSpeed"),
                 basicCoroRpc<void, float>(&setSpeed),
                 handler);
@@ -157,7 +157,7 @@ session->enroll(Procedure("setSpeed"),
 session->enroll(Procedure("purchase"),
                 basicCoroRpc<int, std::string, int, int>(&purchase),
                 handler);
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 where `handler` is the asynchronous handler (or coroutine yield context)
 for the **enroll operation itself**.
@@ -180,9 +180,9 @@ into a regular call slot that can be passed to wamp::Session::enroll.
 
 `wamp::unpackedRpc` expects a call slot with the following signature:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 wamp::Outcome function(wamp::Invocation, TArgs...)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 where
 - wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
   to the caller,
@@ -202,7 +202,7 @@ where
 
 
 Examples of unpacked call slots are:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 Outcome setSpeed(Invocation inv, float speed) { ... }
 //                                 ^
 //                               TArgs
@@ -211,10 +211,10 @@ Outcome purchase(Invocation inv, std::string item, int cost, int qty) { ... }
 //                                       ^          ^         ^
 //                                       \----------|---------/
 //                                                TArgs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 The above slots can be registered as follows:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 session->enroll(Procedure("setSpeed"),
                 unpackedRpc<float>(&setSpeed),
                 handler);
@@ -222,7 +222,7 @@ session->enroll(Procedure("setSpeed"),
 session->enroll(Procedure("purchase"),
                 unpackedRpc<std::string, int, int>(&purchase),
                 handler);
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 where `handler` is the asynchronous handler (or coroutine yield context)
 for the **enroll operation itself**.
@@ -244,9 +244,9 @@ registering such call slots.
 
 `wamp::unpackedCoroRpc` expects a call slot with the following signature:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 wamp::Outcome function(wamp::Invocation, TArgs..., boost::asio::yield_context)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 where
 - wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
   to the caller,
@@ -271,39 +271,39 @@ discriminated union (i.e. variant) that can contain either:
 An RPC call slot can send a result back to the caller by returning a
 wamp::Result object:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 Outcome add(Invocation, int a, int b)
 {
     return Result().withArgs(a + b);
 }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 If only positional `Variant` arguments need to be returned, they can be returned
 directly via a braced initializer list:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 Outcome add(Invocation, int a, int b)
 {
     return {a + b};
 }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 If an empty result needs to be returned, an empty initializer list can be used:
 
-~~~~~~~~~~~~~~~~~~~~~~
+```
 Outcome doSomething()
 {
     // Do something...
     return {};
 }
-~~~~~~~~~~~~~~~~~~~~~~
+```
 
 @subsection ErrorOutcomes Error Outcomes
 
 An RPC call slot can send an error back to the caller by returning a
 wamp::Error object:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 Outcome divide(Invocation, int a, int b)
 {
     if (b == 0)
@@ -311,21 +311,21 @@ Outcome divide(Invocation, int a, int b)
     else
         return {a/b};
 }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 Instead of returning an `Error` object via the `Outcome` return parameter,
 a call slot can also throw an `Error` object as an exception. The library
 will catch such exceptions and will send a corresponding `ERROR` message back
 to the caller:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 Outcome divide(Invocation, int a, int b)
 {
     if (b == 0)
         throw Error("myapp.divide_by_zero");
     return {a/b};
 }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 @note Thrown exception types other than wamp::Error are _not_ handled by the
       library, and will result in the exception being rethrown by
@@ -340,7 +340,7 @@ useful when the call result can only be determined in a different asynchronous
 context.
 
 Example:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 Outcome Client::addPerson(Invocation inv, Object person)
 {
     // We need to issue another RPC to the database service before we can
@@ -360,7 +360,7 @@ Outcome Client::addPerson(Invocation inv, Object person)
     // asynchronous context.
     return Outcome::deferred();
 }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 
 @section ScopedRegistrations Scoped Registrations
@@ -373,7 +373,7 @@ lifetime management of RPC registrations using RAII techniques.
 Here's an example illustrating how `ScopedRegistration` can be used
 to manage the lifetime of a registration:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 struct Delegate
 {
     Outcome rpc(Invocation inv);
@@ -405,6 +405,6 @@ int main()
     });
     iosvc.run();
 }
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```
 
 */

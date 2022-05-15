@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+               Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -9,6 +9,7 @@
 #define CPPWAMP_MESSSAGE_TRAITS_HPP
 
 #include <cstdint>
+#include "../api.hpp"
 #include "../variant.hpp"
 
 namespace wamp
@@ -49,8 +50,10 @@ enum class WampMsgType : uint8_t
 };
 
 //------------------------------------------------------------------------------
-struct MessageTraits
+struct CPPWAMP_API MessageTraits
 {
+    // CPPWAMP_API visibility required by codec component libraries
+
     static const MessageTraits& lookup(WampMsgType type);
 
     WampMsgType repliesTo   : 8;

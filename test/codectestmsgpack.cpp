@@ -5,10 +5,10 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_CODEC
+#ifndef CPPWAMP_NO_MSGPACK
 
 #include <sstream>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 #include <cppwamp/msgpack.hpp>
 
@@ -53,7 +53,7 @@ void checkMsgpack(const T& value)
 } // anonymous namespace
 
 //------------------------------------------------------------------------------
-SCENARIO( "Msgpack serialization", "[Variant]" )
+SCENARIO( "Msgpack serialization", "[Variant][Codec][Msgpack]" )
 {
 GIVEN( "an assortment of variants" )
 {
@@ -174,4 +174,4 @@ GIVEN( "a short Msgpack message" )
 
 }
 
-#endif // #if CPPWAMP_TESTING_CODEC
+#endif // #ifndef CPPWAMP_NO_MSGPACK

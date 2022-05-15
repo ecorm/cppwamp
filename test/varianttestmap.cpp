@@ -5,10 +5,8 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_VARIANT
-
 #include <map>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 
 using namespace wamp;
@@ -188,11 +186,8 @@ SCENARIO( "Invalid variant conversion to map", "[Variant]" )
 {
 GIVEN( "invalid map types" )
 {
-    struct Foo {};
     checkBadConversionTo<bool>(Variant{true});
     checkBadConversionTo<int>(Variant{Object{ {"key", "Hello"} }});
-    // TODO: fix me
-    //    checkBadConversionTo<Foo>(Variant{Object{ {"key", 42} }});
     checkBadConversionTo<Null>(Variant{Object{ {"", 0} }});
 }
 }
@@ -270,5 +265,3 @@ SCENARIO( "Comparing variants to maps", "[Variant]" )
         CHECK( differs(map<S,Real>{ {"", 0.0} }, map<S,UInt>{ {"", 1u} }) );
     }
 }
-
-#endif // #if CPPWAMP_TESTING_VARIANT

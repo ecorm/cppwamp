@@ -5,29 +5,20 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_CODEC
+#ifndef CPPWAMP_NO_JSON
 
 #include <cmath>
 #include <limits>
 #include <sstream>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 #include <cppwamp/json.hpp>
 
 using namespace wamp;
-using namespace Catch::Matchers;
+namespace Matchers = Catch::Matchers;
 
 namespace
 {
-
-//------------------------------------------------------------------------------
-std::string toString(const Variant& v)
-{
-    if (!v.is<String>())
-        return v.to<String>();
-    else
-        return '"' + v.to<String>() + '"';
-}
 
 //------------------------------------------------------------------------------
 template <typename T>
@@ -96,12 +87,12 @@ void checkInteger(const std::string& json, TInteger n)
 void checkReal(const std::string& json, double x)
 {
     INFO( "For JSON string \"" << json << "\"" );
-    auto epsilon = std::numeric_limits<Real>::epsilon()*10.0;
+    auto margin = std::numeric_limits<Real>::epsilon()*10.0;
     {
         Variant v;
         CHECK_NOTHROW( Json::decode(json, v) );
         REQUIRE( v.is<Real>() );
-        CHECK( v.as<Real>() == Approx(x).epsilon(epsilon) );
+        CHECK( v.as<Real>() == Approx(x).margin(margin) );
     }
 
     {
@@ -109,7 +100,7 @@ void checkReal(const std::string& json, double x)
         std::istringstream iss(json);
         CHECK_NOTHROW( Json::decode(iss, v) );
         REQUIRE( v.is<Real>() );
-        CHECK( v.as<Real>() == Approx(x).epsilon(epsilon) );
+        CHECK( v.as<Real>() == Approx(x).margin(margin) );
     }
 }
 
@@ -129,13 +120,13 @@ void checkError(const std::string& json)
 } // anonymous namespace
 
 //------------------------------------------------------------------------------
-SCENARIO( "JSON serialization", "[Variant]" )
+SCENARIO( "JSON serialization", "[Variant][Codec][JSON]" )
 {
 GIVEN( "valid JSON numeric strings" )
 {
-    auto intMin  = std::numeric_limits<Int>::min();
-    auto intMax  = std::numeric_limits<Int>::max();
-    auto uintMax = std::numeric_limits<UInt>::max();
+    Int intMin  = std::numeric_limits<Int>::min();
+    Int intMax  = std::numeric_limits<Int>::max();
+    UInt uintMax = std::numeric_limits<UInt>::max();
 
     checkInteger<Int>("0",   0);
     checkInteger<Int>("1",   1);
@@ -153,9 +144,7 @@ GIVEN( "valid JSON numeric strings" )
 }
 GIVEN( "valid JSON strings" )
 {
-    auto intMin  = std::numeric_limits<Int>::min();
-    auto intMax  = std::numeric_limits<Int>::max();
-    auto uintMax = std::numeric_limits<UInt>::max();
+    Int intMax  = std::numeric_limits<Int>::max();
 
     checkJson(R"(null)",    null);
     checkJson(R"(false)",   false);
@@ -187,12 +176,16 @@ GIVEN( "valid JSON strings" )
     checkJson(R"([9223372036854775807])", Array{(UInt)intMax});
     checkJson(R"([9223372036854775808])", Array{9223372036854775808ull});
     checkJson(R"([""])",    Array{""});
-    checkJson(R"([[]])",    Array{Array{}});
+
+    // Array{Array{}} is ambiguous with the move constructor and the
+    // constructor taking an initializer list
+    checkJson(R"([[]])",    Array{Variant{Array{}}});
     checkJson(R"([{}])",    Array{Object{}});
     checkJson(R"([null,false,true,42,-42,"hello","\u0000Qg==",[],{}])",
               Array{null,false,true,42u,-42,"hello",Blob{0x42},Array{},Object{}});
     checkJson(R"([[["foo",42]],[{"foo":42}]])",
-              Array{ Array{Array{"foo",42u} }, Array{ Object{{"foo",42u}} } });
+              Array{ Variant{Array{Variant{Array{"foo",42u}}}},
+                     Array{Object{{"foo",42u}}} });
     checkJson(R"({})",          Object{});
     checkJson(R"({"":""})",     Object{ {"",""} });
     checkJson(R"({"n":null})",  Object{ {"n",null} });
@@ -257,7 +250,7 @@ GIVEN( "non-finite real numbers" )
         std::string str;
         Json::encode(v, str);
         CHECK( std::isnan(v.as<Real>()) );
-        CHECK_THAT( str, Equals("null") );
+        CHECK_THAT( str, Matchers::Equals("null") );
     }
     WHEN( "serializing positive infinity" )
     {
@@ -265,7 +258,7 @@ GIVEN( "non-finite real numbers" )
         std::string str;
         Json::encode(v, str);
         CHECK( std::isinf(v.as<Real>()) );
-        CHECK_THAT( str, Equals("null") );
+        CHECK_THAT( str, Matchers::Equals("null") );
     }
     WHEN( "serializing negative infinity" )
     {
@@ -275,7 +268,7 @@ GIVEN( "non-finite real numbers" )
             std::string str;
             Json::encode(v, str);
             CHECK( std::isinf(v.as<Real>()) );
-            CHECK_THAT( str, Equals("null") );
+            CHECK_THAT( str, Matchers::Equals("null") );
         }
     }
 }
@@ -343,4 +336,4 @@ GIVEN( "a string Variant with multi-byte UTF-8 characters" )
 }
 }
 
-#endif // #if CPPWAMP_TESTING_CODEC
+#endif // #ifndef CPPWAMP_NO_JSON

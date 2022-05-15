@@ -5,12 +5,10 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_VARIANT
-
 #include <cstdlib>
 #include <limits>
 #include <type_traits>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 
 using namespace wamp;
@@ -161,7 +159,7 @@ GIVEN( "Variants of the same dynamic type" )
             CHECK( differs(Ar{},   Ar{0u}) );
             CHECK( differs(Ar{},   Ar{0.0}) );
             CHECK( differs(Ar{},   Ar{""}) );
-            CHECK( differs(Ar{},   Ar{Ar{}}) );
+            CHECK( differs(Ar{},   Ar{Variant{Ar{}}}) );
             CHECK( differs(Ar{},   Ar{Ob{}}) );
         }
         WHEN ( "performing lexicographical comparisons" )
@@ -241,7 +239,7 @@ GIVEN( "Two variants of numeric type (integer or real)" )
     CHECK( differs(0,   1.0) );
     CHECK( differs(0,   0.1) );
     CHECK( differs(-1,  0) );
-    CHECK( differs(0u,  -1) ); // Signed/unsigned comparison
+    CHECK( differs(-1,  0u) );
     CHECK( differs(-1,  0.0) );
     CHECK( differs(-1,  -0.9) );
     CHECK( differs(0u,  1) );
@@ -258,7 +256,7 @@ GIVEN( "Two variants of numeric type (integer or real)" )
     CHECK( differs(Ar{0},   Ar{1.0}) );
     CHECK( differs(Ar{0},   Ar{0.1}) );
     CHECK( differs(Ar{-1},  Ar{0}) );
-    CHECK( differs(Ar{0u},  Ar{-1}) ); // Signed/unsigned comparison
+    CHECK( differs(Ar{-1},  Ar{0u}) );
     CHECK( differs(Ar{-1},  Ar{0.0}) );
     CHECK( differs(Ar{-1},  Ar{-0.9}) );
     CHECK( differs(Ar{0u},  Ar{1}) );
@@ -275,7 +273,7 @@ GIVEN( "Two variants of numeric type (integer or real)" )
     CHECK( differs(Ob{{"a",0}},   Ob{{"a",1.0}}) );
     CHECK( differs(Ob{{"a",0}},   Ob{{"a",0.1}}) );
     CHECK( differs(Ob{{"a",-1}},  Ob{{"a",0}}) );
-    CHECK( differs(Ob{{"a",0u}},  Ob{{"a",-1}}) ); // Signed/unsigned comparison
+    CHECK( differs(Ob{{"a",-1}},  Ob{{"a",0u}}) );
     CHECK( differs(Ob{{"a",-1}},  Ob{{"a",0.0}}) );
     CHECK( differs(Ob{{"a",-1}},  Ob{{"a",-0.9}}) );
     CHECK( differs(Ob{{"a",0u}},  Ob{{"a",1}}) );
@@ -330,5 +328,3 @@ GIVEN( "Variants of different dynamic types" )
     CHECK( differs(Array{"Z"},  Object{{"A",0}}) );
 }
 }
-
-#endif // #if CPPWAMP_TESTING_VARIANT

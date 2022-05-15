@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -29,8 +29,7 @@ The CppWAMP open-source project is hosted at
 For an **overview of the library's classes**, structs, typedefs, enums, etc.,
 consult the @ref wamp Namespace Reference.
 
-For a **tutorial-style overview**, please consult the [Tutorial][tutorial] wiki
-page on GitHub.
+For a **tutorial-style overview**, please consult the @ref Tutorial page.
 
 For an **example chat program**, please see @ref examples/chat/main.cpp.
 
@@ -38,15 +37,26 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 
 - - -
 
-<b>Copyright &copy; 2014-2015 Butterfly Energy Systems</b>
+<b>Copyright &copy; 2014-2022 Butterfly Energy Systems</b>
 
 @include LICENSE_1_0.txt
 
 [wamp]: http://wamp.ws/
 [cppwamp]: https://github.com/ecorm/cppwamp
-[cppwamp]: https://github.com/ecorm/cppwamp
 [license]: http://www.boost.org/users/license.html
-[tutorial]: https://github.com/ecorm/cppwamp/wiki/Tutorial
+*/
+
+/**
+@page Tutorial Tutorial
+
+1. @subpage VariantsTutorial &ndash; A `Variant` mimics a dynamic Javascript variable.
+2. @subpage ConnectorsTutorial &ndash; A `Connector` is used for establishing client transport endpoints.
+3. @subpage SessionsTutorial &ndash; How to establish a WAMP session using the coroutine-based client API.
+4. @subpage ErrorsTutorial &ndash; How to handle runtime errors when using the coroutine-based client API.
+5. @subpage RpcTutorial &ndash; How to register and invoke remote procedure calls.
+6. @subpage PubSubTutorial &ndash; How to publish and subscribe to event topics.
+7. @subpage AsyncTutorial &ndash; How to use the asynchronous client API.
+8. @subpage ConversionsTutorial &ndash; How to convert `Variant` to/from custom types.
 */
 
 /**

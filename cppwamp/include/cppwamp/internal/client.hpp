@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <boost/asio/post.hpp>
 #include "../registration.hpp"
 #include "../subscription.hpp"
 #include "../unpacker.hpp"
@@ -143,7 +144,7 @@ public:
                            AsyncTask<Subscription>&& handler) override
     {
         using std::move;
-        SubscriptionRecord rec = {move(topic), move(slot), handler.iosvc()};
+        SubscriptionRecord rec = {move(topic), move(slot), handler.executor()};
 
         auto kv = topics_.find(rec.topic.uri());
         if (kv == topics_.end())
@@ -259,7 +260,7 @@ public:
     {
         using std::move;
         RegistrationRecord rec{ move(procedure), move(callSlot),
-                                move(interruptSlot), handler.iosvc() };
+                                move(interruptSlot), handler.executor() };
         enrollMsg_.at(2) = rec.procedure.options();
         enrollMsg_.at(3) = rec.procedure.uri();
         auto self = this->shared_from_this();
@@ -411,15 +412,15 @@ private:
     {
         using Slot = std::function<void (Event)>;
 
-        SubscriptionRecord() : topic(""), iosvc(nullptr) {}
+        SubscriptionRecord() : topic("") {}
 
-        SubscriptionRecord(Topic&& topic, Slot&& slot, AsioService& iosvc)
-            : topic(std::move(topic)), slot(std::move(slot)), iosvc(&iosvc)
+        SubscriptionRecord(Topic&& topic, Slot&& slot, AnyExecutor exec)
+            : topic(std::move(topic)), slot(std::move(slot)), executor(exec)
         {}
 
         Topic topic;
         Slot slot;
-        AsioService* iosvc;
+        AnyExecutor executor;
     };
 
     struct RegistrationRecord
@@ -427,20 +428,20 @@ private:
         using CallSlot = std::function<Outcome (Invocation)>;
         using InterruptSlot = std::function<Outcome (Interruption)>;
 
-        RegistrationRecord() : procedure(""), iosvc(nullptr) {}
+        RegistrationRecord() : procedure("") {}
 
         RegistrationRecord(Procedure&& procedure, CallSlot&& callSlot,
-                           InterruptSlot&& interruptSlot, AsioService& iosvc)
+                           InterruptSlot&& interruptSlot, AnyExecutor exec)
             : procedure(std::move(procedure)),
               callSlot(std::move(callSlot)),
               interruptSlot(std::move(interruptSlot)),
-              iosvc(&iosvc)
+              executor(exec)
         {}
 
         Procedure procedure;
         CallSlot callSlot;
         InterruptSlot interruptSlot;
-        AsioService* iosvc = nullptr;
+        AnyExecutor executor;
     };
 
     using Base          = Peer<Codec, Transport>;
@@ -606,7 +607,8 @@ private:
                 warn(oss.str());
             }
 
-            // TODO: Send empty signature
+            // Send empty signature to avoid deadlock with other peer.
+            authenticate(Authentication(""));
         }
     }
 
@@ -625,7 +627,7 @@ private:
             Event event({},
                         msg.to<SubscriptionId>(1),
                         msg.to<PublicationId>(2),
-                        localSubs.begin()->second.iosvc,
+                        localSubs.begin()->second.executor,
                         move(msg.as<Object>(3)));
 
             if (msg.fields.size() >= 5)
@@ -650,7 +652,7 @@ private:
     {
         auto self = this->shared_from_this();
         const auto& slot = sub.slot;
-        sub.iosvc->post([this, self, slot, event]()
+        boost::asio::post(sub.executor, [this, self, slot, event]()
         {
             // Copy the subscription and publication IDs before the Event
             // object gets moved away.
@@ -698,7 +700,7 @@ private:
         {
             auto self = this->shared_from_this();
             const RegistrationRecord& rec = kv->second;
-            Invocation inv({}, self, requestId, rec.iosvc,
+            Invocation inv({}, self, requestId, rec.executor,
                            move(msg.as<Object>(3)));
             if (msg.fields.size() >= 5)
                 inv.args({}) = move(msg.as<Array>(4));
@@ -706,7 +708,7 @@ private:
                 inv.kwargs({}) = move(msg.as<Object>(5));
 
             pendingInvocations_[requestId] = regId;
-            dispatchRpcRequest(*rec.iosvc, rec.callSlot, inv);
+            dispatchRpcRequest(rec.executor, rec.callSlot, inv);
         }
         else
         {
@@ -734,19 +736,19 @@ private:
             {
                 auto self = this->shared_from_this();
                 const RegistrationRecord& rec = kv->second;
-                Interruption intr({}, self, requestId, rec.iosvc,
+                Interruption intr({}, self, requestId, rec.executor,
                                   move(msg.as<Object>(2)));
-                dispatchRpcRequest(*rec.iosvc, rec.interruptSlot, intr);
+                dispatchRpcRequest(rec.executor, rec.interruptSlot, intr);
             }
         }
     }
 
     template <typename TSlot, typename TRequest>
-    void dispatchRpcRequest(AsioService& iosvc, const TSlot& slot,
+    void dispatchRpcRequest(AnyExecutor exec, const TSlot& slot,
                             const TRequest& request)
     {
         auto self = this->shared_from_this();
-        iosvc.post([this, self, slot, request]()
+        boost::asio::post(exec, [this, self, slot, request]()
         {
             // Copy the request ID before the request object gets moved away.
             auto requestId = request.requestId();

@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -9,8 +9,8 @@
 #define CPPWAMP_INTERNAL_ASIOLISTENER_HPP
 
 #include <cstdint>
+#include <set>
 #include <utility>
-#include <vector>
 #include "../error.hpp"
 #include "../rawsockoptions.hpp"
 #include "asioendpoint.hpp"

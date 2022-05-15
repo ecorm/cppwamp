@@ -5,11 +5,9 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_VARIANT
-
 #include <tuple>
 #include <vector>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 
 using namespace wamp;
@@ -193,11 +191,8 @@ SCENARIO( "Invalid variant conversion to vector", "[Variant]" )
 {
 GIVEN( "invalid vector types" )
 {
-    struct Foo {};
     checkBadConversionTo<bool>(Variant{true});
     checkBadConversionTo<int>(Variant{Array{"Hello"}});
-    // TODO: fix me
-    //checkBadConversionTo<Foo>(Variant{Array{42}});
     checkBadConversionTo<Null>(Variant{Array{0}});
 }
 }
@@ -264,5 +259,3 @@ SCENARIO( "Comparing variants to vectors", "[Variant]" )
         CHECK( differs(vector<Real>{0.0}, vector<UInt>{1u}) );
     }
 }
-
-#endif // #if CPPWAMP_TESTING_VARIANT

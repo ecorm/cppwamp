@@ -5,10 +5,8 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_VARIANT
-
 #include <tuple>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 #include <cppwamp/types/tuple.hpp>
 
@@ -212,5 +210,3 @@ SCENARIO( "Variant conversion/comparison to tuple", "[Variant]" )
         }
     }
 }
-
-#endif // #if CPPWAMP_TESTING_VARIANT

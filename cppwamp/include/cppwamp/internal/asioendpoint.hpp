@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -16,7 +16,6 @@
 #include <boost/asio/write.hpp>
 #include "../error.hpp"
 #include "asiotransport.hpp"
-#include "config.hpp"
 #include "rawsockhandshake.hpp"
 
 namespace wamp
@@ -43,7 +42,7 @@ public:
                                              TransportPtr)>;
 
     explicit AsioEndpoint(Establisher&& est)
-        : iosvc_(est.iosvc()),
+        : executor_(est.executor()),
           est_(std::move(est)),
           handshake_(0)
     {}
@@ -113,7 +112,7 @@ protected:
         auto transport = Transport::create(std::move(socket_), maxTxLength,
                                     maxRxLength);
         std::error_code ec = make_error_code(TransportErrc::success);
-        iosvc_.post(std::bind(handler_, ec, codecId, std::move(transport)));
+        post(std::bind(handler_, ec, codecId, std::move(transport)));
         socket_.reset();
         handler_ = nullptr;
     }
@@ -121,7 +120,7 @@ protected:
     void fail(RawsockErrc errc)
     {
         socket_.reset();
-        iosvc_.post(std::bind(handler_, make_error_code(errc), 0, nullptr));
+        post(std::bind(handler_, make_error_code(errc), 0, nullptr));
         handler_ = nullptr;
     }
 
@@ -131,7 +130,7 @@ protected:
         {
             auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
             socket_.reset();
-            iosvc_.post(std::bind(handler_, ec, 0, nullptr));
+            post(std::bind(handler_, ec, 0, nullptr));
             handler_ = nullptr;
         }
         return !asioEc;
@@ -144,7 +143,13 @@ protected:
     virtual void onHandshakeSent(Handshake hs) = 0;
 
 private:
-    AsioService& iosvc_;
+    template <typename TFunction>
+    void post(TFunction&& fn)
+    {
+        boost::asio::post(executor_, std::forward<TFunction>(fn));
+    }
+
+    AnyExecutor executor_;
     SocketPtr socket_;
     Handler handler_;
     Establisher est_;

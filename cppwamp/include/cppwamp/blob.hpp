@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,14 +10,15 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains the declaration of Variant and other closely related
-    types/functions. */
+    @brief Contains the declaration of Variant and other closely related
+           types/functions. */
 //------------------------------------------------------------------------------
 
 #include <cstdint>
 #include <initializer_list>
 #include <ostream>
 #include <vector>
+#include "api.hpp"
 
 namespace wamp
 {
@@ -25,7 +26,7 @@ namespace wamp
 //------------------------------------------------------------------------------
 /** Contains binary data as an array of bytes. */
 //------------------------------------------------------------------------------
-class Blob
+class CPPWAMP_API Blob
 {
 public:
     /// Array of bytes used to contain the binary data.
@@ -63,7 +64,7 @@ private:
 /** Outputs a Blob to the given output stream.
     @relates Blob */
 //------------------------------------------------------------------------------
-std::ostream& operator<<(std::ostream& out, const Blob& blob);
+CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Blob& blob);
 
 } // namespace wamp
 

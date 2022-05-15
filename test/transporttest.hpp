@@ -10,9 +10,11 @@
 
 #include <iostream>
 #include <vector>
-#include <catch.hpp>
-#include <cppwamp/json.hpp>
-#include <cppwamp/msgpack.hpp>
+#include <catch2/catch.hpp>
+#include <cppwamp/asiodefs.hpp>
+#include <cppwamp/codec.hpp>
+#include <cppwamp/error.hpp>
+#include <cppwamp/rawsockoptions.hpp>
 
 using namespace wamp;
 
@@ -29,8 +31,8 @@ struct LoopbackFixtureBase
 {
     // These members need to be already initialized when initializing
     // TcpLoopbackFixture and UdsLoopbackFixture
-    boost::asio::io_service clientService;
-    boost::asio::io_service serverService;
+    AsioContext clientService;
+    AsioContext serverService;
 };
 
 //------------------------------------------------------------------------------
@@ -45,8 +47,8 @@ struct LoopbackFixture
     using TransportPtr = std::shared_ptr<Transport>;
 
     template <typename TServerCodecIds>
-    LoopbackFixture(AsioService& clientService,
-                    AsioService& serverService,
+    LoopbackFixture(AsioContext& clientService,
+                    AsioContext& serverService,
                     Opener&& opener,
                     int clientCodec,
                     RawsockMaxLength clientMaxRxLength,
@@ -54,8 +56,8 @@ struct LoopbackFixture
                     TServerCodecIds&& serverCodecs,
                     RawsockMaxLength serverMaxRxLength,
                     bool connected = true)
-        : csvc(clientService),
-          ssvc(serverService),
+        : cctx(clientService),
+          sctx(serverService),
           cnct(std::move(opener), clientCodec, clientMaxRxLength),
           lstn(std::move(acceptor), std::forward<TServerCodecIds>(serverCodecs),
                serverMaxRxLength)
@@ -95,23 +97,23 @@ struct LoopbackFixture
 
     void run()
     {
-        while (!ssvc.stopped() || !csvc.stopped())
+        while (!sctx.stopped() || !cctx.stopped())
         {
-            ssvc.poll();
-            csvc.poll();
+            sctx.poll();
+            cctx.poll();
         }
-        ssvc.reset();
-        csvc.reset();
+        sctx.reset();
+        cctx.reset();
     }
 
     void stop()
     {
-        ssvc.stop();
-        csvc.stop();
+        sctx.stop();
+        cctx.stop();
     }
 
-    boost::asio::io_service& csvc;
-    boost::asio::io_service& ssvc;
+    AsioContext& cctx;
+    AsioContext& sctx;
     Connector cnct;
     Listener  lstn;
     int clientCodec;
@@ -254,11 +256,11 @@ void checkCommunications(TFixture& f)
 
     while (!receivedReply)
     {
-        f.ssvc.poll();
-        f.csvc.poll();
+        f.sctx.poll();
+        f.cctx.poll();
     }
-    f.ssvc.reset();
-    f.csvc.reset();
+    f.sctx.reset();
+    f.cctx.reset();
 
     CHECK( receivedMessage );
 
@@ -281,9 +283,9 @@ void checkCommunications(TFixture& f)
             REQUIRE( transport );
             CHECK( transport->maxReceiveLength() == 64*1024 );
             CHECK( transport->maxSendLength()    == 64*1024 );
-            CHECK( codec                         == Json::id() );
+            CHECK( codec                         == KnownCodecIds::json() );
             server2 = transport;
-            f.ssvc.stop();
+            f.sctx.stop();
         });
 
     f.cnct.establish(
@@ -293,9 +295,9 @@ void checkCommunications(TFixture& f)
             REQUIRE( transport );
             CHECK( transport->maxReceiveLength() == 64*1024 );
             CHECK( transport->maxSendLength()    == 64*1024 );
-            CHECK( codec                         == Json::id() );
+            CHECK( codec                         == KnownCodecIds::json() );
             client2 = transport;
-            f.csvc.stop();
+            f.cctx.stop();
         });
 
     REQUIRE_NOTHROW( f.run() );
@@ -343,11 +345,11 @@ void checkCommunications(TFixture& f)
 
     while (!receivedReply || !receivedReply2)
     {
-        f.ssvc.poll();
-        f.csvc.poll();
+        f.sctx.poll();
+        f.cctx.poll();
     }
-    f.ssvc.reset();
-    f.csvc.reset();
+    f.sctx.reset();
+    f.cctx.reset();
 
     CHECK( receivedMessage );
     CHECK( receivedReply );
@@ -428,7 +430,6 @@ void checkCancelConnect(TFixture& f)
     using TransportPtr = typename TFixture::TransportPtr;
     WHEN( "the client cancels before the connection is established" )
     {
-        bool listenCompleted = false;
         f.lstn.establish([&](std::error_code ec, int, TransportPtr transport)
         {
             if (!ec)
@@ -459,8 +460,8 @@ void checkCancelConnect(TFixture& f)
                 }
                 f.stop();
             });
-        f.csvc.poll();
-        f.csvc.reset();
+        f.cctx.poll();
+        f.cctx.reset();
 
         f.cnct.cancel();
         f.run();
@@ -508,8 +509,8 @@ void checkCancelReceive(TFixture& f)
                 CHECK( ec == std::errc::no_such_file_or_directory );
             });
 
-        f.csvc.poll();
-        f.csvc.reset();
+        f.cctx.poll();
+        f.cctx.reset();
 
         AND_WHEN( "the client closes the transport" )
         {
@@ -565,8 +566,8 @@ void checkCancelSend(TFixture& f)
         std::string str(f.client->maxSendLength(), 'a');
         buf->write(str.data(), str.size());
         f.client->send(buf);
-        REQUIRE_NOTHROW( f.csvc.poll() );
-        f.csvc.reset();
+        REQUIRE_NOTHROW( f.cctx.poll() );
+        f.cctx.reset();
 
         AND_WHEN( "the client closes the transport" )
         {

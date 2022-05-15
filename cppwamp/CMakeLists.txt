@@ -1,24 +1,19 @@
 #-------------------------------------------------------------------------------
-#               Copyright Butterfly Energy Systems 2014-2015.
+#           Copyright Butterfly Energy Systems 2014-2015, 2017, 2022.
 #          Distributed under the Boost Software License, Version 1.0.
 #             (See accompanying file LICENSE_1_0.txt or copy at
 #                   http://www.boost.org/LICENSE_1_0.txt)
 #-------------------------------------------------------------------------------
 
-set(SOURCES src/cppwamp.cpp)
-
 set(HEADERS
+    include/cppwamp/api.hpp
     include/cppwamp/asiodefs.hpp
     include/cppwamp/asyncresult.hpp
     include/cppwamp/blob.hpp
     include/cppwamp/codec.hpp
     include/cppwamp/connector.hpp
-    include/cppwamp/conversion.hpp
-    include/cppwamp/corosession.hpp
-    include/cppwamp/corounpacker.hpp
+    include/cppwamp/conversionaccess.hpp
     include/cppwamp/error.hpp
-    include/cppwamp/json.hpp
-    include/cppwamp/msgpack.hpp
     include/cppwamp/null.hpp
     include/cppwamp/options.hpp
     include/cppwamp/payload.hpp
@@ -35,9 +30,18 @@ set(HEADERS
     include/cppwamp/udspath.hpp
     include/cppwamp/unpacker.hpp
     include/cppwamp/variant.hpp
+    include/cppwamp/variantdefs.hpp
     include/cppwamp/version.hpp
     include/cppwamp/visitor.hpp
     include/cppwamp/wampdefs.hpp
+    include/cppwamp/coro/corosession.hpp
+    include/cppwamp/coro/corounpacker.hpp
+    include/cppwamp/json/api.hpp
+    include/cppwamp/json/json.hpp
+    include/cppwamp/json/internal/json.ipp
+    include/cppwamp/msgpack/api.hpp
+    include/cppwamp/msgpack/msgpack.hpp
+    include/cppwamp/msgpack/internal/msgpack.ipp
     include/cppwamp/internal/asynctask.hpp
     include/cppwamp/internal/asioconnector.hpp
     include/cppwamp/internal/asioendpoint.hpp
@@ -53,10 +57,10 @@ set(HEADERS
     include/cppwamp/internal/messagetraits.hpp
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/peer.hpp
-    include/cppwamp/internal/precompiled.hpp
     include/cppwamp/internal/rawsockconnector.hpp
     include/cppwamp/internal/rawsockhandshake.hpp
     include/cppwamp/internal/rawsockheader.hpp
+    include/cppwamp/internal/socketoptions.hpp
     include/cppwamp/internal/subscriber.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
@@ -64,97 +68,92 @@ set(HEADERS
     include/cppwamp/internal/udsopener.hpp
     include/cppwamp/internal/variantbuilder.hpp
     include/cppwamp/internal/varianttraits.hpp
-    include/cppwamp/internal/varianttraitsfwd.hpp
     include/cppwamp/internal/variantvisitors.hpp
     include/cppwamp/internal/wampmessage.hpp
     include/cppwamp/types/array.hpp
+    include/cppwamp/types/boostoptional.hpp
+    include/cppwamp/types/optional.hpp
     include/cppwamp/types/set.hpp
     include/cppwamp/types/tuple.hpp
-    include/cppwamp/types/boostoptional.hpp
     include/cppwamp/types/unorderedmap.hpp
     include/cppwamp/types/unorderedset.hpp
 )
 
 set(INLINES
-    include/cppwamp/internal/asyncresult.ipp
     include/cppwamp/internal/blob.ipp
-    include/cppwamp/internal/conversion.ipp
-    include/cppwamp/internal/corosession.ipp
-    include/cppwamp/internal/corounpacker.ipp
-    include/cppwamp/internal/endian.ipp
     include/cppwamp/internal/error.ipp
-    include/cppwamp/internal/json.ipp
     include/cppwamp/internal/messagetraits.ipp
-    include/cppwamp/internal/msgpack.ipp
-    include/cppwamp/internal/null.ipp
-    include/cppwamp/internal/options.ipp
-    include/cppwamp/internal/payload.ipp
     include/cppwamp/internal/peerdata.ipp
-    include/cppwamp/internal/rawsockoptions.ipp
     include/cppwamp/internal/registration.ipp
     include/cppwamp/internal/session.ipp
     include/cppwamp/internal/sessiondata.ipp
     include/cppwamp/internal/subscription.ipp
-    include/cppwamp/internal/tcp.ipp
     include/cppwamp/internal/tcphost.ipp
-    include/cppwamp/internal/uds.ipp
     include/cppwamp/internal/udspath.ipp
-    include/cppwamp/internal/unpacker.ipp
     include/cppwamp/internal/variant.ipp
     include/cppwamp/internal/version.ipp
-    include/cppwamp/internal/visitor.ipp
-    include/cppwamp/types/internal/tuple.ipp
 )
 
-set(DOCUMENTS
-    ${PROJECT_SOURCE_DIR}/doc/concepts.dox
-    ${PROJECT_SOURCE_DIR}/doc/cppwamp.dox
-    ${PROJECT_SOURCE_DIR}/doc/registrations.dox
-    ${PROJECT_SOURCE_DIR}/doc/subscriptions.dox
+set(SOURCES
+    src/cppwamp.cpp
 )
 
 # Treat *.ipp files as header files
 set_source_files_properties(${INLINES} PROPERTIES HEADER_FILE_ONLY TRUE)
 
-# Add library target
-add_library(cppwamp ${SOURCES} ${HEADERS} ${INLINES} ${DOCUMENTS})
+# Minimalist target for header-only use
+add_library(cppwamp-core-headers INTERFACE)
+target_compile_features(cppwamp-core-headers INTERFACE cxx_std_11)
+target_include_directories(cppwamp-core-headers SYSTEM
+    INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+target_link_libraries(cppwamp-core-headers
+    INTERFACE "$<TARGET_NAME_IF_EXISTS:Boost::headers>"
+              "$<TARGET_NAME_IF_EXISTS:Boost::system>"
+              "$<TARGET_NAME_IF_EXISTS:Threads::Threads>")
+set_target_properties(cppwamp-core-headers PROPERTIES EXPORT_NAME headers)
+add_library(CppWAMP::core-headers ALIAS cppwamp-core-headers)
 
-# Add preprocessor macro definitions
-add_definitions(-DCPPWAMP_COMPILED_LIB)
 
-# Set include path for other targets that are dependant on this library
-target_include_directories(cppwamp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# Core compiled library target
+if(CPPWAMP_OPT_HEADERS_ONLY)
+    # Add dummy custom target so that sources are at least listed in IDEs.
+    add_custom_target(cppwamp-core-sources
+                      SOURCES ${HEADERS} ${INLINES})
+else()
+    if(NOT APPLE)
+        set(CMAKE_INSTALL_RPATH $ORIGIN)
+    endif()
 
-if(APPLE)
-    # Link boost libraries (command is redundant in linux)
-    target_link_libraries(cppwamp
-        ${Boost_LIBRARIES}
-    )
+    add_library(cppwamp-core ${SOURCES})
+    target_sources(cppwamp-core PRIVATE ${HEADERS} ${INLINES})
+    target_compile_definitions(cppwamp-core
+        PUBLIC
+            CPPWAMP_COMPILED_LIB=1
+            "$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:CPPWAMP_IS_STATIC>")
+    target_compile_features(cppwamp-core PUBLIC cxx_std_11)
+    target_compile_options(cppwamp-core PRIVATE
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall>
+        $<$<CXX_COMPILER_ID:MSVC>:/W4>)
+
+    # Make it so that warnings are only disabled when CppWAMP is included
+    # by an external project.
+    target_include_directories(cppwamp-core SYSTEM
+        INTERFACE
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>)
+    target_include_directories(cppwamp-core
+        PRIVATE
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>)
+    target_link_libraries(cppwamp-core
+        PUBLIC "$<TARGET_NAME_IF_EXISTS:Boost::headers>"
+               "$<TARGET_NAME_IF_EXISTS:Boost::system>"
+               "$<TARGET_NAME_IF_EXISTS:Threads::Threads>")
+    set_target_properties(cppwamp-core PROPERTIES
+        EXPORT_NAME core
+        VERSION ${CppWAMP_VERSION}
+        SOVERSION ${CppWAMP_VERSION_MAJOR})
+
+    add_library(CppWAMP::core ALIAS cppwamp-core)
 endif()
-
-# Add a GUI variable that let's the user choose if a shared or static library
-# will be built.
-option(
-    BUILD_SHARED_LIBS
-    "Determines if a shared or static library will be built"
-    ON
-)
-
-# Add a target to generate API documentation with Doxygen
-find_package(Doxygen)
-if(DOXYGEN_FOUND)
-    configure_file(
-        ${PROJECT_SOURCE_DIR}/Doxyfile.in
-        ${PROJECT_BINARY_DIR}/Doxyfile
-        @ONLY
-    )
-    configure_file(
-        ${PROJECT_SOURCE_DIR}/doc/index.html
-        ${PROJECT_BINARY_DIR}/doc/index.html
-        COPYONLY
-    )
-    add_custom_target(doc ${DOXYGEN_EXECUTABLE} ${PROJECT_BINARY_DIR}/Doxyfile
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        COMMENT "Generating API documentation with Doxygen" VERBATIM
-    )
-endif(DOXYGEN_FOUND)

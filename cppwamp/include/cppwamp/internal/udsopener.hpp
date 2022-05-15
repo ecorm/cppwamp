@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -29,21 +29,21 @@ public:
     using Socket    = boost::asio::local::stream_protocol::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
-    UdsOpener(AsioService& iosvc, Info info)
-        : iosvc_(iosvc),
+    UdsOpener(AnyExecutor exec, Info info)
+        : executor_(exec),
           info_(std::move(info))
     {}
 
-    AsioService& iosvc() {return iosvc_;}
+    AnyExecutor executor() {return executor_;}
 
     template <typename TCallback>
     void establish(TCallback&& callback)
     {
         assert(!socket_ && "Connect already in progress");
 
-        socket_.reset(new Socket(iosvc_));
+        socket_.reset(new Socket(executor_));
         socket_->open();
-        internal::applyRawsockOptions(info_, *socket_);
+        info_.options().applyTo(*socket_);
 
         // AsioConnector will keep this object alive until completion.
         socket_->async_connect(info_.pathName(),
@@ -63,7 +63,7 @@ public:
     }
 
 private:
-    AsioService& iosvc_;
+    AnyExecutor executor_;
     Info info_;
     SocketPtr socket_;
 };

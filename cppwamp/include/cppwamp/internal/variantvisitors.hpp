@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -8,13 +8,11 @@
 #ifndef CPPWAMP_INTERNAL_VARIANT_VISITORS_HPP
 #define CPPWAMP_INTERNAL_VARIANT_VISITORS_HPP
 
-#include <algorithm>
-#include <ostream>
-#include <sstream>
-#include <string>
-#include <type_traits>
-#include <utility>
+#include "../blob.hpp"
+#include "../error.hpp"
+#include "../null.hpp"
 #include "../traits.hpp"
+#include "../variantdefs.hpp"
 #include "../visitor.hpp"
 #include "varianttraits.hpp"
 
@@ -50,24 +48,24 @@ using DisableIfConvertible = DisableIf<std::is_convertible<TFrom,TTo>::value>;
 
 
 //------------------------------------------------------------------------------
-class TypeName : public Visitor<String>
+template <typename TVariant>
+class VariantEquivalentTo : public Visitor<bool>
 {
 public:
-    template <typename TField> String operator()(const TField&) const
-        {return FieldTraits<TField>::typeName();}
-};
+    using ArrayType = typename TVariant::Array;
+    using ObjectType = typename TVariant::Object;
 
-//------------------------------------------------------------------------------
-class EquivalentTo : public Visitor<bool>
-{
-public:
     template <typename TField>
     bool operator()(const TField& lhs, const TField& rhs) const
-        {return lhs == rhs;}
+    {
+        return lhs == rhs;
+    }
 
     template <typename TArg, EnableIfBoolRef<TArg> = 0>
     bool operator()(const bool lhs, const TArg rhs) const
-        {return lhs == bool(rhs);}
+    {
+        return lhs == bool(rhs);
+    }
 
     template <typename TField, typename TArg,
               DisableIfBothAreNumbers<TField,TArg> = 0>
@@ -76,268 +74,204 @@ public:
     template <typename TField, typename TArg,
               EnableIfBothAreNumbers<TField,TArg> = 0>
     bool operator()(const TField lhs, const TArg rhs) const
-        {return lhs == rhs;}
+    {
+        // Avoid directly comparing mixed signed/unsigned numbers
+        using LhsIsSigned = typename std::is_signed<TField>;
+        using RhsIsSigned = typename std::is_signed<TArg>;
+        return compareNumbers(LhsIsSigned(), RhsIsSigned(), lhs, rhs);
+    }
 
     template <typename TElem, DisableIfVariant<TElem> = 0>
-    bool operator()(const Array& lhs, const std::vector<TElem>& rhs) const
+    bool operator()(const ArrayType& lhs, const std::vector<TElem>& rhs) const
     {
         using VecConstRef = typename std::vector<TElem>::const_reference;
         // clang libc++ parameterizes equality comparison for default binary
         // predicate on iterator value type instead of const reference type,
         // which leads to an ambiguous function resolution.
         return (lhs.size() != rhs.size()) ? false :
-            std::equal(lhs.cbegin(), lhs.cend(), rhs.cbegin(),
-                       [](const Variant& lElem, VecConstRef rElem)
-                       {return lElem == rElem;});
+                   std::equal(lhs.cbegin(), lhs.cend(), rhs.cbegin(),
+                              [](const Variant& lElem, VecConstRef rElem)
+                              {return lElem == rElem;});
     }
 
     template <typename TValue, DisableIfVariant<TValue> = 0>
-    bool operator()(const Object& lhs,
+    bool operator()(const ObjectType& lhs,
                     const std::map<String, TValue>& rhs) const
     {
         using Map        = std::map<String, TValue>;
         using MapPair    = typename Map::value_type;
-        using ObjectPair = typename Object::value_type;
+        using ObjectPair = typename ObjectType::value_type;
         return (lhs.size() != rhs.size()) ? false :
-            std::equal(lhs.cbegin(), lhs.cend(), rhs.cbegin(),
-                       [](const ObjectPair& lPair, const MapPair& rPair)
-                       {
-                            return lPair.first == rPair.first &&
-                                   lPair.second == rPair.second;
-                       });
+                   std::equal(lhs.cbegin(), lhs.cend(), rhs.cbegin(),
+                              [](const ObjectPair& lPair, const MapPair& rPair)
+                              {
+                                  return lPair.first == rPair.first &&
+                                         lPair.second == rPair.second;
+                              });
+    }
+
+private:
+    template <typename TField, typename TArg>
+    static bool compareNumbers(FalseType, FalseType,
+                               const TField lhs, const TArg rhs)
+    {
+        return lhs == rhs;
+    }
+
+    template <typename TField, typename TArg>
+    static bool compareNumbers(FalseType, TrueType,
+                               const TField lhs, const TArg rhs)
+    {
+        if (rhs < 0)
+            return false;
+        using CT = typename std::common_type<TField, TArg>::type;
+        return static_cast<CT>(lhs) == static_cast<CT>(rhs);
+    }
+
+    template <typename TField, typename TArg>
+    static bool compareNumbers(TrueType, FalseType,
+                               const TField lhs, const TArg rhs)
+    {
+        if (lhs < 0)
+            return false;
+        using CT = typename std::common_type<TField, TArg>::type;
+        return static_cast<CT>(lhs) == static_cast<CT>(rhs);
+    }
+
+    template <typename TField, typename TArg>
+    static bool compareNumbers(TrueType, TrueType,
+                               const TField lhs, const TArg rhs)
+    {
+        return lhs == rhs;
     }
 };
 
 //------------------------------------------------------------------------------
-class NotEquivalentTo : public Visitor<bool>
+template <typename TVariant>
+class VariantNotEquivalentTo : public Visitor<bool>
 {
 public:
+    using ArrayType = typename TVariant::Array;
+    using ObjectType = typename TVariant::Object;
+
     template <typename TField>
     bool operator()(const TField& lhs, const TField& rhs) const
-        {return lhs != rhs;}
+    {return lhs != rhs;}
 
     template <typename TArg, EnableIfBoolRef<TArg> = 0>
     bool operator()(const bool lhs, const TArg rhs) const
-        {return lhs != rhs;}
+    {return lhs != rhs;}
 
     template <typename TField, typename TArg,
-              DisableIfBothAreNumbers<TField,TArg> = 0>
+             DisableIfBothAreNumbers<TField,TArg> = 0>
     bool operator()(const TField&, const TArg&) const {return true;}
 
     template <typename TField, typename TArg,
-              EnableIfBothAreNumbers<TField,TArg> = 0>
-    bool operator()(TField lhs, TArg rhs) const {return lhs != rhs;}
+             EnableIfBothAreNumbers<TField,TArg> = 0>
+    bool operator()(TField lhs, TArg rhs) const
+    {
+        // Avoid directly comparing mixed signed/unsigned numbers
+        using LhsIsSigned = typename std::is_signed<TField>;
+        using RhsIsSigned = typename std::is_signed<TArg>;
+        return compareNumbers(LhsIsSigned(), RhsIsSigned(), lhs, rhs);
+    }
 
     template <typename TElem, DisableIfVariant<TElem> = 0>
-    bool operator()(const Array& lhs, const std::vector<TElem>& rhs) const
+    bool operator()(const ArrayType& lhs, const std::vector<TElem>& rhs) const
     {
         using VecConstRef = typename std::vector<TElem>::const_reference;
         // clang libc++ parameterizes equality comparison for default binary
         // predicate on iterator value type instead of const reference type,
         // which leads to an ambiguous function resolution.
         return (lhs.size() != rhs.size()) ? true :
-            std::mismatch(lhs.cbegin(), lhs.cend(), rhs.cbegin(),
-                          [](const Variant& lElem, VecConstRef rElem)
-                          {return lElem == rElem;}).first != lhs.cend();
+                   std::mismatch(lhs.cbegin(), lhs.cend(), rhs.cbegin(),
+                                 [](const Variant& lElem, VecConstRef rElem)
+                                 {return lElem == rElem;}).first != lhs.cend();
     }
 
     template <typename TValue, DisableIfVariant<TValue> = 0>
-    bool operator()(const Object& lhs,
+    bool operator()(const ObjectType& lhs,
                     const std::map<String, TValue>& rhs) const
     {
         using Map        = std::map<String, TValue>;
         using MapPair    = typename Map::value_type;
-        using ObjectPair = typename Object::value_type;
+        using ObjectPair = typename ObjectType::value_type;
 
         auto comp = [](const ObjectPair& lPair, const MapPair& rPair)
         {
-             return lPair.first == rPair.first &&
-                    lPair.second == rPair.second;
+            return lPair.first == rPair.first &&
+                   lPair.second == rPair.second;
         };
 
         return (lhs.size() != rhs.size()) ? true :
-            ( std::mismatch(lhs.cbegin(), lhs.cend(), rhs.cbegin(),
-                            std::move(comp)).first != lhs.end() );
-    }
-};
-
-//------------------------------------------------------------------------------
-class Output : public Visitor<>
-{
-public:
-    template <typename TField>
-    void operator()(const TField& f, std::ostream& out) const {out << f;}
-
-    void operator()(const Bool& b, std::ostream& out) const
-    {
-        out << (b ? "true" : "false");
-    }
-
-    void operator()(const Array& a, std::ostream& out) const
-    {
-        out << '[';
-        for (const auto& v: a)
-        {
-            if (&v != &a.front())
-                out << ",";
-            if (v.template is<TypeId::string>())
-                out << '"' << v.template as<TypeId::string>() << '"';
-            else
-                applyWithOperand(*this, v, out);
-        }
-        out << ']';
-    }
-
-    void operator()(const Object& o, std::ostream& out) const
-    {
-        out << '{';
-        for (auto kv = o.cbegin(); kv != o.cend(); ++kv)
-        {
-            if (kv != o.cbegin())
-                out << ',';
-            out << '"' << kv->first << "\":";
-            const auto& v = kv->second;
-            if (v.template is<TypeId::string>())
-                out << '"' << v.template as<TypeId::string>() << '"';
-            else
-                applyWithOperand(*this, v, out);
-        }
-        out << '}';
-    }
-};
-
-} // namespace internal
-
-//------------------------------------------------------------------------------
-class Variant::Construct : public Visitor<>
-{
-public:
-    explicit Construct(Variant& dest) : dest_(dest) {}
-
-    template <typename TField> void operator()(const TField& field) const
-        {dest_.constructAs<TField>(field);}
-
-private:
-    Variant& dest_;
-};
-
-//------------------------------------------------------------------------------
-class Variant::MoveConstruct : public Visitor<>
-{
-public:
-    explicit MoveConstruct(Variant& dest) : dest_(dest) {}
-
-    template <typename TField> void operator()(TField& field) const
-        {dest_.constructAs<TField>(std::move(field));}
-
-private:
-    Variant& dest_;
-};
-
-//------------------------------------------------------------------------------
-class Variant::MoveAssign : public Visitor<>
-{
-public:
-    explicit MoveAssign(Variant& dest) : dest_(dest) {}
-
-    template <typename TField>
-    void operator()(TField& leftField, TField& rightField) const
-        {leftField = std::move(rightField);}
-
-    template <typename TOld, typename TNew>
-    void operator()(TOld&, TNew& rhs) const
-    {
-        dest_.destructAs<TOld>();
-        dest_.constructAs<TNew>(std::move(rhs));
-        dest_.typeId_ = FieldTraits<TNew>::typeId;
+                   ( std::mismatch(lhs.cbegin(), lhs.cend(), rhs.cbegin(),
+                                  std::move(comp)).first != lhs.end() );
     }
 
 private:
-    Variant& dest_;
-};
-
-//------------------------------------------------------------------------------
-class Variant::Destruct : public Visitor<>
-{
-public:
-    Destruct(void* field) : field_(field) {}
-
-    template <typename TField>
-    void operator()(TField&) const {Access<TField>::destruct(field_);}
-
-private:
-    void* field_;
-};
-
-//------------------------------------------------------------------------------
-class Variant::Swap : public Visitor<>
-{
-public:
-    explicit Swap(Variant& leftVariant, Variant& rightVariant)
-        : leftVariant_(leftVariant), rightVariant_(rightVariant) {}
-
-    template <typename TField>
-    void operator()(TField& leftField, TField& rightField) const
+    template <typename TField, typename TArg>
+    static bool compareNumbers(FalseType, FalseType,
+                               const TField lhs, const TArg rhs)
     {
-        using std::swap;
-        swap(leftField, rightField);
+        return lhs != rhs;
     }
 
-    template <typename TLeft, typename TRight>
-    void operator()(TLeft& leftField, TRight& rightField) const
+    template <typename TField, typename TArg>
+    static bool compareNumbers(FalseType, TrueType,
+                               const TField lhs, const TArg rhs)
     {
-        TLeft leftTemp = std::move(leftField);
-        leftVariant_.destructAs<TLeft>();
-        leftVariant_.constructAs<TRight>(std::move(rightField));
-        rightVariant_.destructAs<TRight>();
-        rightVariant_.constructAs<TLeft>(std::move(leftTemp));
-        std::swap(leftVariant_.typeId_, rightVariant_.typeId_);
+        if (rhs < 0)
+            return true;
+        using CT = typename std::common_type<TField, TArg>::type;
+        return static_cast<CT>(lhs) != static_cast<CT>(rhs);
     }
 
-private:
-    Variant& leftVariant_;
-    Variant& rightVariant_;
+    template <typename TField, typename TArg>
+    static bool compareNumbers(TrueType, FalseType,
+                               const TField lhs, const TArg rhs)
+    {
+        if (lhs < 0)
+            return true;
+        using CT = typename std::common_type<TField, TArg>::type;
+        return static_cast<CT>(lhs) != static_cast<CT>(rhs);
+    }
+
+    template <typename TField, typename TArg>
+    static bool compareNumbers(TrueType, TrueType,
+                               const TField lhs, const TArg rhs)
+    {
+        return lhs != rhs;
+    }
 };
 
-//------------------------------------------------------------------------------
-class Variant::LessThan : public Visitor<bool>
-{
-public:
-    template <typename TField>
-    bool operator()(const TField& leftField, const TField& rightField) const
-        {return leftField < rightField;}
-
-    template <typename TLeft, typename TRight,
-              internal::DisableIfBothAreNumbers<TLeft,TRight> = 0>
-    bool operator()(const TLeft&, const TRight&) const
-        {return FieldTraits<TLeft>::typeId < FieldTraits<TRight>::typeId;}
-
-    template <typename TLeft, typename TRight,
-              internal::EnableIfBothAreNumbers<TLeft,TRight> = 0>
-    bool operator()(TLeft lhs, TRight rhs) const {return lhs < rhs;}
-};
 
 //------------------------------------------------------------------------------
-class Variant::ConvertibleTo : public Visitor<bool>
+template <typename TVariant>
+class VariantIsConvertibleTo : public Visitor<bool>
 {
 public:
+    using ArrayType = typename TVariant::Array;
+    using ObjectType = typename TVariant::Array;
+
+    template <typename T> struct Tag {};
+
     // Conversions to same type
     template <typename TField>
     bool operator()(const TField&, Tag<TField>) const {return true;}
 
     // Implicit conversions
     template <typename TField, typename TResult,
-              internal::EnableIfConvertible<TField,TResult> = 0>
+             internal::EnableIfConvertible<TField,TResult> = 0>
     bool operator()(const TField&, Tag<TResult>) const {return true;}
 
     // Invalid conversions
     template <typename TField, typename TResult,
-              internal::DisableIfConvertible<TField,TResult> = 0>
+             internal::DisableIfConvertible<TField,TResult> = 0>
     bool operator()(const TField&, Tag<TResult>) const {return false;}
 
     // Vector conversions
     template <typename TElem, internal::DisableIfVariant<TElem> = 0>
-    bool operator()(const Array& from, Tag<std::vector<TElem>>) const
+    bool operator()(const ArrayType& from, Tag<std::vector<TElem>>) const
     {
         if (from.empty())
             return true;
@@ -352,7 +286,7 @@ public:
 
     // Map conversions
     template <typename TValue, internal::DisableIfVariant<TValue> = 0>
-    bool operator()(const Object& from, Tag<std::map<String, TValue>>) const
+    bool operator()(const ObjectType& from, Tag<std::map<String, TValue>>) const
     {
         if (from.empty())
             return true;
@@ -367,33 +301,39 @@ public:
 };
 
 //------------------------------------------------------------------------------
-class Variant::ConvertTo : public Visitor<>
+template <typename TVariant>
+class VariantConvertTo : public Visitor<>
 {
 public:
+    using ArrayType = typename TVariant::Array;
+    using ObjectType = typename TVariant::Object;
+
     // Conversions to same type
     template <typename TField>
     void operator()(const TField& from, TField& to) const {to = from;}
 
     // Implicit conversions
     template <typename TField, typename TResult,
-              internal::EnableIfConvertible<TField,TResult> = 0>
+             internal::EnableIfConvertible<TField,TResult> = 0>
     void operator()(const TField& from, TResult& to) const
-        {to = static_cast<TResult>(from);}
+    {
+        to = static_cast<TResult>(from);
+    }
 
     // Invalid conversions
     template <typename TField, typename TResult,
-              internal::DisableIfConvertible<TField,TResult> = 0>
+             internal::DisableIfConvertible<TField,TResult> = 0>
     void operator()(const TField&, TResult&) const
     {
         throw error::Conversion(
-                "wamp::error::Conversion: Invalid conversion "
-                "from " + FieldTraits<TField>::typeName() +
-                " to " + ArgTraits<TResult>::typeName());
+            "wamp::error::Conversion: Invalid conversion "
+            "from " + FieldTraits<TField>::typeName() +
+            " to " + ArgTraits<TResult>::typeName());
     }
 
     // Vector conversions
     template <typename TElem, internal::DisableIfVariant<TElem> = 0>
-    void operator()(const Array& from, std::vector<TElem>& to) const
+    void operator()(const ArrayType& from, std::vector<TElem>& to) const
     {
         TElem toElem;
         for (size_t i=0; i<from.size(); ++i)
@@ -414,7 +354,7 @@ public:
 
     // Map conversions
     template <typename TValue, internal::DisableIfVariant<TValue> = 0>
-    void operator()(const Object& from, std::map<String, TValue>& to) const
+    void operator()(const ObjectType& from, std::map<String, TValue>& to) const
     {
         TValue toValue;
         for (const auto& fromKv: from)
@@ -436,20 +376,63 @@ public:
 };
 
 //------------------------------------------------------------------------------
-class Variant::ElementCount : public Visitor<Variant::SizeType>
+class VariantTypeName : public Visitor<String>
 {
 public:
-    using SizeType = Variant::SizeType;
-
-    template <typename T>
-    SizeType operator()(const T&) {return 1u;}
-
-    SizeType operator()(const Null&) {return 0u;}
-
-    SizeType operator()(const Array& a) {return a.size();}
-
-    SizeType operator()(const Object& o) {return o.size();}
+    template <typename TField> String operator()(const TField&) const
+    {
+        return FieldTraits<TField>::typeName();
+    }
 };
+
+//------------------------------------------------------------------------------
+class VariantOutput : public Visitor<>
+{
+public:
+    template <typename TField>
+    void operator()(const TField& f, std::ostream& out) const {out << f;}
+
+    void operator()(const Bool& b, std::ostream& out) const
+    {
+        out << (b ? "true" : "false");
+    }
+
+    template <typename V, typename A>
+    void operator()(const std::vector<V, A>& a, std::ostream& out) const
+    {
+        out << '[';
+        for (const auto& v: a)
+        {
+            if (&v != &a.front())
+                out << ",";
+            if (v.template is<TypeId::string>())
+                out << '"' << v.template as<TypeId::string>() << '"';
+            else
+                applyWithOperand(*this, v, out);
+        }
+        out << ']';
+    }
+
+    template <typename K, typename V, typename C, typename A>
+    void operator()(const std::map<K, V, C, A>& o, std::ostream& out) const
+    {
+        out << '{';
+        for (auto kv = o.cbegin(); kv != o.cend(); ++kv)
+        {
+            if (kv != o.cbegin())
+                out << ',';
+            out << '"' << kv->first << "\":";
+            const auto& v = kv->second;
+            if (v.template is<TypeId::string>())
+                out << '"' << v.template as<TypeId::string>() << '"';
+            else
+                applyWithOperand(*this, v, out);
+        }
+        out << '}';
+    }
+};
+
+} // namespace internal
 
 } // namespace wamp
 

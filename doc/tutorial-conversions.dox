@@ -1,0 +1,262 @@
+/*------------------------------------------------------------------------------
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
+           Distributed under the Boost Software License, Version 1.0.
+              (See accompanying file LICENSE_1_0.txt or copy at
+                    http://www.boost.org/LICENSE_1_0.txt)
+------------------------------------------------------------------------------*/
+
+/**
+@page ConversionsTutorial User Type Conversions
+
+@tableofcontents
+
+Basic Conversions
+-----------------
+
+wamp::Variant has built-in support for conversions to/from the following types:
+- arithmetic types
+- character arrays (input only)
+- `std::vector`
+- `std::map`
+
+You may register your own custom types for conversion to/from `Variant`. This
+is done by overloading the @ref wamp::convert "convert" function:
+
+```
+#include <cppwamp/variant.hpp>
+
+struct Person
+{
+    std::string name;
+    int age;
+    float weight;
+};
+
+template <typename TConverter>
+void convert(TConverter& conv, Person& p)
+{
+    conv ("name",   p.name)
+         ("age",    p.age)
+         ("weight", p.weight);
+}
+```
+
+where `TConverter` may be either wamp::ToVariantConverter or
+wamp::FromVariantConverter, depending on whether the custom type is being
+converted *to* a variant, or *from* a variant. `ToVariantConverter` and
+`FromVariantConverter` have a uniform interface, which allows you to write the
+conversion function once for both directions. This uniform conversion scheme
+was inspired by [Boost.Serialization]
+(http://www.boost.org/doc/libs/release/libs/serialization/doc/index.html).
+
+In the above example `operator()(key, value)` is used to extract/insert a
+member from/to an `Object` variant. `operator()` supports method chaining,
+which allows you to write very concise conversion functions.
+
+The overloaded `convert` function should be defined in the same namespace as
+the custom type, or order to enable [argument-dependent lookup]
+(https://en.cppreference.com/w/cpp/language/adl).
+
+After registering your custom type, you may perform conversions using
+wamp::Variant::from and wamp::Variant::to:
+
+```
+using namespace wamp;
+
+Person alice{"Alice", 25, 106.0f};
+auto variant = Variant::from(alice);
+assert(variant == Object{{"name", "Alice"}, {"age", 25}, {"weight", 100}});
+
+Variant bob = Object{{"name", "Bob"}, {"age", 30}, {"weight", 150}};
+auto person = bob.to<Person>();
+```
+
+You may also use your registered custom types as RPC or pub-sub arguments:
+```
+using namespace wamp;
+
+Outcome addPerson(Invocation inv, Person p)
+{
+    // :::
+    database.save(p);
+    // :::
+}
+
+Person alice{"Alice", 25, 106.0f};
+session.call(Rpc("addPerson").withArgs(alice), yield);
+```
+
+Split Conversions
+-----------------
+
+In some circumstances, different behavior may be required when converting from
+and converting to variants. The @ref CPPWAMP_CONVERSION_SPLIT_FREE macro allows
+you to specify different conversion functions for both directions:
+
+```
+using namespace wamp;
+
+struct Person
+{
+    std::string name;
+    int age;
+    float weight;
+};
+
+inline void convertFrom(FromVariantConverter& conv, Person& p)
+{
+    conv ("name",   p.name)
+         ("age",    p.age)
+         ("weight", p.weight);
+    p.weight *= kgToLbsMultiplier;
+}
+
+inline void convertTo(ToVariantConverter& conv, const Person& p)
+{
+    auto kg = p.weight * lbsToKgMultipler;
+    conv ("name",   p.name)
+         ("age",    p.age)
+         ("weight", kg);
+}
+
+CPPWAMP_CONVERSION_SPLIT_FREE(Person)
+```
+
+
+Intrusive Conversion
+--------------------
+
+Instead of writing a `convert` free function for your custom type, you may
+write `convert` as a member function. This may be useful when the required data
+is not available from your type's public interface.
+
+```
+class Person
+{
+public:
+    // :::
+    template <typename TConverter>
+    void convert(TConverter& conv)
+    {
+        conv ("name",   name_)
+             ("age",    age_)
+             ("weight", weight_);
+    }
+    // :::
+
+private:
+    std::string name_;
+    int age_;
+    float weight_;
+};
+```
+
+If you want the `convert` member function to be private, then you must grant
+friendship to the wamp::ConversionAccess class:
+
+```
+class Person
+{
+public:
+    // :::
+
+private:
+    template <typename TConverter>
+    void convert(TConverter& conv)
+    {
+        conv ("name",   name_)
+             ("age",    age_)
+             ("weight", weight_);
+    }
+
+    std::string name_;
+    int age_;
+    float weight_;
+
+    friend class wamp::ConversionAccess;
+};
+```
+
+Intrusive conversion can be split up by using the
+@ref CPPWAMP_CONVERSION_SPLIT_MEMBER macro:
+
+```
+using namespace wamp;
+
+class Person
+{
+public:
+    // :::
+
+private:
+    void convertFrom(FromVariantConverter& conv)
+    {
+        conv ("name",   name_)
+             ("age",    age_)
+             ("weight", weight_);
+        weight_ *= kgToLbsMultiplier;
+    }
+
+    void convertTo(ToVariantConverter& conv) const
+    {
+        auto kg = weight_ * lbsToKgMultipler;
+        conv ("name",   name_)
+             ("age",    age_)
+             ("weight", kg);
+    }
+
+    std::string name_;
+    int age_;
+    float weight_;
+
+    friend class wamp::ConversionAccess;
+};
+
+CPPWAMP_CONVERSION_SPLIT_MEMBER(Person)
+```
+
+Converting Derived Types
+------------------------
+
+Your derived types can reuse the conversion facilities of their base type. To
+do this, simply cast `*this` to a base class reference and pass it to the
+converter. Then convert the additional members of your derived type.
+
+```
+class Employee : public Person
+{
+public:
+    // :::
+
+private:
+    template <typename TConverter>
+    void convert(TConverter& conv)
+    {
+        conv (static_cast<Person&>(*this))
+             ("salary", salary_);
+    }
+
+    int salary_;
+
+    friend class wamp::ConversionAccess;
+};
+```
+
+
+Standard Library and Boost Types
+--------------------------------
+
+CppWAMP currently provides converters for the following standard library and Boost types:
+
+Supported Type       | Corresponding Variant type           | Converters provided in
+-------------------- | ------------------------------------ | -----------------------------------
+`std::map`           | wamp::Object                         | `<cppwamp/variant.hpp>`
+`std::set`           | wamp::Array                          | `<cppwamp/types/set.hpp>`
+`std::optional<T>`   | wamp::Null, or type dependent on `T` | `<cppwamp/types/optional.hpp>`
+`std::tuple`         | wamp::Array                          | `<cppwamp/types/tuple.hpp>`
+`std::unordered_map` | wamp::Object                         | `<cppwamp/types/unorderedmap.hpp>`
+`std::unordered_set` | wamp::Array                          | `<cppwamp/types/unorderedset.hpp>`
+`std::vector`        | wamp::Array                          | `<cppwamp/variant.hpp>`
+`boost::optional<T>` | wamp::Null, or type dependent on `T` | `<cppwamp/types/boostoptional.hpp>`
+
+*/

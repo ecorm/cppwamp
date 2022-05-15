@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -27,11 +27,11 @@ public:
     using Socket    = boost::asio::local::stream_protocol::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
-    UdsAcceptor(AsioService& iosvc, const std::string& path, bool deleteFile)
-        : iosvc_(iosvc), path_(path), deleteFile_(deleteFile)
+    UdsAcceptor(AnyExecutor exec, const std::string& path, bool deleteFile)
+        : executor_(exec), path_(path), deleteFile_(deleteFile)
     {}
 
-    AsioService& iosvc() {return iosvc_;}
+    AnyExecutor& executor() {return executor_;}
 
     template <typename TCallback>
     void establish(TCallback&& callback)
@@ -42,9 +42,9 @@ public:
         {
             if (deleteFile_)
                 std::remove(path_.c_str());
-            acceptor_.reset(new uds::acceptor(iosvc_, path_));
+            acceptor_.reset(new uds::acceptor(executor_, path_));
         }
-        socket_.reset(new Socket(iosvc_));
+        socket_.reset(new Socket(executor_));
 
         // AsioListener will keep this object alive until completion.
         acceptor_->async_accept(*socket_, [this, callback](AsioErrorCode ec)
@@ -67,7 +67,7 @@ public:
 private:
     using uds = boost::asio::local::stream_protocol;
 
-    AsioService& iosvc_;
+    AnyExecutor executor_;
     std::string path_;
     bool deleteFile_;
     std::unique_ptr<uds::acceptor> acceptor_;

@@ -1,89 +1,174 @@
 #-------------------------------------------------------------------------------
-#               Copyright Butterfly Energy Systems 2014-2015.
+#           Copyright Butterfly Energy Systems 2014-2015, 2018, 2022.
 #          Distributed under the Boost Software License, Version 1.0.
 #             (See accompanying file LICENSE_1_0.txt or copy at
 #                   http://www.boost.org/LICENSE_1_0.txt)
 #-------------------------------------------------------------------------------
 
-cmake_minimum_required (VERSION 2.8)
-project (cppwamp)
+#-------------------------------------------------------------------------------
+# This project defines one of more of the following targets, depending
+# on the how the CPPWAMP_OPT_X options are set:
+#
+# Target                  | Import alias             | All | Description
+# ----------------------- | ------------------------ | --- | -----------
+# cppwamp-core            | CppWAMP::core            | Yes | Compiled libcppwamp-core library
+# cppwamp-core-headers    | CppWAMP::core-headers    | Yes | Header-only usage requirements
+# cppwamp-coro-headers    | CppWAMP::coro-headers    | Yes | Boost.Coroutine usage requirements
+# cppwamp-json            | CppWAMP::json            | Yes | Compiled libcppwamp-json library for JSON codec support
+# cppwmap-json-headers    | CppWAMP::json-headers    | Yes | Header-only RapidJSON usage requirements
+# cppwamp-msgpack         | CppWAMP::msgpack         | Yes | Compiled libcppwamp-msgpack library for Msgpack codec support
+# cppwamp-msgpack-headers | CppWAMP::msgpack-headers | Yes | Header-only Msgpack usage requirements
+# cppwamp-doc             | <none>                   | No  | Doxygen documentation
+# cppwamp-examples        | <none>                   | No  | Compiled example programs
+# cppwamp-test            | <none>                   | No  | Compiled test suite program
+#
+# 'All' means that the target (if enabled) is built as part of the 'all' target.
+# 'Usage requirements' means that the appropriate compiler flags will be set
+# if you add the target to target_link_libraries in your CMake project.
+#
+# This project supports inclusion into another CMake project via either
+# add_subdirectory(cppwamp) or find_package(CppWAMP ...).
+#-------------------------------------------------------------------------------
 
-# First attempt to find Boost library directories
-set(BOOST_MIN_VERSION 1.58.0)
-set(BOOST_COMPONENTS coroutine context thread system)
-set(BOOST_ROOT ./ext/boost)
-find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS ${BOOST_COMPONENTS})
-if(Boost_FOUND)
-    set(SUGGESTED_BOOST_INCLUDE_PATH ${Boost_INCLUDE_DIRS})
-    set(SUGGESTED_BOOST_LIBRARY_PATH ${Boost_LIBRARY_DIRS})
-else()
-    set(SUGGESTED_BOOST_INCLUDE_PATH ./ext/boost)
-    set(SUGGESTED_BOOST_LIBRARY_PATH ./ext/boost/stage/lib)
+
+# Version 3.11 needed for FetchContent
+# Version 3.12 needed for find_path's <PackageName>_ROOT support
+# Version 3.12 needed for install(TARGETS ... NAMELINK_COMPONENT ...)
+# Version 3.12 needed for $<TARGET_EXISTS:target> generator expression
+cmake_minimum_required (VERSION 3.12)
+
+# Include guard in case this project becomes a diamond dependency via multiple
+# add_directory(cppwamp) calls.
+include_guard()
+
+project(CppWAMP
+        VERSION 0.7.0
+        LANGUAGES CXX)
+
+include(ProcessorCount)
+ProcessorCount(CPPWAMP_CORE_COUNT)
+if(CPPWAMP_CORE_COUNT EQUAL 0)
+    set(CPPWAMP_CORE_COUNT 1)
 endif()
 
-# Add GUI variables that let the user specify where the Boost directories
-# are, using the above initial search for default locations.
-set(PATH_INCLUDE_BOOST ${SUGGESTED_BOOST_INCLUDE_PATH} CACHE PATH
-    "Boost include path")
-set(PATH_LIB_BOOST ${SUGGESTED_BOOST_LIBRARY_PATH} CACHE PATH
-    "Boost library path")
+get_property(isMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
-# Add GUI variables that let the user specify the include path for other
-# third-party libraries.
-set(PATH_INCLUDE_RAPIDJSON ${PROJECT_SOURCE_DIR}/ext/rapidjson/include CACHE PATH
-    "RapidJson include path")
-set(PATH_INCLUDE_MSGPACK ${PROJECT_SOURCE_DIR}/ext/msgpack-c/include CACHE PATH
-    "Msgpack-c include path")
-set(PATH_INCLUDE_CATCH ${PROJECT_SOURCE_DIR}/ext/Catch/include CACHE PATH
-    "Catch include path")
+string(COMPARE EQUAL "${CMAKE_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}"
+       isTopLevel)
 
-# Confirm that the user's choices for the Boost library paths are valid.
-unset(BOOST_ROOT)
-set(BOOST_INCLUDEDIR ${PATH_INCLUDE_BOOST})
-set(BOOST_LIBRARYDIR ${PATH_LIB_BOOST})
-set(Boost_NO_SYSTEM_PATHS ON)
-find_package(Boost ${BOOST_MIN_VERSION} COMPONENTS ${BOOST_COMPONENTS})
+#----------------------------- User options ------------------------------------
 
-# Set a default build type if none was specified.
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+if(NOT isMultiConfig AND NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Setting build type to 'Release' as none was specified.")
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
-    # Set the possible values of build type for cmake-gui
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "The type of build" FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release"
         "MinSizeRel" "RelWithDebInfo")
 endif()
 
-# Add the include paths to third-party libraries
-include_directories(
-    ${PATH_INCLUDE_BOOST}
-    ${PATH_INCLUDE_RAPIDJSON}
-    ${PATH_INCLUDE_MSGPACK}
-)
+option(BUILD_SHARED_LIBS
+"Determines whether a shared or static library will be built. If already set \
+by a superproject, the CPPWAMP_OPT_SHARED_LIBS non-cache variable may be set \
+to override the shared/static setting specifically for CppWAMP."
+OFF)
 
-# Add the compiler flag for C++11
-if(UNIX)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+option(CPPWAMP_OPT_HEADERS_ONLY
+"Don't build libraries/tests/examples and only create targets for \
+header-only use."
+OFF)
+
+option(CPPWAMP_OPT_VENDORIZE
+"Fetches and builds dependencies during configuration. If disabled, the \
+dependencies will be searched via find_package. The searching can be \
+directed by defining <dependency>_ROOT variables. If the dependent targets are \
+already imported by a superproject, find_package calls will be skipped."
+OFF)
+
+option(CPPWAMP_OPT_WITH_JSON
+"Adds the RapidJSON dependency and builds the cppwamp-json library"
+ON)
+
+option(CPPWAMP_OPT_WITH_MSGPACK
+"Adds the msgpack-c dependency and builds the cppwamp-msgpack library"
+ON)
+
+option(CPPWAMP_OPT_WITH_CORO
+"Adds the Boost.Coroutine dependency and build tests and examples \
+that depend on it"
+ON)
+
+option(CPPWAMP_OPT_WITH_DOCS
+"Creates a build target for generating documentation"
+${isTopLevel})
+
+option(CPPWAMP_OPT_WITH_TESTS
+"Adds the Catch2 dependency and creates a build target for unit tests"
+${isTopLevel})
+
+option(CPPWAMP_OPT_WITH_EXAMPLES
+"Creates a build target for examples"
+${isTopLevel})
+
+option(CPPWAMP_OPT_WITH_PACKAGING
+"Generates libary packaging rules"
+${isTopLevel})
+
+#--------------------------- Advanced options ----------------------------------
+
+set(CPPWAMP_OPT_BOOST_CONFIG "" CACHE FILEPATH
+    "The user-config file to use when building Boost (optional)")
+mark_as_advanced(CPPWAMP_OPT_BOOST_CONFIG)
+
+set(CPPWAMP_OPT_BOOST_JOBS ${CPPWAMP_CORE_COUNT} CACHE STRING
+    "Number of threads (-j option) to use when building Boost")
+mark_as_advanced(CPPWAMP_OPT_BOOST_JOBS)
+
+#------------------------ End of user options ----------------------------------
+
+set(CPPWAMP_PREVIOUSLY_VENDORIZED OFF CACHE INTERNAL "")
+
+if(DEFINED CPPWAMP_OPT_SHARED_LIBS)
+    set(BUILD_SHARED_LIBS "${CPPWAMP_OPT_SHARED_LIBS}")
 endif()
 
-# Add the -pthread compiler flag, if applicable.
-# Note that ${Boost_LIBRARIES} already includes a linker flag for -lpthread.
-set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
-find_package(Threads REQUIRED)
-if(CMAKE_USE_PTHREADS_INIT)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+# Set default export visibility to hidden for all targets
+if(NOT DEFINED CMAKE_CXX_VISIBILITY_PRESET AND
+    NOT DEFINED CMAKE_VISIBILITY_INLINES_HIDDEN)
+  set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+  set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
 endif()
 
-# Add the appropriate preprocessor macro define if the user specified
-# non-handshaking transports.
-if(CPPWAMP_USE_NON_HANDSHAKING_TRANSPORTS)
-    add_definitions(-DCPPWAMP_USE_LEGACY_CONNECTORS)
-endif()
+# Fetch or find dependencies
+include(CppWAMPDependencies)
+cppwamp_resolve_dependencies()
 
-# Disable Boost.Coroutine deprecation warning
-add_definitions(-DBOOST_COROUTINE_NO_DEPRECATION_WARNING)
-add_definitions(-DBOOST_COROUTINES_NO_DEPRECATION_WARNING)
-
-# Add targets for the cppwamp library itself, units tests, and examples.
 add_subdirectory(cppwamp)
-add_subdirectory(test)
-add_subdirectory(examples)
+
+if(CPPWAMP_OPT_WITH_JSON)
+    add_subdirectory(cppwamp-json)
+endif()
+
+if(CPPWAMP_OPT_WITH_MSGPACK)
+    add_subdirectory(cppwamp-msgpack)
+endif()
+
+if(CPPWAMP_OPT_WITH_CORO)
+    add_subdirectory(cppwamp-coro)
+endif()
+
+if(CPPWAMP_OPT_WITH_DOCS AND NOT CPPWAMP_OPT_HEADERS_ONLY)
+    add_subdirectory(doc)
+endif()
+
+if(CPPWAMP_OPT_WITH_TESTS AND NOT CPPWAMP_OPT_HEADERS_ONLY)
+    add_subdirectory(test)
+endif()
+
+if(CPPWAMP_OPT_WITH_EXAMPLES AND NOT CPPWAMP_OPT_HEADERS_ONLY)
+    add_subdirectory(examples)
+endif()
+
+if(CPPWAMP_OPT_WITH_PACKAGING)
+    add_subdirectory(packaging)
+endif()

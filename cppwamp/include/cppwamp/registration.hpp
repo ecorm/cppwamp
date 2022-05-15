@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,11 +10,12 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains the declaration of the Registration class. */
+    @brief Contains the declaration of the Registration class. */
 //------------------------------------------------------------------------------
 
 #include <memory>
 #include <string>
+#include "api.hpp"
 #include "asyncresult.hpp"
 #include "sessiondata.hpp"
 #include "wampdefs.hpp"
@@ -39,7 +40,7 @@ namespace internal { class Callee; }
 
     @see ScopedRegistration, Session::enroll, CoroSession::enroll */
 //------------------------------------------------------------------------------
-class Registration
+class CPPWAMP_API Registration
 {
 public:
     /** Constructs an empty registration. */
@@ -85,7 +86,7 @@ private:
     @see @ref ScopedRegistrations
     @see Registration, Session::enroll, CoroSession::enroll */
 //------------------------------------------------------------------------------
-class ScopedRegistration : public Registration
+class CPPWAMP_API ScopedRegistration : public Registration
 {
 // This class is modeled after boost::signals2::scoped_connection.
 public:

@@ -1,13 +1,14 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
+#include "../sessiondata.hpp"
 #include <utility>
 #include "callee.hpp"
-#include "config.hpp"
+#include "../api.hpp"
 
 namespace wamp
 {
@@ -55,14 +56,15 @@ CPPWAMP_INLINE Object SessionInfo::roles() const
 }
 
 /** @details
-    Possible role strings include:
-    - `broker`
-    - `dealer`
+Possible role strings include:
+- `broker`
+- `dealer`
 
-    @par Example
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    bool supported = sessionInfo.supportsRoles({"broker", "dealer"});
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+@par Example
+```
+bool supported = sessionInfo.supportsRoles({"broker", "dealer"});
+```
+*/
 CPPWAMP_INLINE bool SessionInfo::supportsRoles(const RoleSet& roles) const
 {
     if (roles.empty())
@@ -83,14 +85,15 @@ CPPWAMP_INLINE bool SessionInfo::supportsRoles(const RoleSet& roles) const
 }
 
 /** @details
-    @par Example
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    bool supported = sessionInfo.supportsFeatures(
-    {
-        { "broker", {"publisher_exclusion", "publisher_identification"} },
-        { "dealer", {"call_canceling"} }
-    });
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+@par Example
+```
+bool supported = sessionInfo.supportsFeatures(
+{
+    { "broker", {"publisher_exclusion", "publisher_identification"} },
+    { "dealer", {"call_canceling"} }
+});
+```
+*/
 CPPWAMP_INLINE bool SessionInfo::supportsFeatures(
         const FeatureMap& features) const
 {
@@ -194,17 +197,6 @@ CPPWAMP_INLINE Pub::Pub(String topic) : topic_(std::move(topic)) {}
     advanced WAMP spec.
     [sub_black_whitelisting]:
         https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
-CPPWAMP_INLINE Pub& Pub::withBlacklist(Array blacklist)
-{
-    return withOption("exclude", std::move(blacklist));
-}
-
-/** @details
-    This sets the `PUBLISH.Options.exclude|list` option. See
-    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
-    advanced WAMP spec.
-    [sub_black_whitelisting]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
 CPPWAMP_INLINE Pub& Pub::withExcludedSessions(Array sessionIds)
 {
     return withOption("exclude", std::move(sessionIds));
@@ -230,17 +222,6 @@ CPPWAMP_INLINE Pub& Pub::withExcludedAuthIds(Array authIds)
 CPPWAMP_INLINE Pub& Pub::withExcludedAuthRoles(Array authRoles)
 {
     return withOption("exclude_authrole", std::move(authRoles));
-}
-
-/** @details
-    This sets the `PUBLISH.Options.eligible|list` option. See
-    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
-    advanced WAMP spec.
-    [sub_black_whitelisting]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
-CPPWAMP_INLINE Pub& Pub::withWhitelist(Array whitelist)
-{
-    return withOption("eligible", std::move(whitelist));
 }
 
 /** @details
@@ -306,18 +287,18 @@ CPPWAMP_INLINE String&Pub::topic(internal::PassKey) {return topic_;}
 /** @post `this->empty() == true` */
 CPPWAMP_INLINE Event::Event() {}
 
-CPPWAMP_INLINE bool Event::empty() const {return iosvc_ == nullptr;}
+CPPWAMP_INLINE bool Event::empty() const {return executor_ == nullptr;}
 
 CPPWAMP_INLINE SubscriptionId Event::subId() const {return subId_;}
 
 CPPWAMP_INLINE PublicationId Event::pubId() const {return pubId_;}
 
-/** @returns the same object as Session::userIosvc().
+/** @returns the same object as Session::userExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AsioService& Event::iosvc() const
+CPPWAMP_INLINE AnyExecutor Event::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Event is empty");
-    return *iosvc_;
+    return executor_;
 }
 
 /** @details
@@ -357,11 +338,11 @@ CPPWAMP_INLINE Variant Event::topic() const
 }
 
 CPPWAMP_INLINE Event::Event(internal::PassKey, SubscriptionId subId,
-            PublicationId pubId, AsioService* iosvc, Object&& details)
+            PublicationId pubId, AnyExecutor executor, Object&& details)
     : Options<Event>(std::move(details)),
       subId_(subId),
       pubId_(pubId),
-      iosvc_(iosvc)
+      executor_(executor)
 {}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Event& event)
@@ -438,27 +419,6 @@ CPPWAMP_INLINE Rpc& Rpc::withDealerTimeout(Int milliseconds)
 }
 
 /** @details
-    This sets the depricated `CALL.Options.exclude|list` option. */
-CPPWAMP_INLINE Rpc& Rpc::withBlacklist(Array blacklist)
-{
-    return withOption("exclude", std::move(blacklist));
-}
-
-/** @details
-    This sets the depricated `CALL.Options.eligible|list` option. */
-CPPWAMP_INLINE Rpc& Rpc::withWhitelist(Array whitelist)
-{
-    return withOption("eligible", std::move(whitelist));
-}
-
-/** @details
-    This sets the depricated `CALL.Options.exclude_me|bool` option. */
-CPPWAMP_INLINE Rpc& Rpc::withExcludeMe(bool excluded)
-{
-    return withOption("exclude_me", excluded);
-}
-
-/** @details
     This sets the `CALL.Options.disclose_me|bool` option. See
     [Caller Identification][caller_ident] in the advanced WAMP spec.
     [caller_ident]:
@@ -488,7 +448,7 @@ CPPWAMP_INLINE Cancellation::Cancellation(RequestId reqId, CancelMode cancelMode
         break;
 
     case CancelMode::killNoWait:
-        modeStr = "killNoWait";
+        modeStr = "killnowait";
         break;
 
     case CancelMode::skip:
@@ -745,7 +705,7 @@ CPPWAMP_INLINE void Outcome::destruct()
 /** @post `this->empty() == true` */
 CPPWAMP_INLINE Invocation::Invocation() {}
 
-CPPWAMP_INLINE bool Invocation::empty() const {return iosvc_ == nullptr;}
+CPPWAMP_INLINE bool Invocation::empty() const {return executor_ == nullptr;}
 
 CPPWAMP_INLINE bool Invocation::calleeHasExpired() const
 {
@@ -754,12 +714,12 @@ CPPWAMP_INLINE bool Invocation::calleeHasExpired() const
 
 CPPWAMP_INLINE RequestId Invocation::requestId() const {return id_;}
 
-/** @returns the same object as Session::userIosvc().
+/** @returns the same object as Session::userExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AsioService& Invocation::iosvc() const
+CPPWAMP_INLINE AnyExecutor Invocation::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Invocation is empty");
-    return *iosvc_;
+    return executor_;
 }
 
 /** @details
@@ -827,11 +787,11 @@ CPPWAMP_INLINE void Invocation::yield(Error error) const
 }
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,
-        RequestId id, AsioService* iosvc, Object&& details)
+        RequestId id, AnyExecutor executor, Object&& details)
     : Options<Invocation>(std::move(details)),
       callee_(callee),
       id_(id),
-      iosvc_(iosvc)
+      executor_(executor)
 {}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
@@ -855,7 +815,7 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
 /** @post `this->empty() == true` */
 CPPWAMP_INLINE Interruption::Interruption() {}
 
-CPPWAMP_INLINE bool Interruption::empty() const {return iosvc_ == nullptr;}
+CPPWAMP_INLINE bool Interruption::empty() const {return executor_ == nullptr;}
 
 CPPWAMP_INLINE bool Interruption::calleeHasExpired() const
 {
@@ -864,12 +824,12 @@ CPPWAMP_INLINE bool Interruption::calleeHasExpired() const
 
 CPPWAMP_INLINE RequestId Interruption::requestId() const {return id_;}
 
-/** @returns the same object as Session::userIosvc().
+/** @returns the same object as Session::userExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AsioService& Interruption::iosvc() const
+CPPWAMP_INLINE AnyExecutor Interruption::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Interruption is empty");
-    return *iosvc_;
+    return executor_;
 }
 
 /** @pre `this->calleeHasExpired == false` */
@@ -889,11 +849,11 @@ CPPWAMP_INLINE void Interruption::yield(Error error) const
 }
 
 CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,
-        RequestId id, AsioService* iosvc, Object&& details)
+        RequestId id, AnyExecutor executor, Object&& details)
     : Options<Interruption>(std::move(details)),
       callee_(callee),
       id_(id),
-      iosvc_(iosvc)
+      executor_(executor)
 {}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,

@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -18,13 +18,14 @@
 #include <string>
 #include <utility>
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/executor.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
 #include "../asiodefs.hpp"
 #include "../error.hpp"
 #include "../rawsockoptions.hpp"
-#include "config.hpp"
 #include "rawsockheader.hpp"
 
 namespace wamp
@@ -80,7 +81,6 @@ private:
     std::string payload_;
 
     template <typename> friend class AsioTransport;
-    template <typename> friend class LegacyAsioTransport;
 };
 
 //------------------------------------------------------------------------------
@@ -146,7 +146,10 @@ public:
     }
 
     template <typename TFunctor>
-    void post(TFunctor&& fn) {iosvc_.post(std::forward<TFunctor>(fn));}
+    void post(TFunctor&& fn)
+    {
+        boost::asio::post(executor_, std::forward<TFunctor>(fn));
+    }
 
     void ping(Buffer message, PingHandler handler)
     {
@@ -158,13 +161,12 @@ public:
     }
 
 protected:
-    using IoService     = AsioService;
     using TransmitQueue = std::queue<Buffer>;
     using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
     AsioTransport(SocketPtr&& socket, size_t maxTxLength, size_t maxRxLength)
         : socket_(std::move(socket)),
-          iosvc_(socket_->get_io_service()),
+          executor_(socket_->get_executor()),
           maxTxLength_(maxTxLength),
           maxRxLength_(maxRxLength)
     {}
@@ -181,6 +183,8 @@ protected:
     }
 
 private:
+    using Executor = typename TSocket::executor_type;
+
     void transmit()
     {
         if (isReadyToTransmit())
@@ -253,8 +257,7 @@ private:
                     {
                     case RawsockMsgType::wamp:
                         if (rxHandler_)
-                            iosvc_.post(std::bind(rxHandler_,
-                                                  std::move(rxBuffer_)));
+                            post(std::bind(rxHandler_, std::move(rxBuffer_)));
                         receive();
                         break;
 
@@ -289,7 +292,7 @@ private:
             pingStop_ = chrn::high_resolution_clock::now();
             using Fms = chrn::duration<float, chrn::milliseconds::period>;
             float elapsed = Fms(pingStop_ - pingStart_).count();
-            iosvc_.post(std::bind(pingHandler_, elapsed));
+            post(std::bind(pingHandler_, elapsed));
             pingHandler_ = nullptr;
         }
         receive();
@@ -303,7 +306,7 @@ private:
             {
                 auto ec = make_error_code(
                             static_cast<std::errc>(asioEc.value()));
-                iosvc_.post(std::bind(failHandler_, ec));
+                post(std::bind(failHandler_, ec));
             }
             cleanup();
         }
@@ -316,7 +319,7 @@ private:
         if (!condition)
         {
             if (failHandler_)
-                iosvc_.post(std::bind(failHandler_, make_error_code(errc)));
+                post(std::bind(failHandler_, make_error_code(errc)));
             cleanup();
         }
         return condition;
@@ -334,7 +337,7 @@ private:
     }
 
     std::unique_ptr<TSocket> socket_;
-    AsioService& iosvc_;
+    Executor executor_;
     size_t maxTxLength_;
     size_t maxRxLength_;
     bool started_ = false;

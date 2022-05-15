@@ -5,12 +5,10 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_VARIANT
-
 #include <cstdlib>
 #include <limits>
 #include <type_traits>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 
 using namespace wamp;
@@ -77,11 +75,14 @@ void checkAssign(const TFrom& from, const TTo& to)
         CHECK( ((const Variant&)v).as<TExpected>() == checkValue );
         CHECK( v == checkValue );
         CHECK( v == Variant(checkValue) );
-        CHECK( w.is<Null>() );
-        CHECK( w.as<Null>() == null );
-        CHECK( ((const Variant&)w).as<Null>() == null );
-        CHECK( w == null );
-        CHECK( w == Variant() );
+
+        // Supress linter warnings about calling methods on moved-from object,
+        // as we are actually testing the behavior of a moved-from Variant
+        CHECK( w.is<Null>() ); // NOLINT
+        CHECK( w.as<Null>() == null ); // NOLINT
+        CHECK( ((const Variant&)w).as<Null>() == null ); // NOLINT
+        CHECK( w == null ); // NOLINT
+        CHECK( w == Variant() ); // NOLINT
     }
 }
 
@@ -268,5 +269,3 @@ GIVEN( "assorted variants" )
     }
 }
 }
-
-#endif // #if CPPWAMP_TESTING_VARIANT

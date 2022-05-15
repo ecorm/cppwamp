@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <boost/asio/post.hpp>
 #include "../asiodefs.hpp"
 #include "../connector.hpp"
 #include "../error.hpp"
@@ -34,9 +35,9 @@ public:
     using Transport = typename Endpoint::Transport;
     using Ptr = std::shared_ptr<RawsockConnector>;
 
-    static Ptr create(AsioService& iosvc, Info info)
+    static Ptr create(AnyExecutor exec, Info info)
     {
-        return Ptr(new RawsockConnector(iosvc, std::move(info)));
+        return Ptr(new RawsockConnector(exec, std::move(info)));
     }
 
 protected:
@@ -44,13 +45,13 @@ protected:
 
     virtual Connector::Ptr clone() const override
     {
-        return Connector::Ptr(new RawsockConnector(iosvc_, info_));
+        return Connector::Ptr(new RawsockConnector(executor_, info_));
     }
 
     virtual void establish(Handler handler) override
     {
         CPPWAMP_LOGIC_CHECK(!endpoint_, "Connection already in progress");
-        endpoint_.reset(new Endpoint( Establisher(iosvc_, info_),
+        endpoint_.reset(new Endpoint( Establisher(executor_, info_),
                                       Codec::id(),
                                       info_.maxRxLength() ));
 
@@ -66,7 +67,7 @@ protected:
                 assert(codecId == Codec::id());
                 client = ClientType::create(std::move(trnsp));
             }
-            iosvc_.post(std::bind(handler, ec, client));
+            boost::asio::post(executor_, std::bind(handler, ec, client));
             endpoint_.reset();
         });
     }
@@ -78,12 +79,12 @@ protected:
     }
 
 private:
-    RawsockConnector(AsioService& iosvc, Info info)
-        : iosvc_(iosvc),
+    RawsockConnector(AnyExecutor exec, Info info)
+        : executor_(exec),
           info_(std::move(info))
     {}
 
-    AsioService& iosvc_;
+    AnyExecutor executor_;
     Info info_;
     std::unique_ptr<Endpoint> endpoint_;
 };

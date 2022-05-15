@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,11 +10,12 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains the declaration of the Subscription class. */
+    @brief Contains the declaration of the Subscription class. */
 //------------------------------------------------------------------------------
 
 #include <memory>
 #include <string>
+#include "api.hpp"
 #include "asyncresult.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
@@ -38,7 +39,7 @@ namespace internal { class Subscriber; }
 
     @see ScopedSubscription, Session::subscribe, CoroSession::subscribe */
 //------------------------------------------------------------------------------
-class Subscription
+class CPPWAMP_API Subscription
 {
 public:
     /** Constructs an empty subscription */
@@ -88,7 +89,7 @@ private:
     @see @ref ScopedSubscriptions
     @see Subscription, Session::subscribe, CoroSession::subscribe */
 //------------------------------------------------------------------------------
-class ScopedSubscription : public Subscription
+class CPPWAMP_API ScopedSubscription : public Subscription
 {
 // This class is modeled after boost::signals2::scoped_connection.
 public:

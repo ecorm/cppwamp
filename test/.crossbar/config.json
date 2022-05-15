@@ -38,7 +38,9 @@
                         "type": "tcp",
                         "port": 12345
                     },
-                    "max_message_size": 16777216,
+                    "options": {
+                        "max_message_size": 16777216
+                    },
                     "serializers": [
                         "json"
                     ],
@@ -50,7 +52,9 @@
                         "type": "unix",
                         "path": "./udstest"
                     },
-                    "max_message_size": 16777216,
+                    "options": {
+                        "max_message_size": 16777216
+                    },
                     "serializers": [
                         "msgpack"
                     ],

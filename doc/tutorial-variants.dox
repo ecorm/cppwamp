@@ -1,0 +1,289 @@
+/*------------------------------------------------------------------------------
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
+           Distributed under the Boost Software License, Version 1.0.
+              (See accompanying file LICENSE_1_0.txt or copy at
+                    http://www.boost.org/LICENSE_1_0.txt)
+------------------------------------------------------------------------------*/
+
+/**
+@page VariantsTutorial Variants
+
+@tableofcontents
+
+A wamp::Variant is a discriminated union container that represents a JSON
+value. It behaves similarly to a dynamically-typed Javascript variable. Its
+underlying type can change at runtime, depending on the actual values assigned
+to them. `Variant`s play a central role in CppWAMP, as they are used to represent
+dynamic data exchanged with a WAMP peer.
+
+`Variant`s can hold any of the following value types:
+- wamp::Null : represents an empty or missing value
+- wamp::Bool : true or false
+- wamp::Int : signed integer (64-bit)
+- wamp::UInt: unsigned integer (64-bit)
+- wamp::Real: floating point number (double precision)
+- wamp::String : only UTF-8 encoded strings are currently supported
+- wamp::Blob : A binary object represented as an array of bytes
+- wamp::Array : dynamically-sized lists of variants
+- wamp::Object : dictionaries having string keys and variant values
+
+`Array` and `Object` variants are recursive composites: their element
+values are also variants which can themselves be arrays or objects.
+
+
+Construction and Assignment
+---------------------------
+
+A default-constructed `Variant` starts out being null:
+```
+#include <cppwamp/variant.hpp>
+using namespace wamp;
+
+Variant v; // v starts out being null
+```
+
+A `Variant` can also be constructed with an initial value:
+```
+using namespace wamp;
+Variant v(42); // v starts out as an integer
+```
+
+The dynamic type of a `Variant` can change at runtime via assignment:
+```
+using namespace wamp;
+Variant v;    // v starts out being null
+v = 42;       // v becomes an integer
+v = "hello";  // v becomes a string
+v = null;     // v becomes nullified
+v = Array{123, false, "foo"}; // v becomes an array of variants
+```
+
+Checking Dynamic Type
+---------------------
+
+Each `Variant` stores its current dynamic type as a wamp::TypeId enumerator.
+The dynamic type can be checked with wamp::Variant::typeId() or
+wamp::Variant::is<T>(). In addition, `operator bool` can be used to determine
+if a variant is null.
+
+```
+using namespace wamp;
+Variant v;    // v starts out being null
+assert( !v );   // Check that the variant is indeed null
+assert( v == null );
+assert( v.typeId() == TypeId::null );
+assert( v.is<Null>() );
+assert( v.is<TypeId::null>() );
+
+v = 42;       // v becomes an integer
+assert( !!v); // Check that the variant is no longer null
+assert( v != null );
+assert( v.typeId() == TypeId::integer );
+assert( v.is<Int>() );
+assert( v.is<TypeId::integer>() );
+```
+
+The @ref wamp::Variant::isNumber "isNumber" non-member function can be used to
+check if a `Variant` is currently a number (`Int`, `UInt`, or `Real`). The
+@ref wamp::Variant::isScalar "isScalar" non-member function checks if a variant
+is a boolean or a number:
+```
+using namespace wamp;
+Variant v("hello"); // v starts out as a string
+assert( !isNumber(v) );
+assert( !isScalar(v) );
+
+v = true; // v is now a boolean
+assert ( !isNumber(v) );
+assert ( isScalar(v) );
+
+v = 123.4; // v is now a real number
+assert ( isNumber(v) );
+assert ( isScalar(v) );
+```
+
+Accessing Values
+----------------
+
+Variant values can be accessed directly using
+@ref wamp::Variant::as "Variant::as<T>()". If the variant does not match the
+target type, a wamp::error::Access exception is thrown.
+```
+using namespace wamp;
+Variant v(42); // v starts out as an Int
+std::cout << v.as<Int>() << "\n"; // Prints 42
+v.as<Int>() += 10;
+std::cout << v.as<Int>() << "\n"; // Prints 52
+
+try
+{
+    std::cout << v.as<String>() << "\n"; // throws
+}
+catch (const error::Access& e)
+{
+    std::cerr << e.what() << "\n";
+}
+```
+
+Accessing Elements and Members
+------------------------------
+
+For convenience, elements can be accessed directly from array variants, using
+the @ref wamp::Variant::operator[](SizeType) "[] operator" taking an integer
+index:
+```
+using namespace wamp;
+Variant v;
+// v[0] = 42;                  // throws error::Access, because v does not
+                               //     contain an Array
+v = Array{42, "foo", false};   // v now contains an Array
+std::cout << v.size() << "\n"; // Prints 3
+std::cout << v[1] << "\n";     // Prints "foo"
+v[2] = "bar";                  // Assigns string "bar" to third element
+std::cout << v[2] << "\n";     // Prints "bar"
+std::cout << v[3] << "\n";     // throws std::out_of_range
+```
+
+For convenience, members can be accessed directly from object variants,
+using the @ref wamp::Variant::operator[](const String&) "[] operator" taking
+a string key:
+```
+using namespace wamp;
+Variant v;
+// v["key"] = 123;             // throws error::Access, because v does not
+                               //     contain an Object
+v = Object{{"key", "value"}};  // v now contains an Object
+std::cout << v.size() << "\n"; // Prints 1
+v["key"] = 123;                // Assigns integer 123 to member "key"
+std::cout << v["key"] << "\n"; // Prints 123
+```
+
+Binary Objects (BLOBs)
+----------------------
+
+`Variant`s may also contain arbitrary binary objects. Such binary objects must
+be stored in wamp::Blob, which is simply a wrapper around
+`std::vector<uint8_t>`.
+
+```
+using namespace wamp;
+Variant v;
+v = Blob{0x12, 0x34, 0x56}; // Assign a binary object of 3 bytes
+for (auto byte: v.as<Blob>().data()) // Access byte data vector
+    std::cout << byte << " ";
+std::cout << "\n";
+```
+
+When transmitted using JSON serialization, `Blob`s are encoded as Base64
+strings prefixed with a nul character. For MsgPack, they are encoded in
+`bin` format.
+
+Using Variants as Optional Values
+---------------------------------
+
+Because variants can be null, they can be used to contain optional
+(i.e. nullable) values. The boolean conversion operator is useful for knowing
+if a variant is currently null:
+```
+using namespace wamp;
+Variant v = 123;
+if (!v) // Evaluates to false
+    std::cout << "The value is empty\n";
+else
+    std::cout << "The value is " << v << "\n"; // Prints 123
+```
+
+The @ref wamp::Variant::valueOr "valueOr" member function can be used to obtain
+a fallback value if a variant is null:
+```
+using namespace wamp;
+Variant name; // name is currently null
+std::cout << "Name is "
+          << name.valueOr<std::string>("anonymous") // Prints "anonymous"
+          << "\n";
+```
+
+Conversions
+-----------
+
+Sometimes, it's not possible to know what numeric type to expect from a WAMP
+peer. wamp::Variant::to lets you convert from any scalar type to a known
+destination type.
+```
+using namespace wamp;
+Variant v;
+Real x;
+
+v = 42; // v is now an integer
+x = v.to<Real>();
+assert( x == 42 );
+
+v = true; // v is now a boolean
+v.to(x);  // Alternate syntax, equivalent to x = v.to<Real>()
+assert( x == 1 );
+
+String s;
+try
+{
+    s = v.to<String>(); // Invalid conversion from boolean to string
+}
+catch (const error::Conversion& e)
+{
+    std::cerr << e.what() << "\n";
+}
+```
+
+Comparisons
+-----------
+
+`Variant` objects can be compared with each other, or with other values. For the
+comparison to be equal, both types must match. However, all numeric types are
+considered to be the same type for comparison purposes (this is to more closely
+match the behavior of the `===` operator in Javascript, where it does not
+distinguish between signed/unsigned or integer/floating-point numbers).
+```
+using namespace wamp;
+Variant v; // Starts as null
+Variant w; // Starts as null
+assert( v == w ); // null == null is always true
+
+v = 42;   // v is now an integer
+w = "42"; // w is now a string
+assert( v != w ); // Types do not match
+
+v = 123;   // v is still an integer
+w = 123.0; // w is now a real number
+assert( v == w ); // Numeric types match for comparison purposes
+
+v = 0;     // v is still an integer
+w = false; // w is now a boolean
+assert( v != w ); // Types do not match
+
+v = "hello"; // v is now a String
+// String variants can be compared against `char` arrays:
+assert( v == "hello" );
+```
+
+Output
+------
+
+wamp::Variant, wamp::Array, and wamp::Object objects can be outputted to a
+`std::ostream`:
+```
+using namespace wamp;
+Variant v;
+std::cout << v << "\n"; // Prints "null"
+v = 42;
+std::cout << v << "\n"; // Prints "42"
+
+Array a{"foo", false, 123};
+v = a;
+std::cout << a << "\n"; // Prints "["foo", false, 123]"
+std::cout << v << "\n"; // Prints "["foo", false, 123]"
+```
+
+- - -
+
+Next: @ref ConnectorsTutorial
+
+*/

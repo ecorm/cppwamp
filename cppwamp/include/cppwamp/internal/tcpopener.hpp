@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -30,19 +30,19 @@ public:
     using Socket    = boost::asio::ip::tcp::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
-    TcpOpener(AsioService& iosvc, Info info)
-        : iosvc_(iosvc),
+    TcpOpener(AnyExecutor exec, Info info)
+        : executor_(exec),
           info_(std::move(info))
     {}
 
-    AsioService& iosvc() {return iosvc_;}
+    AnyExecutor executor() {return executor_;}
 
     template <typename TCallback>
     void establish(TCallback&& callback)
     {
         assert(!resolver_ && "Connect already in progress");
 
-        resolver_.reset(new tcp::resolver(iosvc_));
+        resolver_.reset(new tcp::resolver(executor_));
 
         tcp::resolver::query query(info_.hostName(), info_.serviceName());
 
@@ -75,9 +75,9 @@ private:
     void connect(tcp::resolver::iterator iterator, TCallback&& callback)
     {
         assert(!socket_);
-        socket_.reset(new Socket(iosvc_));
+        socket_.reset(new Socket(executor_));
         socket_->open(boost::asio::ip::tcp::v4());
-        internal::applyRawsockOptions(info_, *socket_);
+        info_.options().applyTo(*socket_);
 
         // AsioConnector will keep this object alive until completion.
         boost::asio::async_connect(*socket_, iterator,
@@ -91,7 +91,7 @@ private:
             });
     }
 
-    AsioService& iosvc_;
+    AnyExecutor executor_;
     Info info_;
     std::unique_ptr<tcp::resolver> resolver_;
     SocketPtr socket_;

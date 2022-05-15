@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,8 +10,8 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains the asynchronous session API used by a _client_ peer in WAMP
-    applications. */
+    @brief Contains the asynchronous session API used by a _client_ peer
+           in WAMP applications. */
 //------------------------------------------------------------------------------
 
 #include <functional>
@@ -19,6 +19,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "api.hpp"
 #include "asiodefs.hpp"
 #include "asyncresult.hpp"
 #include "peerdata.hpp"
@@ -56,9 +57,9 @@ namespace wamp
           listed under **Returns** refer to results that are returned via
           AsyncResult.
 
-    The `boost::asio::io_service` passed via `create()` is used when executing
+    The `boost::asio::io_context` passed via `create()` is used when executing
     handler functions passed-in by the user. This can be the same, or different
-    than the `io_service` passed to the `Connector` creation functions.
+    than the `io_context` passed to the `Connector` creation functions.
 
     @par Aborting Asynchronous Operations
     All pending asynchronous operations can be _aborted_ by dropping the client
@@ -80,7 +81,7 @@ namespace wamp
 
     @see AsyncHandler, AsyncResult, CoroSession, Registration, Subscription. */
 //------------------------------------------------------------------------------
-class Session : public std::enable_shared_from_this<Session>
+class CPPWAMP_API Session : public std::enable_shared_from_this<Session>
 {
 public:
     /** Shared pointer to a Session. */
@@ -105,10 +106,45 @@ public:
     using InterruptSlot = std::function<Outcome (Interruption)>;
 
     /** Creates a new Session instance. */
-    static Ptr create(AsioService& userIosvc, const Connector::Ptr& connector);
+    static Ptr create(AnyExecutor exec, const Connector::Ptr& connector);
 
     /** Creates a new Session instance. */
-    static Ptr create(AsioService& userIosvc, const ConnectorList& connectors);
+    static Ptr create(AnyExecutor exec, const ConnectorList& connectors);
+
+    /** Creates a new Session instance.
+        @copydetails Session::create(AnyExecutor, const Connector::Ptr&)
+        @details Only participates in overload resolution when
+                 `isExecutionContext<TExecutionContext>() == true`
+        @tparam TExecutionContext Must meet the requirements of
+                                  Boost.Asio's ExecutionContext */
+    template <typename TExecutionContext>
+    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<TExecutionContext>())
+    create(
+        TExecutionContext& context, /**< Provides executor with which to
+                                         post all user-provided handlers. */
+        const Connector::Ptr& connector /**< Connection details for the
+                                             transport to use. */
+        )
+    {
+        return create(context.get_executor(), connector);
+    }
+
+    /** Creates a new Session instance.
+        @copydetails Session::create(AnyExecutor, const ConnectorList&)
+        @details Only participates in overload resolution when
+                 `isExecutionContext<TExecutionContext>() == true`
+        @tparam TExecutionContext Must meet the requirements of
+                                  Boost.Asio's ExecutionContext */
+    template <typename TExecutionContext>
+    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<TExecutionContext>())
+    create(
+        TExecutionContext& context, /**< Provides executor with which to
+                                         post all user-provided handlers. */
+        const ConnectorList& connectors) /**< Connection details for the
+                                              transport to use. */
+    {
+        return create(context.get_executor(), connectors);
+    }
 
     /** Obtains a dictionary of roles and features supported on the client
         side. */
@@ -126,8 +162,11 @@ public:
     /// @name Observers
     /// @{
 
-    /** Obtains the IO service used to execute user-provided handlers. */
-    AsioService& userIosvc() const;
+    /** Obtains the executor used to execute user-provided handlers. */
+    AnyExecutor userExecutor() const;
+
+    /** Legacy function kept for backward compatiblity. */
+    AnyExecutor userIosvc() const;
 
     /** Returns the current state of the session. */
     SessionState state() const;
@@ -193,7 +232,8 @@ public:
                 AsyncHandler<Registration> handler);
 
     /** Registers a WAMP remote procedure call with an interruption handler. */
-    void enroll(Procedure procedure, CallSlot callSlot, InterruptSlot interruptSlot,
+    void enroll(Procedure procedure, CallSlot callSlot,
+                InterruptSlot interruptSlot,
                 AsyncHandler<Registration> handler);
 
     /** Unregisters a remote procedure call. */
@@ -211,14 +251,14 @@ public:
     /// @}
 
 protected:
-    explicit Session(AsioService& userIosvc, const ConnectorList& connectors);
+    explicit Session(AnyExecutor userExec, const ConnectorList& connectors);
 
     void doConnect(size_t index, AsyncTask<size_t> handler);
 
     std::shared_ptr<internal::ClientInterface> impl();
 
 private:
-    AsioService& userIosvc_;
+    AnyExecutor userExecutor_;
     ConnectorList connectors_;
     Connector::Ptr currentConnector_;
     AsyncTask<std::string> warningHandler_;

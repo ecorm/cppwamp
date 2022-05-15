@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------------
-#               Copyright Butterfly Energy Systems 2014-2015.
+#             Copyright Butterfly Energy Systems 2014-2015, 2022.
 #          Distributed under the Boost Software License, Version 1.0.
 #             (See accompanying file LICENSE_1_0.txt or copy at
 #                   http://www.boost.org/LICENSE_1_0.txt)
@@ -34,33 +34,25 @@ set(HEADERS
     transporttest.hpp
 )
 
-# Add executable target for unit testing
-add_executable (test ${SOURCES} ${HEADERS})
+add_executable(cppwamp-test ${SOURCES} ${HEADERS})
 
-# Add required proprocessor macro definitions
-add_definitions(
-    -DCPPWAMP_COMPILED_LIB
-    -DCPPWAMP_UNIT_TESTING
-    -DCPPWAMP_TESTING_VARIANT=1
-    -DCPPWAMP_TESTING_CODEC=1
-    -DCPPWAMP_TESTING_TRANSPORT=1
-    -DCPPWAMP_TESTING_WAMP=1
-)
-
-# Silence GCC warnings from Catch comparison checks
-if(CMAKE_COMPILER_IS_GNUCXX)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses")
-endif()
-
-# Add include path for Catch unit test framework
-include_directories(${PATH_INCLUDE_CATCH})
-
-# Link against cppwamp and Boost libraries
-target_link_libraries(test cppwamp ${Boost_LIBRARIES})
+# Use header-only version of CppWAMP to facilitate debugging tests.
+target_link_libraries(cppwamp-test
+    PRIVATE
+        "$<TARGET_NAME_IF_EXISTS:Catch2::Catch2>"
+        CppWAMP::coro-headers
+        CppWAMP::json-headers
+        CppWAMP::msgpack-headers)
+target_compile_options(cppwamp-test PRIVATE
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall>
+    $<$<CXX_COMPILER_ID:MSVC>:/W4>)
+target_compile_definitions(cppwamp-test PRIVATE
+    "$<$<TARGET_EXISTS:rapidjson>:CPPWAMP_TEST_HAS_JSON=1>"
+    "$<$<TARGET_EXISTS:msgpackc-cxx>:CPPWAMP_TEST_HAS_MSGPACK=1>"
+    "$<$<TARGET_EXISTS:CppWAMP::coro-headers>:CPPWAMP_TEST_HAS_CORO=1>")
 
 # Copy Crossbar node configuration to build directory
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/.crossbar/config.json
     ${CMAKE_CURRENT_BINARY_DIR}/.crossbar/config.json
-    COPYONLY
-)
+    COPYONLY)

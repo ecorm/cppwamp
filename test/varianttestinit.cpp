@@ -5,12 +5,10 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_VARIANT
-
 #include <cstdlib>
 #include <limits>
 #include <type_traits>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 
 using namespace wamp;
@@ -69,11 +67,15 @@ void checkInit(const U& initValue)
         INFO( "Checking move construction with variant" );
         Variant v(initValue);
         Variant w(std::move(v));
-        CHECK( v.is<Null>() );
-        CHECK( v.as<Null>() == null );
-        CHECK( v.as<TypeId::null>() == null );
-        CHECK( v == null );
-        CHECK( v == Variant() );
+
+        // Supress linter warnings about calling methods on moved-from object,
+        // as we are actually testing the behavior of a moved-from Variant
+        CHECK( v.is<Null>() ); // NOLINT
+        CHECK( v.as<Null>() == null ); // NOLINT
+        CHECK( v.as<TypeId::null>() == null ); // NOLINT
+        CHECK( v == null ); // NOLINT
+        CHECK( v == Variant() ); // NOLINT
+
         CHECK( w.is<T>() );
         CHECK( w.as<T>() == checkValue );
         CHECK( w.as<typeId>() == checkValue );
@@ -229,5 +231,3 @@ GIVEN( "Variants initialized with object values" )
 //    Variant v(invalid); // Should generate compiler error
 //}
 }
-
-#endif // #if CPPWAMP_TESTING_VARIANT

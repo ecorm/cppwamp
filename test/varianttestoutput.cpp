@@ -5,13 +5,11 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_VARIANT
-
 #include <cstdlib>
 #include <limits>
 #include <sstream>
 #include <type_traits>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 
 using namespace wamp;
@@ -88,12 +86,17 @@ GIVEN( "an assortment of variants" )
     checkOutput(Array{0u},       "[0]");
     checkOutput(Array{-1},       "[-1]");
     checkOutput(Array{""},       "[\"\"]");
-    checkOutput(Array{Array{}},  "[[]]");
+
+    // Array{Array{}} is ambiguous with the move constructor and the
+    // constructor taking an initializer list
+    checkOutput(Array{Variant{Array{}}},  "[[]]");
     checkOutput(Array{Object{}}, "[{}]");
     checkOutput(Array{null,false,true,42u,-42,"hello",Array{},Object{}},
                 R"([null,false,true,42,-42,"hello",[],{}])");
-    checkOutput(Array{ Array{Array{"foo",42} }, Array{ Object{{"foo",42}} } },
+    checkOutput(Array{ Variant{Array{Variant{Array{"foo",42}}}},
+                       Array{ Object{{"foo",42}} } },
                 R"([[["foo",42]],[{"foo":42}]])");
+
     checkOutput(Object{},                   R"({})");
     checkOutput(Object{ {"",""} },          R"({"":""})");
     checkOutput(Object{ {"n",null} },       R"({"n":null})");
@@ -111,5 +114,3 @@ GIVEN( "an assortment of variants" )
                 R"({"a":{"b":{"c":42}}})");
 }
 }
-
-#endif // #if CPPWAMP_TESTING_VARIANT

@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,12 +10,13 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Provides facilities allowing Variant to interoperate with
-    boost::optional. */
+    @brief Provides facilities allowing Variant to interoperate with
+           boost::optional. */
 //------------------------------------------------------------------------------
 
 #include <boost/optional.hpp>
-#include "../conversion.hpp"
+#include "../api.hpp"
+#include "../variant.hpp"
 
 namespace wamp
 {
@@ -25,7 +26,7 @@ namespace wamp
     Users should not use this function directly. Use Variant::to instead. */
 //------------------------------------------------------------------------------
 template <typename T>
-void convert(FromVariantConverter& conv, boost::optional<T>& opt)
+CPPWAMP_API void convert(FromVariantConverter& conv, boost::optional<T>& opt)
 {
     const auto& variant = conv.variant();
     if (!variant)
@@ -39,7 +40,7 @@ void convert(FromVariantConverter& conv, boost::optional<T>& opt)
     Users should not use this function directly. Use Variant::from instead. */
 //------------------------------------------------------------------------------
 template <typename T>
-void convert(ToVariantConverter& conv, boost::optional<T>& opt)
+CPPWAMP_API void convert(ToVariantConverter& conv, boost::optional<T>& opt)
 {
     auto& variant = conv.variant();
     if (!opt)
@@ -55,32 +56,32 @@ void convert(ToVariantConverter& conv, boost::optional<T>& opt)
 
 /// Compares a variant and a `boost::optional` for equality.
 template <typename T>
-bool operator==(const Variant& v, const boost::optional<T> o)
+CPPWAMP_API bool operator==(const Variant& v, const boost::optional<T> o)
 {
     return !o ? !v : (v == *o);
 }
 
 /// Compares a variant and a `boost::optional` for equality.
 template <typename T>
-bool operator==(const boost::optional<T> o, const Variant& v)
+CPPWAMP_API bool operator==(const boost::optional<T> o, const Variant& v)
 {
     return v == o;
 }
 
 /// Compares a variant and a `boost::optional` for inequality.
 template <typename T>
-bool operator!=(const Variant& v, const boost::optional<T> o)
+CPPWAMP_API bool operator!=(const Variant& v, const boost::optional<T> o)
 {
     return !o ? !!v : (v != *o);
 }
 
 /// Compares a variant and a `boost::optional` for inequality.
 template <typename T>
-bool operator!=(const boost::optional<T> o, const Variant& v)
+CPPWAMP_API bool operator!=(const boost::optional<T> o, const Variant& v)
 {
     return v != o;
 }
 
-}
+} // namespace wamp
 
 #endif // CPPWAMP_TYPES_BOOSTOPTIONAL_HPP

@@ -5,10 +5,8 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if CPPWAMP_TESTING_VARIANT
-
 #include <algorithm>
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 #include <cppwamp/types/array.hpp>
 #include <cppwamp/types/set.hpp>
 #include <cppwamp/types/unorderedmap.hpp>
@@ -278,5 +276,3 @@ GIVEN( "an invalid variant array type" )
     }
 }
 }
-
-#endif // #if CPPWAMP_TESTING_VARIANT

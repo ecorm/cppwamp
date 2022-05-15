@@ -1,13 +1,14 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
+#include "../session.hpp"
 #include <cassert>
 #include <iostream>
-#include "config.hpp"
+#include "../api.hpp"
 
 namespace wamp
 {
@@ -17,13 +18,13 @@ namespace wamp
     @return A shared pointer to the created session object. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
-    AsioService& userIosvc,         /**< IO service in which to post all
+    AnyExecutor exec,               /**< Executor with which to post all
                                          user-provided handlers. */
     const Connector::Ptr& connector /**< Connection details for the transport
                                          to use. */
 )
 {
-    return Ptr(new Session(userIosvc, {connector}));
+    return Ptr(new Session(exec, {connector}));
 }
 
 //------------------------------------------------------------------------------
@@ -33,13 +34,13 @@ CPPWAMP_INLINE Session::Ptr Session::create(
     @throws error::Logic if `connectors.empty() == true` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
-    AsioService& userIosvc,         /**< IO service in which to post all
+    AnyExecutor exec,               /**< Executor with which to post all
                                          user-provided handlers. */
     const ConnectorList& connectors /**< A list of connection details for
                                          the transports to use. */
 )
 {
-    return Ptr(new Session(userIosvc, connectors));
+    return Ptr(new Session(exec, connectors));
 }
 
 //------------------------------------------------------------------------------
@@ -66,9 +67,15 @@ CPPWAMP_INLINE Session::~Session()
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AsioService& Session::userIosvc() const
+CPPWAMP_INLINE AnyExecutor Session::userExecutor() const
 {
-    return userIosvc_;
+    return userExecutor_;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AnyExecutor Session::userIosvc() const
+{
+    return userExecutor();
 }
 
 //------------------------------------------------------------------------------
@@ -95,7 +102,7 @@ CPPWAMP_INLINE void Session::setWarningHandler(
 {
     warningHandler_ = AsyncTask<std::string>
     {
-        userIosvc_,
+        userExecutor_,
         [handler](AsyncResult<std::string> warning) {handler(warning.get());}
     };
 }
@@ -113,7 +120,7 @@ CPPWAMP_INLINE void Session::setTraceHandler(
 {
     traceHandler_ = AsyncTask<std::string>
     {
-        userIosvc_,
+        userExecutor_,
         [handler](AsyncResult<std::string> trace) {handler(trace.get());}
     };
 }
@@ -126,7 +133,7 @@ CPPWAMP_INLINE void Session::setChallengeHandler(
 {
     challengeHandler_ = AsyncTask<Challenge>
     {
-        userIosvc_,
+        userExecutor_,
         [handler](AsyncResult<Challenge> challenge)
         {
             handler(std::move(challenge.get()));
@@ -162,7 +169,7 @@ CPPWAMP_INLINE void Session::connect(
     state_ = State::connecting;
     isTerminating_ = false;
     currentConnector_ = nullptr;
-    doConnect(0, {userIosvc_, handler});
+    doConnect(0, {userExecutor_, handler});
 }
 
 //------------------------------------------------------------------------------
@@ -186,7 +193,7 @@ CPPWAMP_INLINE void Session::join(
 )
 {
     CPPWAMP_LOGIC_CHECK(state() == State::closed, "Session is not closed");
-    impl_->join(std::move(realm), {userIosvc_, std::move(handler)});
+    impl_->join(std::move(realm), {userExecutor_, std::move(handler)});
 }
 
 //------------------------------------------------------------------------------
@@ -220,7 +227,7 @@ CPPWAMP_INLINE void Session::leave(
 {
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
-    impl_->leave(std::move(reason), {userIosvc_, std::move(handler)});
+    impl_->leave(std::move(reason), {userExecutor_, std::move(handler)});
 }
 
 //------------------------------------------------------------------------------
@@ -292,7 +299,7 @@ CPPWAMP_INLINE void Session::subscribe(
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
     using std::move;
-    impl_->subscribe(move(topic), move(slot), {userIosvc_, move(handler)});
+    impl_->subscribe(move(topic), move(slot), {userExecutor_, move(handler)});
 }
 
 //------------------------------------------------------------------------------
@@ -346,7 +353,7 @@ CPPWAMP_INLINE void Session::unsubscribe(
     CPPWAMP_LOGIC_CHECK(!!sub, "The subscription is empty");
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
-    impl_->unsubscribe(sub, {userIosvc_, std::move(handler)});
+    impl_->unsubscribe(sub, {userExecutor_, std::move(handler)});
 }
 
 //------------------------------------------------------------------------------
@@ -381,7 +388,7 @@ CPPWAMP_INLINE void Session::publish(
 {
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
-    impl_->publish(std::move(pub), {userIosvc_, std::move(handler)});
+    impl_->publish(std::move(pub), {userExecutor_, std::move(handler)});
 }
 
 //------------------------------------------------------------------------------
@@ -410,7 +417,7 @@ CPPWAMP_INLINE void Session::enroll(
                         "Session is not established");
     using std::move;
     impl_->enroll( move(procedure), move(slot), nullptr,
-                   {userIosvc_, move(handler)} );
+                   {userExecutor_, move(handler)} );
 }
 
 //------------------------------------------------------------------------------
@@ -431,7 +438,8 @@ CPPWAMP_INLINE void Session::enroll(
 CPPWAMP_INLINE void Session::enroll(
     Procedure procedure, /**< The procedure to register. */
     CallSlot callSlot,   /**< The handler to execute when the RPC is invoked. */
-    InterruptSlot interruptSlot, /** Handler to execute when RPC is interrupted. */
+    InterruptSlot interruptSlot, /**< Handler to execute when RPC
+                                      is interrupted. */
     AsyncHandler<Registration> handler /**< Handler to invoke when
                                             the enroll operation completes. */
 )
@@ -440,7 +448,7 @@ CPPWAMP_INLINE void Session::enroll(
                         "Session is not established");
     using std::move;
     impl_->enroll( move(procedure), move(callSlot), move(interruptSlot),
-                   {userIosvc_, move(handler)} );
+                   {userExecutor_, move(handler)} );
 }
 
 //------------------------------------------------------------------------------
@@ -491,7 +499,7 @@ CPPWAMP_INLINE void Session::unregister(
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
     if (impl_)
-        impl_->unregister(reg, {userIosvc_, std::move(handler)});
+        impl_->unregister(reg, {userExecutor_, std::move(handler)});
 }
 
 //------------------------------------------------------------------------------
@@ -516,7 +524,7 @@ CPPWAMP_INLINE RequestId Session::call(
 {
     CPPWAMP_LOGIC_CHECK(state() == State::established,
                         "Session is not established");
-    return impl_->call(std::move(rpc), {userIosvc_, std::move(handler)});
+    return impl_->call(std::move(rpc), {userExecutor_, std::move(handler)});
 }
 
 //------------------------------------------------------------------------------
@@ -528,9 +536,9 @@ CPPWAMP_INLINE void Session::cancel(Cancellation cancellation)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Session::Session(AsioService& userIosvc,
+CPPWAMP_INLINE Session::Session(AnyExecutor userExec,
                                 const ConnectorList& connectors)
-    : userIosvc_(userIosvc)
+    : userExecutor_(userExec)
 {
     CPPWAMP_LOGIC_CHECK(!connectors.empty(), "Connector list is empty");
     for (const auto& cnct: connectors)

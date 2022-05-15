@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+                Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -10,12 +10,14 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    Contains facilities for reporting and describing errors. */
+    @brief Contains facilities for reporting and describing errors. */
 //------------------------------------------------------------------------------
 
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <system_error>
+#include "api.hpp"
 
 //------------------------------------------------------------------------------
 /** Throws an error::Logic exception having the given message string.
@@ -47,7 +49,7 @@ namespace error
 //------------------------------------------------------------------------------
 /** General purpose runtime exception that wraps a std::error_code. */
 //------------------------------------------------------------------------------
-class Failure : public std::system_error
+class CPPWAMP_API Failure : public std::system_error
 {
 public:
     /** Obtains a human-readable message from the given error code. */
@@ -68,7 +70,7 @@ public:
 //------------------------------------------------------------------------------
 /** Exception thrown when a pre-condition is not met. */
 //------------------------------------------------------------------------------
-struct Logic : public std::logic_error
+struct CPPWAMP_API Logic : public std::logic_error
 {
     using std::logic_error::logic_error;
 
@@ -79,6 +81,30 @@ struct Logic : public std::logic_error
         details. */
     static void check(bool condition, const char* file, int line,
                       const std::string& msg);
+};
+
+//------------------------------------------------------------------------------
+/** Base class for exceptions involving invalid Variant types. */
+//------------------------------------------------------------------------------
+struct CPPWAMP_API BadType : public std::runtime_error
+{
+    explicit BadType(const std::string& what);
+};
+
+//------------------------------------------------------------------------------
+/** Exception type thrown when accessing a Variant as an invalid type. */
+//------------------------------------------------------------------------------
+struct CPPWAMP_API Access : public BadType
+{
+    Access(const std::string& from, const std::string& to);
+};
+
+//------------------------------------------------------------------------------
+/** Exception type thrown when converting a Variant to an invalid type. */
+//------------------------------------------------------------------------------
+struct CPPWAMP_API Conversion : public BadType
+{
+    explicit Conversion(const std::string& what);
 };
 
 } // namespace error
@@ -143,7 +169,7 @@ enum class SessionErrc
 /** std::error_category used for reporting errors at the WAMP session layer.
     @see SessionErrc */
 //------------------------------------------------------------------------------
-class SessionCategory : public std::error_category
+class CPPWAMP_API SessionCategory : public std::error_category
 {
 public:
     /** Obtains the name of the category. */
@@ -157,7 +183,7 @@ public:
                             int condition) const noexcept override;
 
 private:
-    SessionCategory();
+    CPPWAMP_HIDDEN SessionCategory();
 
     friend SessionCategory& wampCategory();
 };
@@ -166,25 +192,26 @@ private:
 /** Obtains a reference to the static error category object for Wamp errors.
     @relates SessionCategory */
 //------------------------------------------------------------------------------
-SessionCategory& wampCategory();
+CPPWAMP_API SessionCategory& wampCategory();
 
 //------------------------------------------------------------------------------
 /** Creates an error code value from an SessionErrc enumerator.
     @relates SessionCategory */
 //-----------------------------------------------------------------------------
-std::error_code make_error_code(SessionErrc errc);
+CPPWAMP_API std::error_code make_error_code(SessionErrc errc);
 
 //------------------------------------------------------------------------------
 /** Creates an error condition value from an SessionErrc enumerator.
     @relates SessionCategory */
 //-----------------------------------------------------------------------------
-std::error_condition make_error_condition(SessionErrc errc);
+CPPWAMP_API std::error_condition make_error_condition(SessionErrc errc);
 
 //------------------------------------------------------------------------------
 /** Looks up the SessionErrc enumerator that corresponds to the given error URI.
     @relates SessionCategory */
 //-----------------------------------------------------------------------------
-SessionErrc lookupWampErrorUri(const std::string& uri, SessionErrc fallback);
+CPPWAMP_API SessionErrc lookupWampErrorUri(const std::string& uri,
+                                           SessionErrc fallback);
 
 
 //******************************************************************************
@@ -208,7 +235,7 @@ enum class ProtocolErrc
     WAMP messages.
     @see ProtocolErrc */
 //------------------------------------------------------------------------------
-class ProtocolCategory : public std::error_category
+class CPPWAMP_API ProtocolCategory : public std::error_category
 {
 public:
     /** Obtains the name of the category. */
@@ -222,7 +249,7 @@ public:
                             int condition) const noexcept override;
 
 private:
-    ProtocolCategory();
+    CPPWAMP_HIDDEN ProtocolCategory();
 
     friend ProtocolCategory& protocolCategory();
 };
@@ -231,19 +258,19 @@ private:
 /** Obtains a reference to the static error category object for protocol errors.
     @relates ProtocolCategory */
 //------------------------------------------------------------------------------
-ProtocolCategory& protocolCategory();
+CPPWAMP_API ProtocolCategory& protocolCategory();
 
 //------------------------------------------------------------------------------
 /** Creates an error code value from a ProtocolErrc enumerator.
     @relates ProtocolCategory */
 //-----------------------------------------------------------------------------
-std::error_code make_error_code(ProtocolErrc errc);
+CPPWAMP_API std::error_code make_error_code(ProtocolErrc errc);
 
 //------------------------------------------------------------------------------
 /** Creates an error condition value from a ProtocolErrc enumerator.
     @relates ProtocolCategory */
 //-----------------------------------------------------------------------------
-std::error_condition make_error_condition(ProtocolErrc errc);
+CPPWAMP_API std::error_condition make_error_condition(ProtocolErrc errc);
 
 
 //******************************************************************************
@@ -266,7 +293,7 @@ enum class TransportErrc
 /** std::error_category used for reporting errors at the transport layer.
     @see TransportErrc */
 //------------------------------------------------------------------------------
-class TransportCategory : public std::error_category
+class CPPWAMP_API TransportCategory : public std::error_category
 {
 public:
     /** Obtains the name of the category. */
@@ -280,7 +307,7 @@ public:
                             int condition) const noexcept override;
 
 private:
-    TransportCategory();
+    CPPWAMP_HIDDEN TransportCategory();
 
     friend TransportCategory& transportCategory();
 };
@@ -290,19 +317,19 @@ private:
     errors.
     @relates TransportCategory */
 //------------------------------------------------------------------------------
-TransportCategory& transportCategory();
+CPPWAMP_API TransportCategory& transportCategory();
 
 //------------------------------------------------------------------------------
 /** Creates an error code value from a TransportErrc enumerator.
     @relates TransportCategory */
 //-----------------------------------------------------------------------------
-std::error_code make_error_code(TransportErrc errc);
+CPPWAMP_API std::error_code make_error_code(TransportErrc errc);
 
 //------------------------------------------------------------------------------
 /** Creates an error condition value from a TransportErrc enumerator.
     @relates TransportCategory */
 //-----------------------------------------------------------------------------
-std::error_condition make_error_condition(TransportErrc errc);
+CPPWAMP_API std::error_condition make_error_condition(TransportErrc errc);
 
 
 //******************************************************************************
@@ -330,7 +357,7 @@ enum class RawsockErrc
     transports.
     @see RawsockErrc */
 //------------------------------------------------------------------------------
-class RawsockCategory : public std::error_category
+class CPPWAMP_API RawsockCategory : public std::error_category
 {
 public:
     /** Obtains the name of the category. */
@@ -344,7 +371,7 @@ public:
                             int condition) const noexcept override;
 
 private:
-    RawsockCategory();
+    CPPWAMP_HIDDEN RawsockCategory();
 
     friend RawsockCategory& rawsockCategory();
 };
@@ -354,19 +381,19 @@ private:
     errors.
     @relates RawsockCategory */
 //------------------------------------------------------------------------------
-RawsockCategory& rawsockCategory();
+CPPWAMP_API RawsockCategory& rawsockCategory();
 
 //------------------------------------------------------------------------------
 /** Creates an error code value from a RawsockErrc enumerator.
     @relates RawsockCategory */
 //-----------------------------------------------------------------------------
-std::error_code make_error_code(RawsockErrc errc);
+CPPWAMP_API std::error_code make_error_code(RawsockErrc errc);
 
 //------------------------------------------------------------------------------
 /** Creates an error condition value from a RawsockErrc enumerator.
     @relates RawsockCategory */
 //-----------------------------------------------------------------------------
-std::error_condition make_error_condition(RawsockErrc errc);
+CPPWAMP_API std::error_condition make_error_condition(RawsockErrc errc);
 
 } // namespace wamp
 
@@ -376,16 +403,24 @@ namespace std
 {
 
 template <>
-struct is_error_condition_enum<wamp::SessionErrc> : public true_type {};
+struct CPPWAMP_API is_error_condition_enum<wamp::SessionErrc>
+    : public true_type
+{};
 
 template <>
-struct is_error_condition_enum<wamp::ProtocolErrc> : public true_type {};
+struct CPPWAMP_API is_error_condition_enum<wamp::ProtocolErrc>
+    : public true_type
+{};
 
 template <>
-struct is_error_condition_enum<wamp::TransportErrc> : public true_type {};
+struct CPPWAMP_API is_error_condition_enum<wamp::TransportErrc>
+    : public true_type
+{};
 
 template <>
-struct is_error_condition_enum<wamp::RawsockErrc> : public true_type {};
+struct CPPWAMP_API is_error_condition_enum<wamp::RawsockErrc>
+    : public true_type
+{};
 
 } // namespace std
 #endif // !defined CPPWAMP_FOR_DOXYGEN
