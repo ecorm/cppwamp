@@ -35,9 +35,9 @@ struct Person
 template <typename TConverter>
 void convert(TConverter& conv, Person& p)
 {
-    conv ("name",   p.name)
-         ("age",    p.age)
-         ("weight", p.weight);
+    conv("name",   p.name)
+        ("age",    p.age)
+        ("weight", p.weight);
 }
 ```
 
@@ -84,6 +84,45 @@ Outcome addPerson(Invocation inv, Person p)
 
 Person alice{"Alice", 25, 106.0f};
 session.call(Rpc("addPerson").withArgs(alice), yield);
+```
+
+Nested Objects
+--------------
+
+If the type you want to make convertible contains objects that CppWAMP
+don't understand, all you have to do is provide the `convert` functions
+for the nested object types.
+
+```
+struct Pet
+{
+    std::string species;
+    int legs;
+};
+
+struct Person
+{
+    std::string name;
+    int age;
+    float weight;
+    Pet pet;
+};
+
+template <typename TConverter>
+void convert(TConverter& conv, Pet& p)
+{
+    conv("species", p.species)
+        ("legs",    p.legs);
+}
+
+template <typename TConverter>
+void convert(TConverter& conv, Person& p)
+{
+    conv("name",   p.name)
+        ("age",    p.age)
+        ("weight", p.weight)
+        ("pet",    p.pet)
+}
 ```
 
 Split Conversions
