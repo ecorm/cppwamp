@@ -1,0 +1,5 @@
+<map id="wamp::Error" name="wamp::Error">
+<area shape="rect" id="node1" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages." alt="" coords="148,80,249,107"/>
+<area shape="rect" id="node2" href="$classwamp_1_1_options.html" title=" " alt="" coords="5,5,187,32"/>
+<area shape="rect" id="node3" href="$classwamp_1_1_payload.html" title=" " alt="" coords="211,5,394,32"/>
+</map>

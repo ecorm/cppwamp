@@ -1,0 +1,5 @@
+<map id="wamp::Invocation" name="wamp::Invocation">
+<area shape="rect" id="node1" title="Contains payload arguments and other details related to a remote procedure call invocation." alt="" coords="167,80,305,107"/>
+<area shape="rect" id="node2" href="$classwamp_1_1_options.html" title=" " alt="" coords="5,5,224,32"/>
+<area shape="rect" id="node3" href="$classwamp_1_1_payload.html" title=" " alt="" coords="249,5,469,32"/>
+</map>

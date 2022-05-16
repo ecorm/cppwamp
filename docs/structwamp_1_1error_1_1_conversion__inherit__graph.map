@@ -1,0 +1,4 @@
+<map id="wamp::error::Conversion" name="wamp::error::Conversion">
+<area shape="rect" id="node1" title="Exception type thrown when converting a Variant to an invalid type." alt="" coords="5,80,188,107"/>
+<area shape="rect" id="node2" href="$structwamp_1_1error_1_1_bad_type.html" title="Base class for exceptions involving invalid Variant types." alt="" coords="15,5,179,32"/>
+</map>

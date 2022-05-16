@@ -1,0 +1,5 @@
+<map id="wamp::Pub" name="wamp::Pub">
+<area shape="rect" id="node1" title="Contains the topic URI, options, and payload passed to Session::publish." alt="" coords="145,80,240,107"/>
+<area shape="rect" id="node2" href="$classwamp_1_1_options.html" title=" " alt="" coords="5,5,180,32"/>
+<area shape="rect" id="node3" href="$classwamp_1_1_payload.html" title=" " alt="" coords="205,5,381,32"/>
+</map>

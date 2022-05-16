@@ -1,0 +1,4 @@
+<map id="wamp::error::Access" name="wamp::error::Access">
+<area shape="rect" id="node1" title="Exception type thrown when accessing a Variant as an invalid type." alt="" coords="10,80,165,107"/>
+<area shape="rect" id="node2" href="$structwamp_1_1error_1_1_bad_type.html" title="Base class for exceptions involving invalid Variant types." alt="" coords="5,5,169,32"/>
+</map>
