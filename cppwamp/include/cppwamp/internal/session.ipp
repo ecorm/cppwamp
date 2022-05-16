@@ -208,6 +208,28 @@ CPPWAMP_INLINE void Session::authenticate(Authentication auth)
 }
 
 //------------------------------------------------------------------------------
+/** @details The "wamp.close.close_realm" reason is sent as part of the
+             outgoing `GOODBYE` message.
+    @return The _Reason_ URI and details from the `GOODBYE` response returned
+            by the router.
+    @pre `this->state() == SessionState::established`
+    @post `this->state() == SessionState::shuttingDown`
+    @par Error Codes
+        - SessionErrc::sessionEnded if the operation was aborted.
+        - SessionErrc::sessionEndedByPeer if the session was ended by the peer
+          before a `GOODBYE` response was received.
+        - Some other `std::error_code` for protocol and transport errors.
+    @throw error::Logic if `this->state() != SessionState::established` */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::leave(
+    AsyncHandler<Reason> handler /**< Handler to invoke when the
+                                      operation completes. */
+    )
+{
+    leave(Reason("wamp.close.close_realm"), std::move(handler));
+}
+
+//------------------------------------------------------------------------------
 /** @return The _Reason_ URI and details from the `GOODBYE` response returned
             by the router.
     @pre `this->state() == SessionState::established`

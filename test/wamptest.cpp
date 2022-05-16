@@ -328,6 +328,11 @@ void checkInvalidLeave(CoroSession<>::Ptr session,
 {
     std::error_code ec;
 
+    CHECK_THROWS_AS( session->leave([](AsyncResult<Reason>){}),
+                    error::Logic );
+    CHECK_THROWS_AS( session->leave(yield), error::Logic );
+    CHECK_THROWS_AS( session->leave(yield, &ec), error::Logic );
+
     CHECK_THROWS_AS( session->leave(Reason(), [](AsyncResult<Reason>){}),
                      error::Logic );
     CHECK_THROWS_AS( session->leave(Reason(), yield), error::Logic );
@@ -458,7 +463,7 @@ GIVEN( "an IO service and a TCP connector" )
                 CHECK( info.supportsRoles({"broker", "dealer"}) );
 
                 // Check leaving.
-                Reason reason = s->leave(Reason(), yield);
+                Reason reason = s->leave(yield);
                 CHECK_FALSE( reason.uri().empty() );
                 CHECK( s->state() == SessionState::closed );
             }
@@ -507,7 +512,7 @@ GIVEN( "an IO service and a TCP connector" )
                 CHECK( s->state() == SessionState::established );
 
                 // Leave
-                Reason reason = s->leave(Reason(), yield);
+                Reason reason = s->leave(yield);
                 CHECK_FALSE( reason.uri().empty() );
                 CHECK( s->state() == SessionState::closed );
 
@@ -535,7 +540,7 @@ GIVEN( "an IO service and a TCP connector" )
                 CHECK( info.supportsRoles({"broker", "dealer"}) );
 
                 // Leave
-                Reason reason = s->leave(Reason(), yield);
+                Reason reason = s->leave(yield);
                 CHECK_FALSE( reason.uri().empty() );
                 CHECK( s->state() == SessionState::closed );
 
@@ -708,7 +713,7 @@ GIVEN( "an IO service and a TCP connector" )
                 CHECK( info.supportsRoles({"broker", "dealer"}) );
 
                 // Check leaving.
-                Reason reason = s->leave(Reason(), yield);
+                Reason reason = s->leave(yield);
                 CHECK_FALSE( reason.uri().empty() );
                 CHECK( s->state() == SessionState::closed );
             }
@@ -815,7 +820,7 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK( f.otherPubs.back() == pid );
 
             // Make the "other" subscriber leave and rejoin the realm.
-            f.otherSubscriber->leave(Reason(), yield);
+            f.otherSubscriber->leave(yield);
             f.otherSubscriber->join(Realm(testRealm), yield);
 
             // Reestablish the dynamic subscription.
@@ -965,7 +970,7 @@ GIVEN( "an IO service and a TCP connector" )
             f.subscribe(yield);
 
             // Make the subscriber client leave the session.
-            f.subscriber->leave(Reason(), yield);
+            f.subscriber->leave(yield);
 
             // Unsubscribe the dynamic subscription via RAII.
             REQUIRE_NOTHROW( f.dynamicSub = ScopedSubscription() );
@@ -1336,7 +1341,7 @@ GIVEN( "an IO service and a TCP connector" )
             f.enroll(yield);
 
             // Make the callee leave the session.
-            f.callee->leave(Reason(), yield);
+            f.callee->leave(yield);
 
             // Manually unregister a RPC.
             CHECK_THROWS_AS( f.callee->unregister(f.dynamicReg, yield),
@@ -2448,7 +2453,7 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
         ioctx.reset();
 
-        session->leave(Reason(), [](AsyncResult<Reason>){});
+        session->leave([](AsyncResult<Reason>){});
 
         AsioContext ioctx2;
         boost::asio::spawn(ioctx2, [&](boost::asio::yield_context yield)
@@ -2496,7 +2501,7 @@ GIVEN( "an IO service and a TCP connector" )
                                    AsyncResult<Reason>& result)
         {
             session.join(Realm(testRealm), yield);
-            session.leave(Reason(), [&](AsyncResult<Reason> reason)
+            session.leave([&](AsyncResult<Reason> reason)
             {
                 completed = true;
                 result = reason;
@@ -2673,7 +2678,7 @@ GIVEN( "an IO service and a TCP connector" )
             s->join(Realm(testRealm), yield);
             s->publish(Pub("topic"),
                        [&](AsyncResult<PublicationId>) {published = true;});
-            s->leave(Reason(), yield);
+            s->leave(yield);
             CHECK( s->state() == SessionState::closed );
         });
 

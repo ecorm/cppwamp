@@ -182,6 +182,10 @@ public:
 
     /** Leaves the WAMP session. */
     template <typename H>
+    Reason leave(YieldContext<H> yield, std::error_code* ec = nullptr);
+
+    /** Leaves the WAMP session with the given reason. */
+    template <typename H>
     Reason leave(Reason reason, YieldContext<H> yield,
                  std::error_code* ec = nullptr);
     /// @}
@@ -338,7 +342,23 @@ SessionInfo CoroSession<B>::join(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::leave
+/** @copydetails Session::leave(AsyncHandler<Reason>)
+    @throws error::Failure with an error code if a runtime error occured and
+            the `ec` parameter is null. */
+//------------------------------------------------------------------------------
+template <typename B>
+template <typename H>
+Reason CoroSession<B>::leave(
+    YieldContext<H> yield, /**< Represents the current coroutine. */
+    std::error_code* ec    /**< Optional pointer to an error code to set,
+                                instead of throwing an exception upon failure. */
+    )
+{
+    return leave(Reason("wamp.close.close_realm"), yield, ec);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::leave(Reason, AsyncHandler<Reason>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null. */
 //------------------------------------------------------------------------------

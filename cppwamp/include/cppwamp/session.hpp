@@ -196,6 +196,9 @@ public:
     void authenticate(Authentication auth);
 
     /** Asynchronously leaves the WAMP session. */
+    void leave(AsyncHandler<Reason> handler);
+
+    /** Asynchronously leaves the WAMP session with the given reason. */
     void leave(Reason reason, AsyncHandler<Reason> handler);
 
     /** Disconnects the transport between the client and router. */
