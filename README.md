@@ -41,8 +41,8 @@ C++11 client library for the [WAMP][wamp] protocol.
 Documentation
 -------------
 
-- [Tutorial](http://ecorm.github.io/cppwamp/_tutorial.html)
-- [Reference Documentation](http://ecorm.github.io/cppwamp)
+- [Tutorial](https://ecorm.github.io/cppwamp/_tutorial.html)
+- [Reference Documentation](https://ecorm.github.io/cppwamp)
 - [Release Notes](./CHANGELOG.md)
 
 
@@ -102,7 +102,7 @@ For reporting bugs or for suggesting enhancements, please use the GitHub
 Usage Examples Using Coroutines
 ---------------------------------
 
-_For a more comprehensive overview, check out the [Tutorials](https://github.com/ecorm/cppwamp/wiki/Tutorial) in the wiki._
+_For a more comprehensive overview, check out the [Tutorials](https://ecorm.github.io/cppwamp/_tutorial.html) in the wiki._
 
 ### Establishing a WAMP session
 ```c++
