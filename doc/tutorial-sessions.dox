@@ -125,6 +125,50 @@ boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 });
 ```
 
+Logging
+-------
+
+`wamp::Session` and `wamp::CoroSession` can generate log events at
+runtime, for warnings and for inbound/outbound WAMP messages. CppWAMP
+is not opinionated about where the log events should go, so it provides
+the @ref wamp::Session::setWarningHandler "setWarningHandler" and
+@ref wamp::Session::setTraceHandler "setTraceHandler" methods that
+allow you to register handlers for these log events.
+
+Warnings are generated when there are problems detected that don't
+prevent CppWAMP from performing its job.
+
+Traces contain a stringified version of the WAMP protocol messages.
+They can be useful for troubleshooting without having to set up
+a network analyzer.
+
+Both warning and trace handlers must be callable entities with the
+signature:
+```
+void handler(std::string)
+```
+
+The handlers are posted via the executor that was passed to the
+session's `create` method.
+
+With these handlers you may, for example, log the messages to the
+console.
+
+```
+auto session = wamp::CoroSession<>::create(ioctx, tcp);
+
+session->setWarningHandler([](std::string message)
+{
+    std::cerr << "CppWAMP warning: " << message << "\n";
+});
+
+session->setTraceHandler([](std::string message)
+{
+    std::clog << "WAMP message: " << message << "\n";
+});
+
+```
+
 - - -
 
 Next: @ref ErrorsTutorial
