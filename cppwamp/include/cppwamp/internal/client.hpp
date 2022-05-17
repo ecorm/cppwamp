@@ -589,7 +589,8 @@ private:
     {
         using std::move;
 
-        Challenge challenge(std::move(msg.as<String>(1)));
+        auto self = this->shared_from_this();
+        Challenge challenge({}, self, std::move(msg.as<String>(1)));
         challenge.withOptions(std::move(msg.as<Object>(2)));
 
         if (challengeHandler_)

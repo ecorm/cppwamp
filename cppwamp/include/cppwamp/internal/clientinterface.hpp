@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -20,6 +20,7 @@
 #include "../wampdefs.hpp"
 #include "asynctask.hpp"
 #include "callee.hpp"
+#include "challengee.hpp"
 #include "subscriber.hpp"
 
 namespace wamp
@@ -34,7 +35,8 @@ class SubscriptionImpl;
 //------------------------------------------------------------------------------
 // Specifies the interface required for classes that implement wamp::Session.
 //------------------------------------------------------------------------------
-class ClientInterface : public Callee, public Subscriber
+class ClientInterface :
+    public Callee, public Subscriber, public Challengee
 {
 public:
     using Ptr           = std::shared_ptr<ClientInterface>;
@@ -50,8 +52,6 @@ public:
     virtual SessionState state() const = 0;
 
     virtual void join(Realm&& realm, AsyncTask<SessionInfo>&& handler) = 0;
-
-    virtual void authenticate(Authentication&& authentication) = 0;
 
     virtual void leave(Reason&& reason, AsyncTask<Reason>&& handler) = 0;
 

@@ -83,6 +83,19 @@ public:
     /** Obtains the agent string of the WAMP router, if available. */
     String agentString() const;
 
+    /** Obtains the authentication ID the client was actually
+        authenticated as. */
+    Variant authId() const;
+
+    /** Obtains the role the client was authenticated for. */
+    Variant authRole() const;
+
+    /** Obtains the method that was used for authentication. */
+    Variant authMethod() const;
+
+    /** Obtains the authentication provider. */
+    Variant authProvider() const;
+
     /** Obtains the `WELCOME.Details.roles` dictionary for the router. */
     Object roles() const;
 
@@ -331,9 +344,6 @@ public:
 CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Result& result);
 
 
-namespace internal { class Callee; } // Forward declaration
-
-
 //------------------------------------------------------------------------------
 /** Contains the outcome of an RPC invocation.
     @see @ref RpcOutcomes */
@@ -414,6 +424,8 @@ private:
     } value_;
 };
 
+
+namespace internal { class Callee; } // Forward declaration
 
 //------------------------------------------------------------------------------
 /** Contains payload arguments and other details related to a remote procedure

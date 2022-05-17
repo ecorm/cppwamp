@@ -50,6 +50,46 @@ CPPWAMP_INLINE String SessionInfo::agentString() const
     return optionOr("agent", String());
 }
 
+/** @details
+    This function returns the value of the `HELLO.Details.authid|string`
+    detail.
+    @returns A string variant if the authentication ID is available.
+             Otherwise, a null variant is returned. */
+CPPWAMP_INLINE Variant SessionInfo::authId() const
+{
+    return optionByKey("authid");
+}
+
+/** @details
+    This function returns the value of the `HELLO.Details.authrole|string`
+    detail. This is not to be confused with the _dealer roles_.
+    @returns A string variant if the authentication role is available.
+             Otherwise, a null variant is returned. */
+CPPWAMP_INLINE Variant SessionInfo::authRole() const
+{
+    return optionByKey("authrole");
+}
+
+/** @details
+    This function returns the value of the `HELLO.Details.authmethod|string`
+    detail.
+    @returns A string variant if the authentication method is available.
+             Otherwise, a null variant is returned. */
+CPPWAMP_INLINE Variant SessionInfo::authMethod() const
+{
+    return optionByKey("authmethod");
+}
+
+/** @details
+    This function returns the value of the `HELLO.Details.authprovider|string`
+    detail.
+    @returns A string variant if the authentication provider is available.
+             Otherwise, a null variant is returned. */
+CPPWAMP_INLINE Variant SessionInfo::authProvider() const
+{
+    return optionByKey("authprovider");
+}
+
 CPPWAMP_INLINE Object SessionInfo::roles() const
 {
     return optionOr("roles", Object());
@@ -734,7 +774,7 @@ CPPWAMP_INLINE bool Invocation::isProgressive() const
 }
 
 /** @details
-    This function checks the value of the `INVOCATION.Details.caller|integer`
+    This function returns the value of the `INVOCATION.Details.caller|integer`
     detail. See [Caller Identification][caller_ident] in the advanced WAMP spec.
     [caller_ident]:
         https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.5
@@ -746,7 +786,7 @@ CPPWAMP_INLINE Variant Invocation::caller() const
 }
 
 /** @details
-    This function checks the value of the `INVOCATION.Details.trustlevel|integer`
+    This function returns the value of the `INVOCATION.Details.trustlevel|integer`
     detail. See [Call Trust Levels][call_trust] in the advanced WAMP spec.
     [call_trust]:
         https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.6
@@ -758,7 +798,7 @@ CPPWAMP_INLINE Variant Invocation::trustLevel() const
 }
 
 /** @details
-    This function checks the value of the `INVOCATION.Details.procedure|uri`
+    This function returns the value of the `INVOCATION.Details.procedure|uri`
     detail. See [Pattern-based Registrations][pattern_based_reg] in the
     advanced WAMP spec.
     [pattern_based_reg]:
@@ -773,17 +813,19 @@ CPPWAMP_INLINE Variant Invocation::procedure() const
 /** @pre `this->calleeHasExpired == false` */
 CPPWAMP_INLINE void Invocation::yield(Result result) const
 {
+    // Discard the result if client no longer exists
     auto callee = callee_.lock();
-    CPPWAMP_LOGIC_CHECK(!!callee, "Client no longer exists");
-    callee->yield(id_, std::move(result));
+    if (callee)
+        callee->yield(id_, std::move(result));
 }
 
 /** @pre `this->calleeHasExpired == false` */
 CPPWAMP_INLINE void Invocation::yield(Error error) const
 {
+    // Discard the result if client no longer exists
     auto callee = callee_.lock();
-    CPPWAMP_LOGIC_CHECK(!!callee, "Client no longer exists");
-    callee->yield(id_, std::move(error));
+    if (callee)
+        callee->yield(id_, std::move(error));
 }
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,

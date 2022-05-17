@@ -8,6 +8,7 @@
 #ifndef CPPWAMP_PEERDATA_HPP
 #define CPPWAMP_PEERDATA_HPP
 
+#include <memory>
 #include "api.hpp"
 #include "options.hpp"
 #include "payload.hpp"
@@ -75,6 +76,39 @@ public:
     String& reason(internal::PassKey); // Internal use only
 };
 
+namespace internal { class Challengee; } // Forward declaration
+
+//------------------------------------------------------------------------------
+/** Provides the _Signature_ and _Extra_ dictionary contained within
+    WAMP `AUTHENTICATE` messages. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API Authentication : public Options<Authentication>
+{
+public:
+    /** Constructs an authentication with an empty signature. */
+    Authentication();
+
+    /** Converting constructor taking the authentication signature. */
+    Authentication(String signature);
+
+    /** Obtains the authentication signature. */
+    const String& signature() const;
+
+    /** Sets the client-server nonce used with the WAMP-SCRAM
+        authentication method. */
+    Authentication& withNonce(std::string nonce);
+
+    /** Sets the channel binding information used with the WAMP-SCRAM
+        authentication method. */
+    Authentication& withChannelBinding(std::string type, std::string data);
+
+private:
+    String signature_;
+
+public:
+    String& signature(internal::PassKey); // Internal use only
+};
+
 //------------------------------------------------------------------------------
 /** Provides the _AuthMethod_ and _Extra_ dictionary contained within
     WAMP `CHALLENGE` messages. */
@@ -85,42 +119,46 @@ public:
     /** Constructs an empty challenge. */
     Challenge();
 
-    /** Converting constructor taking the authentication method string. */
-    explicit Challenge(String method);
+    /** Determines if the Session object that dispatched this
+        invocation still exists or has expired. */
+    bool challengeeHasExpired() const;
 
     /** Obtains the authentication method string. */
     const String& method() const;
 
+    /** Returns an optional challenge string. */
+    Variant challenge() const;
+
+    /** Returns an optional salt string. */
+    Variant salt() const;
+
+    /** Returns an optional key length. */
+    Variant keyLength() const;
+
+    /** Returns an optional iteration count. */
+    Variant iterations() const;
+
+    /** Returns an optional key derivation function (KDF) identifier. */
+    Variant kdf() const;
+
+    /** Returns an optional KDF memory cost factor integer. */
+    Variant memory() const;
+
+    /** Sends an `AUTHENTICATE` message back in response to the challenge. */
+    void authenticate(Authentication auth);
+
+public:
+    // Internal use only
+    using ChallengeePtr = std::weak_ptr<internal::Challengee>;
+    Challenge(internal::PassKey, ChallengeePtr challengee, String method);
+
 private:
+    ChallengeePtr challengee_;
     String method_;
 
 public:
     CPPWAMP_HIDDEN String& method(internal::PassKey); // Internal use only
 };
-
-//------------------------------------------------------------------------------
-/** Provides the _Signature_ and _Extra_ dictionary contained within
-    WAMP `AUTHENTICATE` messages. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API Authentication : public Options<Authentication>
-{
-public:
-    /** Constructs an empty challenge. */
-    Authentication();
-
-    /** Converting constructor taking the authentication signature. */
-    Authentication(String signature);
-
-    /** Obtains the authentication signature. */
-    const String& signature() const;
-
-private:
-    String signature_;
-
-public:
-    String& signature(internal::PassKey); // Internal use only
-};
-
 
 } // namespace wamp
 

@@ -49,6 +49,7 @@ set(HEADERS
     include/cppwamp/internal/asiotransport.hpp
     include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/callee.hpp
+    include/cppwamp/internal/challengee.hpp
     include/cppwamp/internal/client.hpp
     include/cppwamp/internal/clientinterface.hpp
     include/cppwamp/internal/config.hpp
