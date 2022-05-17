@@ -86,6 +86,7 @@ inline const Object& ClientInterface::roles()
     {
         {"callee", Object{{"features", Object{{
             {"call_canceling", true},
+            {"call_timeout", true},
             {"call_trustlevels", true},
             {"caller_identification", true},
             {"pattern_based_registration", true},
