@@ -114,6 +114,10 @@ auto sub = session->subscribe(
 sub.unsubscribe();
 ```
 
+For a more in-depth discussion on subscriptions, consult the
+@ref Subscriptions page.
+
+
 Subscribing to Statically-Typed Events
 --------------------------------------
 
@@ -225,48 +229,18 @@ lifetime management of topic subscriptions using
 [RAII](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization)
 techniques.
 
-Here's an example illustrating how `ScopedSubscription` can be used to manage
-the lifetime of a subscription:
-
 ```
 using namespace wamp;
 
-struct Observer
 {
-    void onEvent(Event event);
-
-    ScopedSubscription sub;
+    ScopedSubscription sub = session->subscribe(Topic("foo"), &onFoo, yield);
 }
-
-int main()
-{
-    boost::asio::io_service ioctx;
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
-    {
-        auto session = CoroSession<>::create(connectorList);
-        session->connect(yield);
-        session->join("somerealm", yield);
-
-        {
-            using std::placeholders;
-            Observer observer;
-            observer.sub = session->subscribe(
-                            Topic("sometopic"),
-                            std::bind(&Observer::onEvent, observer, _1),
-                            yield);
-
-        }  // When the 'observer' object leaves this scope, its
-           // ScopedSubscription member gets destroyed. This will
-           // automatically unsubscribe the subscription, thereby avoiding
-           // further member function calls on the deleted 'observer'
-           // object.
-    });
-    ioctx.run();
-}
+// The "foo" is automatically unsubscribed when the 'sub' scoped subscription
+// goes out of scope here.
 ```
 
-For a more in-depth discussion on subscriptions, consult the
-@ref Subscriptions page.
+For a more practical example of using scoped subscriptions,
+see @ref ScopedSubscriptions "Registrations/Scoped Subscriptions".
 
 - - -
 

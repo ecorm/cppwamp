@@ -239,42 +239,45 @@ where
 A wamp::ScopedSubscription object can be used to limit a subscription's
 lifetime to a particular scope. When a `ScopedSubscription` object is destroyed,
 it automatically unsubscribes the subscription. This helps in automating the
-lifetime management of topic subscriptions using RAII techniques.
+lifetime management of topic subscriptions using
+[RAII](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization)
+techniques.
 
 Here's an example illustrating how `ScopedSubscription` can be used
-to manage the lifetime of a subscription:
+to manage the lifetime of several subscriptions:
 
 ```
-struct Observer
-{
-    void onEvent(Event event);
+using namespace wamp;
 
-    ScopedSubscription sub;
-}
-
-int main()
+class Observer // One of several classes using the same CoroSession
 {
-    boost::asio::io_service iosvc;
-    boost::asio::spawn(iosvc, [&](boost::asio::yield_context yield)
+public:
+    void start(CoroSession<>::Ptr session)
     {
-        auto session = CoroSession<>::create(connectorList);
-        session->connect(yield);
-        session->join("somerealm", yield);
+        // The session has already connected and joined when this is called.
 
-        {
-            using std::placeholders;
-            Observer observer;
-            observer.sub = session->subscribe(
-                            Topic("sometopic"),
-                            std::bind(&Observer::onEvent, observer, _1),
-                            yield);
+        auto s1 = session_->subscribe(Topic("foo"), &Observer::onFoo, yield);
+        auto s2 = session_->subscribe(Topic("bar"), &Observer::onBar, yield);
 
-        }  // When the 'observer' object leaves this scope, its
-           // ScopedSubscription member gets destroyed. This will
-           // automatically unsubscribe the subscription, thereby avoiding
-           // further member function calls on the deleted 'observer' object.
-    });
-    iosvc.run();
-}
+        // Store scoped subscripions in private member
+        subscriptions_.push_back(s1);
+        subscriptions_.push_back(s2);
+    }
+
+private:
+    static void onFoo(Event event)
+    {
+        std::cout << "Foo happened\n";
+    }
+
+    static void onBar(Event event)
+    {
+        std::cout << "Bar happened\n";
+    }
+
+    // When the Observer is destroyed, the stored elements will also be
+    // destroyed, performing automatic unsubscription for each subscribed topic.
+    std::vector<ScopedSubscription> subscriptions_;
+};
 ```
 */
