@@ -18,7 +18,8 @@ invoked when the asynchronous operation is completed.
 For asynchronous operations that can fail, `Session` expects a handler taking
 an @ref wamp::AsyncResult "wamp::AsyncResult<T>" as a parameter.
 `AsyncResult<T>` makes it hard for handlers to ignore error conditions
-when accessing the result of an asynchronous operation.
+when accessing the result of an asynchronous operation via its
+@ref wamp::AsyncResult::get "get" method.
 
 The following example shows how to establish a connection using the
 asynchronous `Session` API:
@@ -42,7 +43,7 @@ int main()
     {
         // Obtain the result of the connect operation, which is the index of
         // the connector used to establish the transport connection.
-        // AsyncResult::get throws an error::Session exception if the
+        // AsyncResult::get throws an error::Failure exception if the
         // operation failed.
         auto index = result.get();
     });
@@ -114,6 +115,11 @@ private:
 With this asynchronous style of programming, it is not immediately obvious how
 the program control flows. The coroutine-based API is therefore useful in
 implementing asynchronous logic in a more synchronous, sequential manner.
+
+For complete examples using the asynchronous API see:
+
+- @ref examples/asynctimeclient/main.cpp
+- @ref examples/asynctimeservice/main.cpp.
 
 - - -
 

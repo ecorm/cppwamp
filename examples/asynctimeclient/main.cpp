@@ -1,0 +1,123 @@
+/*------------------------------------------------------------------------------
+                    Copyright Butterfly Energy Systems 2022.
+           Distributed under the Boost Software License, Version 1.0.
+              (See accompanying file LICENSE_1_0.txt or copy at
+                    http://www.boost.org/LICENSE_1_0.txt)
+------------------------------------------------------------------------------*/
+
+#include <ctime>
+#include <iostream>
+#include <cppwamp/json.hpp>
+#include <cppwamp/tcp.hpp>
+#include <cppwamp/session.hpp>
+#include <cppwamp/unpacker.hpp>
+#include <cppwamp/variant.hpp>
+
+const std::string realm = "cppwamp.demo.time";
+const std::string address = "localhost";
+const short port = 12345u;
+
+//------------------------------------------------------------------------------
+namespace wamp
+{
+    // Convert a std::tm to/from an object variant.
+    template <typename TConverter>
+    void convert(TConverter& conv, std::tm& t)
+    {
+        conv ("sec",   t.tm_sec)
+             ("min",   t.tm_min)
+             ("hour",  t.tm_hour)
+             ("mday",  t.tm_mday)
+             ("mon",   t.tm_mon)
+             ("year",  t.tm_year)
+             ("wday",  t.tm_wday)
+             ("yday",  t.tm_yday)
+             ("isdst", t.tm_isdst);
+    }
+}
+
+//------------------------------------------------------------------------------
+class TimeClient : public std::enable_shared_from_this<TimeClient>
+{
+public:
+    static std::shared_ptr<TimeClient> create(wamp::Session::Ptr session)
+    {
+        return std::shared_ptr<TimeClient>(new TimeClient(session));
+    }
+
+    void start()
+    {
+        auto self = shared_from_this();
+        session_->connect([this, self](wamp::AsyncResult<size_t> index)
+        {
+            index.get(); // Throws if connect failed
+            join();
+        });
+    }
+
+private:
+    explicit TimeClient(wamp::Session::Ptr session)
+        : session_(session)
+    {}
+
+    static void onTimeTick(std::tm time)
+    {
+        std::cout << "The current time is: " << std::asctime(&time) << "\n";
+    }
+
+    void join()
+    {
+        auto self = shared_from_this();
+        session_->join(
+            wamp::Realm(realm),
+            [this, self](wamp::AsyncResult<wamp::SessionInfo> info)
+            {
+                info.get(); // Throws if join failed
+                getTime();
+            });
+    }
+
+    void getTime()
+    {
+        auto self = shared_from_this();
+        session_->call(
+            wamp::Rpc("get_time"),
+            [this, self](wamp::AsyncResult<wamp::Result> result)
+            {
+                // result.get() throws if the call failed
+                auto time = result.get()[0].to<std::tm>();
+                std::cout << "The current time is: " << std::asctime(&time) << "\n";
+                subscribe();
+            });
+    }
+
+    void subscribe()
+    {
+        session_->subscribe(
+            wamp::Topic("time_tick"),
+            wamp::basicEvent<std::tm>(&TimeClient::onTimeTick),
+            [](wamp::AsyncResult<wamp::Subscription> sub)
+            {
+                sub.get(); // Throws if subscribe failed
+            });
+    }
+
+    wamp::Session::Ptr session_;
+};
+
+
+//------------------------------------------------------------------------------
+int main()
+{
+    using namespace wamp;
+
+    AsioContext ioctx;
+    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
+    auto session = Session::create(ioctx, tcp);
+
+    auto client = TimeClient::create(session);
+    client->start();
+    ioctx.run();
+
+    return 0;
+}

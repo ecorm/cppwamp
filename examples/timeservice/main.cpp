@@ -54,26 +54,27 @@ int main()
     auto session = CoroSession<>::create(ioctx, tcp);
     boost::asio::steady_timer timer(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
-    {
-        session->connect(yield);
-        session->join(Realm(realm), yield);
-        session->enroll(Procedure("get_time"), basicRpc<std::tm>(&getTime),
-                        yield);
-
-        auto deadline = std::chrono::steady_clock::now();
-        while (true)
+    boost::asio::spawn(ioctx,
+        [&session, &timer](boost::asio::yield_context yield)
         {
-            deadline += std::chrono::seconds(1);
-            timer.expires_at(deadline);
-            timer.async_wait(yield);
+            session->connect(yield);
+            session->join(Realm(realm), yield);
+            session->enroll(Procedure("get_time"), basicRpc<std::tm>(&getTime),
+                            yield);
 
-            auto t = std::time(nullptr);
-            const std::tm* local = std::localtime(&t);
-            session->publish(Pub("time_tick").withArgs(*local), yield);
-            std::cout << "Tick\n";
-        }
-    });
+            auto deadline = std::chrono::steady_clock::now();
+            while (true)
+            {
+                deadline += std::chrono::seconds(1);
+                timer.expires_at(deadline);
+                timer.async_wait(yield);
+
+                auto t = std::time(nullptr);
+                const std::tm* local = std::localtime(&t);
+                session->publish(Pub("time_tick").withArgs(*local), yield);
+                std::cout << "Tick: " << std::asctime(local) << "\n";
+            }
+        });
 
     ioctx.run();
 

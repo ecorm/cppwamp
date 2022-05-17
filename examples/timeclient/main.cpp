@@ -51,7 +51,7 @@ int main()
     auto tcp = connector<Json>(ioctx, TcpHost(address, port));
     auto session = CoroSession<>::create(ioctx, tcp);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    boost::asio::spawn(ioctx, [&session](boost::asio::yield_context yield)
     {
         session->connect(yield);
         session->join(Realm(realm), yield);

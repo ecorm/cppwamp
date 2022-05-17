@@ -31,7 +31,12 @@ consult the @ref wamp Namespace Reference.
 
 For a **tutorial-style overview**, please consult the @ref Tutorial page.
 
-For an **example chat program**, please see @ref examples/chat/main.cpp.
+For some **example programs**, see:
+- @ref examples/chat/main.cpp
+- @ref examples/timeclient/main.cpp
+- @ref examples/timeservice/main.cpp
+- @ref examples/asynctimeclient/main.cpp
+- @ref examples/asynctimeservice/main.cpp
 
 For a brief **architectural overview** of the library, see @ref Architecture.
 
@@ -88,4 +93,6 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 @example examples/chat/main.cpp
 @example examples/timeservice/main.cpp
 @example examples/timeclient/main.cpp
+@example examples/asynctimeservice/main.cpp
+@example examples/asynctimeclient/main.cpp
 */
