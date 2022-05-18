@@ -64,7 +64,7 @@ boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 {
     auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
     session->connect(yield);
-    auto sessionInfo = session->join("somerealm", yield);
+    auto sessionInfo = session->join(Realm("somerealm"), yield);
     // etc.
 });
 
@@ -87,7 +87,7 @@ boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 {
     auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
     session->connect(yield);
-    session->join("somerealm", yield);
+    session->join(Realm("somerealm"), yield);
 
     while (!finished)
     {
@@ -112,7 +112,7 @@ boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 {
     auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
     session->connect(yield);
-    session->join("somerealm", yield);
+    session->join(Realm("somerealm"), yield);
 
     while (!finished)
     {
@@ -167,6 +167,69 @@ session->setTraceHandler([](std::string message)
     std::clog << "WAMP message: " << message << "\n";
 });
 
+```
+
+Authentication
+--------------
+
+CppWAMP supports the `AUTHENTICATE` and `CHALLENGE` messages used for WAMP
+authentication. Algorithms for computing the cryptographic signatures needed
+for the WAMP-CRA and WAMP-SCRAM methods are currently not provided by CppWAMP.
+CppWAMP users must therefore compute these themselves using other cryptographic
+libraries. Once computed, the signatures can be passed to CppWAMP via
+wamp::Authentication.
+
+To enable authentication, you must set the challenge handler via
+wamp::Session::setChallengeHandler. The handler must be a callable entity
+with the following signature:
+
+```
+void handler(wamp::Challenge)
+```
+
+Within the challenge handler, you must compute the cryptographic signature
+(or ticket string) and send it back via wamp::Challenge::authenticate.
+
+When later performing the session join operation, you must set the
+authentication ID via wamp::Realm::withAuthId, as well as the
+desired/supported authentication methods via wamp::Realm::withAuthMethods.
+
+The following example shows how to perform ticket authentication.
+
+```
+std::string ticket;
+
+void onChallenge(wamp::Challenge challenge)
+{
+    if (challenge.method() == "ticket")
+        challenge.authenticate(wamp::Authentication(ticket));
+    else
+        throw std::runtime_error("Unsupported authentication method");
+}
+
+int main()
+{
+    using namespace wamp;
+    AsioContext ioctx;
+    auto tcp = connector<Json>(ioctx, TcpHost("localhost", 8001));
+
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    {
+        ticket = "guest";
+        auto session = CoroSession<>::create(ioctx, tcp);
+        session->setChallengeHandler(&onChallenge);
+        session->connect(yield);
+        auto sessionInfo = session->join(
+            Realm("somerealm").withAuthId("alice").withAuthMethods({"ticket"}),
+            yield);
+        ticket.clear();
+        // etc.
+    });
+
+    ioctx.run();
+
+    return 0;
+}
 ```
 
 - - -

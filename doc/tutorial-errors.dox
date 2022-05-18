@@ -31,7 +31,7 @@ boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     try
     {
         session->connect(yield);
-        session->join("somerealm", yield);
+        session->join(Realm("somerealm"), yield);
         // etc.
     }
     catch (const error::Failure& e)

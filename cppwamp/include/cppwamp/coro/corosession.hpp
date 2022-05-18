@@ -58,7 +58,7 @@ auto session = CoroSession<>::create(connectorList);
 boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 {
     session->connect(yield);
-    SessionInfo info = session->join("somerealm", yield);
+    SessionInfo info = session->join(Realm("somerealm"), yield);
     // etc...
 });
 ioctx.run();

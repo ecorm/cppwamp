@@ -31,7 +31,7 @@ boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 {
     auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
     session->connect(yield);
-    session->join("somerealm", yield);
+    session->join(Realm("somerealm"), yield);
 
     // Call a remote procedure that takes no arguments
     Result result = session->call(Rpc("getElapsed"), yield);
@@ -392,7 +392,7 @@ void run(AsioContext& ioctx)
     {
         auto session = CoroSession<>::create(ioctx, tcp);
         session->connect(yield);
-        session->join("somerealm", yield);
+        session->join(Realm("somerealm"), yield);
 
         // Note the additional InterruptSlot argument for enroll.
         auto reg = session->enroll(
@@ -410,7 +410,7 @@ boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 {
     auto session = CoroSession<>::create(ioctx, tcp);
     session->connect(yield);
-    session->join("somerealm", yield);
+    session->join(Realm("somerealm"), yield);
 
     // Call a remote procedure that takes a while to respond.
     // Note that the callback-based overload is used, which immediately
