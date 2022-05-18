@@ -80,7 +80,10 @@ namespace internal { class Challengee; } // Forward declaration
 
 //------------------------------------------------------------------------------
 /** Provides the _Signature_ and _Extra_ dictionary contained within
-    WAMP `AUTHENTICATE` messages. */
+    WAMP `AUTHENTICATE` messages.
+
+    See [Authentication in the WAMP specification]
+    (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.5.2) */
 //------------------------------------------------------------------------------
 class CPPWAMP_API Authentication : public Options<Authentication>
 {
@@ -111,7 +114,10 @@ public:
 
 //------------------------------------------------------------------------------
 /** Provides the _AuthMethod_ and _Extra_ dictionary contained within
-    WAMP `CHALLENGE` messages. */
+    WAMP `CHALLENGE` messages.
+
+    See [Authentication in the WAMP specification]
+    (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.5.2) */
 //------------------------------------------------------------------------------
 class CPPWAMP_API Challenge : public Options<Challenge>
 {

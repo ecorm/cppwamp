@@ -43,11 +43,17 @@ public:
     /** Obtains the realm URI. */
     const String& uri() const;
 
+    /** @name Authentication
+        See [Authentication in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.5.2)
+        @{ */
+
     /** Sets the `HELLO.Details.authmethods` option. */
     Realm& withAuthMethods(std::vector<String> methods);
 
     /** Sets the `HELLO.Details.authid` option. */
     Realm& withAuthId(String authId);
+    /// @}
 
 private:
     String uri_;
@@ -80,8 +86,34 @@ public:
     /** Obtains realm URI. */
     const String& realm() const;
 
+    /** @name Agent Identification
+        See [Agent Identification in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.8)
+        @{ */
+
     /** Obtains the agent string of the WAMP router, if available. */
     String agentString() const;
+    /// @}
+
+    /** @name Role and Feature Announcement
+        See [Client: Role and Feature Announcement in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.7.1.1.1)
+        @{ */
+
+    /** Obtains the `WELCOME.Details.roles` dictionary for the router. */
+    Object roles() const;
+
+    /** Checks that the router supports the given set of roles. */
+    bool supportsRoles(const RoleSet& roles) const;
+
+    /** Checks that the router supports the given map of features. */
+    bool supportsFeatures(const FeatureMap& features) const;
+    /// @}
+
+    /** @name Authentication
+        See [Authentication in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.5.2)
+        @{ */
 
     /** Obtains the authentication ID the client was actually
         authenticated as. */
@@ -95,15 +127,7 @@ public:
 
     /** Obtains the authentication provider. */
     Variant authProvider() const;
-
-    /** Obtains the `WELCOME.Details.roles` dictionary for the router. */
-    Object roles() const;
-
-    /** Checks that the router supports the given set of roles. */
-    bool supportsRoles(const RoleSet& roles) const;
-
-    /** Checks that the router supports the given map of features. */
-    bool supportsFeatures(const FeatureMap& features) const;
+    /// @}
 
 private:
     String realm_;
@@ -126,6 +150,11 @@ public:
     /** Converting constructor taking a topic URI. */
     Topic(String uri);
 
+    /** @name Pattern-based Subscriptions
+        See [Pattern-based Subscriptions in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.6)
+        @{ */
+
     /** Specifies that the _prefix-matching policy_ is to be used for this
         subscription. */
     Topic& usingPrefixMatch();
@@ -133,6 +162,7 @@ public:
     /** Specifies that the _wildcard-matching policy_ is to be used for this
         subscription. */
     Topic& usingWildcardMatch();
+    /// @}
 
     /** Obtains the topic URI. */
     const String& uri() const;
@@ -153,33 +183,51 @@ public:
     /** Converting constructor taking a topic URI. */
     Pub(String topic);
 
+    /** @name Subscriber Allow/Deny Lists
+        See [Subscriber Black- and Whitelisting in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.1)
+        @{ */
+
     /** Specifies the list of (potential) _Subscriber_ session IDs that
         won't receive the published event. */
     Pub& withExcludedSessions(Array sessionIds);
 
-    /** Specifies a blacklist of authid strings. */
+    /** Specifies a deny list of authid strings. */
     Pub& withExcludedAuthIds(Array authIds);
 
-    /** Specifies a blacklist of authrole strings. */
+    /** Specifies a deny list of authrole strings. */
     Pub& withExcludedAuthRoles(Array authRoles);
 
     /** Specifies the list of (potential) _Subscriber_ session IDs that
         are allowed to receive the published event. */
     Pub& withEligibleSessions(Array sessionIds);
 
-    /** Specifies a whitelist of authid strings. */
+    /** Specifies an allow list of authid strings. */
     Pub& withEligibleAuthIds(Array authIds);
 
-    /** Specifies a whitelist of authrole strings. */
+    /** Specifies an allow list of authrole strings. */
     Pub& withEligibleAuthRoles(Array authRoles);
+    /// @}
+
+    /** @name Publisher Exclusion
+        See [Publisher Exclusion in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.2)
+        @{ */
 
     /** Specifies if this session should be excluded from receiving the
         event. */
     Pub& withExcludeMe(bool excluded = true);
+    /// @}
+
+    /** @name Publisher Identification
+        See [Publisher Identification in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.3)
+        @{ */
 
     /** Requests that the identity (session ID) of this session be disclosed
         in the event. */
     Pub& withDiscloseMe(bool disclosed = true);
+    /// @}
 
 private:
     String topic_;
@@ -210,15 +258,33 @@ public:
     /** Obtains the executor used to execute user-provided handlers. */
     AnyExecutor executor() const;
 
+    /** @name Publisher Identification
+        See [Publisher Identification in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.3)
+        @{ */
+
     /** Obtains an optional publisher ID integer. */
     Variant publisher() const;
+    /// @}
+
+    /** @name Publication Trust Levels
+        See [Publication Trust Levels in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.4)
+        @{ */
 
     /** Obtains an optional trust level integer. */
     Variant trustLevel() const;
+    /// @}
+
+    /** @name Pattern-based Subscriptions
+        See [Pattern-based Subscriptions in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.6)
+        @{ */
 
     /** Obtains an optional string of the original topic URI used to make the
         publication. */
     Variant topic() const;
+    /// @}
 
 private:
     SubscriptionId subId_ = -1;
@@ -242,6 +308,14 @@ public:
     /** Converting constructor taking a procedure URI. */
     Procedure(String uri);
 
+    /** Obtains the procedure URI. */
+    const String& uri() const;
+
+    /** @name Pattern-based Registrations
+        See [Pattern-based Registrations in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.8)
+        @{ */
+
     /** Specifies that the _prefix-matching policy_ is to be used for this
         registration. */
     Procedure& usingPrefixMatch();
@@ -249,13 +323,17 @@ public:
     /** Specifies that the _wildcard-matching policy_ is to be used for this
         subscription. */
     Procedure& usingWildcardMatch();
+    /// @}
+
+    /** @name Caller Identification
+        See [Caller Identification in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.5)
+        @{ */
 
     /** Requests that the identity (session ID) of this session be disclosed
         in the remote procedure call. */
     Procedure& withDiscloseCaller(bool disclosed = true);
-
-    /** Obtains the procedure URI. */
-    const String& uri() const;
+    /// @}
 
 private:
     String uri_;
@@ -277,13 +355,25 @@ public:
         by the callee. */
     Rpc& captureError(Error& error);
 
+    /** @name Call Timeouts
+        See [Call Timeouts in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.3)
+        @{ */
+
     /** Requests that the dealer cancels the call after the specified
         timeout duration. */
     Rpc& withDealerTimeout(Int milliseconds);
+    /// @}
+
+    /** @name Caller Identification
+        See [Caller Identification in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.5)
+        @{ */
 
     /** Requests that the identity (session ID) of this session be disclosed
         in the call invocation. */
     Rpc& withDiscloseMe(bool disclosed = true);
+    /// @}
 
 private:
     String procedure_;
@@ -325,11 +415,17 @@ public:
         positional arguments. */
     Result(std::initializer_list<Variant> list);
 
-    /** Lets the callee specify if the yielded result is progressive. */
-    Result& withProgress(bool progressive = true);
-
     /** Obtains the request ID associated with the call. */
     RequestId requestId() const;
+
+    /** @name Progressive Call Results
+        See [Progressive Call Results in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1)
+        @{ */
+
+    /** Lets the callee specify if the yielded result is progressive. */
+    Result& withProgress(bool progressive = true);
+    /// @}
 
 private:
     Result(RequestId reqId, Object&& details);
@@ -454,24 +550,48 @@ public:
     /** Obtains the executor used to execute user-provided handlers. */
     AnyExecutor executor() const;
 
-    /** Checks if the caller requested progressive results. */
-    bool isProgressive() const;
-
-    /** Returns an optional session ID integer of the caller. */
-    Variant caller() const;
-
-    /** Returns an optional trust level integer. */
-    Variant trustLevel() const;
-
-    /** Returns an optional string of the original procedure URI used to make
-        this call. */
-    Variant procedure() const;
-
     /** Manually sends a `YIELD` result back to the callee. */
     void yield(Result result = Result()) const;
 
     /** Manually sends an `ERROR` result back to the callee. */
     void yield(Error error) const;
+
+    /** @name Progressive Call Results
+        See [Progressive Call Results in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1)
+        @{ */
+
+    /** Checks if the caller requested progressive results. */
+    bool isProgressive() const;
+    /// @}
+
+    /** @name Caller Identification
+        See [Caller Identification in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.5)
+        @{ */
+
+    /** Returns an optional session ID integer of the caller. */
+    Variant caller() const;
+    /// @}
+
+    /** @name Call Trust Levels
+        See [Call Trust Levels in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.6)
+        @{ */
+
+    /** Returns an optional trust level integer. */
+    Variant trustLevel() const;
+    /// @}
+
+    /** @name Pattern-based Registrations
+        See [Pattern-based Registrations in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.8)
+        @{ */
+
+    /** Returns an optional string of the original procedure URI used to make
+        this call. */
+    Variant procedure() const;
+    /// @}
 
 public:
     // Internal use only

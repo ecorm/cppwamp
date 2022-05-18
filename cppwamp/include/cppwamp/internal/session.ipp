@@ -49,7 +49,7 @@ CPPWAMP_INLINE Session::Ptr Session::create(
     the ["Client: Role and Feature Announcement"][feature-announcement]
     section of the advanced WAMP specification.
 
-    [feature-announcement]: https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-7.1.1.1 */
+    [feature-announcement]: https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.7.1.1.1 */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE const Object& Session::roles()
 {

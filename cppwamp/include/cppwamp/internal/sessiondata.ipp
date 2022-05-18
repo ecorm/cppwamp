@@ -45,51 +45,15 @@ CPPWAMP_INLINE SessionId SessionInfo::id() const {return sid_;}
 
 CPPWAMP_INLINE const String& SessionInfo::realm() const {return realm_;}
 
+/** @returns The value of the `HELLO.Details.agent|string`
+             detail, or an empty string if it is not available. */
 CPPWAMP_INLINE String SessionInfo::agentString() const
 {
     return optionOr("agent", String());
 }
 
-/** @details
-    This function returns the value of the `HELLO.Details.authid|string`
-    detail.
-    @returns A string variant if the authentication ID is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant SessionInfo::authId() const
-{
-    return optionByKey("authid");
-}
-
-/** @details
-    This function returns the value of the `HELLO.Details.authrole|string`
-    detail. This is not to be confused with the _dealer roles_.
-    @returns A string variant if the authentication role is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant SessionInfo::authRole() const
-{
-    return optionByKey("authrole");
-}
-
-/** @details
-    This function returns the value of the `HELLO.Details.authmethod|string`
-    detail.
-    @returns A string variant if the authentication method is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant SessionInfo::authMethod() const
-{
-    return optionByKey("authmethod");
-}
-
-/** @details
-    This function returns the value of the `HELLO.Details.authprovider|string`
-    detail.
-    @returns A string variant if the authentication provider is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant SessionInfo::authProvider() const
-{
-    return optionByKey("authprovider");
-}
-
+/** @returns The value of the `HELLO.Details.roles|dict`
+             detail, or an empty Object if it is not available. */
 CPPWAMP_INLINE Object SessionInfo::roles() const
 {
     return optionOr("roles", Object());
@@ -174,6 +138,46 @@ CPPWAMP_INLINE bool SessionInfo::supportsFeatures(
     return true;
 }
 
+/** @details
+    This function returns the value of the `HELLO.Details.authid|string`
+    detail.
+    @returns A string variant if the authentication ID is available.
+             Otherwise, a null variant is returned. */
+CPPWAMP_INLINE Variant SessionInfo::authId() const
+{
+    return optionByKey("authid");
+}
+
+/** @details
+    This function returns the value of the `HELLO.Details.authrole|string`
+    detail. This is not to be confused with the _dealer roles_.
+    @returns A string variant if the authentication role is available.
+             Otherwise, a null variant is returned. */
+CPPWAMP_INLINE Variant SessionInfo::authRole() const
+{
+    return optionByKey("authrole");
+}
+
+/** @details
+    This function returns the value of the `HELLO.Details.authmethod|string`
+    detail.
+    @returns A string variant if the authentication method is available.
+             Otherwise, a null variant is returned. */
+CPPWAMP_INLINE Variant SessionInfo::authMethod() const
+{
+    return optionByKey("authmethod");
+}
+
+/** @details
+    This function returns the value of the `HELLO.Details.authprovider|string`
+    detail.
+    @returns A string variant if the authentication provider is available.
+             Otherwise, a null variant is returned. */
+CPPWAMP_INLINE Variant SessionInfo::authProvider() const
+{
+    return optionByKey("authprovider");
+}
+
 CPPWAMP_INLINE SessionInfo::SessionInfo(internal::PassKey, String realm,
                                         SessionId id, Object details)
     : Options<SessionInfo>(std::move(details)),
@@ -199,22 +203,14 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
 CPPWAMP_INLINE Topic::Topic(String uri) : uri_(std::move(uri)) {}
 
 /** @details
-    This sets the `SUBSCRIBE.Options.match|string` option to `"prefix"`.
-    See [Pattern-based Subscriptions][pattern_based_sub] in the advanced
-    WAMP spec.
-    [pattern_based_sub]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.6.4 */
+    This sets the `SUBSCRIBE.Options.match|string` option to `"prefix"`. */
 CPPWAMP_INLINE Topic& Topic::usingPrefixMatch()
 {
     return withOption("match", "prefix");
 }
 
 /** @details
-    This sets the `SUBSCRIBE.Options.match|string` option to `"wildcard"`.
-    See [Pattern-based Subscriptions][pattern_based_sub] in the advanced
-    WAMP spec.
-    [pattern_based_sub]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.6.4 */
+    This sets the `SUBSCRIBE.Options.match|string` option to `"wildcard"`. */
 CPPWAMP_INLINE Topic& Topic::usingWildcardMatch()
 {
     return withOption("match", "wildcard");
@@ -232,86 +228,56 @@ CPPWAMP_INLINE String& Topic::uri(internal::PassKey) {return uri_;}
 CPPWAMP_INLINE Pub::Pub(String topic) : topic_(std::move(topic)) {}
 
 /** @details
-    This sets the `PUBLISH.Options.exclude|list` option. See
-    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
-    advanced WAMP spec.
-    [sub_black_whitelisting]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
+    This sets the `PUBLISH.Options.exclude|list` option. */
 CPPWAMP_INLINE Pub& Pub::withExcludedSessions(Array sessionIds)
 {
     return withOption("exclude", std::move(sessionIds));
 }
 
 /** @details
-    This sets the `PUBLISH.Options.exclude_authid|list` option. See
-    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
-    advanced WAMP spec.
-    [sub_black_whitelisting]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
+    This sets the `PUBLISH.Options.exclude_authid|list` option. */
 CPPWAMP_INLINE Pub& Pub::withExcludedAuthIds(Array authIds)
 {
     return withOption("exclude_authid", std::move(authIds));
 }
 
 /** @details
-    This sets the `PUBLISH.Options.exclude_authrole|list` option. See
-    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
-    advanced WAMP spec.
-    [sub_black_whitelisting]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
+    This sets the `PUBLISH.Options.exclude_authrole|list` option. */
 CPPWAMP_INLINE Pub& Pub::withExcludedAuthRoles(Array authRoles)
 {
     return withOption("exclude_authrole", std::move(authRoles));
 }
 
 /** @details
-    This sets the `PUBLISH.Options.eligible|list` option. See
-    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
-    advanced WAMP spec.
-    [sub_black_whitelisting]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
+    This sets the `PUBLISH.Options.eligible|list` option. */
 CPPWAMP_INLINE Pub& Pub::withEligibleSessions(Array sessionIds)
 {
     return withOption("eligible", std::move(sessionIds));
 }
 
 /** @details
-    This sets the `PUBLISH.Options.eligible_authid|list` option. See
-    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
-    advanced WAMP spec.
-    [sub_black_whitelisting]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
+    This sets the `PUBLISH.Options.eligible_authid|list` option. */
 CPPWAMP_INLINE Pub& Pub::withEligibleAuthIds(Array authIds)
 {
     return withOption("eligible_authid", std::move(authIds));
 }
 
 /** @details
-    This sets the `PUBLISH.Options.eligible_authrole|list` option. See
-    [Subscriber Black- and Whitelisting][sub_black_whitelisting] in the
-    advanced WAMP spec.
-    [sub_black_whitelisting]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp#section-13.4.1 */
+    This sets the `PUBLISH.Options.eligible_authrole|list` option.  */
 CPPWAMP_INLINE Pub& Pub::withEligibleAuthRoles(Array authRoles)
 {
     return withOption("eligible_authrole", std::move(authRoles));
 }
 
 /** @details
-    This sets the `PUBLISH.Options.exclude_me|bool` option. See
-    [Publisher Exclusion][pub_exclusion] in the advanced WAMP spec.
-    [pub_exclusion]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.4.2 */
+    This sets the `PUBLISH.Options.exclude_me|bool` option. */
 CPPWAMP_INLINE Pub& Pub::withExcludeMe(bool excluded)
 {
     return withOption("exclude_me", excluded);
 }
 
 /** @details
-    This sets the `PUBLISH.Options.disclose_me|bool` option. See
-    [Publisher Identification][pub_ident] in the advanced WAMP spec.
-    [pub_ident]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.6.1 */
+    This sets the `PUBLISH.Options.disclose_me|bool` option. */
 CPPWAMP_INLINE Pub& Pub::withDiscloseMe(bool disclosed)
 {
     return withOption("disclose_me", disclosed);
@@ -342,10 +308,8 @@ CPPWAMP_INLINE AnyExecutor Event::executor() const
 }
 
 /** @details
-    This function checks the value of the `EVENT.Details.publisher|integer`
-    detail. See [Publisher Identification][pub_ident] in the advanced WAMP spec.
-    [pub_ident]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.6.1
+    This function returns the value of the `EVENT.Details.publisher|integer`
+    detail.
     @returns An integer variant if the publisher ID is available. Otherwise,
              a null variant is returned. */
 CPPWAMP_INLINE Variant Event::publisher() const
@@ -354,10 +318,8 @@ CPPWAMP_INLINE Variant Event::publisher() const
 }
 
 /** @details
-    This function checks the value of the `EVENT.Details.trustlevel|integer`
-    detail. See [Publication Trust Levels][pub_trust] in the advanced WAMP spec.
-    [pub_trust]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.6.2
+    This function returns the value of the `EVENT.Details.trustlevel|integer`
+    detail.
     @returns An integer variant if the trust level is available. Otherwise,
              a null variant is returned. */
 CPPWAMP_INLINE Variant Event::trustLevel() const
@@ -366,10 +328,7 @@ CPPWAMP_INLINE Variant Event::trustLevel() const
 }
 
 /** @details
-    This function checks the value of the `EVENT.Details.topic|uri` detail. See
-    [Pattern-based Subscriptions][pattern_based_subs] in the advanced WAMP spec.
-    [pattern_based_subs]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.6.4
+    This function checks the value of the `EVENT.Details.topic|uri` detail.
     @returns A string variant if the topic URI is available. Otherwise,
              a null variant is returned. */
 CPPWAMP_INLINE Variant Event::topic() const
@@ -405,40 +364,29 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Event& event)
 CPPWAMP_INLINE Procedure::Procedure(String uri) : uri_(std::move(uri)) {}
 
 /** @details
-    This sets the `REGISTER.Options.match|string` option to `"prefix"`.
-    See [Pattern-based Registrations][pattern_based_reg] in the advanced
-    WAMP spec.
-    [pattern_based_reg]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.8 */
+    This sets the `REGISTER.Options.match|string` option to `"prefix"`. */
 CPPWAMP_INLINE Procedure& Procedure::usingPrefixMatch()
 {
     return withOption("match", "prefix");
 }
 
+CPPWAMP_INLINE const String& Procedure::uri() const {return uri_;}
+
+CPPWAMP_INLINE String& Procedure::uri(internal::PassKey) {return uri_;}
+
 /** @details
-    This sets the `REGISTER.Options.match|string` option to `"wildcard"`.
-    See [Pattern-based Registrations][pattern_based_reg] in the advanced
-    WAMP spec.
-    [pattern_based_reg]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.8 */
+    This sets the `REGISTER.Options.match|string` option to `"wildcard"`. */
 CPPWAMP_INLINE Procedure& Procedure::usingWildcardMatch()
 {
     return withOption("match", "wildcard");
 }
 
 /** @details
-    This sets the `REGISTER.Options.disclose_caller|bool` option. See
-    [Caller Identification][caller_ident] in the advanced WAMP spec.
-    [caller_ident]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.5 */
+    This sets the `REGISTER.Options.disclose_caller|bool` option. */
 CPPWAMP_INLINE Procedure& Procedure::withDiscloseCaller(bool disclosed)
 {
     return withOption("disclose_caller", disclosed);
 }
-
-CPPWAMP_INLINE const String& Procedure::uri() const {return uri_;}
-
-CPPWAMP_INLINE String& Procedure::uri(internal::PassKey) {return uri_;}
 
 
 //******************************************************************************
@@ -453,16 +401,15 @@ CPPWAMP_INLINE Rpc& Rpc::captureError(Error& error)
     return *this;
 }
 
+/** @details
+    This sets the `CALL.Options.timeout|integer` option. */
 CPPWAMP_INLINE Rpc& Rpc::withDealerTimeout(Int milliseconds)
 {
     return withOption("timeout", milliseconds);
 }
 
 /** @details
-    This sets the `CALL.Options.disclose_me|bool` option. See
-    [Caller Identification][caller_ident] in the advanced WAMP spec.
-    [caller_ident]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.5 */
+    This sets the `CALL.Options.disclose_me|bool` option. */
 CPPWAMP_INLINE Rpc& Rpc::withDiscloseMe(bool disclosed)
 {
     return withOption("disclose_me", disclosed);
@@ -518,19 +465,16 @@ CPPWAMP_INLINE Result::Result(std::initializer_list<Variant> list)
     withArgList(Array(list));
 }
 
-/** @details
-    This sets the `YIELD.Options.progress|bool` option. See
-    [Progressive Call Results][prog_calls] in the advanced WAMP spec.
-    [prog_calls]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.1 */
-CPPWAMP_INLINE Result& Result::withProgress(bool progressive)
-{
-    return withOption("progress", progressive);
-}
-
 CPPWAMP_INLINE RequestId Result::requestId() const
 {
     return reqId_;
+}
+
+/** @details
+    This sets the `YIELD.Options.progress|bool` option. */
+CPPWAMP_INLINE Result& Result::withProgress(bool progressive)
+{
+    return withOption("progress", progressive);
 }
 
 CPPWAMP_INLINE Result::Result(internal::PassKey, RequestId reqId,
@@ -762,54 +706,6 @@ CPPWAMP_INLINE AnyExecutor Invocation::executor() const
     return executor_;
 }
 
-/** @details
-    This function checks if the `INVOCATION.Details.receive_progress|bool`
-    detail is `true`. See [Progressive Call Results][prog_calls] in the advanced
-    WAMP spec.
-    [prog_calls]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.1 */
-CPPWAMP_INLINE bool Invocation::isProgressive() const
-{
-    return optionOr("receive_progress", false);
-}
-
-/** @details
-    This function returns the value of the `INVOCATION.Details.caller|integer`
-    detail. See [Caller Identification][caller_ident] in the advanced WAMP spec.
-    [caller_ident]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.5
-    @returns An integer variant if the caller ID is available. Otherwise,
-             a null variant is returned.*/
-CPPWAMP_INLINE Variant Invocation::caller() const
-{
-    return optionByKey("caller");
-}
-
-/** @details
-    This function returns the value of the `INVOCATION.Details.trustlevel|integer`
-    detail. See [Call Trust Levels][call_trust] in the advanced WAMP spec.
-    [call_trust]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.6
-    @returns An integer variant if the trust level is available. Otherwise,
-             a null variant is returned. */
-CPPWAMP_INLINE Variant Invocation::trustLevel() const
-{
-    return optionByKey("trustlevel");
-}
-
-/** @details
-    This function returns the value of the `INVOCATION.Details.procedure|uri`
-    detail. See [Pattern-based Registrations][pattern_based_reg] in the
-    advanced WAMP spec.
-    [pattern_based_reg]:
-        https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-13.3.8
-    @returns A string variant if the procedure URI is available. Otherwise,
-             a null variant is returned. */
-CPPWAMP_INLINE Variant Invocation::procedure() const
-{
-    return optionByKey("procedure");
-}
-
 /** @pre `this->calleeHasExpired == false` */
 CPPWAMP_INLINE void Invocation::yield(Result result) const
 {
@@ -826,6 +722,44 @@ CPPWAMP_INLINE void Invocation::yield(Error error) const
     auto callee = callee_.lock();
     if (callee)
         callee->yield(id_, std::move(error));
+}
+
+/** @details
+    This function checks if the `INVOCATION.Details.receive_progress|bool`
+    detail is `true`. */
+CPPWAMP_INLINE bool Invocation::isProgressive() const
+{
+    return optionOr("receive_progress", false);
+}
+
+/** @details
+    This function returns the value of the `INVOCATION.Details.caller|integer`
+    detail.
+    @returns An integer variant if the caller ID is available. Otherwise,
+             a null variant is returned.*/
+CPPWAMP_INLINE Variant Invocation::caller() const
+{
+    return optionByKey("caller");
+}
+
+/** @details
+    This function returns the value of the `INVOCATION.Details.trustlevel|integer`
+    detail.
+    @returns An integer variant if the trust level is available. Otherwise,
+             a null variant is returned. */
+CPPWAMP_INLINE Variant Invocation::trustLevel() const
+{
+    return optionByKey("trustlevel");
+}
+
+/** @details
+    This function returns the value of the `INVOCATION.Details.procedure|uri`
+    detail.
+    @returns A string variant if the procedure URI is available. Otherwise,
+             a null variant is returned. */
+CPPWAMP_INLINE Variant Invocation::procedure() const
+{
+    return optionByKey("procedure");
 }
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,
