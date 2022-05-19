@@ -402,6 +402,19 @@ CPPWAMP_INLINE Rpc& Rpc::captureError(Error& error)
 }
 
 /** @details
+    This sets the `CALL.Options.receive_progress|bool` option. */
+CPPWAMP_INLINE Rpc& Rpc::withProgressiveResults(bool enabled)
+{
+    progressiveResultsEnabled_ = enabled;
+    return withOption("receive_progress", enabled);
+}
+
+CPPWAMP_INLINE bool Rpc::progressiveResultsAreEnabled() const
+{
+    return progressiveResultsEnabled_;
+}
+
+/** @details
     This sets the `CALL.Options.timeout|integer` option. */
 CPPWAMP_INLINE Rpc& Rpc::withDealerTimeout(Int milliseconds)
 {
@@ -475,6 +488,11 @@ CPPWAMP_INLINE RequestId Result::requestId() const
 CPPWAMP_INLINE Result& Result::withProgress(bool progressive)
 {
     return withOption("progress", progressive);
+}
+
+CPPWAMP_INLINE bool Result::isProgressive() const
+{
+    return optionOr<bool>("progress", false);
 }
 
 CPPWAMP_INLINE Result::Result(internal::PassKey, RequestId reqId,

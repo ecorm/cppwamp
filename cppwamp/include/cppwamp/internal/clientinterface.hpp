@@ -96,7 +96,8 @@ inline const Object& ClientInterface::roles()
             {"call_canceling", true},
             {"call_timeout", true},
             {"caller_exclusion", true},
-            {"caller_identification", true}
+            {"caller_identification", true},
+            {"progressive_call_results", true}
         }}}}},
         {"publisher", Object{{"features", Object{{
             {"publisher_exclusion", true},

@@ -8,7 +8,6 @@
 #ifndef CPPWAMP_TRANSPORTTEST_HPP
 #define CPPWAMP_TRANSPORTTEST_HPP
 
-#include <iostream>
 #include <vector>
 #include <catch2/catch.hpp>
 #include <cppwamp/asiodefs.hpp>

@@ -223,199 +223,218 @@ GIVEN( "a caller and a callee" )
 }}
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP pub/sub advanced features", "[WAMP][Advanced]" )
+SCENARIO( "WAMP progressive call results", "[WAMP][Advanced]" )
 {
-GIVEN( "a publisher and a subscriber" )
-{
-    AsioContext ioctx;
-    PubSubFixture f(ioctx, tcp(ioctx));
-
-    WHEN( "using publisher identification" )
-    {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
-        {
-            SessionId disclosedId = -1;
-            int eventCount = 0;
-
-            f.join(yield);
-
-            f.subscriber->subscribe(
-                Topic("onEvent"),
-                [&disclosedId, &eventCount](Event event)
-                {
-                    disclosedId = event.publisher().valueOr<SessionId>(-1);
-                    ++eventCount;
-                },
-                yield);
-
-            f.publisher->publish(Pub("onEvent").withDiscloseMe(), yield);
-            while (eventCount == 0)
-                f.publisher->suspend(yield);
-            CHECK( disclosedId == f.publisherId );
-            f.disconnect();
-        });
-        ioctx.run();
-    }
-
-    WHEN( "using pattern-based subscriptions" )
-    {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
-        {
-            int prefixMatchCount = 0;
-            int wildcardMatchCount = 0;
-            std::string prefixTopic;
-            std::string wildcardTopic;
-
-            f.join(yield);
-
-            f.subscriber->subscribe(
-                Topic("com.myapp").usingPrefixMatch(),
-                [&prefixMatchCount, &prefixTopic](Event event)
-                {
-                    prefixTopic = event.topic().valueOr<std::string>("");
-                    ++prefixMatchCount;
-                },
-                yield);
-
-            f.subscriber->subscribe(
-                Topic("com..onEvent").usingWildcardMatch(),
-                [&wildcardMatchCount, &wildcardTopic](Event event)
-                {
-                    wildcardTopic = event.topic().valueOr<std::string>("");
-                    ++wildcardMatchCount;
-                },
-                yield);
-
-            f.publisher->publish(Pub("com.myapp.foo"), yield);
-            while (prefixMatchCount < 1)
-                f.publisher->suspend(yield);
-            CHECK( prefixMatchCount == 1 );
-            CHECK_THAT( prefixTopic, Equals("com.myapp.foo") );
-            CHECK( wildcardMatchCount == 0 );
-
-            f.publisher->publish(Pub("com.foo.onEvent"), yield);
-            while (wildcardMatchCount < 1)
-                f.publisher->suspend(yield);
-            CHECK( prefixMatchCount == 1 );
-            CHECK( wildcardMatchCount == 1 );
-            CHECK_THAT( wildcardTopic, Equals("com.foo.onEvent") );
-
-            f.publisher->publish(Pub("com.myapp.onEvent"), yield);
-            while ((prefixMatchCount < 2) || (wildcardMatchCount < 2))
-                f.publisher->suspend(yield);
-            CHECK( prefixMatchCount == 2 );
-            CHECK( wildcardMatchCount == 2 );
-            CHECK_THAT( prefixTopic, Equals("com.myapp.onEvent") );
-            CHECK_THAT( wildcardTopic, Equals("com.myapp.onEvent") );
-
-            f.disconnect();
-        });
-        ioctx.run();
-    }
-
-    WHEN( "using publisher exclusion" )
-    {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
-        {
-            int subscriberEventCount = 0;
-            int publisherEventCount = 0;
-
-            f.join(yield);
-
-            f.subscriber->subscribe(
-                Topic("onEvent"),
-                [&subscriberEventCount](Event) {++subscriberEventCount;},
-                yield);
-
-            f.publisher->subscribe(
-                Topic("onEvent"),
-                [&publisherEventCount](Event) {++publisherEventCount;},
-                yield);
-
-            f.publisher->publish(Pub("onEvent").withExcludeMe(false), yield);
-            while ((subscriberEventCount < 1) || (publisherEventCount < 1))
-                f.publisher->suspend(yield);
-            CHECK( subscriberEventCount == 1 );
-            CHECK( publisherEventCount == 1 );
-            f.disconnect();
-        });
-        ioctx.run();
-    }
-
-    WHEN( "using subscriber black/white listing" )
-    {
-        auto subscriber2 = CoroSession<>::create(ioctx, tcp(ioctx));
-
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
-        {
-            int eventCount1 = 0;
-            int eventCount2 = 0;
-
-            f.join(yield);
-            subscriber2->connect(yield);
-            auto subscriber2Id =
-                    subscriber2->join(Realm(testRealm), yield).id();
-
-            f.subscriber->subscribe(
-                Topic("onEvent"),
-                [&eventCount1](Event) {++eventCount1;},
-                yield);
-
-            subscriber2->subscribe(
-                Topic("onEvent"),
-                [&eventCount2](Event) {++eventCount2;},
-                yield);
-
-            // Block subscriber2
-            f.publisher->publish(Pub("onEvent")
-                                     .withExcludedSessions({subscriber2Id}),
-                                 yield);
-            while (eventCount1 < 1)
-                f.publisher->suspend(yield);
-            CHECK( eventCount1 == 1 );
-            CHECK( eventCount2 == 0 );
-
-            // Allow subscriber2
-            f.publisher->publish(Pub("onEvent")
-                                     .withEligibleSessions({subscriber2Id}),
-                                 yield);
-            while (eventCount2 < 1)
-                f.publisher->suspend(yield);
-            CHECK( eventCount1 == 1 );
-            CHECK( eventCount2 == 1 );
-
-            f.disconnect();
-            subscriber2->disconnect();
-        });
-        ioctx.run();
-    }
-}}
-
-//------------------------------------------------------------------------------
-SCENARIO( "WAMP ticket authentication", "[WAMP][Advanced]" )
-{
-GIVEN( "a Session with a registered challenge handler" )
+GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    TicketAuthFixture f(ioctx, authTcp(ioctx));
+    RpcFixture f(ioctx, tcp(ioctx));
 
-    WHEN( "joining with ticket authentication requested" )
+    WHEN( "using progressive call results" )
     {
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            f.join("alice", "password123", yield);
-            f.session->disconnect();
+            std::vector<int> input{9, 3, 7, 5};
+            std::vector<int> output;
+
+            f.join(yield);
+
+            f.callee->enroll(
+                Procedure("com.myapp.foo"),
+                [&input](Invocation inv) -> Outcome
+                {
+                    CHECK( inv.isProgressive() );
+
+                    boost::asio::spawn(
+                        inv.executor(),
+                        [&input, inv](boost::asio::yield_context yield)
+                    {
+                        boost::asio::steady_timer timer(inv.executor());
+
+                        for (unsigned i=0; i<input.size(); ++i)
+                        {
+                            // Simulate a streaming app that throttles
+                            // the intermediary results at a fixed rate.
+                            timer.expires_from_now(
+                                std::chrono::milliseconds(25));
+                            timer.async_wait(yield);
+
+                            Result result({input.at(i)});
+                            if (i < (input.size() - 1))
+                                result.withProgress();
+                            inv.yield(result);
+                        }
+                    });
+                    return Outcome::deferred();
+                },
+                yield);
+
+            for (unsigned i=0; i<2; ++i)
+            {
+                f.caller->call(
+                    Rpc("com.myapp.foo").withProgressiveResults(),
+                    [&output, &input](AsyncResult<Result> r)
+                    {
+                        const auto& result = r.get();
+                        auto n = result.args().at(0).to<int>();
+                        output.push_back(n);
+                        bool progressiveExpected = output.size() < input.size();
+                        CHECK( result.isProgressive() == progressiveExpected );
+                    });
+
+                while (output.size() < input.size())
+                    f.caller->suspend(yield);
+                CHECK( input == output );
+                output.clear();
+            }
+
+            f.disconnect();
         });
         ioctx.run();
+    }
 
-        THEN( "the challenge was received and the authentication accepted" )
+    WHEN( "returning an error instead of a progressive call result" )
+    {
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            REQUIRE( f.challengeCount == 1 );
-            CHECK( f.challengeState == SessionState::authenticating );
-            CHECK( f.challenge.method() == "ticket" );
-            CHECK( f.info.optionByKey("authmethod") == "ticket" );
-            CHECK( f.info.optionByKey("authrole") == "ticketrole" );
-        }
+            std::vector<int> input{9, 3, 7, 5};
+            std::vector<int> output;
+
+            f.join(yield);
+
+            f.callee->enroll(
+                Procedure("com.myapp.foo"),
+                [&input](Invocation inv) -> Outcome
+                {
+                    CHECK( inv.isProgressive() );
+
+                    boost::asio::spawn(
+                        inv.executor(),
+                        [&input, inv](boost::asio::yield_context yield)
+                    {
+                        boost::asio::steady_timer timer(inv.executor());
+
+                        for (unsigned i=0; i<input.size(); ++i)
+                        {
+                            // Simulate a streaming app that throttles
+                            // the intermediary results at a fixed rate.
+                            timer.expires_from_now(
+                                std::chrono::milliseconds(25));
+                            timer.async_wait(yield);
+
+                            Result result({input.at(i)});
+                            result.withProgress();
+                            inv.yield(result);
+                        }
+
+                        timer.expires_from_now(
+                            std::chrono::milliseconds(25));
+                        inv.yield(Error("some_reason"));
+                    });
+                    return Outcome::deferred();
+                },
+                yield);
+
+            for (unsigned i=0; i<2; ++i)
+            {
+                Error error;
+                bool receivedError = false;
+                f.caller->call(
+                    Rpc("com.myapp.foo")
+                        .withProgressiveResults()
+                        .captureError(error),
+                    [&output, &input, &receivedError](AsyncResult<Result> r)
+                    {
+                        if (output.size() == input.size())
+                        {
+                            CHECK(r.errorCode() == SessionErrc::callError);
+                            receivedError = true;
+                            return;
+                        }
+                        const auto& result = r.get();
+                        auto n = result.args().at(0).to<int>();
+                        output.push_back(n);
+                        CHECK( result.isProgressive() );
+                    });
+
+                while (!receivedError)
+                    f.caller->suspend(yield);
+                CHECK( input == output );
+                CHECK( error.reason() == "some_reason" );
+                output.clear();
+            }
+
+            f.disconnect();
+        });
+        ioctx.run();
+    }
+
+    WHEN( "callee leaves during progressive call results" )
+    {
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        {
+            std::vector<int> output;
+            bool interrupted = false;
+            int tickCount = 0;
+
+            f.join(yield);
+
+            f.callee->enroll(
+                Procedure("com.myapp.foo"),
+                [&](Invocation inv) -> Outcome
+                {
+                    CHECK( inv.isProgressive() );
+                    boost::asio::spawn(
+                        inv.executor(),
+                        [&, inv](boost::asio::yield_context yield)
+                        {
+                            boost::asio::steady_timer timer(inv.executor());
+
+                            while (!interrupted)
+                            {
+                                timer.expires_from_now(
+                                std::chrono::milliseconds(50));
+                                timer.async_wait(yield);
+
+                                Result result({tickCount});
+                                result.withProgress();
+                                ++tickCount;
+                                inv.yield(result);
+                            }
+                        });
+                    return Outcome::deferred();
+                },
+                [&interrupted](Interruption intr) -> Outcome
+                {
+                    interrupted = true;
+                    return wamp::Error("wamp.error.canceled");
+                },
+                yield);
+
+            f.caller->call(
+                Rpc("com.myapp.foo").withProgressiveResults(),
+                [&output](AsyncResult<Result> r)
+                {
+                    if (r.errorCode() == SessionErrc::sessionEnded)
+                        return;
+                    const auto& result = r.get();
+                    auto n = result.args().at(0).to<int>();
+                    output.push_back(n);
+                    CHECK( result.isProgressive() );
+                });
+
+            while (output.size() < 2)
+                f.caller->suspend(yield);
+            f.caller->leave(yield);
+
+            while (!interrupted)
+                f.caller->suspend(yield);
+            CHECK(output.size() == 2);
+            CHECK(tickCount == 2);
+
+            f.disconnect();
+        });
+        ioctx.run();
     }
 }}
 
@@ -643,6 +662,203 @@ GIVEN( "a caller and a callee" )
             f.disconnect();
         });
         ioctx.run();
+    }
+}}
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP pub/sub advanced features", "[WAMP][Advanced]" )
+{
+GIVEN( "a publisher and a subscriber" )
+{
+    AsioContext ioctx;
+    PubSubFixture f(ioctx, tcp(ioctx));
+
+    WHEN( "using publisher identification" )
+    {
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        {
+            SessionId disclosedId = -1;
+            int eventCount = 0;
+
+            f.join(yield);
+
+            f.subscriber->subscribe(
+                Topic("onEvent"),
+                [&disclosedId, &eventCount](Event event)
+                {
+                    disclosedId = event.publisher().valueOr<SessionId>(-1);
+                    ++eventCount;
+                },
+                yield);
+
+            f.publisher->publish(Pub("onEvent").withDiscloseMe(), yield);
+            while (eventCount == 0)
+                f.publisher->suspend(yield);
+            CHECK( disclosedId == f.publisherId );
+            f.disconnect();
+        });
+        ioctx.run();
+    }
+
+    WHEN( "using pattern-based subscriptions" )
+    {
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        {
+            int prefixMatchCount = 0;
+            int wildcardMatchCount = 0;
+            std::string prefixTopic;
+            std::string wildcardTopic;
+
+            f.join(yield);
+
+            f.subscriber->subscribe(
+                Topic("com.myapp").usingPrefixMatch(),
+                [&prefixMatchCount, &prefixTopic](Event event)
+                {
+                    prefixTopic = event.topic().valueOr<std::string>("");
+                    ++prefixMatchCount;
+                },
+                yield);
+
+            f.subscriber->subscribe(
+                Topic("com..onEvent").usingWildcardMatch(),
+                [&wildcardMatchCount, &wildcardTopic](Event event)
+                {
+                    wildcardTopic = event.topic().valueOr<std::string>("");
+                    ++wildcardMatchCount;
+                },
+                yield);
+
+            f.publisher->publish(Pub("com.myapp.foo"), yield);
+            while (prefixMatchCount < 1)
+                f.publisher->suspend(yield);
+            CHECK( prefixMatchCount == 1 );
+            CHECK_THAT( prefixTopic, Equals("com.myapp.foo") );
+            CHECK( wildcardMatchCount == 0 );
+
+            f.publisher->publish(Pub("com.foo.onEvent"), yield);
+            while (wildcardMatchCount < 1)
+                f.publisher->suspend(yield);
+            CHECK( prefixMatchCount == 1 );
+            CHECK( wildcardMatchCount == 1 );
+            CHECK_THAT( wildcardTopic, Equals("com.foo.onEvent") );
+
+            f.publisher->publish(Pub("com.myapp.onEvent"), yield);
+            while ((prefixMatchCount < 2) || (wildcardMatchCount < 2))
+                f.publisher->suspend(yield);
+            CHECK( prefixMatchCount == 2 );
+            CHECK( wildcardMatchCount == 2 );
+            CHECK_THAT( prefixTopic, Equals("com.myapp.onEvent") );
+            CHECK_THAT( wildcardTopic, Equals("com.myapp.onEvent") );
+
+            f.disconnect();
+        });
+        ioctx.run();
+    }
+
+    WHEN( "using publisher exclusion" )
+    {
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        {
+            int subscriberEventCount = 0;
+            int publisherEventCount = 0;
+
+            f.join(yield);
+
+            f.subscriber->subscribe(
+                Topic("onEvent"),
+                [&subscriberEventCount](Event) {++subscriberEventCount;},
+                yield);
+
+            f.publisher->subscribe(
+                Topic("onEvent"),
+                [&publisherEventCount](Event) {++publisherEventCount;},
+                yield);
+
+            f.publisher->publish(Pub("onEvent").withExcludeMe(false), yield);
+            while ((subscriberEventCount < 1) || (publisherEventCount < 1))
+                f.publisher->suspend(yield);
+            CHECK( subscriberEventCount == 1 );
+            CHECK( publisherEventCount == 1 );
+            f.disconnect();
+        });
+        ioctx.run();
+    }
+
+    WHEN( "using subscriber black/white listing" )
+    {
+        auto subscriber2 = CoroSession<>::create(ioctx, tcp(ioctx));
+
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        {
+            int eventCount1 = 0;
+            int eventCount2 = 0;
+
+            f.join(yield);
+            subscriber2->connect(yield);
+            auto subscriber2Id =
+                    subscriber2->join(Realm(testRealm), yield).id();
+
+            f.subscriber->subscribe(
+                Topic("onEvent"),
+                [&eventCount1](Event) {++eventCount1;},
+                yield);
+
+            subscriber2->subscribe(
+                Topic("onEvent"),
+                [&eventCount2](Event) {++eventCount2;},
+                yield);
+
+            // Block subscriber2
+            f.publisher->publish(Pub("onEvent")
+                                     .withExcludedSessions({subscriber2Id}),
+                                 yield);
+            while (eventCount1 < 1)
+                f.publisher->suspend(yield);
+            CHECK( eventCount1 == 1 );
+            CHECK( eventCount2 == 0 );
+
+            // Allow subscriber2
+            f.publisher->publish(Pub("onEvent")
+                                     .withEligibleSessions({subscriber2Id}),
+                                 yield);
+            while (eventCount2 < 1)
+                f.publisher->suspend(yield);
+            CHECK( eventCount1 == 1 );
+            CHECK( eventCount2 == 1 );
+
+            f.disconnect();
+            subscriber2->disconnect();
+        });
+        ioctx.run();
+    }
+}}
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP ticket authentication", "[WAMP][Advanced]" )
+{
+GIVEN( "a Session with a registered challenge handler" )
+{
+    AsioContext ioctx;
+    TicketAuthFixture f(ioctx, authTcp(ioctx));
+
+    WHEN( "joining with ticket authentication requested" )
+    {
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        {
+            f.join("alice", "password123", yield);
+            f.session->disconnect();
+        });
+        ioctx.run();
+
+        THEN( "the challenge was received and the authentication accepted" )
+        {
+            REQUIRE( f.challengeCount == 1 );
+            CHECK( f.challengeState == SessionState::authenticating );
+            CHECK( f.challenge.method() == "ticket" );
+            CHECK( f.info.optionByKey("authmethod") == "ticket" );
+            CHECK( f.info.optionByKey("authrole") == "ticketrole" );
+        }
     }
 }}
 

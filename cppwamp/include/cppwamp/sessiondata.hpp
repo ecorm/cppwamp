@@ -355,6 +355,18 @@ public:
         by the callee. */
     Rpc& captureError(Error& error);
 
+    /** @name Progressive Call Results
+        See [Progressive Call Results in the WAMP Specification]
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1)
+        @{ */
+
+    /** Sets willingness to receive progressive results. */
+    Rpc& withProgressiveResults(bool enabled = true);
+
+    /** Indicates if progressive results were enabled. */
+    bool progressiveResultsAreEnabled() const;
+    /// @}
+
     /** @name Call Timeouts
         See [Call Timeouts in the WAMP Specification]
         (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.3)
@@ -378,6 +390,7 @@ public:
 private:
     String procedure_;
     Error* error_ = nullptr;
+    bool progressiveResultsEnabled_ = false;
 
 public:
     String& procedure(internal::PassKey); // Internal use only
@@ -425,6 +438,9 @@ public:
 
     /** Lets the callee specify if the yielded result is progressive. */
     Result& withProgress(bool progressive = true);
+
+    /** Indicates if the result is progressive. */
+    bool isProgressive() const;
     /// @}
 
 private:

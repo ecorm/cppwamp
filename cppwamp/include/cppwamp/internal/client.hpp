@@ -329,26 +329,31 @@ public:
         Error* errorPtr = rpc.error({});
         RequestId id = 0;
 
+        auto opts = RequestOptions().withProgressiveResponse(
+                        rpc.progressiveResultsAreEnabled());
+
         if (!rpc.kwargs().empty())
         {
             callWithKwargsMsg_.at(2) = move(rpc.options({}));
             callWithKwargsMsg_.at(3) = move(rpc.procedure({}));
             callWithKwargsMsg_.at(4) = move(rpc.args({}));
             callWithKwargsMsg_.at(5) = move(rpc.kwargs({}));
-            id = callProcedure(callWithKwargsMsg_, errorPtr, move(handler));
+            id = callProcedure(callWithKwargsMsg_, errorPtr, move(handler),
+                               opts);
         }
         else if (!rpc.args().empty())
         {
             callWithArgsMsg_.at(2) = move(rpc.options({}));
             callWithArgsMsg_.at(3) = move(rpc.procedure({}));
             callWithArgsMsg_.at(4) = move(rpc.args({}));
-            id = callProcedure(callWithArgsMsg_, errorPtr, move(handler));
+            id = callProcedure(callWithArgsMsg_, errorPtr, move(handler),
+                               opts);
         }
         else
         {
             callMsg_.at(2) = move(rpc.options({}));
             callMsg_.at(3) = move(rpc.procedure({}));
-            id = callProcedure(callMsg_, errorPtr, move(handler));
+            id = callProcedure(callMsg_, errorPtr, move(handler), opts);
         }
 
         return id;
@@ -363,7 +368,8 @@ public:
 
     virtual void yield(RequestId reqId, Result&& result) override
     {
-        pendingInvocations_.erase(reqId);
+        if (!result.isProgressive())
+            pendingInvocations_.erase(reqId);
 
         using std::move;
         if (!result.kwargs().empty())
@@ -444,15 +450,16 @@ private:
         AnyExecutor executor;
     };
 
-    using Base          = Peer<Codec, Transport>;
-    using WampMsgType   = internal::WampMsgType;
-    using Message       = internal::WampMessage;
-    using SlotId        = uint64_t;
-    using LocalSubs     = std::map<SlotId, SubscriptionRecord>;
-    using Readership    = std::map<SubscriptionId, LocalSubs>;
-    using TopicMap      = std::map<std::string, SubscriptionId>;
-    using Registry      = std::map<RegistrationId, RegistrationRecord>;
-    using InvocationMap = std::map<RequestId, RegistrationId>;
+    using Base           = Peer<Codec, Transport>;
+    using RequestOptions = typename Base::RequestOptions;
+    using WampMsgType    = internal::WampMsgType;
+    using Message        = internal::WampMessage;
+    using SlotId         = uint64_t;
+    using LocalSubs      = std::map<SlotId, SubscriptionRecord>;
+    using Readership     = std::map<SubscriptionId, LocalSubs>;
+    using TopicMap       = std::map<std::string, SubscriptionId>;
+    using Registry       = std::map<RegistrationId, RegistrationRecord>;
+    using InvocationMap  = std::map<RequestId, RegistrationId>;
 
     Client(TransportPtr transport)
         : Base(std::move(transport))
@@ -524,10 +531,10 @@ private:
     }
 
     RequestId callProcedure(Message& msg, Error* errorPtr,
-                            AsyncTask<Result>&& handler)
+                            AsyncTask<Result>&& handler, RequestOptions opts)
     {
         auto self = this->shared_from_this();
-        return this->request(msg,
+        return this->request(msg, opts,
             [this, self, errorPtr, handler](std::error_code ec, Message reply)
             {
                 if ((reply.type == WampMsgType::error) && (errorPtr != nullptr))

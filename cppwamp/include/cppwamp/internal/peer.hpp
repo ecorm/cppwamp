@@ -50,6 +50,21 @@ protected:
     using RxHandler    = std::function<void (Message)>;
     using LogHandler   = std::function<void (std::string)>;
 
+    struct RequestOptions
+    {
+        RequestOptions()
+            : progressiveResponse(false)
+        {}
+
+        RequestOptions& withProgressiveResponse(bool enabled)
+        {
+            progressiveResponse = enabled;
+            return *this;
+        }
+
+        bool progressiveResponse;
+    };
+
     Peer(TransportPtr&& transport)
         : transport_(std::move(transport))
     {
@@ -163,6 +178,11 @@ protected:
         return sendMessage(msg, std::move(handler));
     }
 
+    RequestId request(Message& msg, RequestOptions opts, Handler&& handler)
+    {
+        return sendMessage(msg, std::move(handler), opts);
+    }
+
     template <typename TErrorValue>
     void fail(TErrorValue errc)
     {
@@ -183,34 +203,64 @@ protected:
     }
 
 private:
+    static constexpr unsigned progressiveResponseFlag_ = 0x01;
+
+    struct RequestRecord
+    {
+        RequestRecord() {}
+
+        RequestRecord(Handler&& h)
+            : handler(std::move(h))
+        {}
+
+        RequestRecord(Handler&& h, RequestOptions opts)
+            : handler(std::move(h)),
+              options(opts)
+        {}
+
+        Handler handler;
+        RequestOptions options;
+    };
+
     using Buffer     = typename Transport::Buffer;
     using RequestKey = typename Message::RequestKey;
-    using RequestMap = std::map<RequestKey, Handler>;
+    using RequestMap = std::map<RequestKey, RequestRecord>;
 
-    RequestId sendMessage(Message& msg, Handler&& handler = nullptr)
+    RequestId sendMessage(Message& msg, Handler&& handler = nullptr,
+                          RequestOptions opts = {})
     {
         assert(msg.type != WampMsgType::none);
 
         msg.fields.at(0) = static_cast<Int>(msg.type);
 
-        RequestId requestId = 0;
-        auto idPos = msg.traits().idPosition;
-        if (idPos > 0)
-        {
-            requestId = nextRequestId();
-            msg.fields.at(idPos) = requestId;
-        }
-
-        trace(msg, true);
+        auto requestId = setMessageRequestId(msg);
 
         auto buf = newBuffer(msg);
         if (buf->length() > transport_->maxSendLength())
             throw error::Failure(make_error_code(TransportErrc::badTxLength));
 
         if (handler)
-            requestMap_[msg.requestKey()] = std::move(handler);
+        {
+            requestMap_[msg.requestKey()] =
+                RequestRecord(std::move(handler), opts);
+        }
 
+        trace(msg, true);
         transport_->send(std::move(buf));
+
+        return requestId;
+    }
+
+    RequestId setMessageRequestId(Message& msg)
+    {
+        RequestId requestId = 0;
+
+        auto idPos = msg.traits().idPosition;
+        if (idPos > 0)
+        {
+            requestId = nextRequestId();
+            msg.fields.at(idPos) = requestId;
+        }
 
         return requestId;
     }
@@ -315,10 +365,19 @@ private:
         auto kv = requestMap_.find(key);
         if (kv != requestMap_.end())
         {
-            auto handler = std::move(kv->second);
-            requestMap_.erase(kv);
-            post(handler, make_error_code(ProtocolErrc::success),
-                 std::move(msg));
+            if (msg.isProgressiveResponse())
+            {
+                const auto& handler = std::move(kv->second.handler);
+                post(handler, make_error_code(ProtocolErrc::success),
+                     std::move(msg));
+            }
+            else
+            {
+                auto handler = std::move(kv->second.handler);
+                requestMap_.erase(kv);
+                post(std::move(handler), make_error_code(ProtocolErrc::success),
+                     std::move(msg));
+            }
         }
     }
 
@@ -437,7 +496,7 @@ private:
     {
         if (!terminating)
             for (const auto& kv: requestMap_)
-                post(std::bind(kv.second, ec, Message()));
+                post(std::bind(kv.second.handler, ec, Message()));
         requestMap_.clear();
     }
 

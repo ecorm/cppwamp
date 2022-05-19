@@ -107,6 +107,23 @@ struct WampMessage
 
     WampMsgType repliesTo() const {return traits().repliesTo;}
 
+    bool isProgressiveResponse() const
+    {
+        if (type != WampMsgType::result || fields.size() < 3)
+            return false;
+
+        const auto& optionsField = fields.at(2);
+        if (!optionsField.is<Object>())
+            return false;
+
+        const auto& optionsMap = optionsField.as<Object>();
+        auto found = optionsMap.find("progress");
+        if (found == optionsMap.end())
+            return false;
+
+        return found->second.valueOr<bool>(false);
+    }
+
     WampMsgType type;
     Array fields;
 };

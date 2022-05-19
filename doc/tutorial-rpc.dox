@@ -337,7 +337,6 @@ using namespace wamp;
 For a more practical example of using scoped registrations,
 see @ref ScopedRegistrations "Registrations/Scoped Registrations".
 
-Deferring the
 
 Cancelling RPCs
 ---------------
@@ -430,6 +429,141 @@ boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     timer.async_wait(yield);
     session->cancel(Cancellation(requestId, CancelMode::kill));
 });
+```
+
+
+Progressive Calls Results
+-------------------------
+
+[Progressive calls results]
+(https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1)
+is a WAMP feature that allows a sequence of partial results to be returned from
+the same remote procedure call.
+
+A callee wanting to provide progressive call results must:
+
+- Make the wamp::Invocation object available to the RPC handler so that it may
+  later be used to yield progressive results.
+- Return wamp::Outcome::deferred in the RPC handler so that CppWAMP knows
+  results will be yielded later.
+- Set the "progress" option of the intermediate `RESULT` messages via
+  wamp::Result::withProgress.
+- Return intermediate results via wamp::Invocation::yield.
+- Return the final result via wamp::Invocation::yield *without* using
+  wamp::Result::withProgress.
+
+It may also be desirable to pass an interruption handler to the session
+@ref wamp::CoroSession::enroll "enroll" method, so that the callee may stop
+yielding partial results in the event that the call is cancelled
+(see [Progressive Call Result Cancellation]
+(https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1.2)
+in the WAMP specification).
+
+The following example shows a callee registering an RPC that yields
+progressive results at fixed time intervals:
+
+```
+using namespace wamp;
+
+std::set<RequestId> interruptions;
+
+Outcome countdown(Invocation inv)
+{
+    // The first positional argument contains the count.
+    unsigned count = 0;
+    inv.convertTo(count);
+
+    boost::asio::spawn(
+        inv.executor(),
+        [inv, &count](boost::asio::yield_context yield)
+        {
+            boost::asio::steady_timer timer(inv.executor());
+            auto deadline = std::chrono::steady_clock::now();
+
+            while (count > 0)
+            {
+                // Break out of the loop if this request was interrupted.
+                auto found = interruptions.find(inv.requestId());
+                if (found != interruptions.end())
+                {
+                    interruptions.erase(found);
+                    return;
+                }
+
+                // Delay for one second.
+                deadline += std::chrono::seconds(1);
+                timer.expires_at(deadline);
+                timer.async_wait(yield);
+
+                // Yield intermediate results with the "progess" option.
+                inv.yield(Result({count}).withProgress());
+
+                --count;
+            }
+
+            // Yield the final result without the "progess" option.
+            inv.yield(Result({count}));
+        });
+
+    return Outcome::deferred();
+}
+
+Outcome interrupt(Interruption intr)
+{
+    // Make the coroutine in the countdown function break out of its loop.
+    interruptions.insert(intr.requestId());
+    return Error("wamp.error.canceled");
+}
+
+int main()
+{
+    AsioContext ioctx;
+    auto tcp = connector<Json>(ioctx, TcpHost("localhost", 12345));
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    {
+        auto session = CoroSession<>::create(ioctx, tcp);
+        session->connect(yield);
+        session->join(Realm("somerealm"), yield);
+        session->enroll(Procedure("countdown"), &countdown, &interrupt, yield);
+    });
+    ioctx.run();
+    return 0;
+}
+```
+A caller wanting to call an RPC with progressive call results must:
+
+- Use the asynchronous wamp::Session::call so that it doesn't block.
+- Set the "receive_progress" option of the outgoing `CALL` message via
+  wamp::Rpc::withProgressiveResults.
+
+The following example shows a caller that calls the RPC from the previous
+example:
+
+```
+int main()
+{
+    using namespace wamp;
+    AsioContext ioctx;
+    auto tcp = connector<Json>(ioctx, TcpHost("localhost", 12345));
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    {
+        auto session = CoroSession<>::create(ioctx, tcp);
+        session->connect(yield);
+        session->join(Realm("somerealm"), yield);
+
+        // The handler will remain in the Session's internal records
+        // until either a non-progressive RESULT or an ERROR is received.
+        session->call(Rpc("countdown").withProgressiveResults(),
+                      [](AsyncResult<Result> r)
+                      {
+                          unsigned n = 0;
+                          r.get().convertTo(n);
+                          std::cout << "Tick: " << n << "\n";
+                      });
+    });
+    ioctx.run();
+    return 0;
+}
 ```
 
 - - -
