@@ -9,6 +9,7 @@
 #include <utility>
 #include "callee.hpp"
 #include "../api.hpp"
+#include "../error.hpp"
 
 namespace wamp
 {
@@ -416,9 +417,19 @@ CPPWAMP_INLINE bool Rpc::progressiveResultsAreEnabled() const
 
 /** @details
     This sets the `CALL.Options.timeout|integer` option. */
-CPPWAMP_INLINE Rpc& Rpc::withDealerTimeout(Int milliseconds)
+CPPWAMP_INLINE Rpc& Rpc::withDealerTimeout(UInt milliseconds)
 {
     return withOption("timeout", milliseconds);
+}
+
+CPPWAMP_INLINE Rpc& Rpc::withCallerTimeout(UInt milliseconds)
+{
+    return withCallerTimeout(std::chrono::milliseconds(milliseconds));
+}
+
+CPPWAMP_INLINE Rpc::CallerTimeoutDuration Rpc::callerTimeout() const
+{
+    return callerTimeout_;
 }
 
 /** @details
@@ -426,6 +437,13 @@ CPPWAMP_INLINE Rpc& Rpc::withDealerTimeout(Int milliseconds)
 CPPWAMP_INLINE Rpc& Rpc::withDiscloseMe(bool disclosed)
 {
     return withOption("disclose_me", disclosed);
+}
+
+CPPWAMP_INLINE void Rpc::setCallerTimeout(CallerTimeoutDuration duration)
+{
+    CPPWAMP_LOGIC_CHECK(duration.count() >= 0,
+                        "Timeout duration must be zero or positive");
+    callerTimeout_ = duration;
 }
 
 CPPWAMP_INLINE String& Rpc::procedure(internal::PassKey) {return procedure_;}
@@ -437,8 +455,10 @@ CPPWAMP_INLINE Error* Rpc::error(internal::PassKey) {return error_;}
 // Cancellation
 //******************************************************************************
 
-CPPWAMP_INLINE Cancellation::Cancellation(RequestId reqId, CancelMode cancelMode)
-    : requestId_(reqId)
+CPPWAMP_INLINE Cancellation::Cancellation(RequestId reqId,
+                                          CancelMode cancelMode)
+    : requestId_(reqId),
+      mode_(cancelMode)
 {
     String modeStr;
     switch (cancelMode)
@@ -465,6 +485,8 @@ CPPWAMP_INLINE Cancellation::Cancellation(RequestId reqId, CancelMode cancelMode
 }
 
 CPPWAMP_INLINE RequestId Cancellation::requestId() const {return requestId_;}
+
+CPPWAMP_INLINE CancelMode Cancellation::mode() const {return mode_;}
 
 
 //******************************************************************************

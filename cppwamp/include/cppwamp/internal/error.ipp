@@ -143,7 +143,7 @@ CPPWAMP_INLINE std::string SessionCategory::message(int ev) const
 /* authorizationFailed    */ "The authorization operation failed",
 /* noSuchRealm            */ "Attempt to join non-existent realm",
 /* noSuchRole             */ "Attempt to authenticate under unsupported role",
-/* cancelled              */ "Dealer or Callee canceled a call previously issued",
+/* cancelled              */ "A previously issued call was cancelled",
 /* optionNotAllowed       */ "Option is disallowed by the router",
 /* noEligibleCallee       */ "Call options lead to the exclusion of all callees providing the procedure",
 /* discloseMeDisallowed   */ "Router rejected client request to disclose its identity",

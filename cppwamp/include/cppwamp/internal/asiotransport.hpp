@@ -145,11 +145,7 @@ public:
             socket_->close();
     }
 
-    template <typename TFunctor>
-    void post(TFunctor&& fn)
-    {
-        boost::asio::post(executor_, std::forward<TFunctor>(fn));
-    }
+    AnyExecutor executor() const {return executor_;}
 
     void ping(Buffer message, PingHandler handler)
     {
@@ -184,6 +180,12 @@ protected:
 
 private:
     using Executor = typename TSocket::executor_type;
+
+    template <typename TFunctor>
+    void post(TFunctor&& fn)
+    {
+        boost::asio::post(executor_, std::forward<TFunctor>(fn));
+    }
 
     void transmit()
     {

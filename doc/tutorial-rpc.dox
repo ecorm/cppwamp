@@ -402,7 +402,7 @@ void run(AsioContext& ioctx)
 }
 ```
 
-Example caller issuing an interruption:
+Example caller issuing a call cancellation:
 ```
 using namespace wamp;
 boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
@@ -416,12 +416,12 @@ boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     // returns a request ID.
     auto requestId = session->call(
         Rpc("getElapsed").withArgs("hello", 10),
-        [](AsyncResult<Result> message)
+        [](AsyncResult<Result> result)
         {
-            if (message)
-                std::cout << "Message: " << message.get() << "\n";
+            if (result)
+                std::cout << "Result: " << result.get() << "\n";
             else
-                std::cout << "Error: " << message.errorInfo() << "\n";
+                std::cout << "Error: " << result.errorInfo() << "\n";
         });
 
     // Cancel the RPC before it completes.
@@ -430,6 +430,25 @@ boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     session->cancel(Cancellation(requestId, CancelMode::kill));
 });
 ```
+
+Call Timeouts
+-------------
+
+A remote procedure call can be set up to automatically cancel itself if a
+result is not received within a certain time period. This is done using either:
+
+- wamp::Rpc::withDealerTimeout: The router automatically cancels the RPCs if it
+  times out.
+- wamp::Rpc::withCallerTimeout: The client (CppWAMP) automatically sends a
+ `CANCEL` message if the RPC times out.
+
+The `withDealerTimeout` option requires that the router support call timeouts.
+The `withCallerTimeout` option only requires that the router support call
+cancellation.
+
+With both methods, if timeout occurs, the callee will receive an `INTERRUPT`
+message and the call handler will be passed the wamp::SessionErrc::cancelled
+error code.
 
 
 Progressive Calls Results

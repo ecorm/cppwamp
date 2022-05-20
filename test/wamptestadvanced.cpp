@@ -11,6 +11,7 @@
 
 #if defined(CPPWAMP_TEST_HAS_CORO) && defined(CPPWAMP_TEST_HAS_SERIALIZER)
 
+#include <algorithm>
 #include <catch2/catch.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/coro/corosession.hpp>
@@ -658,6 +659,101 @@ GIVEN( "a caller and a callee" )
 
             /* Router should discard INTERRUPT messages for non-pending RPCs. */
             CHECK( interruptionRequestId == 0 );
+
+            f.disconnect();
+        });
+        ioctx.run();
+    }
+}}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Caller-initiated timeouts", "[WAMP][Advanced]" )
+{
+GIVEN( "a caller and a callee" )
+{
+    AsioContext ioctx;
+    RpcFixture f(ioctx, tcp(ioctx));
+
+    WHEN( "the caller initiates timeouts" )
+    {
+        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        {
+            std::vector<AsyncResult<Result>> results;
+            std::vector<RequestId> interruptions;
+            std::map<RequestId, int> valuesByRequestId;
+
+            f.join(yield);
+
+            f.callee->enroll(
+                Procedure("com.myapp.foo"),
+                [&](Invocation inv) -> Outcome
+                {
+                    boost::asio::spawn(
+                        inv.executor(),
+                        [&, inv](boost::asio::yield_context yield)
+                        {
+                            int arg = 0;
+                            inv.convertTo(arg);
+                            valuesByRequestId[inv.requestId()] = arg;
+                            boost::asio::steady_timer timer(inv.executor());
+                            timer.expires_from_now(std::chrono::milliseconds(150));
+                            timer.async_wait(yield);
+
+                            bool interrupted =
+                                std::count(interruptions.begin(),
+                                           interruptions.end(),
+                                           inv.requestId()) != 0;
+                            if (interrupted)
+                                inv.yield(Error("wamp.error.canceled"));
+                            else
+                                inv.yield({arg});
+                        });
+
+                    return Outcome::deferred();
+                },
+                [&](Interruption intr) -> Outcome
+                {
+                    interruptions.push_back(intr.requestId());
+                    return Outcome::deferred();
+                },
+                yield);
+
+            auto callHandler = [&results](AsyncResult<Result> r)
+            {
+                results.emplace_back(std::move(r));
+            };
+
+            for (int i=0; i<2; ++i)
+            {
+                f.caller->call(
+                    Rpc("com.myapp.foo")
+                        .withArgs(1)
+                        .withCallerTimeout(std::chrono::milliseconds(100)),
+                    callHandler);
+
+                f.caller->call(
+                    Rpc("com.myapp.foo").withArgs(2).withCallerTimeout(50),
+                    callHandler);
+
+                f.caller->call(
+                    Rpc("com.myapp.foo").withArgs(3),
+                    callHandler);
+
+                while (results.size() < 3)
+                    f.caller->suspend(yield);
+
+                REQUIRE( results.size() == 3 );
+                CHECK( results[0].errorCode() == SessionErrc::cancelled );
+                CHECK( results[1].errorCode() == SessionErrc::cancelled );
+                CHECK( results[2].get().args().at(0).to<int>() == 3 );
+                REQUIRE( interruptions.size() == 2 );
+                CHECK( valuesByRequestId[interruptions[0]] == 2 );
+                CHECK( valuesByRequestId[interruptions[1]] == 1 );
+
+                results.clear();
+                interruptions.clear();
+                valuesByRequestId.clear();
+            }
 
             f.disconnect();
         });

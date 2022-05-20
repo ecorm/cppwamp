@@ -169,9 +169,8 @@ public:
     // operations.
     void close();
 
-    // Posts the given handler to the transport's I/O service.
-    template <typename TFunctor>
-    void post(TFunctor&& fn);
+    // Obtains the transport's executor.
+    boost::asio::any_executor executor() const;
 ```
 
 The following classes meet the requirements of `Transport`:

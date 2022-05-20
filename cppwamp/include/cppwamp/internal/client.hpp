@@ -9,21 +9,19 @@
 #define CPPWAMP_INTERNAL_CLIENT_HPP
 
 #include <cassert>
+#include <functional>
 #include <map>
 #include <memory>
-#include <queue>
-#include <set>
 #include <sstream>
 #include <string>
 #include <system_error>
 #include <type_traits>
 #include <utility>
-#include <vector>
 #include <boost/asio/post.hpp>
 #include "../registration.hpp"
 #include "../subscription.hpp"
-#include "../unpacker.hpp"
 #include "../version.hpp"
+#include "callertimeout.hpp"
 #include "clientinterface.hpp"
 #include "peer.hpp"
 
@@ -66,34 +64,22 @@ public:
         Message msg = { WampMsgType::hello,
                         {0u, move(realm.uri({})), move(realm.options({}))} };
         this->start();
+
         auto self = this->shared_from_this();
         this->request(msg,
-            [this, self, handler, realmUri](std::error_code ec, Message reply)
+            [this, self, handler, realmUri]
+                      (std::error_code ec, Message reply) mutable
             {
                 if (checkError(ec, handler))
                 {
                     if (reply.type == WampMsgType::welcome)
                     {
-                        move(handler)(SessionInfo({},
-                                                  move(realmUri),
-                                                  move(reply.as<Int>(1)),
-                                                  move(reply.as<Object>(2))));
+                        onWelcome(move(handler), move(reply), move(realmUri));
                     }
                     else
                     {
                         assert(reply.type == WampMsgType::abort);
-                        const auto& uri = reply.as<String>(2);
-                        auto errc = lookupWampErrorUri(uri,
-                                                       SessionErrc::joinError);
-
-                        std::ostringstream oss;
-                        oss << "with URI=" << uri;
-                        if (!reply.as<Object>(1).empty())
-                            oss << ", Details=" << reply.at(1);
-
-                        AsyncResult<SessionInfo> result(make_error_code(errc),
-                                                        oss.str());
-                        move(handler)(move(result));
+                        onJoinAborted(move(handler), move(reply));
                     }
                 }
             });
@@ -111,6 +97,7 @@ public:
         using std::move;
         if (reason.uri().empty())
             reason.uri({}) = "wamp.error.close_realm";
+        timeoutScheduler_->clear();
         auto self = this->shared_from_this();
         Base::adjourn(move(reason),
             [this, self, handler](std::error_code ec, Message reply)
@@ -129,6 +116,7 @@ public:
     virtual void disconnect() override
     {
         pendingInvocations_.clear();
+        timeoutScheduler_->clear();
         this->close(false);
     }
 
@@ -137,6 +125,7 @@ public:
         using Handler = AsyncTask<std::string>;
         setLogHandlers(Handler(), Handler());
         pendingInvocations_.clear();
+        timeoutScheduler_->clear();
         this->close(true);
     }
 
@@ -328,6 +317,7 @@ public:
         using std::move;
         Error* errorPtr = rpc.error({});
         RequestId id = 0;
+        auto callerTimeout = rpc.callerTimeout();
 
         auto opts = RequestOptions().withProgressiveResponse(
                         rpc.progressiveResultsAreEnabled());
@@ -339,7 +329,7 @@ public:
             callWithKwargsMsg_.at(4) = move(rpc.args({}));
             callWithKwargsMsg_.at(5) = move(rpc.kwargs({}));
             id = callProcedure(callWithKwargsMsg_, errorPtr, move(handler),
-                               opts);
+                               opts, callerTimeout);
         }
         else if (!rpc.args().empty())
         {
@@ -347,13 +337,14 @@ public:
             callWithArgsMsg_.at(3) = move(rpc.procedure({}));
             callWithArgsMsg_.at(4) = move(rpc.args({}));
             id = callProcedure(callWithArgsMsg_, errorPtr, move(handler),
-                               opts);
+                               opts, callerTimeout);
         }
         else
         {
             callMsg_.at(2) = move(rpc.options({}));
             callMsg_.at(3) = move(rpc.procedure({}));
-            id = callProcedure(callMsg_, errorPtr, move(handler), opts);
+            id = callProcedure(callMsg_, errorPtr, move(handler), opts,
+                               callerTimeout);
         }
 
         return id;
@@ -363,7 +354,8 @@ public:
     {
         cancelMsg_.at(1) = cancellation.requestId();
         cancelMsg_.at(2) = move(cancellation.options({}));
-        this->send(cancelMsg_);
+        this->cancelCall(cancelMsg_, cancellation.mode(),
+                         cancellation.requestId());
     }
 
     virtual void yield(RequestId reqId, Result&& result) override
@@ -460,9 +452,11 @@ private:
     using TopicMap       = std::map<std::string, SubscriptionId>;
     using Registry       = std::map<RegistrationId, RegistrationRecord>;
     using InvocationMap  = std::map<RequestId, RegistrationId>;
+    using CallerTimeoutDuration = typename Rpc::CallerTimeoutDuration;
 
     Client(TransportPtr transport)
-        : Base(std::move(transport))
+        : Base(std::move(transport)),
+          timeoutScheduler_(CallerTimeoutScheduler::create(this->executor()))
     {
         initMessages();
     }
@@ -531,10 +525,12 @@ private:
     }
 
     RequestId callProcedure(Message& msg, Error* errorPtr,
-                            AsyncTask<Result>&& handler, RequestOptions opts)
+                            AsyncTask<Result>&& handler, RequestOptions opts,
+                            CallerTimeoutDuration callerTimeout)
     {
         auto self = this->shared_from_this();
-        return this->request(msg, opts,
+
+        auto requestId = this->request(msg, opts,
             [this, self, errorPtr, handler](std::error_code ec, Message reply)
             {
                 if ((reply.type == WampMsgType::error) && (errorPtr != nullptr))
@@ -560,6 +556,11 @@ private:
                     move(handler)(move(result));
                 }
             });
+
+        if (callerTimeout.count() != 0)
+            timeoutScheduler_->add(callerTimeout, requestId);
+
+        return requestId;
     }
 
     virtual bool isMsgSupported(const MessageTraits& traits) override
@@ -590,6 +591,40 @@ private:
         default:
             assert(false);
         }
+    }
+
+    void onWelcome(AsyncTask<SessionInfo>&& handler, Message&& reply,
+                   String&& realmUri)
+    {
+        WeakPtr self = this->shared_from_this();
+        timeoutScheduler_->listen([self](RequestId reqId)
+        {
+            auto ptr = self.lock();
+            if (ptr)
+                ptr->cancel(Cancellation(reqId, CancelMode::killNoWait));
+        });
+
+        using std::move;
+        move(handler)(SessionInfo({},
+                                  move(realmUri),
+                                  move(reply.as<Int>(1)),
+                                  move(reply.as<Object>(2))));
+    }
+
+    void onJoinAborted(AsyncTask<SessionInfo>&& handler, Message&& reply)
+    {
+        const auto& uri = reply.as<String>(2);
+        auto errc = lookupWampErrorUri(uri,
+                                       SessionErrc::joinError);
+
+        std::ostringstream oss;
+        oss << "with URI=" << uri;
+        if (!reply.as<Object>(1).empty())
+            oss << ", Details=" << reply.at(1);
+
+        AsyncResult<SessionInfo> result(make_error_code(errc),
+                                        oss.str());
+        std::move(handler)(std::move(result));
     }
 
     void onChallenge(Message&& msg)
@@ -886,6 +921,7 @@ private:
     Readership readership_;
     Registry registry_;
     InvocationMap pendingInvocations_;
+    CallerTimeoutScheduler::Ptr timeoutScheduler_;
     AsyncTask<std::string> warningHandler_;
     AsyncTask<Challenge> challengeHandler_;
 

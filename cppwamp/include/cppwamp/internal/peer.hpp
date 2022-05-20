@@ -66,7 +66,8 @@ protected:
     };
 
     Peer(TransportPtr&& transport)
-        : transport_(std::move(transport))
+        : transport_(std::move(transport)),
+          executor_(transport_->executor())
     {
         initMessages();
     }
@@ -183,6 +184,27 @@ protected:
         return sendMessage(msg, std::move(handler), opts);
     }
 
+    void cancelCall(Message& cancelMsg, CancelMode mode, RequestId reqId)
+    {
+        // If the cancel mode is not 'kill', don't wait for the router's
+        // ERROR message and post the request handler immediately
+        // with a SessionErrc::cancelled error code.
+        if (mode != CancelMode::kill)
+        {
+            auto kv = requestMap_.find({WampMsgType::call, reqId});
+            if (kv != requestMap_.end())
+            {
+                auto handler = std::move(kv->second.handler);
+                requestMap_.erase(kv);
+                auto ec = make_error_code(SessionErrc::cancelled);
+                post(std::move(handler), ec, Message());
+            }
+        }
+
+        // Always send the CANCEL message in all modes.
+        sendMessage(cancelMsg);
+    }
+
     template <typename TErrorValue>
     void fail(TErrorValue errc)
     {
@@ -193,14 +215,20 @@ protected:
         {traceHandler_ = std::move(handler);}
 
     template <typename TFunctor>
-    void post(TFunctor&& fn) {transport_->post(std::forward<TFunctor>(fn));}
+    void post(TFunctor&& fn)
+    {
+        boost::asio::post(executor_, std::forward<TFunctor>(fn));
+    }
 
     template <typename TFunctor, typename... TArgs>
     void post(TFunctor&& fn, TArgs&&... args)
     {
-        transport_->post(std::bind(std::forward<TFunctor>(fn),
-                         std::forward<TArgs>(args)...));
+        boost::asio::post(executor_,
+                          std::bind(std::forward<TFunctor>(fn),
+                                    std::forward<TArgs>(args)...));
     }
+
+    AnyExecutor executor() const {return executor_;}
 
 private:
     static constexpr unsigned progressiveResponseFlag_ = 0x01;
@@ -502,6 +530,7 @@ private:
 
     void trace(const Message& msg, bool isTx)
     {
+        // TODO: Print message type names instead of number
         if (traceHandler_)
         {
             std::ostringstream oss;
@@ -526,6 +555,7 @@ private:
     }
 
     TransportPtr transport_;
+    AnyExecutor executor_;
     AsyncTask<std::string> traceHandler_;
     State state_ = State::closed;
     RequestMap requestMap_;

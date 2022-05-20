@@ -9,6 +9,7 @@
 #define CPPWAMP_SESSIONDATA_HPP
 
 #include <cassert>
+#include <chrono>
 #include <initializer_list>
 #include <memory>
 #include <set>
@@ -348,6 +349,9 @@ public:
 class CPPWAMP_API Rpc : public Options<Rpc>, public Payload<Rpc>
 {
 public:
+    /** The duration type used for caller-initiated timeouts. */
+    using CallerTimeoutDuration = std::chrono::steady_clock::duration;
+
     /** Converting constructor taking a procedure URI. */
     Rpc(String procedure);
 
@@ -369,12 +373,41 @@ public:
 
     /** @name Call Timeouts
         See [Call Timeouts in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.3)
+        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.3).
+        Setting a duration of zero deactivates the timeout.
         @{ */
 
-    /** Requests that the dealer cancels the call after the specified
+    /** Requests that the dealer cancel the call after the specified
+        timeout duration in milliseconds. */
+    Rpc& withDealerTimeout(UInt milliseconds);
+
+    /** Requests that the dealer cancel the call after the specified
         timeout duration. */
-    Rpc& withDealerTimeout(Int milliseconds);
+    template <typename R, typename P>
+    Rpc& withDealerTimeout(std::chrono::duration<R, P> timeout)
+    {
+        using namespace std::chrono;
+        auto ms = duration_cast<milliseconds>(timeout).count();
+        return withDealerTimeout(static_cast<Int>(ms));
+    }
+
+    /** Requests that the caller cancel the call after the specified
+        timeout duration in milliseconds. */
+    Rpc& withCallerTimeout(UInt milliseconds);
+
+    /** Requests that the dealer cancel the call after the specified
+        timeout duration. */
+    template <typename R, typename P>
+    Rpc& withCallerTimeout(std::chrono::duration<R, P> timeout)
+    {
+        using namespace std::chrono;
+        setCallerTimeout(duration_cast<CallerTimeoutDuration>(timeout));
+        return *this;
+    }
+
+    /** Obtains the caller timeout duration. */
+    CallerTimeoutDuration callerTimeout() const;
+
     /// @}
 
     /** @name Caller Identification
@@ -388,8 +421,11 @@ public:
     /// @}
 
 private:
+    void setCallerTimeout(CallerTimeoutDuration duration);
+
     String procedure_;
     Error* error_ = nullptr;
+    CallerTimeoutDuration callerTimeout_ = {};
     bool progressiveResultsEnabled_ = false;
 
 public:
@@ -407,10 +443,15 @@ public:
     /** Converting constructor. */
     Cancellation(RequestId reqId, CancelMode cancelMode = CancelMode::kill);
 
+    /** Obtains the request ID of the call to cancel. */
     RequestId requestId() const;
+
+    /** Obtains the cancel mode. */
+    CancelMode mode() const;
 
 private:
     RequestId requestId_;
+    CancelMode mode_;
 };
 
 
