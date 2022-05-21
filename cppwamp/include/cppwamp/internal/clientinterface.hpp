@@ -74,10 +74,10 @@ public:
 
     virtual void cancel(Cancellation&& cancellation) = 0;
 
-    virtual void setLogHandlers(AsyncTask<std::string> warningHandler,
-                                AsyncTask<std::string> traceHandler) = 0;
-
-    virtual void setChallengeHandler(AsyncTask<Challenge> handler) = 0;
+    virtual void setSessionHandlers(AsyncTask<std::string> warningHandler,
+                                    AsyncTask<std::string> traceHandler,
+                                    AsyncTask<SessionState> stateChangeHandler,
+                                    AsyncTask<Challenge> challengeHandler) = 0;
 };
 
 inline const Object& ClientInterface::roles()

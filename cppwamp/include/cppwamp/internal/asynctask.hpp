@@ -43,6 +43,12 @@ public:
         other.executor_ = nullptr;
     }
 
+    void reset()
+    {
+        executor_ = nullptr;
+        handler_ = nullptr;
+    }
+
     AsyncTask& operator=(const AsyncTask& other) = default;
 
     AsyncTask& operator=(AsyncTask&& other) noexcept

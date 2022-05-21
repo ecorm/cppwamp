@@ -63,6 +63,7 @@ CPPWAMP_INLINE const Object& Session::roles()
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::~Session()
 {
+    stateChangeHandler_.reset();
     reset();
 }
 
@@ -72,6 +73,8 @@ CPPWAMP_INLINE AnyExecutor Session::userExecutor() const
     return userExecutor_;
 }
 
+//------------------------------------------------------------------------------
+/** @deprecated Use wamp::Session::userExecutor instead. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AnyExecutor Session::userIosvc() const
 {
@@ -126,6 +129,26 @@ CPPWAMP_INLINE void Session::setTraceHandler(
 }
 
 //------------------------------------------------------------------------------
+/** @note Changes to the state change handler start taking effect when the
+          session is connecting.
+    @note No state change events are fired when the session object is
+          destructing. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::setStateChangeHandler(
+    StateChangeHandler handler /**< Function called when
+                                    session state changes. */)
+{
+    stateChangeHandler_ = AsyncTask<State>
+    {
+        userExecutor_,
+        [handler](AsyncResult<State> state) {handler(state.get());}
+    };
+}
+
+//------------------------------------------------------------------------------
+/** @note Changes to the challenge handler start taking effect when the
+          session is connecting. */
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setChallengeHandler(
     ChallengeHandler handler /**< Function called to handle
                                   authentication challenges. */
@@ -144,7 +167,7 @@ CPPWAMP_INLINE void Session::setChallengeHandler(
 //------------------------------------------------------------------------------
 /** @details
     The session will attempt to connect using the transports that were
-    specified by the Connector objects passed during create().
+    specified by the wamp::Connector objects passed during create().
     If more than one transport was specified, they will be traversed in the
     same order as they appeared in the @ref ConnectorList.
     @return The index of the Connector object used to establish the connetion.
@@ -166,7 +189,7 @@ CPPWAMP_INLINE void Session::connect(
     assert(!connectors_.empty());
     CPPWAMP_LOGIC_CHECK(state() == State::disconnected,
                         "Session is not disconnected");
-    state_ = State::connecting;
+    setState(State::connecting);
     isTerminating_ = false;
     currentConnector_ = nullptr;
     doConnect(0, {userExecutor_, handler});
@@ -261,16 +284,21 @@ CPPWAMP_INLINE void Session::leave(
 CPPWAMP_INLINE void Session::disconnect()
 {
     bool isConnecting = state() == State::connecting;
-    state_ = State::disconnected;
     if (isConnecting)
     {
+        setState(State::disconnected);
         currentConnector_->cancel();
     }
     else if (impl_)
     {
+        // Peer will fire the disconnected state change event.
         state_ = State::disconnected;
         impl_->disconnect();
         impl_.reset();
+    }
+    else
+    {
+        setState(State::disconnected);
     }
 }
 
@@ -286,7 +314,7 @@ CPPWAMP_INLINE void Session::reset()
 {
     bool isConnecting = state() == State::connecting;
     isTerminating_ = true;
-    state_ = State::disconnected;
+    setState(State::disconnected);
     if (isConnecting)
     {
         currentConnector_->cancel();
@@ -586,7 +614,7 @@ CPPWAMP_INLINE void Session::doConnect(size_t index, AsyncTask<size_t> handler)
                 if (ec)
                 {
                     if (ec == TransportErrc::aborted)
-                        handler(ec);
+                        std::move(handler)(ec);
                     else
                     {
                         auto newIndex = index + 1;
@@ -594,7 +622,7 @@ CPPWAMP_INLINE void Session::doConnect(size_t index, AsyncTask<size_t> handler)
                             doConnect(newIndex, handler);
                         else
                         {
-                            state_ = State::failed;
+                            setState(State::failed);
                             if (connectors_.size() > 1)
                             {
                                 ec = make_error_code(
@@ -607,14 +635,34 @@ CPPWAMP_INLINE void Session::doConnect(size_t index, AsyncTask<size_t> handler)
                 else
                 {
                     assert(impl);
-                    state_ = State::closed;
-                    impl_ = impl;
-                    impl_->setLogHandlers(warningHandler_, traceHandler_);
-                    impl_->setChallengeHandler(challengeHandler_);
-                    std::move(handler)(index);
+                    if (state_ == State::connecting)
+                    {
+                        impl_ = impl;
+                        impl_->setSessionHandlers(
+                            warningHandler_, traceHandler_, stateChangeHandler_,
+                            challengeHandler_);
+                        std::move(handler)(index);
+                        setState(State::closed);
+                    }
+                    else
+                    {
+                        auto ec = make_error_code(TransportErrc::aborted);
+                        std::move(handler)(ec);
+                    }
                 }
             }
         });
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::setState(SessionState state)
+{
+    if (state != state_)
+    {
+        state_ = state;
+        if (stateChangeHandler_)
+            stateChangeHandler_(state);
+    }
 }
 
 //------------------------------------------------------------------------------

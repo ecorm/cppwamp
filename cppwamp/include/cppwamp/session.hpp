@@ -93,6 +93,9 @@ public:
     /** Handler type used for processing log events. */
     using LogHandler = std::function<void (std::string)>;
 
+    /** Handler type used for stage change events. */
+    using StateChangeHandler = std::function<void (State)>;
+
     /** Function type handling authtication challenges. */
     using ChallengeHandler = std::function<void (Challenge)>;
 
@@ -180,6 +183,9 @@ public:
     /** Sets the log handler for debug traces. */
     void setTraceHandler(LogHandler handler);
 
+    /** Sets the handler for session state changes. */
+    void setStateChangeHandler(StateChangeHandler handler);
+
     /** Sets the handler for authentication challenges. */
     void setChallengeHandler(ChallengeHandler handler);
     /// @}
@@ -258,6 +264,8 @@ protected:
 
     void doConnect(size_t index, AsyncTask<size_t> handler);
 
+    void setState(SessionState state);
+
     std::shared_ptr<internal::ClientInterface> impl();
 
 private:
@@ -266,6 +274,7 @@ private:
     Connector::Ptr currentConnector_;
     AsyncTask<std::string> warningHandler_;
     AsyncTask<std::string> traceHandler_;
+    AsyncTask<State> stateChangeHandler_;
     AsyncTask<Challenge> challengeHandler_;
     SessionState state_ = State::disconnected;
     bool isTerminating_ = false;

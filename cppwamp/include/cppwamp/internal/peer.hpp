@@ -45,10 +45,8 @@ public:
     State state() const {return state_;}
 
 protected:
-    using Message      = WampMessage;
-    using Handler      = std::function<void (std::error_code, Message)>;
-    using RxHandler    = std::function<void (Message)>;
-    using LogHandler   = std::function<void (std::string)>;
+    using Message = WampMessage;
+    using Handler = std::function<void (std::error_code, Message)>;
 
     struct RequestOptions
     {
@@ -79,7 +77,7 @@ protected:
     void start()
     {
         assert(state_ == State::closed || state_ == State::disconnected);
-        state_ = State::establishing;
+        setState(State::establishing);
 
         if (!transport_->isStarted())
         {
@@ -106,7 +104,7 @@ protected:
     {
         assert(state_ == State::established);
 
-        state_ = State::shuttingDown;
+        setState(State::shuttingDown);
         using std::move;
         Message msg = { WampMsgType::goodbye,
                         {0u, move(reason.options({})), move(reason.uri({}))} };
@@ -116,7 +114,7 @@ protected:
             {
                 if (!ec)
                 {
-                    state_ = State::closed;
+                    setState(State::closed);
                     abortPending(make_error_code(SessionErrc::sessionEnded));
                     post(handler, make_error_code(ProtocolErrc::success),
                          move(reply));
@@ -128,7 +126,7 @@ protected:
 
     void close(bool terminating)
     {
-        state_ = State::disconnected;
+        setState(State::disconnected);
         abortPending(make_error_code(SessionErrc::sessionEnded), terminating);
         transport_->close();
     }
@@ -214,6 +212,9 @@ protected:
     void setTraceHandler(AsyncTask<std::string> handler)
         {traceHandler_ = std::move(handler);}
 
+    void setStateChangeHandler(AsyncTask<State> handler)
+        {stateChangeHandler_ = std::move(handler);}
+
     template <typename TFunctor>
     void post(TFunctor&& fn)
     {
@@ -253,6 +254,16 @@ private:
     using Buffer     = typename Transport::Buffer;
     using RequestKey = typename Message::RequestKey;
     using RequestMap = std::map<RequestKey, RequestRecord>;
+
+    void setState(State state)
+    {
+        if (state != state_)
+        {
+            state_ = state;
+            if (stateChangeHandler_)
+                stateChangeHandler_(state);
+        }
+    }
 
     RequestId sendMessage(Message& msg, Handler&& handler = nullptr,
                           RequestOptions opts = {})
@@ -412,7 +423,7 @@ private:
     void processHello(Message&& msg)
     {
         assert(state_ == State::establishing);
-        state_ = State::established;
+        setState(State::established);
         auto self = this->shared_from_this();
         post(std::bind(&Peer::onInbound, self, std::move(msg)));
     }
@@ -420,7 +431,7 @@ private:
     void processChallenge(Message&& msg)
     {
         assert(state_ == State::establishing);
-        state_ = State::authenticating;
+        setState(State::authenticating);
         auto self = this->shared_from_this();
         post(std::bind(&Peer::onInbound, self, std::move(msg)));
     }
@@ -429,7 +440,7 @@ private:
     {
         assert((state_ == State::establishing) ||
                (state_ == State::authenticating));
-        state_ = State::established;
+        setState(State::established);
         processWampReply( RequestKey(WampMsgType::hello, msg.requestId()),
                           std::move(msg) );
     }
@@ -438,7 +449,7 @@ private:
     {
         assert((state_ == State::establishing) ||
                (state_ == State::authenticating));
-        state_ = State::closed;
+        setState(State::closed);
         processWampReply( RequestKey(WampMsgType::hello, msg.requestId()),
                           std::move(msg) );
     }
@@ -447,7 +458,7 @@ private:
     {
         if (state_ == State::shuttingDown)
         {
-            state_ = State::closed;
+            setState(State::closed);
             processWampReply(msg.requestKey(), std::move(msg));
         }
         else
@@ -458,7 +469,7 @@ private:
             Message reply{ WampMsgType::goodbye,
                            {0u, Object{}, "wamp.error.goodbye_and_out"} };
             send(reply);
-            state_ = State::closed;
+            setState(State::closed);
         }
     }
 
@@ -515,7 +526,7 @@ private:
 
     void fail(std::error_code ec)
     {
-        state_ = State::failed;
+        setState(State::failed);
         abortPending(ec);
         transport_->close();
     }
@@ -557,6 +568,7 @@ private:
     TransportPtr transport_;
     AnyExecutor executor_;
     AsyncTask<std::string> traceHandler_;
+    AsyncTask<State> stateChangeHandler_;
     State state_ = State::closed;
     RequestMap requestMap_;
     RequestId nextRequestId_ = 0;

@@ -122,8 +122,7 @@ public:
 
     virtual void terminate() override
     {
-        using Handler = AsyncTask<std::string>;
-        setLogHandlers(Handler(), Handler());
+        setSessionHandlers({}, {}, {}, {});
         pendingInvocations_.clear();
         timeoutScheduler_->clear();
         this->close(true);
@@ -393,16 +392,16 @@ public:
         this->sendError(WampMsgType::invocation, reqId, std::move(failure));
     }
 
-    virtual void setLogHandlers(AsyncTask<std::string> warningHandler,
-                                AsyncTask<std::string> traceHandler) override
+    virtual void setSessionHandlers(
+        AsyncTask<std::string> warningHandler,
+        AsyncTask<std::string> traceHandler,
+        AsyncTask<SessionState> stateChangeHandler,
+        AsyncTask<Challenge> challengeHandler) override
     {
         warningHandler_ = std::move(warningHandler);
         this->setTraceHandler(std::move(traceHandler));
-    }
-
-    virtual void setChallengeHandler(AsyncTask<Challenge> handler) override
-    {
-        challengeHandler_ = std::move(handler);
+        this->setStateChangeHandler(std::move(stateChangeHandler));
+        challengeHandler_ = std::move(challengeHandler);
     }
 
 private:

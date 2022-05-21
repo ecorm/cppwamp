@@ -232,6 +232,68 @@ int main()
 }
 ```
 
+Handling Session State Changes
+------------------------------
+
+wamp::Session::setStateChangeHandler can be used to register a function that's
+called whenever the session's wamp::SessionState changes. This can be used,
+for example, to attempt reconnection when the session is disconnected due to a
+network failure.
+
+```
+void rejoinSession(CoroSession<>& session, boost::asio::yield_context yield)
+{
+    session.connect(yield);
+    session.join(Realm("somerealm", yield);
+    // Register RPCs, subscribe to topics, etc.
+}
+
+void onStateChange(SessionState state,
+                   std::weak_ptr<CoroSession<>> weakSession)
+{
+    if (state == SessionState::disconnected ||
+        state == SessionState::failed)
+    {
+        auto session = weakSession.lock();
+        if (session)
+        {
+            boost::asio::spawn(session->userExecutor(),
+                               [session](boost::asio::yield_context yield)
+            {
+                // You may want to throttle and limit the reconnection
+                // attempts here.
+                rejoinSession(*session, yield);
+            });
+        }
+    }
+}
+
+int main()
+{
+    using namespace wamp;
+    AsioContext ioctx;
+    auto tcp = connector<Json>(ioctx, TcpHost("localhost", 8001));
+
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    {
+        auto session = CoroSession<>::create(ioctx, tcp);
+        auto weakSession = std::weak_ptr<CoroSession<>>(session);
+        session->setStateChangeHandler(
+            [weakSession, ioctx](SessionState state)
+            {
+                onStateChange(state, weakSession);
+            });
+        rejoinSession(*session, yield);
+       // etc.
+    });
+
+    ioctx.run();
+
+    return 0;
+}
+```
+
+
 - - -
 
 Next: @ref ErrorsTutorial

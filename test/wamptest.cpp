@@ -393,16 +393,80 @@ void checkInvalidOps(CoroSession<>::Ptr session,
                      error::Logic );
 }
 
-} // anonymous namespace
+//------------------------------------------------------------------------------
+struct StateChangeListener
+{
+    static std::vector<SessionState>& changes()
+    {
+        static std::vector<SessionState> theChanges;
+        return theChanges;
+    }
 
+    void operator()(SessionState s) {changes().push_back(s);}
+
+    void clear() {changes().clear();}
+
+    bool empty() const {return changes().empty();}
+
+    bool check(const CoroSession<>::Ptr& session,
+               const std::vector<SessionState>& expected,
+               boost::asio::yield_context yield)
+    {
+        int triesLeft = 100;
+        while (triesLeft > 0)
+        {
+            if (changes().size() == expected.size())
+                break;
+            session->suspend(yield);
+            --triesLeft;
+        }
+        CHECK( triesLeft > 0 );
+
+        return checkNow(session, expected);
+    };
+
+    bool checkNow(const Session::Ptr& session,
+                  const std::vector<SessionState>& expected)
+    {
+        bool isEmpty = expected.empty();
+        SessionState last = {};
+        if (!isEmpty)
+            last = expected.back();
+
+        bool ok = are(expected);
+
+        if (!isEmpty)
+            CHECK(session->state() == last);
+        ok = ok && (session->state() == last);
+        return ok;
+    };
+
+    bool are(const std::vector<SessionState>& expected)
+    {
+        // Workaround for Catch2 not being able to compare vectors of enums
+        std::vector<int> changedInts;
+        for (auto s: changes())
+            changedInts.push_back(static_cast<int>(s));
+        std::vector<int> expectedInts;
+        for (auto s: expected)
+            expectedInts.push_back(static_cast<int>(s));
+        CHECK_THAT(changedInts, Catch::Matchers::Equals(expectedInts));
+        changes().clear();
+        return changedInts == expectedInts;
+    }
+};
+
+} // anonymous namespace
 
 //------------------------------------------------------------------------------
 SCENARIO( "WAMP session management", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
+    using SS = SessionState;
     AsioContext ioctx;
     auto cnct = tcp(ioctx);
+    StateChangeListener changes;
 
     WHEN( "connecting and disconnecting" )
     {
@@ -411,30 +475,39 @@ GIVEN( "an IO service and a TCP connector" )
             {
                 // Connect and disconnect a session->
                 auto s = CoroSession<>::create(ioctx, cnct);
-                CHECK( s->state() == SessionState::disconnected );
+                s->setStateChangeHandler(changes);
+                CHECK( s->state() == SS::disconnected );
+                CHECK( changes.empty() );
                 CHECK( s->connect(yield) == 0 );
-                CHECK( s->state() == SessionState::closed );
+                CHECK( changes.check(s, {SS::connecting, SS::closed}, yield) );
                 CHECK_NOTHROW( s->disconnect() );
-                CHECK( s->state() == SessionState::disconnected );
+                CHECK( changes.check(s, {SS::disconnected}, yield) );
 
                 // Disconnecting again should be harmless
                 CHECK_NOTHROW( s->disconnect() );
-                CHECK( s->state() == SessionState::disconnected );
+                CHECK( s->state() == SS::disconnected );
+                CHECK( changes.empty() );
 
                 // Check that we can reconnect.
                 CHECK( s->connect(yield) == 0 );
-                CHECK( s->state() == SessionState::closed );
+                CHECK( changes.check(s, {SS::connecting, SS::closed}, yield) );
 
                 // Reset by letting session instance go out of scope.
             }
 
+            // State change events should not be fired when the
+            // session is destructing.
+            CHECK(changes.empty());
+
             // Check that another client can connect and disconnect.
             auto s2 = CoroSession<>::create(ioctx, cnct);
-            CHECK( s2->state() == SessionState::disconnected );
+            s2->setStateChangeHandler(changes);
+            CHECK( s2->state() == SS::disconnected );
+            CHECK( changes.empty() );
             CHECK( s2->connect(yield) == 0 );
-            CHECK( s2->state() == SessionState::closed );
+            CHECK( changes.check(s2, {SS::connecting, SS::closed}, yield) );
             CHECK_NOTHROW( s2->disconnect() );
-            CHECK( s2->state() == SessionState::disconnected );
+            CHECK( changes.check(s2, {SS::disconnected}, yield) );
         });
 
         ioctx.run();
@@ -443,6 +516,7 @@ GIVEN( "an IO service and a TCP connector" )
     WHEN( "joining and leaving" )
     {
         auto s = CoroSession<>::create(ioctx, cnct);
+        s->setStateChangeHandler(changes);
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             s->connect(yield);
@@ -451,7 +525,9 @@ GIVEN( "an IO service and a TCP connector" )
             {
                 // Check joining.
                 SessionInfo info = s->join(Realm(testRealm), yield);
-                CHECK( s->state() == SessionState::established );
+                CHECK( changes.check(s, {SS::connecting, SS::closed,
+                                         SS::establishing, SS::established},
+                                     yield) );
                 CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
@@ -465,12 +541,14 @@ GIVEN( "an IO service and a TCP connector" )
                 // Check leaving.
                 Reason reason = s->leave(yield);
                 CHECK_FALSE( reason.uri().empty() );
-                CHECK( s->state() == SessionState::closed );
+                CHECK( changes.check(s, {SS::shuttingDown, SS::closed}, yield) );
             }
 
             {
                 // Check that the same client can rejoin and leave.
                 SessionInfo info = s->join(Realm(testRealm), yield);
+                CHECK( changes.check(s, {SS::establishing, SS::established},
+                                     yield) );
                 CHECK( s->state() == SessionState::established );
                 CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
@@ -486,11 +564,11 @@ GIVEN( "an IO service and a TCP connector" )
                 Reason reason = s->leave(Reason("wamp.error.system_shutdown"),
                                          yield);
                 CHECK_FALSE( reason.uri().empty() );
-                CHECK( s->state() == SessionState::closed );
+                CHECK( changes.check(s, {SS::shuttingDown, SS::closed}, yield) );
             }
 
             CHECK_NOTHROW( s->disconnect() );
-            CHECK( s->state() == SessionState::disconnected );
+            CHECK( changes.check(s, {SS::disconnected}, yield) );
         });
 
         ioctx.run();
@@ -499,36 +577,39 @@ GIVEN( "an IO service and a TCP connector" )
     WHEN( "connecting, joining, leaving, and disconnecting" )
     {
         auto s = CoroSession<>::create(ioctx, cnct);
+        s->setStateChangeHandler(changes);
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             {
                 // Connect
                 CHECK( s->state() == SessionState::disconnected );
                 CHECK( s->connect(yield) == 0 );
-                CHECK( s->state() == SessionState::closed );
+                CHECK( changes.check(s, {SS::connecting, SS::closed}, yield) );
 
                 // Join
                 s->join(Realm(testRealm), yield);
-                CHECK( s->state() == SessionState::established );
+                CHECK( changes.check(s, {SS::establishing, SS::established},
+                                     yield) );
 
                 // Leave
                 Reason reason = s->leave(yield);
                 CHECK_FALSE( reason.uri().empty() );
-                CHECK( s->state() == SessionState::closed );
+                CHECK( changes.check(s, {SS::shuttingDown, SS::closed}, yield) );
 
                 // Disconnect
                 CHECK_NOTHROW( s->disconnect() );
-                CHECK( s->state() == SessionState::disconnected );
+                CHECK( changes.check(s, {SS::disconnected}, yield) );
             }
 
             {
                 // Connect
                 CHECK( s->connect(yield) == 0 );
-                CHECK( s->state() == SessionState::closed );
+                CHECK( changes.check(s, {SS::connecting, SS::closed}, yield) );
 
                 // Join
                 SessionInfo info = s->join(Realm(testRealm), yield);
-                CHECK( s->state() == SessionState::established );
+                CHECK( changes.check(s, {SS::establishing, SS::established},
+                                     yield) );
                 CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
@@ -542,11 +623,11 @@ GIVEN( "an IO service and a TCP connector" )
                 // Leave
                 Reason reason = s->leave(yield);
                 CHECK_FALSE( reason.uri().empty() );
-                CHECK( s->state() == SessionState::closed );
+                CHECK( changes.check(s, {SS::shuttingDown, SS::closed}, yield) );
 
                 // Disconnect
                 CHECK_NOTHROW( s->disconnect() );
-                CHECK( s->state() == SessionState::disconnected );
+                CHECK( changes.check(s, {SS::disconnected}, yield) );
             }
         });
 
@@ -558,6 +639,7 @@ GIVEN( "an IO service and a TCP connector" )
         std::error_code ec;
         auto s = Session::create(ioctx,
                                  ConnectorList({invalidTcp(ioctx), cnct}));
+        s->setStateChangeHandler(changes);
         bool connectHandlerInvoked = false;
         s->connect([&](AsyncResult<size_t> result)
         {
@@ -569,6 +651,7 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
         ioctx.reset();
         CHECK( connectHandlerInvoked );
+        CHECK( changes.checkNow(s, {SS::connecting, SS::disconnected}) );
 
         // Depending on how Asio schedules things, the connect operation
         // sometimes completes successfully before the cancellation request
@@ -590,21 +673,21 @@ GIVEN( "an IO service and a TCP connector" )
             ioctx.run();
             CHECK( ec == TransportErrc::success );
             CHECK( connected );
+            CHECK( changes.checkNow(s, {SS::connecting, SS::closed}) );
         }
     }
 
-    WHEN( "disconnecting during coroutine join" )
+    WHEN( "disconnecting during session establishment" )
     {
         std::error_code ec;
         bool connected = false;
         auto s = CoroSession<>::create(ioctx, cnct);
-        bool disconnectTriggered = false;
+        s->setStateChangeHandler(changes);
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             try
             {
                 s->connect(yield);
-                disconnectTriggered = true;
                 s->join(Realm(testRealm), yield);
                 connected = true;
             }
@@ -616,7 +699,7 @@ GIVEN( "an IO service and a TCP connector" )
 
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            while (!disconnectTriggered)
+            while (s->state() != SS::establishing)
                 ioctx.post(yield);
             s->disconnect();
         });
@@ -625,12 +708,15 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.reset();
         CHECK_FALSE( connected );
         CHECK( ec == SessionErrc::sessionEnded );
+        CHECK( changes.checkNow(s, {SS::connecting, SS::closed,
+                                    SS::establishing, SS::disconnected}) );
     }
 
     WHEN( "resetting during connect" )
     {
         bool handlerWasInvoked = false;
         auto s = Session::create(ioctx, cnct);
+        s->setStateChangeHandler(changes);
         s->connect([&handlerWasInvoked](AsyncResult<size_t>)
         {
             handlerWasInvoked = true;
@@ -639,12 +725,14 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
+        CHECK( changes.checkNow(s, {SS::connecting, SS::disconnected}) );
     }
 
     WHEN( "resetting during join" )
     {
         bool handlerWasInvoked = false;
         auto s = Session::create(ioctx, cnct);
+        s->setStateChangeHandler(changes);
         s->connect([&](AsyncResult<size_t>)
         {
             s->join(Realm(testRealm), [&](AsyncResult<SessionInfo>)
@@ -656,27 +744,31 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
+        CHECK( changes.checkNow(s, {SS::connecting, SS::closed,
+                                    SS::establishing, SS::disconnected}) );
     }
 
     WHEN( "session goes out of scope during connect" )
     {
         bool handlerWasInvoked = false;
 
-        auto session = Session::create(ioctx, cnct);
-        std::weak_ptr<Session> weakClient(session);
+        auto s = Session::create(ioctx, cnct);
+        s->setStateChangeHandler(changes);
+        std::weak_ptr<Session> weakClient(s);
 
-        session->connect([&handlerWasInvoked](AsyncResult<size_t>)
+        s->connect([&handlerWasInvoked](AsyncResult<size_t>)
         {
             handlerWasInvoked = true;
         });
 
         // Reduce session reference count to zero
-        session = nullptr;
+        s = nullptr;
         REQUIRE( weakClient.expired() );
 
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
+        CHECK( changes.are({SS::connecting}) );
     }
 }}
 
@@ -1768,19 +1860,22 @@ SCENARIO( "WAMP Connection Failures", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
 {
+    using SS = SessionState;
     AsioContext ioctx;
     auto cnct = tcp(ioctx);
     auto badCnct = invalidTcp(ioctx);
+    StateChangeListener changes;
 
     WHEN( "connecting to an invalid port" )
     {
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            auto session = CoroSession<>::create(ioctx, badCnct);
+            auto s = CoroSession<>::create(ioctx, badCnct);
+            s->setStateChangeHandler(changes);
             bool throws = false;
             try
             {
-                session->connect(yield);
+                s->connect(yield);
             }
             catch (const error::Failure& e)
             {
@@ -1788,14 +1883,18 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
                 CHECK( e.code() == TransportErrc::failed );
             }
             CHECK( throws );
+            CHECK( changes.check(s, {SS::connecting, SS::failed}, yield) );
 
             std::error_code ec;
-            session->disconnect();
-            session->connect(yield, &ec);
+            s->disconnect();
+            s->connect(yield, &ec);
             CHECK( ec == TransportErrc::failed );
+            CHECK( changes.check(s, {SS::disconnected, SS::connecting,
+                                     SS::failed}, yield) );
         });
 
         ioctx.run();
+        CHECK( changes.empty() );
     }
 
     WHEN( "connecting with multiple transports" )
@@ -1805,16 +1904,18 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             auto s = CoroSession<>::create(ioctx, connectors);
+            s->setStateChangeHandler(changes);
 
             {
                 // Connect
                 CHECK( s->state() == SessionState::disconnected );
                 CHECK( s->connect(yield) == 1 );
-                CHECK( s->state() == SessionState::closed );
+                CHECK( changes.check(s, {SS::connecting, SS::closed}, yield) );
 
                 // Join
                 SessionInfo info = s->join(Realm(testRealm), yield);
-                CHECK( s->state() == SessionState::established );
+                CHECK( changes.check(s, {SS::establishing, SS::established},
+                                     yield) );
                 CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
@@ -1827,7 +1928,7 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
 
                 // Disconnect
                 CHECK_NOTHROW( s->disconnect() );
-                CHECK( s->state() == SessionState::disconnected );
+                CHECK( changes.check(s, {SS::disconnected}, yield) );
             }
 
             {
