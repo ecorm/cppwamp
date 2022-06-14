@@ -5,11 +5,11 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-// TODO: Don't use <msgpack.hpp> convenience header, be more specific
-
 #include "../msgpack.hpp"
 #include <cassert>
-#include <msgpack.hpp>
+#include <msgpack/pack.hpp>
+#include <msgpack/unpack.hpp>
+#include <msgpack/type.hpp>
 #include "../../api.hpp"
 #include "../../internal/variantbuilder.hpp"
 

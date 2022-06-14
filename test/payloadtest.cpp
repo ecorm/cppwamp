@@ -9,6 +9,7 @@
 #include <utility>
 #include <catch2/catch.hpp>
 #include <cppwamp/payload.hpp>
+#include <cppwamp/internal/wampmessage.hpp>
 
 using namespace wamp;
 
@@ -18,13 +19,8 @@ namespace
 const Array testList{null, true, 42, "foo"};
 Object testMap{{"a", null}, {"b", true}, {"c", 42}, {"d", "foo"}};
 
-struct TestPayload : public Payload<TestPayload>
-{
-    using Base = wamp::Payload<TestPayload>;
-
-    TestPayload() {}
-    using Base::Base;
-};
+struct TestPayload : public Payload<TestPayload, internal::ResultMessage>
+{};
 
 } // anonymous namespace
 
@@ -50,12 +46,6 @@ SCENARIO( "Initializing Payload", "[Variant][Payload]" )
         auto p = TestPayload().withArgList(testList).withKwargs(testMap);
         CHECK( p.args() == testList );
         CHECK( p.kwargs() == testMap );
-    }
-
-    WHEN( "initializing from a braced initializer list" )
-    {
-        TestPayload p{null, true, 42, "foo"};
-        CHECK( p.args() == testList );
     }
 
     WHEN( "initializing from a parameter pack" )

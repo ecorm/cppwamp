@@ -13,6 +13,7 @@
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include "../asiodefs.hpp"
+#include "config.hpp"
 
 namespace wamp
 {
@@ -49,15 +50,17 @@ public:
         socket_.reset(new Socket(executor_));
 
         // AsioListener will keep this object alive until completion.
-        acceptor_->async_accept(*socket_, [this, callback](AsioErrorCode ec)
-        {
-            if (ec)
+        acceptor_->async_accept(
+            *socket_,
+            [this, CPPWAMP_MVCAP(callback)](AsioErrorCode ec)
             {
-                acceptor_.reset();
-                socket_.reset();
-            }
-            callback(ec, std::move(socket_));
-        });
+                if (ec)
+                {
+                    acceptor_.reset();
+                    socket_.reset();
+                }
+                callback(ec, std::move(socket_));
+            });
     }
 
     void cancel()

@@ -56,3 +56,7 @@ configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/.crossbar/config.json
     ${CMAKE_CURRENT_BINARY_DIR}/.crossbar/config.json
     COPYONLY)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/.crossbar/oldconfig.json
+    ${CMAKE_CURRENT_BINARY_DIR}/.crossbar/oldconfig.json
+    COPYONLY)

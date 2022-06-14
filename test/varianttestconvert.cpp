@@ -98,6 +98,43 @@ void checkVariantToVariantConvert(Variant v)
 
 } // namespace anonymous
 
+namespace user
+{
+
+enum class UserEnum
+{
+    foo,
+    bar
+};
+
+enum class StrEnum
+{
+    foo,
+    bar
+};
+
+void convert(FromVariantConverter& c, StrEnum& e)
+{
+    const auto& s = c.variant().as<String>();
+    if (s == "foo")
+        e = StrEnum::foo;
+    else if (s == "bar")
+        e = StrEnum::bar;
+    else
+        throw error::Conversion("invalid enumeration string");
+}
+
+void convert(ToVariantConverter& c, StrEnum e)
+{
+    switch (e)
+    {
+    case StrEnum::foo: c(String("foo")); break;
+    case StrEnum::bar: c(String("bar")); break;
+    }
+}
+
+} // namespace user
+
 //------------------------------------------------------------------------------
 SCENARIO( "Variant conversions", "[Variant]" )
 {
@@ -351,6 +388,73 @@ GIVEN( "an assortment of variants" )
         checkVariantToVariantConvert(Blob{0x42});
         checkVariantToVariantConvert(Array{null, true, 42, 123u, 3.14, "hello"});
         checkVariantToVariantConvert(Object{ {{"a"},{1}}, {{"b"},{"foo"}} });
+    }
+}
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Variant-enum conversions", "[Variant]" )
+{
+GIVEN( "an enumerator without a custom converter" )
+{
+    user::UserEnum e = {};
+
+    WHEN ( "converting to variant" )
+    {
+        e = user::UserEnum::bar;
+        auto v = Variant::from(e);
+
+        THEN( "the variant contains the integral value" )
+        {
+            REQUIRE( v.is<Int>() );
+            auto n = v.as<Int>();
+            using U = std::underlying_type<user::UserEnum>::type;
+            CHECK( n == static_cast<U>(user::UserEnum::bar) );
+        }
+    }
+
+    WHEN ( "converting from variant" )
+    {
+        auto v = Variant::from(user::UserEnum::bar);
+        e = v.to<user::UserEnum>();
+        CHECK( e == user::UserEnum::bar );
+    }
+
+    WHEN ( "converting from invalid variant" )
+    {
+        Variant v = "bar";
+        CHECK_THROWS_AS( v.to<user::UserEnum>(), error::Conversion );
+    }
+}
+
+GIVEN( "an enumerator with a custom converter" )
+{
+    user::StrEnum e = {};
+
+    WHEN ( "converting to variant" )
+    {
+        e = user::StrEnum::bar;
+        auto v = Variant::from(e);
+
+        THEN( "the variant contains a string value" )
+        {
+            REQUIRE( v.is<String>() );
+            auto s = v.as<String>();
+            CHECK( s == "bar" );
+        }
+    }
+
+    WHEN ( "converting from variant" )
+    {
+        Variant v = "bar";
+        auto e = v.to<user::StrEnum>();
+        CHECK( e == user::StrEnum::bar );
+    }
+
+    WHEN ( "converting from invalid variant" )
+    {
+        Variant v = 1;
+        CHECK_THROWS_AS( v.to<user::StrEnum>(), error::Access );
     }
 }
 }

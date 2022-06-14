@@ -12,7 +12,6 @@
 #include <memory>
 #include <string>
 #include "../peerdata.hpp"
-#include "../sessiondata.hpp"
 #include "../wampdefs.hpp"
 #include "asynctask.hpp"
 

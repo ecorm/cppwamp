@@ -13,8 +13,8 @@
 #include <string>
 #include "../peerdata.hpp"
 #include "../error.hpp"
+#include "../peerdata.hpp"
 #include "../registration.hpp"
-#include "../sessiondata.hpp"
 #include "../subscription.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"

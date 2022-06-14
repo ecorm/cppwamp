@@ -14,4 +14,11 @@
 #define CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS 1
 #endif
 
+// Performs move capture if available, otherwise performs copy capture
+#if defined(__cpp_init_captures) && __cpp_init_captures >= 201304
+#define CPPWAMP_MVCAP(x) x=std::move(x)
+#else
+#define CPPWAMP_MVCAP(x) x
+#endif
+
 #endif // CPPWAMP_INTERNAL_CONFIG_HPP

@@ -14,7 +14,7 @@
 #include <utility>
 #include <boost/asio/steady_timer.hpp>
 #include "../asiodefs.hpp"
-#include "../sessiondata.hpp"
+#include "../peerdata.hpp"
 
 namespace wamp
 {

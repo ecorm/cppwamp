@@ -17,7 +17,7 @@
 #include <string>
 #include "api.hpp"
 #include "asyncresult.hpp"
-#include "sessiondata.hpp"
+#include "peerdata.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
 

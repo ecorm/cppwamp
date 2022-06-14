@@ -9,6 +9,7 @@
 #include <cassert>
 #include <iostream>
 #include "../api.hpp"
+#include "config.hpp"
 
 namespace wamp
 {
@@ -106,7 +107,10 @@ CPPWAMP_INLINE void Session::setWarningHandler(
     warningHandler_ = AsyncTask<std::string>
     {
         userExecutor_,
-        [handler](AsyncResult<std::string> warning) {handler(warning.get());}
+        [CPPWAMP_MVCAP(handler)](AsyncResult<std::string> warning)
+        {
+            handler(warning.get());
+        }
     };
 }
 
@@ -124,7 +128,10 @@ CPPWAMP_INLINE void Session::setTraceHandler(
     traceHandler_ = AsyncTask<std::string>
     {
         userExecutor_,
-        [handler](AsyncResult<std::string> trace) {handler(trace.get());}
+        [CPPWAMP_MVCAP(handler)](AsyncResult<std::string> trace)
+        {
+            handler(trace.get());
+        }
     };
 }
 
@@ -141,7 +148,10 @@ CPPWAMP_INLINE void Session::setStateChangeHandler(
     stateChangeHandler_ = AsyncTask<State>
     {
         userExecutor_,
-        [handler](AsyncResult<State> state) {handler(state.get());}
+        [CPPWAMP_MVCAP(handler)](AsyncResult<State> state)
+        {
+            handler(state.get());
+        }
     };
 }
 
@@ -157,7 +167,7 @@ CPPWAMP_INLINE void Session::setChallengeHandler(
     challengeHandler_ = AsyncTask<Challenge>
     {
         userExecutor_,
-        [handler](AsyncResult<Challenge> challenge)
+        [CPPWAMP_MVCAP(handler)](AsyncResult<Challenge> challenge)
         {
             handler(std::move(challenge.get()));
         }
@@ -594,6 +604,7 @@ CPPWAMP_INLINE Session::Session(AnyExecutor userExec,
     for (const auto& cnct: connectors)
         connectors_.push_back(cnct->clone());
 
+    // TODO: Consider not imposing this on users.
     setWarningHandler( [](std::string warning)
     {
         std::cerr << "[CppWAMP] Warning: " << warning << "\n";
@@ -601,13 +612,14 @@ CPPWAMP_INLINE Session::Session(AnyExecutor userExec,
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::doConnect(size_t index, AsyncTask<size_t> handler)
+CPPWAMP_INLINE void Session::doConnect(size_t index,
+                                       AsyncTask<size_t>&& handler)
 {
     currentConnector_ = connectors_.at(index);
     std::weak_ptr<Session> self(shared_from_this());
     currentConnector_->establish(
-        [this, self, index, handler](std::error_code ec,
-                                     internal::ClientInterface::Ptr impl)
+        [this, self, index, CPPWAMP_MVCAP(handler)]
+        (std::error_code ec, internal::ClientInterface::Ptr impl) mutable
         {
             if (!self.expired() && !isTerminating_)
             {
@@ -619,7 +631,7 @@ CPPWAMP_INLINE void Session::doConnect(size_t index, AsyncTask<size_t> handler)
                     {
                         auto newIndex = index + 1;
                         if (newIndex < connectors_.size())
-                            doConnect(newIndex, handler);
+                            doConnect(newIndex, std::move(handler));
                         else
                         {
                             setState(State::failed);

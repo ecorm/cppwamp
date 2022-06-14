@@ -15,6 +15,7 @@ Basic Conversions
 
 wamp::Variant has built-in support for conversions to/from the following types:
 - arithmetic types
+- enumerations (interpreted as integers)
 - character arrays (input only)
 - `std::vector`
 - `std::map`

@@ -17,7 +17,6 @@
 #include <cppwamp/internal/messagetraits.ipp>
 #include <cppwamp/internal/registration.ipp>
 #include <cppwamp/internal/session.ipp>
-#include <cppwamp/internal/sessiondata.ipp>
 #include <cppwamp/internal/subscription.ipp>
 #include <cppwamp/internal/tcphost.ipp>
 #include <cppwamp/internal/variant.ipp>

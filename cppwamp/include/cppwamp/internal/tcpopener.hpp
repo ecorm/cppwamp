@@ -15,6 +15,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include "../asiodefs.hpp"
 #include "../tcphost.hpp"
+#include "config.hpp"
 
 namespace wamp
 {
@@ -47,8 +48,10 @@ public:
         tcp::resolver::query query(info_.hostName(), info_.serviceName());
 
         // AsioConnector will keep this object alive until completion.
-        resolver_->async_resolve(query,
-            [this, callback](AsioErrorCode ec, tcp::resolver::iterator iterator)
+        resolver_->async_resolve(
+            query,
+            [this, CPPWAMP_MVCAP(callback)](AsioErrorCode ec,
+                                            tcp::resolver::iterator iterator)
             {
                 if (ec)
                 {
@@ -81,7 +84,8 @@ private:
 
         // AsioConnector will keep this object alive until completion.
         boost::asio::async_connect(*socket_, iterator,
-            [this, callback](AsioErrorCode ec, tcp::resolver::iterator)
+            [this, CPPWAMP_MVCAP(callback)](AsioErrorCode ec,
+                                            tcp::resolver::iterator)
             {
                 resolver_.reset();
                 if (ec)

@@ -18,24 +18,19 @@
 #include <ostream>
 #include <utility>
 #include "api.hpp"
-#include "variant.hpp"
-#include "./internal/passkey.hpp"
+#include "options.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Contains a payload of positional and keyword arguments exchanged with a
-    WAMP peer. */
+/** Wrapper around a WAMP message containing payload arguments and an
+    options dictionary. */
 //------------------------------------------------------------------------------
-template <typename TDerived>
-class CPPWAMP_API Payload
+template <typename TDerived, typename TMessage>
+class CPPWAMP_API Payload : public Options<TDerived, TMessage>
 {
 public:
-    /** Converting constructor taking a braced initializer list of positional
-        variant arguments. */
-    Payload(std::initializer_list<Variant> list);
-
     /** Sets the positional arguments for this payload. */
     template <typename... Ts>
     TDerived& withArgs(Ts&&... args);
@@ -76,9 +71,13 @@ public:
     template <typename... Ts> size_t moveTo(Ts&... values);
 
 protected:
-    Payload();
+    /** Constructor taking message construction aruments. */
+    template <typename... TArgs>
+    explicit Payload(TArgs&&... args);
 
 private:
+    using Base = Options<TDerived, TMessage>;
+
     CPPWAMP_HIDDEN static void bundle(Array&);
 
     template <typename T, typename... Ts>
@@ -95,14 +94,6 @@ private:
     template <typename T, typename... Ts>
     CPPWAMP_HIDDEN static void unbundleAs(Array& array, size_t& index, T& head,
                                           Ts&... tail);
-
-    Array args_;    // List of positional arguments.
-    Object kwargs_; // Dictionary of keyword arguments.
-
-public:
-    // Internal use only
-    CPPWAMP_HIDDEN Array& args(internal::PassKey);
-    CPPWAMP_HIDDEN Object& kwargs(internal::PassKey);
 };
 
 
@@ -111,20 +102,13 @@ public:
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** @post `std::equal(list.begin(), list.end(), this->args()) == true` */
-//------------------------------------------------------------------------------
-template <typename D>
-Payload<D>::Payload(std::initializer_list<Variant> list)
-    : args_(list) {}
-
-//------------------------------------------------------------------------------
 /** Each argument is converted to a Variant using Variant::from. This allows
     custom types to be passed in, as long as the `convert` function is
     specialized for those custom types. */
 //------------------------------------------------------------------------------
-template <typename D>
+template <typename D, typename M>
 template <typename... Ts>
-D& Payload<D>::withArgs(Ts&&... args)
+D& Payload<D,M>::withArgs(Ts&&... args)
 {
     Array array;
     bundle(array, std::forward<Ts>(args)...);
@@ -132,28 +116,31 @@ D& Payload<D>::withArgs(Ts&&... args)
 }
 
 //------------------------------------------------------------------------------
-/** @post `std::equal(list.begin(), list.end(), this->args()) == true` */
+/** @post `std::equal(args.begin(), args.end(), this->args()) == true` */
 //------------------------------------------------------------------------------
-template <typename D>
-D& Payload<D>::withArgList(Array args)
+template <typename D, typename M>
+D& Payload<D,M>::withArgList(Array list)
 {
-    args_ = std::move(args);
+    this->message().args() = std::move(list);
     return static_cast<D&>(*this);
 }
 
 //------------------------------------------------------------------------------
-/** @post `std::equal(map.begin(), map.end(), this->kwargs()) == true` */
+/** @post `std::equal(kwargs.begin(), kwargs.end(), this->kwargs()) == true` */
 //------------------------------------------------------------------------------
-template <typename D>
-D& Payload<D>::withKwargs(Object kwargs)
+template <typename D, typename M>
+D& Payload<D,M>::withKwargs(Object map)
 {
-    kwargs_ = std::move(kwargs);
+    this->message().kwargs() = std::move(map);
     return static_cast<D&>(*this);
 }
 
 //------------------------------------------------------------------------------
-template <typename D>
-const Array& Payload<D>::args() const & {return args_;}
+template <typename D, typename M>
+const Array& Payload<D,M>::args() const &
+{
+    return this->message().args();
+}
 
 //------------------------------------------------------------------------------
 /** @details
@@ -163,17 +150,21 @@ Array mine = std::move(payload).args();
 ```
 @post this->args().empty() == true */
 //------------------------------------------------------------------------------
-template <typename D>
-Array Payload<D>::args() &&
+template <typename D, typename M>
+Array Payload<D,M>::args() &&
 {
-    Array result = std::move(args_);
-    args_.clear();
+    auto& array = this->message().args();
+    Array result(std::move(array));
+    array.clear();
     return result;
 }
 
 //------------------------------------------------------------------------------
-template <typename D>
-const Object& Payload<D>::kwargs() const & {return kwargs_;}
+template <typename D, typename M>
+const Object& Payload<D,M>::kwargs() const &
+{
+    return this->message().kwargs();
+}
 
 //------------------------------------------------------------------------------
 /** @details
@@ -183,11 +174,12 @@ Object mine = std::move(payload).kwargs();
 ```
 @post this->kwargs().empty() == true */
 //------------------------------------------------------------------------------
-template <typename D>
-Object Payload<D>::kwargs() &&
+template <typename D, typename M>
+Object Payload<D,M>::kwargs() &&
 {
-    Object result = std::move(kwargs_);
-    kwargs_.clear();
+    auto& object = this->message().kwargs();
+    Object result(std::move(object));
+    object.clear();
     return result;
 }
 
@@ -197,8 +189,11 @@ Object Payload<D>::kwargs() &&
     @throws std::out_of_range if the given index is not within the range
             of this->args(). */
 //------------------------------------------------------------------------------
-template <typename D>
-Variant& Payload<D>::operator[](size_t index) {return args_.at(index);}
+template <typename D, typename M>
+Variant& Payload<D,M>::operator[](size_t index)
+{
+    return this->message().args().at(index);
+}
 
 //------------------------------------------------------------------------------
 /** @details
@@ -206,10 +201,10 @@ Variant& Payload<D>::operator[](size_t index) {return args_.at(index);}
     @throws std::out_of_range if the given index is not within the range
             of this->args(). */
 //------------------------------------------------------------------------------
-template <typename D>
-const Variant& Payload<D>::operator[](size_t index) const
+template <typename D, typename M>
+const Variant& Payload<D,M>::operator[](size_t index) const
 {
-    return args_.at(index);
+    return this->message().args().at(index);
 }
 
 //------------------------------------------------------------------------------
@@ -217,10 +212,10 @@ const Variant& Payload<D>::operator[](size_t index) const
     If the key doesn't exist, a null variant is inserted under the key
     before the reference is returned. */
 //------------------------------------------------------------------------------
-template <typename D>
-Variant& Payload<D>::operator[](const std::string& keyword)
+template <typename D, typename M>
+Variant& Payload<D,M>::operator[](const std::string& keyword)
 {
-    return kwargs_[keyword];
+    return this->message().kwargs()[keyword];
 }
 
 //------------------------------------------------------------------------------
@@ -239,12 +234,12 @@ result.convertTo(s, n);
 @throws error::Conversion if an argument cannot be converted to the
         target type. */
 //------------------------------------------------------------------------------
-template <typename D>
+template <typename D, typename M>
 template <typename... Ts>
-size_t Payload<D>::convertTo(Ts&... values) const
+size_t Payload<D,M>::convertTo(Ts&... values) const
 {
     size_t index = 0;
-    unbundleTo(args_, index, values...);
+    unbundleTo(args(), index, values...);
     return index;
 }
 
@@ -265,38 +260,41 @@ result.moveTo(s, n);
 @throws error::Access if an argument's dynamic type does not match its
         associated target type. */
 //------------------------------------------------------------------------------
-template <typename D>
+template <typename D, typename M>
 template <typename... Ts>
-size_t Payload<D>::moveTo(Ts&... values)
+size_t Payload<D,M>::moveTo(Ts&... values)
 {
     size_t index = 0;
-    unbundleAs(args_, index, values...);
+    unbundleAs(this->message().args(), index, values...);
     return index;
 }
 
 //------------------------------------------------------------------------------
-template <typename D>
-Payload<D>::Payload() {}
+template <typename D, typename M>
+template <typename... TArgs>
+Payload<D,M>::Payload(TArgs&&... args)
+    : Base(std::forward<TArgs>(args)...)
+{}
 
 //------------------------------------------------------------------------------
-template <typename D>
-void Payload<D>::bundle(Array&) {}
+template <typename D, typename M>
+void Payload<D,M>::bundle(Array&) {}
 
-template <typename D>
+template <typename D, typename M>
 template <typename T, typename... Ts>
-void Payload<D>::bundle(Array& array, T&& head, Ts&&... tail)
+void Payload<D,M>::bundle(Array& array, T&& head, Ts&&... tail)
 {
     array.emplace_back(Variant::from(std::forward<T>(head)));
     bundle(array, tail...);
 }
 
 //------------------------------------------------------------------------------
-template <typename D>
-void Payload<D>::unbundleTo(const Array&, size_t&) {}
+template <typename D, typename M>
+void Payload<D,M>::unbundleTo(const Array&, size_t&) {}
 
-template <typename D>
+template <typename D, typename M>
 template <typename T, typename... Ts>
-void Payload<D>::unbundleTo(const Array& array, size_t& index, T& head,
+void Payload<D,M>::unbundleTo(const Array& array, size_t& index, T& head,
                             Ts&... tail)
 {
     if (index < array.size())
@@ -307,12 +305,12 @@ void Payload<D>::unbundleTo(const Array& array, size_t& index, T& head,
 }
 
 //------------------------------------------------------------------------------
-template <typename D>
-void Payload<D>::unbundleAs(Array&, size_t&) {}
+template <typename D, typename M>
+void Payload<D,M>::unbundleAs(Array&, size_t&) {}
 
-template <typename D>
+template <typename D, typename M>
 template <typename T, typename... Ts>
-void Payload<D>::unbundleAs(Array& array, size_t& index, T& head, Ts&... tail)
+void Payload<D,M>::unbundleAs(Array& array, size_t& index, T& head, Ts&... tail)
 {
     if (index < array.size())
     {
@@ -320,14 +318,6 @@ void Payload<D>::unbundleAs(Array& array, size_t& index, T& head, Ts&... tail)
         unbundleAs(array, ++index, tail...);
     }
 }
-
-//------------------------------------------------------------------------------
-template <typename D>
-Array& Payload<D>::args(internal::PassKey) {return args_;}
-
-//------------------------------------------------------------------------------
-template <typename D>
-Object& Payload<D>::kwargs(internal::PassKey) {return kwargs_;}
 
 } // namespace wamp
 

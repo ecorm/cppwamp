@@ -55,7 +55,7 @@ protected:
     virtual Connector::Ptr clone() const = 0;
 
     /** Starts establishing a transport connection. */
-    virtual void establish(Handler handler) = 0;
+    virtual void establish(Handler&& handler) = 0;
 
     /** Cancels a transport connection in progress.
         A TransportErrc::aborted error code will be returned via the

@@ -696,12 +696,34 @@ private:
     - use @ref CPPWAMP_CONVERSION_SPLIT_MEMBER and provide split `convertTo`
       and `convertFrom` member functions. */
 //------------------------------------------------------------------------------
-template <typename TConverter, typename TValue>
-CPPWAMP_API void convert(TConverter& c, TValue& val)
+template <typename TConverter, typename TValue,
+         DisableIf<std::is_enum<TValue>::value> = 0>
+CPPWAMP_API inline void convert(TConverter& c, TValue& val)
 {
     // Fall back to intrusive conversion if 'convert' was not specialized
     // for the given type.
     ConversionAccess::convert(c, val);
+}
+
+//------------------------------------------------------------------------------
+/** Converts an integer variant to an enumerator. */
+//------------------------------------------------------------------------------
+template <typename TEnum, EnableIf<std::is_enum<TEnum>::value> = 0>
+CPPWAMP_API inline void convert(const FromVariantConverter& c, TEnum& e)
+{
+    using U = typename std::underlying_type<TEnum>::type;
+    auto n = c.variant().to<U>();
+    e = static_cast<TEnum>(n);
+}
+
+//------------------------------------------------------------------------------
+/** Converts an enumerator to an integer variant. */
+//------------------------------------------------------------------------------
+template <typename TEnum, EnableIf<std::is_enum<TEnum>::value> = 0>
+CPPWAMP_API inline void convert(ToVariantConverter& c, const TEnum& e)
+{
+    using U = typename std::underlying_type<TEnum>::type;
+    c.variant() = static_cast<U>(e);
 }
 
 

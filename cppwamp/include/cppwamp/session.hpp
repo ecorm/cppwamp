@@ -25,8 +25,8 @@
 #include "peerdata.hpp"
 #include "connector.hpp"
 #include "error.hpp"
+#include "peerdata.hpp"
 #include "registration.hpp"
-#include "sessiondata.hpp"
 #include "subscription.hpp"
 #include "wampdefs.hpp"
 #include "internal/asynctask.hpp"
@@ -262,7 +262,7 @@ public:
 protected:
     explicit Session(AnyExecutor userExec, const ConnectorList& connectors);
 
-    void doConnect(size_t index, AsyncTask<size_t> handler);
+    void doConnect(size_t index, AsyncTask<size_t>&& handler);
 
     void setState(SessionState state);
 

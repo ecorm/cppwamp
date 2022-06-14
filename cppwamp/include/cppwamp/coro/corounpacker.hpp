@@ -18,6 +18,7 @@
 #include <boost/asio/spawn.hpp>
 #include "../session.hpp"
 #include "../unpacker.hpp"
+#include "../internal/config.hpp"
 #include "../internal/integersequence.hpp"
 
 namespace wamp
@@ -337,22 +338,24 @@ void CoroEventUnpacker<S,A...>::invoke(Event&& event,
                                        internal::IntegerSequence<Seq...>)
 {
     auto slot = slot_;
-    boost::asio::spawn(event.executor(), [slot, event](Yield yield)
-    {
-        Array args = event.args();
-        using Getter = internal::UnpackedCoroArgGetter<A...>;
-        try
+    boost::asio::spawn(
+        event.executor(),
+        [CPPWAMP_MVCAP(slot), CPPWAMP_MVCAP(event)](Yield yield)
         {
-            (*slot)(std::move(event), Getter::template get<Seq>(args)...,
-            yield);
-        }
-        catch (const error::BadType& e)
-        {
-            /*  Do nothing. This is to prevent the publisher crashing
-            subscribers when it passes Variant objects having
-            incorrect schema. */
-        }
-    });
+            Array args = event.args();
+            using Getter = internal::UnpackedCoroArgGetter<A...>;
+            try
+            {
+                (*slot)(std::move(event), Getter::template get<Seq>(args)...,
+                yield);
+            }
+            catch (const error::BadType& e)
+            {
+                /*  Do nothing. This is to prevent the publisher crashing
+                subscribers when it passes Variant objects having
+                incorrect schema. */
+            }
+        });
 }
 
 //------------------------------------------------------------------------------
@@ -401,20 +404,22 @@ void BasicCoroEventUnpacker<S,A...>::invoke(Event&& event,
     auto slot = slot_;
     Array args = std::move(event).args();
 
-    boost::asio::spawn(event.executor(), [slot, args](Yield yield)
-    {
-        using Getter = internal::UnpackedCoroArgGetter<A...>;
-        try
+    boost::asio::spawn(
+        event.executor(),
+        [CPPWAMP_MVCAP(slot), CPPWAMP_MVCAP(args)](Yield yield)
         {
-           (*slot)(Getter::template get<Seq>(args)..., yield);
-        }
-        catch (const error::BadType& e)
-        {
-           /* Do nothing. This is to prevent the publisher crashing
-              subscribers when it passes Variant objects having
-              incorrect schema. */
-        }
-    });
+            using Getter = internal::UnpackedCoroArgGetter<A...>;
+            try
+            {
+               (*slot)(Getter::template get<Seq>(args)..., yield);
+            }
+            catch (const error::BadType& e)
+            {
+               /* Do nothing. This is to prevent the publisher crashing
+                  subscribers when it passes Variant objects having
+                  incorrect schema. */
+            }
+        });
 }
 
 //------------------------------------------------------------------------------
@@ -461,48 +466,50 @@ Outcome CoroInvocationUnpacker<S,A...>::operator()(Invocation&& inv)
 template <typename S, typename... A>
 template <int ...Seq>
 void CoroInvocationUnpacker<S,A...>::invoke(Invocation&& inv,
-                                             internal::IntegerSequence<Seq...>)
+                                            internal::IntegerSequence<Seq...>)
 {
     auto slot = slot_;
-    boost::asio::spawn(inv.executor(), [slot, inv](Yield yield)
-    {
-        try
+    boost::asio::spawn(
+        inv.executor(),
+        [CPPWAMP_MVCAP(slot), CPPWAMP_MVCAP(inv)](Yield yield)
         {
-            Array args = inv.args();
-            using Getter = internal::UnpackedCoroArgGetter<A...>;
-            Outcome outcome = (*slot)(std::move(inv),
-            Getter::template get<Seq>(args)...,
-            yield);
-
-            switch (outcome.type())
+            try
             {
-            case Outcome::Type::deferred:
-            // Do nothing
-            break;
+                Array args = inv.args();
+                using Getter = internal::UnpackedCoroArgGetter<A...>;
+                Outcome outcome = (*slot)(std::move(inv),
+                Getter::template get<Seq>(args)...,
+                yield);
 
-            case Outcome::Type::result:
-            inv.yield(std::move(outcome).asResult());
-            break;
+                switch (outcome.type())
+                {
+                case Outcome::Type::deferred:
+                // Do nothing
+                break;
 
-            case Outcome::Type::error:
-            inv.yield(std::move(outcome).asError());
-            break;
+                case Outcome::Type::result:
+                inv.yield(std::move(outcome).asResult());
+                break;
 
-            default:
-            assert(false && "Unexpected wamp::Outcome::Type enumerator");
-        }
+                case Outcome::Type::error:
+                inv.yield(std::move(outcome).asError());
+                break;
 
-        }
-        catch (const Error& e)
-        {
-            inv.yield(e);
-        }
-        catch (const error::BadType& e)
-        {
-            // Forward Variant conversion exceptions as ERROR messages.
-            inv.yield(Error(e));
-        }
-    });
+                default:
+                assert(false && "Unexpected wamp::Outcome::Type enumerator");
+            }
+
+            }
+            catch (const Error& e)
+            {
+                inv.yield(e);
+            }
+            catch (const error::BadType& e)
+            {
+                // Forward Variant conversion exceptions as ERROR messages.
+                inv.yield(Error(e));
+            }
+        });
 }
 
 //------------------------------------------------------------------------------
@@ -552,25 +559,27 @@ void BasicCoroInvocationUnpacker<S,R,A...>::invoke(
     TrueType, Invocation&& inv, internal::IntegerSequence<Seq...>)
 {
     auto slot = slot_;
-    boost::asio::spawn(inv.executor(), [slot, inv](Yield yield)
-    {
-        try
+    boost::asio::spawn(
+        inv.executor(),
+        [CPPWAMP_MVCAP(slot), CPPWAMP_MVCAP(inv)](Yield yield)
         {
-            Array args = std::move(inv).args();
-            using Getter = internal::UnpackedCoroArgGetter<A...>;
-            (*slot)(Getter::template get<Seq>(args)..., yield);
-            inv.yield();
-        }
-        catch (const Error& e)
-        {
-            inv.yield(e);
-        }
-        catch (const error::BadType& e)
-        {
-            // Forward Variant conversion exceptions as ERROR messages.
-            inv.yield(Error(e));
-        }
-    });
+            try
+            {
+                Array args = std::move(inv).args();
+                using Getter = internal::UnpackedCoroArgGetter<A...>;
+                (*slot)(Getter::template get<Seq>(args)..., yield);
+                inv.yield();
+            }
+            catch (const Error& e)
+            {
+                inv.yield(e);
+            }
+            catch (const error::BadType& e)
+            {
+                // Forward Variant conversion exceptions as ERROR messages.
+                inv.yield(Error(e));
+            }
+        });
 }
 
 //------------------------------------------------------------------------------
@@ -580,26 +589,28 @@ void BasicCoroInvocationUnpacker<S,R,A...>::invoke(
     FalseType, Invocation&& inv, internal::IntegerSequence<Seq...>)
 {
     auto slot = slot_;
-    boost::asio::spawn(inv.executor(), [slot, inv](Yield yield)
-    {
-        try
+    boost::asio::spawn(
+        inv.executor(),
+        [CPPWAMP_MVCAP(slot), CPPWAMP_MVCAP(inv)](Yield yield)
         {
-            Array args = std::move(inv).args();
-            using Getter = internal::UnpackedCoroArgGetter<A...>;
-            ResultType result = (*slot)(Getter::template get<Seq>(args)...,
-                                        yield);
-            inv.yield(Result().withArgs(std::move(result)));
-        }
-        catch (const Error& e)
-        {
-            inv.yield(e);
-        }
-        catch (const error::BadType& e)
-        {
-            // Forward Variant conversion exceptions as ERROR messages.
-            inv.yield(Error(e));
-        }
-    });
+            try
+            {
+                Array args = std::move(inv).args();
+                using Getter = internal::UnpackedCoroArgGetter<A...>;
+                ResultType result = (*slot)(Getter::template get<Seq>(args)...,
+                                            yield);
+                inv.yield(Result().withArgs(std::move(result)));
+            }
+            catch (const Error& e)
+            {
+                inv.yield(e);
+            }
+            catch (const error::BadType& e)
+            {
+                // Forward Variant conversion exceptions as ERROR messages.
+                inv.yield(Error(e));
+            }
+        });
 }
 
 //------------------------------------------------------------------------------

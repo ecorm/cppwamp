@@ -21,6 +21,7 @@
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
 #include "asynctask.hpp"
+#include "config.hpp"
 #include "wampmessage.hpp"
 
 namespace wamp
@@ -66,9 +67,7 @@ protected:
     Peer(TransportPtr&& transport)
         : transport_(std::move(transport)),
           executor_(transport_->executor())
-    {
-        initMessages();
-    }
+    {}
 
     virtual bool isMsgSupported(const MessageTraits& traits) = 0;
 
@@ -100,27 +99,26 @@ protected:
         }
     }
 
-    void adjourn(Reason reason, Handler handler)
+    void adjourn(Reason& reason, Handler&& handler)
     {
-        assert(state_ == State::established);
-
-        setState(State::shuttingDown);
         using std::move;
-        Message msg = { WampMsgType::goodbye,
-                        {0u, move(reason.options({})), move(reason.uri({}))} };
+        assert(state_ == State::established);
+        setState(State::shuttingDown);
         auto self = this->shared_from_this();
-        request(msg,
-            [this, self, handler](std::error_code ec, Message reply)
+        request(
+            reason.message({}),
+            [this, self, CPPWAMP_MVCAP(handler)](std::error_code ec,
+                                                 Message reply)
             {
                 if (!ec)
                 {
                     setState(State::closed);
                     abortPending(make_error_code(SessionErrc::sessionEnded));
-                    post(handler, make_error_code(ProtocolErrc::success),
+                    post(move(handler), make_error_code(ProtocolErrc::success),
                          move(reply));
                 }
                 else
-                    post(handler, ec, Message());
+                    post(move(handler), ec, Message());
             });
     }
 
@@ -136,40 +134,9 @@ protected:
         sendMessage(msg);
     }
 
-    void sendError(WampMsgType reqType, RequestId reqId, Error failure)
+    void sendError(WampMsgType reqType, RequestId reqId, Error&& error)
     {
-        using std::move;
-
-        if (!failure.kwargs().empty())
-        {
-            auto& f = errorWithKwargsMsg_.fields;
-            f.at(1) = static_cast<Int>(reqType);
-            f.at(2) = reqId;
-            f.at(3) = move(failure.options({}));
-            f.at(4) = move(failure.reason({}));
-            f.at(5) = move(failure.args({}));
-            f.at(6) = move(failure.kwargs({}));
-            send(errorWithKwargsMsg_);
-        }
-        else if (!failure.args().empty())
-        {
-            auto& f = errorWithArgsMsg_.fields;
-            f.at(1) = static_cast<Int>(reqType);
-            f.at(2) = reqId;
-            f.at(3) = move(failure.options({}));
-            f.at(4) = move(failure.reason({}));
-            f.at(5) = move(failure.args({}));
-            send(errorWithArgsMsg_);
-        }
-        else
-        {
-            auto& f = errorMsg_.fields;
-            f.at(1) = static_cast<Int>(reqType);
-            f.at(2) = reqId;
-            f.at(3) = move(failure.options({}));
-            f.at(4) = move(failure.reason({}));
-            send(errorMsg_);
-        }
+        send(error.errorMessage({}, reqType, reqId));
     }
 
     RequestId request(Message& msg, Handler&& handler)
@@ -182,14 +149,15 @@ protected:
         return sendMessage(msg, std::move(handler), opts);
     }
 
-    void cancelCall(Message& cancelMsg, CancelMode mode, RequestId reqId)
+    void cancelCall(Cancellation& cancellation)
     {
         // If the cancel mode is not 'kill', don't wait for the router's
         // ERROR message and post the request handler immediately
         // with a SessionErrc::cancelled error code.
-        if (mode != CancelMode::kill)
+        if (cancellation.mode() != CancelMode::kill)
         {
-            auto kv = requestMap_.find({WampMsgType::call, reqId});
+            auto kv = requestMap_.find({WampMsgType::call,
+                                        cancellation.requestId()});
             if (kv != requestMap_.end())
             {
                 auto handler = std::move(kv->second.handler);
@@ -200,7 +168,7 @@ protected:
         }
 
         // Always send the CANCEL message in all modes.
-        sendMessage(cancelMsg);
+        sendMessage(cancellation.message({}));
     }
 
     template <typename TErrorValue>
@@ -268,9 +236,7 @@ private:
     RequestId sendMessage(Message& msg, Handler&& handler = nullptr,
                           RequestOptions opts = {})
     {
-        assert(msg.type != WampMsgType::none);
-
-        msg.fields.at(0) = static_cast<Int>(msg.type);
+        assert(msg.type() != WampMsgType::none);
 
         auto requestId = setMessageRequestId(msg);
 
@@ -294,11 +260,10 @@ private:
     {
         RequestId requestId = 0;
 
-        auto idPos = msg.traits().idPosition;
-        if (idPos > 0)
+        if (msg.hasRequestId())
         {
             requestId = nextRequestId();
-            msg.fields.at(idPos) = requestId;
+            msg.setRequestId(requestId);
         }
 
         return requestId;
@@ -314,7 +279,7 @@ private:
     Buffer newBuffer(const Message& msg)
     {
         Buffer buf = transport_->getBuffer();
-        Codec::encodeBuffer(msg.fields, *buf);
+        Codec::encodeBuffer(msg.fields(), *buf);
         return buf;
     }
 
@@ -331,10 +296,11 @@ private:
             {
                 std::error_code ec;
                 auto msg = Message::parse(std::move(v.as<Array>()), ec);
-                if ( checkError(ec) && checkValidMsg(msg.type) )
+                if (checkError(ec))
                 {
                     trace(msg, false);
-                    processMessage(std::move(msg));
+                    if (checkValidMsg(msg.type()))
+                        processMessage(std::move(msg));
                 }
             }
         }
@@ -361,7 +327,7 @@ private:
             processWampReply( RequestKey(msg.repliesTo(), msg.requestId()),
                               std::move(msg) );
         }
-        else switch(msg.type)
+        else switch(msg.type())
         {
             case WampMsgType::hello:
                 processHello(std::move(msg));
@@ -441,8 +407,7 @@ private:
         assert((state_ == State::establishing) ||
                (state_ == State::authenticating));
         setState(State::established);
-        processWampReply( RequestKey(WampMsgType::hello, msg.requestId()),
-                          std::move(msg) );
+        processWampReply(RequestKey(WampMsgType::hello, 0), std::move(msg));
     }
 
     void processAbort(Message&& msg)
@@ -450,8 +415,7 @@ private:
         assert((state_ == State::establishing) ||
                (state_ == State::authenticating));
         setState(State::closed);
-        processWampReply( RequestKey(WampMsgType::hello, msg.requestId()),
-                          std::move(msg) );
+        processWampReply(RequestKey(WampMsgType::hello, 0), std::move(msg));
     }
 
     void processGoodbye(Message&& msg)
@@ -463,12 +427,11 @@ private:
         }
         else
         {
-            auto reason = msg.fields.at(2).as<String>();
+            const auto& reason = message_cast<GoodbyeMessage>(msg).reasonUri();
             auto errc = lookupWampErrorUri(reason, SessionErrc::closeRealm);
             abortPending(make_error_code(errc));
-            Message reply{ WampMsgType::goodbye,
-                           {0u, Object{}, "wamp.error.goodbye_and_out"} };
-            send(reply);
+            GoodbyeMessage msg("wamp.error.goodbye_and_out");
+            send(msg);
             setState(State::closed);
         }
     }
@@ -541,28 +504,24 @@ private:
 
     void trace(const Message& msg, bool isTx)
     {
-        // TODO: Print message type names instead of number
         if (traceHandler_)
         {
             std::ostringstream oss;
-            oss << (isTx ? "Tx" : "Rx") << " message: " << msg.fields;
+            oss << (isTx ? "Tx" : "Rx") << " message: [";
+            if (!msg.fields().empty())
+            {
+                // Print message type field as {"NAME":<Field>} pair
+                oss << "{\"" << msg.nameOr("INVALID") << "\":"
+                    << msg.fields().at(0) << "}";
+
+                for (Array::size_type i=1; i<msg.fields().size(); ++i)
+                {
+                    oss << "," << msg.fields().at(i);
+                }
+            }
+            oss << ']';
             traceHandler_(oss.str());
         }
-    }
-
-    void initMessages()
-    {
-        using M = Message;
-        using T = WampMsgType;
-
-        Int n = 0;
-        String s;
-        Array a;
-        Object o;
-
-        errorMsg_           = M{ T::error, {n, n, n, o, s} };
-        errorWithArgsMsg_   = M{ T::error, {n, n, n, o, s, a} };
-        errorWithKwargsMsg_ = M{ T::error, {n, n, n, o, s, a, o} };
     }
 
     TransportPtr transport_;
@@ -573,10 +532,6 @@ private:
     RequestMap requestMap_;
     RequestId nextRequestId_ = 0;
     Buffer rxBuffer_;
-
-    Message errorMsg_;
-    Message errorWithArgsMsg_;
-    Message errorWithKwargsMsg_;
 
     static constexpr RequestId maxRequestId_ = 9007199254740992ull;
 };

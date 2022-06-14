@@ -386,6 +386,9 @@ public:
 };
 
 //------------------------------------------------------------------------------
+// TODO: Output true JSON:
+// - String as quoted, escaped JSON
+// - Real with lossless precision
 class VariantOutput : public Visitor<>
 {
 public:

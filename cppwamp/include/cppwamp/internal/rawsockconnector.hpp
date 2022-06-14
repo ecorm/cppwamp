@@ -17,6 +17,7 @@
 #include "../connector.hpp"
 #include "../error.hpp"
 #include "client.hpp"
+#include "config.hpp"
 
 namespace wamp
 {
@@ -48,7 +49,7 @@ protected:
         return Connector::Ptr(new RawsockConnector(executor_, info_));
     }
 
-    virtual void establish(Handler handler) override
+    virtual void establish(Handler&& handler) override
     {
         CPPWAMP_LOGIC_CHECK(!endpoint_, "Connection already in progress");
         endpoint_.reset(new Endpoint( Establisher(executor_, info_),
@@ -57,19 +58,19 @@ protected:
 
         auto self = shared_from_this();
         endpoint_->establish(
-            [this, self, handler](std::error_code ec, int codecId,
-                                  typename Transport::Ptr trnsp)
-        {
-            internal::ClientInterface::Ptr client;
-            using ClientType = internal::Client<Codec, Transport>;
-            if (!ec)
+            [this, self, CPPWAMP_MVCAP(handler)]
+            (std::error_code ec, int codecId, typename Transport::Ptr trnsp)
             {
-                assert(codecId == Codec::id());
-                client = ClientType::create(std::move(trnsp));
-            }
-            boost::asio::post(executor_, std::bind(handler, ec, client));
-            endpoint_.reset();
-        });
+                internal::ClientInterface::Ptr client;
+                using ClientType = internal::Client<Codec, Transport>;
+                if (!ec)
+                {
+                    assert(codecId == Codec::id());
+                    client = ClientType::create(std::move(trnsp));
+                }
+                boost::asio::post(executor_, std::bind(handler, ec, client));
+                endpoint_.reset();
+            });
     }
 
     virtual void cancel() override

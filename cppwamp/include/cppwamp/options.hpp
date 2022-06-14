@@ -13,6 +13,7 @@
 #include "traits.hpp"
 #include "variant.hpp"
 #include "./internal/passkey.hpp"
+#include "./internal/wampmessage.hpp"
 
 //------------------------------------------------------------------------------
 /** @file
@@ -23,35 +24,35 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Represents a collection of WAMP options or details. */
+/** Wrapper around a WAMP message containing an options dictionary. */
 //------------------------------------------------------------------------------
-template <typename TDerived>
+template <typename TDerived, typename TMessage>
 class CPPWAMP_API Options
 {
 public:
     /** Adds an option. */
     TDerived& withOption(String key, Variant value)
     {
-        options_.emplace(std::move(key), std::move(value));
+        message_.options().emplace(std::move(key), std::move(value));
         return static_cast<TDerived&>(*this);
     }
 
     /** Sets all options at once. */
-    TDerived& withOptions(Object options)
+    TDerived& withOptions(Object opts)
     {
-        options_ = std::move(options);
+        message_.options() = std::move(opts);
         return static_cast<TDerived&>(*this);
     }
 
-    /** Obtains the entire dictionary of options. */
-    const Object& options() const {return options_;}
+    /** Accesses the entire dictionary of options. */
+    const Object& options() const {return message_.options();}
 
     /** Obtains an option by key. */
     Variant optionByKey(const String& key) const
     {
         Variant result;
-        auto iter = options_.find(key);
-        if (iter != options_.end())
+        auto iter = options().find(key);
+        if (iter != options().end())
             result = iter->second;
         return result;
     }
@@ -64,28 +65,32 @@ public:
                                 not found. */
         ) const
     {
-        auto iter = options_.find(key);
-        if (iter != options_.end())
+        auto iter = options().find(key);
+        if (iter != options().end())
             return iter->second.template to<ValueTypeOf<T>>();
         else
             return std::forward<T>(fallback);
     }
 
 protected:
-    /** Default constructor. */
-    Options() = default;
+    using MessageType = TMessage;
 
-    /** Constructor taking initial options. */
-    explicit Options(Object options) : options_(std::move(options)) {}
+    /** Constructor taking message construction aruments. */
+    template <typename... TArgs>
+    explicit Options(TArgs&&... args)
+        : message_(std::forward<TArgs>(args)...)
+    {}
+
+    MessageType& message() {return message_;}
+
+    const MessageType& message() const {return message_;}
 
 private:
-    Object options_;
+    MessageType message_;
 
 public:
-    CPPWAMP_HIDDEN Object& options(internal::PassKey) // Internal use only
-    {
-        return options_;
-    }
+    // Internal use only
+    MessageType& message(internal::PassKey) {return message_;}
 };
 
 } // namespace wamp

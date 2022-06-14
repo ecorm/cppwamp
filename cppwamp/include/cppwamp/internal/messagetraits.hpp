@@ -28,7 +28,6 @@ enum class WampMsgType : uint8_t
     challenge    = 4,
     authenticate = 5,
     goodbye      = 6,
-    heartbeat    = 7,
     error        = 8,
     publish      = 16,
     published    = 17,
@@ -56,6 +55,9 @@ struct CPPWAMP_API MessageTraits
 
     static const MessageTraits& lookup(WampMsgType type);
 
+    bool isValid() const;
+
+    const char* name;
     WampMsgType repliesTo   : 8;
     size_t idPosition       : 8;
     size_t minSize          : 8;

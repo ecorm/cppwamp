@@ -23,6 +23,7 @@
 #include "../version.hpp"
 #include "callertimeout.hpp"
 #include "clientinterface.hpp"
+#include "config.hpp"
 #include "peer.hpp"
 
 namespace wamp
@@ -58,55 +59,43 @@ public:
 
         realm.withOption("agent", Version::agentString())
              .withOption("roles", roles());
-
         String realmUri = realm.uri();
-
-        Message msg = { WampMsgType::hello,
-                        {0u, move(realm.uri({})), move(realm.options({}))} };
         this->start();
 
         auto self = this->shared_from_this();
-        this->request(msg,
+        this->request(realm.message({}),
             [this, self, handler, realmUri]
                       (std::error_code ec, Message reply) mutable
             {
                 if (checkError(ec, handler))
                 {
-                    if (reply.type == WampMsgType::welcome)
-                    {
+                    if (reply.type() == WampMsgType::welcome)
                         onWelcome(move(handler), move(reply), move(realmUri));
-                    }
                     else
-                    {
-                        assert(reply.type == WampMsgType::abort);
-                        onJoinAborted(move(handler), move(reply));
-                    }
+                        onJoinAborted(move(handler), reply);
                 }
             });
     }
 
     virtual void authenticate(Authentication&& auth) override
     {
-        authenticateMsg_.at(1) = move(auth.signature(PassKey{}));
-        authenticateMsg_.at(2) = move(auth.options(PassKey{}));
-        this->send(authenticateMsg_);
+        this->send(auth.message({}));
     }
 
     virtual void leave(Reason&& reason, AsyncTask<Reason>&& handler) override
     {
         using std::move;
-        if (reason.uri().empty())
-            reason.uri({}) = "wamp.error.close_realm";
         timeoutScheduler_->clear();
         auto self = this->shared_from_this();
-        Base::adjourn(move(reason),
-            [this, self, handler](std::error_code ec, Message reply)
+        Base::adjourn(
+            reason,
+            [this, self, CPPWAMP_MVCAP(handler)](std::error_code ec,
+                                                 Message reply)
             {
                 if (checkError(ec, handler))
                 {
-                    auto reason = Reason(move(reply.as<String>(2)))
-                                    .withOptions(move(reply.as<Object>(1)));
-                    move(handler)(move(reason));
+                    auto& goodBye = message_cast<GoodbyeMessage>(reply);
+                    move(handler)(Reason({}, std::move(goodBye)));
                 }
                 readership_.clear();
                 registry_.clear();
@@ -132,24 +121,26 @@ public:
                            AsyncTask<Subscription>&& handler) override
     {
         using std::move;
-        SubscriptionRecord rec = {move(topic), move(slot), handler.executor()};
+        SubscriptionRecord rec = {topic.uri(), move(slot), handler.executor()};
 
-        auto kv = topics_.find(rec.topic.uri());
+        auto kv = topics_.find(rec.topicUri);
         if (kv == topics_.end())
         {
-            subscribeMsg_.at(2) = rec.topic.options();
-            subscribeMsg_.at(3) = rec.topic.uri();
             auto self = this->shared_from_this();
-            this->request(subscribeMsg_,
-                [this, self, rec, handler](std::error_code ec, Message reply)
+            this->request(
+                topic.message({}),
+                [this, self, CPPWAMP_MVCAP(rec), CPPWAMP_MVCAP(handler)]
+                (std::error_code ec, Message reply)
                 {
                     if (checkReply(WampMsgType::subscribed, ec, reply,
                                    SessionErrc::subscribeError, handler))
                     {
-                        auto subId = reply.to<SubscriptionId>(2);
+                        const auto& subMsg =
+                            message_cast<SubscribedMessage>(reply);
+                        auto subId = subMsg.subscriptionId();
                         auto slotId = nextSlotId();
                         Subscription sub(self, subId, slotId, {});
-                        topics_.emplace(rec.topic.uri(), subId);
+                        topics_.emplace(rec.topicUri, subId);
                         readership_[subId][slotId] = move(rec);
                         std::move(handler)(std::move(sub));
                     }
@@ -177,7 +168,7 @@ public:
                 if (subKv != localSubs.end())
                 {
                     if (localSubs.size() == 1u)
-                        topics_.erase(subKv->second.topic.uri());
+                        topics_.erase(subKv->second.topicUri);
 
                     localSubs.erase(subKv);
                     if (localSubs.empty())
@@ -205,7 +196,7 @@ public:
                 {
                     unsubscribed = true;
                     if (localSubs.size() == 1u)
-                        topics_.erase(subKv->second.topic.uri());
+                        topics_.erase(subKv->second.topicUri);
 
                     localSubs.erase(subKv);
                     if (localSubs.empty())
@@ -224,20 +215,23 @@ public:
 
     virtual void publish(Pub&& pub) override
     {
-        this->send(marshallPublish(std::move(pub)));
+        this->send(pub.message({}));
     }
 
     virtual void publish(Pub&& pub, AsyncTask<PublicationId>&& handler) override
     {
-        pub.options({}).emplace("acknowledge", true);
+        pub.withOption("acknowledge", true);
         auto self = this->shared_from_this();
-        this->request(marshallPublish(std::move(pub)),
-            [this, self, handler](std::error_code ec, Message reply)
+        this->request(
+            pub.message({}),
+            [this, self, CPPWAMP_MVCAP(handler)](std::error_code ec,
+                                                 Message reply)
             {
                 if (checkReply(WampMsgType::published, ec, reply,
                                SessionErrc::publishError, handler))
                 {
-                    std::move(handler)(reply.to<PublicationId>(2));
+                    const auto& pubMsg = message_cast<PublishedMessage>(reply);
+                    std::move(handler)(pubMsg.publicationId());
                 }
             });
     }
@@ -247,18 +241,19 @@ public:
                         AsyncTask<Registration>&& handler) override
     {
         using std::move;
-        RegistrationRecord rec{ move(procedure), move(callSlot),
-                                move(interruptSlot), handler.executor() };
-        enrollMsg_.at(2) = rec.procedure.options();
-        enrollMsg_.at(3) = rec.procedure.uri();
+        RegistrationRecord rec{ move(callSlot), move(interruptSlot),
+                                handler.executor() };
         auto self = this->shared_from_this();
-        this->request(enrollMsg_,
-            [this, self, rec, handler](std::error_code ec, Message reply)
+        this->request(
+            procedure.message({}),
+            [this, self, CPPWAMP_MVCAP(rec), CPPWAMP_MVCAP(handler)]
+            (std::error_code ec, Message reply)
             {
                 if (checkReply(WampMsgType::registered, ec, reply,
                                SessionErrc::registerError, handler))
                 {
-                    auto regId = reply.to<RegistrationId>(2);
+                    const auto& regMsg = message_cast<RegisteredMessage>(reply);
+                    auto regId = regMsg.registrationId();
                     Registration reg(self, regId, {});
                     registry_[regId] = move(rec);
                     move(handler)(move(reg));
@@ -274,9 +269,9 @@ public:
             registry_.erase(kv);
             if (state() == State::established)
             {
-                unregisterMsg_.at(2) = reg.id();
                 auto self = this->shared_from_this();
-                this->request( unregisterMsg_,
+                UnregisterMessage msg(reg.id());
+                this->request( msg,
                     [this, self](std::error_code ec, Message reply)
                     {
                         // Don't propagate WAMP errors, as we prefer this
@@ -297,10 +292,12 @@ public:
         if (kv != registry_.end())
         {
             registry_.erase(kv);
-            unregisterMsg_.at(2) = reg.id();
             auto self = this->shared_from_this();
-            this->request( unregisterMsg_,
-                [this, self, handler](std::error_code ec, Message reply)
+            UnregisterMessage msg(reg.id());
+            this->request(
+                msg,
+                [this, self, CPPWAMP_MVCAP(handler)](std::error_code ec,
+                                                     Message reply)
                 {
                     if (checkReply(WampMsgType::unregistered, ec, reply,
                                    SessionErrc::unregisterError, handler))
@@ -314,82 +311,46 @@ public:
     virtual RequestId call(Rpc&& rpc, AsyncTask<Result>&& handler) override
     {
         using std::move;
-        Error* errorPtr = rpc.error({});
-        RequestId id = 0;
-        auto callerTimeout = rpc.callerTimeout();
 
+        Error* errorPtr = rpc.error({});
         auto opts = RequestOptions().withProgressiveResponse(
                         rpc.progressiveResultsAreEnabled());
+        auto self = this->shared_from_this();
 
-        if (!rpc.kwargs().empty())
-        {
-            callWithKwargsMsg_.at(2) = move(rpc.options({}));
-            callWithKwargsMsg_.at(3) = move(rpc.procedure({}));
-            callWithKwargsMsg_.at(4) = move(rpc.args({}));
-            callWithKwargsMsg_.at(5) = move(rpc.kwargs({}));
-            id = callProcedure(callWithKwargsMsg_, errorPtr, move(handler),
-                               opts, callerTimeout);
-        }
-        else if (!rpc.args().empty())
-        {
-            callWithArgsMsg_.at(2) = move(rpc.options({}));
-            callWithArgsMsg_.at(3) = move(rpc.procedure({}));
-            callWithArgsMsg_.at(4) = move(rpc.args({}));
-            id = callProcedure(callWithArgsMsg_, errorPtr, move(handler),
-                               opts, callerTimeout);
-        }
-        else
-        {
-            callMsg_.at(2) = move(rpc.options({}));
-            callMsg_.at(3) = move(rpc.procedure({}));
-            id = callProcedure(callMsg_, errorPtr, move(handler), opts,
-                               callerTimeout);
-        }
+        auto requestId = this->request(rpc.message({}), opts,
+            [this, self, errorPtr, CPPWAMP_MVCAP(handler)](std::error_code ec,
+                                                           Message reply)
+            {
+                if (checkReply(WampMsgType::result, ec, reply,
+                               SessionErrc::callError, handler, errorPtr))
+                {
+                    auto& resultMsg = message_cast<ResultMessage>(reply);
+                    move(handler)(Result({}, std::move(resultMsg)));
+                }
+            });
 
-        return id;
+        if (rpc.callerTimeout().count() != 0)
+            timeoutScheduler_->add(rpc.callerTimeout(), requestId);
+
+        return requestId;
     }
 
     virtual void cancel(Cancellation&& cancellation) override
     {
-        cancelMsg_.at(1) = cancellation.requestId();
-        cancelMsg_.at(2) = move(cancellation.options({}));
-        this->cancelCall(cancelMsg_, cancellation.mode(),
-                         cancellation.requestId());
+        this->cancelCall(cancellation);
     }
 
     virtual void yield(RequestId reqId, Result&& result) override
     {
         if (!result.isProgressive())
             pendingInvocations_.erase(reqId);
-
-        using std::move;
-        if (!result.kwargs().empty())
-        {
-            yieldWithKwargsMsg_.at(1) = reqId;
-            yieldWithKwargsMsg_.at(2) = move(result.options({}));
-            yieldWithKwargsMsg_.at(3) = move(result.args({}));
-            yieldWithKwargsMsg_.at(4) = move(result.kwargs({}));
-            this->send(yieldWithKwargsMsg_);
-        }
-        else if (!result.args().empty())
-        {
-            yieldWithArgsMsg_.at(1) = reqId;
-            yieldWithArgsMsg_.at(2) = move(result.options({}));
-            yieldWithArgsMsg_.at(3) = move(result.args({}));
-            this->send(yieldWithArgsMsg_);
-        }
-        else
-        {
-            yieldMsg_.at(1) = reqId;
-            yieldMsg_.at(2) = move(result.options({}));
-            this->send(yieldMsg_);
-        }
+        this->send(result.yieldMessage({}, reqId));
     }
 
-    virtual void yield(RequestId reqId, Error&& failure) override
+    virtual void yield(RequestId reqId, Error&& error) override
     {
         pendingInvocations_.erase(reqId);
-        this->sendError(WampMsgType::invocation, reqId, std::move(failure));
+        this->sendError(WampMsgType::invocation, reqId, std::move(error));
     }
 
     virtual void setSessionHandlers(
@@ -409,13 +370,7 @@ private:
     {
         using Slot = std::function<void (Event)>;
 
-        SubscriptionRecord() : topic("") {}
-
-        SubscriptionRecord(Topic&& topic, Slot&& slot, AnyExecutor exec)
-            : topic(std::move(topic)), slot(std::move(slot)), executor(exec)
-        {}
-
-        Topic topic;
+        String topicUri;
         Slot slot;
         AnyExecutor executor;
     };
@@ -425,17 +380,6 @@ private:
         using CallSlot = std::function<Outcome (Invocation)>;
         using InterruptSlot = std::function<Outcome (Interruption)>;
 
-        RegistrationRecord() : procedure("") {}
-
-        RegistrationRecord(Procedure&& procedure, CallSlot&& callSlot,
-                           InterruptSlot&& interruptSlot, AnyExecutor exec)
-            : procedure(std::move(procedure)),
-              callSlot(std::move(callSlot)),
-              interruptSlot(std::move(interruptSlot)),
-              executor(exec)
-        {}
-
-        Procedure procedure;
         CallSlot callSlot;
         InterruptSlot interruptSlot;
         AnyExecutor executor;
@@ -456,9 +400,7 @@ private:
     Client(TransportPtr transport)
         : Base(std::move(transport)),
           timeoutScheduler_(CallerTimeoutScheduler::create(this->executor()))
-    {
-        initMessages();
-    }
+    {}
 
     Ptr shared_from_this()
     {
@@ -469,9 +411,10 @@ private:
     {
         if (state() == State::established)
         {
-            unsubscribeMsg_.at(2) = subId;
             auto self = this->shared_from_this();
-            this->request( unsubscribeMsg_,
+            UnsubscribeMessage msg(subId);
+            this->request(
+                msg,
                 [this, self](std::error_code ec, Message reply)
                 {
                     // Don't propagate WAMP errors, as we prefer
@@ -486,80 +429,17 @@ private:
     {
         CPPWAMP_LOGIC_CHECK((this->state() == State::established),
                             "Session is not established");
-        unsubscribeMsg_.at(2) = subId;
         auto self = this->shared_from_this();
-        this->request( unsubscribeMsg_,
-            [this, self, handler](std::error_code ec, Message reply)
+        UnsubscribeMessage msg(subId);
+        this->request(
+            msg,
+            [this, self, CPPWAMP_MVCAP(handler)](std::error_code ec,
+                                                 Message reply)
             {
                 if (checkReply(WampMsgType::unsubscribed, ec, reply,
                                SessionErrc::unsubscribeError, handler))
                     std::move(handler)(true);
             });
-    }
-
-    Message& marshallPublish(Pub&& pub)
-    {
-        using std::move;
-        if (!pub.kwargs().empty())
-        {
-            publishKwargsMsg_.at(2) = move(pub.options({}));
-            publishKwargsMsg_.at(3) = move(pub.topic({}));
-            publishKwargsMsg_.at(4) = move(pub.args({}));
-            publishKwargsMsg_.at(5) = move(pub.kwargs({}));
-            return publishKwargsMsg_;
-        }
-        else if (!pub.args().empty())
-        {
-            publishArgsMsg_.at(2) = move(pub.options({}));
-            publishArgsMsg_.at(3) = move(pub.topic({}));
-            publishArgsMsg_.at(4) = move(pub.args({}));
-            return publishArgsMsg_;
-        }
-        else
-        {
-            publishMsg_.at(2) = move(pub.options({}));
-            publishMsg_.at(3) = move(pub.topic({}));
-            return publishMsg_;
-        }
-    }
-
-    RequestId callProcedure(Message& msg, Error* errorPtr,
-                            AsyncTask<Result>&& handler, RequestOptions opts,
-                            CallerTimeoutDuration callerTimeout)
-    {
-        auto self = this->shared_from_this();
-
-        auto requestId = this->request(msg, opts,
-            [this, self, errorPtr, handler](std::error_code ec, Message reply)
-            {
-                if ((reply.type == WampMsgType::error) && (errorPtr != nullptr))
-                {
-                    *errorPtr = Error(reply.as<String>(4));
-                    if (reply.size() >= 6)
-                        errorPtr->withArgList(reply.as<Array>(5));
-                    if (reply.size() >= 7)
-                        errorPtr->withKwargs(reply.as<Object>(6));
-                }
-
-                if (checkReply(WampMsgType::result, ec, reply,
-                               SessionErrc::callError, handler))
-                {
-                    using std::move;
-                    Result result({}, reply.to<RequestId>(1),
-                                  move(reply.as<Object>(2)));
-
-                    if (reply.size() >= 4)
-                        result.withArgList(move(reply.as<Array>(3)));
-                    if (reply.size() >= 5)
-                        result.withKwargs(move(reply.as<Object>(4)));
-                    move(handler)(move(result));
-                }
-            });
-
-        if (callerTimeout.count() != 0)
-            timeoutScheduler_->add(callerTimeout, requestId);
-
-        return requestId;
     }
 
     virtual bool isMsgSupported(const MessageTraits& traits) override
@@ -569,7 +449,7 @@ private:
 
     virtual void onInbound(Message msg) override
     {
-        switch (msg.type)
+        switch (msg.type())
         {
         case WampMsgType::challenge:
             onChallenge(std::move(msg));
@@ -604,17 +484,14 @@ private:
         });
 
         using std::move;
-        move(handler)(SessionInfo({},
-                                  move(realmUri),
-                                  move(reply.as<Int>(1)),
-                                  move(reply.as<Object>(2))));
+        auto& welcomeMsg = message_cast<WelcomeMessage>(reply);
+        move(handler)(SessionInfo({}, move(realmUri), move(welcomeMsg)));
     }
 
-    void onJoinAborted(AsyncTask<SessionInfo>&& handler, Message&& reply)
+    void onJoinAborted(AsyncTask<SessionInfo>&& handler, const Message& reply)
     {
-        const auto& uri = reply.as<String>(2);
-        auto errc = lookupWampErrorUri(uri,
-                                       SessionErrc::joinError);
+        const auto& uri = message_cast<AbortMessage>(reply).reasonUri();
+        auto errc = lookupWampErrorUri(uri, SessionErrc::joinError);
 
         std::ostringstream oss;
         oss << "with URI=" << uri;
@@ -631,8 +508,8 @@ private:
         using std::move;
 
         auto self = this->shared_from_this();
-        Challenge challenge({}, self, std::move(msg.as<String>(1)));
-        challenge.withOptions(std::move(msg.as<Object>(2)));
+        auto& challengeMsg = message_cast<ChallengeMessage>(msg);
+        Challenge challenge({}, self, std::move(challengeMsg));
 
         if (challengeHandler_)
         {
@@ -656,28 +533,14 @@ private:
 
     void onEvent(Message&& msg)
     {
-        using std::move;
-
-        auto subId = msg.to<SubscriptionId>(1);
-        auto pubId = msg.to<PublicationId>(2);
-
-        auto kv = readership_.find(subId);
+        auto& eventMsg = message_cast<EventMessage>(msg);
+        auto kv = readership_.find(eventMsg.subscriptionId());
         if (kv != readership_.end())
         {
             const auto& localSubs = kv->second;
             assert(!localSubs.empty());
-            Event event({},
-                        msg.to<SubscriptionId>(1),
-                        msg.to<PublicationId>(2),
-                        localSubs.begin()->second.executor,
-                        move(msg.as<Object>(3)));
-
-            if (msg.fields.size() >= 5)
-                event.args({}) = move(msg.as<Array>(4));
-            if (msg.fields.size() >= 6)
-                event.kwargs({}) = move(msg.as<Object>(5));
-
-            auto self = this->shared_from_this();
+            Event event({}, localSubs.begin()->second.executor,
+                        std::move(eventMsg));
             for (const auto& subKv: localSubs)
                 dispatchEvent(subKv.second, event);
         }
@@ -685,7 +548,8 @@ private:
         {
             std::ostringstream oss;
             oss << "Received an EVENT that is not subscribed to "
-                   "(with subId=" << subId << " pubId=" << pubId << ")";
+                   "(with subId=" << eventMsg.subscriptionId()
+                << " pubId=" << eventMsg.publicationId() << ")";
             warn(oss.str());
         }
     }
@@ -733,41 +597,30 @@ private:
 
     void onInvocation(Message&& msg)
     {
-        using std::move;
+        auto& invMsg = message_cast<InvocationMessage>(msg);
+        auto requestId = invMsg.requestId();
+        auto regId = invMsg.registrationId();
 
-        auto requestId = msg.to<RequestId>(1);
-        auto regId = msg.to<RegistrationId>(2);
         auto kv = registry_.find(regId);
         if (kv != registry_.end())
         {
             auto self = this->shared_from_this();
             const RegistrationRecord& rec = kv->second;
-            Invocation inv({}, self, requestId, rec.executor,
-                           move(msg.as<Object>(3)));
-            if (msg.fields.size() >= 5)
-                inv.args({}) = move(msg.as<Array>(4));
-            if (msg.fields.size() >= 6)
-                inv.kwargs({}) = move(msg.as<Object>(5));
-
+            Invocation inv({}, self, rec.executor, std::move(invMsg));
             pendingInvocations_[requestId] = regId;
-            dispatchRpcRequest(rec.executor, rec.callSlot, inv);
+            dispatchRpcRequest(rec.executor, rec.callSlot, std::move(inv));
         }
         else
         {
             this->sendError(WampMsgType::invocation, requestId,
-                    Error("wamp.error.no_such_procedure")
-                        .withArgs("There is no RPC with registration ID " +
-                                  std::to_string(regId)));
+                            Error("wamp.error.no_such_procedure"));
         }
     }
 
     void onInterrupt(Message&& msg)
     {
-        using std::move;
-
-        auto requestId = msg.to<RequestId>(1);
-
-        auto found = pendingInvocations_.find(requestId);
+        auto& interruptMsg = message_cast<InterruptMessage>(msg);
+        auto found = pendingInvocations_.find(interruptMsg.requestId());
         if (found != pendingInvocations_.end())
         {
             auto registrationId = found->second;
@@ -778,19 +631,20 @@ private:
             {
                 auto self = this->shared_from_this();
                 const RegistrationRecord& rec = kv->second;
-                Interruption intr({}, self, requestId, rec.executor,
-                                  move(msg.as<Object>(2)));
-                dispatchRpcRequest(rec.executor, rec.interruptSlot, intr);
+                Interruption intr({}, self, rec.executor,
+                                  std::move(interruptMsg));
+                dispatchRpcRequest(rec.executor, rec.interruptSlot,
+                                   std::move(intr));
             }
         }
     }
 
     template <typename TSlot, typename TRequest>
     void dispatchRpcRequest(AnyExecutor exec, const TSlot& slot,
-                            const TRequest& request)
+                            TRequest&& request)
     {
         auto self = this->shared_from_this();
-        boost::asio::post(exec, [this, self, slot, request]()
+        boost::asio::post(exec, [this, self, slot, CPPWAMP_MVCAP(request)]()
         {
             // Copy the request ID before the request object gets moved away.
             auto requestId = request.requestId();
@@ -837,24 +691,29 @@ private:
     }
 
     template <typename THandler>
-    bool checkReply(WampMsgType type, std::error_code ec, const Message& reply,
-                    SessionErrc defaultErrc, THandler&& handler)
+    bool checkReply(WampMsgType type, std::error_code ec, Message& reply,
+                    SessionErrc defaultErrc, THandler&& handler,
+                    Error* errorPtr = nullptr)
     {
         bool success = checkError(ec, handler);
         if (success)
         {
-            if (reply.type == WampMsgType::error)
+            if (reply.type() == WampMsgType::error)
             {
                 success = false;
-                const auto& uri = reply.as<String>(4);
+                auto& errMsg = message_cast<ErrorMessage>(reply);
+                const auto& uri = errMsg.reasonUri();
                 auto errc = lookupWampErrorUri(uri, defaultErrc);
 
                 std::ostringstream oss;
                 oss << "with URI=" << uri;
-                if (reply.size() >= 6 && !reply.as<Array>(5).empty())
-                    oss << ", Args=" << reply.at(5);
-                if (reply.size() >= 7 && !reply.as<Object>(6).empty())
-                    oss << ", ArgsKv=" << reply.at(6);
+                if (!errMsg.args().empty())
+                    oss << ", Args=" << errMsg.args();
+                if (!errMsg.kwargs().empty())
+                    oss << ", ArgsKv=" << errMsg.kwargs();
+
+                if (errorPtr != nullptr)
+                    *errorPtr = Error({}, std::move(errMsg));
 
                 using ResultType = typename ResultTypeOfHandler<
                         typename std::decay<THandler>::type >::Type;
@@ -862,12 +721,12 @@ private:
                 std::forward<THandler>(handler)(std::move(result));
             }
             else
-                assert((reply.type == type) && "Unexpected WAMP message type");
+                assert((reply.type() == type) && "Unexpected WAMP message type");
         }
         return success;
     }
 
-    void warnReply(WampMsgType type, std::error_code ec, const Message& reply,
+    void warnReply(WampMsgType type, std::error_code ec, Message& reply,
                    SessionErrc defaultErrc)
     {
         auto self = this->shared_from_this();
@@ -886,33 +745,6 @@ private:
             warningHandler_(log);
     }
 
-    void initMessages()
-    {
-        using M = Message;
-        using T = WampMsgType;
-
-        Int n = 0;
-        String s;
-        Array a;
-        Object o;
-
-        authenticateMsg_       = M{ T::authenticate, {n, s, o} };
-        publishMsg_            = M{ T::publish,      {n, n, o, s} };
-        publishArgsMsg_        = M{ T::publish,      {n, n, o, s, a} };
-        publishKwargsMsg_      = M{ T::publish,      {n, n, o, s, a, o} };
-        subscribeMsg_          = M{ T::subscribe,    {n, n, o, s} };
-        unsubscribeMsg_        = M{ T::unsubscribe,  {n, n, n} };
-        enrollMsg_             = M{ T::enroll,       {n, n, o, s} };
-        unregisterMsg_         = M{ T::unregister,   {n, n, n} };
-        callMsg_               = M{ T::call,         {n, n, o, s} };
-        callWithArgsMsg_       = M{ T::call,         {n, n, o, s, a} };
-        callWithKwargsMsg_     = M{ T::call,         {n, n, o, s, a, o} };
-        cancelMsg_             = M{ T::cancel,       {n, n, o} };
-        yieldMsg_              = M{ T::yield,        {n, n, o} };
-        yieldWithArgsMsg_      = M{ T::yield,        {n, n, o, a} };
-        yieldWithKwargsMsg_    = M{ T::yield,        {n, n, o, a, o} };
-    }
-
     SlotId nextSlotId() {return nextSlotId_++;}
 
     SlotId nextSlotId_ = 0;
@@ -923,22 +755,6 @@ private:
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
     AsyncTask<std::string> warningHandler_;
     AsyncTask<Challenge> challengeHandler_;
-
-    Message authenticateMsg_;
-    Message publishMsg_;
-    Message publishArgsMsg_;
-    Message publishKwargsMsg_;
-    Message subscribeMsg_;
-    Message unsubscribeMsg_;
-    Message enrollMsg_;
-    Message unregisterMsg_;
-    Message callMsg_;
-    Message callWithArgsMsg_;
-    Message callWithKwargsMsg_;
-    Message cancelMsg_;
-    Message yieldMsg_;
-    Message yieldWithArgsMsg_;
-    Message yieldWithKwargsMsg_;
 };
 
 

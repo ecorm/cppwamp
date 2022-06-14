@@ -14,6 +14,7 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include "../asiodefs.hpp"
 #include "../udspath.hpp"
+#include "config.hpp"
 
 namespace wamp
 {
@@ -46,8 +47,9 @@ public:
         info_.options().applyTo(*socket_);
 
         // AsioConnector will keep this object alive until completion.
-        socket_->async_connect(info_.pathName(),
-            [this, callback](AsioErrorCode ec)
+        socket_->async_connect(
+            info_.pathName(),
+            [this, CPPWAMP_MVCAP(callback)](AsioErrorCode ec)
             {
                 if (ec)
                     socket_.reset();

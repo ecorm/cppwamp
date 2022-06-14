@@ -18,7 +18,7 @@
 #include <tuple>
 #include <type_traits>
 #include "api.hpp"
-#include "sessiondata.hpp"
+#include "peerdata.hpp"
 #include "variant.hpp"
 #include "./internal/integersequence.hpp"
 
