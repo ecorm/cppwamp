@@ -127,7 +127,7 @@ Related Functions</h2></td></tr>
 class wamp::BasicCoroEventUnpacker&lt; TSlot, TArgs &gt;</h3>
 
 <p>Wrapper around an event slot which automatically unpacks positional payload arguments. </p>
-<p>The <a class="el" href="classwamp_1_1_basic_coro_event_unpacker.html#a31b0d734488df6af2e81c0dc38cca4bb">wamp::basicCoroEvent</a> convenience function should be used to construct instances of <a class="el" href="classwamp_1_1_basic_coro_event_unpacker.html" title="Wrapper around an event slot which automatically unpacks positional payload arguments.">BasicCoroEventUnpacker</a>. This class differs from <a class="el" href="classwamp_1_1_coro_event_unpacker.html" title="Wrapper around an event coroutine slot which automatically unpacks positional payload arguments.">CoroEventUnpacker</a> in that the slot type is not expected to take an <a class="el" href="classwamp_1_1_event.html" title="Represents a published event.">Event</a> as the first parameter. </p><dl class="section see"><dt>See also</dt><dd><a class="el" href="classwamp_1_1_basic_coro_event_unpacker.html#a31b0d734488df6af2e81c0dc38cca4bb">wamp::basicCoroEvent</a> </dd>
+<p>The <a class="el" href="classwamp_1_1_basic_coro_event_unpacker.html#a31b0d734488df6af2e81c0dc38cca4bb">wamp::basicCoroEvent</a> convenience function should be used to construct instances of <a class="el" href="classwamp_1_1_basic_coro_event_unpacker.html" title="Wrapper around an event slot which automatically unpacks positional payload arguments.">BasicCoroEventUnpacker</a>. This class differs from <a class="el" href="classwamp_1_1_coro_event_unpacker.html" title="Wrapper around an event coroutine slot which automatically unpacks positional payload arguments.">CoroEventUnpacker</a> in that the slot type is not expected to take an <a class="el" href="classwamp_1_1_event.html" title="Provides the subscription/publication ids, options, and payload contained within WAMP EVENT messages.">Event</a> as the first parameter. </p><dl class="section see"><dt>See also</dt><dd><a class="el" href="classwamp_1_1_basic_coro_event_unpacker.html#a31b0d734488df6af2e81c0dc38cca4bb">wamp::basicCoroEvent</a> </dd>
 <dd>
 <a class="el" href="_subscriptions.html#BasicCoroutineEventSlots">Basic Coroutine Event Slots</a> </dd></dl>
 <dl class="tparams"><dt>Template Parameters</dt><dd>
@@ -187,7 +187,7 @@ template&lt;typename... TArgs, typename TSlot &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Converts an unpacked event slot into a regular slot than can be passed to <a class="el" href="classwamp_1_1_session.html#a93b8686842db786a7d065c601f75cb5a" title="Subscribes to WAMP pub/sub events having the given topic.">Session::subscribe</a>. This function differs from <code>unpackedCoroEvent</code> in that the slot type is not expected to take an <a class="el" href="classwamp_1_1_event.html" title="Represents a published event.">Event</a> as the first parameter. </p><dl class="section see"><dt>See also</dt><dd><a class="el" href="_subscriptions.html#BasicCoroutineEventSlots">Basic Coroutine Event Slots</a> </dd></dl>
+<p>Converts an unpacked event slot into a regular slot than can be passed to <a class="el" href="classwamp_1_1_session.html#a93b8686842db786a7d065c601f75cb5a" title="Subscribes to WAMP pub/sub events having the given topic.">Session::subscribe</a>. This function differs from <code>unpackedCoroEvent</code> in that the slot type is not expected to take an <a class="el" href="classwamp_1_1_event.html" title="Provides the subscription/publication ids, options, and payload contained within WAMP EVENT messages.">Event</a> as the first parameter. </p><dl class="section see"><dt>See also</dt><dd><a class="el" href="_subscriptions.html#BasicCoroutineEventSlots">Basic Coroutine Event Slots</a> </dd></dl>
 <dl class="section return"><dt>Returns</dt><dd>An <a class="el" href="classwamp_1_1_basic_coro_event_unpacker.html" title="Wrapper around an event slot which automatically unpacks positional payload arguments.">BasicCoroEventUnpacker</a> that wraps the the given slot. </dd></dl>
 <dl class="tparams"><dt>Template Parameters</dt><dd>
   <table class="tparams">
@@ -208,7 +208,7 @@ template&lt;typename... TArgs, typename TSlot &gt; </div>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacewamp.html">wamp</a></li><li class="navelem"><a class="el" href="classwamp_1_1_basic_coro_event_unpacker.html">BasicCoroEventUnpacker</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

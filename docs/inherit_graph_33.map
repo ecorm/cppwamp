@@ -1,5 +1,4 @@
 <map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" href="$classwamp_1_1_options.html" title=" " alt="" coords="6,5,181,32"/>
-<area shape="rect" id="node2" href="$classwamp_1_1_pub.html" title="Contains the topic URI, options, and payload passed to Session::publish." alt="" coords="229,31,324,57"/>
-<area shape="rect" id="node3" href="$classwamp_1_1_payload.html" title=" " alt="" coords="5,56,181,83"/>
+<area shape="rect" id="node1" href="$classwamp_1_1_registration.html" title="Represents a remote procedure registration." alt="" coords="5,5,155,32"/>
+<area shape="rect" id="node2" href="$classwamp_1_1_scoped_registration.html" title="Limits a Registration&#39;s lifetime to a particular scope." alt="" coords="203,5,399,32"/>
 </map>

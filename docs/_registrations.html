@@ -113,8 +113,8 @@ Call Slots</h1>
 <p><a class="el" href="classwamp_1_1_session.html#a04846bb5a40a74a0fe8cd37e3d0102c0" title="Registers a WAMP remote procedure call.">wamp::Session::enroll</a> expects a call slot with the following signature:</p>
 <div class="fragment"><div class="line"><a class="code" href="classwamp_1_1_outcome.html">wamp::Outcome</a> <span class="keyword">function</span>(<a class="code" href="classwamp_1_1_invocation.html">wamp::Invocation</a>)</div>
 </div><!-- fragment --><p>where:</p><ul>
-<li><a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a> contains a <a class="el" href="classwamp_1_1_result.html" title="Contains a remote procedure result yielded by a callee or received by a caller.">wamp::Result</a> or a <a class="el" href="classwamp_1_1_error.html" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages.">wamp::Error</a> object to be sent back to the caller, and,</li>
-<li><a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other details related to a remote procedure call invocation.">wamp::Invocation</a> is an object containing information and payload arguments related to the RPC invocation.</li>
+<li><a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a> contains a <a class="el" href="classwamp_1_1_result.html" title="Contains the remote procedure result options/payload within WAMP RESULT and YIELD messages.">wamp::Result</a> or a <a class="el" href="classwamp_1_1_error.html" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages.">wamp::Error</a> object to be sent back to the caller, and,</li>
+<li><a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other options within WAMP INVOCATION messages.">wamp::Invocation</a> is an object containing information and payload arguments related to the RPC invocation.</li>
 </ul>
 <p>The following table summarizes the different types of call slots that can be used with the library:</p>
 <table class="markdownTable">
@@ -136,7 +136,7 @@ Basic Call Slots</h1>
 <p><code>wamp::basicRpc</code> expects a call slot with the following signature:</p>
 <div class="fragment"><div class="line">TResult <span class="keyword">function</span>(TArgs...)</div>
 </div><!-- fragment --><p>where</p><ul>
-<li><code>TResult</code> is a static return type that will be automatically converted to a single <a class="el" href="classwamp_1_1_result.html" title="Contains a remote procedure result yielded by a callee or received by a caller.">wamp::Result</a> payload argument and then returned as a <a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a>. This return type may be <code>void</code> if the RPC is not expected to return a value.</li>
+<li><code>TResult</code> is a static return type that will be automatically converted to a single <a class="el" href="classwamp_1_1_result.html" title="Contains the remote procedure result options/payload within WAMP RESULT and YIELD messages.">wamp::Result</a> payload argument and then returned as a <a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a>. This return type may be <code>void</code> if the RPC is not expected to return a value.</li>
 <li><code>TArgs...</code> matches the template parameter pack that was passed to <code>wamp::basicRpc</code>.</li>
 </ul>
 <p>Examples of basic call slots are: </p><div class="fragment"><div class="line"><span class="keywordtype">void</span> setSpeed(<span class="keywordtype">float</span> speed) { ... }</div>
@@ -162,7 +162,7 @@ Basic Coroutine Call Slots</h1>
 <p><code>wamp::basicCoroRpc</code> expects a call slot with the following signature:</p>
 <div class="fragment"><div class="line">TResult <span class="keyword">function</span>(TArgs..., boost::asio::yield_context)</div>
 </div><!-- fragment --><p>where</p><ul>
-<li><code>TResult</code> is a static return type that will be automatically converted to a single <a class="el" href="classwamp_1_1_result.html" title="Contains a remote procedure result yielded by a callee or received by a caller.">wamp::Result</a> payload argument and then returned as a <a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a>. This return type may be <code>void</code> if the RPC is not expected to return a value.</li>
+<li><code>TResult</code> is a static return type that will be automatically converted to a single <a class="el" href="classwamp_1_1_result.html" title="Contains the remote procedure result options/payload within WAMP RESULT and YIELD messages.">wamp::Result</a> payload argument and then returned as a <a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a>. This return type may be <code>void</code> if the RPC is not expected to return a value.</li>
 <li><code>TArgs...</code> matches the template parameter pack that was passed to <code>wamp::basicCoroRpc</code>.</li>
 <li><code>boost::asio::yield_context</code> represents the RPC's coroutine context.</li>
 </ul>
@@ -191,12 +191,12 @@ Unpacked Call Slots</h1>
 <p><code>wamp::unpackedRpc</code> expects a call slot with the following signature:</p>
 <div class="fragment"><div class="line"><a class="code" href="classwamp_1_1_outcome.html">wamp::Outcome</a> <span class="keyword">function</span>(<a class="code" href="classwamp_1_1_invocation.html">wamp::Invocation</a>, TArgs...)</div>
 </div><!-- fragment --><p>where</p><ul>
-<li><a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a> contains a <a class="el" href="classwamp_1_1_result.html" title="Contains a remote procedure result yielded by a callee or received by a caller.">wamp::Result</a> or a <a class="el" href="classwamp_1_1_error.html" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages.">wamp::Error</a> object to be sent back to the caller,</li>
-<li><a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other details related to a remote procedure call invocation.">wamp::Invocation</a> is an object containing information and payload arguments related to the RPC invocation, and,</li>
+<li><a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a> contains a <a class="el" href="classwamp_1_1_result.html" title="Contains the remote procedure result options/payload within WAMP RESULT and YIELD messages.">wamp::Result</a> or a <a class="el" href="classwamp_1_1_error.html" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages.">wamp::Error</a> object to be sent back to the caller,</li>
+<li><a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other options within WAMP INVOCATION messages.">wamp::Invocation</a> is an object containing information and payload arguments related to the RPC invocation, and,</li>
 <li><code>TArgs...</code> matches the template parameter pack that was passed to <code>wamp::unpackedRpc</code>.</li>
 </ul>
 <dl class="section note"><dt>Note</dt><dd>Unpacked call slots differ from basic call slots in the following ways:<ul>
-<li>Unpacked call slots are passed a <a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other details related to a remote procedure call invocation.">wamp::Invocation</a> object, which contains metadata on the call invocation itself. It also allows the slot to manually send a <code>YIELD</code> message back to the caller in a separate asynchronous task.</li>
+<li>Unpacked call slots are passed a <a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other options within WAMP INVOCATION messages.">wamp::Invocation</a> object, which contains metadata on the call invocation itself. It also allows the slot to manually send a <code>YIELD</code> message back to the caller in a separate asynchronous task.</li>
 <li>Unpacked call slots are expected to return a <a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a> object. This allows such slots to return Outcome::deferred(), which indicates to the library that the callee will manually send a <code>YIELD</code> message back to the caller.</li>
 </ul>
 </dd></dl>
@@ -223,21 +223,21 @@ Unpacked Coroutine Call Slots</h1>
 <p><code>wamp::unpackedCoroRpc</code> expects a call slot with the following signature:</p>
 <div class="fragment"><div class="line"><a class="code" href="classwamp_1_1_outcome.html">wamp::Outcome</a> <span class="keyword">function</span>(<a class="code" href="classwamp_1_1_invocation.html">wamp::Invocation</a>, TArgs..., boost::asio::yield_context)</div>
 </div><!-- fragment --><p>where</p><ul>
-<li><a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a> contains a <a class="el" href="classwamp_1_1_result.html" title="Contains a remote procedure result yielded by a callee or received by a caller.">wamp::Result</a> or a <a class="el" href="classwamp_1_1_error.html" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages.">wamp::Error</a> object to be sent back to the caller,</li>
-<li><a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other details related to a remote procedure call invocation.">wamp::Invocation</a> is an object containing information and payload arguments related to the RPC invocation, and,</li>
+<li><a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a> contains a <a class="el" href="classwamp_1_1_result.html" title="Contains the remote procedure result options/payload within WAMP RESULT and YIELD messages.">wamp::Result</a> or a <a class="el" href="classwamp_1_1_error.html" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages.">wamp::Error</a> object to be sent back to the caller,</li>
+<li><a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other options within WAMP INVOCATION messages.">wamp::Invocation</a> is an object containing information and payload arguments related to the RPC invocation, and,</li>
 <li><code>TArgs...</code> matches the template parameter pack that was passed to <code>wamp::unpackedRpc</code>.</li>
 <li><code>boost::asio::yield_context</code> represents the RPC's coroutine context.</li>
 </ul>
 <h1><a class="anchor" id="RpcOutcomes"></a>
 RPC Outcomes</h1>
 <p>RPC call slots are required to return a <a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a> object. <code>Outcome</code> is a discriminated union (i.e. variant) that can contain either:</p><ul>
-<li>a <a class="el" href="classwamp_1_1_result.html" title="Contains a remote procedure result yielded by a callee or received by a caller.">wamp::Result</a> object, which contains positional/keyword return arguments,</li>
+<li>a <a class="el" href="classwamp_1_1_result.html" title="Contains the remote procedure result options/payload within WAMP RESULT and YIELD messages.">wamp::Result</a> object, which contains positional/keyword return arguments,</li>
 <li>a <a class="el" href="classwamp_1_1_error.html" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages.">wamp::Error</a> object, which contains an error URI and other error-related information, or,</li>
 <li>none of the above, which means that the outcome is <em>deferred</em>.</li>
 </ul>
 <h2><a class="anchor" id="ResultOutcomes"></a>
 Result Outcomes</h2>
-<p>An RPC call slot can send a result back to the caller by returning a <a class="el" href="classwamp_1_1_result.html" title="Contains a remote procedure result yielded by a callee or received by a caller.">wamp::Result</a> object:</p>
+<p>An RPC call slot can send a result back to the caller by returning a <a class="el" href="classwamp_1_1_result.html" title="Contains the remote procedure result options/payload within WAMP RESULT and YIELD messages.">wamp::Result</a> object:</p>
 <div class="fragment"><div class="line">Outcome add(Invocation, <span class="keywordtype">int</span> a, <span class="keywordtype">int</span> b)</div>
 <div class="line">{</div>
 <div class="line">    <span class="keywordflow">return</span> Result().withArgs(a + b);</div>
@@ -295,49 +295,59 @@ Deferred Outcomes</h2>
 <div class="line">}</div>
 </div><!-- fragment --><h1><a class="anchor" id="ScopedRegistrations"></a>
 Scoped Registrations</h1>
-<p>A <a class="el" href="classwamp_1_1_scoped_registration.html" title="Limits a Registration&#39;s lifetime to a particular scope.">wamp::ScopedRegistration</a> object can be used to limit a registration's lifetime to a particular scope. When a <code>ScopedRegistration</code> object is destroyed, it automatically unregisters the registration. This helps in automating the lifetime management of RPC registrations using RAII techniques.</p>
-<p>Here's an example illustrating how <code>ScopedRegistration</code> can be used to manage the lifetime of a registration:</p>
-<div class="fragment"><div class="line"><span class="keyword">struct </span>Delegate</div>
-<div class="line">{</div>
-<div class="line">    Outcome rpc(Invocation inv);</div>
+<p>A <a class="el" href="classwamp_1_1_scoped_registration.html" title="Limits a Registration&#39;s lifetime to a particular scope.">wamp::ScopedRegistration</a> object can be used to limit a registration's lifetime to a particular scope. When a <code>ScopedRegistration</code> object is destroyed, it automatically unregisters the RPC. This helps in automating the lifetime management of RPC registrations using <a href="https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization">RAII</a> techniques.</p>
+<p>Here's an example illustrating how <code>ScopedRegistration</code> can be used to manage the lifetime of several registrations:</p>
+<div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"> </div>
-<div class="line">    ScopedRegistration reg;</div>
-<div class="line">}</div>
-<div class="line"> </div>
-<div class="line"><span class="keywordtype">int</span> main()</div>
+<div class="line"><span class="keyword">class </span>Service <span class="comment">// One of several services using the same CoroSession</span></div>
 <div class="line">{</div>
-<div class="line">    boost::asio::io_service iosvc;</div>
-<div class="line">    boost::asio::spawn(iosvc, [&amp;](boost::asio::yield_context yield)</div>
+<div class="line"><span class="keyword">public</span>:</div>
+<div class="line">    <span class="keywordtype">void</span> start(<a class="code" href="classwamp_1_1_coro_session.html#a8b91b9a8096b99f2a95a2815d66b5ee5">CoroSession&lt;&gt;::Ptr</a> session)</div>
 <div class="line">    {</div>
-<div class="line">        <span class="keyword">auto</span> session = CoroSession&lt;&gt;::create(connectorList);</div>
-<div class="line">        session-&gt;connect(yield);</div>
-<div class="line">        session-&gt;join(<span class="stringliteral">&quot;somerealm&quot;</span>, yield);</div>
+<div class="line">        <span class="comment">// The session has already connected and joined when this is called.</span></div>
 <div class="line"> </div>
-<div class="line">        {</div>
-<div class="line">            <span class="keyword">using</span> std::placeholders;</div>
-<div class="line">            Delegate delegate;</div>
-<div class="line">            delegate.reg = session-&gt;enroll(</div>
-<div class="line">                            Procedure(<span class="stringliteral">&quot;someprocedure&quot;</span>),</div>
-<div class="line">                            std::bind(&amp;Delegate::rpc, delegate, _1),</div>
-<div class="line">                            yield);</div>
+<div class="line">        <span class="keyword">auto</span> r1 = session_-&gt;enroll(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;sum&quot;</span>), &amp;Service::sum, yield);</div>
+<div class="line">        <span class="keyword">auto</span> r2 = session_-&gt;enroll(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;prod&quot;</span>), &amp;Service::prod, yield);</div>
 <div class="line"> </div>
-<div class="line">        }  <span class="comment">// When the &#39;delegate&#39; object leaves this scope, its</span></div>
-<div class="line">           <span class="comment">// ScopedRegisration member gets destroyed. This will</span></div>
-<div class="line">           <span class="comment">// automatically unregister the regisration, thereby avoiding</span></div>
-<div class="line">           <span class="comment">// further member function calls on the deleted &#39;delegate&#39; object.</span></div>
-<div class="line">    });</div>
-<div class="line">    iosvc.run();</div>
-<div class="line">}</div>
+<div class="line">        <span class="comment">// Store scoped registrations in private member</span></div>
+<div class="line">        registrations_.push_back(r1);</div>
+<div class="line">        registrations_.push_back(r2);</div>
+<div class="line">    }</div>
+<div class="line"> </div>
+<div class="line"><span class="keyword">private</span>:</div>
+<div class="line">    <span class="keyword">static</span> <a class="code" href="classwamp_1_1_outcome.html">Outcome</a> sum(<a class="code" href="classwamp_1_1_invocation.html">Invocation</a> inv)</div>
+<div class="line">    {</div>
+<div class="line">        <span class="keywordtype">float</span> x = 0;</div>
+<div class="line">        <span class="keywordtype">float</span> y = 0;</div>
+<div class="line">        inv.convertTo(x, y);</div>
+<div class="line">        <span class="keywordflow">return</span> {x + y};</div>
+<div class="line">    }</div>
+<div class="line"> </div>
+<div class="line">    <span class="keyword">static</span> <a class="code" href="classwamp_1_1_outcome.html">Outcome</a> prod(<a class="code" href="classwamp_1_1_invocation.html">Invocation</a> inv)</div>
+<div class="line">    {</div>
+<div class="line">        <span class="keywordtype">float</span> x = 0;</div>
+<div class="line">        <span class="keywordtype">float</span> y = 0;</div>
+<div class="line">        inv.convertTo(x, y);</div>
+<div class="line">        <span class="keywordflow">return</span> {x * y};</div>
+<div class="line">    }</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">// When the Service is destroyed, the stored elements will also be</span></div>
+<div class="line">    <span class="comment">// destroyed, performing automatic unregistration for each registered RPC.</span></div>
+<div class="line">    std::vector&lt;ScopedRegistration&gt; registrations_;</div>
+<div class="line">};</div>
 </div><!-- fragment --> </div></div><!-- contents -->
 </div><!-- PageDoc -->
 </div><!-- doc-content -->
 <div class="ttc" id="anamespacewamp_html_a2027fe57e4014c013dcbbc733a1c9a56"><div class="ttname"><a href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">wamp::Object</a></div><div class="ttdeci">std::map&lt; String, Variant &gt; Object</div><div class="ttdoc">Variant bound type for maps of variants.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:53</div></div>
-<div class="ttc" id="aclasswamp_1_1_outcome_html"><div class="ttname"><a href="classwamp_1_1_outcome.html">wamp::Outcome</a></div><div class="ttdoc">Contains the outcome of an RPC invocation.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:341</div></div>
-<div class="ttc" id="aclasswamp_1_1_invocation_html"><div class="ttname"><a href="classwamp_1_1_invocation.html">wamp::Invocation</a></div><div class="ttdoc">Contains payload arguments and other details related to a remote procedure call invocation.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:424</div></div>
+<div class="ttc" id="aclasswamp_1_1_procedure_html"><div class="ttname"><a href="classwamp_1_1_procedure.html">wamp::Procedure</a></div><div class="ttdoc">Contains the procedure URI and other options contained within WAMP REGISTER messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:462</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
+<div class="ttc" id="aclasswamp_1_1_outcome_html"><div class="ttname"><a href="classwamp_1_1_outcome.html">wamp::Outcome</a></div><div class="ttdoc">Contains the outcome of an RPC invocation.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:647</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a8b91b9a8096b99f2a95a2815d66b5ee5"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a8b91b9a8096b99f2a95a2815d66b5ee5">wamp::CoroSession::Ptr</a></div><div class="ttdeci">std::shared_ptr&lt; CoroSession &gt; Ptr</div><div class="ttdoc">Shared pointer to a CoroSession.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:98</div></div>
+<div class="ttc" id="aclasswamp_1_1_invocation_html"><div class="ttname"><a href="classwamp_1_1_invocation.html">wamp::Invocation</a></div><div class="ttdoc">Contains payload arguments and other options within WAMP INVOCATION messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:733</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

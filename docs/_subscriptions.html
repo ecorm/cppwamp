@@ -107,7 +107,7 @@ Event Slots</h1>
 <p>An <em>event slot</em> represents an event handler that does not have any expectations on the event payload arguments. If necessary, the payload arguments must be checked during runtime, in the body of the event handler.</p>
 <p><a class="el" href="classwamp_1_1_session.html#a93b8686842db786a7d065c601f75cb5a" title="Subscribes to WAMP pub/sub events having the given topic.">wamp::Session::subscribe</a> expects an event slot with the following signature:</p>
 <div class="fragment"><div class="line"><span class="keywordtype">void</span> <span class="keyword">function</span>(<a class="code" href="classwamp_1_1_event.html">wamp::Event</a>)</div>
-</div><!-- fragment --><p>where <a class="el" href="classwamp_1_1_event.html" title="Represents a published event.">wamp::Event</a> is an object containing information and payload arguments related to the publication.</p>
+</div><!-- fragment --><p>where <a class="el" href="classwamp_1_1_event.html" title="Provides the subscription/publication ids, options, and payload contained within WAMP EVENT messages.">wamp::Event</a> is an object containing information and payload arguments related to the publication.</p>
 <p>The following table summarizes the different types of event slots that can be used with the library:</p>
 <table class="markdownTable">
 <tr class="markdownTableHead">
@@ -136,11 +136,11 @@ Basic Event Slots</h1>
 <div class="line"><span class="comment">//                      ^          ^          ^</span></div>
 <div class="line"><span class="comment">//                      \----------|----------/</span></div>
 <div class="line"><span class="comment">//                               TArgs</span></div>
-</div><!-- fragment --><p>The above slots can be registered as follows: </p><div class="fragment"><div class="line">session-&gt;subscribe(Topic(<span class="stringliteral">&quot;sensorSampled&quot;</span>),</div>
+</div><!-- fragment --><p>The above slots can be registered as follows: </p><div class="fragment"><div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(Topic(<span class="stringliteral">&quot;sensorSampled&quot;</span>),</div>
 <div class="line">                   basicEvent&lt;float&gt;(&amp;onSensorSampled),</div>
 <div class="line">                   handler);</div>
 <div class="line"> </div>
-<div class="line">session-&gt;subscribe(Topic(<span class="stringliteral">&quot;itemPurchased&quot;</span>),</div>
+<div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(Topic(<span class="stringliteral">&quot;itemPurchased&quot;</span>),</div>
 <div class="line">                   basicEvent&lt;std::string, int, int&gt;(&amp;onPurchase),</div>
 <div class="line">                   handler);</div>
 </div><!-- fragment --><p>where <code>handler</code> is the asynchronous handler (or coroutine yield context) for the <b>subscribe operation itself</b>.</p>
@@ -164,11 +164,11 @@ Basic Coroutine Event Slots</h1>
 <div class="line"><span class="comment">//                      ^          ^          ^</span></div>
 <div class="line"><span class="comment">//                      \----------|----------/</span></div>
 <div class="line"><span class="comment">//                               TArgs</span></div>
-</div><!-- fragment --><p>The above slots can be registered as follows: </p><div class="fragment"><div class="line">session-&gt;subscribe(Topic(<span class="stringliteral">&quot;sensorSampled&quot;</span>),</div>
+</div><!-- fragment --><p>The above slots can be registered as follows: </p><div class="fragment"><div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(Topic(<span class="stringliteral">&quot;sensorSampled&quot;</span>),</div>
 <div class="line">                   basicCoroEvent&lt;float&gt;(&amp;onSensorSampled),</div>
 <div class="line">                   handler);</div>
 <div class="line"> </div>
-<div class="line">session-&gt;subscribe(Topic(<span class="stringliteral">&quot;itemPurchased&quot;</span>),</div>
+<div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(Topic(<span class="stringliteral">&quot;itemPurchased&quot;</span>),</div>
 <div class="line">                   basicCoroEvent&lt;std::string, int, int&gt;(&amp;onPurchase),</div>
 <div class="line">                   handler);</div>
 </div><!-- fragment --><p>where <code>handler</code> is the asynchronous handler (or coroutine yield context) for the <b>subscribe operation itself</b>.</p>
@@ -179,10 +179,10 @@ Unpacked Event Slots</h1>
 <p><code>wamp::unpackedEvent</code> expects an event slot with the following signature:</p>
 <div class="fragment"><div class="line"><span class="keywordtype">void</span> <span class="keyword">function</span>(<a class="code" href="classwamp_1_1_event.html">wamp::Event</a>, TArgs...)</div>
 </div><!-- fragment --><p>where</p><ul>
-<li><a class="el" href="classwamp_1_1_event.html" title="Represents a published event.">wamp::Event</a> is an object containing information and payload arguments related to the publication, and,</li>
+<li><a class="el" href="classwamp_1_1_event.html" title="Provides the subscription/publication ids, options, and payload contained within WAMP EVENT messages.">wamp::Event</a> is an object containing information and payload arguments related to the publication, and,</li>
 <li><code>TArgs...</code> matches the template parameter pack that was passed to <code>wamp::unpackedEvent</code>.</li>
 </ul>
-<dl class="section note"><dt>Note</dt><dd>Unpacked event slots differ from basic event slots in the following way: Unpacked event slots are passed a <a class="el" href="classwamp_1_1_event.html" title="Represents a published event.">wamp::Event</a> object, which contains metadata on the event itself.</dd></dl>
+<dl class="section note"><dt>Note</dt><dd>Unpacked event slots differ from basic event slots in the following way: Unpacked event slots are passed a <a class="el" href="classwamp_1_1_event.html" title="Provides the subscription/publication ids, options, and payload contained within WAMP EVENT messages.">wamp::Event</a> object, which contains metadata on the event itself.</dd></dl>
 <p>Examples of unpacked event slots are: </p><div class="fragment"><div class="line"><span class="keywordtype">void</span> onSensorSampled(Event event, <span class="keywordtype">float</span> value) { ... }</div>
 <div class="line"><span class="comment">//                                  ^</span></div>
 <div class="line"><span class="comment">//                                TArgs</span></div>
@@ -191,11 +191,11 @@ Unpacked Event Slots</h1>
 <div class="line"><span class="comment">//                                  ^          ^          ^</span></div>
 <div class="line"><span class="comment">//                                  \----------|----------/</span></div>
 <div class="line"><span class="comment">//                                           TArgs</span></div>
-</div><!-- fragment --><p>The above slots can be registered as follows: </p><div class="fragment"><div class="line">session-&gt;subscribe(Topic(<span class="stringliteral">&quot;sensorSampled&quot;</span>),</div>
+</div><!-- fragment --><p>The above slots can be registered as follows: </p><div class="fragment"><div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(Topic(<span class="stringliteral">&quot;sensorSampled&quot;</span>),</div>
 <div class="line">                   unpackedEvent&lt;float&gt;(&amp;onSensorSampled),</div>
 <div class="line">                   handler);</div>
 <div class="line"> </div>
-<div class="line">session-&gt;subscribe(Topic(<span class="stringliteral">&quot;itemPurchased&quot;</span>),</div>
+<div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(Topic(<span class="stringliteral">&quot;itemPurchased&quot;</span>),</div>
 <div class="line">                   unpackedEvent&lt;std::string, int, int&gt;(&amp;onPurchase),</div>
 <div class="line">                   handler);</div>
 </div><!-- fragment --><p>where <code>handler</code> is the asynchronous handler (or coroutine yield context) for the <b>subscribe operation itself</b>.</p>
@@ -206,53 +206,58 @@ Unpacked Coroutine Event Slots</h1>
 <p><code>wamp::unpackedCoroEvent</code> expects an event slot with the following signature:</p>
 <div class="fragment"><div class="line"><span class="keywordtype">void</span> <span class="keyword">function</span>(<a class="code" href="classwamp_1_1_event.html">wamp::Event</a>, TArgs..., boost::asio::yield_context)</div>
 </div><!-- fragment --><p>where</p><ul>
-<li><a class="el" href="classwamp_1_1_event.html" title="Represents a published event.">wamp::Event</a> is an object containing information and payload arguments related to the publication, and,</li>
+<li><a class="el" href="classwamp_1_1_event.html" title="Provides the subscription/publication ids, options, and payload contained within WAMP EVENT messages.">wamp::Event</a> is an object containing information and payload arguments related to the publication, and,</li>
 <li><code>TArgs...</code> matches the template parameter pack that was passed to <code>wamp::unpackedEvent</code>.</li>
 <li><code>boost::asio::yield_context</code> represents the event handler's coroutine context.</li>
 </ul>
 <h1><a class="anchor" id="ScopedSubscriptions"></a>
 Scoped Subscriptions</h1>
-<p>A <a class="el" href="classwamp_1_1_scoped_subscription.html" title="Limits a Subscription&#39;s lifetime to a particular scope.">wamp::ScopedSubscription</a> object can be used to limit a subscription's lifetime to a particular scope. When a <code>ScopedSubscription</code> object is destroyed, it automatically unsubscribes the subscription. This helps in automating the lifetime management of topic subscriptions using RAII techniques.</p>
-<p>Here's an example illustrating how <code>ScopedSubscription</code> can be used to manage the lifetime of a subscription:</p>
-<div class="fragment"><div class="line"><span class="keyword">struct </span>Observer</div>
-<div class="line">{</div>
-<div class="line">    <span class="keywordtype">void</span> onEvent(Event event);</div>
+<p>A <a class="el" href="classwamp_1_1_scoped_subscription.html" title="Limits a Subscription&#39;s lifetime to a particular scope.">wamp::ScopedSubscription</a> object can be used to limit a subscription's lifetime to a particular scope. When a <code>ScopedSubscription</code> object is destroyed, it automatically unsubscribes the subscription. This helps in automating the lifetime management of topic subscriptions using <a href="https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization">RAII</a> techniques.</p>
+<p>Here's an example illustrating how <code>ScopedSubscription</code> can be used to manage the lifetime of several subscriptions:</p>
+<div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"> </div>
-<div class="line">    ScopedSubscription sub;</div>
-<div class="line">}</div>
-<div class="line"> </div>
-<div class="line"><span class="keywordtype">int</span> main()</div>
+<div class="line"><span class="keyword">class </span>Observer <span class="comment">// One of several classes using the same CoroSession</span></div>
 <div class="line">{</div>
-<div class="line">    boost::asio::io_service iosvc;</div>
-<div class="line">    boost::asio::spawn(iosvc, [&amp;](boost::asio::yield_context yield)</div>
+<div class="line"><span class="keyword">public</span>:</div>
+<div class="line">    <span class="keywordtype">void</span> start(<a class="code" href="classwamp_1_1_coro_session.html#a8b91b9a8096b99f2a95a2815d66b5ee5">CoroSession&lt;&gt;::Ptr</a> session)</div>
 <div class="line">    {</div>
-<div class="line">        <span class="keyword">auto</span> session = CoroSession&lt;&gt;::create(connectorList);</div>
-<div class="line">        session-&gt;connect(yield);</div>
-<div class="line">        session-&gt;join(<span class="stringliteral">&quot;somerealm&quot;</span>, yield);</div>
+<div class="line">        <span class="comment">// The session has already connected and joined when this is called.</span></div>
 <div class="line"> </div>
-<div class="line">        {</div>
-<div class="line">            <span class="keyword">using</span> std::placeholders;</div>
-<div class="line">            Observer observer;</div>
-<div class="line">            observer.sub = session-&gt;subscribe(</div>
-<div class="line">                            Topic(<span class="stringliteral">&quot;sometopic&quot;</span>),</div>
-<div class="line">                            std::bind(&amp;Observer::onEvent, observer, _1),</div>
-<div class="line">                            yield);</div>
+<div class="line">        <span class="keyword">auto</span> s1 = session_-&gt;subscribe(<a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;foo&quot;</span>), &amp;Observer::onFoo, yield);</div>
+<div class="line">        <span class="keyword">auto</span> s2 = session_-&gt;subscribe(<a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;bar&quot;</span>), &amp;Observer::onBar, yield);</div>
 <div class="line"> </div>
-<div class="line">        }  <span class="comment">// When the &#39;observer&#39; object leaves this scope, its</span></div>
-<div class="line">           <span class="comment">// ScopedSubscription member gets destroyed. This will</span></div>
-<div class="line">           <span class="comment">// automatically unsubscribe the subscription, thereby avoiding</span></div>
-<div class="line">           <span class="comment">// further member function calls on the deleted &#39;observer&#39; object.</span></div>
-<div class="line">    });</div>
-<div class="line">    iosvc.run();</div>
-<div class="line">}</div>
+<div class="line">        <span class="comment">// Store scoped subscripions in private member</span></div>
+<div class="line">        subscriptions_.push_back(s1);</div>
+<div class="line">        subscriptions_.push_back(s2);</div>
+<div class="line">    }</div>
+<div class="line"> </div>
+<div class="line"><span class="keyword">private</span>:</div>
+<div class="line">    <span class="keyword">static</span> <span class="keywordtype">void</span> onFoo(<a class="code" href="classwamp_1_1_event.html">Event</a> event)</div>
+<div class="line">    {</div>
+<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Foo happened\n&quot;</span>;</div>
+<div class="line">    }</div>
+<div class="line"> </div>
+<div class="line">    <span class="keyword">static</span> <span class="keywordtype">void</span> onBar(<a class="code" href="classwamp_1_1_event.html">Event</a> event)</div>
+<div class="line">    {</div>
+<div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Bar happened\n&quot;</span>;</div>
+<div class="line">    }</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">// When the Observer is destroyed, the stored elements will also be</span></div>
+<div class="line">    <span class="comment">// destroyed, performing automatic unsubscription for each subscribed topic.</span></div>
+<div class="line">    std::vector&lt;ScopedSubscription&gt; subscriptions_;</div>
+<div class="line">};</div>
 </div><!-- fragment --> </div></div><!-- contents -->
 </div><!-- PageDoc -->
 </div><!-- doc-content -->
-<div class="ttc" id="aclasswamp_1_1_event_html"><div class="ttname"><a href="classwamp_1_1_event.html">wamp::Event</a></div><div class="ttdoc">Represents a published event.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:181</div></div>
+<div class="ttc" id="aclasswamp_1_1_topic_html"><div class="ttname"><a href="classwamp_1_1_topic.html">wamp::Topic</a></div><div class="ttdoc">Provides the topic URI and other options contained within WAMP ‘SUBSCRIBE’ messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:301</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a01d2464a4133cb4ae711ed3cc3f3dd84"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">wamp::CoroSession::subscribe</a></div><div class="ttdeci">Subscription subscribe(Topic topic, EventSlot slot, YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Subscribes to WAMP pub/sub events having the given topic.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:391</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a8b91b9a8096b99f2a95a2815d66b5ee5"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a8b91b9a8096b99f2a95a2815d66b5ee5">wamp::CoroSession::Ptr</a></div><div class="ttdeci">std::shared_ptr&lt; CoroSession &gt; Ptr</div><div class="ttdoc">Shared pointer to a CoroSession.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:98</div></div>
+<div class="ttc" id="aclasswamp_1_1_event_html"><div class="ttname"><a href="classwamp_1_1_event.html">wamp::Event</a></div><div class="ttdoc">Provides the subscription/publication ids, options, and payload contained within WAMP EVENT messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:397</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

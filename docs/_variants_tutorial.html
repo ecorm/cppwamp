@@ -87,15 +87,15 @@ $(document).ready(function(){initNavTree('_variants_tutorial.html',''); initResi
 </div><!--header-->
 <div class="contents">
 <div class="toc"><h3>Table of Contents</h3>
-<ul><ul><li class="level2"><a href="#autotoc_md30">Construction and Assignment</a></li>
-<li class="level2"><a href="#autotoc_md31">Checking Dynamic Type</a></li>
-<li class="level2"><a href="#autotoc_md32">Accessing Values</a></li>
-<li class="level2"><a href="#autotoc_md33">Accessing Elements and Members</a></li>
-<li class="level2"><a href="#autotoc_md34">Binary Objects (BLOBs)</a></li>
-<li class="level2"><a href="#autotoc_md35">Using Variants as Optional Values</a></li>
-<li class="level2"><a href="#autotoc_md36">Conversions</a></li>
-<li class="level2"><a href="#autotoc_md37">Comparisons</a></li>
-<li class="level2"><a href="#autotoc_md38">Output</a></li>
+<ul><ul><li class="level2"><a href="#autotoc_md36">Construction and Assignment</a></li>
+<li class="level2"><a href="#autotoc_md37">Checking Dynamic Type</a></li>
+<li class="level2"><a href="#autotoc_md38">Accessing Values</a></li>
+<li class="level2"><a href="#autotoc_md39">Accessing Elements and Members</a></li>
+<li class="level2"><a href="#autotoc_md40">Binary Objects (BLOBs)</a></li>
+<li class="level2"><a href="#autotoc_md41">Using Variants as Optional Values</a></li>
+<li class="level2"><a href="#autotoc_md42">Conversions</a></li>
+<li class="level2"><a href="#autotoc_md43">Comparisons</a></li>
+<li class="level2"><a href="#autotoc_md44">Output</a></li>
 </ul>
 </ul>
 </div>
@@ -112,7 +112,7 @@ $(document).ready(function(){initNavTree('_variants_tutorial.html',''); initResi
 <li><a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56" title="Variant bound type for maps of variants.">wamp::Object</a> : dictionaries having string keys and variant values</li>
 </ul>
 <p><code>Array</code> and <code>Object</code> variants are recursive composites: their element values are also variants which can themselves be arrays or objects.</p>
-<h2><a class="anchor" id="autotoc_md30"></a>
+<h2><a class="anchor" id="autotoc_md36"></a>
 Construction and Assignment</h2>
 <p>A default-constructed <code>Variant</code> starts out being null: </p><div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="variant_8hpp.html">cppwamp/variant.hpp</a>&gt;</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
@@ -126,7 +126,7 @@ Construction and Assignment</h2>
 <div class="line">v = <span class="stringliteral">&quot;hello&quot;</span>;  <span class="comment">// v becomes a string</span></div>
 <div class="line">v = <span class="keyword">null</span>;     <span class="comment">// v becomes nullified</span></div>
 <div class="line">v = <a class="code" href="namespacewamp.html#a2daa037ae4c3853086e789bad1978ca2">Array</a>{123, <span class="keyword">false</span>, <span class="stringliteral">&quot;foo&quot;</span>}; <span class="comment">// v becomes an array of variants</span></div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md31"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md37"></a>
 Checking Dynamic Type</h2>
 <p>Each <code>Variant</code> stores its current dynamic type as a <a class="el" href="namespacewamp.html#a4d04d75506649324abb78e785749ccdb" title="Integer ID used to indicate the current dynamic type of a Variant.">wamp::TypeId</a> enumerator. The dynamic type can be checked with <a class="el" href="classwamp_1_1_variant.html#adabda0653a0d5c09a9347f0506ae2b9f" title="Returns the id of the variant&#39;s current dynamic type.">wamp::Variant::typeId()</a> or <a class="el" href="classwamp_1_1_variant.html#a598427ddf75fa40069254a085c2b01b3" title="Returns true iff the variant&#39;s current dynamic type matches the given TBound type parameter.">wamp::Variant::is&lt;T&gt;()</a>. In addition, <code>operator bool</code> can be used to determine if a variant is null.</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
@@ -155,7 +155,7 @@ Checking Dynamic Type</h2>
 <div class="line">v = 123.4; <span class="comment">// v is now a real number</span></div>
 <div class="line">assert ( <a class="code" href="namespacewamp.html#a0f60ee29904aa30973713672aa3fc37b">isNumber</a>(v) );</div>
 <div class="line">assert ( isScalar(v) );</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md32"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md38"></a>
 Accessing Values</h2>
 <p>Variant values can be accessed directly using <a class="el" href="classwamp_1_1_variant.html#a1315ba0cee052b30fdb6fd81aba431d9">Variant::as&lt;T&gt;()</a>. If the variant does not match the target type, a <a class="el" href="structwamp_1_1error_1_1_access.html" title="Exception type thrown when accessing a Variant as an invalid type.">wamp::error::Access</a> exception is thrown. </p><div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"><a class="code" href="classwamp_1_1_variant.html">Variant</a> v(42); <span class="comment">// v starts out as an Int</span></div>
@@ -171,7 +171,7 @@ Accessing Values</h2>
 <div class="line">{</div>
 <div class="line">    std::cerr &lt;&lt; e.what() &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
 <div class="line">}</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md33"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md39"></a>
 Accessing Elements and Members</h2>
 <p>For convenience, elements can be accessed directly from array variants, using the <a class="el" href="classwamp_1_1_variant.html#a52c83ebc4ce202e56b97b9ae9a5ae91b">[] operator</a> taking an integer index: </p><div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"><a class="code" href="classwamp_1_1_variant.html">Variant</a> v;</div>
@@ -191,7 +191,7 @@ Accessing Elements and Members</h2>
 <div class="line">std::cout &lt;&lt; v.<a class="code" href="classwamp_1_1_variant.html#aef9bede0c5b40adc5f393a664fe12430">size</a>() &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>; <span class="comment">// Prints 1</span></div>
 <div class="line">v[<span class="stringliteral">&quot;key&quot;</span>] = 123;                <span class="comment">// Assigns integer 123 to member &quot;key&quot;</span></div>
 <div class="line">std::cout &lt;&lt; v[<span class="stringliteral">&quot;key&quot;</span>] &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>; <span class="comment">// Prints 123</span></div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md34"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md40"></a>
 Binary Objects (BLOBs)</h2>
 <p><code>Variant</code>s may also contain arbitrary binary objects. Such binary objects must be stored in <a class="el" href="classwamp_1_1_blob.html" title="Contains binary data as an array of bytes.">wamp::Blob</a>, which is simply a wrapper around <code>std::vector&lt;uint8_t&gt;</code>.</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
@@ -201,7 +201,7 @@ Binary Objects (BLOBs)</h2>
 <div class="line">    std::cout &lt;&lt; <span class="keywordtype">byte</span> &lt;&lt; <span class="stringliteral">&quot; &quot;</span>;</div>
 <div class="line">std::cout &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
 </div><!-- fragment --><p>When transmitted using JSON serialization, <code>Blob</code>s are encoded as Base64 strings prefixed with a nul character. For MsgPack, they are encoded in <code>bin</code> format.</p>
-<h2><a class="anchor" id="autotoc_md35"></a>
+<h2><a class="anchor" id="autotoc_md41"></a>
 Using Variants as Optional Values</h2>
 <p>Because variants can be null, they can be used to contain optional (i.e. nullable) values. The boolean conversion operator is useful for knowing if a variant is currently null: </p><div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"><a class="code" href="classwamp_1_1_variant.html">Variant</a> v = 123;</div>
@@ -214,7 +214,7 @@ Using Variants as Optional Values</h2>
 <div class="line">std::cout &lt;&lt; <span class="stringliteral">&quot;Name is &quot;</span></div>
 <div class="line">          &lt;&lt; name.<a class="code" href="classwamp_1_1_variant.html#ae03fdb9a45b4f116923cdcadcb2ed3a7">valueOr</a>&lt;std::string&gt;(<span class="stringliteral">&quot;anonymous&quot;</span>) <span class="comment">// Prints &quot;anonymous&quot;</span></div>
 <div class="line">          &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md36"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md42"></a>
 Conversions</h2>
 <p>Sometimes, it's not possible to know what numeric type to expect from a WAMP peer. <a class="el" href="classwamp_1_1_variant.html#ac59c2a98e2df7cb38ba7b13e2085ac9c" title="Converts the variant&#39;s bound value to the given type.">wamp::Variant::to</a> lets you convert from any scalar type to a known destination type. </p><div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"><a class="code" href="classwamp_1_1_variant.html">Variant</a> v;</div>
@@ -237,7 +237,7 @@ Conversions</h2>
 <div class="line">{</div>
 <div class="line">    std::cerr &lt;&lt; e.what() &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
 <div class="line">}</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md37"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md43"></a>
 Comparisons</h2>
 <p><code>Variant</code> objects can be compared with each other, or with other values. For the comparison to be equal, both types must match. However, all numeric types are considered to be the same type for comparison purposes (this is to more closely match the behavior of the <code>===</code> operator in Javascript, where it does not distinguish between signed/unsigned or integer/floating-point numbers). </p><div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"><a class="code" href="classwamp_1_1_variant.html">Variant</a> v; <span class="comment">// Starts as null</span></div>
@@ -259,7 +259,7 @@ Comparisons</h2>
 <div class="line">v = <span class="stringliteral">&quot;hello&quot;</span>; <span class="comment">// v is now a String</span></div>
 <div class="line"><span class="comment">// String variants can be compared against `char` arrays:</span></div>
 <div class="line">assert( v == <span class="stringliteral">&quot;hello&quot;</span> );</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md38"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md44"></a>
 Output</h2>
 <p><a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">wamp::Variant</a>, <a class="el" href="namespacewamp.html#a2daa037ae4c3853086e789bad1978ca2" title="Variant bound type for arrays of variants.">wamp::Array</a>, and <a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56" title="Variant bound type for maps of variants.">wamp::Object</a> objects can be outputted to a <code>std::ostream</code>: </p><div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"><a class="code" href="classwamp_1_1_variant.html">Variant</a> v;</div>
@@ -287,12 +287,12 @@ Output</h2>
 <div class="ttc" id="anamespacewamp_html_afafe0c1169d7725af2c3a5b3b8f5bb67"><div class="ttname"><a href="namespacewamp.html#afafe0c1169d7725af2c3a5b3b8f5bb67">wamp::Int</a></div><div class="ttdeci">std::int64_t Int</div><div class="ttdoc">Variant bound type for signed integers.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:48</div></div>
 <div class="ttc" id="aclasswamp_1_1_blob_html_a6ababeea33598b36054d660c220395a1"><div class="ttname"><a href="classwamp_1_1_blob.html#a6ababeea33598b36054d660c220395a1">wamp::Blob::data</a></div><div class="ttdeci">Data &amp; data()</div><div class="ttdoc">Obtains the blob's array of bytes.</div><div class="ttdef"><b>Definition:</b> blob.ipp:25</div></div>
 <div class="ttc" id="anamespacewamp_html_a5558fb9fd53749b33e654e540ec1e65e"><div class="ttname"><a href="namespacewamp.html#a5558fb9fd53749b33e654e540ec1e65e">wamp::Real</a></div><div class="ttdeci">double Real</div><div class="ttdoc">Variant bound type for floating-point numbers.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:50</div></div>
-<div class="ttc" id="aclasswamp_1_1_variant_html_a598427ddf75fa40069254a085c2b01b3"><div class="ttname"><a href="classwamp_1_1_variant.html#a598427ddf75fa40069254a085c2b01b3">wamp::Variant::is</a></div><div class="ttdeci">bool is() const</div><div class="ttdoc">Returns true iff the variant's current dynamic type matches the given TBound type parameter.</div><div class="ttdef"><b>Definition:</b> variant.hpp:768</div></div>
-<div class="ttc" id="aclasswamp_1_1_variant_html_ae03fdb9a45b4f116923cdcadcb2ed3a7"><div class="ttname"><a href="classwamp_1_1_variant.html#ae03fdb9a45b4f116923cdcadcb2ed3a7">wamp::Variant::valueOr</a></div><div class="ttdeci">ValueTypeOf&lt; T &gt; valueOr(T &amp;&amp;fallback) const</div><div class="ttdoc">Obtains the variant's value converted to the given type, or the given fallback value if the variant i...</div><div class="ttdef"><b>Definition:</b> variant.hpp:835</div></div>
-<div class="ttc" id="aclasswamp_1_1_variant_html_a1315ba0cee052b30fdb6fd81aba431d9"><div class="ttname"><a href="classwamp_1_1_variant.html#a1315ba0cee052b30fdb6fd81aba431d9">wamp::Variant::as</a></div><div class="ttdeci">TBound &amp; as()</div><div class="ttdoc">Returns a reference to the variant's bound value.</div><div class="ttdef"><b>Definition:</b> variant.hpp:849</div></div>
+<div class="ttc" id="aclasswamp_1_1_variant_html_a598427ddf75fa40069254a085c2b01b3"><div class="ttname"><a href="classwamp_1_1_variant.html#a598427ddf75fa40069254a085c2b01b3">wamp::Variant::is</a></div><div class="ttdeci">bool is() const</div><div class="ttdoc">Returns true iff the variant's current dynamic type matches the given TBound type parameter.</div><div class="ttdef"><b>Definition:</b> variant.hpp:790</div></div>
+<div class="ttc" id="aclasswamp_1_1_variant_html_ae03fdb9a45b4f116923cdcadcb2ed3a7"><div class="ttname"><a href="classwamp_1_1_variant.html#ae03fdb9a45b4f116923cdcadcb2ed3a7">wamp::Variant::valueOr</a></div><div class="ttdeci">ValueTypeOf&lt; T &gt; valueOr(T &amp;&amp;fallback) const</div><div class="ttdoc">Obtains the variant's value converted to the given type, or the given fallback value if the variant i...</div><div class="ttdef"><b>Definition:</b> variant.hpp:857</div></div>
+<div class="ttc" id="aclasswamp_1_1_variant_html_a1315ba0cee052b30fdb6fd81aba431d9"><div class="ttname"><a href="classwamp_1_1_variant.html#a1315ba0cee052b30fdb6fd81aba431d9">wamp::Variant::as</a></div><div class="ttdeci">TBound &amp; as()</div><div class="ttdoc">Returns a reference to the variant's bound value.</div><div class="ttdef"><b>Definition:</b> variant.hpp:871</div></div>
 <div class="ttc" id="avariant_8hpp_html"><div class="ttname"><a href="variant_8hpp.html">variant.hpp</a></div><div class="ttdoc">Contains the declaration of Variant and other closely related types/functions.</div></div>
 <div class="ttc" id="astructwamp_1_1error_1_1_conversion_html"><div class="ttname"><a href="structwamp_1_1error_1_1_conversion.html">wamp::error::Conversion</a></div><div class="ttdoc">Exception type thrown when converting a Variant to an invalid type.</div><div class="ttdef"><b>Definition:</b> error.hpp:105</div></div>
-<div class="ttc" id="aclasswamp_1_1_variant_html_ac59c2a98e2df7cb38ba7b13e2085ac9c"><div class="ttname"><a href="classwamp_1_1_variant.html#ac59c2a98e2df7cb38ba7b13e2085ac9c">wamp::Variant::to</a></div><div class="ttdeci">T to() const</div><div class="ttdoc">Converts the variant's bound value to the given type.</div><div class="ttdef"><b>Definition:</b> variant.hpp:810</div></div>
+<div class="ttc" id="aclasswamp_1_1_variant_html_ac59c2a98e2df7cb38ba7b13e2085ac9c"><div class="ttname"><a href="classwamp_1_1_variant.html#ac59c2a98e2df7cb38ba7b13e2085ac9c">wamp::Variant::to</a></div><div class="ttdeci">T to() const</div><div class="ttdoc">Converts the variant's bound value to the given type.</div><div class="ttdef"><b>Definition:</b> variant.hpp:832</div></div>
 <div class="ttc" id="anamespacewamp_html_a4d04d75506649324abb78e785749ccdba37a6259cc0c1dae299a7866489dff0bd"><div class="ttname"><a href="namespacewamp.html#a4d04d75506649324abb78e785749ccdba37a6259cc0c1dae299a7866489dff0bd">wamp::TypeId::null</a></div><div class="ttdeci">@ null</div><div class="ttdoc">For Variant::Null.</div></div>
 <div class="ttc" id="anamespacewamp_html_a0b58ab2a2761bca711bc957b47619662"><div class="ttname"><a href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">wamp::String</a></div><div class="ttdeci">std::string String</div><div class="ttdoc">Variant bound type for text strings.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:51</div></div>
 <div class="ttc" id="anamespacewamp_html_a0f60ee29904aa30973713672aa3fc37b"><div class="ttname"><a href="namespacewamp.html#a0f60ee29904aa30973713672aa3fc37b">wamp::isNumber</a></div><div class="ttdeci">constexpr bool isNumber()</div><div class="ttdoc">Determines if the given type is considered a number.</div><div class="ttdef"><b>Definition:</b> traits.hpp:78</div></div>
@@ -302,7 +302,7 @@ Output</h2>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="_tutorial.html">Tutorial</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

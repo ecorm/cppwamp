@@ -120,6 +120,10 @@ using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="cla
 using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#aab56766974c059f2d5eab9194dddf6dc">LogHandler</a> = std::function&lt; void(std::string)&gt;</td></tr>
 <tr class="memdesc:aab56766974c059f2d5eab9194dddf6dc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Handler type used for processing log events. <br /></td></tr>
 <tr class="separator:aab56766974c059f2d5eab9194dddf6dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2fd64c9d2ef29054b84f272502da139a"><td class="memItemLeft" align="right" valign="top"><a id="a2fd64c9d2ef29054b84f272502da139a"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#a2fd64c9d2ef29054b84f272502da139a">StateChangeHandler</a> = std::function&lt; void(<a class="el" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339f">State</a>)&gt;</td></tr>
+<tr class="memdesc:a2fd64c9d2ef29054b84f272502da139a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Handler type used for stage change events. <br /></td></tr>
+<tr class="separator:a2fd64c9d2ef29054b84f272502da139a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a77c3cad1f372fd3da7e02f7e3b94e000"><td class="memItemLeft" align="right" valign="top"><a id="a77c3cad1f372fd3da7e02f7e3b94e000"></a>
 using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#a77c3cad1f372fd3da7e02f7e3b94e000">ChallengeHandler</a> = std::function&lt; void(<a class="el" href="classwamp_1_1_challenge.html">Challenge</a>)&gt;</td></tr>
 <tr class="memdesc:a77c3cad1f372fd3da7e02f7e3b94e000"><td class="mdescLeft">&#160;</td><td class="mdescRight">Function type handling authtication challenges. <br /></td></tr>
@@ -154,9 +158,8 @@ Public Member Functions</h2></td></tr>
 <a class="el" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#a5cf49888d8c512e883e85a8d63aeca3f">userExecutor</a> () const</td></tr>
 <tr class="memdesc:a5cf49888d8c512e883e85a8d63aeca3f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the executor used to execute user-provided handlers. <br /></td></tr>
 <tr class="separator:a5cf49888d8c512e883e85a8d63aeca3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:addd68e231676b0f2c1213d889916ca27"><td class="memItemLeft" align="right" valign="top"><a id="addd68e231676b0f2c1213d889916ca27"></a>
-<a class="el" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#addd68e231676b0f2c1213d889916ca27">userIosvc</a> () const</td></tr>
-<tr class="memdesc:addd68e231676b0f2c1213d889916ca27"><td class="mdescLeft">&#160;</td><td class="mdescRight">Legacy function kept for backward compatiblity. <br /></td></tr>
+<tr class="memitem:addd68e231676b0f2c1213d889916ca27"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#addd68e231676b0f2c1213d889916ca27">userIosvc</a> () const</td></tr>
+<tr class="memdesc:addd68e231676b0f2c1213d889916ca27"><td class="mdescLeft">&#160;</td><td class="mdescRight">Legacy function kept for backward compatiblity.  <a href="classwamp_1_1_session.html#addd68e231676b0f2c1213d889916ca27">More...</a><br /></td></tr>
 <tr class="separator:addd68e231676b0f2c1213d889916ca27"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af8b0af93592252d6a81838ccd8f07f95"><td class="memItemLeft" align="right" valign="top"><a id="af8b0af93592252d6a81838ccd8f07f95"></a>
 <a class="el" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339f">SessionState</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#af8b0af93592252d6a81838ccd8f07f95">state</a> () const</td></tr>
@@ -169,6 +172,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a8ecf51b461ff093aedc9ed32c9adfc6a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#a8ecf51b461ff093aedc9ed32c9adfc6a">setTraceHandler</a> (<a class="el" href="classwamp_1_1_session.html#aab56766974c059f2d5eab9194dddf6dc">LogHandler</a> handler)</td></tr>
 <tr class="memdesc:a8ecf51b461ff093aedc9ed32c9adfc6a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the log handler for debug traces.  <a href="classwamp_1_1_session.html#a8ecf51b461ff093aedc9ed32c9adfc6a">More...</a><br /></td></tr>
 <tr class="separator:a8ecf51b461ff093aedc9ed32c9adfc6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8aee406350c455b908c7114434eea9ad"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#a8aee406350c455b908c7114434eea9ad">setStateChangeHandler</a> (<a class="el" href="classwamp_1_1_session.html#a2fd64c9d2ef29054b84f272502da139a">StateChangeHandler</a> handler)</td></tr>
+<tr class="memdesc:a8aee406350c455b908c7114434eea9ad"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the handler for session state changes.  <a href="classwamp_1_1_session.html#a8aee406350c455b908c7114434eea9ad">More...</a><br /></td></tr>
+<tr class="separator:a8aee406350c455b908c7114434eea9ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6506613ec0fbf772db53cc9edbb0429f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#a6506613ec0fbf772db53cc9edbb0429f">setChallengeHandler</a> (<a class="el" href="classwamp_1_1_session.html#a77c3cad1f372fd3da7e02f7e3b94e000">ChallengeHandler</a> handler)</td></tr>
 <tr class="memdesc:a6506613ec0fbf772db53cc9edbb0429f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the handler for authentication challenges.  <a href="classwamp_1_1_session.html#a6506613ec0fbf772db53cc9edbb0429f">More...</a><br /></td></tr>
 <tr class="separator:a6506613ec0fbf772db53cc9edbb0429f"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -182,8 +188,11 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a05637a4031ee29978ec55ff4ff701683"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#a05637a4031ee29978ec55ff4ff701683">authenticate</a> (<a class="el" href="classwamp_1_1_authentication.html">Authentication</a> auth)</td></tr>
 <tr class="memdesc:a05637a4031ee29978ec55ff4ff701683"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sends an <code>AUTHENTICATE</code> in response to a <code>CHALLENGE</code>.  <a href="classwamp_1_1_session.html#a05637a4031ee29978ec55ff4ff701683">More...</a><br /></td></tr>
 <tr class="separator:a05637a4031ee29978ec55ff4ff701683"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aef2a403bb47fc66deb55fb3447aefa0f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#aef2a403bb47fc66deb55fb3447aefa0f">leave</a> (<a class="el" href="namespacewamp.html#a02848951b67353c0c0fb2e7fdb9a1019">AsyncHandler</a>&lt; <a class="el" href="classwamp_1_1_reason.html">Reason</a> &gt; handler)</td></tr>
+<tr class="memdesc:aef2a403bb47fc66deb55fb3447aefa0f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Asynchronously leaves the WAMP session.  <a href="classwamp_1_1_session.html#aef2a403bb47fc66deb55fb3447aefa0f">More...</a><br /></td></tr>
+<tr class="separator:aef2a403bb47fc66deb55fb3447aefa0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6cc987ca05d01489f207c339b2da1b7e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#a6cc987ca05d01489f207c339b2da1b7e">leave</a> (<a class="el" href="classwamp_1_1_reason.html">Reason</a> reason, <a class="el" href="namespacewamp.html#a02848951b67353c0c0fb2e7fdb9a1019">AsyncHandler</a>&lt; <a class="el" href="classwamp_1_1_reason.html">Reason</a> &gt; handler)</td></tr>
-<tr class="memdesc:a6cc987ca05d01489f207c339b2da1b7e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Asynchronously leaves the WAMP session.  <a href="classwamp_1_1_session.html#a6cc987ca05d01489f207c339b2da1b7e">More...</a><br /></td></tr>
+<tr class="memdesc:a6cc987ca05d01489f207c339b2da1b7e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Asynchronously leaves the WAMP session with the given reason.  <a href="classwamp_1_1_session.html#a6cc987ca05d01489f207c339b2da1b7e">More...</a><br /></td></tr>
 <tr class="separator:a6cc987ca05d01489f207c339b2da1b7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a19453d9bc8c13828e3f33dae05ae177b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html#a19453d9bc8c13828e3f33dae05ae177b">disconnect</a> ()</td></tr>
 <tr class="memdesc:a19453d9bc8c13828e3f33dae05ae177b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Disconnects the transport between the client and router.  <a href="classwamp_1_1_session.html#a19453d9bc8c13828e3f33dae05ae177b">More...</a><br /></td></tr>
@@ -260,7 +269,7 @@ Static Public Member Functions</h2></td></tr>
 <dl class="section user"><dt>Asynchronous Operations</dt><dd>Most of <a class="el" href="classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications.">Session</a>'s member functions are asynchronous and thus require a handler function that is invoked when the operation is completed. For asynchronous operations that can fail, a handler taking an <a class="el" href="classwamp_1_1_async_result.html" title="Value type that combines an asynchronous result with an error code.">AsyncResult</a> as a parameter is required. <a class="el" href="classwamp_1_1_async_result.html" title="Value type that combines an asynchronous result with an error code.">AsyncResult</a> makes it impossible for handlers to ignore error conditions when accessing the result of an asynchronous operation.</dd></dl>
 <dl class="section note"><dt>Note</dt><dd>In the detailed documentation of asynchronous operations, items listed under <b>Returns</b> refer to results that are returned via <a class="el" href="classwamp_1_1_async_result.html" title="Value type that combines an asynchronous result with an error code.">AsyncResult</a>.</dd></dl>
 <p>The <code>boost::asio::io_context</code> passed via <code><a class="el" href="classwamp_1_1_session.html#a955868753c5ac82b2e2df77073304b97" title="Creates a new Session instance.">create()</a></code> is used when executing handler functions passed-in by the user. This can be the same, or different than the <code>io_context</code> passed to the <code><a class="el" href="classwamp_1_1_connector.html" title="Abstract base class for establishing client transport endpoints.">Connector</a></code> creation functions.</p>
-<dl class="section user"><dt>Aborting Asynchronous Operations</dt><dd>All pending asynchronous operations can be <em>aborted</em> by dropping the client connection via <a class="el" href="classwamp_1_1_session.html#a19453d9bc8c13828e3f33dae05ae177b" title="Disconnects the transport between the client and router.">Session::disconnect</a>. Pending post-join operations can be also be aborted via <a class="el" href="classwamp_1_1_session.html#a6cc987ca05d01489f207c339b2da1b7e" title="Asynchronously leaves the WAMP session.">Session::leave</a>. There is currently no way to abort a single operation without dropping the connection or leaving the realm.</dd></dl>
+<dl class="section user"><dt>Aborting Asynchronous Operations</dt><dd>All pending asynchronous operations can be <em>aborted</em> by dropping the client connection via <a class="el" href="classwamp_1_1_session.html#a19453d9bc8c13828e3f33dae05ae177b" title="Disconnects the transport between the client and router.">Session::disconnect</a>. Pending post-join operations can be also be aborted via <a class="el" href="classwamp_1_1_session.html#aef2a403bb47fc66deb55fb3447aefa0f" title="Asynchronously leaves the WAMP session.">Session::leave</a>. There is currently no way to abort a single operation without dropping the connection or leaving the realm.</dd></dl>
 <dl class="section user"><dt>Terminating Asynchronous Operations</dt><dd>All pending asynchronous operations can be <em>terminated</em> by dropping the client connection via <a class="el" href="classwamp_1_1_session.html#ad4543cb4140512fc529ee552924cc0f5" title="Terminates the transport connection between the client and router.">Session::reset</a> or the <a class="el" href="classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications.">Session</a> destructor. By design, the handlers for pending operations will not be invoked if they were terminated in this way. This is useful if a client application needs to shutdown abruptly and cannot enforce the lifetime of objects accessed within the asynchronous operation handlers.</dd></dl>
 <dl class="section user"><dt>Coroutine API</dt><dd>To make it easier to chain successive asynchronous operations, a coroutine-based API is provided via <a class="el" href="classwamp_1_1_coro_session.html" title="Coroutine API used by a client peer in WAMP applications.">CoroSession</a>.</dd></dl>
 <dl class="section see"><dt>See also</dt><dd><a class="el" href="namespacewamp.html#a02848951b67353c0c0fb2e7fdb9a1019" title="Type alias for a handler taking an AsyncResult&lt;T&gt; parameter.">AsyncHandler</a>, <a class="el" href="classwamp_1_1_async_result.html" title="Value type that combines an asynchronous result with an error code.">AsyncResult</a>, <a class="el" href="classwamp_1_1_coro_session.html" title="Coroutine API used by a client peer in WAMP applications.">CoroSession</a>, <a class="el" href="classwamp_1_1_registration.html" title="Represents a remote procedure registration.">Registration</a>, <a class="el" href="classwamp_1_1_subscription.html" title="Represents a pub/sub event subscription.">Subscription</a>. </dd></dl>
@@ -337,6 +346,8 @@ Static Public Member Functions</h2></td></tr>
     <tr><td class="paramname">connector</td><td>Connection details for the transport to use. </td></tr>
   </table>
   </dd>
+</dl>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="examples_2asynctimeclient_2main_8cpp-example.html#a9">examples/asynctimeclient/main.cpp</a>, and <a class="el" href="examples_2asynctimeservice_2main_8cpp-example.html#a9">examples/asynctimeservice/main.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -536,7 +547,27 @@ template&lt;typename TExecutionContext &gt; </div>
 </div><div class="memdoc">
 
 <p>Obtains a dictionary of roles and features supported on the client side. </p>
-<p>The dictionary is structured as per <code>HELLO.Details.roles</code>, as desribed in the <a href="https://tools.ietf.org/html/draft-oberstet-hybi-tavendo-wamp-02#section-7.1.1.1">"Client: Role and Feature Announcement"</a> section of the advanced WAMP specification. </p>
+<p>The dictionary is structured as per <code>HELLO.Details.roles</code>, as desribed in the <a href="https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.7.1.1.1">"Client: Role and Feature Announcement"</a> section of the advanced WAMP specification. </p>
+
+</div>
+</div>
+<a id="addd68e231676b0f2c1213d889916ca27"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#addd68e231676b0f2c1213d889916ca27">&#9670;&nbsp;</a></span>userIosvc()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> wamp::Session::userIosvc </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Legacy function kept for backward compatiblity. </p>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000027">Deprecated:</a></b></dt><dd>Use <a class="el" href="classwamp_1_1_session.html#a5cf49888d8c512e883e85a8d63aeca3f" title="Obtains the executor used to execute user-provided handlers.">wamp::Session::userExecutor</a> instead.</dd></dl>
 
 </div>
 </div>
@@ -597,6 +628,35 @@ template&lt;typename TExecutionContext &gt; </div>
 
 </div>
 </div>
+<a id="a8aee406350c455b908c7114434eea9ad"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8aee406350c455b908c7114434eea9ad">&#9670;&nbsp;</a></span>setStateChangeHandler()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void wamp::Session::setStateChangeHandler </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="classwamp_1_1_session.html#a2fd64c9d2ef29054b84f272502da139a">StateChangeHandler</a>&#160;</td>
+          <td class="paramname"><em>handler</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Sets the handler for session state changes. </p>
+<dl class="section note"><dt>Note</dt><dd>Changes to the state change handler start taking effect when the session is connecting. </dd>
+<dd>
+No state change events are fired when the session object is destructing. </dd></dl>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">handler</td><td>Function called when session state changes. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
 <a id="a6506613ec0fbf772db53cc9edbb0429f"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6506613ec0fbf772db53cc9edbb0429f">&#9670;&nbsp;</a></span>setChallengeHandler()</h2>
 
@@ -614,6 +674,7 @@ template&lt;typename TExecutionContext &gt; </div>
 </div><div class="memdoc">
 
 <p>Sets the handler for authentication challenges. </p>
+<dl class="section note"><dt>Note</dt><dd>Changes to the challenge handler start taking effect when the session is connecting. </dd></dl>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">handler</td><td>Function called to handle authentication challenges. </td></tr>
@@ -640,7 +701,7 @@ template&lt;typename TExecutionContext &gt; </div>
 </div><div class="memdoc">
 
 <p>Asynchronously attempts to connect to a router. </p>
-<p>The session will attempt to connect using the transports that were specified by the <a class="el" href="classwamp_1_1_connector.html" title="Abstract base class for establishing client transport endpoints.">Connector</a> objects passed during <a class="el" href="classwamp_1_1_session.html#a955868753c5ac82b2e2df77073304b97" title="Creates a new Session instance.">create()</a>. If more than one transport was specified, they will be traversed in the same order as they appeared in the <a class="el" href="namespacewamp.html#af5e518db13376e7a5f5cf73a3c5d2414">ConnectorList</a>. </p><dl class="section return"><dt>Returns</dt><dd>The index of the <a class="el" href="classwamp_1_1_connector.html" title="Abstract base class for establishing client transport endpoints.">Connector</a> object used to establish the connetion. </dd></dl>
+<p>The session will attempt to connect using the transports that were specified by the <a class="el" href="classwamp_1_1_connector.html" title="Abstract base class for establishing client transport endpoints.">wamp::Connector</a> objects passed during <a class="el" href="classwamp_1_1_session.html#a955868753c5ac82b2e2df77073304b97" title="Creates a new Session instance.">create()</a>. If more than one transport was specified, they will be traversed in the same order as they appeared in the <a class="el" href="namespacewamp.html#af5e518db13376e7a5f5cf73a3c5d2414">ConnectorList</a>. </p><dl class="section return"><dt>Returns</dt><dd>The index of the <a class="el" href="classwamp_1_1_connector.html" title="Abstract base class for establishing client transport endpoints.">Connector</a> object used to establish the connetion. </dd></dl>
 <dl class="section pre"><dt>Precondition</dt><dd><code>this-&gt;<a class="el" href="classwamp_1_1_session.html#af8b0af93592252d6a81838ccd8f07f95" title="Returns the current state of the session.">state()</a> == <a class="el" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339fa3a561116f0c9675a3c83d21fa365050d" title="The transport connection is not yet established.">SessionState::disconnected</a></code> </dd></dl>
 <dl class="section post"><dt>Postcondition</dt><dd><code>this-&gt;<a class="el" href="classwamp_1_1_session.html#af8b0af93592252d6a81838ccd8f07f95" title="Returns the current state of the session.">state()</a> == <a class="el" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339fa9a27316fbc5ef38b2a19c202dbdc29b7" title="Transport connection is in progress.">SessionState::connecting</a></code> </dd></dl>
 <dl class="section user"><dt>Error Codes</dt><dd><ul>
@@ -691,7 +752,7 @@ template&lt;typename TExecutionContext &gt; </div>
 </div><div class="memdoc">
 
 <p>Asynchronously attempts to join the given WAMP realm. </p>
-<dl class="section return"><dt>Returns</dt><dd>A <a class="el" href="classwamp_1_1_session_info.html" title="Session information returned by Session::join.">SessionInfo</a> object with details on the newly established session. </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>A <a class="el" href="classwamp_1_1_session_info.html" title="Session information contained within WAMP WELCOME messages.">SessionInfo</a> object with details on the newly established session. </dd></dl>
 <dl class="section pre"><dt>Precondition</dt><dd><code>this-&gt;<a class="el" href="classwamp_1_1_session.html#af8b0af93592252d6a81838ccd8f07f95" title="Returns the current state of the session.">state()</a> == SessionState::connected</code> </dd></dl>
 <dl class="section post"><dt>Postcondition</dt><dd><code>this-&gt;<a class="el" href="classwamp_1_1_session.html#af8b0af93592252d6a81838ccd8f07f95" title="Returns the current state of the session.">state()</a> == <a class="el" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339faab0e76e1623e4b9f4b2c6dc8e966989f" title="WAMP session establishment is in progress.">SessionState::establishing</a></code> </dd></dl>
 <dl class="section user"><dt>Error Codes</dt><dd><ul>
@@ -746,8 +807,49 @@ template&lt;typename TExecutionContext &gt; </div>
 
 </div>
 </div>
+<a id="aef2a403bb47fc66deb55fb3447aefa0f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aef2a403bb47fc66deb55fb3447aefa0f">&#9670;&nbsp;</a></span>leave() <span class="overload">[1/2]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void wamp::Session::leave </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="namespacewamp.html#a02848951b67353c0c0fb2e7fdb9a1019">AsyncHandler</a>&lt; <a class="el" href="classwamp_1_1_reason.html">Reason</a> &gt;&#160;</td>
+          <td class="paramname"><em>handler</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Asynchronously leaves the WAMP session. </p>
+<p>The "wamp.close.close_realm" reason is sent as part of the outgoing <code>GOODBYE</code> message. </p><dl class="section return"><dt>Returns</dt><dd>The <em><a class="el" href="classwamp_1_1_reason.html" title="Provides the reason URI and other options contained within GOODBYE messages.">Reason</a></em> URI and details from the <code>GOODBYE</code> response returned by the router. </dd></dl>
+<dl class="section pre"><dt>Precondition</dt><dd><code>this-&gt;<a class="el" href="classwamp_1_1_session.html#af8b0af93592252d6a81838ccd8f07f95" title="Returns the current state of the session.">state()</a> == <a class="el" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339faa533b26cba9a7c8d891c962473f49ec0" title="WAMP session is established.">SessionState::established</a></code> </dd></dl>
+<dl class="section post"><dt>Postcondition</dt><dd><code>this-&gt;<a class="el" href="classwamp_1_1_session.html#af8b0af93592252d6a81838ccd8f07f95" title="Returns the current state of the session.">state()</a> == <a class="el" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339fabe3d0ab12e871a97c27100d4a3183ec2" title="WAMP session is closing.">SessionState::shuttingDown</a></code> </dd></dl>
+<dl class="section user"><dt>Error Codes</dt><dd><ul>
+<li><a class="el" href="namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a6398ee39c528ff4737ae63947d85d0a4" title="Operation aborted; session ended by this peer.">SessionErrc::sessionEnded</a> if the operation was aborted.</li>
+<li><a class="el" href="namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a31d993ba59164643e0e2159e32b63216" title="Session ended by other peer.">SessionErrc::sessionEndedByPeer</a> if the session was ended by the peer before a <code>GOODBYE</code> response was received.</li>
+<li>Some other <code>std::error_code</code> for protocol and transport errors. </li>
+</ul>
+</dd></dl>
+<dl class="exception"><dt>Exceptions</dt><dd>
+  <table class="exception">
+    <tr><td class="paramname"><a class="el" href="structwamp_1_1error_1_1_logic.html" title="Exception thrown when a pre-condition is not met.">error::Logic</a></td><td>if <code>this-&gt;<a class="el" href="classwamp_1_1_session.html#af8b0af93592252d6a81838ccd8f07f95" title="Returns the current state of the session.">state()</a> != <a class="el" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339faa533b26cba9a7c8d891c962473f49ec0" title="WAMP session is established.">SessionState::established</a></code> </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">handler</td><td>Handler to invoke when the operation completes. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
 <a id="a6cc987ca05d01489f207c339b2da1b7e"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a6cc987ca05d01489f207c339b2da1b7e">&#9670;&nbsp;</a></span>leave()</h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a6cc987ca05d01489f207c339b2da1b7e">&#9670;&nbsp;</a></span>leave() <span class="overload">[2/2]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -772,7 +874,7 @@ template&lt;typename TExecutionContext &gt; </div>
       </table>
 </div><div class="memdoc">
 
-<p>Asynchronously leaves the WAMP session. </p>
+<p>Asynchronously leaves the WAMP session with the given reason. </p>
 <dl class="section return"><dt>Returns</dt><dd>The <em><a class="el" href="classwamp_1_1_reason.html" title="Provides the reason URI and other options contained within GOODBYE messages.">Reason</a></em> URI and details from the <code>GOODBYE</code> response returned by the router. </dd></dl>
 <dl class="section pre"><dt>Precondition</dt><dd><code>this-&gt;<a class="el" href="classwamp_1_1_session.html#af8b0af93592252d6a81838ccd8f07f95" title="Returns the current state of the session.">state()</a> == <a class="el" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339faa533b26cba9a7c8d891c962473f49ec0" title="WAMP session is established.">SessionState::established</a></code> </dd></dl>
 <dl class="section post"><dt>Postcondition</dt><dd><code>this-&gt;<a class="el" href="classwamp_1_1_session.html#af8b0af93592252d6a81838ccd8f07f95" title="Returns the current state of the session.">state()</a> == <a class="el" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339fabe3d0ab12e871a97c27100d4a3183ec2" title="WAMP session is closing.">SessionState::shuttingDown</a></code> </dd></dl>
@@ -1321,7 +1423,7 @@ template&lt;typename TExecutionContext &gt; </div>
 </div><div class="memdoc">
 
 <p>Calls a remote procedure. </p>
-<dl class="section return"><dt>Returns</dt><dd>The <a class="el" href="classwamp_1_1_result.html" title="Contains a remote procedure result yielded by a callee or received by a caller.">Result</a> yielded by the remote procedure </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>The <a class="el" href="classwamp_1_1_result.html" title="Contains the remote procedure result options/payload within WAMP RESULT and YIELD messages.">Result</a> yielded by the remote procedure </dd></dl>
 <dl class="section pre"><dt>Precondition</dt><dd><code>this-&gt;<a class="el" href="classwamp_1_1_session.html#af8b0af93592252d6a81838ccd8f07f95" title="Returns the current state of the session.">state()</a> == <a class="el" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339faa533b26cba9a7c8d891c962473f49ec0" title="WAMP session is established.">SessionState::established</a></code> </dd></dl>
 <dl class="section user"><dt>Error Codes</dt><dd><ul>
 <li><a class="el" href="namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a6398ee39c528ff4737ae63947d85d0a4" title="Operation aborted; session ended by this peer.">SessionErrc::sessionEnded</a> if the operation was aborted.</li>
@@ -1358,7 +1460,7 @@ template&lt;typename TExecutionContext &gt; </div>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacewamp.html">wamp</a></li><li class="navelem"><a class="el" href="classwamp_1_1_session.html">Session</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

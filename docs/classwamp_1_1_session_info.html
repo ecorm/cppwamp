@@ -91,17 +91,17 @@ $(document).ready(function(){initNavTree('classwamp_1_1_session_info.html',''); 
 </div><!--header-->
 <div class="contents">
 
-<p><a class="el" href="classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications.">Session</a> information returned by <a class="el" href="classwamp_1_1_session.html#a3119d4f363c42b72f4198db8298112ca" title="Asynchronously attempts to join the given WAMP realm.">Session::join</a>.  
+<p><a class="el" href="classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications.">Session</a> information contained within WAMP <code>WELCOME</code> messages.  
  <a href="classwamp_1_1_session_info.html#details">More...</a></p>
 
-<p><code>#include &lt;<a class="el" href="sessiondata_8hpp_source.html">cppwamp/sessiondata.hpp</a>&gt;</code></p>
+<p><code>#include &lt;<a class="el" href="peerdata_8hpp_source.html">cppwamp/peerdata.hpp</a>&gt;</code></p>
 <div class="dynheader">
 Inheritance diagram for wamp::SessionInfo:</div>
 <div class="dyncontent">
 <div class="center"><img src="classwamp_1_1_session_info__inherit__graph.png" border="0" usemap="#wamp_1_1_session_info_inherit__map" alt="Inheritance graph"/></div>
 <map name="wamp_1_1_session_info_inherit__map" id="wamp_1_1_session_info_inherit__map">
-<area shape="rect" title="Session information returned by Session::join." alt="" coords="45,80,191,107"/>
-<area shape="rect" href="classwamp_1_1_options.html" title=" " alt="" coords="5,5,231,32"/>
+<area shape="rect" title="Session information contained within WAMP WELCOME messages." alt="" coords="42,95,187,121"/>
+<area shape="rect" title=" " alt="" coords="5,5,224,47"/>
 </map>
 <center><span class="legend">[<a target="top" href="graph_legend.html">legend</a>]</span></center></div>
 <table class="memberdecls">
@@ -134,13 +134,17 @@ Public Member Functions</h2></td></tr>
 const <a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html#a1d357f9b926e68bbf4d982c0e76ff312">realm</a> () const</td></tr>
 <tr class="memdesc:a1d357f9b926e68bbf4d982c0e76ff312"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains realm URI. <br /></td></tr>
 <tr class="separator:a1d357f9b926e68bbf4d982c0e76ff312"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac853e141b99414fe07713839d9862ef9"><td class="memItemLeft" align="right" valign="top"><a id="ac853e141b99414fe07713839d9862ef9"></a>
-<a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html#ac853e141b99414fe07713839d9862ef9">agentString</a> () const</td></tr>
-<tr class="memdesc:ac853e141b99414fe07713839d9862ef9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the agent string of the WAMP router, if available. <br /></td></tr>
+<tr><td colspan="2"><div class="groupHeader">Agent Identification</div></td></tr>
+<tr><td colspan="2"><div class="groupText"><p>See <a href="https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.8">Agent Identification in the WAMP Specification</a> </p>
+</div></td></tr>
+<tr class="memitem:ac853e141b99414fe07713839d9862ef9"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html#ac853e141b99414fe07713839d9862ef9">agentString</a> () const</td></tr>
+<tr class="memdesc:ac853e141b99414fe07713839d9862ef9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the agent string of the WAMP router, if available.  <a href="classwamp_1_1_session_info.html#ac853e141b99414fe07713839d9862ef9">More...</a><br /></td></tr>
 <tr class="separator:ac853e141b99414fe07713839d9862ef9"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a29d06f912a68f0663d2c4b265b2e3def"><td class="memItemLeft" align="right" valign="top"><a id="a29d06f912a68f0663d2c4b265b2e3def"></a>
-<a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html#a29d06f912a68f0663d2c4b265b2e3def">roles</a> () const</td></tr>
-<tr class="memdesc:a29d06f912a68f0663d2c4b265b2e3def"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the <code>WELCOME.Details.roles</code> dictionary for the router. <br /></td></tr>
+<tr><td colspan="2"><div class="groupHeader">Role and Feature Announcement</div></td></tr>
+<tr><td colspan="2"><div class="groupText"><p>See <a href="https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.7.1.1.1">Client: Role and Feature Announcement in the WAMP Specification</a> </p>
+</div></td></tr>
+<tr class="memitem:a29d06f912a68f0663d2c4b265b2e3def"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html#a29d06f912a68f0663d2c4b265b2e3def">roles</a> () const</td></tr>
+<tr class="memdesc:a29d06f912a68f0663d2c4b265b2e3def"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the <code>WELCOME.Details.roles</code> dictionary for the router.  <a href="classwamp_1_1_session_info.html#a29d06f912a68f0663d2c4b265b2e3def">More...</a><br /></td></tr>
 <tr class="separator:a29d06f912a68f0663d2c4b265b2e3def"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a3489a0c9413b488554cb6d27b5dc2eea"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html#a3489a0c9413b488554cb6d27b5dc2eea">supportsRoles</a> (const <a class="el" href="classwamp_1_1_session_info.html#a78582b06d59ef79c48f82ea8b5e6b2b8">RoleSet</a> &amp;<a class="el" href="classwamp_1_1_session_info.html#a29d06f912a68f0663d2c4b265b2e3def">roles</a>) const</td></tr>
 <tr class="memdesc:a3489a0c9413b488554cb6d27b5dc2eea"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks that the router supports the given set of roles.  <a href="classwamp_1_1_session_info.html#a3489a0c9413b488554cb6d27b5dc2eea">More...</a><br /></td></tr>
@@ -148,42 +152,65 @@ const <a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">
 <tr class="memitem:a34949e6e2b054a48738e31affd0c1a4d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html#a34949e6e2b054a48738e31affd0c1a4d">supportsFeatures</a> (const <a class="el" href="classwamp_1_1_session_info.html#a8399416f35966291decd793c8b5262ba">FeatureMap</a> &amp;features) const</td></tr>
 <tr class="memdesc:a34949e6e2b054a48738e31affd0c1a4d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks that the router supports the given map of features.  <a href="classwamp_1_1_session_info.html#a34949e6e2b054a48738e31affd0c1a4d">More...</a><br /></td></tr>
 <tr class="separator:a34949e6e2b054a48738e31affd0c1a4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="inherit_header pub_methods_classwamp_1_1_options"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classwamp_1_1_options')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classwamp_1_1_options.html">wamp::Options&lt; SessionInfo &gt;</a></td></tr>
-<tr class="memitem:a49df9299520a784a2cf109a40cc5dfc4 inherit pub_methods_classwamp_1_1_options"><td class="memItemLeft" align="right" valign="top"><a id="a49df9299520a784a2cf109a40cc5dfc4"></a>
-<a class="el" href="classwamp_1_1_session_info.html">SessionInfo</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a49df9299520a784a2cf109a40cc5dfc4">withOption</a> (<a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> key, <a class="el" href="classwamp_1_1_variant.html">Variant</a> value)</td></tr>
-<tr class="memdesc:a49df9299520a784a2cf109a40cc5dfc4 inherit pub_methods_classwamp_1_1_options"><td class="mdescLeft">&#160;</td><td class="mdescRight">Adds an option. <br /></td></tr>
-<tr class="separator:a49df9299520a784a2cf109a40cc5dfc4 inherit pub_methods_classwamp_1_1_options"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4cac6226288dcd9259b3b60ae0b6020e inherit pub_methods_classwamp_1_1_options"><td class="memItemLeft" align="right" valign="top"><a id="a4cac6226288dcd9259b3b60ae0b6020e"></a>
-<a class="el" href="classwamp_1_1_session_info.html">SessionInfo</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a4cac6226288dcd9259b3b60ae0b6020e">withOptions</a> (<a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a> <a class="el" href="classwamp_1_1_options.html#a6b9899edc0cc3ea3d460a52320e54c3a">options</a>)</td></tr>
-<tr class="memdesc:a4cac6226288dcd9259b3b60ae0b6020e inherit pub_methods_classwamp_1_1_options"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets all options at once. <br /></td></tr>
-<tr class="separator:a4cac6226288dcd9259b3b60ae0b6020e inherit pub_methods_classwamp_1_1_options"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6b9899edc0cc3ea3d460a52320e54c3a inherit pub_methods_classwamp_1_1_options"><td class="memItemLeft" align="right" valign="top"><a id="a6b9899edc0cc3ea3d460a52320e54c3a"></a>
-const <a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a6b9899edc0cc3ea3d460a52320e54c3a">options</a> () const</td></tr>
-<tr class="memdesc:a6b9899edc0cc3ea3d460a52320e54c3a inherit pub_methods_classwamp_1_1_options"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the entire dictionary of options. <br /></td></tr>
-<tr class="separator:a6b9899edc0cc3ea3d460a52320e54c3a inherit pub_methods_classwamp_1_1_options"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a39403d347f502a9eb9f4ef9d97b45383 inherit pub_methods_classwamp_1_1_options"><td class="memItemLeft" align="right" valign="top"><a id="a39403d347f502a9eb9f4ef9d97b45383"></a>
-<a class="el" href="classwamp_1_1_variant.html">Variant</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a39403d347f502a9eb9f4ef9d97b45383">optionByKey</a> (const <a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> &amp;key) const</td></tr>
-<tr class="memdesc:a39403d347f502a9eb9f4ef9d97b45383 inherit pub_methods_classwamp_1_1_options"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains an option by key. <br /></td></tr>
-<tr class="separator:a39403d347f502a9eb9f4ef9d97b45383 inherit pub_methods_classwamp_1_1_options"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8ebd861fd864b14929d38b43885c9d69 inherit pub_methods_classwamp_1_1_options"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">ValueTypeOf</a>&lt; T &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a8ebd861fd864b14929d38b43885c9d69">optionOr</a> (const <a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> &amp;key, T &amp;&amp;fallback) const</td></tr>
-<tr class="memdesc:a8ebd861fd864b14929d38b43885c9d69 inherit pub_methods_classwamp_1_1_options"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains an option by key or a fallback value.  <a href="classwamp_1_1_options.html#a8ebd861fd864b14929d38b43885c9d69">More...</a><br /></td></tr>
-<tr class="separator:a8ebd861fd864b14929d38b43885c9d69 inherit pub_methods_classwamp_1_1_options"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
-Additional Inherited Members</h2></td></tr>
-<tr class="inherit_header pro_methods_classwamp_1_1_options"><td colspan="2" onclick="javascript:toggleInherit('pro_methods_classwamp_1_1_options')"><img src="closed.png" alt="-"/>&#160;Protected Member Functions inherited from <a class="el" href="classwamp_1_1_options.html">wamp::Options&lt; SessionInfo &gt;</a></td></tr>
-<tr class="memitem:a45b8785ea6d482777ddb17709b953259 inherit pro_methods_classwamp_1_1_options"><td class="memItemLeft" align="right" valign="top"><a id="a45b8785ea6d482777ddb17709b953259"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a45b8785ea6d482777ddb17709b953259">Options</a> ()=default</td></tr>
-<tr class="memdesc:a45b8785ea6d482777ddb17709b953259 inherit pro_methods_classwamp_1_1_options"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default constructor. <br /></td></tr>
-<tr class="separator:a45b8785ea6d482777ddb17709b953259 inherit pro_methods_classwamp_1_1_options"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8be8aa756d80044346f57897b65dea2a inherit pro_methods_classwamp_1_1_options"><td class="memItemLeft" align="right" valign="top"><a id="a8be8aa756d80044346f57897b65dea2a"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a8be8aa756d80044346f57897b65dea2a">Options</a> (<a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a> <a class="el" href="classwamp_1_1_options.html#a6b9899edc0cc3ea3d460a52320e54c3a">options</a>)</td></tr>
-<tr class="memdesc:a8be8aa756d80044346f57897b65dea2a inherit pro_methods_classwamp_1_1_options"><td class="mdescLeft">&#160;</td><td class="mdescRight">Constructor taking initial options. <br /></td></tr>
-<tr class="separator:a8be8aa756d80044346f57897b65dea2a inherit pro_methods_classwamp_1_1_options"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr><td colspan="2"><div class="groupHeader">Authentication</div></td></tr>
+<tr><td colspan="2"><div class="groupText"><p>See <a href="https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.5.2">Authentication in the WAMP Specification</a> </p>
+</div></td></tr>
+<tr class="memitem:a589b15f849cbeb5cdca9bd1ac6324d94"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classwamp_1_1_variant.html">Variant</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html#a589b15f849cbeb5cdca9bd1ac6324d94">authId</a> () const</td></tr>
+<tr class="memdesc:a589b15f849cbeb5cdca9bd1ac6324d94"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the authentication ID the client was actually authenticated as.  <a href="classwamp_1_1_session_info.html#a589b15f849cbeb5cdca9bd1ac6324d94">More...</a><br /></td></tr>
+<tr class="separator:a589b15f849cbeb5cdca9bd1ac6324d94"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a90a11e59bb7463756f8635e735fbaa22"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classwamp_1_1_variant.html">Variant</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html#a90a11e59bb7463756f8635e735fbaa22">authRole</a> () const</td></tr>
+<tr class="memdesc:a90a11e59bb7463756f8635e735fbaa22"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the role the client was authenticated for.  <a href="classwamp_1_1_session_info.html#a90a11e59bb7463756f8635e735fbaa22">More...</a><br /></td></tr>
+<tr class="separator:a90a11e59bb7463756f8635e735fbaa22"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abbf2d0be3e798da4540fabad7df2f0a6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classwamp_1_1_variant.html">Variant</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html#abbf2d0be3e798da4540fabad7df2f0a6">authMethod</a> () const</td></tr>
+<tr class="memdesc:abbf2d0be3e798da4540fabad7df2f0a6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the method that was used for authentication.  <a href="classwamp_1_1_session_info.html#abbf2d0be3e798da4540fabad7df2f0a6">More...</a><br /></td></tr>
+<tr class="separator:abbf2d0be3e798da4540fabad7df2f0a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abb9f8a40558b47a386af2f091d48f6b4"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classwamp_1_1_variant.html">Variant</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html#abb9f8a40558b47a386af2f091d48f6b4">authProvider</a> () const</td></tr>
+<tr class="memdesc:abb9f8a40558b47a386af2f091d48f6b4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the authentication provider.  <a href="classwamp_1_1_session_info.html#abb9f8a40558b47a386af2f091d48f6b4">More...</a><br /></td></tr>
+<tr class="separator:abb9f8a40558b47a386af2f091d48f6b4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p><a class="el" href="classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications.">Session</a> information returned by <a class="el" href="classwamp_1_1_session.html#a3119d4f363c42b72f4198db8298112ca" title="Asynchronously attempts to join the given WAMP realm.">Session::join</a>. </p>
+<div class="textblock"><p><a class="el" href="classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications.">Session</a> information contained within WAMP <code>WELCOME</code> messages. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
+<a id="ac853e141b99414fe07713839d9862ef9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac853e141b99414fe07713839d9862ef9">&#9670;&nbsp;</a></span>agentString()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> wamp::SessionInfo::agentString </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Obtains the agent string of the WAMP router, if available. </p>
+<dl class="section return"><dt>Returns</dt><dd>The value of the <code>HELLO.Details.agent|string</code> detail, or an empty string if it is not available. </dd></dl>
+
+</div>
+</div>
+<a id="a29d06f912a68f0663d2c4b265b2e3def"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a29d06f912a68f0663d2c4b265b2e3def">&#9670;&nbsp;</a></span>roles()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a> wamp::SessionInfo::roles </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Obtains the <code>WELCOME.Details.roles</code> dictionary for the router. </p>
+<dl class="section return"><dt>Returns</dt><dd>The value of the <code>HELLO.Details.roles|dict</code> detail, or an empty Object if it is not available. </dd></dl>
+
+</div>
+</div>
 <a id="a3489a0c9413b488554cb6d27b5dc2eea"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a3489a0c9413b488554cb6d27b5dc2eea">&#9670;&nbsp;</a></span>supportsRoles()</h2>
 
@@ -236,9 +263,89 @@ Additional Inherited Members</h2></td></tr>
 
 </div>
 </div>
+<a id="a589b15f849cbeb5cdca9bd1ac6324d94"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a589b15f849cbeb5cdca9bd1ac6324d94">&#9670;&nbsp;</a></span>authId()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classwamp_1_1_variant.html">Variant</a> wamp::SessionInfo::authId </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Obtains the authentication ID the client was actually authenticated as. </p>
+<p>This function returns the value of the <code>HELLO.Details.authid|string</code> detail. </p><dl class="section return"><dt>Returns</dt><dd>A string variant if the authentication ID is available. Otherwise, a null variant is returned. </dd></dl>
+
+</div>
+</div>
+<a id="a90a11e59bb7463756f8635e735fbaa22"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a90a11e59bb7463756f8635e735fbaa22">&#9670;&nbsp;</a></span>authRole()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classwamp_1_1_variant.html">Variant</a> wamp::SessionInfo::authRole </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Obtains the role the client was authenticated for. </p>
+<p>This function returns the value of the <code>HELLO.Details.authrole|string</code> detail. This is not to be confused with the <em>dealer roles</em>. </p><dl class="section return"><dt>Returns</dt><dd>A string variant if the authentication role is available. Otherwise, a null variant is returned. </dd></dl>
+
+</div>
+</div>
+<a id="abbf2d0be3e798da4540fabad7df2f0a6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abbf2d0be3e798da4540fabad7df2f0a6">&#9670;&nbsp;</a></span>authMethod()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classwamp_1_1_variant.html">Variant</a> wamp::SessionInfo::authMethod </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Obtains the method that was used for authentication. </p>
+<p>This function returns the value of the <code>HELLO.Details.authmethod|string</code> detail. </p><dl class="section return"><dt>Returns</dt><dd>A string variant if the authentication method is available. Otherwise, a null variant is returned. </dd></dl>
+
+</div>
+</div>
+<a id="abb9f8a40558b47a386af2f091d48f6b4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abb9f8a40558b47a386af2f091d48f6b4">&#9670;&nbsp;</a></span>authProvider()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classwamp_1_1_variant.html">Variant</a> wamp::SessionInfo::authProvider </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Obtains the authentication provider. </p>
+<p>This function returns the value of the <code>HELLO.Details.authprovider|string</code> detail. </p><dl class="section return"><dt>Returns</dt><dd>A string variant if the authentication provider is available. Otherwise, a null variant is returned. </dd></dl>
+
+</div>
+</div>
 <hr/>The documentation for this class was generated from the following files:<ul>
-<li>cppwamp/<a class="el" href="sessiondata_8hpp_source.html">sessiondata.hpp</a></li>
-<li>cppwamp/internal/sessiondata.ipp</li>
+<li>cppwamp/<a class="el" href="peerdata_8hpp_source.html">peerdata.hpp</a></li>
+<li>cppwamp/internal/peerdata.ipp</li>
 </ul>
 </div><!-- contents -->
 </div><!-- doc-content -->
@@ -246,7 +353,7 @@ Additional Inherited Members</h2></td></tr>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacewamp.html">wamp</a></li><li class="navelem"><a class="el" href="classwamp_1_1_session_info.html">SessionInfo</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

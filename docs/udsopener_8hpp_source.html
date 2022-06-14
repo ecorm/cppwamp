@@ -102,65 +102,67 @@ $(document).ready(function(){initNavTree('udsopener_8hpp_source.html',''); initR
 <div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="preprocessor">#include &lt;boost/asio/local/stream_protocol.hpp&gt;</span></div>
 <div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="preprocessor">#include &quot;../asiodefs.hpp&quot;</span></div>
 <div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &quot;../udspath.hpp&quot;</span></div>
-<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160; </div>
-<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
-<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;{</div>
-<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160; </div>
-<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;<span class="keyword">namespace </span>internal</div>
-<div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;{</div>
-<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160; </div>
-<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;<span class="keyword">class </span>UdsOpener</div>
-<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;{</div>
-<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;<span class="keyword">public</span>:</div>
-<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;    <span class="keyword">using</span> Info      = UdsPath;</div>
-<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;    <span class="keyword">using</span> Socket    = boost::asio::local::stream_protocol::socket;</div>
-<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;    <span class="keyword">using</span> SocketPtr = std::unique_ptr&lt;Socket&gt;;</div>
-<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160; </div>
-<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;    UdsOpener(<a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> exec, Info info)</div>
-<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160;        : executor_(exec),</div>
-<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;          info_(std::move(info))</div>
-<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;    {}</div>
-<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160; </div>
-<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;    <a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> executor() {<span class="keywordflow">return</span> executor_;}</div>
-<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160; </div>
-<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> TCallback&gt;</div>
-<div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160;    <span class="keywordtype">void</span> establish(TCallback&amp;&amp; callback)</div>
-<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;    {</div>
-<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;        assert(!socket_ &amp;&amp; <span class="stringliteral">&quot;Connect already in progress&quot;</span>);</div>
-<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160; </div>
-<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;        socket_.reset(<span class="keyword">new</span> Socket(executor_));</div>
-<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;        socket_-&gt;open();</div>
-<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;        info_.options().applyTo(*socket_);</div>
-<div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160; </div>
-<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;        <span class="comment">// AsioConnector will keep this object alive until completion.</span></div>
-<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;        socket_-&gt;async_connect(info_.pathName(),</div>
-<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;            [<span class="keyword">this</span>, callback](<a class="code" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">AsioErrorCode</a> ec)</div>
-<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;            {</div>
-<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;                if (ec)</div>
-<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;                    socket_.reset();</div>
-<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;                callback(ec, std::move(socket_));</div>
-<div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;                socket_.reset();</div>
-<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;            });</div>
-<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;    }</div>
-<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160; </div>
-<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160;    <span class="keywordtype">void</span> cancel()</div>
-<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;    {</div>
-<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;        <span class="keywordflow">if</span> (socket_)</div>
-<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;            socket_-&gt;close();</div>
-<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;    }</div>
-<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160; </div>
-<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;<span class="keyword">private</span>:</div>
-<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;    <a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> executor_;</div>
-<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;    Info info_;</div>
-<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;    SocketPtr socket_;</div>
-<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160;};</div>
-<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160; </div>
-<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;} <span class="comment">// namespace internal</span></div>
+<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &quot;config.hpp&quot;</span></div>
+<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160; </div>
+<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
+<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;{</div>
+<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160; </div>
+<div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;<span class="keyword">namespace </span>internal</div>
+<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;{</div>
+<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160; </div>
+<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;<span class="keyword">class </span>UdsOpener</div>
+<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;{</div>
+<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;<span class="keyword">public</span>:</div>
+<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;    <span class="keyword">using</span> Info      = UdsPath;</div>
+<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;    <span class="keyword">using</span> Socket    = boost::asio::local::stream_protocol::socket;</div>
+<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;    <span class="keyword">using</span> SocketPtr = std::unique_ptr&lt;Socket&gt;;</div>
+<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160; </div>
+<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160;    UdsOpener(<a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> exec, Info info)</div>
+<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;        : executor_(exec),</div>
+<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;          info_(std::move(info))</div>
+<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;    {}</div>
+<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160; </div>
+<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160;    <a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> executor() {<span class="keywordflow">return</span> executor_;}</div>
+<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160; </div>
+<div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> TCallback&gt;</div>
+<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;    <span class="keywordtype">void</span> establish(TCallback&amp;&amp; callback)</div>
+<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;    {</div>
+<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;        assert(!socket_ &amp;&amp; <span class="stringliteral">&quot;Connect already in progress&quot;</span>);</div>
+<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160; </div>
+<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;        socket_.reset(<span class="keyword">new</span> Socket(executor_));</div>
+<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;        socket_-&gt;open();</div>
+<div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160;        info_.options().applyTo(*socket_);</div>
+<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160; </div>
+<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;        <span class="comment">// AsioConnector will keep this object alive until completion.</span></div>
+<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;        socket_-&gt;async_connect(</div>
+<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;            info_.pathName(),</div>
+<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;            [<span class="keyword">this</span>, CPPWAMP_MVCAP(callback)](<a class="code" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">AsioErrorCode</a> ec)</div>
+<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;            {</div>
+<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;                <span class="keywordflow">if</span> (ec)</div>
+<div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;                    socket_.reset();</div>
+<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;                callback(ec, std::move(socket_));</div>
+<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;                socket_.reset();</div>
+<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;            });</div>
+<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160;    }</div>
+<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160; </div>
+<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;    <span class="keywordtype">void</span> cancel()</div>
+<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;    {</div>
+<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;        <span class="keywordflow">if</span> (socket_)</div>
+<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;            socket_-&gt;close();</div>
+<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;    }</div>
+<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160; </div>
+<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;<span class="keyword">private</span>:</div>
+<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;    <a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> executor_;</div>
+<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160;    Info info_;</div>
+<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160;    SocketPtr socket_;</div>
+<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;};</div>
 <div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160; </div>
-<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160;} <span class="comment">// namespace internal</span></div>
 <div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160; </div>
-<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;<span class="preprocessor">#endif // CPPWAMP_INTERNAL_UDSOPENER_HPP</span></div>
+<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160; </div>
+<div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160;<span class="preprocessor">#endif // CPPWAMP_INTERNAL_UDSOPENER_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
@@ -170,7 +172,7 @@ $(document).ready(function(){initNavTree('udsopener_8hpp_source.html',''); initR
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="dir_15a40f4932549f0fe4696fd8fd3add66.html">internal</a></li><li class="navelem"><b>udsopener.hpp</b></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

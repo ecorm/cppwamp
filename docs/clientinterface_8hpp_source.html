@@ -87,7 +87,7 @@ $(document).ready(function(){initNavTree('clientinterface_8hpp_source.html','');
 </div><!--header-->
 <div class="contents">
 <div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;<span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">                Copyright Butterfly Energy Systems 2014-2015.</span></div>
+<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">              Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
 <div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
 <div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
 <div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
@@ -101,45 +101,45 @@ $(document).ready(function(){initNavTree('clientinterface_8hpp_source.html','');
 <div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="preprocessor">#include &lt;string&gt;</span></div>
 <div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="preprocessor">#include &quot;../peerdata.hpp&quot;</span></div>
 <div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="preprocessor">#include &quot;../error.hpp&quot;</span></div>
-<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &quot;../registration.hpp&quot;</span></div>
-<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &quot;../sessiondata.hpp&quot;</span></div>
+<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &quot;../peerdata.hpp&quot;</span></div>
+<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &quot;../registration.hpp&quot;</span></div>
 <div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="preprocessor">#include &quot;../subscription.hpp&quot;</span></div>
 <div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;<span class="preprocessor">#include &quot;../variant.hpp&quot;</span></div>
 <div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;<span class="preprocessor">#include &quot;../wampdefs.hpp&quot;</span></div>
 <div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;<span class="preprocessor">#include &quot;asynctask.hpp&quot;</span></div>
 <div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;<span class="preprocessor">#include &quot;callee.hpp&quot;</span></div>
-<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;<span class="preprocessor">#include &quot;subscriber.hpp&quot;</span></div>
-<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160; </div>
-<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
-<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;{</div>
-<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160; </div>
-<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;<span class="keyword">namespace </span>internal</div>
-<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;{</div>
-<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160; </div>
-<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;<span class="keyword">class </span>RegistrationImpl;</div>
-<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;<span class="keyword">class </span>SubscriptionImpl;</div>
-<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160; </div>
-<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;<span class="comment">// Specifies the interface required for classes that implement wamp::Session.</span></div>
-<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;<span class="keyword">class </span>ClientInterface : <span class="keyword">public</span> Callee, <span class="keyword">public</span> Subscriber</div>
-<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160;{</div>
-<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160;<span class="keyword">public</span>:</div>
-<div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160;    <span class="keyword">using</span> Ptr           = std::shared_ptr&lt;ClientInterface&gt;;</div>
-<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;    <span class="keyword">using</span> WeakPtr       = std::weak_ptr&lt;ClientInterface&gt;;</div>
-<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;    <span class="keyword">using</span> EventSlot     = std::function&lt;void (Event)&gt;;</div>
-<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;    <span class="keyword">using</span> CallSlot      = std::function&lt;Outcome (Invocation)&gt;;</div>
-<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;    <span class="keyword">using</span> InterruptSlot = std::function&lt;Outcome (Interruption)&gt;;</div>
-<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160; </div>
-<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;    <span class="keyword">static</span> <span class="keyword">const</span> <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>&amp; roles();</div>
+<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;<span class="preprocessor">#include &quot;challengee.hpp&quot;</span></div>
+<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;<span class="preprocessor">#include &quot;subscriber.hpp&quot;</span></div>
+<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160; </div>
+<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
+<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;{</div>
+<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160; </div>
+<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;<span class="keyword">namespace </span>internal</div>
+<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;{</div>
+<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160; </div>
+<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;<span class="keyword">class </span>RegistrationImpl;</div>
+<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160;<span class="keyword">class </span>SubscriptionImpl;</div>
+<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160; </div>
+<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;<span class="comment">// Specifies the interface required for classes that implement wamp::Session.</span></div>
+<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160;<span class="keyword">class </span>ClientInterface :</div>
+<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160;    <span class="keyword">public</span> Callee, <span class="keyword">public</span> Subscriber, <span class="keyword">public</span> Challengee</div>
+<div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160;{</div>
+<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;<span class="keyword">public</span>:</div>
+<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;    <span class="keyword">using</span> Ptr           = std::shared_ptr&lt;ClientInterface&gt;;</div>
+<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;    <span class="keyword">using</span> WeakPtr       = std::weak_ptr&lt;ClientInterface&gt;;</div>
+<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;    <span class="keyword">using</span> EventSlot     = std::function&lt;void (Event)&gt;;</div>
+<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;    <span class="keyword">using</span> CallSlot      = std::function&lt;Outcome (Invocation)&gt;;</div>
+<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;    <span class="keyword">using</span> InterruptSlot = std::function&lt;Outcome (Interruption)&gt;;</div>
 <div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160; </div>
-<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;    <span class="keyword">virtual</span> ~ClientInterface() {}</div>
+<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;    <span class="keyword">static</span> <span class="keyword">const</span> <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>&amp; roles();</div>
 <div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160; </div>
-<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;    <span class="keyword">virtual</span> <a class="code" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339f">SessionState</a> state() <span class="keyword">const</span> = 0;</div>
+<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;    <span class="keyword">virtual</span> ~ClientInterface() {}</div>
 <div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160; </div>
-<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> join(Realm&amp;&amp; realm, AsyncTask&lt;SessionInfo&gt;&amp;&amp; handler) = 0;</div>
+<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;    <span class="keyword">virtual</span> <a class="code" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339f">SessionState</a> state() <span class="keyword">const</span> = 0;</div>
 <div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160; </div>
-<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> authenticate(Authentication&amp;&amp; authentication) = 0;</div>
+<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> join(Realm&amp;&amp; realm, AsyncTask&lt;SessionInfo&gt;&amp;&amp; handler) = 0;</div>
 <div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160; </div>
 <div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> leave(Reason&amp;&amp; reason, AsyncTask&lt;Reason&gt;&amp;&amp; handler) = 0;</div>
 <div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160; </div>
@@ -162,10 +162,10 @@ $(document).ready(function(){initNavTree('clientinterface_8hpp_source.html','');
 <div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160; </div>
 <div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> cancel(Cancellation&amp;&amp; cancellation) = 0;</div>
 <div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160; </div>
-<div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> setLogHandlers(AsyncTask&lt;std::string&gt; warningHandler,</div>
-<div class="line"><a name="l00078"></a><span class="lineno">   78</span>&#160;                                AsyncTask&lt;std::string&gt; traceHandler) = 0;</div>
-<div class="line"><a name="l00079"></a><span class="lineno">   79</span>&#160; </div>
-<div class="line"><a name="l00080"></a><span class="lineno">   80</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> setChallengeHandler(AsyncTask&lt;Challenge&gt; handler) = 0;</div>
+<div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> setSessionHandlers(AsyncTask&lt;std::string&gt; warningHandler,</div>
+<div class="line"><a name="l00078"></a><span class="lineno">   78</span>&#160;                                    AsyncTask&lt;std::string&gt; traceHandler,</div>
+<div class="line"><a name="l00079"></a><span class="lineno">   79</span>&#160;                                    AsyncTask&lt;SessionState&gt; stateChangeHandler,</div>
+<div class="line"><a name="l00080"></a><span class="lineno">   80</span>&#160;                                    AsyncTask&lt;Challenge&gt; challengeHandler) = 0;</div>
 <div class="line"><a name="l00081"></a><span class="lineno">   81</span>&#160;};</div>
 <div class="line"><a name="l00082"></a><span class="lineno">   82</span>&#160; </div>
 <div class="line"><a name="l00083"></a><span class="lineno">   83</span>&#160;<span class="keyword">inline</span> <span class="keyword">const</span> <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>&amp; ClientInterface::roles()</div>
@@ -174,37 +174,39 @@ $(document).ready(function(){initNavTree('clientinterface_8hpp_source.html','');
 <div class="line"><a name="l00086"></a><span class="lineno">   86</span>&#160;    {</div>
 <div class="line"><a name="l00087"></a><span class="lineno">   87</span>&#160;        {<span class="stringliteral">&quot;callee&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{<span class="stringliteral">&quot;features&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{</div>
 <div class="line"><a name="l00088"></a><span class="lineno">   88</span>&#160;            {<span class="stringliteral">&quot;call_canceling&quot;</span>, <span class="keyword">true</span>},</div>
-<div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160;            {<span class="stringliteral">&quot;call_trustlevels&quot;</span>, <span class="keyword">true</span>},</div>
-<div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160;            {<span class="stringliteral">&quot;caller_identification&quot;</span>, <span class="keyword">true</span>},</div>
-<div class="line"><a name="l00091"></a><span class="lineno">   91</span>&#160;            {<span class="stringliteral">&quot;pattern_based_registration&quot;</span>, <span class="keyword">true</span>},</div>
-<div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160;            {<span class="stringliteral">&quot;progressive_call_results&quot;</span>, <span class="keyword">true</span>}</div>
-<div class="line"><a name="l00093"></a><span class="lineno">   93</span>&#160;        }}}}},</div>
-<div class="line"><a name="l00094"></a><span class="lineno">   94</span>&#160;        {<span class="stringliteral">&quot;caller&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{<span class="stringliteral">&quot;features&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{</div>
-<div class="line"><a name="l00095"></a><span class="lineno">   95</span>&#160;            {<span class="stringliteral">&quot;call_canceling&quot;</span>, <span class="keyword">true</span>},</div>
-<div class="line"><a name="l00096"></a><span class="lineno">   96</span>&#160;            {<span class="stringliteral">&quot;call_timeout&quot;</span>, <span class="keyword">true</span>},</div>
-<div class="line"><a name="l00097"></a><span class="lineno">   97</span>&#160;            {<span class="stringliteral">&quot;caller_exclusion&quot;</span>, <span class="keyword">true</span>},</div>
-<div class="line"><a name="l00098"></a><span class="lineno">   98</span>&#160;            {<span class="stringliteral">&quot;caller_identification&quot;</span>, <span class="keyword">true</span>}</div>
-<div class="line"><a name="l00099"></a><span class="lineno">   99</span>&#160;        }}}}},</div>
-<div class="line"><a name="l00100"></a><span class="lineno">  100</span>&#160;        {<span class="stringliteral">&quot;publisher&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{<span class="stringliteral">&quot;features&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{</div>
-<div class="line"><a name="l00101"></a><span class="lineno">  101</span>&#160;            {<span class="stringliteral">&quot;publisher_exclusion&quot;</span>, <span class="keyword">true</span>},</div>
-<div class="line"><a name="l00102"></a><span class="lineno">  102</span>&#160;            {<span class="stringliteral">&quot;publisher_identification&quot;</span>, <span class="keyword">true</span>},</div>
-<div class="line"><a name="l00103"></a><span class="lineno">  103</span>&#160;            {<span class="stringliteral">&quot;subscriber_blackwhite_listing&quot;</span>, <span class="keyword">true</span>}</div>
-<div class="line"><a name="l00104"></a><span class="lineno">  104</span>&#160;        }}}}},</div>
-<div class="line"><a name="l00105"></a><span class="lineno">  105</span>&#160;        {<span class="stringliteral">&quot;subscriber&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{<span class="stringliteral">&quot;features&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{</div>
-<div class="line"><a name="l00106"></a><span class="lineno">  106</span>&#160;            {<span class="stringliteral">&quot;pattern_based_subscription&quot;</span>, <span class="keyword">true</span>},</div>
-<div class="line"><a name="l00107"></a><span class="lineno">  107</span>&#160;            {<span class="stringliteral">&quot;publication_trustlevels&quot;</span>, <span class="keyword">true</span>},</div>
-<div class="line"><a name="l00108"></a><span class="lineno">  108</span>&#160;            {<span class="stringliteral">&quot;publisher_identification&quot;</span>, <span class="keyword">true</span>},</div>
-<div class="line"><a name="l00109"></a><span class="lineno">  109</span>&#160;        }}}}}</div>
-<div class="line"><a name="l00110"></a><span class="lineno">  110</span>&#160;    };</div>
-<div class="line"><a name="l00111"></a><span class="lineno">  111</span>&#160; </div>
-<div class="line"><a name="l00112"></a><span class="lineno">  112</span>&#160;    <span class="keywordflow">return</span> roles;</div>
-<div class="line"><a name="l00113"></a><span class="lineno">  113</span>&#160;}</div>
-<div class="line"><a name="l00114"></a><span class="lineno">  114</span>&#160; </div>
-<div class="line"><a name="l00115"></a><span class="lineno">  115</span>&#160;} <span class="comment">// namespace internal</span></div>
+<div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160;            {<span class="stringliteral">&quot;call_timeout&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160;            {<span class="stringliteral">&quot;call_trustlevels&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00091"></a><span class="lineno">   91</span>&#160;            {<span class="stringliteral">&quot;caller_identification&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160;            {<span class="stringliteral">&quot;pattern_based_registration&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00093"></a><span class="lineno">   93</span>&#160;            {<span class="stringliteral">&quot;progressive_call_results&quot;</span>, <span class="keyword">true</span>}</div>
+<div class="line"><a name="l00094"></a><span class="lineno">   94</span>&#160;        }}}}},</div>
+<div class="line"><a name="l00095"></a><span class="lineno">   95</span>&#160;        {<span class="stringliteral">&quot;caller&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{<span class="stringliteral">&quot;features&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{</div>
+<div class="line"><a name="l00096"></a><span class="lineno">   96</span>&#160;            {<span class="stringliteral">&quot;call_canceling&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00097"></a><span class="lineno">   97</span>&#160;            {<span class="stringliteral">&quot;call_timeout&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00098"></a><span class="lineno">   98</span>&#160;            {<span class="stringliteral">&quot;caller_exclusion&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00099"></a><span class="lineno">   99</span>&#160;            {<span class="stringliteral">&quot;caller_identification&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00100"></a><span class="lineno">  100</span>&#160;            {<span class="stringliteral">&quot;progressive_call_results&quot;</span>, <span class="keyword">true</span>}</div>
+<div class="line"><a name="l00101"></a><span class="lineno">  101</span>&#160;        }}}}},</div>
+<div class="line"><a name="l00102"></a><span class="lineno">  102</span>&#160;        {<span class="stringliteral">&quot;publisher&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{<span class="stringliteral">&quot;features&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{</div>
+<div class="line"><a name="l00103"></a><span class="lineno">  103</span>&#160;            {<span class="stringliteral">&quot;publisher_exclusion&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00104"></a><span class="lineno">  104</span>&#160;            {<span class="stringliteral">&quot;publisher_identification&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00105"></a><span class="lineno">  105</span>&#160;            {<span class="stringliteral">&quot;subscriber_blackwhite_listing&quot;</span>, <span class="keyword">true</span>}</div>
+<div class="line"><a name="l00106"></a><span class="lineno">  106</span>&#160;        }}}}},</div>
+<div class="line"><a name="l00107"></a><span class="lineno">  107</span>&#160;        {<span class="stringliteral">&quot;subscriber&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{<span class="stringliteral">&quot;features&quot;</span>, <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>{{</div>
+<div class="line"><a name="l00108"></a><span class="lineno">  108</span>&#160;            {<span class="stringliteral">&quot;pattern_based_subscription&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00109"></a><span class="lineno">  109</span>&#160;            {<span class="stringliteral">&quot;publication_trustlevels&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00110"></a><span class="lineno">  110</span>&#160;            {<span class="stringliteral">&quot;publisher_identification&quot;</span>, <span class="keyword">true</span>},</div>
+<div class="line"><a name="l00111"></a><span class="lineno">  111</span>&#160;        }}}}}</div>
+<div class="line"><a name="l00112"></a><span class="lineno">  112</span>&#160;    };</div>
+<div class="line"><a name="l00113"></a><span class="lineno">  113</span>&#160; </div>
+<div class="line"><a name="l00114"></a><span class="lineno">  114</span>&#160;    <span class="keywordflow">return</span> roles;</div>
+<div class="line"><a name="l00115"></a><span class="lineno">  115</span>&#160;}</div>
 <div class="line"><a name="l00116"></a><span class="lineno">  116</span>&#160; </div>
-<div class="line"><a name="l00117"></a><span class="lineno">  117</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00117"></a><span class="lineno">  117</span>&#160;} <span class="comment">// namespace internal</span></div>
 <div class="line"><a name="l00118"></a><span class="lineno">  118</span>&#160; </div>
-<div class="line"><a name="l00119"></a><span class="lineno">  119</span>&#160;<span class="preprocessor">#endif // CPPWAMP_INTERNAL_CLIENTINTERFACE_HPP</span></div>
+<div class="line"><a name="l00119"></a><span class="lineno">  119</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00120"></a><span class="lineno">  120</span>&#160; </div>
+<div class="line"><a name="l00121"></a><span class="lineno">  121</span>&#160;<span class="preprocessor">#endif // CPPWAMP_INTERNAL_CLIENTINTERFACE_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <div class="ttc" id="anamespacewamp_html_ad69525a134cfe3de73c79af0e80f2ff2"><div class="ttname"><a href="namespacewamp.html#ad69525a134cfe3de73c79af0e80f2ff2">wamp::RequestId</a></div><div class="ttdeci">int64_t RequestId</div><div class="ttdoc">Ephemeral ID associated with a WAMP request.</div><div class="ttdef"><b>Definition:</b> wampdefs.hpp:22</div></div>
@@ -215,7 +217,7 @@ $(document).ready(function(){initNavTree('clientinterface_8hpp_source.html','');
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="dir_15a40f4932549f0fe4696fd8fd3add66.html">internal</a></li><li class="navelem"><b>clientinterface.hpp</b></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

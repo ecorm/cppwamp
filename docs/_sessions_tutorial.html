@@ -87,14 +87,17 @@ $(document).ready(function(){initNavTree('_sessions_tutorial.html',''); initResi
 </div><!--header-->
 <div class="contents">
 <div class="toc"><h3>Table of Contents</h3>
-<ul><ul><li class="level2"><a href="#autotoc_md27">Creating the Session Object</a></li>
-<li class="level2"><a href="#autotoc_md28">Connecting and Joining</a></li>
-<li class="level2"><a href="#autotoc_md29">Leaving and Disconnecting</a></li>
+<ul><ul><li class="level2"><a href="#autotoc_md30">Creating the Session Object</a></li>
+<li class="level2"><a href="#autotoc_md31">Connecting and Joining</a></li>
+<li class="level2"><a href="#autotoc_md32">Leaving and Disconnecting</a></li>
+<li class="level2"><a href="#autotoc_md33">Logging</a></li>
+<li class="level2"><a href="#autotoc_md34">Authentication</a></li>
+<li class="level2"><a href="#autotoc_md35">Handling Session State Changes</a></li>
 </ul>
 </ul>
 </div>
 <div class="textblock"><p>Because it makes things easier to demonstrate, the following tutorial pages will use the coroutine-based session API. The asynchronous session API is covered in <a class="el" href="_async_tutorial.html">Asynchronous API</a>.</p>
-<h2><a class="anchor" id="autotoc_md27"></a>
+<h2><a class="anchor" id="autotoc_md30"></a>
 Creating the Session Object</h2>
 <p>Once one or more <a class="el" href="classwamp_1_1_connector.html" title="Abstract base class for establishing client transport endpoints.">wamp::Connector</a> objects have been created, they are passed to the <a class="el" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">create</a> factory method of the session API. <code>create</code> then returns a <code>std::shared_ptr</code> to the newly created <a class="el" href="classwamp_1_1_coro_session.html" title="Coroutine API used by a client peer in WAMP applications.">wamp::CoroSession</a> object.</p>
 <div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="corosession_8hpp.html">cppwamp/corosession.hpp</a>&gt;</span></div>
@@ -109,7 +112,7 @@ Creating the Session Object</h2>
 <div class="line"> </div>
 <div class="line"><span class="comment">// Create the Session object:</span></div>
 <div class="line"><span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, {tcpJson, tcpPack});</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md28"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md31"></a>
 Connecting and Joining</h2>
 <p>After the session object is created, the <a class="el" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a> operation is used to establish a transport connection to a WAMP router. The <a class="el" href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">join</a> operation is then used to join a WAMP realm on the router.</p>
 <p>All "blocking" operations of <code>CoroSession</code> must be executed within the context of a <em>coroutine</em>. Coroutines are initiated via <a href="https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/spawn.html">boost::asio::spawn</a>. For any <code>CoroSession</code> operation that needs to "block" until completion, a <em>yield context</em> must be provided. The following example shows how to spawn a coroutine, and how a yield context is passed to the <code>connect</code> and <code>join</code> operations.</p>
@@ -121,40 +124,40 @@ Connecting and Joining</h2>
 <div class="line">boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
 <div class="line">{</div>
 <div class="line">    <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, {tcpJson, tcpPack});</div>
-<div class="line">    session-&gt;connect(yield);</div>
-<div class="line">    <span class="keyword">auto</span> sessionInfo = session-&gt;join(<span class="stringliteral">&quot;somerealm&quot;</span>, yield);</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>(yield);</div>
+<div class="line">    <span class="keyword">auto</span> sessionInfo = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">join</a>(<a class="code" href="classwamp_1_1_realm.html">Realm</a>(<span class="stringliteral">&quot;somerealm&quot;</span>), yield);</div>
 <div class="line">    <span class="comment">// etc.</span></div>
 <div class="line">});</div>
 <div class="line"> </div>
 <div class="line">ioctx.run();</div>
 </div><!-- fragment --><p>Note that while a coroutine operation is suspended, it yields control so that other asynchronous operations can be executed via the I/O context.</p>
-<h2><a class="anchor" id="autotoc_md29"></a>
+<h2><a class="anchor" id="autotoc_md32"></a>
 Leaving and Disconnecting</h2>
-<p>To gracefully end a WAMP session, the <a class="el" href="classwamp_1_1_coro_session.html#abf37a305151b2d6e94332a40f5279a79">leave</a> and <a class="el" href="classwamp_1_1_session.html#a19453d9bc8c13828e3f33dae05ae177b">disconnect</a> operations are used:</p>
+<p>To gracefully end a WAMP session, the <a class="el" href="classwamp_1_1_coro_session.html#a20b716f4740dff89642f1363ed2e7b94">leave</a> and <a class="el" href="classwamp_1_1_session.html#a19453d9bc8c13828e3f33dae05ae177b">disconnect</a> operations are used:</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line">boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
 <div class="line">{</div>
 <div class="line">    <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, {tcpJson, tcpPack});</div>
-<div class="line">    session-&gt;connect(yield);</div>
-<div class="line">    session-&gt;join(<span class="stringliteral">&quot;somerealm&quot;</span>, yield);</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>(yield);</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">join</a>(<a class="code" href="classwamp_1_1_realm.html">Realm</a>(<span class="stringliteral">&quot;somerealm&quot;</span>), yield);</div>
 <div class="line"> </div>
 <div class="line">    <span class="keywordflow">while</span> (!finished)</div>
 <div class="line">    {</div>
 <div class="line">        <span class="comment">// Interact with the WAMP session</span></div>
 <div class="line">    }</div>
 <div class="line"> </div>
-<div class="line">    <span class="keyword">auto</span> reason = session-&gt;leave(yield); <span class="comment">// returns the Reason URI and</span></div>
+<div class="line">    <span class="keyword">auto</span> reason = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a20b716f4740dff89642f1363ed2e7b94">leave</a>(yield); <span class="comment">// returns the Reason URI and</span></div>
 <div class="line">                                         <span class="comment">// other details from the router&#39;s</span></div>
 <div class="line">                                         <span class="comment">// GOODBYE message</span></div>
-<div class="line">    session-&gt;disconnect(); <span class="comment">// non-blocking</span></div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_session.html#a19453d9bc8c13828e3f33dae05ae177b">disconnect</a>(); <span class="comment">// non-blocking</span></div>
 <div class="line">});</div>
 </div><!-- fragment --><p>To abruptly end a WAMP session, you can skip the <code>leave</code> operation and just <code>disconnect</code>. This may be useful when handling error conditions. Alternatively, you can let the session <code>shared_ptr</code> reference count drop to zero, and the session will abruptly terminate the connection in its destructor:</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line">boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
 <div class="line">{</div>
 <div class="line">    <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, {tcpJson, tcpPack});</div>
-<div class="line">    session-&gt;connect(yield);</div>
-<div class="line">    session-&gt;join(<span class="stringliteral">&quot;somerealm&quot;</span>, yield);</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>(yield);</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">join</a>(<a class="code" href="classwamp_1_1_realm.html">Realm</a>(<span class="stringliteral">&quot;somerealm&quot;</span>), yield);</div>
 <div class="line"> </div>
 <div class="line">    <span class="keywordflow">while</span> (!finished)</div>
 <div class="line">    {</div>
@@ -165,24 +168,150 @@ Leaving and Disconnecting</h2>
 <div class="line">    <span class="comment">// function exits. The session destructor will then terminate the</span></div>
 <div class="line">    <span class="comment">// connection.</span></div>
 <div class="line">});</div>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md33"></a>
+Logging</h2>
+<p><code><a class="el" href="classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications.">wamp::Session</a></code> and <code><a class="el" href="classwamp_1_1_coro_session.html" title="Coroutine API used by a client peer in WAMP applications.">wamp::CoroSession</a></code> can generate log events at runtime, for warnings and for inbound/outbound WAMP messages. CppWAMP is not opinionated about where the log events should go, so it provides the <a class="el" href="classwamp_1_1_session.html#a3af4c171dc1d0cb7b412adbd702528db">setWarningHandler</a> and <a class="el" href="classwamp_1_1_session.html#a8ecf51b461ff093aedc9ed32c9adfc6a">setTraceHandler</a> methods that allow you to register handlers for these log events.</p>
+<p>Warnings are generated when there are problems detected that don't prevent CppWAMP from performing its job.</p>
+<p>Traces contain a stringified version of the WAMP protocol messages. They can be useful for troubleshooting without having to set up a network analyzer.</p>
+<p>Both warning and trace handlers must be callable entities with the signature: </p><div class="fragment"><div class="line"><span class="keywordtype">void</span> handler(std::string)</div>
+</div><!-- fragment --><p>The handlers are posted via the executor that was passed to the session's <code>create</code> method.</p>
+<p>With these handlers you may, for example, log the messages to the console.</p>
+<div class="fragment"><div class="line"><span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">wamp::CoroSession&lt;&gt;::create</a>(ioctx, tcp);</div>
+<div class="line"> </div>
+<div class="line">session-&gt;<a class="code" href="classwamp_1_1_session.html#a3af4c171dc1d0cb7b412adbd702528db">setWarningHandler</a>([](std::string message)</div>
+<div class="line">{</div>
+<div class="line">    std::cerr &lt;&lt; <span class="stringliteral">&quot;CppWAMP warning: &quot;</span> &lt;&lt; message &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
+<div class="line">});</div>
+<div class="line"> </div>
+<div class="line">session-&gt;<a class="code" href="classwamp_1_1_session.html#a8ecf51b461ff093aedc9ed32c9adfc6a">setTraceHandler</a>([](std::string message)</div>
+<div class="line">{</div>
+<div class="line">    std::clog &lt;&lt; <span class="stringliteral">&quot;WAMP message: &quot;</span> &lt;&lt; message &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
+<div class="line">});</div>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md34"></a>
+Authentication</h2>
+<p>CppWAMP supports the <code>AUTHENTICATE</code> and <code>CHALLENGE</code> messages used for WAMP authentication. Algorithms for computing the cryptographic signatures needed for the WAMP-CRA and WAMP-SCRAM methods are currently not provided by CppWAMP. CppWAMP users must therefore compute these themselves using other cryptographic libraries. Once computed, the signatures can be passed to CppWAMP via <a class="el" href="classwamp_1_1_authentication.html" title="Provides the Signature and Extra dictionary contained within WAMP AUTHENTICATE messages.">wamp::Authentication</a>.</p>
+<p>To enable authentication, you must set the challenge handler via <a class="el" href="classwamp_1_1_session.html#a6506613ec0fbf772db53cc9edbb0429f" title="Sets the handler for authentication challenges.">wamp::Session::setChallengeHandler</a>. The handler must be a callable entity with the following signature:</p>
+<div class="fragment"><div class="line"><span class="keywordtype">void</span> handler(<a class="code" href="classwamp_1_1_challenge.html">wamp::Challenge</a>)</div>
+</div><!-- fragment --><p>Within the challenge handler, you must compute the cryptographic signature (or ticket string) and send it back via <a class="el" href="classwamp_1_1_challenge.html#a29a723d3db5cab5c1bb9f556483d3a67" title="Sends an AUTHENTICATE message back in response to the challenge.">wamp::Challenge::authenticate</a>.</p>
+<p>When later performing the session join operation, you must set the authentication ID via <a class="el" href="classwamp_1_1_realm.html#a48523d3a11d8559588b751e389ddb3c2" title="Sets the HELLO.Details.authid option.">wamp::Realm::withAuthId</a>, as well as the desired/supported authentication methods via <a class="el" href="classwamp_1_1_realm.html#ac3498006872657119691f876e0ec409c" title="Sets the HELLO.Details.authmethods option.">wamp::Realm::withAuthMethods</a>.</p>
+<p>The following example shows how to perform ticket authentication.</p>
+<div class="fragment"><div class="line">std::string ticket;</div>
+<div class="line"> </div>
+<div class="line"><span class="keywordtype">void</span> onChallenge(<a class="code" href="classwamp_1_1_challenge.html">wamp::Challenge</a> challenge)</div>
+<div class="line">{</div>
+<div class="line">    <span class="keywordflow">if</span> (challenge.method() == <span class="stringliteral">&quot;ticket&quot;</span>)</div>
+<div class="line">        challenge.authenticate(<a class="code" href="classwamp_1_1_authentication.html">wamp::Authentication</a>(ticket));</div>
+<div class="line">    <span class="keywordflow">else</span></div>
+<div class="line">        <span class="keywordflow">throw</span> std::runtime_error(<span class="stringliteral">&quot;Unsupported authentication method&quot;</span>);</div>
+<div class="line">}</div>
+<div class="line"> </div>
+<div class="line"><span class="keywordtype">int</span> main()</div>
+<div class="line">{</div>
+<div class="line">    <span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
+<div class="line">    <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">AsioContext</a> ioctx;</div>
+<div class="line">    <span class="keyword">auto</span> tcp = connector&lt;Json&gt;(ioctx, <a class="code" href="classwamp_1_1_tcp_host.html">TcpHost</a>(<span class="stringliteral">&quot;localhost&quot;</span>, 8001));</div>
+<div class="line"> </div>
+<div class="line">    boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
+<div class="line">    {</div>
+<div class="line">        ticket = <span class="stringliteral">&quot;guest&quot;</span>;</div>
+<div class="line">        <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, tcp);</div>
+<div class="line">        session-&gt;<a class="code" href="classwamp_1_1_session.html#a6506613ec0fbf772db53cc9edbb0429f">setChallengeHandler</a>(&amp;onChallenge);</div>
+<div class="line">        session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>(yield);</div>
+<div class="line">        <span class="keyword">auto</span> sessionInfo = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">join</a>(</div>
+<div class="line">            <a class="code" href="classwamp_1_1_realm.html">Realm</a>(<span class="stringliteral">&quot;somerealm&quot;</span>).withAuthId(<span class="stringliteral">&quot;alice&quot;</span>).withAuthMethods({<span class="stringliteral">&quot;ticket&quot;</span>}),</div>
+<div class="line">            yield);</div>
+<div class="line">        ticket.clear();</div>
+<div class="line">        <span class="comment">// etc.</span></div>
+<div class="line">    });</div>
+<div class="line"> </div>
+<div class="line">    ioctx.run();</div>
+<div class="line"> </div>
+<div class="line">    <span class="keywordflow">return</span> 0;</div>
+<div class="line">}</div>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md35"></a>
+Handling Session State Changes</h2>
+<p><a class="el" href="classwamp_1_1_session.html#a8aee406350c455b908c7114434eea9ad" title="Sets the handler for session state changes.">wamp::Session::setStateChangeHandler</a> can be used to register a function that's called whenever the session's <a class="el" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339f" title="Enumerates the possible states that a client or router session can be in.">wamp::SessionState</a> changes. This can be used, for example, to attempt reconnection when the session is disconnected due to a network failure.</p>
+<div class="fragment"><div class="line"><span class="keywordtype">void</span> rejoinSession(CoroSession&lt;&gt;&amp; session, boost::asio::yield_context yield)</div>
+<div class="line">{</div>
+<div class="line">    session.connect(yield);</div>
+<div class="line">    session.join(Realm(<span class="stringliteral">&quot;somerealm&quot;</span>, yield);</div>
+<div class="line">    <span class="comment">// Register RPCs, subscribe to topics, etc.</span></div>
+<div class="line">}</div>
+<div class="line"> </div>
+<div class="line"><span class="keywordtype">void</span> onStateChange(<a class="code" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339f">SessionState</a> state,</div>
+<div class="line">                   std::weak_ptr&lt;CoroSession&lt;&gt;&gt; weakSession)</div>
+<div class="line">{</div>
+<div class="line">    <span class="keywordflow">if</span> (state == <a class="code" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339fa3a561116f0c9675a3c83d21fa365050d">SessionState::disconnected</a> ||</div>
+<div class="line">        state == <a class="code" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339fa26934eb377001f66e37289a5c93fe284">SessionState::failed</a>)</div>
+<div class="line">    {</div>
+<div class="line">        <span class="keyword">auto</span> session = weakSession.lock();</div>
+<div class="line">        <span class="keywordflow">if</span> (session)</div>
+<div class="line">        {</div>
+<div class="line">            boost::asio::spawn(session-&gt;userExecutor(),</div>
+<div class="line">                               [session](boost::asio::yield_context yield)</div>
+<div class="line">            {</div>
+<div class="line">                <span class="comment">// You may want to throttle and limit the reconnection</span></div>
+<div class="line">                <span class="comment">// attempts here.</span></div>
+<div class="line">                rejoinSession(*session, yield);</div>
+<div class="line">            });</div>
+<div class="line">        }</div>
+<div class="line">    }</div>
+<div class="line">}</div>
+<div class="line"> </div>
+<div class="line"><span class="keywordtype">int</span> main()</div>
+<div class="line">{</div>
+<div class="line">    <span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
+<div class="line">    <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">AsioContext</a> ioctx;</div>
+<div class="line">    <span class="keyword">auto</span> tcp = connector&lt;Json&gt;(ioctx, <a class="code" href="classwamp_1_1_tcp_host.html">TcpHost</a>(<span class="stringliteral">&quot;localhost&quot;</span>, 8001));</div>
+<div class="line"> </div>
+<div class="line">    boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
+<div class="line">    {</div>
+<div class="line">        <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, tcp);</div>
+<div class="line">        <span class="keyword">auto</span> weakSession = std::weak_ptr&lt;CoroSession&lt;&gt;&gt;(session);</div>
+<div class="line">        session-&gt;setStateChangeHandler(</div>
+<div class="line">            [weakSession, ioctx](<a class="code" href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339f">SessionState</a> state)</div>
+<div class="line">            {</div>
+<div class="line">                onStateChange(state, weakSession);</div>
+<div class="line">            });</div>
+<div class="line">        rejoinSession(*session, yield);</div>
+<div class="line">       <span class="comment">// etc.</span></div>
+<div class="line">    });</div>
+<div class="line"> </div>
+<div class="line">    ioctx.run();</div>
+<div class="line"> </div>
+<div class="line">    <span class="keywordflow">return</span> 0;</div>
+<div class="line">}</div>
 </div><!-- fragment --><hr  />
 <p>Next: <a class="el" href="_errors_tutorial.html">Error Handling</a> </p>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->
 </div><!-- doc-content -->
-<div class="ttc" id="aclasswamp_1_1_coro_session_html_a60225f83299f06c5bf1ecc3c8713a316"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">wamp::CoroSession::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new CoroSession instance.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:273</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a20b716f4740dff89642f1363ed2e7b94"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a20b716f4740dff89642f1363ed2e7b94">wamp::CoroSession::leave</a></div><div class="ttdeci">Reason leave(YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Leaves the WAMP session.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:351</div></div>
+<div class="ttc" id="aclasswamp_1_1_realm_html"><div class="ttname"><a href="classwamp_1_1_realm.html">wamp::Realm</a></div><div class="ttdoc">Realm URI and other options contained within WAMP HELLO messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:38</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a60225f83299f06c5bf1ecc3c8713a316"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">wamp::CoroSession::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new CoroSession instance.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:277</div></div>
+<div class="ttc" id="aclasswamp_1_1_authentication_html"><div class="ttname"><a href="classwamp_1_1_authentication.html">wamp::Authentication</a></div><div class="ttdoc">Provides the Signature and Extra dictionary contained within WAMP AUTHENTICATE messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:175</div></div>
 <div class="ttc" id="ajson_2json_8hpp_html"><div class="ttname"><a href="json_2json_8hpp.html">json.hpp</a></div><div class="ttdoc">Contains the declaration of the Json codec.</div></div>
 <div class="ttc" id="amsgpack_2msgpack_8hpp_html"><div class="ttname"><a href="msgpack_2msgpack_8hpp.html">msgpack.hpp</a></div><div class="ttdoc">Contains the declaration of the Msgpack codec.</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_html_a6506613ec0fbf772db53cc9edbb0429f"><div class="ttname"><a href="classwamp_1_1_session.html#a6506613ec0fbf772db53cc9edbb0429f">wamp::Session::setChallengeHandler</a></div><div class="ttdeci">void setChallengeHandler(ChallengeHandler handler)</div><div class="ttdoc">Sets the handler for authentication challenges.</div><div class="ttdef"><b>Definition:</b> session.ipp:162</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_aa2fe628c3bbe0fda04f6994939da94fe"><div class="ttname"><a href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">wamp::CoroSession::join</a></div><div class="ttdeci">SessionInfo join(Realm realm, YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Attempts to join the given WAMP realm.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:328</div></div>
+<div class="ttc" id="anamespacewamp_html_a53ba5f85cd0d02bf363dfec7da1b339fa3a561116f0c9675a3c83d21fa365050d"><div class="ttname"><a href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339fa3a561116f0c9675a3c83d21fa365050d">wamp::SessionState::disconnected</a></div><div class="ttdeci">@ disconnected</div><div class="ttdoc">The transport connection is not yet established.</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_html_a3af4c171dc1d0cb7b412adbd702528db"><div class="ttname"><a href="classwamp_1_1_session.html#a3af4c171dc1d0cb7b412adbd702528db">wamp::Session::setWarningHandler</a></div><div class="ttdeci">void setWarningHandler(LogHandler handler)</div><div class="ttdoc">Sets the log handler for warnings.</div><div class="ttdef"><b>Definition:</b> session.ipp:103</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a990f68df80c36d848879b63a3d86b39d"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">wamp::CoroSession::connect</a></div><div class="ttdeci">size_t connect(YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Attempts to connect to a router.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:308</div></div>
 <div class="ttc" id="aclasswamp_1_1_tcp_host_html"><div class="ttname"><a href="classwamp_1_1_tcp_host.html">wamp::TcpHost</a></div><div class="ttdoc">Contains TCP host address information, as well as other socket options.</div><div class="ttdef"><b>Definition:</b> tcphost.hpp:103</div></div>
 <div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_html_a19453d9bc8c13828e3f33dae05ae177b"><div class="ttname"><a href="classwamp_1_1_session.html#a19453d9bc8c13828e3f33dae05ae177b">wamp::Session::disconnect</a></div><div class="ttdeci">void disconnect()</div><div class="ttdoc">Disconnects the transport between the client and router.</div><div class="ttdef"><b>Definition:</b> session.ipp:294</div></div>
 <div class="ttc" id="acorosession_8hpp_html"><div class="ttname"><a href="corosession_8hpp.html">corosession.hpp</a></div><div class="ttdoc">Convenience header which includes &lt;cppwamp/coro/corosession.hpp&gt;</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_html_a8ecf51b461ff093aedc9ed32c9adfc6a"><div class="ttname"><a href="classwamp_1_1_session.html#a8ecf51b461ff093aedc9ed32c9adfc6a">wamp::Session::setTraceHandler</a></div><div class="ttdeci">void setTraceHandler(LogHandler handler)</div><div class="ttdoc">Sets the log handler for debug traces.</div><div class="ttdef"><b>Definition:</b> session.ipp:124</div></div>
 <div class="ttc" id="atcp_8hpp_html"><div class="ttname"><a href="tcp_8hpp.html">tcp.hpp</a></div><div class="ttdoc">Contains facilities for creating TCP transport connectors.</div></div>
+<div class="ttc" id="aclasswamp_1_1_challenge_html"><div class="ttname"><a href="classwamp_1_1_challenge.html">wamp::Challenge</a></div><div class="ttdoc">Provides the AuthMethod and Extra dictionary contained within WAMP CHALLENGE messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:210</div></div>
+<div class="ttc" id="anamespacewamp_html_a53ba5f85cd0d02bf363dfec7da1b339fa26934eb377001f66e37289a5c93fe284"><div class="ttname"><a href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339fa26934eb377001f66e37289a5c93fe284">wamp::SessionState::failed</a></div><div class="ttdeci">@ failed</div><div class="ttdoc">WAMP session or transport connection has failed.</div></div>
+<div class="ttc" id="anamespacewamp_html_a53ba5f85cd0d02bf363dfec7da1b339f"><div class="ttname"><a href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339f">wamp::SessionState</a></div><div class="ttdeci">SessionState</div><div class="ttdoc">Enumerates the possible states that a client or router session can be in.</div><div class="ttdef"><b>Definition:</b> wampdefs.hpp:30</div></div>
 <div class="ttc" id="anamespacewamp_html_a9dd954da85bf9033739185b3a29e3e85"><div class="ttname"><a href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a></div><div class="ttdeci">boost::asio::io_context AsioContext</div><div class="ttdoc">Queues and runs I/O completion handlers.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:29</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="_tutorial.html">Tutorial</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

@@ -9,6 +9,7 @@ var classwamp_1_1_coro_session =
     [ "YieldContext", "classwamp_1_1_coro_session.html#a25431b1d9c64c90d4b3bb58546f2d5aa", null ],
     [ "connect", "classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d", null ],
     [ "join", "classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe", null ],
+    [ "leave", "classwamp_1_1_coro_session.html#a20b716f4740dff89642f1363ed2e7b94", null ],
     [ "leave", "classwamp_1_1_coro_session.html#abf37a305151b2d6e94332a40f5279a79", null ],
     [ "subscribe", "classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84", null ],
     [ "unsubscribe", "classwamp_1_1_coro_session.html#aa74e3dccd6a2c154a2ceb437553d9aaa", null ],

@@ -1,3 +1,5 @@
 <map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" href="$classwamp_1_1_from_variant_converter.html" title="Wrapper around a source Variant, used for conversions." alt="" coords="5,5,220,32"/>
+<area shape="rect" id="node1" title=" " alt="" coords="5,5,193,47"/>
+<area shape="rect" id="node2" title=" " alt="" coords="241,5,429,47"/>
+<area shape="rect" id="node3" href="$classwamp_1_1_error.html" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages." alt="" coords="477,13,579,39"/>
 </map>

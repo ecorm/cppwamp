@@ -233,229 +233,232 @@ $(document).ready(function(){initNavTree('asiotransport_8hpp_source.html',''); i
 <div class="line"><a name="l00145"></a><span class="lineno">  145</span>&#160;            socket_-&gt;close();</div>
 <div class="line"><a name="l00146"></a><span class="lineno">  146</span>&#160;    }</div>
 <div class="line"><a name="l00147"></a><span class="lineno">  147</span>&#160; </div>
-<div class="line"><a name="l00148"></a><span class="lineno">  148</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> TFunctor&gt;</div>
-<div class="line"><a name="l00149"></a><span class="lineno">  149</span>&#160;    <span class="keywordtype">void</span> post(TFunctor&amp;&amp; fn)</div>
-<div class="line"><a name="l00150"></a><span class="lineno">  150</span>&#160;    {</div>
-<div class="line"><a name="l00151"></a><span class="lineno">  151</span>&#160;        boost::asio::post(executor_, std::forward&lt;TFunctor&gt;(fn));</div>
-<div class="line"><a name="l00152"></a><span class="lineno">  152</span>&#160;    }</div>
-<div class="line"><a name="l00153"></a><span class="lineno">  153</span>&#160; </div>
-<div class="line"><a name="l00154"></a><span class="lineno">  154</span>&#160;    <span class="keywordtype">void</span> ping(Buffer message, PingHandler handler)</div>
-<div class="line"><a name="l00155"></a><span class="lineno">  155</span>&#160;    {</div>
-<div class="line"><a name="l00156"></a><span class="lineno">  156</span>&#160;        assert(started_);</div>
-<div class="line"><a name="l00157"></a><span class="lineno">  157</span>&#160;        pingHandler_ = std::move(handler);</div>
-<div class="line"><a name="l00158"></a><span class="lineno">  158</span>&#160;        pingBuffer_ = std::move(message);</div>
-<div class="line"><a name="l00159"></a><span class="lineno">  159</span>&#160;        sendMessage(RawsockMsgType::ping, pingBuffer_);</div>
-<div class="line"><a name="l00160"></a><span class="lineno">  160</span>&#160;        pingStart_ = std::chrono::high_resolution_clock::now();</div>
-<div class="line"><a name="l00161"></a><span class="lineno">  161</span>&#160;    }</div>
+<div class="line"><a name="l00148"></a><span class="lineno">  148</span>&#160;    <a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> executor()<span class="keyword"> const </span>{<span class="keywordflow">return</span> executor_;}</div>
+<div class="line"><a name="l00149"></a><span class="lineno">  149</span>&#160; </div>
+<div class="line"><a name="l00150"></a><span class="lineno">  150</span>&#160;    <span class="keywordtype">void</span> ping(Buffer message, PingHandler handler)</div>
+<div class="line"><a name="l00151"></a><span class="lineno">  151</span>&#160;    {</div>
+<div class="line"><a name="l00152"></a><span class="lineno">  152</span>&#160;        assert(started_);</div>
+<div class="line"><a name="l00153"></a><span class="lineno">  153</span>&#160;        pingHandler_ = std::move(handler);</div>
+<div class="line"><a name="l00154"></a><span class="lineno">  154</span>&#160;        pingBuffer_ = std::move(message);</div>
+<div class="line"><a name="l00155"></a><span class="lineno">  155</span>&#160;        sendMessage(RawsockMsgType::ping, pingBuffer_);</div>
+<div class="line"><a name="l00156"></a><span class="lineno">  156</span>&#160;        pingStart_ = std::chrono::high_resolution_clock::now();</div>
+<div class="line"><a name="l00157"></a><span class="lineno">  157</span>&#160;    }</div>
+<div class="line"><a name="l00158"></a><span class="lineno">  158</span>&#160; </div>
+<div class="line"><a name="l00159"></a><span class="lineno">  159</span>&#160;<span class="keyword">protected</span>:</div>
+<div class="line"><a name="l00160"></a><span class="lineno">  160</span>&#160;    <span class="keyword">using</span> TransmitQueue = std::queue&lt;Buffer&gt;;</div>
+<div class="line"><a name="l00161"></a><span class="lineno">  161</span>&#160;    <span class="keyword">using</span> TimePoint     = std::chrono::high_resolution_clock::time_point;</div>
 <div class="line"><a name="l00162"></a><span class="lineno">  162</span>&#160; </div>
-<div class="line"><a name="l00163"></a><span class="lineno">  163</span>&#160;<span class="keyword">protected</span>:</div>
-<div class="line"><a name="l00164"></a><span class="lineno">  164</span>&#160;    <span class="keyword">using</span> TransmitQueue = std::queue&lt;Buffer&gt;;</div>
-<div class="line"><a name="l00165"></a><span class="lineno">  165</span>&#160;    <span class="keyword">using</span> TimePoint     = std::chrono::high_resolution_clock::time_point;</div>
-<div class="line"><a name="l00166"></a><span class="lineno">  166</span>&#160; </div>
-<div class="line"><a name="l00167"></a><span class="lineno">  167</span>&#160;    AsioTransport(SocketPtr&amp;&amp; socket, <span class="keywordtype">size_t</span> maxTxLength, <span class="keywordtype">size_t</span> maxRxLength)</div>
-<div class="line"><a name="l00168"></a><span class="lineno">  168</span>&#160;        : socket_(std::move(socket)),</div>
-<div class="line"><a name="l00169"></a><span class="lineno">  169</span>&#160;          executor_(socket_-&gt;get_executor()),</div>
-<div class="line"><a name="l00170"></a><span class="lineno">  170</span>&#160;          maxTxLength_(maxTxLength),</div>
-<div class="line"><a name="l00171"></a><span class="lineno">  171</span>&#160;          maxRxLength_(maxRxLength)</div>
-<div class="line"><a name="l00172"></a><span class="lineno">  172</span>&#160;    {}</div>
-<div class="line"><a name="l00173"></a><span class="lineno">  173</span>&#160; </div>
-<div class="line"><a name="l00174"></a><span class="lineno">  174</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> sendMessage(RawsockMsgType type, Buffer message)</div>
-<div class="line"><a name="l00175"></a><span class="lineno">  175</span>&#160;    {</div>
-<div class="line"><a name="l00176"></a><span class="lineno">  176</span>&#160;        assert(socket_ &amp;&amp; <span class="stringliteral">&quot;Attempting to send on bad transport&quot;</span>);</div>
-<div class="line"><a name="l00177"></a><span class="lineno">  177</span>&#160;        assert((message-&gt;length() &lt;= maxTxLength_) &amp;&amp;</div>
-<div class="line"><a name="l00178"></a><span class="lineno">  178</span>&#160;               <span class="stringliteral">&quot;Outgoing message is longer than allowed by peer&quot;</span>);</div>
-<div class="line"><a name="l00179"></a><span class="lineno">  179</span>&#160; </div>
-<div class="line"><a name="l00180"></a><span class="lineno">  180</span>&#160;        message-&gt;prepare(type);</div>
-<div class="line"><a name="l00181"></a><span class="lineno">  181</span>&#160;        txQueue_.push(std::move(message));</div>
-<div class="line"><a name="l00182"></a><span class="lineno">  182</span>&#160;        transmit();</div>
-<div class="line"><a name="l00183"></a><span class="lineno">  183</span>&#160;    }</div>
-<div class="line"><a name="l00184"></a><span class="lineno">  184</span>&#160; </div>
-<div class="line"><a name="l00185"></a><span class="lineno">  185</span>&#160;<span class="keyword">private</span>:</div>
-<div class="line"><a name="l00186"></a><span class="lineno">  186</span>&#160;    <span class="keyword">using</span> Executor = <span class="keyword">typename</span> TSocket::executor_type;</div>
-<div class="line"><a name="l00187"></a><span class="lineno">  187</span>&#160; </div>
-<div class="line"><a name="l00188"></a><span class="lineno">  188</span>&#160;    <span class="keywordtype">void</span> transmit()</div>
-<div class="line"><a name="l00189"></a><span class="lineno">  189</span>&#160;    {</div>
-<div class="line"><a name="l00190"></a><span class="lineno">  190</span>&#160;        <span class="keywordflow">if</span> (isReadyToTransmit())</div>
-<div class="line"><a name="l00191"></a><span class="lineno">  191</span>&#160;        {</div>
-<div class="line"><a name="l00192"></a><span class="lineno">  192</span>&#160;            txBuffer_ = txQueue_.front();</div>
-<div class="line"><a name="l00193"></a><span class="lineno">  193</span>&#160;            txQueue_.pop();</div>
-<div class="line"><a name="l00194"></a><span class="lineno">  194</span>&#160; </div>
-<div class="line"><a name="l00195"></a><span class="lineno">  195</span>&#160;            <span class="keyword">auto</span> <span class="keyword">self</span> = this-&gt;shared_from_this();</div>
-<div class="line"><a name="l00196"></a><span class="lineno">  196</span>&#160;            boost::asio::async_write(*socket_, txBuffer_-&gt;gatherBuffers(),</div>
-<div class="line"><a name="l00197"></a><span class="lineno">  197</span>&#160;                [<span class="keyword">this</span>, <span class="keyword">self</span>](<a class="code" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">AsioErrorCode</a> ec, <span class="keywordtype">size_t</span> size)</div>
-<div class="line"><a name="l00198"></a><span class="lineno">  198</span>&#160;                {</div>
-<div class="line"><a name="l00199"></a><span class="lineno">  199</span>&#160;                    txBuffer_.reset();</div>
-<div class="line"><a name="l00200"></a><span class="lineno">  200</span>&#160;                    if (ec)</div>
-<div class="line"><a name="l00201"></a><span class="lineno">  201</span>&#160;                    {</div>
-<div class="line"><a name="l00202"></a><span class="lineno">  202</span>&#160;                        txQueue_ = TransmitQueue();</div>
-<div class="line"><a name="l00203"></a><span class="lineno">  203</span>&#160;                        socket_.reset();</div>
-<div class="line"><a name="l00204"></a><span class="lineno">  204</span>&#160;                    }</div>
-<div class="line"><a name="l00205"></a><span class="lineno">  205</span>&#160;                    <span class="keywordflow">else</span></div>
-<div class="line"><a name="l00206"></a><span class="lineno">  206</span>&#160;                    {</div>
-<div class="line"><a name="l00207"></a><span class="lineno">  207</span>&#160;                        transmit();</div>
-<div class="line"><a name="l00208"></a><span class="lineno">  208</span>&#160;                    }</div>
-<div class="line"><a name="l00209"></a><span class="lineno">  209</span>&#160;                });</div>
-<div class="line"><a name="l00210"></a><span class="lineno">  210</span>&#160;        }</div>
-<div class="line"><a name="l00211"></a><span class="lineno">  211</span>&#160;    }</div>
-<div class="line"><a name="l00212"></a><span class="lineno">  212</span>&#160; </div>
-<div class="line"><a name="l00213"></a><span class="lineno">  213</span>&#160;    <span class="keywordtype">bool</span> isReadyToTransmit()<span class="keyword"> const</span></div>
-<div class="line"><a name="l00214"></a><span class="lineno">  214</span>&#160;<span class="keyword">    </span>{</div>
-<div class="line"><a name="l00215"></a><span class="lineno">  215</span>&#160;        <span class="keywordflow">return</span> socket_ &amp;&amp;           <span class="comment">// Socket is still open</span></div>
-<div class="line"><a name="l00216"></a><span class="lineno">  216</span>&#160;               !txBuffer_ &amp;&amp;        <span class="comment">// No async_write is in progress</span></div>
-<div class="line"><a name="l00217"></a><span class="lineno">  217</span>&#160;               !txQueue_.empty();   <span class="comment">// One or more messages are enqueued</span></div>
-<div class="line"><a name="l00218"></a><span class="lineno">  218</span>&#160;    }</div>
-<div class="line"><a name="l00219"></a><span class="lineno">  219</span>&#160; </div>
-<div class="line"><a name="l00220"></a><span class="lineno">  220</span>&#160;    <span class="keywordtype">void</span> receive()</div>
-<div class="line"><a name="l00221"></a><span class="lineno">  221</span>&#160;    {</div>
-<div class="line"><a name="l00222"></a><span class="lineno">  222</span>&#160;        <span class="keywordflow">if</span> (socket_)</div>
-<div class="line"><a name="l00223"></a><span class="lineno">  223</span>&#160;        {</div>
-<div class="line"><a name="l00224"></a><span class="lineno">  224</span>&#160;            rxBuffer_ = getBuffer();</div>
-<div class="line"><a name="l00225"></a><span class="lineno">  225</span>&#160;            <span class="keyword">auto</span> <span class="keyword">self</span> = this-&gt;shared_from_this();</div>
-<div class="line"><a name="l00226"></a><span class="lineno">  226</span>&#160;            boost::asio::async_read(*socket_, rxBuffer_-&gt;headerBuffer(),</div>
-<div class="line"><a name="l00227"></a><span class="lineno">  227</span>&#160;                [<span class="keyword">this</span>, <span class="keyword">self</span>](<a class="code" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">AsioErrorCode</a> ec, <span class="keywordtype">size_t</span>)</div>
-<div class="line"><a name="l00228"></a><span class="lineno">  228</span>&#160;                {</div>
-<div class="line"><a name="l00229"></a><span class="lineno">  229</span>&#160;                    if (check(ec))</div>
-<div class="line"><a name="l00230"></a><span class="lineno">  230</span>&#160;                        processHeader();</div>
-<div class="line"><a name="l00231"></a><span class="lineno">  231</span>&#160;                });</div>
-<div class="line"><a name="l00232"></a><span class="lineno">  232</span>&#160;        }</div>
-<div class="line"><a name="l00233"></a><span class="lineno">  233</span>&#160;    }</div>
-<div class="line"><a name="l00234"></a><span class="lineno">  234</span>&#160; </div>
-<div class="line"><a name="l00235"></a><span class="lineno">  235</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> processHeader()</div>
-<div class="line"><a name="l00236"></a><span class="lineno">  236</span>&#160;    {</div>
-<div class="line"><a name="l00237"></a><span class="lineno">  237</span>&#160;        <span class="keyword">auto</span> hdr = rxBuffer_-&gt;header();</div>
-<div class="line"><a name="l00238"></a><span class="lineno">  238</span>&#160;        <span class="keyword">auto</span> length  = hdr.length();</div>
-<div class="line"><a name="l00239"></a><span class="lineno">  239</span>&#160;        <span class="keywordflow">if</span> ( check(length &lt;= maxRxLength_, <a class="code" href="namespacewamp.html#a7a09562b29d4b6e42e37be77ec31829aa0e4488fc267b2d8dad253ab78f5b9e8c">TransportErrc::badRxLength</a>) &amp;&amp;</div>
-<div class="line"><a name="l00240"></a><span class="lineno">  240</span>&#160;             check(hdr.msgTypeIsValid(), <a class="code" href="namespacewamp.html#aa0bf722cbe7ad04d49ad94b6ec440541a9a41b8fb027b252366984a29cb58423b">RawsockErrc::badMessageType</a>) )</div>
-<div class="line"><a name="l00241"></a><span class="lineno">  241</span>&#160;        {</div>
-<div class="line"><a name="l00242"></a><span class="lineno">  242</span>&#160;            receivePayload(hdr.msgType(), length);</div>
-<div class="line"><a name="l00243"></a><span class="lineno">  243</span>&#160;        }</div>
-<div class="line"><a name="l00244"></a><span class="lineno">  244</span>&#160;    }</div>
-<div class="line"><a name="l00245"></a><span class="lineno">  245</span>&#160; </div>
-<div class="line"><a name="l00246"></a><span class="lineno">  246</span>&#160;    <span class="keywordtype">void</span> receivePayload(RawsockMsgType msgType, <span class="keywordtype">size_t</span> length)</div>
-<div class="line"><a name="l00247"></a><span class="lineno">  247</span>&#160;    {</div>
-<div class="line"><a name="l00248"></a><span class="lineno">  248</span>&#160;        rxBuffer_-&gt;resize(length);</div>
-<div class="line"><a name="l00249"></a><span class="lineno">  249</span>&#160;        <span class="keyword">auto</span> <span class="keyword">self</span> = this-&gt;shared_from_this();</div>
-<div class="line"><a name="l00250"></a><span class="lineno">  250</span>&#160;        boost::asio::async_read(*socket_, rxBuffer_-&gt;payloadBuffer(),</div>
-<div class="line"><a name="l00251"></a><span class="lineno">  251</span>&#160;            [<span class="keyword">this</span>, <span class="keyword">self</span>, msgType](<a class="code" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">AsioErrorCode</a> ec, <span class="keywordtype">size_t</span>)</div>
-<div class="line"><a name="l00252"></a><span class="lineno">  252</span>&#160;            {</div>
-<div class="line"><a name="l00253"></a><span class="lineno">  253</span>&#160;                if (ec)</div>
-<div class="line"><a name="l00254"></a><span class="lineno">  254</span>&#160;                    rxBuffer_-&gt;clear();</div>
-<div class="line"><a name="l00255"></a><span class="lineno">  255</span>&#160;                if (check(ec))</div>
-<div class="line"><a name="l00256"></a><span class="lineno">  256</span>&#160;                    switch (msgType)</div>
-<div class="line"><a name="l00257"></a><span class="lineno">  257</span>&#160;                    {</div>
-<div class="line"><a name="l00258"></a><span class="lineno">  258</span>&#160;                    case RawsockMsgType::wamp:</div>
-<div class="line"><a name="l00259"></a><span class="lineno">  259</span>&#160;                        if (rxHandler_)</div>
-<div class="line"><a name="l00260"></a><span class="lineno">  260</span>&#160;                            post(std::bind(rxHandler_, std::move(rxBuffer_)));</div>
-<div class="line"><a name="l00261"></a><span class="lineno">  261</span>&#160;                        receive();</div>
-<div class="line"><a name="l00262"></a><span class="lineno">  262</span>&#160;                        break;</div>
-<div class="line"><a name="l00263"></a><span class="lineno">  263</span>&#160; </div>
-<div class="line"><a name="l00264"></a><span class="lineno">  264</span>&#160;                    case RawsockMsgType::ping:</div>
-<div class="line"><a name="l00265"></a><span class="lineno">  265</span>&#160;                        sendPong();</div>
-<div class="line"><a name="l00266"></a><span class="lineno">  266</span>&#160;                        break;</div>
-<div class="line"><a name="l00267"></a><span class="lineno">  267</span>&#160; </div>
-<div class="line"><a name="l00268"></a><span class="lineno">  268</span>&#160;                    case RawsockMsgType::pong:</div>
-<div class="line"><a name="l00269"></a><span class="lineno">  269</span>&#160;                        receivePong();</div>
-<div class="line"><a name="l00270"></a><span class="lineno">  270</span>&#160;                        break;</div>
-<div class="line"><a name="l00271"></a><span class="lineno">  271</span>&#160; </div>
-<div class="line"><a name="l00272"></a><span class="lineno">  272</span>&#160;                    default:</div>
-<div class="line"><a name="l00273"></a><span class="lineno">  273</span>&#160;                        assert(false);</div>
-<div class="line"><a name="l00274"></a><span class="lineno">  274</span>&#160;                    }</div>
-<div class="line"><a name="l00275"></a><span class="lineno">  275</span>&#160;            });</div>
-<div class="line"><a name="l00276"></a><span class="lineno">  276</span>&#160;    }</div>
-<div class="line"><a name="l00277"></a><span class="lineno">  277</span>&#160; </div>
-<div class="line"><a name="l00278"></a><span class="lineno">  278</span>&#160;    <span class="keywordtype">void</span> sendPong()</div>
-<div class="line"><a name="l00279"></a><span class="lineno">  279</span>&#160;    {</div>
-<div class="line"><a name="l00280"></a><span class="lineno">  280</span>&#160;        <span class="keyword">auto</span> buf = getBuffer();</div>
-<div class="line"><a name="l00281"></a><span class="lineno">  281</span>&#160;        buf-&gt;payload_.swap(rxBuffer_-&gt;payload_);</div>
-<div class="line"><a name="l00282"></a><span class="lineno">  282</span>&#160;        sendMessage(RawsockMsgType::pong, std::move(buf));</div>
-<div class="line"><a name="l00283"></a><span class="lineno">  283</span>&#160;        receive();</div>
-<div class="line"><a name="l00284"></a><span class="lineno">  284</span>&#160;    }</div>
-<div class="line"><a name="l00285"></a><span class="lineno">  285</span>&#160; </div>
-<div class="line"><a name="l00286"></a><span class="lineno">  286</span>&#160;    <span class="keywordtype">void</span> receivePong()</div>
-<div class="line"><a name="l00287"></a><span class="lineno">  287</span>&#160;    {</div>
-<div class="line"><a name="l00288"></a><span class="lineno">  288</span>&#160;        <span class="keywordflow">if</span> (pingHandler_ &amp;&amp; (rxBuffer_-&gt;payload_ == pingBuffer_-&gt;payload_))</div>
-<div class="line"><a name="l00289"></a><span class="lineno">  289</span>&#160;        {</div>
-<div class="line"><a name="l00290"></a><span class="lineno">  290</span>&#160;            pingBuffer_.reset();</div>
-<div class="line"><a name="l00291"></a><span class="lineno">  291</span>&#160;            <span class="keyword">namespace </span>chrn = std::chrono;</div>
-<div class="line"><a name="l00292"></a><span class="lineno">  292</span>&#160;            pingStop_ = chrn::high_resolution_clock::now();</div>
-<div class="line"><a name="l00293"></a><span class="lineno">  293</span>&#160;            <span class="keyword">using</span> Fms = chrn::duration&lt;float, chrn::milliseconds::period&gt;;</div>
-<div class="line"><a name="l00294"></a><span class="lineno">  294</span>&#160;            <span class="keywordtype">float</span> elapsed = Fms(pingStop_ - pingStart_).count();</div>
-<div class="line"><a name="l00295"></a><span class="lineno">  295</span>&#160;            post(std::bind(pingHandler_, elapsed));</div>
-<div class="line"><a name="l00296"></a><span class="lineno">  296</span>&#160;            pingHandler_ = <span class="keyword">nullptr</span>;</div>
-<div class="line"><a name="l00297"></a><span class="lineno">  297</span>&#160;        }</div>
-<div class="line"><a name="l00298"></a><span class="lineno">  298</span>&#160;        receive();</div>
-<div class="line"><a name="l00299"></a><span class="lineno">  299</span>&#160;    }</div>
-<div class="line"><a name="l00300"></a><span class="lineno">  300</span>&#160; </div>
-<div class="line"><a name="l00301"></a><span class="lineno">  301</span>&#160;    <span class="keywordtype">bool</span> check(<a class="code" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">AsioErrorCode</a> asioEc)</div>
-<div class="line"><a name="l00302"></a><span class="lineno">  302</span>&#160;    {</div>
-<div class="line"><a name="l00303"></a><span class="lineno">  303</span>&#160;        <span class="keywordflow">if</span> (asioEc)</div>
-<div class="line"><a name="l00304"></a><span class="lineno">  304</span>&#160;        {</div>
-<div class="line"><a name="l00305"></a><span class="lineno">  305</span>&#160;            <span class="keywordflow">if</span> (failHandler_)</div>
-<div class="line"><a name="l00306"></a><span class="lineno">  306</span>&#160;            {</div>
-<div class="line"><a name="l00307"></a><span class="lineno">  307</span>&#160;                <span class="keyword">auto</span> ec = make_error_code(</div>
-<div class="line"><a name="l00308"></a><span class="lineno">  308</span>&#160;                            <span class="keyword">static_cast&lt;</span>std::errc<span class="keyword">&gt;</span>(asioEc.value()));</div>
-<div class="line"><a name="l00309"></a><span class="lineno">  309</span>&#160;                post(std::bind(failHandler_, ec));</div>
-<div class="line"><a name="l00310"></a><span class="lineno">  310</span>&#160;            }</div>
-<div class="line"><a name="l00311"></a><span class="lineno">  311</span>&#160;            cleanup();</div>
-<div class="line"><a name="l00312"></a><span class="lineno">  312</span>&#160;        }</div>
-<div class="line"><a name="l00313"></a><span class="lineno">  313</span>&#160;        <span class="keywordflow">return</span> !asioEc;</div>
-<div class="line"><a name="l00314"></a><span class="lineno">  314</span>&#160;    }</div>
-<div class="line"><a name="l00315"></a><span class="lineno">  315</span>&#160; </div>
-<div class="line"><a name="l00316"></a><span class="lineno">  316</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> TErrc&gt;</div>
-<div class="line"><a name="l00317"></a><span class="lineno">  317</span>&#160;    <span class="keywordtype">bool</span> check(<span class="keywordtype">bool</span> condition, TErrc errc)</div>
-<div class="line"><a name="l00318"></a><span class="lineno">  318</span>&#160;    {</div>
-<div class="line"><a name="l00319"></a><span class="lineno">  319</span>&#160;        <span class="keywordflow">if</span> (!condition)</div>
-<div class="line"><a name="l00320"></a><span class="lineno">  320</span>&#160;        {</div>
-<div class="line"><a name="l00321"></a><span class="lineno">  321</span>&#160;            <span class="keywordflow">if</span> (failHandler_)</div>
-<div class="line"><a name="l00322"></a><span class="lineno">  322</span>&#160;                post(std::bind(failHandler_, make_error_code(errc)));</div>
-<div class="line"><a name="l00323"></a><span class="lineno">  323</span>&#160;            cleanup();</div>
-<div class="line"><a name="l00324"></a><span class="lineno">  324</span>&#160;        }</div>
-<div class="line"><a name="l00325"></a><span class="lineno">  325</span>&#160;        <span class="keywordflow">return</span> condition;</div>
-<div class="line"><a name="l00326"></a><span class="lineno">  326</span>&#160;    }</div>
-<div class="line"><a name="l00327"></a><span class="lineno">  327</span>&#160; </div>
-<div class="line"><a name="l00328"></a><span class="lineno">  328</span>&#160;    <span class="keywordtype">void</span> cleanup()</div>
-<div class="line"><a name="l00329"></a><span class="lineno">  329</span>&#160;    {</div>
-<div class="line"><a name="l00330"></a><span class="lineno">  330</span>&#160;        rxHandler_ = <span class="keyword">nullptr</span>;</div>
-<div class="line"><a name="l00331"></a><span class="lineno">  331</span>&#160;        pingHandler_ = <span class="keyword">nullptr</span>;</div>
-<div class="line"><a name="l00332"></a><span class="lineno">  332</span>&#160;        failHandler_ = <span class="keyword">nullptr</span>;</div>
-<div class="line"><a name="l00333"></a><span class="lineno">  333</span>&#160;        txQueue_ = TransmitQueue();</div>
-<div class="line"><a name="l00334"></a><span class="lineno">  334</span>&#160;        socket_.reset();</div>
-<div class="line"><a name="l00335"></a><span class="lineno">  335</span>&#160;        rxBuffer_.reset();</div>
-<div class="line"><a name="l00336"></a><span class="lineno">  336</span>&#160;        pingBuffer_.reset();</div>
-<div class="line"><a name="l00337"></a><span class="lineno">  337</span>&#160;    }</div>
-<div class="line"><a name="l00338"></a><span class="lineno">  338</span>&#160; </div>
-<div class="line"><a name="l00339"></a><span class="lineno">  339</span>&#160;    std::unique_ptr&lt;TSocket&gt; socket_;</div>
-<div class="line"><a name="l00340"></a><span class="lineno">  340</span>&#160;    Executor executor_;</div>
-<div class="line"><a name="l00341"></a><span class="lineno">  341</span>&#160;    <span class="keywordtype">size_t</span> maxTxLength_;</div>
-<div class="line"><a name="l00342"></a><span class="lineno">  342</span>&#160;    <span class="keywordtype">size_t</span> maxRxLength_;</div>
-<div class="line"><a name="l00343"></a><span class="lineno">  343</span>&#160;    <span class="keywordtype">bool</span> started_ = <span class="keyword">false</span>;</div>
-<div class="line"><a name="l00344"></a><span class="lineno">  344</span>&#160;    RxHandler rxHandler_;</div>
-<div class="line"><a name="l00345"></a><span class="lineno">  345</span>&#160;    FailHandler failHandler_;</div>
-<div class="line"><a name="l00346"></a><span class="lineno">  346</span>&#160;    PingHandler pingHandler_;</div>
-<div class="line"><a name="l00347"></a><span class="lineno">  347</span>&#160;    Buffer rxBuffer_;</div>
-<div class="line"><a name="l00348"></a><span class="lineno">  348</span>&#160;    Buffer pingBuffer_;</div>
-<div class="line"><a name="l00349"></a><span class="lineno">  349</span>&#160;    TransmitQueue txQueue_;</div>
-<div class="line"><a name="l00350"></a><span class="lineno">  350</span>&#160;    Buffer txBuffer_;</div>
-<div class="line"><a name="l00351"></a><span class="lineno">  351</span>&#160;    TimePoint pingStart_;</div>
-<div class="line"><a name="l00352"></a><span class="lineno">  352</span>&#160;    TimePoint pingStop_;</div>
-<div class="line"><a name="l00353"></a><span class="lineno">  353</span>&#160;};</div>
-<div class="line"><a name="l00354"></a><span class="lineno">  354</span>&#160; </div>
-<div class="line"><a name="l00355"></a><span class="lineno">  355</span>&#160;} <span class="comment">// namespace internal</span></div>
+<div class="line"><a name="l00163"></a><span class="lineno">  163</span>&#160;    AsioTransport(SocketPtr&amp;&amp; socket, <span class="keywordtype">size_t</span> maxTxLength, <span class="keywordtype">size_t</span> maxRxLength)</div>
+<div class="line"><a name="l00164"></a><span class="lineno">  164</span>&#160;        : socket_(std::move(socket)),</div>
+<div class="line"><a name="l00165"></a><span class="lineno">  165</span>&#160;          executor_(socket_-&gt;get_executor()),</div>
+<div class="line"><a name="l00166"></a><span class="lineno">  166</span>&#160;          maxTxLength_(maxTxLength),</div>
+<div class="line"><a name="l00167"></a><span class="lineno">  167</span>&#160;          maxRxLength_(maxRxLength)</div>
+<div class="line"><a name="l00168"></a><span class="lineno">  168</span>&#160;    {}</div>
+<div class="line"><a name="l00169"></a><span class="lineno">  169</span>&#160; </div>
+<div class="line"><a name="l00170"></a><span class="lineno">  170</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> sendMessage(RawsockMsgType type, Buffer message)</div>
+<div class="line"><a name="l00171"></a><span class="lineno">  171</span>&#160;    {</div>
+<div class="line"><a name="l00172"></a><span class="lineno">  172</span>&#160;        assert(socket_ &amp;&amp; <span class="stringliteral">&quot;Attempting to send on bad transport&quot;</span>);</div>
+<div class="line"><a name="l00173"></a><span class="lineno">  173</span>&#160;        assert((message-&gt;length() &lt;= maxTxLength_) &amp;&amp;</div>
+<div class="line"><a name="l00174"></a><span class="lineno">  174</span>&#160;               <span class="stringliteral">&quot;Outgoing message is longer than allowed by peer&quot;</span>);</div>
+<div class="line"><a name="l00175"></a><span class="lineno">  175</span>&#160; </div>
+<div class="line"><a name="l00176"></a><span class="lineno">  176</span>&#160;        message-&gt;prepare(type);</div>
+<div class="line"><a name="l00177"></a><span class="lineno">  177</span>&#160;        txQueue_.push(std::move(message));</div>
+<div class="line"><a name="l00178"></a><span class="lineno">  178</span>&#160;        transmit();</div>
+<div class="line"><a name="l00179"></a><span class="lineno">  179</span>&#160;    }</div>
+<div class="line"><a name="l00180"></a><span class="lineno">  180</span>&#160; </div>
+<div class="line"><a name="l00181"></a><span class="lineno">  181</span>&#160;<span class="keyword">private</span>:</div>
+<div class="line"><a name="l00182"></a><span class="lineno">  182</span>&#160;    <span class="keyword">using</span> Executor = <span class="keyword">typename</span> TSocket::executor_type;</div>
+<div class="line"><a name="l00183"></a><span class="lineno">  183</span>&#160; </div>
+<div class="line"><a name="l00184"></a><span class="lineno">  184</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> TFunctor&gt;</div>
+<div class="line"><a name="l00185"></a><span class="lineno">  185</span>&#160;    <span class="keywordtype">void</span> post(TFunctor&amp;&amp; fn)</div>
+<div class="line"><a name="l00186"></a><span class="lineno">  186</span>&#160;    {</div>
+<div class="line"><a name="l00187"></a><span class="lineno">  187</span>&#160;        boost::asio::post(executor_, std::forward&lt;TFunctor&gt;(fn));</div>
+<div class="line"><a name="l00188"></a><span class="lineno">  188</span>&#160;    }</div>
+<div class="line"><a name="l00189"></a><span class="lineno">  189</span>&#160; </div>
+<div class="line"><a name="l00190"></a><span class="lineno">  190</span>&#160;    <span class="keywordtype">void</span> transmit()</div>
+<div class="line"><a name="l00191"></a><span class="lineno">  191</span>&#160;    {</div>
+<div class="line"><a name="l00192"></a><span class="lineno">  192</span>&#160;        <span class="keywordflow">if</span> (isReadyToTransmit())</div>
+<div class="line"><a name="l00193"></a><span class="lineno">  193</span>&#160;        {</div>
+<div class="line"><a name="l00194"></a><span class="lineno">  194</span>&#160;            txBuffer_ = txQueue_.front();</div>
+<div class="line"><a name="l00195"></a><span class="lineno">  195</span>&#160;            txQueue_.pop();</div>
+<div class="line"><a name="l00196"></a><span class="lineno">  196</span>&#160; </div>
+<div class="line"><a name="l00197"></a><span class="lineno">  197</span>&#160;            <span class="keyword">auto</span> <span class="keyword">self</span> = this-&gt;shared_from_this();</div>
+<div class="line"><a name="l00198"></a><span class="lineno">  198</span>&#160;            boost::asio::async_write(*socket_, txBuffer_-&gt;gatherBuffers(),</div>
+<div class="line"><a name="l00199"></a><span class="lineno">  199</span>&#160;                [<span class="keyword">this</span>, <span class="keyword">self</span>](<a class="code" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">AsioErrorCode</a> ec, <span class="keywordtype">size_t</span> size)</div>
+<div class="line"><a name="l00200"></a><span class="lineno">  200</span>&#160;                {</div>
+<div class="line"><a name="l00201"></a><span class="lineno">  201</span>&#160;                    txBuffer_.reset();</div>
+<div class="line"><a name="l00202"></a><span class="lineno">  202</span>&#160;                    if (ec)</div>
+<div class="line"><a name="l00203"></a><span class="lineno">  203</span>&#160;                    {</div>
+<div class="line"><a name="l00204"></a><span class="lineno">  204</span>&#160;                        txQueue_ = TransmitQueue();</div>
+<div class="line"><a name="l00205"></a><span class="lineno">  205</span>&#160;                        socket_.reset();</div>
+<div class="line"><a name="l00206"></a><span class="lineno">  206</span>&#160;                    }</div>
+<div class="line"><a name="l00207"></a><span class="lineno">  207</span>&#160;                    <span class="keywordflow">else</span></div>
+<div class="line"><a name="l00208"></a><span class="lineno">  208</span>&#160;                    {</div>
+<div class="line"><a name="l00209"></a><span class="lineno">  209</span>&#160;                        transmit();</div>
+<div class="line"><a name="l00210"></a><span class="lineno">  210</span>&#160;                    }</div>
+<div class="line"><a name="l00211"></a><span class="lineno">  211</span>&#160;                });</div>
+<div class="line"><a name="l00212"></a><span class="lineno">  212</span>&#160;        }</div>
+<div class="line"><a name="l00213"></a><span class="lineno">  213</span>&#160;    }</div>
+<div class="line"><a name="l00214"></a><span class="lineno">  214</span>&#160; </div>
+<div class="line"><a name="l00215"></a><span class="lineno">  215</span>&#160;    <span class="keywordtype">bool</span> isReadyToTransmit()<span class="keyword"> const</span></div>
+<div class="line"><a name="l00216"></a><span class="lineno">  216</span>&#160;<span class="keyword">    </span>{</div>
+<div class="line"><a name="l00217"></a><span class="lineno">  217</span>&#160;        <span class="keywordflow">return</span> socket_ &amp;&amp;           <span class="comment">// Socket is still open</span></div>
+<div class="line"><a name="l00218"></a><span class="lineno">  218</span>&#160;               !txBuffer_ &amp;&amp;        <span class="comment">// No async_write is in progress</span></div>
+<div class="line"><a name="l00219"></a><span class="lineno">  219</span>&#160;               !txQueue_.empty();   <span class="comment">// One or more messages are enqueued</span></div>
+<div class="line"><a name="l00220"></a><span class="lineno">  220</span>&#160;    }</div>
+<div class="line"><a name="l00221"></a><span class="lineno">  221</span>&#160; </div>
+<div class="line"><a name="l00222"></a><span class="lineno">  222</span>&#160;    <span class="keywordtype">void</span> receive()</div>
+<div class="line"><a name="l00223"></a><span class="lineno">  223</span>&#160;    {</div>
+<div class="line"><a name="l00224"></a><span class="lineno">  224</span>&#160;        <span class="keywordflow">if</span> (socket_)</div>
+<div class="line"><a name="l00225"></a><span class="lineno">  225</span>&#160;        {</div>
+<div class="line"><a name="l00226"></a><span class="lineno">  226</span>&#160;            rxBuffer_ = getBuffer();</div>
+<div class="line"><a name="l00227"></a><span class="lineno">  227</span>&#160;            <span class="keyword">auto</span> <span class="keyword">self</span> = this-&gt;shared_from_this();</div>
+<div class="line"><a name="l00228"></a><span class="lineno">  228</span>&#160;            boost::asio::async_read(*socket_, rxBuffer_-&gt;headerBuffer(),</div>
+<div class="line"><a name="l00229"></a><span class="lineno">  229</span>&#160;                [<span class="keyword">this</span>, <span class="keyword">self</span>](<a class="code" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">AsioErrorCode</a> ec, <span class="keywordtype">size_t</span>)</div>
+<div class="line"><a name="l00230"></a><span class="lineno">  230</span>&#160;                {</div>
+<div class="line"><a name="l00231"></a><span class="lineno">  231</span>&#160;                    if (check(ec))</div>
+<div class="line"><a name="l00232"></a><span class="lineno">  232</span>&#160;                        processHeader();</div>
+<div class="line"><a name="l00233"></a><span class="lineno">  233</span>&#160;                });</div>
+<div class="line"><a name="l00234"></a><span class="lineno">  234</span>&#160;        }</div>
+<div class="line"><a name="l00235"></a><span class="lineno">  235</span>&#160;    }</div>
+<div class="line"><a name="l00236"></a><span class="lineno">  236</span>&#160; </div>
+<div class="line"><a name="l00237"></a><span class="lineno">  237</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> processHeader()</div>
+<div class="line"><a name="l00238"></a><span class="lineno">  238</span>&#160;    {</div>
+<div class="line"><a name="l00239"></a><span class="lineno">  239</span>&#160;        <span class="keyword">auto</span> hdr = rxBuffer_-&gt;header();</div>
+<div class="line"><a name="l00240"></a><span class="lineno">  240</span>&#160;        <span class="keyword">auto</span> length  = hdr.length();</div>
+<div class="line"><a name="l00241"></a><span class="lineno">  241</span>&#160;        <span class="keywordflow">if</span> ( check(length &lt;= maxRxLength_, <a class="code" href="namespacewamp.html#a7a09562b29d4b6e42e37be77ec31829aa0e4488fc267b2d8dad253ab78f5b9e8c">TransportErrc::badRxLength</a>) &amp;&amp;</div>
+<div class="line"><a name="l00242"></a><span class="lineno">  242</span>&#160;             check(hdr.msgTypeIsValid(), <a class="code" href="namespacewamp.html#aa0bf722cbe7ad04d49ad94b6ec440541a9a41b8fb027b252366984a29cb58423b">RawsockErrc::badMessageType</a>) )</div>
+<div class="line"><a name="l00243"></a><span class="lineno">  243</span>&#160;        {</div>
+<div class="line"><a name="l00244"></a><span class="lineno">  244</span>&#160;            receivePayload(hdr.msgType(), length);</div>
+<div class="line"><a name="l00245"></a><span class="lineno">  245</span>&#160;        }</div>
+<div class="line"><a name="l00246"></a><span class="lineno">  246</span>&#160;    }</div>
+<div class="line"><a name="l00247"></a><span class="lineno">  247</span>&#160; </div>
+<div class="line"><a name="l00248"></a><span class="lineno">  248</span>&#160;    <span class="keywordtype">void</span> receivePayload(RawsockMsgType msgType, <span class="keywordtype">size_t</span> length)</div>
+<div class="line"><a name="l00249"></a><span class="lineno">  249</span>&#160;    {</div>
+<div class="line"><a name="l00250"></a><span class="lineno">  250</span>&#160;        rxBuffer_-&gt;resize(length);</div>
+<div class="line"><a name="l00251"></a><span class="lineno">  251</span>&#160;        <span class="keyword">auto</span> <span class="keyword">self</span> = this-&gt;shared_from_this();</div>
+<div class="line"><a name="l00252"></a><span class="lineno">  252</span>&#160;        boost::asio::async_read(*socket_, rxBuffer_-&gt;payloadBuffer(),</div>
+<div class="line"><a name="l00253"></a><span class="lineno">  253</span>&#160;            [<span class="keyword">this</span>, <span class="keyword">self</span>, msgType](<a class="code" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">AsioErrorCode</a> ec, <span class="keywordtype">size_t</span>)</div>
+<div class="line"><a name="l00254"></a><span class="lineno">  254</span>&#160;            {</div>
+<div class="line"><a name="l00255"></a><span class="lineno">  255</span>&#160;                if (ec)</div>
+<div class="line"><a name="l00256"></a><span class="lineno">  256</span>&#160;                    rxBuffer_-&gt;clear();</div>
+<div class="line"><a name="l00257"></a><span class="lineno">  257</span>&#160;                if (check(ec))</div>
+<div class="line"><a name="l00258"></a><span class="lineno">  258</span>&#160;                    switch (msgType)</div>
+<div class="line"><a name="l00259"></a><span class="lineno">  259</span>&#160;                    {</div>
+<div class="line"><a name="l00260"></a><span class="lineno">  260</span>&#160;                    case RawsockMsgType::wamp:</div>
+<div class="line"><a name="l00261"></a><span class="lineno">  261</span>&#160;                        if (rxHandler_)</div>
+<div class="line"><a name="l00262"></a><span class="lineno">  262</span>&#160;                            post(std::bind(rxHandler_, std::move(rxBuffer_)));</div>
+<div class="line"><a name="l00263"></a><span class="lineno">  263</span>&#160;                        receive();</div>
+<div class="line"><a name="l00264"></a><span class="lineno">  264</span>&#160;                        break;</div>
+<div class="line"><a name="l00265"></a><span class="lineno">  265</span>&#160; </div>
+<div class="line"><a name="l00266"></a><span class="lineno">  266</span>&#160;                    case RawsockMsgType::ping:</div>
+<div class="line"><a name="l00267"></a><span class="lineno">  267</span>&#160;                        sendPong();</div>
+<div class="line"><a name="l00268"></a><span class="lineno">  268</span>&#160;                        break;</div>
+<div class="line"><a name="l00269"></a><span class="lineno">  269</span>&#160; </div>
+<div class="line"><a name="l00270"></a><span class="lineno">  270</span>&#160;                    case RawsockMsgType::pong:</div>
+<div class="line"><a name="l00271"></a><span class="lineno">  271</span>&#160;                        receivePong();</div>
+<div class="line"><a name="l00272"></a><span class="lineno">  272</span>&#160;                        break;</div>
+<div class="line"><a name="l00273"></a><span class="lineno">  273</span>&#160; </div>
+<div class="line"><a name="l00274"></a><span class="lineno">  274</span>&#160;                    default:</div>
+<div class="line"><a name="l00275"></a><span class="lineno">  275</span>&#160;                        assert(false);</div>
+<div class="line"><a name="l00276"></a><span class="lineno">  276</span>&#160;                    }</div>
+<div class="line"><a name="l00277"></a><span class="lineno">  277</span>&#160;            });</div>
+<div class="line"><a name="l00278"></a><span class="lineno">  278</span>&#160;    }</div>
+<div class="line"><a name="l00279"></a><span class="lineno">  279</span>&#160; </div>
+<div class="line"><a name="l00280"></a><span class="lineno">  280</span>&#160;    <span class="keywordtype">void</span> sendPong()</div>
+<div class="line"><a name="l00281"></a><span class="lineno">  281</span>&#160;    {</div>
+<div class="line"><a name="l00282"></a><span class="lineno">  282</span>&#160;        <span class="keyword">auto</span> buf = getBuffer();</div>
+<div class="line"><a name="l00283"></a><span class="lineno">  283</span>&#160;        buf-&gt;payload_.swap(rxBuffer_-&gt;payload_);</div>
+<div class="line"><a name="l00284"></a><span class="lineno">  284</span>&#160;        sendMessage(RawsockMsgType::pong, std::move(buf));</div>
+<div class="line"><a name="l00285"></a><span class="lineno">  285</span>&#160;        receive();</div>
+<div class="line"><a name="l00286"></a><span class="lineno">  286</span>&#160;    }</div>
+<div class="line"><a name="l00287"></a><span class="lineno">  287</span>&#160; </div>
+<div class="line"><a name="l00288"></a><span class="lineno">  288</span>&#160;    <span class="keywordtype">void</span> receivePong()</div>
+<div class="line"><a name="l00289"></a><span class="lineno">  289</span>&#160;    {</div>
+<div class="line"><a name="l00290"></a><span class="lineno">  290</span>&#160;        <span class="keywordflow">if</span> (pingHandler_ &amp;&amp; (rxBuffer_-&gt;payload_ == pingBuffer_-&gt;payload_))</div>
+<div class="line"><a name="l00291"></a><span class="lineno">  291</span>&#160;        {</div>
+<div class="line"><a name="l00292"></a><span class="lineno">  292</span>&#160;            pingBuffer_.reset();</div>
+<div class="line"><a name="l00293"></a><span class="lineno">  293</span>&#160;            <span class="keyword">namespace </span>chrn = std::chrono;</div>
+<div class="line"><a name="l00294"></a><span class="lineno">  294</span>&#160;            pingStop_ = chrn::high_resolution_clock::now();</div>
+<div class="line"><a name="l00295"></a><span class="lineno">  295</span>&#160;            <span class="keyword">using</span> Fms = chrn::duration&lt;float, chrn::milliseconds::period&gt;;</div>
+<div class="line"><a name="l00296"></a><span class="lineno">  296</span>&#160;            <span class="keywordtype">float</span> elapsed = Fms(pingStop_ - pingStart_).count();</div>
+<div class="line"><a name="l00297"></a><span class="lineno">  297</span>&#160;            post(std::bind(pingHandler_, elapsed));</div>
+<div class="line"><a name="l00298"></a><span class="lineno">  298</span>&#160;            pingHandler_ = <span class="keyword">nullptr</span>;</div>
+<div class="line"><a name="l00299"></a><span class="lineno">  299</span>&#160;        }</div>
+<div class="line"><a name="l00300"></a><span class="lineno">  300</span>&#160;        receive();</div>
+<div class="line"><a name="l00301"></a><span class="lineno">  301</span>&#160;    }</div>
+<div class="line"><a name="l00302"></a><span class="lineno">  302</span>&#160; </div>
+<div class="line"><a name="l00303"></a><span class="lineno">  303</span>&#160;    <span class="keywordtype">bool</span> check(<a class="code" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">AsioErrorCode</a> asioEc)</div>
+<div class="line"><a name="l00304"></a><span class="lineno">  304</span>&#160;    {</div>
+<div class="line"><a name="l00305"></a><span class="lineno">  305</span>&#160;        <span class="keywordflow">if</span> (asioEc)</div>
+<div class="line"><a name="l00306"></a><span class="lineno">  306</span>&#160;        {</div>
+<div class="line"><a name="l00307"></a><span class="lineno">  307</span>&#160;            <span class="keywordflow">if</span> (failHandler_)</div>
+<div class="line"><a name="l00308"></a><span class="lineno">  308</span>&#160;            {</div>
+<div class="line"><a name="l00309"></a><span class="lineno">  309</span>&#160;                <span class="keyword">auto</span> ec = make_error_code(</div>
+<div class="line"><a name="l00310"></a><span class="lineno">  310</span>&#160;                            <span class="keyword">static_cast&lt;</span>std::errc<span class="keyword">&gt;</span>(asioEc.value()));</div>
+<div class="line"><a name="l00311"></a><span class="lineno">  311</span>&#160;                post(std::bind(failHandler_, ec));</div>
+<div class="line"><a name="l00312"></a><span class="lineno">  312</span>&#160;            }</div>
+<div class="line"><a name="l00313"></a><span class="lineno">  313</span>&#160;            cleanup();</div>
+<div class="line"><a name="l00314"></a><span class="lineno">  314</span>&#160;        }</div>
+<div class="line"><a name="l00315"></a><span class="lineno">  315</span>&#160;        <span class="keywordflow">return</span> !asioEc;</div>
+<div class="line"><a name="l00316"></a><span class="lineno">  316</span>&#160;    }</div>
+<div class="line"><a name="l00317"></a><span class="lineno">  317</span>&#160; </div>
+<div class="line"><a name="l00318"></a><span class="lineno">  318</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> TErrc&gt;</div>
+<div class="line"><a name="l00319"></a><span class="lineno">  319</span>&#160;    <span class="keywordtype">bool</span> check(<span class="keywordtype">bool</span> condition, TErrc errc)</div>
+<div class="line"><a name="l00320"></a><span class="lineno">  320</span>&#160;    {</div>
+<div class="line"><a name="l00321"></a><span class="lineno">  321</span>&#160;        <span class="keywordflow">if</span> (!condition)</div>
+<div class="line"><a name="l00322"></a><span class="lineno">  322</span>&#160;        {</div>
+<div class="line"><a name="l00323"></a><span class="lineno">  323</span>&#160;            <span class="keywordflow">if</span> (failHandler_)</div>
+<div class="line"><a name="l00324"></a><span class="lineno">  324</span>&#160;                post(std::bind(failHandler_, make_error_code(errc)));</div>
+<div class="line"><a name="l00325"></a><span class="lineno">  325</span>&#160;            cleanup();</div>
+<div class="line"><a name="l00326"></a><span class="lineno">  326</span>&#160;        }</div>
+<div class="line"><a name="l00327"></a><span class="lineno">  327</span>&#160;        <span class="keywordflow">return</span> condition;</div>
+<div class="line"><a name="l00328"></a><span class="lineno">  328</span>&#160;    }</div>
+<div class="line"><a name="l00329"></a><span class="lineno">  329</span>&#160; </div>
+<div class="line"><a name="l00330"></a><span class="lineno">  330</span>&#160;    <span class="keywordtype">void</span> cleanup()</div>
+<div class="line"><a name="l00331"></a><span class="lineno">  331</span>&#160;    {</div>
+<div class="line"><a name="l00332"></a><span class="lineno">  332</span>&#160;        rxHandler_ = <span class="keyword">nullptr</span>;</div>
+<div class="line"><a name="l00333"></a><span class="lineno">  333</span>&#160;        pingHandler_ = <span class="keyword">nullptr</span>;</div>
+<div class="line"><a name="l00334"></a><span class="lineno">  334</span>&#160;        failHandler_ = <span class="keyword">nullptr</span>;</div>
+<div class="line"><a name="l00335"></a><span class="lineno">  335</span>&#160;        txQueue_ = TransmitQueue();</div>
+<div class="line"><a name="l00336"></a><span class="lineno">  336</span>&#160;        socket_.reset();</div>
+<div class="line"><a name="l00337"></a><span class="lineno">  337</span>&#160;        rxBuffer_.reset();</div>
+<div class="line"><a name="l00338"></a><span class="lineno">  338</span>&#160;        pingBuffer_.reset();</div>
+<div class="line"><a name="l00339"></a><span class="lineno">  339</span>&#160;    }</div>
+<div class="line"><a name="l00340"></a><span class="lineno">  340</span>&#160; </div>
+<div class="line"><a name="l00341"></a><span class="lineno">  341</span>&#160;    std::unique_ptr&lt;TSocket&gt; socket_;</div>
+<div class="line"><a name="l00342"></a><span class="lineno">  342</span>&#160;    Executor executor_;</div>
+<div class="line"><a name="l00343"></a><span class="lineno">  343</span>&#160;    <span class="keywordtype">size_t</span> maxTxLength_;</div>
+<div class="line"><a name="l00344"></a><span class="lineno">  344</span>&#160;    <span class="keywordtype">size_t</span> maxRxLength_;</div>
+<div class="line"><a name="l00345"></a><span class="lineno">  345</span>&#160;    <span class="keywordtype">bool</span> started_ = <span class="keyword">false</span>;</div>
+<div class="line"><a name="l00346"></a><span class="lineno">  346</span>&#160;    RxHandler rxHandler_;</div>
+<div class="line"><a name="l00347"></a><span class="lineno">  347</span>&#160;    FailHandler failHandler_;</div>
+<div class="line"><a name="l00348"></a><span class="lineno">  348</span>&#160;    PingHandler pingHandler_;</div>
+<div class="line"><a name="l00349"></a><span class="lineno">  349</span>&#160;    Buffer rxBuffer_;</div>
+<div class="line"><a name="l00350"></a><span class="lineno">  350</span>&#160;    Buffer pingBuffer_;</div>
+<div class="line"><a name="l00351"></a><span class="lineno">  351</span>&#160;    TransmitQueue txQueue_;</div>
+<div class="line"><a name="l00352"></a><span class="lineno">  352</span>&#160;    Buffer txBuffer_;</div>
+<div class="line"><a name="l00353"></a><span class="lineno">  353</span>&#160;    TimePoint pingStart_;</div>
+<div class="line"><a name="l00354"></a><span class="lineno">  354</span>&#160;    TimePoint pingStop_;</div>
+<div class="line"><a name="l00355"></a><span class="lineno">  355</span>&#160;};</div>
 <div class="line"><a name="l00356"></a><span class="lineno">  356</span>&#160; </div>
-<div class="line"><a name="l00357"></a><span class="lineno">  357</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00357"></a><span class="lineno">  357</span>&#160;} <span class="comment">// namespace internal</span></div>
 <div class="line"><a name="l00358"></a><span class="lineno">  358</span>&#160; </div>
-<div class="line"><a name="l00359"></a><span class="lineno">  359</span>&#160;<span class="preprocessor">#endif // CPPWAMP_ASIOTRANSPORT_HPP</span></div>
+<div class="line"><a name="l00359"></a><span class="lineno">  359</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00360"></a><span class="lineno">  360</span>&#160; </div>
+<div class="line"><a name="l00361"></a><span class="lineno">  361</span>&#160;<span class="preprocessor">#endif // CPPWAMP_ASIOTRANSPORT_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <div class="ttc" id="anamespacewamp_html_a7a09562b29d4b6e42e37be77ec31829aa0e4488fc267b2d8dad253ab78f5b9e8c"><div class="ttname"><a href="namespacewamp.html#a7a09562b29d4b6e42e37be77ec31829aa0e4488fc267b2d8dad253ab78f5b9e8c">wamp::TransportErrc::badRxLength</a></div><div class="ttdeci">@ badRxLength</div><div class="ttdoc">Incoming message exceeds maximum length.</div></div>
 <div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
 <div class="ttc" id="anamespacewamp_html_adeb149f6fd1f5f5508fcf1f90f01381b"><div class="ttname"><a href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">wamp::AsioErrorCode</a></div><div class="ttdeci">boost::system::error_code AsioErrorCode</div><div class="ttdoc">Type used by Boost.Asio for reporting errors.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:36</div></div>
+<div class="ttc" id="anamespacewamp_html_ab03f8349a2a066271e29e516c8c62cb2"><div class="ttname"><a href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">wamp::AnyExecutor</a></div><div class="ttdeci">boost::asio::any_io_executor AnyExecutor</div><div class="ttdoc">Polymorphic executor for all I/O objects.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:26</div></div>
 <div class="ttc" id="anamespacewamp_html_aa0bf722cbe7ad04d49ad94b6ec440541a9a41b8fb027b252366984a29cb58423b"><div class="ttname"><a href="namespacewamp.html#aa0bf722cbe7ad04d49ad94b6ec440541a9a41b8fb027b252366984a29cb58423b">wamp::RawsockErrc::badMessageType</a></div><div class="ttdeci">@ badMessageType</div><div class="ttdoc">Invalid message type.</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="dir_15a40f4932549f0fe4696fd8fd3add66.html">internal</a></li><li class="navelem"><b>asiotransport.hpp</b></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

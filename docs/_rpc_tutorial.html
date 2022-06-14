@@ -87,54 +87,56 @@ $(document).ready(function(){initNavTree('_rpc_tutorial.html',''); initResizable
 </div><!--header-->
 <div class="contents">
 <div class="toc"><h3>Table of Contents</h3>
-<ul><ul><li class="level2"><a href="#autotoc_md18">Calling RPCs</a></li>
-<li class="level2"><a href="#autotoc_md19">Call Slots</a></li>
-<li class="level2"><a href="#autotoc_md20">Registering Procedures</a></li>
-<li class="level2"><a href="#autotoc_md21">Registering Statically-Typed Procedures</a></li>
-<li class="level2"><a href="#autotoc_md22">Registering Coroutine Procedures</a></li>
-<li class="level2"><a href="#autotoc_md23">Returning an ERROR Response to the Callee</a></li>
-<li class="level2"><a href="#autotoc_md24">Capturing an ERROR Response from the Caller</a></li>
-<li class="level2"><a href="#autotoc_md25">Scoped Registrations</a></li>
-<li class="level2"><a href="#autotoc_md26">Cancelling RPCs</a></li>
+<ul><ul><li class="level2"><a href="#autotoc_md19">Calling RPCs</a></li>
+<li class="level2"><a href="#autotoc_md20">Call Slots</a></li>
+<li class="level2"><a href="#autotoc_md21">Registering Procedures</a></li>
+<li class="level2"><a href="#autotoc_md22">Registering Statically-Typed Procedures</a></li>
+<li class="level2"><a href="#autotoc_md23">Registering Coroutine Procedures</a></li>
+<li class="level2"><a href="#autotoc_md24">Returning an ERROR Response to the Callee</a></li>
+<li class="level2"><a href="#autotoc_md25">Capturing an ERROR Response from the Caller</a></li>
+<li class="level2"><a href="#autotoc_md26">Scoped Registrations</a></li>
+<li class="level2"><a href="#autotoc_md27">Cancelling RPCs</a></li>
+<li class="level2"><a href="#autotoc_md28">Call Timeouts</a></li>
+<li class="level2"><a href="#autotoc_md29">Progressive Calls Results</a></li>
 </ul>
 </ul>
 </div>
-<div class="textblock"><h2><a class="anchor" id="autotoc_md18"></a>
+<div class="textblock"><h2><a class="anchor" id="autotoc_md19"></a>
 Calling RPCs</h2>
-<p>The <a class="el" href="classwamp_1_1_coro_session.html#a27e1d340844ae71b9ffa0fb51591317a">call</a> operation is used to call remote procedures. It takes a <a class="el" href="classwamp_1_1_rpc.html" title="Contains the procedure URI, options, and payload passed to Session::call.">wamp::Rpc</a> object as a parameter, which contains the following information related to the call:</p>
+<p>The <a class="el" href="classwamp_1_1_coro_session.html#a27e1d340844ae71b9ffa0fb51591317a">call</a> operation is used to call remote procedures. It takes a <a class="el" href="classwamp_1_1_rpc.html" title="Contains the procedure URI, options, and payload contained within WAMP CALL messages.">wamp::Rpc</a> object as a parameter, which contains the following information related to the call:</p>
 <ul>
 <li>the procedure URI to call,</li>
 <li>positional <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">wamp::Variant</a> arguments, if applicable,</li>
 <li>a <a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56" title="Variant bound type for maps of variants.">wamp::Object</a> containing keyword arguments, if applicable, and,</li>
-<li>an <a class="el" href="classwamp_1_1_options.html" title="Represents a collection of WAMP options or details.">wamp::Options</a> dictionary for advanced WAMP features</li>
+<li>an <a class="el" href="classwamp_1_1_options.html" title="Wrapper around a WAMP message containing an options dictionary.">wamp::Options</a> dictionary for advanced WAMP features</li>
 </ul>
-<p><code>call</code> returns a <a class="el" href="classwamp_1_1_result.html" title="Contains a remote procedure result yielded by a callee or received by a caller.">wamp::Result</a> object, which contains the result payload and other details returned by the callee.</p>
+<p><code>call</code> returns a <a class="el" href="classwamp_1_1_result.html" title="Contains the remote procedure result options/payload within WAMP RESULT and YIELD messages.">wamp::Result</a> object, which contains the result payload and other details returned by the callee.</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line">boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
 <div class="line">{</div>
 <div class="line">    <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, {tcpJson, tcpPack});</div>
-<div class="line">    session-&gt;connect(yield);</div>
-<div class="line">    session-&gt;join(<span class="stringliteral">&quot;somerealm&quot;</span>, yield);</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>(yield);</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">join</a>(<a class="code" href="classwamp_1_1_realm.html">Realm</a>(<span class="stringliteral">&quot;somerealm&quot;</span>), yield);</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Call a remote procedure that takes no arguments</span></div>
-<div class="line">    <a class="code" href="classwamp_1_1_result.html">Result</a> result = session-&gt;call(<a class="code" href="classwamp_1_1_rpc.html">Rpc</a>(<span class="stringliteral">&quot;getElapsed&quot;</span>), yield);</div>
+<div class="line">    <a class="code" href="classwamp_1_1_result.html">Result</a> result = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a27e1d340844ae71b9ffa0fb51591317a">call</a>(<a class="code" href="classwamp_1_1_rpc.html">Rpc</a>(<span class="stringliteral">&quot;getElapsed&quot;</span>), yield);</div>
 <div class="line">    <span class="keywordtype">int</span> elapsed = 0;</div>
 <div class="line">    result.convertTo(elapsed); <span class="comment">// Will throw error::Conversion</span></div>
 <div class="line">                               <span class="comment">// if conversion fails</span></div>
 <div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;The elapsed number of seconds is &quot;</span> &lt;&lt; elapsed &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Call a remote procedure that takes two positional arguments</span></div>
-<div class="line">    <span class="keyword">auto</span> sum = session-&gt;call(<a class="code" href="classwamp_1_1_rpc.html">Rpc</a>(<span class="stringliteral">&quot;add&quot;</span>).withArgs(12, 34), yield);</div>
+<div class="line">    <span class="keyword">auto</span> sum = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a27e1d340844ae71b9ffa0fb51591317a">call</a>(<a class="code" href="classwamp_1_1_rpc.html">Rpc</a>(<span class="stringliteral">&quot;add&quot;</span>).withArgs(12, 34), yield);</div>
 <div class="line">    std::cout &lt;&lt; <span class="stringliteral">&quot;12 + 34 is &quot;</span> &lt;&lt; sum[0] &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Call a remote procedure that takes a single keyword argument and</span></div>
 <div class="line">    <span class="comment">// does not return any result. Also enable the &#39;disclose_me&#39;</span></div>
 <div class="line">    <span class="comment">// advanced feature.</span></div>
-<div class="line">    session-&gt;call( <a class="code" href="classwamp_1_1_rpc.html">Rpc</a>(<span class="stringliteral">&quot;setProperties&quot;</span>).withKwargs({{<span class="stringliteral">&quot;name&quot;</span>, <span class="stringliteral">&quot;John&quot;</span>}})</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a27e1d340844ae71b9ffa0fb51591317a">call</a>( <a class="code" href="classwamp_1_1_rpc.html">Rpc</a>(<span class="stringliteral">&quot;setProperties&quot;</span>).withKwargs({{<span class="stringliteral">&quot;name&quot;</span>, <span class="stringliteral">&quot;John&quot;</span>}})</div>
 <div class="line">                                       .withDiscloseMe(),</div>
 <div class="line">                   yield );</div>
 <div class="line">});</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md19"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md20"></a>
 Call Slots</h2>
 <p>CppWamp allows you to register callback functions that will be executed whenever a procedure with a certain name is invoked remotely by a dealer. Such callback functions are named <em>call slots</em>. Call slots can be any callable entity that can be stored into a <a href="http://en.cppreference.com/w/cpp/utility/functional/function"><code>std::function</code></a>:</p><ul>
 <li>free functions,</li>
@@ -142,9 +144,9 @@ Call Slots</h2>
 <li>function objects,</li>
 <li>lambdas, etc.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md20"></a>
+<h2><a class="anchor" id="autotoc_md21"></a>
 Registering Procedures</h2>
-<p><a class="el" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll()</a> is used to register a remote procedure call slot: </p><div class="fragment"><div class="line">Registration reg = session-&gt;enroll(Procedure(<span class="stringliteral">&quot;name&quot;</span>), slot, yield);</div>
+<p><a class="el" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll()</a> is used to register a remote procedure call slot: </p><div class="fragment"><div class="line">Registration reg = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll</a>(Procedure(<span class="stringliteral">&quot;name&quot;</span>), slot, yield);</div>
 </div><!-- fragment --><p>where:</p><ul>
 <li><a class="el" href="classwamp_1_1_registration.html">Registration</a> is a lightweight object that can be later used to unregister the procedure,</li>
 <li><a class="el" href="classwamp_1_1_procedure.html">Procedure</a> is an object containing the procedure URI, plus other optional information related to advanced WAMP features, and,</li>
@@ -152,8 +154,8 @@ Registering Procedures</h2>
 </ul>
 <p><code>enroll</code> expects a call slot with the following signature: </p><div class="fragment"><div class="line"><a class="code" href="classwamp_1_1_outcome.html">wamp::Outcome</a> <span class="keyword">function</span>(<a class="code" href="classwamp_1_1_invocation.html">wamp::Invocation</a>)</div>
 </div><!-- fragment --><p>where:</p><ul>
-<li><a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a> contains a <a class="el" href="classwamp_1_1_result.html" title="Contains a remote procedure result yielded by a callee or received by a caller.">wamp::Result</a> or a <a class="el" href="classwamp_1_1_error.html" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages.">wamp::Error</a> object to be sent back to the caller, and,</li>
-<li><a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other details related to a remote procedure call invocation.">wamp::Invocation</a> is an object containing information and payload arguments related to the RPC invocation.</li>
+<li><a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a> contains a <a class="el" href="classwamp_1_1_result.html" title="Contains the remote procedure result options/payload within WAMP RESULT and YIELD messages.">wamp::Result</a> or a <a class="el" href="classwamp_1_1_error.html" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages.">wamp::Error</a> object to be sent back to the caller, and,</li>
+<li><a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other options within WAMP INVOCATION messages.">wamp::Invocation</a> is an object containing information and payload arguments related to the RPC invocation.</li>
 </ul>
 <p>Example: </p><div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"> </div>
@@ -161,27 +163,29 @@ Registering Procedures</h2>
 <div class="line">{</div>
 <div class="line">    std::string item;</div>
 <div class="line">    <span class="keywordtype">int</span> cost;</div>
-<div class="line">    inv.<a class="code" href="classwamp_1_1_payload.html#ac0611ccca2da85479e1e8ac9b9a1618a">args</a>().convertTo(item, cost); <span class="comment">// throws if conversions fail</span></div>
+<div class="line">    inv.convertTo(item, cost); <span class="comment">// throws if conversions fail</span></div>
 <div class="line">    <span class="comment">// Process invocation...</span></div>
 <div class="line">    <span class="keywordtype">int</span> total = ...</div>
 <div class="line">    <span class="keywordflow">return</span> {total}; <span class="comment">// Send a single positional argument back to the caller</span></div>
 <div class="line">}</div>
 <div class="line"> </div>
 <div class="line"><span class="comment">// Within coroutine</span></div>
-<div class="line"><span class="keyword">auto</span> reg = session-&gt;enroll(</div>
+<div class="line"><span class="keyword">auto</span> reg = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll</a>(</div>
 <div class="line">    <a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;addToCart&quot;</span>).withDiscloseCaller(),</div>
 <div class="line">    &amp;addToCart,</div>
 <div class="line">    yield);</div>
 <div class="line"><span class="comment">// :::</span></div>
 <div class="line"><span class="comment">// Unregistering</span></div>
-<div class="line">reg.unregister();</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md21"></a>
+<div class="line">reg.<a class="code" href="classwamp_1_1_registration.html#abd7eba3c99667bcd862e83c6e43fd995">unregister</a>();</div>
+</div><!-- fragment --><p><a class="el" href="classwamp_1_1_outcome.html#a52926c1960018ba9769f6fb5d4be4c7d" title="Constructs an Outcome having Type::deferred.">wamp::Outcome::deferred</a> may be returned in situations where the result cannot be computed immediately within the asynchronous context of the RPC handler. A use case for this would be an RPC handler that needs to invoke the RPC of another service to complete the request. See <a class="el" href="_registrations.html#DeferredOutcomes">Registrations/Deferred Outcomes</a> for an example.</p>
+<p>For a more in-depth discussion of registrations in general, consult the <a class="el" href="_registrations.html">Registrations</a> page.</p>
+<h2><a class="anchor" id="autotoc_md22"></a>
 Registering Statically-Typed Procedures</h2>
 <p>Certain remote procedures may expect a fixed number of statically-typed arguments. For these situations, the <a class="el" href="classwamp_1_1_basic_invocation_unpacker.html#acc12b68f16f72414281b4e12ff042086">wamp::basicRpc</a> template function can be used: </p><div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="unpacker_8hpp.html">cppwamp/unpacker.hpp</a>&gt;</span></div>
 <div class="line"><span class="comment">// :::</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"><a class="code" href="classwamp_1_1_registration.html">Registration</a> reg =</div>
-<div class="line">    session-&gt;enroll(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;name&quot;</span>),</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll</a>(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;name&quot;</span>),</div>
 <div class="line">                    basicRpc&lt;ReturnType, StaticTypeList...&gt;(slot),</div>
 <div class="line">                    yield);</div>
 </div><!-- fragment --><p>where:</p><ul>
@@ -196,15 +200,15 @@ Registering Statically-Typed Procedures</h2>
 <div class="line"> </div>
 <div class="line"><span class="comment">// Within coroutine</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line">session-&gt;enroll(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;sum&quot;</span>),</div>
+<div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll</a>(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;sum&quot;</span>),</div>
 <div class="line">                basicRpc&lt;float, float, float&gt;(&amp;sum), yield);</div>
 <div class="line"><span class="comment">//                       ^^^^^^^^^^^^^^^^^^^</span></div>
 <div class="line"><span class="comment">//  Note that these types match the ones in the &#39;sum&#39; signature</span></div>
 <div class="line"><span class="comment">//  (return type + parameters).</span></div>
-</div><!-- fragment --><p>If the <code><a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other details related to a remote procedure call invocation.">wamp::Invocation</a></code> object is required within a statically-typed RPC, or if the RPC must return a <code><a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a></code>, then the <a class="el" href="classwamp_1_1_invocation_unpacker.html#a87bb179c90a4278ff5f14319da09fb5c">wamp::unpackedRpc</a> template function can be used instead: </p><div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="unpacker_8hpp.html">cppwamp/unpacker.hpp</a>&gt;</span></div>
+</div><!-- fragment --><p>If the <code><a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other options within WAMP INVOCATION messages.">wamp::Invocation</a></code> object is required within a statically-typed RPC, or if the RPC must return a <code><a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a></code>, then the <a class="el" href="classwamp_1_1_invocation_unpacker.html#a87bb179c90a4278ff5f14319da09fb5c">wamp::unpackedRpc</a> template function can be used instead: </p><div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="unpacker_8hpp.html">cppwamp/unpacker.hpp</a>&gt;</span></div>
 <div class="line"><span class="comment">// :::</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line"><a class="code" href="classwamp_1_1_registration.html">Registration</a> reg = session-&gt;enroll(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;name&quot;</span>),</div>
+<div class="line"><a class="code" href="classwamp_1_1_registration.html">Registration</a> reg = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll</a>(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;name&quot;</span>),</div>
 <div class="line">                                   unpackedRpc&lt;StaticTypeList...&gt;(slot),</div>
 <div class="line">                                   yield);</div>
 </div><!-- fragment --><p>where:</p><ul>
@@ -219,12 +223,12 @@ Registering Statically-Typed Procedures</h2>
 <div class="line"> </div>
 <div class="line"><span class="comment">// Within coroutine</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line">session-&gt;enroll(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;sum&quot;</span>),</div>
+<div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll</a>(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;sum&quot;</span>),</div>
 <div class="line">                unpackedRpc&lt;float, float&gt;(&amp;sum), yield);</div>
 <div class="line"><span class="comment">//                          ^^^^^^^^^^^^</span></div>
 <div class="line"><span class="comment">//  Note that these types match the ones in the &#39;sum&#39; signature</span></div>
 <div class="line"><span class="comment">//  (following the Invocation parameter).</span></div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md22"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md23"></a>
 Registering Coroutine Procedures</h2>
 <p>If the remote procedure must perform it's work in an asynchronous fashion within the context of a coroutine, then <a class="el" href="classwamp_1_1_basic_coro_invocation_unpacker.html#a066b87306bcd89ea54edf67d65e6295f">wamp::basicCoroRpc</a> or <a class="el" href="classwamp_1_1_coro_invocation_unpacker.html#aa2879f55e9df633da8185e80f3c7428f">wamp::unpackedCoroRpc</a> may be used:</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
@@ -232,16 +236,16 @@ Registering Coroutine Procedures</h2>
 <div class="line">std::string getName(std::string <span class="keywordtype">id</span>, boost::asio::yield_context yield)</div>
 <div class="line">{</div>
 <div class="line">    <span class="comment">// Perform asynchronous operation within RPC handler</span></div>
-<div class="line">    <span class="keyword">auto</span> result = session-&gt;call(<a class="code" href="classwamp_1_1_rpc.html">Rpc</a>(<span class="stringliteral">&quot;db.lookup&quot;</span>).withArgs(<span class="keywordtype">id</span>), yield);</div>
+<div class="line">    <span class="keyword">auto</span> result = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a27e1d340844ae71b9ffa0fb51591317a">call</a>(<a class="code" href="classwamp_1_1_rpc.html">Rpc</a>(<span class="stringliteral">&quot;db.lookup&quot;</span>).withArgs(<span class="keywordtype">id</span>), yield);</div>
 <div class="line">    <span class="keywordflow">return</span> result.kwargs[<span class="stringliteral">&quot;name&quot;</span>];</div>
 <div class="line">}</div>
 <div class="line"> </div>
 <div class="line"><span class="comment">// Within coroutine</span></div>
-<div class="line">session-&gt;enroll(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;getName&quot;</span>),</div>
+<div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll</a>(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;getName&quot;</span>),</div>
 <div class="line">                basicCoroRpc&lt;std::string, std::string&gt;(&amp;getName),</div>
 <div class="line">                yield);</div>
 </div><!-- fragment --><dl class="section note"><dt>Note</dt><dd>This will spawn a new coroutine every time the RPC is invoked.</dd></dl>
-<h2><a class="anchor" id="autotoc_md23"></a>
+<h2><a class="anchor" id="autotoc_md24"></a>
 Returning an ERROR Response to the Callee</h2>
 <p>A <a class="el" href="classwamp_1_1_error.html" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages.">wamp::Error</a> object can be returned from a call slot, which results in an <code>ERROR</code> message being sent back to the callee. This would be used, for example, when invalid arguments are passed to a remote procedure:</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
@@ -252,13 +256,13 @@ Returning an ERROR Response to the Callee</h2>
 <div class="line">    <span class="keywordtype">int</span> cost = 0;</div>
 <div class="line">    <span class="keywordflow">try</span></div>
 <div class="line">    {</div>
-<div class="line">        inv.<a class="code" href="classwamp_1_1_payload.html#ac0611ccca2da85479e1e8ac9b9a1618a">args</a>().convertTo(item, cost);</div>
+<div class="line">        inv.convertTo(item, cost);</div>
 <div class="line">    }</div>
 <div class="line">    <span class="keywordflow">catch</span> (<span class="keyword">const</span> <a class="code" href="structwamp_1_1error_1_1_conversion.html">error::Conversion</a>&amp; e)</div>
 <div class="line">    {</div>
 <div class="line">        <span class="comment">// Send an ERROR back to caller</span></div>
 <div class="line">        <span class="keywordflow">return</span> <a class="code" href="classwamp_1_1_error.html">Error</a>(<span class="stringliteral">&quot;wamp.error.invalid_argument&quot;</span>)</div>
-<div class="line">                     .<a class="code" href="classwamp_1_1_payload.html#aa4b2975fe591e4fe69720904e6028f5e">withArgs</a>(<span class="stringliteral">&quot;expected [String, Int] arguments&quot;</span>) );</div>
+<div class="line">                     .withArgs(<span class="stringliteral">&quot;expected [String, Int] arguments&quot;</span>) );</div>
 <div class="line">    }</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Process invocation...</span></div>
@@ -273,13 +277,13 @@ Returning an ERROR Response to the Callee</h2>
 <div class="line">    <span class="keywordtype">int</span> cost = 0;</div>
 <div class="line">    <span class="keywordflow">try</span></div>
 <div class="line">    {</div>
-<div class="line">        inv.<a class="code" href="classwamp_1_1_payload.html#ac0611ccca2da85479e1e8ac9b9a1618a">args</a>().convertTo(item, cost);</div>
+<div class="line">        inv.convertTo(item, cost);</div>
 <div class="line">    }</div>
 <div class="line">    <span class="keywordflow">catch</span> (<span class="keyword">const</span> <a class="code" href="structwamp_1_1error_1_1_conversion.html">error::Conversion</a>&amp; e)</div>
 <div class="line">    {</div>
 <div class="line">        <span class="comment">// Send an ERROR back to caller</span></div>
 <div class="line">        <span class="keywordflow">throw</span> <a class="code" href="classwamp_1_1_error.html">Error</a>(<span class="stringliteral">&quot;wamp.error.invalid_argument&quot;</span>)</div>
-<div class="line">                     .<a class="code" href="classwamp_1_1_payload.html#aa4b2975fe591e4fe69720904e6028f5e">withArgs</a>(<span class="stringliteral">&quot;expected [String, Int] arguments&quot;</span>) );</div>
+<div class="line">                     .withArgs(<span class="stringliteral">&quot;expected [String, Int] arguments&quot;</span>) );</div>
 <div class="line">    }</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Process invocation...</span></div>
@@ -287,7 +291,7 @@ Returning an ERROR Response to the Callee</h2>
 <div class="line">    <span class="keywordtype">int</span> total = computeTotal(currentTotal, item, cost);</div>
 <div class="line">    <span class="keywordflow">return</span> {total}; <span class="comment">// Send result back to caller</span></div>
 <div class="line">}</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md24"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md25"></a>
 Capturing an ERROR Response from the Caller</h2>
 <p>When calling an RPC, <code>ERROR</code> messages returned by the caller can be captured via the <code><a class="el" href="classwamp_1_1_rpc.html#a0fefbcb96fc3825fefb4d947701d93ab" title="Specifies the Error object in which to store call errors returned by the callee.">wamp::Rpc::captureError</a></code> option:</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
@@ -295,7 +299,7 @@ Capturing an ERROR Response from the Caller</h2>
 <div class="line"><a class="code" href="classwamp_1_1_error.html">Error</a> error;</div>
 <div class="line"><span class="keywordflow">try</span></div>
 <div class="line">{</div>
-<div class="line">    session-&gt;call(<a class="code" href="classwamp_1_1_rpc.html">Rpc</a>(<span class="stringliteral">&quot;foo&quot;</span>).withArgs(42)</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a27e1d340844ae71b9ffa0fb51591317a">call</a>(<a class="code" href="classwamp_1_1_rpc.html">Rpc</a>(<span class="stringliteral">&quot;foo&quot;</span>).withArgs(42)</div>
 <div class="line">                            .captureError(error),</div>
 <div class="line">                  yield);</div>
 <div class="line">}</div>
@@ -307,46 +311,18 @@ Capturing an ERROR Response from the Caller</h2>
 <div class="line">                  &lt;&lt; <span class="stringliteral">&quot;with args: &quot;</span> &lt;&lt; error.args() &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
 <div class="line">    }</div>
 <div class="line">}</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md25"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md26"></a>
 Scoped Registrations</h2>
-<p>A <a class="el" href="classwamp_1_1_scoped_registration.html" title="Limits a Registration&#39;s lifetime to a particular scope.">wamp::ScopedRegistration</a> object can be used to limit an RPC registration's lifetime to a particular scope. When a <code>ScopedRegistration</code> object is destroyed, it automatically unregisters the registration. This helps in automating the lifetime management of RPC registrations using <a href="https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization">RAII</a> techniques.</p>
-<p>Here's an example illustrating how <code>ScopedRegistration</code> can be used to manage the lifetime of a registration:</p>
+<p>A <a class="el" href="classwamp_1_1_scoped_registration.html" title="Limits a Registration&#39;s lifetime to a particular scope.">wamp::ScopedRegistration</a> object can be used to limit an RPC registration's lifetime to a particular scope. When a <code>ScopedRegistration</code> object is destroyed, it automatically unregisters the RPC. This helps in automating the lifetime management of RPC registrations using <a href="https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization">RAII</a> techniques.</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"> </div>
-<div class="line"><span class="keyword">struct </span>Delegate</div>
 <div class="line">{</div>
-<div class="line">    <a class="code" href="classwamp_1_1_outcome.html">Outcome</a> rpc(<a class="code" href="classwamp_1_1_invocation.html">Invocation</a> inv);</div>
-<div class="line"> </div>
-<div class="line">    <a class="code" href="classwamp_1_1_scoped_registration.html">ScopedRegistration</a> reg;</div>
+<div class="line">    <a class="code" href="classwamp_1_1_scoped_registration.html">ScopedRegistration</a> reg = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll</a>(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;rpc&quot;</span>), &amp;rpc, yield);</div>
 <div class="line">}</div>
-<div class="line"> </div>
-<div class="line"><span class="keywordtype">int</span> main()</div>
-<div class="line">{</div>
-<div class="line">    <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">AsioContext</a> ioctx;</div>
-<div class="line">    boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
-<div class="line">    {</div>
-<div class="line">        <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(connectorList);</div>
-<div class="line">        session-&gt;connect(yield);</div>
-<div class="line">        session-&gt;join(<span class="stringliteral">&quot;somerealm&quot;</span>, yield);</div>
-<div class="line"> </div>
-<div class="line">        {</div>
-<div class="line">            <span class="keyword">using</span> std::placeholders;</div>
-<div class="line">            Delegate delegate;</div>
-<div class="line">            delegate.reg = session-&gt;enroll(</div>
-<div class="line">                            <a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;someprocedure&quot;</span>),</div>
-<div class="line">                            std::bind(&amp;Delegate::rpc, delegate, _1),</div>
-<div class="line">                            yield);</div>
-<div class="line"> </div>
-<div class="line">        }  <span class="comment">// When the &#39;delegate&#39; object leaves this scope, its</span></div>
-<div class="line">           <span class="comment">// ScopedRegisration member gets destroyed. This will</span></div>
-<div class="line">           <span class="comment">// automatically unregister the registration, thereby avoiding</span></div>
-<div class="line">           <span class="comment">// further member function calls on the deleted &#39;delegate&#39;</span></div>
-<div class="line">           <span class="comment">// object.</span></div>
-<div class="line">    });</div>
-<div class="line">    ioctx.run();</div>
-<div class="line">}</div>
-</div><!-- fragment --><p>For a more in-depth discussion on registrations, consult the <a class="el" href="_registrations.html">Registrations</a> page.</p>
-<h2><a class="anchor" id="autotoc_md26"></a>
+<div class="line"><span class="comment">// &quot;rpc&quot; is automatically unregistered when the &#39;reg&#39; scoped registration</span></div>
+<div class="line"><span class="comment">// goes out of scope here.</span></div>
+</div><!-- fragment --><p>For a more practical example of using scoped registrations, see <a class="el" href="_registrations.html#ScopedRegistrations">Registrations/Scoped Registrations</a>.</p>
+<h2><a class="anchor" id="autotoc_md27"></a>
 Cancelling RPCs</h2>
 <p>If supported by the router, a caller may cancel an RPC in progress via the session's <a class="el" href="classwamp_1_1_session.html#a55304cfcbe2c9db2d98ca55424400d72">cancel</a> method.</p>
 <p>A callee wanting to make an RPC interruptible may pass an additional <a class="el" href="classwamp_1_1_session.html#a86a75d8cf69a518de2d6183f55586929">InterruptSlot</a> argument to the <code>enroll</code> method.</p>
@@ -366,7 +342,7 @@ Cancelling RPCs</h2>
 <div class="line">        {</div>
 <div class="line">            std::string message;</div>
 <div class="line">            int seconds;</div>
-<div class="line">            inv.args().convertTo(message, seconds);</div>
+<div class="line">            inv.convertTo(message, seconds);</div>
 <div class="line">            timer.expires_from_now(std::chrono::seconds(seconds);</div>
 <div class="line">            boost::system::error_code ec;</div>
 <div class="line">            timer.async_wait(yield[ec]);</div>
@@ -390,78 +366,201 @@ Cancelling RPCs</h2>
 <div class="line">{</div>
 <div class="line">    boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
 <div class="line">    {</div>
-<div class="line">        <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html">CoroSession&lt;&gt;::create</a>(ioctx, tcp);</div>
-<div class="line">        session-&gt;connect(yield);</div>
-<div class="line">        session-&gt;join(<span class="stringliteral">&quot;somerealm&quot;</span>, yield);</div>
+<div class="line">        <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, tcp);</div>
+<div class="line">        session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>(yield);</div>
+<div class="line">        session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">join</a>(<a class="code" href="classwamp_1_1_realm.html">Realm</a>(<span class="stringliteral">&quot;somerealm&quot;</span>), yield);</div>
 <div class="line"> </div>
 <div class="line">        <span class="comment">// Note the additional InterruptSlot argument for enroll.</span></div>
-<div class="line">        <span class="keyword">auto</span> reg = session-&gt;enroll(</div>
+<div class="line">        <span class="keyword">auto</span> reg = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll</a>(</div>
 <div class="line">            <a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;remind_me&quot;</span>), &amp;delayedEcho, &amp;cancelEcho, yield);</div>
 <div class="line"> </div>
 <div class="line">        <span class="comment">// Etc.</span></div>
 <div class="line">    });</div>
 <div class="line">}</div>
-</div><!-- fragment --><p>Example caller issuing an interruption: </p><div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
+</div><!-- fragment --><p>Example caller issuing a call cancellation: </p><div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line">boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
 <div class="line">{</div>
 <div class="line">    <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, tcp);</div>
-<div class="line">    session-&gt;connect(yield);</div>
-<div class="line">    session-&gt;join(<span class="stringliteral">&quot;somerealm&quot;</span>, yield);</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>(yield);</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">join</a>(<a class="code" href="classwamp_1_1_realm.html">Realm</a>(<span class="stringliteral">&quot;somerealm&quot;</span>), yield);</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Call a remote procedure that takes a while to respond.</span></div>
 <div class="line">    <span class="comment">// Note that the callback-based overload is used, which immediately</span></div>
 <div class="line">    <span class="comment">// returns a request ID.</span></div>
-<div class="line">    <span class="keyword">auto</span> requestId = session-&gt;call(</div>
+<div class="line">    <span class="keyword">auto</span> requestId = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a27e1d340844ae71b9ffa0fb51591317a">call</a>(</div>
 <div class="line">        <a class="code" href="classwamp_1_1_rpc.html">Rpc</a>(<span class="stringliteral">&quot;getElapsed&quot;</span>).withArgs(<span class="stringliteral">&quot;hello&quot;</span>, 10),</div>
-<div class="line">        [](<a class="code" href="classwamp_1_1_async_result.html">AsyncResult&lt;Result&gt;</a> message)</div>
+<div class="line">        [](<a class="code" href="classwamp_1_1_async_result.html">AsyncResult&lt;Result&gt;</a> result)</div>
 <div class="line">        {</div>
-<div class="line">            <span class="keywordflow">if</span> (message)</div>
-<div class="line">                std::cout &lt;&lt; <span class="stringliteral">&quot;Message: &quot;</span> &lt;&lt; message.<a class="code" href="classwamp_1_1_async_result.html#a4a9849215f9bc860a606c4fdcf82c1a1">get</a>() &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
+<div class="line">            <span class="keywordflow">if</span> (result)</div>
+<div class="line">                std::cout &lt;&lt; <span class="stringliteral">&quot;Result: &quot;</span> &lt;&lt; result.get() &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
 <div class="line">            <span class="keywordflow">else</span></div>
-<div class="line">                std::cout &lt;&lt; <span class="stringliteral">&quot;Error: &quot;</span> &lt;&lt; message.<a class="code" href="classwamp_1_1_async_result.html#a83fd466d9e98afbe22d2bb025314e025">errorInfo</a>() &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
+<div class="line">                std::cout &lt;&lt; <span class="stringliteral">&quot;Error: &quot;</span> &lt;&lt; result.errorInfo() &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
 <div class="line">        });</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Cancel the RPC before it completes.</span></div>
 <div class="line">    boost::asio::deadline_timer timer(ioctx, std::chrono::seconds(5));</div>
 <div class="line">    timer.async_wait(yield);</div>
-<div class="line">    session-&gt;cancel(<a class="code" href="classwamp_1_1_cancellation.html">Cancellation</a>(requestId, <a class="code" href="namespacewamp.html#a5a79c4206c6e45fbfedc0d7d4a775890a534735884d341071762ede7af01c53e8">CancelMode::kill</a>));</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_session.html#a55304cfcbe2c9db2d98ca55424400d72">cancel</a>(<a class="code" href="classwamp_1_1_cancellation.html">Cancellation</a>(requestId, <a class="code" href="namespacewamp.html#a5a79c4206c6e45fbfedc0d7d4a775890a534735884d341071762ede7af01c53e8">CancelMode::kill</a>));</div>
 <div class="line">});</div>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md28"></a>
+Call Timeouts</h2>
+<p>A remote procedure call can be set up to automatically cancel itself if a result is not received within a certain time period. This is done using either:</p>
+<ul>
+<li><a class="el" href="classwamp_1_1_rpc.html#ac15b1e16b1e6c926aa277a1d7122a687" title="Requests that the dealer cancel the call after the specified timeout duration in milliseconds.">wamp::Rpc::withDealerTimeout</a>: The router automatically cancels the RPCs if it times out.</li>
+<li><a class="el" href="classwamp_1_1_rpc.html#a0f4c5fc931b2350e1d0ce70adef05c8b" title="Requests that the caller cancel the call after the specified timeout duration in milliseconds.">wamp::Rpc::withCallerTimeout</a>: The client (CppWAMP) automatically sends a <code>CANCEL</code> message if the RPC times out.</li>
+</ul>
+<p>The <code>withDealerTimeout</code> option requires that the router support call timeouts. The <code>withCallerTimeout</code> option only requires that the router support call cancellation.</p>
+<p>With both methods, if timeout occurs, the callee will receive an <code>INTERRUPT</code> message and the call handler will be passed the <a class="el" href="namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a38881e0a24039dc2621e1d6f86cb71f7" title="A previously issued call was cancelled.">wamp::SessionErrc::cancelled</a> error code.</p>
+<h2><a class="anchor" id="autotoc_md29"></a>
+Progressive Calls Results</h2>
+<p><a href="https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1">Progressive calls results</a> is a WAMP feature that allows a sequence of partial results to be returned from the same remote procedure call.</p>
+<p>A callee wanting to provide progressive call results must:</p>
+<ul>
+<li>Make the <a class="el" href="classwamp_1_1_invocation.html" title="Contains payload arguments and other options within WAMP INVOCATION messages.">wamp::Invocation</a> object available to the RPC handler so that it may later be used to yield progressive results.</li>
+<li>Return <a class="el" href="classwamp_1_1_outcome.html#a52926c1960018ba9769f6fb5d4be4c7d" title="Constructs an Outcome having Type::deferred.">wamp::Outcome::deferred</a> in the RPC handler so that CppWAMP knows results will be yielded later.</li>
+<li>Set the "progress" option of the intermediate <code>RESULT</code> messages via <a class="el" href="classwamp_1_1_result.html#a54c7ba56259c367e0f2b7e4d6df4a6d6" title="Lets the callee specify if the yielded result is progressive.">wamp::Result::withProgress</a>.</li>
+<li>Return intermediate results via <a class="el" href="classwamp_1_1_invocation.html#a5c4de6b58fd50c2d5f5372e740d2b29a" title="Manually sends a YIELD result back to the callee.">wamp::Invocation::yield</a>.</li>
+<li>Return the final result via <a class="el" href="classwamp_1_1_invocation.html#a5c4de6b58fd50c2d5f5372e740d2b29a" title="Manually sends a YIELD result back to the callee.">wamp::Invocation::yield</a> <em>without</em> using <a class="el" href="classwamp_1_1_result.html#a54c7ba56259c367e0f2b7e4d6df4a6d6" title="Lets the callee specify if the yielded result is progressive.">wamp::Result::withProgress</a>.</li>
+</ul>
+<p>It may also be desirable to pass an interruption handler to the session <a class="el" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll</a> method, so that the callee may stop yielding partial results in the event that the call is cancelled (see <a href="https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1.2">Progressive Call Result Cancellation</a> in the WAMP specification).</p>
+<p>The following example shows a callee registering an RPC that yields progressive results at fixed time intervals:</p>
+<div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
+<div class="line"> </div>
+<div class="line">std::set&lt;RequestId&gt; interruptions;</div>
+<div class="line"> </div>
+<div class="line"><a class="code" href="classwamp_1_1_outcome.html">Outcome</a> countdown(<a class="code" href="classwamp_1_1_invocation.html">Invocation</a> inv)</div>
+<div class="line">{</div>
+<div class="line">    <span class="comment">// The first positional argument contains the count.</span></div>
+<div class="line">    <span class="keywordtype">unsigned</span> count = 0;</div>
+<div class="line">    inv.convertTo(count);</div>
+<div class="line"> </div>
+<div class="line">    boost::asio::spawn(</div>
+<div class="line">        inv.<a class="code" href="classwamp_1_1_invocation.html#a7113343b2fdde3e41f1769a90a60bfdd">executor</a>(),</div>
+<div class="line">        [inv, &amp;count](boost::asio::yield_context yield)</div>
+<div class="line">        {</div>
+<div class="line">            boost::asio::steady_timer timer(inv.executor());</div>
+<div class="line">            auto deadline = std::chrono::steady_clock::now();</div>
+<div class="line"> </div>
+<div class="line">            while (count &gt; 0)</div>
+<div class="line">            {</div>
+<div class="line">                <span class="comment">// Break out of the loop if this request was interrupted.</span></div>
+<div class="line">                auto found = interruptions.find(inv.requestId());</div>
+<div class="line">                if (found != interruptions.end())</div>
+<div class="line">                {</div>
+<div class="line">                    interruptions.erase(found);</div>
+<div class="line">                    return;</div>
+<div class="line">                }</div>
+<div class="line"> </div>
+<div class="line">                <span class="comment">// Delay for one second.</span></div>
+<div class="line">                deadline += std::chrono::seconds(1);</div>
+<div class="line">                timer.expires_at(deadline);</div>
+<div class="line">                timer.async_wait(yield);</div>
+<div class="line"> </div>
+<div class="line">                <span class="comment">// Yield intermediate results with the &quot;progess&quot; option.</span></div>
+<div class="line">                inv.yield(Result({count}).withProgress());</div>
+<div class="line"> </div>
+<div class="line">                --count;</div>
+<div class="line">            }</div>
+<div class="line"> </div>
+<div class="line">            <span class="comment">// Yield the final result without the &quot;progess&quot; option.</span></div>
+<div class="line">            inv.<a class="code" href="classwamp_1_1_invocation.html#a5c4de6b58fd50c2d5f5372e740d2b29a">yield</a>(<a class="code" href="classwamp_1_1_result.html">Result</a>({count}));</div>
+<div class="line">        });</div>
+<div class="line"> </div>
+<div class="line">    <span class="keywordflow">return</span> <a class="code" href="classwamp_1_1_outcome.html#a52926c1960018ba9769f6fb5d4be4c7d">Outcome::deferred</a>();</div>
+<div class="line">}</div>
+<div class="line"> </div>
+<div class="line"><a class="code" href="classwamp_1_1_outcome.html">Outcome</a> interrupt(<a class="code" href="classwamp_1_1_interruption.html">Interruption</a> intr)</div>
+<div class="line">{</div>
+<div class="line">    <span class="comment">// Make the coroutine in the countdown function break out of its loop.</span></div>
+<div class="line">    interruptions.insert(intr.<a class="code" href="classwamp_1_1_interruption.html#a0efa768dad57afbecb3da9dd31371e35">requestId</a>());</div>
+<div class="line">    <span class="keywordflow">return</span> <a class="code" href="classwamp_1_1_error.html">Error</a>(<span class="stringliteral">&quot;wamp.error.canceled&quot;</span>);</div>
+<div class="line">}</div>
+<div class="line"> </div>
+<div class="line"><span class="keywordtype">int</span> main()</div>
+<div class="line">{</div>
+<div class="line">    <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">AsioContext</a> ioctx;</div>
+<div class="line">    <span class="keyword">auto</span> tcp = connector&lt;Json&gt;(ioctx, <a class="code" href="classwamp_1_1_tcp_host.html">TcpHost</a>(<span class="stringliteral">&quot;localhost&quot;</span>, 12345));</div>
+<div class="line">    boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
+<div class="line">    {</div>
+<div class="line">        <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, tcp);</div>
+<div class="line">        session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>(yield);</div>
+<div class="line">        session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">join</a>(<a class="code" href="classwamp_1_1_realm.html">Realm</a>(<span class="stringliteral">&quot;somerealm&quot;</span>), yield);</div>
+<div class="line">        session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">enroll</a>(<a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;countdown&quot;</span>), &amp;countdown, &amp;interrupt, yield);</div>
+<div class="line">    });</div>
+<div class="line">    ioctx.run();</div>
+<div class="line">    <span class="keywordflow">return</span> 0;</div>
+<div class="line">}</div>
+</div><!-- fragment --><p>A caller wanting to call an RPC with progressive call results must:</p>
+<ul>
+<li>Use the asynchronous <a class="el" href="classwamp_1_1_session.html#a7bcff76277c4ed4f02d471b99a2ef83f" title="Calls a remote procedure.">wamp::Session::call</a> so that it doesn't block.</li>
+<li>Set the "receive_progress" option of the outgoing <code>CALL</code> message via <a class="el" href="classwamp_1_1_rpc.html#afa4ab80581495b1941d32faa7367404e" title="Sets willingness to receive progressive results.">wamp::Rpc::withProgressiveResults</a>.</li>
+</ul>
+<p>The following example shows a caller that calls the RPC from the previous example:</p>
+<div class="fragment"><div class="line"><span class="keywordtype">int</span> main()</div>
+<div class="line">{</div>
+<div class="line">    <span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
+<div class="line">    <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">AsioContext</a> ioctx;</div>
+<div class="line">    <span class="keyword">auto</span> tcp = connector&lt;Json&gt;(ioctx, <a class="code" href="classwamp_1_1_tcp_host.html">TcpHost</a>(<span class="stringliteral">&quot;localhost&quot;</span>, 12345));</div>
+<div class="line">    boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
+<div class="line">    {</div>
+<div class="line">        <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, tcp);</div>
+<div class="line">        session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>(yield);</div>
+<div class="line">        session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">join</a>(<a class="code" href="classwamp_1_1_realm.html">Realm</a>(<span class="stringliteral">&quot;somerealm&quot;</span>), yield);</div>
+<div class="line"> </div>
+<div class="line">        <span class="comment">// The handler will remain in the Session&#39;s internal records</span></div>
+<div class="line">        <span class="comment">// until either a non-progressive RESULT or an ERROR is received.</span></div>
+<div class="line">        session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a27e1d340844ae71b9ffa0fb51591317a">call</a>(<a class="code" href="classwamp_1_1_rpc.html">Rpc</a>(<span class="stringliteral">&quot;countdown&quot;</span>).withProgressiveResults(),</div>
+<div class="line">                      [](<a class="code" href="classwamp_1_1_async_result.html">AsyncResult&lt;Result&gt;</a> r)</div>
+<div class="line">                      {</div>
+<div class="line">                          <span class="keywordtype">unsigned</span> n = 0;</div>
+<div class="line">                          r.<a class="code" href="classwamp_1_1_async_result.html#a4a9849215f9bc860a606c4fdcf82c1a1">get</a>().convertTo(n);</div>
+<div class="line">                          std::cout &lt;&lt; <span class="stringliteral">&quot;Tick: &quot;</span> &lt;&lt; n &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
+<div class="line">                      });</div>
+<div class="line">    });</div>
+<div class="line">    ioctx.run();</div>
+<div class="line">    <span class="keywordflow">return</span> 0;</div>
+<div class="line">}</div>
 </div><!-- fragment --><hr  />
 <p>Next: <a class="el" href="_pub_sub_tutorial.html">Publish-Subscribe</a> </p>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->
 </div><!-- doc-content -->
-<div class="ttc" id="aclasswamp_1_1_invocation_html_a7113343b2fdde3e41f1769a90a60bfdd"><div class="ttname"><a href="classwamp_1_1_invocation.html#a7113343b2fdde3e41f1769a90a60bfdd">wamp::Invocation::executor</a></div><div class="ttdeci">AnyExecutor executor() const</div><div class="ttdoc">Obtains the executor used to execute user-provided handlers.</div><div class="ttdef"><b>Definition:</b> sessiondata.ipp:719</div></div>
+<div class="ttc" id="aclasswamp_1_1_invocation_html_a7113343b2fdde3e41f1769a90a60bfdd"><div class="ttname"><a href="classwamp_1_1_invocation.html#a7113343b2fdde3e41f1769a90a60bfdd">wamp::Invocation::executor</a></div><div class="ttdeci">AnyExecutor executor() const</div><div class="ttdoc">Obtains the executor used to execute user-provided handlers.</div><div class="ttdef"><b>Definition:</b> peerdata.ipp:897</div></div>
 <div class="ttc" id="aclasswamp_1_1_async_result_html_a4a9849215f9bc860a606c4fdcf82c1a1"><div class="ttname"><a href="classwamp_1_1_async_result.html#a4a9849215f9bc860a606c4fdcf82c1a1">wamp::AsyncResult::get</a></div><div class="ttdeci">ValueType &amp; get()</div><div class="ttdoc">Accesses the asynchronous result value.</div><div class="ttdef"><b>Definition:</b> asyncresult.hpp:151</div></div>
-<div class="ttc" id="aclasswamp_1_1_coro_session_html"><div class="ttname"><a href="classwamp_1_1_coro_session.html">wamp::CoroSession</a></div><div class="ttdoc">Coroutine API used by a client peer in WAMP applications.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:94</div></div>
-<div class="ttc" id="aclasswamp_1_1_coro_session_html_a60225f83299f06c5bf1ecc3c8713a316"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">wamp::CoroSession::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new CoroSession instance.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:273</div></div>
-<div class="ttc" id="aclasswamp_1_1_invocation_html_a5c4de6b58fd50c2d5f5372e740d2b29a"><div class="ttname"><a href="classwamp_1_1_invocation.html#a5c4de6b58fd50c2d5f5372e740d2b29a">wamp::Invocation::yield</a></div><div class="ttdeci">void yield(Result result=Result()) const</div><div class="ttdoc">Manually sends a YIELD result back to the callee.</div><div class="ttdef"><b>Definition:</b> sessiondata.ipp:774</div></div>
-<div class="ttc" id="aclasswamp_1_1_interruption_html"><div class="ttname"><a href="classwamp_1_1_interruption.html">wamp::Interruption</a></div><div class="ttdoc">Contains details related to a remote procedure cancellation.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:484</div></div>
+<div class="ttc" id="aclasswamp_1_1_realm_html"><div class="ttname"><a href="classwamp_1_1_realm.html">wamp::Realm</a></div><div class="ttdoc">Realm URI and other options contained within WAMP HELLO messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:38</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a60225f83299f06c5bf1ecc3c8713a316"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">wamp::CoroSession::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new CoroSession instance.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:277</div></div>
+<div class="ttc" id="aclasswamp_1_1_interruption_html_a0efa768dad57afbecb3da9dd31371e35"><div class="ttname"><a href="classwamp_1_1_interruption.html#a0efa768dad57afbecb3da9dd31371e35">wamp::Interruption::requestId</a></div><div class="ttdeci">RequestId requestId() const</div><div class="ttdoc">Returns the request ID associated with this interruption.</div><div class="ttdef"><b>Definition:</b> peerdata.ipp:1034</div></div>
+<div class="ttc" id="aclasswamp_1_1_invocation_html_a5c4de6b58fd50c2d5f5372e740d2b29a"><div class="ttname"><a href="classwamp_1_1_invocation.html#a5c4de6b58fd50c2d5f5372e740d2b29a">wamp::Invocation::yield</a></div><div class="ttdeci">void yield(Result result=Result()) const</div><div class="ttdoc">Manually sends a YIELD result back to the callee.</div><div class="ttdef"><b>Definition:</b> peerdata.ipp:904</div></div>
+<div class="ttc" id="aclasswamp_1_1_interruption_html"><div class="ttname"><a href="classwamp_1_1_interruption.html">wamp::Interruption</a></div><div class="ttdoc">Contains details within WAMP INTERRUPT messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:844</div></div>
 <div class="ttc" id="aclasswamp_1_1error_1_1_failure_html"><div class="ttname"><a href="classwamp_1_1error_1_1_failure.html">wamp::error::Failure</a></div><div class="ttdoc">General purpose runtime exception that wraps a std::error_code.</div><div class="ttdef"><b>Definition:</b> error.hpp:52</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_aa2fe628c3bbe0fda04f6994939da94fe"><div class="ttname"><a href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">wamp::CoroSession::join</a></div><div class="ttdeci">SessionInfo join(Realm realm, YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Attempts to join the given WAMP realm.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:328</div></div>
 <div class="ttc" id="aclasswamp_1_1_async_result_html"><div class="ttname"><a href="classwamp_1_1_async_result.html">wamp::AsyncResult</a></div><div class="ttdoc">Value type that combines an asynchronous result with an error code.</div><div class="ttdef"><b>Definition:</b> asyncresult.hpp:40</div></div>
-<div class="ttc" id="aclasswamp_1_1_error_html"><div class="ttname"><a href="classwamp_1_1_error.html">wamp::Error</a></div><div class="ttdoc">Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:49</div></div>
-<div class="ttc" id="aclasswamp_1_1_procedure_html"><div class="ttname"><a href="classwamp_1_1_procedure.html">wamp::Procedure</a></div><div class="ttdoc">Procedure URI and other options passed to Session::enroll.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:226</div></div>
+<div class="ttc" id="aclasswamp_1_1_error_html"><div class="ttname"><a href="classwamp_1_1_error.html">wamp::Error</a></div><div class="ttdoc">Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:262</div></div>
+<div class="ttc" id="aclasswamp_1_1_procedure_html"><div class="ttname"><a href="classwamp_1_1_procedure.html">wamp::Procedure</a></div><div class="ttdoc">Contains the procedure URI and other options contained within WAMP REGISTER messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:462</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a990f68df80c36d848879b63a3d86b39d"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">wamp::CoroSession::connect</a></div><div class="ttdeci">size_t connect(YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Attempts to connect to a router.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:308</div></div>
+<div class="ttc" id="aclasswamp_1_1_tcp_host_html"><div class="ttname"><a href="classwamp_1_1_tcp_host.html">wamp::TcpHost</a></div><div class="ttdoc">Contains TCP host address information, as well as other socket options.</div><div class="ttdef"><b>Definition:</b> tcphost.hpp:103</div></div>
 <div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
 <div class="ttc" id="aunpacker_8hpp_html"><div class="ttname"><a href="unpacker_8hpp.html">unpacker.hpp</a></div><div class="ttdoc">Contains utilities for unpacking positional arguments passed to event slots and call slots.</div></div>
 <div class="ttc" id="aclasswamp_1_1_scoped_registration_html"><div class="ttname"><a href="classwamp_1_1_scoped_registration.html">wamp::ScopedRegistration</a></div><div class="ttdoc">Limits a Registration's lifetime to a particular scope.</div><div class="ttdef"><b>Definition:</b> registration.hpp:89</div></div>
-<div class="ttc" id="aclasswamp_1_1_async_result_html_a83fd466d9e98afbe22d2bb025314e025"><div class="ttname"><a href="classwamp_1_1_async_result.html#a83fd466d9e98afbe22d2bb025314e025">wamp::AsyncResult::errorInfo</a></div><div class="ttdeci">const std::string &amp; errorInfo() const</div><div class="ttdoc">Returns informational text associated with an error condition.</div><div class="ttdef"><b>Definition:</b> asyncresult.hpp:180</div></div>
-<div class="ttc" id="aclasswamp_1_1_rpc_html"><div class="ttname"><a href="classwamp_1_1_rpc.html">wamp::Rpc</a></div><div class="ttdoc">Contains the procedure URI, options, and payload passed to Session::call.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:257</div></div>
-<div class="ttc" id="aclasswamp_1_1_payload_html_aa4b2975fe591e4fe69720904e6028f5e"><div class="ttname"><a href="classwamp_1_1_payload.html#aa4b2975fe591e4fe69720904e6028f5e">wamp::Payload::withArgs</a></div><div class="ttdeci">TDerived &amp; withArgs(Ts &amp;&amp;... args)</div><div class="ttdoc">Sets the positional arguments for this payload.</div></div>
-<div class="ttc" id="aclasswamp_1_1_outcome_html"><div class="ttname"><a href="classwamp_1_1_outcome.html">wamp::Outcome</a></div><div class="ttdoc">Contains the outcome of an RPC invocation.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:341</div></div>
-<div class="ttc" id="aclasswamp_1_1_payload_html_ac0611ccca2da85479e1e8ac9b9a1618a"><div class="ttname"><a href="classwamp_1_1_payload.html#ac0611ccca2da85479e1e8ac9b9a1618a">wamp::Payload::args</a></div><div class="ttdeci">const Array &amp; args() const &amp;</div><div class="ttdoc">Accesses the constant list of positional arguments.</div><div class="ttdef"><b>Definition:</b> payload.hpp:156</div></div>
-<div class="ttc" id="aclasswamp_1_1_result_html"><div class="ttname"><a href="classwamp_1_1_result.html">wamp::Result</a></div><div class="ttdoc">Contains a remote procedure result yielded by a callee or received by a caller.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:305</div></div>
+<div class="ttc" id="aclasswamp_1_1_registration_html_abd7eba3c99667bcd862e83c6e43fd995"><div class="ttname"><a href="classwamp_1_1_registration.html#abd7eba3c99667bcd862e83c6e43fd995">wamp::Registration::unregister</a></div><div class="ttdeci">void unregister() const</div><div class="ttdoc">Unregisters the RPC.</div><div class="ttdef"><b>Definition:</b> registration.ipp:59</div></div>
+<div class="ttc" id="aclasswamp_1_1_rpc_html"><div class="ttname"><a href="classwamp_1_1_rpc.html">wamp::Rpc</a></div><div class="ttdoc">Contains the procedure URI, options, and payload contained within WAMP CALL messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:505</div></div>
+<div class="ttc" id="aclasswamp_1_1_outcome_html"><div class="ttname"><a href="classwamp_1_1_outcome.html">wamp::Outcome</a></div><div class="ttdoc">Contains the outcome of an RPC invocation.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:647</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a6081368ea20971cd258ece70f3ca6b28"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">wamp::CoroSession::enroll</a></div><div class="ttdeci">Registration enroll(Procedure procedure, CallSlot slot, YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Registers a WAMP remote procedure call.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:462</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_html_a55304cfcbe2c9db2d98ca55424400d72"><div class="ttname"><a href="classwamp_1_1_session.html#a55304cfcbe2c9db2d98ca55424400d72">wamp::Session::cancel</a></div><div class="ttdeci">void cancel(Cancellation cancellation)</div><div class="ttdoc">Cancels a remote procedure.</div><div class="ttdef"><b>Definition:</b> session.ipp:591</div></div>
+<div class="ttc" id="aclasswamp_1_1_result_html"><div class="ttname"><a href="classwamp_1_1_result.html">wamp::Result</a></div><div class="ttdoc">Contains the remote procedure result options/payload within WAMP RESULT and YIELD messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:600</div></div>
 <div class="ttc" id="aclasswamp_1_1_registration_html"><div class="ttname"><a href="classwamp_1_1_registration.html">wamp::Registration</a></div><div class="ttdoc">Represents a remote procedure registration.</div><div class="ttdef"><b>Definition:</b> registration.hpp:43</div></div>
-<div class="ttc" id="aclasswamp_1_1_outcome_html_a52926c1960018ba9769f6fb5d4be4c7d"><div class="ttname"><a href="classwamp_1_1_outcome.html#a52926c1960018ba9769f6fb5d4be4c7d">wamp::Outcome::deferred</a></div><div class="ttdeci">static Outcome deferred()</div><div class="ttdoc">Constructs an Outcome having Type::deferred.</div><div class="ttdef"><b>Definition:</b> sessiondata.ipp:518</div></div>
+<div class="ttc" id="aclasswamp_1_1_outcome_html_a52926c1960018ba9769f6fb5d4be4c7d"><div class="ttname"><a href="classwamp_1_1_outcome.html#a52926c1960018ba9769f6fb5d4be4c7d">wamp::Outcome::deferred</a></div><div class="ttdeci">static Outcome deferred()</div><div class="ttdoc">Constructs an Outcome having Type::deferred.</div><div class="ttdef"><b>Definition:</b> peerdata.ipp:693</div></div>
 <div class="ttc" id="astructwamp_1_1error_1_1_conversion_html"><div class="ttname"><a href="structwamp_1_1error_1_1_conversion.html">wamp::error::Conversion</a></div><div class="ttdoc">Exception type thrown when converting a Variant to an invalid type.</div><div class="ttdef"><b>Definition:</b> error.hpp:105</div></div>
 <div class="ttc" id="anamespacewamp_html_a5a79c4206c6e45fbfedc0d7d4a775890a534735884d341071762ede7af01c53e8"><div class="ttname"><a href="namespacewamp.html#a5a79c4206c6e45fbfedc0d7d4a775890a534735884d341071762ede7af01c53e8">wamp::CancelMode::kill</a></div><div class="ttdeci">@ kill</div><div class="ttdoc">INTERRUPT sent to callee; RESULT or ERROR returned, depending on callee.</div></div>
-<div class="ttc" id="aclasswamp_1_1_invocation_html"><div class="ttname"><a href="classwamp_1_1_invocation.html">wamp::Invocation</a></div><div class="ttdoc">Contains payload arguments and other details related to a remote procedure call invocation.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:424</div></div>
-<div class="ttc" id="aclasswamp_1_1_cancellation_html"><div class="ttname"><a href="classwamp_1_1_cancellation.html">wamp::Cancellation</a></div><div class="ttdoc">Contains the request ID and options passed to Session::cancel.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:288</div></div>
+<div class="ttc" id="aclasswamp_1_1_invocation_html"><div class="ttname"><a href="classwamp_1_1_invocation.html">wamp::Invocation</a></div><div class="ttdoc">Contains payload arguments and other options within WAMP INVOCATION messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:733</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a27e1d340844ae71b9ffa0fb51591317a"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a27e1d340844ae71b9ffa0fb51591317a">wamp::CoroSession::call</a></div><div class="ttdeci">Result call(Rpc rpc, YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Calls a remote procedure.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:542</div></div>
+<div class="ttc" id="aclasswamp_1_1_cancellation_html"><div class="ttname"><a href="classwamp_1_1_cancellation.html">wamp::Cancellation</a></div><div class="ttdoc">Contains the request ID and options contained within WAMP CANCEL messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:817</div></div>
 <div class="ttc" id="anamespacewamp_html_a9dd954da85bf9033739185b3a29e3e85"><div class="ttname"><a href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a></div><div class="ttdeci">boost::asio::io_context AsioContext</div><div class="ttdoc">Queues and runs I/O completion handlers.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:29</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="_tutorial.html">Tutorial</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

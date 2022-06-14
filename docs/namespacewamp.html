@@ -123,7 +123,7 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains binary data as an array of bytes.  <a href="classwamp_1_1_blob.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_cancellation.html">Cancellation</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains the request ID and options passed to <a class="el" href="classwamp_1_1_session.html#a55304cfcbe2c9db2d98ca55424400d72" title="Cancels a remote procedure.">Session::cancel</a>.  <a href="classwamp_1_1_cancellation.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains the request ID and options contained within WAMP <code>CANCEL</code> messages.  <a href="classwamp_1_1_cancellation.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_challenge.html">Challenge</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Provides the <em>AuthMethod</em> and <em>Extra</em> dictionary contained within WAMP <code>CHALLENGE</code> messages.  <a href="classwamp_1_1_challenge.html#details">More...</a><br /></td></tr>
@@ -147,7 +147,7 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Provides the <em>reason</em> URI, options, and payload arguments contained within WAMP <code>ERROR</code> messages.  <a href="classwamp_1_1_error.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_event.html">Event</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a published event.  <a href="classwamp_1_1_event.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Provides the subscription/publication ids, options, and payload contained within WAMP <code>EVENT</code> messages.  <a href="classwamp_1_1_event.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_event_unpacker.html">EventUnpacker</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around an event slot which automatically unpacks positional payload arguments.  <a href="classwamp_1_1_event_unpacker.html#details">More...</a><br /></td></tr>
@@ -156,10 +156,10 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around a source <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a>, used for conversions.  <a href="classwamp_1_1_from_variant_converter.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_interruption.html">Interruption</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains details related to a remote procedure cancellation.  <a href="classwamp_1_1_interruption.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains details within WAMP <code>INTERRUPT</code> messages.  <a href="classwamp_1_1_interruption.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_invocation.html">Invocation</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains payload arguments and other details related to a remote procedure call invocation.  <a href="classwamp_1_1_invocation.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains payload arguments and other options within WAMP <code>INVOCATION</code> messages.  <a href="classwamp_1_1_invocation.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_invocation_unpacker.html">InvocationUnpacker</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around a call slot which automatically unpacks positional payload arguments.  <a href="classwamp_1_1_invocation_unpacker.html#details">More...</a><br /></td></tr>
@@ -177,28 +177,28 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Type used to represent a null or empty <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a> value.  <a href="structwamp_1_1_null.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html">Options</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a collection of WAMP options or details.  <a href="classwamp_1_1_options.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around a WAMP message containing an options dictionary.  <a href="classwamp_1_1_options.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_outcome.html">Outcome</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains the outcome of an RPC invocation.  <a href="classwamp_1_1_outcome.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_payload.html">Payload</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains a payload of positional and keyword arguments exchanged with a WAMP peer.  <a href="classwamp_1_1_payload.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around a WAMP message containing payload arguments and an options dictionary.  <a href="classwamp_1_1_payload.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_procedure.html">Procedure</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Procedure URI and other options passed to <a class="el" href="classwamp_1_1_session.html#a04846bb5a40a74a0fe8cd37e3d0102c0" title="Registers a WAMP remote procedure call.">Session::enroll</a>.  <a href="classwamp_1_1_procedure.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains the procedure URI and other options contained within WAMP <code>REGISTER</code> messages.  <a href="classwamp_1_1_procedure.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_protocol_category.html">ProtocolCategory</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">std::error_category used for reporting protocol errors related to invalid WAMP messages.  <a href="classwamp_1_1_protocol_category.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_pub.html">Pub</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains the topic URI, options, and payload passed to <a class="el" href="classwamp_1_1_session.html#a335a1650356141253b9ca4719e66f3c8" title="Publishes an event.">Session::publish</a>.  <a href="classwamp_1_1_pub.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Provides the topic URI, options, and payload contained within WAMP <code>PUBLISH</code> messages.  <a href="classwamp_1_1_pub.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_rawsock_category.html">RawsockCategory</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">std::error_category used for reporting errors specific to raw socket transports.  <a href="classwamp_1_1_rawsock_category.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_realm.html">Realm</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Realm URI and other options passed to <a class="el" href="classwamp_1_1_session.html#a3119d4f363c42b72f4198db8298112ca" title="Asynchronously attempts to join the given WAMP realm.">Session::join</a>.  <a href="classwamp_1_1_realm.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Realm URI and other options contained within WAMP <code>HELLO</code> messages.  <a href="classwamp_1_1_realm.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_reason.html">Reason</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Provides the <em>reason</em> URI and other options contained within <code>GOODBYE</code> messages.  <a href="classwamp_1_1_reason.html#details">More...</a><br /></td></tr>
@@ -207,7 +207,7 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a remote procedure registration.  <a href="classwamp_1_1_registration.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_result.html">Result</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains a remote procedure result yielded by a <em>callee</em> or received by a <em>caller</em>.  <a href="classwamp_1_1_result.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains the remote procedure result options/payload within WAMP <code>RESULT</code> and <code>YIELD</code> messages.  <a href="classwamp_1_1_result.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:structwamp_1_1_result_type_of_handler"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#structwamp_1_1_result_type_of_handler">ResultTypeOfHandler</a></td></tr>
 <tr class="memdesc:structwamp_1_1_result_type_of_handler"><td class="mdescLeft">&#160;</td><td class="mdescRight">Type traits template used to obtain the result type of an asynchronous handler.  <a href="namespacewamp.html#structwamp_1_1_result_type_of_handler">More...</a><br /></td></tr>
@@ -219,7 +219,7 @@ Classes</h2></td></tr>
 <tr class="memdesc:structwamp_1_1_result_type_of_handler_3_01_async_task_3_01_t_01_4_01_4"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="namespacewamp.html#structwamp_1_1_result_type_of_handler" title="Type traits template used to obtain the result type of an asynchronous handler.">ResultTypeOfHandler</a> specialization for AsyncTask.  <a href="namespacewamp.html#structwamp_1_1_result_type_of_handler_3_01_async_task_3_01_t_01_4_01_4">More...</a><br /></td></tr>
 <tr class="separator:structwamp_1_1_result_type_of_handler_3_01_async_task_3_01_t_01_4_01_4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_rpc.html">Rpc</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains the procedure URI, options, and payload passed to <a class="el" href="classwamp_1_1_session.html#a7bcff76277c4ed4f02d471b99a2ef83f" title="Calls a remote procedure.">Session::call</a>.  <a href="classwamp_1_1_rpc.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains the procedure URI, options, and payload contained within WAMP <code>CALL</code> messages.  <a href="classwamp_1_1_rpc.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_scoped_registration.html">ScopedRegistration</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Limits a <a class="el" href="classwamp_1_1_registration.html" title="Represents a remote procedure registration.">Registration</a>'s lifetime to a particular scope.  <a href="classwamp_1_1_scoped_registration.html#details">More...</a><br /></td></tr>
@@ -234,7 +234,7 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">std::error_category used for reporting errors at the WAMP session layer.  <a href="classwamp_1_1_session_category.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html">SessionInfo</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications.">Session</a> information returned by <a class="el" href="classwamp_1_1_session.html#a3119d4f363c42b72f4198db8298112ca" title="Asynchronously attempts to join the given WAMP realm.">Session::join</a>.  <a href="classwamp_1_1_session_info.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications.">Session</a> information contained within WAMP <code>WELCOME</code> messages.  <a href="classwamp_1_1_session_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_subscription.html">Subscription</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a pub/sub event subscription.  <a href="classwamp_1_1_subscription.html#details">More...</a><br /></td></tr>
@@ -246,7 +246,7 @@ Classes</h2></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains options for the TCP transport.  <a href="classwamp_1_1_tcp_options.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_topic.html">Topic</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Topic URI and other options passed to <a class="el" href="classwamp_1_1_session.html#a93b8686842db786a7d065c601f75cb5a" title="Subscribes to WAMP pub/sub events having the given topic.">Session::subscribe</a>.  <a href="classwamp_1_1_topic.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Provides the topic URI and other options contained within WAMP &lsquo;SUBSCRIBE&rsquo; messages.  <a href="classwamp_1_1_topic.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_to_variant_converter.html">ToVariantConverter</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around a destination <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a>, used for conversions.  <a href="classwamp_1_1_to_variant_converter.html#details">More...</a><br /></td></tr>
@@ -580,10 +580,20 @@ template&lt;typename T &gt; </td></tr>
 <tr class="memitem:a14c38865623683d342e8cc3a4671c940"><td class="memTemplItemLeft" align="right" valign="top">constexpr bool&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a14c38865623683d342e8cc3a4671c940">isUnsignedInteger</a> ()</td></tr>
 <tr class="memdesc:a14c38865623683d342e8cc3a4671c940"><td class="mdescLeft">&#160;</td><td class="mdescRight">Determines if the given type is an unsigned integer. <br /></td></tr>
 <tr class="separator:a14c38865623683d342e8cc3a4671c940"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adc9fd4b24c79d11047260b426c56cdbd"><td class="memTemplParams" colspan="2">template&lt;typename TConverter , typename TValue &gt; </td></tr>
-<tr class="memitem:adc9fd4b24c79d11047260b426c56cdbd"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#adc9fd4b24c79d11047260b426c56cdbd">convert</a> (TConverter &amp;c, TValue &amp;val)</td></tr>
-<tr class="memdesc:adc9fd4b24c79d11047260b426c56cdbd"><td class="mdescLeft">&#160;</td><td class="mdescRight">General function for converting custom types to/from <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a>.  <a href="namespacewamp.html#adc9fd4b24c79d11047260b426c56cdbd">More...</a><br /></td></tr>
-<tr class="separator:adc9fd4b24c79d11047260b426c56cdbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9a84cb7bb559428594ebfb21c07a8935"><td class="memTemplParams" colspan="2">template&lt;typename TConverter , typename TValue , DisableIf&lt; std::is_enum&lt; TValue &gt;::value &gt;  = 0&gt; </td></tr>
+<tr class="memitem:a9a84cb7bb559428594ebfb21c07a8935"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a9a84cb7bb559428594ebfb21c07a8935">convert</a> (TConverter &amp;c, TValue &amp;val)</td></tr>
+<tr class="memdesc:a9a84cb7bb559428594ebfb21c07a8935"><td class="mdescLeft">&#160;</td><td class="mdescRight">General function for converting custom types to/from <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a>.  <a href="namespacewamp.html#a9a84cb7bb559428594ebfb21c07a8935">More...</a><br /></td></tr>
+<tr class="separator:a9a84cb7bb559428594ebfb21c07a8935"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9044150137eb658a1699521784649865"><td class="memTemplParams" colspan="2"><a id="a9044150137eb658a1699521784649865"></a>
+template&lt;typename TEnum , EnableIf&lt; std::is_enum&lt; TEnum &gt;::value &gt;  = 0&gt; </td></tr>
+<tr class="memitem:a9044150137eb658a1699521784649865"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a9044150137eb658a1699521784649865">convert</a> (const <a class="el" href="classwamp_1_1_from_variant_converter.html">FromVariantConverter</a> &amp;c, TEnum &amp;e)</td></tr>
+<tr class="memdesc:a9044150137eb658a1699521784649865"><td class="mdescLeft">&#160;</td><td class="mdescRight">Converts an integer variant to an enumerator. <br /></td></tr>
+<tr class="separator:a9044150137eb658a1699521784649865"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afa4910f2b9267b074f9ea959a7b8f450"><td class="memTemplParams" colspan="2"><a id="afa4910f2b9267b074f9ea959a7b8f450"></a>
+template&lt;typename TEnum , EnableIf&lt; std::is_enum&lt; TEnum &gt;::value &gt;  = 0&gt; </td></tr>
+<tr class="memitem:afa4910f2b9267b074f9ea959a7b8f450"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#afa4910f2b9267b074f9ea959a7b8f450">convert</a> (<a class="el" href="classwamp_1_1_to_variant_converter.html">ToVariantConverter</a> &amp;c, const TEnum &amp;e)</td></tr>
+<tr class="memdesc:afa4910f2b9267b074f9ea959a7b8f450"><td class="mdescLeft">&#160;</td><td class="mdescRight">Converts an enumerator to an integer variant. <br /></td></tr>
+<tr class="separator:afa4910f2b9267b074f9ea959a7b8f450"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab841099244f0d337575b5a19898929f0"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46">SessionErrc</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#ab841099244f0d337575b5a19898929f0">lookupWampErrorUri</a> (const std::string &amp;uri, <a class="el" href="namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46">SessionErrc</a> fallback)</td></tr>
 <tr class="separator:ab841099244f0d337575b5a19898929f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6cffe721e4c495c1733c6985b894db1c"><td class="memTemplParams" colspan="2">template&lt;typename T , std::size_t Size&gt; </td></tr>
@@ -932,7 +942,7 @@ The return type for all of the visitor's dispatch functions. </td></tr>
 </td></tr>
 <tr><td class="fieldname"><a id="a9ecf2a0b15a4d67bb0cd1928b4056d46ae36499a907b854bc2d653d1a28d48490"></a>noSuchRole&#160;</td><td class="fielddoc"><p>Attempt to authenticate under unsupported role. </p>
 </td></tr>
-<tr><td class="fieldname"><a id="a9ecf2a0b15a4d67bb0cd1928b4056d46a38881e0a24039dc2621e1d6f86cb71f7"></a>cancelled&#160;</td><td class="fielddoc"><p>Dealer or Callee canceled a call previously issued. </p>
+<tr><td class="fieldname"><a id="a9ecf2a0b15a4d67bb0cd1928b4056d46a38881e0a24039dc2621e1d6f86cb71f7"></a>cancelled&#160;</td><td class="fielddoc"><p>A previously issued call was cancelled. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="a9ecf2a0b15a4d67bb0cd1928b4056d46a1de736abaefb5aee04f3c4e04a6fa221"></a>optionNotAllowed&#160;</td><td class="fielddoc"><p>Option is disallowed by the router. </p>
 </td></tr>
@@ -1265,13 +1275,16 @@ template&lt;typename T &gt; </div>
 
 </div>
 </div>
-<a id="adc9fd4b24c79d11047260b426c56cdbd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#adc9fd4b24c79d11047260b426c56cdbd">&#9670;&nbsp;</a></span>convert() <span class="overload">[1/15]</span></h2>
+<a id="a9a84cb7bb559428594ebfb21c07a8935"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9a84cb7bb559428594ebfb21c07a8935">&#9670;&nbsp;</a></span>convert() <span class="overload">[1/15]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename TConverter , typename TValue &gt; </div>
+template&lt;typename TConverter , typename TValue , DisableIf&lt; std::is_enum&lt; TValue &gt;::value &gt;  = 0&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
           <td class="memname">void wamp::convert </td>
@@ -1291,6 +1304,11 @@ template&lt;typename TConverter , typename TValue &gt; </div>
           <td></td><td></td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
 
 <p>General function for converting custom types to/from <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a>. </p>
@@ -1299,7 +1317,7 @@ template&lt;typename TConverter , typename TValue &gt; </div>
 <li>use <a class="el" href="variant_8hpp.html#aff26c9fdce903efd0485b1d204691f5d">CPPWAMP_CONVERSION_SPLIT_FREE</a> and provide split <code>convertTo</code> and <code>convertFrom</code> free functions, or,</li>
 <li>use <a class="el" href="variant_8hpp.html#af771a3a82d12fcbe7d2c412afc719fc7">CPPWAMP_CONVERSION_SPLIT_MEMBER</a> and provide split <code>convertTo</code> and <code>convertFrom</code> member functions. </li>
 </ul>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="examples_2timeclient_2main_8cpp-example.html#a0">examples/timeclient/main.cpp</a>, and <a class="el" href="examples_2timeservice_2main_8cpp-example.html#a0">examples/timeservice/main.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="examples_2asynctimeclient_2main_8cpp-example.html#a0">examples/asynctimeclient/main.cpp</a>, <a class="el" href="examples_2asynctimeservice_2main_8cpp-example.html#a0">examples/asynctimeservice/main.cpp</a>, <a class="el" href="examples_2timeclient_2main_8cpp-example.html#a0">examples/timeclient/main.cpp</a>, and <a class="el" href="examples_2timeservice_2main_8cpp-example.html#a0">examples/timeservice/main.cpp</a>.</dd>
 </dl>
 
 </div>
@@ -1878,7 +1896,7 @@ template&lt;typename T &gt; </div>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacewamp.html">wamp</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

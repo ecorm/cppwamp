@@ -1,5 +1,5 @@
 <map id="wamp::Event" name="wamp::Event">
-<area shape="rect" id="node1" title="Represents a published event." alt="" coords="151,80,257,107"/>
-<area shape="rect" id="node2" href="$classwamp_1_1_options.html" title=" " alt="" coords="5,5,192,32"/>
-<area shape="rect" id="node3" href="$classwamp_1_1_payload.html" title=" " alt="" coords="216,5,405,32"/>
+<area shape="rect" id="node1" title="Provides the subscription/publication ids, options, and payload contained within WAMP EVENT messages." alt="" coords="49,184,156,211"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,95,200,136"/>
+<area shape="rect" id="node3" title=" " alt="" coords="5,5,200,47"/>
 </map>

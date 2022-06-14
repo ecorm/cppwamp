@@ -8,5 +8,7 @@ var variant_8hpp =
     [ "operator<<", "variant_8hpp.html#aa596aa57c04a7379fa9e92db779a1116", null ],
     [ "operator<<", "variant_8hpp.html#a50e05d23249b1b010ca36a4b42d0b965", null ],
     [ "operator<<", "variant_8hpp.html#af809d80f3ffe47150b0519691e8008c7", null ],
-    [ "convert", "variant_8hpp.html#adc9fd4b24c79d11047260b426c56cdbd", null ]
+    [ "convert", "variant_8hpp.html#a9a84cb7bb559428594ebfb21c07a8935", null ],
+    [ "convert", "variant_8hpp.html#a9044150137eb658a1699521784649865", null ],
+    [ "convert", "variant_8hpp.html#afa4910f2b9267b074f9ea959a7b8f450", null ]
 ];

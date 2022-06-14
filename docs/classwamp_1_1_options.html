@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.17"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>CppWAMP: wamp::Options&lt; TDerived &gt; Class Template Reference</title>
+<title>CppWAMP: wamp::Options&lt; TDerived, TMessage &gt; Class Template Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -87,62 +87,68 @@ $(document).ready(function(){initNavTree('classwamp_1_1_options.html',''); initR
 <a href="#pro-methods">Protected Member Functions</a> &#124;
 <a href="classwamp_1_1_options-members.html">List of all members</a>  </div>
   <div class="headertitle">
-<div class="title">wamp::Options&lt; TDerived &gt; Class Template Reference</div>  </div>
+<div class="title">wamp::Options&lt; TDerived, TMessage &gt; Class Template Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p>Represents a collection of WAMP options or details.  
+<p>Wrapper around a WAMP message containing an options dictionary.  
  <a href="classwamp_1_1_options.html#details">More...</a></p>
 
 <p><code>#include &lt;<a class="el" href="options_8hpp_source.html">cppwamp/options.hpp</a>&gt;</code></p>
+<div class="dynheader">
+Inheritance diagram for wamp::Options&lt; TDerived, TMessage &gt;:</div>
+<div class="dyncontent">
+<div class="center"><img src="classwamp_1_1_options__inherit__graph.png" border="0" usemap="#wamp_1_1_options_3_01_t_derived_00_01_t_message_01_4_inherit__map" alt="Inheritance graph"/></div>
+<map name="wamp_1_1_options_3_01_t_derived_00_01_t_message_01_4_inherit__map" id="wamp_1_1_options_3_01_t_derived_00_01_t_message_01_4_inherit__map">
+<area shape="rect" title="Wrapper around a WAMP message containing an options dictionary." alt="" coords="6,5,205,47"/>
+<area shape="rect" href="classwamp_1_1_payload.html" title="Wrapper around a WAMP message containing payload arguments and an options dictionary." alt="" coords="5,95,205,136"/>
+</map>
+<center><span class="legend">[<a target="top" href="graph_legend.html">legend</a>]</span></center></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a49df9299520a784a2cf109a40cc5dfc4"><td class="memItemLeft" align="right" valign="top"><a id="a49df9299520a784a2cf109a40cc5dfc4"></a>
-TDerived &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a49df9299520a784a2cf109a40cc5dfc4">withOption</a> (<a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> key, <a class="el" href="classwamp_1_1_variant.html">Variant</a> value)</td></tr>
-<tr class="memdesc:a49df9299520a784a2cf109a40cc5dfc4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Adds an option. <br /></td></tr>
-<tr class="separator:a49df9299520a784a2cf109a40cc5dfc4"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4cac6226288dcd9259b3b60ae0b6020e"><td class="memItemLeft" align="right" valign="top"><a id="a4cac6226288dcd9259b3b60ae0b6020e"></a>
-TDerived &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a4cac6226288dcd9259b3b60ae0b6020e">withOptions</a> (<a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a> <a class="el" href="classwamp_1_1_options.html#a6b9899edc0cc3ea3d460a52320e54c3a">options</a>)</td></tr>
-<tr class="memdesc:a4cac6226288dcd9259b3b60ae0b6020e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets all options at once. <br /></td></tr>
-<tr class="separator:a4cac6226288dcd9259b3b60ae0b6020e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6b9899edc0cc3ea3d460a52320e54c3a"><td class="memItemLeft" align="right" valign="top"><a id="a6b9899edc0cc3ea3d460a52320e54c3a"></a>
-const <a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a6b9899edc0cc3ea3d460a52320e54c3a">options</a> () const</td></tr>
-<tr class="memdesc:a6b9899edc0cc3ea3d460a52320e54c3a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the entire dictionary of options. <br /></td></tr>
-<tr class="separator:a6b9899edc0cc3ea3d460a52320e54c3a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a39403d347f502a9eb9f4ef9d97b45383"><td class="memItemLeft" align="right" valign="top"><a id="a39403d347f502a9eb9f4ef9d97b45383"></a>
-<a class="el" href="classwamp_1_1_variant.html">Variant</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a39403d347f502a9eb9f4ef9d97b45383">optionByKey</a> (const <a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> &amp;key) const</td></tr>
-<tr class="memdesc:a39403d347f502a9eb9f4ef9d97b45383"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains an option by key. <br /></td></tr>
-<tr class="separator:a39403d347f502a9eb9f4ef9d97b45383"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8ebd861fd864b14929d38b43885c9d69"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
-<tr class="memitem:a8ebd861fd864b14929d38b43885c9d69"><td class="memTemplItemLeft" align="right" valign="top"><a class="el" href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">ValueTypeOf</a>&lt; T &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a8ebd861fd864b14929d38b43885c9d69">optionOr</a> (const <a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> &amp;key, T &amp;&amp;fallback) const</td></tr>
-<tr class="memdesc:a8ebd861fd864b14929d38b43885c9d69"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains an option by key or a fallback value.  <a href="classwamp_1_1_options.html#a8ebd861fd864b14929d38b43885c9d69">More...</a><br /></td></tr>
-<tr class="separator:a8ebd861fd864b14929d38b43885c9d69"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a40449a93c1914c6c15b1dda948c7aa89"><td class="memItemLeft" align="right" valign="top"><a id="a40449a93c1914c6c15b1dda948c7aa89"></a>
+TDerived &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a40449a93c1914c6c15b1dda948c7aa89">withOption</a> (<a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> key, <a class="el" href="classwamp_1_1_variant.html">Variant</a> value)</td></tr>
+<tr class="memdesc:a40449a93c1914c6c15b1dda948c7aa89"><td class="mdescLeft">&#160;</td><td class="mdescRight">Adds an option. <br /></td></tr>
+<tr class="separator:a40449a93c1914c6c15b1dda948c7aa89"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6fa2fbc33acdd33e907c541c0f2112f0"><td class="memItemLeft" align="right" valign="top"><a id="a6fa2fbc33acdd33e907c541c0f2112f0"></a>
+TDerived &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a6fa2fbc33acdd33e907c541c0f2112f0">withOptions</a> (<a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a> opts)</td></tr>
+<tr class="memdesc:a6fa2fbc33acdd33e907c541c0f2112f0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets all options at once. <br /></td></tr>
+<tr class="separator:a6fa2fbc33acdd33e907c541c0f2112f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a71ae2b1e5bad543744f4af9cfa5fedb3"><td class="memItemLeft" align="right" valign="top"><a id="a71ae2b1e5bad543744f4af9cfa5fedb3"></a>
+const <a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a71ae2b1e5bad543744f4af9cfa5fedb3">options</a> () const</td></tr>
+<tr class="memdesc:a71ae2b1e5bad543744f4af9cfa5fedb3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Accesses the entire dictionary of options. <br /></td></tr>
+<tr class="separator:a71ae2b1e5bad543744f4af9cfa5fedb3"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a736c5841a51383853086ef881f3ac0ff"><td class="memItemLeft" align="right" valign="top"><a id="a736c5841a51383853086ef881f3ac0ff"></a>
+<a class="el" href="classwamp_1_1_variant.html">Variant</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a736c5841a51383853086ef881f3ac0ff">optionByKey</a> (const <a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> &amp;key) const</td></tr>
+<tr class="memdesc:a736c5841a51383853086ef881f3ac0ff"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains an option by key. <br /></td></tr>
+<tr class="separator:a736c5841a51383853086ef881f3ac0ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a99c6363c6536fba1279356b8946900a0"><td class="memTemplParams" colspan="2">template&lt;typename T &gt; </td></tr>
+<tr class="memitem:a99c6363c6536fba1279356b8946900a0"><td class="memTemplItemLeft" align="right" valign="top"><a class="el" href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">ValueTypeOf</a>&lt; T &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a99c6363c6536fba1279356b8946900a0">optionOr</a> (const <a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> &amp;key, T &amp;&amp;fallback) const</td></tr>
+<tr class="memdesc:a99c6363c6536fba1279356b8946900a0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains an option by key or a fallback value.  <a href="classwamp_1_1_options.html#a99c6363c6536fba1279356b8946900a0">More...</a><br /></td></tr>
+<tr class="separator:a99c6363c6536fba1279356b8946900a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:a45b8785ea6d482777ddb17709b953259"><td class="memItemLeft" align="right" valign="top"><a id="a45b8785ea6d482777ddb17709b953259"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a45b8785ea6d482777ddb17709b953259">Options</a> ()=default</td></tr>
-<tr class="memdesc:a45b8785ea6d482777ddb17709b953259"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default constructor. <br /></td></tr>
-<tr class="separator:a45b8785ea6d482777ddb17709b953259"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8be8aa756d80044346f57897b65dea2a"><td class="memItemLeft" align="right" valign="top"><a id="a8be8aa756d80044346f57897b65dea2a"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a8be8aa756d80044346f57897b65dea2a">Options</a> (<a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a> <a class="el" href="classwamp_1_1_options.html#a6b9899edc0cc3ea3d460a52320e54c3a">options</a>)</td></tr>
-<tr class="memdesc:a8be8aa756d80044346f57897b65dea2a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Constructor taking initial options. <br /></td></tr>
-<tr class="separator:a8be8aa756d80044346f57897b65dea2a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a548a7f5dedf40ebed66e40132ec22e0c"><td class="memTemplParams" colspan="2"><a id="a548a7f5dedf40ebed66e40132ec22e0c"></a>
+template&lt;typename... TArgs&gt; </td></tr>
+<tr class="memitem:a548a7f5dedf40ebed66e40132ec22e0c"><td class="memTemplItemLeft" align="right" valign="top">&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a548a7f5dedf40ebed66e40132ec22e0c">Options</a> (TArgs &amp;&amp;... args)</td></tr>
+<tr class="memdesc:a548a7f5dedf40ebed66e40132ec22e0c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Constructor taking message construction aruments. <br /></td></tr>
+<tr class="separator:a548a7f5dedf40ebed66e40132ec22e0c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><h3>template&lt;typename TDerived&gt;<br />
-class wamp::Options&lt; TDerived &gt;</h3>
+<div class="textblock"><h3>template&lt;typename TDerived, typename TMessage&gt;<br />
+class wamp::Options&lt; TDerived, TMessage &gt;</h3>
 
-<p>Represents a collection of WAMP options or details. </p>
+<p>Wrapper around a WAMP message containing an options dictionary. </p>
 </div><h2 class="groupheader">Member Function Documentation</h2>
-<a id="a8ebd861fd864b14929d38b43885c9d69"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8ebd861fd864b14929d38b43885c9d69">&#9670;&nbsp;</a></span>optionOr()</h2>
+<a id="a99c6363c6536fba1279356b8946900a0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a99c6363c6536fba1279356b8946900a0">&#9670;&nbsp;</a></span>optionOr()</h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename TDerived &gt; </div>
+template&lt;typename TDerived , typename TMessage &gt; </div>
 <div class="memtemplate">
 template&lt;typename T &gt; </div>
 <table class="mlabels">
@@ -150,7 +156,7 @@ template&lt;typename T &gt; </div>
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">ValueTypeOf</a>&lt;T&gt; <a class="el" href="classwamp_1_1_options.html">wamp::Options</a>&lt; TDerived &gt;::optionOr </td>
+          <td class="memname"><a class="el" href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">ValueTypeOf</a>&lt;T&gt; <a class="el" href="classwamp_1_1_options.html">wamp::Options</a>&lt; TDerived, TMessage &gt;::optionOr </td>
           <td>(</td>
           <td class="paramtype">const <a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> &amp;&#160;</td>
           <td class="paramname"><em>key</em>, </td>
@@ -194,7 +200,7 @@ template&lt;typename T &gt; </div>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacewamp.html">wamp</a></li><li class="navelem"><a class="el" href="classwamp_1_1_options.html">Options</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

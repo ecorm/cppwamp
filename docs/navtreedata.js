@@ -91,9 +91,10 @@ var NAVTREE =
 var NAVTREEINDEX =
 [
 "_architecture.html",
-"classwamp_1_1_invocation.html",
-"classwamp_1_1_topic.html#a479a9015a381a72f07b9abc5797df19f",
-"functions_type.html"
+"classwamp_1_1_event_unpacker.html#ad2ca5aeb832b1c4aba23238ef3bcc936",
+"classwamp_1_1_tcp_host.html#a87803d74fa8e33237b258a170f6f94bd",
+"functions_func.html",
+"wampdefs_8hpp.html#a53ba5f85cd0d02bf363dfec7da1b339faab0e76e1623e4b9f4b2c6dc8e966989f"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';

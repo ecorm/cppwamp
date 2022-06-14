@@ -1,4 +1,4 @@
 <map id="wamp::Reason" name="wamp::Reason">
-<area shape="rect" id="node1" title="Provides the reason URI and other options contained within GOODBYE messages." alt="" coords="45,80,164,107"/>
-<area shape="rect" id="node2" href="$classwamp_1_1_options.html" title=" " alt="" coords="5,5,204,32"/>
+<area shape="rect" id="node1" title="Provides the reason URI and other options contained within GOODBYE messages." alt="" coords="53,95,172,121"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,5,220,47"/>
 </map>

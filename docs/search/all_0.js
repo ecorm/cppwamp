@@ -9,7 +9,7 @@ var searchData=
   ['apply_6',['apply',['../classwamp_1_1_variant.html#aa5b539601da58fe7e097b17df770b8b7',1,'wamp::Variant::apply(V &amp;&amp;visitor, T &amp;&amp;variant)'],['../classwamp_1_1_variant.html#ad37bd6f1bc870f507c2f7904f2c9643f',1,'wamp::Variant::apply(V &amp;&amp;visitor, L &amp;&amp;leftVariant, R &amp;&amp;rightVariant)']]],
   ['applywithoperand_7',['applyWithOperand',['../classwamp_1_1_variant.html#aa25cc3d8fa578809777d6789cc234e02',1,'wamp::Variant']]],
   ['architectural_20overview_8',['Architectural Overview',['../_architecture.html',1,'']]],
-  ['args_9',['args',['../classwamp_1_1_payload.html#ac0611ccca2da85479e1e8ac9b9a1618a',1,'wamp::Payload::args() const &amp;'],['../classwamp_1_1_payload.html#a7e42622f9f25627b400e3aa5e3a5fd65',1,'wamp::Payload::args() &amp;&amp;']]],
+  ['args_9',['args',['../classwamp_1_1_payload.html#ae267de3cfe7190ef8366589e8e28f065',1,'wamp::Payload::args() const &amp;'],['../classwamp_1_1_payload.html#a1918828c983ac173be54bdec0c13c441',1,'wamp::Payload::args() &amp;&amp;']]],
   ['array_10',['Array',['../classwamp_1_1_variant.html#a5bce903eff7946f4a375cc6bb5953bb7',1,'wamp::Variant::Array()'],['../namespacewamp.html#a4d04d75506649324abb78e785749ccdbaf1f713c9e000f5d3f280adbd124df4f5',1,'wamp::array()'],['../namespacewamp.html#a2daa037ae4c3853086e789bad1978ca2',1,'wamp::Array()']]],
   ['array_2ehpp_11',['array.hpp',['../array_8hpp.html',1,'']]],
   ['as_12',['as',['../classwamp_1_1_variant.html#a1315ba0cee052b30fdb6fd81aba431d9',1,'wamp::Variant::as()'],['../classwamp_1_1_variant.html#a110a7af76ec3ed5a7d1af5efbc0acfc9',1,'wamp::Variant::as() const'],['../classwamp_1_1_variant.html#a42f0b800e10d50229909e18e06ce47eb',1,'wamp::Variant::as()'],['../classwamp_1_1_variant.html#ac188144ed0775de6667dbb56d06c3e56',1,'wamp::Variant::as() const']]],
@@ -24,8 +24,12 @@ var searchData=
   ['asyncresult_2ehpp_21',['asyncresult.hpp',['../asyncresult_8hpp.html',1,'']]],
   ['asynchronous_20api_22',['Asynchronous API',['../_async_tutorial.html',1,'Tutorial']]],
   ['at_23',['at',['../classwamp_1_1_variant.html#a466c104400128eeeeb7f2b1010eaac7b',1,'wamp::Variant::at(SizeType index)'],['../classwamp_1_1_variant.html#af6a9c839ebc9f386e6d3859bacfe0d69',1,'wamp::Variant::at(SizeType index) const'],['../classwamp_1_1_variant.html#a90d22885bf8f84c18cd83f3d92eae969',1,'wamp::Variant::at(const String &amp;key)'],['../classwamp_1_1_variant.html#aca68cc6821c7fbfd67027df48849169b',1,'wamp::Variant::at(const String &amp;key) const']]],
-  ['authenticate_24',['authenticate',['../classwamp_1_1_session.html#a05637a4031ee29978ec55ff4ff701683',1,'wamp::Session']]],
+  ['authenticate_24',['authenticate',['../classwamp_1_1_challenge.html#a29a723d3db5cab5c1bb9f556483d3a67',1,'wamp::Challenge::authenticate()'],['../classwamp_1_1_session.html#a05637a4031ee29978ec55ff4ff701683',1,'wamp::Session::authenticate()']]],
   ['authenticating_25',['authenticating',['../namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339fa3d5d0f5c7a6b281da0b22f8c128fb20e',1,'wamp']]],
   ['authentication_26',['Authentication',['../classwamp_1_1_authentication.html',1,'wamp::Authentication'],['../classwamp_1_1_authentication.html#a32bf7f930a9beb10d64eb7659857e0d7',1,'wamp::Authentication::Authentication()'],['../classwamp_1_1_authentication.html#a6cd56157471761cc4ebdb81931791d78',1,'wamp::Authentication::Authentication(String signature)']]],
-  ['authorizationfailed_27',['authorizationFailed',['../namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a23326a67dfb49576ae6d7f0ed9d124eb',1,'wamp']]]
+  ['authid_27',['authId',['../classwamp_1_1_session_info.html#a589b15f849cbeb5cdca9bd1ac6324d94',1,'wamp::SessionInfo']]],
+  ['authmethod_28',['authMethod',['../classwamp_1_1_session_info.html#abbf2d0be3e798da4540fabad7df2f0a6',1,'wamp::SessionInfo']]],
+  ['authorizationfailed_29',['authorizationFailed',['../namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a23326a67dfb49576ae6d7f0ed9d124eb',1,'wamp']]],
+  ['authprovider_30',['authProvider',['../classwamp_1_1_session_info.html#abb9f8a40558b47a386af2f091d48f6b4',1,'wamp::SessionInfo']]],
+  ['authrole_31',['authRole',['../classwamp_1_1_session_info.html#a90a11e59bb7463756f8635e735fbaa22',1,'wamp::SessionInfo']]]
 ];

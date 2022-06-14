@@ -146,10 +146,20 @@ Macros</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:adc9fd4b24c79d11047260b426c56cdbd"><td class="memTemplParams" colspan="2">template&lt;typename TConverter , typename TValue &gt; </td></tr>
-<tr class="memitem:adc9fd4b24c79d11047260b426c56cdbd"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#adc9fd4b24c79d11047260b426c56cdbd">wamp::convert</a> (TConverter &amp;c, TValue &amp;val)</td></tr>
-<tr class="memdesc:adc9fd4b24c79d11047260b426c56cdbd"><td class="mdescLeft">&#160;</td><td class="mdescRight">General function for converting custom types to/from <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a>.  <a href="namespacewamp.html#adc9fd4b24c79d11047260b426c56cdbd">More...</a><br /></td></tr>
-<tr class="separator:adc9fd4b24c79d11047260b426c56cdbd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9a84cb7bb559428594ebfb21c07a8935"><td class="memTemplParams" colspan="2">template&lt;typename TConverter , typename TValue , DisableIf&lt; std::is_enum&lt; TValue &gt;::value &gt;  = 0&gt; </td></tr>
+<tr class="memitem:a9a84cb7bb559428594ebfb21c07a8935"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a9a84cb7bb559428594ebfb21c07a8935">wamp::convert</a> (TConverter &amp;c, TValue &amp;val)</td></tr>
+<tr class="memdesc:a9a84cb7bb559428594ebfb21c07a8935"><td class="mdescLeft">&#160;</td><td class="mdescRight">General function for converting custom types to/from <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a>.  <a href="namespacewamp.html#a9a84cb7bb559428594ebfb21c07a8935">More...</a><br /></td></tr>
+<tr class="separator:a9a84cb7bb559428594ebfb21c07a8935"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9044150137eb658a1699521784649865"><td class="memTemplParams" colspan="2"><a id="a9044150137eb658a1699521784649865"></a>
+template&lt;typename TEnum , EnableIf&lt; std::is_enum&lt; TEnum &gt;::value &gt;  = 0&gt; </td></tr>
+<tr class="memitem:a9044150137eb658a1699521784649865"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a9044150137eb658a1699521784649865">wamp::convert</a> (const FromVariantConverter &amp;c, TEnum &amp;e)</td></tr>
+<tr class="memdesc:a9044150137eb658a1699521784649865"><td class="mdescLeft">&#160;</td><td class="mdescRight">Converts an integer variant to an enumerator. <br /></td></tr>
+<tr class="separator:a9044150137eb658a1699521784649865"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:afa4910f2b9267b074f9ea959a7b8f450"><td class="memTemplParams" colspan="2"><a id="afa4910f2b9267b074f9ea959a7b8f450"></a>
+template&lt;typename TEnum , EnableIf&lt; std::is_enum&lt; TEnum &gt;::value &gt;  = 0&gt; </td></tr>
+<tr class="memitem:afa4910f2b9267b074f9ea959a7b8f450"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#afa4910f2b9267b074f9ea959a7b8f450">wamp::convert</a> (ToVariantConverter &amp;c, const TEnum &amp;e)</td></tr>
+<tr class="memdesc:afa4910f2b9267b074f9ea959a7b8f450"><td class="mdescLeft">&#160;</td><td class="mdescRight">Converts an enumerator to an integer variant. <br /></td></tr>
+<tr class="separator:afa4910f2b9267b074f9ea959a7b8f450"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Contains the declaration of Variant and other closely related types/functions. </p>
@@ -169,12 +179,12 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line"><span class="keyword">inline</span> <span class="keywordtype">void</span> <a class="code" href="namespacewamp.html#adc9fd4b24c79d11047260b426c56cdbd">convert</a>(::<a class="code" href="classwamp_1_1_from_variant_converter.html">wamp::FromVariantConverter</a>&amp; c, Type&amp; obj) \</div>
+<b>Value:</b><div class="fragment"><div class="line"><span class="keyword">inline</span> <span class="keywordtype">void</span> <a class="code" href="namespacewamp.html#afa4910f2b9267b074f9ea959a7b8f450">convert</a>(::<a class="code" href="classwamp_1_1_from_variant_converter.html">wamp::FromVariantConverter</a>&amp; c, Type&amp; obj) \</div>
 <div class="line">{                                                               \</div>
 <div class="line">    convertFrom(c, obj);                                        \</div>
 <div class="line">}                                                               \</div>
 <div class="line">                                                                \</div>
-<div class="line">inline <span class="keywordtype">void</span> <a class="code" href="namespacewamp.html#adc9fd4b24c79d11047260b426c56cdbd">convert</a>(::<a class="code" href="classwamp_1_1_to_variant_converter.html">wamp::ToVariantConverter</a>&amp; c, Type&amp; obj)   \</div>
+<div class="line">inline <span class="keywordtype">void</span> <a class="code" href="namespacewamp.html#afa4910f2b9267b074f9ea959a7b8f450">convert</a>(::<a class="code" href="classwamp_1_1_to_variant_converter.html">wamp::ToVariantConverter</a>&amp; c, Type&amp; obj)   \</div>
 <div class="line">{                                                               \</div>
 <div class="line">    convertTo(c, <span class="keyword">const_cast&lt;</span><span class="keyword">const </span>Type&amp;<span class="keyword">&gt;</span>(obj));                 \</div>
 <div class="line">}</div>
@@ -201,12 +211,12 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line"><span class="keyword">inline</span> <span class="keywordtype">void</span> <a class="code" href="namespacewamp.html#adc9fd4b24c79d11047260b426c56cdbd">convert</a>(::<a class="code" href="classwamp_1_1_from_variant_converter.html">wamp::FromVariantConverter</a>&amp; c, Type&amp; obj) \</div>
+<b>Value:</b><div class="fragment"><div class="line"><span class="keyword">inline</span> <span class="keywordtype">void</span> <a class="code" href="namespacewamp.html#afa4910f2b9267b074f9ea959a7b8f450">convert</a>(::<a class="code" href="classwamp_1_1_from_variant_converter.html">wamp::FromVariantConverter</a>&amp; c, Type&amp; obj) \</div>
 <div class="line">{                                                               \</div>
 <div class="line">    wamp::ConversionAccess::convertFrom(c, obj);                \</div>
 <div class="line">}                                                               \</div>
 <div class="line">                                                                \</div>
-<div class="line">inline <span class="keywordtype">void</span> <a class="code" href="namespacewamp.html#adc9fd4b24c79d11047260b426c56cdbd">convert</a>(::<a class="code" href="classwamp_1_1_to_variant_converter.html">wamp::ToVariantConverter</a>&amp; c, Type&amp; obj)   \</div>
+<div class="line">inline <span class="keywordtype">void</span> <a class="code" href="namespacewamp.html#afa4910f2b9267b074f9ea959a7b8f450">convert</a>(::<a class="code" href="classwamp_1_1_to_variant_converter.html">wamp::ToVariantConverter</a>&amp; c, Type&amp; obj)   \</div>
 <div class="line">{                                                               \</div>
 <div class="line">    const <span class="keyword">auto</span>&amp; constObj = obj;                                 \</div>
 <div class="line">    wamp::ConversionAccess::convertTo(c, constObj);             \</div>
@@ -222,13 +232,13 @@ Functions</h2></td></tr>
 </div><!-- contents -->
 </div><!-- doc-content -->
 <div class="ttc" id="aclasswamp_1_1_to_variant_converter_html"><div class="ttname"><a href="classwamp_1_1_to_variant_converter.html">wamp::ToVariantConverter</a></div><div class="ttdoc">Wrapper around a destination Variant, used for conversions.</div><div class="ttdef"><b>Definition:</b> variant.hpp:596</div></div>
-<div class="ttc" id="anamespacewamp_html_adc9fd4b24c79d11047260b426c56cdbd"><div class="ttname"><a href="namespacewamp.html#adc9fd4b24c79d11047260b426c56cdbd">wamp::convert</a></div><div class="ttdeci">void convert(TConverter &amp;c, TValue &amp;val)</div><div class="ttdoc">General function for converting custom types to/from Variant.</div><div class="ttdef"><b>Definition:</b> variant.hpp:700</div></div>
 <div class="ttc" id="aclasswamp_1_1_from_variant_converter_html"><div class="ttname"><a href="classwamp_1_1_from_variant_converter.html">wamp::FromVariantConverter</a></div><div class="ttdoc">Wrapper around a source Variant, used for conversions.</div><div class="ttdef"><b>Definition:</b> variant.hpp:642</div></div>
+<div class="ttc" id="anamespacewamp_html_afa4910f2b9267b074f9ea959a7b8f450"><div class="ttname"><a href="namespacewamp.html#afa4910f2b9267b074f9ea959a7b8f450">wamp::convert</a></div><div class="ttdeci">void convert(ToVariantConverter &amp;c, const TEnum &amp;e)</div><div class="ttdoc">Converts an enumerator to an integer variant.</div><div class="ttdef"><b>Definition:</b> variant.hpp:723</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="variant_8hpp.html">variant.hpp</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

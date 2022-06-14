@@ -96,6 +96,12 @@ $(document).ready(function(){initNavTree('functions_c.html',''); initResizable()
 <li>caller()
 : <a class="el" href="classwamp_1_1_invocation.html#a368817d23551c66cafd9deb5d93a727d">wamp::Invocation</a>
 </li>
+<li>callerTimeout()
+: <a class="el" href="classwamp_1_1_rpc.html#a1bc35f9803ff7efa80d2e20513beaa39">wamp::Rpc</a>
+</li>
+<li>CallerTimeoutDuration
+: <a class="el" href="classwamp_1_1_rpc.html#aa50c8fe5e2ef6eb792512f23e0fa1e3b">wamp::Rpc</a>
+</li>
 <li>CallSlot
 : <a class="el" href="classwamp_1_1_coro_session.html#a7a4a90d9dd691e93d2e952d608b87f94">wamp::CoroSession&lt; TBase &gt;</a>
 , <a class="el" href="classwamp_1_1_session.html#a30a80c4099f013b1eca280b2a9d476dc">wamp::Session</a>
@@ -110,8 +116,14 @@ $(document).ready(function(){initNavTree('functions_c.html',''); initResizable()
 <li>captureError()
 : <a class="el" href="classwamp_1_1_rpc.html#a0fefbcb96fc3825fefb4d947701d93ab">wamp::Rpc</a>
 </li>
+<li>challenge()
+: <a class="el" href="classwamp_1_1_challenge.html#adb0c220aff3fb1a187071e860bf64b64">wamp::Challenge</a>
+</li>
 <li>Challenge()
 : <a class="el" href="classwamp_1_1_challenge.html#a3986eb889382a61d7b1088f8a5861437">wamp::Challenge</a>
+</li>
+<li>challengeeHasExpired()
+: <a class="el" href="classwamp_1_1_challenge.html#a94b444b8299006cd52ceebeb89e6dd30">wamp::Challenge</a>
 </li>
 <li>ChallengeHandler
 : <a class="el" href="classwamp_1_1_session.html#a77c3cad1f372fd3da7e02f7e3b94e000">wamp::Session</a>
@@ -138,7 +150,7 @@ $(document).ready(function(){initNavTree('functions_c.html',''); initResizable()
 , <a class="el" href="classwamp_1_1_to_variant_converter.html#aaa54151250cfc92b4553beb9ce592f23">wamp::ToVariantConverter</a>
 </li>
 <li>convertTo()
-: <a class="el" href="classwamp_1_1_payload.html#acb5968a5c93fd260cf54d3524c5d32c6">wamp::Payload&lt; TDerived &gt;</a>
+: <a class="el" href="classwamp_1_1_payload.html#a5dbc98409f83684ff40d44d97d50b442">wamp::Payload&lt; TDerived, TMessage &gt;</a>
 </li>
 <li>CoroEventUnpacker()
 : <a class="el" href="classwamp_1_1_coro_event_unpacker.html#a23ab350be1410e3123fe385452c196a5">wamp::CoroEventUnpacker&lt; TSlot, TArgs &gt;</a>
@@ -147,8 +159,8 @@ $(document).ready(function(){initNavTree('functions_c.html',''); initResizable()
 : <a class="el" href="classwamp_1_1_coro_invocation_unpacker.html#a907f312d4a1bcc624f2a26ba3ee64547">wamp::CoroInvocationUnpacker&lt; TSlot, TArgs &gt;</a>
 </li>
 <li>create()
-: <a class="el" href="classwamp_1_1_coro_session.html#aab879e623d94bc52369b49463f91196f">wamp::CoroSession&lt; TBase &gt;</a>
-, <a class="el" href="classwamp_1_1_session.html#a955868753c5ac82b2e2df77073304b97">wamp::Session</a>
+: <a class="el" href="classwamp_1_1_coro_session.html#ad6fe20792ab8fa5d00f3a60ac0ede36a">wamp::CoroSession&lt; TBase &gt;</a>
+, <a class="el" href="classwamp_1_1_session.html#a33611a940464a3b051e1e39c7834b7e9">wamp::Session</a>
 </li>
 </ul>
 </div><!-- contents -->
@@ -156,7 +168,7 @@ $(document).ready(function(){initNavTree('functions_c.html',''); initResizable()
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

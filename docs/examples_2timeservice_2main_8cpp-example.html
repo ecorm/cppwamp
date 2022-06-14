@@ -112,7 +112,7 @@ $(document).ready(function(){initNavTree('examples_2timeservice_2main_8cpp-examp
 <div class="line">{</div>
 <div class="line">    <span class="comment">// Convert a std::tm to/from an object variant.</span></div>
 <div class="line">    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> TConverter&gt;</div>
-<div class="line">    <span class="keywordtype">void</span> <a name="a0"></a><a class="code" href="namespacewamp.html#adc9fd4b24c79d11047260b426c56cdbd">convert</a>(TConverter&amp; conv, std::tm&amp; t)</div>
+<div class="line">    <span class="keywordtype">void</span> <a name="a0"></a><a class="code" href="namespacewamp.html#a9a84cb7bb559428594ebfb21c07a8935">convert</a>(TConverter&amp; conv, std::tm&amp; t)</div>
 <div class="line">    {</div>
 <div class="line">        conv (<span class="stringliteral">&quot;sec&quot;</span>,   t.tm_sec)</div>
 <div class="line">             (<span class="stringliteral">&quot;min&quot;</span>,   t.tm_min)</div>
@@ -142,26 +142,27 @@ $(document).ready(function(){initNavTree('examples_2timeservice_2main_8cpp-examp
 <div class="line">    <span class="keyword">auto</span> session = <a name="a2"></a><a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, tcp);</div>
 <div class="line">    boost::asio::steady_timer timer(ioctx);</div>
 <div class="line"> </div>
-<div class="line">    boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
-<div class="line">    {</div>
-<div class="line">        session-&gt;connect(yield);</div>
-<div class="line">        session-&gt;join(<a name="_a3"></a><a class="code" href="classwamp_1_1_realm.html">Realm</a>(realm), yield);</div>
-<div class="line">        session-&gt;enroll(<a name="_a4"></a><a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;get_time&quot;</span>), basicRpc&lt;std::tm&gt;(&amp;getTime),</div>
-<div class="line">                        yield);</div>
-<div class="line"> </div>
-<div class="line">        <span class="keyword">auto</span> deadline = std::chrono::steady_clock::now();</div>
-<div class="line">        <span class="keywordflow">while</span> (<span class="keyword">true</span>)</div>
+<div class="line">    boost::asio::spawn(ioctx,</div>
+<div class="line">        [&amp;session, &amp;timer](boost::asio::yield_context yield)</div>
 <div class="line">        {</div>
-<div class="line">            deadline += std::chrono::seconds(1);</div>
-<div class="line">            timer.expires_at(deadline);</div>
-<div class="line">            timer.async_wait(yield);</div>
+<div class="line">            session-&gt;connect(yield);</div>
+<div class="line">            session-&gt;join(<a name="_a3"></a><a class="code" href="classwamp_1_1_realm.html">Realm</a>(realm), yield);</div>
+<div class="line">            session-&gt;enroll(<a name="_a4"></a><a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;get_time&quot;</span>), basicRpc&lt;std::tm&gt;(&amp;getTime),</div>
+<div class="line">                            yield);</div>
 <div class="line"> </div>
-<div class="line">            <span class="keyword">auto</span> t = std::time(<span class="keyword">nullptr</span>);</div>
-<div class="line">            <span class="keyword">const</span> std::tm* local = std::localtime(&amp;t);</div>
-<div class="line">            session-&gt;publish(<a name="_a5"></a><a class="code" href="classwamp_1_1_pub.html">Pub</a>(<span class="stringliteral">&quot;time_tick&quot;</span>).withArgs(*local), yield);</div>
-<div class="line">            std::cout &lt;&lt; <span class="stringliteral">&quot;Tick\n&quot;</span>;</div>
-<div class="line">        }</div>
-<div class="line">    });</div>
+<div class="line">            <span class="keyword">auto</span> deadline = std::chrono::steady_clock::now();</div>
+<div class="line">            <span class="keywordflow">while</span> (<span class="keyword">true</span>)</div>
+<div class="line">            {</div>
+<div class="line">                deadline += std::chrono::seconds(1);</div>
+<div class="line">                timer.expires_at(deadline);</div>
+<div class="line">                timer.async_wait(yield);</div>
+<div class="line"> </div>
+<div class="line">                <span class="keyword">auto</span> t = std::time(<span class="keyword">nullptr</span>);</div>
+<div class="line">                <span class="keyword">const</span> std::tm* local = std::localtime(&amp;t);</div>
+<div class="line">                session-&gt;publish(<a name="_a5"></a><a class="code" href="classwamp_1_1_pub.html">Pub</a>(<span class="stringliteral">&quot;time_tick&quot;</span>).withArgs(*local), yield);</div>
+<div class="line">                std::cout &lt;&lt; <span class="stringliteral">&quot;Tick: &quot;</span> &lt;&lt; std::asctime(local) &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
+<div class="line">            }</div>
+<div class="line">        });</div>
 <div class="line"> </div>
 <div class="line">    ioctx.run();</div>
 <div class="line"> </div>
@@ -169,23 +170,23 @@ $(document).ready(function(){initNavTree('examples_2timeservice_2main_8cpp-examp
 <div class="line">}</div>
 </div><!-- fragment --> </div><!-- contents -->
 </div><!-- doc-content -->
-<div class="ttc" id="aclasswamp_1_1_realm_html"><div class="ttname"><a href="classwamp_1_1_realm.html">wamp::Realm</a></div><div class="ttdoc">Realm URI and other options passed to Session::join.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:37</div></div>
-<div class="ttc" id="aclasswamp_1_1_coro_session_html_a60225f83299f06c5bf1ecc3c8713a316"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">wamp::CoroSession::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new CoroSession instance.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:273</div></div>
-<div class="ttc" id="aclasswamp_1_1_procedure_html"><div class="ttname"><a href="classwamp_1_1_procedure.html">wamp::Procedure</a></div><div class="ttdoc">Procedure URI and other options passed to Session::enroll.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:226</div></div>
+<div class="ttc" id="aclasswamp_1_1_realm_html"><div class="ttname"><a href="classwamp_1_1_realm.html">wamp::Realm</a></div><div class="ttdoc">Realm URI and other options contained within WAMP HELLO messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:38</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a60225f83299f06c5bf1ecc3c8713a316"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">wamp::CoroSession::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new CoroSession instance.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:277</div></div>
+<div class="ttc" id="aclasswamp_1_1_procedure_html"><div class="ttname"><a href="classwamp_1_1_procedure.html">wamp::Procedure</a></div><div class="ttdoc">Contains the procedure URI and other options contained within WAMP REGISTER messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:462</div></div>
 <div class="ttc" id="aclasswamp_1_1_tcp_host_html"><div class="ttname"><a href="classwamp_1_1_tcp_host.html">wamp::TcpHost</a></div><div class="ttdoc">Contains TCP host address information, as well as other socket options.</div><div class="ttdef"><b>Definition:</b> tcphost.hpp:103</div></div>
 <div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
 <div class="ttc" id="aunpacker_8hpp_html"><div class="ttname"><a href="unpacker_8hpp.html">unpacker.hpp</a></div><div class="ttdoc">Contains utilities for unpacking positional arguments passed to event slots and call slots.</div></div>
-<div class="ttc" id="anamespacewamp_html_adc9fd4b24c79d11047260b426c56cdbd"><div class="ttname"><a href="namespacewamp.html#adc9fd4b24c79d11047260b426c56cdbd">wamp::convert</a></div><div class="ttdeci">void convert(TConverter &amp;c, TValue &amp;val)</div><div class="ttdoc">General function for converting custom types to/from Variant.</div><div class="ttdef"><b>Definition:</b> variant.hpp:700</div></div>
 <div class="ttc" id="ajson_8hpp_html"><div class="ttname"><a href="json_8hpp.html">json.hpp</a></div><div class="ttdoc">Convenience header which includes &lt;cppwamp/json/json.hpp&gt;</div></div>
 <div class="ttc" id="atcp_8hpp_html"><div class="ttname"><a href="tcp_8hpp.html">tcp.hpp</a></div><div class="ttdoc">Contains facilities for creating TCP transport connectors.</div></div>
-<div class="ttc" id="aclasswamp_1_1_pub_html"><div class="ttname"><a href="classwamp_1_1_pub.html">wamp::Pub</a></div><div class="ttdoc">Contains the topic URI, options, and payload passed to Session::publish.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:137</div></div>
+<div class="ttc" id="aclasswamp_1_1_pub_html"><div class="ttname"><a href="classwamp_1_1_pub.html">wamp::Pub</a></div><div class="ttdoc">Provides the topic URI, options, and payload contained within WAMP PUBLISH messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:333</div></div>
 <div class="ttc" id="acoro_2corosession_8hpp_html"><div class="ttname"><a href="coro_2corosession_8hpp.html">corosession.hpp</a></div><div class="ttdoc">Contains the coroutine-based API used by a client peer in WAMP applications.</div></div>
 <div class="ttc" id="avariant_8hpp_html"><div class="ttname"><a href="variant_8hpp.html">variant.hpp</a></div><div class="ttdoc">Contains the declaration of Variant and other closely related types/functions.</div></div>
+<div class="ttc" id="anamespacewamp_html_a9a84cb7bb559428594ebfb21c07a8935"><div class="ttname"><a href="namespacewamp.html#a9a84cb7bb559428594ebfb21c07a8935">wamp::convert</a></div><div class="ttdeci">void convert(TConverter &amp;c, TValue &amp;val)</div><div class="ttdoc">General function for converting custom types to/from Variant.</div><div class="ttdef"><b>Definition:</b> variant.hpp:701</div></div>
 <div class="ttc" id="anamespacewamp_html_a9dd954da85bf9033739185b3a29e3e85"><div class="ttname"><a href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a></div><div class="ttdeci">boost::asio::io_context AsioContext</div><div class="ttdoc">Queues and runs I/O completion handlers.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:29</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

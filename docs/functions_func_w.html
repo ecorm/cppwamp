@@ -89,10 +89,10 @@ $(document).ready(function(){initNavTree('functions_func_w.html',''); initResiza
 : <a class="el" href="classwamp_1_1_session_category.html#afca25a6fc2b208ae54056ab5c1283ee3">wamp::SessionCategory</a>
 </li>
 <li>withArgList()
-: <a class="el" href="classwamp_1_1_payload.html#aae4784ea88442c2d8bda098e593bb739">wamp::Payload&lt; TDerived &gt;</a>
+: <a class="el" href="classwamp_1_1_payload.html#af1ab0798abcbff7a9dc2bffad870c4bb">wamp::Payload&lt; TDerived, TMessage &gt;</a>
 </li>
 <li>withArgs()
-: <a class="el" href="classwamp_1_1_payload.html#ab88087af7f21810f72464313676fbe03">wamp::Payload&lt; TDerived &gt;</a>
+: <a class="el" href="classwamp_1_1_payload.html#a37c58f34199bb70432514be422b8450c">wamp::Payload&lt; TDerived, TMessage &gt;</a>
 </li>
 <li>withAuthId()
 : <a class="el" href="classwamp_1_1_realm.html#a48523d3a11d8559588b751e389ddb3c2">wamp::Realm</a>
@@ -106,8 +106,14 @@ $(document).ready(function(){initNavTree('functions_func_w.html',''); initResiza
 , <a class="el" href="classwamp_1_1_uds_options.html#a90b85767dbad6a76640e466cd417f151">wamp::UdsOptions</a>
 , <a class="el" href="classwamp_1_1_uds_path.html#ad0570cb3791778357e14448cf816c752">wamp::UdsPath</a>
 </li>
+<li>withCallerTimeout()
+: <a class="el" href="classwamp_1_1_rpc.html#a0f4c5fc931b2350e1d0ce70adef05c8b">wamp::Rpc</a>
+</li>
+<li>withChannelBinding()
+: <a class="el" href="classwamp_1_1_authentication.html#ad9e9b00ef6b766f0e0c23a654975ffbf">wamp::Authentication</a>
+</li>
 <li>withDealerTimeout()
-: <a class="el" href="classwamp_1_1_rpc.html#ace35d8ae752df9788efb28ddec82c9ad">wamp::Rpc</a>
+: <a class="el" href="classwamp_1_1_rpc.html#ac15b1e16b1e6c926aa277a1d7122a687">wamp::Rpc</a>
 </li>
 <li>withDebug()
 : <a class="el" href="classwamp_1_1_tcp_host.html#a6db12867960c98ec71520211f4ff0287">wamp::TcpHost</a>
@@ -160,7 +166,7 @@ $(document).ready(function(){initNavTree('functions_func_w.html',''); initResiza
 , <a class="el" href="classwamp_1_1_uds_path.html#aab3e9ca879d82cbb26cf813495241622">wamp::UdsPath</a>
 </li>
 <li>withKwargs()
-: <a class="el" href="classwamp_1_1_payload.html#a618e21d31d35af1c5a973ee6bdb79af9">wamp::Payload&lt; TDerived &gt;</a>
+: <a class="el" href="classwamp_1_1_payload.html#a2d9a4e6e32bd43d5cdcbb26e1dd9421d">wamp::Payload&lt; TDerived, TMessage &gt;</a>
 </li>
 <li>withLinger()
 : <a class="el" href="classwamp_1_1_tcp_host.html#a72a0f66c5ec20609387e64e765c2cc53">wamp::TcpHost</a>
@@ -176,11 +182,14 @@ $(document).ready(function(){initNavTree('functions_func_w.html',''); initResiza
 : <a class="el" href="classwamp_1_1_tcp_host.html#a3e1256498fb607a33c0185944e04da46">wamp::TcpHost</a>
 , <a class="el" href="classwamp_1_1_tcp_options.html#a4cd8cfac8f5a7875c0e3783d54e6d329">wamp::TcpOptions</a>
 </li>
+<li>withNonce()
+: <a class="el" href="classwamp_1_1_authentication.html#a860fdc3e17be6e1c58efe6353ce35441">wamp::Authentication</a>
+</li>
 <li>withOption()
-: <a class="el" href="classwamp_1_1_options.html#a49df9299520a784a2cf109a40cc5dfc4">wamp::Options&lt; TDerived &gt;</a>
+: <a class="el" href="classwamp_1_1_options.html#a40449a93c1914c6c15b1dda948c7aa89">wamp::Options&lt; TDerived, TMessage &gt;</a>
 </li>
 <li>withOptions()
-: <a class="el" href="classwamp_1_1_options.html#a4cac6226288dcd9259b3b60ae0b6020e">wamp::Options&lt; TDerived &gt;</a>
+: <a class="el" href="classwamp_1_1_options.html#a6fa2fbc33acdd33e907c541c0f2112f0">wamp::Options&lt; TDerived, TMessage &gt;</a>
 , <a class="el" href="classwamp_1_1_tcp_host.html#a5e0c78a5315d6a9abb8013b59b5c7952">wamp::TcpHost</a>
 , <a class="el" href="classwamp_1_1_uds_path.html#a66285161e7b3246ef6c4906e8cb1e90a">wamp::UdsPath</a>
 </li>
@@ -192,6 +201,9 @@ $(document).ready(function(){initNavTree('functions_func_w.html',''); initResiza
 </li>
 <li>withProgress()
 : <a class="el" href="classwamp_1_1_result.html#a54c7ba56259c367e0f2b7e4d6df4a6d6">wamp::Result</a>
+</li>
+<li>withProgressiveResults()
+: <a class="el" href="classwamp_1_1_rpc.html#afa4ab80581495b1941d32faa7367404e">wamp::Rpc</a>
 </li>
 <li>withReceiveBufferSize()
 : <a class="el" href="classwamp_1_1_tcp_host.html#aee1087c2a02f2d4277582a5c20c7e750">wamp::TcpHost</a>
@@ -233,7 +245,7 @@ $(document).ready(function(){initNavTree('functions_func_w.html',''); initResiza
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

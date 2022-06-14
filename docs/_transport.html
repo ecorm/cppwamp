@@ -118,9 +118,8 @@ $(document).ready(function(){initNavTree('_transport.html',''); initResizable();
 <div class="line">    <span class="comment">// operations.</span></div>
 <div class="line">    <span class="keywordtype">void</span> close();</div>
 <div class="line"> </div>
-<div class="line">    <span class="comment">// Posts the given handler to the transport&#39;s I/O service.</span></div>
-<div class="line">    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> TFunctor&gt;</div>
-<div class="line">    <span class="keywordtype">void</span> post(TFunctor&amp;&amp; fn);</div>
+<div class="line">    <span class="comment">// Obtains the transport&#39;s executor.</span></div>
+<div class="line">    boost::asio::any_executor executor() <span class="keyword">const</span>;</div>
 </div><!-- fragment --><p>The following classes meet the requirements of <code>Transport</code>:</p><ul>
 <li><code>wamp::internal::AsioTransport</code></li>
 </ul>
@@ -132,7 +131,7 @@ $(document).ready(function(){initNavTree('_transport.html',''); initResizable();
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="_concepts.html">Concepts</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

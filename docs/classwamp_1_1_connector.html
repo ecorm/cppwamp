@@ -120,7 +120,7 @@ virtual&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="c
 Protected Types</h2></td></tr>
 <tr class="memitem:a8fd7ad7538e14ce708616c29eba319a4"><td class="memItemLeft" align="right" valign="top"><a id="a8fd7ad7538e14ce708616c29eba319a4"></a>
 using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_connector.html#a8fd7ad7538e14ce708616c29eba319a4">Handler</a> = std::function&lt; void(std::error_code, std::shared_ptr&lt; internal::ClientInterface &gt;)&gt;</td></tr>
-<tr class="memdesc:a8fd7ad7538e14ce708616c29eba319a4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Asynchronous handler function type called by <a class="el" href="classwamp_1_1_connector.html#afad9b108d3e7f58fef4e0492ff96e964" title="Starts establishing a transport connection.">Connector::establish</a>. <br /></td></tr>
+<tr class="memdesc:a8fd7ad7538e14ce708616c29eba319a4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Asynchronous handler function type called by <a class="el" href="classwamp_1_1_connector.html#a237ff188457244b6a2a359e090f0f8ff" title="Starts establishing a transport connection.">Connector::establish</a>. <br /></td></tr>
 <tr class="separator:a8fd7ad7538e14ce708616c29eba319a4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pro-methods"></a>
@@ -129,10 +129,10 @@ Protected Member Functions</h2></td></tr>
 virtual <a class="el" href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">Connector::Ptr</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_connector.html#acc35aad205cb89550959af4f52056c63">clone</a> () const =0</td></tr>
 <tr class="memdesc:acc35aad205cb89550959af4f52056c63"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a deep copy of this <a class="el" href="classwamp_1_1_connector.html" title="Abstract base class for establishing client transport endpoints.">Connector</a> object. <br /></td></tr>
 <tr class="separator:acc35aad205cb89550959af4f52056c63"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afad9b108d3e7f58fef4e0492ff96e964"><td class="memItemLeft" align="right" valign="top"><a id="afad9b108d3e7f58fef4e0492ff96e964"></a>
-virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_connector.html#afad9b108d3e7f58fef4e0492ff96e964">establish</a> (<a class="el" href="classwamp_1_1_connector.html#a8fd7ad7538e14ce708616c29eba319a4">Handler</a> handler)=0</td></tr>
-<tr class="memdesc:afad9b108d3e7f58fef4e0492ff96e964"><td class="mdescLeft">&#160;</td><td class="mdescRight">Starts establishing a transport connection. <br /></td></tr>
-<tr class="separator:afad9b108d3e7f58fef4e0492ff96e964"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a237ff188457244b6a2a359e090f0f8ff"><td class="memItemLeft" align="right" valign="top"><a id="a237ff188457244b6a2a359e090f0f8ff"></a>
+virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_connector.html#a237ff188457244b6a2a359e090f0f8ff">establish</a> (<a class="el" href="classwamp_1_1_connector.html#a8fd7ad7538e14ce708616c29eba319a4">Handler</a> &amp;&amp;handler)=0</td></tr>
+<tr class="memdesc:a237ff188457244b6a2a359e090f0f8ff"><td class="mdescLeft">&#160;</td><td class="mdescRight">Starts establishing a transport connection. <br /></td></tr>
+<tr class="separator:a237ff188457244b6a2a359e090f0f8ff"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a335a3e568dad14cea05b450a96cc1280"><td class="memItemLeft" align="right" valign="top">virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_connector.html#a335a3e568dad14cea05b450a96cc1280">cancel</a> ()=0</td></tr>
 <tr class="memdesc:a335a3e568dad14cea05b450a96cc1280"><td class="mdescLeft">&#160;</td><td class="mdescRight">Cancels a transport connection in progress.  <a href="classwamp_1_1_connector.html#a335a3e568dad14cea05b450a96cc1280">More...</a><br /></td></tr>
 <tr class="separator:a335a3e568dad14cea05b450a96cc1280"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -166,7 +166,7 @@ virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" hr
 </div><div class="memdoc">
 
 <p>Cancels a transport connection in progress. </p>
-<p>A <a class="el" href="namespacewamp.html#a7a09562b29d4b6e42e37be77ec31829aadfb7069bfc6e0064a6c667626eca07b4" title="Operation aborted.">TransportErrc::aborted</a> error code will be returned via the <a class="el" href="classwamp_1_1_connector.html#afad9b108d3e7f58fef4e0492ff96e964" title="Starts establishing a transport connection.">Connector::establish</a> asynchronous handler. </p>
+<p>A <a class="el" href="namespacewamp.html#a7a09562b29d4b6e42e37be77ec31829aadfb7069bfc6e0064a6c667626eca07b4" title="Operation aborted.">TransportErrc::aborted</a> error code will be returned via the <a class="el" href="classwamp_1_1_connector.html#a237ff188457244b6a2a359e090f0f8ff" title="Starts establishing a transport connection.">Connector::establish</a> asynchronous handler. </p>
 
 </div>
 </div>
@@ -179,7 +179,7 @@ virtual void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" hr
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacewamp.html">wamp</a></li><li class="navelem"><a class="el" href="classwamp_1_1_connector.html">Connector</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

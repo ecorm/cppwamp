@@ -1,4 +1,4 @@
 <map id="wamp::SessionInfo" name="wamp::SessionInfo">
-<area shape="rect" id="node1" title="Session information returned by Session::join." alt="" coords="45,80,191,107"/>
-<area shape="rect" id="node2" href="$classwamp_1_1_options.html" title=" " alt="" coords="5,5,231,32"/>
+<area shape="rect" id="node1" title="Session information contained within WAMP WELCOME messages." alt="" coords="42,95,187,121"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,5,224,47"/>
 </map>

@@ -1,6 +1,7 @@
 var classwamp_1_1_pub =
 [
     [ "Pub", "classwamp_1_1_pub.html#a580a0e4fabca08dc14fa97e14d0c76fe", null ],
+    [ "topic", "classwamp_1_1_pub.html#ae7beb11c79a62fc5f2624f48a1cc2fd4", null ],
     [ "withExcludedSessions", "classwamp_1_1_pub.html#a363ac3687ea1a2ee67b1c0d13e7260b8", null ],
     [ "withExcludedAuthIds", "classwamp_1_1_pub.html#a954a0a9fc3d645e03a6c5eddd7d496f4", null ],
     [ "withExcludedAuthRoles", "classwamp_1_1_pub.html#a620d1e4e7dbf4189f596aef71b349ad9", null ],

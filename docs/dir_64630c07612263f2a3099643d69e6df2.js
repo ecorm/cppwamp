@@ -30,12 +30,7 @@ var dir_64630c07612263f2a3099643d69e6df2 =
     [ "payload.hpp", "payload_8hpp.html", [
       [ "Payload", "classwamp_1_1_payload.html", "classwamp_1_1_payload" ]
     ] ],
-    [ "peerdata.hpp", "peerdata_8hpp.html", [
-      [ "Reason", "classwamp_1_1_reason.html", "classwamp_1_1_reason" ],
-      [ "Error", "classwamp_1_1_error.html", "classwamp_1_1_error" ],
-      [ "Challenge", "classwamp_1_1_challenge.html", "classwamp_1_1_challenge" ],
-      [ "Authentication", "classwamp_1_1_authentication.html", "classwamp_1_1_authentication" ]
-    ] ],
+    [ "peerdata.hpp", "peerdata_8hpp.html", "peerdata_8hpp" ],
     [ "rawsockoptions.hpp", "rawsockoptions_8hpp.html", "rawsockoptions_8hpp" ],
     [ "registration.hpp", "registration_8hpp.html", [
       [ "Registration", "classwamp_1_1_registration.html", "classwamp_1_1_registration" ],
@@ -44,7 +39,7 @@ var dir_64630c07612263f2a3099643d69e6df2 =
     [ "session.hpp", "session_8hpp.html", [
       [ "Session", "classwamp_1_1_session.html", "classwamp_1_1_session" ]
     ] ],
-    [ "sessiondata.hpp", "sessiondata_8hpp.html", "sessiondata_8hpp" ],
+    [ "sessiondata.hpp", "sessiondata_8hpp_source.html", null ],
     [ "subscription.hpp", "subscription_8hpp.html", [
       [ "Subscription", "classwamp_1_1_subscription.html", "classwamp_1_1_subscription" ],
       [ "ScopedSubscription", "classwamp_1_1_scoped_subscription.html", "classwamp_1_1_scoped_subscription" ]

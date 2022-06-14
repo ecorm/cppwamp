@@ -87,14 +87,14 @@ $(document).ready(function(){initNavTree('_errors_tutorial.html',''); initResiza
 </div><!--header-->
 <div class="contents">
 <div class="toc"><h3>Table of Contents</h3>
-<ul><ul><li class="level2"><a href="#autotoc_md9">Exceptions</a></li>
-<li class="level2"><a href="#autotoc_md10">Error Codes</a></li>
-<li class="level2"><a href="#autotoc_md11">Passing an Error Code Pointer</a></li>
+<ul><ul><li class="level2"><a href="#autotoc_md10">Exceptions</a></li>
+<li class="level2"><a href="#autotoc_md11">Error Codes</a></li>
+<li class="level2"><a href="#autotoc_md12">Passing an Error Code Pointer</a></li>
 </ul>
 </ul>
 </div>
 <div class="textblock"><p>This page describes how error handling is done using the coroutine-based API.</p>
-<h2><a class="anchor" id="autotoc_md9"></a>
+<h2><a class="anchor" id="autotoc_md10"></a>
 Exceptions</h2>
 <p>Whenever a <a class="el" href="classwamp_1_1_coro_session.html" title="Coroutine API used by a client peer in WAMP applications.">wamp::CoroSession</a> operation fails, it throws a <a class="el" href="classwamp_1_1error_1_1_failure.html" title="General purpose runtime exception that wraps a std::error_code.">wamp::error::Failure</a> exception. Since <code>Failure</code> derives from <a href="http://en.cppreference.com/w/cpp/error/system_error"><code>std::system_error</code></a>, it contains a <a href="http://en.cppreference.com/w/cpp/error/error_code"><code>std::error_code</code></a> that represents the cause of the error.</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
@@ -106,8 +106,8 @@ Exceptions</h2>
 <div class="line">    <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, tcp);</div>
 <div class="line">    <span class="keywordflow">try</span></div>
 <div class="line">    {</div>
-<div class="line">        session-&gt;connect(yield);</div>
-<div class="line">        session-&gt;join(<span class="stringliteral">&quot;somerealm&quot;</span>, yield);</div>
+<div class="line">        session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>(yield);</div>
+<div class="line">        session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">join</a>(<a class="code" href="classwamp_1_1_realm.html">Realm</a>(<span class="stringliteral">&quot;somerealm&quot;</span>), yield);</div>
 <div class="line">        <span class="comment">// etc.</span></div>
 <div class="line">    }</div>
 <div class="line">    <span class="keywordflow">catch</span> (<span class="keyword">const</span> <a class="code" href="classwamp_1_1error_1_1_failure.html">error::Failure</a>&amp; e)</div>
@@ -125,7 +125,7 @@ Exceptions</h2>
 <div class="line">});</div>
 <div class="line"> </div>
 <div class="line">ioctx.run();</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md10"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md11"></a>
 Error Codes</h2>
 <p>An error code can either belong to <a href="http://en.cppreference.com/w/cpp/error/generic_category"><code>std::generic_category</code></a>, or to one of the error categories defined by the library in <code>&lt;<a class="el" href="error_8hpp.html" title="Contains facilities for reporting and describing errors.">cppwamp/error.hpp</a>&gt;</code>:</p>
 <table class="markdownTable">
@@ -142,14 +142,14 @@ Error Codes</h2>
 <tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone"><a href="http://en.cppreference.com/w/cpp/error/generic_category"><code>std::generic_category</code></a> </td><td class="markdownTableBodyNone"><a href="https://en.cppreference.com/w/cpp/error/errc"><code>std::errc</code></a> </td><td class="markdownTableBodyNone">OS-level socket errors  </td></tr>
 </table>
-<h2><a class="anchor" id="autotoc_md11"></a>
+<h2><a class="anchor" id="autotoc_md12"></a>
 Passing an Error Code Pointer</h2>
 <p>If you prefer that operations return error codes instead of throwing exceptions, you may pass a <a href="http://en.cppreference.com/w/cpp/error/error_code"><code>std::error_code</code></a> pointer as the last argument in <a class="el" href="classwamp_1_1_coro_session.html" title="Coroutine API used by a client peer in WAMP applications.">wamp::CoroSession</a> member functions. If a runtime error occurs, <code>CoroSession</code> will set the pointed-to error code, instead of throwing an <a class="el" href="classwamp_1_1error_1_1_failure.html" title="General purpose runtime exception that wraps a std::error_code.">wamp::error::Failure</a> exception.</p>
 <div class="fragment"><div class="line">boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
 <div class="line">{</div>
 <div class="line">    <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(ioctx, tcp);</div>
 <div class="line">    std::error_code ec;</div>
-<div class="line">    session-&gt;connect(yield, &amp;ec);</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>(yield, &amp;ec);</div>
 <div class="line">    <span class="keywordflow">if</span> (ec)</div>
 <div class="line">    {</div>
 <div class="line">        std::cerr &lt;&lt; <span class="stringliteral">&quot;Error: &quot;</span> &lt;&lt; ec &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
@@ -162,8 +162,11 @@ Passing an Error Code Pointer</h2>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->
 </div><!-- doc-content -->
-<div class="ttc" id="aclasswamp_1_1_coro_session_html_a60225f83299f06c5bf1ecc3c8713a316"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">wamp::CoroSession::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new CoroSession instance.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:273</div></div>
+<div class="ttc" id="aclasswamp_1_1_realm_html"><div class="ttname"><a href="classwamp_1_1_realm.html">wamp::Realm</a></div><div class="ttdoc">Realm URI and other options contained within WAMP HELLO messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:38</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a60225f83299f06c5bf1ecc3c8713a316"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">wamp::CoroSession::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new CoroSession instance.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:277</div></div>
 <div class="ttc" id="aclasswamp_1_1error_1_1_failure_html"><div class="ttname"><a href="classwamp_1_1error_1_1_failure.html">wamp::error::Failure</a></div><div class="ttdoc">General purpose runtime exception that wraps a std::error_code.</div><div class="ttdef"><b>Definition:</b> error.hpp:52</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_aa2fe628c3bbe0fda04f6994939da94fe"><div class="ttname"><a href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">wamp::CoroSession::join</a></div><div class="ttdeci">SessionInfo join(Realm realm, YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Attempts to join the given WAMP realm.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:328</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a990f68df80c36d848879b63a3d86b39d"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">wamp::CoroSession::connect</a></div><div class="ttdeci">size_t connect(YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Attempts to connect to a router.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:308</div></div>
 <div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
 <div class="ttc" id="anamespacewamp_html_a9ecf2a0b15a4d67bb0cd1928b4056d46a1f7f92026f85b91bf2c50b57390b12a6"><div class="ttname"><a href="namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a1f7f92026f85b91bf2c50b57390b12a6">wamp::SessionErrc::noSuchRealm</a></div><div class="ttdeci">@ noSuchRealm</div><div class="ttdoc">Attempt to join non-existent realm.</div></div>
 <div class="ttc" id="anamespacewamp_html_a9dd954da85bf9033739185b3a29e3e85"><div class="ttname"><a href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a></div><div class="ttdeci">boost::asio::io_context AsioContext</div><div class="ttdoc">Queues and runs I/O completion handlers.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:29</div></div>
@@ -171,7 +174,7 @@ Passing an Error Code Pointer</h2>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="_tutorial.html">Tutorial</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

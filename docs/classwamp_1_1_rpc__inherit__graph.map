@@ -1,5 +1,5 @@
 <map id="wamp::Rpc" name="wamp::Rpc">
-<area shape="rect" id="node1" title="Contains the procedure URI, options, and payload passed to Session::call." alt="" coords="145,80,240,107"/>
-<area shape="rect" id="node2" href="$classwamp_1_1_options.html" title=" " alt="" coords="5,5,180,32"/>
-<area shape="rect" id="node3" href="$classwamp_1_1_payload.html" title=" " alt="" coords="205,5,381,32"/>
+<area shape="rect" id="node1" title="Contains the procedure URI, options, and payload contained within WAMP CALL messages." alt="" coords="49,184,144,211"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,95,188,136"/>
+<area shape="rect" id="node3" title=" " alt="" coords="5,5,188,47"/>
 </map>

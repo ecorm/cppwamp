@@ -9,5 +9,9 @@ var classwamp_1_1_session_info =
     [ "agentString", "classwamp_1_1_session_info.html#ac853e141b99414fe07713839d9862ef9", null ],
     [ "roles", "classwamp_1_1_session_info.html#a29d06f912a68f0663d2c4b265b2e3def", null ],
     [ "supportsRoles", "classwamp_1_1_session_info.html#a3489a0c9413b488554cb6d27b5dc2eea", null ],
-    [ "supportsFeatures", "classwamp_1_1_session_info.html#a34949e6e2b054a48738e31affd0c1a4d", null ]
+    [ "supportsFeatures", "classwamp_1_1_session_info.html#a34949e6e2b054a48738e31affd0c1a4d", null ],
+    [ "authId", "classwamp_1_1_session_info.html#a589b15f849cbeb5cdca9bd1ac6324d94", null ],
+    [ "authRole", "classwamp_1_1_session_info.html#a90a11e59bb7463756f8635e735fbaa22", null ],
+    [ "authMethod", "classwamp_1_1_session_info.html#abbf2d0be3e798da4540fabad7df2f0a6", null ],
+    [ "authProvider", "classwamp_1_1_session_info.html#abb9f8a40558b47a386af2f091d48f6b4", null ]
 ];

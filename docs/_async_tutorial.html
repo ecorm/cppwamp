@@ -87,7 +87,7 @@ $(document).ready(function(){initNavTree('_async_tutorial.html',''); initResizab
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><p>The <code><a class="el" href="classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications.">wamp::Session</a></code> class provides an asynchronous API that should be familiar to those who have used Boost.Asio. Wherever <a class="el" href="classwamp_1_1_coro_session.html" title="Coroutine API used by a client peer in WAMP applications.">wamp::CoroSession</a> expects a yield context parameter, <a class="el" href="classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications.">wamp::Session</a> instead expects a callable entity that is invoked when the asynchronous operation is completed.</p>
-<p>For asynchronous operations that can fail, <code>Session</code> expects a handler taking an <a class="el" href="classwamp_1_1_async_result.html">wamp::AsyncResult&lt;T&gt;</a> as a parameter. <code>AsyncResult&lt;T&gt;</code> makes it hard for handlers to ignore error conditions when accessing the result of an asynchronous operation.</p>
+<p>For asynchronous operations that can fail, <code>Session</code> expects a handler taking an <a class="el" href="classwamp_1_1_async_result.html">wamp::AsyncResult&lt;T&gt;</a> as a parameter. <code>AsyncResult&lt;T&gt;</code> makes it hard for handlers to ignore error conditions when accessing the result of an asynchronous operation via its <a class="el" href="classwamp_1_1_async_result.html#a4a9849215f9bc860a606c4fdcf82c1a1">get</a> method.</p>
 <p>The following example shows how to establish a connection using the asynchronous <code>Session</code> API:</p>
 <div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="session_8hpp.html">cppwamp/session.hpp</a>&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;<a class="code" href="json_8hpp.html">cppwamp/json.hpp</a>&gt;</span></div>
@@ -103,11 +103,11 @@ $(document).ready(function(){initNavTree('_async_tutorial.html',''); initResizab
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Asynchronously connect to the router, using a lambda function for</span></div>
 <div class="line">    <span class="comment">// the handler</span></div>
-<div class="line">    session-&gt;connect( [](<a class="code" href="classwamp_1_1_async_result.html">AsyncResult&lt;size_t&gt;</a> result)</div>
+<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>( [](<a class="code" href="classwamp_1_1_async_result.html">AsyncResult&lt;size_t&gt;</a> result)</div>
 <div class="line">    {</div>
 <div class="line">        <span class="comment">// Obtain the result of the connect operation, which is the index of</span></div>
 <div class="line">        <span class="comment">// the connector used to establish the transport connection.</span></div>
-<div class="line">        <span class="comment">// AsyncResult::get throws an error::Session exception if the</span></div>
+<div class="line">        <span class="comment">// AsyncResult::get throws an error::Failure exception if the</span></div>
 <div class="line">        <span class="comment">// operation failed.</span></div>
 <div class="line">        <span class="keyword">auto</span> index = result.get();</div>
 <div class="line">    });</div>
@@ -117,7 +117,7 @@ $(document).ready(function(){initNavTree('_async_tutorial.html',''); initResizab
 <div class="line">}</div>
 </div><!-- fragment --><p>Instead of letting <a class="el" href="classwamp_1_1_async_result.html#a4a9849215f9bc860a606c4fdcf82c1a1" title="Accesses the asynchronous result value.">wamp::AsyncResult::get</a> throw an exception upon failure, <a class="el" href="classwamp_1_1_async_result.html#a3d22d733562ef71384290f16d62443db">wamp::AsyncResult::operator bool()</a> and <a class="el" href="classwamp_1_1_async_result.html#a9b977642730259a53bc374dbddcd6c68" title="Returns the error code associated with this asynchronous result.">wamp::AsyncResult::errorCode</a> can be used to check the error status of an asynchronous operation:</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line">session-&gt;connect( [](<a class="code" href="classwamp_1_1_async_result.html">AsyncResult&lt;size_t&gt;</a> result)</div>
+<div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>( [](<a class="code" href="classwamp_1_1_async_result.html">AsyncResult&lt;size_t&gt;</a> result)</div>
 <div class="line">{</div>
 <div class="line">    <span class="keywordflow">if</span> (result)</div>
 <div class="line">    {</div>
@@ -164,30 +164,36 @@ $(document).ready(function(){initNavTree('_async_tutorial.html',''); initResizab
 <div class="line">    <a class="code" href="classwamp_1_1_session_info.html">wamp::SessionInfo</a> sessionInfo_;</div>
 <div class="line">};</div>
 </div><!-- fragment --><p>With this asynchronous style of programming, it is not immediately obvious how the program control flows. The coroutine-based API is therefore useful in implementing asynchronous logic in a more synchronous, sequential manner.</p>
+<p>For complete examples using the asynchronous API see:</p>
+<ul>
+<li><a class="el" href="examples_2asynctimeclient_2main_8cpp-example.html">examples/asynctimeclient/main.cpp</a></li>
+<li><a class="el" href="examples_2asynctimeservice_2main_8cpp-example.html">examples/asynctimeservice/main.cpp</a>.</li>
+</ul>
 <hr  />
 <p>Next: <a class="el" href="_conversions_tutorial.html">User Type Conversions</a> </p>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->
 </div><!-- doc-content -->
 <div class="ttc" id="asession_8hpp_html"><div class="ttname"><a href="session_8hpp.html">session.hpp</a></div><div class="ttdoc">Contains the asynchronous session API used by a client peer in WAMP applications.</div></div>
-<div class="ttc" id="aclasswamp_1_1_realm_html"><div class="ttname"><a href="classwamp_1_1_realm.html">wamp::Realm</a></div><div class="ttdoc">Realm URI and other options passed to Session::join.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:37</div></div>
+<div class="ttc" id="aclasswamp_1_1_realm_html"><div class="ttname"><a href="classwamp_1_1_realm.html">wamp::Realm</a></div><div class="ttdoc">Realm URI and other options contained within WAMP HELLO messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:38</div></div>
 <div class="ttc" id="aclasswamp_1_1_connector_html_a71ed161f97ca2300f2e97e8ce9ab211b"><div class="ttname"><a href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">wamp::Connector::Ptr</a></div><div class="ttdeci">std::shared_ptr&lt; Connector &gt; Ptr</div><div class="ttdoc">Shared pointer to a Connector.</div><div class="ttdef"><b>Definition:</b> connector.hpp:43</div></div>
 <div class="ttc" id="aclasswamp_1_1_async_result_html"><div class="ttname"><a href="classwamp_1_1_async_result.html">wamp::AsyncResult</a></div><div class="ttdoc">Value type that combines an asynchronous result with an error code.</div><div class="ttdef"><b>Definition:</b> asyncresult.hpp:40</div></div>
 <div class="ttc" id="aclasswamp_1_1_session_html_a3c66ba85a4fa50f8b85b15ba0c672384"><div class="ttname"><a href="classwamp_1_1_session.html#a3c66ba85a4fa50f8b85b15ba0c672384">wamp::Session::Ptr</a></div><div class="ttdeci">std::shared_ptr&lt; Session &gt; Ptr</div><div class="ttdoc">Shared pointer to a Session.</div><div class="ttdef"><b>Definition:</b> session.hpp:88</div></div>
 <div class="ttc" id="anamespacewamp_html_a02848951b67353c0c0fb2e7fdb9a1019"><div class="ttname"><a href="namespacewamp.html#a02848951b67353c0c0fb2e7fdb9a1019">wamp::AsyncHandler</a></div><div class="ttdeci">std::function&lt; void(AsyncResult&lt; T &gt;)&gt; AsyncHandler</div><div class="ttdoc">Type alias for a handler taking an AsyncResult&lt;T&gt; parameter.</div><div class="ttdef"><b>Definition:</b> asyncresult.hpp:90</div></div>
+<div class="ttc" id="aclasswamp_1_1_coro_session_html_a990f68df80c36d848879b63a3d86b39d"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">wamp::CoroSession::connect</a></div><div class="ttdeci">size_t connect(YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Attempts to connect to a router.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:308</div></div>
 <div class="ttc" id="aclasswamp_1_1_tcp_host_html"><div class="ttname"><a href="classwamp_1_1_tcp_host.html">wamp::TcpHost</a></div><div class="ttdoc">Contains TCP host address information, as well as other socket options.</div><div class="ttdef"><b>Definition:</b> tcphost.hpp:103</div></div>
 <div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
-<div class="ttc" id="aclasswamp_1_1_session_html_a955868753c5ac82b2e2df77073304b97"><div class="ttname"><a href="classwamp_1_1_session.html#a955868753c5ac82b2e2df77073304b97">wamp::Session::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new Session instance.</div><div class="ttdef"><b>Definition:</b> session.ipp:20</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_html_a955868753c5ac82b2e2df77073304b97"><div class="ttname"><a href="classwamp_1_1_session.html#a955868753c5ac82b2e2df77073304b97">wamp::Session::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new Session instance.</div><div class="ttdef"><b>Definition:</b> session.ipp:21</div></div>
 <div class="ttc" id="ajson_8hpp_html"><div class="ttname"><a href="json_8hpp.html">json.hpp</a></div><div class="ttdoc">Convenience header which includes &lt;cppwamp/json/json.hpp&gt;</div></div>
 <div class="ttc" id="atcp_8hpp_html"><div class="ttname"><a href="tcp_8hpp.html">tcp.hpp</a></div><div class="ttdoc">Contains facilities for creating TCP transport connectors.</div></div>
 <div class="ttc" id="aclasswamp_1_1_session_html"><div class="ttname"><a href="classwamp_1_1_session.html">wamp::Session</a></div><div class="ttdoc">Asynchronous session API used by a client peer in WAMP applications.</div><div class="ttdef"><b>Definition:</b> session.hpp:84</div></div>
-<div class="ttc" id="aclasswamp_1_1_session_info_html"><div class="ttname"><a href="classwamp_1_1_session_info.html">wamp::SessionInfo</a></div><div class="ttdoc">Session information returned by Session::join.</div><div class="ttdef"><b>Definition:</b> sessiondata.hpp:62</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_info_html"><div class="ttname"><a href="classwamp_1_1_session_info.html">wamp::SessionInfo</a></div><div class="ttdoc">Session information contained within WAMP WELCOME messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:67</div></div>
 <div class="ttc" id="anamespacewamp_html_a9dd954da85bf9033739185b3a29e3e85"><div class="ttname"><a href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a></div><div class="ttdeci">boost::asio::io_context AsioContext</div><div class="ttdoc">Queues and runs I/O completion handlers.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:29</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="_tutorial.html">Tutorial</a></li>
-    <li class="footer">Generated on Sun May 15 2022 01:42:06 for CppWAMP by
+    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

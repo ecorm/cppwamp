@@ -1,0 +1,4 @@
+<map id="wamp::Payload&lt; TDerived, TMessage &gt;" name="wamp::Payload&lt; TDerived, TMessage &gt;">
+<area shape="rect" id="node1" title="Wrapper around a WAMP message containing payload arguments and an options dictionary." alt="" coords="5,95,205,136"/>
+<area shape="rect" id="node2" href="$classwamp_1_1_options.html" title="Wrapper around a WAMP message containing an options dictionary." alt="" coords="6,5,205,47"/>
+</map>
