@@ -12,6 +12,19 @@ Refactored WAMP message processing.
 - Perform move capture wherever possible
 - Perform automatic enum<->variant conversions while allowing
   custom conversion of specific enum types
+- Callbacks can now be registered for session state change events
+- Added caller-initiated timeout support
+- Support progressive call results for caller
+- Added authentication tutorial
+- Enriched authentication-related API to handle CRA and SCRAM
+  (user must still compute cryto signatures using a 3rd party library)
+- Added example programs using the async API
+- Added more practical examples of scoped registrations/subscriptions in
+  documentation
+- Added session logging tutorial
+- Added example of converting nested objects in documentation
+- Added session leave overloads that don't require a Reason
+
 
 v0.7.0
 ======
