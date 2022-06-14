@@ -42,7 +42,7 @@ cmake_minimum_required (VERSION 3.12)
 include_guard()
 
 project(CppWAMP
-        VERSION 0.7.0
+        VERSION 0.7.1
         LANGUAGES CXX)
 
 include(ProcessorCount)
