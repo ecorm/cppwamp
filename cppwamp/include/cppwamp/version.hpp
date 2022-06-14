@@ -26,7 +26,7 @@
 #define CPPWAMP_PATCH_VERSION 0
 
 /// Integer version number, computed as `(major*10000) + (minor*100) + patch`
-#define CPPWAMP_VERSION 701
+#define CPPWAMP_VERSION 800
 
 namespace wamp
 {
