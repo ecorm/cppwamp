@@ -1,3 +1,18 @@
+v0.7.1
+======
+Refactored WAMP message processing.
+
+- Payloads/options for Session commands are now directly stored in WampMessage
+- Added WampMessage subclasses responsible for marshalling message fields
+- Consolidate peer/session data objects to the same C++ module
+- Print WAMP message names in traces
+- Defunct HEARTBEAT message no longer recognized as valid
+- More selective inclusion of Msgpack-c headers
+- Add config for older Crossbar versions (for unit tests)
+- Perform move capture wherever possible
+- Perform automatic enum<->variant conversions while allowing
+  custom conversion of specific enum types
+
 v0.7.0
 ======
 Migrated to newer Boost.Asio, CMake, and Catch.
