@@ -1,4 +1,4 @@
-v0.7.1
+v0.8.0
 ======
 Refactored WAMP message processing.
 
