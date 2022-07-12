@@ -45,64 +45,6 @@ if(NOT CPPWAMP_OPT_HEADERS_ONLY)
             COMPONENT CppWAMP_Development)
 endif()
 
-if(CPPWAMP_OPT_WITH_JSON)
-    install(TARGETS cppwamp-json-headers EXPORT CppWAMP_JSON_Headers
-            INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-
-    install(EXPORT CppWAMP_JSON_Headers
-            DESTINATION "${CPPWAMP_INSTALL_CMAKEDIR}"
-            NAMESPACE CppWAMP::
-            FILE cppwamp-json-headers-target.cmake
-            COMPONENT CppWAMP_Development)
-
-    if(NOT CPPWAMP_OPT_HEADERS_ONLY)
-        install(TARGETS cppwamp-json EXPORT CppWAMP_JSON_Target
-                RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-                        COMPONENT CppWAMP_Runtime
-                LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-                        COMPONENT CppWAMP_Runtime
-                        NAMELINK_COMPONENT CppWAMP_Development
-                ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-                        COMPONENT CppWAMP_Development
-                INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-
-        install(EXPORT CppWAMP_JSON_Target
-                DESTINATION "${CPPWAMP_INSTALL_CMAKEDIR}"
-                NAMESPACE CppWAMP::
-                FILE cppwamp-${linkage}-json-target.cmake
-                COMPONENT CppWAMP_Development)
-        endif()
-endif()
-
-if(CPPWAMP_OPT_WITH_MSGPACK)
-    install(TARGETS cppwamp-msgpack-headers EXPORT CppWAMP_MSGPACK_Headers
-            INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-
-    install(EXPORT CppWAMP_MSGPACK_Headers
-            DESTINATION "${CPPWAMP_INSTALL_CMAKEDIR}"
-            NAMESPACE CppWAMP::
-            FILE cppwamp-msgpack-headers-target.cmake
-            COMPONENT CppWAMP_Development)
-
-    if(NOT CPPWAMP_OPT_HEADERS_ONLY)
-        install(TARGETS cppwamp-msgpack EXPORT CppWAMP_Msgpack_Target
-                RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-                        COMPONENT CppWAMP_Runtime
-                LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-                        COMPONENT CppWAMP_Runtime
-                        NAMELINK_COMPONENT CppWAMP_Development
-                ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-                        COMPONENT CppWAMP_Development
-                INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-
-        install(EXPORT CppWAMP_Msgpack_Target
-                DESTINATION "${CPPWAMP_INSTALL_CMAKEDIR}"
-                NAMESPACE CppWAMP::
-                FILE cppwamp-${linkage}-msgpack-target.cmake
-                COMPONENT CppWAMP_Development)
-    endif()
-endif()
-
 if(CPPWAMP_OPT_WITH_CORO)
     install(TARGETS cppwamp-coro-headers EXPORT CppWAMP_Coro_Headers
             INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")

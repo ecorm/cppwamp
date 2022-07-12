@@ -23,10 +23,11 @@ Connector Factory                                                       | Declar
 When creating a connector, you must specify which codec class (aka serializer)
 to use for encoding WAMP messages. The following codecs are currently supported:
 
-| Codec         | Declared in                     | Dependency
-| ------------- | ------------------------------- | ----------
-| wamp::Json    | `<cppwamp/json/json.hpp>`       | RapidJSON
-| wamp::Msgpack | `<cppwamp/msgpack/msgpack.hpp>` | Msgpack-c
+| Codec         | Declared in             |
+| ------------- | ----------------------- |
+| wamp::Json    | `<cppwamp/json.hpp>`    |
+| wamp::Msgpack | `<cppwamp/msgpack.hpp>` |
+| wamp::Cbor    | `<cppwamp/cbor.hpp>`    |
 
 Connectors are created on the heap using the `wamp::connector` factory function
 as shown in the examples below. `wamp::connector` returns a `std::shared_ptr`
@@ -41,8 +42,8 @@ Creating a TCP Raw Socket Connector with the Json codec
 -------------------------------------------------------
 
 ```
+#include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
-#include <cppwamp/json/json.hpp>
 #include <cppwamp/tcp.hpp>
 using namespace wamp;
 
@@ -113,9 +114,9 @@ To achieve this, you must pass a `std::vector` of `Connector` shared pointers
 while creating session objects. The following example uses two `TcpConnector`
 objects, each specifying a different serializer:
 ```
+#include <cppwamp/json.hpp>
+#include <cppwamp/msgpack.hpp>
 #include <cppwamp/session.hpp>
-#include <cppwamp/json/json.hpp>
-#include <cppwamp/msgpack/msgpack.hpp>
 #include <cppwamp/tcp.hpp>
 using namespace wamp;
 

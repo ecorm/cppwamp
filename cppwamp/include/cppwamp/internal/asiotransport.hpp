@@ -11,12 +11,12 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <memory>
-#include <queue>
 #include <stdexcept>
-#include <string>
 #include <utility>
+#include <vector>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/executor.hpp>
 #include <boost/asio/post.hpp>
@@ -24,7 +24,9 @@
 #include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
 #include "../asiodefs.hpp"
+#include "../codec.hpp"
 #include "../error.hpp"
+#include "../messagebuffer.hpp"
 #include "../rawsockoptions.hpp"
 #include "rawsockheader.hpp"
 
@@ -35,22 +37,37 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class AsioBuffer
+// Combines a raw socket transport header with an encoded message payload.
+//------------------------------------------------------------------------------
+class AsioFrame
 {
 public:
-    void write(const char* data, size_t length) {payload_.append(data, length);}
-
-    const char* data() const {return payload_.data();}
-
-    size_t length() const {return payload_.length();}
-
-private:
-    using Header = uint32_t;
+    using Ptr        = std::shared_ptr<AsioFrame>;
+    using Header     = uint32_t;
     using GatherBufs = std::array<boost::asio::const_buffer, 2>;
+
+    AsioFrame() = default;
+
+    AsioFrame(RawsockMsgType type, MessageBuffer&& payload)
+        : header_(computeHeader(type, payload)),
+          payload_(std::move(payload))
+    {}
 
     void clear() {header_ = 0; payload_.clear();}
 
     void resize(size_t length) {payload_.resize(length);}
+
+    void prepare(RawsockMsgType type, MessageBuffer&& payload)
+    {
+        header_ = computeHeader(type, payload);
+        payload_ = std::move(payload);
+    }
+
+    RawsockHeader header() const {return RawsockHeader::fromBigEndian(header_);}
+
+    const MessageBuffer& payload() const & {return payload_;}
+
+    MessageBuffer&& payload() && {return std::move(payload_);}
 
     GatherBufs gatherBuffers()
     {
@@ -65,22 +82,20 @@ private:
 
     boost::asio::mutable_buffers_1 payloadBuffer()
     {
-        return boost::asio::buffer(&payload_.front(), payload_.length());
+        return boost::asio::buffer(&payload_.front(), payload_.size());
     }
 
-    RawsockHeader header() const {return RawsockHeader::fromBigEndian(header_);}
-
-    void prepare(RawsockMsgType type)
+private:
+    static Header computeHeader(RawsockMsgType type,
+                                const MessageBuffer& payload)
     {
-        header_ = RawsockHeader().setMsgType(type)
-                                 .setLength(payload_.length())
-                                 .toBigEndian();
+        return RawsockHeader().setMsgType(type)
+                              .setLength(payload.size())
+                              .toBigEndian();
     }
 
     Header header_;
-    std::string payload_;
-
-    template <typename> friend class AsioTransport;
+    MessageBuffer payload_;
 };
 
 //------------------------------------------------------------------------------
@@ -90,8 +105,7 @@ class AsioTransport :
 {
 public:
     using Ptr         = std::shared_ptr<AsioTransport>;
-    using Buffer      = std::shared_ptr<AsioBuffer>;
-    using RxHandler   = std::function<void (Buffer)>;
+    using RxHandler   = std::function<void (MessageBuffer)>;
     using FailHandler = std::function<void (std::error_code ec)>;
     using PingHandler = std::function<void (float)>;
 
@@ -128,18 +142,16 @@ public:
         started_ = true;
     }
 
-    // TODO: Re-use buffers somehow
-    Buffer getBuffer() {return std::make_shared<AsioBuffer>();}
-
-    void send(Buffer message)
+    void send(MessageBuffer message)
     {
         assert(started_);
-        sendMessage(RawsockMsgType::wamp, std::move(message));
+        auto buf = newFrame(RawsockMsgType::wamp, std::move(message));
+        sendFrame(std::move(buf));
     }
 
     void close()
     {
-        txQueue_ = TransmitQueue();
+        txQueue_.clear();
         rxHandler_ = nullptr;
         if (socket_)
             socket_->close();
@@ -147,17 +159,17 @@ public:
 
     AnyExecutor executor() const {return executor_;}
 
-    void ping(Buffer message, PingHandler handler)
+    void ping(MessageBuffer message, PingHandler handler)
     {
         assert(started_);
         pingHandler_ = std::move(handler);
-        pingBuffer_ = std::move(message);
-        sendMessage(RawsockMsgType::ping, pingBuffer_);
+        pingFrame_ = newFrame(RawsockMsgType::ping, std::move(message));
+        sendFrame(pingFrame_);
         pingStart_ = std::chrono::high_resolution_clock::now();
     }
 
 protected:
-    using TransmitQueue = std::queue<Buffer>;
+    using TransmitQueue = std::deque<AsioFrame::Ptr>;
     using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
     AsioTransport(SocketPtr&& socket, size_t maxTxLength, size_t maxRxLength)
@@ -167,14 +179,18 @@ protected:
           maxRxLength_(maxRxLength)
     {}
 
-    virtual void sendMessage(RawsockMsgType type, Buffer message)
+    AsioFrame::Ptr newFrame(RawsockMsgType type, MessageBuffer&& payload)
+    {
+        // TODO: Reuse frames somehow
+        return std::make_shared<AsioFrame>(type, std::move(payload));
+    }
+
+    virtual void sendFrame(AsioFrame::Ptr frame)
     {
         assert(socket_ && "Attempting to send on bad transport");
-        assert((message->length() <= maxTxLength_) &&
+        assert((frame->payload().size() <= maxTxLength_) &&
                "Outgoing message is longer than allowed by peer");
-
-        message->prepare(type);
-        txQueue_.push(std::move(message));
+        txQueue_.push_back(std::move(frame));
         transmit();
     }
 
@@ -191,17 +207,17 @@ private:
     {
         if (isReadyToTransmit())
         {
-            txBuffer_ = txQueue_.front();
-            txQueue_.pop();
+            txFrame_ = txQueue_.front();
+            txQueue_.pop_front();
 
             auto self = this->shared_from_this();
-            boost::asio::async_write(*socket_, txBuffer_->gatherBuffers(),
+            boost::asio::async_write(*socket_, txFrame_->gatherBuffers(),
                 [this, self](AsioErrorCode ec, size_t size)
                 {
-                    txBuffer_.reset();
+                    txFrame_.reset();
                     if (ec)
                     {
-                        txQueue_ = TransmitQueue();
+                        txQueue_.clear();
                         socket_.reset();
                     }
                     else
@@ -214,18 +230,18 @@ private:
 
     bool isReadyToTransmit() const
     {
-        return socket_ &&           // Socket is still open
-               !txBuffer_ &&        // No async_write is in progress
-               !txQueue_.empty();   // One or more messages are enqueued
+        return socket_ &&          // Socket is still open
+               !txFrame_ &&        // No async_write is in progress
+               !txQueue_.empty();  // One or more messages are enqueued
     }
 
     void receive()
     {
         if (socket_)
         {
-            rxBuffer_ = getBuffer();
+            rxFrame_.clear();
             auto self = this->shared_from_this();
-            boost::asio::async_read(*socket_, rxBuffer_->headerBuffer(),
+            boost::asio::async_read(*socket_, rxFrame_.headerBuffer(),
                 [this, self](AsioErrorCode ec, size_t)
                 {
                     if (check(ec))
@@ -236,7 +252,7 @@ private:
 
     virtual void processHeader()
     {
-        auto hdr = rxBuffer_->header();
+        auto hdr = rxFrame_.header();
         auto length  = hdr.length();
         if ( check(length <= maxRxLength_, TransportErrc::badRxLength) &&
              check(hdr.msgTypeIsValid(), RawsockErrc::badMessageType) )
@@ -247,19 +263,22 @@ private:
 
     void receivePayload(RawsockMsgType msgType, size_t length)
     {
-        rxBuffer_->resize(length);
+        rxFrame_.resize(length);
         auto self = this->shared_from_this();
-        boost::asio::async_read(*socket_, rxBuffer_->payloadBuffer(),
+        boost::asio::async_read(*socket_, rxFrame_.payloadBuffer(),
             [this, self, msgType](AsioErrorCode ec, size_t)
             {
                 if (ec)
-                    rxBuffer_->clear();
+                    rxFrame_.clear();
                 if (check(ec))
                     switch (msgType)
                     {
                     case RawsockMsgType::wamp:
                         if (rxHandler_)
-                            post(std::bind(rxHandler_, std::move(rxBuffer_)));
+                        {
+                            post(std::bind(rxHandler_,
+                                           std::move(rxFrame_).payload()));
+                        }
                         receive();
                         break;
 
@@ -279,17 +298,16 @@ private:
 
     void sendPong()
     {
-        auto buf = getBuffer();
-        buf->payload_.swap(rxBuffer_->payload_);
-        sendMessage(RawsockMsgType::pong, std::move(buf));
+        auto frame = newFrame(RawsockMsgType::pong,
+                              std::move(rxFrame_).payload());
+        sendFrame(std::move(frame));
         receive();
     }
 
     void receivePong()
     {
-        if (pingHandler_ && (rxBuffer_->payload_ == pingBuffer_->payload_))
+        if (canProcessPong())
         {
-            pingBuffer_.reset();
             namespace chrn = std::chrono;
             pingStop_ = chrn::high_resolution_clock::now();
             using Fms = chrn::duration<float, chrn::milliseconds::period>;
@@ -297,7 +315,14 @@ private:
             post(std::bind(pingHandler_, elapsed));
             pingHandler_ = nullptr;
         }
+        pingFrame_.reset();
         receive();
+    }
+
+    bool canProcessPong() const
+    {
+        return pingHandler_ && pingFrame_ &&
+               (rxFrame_.payload() == pingFrame_->payload());
     }
 
     bool check(AsioErrorCode asioEc)
@@ -330,12 +355,13 @@ private:
     void cleanup()
     {
         rxHandler_ = nullptr;
-        pingHandler_ = nullptr;
         failHandler_ = nullptr;
-        txQueue_ = TransmitQueue();
+        pingHandler_ = nullptr;
+        rxFrame_.clear();
+        txQueue_.clear();
+        txFrame_ = nullptr;
+        pingFrame_ = nullptr;
         socket_.reset();
-        rxBuffer_.reset();
-        pingBuffer_.reset();
     }
 
     std::unique_ptr<TSocket> socket_;
@@ -346,10 +372,10 @@ private:
     RxHandler rxHandler_;
     FailHandler failHandler_;
     PingHandler pingHandler_;
-    Buffer rxBuffer_;
-    Buffer pingBuffer_;
+    AsioFrame rxFrame_;
     TransmitQueue txQueue_;
-    Buffer txBuffer_;
+    AsioFrame::Ptr txFrame_;
+    AsioFrame::Ptr pingFrame_;
     TimePoint pingStart_;
     TimePoint pingStop_;
 };

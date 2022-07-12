@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -83,11 +83,12 @@ public:
                    maxTxLength, maxRxLength));
     }
 
-    void send(Buffer message)
+    void send(MessageBuffer message)
     {
         auto fakeType = internal::RawsockMsgType(
                             (int)internal::RawsockMsgType::pong + 1);
-        sendMessage(fakeType, std::move(message));
+        auto frame = newFrame(fakeType, std::move(message));
+        sendFrame(std::move(frame));
     }
 
 private:

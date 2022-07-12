@@ -5,37 +5,18 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if defined(CPPWAMP_TEST_HAS_JSON) || defined(CPPWAMP_TEST_HAS_MSGPACK)
-    #define CPPWAMP_TEST_HAS_SERIALIZER 1
-#endif
-
-#if defined(CPPWAMP_TEST_HAS_JSON) && defined(CPPWAMP_TEST_HAS_MSGPACK)
-    #define CPPWAMP_TEST_HAS_ALTERNATE_SERIALIZER 1
-#endif
-
-#if defined(CPPWAMP_TEST_HAS_ALTERNATE_SERIALIZER) || \
-    CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-        #define CPPWAMP_TEST_HAS_ALTERNATE_CONNECTOR 1
-#endif
-
-#if defined(CPPWAMP_TEST_HAS_CORO) && defined(CPPWAMP_TEST_HAS_SERIALIZER)
+#if defined(CPPWAMP_TEST_HAS_CORO)
 
 #include <algorithm>
 #include <cctype>
 #include <catch2/catch.hpp>
 #include <cppwamp/coro/corounpacker.hpp>
 #include <cppwamp/coro/corosession.hpp>
+#include <cppwamp/json.hpp>
+#include <cppwamp/msgpack.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/internal/config.hpp>
-
-#ifdef CPPWAMP_TEST_HAS_JSON
-    #include <cppwamp/json.hpp>
-#endif
-
-#ifdef CPPWAMP_TEST_HAS_MSGPACK
-    #include <cppwamp/msgpack.hpp>
-#endif
 
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     #include <cppwamp/uds.hpp>
@@ -68,7 +49,6 @@ Connector::Ptr invalidTcp(AsioContext& ioctx)
     return connector<PreferredCodec>(ioctx, TcpHost("localhost", invalidPort));
 }
 
-#ifdef CPPWAMP_TEST_HAS_ALTERNATE_CONNECTOR
 Connector::Ptr alternateTcp(AsioContext& ioctx)
 {
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
@@ -84,7 +64,6 @@ Connector::Ptr alternateTcp(AsioContext& ioctx)
 
     return connector<CodecType>(ioctx, where);
 }
-#endif // CPPWAMP_TEST_HAS_ALTERNATE_CONNECTOR
 
 
 //------------------------------------------------------------------------------
@@ -773,7 +752,6 @@ GIVEN( "an IO service and a TCP connector" )
 }}
 
 
-#ifdef CPPWAMP_TEST_HAS_ALTERNATE_CONNECTOR
 //------------------------------------------------------------------------------
 SCENARIO( "Using alternate transport and/or serializer", "[WAMP][Basic]" )
 {
@@ -838,7 +816,6 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
     }
 }}
-#endif // CPPWAMP_TEST_HAS_ALTERNATE_TRANSPORT
 
 
 //------------------------------------------------------------------------------
@@ -2869,4 +2846,4 @@ GIVEN( "these test fixture objects" )
 }
 }
 
-#endif // defined(CPPWAMP_TEST_HAS_CORO) && defined(CPPWAMP_TEST_HAS_SERIALIZER)
+#endif // defined(CPPWAMP_TEST_HAS_CORO)

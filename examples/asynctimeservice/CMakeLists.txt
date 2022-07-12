@@ -8,4 +8,4 @@
 add_executable(cppwamp-example-asynctimeservice main.cpp)
 
 target_link_libraries(cppwamp-example-asynctimeservice
-                      PRIVATE CppWAMP::json)
+                      PRIVATE CppWAMP::core)

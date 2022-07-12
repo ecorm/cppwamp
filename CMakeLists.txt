@@ -14,10 +14,6 @@
 # cppwamp-core            | CppWAMP::core            | Yes | Compiled libcppwamp-core library
 # cppwamp-core-headers    | CppWAMP::core-headers    | Yes | Header-only usage requirements
 # cppwamp-coro-headers    | CppWAMP::coro-headers    | Yes | Boost.Coroutine usage requirements
-# cppwamp-json            | CppWAMP::json            | Yes | Compiled libcppwamp-json library for JSON codec support
-# cppwmap-json-headers    | CppWAMP::json-headers    | Yes | Header-only RapidJSON usage requirements
-# cppwamp-msgpack         | CppWAMP::msgpack         | Yes | Compiled libcppwamp-msgpack library for Msgpack codec support
-# cppwamp-msgpack-headers | CppWAMP::msgpack-headers | Yes | Header-only Msgpack usage requirements
 # cppwamp-doc             | <none>                   | No  | Doxygen documentation
 # cppwamp-examples        | <none>                   | No  | Compiled example programs
 # cppwamp-test            | <none>                   | No  | Compiled test suite program
@@ -42,7 +38,7 @@ cmake_minimum_required (VERSION 3.12)
 include_guard()
 
 project(CppWAMP
-        VERSION 0.8.0
+        VERSION 0.9.0
         LANGUAGES CXX)
 
 include(ProcessorCount)
@@ -82,14 +78,6 @@ dependencies will be searched via find_package. The searching can be \
 directed by defining <dependency>_ROOT variables. If the dependent targets are \
 already imported by a superproject, find_package calls will be skipped."
 OFF)
-
-option(CPPWAMP_OPT_WITH_JSON
-"Adds the RapidJSON dependency and builds the cppwamp-json library"
-ON)
-
-option(CPPWAMP_OPT_WITH_MSGPACK
-"Adds the msgpack-c dependency and builds the cppwamp-msgpack library"
-ON)
 
 option(CPPWAMP_OPT_WITH_CORO
 "Adds the Boost.Coroutine dependency and build tests and examples \
@@ -144,14 +132,6 @@ include(CppWAMPDependencies)
 cppwamp_resolve_dependencies()
 
 add_subdirectory(cppwamp)
-
-if(CPPWAMP_OPT_WITH_JSON)
-    add_subdirectory(cppwamp-json)
-endif()
-
-if(CPPWAMP_OPT_WITH_MSGPACK)
-    add_subdirectory(cppwamp-msgpack)
-endif()
 
 if(CPPWAMP_OPT_WITH_CORO)
     add_subdirectory(cppwamp-coro)

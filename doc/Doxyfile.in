@@ -833,10 +833,6 @@ INPUT                  = cppwamp/include/cppwamp \
                          cppwamp/include/cppwamp/internal \
                          cppwamp/include/cppwamp/types \
                          cppwamp/include/cppwamp/coro \
-                         cppwamp/include/cppwamp/json \
-                         cppwamp/include/cppwamp/json/internal \
-                         cppwamp/include/cppwamp/msgpack \
-                         cppwamp/include/cppwamp/msgpack/internal \
                          doc
 
 # This tag can be used to specify the character encoding of the source files

@@ -12,7 +12,7 @@
 #include <cassert>
 #include <cstdint>
 #include <vector>
-#include "../codec.hpp"
+#include "../error.hpp"
 
 namespace wamp
 {
@@ -20,32 +20,31 @@ namespace wamp
 namespace internal
 {
 
+//------------------------------------------------------------------------------
 class Base64
 {
 public:
-    using Byte    = uint8_t;
-    using ByteVec = std::vector<uint8_t>;
-
-    template <typename TBuffer>
-    static void encode(const ByteVec& data, TBuffer& out)
+    template <typename TSink>
+    static void encode(const void* data, std::size_t size, TSink& sink)
     {
         Quad quad;
         Byte sextet;
-        auto byte = data.cbegin();
-        while (byte != data.cend())
+        auto byte = static_cast<const Byte*>(data);
+        auto end = byte + size;
+        while (byte != end)
         {
             quad[0] = charFromSextet( (*byte >> 2) & 0x3f );
             sextet = (*byte << 4) & 0x30;
             ++byte;
 
-            if (byte != data.cend())
+            if (byte != end)
             {
                 sextet |= (*byte >> 4) & 0x0f;
                 quad[1] = charFromSextet(sextet);
                 sextet = (*byte << 2) & 0x3c;
                 ++byte;
 
-                if (byte != data.cend())
+                if (byte != end)
                 {
                     sextet |= (*byte >> 6) & 0x03;
                     quad[2] = charFromSextet(sextet);
@@ -65,11 +64,15 @@ public:
                 quad[3] = pad;
             }
 
-            out.write(quad.data(), quad.size());
+            using SinkByte = typename TSink::value_type;
+            auto ptr = reinterpret_cast<const SinkByte*>(quad.data());
+            sink.append(ptr, quad.size());
         }
     }
 
-    static void decode(const char* str, size_t length, ByteVec& data)
+    template <typename TOutputByteContainer>
+    static void decode(const void* data, size_t length,
+                       TOutputByteContainer& output)
     {
         if (length == 0)
             return;
@@ -77,14 +80,12 @@ public:
             throw error::Decode("Invalid JSON Base64 payload length");
 
         Triplet triplet;
+        auto str = static_cast<const char*>(data);
         const char* quad = str;
         auto end = str + length - 4;
         assert(end >= str);
         for (; quad < end; quad += 4)
-        {
-            triplet = tripletFromQuad(quad, false);
-            data.insert(data.end(), triplet.begin(), triplet.end());
-        }
+            append(tripletFromQuad(quad, false), output);
 
         assert((quad + 4) == (str + length));
 
@@ -101,11 +102,11 @@ public:
         else
             lastTripletCount = (quad[3] == pad) ? 2 : 3;
 
-        data.insert(data.end(), triplet.begin(),
-                    triplet.begin() + lastTripletCount);
+        append(tripletFromQuad(quad, true), lastTripletCount, output);
     }
 
 private:
+    using Byte    = uint8_t;
     using Triplet = std::array<Byte, 3>;
     using Quad    = std::array<char, 4>;
 
@@ -211,6 +212,20 @@ private:
         return sextet;
     }
 
+    template <typename TOutputByteContainer>
+    static void append(Triplet triplet, size_t length,
+                       TOutputByteContainer& output)
+    {
+        using OutputByte = typename TOutputByteContainer::value_type;
+        auto data = reinterpret_cast<const OutputByte*>(triplet.data());
+        output.insert(output.end(), data, data + length);
+    }
+
+    template <typename TOutputByteContainer>
+    static void append(Triplet triplet, TOutputByteContainer& output)
+    {
+        append(triplet, triplet.size(), output);
+    }
 }; // class Base64
 
 } // namespace internal

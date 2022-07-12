@@ -6,6 +6,7 @@
 #-------------------------------------------------------------------------------
 
 set(SOURCES
+    codectestcbor.cpp
     codectestjson.cpp
     codectestmsgpack.cpp
     payloadtest.cpp
@@ -40,15 +41,12 @@ add_executable(cppwamp-test ${SOURCES} ${HEADERS})
 target_link_libraries(cppwamp-test
     PRIVATE
         "$<TARGET_NAME_IF_EXISTS:Catch2::Catch2>"
-        CppWAMP::coro-headers
-        CppWAMP::json-headers
-        CppWAMP::msgpack-headers)
+        "$<TARGET_NAME_IF_EXISTS:jsoncons>"
+        CppWAMP::coro-headers)
 target_compile_options(cppwamp-test PRIVATE
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall>
     $<$<CXX_COMPILER_ID:MSVC>:/W4>)
 target_compile_definitions(cppwamp-test PRIVATE
-    "$<$<TARGET_EXISTS:rapidjson>:CPPWAMP_TEST_HAS_JSON=1>"
-    "$<$<TARGET_EXISTS:msgpackc-cxx>:CPPWAMP_TEST_HAS_MSGPACK=1>"
     "$<$<TARGET_EXISTS:CppWAMP::coro-headers>:CPPWAMP_TEST_HAS_CORO=1>")
 
 # Copy Crossbar node configuration to build directory

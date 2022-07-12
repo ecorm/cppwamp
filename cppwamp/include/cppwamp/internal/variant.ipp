@@ -15,6 +15,7 @@
 
 #include "varianttraits.hpp"
 #include "../api.hpp"
+#include "jsonencoding.hpp"
 
 namespace wamp
 {
@@ -488,24 +489,98 @@ CPPWAMP_INLINE Variant::String typeNameOf(const Variant& v)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Array& a)
 {
-    internal::VariantOutput visitor;
-    visitor(a, out);
+    using Sink = jsoncons::stream_sink<char>;
+    internal::JsonEncoderImpl<Sink> encoder;
+    out.put('[');
+    auto begin = a.begin();
+    auto end = a.end();
+    for (auto iter = begin; iter != end; ++iter)
+    {
+        if (iter != begin)
+            out.put(',');
+        encoder.encode(*iter, out);
+    }
+    out.put(']');
     return out;
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Object& o)
 {
-    internal::VariantOutput visitor;
-    visitor(o, out);
+    using Sink = jsoncons::stream_sink<char>;
+    internal::JsonEncoderImpl<Sink> encoder;
+    out.put('{');
+    auto begin = o.begin();
+    auto end = o.end();
+    for (auto kv = begin; kv != end; ++kv)
+    {
+        if (kv != begin)
+            out.put(',');
+        encoder.encode(Variant(kv->first), out);
+        out.put(':');
+        encoder.encode(kv->second, out);
+    }
+    out.put('}');
     return out;
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Variant& v)
 {
-    applyWithOperand(internal::VariantOutput(), v, out);
+    using Sink = jsoncons::stream_sink<char>;
+    internal::JsonEncoderImpl<Sink> encoder;
+    encoder.encode(v, out);
     return out;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE std::string toString(const Array& a)
+{
+    using Sink = jsoncons::string_sink<std::string>;
+    internal::JsonEncoderImpl<Sink> encoder;
+    std::string str;
+    str += '[';
+    auto begin = a.begin();
+    auto end = a.end();
+    for (auto iter = begin; iter != end; ++iter)
+    {
+        if (iter != begin)
+            str += ',';
+        encoder.encode(*iter, str);
+    }
+    str += ']';
+    return str;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE std::string toString(const Object& o)
+{
+    using Sink = jsoncons::string_sink<std::string>;
+    internal::JsonEncoderImpl<Sink> encoder;
+    std::string str;
+    str += '{';
+    auto begin = o.begin();
+    auto end = o.end();
+    for (auto kv = begin; kv != end; ++kv)
+    {
+        if (kv != begin)
+            str += ',';
+        encoder.encode(Variant(kv->first), str);
+        str += ':';
+        encoder.encode(kv->second, str);
+    }
+    str += '}';
+    return str;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE std::string toString(const Variant& v)
+{
+    using Sink = jsoncons::string_sink<std::string>;
+    internal::JsonEncoderImpl<Sink> encoder;
+    std::string str;
+    encoder.encode(v, str);
+    return str;
 }
 
 //------------------------------------------------------------------------------

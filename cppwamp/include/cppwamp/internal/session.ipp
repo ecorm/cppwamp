@@ -7,7 +7,6 @@
 
 #include "../session.hpp"
 #include <cassert>
-#include <iostream>
 #include "../api.hpp"
 #include "config.hpp"
 
@@ -603,12 +602,6 @@ CPPWAMP_INLINE Session::Session(AnyExecutor userExec,
     CPPWAMP_LOGIC_CHECK(!connectors.empty(), "Connector list is empty");
     for (const auto& cnct: connectors)
         connectors_.push_back(cnct->clone());
-
-    // TODO: Consider not imposing this on users.
-    setWarningHandler( [](std::string warning)
-    {
-        std::cerr << "[CppWAMP] Warning: " << warning << "\n";
-    });
 }
 
 //------------------------------------------------------------------------------

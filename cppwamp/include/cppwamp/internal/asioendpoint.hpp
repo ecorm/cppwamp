@@ -47,6 +47,8 @@ public:
           handshake_(0)
     {}
 
+    virtual ~AsioEndpoint() {}
+
     void establish(Handler&& handler)
     {
         handler_ = std::move(handler);

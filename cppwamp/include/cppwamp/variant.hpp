@@ -489,6 +489,15 @@ CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Object& o);
 
 /** Outputs the given Variant to the given output stream. */
 CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Variant& v);
+
+/** Outputs the given Array to a new string. */
+CPPWAMP_API std::string toString(const Array& a);
+
+/** Outputs the given Object to a new string. */
+CPPWAMP_API std::string toString(const Object& o);
+
+/** Outputs the given Variant to a new string. */
+CPPWAMP_API std::string toString(const Variant& v);
 /// @}
 
 

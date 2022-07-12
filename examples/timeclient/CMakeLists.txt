@@ -8,4 +8,4 @@
 add_executable(cppwamp-example-timeclient main.cpp)
 
 target_link_libraries(cppwamp-example-timeclient
-                      PRIVATE CppWAMP::json CppWAMP::coro-headers)
+                      PRIVATE CppWAMP::core CppWAMP::coro-headers)

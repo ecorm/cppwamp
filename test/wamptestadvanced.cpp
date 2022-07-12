@@ -5,34 +5,20 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#if defined(CPPWAMP_TEST_HAS_JSON) || defined(CPPWAMP_TEST_HAS_MSGPACK)
-    #define CPPWAMP_TEST_HAS_SERIALIZER 1
-#endif
-
-#if defined(CPPWAMP_TEST_HAS_CORO) && defined(CPPWAMP_TEST_HAS_SERIALIZER)
+#if defined(CPPWAMP_TEST_HAS_CORO)
 
 #include <algorithm>
 #include <catch2/catch.hpp>
+#include <cppwamp/json.hpp>
+#include <cppwamp/msgpack.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/coro/corosession.hpp>
-
-#ifdef CPPWAMP_TEST_HAS_JSON
-    #include <cppwamp/json.hpp>
-#else
-    #include <cppwamp/msgpack.hpp>
-#endif
 
 using namespace wamp;
 using namespace Catch::Matchers;
 
 namespace
 {
-
-#ifdef CPPWAMP_TEST_HAS_JSON
-using PreferredCodec = Json;
-#else
-using PreferredCodec = Msgpack;
-#endif
 
 const std::string testRealm = "cppwamp.test";
 const short testPort = 12345;
@@ -41,12 +27,12 @@ const short authTestPort = 23456;
 
 Connector::Ptr tcp(AsioContext& ioctx)
 {
-    return connector<PreferredCodec>(ioctx, TcpHost("localhost", testPort));
+    return connector<Json>(ioctx, TcpHost("localhost", testPort));
 }
 
 Connector::Ptr authTcp(AsioContext& ioctx)
 {
-    return connector<PreferredCodec>(ioctx, TcpHost("localhost", authTestPort));
+    return connector<Json>(ioctx, TcpHost("localhost", authTestPort));
 }
 
 //------------------------------------------------------------------------------
@@ -959,4 +945,4 @@ GIVEN( "a Session with a registered challenge handler" )
     }
 }}
 
-#endif // defined(CPPWAMP_TEST_HAS_CORO) && defined(CPPWAMP_TEST_HAS_SERIALIZER)
+#endif // defined(CPPWAMP_TEST_HAS_CORO)

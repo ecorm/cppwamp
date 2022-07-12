@@ -338,8 +338,9 @@ void CoroEventUnpacker<S,A...>::invoke(Event&& event,
                                        internal::IntegerSequence<Seq...>)
 {
     auto slot = slot_;
+    auto executor = event.executor();
     boost::asio::spawn(
-        event.executor(),
+        executor,
         [CPPWAMP_MVCAP(slot), CPPWAMP_MVCAP(event)](Yield yield)
         {
             Array args = event.args();
@@ -403,9 +404,10 @@ void BasicCoroEventUnpacker<S,A...>::invoke(Event&& event,
 {
     auto slot = slot_;
     Array args = std::move(event).args();
+    auto executor = event.executor();
 
     boost::asio::spawn(
-        event.executor(),
+        executor,
         [CPPWAMP_MVCAP(slot), CPPWAMP_MVCAP(args)](Yield yield)
         {
             using Getter = internal::UnpackedCoroArgGetter<A...>;
@@ -469,8 +471,9 @@ void CoroInvocationUnpacker<S,A...>::invoke(Invocation&& inv,
                                             internal::IntegerSequence<Seq...>)
 {
     auto slot = slot_;
+    auto executor = inv.executor();
     boost::asio::spawn(
-        inv.executor(),
+        executor,
         [CPPWAMP_MVCAP(slot), CPPWAMP_MVCAP(inv)](Yield yield)
         {
             try
@@ -559,8 +562,9 @@ void BasicCoroInvocationUnpacker<S,R,A...>::invoke(
     TrueType, Invocation&& inv, internal::IntegerSequence<Seq...>)
 {
     auto slot = slot_;
+    auto executor = inv.executor();
     boost::asio::spawn(
-        inv.executor(),
+        executor,
         [CPPWAMP_MVCAP(slot), CPPWAMP_MVCAP(inv)](Yield yield)
         {
             try
@@ -589,8 +593,9 @@ void BasicCoroInvocationUnpacker<S,R,A...>::invoke(
     FalseType, Invocation&& inv, internal::IntegerSequence<Seq...>)
 {
     auto slot = slot_;
+    auto executor = inv.executor();
     boost::asio::spawn(
-        inv.executor(),
+        executor,
         [CPPWAMP_MVCAP(slot), CPPWAMP_MVCAP(inv)](Yield yield)
         {
             try

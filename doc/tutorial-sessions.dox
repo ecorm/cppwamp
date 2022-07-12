@@ -24,8 +24,8 @@ wamp::CoroSession object.
 
 ```
 #include <cppwamp/corosession.hpp>
-#include <cppwamp/json/json.hpp>
-#include <cppwamp/msgpack/msgpack.hpp>
+#include <cppwamp/json.hpp>
+#include <cppwamp/msgpack.hpp>
 #include <cppwamp/tcp.hpp>
 using namespace wamp;
 

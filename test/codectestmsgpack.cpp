@@ -5,8 +5,6 @@
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_NO_MSGPACK
-
 #include <sstream>
 #include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
@@ -19,35 +17,36 @@ namespace
 
 //------------------------------------------------------------------------------
 template <typename T, typename U>
-void checkMsgpack(const T& value, const U& expected)
+void checkMsgpack(MsgpackBufferEncoder& encoder, MsgpackBufferDecoder& decoder,
+                  const T& value, const U& expected)
 {
     INFO( "For value \"" << value << "\"" );
     Variant v(value);
 
     {
-        std::string str;
-        CHECK_NOTHROW( Msgpack::encode(v, str) );
-        CHECK( v == Variant(value) );
+        MessageBuffer buffer;
+        encoder.encode(v, buffer);
         Variant w;
-        CHECK_NOTHROW( Msgpack::decode(str, w) );
+        decoder.decode(buffer, w);
         CHECK( w == Variant(expected) );
     }
 
     {
         std::ostringstream oss;
-        CHECK_NOTHROW( Msgpack::encode(v, oss) );
-        CHECK( v == Variant(value) );
+        encode<Msgpack>(v, oss);
         Variant w;
-        CHECK_NOTHROW( Msgpack::decode(oss.str(), w) );
+        std::istringstream iss(oss.str());
+        decode<Msgpack>(iss, w);
         CHECK( w == Variant(expected) );
     }
 }
 
 //------------------------------------------------------------------------------
 template <typename T>
-void checkMsgpack(const T& value)
+void checkMsgpack(MsgpackBufferEncoder& encoder, MsgpackBufferDecoder& decoder,
+                  const T& value)
 {
-    checkMsgpack(value, value);
+    checkMsgpack(encoder, decoder, value, value);
 }
 
 } // anonymous namespace
@@ -65,113 +64,135 @@ GIVEN( "an assortment of variants" )
     auto realMin = std::numeric_limits<Real>::lowest();
     auto realMax = std::numeric_limits<Real>::max();
 
-    checkMsgpack(null);
-    checkMsgpack(false);
-    checkMsgpack(true);
-    checkMsgpack(0u);
-    checkMsgpack(0, 0u);
-    checkMsgpack(1u);
-    checkMsgpack(1, 1u);
-    checkMsgpack(-1);
-    checkMsgpack(127, 127u);
-    checkMsgpack(127u);
-    checkMsgpack(-128);
-    checkMsgpack(255, 255u);
-    checkMsgpack(255u);
-    checkMsgpack(-255);
-    checkMsgpack(32767, 32767u);
-    checkMsgpack(32767u);
-    checkMsgpack(-32768);
-    checkMsgpack(65535, 65535u);
-    checkMsgpack(65535u);
-    checkMsgpack(-65535);
-    checkMsgpack(2147483647, 2147483647u);
-    checkMsgpack(2147483647u);
-    checkMsgpack(-2147483648);
-    checkMsgpack(4294967295, 4294967295u);
-    checkMsgpack(4294967295u);
-    checkMsgpack(-4294967295);
-    checkMsgpack(intMin);
-    checkMsgpack(intMax, (UInt)intMax);
-    checkMsgpack((UInt)intMax);
-    checkMsgpack(uintMax);
-    checkMsgpack(0.0f);
-    checkMsgpack(0.0);
-    checkMsgpack(42.1f);
-    checkMsgpack(42.1);
-    checkMsgpack(-42.1f);
-    checkMsgpack(-42.1);
-    checkMsgpack(floatMin);
-    checkMsgpack(floatMax);
-    checkMsgpack(realMin);
-    checkMsgpack(realMax);
-    checkMsgpack("");
-    checkMsgpack("Hello");
-    checkMsgpack("null");
-    checkMsgpack("false");
-    checkMsgpack("true");
-    checkMsgpack("0");
-    checkMsgpack("1");
-    checkMsgpack(Blob{});
-    checkMsgpack(Blob{0x00});
-    checkMsgpack(Blob{0x01, 0x02, 0x03});
-    checkMsgpack(Array{});
-    checkMsgpack(Array{null});
-    checkMsgpack(Array{false});
-    checkMsgpack(Array{true});
-    checkMsgpack(Array{42u});
-    checkMsgpack(Array{42}, Array{42u});
-    checkMsgpack(Array{-42});
-    checkMsgpack(Array{intMax}, Array{(UInt)intMax});
-    checkMsgpack(Array{(UInt)intMax});
-    checkMsgpack(Array{42.1});
-    checkMsgpack(Array{-42.1});
-    checkMsgpack(Array{floatMin});
-    checkMsgpack(Array{floatMax});
-    checkMsgpack(Array{realMin});
-    checkMsgpack(Array{realMax});
-    checkMsgpack(Array{""});
-    checkMsgpack(Array{Array{}});
-    checkMsgpack(Array{Object{}});
-    checkMsgpack(Array{null,false,true,42u,-42,42.1,"hello",Array{},Object{}});
-    checkMsgpack(Array{ Array{Array{"foo",42u} }, Array{ Object{{"foo",42.1}} } });
-    checkMsgpack(Object{});
-    checkMsgpack(Object{ {"",""} });
-    checkMsgpack(Object{ {"n",null} });
-    checkMsgpack(Object{ {"b",false} });
-    checkMsgpack(Object{ {"b",true} });
-    checkMsgpack(Object{ {"n",0u} });
-    checkMsgpack(Object{ {"n",-1} });
-    checkMsgpack(Object{ {"n",intMax} }, Object{ {"n",(UInt)intMax} });
-    checkMsgpack(Object{ {"n",(UInt)intMax} });
-    checkMsgpack(Object{ {"x",42.1} });
-    checkMsgpack(Object{ {"x",-42.1} });
-    checkMsgpack(Object{ {"x",floatMin} });
-    checkMsgpack(Object{ {"x",floatMax} });
-    checkMsgpack(Object{ {"x",realMin} });
-    checkMsgpack(Object{ {"x",realMax} });
-    checkMsgpack(Object{ {"s","" } });
-    checkMsgpack(Object{ {"a",Array{}} });
-    checkMsgpack(Object{ {"o",Object{}} });
-    checkMsgpack(Object{ {"",null}, {"f",false}, {"t",true}, {"u",0u}, {"n",-1},
-                         {"x",42.1}, {"s","abc"}, {"a",Array{}}, {"o",Object{}} });
-    checkMsgpack(Object{ {"a", Object{ {"b", Object{ {"c",42u} }} } } });
+    MsgpackBufferEncoder e;
+    MsgpackBufferDecoder d;
+
+    checkMsgpack(e, d, null);
+    checkMsgpack(e, d, false);
+    checkMsgpack(e, d, true);
+    checkMsgpack(e, d, 0u);
+    checkMsgpack(e, d, 0, 0u);
+    checkMsgpack(e, d, 1u);
+    checkMsgpack(e, d, 1, 1u);
+    checkMsgpack(e, d, -1);
+    checkMsgpack(e, d, 127, 127u);
+    checkMsgpack(e, d, 127u);
+    checkMsgpack(e, d, -128);
+    checkMsgpack(e, d, 255, 255u);
+    checkMsgpack(e, d, 255u);
+    checkMsgpack(e, d, -255);
+    checkMsgpack(e, d, 32767, 32767u);
+    checkMsgpack(e, d, 32767u);
+    checkMsgpack(e, d, -32768);
+    checkMsgpack(e, d, 65535, 65535u);
+    checkMsgpack(e, d, 65535u);
+    checkMsgpack(e, d, -65535);
+    checkMsgpack(e, d, 2147483647, 2147483647u);
+    checkMsgpack(e, d, 2147483647u);
+    checkMsgpack(e, d, -2147483648);
+    checkMsgpack(e, d, 4294967295, 4294967295u);
+    checkMsgpack(e, d, 4294967295u);
+    checkMsgpack(e, d, -4294967295);
+    checkMsgpack(e, d, intMin);
+    checkMsgpack(e, d, intMax, (UInt)intMax);
+    checkMsgpack(e, d, (UInt)intMax);
+    checkMsgpack(e, d, uintMax);
+    checkMsgpack(e, d, 0.0f);
+    checkMsgpack(e, d, 0.0);
+    checkMsgpack(e, d, 42.1f);
+    checkMsgpack(e, d, 42.1);
+    checkMsgpack(e, d, -42.1f);
+    checkMsgpack(e, d, -42.1);
+    checkMsgpack(e, d, floatMin);
+    checkMsgpack(e, d, floatMax);
+    checkMsgpack(e, d, realMin);
+    checkMsgpack(e, d, realMax);
+    checkMsgpack(e, d, "");
+    checkMsgpack(e, d, "Hello");
+    checkMsgpack(e, d, "null");
+    checkMsgpack(e, d, "false");
+    checkMsgpack(e, d, "true");
+    checkMsgpack(e, d, "0");
+    checkMsgpack(e, d, "1");
+    checkMsgpack(e, d, Blob{});
+    checkMsgpack(e, d, Blob{0x00});
+    checkMsgpack(e, d, Blob{0x01, 0x02, 0x03});
+    checkMsgpack(e, d, Array{});
+    checkMsgpack(e, d, Array{null});
+    checkMsgpack(e, d, Array{false});
+    checkMsgpack(e, d, Array{true});
+    checkMsgpack(e, d, Array{42u});
+    checkMsgpack(e, d, Array{42}, Array{42u});
+    checkMsgpack(e, d, Array{-42});
+    checkMsgpack(e, d, Array{intMax}, Array{(UInt)intMax});
+    checkMsgpack(e, d, Array{(UInt)intMax});
+    checkMsgpack(e, d, Array{42.1});
+    checkMsgpack(e, d, Array{-42.1});
+    checkMsgpack(e, d, Array{floatMin});
+    checkMsgpack(e, d, Array{floatMax});
+    checkMsgpack(e, d, Array{realMin});
+    checkMsgpack(e, d, Array{realMax});
+    checkMsgpack(e, d, Array{""});
+    checkMsgpack(e, d, Array{Array{}});
+    checkMsgpack(e, d, Array{Object{}});
+    checkMsgpack(e, d, Array{null,false,true,42u,-42,42.1,"hello",Array{},Object{}});
+    checkMsgpack(e, d, Array{ Array{Array{"foo",42u} }, Array{ Object{{"foo",42.1}} } });
+    checkMsgpack(e, d, Object{});
+    checkMsgpack(e, d, Object{ {"",""} });
+    checkMsgpack(e, d, Object{ {"n",null} });
+    checkMsgpack(e, d, Object{ {"b",false} });
+    checkMsgpack(e, d, Object{ {"b",true} });
+    checkMsgpack(e, d, Object{ {"n",0u} });
+    checkMsgpack(e, d, Object{ {"n",-1} });
+    checkMsgpack(e, d, Object{ {"n",intMax} }, Object{ {"n",(UInt)intMax} });
+    checkMsgpack(e, d, Object{ {"n",(UInt)intMax} });
+    checkMsgpack(e, d, Object{ {"x",42.1} });
+    checkMsgpack(e, d, Object{ {"x",-42.1} });
+    checkMsgpack(e, d, Object{ {"x",floatMin} });
+    checkMsgpack(e, d, Object{ {"x",floatMax} });
+    checkMsgpack(e, d, Object{ {"x",realMin} });
+    checkMsgpack(e, d, Object{ {"x",realMax} });
+    checkMsgpack(e, d, Object{ {"s","" } });
+    checkMsgpack(e, d, Object{ {"a",Array{}} });
+    checkMsgpack(e, d, Object{ {"o",Object{}} });
+    checkMsgpack(e, d, Object{ {"",null}, {"f",false}, {"t",true}, {"u",0u}, {"n",-1},
+                               {"x",42.1}, {"s","abc"}, {"a",Array{}}, {"o",Object{}} });
+    checkMsgpack(e, d, Object{ {"a", Object{ {"b", Object{ {"c",42u} }} } } });
+}
+GIVEN( "an empty Msgpack message" )
+{
+    MessageBuffer empty;
+    Variant v;
+    MsgpackBufferDecoder decoder;
+    CHECK_THROWS_AS( decoder.decode(empty, v), error::Decode );
+
+    WHEN( "decoding a valid message after an error" )
+    {
+        MessageBuffer buffer = {0x2a};
+        decoder.decode(buffer, v);
+        CHECK(v == 42);
+    }
 }
 GIVEN( "an invalid Msgpack message" )
 {
     std::ostringstream oss;
     oss << uint8_t(0xc1);
     Variant v;
-    CHECK_THROWS_AS( Msgpack::decode(oss.str(), v), error::Decode );
+    CHECK_THROWS_AS( decode<Msgpack>(oss.str(), v), error::Decode );
 }
 GIVEN( "a short Msgpack message" )
 {
-    std::ostringstream oss;
-    oss << uint8_t(0xa5) << "hell";
+    MessageBuffer buffer{0xa5, 'h', 'e', 'l', 'l'}; // 5-byte text string
     Variant v;
-    CHECK_THROWS_AS( Msgpack::decode(oss.str(), v), error::Decode );
+    MsgpackBufferDecoder decoder;
+    CHECK_THROWS_AS( decoder.decode(buffer, v), error::Decode );
+
+    WHEN( "decoding a valid message after an error" )
+    {
+        MessageBuffer buffer = {0x2a};
+        decoder.decode(buffer, v);
+        CHECK(v == 42);
+    }
 }
 
 }
-
-#endif // #ifndef CPPWAMP_NO_MSGPACK

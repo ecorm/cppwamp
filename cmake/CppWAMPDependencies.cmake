@@ -35,18 +35,19 @@ else()
         "--with-system")
 endif()
 
-set(CPPWAMP_VENDORIZED_RAPIDJSON_GIT_TAG
-    "fcb23c2dbf561ec0798529be4f66394d3e4996d8")
-set(CPPWAMP_VENDORIZED_MSGPACK_VERSION 4.1.1)
-set(CPPWAMP_VENDORIZED_MSGPACK_GIT_TAG
-    "cpp-${CPPWAMP_VENDORIZED_MSGPACK_VERSION}")
+# TODO: Update upon next release
+# set(CPPWAMP_VENDORIZED_JSONCONS_VERSION 0.168.7)
+#set(CPPWAMP_VENDORIZED_JSONCONS_GIT_TAG
+#    "v${CPPWAMP_VENDORIZED_JSONCONS_VERSION}")
+set(CPPWAMP_VENDORIZED_JSONCONS_GIT_TAG
+    "8940235dd7ff1b08230197002ab31aee03a5ac73")
+
 set(CPPWAMP_MINIMUM_CATCH2_VERSION "2.3.0")
 set(CPPWAMP_VENDORIZED_CATCH2_VERSION "2.13.9")
 set(CPPWAMP_VENDORIZED_CATCH2_GIT_TAG "v${CPPWAMP_VENDORIZED_CATCH2_VERSION}")
 
 set(CPPWAMP_BOOST_VENDOR_DIR ${PROJECT_SOURCE_DIR}/_stage/boost)
-set(CPPWAMP_RAPIDJSON_VENDOR_DIR ${PROJECT_SOURCE_DIR}/_stage/rapidjson)
-set(CPPWAMP_MSGPACK_VENDOR_DIR ${PROJECT_SOURCE_DIR}/_stage/msgpack)
+set(CPPWAMP_JSONCONS_VENDOR_DIR ${PROJECT_SOURCE_DIR}/_stage/jsoncons)
 set(CPPWAMP_CATCH2_VENDOR_DIR ${PROJECT_SOURCE_DIR}/_stage/catch2)
 
 #-------------------------------------------------------------------------------
@@ -185,130 +186,63 @@ function(cppwamp_build_dependency source_dir build_dir install_dir options)
 endfunction()
 
 #-------------------------------------------------------------------------------
-# Finds the vendorized RapidJSON package
+# Finds the vendorized jsoncons package
 #-------------------------------------------------------------------------------
-macro(cppwamp_find_vendorized_rapidjson)
+macro(cppwamp_find_vendorized_jsoncons)
 
-    find_package(RapidJSON
+    find_package(jsoncons
         CONFIG
-        PATHS ${CPPWAMP_RAPIDJSON_VENDOR_DIR}
+        PATHS ${CPPWAMP_JSONCONS_VENDOR_DIR}
         NO_DEFAULT_PATH)
 
 endmacro()
 
 #-------------------------------------------------------------------------------
-# Finds or fetches the RapidJSON dependency.
+# Finds or fetches the jsoncons dependency.
 #-------------------------------------------------------------------------------
-macro(cppwamp_resolve_rapidjson_dependency)
+macro(cppwamp_resolve_jsoncons_dependency)
 
     if(CPPWAMP_OPT_VENDORIZE)
-        cppwamp_find_vendorized_rapidjson()
-        if(NOT RapidJSON_FOUND)
+        cppwamp_find_vendorized_jsoncons()
+        if(NOT jsoncons_FOUND)
             FetchContent_Declare(
-                    fetchrapidjson
-                    GIT_REPOSITORY "https://github.com/Tencent/rapidjson"
-                    GIT_TAG ${CPPWAMP_VENDORIZED_RAPIDJSON_GIT_TAG})
-            FetchContent_GetProperties(fetchrapidjson)
-            if(NOT fetchrapidjson_POPULATED)
-                FetchContent_Populate(fetchrapidjson)
+                    fetchjsoncons
+                    GIT_REPOSITORY "https://github.com/danielaparker/jsoncons"
+                    GIT_TAG ${CPPWAMP_VENDORIZED_JSONCONS_GIT_TAG})
+            FetchContent_GetProperties(fetchjsoncons)
+            if(NOT fetchjsoncons_POPULATED)
+                FetchContent_Populate(fetchjsoncons)
             endif()
-            message("CppWAMP is building RapidJSON...")
-            list(APPEND CPPWAMP_RAPIDJSON_OPTIONS
-                 -DRAPIDJSON_BUILD_DOC=Off
-                 -DRAPIDJSON_BUILD_EXAMPLES=Off
-                 -DRAPIDJSON_BUILD_TESTS=Off)
-            cppwamp_build_dependency(${fetchrapidjson_SOURCE_DIR}
-                                     ${fetchrapidjson_BINARY_DIR}
-                                     ${CPPWAMP_RAPIDJSON_VENDOR_DIR}
-                                     "${CPPWAMP_RAPIDJSON_OPTIONS}")
-            cppwamp_find_vendorized_rapidjson()
+            message("CppWAMP is building jsoncons...")
+            list(APPEND CPPWAMP_JSONCONS_OPTIONS
+                 -DJSONCONS_BUILD_TESTS=Off)
+            cppwamp_build_dependency(${fetchjsoncons_SOURCE_DIR}
+                                     ${fetchjsoncons_BINARY_DIR}
+                                     ${CPPWAMP_JSONCONS_VENDOR_DIR}
+                                     "${CPPWAMP_JSONCONS_OPTIONS}")
+            cppwamp_find_vendorized_jsoncons()
         endif()
     else()
-        # Bypass find_package if a parent project has already imported RapidJSON
-        if(NOT TARGET rapidjson)
-            find_package(RapidJSON)
-            if(NOT ${RapidJSON_FOUND})
+        # Bypass find_package if a parent project has already imported jsoncons
+        if(NOT TARGET jsoncons)
+            find_package(jsoncons)
+            if(NOT ${jsoncons_FOUND})
                 message(WARNING
-"Cannot find RapidJSON headers. Please either define RapidJSON_ROOT or \
+"Cannot find jsoncons headers. Please either define jsoncons_ROOT or \
 enable CPPWAMP_OPT_VENDORIZE")
             endif()
         endif()
     endif()
 
-    # A third-party FindRapidJSON module may not import any interface
+    # A third-party jsoncons module may not import any interface
     # library targets. Attempt to fix that here.
-    if(NOT TARGET rapidjson
-       AND NOT "${RapidJSON_INCLUDE_DIR}" STREQUAL ""
-       AND NOT "${RapidJSON_INCLUDE_DIR}" STREQUAL
-               "RapidJSON_INCLUDE_DIR-NOTFOUND")
-        add_library(rapidjson INTERFACE IMPORTED)
-        set_target_properties(rapidjson PROPERTIES
-            INTERFACE_INCLUDE_DIRECTORIES "${RapidJSON_INCLUDE_DIR}")
-    endif()
-
-endmacro()
-
-
-#-------------------------------------------------------------------------------
-# Finds the vendorized Msgpack package
-#-------------------------------------------------------------------------------
-macro(cppwamp_find_vendorized_msgpack)
-
-    find_package(Msgpack
-        CONFIG
-        PATHS ${CPPWAMP_MSGPACK_VENDOR_DIR}
-        NO_DEFAULT_PATH)
-
-endmacro()
-
-#-------------------------------------------------------------------------------
-# Finds or fetches the msgpack dependency.
-#-------------------------------------------------------------------------------
-macro(cppwamp_resolve_msgpack_dependency)
-
-    if(CPPWAMP_OPT_VENDORIZE)
-        cppwamp_find_vendorized_msgpack()
-        if(NOT Msgpack_FOUND)
-            FetchContent_Declare(
-                    fetchmsgpack
-                    GIT_REPOSITORY "https://github.com/msgpack/msgpack-c"
-                    GIT_TAG ${CPPWAMP_VENDORIZED_MSGPACK_GIT_TAG})
-            FetchContent_GetProperties(fetchmsgpack)
-            if(NOT fetchmsgpack_POPULATED)
-                FetchContent_Populate(fetchmsgpack)
-            endif()
-            message("CppWAMP is building Msgpack-c version
-                    ${CPPWAMP_VENDORIZED_MSGPACK_VERSION}...")
-            list(APPEND CPPWAMP_MSGPACK_OPTIONS
-                 -DMSGPACK_BUILD_DOCS=Off
-                 -DMSGPACK_USE_BOOST=Off)
-            cppwamp_build_dependency(${fetchmsgpack_SOURCE_DIR}
-                                     ${fetchmsgpack_BINARY_DIR}
-                                     ${CPPWAMP_MSGPACK_VENDOR_DIR}
-                                     "${CPPWAMP_MSGPACK_OPTIONS}")
-            cppwamp_find_vendorized_msgpack()
-        endif()
-    else()
-        # Bypass find_package if a parent project has already imported msgpack
-        if(NOT TARGET msgpackc-cxx)
-            find_package(Msgpack)
-            if(NOT ${msgpack_FOUND})
-                message(WARNING
-"Cannot find MsgPack headers. Please either define msgpack_ROOT \
-or enable CPPWAMP_OPT_VENDORIZE")
-            endif()
-        endif()
-    endif()
-
-    # A third-party FindMsgpack module may not import any interface
-    # library targets. Attempt to fix that here.
-    if(NOT TARGET msgpackc-cxx
-       AND NOT "${Msgpack_INCLUDE_DIR}" STREQUAL ""
-       AND NOT "${Msgpack_INCLUDE_DIR}" STREQUAL
-               "Msgpack_INCLUDE_DIR-NOTFOUND")
-        add_library(msgpackc-cxx INTERFACE IMPORTED)
-        set_target_properties(msgpackc-cxx PROPERTIES
-            INTERFACE_INCLUDE_DIRECTORIES "${Msgpack_INCLUDE_DIR}")
+    if(NOT TARGET jsoncons
+       AND NOT "${jsoncons_INCLUDE_DIRS}" STREQUAL ""
+       AND NOT "${jsoncons_INCLUDE_DIRS}" STREQUAL
+               "jsoncons_INCLUDE_DIR-NOTFOUND")
+        add_library(jsoncons INTERFACE IMPORTED)
+        set_target_properties(jsoncons PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${jsoncons_INCLUDE_DIRS}")
     endif()
 
 endmacro()
@@ -418,8 +352,7 @@ macro(cppwamp_resolve_dependencies)
         unset(Boost_SYSTEM_LIBRARY_RELEASE CACHE)
         unset(Boost_THREAD_LIBRARY_DEBUG CACHE)
         unset(Boost_THREAD_LIBRARY_RELEASE CACHE)
-        unset(RapidJSON_INCLUDE_DIR CACHE)
-        unset(Msgpack_INCLUDE_DIR CACHE)
+        unset(jsoncons_INCLUDE_DIR CACHE)
         unset(Catch2_INCLUDE_DIR CACHE)
     endif()
     set(CPPWAMP_PREVIOUSLY_VENDORIZED ${CPPWAMP_OPT_VENDORIZE}
@@ -430,31 +363,17 @@ macro(cppwamp_resolve_dependencies)
     find_package(Threads)
 
     cppwamp_resolve_boost_dependency()
-
-    if(CPPWAMP_OPT_WITH_JSON)
-        cppwamp_resolve_rapidjson_dependency()
-    endif()
-
-    if(CPPWAMP_OPT_WITH_MSGPACK)
-        cppwamp_resolve_msgpack_dependency()
-    endif()
-
+    cppwamp_resolve_jsoncons_dependency()
     if(CPPWAMP_OPT_WITH_TESTS)
         cppwamp_resolve_catch2_dependency()
     endif()
 
     message("CppWAMP using Boost from ${Boost_INCLUDE_DIRS}")
 
-    if(CPPWAMP_OPT_WITH_JSON AND TARGET rapidjson)
-        get_target_property(CPPWAMP_RAPIDJSON_INCLUDE_DIR rapidjson
+    if(TARGET jsoncons)
+        get_target_property(CPPWAMP_JSONCONS_INCLUDE_DIR jsoncons
                             INTERFACE_INCLUDE_DIRECTORIES)
-        message("CppWAMP using RapidJSON from ${CPPWAMP_RAPIDJSON_INCLUDE_DIR}")
-    endif()
-
-    if(CPPWAMP_OPT_WITH_MSGPACK AND TARGET msgpackc-cxx)
-        get_target_property(CPPWAMP_MSGPACK_INCLUDE_DIR msgpackc-cxx
-                            INTERFACE_INCLUDE_DIRECTORIES)
-        message("CppWAMP using Msgpack from ${CPPWAMP_MSGPACK_INCLUDE_DIR}")
+        message("CppWAMP using jsoncons from ${CPPWAMP_JSONCONS_INCLUDE_DIR}")
     endif()
 
     if(CPPWAMP_OPT_WITH_TESTS AND TARGET Catch2::Catch2)

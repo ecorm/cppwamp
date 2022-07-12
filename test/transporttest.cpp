@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -89,11 +89,10 @@ struct UdsLoopbackFixture :
 template <typename TFixture>
 void checkPing(TFixture& f)
 {
-    using Buffer = typename TFixture::Transport::Buffer;
     constexpr int sleepMs = 50;
 
     f.client->start(
-        [&](Buffer)
+        [&](MessageBuffer)
         {
             FAIL( "unexpected receive");
         },
@@ -103,7 +102,7 @@ void checkPing(TFixture& f)
         });
 
     f.server->start(
-        [&](Buffer)
+        [&](MessageBuffer)
         {
             FAIL( "unexpected receive");
         },
@@ -113,10 +112,8 @@ void checkPing(TFixture& f)
         });
 
     bool pingCompleted = false;
-    auto buf = f.client->getBuffer();
-    std::string str("hello");
-    buf->write(str.data(), str.size());
-    f.client->ping(std::move(buf), [&](float elapsed)
+    auto payload = makeMessageBuffer("hello");
+    f.client->ping(payload, [&](float elapsed)
     {
         CHECK( elapsed > sleepMs );
         pingCompleted = true;
@@ -130,10 +127,8 @@ void checkPing(TFixture& f)
     CHECK( pingCompleted );
 
     pingCompleted = false;
-    buf = f.server->getBuffer();
-    str = "bonjour";
-    buf->write(str.data(), str.size());
-    f.server->ping(std::move(buf), [&](float elapsed)
+    payload = makeMessageBuffer("bonjour");
+    f.server->ping(payload, [&](float elapsed)
     {
         CHECK( elapsed > sleepMs );
         pingCompleted = true;
@@ -355,15 +350,15 @@ SCENARIO( "Maximum length messages", "[Transport]" )
 GIVEN( "a connected client/server TCP transport pair" )
 {
     TcpLoopbackFixture f;
-    const std::string message(f.client->maxReceiveLength(), 'm');
-    const std::string reply(f.server->maxReceiveLength(), 'r');;
+    const MessageBuffer message(f.client->maxReceiveLength(), 'm');
+    const MessageBuffer reply(f.server->maxReceiveLength(), 'r');;
     checkSendReply(f, message, reply);
 }
 GIVEN( "a connected client/server UDS transport pair" )
 {
     UdsLoopbackFixture f;
-    const std::string message(f.client->maxReceiveLength(), 'm');
-    const std::string reply(f.server->maxReceiveLength(), 'r');;
+    const MessageBuffer message(f.client->maxReceiveLength(), 'm');
+    const MessageBuffer reply(f.server->maxReceiveLength(), 'r');;
     checkSendReply(f, message, reply);
 }
 }
@@ -371,8 +366,8 @@ GIVEN( "a connected client/server UDS transport pair" )
 //------------------------------------------------------------------------------
 SCENARIO( "Zero length messages", "[Transport]" )
 {
-const std::string message("");
-const std::string reply("");
+const MessageBuffer message;
+const MessageBuffer reply;
 
 GIVEN( "a connected client/server TCP transport pair" )
 {
@@ -404,19 +399,22 @@ GIVEN( "a connected client/server UDS transport pair" )
 //------------------------------------------------------------------------------
 SCENARIO( "Cancel listen", "[Transport]" )
 {
+    auto message = makeMessageBuffer("Hello");
+    auto reply = makeMessageBuffer("World");
+
     GIVEN( "an unconnected TCP listener/connector pair" )
     {
         TcpLoopbackFixture f(false);
         checkCancelListen(f);
         checkConnection(f, jsonId);
-        checkSendReply(f, "Hello", "World");
+        checkSendReply(f, message, reply);
     }
     GIVEN( "an unconnected UDS listener/connector pair" )
     {
         UdsLoopbackFixture f(false);
         checkCancelListen(f);
         checkConnection(f, jsonId);
-        checkSendReply(f, "Hello", "World");
+        checkSendReply(f, message, reply);
     }
 }
 
@@ -568,9 +566,8 @@ SCENARIO( "Receiving messages longer than maximum", "[Transport]" )
 using AsioConnector = internal::AsioConnector<internal::TcpOpener>;
 using AsioListener  = internal::AsioListener<internal::TcpAcceptor>;
 using TransportPtr  = AsioConnector::TransportPtr;
-using Buffer        = AsioConnector::Transport::Buffer;
 
-std::string tooLong(64*1024 + 1, 'A');
+MessageBuffer tooLong(64*1024 + 1, 'A');
 
 GIVEN ( "A server tricked into sending overly long messages to a client" )
 {
@@ -610,7 +607,7 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
         bool clientFailed = false;
         bool serverFailed = false;
         client->start(
-            [&](Buffer)
+            [&](MessageBuffer)
             {
                 FAIL( "unexpected receive" );
             },
@@ -621,7 +618,7 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
             });
 
         server->start(
-            [&](Buffer)
+            [&](MessageBuffer)
             {
                 FAIL( "unexpected receive" );
             },
@@ -630,9 +627,7 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
                 serverFailed = true;
             } );
 
-        auto buf = server->getBuffer();
-        buf->write(tooLong.data(), tooLong.size());
-        server->send(std::move(buf));
+        server->send(tooLong);
 
         THEN( "the client obtains an error while receiving" )
         {
@@ -682,7 +677,7 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
         bool clientFailed = false;
         bool serverFailed = false;
         client->start(
-            [&](Buffer)
+            [&](MessageBuffer)
             {
                 FAIL( "unexpected receive" );
             },
@@ -692,7 +687,7 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
             });
 
         server->start(
-            [&](Buffer)
+            [&](MessageBuffer)
             {
                 FAIL( "unexpected receive" );
             },
@@ -702,9 +697,7 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
                 serverFailed = true;
             } );
 
-        auto buf = client->getBuffer();
-        buf->write(tooLong.data(), tooLong.size());
-        client->send(std::move(buf));
+        client->send(std::move(tooLong));
 
         THEN( "the server obtains an error while receiving" )
         {
@@ -726,7 +719,6 @@ using AsioListener     = internal::AsioListener<internal::TcpAcceptor>;
 using TransportPtr     = AsioConnector::TransportPtr;
 using FakeTransport    = FakeMsgTypeAsioListener::Transport;
 using FakeTransportPtr = FakeMsgTypeAsioListener::TransportPtr;
-using Buffer           = AsioConnector::Transport::Buffer;
 
 GIVEN ( "A fake server that sends an invalid message type" )
 {
@@ -765,7 +757,7 @@ GIVEN ( "A fake server that sends an invalid message type" )
         bool clientFailed = false;
         bool serverFailed = false;
         client->start(
-            [&](Buffer)
+            [&](MessageBuffer)
             {
                 FAIL( "unexpected receive" );
             },
@@ -776,7 +768,7 @@ GIVEN ( "A fake server that sends an invalid message type" )
             });
 
         server->start(
-            [&](Buffer)
+            [&](MessageBuffer)
             {
                 FAIL( "unexpected receive" );
             },
@@ -785,10 +777,8 @@ GIVEN ( "A fake server that sends an invalid message type" )
                 serverFailed = true;
             } );
 
-        auto buf = server->getBuffer();
-        std::string str("Hello");
-        buf->write(str.data(), str.size());
-        server->send(std::move(buf));
+        auto msg = makeMessageBuffer("Hello");;
+        server->send(msg);
 
         THEN( "the client obtains an error while receiving" )
         {
@@ -837,7 +827,7 @@ GIVEN ( "A fake client that sends an invalid message type" )
         bool clientFailed = false;
         bool serverFailed = false;
         client->start(
-            [&](Buffer)
+            [&](MessageBuffer)
             {
                 FAIL( "unexpected receive" );
             },
@@ -847,7 +837,7 @@ GIVEN ( "A fake client that sends an invalid message type" )
             });
 
         server->start(
-            [&](Buffer)
+            [&](MessageBuffer)
             {
                 FAIL( "unexpected receive" );
             },
@@ -857,10 +847,8 @@ GIVEN ( "A fake client that sends an invalid message type" )
                 serverFailed = true;
             } );
 
-        auto buf = client->getBuffer();
-        std::string str("Hello");
-        buf->write(str.data(), str.size());
-        client->send(std::move(buf));
+        auto msg = makeMessageBuffer("Hello");
+        client->send(std::move(msg));
 
         THEN( "the server obtains an error while receiving" )
         {

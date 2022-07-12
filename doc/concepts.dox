@@ -10,8 +10,9 @@
 Describes restrictions on types used by generic facilities.
 Concepts:
 - @subpage VisitorConcept
-- @subpage Codec
-- @subpage TransportBuffer
+- @subpage CodecEncoder
+- @subpage CodecDecoder
+- @subpage CodecFormat
 - @subpage Transport
 - @subpage Establisher
 */
@@ -87,49 +88,76 @@ Expression                         | Effect
 */
 
 //------------------------------------------------------------------------------
-/** @page Codec Codec
-A `Codec` is a static-only class supporting the following expressions:
+/** @page CodecEncoder CodecEncoder
+A `CodecEncoder` is a class that supports operations for encoding a Variant
+into a destination codec format.
 
-Expression                             | Effect
--------------------------------------- | ------
-`Codec::id()`                          | Returns the `int` ID to use during raw socket handshaking.
-`Codec::decodeBuffer(buffer, variant)` | Deserializes from a @ref TransportBuffer to a wamp::Variant.
-`Codec::encodeBuffer(variant, buffer)` | Serializes from wamp::Variant to a @ref TransportBuffer.
-
-where @ref TransportBuffer is the C++ concept for buffers used by the
-transport layer.
-
-`Codec::decodeBuffer` is expected to throw a
-@ref wamp::error::Decode exception if it fails to deserialize the buffer.
-
-The following classes meet the requirements of `Codec`:
-- wamp::Json
-- wamp::Msgpack
-*/
-
-//------------------------------------------------------------------------------
-/** @page TransportBuffer TransportBuffer
-A `TransportBuffer` holds a WAMP message in the format used for transmission
-over the transport connection. A `TransportBuffer` must meet the following
-requirements:
-
-Given
-- `buffer`: a `TransportBuffer` instance
-- `d`: a `const char*` pointing to the first element of an array of bytes
-- `n`: the number of bytes in the array pointed to by `d`
+Given:
+- `encoder`: an `CodecEncoder` instance
+- `variant`: a reference to a const wamp::Variant
+- `output`: a reference to either a `std::string`, a `wamp::CodecBuffer`,
+   or a `std::ostream`
 
 then the following expressions must be valid:
 
-Expression           | Effect
--------------------- | ------
-`buffer.length()`    | Returns the current length, in bytes, of the message data.
-`buffer.data()`      | Returns a `const char*` pointing to the first message data byte.
-`buffer.write(d, n)` | Appends `n` bytes from `d` to the buffer's message data.
+Expression                        | Effect
+--------------------------------- | ------
+`encoder.encode(variant, output)` | Encodes the variant into the given output.
 
-The following classes meet the requirements of `Serializer`:
-- `wamp::internal::AsioBuffer`
+The following classes meet the requirements of `Encoder`:
+- wamp::BasicCborEncoder
+- wamp::BasicJsonEncoder
+- wamp::BasicMsgpackEncoder
+*/
 
-@see @ref Transport
+//------------------------------------------------------------------------------
+/** @page CodecDecoder CodecDecoder
+A `CodecDecoder` is a class that supports operations for decoding a sequence of
+bytes in a codec format into a wamp::Variant.
+
+Given:
+- `decoder`: a `CodecDecoder` instance
+- `variant`: a reference to a wamp::Variant
+- `input`: a reference to either a `const std::string`,
+  a `const wamp::CodecBuffer`, or a `std::istream`
+
+then the following expressions must be valid:
+
+Expression                       | Effect
+-------------------------------- | ------
+`decoder.decode(input, variant)` | Decodes the input into the given variant.
+
+`decoder.decode` is expected to throw a
+@ref wamp::error::Decode exception if it fails to deserialize the buffer.
+
+The following classes meet the requirements of `Decoder`:
+- wamp::BasicCborDecoder
+- wamp::BasicJsonDecoder
+- wamp::BasicMsgpackDecoder
+*/
+
+//------------------------------------------------------------------------------
+/** @page CodecFormat CodecFormat
+A `CodecFormat` is a static-only class supporting the following expressions:
+
+Expression                             | Effect
+-------------------------------------- | ------
+`CodecFormat::id()`                    | Returns the `int` ID to use during raw socket handshaking.
+`CodecFormat::template Encoder<O, OC>` | Yields the type used to encode to outputs of type `O` and category `OC`
+`CodecFormat::template Decoder<I, IC>` | Yields the type used to decode inputs of type `I` and category `IC`
+
+where `OC` is either:
+- wamp::ByteContainerOutputCategory
+- wamp::StreamOutputCategory
+
+and where `IC` is either:
+- wamp::ByteArrayInputCategory
+- wamp::StreamInputCategory
+
+The following classes meet the requirements of `CodecFormat`:
+- wamp::Json
+- wamp::Msgpack
+- wamp::Cbor
 */
 
 //------------------------------------------------------------------------------
@@ -141,9 +169,6 @@ the following minimal generic interface:
 class MeetsTransport
 {
 public:
-    // Shared pointer to a type meeting the TransportBuffer concept
-    using Buffer = std::shared_ptr<MeetsTransportBuffer>;
-
     // Handler type called when a WAMP message is received
     using RxHandler = std::function<void (Buffer)>;
 
@@ -159,11 +184,8 @@ public:
     // Enables the receiving of messages on the transport.
     void start(RxHandler rxHandler, FailHandler failHandler);
 
-    // Obtains a buffer to be used for filling in and sending messages.
-    Buffer getBuffer();
-
     // Enqueues the given message for transmission.
-    void send(Buffer message);
+    void send(wamp::CodecBuffer message);
 
     // Closes the transport connection, aborting all pending send/receive
     // operations.
@@ -175,8 +197,6 @@ public:
 
 The following classes meet the requirements of `Transport`:
 - `wamp::internal::AsioTransport`
-
-@see @ref TransportBuffer
 */
 
 //------------------------------------------------------------------------------

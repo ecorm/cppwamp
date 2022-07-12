@@ -9,7 +9,7 @@ C++11 client library for the [WAMP][wamp] protocol.
 - Supports [some advanced WAMP profile features](#advanced)
 - Roles: _Caller_, _Callee_, _Subscriber_, _Publisher_
 - Transports: TCP and Unix domain raw sockets
-- Serializations: JSON and MsgPack
+- Serializations: JSON, MsgPack, and CBOR
 - Provides both callback and coroutine-based asynchronous APIs
 - Easy conversion between static and dynamic types
 - RPC and pub/sub event handlers can have static argument types
@@ -20,9 +20,9 @@ C++11 client library for the [WAMP][wamp] protocol.
 
 **Dependencies**:
 
-- [Boost.Asio][boost-asio] for raw socket transport (requires [Boost][boost] 1.74 or greater)
-- (optional) [RapidJSON][rapidjson] for JSON serialization
-- (optional) [msgpack-c][msgpack-c] for Msgpack serialization
+- [Boost.Asio][boost-asio] for raw socket transport
+  (requires [Boost][boost] 1.74 or greater)
+- [jsoncons][jsoncons] for serialization
 - (optional) [Boost.Coroutine][boost-coroutine] and
   [Boost.Context][boost-context]
 - (optional) [CMake][cmake] and the [Catch2][catch2] unit test framework
@@ -30,8 +30,7 @@ C++11 client library for the [WAMP][wamp] protocol.
 [wamp]: http://wamp-proto.org/
 [boost-asio]: http://www.boost.org/doc/libs/release/doc/html/boost_asio.html
 [boost]: http://boost.org
-[rapidjson]: https://github.com/Tencent/rapidjson
-[msgpack-c]: https://github.com/msgpack/msgpack-c
+[jsoncons]: https://github.com/danielaparker/jsoncons
 [boost-coroutine]: http://www.boost.org/doc/libs/release/libs/coroutine/doc/html/index.html
 [boost-context]: http://www.boost.org/doc/libs/release/libs/context/doc/html/index.html
 [cmake]: http://www.cmake.org/
@@ -58,10 +57,14 @@ This library has been tested with:
 ----------------------------------------------------------
 
 - General: agent identification, feature announcement
-- _Callee_: `call_canceling`, `call_timeout`, `caller_identification`, `call_trustlevels`, `pattern_based_registration`, `progressive_call_results`
+- _Callee_: `call_canceling`, `call_timeout`, `caller_identification`,
+            `call_trustlevels`, `pattern_based_registration`,
+            `progressive_call_results`
 - _Caller_: `call_canceling`, `call_timeout`, `caller_identification`
-- _Publisher_: `publisher_exclusion`, `publisher_identification`, `subscriber_blackwhite_listing`
-- _Subscriber_: `pattern_based_subscription`, `publication_trustlevels`, `publisher_identification`
+- _Publisher_: `publisher_exclusion`, `publisher_identification`,
+               `subscriber_blackwhite_listing`
+- _Subscriber_: `pattern_based_subscription`, `publication_trustlevels`,
+                `publisher_identification`
 
 
 Roadmap
@@ -69,9 +72,9 @@ Roadmap
 
 ### v1.0
 
-- Adopt the [jsoncons](https://github.com/danielaparker/jsoncons) library's cursor interface to implement the `wamp::Json` and `wamp::Msgpack` codecs, while retaining `wamp::Variant` as the document type.
 - Make `wamp::Session` more thread-safe.
-- Remove `wamp::CoroSession` and make it so that `wamp::Session` can accept any completion token (`yield`, `use_future`, etc) supported by Boost.Asio.
+- Remove `wamp::CoroSession` and make it so that `wamp::Session` can accept any
+  completion token (`yield`, `use_future`, etc) supported by Boost.Asio.
 
 ### v1.1
 
@@ -83,7 +86,9 @@ Roadmap
 
 ### v2.0 (maybe)
 
-- Migrate from jsoncons to another serialization library currently in development, which features the ability to skip an intermediary variant type and directly encode/decode the network data into C++ data types.
+- Migrate from jsoncons to another serialization library currently in
+  development, which features the ability to skip an intermediary variant type
+  and directly encode/decode the network data into C++ data types.
 
 
 Questions, Discussions, and Issues
@@ -102,7 +107,9 @@ For reporting bugs or for suggesting enhancements, please use the GitHub
 Usage Examples Using Coroutines
 ---------------------------------
 
-_For a more comprehensive overview, check out the [Tutorials](https://ecorm.github.io/cppwamp/_tutorial.html) in the wiki._
+_For a more comprehensive overview, check out the
+[Tutorials](https://ecorm.github.io/cppwamp/_tutorial.html) in the
+documentation._
 
 ### Establishing a WAMP session
 ```c++
@@ -338,9 +345,14 @@ session_->publish(wamp::Pub("sensorSampled").withArgs(value));
 Header-Only Installation
 ------------------------
 
-CppWAMP supports header-only usage. You may simply add the include directories of CppWAMP and its dependencies into your project's include search path. On GCC/Clang, this can be done with the `-isystem` compiler flag. You'll also need to link to the necessary Boost libraries.
+CppWAMP supports header-only usage. You may simply add the include directories
+of CppWAMP and its dependencies into your project's include search path. On
+GCC/Clang, this can be done with the `-isystem` compiler flag. You'll also need
+to link to the necessary Boost libraries.
 
-You may use CppWAMP's CMake scripts to fetch and build dependencies. The following commands will clone the CppWAMP repository, build the third-party dependencies, and install the headers and CMake package config:
+You may use CppWAMP's CMake scripts to fetch and build dependencies. The
+following commands will clone the CppWAMP repository, build the third-party
+dependencies, and install the headers and CMake package config:
 
 ```bash
 git clone https://github.com/ecorm/cppwamp
@@ -353,14 +365,14 @@ cmake --install ./_build --prefix ./_stage/cppwamp
 Two subdirectories will be generated as a result:
 
 - `_build` will contain intermediary build files and may be deleted.
-- `_stage` will contain third-party dependencies, as well as the CppWAMP headers and its CMake package config.
+- `_stage` will contain third-party dependencies, as well as the CppWAMP
+  headers and its CMake package config.
 
 You may then use the following GCC/Clang compiler flags:
 ```
 -isystem path/to/cppwamp/_stage/boost/include
 -isystem path/to/cppwamp/_stage/cppwamp/include
--isystem path/to/cppwamp/_stage/msgpack/include
--isystem path/to/cppwamp/_stage/rapidjson/include
+-isystem path/to/cppwamp/_stage/jsoncons/include
 ```
 
 as well as the following GCC/Clang linker flags:
@@ -369,19 +381,22 @@ as well as the following GCC/Clang linker flags:
 -lboost_coroutine -lboost_context -lboost_thread -lboost_system
 ```
 
-Note that that only `-lboost_system` is necessary if you're not using the coroutine API.
+Note that only `-lboost_system` is necessary if you're not using the
+coroutine API.
 
-You may omit the `-DCPPWAMP_OPT_VENDORIZE` option if you want to use the third-party libraries installed on your system. You may provide hints to their location via the following CMake configuration options:
+You may omit the `-DCPPWAMP_OPT_VENDORIZE` option if you want to use the
+third-party libraries installed on your system. You may provide hints to their
+location via the following CMake configuration options:
 
 - `-DBoost_ROOT=path/to/boost`
-- `-DRapidJSON_ROOT=path/to/rapidjson`
-- `-DMsgpack_ROOT=path/to/msgpack`
+- `-Djsoncons_ROOT=path/to/jsoncons`
 
 
 Compiling the library, tests, and examples
 ------------------------------------------
 
-The steps are similar to the above _Header-Only Installation_, except that the `-DCPPWAMP_OPT_HEADERS_ONLY` option is omitted.
+The steps are similar to the above _Header-Only Installation_, except that
+the `-DCPPWAMP_OPT_HEADERS_ONLY` option is omitted.
 
 ```bash
 git clone https://github.com/ecorm/cppwamp
@@ -391,25 +406,25 @@ cmake --build ./_build
 cmake --install ./_build --prefix ./_stage/cppwamp
 ```
 
-The necessary compiler flags to use in your project are the same as the above _Header-Only Installation_, with the following extra needed linker flags:
+The necessary compiler flags to use in your project are the same as the above
+_Header-Only Installation_, with the following extra needed linker flags:
 
 ```
 -L path/to/cppwamp/_stage/cppwamp/lib
--lcppwamp-json
--lcppwamp-msgpack
 -lcppwamp-core
 ```
 
-where `-lcppwamp-json` or `-lcppwamp-msgpack` may be omitted if your project doesn't use that particular serialization.
+Consult the root CMakeLists.txt file for a list of `CPPWAMP_OPT_<option>` cache
+variables that control what's included in the build.
 
-Consult the root CMakeLists.txt file for a list of `CPPWAMP_OPT_<option>` cache variables that control what's included in the build.
 
 Integrating CppWAMP into a CMake-based Project
 ----------------------------------------------
 
 ### With add_subdirectory
 
-The following example CMakeLists.txt shows how to include CppWAMP via `add_subdirectory`:
+The following example CMakeLists.txt shows how to include CppWAMP via
+`add_subdirectory`:
 
 ```cmake
 cmake_minimum_required (VERSION 3.12)
@@ -419,27 +434,29 @@ if(allow_cppwamp_to_download_and_build_dependencies)
     option(CPPWAMP_OPT_VENDORIZE "" ON)
 else()
     option(CPPWAMP_OPT_VENDORIZE "" OFF)
-    option(CPPWAMP_OPT_WITH_MSGPACK "" OFF) # Only JSON is needed for
-                                            # this example
     # If the following are not set, CppWAMP will use the default
     # search paths of CMake's find_package() to find its dependencies.
     set(Boost_ROOT /path/to/boost)
-    set(Msgpack_ROOT /path/to/msgpack)
+    set(jsoncons_ROOT /path/to/jsoncons)
 endif()
 
 add_subdirectory(cppwamp)
 add_executable(myapp main.cpp)
 target_link_libraries(myapp
-    PRIVATE CppWAMP::json CppWAMP::coro-headers)
+    PRIVATE CppWAMP::coro-headers)
 ```
 
-Any of the `CppWAMP::*` targets will automatically add the basic usage requirements of CppWAMP into your app's generated compiler/linker flags. The `CppWAMP::json` target, for example, will add the `libcppwamp-json` library, as well as the RapidJSON include search path.
+Any of the `CppWAMP::*` targets will automatically add the basic usage
+requirements of CppWAMP into your app's generated compiler/linker flags.
 
-Please consult CppWAMP's root CMakeLists.txt file for a complete list of targets that you may specify for your app's `target_link_libraries`.
+Please consult CppWAMP's root CMakeLists.txt file for a complete list of
+targets that you may specify for your app's `target_link_libraries`.
 
 ### With FetchContent
 
-You can use CMake's FetchContent to download CppWAMP and its dependencies at configuration time from within your project's CMakeLists.txt, as shown in the following example.
+You can use CMake's FetchContent to download CppWAMP and its dependencies at
+configuration time from within your project's CMakeLists.txt, as shown in the
+following example.
 
 ```cmake
 cmake_minimum_required (VERSION 3.12)
@@ -449,12 +466,10 @@ if(allow_cppwamp_to_download_and_build_dependencies)
     option(CPPWAMP_OPT_VENDORIZE "" ON)
 else()
     option(CPPWAMP_OPT_VENDORIZE "" OFF)
-    option(CPPWAMP_OPT_WITH_MSGPACK "" OFF) # Only JSON is needed for
-                                            # this example
     # If the following are not set, CppWAMP will use the default
     # search paths of CMake's find_package() to find its dependencies.
     set(Boost_ROOT /path/to/boost)
-    set(RapidJSON_ROOT /path/to/rapidjson)
+    set(jsoncons_ROOT /path/to/jsoncons)
 endif()
 
 include(FetchContent)
@@ -467,12 +482,13 @@ FetchContent_MakeAvailable(cppwamp)
 add_executable(myapp main.cpp)
 
 target_link_libraries(myapp
-                      PRIVATE CppWAMP::json CppWAMP::coro-headers)
+                      PRIVATE CppWAMP::coro-headers)
 ```
 
 ### With find_package
 
-If you do not wish to embed CppWAMP as a subdirectory of your project, you may use `find_package` instead:
+If you do not wish to embed CppWAMP as a subdirectory of your project, you may
+use `find_package` instead:
 
 ```cmake
 cmake_minimum_required (VERSION 3.12)
@@ -481,21 +497,24 @@ project(MyApp)
 # If the following are not set, CppWAMP will use the default
 # search paths of CMake's find_package() to find its dependencies.
 set(Boost_ROOT /path/to/boost)
-set(RapidJSON_ROOT /path/to/rapidjson)
-set(Msgpack_ROOT /path/to/msgpack)
+set(jsoncons_ROOT /path/to/jsoncons)
 
 find_package(CppWAMP
-             REQUIRED coro-headers json
+             REQUIRED coro-headers
              CONFIG
              PATHS /path/to/cppwamp_installation
              NO_DEFAULT_PATH)
 
 add_executable(myapp main.cpp)
 target_link_libraries(myapp
-    PRIVATE CppWAMP::json CppWAMP::coro-headers)
+    PRIVATE CppWAMP::coro-headers)
 ```
 
-This method requires that CppWAMP be previously built (either as header-only, or compiled) and installed so that its CMake package config (i.e. `CppWAMPConfig.cmake`) is generated. This can either be done outside of your project or via your project's CMake scripts (for example by using `ExternalProject_add` or `FetchContent`).
+This method requires that CppWAMP be previously built (either as header-only,
+or compiled) and installed so that its CMake package config
+(i.e. `CppWAMPConfig.cmake`) is generated. This can either be done outside of
+your project or via your project's CMake scripts (for example by using
+`ExternalProject_add` or `FetchContent`).
 
 
 License

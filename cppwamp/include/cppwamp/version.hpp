@@ -20,13 +20,16 @@
 #define CPPWAMP_MAJOR_VERSION 0
 
 /// Minor version with functionality added in a backwards-compatible manner.
-#define CPPWAMP_MINOR_VERSION 8
+#define CPPWAMP_MINOR_VERSION 9
 
 /// Patch version for backwards-compatible bug fixes.
 #define CPPWAMP_PATCH_VERSION 0
 
 /// Integer version number, computed as `(major*10000) + (minor*100) + patch`
-#define CPPWAMP_VERSION 800
+#define CPPWAMP_VERSION \
+    (CPPWAMP_MAJOR_VERSION * 10000 + \
+     CPPWAMP_MINOR_VERSION * 100 + \
+     CPPWAMP_PATCH_VERSION)
 
 namespace wamp
 {

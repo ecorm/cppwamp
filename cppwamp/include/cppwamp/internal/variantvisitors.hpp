@@ -385,56 +385,6 @@ public:
     }
 };
 
-//------------------------------------------------------------------------------
-// TODO: Output true JSON:
-// - String as quoted, escaped JSON
-// - Real with lossless precision
-class VariantOutput : public Visitor<>
-{
-public:
-    template <typename TField>
-    void operator()(const TField& f, std::ostream& out) const {out << f;}
-
-    void operator()(const Bool& b, std::ostream& out) const
-    {
-        out << (b ? "true" : "false");
-    }
-
-    template <typename V, typename A>
-    void operator()(const std::vector<V, A>& a, std::ostream& out) const
-    {
-        out << '[';
-        for (const auto& v: a)
-        {
-            if (&v != &a.front())
-                out << ",";
-            if (v.template is<TypeId::string>())
-                out << '"' << v.template as<TypeId::string>() << '"';
-            else
-                applyWithOperand(*this, v, out);
-        }
-        out << ']';
-    }
-
-    template <typename K, typename V, typename C, typename A>
-    void operator()(const std::map<K, V, C, A>& o, std::ostream& out) const
-    {
-        out << '{';
-        for (auto kv = o.cbegin(); kv != o.cend(); ++kv)
-        {
-            if (kv != o.cbegin())
-                out << ',';
-            out << '"' << kv->first << "\":";
-            const auto& v = kv->second;
-            if (v.template is<TypeId::string>())
-                out << '"' << v.template as<TypeId::string>() << '"';
-            else
-                applyWithOperand(*this, v, out);
-        }
-        out << '}';
-    }
-};
-
 } // namespace internal
 
 } // namespace wamp

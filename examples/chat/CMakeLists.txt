@@ -8,4 +8,4 @@
 add_executable(cppwamp-example-chat main.cpp )
 
 target_link_libraries(cppwamp-example-chat
-                      PRIVATE CppWAMP::json CppWAMP::coro-headers)
+                      PRIVATE CppWAMP::core CppWAMP::coro-headers)

@@ -42,7 +42,15 @@ CPPWAMP_INLINE bool Blob::operator<(const Blob& other) const
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Blob& blob)
 {
-    internal::Base64::encode(blob.data(), out);
+    struct Sink
+    {
+        using value_type = char;
+        std::ostream& os;
+        void append(const value_type* data, std::size_t n) {os.write(data, n);}
+    };
+
+    Sink sink{out};
+    internal::Base64::encode(blob.data().data(), blob.data().size(), sink);
     return out;
 }
 

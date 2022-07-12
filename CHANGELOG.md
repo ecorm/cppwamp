@@ -1,3 +1,30 @@
+v0.9.0
+======
+Migrated to jsoncons for all serialization.
+
+- Support for CBOR has been added.
+- Codecs have been split into encoders and decoders that can be instantiated
+  and reused for multiple encoding/decoding operations.
+- Simplified passing of encoded WAMP messages between Peer and AsioTransport.
+- Added `toString` free functions for dumping `Variant`, `Array`, and `Object`
+  as a JSON-formatted `std::string`.
+
+### Breaking Changes
+
+- The `Codec` type requirements have changed. It affects those who used codecs
+  to encode/decode variants outside of the `Session` APIs. This also affects
+  those who have extended CppWAMP to use their own custom codecs.
+- The `Transport` type requirements have changed. It affects those who
+  extended CppWAMP to use their own custom transports.
+- Variant instances are output as true JSON via
+  `operator(ostream&, const Variant&)`. That means strings variants are
+  now output with quotes. Blob variants are now also output with quotes, along
+  with a \u0000 prefix, as if they were being transmitted over WAMP.
+- Session warnings no longer output to `std::cerr` by default.
+  `Session::setWarningHandler` must be explicitly called to re-enable this
+  behavior.
+
+
 v0.8.0
 ======
 Refactored WAMP message processing.

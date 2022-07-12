@@ -1,16 +1,16 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
+                    Copyright Butterfly Energy Systems 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_JSON_HPP
-#define CPPWAMP_JSON_HPP
+#ifndef CPPWAMP_CBOR_HPP
+#define CPPWAMP_CBOR_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the JSON codec. */
+    @brief Contains the CBOR codec. */
 //------------------------------------------------------------------------------
 
 #include <istream>
@@ -25,8 +25,8 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** JSON encoder.
-    This class uses [jsoncons][1] to serialize JSON payloads from Variant
+/** CBOR encoder.
+    This class uses [jsoncons][1] to serialize CBOR payloads from Variant
     instances.
     [1]: https://github.com/danielaparker/jsoncons
 
@@ -36,17 +36,17 @@ namespace wamp
     @tparam C The output category type (deduced). */
 //------------------------------------------------------------------------------
 template <typename O, typename C = OutputCategoryTypeOf<O>>
-class CPPWAMP_API BasicJsonEncoder
+class CPPWAMP_API BasicCborEncoder
 {
 public:
     using Output = O;
     using OutputCategory = C;
 
     /** Default constructor. */
-    BasicJsonEncoder();
+    BasicCborEncoder();
 
     /** Destructor. */
-    ~BasicJsonEncoder();
+    ~BasicCborEncoder();
 
     /** Serializes from the given variant to the given output
         (it does not first clear the output, by design). */
@@ -57,19 +57,51 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-/// JSON encoder type that encodes into a std::string. */
-using JsonStringEncoder = BasicJsonEncoder<std::string>;
+//------------------------------------------------------------------------------
+/** CBOR encoder specialization for streams.
+    This class uses [jsoncons][1] to serialize CBOR payloads from Variant
+    instances.
+    [1]: https://github.com/danielaparker/jsoncons
 
-/// JSON encoder type that encodes into a MessageBuffer. */
-using JsonBufferEncoder = BasicJsonEncoder<MessageBuffer>;
+    Meets the requirements of the @ref CodecEncoder concept.
 
-/// JSON encoder type that encodes into a std::ostream. */
-using JsonStreamEncoder = BasicJsonEncoder<std::ostream>;
+    @tparam O The output type in which to encode. */
+//------------------------------------------------------------------------------
+template <typename O>
+class CPPWAMP_API BasicCborEncoder<O, StreamOutputCategory>
+{
+public:
+    using Output = O;
+    using OutputCategory = StreamOutputCategory;
+
+    /** Default constructor. */
+    BasicCborEncoder();
+
+    /** Destructor. */
+    ~BasicCborEncoder();
+
+    /** Serializes from the given variant to the given output
+        (it does not first clear the output, by design). */
+    void encode(const Variant& variant, Output& output);
+
+private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+/// CBOR encoder type that encodes into a std::string. */
+using CborStringEncoder = BasicCborEncoder<std::string>;
+
+/// CBOR encoder type that encodes into a MessageBuffer. */
+using CborBufferEncoder = BasicCborEncoder<MessageBuffer>;
+
+/// CBOR encoder type that encodes into a std::ostream. */
+using CborStreamEncoder = BasicCborEncoder<std::ostream>;
 
 
 //------------------------------------------------------------------------------
-/** JSON decoder.
-    This class uses [jsoncons][1] to deserialize JSON payloads into Variant
+/** CBOR decoder.
+    This class uses [jsoncons][1] to deserialize CBOR payloads into Variant
     instances.
     [1]: https://github.com/danielaparker/jsoncons
 
@@ -79,17 +111,17 @@ using JsonStreamEncoder = BasicJsonEncoder<std::ostream>;
     @tparam C The input category type (deduced). */
 //------------------------------------------------------------------------------
 template <typename I, typename C = InputCategoryTypeOf<I>>
-class CPPWAMP_API BasicJsonDecoder
+class CPPWAMP_API BasicCborDecoder
 {
 public:
     using Input = I;
     using InputCategory = C;
 
     /** Default constructor. */
-    BasicJsonDecoder();
+    BasicCborDecoder();
 
     /** Destructor. */
-    ~BasicJsonDecoder();
+    ~BasicCborDecoder();
 
     /** Deserializes from the given input to the given variant. */
     void decode(const Input& input, Variant& variant);
@@ -100,8 +132,8 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/** JSON decoder specialization for stream inputs.
-    This class uses [jsoncons][1] to deserialize JSON payloads into Variant
+/** CBOR decoder specialization for stream inputs.
+    This class uses [jsoncons][1] to deserialize CBOR payloads into Variant
     instances.
     [1]: https://github.com/danielaparker/jsoncons
 
@@ -110,58 +142,57 @@ private:
     @tparam I The input stream type from which to decode. */
 //------------------------------------------------------------------------------
 template <typename I>
-class CPPWAMP_API BasicJsonDecoder<I, StreamInputCategory>
+class CPPWAMP_API BasicCborDecoder<I, StreamInputCategory>
 {
 public:
     using Input = I;
     using InputCategory = StreamInputCategory;
 
     /** Default constructor. */
-    BasicJsonDecoder();
+    BasicCborDecoder();
 
     /** Destructor. */
-    ~BasicJsonDecoder();
+    ~BasicCborDecoder();
 
     /** Deserializes from the given input stream to the given variant. */
     void decode(Input& input, Variant& variant);
 
 private:
     class Impl;
-    Impl* impl_;
+    std::unique_ptr<Impl> impl_;
 };
 
-/// JSON decoder type that decodes from a std::string. */
-using JsonStringDecoder = BasicJsonDecoder<std::string>;
+/// CBOR decoder type that decodes from a std::string. */
+using CborStringDecoder = BasicCborDecoder<std::string>;
 
-/// JSON decoder type that decodes from a MessageBuffer. */
-using JsonBufferDecoder = BasicJsonDecoder<MessageBuffer>;
+/// CBOR decoder type that decodes from a MessageBuffer. */
+using CborBufferDecoder = BasicCborDecoder<MessageBuffer>;
 
-/// JSON decoder type that decodes from a std::ostream. */
-using JsonStreamDecoder = BasicJsonDecoder<std::istream>;
-
+/// CBOR decoder type that decodes from a std::istream. */
+using CborStreamDecoder = BasicCborDecoder<std::istream>;
 
 //------------------------------------------------------------------------------
-/** JSON format tag type.
+/** CBOR format tag type.
     Meets the requirements of the @ref CodecFormat concept. */
 //------------------------------------------------------------------------------
-struct Json
+struct Cbor
 {
     template <typename TOutput,
-              typename TOutputCategory = OutputCategoryTypeOf<TOutput>>
-    using Encoder = BasicJsonEncoder<TOutput, TOutputCategory>;
+             typename TOutputCategory = OutputCategoryTypeOf<TOutput>>
+    using Encoder = BasicCborEncoder<TOutput, TOutputCategory>;
 
     template <typename TInput,
-              typename TInputCategory = InputCategoryTypeOf<TInput>>
-    using Decoder = BasicJsonDecoder<TInput, TInputCategory>;
+             typename TInputCategory = InputCategoryTypeOf<TInput>>
+    using Decoder = BasicCborDecoder<TInput, TInputCategory>;
 
     /** Obtains a numeric identifier associated with this codec. */
-    static constexpr int id() {return KnownCodecIds::json();}
+    static constexpr int id() {return KnownCodecIds::cbor();}
 };
 
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-    #include "internal/json.ipp"
+#include "internal/cbor.ipp"
 #endif
 
-#endif // CPPWAMP_JSON_HPP
+#endif // CPPWAMP_CBOR_HPP

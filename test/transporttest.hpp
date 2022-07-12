@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
+              Copyright Butterfly Energy Systems 2014-2015, 2022.
            Distributed under the Boost Software License, Version 1.0.
               (See accompanying file LICENSE_1_0.txt or copy at
                     http://www.boost.org/LICENSE_1_0.txt)
@@ -122,6 +122,14 @@ struct LoopbackFixture
 };
 
 //------------------------------------------------------------------------------
+MessageBuffer makeMessageBuffer(const std::string& str)
+{
+    using MessageBufferByte = typename MessageBuffer::value_type;
+    auto data = reinterpret_cast<const MessageBufferByte*>(str.data());
+    return MessageBuffer(data, data + str.size());
+}
+
+//------------------------------------------------------------------------------
 template <typename TFixture>
 void checkConnection(TFixture& f, int expectedCodec,
         size_t clientMaxRxLength = 64*1024, size_t serverMaxRxLength = 64*1024)
@@ -157,22 +165,17 @@ template <typename TFixture>
 void checkSendReply(TFixture& f,
                     typename TFixture::TransportPtr sender,
                     typename TFixture::TransportPtr receiver,
-                    const std::string& message,
-                    const std::string& reply)
+                    const MessageBuffer& message,
+                    const MessageBuffer& reply)
 {
-    using Transport = typename TFixture::Transport;
-    using Buffer    = typename Transport::Buffer;
-
     bool receivedMessage = false;
     bool receivedReply = false;
     receiver->start(
-        [&](Buffer buf)
+        [&](MessageBuffer buf)
         {
             receivedMessage = true;
-            CHECK( message == buf->data() );
-            auto sendBuf = receiver->getBuffer();
-            sendBuf->write(reply.data(), reply.size());
-            receiver->send(std::move(sendBuf));
+            CHECK( message == buf );
+            receiver->send(reply);
         },
         [&](std::error_code ec)
         {
@@ -180,10 +183,10 @@ void checkSendReply(TFixture& f,
         });
 
     sender->start(
-        [&](Buffer buf)
+        [&](MessageBuffer buf)
         {
             receivedReply = true;
-            CHECK( reply == buf->data() );
+            CHECK( reply == buf );
             f.disconnect();
         },
         [&](std::error_code ec)
@@ -191,9 +194,7 @@ void checkSendReply(TFixture& f,
             CHECK( ec == TransportErrc::aborted );
         });
 
-    auto sendBuf = sender->getBuffer();
-    sendBuf->write(message.data(), message.size());
-    sender->send(std::move(sendBuf));
+    sender->send(message);
 
     REQUIRE_NOTHROW( f.run() );
 
@@ -203,8 +204,8 @@ void checkSendReply(TFixture& f,
 
 //------------------------------------------------------------------------------
 template <typename TFixture>
-void checkSendReply(TFixture& f, const std::string& message,
-                    const std::string& reply)
+void checkSendReply(TFixture& f, const MessageBuffer& message,
+                    const MessageBuffer& reply)
 {
     checkSendReply(f, f.client, f.server, message, reply);
 }
@@ -214,24 +215,20 @@ template <typename TFixture>
 void checkCommunications(TFixture& f)
 {
     using TransportPtr = typename TFixture::TransportPtr;
-    using Transport    = typename TFixture::Transport;
-    using Buffer       = typename Transport::Buffer;
 
     TransportPtr sender = f.client;
     TransportPtr receiver = f.server;
-    std::string message = "Hello";
-    std::string reply = "World";
+    auto message = makeMessageBuffer("Hello");
+    auto reply = makeMessageBuffer("World");
     bool receivedMessage = false;
     bool receivedReply = false;
 
     receiver->start(
-        [&](Buffer buf)
+        [&](MessageBuffer buf)
         {
             receivedMessage = true;
-            CHECK( message == buf->data() );
-            auto sendBuf = receiver->getBuffer();
-            sendBuf->write(reply.data(), reply.size());
-            receiver->send(std::move(sendBuf));
+            CHECK( message == buf );
+            receiver->send(reply);
         },
         [&](std::error_code ec)
         {
@@ -239,19 +236,17 @@ void checkCommunications(TFixture& f)
         });
 
     sender->start(
-        [&](Buffer buf)
+        [&](MessageBuffer buf)
         {
             receivedReply = true;
-            CHECK( reply == buf->data() );
+            CHECK( reply == buf );
         },
         [&](std::error_code ec)
         {
             CHECK( ec == TransportErrc::aborted );
         });
 
-    auto sendBuf = sender->getBuffer();
-    sendBuf->write(message.data(), message.size());
-    sender->send(std::move(sendBuf));
+    sender->send(message);
 
     while (!receivedReply)
     {
@@ -266,12 +261,12 @@ void checkCommunications(TFixture& f)
     // Another client connects to the same endpoint
     TransportPtr server2;
     TransportPtr client2;
-    std::string message2 = "Hola";
-    std::string reply2 = "Mundo";
+    auto message2 = makeMessageBuffer("Hola");
+    auto reply2 = makeMessageBuffer("Mundo");
     bool receivedMessage2 = false;
     bool receivedReply2 = false;
-    message = "Bonjour";
-    reply = "Le Monde";
+    message = makeMessageBuffer("Bonjour");
+    reply = makeMessageBuffer("Le Monde");
     receivedMessage = false;
     receivedReply = false;
 
@@ -308,13 +303,11 @@ void checkCommunications(TFixture& f)
 
     // The two client/server pairs communicate independently
     receiver2->start(
-        [&](Buffer buf)
+        [&](MessageBuffer buf)
         {
             receivedMessage2 = true;
-            CHECK( message2 == buf->data() );
-            auto sendBuf = receiver2->getBuffer();
-            sendBuf->write(reply2.data(), reply2.size());
-            receiver2->send(std::move(sendBuf));
+            CHECK( message2 == buf );
+            receiver2->send(reply2);
         },
         [&](std::error_code ec)
         {
@@ -322,10 +315,10 @@ void checkCommunications(TFixture& f)
         });
 
     sender2->start(
-        [&](Buffer buf)
+        [&](MessageBuffer buf)
         {
             receivedReply2 = true;
-            CHECK( reply2 == buf->data() );
+            CHECK( reply2 == buf );
             sender2->close();
             receiver2->close();
         },
@@ -334,13 +327,8 @@ void checkCommunications(TFixture& f)
             CHECK( ec == TransportErrc::aborted );
         });
 
-    sendBuf = sender->getBuffer();
-    sendBuf->write(message.data(), message.size());
-    sender->send(std::move(sendBuf));
-
-    sendBuf = sender2->getBuffer();
-    sendBuf->write(message2.data(), message2.size());
-    sender2->send(std::move(sendBuf));
+    sender->send(message);
+    sender2->send(message2);
 
     while (!receivedReply || !receivedReply2)
     {
@@ -366,14 +354,12 @@ void checkConsecutiveSendReceive(
         typename TFixture::TransportPtr& sender,
         typename TFixture::TransportPtr& receiver)
 {
-    using Buffer = typename TFixture::Transport::Buffer;
-
-    std::vector<std::string> messages;
+    std::vector<MessageBuffer> messages;
     for (int i=0; i<100; ++i)
         messages.emplace_back(i, 'A' + i);
 
     sender->start(
-        [&](Buffer)
+        [&](MessageBuffer)
         {
             FAIL( "Unexpected receive" );
         },
@@ -385,9 +371,9 @@ void checkConsecutiveSendReceive(
     size_t count = 0;
 
     receiver->start(
-        [&](Buffer buf)
+        [&](MessageBuffer buf)
         {
-            REQUIRE( messages.at(count) == buf->data() );
+            REQUIRE( messages.at(count) == buf );
             if (++count == messages.size())
             {
                 f.disconnect();
@@ -399,11 +385,7 @@ void checkConsecutiveSendReceive(
         });
 
     for (const auto& msg: messages)
-    {
-        auto buf = sender->getBuffer();
-        buf->write(msg.data(), msg.size());
-        sender->send(std::move(buf));
-    }
+        sender->send(msg);
 
     CHECK_NOTHROW( f.run() );
 }
@@ -483,12 +465,11 @@ void checkCancelConnect(TFixture& f)
 template <typename TFixture>
 void checkCancelReceive(TFixture& f)
 {
-    using Buffer = typename TFixture::Transport::Buffer;
     WHEN( "a receive operation is in progress" )
     {
         bool transportFailed = false;
         f.client->start(
-            [&](Buffer)
+            [&](MessageBuffer)
             {
                 FAIL( "Unexpected receive" );
             },
@@ -499,7 +480,7 @@ void checkCancelReceive(TFixture& f)
             });
 
         f.server->start(
-            [&](Buffer)
+            [&](MessageBuffer)
             {
                 FAIL( "Unexpected receive" );
             },
@@ -530,7 +511,6 @@ template <typename TFixture>
 void checkCancelSend(TFixture& f)
 {
     using TransportPtr = typename TFixture::TransportPtr;
-    using Buffer       = typename TFixture::Transport::Buffer;
 
     f.lstn.establish([&](std::error_code ec, int, TransportPtr transport)
     {
@@ -552,7 +532,7 @@ void checkCancelSend(TFixture& f)
     WHEN( "a send operation is in progress" )
     {
         f.client->start(
-            [&](Buffer)
+            [&](MessageBuffer)
             {
                 FAIL( "Unexpected receive" );
             },
@@ -561,10 +541,8 @@ void checkCancelSend(TFixture& f)
                 CHECK( ec == TransportErrc::aborted );
             });
 
-        auto buf = f.client->getBuffer();
-        std::string str(f.client->maxSendLength(), 'a');
-        buf->write(str.data(), str.size());
-        f.client->send(buf);
+        MessageBuffer message(f.client->maxSendLength(), 'a');
+        f.client->send(message);
         REQUIRE_NOTHROW( f.cctx.poll() );
         f.cctx.reset();
 

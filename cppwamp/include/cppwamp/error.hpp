@@ -107,6 +107,14 @@ struct CPPWAMP_API Conversion : public BadType
     explicit Conversion(const std::string& what);
 };
 
+//------------------------------------------------------------------------------
+/** Exception type thrown when codec deserialization fails. */
+//------------------------------------------------------------------------------
+struct CPPWAMP_API Decode: public std::runtime_error
+{
+    explicit Decode(const std::string& what);
+};
+
 } // namespace error
 
 

@@ -101,6 +101,14 @@ CPPWAMP_INLINE Conversion::Conversion(const std::string& what)
     : BadType("wamp::error::Conversion: " + what)
 {}
 
+//------------------------------------------------------------------------------
+// error::Decode exception
+//------------------------------------------------------------------------------
+
+CPPWAMP_INLINE Decode::Decode(const std::string& what)
+    : std::runtime_error("wamp::error::Decode: " + what)
+{}
+
 
 } // namespace error
 

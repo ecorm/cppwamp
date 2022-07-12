@@ -10,10 +10,14 @@ set(HEADERS
     include/cppwamp/asiodefs.hpp
     include/cppwamp/asyncresult.hpp
     include/cppwamp/blob.hpp
+    include/cppwamp/cbor.hpp
     include/cppwamp/codec.hpp
     include/cppwamp/connector.hpp
     include/cppwamp/conversionaccess.hpp
     include/cppwamp/error.hpp
+    include/cppwamp/json.hpp
+    include/cppwamp/messagebuffer.hpp
+    include/cppwamp/msgpack.hpp
     include/cppwamp/null.hpp
     include/cppwamp/options.hpp
     include/cppwamp/payload.hpp
@@ -36,12 +40,6 @@ set(HEADERS
     include/cppwamp/wampdefs.hpp
     include/cppwamp/coro/corosession.hpp
     include/cppwamp/coro/corounpacker.hpp
-    include/cppwamp/json/api.hpp
-    include/cppwamp/json/json.hpp
-    include/cppwamp/json/internal/json.ipp
-    include/cppwamp/msgpack/api.hpp
-    include/cppwamp/msgpack/msgpack.hpp
-    include/cppwamp/msgpack/internal/msgpack.ipp
     include/cppwamp/internal/asynctask.hpp
     include/cppwamp/internal/asioconnector.hpp
     include/cppwamp/internal/asioendpoint.hpp
@@ -56,6 +54,7 @@ set(HEADERS
     include/cppwamp/internal/config.hpp
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/integersequence.hpp
+    include/cppwamp/internal/jsonencoding.hpp
     include/cppwamp/internal/messagetraits.hpp
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/peer.hpp
@@ -68,7 +67,8 @@ set(HEADERS
     include/cppwamp/internal/tcpopener.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
-    include/cppwamp/internal/variantbuilder.hpp
+    include/cppwamp/internal/variantdecoding.hpp
+    include/cppwamp/internal/variantencoding.hpp
     include/cppwamp/internal/varianttraits.hpp
     include/cppwamp/internal/variantvisitors.hpp
     include/cppwamp/internal/wampmessage.hpp
@@ -83,8 +83,11 @@ set(HEADERS
 
 set(INLINES
     include/cppwamp/internal/blob.ipp
+    include/cppwamp/internal/cbor.ipp
     include/cppwamp/internal/error.ipp
+    include/cppwamp/internal/json.ipp
     include/cppwamp/internal/messagetraits.ipp
+    include/cppwamp/internal/msgpack.ipp
     include/cppwamp/internal/peerdata.ipp
     include/cppwamp/internal/registration.ipp
     include/cppwamp/internal/session.ipp
@@ -112,6 +115,10 @@ target_link_libraries(cppwamp-core-headers
     INTERFACE "$<TARGET_NAME_IF_EXISTS:Boost::headers>"
               "$<TARGET_NAME_IF_EXISTS:Boost::system>"
               "$<TARGET_NAME_IF_EXISTS:Threads::Threads>")
+if(CPPWAMP_OPT_HEADERS_ONLY)
+    target_link_libraries(cppwamp-core-headers
+        INTERFACE "$<TARGET_NAME_IF_EXISTS:jsoncons>")
+endif()
 set_target_properties(cppwamp-core-headers PROPERTIES EXPORT_NAME headers)
 add_library(CppWAMP::core-headers ALIAS cppwamp-core-headers)
 
@@ -148,9 +155,12 @@ else()
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>)
     target_link_libraries(cppwamp-core
-        PUBLIC "$<TARGET_NAME_IF_EXISTS:Boost::headers>"
-               "$<TARGET_NAME_IF_EXISTS:Boost::system>"
-               "$<TARGET_NAME_IF_EXISTS:Threads::Threads>")
+        PUBLIC
+            "$<TARGET_NAME_IF_EXISTS:Boost::headers>"
+            "$<TARGET_NAME_IF_EXISTS:Boost::system>"
+            "$<TARGET_NAME_IF_EXISTS:Threads::Threads>"
+        PRIVATE
+            "$<TARGET_NAME_IF_EXISTS:jsoncons>")
     set_target_properties(cppwamp-core PROPERTIES
         EXPORT_NAME core
         VERSION ${CppWAMP_VERSION}

@@ -8,4 +8,4 @@
 add_executable(cppwamp-example-timeservice main.cpp)
 
 target_link_libraries(cppwamp-example-timeservice
-                      PRIVATE CppWAMP::json CppWAMP::coro-headers)
+                      PRIVATE CppWAMP::core CppWAMP::coro-headers)

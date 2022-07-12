@@ -83,11 +83,11 @@ protected:
             std::weak_ptr<Peer> self(this->shared_from_this());
 
             transport_->start(
-                [self](Buffer buf)
+                [self](MessageBuffer buffer)
                 {
                     auto me = self.lock();
                     if (me)
-                        me->onTransportRx(buf);
+                        me->onTransportRx(std::move(buffer));
                 },
                 [self](std::error_code ec)
                 {
@@ -219,9 +219,10 @@ private:
         RequestOptions options;
     };
 
-    using Buffer     = typename Transport::Buffer;
     using RequestKey = typename Message::RequestKey;
     using RequestMap = std::map<RequestKey, RequestRecord>;
+    using EncoderType = Encoder<Codec, MessageBuffer>;
+    using DecoderType = Decoder<Codec, MessageBuffer>;
 
     void setState(State state)
     {
@@ -240,19 +241,19 @@ private:
 
         auto requestId = setMessageRequestId(msg);
 
-        auto buf = newBuffer(msg);
-        if (buf->length() > transport_->maxSendLength())
+        MessageBuffer buffer;
+        encoder_.encode(msg.fields(), buffer);
+        if (buffer.size() > transport_->maxSendLength())
             throw error::Failure(make_error_code(TransportErrc::badTxLength));
 
         if (handler)
         {
-            requestMap_[msg.requestKey()] =
-                RequestRecord(std::move(handler), opts);
+            requestMap_[msg.requestKey()] = RequestRecord(std::move(handler),
+                                                          opts);
         }
 
         trace(msg, true);
-        transport_->send(std::move(buf));
-
+        transport_->send(std::move(buffer));
         return requestId;
     }
 
@@ -276,14 +277,7 @@ private:
         return ++nextRequestId_;
     }
 
-    Buffer newBuffer(const Message& msg)
-    {
-        Buffer buf = transport_->getBuffer();
-        Codec::encodeBuffer(msg.fields(), *buf);
-        return buf;
-    }
-
-    void onTransportRx(Buffer buf)
+    void onTransportRx(MessageBuffer buffer)
     {
         if (state_ == State::establishing ||
             state_ == State::authenticating ||
@@ -291,7 +285,7 @@ private:
             state_ == State::shuttingDown)
         {
             Variant v;
-            if (checkError(decode(buf, v)) &&
+            if (checkError(decode(buffer, v)) &&
                 check(v.is<Array>(), ProtocolErrc::badSchema))
             {
                 std::error_code ec;
@@ -306,12 +300,12 @@ private:
         }
     }
 
-    std::error_code decode(const Buffer& buf, Variant& v)
+    std::error_code decode(const MessageBuffer& buffer, Variant& variant)
     {
         auto result = make_error_code(ProtocolErrc::success);
         try
         {
-            Codec::decodeBuffer(*buf, v);
+            decoder_.decode(buffer, variant);
         }
         catch(const error::Decode& e)
         {
@@ -526,12 +520,13 @@ private:
 
     TransportPtr transport_;
     AnyExecutor executor_;
+    EncoderType encoder_;
+    DecoderType decoder_;
     AsyncTask<std::string> traceHandler_;
     AsyncTask<State> stateChangeHandler_;
     State state_ = State::closed;
     RequestMap requestMap_;
     RequestId nextRequestId_ = 0;
-    Buffer rxBuffer_;
 
     static constexpr RequestId maxRequestId_ = 9007199254740992ull;
 };
