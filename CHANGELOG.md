@@ -1,3 +1,8 @@
+v0.9.1
+======
+Add -fPIC when building vendorized static Boost libraries.
+
+
 v0.9.0
 ======
 Migrated to jsoncons for all serialization.
