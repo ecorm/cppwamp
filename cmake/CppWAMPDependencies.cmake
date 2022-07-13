@@ -96,7 +96,7 @@ function(cppwamp_build_boost source_dir build_dir install_dir)
     if(BUILD_SHARED_LIBS)
         list(APPEND CPPWAMP_BOOST_BUILD_ARGS "link=shared")
     else()
-        list(APPEND CPPWAMP_BOOST_BUILD_ARGS "link=static")
+        list(APPEND CPPWAMP_BOOST_BUILD_ARGS "link=static" "cxxflags=-fPIC")
     endif()
 
     list(APPEND CPPWAMP_BOOST_BUILD_ARGS "stage")

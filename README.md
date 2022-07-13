@@ -401,7 +401,7 @@ the `-DCPPWAMP_OPT_HEADERS_ONLY` option is omitted.
 ```bash
 git clone https://github.com/ecorm/cppwamp
 cd cppwamp
-cmake -DCPPWAMP_OPT_VENDORIZE -S . -B ./_build
+cmake -DCPPWAMP_OPT_VENDORIZE=On -S . -B ./_build
 cmake --build ./_build
 cmake --install ./_build --prefix ./_stage/cppwamp
 ```
