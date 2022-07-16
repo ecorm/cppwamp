@@ -14,6 +14,7 @@ var dir_15a40f4932549f0fe4696fd8fd3add66 =
     [ "config.hpp", "config_8hpp_source.html", null ],
     [ "endian.hpp", "endian_8hpp_source.html", null ],
     [ "integersequence.hpp", "integersequence_8hpp_source.html", null ],
+    [ "jsonencoding.hpp", "jsonencoding_8hpp_source.html", null ],
     [ "messagetraits.hpp", "messagetraits_8hpp_source.html", null ],
     [ "passkey.hpp", "passkey_8hpp_source.html", null ],
     [ "peer.hpp", "peer_8hpp_source.html", null ],
@@ -26,7 +27,8 @@ var dir_15a40f4932549f0fe4696fd8fd3add66 =
     [ "tcpopener.hpp", "tcpopener_8hpp_source.html", null ],
     [ "udsacceptor.hpp", "udsacceptor_8hpp_source.html", null ],
     [ "udsopener.hpp", "udsopener_8hpp_source.html", null ],
-    [ "variantbuilder.hpp", "variantbuilder_8hpp_source.html", null ],
+    [ "variantdecoding.hpp", "variantdecoding_8hpp_source.html", null ],
+    [ "variantencoding.hpp", "variantencoding_8hpp_source.html", null ],
     [ "varianttraits.hpp", "varianttraits_8hpp_source.html", null ],
     [ "variantvisitors.hpp", "variantvisitors_8hpp_source.html", null ],
     [ "wampmessage.hpp", "wampmessage_8hpp_source.html", null ]

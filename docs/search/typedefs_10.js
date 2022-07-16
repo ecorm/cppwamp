@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['valuetype_866',['ValueType',['../classwamp_1_1_async_result.html#a35781c5a640113d817f3773b83dfd6a7',1,'wamp::AsyncResult']]],
-  ['valuetypeof_867',['ValueTypeOf',['../namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d',1,'wamp']]]
+  ['truetype_969',['TrueType',['../namespacewamp.html#af79912569893dfb927f34a7796080f25',1,'wamp']]]
 ];

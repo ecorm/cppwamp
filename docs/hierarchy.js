@@ -1,11 +1,25 @@
 var hierarchy =
 [
     [ "wamp::AsyncResult< T >", "classwamp_1_1_async_result.html", null ],
+    [ "wamp::BasicCborDecoder< I, C >", "classwamp_1_1_basic_cbor_decoder.html", null ],
+    [ "wamp::BasicCborDecoder< I, StreamInputCategory >", "classwamp_1_1_basic_cbor_decoder_3_01_i_00_01_stream_input_category_01_4.html", null ],
+    [ "wamp::BasicCborEncoder< O, C >", "classwamp_1_1_basic_cbor_encoder.html", null ],
+    [ "wamp::BasicCborEncoder< O, StreamOutputCategory >", "classwamp_1_1_basic_cbor_encoder_3_01_o_00_01_stream_output_category_01_4.html", null ],
     [ "wamp::BasicCoroEventUnpacker< TSlot, TArgs >", "classwamp_1_1_basic_coro_event_unpacker.html", null ],
     [ "wamp::BasicCoroInvocationUnpacker< TSlot, TResult, TArgs >", "classwamp_1_1_basic_coro_invocation_unpacker.html", null ],
     [ "wamp::BasicEventUnpacker< TSlot, TArgs >", "classwamp_1_1_basic_event_unpacker.html", null ],
     [ "wamp::BasicInvocationUnpacker< TSlot, TResult, TArgs >", "classwamp_1_1_basic_invocation_unpacker.html", null ],
+    [ "wamp::BasicJsonDecoder< I, C >", "classwamp_1_1_basic_json_decoder.html", null ],
+    [ "wamp::BasicJsonDecoder< I, StreamInputCategory >", "classwamp_1_1_basic_json_decoder_3_01_i_00_01_stream_input_category_01_4.html", null ],
+    [ "wamp::BasicJsonEncoder< O, C >", "classwamp_1_1_basic_json_encoder.html", null ],
+    [ "wamp::BasicMsgpackDecoder< I, C >", "classwamp_1_1_basic_msgpack_decoder.html", null ],
+    [ "wamp::BasicMsgpackDecoder< I, StreamInputCategory >", "classwamp_1_1_basic_msgpack_decoder_3_01_i_00_01_stream_input_category_01_4.html", null ],
+    [ "wamp::BasicMsgpackEncoder< O, C >", "classwamp_1_1_basic_msgpack_encoder.html", null ],
+    [ "wamp::BasicMsgpackEncoder< O, StreamOutputCategory >", "classwamp_1_1_basic_msgpack_encoder_3_01_o_00_01_stream_output_category_01_4.html", null ],
     [ "wamp::Blob", "classwamp_1_1_blob.html", null ],
+    [ "wamp::ByteArrayInputCategory", "namespacewamp.html#structwamp_1_1_byte_array_input_category", null ],
+    [ "wamp::ByteContainerOutputCategory", "namespacewamp.html#structwamp_1_1_byte_container_output_category", null ],
+    [ "wamp::Cbor", "structwamp_1_1_cbor.html", null ],
     [ "wamp::Connector", "classwamp_1_1_connector.html", null ],
     [ "wamp::ConversionAccess", "classwamp_1_1_conversion_access.html", null ],
     [ "wamp::CoroEventUnpacker< TSlot, TArgs >", "classwamp_1_1_coro_event_unpacker.html", null ],
@@ -30,10 +44,11 @@ var hierarchy =
       ] ]
     ] ],
     [ "wamp::FromVariantConverter", "classwamp_1_1_from_variant_converter.html", null ],
+    [ "wamp::InputCategory< I, Enabled >", "namespacewamp.html#structwamp_1_1_input_category", null ],
     [ "wamp::InvocationUnpacker< TSlot, TArgs >", "classwamp_1_1_invocation_unpacker.html", null ],
-    [ "wamp::Json", "classwamp_1_1_json.html", null ],
+    [ "wamp::Json", "structwamp_1_1_json.html", null ],
     [ "wamp::KnownCodecIds", "structwamp_1_1_known_codec_ids.html", null ],
-    [ "wamp::Msgpack", "classwamp_1_1_msgpack.html", null ],
+    [ "wamp::Msgpack", "structwamp_1_1_msgpack.html", null ],
     [ "wamp::Null", "structwamp_1_1_null.html", null ],
     [ "wamp::Options< TDerived, TMessage >", "classwamp_1_1_options.html", [
       [ "wamp::Payload< TDerived, TMessage >", "classwamp_1_1_payload.html", null ]
@@ -96,6 +111,7 @@ var hierarchy =
       [ "wamp::Topic", "classwamp_1_1_topic.html", null ]
     ] ],
     [ "wamp::Outcome", "classwamp_1_1_outcome.html", null ],
+    [ "wamp::OutputCategory< O, Enabled >", "namespacewamp.html#structwamp_1_1_output_category", null ],
     [ "wamp::Registration", "classwamp_1_1_registration.html", [
       [ "wamp::ScopedRegistration", "classwamp_1_1_scoped_registration.html", null ]
     ] ],
@@ -106,6 +122,8 @@ var hierarchy =
       [ "wamp::CoroSession< TBase >", "classwamp_1_1_coro_session.html", null ],
       [ "wamp::CoroSession< TBase >", "classwamp_1_1_coro_session.html", null ]
     ] ],
+    [ "wamp::StreamInputCategory", "namespacewamp.html#structwamp_1_1_stream_input_category", null ],
+    [ "wamp::StreamOutputCategory", "namespacewamp.html#structwamp_1_1_stream_output_category", null ],
     [ "wamp::Subscription", "classwamp_1_1_subscription.html", [
       [ "wamp::ScopedSubscription", "classwamp_1_1_scoped_subscription.html", null ]
     ] ],
@@ -117,6 +135,8 @@ var hierarchy =
     [ "wamp::ToVariantConverter", "classwamp_1_1_to_variant_converter.html", null ],
     [ "wamp::UdsOptions", "classwamp_1_1_uds_options.html", null ],
     [ "wamp::UdsPath", "classwamp_1_1_uds_path.html", null ],
+    [ "wamp::UnknownInputCategory", "namespacewamp.html#structwamp_1_1_unknown_input_category", null ],
+    [ "wamp::UnknownOutputCategory", "namespacewamp.html#structwamp_1_1_unknown_output_category", null ],
     [ "wamp::Variant", "classwamp_1_1_variant.html", null ],
     [ "wamp::Version", "structwamp_1_1_version.html", null ],
     [ "wamp::Visitor< TResult >", "namespacewamp.html#classwamp_1_1_visitor", null ],

@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['msgpack_2ehpp_564',['msgpack.hpp',['../msgpack_8hpp.html',1,'(Global Namespace)'],['../msgpack_2msgpack_8hpp.html',1,'(Global Namespace)']]]
+  ['messagebuffer_2ehpp_635',['messagebuffer.hpp',['../messagebuffer_8hpp.html',1,'']]],
+  ['msgpack_2ehpp_636',['msgpack.hpp',['../msgpack_8hpp.html',1,'']]]
 ];

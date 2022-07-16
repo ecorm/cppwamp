@@ -99,49 +99,153 @@ $(document).ready(function(){initNavTree('codec_8hpp_source.html',''); initResiz
 <div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
 <div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
 <div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160; </div>
-<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &lt;stdexcept&gt;</span></div>
-<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &lt;string&gt;</span></div>
+<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &lt;istream&gt;</span></div>
+<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &lt;ostream&gt;</span></div>
 <div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160; </div>
-<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
-<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;{</div>
+<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="messagebuffer_8hpp.html">messagebuffer.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="traits_8hpp.html">traits.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="variant_8hpp.html">variant.hpp</a>&quot;</span></div>
 <div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160; </div>
-<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00028"></a><span class="lineno"><a class="line" href="structwamp_1_1_known_codec_ids.html">   28</a></span>&#160;<span class="keyword">struct </span>CPPWAMP_API <a class="code" href="structwamp_1_1_known_codec_ids.html">KnownCodecIds</a></div>
-<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;{</div>
-<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> json() {<span class="keywordflow">return</span> 1;}</div>
-<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> msgpack() {<span class="keywordflow">return</span> 2;}</div>
-<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;};</div>
-<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160; </div>
-<div class="line"><a name="l00034"></a><span class="lineno"><a class="line" href="namespacewamp_1_1error.html">   34</a></span>&#160;<span class="keyword">namespace </span>error</div>
-<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;{</div>
-<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160; </div>
-<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00040"></a><span class="lineno"><a class="line" href="structwamp_1_1error_1_1_decode.html">   40</a></span>&#160;<span class="keyword">struct </span>CPPWAMP_API <a class="code" href="structwamp_1_1error_1_1_decode.html">Decode</a>: <span class="keyword">public</span> std::runtime_error</div>
-<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;{</div>
-<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;    <span class="keyword">explicit</span> <a class="code" href="structwamp_1_1error_1_1_decode.html">Decode</a>(<span class="keyword">const</span> std::string&amp; msg)</div>
-<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;        : std::runtime_error(<span class="stringliteral">&quot;wamp::error::Decode: &quot;</span> + msg)</div>
-<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;    {}</div>
-<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;};</div>
-<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160; </div>
-<div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160;} <span class="comment">// namespace error</span></div>
+<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
+<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;{</div>
+<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160; </div>
+<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00033"></a><span class="lineno"><a class="line" href="structwamp_1_1_known_codec_ids.html">   33</a></span>&#160;<span class="keyword">struct </span>CPPWAMP_API <a class="code" href="structwamp_1_1_known_codec_ids.html">KnownCodecIds</a></div>
+<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;{</div>
+<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> json() {<span class="keywordflow">return</span> 1;}</div>
+<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> msgpack() {<span class="keywordflow">return</span> 2;}</div>
+<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> cbor() {<span class="keywordflow">return</span> 3;}</div>
+<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160;};</div>
+<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160; </div>
+<div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160; </div>
+<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;<span class="comment">//******************************************************************************</span></div>
+<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;<span class="comment">// Encoder</span></div>
+<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;<span class="comment">//******************************************************************************</span></div>
+<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160; </div>
+<div class="line"><a name="l00047"></a><span class="lineno"><a class="line" href="namespacewamp.html">   47</a></span>&#160;<span class="keyword">struct </span><a class="code" href="namespacewamp.html#structwamp_1_1_byte_container_output_category">ByteContainerOutputCategory</a> {};</div>
 <div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160; </div>
-<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;} <span class="comment">// namespace wamp</span></div>
-<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160; </div>
-<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;<span class="preprocessor">#endif // CPPWAMP_CODEC_HPP</span></div>
+<div class="line"><a name="l00050"></a><span class="lineno"><a class="line" href="namespacewamp.html">   50</a></span>&#160;<span class="keyword">struct </span><a class="code" href="namespacewamp.html#structwamp_1_1_stream_output_category">StreamOutputCategory</a> {};</div>
+<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160; </div>
+<div class="line"><a name="l00053"></a><span class="lineno"><a class="line" href="namespacewamp.html">   53</a></span>&#160;<span class="keyword">struct </span><a class="code" href="namespacewamp.html#structwamp_1_1_unknown_output_category">UnknownOutputCategory</a> {};</div>
+<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160; </div>
+<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> O, <span class="keyword">typename</span> Enabled = <span class="keywordtype">void</span>&gt;</div>
+<div class="line"><a name="l00058"></a><span class="lineno"><a class="line" href="namespacewamp.html">   58</a></span>&#160;<span class="keyword">struct </span><a class="code" href="namespacewamp.html#structwamp_1_1_output_category">OutputCategory</a></div>
+<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160;{</div>
+<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;    <span class="keyword">using</span> <a class="code" href="namespacewamp.html#structwamp_1_1_unknown_output_category">type</a> = <a class="code" href="namespacewamp.html#structwamp_1_1_unknown_output_category">UnknownOutputCategory</a>;</div>
+<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;};</div>
+<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160; </div>
+<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> O&gt;</div>
+<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;<span class="keyword">struct </span><a class="code" href="namespacewamp.html#structwamp_1_1_output_category">OutputCategory</a>&lt;O, <a class="code" href="namespacewamp.html#a9806878793b2cdf53fe3a516b1a5bd69">EnableIf</a>&lt;std::is_base_of&lt;std::ostream, O&gt;::value,</div>
+<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;                                  void&gt;&gt;</div>
+<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;{</div>
+<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;    <span class="keyword">using</span> type = <a class="code" href="namespacewamp.html#structwamp_1_1_stream_output_category">StreamOutputCategory</a>;</div>
+<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;};</div>
+<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160; </div>
+<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> O&gt;</div>
+<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;<span class="keyword">struct </span>OutputCategory&lt;O, <a class="code" href="namespacewamp.html#a9806878793b2cdf53fe3a516b1a5bd69">EnableIf</a>&lt;!std::is_base_of&lt;std::ostream, O&gt;::value,</div>
+<div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;                                  void&gt;&gt;</div>
+<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160;{</div>
+<div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160;    <span class="keyword">using</span> type = ByteContainerOutputCategory;</div>
+<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;};</div>
+<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160; </div>
+<div class="line"><a name="l00078"></a><span class="lineno">   78</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> O&gt;</div>
+<div class="line"><a name="l00079"></a><span class="lineno"><a class="line" href="namespacewamp.html#ac23304b303f41e1c59990dd5a8623615">   79</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#ac23304b303f41e1c59990dd5a8623615">OutputCategoryTypeOf</a> = <span class="keyword">typename</span> <a class="code" href="namespacewamp.html#structwamp_1_1_output_category">OutputCategory&lt;ValueTypeOf&lt;O&gt;</a>&gt;::type;</div>
+<div class="line"><a name="l00080"></a><span class="lineno">   80</span>&#160; </div>
+<div class="line"><a name="l00081"></a><span class="lineno">   81</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> F, <span class="keyword">typename</span> O, <span class="keyword">typename</span> C = OutputCategoryTypeOf&lt;O&gt;&gt;</div>
+<div class="line"><a name="l00091"></a><span class="lineno"><a class="line" href="namespacewamp.html#a3a4f63f74b0ede851c60223ecf3674e5">   91</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a3a4f63f74b0ede851c60223ecf3674e5">Encoder</a> = <span class="keyword">typename</span> F::template <a class="code" href="namespacewamp.html#a3a4f63f74b0ede851c60223ecf3674e5">Encoder&lt;ValueTypeOf&lt;O&gt;</a>, C&gt;;</div>
+<div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160; </div>
+<div class="line"><a name="l00093"></a><span class="lineno">   93</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00101"></a><span class="lineno">  101</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00102"></a><span class="lineno">  102</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> TFormat, <span class="keyword">typename</span> TOutput&gt;</div>
+<div class="line"><a name="l00103"></a><span class="lineno"><a class="line" href="namespacewamp.html#a47bb6673f3bae26c63ab24239194bc75">  103</a></span>&#160;<span class="keywordtype">void</span> <a class="code" href="namespacewamp.html#a47bb6673f3bae26c63ab24239194bc75">encode</a>(<span class="keyword">const</span> <a class="code" href="classwamp_1_1_variant.html">Variant</a>&amp; variant, TOutput&amp;&amp; output)</div>
+<div class="line"><a name="l00104"></a><span class="lineno">  104</span>&#160;{</div>
+<div class="line"><a name="l00105"></a><span class="lineno">  105</span>&#160;    <a class="code" href="namespacewamp.html#a3a4f63f74b0ede851c60223ecf3674e5">Encoder&lt;TFormat, TOutput&gt;</a> encoder;</div>
+<div class="line"><a name="l00106"></a><span class="lineno">  106</span>&#160;    encoder.encode(variant, std::forward&lt;TOutput&gt;(output));</div>
+<div class="line"><a name="l00107"></a><span class="lineno">  107</span>&#160;}</div>
+<div class="line"><a name="l00108"></a><span class="lineno">  108</span>&#160; </div>
+<div class="line"><a name="l00109"></a><span class="lineno">  109</span>&#160; </div>
+<div class="line"><a name="l00110"></a><span class="lineno">  110</span>&#160;<span class="comment">//******************************************************************************</span></div>
+<div class="line"><a name="l00111"></a><span class="lineno">  111</span>&#160;<span class="comment">// Decoder</span></div>
+<div class="line"><a name="l00112"></a><span class="lineno">  112</span>&#160;<span class="comment">//******************************************************************************</span></div>
+<div class="line"><a name="l00113"></a><span class="lineno">  113</span>&#160; </div>
+<div class="line"><a name="l00116"></a><span class="lineno"><a class="line" href="namespacewamp.html">  116</a></span>&#160;<span class="keyword">struct </span><a class="code" href="namespacewamp.html#structwamp_1_1_byte_array_input_category">ByteArrayInputCategory</a> {};</div>
+<div class="line"><a name="l00117"></a><span class="lineno">  117</span>&#160; </div>
+<div class="line"><a name="l00119"></a><span class="lineno"><a class="line" href="namespacewamp.html">  119</a></span>&#160;<span class="keyword">struct </span><a class="code" href="namespacewamp.html#structwamp_1_1_stream_input_category">StreamInputCategory</a> {};</div>
+<div class="line"><a name="l00120"></a><span class="lineno">  120</span>&#160; </div>
+<div class="line"><a name="l00122"></a><span class="lineno"><a class="line" href="namespacewamp.html">  122</a></span>&#160;<span class="keyword">struct </span><a class="code" href="namespacewamp.html#structwamp_1_1_unknown_input_category">UnknownInputCategory</a> {};</div>
+<div class="line"><a name="l00123"></a><span class="lineno">  123</span>&#160; </div>
+<div class="line"><a name="l00126"></a><span class="lineno">  126</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> I, <span class="keyword">typename</span> Enabled = <span class="keywordtype">void</span>&gt;</div>
+<div class="line"><a name="l00127"></a><span class="lineno"><a class="line" href="namespacewamp.html">  127</a></span>&#160;<span class="keyword">struct </span><a class="code" href="namespacewamp.html#structwamp_1_1_input_category">InputCategory</a></div>
+<div class="line"><a name="l00128"></a><span class="lineno">  128</span>&#160;{</div>
+<div class="line"><a name="l00129"></a><span class="lineno">  129</span>&#160;    <span class="keyword">using</span> <a class="code" href="namespacewamp.html#structwamp_1_1_unknown_output_category">type</a> = <a class="code" href="namespacewamp.html#structwamp_1_1_unknown_output_category">UnknownOutputCategory</a>;</div>
+<div class="line"><a name="l00130"></a><span class="lineno">  130</span>&#160;};</div>
+<div class="line"><a name="l00131"></a><span class="lineno">  131</span>&#160; </div>
+<div class="line"><a name="l00132"></a><span class="lineno">  132</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> I&gt;</div>
+<div class="line"><a name="l00133"></a><span class="lineno">  133</span>&#160;<span class="keyword">struct </span><a class="code" href="namespacewamp.html#structwamp_1_1_input_category">InputCategory</a>&lt;I, <a class="code" href="namespacewamp.html#a9806878793b2cdf53fe3a516b1a5bd69">EnableIf</a>&lt;std::is_base_of&lt;std::istream, I&gt;::value,</div>
+<div class="line"><a name="l00134"></a><span class="lineno">  134</span>&#160;                                 void&gt;&gt;</div>
+<div class="line"><a name="l00135"></a><span class="lineno">  135</span>&#160;{</div>
+<div class="line"><a name="l00136"></a><span class="lineno">  136</span>&#160;    <span class="keyword">using</span> type = <a class="code" href="namespacewamp.html#structwamp_1_1_stream_input_category">StreamInputCategory</a>;</div>
+<div class="line"><a name="l00137"></a><span class="lineno">  137</span>&#160;};</div>
+<div class="line"><a name="l00138"></a><span class="lineno">  138</span>&#160; </div>
+<div class="line"><a name="l00139"></a><span class="lineno">  139</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> I&gt;</div>
+<div class="line"><a name="l00140"></a><span class="lineno">  140</span>&#160;<span class="keyword">struct </span>InputCategory&lt;I, <a class="code" href="namespacewamp.html#a9806878793b2cdf53fe3a516b1a5bd69">EnableIf</a>&lt;!std::is_base_of&lt;std::istream, I&gt;::value,</div>
+<div class="line"><a name="l00141"></a><span class="lineno">  141</span>&#160;                                 void&gt;&gt;</div>
+<div class="line"><a name="l00142"></a><span class="lineno">  142</span>&#160;{</div>
+<div class="line"><a name="l00143"></a><span class="lineno">  143</span>&#160;    <span class="keyword">using</span> type = ByteArrayInputCategory;</div>
+<div class="line"><a name="l00144"></a><span class="lineno">  144</span>&#160;};</div>
+<div class="line"><a name="l00145"></a><span class="lineno">  145</span>&#160; </div>
+<div class="line"><a name="l00147"></a><span class="lineno">  147</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> I&gt;</div>
+<div class="line"><a name="l00148"></a><span class="lineno"><a class="line" href="namespacewamp.html#a8f560dce7bd9330d1f08570a6b9cd250">  148</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a8f560dce7bd9330d1f08570a6b9cd250">InputCategoryTypeOf</a> = <span class="keyword">typename</span> <a class="code" href="namespacewamp.html#structwamp_1_1_input_category">InputCategory&lt;ValueTypeOf&lt;I&gt;</a>&gt;::type;</div>
+<div class="line"><a name="l00149"></a><span class="lineno">  149</span>&#160; </div>
+<div class="line"><a name="l00150"></a><span class="lineno">  150</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00158"></a><span class="lineno">  158</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00159"></a><span class="lineno">  159</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> F, <span class="keyword">typename</span> I, <span class="keyword">typename</span> C = InputCategoryTypeOf&lt;I&gt;&gt;</div>
+<div class="line"><a name="l00160"></a><span class="lineno"><a class="line" href="namespacewamp.html#a612977014a4cf2e1d8f58406b95d0e6e">  160</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a612977014a4cf2e1d8f58406b95d0e6e">Decoder</a> = <span class="keyword">typename</span> F::template <a class="code" href="namespacewamp.html#a612977014a4cf2e1d8f58406b95d0e6e">Decoder&lt;ValueTypeOf&lt;I&gt;</a>, C&gt;;</div>
+<div class="line"><a name="l00161"></a><span class="lineno">  161</span>&#160; </div>
+<div class="line"><a name="l00162"></a><span class="lineno">  162</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00170"></a><span class="lineno">  170</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00171"></a><span class="lineno">  171</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> TFormat, <span class="keyword">typename</span> TInput&gt;</div>
+<div class="line"><a name="l00172"></a><span class="lineno"><a class="line" href="namespacewamp.html#aeef0cde53f71d755c50833b067dec25c">  172</a></span>&#160;<span class="keywordtype">void</span> <a class="code" href="namespacewamp.html#aeef0cde53f71d755c50833b067dec25c">decode</a>(TInput&amp;&amp; input, <a class="code" href="classwamp_1_1_variant.html">Variant</a>&amp; variant)</div>
+<div class="line"><a name="l00173"></a><span class="lineno">  173</span>&#160;{</div>
+<div class="line"><a name="l00174"></a><span class="lineno">  174</span>&#160;    <a class="code" href="namespacewamp.html#a612977014a4cf2e1d8f58406b95d0e6e">Decoder&lt;TFormat, TInput&gt;</a> decoder;</div>
+<div class="line"><a name="l00175"></a><span class="lineno">  175</span>&#160;    decoder.decode(std::forward&lt;TInput&gt;(input), variant);</div>
+<div class="line"><a name="l00176"></a><span class="lineno">  176</span>&#160;}</div>
+<div class="line"><a name="l00177"></a><span class="lineno">  177</span>&#160; </div>
+<div class="line"><a name="l00178"></a><span class="lineno">  178</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00179"></a><span class="lineno">  179</span>&#160; </div>
+<div class="line"><a name="l00180"></a><span class="lineno">  180</span>&#160;<span class="preprocessor">#endif // CPPWAMP_CODEC_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
+<div class="ttc" id="anamespacewamp_html_structwamp_1_1_byte_array_input_category"><div class="ttname"><a href="namespacewamp.html#structwamp_1_1_byte_array_input_category">wamp::ByteArrayInputCategory</a></div><div class="ttdoc">Input category for contiguous byte arrays which provide data and size member functions.</div><div class="ttdef"><b>Definition:</b> codec.hpp:116</div></div>
+<div class="ttc" id="anamespacewamp_html_structwamp_1_1_stream_output_category"><div class="ttname"><a href="namespacewamp.html#structwamp_1_1_stream_output_category">wamp::StreamOutputCategory</a></div><div class="ttdoc">Output category for output streams of bytes.</div><div class="ttdef"><b>Definition:</b> codec.hpp:50</div></div>
+<div class="ttc" id="aclasswamp_1_1_variant_html"><div class="ttname"><a href="classwamp_1_1_variant.html">wamp::Variant</a></div><div class="ttdoc">Discriminated union container that represents a JSON value.</div><div class="ttdef"><b>Definition:</b> variant.hpp:135</div></div>
+<div class="ttc" id="amessagebuffer_8hpp_html"><div class="ttname"><a href="messagebuffer_8hpp.html">messagebuffer.hpp</a></div><div class="ttdoc">Contains the MessageBuffer definition.</div></div>
 <div class="ttc" id="aapi_8hpp_html"><div class="ttname"><a href="api_8hpp.html">api.hpp</a></div><div class="ttdoc">Defines macros related to exporting/importing APIs.</div></div>
+<div class="ttc" id="anamespacewamp_html_structwamp_1_1_input_category"><div class="ttname"><a href="namespacewamp.html#structwamp_1_1_input_category">wamp::InputCategory</a></div><div class="ttdoc">Traits class that determines the category type that best matches the given input type.</div><div class="ttdef"><b>Definition:</b> codec.hpp:127</div></div>
+<div class="ttc" id="anamespacewamp_html_structwamp_1_1_unknown_output_category"><div class="ttname"><a href="namespacewamp.html#structwamp_1_1_unknown_output_category">wamp::UnknownOutputCategory</a></div><div class="ttdoc">Type used to indicate output category detection failed.</div><div class="ttdef"><b>Definition:</b> codec.hpp:53</div></div>
+<div class="ttc" id="anamespacewamp_html_a47bb6673f3bae26c63ab24239194bc75"><div class="ttname"><a href="namespacewamp.html#a47bb6673f3bae26c63ab24239194bc75">wamp::encode</a></div><div class="ttdeci">void encode(const Variant &amp;variant, TOutput &amp;&amp;output)</div><div class="ttdoc">Encodes the given variant to the given byte container or stream.</div><div class="ttdef"><b>Definition:</b> codec.hpp:103</div></div>
+<div class="ttc" id="anamespacewamp_html_aeef0cde53f71d755c50833b067dec25c"><div class="ttname"><a href="namespacewamp.html#aeef0cde53f71d755c50833b067dec25c">wamp::decode</a></div><div class="ttdeci">void decode(TInput &amp;&amp;input, Variant &amp;variant)</div><div class="ttdoc">Decodes from the given byte sequence or stream to the given variant.</div><div class="ttdef"><b>Definition:</b> codec.hpp:172</div></div>
+<div class="ttc" id="anamespacewamp_html_structwamp_1_1_stream_input_category"><div class="ttname"><a href="namespacewamp.html#structwamp_1_1_stream_input_category">wamp::StreamInputCategory</a></div><div class="ttdoc">Input category for input streams of bytes.</div><div class="ttdef"><b>Definition:</b> codec.hpp:119</div></div>
 <div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
-<div class="ttc" id="astructwamp_1_1error_1_1_decode_html"><div class="ttname"><a href="structwamp_1_1error_1_1_decode.html">wamp::error::Decode</a></div><div class="ttdoc">Exception type thrown when codec deserialization fails.</div><div class="ttdef"><b>Definition:</b> codec.hpp:40</div></div>
-<div class="ttc" id="astructwamp_1_1_known_codec_ids_html"><div class="ttname"><a href="structwamp_1_1_known_codec_ids.html">wamp::KnownCodecIds</a></div><div class="ttdoc">IDs used by rawsocket transports to negotiate the serializer.</div><div class="ttdef"><b>Definition:</b> codec.hpp:28</div></div>
+<div class="ttc" id="anamespacewamp_html_structwamp_1_1_output_category"><div class="ttname"><a href="namespacewamp.html#structwamp_1_1_output_category">wamp::OutputCategory</a></div><div class="ttdoc">Traits class that determines the category type that best matches the given output type.</div><div class="ttdef"><b>Definition:</b> codec.hpp:58</div></div>
+<div class="ttc" id="anamespacewamp_html_ac23304b303f41e1c59990dd5a8623615"><div class="ttname"><a href="namespacewamp.html#ac23304b303f41e1c59990dd5a8623615">wamp::OutputCategoryTypeOf</a></div><div class="ttdeci">typename OutputCategory&lt; ValueTypeOf&lt; O &gt; &gt;::type OutputCategoryTypeOf</div><div class="ttdoc">Yields the category type that best matches the given output type.</div><div class="ttdef"><b>Definition:</b> codec.hpp:79</div></div>
+<div class="ttc" id="anamespacewamp_html_a8f560dce7bd9330d1f08570a6b9cd250"><div class="ttname"><a href="namespacewamp.html#a8f560dce7bd9330d1f08570a6b9cd250">wamp::InputCategoryTypeOf</a></div><div class="ttdeci">typename InputCategory&lt; ValueTypeOf&lt; I &gt; &gt;::type InputCategoryTypeOf</div><div class="ttdoc">Yields the category type that best matches the given input type.</div><div class="ttdef"><b>Definition:</b> codec.hpp:148</div></div>
+<div class="ttc" id="anamespacewamp_html_structwamp_1_1_byte_container_output_category"><div class="ttname"><a href="namespacewamp.html#structwamp_1_1_byte_container_output_category">wamp::ByteContainerOutputCategory</a></div><div class="ttdoc">Output category for containers of bytes which provide push_back and insert member functions.</div><div class="ttdef"><b>Definition:</b> codec.hpp:47</div></div>
+<div class="ttc" id="anamespacewamp_html_a9806878793b2cdf53fe3a516b1a5bd69"><div class="ttname"><a href="namespacewamp.html#a9806878793b2cdf53fe3a516b1a5bd69">wamp::EnableIf</a></div><div class="ttdeci">typename std::enable_if&lt; B, T &gt;::type EnableIf</div><div class="ttdoc">Metafunction used to enable overloads based on a boolean condition.</div><div class="ttdef"><b>Definition:</b> traits.hpp:38</div></div>
+<div class="ttc" id="avariant_8hpp_html"><div class="ttname"><a href="variant_8hpp.html">variant.hpp</a></div><div class="ttdoc">Contains the declaration of Variant and other closely related types/functions.</div></div>
+<div class="ttc" id="anamespacewamp_html_a3a4f63f74b0ede851c60223ecf3674e5"><div class="ttname"><a href="namespacewamp.html#a3a4f63f74b0ede851c60223ecf3674e5">wamp::Encoder</a></div><div class="ttdeci">typename F::template Encoder&lt; ValueTypeOf&lt; O &gt;, C &gt; Encoder</div><div class="ttdoc">Yields the encoder type needed to encode a Variant to the given output type and output category.</div><div class="ttdef"><b>Definition:</b> codec.hpp:91</div></div>
+<div class="ttc" id="astructwamp_1_1_known_codec_ids_html"><div class="ttname"><a href="structwamp_1_1_known_codec_ids.html">wamp::KnownCodecIds</a></div><div class="ttdoc">IDs used by rawsocket transports to negotiate the serializer.</div><div class="ttdef"><b>Definition:</b> codec.hpp:33</div></div>
+<div class="ttc" id="atraits_8hpp_html"><div class="ttname"><a href="traits_8hpp.html">traits.hpp</a></div><div class="ttdoc">Contains general-purpose type traits.</div></div>
+<div class="ttc" id="anamespacewamp_html_a612977014a4cf2e1d8f58406b95d0e6e"><div class="ttname"><a href="namespacewamp.html#a612977014a4cf2e1d8f58406b95d0e6e">wamp::Decoder</a></div><div class="ttdeci">typename F::template Decoder&lt; ValueTypeOf&lt; I &gt;, C &gt; Decoder</div><div class="ttdoc">Yields the decoder type needed to decode a Variant from the given input type and input category.</div><div class="ttdef"><b>Definition:</b> codec.hpp:160</div></div>
+<div class="ttc" id="anamespacewamp_html_structwamp_1_1_unknown_input_category"><div class="ttname"><a href="namespacewamp.html#structwamp_1_1_unknown_input_category">wamp::UnknownInputCategory</a></div><div class="ttdoc">Type used to indicate input category detection failed.</div><div class="ttdef"><b>Definition:</b> codec.hpp:122</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="codec_8hpp.html">codec.hpp</a></li>
-    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
+    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

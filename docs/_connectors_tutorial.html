@@ -107,18 +107,20 @@ $(document).ready(function(){initNavTree('_connectors_tutorial.html',''); initRe
 <p>When creating a connector, you must specify which codec class (aka serializer) to use for encoding WAMP messages. The following codecs are currently supported:</p>
 <table class="markdownTable">
 <tr class="markdownTableHead">
-<th class="markdownTableHeadNone">Codec </th><th class="markdownTableHeadNone">Declared in </th><th class="markdownTableHeadNone">Dependency  </th></tr>
+<th class="markdownTableHeadNone">Codec </th><th class="markdownTableHeadNone">Declared in  </th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><a class="el" href="classwamp_1_1_json.html" title="JSON codec.">wamp::Json</a> </td><td class="markdownTableBodyNone"><code>&lt;<a class="el" href="json_2json_8hpp.html" title="Contains the declaration of the Json codec.">cppwamp/json/json.hpp</a>&gt;</code> </td><td class="markdownTableBodyNone">RapidJSON  </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="structwamp_1_1_json.html" title="JSON format tag type.">wamp::Json</a> </td><td class="markdownTableBodyNone"><code>&lt;<a class="el" href="json_8hpp.html" title="Contains the JSON codec.">cppwamp/json.hpp</a>&gt;</code>  </td></tr>
 <tr class="markdownTableRowEven">
-<td class="markdownTableBodyNone"><a class="el" href="classwamp_1_1_msgpack.html" title="Msgpack codec.">wamp::Msgpack</a> </td><td class="markdownTableBodyNone"><code>&lt;<a class="el" href="msgpack_2msgpack_8hpp.html" title="Contains the declaration of the Msgpack codec.">cppwamp/msgpack/msgpack.hpp</a>&gt;</code> </td><td class="markdownTableBodyNone">Msgpack-c  </td></tr>
+<td class="markdownTableBodyNone"><a class="el" href="structwamp_1_1_msgpack.html" title="Msgpack format tag type.">wamp::Msgpack</a> </td><td class="markdownTableBodyNone"><code>&lt;<a class="el" href="msgpack_8hpp.html" title="Contains the Msgpack codec.">cppwamp/msgpack.hpp</a>&gt;</code>  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><a class="el" href="structwamp_1_1_cbor.html" title="CBOR format tag type.">wamp::Cbor</a> </td><td class="markdownTableBodyNone"><code>&lt;<a class="el" href="cbor_8hpp.html" title="Contains the CBOR codec.">cppwamp/cbor.hpp</a>&gt;</code>  </td></tr>
 </table>
 <p>Connectors are created on the heap using the <code>wamp::connector</code> factory function as shown in the examples below. <code>wamp::connector</code> returns a <code>std::shared_ptr</code> to the newly created <a class="el" href="classwamp_1_1_connector.html" title="Abstract base class for establishing client transport endpoints.">wamp::Connector</a>.</p>
 <p>After you have created one or more connectors, you pass them to the session API. The session object will then use these connectors while establishing a transport connection to the router.</p>
 <h2><a class="anchor" id="autotoc_md0"></a>
 Creating a TCP Raw Socket Connector with the Json codec</h2>
-<div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="session_8hpp.html">cppwamp/session.hpp</a>&gt;</span></div>
-<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="json_2json_8hpp.html">cppwamp/json/json.hpp</a>&gt;</span></div>
+<div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="json_8hpp.html">cppwamp/json.hpp</a>&gt;</span></div>
+<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="session_8hpp.html">cppwamp/session.hpp</a>&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;<a class="code" href="tcp_8hpp.html">cppwamp/tcp.hpp</a>&gt;</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"> </div>
@@ -165,9 +167,9 @@ Specifying Extra Socket Options</h2>
 </div><!-- fragment --><h2><a class="anchor" id="autotoc_md3"></a>
 Combining Connectors</h2>
 <p>More than one <code>Connector</code> can be passed to a session object. In such cases, the session will successively attempt to establish a transport connection with each of the connectors until one succeeds. This allows you to specify "fallback" transports if the primary one fails to establish.</p>
-<p>To achieve this, you must pass a <code>std::vector</code> of <code>Connector</code> shared pointers while creating session objects. The following example uses two <code>TcpConnector</code> objects, each specifying a different serializer: </p><div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="session_8hpp.html">cppwamp/session.hpp</a>&gt;</span></div>
-<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="json_2json_8hpp.html">cppwamp/json/json.hpp</a>&gt;</span></div>
-<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="msgpack_2msgpack_8hpp.html">cppwamp/msgpack/msgpack.hpp</a>&gt;</span></div>
+<p>To achieve this, you must pass a <code>std::vector</code> of <code>Connector</code> shared pointers while creating session objects. The following example uses two <code>TcpConnector</code> objects, each specifying a different serializer: </p><div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="json_8hpp.html">cppwamp/json.hpp</a>&gt;</span></div>
+<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="msgpack_8hpp.html">cppwamp/msgpack.hpp</a>&gt;</span></div>
+<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="session_8hpp.html">cppwamp/session.hpp</a>&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;<a class="code" href="tcp_8hpp.html">cppwamp/tcp.hpp</a>&gt;</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"> </div>
@@ -185,15 +187,14 @@ Combining Connectors</h2>
 </div><!-- doc-content -->
 <div class="ttc" id="asession_8hpp_html"><div class="ttname"><a href="session_8hpp.html">session.hpp</a></div><div class="ttdoc">Contains the asynchronous session API used by a client peer in WAMP applications.</div></div>
 <div class="ttc" id="aclasswamp_1_1_uds_path_html"><div class="ttname"><a href="classwamp_1_1_uds_path.html">wamp::UdsPath</a></div><div class="ttdoc">Contains a Unix domain socket path, as well as other socket options.</div><div class="ttdef"><b>Definition:</b> udspath.hpp:96</div></div>
-<div class="ttc" id="ajson_2json_8hpp_html"><div class="ttname"><a href="json_2json_8hpp.html">json.hpp</a></div><div class="ttdoc">Contains the declaration of the Json codec.</div></div>
-<div class="ttc" id="amsgpack_2msgpack_8hpp_html"><div class="ttname"><a href="msgpack_2msgpack_8hpp.html">msgpack.hpp</a></div><div class="ttdoc">Contains the declaration of the Msgpack codec.</div></div>
 <div class="ttc" id="auds_8hpp_html"><div class="ttname"><a href="uds_8hpp.html">uds.hpp</a></div><div class="ttdoc">Contains facilities for creating Unix domain socket transport connectors.</div></div>
 <div class="ttc" id="aclasswamp_1_1_tcp_host_html"><div class="ttname"><a href="classwamp_1_1_tcp_host.html">wamp::TcpHost</a></div><div class="ttdoc">Contains TCP host address information, as well as other socket options.</div><div class="ttdef"><b>Definition:</b> tcphost.hpp:103</div></div>
-<div class="ttc" id="amsgpack_8hpp_html"><div class="ttname"><a href="msgpack_8hpp.html">msgpack.hpp</a></div><div class="ttdoc">Convenience header which includes &lt;cppwamp/msgpack/msgpack.hpp&gt;</div></div>
+<div class="ttc" id="amsgpack_8hpp_html"><div class="ttname"><a href="msgpack_8hpp.html">msgpack.hpp</a></div><div class="ttdoc">Contains the Msgpack codec.</div></div>
 <div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
 <div class="ttc" id="aclasswamp_1_1_tcp_options_html_a4cd8cfac8f5a7875c0e3783d54e6d329"><div class="ttname"><a href="classwamp_1_1_tcp_options.html#a4cd8cfac8f5a7875c0e3783d54e6d329">wamp::TcpOptions::withNoDelay</a></div><div class="ttdeci">TcpOptions &amp; withNoDelay(bool enabled=true)</div><div class="ttdoc">Adds the TCP_NODELAY socket option.</div><div class="ttdef"><b>Definition:</b> tcphost.ipp:36</div></div>
 <div class="ttc" id="anamespacewamp_html_a1750e952cec62e645c6b1c918c06993fa7e97e2cb92202bee510f8f60c8a1731f"><div class="ttname"><a href="namespacewamp.html#a1750e952cec62e645c6b1c918c06993fa7e97e2cb92202bee510f8f60c8a1731f">wamp::RawsockMaxLength::MB_1</a></div><div class="ttdeci">@ MB_1</div><div class="ttdoc">1 megabyte</div></div>
-<div class="ttc" id="aclasswamp_1_1_session_html_a955868753c5ac82b2e2df77073304b97"><div class="ttname"><a href="classwamp_1_1_session.html#a955868753c5ac82b2e2df77073304b97">wamp::Session::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new Session instance.</div><div class="ttdef"><b>Definition:</b> session.ipp:21</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_html_a955868753c5ac82b2e2df77073304b97"><div class="ttname"><a href="classwamp_1_1_session.html#a955868753c5ac82b2e2df77073304b97">wamp::Session::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new Session instance.</div><div class="ttdef"><b>Definition:</b> session.ipp:20</div></div>
+<div class="ttc" id="ajson_8hpp_html"><div class="ttname"><a href="json_8hpp.html">json.hpp</a></div><div class="ttdoc">Contains the JSON codec.</div></div>
 <div class="ttc" id="atcp_8hpp_html"><div class="ttname"><a href="tcp_8hpp.html">tcp.hpp</a></div><div class="ttdoc">Contains facilities for creating TCP transport connectors.</div></div>
 <div class="ttc" id="aclasswamp_1_1_tcp_options_html"><div class="ttname"><a href="classwamp_1_1_tcp_options.html">wamp::TcpOptions</a></div><div class="ttdoc">Contains options for the TCP transport.</div><div class="ttdef"><b>Definition:</b> tcphost.hpp:37</div></div>
 <div class="ttc" id="anamespacewamp_html_a9dd954da85bf9033739185b3a29e3e85"><div class="ttname"><a href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a></div><div class="ttdeci">boost::asio::io_context AsioContext</div><div class="ttdoc">Queues and runs I/O completion handlers.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:29</div></div>
@@ -201,7 +202,7 @@ Combining Connectors</h2>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="_tutorial.html">Tutorial</a></li>
-    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
+    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

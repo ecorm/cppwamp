@@ -1,4 +1,3 @@
 <map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" href="$classwamp_1_1_registration.html" title="Represents a remote procedure registration." alt="" coords="5,5,155,32"/>
-<area shape="rect" id="node2" href="$classwamp_1_1_scoped_registration.html" title="Limits a Registration&#39;s lifetime to a particular scope." alt="" coords="203,5,399,32"/>
+<area shape="rect" id="node1" href="$namespacewamp.html#structwamp_1_1_input_category" title="Traits class that determines the category type that best matches the given input type." alt="" coords="5,5,168,47"/>
 </map>

@@ -5,6 +5,7 @@ var error_8hpp =
     [ "BadType", "structwamp_1_1error_1_1_bad_type.html", null ],
     [ "Access", "structwamp_1_1error_1_1_access.html", null ],
     [ "Conversion", "structwamp_1_1error_1_1_conversion.html", null ],
+    [ "Decode", "structwamp_1_1error_1_1_decode.html", null ],
     [ "SessionCategory", "classwamp_1_1_session_category.html", "classwamp_1_1_session_category" ],
     [ "ProtocolCategory", "classwamp_1_1_protocol_category.html", "classwamp_1_1_protocol_category" ],
     [ "TransportCategory", "classwamp_1_1_transport_category.html", "classwamp_1_1_transport_category" ],

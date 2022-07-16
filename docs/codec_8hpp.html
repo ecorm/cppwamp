@@ -84,7 +84,9 @@ $(document).ready(function(){initNavTree('codec_8hpp.html',''); initResizable();
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
-<a href="#namespaces">Namespaces</a>  </div>
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#typedef-members">Typedefs</a> &#124;
+<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">codec.hpp File Reference</div>  </div>
 </div><!--header-->
@@ -92,9 +94,12 @@ $(document).ready(function(){initNavTree('codec_8hpp.html',''); initResizable();
 
 <p>Contains essential definitions for <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">wamp::Variant</a> codecs.  
 <a href="#details">More...</a></p>
-<div class="textblock"><code>#include &lt;stdexcept&gt;</code><br />
-<code>#include &lt;string&gt;</code><br />
+<div class="textblock"><code>#include &lt;istream&gt;</code><br />
+<code>#include &lt;ostream&gt;</code><br />
 <code>#include &quot;<a class="el" href="api_8hpp_source.html">api.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="messagebuffer_8hpp_source.html">messagebuffer.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="traits_8hpp_source.html">traits.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="variant_8hpp_source.html">variant.hpp</a>&quot;</code><br />
 </div>
 <p><a href="codec_8hpp_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -103,26 +108,204 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structwamp_1_1_known_codec_ids.html">wamp::KnownCodecIds</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">IDs used by rawsocket transports to negotiate the serializer.  <a href="structwamp_1_1_known_codec_ids.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structwamp_1_1error_1_1_decode.html">wamp::error::Decode</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Exception type thrown when codec deserialization fails.  <a href="structwamp_1_1error_1_1_decode.html#details">More...</a><br /></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:structwamp_1_1_byte_container_output_category"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#structwamp_1_1_byte_container_output_category">wamp::ByteContainerOutputCategory</a></td></tr>
+<tr class="memdesc:structwamp_1_1_byte_container_output_category"><td class="mdescLeft">&#160;</td><td class="mdescRight">Output category for containers of bytes which provide <code>push_back</code> and <code>insert</code> member functions.  <a href="namespacewamp.html#structwamp_1_1_byte_container_output_category">More...</a><br /></td></tr>
+<tr class="separator:structwamp_1_1_byte_container_output_category"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:structwamp_1_1_stream_output_category"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#structwamp_1_1_stream_output_category">wamp::StreamOutputCategory</a></td></tr>
+<tr class="memdesc:structwamp_1_1_stream_output_category"><td class="mdescLeft">&#160;</td><td class="mdescRight">Output category for output streams of bytes.  <a href="namespacewamp.html#structwamp_1_1_stream_output_category">More...</a><br /></td></tr>
+<tr class="separator:structwamp_1_1_stream_output_category"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:structwamp_1_1_unknown_output_category"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#structwamp_1_1_unknown_output_category">wamp::UnknownOutputCategory</a></td></tr>
+<tr class="memdesc:structwamp_1_1_unknown_output_category"><td class="mdescLeft">&#160;</td><td class="mdescRight">Type used to indicate output category detection failed.  <a href="namespacewamp.html#structwamp_1_1_unknown_output_category">More...</a><br /></td></tr>
+<tr class="separator:structwamp_1_1_unknown_output_category"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:structwamp_1_1_output_category"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#structwamp_1_1_output_category">wamp::OutputCategory&lt; O, Enabled &gt;</a></td></tr>
+<tr class="memdesc:structwamp_1_1_output_category"><td class="mdescLeft">&#160;</td><td class="mdescRight">Traits class that determines the category type that best matches the given output type.  <a href="namespacewamp.html#structwamp_1_1_output_category">More...</a><br /></td></tr>
+<tr class="separator:structwamp_1_1_output_category"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:structwamp_1_1_byte_array_input_category"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#structwamp_1_1_byte_array_input_category">wamp::ByteArrayInputCategory</a></td></tr>
+<tr class="memdesc:structwamp_1_1_byte_array_input_category"><td class="mdescLeft">&#160;</td><td class="mdescRight">Input category for contiguous byte arrays which provide <code>data</code> and <code>size</code> member functions.  <a href="namespacewamp.html#structwamp_1_1_byte_array_input_category">More...</a><br /></td></tr>
+<tr class="separator:structwamp_1_1_byte_array_input_category"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:structwamp_1_1_stream_input_category"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#structwamp_1_1_stream_input_category">wamp::StreamInputCategory</a></td></tr>
+<tr class="memdesc:structwamp_1_1_stream_input_category"><td class="mdescLeft">&#160;</td><td class="mdescRight">Input category for input streams of bytes.  <a href="namespacewamp.html#structwamp_1_1_stream_input_category">More...</a><br /></td></tr>
+<tr class="separator:structwamp_1_1_stream_input_category"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:structwamp_1_1_unknown_input_category"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#structwamp_1_1_unknown_input_category">wamp::UnknownInputCategory</a></td></tr>
+<tr class="memdesc:structwamp_1_1_unknown_input_category"><td class="mdescLeft">&#160;</td><td class="mdescRight">Type used to indicate input category detection failed.  <a href="namespacewamp.html#structwamp_1_1_unknown_input_category">More...</a><br /></td></tr>
+<tr class="separator:structwamp_1_1_unknown_input_category"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:structwamp_1_1_input_category"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#structwamp_1_1_input_category">wamp::InputCategory&lt; I, Enabled &gt;</a></td></tr>
+<tr class="memdesc:structwamp_1_1_input_category"><td class="mdescLeft">&#160;</td><td class="mdescRight">Traits class that determines the category type that best matches the given input type.  <a href="namespacewamp.html#structwamp_1_1_input_category">More...</a><br /></td></tr>
+<tr class="separator:structwamp_1_1_input_category"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacewamp"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html">wamp</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:namespacewamp_1_1error"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp_1_1error.html">wamp::error</a></td></tr>
-<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
+Typedefs</h2></td></tr>
+<tr class="memitem:ac23304b303f41e1c59990dd5a8623615"><td class="memTemplParams" colspan="2"><a id="ac23304b303f41e1c59990dd5a8623615"></a>
+template&lt;typename O &gt; </td></tr>
+<tr class="memitem:ac23304b303f41e1c59990dd5a8623615"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#ac23304b303f41e1c59990dd5a8623615">wamp::OutputCategoryTypeOf</a> = typename OutputCategory&lt; ValueTypeOf&lt; O &gt; &gt;::type</td></tr>
+<tr class="memdesc:ac23304b303f41e1c59990dd5a8623615"><td class="mdescLeft">&#160;</td><td class="mdescRight">Yields the category type that best matches the given output type. <br /></td></tr>
+<tr class="separator:ac23304b303f41e1c59990dd5a8623615"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3a4f63f74b0ede851c60223ecf3674e5"><td class="memTemplParams" colspan="2">template&lt;typename F , typename O , typename C  = OutputCategoryTypeOf&lt;O&gt;&gt; </td></tr>
+<tr class="memitem:a3a4f63f74b0ede851c60223ecf3674e5"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a3a4f63f74b0ede851c60223ecf3674e5">wamp::Encoder</a> = typename F::template Encoder&lt; ValueTypeOf&lt; O &gt;, C &gt;</td></tr>
+<tr class="memdesc:a3a4f63f74b0ede851c60223ecf3674e5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Yields the encoder type needed to encode a <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a> to the given output type and output category.  <a href="namespacewamp.html#a3a4f63f74b0ede851c60223ecf3674e5">More...</a><br /></td></tr>
+<tr class="separator:a3a4f63f74b0ede851c60223ecf3674e5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a8f560dce7bd9330d1f08570a6b9cd250"><td class="memTemplParams" colspan="2"><a id="a8f560dce7bd9330d1f08570a6b9cd250"></a>
+template&lt;typename I &gt; </td></tr>
+<tr class="memitem:a8f560dce7bd9330d1f08570a6b9cd250"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a8f560dce7bd9330d1f08570a6b9cd250">wamp::InputCategoryTypeOf</a> = typename InputCategory&lt; ValueTypeOf&lt; I &gt; &gt;::type</td></tr>
+<tr class="memdesc:a8f560dce7bd9330d1f08570a6b9cd250"><td class="mdescLeft">&#160;</td><td class="mdescRight">Yields the category type that best matches the given input type. <br /></td></tr>
+<tr class="separator:a8f560dce7bd9330d1f08570a6b9cd250"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a612977014a4cf2e1d8f58406b95d0e6e"><td class="memTemplParams" colspan="2">template&lt;typename F , typename I , typename C  = InputCategoryTypeOf&lt;I&gt;&gt; </td></tr>
+<tr class="memitem:a612977014a4cf2e1d8f58406b95d0e6e"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a612977014a4cf2e1d8f58406b95d0e6e">wamp::Decoder</a> = typename F::template Decoder&lt; ValueTypeOf&lt; I &gt;, C &gt;</td></tr>
+<tr class="memdesc:a612977014a4cf2e1d8f58406b95d0e6e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Yields the decoder type needed to decode a <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a> from the given input type and input category.  <a href="namespacewamp.html#a612977014a4cf2e1d8f58406b95d0e6e">More...</a><br /></td></tr>
+<tr class="separator:a612977014a4cf2e1d8f58406b95d0e6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:a47bb6673f3bae26c63ab24239194bc75"><td class="memTemplParams" colspan="2">template&lt;typename TFormat , typename TOutput &gt; </td></tr>
+<tr class="memitem:a47bb6673f3bae26c63ab24239194bc75"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a47bb6673f3bae26c63ab24239194bc75">wamp::encode</a> (const Variant &amp;variant, TOutput &amp;&amp;output)</td></tr>
+<tr class="memdesc:a47bb6673f3bae26c63ab24239194bc75"><td class="mdescLeft">&#160;</td><td class="mdescRight">Encodes the given variant to the given byte container or stream.  <a href="namespacewamp.html#a47bb6673f3bae26c63ab24239194bc75">More...</a><br /></td></tr>
+<tr class="separator:a47bb6673f3bae26c63ab24239194bc75"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aeef0cde53f71d755c50833b067dec25c"><td class="memTemplParams" colspan="2">template&lt;typename TFormat , typename TInput &gt; </td></tr>
+<tr class="memitem:aeef0cde53f71d755c50833b067dec25c"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#aeef0cde53f71d755c50833b067dec25c">wamp::decode</a> (TInput &amp;&amp;input, Variant &amp;variant)</td></tr>
+<tr class="memdesc:aeef0cde53f71d755c50833b067dec25c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Decodes from the given byte sequence or stream to the given variant.  <a href="namespacewamp.html#aeef0cde53f71d755c50833b067dec25c">More...</a><br /></td></tr>
+<tr class="separator:aeef0cde53f71d755c50833b067dec25c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Contains essential definitions for <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">wamp::Variant</a> codecs. </p>
-</div></div><!-- contents -->
+</div><hr/><h2 class="groupheader">Class Documentation</h2>
+<a name="structwamp_1_1_byte_container_output_category" id="structwamp_1_1_byte_container_output_category"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#structwamp_1_1_byte_container_output_category">&#9670;&nbsp;</a></span>wamp::ByteContainerOutputCategory</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct wamp::ByteContainerOutputCategory</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<div class="textblock"><p>Output category for containers of bytes which provide <code>push_back</code> and <code>insert</code> member functions. </p>
+</div>
+</div>
+</div>
+<a name="structwamp_1_1_stream_output_category" id="structwamp_1_1_stream_output_category"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#structwamp_1_1_stream_output_category">&#9670;&nbsp;</a></span>wamp::StreamOutputCategory</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct wamp::StreamOutputCategory</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<div class="textblock"><p>Output category for output streams of bytes. </p>
+</div>
+</div>
+</div>
+<a name="structwamp_1_1_unknown_output_category" id="structwamp_1_1_unknown_output_category"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#structwamp_1_1_unknown_output_category">&#9670;&nbsp;</a></span>wamp::UnknownOutputCategory</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct wamp::UnknownOutputCategory</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<div class="textblock"><p>Type used to indicate output category detection failed. </p>
+</div>
+</div>
+</div>
+<a name="structwamp_1_1_output_category" id="structwamp_1_1_output_category"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#structwamp_1_1_output_category">&#9670;&nbsp;</a></span>wamp::OutputCategory</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct wamp::OutputCategory</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<div class="textblock"><h3>template&lt;typename O, typename Enabled = void&gt;<br />
+struct wamp::OutputCategory&lt; O, Enabled &gt;</h3>
+
+<p>Traits class that determines the category type that best matches the given output type. </p>
+</div>
+</div>
+</div>
+<a name="structwamp_1_1_byte_array_input_category" id="structwamp_1_1_byte_array_input_category"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#structwamp_1_1_byte_array_input_category">&#9670;&nbsp;</a></span>wamp::ByteArrayInputCategory</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct wamp::ByteArrayInputCategory</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<div class="textblock"><p>Input category for contiguous byte arrays which provide <code>data</code> and <code>size</code> member functions. </p>
+</div>
+</div>
+</div>
+<a name="structwamp_1_1_stream_input_category" id="structwamp_1_1_stream_input_category"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#structwamp_1_1_stream_input_category">&#9670;&nbsp;</a></span>wamp::StreamInputCategory</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct wamp::StreamInputCategory</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<div class="textblock"><p>Input category for input streams of bytes. </p>
+</div>
+</div>
+</div>
+<a name="structwamp_1_1_unknown_input_category" id="structwamp_1_1_unknown_input_category"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#structwamp_1_1_unknown_input_category">&#9670;&nbsp;</a></span>wamp::UnknownInputCategory</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct wamp::UnknownInputCategory</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<div class="textblock"><p>Type used to indicate input category detection failed. </p>
+</div>
+</div>
+</div>
+<a name="structwamp_1_1_input_category" id="structwamp_1_1_input_category"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#structwamp_1_1_input_category">&#9670;&nbsp;</a></span>wamp::InputCategory</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct wamp::InputCategory</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<div class="textblock"><h3>template&lt;typename I, typename Enabled = void&gt;<br />
+struct wamp::InputCategory&lt; I, Enabled &gt;</h3>
+
+<p>Traits class that determines the category type that best matches the given input type. </p>
+</div>
+</div>
+</div>
+</div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="codec_8hpp.html">codec.hpp</a></li>
-    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
+    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

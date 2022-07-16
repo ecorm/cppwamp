@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['nthtypeof_845',['NthTypeOf',['../namespacewamp.html#afac4fabd4c0140f8ca90aa6104ffa1f0',1,'wamp']]],
-  ['null_846',['Null',['../classwamp_1_1_variant.html#ad648e1d34a73e96ced2d8ffbb275aece',1,'wamp::Variant']]]
+  ['loghandler_941',['LogHandler',['../classwamp_1_1_session.html#aab56766974c059f2d5eab9194dddf6dc',1,'wamp::Session']]]
 ];

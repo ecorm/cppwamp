@@ -2,8 +2,6 @@ var dir_64630c07612263f2a3099643d69e6df2 =
 [
     [ "coro", "dir_dafb9a824b194ea2527e1cacea783e0b.html", "dir_dafb9a824b194ea2527e1cacea783e0b" ],
     [ "internal", "dir_15a40f4932549f0fe4696fd8fd3add66.html", "dir_15a40f4932549f0fe4696fd8fd3add66" ],
-    [ "json", "dir_ae1eab5fee01470bc81c8b36f90d110e.html", "dir_ae1eab5fee01470bc81c8b36f90d110e" ],
-    [ "msgpack", "dir_484f4153bbd5f4fa518ce92cce23c777.html", "dir_484f4153bbd5f4fa518ce92cce23c777" ],
     [ "types", "dir_7cc9ccb47e2955525c138c194b63dd1d.html", "dir_7cc9ccb47e2955525c138c194b63dd1d" ],
     [ "api.hpp", "api_8hpp.html", null ],
     [ "asiodefs.hpp", "asiodefs_8hpp.html", "asiodefs_8hpp" ],
@@ -11,18 +9,17 @@ var dir_64630c07612263f2a3099643d69e6df2 =
     [ "blob.hpp", "blob_8hpp.html", [
       [ "Blob", "classwamp_1_1_blob.html", "classwamp_1_1_blob" ]
     ] ],
-    [ "codec.hpp", "codec_8hpp.html", [
-      [ "KnownCodecIds", "structwamp_1_1_known_codec_ids.html", null ],
-      [ "Decode", "structwamp_1_1error_1_1_decode.html", null ]
-    ] ],
+    [ "cbor.hpp", "cbor_8hpp.html", "cbor_8hpp" ],
+    [ "codec.hpp", "codec_8hpp.html", "codec_8hpp" ],
     [ "connector.hpp", "connector_8hpp.html", "connector_8hpp" ],
     [ "conversion.hpp", "conversion_8hpp.html", null ],
     [ "conversionaccess.hpp", "conversionaccess_8hpp.html", "conversionaccess_8hpp" ],
     [ "corosession.hpp", "corosession_8hpp.html", null ],
     [ "corounpacker.hpp", "corounpacker_8hpp.html", null ],
     [ "error.hpp", "error_8hpp.html", "error_8hpp" ],
-    [ "json.hpp", "json_8hpp.html", null ],
-    [ "msgpack.hpp", "msgpack_8hpp.html", null ],
+    [ "json.hpp", "json_8hpp.html", "json_8hpp" ],
+    [ "messagebuffer.hpp", "messagebuffer_8hpp.html", "messagebuffer_8hpp" ],
+    [ "msgpack.hpp", "msgpack_8hpp.html", "msgpack_8hpp" ],
     [ "null.hpp", "null_8hpp.html", "null_8hpp" ],
     [ "options.hpp", "options_8hpp.html", [
       [ "Options", "classwamp_1_1_options.html", "classwamp_1_1_options" ]

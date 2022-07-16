@@ -82,25 +82,84 @@ $(document).ready(function(){initNavTree('json_8hpp.html',''); initResizable(); 
 </div>
 
 <div class="header">
+  <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#typedef-members">Typedefs</a>  </div>
   <div class="headertitle">
 <div class="title">json.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p>Convenience header which includes &lt;<a class="el" href="json_2json_8hpp.html" title="Contains the declaration of the Json codec.">cppwamp/json/json.hpp</a>&gt;  
+<p>Contains the JSON codec.  
 <a href="#details">More...</a></p>
-<div class="textblock"><code>#include &lt;<a class="el" href="json_2json_8hpp_source.html">cppwamp/json/json.hpp</a>&gt;</code><br />
+<div class="textblock"><code>#include &lt;istream&gt;</code><br />
+<code>#include &lt;memory&gt;</code><br />
+<code>#include &lt;ostream&gt;</code><br />
+<code>#include &lt;string&gt;</code><br />
+<code>#include &quot;<a class="el" href="api_8hpp_source.html">api.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="codec_8hpp_source.html">codec.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="variant_8hpp_source.html">variant.hpp</a>&quot;</code><br />
+<code>#include &quot;internal/json.ipp&quot;</code><br />
 </div>
 <p><a href="json_8hpp_source.html">Go to the source code of this file.</a></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_basic_json_encoder.html">wamp::BasicJsonEncoder&lt; O, C &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">JSON encoder.  <a href="classwamp_1_1_basic_json_encoder.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_basic_json_decoder.html">wamp::BasicJsonDecoder&lt; I, C &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">JSON decoder.  <a href="classwamp_1_1_basic_json_decoder.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_basic_json_decoder_3_01_i_00_01_stream_input_category_01_4.html">wamp::BasicJsonDecoder&lt; I, StreamInputCategory &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">JSON decoder specialization for stream inputs.  <a href="classwamp_1_1_basic_json_decoder_3_01_i_00_01_stream_input_category_01_4.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structwamp_1_1_json.html">wamp::Json</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">JSON format tag type.  <a href="structwamp_1_1_json.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
+Namespaces</h2></td></tr>
+<tr class="memitem:namespacewamp"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html">wamp</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
+Typedefs</h2></td></tr>
+<tr class="memitem:a1944d19e89104ce892a074c5c1be43fb"><td class="memItemLeft" align="right" valign="top"><a id="a1944d19e89104ce892a074c5c1be43fb"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a1944d19e89104ce892a074c5c1be43fb">wamp::JsonStringEncoder</a> = BasicJsonEncoder&lt; std::string &gt;</td></tr>
+<tr class="memdesc:a1944d19e89104ce892a074c5c1be43fb"><td class="mdescLeft">&#160;</td><td class="mdescRight">JSON encoder type that encodes into a std::string. *&zwj;/. <br /></td></tr>
+<tr class="separator:a1944d19e89104ce892a074c5c1be43fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aae87067e4d1504cdb253e5ebde9db11d"><td class="memItemLeft" align="right" valign="top"><a id="aae87067e4d1504cdb253e5ebde9db11d"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#aae87067e4d1504cdb253e5ebde9db11d">wamp::JsonBufferEncoder</a> = BasicJsonEncoder&lt; MessageBuffer &gt;</td></tr>
+<tr class="memdesc:aae87067e4d1504cdb253e5ebde9db11d"><td class="mdescLeft">&#160;</td><td class="mdescRight">JSON encoder type that encodes into a MessageBuffer. *&zwj;/. <br /></td></tr>
+<tr class="separator:aae87067e4d1504cdb253e5ebde9db11d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ab2f8ab0888942961c83fa7985e08b552"><td class="memItemLeft" align="right" valign="top"><a id="ab2f8ab0888942961c83fa7985e08b552"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#ab2f8ab0888942961c83fa7985e08b552">wamp::JsonStreamEncoder</a> = BasicJsonEncoder&lt; std::ostream &gt;</td></tr>
+<tr class="memdesc:ab2f8ab0888942961c83fa7985e08b552"><td class="mdescLeft">&#160;</td><td class="mdescRight">JSON encoder type that encodes into a std::ostream. *&zwj;/. <br /></td></tr>
+<tr class="separator:ab2f8ab0888942961c83fa7985e08b552"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aefb8b62e9fc425b7fa395c9fa26c31c6"><td class="memItemLeft" align="right" valign="top"><a id="aefb8b62e9fc425b7fa395c9fa26c31c6"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#aefb8b62e9fc425b7fa395c9fa26c31c6">wamp::JsonStringDecoder</a> = BasicJsonDecoder&lt; std::string &gt;</td></tr>
+<tr class="memdesc:aefb8b62e9fc425b7fa395c9fa26c31c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">JSON decoder type that decodes from a std::string. *&zwj;/. <br /></td></tr>
+<tr class="separator:aefb8b62e9fc425b7fa395c9fa26c31c6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a71e0b8986fb00c97df1f6c68bb9673dd"><td class="memItemLeft" align="right" valign="top"><a id="a71e0b8986fb00c97df1f6c68bb9673dd"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a71e0b8986fb00c97df1f6c68bb9673dd">wamp::JsonBufferDecoder</a> = BasicJsonDecoder&lt; MessageBuffer &gt;</td></tr>
+<tr class="memdesc:a71e0b8986fb00c97df1f6c68bb9673dd"><td class="mdescLeft">&#160;</td><td class="mdescRight">JSON decoder type that decodes from a MessageBuffer. *&zwj;/. <br /></td></tr>
+<tr class="separator:a71e0b8986fb00c97df1f6c68bb9673dd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a30876bd8c93f726ffc1d02fe0aacdcf7"><td class="memItemLeft" align="right" valign="top"><a id="a30876bd8c93f726ffc1d02fe0aacdcf7"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a30876bd8c93f726ffc1d02fe0aacdcf7">wamp::JsonStreamDecoder</a> = BasicJsonDecoder&lt; std::istream &gt;</td></tr>
+<tr class="memdesc:a30876bd8c93f726ffc1d02fe0aacdcf7"><td class="mdescLeft">&#160;</td><td class="mdescRight">JSON decoder type that decodes from a std::ostream. *&zwj;/. <br /></td></tr>
+<tr class="separator:a30876bd8c93f726ffc1d02fe0aacdcf7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Convenience header which includes &lt;<a class="el" href="json_2json_8hpp.html" title="Contains the declaration of the Json codec.">cppwamp/json/json.hpp</a>&gt; </p>
+<div class="textblock"><p>Contains the JSON codec. </p>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="json_8hpp.html">json.hpp</a></li>
-    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
+    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

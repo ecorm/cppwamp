@@ -5,8 +5,9 @@ var _concepts =
       [ "BinaryVisitor", "_visitor_concept.html#BinaryVisitor", null ],
       [ "OperandVisitor", "_visitor_concept.html#OperandVisitor", null ]
     ] ],
-    [ "Codec", "_codec.html", null ],
-    [ "TransportBuffer", "_transport_buffer.html", null ],
+    [ "CodecEncoder", "_codec_encoder.html", null ],
+    [ "CodecDecoder", "_codec_decoder.html", null ],
+    [ "CodecFormat", "_codec_format.html", null ],
     [ "Transport", "_transport.html", null ],
     [ "Establisher", "_establisher.html", null ]
 ];

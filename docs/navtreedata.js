@@ -91,10 +91,10 @@ var NAVTREE =
 var NAVTREEINDEX =
 [
 "_architecture.html",
-"classwamp_1_1_event_unpacker.html#ad2ca5aeb832b1c4aba23238ef3bcc936",
-"classwamp_1_1_tcp_host.html#a87803d74fa8e33237b258a170f6f94bd",
-"functions_func.html",
-"wampdefs_8hpp.html#a53ba5f85cd0d02bf363dfec7da1b339faab0e76e1623e4b9f4b2c6dc8e966989f"
+"classwamp_1_1_connector.html#afe8fdc3c9ae4b93aa79746b12817fecf",
+"classwamp_1_1_session.html#aef2a403bb47fc66deb55fb3447aefa0f",
+"error_8hpp.html#a7695a3b18f0d32dfe24de5c865a3a0c8",
+"tuple_8hpp.html#a0ece744d0f89e28b123b8cbf71bbdf42"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';

@@ -82,25 +82,87 @@ $(document).ready(function(){initNavTree('msgpack_8hpp.html',''); initResizable(
 </div>
 
 <div class="header">
+  <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#typedef-members">Typedefs</a>  </div>
   <div class="headertitle">
 <div class="title">msgpack.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p>Convenience header which includes &lt;<a class="el" href="msgpack_2msgpack_8hpp.html" title="Contains the declaration of the Msgpack codec.">cppwamp/msgpack/msgpack.hpp</a>&gt;  
+<p>Contains the Msgpack codec.  
 <a href="#details">More...</a></p>
-<div class="textblock"><code>#include &lt;<a class="el" href="msgpack_2msgpack_8hpp_source.html">cppwamp/msgpack/msgpack.hpp</a>&gt;</code><br />
+<div class="textblock"><code>#include &lt;memory&gt;</code><br />
+<code>#include &lt;istream&gt;</code><br />
+<code>#include &lt;ostream&gt;</code><br />
+<code>#include &lt;string&gt;</code><br />
+<code>#include &quot;<a class="el" href="api_8hpp_source.html">api.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="codec_8hpp_source.html">codec.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="variant_8hpp_source.html">variant.hpp</a>&quot;</code><br />
+<code>#include &quot;internal/msgpack.ipp&quot;</code><br />
 </div>
 <p><a href="msgpack_8hpp_source.html">Go to the source code of this file.</a></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_basic_msgpack_encoder.html">wamp::BasicMsgpackEncoder&lt; O, C &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structwamp_1_1_msgpack.html" title="Msgpack format tag type.">Msgpack</a> encoder.  <a href="classwamp_1_1_basic_msgpack_encoder.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_basic_msgpack_encoder_3_01_o_00_01_stream_output_category_01_4.html">wamp::BasicMsgpackEncoder&lt; O, StreamOutputCategory &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structwamp_1_1_msgpack.html" title="Msgpack format tag type.">Msgpack</a> encoder specialization for streams.  <a href="classwamp_1_1_basic_msgpack_encoder_3_01_o_00_01_stream_output_category_01_4.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_basic_msgpack_decoder.html">wamp::BasicMsgpackDecoder&lt; I, C &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Decoder specialization for <a class="el" href="structwamp_1_1_msgpack.html" title="Msgpack format tag type.">Msgpack</a>.  <a href="classwamp_1_1_basic_msgpack_decoder.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_basic_msgpack_decoder_3_01_i_00_01_stream_input_category_01_4.html">wamp::BasicMsgpackDecoder&lt; I, StreamInputCategory &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Decoder specialization for <a class="el" href="structwamp_1_1_msgpack.html" title="Msgpack format tag type.">Msgpack</a> and stream inputs.  <a href="classwamp_1_1_basic_msgpack_decoder_3_01_i_00_01_stream_input_category_01_4.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structwamp_1_1_msgpack.html">wamp::Msgpack</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structwamp_1_1_msgpack.html" title="Msgpack format tag type.">Msgpack</a> format tag type.  <a href="structwamp_1_1_msgpack.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
+Namespaces</h2></td></tr>
+<tr class="memitem:namespacewamp"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html">wamp</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
+Typedefs</h2></td></tr>
+<tr class="memitem:a2418c2c88b10c1601524492e54e92990"><td class="memItemLeft" align="right" valign="top"><a id="a2418c2c88b10c1601524492e54e92990"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a2418c2c88b10c1601524492e54e92990">wamp::MsgpackStringEncoder</a> = BasicMsgpackEncoder&lt; std::string &gt;</td></tr>
+<tr class="memdesc:a2418c2c88b10c1601524492e54e92990"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structwamp_1_1_msgpack.html" title="Msgpack format tag type.">Msgpack</a> encoder type that encodes into a std::string. *&zwj;/. <br /></td></tr>
+<tr class="separator:a2418c2c88b10c1601524492e54e92990"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7e50658fd918a917e399a5cebbaf42f2"><td class="memItemLeft" align="right" valign="top"><a id="a7e50658fd918a917e399a5cebbaf42f2"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a7e50658fd918a917e399a5cebbaf42f2">wamp::MsgpackBufferEncoder</a> = BasicMsgpackEncoder&lt; MessageBuffer &gt;</td></tr>
+<tr class="memdesc:a7e50658fd918a917e399a5cebbaf42f2"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structwamp_1_1_msgpack.html" title="Msgpack format tag type.">Msgpack</a> encoder type that encodes into a MessageBuffer. *&zwj;/. <br /></td></tr>
+<tr class="separator:a7e50658fd918a917e399a5cebbaf42f2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a5ffb05fdaee1766025e453e3e14312d7"><td class="memItemLeft" align="right" valign="top"><a id="a5ffb05fdaee1766025e453e3e14312d7"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a5ffb05fdaee1766025e453e3e14312d7">wamp::MsgpackStreamEncoder</a> = BasicMsgpackEncoder&lt; std::ostream &gt;</td></tr>
+<tr class="memdesc:a5ffb05fdaee1766025e453e3e14312d7"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structwamp_1_1_msgpack.html" title="Msgpack format tag type.">Msgpack</a> encoder type that encodes into a std::ostream. *&zwj;/. <br /></td></tr>
+<tr class="separator:a5ffb05fdaee1766025e453e3e14312d7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3f9ee6ec24ea0667587ebbd249e293a0"><td class="memItemLeft" align="right" valign="top"><a id="a3f9ee6ec24ea0667587ebbd249e293a0"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a3f9ee6ec24ea0667587ebbd249e293a0">wamp::MsgpackStringDecoder</a> = BasicMsgpackDecoder&lt; std::string &gt;</td></tr>
+<tr class="memdesc:a3f9ee6ec24ea0667587ebbd249e293a0"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structwamp_1_1_msgpack.html" title="Msgpack format tag type.">Msgpack</a> decoder type that decodes from a std::string. *&zwj;/. <br /></td></tr>
+<tr class="separator:a3f9ee6ec24ea0667587ebbd249e293a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a74685b6d5c6cec531dd60dd5aef04b01"><td class="memItemLeft" align="right" valign="top"><a id="a74685b6d5c6cec531dd60dd5aef04b01"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a74685b6d5c6cec531dd60dd5aef04b01">wamp::MsgpackBufferDecoder</a> = BasicMsgpackDecoder&lt; MessageBuffer &gt;</td></tr>
+<tr class="memdesc:a74685b6d5c6cec531dd60dd5aef04b01"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structwamp_1_1_msgpack.html" title="Msgpack format tag type.">Msgpack</a> decoder type that decodes from a MessageBuffer. *&zwj;/. <br /></td></tr>
+<tr class="separator:a74685b6d5c6cec531dd60dd5aef04b01"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ae5a2e2b3847fef3b32c4fc8575a22441"><td class="memItemLeft" align="right" valign="top"><a id="ae5a2e2b3847fef3b32c4fc8575a22441"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#ae5a2e2b3847fef3b32c4fc8575a22441">wamp::MsgpackStreamDecoder</a> = BasicMsgpackDecoder&lt; std::istream &gt;</td></tr>
+<tr class="memdesc:ae5a2e2b3847fef3b32c4fc8575a22441"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="structwamp_1_1_msgpack.html" title="Msgpack format tag type.">Msgpack</a> decoder type that decodes from a std::ostream. *&zwj;/. <br /></td></tr>
+<tr class="separator:ae5a2e2b3847fef3b32c4fc8575a22441"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Convenience header which includes &lt;<a class="el" href="msgpack_2msgpack_8hpp.html" title="Contains the declaration of the Msgpack codec.">cppwamp/msgpack/msgpack.hpp</a>&gt; </p>
+<div class="textblock"><p>Contains the Msgpack codec. </p>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="msgpack_8hpp.html">msgpack.hpp</a></li>
-    <li class="footer">Generated on Tue Jun 14 2022 20:12:24 for CppWAMP by
+    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>
