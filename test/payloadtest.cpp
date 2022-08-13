@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include <stdexcept>
@@ -53,15 +52,22 @@ SCENARIO( "Initializing Payload", "[Variant][Payload]" )
         auto p = TestPayload().withArgs(null, true, 42, "foo");
         CHECK( p.args() == testList );
     }
+
+    WHEN( "initializing from a tuple" )
+    {
+        std::tuple<Null, bool, int, std::string> tuple{null, true, 42, "foo"};
+        auto p = TestPayload().withArgsTuple(tuple);
+        CHECK( p.args() == testList );
+    }
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Unbundling Payload to variables, with conversions",
-          "[Variant][Payload]" )
+SCENARIO( "Unbundling Payloads with conversions", "[Variant][Payload]" )
 {
-GIVEN( "a Payload object and a set of variables" )
+const auto p = TestPayload().withArgList(testList);
+
+GIVEN( "a set of destination variables" )
 {
-    const auto p = TestPayload().withArgList(testList);
     Null n;
     bool b = false;
     double x = 0.0;
@@ -101,20 +107,60 @@ GIVEN( "a Payload object and a set of variables" )
         CHECK_THROWS_AS( p.convertTo(n, b, x, i), error::Conversion );
     }
 }
+GIVEN( "destination tuples" )
+{
+    std::tuple<Null, bool, double> t3;
+    std::tuple<Null, bool, double, std::string> t4;
+    std::tuple<Null, bool, double, std::string, int> t5;
+    std::tuple<Null, bool, double, int> bad;
+
+    WHEN( "unbundling positional values to valid element types" )
+    {
+        CHECK( p.convertToTuple(t4) == 4 );
+        CHECK( std::get<0>(t4) == testList.at(0) );
+        CHECK( std::get<1>(t4) == testList.at(1) );
+        CHECK( std::get<2>(t4) == testList.at(2) );
+        CHECK( std::get<3>(t4) == testList.at(3) );
+    }
+
+    WHEN( "unbundling positional values to too few elements" )
+    {
+        CHECK( p.convertToTuple(t3) == 3 );
+        CHECK( std::get<0>(t3) == testList.at(0) );
+        CHECK( std::get<1>(t3) == testList.at(1) );
+        CHECK( std::get<2>(t3) == testList.at(2) );
+    }
+
+    WHEN( "unbundling positional values to extra elements" )
+    {
+        std::get<4>(t5) = 42;
+        CHECK( p.convertToTuple(t5) == 4 );
+        CHECK( std::get<0>(t5) == testList.at(0) );
+        CHECK( std::get<1>(t5) == testList.at(1) );
+        CHECK( std::get<2>(t5) == testList.at(2) );
+        CHECK( std::get<3>(t5) == testList.at(3) );
+        CHECK( std::get<4>(t5) == 42 );
+    }
+
+    WHEN( "unbundling positional values to invalid element types" )
+    {
+        CHECK_THROWS_AS( p.convertToTuple(bad), error::Conversion );
+    }
+}
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Moving Payload to variables, without conversion",
-          "[Variant][Payload]" )
+SCENARIO( "Moving Payloads without conversion", "[Variant][Payload]" )
 {
-GIVEN( "a Payload object and a set of variables" )
+auto p = TestPayload().withArgList(testList);
+
+GIVEN( "a set of destination variables" )
 {
-    auto p = TestPayload().withArgList(testList);
     Null n;
     bool b = false;
     Int i = 0;
-    double x = 0.0;
-    std::string s;
+    Real x = 0.0;
+    String s;
 
     WHEN( "moving positional values to valid variable types" )
     {
@@ -148,6 +194,47 @@ GIVEN( "a Payload object and a set of variables" )
     {
         REQUIRE_THROWS_AS( p.moveTo(n, b, x, s), error::Access );
                           // Invalid type ^
+    }
+}
+
+GIVEN( "destination tuples" )
+{
+    std::tuple<Null, bool, Int> t3;
+    std::tuple<Null, bool, Int, String> t4;
+    std::tuple<Null, bool, Int, String, Real> t5;
+    std::tuple<Null, bool, Int, Real> bad;
+
+    WHEN( "moving positional values to valid element types" )
+    {
+        CHECK( p.moveToTuple(t4) == 4 );
+        CHECK( std::get<0>(t4) == testList.at(0) );
+        CHECK( std::get<1>(t4) == testList.at(1) );
+        CHECK( std::get<2>(t4) == testList.at(2) );
+        CHECK( std::get<3>(t4) == testList.at(3) );
+    }
+
+    WHEN( "moving positional values to too few elements" )
+    {
+        CHECK( p.moveToTuple(t3) == 3 );
+        CHECK( std::get<0>(t3) == testList.at(0) );
+        CHECK( std::get<1>(t3) == testList.at(1) );
+        CHECK( std::get<2>(t3) == testList.at(2) );
+    }
+
+    WHEN( "moving positional values to extra variables" )
+    {
+        std::get<4>(t5) = 42;
+        CHECK( p.moveToTuple(t5) == 4 );
+        CHECK( std::get<0>(t5) == testList.at(0) );
+        CHECK( std::get<1>(t5) == testList.at(1) );
+        CHECK( std::get<2>(t5) == testList.at(2) );
+        CHECK( std::get<3>(t5) == testList.at(3) );
+        CHECK( std::get<4>(t5) == 42 );
+    }
+
+    WHEN( "moving positional values to invalid variable types" )
+    {
+        REQUIRE_THROWS_AS( p.moveToTuple(bad), error::Access );
     }
 }
 }

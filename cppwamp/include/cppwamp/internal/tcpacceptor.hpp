@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_INTERNAL_TCPACCEPTOR_HPP
@@ -12,8 +11,8 @@
 #include <memory>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
-#include "config.hpp"
 
 namespace wamp
 {
@@ -28,39 +27,49 @@ public:
     using Socket    = boost::asio::ip::tcp::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
-    TcpAcceptor(AnyExecutor exec, const std::string addr, unsigned short port)
-        : executor_(exec),
+    template <typename TExecutorOrStrand>
+    TcpAcceptor(TExecutorOrStrand&& exec, const std::string addr,
+                unsigned short port)
+        : strand_(std::forward<TExecutorOrStrand>(exec)),
           endpoint_(boost::asio::ip::address::from_string(addr), port)
     {}
 
-    TcpAcceptor(AnyExecutor exec, unsigned short port)
-        : executor_(exec),
+    template <typename TExecutorOrStrand>
+    TcpAcceptor(TExecutorOrStrand&& exec, unsigned short port)
+        : strand_(std::forward<TExecutorOrStrand>(exec)),
           endpoint_(boost::asio::ip::tcp::v4(), port)
     {}
 
-    AnyExecutor executor() {return executor_;}
+    IoStrand strand() {return strand_;}
 
-    template <typename TCallback>
-    void establish(TCallback&& callback)
+    template <typename F>
+    void establish(F&& callback)
     {
-        assert(!socket_ && "Accept already in progress");
+        struct Accepted
+        {
+            TcpAcceptor* self;
+            typename std::decay<F>::type callback;
 
-        if (!acceptor_)
-            acceptor_.reset(new tcp::acceptor(executor_, endpoint_));
-        socket_.reset(new Socket(executor_));
-
-        // AsioListener will keep this object alive until completion.
-        acceptor_->async_accept(
-            *socket_,
-            [this, CPPWAMP_MVCAP(callback)](AsioErrorCode ec)
+            void operator()(AsioErrorCode ec)
             {
                 if (ec)
                 {
-                    acceptor_.reset();
-                    socket_.reset();
+                    self->acceptor_.reset();
+                    self->socket_.reset();
                 }
-                callback(ec, std::move(socket_));
-            });
+                callback(ec, std::move(self->socket_));
+            }
+        };
+
+        assert(!socket_ && "Accept already in progress");
+
+        if (!acceptor_)
+            acceptor_.reset(new tcp::acceptor(strand_, endpoint_));
+        socket_.reset(new Socket(strand_));
+
+        // AsioListener will keep this object alive until completion.
+        acceptor_->async_accept(*socket_,
+                                Accepted{this, std::forward<F>(callback)});
     }
 
     void cancel()
@@ -72,7 +81,7 @@ public:
 private:
     using tcp = boost::asio::ip::tcp;
 
-    AnyExecutor executor_;
+    IoStrand strand_;
     tcp::endpoint endpoint_;
     std::unique_ptr<tcp::acceptor> acceptor_;
     SocketPtr socket_;

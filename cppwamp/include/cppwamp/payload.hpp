@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_PAYLOAD_HPP
@@ -16,9 +15,12 @@
 
 #include <initializer_list>
 #include <ostream>
+#include <sstream>
+#include <tuple>
 #include <utility>
 #include "api.hpp"
 #include "options.hpp"
+#include "internal/integersequence.hpp"
 
 namespace wamp
 {
@@ -34,6 +36,10 @@ public:
     /** Sets the positional arguments for this payload. */
     template <typename... Ts>
     TDerived& withArgs(Ts&&... args);
+
+    /** Sets the positional arguments for this payload from a tuple. */
+    template <typename... Ts>
+    TDerived& withArgsTuple(const std::tuple<Ts...>& tuple);
 
     /** Sets the positional arguments for this payload from
         an array of variants. */
@@ -64,11 +70,21 @@ public:
     Variant& operator[](const String& keyword);
 
     /** Converts the payload's positional arguments to the given value types. */
-    template <typename... Ts> size_t convertTo(Ts&... values) const;
+    template <typename... Ts>
+    size_t convertTo(Ts&... values) const;
+
+    /** Converts the payload's positional arguments to the given std::tuple. */
+    template <typename... Ts>
+    size_t convertToTuple(std::tuple<Ts...>& tuple) const;
 
     /** Moves the payload's positional arguments to the given value
         references. */
-    template <typename... Ts> size_t moveTo(Ts&... values);
+    template <typename... Ts>
+    size_t moveTo(Ts&... values);
+
+    /** Moves the payload's positional arguments to the given std::tuple. */
+    template <typename... Ts>
+    size_t moveToTuple(std::tuple<Ts...>& tuple);
 
 protected:
     /** Constructor taking message construction aruments. */
@@ -83,17 +99,37 @@ private:
     template <typename T, typename... Ts>
     CPPWAMP_HIDDEN static void bundle(Array& array, T&& head, Ts&&... tail);
 
+    template <typename TTuple, int... Seq>
+    CPPWAMP_HIDDEN static Array
+    bundleFromTuple(TTuple&& tuple, internal::IntegerSequence<Seq...>);
+
     CPPWAMP_HIDDEN static void unbundleTo(const Array&, size_t&);
 
     template <typename T, typename... Ts>
     CPPWAMP_HIDDEN static void unbundleTo(const Array& array, size_t& index,
                                           T& head, Ts&... tail);
 
+    template <size_t I, typename... Ts>
+    CPPWAMP_HIDDEN static size_t unbundleToTuple(
+        const Array&, std::tuple<Ts...>& tuple, std::true_type);
+
+    template <size_t I, typename... Ts>
+    CPPWAMP_HIDDEN static size_t unbundleToTuple(
+        const Array&, std::tuple<Ts...>& tuple, std::false_type);
+
     CPPWAMP_HIDDEN static void unbundleAs(Array&, size_t&);
 
     template <typename T, typename... Ts>
     CPPWAMP_HIDDEN static void unbundleAs(Array& array, size_t& index, T& head,
                                           Ts&... tail);
+
+    template <size_t I, typename... Ts>
+    CPPWAMP_HIDDEN static size_t unbundleAsTuple(
+        const Array&, std::tuple<Ts...>& tuple, std::true_type);
+
+    template <size_t I, typename... Ts>
+    CPPWAMP_HIDDEN static size_t unbundleAsTuple(
+        const Array&, std::tuple<Ts...>& tuple, std::false_type);
 };
 
 
@@ -113,6 +149,19 @@ D& Payload<D,M>::withArgs(Ts&&... args)
     Array array;
     bundle(array, std::forward<Ts>(args)...);
     return withArgList(std::move(array));
+}
+
+//------------------------------------------------------------------------------
+/** Each tuple element is converted to a Variant using Variant::from. This
+    allows custom types to be passed in, as long as the `convert` function is
+    specialized for those custom types. */
+//------------------------------------------------------------------------------
+template <typename D, typename M>
+template <typename... Ts>
+D& Payload<D,M>::withArgsTuple(const std::tuple<Ts...>& tuple)
+{
+    using Seq = typename internal::GenIntegerSequence<sizeof...(Ts)>::type;
+    return withArgList(bundleFromTuple(tuple, Seq{}));
 }
 
 //------------------------------------------------------------------------------
@@ -243,6 +292,14 @@ size_t Payload<D,M>::convertTo(Ts&... values) const
     return index;
 }
 
+template <typename D, typename M>
+template <typename... Ts>
+size_t Payload<D, M>::convertToTuple(std::tuple<Ts...>& tuple) const
+{
+    using More = std::integral_constant<bool, sizeof...(Ts) != 0>;
+    return unbundleToTuple<0>(args(), tuple, More{});
+}
+
 //------------------------------------------------------------------------------
 /** @par Example
 ```
@@ -271,6 +328,15 @@ size_t Payload<D,M>::moveTo(Ts&... values)
 
 //------------------------------------------------------------------------------
 template <typename D, typename M>
+template <typename... Ts>
+size_t Payload<D,M>::moveToTuple(std::tuple<Ts...>& tuple)
+{
+    using More = std::integral_constant<bool, sizeof...(Ts) != 0>;
+    return unbundleAsTuple<0>(args(), tuple, More{});
+}
+
+//------------------------------------------------------------------------------
+template <typename D, typename M>
 template <typename... TArgs>
 Payload<D,M>::Payload(TArgs&&... args)
     : Base(std::forward<TArgs>(args)...)
@@ -290,18 +356,73 @@ void Payload<D,M>::bundle(Array& array, T&& head, Ts&&... tail)
 
 //------------------------------------------------------------------------------
 template <typename D, typename M>
+template <typename TTuple, int... Seq>
+Array Payload<D,M>::bundleFromTuple(TTuple&& tuple,
+                                    internal::IntegerSequence<Seq...>)
+{
+    return Array{Variant::from(std::get<Seq>(std::forward<TTuple>(tuple)))...};
+}
+
+//------------------------------------------------------------------------------
+template <typename D, typename M>
 void Payload<D,M>::unbundleTo(const Array&, size_t&) {}
 
 template <typename D, typename M>
 template <typename T, typename... Ts>
 void Payload<D,M>::unbundleTo(const Array& array, size_t& index, T& head,
-                            Ts&... tail)
+                              Ts&... tail)
 {
     if (index < array.size())
     {
-        head = array[index].to<T>();
+        try
+        {
+            head = array[index].to<T>();
+        }
+        catch (const error::Conversion& e)
+        {
+            std::ostringstream oss;
+            oss << "Payload element at index " << index
+                << " is not convertible to the target type: " << e.what();
+            throw error::Conversion(oss.str());
+        }
+
         unbundleTo(array, ++index, tail...);
     }
+}
+
+//------------------------------------------------------------------------------
+template <typename D, typename M>
+template <size_t I, typename... Ts>
+size_t Payload<D,M>::unbundleToTuple(
+    const Array& array, std::tuple<Ts...>& tuple, std::true_type)
+{
+    if (I < array.size())
+    {
+        using T = NthTypeOf<I, Ts...>;
+        try
+        {
+            std::get<I>(tuple) = array[I].to<T>();
+        }
+        catch (const error::Conversion& e)
+        {
+            std::ostringstream oss;
+            oss << "Payload element at index " << I
+                << " is not convertible to the target type: " << e.what();
+            throw error::Conversion(oss.str());
+        }
+
+        using More = std::integral_constant<bool, I+1 != sizeof...(Ts)>;
+        return unbundleToTuple<I+1, Ts...>(array, tuple, More{});
+    }
+    return I;
+}
+
+template <typename D, typename M>
+template <size_t I, typename... Ts>
+size_t Payload<D,M>::unbundleToTuple(
+    const Array& array, std::tuple<Ts...>& tuple, std::false_type)
+{
+    return I;
 }
 
 //------------------------------------------------------------------------------
@@ -314,9 +435,51 @@ void Payload<D,M>::unbundleAs(Array& array, size_t& index, T& head, Ts&... tail)
 {
     if (index < array.size())
     {
-        head = std::move(array[index].as<T>());
+        auto& arg = array[index];
+        if (!arg.template is<T>())
+        {
+            std::ostringstream oss;
+            oss << "Payload element of type " << typeNameOf(arg)
+                << " at index " << index
+                << " is not of type: " << typeNameOf<T>();
+            throw error::Access(oss.str());
+        }
+        head = std::move(arg.as<T>());
         unbundleAs(array, ++index, tail...);
     }
+}
+
+//------------------------------------------------------------------------------
+template <typename D, typename M>
+template <size_t I, typename... Ts>
+size_t Payload<D,M>::unbundleAsTuple(
+    const Array& array, std::tuple<Ts...>& tuple, std::true_type)
+{
+    if (I < array.size())
+    {
+        using T = NthTypeOf<I, Ts...>;
+        auto& arg = array[I];
+        if (!arg.template is<T>())
+        {
+            std::ostringstream oss;
+            oss << "Payload element of type " << typeNameOf(arg)
+                << " at index " << I
+                << " is not of type: " << typeNameOf<T>();
+            throw error::Access(oss.str());
+        }
+        std::get<I>(tuple) = std::move(arg.as<T>());
+        using More = std::integral_constant<bool, I+1 != sizeof...(Ts)>;
+        return unbundleAsTuple<I+1, Ts...>(array, tuple, More{});
+    }
+    return I;
+}
+
+template <typename D, typename M>
+template <size_t I, typename... Ts>
+size_t Payload<D,M>::unbundleAsTuple(
+    const Array& array, std::tuple<Ts...>& tuple, std::false_type)
+{
+    return I;
 }
 
 } // namespace wamp

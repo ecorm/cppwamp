@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_CODEC_HPP
@@ -16,6 +15,7 @@
 #include <istream>
 #include <ostream>
 #include "api.hpp"
+#include "config.hpp"
 #include "messagebuffer.hpp"
 #include "traits.hpp"
 #include "variant.hpp"
@@ -164,15 +164,15 @@ using Decoder = typename F::template Decoder<ValueTypeOf<I>, C>;
     The decoder is instantiated once and then discarded.
     @tparam TFormat The codec format tag (e.g. Json)
     @tparam TInput The input type (deduced)
-    @throws error::Decode if there is an error while parsing the input.
+    @return a std::error_code indicating success or failure
     @see wamp::encode
     @see wamp::Decoder */
 //------------------------------------------------------------------------------
 template <typename TFormat, typename TInput>
-void decode(TInput&& input, Variant& variant)
+CPPWAMP_NODISCARD std::error_code decode(TInput&& input, Variant& variant)
 {
     Decoder<TFormat, TInput> decoder;
-    decoder.decode(std::forward<TInput>(input), variant);
+    return decoder.decode(std::forward<TInput>(input), variant);
 }
 
 } // namespace wamp

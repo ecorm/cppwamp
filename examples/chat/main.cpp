@@ -1,15 +1,15 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include <iostream>
+#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
+#include <cppwamp/session.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
-#include <cppwamp/coro/corosession.hpp>
 
 const std::string realm = "cppwamp.demo.chat";
 const std::string address = "localhost";
@@ -28,29 +28,28 @@ public:
     void start(wamp::ConnectorList connectors, Yield yield)
     {
         using namespace wamp;
-        session_ = CoroSession<>::create(ioctx_, connectors);
+        session_ = Session::create(ioctx_, connectors);
 
-        auto index = session_->connect(yield);
+        auto index = session_->connect(yield).value();
         std::cout << "Chat service connected on transport #"
                   << (index + 1) << "\n";
 
-        auto info = session_->join(Realm(realm), yield);
+        auto info = session_->join(Realm(realm), yield).value();
         std::cout << "Chat service joined, session ID = " << info.id() << "\n";
 
         using namespace std::placeholders;
 
         registration_ = session_->enroll(
             Procedure("say"),
-            basicRpc<void, std::string, std::string>(
+            simpleRpc<void, std::string, std::string>(
                                 std::bind(&ChatService::say, this, _1, _2)),
-            yield
-        );
+            yield).value();
     }
 
     void quit(Yield yield)
     {
         registration_.unregister();
-        session_->leave(wamp::Reason(), yield);
+        session_->leave(wamp::Reason(), yield).value();
         session_->disconnect();
     }
 
@@ -62,7 +61,7 @@ private:
     }
 
     wamp::AsioContext& ioctx_;
-    wamp::CoroSession<>::Ptr session_;
+    wamp::Session::Ptr session_;
     wamp::ScopedRegistration registration_;
 };
 
@@ -81,33 +80,34 @@ public:
     void join(wamp::ConnectorList connectors, Yield yield)
     {
         using namespace wamp;
-        session_ = CoroSession<>::create(ioctx_, connectors);
+        session_ = Session::create(ioctx_, connectors);
 
-        auto index = session_->connect(yield);
+        auto index = session_->connect(yield).value();
         std::cout << user_ << " connected on transport #" << index << "\n";
 
-        auto info = session_->join(Realm(realm), yield);
+        auto info = session_->join(Realm(realm), yield).value();
         std::cout << user_ << " joined, session ID = " << info.id() << "\n";
 
         using namespace std::placeholders;
         subscription_ = session_->subscribe(
                 Topic("said"),
-                basicEvent<std::string, std::string>(
+                simpleEvent<std::string, std::string>(
                         std::bind(&ChatClient::said, this, _1, _2)),
-                yield);
+                yield).value();
     }
 
     void leave(Yield yield)
     {
         subscription_.unsubscribe();
-        session_->leave(wamp::Reason(), yield);
+        session_->leave(wamp::Reason(), yield).value();
         session_.reset();
     }
 
     void say(const std::string& message, Yield yield)
     {
         std::cout << user_ << " says \"" << message << "\"\n";
-        session_->call(wamp::Rpc("say").withArgs(user_, message), yield);
+        session_->call(wamp::Rpc("say").withArgs(user_, message),
+                       yield).value();
     }
 
 private:
@@ -119,7 +119,7 @@ private:
 
     wamp::AsioContext& ioctx_;
     std::string user_;
-    wamp::CoroSession<>::Ptr session_;
+    wamp::Session::Ptr session_;
     wamp::ScopedSubscription subscription_;
 };
 

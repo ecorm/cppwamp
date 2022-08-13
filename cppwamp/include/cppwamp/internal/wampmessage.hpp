@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_INTERNAL_WAMPMESSAGE_HPP
@@ -319,7 +318,8 @@ private:
 //------------------------------------------------------------------------------
 struct AbortMessage : public MessageWithOptions<WampMsgType::abort, 1>
 {
-    AbortMessage() : Base({String{}, Object{}}) {}
+    AbortMessage(String reason = "", Object opts = {})
+        : Base({0, std::move(opts), std::move(reason)}) {}
 
     const String& reasonUri() const {return fields_.at(2).as<String>();}
 

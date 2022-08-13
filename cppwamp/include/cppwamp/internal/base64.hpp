@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_BASE64_HPP
@@ -12,7 +11,8 @@
 #include <cassert>
 #include <cstdint>
 #include <vector>
-#include "../error.hpp"
+#include "../config.hpp"
+#include "../erroror.hpp"
 
 namespace wamp
 {
@@ -71,38 +71,50 @@ public:
     }
 
     template <typename TOutputByteContainer>
-    static void decode(const void* data, size_t length,
-                       TOutputByteContainer& output)
+    CPPWAMP_NODISCARD static std::error_code
+    decode(const void* data, size_t length, TOutputByteContainer& output)
     {
         if (length == 0)
-            return;
+            return {};
         if (length % 4 != 0)
-            throw error::Decode("Invalid JSON Base64 payload length");
+            return make_error_code(DecodingErrc::badBase64Length);
 
-        Triplet triplet;
+        ErrorOr<Triplet> triplet;
         auto str = static_cast<const char*>(data);
         const char* quad = str;
         auto end = str + length - 4;
         assert(end >= str);
         for (; quad < end; quad += 4)
-            append(tripletFromQuad(quad, false), output);
+        {
+            triplet = tripletFromQuad(quad, false);
+            if (!triplet)
+                return triplet.error();
+            append(*triplet, output);
+        }
 
         assert((quad + 4) == (str + length));
 
         unsigned lastTripletCount = 1;
         triplet = tripletFromQuad(quad, true);
+        if (!triplet)
+            return triplet.error();
         if (quad[0] == pad || quad[1] == pad)
-            throw error::Decode("Invalid JSON Base64 padding");
+            return make_error_code(DecodingErrc::badBase64Padding);
 
         if (quad[2] == pad)
         {
             if (quad[3] != pad)
-                throw error::Decode("Invalid JSON Base64 padding");
+                return make_error_code(DecodingErrc::badBase64Padding);
         }
         else
             lastTripletCount = (quad[3] == pad) ? 2 : 3;
 
-        append(tripletFromQuad(quad, true), lastTripletCount, output);
+        triplet = tripletFromQuad(quad, true);
+        if (!triplet)
+            return triplet.error();
+        append(*triplet, lastTripletCount, output);
+
+        return {};
     }
 
 private:
@@ -129,11 +141,16 @@ private:
         return alphabet[sextet];
     }
 
-    static Triplet tripletFromQuad(const char* quad, bool padAllowed)
+    static ErrorOr<Triplet> tripletFromQuad(const char* quad, bool padAllowed)
     {
         std::array<Byte, 4> sextet;
         for (unsigned i=0; i<4; ++i)
-            sextet[i] = sextetFromChar(quad[i], padAllowed);
+        {
+            auto s = sextetFromChar(quad[i], padAllowed);
+            if (!s)
+                return makeUnexpected(s.error());
+            sextet[i] = s.value();
+        }
         Triplet triplet;
         triplet[0] = ((sextet[0] << 2) & 0xfc) | ((sextet[1] >> 4) & 0x03);
         triplet[1] = ((sextet[1] << 4) & 0xf0) | ((sextet[2] >> 2) & 0x0f);
@@ -141,7 +158,7 @@ private:
         return triplet;
     }
 
-    static Byte sextetFromChar(char c, bool padAllowed)
+    static ErrorOr<Byte> sextetFromChar(char c, bool padAllowed)
     {
         static const uint8_t table[] =
         {
@@ -203,11 +220,11 @@ private:
         };
 
         if (!padAllowed && c == pad)
-            throw error::Decode("Invalid JSON Base64 padding");
+            return makeUnexpectedError(DecodingErrc::badBase64Padding);
         uint8_t index = c;
         uint8_t sextet = table[index];
         if (sextet == 0xff)
-            throw error::Decode("Invalid JSON Base64 character");
+            return makeUnexpectedError(DecodingErrc::badBase64Char);
         assert(sextet < 64);
         return sextet;
     }

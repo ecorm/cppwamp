@@ -1,24 +1,26 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include "../session.hpp"
 #include <cassert>
 #include "../api.hpp"
-#include "config.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** @post `session->state() == SessionState::disconnected`
+/** @details
+    The provided executor serves as a fallback when asynchronous operation
+    handlers don't bind a specific executor (in lieu of using the system
+    executor as fallback.
+    @post `session->state() == SessionState::disconnected`
     @return A shared pointer to the created session object. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
-    AnyExecutor exec,               /**< Executor with which to post all
+    AnyIoExecutor exec,             /**< Fallback executor with which to execute
                                          user-provided handlers. */
     const Connector::Ptr& connector /**< Connection details for the transport
                                          to use. */
@@ -28,13 +30,17 @@ CPPWAMP_INLINE Session::Ptr Session::create(
 }
 
 //------------------------------------------------------------------------------
-/** @pre `connectors.empty() == false`
+/** @details
+    The provided executor serves as a fallback when asynchronous operation
+    handlers don't bind a specific executor (in lieu of using the system
+    executor as fallback.
+    @pre `connectors.empty() == false`
     @post `session->state() == SessionState::disconnected`
     @return A shared pointer to the created Session object.
     @throws error::Logic if `connectors.empty() == true` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
-    AnyExecutor exec,               /**< Executor with which to post all
+    AnyIoExecutor exec,             /**< Fallback executor with which to execute
                                          user-provided handlers. */
     const ConnectorList& connectors /**< A list of connection details for
                                          the transports to use. */
@@ -63,12 +69,13 @@ CPPWAMP_INLINE const Object& Session::roles()
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::~Session()
 {
-    stateChangeHandler_.reset();
+    // TODO: Make destructor non-virtual once CoroSession is removed
+    stateChangeHandler_ = {};
     reset();
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AnyExecutor Session::userExecutor() const
+CPPWAMP_INLINE AnyIoExecutor Session::userExecutor() const
 {
     return userExecutor_;
 }
@@ -76,15 +83,27 @@ CPPWAMP_INLINE AnyExecutor Session::userExecutor() const
 //------------------------------------------------------------------------------
 /** @deprecated Use wamp::Session::userExecutor instead. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AnyExecutor Session::userIosvc() const
+CPPWAMP_INLINE AnyIoExecutor Session::userIosvc() const
 {
     return userExecutor();
 }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE IoStrand Session::strand() const
+{
+    auto impl = std::weak_ptr<internal::ClientInterface>(impl_).lock();
+    if (impl)
+        return impl->strand();
+    else if (!connectors_.empty())
+        return connectors_.front()->strand();
+    return {};
+}
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE SessionState Session::state() const
 {
-    return impl_ ? impl_->state() : state_;
+    auto impl = std::weak_ptr<internal::ClientInterface>(impl_).lock();
+    return impl ? impl->state() : state_.load();
 }
 
 //------------------------------------------------------------------------------
@@ -94,194 +113,162 @@ CPPWAMP_INLINE SessionState Session::state() const
     peer attempts to send an event with arguments that does not match the types
     of a statically-typed event slot.
 
-    By default, warnings are logged to std::cerr.
-
-    @note Changes to the warning handler start taking effect when the session
-          is connecting. */
+    By default, warnings are discarded. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setWarningHandler(
-    LogHandler handler /**< Function called to handle warnings. */
+    LogHandler handler /**< Callable handler of type `<void (std::string)>`. */
 )
 {
-    warningHandler_ = AsyncTask<std::string>
+    if (impl_)
+        impl_->setWarningHandler(handler);
+    warningHandler_ = std::move(handler);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::setWarningHandler(LogHandler) */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::setWarningHandler(
+    ThreadSafe,
+    LogHandler handler /**< Callable handler of type `<void (std::string)>`. */
+)
+{
+    struct Dispatched
     {
-        userExecutor_,
-        [CPPWAMP_MVCAP(handler)](AsyncResult<std::string> warning)
-        {
-            handler(warning.get());
-        }
+        Ptr self;
+        LogHandler handler;
+        void operator()() {self->setWarningHandler(std::move(handler));}
     };
+
+    dispatchViaStrand(Dispatched{shared_from_this(), std::move(handler)});
 }
 
 //------------------------------------------------------------------------------
 /** @details
-    By default, debug traces are discarded.
-
-    @note Changes to the trace handler start taking effect when the session is
-          connecting. */
+    By default, debug traces are discarded. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setTraceHandler(
-    LogHandler handler /**< Function called to handle log traces. */
+    LogHandler handler /**< Callable handler of type `<void (std::string)>`. */
 )
 {
-    traceHandler_ = AsyncTask<std::string>
-    {
-        userExecutor_,
-        [CPPWAMP_MVCAP(handler)](AsyncResult<std::string> trace)
-        {
-            handler(trace.get());
-        }
-    };
+    if (impl_)
+        impl_->setTraceHandler(handler);
+    traceHandler_ = std::move(handler);
 }
 
 //------------------------------------------------------------------------------
-/** @note Changes to the state change handler start taking effect when the
-          session is connecting.
-    @note No state change events are fired when the session object is
+/** @copydetails Session::setTraceHandler(LogHandler) */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::setTraceHandler(
+    ThreadSafe,
+    LogHandler handler /**< Callable handler of type `<void (std::string)>`. */
+)
+{
+    struct Dispatched
+    {
+        Ptr self;
+        LogHandler handler;
+        void operator()() {self->setTraceHandler(std::move(handler));}
+    };
+
+    dispatchViaStrand(Dispatched{shared_from_this(), std::move(handler)});
+}
+
+//------------------------------------------------------------------------------
+/** @note No state change events are fired when the session object is
           destructing. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setStateChangeHandler(
-    StateChangeHandler handler /**< Function called when
-                                    session state changes. */)
+    StateChangeHandler handler /**< Callable handler of type `<void (SessionState)>`. */
+)
 {
-    stateChangeHandler_ = AsyncTask<State>
-    {
-        userExecutor_,
-        [CPPWAMP_MVCAP(handler)](AsyncResult<State> state)
-        {
-            handler(state.get());
-        }
-    };
+    if (impl_)
+        impl_->setStateChangeHandler(handler);
+    stateChangeHandler_ = std::move(handler);
 }
 
 //------------------------------------------------------------------------------
-/** @note Changes to the challenge handler start taking effect when the
-          session is connecting. */
+/** @copydetails Session::setStateChangeHandler(StateChangeHandler) */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::setChallengeHandler(
-    ChallengeHandler handler /**< Function called to handle
-                                  authentication challenges. */
+CPPWAMP_INLINE void Session::setStateChangeHandler(
+    ThreadSafe,
+    StateChangeHandler handler /**< Callable handler of type `<void (SessionState)>`. */
 )
 {
-    challengeHandler_ = AsyncTask<Challenge>
+    struct Dispatched
     {
-        userExecutor_,
-        [CPPWAMP_MVCAP(handler)](AsyncResult<Challenge> challenge)
-        {
-            handler(std::move(challenge.get()));
-        }
+        Ptr self;
+        StateChangeHandler handler;
+        void operator()() {self->setStateChangeHandler(std::move(handler));}
     };
+
+    dispatchViaStrand(Dispatched{shared_from_this(), std::move(handler)});
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::setChallengeHandler(
+    ChallengeHandler handler /**< Callable handler of type `<void (Challenge)>`. */
+)
+{
+    if (impl_)
+        impl_->setChallengeHandler(handler);
+    challengeHandler_ = std::move(handler);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::setChallengeHandler(ChallengeHandler) */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::setChallengeHandler(
+    ThreadSafe,
+    ChallengeHandler handler /**< Callable handler of type `<void (Challenge)>`. */
+    )
+{
+    struct Dispatched
+    {
+        Ptr self;
+        ChallengeHandler handler;
+        void operator()() {self->setChallengeHandler(std::move(handler));}
+    };
+
+    dispatchViaStrand(Dispatched{shared_from_this(), std::move(handler)});
 }
 
 //------------------------------------------------------------------------------
 /** @details
-    The session will attempt to connect using the transports that were
-    specified by the wamp::Connector objects passed during create().
-    If more than one transport was specified, they will be traversed in the
-    same order as they appeared in the @ref ConnectorList.
-    @return The index of the Connector object used to establish the connetion.
-    @pre `this->state() == SessionState::disconnected`
-    @post `this->state() == SessionState::connecting`
-    @par Error Codes
-        - TransportErrc::aborted if the connection attempt was aborted.
-        - SessionErrc::allTransportsFailed if more than one transport was
-          specified and they all failed to connect.
-        - Some other platform or transport-dependent `std::error_code` if
-          only one transport was specified and it failed to connect.
-    @throws error::Logic if `this->state() != SessionState::disconnected` */
+    If `this->state() != SessionState::authenticating`, then the authentication
+    is discarded and not sent.  */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::connect(
-    AsyncHandler<size_t> handler /**< Handler to invoke when the operation
-                                      completes. */
+CPPWAMP_INLINE void Session::authenticate(
+    Authentication auth /**< Contains the authentication signature
+                             and other options. */
 )
 {
-    assert(!connectors_.empty());
-    CPPWAMP_LOGIC_CHECK(state() == State::disconnected,
-                        "Session is not disconnected");
-    setState(State::connecting);
-    isTerminating_ = false;
-    currentConnector_ = nullptr;
-    doConnect(0, {userExecutor_, handler});
-}
+    if (state() != State::authenticating)
+    {
+        warn("Session::authenticate called while not "
+             "in the authenticating state");
+        return;
+    }
 
-//------------------------------------------------------------------------------
-/** @return A SessionInfo object with details on the newly established session.
-    @pre `this->state() == SessionState::connected`
-    @post `this->state() == SessionState::establishing`
-    @par Error Codes
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
-        - SessionErrc::noSuchRealm if the realm does not exist.
-        - SessionErrc::noSuchRole if one of the client roles is not supported on
-          the router.
-        - SessionErrc::joinError for other errors reported by the router.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throws error::Logic if `this->state() != SessionState::connected` */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::join(
-    Realm realm,                      /**< Details on the realm to join. */
-    AsyncHandler<SessionInfo> handler /**< Handler to invoke when the
-                                           operation completes. */
-)
-{
-    CPPWAMP_LOGIC_CHECK(state() == State::closed, "Session is not closed");
-    impl_->join(std::move(realm), {userExecutor_, std::move(handler)});
-}
-
-//------------------------------------------------------------------------------
-/** @pre `this->state() == SessionState::authenticating`
-    @throw error::Logic if `this->state() != SessionState::authenticating` */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::authenticate(Authentication auth)
-{
-    CPPWAMP_LOGIC_CHECK(state() == State::authenticating,
-                        "Session is not authenticating");
     impl_->authenticate(std::move(auth));
 }
 
 //------------------------------------------------------------------------------
-/** @details The "wamp.close.close_realm" reason is sent as part of the
-             outgoing `GOODBYE` message.
-    @return The _Reason_ URI and details from the `GOODBYE` response returned
-            by the router.
-    @pre `this->state() == SessionState::established`
-    @post `this->state() == SessionState::shuttingDown`
-    @par Error Codes
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer
-          before a `GOODBYE` response was received.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throw error::Logic if `this->state() != SessionState::established` */
+/** @copydetails Session::authenticate(Authentication) */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::leave(
-    AsyncHandler<Reason> handler /**< Handler to invoke when the
-                                      operation completes. */
-    )
-{
-    leave(Reason("wamp.close.close_realm"), std::move(handler));
-}
-
-//------------------------------------------------------------------------------
-/** @return The _Reason_ URI and details from the `GOODBYE` response returned
-            by the router.
-    @pre `this->state() == SessionState::established`
-    @post `this->state() == SessionState::shuttingDown`
-    @par Error Codes
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer
-          before a `GOODBYE` response was received.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throw error::Logic if `this->state() != SessionState::established` */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::leave(
-    Reason reason,               /**< %Reason URI and other options */
-    AsyncHandler<Reason> handler /**< Handler to invoke when the
-                                      operation completes. */
+CPPWAMP_INLINE void Session::authenticate(
+    ThreadSafe,
+    Authentication auth /**< Contains the authentication signature
+                             and other options. */
 )
 {
-    CPPWAMP_LOGIC_CHECK(state() == State::established,
-                        "Session is not established");
-    impl_->leave(std::move(reason), {userExecutor_, std::move(handler)});
+    struct Dispatched
+    {
+        Ptr self;
+        Authentication auth;
+        void operator()() {self->authenticate(std::move(auth));}
+    };
+
+    dispatchViaStrand(Dispatched{shared_from_this(), std::move(auth)});
 }
 
 //------------------------------------------------------------------------------
@@ -312,6 +299,15 @@ CPPWAMP_INLINE void Session::disconnect()
 }
 
 //------------------------------------------------------------------------------
+/** @copydetails Session::disconnect */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::disconnect(ThreadSafe)
+{
+    auto self = shared_from_this();
+    boost::asio::dispatch(strand(), [self]() {self->disconnect();});
+}
+
+//------------------------------------------------------------------------------
 /** @details
     Terminates all pending asynchronous operations, which does **not**
     invoke their handlers. This is useful when a client application needs
@@ -336,29 +332,12 @@ CPPWAMP_INLINE void Session::reset()
 }
 
 //------------------------------------------------------------------------------
-/** @see @ref Subscriptions
-
-    @return A Subscription object, therafter used to manage the subscription's
-            lifetime.
-    @pre `this->state() == SessionState::established`
-    @par Error Codes
-        - SessionErrc::subscribeError if the router replied with an `ERROR`
-          response.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throws error::Logic if `this->state() != SessionState::established` */
+/** @copydetails Session::reset */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::subscribe(
-    Topic topic,    /**< The topic to subscribe to. */
-    EventSlot slot, /**< The callable target to invoke when a matching
-                         event is received. */
-    AsyncHandler<Subscription> handler /**< Handler to invoke when the
-                                            subscribe operation completes. */
-)
+CPPWAMP_INLINE void Session::reset(ThreadSafe)
 {
-    CPPWAMP_LOGIC_CHECK(state() == State::established,
-                        "Session is not established");
-    using std::move;
-    impl_->subscribe(move(topic), move(slot), {userExecutor_, move(handler)});
+    auto self = shared_from_this();
+    boost::asio::dispatch(strand(), [self]() {self->reset();});
 }
 
 //------------------------------------------------------------------------------
@@ -369,145 +348,65 @@ CPPWAMP_INLINE void Session::subscribe(
     @see Subscription, ScopedSubscription
     @note Duplicate unsubscribes using the same Subscription object
           are safely ignored.
-    @pre `!!sub == true`
+    @pre `bool(sub) == true`
     @throws error::Logic if the given subscription is empty */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unsubscribe(
-    const Subscription& sub /**< The subscription to unsubscribe from. */
+    Subscription sub /**< The subscription to unsubscribe from. */
 )
 {
-    CPPWAMP_LOGIC_CHECK(!!sub, "The subscription is empty");
+    CPPWAMP_LOGIC_CHECK(bool(sub), "The subscription is empty");
     if (impl_)
         impl_->unsubscribe(sub);
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    If there are other local subscriptions on this session remaining for the
-    same topic, then the session does not send an `UNSUBSCRIBE` message to
-    the router.
-    @see Subscription, ScopedSubscription
-    @returns `false` if the subscription was already removed, `true` otherwise.
-    @note Duplicate unsubscribes using the same Subscription handle
-          are safely ignored.
-    @pre `!!sub == true`
-    @pre `this->state() == SessionState::established`
-    @par Error Codes
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
-        - SessionErrc::noSuchSubscription if the router reports that there was
-          no such subscription.
-        - SessionErrc::unsubscribeError if the router reports some other
-          error.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throws error::Logic if the given subscription is empty
-    @throws error::Logic if `this->state() != SessionState::established` */
+/** @copydetails Session::unsubscribe(Subscription) */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unsubscribe(
-    const Subscription& sub,   /**< The subscription to unsubscribe from. */
-    AsyncHandler<bool> handler /**< Handler to invoke when the operation
-                                    completes. */
-)
+    ThreadSafe,
+    Subscription sub /**< The subscription to unsubscribe from. */
+    )
 {
-    CPPWAMP_LOGIC_CHECK(!!sub, "The subscription is empty");
-    CPPWAMP_LOGIC_CHECK(state() == State::established,
-                        "Session is not established");
-    impl_->unsubscribe(sub, {userExecutor_, std::move(handler)});
+    CPPWAMP_LOGIC_CHECK(bool(sub), "The subscription is empty");
+    auto self = shared_from_this();
+    boost::asio::dispatch(strand(), [self, sub]() {self->unsubscribe(sub);});
 }
 
 //------------------------------------------------------------------------------
-/** @pre `this->state() == SessionState::established`
-    @throws error::Logic if `this->state() != SessionState::established` */
+/** @details
+    If `this->state() != SessionState::established`, then the publication is
+    discarded and not sent. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::publish(
     Pub pub /**< The publication to publish. */
 )
 {
-    CPPWAMP_LOGIC_CHECK(state() == State::established,
-                        "Session is not established");
+    if (state() != State::established)
+    {
+        warn("Session::publish called while not in the established state");
+        return;
+    }
+
     impl_->publish(std::move(pub));
 }
 
 //------------------------------------------------------------------------------
-/** @return The publication ID for this event.
-    @pre `this->state() == SessionState::established`
-    @par Error Codes
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
-        - SessionErrc::publishError if the router replies with an ERROR
-          response.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throws error::Logic if `this->state() != SessionState::established` */
+/** @copydetails Session::publish(Pub pub) */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::publish(
-    Pub pub,                            /**< The publication to publish. */
-    AsyncHandler<PublicationId> handler /**< Handler to invoke when
-                                             the operation completes. */
+    ThreadSafe,
+    Pub pub /**< The publication to publish. */
 )
 {
-    CPPWAMP_LOGIC_CHECK(state() == State::established,
-                        "Session is not established");
-    impl_->publish(std::move(pub), {userExecutor_, std::move(handler)});
-}
+    struct Dispatched
+    {
+        Ptr self;
+        Pub pub;
+        void operator()() {self->publish(std::move(pub));}
+    };
 
-//------------------------------------------------------------------------------
-/** @see @ref Registrations
-
-    @return A Registration object, therafter used to manage the registration's
-            lifetime.
-    @note This function was named `enroll` because `register` is a reserved
-          C++ keyword.
-    @pre `this->state() == SessionState::established`
-    @par Error Codes
-        - SessionErrc::procedureAlreadyExists if the router reports that the
-          procedure has already been registered for this realm.
-        - SessionErrc::registerError if the router reports some other error.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throws error::Logic if `this->state() != SessionState::established` */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::enroll(
-    Procedure procedure, /**< The procedure to register. */
-    CallSlot slot,       /**< The handler to execute when the RPC is invoked. */
-    AsyncHandler<Registration> handler /**< Handler to invoke when
-                                            the enroll operation completes. */
-)
-{
-    CPPWAMP_LOGIC_CHECK(state() == State::established,
-                        "Session is not established");
-    using std::move;
-    impl_->enroll( move(procedure), move(slot), nullptr,
-                   {userExecutor_, move(handler)} );
-}
-
-//------------------------------------------------------------------------------
-/** @see @ref Registrations
-
-    @return A Registration object, therafter used to manage the registration's
-            lifetime.
-    @note This function was named `enroll` because `register` is a reserved
-          C++ keyword.
-    @pre `this->state() == SessionState::established`
-    @par Error Codes
-        - SessionErrc::procedureAlreadyExists if the router reports that the
-          procedure has already been registered for this realm.
-        - SessionErrc::registerError if the router reports some other error.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throws error::Logic if `this->state() != SessionState::established` */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::enroll(
-    Procedure procedure, /**< The procedure to register. */
-    CallSlot callSlot,   /**< The handler to execute when the RPC is invoked. */
-    InterruptSlot interruptSlot, /**< Handler to execute when RPC
-                                      is interrupted. */
-    AsyncHandler<Registration> handler /**< Handler to invoke when
-                                            the enroll operation completes. */
-)
-{
-    CPPWAMP_LOGIC_CHECK(state() == State::established,
-                        "Session is not established");
-    using std::move;
-    impl_->enroll( move(procedure), move(callSlot), move(interruptSlot),
-                   {userExecutor_, move(handler)} );
+    dispatchViaStrand(Dispatched{shared_from_this(), std::move(pub)});
 }
 
 //------------------------------------------------------------------------------
@@ -518,86 +417,138 @@ CPPWAMP_INLINE void Session::enroll(
     @see Registration, ScopedRegistration
     @note Duplicate unregistrations using the same Registration handle
           are safely ignored.
-    @pre `!!reg == true`
+    @pre `bool(reg) == true`
     @throws error::Logic if the given registration is empty */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unregister(
-    const Registration& reg /**< The RPC registration to unregister. */
+    Registration reg /**< The RPC registration to unregister. */
 )
 {
-    CPPWAMP_LOGIC_CHECK(!!reg, "The registration is empty");
+    CPPWAMP_LOGIC_CHECK(bool(reg), "The registration is empty");
     if (impl_)
         impl_->unregister(reg);
 }
 
 //------------------------------------------------------------------------------
-/** @see Registration, ScopedRegistration
-    @returns `false` if the registration was already removed, `true` otherwise.
-    @note Duplicate unregistrations using the same Registration handle
-          are safely ignored.
-    @pre `!!reg == true`
-    @pre `this->state() == SessionState::established`
-    @par Error Codes
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
-        - SessionErrc::noSuchRegistration if the router reports that there is
-          no such procedure registered by that name.
-        - SessionErrc::unregisterError if the router reports some other
-          error.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throws error::Logic if the given registration is empty
-    @throws error::Logic if `this->state() != SessionState::established` */
+/** @copydetails Session::unregister(Registration) */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::unregister(
-    const Registration& reg,   /**< The RPC registration to unregister. */
-    AsyncHandler<bool> handler /**< Handler to invoke when the operation
-                                    completes. */
+    ThreadSafe,
+    Registration reg /**< The RPC registration to unregister. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(bool(reg), "The registration is empty");
+    auto self = shared_from_this();
+    boost::asio::dispatch(strand(), [self, reg]() {self->unregister(reg);});
+}
+
+//------------------------------------------------------------------------------
+/** @details
+    If `this->state() != SessionState::established`, then the cancellation
+    is discarded and not sent. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::cancel(
+    CallChit chit /**< Contains the request ID of the call to cancel. */
+    )
+{
+    return cancel(chit, chit.cancelMode());
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::cancel(CallChit) */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::cancel(
+    ThreadSafe,
+    CallChit chit /**< Contains the request ID of the call to cancel. */
+    )
+{
+    return cancel(threadSafe, chit, chit.cancelMode());
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::cancel(CallChit) */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::cancel(
+    CallChit chit,      /**< Contains the request ID of the call to cancel. */
+    CallCancelMode mode /**< The mode with which to cancel the call. */
+    )
+{
+    if (state() != State::established)
+    {
+        warn("Session::cancel called while not in the established state");
+        return;
+    }
+    return impl_->cancelCall(chit.requestId(), mode);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::cancel(CallChit) */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::cancel(
+    ThreadSafe,
+    CallChit chit,      /**< Contains the request ID of the call to cancel. */
+    CallCancelMode mode /**< The mode with which to cancel the call. */
+    )
+{
+    auto self = shared_from_this();
+    boost::asio::dispatch(strand(),
+                          [self, chit, mode]() {self->cancel(chit, mode);});
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::cancel(CallChit) */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::cancel(
+    CallCancellation cancellation /**< Contains the request ID
+                                       and other options. */
 )
 {
-    CPPWAMP_LOGIC_CHECK(!!reg, "The registration is empty");
-    CPPWAMP_LOGIC_CHECK(state() == State::established,
-                        "Session is not established");
-    if (impl_)
-        impl_->unregister(reg, {userExecutor_, std::move(handler)});
+    if (state() != State::established)
+    {
+        warn("Session::cancel called while not in the established state");
+        return;
+    }
+    return impl_->cancelCall(cancellation.requestId(), cancellation.mode());
 }
 
 //------------------------------------------------------------------------------
-/** @return The Result yielded by the remote procedure
-    @pre `this->state() == SessionState::established`
-    @par Error Codes
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
-        - SessionErrc::noSuchProcedure if the router reports that there is
-          no such procedure registered by that name.
-        - SessionErrc::invalidArgument if the callee reports that there are one
-          or more invalid arguments.
-        - SessionErrc::callError if the router reports some other error.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throws error::Logic if `this->state() != SessionState::established` */
+/** @copydetails Session::cancel(CallChit, CallCancelMode) */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE RequestId Session::call(
-    Rpc rpc,                     /**< Details about the RPC. */
-    AsyncHandler<Result> handler /**< Handler to invoke when the
-                                       operation completes. */
+CPPWAMP_INLINE void Session::cancel(
+    ThreadSafe,
+    CallCancellation cancellation  /**< Contains the request ID
+                                         and other options. */
 )
 {
-    CPPWAMP_LOGIC_CHECK(state() == State::established,
-                        "Session is not established");
-    return impl_->call(std::move(rpc), {userExecutor_, std::move(handler)});
+    auto self = shared_from_this();
+    boost::asio::dispatch(strand(),
+                          [self, cancellation]() {self->cancel(cancellation);});
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::cancel(Cancellation cancellation)
+CPPWAMP_INLINE void Session::asyncConnect(CompletionHandler<size_t>&& handler)
 {
-    CPPWAMP_LOGIC_CHECK(state() == State::established,
-                        "Session is not established");
-    return impl_->cancel(std::move(cancellation));
+    assert(!connectors_.empty());
+    if (!checkState<size_t>(State::disconnected, handler))
+        return;
+
+    setState(State::connecting);
+    isTerminating_ = false;
+    currentConnector_ = nullptr;
+
+    // This makes it easier to transport the move-only completion handler
+    // through the gauntlet of intermediary handler functions.
+    auto sharedHandler =
+        std::make_shared<CompletionHandler<size_t>>(std::move(handler));
+
+    doConnect(0, std::move(sharedHandler));
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Session::Session(AnyExecutor userExec,
+CPPWAMP_INLINE Session::Session(AnyIoExecutor userExec,
                                 const ConnectorList& connectors)
-    : userExecutor_(userExec)
+    : userExecutor_(userExec),
+      state_(State::disconnected)
 {
     CPPWAMP_LOGIC_CHECK(!connectors.empty(), "Connector list is empty");
     for (const auto& cnct: connectors)
@@ -605,74 +556,96 @@ CPPWAMP_INLINE Session::Session(AnyExecutor userExec,
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::doConnect(size_t index,
-                                       AsyncTask<size_t>&& handler)
+CPPWAMP_INLINE void Session::warn(std::string log)
 {
-    currentConnector_ = connectors_.at(index);
-    std::weak_ptr<Session> self(shared_from_this());
-    currentConnector_->establish(
-        [this, self, index, CPPWAMP_MVCAP(handler)]
-        (std::error_code ec, internal::ClientInterface::Ptr impl) mutable
+    if (warningHandler_)
+        dispatchVia(userExecutor_, warningHandler_, std::move(log));
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::setState(SessionState s)
+{
+    auto old = state_.exchange(s);
+    if (old != s && stateChangeHandler_)
+        postVia(userExecutor_, stateChangeHandler_, s);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::doConnect(
+    size_t index, std::shared_ptr<CompletionHandler<size_t>> handler)
+{
+    struct Established
+    {
+        std::weak_ptr<Session> self;
+        size_t index;
+        std::shared_ptr<CompletionHandler<size_t>> handler;
+
+        void operator()(std::error_code ec, ImplPtr impl)
         {
-            if (!self.expired() && !isTerminating_)
+            auto me = self.lock();
+            if (me && !me->isTerminating_)
             {
                 if (ec)
                 {
-                    if (ec == TransportErrc::aborted)
-                        std::move(handler)(ec);
-                    else
-                    {
-                        auto newIndex = index + 1;
-                        if (newIndex < connectors_.size())
-                            doConnect(newIndex, std::move(handler));
-                        else
-                        {
-                            setState(State::failed);
-                            if (connectors_.size() > 1)
-                            {
-                                ec = make_error_code(
-                                         SessionErrc::allTransportsFailed);
-                            }
-                            std::move(handler)(ec);
-                        }
-                    }
+                    me->onConnectFailure(index, ec, std::move(handler));
                 }
                 else
                 {
                     assert(impl);
-                    if (state_ == State::connecting)
-                    {
-                        impl_ = impl;
-                        impl_->setSessionHandlers(
-                            warningHandler_, traceHandler_, stateChangeHandler_,
-                            challengeHandler_);
-                        std::move(handler)(index);
-                        setState(State::closed);
-                    }
-                    else
-                    {
-                        auto ec = make_error_code(TransportErrc::aborted);
-                        std::move(handler)(ec);
-                    }
+                    me->onConnectSuccess(index, std::move(impl),
+                                         std::move(handler));
                 }
             }
-        });
+        }
+    };
+
+    currentConnector_ = connectors_.at(index);
+    currentConnector_->establish(
+        Established{shared_from_this(), index, std::move(handler)});
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::setState(SessionState state)
+CPPWAMP_INLINE void Session::onConnectFailure(
+    size_t index, std::error_code ec,
+    std::shared_ptr<CompletionHandler<size_t>> handler)
 {
-    if (state != state_)
+    if (ec == TransportErrc::aborted)
     {
-        state_ = state;
-        if (stateChangeHandler_)
-            stateChangeHandler_(state);
+        postVia(userExecutor_, std::move(*handler), UnexpectedError(ec));
+    }
+    else
+    {
+        auto newIndex = index + 1;
+        if (newIndex < connectors_.size())
+            doConnect(newIndex, std::move(handler));
+        else
+        {
+            setState(State::failed);
+            if (connectors_.size() > 1)
+                ec = make_error_code(SessionErrc::allTransportsFailed);
+            postVia(userExecutor_, std::move(*handler), UnexpectedError(ec));
+        }
     }
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE std::shared_ptr<internal::ClientInterface> Session::impl()
-    {return impl_;}
-
+CPPWAMP_INLINE void Session::onConnectSuccess(
+    size_t index, ImplPtr impl,
+    std::shared_ptr<CompletionHandler<size_t>> handler)
+{
+    if (state() == State::connecting)
+    {
+        impl_ = std::move(impl);
+        impl_->initialize(userExecutor_, warningHandler_, traceHandler_,
+                          stateChangeHandler_, challengeHandler_);
+        setState(State::closed);
+        postVia(userExecutor_, std::move(*handler), index);
+    }
+    else
+    {
+        auto ec = make_error_code(TransportErrc::aborted);
+        postVia(userExecutor_, std::move(*handler), UnexpectedError(ec));
+    }
+}
 
 } // namespace wamp

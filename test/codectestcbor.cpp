@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include <sstream>
@@ -28,7 +27,8 @@ void checkCbor(CborBufferEncoder& encoder, CborBufferDecoder& decoder,
         MessageBuffer buffer;
         encoder.encode(v, buffer);
         Variant w;
-        decoder.decode(buffer, w);
+        auto ec = decoder.decode(buffer, w);
+        CHECK( !ec );
         CHECK( w == Variant(expected) );
     }
 
@@ -37,7 +37,8 @@ void checkCbor(CborBufferEncoder& encoder, CborBufferDecoder& decoder,
         encode<Cbor>(v, oss);
         Variant w;
         std::istringstream iss(oss.str());
-        decode<Cbor>(iss, w);
+        auto ec = decode<Cbor>(iss, w);
+        CHECK( !ec );
         CHECK( w == Variant(expected) );
     }
 }
@@ -165,12 +166,17 @@ GIVEN( "an empty CBOR message" )
     MessageBuffer empty;
     Variant v;
     CborBufferDecoder decoder;
-    CHECK_THROWS_AS( decoder.decode(empty, v), error::Decode );
+    auto ec = decoder.decode(empty, v);
+    CHECK_FALSE( !ec );
+    CHECK( ec == DecodingErrc::failure );
+    CHECK( ec == ProtocolErrc::badDecode );
+    CHECK( ec == jsoncons::cbor::cbor_errc::unexpected_eof );
 
     WHEN( "decoding a valid message after an error" )
     {
         MessageBuffer buffer = {0x18, 0x2a};
-        decoder.decode(buffer, v);
+        ec = decoder.decode(buffer, v);
+        CHECK( !ec );
         CHECK(v == 42);
     }
 }
@@ -179,19 +185,46 @@ GIVEN( "an invalid CBOR message" )
     std::ostringstream oss;
     oss << uint8_t(0xe0);
     Variant v;
-    CHECK_THROWS_AS( decode<Cbor>(oss.str(), v), error::Decode );
+    auto ec = decode<Cbor>(oss.str(), v);
+    CHECK_FALSE( !ec );
+    CHECK( ec == DecodingErrc::failure );
+    CHECK( ec == ProtocolErrc::badDecode );
+    CHECK( ec == jsoncons::cbor::cbor_errc::unknown_type );
 }
 GIVEN( "a short CBOR message" )
 {
     MessageBuffer buffer{0x65, 'h', 'e', 'l', 'l'}; // 5-byte text string
     Variant v;
     CborBufferDecoder decoder;
-    CHECK_THROWS_AS( decoder.decode(buffer, v), error::Decode );
+    auto ec = decoder.decode(buffer, v);
+    CHECK_FALSE( !ec );
+    CHECK( ec == DecodingErrc::failure );
+    CHECK( ec == ProtocolErrc::badDecode );
+    CHECK( ec == jsoncons::cbor::cbor_errc::unexpected_eof );
 
     WHEN( "decoding a valid message after an error" )
     {
         MessageBuffer buffer = {0x18, 0x2a};
-        decoder.decode(buffer, v);
+        auto ec = decoder.decode(buffer, v);
+        CHECK( !ec );
+        CHECK(v == 42);
+    }
+}
+GIVEN( "a CBOR message with a non-string key" )
+{
+    MessageBuffer buffer{0xA1, 0x01, 0x2}; // {1:2}
+    Variant v;
+    CborBufferDecoder decoder;
+    auto ec = decoder.decode(buffer, v);
+    CHECK( ec == DecodingErrc::failure );
+    CHECK( ec == DecodingErrc::expectedStringKey );
+    CHECK( ec == ProtocolErrc::badDecode );
+
+    WHEN( "decoding a valid message after an error" )
+    {
+        MessageBuffer buffer = {0x18, 0x2a};
+        auto ec = decoder.decode(buffer, v);
+        CHECK( !ec );
         CHECK(v == 42);
     }
 }
@@ -211,7 +244,8 @@ SCENARIO( "CBOR typed array", "[Variant][Codec][Cbor]" )
     };
 
     Variant v;
-    decode<Cbor>(input, v);
+    auto ec = decode<Cbor>(input, v);
+    CHECK( !ec );
     REQUIRE( v.is<Array>() );
     const auto& a = v.as<Array>();
     REQUIRE( a.size() == 4 );

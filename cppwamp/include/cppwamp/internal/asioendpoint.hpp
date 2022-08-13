@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_INTERNAL_ASIOENDPOINT_HPP
@@ -13,6 +12,7 @@
 #include <utility>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/read.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/asio/write.hpp>
 #include "../error.hpp"
 #include "asiotransport.hpp"
@@ -42,7 +42,7 @@ public:
                                              TransportPtr)>;
 
     explicit AsioEndpoint(Establisher&& est)
-        : executor_(est.executor()),
+        : strand_(est.strand()),
           est_(std::move(est)),
           handshake_(0)
     {}
@@ -114,7 +114,7 @@ protected:
         auto transport = Transport::create(std::move(socket_), maxTxLength,
                                     maxRxLength);
         std::error_code ec = make_error_code(TransportErrc::success);
-        post(std::bind(handler_, ec, codecId, std::move(transport)));
+        postHandler(ec, codecId, std::move(transport));
         socket_.reset();
         handler_ = nullptr;
     }
@@ -122,7 +122,7 @@ protected:
     void fail(RawsockErrc errc)
     {
         socket_.reset();
-        post(std::bind(handler_, make_error_code(errc), 0, nullptr));
+        postHandler(make_error_code(errc), 0, nullptr);
         handler_ = nullptr;
     }
 
@@ -132,7 +132,7 @@ protected:
         {
             auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
             socket_.reset();
-            post(std::bind(handler_, ec, 0, nullptr));
+            postHandler(ec, 0, nullptr);
             handler_ = nullptr;
         }
         return !asioEc;
@@ -145,13 +145,14 @@ protected:
     virtual void onHandshakeSent(Handshake hs) = 0;
 
 private:
-    template <typename TFunction>
-    void post(TFunction&& fn)
+    template <typename... TArgs>
+    void postHandler(TArgs&&... args)
     {
-        boost::asio::post(executor_, std::forward<TFunction>(fn));
+        boost::asio::post(strand_, std::bind(std::move(handler_),
+                                             std::forward<TArgs>(args)...));
     }
 
-    AnyExecutor executor_;
+    IoStrand strand_;
     SocketPtr socket_;
     Handler handler_;
     Establisher est_;

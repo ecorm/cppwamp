@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_UDSPATH_HPP
@@ -128,77 +127,77 @@ public:
     /// @{
 
     /** Adds the SO_BROADCAST socket option. @deprecated */
-    UdsPath& withBroadcast(bool enabled = true)
+    CPPWAMP_DEPRECATED UdsPath& withBroadcast(bool enabled = true)
     {
         options_.withBroadcast(enabled);
         return *this;
     }
 
     /** Adds the SO_DEBUG socket option. @deprecated */
-    UdsPath& withDebug(bool enabled = true)
+    CPPWAMP_DEPRECATED UdsPath& withDebug(bool enabled = true)
     {
         options_.withDebug(enabled);
         return *this;
     }
 
     /** Adds the SO_DONTROUTE socket option. @deprecated */
-    UdsPath& withDoNotRoute(bool enabled = true)
+    CPPWAMP_DEPRECATED UdsPath& withDoNotRoute(bool enabled = true)
     {
         options_.withDoNotRoute(enabled);
         return *this;
     }
 
     /** Adds the SO_KEEPALIVE socket option. @deprecated */
-    UdsPath& withKeepAlive(bool enabled = true)
+    CPPWAMP_DEPRECATED UdsPath& withKeepAlive(bool enabled = true)
     {
         options_.withKeepAlive(enabled);
         return *this;
     }
 
     /** Adds the SO_OOBINLINE socket option. @deprecated */
-    UdsPath& withOutOfBandInline(bool enabled)
+    CPPWAMP_DEPRECATED UdsPath& withOutOfBandInline(bool enabled)
     {
         options_.withOutOfBandInline(enabled);
         return *this;
     }
 
     /** Adds the SO_LINGER socket option. @deprecated */
-    UdsPath& withLinger(bool enabled, int timeout)
+    CPPWAMP_DEPRECATED UdsPath& withLinger(bool enabled, int timeout)
     {
         options_.withLinger(enabled, timeout);
         return *this;
     }
 
     /** Adds the SO_RCVBUF socket option. @deprecated */
-    UdsPath& withReceiveBufferSize(int size)
+    CPPWAMP_DEPRECATED UdsPath& withReceiveBufferSize(int size)
     {
         options_.withReceiveBufferSize(size);
         return *this;
     }
 
     /** Adds the SO_RCVLOWAT socket option. @deprecated */
-    UdsPath& withReceiveLowWatermark(int size)
+    CPPWAMP_DEPRECATED UdsPath& withReceiveLowWatermark(int size)
     {
         options_.withReceiveLowWatermark(size);
         return *this;
     }
 
     /** Adds the SO_REUSEADDR socket option. @deprecated */
-    UdsPath& withReuseAddress(bool enabled = true)
+    CPPWAMP_DEPRECATED UdsPath& withReuseAddress(bool enabled = true)
     {
         options_.withReuseAddress(enabled);
         return *this;
     }
 
     /** Adds the SO_SNDBUF socket option. @deprecated */
-    UdsPath& withSendBufferSize(int size)
+    CPPWAMP_DEPRECATED UdsPath& withSendBufferSize(int size)
     {
         options_.withSendBufferSize(size);
         return *this;
     }
 
     /** Adds the SO_SNDLOWAT socket option. @deprecated */
-    UdsPath& withSendLowWatermark(int size)
+    CPPWAMP_DEPRECATED UdsPath& withSendLowWatermark(int size)
     {
         options_.withSendLowWatermark(size);
         return *this;

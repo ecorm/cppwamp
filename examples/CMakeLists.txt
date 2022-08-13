@@ -1,27 +1,41 @@
 #-------------------------------------------------------------------------------
-#               Copyright Butterfly Energy Systems 2014-2022
-#          Distributed under the Boost Software License, Version 1.0.
-#             (See accompanying file LICENSE_1_0.txt or copy at
-#                   http://www.boost.org/LICENSE_1_0.txt)
+# Copyright Butterfly Energy Systems 2014-2015, 2022.
+# Distributed under the Boost Software License, Version 1.0.
+# https://www.boost.org/LICENSE_1_0.txt
 #-------------------------------------------------------------------------------
 
 add_subdirectory(asynctimeclient)
 add_subdirectory(asynctimeservice)
+add_subdirectory(futuretimeclient)
+add_subdirectory(futuretimeservice)
 
 # Convenience target that groups all examples
 add_custom_target(cppwamp_examples)
 add_dependencies(cppwamp_examples
                  cppwamp-example-asynctimeclient
-                 cppwamp-example-asynctimeservice)
+                 cppwamp-example-asynctimeservice
+                 cppwamp-example-futuretimeclient
+                 cppwamp-example-futuretimeservice)
 
 if(CPPWAMP_OPT_WITH_CORO)
     add_subdirectory(chat)
     add_subdirectory(timeclient)
     add_subdirectory(timeservice)
+    add_subdirectory(stacklesstimeclient)
+    add_subdirectory(stacklesstimeservice)
     add_dependencies(cppwamp_examples
                      cppwamp-example-chat
                      cppwamp-example-timeclient
-                     cppwamp-example-timeservice)
+                     cppwamp-example-timeservice
+                     cppwamp-example-stacklesstimeclient
+                     cppwamp-example-stacklesstimeservice)
+endif()
+
+if(CPPWAMP_OPT_WITH_CORO20)
+    add_subdirectory(coro20timeclient)
+    add_subdirectory(coro20timeservice)
+    add_dependencies(cppwamp-example-coro20timeclient
+                     cppwamp-example-coro20timeservice)
 endif()
 
 # Copy Crossbar node configuration to build directory

@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-            Copyright Butterfly Energy Systems 2014-2015, 2018, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2018, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_CORO_COROSESSION_HPP
@@ -10,12 +9,14 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the coroutine-based API used by a _client_ peer in WAMP
-           applications. */
+    @brief Backward compatilibity header: use Session with completion tokens
+           instead. */
 //------------------------------------------------------------------------------
 
 #include <boost/asio/post.hpp>
 #include <boost/asio/spawn.hpp>
+#include "../asyncresult.hpp"
+#include "../config.hpp"
 #include "../session.hpp"
 
 namespace wamp
@@ -24,81 +25,44 @@ namespace wamp
 //------------------------------------------------------------------------------
 /** Coroutine API used by a _client_ peer in WAMP applications.
 
-This mixin class adds a _coroutine_ API on top of the asynchronous one
-provided by Session. Coroutines enable client programs to implement
-asynchronous logic in a synchronous manner. This class is based on the
-[stackful coroutines][asiocoro] implementation used by Boost.Asio.
+@deprecated Use wamp::Session with completion tokens instead.
 
-The asynchronous operations in Session are mapped to coroutine operations
-as follows:
-- A [boost::asio::yield_context][yieldcontext] is passed in place of the
-  asynchronous completion handler.
-- The result is returned directly by the function, instead of via an
-  AsyncResult object passed to the completion handler.
-- Runtime errors are thrown as error::Failure exceptions. When caught, the
-  error code can be retrieved via `error::Failure::code`.
+This class differs from Session as follows:
+- Only callback handler functions or [boost::asio::yield_context][yieldcontext]
+  can be used as completion tokens.
+- The results of coroutine operations are returned directly by the function,
+  instead of via an ErrorOr object.
+- Runtime errors are thrown as error::Failure exceptions.
 - An optional pointer to a `std::error_code` can be passed to coroutine
   operations. If a runtime error occurs, it will set the pointed-to
   error code instead of throwing an error::Failure exception.
-
-For example, the asynchronous operation,
-```
-void join(std::string realm, AsyncHandler<SessionInfo> handler);
-```
-becomes the following equivalent coroutine operation:
-```
-SessionInfo join(std::string realm, YieldContext<H> yield,
-                 std::error_code* ec = nullptr);
-```
-
-A yield context is obtained via [boost::asio::spawn][spawn]. For example:
-```
-boost::asio::io_context ioctx;
-auto session = CoroSession<>::create(connectorList);
-boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
-{
-    session->connect(yield);
-    SessionInfo info = session->join(Realm("somerealm"), yield);
-    // etc...
-});
-ioctx.run();
-```
-[asiocoro]: http://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/core/spawn.html
-[yieldcontext]: http://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/yield_context.html
-[spawn]: http://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/spawn.html
 
 @par Aborting Coroutine Operations
 All pending coroutine operations can be _aborted_ by dropping the client
 connection via Session::disconnect. Pending post-join operations can be also
 be aborted via CoroSession::leave. Operations aborted in this manner will
 throw an error::Failure exception. There is currently no way to abort a
-single operation without dropping the connection or leaving the realm.
+single operation via this class without dropping the connection or leaving
+the realm.
 
 @par Mixins
-This mixin class can be combined with other session mixin classes,
-by chaining the `TBase` template parameter. For example:
-```
-// Mixin both the CoroSession and FutuSession APIs:
-using SessionApi = FutuSession<CoroSession<>>;
-auto session = SessionApi::create(connectorList);
-```
+The mixin feature where this class can be combined with other Session-like
+classes has been disabled. This class' template parameter is now ignored and
+it now behaves as if it were mixed in with Session.
 
-@note The `FutuSession` API is not yet implemented and is shown here
-      for demonstration purposes.
-
-@tparam TBase The base class that this mixin extends.
+@tparam TBase Ignored
 @extends Session
 @see Session, Registration, Subscription. */
 //------------------------------------------------------------------------------
-template <typename TBase = Session>
-class CoroSession : public TBase
+template <typename TIgnoredBase = Session>
+class CPPWAMP_DEPRECATED CoroSession: public Session
 {
 public:
     /** Shared pointer to a CoroSession. */
     using Ptr = std::shared_ptr<CoroSession>;
 
     /** The base class type that this mixin extends. */
-    using Base = TBase;
+    using Base = Session;
 
     /** Enumerates the possible states that a CoroSession can be in. */
     using State = SessionState;
@@ -117,13 +81,13 @@ public:
     using YieldContext = boost::asio::basic_yield_context<TSpawnHandler>;
 
     /** Creates a new CoroSession instance. */
-    static Ptr create(AnyExecutor exec, const Connector::Ptr& connector);
+    static Ptr create(AnyIoExecutor exec, const Connector::Ptr& connector);
 
     /** Creates a new CoroSession instance. */
-    static Ptr create(AnyExecutor exec, const ConnectorList& connectors);
+    static Ptr create(AnyIoExecutor exec, const ConnectorList& connectors);
 
     /** Creates a new CoroSession instance.
-        @copydetails Session::create(AnyExecutor, const Connector::Ptr&)
+        @copydetails Session::create(AnyIoExecutor, const Connector::Ptr&)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
         @tparam TExecutionContext Must meet the requirements of
@@ -141,7 +105,7 @@ public:
     }
 
     /** Creates a new CoroSession instance.
-        @copydetails Session::create(AnyExecutor, const Connector::Ptr&)
+        @copydetails Session::create(AnyIoExecutor, const Connector::Ptr&)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
         @tparam TExecutionContext Must meet the requirements of
@@ -157,32 +121,35 @@ public:
         return create(context.get_executor(), connectors);
     }
 
-    using Base::connect;
-    using Base::join;
-    using Base::leave;
-    using Base::disconnect;
-    using Base::subscribe;
-    using Base::unsubscribe;
-    using Base::publish;
-    using Base::enroll;
-    using Base::unregister;
-    using Base::call;
-    using Base::cancel;
-
     /// @name Session Management
     /// @{
+    /** Asynchronously attempts to connect to a router. */
+    void connect(AsyncHandler<size_t> handler);
+
     /** Attempts to connect to a router. */
     template <typename H>
     size_t connect(YieldContext<H> yield, std::error_code* ec = nullptr);
+
+    /** Asynchronously attempts to join the given WAMP realm. */
+    void join(Realm realm, AsyncHandler<SessionInfo> handler);
 
     /** Attempts to join the given WAMP realm. */
     template <typename H>
     SessionInfo join(Realm realm, YieldContext<H> yield,
                      std::error_code* ec = nullptr);
 
+    /** Sends an `AUTHENTICATE` in response to a `CHALLENGE`. */
+    void authenticate(Authentication auth);
+
+    /** Asynchronously leaves the WAMP session. */
+    void leave(AsyncHandler<Reason> handler);
+
     /** Leaves the WAMP session. */
     template <typename H>
     Reason leave(YieldContext<H> yield, std::error_code* ec = nullptr);
+
+    /** Asynchronously leaves the WAMP session with the given reason. */
+    void leave(Reason reason, AsyncHandler<Reason> handler);
 
     /** Leaves the WAMP session with the given reason. */
     template <typename H>
@@ -192,16 +159,35 @@ public:
 
     /// @name Pub/Sub
     /// @{
+    /** Asynchronously subscribes to WAMP pub/sub events having the given
+        topic. */
+    void subscribe(Topic topic, EventSlot slot,
+                   AsyncHandler<Subscription> handler);
+
     /** Subscribes to WAMP pub/sub events having the given topic. */
     template <typename H>
     Subscription subscribe(Topic topic, EventSlot slot,
             YieldContext<H> yield, std::error_code* ec = nullptr);
+
+    /** Unsubscribes a subscription to a topic. */
+    void unsubscribe(const Subscription& sub);
+
+    /** Asynchronously unsubscribes a subscription to a topic and waits for
+        router acknowledgement, if necessary. */
+    void unsubscribe(const Subscription& sub, AsyncHandler<bool> handler);
 
     /** Unsubscribes a subscription to a topic and waits for router
         acknowledgement if necessary. */
     template <typename H>
     bool unsubscribe(const Subscription& sub, YieldContext<H> yield,
                      std::error_code* ec = nullptr);
+
+    /** Publishes an event. */
+    void publish(Pub pub);
+
+    /** Asynchronously publishes an event and waits for an acknowledgement from
+        the router. */
+    void publish(Pub pub, AsyncHandler<PublicationId> handler);
 
     /** Publishes an event and waits for an acknowledgement from the router. */
     template <typename H>
@@ -211,10 +197,20 @@ public:
 
     /// @name Remote Procedures
     /// @{
+    /** Asynchronously registers a WAMP remote procedure call. */
+    void enroll(Procedure procedure, CallSlot slot,
+                AsyncHandler<Registration> handler);
+
     /** Registers a WAMP remote procedure call. */
     template <typename H>
     Registration enroll(Procedure procedure, CallSlot slot,
             YieldContext<H> yield, std::error_code* ec = nullptr);
+
+    /** Asynchronously registers a WAMP remote procedure call with an
+        interruption handler. */
+    void enroll(Procedure procedure, CallSlot callSlot,
+                InterruptSlot interruptSlot,
+                AsyncHandler<Registration> handler);
 
     /** Registers a WAMP remote procedure call with an interruption handler. */
     template <typename H>
@@ -223,9 +219,20 @@ public:
                         std::error_code* ec = nullptr);
 
     /** Unregisters a remote procedure call. */
+    void unregister(const Registration& reg);
+
+    /** Asynchronously unregisters a remote procedure call and waits for router
+        acknowledgement. */
+    void unregister(const Registration& reg, AsyncHandler<bool> handler);
+
+    /** Unregisters a remote procedure call and waits for router
+        acknowledgement. */
     template <typename H>
     bool unregister(const Registration& reg, YieldContext<H> yield,
                     std::error_code* ec = nullptr);
+
+    /** Asynchronously calls a remote procedure. */
+    RequestId call(Rpc procedure, AsyncHandler<Result> handler);
 
     /** Calls a remote procedure */
     template <typename H>
@@ -252,17 +259,6 @@ public:
 
 protected:
     using Base::Base;
-
-private:
-    template <typename H, typename R>
-    using CoroHandler =
-        typename boost::asio::async_result<
-            YieldContext<H>,
-            void(AsyncResult<R>)>::completion_handler_type;
-
-    template <typename TResult, typename TYieldContext, typename TDelegate>
-    TResult run(TYieldContext&& yield, std::error_code* ec,
-                TDelegate&& delegate);
 };
 
 
@@ -271,11 +267,11 @@ private:
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::create(AnyExecutor, const Connector::Ptr&) */
+/** @copydetails Session::create(AnyIoExecutor, const Connector::Ptr&) */
 //------------------------------------------------------------------------------
 template <typename B>
 typename CoroSession<B>::Ptr CoroSession<B>::create(
-    AnyExecutor exec,               /**< Executor with which to post all
+    AnyIoExecutor exec,             /**< Executor with which to post all
                                          user-provided handlers. */
     const Connector::Ptr& connector /**< Connection details for the transport
                                          to use. */
@@ -285,11 +281,11 @@ typename CoroSession<B>::Ptr CoroSession<B>::create(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::create(AnyExecutor, const ConnectorList&) */
+/** @copydetails Session::create(AnyIoExecutor, const ConnectorList&) */
 //------------------------------------------------------------------------------
 template <typename B>
 typename CoroSession<B>::Ptr CoroSession<B>::create(
-    AnyExecutor exec,               /**< Executor with which to post all
+    AnyIoExecutor exec,             /**< Executor with which to post all
                                          user-provided handlers. */
     const ConnectorList& connectors /**< A list of connection details for
                                          the transports to use. */
@@ -299,7 +295,35 @@ typename CoroSession<B>::Ptr CoroSession<B>::create(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::connect
+/** @details
+    The session will attempt to connect using the transports that were
+    specified by the wamp::Connector objects passed during create().
+    If more than one transport was specified, they will be traversed in the
+    same order as they appeared in the @ref ConnectorList.
+    @return The index of the Connector object used to establish the connetion.
+    @pre `this->state() == SessionState::disconnected`
+    @post `this->state() == SessionState::connecting`
+    @par Error Codes
+        - TransportErrc::aborted if the connection attempt was aborted.
+        - SessionErrc::allTransportsFailed if more than one transport was
+          specified and they all failed to connect.
+        - Some other platform or transport-dependent `std::error_code` if
+          only one transport was specified and it failed to connect.
+    @throws error::Logic if `this->state() != SessionState::disconnected` */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::connect(
+    AsyncHandler<size_t> handler /**< Handler to invoke when the operation
+                                      completes. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(state() == State::disconnected,
+                        "Session is not disconnected");
+    Base::connect(std::move(handler));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails CoroSession::connect(AsyncHandler<size_t>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null. */
 //------------------------------------------------------------------------------
@@ -311,15 +335,43 @@ size_t CoroSession<B>::connect(
                                 instead of throwing an exception upon failure. */
     )
 {
-    CPPWAMP_LOGIC_CHECK(!this->impl(), "Session is already connected");
-    return run<size_t>(yield, ec, [this](CoroHandler<H, size_t>& handler)
-    {
-        this->connect(handler);
-    });
+    CPPWAMP_LOGIC_CHECK(state() == State::disconnected,
+                        "Session is not disconnected");
+    auto index = Base::connect(yield);
+    if (!ec)
+        return index.value();
+    *ec = !index ? index.error() : std::error_code{};
+    return index.value_or(0);
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::join
+/** @return A SessionInfo object with details on the newly established session.
+    @pre `this->state() == SessionState::connected`
+    @post `this->state() == SessionState::establishing`
+    @par Error Codes
+        - SessionErrc::sessionEnded if the operation was aborted.
+        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
+        - SessionErrc::noSuchRealm if the realm does not exist.
+        - SessionErrc::noSuchRole if one of the client roles is not supported on
+          the router.
+        - SessionErrc::joinError for other errors reported by the router.
+        - Some other `std::error_code` for protocol and transport errors.
+    @throws error::Logic if `this->state() != SessionState::connected` */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::join(
+    Realm realm,                      /**< Details on the realm to join. */
+    AsyncHandler<SessionInfo> handler /**< Handler to invoke when the
+                                           operation completes. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::closed,
+                        "Session is not closed");
+    Base::join(std::move(realm), std::move(handler));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails CoroSession::join(Realm, AsyncHandler<SessionInfo>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null. */
 //------------------------------------------------------------------------------
@@ -334,15 +386,52 @@ SessionInfo CoroSession<B>::join(
 {
     CPPWAMP_LOGIC_CHECK(this->state() == State::closed,
                         "Session is not closed");
-    return run<SessionInfo>(yield, ec,
-        [this, &realm](CoroHandler<H, SessionInfo>& handler)
-        {
-            this->join(std::move(realm), handler);
-        });
+    auto info = Base::join(std::move(realm), yield);
+    if (!ec)
+        return info.value();
+    *ec = !info ? info.error() : std::error_code{};
+    return info.value_or(SessionInfo{});
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::leave(AsyncHandler<Reason>)
+/** @pre `this->state() == SessionState::authenticating`
+    @throw error::Logic if `this->state() != SessionState::authenticating` */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::authenticate(Authentication auth)
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::authenticating,
+                        "Session is not authenticating");
+    Base::authenticate(std::move(auth));
+}
+
+//------------------------------------------------------------------------------
+/** @details The "wamp.close.close_realm" reason is sent as part of the
+             outgoing `GOODBYE` message.
+    @return The _Reason_ URI and details from the `GOODBYE` response returned
+            by the router.
+    @pre `this->state() == SessionState::established`
+    @post `this->state() == SessionState::shuttingDown`
+    @par Error Codes
+        - SessionErrc::sessionEnded if the operation was aborted.
+        - SessionErrc::sessionEndedByPeer if the session was ended by the peer
+          before a `GOODBYE` response was received.
+        - Some other `std::error_code` for protocol and transport errors.
+    @throw error::Logic if `this->state() != SessionState::established` */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::leave(
+    AsyncHandler<Reason> handler /**< Handler to invoke when the
+                                      operation completes. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::established,
+                        "Session is not established");
+    Base::leave(std::move(handler));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails CoroSession::leave(AsyncHandler<Reason>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null. */
 //------------------------------------------------------------------------------
@@ -354,11 +443,41 @@ Reason CoroSession<B>::leave(
                                 instead of throwing an exception upon failure. */
     )
 {
-    return leave(Reason("wamp.close.close_realm"), yield, ec);
+    CPPWAMP_LOGIC_CHECK(this->state() == State::established,
+                        "Session is not established");
+    auto reason = Base::leave(yield);
+    if (!ec)
+        return reason.value();
+    *ec = !reason ? reason.error() : std::error_code{};
+    return reason.value_or(Reason{});
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::leave(Reason, AsyncHandler<Reason>)
+/** @return The _Reason_ URI and details from the `GOODBYE` response returned
+            by the router.
+    @pre `this->state() == SessionState::established`
+    @post `this->state() == SessionState::shuttingDown`
+    @par Error Codes
+        - SessionErrc::sessionEnded if the operation was aborted.
+        - SessionErrc::sessionEndedByPeer if the session was ended by the peer
+          before a `GOODBYE` response was received.
+        - Some other `std::error_code` for protocol and transport errors.
+    @throw error::Logic if `this->state() != SessionState::established` */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::leave(
+    Reason reason,               /**< %Reason URI and other options */
+    AsyncHandler<Reason> handler /**< Handler to invoke when the
+                                      operation completes. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::established,
+                        "Session is not established");
+    Base::leave(std::move(reason), std::move(handler));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails CoroSession::leave(Reason, AsyncHandler<Reason>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null. */
 //------------------------------------------------------------------------------
@@ -374,15 +493,42 @@ Reason CoroSession<B>::leave(
 {
     CPPWAMP_LOGIC_CHECK(this->state() == State::established,
                         "Session is not established");
-    return run<Reason>(yield, ec,
-        [this, &reason](CoroHandler<H, Reason>& handler)
-        {
-            this->leave(std::move(reason), handler);
-        });
+    auto result = Base::leave(std::move(reason), yield);
+    if (!ec)
+        return result.value();
+    *ec = !result ? result.error() : std::error_code{};
+    return result.value_or(Reason{});
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::subscribe
+/** @see @ref Subscriptions
+
+    @return A Subscription object, therafter used to manage the subscription's
+            lifetime.
+    @pre `this->state() == SessionState::established`
+    @par Error Codes
+        - SessionErrc::subscribeError if the router replied with an `ERROR`
+          response.
+        - Some other `std::error_code` for protocol and transport errors.
+    @throws error::Logic if `this->state() != SessionState::established` */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::subscribe(
+    Topic topic,    /**< The topic to subscribe to. */
+    EventSlot slot, /**< The callable target to invoke when a matching
+                         event is received. */
+    AsyncHandler<Subscription> handler /**< Handler to invoke when the
+                                            subscribe operation completes. */
+)
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::established,
+                        "Session is not established");
+    using std::move;
+    return Base::subscribe(move(topic), move(slot), move(handler));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails CoroSession::subscribe(Topic, EventSlot, AsyncHandler<Subscription>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null. */
 //------------------------------------------------------------------------------
@@ -399,16 +545,68 @@ Subscription CoroSession<B>::subscribe(
 {
     CPPWAMP_LOGIC_CHECK(this->state() == State::established,
                         "Session is not established");
-
-    return run<Subscription>(yield, ec,
-    [this, &topic, &slot](CoroHandler<H, Subscription>& handler)
-    {
-        this->subscribe(std::move(topic), std::move(slot), handler);
-    });
+    auto sub = Base::subscribe(std::move(topic), std::move(slot), yield);
+    if (!ec)
+        return sub.value();
+    *ec = !sub ? sub.error() : std::error_code{};
+    return sub.value_or(Subscription{});
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::unsubscribe(const Subscription&, AsyncHandler<bool>)
+/** @details
+    This function can be safely called during any session state. If the
+    subscription is no longer applicable, then the unsubscribe operation
+    will effectively do nothing.
+    @see Subscription, ScopedSubscription
+    @note Duplicate unsubscribes using the same Subscription object
+          are safely ignored.
+    @pre `!!sub == true`
+    @throws error::Logic if the given subscription is empty */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::unsubscribe(
+    const Subscription& sub /**< The subscription to unsubscribe from. */
+    )
+{
+    Base::unsubscribe(sub);
+}
+
+//------------------------------------------------------------------------------
+/** @details
+    If there are other local subscriptions on this session remaining for the
+    same topic, then the session does not send an `UNSUBSCRIBE` message to
+    the router.
+    @see Subscription, ScopedSubscription
+    @returns `false` if the subscription was already removed, `true` otherwise.
+    @note Duplicate unsubscribes using the same Subscription handle
+          are safely ignored.
+    @pre `!!sub == true`
+    @pre `this->state() == SessionState::established`
+    @par Error Codes
+        - SessionErrc::sessionEnded if the operation was aborted.
+        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
+        - SessionErrc::noSuchSubscription if the router reports that there was
+          no such subscription.
+        - SessionErrc::unsubscribeError if the router reports some other
+          error.
+        - Some other `std::error_code` for protocol and transport errors.
+    @throws error::Logic if the given subscription is empty
+    @throws error::Logic if `this->state() != SessionState::established` */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::unsubscribe(
+    const Subscription& sub,   /**< The subscription to unsubscribe from. */
+    AsyncHandler<bool> handler /**< Handler to invoke when the operation
+                                    completes. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::established,
+                        "Session is not established");
+    Base::unsubscribe(sub, std::move(handler));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails CoroSession::unsubscribe(const Subscription&, AsyncHandler<bool>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null. */
 //------------------------------------------------------------------------------
@@ -423,14 +621,52 @@ bool CoroSession<B>::unsubscribe(
 {
     CPPWAMP_LOGIC_CHECK(this->state() == State::established,
                         "Session is not established");
-    return run<bool>(yield, ec, [this, sub](CoroHandler<H, bool>& handler)
-    {
-        this->unsubscribe(std::move(sub), handler);
-    });
+    auto unsubscribed = Base::unsubscribe(sub, yield);
+    if (!ec)
+        return unsubscribed.value();
+    *ec = !unsubscribed ? unsubscribed.error() : std::error_code{};
+    return unsubscribed.value_or(false);
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::publish
+/** @pre `this->state() == SessionState::established`
+    @throws error::Logic if `this->state() != SessionState::established` */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::publish(
+    Pub pub /**< The publication to publish. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::established,
+                        "Session is not established");
+    Base::publish(pub);
+}
+
+//------------------------------------------------------------------------------
+/** @return The publication ID for this event.
+    @pre `this->state() == SessionState::established`
+    @par Error Codes
+        - SessionErrc::sessionEnded if the operation was aborted.
+        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
+        - SessionErrc::publishError if the router replies with an ERROR
+          response.
+        - Some other `std::error_code` for protocol and transport errors.
+    @throws error::Logic if `this->state() != SessionState::established` */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::publish(
+    Pub pub,                            /**< The publication to publish. */
+    AsyncHandler<PublicationId> handler /**< Handler to invoke when
+                                             the operation completes. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::established,
+                        "Session is not established");
+    Base::publish(pub, std::move(handler));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails CoroSession::publish(Pub, AsyncHandler<PublicationId>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null */
 //------------------------------------------------------------------------------
@@ -445,15 +681,43 @@ PublicationId CoroSession<B>::publish(
 {
     CPPWAMP_LOGIC_CHECK(this->state() == State::established,
                         "Session is not established");
-    return run<PublicationId>(yield, ec,
-        [this, &pub](CoroHandler<H, PublicationId>& handler)
-        {
-            this->publish(std::move(pub), handler);
-        });
+    auto pubId = Base::publish(std::move(pub), yield);
+    if (!ec)
+        return pubId.value();
+    *ec = !pubId ? pubId.error() : std::error_code{};
+    return pubId.value_or(0);
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::enroll
+/** @see @ref Registrations
+
+    @return A Registration object, therafter used to manage the registration's
+            lifetime.
+    @note This function was named `enroll` because `register` is a reserved
+          C++ keyword.
+    @pre `this->state() == SessionState::established`
+    @par Error Codes
+        - SessionErrc::procedureAlreadyExists if the router reports that the
+          procedure has already been registered for this realm.
+        - SessionErrc::registerError if the router reports some other error.
+        - Some other `std::error_code` for protocol and transport errors.
+    @throws error::Logic if `this->state() != SessionState::established` */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::enroll(
+    Procedure procedure, /**< The procedure to register. */
+    CallSlot slot,       /**< The handler to execute when the RPC is invoked. */
+    AsyncHandler<Registration> handler /**< Handler to invoke when
+                                            the enroll operation completes. */
+)
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::established,
+                        "Session is not established");
+    Base::enroll(std::move(procedure), std::move(slot), std::move(handler));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails CoroSession::enroll(Procedure, CallSlot, AsyncHandler<Registration>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null. */
 //------------------------------------------------------------------------------
@@ -471,16 +735,46 @@ Registration CoroSession<B>::enroll(
 {
     CPPWAMP_LOGIC_CHECK(this->state() == State::established,
                         "Session is not established");
-
-    return run<Registration>(yield, ec,
-        [this, &procedure, &slot](CoroHandler<H, Registration>& handler)
-        {
-            this->enroll(std::move(procedure), std::move(slot), handler);
-        });
+    auto reg = Base::enroll(std::move(procedure), std::move(slot), yield);
+    if (!ec)
+        return reg.value();
+    *ec = !reg ? reg.error() : std::error_code{};
+    return reg.value_or(Registration{});
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::enroll
+/** @see @ref Registrations
+
+    @return A Registration object, therafter used to manage the registration's
+            lifetime.
+    @note This function was named `enroll` because `register` is a reserved
+          C++ keyword.
+    @pre `this->state() == SessionState::established`
+    @par Error Codes
+        - SessionErrc::procedureAlreadyExists if the router reports that the
+          procedure has already been registered for this realm.
+        - SessionErrc::registerError if the router reports some other error.
+        - Some other `std::error_code` for protocol and transport errors.
+    @throws error::Logic if `this->state() != SessionState::established` */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::enroll(
+    Procedure procedure, /**< The procedure to register. */
+    CallSlot callSlot,   /**< The handler to execute when the RPC is invoked. */
+    InterruptSlot interruptSlot, /**< Handler to execute when RPC
+                                      is interrupted. */
+    AsyncHandler<Registration> handler /**< Handler to invoke when
+                                            the enroll operation completes. */
+)
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::established,
+                        "Session is not established");
+    Base::enroll(std::move(procedure), std::move(callSlot),
+                 std::move(interruptSlot), std::move(handler));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails CoroSession::enroll(Procedure, CallSlot, InterruptSlot, AsyncHandler<Registration>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null. */
 //------------------------------------------------------------------------------
@@ -500,18 +794,65 @@ Registration CoroSession<B>::enroll(
 {
     CPPWAMP_LOGIC_CHECK(this->state() == State::established,
                         "Session is not established");
-
-    return run<Registration>(yield, ec,
-        [this, &procedure, &callSlot, &interruptSlot]
-        (CoroHandler<H, Registration>& handler)
-        {
-            this->enroll(std::move(procedure), std::move(callSlot),
-                         std::move(interruptSlot), handler);
-        });
+    auto reg = Base::enroll(std::move(procedure), std::move(callSlot),
+                            std::move(interruptSlot), yield);
+    if (!ec)
+        return reg.value();
+    *ec = !reg ? reg.error() : std::error_code{};
+    return reg.value_or(Registration{});
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::unregister(const Registration&, AsyncHandler<bool>)
+/** @details
+    This function can be safely called during any session state. If the
+    registration is no longer applicable, then the unregister operation
+    will effectively do nothing.
+    @see Registration, ScopedRegistration
+    @note Duplicate unregistrations using the same Registration handle
+          are safely ignored.
+    @pre `!!reg == true`
+    @throws error::Logic if the given registration is empty */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::unregister(
+    const Registration& reg /**< The RPC registration to unregister. */
+    )
+{
+    Base::unregister(reg);
+}
+
+//------------------------------------------------------------------------------
+/** @see Registration, ScopedRegistration
+    @returns `false` if the registration was already removed, `true` otherwise.
+    @note Duplicate unregistrations using the same Registration handle
+          are safely ignored.
+    @pre `!!reg == true`
+    @pre `this->state() == SessionState::established`
+    @par Error Codes
+        - SessionErrc::sessionEnded if the operation was aborted.
+        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
+        - SessionErrc::noSuchRegistration if the router reports that there is
+          no such procedure registered by that name.
+        - SessionErrc::unregisterError if the router reports some other
+          error.
+        - Some other `std::error_code` for protocol and transport errors.
+    @throws error::Logic if the given registration is empty
+    @throws error::Logic if `this->state() != SessionState::established` */
+//------------------------------------------------------------------------------
+template <typename B>
+void CoroSession<B>::unregister(
+    const Registration& reg,   /**< The RPC registration to unregister. */
+    AsyncHandler<bool> handler /**< Handler to invoke when the operation
+                                    completes. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::established,
+                        "Session is not established");
+    Base::unregister(reg, std::move(handler));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails CoroSession::unregister(const Registration&, AsyncHandler<bool>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null. */
 //------------------------------------------------------------------------------
@@ -526,14 +867,43 @@ bool CoroSession<B>::unregister(
 {
     CPPWAMP_LOGIC_CHECK(this->state() == State::established,
                         "Session is not established");
-    return run<bool>(yield, ec, [this, reg](CoroHandler<H, bool>& handler)
-                     {
-                         this->unregister(std::move(reg), handler);
-                     });
+    auto unregistered = Base::unregister(reg, yield);
+    if (!ec)
+        return unregistered.value();
+    *ec = !unregistered ? unregistered.error() : std::error_code{};
+    return unregistered.value_or(false);
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::call
+/** @return The Result yielded by the remote procedure
+    @pre `this->state() == SessionState::established`
+    @par Error Codes
+        - SessionErrc::sessionEnded if the operation was aborted.
+        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
+        - SessionErrc::noSuchProcedure if the router reports that there is
+          no such procedure registered by that name.
+        - SessionErrc::invalidArgument if the callee reports that there are one
+          or more invalid arguments.
+        - SessionErrc::callError if the router reports some other error.
+        - Some other `std::error_code` for protocol and transport errors.
+    @throws error::Logic if `this->state() != SessionState::established` */
+//------------------------------------------------------------------------------
+template <typename B>
+RequestId CoroSession<B>::call(
+    Rpc rpc,                     /**< Details about the RPC. */
+    AsyncHandler<Result> handler /**< Handler to invoke when the
+                                       operation completes. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(this->state() == State::established,
+                        "Session is not established");
+    CallChit chit;
+    Base::call(std::move(rpc), chit, std::move(handler));
+    return chit.requestId();
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails CoroSession::call(Rpc, AsyncHandler<Result>)
     @throws error::Failure with an error code if a runtime error occured and
             the `ec` parameter is null. */
 //------------------------------------------------------------------------------
@@ -548,11 +918,11 @@ Result CoroSession<B>::call(
 {
     CPPWAMP_LOGIC_CHECK(this->state() == State::established,
                         "Session is not established");
-    return run<Result>(yield, ec,
-        [this, &rpc](CoroHandler<H, Result>& handler)
-        {
-            this->call(std::move(rpc), handler);
-        });
+    auto result = Base::call(std::move(rpc), yield);
+    if (!ec)
+        return result.value();
+    *ec = !result ? result.error() : std::error_code{};
+    return result.value_or(Result{});
 }
 
 //------------------------------------------------------------------------------
@@ -568,36 +938,6 @@ template <typename H>
 void CoroSession<B>::suspend(YieldContext<H> yield)
 {
     boost::asio::post(this->userIosvc(), yield);
-}
-
-//------------------------------------------------------------------------------
-template <typename B>
-template <typename TResult, typename TYieldContext, typename TDelegate>
-TResult CoroSession<B>::run(TYieldContext&& yield, std::error_code* ec,
-                            TDelegate&& delegate)
-{
-    using Handler = typename boost::asio::async_result<
-        std::decay_t<TYieldContext>,
-        void(AsyncResult<TResult>)>::completion_handler_type;
-
-    Handler handler(std::forward<TYieldContext>(yield));
-
-    using ResultType =
-        boost::asio::async_result<std::decay_t<TYieldContext>,
-                                  void(AsyncResult<TResult>)>;
-
-    ResultType result(handler);
-
-    delegate(handler);
-
-    if (!ec)
-        return result.get().get();
-    else
-    {
-        auto finalResult = result.get();
-        *ec = finalResult.errorCode();
-        return finalResult ? finalResult.get() : TResult();
-    }
 }
 
 } // namespace wamp

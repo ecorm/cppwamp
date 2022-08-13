@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                   Copyright Butterfly Energy Systems 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_INTERNAL_JSONENCODING_HPP
@@ -89,7 +88,7 @@ public:
         enter(true);
         encoder_.begin_array(array.size());
         for (const auto& v: array)
-            apply(*this, v);
+            wamp::apply(*this, v);
         encoder_.end_array();
         leave();
         next();
@@ -104,7 +103,7 @@ public:
         {
             const auto& key = kv.first;
             encoder_.key({key.data(), key.size()});
-            apply(*this, kv.second);
+            wamp::apply(*this, kv.second);
         }
         encoder_.end_object();
         leave();
@@ -191,8 +190,8 @@ public:
         TSink sink(output);
         Proxy proxy(sink);
         encoder_.reset(std::move(proxy));
-        apply(internal::JsonVariantEncodingVisitor<Encoder>(proxy, encoder_),
-              variant);
+        internal::JsonVariantEncodingVisitor<Encoder> visitor(proxy, encoder_);
+        wamp::apply(visitor, variant);
     }
 
 private:

@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 
@@ -46,25 +45,25 @@ where:
 The following table summarizes the different types of call slots that can
 be used with the library:
 
-| Slot Type                                                       | Wrapper Function                        | Slot Signature                                  |
-|-----------------------------------------------------------------|-----------------------------------------|-------------------------------------------------|
-| [Basic Call Slot](@ref BasicCallSlots)                          | `wamp::basicRpc<TResult, TArgs...>`     | `TResult function(TArgs...)`                    |
-| [Basic Coroutine Call Slot](@ref BasicCoroutineCallSlots)       | `wamp::basicCoroRpc<TResult, TArgs...>` | `TResult function(TArgs..., Yield)`             |
-| [Unpacked Call Slot](@ref UnpackedCallSlots)                    | `wamp::unpackedRpc<TArgs...>`           | `Outcome function(Invocation, TArgs...)`        |
-| [Unpacked Coroutine Call Slot](@ref UnpackedCoroutineCallSlots) | `wamp::unpackedCoroRpc<TArgs...>`       | `Outcome function(Invocation, TArgs..., Yield)` |
+| Slot Type                                                       | Wrapper Function                         | Slot Signature                                  |
+|-----------------------------------------------------------------|------------------------------------------|-------------------------------------------------|
+| [Simple Call Slot](@ref SimpleCallSlots)                        | `wamp::simpleRpc<TResult, TArgs...>`     | `TResult function(TArgs...)`                    |
+| [Simple Coroutine Call Slot](@ref SimpleCoroutineCallSlots)     | `wamp::simpleCoroRpc<TResult, TArgs...>` | `TResult function(TArgs..., Yield)`             |
+| [Unpacked Call Slot](@ref UnpackedCallSlots)                    | `wamp::unpackedRpc<TArgs...>`            | `Outcome function(Invocation, TArgs...)`        |
+| [Unpacked Coroutine Call Slot](@ref UnpackedCoroutineCallSlots) | `wamp::unpackedCoroRpc<TArgs...>`        | `Outcome function(Invocation, TArgs..., Yield)` |
 
 where `Yield` represents the type `boost::asio::yield_context`.
 
 
-@section BasicCallSlots Basic Call Slots
+@section SimpleCallSlots Simple Call Slots
 
-A _basic call slot_ represents an RPC handler that expects one or more
-payload arguments having specific, static types. The [wamp::basicRpc]
-(@ref wamp::BasicInvocationUnpacker::basicRpc) function can be used when
-registering such call slots. It takes a basic call slot, and converts it
+A _simple call slot_ represents an RPC handler that expects one or more
+payload arguments having specific, static types. The [wamp::simpleRpc]
+(@ref wamp::SimpleInvocationUnpacker::simpleRpc) function can be used when
+registering such call slots. It takes a simple call slot, and converts it
 into a regular call slot that can be passed to wamp::Session::enroll.
 
-`wamp::basicRpc` expects a call slot with the following signature:
+`wamp::simpleRpc` expects a call slot with the following signature:
 
 ```
 TResult function(TArgs...)
@@ -75,9 +74,9 @@ where
   wamp::Outcome. This return type may be `void` if the RPC is not expected
   to return a value.
 - `TArgs...` matches the template parameter pack that was passed to
-  `wamp::basicRpc`.
+  `wamp::simpleRpc`.
 
-Examples of basic call slots are:
+Examples of simple call slots are:
 ```
 void setSpeed(float speed) { ... }
 // ^            ^
@@ -92,11 +91,11 @@ int purchase(std::string item, int cost, int qty) { ... }
 The above slots can be registered as follows:
 ```
 session->enroll(Procedure("setSpeed"),
-                basicRpc<void, float>(&setSpeed),
+                simpleRpc<void, float>(&setSpeed),
                 handler);
 
 session->enroll(Procedure("purchase"),
-                basicRpc<int, std::string, int, int>(&purchase),
+                simpleRpc<int, std::string, int, int>(&purchase),
                 handler);
 ```
 
@@ -110,17 +109,17 @@ invocation payload arguments to their target types, it automatically sends
 an `ERROR` reply back to the router.
 
 
-@section BasicCoroutineCallSlots Basic Coroutine Call Slots
+@section SimpleCoroutineCallSlots Simple Coroutine Call Slots
 
-A _basic coroutine call slot_ is like a regular _basic call slot_, except
+A _simple coroutine call slot_ is like a regular _simple call slot_, except
 that it is executed within the context of a coroutine. This is useful for
 RPC handlers that need to perform asynchronous operations themselves. The
-[wamp::basicCoroRpc](@ref wamp::BasicCoroInvocationUnpacker::basicCoroRpc)
-function can be used when registering such call slots. It takes a basic
+[wamp::simpleCoroRpc](@ref wamp::SimpleCoroInvocationUnpacker::simpleCoroRpc)
+function can be used when registering such call slots. It takes a simple
 coroutine call slot, and converts it into a regular call slot that can be
 passed to wamp::Session::enroll.
 
-`wamp::basicCoroRpc` expects a call slot with the following signature:
+`wamp::simpleCoroRpc` expects a call slot with the following signature:
 
 ```
 TResult function(TArgs..., boost::asio::yield_context)
@@ -131,10 +130,10 @@ where
   wamp::Outcome. This return type may be `void` if the RPC is not expected
   to return a value.
 - `TArgs...` matches the template parameter pack that was passed to
-  `wamp::basicCoroRpc`.
+  `wamp::simpleCoroRpc`.
 - `boost::asio::yield_context` represents the RPC's coroutine context.
 
-Examples of basic coroutine call slots are:
+Examples of simple coroutine call slots are:
 ```
 using Yield = boost::asio::yield_context;
 
@@ -151,11 +150,11 @@ int purchase(std::string item, int cost, int qty, Yield yield) { ... }
 The above slots can be registered as follows:
 ```
 session->enroll(Procedure("setSpeed"),
-                basicCoroRpc<void, float>(&setSpeed),
+                simpleCoroRpc<void, float>(&setSpeed),
                 handler);
 
 session->enroll(Procedure("purchase"),
-                basicCoroRpc<int, std::string, int, int>(&purchase),
+                simpleCoroRpc<int, std::string, int, int>(&purchase),
                 handler);
 ```
 
@@ -191,14 +190,14 @@ where
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::unpackedRpc`.
 
-@note Unpacked call slots differ from basic call slots in the following ways:
+@note Unpacked call slots differ from simple call slots in the following ways:
 - Unpacked call slots are passed a wamp::Invocation object, which contains
   metadata on the call invocation itself. It also allows the slot to manually
   send a `YIELD` message back to the caller in a separate asynchronous task.
 - Unpacked call slots are expected to return a wamp::Outcome object. This
-  allows such slots to return Outcome::deferred(), which indicates to the
-  library that the callee will manually send a `YIELD` message back to
-  the caller.
+  allows such slots to return wamp::deferment, which indicates to the
+  library that the callee will manually send (or has already sent) a `YIELD`
+  message back to the caller.
 
 
 Examples of unpacked call slots are:
@@ -345,7 +344,7 @@ Outcome Client::addPerson(Invocation inv, Object person)
 {
     // We need to issue another RPC to the database service before we can
     // fulfill this RPC.
-    boost::asio::spawn(inv.iosvc(),
+    boost::asio::spawn(inv.executor(),
         [this, inv](boost::asio::yield_context yield)
         {
             auto dbResult = session_->call( Rpc("db.add").withArgs(person),
@@ -358,7 +357,7 @@ Outcome Client::addPerson(Invocation inv, Object person)
     // We don't know the result yet as this point. Return a deferred outcome
     // to indicate that we'll send the result manually in a different
     // asynchronous context.
-    return Outcome::deferred();
+    return deferment;
 }
 ```
 
@@ -378,15 +377,17 @@ to manage the lifetime of several registrations:
 ```
 using namespace wamp;
 
-class Service // One of several services using the same CoroSession
+class Service // One of several services using the same Session
 {
 public:
-    void start(CoroSession<>::Ptr session)
+    void start(Session::Ptr session)
     {
         // The session has already connected and joined when this is called.
 
-        auto r1 = session_->enroll(Procedure("sum"), &Service::sum, yield);
-        auto r2 = session_->enroll(Procedure("prod"), &Service::prod, yield);
+        auto r1 = session_->enroll(Procedure("sum"), &Service::sum,
+                                   yield).value();
+        auto r2 = session_->enroll(Procedure("prod"), &Service::prod,
+                                   yield).value();
 
         // Store scoped registrations in private member
         registrations_.push_back(r1);

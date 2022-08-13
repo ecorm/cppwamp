@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                  Copyright Butterfly Energy Systems 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_INTERNAL_VARIANTENCODING_HPP
@@ -68,7 +67,7 @@ public:
     {
         encoder_.begin_array(a.size());
         for (const auto& v: a)
-            apply(*this, v);
+            wamp::apply(*this, v);
         encoder_.end_array();
     }
 
@@ -79,7 +78,7 @@ public:
         {
             const auto& key = kv.first;
             encoder_.key({key.data(), key.size()});
-            apply(*this, kv.second);
+            wamp::apply(*this, kv.second);
         }
         encoder_.end_object();
     }

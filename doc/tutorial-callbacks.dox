@@ -1,28 +1,24 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 /**
-@page AsyncTutorial Asynchronous API
+@page AsyncCallbacksTutorial Asynchronous Callbacks
 
 @tableofcontents
 
-The `wamp::Session` class provides an asynchronous API that should be familiar
-to those who have used Boost.Asio. Wherever wamp::CoroSession expects a yield
-context parameter, wamp::Session instead expects a callable entity that is
-invoked when the asynchronous operation is completed.
+The previous tutorials have used stackful routines to demonstrate CppWAMP.
+Traditional "callback" handler functions can also be used with wamp::Session.
 
 For asynchronous operations that can fail, `Session` expects a handler taking
-an @ref wamp::AsyncResult "wamp::AsyncResult<T>" as a parameter.
-`AsyncResult<T>` makes it hard for handlers to ignore error conditions
-when accessing the result of an asynchronous operation via its
-@ref wamp::AsyncResult::get "get" method.
+an @ref wamp::ErrorOr "wamp::ErrorOr<T>" as a parameter. `ErrorOr<T>` makes it
+difficult for handlers to ignore error conditions when accessing the result of
+an asynchronous operation via its @ref wamp::ErrorOr::value "value" method.
 
-The following example shows how to establish a connection using the
-asynchronous `Session` API:
+The following example shows how to establish a connection using callback
+handler functions:
 
 ```
 #include <cppwamp/session.hpp>
@@ -39,13 +35,13 @@ int main()
 
     // Asynchronously connect to the router, using a lambda function for
     // the handler
-    session->connect( [](AsyncResult<size_t> result)
+    session->connect( [](ErrorOr<size_t> result)
     {
         // Obtain the result of the connect operation, which is the index of
         // the connector used to establish the transport connection.
-        // AsyncResult::get throws an error::Failure exception if the
+        // ErrorOr::get throws an error::Failure exception if the
         // operation failed.
-        auto index = result.get();
+        auto index = result.value();
     });
 
     ioctx.run();
@@ -53,22 +49,22 @@ int main()
 }
 ```
 
-Instead of letting wamp::AsyncResult::get throw an exception upon failure,
-@ref wamp::AsyncResult::operator bool() and wamp::AsyncResult::errorCode can be
+Instead of letting wamp::ErrorOr::get throw an exception upon failure,
+@ref wamp::ErrorOr::operator bool() and wamp::ErrorOr::errorCode can be
 used to check the error status of an asynchronous operation:
 
 ```
 using namespace wamp;
-session->connect( [](AsyncResult<size_t> result)
+session->connect( [](ErrorOr<size_t> index)
 {
-    if (result)
+    if (index)
     {
-        auto index = result.get();
+        std::cout << "Connected via transport #" << (index.value()+1) << "\n";
         // Continue as normal...
     }
     else
     {
-        std::cerr << "Failure connecting: " << result.errorCode() << "\n";
+        std::cerr << "Failure connecting: " << index.error() << "\n";
     }
 });
 ```
@@ -88,9 +84,9 @@ public:
 
     void start()
     {
-        session_->connect( [this](wamp::AsyncHandler<size_t> result)
+        session_->connect( [this](wamp::AsyncHandler<size_t> index)
         {
-            result.get(); // throws if connection failed
+            index.value(); // throws if connection failed
             this->join();
         });
     }
@@ -99,9 +95,9 @@ private:
     void join()
     {
         session_->join(Realm("somerealm"),
-            [this](wamp::AsyncHandler<wamp::SessionInfo> result)
+            [this](wamp::AsyncHandler<wamp::SessionInfo> info)
             {
-                sessionInfo_ = result.get();
+                sessionInfo_ = info.value(); // throws if join failed
                 // Continue with other asynchronous operations...
             }
         );
@@ -113,8 +109,8 @@ private:
 ```
 
 With this asynchronous style of programming, it is not immediately obvious how
-the program control flows. The coroutine-based API is therefore useful in
-implementing asynchronous logic in a more synchronous, sequential manner.
+the program control flows. Couroutines are therefore useful in implementing
+asynchronous logic in a more synchronous, sequential manner.
 
 For complete examples using the asynchronous API see:
 

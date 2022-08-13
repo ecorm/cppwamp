@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 /**
@@ -13,7 +12,7 @@
 Calling RPCs
 ------------
 
-The @ref wamp::CoroSession::call "call" operation is used to call remote
+The @ref wamp::Session::call "call" operation is used to call remote
 procedures. It takes a wamp::Rpc object as a parameter, which contains the
 following information related to the call:
 
@@ -29,19 +28,19 @@ other details returned by the callee.
 using namespace wamp;
 boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 {
-    auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
-    session->connect(yield);
-    session->join(Realm("somerealm"), yield);
+    auto session = Session::create(ioctx, {tcpJson, tcpPack});
+    session->connect(yield).value();
+    session->join(Realm("somerealm"), yield).value();
 
     // Call a remote procedure that takes no arguments
-    Result result = session->call(Rpc("getElapsed"), yield);
+    Result result = session->call(Rpc("getElapsed"), yield).value();
     int elapsed = 0;
     result.convertTo(elapsed); // Will throw error::Conversion
                                // if conversion fails
     std::cout << "The elapsed number of seconds is " << elapsed << "\n";
 
     // Call a remote procedure that takes two positional arguments
-    auto sum = session->call(Rpc("add").withArgs(12, 34), yield);
+    auto sum = session->call(Rpc("add").withArgs(12, 34), yield).value();
     std::cout << "12 + 34 is " << sum[0] << "\n";
 
     // Call a remote procedure that takes a single keyword argument and
@@ -49,7 +48,7 @@ boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     // advanced feature.
     session->call( Rpc("setProperties").withKwargs({{"name", "John"}})
                                        .withDiscloseMe(),
-                   yield );
+                   yield ).value();
 });
 ```
 
@@ -72,7 +71,7 @@ be stored into a [`std::function`][stdfunction]:
 Registering Procedures
 ----------------------
 
-@ref wamp::CoroSession::enroll "enroll()" is used to register a remote
+@ref wamp::Session::enroll "enroll()" is used to register a remote
 procedure call slot:
 ```
 Registration reg = session->enroll(Procedure("name"), slot, yield);
@@ -112,13 +111,13 @@ Outcome addToCart(Invocation inv)
 auto reg = session->enroll(
     Procedure("addToCart").withDiscloseCaller(),
     &addToCart,
-    yield);
+    yield).value();
 // :::
 // Unregistering
 reg.unregister();
 ```
 
-wamp::Outcome::deferred may be returned in situations where the result cannot
+wamp::deferment may be returned in situations where the result cannot
 be computed immediately within the asynchronous context of the RPC handler.
 A use case for this would be an RPC handler that needs to invoke the RPC of
 another service to complete the request. See @ref DeferredOutcomes
@@ -133,7 +132,7 @@ Registering Statically-Typed Procedures
 
 Certain remote procedures may expect a fixed number of statically-typed
 arguments. For these situations, the
-@ref wamp::BasicInvocationUnpacker::basicRpc "wamp::basicRpc" template
+@ref wamp::SimpleInvocationUnpacker::simpleRpc "wamp::simpleRpc" template
 function can be used:
 ```
 #include <cppwamp/unpacker.hpp>
@@ -141,8 +140,8 @@ function can be used:
 using namespace wamp;
 Registration reg =
     session->enroll(Procedure("name"),
-                    basicRpc<ReturnType, StaticTypeList...>(slot),
-                    yield);
+                    simpleRpc<ReturnType, StaticTypeList...>(slot),
+                    yield).value();
 ```
 where:
 - _ReturnType_ is the type returned by the RPC (may be `void`)
@@ -162,7 +161,7 @@ float sum(float x, float y)
 // Within coroutine
 using namespace wamp;
 session->enroll(Procedure("sum"),
-                basicRpc<float, float, float>(&sum), yield);
+                simpleRpc<float, float, float>(&sum), yield).value();
 //                       ^^^^^^^^^^^^^^^^^^^
 //  Note that these types match the ones in the 'sum' signature
 //  (return type + parameters).
@@ -178,7 +177,7 @@ function can be used instead:
 using namespace wamp;
 Registration reg = session->enroll(Procedure("name"),
                                    unpackedRpc<StaticTypeList...>(slot),
-                                   yield);
+                                   yield).value();
 ```
 where:
 - _StaticTypeList..._ is a parameter pack of static types
@@ -197,7 +196,7 @@ Outcome sum(Invocation inv, float x, float y)
 // Within coroutine
 using namespace wamp;
 session->enroll(Procedure("sum"),
-                unpackedRpc<float, float>(&sum), yield);
+                unpackedRpc<float, float>(&sum), yield).value();
 //                          ^^^^^^^^^^^^
 //  Note that these types match the ones in the 'sum' signature
 //  (following the Invocation parameter).
@@ -208,7 +207,7 @@ Registering Coroutine Procedures
 
 If the remote procedure must perform it's work in an asynchronous fashion
 within the context of a coroutine, then
-@ref wamp::BasicCoroInvocationUnpacker::basicCoroRpc "wamp::basicCoroRpc" or
+@ref wamp::SimpleCoroInvocationUnpacker::simpleCoroRpc "wamp::simpleCoroRpc" or
 @ref wamp::CoroInvocationUnpacker::unpackedCoroRpc "wamp::unpackedCoroRpc" may
 be used:
 
@@ -224,8 +223,8 @@ std::string getName(std::string id, boost::asio::yield_context yield)
 
 // Within coroutine
 session->enroll(Procedure("getName"),
-                basicCoroRpc<std::string, std::string>(&getName),
-                yield);
+                simpleCoroRpc<std::string, std::string>(&getName),
+                yield).value();
 ```
 
 @note This will spawn a new coroutine every time the RPC is invoked.
@@ -302,7 +301,7 @@ try
 {
     session->call(Rpc("foo").withArgs(42)
                             .captureError(error),
-                  yield);
+                  yield).value();
 }
 catch (error::Failure& e)
 {
@@ -313,6 +312,11 @@ catch (error::Failure& e)
     }
 }
 ```
+
+@note Even if `Rpc::captureError` is not used, a `call` operation will still
+      fail if the callee returns an `ERROR` message. It's just that the
+      details within the `ERROR` message will be discarded and remain unknown
+      to the caller.
 
 Scoped Registrations
 --------------------
@@ -340,11 +344,18 @@ see @ref ScopedRegistrations "Registrations/Scoped Registrations".
 
 Cancelling RPCs
 ---------------
-If supported by the router, a caller may cancel an RPC in progress via the
-session's @ref wamp::Session::cancel "cancel" method.
+If supported by the router, a caller may cancel an RPC in progress via any of
+the following methods:
+1. Use the @ref wamp::Session::call "Session::call" overloads taking a
+  wamp::CallChit out parameter, then call
+  @ref wamp::CallChit::cancel "CallChit::cancel".
+2. Use wamp::Session::cancel, passing a wamp::CallChit.
+3. Bind a Boost.Asio [cancellation slot]
+  (https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/core/cancellation.html)
+  to the completion token passed to @ref wamp::Session::call "Session::call".
 
 A callee wanting to make an RPC interruptible may pass an additional
-@ref wamp::Session::InterruptSlot "InterruptSlot" argument to the `enroll`
+`interruptSlot` argument to the `enroll`
 method.
 
 Example interruptible callee:
@@ -352,82 +363,118 @@ Example interruptible callee:
 ```
 using namespace wamp;
 AsioContext ioctx;
-boost::asio::deadline_timer timer(ioctx);
 
-Outcome delayedEcho(Invocation inv)
+// This is not meant to be efficient or scalable! A more sophisticated example
+// would use a single timer object to implement a deadline queue.
+std::map<RequestId, std::shared_ptr<boost::asio::steady_timer>> timers;
+
+std::string delayedEcho(std::string message, boost::asio::yield_context yield)
 {
-    // This is a poor example because the same timer could be used
-    // by multiple invocations before it expires. A more elaborate
-    // example would use a scheduler which maps request IDs to
-    // deadlines.
-    boost::asio::spawn(inv.executor(),
-        [&timer, inv](boost::asio::yield_context yield)
-        {
-            std::string message;
-            int seconds;
-            inv.convertTo(message, seconds);
-            timer.expires_from_now(std::chrono::seconds(seconds);
-            boost::system::error_code ec;
-            timer.async_wait(yield[ec]);
-            if (ec = boost::asio::error::operation_aborted)
-                inv.yield(Error{"myapp.aborted"});
-            else
-                inv.yield(Result{reminder});
-        });
-
-    return Outcome::deferred();
+    int seconds;
+    inv.convertTo(message, seconds);
+    auto timer = std::make_shared<boost::asio::steady_timer>(ioctx);
+    timers.emplace(inv.requestId(), timer);
+    timer->expires_from_now(std::chrono::seconds(seconds);
+    boost::system::error_code ec;
+    timer->async_wait(yield[ec]);
+    timers.erase(inv.requestId());
+    if (ec = boost::asio::error::operation_aborted)
+        throw Error{"myapp.remind_me.aborted"};
+    return message;
 }
 
 void cancelEcho(Interruption intr)
 {
-    // A more elaborate example would use a scheduler that
-    // cancels only the operation associated with intr.requestId().
-    timer.cancel();
+    auto found = timers.find(intr.requestId());
+    if (found != timers.end())
+        found->second->cancel();
 }
 
 void run(AsioContext& ioctx)
 {
     boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(ioctx, tcp);
-        session->connect(yield);
-        session->join(Realm("somerealm"), yield);
+        auto session = Session::create(ioctx, tcp);
+        session->connect(yield).value();
+        session->join(Realm("somerealm"), yield).value();
 
         // Note the additional InterruptSlot argument for enroll.
         auto reg = session->enroll(
-            Procedure("remind_me"), &delayedEcho, &cancelEcho, yield);
+            Procedure("remind_me"),
+            simpleCoroRpc<std::string, std::string>(&delayedEcho),
+            &cancelEcho,
+            yield).value();
 
         // Etc.
     });
 }
 ```
 
-Example caller issuing a call cancellation:
+Example caller issuing a call cancellation via wamp::CallChit:
 ```
 using namespace wamp;
 boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 {
-    auto session = CoroSession<>::create(ioctx, tcp);
-    session->connect(yield);
-    session->join(Realm("somerealm"), yield);
+    auto session = Session::create(ioctx, tcp);
+    session->connect(yield).value();
+    session->join(Realm("somerealm"), yield).value();
 
     // Call a remote procedure that takes a while to respond.
-    // Note that the callback-based overload is used, which immediately
-    // returns a request ID.
-    auto requestId = session->call(
+    // Note that the overload taking a CallChit out parameter is used.
+    CallChit chit;
+    session->call(
         Rpc("getElapsed").withArgs("hello", 10),
-        [](AsyncResult<Result> result)
+        chit,
+        [](ErrorOr<Result> result)
         {
             if (result)
-                std::cout << "Result: " << result.get() << "\n";
+                std::cout << "Result: " << result.value() << "\n";
             else
                 std::cout << "Error: " << result.errorInfo() << "\n";
         });
 
     // Cancel the RPC before it completes.
-    boost::asio::deadline_timer timer(ioctx, std::chrono::seconds(5));
+    boost::asio::steady_timer timer(ioctx, std::chrono::seconds(5));
     timer.async_wait(yield);
-    session->cancel(Cancellation(requestId, CancelMode::kill));
+    chit.cancel(CancelMode::kill);
+});
+```
+
+Example caller issuing a call cancellation via a
+`boost::asio::cancellation_signal`
+```
+using namespace wamp;
+boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+{
+    auto session = Session::create(ioctx, tcp);
+    session->connect(yield).value();
+    session->join(Realm("somerealm"), yield).value();
+
+    // Prepare a cancellation signal that will be used to generate a
+    // cancellation slot as well as triggerring the cancellation.
+    boost::asio::cancellation_signal cancelSignal;
+
+    // Start a timer that will cancel the call in 5 seconds.
+    boost::asio::steady_timer timer(ioctx, std::chrono::seconds(5));
+    timer.async_wait(
+        [&cancelSignal](boost::system::error_code)
+        {
+            // The cancellation type is ignored by CppWAMP
+            cancelSignal.emit(boost::asio::cancellation_type::total);
+        });
+
+    // Call a remote procedure using a cancellation slot bound to a stackful
+    // coroutine completion token. Note the use of Rpc::withCancelMode which
+    // specifies the default cancellation mode to use.
+    auto result = session->call(
+        Rpc("getElapsed").withArgs("hello", 10)
+                         .withCancelMode(CancelMode::kill),
+        boost::asio::bind_cancellation_slot(cancelSignal.slot(), yield);
+
+    if (result)
+        std::cout << "Result: " << result.value() << "\n";
+    else
+        std::cout << "Error: " << result.errorInfo() << "\n";
 });
 ```
 
@@ -463,7 +510,7 @@ A callee wanting to provide progressive call results must:
 
 - Make the wamp::Invocation object available to the RPC handler so that it may
   later be used to yield progressive results.
-- Return wamp::Outcome::deferred in the RPC handler so that CppWAMP knows
+- Return wamp::deferment in the RPC handler so that CppWAMP knows
   results will be yielded later.
 - Set the "progress" option of the intermediate `RESULT` messages via
   wamp::Result::withProgress.
@@ -472,7 +519,7 @@ A callee wanting to provide progressive call results must:
   wamp::Result::withProgress.
 
 It may also be desirable to pass an interruption handler to the session
-@ref wamp::CoroSession::enroll "enroll" method, so that the callee may stop
+@ref wamp::Session::enroll "enroll" method, so that the callee may stop
 yielding partial results in the event that the call is cancelled
 (see [Progressive Call Result Cancellation]
 (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1.2)
@@ -524,7 +571,7 @@ Outcome countdown(Invocation inv)
             inv.yield(Result({count}));
         });
 
-    return Outcome::deferred();
+    return deferment;
 }
 
 Outcome interrupt(Interruption intr)
@@ -540,10 +587,11 @@ int main()
     auto tcp = connector<Json>(ioctx, TcpHost("localhost", 12345));
     boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(ioctx, tcp);
-        session->connect(yield);
-        session->join(Realm("somerealm"), yield);
-        session->enroll(Procedure("countdown"), &countdown, &interrupt, yield);
+        auto session = Session::create(ioctx, tcp);
+        session->connect(yield).value();
+        session->join(Realm("somerealm"), yield).value();
+        session->enroll(Procedure("countdown"), &countdown, &interrupt,
+                        yield).value();
     });
     ioctx.run();
     return 0;
@@ -551,7 +599,8 @@ int main()
 ```
 A caller wanting to call an RPC with progressive call results must:
 
-- Use the asynchronous wamp::Session::call so that it doesn't block.
+- Pass a callback handler function to wamp::Session::call so that it doesn't
+  block.
 - Set the "receive_progress" option of the outgoing `CALL` message via
   wamp::Rpc::withProgressiveResults.
 
@@ -566,17 +615,17 @@ int main()
     auto tcp = connector<Json>(ioctx, TcpHost("localhost", 12345));
     boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(ioctx, tcp);
-        session->connect(yield);
-        session->join(Realm("somerealm"), yield);
+        auto session = Session::create(ioctx, tcp);
+        session->connect(yield).value();
+        session->join(Realm("somerealm"), yield).value();
 
         // The handler will remain in the Session's internal records
         // until either a non-progressive RESULT or an ERROR is received.
         session->call(Rpc("countdown").withProgressiveResults(),
-                      [](AsyncResult<Result> r)
+                      [](ErrorOr<Result> r)
                       {
                           unsigned n = 0;
-                          r.get().convertTo(n);
+                          r.value().convertTo(n);
                           std::cout << "Tick: " << n << "\n";
                       });
     });

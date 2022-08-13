@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                    Copyright Butterfly Energy Systems 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_CBOR_HPP
@@ -19,6 +18,7 @@
 #include <string>
 #include "api.hpp"
 #include "codec.hpp"
+#include "config.hpp"
 #include "variant.hpp"
 
 namespace wamp
@@ -124,7 +124,8 @@ public:
     ~BasicCborDecoder();
 
     /** Deserializes from the given input to the given variant. */
-    void decode(const Input& input, Variant& variant);
+    CPPWAMP_NODISCARD std::error_code decode(const Input& input,
+                                             Variant& variant);
 
 private:
     class Impl;
@@ -155,7 +156,7 @@ public:
     ~BasicCborDecoder();
 
     /** Deserializes from the given input stream to the given variant. */
-    void decode(Input& input, Variant& variant);
+    CPPWAMP_NODISCARD std::error_code decode(Input& input, Variant& variant);
 
 private:
     class Impl;

@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 
@@ -16,8 +15,8 @@
 
 A _slot_ is a _callable target_ that is called in response to a _signal_
 (the signal being the event topic in this case). The term _slot_, borrowed from
-[Qt's signals and slots][qt_sig], is used to distinguish an event handler
-from an asynchronous operation handler.
+[Qt's signals and slots][qt_sig], is used to distinguish a event handler
+from an asynchronous operation completion handler.
 
 A _callable target_ can be:
 - a free function,
@@ -45,30 +44,30 @@ be used with the library:
 
 | Slot Type                                                         | Wrapper Function                    | Slot Signature                          |
 |-------------------------------------------------------------------|-------------------------------------|-----------------------------------------|
-| [Basic Event Slot](@ref BasicEventSlots)                          | `wamp::basicEvent<TArgs...>`        | `void function(TArgs...)`               |
-| [Basic Coroutine Event Slot](@ref BasicCoroutineEventSlots)       | `wamp::basicCoroEvent<TArgs...>`    | `void function(TArgs..., Yield)`        |
+| [Simple Event Slot](@ref SimpleEventSlots)                        | `wamp::simpleEvent<TArgs...>`       | `void function(TArgs...)`               |
+| [Simple Coroutine Event Slot](@ref SimpleCoroutineEventSlots)     | `wamp::simpleCoroEvent<TArgs...>`   | `void function(TArgs..., Yield)`        |
 | [Unpacked Event Slot](@ref UnpackedEventSlots)                    | `wamp::unpackedEvent<TArgs...>`     | `void function(Event, TArgs...)`        |
 | [Unpacked Coroutine Event Slot](@ref UnpackedCoroutineEventSlots) | `wamp::unpackedCoroEvent<TArgs...>` | `void function(Event, TArgs..., Yield)` |
 
 where `Yield` represents the type `boost::asio::yield_context`.
 
-@section BasicEventSlots Basic Event Slots
+@section SimpleEventSlots Simple Event Slots
 
-A _basic event slot_ represents an event handler that expects one or more
-payload arguments having specific, static types. The [wamp::basicEvent]
-(@ref wamp::BasicEventUnpacker::basicEvent) function can be used when
-registering such event slots. It takes a basic event slot, and converts it
+A _simple event slot_ represents an event handler that expects one or more
+payload arguments having specific, static types. The [wamp::simpleEvent]
+(@ref wamp::SimpleEventUnpacker::simpleEvent) function can be used when
+registering such event slots. It takes a simple event slot, and converts it
 into a regular event slot that can be passed to wamp::Session::subscribe.
 
-`wamp::basicEvent` expects an event slot with the following signature:
+`wamp::simpleEvent` expects an event slot with the following signature:
 
 ```
 void function(TArgs...)
 ```
 where `TArgs...` matches the template parameter pack that was passed to
-`wamp::basicEvent`.
+`wamp::simpleEvent`.
 
-Examples of basic event slots are:
+Examples of simple event slots are:
 ```
 void onSensorSampled(float value) { ... }
 //                     ^
@@ -83,11 +82,11 @@ void onPurchase(std::string item, int cost, int qty) { ... }
 The above slots can be registered as follows:
 ```
 session->subscribe(Topic("sensorSampled"),
-                   basicEvent<float>(&onSensorSampled),
+                   simpleEvent<float>(&onSensorSampled),
                    handler);
 
 session->subscribe(Topic("itemPurchased"),
-                   basicEvent<std::string, int, int>(&onPurchase),
+                   simpleEvent<std::string, int, int>(&onPurchase),
                    handler);
 ```
 
@@ -101,27 +100,27 @@ arguments to their target types, it issues a warning that can be captured via
 wamp::Session::setWarningHandler.
 
 
-@section BasicCoroutineEventSlots Basic Coroutine Event Slots
+@section SimpleCoroutineEventSlots Simple Coroutine Event Slots
 
-A _basic coroutine event slot_ is like a regular _basic event slot_, except
+A _simple coroutine event slot_ is like a regular _simple event slot_, except
 that it is executed within the context of a coroutine. This is useful for
 event handlers that need to perform asynchronous operations themselves. The
-[wamp::basicCoroEvent](@ref wamp::BasicCoroEventUnpacker::basicCoroEvent)
-function can be used when registering such event slots. It takes a basic
+[wamp::simpleCoroEvent](@ref wamp::SimpleCoroEventUnpacker::simpleCoroEvent)
+function can be used when registering such event slots. It takes a simple
 coroutine event slot, and converts it into a regular event slot that can be
 passed to wamp::Session::subscribe.
 
-`wamp::basicCoroEvent` expects an event slot with the following signature:
+`wamp::simpleCoroEvent` expects an event slot with the following signature:
 
 ```
 void function(TArgs..., boost::asio::yield_context)
 ```
 where
 - `TArgs...` matches the template parameter pack that was passed to
-  `wamp::basicEvent`.
+  `wamp::simpleEvent`.
 - `boost::asio::yield_context` represents the event handler's coroutine context.
 
-Examples of basic coroutine event slots are:
+Examples of simple coroutine event slots are:
 ```
 using Yield = boost::asio::yield_context;
 
@@ -138,11 +137,11 @@ void onPurchase(std::string item, int cost, int qty, Yield yield) { ... }
 The above slots can be registered as follows:
 ```
 session->subscribe(Topic("sensorSampled"),
-                   basicCoroEvent<float>(&onSensorSampled),
+                   simpleCoroEvent<float>(&onSensorSampled),
                    handler);
 
 session->subscribe(Topic("itemPurchased"),
-                   basicCoroEvent<std::string, int, int>(&onPurchase),
+                   simpleCoroEvent<std::string, int, int>(&onPurchase),
                    handler);
 ```
 
@@ -176,7 +175,7 @@ where
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::unpackedEvent`.
 
-@note Unpacked event slots differ from basic event slots in the following way:
+@note Unpacked event slots differ from simple event slots in the following way:
       Unpacked event slots are passed a wamp::Event object, which contains
       metadata on the event itself.
 
@@ -249,15 +248,17 @@ to manage the lifetime of several subscriptions:
 ```
 using namespace wamp;
 
-class Observer // One of several classes using the same CoroSession
+class Observer // One of several classes using the same Session
 {
 public:
-    void start(CoroSession<>::Ptr session)
+    void start(Session::Ptr session)
     {
         // The session has already connected and joined when this is called.
 
-        auto s1 = session_->subscribe(Topic("foo"), &Observer::onFoo, yield);
-        auto s2 = session_->subscribe(Topic("bar"), &Observer::onBar, yield);
+        auto s1 = session_->subscribe(Topic("foo"), &Observer::onFoo,
+                                      yield).value();
+        auto s2 = session_->subscribe(Topic("bar"), &Observer::onBar,
+                                      yield).value();
 
         // Store scoped subscripions in private member
         subscriptions_.push_back(s1);

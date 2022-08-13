@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_COMPILED_LIB
@@ -13,9 +12,9 @@
 #include <cppwamp/internal/json.ipp>
 #include <cppwamp/internal/msgpack.ipp>
 
+#include <cppwamp/config.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/internal/asioconnector.hpp>
-#include <cppwamp/internal/config.hpp>
 #include <cppwamp/internal/rawsockconnector.hpp>
 #include <cppwamp/internal/tcpopener.hpp>
 
@@ -25,6 +24,7 @@
 #endif
 
 #include <cppwamp/internal/blob.ipp>
+#include <cppwamp/internal/chits.ipp>
 #include <cppwamp/internal/error.ipp>
 #include <cppwamp/internal/messagetraits.ipp>
 #include <cppwamp/internal/peerdata.ipp>
@@ -46,7 +46,7 @@ namespace wamp
 {
 
 template <> CPPWAMP_API Connector::Ptr
-connector<Json>(AnyExecutor exec, TcpHost host)
+connector<Json>(AnyIoExecutor exec, TcpHost host)
 {
     using Endpoint = internal::AsioConnector<internal::TcpOpener>;
     using ConcreteConnector = internal::RawsockConnector<Json, Endpoint>;
@@ -54,7 +54,7 @@ connector<Json>(AnyExecutor exec, TcpHost host)
 }
 
 template <> CPPWAMP_API Connector::Ptr
-connector<Msgpack>(AnyExecutor exec, TcpHost host)
+connector<Msgpack>(AnyIoExecutor exec, TcpHost host)
 {
     using Endpoint = internal::AsioConnector<internal::TcpOpener>;
     using ConcreteConnector = internal::RawsockConnector<Msgpack, Endpoint>;
@@ -62,7 +62,7 @@ connector<Msgpack>(AnyExecutor exec, TcpHost host)
 }
 
 template <> CPPWAMP_API Connector::Ptr
-connector<Cbor>(AnyExecutor exec, TcpHost host)
+connector<Cbor>(AnyIoExecutor exec, TcpHost host)
 {
     using Endpoint = internal::AsioConnector<internal::TcpOpener>;
     using ConcreteConnector = internal::RawsockConnector<Cbor, Endpoint>;
@@ -71,7 +71,7 @@ connector<Cbor>(AnyExecutor exec, TcpHost host)
 
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
 template <> CPPWAMP_API Connector::Ptr
-connector<Json>(AnyExecutor exec, UdsPath path)
+connector<Json>(AnyIoExecutor exec, UdsPath path)
 {
     using Endpoint = internal::AsioConnector<internal::UdsOpener>;
     using ConcreteConnector = internal::RawsockConnector<Json, Endpoint>;
@@ -79,7 +79,7 @@ connector<Json>(AnyExecutor exec, UdsPath path)
 }
 
 template <> CPPWAMP_API Connector::Ptr
-connector<Msgpack>(AnyExecutor exec, UdsPath path)
+connector<Msgpack>(AnyIoExecutor exec, UdsPath path)
 {
     using Endpoint = internal::AsioConnector<internal::UdsOpener>;
     using ConcreteConnector = internal::RawsockConnector<Msgpack, Endpoint>;
@@ -87,7 +87,7 @@ connector<Msgpack>(AnyExecutor exec, UdsPath path)
 }
 
 template <> CPPWAMP_API Connector::Ptr
-connector<Cbor>(AnyExecutor exec, UdsPath path)
+connector<Cbor>(AnyIoExecutor exec, UdsPath path)
 {
     using Endpoint = internal::AsioConnector<internal::UdsOpener>;
     using ConcreteConnector = internal::RawsockConnector<Cbor, Endpoint>;

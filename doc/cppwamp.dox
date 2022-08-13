@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 /**
@@ -31,12 +30,29 @@ consult the @ref wamp Namespace Reference.
 
 For a **tutorial-style overview**, please consult the @ref Tutorial page.
 
-For some **example programs**, see:
+## Examples
+
+### Using Stackful Coroutines
+
 - @ref examples/chat/main.cpp
 - @ref examples/timeclient/main.cpp
 - @ref examples/timeservice/main.cpp
+
+### Using C++20 Coroutines
+- @ref examples/coro20timeclient/main.cpp
+- @ref examples/coro20timeservice/main.cpp
+
+### Using Asio Stackless Coroutines
+- @ref examples/stacklesstimeclient/main.cpp
+- @ref examples/stacklesstimeservice/main.cpp
+
+### Using Callback Handler Functions
 - @ref examples/asynctimeclient/main.cpp
 - @ref examples/asynctimeservice/main.cpp
+
+### Using std::future
+- @ref examples/futuretimeclient/main.cpp
+- @ref examples/futuretimeservice/main.cpp
 
 For a brief **architectural overview** of the library, see @ref Architecture.
 
@@ -56,11 +72,11 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 
 1. @subpage VariantsTutorial &ndash; A `Variant` mimics a dynamic Javascript variable.
 2. @subpage ConnectorsTutorial &ndash; A `Connector` is used for establishing client transport endpoints.
-3. @subpage SessionsTutorial &ndash; How to establish a WAMP session using the coroutine-based client API.
-4. @subpage ErrorsTutorial &ndash; How to handle runtime errors when using the coroutine-based client API.
+3. @subpage SessionsTutorial &ndash; How to establish a WAMP session using stackful coroutines.
+4. @subpage ErrorsTutorial &ndash; How to handle runtime errors emitted by `Session`.
 5. @subpage RpcTutorial &ndash; How to register and invoke remote procedure calls.
 6. @subpage PubSubTutorial &ndash; How to publish and subscribe to event topics.
-7. @subpage AsyncTutorial &ndash; How to use the asynchronous client API.
+7. @subpage AsyncCallbacksTutorial &ndash; How to use asynchronous callbacks with `Session`.
 8. @subpage ConversionsTutorial &ndash; How to convert `Variant` to/from custom types.
 */
 
@@ -95,4 +111,10 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 @example examples/timeclient/main.cpp
 @example examples/asynctimeservice/main.cpp
 @example examples/asynctimeclient/main.cpp
+@example examples/futuretimeservice/main.cpp
+@example examples/futuretimeclient/main.cpp
+@example examples/stacklesstimeservice/main.cpp
+@example examples/stacklesstimeclient/main.cpp
+@example examples/coro20timeservice/main.cpp
+@example examples/coro20timeclient/main.cpp
 */

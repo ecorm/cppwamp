@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_INTERNAL_UDSOPENER_HPP
@@ -12,9 +11,9 @@
 #include <memory>
 #include <string>
 #include <boost/asio/local/stream_protocol.hpp>
+#include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
 #include "../udspath.hpp"
-#include "config.hpp"
 
 namespace wamp
 {
@@ -30,32 +29,40 @@ public:
     using Socket    = boost::asio::local::stream_protocol::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
-    UdsOpener(AnyExecutor exec, Info info)
-        : executor_(exec),
+    template <typename TExecutorOrStrand>
+    UdsOpener(TExecutorOrStrand&& exec, Info info)
+        : strand_(std::forward<TExecutorOrStrand>(exec)),
           info_(std::move(info))
     {}
 
-    AnyExecutor executor() {return executor_;}
+    IoStrand strand() {return strand_;}
 
-    template <typename TCallback>
-    void establish(TCallback&& callback)
+    template <typename F>
+    void establish(F&& callback)
     {
+        struct Connected
+        {
+            UdsOpener* self;
+            typename std::decay<F>::type callback;
+
+            void operator()(AsioErrorCode ec)
+            {
+                if (ec)
+                    self->socket_.reset();
+                callback(ec, std::move(self->socket_));
+                self->socket_.reset();
+            }
+        };
+
         assert(!socket_ && "Connect already in progress");
 
-        socket_.reset(new Socket(executor_));
+        socket_.reset(new Socket(strand_));
         socket_->open();
         info_.options().applyTo(*socket_);
 
         // AsioConnector will keep this object alive until completion.
-        socket_->async_connect(
-            info_.pathName(),
-            [this, CPPWAMP_MVCAP(callback)](AsioErrorCode ec)
-            {
-                if (ec)
-                    socket_.reset();
-                callback(ec, std::move(socket_));
-                socket_.reset();
-            });
+        socket_->async_connect(info_.pathName(),
+                               Connected{this, std::forward<F>(callback)});
     }
 
     void cancel()
@@ -65,7 +72,7 @@ public:
     }
 
 private:
-    AnyExecutor executor_;
+    IoStrand strand_;
     Info info_;
     SocketPtr socket_;
 };

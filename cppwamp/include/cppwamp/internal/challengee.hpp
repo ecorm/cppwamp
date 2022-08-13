@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                   Copyright Butterfly Energy Systems 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_INTERNAL_CHALLENGEE_HPP
@@ -26,7 +25,7 @@ public:
 
     virtual ~Challengee() {}
 
-    virtual void authenticate(Authentication&& authentication) = 0;
+    virtual void safeAuthenticate(Authentication&&) = 0;
 };
 
 } // namespace internal

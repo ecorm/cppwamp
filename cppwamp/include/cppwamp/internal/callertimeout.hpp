@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_INTERNAL_CALLER_TIMEOUT_HPP
@@ -13,6 +12,7 @@
 #include <set>
 #include <utility>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
 #include "../peerdata.hpp"
 
@@ -55,9 +55,9 @@ public:
 
     using Ptr = std::shared_ptr<CallerTimeoutScheduler>;
 
-    static Ptr create(AnyExecutor exec)
+    static Ptr create(IoStrand strand)
     {
-        return Ptr(new CallerTimeoutScheduler(std::move(exec)));
+        return Ptr(new CallerTimeoutScheduler(std::move(strand)));
     }
 
     void listen(TimeoutHandler handler)
@@ -117,8 +117,8 @@ public:
 private:
     using WeakPtr = std::weak_ptr<CallerTimeoutScheduler>;
 
-    explicit CallerTimeoutScheduler(AnyExecutor exec)
-        : timer_(std::move(exec))
+    explicit CallerTimeoutScheduler(IoStrand strand)
+        : timer_(std::move(strand))
     {}
 
     void processNextDeadline()

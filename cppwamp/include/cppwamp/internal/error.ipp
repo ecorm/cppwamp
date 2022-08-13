@@ -1,14 +1,16 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include "../error.hpp"
 #include <map>
 #include <sstream>
 #include <type_traits>
+#include <jsoncons/json_error.hpp>
+#include <jsoncons_ext/cbor/cbor_error.hpp>
+#include <jsoncons_ext/msgpack/msgpack_error.hpp>
 #include "../api.hpp"
 
 namespace wamp
@@ -91,9 +93,13 @@ CPPWAMP_INLINE BadType::BadType(const std::string& what)
 {}
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE Access::Access(const std::string& what)
+    : BadType("wamp::error::Access: " + what)
+{}
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Access::Access(const std::string& from, const std::string& to)
-    : BadType("wamp::error::Access: "
-              "Attemping to access field type " + from + " as " + to)
+    : Access("Attemping to access field type " + from + " as " + to)
 {}
 
 //------------------------------------------------------------------------------
@@ -137,6 +143,7 @@ CPPWAMP_INLINE std::string SessionCategory::message(int ev) const
 /* registerError          */ "Register error reported by dealer",
 /* unregisterError        */ "Unregister error reported by dealer",
 /* callError              */ "Call error reported by callee or dealer",
+/* invalidState,          */ "Invalid state for this operation",
 
 /* invalidUri             */ "An invalid WAMP URI was provided",
 /* noSuchProcedure        */ "No procedure was registered under the given URI",
@@ -165,7 +172,7 @@ CPPWAMP_INLINE std::string SessionCategory::message(int ev) const
 }
 
 CPPWAMP_INLINE bool SessionCategory::equivalent(const std::error_code& code,
-                                             int condition) const noexcept
+                                                int condition) const noexcept
 {
     if (code.category() == wampCategory())
     {
@@ -203,7 +210,8 @@ CPPWAMP_INLINE bool SessionCategory::equivalent(const std::error_code& code,
     }
     else if (condition == (int)SessionErrc::success)
         return !code;
-    else return false;
+    else
+        return false;
 }
 
 CPPWAMP_INLINE SessionCategory::SessionCategory() {}
@@ -225,12 +233,13 @@ CPPWAMP_INLINE std::error_condition make_error_condition(SessionErrc errc)
 }
 
 //------------------------------------------------------------------------------
-/** @return The error code corresponding to the given URI, or the given
-            fallback value if not found. */
+/** @return 'true' if the corresponding error code was found. */
 //-----------------------------------------------------------------------------
-CPPWAMP_INLINE SessionErrc lookupWampErrorUri(
+CPPWAMP_INLINE bool lookupWampErrorUri(
     const std::string& uri, ///< The URI to search under.
-    SessionErrc fallback    ///< Defaul value to used if the URI was not found.
+    SessionErrc fallback,   ///< Defaul value to used if the URI was not found.
+    SessionErrc& result     /**< [out] The error code corresponding to the given
+                                 URI, or the given fallback value if not found */
 )
 {
     using SE = SessionErrc;
@@ -256,11 +265,80 @@ CPPWAMP_INLINE SessionErrc lookupWampErrorUri(
         {"wamp.error.network_failure",               SE::networkFailure}
     };
 
-    SessionErrc result = fallback;
     auto kv = table.find(uri);
-    if (kv != table.end())
-        result = kv->second;
-    return result;
+    bool found = kv != table.end();
+    result = found ? kv->second : fallback;
+    return found;
+}
+
+
+//------------------------------------------------------------------------------
+// Deserialization Error Codes
+//------------------------------------------------------------------------------
+
+CPPWAMP_INLINE const char* DecodingCategory::name() const noexcept
+{
+    return "wamp::DecodingCategory";
+}
+
+CPPWAMP_INLINE std::string DecodingCategory::message(int ev) const
+{
+    static const std::string msg[] =
+    {
+        /* success           */ "Operation succesful",
+        /* failure           */ "Decoding failed",
+        /* emptyInput        */ "Input is empty or has no tokens",
+        /* expectedStringKey */ "Expected a string key",
+        /* badBase64Length   */ "Invalid Base64 string length",
+        /* badBase64Padding  */ "Invalid Base64 padding",
+        /* badBase64Char     */ "Invalid Base64 character"
+    };
+
+    if (ev >= 0 && ev < (int)std::extent<decltype(msg)>::value)
+        return msg[ev];
+    else
+        return "Unknown error";
+}
+
+CPPWAMP_INLINE bool DecodingCategory::equivalent(const std::error_code& code,
+                                                 int condition) const noexcept
+{
+    const auto& cat = code.category();
+    if (!code)
+    {
+        return condition == (int)DecodingErrc::success;
+    }
+    else if (condition == (int)DecodingErrc::failure)
+    {
+        return cat == decodingCategory() ||
+               cat == jsoncons::json_error_category() ||
+               cat == jsoncons::cbor::cbor_error_category() ||
+               cat == jsoncons::msgpack::msgpack_error_category();
+    }
+    else if (cat == decodingCategory())
+    {
+        return code.value() == condition;
+    }
+    return false;
+}
+
+CPPWAMP_INLINE DecodingCategory::DecodingCategory() {}
+
+CPPWAMP_INLINE DecodingCategory& decodingCategory()
+{
+    static DecodingCategory instance;
+    return instance;
+}
+
+CPPWAMP_INLINE std::error_code make_error_code(DecodingErrc errc)
+{
+    return std::error_code(static_cast<int>(errc), decodingCategory());
+}
+
+CPPWAMP_INLINE std::error_condition make_error_condition(DecodingErrc errc)
+{
+    return std::error_condition(static_cast<int>(errc),
+                                decodingCategory());
 }
 
 
@@ -291,13 +369,18 @@ CPPWAMP_INLINE std::string ProtocolCategory::message(int ev) const
 }
 
 CPPWAMP_INLINE bool ProtocolCategory::equivalent(const std::error_code& code,
-                                                  int condition) const noexcept
+                                                 int condition) const noexcept
 {
-    if (code.category() == protocolCategory())
+    const auto& cat = code.category();
+
+    if (cat == protocolCategory())
         return code.value() == condition;
     else if (condition == (int)ProtocolErrc::success)
         return !code;
-    else return false;
+    else if (bool(code) && (condition == (int)ProtocolErrc::badDecode))
+        return code == DecodingErrc::failure;
+    else
+        return false;
 }
 
 CPPWAMP_INLINE ProtocolCategory::ProtocolCategory() {}
@@ -457,6 +540,5 @@ CPPWAMP_INLINE std::error_condition make_error_condition(RawsockErrc errc)
 {
     return std::error_condition(static_cast<int>(errc), rawsockCategory());
 }
-
 
 } // namespace wamp

@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_INTERNAL_SUBSCRIBER_HPP
@@ -10,8 +9,7 @@
 
 #include <functional>
 #include <memory>
-#include "../wampdefs.hpp"
-#include "asynctask.hpp"
+#include "../subscription.hpp"
 
 namespace wamp
 {
@@ -29,10 +27,7 @@ public:
 
     virtual ~Subscriber() {}
 
-    virtual void unsubscribe(const Subscription& sub) = 0;
-
-    virtual void unsubscribe(const Subscription& sub,
-                             AsyncTask<bool>&& handler) = 0;
+    virtual void safeUnsubscribe(const Subscription&) = 0;
 };
 
 } // namespace internal

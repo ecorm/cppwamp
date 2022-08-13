@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include <cmath>
@@ -29,7 +28,8 @@ void checkJson(JsonStringEncoder& encoder, JsonStringDecoder& decoder,
 
     {
         Variant v;
-        CHECK_NOTHROW( decoder.decode(json, v) );
+        auto ec = decoder.decode(json, v);
+        CHECK( !ec );
         CHECK( v == expected );
 
         std::string str;
@@ -108,14 +108,19 @@ void checkReal(const std::string& json, double x)
 }
 
 //------------------------------------------------------------------------------
-void checkError(JsonStringDecoder& decoder, const std::string& json)
+template <typename TErrc>
+void checkError(JsonStringDecoder& decoder, const std::string& json, TErrc errc)
 {
     INFO( "For JSON string \"" << json << "\"" );
 
     {
         auto originalValue = Array{null, true, 42, "hello"};
         Variant v(originalValue);
-        CHECK_THROWS_AS( decoder.decode(json, v), error::Decode );
+        auto ec = decoder.decode(json, v);
+        CHECK_FALSE( !ec );
+        CHECK( ec == DecodingErrc::failure );
+        CHECK( ec == ProtocolErrc::badDecode );
+        CHECK( ec == errc );
         CHECK( v == originalValue );
     }
 }
@@ -212,53 +217,57 @@ GIVEN( "valid JSON strings" )
 }
 GIVEN( "invalid JSON strings" )
 {
+    using DE = DecodingErrc;
+    using JE = jsoncons::json_errc;
+
     JsonStringDecoder d;
 
-    checkError(d, "");
-    checkError(d, " ");
-    checkError(d, "// comment");
-    checkError(d, "/* comment */");
-    checkError(d, "[null // comment]");
-    checkError(d, "[null /* comment */]");
-    checkError(d, "nil");
-    checkError(d, "t");
-    checkError(d, "f");
-    checkError(d, R"(!%#($)%*$)");
-    checkError(d, R"(42!)");
-    checkError(d, R"(Hello)");
-    checkError(d, R"(Hello)");
-    checkError(d, R"("\u0000====")");
-    checkError(d, R"("\u0000A===")");
-    checkError(d, R"("\u0000AA=A")");
-    checkError(d, R"("\u0000=AA=")");
-    checkError(d, R"("\u0000A")");
-    checkError(d, R"("\u0000AA==A")");
-    checkError(d, R"("\u0000AAAAA")");
-    checkError(d, R"("\u0000AA=")");
-    checkError(d, R"("\u0000AAA ")");
-    checkError(d, R"("\u0000AAA.")");
-    checkError(d, R"("\u0000AAA:")");
-    checkError(d, R"("\u0000AAA@")");
-    checkError(d, R"("\u0000AAA[")");
-    checkError(d, R"("\u0000AAA`")");
-    checkError(d, R"("\u0000AAA{")");
-    checkError(d, R"("\u0000AAA-")");
-    checkError(d, R"("\u0000AAA_")");
-    checkError(d, R"([42,false,"Hello)");
-    checkError(d, R"([42,false,"Hello]])");
-    checkError(d, R"([42,false,"Hello})");
-    checkError(d, R"([42,false,[])");
-    checkError(d, R"({"foo"})");
-    checkError(d, R"({"foo","bar"})");
-    checkError(d, R"({"foo":"bar")");
-    checkError(d, R"({"foo":"bar"])");
-    checkError(d, R"({42:"bar"})");
+    checkError(d, "",                      DE::emptyInput );
+    checkError(d, " ",                     DE::emptyInput);
+    checkError(d, "// comment",            JE::illegal_comment);
+    checkError(d, "/* comment */",         JE::illegal_comment);
+    checkError(d, "[null // comment]",     JE::illegal_comment);
+    checkError(d, "[null /* comment */]",  JE::illegal_comment);
+    checkError(d, "nil",                   JE::invalid_value );
+    checkError(d, "t",                     JE::unexpected_eof);
+    checkError(d, "f",                     JE::unexpected_eof);
+    checkError(d, R"(!%#($)%*$)",          JE::syntax_error);
+    checkError(d, R"(42!)",                JE::invalid_number);
+    checkError(d, R"(Hello)",              JE::syntax_error);
+    checkError(d, R"(Hello)",              JE::syntax_error);
+    checkError(d, R"("\u0000====")",       DE::badBase64Padding );
+    checkError(d, R"("\u0000A===")",       DE::badBase64Padding);
+    checkError(d, R"("\u0000AA=A")",       DE::badBase64Padding);
+    checkError(d, R"("\u0000=AA=")",       DE::badBase64Padding);
+    checkError(d, R"("\u0000A")",          DE::badBase64Length);
+    checkError(d, R"("\u0000AA==A")",      DE::badBase64Length);
+    checkError(d, R"("\u0000AAAAA")",      DE::badBase64Length);
+    checkError(d, R"("\u0000AA=")",        DE::badBase64Length);
+    checkError(d, R"("\u0000AAA ")",       DE::badBase64Char);
+    checkError(d, R"("\u0000AAA.")",       DE::badBase64Char);
+    checkError(d, R"("\u0000AAA:")",       DE::badBase64Char);
+    checkError(d, R"("\u0000AAA@")",       DE::badBase64Char);
+    checkError(d, R"("\u0000AAA[")",       DE::badBase64Char);
+    checkError(d, R"("\u0000AAA`")",       DE::badBase64Char);
+    checkError(d, R"("\u0000AAA{")",       DE::badBase64Char);
+    checkError(d, R"("\u0000AAA-")",       DE::badBase64Char);
+    checkError(d, R"("\u0000AAA_")",       DE::badBase64Char);
+    checkError(d, R"([42,false,"Hello)",   JE::unexpected_eof);
+    checkError(d, R"([42,false,"Hello]])", JE::unexpected_eof);
+    checkError(d, R"([42,false,"Hello})",  JE::unexpected_eof);
+    checkError(d, R"([42,false,[])",       JE::unexpected_eof);
+    checkError(d, R"({"foo"})",            JE::expected_colon);
+    checkError(d, R"({"foo","bar"})",      JE::expected_colon);
+    checkError(d, R"({"foo":"bar")",       JE::unexpected_eof);
+    checkError(d, R"({"foo":"bar"])",      JE::expected_comma_or_rbrace);
+    checkError(d, R"({42:"bar"})",         JE::expected_key);
 
     WHEN( "decoding a valid JSON string after an error" )
     {
         std::string json("42");
         Variant v;
-        d.decode(json, v);
+        auto ec = d.decode(json, v);
+        CHECK( !ec );
         CHECK( v == 42 );
     }
 }
@@ -306,7 +315,8 @@ GIVEN( "a string Variant with control characters" )
         std::string encoded;
         encode<Json>(v, encoded);
         Variant decoded;
-        decode<Json>(encoded, decoded);
+        auto ec = decode<Json>(encoded, decoded);
+        CHECK( !ec );
 
         THEN( "the decoded Variant matches the original" )
         {
@@ -328,7 +338,8 @@ GIVEN( "an object Variant with control characters in a key" )
         std::string encoded;
         encode<Json>(v, encoded);
         Variant decoded;
-        decode<Json>(encoded, decoded);
+        auto ec = decode<Json>(encoded, decoded);
+        CHECK( !ec );
 
         THEN( "the decoded Variant matches the original" )
         {
@@ -346,7 +357,8 @@ GIVEN( "a string Variant with multi-byte UTF-8 characters" )
         std::string encoded;
         encode<Json>(v, encoded);
         Variant decoded;
-        decode<Json>(encoded, decoded);
+        auto ec = decode<Json>(encoded, decoded);
+        CHECK( !ec );
 
         THEN( "the decoded Variant matches the original" )
         {

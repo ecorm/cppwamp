@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_NULL_HPP
@@ -16,6 +15,7 @@
 
 #include <ostream>
 #include "api.hpp"
+#include "config.hpp"
 
 namespace wamp
 {
@@ -38,8 +38,8 @@ if (v == null)
 //------------------------------------------------------------------------------
 struct CPPWAMP_API Null
 {
-    /// Default constructor. For instantiating const object.
-    constexpr Null() {}
+    /// Default constructor for instantiating constexpr object.
+    constexpr Null() = default;
 
     /// Compares two `Null` objects for equality. @return always `true`.
     bool operator==(Null) const {return true;}
@@ -65,7 +65,7 @@ CPPWAMP_API inline std::ostream& operator<<(std::ostream& out, Null)
 //------------------------------------------------------------------------------
 /** Constant Null object that can be assigned to, or compared with a Variant. */
 //------------------------------------------------------------------------------
-constexpr Null null;
+CPPWAMP_INLINE_VARIABLE constexpr Null null;
 
 
 } // namespace wamp

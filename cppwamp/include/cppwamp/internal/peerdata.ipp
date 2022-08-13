@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include "../peerdata.hpp"
@@ -15,6 +14,22 @@ namespace wamp
 {
 
 //******************************************************************************
+// Abort
+//******************************************************************************
+
+CPPWAMP_INLINE Abort::Abort(String uri) : Base(std::move(uri)) {}
+
+CPPWAMP_INLINE const String& Abort::uri() const
+{
+    return message().reasonUri();
+}
+
+CPPWAMP_INLINE Abort::Abort(internal::PassKey, internal::AbortMessage&& msg)
+    : Base(std::move(msg))
+{}
+
+
+//******************************************************************************
 // Realm
 //******************************************************************************
 
@@ -23,6 +38,12 @@ CPPWAMP_INLINE Realm::Realm(String uri) : Base(std::move(uri)) {}
 CPPWAMP_INLINE const String& Realm::uri() const
 {
     return message().realmUri();
+}
+
+CPPWAMP_INLINE Realm& Realm::captureAbort(Abort& abort)
+{
+    abort_ = &abort;
+    return *this;
 }
 
 CPPWAMP_INLINE Realm& Realm::withAuthMethods(std::vector<String> methods)
@@ -34,6 +55,8 @@ CPPWAMP_INLINE Realm& Realm::withAuthId(String authId)
 {
     return withOption("authid", std::move(authId));
 }
+
+CPPWAMP_INLINE Abort* Realm::abort(internal::PassKey) {return abort_;}
 
 
 //******************************************************************************
@@ -334,7 +357,7 @@ CPPWAMP_INLINE void Challenge::authenticate(Authentication auth)
     // Discard the authentication if client no longer exists
     auto challengee = challengee_.lock();
     if (challengee)
-        challengee->authenticate(std::move(auth));
+        challengee->safeAuthenticate(std::move(auth));
 }
 
 CPPWAMP_INLINE Challenge::Challenge(internal::PassKey, ChallengeePtr challengee,
@@ -490,7 +513,7 @@ CPPWAMP_INLINE PublicationId Event::pubId() const
 
 /** @returns the same object as Session::userExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AnyExecutor Event::executor() const
+CPPWAMP_INLINE AnyIoExecutor Event::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Event is empty");
     return executor_;
@@ -525,7 +548,7 @@ CPPWAMP_INLINE Variant Event::topic() const
     return this->optionByKey("topic");
 }
 
-CPPWAMP_INLINE Event::Event(internal::PassKey, AnyExecutor executor,
+CPPWAMP_INLINE Event::Event(internal::PassKey, AnyIoExecutor executor,
                             internal::EventMessage&& msg)
     : Base(std::move(msg)),
     executor_(executor)
@@ -624,6 +647,13 @@ CPPWAMP_INLINE Rpc::CallerTimeoutDuration Rpc::callerTimeout() const
     return callerTimeout_;
 }
 
+CPPWAMP_INLINE void Rpc::setCallerTimeout(CallerTimeoutDuration duration)
+{
+    CPPWAMP_LOGIC_CHECK(duration.count() >= 0,
+                        "Timeout duration must be zero or positive");
+    callerTimeout_ = duration;
+}
+
 /** @details
     This sets the `CALL.Options.disclose_me|bool` option. */
 CPPWAMP_INLINE Rpc& Rpc::withDiscloseMe(bool disclosed)
@@ -631,12 +661,13 @@ CPPWAMP_INLINE Rpc& Rpc::withDiscloseMe(bool disclosed)
     return withOption("disclose_me", disclosed);
 }
 
-CPPWAMP_INLINE void Rpc::setCallerTimeout(CallerTimeoutDuration duration)
+CPPWAMP_INLINE Rpc& Rpc::withCancelMode(CallCancelMode mode)
 {
-    CPPWAMP_LOGIC_CHECK(duration.count() >= 0,
-                        "Timeout duration must be zero or positive");
-    callerTimeout_ = duration;
+    cancelMode_ = mode;
+    return *this;
 }
+
+CPPWAMP_INLINE CallCancelMode Rpc::cancelMode() const {return cancelMode_;}
 
 CPPWAMP_INLINE Error* Rpc::error(internal::PassKey) {return error_;}
 
@@ -711,6 +742,10 @@ CPPWAMP_INLINE Outcome::Outcome(Error error) : type_(Type::error)
 {
     new (&value_.error) Error(std::move(error));
 }
+
+/** @post `this->type() == Type::deferred` */
+CPPWAMP_INLINE Outcome::Outcome(Deferment) : type_(Type::deferred)
+{}
 
 /** @post `this->type() == other.type()` */
 CPPWAMP_INLINE Outcome::Outcome(const Outcome& other) {copyFrom(other);}
@@ -894,7 +929,7 @@ CPPWAMP_INLINE RequestId Invocation::requestId() const
 
 /** @returns the same object as Session::userExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AnyExecutor Invocation::executor() const
+CPPWAMP_INLINE AnyIoExecutor Invocation::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Invocation is empty");
     return executor_;
@@ -906,7 +941,7 @@ CPPWAMP_INLINE void Invocation::yield(Result result) const
     // Discard the result if client no longer exists
     auto callee = callee_.lock();
     if (callee)
-        callee->yield(requestId(), std::move(result));
+        callee->safeYield(requestId(), std::move(result));
 }
 
 /** @pre `this->calleeHasExpired == false` */
@@ -915,7 +950,7 @@ CPPWAMP_INLINE void Invocation::yield(Error error) const
     // Discard the result if client no longer exists
     auto callee = callee_.lock();
     if (callee)
-        callee->yield(requestId(), std::move(error));
+        callee->safeYield(requestId(), std::move(error));
 }
 
 /** @details
@@ -957,7 +992,7 @@ CPPWAMP_INLINE Variant Invocation::procedure() const
 }
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,
-                                      AnyExecutor executor,
+                                      AnyIoExecutor executor,
                                       internal::InvocationMessage&& msg)
     : Base(std::move(msg)),
     callee_(callee),
@@ -979,11 +1014,11 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
 
 
 //******************************************************************************
-// Cancellation
+// CallCancellation
 //******************************************************************************
 
-CPPWAMP_INLINE Cancellation::Cancellation(RequestId reqId,
-                                          CancelMode cancelMode)
+CPPWAMP_INLINE CallCancellation::CallCancellation(RequestId reqId,
+                                                  CallCancelMode cancelMode)
     : Base(reqId),
       requestId_(reqId),
       mode_(cancelMode)
@@ -991,20 +1026,20 @@ CPPWAMP_INLINE Cancellation::Cancellation(RequestId reqId,
     String modeStr;
     switch (cancelMode)
     {
-    case CancelMode::kill:
+    case CallCancelMode::kill:
         modeStr = "kill";
         break;
 
-    case CancelMode::killNoWait:
+    case CallCancelMode::killNoWait:
         modeStr = "killnowait";
         break;
 
-    case CancelMode::skip:
+    case CallCancelMode::skip:
         modeStr = "skip";
         break;
 
     default:
-        assert(false && "Unexpected CancelMode enumerator");
+        assert(false && "Unexpected CallCancelMode enumerator");
         break;
     }
 
@@ -1012,9 +1047,9 @@ CPPWAMP_INLINE Cancellation::Cancellation(RequestId reqId,
         withOption("mode", std::move(modeStr));
 }
 
-CPPWAMP_INLINE RequestId Cancellation::requestId() const {return requestId_;}
+CPPWAMP_INLINE RequestId CallCancellation::requestId() const {return requestId_;}
 
-CPPWAMP_INLINE CancelMode Cancellation::mode() const {return mode_;}
+CPPWAMP_INLINE CallCancelMode CallCancellation::mode() const {return mode_;}
 
 
 //******************************************************************************
@@ -1038,7 +1073,7 @@ CPPWAMP_INLINE RequestId Interruption::requestId() const
 
 /** @returns the same object as Session::userExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AnyExecutor Interruption::executor() const
+CPPWAMP_INLINE AnyIoExecutor Interruption::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Interruption is empty");
     return executor_;
@@ -1049,7 +1084,7 @@ CPPWAMP_INLINE void Interruption::yield(Result result) const
 {
     auto callee = callee_.lock();
     CPPWAMP_LOGIC_CHECK(!!callee, "Client no longer exists");
-    callee->yield(requestId(), std::move(result));
+    callee->safeYield(requestId(), std::move(result));
 }
 
 /** @pre `this->calleeHasExpired == false` */
@@ -1057,11 +1092,11 @@ CPPWAMP_INLINE void Interruption::yield(Error error) const
 {
     auto callee = callee_.lock();
     CPPWAMP_LOGIC_CHECK(!!callee, "Client no longer exists");
-    callee->yield(requestId(), std::move(error));
+    callee->safeYield(requestId(), std::move(error));
 }
 
 CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,
-                                          AnyExecutor executor,
+                                          AnyIoExecutor executor,
                                           internal::InterruptMessage&& msg)
     : Base(std::move(msg)),
     callee_(callee),

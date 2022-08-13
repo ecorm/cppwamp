@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include <set>
@@ -47,13 +46,13 @@ struct TcpLoopbackFixture :
                 RawsockMaxLength clientMaxRxLength = RML::kB_64,
                 RawsockMaxLength serverMaxRxLength = RML::kB_64 )
         : LoopbackFixture(
-              clientService,
-              serverService,
-              internal::TcpOpener(clientService.get_executor(),
+              clientCtx,
+              serverCtx,
+              internal::TcpOpener(clientCtx.get_executor(),
                                   {tcpLoopbackAddr, tcpTestPort}),
               clientCodec,
               clientMaxRxLength,
-              internal::TcpAcceptor(serverService.get_executor(), tcpTestPort),
+              internal::TcpAcceptor(serverCtx.get_executor(), tcpTestPort),
               serverCodecs,
               serverMaxRxLength,
               connected )
@@ -72,12 +71,12 @@ struct UdsLoopbackFixture :
                 RawsockMaxLength clientMaxRxLength = RML::kB_64,
                 RawsockMaxLength serverMaxRxLength = RML::kB_64 )
         : LoopbackFixture(
-              clientService,
-              serverService,
-              internal::UdsOpener(clientService.get_executor(), {udsTestPath}),
+              clientCtx,
+              serverCtx,
+              internal::UdsOpener(clientCtx.get_executor(), {udsTestPath}),
               clientCodec,
               clientMaxRxLength,
-              internal::UdsAcceptor(serverService.get_executor(), udsTestPath,
+              internal::UdsAcceptor(serverCtx.get_executor(), udsTestPath,
                                     true),
               serverCodecs,
               serverMaxRxLength,
@@ -598,7 +597,7 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
         });
 
     CHECK_NOTHROW( ioctx.run() );
-    ioctx.reset();
+    ioctx.restart();
     REQUIRE( server );
     REQUIRE( client );
 
@@ -668,7 +667,7 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
         });
 
     CHECK_NOTHROW( ioctx.run() );
-    ioctx.reset();
+    ioctx.restart();
     REQUIRE( server );
     REQUIRE( client );
 
@@ -748,7 +747,7 @@ GIVEN ( "A fake server that sends an invalid message type" )
         });
 
     CHECK_NOTHROW( ioctx.run() );
-    ioctx.reset();
+    ioctx.restart();
     REQUIRE( server );
     REQUIRE( client );
 
@@ -818,7 +817,7 @@ GIVEN ( "A fake client that sends an invalid message type" )
         });
 
     CHECK_NOTHROW( ioctx.run() );
-    ioctx.reset();
+    ioctx.restart();
     REQUIRE( server );
     REQUIRE( client );
 

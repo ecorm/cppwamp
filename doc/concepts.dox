@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 //------------------------------------------------------------------------------
@@ -125,10 +124,7 @@ then the following expressions must be valid:
 
 Expression                       | Effect
 -------------------------------- | ------
-`decoder.decode(input, variant)` | Decodes the input into the given variant.
-
-`decoder.decode` is expected to throw a
-@ref wamp::error::Decode exception if it fails to deserialize the buffer.
+`decoder.decode(input, variant)` | Decodes the input into the given variant, returning a std::error_code.
 
 The following classes meet the requirements of `Decoder`:
 - wamp::BasicCborDecoder
@@ -191,8 +187,8 @@ public:
     // operations.
     void close();
 
-    // Obtains the transport's executor.
-    boost::asio::any_executor executor() const;
+    // Obtains the transport's execution strand.
+    boost::asio::strand<boost::asio::any_executor> strand() const;
 ```
 
 The following classes meet the requirements of `Transport`:

@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-               Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_INTERNAL_VARIANTDECODING_HPP
@@ -63,7 +62,7 @@ protected:
     using Where = jsoncons::ser_context;
 
     template <typename T>
-    void put(T&& value, const Where& where, bool isComposite = false)
+    std::error_code put(T&& value, const Where& where, bool isComposite = false)
     {
         if (contextStack_.empty())
             return addRoot(std::forward<T>(value), isComposite);
@@ -78,6 +77,8 @@ protected:
             assert(false);
             break;
         }
+
+        return {};
     }
 
     void putKey(String&& key)
@@ -141,35 +142,38 @@ private:
     }
 
     template <typename T>
-    void putInteger(T integer, const Where& where)
+    std::error_code putInteger(T integer, const Where& where)
     {
-        put(static_cast<Variant::Int>(integer), where);
+        return put(static_cast<Variant::Int>(integer), where);
     }
 
     template <typename T>
-    void addRoot(T&& value, bool isComposite)
+    std::error_code addRoot(T&& value, bool isComposite)
     {
         variant_ = std::forward<T>(value);
         hasRoot_ = true;
         if (isComposite)
             contextStack_.push_back(variant_);
+        return {};
     }
 
     template <typename T>
-    void addArrayElement(T&& value, bool isComposite)
+    std::error_code addArrayElement(T&& value, bool isComposite)
     {
         auto& array = context().variant().template as<TypeId::array>();
         array.push_back(std::forward<T>(value));
         if (isComposite)
             contextStack_.push_back(array.back());
+        return {};
     }
 
     template <typename T>
-    void addObjectElement(T&& value, bool isComposite, const Where& where)
+    std::error_code addObjectElement(T&& value, bool isComposite,
+                                     const Where& where)
     {
         auto& ctx = context();
         if (!ctx.keyIsDone())
-            throw error::Decode(makeErrorMessage("Expected string key", where));
+            return make_error_code(DecodingErrc::expectedStringKey);
 
         Variant* newElement = nullptr;
         auto& object = ctx.variant().template as<TypeId::object>();
@@ -188,6 +192,8 @@ private:
         ctx.setKeyIsDone(false);
         if (isComposite)
             contextStack_.push_back(*newElement);
+
+        return {};
     }
 
     Context& context()
@@ -236,48 +242,48 @@ private:
         return true;
     }
 
-    bool visit_null(Tag, const Where& where, std::error_code&) override
+    bool visit_null(Tag, const Where& where, std::error_code& ec) override
     {
-        put(null, where);
-        return true;
+        ec = put(null, where);
+        return !ec;
     }
 
     bool visit_bool(bool value, Tag, const Where& where,
-                    std::error_code&) override
+                    std::error_code& ec) override
     {
-        put(value, where);
-        return true;
+        ec = put(value, where);
+        return !ec;
     }
 
     bool visit_byte_string(const ByteStringView& bsv, Tag, const Where& where,
-                           std::error_code&) override
+                           std::error_code& ec) override
     {
-        put(Blob(Blob::Data(bsv.begin(), bsv.end())), where);
-        return true;
+        ec = put(Blob(Blob::Data(bsv.begin(), bsv.end())), where);
+        return !ec;
     }
 
     bool visit_uint64(uint64_t n, Tag, const Where& where,
-                      std::error_code&) override
+                      std::error_code& ec) override
     {
         if (n <= std::numeric_limits<Variant::Int>::max())
-            putInteger(n, where);
+            ec = putInteger(n, where);
         else
-            put(n, where);
-        return true;
+            ec = put(n, where);
+        return !ec;
     }
 
     bool visit_int64(int64_t n, Tag, const Where& where,
-                     std::error_code&) override
+                     std::error_code& ec) override
     {
-        putInteger(n, where);
-        return true;
+        ec = putInteger(n, where);
+        return !ec;
     }
 
     bool visit_double(double x, Tag, const Where& where,
-                      std::error_code&) override
+                      std::error_code& ec) override
     {
-        put(x, where);
-        return true;
+        ec = put(x, where);
+        return !ec;
     }
 
     std::vector<Context> contextStack_;
@@ -299,13 +305,14 @@ private:
     }
 
     bool visit_string(const string_view_type& sv, Tag, const Where& where,
-                      std::error_code&) override
+                      std::error_code& ec) override
     {
         if ( (sv.size() > 0) && (sv[0] == '\0') )
         {
             Blob::Data bytes;
-            Base64::decode(sv.data() + 1, sv.size() - 1, bytes);
-            put(Blob(std::move(bytes)), where);
+            ec = Base64::decode(sv.data() + 1, sv.size() - 1, bytes);
+            if (!ec)
+                put(Blob(std::move(bytes)), where);
         }
         else
             put(String(sv.data(), sv.size()), where);
@@ -339,27 +346,17 @@ public:
     {}
 
     template <typename TSourceable>
-    void decode(TSourceable&& input, Variant& variant)
+    std::error_code decode(TSourceable&& input, Variant& variant)
     {
         Source source(std::forward<TSourceable>(input));
         parser_.reset(std::move(source));
         visitor_.reset();
         std::error_code ec;
         parser_.parse(visitor_, ec);
-
-        if (ec)
-        {
-            std::string msg = codecName_;
-            msg += " parsing failure at position ";
-            msg += std::to_string(parser_.column());
-            msg += ": ";
-            msg += ec.message();
-            reset();
-            throw error::Decode(msg);
-        }
-
-        variant = std::move(visitor_).variant();
+        if (!ec)
+            variant = std::move(visitor_).variant();
         reset();
+        return ec;
     }
 
 private:

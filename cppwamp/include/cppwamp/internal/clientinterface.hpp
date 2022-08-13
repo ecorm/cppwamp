@@ -1,25 +1,25 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_INTERNAL_CLIENTINTERFACE_HPP
 #define CPPWAMP_INTERNAL_CLIENTINTERFACE_HPP
 
-#include <functional>
 #include <memory>
 #include <string>
-#include "../peerdata.hpp"
+#include "../anyhandler.hpp"
+#include "../asiodefs.hpp"
+#include "../chits.hpp"
 #include "../error.hpp"
 #include "../peerdata.hpp"
 #include "../registration.hpp"
 #include "../subscription.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
-#include "asynctask.hpp"
 #include "callee.hpp"
+#include "caller.hpp"
 #include "challengee.hpp"
 #include "subscriber.hpp"
 
@@ -36,14 +36,21 @@ class SubscriptionImpl;
 // Specifies the interface required for classes that implement wamp::Session.
 //------------------------------------------------------------------------------
 class ClientInterface :
-    public Callee, public Subscriber, public Challengee
+    public Callee, public Caller, public Subscriber, public Challengee
 {
 public:
-    using Ptr           = std::shared_ptr<ClientInterface>;
-    using WeakPtr       = std::weak_ptr<ClientInterface>;
-    using EventSlot     = std::function<void (Event)>;
-    using CallSlot      = std::function<Outcome (Invocation)>;
-    using InterruptSlot = std::function<Outcome (Interruption)>;
+    using Ptr                = std::shared_ptr<ClientInterface>;
+    using WeakPtr            = std::weak_ptr<ClientInterface>;
+    using EventSlot          = AnyReusableHandler<void (Event)>;
+    using CallSlot           = AnyReusableHandler<Outcome (Invocation)>;
+    using InterruptSlot      = AnyReusableHandler<Outcome (Interruption)>;
+    using LogHandler         = AnyReusableHandler<void(std::string)>;
+    using StateChangeHandler = AnyReusableHandler<void(SessionState)>;
+    using ChallengeHandler   = AnyReusableHandler<void(Challenge)>;
+    using OngoingCallHandler = AnyReusableHandler<void(ErrorOr<Result>)>;
+
+    template <typename TValue>
+    using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
     static const Object& roles();
 
@@ -51,33 +58,58 @@ public:
 
     virtual SessionState state() const = 0;
 
-    virtual void join(Realm&& realm, AsyncTask<SessionInfo>&& handler) = 0;
+    virtual IoStrand strand() const = 0;
 
-    virtual void leave(Reason&& reason, AsyncTask<Reason>&& handler) = 0;
+    virtual void join(Realm&&, CompletionHandler<SessionInfo>&&) = 0;
+
+    virtual void authenticate(Authentication&& auth) = 0;
+
+    virtual void leave(Reason&&, CompletionHandler<Reason>&&) = 0;
 
     virtual void disconnect() = 0;
 
     virtual void terminate() = 0;
 
-    virtual void subscribe(Topic&& topic, EventSlot&& slot,
-                           AsyncTask<Subscription>&& handler) = 0;
+    virtual void subscribe(Topic&&, EventSlot&&,
+                           CompletionHandler<Subscription>&&) = 0;
 
-    virtual void publish(Pub&& pub) = 0;
+    virtual void unsubscribe(const Subscription&) = 0;
 
-    virtual void publish(Pub&& pub, AsyncTask<PublicationId>&& handler) = 0;
+    virtual void unsubscribe(const Subscription&,
+                             CompletionHandler<bool>&&) = 0;
 
-    virtual void enroll(Procedure&& procedure, CallSlot&& callSlot,
-                        InterruptSlot&& interruptSlot,
-                        AsyncTask<Registration>&& handler) = 0;
+    virtual void publish(Pub&&) = 0;
 
-    virtual RequestId call(Rpc&& rpc, AsyncTask<Result>&& handler) = 0;
+    virtual void publish(Pub&&, CompletionHandler<PublicationId>&&) = 0;
 
-    virtual void cancel(Cancellation&& cancellation) = 0;
+    virtual void enroll(Procedure&&, CallSlot&&, InterruptSlot&&,
+                        CompletionHandler<Registration>&&) = 0;
 
-    virtual void setSessionHandlers(AsyncTask<std::string> warningHandler,
-                                    AsyncTask<std::string> traceHandler,
-                                    AsyncTask<SessionState> stateChangeHandler,
-                                    AsyncTask<Challenge> challengeHandler) = 0;
+    virtual void unregister(const Registration&) = 0;
+
+    virtual void unregister(const Registration&, CompletionHandler<bool>&&) = 0;
+
+    virtual CallChit oneShotCall(Rpc&&, CompletionHandler<Result>&&) = 0;
+
+    virtual CallChit ongoingCall(Rpc&&, OngoingCallHandler&&) = 0;
+
+    virtual void yield(RequestId, wamp::Result&&) = 0;
+
+    virtual void yield(RequestId, wamp::Error&&) = 0;
+
+    virtual void initialize(AnyIoExecutor userExecutor,
+                            LogHandler warningHandler,
+                            LogHandler traceHandler,
+                            StateChangeHandler stateChangeHandler,
+                            ChallengeHandler challengeHandler) = 0;
+
+    virtual void setWarningHandler(LogHandler) = 0;
+
+    virtual void setTraceHandler(LogHandler) = 0;
+
+    virtual void setStateChangeHandler(StateChangeHandler) = 0;
+
+    virtual void setChallengeHandler(ChallengeHandler) = 0;
 };
 
 inline const Object& ClientInterface::roles()

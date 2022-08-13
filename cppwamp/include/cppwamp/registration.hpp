@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_REGISTRATION_HPP
@@ -16,7 +15,7 @@
 #include <memory>
 #include <string>
 #include "api.hpp"
-#include "asyncresult.hpp"
+#include "erroror.hpp"
 #include "peerdata.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
@@ -38,7 +37,7 @@ namespace internal { class Callee; }
     or the registration no longer exists, an unregister operation effectively
     does nothing.
 
-    @see ScopedRegistration, Session::enroll, CoroSession::enroll */
+    @see ScopedRegistration, Session::enroll */
 //------------------------------------------------------------------------------
 class CPPWAMP_API Registration
 {
@@ -67,16 +66,17 @@ public:
     /** Unregisters the RPC. */
     void unregister() const;
 
-public:
-    // Internal use only
-    using CalleePtr = std::weak_ptr<internal::Callee>;
-    Registration(CalleePtr callee, RegistrationId id, internal::PassKey);
-
 private:
-    static constexpr RegistrationId invalidId_ = -1;
+    using CalleePtr = std::weak_ptr<internal::Callee>;
 
+    static constexpr RegistrationId invalidId_ = -1;
     CalleePtr callee_;
     RegistrationId id_ = invalidId_;
+
+public:
+    // Internal use only
+    Registration(CalleePtr callee, RegistrationId id, internal::PassKey);
+
 };
 
 
@@ -84,7 +84,7 @@ private:
 /** Limits a Registration's lifetime to a particular scope.
 
     @see @ref ScopedRegistrations
-    @see Registration, Session::enroll, CoroSession::enroll */
+    @see Registration, Session::enroll */
 //------------------------------------------------------------------------------
 class CPPWAMP_API ScopedRegistration : public Registration
 {

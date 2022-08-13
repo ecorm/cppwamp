@@ -9,14 +9,14 @@
 # This project defines one of more of the following targets, depending
 # on the how the CPPWAMP_OPT_X options are set:
 #
-# Target                  | Import alias             | All | Description
-# ----------------------- | ------------------------ | --- | -----------
-# cppwamp-core            | CppWAMP::core            | Yes | Compiled libcppwamp-core library
-# cppwamp-core-headers    | CppWAMP::core-headers    | Yes | Header-only usage requirements
-# cppwamp-coro-headers    | CppWAMP::coro-headers    | Yes | Boost.Coroutine usage requirements
-# cppwamp-doc             | <none>                   | No  | Doxygen documentation
-# cppwamp-examples        | <none>                   | No  | Compiled example programs
-# cppwamp-test            | <none>                   | No  | Compiled test suite program
+# Target               | Import alias          | All | Description
+# -------------------- | --------------------- | --- | -----------
+# cppwamp-core         | CppWAMP::core         | Yes | Compiled libcppwamp-core library
+# cppwamp-core-headers | CppWAMP::core-headers | Yes | Header-only usage requirements
+# cppwamp-coro-usage   | CppWAMP::coro-usage   | Yes | Boost.Coroutine usage requirements
+# cppwamp-doc          | <none>                | No  | Doxygen documentation
+# cppwamp-examples     | <none>                | No  | Compiled example programs
+# cppwamp-test         | <none>                | No  | Compiled test suite program
 #
 # 'All' means that the target (if enabled) is built as part of the 'all' target.
 # 'Usage requirements' means that the appropriate compiler flags will be set
@@ -38,7 +38,7 @@ cmake_minimum_required (VERSION 3.12)
 include_guard()
 
 project(CppWAMP
-        VERSION 0.9.1
+        VERSION 0.10.0
         LANGUAGES CXX)
 
 include(ProcessorCount)
@@ -83,6 +83,10 @@ option(CPPWAMP_OPT_WITH_CORO
 "Adds the Boost.Coroutine dependency and build tests and examples \
 that depend on it"
 ON)
+
+option(CPPWAMP_OPT_WITH_CORO20
+"Adds C++20 couroutine examples if examples are enabled"
+OFF)
 
 option(CPPWAMP_OPT_WITH_DOCS
 "Creates a build target for generating documentation"

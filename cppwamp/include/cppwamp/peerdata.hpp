@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_PEERDATA_HPP
@@ -17,6 +16,7 @@
 #include <vector>
 #include "api.hpp"
 #include "asiodefs.hpp"
+#include "config.hpp"
 #include "options.hpp"
 #include "payload.hpp"
 #include "variant.hpp"
@@ -33,6 +33,27 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
+/** Provides the _reason_ URI and other options contained within
+    `ABORT` messages. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API Abort : public Options<Abort, internal::AbortMessage>
+{
+public:
+    /** Converting constructor taking an optional reason URI. */
+    Abort(String uri = "");
+
+    /** Obtains the reason URI. */
+    const String& uri() const;
+
+private:
+    using Base = Options<Abort, internal::AbortMessage>;
+
+public:
+    // Internal use only
+    Abort(internal::PassKey, internal::AbortMessage&& msg);
+};
+
+//------------------------------------------------------------------------------
 /** %Realm URI and other options contained within WAMP `HELLO` messages. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API Realm : public Options<Realm, internal::HelloMessage>
@@ -43,6 +64,10 @@ public:
 
     /** Obtains the realm URI. */
     const String& uri() const;
+
+    /** Specifies the Abort object in which to store abort details returned
+        by the router. */
+    Realm& captureAbort(Abort& abort);
 
     /** @name Authentication
         See [Authentication in the WAMP Specification]
@@ -58,6 +83,11 @@ public:
 
 private:
     using Base = Options<Realm, internal::HelloMessage>;
+
+    Abort* abort_ = nullptr;
+
+public:
+    Abort* abort(internal::PassKey); // Internal use only
 };
 
 
@@ -411,7 +441,7 @@ public:
     PublicationId pubId() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
-    AnyExecutor executor() const;
+    AnyIoExecutor executor() const;
 
     /** @name Publisher Identification
         See [Publisher Identification in the WAMP Specification]
@@ -444,11 +474,11 @@ public:
 private:
     using Base = Payload<Event, internal::EventMessage>;
 
-    AnyExecutor executor_;
+    AnyIoExecutor executor_;
 
 public:
     // Internal use only
-    Event(internal::PassKey, AnyExecutor executor,
+    Event(internal::PassKey, AnyIoExecutor executor,
           internal::EventMessage&& msg);
 };
 
@@ -507,6 +537,11 @@ class CPPWAMP_API Rpc : public Payload<Rpc, internal::CallMessage>
 public:
     /** The duration type used for caller-initiated timeouts. */
     using CallerTimeoutDuration = std::chrono::steady_clock::duration;
+
+    static constexpr CallCancelMode defaultCancelMode() noexcept
+    {
+        return CallCancelMode::kill;
+    }
 
     /** Converting constructor taking a procedure URI. */
     Rpc(String uri);
@@ -579,6 +614,16 @@ public:
     Rpc& withDiscloseMe(bool disclosed = true);
     /// @}
 
+    /** @name Call Cancellation
+        @{ */
+
+    /** Sets the default cancellation mode to use when none is specified. */
+    Rpc& withCancelMode(CallCancelMode mode);
+
+    /** Obtains the default cancellation mode associated with this RPC. */
+    CallCancelMode cancelMode() const;
+    /// @}
+
 private:
     using Base = Payload<Rpc, internal::CallMessage>;
 
@@ -586,6 +631,7 @@ private:
 
     Error* error_ = nullptr;
     CallerTimeoutDuration callerTimeout_ = {};
+    CallCancelMode cancelMode_ = defaultCancelMode();
     bool progressiveResultsEnabled_ = false;
 
 public:
@@ -641,6 +687,22 @@ CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Result& result);
 
 
 //------------------------------------------------------------------------------
+/** Tag type that can be passed to wamp::Outcome to construct a
+    deferred outcome.
+    Use the wamp::deferment constant object to more conveniently pass this tag. */
+//------------------------------------------------------------------------------
+struct Deferment
+{
+    constexpr Deferment() noexcept = default;
+};
+
+//------------------------------------------------------------------------------
+/** Convenient value of the wamp::Deferment tag type that can be passed to
+    the wamp::Outcome constructor. */
+//------------------------------------------------------------------------------
+constexpr CPPWAMP_INLINE_VARIABLE Deferment deferment;
+
+//------------------------------------------------------------------------------
 /** Contains the outcome of an RPC invocation.
     @see @ref RpcOutcomes */
 //------------------------------------------------------------------------------
@@ -656,8 +718,9 @@ public:
         error     ///< Contains a wamp::Error to be yielded back to the caller.
     };
 
-    /** Constructs an Outcome having Type::deferred. */
-    static Outcome deferred();
+    /** Constructs an Outcome having Type::deferred.
+        @deprecated Use wamp::deferment instead. */
+    CPPWAMP_DEPRECATED static Outcome deferred();
 
     /** Default-constructs an outcome containing an empty Result object. */
     Outcome();
@@ -671,6 +734,9 @@ public:
 
     /** Converting constructor taking an Error object. */
     Outcome(Error error);
+
+    /** Converting constructor taking a deferment. */
+    Outcome(Deferment);
 
     /** Copy constructor. */
     Outcome(const Outcome& other);
@@ -749,7 +815,7 @@ public:
     RequestId requestId() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
-    AnyExecutor executor() const;
+    AnyIoExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
     void yield(Result result = Result()) const;
@@ -797,14 +863,16 @@ public:
 public:
     // Internal use only
     using CalleePtr = std::weak_ptr<internal::Callee>;
-    Invocation(internal::PassKey, CalleePtr callee, AnyExecutor executor,
+    Invocation(internal::PassKey, CalleePtr callee, AnyIoExecutor executor,
                internal::InvocationMessage&& msg);
 
 private:
     using Base = Payload<Invocation, internal::InvocationMessage>;
 
     CalleePtr callee_;
-    AnyExecutor executor_ = nullptr;
+    AnyIoExecutor executor_ = nullptr;
+
+    template <typename, typename...> friend class CoroInvocationUnpacker;
 };
 
 CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Invocation& inv);
@@ -814,26 +882,30 @@ CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Invocation& inv);
 /** Contains the request ID and options contained within
     WAMP `CANCEL` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Cancellation : public Options<Cancellation,
-                                                internal::CancelMessage>
+class CPPWAMP_API CallCancellation
+    : public Options<CallCancellation, internal::CancelMessage>
 {
 public:
     /** Converting constructor. */
-    Cancellation(RequestId reqId, CancelMode cancelMode = CancelMode::kill);
+    CallCancellation(RequestId reqId,
+                     CallCancelMode cancelMode = Rpc::defaultCancelMode());
 
     /** Obtains the request ID of the call to cancel. */
     RequestId requestId() const;
 
     /** Obtains the cancel mode. */
-    CancelMode mode() const;
+    CallCancelMode mode() const;
 
 private:
-    using Base = Options<Cancellation, internal::CancelMessage>;
+    using Base = Options<CallCancellation, internal::CancelMessage>;
 
     RequestId requestId_;
-    CancelMode mode_;
+    CallCancelMode mode_;
 };
 
+/** Alias of CallCancellation kept for backward compatiblity.
+    @deprecated Use wamp::CallCancellation instead.*/
+using Cancellation CPPWAMP_DEPRECATED = CallCancellation;
 
 //------------------------------------------------------------------------------
 /** Contains details within WAMP `INTERRUPT` messages.
@@ -860,7 +932,7 @@ public:
     RequestId requestId() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
-    AnyExecutor executor() const;
+    AnyIoExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
     void yield(Result result = Result()) const;
@@ -871,14 +943,14 @@ public:
 public:
     // Internal use only
     using CalleePtr = std::weak_ptr<internal::Callee>;
-    Interruption(internal::PassKey, CalleePtr callee, AnyExecutor executor,
+    Interruption(internal::PassKey, CalleePtr callee, AnyIoExecutor executor,
                  internal::InterruptMessage&& msg);
 
 private:
     using Base = Options<Interruption, internal::InterruptMessage>;
 
     CalleePtr callee_;
-    AnyExecutor executor_ = nullptr;
+    AnyIoExecutor executor_ = nullptr;
 };
 
 CPPWAMP_API std::ostream& operator<<(std::ostream& out,

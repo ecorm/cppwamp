@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_ASIOTRANSPORT_HPP
@@ -21,6 +20,7 @@
 #include <boost/asio/executor.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/read.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
 #include "../asiodefs.hpp"
@@ -157,7 +157,7 @@ public:
             socket_->close();
     }
 
-    AnyExecutor executor() const {return executor_;}
+    IoStrand strand() const {return strand_;}
 
     void ping(MessageBuffer message, PingHandler handler)
     {
@@ -174,7 +174,7 @@ protected:
 
     AsioTransport(SocketPtr&& socket, size_t maxTxLength, size_t maxRxLength)
         : socket_(std::move(socket)),
-          executor_(socket_->get_executor()),
+          strand_(boost::asio::make_strand(socket_->get_executor())),
           maxTxLength_(maxTxLength),
           maxRxLength_(maxRxLength)
     {}
@@ -195,12 +195,10 @@ protected:
     }
 
 private:
-    using Executor = typename TSocket::executor_type;
-
     template <typename TFunctor>
     void post(TFunctor&& fn)
     {
-        boost::asio::post(executor_, std::forward<TFunctor>(fn));
+        boost::asio::post(strand_, std::forward<TFunctor>(fn));
     }
 
     void transmit()
@@ -365,7 +363,7 @@ private:
     }
 
     std::unique_ptr<TSocket> socket_;
-    Executor executor_;
+    IoStrand strand_;
     size_t maxTxLength_;
     size_t maxRxLength_;
     bool started_ = false;

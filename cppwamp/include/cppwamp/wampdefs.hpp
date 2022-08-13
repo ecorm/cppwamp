@@ -1,12 +1,13 @@
 /*------------------------------------------------------------------------------
-            Copyright Butterfly Energy Systems 2014-2015, 2018, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2018, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_WAMPDEFS_HPP
 #define CPPWAMP_WAMPDEFS_HPP
+
+#include "config.hpp"
 
 //------------------------------------------------------------------------------
 /** @file
@@ -23,6 +24,9 @@ using RequestId      = int64_t; ///< Ephemeral ID associated with a WAMP request
 using SubscriptionId = int64_t; ///< Ephemeral ID associated with an topic subscription
 using PublicationId  = int64_t; ///< Ephemeral ID associated with an event publication
 using RegistrationId = int64_t; ///< Ephemeral ID associated with an RPC registration
+
+///< Obtains the value representing a blank RequestId.
+constexpr RequestId nullRequestId() {return 0;}
 
 //------------------------------------------------------------------------------
 /** Enumerates the possible states that a client or router session can be in. */
@@ -42,12 +46,18 @@ enum class SessionState
 //------------------------------------------------------------------------------
 /** Enumerates the possible call cancelling modes. */
 //------------------------------------------------------------------------------
-enum class CancelMode
+enum class CallCancelMode
 {
     kill,       ///< INTERRUPT sent to callee; RESULT or ERROR returned, depending on callee
     killNoWait, ///< INTERRUPT sent to callee; router immediately returns ERROR
     skip        ///< No INTERRUPT sent to callee; router immediately returns ERROR
 };
+
+//------------------------------------------------------------------------------
+/** Alias to CallCancelMode kept for backward compatibility.
+    @deprecated Use CallCancelMode instead. */
+//------------------------------------------------------------------------------
+using CancelMode CPPWAMP_DEPRECATED = CallCancelMode;
 
 } // namespace wamp
 

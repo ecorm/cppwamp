@@ -1,19 +1,23 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
+
+//******************************************************************************
+// Example WAMP service provider app using stackful coroutines.
+//******************************************************************************
 
 #include <chrono>
 #include <ctime>
 #include <iostream>
+#include <boost/asio/spawn.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <cppwamp/json.hpp>
+#include <cppwamp/session.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
-#include <cppwamp/coro/corosession.hpp>
 
 const std::string realm = "cppwamp.demo.time";
 const std::string address = "localhost";
@@ -51,16 +55,16 @@ int main()
     using namespace wamp;
     AsioContext ioctx;
     auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = CoroSession<>::create(ioctx, tcp);
+    auto session = Session::create(ioctx, tcp);
     boost::asio::steady_timer timer(ioctx);
 
     boost::asio::spawn(ioctx,
         [&session, &timer](boost::asio::yield_context yield)
         {
-            session->connect(yield);
-            session->join(Realm(realm), yield);
-            session->enroll(Procedure("get_time"), basicRpc<std::tm>(&getTime),
-                            yield);
+            session->connect(yield).value();
+            session->join(Realm(realm), yield).value();
+            session->enroll(Procedure("get_time"), simpleRpc<std::tm>(&getTime),
+                            yield).value();
 
             auto deadline = std::chrono::steady_clock::now();
             while (true)
@@ -71,7 +75,8 @@ int main()
 
                 auto t = std::time(nullptr);
                 const std::tm* local = std::localtime(&t);
-                session->publish(Pub("time_tick").withArgs(*local), yield);
+                session->publish(Pub("time_tick").withArgs(*local),
+                                 yield).value();
                 std::cout << "Tick: " << std::asctime(local) << "\n";
             }
         });

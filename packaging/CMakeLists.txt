@@ -1,8 +1,7 @@
 #-------------------------------------------------------------------------------
-#           Copyright Butterfly Energy Systems 2014-2015, 2018, 2022.
-#          Distributed under the Boost Software License, Version 1.0.
-#             (See accompanying file LICENSE_1_0.txt or copy at
-#                   http://www.boost.org/LICENSE_1_0.txt)
+# Copyright Butterfly Energy Systems 2022.
+# Distributed under the Boost Software License, Version 1.0.
+# https://www.boost.org/LICENSE_1_0.txt
 #-------------------------------------------------------------------------------
 
 # Inspired by https://github.com/alexreinking/SharedStaticStarter
@@ -46,13 +45,13 @@ if(NOT CPPWAMP_OPT_HEADERS_ONLY)
 endif()
 
 if(CPPWAMP_OPT_WITH_CORO)
-    install(TARGETS cppwamp-coro-headers EXPORT CppWAMP_Coro_Headers
+    install(TARGETS cppwamp-coro-usage EXPORT CppWAMP_Coro_Usage
             INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
-    install(EXPORT CppWAMP_Coro_Headers
+    install(EXPORT CppWAMP_Coro_Usage
             DESTINATION "${CPPWAMP_INSTALL_CMAKEDIR}"
             NAMESPACE CppWAMP::
-            FILE cppwamp-coro-headers-target.cmake
+            FILE cppwamp-coro-usage-target.cmake
             COMPONENT CppWAMP_Development)
 endif()
 

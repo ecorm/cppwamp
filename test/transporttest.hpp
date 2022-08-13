@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_TRANSPORTTEST_HPP
@@ -30,8 +29,8 @@ struct LoopbackFixtureBase
 {
     // These members need to be already initialized when initializing
     // TcpLoopbackFixture and UdsLoopbackFixture
-    AsioContext clientService;
-    AsioContext serverService;
+    AsioContext clientCtx;
+    AsioContext serverCtx;
 };
 
 //------------------------------------------------------------------------------
@@ -46,8 +45,8 @@ struct LoopbackFixture
     using TransportPtr = std::shared_ptr<Transport>;
 
     template <typename TServerCodecIds>
-    LoopbackFixture(AsioContext& clientService,
-                    AsioContext& serverService,
+    LoopbackFixture(AsioContext& clientCtx,
+                    AsioContext& serverCtx,
                     Opener&& opener,
                     int clientCodec,
                     RawsockMaxLength clientMaxRxLength,
@@ -55,8 +54,8 @@ struct LoopbackFixture
                     TServerCodecIds&& serverCodecs,
                     RawsockMaxLength serverMaxRxLength,
                     bool connected = true)
-        : cctx(clientService),
-          sctx(serverService),
+        : cctx(clientCtx),
+          sctx(serverCtx),
           cnct(std::move(opener), clientCodec, clientMaxRxLength),
           lstn(std::move(acceptor), std::forward<TServerCodecIds>(serverCodecs),
                serverMaxRxLength)

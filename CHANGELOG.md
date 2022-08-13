@@ -1,3 +1,143 @@
+v0.10.0
+======
+Asio completion token support and thread-safe Session operations.
+
+- All asynchronous operations in Session now accept a generic
+  [completion token](https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/model/completion_tokens.html),
+  which can either be a callback function, a `yield_context`, `use_awaitable`,
+  or `use_future`.
+- C++20 coroutines now supported by Session.
+- Added examples using Asio stackless coroutines, C++20 coroutines, and
+  std::future.
+- Migrated from `AsyncResult` to new `ErrorOr` class which better emulates
+  the proposed `std::expected`.
+- `Session`'s asynchonous operations now return an `ErrorOr` result when passed
+  a `yield_context` as the completion token, and will not throw if there was
+  a runtime error. `ErrorOr::value` must be called to obtain the operation's
+  actual result (or throw an exception if there was an error).
+- Added `Session::strand` so that users may serialize access to the `Session`
+  when using a thread pool.
+- Added `Session` overloads with the `ThreadSafe` tag type which can be called
+  concurrently by multiple threads. These overloads will be automatically
+  dispatch operations via the `Session`'s execution strand.
+- Added the `SessionErrc::invalidState` enumerator which is now used to report
+  errors when attempting to perform `Session` operations during an invalid
+  session state.
+- Renamed `AnyExecutor` to `AnyIoExecutor` which aliases
+  `boost::asio::any_io_executor`. AnyExecutor is now deprecated.
+- Added `AnyReusableHandler` which type-erases a copyable multi-shot handler,
+  while storing the executor to which it is possibly bound.
+- Added `AnyCompletionHandler` which is a Boost-ified version of the prototype
+  [asio::any_completion_handler]
+  (https://github.com/chriskohlhoff/asio/issues/1100).
+- Added `AnyCompletionExecutor` which is a Boost-ified version of the prototype
+  `asio::any_completion_executor`.
+- Session and transports now extract a
+  [strand](https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/core/strands.html)
+  from the `Connector` passed by the user.
+- Moved corounpacker implementation to header directory root.
+- Added `Realm::captureAbort`.
+- Made config.hpp a public header.
+- Added DecodingErrc and DecodingCategory for deserialization errors
+  not covered by jsoncons.
+- `Session`'s `setWarningHandler`, `setTraceHandler`, `setStateChangeHandler`,
+  and `setChallengeHandler` now take effect immediately even when connected.
+- `Session`'s handlers for `setWarningHandler`, `setTraceHandler`,
+  `setStateChangeHandler`, and `setChallengeHandler` are now executed via
+  `Session::userExecutor` by default.
+- Boost.Asio [cancellation slot]
+  (https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/core/cancellation.html)
+  support for `Session::call`.
+- Added `Rpc::withCancelMode` which specifies the cancel mode to use when
+  triggered by Asio cancellation slots.
+- Added `withArgsTuple`, `convertToTuple` and `moveToTuple` to Payload class.
+- Added the `Deferment` tag type (with `deferment` constexpr variable`) to
+  more conveniently return a deferred `Outcome` from an RPC handler.
+- Renamed `Cancellation` to `CallCancellation`. `Cancellation` is now a
+  deprecated alias to ``CallCancellation`.
+- Renamed `CancelMode` to `CallCancelMode`. `CancelMode` is now a deprecated
+  alias to `CallCancelMode`.
+- Renamed `Basic[Coro]<Event|Invocation>Unpacker` to
+  `Simple[Coro]<Event|Invocation>Unpacker`, with the former kept as deprecated
+  aliases.
+- Renamed `basic[Coro]<Event|Rpc>` to `simple[Coro]<Event|Rpc>`, with the
+  former kept as deprecated aliases.
+- Renamed the CppWAMP::coro-headers CMake target to CppWAMP::coro-usage,
+  leaving the former as an alias.
+- Deprecated `CoroSession` and `AsyncResult`.
+- Deprecated `error::Decode`
+- Deprecated the `Session::cancel` overloads taking `CallCancellation`.
+- Deprecated `Outcome::deferred`.
+
+
+### Breaking Changes
+
+- Bumped Boost version requirements to 1.77 to support Asio cancellation slots.
+- Errors due to attempting to perform an asynchronous `Session` operation during
+  an invalid state are now emitted via the `ErrorOr` passed to the handler,
+  instead of throwing `error::Logic`. This is to avoid `error::Logic` exceptions
+  being thrown due to race conditions outside the library user's control (for
+  example, calling a remote procedure just as the peer terminates the session).
+  This also avoids the complications involved in transporting exceptions to
+  coroutines, as well as having two mechanisms for reporting errors from the
+  same function.
+- `Session::authenticate` no longer throws if the session is not in the
+  `SessionState::authenticating` state. Instead, the authentication is discarded
+  and a warning is emitted.
+- `Session::publish(Pub)` no longer throws if the session is not in the
+  `SessionState::established` state. Instead, the publicatioon is discarded
+  and a warning is emitted.
+- `Session::cancel` no longer throws if the session is not in the
+  `SessionState::established` state. Instead, the cancellation is discarded
+  and a warning is emitted.
+- Numeric values of enumerators following `SesesionErrc::invalidState` have
+  been bumped by one.
+- `Session::call` no longer returns the request ID. To obtain the request ID,
+  use the new `Session::call` overload which takes a `CallChit` out
+  parameter by reference.
+- The signature of `lookupWampErrorUri` has been changed so that it returns
+  whether the corresponding error code was found.
+- Codec decoders now return a std::error_code instead of throwing an exception.
+- The `Transport` type requirement has been changed so that it provides a
+  `boost::asio::strand` instead of a `boost::asio::any_executor`.
+
+### Migration Guide
+
+- Replace `AnyExecutor` with `AnyIoExecutor`.
+- Replace `AsyncResult` with `ErrorOr`.
+- Replace `AsyncResult::get` with `ErrorOr::value`.
+- Replace `AsyncResult::errorCode` with `ErrorOr::error`.
+- Replace `AsyncResult::setValue` with `ErrorOr::emplace`.
+- Replace `Basic[Coro]<Event|Invocation>Unpacker` with
+  `Simple[Coro]<Event|Invocation>Unpacker`
+- Replace `basic[Coro]<Event|Rpc>` with `simple[Coro]<Event|Rpc>`
+- Replace `Cancellation` with `CallCancellation`
+- Replace `CancelMode` with `CallCancelMode`
+- Replace `CoroSession<>` with `Session`.
+- Replace `Outcome::deferred` with `deferment`.
+- Replace `#include <cppwamp/corosession.hpp>` with
+  `#include <boost/asio/spawn.hpp>` and `#include <cppwamp/session.hpp>`.
+- Add `.value()` to `Session` methods taking a `yield_context` to preserve the
+  old behavior where either the result value is returned upon success or an
+  exception is thrown upon failure.
+- `std::error_code` pointers cannot be passed to the the consolidated `Session`
+  class. Instead check the returned `ErrorOr` result via `operator bool` and
+  `AsyncResult::error()`.
+- `Session::call` no longer returns the RPC request ID. Instead use the
+  `Session::call` overload which takes a `CallChit` out parameter by reference.
+  Alternatively, you may bind an Asio cancellation slot to the completion token.
+- Replace `Session::cancel(CallCancellation)` usages with
+  `Session::cancel(CallChit)`.
+- If used directly, check the `std::error_code` returned by codec decoders
+  instead of catching `error::Decode` exceptions.
+- Replace the `CppWAMP::coro-headers` CMake target with `CppWAMP::coro-usage`.
+
+
+v0.9.2
+======
+Fixed the non-compilation of examples.
+
+
 v0.9.1
 ======
 Add -fPIC when building vendorized static Boost libraries.

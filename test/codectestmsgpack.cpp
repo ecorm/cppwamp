@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include <sstream>
@@ -27,7 +26,8 @@ void checkMsgpack(MsgpackBufferEncoder& encoder, MsgpackBufferDecoder& decoder,
         MessageBuffer buffer;
         encoder.encode(v, buffer);
         Variant w;
-        decoder.decode(buffer, w);
+        auto ec = decoder.decode(buffer, w);
+        CHECK( !ec );
         CHECK( w == Variant(expected) );
     }
 
@@ -36,7 +36,8 @@ void checkMsgpack(MsgpackBufferEncoder& encoder, MsgpackBufferDecoder& decoder,
         encode<Msgpack>(v, oss);
         Variant w;
         std::istringstream iss(oss.str());
-        decode<Msgpack>(iss, w);
+        auto ec = decode<Msgpack>(iss, w);
+        CHECK( !ec );
         CHECK( w == Variant(expected) );
     }
 }
@@ -164,12 +165,17 @@ GIVEN( "an empty Msgpack message" )
     MessageBuffer empty;
     Variant v;
     MsgpackBufferDecoder decoder;
-    CHECK_THROWS_AS( decoder.decode(empty, v), error::Decode );
+    auto ec = decoder.decode(empty, v);
+    CHECK_FALSE( !ec );
+    CHECK( ec == DecodingErrc::failure );
+    CHECK( ec == ProtocolErrc::badDecode );
+    CHECK( ec == jsoncons::msgpack::msgpack_errc::unexpected_eof );
 
     WHEN( "decoding a valid message after an error" )
     {
         MessageBuffer buffer = {0x2a};
-        decoder.decode(buffer, v);
+        ec = decoder.decode(buffer, v);
+        CHECK( !ec );
         CHECK(v == 42);
     }
 }
@@ -178,19 +184,46 @@ GIVEN( "an invalid Msgpack message" )
     std::ostringstream oss;
     oss << uint8_t(0xc1);
     Variant v;
-    CHECK_THROWS_AS( decode<Msgpack>(oss.str(), v), error::Decode );
+    auto ec = decode<Msgpack>(oss.str(), v);
+    CHECK_FALSE( !ec );
+    CHECK( ec == DecodingErrc::failure );
+    CHECK( ec == ProtocolErrc::badDecode );
+    CHECK( ec == jsoncons::msgpack::msgpack_errc::unknown_type );
 }
 GIVEN( "a short Msgpack message" )
 {
     MessageBuffer buffer{0xa5, 'h', 'e', 'l', 'l'}; // 5-byte text string
     Variant v;
     MsgpackBufferDecoder decoder;
-    CHECK_THROWS_AS( decoder.decode(buffer, v), error::Decode );
+    auto ec = decoder.decode(buffer, v);
+    CHECK_FALSE( !ec );
+    CHECK( ec == DecodingErrc::failure );
+    CHECK( ec == ProtocolErrc::badDecode );
+    CHECK( ec == jsoncons::msgpack::msgpack_errc::unexpected_eof );
 
     WHEN( "decoding a valid message after an error" )
     {
         MessageBuffer buffer = {0x2a};
-        decoder.decode(buffer, v);
+        auto ec = decoder.decode(buffer, v);
+        CHECK( !ec );
+        CHECK(v == 42);
+    }
+}
+GIVEN( "a Msgpack message with a non-string key" )
+{
+    MessageBuffer buffer{0x82, 0x01, 0x2}; // {1:2}
+    Variant v;
+    MsgpackBufferDecoder decoder;
+    auto ec = decoder.decode(buffer, v);
+    CHECK( ec == DecodingErrc::failure );
+    CHECK( ec == DecodingErrc::expectedStringKey );
+    CHECK( ec == ProtocolErrc::badDecode );
+
+    WHEN( "decoding a valid message after an error" )
+    {
+        MessageBuffer buffer = {0x2a};
+        auto ec = decoder.decode(buffer, v);
+        CHECK( !ec );
         CHECK(v == 42);
     }
 }

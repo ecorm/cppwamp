@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_INTERNAL_CALLEE_HPP
@@ -13,7 +12,6 @@
 #include <string>
 #include "../peerdata.hpp"
 #include "../wampdefs.hpp"
-#include "asynctask.hpp"
 
 namespace wamp
 {
@@ -31,14 +29,11 @@ public:
 
     virtual ~Callee() {}
 
-    virtual void unregister(const Registration& reg) = 0;
+    virtual void safeUnregister(const Registration&) = 0;
 
-    virtual void unregister(const Registration& reg,
-                            AsyncTask<bool>&& handler) = 0;
+    virtual void safeYield(RequestId, wamp::Result&&) = 0;
 
-    virtual void yield(RequestId reqId, wamp::Result&& result) = 0;
-
-    virtual void yield(RequestId reqId, wamp::Error&& failure) = 0;
+    virtual void safeYield(RequestId, wamp::Error&&) = 0;
 };
 
 } // namespace internal

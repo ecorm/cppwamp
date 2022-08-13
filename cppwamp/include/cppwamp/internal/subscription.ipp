@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include "../subscription.hpp"
@@ -69,7 +68,7 @@ CPPWAMP_INLINE void Subscription::unsubscribe() const
 {
     auto subscriber = subscriber_.lock();
     if (subscriber)
-        subscriber->unsubscribe(*this);
+        subscriber->safeUnsubscribe(*this);
 }
 
 CPPWAMP_INLINE Subscription::Subscription(SubscriberPtr subscriber,

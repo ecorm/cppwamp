@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                    Copyright Butterfly Energy Systems 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_MSGPACK_HPP
@@ -124,7 +123,8 @@ public:
     ~BasicMsgpackDecoder();
 
     /** Deserializes from the given input to the given variant. */
-    void decode(const Input& input, Variant& variant);
+    CPPWAMP_NODISCARD std::error_code decode(const Input& input,
+                                             Variant& variant);
 
 private:
     class Impl;
@@ -155,7 +155,7 @@ public:
     ~BasicMsgpackDecoder();
 
     /** Deserializes from the given input stream to the given variant. */
-    void decode(Input& input, Variant& variant);
+    CPPWAMP_NODISCARD std::error_code decode(Input& input, Variant& variant);
 
 private:
     class Impl;

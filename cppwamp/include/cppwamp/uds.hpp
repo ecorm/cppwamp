@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_UDS_HPP
@@ -46,13 +45,13 @@ namespace wamp
 //------------------------------------------------------------------------------
 template <typename TCodec>
 CPPWAMP_API Connector::Ptr connector(
-    AnyExecutor exec, ///< The executor to be used by the transport.
+    AnyIoExecutor exec, ///< The executor to be used by the transport.
     UdsPath path      ///< Unix domain socket path and other socket options.
 );
 
 #ifndef CPPWAMP_COMPILED_LIB
 template <typename TCodec>
-CPPWAMP_API Connector::Ptr connector(AnyExecutor exec, UdsPath path)
+CPPWAMP_API Connector::Ptr connector(AnyIoExecutor exec, UdsPath path)
 {
     using Endpoint = internal::AsioConnector<internal::UdsOpener>;
     using ConcreteConnector = internal::RawsockConnector<TCodec, Endpoint>;

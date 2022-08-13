@@ -10,7 +10,8 @@ C++11 client library for the [WAMP][wamp] protocol.
 - Roles: _Caller_, _Callee_, _Subscriber_, _Publisher_
 - Transports: TCP and Unix domain raw sockets
 - Serializations: JSON, MsgPack, and CBOR
-- Provides both callback and coroutine-based asynchronous APIs
+- Supports Boost.Asio completion tokens for callbacks, stackful coroutines,
+  stackless couroutines, C++20 coroutines, and std::future.
 - Easy conversion between static and dynamic types
 - RPC and pub/sub event handlers can have static argument types
 - User-defined types can be registered and exchanged via RPC and pub-sub
@@ -21,7 +22,7 @@ C++11 client library for the [WAMP][wamp] protocol.
 **Dependencies**:
 
 - [Boost.Asio][boost-asio] for raw socket transport
-  (requires [Boost][boost] 1.74 or greater)
+  (requires [Boost][boost] 1.77 or greater)
 - [jsoncons][jsoncons] for serialization
 - (optional) [Boost.Coroutine][boost-coroutine] and
   [Boost.Context][boost-context]
@@ -50,8 +51,8 @@ Tested Platforms
 
 This library has been tested with:
 
-- GCC x86_64-linux-gnu, versions 7.5 and 10.3
-- Clang x86_64-pc-linux-gnu, versions 6.0.1 and 12.0,
+- GCC x86_64-linux-gnu, version 10.3
+- Clang x86_64-pc-linux-gnu, version 12.0
 
 <a name="advanced"></a>Supported Advanced Profile Features
 ----------------------------------------------------------
@@ -70,19 +71,23 @@ This library has been tested with:
 Roadmap
 -------
 
+### v0.11
+
+- Polymorphic codecs and transports to prevent combinatorial explosion of
+  explicit template instantiations when new codecs/transports are added.
+
 ### v1.0
 
-- Make `wamp::Session` more thread-safe.
-- Remove `wamp::CoroSession` and make it so that `wamp::Session` can accept any
-  completion token (`yield`, `use_future`, etc) supported by Boost.Asio.
+- Remove all deprecated types and functions.
+- Aim for API stability until v2.0.
 
 ### v1.1
 
-- Add embedded router functionality
+- Embedded router functionality
 
 ### v1.2 (maybe)
 
-- Add websocket support via Boost.Beast
+- Websocket support via Boost.Beast
 
 ### v2.0 (maybe)
 
@@ -104,8 +109,8 @@ For reporting bugs or for suggesting enhancements, please use the GitHub
 [issues]: https://github.com/ecorm/cppwamp/issues
 
 
-Usage Examples Using Coroutines
----------------------------------
+Usage Examples Using Stackful Coroutines
+----------------------------------------
 
 _For a more comprehensive overview, check out the
 [Tutorials](https://ecorm.github.io/cppwamp/_tutorial.html) in the
@@ -515,6 +520,15 @@ or compiled) and installed so that its CMake package config
 (i.e. `CppWAMPConfig.cmake`) is generated. This can either be done outside of
 your project or via your project's CMake scripts (for example by using
 `ExternalProject_add` or `FetchContent`).
+
+
+Bundled Open-Source Software
+----------------------------
+
+This library bundles modified versions of `any_completion_handler` and
+`any_completion_executor` written by Christopher M. Kohlhoff,
+Copyright (c) 2003-2022, under the terms of the Boost Software License,
+Version 1.0 (http://www.boost.org/LICENSE_1_0.txt).
 
 
 License

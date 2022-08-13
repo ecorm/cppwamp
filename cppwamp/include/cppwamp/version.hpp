@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_VERSION_HPP
@@ -20,10 +19,10 @@
 #define CPPWAMP_MAJOR_VERSION 0
 
 /// Minor version with functionality added in a backwards-compatible manner.
-#define CPPWAMP_MINOR_VERSION 9
+#define CPPWAMP_MINOR_VERSION 10
 
 /// Patch version for backwards-compatible bug fixes.
-#define CPPWAMP_PATCH_VERSION 1
+#define CPPWAMP_PATCH_VERSION 0
 
 /// Integer version number, computed as `(major*10000) + (minor*100) + patch`
 #define CPPWAMP_VERSION \

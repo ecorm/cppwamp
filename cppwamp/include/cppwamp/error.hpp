@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_ERROR_HPP
@@ -18,6 +17,7 @@
 #include <string>
 #include <system_error>
 #include "api.hpp"
+#include "config.hpp"
 
 //------------------------------------------------------------------------------
 /** Throws an error::Logic exception having the given message string.
@@ -96,6 +96,7 @@ struct CPPWAMP_API BadType : public std::runtime_error
 //------------------------------------------------------------------------------
 struct CPPWAMP_API Access : public BadType
 {
+    explicit Access(const std::string& what);
     Access(const std::string& from, const std::string& to);
 };
 
@@ -108,7 +109,8 @@ struct CPPWAMP_API Conversion : public BadType
 };
 
 //------------------------------------------------------------------------------
-/** Exception type thrown when codec deserialization fails. */
+/** Exception type thrown when codec deserialization fails.
+    @deprecated Decoders now return a `std::error_code`.*/
 //------------------------------------------------------------------------------
 struct CPPWAMP_API Decode: public std::runtime_error
 {
@@ -123,7 +125,7 @@ struct CPPWAMP_API Decode: public std::runtime_error
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** Error code values used with the SessionCategory error category.
+/** %Error code values used with the SessionCategory error category.
     The equivalencies between these codes are as follows:
 
     std::error_code                         | Equivalent condition value
@@ -148,9 +150,10 @@ enum class SessionErrc
     publishError,           ///< Publish error reported by broker
     subscribeError,         ///< Subscribe error reported by broker
     unsubscribeError,       ///< Unsubscribe error reported by broker
-    registerError,          ///< Register error reported by dealer.
+    registerError,          ///< Register error reported by dealer
     unregisterError,        ///< Unregister error reported by dealer
     callError,              ///< Call error reported by callee or dealer
+    invalidState,           ///< Invalid state for this operation
 
     // Errors mapped to predefined URIs
     invalidUri,             ///< An invalid WAMP URI was provided
@@ -218,8 +221,75 @@ CPPWAMP_API std::error_condition make_error_condition(SessionErrc errc);
 /** Looks up the SessionErrc enumerator that corresponds to the given error URI.
     @relates SessionCategory */
 //-----------------------------------------------------------------------------
-CPPWAMP_API SessionErrc lookupWampErrorUri(const std::string& uri,
-                                           SessionErrc fallback);
+CPPWAMP_API bool lookupWampErrorUri(const std::string& uri,
+                                    SessionErrc fallback, SessionErrc& result);
+
+
+//******************************************************************************
+// Codec decoding Error Codes
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+/** %Error code values used with the DecodingCategory error category.
+    All of the following non-zero codes are equivalent to the
+    DecodingErrc::failure condition:
+    - wamp::DecodingErrc
+    - `jsoncons::json_errc`
+    - `jsoncons::cbor::cbor_errc`
+    - `jsoncons::msgpack::msgpack_errc` */
+//------------------------------------------------------------------------------
+enum class DecodingErrc
+{
+    success           = 0, ///< Operation succesful
+    failure           = 1, ///< Decoding failed
+    emptyInput        = 2, ///< Input is empty or has no tokens
+    expectedStringKey = 3, ///< Expected a string key
+    badBase64Length   = 4, ///< Invalid Base64 string length
+    badBase64Padding  = 5, ///< Invalid Base64 padding
+    badBase64Char     = 6  ///< Invalid Base64 character
+};
+
+//------------------------------------------------------------------------------
+/** std::error_category used for reporting deserialization errors.
+    @see DecodingErrc */
+//------------------------------------------------------------------------------
+class CPPWAMP_API DecodingCategory : public std::error_category
+{
+public:
+    /** Obtains the name of the category. */
+    virtual const char* name() const noexcept override;
+
+    /** Obtains the explanatory string. */
+    virtual std::string message(int ev) const override;
+
+    /** Compares `error_code` and and error condition for equivalence. */
+    virtual bool equivalent(const std::error_code& code,
+                            int condition) const noexcept override;
+
+private:
+    CPPWAMP_HIDDEN DecodingCategory();
+
+    friend DecodingCategory& decodingCategory();
+};
+
+//------------------------------------------------------------------------------
+/** Obtains a reference to the static error category object for deserialization
+    errors.
+    @relates DecodingCategory */
+//------------------------------------------------------------------------------
+CPPWAMP_API DecodingCategory& decodingCategory();
+
+//------------------------------------------------------------------------------
+/** Creates an error code value from a DecodingErrc enumerator.
+    @relates DecodingCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::error_code make_error_code(DecodingErrc errc);
+
+//------------------------------------------------------------------------------
+/** Creates an error condition value from a DecodingErrc enumerator.
+    @relates DecodingCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::error_condition make_error_condition(DecodingErrc errc);
 
 
 //******************************************************************************
@@ -227,7 +297,13 @@ CPPWAMP_API SessionErrc lookupWampErrorUri(const std::string& uri,
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** Error code values used with the ProtocolCategory error category. */
+/** %Error code values used with the ProtocolCategory error category.
+    All of the following non-zero codes are equivalent to the
+    ProtocolErrc::badDecode condition:
+    - wamp::DecodingErrc
+    - `jsoncons::json_errc`
+    - `jsoncons::cbor::cbor_errc`
+    - `jsoncons::msgpack::msgpack_errc` */
 //------------------------------------------------------------------------------
 enum class ProtocolErrc
 {
@@ -286,7 +362,7 @@ CPPWAMP_API std::error_condition make_error_condition(ProtocolErrc errc);
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** Error code values used with the TransportCategory error category. */
+/** %Error code values used with the TransportCategory error category. */
 //------------------------------------------------------------------------------
 enum class TransportErrc
 {
@@ -345,7 +421,7 @@ CPPWAMP_API std::error_condition make_error_condition(TransportErrc errc);
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** Error code values used with the RawsockCategory error category. */
+/** %Error code values used with the RawsockCategory error category. */
 //------------------------------------------------------------------------------
 enum class RawsockErrc
 {
@@ -405,6 +481,7 @@ CPPWAMP_API std::error_condition make_error_condition(RawsockErrc errc);
 
 } // namespace wamp
 
+
 //------------------------------------------------------------------------------
 #if !defined CPPWAMP_FOR_DOXYGEN
 namespace std
@@ -412,6 +489,11 @@ namespace std
 
 template <>
 struct CPPWAMP_API is_error_condition_enum<wamp::SessionErrc>
+    : public true_type
+{};
+
+template <>
+struct CPPWAMP_API is_error_condition_enum<wamp::DecodingErrc>
     : public true_type
 {};
 

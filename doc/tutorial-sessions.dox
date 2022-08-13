@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 /**
@@ -10,22 +9,79 @@
 
 @tableofcontents
 
+Except for establishing the underlying transport, WAMP client operations are
+performed via the wamp::Session class.
+
+Completion Tokens
+-----------------
+
+Asynchronous operations in wamp::Session accept a generic [completion token][1],
+which can either be:
+- a callback function (convertible to [`std::function`][2]) taking a
+  wamp::ErrorOr parameter,
+- a [`yield_context`][3] (for [stackful coroutines][4]),
+- [`use_awaitable`][5] (for [C++20 coroutines][6])
+- [`use_future`][7] (for [`std::future`][8])
+
+[1]: https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/model/completion_tokens.html
+[2]: https://en.cppreference.com/w/cpp/utility/functional/function
+[3]: http://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/yield_context.html
+[4]: https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/composition/spawn.html
+[5]: https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/use_awaitable_t.html
+[6]: https://en.cppreference.com/w/cpp/language/coroutines
+[7]: https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/use_future_t.html
+[8]: https://en.cppreference.com/w/cpp/thread/future
+
+
+ErrorOr
+-------
+
+The outcome of a `Session` asynchronous operation is emitted via
+@ref wamp::ErrorOr "wamp::ErrorOr<T>", where `T` is the actual underlying
+result type. An `ErrorOr` can contain either the actual result, or a
+[`std::error_code`][1] if the operation failed. The `ErrorOr::get` method is
+used to retrieve the underlying result value, throwing a `wamp::error::Failure`
+exception if there was an error.
+
+`ErrorOr` is similar to the proposed [`std:expected`][2], which was not
+known to the CppWAMP author when this library was initially developed.
+
+[1]: https://en.cppreference.com/w/cpp/error/error_code
+[2]: http://wg21.link/P0323
+
+
+Stackful Coroutines
+-------------------
+
 Because it makes things easier to demonstrate, the following tutorial pages
-will use the coroutine-based session API. The asynchronous session API is
-covered in @ref AsyncTutorial.
+will use Boost stackful couroutines. Using asynchronous callbacks is covered
+in @ref AsyncCallbacksTutorial.
+
+When passing a `yield_context` to a `Session` asynchronous operation, the
+operation will block within the coroutine until it is completed (or failed).
+While the operation is blocking, control is yielded to other pending
+asynchronous operations via the I/O context.
+
+The `ErrorOr` result of a `Session` coroutine operation is emitted via the the
+member function's return value.
+
+A `yield_context` is obtained via [boost::asio::spawn][1].
+
+[1]: http://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/spawn.html
+
 
 Creating the Session Object
 ---------------------------
 
 Once one or more wamp::Connector objects have been created, they are passed to
-the @ref wamp::CoroSession::create "create" factory method of the session API.
+the @ref wamp::Session::create "create" factory method of the session API.
 `create` then returns a `std::shared_ptr` to the newly created
-wamp::CoroSession object.
+wamp::Session object.
 
 ```
-#include <cppwamp/corosession.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/msgpack.hpp>
+#include <cppwamp/session.hpp>
 #include <cppwamp/tcp.hpp>
 using namespace wamp;
 
@@ -34,25 +90,20 @@ auto tcpJson = connector<Json>(ioctx, TcpHost("localhost", 8001));
 auto tcpPack = connector<Msgpack>(ioctx, TcpHost("localhost", 8001));
 
 // Create the Session object:
-auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
+auto session = Session::create(ioctx, {tcpJson, tcpPack});
 ```
 
 Connecting and Joining
 ----------------------
 
 After the session object is created, the
-@ref wamp::CoroSession::connect "connect" operation is used to establish a
+@ref wamp::Session::connect "connect" operation is used to establish a
 transport connection to a WAMP router. The
-@ref wamp::CoroSession::join "join" operation is then used to join a WAMP realm
+@ref wamp::Session::join "join" operation is then used to join a WAMP realm
 on the router.
 
-All "blocking" operations of `CoroSession` must be executed within the context
-of a _coroutine_. Coroutines are initiated via [boost::asio::spawn]
-(https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/spawn.html).
-For any `CoroSession` operation that needs to "block" until completion, a
-_yield context_ must be provided. The following example shows how to spawn a
-coroutine, and how a yield context is passed to the `connect` and `join`
-operations.
+The following example shows how to spawn a coroutine, and how a `yield_context`
+is passed to the `connect` and `join` operations.
 
 ```
 using namespace wamp;
@@ -62,9 +113,9 @@ auto tcpPack = connector<Msgpack>(ioctx, TcpHost("localhost", 8001));
 
 boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 {
-    auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
-    session->connect(yield);
-    auto sessionInfo = session->join(Realm("somerealm"), yield);
+    auto session = Session::create(ioctx, {tcpJson, tcpPack});
+    session->connect(yield).value();
+    auto sessionInfo = session->join(Realm("somerealm"), yield).value();
     // etc.
 });
 
@@ -75,28 +126,53 @@ ioctx.run();
 Note that while a coroutine operation is suspended, it yields control so that
 other asynchronous operations can be executed via the I/O context.
 
+Also note the `value()` method being invoked on the `join` result to obtain the
+underlying wamp::SessionInfo. If there was an error during the join operation,
+`value()` would throw a wamp::error::Failure exception.
+
+Even though we're not interested in the result of the `connect` operation in
+this example, the `value()` method is invoked anyway so that an exception is
+thrown if there was a failure in the `connect` operation.
+
+If failure exceptions are not desired, the `bool` operator of the `ErrorOr`
+result can used used to check for errors:
+
+```
+boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+{
+    auto session = Session::create(ioctx, {tcpJson, tcpPack});
+    session->connect(yield);
+    auto info = session->join(Realm("somerealm"), yield);
+    if (!info)
+        std::cerr << "Join failed: " << info.error() << "\n";
+    else
+        std::cout << "Joined, session ID: " << info.value().id() << "\n";
+    // etc.
+});
+```
+
 Leaving and Disconnecting
 -------------------------
 
-To gracefully end a WAMP session, the @ref wamp::CoroSession::leave "leave" and
-@ref wamp::CoroSession::disconnect "disconnect" operations are used:
+To gracefully end a WAMP session, the @ref wamp::Session::leave "leave" and
+@ref wamp::Session::disconnect "disconnect" operations are used:
 
 ```
 using namespace wamp;
 boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 {
-    auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
-    session->connect(yield);
-    session->join(Realm("somerealm"), yield);
+    auto session = Session::create(ioctx, {tcpJson, tcpPack});
+    session->connect(yield).value();
+    session->join(Realm("somerealm"), yield).value();
 
     while (!finished)
     {
         // Interact with the WAMP session
     }
 
-    auto reason = session->leave(yield); // returns the Reason URI and
-                                         // other details from the router's
-                                         // GOODBYE message
+    auto reason = session->leave(yield).value(); // returns the Reason URI and
+                                                 // other details from the
+                                                 // router's GOODBYE message
     session->disconnect(); // non-blocking
 });
 ```
@@ -110,9 +186,9 @@ session will abruptly terminate the connection in its destructor:
 using namespace wamp;
 boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 {
-    auto session = CoroSession<>::create(ioctx, {tcpJson, tcpPack});
-    session->connect(yield);
-    session->join(Realm("somerealm"), yield);
+    auto session = Session::create(ioctx, {tcpJson, tcpPack});
+    session->connect(yield).value();
+    session->join(Realm("somerealm"), yield).value();
 
     while (!finished)
     {
@@ -125,13 +201,24 @@ boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
 });
 ```
 
+Aborting Coroutine Operations
+-----------------------------
+
+All pending coroutine operations can be _aborted_ by dropping the client
+connection via Session::disconnect. Pending post-join operations can be also
+be aborted via Session::leave. Operations aborted in this manner will
+contain an error code in their returned wamp::ErrorOr result. There is currently
+no way to abort a single coroutine operation without dropping the connection or
+leaving the realm.
+
+
 Logging
 -------
 
-`wamp::Session` and `wamp::CoroSession` can generate log events at
-runtime, for warnings and for inbound/outbound WAMP messages. CppWAMP
-is not opinionated about where the log events should go, so it provides
-the @ref wamp::Session::setWarningHandler "setWarningHandler" and
+`wamp::Session` can generate log events at runtime, for warnings and for
+inbound/outbound WAMP messages. CppWAMP is not opinionated about where the log
+events should go, so it provides the
+@ref wamp::Session::setWarningHandler "setWarningHandler" and
 @ref wamp::Session::setTraceHandler "setTraceHandler" methods that
 allow you to register handlers for these log events.
 
@@ -155,7 +242,7 @@ With these handlers you may, for example, log the messages to the
 console.
 
 ```
-auto session = wamp::CoroSession<>::create(ioctx, tcp);
+auto session = wamp::Session::create(ioctx, tcp);
 
 session->setWarningHandler([](std::string message)
 {
@@ -216,12 +303,12 @@ int main()
     boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
         ticket = "guest";
-        auto session = CoroSession<>::create(ioctx, tcp);
+        auto session = Session::create(ioctx, tcp);
         session->setChallengeHandler(&onChallenge);
         session->connect(yield);
         auto sessionInfo = session->join(
             Realm("somerealm").withAuthId("alice").withAuthMethods({"ticket"}),
-            yield);
+            yield).value();
         ticket.clear();
         // etc.
     });
@@ -241,15 +328,15 @@ for example, to attempt reconnection when the session is disconnected due to a
 network failure.
 
 ```
-void rejoinSession(CoroSession<>& session, boost::asio::yield_context yield)
+void rejoinSession(Session& session, boost::asio::yield_context yield)
 {
-    session.connect(yield);
-    session.join(Realm("somerealm", yield);
+    session.connect(yield).value();
+    session.join(Realm("somerealm", yield).value();
     // Register RPCs, subscribe to topics, etc.
 }
 
 void onStateChange(SessionState state,
-                   std::weak_ptr<CoroSession<>> weakSession)
+                   std::weak_ptr<Session> weakSession)
 {
     if (state == SessionState::disconnected ||
         state == SessionState::failed)
@@ -276,8 +363,8 @@ int main()
 
     boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(ioctx, tcp);
-        auto weakSession = std::weak_ptr<CoroSession<>>(session);
+        auto session = Session::create(ioctx, tcp);
+        auto weakSession = std::weak_ptr<Session>(session);
         session->setStateChangeHandler(
             [weakSession, ioctx](SessionState state)
             {

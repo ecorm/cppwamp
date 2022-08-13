@@ -1,8 +1,7 @@
 #-------------------------------------------------------------------------------
-#                 Copyright Butterfly Energy Systems 2022.
-#          Distributed under the Boost Software License, Version 1.0.
-#             (See accompanying file LICENSE_1_0.txt or copy at
-#                   http://www.boost.org/LICENSE_1_0.txt)
+# Copyright Butterfly Energy Systems 2022.
+# Distributed under the Boost Software License, Version 1.0.
+# https://www.boost.org/LICENSE_1_0.txt
 #-------------------------------------------------------------------------------
 
 include_guard()
@@ -11,7 +10,7 @@ include(FetchContent)
 set(FETCHCONTENT_QUIET OFF CACHE INTERNAL "")
 
 # These minumum dependency versions must be made the same in CppWAMPConfig.cmake
-set(CPPWAMP_MINIMUM_BOOST_VERSION 1.74.0)
+set(CPPWAMP_MINIMUM_BOOST_VERSION 1.77.0)
 
 set(CPPWAMP_VENDORIZED_BOOST_VERSION 1.79.0)
 set(CPPWAMP_VENDORIZED_BOOST_SHA256

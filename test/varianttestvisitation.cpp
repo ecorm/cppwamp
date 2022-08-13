@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include <cstdlib>
@@ -58,7 +57,7 @@ void checkVisitation(const T& value)
 {
     Variant v(value);
     INFO( "For type '" << typeNameOf(v) << "' and value '" << v << "'" );
-    CHECK( apply(TestVisitor<T>(v.as<T>()), v) );
+    CHECK( wamp::apply(TestVisitor<T>(v.as<T>()), v) );
 }
 
 //------------------------------------------------------------------------------
@@ -70,7 +69,7 @@ void checkBinaryVisitation(const T& left, const U& right)
     INFO( "For types (" << typeNameOf(v) << "," << typeNameOf(w) <<
           ") and values (" << v << "," << w << ")" );
     BinaryTestVisitor<T,U> visitor(v.as<T>(), w.as<U>());
-    CHECK( apply(visitor, v, w) );
+    CHECK( wamp::apply(visitor, v, w) );
 
     BinaryTestVisitor<T,U> rhsValueVisitor(v.as<T>(), right);
     CHECK( applyWithOperand(rhsValueVisitor, v, right) );

@@ -1,9 +1,12 @@
 /*------------------------------------------------------------------------------
-                    Copyright Butterfly Energy Systems 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
+
+//******************************************************************************
+// Example WAMP service consumer app using callback handler functions.
+//******************************************************************************
 
 #include <ctime>
 #include <iostream>
@@ -48,9 +51,9 @@ public:
     void start()
     {
         auto self = shared_from_this();
-        session_->connect([this, self](wamp::AsyncResult<size_t> index)
+        session_->connect([this, self](wamp::ErrorOr<size_t> index)
         {
-            index.get(); // Throws if connect failed
+            index.value(); // Throws if connect failed
             join();
         });
     }
@@ -70,9 +73,9 @@ private:
         auto self = shared_from_this();
         session_->join(
             wamp::Realm(realm),
-            [this, self](wamp::AsyncResult<wamp::SessionInfo> info)
+            [this, self](wamp::ErrorOr<wamp::SessionInfo> info)
             {
-                info.get(); // Throws if join failed
+                info.value(); // Throws if join failed
                 getTime();
             });
     }
@@ -82,10 +85,10 @@ private:
         auto self = shared_from_this();
         session_->call(
             wamp::Rpc("get_time"),
-            [this, self](wamp::AsyncResult<wamp::Result> result)
+            [this, self](wamp::ErrorOr<wamp::Result> result)
             {
-                // result.get() throws if the call failed
-                auto time = result.get()[0].to<std::tm>();
+                // result.value() throws if the call failed
+                auto time = result.value()[0].to<std::tm>();
                 std::cout << "The current time is: " << std::asctime(&time) << "\n";
                 subscribe();
             });
@@ -95,10 +98,10 @@ private:
     {
         session_->subscribe(
             wamp::Topic("time_tick"),
-            wamp::basicEvent<std::tm>(&TimeClient::onTimeTick),
-            [](wamp::AsyncResult<wamp::Subscription> sub)
+            wamp::simpleEvent<std::tm>(&TimeClient::onTimeTick),
+            [](wamp::ErrorOr<wamp::Subscription> sub)
             {
-                sub.get(); // Throws if subscribe failed
+                sub.value(); // Throws if subscribe failed
             });
     }
 

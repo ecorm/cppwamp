@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include "../variant.hpp"
@@ -205,14 +204,14 @@ CPPWAMP_INLINE Variant::Variant() noexcept : typeId_(TypeId::null) {}
 CPPWAMP_INLINE Variant::Variant(const Variant& other)
     : typeId_(other.typeId_)
 {
-    apply(Construct(*this), other);
+    wamp::apply(Construct(*this), other);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Variant::Variant(Variant&& other) noexcept
     : typeId_(other.typeId_)
 {
-    apply(MoveConstruct(*this), other);
+    wamp::apply(MoveConstruct(*this), other);
     other = null;
 }
 
@@ -254,7 +253,7 @@ CPPWAMP_INLINE Variant::operator bool() const {return typeId_ != TypeId::null;}
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Variant::SizeType Variant::size() const
 {
-    return apply(ElementCount(), *this);
+    return wamp::apply(ElementCount(), *this);
 }
 
 //------------------------------------------------------------------------------
@@ -353,7 +352,7 @@ CPPWAMP_INLINE const Variant& Variant::at(const String& key) const
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE bool Variant::operator==(const Variant& other) const
 {
-    return apply(internal::VariantEquivalentTo<Variant>(), *this, other);
+    return wamp::apply(internal::VariantEquivalentTo<Variant>(), *this, other);
 }
 
 //------------------------------------------------------------------------------
@@ -385,7 +384,7 @@ CPPWAMP_INLINE bool Variant::operator!=(const Variant& other) const
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE bool Variant::operator<(const Variant &other) const
 {
-    return apply(LessThan(), *this, other);
+    return wamp::apply(LessThan(), *this, other);
 }
 
 //------------------------------------------------------------------------------
@@ -406,7 +405,7 @@ CPPWAMP_INLINE Variant& Variant::operator=(Variant&& other) noexcept
 {
     if (&other != this)
     {
-        apply(MoveAssign(*this), *this, other);
+        wamp::apply(MoveAssign(*this), *this, other);
         other = null;
     }
     return *this;
@@ -436,13 +435,13 @@ CPPWAMP_INLINE Variant& Variant::operator=(Object object)
 CPPWAMP_INLINE void Variant::swap(Variant &other) noexcept
 {
     if (&other != this)
-        apply(Swap(*this, other), *this, other);
+        wamp::apply(Swap(*this, other), *this, other);
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Variant::destruct()
 {
-    apply(Destruct(&field_), *this);
+    wamp::apply(Destruct(&field_), *this);
 }
 
 //------------------------------------------------------------------------------
@@ -483,7 +482,7 @@ CPPWAMP_INLINE bool isScalar(const Variant& v)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Variant::String typeNameOf(const Variant& v)
 {
-    return apply(internal::VariantTypeName(), v);
+    return wamp::apply(internal::VariantTypeName(), v);
 }
 
 //------------------------------------------------------------------------------

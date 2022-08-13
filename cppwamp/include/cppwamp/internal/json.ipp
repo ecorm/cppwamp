@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include "../json.hpp"
@@ -30,33 +29,28 @@ class JsonDecoderImpl
 public:
     JsonDecoderImpl() : parser_(jsoncons::strict_json_parsing{}) {}
 
-    void decode(const void* data, std::size_t length, Variant& variant)
+    std::error_code decode(const void* data, std::size_t length,
+                           Variant& variant)
     {
         parser_.reinitialize();
         parser_.update(static_cast<const char*>(data), length);
         visitor_.reset();
-        try
-        {
-            parser_.finish_parse(visitor_);
-        }
-        catch (const jsoncons::ser_error& e)
-        {
-            parser_.reset();
-            visitor_.reset();
-            throw error::Decode(std::string("JSON parsing failure: ") +
-                                e.what());
-        }
+        std::error_code ec;
+        parser_.finish_parse(visitor_, ec);
 
-        bool empty = visitor_.empty();
-        if (!empty)
-            variant = std::move(visitor_).variant();
+        if (!ec)
+        {
+            // jsoncons::basic_json_parser does treat an input with no tokens
+            // as an error.
+            if (visitor_.empty())
+                ec = make_error_code(DecodingErrc::emptyInput);
+            else
+                variant = std::move(visitor_).variant();
+        }
         parser_.reset();
         visitor_.reset();
 
-        // jsoncons::basic_json_parser does not throw for an input
-        // with no tokens
-        if (empty)
-            throw error::Decode(std::string("JSON parsing failure: no tokens"));
+        return ec;
     }
 
 private:
@@ -129,9 +123,9 @@ template <typename I, typename C>
 class BasicJsonDecoder<I, C>::Impl
 {
 public:
-    void decode(const I& input, Variant& variant)
+    std::error_code decode(const I& input, Variant& variant)
     {
-        decoderImpl_.decode(input.data(), input.size(), variant);
+        return decoderImpl_.decode(input.data(), input.size(), variant);
     }
 
 private:
@@ -149,12 +143,10 @@ template <typename I, typename C>
 BasicJsonDecoder<I, C>::~BasicJsonDecoder() {}
 
 //------------------------------------------------------------------------------
-/** @throws error::Decode if there is an error while parsing the input. */
-//------------------------------------------------------------------------------
 template <typename I, typename C>
-void BasicJsonDecoder<I, C>::decode(const I& input, Variant& variant)
+std::error_code BasicJsonDecoder<I, C>::decode(const I& input, Variant& variant)
 {
-    impl_->decode(input, variant);
+    return impl_->decode(input, variant);
 }
 
 //------------------------------------------------------------------------------
@@ -162,15 +154,16 @@ template <typename I>
 class BasicJsonDecoder<I, StreamInputCategory>::Impl
 {
 public:
-    void decode(I& input, Variant& variant)
+    std::error_code decode(I& input, Variant& variant)
     {
         bytes_.clear();
         char buffer[4096];
         while (input.read(buffer, sizeof(buffer)))
             bytes_.append(buffer, sizeof(buffer));
         bytes_.append(buffer, input.gcount());
-        decoderImpl_.decode(bytes_.data(), bytes_.size(), variant);
+        auto ec = decoderImpl_.decode(bytes_.data(), bytes_.size(), variant);
         bytes_.clear();
+        return ec;
     }
 
 private:
@@ -191,12 +184,11 @@ template <typename I>
 BasicJsonDecoder<I, StreamInputCategory>::~BasicJsonDecoder() {}
 
 //------------------------------------------------------------------------------
-/** @throws error::Decode if there is an error while parsing the input. */
-//------------------------------------------------------------------------------
 template <typename I>
-void BasicJsonDecoder<I, StreamInputCategory>::decode(I& input, Variant& variant)
+std::error_code
+BasicJsonDecoder<I, StreamInputCategory>::decode(I& input, Variant& variant)
 {
-    impl_->decode(input, variant);
+    return impl_->decode(input, variant);
 }
 
 //------------------------------------------------------------------------------

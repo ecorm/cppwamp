@@ -1,20 +1,24 @@
 #-------------------------------------------------------------------------------
-#           Copyright Butterfly Energy Systems 2014-2015, 2017, 2022.
-#          Distributed under the Boost Software License, Version 1.0.
-#             (See accompanying file LICENSE_1_0.txt or copy at
-#                   http://www.boost.org/LICENSE_1_0.txt)
+# Copyright Butterfly Energy Systems 2014-2015, 2017, 2022.
+# Distributed under the Boost Software License, Version 1.0.
+# https://www.boost.org/LICENSE_1_0.txt
 #-------------------------------------------------------------------------------
 
 set(HEADERS
+    include/cppwamp/anyhandler.hpp
     include/cppwamp/api.hpp
     include/cppwamp/asiodefs.hpp
     include/cppwamp/asyncresult.hpp
     include/cppwamp/blob.hpp
     include/cppwamp/cbor.hpp
+    include/cppwamp/chits.hpp
     include/cppwamp/codec.hpp
+    include/cppwamp/config.hpp
     include/cppwamp/connector.hpp
     include/cppwamp/conversionaccess.hpp
+    include/cppwamp/corounpacker.hpp
     include/cppwamp/error.hpp
+    include/cppwamp/erroror.hpp
     include/cppwamp/json.hpp
     include/cppwamp/messagebuffer.hpp
     include/cppwamp/msgpack.hpp
@@ -38,20 +42,20 @@ set(HEADERS
     include/cppwamp/version.hpp
     include/cppwamp/visitor.hpp
     include/cppwamp/wampdefs.hpp
+    include/cppwamp/bundled/boost_asio_any_completion_executor.hpp
+    include/cppwamp/bundled/boost_asio_any_completion_handler.hpp
     include/cppwamp/coro/corosession.hpp
-    include/cppwamp/coro/corounpacker.hpp
-    include/cppwamp/internal/asynctask.hpp
     include/cppwamp/internal/asioconnector.hpp
     include/cppwamp/internal/asioendpoint.hpp
     include/cppwamp/internal/asiolistener.hpp
     include/cppwamp/internal/asiotransport.hpp
     include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/callee.hpp
+    include/cppwamp/internal/caller.hpp
     include/cppwamp/internal/callertimeout.hpp
     include/cppwamp/internal/challengee.hpp
     include/cppwamp/internal/client.hpp
     include/cppwamp/internal/clientinterface.hpp
-    include/cppwamp/internal/config.hpp
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/integersequence.hpp
     include/cppwamp/internal/jsonencoding.hpp
@@ -82,8 +86,10 @@ set(HEADERS
 )
 
 set(INLINES
+    include/cppwamp/bundled/boost_asio_impl_any_completion_executor.ipp
     include/cppwamp/internal/blob.ipp
     include/cppwamp/internal/cbor.ipp
+    include/cppwamp/internal/chits.ipp
     include/cppwamp/internal/error.ipp
     include/cppwamp/internal/json.ipp
     include/cppwamp/internal/messagetraits.ipp

@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_TCPHOST_HPP
@@ -16,6 +15,7 @@
 
 #include <string>
 #include "api.hpp"
+#include "config.hpp"
 #include "rawsockoptions.hpp"
 #include "internal/socketoptions.hpp"
 
@@ -148,98 +148,98 @@ public:
     /// @{
 
     /** Adds the SO_BROADCAST socket option. @deprecated */
-    TcpHost& withBroadcast(bool enabled = true)
+    CPPWAMP_DEPRECATED TcpHost& withBroadcast(bool enabled = true)
     {
         options_.withBroadcast(enabled);
         return *this;
     }
 
     /** Adds the SO_DEBUG socket option. @deprecated */
-    TcpHost& withDebug(bool enabled = true)
+    CPPWAMP_DEPRECATED TcpHost& withDebug(bool enabled = true)
     {
         options_.withDebug(enabled);
         return *this;
     }
 
     /** Adds the SO_DONTROUTE socket option. @deprecated */
-    TcpHost& withDoNotRoute(bool enabled = true)
+    CPPWAMP_DEPRECATED TcpHost& withDoNotRoute(bool enabled = true)
     {
         options_.withDoNotRoute(enabled);
         return *this;
     }
 
     /** Adds the SO_KEEPALIVE socket option. @deprecated */
-    TcpHost& withKeepAlive(bool enabled = true)
+    CPPWAMP_DEPRECATED TcpHost& withKeepAlive(bool enabled = true)
     {
         options_.withKeepAlive(enabled);
         return *this;
     }
 
     /** Adds the SO_LINGER socket option. @deprecated */
-    TcpHost& withLinger(bool enabled, int timeout)
+    CPPWAMP_DEPRECATED TcpHost& withLinger(bool enabled, int timeout)
     {
         options_.withLinger(enabled, timeout);
         return *this;
     }
 
     /** Adds the SO_OOBINLINE socket option. @deprecated */
-    TcpHost& withOutOfBandInline(bool enabled)
+    CPPWAMP_DEPRECATED TcpHost& withOutOfBandInline(bool enabled)
     {
         options_.withOutOfBandInline(enabled);
         return *this;
     }
 
     /** Adds the SO_RCVBUF socket option. @deprecated */
-    TcpHost& withReceiveBufferSize(int size)
+    CPPWAMP_DEPRECATED TcpHost& withReceiveBufferSize(int size)
     {
         options_.withReceiveBufferSize(size);
         return *this;
     }
 
     /** Adds the SO_RCVLOWAT socket option. @deprecated */
-    TcpHost& withReceiveLowWatermark(int size)
+    CPPWAMP_DEPRECATED TcpHost& withReceiveLowWatermark(int size)
     {
         options_.withReceiveLowWatermark(size);
         return *this;
     }
 
     /** Adds the SO_REUSEADDR socket option. @deprecated */
-    TcpHost& withReuseAddress(bool enabled = true)
+    CPPWAMP_DEPRECATED TcpHost& withReuseAddress(bool enabled = true)
     {
         options_.withReuseAddress(enabled);
         return *this;
     }
 
     /** Adds the SO_SNDBUF socket option. @deprecated */
-    TcpHost& withSendBufferSize(int size)
+    CPPWAMP_DEPRECATED TcpHost& withSendBufferSize(int size)
     {
         options_.withSendBufferSize(size);
         return *this;
     }
 
     /** Adds the SO_SNDLOWAT socket option. @deprecated */
-    TcpHost& withSendLowWatermark(int size)
+    CPPWAMP_DEPRECATED TcpHost& withSendLowWatermark(int size)
     {
         options_.withSendLowWatermark(size);
         return *this;
     }
 
     /** Adds the IP_UNICAST_TTL socket option. @deprecated */
-    TcpHost& withUnicastHops(int hops)
+    CPPWAMP_DEPRECATED TcpHost& withUnicastHops(int hops)
     {
         options_.withUnicastHops(hops);
         return *this;
     }
 
     /** Adds the IP_V6ONLY socket option. @deprecated */
-    TcpHost& withIpV6Only(bool enabled = true)
+    CPPWAMP_DEPRECATED TcpHost& withIpV6Only(bool enabled = true)
     {
         options_.withIpV6Only(enabled);
         return *this;
     }
 
     /** Adds the TCP_NODELAY socket option. @deprecated */
-    TcpHost& withNoDelay(bool enabled = true)
+    CPPWAMP_DEPRECATED TcpHost& withNoDelay(bool enabled = true)
     {
         options_.withNoDelay(enabled);
         return *this;

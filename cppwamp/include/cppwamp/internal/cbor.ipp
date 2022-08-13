@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                    Copyright Butterfly Energy Systems 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include "../cbor.hpp"
@@ -28,7 +27,8 @@ public:
     void encode(const Variant& variant, TSinkable&& output)
     {
         encoder_.reset(std::forward<TSinkable>(output));
-        apply(internal::VariantEncodingVisitor<Encoder>(encoder_), variant);
+        wamp::apply(internal::VariantEncodingVisitor<Encoder>(encoder_),
+                    variant);
     }
 
 private:
@@ -69,7 +69,8 @@ public:
     void encode(const Variant& variant, TSinkable&& output)
     {
         encoder_.reset(std::forward<TSinkable>(output));
-        apply(internal::VariantEncodingVisitor<Encoder>(encoder_), variant);
+        wamp::apply(internal::VariantEncodingVisitor<Encoder>(encoder_),
+                    variant);
     }
 
 private:
@@ -116,9 +117,9 @@ class BasicCborDecoder<I, C>::Impl
 public:
     Impl() : decoder_("Cbor") {}
 
-    void decode(const I& input, Variant& variant)
+    std::error_code decode(const I& input, Variant& variant)
     {
-        decoder_.decode(input, variant);
+        return decoder_.decode(input, variant);
     }
 
 private:
@@ -143,12 +144,10 @@ template <typename I, typename C>
 BasicCborDecoder<I, C>::~BasicCborDecoder() {}
 
 //------------------------------------------------------------------------------
-/** @throws error::Decode if there is an error while parsing the input. */
-//------------------------------------------------------------------------------
 template <typename I, typename C>
-void BasicCborDecoder<I, C>::decode(const I& input, Variant& variant)
+std::error_code BasicCborDecoder<I, C>::decode(const I& input, Variant& variant)
 {
-    impl_->decode(input, variant);
+    return impl_->decode(input, variant);
 }
 
 //------------------------------------------------------------------------------
@@ -158,9 +157,9 @@ class BasicCborDecoder<I, StreamInputCategory>::Impl
 public:
     Impl() : decoder_("Cbor", nullptr) {}
 
-    void decode(I& input, Variant& variant)
+    std::error_code decode(I& input, Variant& variant)
     {
-        decoder_.decode(input, variant);
+        return decoder_.decode(input, variant);
     }
 
 private:
@@ -187,13 +186,11 @@ template <typename I>
 BasicCborDecoder<I, StreamInputCategory>::~BasicCborDecoder() {}
 
 //------------------------------------------------------------------------------
-/** @throws error::Decode if there is an error while parsing the input. */
-//------------------------------------------------------------------------------
 template <typename I>
-void BasicCborDecoder<I, StreamInputCategory>::decode(I& input,
-                                                      Variant& variant)
+std::error_code
+BasicCborDecoder<I, StreamInputCategory>::decode(I& input, Variant& variant)
 {
-    impl_->decode(input, variant);
+    return impl_->decode(input, variant);
 }
 
 //------------------------------------------------------------------------------

@@ -2161,7 +2161,10 @@ INCLUDE_FILE_PATTERNS  =
 
 PREDEFINED             = CPPWAMP_FOR_DOXYGEN \
                          CPPWAMP_API= \
-                         CPPWAMP_INLINE=
+                         CPPWAMP_INLINE= \
+                         CPPWAMP_INLINE_VARIABLE=inline \
+                         CPPWAMP_NODISCARD=[[nodiscard]] \
+                         CPPWAMP_DEPRECATED= \
                          
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then this

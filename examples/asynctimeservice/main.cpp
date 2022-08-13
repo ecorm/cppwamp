@@ -1,9 +1,12 @@
 /*------------------------------------------------------------------------------
-                   Copyright Butterfly Energy Systems 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
+
+//******************************************************************************
+// Example WAMP service provider app using callback handler functions.
+//******************************************************************************
 
 #include <chrono>
 #include <ctime>
@@ -11,9 +14,9 @@
 #include <boost/asio/steady_timer.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/tcp.hpp>
+#include <cppwamp/session.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
-#include <cppwamp/coro/corosession.hpp>
 
 const std::string realm = "cppwamp.demo.time";
 const std::string address = "localhost";
@@ -42,25 +45,26 @@ namespace wamp
 class TimeService : public std::enable_shared_from_this<TimeService>
 {
 public:
-    static std::shared_ptr<TimeService> create(wamp::Session::Ptr session)
+    static std::shared_ptr<TimeService> create(wamp::AsioContext& ioctx,
+                                               wamp::Session::Ptr session)
     {
-        return std::shared_ptr<TimeService>(new TimeService(session));
+        return std::shared_ptr<TimeService>(new TimeService(ioctx, session));
     }
 
     void start()
     {
         auto self = shared_from_this();
-        session_->connect([this, self](wamp::AsyncResult<size_t> index)
+        session_->connect([this, self](wamp::ErrorOr<size_t> index)
         {
-            index.get(); // Throws if connect failed
+            index.value(); // Throws if connect failed
             join();
         });
     }
 
 private:
-    explicit TimeService(wamp::Session::Ptr session)
+    explicit TimeService(wamp::AsioContext& ioctx, wamp::Session::Ptr session)
         : session_(session),
-          timer_(session->userExecutor())
+          timer_(ioctx)
     {}
 
     static std::tm getTime()
@@ -74,9 +78,9 @@ private:
         auto self = shared_from_this();
         session_->join(
             wamp::Realm(realm),
-            [this, self](wamp::AsyncResult<wamp::SessionInfo> info)
+            [this, self](wamp::ErrorOr<wamp::SessionInfo> info)
             {
-                info.get(); // Throws if join failed
+                info.value(); // Throws if join failed
                 enroll();
             });
     }
@@ -86,10 +90,10 @@ private:
         auto self = shared_from_this();
         session_->enroll(
             wamp::Procedure("get_time"),
-            wamp::basicRpc<std::tm>(&getTime),
-            [this, self](wamp::AsyncResult<wamp::Registration> reg)
+            wamp::simpleRpc<std::tm>(&getTime),
+            [this, self](wamp::ErrorOr<wamp::Registration> reg)
             {
-                reg.get(); // Throws if enroll failed
+                reg.value(); // Throws if enroll failed
                 deadline_ = std::chrono::steady_clock::now();
                 kickTimer();
             });
@@ -131,7 +135,7 @@ int main()
     auto tcp = connector<Json>(ioctx, TcpHost(address, port));
     auto session = Session::create(ioctx, tcp);
 
-    auto service = TimeService::create(session);
+    auto service = TimeService::create(ioctx, session);
     service->start();
     ioctx.run();
 

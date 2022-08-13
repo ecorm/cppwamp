@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-                Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_TCP_HPP
@@ -45,13 +44,13 @@ namespace wamp
 //------------------------------------------------------------------------------
 template <typename TCodec>
 CPPWAMP_API Connector::Ptr connector(
-    AnyExecutor exec, ///< The executor to be used by the transport.
+    AnyIoExecutor exec, ///< The executor to be used by the transport.
     TcpHost host      ///< TCP host address and other socket options.
 );
 
 #ifndef CPPWAMP_COMPILED_LIB
 template <typename TCodec>
-Connector::Ptr connector(AnyExecutor exec, TcpHost host)
+Connector::Ptr connector(AnyIoExecutor exec, TcpHost host)
 {
     using Endpoint = internal::AsioConnector<internal::TcpOpener>;
     using ConcreteConnector = internal::RawsockConnector<TCodec, Endpoint>;

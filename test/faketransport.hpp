@@ -1,8 +1,7 @@
 /*------------------------------------------------------------------------------
-              Copyright Butterfly Energy Systems 2014-2015, 2022.
-           Distributed under the Boost Software License, Version 1.0.
-              (See accompanying file LICENSE_1_0.txt or copy at
-                    http://www.boost.org/LICENSE_1_0.txt)
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #ifndef CPPWAMP_TEST_FAKETRANSPORT_HPP
@@ -118,7 +117,7 @@ public:
             auto trnsp = FakeMsgTypeTransport::create(std::move(socket_),
                                                       64*1024, 64*1024);
             std::error_code ec = make_error_code(TransportErrc::success);
-            boost::asio::post(executor_,
+            boost::asio::post(strand_,
                               std::bind(handler_, ec, KnownCodecIds::json(),
                                         std::move(trnsp)));
             socket_.reset();
@@ -153,7 +152,7 @@ public:
             auto trnsp = FakeMsgTypeTransport::create(std::move(socket_),
                                                       64*1024, 64*1024);
             std::error_code ec = make_error_code(TransportErrc::success);
-            boost::asio::post(executor_,
+            boost::asio::post(strand_,
                               std::bind(handler_, ec, KnownCodecIds::json(),
                                         std::move(trnsp)));
             socket_.reset();
