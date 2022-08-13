@@ -23,7 +23,7 @@
 #define CPPWAMP_MINOR_VERSION 9
 
 /// Patch version for backwards-compatible bug fixes.
-#define CPPWAMP_PATCH_VERSION 1
+#define CPPWAMP_PATCH_VERSION 3
 
 /// Integer version number, computed as `(major*10000) + (minor*100) + patch`
 #define CPPWAMP_VERSION \
