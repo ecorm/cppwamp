@@ -87,87 +87,86 @@ $(document).ready(function(){initNavTree('uds_8hpp_source.html',''); initResizab
 </div><!--header-->
 <div class="contents">
 <a href="uds_8hpp.html">Go to the documentation of this file.</a><div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;<span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">                Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
-<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
-<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
-<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
-<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
-<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160; </div>
-<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_UDS_HPP</span></div>
-<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor">#define CPPWAMP_UDS_HPP</span></div>
-<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160; </div>
-<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160; </div>
-<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &lt;cassert&gt;</span></div>
-<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="preprocessor">#include &lt;memory&gt;</span></div>
-<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;<span class="preprocessor">#include &lt;string&gt;</span></div>
-<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;<span class="preprocessor">#include &lt;utility&gt;</span></div>
-<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="asiodefs_8hpp.html">asiodefs.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="connector_8hpp.html">connector.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="traits_8hpp.html">traits.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="udspath_8hpp.html">udspath.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160; </div>
-<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_COMPILED_LIB</span></div>
-<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;<span class="preprocessor">#include &quot;internal/asioconnector.hpp&quot;</span></div>
-<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;<span class="preprocessor">#include &quot;internal/rawsockconnector.hpp&quot;</span></div>
-<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;<span class="preprocessor">#include &quot;internal/udsopener.hpp&quot;</span></div>
-<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;<span class="preprocessor">#endif</span></div>
-<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160; </div>
-<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
-<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;{</div>
-<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160; </div>
-<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> TCodec&gt;</div>
-<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;CPPWAMP_API <a class="code" href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">Connector::Ptr</a> connector(</div>
-<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;    <a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> exec, </div>
-<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;    UdsPath path      </div>
-<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;);</div>
-<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160; </div>
-<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_COMPILED_LIB</span></div>
-<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> TCodec&gt;</div>
-<div class="line"><a name="l00055"></a><span class="lineno"><a class="line" href="classwamp_1_1_uds_path.html#a8286468d17c264d9ea9c68167406de7f">   55</a></span>&#160;CPPWAMP_API <a class="code" href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">Connector::Ptr</a> connector(<a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> exec, <a class="code" href="classwamp_1_1_uds_path.html">UdsPath</a> path)</div>
-<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;{</div>
-<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;    <span class="keyword">using</span> Endpoint = internal::AsioConnector&lt;internal::UdsOpener&gt;;</div>
-<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;    <span class="keyword">using</span> ConcreteConnector = internal::RawsockConnector&lt;TCodec, Endpoint&gt;;</div>
-<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160;    <span class="keywordflow">return</span> ConcreteConnector::create(exec, std::move(path));</div>
-<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;}</div>
-<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;<span class="preprocessor">#endif</span></div>
+<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">    Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
+<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">    Distributed under the Boost Software License, Version 1.0.</span></div>
+<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">    http://www.boost.org/LICENSE_1_0.txt</span></div>
+<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
+<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160; </div>
+<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_UDS_HPP</span></div>
+<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#define CPPWAMP_UDS_HPP</span></div>
+<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160; </div>
+<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160; </div>
+<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &lt;cassert&gt;</span></div>
+<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &lt;memory&gt;</span></div>
+<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="preprocessor">#include &lt;string&gt;</span></div>
+<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;<span class="preprocessor">#include &lt;utility&gt;</span></div>
+<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="asiodefs_8hpp.html">asiodefs.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="connector_8hpp.html">connector.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="traits_8hpp.html">traits.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="udspath_8hpp.html">udspath.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160; </div>
+<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_COMPILED_LIB</span></div>
+<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;<span class="preprocessor">#include &quot;internal/asioconnector.hpp&quot;</span></div>
+<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;<span class="preprocessor">#include &quot;internal/rawsockconnector.hpp&quot;</span></div>
+<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;<span class="preprocessor">#include &quot;internal/udsopener.hpp&quot;</span></div>
+<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;<span class="preprocessor">#endif</span></div>
+<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160; </div>
+<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
+<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160;{</div>
+<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160; </div>
+<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> TCodec&gt;</div>
+<div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160;CPPWAMP_API <a class="code" href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">Connector::Ptr</a> connector(</div>
+<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;    <a class="code" href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93">AnyIoExecutor</a> exec, </div>
+<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;    UdsPath path      </div>
+<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;);</div>
+<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160; </div>
+<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_COMPILED_LIB</span></div>
+<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> TCodec&gt;</div>
+<div class="line"><a name="l00054"></a><span class="lineno"><a class="line" href="classwamp_1_1_uds_path.html#a6ce06aa70b21c04bcd83d39eef45c320">   54</a></span>&#160;CPPWAMP_API <a class="code" href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">Connector::Ptr</a> connector(<a class="code" href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93">AnyIoExecutor</a> exec, <a class="code" href="classwamp_1_1_uds_path.html">UdsPath</a> path)</div>
+<div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;{</div>
+<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;    <span class="keyword">using</span> Endpoint = internal::AsioConnector&lt;internal::UdsOpener&gt;;</div>
+<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;    <span class="keyword">using</span> ConcreteConnector = internal::RawsockConnector&lt;TCodec, Endpoint&gt;;</div>
+<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;    <span class="keywordflow">return</span> ConcreteConnector::create(exec, std::move(path));</div>
+<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160;}</div>
+<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;<span class="preprocessor">#endif</span></div>
+<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160; </div>
 <div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160; </div>
-<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160; </div>
-<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> TCodec, <span class="keyword">typename</span> TExecutionContext&gt;</div>
-<div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160;CPPWAMP_ENABLED_TYPE(<a class="code" href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">Connector::Ptr</a>, isExecutionContext&lt;TExecutionContext&gt;())</div>
-<div class="line"><a name="l00078"></a><span class="lineno"><a class="line" href="classwamp_1_1_tcp_host.html#a2691dfa58141807c20f559e7936f0181">   78</a></span>&#160;connector(</div>
-<div class="line"><a name="l00079"></a><span class="lineno">   79</span>&#160;    TExecutionContext&amp; context, </div>
-<div class="line"><a name="l00081"></a><span class="lineno">   81</span>&#160;    <a class="code" href="classwamp_1_1_uds_path.html">UdsPath</a> path </div>
-<div class="line"><a name="l00082"></a><span class="lineno">   82</span>&#160;)</div>
-<div class="line"><a name="l00083"></a><span class="lineno">   83</span>&#160;{</div>
-<div class="line"><a name="l00084"></a><span class="lineno">   84</span>&#160;    <span class="keywordflow">return</span> connector&lt;TCodec&gt;(context.get_executor(), std::move(path));</div>
-<div class="line"><a name="l00085"></a><span class="lineno">   85</span>&#160;}</div>
-<div class="line"><a name="l00086"></a><span class="lineno">   86</span>&#160; </div>
-<div class="line"><a name="l00087"></a><span class="lineno">   87</span>&#160;} <span class="comment">// namespace wamp</span></div>
-<div class="line"><a name="l00088"></a><span class="lineno">   88</span>&#160; </div>
-<div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160;<span class="preprocessor">#endif // CPPWAMP_UDS_HPP</span></div>
+<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> TCodec, <span class="keyword">typename</span> TExecutionContext&gt;</div>
+<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;CPPWAMP_ENABLED_TYPE(<a class="code" href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">Connector::Ptr</a>, isExecutionContext&lt;TExecutionContext&gt;())</div>
+<div class="line"><a name="l00077"></a><span class="lineno"><a class="line" href="classwamp_1_1_tcp_host.html#a2691dfa58141807c20f559e7936f0181">   77</a></span>&#160;connector(</div>
+<div class="line"><a name="l00078"></a><span class="lineno">   78</span>&#160;    TExecutionContext&amp; context, </div>
+<div class="line"><a name="l00080"></a><span class="lineno">   80</span>&#160;    <a class="code" href="classwamp_1_1_uds_path.html">UdsPath</a> path </div>
+<div class="line"><a name="l00081"></a><span class="lineno">   81</span>&#160;)</div>
+<div class="line"><a name="l00082"></a><span class="lineno">   82</span>&#160;{</div>
+<div class="line"><a name="l00083"></a><span class="lineno">   83</span>&#160;    <span class="keywordflow">return</span> connector&lt;TCodec&gt;(context.get_executor(), std::move(path));</div>
+<div class="line"><a name="l00084"></a><span class="lineno">   84</span>&#160;}</div>
+<div class="line"><a name="l00085"></a><span class="lineno">   85</span>&#160; </div>
+<div class="line"><a name="l00086"></a><span class="lineno">   86</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00087"></a><span class="lineno">   87</span>&#160; </div>
+<div class="line"><a name="l00088"></a><span class="lineno">   88</span>&#160;<span class="preprocessor">#endif // CPPWAMP_UDS_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
-<div class="ttc" id="aclasswamp_1_1_uds_path_html"><div class="ttname"><a href="classwamp_1_1_uds_path.html">wamp::UdsPath</a></div><div class="ttdoc">Contains a Unix domain socket path, as well as other socket options.</div><div class="ttdef"><b>Definition:</b> udspath.hpp:96</div></div>
+<div class="ttc" id="aclasswamp_1_1_uds_path_html"><div class="ttname"><a href="classwamp_1_1_uds_path.html">wamp::UdsPath</a></div><div class="ttdoc">Contains a Unix domain socket path, as well as other socket options.</div><div class="ttdef"><b>Definition:</b> udspath.hpp:95</div></div>
+<div class="ttc" id="anamespacewamp_html_a1a6c1d3b5bec84434d0b3c472d2c3f93"><div class="ttname"><a href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93">wamp::AnyIoExecutor</a></div><div class="ttdeci">boost::asio::any_io_executor AnyIoExecutor</div><div class="ttdoc">Polymorphic executor for all I/O objects.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:27</div></div>
 <div class="ttc" id="audspath_8hpp_html"><div class="ttname"><a href="udspath_8hpp.html">udspath.hpp</a></div><div class="ttdoc">Contains facilities for specifying Unix domain socket transport parameters and options.</div></div>
 <div class="ttc" id="aconnector_8hpp_html"><div class="ttname"><a href="connector_8hpp.html">connector.hpp</a></div><div class="ttdoc">Contains the declaration of the Connector abstract base class.</div></div>
 <div class="ttc" id="aapi_8hpp_html"><div class="ttname"><a href="api_8hpp.html">api.hpp</a></div><div class="ttdoc">Defines macros related to exporting/importing APIs.</div></div>
 <div class="ttc" id="aclasswamp_1_1_connector_html_a71ed161f97ca2300f2e97e8ce9ab211b"><div class="ttname"><a href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">wamp::Connector::Ptr</a></div><div class="ttdeci">std::shared_ptr&lt; Connector &gt; Ptr</div><div class="ttdoc">Shared pointer to a Connector.</div><div class="ttdef"><b>Definition:</b> connector.hpp:43</div></div>
 <div class="ttc" id="aasiodefs_8hpp_html"><div class="ttname"><a href="asiodefs_8hpp.html">asiodefs.hpp</a></div><div class="ttdoc">Common type definitions used by transports that rely on Boost.Asio.</div></div>
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
-<div class="ttc" id="anamespacewamp_html_ab03f8349a2a066271e29e516c8c62cb2"><div class="ttname"><a href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">wamp::AnyExecutor</a></div><div class="ttdeci">boost::asio::any_io_executor AnyExecutor</div><div class="ttdoc">Polymorphic executor for all I/O objects.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:26</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
 <div class="ttc" id="atraits_8hpp_html"><div class="ttname"><a href="traits_8hpp.html">traits.hpp</a></div><div class="ttdoc">Contains general-purpose type traits.</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="uds_8hpp.html">uds.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

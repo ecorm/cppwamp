@@ -84,7 +84,9 @@ $(document).ready(function(){initNavTree('peerdata_8hpp.html',''); initResizable
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
-<a href="#namespaces">Namespaces</a>  </div>
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#typedef-members">Typedefs</a> &#124;
+<a href="#var-members">Variables</a>  </div>
   <div class="headertitle">
 <div class="title">peerdata.hpp File Reference</div>  </div>
 </div><!--header-->
@@ -101,6 +103,7 @@ $(document).ready(function(){initNavTree('peerdata_8hpp.html',''); initResizable
 <code>#include &lt;vector&gt;</code><br />
 <code>#include &quot;<a class="el" href="api_8hpp_source.html">api.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="asiodefs_8hpp_source.html">asiodefs.hpp</a>&quot;</code><br />
+<code>#include &quot;config.hpp&quot;</code><br />
 <code>#include &quot;<a class="el" href="options_8hpp_source.html">options.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="payload_8hpp_source.html">payload.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="variant_8hpp_source.html">variant.hpp</a>&quot;</code><br />
@@ -112,11 +115,14 @@ $(document).ready(function(){initNavTree('peerdata_8hpp.html',''); initResizable
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_abort.html">wamp::Abort</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Provides the <em>reason</em> URI and other options contained within <code>ABORT</code> messages.  <a href="classwamp_1_1_abort.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_realm.html">wamp::Realm</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Realm URI and other options contained within WAMP <code>HELLO</code> messages.  <a href="classwamp_1_1_realm.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_info.html">wamp::SessionInfo</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications.">Session</a> information contained within WAMP <code>WELCOME</code> messages.  <a href="classwamp_1_1_session_info.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classwamp_1_1_session.html" title="Session API used by a client peer in WAMP applications.">Session</a> information contained within WAMP <code>WELCOME</code> messages.  <a href="classwamp_1_1_session_info.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_reason.html">wamp::Reason</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Provides the <em>reason</em> URI and other options contained within <code>GOODBYE</code> messages.  <a href="classwamp_1_1_reason.html#details">More...</a><br /></td></tr>
@@ -148,14 +154,17 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_result.html">wamp::Result</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains the remote procedure result options/payload within WAMP <code>RESULT</code> and <code>YIELD</code> messages.  <a href="classwamp_1_1_result.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structwamp_1_1_deferment.html">wamp::Deferment</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Tag type that can be passed to <a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a> to construct a deferred outcome.  <a href="structwamp_1_1_deferment.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_outcome.html">wamp::Outcome</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains the outcome of an RPC invocation.  <a href="classwamp_1_1_outcome.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_invocation.html">wamp::Invocation</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains payload arguments and other options within WAMP <code>INVOCATION</code> messages.  <a href="classwamp_1_1_invocation.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_cancellation.html">wamp::Cancellation</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains the request ID and options contained within WAMP <code>CANCEL</code> messages.  <a href="classwamp_1_1_cancellation.html#details">More...</a><br /></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_call_cancellation.html">wamp::CallCancellation</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains the request ID and options contained within WAMP <code>CANCEL</code> messages.  <a href="classwamp_1_1_call_cancellation.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_interruption.html">wamp::Interruption</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Contains details within WAMP <code>INTERRUPT</code> messages.  <a href="classwamp_1_1_interruption.html#details">More...</a><br /></td></tr>
@@ -165,6 +174,19 @@ Classes</h2></td></tr>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacewamp"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html">wamp</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
+Typedefs</h2></td></tr>
+<tr class="memitem:a22abefe77bf3705196e2e756a0c134b8"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a22abefe77bf3705196e2e756a0c134b8">wamp::Cancellation</a> = CallCancellation</td></tr>
+<tr class="memdesc:a22abefe77bf3705196e2e756a0c134b8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Alias of <a class="el" href="classwamp_1_1_call_cancellation.html" title="Contains the request ID and options contained within WAMP CANCEL messages.">CallCancellation</a> kept for backward compatiblity.  <a href="namespacewamp.html#a22abefe77bf3705196e2e756a0c134b8">More...</a><br /></td></tr>
+<tr class="separator:a22abefe77bf3705196e2e756a0c134b8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
+Variables</h2></td></tr>
+<tr class="memitem:ab9817fe38224a0e5fc43ca9cdbce4716"><td class="memItemLeft" align="right" valign="top"><a id="ab9817fe38224a0e5fc43ca9cdbce4716"></a>
+constexpr Deferment&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#ab9817fe38224a0e5fc43ca9cdbce4716">wamp::deferment</a></td></tr>
+<tr class="memdesc:ab9817fe38224a0e5fc43ca9cdbce4716"><td class="mdescLeft">&#160;</td><td class="mdescRight">Convenient value of the <a class="el" href="structwamp_1_1_deferment.html" title="Tag type that can be passed to wamp::Outcome to construct a deferred outcome.">wamp::Deferment</a> tag type that can be passed to the <a class="el" href="classwamp_1_1_outcome.html" title="Contains the outcome of an RPC invocation.">wamp::Outcome</a> constructor. <br /></td></tr>
+<tr class="separator:ab9817fe38224a0e5fc43ca9cdbce4716"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Contains declarations for data structures exchanged between WAMP peers. </p>
@@ -174,7 +196,7 @@ Namespaces</h2></td></tr>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="peerdata_8hpp.html">peerdata.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

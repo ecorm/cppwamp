@@ -87,17 +87,17 @@ $(document).ready(function(){initNavTree('examples_2chat_2main_8cpp-example.html
 </div><!--header-->
 <div class="contents">
 <div class="fragment"><div class="line"><span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><span class="comment">                Copyright Butterfly Energy Systems 2014-2015.</span></div>
-<div class="line"><span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
-<div class="line"><span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
-<div class="line"><span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
+<div class="line"><span class="comment">    Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
+<div class="line"><span class="comment">    Distributed under the Boost Software License, Version 1.0.</span></div>
+<div class="line"><span class="comment">    http://www.boost.org/LICENSE_1_0.txt</span></div>
 <div class="line"><span class="comment">------------------------------------------------------------------------------*/</span></div>
 <div class="line"> </div>
 <div class="line"><span class="preprocessor">#include &lt;iostream&gt;</span></div>
+<div class="line"><span class="preprocessor">#include &lt;boost/asio/spawn.hpp&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;<a class="code" href="json_8hpp.html">cppwamp/json.hpp</a>&gt;</span></div>
+<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="session_8hpp.html">cppwamp/session.hpp</a>&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;<a class="code" href="tcp_8hpp.html">cppwamp/tcp.hpp</a>&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;<a class="code" href="unpacker_8hpp.html">cppwamp/unpacker.hpp</a>&gt;</span></div>
-<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="coro_2corosession_8hpp.html">cppwamp/coro/corosession.hpp</a>&gt;</span></div>
 <div class="line"> </div>
 <div class="line"><span class="keyword">const</span> std::string realm = <span class="stringliteral">&quot;cppwamp.demo.chat&quot;</span>;</div>
 <div class="line"><span class="keyword">const</span> std::string address = <span class="stringliteral">&quot;localhost&quot;</span>;</div>
@@ -116,29 +116,28 @@ $(document).ready(function(){initNavTree('examples_2chat_2main_8cpp-example.html
 <div class="line">    <span class="keywordtype">void</span> start(<a class="code" href="namespacewamp.html#af5e518db13376e7a5f5cf73a3c5d2414">wamp::ConnectorList</a> connectors, Yield yield)</div>
 <div class="line">    {</div>
 <div class="line">        <span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line">        session_ = <a name="_a0"></a><a class="code" href="classwamp_1_1_coro_session.html">CoroSession&lt;&gt;::create</a>(ioctx_, connectors);</div>
+<div class="line">        session_ = Session::create(ioctx_, connectors);</div>
 <div class="line"> </div>
-<div class="line">        <span class="keyword">auto</span> index = session_-&gt;connect(yield);</div>
+<div class="line">        <span class="keyword">auto</span> index = session_-&gt;connect(yield).value();</div>
 <div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Chat service connected on transport #&quot;</span></div>
 <div class="line">                  &lt;&lt; (index + 1) &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
 <div class="line"> </div>
-<div class="line">        <span class="keyword">auto</span> info = session_-&gt;join(<a name="_a1"></a><a class="code" href="classwamp_1_1_realm.html">Realm</a>(realm), yield);</div>
+<div class="line">        <span class="keyword">auto</span> info = session_-&gt;join(<a name="_a0"></a><a class="code" href="classwamp_1_1_realm.html">Realm</a>(realm), yield).value();</div>
 <div class="line">        std::cout &lt;&lt; <span class="stringliteral">&quot;Chat service joined, session ID = &quot;</span> &lt;&lt; info.id() &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
 <div class="line"> </div>
 <div class="line">        <span class="keyword">using namespace </span>std::placeholders;</div>
 <div class="line"> </div>
 <div class="line">        registration_ = session_-&gt;enroll(</div>
-<div class="line">            <a name="_a2"></a><a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;say&quot;</span>),</div>
-<div class="line">            basicRpc&lt;void, std::string, std::string&gt;(</div>
+<div class="line">            <a name="_a1"></a><a class="code" href="classwamp_1_1_procedure.html">Procedure</a>(<span class="stringliteral">&quot;say&quot;</span>),</div>
+<div class="line">            simpleRpc&lt;void, std::string, std::string&gt;(</div>
 <div class="line">                                std::bind(&amp;ChatService::say, <span class="keyword">this</span>, _1, _2)),</div>
-<div class="line">            yield</div>
-<div class="line">        );</div>
+<div class="line">            yield).value();</div>
 <div class="line">    }</div>
 <div class="line"> </div>
 <div class="line">    <span class="keywordtype">void</span> quit(Yield yield)</div>
 <div class="line">    {</div>
 <div class="line">        registration_.unregister();</div>
-<div class="line">        session_-&gt;leave(<a name="_a3"></a><a class="code" href="classwamp_1_1_reason.html">wamp::Reason</a>(), yield);</div>
+<div class="line">        session_-&gt;leave(<a name="_a2"></a><a class="code" href="classwamp_1_1_reason.html">wamp::Reason</a>(), yield).value();</div>
 <div class="line">        session_-&gt;disconnect();</div>
 <div class="line">    }</div>
 <div class="line"> </div>
@@ -146,12 +145,12 @@ $(document).ready(function(){initNavTree('examples_2chat_2main_8cpp-example.html
 <div class="line">    <span class="keywordtype">void</span> say(std::string user, std::string message)</div>
 <div class="line">    {</div>
 <div class="line">        <span class="comment">// Rebroadcast message to all subscribers</span></div>
-<div class="line">        session_-&gt;publish( <a name="_a4"></a><a class="code" href="classwamp_1_1_pub.html">wamp::Pub</a>(<span class="stringliteral">&quot;said&quot;</span>).withArgs(user, message) );</div>
+<div class="line">        session_-&gt;publish( <a name="_a3"></a><a class="code" href="classwamp_1_1_pub.html">wamp::Pub</a>(<span class="stringliteral">&quot;said&quot;</span>).withArgs(user, message) );</div>
 <div class="line">    }</div>
 <div class="line"> </div>
 <div class="line">    <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a>&amp; ioctx_;</div>
-<div class="line">    <a class="code" href="classwamp_1_1_coro_session.html#a8b91b9a8096b99f2a95a2815d66b5ee5">wamp::CoroSession&lt;&gt;::Ptr</a> session_;</div>
-<div class="line">    <a name="_a5"></a><a class="code" href="classwamp_1_1_scoped_registration.html">wamp::ScopedRegistration</a> registration_;</div>
+<div class="line">    <a class="code" href="classwamp_1_1_session.html#a3c66ba85a4fa50f8b85b15ba0c672384">wamp::Session::Ptr</a> session_;</div>
+<div class="line">    <a name="_a4"></a><a class="code" href="classwamp_1_1_scoped_registration.html">wamp::ScopedRegistration</a> registration_;</div>
 <div class="line">};</div>
 <div class="line"> </div>
 <div class="line"> </div>
@@ -169,33 +168,34 @@ $(document).ready(function(){initNavTree('examples_2chat_2main_8cpp-example.html
 <div class="line">    <span class="keywordtype">void</span> join(<a class="code" href="namespacewamp.html#af5e518db13376e7a5f5cf73a3c5d2414">wamp::ConnectorList</a> connectors, Yield yield)</div>
 <div class="line">    {</div>
 <div class="line">        <span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line">        session_ = <a class="code" href="classwamp_1_1_coro_session.html">CoroSession&lt;&gt;::create</a>(ioctx_, connectors);</div>
+<div class="line">        session_ = Session::create(ioctx_, connectors);</div>
 <div class="line"> </div>
-<div class="line">        <span class="keyword">auto</span> index = session_-&gt;connect(yield);</div>
+<div class="line">        <span class="keyword">auto</span> index = session_-&gt;connect(yield).value();</div>
 <div class="line">        std::cout &lt;&lt; user_ &lt;&lt; <span class="stringliteral">&quot; connected on transport #&quot;</span> &lt;&lt; index &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
 <div class="line"> </div>
-<div class="line">        <span class="keyword">auto</span> info = session_-&gt;join(<a class="code" href="classwamp_1_1_realm.html">Realm</a>(realm), yield);</div>
+<div class="line">        <span class="keyword">auto</span> info = session_-&gt;join(<a class="code" href="classwamp_1_1_realm.html">Realm</a>(realm), yield).value();</div>
 <div class="line">        std::cout &lt;&lt; user_ &lt;&lt; <span class="stringliteral">&quot; joined, session ID = &quot;</span> &lt;&lt; info.id() &lt;&lt; <span class="stringliteral">&quot;\n&quot;</span>;</div>
 <div class="line"> </div>
 <div class="line">        <span class="keyword">using namespace </span>std::placeholders;</div>
 <div class="line">        subscription_ = session_-&gt;subscribe(</div>
-<div class="line">                <a name="_a6"></a><a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;said&quot;</span>),</div>
-<div class="line">                basicEvent&lt;std::string, std::string&gt;(</div>
+<div class="line">                <a name="_a5"></a><a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;said&quot;</span>),</div>
+<div class="line">                simpleEvent&lt;std::string, std::string&gt;(</div>
 <div class="line">                        std::bind(&amp;ChatClient::said, <span class="keyword">this</span>, _1, _2)),</div>
-<div class="line">                yield);</div>
+<div class="line">                yield).value();</div>
 <div class="line">    }</div>
 <div class="line"> </div>
 <div class="line">    <span class="keywordtype">void</span> leave(Yield yield)</div>
 <div class="line">    {</div>
 <div class="line">        subscription_.unsubscribe();</div>
-<div class="line">        session_-&gt;leave(<a class="code" href="classwamp_1_1_reason.html">wamp::Reason</a>(), yield);</div>
+<div class="line">        session_-&gt;leave(<a class="code" href="classwamp_1_1_reason.html">wamp::Reason</a>(), yield).value();</div>
 <div class="line">        session_.reset();</div>
 <div class="line">    }</div>
 <div class="line"> </div>
 <div class="line">    <span class="keywordtype">void</span> say(<span class="keyword">const</span> std::string&amp; message, Yield yield)</div>
 <div class="line">    {</div>
 <div class="line">        std::cout &lt;&lt; user_ &lt;&lt; <span class="stringliteral">&quot; says \&quot;&quot;</span> &lt;&lt; message &lt;&lt; <span class="stringliteral">&quot;\&quot;\n&quot;</span>;</div>
-<div class="line">        session_-&gt;call(<a name="_a7"></a><a class="code" href="classwamp_1_1_rpc.html">wamp::Rpc</a>(<span class="stringliteral">&quot;say&quot;</span>).withArgs(user_, message), yield);</div>
+<div class="line">        session_-&gt;call(<a name="_a6"></a><a class="code" href="classwamp_1_1_rpc.html">wamp::Rpc</a>(<span class="stringliteral">&quot;say&quot;</span>).withArgs(user_, message),</div>
+<div class="line">                       yield).value();</div>
 <div class="line">    }</div>
 <div class="line"> </div>
 <div class="line"><span class="keyword">private</span>:</div>
@@ -207,8 +207,8 @@ $(document).ready(function(){initNavTree('examples_2chat_2main_8cpp-example.html
 <div class="line"> </div>
 <div class="line">    <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a>&amp; ioctx_;</div>
 <div class="line">    std::string user_;</div>
-<div class="line">    <a class="code" href="classwamp_1_1_coro_session.html#a8b91b9a8096b99f2a95a2815d66b5ee5">wamp::CoroSession&lt;&gt;::Ptr</a> session_;</div>
-<div class="line">    <a name="_a8"></a><a class="code" href="classwamp_1_1_scoped_subscription.html">wamp::ScopedSubscription</a> subscription_;</div>
+<div class="line">    <a class="code" href="classwamp_1_1_session.html#a3c66ba85a4fa50f8b85b15ba0c672384">wamp::Session::Ptr</a> session_;</div>
+<div class="line">    <a name="_a7"></a><a class="code" href="classwamp_1_1_scoped_subscription.html">wamp::ScopedSubscription</a> subscription_;</div>
 <div class="line">};</div>
 <div class="line"> </div>
 <div class="line"> </div>
@@ -218,7 +218,7 @@ $(document).ready(function(){initNavTree('examples_2chat_2main_8cpp-example.html
 <div class="line">    <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a> ioctx;</div>
 <div class="line"> </div>
 <div class="line">    <span class="keyword">auto</span> tcp = wamp::connector&lt;wamp::Json&gt;( ioctx,</div>
-<div class="line">                                            <a name="_a9"></a><a class="code" href="classwamp_1_1_tcp_host.html">wamp::TcpHost</a>(<span class="stringliteral">&quot;localhost&quot;</span>, 12345) );</div>
+<div class="line">                                            <a name="_a8"></a><a class="code" href="classwamp_1_1_tcp_host.html">wamp::TcpHost</a>(<span class="stringliteral">&quot;localhost&quot;</span>, 12345) );</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Normally, the service and client instances would be in separate programs.</span></div>
 <div class="line">    <span class="comment">// We run them all here in the same coroutine for demonstration purposes.</span></div>
@@ -250,28 +250,27 @@ $(document).ready(function(){initNavTree('examples_2chat_2main_8cpp-example.html
 <div class="line">}</div>
 </div><!-- fragment --> </div><!-- contents -->
 </div><!-- doc-content -->
-<div class="ttc" id="aclasswamp_1_1_reason_html"><div class="ttname"><a href="classwamp_1_1_reason.html">wamp::Reason</a></div><div class="ttdoc">Provides the reason URI and other options contained within GOODBYE messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:151</div></div>
-<div class="ttc" id="aclasswamp_1_1_coro_session_html"><div class="ttname"><a href="classwamp_1_1_coro_session.html">wamp::CoroSession</a></div><div class="ttdoc">Coroutine API used by a client peer in WAMP applications.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:94</div></div>
-<div class="ttc" id="aclasswamp_1_1_realm_html"><div class="ttname"><a href="classwamp_1_1_realm.html">wamp::Realm</a></div><div class="ttdoc">Realm URI and other options contained within WAMP HELLO messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:38</div></div>
+<div class="ttc" id="asession_8hpp_html"><div class="ttname"><a href="session_8hpp.html">session.hpp</a></div><div class="ttdoc">Contains the asynchronous session API used by a client peer in WAMP applications.</div></div>
+<div class="ttc" id="aclasswamp_1_1_reason_html"><div class="ttname"><a href="classwamp_1_1_reason.html">wamp::Reason</a></div><div class="ttdoc">Provides the reason URI and other options contained within GOODBYE messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:181</div></div>
+<div class="ttc" id="aclasswamp_1_1_realm_html"><div class="ttname"><a href="classwamp_1_1_realm.html">wamp::Realm</a></div><div class="ttdoc">Realm URI and other options contained within WAMP HELLO messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:59</div></div>
 <div class="ttc" id="aclasswamp_1_1_scoped_subscription_html"><div class="ttname"><a href="classwamp_1_1_scoped_subscription.html">wamp::ScopedSubscription</a></div><div class="ttdoc">Limits a Subscription's lifetime to a particular scope.</div><div class="ttdef"><b>Definition:</b> subscription.hpp:92</div></div>
-<div class="ttc" id="aclasswamp_1_1_topic_html"><div class="ttname"><a href="classwamp_1_1_topic.html">wamp::Topic</a></div><div class="ttdoc">Provides the topic URI and other options contained within WAMP ‘SUBSCRIBE’ messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:301</div></div>
-<div class="ttc" id="aclasswamp_1_1_procedure_html"><div class="ttname"><a href="classwamp_1_1_procedure.html">wamp::Procedure</a></div><div class="ttdoc">Contains the procedure URI and other options contained within WAMP REGISTER messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:462</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_html_a3c66ba85a4fa50f8b85b15ba0c672384"><div class="ttname"><a href="classwamp_1_1_session.html#a3c66ba85a4fa50f8b85b15ba0c672384">wamp::Session::Ptr</a></div><div class="ttdeci">std::shared_ptr&lt; Session &gt; Ptr</div><div class="ttdoc">Shared pointer to a Session.</div><div class="ttdef"><b>Definition:</b> session.hpp:117</div></div>
+<div class="ttc" id="aclasswamp_1_1_topic_html"><div class="ttname"><a href="classwamp_1_1_topic.html">wamp::Topic</a></div><div class="ttdoc">Provides the topic URI and other options contained within WAMP ‘SUBSCRIBE’ messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:331</div></div>
+<div class="ttc" id="aclasswamp_1_1_procedure_html"><div class="ttname"><a href="classwamp_1_1_procedure.html">wamp::Procedure</a></div><div class="ttdoc">Contains the procedure URI and other options contained within WAMP REGISTER messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:492</div></div>
 <div class="ttc" id="aclasswamp_1_1_tcp_host_html"><div class="ttname"><a href="classwamp_1_1_tcp_host.html">wamp::TcpHost</a></div><div class="ttdoc">Contains TCP host address information, as well as other socket options.</div><div class="ttdef"><b>Definition:</b> tcphost.hpp:103</div></div>
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
 <div class="ttc" id="aunpacker_8hpp_html"><div class="ttname"><a href="unpacker_8hpp.html">unpacker.hpp</a></div><div class="ttdoc">Contains utilities for unpacking positional arguments passed to event slots and call slots.</div></div>
 <div class="ttc" id="aclasswamp_1_1_scoped_registration_html"><div class="ttname"><a href="classwamp_1_1_scoped_registration.html">wamp::ScopedRegistration</a></div><div class="ttdoc">Limits a Registration's lifetime to a particular scope.</div><div class="ttdef"><b>Definition:</b> registration.hpp:89</div></div>
 <div class="ttc" id="ajson_8hpp_html"><div class="ttname"><a href="json_8hpp.html">json.hpp</a></div><div class="ttdoc">Contains the JSON codec.</div></div>
-<div class="ttc" id="aclasswamp_1_1_rpc_html"><div class="ttname"><a href="classwamp_1_1_rpc.html">wamp::Rpc</a></div><div class="ttdoc">Contains the procedure URI, options, and payload contained within WAMP CALL messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:505</div></div>
+<div class="ttc" id="aclasswamp_1_1_rpc_html"><div class="ttname"><a href="classwamp_1_1_rpc.html">wamp::Rpc</a></div><div class="ttdoc">Contains the procedure URI, options, and payload contained within WAMP CALL messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:535</div></div>
 <div class="ttc" id="atcp_8hpp_html"><div class="ttname"><a href="tcp_8hpp.html">tcp.hpp</a></div><div class="ttdoc">Contains facilities for creating TCP transport connectors.</div></div>
-<div class="ttc" id="aclasswamp_1_1_pub_html"><div class="ttname"><a href="classwamp_1_1_pub.html">wamp::Pub</a></div><div class="ttdoc">Provides the topic URI, options, and payload contained within WAMP PUBLISH messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:333</div></div>
-<div class="ttc" id="acoro_2corosession_8hpp_html"><div class="ttname"><a href="coro_2corosession_8hpp.html">corosession.hpp</a></div><div class="ttdoc">Contains the coroutine-based API used by a client peer in WAMP applications.</div></div>
-<div class="ttc" id="anamespacewamp_html_af5e518db13376e7a5f5cf73a3c5d2414"><div class="ttname"><a href="namespacewamp.html#af5e518db13376e7a5f5cf73a3c5d2414">wamp::ConnectorList</a></div><div class="ttdeci">std::vector&lt; Connector::Ptr &gt; ConnectorList</div><div class="ttdoc">List of Connector objects to use when attempting connection.</div><div class="ttdef"><b>Definition:</b> connector.hpp:72</div></div>
-<div class="ttc" id="aclasswamp_1_1_coro_session_html_a8b91b9a8096b99f2a95a2815d66b5ee5"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a8b91b9a8096b99f2a95a2815d66b5ee5">wamp::CoroSession::Ptr</a></div><div class="ttdeci">std::shared_ptr&lt; CoroSession &gt; Ptr</div><div class="ttdoc">Shared pointer to a CoroSession.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:98</div></div>
-<div class="ttc" id="anamespacewamp_html_a9dd954da85bf9033739185b3a29e3e85"><div class="ttname"><a href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a></div><div class="ttdeci">boost::asio::io_context AsioContext</div><div class="ttdoc">Queues and runs I/O completion handlers.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:29</div></div>
+<div class="ttc" id="aclasswamp_1_1_pub_html"><div class="ttname"><a href="classwamp_1_1_pub.html">wamp::Pub</a></div><div class="ttdoc">Provides the topic URI, options, and payload contained within WAMP PUBLISH messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:363</div></div>
+<div class="ttc" id="anamespacewamp_html_af5e518db13376e7a5f5cf73a3c5d2414"><div class="ttname"><a href="namespacewamp.html#af5e518db13376e7a5f5cf73a3c5d2414">wamp::ConnectorList</a></div><div class="ttdeci">std::vector&lt; Connector::Ptr &gt; ConnectorList</div><div class="ttdoc">List of Connector objects to use when attempting connection.</div><div class="ttdef"><b>Definition:</b> connector.hpp:74</div></div>
+<div class="ttc" id="anamespacewamp_html_a9dd954da85bf9033739185b3a29e3e85"><div class="ttname"><a href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a></div><div class="ttdeci">boost::asio::io_context AsioContext</div><div class="ttdoc">Queues and runs I/O completion handlers.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:34</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:38 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

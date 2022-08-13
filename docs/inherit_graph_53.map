@@ -1,3 +1,4 @@
 <map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" href="$namespacewamp.html#structwamp_1_1_result_type_of_handler" title="Type traits template used to obtain the result type of an asynchronous handler." alt="" coords="5,5,212,47"/>
+<area shape="rect" id="node1" title=" " alt="" coords="5,5,196,47"/>
+<area shape="rect" id="node2" href="$classwamp_1_1_realm.html" title="Realm URI and other options contained within WAMP HELLO messages." alt="" coords="244,13,356,39"/>
 </map>

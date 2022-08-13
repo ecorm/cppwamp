@@ -1,3 +1,8 @@
 <map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" href="$classwamp_1_1_event_unpacker.html" title="Wrapper around an event slot which automatically unpacks positional payload arguments." alt="" coords="5,5,173,47"/>
+<area shape="rect" id="node1" title="STL class." alt="" coords="5,107,151,133"/>
+<area shape="rect" id="node2" href="$classwamp_1_1_decoding_category.html" title="std::error_category used for reporting deserialization errors." alt="" coords="199,5,389,32"/>
+<area shape="rect" id="node3" href="$classwamp_1_1_protocol_category.html" title="std::error_category used for reporting protocol errors related to invalid WAMP messages." alt="" coords="203,56,385,83"/>
+<area shape="rect" id="node4" href="$classwamp_1_1_rawsock_category.html" title="std::error_category used for reporting errors specific to raw socket transports." alt="" coords="201,107,387,133"/>
+<area shape="rect" id="node5" href="$classwamp_1_1_session_category.html" title="std::error_category used for reporting errors at the WAMP session layer." alt="" coords="205,157,383,184"/>
+<area shape="rect" id="node6" href="$classwamp_1_1_transport_category.html" title="std::error_category used for reporting errors at the transport layer." alt="" coords="199,208,389,235"/>
 </map>

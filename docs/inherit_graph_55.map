@@ -1,4 +1,4 @@
 <map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" href="$classwamp_1_1_session.html" title="Asynchronous session API used by a client peer in WAMP applications." alt="" coords="5,13,125,39"/>
-<area shape="rect" id="node2" href="$classwamp_1_1_coro_session.html" title="Coroutine API used by a client peer in WAMP applications." alt="" coords="173,5,335,47"/>
+<area shape="rect" id="node1" href="$classwamp_1_1_registration.html" title="Represents a remote procedure registration." alt="" coords="5,5,155,32"/>
+<area shape="rect" id="node2" href="$classwamp_1_1_scoped_registration.html" title="Limits a Registration&#39;s lifetime to a particular scope." alt="" coords="203,5,399,32"/>
 </map>

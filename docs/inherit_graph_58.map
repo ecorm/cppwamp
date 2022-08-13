@@ -1,3 +1,4 @@
 <map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" href="$namespacewamp.html#structwamp_1_1_stream_output_category" title="Output category for output streams of bytes." alt="" coords="5,5,225,32"/>
+<area shape="rect" id="node1" href="$classwamp_1_1_session.html" title="Session API used by a client peer in WAMP applications." alt="" coords="5,13,125,39"/>
+<area shape="rect" id="node2" href="$classwamp_1_1_coro_session.html" title="Coroutine API used by a client peer in WAMP applications." alt="" coords="173,5,335,47"/>
 </map>

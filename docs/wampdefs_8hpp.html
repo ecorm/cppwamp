@@ -93,7 +93,8 @@ $(document).ready(function(){initNavTree('wampdefs_8hpp.html',''); initResizable
 
 <p>Contains type definitions related to WAMP IDs and sessions.  
 <a href="#details">More...</a></p>
-<div class="textblock"><code>#include &lt;cstdint&gt;</code><br />
+<div class="textblock"><code>#include &quot;config.hpp&quot;</code><br />
+<code>#include &lt;cstdint&gt;</code><br />
 </div>
 <p><a href="wampdefs_8hpp_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -122,8 +123,11 @@ using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="nam
 <tr class="separator:af1108039d1eea74def74485afcd801d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a2a11e7b619d74f499adf34837731877b"><td class="memItemLeft" align="right" valign="top"><a id="a2a11e7b619d74f499adf34837731877b"></a>
 using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a2a11e7b619d74f499adf34837731877b">wamp::RegistrationId</a> = int64_t</td></tr>
-<tr class="memdesc:a2a11e7b619d74f499adf34837731877b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Ephemeral ID associated with an RPC registration. <br /></td></tr>
+<tr class="memdesc:a2a11e7b619d74f499adf34837731877b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the value representing a blank RequestId. <br /></td></tr>
 <tr class="separator:a2a11e7b619d74f499adf34837731877b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aec6569c4e9bd084777aea6cf8ee0fea6"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#aec6569c4e9bd084777aea6cf8ee0fea6">wamp::CancelMode</a> = CallCancelMode</td></tr>
+<tr class="memdesc:aec6569c4e9bd084777aea6cf8ee0fea6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Alias to CallCancelMode kept for backward compatibility.  <a href="namespacewamp.html#aec6569c4e9bd084777aea6cf8ee0fea6">More...</a><br /></td></tr>
+<tr class="separator:aec6569c4e9bd084777aea6cf8ee0fea6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
 Enumerations</h2></td></tr>
@@ -147,16 +151,16 @@ Enumerations</h2></td></tr>
  }</td></tr>
 <tr class="memdesc:a53ba5f85cd0d02bf363dfec7da1b339f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enumerates the possible states that a client or router session can be in.  <a href="namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339f">More...</a><br /></td></tr>
 <tr class="separator:a53ba5f85cd0d02bf363dfec7da1b339f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5a79c4206c6e45fbfedc0d7d4a775890"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a5a79c4206c6e45fbfedc0d7d4a775890">wamp::CancelMode</a> { <br />
-&#160;&#160;<a class="el" href="namespacewamp.html#a5a79c4206c6e45fbfedc0d7d4a775890a534735884d341071762ede7af01c53e8">wamp::CancelMode::kill</a>, 
+<tr class="memitem:ada5fff4d6df9508a521ce3966a80f402"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#ada5fff4d6df9508a521ce3966a80f402">wamp::CallCancelMode</a> { <br />
+&#160;&#160;<a class="el" href="namespacewamp.html#ada5fff4d6df9508a521ce3966a80f402a534735884d341071762ede7af01c53e8">wamp::CallCancelMode::kill</a>, 
 <br />
-&#160;&#160;<a class="el" href="namespacewamp.html#a5a79c4206c6e45fbfedc0d7d4a775890a242f6238202bc24d24474f1b405f6bb7">wamp::CancelMode::killNoWait</a>, 
+&#160;&#160;<a class="el" href="namespacewamp.html#ada5fff4d6df9508a521ce3966a80f402a242f6238202bc24d24474f1b405f6bb7">wamp::CallCancelMode::killNoWait</a>, 
 <br />
-&#160;&#160;<a class="el" href="namespacewamp.html#a5a79c4206c6e45fbfedc0d7d4a775890a08b43519a7e36ee4c6c5615d1663bcfd">wamp::CancelMode::skip</a>
+&#160;&#160;<a class="el" href="namespacewamp.html#ada5fff4d6df9508a521ce3966a80f402a08b43519a7e36ee4c6c5615d1663bcfd">wamp::CallCancelMode::skip</a>
 <br />
  }</td></tr>
-<tr class="memdesc:a5a79c4206c6e45fbfedc0d7d4a775890"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enumerates the possible call cancelling modes.  <a href="namespacewamp.html#a5a79c4206c6e45fbfedc0d7d4a775890">More...</a><br /></td></tr>
-<tr class="separator:a5a79c4206c6e45fbfedc0d7d4a775890"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memdesc:ada5fff4d6df9508a521ce3966a80f402"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enumerates the possible call cancelling modes.  <a href="namespacewamp.html#ada5fff4d6df9508a521ce3966a80f402">More...</a><br /></td></tr>
+<tr class="separator:ada5fff4d6df9508a521ce3966a80f402"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Contains type definitions related to WAMP IDs and sessions. </p>
@@ -166,7 +170,7 @@ Enumerations</h2></td></tr>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="wampdefs_8hpp.html">wampdefs.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

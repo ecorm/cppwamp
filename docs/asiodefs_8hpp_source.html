@@ -87,55 +87,62 @@ $(document).ready(function(){initNavTree('asiodefs_8hpp_source.html',''); initRe
 </div><!--header-->
 <div class="contents">
 <a href="asiodefs_8hpp.html">Go to the documentation of this file.</a><div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;<span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">              Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
-<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
-<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
-<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
-<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
-<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160; </div>
-<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_ASIODEFS_HPP</span></div>
-<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor">#define CPPWAMP_ASIODEFS_HPP</span></div>
-<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160; </div>
-<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160; </div>
-<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &lt;type_traits&gt;</span></div>
-<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="preprocessor">#include &lt;boost/asio/any_io_executor.hpp&gt;</span></div>
-<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;<span class="preprocessor">#include &lt;boost/asio/io_context.hpp&gt;</span></div>
+<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">    Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
+<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">    Distributed under the Boost Software License, Version 1.0.</span></div>
+<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">    http://www.boost.org/LICENSE_1_0.txt</span></div>
+<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
+<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160; </div>
+<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_ASIODEFS_HPP</span></div>
+<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#define CPPWAMP_ASIODEFS_HPP</span></div>
+<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160; </div>
+<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160; </div>
+<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &lt;type_traits&gt;</span></div>
+<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &lt;boost/asio/any_io_executor.hpp&gt;</span></div>
+<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="preprocessor">#include &lt;boost/asio/io_context.hpp&gt;</span></div>
+<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;<span class="preprocessor">#include &lt;boost/asio/strand.hpp&gt;</span></div>
 <div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;<span class="preprocessor">#include &lt;boost/system/error_code.hpp&gt;</span></div>
-<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160; </div>
-<div class="line"><a name="l00022"></a><span class="lineno"><a class="line" href="namespacewamp.html">   22</a></span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
-<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;{</div>
-<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160; </div>
-<div class="line"><a name="l00026"></a><span class="lineno"><a class="line" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">   26</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> = boost::asio::any_io_executor;</div>
-<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160; </div>
-<div class="line"><a name="l00029"></a><span class="lineno"><a class="line" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">   29</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">AsioContext</a> = boost::asio::io_context;</div>
-<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160; </div>
-<div class="line"><a name="l00033"></a><span class="lineno"><a class="line" href="namespacewamp.html#a24590d6853d0156e07654228b3b1db7e">   33</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a24590d6853d0156e07654228b3b1db7e">AsioService</a> = <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">AsioContext</a>;</div>
-<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160; </div>
-<div class="line"><a name="l00036"></a><span class="lineno"><a class="line" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">   36</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">AsioErrorCode</a> = boost::system::error_code;</div>
-<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160; </div>
-<div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
-<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;<span class="keyword">static</span> constexpr <span class="keywordtype">bool</span> isExecutionContext()</div>
-<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;{</div>
-<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;    <span class="keywordflow">return</span> std::is_base_of&lt;boost::asio::execution_context, T&gt;::value;</div>
-<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;}</div>
+<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;<span class="preprocessor">#include &quot;config.hpp&quot;</span></div>
+<div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160; </div>
+<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
+<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;{</div>
+<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160; </div>
+<div class="line"><a name="l00027"></a><span class="lineno"><a class="line" href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93">   27</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93">AnyIoExecutor</a> = boost::asio::any_io_executor;</div>
+<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160; </div>
+<div class="line"><a name="l00031"></a><span class="lineno"><a class="line" href="namespacewamp.html#ac09b74da0f1191be8b20ae04161c14c3">   31</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#ac09b74da0f1191be8b20ae04161c14c3">AnyExecutor</a> CPPWAMP_DEPRECATED = <a class="code" href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93">AnyIoExecutor</a>;</div>
+<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160; </div>
+<div class="line"><a name="l00034"></a><span class="lineno"><a class="line" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">   34</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">AsioContext</a> = boost::asio::io_context;</div>
+<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160; </div>
+<div class="line"><a name="l00038"></a><span class="lineno"><a class="line" href="namespacewamp.html#a24590d6853d0156e07654228b3b1db7e">   38</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a24590d6853d0156e07654228b3b1db7e">AsioService</a> CPPWAMP_DEPRECATED = <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">AsioContext</a>;</div>
+<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160; </div>
+<div class="line"><a name="l00041"></a><span class="lineno"><a class="line" href="namespacewamp.html#abdb99c75b9a03f6987cac708c17c32bb">   41</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#abdb99c75b9a03f6987cac708c17c32bb">IoStrand</a> = boost::asio::strand&lt;AnyIoExecutor&gt;;</div>
+<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160; </div>
+<div class="line"><a name="l00044"></a><span class="lineno"><a class="line" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">   44</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">AsioErrorCode</a> = boost::system::error_code;</div>
 <div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160; </div>
-<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;} <span class="comment">// namespace wamp</span></div>
-<div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160; </div>
-<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;<span class="preprocessor">#endif // CPPWAMP_ASIODEFS_HPP</span></div>
+<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
+<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;<span class="keyword">static</span> constexpr <span class="keywordtype">bool</span> isExecutionContext()</div>
+<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;{</div>
+<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;    <span class="keywordflow">return</span> std::is_base_of&lt;boost::asio::execution_context, T&gt;::value;</div>
+<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;}</div>
+<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160; </div>
+<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160; </div>
+<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;<span class="preprocessor">#endif // CPPWAMP_ASIODEFS_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
-<div class="ttc" id="anamespacewamp_html_a24590d6853d0156e07654228b3b1db7e"><div class="ttname"><a href="namespacewamp.html#a24590d6853d0156e07654228b3b1db7e">wamp::AsioService</a></div><div class="ttdeci">AsioContext AsioService</div><div class="ttdoc">Alias of AsioContext kept for backward compatibility.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:33</div></div>
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
-<div class="ttc" id="anamespacewamp_html_adeb149f6fd1f5f5508fcf1f90f01381b"><div class="ttname"><a href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">wamp::AsioErrorCode</a></div><div class="ttdeci">boost::system::error_code AsioErrorCode</div><div class="ttdoc">Type used by Boost.Asio for reporting errors.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:36</div></div>
-<div class="ttc" id="anamespacewamp_html_ab03f8349a2a066271e29e516c8c62cb2"><div class="ttname"><a href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">wamp::AnyExecutor</a></div><div class="ttdeci">boost::asio::any_io_executor AnyExecutor</div><div class="ttdoc">Polymorphic executor for all I/O objects.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:26</div></div>
-<div class="ttc" id="anamespacewamp_html_a9dd954da85bf9033739185b3a29e3e85"><div class="ttname"><a href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a></div><div class="ttdeci">boost::asio::io_context AsioContext</div><div class="ttdoc">Queues and runs I/O completion handlers.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:29</div></div>
+<div class="ttc" id="anamespacewamp_html_a1a6c1d3b5bec84434d0b3c472d2c3f93"><div class="ttname"><a href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93">wamp::AnyIoExecutor</a></div><div class="ttdeci">boost::asio::any_io_executor AnyIoExecutor</div><div class="ttdoc">Polymorphic executor for all I/O objects.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:27</div></div>
+<div class="ttc" id="anamespacewamp_html_a24590d6853d0156e07654228b3b1db7e"><div class="ttname"><a href="namespacewamp.html#a24590d6853d0156e07654228b3b1db7e">wamp::AsioService</a></div><div class="ttdeci">AsioContext AsioService</div><div class="ttdoc">Alias of AsioContext kept for backward compatibility.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:38</div></div>
+<div class="ttc" id="anamespacewamp_html_abdb99c75b9a03f6987cac708c17c32bb"><div class="ttname"><a href="namespacewamp.html#abdb99c75b9a03f6987cac708c17c32bb">wamp::IoStrand</a></div><div class="ttdeci">boost::asio::strand&lt; AnyIoExecutor &gt; IoStrand</div><div class="ttdoc">Serializes I/O operations.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:41</div></div>
+<div class="ttc" id="anamespacewamp_html_ac09b74da0f1191be8b20ae04161c14c3"><div class="ttname"><a href="namespacewamp.html#ac09b74da0f1191be8b20ae04161c14c3">wamp::AnyExecutor</a></div><div class="ttdeci">AnyIoExecutor AnyExecutor</div><div class="ttdoc">Alias of AnyIoExecutor kept for backward compatibility.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:31</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
+<div class="ttc" id="anamespacewamp_html_adeb149f6fd1f5f5508fcf1f90f01381b"><div class="ttname"><a href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">wamp::AsioErrorCode</a></div><div class="ttdeci">boost::system::error_code AsioErrorCode</div><div class="ttdoc">Type used by Boost.Asio for reporting errors.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:44</div></div>
+<div class="ttc" id="anamespacewamp_html_a9dd954da85bf9033739185b3a29e3e85"><div class="ttname"><a href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a></div><div class="ttdeci">boost::asio::io_context AsioContext</div><div class="ttdoc">Queues and runs I/O completion handlers.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:34</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="asiodefs_8hpp.html">asiodefs.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:38 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

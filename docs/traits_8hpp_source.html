@@ -87,136 +87,135 @@ $(document).ready(function(){initNavTree('traits_8hpp_source.html',''); initResi
 </div><!--header-->
 <div class="contents">
 <a href="traits_8hpp.html">Go to the documentation of this file.</a><div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;<span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">                Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
-<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
-<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
-<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
-<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
-<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160; </div>
-<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_TRAITS_HPP</span></div>
-<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor">#define CPPWAMP_TRAITS_HPP</span></div>
-<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160; </div>
-<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &lt;tuple&gt;</span></div>
-<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160;<span class="preprocessor">#include &lt;type_traits&gt;</span></div>
-<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="preprocessor">#include &lt;vector&gt;</span></div>
-<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160; </div>
-<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160; </div>
-<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;<span class="comment">/* Hides EnableIf decorations in order to keep the generated Doxygen</span></div>
-<div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;<span class="comment">   documentation clean. */</span></div>
-<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;<span class="preprocessor">#ifdef CPPWAMP_FOR_DOXYGEN</span></div>
-<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;<span class="preprocessor">#define CPPWAMP_ENABLE_IF(cond)</span></div>
-<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;<span class="preprocessor">#define CPPWAMP_ENABLED_TYPE(type, cond) type</span></div>
-<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;<span class="preprocessor">#else</span></div>
-<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;<span class="preprocessor">#define CPPWAMP_ENABLE_IF(cond) EnableIf&lt;(cond)&gt;</span></div>
-<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;<span class="preprocessor">#define CPPWAMP_ENABLED_TYPE(type, cond) EnableIf&lt;(cond), type&gt;</span></div>
-<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;<span class="preprocessor">#endif</span></div>
-<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160; </div>
-<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
-<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;{</div>
-<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160; </div>
-<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;<span class="keyword">template</span>&lt;<span class="keywordtype">bool</span> B, <span class="keyword">typename</span> T = <span class="keywordtype">int</span>&gt;</div>
-<div class="line"><a name="l00038"></a><span class="lineno"><a class="line" href="namespacewamp.html#a9806878793b2cdf53fe3a516b1a5bd69">   38</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a9806878793b2cdf53fe3a516b1a5bd69">EnableIf</a> = <span class="keyword">typename</span> std::enable_if&lt;B,T&gt;::type;</div>
-<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160; </div>
-<div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;<span class="keyword">template</span>&lt;<span class="keywordtype">bool</span> B, <span class="keyword">typename</span> T = <span class="keywordtype">int</span>&gt;</div>
-<div class="line"><a name="l00044"></a><span class="lineno"><a class="line" href="namespacewamp.html#a3688d950a7ec8a556ba83856a000b888">   44</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a3688d950a7ec8a556ba83856a000b888">DisableIf</a> = <span class="keyword">typename</span> std::enable_if&lt;!B,T&gt;::type;</div>
-<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160; </div>
-<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
-<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">ValueTypeOf</a> =</div>
-<div class="line"><a name="l00052"></a><span class="lineno"><a class="line" href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">   52</a></span>&#160;    <span class="keyword">typename</span> std::remove_cv&lt;typename std::remove_reference&lt;T&gt;::type&gt;::type;</div>
-<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160; </div>
-<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;<span class="keyword">template</span>&lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span> U&gt;</div>
-<div class="line"><a name="l00058"></a><span class="lineno"><a class="line" href="namespacewamp.html#a26df4a87f37269f63b6e8ccd15e13937">   58</a></span>&#160;CPPWAMP_API constexpr <span class="keywordtype">bool</span> <a class="code" href="namespacewamp.html#a26df4a87f37269f63b6e8ccd15e13937">isSameType</a>() {<span class="keywordflow">return</span> std::is_same&lt;T, U&gt;::value;}</div>
-<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160; </div>
-<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
-<div class="line"><a name="l00064"></a><span class="lineno"><a class="line" href="namespacewamp.html#a211d07a7169feb6b6e9cd351bf378841">   64</a></span>&#160;CPPWAMP_API constexpr <span class="keywordtype">bool</span> <a class="code" href="namespacewamp.html#a211d07a7169feb6b6e9cd351bf378841">isBool</a>()</div>
-<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;{</div>
-<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;    <span class="comment">// std::vector&lt;bool&gt;::const_reference is not just bool in clang/libc++.</span></div>
-<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;    <span class="keywordflow">return</span> isSameType&lt;T, bool&gt;() ||</div>
-<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;           isSameType&lt;T, std::vector&lt;bool&gt;::reference&gt;() ||</div>
-<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160;           <a class="code" href="namespacewamp.html#a26df4a87f37269f63b6e8ccd15e13937">isSameType</a>&lt;T, std::vector&lt;bool&gt;::const_reference&gt;();</div>
-<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160;}</div>
-<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160; </div>
-<div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
-<div class="line"><a name="l00078"></a><span class="lineno"><a class="line" href="namespacewamp.html#a0f60ee29904aa30973713672aa3fc37b">   78</a></span>&#160;CPPWAMP_API constexpr <span class="keywordtype">bool</span> <a class="code" href="namespacewamp.html#a0f60ee29904aa30973713672aa3fc37b">isNumber</a>()</div>
-<div class="line"><a name="l00079"></a><span class="lineno">   79</span>&#160;{</div>
-<div class="line"><a name="l00080"></a><span class="lineno">   80</span>&#160;    <span class="keywordflow">return</span> std::is_arithmetic&lt;T&gt;::value &amp;&amp; !isSameType&lt;T, bool&gt;();</div>
-<div class="line"><a name="l00081"></a><span class="lineno">   81</span>&#160;}</div>
-<div class="line"><a name="l00082"></a><span class="lineno">   82</span>&#160; </div>
-<div class="line"><a name="l00083"></a><span class="lineno">   83</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00085"></a><span class="lineno">   85</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00086"></a><span class="lineno">   86</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
-<div class="line"><a name="l00087"></a><span class="lineno"><a class="line" href="namespacewamp.html#a951e81963d0cf4855d8930833b907782">   87</a></span>&#160;CPPWAMP_API constexpr <span class="keywordtype">bool</span> <a class="code" href="namespacewamp.html#a951e81963d0cf4855d8930833b907782">isSignedInteger</a>()</div>
-<div class="line"><a name="l00088"></a><span class="lineno">   88</span>&#160;{</div>
-<div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160;    <span class="keywordflow">return</span> std::is_integral&lt;T&gt;::value &amp;&amp; std::is_signed&lt;T&gt;::value &amp;&amp;</div>
-<div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160;           !isSameType&lt;T, bool&gt;();</div>
-<div class="line"><a name="l00091"></a><span class="lineno">   91</span>&#160;}</div>
-<div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160; </div>
-<div class="line"><a name="l00093"></a><span class="lineno">   93</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00095"></a><span class="lineno">   95</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00096"></a><span class="lineno">   96</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
-<div class="line"><a name="l00097"></a><span class="lineno"><a class="line" href="namespacewamp.html#a14c38865623683d342e8cc3a4671c940">   97</a></span>&#160;CPPWAMP_API constexpr <span class="keywordtype">bool</span> <a class="code" href="namespacewamp.html#a14c38865623683d342e8cc3a4671c940">isUnsignedInteger</a>()</div>
-<div class="line"><a name="l00098"></a><span class="lineno">   98</span>&#160;{</div>
-<div class="line"><a name="l00099"></a><span class="lineno">   99</span>&#160;    <span class="keywordflow">return</span> std::is_integral&lt;T&gt;::value &amp;&amp; !std::is_signed&lt;T&gt;::value &amp;&amp;</div>
-<div class="line"><a name="l00100"></a><span class="lineno">  100</span>&#160;           !isSameType&lt;T, bool&gt;();</div>
-<div class="line"><a name="l00101"></a><span class="lineno">  101</span>&#160;}</div>
-<div class="line"><a name="l00102"></a><span class="lineno">  102</span>&#160; </div>
-<div class="line"><a name="l00103"></a><span class="lineno">  103</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00105"></a><span class="lineno">  105</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00106"></a><span class="lineno">  106</span>&#160;<span class="keyword">template</span>&lt;<span class="keywordtype">int</span> N, <span class="keyword">typename</span>... Ts&gt; <span class="keyword">using</span> <a class="code" href="namespacewamp.html#afac4fabd4c0140f8ca90aa6104ffa1f0">NthTypeOf</a> =</div>
-<div class="line"><a name="l00107"></a><span class="lineno"><a class="line" href="namespacewamp.html#afac4fabd4c0140f8ca90aa6104ffa1f0">  107</a></span>&#160;    <span class="keyword">typename</span> std::tuple_element&lt;N, std::tuple&lt;Ts...&gt;&gt;::type;</div>
-<div class="line"><a name="l00108"></a><span class="lineno">  108</span>&#160; </div>
-<div class="line"><a name="l00109"></a><span class="lineno">  109</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00111"></a><span class="lineno">  111</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00112"></a><span class="lineno">  112</span>&#160;<span class="keyword">template</span> &lt;<span class="keywordtype">bool</span> B&gt;</div>
-<div class="line"><a name="l00113"></a><span class="lineno"><a class="line" href="namespacewamp.html#a7b8480b59e7afcb4b544ade9f3361c5c">  113</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a7b8480b59e7afcb4b544ade9f3361c5c">BoolConstant</a> = std::integral_constant&lt;bool, B&gt;;</div>
-<div class="line"><a name="l00114"></a><span class="lineno">  114</span>&#160; </div>
-<div class="line"><a name="l00115"></a><span class="lineno">  115</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00117"></a><span class="lineno">  117</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00118"></a><span class="lineno"><a class="line" href="namespacewamp.html#af79912569893dfb927f34a7796080f25">  118</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#af79912569893dfb927f34a7796080f25">TrueType</a> = <a class="code" href="namespacewamp.html#a7b8480b59e7afcb4b544ade9f3361c5c">BoolConstant&lt;true&gt;</a>;</div>
-<div class="line"><a name="l00119"></a><span class="lineno">  119</span>&#160; </div>
-<div class="line"><a name="l00120"></a><span class="lineno">  120</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00122"></a><span class="lineno">  122</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00123"></a><span class="lineno"><a class="line" href="namespacewamp.html#adb4120fd9401fc349960e8ff7f72fb14">  123</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#adb4120fd9401fc349960e8ff7f72fb14">FalseType</a> = <a class="code" href="namespacewamp.html#a7b8480b59e7afcb4b544ade9f3361c5c">BoolConstant&lt;false&gt;</a>;</div>
-<div class="line"><a name="l00124"></a><span class="lineno">  124</span>&#160; </div>
-<div class="line"><a name="l00125"></a><span class="lineno">  125</span>&#160;} <span class="comment">// namespace wamp</span></div>
-<div class="line"><a name="l00126"></a><span class="lineno">  126</span>&#160; </div>
-<div class="line"><a name="l00127"></a><span class="lineno">  127</span>&#160;<span class="preprocessor">#endif // CPPWAMP_TRAITS_HPP</span></div>
+<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">    Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
+<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">    Distributed under the Boost Software License, Version 1.0.</span></div>
+<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">    http://www.boost.org/LICENSE_1_0.txt</span></div>
+<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
+<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160; </div>
+<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_TRAITS_HPP</span></div>
+<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#define CPPWAMP_TRAITS_HPP</span></div>
+<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160; </div>
+<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;<span class="preprocessor">#include &lt;tuple&gt;</span></div>
+<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &lt;type_traits&gt;</span></div>
+<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160;<span class="preprocessor">#include &lt;vector&gt;</span></div>
+<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160; </div>
+<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160; </div>
+<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;<span class="comment">/* Hides EnableIf decorations in order to keep the generated Doxygen</span></div>
+<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;<span class="comment">   documentation clean. */</span></div>
+<div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;<span class="preprocessor">#ifdef CPPWAMP_FOR_DOXYGEN</span></div>
+<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;<span class="preprocessor">#define CPPWAMP_ENABLE_IF(cond)</span></div>
+<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;<span class="preprocessor">#define CPPWAMP_ENABLED_TYPE(type, cond) type</span></div>
+<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;<span class="preprocessor">#else</span></div>
+<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;<span class="preprocessor">#define CPPWAMP_ENABLE_IF(cond) EnableIf&lt;(cond)&gt;</span></div>
+<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;<span class="preprocessor">#define CPPWAMP_ENABLED_TYPE(type, cond) EnableIf&lt;(cond), type&gt;</span></div>
+<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;<span class="preprocessor">#endif</span></div>
+<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160; </div>
+<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
+<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;{</div>
+<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160; </div>
+<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;<span class="keyword">template</span>&lt;<span class="keywordtype">bool</span> B, <span class="keyword">typename</span> T = <span class="keywordtype">int</span>&gt;</div>
+<div class="line"><a name="l00037"></a><span class="lineno"><a class="line" href="namespacewamp.html#a9806878793b2cdf53fe3a516b1a5bd69">   37</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a9806878793b2cdf53fe3a516b1a5bd69">EnableIf</a> = <span class="keyword">typename</span> std::enable_if&lt;B,T&gt;::type;</div>
+<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160; </div>
+<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;<span class="keyword">template</span>&lt;<span class="keywordtype">bool</span> B, <span class="keyword">typename</span> T = <span class="keywordtype">int</span>&gt;</div>
+<div class="line"><a name="l00043"></a><span class="lineno"><a class="line" href="namespacewamp.html#a3688d950a7ec8a556ba83856a000b888">   43</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a3688d950a7ec8a556ba83856a000b888">DisableIf</a> = <span class="keyword">typename</span> std::enable_if&lt;!B,T&gt;::type;</div>
+<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160; </div>
+<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
+<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">ValueTypeOf</a> =</div>
+<div class="line"><a name="l00051"></a><span class="lineno"><a class="line" href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">   51</a></span>&#160;    <span class="keyword">typename</span> std::remove_cv&lt;typename std::remove_reference&lt;T&gt;::type&gt;::type;</div>
+<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160; </div>
+<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;<span class="keyword">template</span>&lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span> U&gt;</div>
+<div class="line"><a name="l00057"></a><span class="lineno"><a class="line" href="namespacewamp.html#a26df4a87f37269f63b6e8ccd15e13937">   57</a></span>&#160;CPPWAMP_API constexpr <span class="keywordtype">bool</span> <a class="code" href="namespacewamp.html#a26df4a87f37269f63b6e8ccd15e13937">isSameType</a>() {<span class="keywordflow">return</span> std::is_same&lt;T, U&gt;::value;}</div>
+<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160; </div>
+<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
+<div class="line"><a name="l00063"></a><span class="lineno"><a class="line" href="namespacewamp.html#a211d07a7169feb6b6e9cd351bf378841">   63</a></span>&#160;CPPWAMP_API constexpr <span class="keywordtype">bool</span> <a class="code" href="namespacewamp.html#a211d07a7169feb6b6e9cd351bf378841">isBool</a>()</div>
+<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;{</div>
+<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;    <span class="comment">// std::vector&lt;bool&gt;::const_reference is not just bool in clang/libc++.</span></div>
+<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;    <span class="keywordflow">return</span> isSameType&lt;T, bool&gt;() ||</div>
+<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;           isSameType&lt;T, std::vector&lt;bool&gt;::reference&gt;() ||</div>
+<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;           <a class="code" href="namespacewamp.html#a26df4a87f37269f63b6e8ccd15e13937">isSameType</a>&lt;T, std::vector&lt;bool&gt;::const_reference&gt;();</div>
+<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160;}</div>
+<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160; </div>
+<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
+<div class="line"><a name="l00077"></a><span class="lineno"><a class="line" href="namespacewamp.html#a0f60ee29904aa30973713672aa3fc37b">   77</a></span>&#160;CPPWAMP_API constexpr <span class="keywordtype">bool</span> <a class="code" href="namespacewamp.html#a0f60ee29904aa30973713672aa3fc37b">isNumber</a>()</div>
+<div class="line"><a name="l00078"></a><span class="lineno">   78</span>&#160;{</div>
+<div class="line"><a name="l00079"></a><span class="lineno">   79</span>&#160;    <span class="keywordflow">return</span> std::is_arithmetic&lt;T&gt;::value &amp;&amp; !isSameType&lt;T, bool&gt;();</div>
+<div class="line"><a name="l00080"></a><span class="lineno">   80</span>&#160;}</div>
+<div class="line"><a name="l00081"></a><span class="lineno">   81</span>&#160; </div>
+<div class="line"><a name="l00082"></a><span class="lineno">   82</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00084"></a><span class="lineno">   84</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00085"></a><span class="lineno">   85</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
+<div class="line"><a name="l00086"></a><span class="lineno"><a class="line" href="namespacewamp.html#a951e81963d0cf4855d8930833b907782">   86</a></span>&#160;CPPWAMP_API constexpr <span class="keywordtype">bool</span> <a class="code" href="namespacewamp.html#a951e81963d0cf4855d8930833b907782">isSignedInteger</a>()</div>
+<div class="line"><a name="l00087"></a><span class="lineno">   87</span>&#160;{</div>
+<div class="line"><a name="l00088"></a><span class="lineno">   88</span>&#160;    <span class="keywordflow">return</span> std::is_integral&lt;T&gt;::value &amp;&amp; std::is_signed&lt;T&gt;::value &amp;&amp;</div>
+<div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160;           !isSameType&lt;T, bool&gt;();</div>
+<div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160;}</div>
+<div class="line"><a name="l00091"></a><span class="lineno">   91</span>&#160; </div>
+<div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00094"></a><span class="lineno">   94</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00095"></a><span class="lineno">   95</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
+<div class="line"><a name="l00096"></a><span class="lineno"><a class="line" href="namespacewamp.html#a14c38865623683d342e8cc3a4671c940">   96</a></span>&#160;CPPWAMP_API constexpr <span class="keywordtype">bool</span> <a class="code" href="namespacewamp.html#a14c38865623683d342e8cc3a4671c940">isUnsignedInteger</a>()</div>
+<div class="line"><a name="l00097"></a><span class="lineno">   97</span>&#160;{</div>
+<div class="line"><a name="l00098"></a><span class="lineno">   98</span>&#160;    <span class="keywordflow">return</span> std::is_integral&lt;T&gt;::value &amp;&amp; !std::is_signed&lt;T&gt;::value &amp;&amp;</div>
+<div class="line"><a name="l00099"></a><span class="lineno">   99</span>&#160;           !isSameType&lt;T, bool&gt;();</div>
+<div class="line"><a name="l00100"></a><span class="lineno">  100</span>&#160;}</div>
+<div class="line"><a name="l00101"></a><span class="lineno">  101</span>&#160; </div>
+<div class="line"><a name="l00102"></a><span class="lineno">  102</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00104"></a><span class="lineno">  104</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00105"></a><span class="lineno">  105</span>&#160;<span class="keyword">template</span>&lt;<span class="keywordtype">int</span> N, <span class="keyword">typename</span>... Ts&gt; <span class="keyword">using</span> <a class="code" href="namespacewamp.html#afac4fabd4c0140f8ca90aa6104ffa1f0">NthTypeOf</a> =</div>
+<div class="line"><a name="l00106"></a><span class="lineno"><a class="line" href="namespacewamp.html#afac4fabd4c0140f8ca90aa6104ffa1f0">  106</a></span>&#160;    <span class="keyword">typename</span> std::tuple_element&lt;N, std::tuple&lt;Ts...&gt;&gt;::type;</div>
+<div class="line"><a name="l00107"></a><span class="lineno">  107</span>&#160; </div>
+<div class="line"><a name="l00108"></a><span class="lineno">  108</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00110"></a><span class="lineno">  110</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00111"></a><span class="lineno">  111</span>&#160;<span class="keyword">template</span> &lt;<span class="keywordtype">bool</span> B&gt;</div>
+<div class="line"><a name="l00112"></a><span class="lineno"><a class="line" href="namespacewamp.html#a7b8480b59e7afcb4b544ade9f3361c5c">  112</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#a7b8480b59e7afcb4b544ade9f3361c5c">BoolConstant</a> = std::integral_constant&lt;bool, B&gt;;</div>
+<div class="line"><a name="l00113"></a><span class="lineno">  113</span>&#160; </div>
+<div class="line"><a name="l00114"></a><span class="lineno">  114</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00116"></a><span class="lineno">  116</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00117"></a><span class="lineno"><a class="line" href="namespacewamp.html#af79912569893dfb927f34a7796080f25">  117</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#af79912569893dfb927f34a7796080f25">TrueType</a> = <a class="code" href="namespacewamp.html#a7b8480b59e7afcb4b544ade9f3361c5c">BoolConstant&lt;true&gt;</a>;</div>
+<div class="line"><a name="l00118"></a><span class="lineno">  118</span>&#160; </div>
+<div class="line"><a name="l00119"></a><span class="lineno">  119</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00121"></a><span class="lineno">  121</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00122"></a><span class="lineno"><a class="line" href="namespacewamp.html#adb4120fd9401fc349960e8ff7f72fb14">  122</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#adb4120fd9401fc349960e8ff7f72fb14">FalseType</a> = <a class="code" href="namespacewamp.html#a7b8480b59e7afcb4b544ade9f3361c5c">BoolConstant&lt;false&gt;</a>;</div>
+<div class="line"><a name="l00123"></a><span class="lineno">  123</span>&#160; </div>
+<div class="line"><a name="l00124"></a><span class="lineno">  124</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00125"></a><span class="lineno">  125</span>&#160; </div>
+<div class="line"><a name="l00126"></a><span class="lineno">  126</span>&#160;<span class="preprocessor">#endif // CPPWAMP_TRAITS_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
-<div class="ttc" id="anamespacewamp_html_a3688d950a7ec8a556ba83856a000b888"><div class="ttname"><a href="namespacewamp.html#a3688d950a7ec8a556ba83856a000b888">wamp::DisableIf</a></div><div class="ttdeci">typename std::enable_if&lt;!B, T &gt;::type DisableIf</div><div class="ttdoc">Metafunction used to disable overloads based on a boolean condition.</div><div class="ttdef"><b>Definition:</b> traits.hpp:44</div></div>
-<div class="ttc" id="anamespacewamp_html_adb4120fd9401fc349960e8ff7f72fb14"><div class="ttname"><a href="namespacewamp.html#adb4120fd9401fc349960e8ff7f72fb14">wamp::FalseType</a></div><div class="ttdeci">BoolConstant&lt; false &gt; FalseType</div><div class="ttdoc">Equivalent to std::false_type provided in C++17.</div><div class="ttdef"><b>Definition:</b> traits.hpp:123</div></div>
-<div class="ttc" id="anamespacewamp_html_a951e81963d0cf4855d8930833b907782"><div class="ttname"><a href="namespacewamp.html#a951e81963d0cf4855d8930833b907782">wamp::isSignedInteger</a></div><div class="ttdeci">constexpr bool isSignedInteger()</div><div class="ttdoc">Determines if the given type is a signed integer.</div><div class="ttdef"><b>Definition:</b> traits.hpp:87</div></div>
-<div class="ttc" id="anamespacewamp_html_af79912569893dfb927f34a7796080f25"><div class="ttname"><a href="namespacewamp.html#af79912569893dfb927f34a7796080f25">wamp::TrueType</a></div><div class="ttdeci">BoolConstant&lt; true &gt; TrueType</div><div class="ttdoc">Equivalent to std::true_type provided in C++17.</div><div class="ttdef"><b>Definition:</b> traits.hpp:118</div></div>
+<div class="ttc" id="anamespacewamp_html_a3688d950a7ec8a556ba83856a000b888"><div class="ttname"><a href="namespacewamp.html#a3688d950a7ec8a556ba83856a000b888">wamp::DisableIf</a></div><div class="ttdeci">typename std::enable_if&lt;!B, T &gt;::type DisableIf</div><div class="ttdoc">Metafunction used to disable overloads based on a boolean condition.</div><div class="ttdef"><b>Definition:</b> traits.hpp:43</div></div>
+<div class="ttc" id="anamespacewamp_html_adb4120fd9401fc349960e8ff7f72fb14"><div class="ttname"><a href="namespacewamp.html#adb4120fd9401fc349960e8ff7f72fb14">wamp::FalseType</a></div><div class="ttdeci">BoolConstant&lt; false &gt; FalseType</div><div class="ttdoc">Equivalent to std::false_type provided in C++17.</div><div class="ttdef"><b>Definition:</b> traits.hpp:122</div></div>
+<div class="ttc" id="anamespacewamp_html_a951e81963d0cf4855d8930833b907782"><div class="ttname"><a href="namespacewamp.html#a951e81963d0cf4855d8930833b907782">wamp::isSignedInteger</a></div><div class="ttdeci">constexpr bool isSignedInteger()</div><div class="ttdoc">Determines if the given type is a signed integer.</div><div class="ttdef"><b>Definition:</b> traits.hpp:86</div></div>
+<div class="ttc" id="anamespacewamp_html_af79912569893dfb927f34a7796080f25"><div class="ttname"><a href="namespacewamp.html#af79912569893dfb927f34a7796080f25">wamp::TrueType</a></div><div class="ttdeci">BoolConstant&lt; true &gt; TrueType</div><div class="ttdoc">Equivalent to std::true_type provided in C++17.</div><div class="ttdef"><b>Definition:</b> traits.hpp:117</div></div>
 <div class="ttc" id="aapi_8hpp_html"><div class="ttname"><a href="api_8hpp.html">api.hpp</a></div><div class="ttdoc">Defines macros related to exporting/importing APIs.</div></div>
-<div class="ttc" id="anamespacewamp_html_a26df4a87f37269f63b6e8ccd15e13937"><div class="ttname"><a href="namespacewamp.html#a26df4a87f37269f63b6e8ccd15e13937">wamp::isSameType</a></div><div class="ttdeci">constexpr bool isSameType()</div><div class="ttdoc">Determines if a type is the same as another.</div><div class="ttdef"><b>Definition:</b> traits.hpp:58</div></div>
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
-<div class="ttc" id="anamespacewamp_html_a14c38865623683d342e8cc3a4671c940"><div class="ttname"><a href="namespacewamp.html#a14c38865623683d342e8cc3a4671c940">wamp::isUnsignedInteger</a></div><div class="ttdeci">constexpr bool isUnsignedInteger()</div><div class="ttdoc">Determines if the given type is an unsigned integer.</div><div class="ttdef"><b>Definition:</b> traits.hpp:97</div></div>
-<div class="ttc" id="anamespacewamp_html_aefe046bb975ae7fe4ddccc4e4e234a1d"><div class="ttname"><a href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">wamp::ValueTypeOf</a></div><div class="ttdeci">typename std::remove_cv&lt; typename std::remove_reference&lt; T &gt;::type &gt;::type ValueTypeOf</div><div class="ttdoc">Metafunction used to obtain the plain value type of a parameter passed by universal reference.</div><div class="ttdef"><b>Definition:</b> traits.hpp:52</div></div>
-<div class="ttc" id="anamespacewamp_html_a9806878793b2cdf53fe3a516b1a5bd69"><div class="ttname"><a href="namespacewamp.html#a9806878793b2cdf53fe3a516b1a5bd69">wamp::EnableIf</a></div><div class="ttdeci">typename std::enable_if&lt; B, T &gt;::type EnableIf</div><div class="ttdoc">Metafunction used to enable overloads based on a boolean condition.</div><div class="ttdef"><b>Definition:</b> traits.hpp:38</div></div>
-<div class="ttc" id="anamespacewamp_html_a211d07a7169feb6b6e9cd351bf378841"><div class="ttname"><a href="namespacewamp.html#a211d07a7169feb6b6e9cd351bf378841">wamp::isBool</a></div><div class="ttdeci">constexpr bool isBool()</div><div class="ttdoc">Determines if the given type is considered a boolean.</div><div class="ttdef"><b>Definition:</b> traits.hpp:64</div></div>
-<div class="ttc" id="anamespacewamp_html_a7b8480b59e7afcb4b544ade9f3361c5c"><div class="ttname"><a href="namespacewamp.html#a7b8480b59e7afcb4b544ade9f3361c5c">wamp::BoolConstant</a></div><div class="ttdeci">std::integral_constant&lt; bool, B &gt; BoolConstant</div><div class="ttdoc">Equivalent to std::bool_constant provided in C++17.</div><div class="ttdef"><b>Definition:</b> traits.hpp:113</div></div>
-<div class="ttc" id="anamespacewamp_html_a0f60ee29904aa30973713672aa3fc37b"><div class="ttname"><a href="namespacewamp.html#a0f60ee29904aa30973713672aa3fc37b">wamp::isNumber</a></div><div class="ttdeci">constexpr bool isNumber()</div><div class="ttdoc">Determines if the given type is considered a number.</div><div class="ttdef"><b>Definition:</b> traits.hpp:78</div></div>
-<div class="ttc" id="anamespacewamp_html_afac4fabd4c0140f8ca90aa6104ffa1f0"><div class="ttname"><a href="namespacewamp.html#afac4fabd4c0140f8ca90aa6104ffa1f0">wamp::NthTypeOf</a></div><div class="ttdeci">typename std::tuple_element&lt; N, std::tuple&lt; Ts... &gt; &gt;::type NthTypeOf</div><div class="ttdoc">Metafunction that obtains the Nth type of a parameter pack.</div><div class="ttdef"><b>Definition:</b> traits.hpp:107</div></div>
+<div class="ttc" id="anamespacewamp_html_a26df4a87f37269f63b6e8ccd15e13937"><div class="ttname"><a href="namespacewamp.html#a26df4a87f37269f63b6e8ccd15e13937">wamp::isSameType</a></div><div class="ttdeci">constexpr bool isSameType()</div><div class="ttdoc">Determines if a type is the same as another.</div><div class="ttdef"><b>Definition:</b> traits.hpp:57</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
+<div class="ttc" id="anamespacewamp_html_a14c38865623683d342e8cc3a4671c940"><div class="ttname"><a href="namespacewamp.html#a14c38865623683d342e8cc3a4671c940">wamp::isUnsignedInteger</a></div><div class="ttdeci">constexpr bool isUnsignedInteger()</div><div class="ttdoc">Determines if the given type is an unsigned integer.</div><div class="ttdef"><b>Definition:</b> traits.hpp:96</div></div>
+<div class="ttc" id="anamespacewamp_html_aefe046bb975ae7fe4ddccc4e4e234a1d"><div class="ttname"><a href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">wamp::ValueTypeOf</a></div><div class="ttdeci">typename std::remove_cv&lt; typename std::remove_reference&lt; T &gt;::type &gt;::type ValueTypeOf</div><div class="ttdoc">Metafunction used to obtain the plain value type of a parameter passed by universal reference.</div><div class="ttdef"><b>Definition:</b> traits.hpp:51</div></div>
+<div class="ttc" id="anamespacewamp_html_a9806878793b2cdf53fe3a516b1a5bd69"><div class="ttname"><a href="namespacewamp.html#a9806878793b2cdf53fe3a516b1a5bd69">wamp::EnableIf</a></div><div class="ttdeci">typename std::enable_if&lt; B, T &gt;::type EnableIf</div><div class="ttdoc">Metafunction used to enable overloads based on a boolean condition.</div><div class="ttdef"><b>Definition:</b> traits.hpp:37</div></div>
+<div class="ttc" id="anamespacewamp_html_a211d07a7169feb6b6e9cd351bf378841"><div class="ttname"><a href="namespacewamp.html#a211d07a7169feb6b6e9cd351bf378841">wamp::isBool</a></div><div class="ttdeci">constexpr bool isBool()</div><div class="ttdoc">Determines if the given type is considered a boolean.</div><div class="ttdef"><b>Definition:</b> traits.hpp:63</div></div>
+<div class="ttc" id="anamespacewamp_html_a7b8480b59e7afcb4b544ade9f3361c5c"><div class="ttname"><a href="namespacewamp.html#a7b8480b59e7afcb4b544ade9f3361c5c">wamp::BoolConstant</a></div><div class="ttdeci">std::integral_constant&lt; bool, B &gt; BoolConstant</div><div class="ttdoc">Equivalent to std::bool_constant provided in C++17.</div><div class="ttdef"><b>Definition:</b> traits.hpp:112</div></div>
+<div class="ttc" id="anamespacewamp_html_a0f60ee29904aa30973713672aa3fc37b"><div class="ttname"><a href="namespacewamp.html#a0f60ee29904aa30973713672aa3fc37b">wamp::isNumber</a></div><div class="ttdeci">constexpr bool isNumber()</div><div class="ttdoc">Determines if the given type is considered a number.</div><div class="ttdef"><b>Definition:</b> traits.hpp:77</div></div>
+<div class="ttc" id="anamespacewamp_html_afac4fabd4c0140f8ca90aa6104ffa1f0"><div class="ttname"><a href="namespacewamp.html#afac4fabd4c0140f8ca90aa6104ffa1f0">wamp::NthTypeOf</a></div><div class="ttdeci">typename std::tuple_element&lt; N, std::tuple&lt; Ts... &gt; &gt;::type NthTypeOf</div><div class="ttdoc">Metafunction that obtains the Nth type of a parameter pack.</div><div class="ttdef"><b>Definition:</b> traits.hpp:106</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="traits_8hpp.html">traits.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

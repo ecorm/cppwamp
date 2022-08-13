@@ -168,14 +168,14 @@ static constexpr <a class="el" href="namespacewamp.html#a1750e952cec62e645c6b1c9
 Related Functions</h2></td></tr>
 <tr><td class="ititle" colspan="2"><p>(Note that these are not member functions.) </p>
 </td></tr>
-<tr class="memitem:a8286468d17c264d9ea9c68167406de7f"><td class="memTemplParams" colspan="2">template&lt;typename TCodec &gt; </td></tr>
-<tr class="memitem:a8286468d17c264d9ea9c68167406de7f"><td class="memTemplItemLeft" align="right" valign="top"><a class="el" href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">Connector::Ptr</a>&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_uds_path.html#a8286468d17c264d9ea9c68167406de7f">connector</a> (<a class="el" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> exec, <a class="el" href="classwamp_1_1_uds_path.html">UdsPath</a> path)</td></tr>
-<tr class="memdesc:a8286468d17c264d9ea9c68167406de7f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a <a class="el" href="classwamp_1_1_connector.html" title="Abstract base class for establishing client transport endpoints.">Connector</a> that can establish a Unix domain socket transport.  <a href="classwamp_1_1_uds_path.html#a8286468d17c264d9ea9c68167406de7f">More...</a><br /></td></tr>
-<tr class="separator:a8286468d17c264d9ea9c68167406de7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6ce06aa70b21c04bcd83d39eef45c320"><td class="memTemplParams" colspan="2">template&lt;typename TCodec &gt; </td></tr>
+<tr class="memitem:a6ce06aa70b21c04bcd83d39eef45c320"><td class="memTemplItemLeft" align="right" valign="top"><a class="el" href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">Connector::Ptr</a>&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_uds_path.html#a6ce06aa70b21c04bcd83d39eef45c320">connector</a> (<a class="el" href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93">AnyIoExecutor</a> exec, <a class="el" href="classwamp_1_1_uds_path.html">UdsPath</a> path)</td></tr>
+<tr class="memdesc:a6ce06aa70b21c04bcd83d39eef45c320"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a <a class="el" href="classwamp_1_1_connector.html" title="Abstract base class for establishing client transport endpoints.">Connector</a> that can establish a Unix domain socket transport.  <a href="classwamp_1_1_uds_path.html#a6ce06aa70b21c04bcd83d39eef45c320">More...</a><br /></td></tr>
+<tr class="separator:a6ce06aa70b21c04bcd83d39eef45c320"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Contains a Unix domain socket path, as well as other socket options. </p>
-<dl class="section see"><dt>See also</dt><dd>RawsockOptions, <a class="el" href="classwamp_1_1_uds_path.html#a8286468d17c264d9ea9c68167406de7f" title="Creates a Connector that can establish a Unix domain socket transport.">connector</a> </dd></dl>
+<dl class="section see"><dt>See also</dt><dd>RawsockOptions, <a class="el" href="classwamp_1_1_uds_path.html#a6ce06aa70b21c04bcd83d39eef45c320" title="Creates a Connector that can establish a Unix domain socket transport.">connector</a> </dd></dl>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a6c30a95711f962df2508ea11b3a9128b"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6c30a95711f962df2508ea11b3a9128b">&#9670;&nbsp;</a></span>UdsPath()</h2>
@@ -247,7 +247,7 @@ Related Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>The following setters are deprecated. </p>
-<p>Socket options should be passed via the constructor or set via <a class="el" href="classwamp_1_1_uds_path.html#a66285161e7b3246ef6c4906e8cb1e90a" title="Specifies the socket options to use.">UdsPath::withOptions</a>. Adds the SO_BROADCAST socket option. </p><dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000016">Deprecated:</a></b></dt><dd></dd></dl>
+<p>Socket options should be passed via the constructor or set via <a class="el" href="classwamp_1_1_uds_path.html#a66285161e7b3246ef6c4906e8cb1e90a" title="Specifies the socket options to use.">UdsPath::withOptions</a>. Adds the SO_BROADCAST socket option. </p><dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000037">Deprecated:</a></b></dt><dd></dd></dl>
 
 </div>
 </div>
@@ -276,7 +276,7 @@ Related Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Adds the SO_DEBUG socket option. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000017">Deprecated:</a></b></dt><dd></dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000038">Deprecated:</a></b></dt><dd></dd></dl>
 
 </div>
 </div>
@@ -305,7 +305,7 @@ Related Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Adds the SO_DONTROUTE socket option. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000018">Deprecated:</a></b></dt><dd></dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000039">Deprecated:</a></b></dt><dd></dd></dl>
 
 </div>
 </div>
@@ -334,7 +334,7 @@ Related Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Adds the SO_KEEPALIVE socket option. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000019">Deprecated:</a></b></dt><dd></dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000040">Deprecated:</a></b></dt><dd></dd></dl>
 
 </div>
 </div>
@@ -363,7 +363,7 @@ Related Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Adds the SO_OOBINLINE socket option. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000020">Deprecated:</a></b></dt><dd></dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000041">Deprecated:</a></b></dt><dd></dd></dl>
 
 </div>
 </div>
@@ -402,7 +402,7 @@ Related Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Adds the SO_LINGER socket option. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000021">Deprecated:</a></b></dt><dd></dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000042">Deprecated:</a></b></dt><dd></dd></dl>
 
 </div>
 </div>
@@ -431,7 +431,7 @@ Related Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Adds the SO_RCVBUF socket option. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000022">Deprecated:</a></b></dt><dd></dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000043">Deprecated:</a></b></dt><dd></dd></dl>
 
 </div>
 </div>
@@ -460,7 +460,7 @@ Related Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Adds the SO_RCVLOWAT socket option. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000023">Deprecated:</a></b></dt><dd></dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000044">Deprecated:</a></b></dt><dd></dd></dl>
 
 </div>
 </div>
@@ -489,7 +489,7 @@ Related Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Adds the SO_REUSEADDR socket option. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000024">Deprecated:</a></b></dt><dd></dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000045">Deprecated:</a></b></dt><dd></dd></dl>
 
 </div>
 </div>
@@ -518,7 +518,7 @@ Related Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Adds the SO_SNDBUF socket option. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000025">Deprecated:</a></b></dt><dd></dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000046">Deprecated:</a></b></dt><dd></dd></dl>
 
 </div>
 </div>
@@ -547,13 +547,13 @@ Related Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Adds the SO_SNDLOWAT socket option. </p>
-<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000026">Deprecated:</a></b></dt><dd></dd></dl>
+<dl class="deprecated"><dt><b><a class="el" href="deprecated.html#_deprecated000047">Deprecated:</a></b></dt><dd></dd></dl>
 
 </div>
 </div>
 <h2 class="groupheader">Friends And Related Function Documentation</h2>
-<a id="a8286468d17c264d9ea9c68167406de7f"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8286468d17c264d9ea9c68167406de7f">&#9670;&nbsp;</a></span>connector()</h2>
+<a id="a6ce06aa70b21c04bcd83d39eef45c320"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6ce06aa70b21c04bcd83d39eef45c320">&#9670;&nbsp;</a></span>connector()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -566,7 +566,7 @@ template&lt;typename TCodec &gt; </div>
         <tr>
           <td class="memname"><a class="el" href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">Connector::Ptr</a> connector </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a>&#160;</td>
+          <td class="paramtype"><a class="el" href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93">AnyIoExecutor</a>&#160;</td>
           <td class="paramname"><em>exec</em>, </td>
         </tr>
         <tr>
@@ -619,7 +619,7 @@ template&lt;typename TCodec &gt; </div>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacewamp.html">wamp</a></li><li class="navelem"><a class="el" href="classwamp_1_1_uds_path.html">UdsPath</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

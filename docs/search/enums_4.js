@@ -1,6 +1,5 @@
 var searchData=
 [
-  ['transporterrc_980',['TransportErrc',['../namespacewamp.html#a7a09562b29d4b6e42e37be77ec31829a',1,'wamp']]],
-  ['type_981',['Type',['../classwamp_1_1_outcome.html#a6b129de54b7dd359b9d37dccdd2705be',1,'wamp::Outcome']]],
-  ['typeid_982',['TypeId',['../namespacewamp.html#a4d04d75506649324abb78e785749ccdb',1,'wamp']]]
+  ['sessionerrc_1111',['SessionErrc',['../namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46',1,'wamp']]],
+  ['sessionstate_1112',['SessionState',['../namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339f',1,'wamp']]]
 ];

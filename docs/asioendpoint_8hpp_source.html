@@ -87,20 +87,20 @@ $(document).ready(function(){initNavTree('asioendpoint_8hpp_source.html',''); in
 </div><!--header-->
 <div class="contents">
 <div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;<span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">              Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
-<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
-<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
-<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
-<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
-<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160; </div>
-<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_INTERNAL_ASIOENDPOINT_HPP</span></div>
-<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor">#define CPPWAMP_INTERNAL_ASIOENDPOINT_HPP</span></div>
-<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160; </div>
-<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &lt;cstdint&gt;</span></div>
-<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160;<span class="preprocessor">#include &lt;functional&gt;</span></div>
-<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="preprocessor">#include &lt;utility&gt;</span></div>
-<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="preprocessor">#include &lt;boost/asio/buffer.hpp&gt;</span></div>
-<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="preprocessor">#include &lt;boost/asio/read.hpp&gt;</span></div>
+<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">    Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
+<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">    Distributed under the Boost Software License, Version 1.0.</span></div>
+<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">    http://www.boost.org/LICENSE_1_0.txt</span></div>
+<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
+<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160; </div>
+<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_INTERNAL_ASIOENDPOINT_HPP</span></div>
+<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#define CPPWAMP_INTERNAL_ASIOENDPOINT_HPP</span></div>
+<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160; </div>
+<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;<span class="preprocessor">#include &lt;cstdint&gt;</span></div>
+<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &lt;functional&gt;</span></div>
+<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160;<span class="preprocessor">#include &lt;utility&gt;</span></div>
+<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="preprocessor">#include &lt;boost/asio/buffer.hpp&gt;</span></div>
+<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="preprocessor">#include &lt;boost/asio/read.hpp&gt;</span></div>
+<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="preprocessor">#include &lt;boost/asio/strand.hpp&gt;</span></div>
 <div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &lt;boost/asio/write.hpp&gt;</span></div>
 <div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &quot;../error.hpp&quot;</span></div>
 <div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="preprocessor">#include &quot;asiotransport.hpp&quot;</span></div>
@@ -130,7 +130,7 @@ $(document).ready(function(){initNavTree('asioendpoint_8hpp_source.html',''); in
 <div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;                                             TransportPtr)&gt;;</div>
 <div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160; </div>
 <div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;    <span class="keyword">explicit</span> AsioEndpoint(Establisher&amp;&amp; est)</div>
-<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;        : executor_(est.executor()),</div>
+<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;        : strand_(est.strand()),</div>
 <div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;          est_(std::move(est)),</div>
 <div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160;          handshake_(0)</div>
 <div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;    {}</div>
@@ -202,7 +202,7 @@ $(document).ready(function(){initNavTree('asioendpoint_8hpp_source.html',''); in
 <div class="line"><a name="l00114"></a><span class="lineno">  114</span>&#160;        <span class="keyword">auto</span> transport = Transport::create(std::move(socket_), maxTxLength,</div>
 <div class="line"><a name="l00115"></a><span class="lineno">  115</span>&#160;                                    maxRxLength);</div>
 <div class="line"><a name="l00116"></a><span class="lineno">  116</span>&#160;        std::error_code ec = make_error_code(<a class="code" href="namespacewamp.html#a7a09562b29d4b6e42e37be77ec31829aa260ca9dd8a4577fc00b7bd5810298076">TransportErrc::success</a>);</div>
-<div class="line"><a name="l00117"></a><span class="lineno">  117</span>&#160;        post(std::bind(handler_, ec, codecId, std::move(transport)));</div>
+<div class="line"><a name="l00117"></a><span class="lineno">  117</span>&#160;        postHandler(ec, codecId, std::move(transport));</div>
 <div class="line"><a name="l00118"></a><span class="lineno">  118</span>&#160;        socket_.reset();</div>
 <div class="line"><a name="l00119"></a><span class="lineno">  119</span>&#160;        handler_ = <span class="keyword">nullptr</span>;</div>
 <div class="line"><a name="l00120"></a><span class="lineno">  120</span>&#160;    }</div>
@@ -210,7 +210,7 @@ $(document).ready(function(){initNavTree('asioendpoint_8hpp_source.html',''); in
 <div class="line"><a name="l00122"></a><span class="lineno">  122</span>&#160;    <span class="keywordtype">void</span> fail(<a class="code" href="namespacewamp.html#aa0bf722cbe7ad04d49ad94b6ec440541">RawsockErrc</a> errc)</div>
 <div class="line"><a name="l00123"></a><span class="lineno">  123</span>&#160;    {</div>
 <div class="line"><a name="l00124"></a><span class="lineno">  124</span>&#160;        socket_.reset();</div>
-<div class="line"><a name="l00125"></a><span class="lineno">  125</span>&#160;        post(std::bind(handler_, make_error_code(errc), 0, <span class="keyword">nullptr</span>));</div>
+<div class="line"><a name="l00125"></a><span class="lineno">  125</span>&#160;        postHandler(make_error_code(errc), 0, <span class="keyword">nullptr</span>);</div>
 <div class="line"><a name="l00126"></a><span class="lineno">  126</span>&#160;        handler_ = <span class="keyword">nullptr</span>;</div>
 <div class="line"><a name="l00127"></a><span class="lineno">  127</span>&#160;    }</div>
 <div class="line"><a name="l00128"></a><span class="lineno">  128</span>&#160; </div>
@@ -220,7 +220,7 @@ $(document).ready(function(){initNavTree('asioendpoint_8hpp_source.html',''); in
 <div class="line"><a name="l00132"></a><span class="lineno">  132</span>&#160;        {</div>
 <div class="line"><a name="l00133"></a><span class="lineno">  133</span>&#160;            <span class="keyword">auto</span> ec = make_error_code(<span class="keyword">static_cast&lt;</span>std::errc<span class="keyword">&gt;</span>(asioEc.value()));</div>
 <div class="line"><a name="l00134"></a><span class="lineno">  134</span>&#160;            socket_.reset();</div>
-<div class="line"><a name="l00135"></a><span class="lineno">  135</span>&#160;            post(std::bind(handler_, ec, 0, <span class="keyword">nullptr</span>));</div>
+<div class="line"><a name="l00135"></a><span class="lineno">  135</span>&#160;            postHandler(ec, 0, <span class="keyword">nullptr</span>);</div>
 <div class="line"><a name="l00136"></a><span class="lineno">  136</span>&#160;            handler_ = <span class="keyword">nullptr</span>;</div>
 <div class="line"><a name="l00137"></a><span class="lineno">  137</span>&#160;        }</div>
 <div class="line"><a name="l00138"></a><span class="lineno">  138</span>&#160;        <span class="keywordflow">return</span> !asioEc;</div>
@@ -233,40 +233,41 @@ $(document).ready(function(){initNavTree('asioendpoint_8hpp_source.html',''); in
 <div class="line"><a name="l00145"></a><span class="lineno">  145</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> onHandshakeSent(Handshake hs) = 0;</div>
 <div class="line"><a name="l00146"></a><span class="lineno">  146</span>&#160; </div>
 <div class="line"><a name="l00147"></a><span class="lineno">  147</span>&#160;<span class="keyword">private</span>:</div>
-<div class="line"><a name="l00148"></a><span class="lineno">  148</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> TFunction&gt;</div>
-<div class="line"><a name="l00149"></a><span class="lineno">  149</span>&#160;    <span class="keywordtype">void</span> post(TFunction&amp;&amp; fn)</div>
+<div class="line"><a name="l00148"></a><span class="lineno">  148</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span>... TArgs&gt;</div>
+<div class="line"><a name="l00149"></a><span class="lineno">  149</span>&#160;    <span class="keywordtype">void</span> postHandler(TArgs&amp;&amp;... args)</div>
 <div class="line"><a name="l00150"></a><span class="lineno">  150</span>&#160;    {</div>
-<div class="line"><a name="l00151"></a><span class="lineno">  151</span>&#160;        boost::asio::post(executor_, std::forward&lt;TFunction&gt;(fn));</div>
-<div class="line"><a name="l00152"></a><span class="lineno">  152</span>&#160;    }</div>
-<div class="line"><a name="l00153"></a><span class="lineno">  153</span>&#160; </div>
-<div class="line"><a name="l00154"></a><span class="lineno">  154</span>&#160;    <a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> executor_;</div>
-<div class="line"><a name="l00155"></a><span class="lineno">  155</span>&#160;    SocketPtr socket_;</div>
-<div class="line"><a name="l00156"></a><span class="lineno">  156</span>&#160;    Handler handler_;</div>
-<div class="line"><a name="l00157"></a><span class="lineno">  157</span>&#160;    Establisher est_;</div>
-<div class="line"><a name="l00158"></a><span class="lineno">  158</span>&#160;    uint32_t handshake_;</div>
-<div class="line"><a name="l00159"></a><span class="lineno">  159</span>&#160; </div>
-<div class="line"><a name="l00160"></a><span class="lineno">  160</span>&#160;    <span class="comment">// Grant friendship to mock objects used in testing</span></div>
-<div class="line"><a name="l00161"></a><span class="lineno">  161</span>&#160;    <span class="keyword">friend</span> <span class="keyword">class </span>wamp::FakeMsgTypeAsioConnector;</div>
-<div class="line"><a name="l00162"></a><span class="lineno">  162</span>&#160;    <span class="keyword">friend</span> <span class="keyword">class </span>wamp::FakeMsgTypeAsioListener;</div>
-<div class="line"><a name="l00163"></a><span class="lineno">  163</span>&#160;};</div>
-<div class="line"><a name="l00164"></a><span class="lineno">  164</span>&#160; </div>
-<div class="line"><a name="l00165"></a><span class="lineno">  165</span>&#160;} <span class="comment">// namespace internal</span></div>
-<div class="line"><a name="l00166"></a><span class="lineno">  166</span>&#160; </div>
-<div class="line"><a name="l00167"></a><span class="lineno">  167</span>&#160;} <span class="comment">// namespace wamp</span></div>
-<div class="line"><a name="l00168"></a><span class="lineno">  168</span>&#160; </div>
-<div class="line"><a name="l00169"></a><span class="lineno">  169</span>&#160;<span class="preprocessor">#endif // CPPWAMP_INTERNAL_ASIOENDPOINT_HPP</span></div>
+<div class="line"><a name="l00151"></a><span class="lineno">  151</span>&#160;        boost::asio::post(strand_, std::bind(std::move(handler_),</div>
+<div class="line"><a name="l00152"></a><span class="lineno">  152</span>&#160;                                             std::forward&lt;TArgs&gt;(args)...));</div>
+<div class="line"><a name="l00153"></a><span class="lineno">  153</span>&#160;    }</div>
+<div class="line"><a name="l00154"></a><span class="lineno">  154</span>&#160; </div>
+<div class="line"><a name="l00155"></a><span class="lineno">  155</span>&#160;    <a class="code" href="namespacewamp.html#abdb99c75b9a03f6987cac708c17c32bb">IoStrand</a> strand_;</div>
+<div class="line"><a name="l00156"></a><span class="lineno">  156</span>&#160;    SocketPtr socket_;</div>
+<div class="line"><a name="l00157"></a><span class="lineno">  157</span>&#160;    Handler handler_;</div>
+<div class="line"><a name="l00158"></a><span class="lineno">  158</span>&#160;    Establisher est_;</div>
+<div class="line"><a name="l00159"></a><span class="lineno">  159</span>&#160;    uint32_t handshake_;</div>
+<div class="line"><a name="l00160"></a><span class="lineno">  160</span>&#160; </div>
+<div class="line"><a name="l00161"></a><span class="lineno">  161</span>&#160;    <span class="comment">// Grant friendship to mock objects used in testing</span></div>
+<div class="line"><a name="l00162"></a><span class="lineno">  162</span>&#160;    <span class="keyword">friend</span> <span class="keyword">class </span>wamp::FakeMsgTypeAsioConnector;</div>
+<div class="line"><a name="l00163"></a><span class="lineno">  163</span>&#160;    <span class="keyword">friend</span> <span class="keyword">class </span>wamp::FakeMsgTypeAsioListener;</div>
+<div class="line"><a name="l00164"></a><span class="lineno">  164</span>&#160;};</div>
+<div class="line"><a name="l00165"></a><span class="lineno">  165</span>&#160; </div>
+<div class="line"><a name="l00166"></a><span class="lineno">  166</span>&#160;} <span class="comment">// namespace internal</span></div>
+<div class="line"><a name="l00167"></a><span class="lineno">  167</span>&#160; </div>
+<div class="line"><a name="l00168"></a><span class="lineno">  168</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00169"></a><span class="lineno">  169</span>&#160; </div>
+<div class="line"><a name="l00170"></a><span class="lineno">  170</span>&#160;<span class="preprocessor">#endif // CPPWAMP_INTERNAL_ASIOENDPOINT_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
+<div class="ttc" id="anamespacewamp_html_abdb99c75b9a03f6987cac708c17c32bb"><div class="ttname"><a href="namespacewamp.html#abdb99c75b9a03f6987cac708c17c32bb">wamp::IoStrand</a></div><div class="ttdeci">boost::asio::strand&lt; AnyIoExecutor &gt; IoStrand</div><div class="ttdoc">Serializes I/O operations.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:41</div></div>
 <div class="ttc" id="anamespacewamp_html_a7a09562b29d4b6e42e37be77ec31829aa260ca9dd8a4577fc00b7bd5810298076"><div class="ttname"><a href="namespacewamp.html#a7a09562b29d4b6e42e37be77ec31829aa260ca9dd8a4577fc00b7bd5810298076">wamp::TransportErrc::success</a></div><div class="ttdeci">@ success</div><div class="ttdoc">Operation successful.</div></div>
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
-<div class="ttc" id="anamespacewamp_html_adeb149f6fd1f5f5508fcf1f90f01381b"><div class="ttname"><a href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">wamp::AsioErrorCode</a></div><div class="ttdeci">boost::system::error_code AsioErrorCode</div><div class="ttdoc">Type used by Boost.Asio for reporting errors.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:36</div></div>
-<div class="ttc" id="anamespacewamp_html_aa0bf722cbe7ad04d49ad94b6ec440541"><div class="ttname"><a href="namespacewamp.html#aa0bf722cbe7ad04d49ad94b6ec440541">wamp::RawsockErrc</a></div><div class="ttdeci">RawsockErrc</div><div class="ttdoc">Error code values used with the RawsockCategory error category.</div><div class="ttdef"><b>Definition:</b> error.hpp:350</div></div>
-<div class="ttc" id="anamespacewamp_html_ab03f8349a2a066271e29e516c8c62cb2"><div class="ttname"><a href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">wamp::AnyExecutor</a></div><div class="ttdeci">boost::asio::any_io_executor AnyExecutor</div><div class="ttdoc">Polymorphic executor for all I/O objects.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:26</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
+<div class="ttc" id="anamespacewamp_html_adeb149f6fd1f5f5508fcf1f90f01381b"><div class="ttname"><a href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">wamp::AsioErrorCode</a></div><div class="ttdeci">boost::system::error_code AsioErrorCode</div><div class="ttdoc">Type used by Boost.Asio for reporting errors.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:44</div></div>
+<div class="ttc" id="anamespacewamp_html_aa0bf722cbe7ad04d49ad94b6ec440541"><div class="ttname"><a href="namespacewamp.html#aa0bf722cbe7ad04d49ad94b6ec440541">wamp::RawsockErrc</a></div><div class="ttdeci">RawsockErrc</div><div class="ttdoc">Error code values used with the RawsockCategory error category.</div><div class="ttdef"><b>Definition:</b> error.hpp:426</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="dir_15a40f4932549f0fe4696fd8fd3add66.html">internal</a></li><li class="navelem"><b>asioendpoint.hpp</b></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:38 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

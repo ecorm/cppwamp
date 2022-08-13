@@ -85,6 +85,9 @@ $(document).ready(function(){initNavTree('functions_func_e.html',''); initResiza
 &#160;
 
 <h3><a id="index_e"></a>- e -</h3><ul>
+<li>emplace()
+: <a class="el" href="classwamp_1_1_error_or.html#acfd58c18c9fd8695e1b9b147b01a6b9f">wamp::ErrorOr&lt; T &gt;</a>
+</li>
 <li>empty()
 : <a class="el" href="classwamp_1_1_event.html#a3a27ec80f4b17d837767e7a36bf87849">wamp::Event</a>
 , <a class="el" href="classwamp_1_1_interruption.html#accb2d5489733dbc9c9b8094216da5582">wamp::Interruption</a>
@@ -98,11 +101,12 @@ $(document).ready(function(){initNavTree('functions_func_e.html',''); initResiza
 , <a class="el" href="classwamp_1_1_basic_msgpack_encoder_3_01_o_00_01_stream_output_category_01_4.html#a8afa30a775cadc5846d1ae48936d63f9">wamp::BasicMsgpackEncoder&lt; O, StreamOutputCategory &gt;</a>
 </li>
 <li>enroll()
-: <a class="el" href="classwamp_1_1_coro_session.html#a6081368ea20971cd258ece70f3ca6b28">wamp::CoroSession&lt; TBase &gt;</a>
-, <a class="el" href="classwamp_1_1_session.html#a04846bb5a40a74a0fe8cd37e3d0102c0">wamp::Session</a>
+: <a class="el" href="classwamp_1_1_coro_session.html#a29b7aec64308498c94709a67cbb243c7">wamp::CoroSession&lt; TIgnoredBase &gt;</a>
+, <a class="el" href="classwamp_1_1_session.html#a63584862689bbb1c9a6eb02f166b2f1d">wamp::Session</a>
 </li>
 <li>equivalent()
-: <a class="el" href="classwamp_1_1_protocol_category.html#afef0022c98d94bdadaec3c2db7df8393">wamp::ProtocolCategory</a>
+: <a class="el" href="classwamp_1_1_decoding_category.html#a8276236e797696a57dcc0925ea3cc5f1">wamp::DecodingCategory</a>
+, <a class="el" href="classwamp_1_1_protocol_category.html#afef0022c98d94bdadaec3c2db7df8393">wamp::ProtocolCategory</a>
 , <a class="el" href="classwamp_1_1_rawsock_category.html#a7a064a7ee680dfe2bdb6db87d1504c6c">wamp::RawsockCategory</a>
 , <a class="el" href="classwamp_1_1_session_category.html#ac4e82883b837e362780afa1cee5e6a30">wamp::SessionCategory</a>
 , <a class="el" href="classwamp_1_1_transport_category.html#a80cbd43c37983c1f22a7965eeecb3895">wamp::TransportCategory</a>
@@ -110,11 +114,17 @@ $(document).ready(function(){initNavTree('functions_func_e.html',''); initResiza
 <li>Error()
 : <a class="el" href="classwamp_1_1_error.html#a64b99fea21e4ef12111dec695e3e1925">wamp::Error</a>
 </li>
+<li>error()
+: <a class="el" href="classwamp_1_1_error_or.html#af22c3dd7cbd74df5e027725091218e83">wamp::ErrorOr&lt; T &gt;</a>
+</li>
 <li>errorCode()
-: <a class="el" href="classwamp_1_1_async_result.html#a9b977642730259a53bc374dbddcd6c68">wamp::AsyncResult&lt; T &gt;</a>
+: <a class="el" href="classwamp_1_1_error_or.html#a194107de76de76f5b9a2c775672b4629">wamp::ErrorOr&lt; T &gt;</a>
 </li>
 <li>errorInfo()
-: <a class="el" href="classwamp_1_1_async_result.html#a83fd466d9e98afbe22d2bb025314e025">wamp::AsyncResult&lt; T &gt;</a>
+: <a class="el" href="classwamp_1_1_error_or.html#af2b4ae7accbe60308dc4ee76425e2233">wamp::ErrorOr&lt; T &gt;</a>
+</li>
+<li>ErrorOr()
+: <a class="el" href="classwamp_1_1_error_or.html#a18d8f239bfef1a1d40599f5b6ab86d15">wamp::ErrorOr&lt; T &gt;</a>
 </li>
 <li>establish()
 : <a class="el" href="classwamp_1_1_connector.html#a237ff188457244b6a2a359e090f0f8ff">wamp::Connector</a>
@@ -126,9 +136,9 @@ $(document).ready(function(){initNavTree('functions_func_e.html',''); initResiza
 : <a class="el" href="classwamp_1_1_event_unpacker.html#ad2ca5aeb832b1c4aba23238ef3bcc936">wamp::EventUnpacker&lt; TSlot, TArgs &gt;</a>
 </li>
 <li>executor()
-: <a class="el" href="classwamp_1_1_event.html#a02cd6c7f302b0daa90415357af2de751">wamp::Event</a>
-, <a class="el" href="classwamp_1_1_interruption.html#a482d6a6ecd76c2a772b9ce0742c9734c">wamp::Interruption</a>
-, <a class="el" href="classwamp_1_1_invocation.html#a7113343b2fdde3e41f1769a90a60bfdd">wamp::Invocation</a>
+: <a class="el" href="classwamp_1_1_event.html#ade3862f12bfd15827c83ba9312073188">wamp::Event</a>
+, <a class="el" href="classwamp_1_1_interruption.html#a85cba3d4dc8d22a90346161ce2347eda">wamp::Interruption</a>
+, <a class="el" href="classwamp_1_1_invocation.html#a0cee1c6ea7a82e62bb01813e831dc842">wamp::Invocation</a>
 </li>
 </ul>
 </div><!-- contents -->
@@ -136,7 +146,7 @@ $(document).ready(function(){initNavTree('functions_func_e.html',''); initResiza
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

@@ -17,5 +17,5 @@ var classwamp_1_1_uds_path =
     [ "withReuseAddress", "classwamp_1_1_uds_path.html#ae9213b19d63e844f7391105de3a26a1b", null ],
     [ "withSendBufferSize", "classwamp_1_1_uds_path.html#aa87d378d7c30d3537c5ebc6b04566895", null ],
     [ "withSendLowWatermark", "classwamp_1_1_uds_path.html#a6e47ffe1a1cc02f4c61d8dcc92a02125", null ],
-    [ "connector", "classwamp_1_1_uds_path.html#a8286468d17c264d9ea9c68167406de7f", null ]
+    [ "connector", "classwamp_1_1_uds_path.html#a6ce06aa70b21c04bcd83d39eef45c320", null ]
 ];

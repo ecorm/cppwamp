@@ -104,7 +104,7 @@ $(document).ready(function(){initNavTree('functions_func_s.html',''); initResiza
 : <a class="el" href="classwamp_1_1_session.html#a6506613ec0fbf772db53cc9edbb0429f">wamp::Session</a>
 </li>
 <li>setError()
-: <a class="el" href="classwamp_1_1_async_result.html#a5f0f0f6b8334de7a49483aff8523ef94">wamp::AsyncResult&lt; T &gt;</a>
+: <a class="el" href="classwamp_1_1_error_or.html#a61af8b353cc64118ca2c206e060a2839">wamp::ErrorOr&lt; T &gt;</a>
 </li>
 <li>setStateChangeHandler()
 : <a class="el" href="classwamp_1_1_session.html#a8aee406350c455b908c7114434eea9ad">wamp::Session</a>
@@ -113,13 +113,37 @@ $(document).ready(function(){initNavTree('functions_func_s.html',''); initResiza
 : <a class="el" href="classwamp_1_1_session.html#a8ecf51b461ff093aedc9ed32c9adfc6a">wamp::Session</a>
 </li>
 <li>setValue()
-: <a class="el" href="classwamp_1_1_async_result.html#a2c70f0237f36cbd802827eb3686674c1">wamp::AsyncResult&lt; T &gt;</a>
+: <a class="el" href="classwamp_1_1_error_or.html#a600c88a77a4fb1dada35f11a4dbbee61">wamp::ErrorOr&lt; T &gt;</a>
 </li>
 <li>setWarningHandler()
 : <a class="el" href="classwamp_1_1_session.html#a3af4c171dc1d0cb7b412adbd702528db">wamp::Session</a>
 </li>
 <li>signature()
 : <a class="el" href="classwamp_1_1_authentication.html#acaa81c69c07be4c631a6f8575e952bc4">wamp::Authentication</a>
+</li>
+<li>simpleCoroEvent()
+: <a class="el" href="classwamp_1_1_simple_coro_event_unpacker.html#a71692b8078300c351a3808457b312143">wamp::SimpleCoroEventUnpacker&lt; TSlot, TArgs &gt;</a>
+</li>
+<li>SimpleCoroEventUnpacker()
+: <a class="el" href="classwamp_1_1_simple_coro_event_unpacker.html#a6d407936347f1f528055a2f352fb6b76">wamp::SimpleCoroEventUnpacker&lt; TSlot, TArgs &gt;</a>
+</li>
+<li>SimpleCoroInvocationUnpacker()
+: <a class="el" href="classwamp_1_1_simple_coro_invocation_unpacker.html#a9ec06ff47e138a62bf6b7bbaf60c4ccc">wamp::SimpleCoroInvocationUnpacker&lt; TSlot, TResult, TArgs &gt;</a>
+</li>
+<li>simpleCoroRpc()
+: <a class="el" href="classwamp_1_1_simple_coro_invocation_unpacker.html#a61f623e2a822b64632f9e7959425972a">wamp::SimpleCoroInvocationUnpacker&lt; TSlot, TResult, TArgs &gt;</a>
+</li>
+<li>simpleEvent()
+: <a class="el" href="classwamp_1_1_simple_event_unpacker.html#a847f79ee9ed4b60f501035782acac574">wamp::SimpleEventUnpacker&lt; TSlot, TArgs &gt;</a>
+</li>
+<li>SimpleEventUnpacker()
+: <a class="el" href="classwamp_1_1_simple_event_unpacker.html#a9bd7e742ee1d200cb3bc33259ea878fe">wamp::SimpleEventUnpacker&lt; TSlot, TArgs &gt;</a>
+</li>
+<li>SimpleInvocationUnpacker()
+: <a class="el" href="classwamp_1_1_simple_invocation_unpacker.html#a39503a1427b1cad5b25e46e3ebe77bc1">wamp::SimpleInvocationUnpacker&lt; TSlot, TResult, TArgs &gt;</a>
+</li>
+<li>simpleRpc()
+: <a class="el" href="classwamp_1_1_simple_invocation_unpacker.html#a414a1fa8c01375d2441c767b30ce6c1c">wamp::SimpleInvocationUnpacker&lt; TSlot, TResult, TArgs &gt;</a>
 </li>
 <li>size()
 : <a class="el" href="classwamp_1_1_from_variant_converter.html#a39cb1fb043a1b84d2b8078b0aecc06eb">wamp::FromVariantConverter</a>
@@ -129,12 +153,15 @@ $(document).ready(function(){initNavTree('functions_func_s.html',''); initResiza
 <li>state()
 : <a class="el" href="classwamp_1_1_session.html#af8b0af93592252d6a81838ccd8f07f95">wamp::Session</a>
 </li>
+<li>strand()
+: <a class="el" href="classwamp_1_1_session.html#aa1e07c8c0146ea12d624b95d09b1cd15">wamp::Session</a>
+</li>
 <li>subId()
 : <a class="el" href="classwamp_1_1_event.html#ac46a2aa0fc9a4dec210ec61d22312443">wamp::Event</a>
 </li>
 <li>subscribe()
-: <a class="el" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">wamp::CoroSession&lt; TBase &gt;</a>
-, <a class="el" href="classwamp_1_1_session.html#a93b8686842db786a7d065c601f75cb5a">wamp::Session</a>
+: <a class="el" href="classwamp_1_1_coro_session.html#a98b8132d2988f83b37aad90499e9df3d">wamp::CoroSession&lt; TIgnoredBase &gt;</a>
+, <a class="el" href="classwamp_1_1_session.html#af1dd9199ad4f4b795987d3a71e0400e3">wamp::Session</a>
 </li>
 <li>Subscription()
 : <a class="el" href="classwamp_1_1_subscription.html#ad30a44720fe97bdea151d0d1377b9d3e">wamp::Subscription</a>
@@ -146,10 +173,13 @@ $(document).ready(function(){initNavTree('functions_func_s.html',''); initResiza
 : <a class="el" href="classwamp_1_1_session_info.html#a3489a0c9413b488554cb6d27b5dc2eea">wamp::SessionInfo</a>
 </li>
 <li>suspend()
-: <a class="el" href="classwamp_1_1_coro_session.html#aa5c4f6558294892add45382eb3349698">wamp::CoroSession&lt; TBase &gt;</a>
+: <a class="el" href="classwamp_1_1_coro_session.html#aa5c4f6558294892add45382eb3349698">wamp::CoroSession&lt; TIgnoredBase &gt;</a>
 </li>
 <li>swap()
-: <a class="el" href="classwamp_1_1_variant.html#a8b074c49dc9f46ba152f5670508ba6b6">wamp::Variant</a>
+: <a class="el" href="classwamp_1_1_any_reusable_handler.html#a7f65affa2b56c53612075ff0c8b516d2">wamp::AnyReusableHandler&lt; TSignature &gt;</a>
+, <a class="el" href="classwamp_1_1_error_or.html#a96f19b88ecc83fa08b734ec6b6b74b6d">wamp::ErrorOr&lt; T &gt;</a>
+, <a class="el" href="classwamp_1_1_unexpected.html#a38d843a519b9b4e9e3ea47d818d84521">wamp::Unexpected&lt; E &gt;</a>
+, <a class="el" href="classwamp_1_1_variant.html#a4df88b7efc0481c6911610b0717a614b">wamp::Variant</a>
 </li>
 </ul>
 </div><!-- contents -->
@@ -157,7 +187,7 @@ $(document).ready(function(){initNavTree('functions_func_s.html',''); initResiza
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

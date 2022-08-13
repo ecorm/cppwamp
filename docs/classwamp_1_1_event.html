@@ -122,9 +122,9 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="clas
 <a class="el" href="namespacewamp.html#af1108039d1eea74def74485afcd801d5">PublicationId</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_event.html#a949477c2fb6b5e530db53c17f487bbdf">pubId</a> () const</td></tr>
 <tr class="memdesc:a949477c2fb6b5e530db53c17f487bbdf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the publication ID associated with this event. <br /></td></tr>
 <tr class="separator:a949477c2fb6b5e530db53c17f487bbdf"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a02cd6c7f302b0daa90415357af2de751"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_event.html#a02cd6c7f302b0daa90415357af2de751">executor</a> () const</td></tr>
-<tr class="memdesc:a02cd6c7f302b0daa90415357af2de751"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the executor used to execute user-provided handlers.  <a href="classwamp_1_1_event.html#a02cd6c7f302b0daa90415357af2de751">More...</a><br /></td></tr>
-<tr class="separator:a02cd6c7f302b0daa90415357af2de751"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ade3862f12bfd15827c83ba9312073188"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93">AnyIoExecutor</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_event.html#ade3862f12bfd15827c83ba9312073188">executor</a> () const</td></tr>
+<tr class="memdesc:ade3862f12bfd15827c83ba9312073188"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the executor used to execute user-provided handlers.  <a href="classwamp_1_1_event.html#ade3862f12bfd15827c83ba9312073188">More...</a><br /></td></tr>
+<tr class="separator:ade3862f12bfd15827c83ba9312073188"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr><td colspan="2"><div class="groupHeader">Publisher Identification</div></td></tr>
 <tr><td colspan="2"><div class="groupText"><p>See <a href="https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.3">Publisher Identification in the WAMP Specification</a> </p>
 </div></td></tr>
@@ -168,14 +168,14 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="clas
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a02cd6c7f302b0daa90415357af2de751"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a02cd6c7f302b0daa90415357af2de751">&#9670;&nbsp;</a></span>executor()</h2>
+<a id="ade3862f12bfd15827c83ba9312073188"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ade3862f12bfd15827c83ba9312073188">&#9670;&nbsp;</a></span>executor()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> wamp::Event::executor </td>
+          <td class="memname"><a class="el" href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93">AnyIoExecutor</a> wamp::Event::executor </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td> const</td>
@@ -184,7 +184,7 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="clas
 </div><div class="memdoc">
 
 <p>Obtains the executor used to execute user-provided handlers. </p>
-<dl class="section return"><dt>Returns</dt><dd>the same object as <a class="el" href="classwamp_1_1_session.html#a5cf49888d8c512e883e85a8d63aeca3f" title="Obtains the executor used to execute user-provided handlers.">Session::userExecutor()</a>. </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>the same object as <a class="el" href="classwamp_1_1_session.html#a0a76bae2b961dfd0bcc6e5557d31ddf9" title="Obtains the fallback executor used to execute user-provided handlers.">Session::userExecutor()</a>. </dd></dl>
 <dl class="section pre"><dt>Precondition</dt><dd><code>this-&gt;<a class="el" href="classwamp_1_1_event.html#a3a27ec80f4b17d837767e7a36bf87849" title="Returns false if the Event has been initialized and is ready for use.">empty()</a> == false</code> </dd></dl>
 
 </div>
@@ -259,7 +259,7 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="clas
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacewamp.html">wamp</a></li><li class="navelem"><a class="el" href="classwamp_1_1_event.html">Event</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

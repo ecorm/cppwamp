@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['cancelmode_974',['CancelMode',['../namespacewamp.html#a5a79c4206c6e45fbfedc0d7d4a775890',1,'wamp']]]
+  ['callcancelmode_1106',['CallCancelMode',['../namespacewamp.html#ada5fff4d6df9508a521ce3966a80f402',1,'wamp']]]
 ];

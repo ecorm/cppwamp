@@ -1,3 +1,5 @@
 <map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" href="$namespacewamp.html#structwamp_1_1_input_category" title="Traits class that determines the category type that best matches the given input type." alt="" coords="5,5,168,47"/>
+<area shape="rect" id="node1" title=" " alt="" coords="5,5,193,47"/>
+<area shape="rect" id="node2" title=" " alt="" coords="241,5,429,47"/>
+<area shape="rect" id="node3" href="$classwamp_1_1_error.html" title="Provides the reason URI, options, and payload arguments contained within WAMP ERROR messages." alt="" coords="477,13,579,39"/>
 </map>

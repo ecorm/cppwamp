@@ -1,5 +1,3 @@
 <map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
-<area shape="rect" id="node1" title=" " alt="" coords="5,5,204,47"/>
-<area shape="rect" id="node2" title=" " alt="" coords="252,5,451,47"/>
-<area shape="rect" id="node3" href="$classwamp_1_1_result.html" title="Contains the remote procedure result options/payload within WAMP RESULT and YIELD messages." alt="" coords="499,13,609,39"/>
+<area shape="rect" id="node1" href="$namespacewamp.html#structwamp_1_1_output_category" title="Traits class that determines the category type that best matches the given output type." alt="" coords="5,5,179,47"/>
 </map>

@@ -110,9 +110,9 @@ Public Member Functions</h2></td></tr>
 &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_invocation_unpacker.html#a5e453c76f0259e836eb961b94d58bd16">InvocationUnpacker</a> (<a class="el" href="classwamp_1_1_invocation_unpacker.html#aa5987f958634e94ca6f78c36ad4b3d84">Slot</a> slot)</td></tr>
 <tr class="memdesc:a5e453c76f0259e836eb961b94d58bd16"><td class="mdescLeft">&#160;</td><td class="mdescRight">Constructor taking a callable target. <br /></td></tr>
 <tr class="separator:a5e453c76f0259e836eb961b94d58bd16"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac451d3563d8c683c7cc89d97dd4b6319"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classwamp_1_1_outcome.html">Outcome</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_invocation_unpacker.html#ac451d3563d8c683c7cc89d97dd4b6319">operator()</a> (<a class="el" href="classwamp_1_1_invocation.html">Invocation</a> &amp;&amp;inv)</td></tr>
-<tr class="memdesc:ac451d3563d8c683c7cc89d97dd4b6319"><td class="mdescLeft">&#160;</td><td class="mdescRight">Dispatches the stored call slot.  <a href="classwamp_1_1_invocation_unpacker.html#ac451d3563d8c683c7cc89d97dd4b6319">More...</a><br /></td></tr>
-<tr class="separator:ac451d3563d8c683c7cc89d97dd4b6319"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aacda66ed43d981a7cfd460bd6232362c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classwamp_1_1_outcome.html">Outcome</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_invocation_unpacker.html#aacda66ed43d981a7cfd460bd6232362c">operator()</a> (<a class="el" href="classwamp_1_1_invocation.html">Invocation</a> inv) const</td></tr>
+<tr class="memdesc:aacda66ed43d981a7cfd460bd6232362c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Dispatches the stored call slot.  <a href="classwamp_1_1_invocation_unpacker.html#aacda66ed43d981a7cfd460bd6232362c">More...</a><br /></td></tr>
+<tr class="separator:aacda66ed43d981a7cfd460bd6232362c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="related"></a>
 Related Functions</h2></td></tr>
@@ -138,8 +138,8 @@ class wamp::InvocationUnpacker&lt; TSlot, TArgs &gt;</h3>
   </dd>
 </dl>
 </div><h2 class="groupheader">Member Function Documentation</h2>
-<a id="ac451d3563d8c683c7cc89d97dd4b6319"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ac451d3563d8c683c7cc89d97dd4b6319">&#9670;&nbsp;</a></span>operator()()</h2>
+<a id="aacda66ed43d981a7cfd460bd6232362c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aacda66ed43d981a7cfd460bd6232362c">&#9670;&nbsp;</a></span>operator()()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -149,9 +149,9 @@ template&lt;typename S , typename... A&gt; </div>
         <tr>
           <td class="memname"><a class="el" href="classwamp_1_1_outcome.html">Outcome</a> <a class="el" href="classwamp_1_1_invocation_unpacker.html">wamp::InvocationUnpacker</a>&lt; S, A &gt;::operator() </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="classwamp_1_1_invocation.html">Invocation</a> &amp;&amp;&#160;</td>
+          <td class="paramtype"><a class="el" href="classwamp_1_1_invocation.html">Invocation</a>&#160;</td>
           <td class="paramname"><em>inv</em></td><td>)</td>
-          <td></td>
+          <td> const</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -187,7 +187,7 @@ template&lt;typename... TArgs, typename TSlot &gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Converts an unpacked call slot into a regular slot than can be passed to <a class="el" href="classwamp_1_1_session.html#a04846bb5a40a74a0fe8cd37e3d0102c0" title="Registers a WAMP remote procedure call.">Session::enroll</a>. </p><dl class="section see"><dt>See also</dt><dd><a class="el" href="_registrations.html#UnpackedCallSlots">Unpacked Call Slots</a> </dd></dl>
+<p>Converts an unpacked call slot into a regular slot than can be passed to <a class="el" href="classwamp_1_1_session.html#a63584862689bbb1c9a6eb02f166b2f1d" title="Registers a WAMP remote procedure call.">Session::enroll</a>. </p><dl class="section see"><dt>See also</dt><dd><a class="el" href="_registrations.html#UnpackedCallSlots">Unpacked Call Slots</a> </dd></dl>
 <dl class="section return"><dt>Returns</dt><dd>An <a class="el" href="classwamp_1_1_invocation_unpacker.html" title="Wrapper around a call slot which automatically unpacks positional payload arguments.">InvocationUnpacker</a> that wraps the the given slot. </dd></dl>
 <dl class="tparams"><dt>Template Parameters</dt><dd>
   <table class="tparams">
@@ -208,7 +208,7 @@ template&lt;typename... TArgs, typename TSlot &gt; </div>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacewamp.html">wamp</a></li><li class="navelem"><a class="el" href="classwamp_1_1_invocation_unpacker.html">InvocationUnpacker</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

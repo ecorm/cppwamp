@@ -84,7 +84,8 @@ $(document).ready(function(){initNavTree('session_8hpp.html',''); initResizable(
 <div class="header">
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
-<a href="#namespaces">Namespaces</a>  </div>
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#var-members">Variables</a>  </div>
   <div class="headertitle">
 <div class="title">session.hpp File Reference</div>  </div>
 </div><!--header-->
@@ -92,21 +93,24 @@ $(document).ready(function(){initNavTree('session_8hpp.html',''); initResizable(
 
 <p>Contains the asynchronous session API used by a <em>client</em> peer in WAMP applications.  
 <a href="#details">More...</a></p>
-<div class="textblock"><code>#include &lt;functional&gt;</code><br />
+<div class="textblock"><code>#include &lt;atomic&gt;</code><br />
 <code>#include &lt;memory&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
 <code>#include &lt;utility&gt;</code><br />
 <code>#include &lt;vector&gt;</code><br />
+<code>#include &quot;<a class="el" href="anyhandler_8hpp_source.html">anyhandler.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="api_8hpp_source.html">api.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="asiodefs_8hpp_source.html">asiodefs.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="asyncresult_8hpp_source.html">asyncresult.hpp</a>&quot;</code><br />
-<code>#include &quot;<a class="el" href="peerdata_8hpp_source.html">peerdata.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="chits_8hpp_source.html">chits.hpp</a>&quot;</code><br />
+<code>#include &quot;config.hpp&quot;</code><br />
 <code>#include &quot;<a class="el" href="connector_8hpp_source.html">connector.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="error_8hpp_source.html">error.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="erroror_8hpp_source.html">erroror.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="peerdata_8hpp_source.html">peerdata.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="registration_8hpp_source.html">registration.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="subscription_8hpp_source.html">subscription.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="traits_8hpp_source.html">traits.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="wampdefs_8hpp_source.html">wampdefs.hpp</a>&quot;</code><br />
-<code>#include &quot;internal/asynctask.hpp&quot;</code><br />
 <code>#include &quot;internal/clientinterface.hpp&quot;</code><br />
 <code>#include &quot;internal/session.ipp&quot;</code><br />
 </div>
@@ -114,14 +118,24 @@ $(document).ready(function(){initNavTree('session_8hpp.html',''); initResizable(
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structwamp_1_1_thread_safe.html">wamp::ThreadSafe</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Tag type used to specify than an operation is to be dispatched via the called objects's execution strand.  <a href="structwamp_1_1_thread_safe.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session.html">wamp::Session</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Asynchronous session API used by a <em>client</em> peer in WAMP applications.  <a href="classwamp_1_1_session.html#details">More...</a><br /></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Session API used by a <em>client</em> peer in WAMP applications.  <a href="classwamp_1_1_session.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
 Namespaces</h2></td></tr>
 <tr class="memitem:namespacewamp"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html">wamp</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="var-members"></a>
+Variables</h2></td></tr>
+<tr class="memitem:a614811ceedef97ccc1712e961ab4011e"><td class="memItemLeft" align="right" valign="top"><a id="a614811ceedef97ccc1712e961ab4011e"></a>
+constexpr ThreadSafe&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a614811ceedef97ccc1712e961ab4011e">wamp::threadSafe</a></td></tr>
+<tr class="memdesc:a614811ceedef97ccc1712e961ab4011e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Constant <a class="el" href="structwamp_1_1_thread_safe.html" title="Tag type used to specify than an operation is to be dispatched via the called objects&#39;s execution str...">ThreadSafe</a> object instance that can be passed to functions. <br /></td></tr>
+<tr class="separator:a614811ceedef97ccc1712e961ab4011e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Contains the asynchronous session API used by a <em>client</em> peer in WAMP applications. </p>
@@ -131,7 +145,7 @@ Namespaces</h2></td></tr>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="session_8hpp.html">session.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

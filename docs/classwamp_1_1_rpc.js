@@ -11,5 +11,7 @@ var classwamp_1_1_rpc =
     [ "withCallerTimeout", "classwamp_1_1_rpc.html#a0f4c5fc931b2350e1d0ce70adef05c8b", null ],
     [ "withCallerTimeout", "classwamp_1_1_rpc.html#a6ea17b0166856142bdc9ae53cf30afa8", null ],
     [ "callerTimeout", "classwamp_1_1_rpc.html#a1bc35f9803ff7efa80d2e20513beaa39", null ],
-    [ "withDiscloseMe", "classwamp_1_1_rpc.html#ac3c2b78ae38395c1975fa732e9bd02b7", null ]
+    [ "withDiscloseMe", "classwamp_1_1_rpc.html#ac3c2b78ae38395c1975fa732e9bd02b7", null ],
+    [ "withCancelMode", "classwamp_1_1_rpc.html#adbbced99abe79da1d52727b276fe8ccc", null ],
+    [ "cancelMode", "classwamp_1_1_rpc.html#a7d90f952bb70083853722015dda850b2", null ]
 ];

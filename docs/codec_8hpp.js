@@ -14,5 +14,5 @@ var codec_8hpp =
     [ "InputCategoryTypeOf", "codec_8hpp.html#a8f560dce7bd9330d1f08570a6b9cd250", null ],
     [ "Decoder", "codec_8hpp.html#a612977014a4cf2e1d8f58406b95d0e6e", null ],
     [ "encode", "codec_8hpp.html#a47bb6673f3bae26c63ab24239194bc75", null ],
-    [ "decode", "codec_8hpp.html#aeef0cde53f71d755c50833b067dec25c", null ]
+    [ "decode", "codec_8hpp.html#a2a2f8f640e5157d6bc85fe8ba79224ac", null ]
 ];

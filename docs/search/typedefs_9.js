@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['loghandler_941',['LogHandler',['../classwamp_1_1_session.html#aab56766974c059f2d5eab9194dddf6dc',1,'wamp::Session']]]
+  ['loghandler_1071',['LogHandler',['../classwamp_1_1_session.html#a59fb6592ff7739862c40de62b3227094',1,'wamp::Session']]]
 ];

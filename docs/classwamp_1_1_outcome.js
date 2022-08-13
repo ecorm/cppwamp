@@ -9,6 +9,7 @@ var classwamp_1_1_outcome =
     [ "Outcome", "classwamp_1_1_outcome.html#acb61729da6c9bd6311e3a726bf369815", null ],
     [ "Outcome", "classwamp_1_1_outcome.html#abdf7d37312b6d7cd77a822f66df7d40d", null ],
     [ "Outcome", "classwamp_1_1_outcome.html#a04bcb8454886eccf9b1bc5ced6716b9c", null ],
+    [ "Outcome", "classwamp_1_1_outcome.html#ae0d21c8310d3cba95d1ee6f7ef4a963d", null ],
     [ "Outcome", "classwamp_1_1_outcome.html#a1dc8b65087df373fc3f573b3eaaaa080", null ],
     [ "Outcome", "classwamp_1_1_outcome.html#aac4ae64f362f1cc8e78a663ec2cab64b", null ],
     [ "~Outcome", "classwamp_1_1_outcome.html#a4c0bd6cdc81482cb666897cf12f0be1b", null ],

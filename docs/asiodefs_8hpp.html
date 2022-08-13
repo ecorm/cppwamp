@@ -95,7 +95,9 @@ $(document).ready(function(){initNavTree('asiodefs_8hpp.html',''); initResizable
 <div class="textblock"><code>#include &lt;type_traits&gt;</code><br />
 <code>#include &lt;boost/asio/any_io_executor.hpp&gt;</code><br />
 <code>#include &lt;boost/asio/io_context.hpp&gt;</code><br />
+<code>#include &lt;boost/asio/strand.hpp&gt;</code><br />
 <code>#include &lt;boost/system/error_code.hpp&gt;</code><br />
+<code>#include &quot;config.hpp&quot;</code><br />
 </div>
 <p><a href="asiodefs_8hpp_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -106,10 +108,13 @@ Namespaces</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
 Typedefs</h2></td></tr>
-<tr class="memitem:ab03f8349a2a066271e29e516c8c62cb2"><td class="memItemLeft" align="right" valign="top"><a id="ab03f8349a2a066271e29e516c8c62cb2"></a>
-using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">wamp::AnyExecutor</a> = boost::asio::any_io_executor</td></tr>
-<tr class="memdesc:ab03f8349a2a066271e29e516c8c62cb2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Polymorphic executor for all I/O objects. <br /></td></tr>
-<tr class="separator:ab03f8349a2a066271e29e516c8c62cb2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1a6c1d3b5bec84434d0b3c472d2c3f93"><td class="memItemLeft" align="right" valign="top"><a id="a1a6c1d3b5bec84434d0b3c472d2c3f93"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93">wamp::AnyIoExecutor</a> = boost::asio::any_io_executor</td></tr>
+<tr class="memdesc:a1a6c1d3b5bec84434d0b3c472d2c3f93"><td class="mdescLeft">&#160;</td><td class="mdescRight">Polymorphic executor for all I/O objects. <br /></td></tr>
+<tr class="separator:a1a6c1d3b5bec84434d0b3c472d2c3f93"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac09b74da0f1191be8b20ae04161c14c3"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#ac09b74da0f1191be8b20ae04161c14c3">wamp::AnyExecutor</a> = AnyIoExecutor</td></tr>
+<tr class="memdesc:ac09b74da0f1191be8b20ae04161c14c3"><td class="mdescLeft">&#160;</td><td class="mdescRight">Alias of AnyIoExecutor kept for backward compatibility.  <a href="namespacewamp.html#ac09b74da0f1191be8b20ae04161c14c3">More...</a><br /></td></tr>
+<tr class="separator:ac09b74da0f1191be8b20ae04161c14c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a9dd954da85bf9033739185b3a29e3e85"><td class="memItemLeft" align="right" valign="top"><a id="a9dd954da85bf9033739185b3a29e3e85"></a>
 using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a> = boost::asio::io_context</td></tr>
 <tr class="memdesc:a9dd954da85bf9033739185b3a29e3e85"><td class="mdescLeft">&#160;</td><td class="mdescRight">Queues and runs I/O completion handlers. <br /></td></tr>
@@ -117,6 +122,10 @@ using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="nam
 <tr class="memitem:a24590d6853d0156e07654228b3b1db7e"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a24590d6853d0156e07654228b3b1db7e">wamp::AsioService</a> = AsioContext</td></tr>
 <tr class="memdesc:a24590d6853d0156e07654228b3b1db7e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Alias of AsioContext kept for backward compatibility.  <a href="namespacewamp.html#a24590d6853d0156e07654228b3b1db7e">More...</a><br /></td></tr>
 <tr class="separator:a24590d6853d0156e07654228b3b1db7e"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:abdb99c75b9a03f6987cac708c17c32bb"><td class="memItemLeft" align="right" valign="top"><a id="abdb99c75b9a03f6987cac708c17c32bb"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#abdb99c75b9a03f6987cac708c17c32bb">wamp::IoStrand</a> = boost::asio::strand&lt; AnyIoExecutor &gt;</td></tr>
+<tr class="memdesc:abdb99c75b9a03f6987cac708c17c32bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Serializes I/O operations. <br /></td></tr>
+<tr class="separator:abdb99c75b9a03f6987cac708c17c32bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:adeb149f6fd1f5f5508fcf1f90f01381b"><td class="memItemLeft" align="right" valign="top"><a id="adeb149f6fd1f5f5508fcf1f90f01381b"></a>
 using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#adeb149f6fd1f5f5508fcf1f90f01381b">wamp::AsioErrorCode</a> = boost::system::error_code</td></tr>
 <tr class="memdesc:adeb149f6fd1f5f5508fcf1f90f01381b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Type used by Boost.Asio for reporting errors. <br /></td></tr>
@@ -130,7 +139,7 @@ using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="nam
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="asiodefs_8hpp.html">asiodefs.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

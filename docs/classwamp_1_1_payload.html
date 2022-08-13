@@ -112,6 +112,11 @@ template&lt;typename... Ts&gt; </td></tr>
 <tr class="memitem:ab74e3d6e4a66f8a32976aeeaeb91c7ab"><td class="memTemplItemLeft" align="right" valign="top">TDerived &amp;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_payload.html#ab74e3d6e4a66f8a32976aeeaeb91c7ab">withArgs</a> (Ts &amp;&amp;... <a class="el" href="classwamp_1_1_payload.html#ae267de3cfe7190ef8366589e8e28f065">args</a>)</td></tr>
 <tr class="memdesc:ab74e3d6e4a66f8a32976aeeaeb91c7ab"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the positional arguments for this payload. <br /></td></tr>
 <tr class="separator:ab74e3d6e4a66f8a32976aeeaeb91c7ab"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1bc45e9e98fd0060a892f098212a8abc"><td class="memTemplParams" colspan="2"><a id="a1bc45e9e98fd0060a892f098212a8abc"></a>
+template&lt;typename... Ts&gt; </td></tr>
+<tr class="memitem:a1bc45e9e98fd0060a892f098212a8abc"><td class="memTemplItemLeft" align="right" valign="top">TDerived &amp;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_payload.html#a1bc45e9e98fd0060a892f098212a8abc">withArgsTuple</a> (const std::tuple&lt; Ts... &gt; &amp;tuple)</td></tr>
+<tr class="memdesc:a1bc45e9e98fd0060a892f098212a8abc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the positional arguments for this payload from a tuple. <br /></td></tr>
+<tr class="separator:a1bc45e9e98fd0060a892f098212a8abc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af1ab0798abcbff7a9dc2bffad870c4bb"><td class="memItemLeft" align="right" valign="top">TDerived &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_payload.html#af1ab0798abcbff7a9dc2bffad870c4bb">withArgList</a> (<a class="el" href="namespacewamp.html#a2daa037ae4c3853086e789bad1978ca2">Array</a> <a class="el" href="classwamp_1_1_payload.html#ae267de3cfe7190ef8366589e8e28f065">args</a>)</td></tr>
 <tr class="memdesc:af1ab0798abcbff7a9dc2bffad870c4bb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the positional arguments for this payload from an array of variants.  <a href="classwamp_1_1_payload.html#af1ab0798abcbff7a9dc2bffad870c4bb">More...</a><br /></td></tr>
 <tr class="separator:af1ab0798abcbff7a9dc2bffad870c4bb"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -145,14 +150,28 @@ template&lt;typename... Ts&gt; </td></tr>
 <tr class="memitem:a5dbc98409f83684ff40d44d97d50b442"><td class="memTemplItemLeft" align="right" valign="top">size_t&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_payload.html#a5dbc98409f83684ff40d44d97d50b442">convertTo</a> (Ts &amp;... values) const</td></tr>
 <tr class="memdesc:a5dbc98409f83684ff40d44d97d50b442"><td class="mdescLeft">&#160;</td><td class="mdescRight">Converts the payload's positional arguments to the given value types.  <a href="classwamp_1_1_payload.html#a5dbc98409f83684ff40d44d97d50b442">More...</a><br /></td></tr>
 <tr class="separator:a5dbc98409f83684ff40d44d97d50b442"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a29231ef9bbae387b6a8e73675379db17"><td class="memTemplParams" colspan="2"><a id="a29231ef9bbae387b6a8e73675379db17"></a>
+template&lt;typename... Ts&gt; </td></tr>
+<tr class="memitem:a29231ef9bbae387b6a8e73675379db17"><td class="memTemplItemLeft" align="right" valign="top">size_t&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_payload.html#a29231ef9bbae387b6a8e73675379db17">convertToTuple</a> (std::tuple&lt; Ts... &gt; &amp;tuple) const</td></tr>
+<tr class="memdesc:a29231ef9bbae387b6a8e73675379db17"><td class="mdescLeft">&#160;</td><td class="mdescRight">Converts the payload's positional arguments to the given std::tuple. <br /></td></tr>
+<tr class="separator:a29231ef9bbae387b6a8e73675379db17"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6c3ff0163f7e8673444b17b12a632cbc"><td class="memTemplParams" colspan="2">template&lt;typename... Ts&gt; </td></tr>
 <tr class="memitem:a6c3ff0163f7e8673444b17b12a632cbc"><td class="memTemplItemLeft" align="right" valign="top">size_t&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_payload.html#a6c3ff0163f7e8673444b17b12a632cbc">moveTo</a> (Ts &amp;... values)</td></tr>
 <tr class="memdesc:a6c3ff0163f7e8673444b17b12a632cbc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Moves the payload's positional arguments to the given value references.  <a href="classwamp_1_1_payload.html#a6c3ff0163f7e8673444b17b12a632cbc">More...</a><br /></td></tr>
 <tr class="separator:a6c3ff0163f7e8673444b17b12a632cbc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee5044300fc38b41a7ced1831d1c440d"><td class="memTemplParams" colspan="2"><a id="aee5044300fc38b41a7ced1831d1c440d"></a>
+template&lt;typename... Ts&gt; </td></tr>
+<tr class="memitem:aee5044300fc38b41a7ced1831d1c440d"><td class="memTemplItemLeft" align="right" valign="top">size_t&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_payload.html#aee5044300fc38b41a7ced1831d1c440d">moveToTuple</a> (std::tuple&lt; Ts... &gt; &amp;tuple)</td></tr>
+<tr class="memdesc:aee5044300fc38b41a7ced1831d1c440d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Moves the payload's positional arguments to the given std::tuple. <br /></td></tr>
+<tr class="separator:aee5044300fc38b41a7ced1831d1c440d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a37c58f34199bb70432514be422b8450c"><td class="memTemplParams" colspan="2">template&lt;typename... Ts&gt; </td></tr>
 <tr class="memitem:a37c58f34199bb70432514be422b8450c"><td class="memTemplItemLeft" align="right" valign="top">D &amp;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_payload.html#a37c58f34199bb70432514be422b8450c">withArgs</a> (Ts &amp;&amp;... <a class="el" href="classwamp_1_1_payload.html#ae267de3cfe7190ef8366589e8e28f065">args</a>)</td></tr>
 <tr class="memdesc:a37c58f34199bb70432514be422b8450c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Each argument is converted to a <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a> using <a class="el" href="classwamp_1_1_variant.html#aefe87e6ea0e056086ac71938907d58e4" title="Constructs a variant from a custom type.">Variant::from</a>.  <a href="classwamp_1_1_payload.html#a37c58f34199bb70432514be422b8450c">More...</a><br /></td></tr>
 <tr class="separator:a37c58f34199bb70432514be422b8450c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6ac4a9c1679d523757aef2e3db0775cc"><td class="memTemplParams" colspan="2">template&lt;typename... Ts&gt; </td></tr>
+<tr class="memitem:a6ac4a9c1679d523757aef2e3db0775cc"><td class="memTemplItemLeft" align="right" valign="top">D &amp;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="classwamp_1_1_payload.html#a6ac4a9c1679d523757aef2e3db0775cc">withArgsTuple</a> (const std::tuple&lt; Ts... &gt; &amp;tuple)</td></tr>
+<tr class="memdesc:a6ac4a9c1679d523757aef2e3db0775cc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Each tuple element is converted to a <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a> using <a class="el" href="classwamp_1_1_variant.html#aefe87e6ea0e056086ac71938907d58e4" title="Constructs a variant from a custom type.">Variant::from</a>.  <a href="classwamp_1_1_payload.html#a6ac4a9c1679d523757aef2e3db0775cc">More...</a><br /></td></tr>
+<tr class="separator:a6ac4a9c1679d523757aef2e3db0775cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classwamp_1_1_options"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classwamp_1_1_options')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classwamp_1_1_options.html">wamp::Options&lt; TDerived, TMessage &gt;</a></td></tr>
 <tr class="memitem:a40449a93c1914c6c15b1dda948c7aa89 inherit pub_methods_classwamp_1_1_options"><td class="memItemLeft" align="right" valign="top"><a id="a40449a93c1914c6c15b1dda948c7aa89"></a>
 TDerived &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_options.html#a40449a93c1914c6c15b1dda948c7aa89">withOption</a> (<a class="el" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> key, <a class="el" href="classwamp_1_1_variant.html">Variant</a> value)</td></tr>
@@ -467,20 +486,45 @@ template&lt;typename... Ts&gt; </div>
 
 </div>
 </div>
+<a id="a6ac4a9c1679d523757aef2e3db0775cc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6ac4a9c1679d523757aef2e3db0775cc">&#9670;&nbsp;</a></span>withArgsTuple()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename TDerived , typename TMessage &gt; </div>
+<div class="memtemplate">
+template&lt;typename... Ts&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">D&amp; <a class="el" href="classwamp_1_1_payload.html">wamp::Payload</a>&lt; TDerived, TMessage &gt;::withArgsTuple </td>
+          <td>(</td>
+          <td class="paramtype">const std::tuple&lt; Ts... &gt; &amp;&#160;</td>
+          <td class="paramname"><em>tuple</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Each tuple element is converted to a <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">Variant</a> using <a class="el" href="classwamp_1_1_variant.html#aefe87e6ea0e056086ac71938907d58e4" title="Constructs a variant from a custom type.">Variant::from</a>. </p>
+<p>This allows custom types to be passed in, as long as the <code>convert</code> function is specialized for those custom types. </p>
+
+</div>
+</div>
 <hr/>The documentation for this class was generated from the following file:<ul>
 <li>cppwamp/<a class="el" href="payload_8hpp_source.html">payload.hpp</a></li>
 </ul>
 </div><!-- contents -->
 </div><!-- doc-content -->
-<div class="ttc" id="anamespacewamp_html_a2027fe57e4014c013dcbbc733a1c9a56"><div class="ttname"><a href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">wamp::Object</a></div><div class="ttdeci">std::map&lt; String, Variant &gt; Object</div><div class="ttdoc">Variant bound type for maps of variants.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:53</div></div>
-<div class="ttc" id="anamespacewamp_html_a2daa037ae4c3853086e789bad1978ca2"><div class="ttname"><a href="namespacewamp.html#a2daa037ae4c3853086e789bad1978ca2">wamp::Array</a></div><div class="ttdeci">std::vector&lt; Variant &gt; Array</div><div class="ttdoc">Variant bound type for arrays of variants.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:52</div></div>
-<div class="ttc" id="anamespacewamp_html_afafe0c1169d7725af2c3a5b3b8f5bb67"><div class="ttname"><a href="namespacewamp.html#afafe0c1169d7725af2c3a5b3b8f5bb67">wamp::Int</a></div><div class="ttdeci">std::int64_t Int</div><div class="ttdoc">Variant bound type for signed integers.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:48</div></div>
-<div class="ttc" id="anamespacewamp_html_a0b58ab2a2761bca711bc957b47619662"><div class="ttname"><a href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">wamp::String</a></div><div class="ttdeci">std::string String</div><div class="ttdoc">Variant bound type for text strings.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:51</div></div>
+<div class="ttc" id="anamespacewamp_html_a2027fe57e4014c013dcbbc733a1c9a56"><div class="ttname"><a href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">wamp::Object</a></div><div class="ttdeci">std::map&lt; String, Variant &gt; Object</div><div class="ttdoc">Variant bound type for maps of variants.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:52</div></div>
+<div class="ttc" id="anamespacewamp_html_a2daa037ae4c3853086e789bad1978ca2"><div class="ttname"><a href="namespacewamp.html#a2daa037ae4c3853086e789bad1978ca2">wamp::Array</a></div><div class="ttdeci">std::vector&lt; Variant &gt; Array</div><div class="ttdoc">Variant bound type for arrays of variants.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:51</div></div>
+<div class="ttc" id="anamespacewamp_html_afafe0c1169d7725af2c3a5b3b8f5bb67"><div class="ttname"><a href="namespacewamp.html#afafe0c1169d7725af2c3a5b3b8f5bb67">wamp::Int</a></div><div class="ttdeci">std::int64_t Int</div><div class="ttdoc">Variant bound type for signed integers.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:47</div></div>
+<div class="ttc" id="anamespacewamp_html_a0b58ab2a2761bca711bc957b47619662"><div class="ttname"><a href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">wamp::String</a></div><div class="ttdeci">std::string String</div><div class="ttdoc">Variant bound type for text strings.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:50</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacewamp.html">wamp</a></li><li class="navelem"><a class="el" href="classwamp_1_1_payload.html">Payload</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

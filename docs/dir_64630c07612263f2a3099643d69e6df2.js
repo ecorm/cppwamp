@@ -3,6 +3,7 @@ var dir_64630c07612263f2a3099643d69e6df2 =
     [ "coro", "dir_dafb9a824b194ea2527e1cacea783e0b.html", "dir_dafb9a824b194ea2527e1cacea783e0b" ],
     [ "internal", "dir_15a40f4932549f0fe4696fd8fd3add66.html", "dir_15a40f4932549f0fe4696fd8fd3add66" ],
     [ "types", "dir_7cc9ccb47e2955525c138c194b63dd1d.html", "dir_7cc9ccb47e2955525c138c194b63dd1d" ],
+    [ "anyhandler.hpp", "anyhandler_8hpp.html", "anyhandler_8hpp" ],
     [ "api.hpp", "api_8hpp.html", null ],
     [ "asiodefs.hpp", "asiodefs_8hpp.html", "asiodefs_8hpp" ],
     [ "asyncresult.hpp", "asyncresult_8hpp.html", "asyncresult_8hpp" ],
@@ -10,13 +11,18 @@ var dir_64630c07612263f2a3099643d69e6df2 =
       [ "Blob", "classwamp_1_1_blob.html", "classwamp_1_1_blob" ]
     ] ],
     [ "cbor.hpp", "cbor_8hpp.html", "cbor_8hpp" ],
+    [ "chits.hpp", "chits_8hpp.html", [
+      [ "CallChit", "classwamp_1_1_call_chit.html", "classwamp_1_1_call_chit" ]
+    ] ],
     [ "codec.hpp", "codec_8hpp.html", "codec_8hpp" ],
+    [ "config.hpp", "config_8hpp_source.html", null ],
     [ "connector.hpp", "connector_8hpp.html", "connector_8hpp" ],
     [ "conversion.hpp", "conversion_8hpp.html", null ],
     [ "conversionaccess.hpp", "conversionaccess_8hpp.html", "conversionaccess_8hpp" ],
     [ "corosession.hpp", "corosession_8hpp.html", null ],
-    [ "corounpacker.hpp", "corounpacker_8hpp.html", null ],
+    [ "corounpacker.hpp", "corounpacker_8hpp.html", "corounpacker_8hpp" ],
     [ "error.hpp", "error_8hpp.html", "error_8hpp" ],
+    [ "erroror.hpp", "erroror_8hpp.html", "erroror_8hpp" ],
     [ "json.hpp", "json_8hpp.html", "json_8hpp" ],
     [ "messagebuffer.hpp", "messagebuffer_8hpp.html", "messagebuffer_8hpp" ],
     [ "msgpack.hpp", "msgpack_8hpp.html", "msgpack_8hpp" ],
@@ -33,9 +39,7 @@ var dir_64630c07612263f2a3099643d69e6df2 =
       [ "Registration", "classwamp_1_1_registration.html", "classwamp_1_1_registration" ],
       [ "ScopedRegistration", "classwamp_1_1_scoped_registration.html", "classwamp_1_1_scoped_registration" ]
     ] ],
-    [ "session.hpp", "session_8hpp.html", [
-      [ "Session", "classwamp_1_1_session.html", "classwamp_1_1_session" ]
-    ] ],
+    [ "session.hpp", "session_8hpp.html", "session_8hpp" ],
     [ "sessiondata.hpp", "sessiondata_8hpp_source.html", null ],
     [ "subscription.hpp", "subscription_8hpp.html", [
       [ "Subscription", "classwamp_1_1_subscription.html", "classwamp_1_1_subscription" ],

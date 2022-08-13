@@ -2,6 +2,7 @@ var classwamp_1_1_payload =
 [
     [ "Payload", "classwamp_1_1_payload.html#a9c7e87f89232a6b7cd5abbab42a36349", null ],
     [ "withArgs", "classwamp_1_1_payload.html#ab74e3d6e4a66f8a32976aeeaeb91c7ab", null ],
+    [ "withArgsTuple", "classwamp_1_1_payload.html#a1bc45e9e98fd0060a892f098212a8abc", null ],
     [ "withArgList", "classwamp_1_1_payload.html#af1ab0798abcbff7a9dc2bffad870c4bb", null ],
     [ "withKwargs", "classwamp_1_1_payload.html#a2d9a4e6e32bd43d5cdcbb26e1dd9421d", null ],
     [ "args", "classwamp_1_1_payload.html#ae267de3cfe7190ef8366589e8e28f065", null ],
@@ -12,6 +13,9 @@ var classwamp_1_1_payload =
     [ "operator[]", "classwamp_1_1_payload.html#a8da35bf884deb5f77140a8732042a149", null ],
     [ "operator[]", "classwamp_1_1_payload.html#a50418dfd955cf23ea4eb069dfda4be25", null ],
     [ "convertTo", "classwamp_1_1_payload.html#a5dbc98409f83684ff40d44d97d50b442", null ],
+    [ "convertToTuple", "classwamp_1_1_payload.html#a29231ef9bbae387b6a8e73675379db17", null ],
     [ "moveTo", "classwamp_1_1_payload.html#a6c3ff0163f7e8673444b17b12a632cbc", null ],
-    [ "withArgs", "classwamp_1_1_payload.html#a37c58f34199bb70432514be422b8450c", null ]
+    [ "moveToTuple", "classwamp_1_1_payload.html#aee5044300fc38b41a7ced1831d1c440d", null ],
+    [ "withArgs", "classwamp_1_1_payload.html#a37c58f34199bb70432514be422b8450c", null ],
+    [ "withArgsTuple", "classwamp_1_1_payload.html#a6ac4a9c1679d523757aef2e3db0775cc", null ]
 ];

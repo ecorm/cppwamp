@@ -7,6 +7,7 @@ var error_8hpp =
     [ "Conversion", "structwamp_1_1error_1_1_conversion.html", null ],
     [ "Decode", "structwamp_1_1error_1_1_decode.html", null ],
     [ "SessionCategory", "classwamp_1_1_session_category.html", "classwamp_1_1_session_category" ],
+    [ "DecodingCategory", "classwamp_1_1_decoding_category.html", "classwamp_1_1_decoding_category" ],
     [ "ProtocolCategory", "classwamp_1_1_protocol_category.html", "classwamp_1_1_protocol_category" ],
     [ "TransportCategory", "classwamp_1_1_transport_category.html", "classwamp_1_1_transport_category" ],
     [ "RawsockCategory", "classwamp_1_1_rawsock_category.html", "classwamp_1_1_rawsock_category" ],
@@ -24,6 +25,7 @@ var error_8hpp =
       [ "registerError", "error_8hpp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a5df9f1bf5e3db9c58bf704975f5b910b", null ],
       [ "unregisterError", "error_8hpp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a46b3700b2b31b8385fe1d8ee86467afd", null ],
       [ "callError", "error_8hpp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46aef60a5ac24513b778c5cbf1c19849ade", null ],
+      [ "invalidState", "error_8hpp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a34cbbc3e440497e007985a72c5ba90e0", null ],
       [ "invalidUri", "error_8hpp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a2bea66a21ec3d2c8e0f5e53525b8ef7d", null ],
       [ "noSuchProcedure", "error_8hpp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a2be9ffd8006ede69e1a0d3e504095d14", null ],
       [ "procedureAlreadyExists", "error_8hpp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a357062fb324f21ba4ec07cdc0af68164", null ],
@@ -42,6 +44,15 @@ var error_8hpp =
       [ "noEligibleCallee", "error_8hpp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46ae8dbf1dde2318304f49bb205815f7fcd", null ],
       [ "discloseMeDisallowed", "error_8hpp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46afcceb3a3542cd0fdf32c652a1ea05395", null ],
       [ "networkFailure", "error_8hpp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46af77654d8b67758cba023bfc9de1464b4", null ]
+    ] ],
+    [ "DecodingErrc", "error_8hpp.html#a6780fafb8e86182dabb1d5eddc9cc784", [
+      [ "success", "error_8hpp.html#a6780fafb8e86182dabb1d5eddc9cc784a260ca9dd8a4577fc00b7bd5810298076", null ],
+      [ "failure", "error_8hpp.html#a6780fafb8e86182dabb1d5eddc9cc784a3ee28fe1a60c95b89d29317f122c7021", null ],
+      [ "emptyInput", "error_8hpp.html#a6780fafb8e86182dabb1d5eddc9cc784a6ed8ac20ecdf679c91e80432006ee832", null ],
+      [ "expectedStringKey", "error_8hpp.html#a6780fafb8e86182dabb1d5eddc9cc784aefb00f8fd8f4a6c2018e90e91a891853", null ],
+      [ "badBase64Length", "error_8hpp.html#a6780fafb8e86182dabb1d5eddc9cc784aff853bf855be9fdb7dbfa594e945e89b", null ],
+      [ "badBase64Padding", "error_8hpp.html#a6780fafb8e86182dabb1d5eddc9cc784aec7221812154d114d010d55f855767bc", null ],
+      [ "badBase64Char", "error_8hpp.html#a6780fafb8e86182dabb1d5eddc9cc784a962217c287faa972012b3142bd7d841c", null ]
     ] ],
     [ "ProtocolErrc", "error_8hpp.html#a19ce4bc9c1e5512cec6ba323c4d324d0", [
       [ "success", "error_8hpp.html#a19ce4bc9c1e5512cec6ba323c4d324d0a260ca9dd8a4577fc00b7bd5810298076", null ],

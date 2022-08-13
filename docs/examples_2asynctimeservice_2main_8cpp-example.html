@@ -87,11 +87,14 @@ $(document).ready(function(){initNavTree('examples_2asynctimeservice_2main_8cpp-
 </div><!--header-->
 <div class="contents">
 <div class="fragment"><div class="line"><span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><span class="comment">                   Copyright Butterfly Energy Systems 2022.</span></div>
-<div class="line"><span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
-<div class="line"><span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
-<div class="line"><span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
+<div class="line"><span class="comment">    Copyright Butterfly Energy Systems 2022.</span></div>
+<div class="line"><span class="comment">    Distributed under the Boost Software License, Version 1.0.</span></div>
+<div class="line"><span class="comment">    http://www.boost.org/LICENSE_1_0.txt</span></div>
 <div class="line"><span class="comment">------------------------------------------------------------------------------*/</span></div>
+<div class="line"> </div>
+<div class="line"><span class="comment">//******************************************************************************</span></div>
+<div class="line"><span class="comment">// Example WAMP service provider app using callback handler functions.</span></div>
+<div class="line"><span class="comment">//******************************************************************************</span></div>
 <div class="line"> </div>
 <div class="line"><span class="preprocessor">#include &lt;chrono&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;ctime&gt;</span></div>
@@ -99,9 +102,9 @@ $(document).ready(function(){initNavTree('examples_2asynctimeservice_2main_8cpp-
 <div class="line"><span class="preprocessor">#include &lt;boost/asio/steady_timer.hpp&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;<a class="code" href="json_8hpp.html">cppwamp/json.hpp</a>&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;<a class="code" href="tcp_8hpp.html">cppwamp/tcp.hpp</a>&gt;</span></div>
+<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="session_8hpp.html">cppwamp/session.hpp</a>&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;<a class="code" href="unpacker_8hpp.html">cppwamp/unpacker.hpp</a>&gt;</span></div>
 <div class="line"><span class="preprocessor">#include &lt;<a class="code" href="variant_8hpp.html">cppwamp/variant.hpp</a>&gt;</span></div>
-<div class="line"><span class="preprocessor">#include &lt;<a class="code" href="coro_2corosession_8hpp.html">cppwamp/coro/corosession.hpp</a>&gt;</span></div>
 <div class="line"> </div>
 <div class="line"><span class="keyword">const</span> std::string realm = <span class="stringliteral">&quot;cppwamp.demo.time&quot;</span>;</div>
 <div class="line"><span class="keyword">const</span> std::string address = <span class="stringliteral">&quot;localhost&quot;</span>;</div>
@@ -130,25 +133,26 @@ $(document).ready(function(){initNavTree('examples_2asynctimeservice_2main_8cpp-
 <div class="line"><span class="keyword">class </span>TimeService : <span class="keyword">public</span> std::enable_shared_from_this&lt;TimeService&gt;</div>
 <div class="line">{</div>
 <div class="line"><span class="keyword">public</span>:</div>
-<div class="line">    <span class="keyword">static</span> std::shared_ptr&lt;TimeService&gt; create(<a class="code" href="classwamp_1_1_session.html#a3c66ba85a4fa50f8b85b15ba0c672384">wamp::Session::Ptr</a> session)</div>
+<div class="line">    <span class="keyword">static</span> std::shared_ptr&lt;TimeService&gt; create(<a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a>&amp; ioctx,</div>
+<div class="line">                                               <a class="code" href="classwamp_1_1_session.html#a3c66ba85a4fa50f8b85b15ba0c672384">wamp::Session::Ptr</a> session)</div>
 <div class="line">    {</div>
-<div class="line">        <span class="keywordflow">return</span> std::shared_ptr&lt;TimeService&gt;(<span class="keyword">new</span> TimeService(session));</div>
+<div class="line">        <span class="keywordflow">return</span> std::shared_ptr&lt;TimeService&gt;(<span class="keyword">new</span> TimeService(ioctx, session));</div>
 <div class="line">    }</div>
 <div class="line"> </div>
 <div class="line">    <span class="keywordtype">void</span> start()</div>
 <div class="line">    {</div>
 <div class="line">        <span class="keyword">auto</span> <span class="keyword">self</span> = shared_from_this();</div>
-<div class="line">        session_-&gt;connect([<span class="keyword">this</span>, <span class="keyword">self</span>](<a name="_a1"></a><a class="code" href="classwamp_1_1_async_result.html">wamp::AsyncResult&lt;size_t&gt;</a> index)</div>
+<div class="line">        session_-&gt;connect([<span class="keyword">this</span>, <span class="keyword">self</span>](<a name="_a1"></a><a class="code" href="classwamp_1_1_error_or.html">wamp::ErrorOr&lt;size_t&gt;</a> index)</div>
 <div class="line">        {</div>
-<div class="line">            index.<a name="a2"></a><a class="code" href="classwamp_1_1_async_result.html#a4a9849215f9bc860a606c4fdcf82c1a1">get</a>(); <span class="comment">// Throws if connect failed</span></div>
+<div class="line">            index.<a name="a2"></a><a class="code" href="classwamp_1_1_error_or.html#a2ea115a06219fae796639c454dfdd19a">value</a>(); <span class="comment">// Throws if connect failed</span></div>
 <div class="line">            join();</div>
 <div class="line">        });</div>
 <div class="line">    }</div>
 <div class="line"> </div>
 <div class="line"><span class="keyword">private</span>:</div>
-<div class="line">    <span class="keyword">explicit</span> TimeService(<a class="code" href="classwamp_1_1_session.html#a3c66ba85a4fa50f8b85b15ba0c672384">wamp::Session::Ptr</a> session)</div>
+<div class="line">    <span class="keyword">explicit</span> TimeService(<a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a>&amp; ioctx, <a class="code" href="classwamp_1_1_session.html#a3c66ba85a4fa50f8b85b15ba0c672384">wamp::Session::Ptr</a> session)</div>
 <div class="line">        : session_(session),</div>
-<div class="line">          timer_(session-&gt;userExecutor())</div>
+<div class="line">          timer_(ioctx)</div>
 <div class="line">    {}</div>
 <div class="line"> </div>
 <div class="line">    <span class="keyword">static</span> std::tm getTime()</div>
@@ -162,9 +166,9 @@ $(document).ready(function(){initNavTree('examples_2asynctimeservice_2main_8cpp-
 <div class="line">        <span class="keyword">auto</span> <span class="keyword">self</span> = shared_from_this();</div>
 <div class="line">        session_-&gt;join(</div>
 <div class="line">            <a name="_a3"></a><a class="code" href="classwamp_1_1_realm.html">wamp::Realm</a>(realm),</div>
-<div class="line">            [<span class="keyword">this</span>, <span class="keyword">self</span>](<a class="code" href="classwamp_1_1_async_result.html">wamp::AsyncResult&lt;wamp::SessionInfo&gt;</a> info)</div>
+<div class="line">            [<span class="keyword">this</span>, <span class="keyword">self</span>](<a class="code" href="classwamp_1_1_error_or.html">wamp::ErrorOr&lt;wamp::SessionInfo&gt;</a> info)</div>
 <div class="line">            {</div>
-<div class="line">                info.<a name="a4"></a><a class="code" href="classwamp_1_1_async_result.html#a4a9849215f9bc860a606c4fdcf82c1a1">get</a>(); <span class="comment">// Throws if join failed</span></div>
+<div class="line">                info.<a name="a4"></a><a class="code" href="classwamp_1_1_error_or.html#a2ea115a06219fae796639c454dfdd19a">value</a>(); <span class="comment">// Throws if join failed</span></div>
 <div class="line">                enroll();</div>
 <div class="line">            });</div>
 <div class="line">    }</div>
@@ -174,10 +178,10 @@ $(document).ready(function(){initNavTree('examples_2asynctimeservice_2main_8cpp-
 <div class="line">        <span class="keyword">auto</span> <span class="keyword">self</span> = shared_from_this();</div>
 <div class="line">        session_-&gt;enroll(</div>
 <div class="line">            <a name="_a5"></a><a class="code" href="classwamp_1_1_procedure.html">wamp::Procedure</a>(<span class="stringliteral">&quot;get_time&quot;</span>),</div>
-<div class="line">            wamp::basicRpc&lt;std::tm&gt;(&amp;getTime),</div>
-<div class="line">            [<span class="keyword">this</span>, <span class="keyword">self</span>](<a class="code" href="classwamp_1_1_async_result.html">wamp::AsyncResult&lt;wamp::Registration&gt;</a> reg)</div>
+<div class="line">            wamp::simpleRpc&lt;std::tm&gt;(&amp;getTime),</div>
+<div class="line">            [<span class="keyword">this</span>, <span class="keyword">self</span>](<a class="code" href="classwamp_1_1_error_or.html">wamp::ErrorOr&lt;wamp::Registration&gt;</a> reg)</div>
 <div class="line">            {</div>
-<div class="line">                reg.<a name="a6"></a><a class="code" href="classwamp_1_1_async_result.html#a4a9849215f9bc860a606c4fdcf82c1a1">get</a>(); <span class="comment">// Throws if enroll failed</span></div>
+<div class="line">                reg.<a name="a6"></a><a class="code" href="classwamp_1_1_error_or.html#a2ea115a06219fae796639c454dfdd19a">value</a>(); <span class="comment">// Throws if enroll failed</span></div>
 <div class="line">                deadline_ = std::chrono::steady_clock::now();</div>
 <div class="line">                kickTimer();</div>
 <div class="line">            });</div>
@@ -217,9 +221,9 @@ $(document).ready(function(){initNavTree('examples_2asynctimeservice_2main_8cpp-
 <div class="line">    <span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line">    <a class="code" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">AsioContext</a> ioctx;</div>
 <div class="line">    <span class="keyword">auto</span> tcp = connector&lt;Json&gt;(ioctx, <a name="_a8"></a><a class="code" href="classwamp_1_1_tcp_host.html">TcpHost</a>(address, port));</div>
-<div class="line">    <span class="keyword">auto</span> session = <a name="a9"></a><a class="code" href="classwamp_1_1_session.html#a955868753c5ac82b2e2df77073304b97">Session::create</a>(ioctx, tcp);</div>
+<div class="line">    <span class="keyword">auto</span> session = <a name="a9"></a><a class="code" href="classwamp_1_1_session.html#ae9275cf2d482536ea1cbc60a72bfab9a">Session::create</a>(ioctx, tcp);</div>
 <div class="line"> </div>
-<div class="line">    <span class="keyword">auto</span> service = TimeService::create(session);</div>
+<div class="line">    <span class="keyword">auto</span> service = TimeService::create(ioctx, session);</div>
 <div class="line">    service-&gt;start();</div>
 <div class="line">    ioctx.run();</div>
 <div class="line"> </div>
@@ -227,26 +231,26 @@ $(document).ready(function(){initNavTree('examples_2asynctimeservice_2main_8cpp-
 <div class="line">}</div>
 </div><!-- fragment --> </div><!-- contents -->
 </div><!-- doc-content -->
-<div class="ttc" id="aclasswamp_1_1_async_result_html_a4a9849215f9bc860a606c4fdcf82c1a1"><div class="ttname"><a href="classwamp_1_1_async_result.html#a4a9849215f9bc860a606c4fdcf82c1a1">wamp::AsyncResult::get</a></div><div class="ttdeci">ValueType &amp; get()</div><div class="ttdoc">Accesses the asynchronous result value.</div><div class="ttdef"><b>Definition:</b> asyncresult.hpp:151</div></div>
-<div class="ttc" id="aclasswamp_1_1_realm_html"><div class="ttname"><a href="classwamp_1_1_realm.html">wamp::Realm</a></div><div class="ttdoc">Realm URI and other options contained within WAMP HELLO messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:38</div></div>
-<div class="ttc" id="aclasswamp_1_1_async_result_html"><div class="ttname"><a href="classwamp_1_1_async_result.html">wamp::AsyncResult</a></div><div class="ttdoc">Value type that combines an asynchronous result with an error code.</div><div class="ttdef"><b>Definition:</b> asyncresult.hpp:40</div></div>
-<div class="ttc" id="aclasswamp_1_1_session_html_a3c66ba85a4fa50f8b85b15ba0c672384"><div class="ttname"><a href="classwamp_1_1_session.html#a3c66ba85a4fa50f8b85b15ba0c672384">wamp::Session::Ptr</a></div><div class="ttdeci">std::shared_ptr&lt; Session &gt; Ptr</div><div class="ttdoc">Shared pointer to a Session.</div><div class="ttdef"><b>Definition:</b> session.hpp:88</div></div>
-<div class="ttc" id="aclasswamp_1_1_procedure_html"><div class="ttname"><a href="classwamp_1_1_procedure.html">wamp::Procedure</a></div><div class="ttdoc">Contains the procedure URI and other options contained within WAMP REGISTER messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:462</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_html_ae9275cf2d482536ea1cbc60a72bfab9a"><div class="ttname"><a href="classwamp_1_1_session.html#ae9275cf2d482536ea1cbc60a72bfab9a">wamp::Session::create</a></div><div class="ttdeci">static Ptr create(AnyIoExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new Session instance.</div><div class="ttdef"><b>Definition:</b> session.ipp:22</div></div>
+<div class="ttc" id="asession_8hpp_html"><div class="ttname"><a href="session_8hpp.html">session.hpp</a></div><div class="ttdoc">Contains the asynchronous session API used by a client peer in WAMP applications.</div></div>
+<div class="ttc" id="aclasswamp_1_1_realm_html"><div class="ttname"><a href="classwamp_1_1_realm.html">wamp::Realm</a></div><div class="ttdoc">Realm URI and other options contained within WAMP HELLO messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:59</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_html_a3c66ba85a4fa50f8b85b15ba0c672384"><div class="ttname"><a href="classwamp_1_1_session.html#a3c66ba85a4fa50f8b85b15ba0c672384">wamp::Session::Ptr</a></div><div class="ttdeci">std::shared_ptr&lt; Session &gt; Ptr</div><div class="ttdoc">Shared pointer to a Session.</div><div class="ttdef"><b>Definition:</b> session.hpp:117</div></div>
+<div class="ttc" id="aclasswamp_1_1_procedure_html"><div class="ttname"><a href="classwamp_1_1_procedure.html">wamp::Procedure</a></div><div class="ttdoc">Contains the procedure URI and other options contained within WAMP REGISTER messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:492</div></div>
 <div class="ttc" id="aclasswamp_1_1_tcp_host_html"><div class="ttname"><a href="classwamp_1_1_tcp_host.html">wamp::TcpHost</a></div><div class="ttdoc">Contains TCP host address information, as well as other socket options.</div><div class="ttdef"><b>Definition:</b> tcphost.hpp:103</div></div>
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
+<div class="ttc" id="aclasswamp_1_1_error_or_html_a2ea115a06219fae796639c454dfdd19a"><div class="ttname"><a href="classwamp_1_1_error_or.html#a2ea115a06219fae796639c454dfdd19a">wamp::ErrorOr::value</a></div><div class="ttdeci">value_type &amp; value() &amp;</div><div class="ttdoc">Checked access of the stored value.</div><div class="ttdef"><b>Definition:</b> erroror.hpp:257</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
 <div class="ttc" id="aunpacker_8hpp_html"><div class="ttname"><a href="unpacker_8hpp.html">unpacker.hpp</a></div><div class="ttdoc">Contains utilities for unpacking positional arguments passed to event slots and call slots.</div></div>
-<div class="ttc" id="aclasswamp_1_1_session_html_a955868753c5ac82b2e2df77073304b97"><div class="ttname"><a href="classwamp_1_1_session.html#a955868753c5ac82b2e2df77073304b97">wamp::Session::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new Session instance.</div><div class="ttdef"><b>Definition:</b> session.ipp:20</div></div>
 <div class="ttc" id="ajson_8hpp_html"><div class="ttname"><a href="json_8hpp.html">json.hpp</a></div><div class="ttdoc">Contains the JSON codec.</div></div>
 <div class="ttc" id="atcp_8hpp_html"><div class="ttname"><a href="tcp_8hpp.html">tcp.hpp</a></div><div class="ttdoc">Contains facilities for creating TCP transport connectors.</div></div>
-<div class="ttc" id="aclasswamp_1_1_pub_html"><div class="ttname"><a href="classwamp_1_1_pub.html">wamp::Pub</a></div><div class="ttdoc">Provides the topic URI, options, and payload contained within WAMP PUBLISH messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:333</div></div>
-<div class="ttc" id="acoro_2corosession_8hpp_html"><div class="ttname"><a href="coro_2corosession_8hpp.html">corosession.hpp</a></div><div class="ttdoc">Contains the coroutine-based API used by a client peer in WAMP applications.</div></div>
+<div class="ttc" id="aclasswamp_1_1_pub_html"><div class="ttname"><a href="classwamp_1_1_pub.html">wamp::Pub</a></div><div class="ttdoc">Provides the topic URI, options, and payload contained within WAMP PUBLISH messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:363</div></div>
+<div class="ttc" id="aclasswamp_1_1_error_or_html"><div class="ttname"><a href="classwamp_1_1_error_or.html">wamp::ErrorOr</a></div><div class="ttdoc">Minimalistic implementation of std::expected&lt;T, std::error_code&gt;</div><div class="ttdef"><b>Definition:</b> erroror.hpp:128</div></div>
 <div class="ttc" id="avariant_8hpp_html"><div class="ttname"><a href="variant_8hpp.html">variant.hpp</a></div><div class="ttdoc">Contains the declaration of Variant and other closely related types/functions.</div></div>
-<div class="ttc" id="anamespacewamp_html_a9a84cb7bb559428594ebfb21c07a8935"><div class="ttname"><a href="namespacewamp.html#a9a84cb7bb559428594ebfb21c07a8935">wamp::convert</a></div><div class="ttdeci">void convert(TConverter &amp;c, TValue &amp;val)</div><div class="ttdoc">General function for converting custom types to/from Variant.</div><div class="ttdef"><b>Definition:</b> variant.hpp:710</div></div>
-<div class="ttc" id="anamespacewamp_html_a9dd954da85bf9033739185b3a29e3e85"><div class="ttname"><a href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a></div><div class="ttdeci">boost::asio::io_context AsioContext</div><div class="ttdoc">Queues and runs I/O completion handlers.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:29</div></div>
+<div class="ttc" id="anamespacewamp_html_a9a84cb7bb559428594ebfb21c07a8935"><div class="ttname"><a href="namespacewamp.html#a9a84cb7bb559428594ebfb21c07a8935">wamp::convert</a></div><div class="ttdeci">void convert(TConverter &amp;c, TValue &amp;val)</div><div class="ttdoc">General function for converting custom types to/from Variant.</div><div class="ttdef"><b>Definition:</b> variant.hpp:709</div></div>
+<div class="ttc" id="anamespacewamp_html_a9dd954da85bf9033739185b3a29e3e85"><div class="ttname"><a href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85">wamp::AsioContext</a></div><div class="ttdeci">boost::asio::io_context AsioContext</div><div class="ttdoc">Queues and runs I/O completion handlers.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:34</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:38 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

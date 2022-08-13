@@ -86,19 +86,24 @@ $(document).ready(function(){initNavTree('functions_func_m.html',''); initResiza
 
 <h3><a id="index_m"></a>- m -</h3><ul>
 <li>make_error_code()
-: <a class="el" href="classwamp_1_1_protocol_category.html#ad54a562040125a4fae2eca019a17a397">wamp::ProtocolCategory</a>
+: <a class="el" href="classwamp_1_1_decoding_category.html#a69bce2497c05e9f2206c6192267fbdf1">wamp::DecodingCategory</a>
+, <a class="el" href="classwamp_1_1_protocol_category.html#ad54a562040125a4fae2eca019a17a397">wamp::ProtocolCategory</a>
 , <a class="el" href="classwamp_1_1_rawsock_category.html#a902bc868d782271f2238cebeef15c828">wamp::RawsockCategory</a>
 , <a class="el" href="classwamp_1_1_session_category.html#a7a2478c458de77b5ff486db44c801d42">wamp::SessionCategory</a>
 , <a class="el" href="classwamp_1_1_transport_category.html#ab83d77310edad63d459c9d5c19281ef6">wamp::TransportCategory</a>
 </li>
 <li>make_error_condition()
-: <a class="el" href="classwamp_1_1_protocol_category.html#a7fe22359ff04d47d273580d86f773a2f">wamp::ProtocolCategory</a>
+: <a class="el" href="classwamp_1_1_decoding_category.html#aa022e744580771fe695c000b03614bba">wamp::DecodingCategory</a>
+, <a class="el" href="classwamp_1_1_protocol_category.html#a7fe22359ff04d47d273580d86f773a2f">wamp::ProtocolCategory</a>
 , <a class="el" href="classwamp_1_1_rawsock_category.html#a11ef443361ef532f7f0f4b87e4d77697">wamp::RawsockCategory</a>
 , <a class="el" href="classwamp_1_1_session_category.html#a287fb0a8bd7a4b6f4fe64e85bfb1d0d3">wamp::SessionCategory</a>
 , <a class="el" href="classwamp_1_1_transport_category.html#ab7d55a1f28d24286c04243dfbda03a76">wamp::TransportCategory</a>
 </li>
 <li>makeMessage()
 : <a class="el" href="classwamp_1_1error_1_1_failure.html#a094d2a9ed82b0641ccd0b44253052e78">wamp::error::Failure</a>
+</li>
+<li>makeUnexpected()
+: <a class="el" href="classwamp_1_1_unexpected.html#ab66a132c1bc5b2a7c129d67e027173d8">wamp::Unexpected&lt; E &gt;</a>
 </li>
 <li>maxRxLength()
 : <a class="el" href="classwamp_1_1_tcp_host.html#ac5fe94c20a23ef7406e836b51166e760">wamp::TcpHost</a>
@@ -108,7 +113,8 @@ $(document).ready(function(){initNavTree('functions_func_m.html',''); initResiza
 : <a class="el" href="classwamp_1_1_challenge.html#ac8ee04a203ccfddae3c2f40f69d51e79">wamp::Challenge</a>
 </li>
 <li>message()
-: <a class="el" href="classwamp_1_1_protocol_category.html#a5f5f5a6eecbf746974539f3b525b6ecb">wamp::ProtocolCategory</a>
+: <a class="el" href="classwamp_1_1_decoding_category.html#ac715fdbff62559f4977706890060d654">wamp::DecodingCategory</a>
+, <a class="el" href="classwamp_1_1_protocol_category.html#a5f5f5a6eecbf746974539f3b525b6ecb">wamp::ProtocolCategory</a>
 , <a class="el" href="classwamp_1_1_rawsock_category.html#a3541fb6085686fe283c8394dcc02db65">wamp::RawsockCategory</a>
 , <a class="el" href="classwamp_1_1_session_category.html#afde32ea8aed87fe52f3019d253dabd1d">wamp::SessionCategory</a>
 , <a class="el" href="classwamp_1_1_transport_category.html#aad7c5e892cc5f11c84b9c78f5c396135">wamp::TransportCategory</a>
@@ -117,10 +123,13 @@ $(document).ready(function(){initNavTree('functions_func_m.html',''); initResiza
 : <a class="el" href="classwamp_1_1_challenge.html#a4a1dbdddc210e98922bba476f2f6f83b">wamp::Challenge</a>
 </li>
 <li>mode()
-: <a class="el" href="classwamp_1_1_cancellation.html#a63473ac3d3c02cc2629859725eee04ef">wamp::Cancellation</a>
+: <a class="el" href="classwamp_1_1_call_cancellation.html#a17ce2e14292971fe6d47eac116b29f8f">wamp::CallCancellation</a>
 </li>
 <li>moveTo()
 : <a class="el" href="classwamp_1_1_payload.html#a6c3ff0163f7e8673444b17b12a632cbc">wamp::Payload&lt; TDerived, TMessage &gt;</a>
+</li>
+<li>moveToTuple()
+: <a class="el" href="classwamp_1_1_payload.html#aee5044300fc38b41a7ced1831d1c440d">wamp::Payload&lt; TDerived, TMessage &gt;</a>
 </li>
 </ul>
 </div><!-- contents -->
@@ -128,7 +137,7 @@ $(document).ready(function(){initNavTree('functions_func_m.html',''); initResiza
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

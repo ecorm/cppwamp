@@ -87,23 +87,23 @@ $(document).ready(function(){initNavTree('connector_8hpp_source.html',''); initR
 </div><!--header-->
 <div class="contents">
 <a href="connector_8hpp.html">Go to the documentation of this file.</a><div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;<span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">                Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
-<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
-<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
-<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
-<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
-<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160; </div>
-<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_CONNECTOR_HPP</span></div>
-<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor">#define CPPWAMP_CONNECTOR_HPP</span></div>
-<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160; </div>
-<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160; </div>
-<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &lt;functional&gt;</span></div>
-<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &lt;memory&gt;</span></div>
-<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="preprocessor">#include &lt;system_error&gt;</span></div>
-<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;<span class="preprocessor">#include &lt;vector&gt;</span></div>
-<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">    Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
+<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">    Distributed under the Boost Software License, Version 1.0.</span></div>
+<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">    http://www.boost.org/LICENSE_1_0.txt</span></div>
+<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
+<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160; </div>
+<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_CONNECTOR_HPP</span></div>
+<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#define CPPWAMP_CONNECTOR_HPP</span></div>
+<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160; </div>
+<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160; </div>
+<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="preprocessor">#include &lt;functional&gt;</span></div>
+<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &lt;memory&gt;</span></div>
+<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &lt;system_error&gt;</span></div>
+<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="preprocessor">#include &lt;vector&gt;</span></div>
+<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="asiodefs_8hpp.html">asiodefs.hpp</a>&quot;</span></div>
 <div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160; </div>
 <div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
 <div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;{</div>
@@ -120,43 +120,47 @@ $(document).ready(function(){initNavTree('connector_8hpp_source.html',''); initR
 <div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160; </div>
 <div class="line"><a name="l00046"></a><span class="lineno"><a class="line" href="classwamp_1_1_connector.html#afe8fdc3c9ae4b93aa79746b12817fecf">   46</a></span>&#160;    <span class="keyword">virtual</span> <a class="code" href="classwamp_1_1_connector.html#afe8fdc3c9ae4b93aa79746b12817fecf">~Connector</a>() {}</div>
 <div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160; </div>
-<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;<span class="keyword">protected</span>:</div>
-<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;    <span class="keyword">using</span> Handler =</div>
-<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;        std::function&lt;void (std::error_code,</div>
-<div class="line"><a name="l00052"></a><span class="lineno"><a class="line" href="classwamp_1_1_connector.html#a8fd7ad7538e14ce708616c29eba319a4">   52</a></span>&#160;                            std::shared_ptr&lt;internal::ClientInterface&gt;)&gt;;</div>
-<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160; </div>
-<div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;    <span class="keyword">virtual</span> <a class="code" href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">Connector::Ptr</a> clone() <span class="keyword">const</span> = 0;</div>
-<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160; </div>
-<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> establish(<a class="code" href="classwamp_1_1_connector.html#a8fd7ad7538e14ce708616c29eba319a4">Handler</a>&amp;&amp; handler) = 0;</div>
-<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160; </div>
-<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> cancel() = 0;</div>
-<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160; </div>
-<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;    <span class="keyword">friend</span> <span class="keyword">class </span><a class="code" href="classwamp_1_1_session.html">Session</a>;</div>
-<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;};</div>
-<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160; </div>
-<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160; </div>
-<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00072"></a><span class="lineno"><a class="line" href="namespacewamp.html#af5e518db13376e7a5f5cf73a3c5d2414">   72</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#af5e518db13376e7a5f5cf73a3c5d2414">ConnectorList</a> = std::vector&lt;Connector::Ptr&gt;;</div>
-<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160; </div>
-<div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;    <span class="keyword">virtual</span> <a class="code" href="namespacewamp.html#abdb99c75b9a03f6987cac708c17c32bb">IoStrand</a> strand() <span class="keyword">const</span> = 0;</div>
+<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160; </div>
+<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;<span class="keyword">protected</span>:</div>
+<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;    <span class="keyword">using</span> Handler =</div>
+<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;        std::function&lt;void (std::error_code,</div>
+<div class="line"><a name="l00054"></a><span class="lineno"><a class="line" href="classwamp_1_1_connector.html#a8fd7ad7538e14ce708616c29eba319a4">   54</a></span>&#160;                            std::shared_ptr&lt;internal::ClientInterface&gt;)&gt;;</div>
+<div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160; </div>
+<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;    <span class="keyword">virtual</span> <a class="code" href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">Connector::Ptr</a> clone() <span class="keyword">const</span> = 0;</div>
+<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160; </div>
+<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> establish(<a class="code" href="classwamp_1_1_connector.html#a8fd7ad7538e14ce708616c29eba319a4">Handler</a>&amp;&amp; handler) = 0;</div>
+<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160; </div>
+<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;    <span class="keyword">virtual</span> <span class="keywordtype">void</span> cancel() = 0;</div>
+<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160; </div>
+<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;    <span class="keyword">friend</span> <span class="keyword">class </span><a class="code" href="classwamp_1_1_session.html">Session</a>;</div>
+<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;};</div>
+<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160; </div>
+<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160; </div>
+<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00074"></a><span class="lineno"><a class="line" href="namespacewamp.html#af5e518db13376e7a5f5cf73a3c5d2414">   74</a></span>&#160;<span class="keyword">using</span> <a class="code" href="namespacewamp.html#af5e518db13376e7a5f5cf73a3c5d2414">ConnectorList</a> = std::vector&lt;Connector::Ptr&gt;;</div>
 <div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160; </div>
-<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;<span class="preprocessor">#endif // CPPWAMP_CONNECTOR_HPP</span></div>
+<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160; </div>
+<div class="line"><a name="l00078"></a><span class="lineno">   78</span>&#160;<span class="preprocessor">#endif // CPPWAMP_CONNECTOR_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
 <div class="ttc" id="aapi_8hpp_html"><div class="ttname"><a href="api_8hpp.html">api.hpp</a></div><div class="ttdoc">Defines macros related to exporting/importing APIs.</div></div>
+<div class="ttc" id="anamespacewamp_html_abdb99c75b9a03f6987cac708c17c32bb"><div class="ttname"><a href="namespacewamp.html#abdb99c75b9a03f6987cac708c17c32bb">wamp::IoStrand</a></div><div class="ttdeci">boost::asio::strand&lt; AnyIoExecutor &gt; IoStrand</div><div class="ttdoc">Serializes I/O operations.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:41</div></div>
 <div class="ttc" id="aclasswamp_1_1_connector_html_a71ed161f97ca2300f2e97e8ce9ab211b"><div class="ttname"><a href="classwamp_1_1_connector.html#a71ed161f97ca2300f2e97e8ce9ab211b">wamp::Connector::Ptr</a></div><div class="ttdeci">std::shared_ptr&lt; Connector &gt; Ptr</div><div class="ttdoc">Shared pointer to a Connector.</div><div class="ttdef"><b>Definition:</b> connector.hpp:43</div></div>
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
+<div class="ttc" id="aasiodefs_8hpp_html"><div class="ttname"><a href="asiodefs_8hpp.html">asiodefs.hpp</a></div><div class="ttdoc">Common type definitions used by transports that rely on Boost.Asio.</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
 <div class="ttc" id="aclasswamp_1_1_connector_html"><div class="ttname"><a href="classwamp_1_1_connector.html">wamp::Connector</a></div><div class="ttdoc">Abstract base class for establishing client transport endpoints.</div><div class="ttdef"><b>Definition:</b> connector.hpp:39</div></div>
-<div class="ttc" id="anamespacewamp_html_af5e518db13376e7a5f5cf73a3c5d2414"><div class="ttname"><a href="namespacewamp.html#af5e518db13376e7a5f5cf73a3c5d2414">wamp::ConnectorList</a></div><div class="ttdeci">std::vector&lt; Connector::Ptr &gt; ConnectorList</div><div class="ttdoc">List of Connector objects to use when attempting connection.</div><div class="ttdef"><b>Definition:</b> connector.hpp:72</div></div>
-<div class="ttc" id="aclasswamp_1_1_session_html"><div class="ttname"><a href="classwamp_1_1_session.html">wamp::Session</a></div><div class="ttdoc">Asynchronous session API used by a client peer in WAMP applications.</div><div class="ttdef"><b>Definition:</b> session.hpp:84</div></div>
-<div class="ttc" id="aclasswamp_1_1_connector_html_a8fd7ad7538e14ce708616c29eba319a4"><div class="ttname"><a href="classwamp_1_1_connector.html#a8fd7ad7538e14ce708616c29eba319a4">wamp::Connector::Handler</a></div><div class="ttdeci">std::function&lt; void(std::error_code, std::shared_ptr&lt; internal::ClientInterface &gt;)&gt; Handler</div><div class="ttdoc">Asynchronous handler function type called by Connector::establish.</div><div class="ttdef"><b>Definition:</b> connector.hpp:52</div></div>
+<div class="ttc" id="anamespacewamp_html_af5e518db13376e7a5f5cf73a3c5d2414"><div class="ttname"><a href="namespacewamp.html#af5e518db13376e7a5f5cf73a3c5d2414">wamp::ConnectorList</a></div><div class="ttdeci">std::vector&lt; Connector::Ptr &gt; ConnectorList</div><div class="ttdoc">List of Connector objects to use when attempting connection.</div><div class="ttdef"><b>Definition:</b> connector.hpp:74</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_html"><div class="ttname"><a href="classwamp_1_1_session.html">wamp::Session</a></div><div class="ttdoc">Session API used by a client peer in WAMP applications.</div><div class="ttdef"><b>Definition:</b> session.hpp:110</div></div>
+<div class="ttc" id="aclasswamp_1_1_connector_html_a8fd7ad7538e14ce708616c29eba319a4"><div class="ttname"><a href="classwamp_1_1_connector.html#a8fd7ad7538e14ce708616c29eba319a4">wamp::Connector::Handler</a></div><div class="ttdeci">std::function&lt; void(std::error_code, std::shared_ptr&lt; internal::ClientInterface &gt;)&gt; Handler</div><div class="ttdoc">Asynchronous handler function type called by Connector::establish.</div><div class="ttdef"><b>Definition:</b> connector.hpp:54</div></div>
 <div class="ttc" id="aclasswamp_1_1_connector_html_afe8fdc3c9ae4b93aa79746b12817fecf"><div class="ttname"><a href="classwamp_1_1_connector.html#afe8fdc3c9ae4b93aa79746b12817fecf">wamp::Connector::~Connector</a></div><div class="ttdeci">virtual ~Connector()</div><div class="ttdoc">Destructor.</div><div class="ttdef"><b>Definition:</b> connector.hpp:46</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="connector_8hpp.html">connector.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:38 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

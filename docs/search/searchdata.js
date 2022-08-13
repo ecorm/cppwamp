@@ -5,9 +5,9 @@ var indexSectionsWithContent =
   2: "w",
   3: "abcejmnoprstuvw",
   4: "abcdefghijklmnoprstuvwy~",
-  5: "cdmnp",
+  5: "cdmnpt",
   6: "abcdefhijlmnoprstuvy",
-  7: "cprst",
+  7: "cdprst",
   8: "abcdefgijkmnoprsu",
   9: "c",
   10: "acdeprstuv"

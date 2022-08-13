@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['sessionerrc_978',['SessionErrc',['../namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46',1,'wamp']]],
-  ['sessionstate_979',['SessionState',['../namespacewamp.html#a53ba5f85cd0d02bf363dfec7da1b339f',1,'wamp']]]
+  ['rawsockerrc_1109',['RawsockErrc',['../namespacewamp.html#aa0bf722cbe7ad04d49ad94b6ec440541',1,'wamp']]],
+  ['rawsockmaxlength_1110',['RawsockMaxLength',['../namespacewamp.html#a1750e952cec62e645c6b1c918c06993f',1,'wamp']]]
 ];

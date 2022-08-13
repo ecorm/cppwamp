@@ -99,6 +99,7 @@ $(document).ready(function(){initNavTree('error_8hpp.html',''); initResizable();
 <code>#include &lt;string&gt;</code><br />
 <code>#include &lt;system_error&gt;</code><br />
 <code>#include &quot;<a class="el" href="api_8hpp_source.html">api.hpp</a>&quot;</code><br />
+<code>#include &quot;config.hpp&quot;</code><br />
 <code>#include &quot;internal/error.ipp&quot;</code><br />
 </div>
 <p><a href="error_8hpp_source.html">Go to the source code of this file.</a></p>
@@ -125,6 +126,9 @@ Classes</h2></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_session_category.html">wamp::SessionCategory</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">std::error_category used for reporting errors at the WAMP session layer.  <a href="classwamp_1_1_session_category.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_decoding_category.html">wamp::DecodingCategory</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">std::error_category used for reporting deserialization errors.  <a href="classwamp_1_1_decoding_category.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_protocol_category.html">wamp::ProtocolCategory</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">std::error_category used for reporting protocol errors related to invalid WAMP messages.  <a href="classwamp_1_1_protocol_category.html#details">More...</a><br /></td></tr>
@@ -177,6 +181,8 @@ Enumerations</h2></td></tr>
 <br />
 &#160;&#160;<a class="el" href="namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46aef60a5ac24513b778c5cbf1c19849ade">wamp::SessionErrc::callError</a>, 
 <br />
+&#160;&#160;<a class="el" href="namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a34cbbc3e440497e007985a72c5ba90e0">wamp::SessionErrc::invalidState</a>, 
+<br />
 &#160;&#160;<a class="el" href="namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a2bea66a21ec3d2c8e0f5e53525b8ef7d">wamp::SessionErrc::invalidUri</a>, 
 <br />
 &#160;&#160;<a class="el" href="namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46a2be9ffd8006ede69e1a0d3e504095d14">wamp::SessionErrc::noSuchProcedure</a>, 
@@ -216,6 +222,24 @@ Enumerations</h2></td></tr>
  }</td></tr>
 <tr class="memdesc:a9ecf2a0b15a4d67bb0cd1928b4056d46"><td class="mdescLeft">&#160;</td><td class="mdescRight">Error code values used with the SessionCategory error category.  <a href="namespacewamp.html#a9ecf2a0b15a4d67bb0cd1928b4056d46">More...</a><br /></td></tr>
 <tr class="separator:a9ecf2a0b15a4d67bb0cd1928b4056d46"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6780fafb8e86182dabb1d5eddc9cc784"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a6780fafb8e86182dabb1d5eddc9cc784">wamp::DecodingErrc</a> { <br />
+&#160;&#160;<a class="el" href="namespacewamp.html#a6780fafb8e86182dabb1d5eddc9cc784a260ca9dd8a4577fc00b7bd5810298076">wamp::DecodingErrc::success</a> = 0, 
+<br />
+&#160;&#160;<a class="el" href="namespacewamp.html#a6780fafb8e86182dabb1d5eddc9cc784a3ee28fe1a60c95b89d29317f122c7021">wamp::DecodingErrc::failure</a> = 1, 
+<br />
+&#160;&#160;<a class="el" href="namespacewamp.html#a6780fafb8e86182dabb1d5eddc9cc784a6ed8ac20ecdf679c91e80432006ee832">wamp::DecodingErrc::emptyInput</a> = 2, 
+<br />
+&#160;&#160;<a class="el" href="namespacewamp.html#a6780fafb8e86182dabb1d5eddc9cc784aefb00f8fd8f4a6c2018e90e91a891853">wamp::DecodingErrc::expectedStringKey</a> = 3, 
+<br />
+&#160;&#160;<a class="el" href="namespacewamp.html#a6780fafb8e86182dabb1d5eddc9cc784aff853bf855be9fdb7dbfa594e945e89b">wamp::DecodingErrc::badBase64Length</a> = 4, 
+<br />
+&#160;&#160;<a class="el" href="namespacewamp.html#a6780fafb8e86182dabb1d5eddc9cc784aec7221812154d114d010d55f855767bc">wamp::DecodingErrc::badBase64Padding</a> = 5, 
+<br />
+&#160;&#160;<a class="el" href="namespacewamp.html#a6780fafb8e86182dabb1d5eddc9cc784a962217c287faa972012b3142bd7d841c">wamp::DecodingErrc::badBase64Char</a> = 6
+<br />
+ }</td></tr>
+<tr class="memdesc:a6780fafb8e86182dabb1d5eddc9cc784"><td class="mdescLeft">&#160;</td><td class="mdescRight">Error code values used with the DecodingCategory error category.  <a href="namespacewamp.html#a6780fafb8e86182dabb1d5eddc9cc784">More...</a><br /></td></tr>
+<tr class="separator:a6780fafb8e86182dabb1d5eddc9cc784"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a19ce4bc9c1e5512cec6ba323c4d324d0"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a19ce4bc9c1e5512cec6ba323c4d324d0">wamp::ProtocolErrc</a> { <br />
 &#160;&#160;<a class="el" href="namespacewamp.html#a19ce4bc9c1e5512cec6ba323c4d324d0a260ca9dd8a4577fc00b7bd5810298076">wamp::ProtocolErrc::success</a> = 0, 
 <br />
@@ -335,7 +359,7 @@ Enumerations</h2></td></tr>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="error_8hpp.html">error.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

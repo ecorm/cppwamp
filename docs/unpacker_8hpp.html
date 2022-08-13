@@ -85,7 +85,8 @@ $(document).ready(function(){initNavTree('unpacker_8hpp.html',''); initResizable
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#namespaces">Namespaces</a> &#124;
-<a href="#typedef-members">Typedefs</a>  </div>
+<a href="#typedef-members">Typedefs</a> &#124;
+<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">unpacker.hpp File Reference</div>  </div>
 </div><!--header-->
@@ -95,9 +96,10 @@ $(document).ready(function(){initNavTree('unpacker_8hpp.html',''); initResizable
 <a href="#details">More...</a></p>
 <div class="textblock"><code>#include &lt;functional&gt;</code><br />
 <code>#include &lt;tuple&gt;</code><br />
-<code>#include &lt;type_traits&gt;</code><br />
 <code>#include &quot;<a class="el" href="api_8hpp_source.html">api.hpp</a>&quot;</code><br />
+<code>#include &quot;config.hpp&quot;</code><br />
 <code>#include &quot;<a class="el" href="peerdata_8hpp_source.html">peerdata.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="traits_8hpp_source.html">traits.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="variant_8hpp_source.html">variant.hpp</a>&quot;</code><br />
 <code>#include &quot;./internal/integersequence.hpp&quot;</code><br />
 </div>
@@ -108,14 +110,14 @@ Classes</h2></td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_event_unpacker.html">wamp::EventUnpacker&lt; TSlot, TArgs &gt;</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around an event slot which automatically unpacks positional payload arguments.  <a href="classwamp_1_1_event_unpacker.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_basic_event_unpacker.html">wamp::BasicEventUnpacker&lt; TSlot, TArgs &gt;</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around an event slot which automatically unpacks positional payload arguments.  <a href="classwamp_1_1_basic_event_unpacker.html#details">More...</a><br /></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_simple_event_unpacker.html">wamp::SimpleEventUnpacker&lt; TSlot, TArgs &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around an event slot which automatically unpacks positional payload arguments.  <a href="classwamp_1_1_simple_event_unpacker.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_invocation_unpacker.html">wamp::InvocationUnpacker&lt; TSlot, TArgs &gt;</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around a call slot which automatically unpacks positional payload arguments.  <a href="classwamp_1_1_invocation_unpacker.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_basic_invocation_unpacker.html">wamp::BasicInvocationUnpacker&lt; TSlot, TResult, TArgs &gt;</a></td></tr>
-<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around a call slot which automatically unpacks positional payload arguments.  <a href="classwamp_1_1_basic_invocation_unpacker.html#details">More...</a><br /></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_simple_invocation_unpacker.html">wamp::SimpleInvocationUnpacker&lt; TSlot, TResult, TArgs &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around a call slot which automatically unpacks positional payload arguments.  <a href="classwamp_1_1_simple_invocation_unpacker.html#details">More...</a><br /></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
@@ -130,6 +132,23 @@ template&lt;typename TSlot &gt; </td></tr>
 <tr class="memitem:afb68057439fa3d32bb02ac8d707206fc"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#afb68057439fa3d32bb02ac8d707206fc">wamp::DecayedSlot</a> = typename std::decay&lt; TSlot &gt;::type</td></tr>
 <tr class="memdesc:afb68057439fa3d32bb02ac8d707206fc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Metafunction that removes const/reference decorations off a slot type. <br /></td></tr>
 <tr class="separator:afb68057439fa3d32bb02ac8d707206fc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3ba148e03444eba9aa3d9c0f770883d5"><td class="memTemplParams" colspan="2">template&lt;typename TSlot , typename... TArgs&gt; </td></tr>
+<tr class="memitem:a3ba148e03444eba9aa3d9c0f770883d5"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a3ba148e03444eba9aa3d9c0f770883d5">wamp::BasicEventUnpacker</a> = SimpleEventUnpacker&lt; TSlot, TArgs... &gt;</td></tr>
+<tr class="memdesc:a3ba148e03444eba9aa3d9c0f770883d5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Alias to <a class="el" href="classwamp_1_1_simple_event_unpacker.html" title="Wrapper around an event slot which automatically unpacks positional payload arguments.">SimpleEventUnpacker</a> kept for backward compatiblity.  <a href="namespacewamp.html#a3ba148e03444eba9aa3d9c0f770883d5">More...</a><br /></td></tr>
+<tr class="separator:a3ba148e03444eba9aa3d9c0f770883d5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa434cc11de6a09adcf68f1e25258e980"><td class="memTemplParams" colspan="2">template&lt;typename TSlot , typename TResult , typename... TArgs&gt; </td></tr>
+<tr class="memitem:aa434cc11de6a09adcf68f1e25258e980"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#aa434cc11de6a09adcf68f1e25258e980">wamp::BasicInvocationUnpacker</a> = SimpleInvocationUnpacker&lt; TSlot, TResult, TArgs... &gt;</td></tr>
+<tr class="memdesc:aa434cc11de6a09adcf68f1e25258e980"><td class="mdescLeft">&#160;</td><td class="mdescRight">Alias to <a class="el" href="classwamp_1_1_simple_invocation_unpacker.html" title="Wrapper around a call slot which automatically unpacks positional payload arguments.">SimpleInvocationUnpacker</a> kept for backward compability.  <a href="namespacewamp.html#aa434cc11de6a09adcf68f1e25258e980">More...</a><br /></td></tr>
+<tr class="separator:aa434cc11de6a09adcf68f1e25258e980"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:ae2d94efc6083f316ca03b828d2a64fd8"><td class="memTemplParams" colspan="2">template&lt;typename... TArgs, typename TSlot &gt; </td></tr>
+<tr class="memitem:ae2d94efc6083f316ca03b828d2a64fd8"><td class="memTemplItemLeft" align="right" valign="top">SimpleEventUnpacker&lt; DecayedSlot&lt; TSlot &gt;, TArgs... &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#ae2d94efc6083f316ca03b828d2a64fd8">wamp::basicEvent</a> (TSlot &amp;&amp;slot)</td></tr>
+<tr class="separator:ae2d94efc6083f316ca03b828d2a64fd8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:add2b0875bbaf5d9605135d405a43a7ea"><td class="memTemplParams" colspan="2">template&lt;typename TResult , typename... TArgs, typename TSlot &gt; </td></tr>
+<tr class="memitem:add2b0875bbaf5d9605135d405a43a7ea"><td class="memTemplItemLeft" align="right" valign="top">SimpleInvocationUnpacker&lt; DecayedSlot&lt; TSlot &gt;, TResult, TArgs... &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#add2b0875bbaf5d9605135d405a43a7ea">wamp::basicRpc</a> (TSlot &amp;&amp;slot)</td></tr>
+<tr class="separator:add2b0875bbaf5d9605135d405a43a7ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Contains utilities for unpacking positional arguments passed to event slots and call slots. </p>
@@ -139,7 +158,7 @@ template&lt;typename TSlot &gt; </td></tr>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="unpacker_8hpp.html">unpacker.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

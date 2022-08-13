@@ -5,6 +5,7 @@ var wampdefs_8hpp =
     [ "SubscriptionId", "wampdefs_8hpp.html#a15249f3ad90f2f5fa5d30317c84fbce8", null ],
     [ "PublicationId", "wampdefs_8hpp.html#af1108039d1eea74def74485afcd801d5", null ],
     [ "RegistrationId", "wampdefs_8hpp.html#a2a11e7b619d74f499adf34837731877b", null ],
+    [ "CancelMode", "wampdefs_8hpp.html#aec6569c4e9bd084777aea6cf8ee0fea6", null ],
     [ "SessionState", "wampdefs_8hpp.html#a53ba5f85cd0d02bf363dfec7da1b339f", [
       [ "disconnected", "wampdefs_8hpp.html#a53ba5f85cd0d02bf363dfec7da1b339fa3a561116f0c9675a3c83d21fa365050d", null ],
       [ "connecting", "wampdefs_8hpp.html#a53ba5f85cd0d02bf363dfec7da1b339fa9a27316fbc5ef38b2a19c202dbdc29b7", null ],
@@ -15,9 +16,9 @@ var wampdefs_8hpp =
       [ "shuttingDown", "wampdefs_8hpp.html#a53ba5f85cd0d02bf363dfec7da1b339fabe3d0ab12e871a97c27100d4a3183ec2", null ],
       [ "failed", "wampdefs_8hpp.html#a53ba5f85cd0d02bf363dfec7da1b339fa26934eb377001f66e37289a5c93fe284", null ]
     ] ],
-    [ "CancelMode", "wampdefs_8hpp.html#a5a79c4206c6e45fbfedc0d7d4a775890", [
-      [ "kill", "wampdefs_8hpp.html#a5a79c4206c6e45fbfedc0d7d4a775890a534735884d341071762ede7af01c53e8", null ],
-      [ "killNoWait", "wampdefs_8hpp.html#a5a79c4206c6e45fbfedc0d7d4a775890a242f6238202bc24d24474f1b405f6bb7", null ],
-      [ "skip", "wampdefs_8hpp.html#a5a79c4206c6e45fbfedc0d7d4a775890a08b43519a7e36ee4c6c5615d1663bcfd", null ]
+    [ "CallCancelMode", "wampdefs_8hpp.html#ada5fff4d6df9508a521ce3966a80f402", [
+      [ "kill", "wampdefs_8hpp.html#ada5fff4d6df9508a521ce3966a80f402a534735884d341071762ede7af01c53e8", null ],
+      [ "killNoWait", "wampdefs_8hpp.html#ada5fff4d6df9508a521ce3966a80f402a242f6238202bc24d24474f1b405f6bb7", null ],
+      [ "skip", "wampdefs_8hpp.html#ada5fff4d6df9508a521ce3966a80f402a08b43519a7e36ee4c6c5615d1663bcfd", null ]
     ] ]
 ];

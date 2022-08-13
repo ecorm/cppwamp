@@ -87,115 +87,114 @@ $(document).ready(function(){initNavTree('options_8hpp_source.html',''); initRes
 </div><!--header-->
 <div class="contents">
 <a href="options_8hpp.html">Go to the documentation of this file.</a><div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;<span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">                Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
-<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
-<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
-<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
-<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
-<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160; </div>
-<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_OPTIONS_HPP</span></div>
-<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor">#define CPPWAMP_OPTIONS_HPP</span></div>
-<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160; </div>
-<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &lt;utility&gt;</span></div>
-<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="traits_8hpp.html">traits.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="variant_8hpp.html">variant.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="preprocessor">#include &quot;./internal/passkey.hpp&quot;</span></div>
-<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &quot;./internal/wampmessage.hpp&quot;</span></div>
-<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160; </div>
-<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160; </div>
-<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
-<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;{</div>
-<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160; </div>
-<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> TDerived, <span class="keyword">typename</span> TMessage&gt;</div>
-<div class="line"><a name="l00030"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html">   30</a></span>&#160;<span class="keyword">class </span>CPPWAMP_API <a class="code" href="classwamp_1_1_options.html">Options</a></div>
-<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;{</div>
-<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;<span class="keyword">public</span>:</div>
-<div class="line"><a name="l00034"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html#a40449a93c1914c6c15b1dda948c7aa89">   34</a></span>&#160;    TDerived&amp; <a class="code" href="classwamp_1_1_options.html#a40449a93c1914c6c15b1dda948c7aa89">withOption</a>(<a class="code" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> key, <a class="code" href="classwamp_1_1_variant.html">Variant</a> value)</div>
-<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;    {</div>
-<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;        message_.options().emplace(std::move(key), std::move(value));</div>
-<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;        <span class="keywordflow">return</span> <span class="keyword">static_cast&lt;</span>TDerived&amp;<span class="keyword">&gt;</span>(*this);</div>
-<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160;    }</div>
-<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160; </div>
-<div class="line"><a name="l00041"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html#a6fa2fbc33acdd33e907c541c0f2112f0">   41</a></span>&#160;    TDerived&amp; <a class="code" href="classwamp_1_1_options.html#a6fa2fbc33acdd33e907c541c0f2112f0">withOptions</a>(<a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a> opts)</div>
-<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;    {</div>
-<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;        message_.options() = std::move(opts);</div>
-<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;        <span class="keywordflow">return</span> <span class="keyword">static_cast&lt;</span>TDerived&amp;<span class="keyword">&gt;</span>(*this);</div>
-<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;    }</div>
-<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160; </div>
-<div class="line"><a name="l00048"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html#a71ae2b1e5bad543744f4af9cfa5fedb3">   48</a></span>&#160;    <span class="keyword">const</span> <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>&amp; <a class="code" href="classwamp_1_1_options.html#a71ae2b1e5bad543744f4af9cfa5fedb3">options</a>()<span class="keyword"> const </span>{<span class="keywordflow">return</span> message_.options();}</div>
-<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160; </div>
-<div class="line"><a name="l00051"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html#a736c5841a51383853086ef881f3ac0ff">   51</a></span>&#160;    <a class="code" href="classwamp_1_1_variant.html">Variant</a> <a class="code" href="classwamp_1_1_options.html#a736c5841a51383853086ef881f3ac0ff">optionByKey</a>(<span class="keyword">const</span> <a class="code" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a>&amp; key)<span class="keyword"> const</span></div>
-<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;<span class="keyword">    </span>{</div>
-<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;        <a class="code" href="classwamp_1_1_variant.html">Variant</a> result;</div>
-<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;        <span class="keyword">auto</span> iter = options().find(key);</div>
-<div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;        <span class="keywordflow">if</span> (iter != options().end())</div>
-<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;            result = iter-&gt;second;</div>
-<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;        <span class="keywordflow">return</span> result;</div>
-<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;    }</div>
-<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160; </div>
-<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
-<div class="line"><a name="l00062"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html#a99c6363c6536fba1279356b8946900a0">   62</a></span>&#160;    <a class="code" href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">ValueTypeOf&lt;T&gt;</a> <a class="code" href="classwamp_1_1_options.html#a99c6363c6536fba1279356b8946900a0">optionOr</a>(</div>
-<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;        <span class="keyword">const</span> <a class="code" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a>&amp; key, </div>
-<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;        T&amp;&amp; fallback       </div>
-<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;        )<span class="keyword"> const</span></div>
-<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;<span class="keyword">    </span>{</div>
-<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;        <span class="keyword">auto</span> iter = options().find(key);</div>
-<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160;        <span class="keywordflow">if</span> (iter != options().end())</div>
-<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160;            <span class="keywordflow">return</span> iter-&gt;second.template to&lt;ValueTypeOf&lt;T&gt;&gt;();</div>
-<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;        <span class="keywordflow">else</span></div>
-<div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;            <span class="keywordflow">return</span> std::forward&lt;T&gt;(fallback);</div>
-<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160;    }</div>
-<div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160; </div>
-<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;<span class="keyword">protected</span>:</div>
-<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;    <span class="keyword">using</span> MessageType = TMessage;</div>
-<div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160; </div>
-<div class="line"><a name="l00079"></a><span class="lineno">   79</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span>... TArgs&gt;</div>
-<div class="line"><a name="l00080"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html#a548a7f5dedf40ebed66e40132ec22e0c">   80</a></span>&#160;    <span class="keyword">explicit</span> <a class="code" href="classwamp_1_1_options.html#a548a7f5dedf40ebed66e40132ec22e0c">Options</a>(TArgs&amp;&amp;... args)</div>
-<div class="line"><a name="l00081"></a><span class="lineno">   81</span>&#160;        : message_(std::forward&lt;TArgs&gt;(args)...)</div>
-<div class="line"><a name="l00082"></a><span class="lineno">   82</span>&#160;    {}</div>
-<div class="line"><a name="l00083"></a><span class="lineno">   83</span>&#160; </div>
-<div class="line"><a name="l00084"></a><span class="lineno">   84</span>&#160;    MessageType&amp; message() {<span class="keywordflow">return</span> message_;}</div>
-<div class="line"><a name="l00085"></a><span class="lineno">   85</span>&#160; </div>
-<div class="line"><a name="l00086"></a><span class="lineno">   86</span>&#160;    <span class="keyword">const</span> MessageType&amp; message()<span class="keyword"> const </span>{<span class="keywordflow">return</span> message_;}</div>
-<div class="line"><a name="l00087"></a><span class="lineno">   87</span>&#160; </div>
-<div class="line"><a name="l00088"></a><span class="lineno">   88</span>&#160;<span class="keyword">private</span>:</div>
-<div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160;    MessageType message_;</div>
-<div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160; </div>
-<div class="line"><a name="l00091"></a><span class="lineno">   91</span>&#160;<span class="keyword">public</span>:</div>
-<div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160;    <span class="comment">// Internal use only</span></div>
-<div class="line"><a name="l00093"></a><span class="lineno">   93</span>&#160;    MessageType&amp; message(internal::PassKey) {<span class="keywordflow">return</span> message_;}</div>
-<div class="line"><a name="l00094"></a><span class="lineno">   94</span>&#160;};</div>
-<div class="line"><a name="l00095"></a><span class="lineno">   95</span>&#160; </div>
-<div class="line"><a name="l00096"></a><span class="lineno">   96</span>&#160;} <span class="comment">// namespace wamp</span></div>
-<div class="line"><a name="l00097"></a><span class="lineno">   97</span>&#160; </div>
-<div class="line"><a name="l00098"></a><span class="lineno">   98</span>&#160;<span class="preprocessor">#endif // CPPWAMP_OPTIONS_HPP</span></div>
+<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">    Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
+<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">    Distributed under the Boost Software License, Version 1.0.</span></div>
+<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">    http://www.boost.org/LICENSE_1_0.txt</span></div>
+<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
+<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160; </div>
+<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_OPTIONS_HPP</span></div>
+<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#define CPPWAMP_OPTIONS_HPP</span></div>
+<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160; </div>
+<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;<span class="preprocessor">#include &lt;utility&gt;</span></div>
+<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="traits_8hpp.html">traits.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="variant_8hpp.html">variant.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="preprocessor">#include &quot;./internal/passkey.hpp&quot;</span></div>
+<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="preprocessor">#include &quot;./internal/wampmessage.hpp&quot;</span></div>
+<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160; </div>
+<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160; </div>
+<div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
+<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;{</div>
+<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160; </div>
+<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;<span class="keyword">template</span> &lt;<span class="keyword">typename</span> TDerived, <span class="keyword">typename</span> TMessage&gt;</div>
+<div class="line"><a name="l00029"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html">   29</a></span>&#160;<span class="keyword">class </span>CPPWAMP_API <a class="code" href="classwamp_1_1_options.html">Options</a></div>
+<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;{</div>
+<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;<span class="keyword">public</span>:</div>
+<div class="line"><a name="l00033"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html#a40449a93c1914c6c15b1dda948c7aa89">   33</a></span>&#160;    TDerived&amp; <a class="code" href="classwamp_1_1_options.html#a40449a93c1914c6c15b1dda948c7aa89">withOption</a>(<a class="code" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a> key, <a class="code" href="classwamp_1_1_variant.html">Variant</a> value)</div>
+<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;    {</div>
+<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;        message_.options().emplace(std::move(key), std::move(value));</div>
+<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;        <span class="keywordflow">return</span> <span class="keyword">static_cast&lt;</span>TDerived&amp;<span class="keyword">&gt;</span>(*this);</div>
+<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;    }</div>
+<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160; </div>
+<div class="line"><a name="l00040"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html#a6fa2fbc33acdd33e907c541c0f2112f0">   40</a></span>&#160;    TDerived&amp; <a class="code" href="classwamp_1_1_options.html#a6fa2fbc33acdd33e907c541c0f2112f0">withOptions</a>(<a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a> opts)</div>
+<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;    {</div>
+<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;        message_.options() = std::move(opts);</div>
+<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;        <span class="keywordflow">return</span> <span class="keyword">static_cast&lt;</span>TDerived&amp;<span class="keyword">&gt;</span>(*this);</div>
+<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;    }</div>
+<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160; </div>
+<div class="line"><a name="l00047"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html#a71ae2b1e5bad543744f4af9cfa5fedb3">   47</a></span>&#160;    <span class="keyword">const</span> <a class="code" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">Object</a>&amp; <a class="code" href="classwamp_1_1_options.html#a71ae2b1e5bad543744f4af9cfa5fedb3">options</a>()<span class="keyword"> const </span>{<span class="keywordflow">return</span> message_.options();}</div>
+<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160; </div>
+<div class="line"><a name="l00050"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html#a736c5841a51383853086ef881f3ac0ff">   50</a></span>&#160;    <a class="code" href="classwamp_1_1_variant.html">Variant</a> <a class="code" href="classwamp_1_1_options.html#a736c5841a51383853086ef881f3ac0ff">optionByKey</a>(<span class="keyword">const</span> <a class="code" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a>&amp; key)<span class="keyword"> const</span></div>
+<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;<span class="keyword">    </span>{</div>
+<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;        <a class="code" href="classwamp_1_1_variant.html">Variant</a> result;</div>
+<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;        <span class="keyword">auto</span> iter = options().find(key);</div>
+<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;        <span class="keywordflow">if</span> (iter != options().end())</div>
+<div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;            result = iter-&gt;second;</div>
+<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;        <span class="keywordflow">return</span> result;</div>
+<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;    }</div>
+<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160; </div>
+<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
+<div class="line"><a name="l00061"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html#a99c6363c6536fba1279356b8946900a0">   61</a></span>&#160;    <a class="code" href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">ValueTypeOf&lt;T&gt;</a> <a class="code" href="classwamp_1_1_options.html#a99c6363c6536fba1279356b8946900a0">optionOr</a>(</div>
+<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;        <span class="keyword">const</span> <a class="code" href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">String</a>&amp; key, </div>
+<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;        T&amp;&amp; fallback       </div>
+<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;        )<span class="keyword"> const</span></div>
+<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;<span class="keyword">    </span>{</div>
+<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;        <span class="keyword">auto</span> iter = options().find(key);</div>
+<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;        <span class="keywordflow">if</span> (iter != options().end())</div>
+<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160;            <span class="keywordflow">return</span> iter-&gt;second.template to&lt;ValueTypeOf&lt;T&gt;&gt;();</div>
+<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160;        <span class="keywordflow">else</span></div>
+<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;            <span class="keywordflow">return</span> std::forward&lt;T&gt;(fallback);</div>
+<div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;    }</div>
+<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160; </div>
+<div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160;<span class="keyword">protected</span>:</div>
+<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;    <span class="keyword">using</span> MessageType = TMessage;</div>
+<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160; </div>
+<div class="line"><a name="l00078"></a><span class="lineno">   78</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span>... TArgs&gt;</div>
+<div class="line"><a name="l00079"></a><span class="lineno"><a class="line" href="classwamp_1_1_options.html#a548a7f5dedf40ebed66e40132ec22e0c">   79</a></span>&#160;    <span class="keyword">explicit</span> <a class="code" href="classwamp_1_1_options.html#a548a7f5dedf40ebed66e40132ec22e0c">Options</a>(TArgs&amp;&amp;... args)</div>
+<div class="line"><a name="l00080"></a><span class="lineno">   80</span>&#160;        : message_(std::forward&lt;TArgs&gt;(args)...)</div>
+<div class="line"><a name="l00081"></a><span class="lineno">   81</span>&#160;    {}</div>
+<div class="line"><a name="l00082"></a><span class="lineno">   82</span>&#160; </div>
+<div class="line"><a name="l00083"></a><span class="lineno">   83</span>&#160;    MessageType&amp; message() {<span class="keywordflow">return</span> message_;}</div>
+<div class="line"><a name="l00084"></a><span class="lineno">   84</span>&#160; </div>
+<div class="line"><a name="l00085"></a><span class="lineno">   85</span>&#160;    <span class="keyword">const</span> MessageType&amp; message()<span class="keyword"> const </span>{<span class="keywordflow">return</span> message_;}</div>
+<div class="line"><a name="l00086"></a><span class="lineno">   86</span>&#160; </div>
+<div class="line"><a name="l00087"></a><span class="lineno">   87</span>&#160;<span class="keyword">private</span>:</div>
+<div class="line"><a name="l00088"></a><span class="lineno">   88</span>&#160;    MessageType message_;</div>
+<div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160; </div>
+<div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160;<span class="keyword">public</span>:</div>
+<div class="line"><a name="l00091"></a><span class="lineno">   91</span>&#160;    <span class="comment">// Internal use only</span></div>
+<div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160;    MessageType&amp; message(internal::PassKey) {<span class="keywordflow">return</span> message_;}</div>
+<div class="line"><a name="l00093"></a><span class="lineno">   93</span>&#160;};</div>
+<div class="line"><a name="l00094"></a><span class="lineno">   94</span>&#160; </div>
+<div class="line"><a name="l00095"></a><span class="lineno">   95</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00096"></a><span class="lineno">   96</span>&#160; </div>
+<div class="line"><a name="l00097"></a><span class="lineno">   97</span>&#160;<span class="preprocessor">#endif // CPPWAMP_OPTIONS_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
-<div class="ttc" id="aclasswamp_1_1_options_html_a736c5841a51383853086ef881f3ac0ff"><div class="ttname"><a href="classwamp_1_1_options.html#a736c5841a51383853086ef881f3ac0ff">wamp::Options::optionByKey</a></div><div class="ttdeci">Variant optionByKey(const String &amp;key) const</div><div class="ttdoc">Obtains an option by key.</div><div class="ttdef"><b>Definition:</b> options.hpp:51</div></div>
-<div class="ttc" id="aclasswamp_1_1_variant_html"><div class="ttname"><a href="classwamp_1_1_variant.html">wamp::Variant</a></div><div class="ttdoc">Discriminated union container that represents a JSON value.</div><div class="ttdef"><b>Definition:</b> variant.hpp:135</div></div>
-<div class="ttc" id="aclasswamp_1_1_options_html_a6fa2fbc33acdd33e907c541c0f2112f0"><div class="ttname"><a href="classwamp_1_1_options.html#a6fa2fbc33acdd33e907c541c0f2112f0">wamp::Options::withOptions</a></div><div class="ttdeci">TDerived &amp; withOptions(Object opts)</div><div class="ttdoc">Sets all options at once.</div><div class="ttdef"><b>Definition:</b> options.hpp:41</div></div>
-<div class="ttc" id="aclasswamp_1_1_options_html_a40449a93c1914c6c15b1dda948c7aa89"><div class="ttname"><a href="classwamp_1_1_options.html#a40449a93c1914c6c15b1dda948c7aa89">wamp::Options::withOption</a></div><div class="ttdeci">TDerived &amp; withOption(String key, Variant value)</div><div class="ttdoc">Adds an option.</div><div class="ttdef"><b>Definition:</b> options.hpp:34</div></div>
+<div class="ttc" id="aclasswamp_1_1_options_html_a736c5841a51383853086ef881f3ac0ff"><div class="ttname"><a href="classwamp_1_1_options.html#a736c5841a51383853086ef881f3ac0ff">wamp::Options::optionByKey</a></div><div class="ttdeci">Variant optionByKey(const String &amp;key) const</div><div class="ttdoc">Obtains an option by key.</div><div class="ttdef"><b>Definition:</b> options.hpp:50</div></div>
+<div class="ttc" id="aclasswamp_1_1_variant_html"><div class="ttname"><a href="classwamp_1_1_variant.html">wamp::Variant</a></div><div class="ttdoc">Discriminated union container that represents a JSON value.</div><div class="ttdef"><b>Definition:</b> variant.hpp:134</div></div>
+<div class="ttc" id="aclasswamp_1_1_options_html_a6fa2fbc33acdd33e907c541c0f2112f0"><div class="ttname"><a href="classwamp_1_1_options.html#a6fa2fbc33acdd33e907c541c0f2112f0">wamp::Options::withOptions</a></div><div class="ttdeci">TDerived &amp; withOptions(Object opts)</div><div class="ttdoc">Sets all options at once.</div><div class="ttdef"><b>Definition:</b> options.hpp:40</div></div>
+<div class="ttc" id="aclasswamp_1_1_options_html_a40449a93c1914c6c15b1dda948c7aa89"><div class="ttname"><a href="classwamp_1_1_options.html#a40449a93c1914c6c15b1dda948c7aa89">wamp::Options::withOption</a></div><div class="ttdeci">TDerived &amp; withOption(String key, Variant value)</div><div class="ttdoc">Adds an option.</div><div class="ttdef"><b>Definition:</b> options.hpp:33</div></div>
 <div class="ttc" id="aapi_8hpp_html"><div class="ttname"><a href="api_8hpp.html">api.hpp</a></div><div class="ttdoc">Defines macros related to exporting/importing APIs.</div></div>
-<div class="ttc" id="anamespacewamp_html_a2027fe57e4014c013dcbbc733a1c9a56"><div class="ttname"><a href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">wamp::Object</a></div><div class="ttdeci">std::map&lt; String, Variant &gt; Object</div><div class="ttdoc">Variant bound type for maps of variants.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:53</div></div>
-<div class="ttc" id="aclasswamp_1_1_options_html_a548a7f5dedf40ebed66e40132ec22e0c"><div class="ttname"><a href="classwamp_1_1_options.html#a548a7f5dedf40ebed66e40132ec22e0c">wamp::Options::Options</a></div><div class="ttdeci">Options(TArgs &amp;&amp;... args)</div><div class="ttdoc">Constructor taking message construction aruments.</div><div class="ttdef"><b>Definition:</b> options.hpp:80</div></div>
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
-<div class="ttc" id="aclasswamp_1_1_options_html"><div class="ttname"><a href="classwamp_1_1_options.html">wamp::Options</a></div><div class="ttdoc">Wrapper around a WAMP message containing an options dictionary.</div><div class="ttdef"><b>Definition:</b> options.hpp:30</div></div>
-<div class="ttc" id="anamespacewamp_html_aefe046bb975ae7fe4ddccc4e4e234a1d"><div class="ttname"><a href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">wamp::ValueTypeOf</a></div><div class="ttdeci">typename std::remove_cv&lt; typename std::remove_reference&lt; T &gt;::type &gt;::type ValueTypeOf</div><div class="ttdoc">Metafunction used to obtain the plain value type of a parameter passed by universal reference.</div><div class="ttdef"><b>Definition:</b> traits.hpp:52</div></div>
+<div class="ttc" id="anamespacewamp_html_a2027fe57e4014c013dcbbc733a1c9a56"><div class="ttname"><a href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56">wamp::Object</a></div><div class="ttdeci">std::map&lt; String, Variant &gt; Object</div><div class="ttdoc">Variant bound type for maps of variants.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:52</div></div>
+<div class="ttc" id="aclasswamp_1_1_options_html_a548a7f5dedf40ebed66e40132ec22e0c"><div class="ttname"><a href="classwamp_1_1_options.html#a548a7f5dedf40ebed66e40132ec22e0c">wamp::Options::Options</a></div><div class="ttdeci">Options(TArgs &amp;&amp;... args)</div><div class="ttdoc">Constructor taking message construction aruments.</div><div class="ttdef"><b>Definition:</b> options.hpp:79</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
+<div class="ttc" id="aclasswamp_1_1_options_html"><div class="ttname"><a href="classwamp_1_1_options.html">wamp::Options</a></div><div class="ttdoc">Wrapper around a WAMP message containing an options dictionary.</div><div class="ttdef"><b>Definition:</b> options.hpp:29</div></div>
+<div class="ttc" id="anamespacewamp_html_aefe046bb975ae7fe4ddccc4e4e234a1d"><div class="ttname"><a href="namespacewamp.html#aefe046bb975ae7fe4ddccc4e4e234a1d">wamp::ValueTypeOf</a></div><div class="ttdeci">typename std::remove_cv&lt; typename std::remove_reference&lt; T &gt;::type &gt;::type ValueTypeOf</div><div class="ttdoc">Metafunction used to obtain the plain value type of a parameter passed by universal reference.</div><div class="ttdef"><b>Definition:</b> traits.hpp:51</div></div>
 <div class="ttc" id="avariant_8hpp_html"><div class="ttname"><a href="variant_8hpp.html">variant.hpp</a></div><div class="ttdoc">Contains the declaration of Variant and other closely related types/functions.</div></div>
 <div class="ttc" id="atraits_8hpp_html"><div class="ttname"><a href="traits_8hpp.html">traits.hpp</a></div><div class="ttdoc">Contains general-purpose type traits.</div></div>
-<div class="ttc" id="aclasswamp_1_1_options_html_a71ae2b1e5bad543744f4af9cfa5fedb3"><div class="ttname"><a href="classwamp_1_1_options.html#a71ae2b1e5bad543744f4af9cfa5fedb3">wamp::Options::options</a></div><div class="ttdeci">const Object &amp; options() const</div><div class="ttdoc">Accesses the entire dictionary of options.</div><div class="ttdef"><b>Definition:</b> options.hpp:48</div></div>
-<div class="ttc" id="aclasswamp_1_1_options_html_a99c6363c6536fba1279356b8946900a0"><div class="ttname"><a href="classwamp_1_1_options.html#a99c6363c6536fba1279356b8946900a0">wamp::Options::optionOr</a></div><div class="ttdeci">ValueTypeOf&lt; T &gt; optionOr(const String &amp;key, T &amp;&amp;fallback) const</div><div class="ttdoc">Obtains an option by key or a fallback value.</div><div class="ttdef"><b>Definition:</b> options.hpp:62</div></div>
-<div class="ttc" id="anamespacewamp_html_a0b58ab2a2761bca711bc957b47619662"><div class="ttname"><a href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">wamp::String</a></div><div class="ttdeci">std::string String</div><div class="ttdoc">Variant bound type for text strings.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:51</div></div>
+<div class="ttc" id="aclasswamp_1_1_options_html_a71ae2b1e5bad543744f4af9cfa5fedb3"><div class="ttname"><a href="classwamp_1_1_options.html#a71ae2b1e5bad543744f4af9cfa5fedb3">wamp::Options::options</a></div><div class="ttdeci">const Object &amp; options() const</div><div class="ttdoc">Accesses the entire dictionary of options.</div><div class="ttdef"><b>Definition:</b> options.hpp:47</div></div>
+<div class="ttc" id="aclasswamp_1_1_options_html_a99c6363c6536fba1279356b8946900a0"><div class="ttname"><a href="classwamp_1_1_options.html#a99c6363c6536fba1279356b8946900a0">wamp::Options::optionOr</a></div><div class="ttdeci">ValueTypeOf&lt; T &gt; optionOr(const String &amp;key, T &amp;&amp;fallback) const</div><div class="ttdoc">Obtains an option by key or a fallback value.</div><div class="ttdef"><b>Definition:</b> options.hpp:61</div></div>
+<div class="ttc" id="anamespacewamp_html_a0b58ab2a2761bca711bc957b47619662"><div class="ttname"><a href="namespacewamp.html#a0b58ab2a2761bca711bc957b47619662">wamp::String</a></div><div class="ttdeci">std::string String</div><div class="ttdoc">Variant bound type for text strings.</div><div class="ttdef"><b>Definition:</b> variantdefs.hpp:50</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="options_8hpp.html">options.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:38 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

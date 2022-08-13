@@ -82,25 +82,74 @@ $(document).ready(function(){initNavTree('corounpacker_8hpp.html',''); initResiz
 </div>
 
 <div class="header">
+  <div class="summary">
+<a href="#nested-classes">Classes</a> &#124;
+<a href="#namespaces">Namespaces</a> &#124;
+<a href="#typedef-members">Typedefs</a> &#124;
+<a href="#func-members">Functions</a>  </div>
   <div class="headertitle">
 <div class="title">corounpacker.hpp File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
 
-<p>Convenience header which includes &lt;<a class="el" href="coro_2corounpacker_8hpp.html" title="Contains utilities for unpacking positional arguments passed to event slots and call slots that spawn...">cppwamp/coro/corounpacker.hpp</a>&gt;  
+<p>Contains utilities for unpacking positional arguments passed to event slots and call slots that spawn coroutines.  
 <a href="#details">More...</a></p>
-<div class="textblock"><code>#include &lt;<a class="el" href="coro_2corounpacker_8hpp_source.html">cppwamp/coro/corounpacker.hpp</a>&gt;</code><br />
+<div class="textblock"><code>#include &lt;boost/asio/spawn.hpp&gt;</code><br />
+<code>#include &quot;config.hpp&quot;</code><br />
+<code>#include &quot;<a class="el" href="unpacker_8hpp_source.html">unpacker.hpp</a>&quot;</code><br />
+<code>#include &quot;internal/callee.hpp&quot;</code><br />
 </div>
 <p><a href="corounpacker_8hpp_source.html">Go to the source code of this file.</a></p>
+<table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
+Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_coro_event_unpacker.html">wamp::CoroEventUnpacker&lt; TSlot, TArgs &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around an event coroutine slot which automatically unpacks positional payload arguments.  <a href="classwamp_1_1_coro_event_unpacker.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_simple_coro_event_unpacker.html">wamp::SimpleCoroEventUnpacker&lt; TSlot, TArgs &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around an event slot which automatically unpacks positional payload arguments.  <a href="classwamp_1_1_simple_coro_event_unpacker.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_coro_invocation_unpacker.html">wamp::CoroInvocationUnpacker&lt; TSlot, TArgs &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around a call coroutine slot which automatically unpacks positional payload arguments.  <a href="classwamp_1_1_coro_invocation_unpacker.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_simple_coro_invocation_unpacker.html">wamp::SimpleCoroInvocationUnpacker&lt; TSlot, TResult, TArgs &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Wrapper around a call slot which automatically unpacks positional payload arguments.  <a href="classwamp_1_1_simple_coro_invocation_unpacker.html#details">More...</a><br /></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="namespaces"></a>
+Namespaces</h2></td></tr>
+<tr class="memitem:namespacewamp"><td class="memItemLeft" align="right" valign="top"> &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacewamp.html">wamp</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="typedef-members"></a>
+Typedefs</h2></td></tr>
+<tr class="memitem:a60f634581655053f937d8d405a6126c9"><td class="memTemplParams" colspan="2">template&lt;typename TSlot , typename... TArgs&gt; </td></tr>
+<tr class="memitem:a60f634581655053f937d8d405a6126c9"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a60f634581655053f937d8d405a6126c9">wamp::BasicCoroEventUnpacker</a> = SimpleCoroEventUnpacker&lt; TSlot, TArgs... &gt;</td></tr>
+<tr class="memdesc:a60f634581655053f937d8d405a6126c9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Alias to <a class="el" href="classwamp_1_1_simple_coro_event_unpacker.html" title="Wrapper around an event slot which automatically unpacks positional payload arguments.">SimpleCoroEventUnpacker</a> kept for backward compatibility.  <a href="namespacewamp.html#a60f634581655053f937d8d405a6126c9">More...</a><br /></td></tr>
+<tr class="separator:a60f634581655053f937d8d405a6126c9"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3c048c8cb747c215876982c8b2f7b394"><td class="memTemplParams" colspan="2">template&lt;typename TSlot , typename TResult , typename... TArgs&gt; </td></tr>
+<tr class="memitem:a3c048c8cb747c215876982c8b2f7b394"><td class="memTemplItemLeft" align="right" valign="top">using&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a3c048c8cb747c215876982c8b2f7b394">wamp::BasicCoroInvocationUnpacker</a> = SimpleCoroInvocationUnpacker&lt; TSlot, TResult, TArgs... &gt;</td></tr>
+<tr class="memdesc:a3c048c8cb747c215876982c8b2f7b394"><td class="mdescLeft">&#160;</td><td class="mdescRight">Alias to <a class="el" href="classwamp_1_1_simple_coro_invocation_unpacker.html" title="Wrapper around a call slot which automatically unpacks positional payload arguments.">SimpleCoroInvocationUnpacker</a> kept for backward compability.  <a href="namespacewamp.html#a3c048c8cb747c215876982c8b2f7b394">More...</a><br /></td></tr>
+<tr class="separator:a3c048c8cb747c215876982c8b2f7b394"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:afc8cfc7a90d578f0536d7368bcc2d207"><td class="memTemplParams" colspan="2">template&lt;typename... TArgs, typename TSlot &gt; </td></tr>
+<tr class="memitem:afc8cfc7a90d578f0536d7368bcc2d207"><td class="memTemplItemLeft" align="right" valign="top">SimpleCoroEventUnpacker&lt; DecayedSlot&lt; TSlot &gt;, TArgs... &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#afc8cfc7a90d578f0536d7368bcc2d207">wamp::basicCoroEvent</a> (TSlot &amp;&amp;slot)</td></tr>
+<tr class="separator:afc8cfc7a90d578f0536d7368bcc2d207"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a77f603aa9cb27a3ae0ab1f8f8ddec1dc"><td class="memTemplParams" colspan="2">template&lt;typename TResult , typename... TArgs, typename TSlot &gt; </td></tr>
+<tr class="memitem:a77f603aa9cb27a3ae0ab1f8f8ddec1dc"><td class="memTemplItemLeft" align="right" valign="top">SimpleCoroInvocationUnpacker&lt; DecayedSlot&lt; TSlot &gt;, TResult, TArgs... &gt;&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a77f603aa9cb27a3ae0ab1f8f8ddec1dc">wamp::basicCoroRpc</a> (TSlot &amp;&amp;slot)</td></tr>
+<tr class="separator:a77f603aa9cb27a3ae0ab1f8f8ddec1dc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Convenience header which includes &lt;<a class="el" href="coro_2corounpacker_8hpp.html" title="Contains utilities for unpacking positional arguments passed to event slots and call slots that spawn...">cppwamp/coro/corounpacker.hpp</a>&gt; </p>
+<div class="textblock"><p>Contains utilities for unpacking positional arguments passed to event slots and call slots that spawn coroutines. </p>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="corounpacker_8hpp.html">corounpacker.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

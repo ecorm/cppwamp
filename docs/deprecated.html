@@ -87,60 +87,114 @@ $(document).ready(function(){initNavTree('deprecated.html',''); initResizable();
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><dl class="reflist">
+<dt>Member <a class="el" href="namespacewamp.html#ac09b74da0f1191be8b20ae04161c14c3">wamp::AnyExecutor</a>  </dt>
+<dd><a class="anchor" id="_deprecated000001"></a>Use <a class="el" href="namespacewamp.html#a1a6c1d3b5bec84434d0b3c472d2c3f93" title="Polymorphic executor for all I/O objects.">wamp::AnyIoExecutor</a> instead.  </dd>
 <dt>Member <a class="el" href="namespacewamp.html#a24590d6853d0156e07654228b3b1db7e">wamp::AsioService</a>  </dt>
-<dd><a class="anchor" id="_deprecated000001"></a>Use <a class="el" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85" title="Queues and runs I/O completion handlers.">wamp::AsioContext</a> instead.  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_session.html#addd68e231676b0f2c1213d889916ca27">wamp::Session::userIosvc</a>  () const</dt>
-<dd><a class="anchor" id="_deprecated000027"></a>Use <a class="el" href="classwamp_1_1_session.html#a5cf49888d8c512e883e85a8d63aeca3f" title="Obtains the executor used to execute user-provided handlers.">wamp::Session::userExecutor</a> instead. </dd>
+<dd><a class="anchor" id="_deprecated000002"></a>Use <a class="el" href="namespacewamp.html#a9dd954da85bf9033739185b3a29e3e85" title="Queues and runs I/O completion handlers.">wamp::AsioContext</a> instead.  </dd>
+<dt>Member <a class="el" href="namespacewamp.html#a7c9cb853e7659f333d612681d98d4e11">wamp::AsyncResult</a>  </dt>
+<dd><a class="anchor" id="_deprecated000003"></a>Backward compatiblity type alias. </dd>
+<dt>Member <a class="el" href="namespacewamp.html#afc8cfc7a90d578f0536d7368bcc2d207">wamp::basicCoroEvent</a>  (TSlot &amp;&amp;slot)</dt>
+<dd><a class="anchor" id="_deprecated000005"></a>Use simpleCoroEvent instead. </dd>
+<dt>Member <a class="el" href="namespacewamp.html#a60f634581655053f937d8d405a6126c9">wamp::BasicCoroEventUnpacker</a>  </dt>
+<dd><a class="anchor" id="_deprecated000004"></a>Use <a class="el" href="classwamp_1_1_simple_coro_event_unpacker.html" title="Wrapper around an event slot which automatically unpacks positional payload arguments.">SimpleCoroEventUnpacker</a> instead.  </dd>
+<dt>Member <a class="el" href="namespacewamp.html#a3c048c8cb747c215876982c8b2f7b394">wamp::BasicCoroInvocationUnpacker</a>  </dt>
+<dd><a class="anchor" id="_deprecated000006"></a>Use <a class="el" href="classwamp_1_1_simple_coro_invocation_unpacker.html" title="Wrapper around a call slot which automatically unpacks positional payload arguments.">SimpleCoroInvocationUnpacker</a> instead.  </dd>
+<dt>Member <a class="el" href="namespacewamp.html#a77f603aa9cb27a3ae0ab1f8f8ddec1dc">wamp::basicCoroRpc</a>  (TSlot &amp;&amp;slot)</dt>
+<dd><a class="anchor" id="_deprecated000007"></a>Use simpleCoroRpc instead. </dd>
+<dt>Member <a class="el" href="namespacewamp.html#ae2d94efc6083f316ca03b828d2a64fd8">wamp::basicEvent</a>  (TSlot &amp;&amp;slot)</dt>
+<dd><a class="anchor" id="_deprecated000049"></a>Use simpleEvent instead. </dd>
+<dt>Member <a class="el" href="namespacewamp.html#a3ba148e03444eba9aa3d9c0f770883d5">wamp::BasicEventUnpacker</a>  </dt>
+<dd><a class="anchor" id="_deprecated000048"></a>Use <a class="el" href="classwamp_1_1_simple_event_unpacker.html" title="Wrapper around an event slot which automatically unpacks positional payload arguments.">SimpleEventUnpacker</a> instead.  </dd>
+<dt>Member <a class="el" href="namespacewamp.html#aa434cc11de6a09adcf68f1e25258e980">wamp::BasicInvocationUnpacker</a>  </dt>
+<dd><a class="anchor" id="_deprecated000050"></a>Use <a class="el" href="classwamp_1_1_simple_invocation_unpacker.html" title="Wrapper around a call slot which automatically unpacks positional payload arguments.">SimpleInvocationUnpacker</a> instead.  </dd>
+<dt>Member <a class="el" href="namespacewamp.html#add2b0875bbaf5d9605135d405a43a7ea">wamp::basicRpc</a>  (TSlot &amp;&amp;slot)</dt>
+<dd><a class="anchor" id="_deprecated000051"></a>Use wamp::simpleRpc instead. </dd>
+<dt>Member <a class="el" href="namespacewamp.html#a22abefe77bf3705196e2e756a0c134b8">wamp::Cancellation</a>  </dt>
+<dd><a class="anchor" id="_deprecated000019"></a>Use <a class="el" href="classwamp_1_1_call_cancellation.html" title="Contains the request ID and options contained within WAMP CANCEL messages.">wamp::CallCancellation</a> instead.  </dd>
+<dt>Member <a class="el" href="namespacewamp.html#aec6569c4e9bd084777aea6cf8ee0fea6">wamp::CancelMode</a>  </dt>
+<dd><a class="anchor" id="_deprecated000052"></a>Use CallCancelMode instead.  </dd>
+<dt>Class <a class="el" href="classwamp_1_1_coro_session.html">wamp::CoroSession&lt; TIgnoredBase &gt;</a>  </dt>
+<dd><a class="anchor" id="_deprecated000054"></a>Use <a class="el" href="classwamp_1_1_session.html" title="Session API used by a client peer in WAMP applications.">wamp::Session</a> with completion tokens instead. </dd>
+<dt>Class <a class="el" href="structwamp_1_1error_1_1_decode.html">wamp::error::Decode</a>  </dt>
+<dd><a class="anchor" id="_deprecated000008"></a>Decoders now return a <code>std::error_code</code>.  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_error_or.html#a194107de76de76f5b9a2c775672b4629">wamp::ErrorOr&lt; T &gt;::errorCode</a>  () const</dt>
+<dd><a class="anchor" id="_deprecated000014"></a>Use <a class="el" href="classwamp_1_1_error_or.html#af22c3dd7cbd74df5e027725091218e83" title="Unchecked access of the stored error.">ErrorOr::error</a> instead. </dd>
+<dt>Member <a class="el" href="classwamp_1_1_error_or.html#af2b4ae7accbe60308dc4ee76425e2233">wamp::ErrorOr&lt; T &gt;::errorInfo</a>  () const</dt>
+<dd><a class="anchor" id="_deprecated000015"></a>Additional informational text no longer provided. </dd>
+<dt>Member <a class="el" href="classwamp_1_1_error_or.html#a4108bbe9b4d023e2f40fad6098170c22">wamp::ErrorOr&lt; T &gt;::ErrorOr</a>  (std::error_code ec, std::string)</dt>
+<dd><a class="anchor" id="_deprecated000011"></a>Use constructor taking an <a class="el" href="classwamp_1_1_unexpected.html" title="Minimalistic implementation of std::unexpected&lt;std::error_code&gt;.">Unexpected</a>. </dd>
+<dt>Member <a class="el" href="classwamp_1_1_error_or.html#a18d8f239bfef1a1d40599f5b6ab86d15">wamp::ErrorOr&lt; T &gt;::ErrorOr</a>  (std::error_code ec)</dt>
+<dd><a class="anchor" id="_deprecated000010"></a>Use constructor taking an <a class="el" href="classwamp_1_1_unexpected.html" title="Minimalistic implementation of std::unexpected&lt;std::error_code&gt;.">Unexpected</a>. </dd>
+<dt>Member <a class="el" href="classwamp_1_1_error_or.html#a04000520a7da34eb192d472af24fdcc6">wamp::ErrorOr&lt; T &gt;::get</a>  ()</dt>
+<dd><a class="anchor" id="_deprecated000012"></a>Use <a class="el" href="classwamp_1_1_error_or.html#a2ea115a06219fae796639c454dfdd19a" title="Checked access of the stored value.">ErrorOr::value</a> instead. </dd>
+<dt>Member <a class="el" href="classwamp_1_1_error_or.html#a24ba38f578e3afdc9d1fae0eda3091db">wamp::ErrorOr&lt; T &gt;::get</a>  () const</dt>
+<dd><a class="anchor" id="_deprecated000013"></a>Use <a class="el" href="classwamp_1_1_error_or.html#a2ea115a06219fae796639c454dfdd19a" title="Checked access of the stored value.">ErrorOr::value</a> instead. </dd>
+<dt>Member <a class="el" href="classwamp_1_1_error_or.html#a61af8b353cc64118ca2c206e060a2839">wamp::ErrorOr&lt; T &gt;::setError</a>  (std::error_code ec)</dt>
+<dd><a class="anchor" id="_deprecated000017"></a>Use <a class="el" href="classwamp_1_1_error_or.html#a3d03187aa4e2afa136f891fb59a72ccd" title="Error assignment.">operator=(Unexpected&lt;G&gt;)</a> instead. </dd>
+<dt>Member <a class="el" href="classwamp_1_1_error_or.html#a4a031257ecc7ca70afc5e3558d83fde3">wamp::ErrorOr&lt; T &gt;::setError</a>  (std::error_code ec, std::string)</dt>
+<dd><a class="anchor" id="_deprecated000018"></a>Use <a class="el" href="classwamp_1_1_error_or.html#a3d03187aa4e2afa136f891fb59a72ccd" title="Error assignment.">operator=(Unexpected&lt;G&gt;)</a> instead. </dd>
+<dt>Member <a class="el" href="classwamp_1_1_error_or.html#a600c88a77a4fb1dada35f11a4dbbee61">wamp::ErrorOr&lt; T &gt;::setValue</a>  (T value)</dt>
+<dd><a class="anchor" id="_deprecated000016"></a>Use assignment or <a class="el" href="classwamp_1_1_error_or.html#acfd58c18c9fd8695e1b9b147b01a6b9f" title="Initializes the value in-place using the given value constructor arguments.">ErrorOr::emplace</a> instead. </dd>
+<dt>Member <a class="el" href="classwamp_1_1_error_or.html#a33f84b14aefd775538e7bc69de159bb1">wamp::ErrorOr&lt; T &gt;::ValueType</a>  </dt>
+<dd><a class="anchor" id="_deprecated000009"></a>Use <a class="el" href="classwamp_1_1_error_or.html#a9408d77fd5bb1ccd565dbb7e6a49a496" title="Type representing result values.">ErrorOr::value_type</a> instead  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_outcome.html#a52926c1960018ba9769f6fb5d4be4c7d">wamp::Outcome::deferred</a>  ()</dt>
+<dd><a class="anchor" id="_deprecated000020"></a>Use <a class="el" href="namespacewamp.html#ab9817fe38224a0e5fc43ca9cdbce4716" title="Convenient value of the wamp::Deferment tag type that can be passed to the wamp::Outcome constructor.">wamp::deferment</a> instead.  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_session.html#af78374fdd5ef9d79564b8daf35ff30cf">wamp::Session::cancel</a>  (<a class="el" href="structwamp_1_1_thread_safe.html" title="Tag type used to specify than an operation is to be dispatched via the called objects&#39;s execution str...">ThreadSafe</a>, <a class="el" href="classwamp_1_1_call_cancellation.html" title="Contains the request ID and options contained within WAMP CANCEL messages.">CallCancellation</a> cancellation)</dt>
+<dd><a class="anchor" id="_deprecated000022"></a>Use the overload taking a <a class="el" href="classwamp_1_1_call_chit.html" title="Lightweight token representing a call request.">CallChit</a>.  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_session.html#adc89989366c6205c273ccf87c2d770d6">wamp::Session::cancel</a>  (<a class="el" href="classwamp_1_1_call_cancellation.html" title="Contains the request ID and options contained within WAMP CANCEL messages.">CallCancellation</a> cancellation)</dt>
+<dd><a class="anchor" id="_deprecated000021"></a>Use the overload taking a <a class="el" href="classwamp_1_1_call_chit.html" title="Lightweight token representing a call request.">CallChit</a>.  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_session.html#a81982d14db9a74785a2f471c6a3cad5c">wamp::Session::userIosvc</a>  () const</dt>
+<dd><a class="anchor" id="_deprecated000053"></a>Use <a class="el" href="classwamp_1_1_session.html#a0a76bae2b961dfd0bcc6e5557d31ddf9" title="Obtains the fallback executor used to execute user-provided handlers.">wamp::Session::userExecutor</a> instead. </dd>
 <dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a0fa04fe8eabea00e5747ea9c1834f4f0">wamp::TcpHost::withBroadcast</a>  (bool enabled=true)</dt>
-<dd><a class="anchor" id="_deprecated000002"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a6db12867960c98ec71520211f4ff0287">wamp::TcpHost::withDebug</a>  (bool enabled=true)</dt>
-<dd><a class="anchor" id="_deprecated000003"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#ac9d681044b556b85fc470e076e004524">wamp::TcpHost::withDoNotRoute</a>  (bool enabled=true)</dt>
-<dd><a class="anchor" id="_deprecated000004"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a4820717abb7d4323014f287549196e9a">wamp::TcpHost::withIpV6Only</a>  (bool enabled=true)</dt>
-<dd><a class="anchor" id="_deprecated000014"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#afe73a7e216a821472fb638a58316ea64">wamp::TcpHost::withKeepAlive</a>  (bool enabled=true)</dt>
-<dd><a class="anchor" id="_deprecated000005"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a72a0f66c5ec20609387e64e765c2cc53">wamp::TcpHost::withLinger</a>  (bool enabled, int timeout)</dt>
-<dd><a class="anchor" id="_deprecated000006"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a3e1256498fb607a33c0185944e04da46">wamp::TcpHost::withNoDelay</a>  (bool enabled=true)</dt>
-<dd><a class="anchor" id="_deprecated000015"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#ac254cbe79e80e58dfd7238471a1eddc8">wamp::TcpHost::withOutOfBandInline</a>  (bool enabled)</dt>
-<dd><a class="anchor" id="_deprecated000007"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#aee1087c2a02f2d4277582a5c20c7e750">wamp::TcpHost::withReceiveBufferSize</a>  (int size)</dt>
-<dd><a class="anchor" id="_deprecated000008"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a35371fd676d18055ee57a1d61da9901c">wamp::TcpHost::withReceiveLowWatermark</a>  (int size)</dt>
-<dd><a class="anchor" id="_deprecated000009"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a2b3800026cdbf33d078eaf89940a00b3">wamp::TcpHost::withReuseAddress</a>  (bool enabled=true)</dt>
-<dd><a class="anchor" id="_deprecated000010"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a87803d74fa8e33237b258a170f6f94bd">wamp::TcpHost::withSendBufferSize</a>  (int size)</dt>
-<dd><a class="anchor" id="_deprecated000011"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#af515a40256911c778138b78b7b6017e5">wamp::TcpHost::withSendLowWatermark</a>  (int size)</dt>
-<dd><a class="anchor" id="_deprecated000012"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a4c8da6ad1ea52d832d8943425ecf9b6b">wamp::TcpHost::withUnicastHops</a>  (int hops)</dt>
-<dd><a class="anchor" id="_deprecated000013"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#ad0570cb3791778357e14448cf816c752">wamp::UdsPath::withBroadcast</a>  (bool enabled=true)</dt>
-<dd><a class="anchor" id="_deprecated000016"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#ac4077b45b3fffebf783da3fcfd057456">wamp::UdsPath::withDebug</a>  (bool enabled=true)</dt>
-<dd><a class="anchor" id="_deprecated000017"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#a7c52cc5cbd110376a75ad7388a9182e4">wamp::UdsPath::withDoNotRoute</a>  (bool enabled=true)</dt>
-<dd><a class="anchor" id="_deprecated000018"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#aab3e9ca879d82cbb26cf813495241622">wamp::UdsPath::withKeepAlive</a>  (bool enabled=true)</dt>
-<dd><a class="anchor" id="_deprecated000019"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#a2446b9daf5ea7e913068f142c59253e8">wamp::UdsPath::withLinger</a>  (bool enabled, int timeout)</dt>
-<dd><a class="anchor" id="_deprecated000021"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#a12f7bf827d39860071b6f4db7ef5843d">wamp::UdsPath::withOutOfBandInline</a>  (bool enabled)</dt>
-<dd><a class="anchor" id="_deprecated000020"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#a9f5874707f3672df47f3916a1ea0d976">wamp::UdsPath::withReceiveBufferSize</a>  (int size)</dt>
-<dd><a class="anchor" id="_deprecated000022"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#a1671e54041482794e5676af7c7e34aa8">wamp::UdsPath::withReceiveLowWatermark</a>  (int size)</dt>
 <dd><a class="anchor" id="_deprecated000023"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#ae9213b19d63e844f7391105de3a26a1b">wamp::UdsPath::withReuseAddress</a>  (bool enabled=true)</dt>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a6db12867960c98ec71520211f4ff0287">wamp::TcpHost::withDebug</a>  (bool enabled=true)</dt>
 <dd><a class="anchor" id="_deprecated000024"></a>  </dd>
-<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#aa87d378d7c30d3537c5ebc6b04566895">wamp::UdsPath::withSendBufferSize</a>  (int size)</dt>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#ac9d681044b556b85fc470e076e004524">wamp::TcpHost::withDoNotRoute</a>  (bool enabled=true)</dt>
 <dd><a class="anchor" id="_deprecated000025"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a4820717abb7d4323014f287549196e9a">wamp::TcpHost::withIpV6Only</a>  (bool enabled=true)</dt>
+<dd><a class="anchor" id="_deprecated000035"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#afe73a7e216a821472fb638a58316ea64">wamp::TcpHost::withKeepAlive</a>  (bool enabled=true)</dt>
+<dd><a class="anchor" id="_deprecated000026"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a72a0f66c5ec20609387e64e765c2cc53">wamp::TcpHost::withLinger</a>  (bool enabled, int timeout)</dt>
+<dd><a class="anchor" id="_deprecated000027"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a3e1256498fb607a33c0185944e04da46">wamp::TcpHost::withNoDelay</a>  (bool enabled=true)</dt>
+<dd><a class="anchor" id="_deprecated000036"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#ac254cbe79e80e58dfd7238471a1eddc8">wamp::TcpHost::withOutOfBandInline</a>  (bool enabled)</dt>
+<dd><a class="anchor" id="_deprecated000028"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#aee1087c2a02f2d4277582a5c20c7e750">wamp::TcpHost::withReceiveBufferSize</a>  (int size)</dt>
+<dd><a class="anchor" id="_deprecated000029"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a35371fd676d18055ee57a1d61da9901c">wamp::TcpHost::withReceiveLowWatermark</a>  (int size)</dt>
+<dd><a class="anchor" id="_deprecated000030"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a2b3800026cdbf33d078eaf89940a00b3">wamp::TcpHost::withReuseAddress</a>  (bool enabled=true)</dt>
+<dd><a class="anchor" id="_deprecated000031"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a87803d74fa8e33237b258a170f6f94bd">wamp::TcpHost::withSendBufferSize</a>  (int size)</dt>
+<dd><a class="anchor" id="_deprecated000032"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#af515a40256911c778138b78b7b6017e5">wamp::TcpHost::withSendLowWatermark</a>  (int size)</dt>
+<dd><a class="anchor" id="_deprecated000033"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_tcp_host.html#a4c8da6ad1ea52d832d8943425ecf9b6b">wamp::TcpHost::withUnicastHops</a>  (int hops)</dt>
+<dd><a class="anchor" id="_deprecated000034"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#ad0570cb3791778357e14448cf816c752">wamp::UdsPath::withBroadcast</a>  (bool enabled=true)</dt>
+<dd><a class="anchor" id="_deprecated000037"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#ac4077b45b3fffebf783da3fcfd057456">wamp::UdsPath::withDebug</a>  (bool enabled=true)</dt>
+<dd><a class="anchor" id="_deprecated000038"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#a7c52cc5cbd110376a75ad7388a9182e4">wamp::UdsPath::withDoNotRoute</a>  (bool enabled=true)</dt>
+<dd><a class="anchor" id="_deprecated000039"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#aab3e9ca879d82cbb26cf813495241622">wamp::UdsPath::withKeepAlive</a>  (bool enabled=true)</dt>
+<dd><a class="anchor" id="_deprecated000040"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#a2446b9daf5ea7e913068f142c59253e8">wamp::UdsPath::withLinger</a>  (bool enabled, int timeout)</dt>
+<dd><a class="anchor" id="_deprecated000042"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#a12f7bf827d39860071b6f4db7ef5843d">wamp::UdsPath::withOutOfBandInline</a>  (bool enabled)</dt>
+<dd><a class="anchor" id="_deprecated000041"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#a9f5874707f3672df47f3916a1ea0d976">wamp::UdsPath::withReceiveBufferSize</a>  (int size)</dt>
+<dd><a class="anchor" id="_deprecated000043"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#a1671e54041482794e5676af7c7e34aa8">wamp::UdsPath::withReceiveLowWatermark</a>  (int size)</dt>
+<dd><a class="anchor" id="_deprecated000044"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#ae9213b19d63e844f7391105de3a26a1b">wamp::UdsPath::withReuseAddress</a>  (bool enabled=true)</dt>
+<dd><a class="anchor" id="_deprecated000045"></a>  </dd>
+<dt>Member <a class="el" href="classwamp_1_1_uds_path.html#aa87d378d7c30d3537c5ebc6b04566895">wamp::UdsPath::withSendBufferSize</a>  (int size)</dt>
+<dd><a class="anchor" id="_deprecated000046"></a>  </dd>
 <dt>Member <a class="el" href="classwamp_1_1_uds_path.html#a6e47ffe1a1cc02f4c61d8dcc92a02125">wamp::UdsPath::withSendLowWatermark</a>  (int size)</dt>
-<dd><a class="anchor" id="_deprecated000026"></a> </dd>
+<dd><a class="anchor" id="_deprecated000047"></a> </dd>
 </dl>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->
@@ -148,7 +202,7 @@ $(document).ready(function(){initNavTree('deprecated.html',''); initResizable();
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

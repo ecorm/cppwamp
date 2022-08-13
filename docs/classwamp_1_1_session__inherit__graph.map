@@ -1,4 +1,4 @@
 <map id="wamp::Session" name="wamp::Session">
-<area shape="rect" id="node1" title="Asynchronous session API used by a client peer in WAMP applications." alt="" coords="26,5,146,32"/>
+<area shape="rect" id="node1" title="Session API used by a client peer in WAMP applications." alt="" coords="26,5,146,32"/>
 <area shape="rect" id="node2" href="$classwamp_1_1_coro_session.html" title="Coroutine API used by a client peer in WAMP applications." alt="" coords="5,80,167,121"/>
 </map>

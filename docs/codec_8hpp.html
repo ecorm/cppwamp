@@ -97,6 +97,7 @@ $(document).ready(function(){initNavTree('codec_8hpp.html',''); initResizable();
 <div class="textblock"><code>#include &lt;istream&gt;</code><br />
 <code>#include &lt;ostream&gt;</code><br />
 <code>#include &quot;<a class="el" href="api_8hpp_source.html">api.hpp</a>&quot;</code><br />
+<code>#include &quot;config.hpp&quot;</code><br />
 <code>#include &quot;<a class="el" href="messagebuffer_8hpp_source.html">messagebuffer.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="traits_8hpp_source.html">traits.hpp</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="variant_8hpp_source.html">variant.hpp</a>&quot;</code><br />
@@ -165,10 +166,10 @@ Functions</h2></td></tr>
 <tr class="memitem:a47bb6673f3bae26c63ab24239194bc75"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a47bb6673f3bae26c63ab24239194bc75">wamp::encode</a> (const Variant &amp;variant, TOutput &amp;&amp;output)</td></tr>
 <tr class="memdesc:a47bb6673f3bae26c63ab24239194bc75"><td class="mdescLeft">&#160;</td><td class="mdescRight">Encodes the given variant to the given byte container or stream.  <a href="namespacewamp.html#a47bb6673f3bae26c63ab24239194bc75">More...</a><br /></td></tr>
 <tr class="separator:a47bb6673f3bae26c63ab24239194bc75"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aeef0cde53f71d755c50833b067dec25c"><td class="memTemplParams" colspan="2">template&lt;typename TFormat , typename TInput &gt; </td></tr>
-<tr class="memitem:aeef0cde53f71d755c50833b067dec25c"><td class="memTemplItemLeft" align="right" valign="top">void&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#aeef0cde53f71d755c50833b067dec25c">wamp::decode</a> (TInput &amp;&amp;input, Variant &amp;variant)</td></tr>
-<tr class="memdesc:aeef0cde53f71d755c50833b067dec25c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Decodes from the given byte sequence or stream to the given variant.  <a href="namespacewamp.html#aeef0cde53f71d755c50833b067dec25c">More...</a><br /></td></tr>
-<tr class="separator:aeef0cde53f71d755c50833b067dec25c"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2a2f8f640e5157d6bc85fe8ba79224ac"><td class="memTemplParams" colspan="2">template&lt;typename TFormat , typename TInput &gt; </td></tr>
+<tr class="memitem:a2a2f8f640e5157d6bc85fe8ba79224ac"><td class="memTemplItemLeft" align="right" valign="top">std::error_code&#160;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="namespacewamp.html#a2a2f8f640e5157d6bc85fe8ba79224ac">wamp::decode</a> (TInput &amp;&amp;input, Variant &amp;variant)</td></tr>
+<tr class="memdesc:a2a2f8f640e5157d6bc85fe8ba79224ac"><td class="mdescLeft">&#160;</td><td class="mdescRight">Decodes from the given byte sequence or stream to the given variant.  <a href="namespacewamp.html#a2a2f8f640e5157d6bc85fe8ba79224ac">More...</a><br /></td></tr>
+<tr class="separator:a2a2f8f640e5157d6bc85fe8ba79224ac"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Contains essential definitions for <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">wamp::Variant</a> codecs. </p>
@@ -305,7 +306,7 @@ struct wamp::InputCategory&lt; I, Enabled &gt;</h3>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="codec_8hpp.html">codec.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

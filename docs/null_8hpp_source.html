@@ -87,20 +87,20 @@ $(document).ready(function(){initNavTree('null_8hpp_source.html',''); initResiza
 </div><!--header-->
 <div class="contents">
 <a href="null_8hpp.html">Go to the documentation of this file.</a><div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;<span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">                Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
-<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
-<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
-<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
-<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
-<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160; </div>
-<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_NULL_HPP</span></div>
-<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor">#define CPPWAMP_NULL_HPP</span></div>
-<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160; </div>
-<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160; </div>
-<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &lt;ostream&gt;</span></div>
-<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">    Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
+<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">    Distributed under the Boost Software License, Version 1.0.</span></div>
+<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">    http://www.boost.org/LICENSE_1_0.txt</span></div>
+<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
+<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160; </div>
+<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_NULL_HPP</span></div>
+<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#define CPPWAMP_NULL_HPP</span></div>
+<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160; </div>
+<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160; </div>
+<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &lt;ostream&gt;</span></div>
+<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="preprocessor">#include &quot;config.hpp&quot;</span></div>
 <div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160; </div>
 <div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
 <div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;{</div>
@@ -109,7 +109,7 @@ $(document).ready(function(){initNavTree('null_8hpp_source.html',''); initResiza
 <div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
 <div class="line"><a name="l00039"></a><span class="lineno"><a class="line" href="structwamp_1_1_null.html">   39</a></span>&#160;<span class="keyword">struct </span>CPPWAMP_API <a class="code" href="structwamp_1_1_null.html">Null</a></div>
 <div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160;{</div>
-<div class="line"><a name="l00042"></a><span class="lineno"><a class="line" href="structwamp_1_1_null.html#a71e0cd3b556780d275041da4b43276da">   42</a></span>&#160;    constexpr <a class="code" href="structwamp_1_1_null.html#a71e0cd3b556780d275041da4b43276da">Null</a>() {}</div>
+<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;    constexpr <a class="code" href="structwamp_1_1_null.html">Null</a>() = <span class="keywordflow">default</span>;</div>
 <div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160; </div>
 <div class="line"><a name="l00045"></a><span class="lineno"><a class="line" href="structwamp_1_1_null.html#a65c390268ee8b6545aa6259be68546a3">   45</a></span>&#160;    <span class="keywordtype">bool</span> <a class="code" href="structwamp_1_1_null.html#a65c390268ee8b6545aa6259be68546a3">operator==</a>(<a class="code" href="structwamp_1_1_null.html">Null</a>)<span class="keyword"> const </span>{<span class="keywordflow">return</span> <span class="keyword">true</span>;}</div>
 <div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160; </div>
@@ -127,7 +127,7 @@ $(document).ready(function(){initNavTree('null_8hpp_source.html',''); initResiza
 <div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160; </div>
 <div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
 <div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00068"></a><span class="lineno"><a class="line" href="namespacewamp.html#a30e2886a93141924f9643770b4f01eef">   68</a></span>&#160;constexpr <a class="code" href="structwamp_1_1_null.html">Null</a> <span class="keyword">null</span>;</div>
+<div class="line"><a name="l00068"></a><span class="lineno"><a class="line" href="namespacewamp.html#a30e2886a93141924f9643770b4f01eef">   68</a></span>&#160;CPPWAMP_INLINE_VARIABLE constexpr <a class="code" href="structwamp_1_1_null.html">Null</a> <span class="keyword">null</span>;</div>
 <div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160; </div>
 <div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160; </div>
 <div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;} <span class="comment">// namespace wamp</span></div>
@@ -137,8 +137,7 @@ $(document).ready(function(){initNavTree('null_8hpp_source.html',''); initResiza
 </div><!-- doc-content -->
 <div class="ttc" id="astructwamp_1_1_null_html"><div class="ttname"><a href="structwamp_1_1_null.html">wamp::Null</a></div><div class="ttdoc">Type used to represent a null or empty Variant value.</div><div class="ttdef"><b>Definition:</b> null.hpp:39</div></div>
 <div class="ttc" id="aapi_8hpp_html"><div class="ttname"><a href="api_8hpp.html">api.hpp</a></div><div class="ttdoc">Defines macros related to exporting/importing APIs.</div></div>
-<div class="ttc" id="astructwamp_1_1_null_html_a71e0cd3b556780d275041da4b43276da"><div class="ttname"><a href="structwamp_1_1_null.html#a71e0cd3b556780d275041da4b43276da">wamp::Null::Null</a></div><div class="ttdeci">constexpr Null()</div><div class="ttdoc">Default constructor. For instantiating const object.</div><div class="ttdef"><b>Definition:</b> null.hpp:42</div></div>
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
 <div class="ttc" id="astructwamp_1_1_null_html_af82fc3570782e7161fe2383051cafb3c"><div class="ttname"><a href="structwamp_1_1_null.html#af82fc3570782e7161fe2383051cafb3c">wamp::Null::operator&lt;</a></div><div class="ttdeci">bool operator&lt;(Null) const</div><div class="ttdoc">Performs less-than comparison on two Null objects.</div><div class="ttdef"><b>Definition:</b> null.hpp:52</div></div>
 <div class="ttc" id="astructwamp_1_1_null_html_aa13a33a7da9793923fe0fcf2fc837bec"><div class="ttname"><a href="structwamp_1_1_null.html#aa13a33a7da9793923fe0fcf2fc837bec">wamp::Null::operator!=</a></div><div class="ttdeci">bool operator!=(Null) const</div><div class="ttdoc">Compares two Null objects for inequality.</div><div class="ttdef"><b>Definition:</b> null.hpp:48</div></div>
 <div class="ttc" id="astructwamp_1_1_null_html_a65c390268ee8b6545aa6259be68546a3"><div class="ttname"><a href="structwamp_1_1_null.html#a65c390268ee8b6545aa6259be68546a3">wamp::Null::operator==</a></div><div class="ttdeci">bool operator==(Null) const</div><div class="ttdoc">Compares two Null objects for equality.</div><div class="ttdef"><b>Definition:</b> null.hpp:45</div></div>
@@ -146,7 +145,7 @@ $(document).ready(function(){initNavTree('null_8hpp_source.html',''); initResiza
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="null_8hpp.html">null.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:38 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

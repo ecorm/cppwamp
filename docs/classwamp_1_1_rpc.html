@@ -168,10 +168,19 @@ template&lt;typename R , typename P &gt; </td></tr>
 <tr class="memitem:ac3c2b78ae38395c1975fa732e9bd02b7"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classwamp_1_1_rpc.html">Rpc</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_rpc.html#ac3c2b78ae38395c1975fa732e9bd02b7">withDiscloseMe</a> (bool disclosed=true)</td></tr>
 <tr class="memdesc:ac3c2b78ae38395c1975fa732e9bd02b7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Requests that the identity (session ID) of this session be disclosed in the call invocation.  <a href="classwamp_1_1_rpc.html#ac3c2b78ae38395c1975fa732e9bd02b7">More...</a><br /></td></tr>
 <tr class="separator:ac3c2b78ae38395c1975fa732e9bd02b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr><td colspan="2"><div class="groupHeader">Call Cancellation</div></td></tr>
+<tr class="memitem:adbbced99abe79da1d52727b276fe8ccc"><td class="memItemLeft" align="right" valign="top"><a id="adbbced99abe79da1d52727b276fe8ccc"></a>
+<a class="el" href="classwamp_1_1_rpc.html">Rpc</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_rpc.html#adbbced99abe79da1d52727b276fe8ccc">withCancelMode</a> (<a class="el" href="namespacewamp.html#ada5fff4d6df9508a521ce3966a80f402">CallCancelMode</a> mode)</td></tr>
+<tr class="memdesc:adbbced99abe79da1d52727b276fe8ccc"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the default cancellation mode to use when none is specified. <br /></td></tr>
+<tr class="separator:adbbced99abe79da1d52727b276fe8ccc"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7d90f952bb70083853722015dda850b2"><td class="memItemLeft" align="right" valign="top"><a id="a7d90f952bb70083853722015dda850b2"></a>
+<a class="el" href="namespacewamp.html#ada5fff4d6df9508a521ce3966a80f402">CallCancelMode</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_rpc.html#a7d90f952bb70083853722015dda850b2">cancelMode</a> () const</td></tr>
+<tr class="memdesc:a7d90f952bb70083853722015dda850b2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Obtains the default cancellation mode associated with this RPC. <br /></td></tr>
+<tr class="separator:a7d90f952bb70083853722015dda850b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Contains the procedure URI, options, and payload contained within WAMP <code>CALL</code> messages. </p>
-<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="examples_2asynctimeclient_2main_8cpp-example.html#_a5">examples/asynctimeclient/main.cpp</a>, <a class="el" href="examples_2chat_2main_8cpp-example.html#_a7">examples/chat/main.cpp</a>, and <a class="el" href="examples_2timeclient_2main_8cpp-example.html#_a4">examples/timeclient/main.cpp</a>.</dd>
+<dl class="section examples"><dt>Examples</dt><dd><a class="el" href="examples_2asynctimeclient_2main_8cpp-example.html#_a5">examples/asynctimeclient/main.cpp</a>, <a class="el" href="examples_2chat_2main_8cpp-example.html#_a6">examples/chat/main.cpp</a>, <a class="el" href="examples_2coro20timeclient_2main_8cpp-example.html#_a2">examples/coro20timeclient/main.cpp</a>, <a class="el" href="examples_2futuretimeclient_2main_8cpp-example.html#_a4">examples/futuretimeclient/main.cpp</a>, <a class="el" href="examples_2stacklesstimeclient_2main_8cpp-example.html#_a3">examples/stacklesstimeclient/main.cpp</a>, and <a class="el" href="examples_2timeclient_2main_8cpp-example.html#_a4">examples/timeclient/main.cpp</a>.</dd>
 </dl>
 </div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="afa4ab80581495b1941d32faa7367404e"></a>
@@ -247,7 +256,7 @@ template&lt;typename R , typename P &gt; </td></tr>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacewamp.html">wamp</a></li><li class="navelem"><a class="el" href="classwamp_1_1_rpc.html">Rpc</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

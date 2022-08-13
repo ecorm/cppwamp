@@ -87,20 +87,20 @@ $(document).ready(function(){initNavTree('callertimeout_8hpp_source.html',''); i
 </div><!--header-->
 <div class="contents">
 <div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;<span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">              Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
-<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
-<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
-<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
-<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
-<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160; </div>
-<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_INTERNAL_CALLER_TIMEOUT_HPP</span></div>
-<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor">#define CPPWAMP_INTERNAL_CALLER_TIMEOUT_HPP</span></div>
-<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160; </div>
-<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &lt;chrono&gt;</span></div>
-<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160;<span class="preprocessor">#include &lt;memory&gt;</span></div>
-<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="preprocessor">#include &lt;set&gt;</span></div>
-<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="preprocessor">#include &lt;utility&gt;</span></div>
-<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="preprocessor">#include &lt;boost/asio/steady_timer.hpp&gt;</span></div>
+<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">    Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
+<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">    Distributed under the Boost Software License, Version 1.0.</span></div>
+<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">    http://www.boost.org/LICENSE_1_0.txt</span></div>
+<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
+<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160; </div>
+<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_INTERNAL_CALLER_TIMEOUT_HPP</span></div>
+<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#define CPPWAMP_INTERNAL_CALLER_TIMEOUT_HPP</span></div>
+<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160; </div>
+<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;<span class="preprocessor">#include &lt;chrono&gt;</span></div>
+<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &lt;memory&gt;</span></div>
+<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160;<span class="preprocessor">#include &lt;set&gt;</span></div>
+<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="preprocessor">#include &lt;utility&gt;</span></div>
+<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="preprocessor">#include &lt;boost/asio/steady_timer.hpp&gt;</span></div>
+<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="preprocessor">#include &lt;boost/asio/strand.hpp&gt;</span></div>
 <div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &quot;../asiodefs.hpp&quot;</span></div>
 <div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="preprocessor">#include &quot;../peerdata.hpp&quot;</span></div>
 <div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160; </div>
@@ -143,9 +143,9 @@ $(document).ready(function(){initNavTree('callertimeout_8hpp_source.html',''); i
 <div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160; </div>
 <div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;    <span class="keyword">using</span> Ptr = std::shared_ptr&lt;CallerTimeoutScheduler&gt;;</div>
 <div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160; </div>
-<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;    <span class="keyword">static</span> Ptr create(<a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> exec)</div>
+<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;    <span class="keyword">static</span> Ptr create(<a class="code" href="namespacewamp.html#abdb99c75b9a03f6987cac708c17c32bb">IoStrand</a> strand)</div>
 <div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160;    {</div>
-<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;        <span class="keywordflow">return</span> Ptr(<span class="keyword">new</span> CallerTimeoutScheduler(std::move(exec)));</div>
+<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;        <span class="keywordflow">return</span> Ptr(<span class="keyword">new</span> CallerTimeoutScheduler(std::move(strand)));</div>
 <div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;    }</div>
 <div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160; </div>
 <div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;    <span class="keywordtype">void</span> listen(TimeoutHandler handler)</div>
@@ -205,8 +205,8 @@ $(document).ready(function(){initNavTree('callertimeout_8hpp_source.html',''); i
 <div class="line"><a name="l00117"></a><span class="lineno">  117</span>&#160;<span class="keyword">private</span>:</div>
 <div class="line"><a name="l00118"></a><span class="lineno">  118</span>&#160;    <span class="keyword">using</span> WeakPtr = std::weak_ptr&lt;CallerTimeoutScheduler&gt;;</div>
 <div class="line"><a name="l00119"></a><span class="lineno">  119</span>&#160; </div>
-<div class="line"><a name="l00120"></a><span class="lineno">  120</span>&#160;    <span class="keyword">explicit</span> CallerTimeoutScheduler(<a class="code" href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">AnyExecutor</a> exec)</div>
-<div class="line"><a name="l00121"></a><span class="lineno">  121</span>&#160;        : timer_(std::move(exec))</div>
+<div class="line"><a name="l00120"></a><span class="lineno">  120</span>&#160;    <span class="keyword">explicit</span> CallerTimeoutScheduler(<a class="code" href="namespacewamp.html#abdb99c75b9a03f6987cac708c17c32bb">IoStrand</a> strand)</div>
+<div class="line"><a name="l00121"></a><span class="lineno">  121</span>&#160;        : timer_(std::move(strand))</div>
 <div class="line"><a name="l00122"></a><span class="lineno">  122</span>&#160;    {}</div>
 <div class="line"><a name="l00123"></a><span class="lineno">  123</span>&#160; </div>
 <div class="line"><a name="l00124"></a><span class="lineno">  124</span>&#160;    <span class="keywordtype">void</span> processNextDeadline()</div>
@@ -252,14 +252,14 @@ $(document).ready(function(){initNavTree('callertimeout_8hpp_source.html',''); i
 <div class="line"><a name="l00164"></a><span class="lineno">  164</span>&#160;<span class="preprocessor">#endif // CPPWAMP_INTERNAL_CALLER_TIMEOUT_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
-<div class="ttc" id="anamespacewamp_html_ad69525a134cfe3de73c79af0e80f2ff2"><div class="ttname"><a href="namespacewamp.html#ad69525a134cfe3de73c79af0e80f2ff2">wamp::RequestId</a></div><div class="ttdeci">int64_t RequestId</div><div class="ttdoc">Ephemeral ID associated with a WAMP request.</div><div class="ttdef"><b>Definition:</b> wampdefs.hpp:22</div></div>
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
-<div class="ttc" id="anamespacewamp_html_ab03f8349a2a066271e29e516c8c62cb2"><div class="ttname"><a href="namespacewamp.html#ab03f8349a2a066271e29e516c8c62cb2">wamp::AnyExecutor</a></div><div class="ttdeci">boost::asio::any_io_executor AnyExecutor</div><div class="ttdoc">Polymorphic executor for all I/O objects.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:26</div></div>
+<div class="ttc" id="anamespacewamp_html_ad69525a134cfe3de73c79af0e80f2ff2"><div class="ttname"><a href="namespacewamp.html#ad69525a134cfe3de73c79af0e80f2ff2">wamp::RequestId</a></div><div class="ttdeci">int64_t RequestId</div><div class="ttdoc">Ephemeral ID associated with a WAMP request.</div><div class="ttdef"><b>Definition:</b> wampdefs.hpp:23</div></div>
+<div class="ttc" id="anamespacewamp_html_abdb99c75b9a03f6987cac708c17c32bb"><div class="ttname"><a href="namespacewamp.html#abdb99c75b9a03f6987cac708c17c32bb">wamp::IoStrand</a></div><div class="ttdeci">boost::asio::strand&lt; AnyIoExecutor &gt; IoStrand</div><div class="ttdoc">Serializes I/O operations.</div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:41</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="dir_15a40f4932549f0fe4696fd8fd3add66.html">internal</a></li><li class="navelem"><b>callertimeout.hpp</b></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:38 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

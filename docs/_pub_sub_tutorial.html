@@ -87,47 +87,48 @@ $(document).ready(function(){initNavTree('_pub_sub_tutorial.html',''); initResiz
 </div><!--header-->
 <div class="contents">
 <div class="toc"><h3>Table of Contents</h3>
-<ul><ul><li class="level2"><a href="#autotoc_md13">Publishing Events</a></li>
-<li class="level2"><a href="#autotoc_md14">Event Slots</a></li>
-<li class="level2"><a href="#autotoc_md15">Subscribing to Events</a></li>
-<li class="level2"><a href="#autotoc_md16">Subscribing to Statically-Typed Events</a></li>
-<li class="level2"><a href="#autotoc_md17">Registering Coroutine Event Handlers</a></li>
-<li class="level2"><a href="#autotoc_md18">Scoped Subscriptions</a></li>
+<ul><ul><li class="level2"><a href="#autotoc_md19">Publishing Events</a></li>
+<li class="level2"><a href="#autotoc_md20">Event Slots</a></li>
+<li class="level2"><a href="#autotoc_md21">Subscribing to Events</a></li>
+<li class="level2"><a href="#autotoc_md22">Subscribing to Statically-Typed Events</a></li>
+<li class="level2"><a href="#autotoc_md23">Registering Coroutine Event Handlers</a></li>
+<li class="level2"><a href="#autotoc_md24">Scoped Subscriptions</a></li>
 </ul>
 </ul>
 </div>
-<div class="textblock"><h2><a class="anchor" id="autotoc_md13"></a>
+<div class="textblock"><h2><a class="anchor" id="autotoc_md19"></a>
 Publishing Events</h2>
-<p>The session <a class="el" href="classwamp_1_1_coro_session.html#ae2a3c8801c1b2464ca98d9f4b0a4c77e">publish</a> operation is used to publish events related to a topic. It takes a <a class="el" href="classwamp_1_1_pub.html" title="Provides the topic URI, options, and payload contained within WAMP PUBLISH messages.">wamp::Pub</a> object as a parameter, which contains the following information related to the publication:</p>
+<p>The session <a class="el" href="classwamp_1_1_session.html#a335a1650356141253b9ca4719e66f3c8">publish</a> operation is used to publish events related to a topic. It takes a <a class="el" href="classwamp_1_1_pub.html" title="Provides the topic URI, options, and payload contained within WAMP PUBLISH messages.">wamp::Pub</a> object as a parameter, which contains the following information related to the publication:</p>
 <ul>
 <li>the topic URI to publish under,</li>
 <li>positional <a class="el" href="classwamp_1_1_variant.html" title="Discriminated union container that represents a JSON value.">wamp::Variant</a> arguments, if applicable,</li>
 <li>a <a class="el" href="namespacewamp.html#a2027fe57e4014c013dcbbc733a1c9a56" title="Variant bound type for maps of variants.">wamp::Object</a> containing keyword arguments, if applicable, and,</li>
 <li>a <a class="el" href="classwamp_1_1_options.html" title="Wrapper around a WAMP message containing an options dictionary.">wamp::Options</a> dictionary for advanced WAMP features</li>
 </ul>
+<p>The follwing example uses a non-blocking publish, which enqueues the publication for transmission.</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line">boost::asio::spawn(ioctx, [&amp;](boost::asio::yield_context yield)</div>
 <div class="line">{</div>
-<div class="line">    <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">CoroSession&lt;&gt;::create</a>(tcp);</div>
-<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">connect</a>(yield);</div>
-<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">join</a>(ioctx, <span class="stringliteral">&quot;somerealm&quot;</span>, yield);</div>
+<div class="line">    <span class="keyword">auto</span> session = <a class="code" href="classwamp_1_1_session.html#ae9275cf2d482536ea1cbc60a72bfab9a">Session::create</a>(tcp);</div>
+<div class="line">    session-&gt;connect(yield).value();</div>
+<div class="line">    session-&gt;join(ioctx, <span class="stringliteral">&quot;somerealm&quot;</span>, yield).value();</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Publish a publication with no arguments</span></div>
-<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#ae2a3c8801c1b2464ca98d9f4b0a4c77e">publish</a>(<a class="code" href="classwamp_1_1_pub.html">Pub</a>(<span class="stringliteral">&quot;topic&quot;</span>));</div>
+<div class="line">    session-&gt;publish(<a class="code" href="classwamp_1_1_pub.html">Pub</a>(<span class="stringliteral">&quot;topic&quot;</span>));</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Publish a publication with two positional arguments</span></div>
-<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#ae2a3c8801c1b2464ca98d9f4b0a4c77e">publish</a>(<a class="code" href="classwamp_1_1_pub.html">Pub</a>(<span class="stringliteral">&quot;topic&quot;</span>).withArgs(12, <span class="stringliteral">&quot;foo&quot;</span>), yield);</div>
+<div class="line">    session-&gt;publish(<a class="code" href="classwamp_1_1_pub.html">Pub</a>(<span class="stringliteral">&quot;topic&quot;</span>).withArgs(12, <span class="stringliteral">&quot;foo&quot;</span>));</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Publish a publication with a single keyword argument.</span></div>
 <div class="line">    <span class="comment">// Also enable the &#39;disclose_me&#39; advanced feature.</span></div>
-<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#ae2a3c8801c1b2464ca98d9f4b0a4c77e">publish</a>( <a class="code" href="classwamp_1_1_pub.html">Pub</a>(<span class="stringliteral">&quot;topic&quot;</span>).withKwargs({{<span class="stringliteral">&quot;name&quot;</span>, <span class="stringliteral">&quot;John&quot;</span>}})</div>
+<div class="line">    session-&gt;publish( <a class="code" href="classwamp_1_1_pub.html">Pub</a>(<span class="stringliteral">&quot;topic&quot;</span>).withKwargs({{<span class="stringliteral">&quot;name&quot;</span>, <span class="stringliteral">&quot;John&quot;</span>}})</div>
 <div class="line">                                  .withDiscloseMe() );</div>
 <div class="line">});</div>
-</div><!-- fragment --><p>The above uses a non-blocking publish, which enqueues the publication for transmission. If you need to obtain the publication ID of a published event, then you need to use the "blocking" version that takes a yield context:</p>
+</div><!-- fragment --><p>If you need to obtain the publication ID of a published event, then you need to use the overload that takes a completion token:</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line"><a class="code" href="namespacewamp.html#af1108039d1eea74def74485afcd801d5">PublicationId</a> pid = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#ae2a3c8801c1b2464ca98d9f4b0a4c77e">publish</a>(<a class="code" href="classwamp_1_1_pub.html">Pub</a>(<span class="stringliteral">&quot;topic&quot;</span>).withArgs(12, <span class="stringliteral">&quot;foo&quot;</span>),</div>
-<div class="line">                                     yield);</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md14"></a>
+<div class="line"><a class="code" href="namespacewamp.html#af1108039d1eea74def74485afcd801d5">PublicationId</a> pid = session-&gt;publish(<a class="code" href="classwamp_1_1_pub.html">Pub</a>(<span class="stringliteral">&quot;topic&quot;</span>).withArgs(12, <span class="stringliteral">&quot;foo&quot;</span>),</div>
+<div class="line">                                     yield).value();</div>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md20"></a>
 Event Slots</h2>
 <p>CppWamp allows you to register callback functions that will be executed whenever an event with a certain topic is received from a broker. Such callback functions are named <em>event slots</em>. Event slots can be any callable entity that can be stored into a <a href="http://en.cppreference.com/w/cpp/utility/functional/function"><code>std::function</code></a>:</p><ul>
 <li>free functions,</li>
@@ -135,10 +136,10 @@ Event Slots</h2>
 <li>function objects,</li>
 <li>lambdas, etc.</li>
 </ul>
-<h2><a class="anchor" id="autotoc_md15"></a>
+<h2><a class="anchor" id="autotoc_md21"></a>
 Subscribing to Events</h2>
-<p><a class="el" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe()</a> is used to register an event slot for a given topic: </p><div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line"><a class="code" href="classwamp_1_1_subscription.html">Subscription</a> sub = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(<a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;name&quot;</span>), slot, yield);</div>
+<p><a class="el" href="classwamp_1_1_session.html#ae4936f95097ed5a54f7c7d2936a8408a">subscribe()</a> is used to register an event slot for a given topic: </p><div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
+<div class="line"><a class="code" href="classwamp_1_1_subscription.html">Subscription</a> sub = session-&gt;subscribe(<a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;name&quot;</span>), slot, yield);</div>
 </div><!-- fragment --><p>where:</p><ul>
 <li><a class="el" href="classwamp_1_1_subscription.html" title="Represents a pub/sub event subscription.">wamp::Subscription</a> is a lightweight object that can be later used to unsubscribe from the event,</li>
 <li><a class="el" href="classwamp_1_1_topic.html" title="Provides the topic URI and other options contained within WAMP ‘SUBSCRIBE’ messages.">wamp::Topic</a> is an object containing the topic URI, plus other optional information related to advanced WAMP features, and,</li>
@@ -157,23 +158,23 @@ Subscribing to Events</h2>
 <div class="line"> </div>
 <div class="line"><span class="comment">// Within coroutine</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line"><span class="keyword">auto</span> sub = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(</div>
+<div class="line"><span class="keyword">auto</span> sub = session-&gt;subscribe(</div>
 <div class="line">    <a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;sensor.&quot;</span>).usingPrefixMatch(),</div>
 <div class="line">    &amp;onSensorSampled,</div>
-<div class="line">    yield);</div>
+<div class="line">    yield).value();</div>
 <div class="line"><span class="comment">// :::</span></div>
 <div class="line"><span class="comment">// Unsubscribing</span></div>
 <div class="line">sub.<a class="code" href="classwamp_1_1_subscription.html#ab7c51c6cf00032a455e627832a0458e8">unsubscribe</a>();</div>
 </div><!-- fragment --><p>For a more in-depth discussion on subscriptions, consult the <a class="el" href="_subscriptions.html">Subscriptions</a> page.</p>
-<h2><a class="anchor" id="autotoc_md16"></a>
+<h2><a class="anchor" id="autotoc_md22"></a>
 Subscribing to Statically-Typed Events</h2>
-<p>Certain event handlers may expect a fixed number of statically-typed arguments. For these situations, the <a class="el" href="classwamp_1_1_basic_event_unpacker.html#af97c4057327602f97b24433889f35a83">wamp::basicEvent</a> template function can be used: </p><div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="unpacker_8hpp.html">cppwamp/unpacker.hpp</a>&gt;</span></div>
+<p>Certain event handlers may expect a fixed number of statically-typed arguments. For these situations, the <a class="el" href="classwamp_1_1_simple_event_unpacker.html#a847f79ee9ed4b60f501035782acac574">wamp::simpleEvent</a> template function can be used: </p><div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="unpacker_8hpp.html">cppwamp/unpacker.hpp</a>&gt;</span></div>
 <div class="line"><span class="comment">// :::</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line"><a class="code" href="classwamp_1_1_subscription.html">Subscription</a> sub = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(</div>
+<div class="line"><a class="code" href="classwamp_1_1_subscription.html">Subscription</a> sub = session-&gt;subscribe(</div>
 <div class="line">    <a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;name&quot;</span>),</div>
-<div class="line">    basicEvent&lt;StaticTypeList...&gt;(slot),</div>
-<div class="line">    yield);</div>
+<div class="line">    simpleEvent&lt;StaticTypeList...&gt;(slot),</div>
+<div class="line">    yield).value();</div>
 </div><!-- fragment --><p>where:</p><ul>
 <li><em>StaticTypeList...</em> is a parameter pack of static types</li>
 <li><em>slot</em> has the signature: <div class="fragment"><div class="line"><span class="keywordtype">void</span> <span class="keyword">function</span>(StaticTypeList...)</div>
@@ -186,17 +187,17 @@ Subscribing to Statically-Typed Events</h2>
 <div class="line"> </div>
 <div class="line"><span class="comment">// Within coroutine</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(<a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;sensorSampled&quot;</span>),</div>
-<div class="line">                   basicEvent&lt;float&gt;(&amp;onSensorSampled), yield);</div>
+<div class="line">session-&gt;subscribe(<a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;sensorSampled&quot;</span>),</div>
+<div class="line">                   simpleEvent&lt;float&gt;(&amp;onSensorSampled), yield);</div>
 <div class="line"><span class="comment">//                            ^^^^^</span></div>
 <div class="line"><span class="comment">//         Note that this type matches the one in onSensorSampled</span></div>
 </div><!-- fragment --><p>When a statically-typed event handler needs the <code><a class="el" href="classwamp_1_1_event.html" title="Provides the subscription/publication ids, options, and payload contained within WAMP EVENT messages.">wamp::Event</a></code> object, the <a class="el" href="classwamp_1_1_event_unpacker.html#a3a5936cee7324fa48beedded9745f1f0">unpackedEvent</a> template function can be used instead: </p><div class="fragment"><div class="line"><span class="preprocessor">#include &lt;<a class="code" href="unpacker_8hpp.html">cppwamp/unpacker.hpp</a>&gt;</span></div>
 <div class="line"><span class="comment">// :::</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line"><a class="code" href="classwamp_1_1_subscription.html">Subscription</a> sub = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(</div>
+<div class="line"><a class="code" href="classwamp_1_1_subscription.html">Subscription</a> sub = session-&gt;subscribe(</div>
 <div class="line">    <a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;name&quot;</span>),</div>
 <div class="line">    unpackedEvent&lt;StaticTypeList...&gt;(slot),</div>
-<div class="line">    yield);</div>
+<div class="line">    yield).value();</div>
 </div><!-- fragment --><p>where:</p><ul>
 <li><em>StaticTypeList...</em> is a parameter pack of static types</li>
 <li><em>slot</em> has the signature: <div class="fragment"><div class="line"><span class="keywordtype">void</span> <span class="keyword">function</span>(<a class="code" href="classwamp_1_1_event.html">wamp::Event</a>, StaticTypeList...)</div>
@@ -210,62 +211,57 @@ Subscribing to Statically-Typed Events</h2>
 <div class="line"> </div>
 <div class="line"><span class="comment">// Within coroutine</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(<a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;sensorSampled&quot;</span>),</div>
+<div class="line">session-&gt;subscribe(<a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;sensorSampled&quot;</span>),</div>
 <div class="line">                   unpackedEvent&lt;float&gt;(&amp;onSensorSampled), yield);</div>
 <div class="line"><span class="comment">//                               ^^^^^</span></div>
 <div class="line"><span class="comment">//         Note that this type matches the one in onSensorSampled</span></div>
 <div class="line"><span class="comment">//         (following the Event parameter)</span></div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md17"></a>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md23"></a>
 Registering Coroutine Event Handlers</h2>
-<p>If the event handler must perform it's work in an asynchronous fashion within the context of a coroutine, then <a class="el" href="classwamp_1_1_basic_coro_event_unpacker.html#a31b0d734488df6af2e81c0dc38cca4bb">wamp::basicCoroEvent</a> or <a class="el" href="classwamp_1_1_coro_event_unpacker.html#ab3de2e5798ac4ef58ce0b5c4163b5501">wamp::unpackedCoroEvent</a> may be used:</p>
+<p>If the event handler must perform it's work in an asynchronous fashion within the context of a coroutine, then <a class="el" href="classwamp_1_1_simple_coro_event_unpacker.html#a71692b8078300c351a3808457b312143">wamp::simpleCoroEvent</a> or <a class="el" href="classwamp_1_1_coro_event_unpacker.html#ab3de2e5798ac4ef58ce0b5c4163b5501">wamp::unpackedCoroEvent</a> may be used:</p>
 <div class="fragment"><div class="line"><span class="keywordtype">void</span> sensorSampled(<span class="keywordtype">float</span> value, boost::asio::yield_context yield)</div>
 <div class="line">{</div>
 <div class="line">    <span class="comment">// Perform asynchronous operation within event handler</span></div>
-<div class="line">    session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a27e1d340844ae71b9ffa0fb51591317a">call</a>(Rpc(<span class="stringliteral">&quot;log.append&quot;</span>).withArgs(value), yield);</div>
+<div class="line">    session-&gt;call(Rpc(<span class="stringliteral">&quot;log.append&quot;</span>).withArgs(value), yield).value();</div>
 <div class="line">}</div>
 <div class="line"> </div>
 <div class="line"><span class="comment">// Within coroutine</span></div>
 <div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
-<div class="line">session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(<a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;sensor_sampled&quot;</span>),</div>
-<div class="line">                   basicCoroEvent&lt;float&gt;(&amp;sensorSampled),</div>
-<div class="line">                   yield);</div>
+<div class="line">session-&gt;subscribe(<a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;sensor_sampled&quot;</span>),</div>
+<div class="line">                   simpleCoroEvent&lt;float&gt;(&amp;sensorSampled),</div>
+<div class="line">                   yield).value();</div>
 </div><!-- fragment --><dl class="section note"><dt>Note</dt><dd>This will spawn a new coroutine every time the event handler is invoked.</dd></dl>
-<h2><a class="anchor" id="autotoc_md18"></a>
+<h2><a class="anchor" id="autotoc_md24"></a>
 Scoped Subscriptions</h2>
 <p>A <code><a class="el" href="classwamp_1_1_scoped_subscription.html" title="Limits a Subscription&#39;s lifetime to a particular scope.">wamp::ScopedSubscription</a></code> object can be used to limit a subscription's lifetime to a particular scope. When a <code>ScopedSubscription</code> object is destroyed, it automatically unsubscribes the subscription. This helps in automating the lifetime management of topic subscriptions using <a href="https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization">RAII</a> techniques.</p>
 <div class="fragment"><div class="line"><span class="keyword">using namespace </span><a class="code" href="namespacewamp.html">wamp</a>;</div>
 <div class="line"> </div>
 <div class="line">{</div>
-<div class="line">    <a class="code" href="classwamp_1_1_scoped_subscription.html">ScopedSubscription</a> sub = session-&gt;<a class="code" href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">subscribe</a>(<a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;foo&quot;</span>), &amp;onFoo, yield);</div>
+<div class="line">    <a class="code" href="classwamp_1_1_scoped_subscription.html">ScopedSubscription</a> sub = session-&gt;subscribe(<a class="code" href="classwamp_1_1_topic.html">Topic</a>(<span class="stringliteral">&quot;foo&quot;</span>), &amp;onFoo, yield);</div>
 <div class="line">}</div>
 <div class="line"><span class="comment">// The &quot;foo&quot; is automatically unsubscribed when the &#39;sub&#39; scoped subscription</span></div>
 <div class="line"><span class="comment">// goes out of scope here.</span></div>
 </div><!-- fragment --><p>For a more practical example of using scoped subscriptions, see <a class="el" href="_subscriptions.html#ScopedSubscriptions">Registrations/Scoped Subscriptions</a>.</p>
 <hr  />
-<p>Next: <a class="el" href="_async_tutorial.html">Asynchronous API</a> </p>
+<p>Next: <a class="el" href="_async_callbacks_tutorial.html">Asynchronous Callbacks</a> </p>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->
 </div><!-- doc-content -->
-<div class="ttc" id="aclasswamp_1_1_coro_session_html_a60225f83299f06c5bf1ecc3c8713a316"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a60225f83299f06c5bf1ecc3c8713a316">wamp::CoroSession::create</a></div><div class="ttdeci">static Ptr create(AnyExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new CoroSession instance.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:277</div></div>
+<div class="ttc" id="aclasswamp_1_1_session_html_ae9275cf2d482536ea1cbc60a72bfab9a"><div class="ttname"><a href="classwamp_1_1_session.html#ae9275cf2d482536ea1cbc60a72bfab9a">wamp::Session::create</a></div><div class="ttdeci">static Ptr create(AnyIoExecutor exec, const Connector::Ptr &amp;connector)</div><div class="ttdoc">Creates a new Session instance.</div><div class="ttdef"><b>Definition:</b> session.ipp:22</div></div>
 <div class="ttc" id="aclasswamp_1_1_scoped_subscription_html"><div class="ttname"><a href="classwamp_1_1_scoped_subscription.html">wamp::ScopedSubscription</a></div><div class="ttdoc">Limits a Subscription's lifetime to a particular scope.</div><div class="ttdef"><b>Definition:</b> subscription.hpp:92</div></div>
-<div class="ttc" id="aclasswamp_1_1_coro_session_html_aa2fe628c3bbe0fda04f6994939da94fe"><div class="ttname"><a href="classwamp_1_1_coro_session.html#aa2fe628c3bbe0fda04f6994939da94fe">wamp::CoroSession::join</a></div><div class="ttdeci">SessionInfo join(Realm realm, YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Attempts to join the given WAMP realm.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:328</div></div>
-<div class="ttc" id="aclasswamp_1_1_topic_html"><div class="ttname"><a href="classwamp_1_1_topic.html">wamp::Topic</a></div><div class="ttdoc">Provides the topic URI and other options contained within WAMP ‘SUBSCRIBE’ messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:301</div></div>
-<div class="ttc" id="aclasswamp_1_1_coro_session_html_a990f68df80c36d848879b63a3d86b39d"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a990f68df80c36d848879b63a3d86b39d">wamp::CoroSession::connect</a></div><div class="ttdeci">size_t connect(YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Attempts to connect to a router.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:308</div></div>
-<div class="ttc" id="aclasswamp_1_1_coro_session_html_ae2a3c8801c1b2464ca98d9f4b0a4c77e"><div class="ttname"><a href="classwamp_1_1_coro_session.html#ae2a3c8801c1b2464ca98d9f4b0a4c77e">wamp::CoroSession::publish</a></div><div class="ttdeci">PublicationId publish(Pub pub, YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Publishes an event and waits for an acknowledgement from the router.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:439</div></div>
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
+<div class="ttc" id="aclasswamp_1_1_topic_html"><div class="ttname"><a href="classwamp_1_1_topic.html">wamp::Topic</a></div><div class="ttdoc">Provides the topic URI and other options contained within WAMP ‘SUBSCRIBE’ messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:331</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
 <div class="ttc" id="aunpacker_8hpp_html"><div class="ttname"><a href="unpacker_8hpp.html">unpacker.hpp</a></div><div class="ttdoc">Contains utilities for unpacking positional arguments passed to event slots and call slots.</div></div>
-<div class="ttc" id="aclasswamp_1_1_subscription_html"><div class="ttname"><a href="classwamp_1_1_subscription.html">wamp::Subscription</a></div><div class="ttdoc">Represents a pub/sub event subscription.</div><div class="ttdef"><b>Definition:</b> subscription.hpp:42</div></div>
-<div class="ttc" id="anamespacewamp_html_af1108039d1eea74def74485afcd801d5"><div class="ttname"><a href="namespacewamp.html#af1108039d1eea74def74485afcd801d5">wamp::PublicationId</a></div><div class="ttdeci">int64_t PublicationId</div><div class="ttdoc">Ephemeral ID associated with an event publication.</div><div class="ttdef"><b>Definition:</b> wampdefs.hpp:24</div></div>
-<div class="ttc" id="aclasswamp_1_1_pub_html"><div class="ttname"><a href="classwamp_1_1_pub.html">wamp::Pub</a></div><div class="ttdoc">Provides the topic URI, options, and payload contained within WAMP PUBLISH messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:333</div></div>
-<div class="ttc" id="aclasswamp_1_1_coro_session_html_a01d2464a4133cb4ae711ed3cc3f3dd84"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a01d2464a4133cb4ae711ed3cc3f3dd84">wamp::CoroSession::subscribe</a></div><div class="ttdeci">Subscription subscribe(Topic topic, EventSlot slot, YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Subscribes to WAMP pub/sub events having the given topic.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:391</div></div>
-<div class="ttc" id="aclasswamp_1_1_subscription_html_ab7c51c6cf00032a455e627832a0458e8"><div class="ttname"><a href="classwamp_1_1_subscription.html#ab7c51c6cf00032a455e627832a0458e8">wamp::Subscription::unsubscribe</a></div><div class="ttdeci">void unsubscribe() const</div><div class="ttdoc">Unsubscribes from the topic.</div><div class="ttdef"><b>Definition:</b> subscription.ipp:68</div></div>
-<div class="ttc" id="aclasswamp_1_1_coro_session_html_a27e1d340844ae71b9ffa0fb51591317a"><div class="ttname"><a href="classwamp_1_1_coro_session.html#a27e1d340844ae71b9ffa0fb51591317a">wamp::CoroSession::call</a></div><div class="ttdeci">Result call(Rpc rpc, YieldContext&lt; H &gt; yield, std::error_code *ec=nullptr)</div><div class="ttdoc">Calls a remote procedure.</div><div class="ttdef"><b>Definition:</b> corosession.hpp:542</div></div>
-<div class="ttc" id="aclasswamp_1_1_event_html"><div class="ttname"><a href="classwamp_1_1_event.html">wamp::Event</a></div><div class="ttdoc">Provides the subscription/publication ids, options, and payload contained within WAMP EVENT messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:397</div></div>
+<div class="ttc" id="aclasswamp_1_1_subscription_html"><div class="ttname"><a href="classwamp_1_1_subscription.html">wamp::Subscription</a></div><div class="ttdoc">Represents a pub/sub event subscription.</div><div class="ttdef"><b>Definition:</b> subscription.hpp:41</div></div>
+<div class="ttc" id="anamespacewamp_html_af1108039d1eea74def74485afcd801d5"><div class="ttname"><a href="namespacewamp.html#af1108039d1eea74def74485afcd801d5">wamp::PublicationId</a></div><div class="ttdeci">int64_t PublicationId</div><div class="ttdoc">Ephemeral ID associated with an event publication.</div><div class="ttdef"><b>Definition:</b> wampdefs.hpp:25</div></div>
+<div class="ttc" id="aclasswamp_1_1_pub_html"><div class="ttname"><a href="classwamp_1_1_pub.html">wamp::Pub</a></div><div class="ttdoc">Provides the topic URI, options, and payload contained within WAMP PUBLISH messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:363</div></div>
+<div class="ttc" id="aclasswamp_1_1_subscription_html_ab7c51c6cf00032a455e627832a0458e8"><div class="ttname"><a href="classwamp_1_1_subscription.html#ab7c51c6cf00032a455e627832a0458e8">wamp::Subscription::unsubscribe</a></div><div class="ttdeci">void unsubscribe() const</div><div class="ttdoc">Unsubscribes from the topic.</div><div class="ttdef"><b>Definition:</b> subscription.ipp:67</div></div>
+<div class="ttc" id="aclasswamp_1_1_event_html"><div class="ttname"><a href="classwamp_1_1_event.html">wamp::Event</a></div><div class="ttdoc">Provides the subscription/publication ids, options, and payload contained within WAMP EVENT messages.</div><div class="ttdef"><b>Definition:</b> peerdata.hpp:427</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="_tutorial.html">Tutorial</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

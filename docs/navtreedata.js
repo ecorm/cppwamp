@@ -35,8 +35,8 @@ var NAVTREE =
     ] ],
     [ "Registrations", "_registrations.html", [
       [ "Call Slots", "_registrations.html#CallSlots", null ],
-      [ "Basic Call Slots", "_registrations.html#BasicCallSlots", null ],
-      [ "Basic Coroutine Call Slots", "_registrations.html#BasicCoroutineCallSlots", null ],
+      [ "Simple Call Slots", "_registrations.html#SimpleCallSlots", null ],
+      [ "Simple Coroutine Call Slots", "_registrations.html#SimpleCoroutineCallSlots", null ],
       [ "Unpacked Call Slots", "_registrations.html#UnpackedCallSlots", null ],
       [ "Unpacked Coroutine Call Slots", "_registrations.html#UnpackedCoroutineCallSlots", null ],
       [ "RPC Outcomes", "_registrations.html#RpcOutcomes", [
@@ -48,8 +48,8 @@ var NAVTREE =
     ] ],
     [ "Subscriptions", "_subscriptions.html", [
       [ "Event Slots", "_subscriptions.html#EventSlots", null ],
-      [ "Basic Event Slots", "_subscriptions.html#BasicEventSlots", null ],
-      [ "Basic Coroutine Event Slots", "_subscriptions.html#BasicCoroutineEventSlots", null ],
+      [ "Simple Event Slots", "_subscriptions.html#SimpleEventSlots", null ],
+      [ "Simple Coroutine Event Slots", "_subscriptions.html#SimpleCoroutineEventSlots", null ],
       [ "Unpacked Event Slots", "_subscriptions.html#UnpackedEventSlots", null ],
       [ "Unpacked Coroutine Event Slots", "_subscriptions.html#UnpackedCoroutineEventSlots", null ],
       [ "Scoped Subscriptions", "_subscriptions.html#ScopedSubscriptions", null ]
@@ -91,10 +91,11 @@ var NAVTREE =
 var NAVTREEINDEX =
 [
 "_architecture.html",
-"classwamp_1_1_connector.html#afe8fdc3c9ae4b93aa79746b12817fecf",
-"classwamp_1_1_session.html#aef2a403bb47fc66deb55fb3447aefa0f",
-"error_8hpp.html#a7695a3b18f0d32dfe24de5c865a3a0c8",
-"tuple_8hpp.html#a0ece744d0f89e28b123b8cbf71bbdf42"
+"classwamp_1_1_call_chit.html#ad21e258894f42826562e6159f2d330fe",
+"classwamp_1_1_pub.html#aebb610e8a1716d42780e0890a83b8b8a",
+"classwamp_1_1_uds_options.html#a272b55bf6ece908c86f56d970581852d",
+"functions_func_c.html",
+"variantdefs_8hpp.html#a5558fb9fd53749b33e654e540ec1e65e"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronisation';

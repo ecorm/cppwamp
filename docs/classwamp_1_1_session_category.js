@@ -6,5 +6,5 @@ var classwamp_1_1_session_category =
     [ "wampCategory", "classwamp_1_1_session_category.html#afca25a6fc2b208ae54056ab5c1283ee3", null ],
     [ "make_error_code", "classwamp_1_1_session_category.html#a7a2478c458de77b5ff486db44c801d42", null ],
     [ "make_error_condition", "classwamp_1_1_session_category.html#a287fb0a8bd7a4b6f4fe64e85bfb1d0d3", null ],
-    [ "lookupWampErrorUri", "classwamp_1_1_session_category.html#a9aade9ce43b46b0e1da7ca1419449f50", null ]
+    [ "lookupWampErrorUri", "classwamp_1_1_session_category.html#a5c2fc0493d371da14aa26a7f5872ebb7", null ]
 ];

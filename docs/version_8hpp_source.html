@@ -87,75 +87,74 @@ $(document).ready(function(){initNavTree('version_8hpp_source.html',''); initRes
 </div><!--header-->
 <div class="contents">
 <a href="version_8hpp.html">Go to the documentation of this file.</a><div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;<span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">                Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
-<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
-<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
-<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
-<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
-<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160; </div>
-<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_VERSION_HPP</span></div>
-<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor">#define CPPWAMP_VERSION_HPP</span></div>
-<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160; </div>
-<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &lt;string&gt;</span></div>
-<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
-<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160; </div>
-<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160; </div>
-<div class="line"><a name="l00020"></a><span class="lineno"><a class="line" href="version_8hpp.html#a969606c4d543aed78953f9f6c137aab3">   20</a></span>&#160;<span class="preprocessor">#define CPPWAMP_MAJOR_VERSION 0</span></div>
-<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160; </div>
-<div class="line"><a name="l00023"></a><span class="lineno"><a class="line" href="version_8hpp.html#a08d5af495bdbb8a0268975dd04ac2624">   23</a></span>&#160;<span class="preprocessor">#define CPPWAMP_MINOR_VERSION 9</span></div>
-<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160; </div>
-<div class="line"><a name="l00026"></a><span class="lineno"><a class="line" href="version_8hpp.html#a8f0d0d17e9a1a24cdd8227c91cf5cd6c">   26</a></span>&#160;<span class="preprocessor">#define CPPWAMP_PATCH_VERSION 1</span></div>
-<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160; </div>
-<div class="line"><a name="l00029"></a><span class="lineno"><a class="line" href="version_8hpp.html#a380458ec8caab95f971c129a482c4bbb">   29</a></span>&#160;<span class="preprocessor">#define CPPWAMP_VERSION \</span></div>
-<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;<span class="preprocessor">    (CPPWAMP_MAJOR_VERSION * 10000 + \</span></div>
-<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;<span class="preprocessor">     CPPWAMP_MINOR_VERSION * 100 + \</span></div>
-<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;<span class="preprocessor">     CPPWAMP_PATCH_VERSION)</span></div>
-<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160; </div>
-<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
-<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;{</div>
-<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160; </div>
-<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00044"></a><span class="lineno"><a class="line" href="structwamp_1_1_version.html">   44</a></span>&#160;<span class="keyword">struct </span>CPPWAMP_API <a class="code" href="structwamp_1_1_version.html">Version</a></div>
-<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;{</div>
-<div class="line"><a name="l00047"></a><span class="lineno"><a class="line" href="structwamp_1_1_version.html#ac3fb1d70eaa1cd4c4016014cde70f9b0">   47</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="structwamp_1_1_version.html#ac3fb1d70eaa1cd4c4016014cde70f9b0">major</a>;</div>
-<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160; </div>
-<div class="line"><a name="l00050"></a><span class="lineno"><a class="line" href="structwamp_1_1_version.html#ae9aa1fc01b1b9d285bce0ff271c13609">   50</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="structwamp_1_1_version.html#ae9aa1fc01b1b9d285bce0ff271c13609">minor</a>;</div>
-<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160; </div>
-<div class="line"><a name="l00053"></a><span class="lineno"><a class="line" href="structwamp_1_1_version.html#a12b6a0d021cd7e35b34f8d492a97d53e">   53</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="structwamp_1_1_version.html#a12b6a0d021cd7e35b34f8d492a97d53e">patch</a>;</div>
-<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160; </div>
-<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;    <span class="keyword">static</span> <a class="code" href="structwamp_1_1_version.html">Version</a> parts();</div>
-<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160; </div>
-<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;    <span class="keyword">static</span> <span class="keywordtype">int</span> <a class="code" href="namespacewamp.html#a4d04d75506649324abb78e785749ccdba157db7df530023575515d366c9b672e8">integer</a>();</div>
-<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160; </div>
-<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;    <span class="keyword">static</span> std::string toString();</div>
-<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160; </div>
-<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;    <span class="keyword">static</span> std::string agentString();</div>
-<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;};</div>
-<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160; </div>
-<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160;} <span class="comment">// namespace wamp</span></div>
-<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160; </div>
-<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_COMPILED_LIB</span></div>
-<div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;<span class="preprocessor">#include &quot;./internal/version.ipp&quot;</span></div>
-<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160;<span class="preprocessor">#endif</span></div>
-<div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160; </div>
-<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;<span class="preprocessor">#endif // CPPWAMP_VERSION_HPP</span></div>
+<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">    Copyright Butterfly Energy Systems 2014-2015, 2022.</span></div>
+<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">    Distributed under the Boost Software License, Version 1.0.</span></div>
+<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">    http://www.boost.org/LICENSE_1_0.txt</span></div>
+<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
+<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160; </div>
+<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_VERSION_HPP</span></div>
+<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#define CPPWAMP_VERSION_HPP</span></div>
+<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160; </div>
+<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;<span class="preprocessor">#include &lt;string&gt;</span></div>
+<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &quot;<a class="code" href="api_8hpp.html">api.hpp</a>&quot;</span></div>
+<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160; </div>
+<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160; </div>
+<div class="line"><a name="l00019"></a><span class="lineno"><a class="line" href="version_8hpp.html#a969606c4d543aed78953f9f6c137aab3">   19</a></span>&#160;<span class="preprocessor">#define CPPWAMP_MAJOR_VERSION 0</span></div>
+<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160; </div>
+<div class="line"><a name="l00022"></a><span class="lineno"><a class="line" href="version_8hpp.html#a08d5af495bdbb8a0268975dd04ac2624">   22</a></span>&#160;<span class="preprocessor">#define CPPWAMP_MINOR_VERSION 10</span></div>
+<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160; </div>
+<div class="line"><a name="l00025"></a><span class="lineno"><a class="line" href="version_8hpp.html#a8f0d0d17e9a1a24cdd8227c91cf5cd6c">   25</a></span>&#160;<span class="preprocessor">#define CPPWAMP_PATCH_VERSION 0</span></div>
+<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160; </div>
+<div class="line"><a name="l00028"></a><span class="lineno"><a class="line" href="version_8hpp.html#a380458ec8caab95f971c129a482c4bbb">   28</a></span>&#160;<span class="preprocessor">#define CPPWAMP_VERSION \</span></div>
+<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;<span class="preprocessor">    (CPPWAMP_MAJOR_VERSION * 10000 + \</span></div>
+<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;<span class="preprocessor">     CPPWAMP_MINOR_VERSION * 100 + \</span></div>
+<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;<span class="preprocessor">     CPPWAMP_PATCH_VERSION)</span></div>
+<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160; </div>
+<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
+<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;{</div>
+<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160; </div>
+<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;<span class="comment"></span><span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00043"></a><span class="lineno"><a class="line" href="structwamp_1_1_version.html">   43</a></span>&#160;<span class="keyword">struct </span>CPPWAMP_API <a class="code" href="structwamp_1_1_version.html">Version</a></div>
+<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;{</div>
+<div class="line"><a name="l00046"></a><span class="lineno"><a class="line" href="structwamp_1_1_version.html#ac3fb1d70eaa1cd4c4016014cde70f9b0">   46</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="structwamp_1_1_version.html#ac3fb1d70eaa1cd4c4016014cde70f9b0">major</a>;</div>
+<div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160; </div>
+<div class="line"><a name="l00049"></a><span class="lineno"><a class="line" href="structwamp_1_1_version.html#ae9aa1fc01b1b9d285bce0ff271c13609">   49</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="structwamp_1_1_version.html#ae9aa1fc01b1b9d285bce0ff271c13609">minor</a>;</div>
+<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160; </div>
+<div class="line"><a name="l00052"></a><span class="lineno"><a class="line" href="structwamp_1_1_version.html#a12b6a0d021cd7e35b34f8d492a97d53e">   52</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="structwamp_1_1_version.html#a12b6a0d021cd7e35b34f8d492a97d53e">patch</a>;</div>
+<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160; </div>
+<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;    <span class="keyword">static</span> <a class="code" href="structwamp_1_1_version.html">Version</a> parts();</div>
+<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160; </div>
+<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160;    <span class="keyword">static</span> <span class="keywordtype">int</span> <a class="code" href="namespacewamp.html#a4d04d75506649324abb78e785749ccdba157db7df530023575515d366c9b672e8">integer</a>();</div>
+<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160; </div>
+<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;    <span class="keyword">static</span> std::string toString();</div>
+<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160; </div>
+<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;    <span class="keyword">static</span> std::string agentString();</div>
+<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;};</div>
+<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160; </div>
+<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160; </div>
+<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_COMPILED_LIB</span></div>
+<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;<span class="preprocessor">#include &quot;./internal/version.ipp&quot;</span></div>
+<div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;<span class="preprocessor">#endif</span></div>
+<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160; </div>
+<div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160;<span class="preprocessor">#endif // CPPWAMP_VERSION_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
-<div class="ttc" id="astructwamp_1_1_version_html_a12b6a0d021cd7e35b34f8d492a97d53e"><div class="ttname"><a href="structwamp_1_1_version.html#a12b6a0d021cd7e35b34f8d492a97d53e">wamp::Version::patch</a></div><div class="ttdeci">int patch</div><div class="ttdoc">Patch version for backwards-compatible bug fixes.</div><div class="ttdef"><b>Definition:</b> version.hpp:53</div></div>
-<div class="ttc" id="astructwamp_1_1_version_html"><div class="ttname"><a href="structwamp_1_1_version.html">wamp::Version</a></div><div class="ttdoc">Bundles the major, minor, and patch version numbers.</div><div class="ttdef"><b>Definition:</b> version.hpp:44</div></div>
+<div class="ttc" id="astructwamp_1_1_version_html_a12b6a0d021cd7e35b34f8d492a97d53e"><div class="ttname"><a href="structwamp_1_1_version.html#a12b6a0d021cd7e35b34f8d492a97d53e">wamp::Version::patch</a></div><div class="ttdeci">int patch</div><div class="ttdoc">Patch version for backwards-compatible bug fixes.</div><div class="ttdef"><b>Definition:</b> version.hpp:52</div></div>
+<div class="ttc" id="astructwamp_1_1_version_html"><div class="ttname"><a href="structwamp_1_1_version.html">wamp::Version</a></div><div class="ttdoc">Bundles the major, minor, and patch version numbers.</div><div class="ttdef"><b>Definition:</b> version.hpp:43</div></div>
 <div class="ttc" id="aapi_8hpp_html"><div class="ttname"><a href="api_8hpp.html">api.hpp</a></div><div class="ttdoc">Defines macros related to exporting/importing APIs.</div></div>
-<div class="ttc" id="astructwamp_1_1_version_html_ae9aa1fc01b1b9d285bce0ff271c13609"><div class="ttname"><a href="structwamp_1_1_version.html#ae9aa1fc01b1b9d285bce0ff271c13609">wamp::Version::minor</a></div><div class="ttdeci">int minor</div><div class="ttdoc">Minor version with functionality added in a backwards-compatible manner.</div><div class="ttdef"><b>Definition:</b> version.hpp:50</div></div>
-<div class="ttc" id="astructwamp_1_1_version_html_ac3fb1d70eaa1cd4c4016014cde70f9b0"><div class="ttname"><a href="structwamp_1_1_version.html#ac3fb1d70eaa1cd4c4016014cde70f9b0">wamp::Version::major</a></div><div class="ttdeci">int major</div><div class="ttdoc">Major version with incompatible API changes.</div><div class="ttdef"><b>Definition:</b> version.hpp:47</div></div>
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
+<div class="ttc" id="astructwamp_1_1_version_html_ae9aa1fc01b1b9d285bce0ff271c13609"><div class="ttname"><a href="structwamp_1_1_version.html#ae9aa1fc01b1b9d285bce0ff271c13609">wamp::Version::minor</a></div><div class="ttdeci">int minor</div><div class="ttdoc">Minor version with functionality added in a backwards-compatible manner.</div><div class="ttdef"><b>Definition:</b> version.hpp:49</div></div>
+<div class="ttc" id="astructwamp_1_1_version_html_ac3fb1d70eaa1cd4c4016014cde70f9b0"><div class="ttname"><a href="structwamp_1_1_version.html#ac3fb1d70eaa1cd4c4016014cde70f9b0">wamp::Version::major</a></div><div class="ttdeci">int major</div><div class="ttdoc">Major version with incompatible API changes.</div><div class="ttdef"><b>Definition:</b> version.hpp:46</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
 <div class="ttc" id="anamespacewamp_html_a4d04d75506649324abb78e785749ccdba157db7df530023575515d366c9b672e8"><div class="ttname"><a href="namespacewamp.html#a4d04d75506649324abb78e785749ccdba157db7df530023575515d366c9b672e8">wamp::TypeId::integer</a></div><div class="ttdeci">@ integer</div><div class="ttdoc">For Variant::Int.</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="version_8hpp.html">version.hpp</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

@@ -97,9 +97,8 @@ $(document).ready(function(){initNavTree('_codec_decoder.html',''); initResizabl
 <tr class="markdownTableHead">
 <th class="markdownTableHeadNone">Expression </th><th class="markdownTableHeadNone">Effect  </th></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><code>decoder.decode(input, variant)</code> </td><td class="markdownTableBodyNone">Decodes the input into the given variant.  </td></tr>
+<td class="markdownTableBodyNone"><code>decoder.decode(input, variant)</code> </td><td class="markdownTableBodyNone">Decodes the input into the given variant, returning a std::error_code.  </td></tr>
 </table>
-<p><code>decoder.decode</code> is expected to throw a <a class="el" href="structwamp_1_1error_1_1_decode.html">wamp::error::Decode</a> exception if it fails to deserialize the buffer.</p>
 <p>The following classes meet the requirements of <code>Decoder</code>:</p><ul>
 <li><a class="el" href="classwamp_1_1_basic_cbor_decoder.html" title="CBOR decoder.">wamp::BasicCborDecoder</a></li>
 <li><a class="el" href="classwamp_1_1_basic_json_decoder.html" title="JSON decoder.">wamp::BasicJsonDecoder</a></li>
@@ -112,7 +111,7 @@ $(document).ready(function(){initNavTree('_codec_decoder.html',''); initResizabl
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="_concepts.html">Concepts</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

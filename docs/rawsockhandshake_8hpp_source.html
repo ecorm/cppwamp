@@ -87,121 +87,120 @@ $(document).ready(function(){initNavTree('rawsockhandshake_8hpp_source.html','')
 </div><!--header-->
 <div class="contents">
 <div class="fragment"><div class="line"><a name="l00001"></a><span class="lineno">    1</span>&#160;<span class="comment">/*------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">                Copyright Butterfly Energy Systems 2014-2015.</span></div>
-<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">           Distributed under the Boost Software License, Version 1.0.</span></div>
-<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">              (See accompanying file LICENSE_1_0.txt or copy at</span></div>
-<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">                    http://www.boost.org/LICENSE_1_0.txt)</span></div>
-<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
-<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160; </div>
-<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_INTERNAL_RAWSOCKHANDSHAKE_HPP</span></div>
-<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;<span class="preprocessor">#define CPPWAMP_INTERNAL_RAWSOCKHANDSHAKE_HPP</span></div>
-<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160; </div>
-<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &lt;cassert&gt;</span></div>
-<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160;<span class="preprocessor">#include &lt;cstdint&gt;</span></div>
-<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="preprocessor">#include &lt;string&gt;</span></div>
-<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="preprocessor">#include &quot;../error.hpp&quot;</span></div>
-<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="preprocessor">#include &quot;../rawsockoptions.hpp&quot;</span></div>
-<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &quot;endian.hpp&quot;</span></div>
-<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160; </div>
-<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
-<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;{</div>
-<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160; </div>
-<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;<span class="keyword">namespace </span>internal</div>
-<div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;{</div>
-<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160; </div>
-<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
-<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;<span class="keyword">class </span>RawsockHandshake</div>
-<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;{</div>
-<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;<span class="keyword">public</span>:</div>
-<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;    <span class="keyword">static</span> <span class="keywordtype">size_t</span> byteLengthOf(<a class="code" href="namespacewamp.html#a1750e952cec62e645c6b1c918c06993f">RawsockMaxLength</a> len)</div>
-<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;        {<span class="keywordflow">return</span> 1u &lt;&lt; ((int)len + 9);}</div>
-<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160; </div>
-<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;    <span class="keyword">static</span> RawsockHandshake fromBigEndian(uint32_t big)</div>
-<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;        {<span class="keywordflow">return</span> RawsockHandshake(endian::bigToNative32(big));}</div>
-<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160; </div>
-<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;    <span class="keyword">static</span> RawsockHandshake eUnsupportedFormat()</div>
-<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;        {<span class="keywordflow">return</span> RawsockHandshake(0x7f100000);}</div>
-<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160; </div>
-<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;    <span class="keyword">static</span> RawsockHandshake eUnacceptableLength()</div>
-<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160;        {<span class="keywordflow">return</span> RawsockHandshake(0x7f200000);}</div>
-<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160; </div>
-<div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160;    <span class="keyword">static</span> RawsockHandshake eReservedBitsUsed()</div>
-<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;        {<span class="keywordflow">return</span> RawsockHandshake(0x7f300000);}</div>
-<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160; </div>
-<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;    <span class="keyword">static</span> RawsockHandshake eMaxConnections()</div>
-<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;        {<span class="keywordflow">return</span> RawsockHandshake(0x7f400000);}</div>
-<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160; </div>
-<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;    RawsockHandshake() : hs_(magicOctet_) {}</div>
-<div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160; </div>
-<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;    <span class="keyword">explicit</span> RawsockHandshake(uint32_t hostOrder) : hs_(hostOrder) {}</div>
-<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160; </div>
-<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;    uint16_t reserved()<span class="keyword"> const </span>{<span class="keywordflow">return</span> get&lt;uint16_t&gt;(reservedMask_);}</div>
-<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160; </div>
-<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;    <span class="keywordtype">int</span> codecId()<span class="keyword"> const</span></div>
-<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;<span class="keyword">        </span>{<span class="keywordflow">return</span> get&lt;int&gt;(codecMask_, codecPos_);}</div>
-<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160; </div>
-<div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;    <a class="code" href="namespacewamp.html#a1750e952cec62e645c6b1c918c06993f">RawsockMaxLength</a> maxLength()<span class="keyword"> const</span></div>
-<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;<span class="keyword">        </span>{<span class="keywordflow">return</span> get&lt;RawsockMaxLength&gt;(lengthMask_, lengthPos_);}</div>
-<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160; </div>
-<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;    <span class="keywordtype">size_t</span> maxLengthInBytes()<span class="keyword"> const </span>{<span class="keywordflow">return</span> byteLengthOf(maxLength());}</div>
-<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160; </div>
-<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;    <span class="keywordtype">bool</span> hasError()<span class="keyword"> const </span>{<span class="keywordflow">return</span> get&lt;&gt;(codecMask_) == 0;}</div>
-<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160; </div>
-<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;    <a class="code" href="namespacewamp.html#aa0bf722cbe7ad04d49ad94b6ec440541">RawsockErrc</a> errorCode()<span class="keyword"> const</span></div>
-<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;<span class="keyword">    </span>{</div>
-<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;        <span class="keywordflow">return</span> get&lt;RawsockErrc&gt;(errorMask_, errorPos_);</div>
-<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;    }</div>
-<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160; </div>
-<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;    <span class="keywordtype">bool</span> hasMagicOctet()<span class="keyword"> const </span>{<span class="keywordflow">return</span> get&lt;&gt;(magicMask_) == magicOctet_;}</div>
-<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160; </div>
-<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160;    uint32_t toBigEndian()<span class="keyword"> const </span>{<span class="keywordflow">return</span> endian::nativeToBig32(hs_);}</div>
-<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160; </div>
-<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;    uint32_t toHostOrder()<span class="keyword"> const </span>{<span class="keywordflow">return</span> hs_;}</div>
-<div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160; </div>
-<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160;    RawsockHandshake&amp; setCodecId(<span class="keywordtype">int</span> codecId)</div>
-<div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160;        {<span class="keywordflow">return</span> put(codecId, codecPos_);}</div>
-<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160; </div>
-<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;    RawsockHandshake&amp; setMaxLength(<a class="code" href="namespacewamp.html#a1750e952cec62e645c6b1c918c06993f">RawsockMaxLength</a> length)</div>
-<div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160;        {<span class="keywordflow">return</span> put(length, lengthPos_);}</div>
-<div class="line"><a name="l00078"></a><span class="lineno">   78</span>&#160; </div>
-<div class="line"><a name="l00079"></a><span class="lineno">   79</span>&#160;<span class="keyword">private</span>:</div>
-<div class="line"><a name="l00080"></a><span class="lineno">   80</span>&#160;    <span class="keyword">static</span> constexpr uint32_t reservedMask_ = 0x0000ffff;</div>
-<div class="line"><a name="l00081"></a><span class="lineno">   81</span>&#160;    <span class="keyword">static</span> constexpr uint32_t codecMask_    = 0x000f0000;</div>
-<div class="line"><a name="l00082"></a><span class="lineno">   82</span>&#160;    <span class="keyword">static</span> constexpr uint32_t lengthMask_   = 0x00f00000;</div>
-<div class="line"><a name="l00083"></a><span class="lineno">   83</span>&#160;    <span class="keyword">static</span> constexpr uint32_t errorMask_    = 0x00f00000;</div>
-<div class="line"><a name="l00084"></a><span class="lineno">   84</span>&#160;    <span class="keyword">static</span> constexpr uint32_t magicMask_    = 0xff000000;</div>
-<div class="line"><a name="l00085"></a><span class="lineno">   85</span>&#160;    <span class="keyword">static</span> constexpr uint32_t magicOctet_   = 0x7f000000;</div>
-<div class="line"><a name="l00086"></a><span class="lineno">   86</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> byteLengthPos_     = 9;</div>
-<div class="line"><a name="l00087"></a><span class="lineno">   87</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> codecPos_          = 16;</div>
-<div class="line"><a name="l00088"></a><span class="lineno">   88</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> lengthPos_         = 20;</div>
-<div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> errorPos_          = 20;</div>
-<div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160; </div>
-<div class="line"><a name="l00091"></a><span class="lineno">   91</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> T = u<span class="keywordtype">int</span>32_t&gt;</div>
-<div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160;    T get(uint32_t mask, <span class="keywordtype">int</span> pos = 0)<span class="keyword"> const</span></div>
-<div class="line"><a name="l00093"></a><span class="lineno">   93</span>&#160;<span class="keyword">        </span>{<span class="keywordflow">return</span> <span class="keyword">static_cast&lt;</span>T<span class="keyword">&gt;</span>((hs_ &amp; mask) &gt;&gt; pos);}</div>
-<div class="line"><a name="l00094"></a><span class="lineno">   94</span>&#160; </div>
-<div class="line"><a name="l00095"></a><span class="lineno">   95</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
-<div class="line"><a name="l00096"></a><span class="lineno">   96</span>&#160;    RawsockHandshake&amp; put(T value, <span class="keywordtype">int</span> pos = 0)</div>
-<div class="line"><a name="l00097"></a><span class="lineno">   97</span>&#160;        {hs_ |= (<span class="keyword">static_cast&lt;</span>uint32_t<span class="keyword">&gt;</span>(value) &lt;&lt; pos); <span class="keywordflow">return</span> *<span class="keyword">this</span>;}</div>
-<div class="line"><a name="l00098"></a><span class="lineno">   98</span>&#160; </div>
-<div class="line"><a name="l00099"></a><span class="lineno">   99</span>&#160;    uint32_t hs_;</div>
-<div class="line"><a name="l00100"></a><span class="lineno">  100</span>&#160;};</div>
-<div class="line"><a name="l00101"></a><span class="lineno">  101</span>&#160; </div>
-<div class="line"><a name="l00102"></a><span class="lineno">  102</span>&#160;} <span class="comment">// namespace internal</span></div>
-<div class="line"><a name="l00103"></a><span class="lineno">  103</span>&#160; </div>
-<div class="line"><a name="l00104"></a><span class="lineno">  104</span>&#160;} <span class="comment">// namespace wamp</span></div>
-<div class="line"><a name="l00105"></a><span class="lineno">  105</span>&#160; </div>
-<div class="line"><a name="l00106"></a><span class="lineno">  106</span>&#160;<span class="preprocessor">#endif // CPPWAMP_INTERNAL_RAWSOCKHANDSHAKE_HPP</span></div>
+<div class="line"><a name="l00002"></a><span class="lineno">    2</span>&#160;<span class="comment">    Copyright Butterfly Energy Systems 2014-2015.</span></div>
+<div class="line"><a name="l00003"></a><span class="lineno">    3</span>&#160;<span class="comment">    Distributed under the Boost Software License, Version 1.0.</span></div>
+<div class="line"><a name="l00004"></a><span class="lineno">    4</span>&#160;<span class="comment">    http://www.boost.org/LICENSE_1_0.txt</span></div>
+<div class="line"><a name="l00005"></a><span class="lineno">    5</span>&#160;<span class="comment">------------------------------------------------------------------------------*/</span></div>
+<div class="line"><a name="l00006"></a><span class="lineno">    6</span>&#160; </div>
+<div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;<span class="preprocessor">#ifndef CPPWAMP_INTERNAL_RAWSOCKHANDSHAKE_HPP</span></div>
+<div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;<span class="preprocessor">#define CPPWAMP_INTERNAL_RAWSOCKHANDSHAKE_HPP</span></div>
+<div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160; </div>
+<div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;<span class="preprocessor">#include &lt;cassert&gt;</span></div>
+<div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;<span class="preprocessor">#include &lt;cstdint&gt;</span></div>
+<div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160;<span class="preprocessor">#include &lt;string&gt;</span></div>
+<div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;<span class="preprocessor">#include &quot;../error.hpp&quot;</span></div>
+<div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;<span class="preprocessor">#include &quot;../rawsockoptions.hpp&quot;</span></div>
+<div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="preprocessor">#include &quot;endian.hpp&quot;</span></div>
+<div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160; </div>
+<div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;<span class="keyword">namespace </span><a class="code" href="namespacewamp.html">wamp</a></div>
+<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;{</div>
+<div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160; </div>
+<div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;<span class="keyword">namespace </span>internal</div>
+<div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;{</div>
+<div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160; </div>
+<div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;<span class="comment">//------------------------------------------------------------------------------</span></div>
+<div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;<span class="keyword">class </span>RawsockHandshake</div>
+<div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;{</div>
+<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;<span class="keyword">public</span>:</div>
+<div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;    <span class="keyword">static</span> <span class="keywordtype">size_t</span> byteLengthOf(<a class="code" href="namespacewamp.html#a1750e952cec62e645c6b1c918c06993f">RawsockMaxLength</a> len)</div>
+<div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;        {<span class="keywordflow">return</span> 1u &lt;&lt; ((int)len + 9);}</div>
+<div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160; </div>
+<div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;    <span class="keyword">static</span> RawsockHandshake fromBigEndian(uint32_t big)</div>
+<div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;        {<span class="keywordflow">return</span> RawsockHandshake(endian::bigToNative32(big));}</div>
+<div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160; </div>
+<div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160;    <span class="keyword">static</span> RawsockHandshake eUnsupportedFormat()</div>
+<div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;        {<span class="keywordflow">return</span> RawsockHandshake(0x7f100000);}</div>
+<div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160; </div>
+<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;    <span class="keyword">static</span> RawsockHandshake eUnacceptableLength()</div>
+<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;        {<span class="keywordflow">return</span> RawsockHandshake(0x7f200000);}</div>
+<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160; </div>
+<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160;    <span class="keyword">static</span> RawsockHandshake eReservedBitsUsed()</div>
+<div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160;        {<span class="keywordflow">return</span> RawsockHandshake(0x7f300000);}</div>
+<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160; </div>
+<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;    <span class="keyword">static</span> RawsockHandshake eMaxConnections()</div>
+<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;        {<span class="keywordflow">return</span> RawsockHandshake(0x7f400000);}</div>
+<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160; </div>
+<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;    RawsockHandshake() : hs_(magicOctet_) {}</div>
+<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160; </div>
+<div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160;    <span class="keyword">explicit</span> RawsockHandshake(uint32_t hostOrder) : hs_(hostOrder) {}</div>
+<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160; </div>
+<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;    uint16_t reserved()<span class="keyword"> const </span>{<span class="keywordflow">return</span> get&lt;uint16_t&gt;(reservedMask_);}</div>
+<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160; </div>
+<div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;    <span class="keywordtype">int</span> codecId()<span class="keyword"> const</span></div>
+<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;<span class="keyword">        </span>{<span class="keywordflow">return</span> get&lt;int&gt;(codecMask_, codecPos_);}</div>
+<div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160; </div>
+<div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;    <a class="code" href="namespacewamp.html#a1750e952cec62e645c6b1c918c06993f">RawsockMaxLength</a> maxLength()<span class="keyword"> const</span></div>
+<div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;<span class="keyword">        </span>{<span class="keywordflow">return</span> get&lt;RawsockMaxLength&gt;(lengthMask_, lengthPos_);}</div>
+<div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160; </div>
+<div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;    <span class="keywordtype">size_t</span> maxLengthInBytes()<span class="keyword"> const </span>{<span class="keywordflow">return</span> byteLengthOf(maxLength());}</div>
+<div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160; </div>
+<div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160;    <span class="keywordtype">bool</span> hasError()<span class="keyword"> const </span>{<span class="keywordflow">return</span> get&lt;&gt;(codecMask_) == 0;}</div>
+<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160; </div>
+<div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;    <a class="code" href="namespacewamp.html#aa0bf722cbe7ad04d49ad94b6ec440541">RawsockErrc</a> errorCode()<span class="keyword"> const</span></div>
+<div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;<span class="keyword">    </span>{</div>
+<div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;        <span class="keywordflow">return</span> get&lt;RawsockErrc&gt;(errorMask_, errorPos_);</div>
+<div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;    }</div>
+<div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160; </div>
+<div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;    <span class="keywordtype">bool</span> hasMagicOctet()<span class="keyword"> const </span>{<span class="keywordflow">return</span> get&lt;&gt;(magicMask_) == magicOctet_;}</div>
+<div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160; </div>
+<div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;    uint32_t toBigEndian()<span class="keyword"> const </span>{<span class="keywordflow">return</span> endian::nativeToBig32(hs_);}</div>
+<div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160; </div>
+<div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160;    uint32_t toHostOrder()<span class="keyword"> const </span>{<span class="keywordflow">return</span> hs_;}</div>
+<div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160; </div>
+<div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;    RawsockHandshake&amp; setCodecId(<span class="keywordtype">int</span> codecId)</div>
+<div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160;        {<span class="keywordflow">return</span> put(codecId, codecPos_);}</div>
+<div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160; </div>
+<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;    RawsockHandshake&amp; setMaxLength(<a class="code" href="namespacewamp.html#a1750e952cec62e645c6b1c918c06993f">RawsockMaxLength</a> length)</div>
+<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;        {<span class="keywordflow">return</span> put(length, lengthPos_);}</div>
+<div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160; </div>
+<div class="line"><a name="l00078"></a><span class="lineno">   78</span>&#160;<span class="keyword">private</span>:</div>
+<div class="line"><a name="l00079"></a><span class="lineno">   79</span>&#160;    <span class="keyword">static</span> constexpr uint32_t reservedMask_ = 0x0000ffff;</div>
+<div class="line"><a name="l00080"></a><span class="lineno">   80</span>&#160;    <span class="keyword">static</span> constexpr uint32_t codecMask_    = 0x000f0000;</div>
+<div class="line"><a name="l00081"></a><span class="lineno">   81</span>&#160;    <span class="keyword">static</span> constexpr uint32_t lengthMask_   = 0x00f00000;</div>
+<div class="line"><a name="l00082"></a><span class="lineno">   82</span>&#160;    <span class="keyword">static</span> constexpr uint32_t errorMask_    = 0x00f00000;</div>
+<div class="line"><a name="l00083"></a><span class="lineno">   83</span>&#160;    <span class="keyword">static</span> constexpr uint32_t magicMask_    = 0xff000000;</div>
+<div class="line"><a name="l00084"></a><span class="lineno">   84</span>&#160;    <span class="keyword">static</span> constexpr uint32_t magicOctet_   = 0x7f000000;</div>
+<div class="line"><a name="l00085"></a><span class="lineno">   85</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> byteLengthPos_     = 9;</div>
+<div class="line"><a name="l00086"></a><span class="lineno">   86</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> codecPos_          = 16;</div>
+<div class="line"><a name="l00087"></a><span class="lineno">   87</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> lengthPos_         = 20;</div>
+<div class="line"><a name="l00088"></a><span class="lineno">   88</span>&#160;    <span class="keyword">static</span> constexpr <span class="keywordtype">int</span> errorPos_          = 20;</div>
+<div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160; </div>
+<div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> T = u<span class="keywordtype">int</span>32_t&gt;</div>
+<div class="line"><a name="l00091"></a><span class="lineno">   91</span>&#160;    T get(uint32_t mask, <span class="keywordtype">int</span> pos = 0)<span class="keyword"> const</span></div>
+<div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160;<span class="keyword">        </span>{<span class="keywordflow">return</span> <span class="keyword">static_cast&lt;</span>T<span class="keyword">&gt;</span>((hs_ &amp; mask) &gt;&gt; pos);}</div>
+<div class="line"><a name="l00093"></a><span class="lineno">   93</span>&#160; </div>
+<div class="line"><a name="l00094"></a><span class="lineno">   94</span>&#160;    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</div>
+<div class="line"><a name="l00095"></a><span class="lineno">   95</span>&#160;    RawsockHandshake&amp; put(T value, <span class="keywordtype">int</span> pos = 0)</div>
+<div class="line"><a name="l00096"></a><span class="lineno">   96</span>&#160;        {hs_ |= (<span class="keyword">static_cast&lt;</span>uint32_t<span class="keyword">&gt;</span>(value) &lt;&lt; pos); <span class="keywordflow">return</span> *<span class="keyword">this</span>;}</div>
+<div class="line"><a name="l00097"></a><span class="lineno">   97</span>&#160; </div>
+<div class="line"><a name="l00098"></a><span class="lineno">   98</span>&#160;    uint32_t hs_;</div>
+<div class="line"><a name="l00099"></a><span class="lineno">   99</span>&#160;};</div>
+<div class="line"><a name="l00100"></a><span class="lineno">  100</span>&#160; </div>
+<div class="line"><a name="l00101"></a><span class="lineno">  101</span>&#160;} <span class="comment">// namespace internal</span></div>
+<div class="line"><a name="l00102"></a><span class="lineno">  102</span>&#160; </div>
+<div class="line"><a name="l00103"></a><span class="lineno">  103</span>&#160;} <span class="comment">// namespace wamp</span></div>
+<div class="line"><a name="l00104"></a><span class="lineno">  104</span>&#160; </div>
+<div class="line"><a name="l00105"></a><span class="lineno">  105</span>&#160;<span class="preprocessor">#endif // CPPWAMP_INTERNAL_RAWSOCKHANDSHAKE_HPP</span></div>
 </div><!-- fragment --></div><!-- contents -->
 </div><!-- doc-content -->
-<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> asiodefs.hpp:22</div></div>
-<div class="ttc" id="anamespacewamp_html_aa0bf722cbe7ad04d49ad94b6ec440541"><div class="ttname"><a href="namespacewamp.html#aa0bf722cbe7ad04d49ad94b6ec440541">wamp::RawsockErrc</a></div><div class="ttdeci">RawsockErrc</div><div class="ttdoc">Error code values used with the RawsockCategory error category.</div><div class="ttdef"><b>Definition:</b> error.hpp:350</div></div>
-<div class="ttc" id="anamespacewamp_html_a1750e952cec62e645c6b1c918c06993f"><div class="ttname"><a href="namespacewamp.html#a1750e952cec62e645c6b1c918c06993f">wamp::RawsockMaxLength</a></div><div class="ttdeci">RawsockMaxLength</div><div class="ttdoc">Enumerators used to specify the maximum length of messages that a raw socket transport can receive.</div><div class="ttdef"><b>Definition:</b> rawsockoptions.hpp:23</div></div>
+<div class="ttc" id="anamespacewamp_html"><div class="ttname"><a href="namespacewamp.html">wamp</a></div><div class="ttdef"><b>Definition:</b> anyhandler.hpp:36</div></div>
+<div class="ttc" id="anamespacewamp_html_aa0bf722cbe7ad04d49ad94b6ec440541"><div class="ttname"><a href="namespacewamp.html#aa0bf722cbe7ad04d49ad94b6ec440541">wamp::RawsockErrc</a></div><div class="ttdeci">RawsockErrc</div><div class="ttdoc">Error code values used with the RawsockCategory error category.</div><div class="ttdef"><b>Definition:</b> error.hpp:426</div></div>
+<div class="ttc" id="anamespacewamp_html_a1750e952cec62e645c6b1c918c06993f"><div class="ttname"><a href="namespacewamp.html#a1750e952cec62e645c6b1c918c06993f">wamp::RawsockMaxLength</a></div><div class="ttdeci">RawsockMaxLength</div><div class="ttdoc">Enumerators used to specify the maximum length of messages that a raw socket transport can receive.</div><div class="ttdef"><b>Definition:</b> rawsockoptions.hpp:22</div></div>
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="dir_64630c07612263f2a3099643d69e6df2.html">cppwamp</a></li><li class="navelem"><a class="el" href="dir_15a40f4932549f0fe4696fd8fd3add66.html">internal</a></li><li class="navelem"><b>rawsockhandshake.hpp</b></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:38 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

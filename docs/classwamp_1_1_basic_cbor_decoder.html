@@ -105,9 +105,10 @@ Public Member Functions</h2></td></tr>
 &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_basic_cbor_decoder.html#a8b8378018c27ebfc7bf9ba430489283c">~BasicCborDecoder</a> ()</td></tr>
 <tr class="memdesc:a8b8378018c27ebfc7bf9ba430489283c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destructor. <br /></td></tr>
 <tr class="separator:a8b8378018c27ebfc7bf9ba430489283c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa7cd076a666019b359307fa9ca66bcb8"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_basic_cbor_decoder.html#aa7cd076a666019b359307fa9ca66bcb8">decode</a> (const Input &amp;input, <a class="el" href="classwamp_1_1_variant.html">Variant</a> &amp;variant)</td></tr>
-<tr class="memdesc:aa7cd076a666019b359307fa9ca66bcb8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Deserializes from the given input to the given variant.  <a href="classwamp_1_1_basic_cbor_decoder.html#aa7cd076a666019b359307fa9ca66bcb8">More...</a><br /></td></tr>
-<tr class="separator:aa7cd076a666019b359307fa9ca66bcb8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a6bc467d28d7934028daf4b7b227ccbfa"><td class="memItemLeft" align="right" valign="top"><a id="a6bc467d28d7934028daf4b7b227ccbfa"></a>
+std::error_code&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classwamp_1_1_basic_cbor_decoder.html#a6bc467d28d7934028daf4b7b227ccbfa">decode</a> (const Input &amp;input, <a class="el" href="classwamp_1_1_variant.html">Variant</a> &amp;variant)</td></tr>
+<tr class="memdesc:a6bc467d28d7934028daf4b7b227ccbfa"><td class="mdescLeft">&#160;</td><td class="mdescRight">Deserializes from the given input to the given variant. <br /></td></tr>
+<tr class="separator:a6bc467d28d7934028daf4b7b227ccbfa"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><h3>template&lt;typename I, typename C = InputCategoryTypeOf&lt;I&gt;&gt;<br />
@@ -123,46 +124,7 @@ class wamp::BasicCborDecoder&lt; I, C &gt;</h3>
   </table>
   </dd>
 </dl>
-</div><h2 class="groupheader">Member Function Documentation</h2>
-<a id="aa7cd076a666019b359307fa9ca66bcb8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa7cd076a666019b359307fa9ca66bcb8">&#9670;&nbsp;</a></span>decode()</h2>
-
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename I , typename C &gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">void <a class="el" href="classwamp_1_1_basic_cbor_decoder.html">wamp::BasicCborDecoder</a>&lt; I, C &gt;::decode </td>
-          <td>(</td>
-          <td class="paramtype">const Input &amp;&#160;</td>
-          <td class="paramname"><em>input</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="classwamp_1_1_variant.html">Variant</a> &amp;&#160;</td>
-          <td class="paramname"><em>variant</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Deserializes from the given input to the given variant. </p>
-<dl class="exception"><dt>Exceptions</dt><dd>
-  <table class="exception">
-    <tr><td class="paramname"><a class="el" href="structwamp_1_1error_1_1_decode.html" title="Exception type thrown when codec deserialization fails.">error::Decode</a></td><td>if there is an error while parsing the input. </td></tr>
-  </table>
-  </dd>
-</dl>
-
-</div>
-</div>
-<hr/>The documentation for this class was generated from the following files:<ul>
+</div><hr/>The documentation for this class was generated from the following files:<ul>
 <li>cppwamp/<a class="el" href="cbor_8hpp_source.html">cbor.hpp</a></li>
 <li>cppwamp/internal/cbor.ipp</li>
 </ul>
@@ -172,7 +134,7 @@ template&lt;typename I , typename C &gt; </div>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a class="el" href="namespacewamp.html">wamp</a></li><li class="navelem"><a class="el" href="classwamp_1_1_basic_cbor_decoder.html">BasicCborDecoder</a></li>
-    <li class="footer">Generated on Sat Jul 16 2022 12:44:43 for CppWAMP by
+    <li class="footer">Generated on Sat Aug 13 2022 20:54:39 for CppWAMP by
     <a href="http://www.doxygen.org/index.html">
     <img class="footer" src="doxygen.png" alt="doxygen"/></a> 1.8.17 </li>
   </ul>

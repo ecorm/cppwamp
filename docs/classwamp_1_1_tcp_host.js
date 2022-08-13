@@ -22,7 +22,7 @@ var classwamp_1_1_tcp_host =
     [ "withUnicastHops", "classwamp_1_1_tcp_host.html#a4c8da6ad1ea52d832d8943425ecf9b6b", null ],
     [ "withIpV6Only", "classwamp_1_1_tcp_host.html#a4820717abb7d4323014f287549196e9a", null ],
     [ "withNoDelay", "classwamp_1_1_tcp_host.html#a3e1256498fb607a33c0185944e04da46", null ],
-    [ "connector", "classwamp_1_1_tcp_host.html#ae1ce75956d5c02fdcc9ea0b389dee58e", null ],
+    [ "connector", "classwamp_1_1_tcp_host.html#a3b7b489006ee78b626f9e618f32b09b5", null ],
     [ "connector", "classwamp_1_1_tcp_host.html#a7d362b022ba1d00775a449754aed9320", null ],
     [ "connector", "classwamp_1_1_tcp_host.html#a2691dfa58141807c20f559e7936f0181", null ]
 ];
