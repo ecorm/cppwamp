@@ -334,13 +334,41 @@ private:
 };
 
 //------------------------------------------------------------------------------
+template <typename TSource>
+struct GenericDecoderSourceTraits {};
+
+template <>
+struct GenericDecoderSourceTraits<StringSource>
+{
+    using Source = jsoncons::bytes_source;
+    using StubArg = std::string;
+};
+
+template <>
+struct GenericDecoderSourceTraits<BufferSource>
+{
+    using Source = jsoncons::bytes_source;
+    using StubArg = MessageBuffer;
+};
+
+template <>
+struct GenericDecoderSourceTraits<StreamSource>
+{
+    using Source = jsoncons::stream_source<uint8_t>;
+    using StubArg = std::nullptr_t;
+};
+
+//------------------------------------------------------------------------------
 template <typename TConfig>
 class GenericDecoder
 {
+private:
+    using SourceTraits = GenericDecoderSourceTraits<typename TConfig::Source>;
+
 public:
     template <typename... TArgs>
     explicit GenericDecoder(std::string codecName, TArgs&&... inputStubArgs)
-        : inputStub_(std::forward<TArgs>(inputStubArgs)...),
+        : inputStub_(typename SourceTraits::StubArg{}),
           parser_(inputStub_),
           codecName_(std::move(codecName))
     {}
@@ -348,7 +376,7 @@ public:
     template <typename TSourceable>
     std::error_code decode(TSourceable&& input, Variant& variant)
     {
-        Source source(std::forward<TSourceable>(input));
+        ParserSource source(std::forward<TSourceable>(input));
         parser_.reset(std::move(source));
         visitor_.reset();
         std::error_code ec;
@@ -360,9 +388,10 @@ public:
     }
 
 private:
-    using Input = typename TConfig::Input;
+    using ParserSource = typename SourceTraits::Source;
     using Source = typename TConfig::Source;
-    using Parser = typename TConfig::Parser;
+    using Input = typename Source::Input;
+    using Parser = typename TConfig::template Parser<ParserSource>;
     using Visitor = internal::VariantDecodingVisitor;
 
     void reset()

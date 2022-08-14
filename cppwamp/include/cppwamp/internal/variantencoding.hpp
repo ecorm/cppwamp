@@ -87,6 +87,62 @@ private:
     TEncoder& encoder_;
 };
 
+//------------------------------------------------------------------------------
+template <typename TSink>
+struct GenericEncoderSinkTraits {};
+
+template <>
+struct GenericEncoderSinkTraits<StringSink>
+{
+    using Sink = jsoncons::string_sink<std::string>;
+    using StubArg = std::string;
+};
+
+template <>
+struct GenericEncoderSinkTraits<BufferSink>
+{
+    using Sink = jsoncons::string_sink<MessageBuffer>;
+    using StubArg = MessageBuffer;
+};
+
+template <>
+struct GenericEncoderSinkTraits<StreamSink>
+{
+    using Sink = jsoncons::stream_sink<char>;
+    using StubArg = std::nullptr_t;
+};
+
+//------------------------------------------------------------------------------
+template <typename TConfig>
+class GenericEncoder
+{
+private:
+    using SinkTraits = internal::GenericEncoderSinkTraits<typename TConfig::Sink>;
+
+public:
+    using Sink = typename TConfig::Sink;
+
+    GenericEncoder() :
+        stub_(typename SinkTraits::StubArg{}),
+        encoder_(stub_)
+    {}
+
+    void encode(const Variant& variant, Sink sink)
+    {
+        encoder_.reset(sink.output());
+        wamp::apply(VariantEncodingVisitor<Encoder>(encoder_),
+                    variant);
+    }
+
+private:
+    using Output = typename Sink::Output;
+    using EncoderSink = typename SinkTraits::Sink;
+    using Encoder = typename TConfig::template EncoderType<EncoderSink>;
+
+    Output stub_;
+    Encoder encoder_;
+};
+
 } // namespace internal
 
 } // namespace wamp

@@ -25,6 +25,16 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
+/** CBOR format tag type.
+    Meets the requirements of the @ref CodecFormat concept. */
+//------------------------------------------------------------------------------
+struct Cbor
+{
+    /** Obtains a numeric identifier associated with this codec. */
+    static constexpr int id() {return KnownCodecIds::cbor();}
+};
+
+//------------------------------------------------------------------------------
 /** CBOR encoder.
     This class uses [jsoncons][1] to serialize CBOR payloads from Variant
     instances.
@@ -32,71 +42,42 @@ namespace wamp
 
     Meets the requirements of the @ref CodecEncoder concept.
 
-    @tparam O The output type in which to encode.
-    @tparam C The output category type (deduced). */
+    @tparam TSink The output sink type in which to encode. */
 //------------------------------------------------------------------------------
-template <typename O, typename C = OutputCategoryTypeOf<O>>
-class CPPWAMP_API BasicCborEncoder
+template <typename TSink>
+class CPPWAMP_API SinkEncoder<Cbor, TSink>
 {
 public:
-    using Output = O;
-    using OutputCategory = C;
+    using Sink = TSink;
+    using Output = typename Sink::Output;
 
     /** Default constructor. */
-    BasicCborEncoder();
+    SinkEncoder();
 
     /** Destructor. */
-    ~BasicCborEncoder();
+    ~SinkEncoder();
 
-    /** Serializes from the given variant to the given output
+    /** Serializes from the given variant to the given output sink
         (it does not first clear the output, by design). */
-    void encode(const Variant& variant, Output& output);
+    void encode(const Variant& variant, Sink sink);
 
 private:
     class Impl;
     std::unique_ptr<Impl> impl_;
 };
 
-//------------------------------------------------------------------------------
-/** CBOR encoder specialization for streams.
-    This class uses [jsoncons][1] to serialize CBOR payloads from Variant
-    instances.
-    [1]: https://github.com/danielaparker/jsoncons
-
-    Meets the requirements of the @ref CodecEncoder concept.
-
-    @tparam O The output type in which to encode. */
-//------------------------------------------------------------------------------
-template <typename O>
-class CPPWAMP_API BasicCborEncoder<O, StreamOutputCategory>
-{
-public:
-    using Output = O;
-    using OutputCategory = StreamOutputCategory;
-
-    /** Default constructor. */
-    BasicCborEncoder();
-
-    /** Destructor. */
-    ~BasicCborEncoder();
-
-    /** Serializes from the given variant to the given output
-        (it does not first clear the output, by design). */
-    void encode(const Variant& variant, Output& output);
-
-private:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
-};
+/// Yields the CBOR encoder type for the given output sink type.
+template <typename TSink>
+using CborEncoder = SinkEncoder<Cbor, TSink>;
 
 /// CBOR encoder type that encodes into a std::string. */
-using CborStringEncoder = BasicCborEncoder<std::string>;
+using CborStringEncoder = CborEncoder<StringSink>;
 
 /// CBOR encoder type that encodes into a MessageBuffer. */
-using CborBufferEncoder = BasicCborEncoder<MessageBuffer>;
+using CborBufferEncoder = CborEncoder<BufferSink>;
 
 /// CBOR encoder type that encodes into a std::ostream. */
-using CborStreamEncoder = BasicCborEncoder<std::ostream>;
+using CborStreamEncoder = CborEncoder<StreamSink>;
 
 
 //------------------------------------------------------------------------------
@@ -107,88 +88,41 @@ using CborStreamEncoder = BasicCborEncoder<std::ostream>;
 
     Meets the requirements of the @ref CodecDecoder concept.
 
-    @tparam I The input type from which to decode.
-    @tparam C The input category type (deduced). */
+    @tparam TSource The input source type from which to decode. */
 //------------------------------------------------------------------------------
-template <typename I, typename C = InputCategoryTypeOf<I>>
-class CPPWAMP_API BasicCborDecoder
+template <typename TSource>
+class CPPWAMP_API SourceDecoder<Cbor, TSource>
 {
 public:
-    using Input = I;
-    using InputCategory = C;
+    using Source = TSource;
+    using Input = typename Source::Input;
 
     /** Default constructor. */
-    BasicCborDecoder();
+    SourceDecoder();
 
     /** Destructor. */
-    ~BasicCborDecoder();
+    ~SourceDecoder();
 
-    /** Deserializes from the given input to the given variant. */
-    CPPWAMP_NODISCARD std::error_code decode(const Input& input,
-                                             Variant& variant);
+    /** Deserializes from the given input source to the given variant. */
+    CPPWAMP_NODISCARD std::error_code decode(Source source, Variant& variant);
 
 private:
     class Impl;
     std::unique_ptr<Impl> impl_;
 };
 
-//------------------------------------------------------------------------------
-/** CBOR decoder specialization for stream inputs.
-    This class uses [jsoncons][1] to deserialize CBOR payloads into Variant
-    instances.
-    [1]: https://github.com/danielaparker/jsoncons
-
-    Meets the requirements of the @ref CodecDecoder concept.
-
-    @tparam I The input stream type from which to decode. */
-//------------------------------------------------------------------------------
-template <typename I>
-class CPPWAMP_API BasicCborDecoder<I, StreamInputCategory>
-{
-public:
-    using Input = I;
-    using InputCategory = StreamInputCategory;
-
-    /** Default constructor. */
-    BasicCborDecoder();
-
-    /** Destructor. */
-    ~BasicCborDecoder();
-
-    /** Deserializes from the given input stream to the given variant. */
-    CPPWAMP_NODISCARD std::error_code decode(Input& input, Variant& variant);
-
-private:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
-};
+/// Yields the CBOR decoder type for the given input source type.
+template <typename TSource>
+using CborDecoder = SourceDecoder<Cbor, TSource>;
 
 /// CBOR decoder type that decodes from a std::string. */
-using CborStringDecoder = BasicCborDecoder<std::string>;
+using CborStringDecoder = CborDecoder<StringSource>;
 
 /// CBOR decoder type that decodes from a MessageBuffer. */
-using CborBufferDecoder = BasicCborDecoder<MessageBuffer>;
+using CborBufferDecoder = CborDecoder<BufferSource>;
 
 /// CBOR decoder type that decodes from a std::istream. */
-using CborStreamDecoder = BasicCborDecoder<std::istream>;
-
-//------------------------------------------------------------------------------
-/** CBOR format tag type.
-    Meets the requirements of the @ref CodecFormat concept. */
-//------------------------------------------------------------------------------
-struct Cbor
-{
-    template <typename TOutput,
-             typename TOutputCategory = OutputCategoryTypeOf<TOutput>>
-    using Encoder = BasicCborEncoder<TOutput, TOutputCategory>;
-
-    template <typename TInput,
-             typename TInputCategory = InputCategoryTypeOf<TInput>>
-    using Decoder = BasicCborDecoder<TInput, TInputCategory>;
-
-    /** Obtains a numeric identifier associated with this codec. */
-    static constexpr int id() {return KnownCodecIds::cbor();}
-};
+using CborStreamDecoder = CborDecoder<StreamSource>;
 
 } // namespace wamp
 

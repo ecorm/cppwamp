@@ -8,6 +8,7 @@
 #include <jsoncons_ext/cbor/cbor_encoder.hpp>
 #include <jsoncons_ext/cbor/cbor_parser.hpp>
 #include "../api.hpp"
+#include "../traits.hpp"
 #include "variantdecoding.hpp"
 #include "variantencoding.hpp"
 
@@ -15,191 +16,104 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-template <typename O, typename C>
-class BasicCborEncoder<O, C>::Impl
+template <typename TSink>
+class SinkEncoder<Cbor, TSink>::Impl
 {
 public:
-    using Output = O;
-
-    Impl() : encoder_(stub_) {}
-
-    template <typename TSinkable>
-    void encode(const Variant& variant, TSinkable&& output)
+    void encode(const Variant& variant, TSink sink)
     {
-        encoder_.reset(std::forward<TSinkable>(output));
-        wamp::apply(internal::VariantEncodingVisitor<Encoder>(encoder_),
-                    variant);
+        encoder_.encode(variant, sink);
     }
 
 private:
-    using Sink = jsoncons::string_sink<Output>;
-    using Encoder = jsoncons::cbor::basic_cbor_encoder<Sink>;
+    struct Config
+    {
+        using Sink = TSink;
 
-    Output stub_;
-    Encoder encoder_;
+        template <typename TUnderlyingEncoderSink>
+        using EncoderType =
+            jsoncons::cbor::basic_cbor_encoder<TUnderlyingEncoderSink>;
+    };
+
+    internal::GenericEncoder<Config> encoder_;
 };
 
 //------------------------------------------------------------------------------
-template <typename O, typename C>
-BasicCborEncoder<O, C>::BasicCborEncoder() : impl_(new Impl) {}
+template <typename TSink>
+SinkEncoder<Cbor, TSink>::SinkEncoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
 // Avoids incomplete type errors.
 //------------------------------------------------------------------------------
-template <typename O, typename C>
-BasicCborEncoder<O, C>::~BasicCborEncoder() {}
+template <typename TSink>
+SinkEncoder<Cbor, TSink>::~SinkEncoder() {}
 
 //------------------------------------------------------------------------------
-template <typename O, typename C>
-void BasicCborEncoder<O, C>::encode(const Variant& variant, O& output)
+template <typename TSink>
+void SinkEncoder<Cbor, TSink>::encode(const Variant& variant, Sink sink)
 {
-    impl_->encode(variant, output);
+    impl_->encode(variant, sink);
 }
 
-//------------------------------------------------------------------------------
-template <typename O>
-class BasicCborEncoder<O, StreamOutputCategory>::Impl
-{
-public:
-    using Output = O;
-
-    Impl() : outputStub_(nullptr), encoder_(outputStub_) {}
-
-    template <typename TSinkable>
-    void encode(const Variant& variant, TSinkable&& output)
-    {
-        encoder_.reset(std::forward<TSinkable>(output));
-        wamp::apply(internal::VariantEncodingVisitor<Encoder>(encoder_),
-                    variant);
-    }
-
-private:
-    using Sink = jsoncons::binary_stream_sink;
-    using Encoder = jsoncons::cbor::basic_cbor_encoder<Sink>;
-
-    std::ostream outputStub_;
-    Encoder encoder_;
-};
-
-//------------------------------------------------------------------------------
-template <typename O>
-BasicCborEncoder<O, StreamOutputCategory>::BasicCborEncoder()
-    : impl_(new Impl)
-{}
-
-//------------------------------------------------------------------------------
-// Avoids incomplete type errors.
-//------------------------------------------------------------------------------
-template <typename O>
-BasicCborEncoder<O, StreamOutputCategory>::~BasicCborEncoder() {}
-
-//------------------------------------------------------------------------------
-template <typename O>
-void BasicCborEncoder<O, StreamOutputCategory>::encode(const Variant& variant,
-                                                       O& output)
-{
-    impl_->encode(variant, output);
-}
 
 //------------------------------------------------------------------------------
 // Explicit template instantiations
 //------------------------------------------------------------------------------
 #ifdef CPPWAMP_COMPILED_LIB
-template class BasicCborEncoder<std::string, ByteContainerOutputCategory>;
-template class BasicCborEncoder<MessageBuffer, ByteContainerOutputCategory>;
-template class BasicCborEncoder<std::ostream, StreamOutputCategory>;
+template class SinkEncoder<Cbor, StringSink>;
+template class SinkEncoder<Cbor, BufferSink>;
+template class SinkEncoder<Cbor, StreamSink>;
 #endif
 
 //------------------------------------------------------------------------------
-template <typename I, typename C>
-class BasicCborDecoder<I, C>::Impl
+template <typename TSource>
+class SourceDecoder<Cbor, TSource>::Impl
 {
 public:
     Impl() : decoder_("Cbor") {}
 
-    std::error_code decode(const I& input, Variant& variant)
+    std::error_code decode(Source source, Variant& variant)
     {
-        return decoder_.decode(input, variant);
+        return decoder_.decode(source.input(), variant);
     }
 
 private:
     struct Config
     {
-        using Input = I;
-        using Source = jsoncons::bytes_source;
-        using Parser = jsoncons::cbor::basic_cbor_parser<Source>;
+        using Source = TSource;
+
+        template <typename TImplSource>
+        using Parser = jsoncons::cbor::basic_cbor_parser<TImplSource>;
     };
 
     internal::GenericDecoder<Config> decoder_;
 };
 
 //------------------------------------------------------------------------------
-template <typename I, typename C>
-BasicCborDecoder<I, C>::BasicCborDecoder() : impl_(new Impl) {}
+template <typename TSource>
+SourceDecoder<Cbor, TSource>::SourceDecoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
 // Avoids incomplete type errors.
 //------------------------------------------------------------------------------
-template <typename I, typename C>
-BasicCborDecoder<I, C>::~BasicCborDecoder() {}
+template <typename TSource>
+SourceDecoder<Cbor, TSource>::~SourceDecoder() {}
 
 //------------------------------------------------------------------------------
-template <typename I, typename C>
-std::error_code BasicCborDecoder<I, C>::decode(const I& input, Variant& variant)
+template <typename TSource>
+std::error_code SourceDecoder<Cbor, TSource>::decode(Source source,
+                                                     Variant& variant)
 {
-    return impl_->decode(input, variant);
-}
-
-//------------------------------------------------------------------------------
-template <typename I>
-class BasicCborDecoder<I, StreamInputCategory>::Impl
-{
-public:
-    Impl() : decoder_("Cbor", nullptr) {}
-
-    std::error_code decode(I& input, Variant& variant)
-    {
-        return decoder_.decode(input, variant);
-    }
-
-private:
-    struct Config
-    {
-        using Input = std::istream;
-        using Source = jsoncons::stream_source<uint8_t>;
-        using Parser = jsoncons::cbor::basic_cbor_parser<Source>;
-    };
-
-    internal::GenericDecoder<Config> decoder_;
-};
-
-//------------------------------------------------------------------------------
-template <typename I>
-BasicCborDecoder<I, StreamInputCategory>::BasicCborDecoder()
-    : impl_(new Impl)
-{}
-
-//------------------------------------------------------------------------------
-// Avoids incomplete type errors.
-//------------------------------------------------------------------------------
-template <typename I>
-BasicCborDecoder<I, StreamInputCategory>::~BasicCborDecoder() {}
-
-//------------------------------------------------------------------------------
-template <typename I>
-std::error_code
-BasicCborDecoder<I, StreamInputCategory>::decode(I& input, Variant& variant)
-{
-    return impl_->decode(input, variant);
+    return impl_->decode(source, variant);
 }
 
 //------------------------------------------------------------------------------
 // Explicit template instantiations
 //------------------------------------------------------------------------------
 #ifdef CPPWAMP_COMPILED_LIB
-template class BasicCborDecoder<std::string, ByteArrayInputCategory>;
-template class BasicCborDecoder<MessageBuffer, ByteArrayInputCategory>;
-template class BasicCborDecoder<std::istream, StreamInputCategory>;
+template class SourceDecoder<Cbor, StringSource>;
+template class SourceDecoder<Cbor, BufferSource>;
+template class SourceDecoder<Cbor, StreamSource>;
 #endif
 
 } // namespace wamp

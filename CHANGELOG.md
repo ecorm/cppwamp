@@ -1,5 +1,12 @@
+v0.11.0
+=======
+Polymorphic codecs and transports.
+
+- Codecs are now specializations of `SinkEncoder` and `SourceDecoder`.
+- Simplified codec tags to only provide their numeric ID.
+
 v0.10.0
-======
+=======
 Asio completion token support and thread-safe Session operations.
 
 - All asynchronous operations in Session now accept a generic

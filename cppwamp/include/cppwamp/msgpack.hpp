@@ -9,185 +9,120 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the Msgpack codec. */
+    @brief Contains the MSGPACK codec. */
 //------------------------------------------------------------------------------
 
-#include <memory>
 #include <istream>
+#include <memory>
 #include <ostream>
 #include <string>
 #include "api.hpp"
 #include "codec.hpp"
+#include "config.hpp"
 #include "variant.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Msgpack encoder.
-    This class uses [jsoncons][1] to serialize Msgpack payloads from Variant
-    instances.
-    [1]: https://github.com/danielaparker/jsoncons
-
-    Meets the requirements of the @ref CodecEncoder concept.
-
-    @tparam O The output type in which to encode.
-    @tparam C The output category type (deduced). */
-//------------------------------------------------------------------------------
-template <typename O, typename C = OutputCategoryTypeOf<O>>
-class CPPWAMP_API BasicMsgpackEncoder
-{
-public:
-    using Output = O;
-    using OutputCategory = C;
-
-    /** Default constructor. */
-    BasicMsgpackEncoder();
-
-    /** Destructor. */
-    ~BasicMsgpackEncoder();
-
-    /** Serializes from the given variant to the given output
-        (it does not first clear the output, by design). */
-    void encode(const Variant& variant, Output& output);
-
-private:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
-};
-
-//------------------------------------------------------------------------------
-/** Msgpack encoder specialization for streams.
-    This class uses [jsoncons][1] to serialize Msgpack payloads from Variant
-    instances.
-    [1]: https://github.com/danielaparker/jsoncons
-
-    Meets the requirements of the @ref CodecEncoder concept.
-
-    @tparam O The output type in which to encode. */
-//------------------------------------------------------------------------------
-template <typename O>
-class CPPWAMP_API BasicMsgpackEncoder<O, StreamOutputCategory>
-{
-public:
-    using Output = O;
-    using OutputCategory = StreamOutputCategory;
-
-    /** Default constructor. */
-    BasicMsgpackEncoder();
-
-    /** Destructor. */
-    ~BasicMsgpackEncoder();
-
-    /** Serializes from the given variant to the given output
-        (it does not first clear the output, by design). */
-    void encode(const Variant& variant, Output& output);
-
-private:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
-};
-
-/// Msgpack encoder type that encodes into a std::string. */
-using MsgpackStringEncoder = BasicMsgpackEncoder<std::string>;
-
-/// Msgpack encoder type that encodes into a MessageBuffer. */
-using MsgpackBufferEncoder = BasicMsgpackEncoder<MessageBuffer>;
-
-/// Msgpack encoder type that encodes into a std::ostream. */
-using MsgpackStreamEncoder = BasicMsgpackEncoder<std::ostream>;
-
-
-//------------------------------------------------------------------------------
-/** Decoder specialization for Msgpack.
-    This class uses [jsoncons][1] to deserialize Msgpack payloads into Variant
-    instances.
-    [1]: https://github.com/danielaparker/jsoncons
-
-    Meets the requirements of the @ref CodecDecoder concept.
-
-    @tparam I The input type from which to decode.
-    @tparam C The input category type (deduced). */
-//------------------------------------------------------------------------------
-template <typename I, typename C = InputCategoryTypeOf<I>>
-class CPPWAMP_API BasicMsgpackDecoder
-{
-public:
-    using Input = I;
-    using InputCategory = C;
-
-    /** Default constructor. */
-    BasicMsgpackDecoder();
-
-    /** Destructor. */
-    ~BasicMsgpackDecoder();
-
-    /** Deserializes from the given input to the given variant. */
-    CPPWAMP_NODISCARD std::error_code decode(const Input& input,
-                                             Variant& variant);
-
-private:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
-};
-
-//------------------------------------------------------------------------------
-/** Decoder specialization for Msgpack and stream inputs.
-    This class uses [jsoncons][1] to deserialize Msgpack payloads into Variant
-    instances.
-    [1]: https://github.com/danielaparker/jsoncons
-
-    Meets the requirements of the @ref CodecDecoder concept.
-
-    @tparam I The input stream type from which to decode. */
-//------------------------------------------------------------------------------
-template <typename I>
-class CPPWAMP_API BasicMsgpackDecoder<I, StreamInputCategory>
-{
-public:
-    using Input = I;
-    using InputCategory = StreamInputCategory;
-
-    /** Default constructor. */
-    BasicMsgpackDecoder();
-
-    /** Destructor. */
-    ~BasicMsgpackDecoder();
-
-    /** Deserializes from the given input stream to the given variant. */
-    CPPWAMP_NODISCARD std::error_code decode(Input& input, Variant& variant);
-
-private:
-    class Impl;
-    std::unique_ptr<Impl> impl_;
-};
-
-/// Msgpack decoder type that decodes from a std::string. */
-using MsgpackStringDecoder = BasicMsgpackDecoder<std::string>;
-
-/// Msgpack decoder type that decodes from a MessageBuffer. */
-using MsgpackBufferDecoder = BasicMsgpackDecoder<MessageBuffer>;
-
-/// Msgpack decoder type that decodes from a std::ostream. */
-using MsgpackStreamDecoder = BasicMsgpackDecoder<std::istream>;
-
-//------------------------------------------------------------------------------
-/** Msgpack format tag type.
+/** %Msgpack format tag type.
     Meets the requirements of the @ref CodecFormat concept. */
 //------------------------------------------------------------------------------
 struct Msgpack
 {
-    template <typename TOutput,
-             typename TOutputCategory = OutputCategoryTypeOf<TOutput>>
-    using Encoder = BasicMsgpackEncoder<TOutput, TOutputCategory>;
-
-    template <typename TInput,
-             typename TInputCategory = InputCategoryTypeOf<TInput>>
-    using Decoder = BasicMsgpackDecoder<TInput, TInputCategory>;
-
     /** Obtains a numeric identifier associated with this codec. */
     static constexpr int id() {return KnownCodecIds::msgpack();}
 };
+
+//------------------------------------------------------------------------------
+/** %Msgpack encoder.
+    This class uses [jsoncons][1] to serialize MSGPACK payloads from Variant
+    instances.
+    [1]: https://github.com/danielaparker/jsoncons
+
+    Meets the requirements of the @ref CodecEncoder concept.
+
+    @tparam TSink The output sink type in which to encode. */
+//------------------------------------------------------------------------------
+template <typename TSink>
+class CPPWAMP_API SinkEncoder<Msgpack, TSink>
+{
+public:
+    using Sink = TSink;
+    using Output = typename Sink::Output;
+
+    /** Default constructor. */
+    SinkEncoder();
+
+    /** Destructor. */
+    ~SinkEncoder();
+
+    /** Serializes from the given variant to the given output sink
+        (it does not first clear the output, by design). */
+    void encode(const Variant& variant, Sink sink);
+
+private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+/// Yields the %Msgpack encoder type for the given output sink type.
+template <typename TSink>
+using MsgpackEncoder = SinkEncoder<Msgpack, TSink>;
+
+/// %Msgpack encoder type that encodes into a std::string. */
+using MsgpackStringEncoder = MsgpackEncoder<StringSink>;
+
+/// %Msgpack encoder type that encodes into a MessageBuffer. */
+using MsgpackBufferEncoder = MsgpackEncoder<BufferSink>;
+
+/// %Msgpack encoder type that encodes into a std::ostream. */
+using MsgpackStreamEncoder = MsgpackEncoder<StreamSink>;
+
+
+//------------------------------------------------------------------------------
+/** %Msgpack decoder.
+    This class uses [jsoncons][1] to deserialize MSGPACK payloads into Variant
+    instances.
+    [1]: https://github.com/danielaparker/jsoncons
+
+    Meets the requirements of the @ref CodecDecoder concept.
+
+    @tparam TSource The input source type from which to decode. */
+//------------------------------------------------------------------------------
+template <typename TSource>
+class CPPWAMP_API SourceDecoder<Msgpack, TSource>
+{
+public:
+    using Source = TSource;
+    using Input = typename Source::Input;
+
+    /** Default constructor. */
+    SourceDecoder();
+
+    /** Destructor. */
+    ~SourceDecoder();
+
+    /** Deserializes from the given input source to the given variant. */
+    CPPWAMP_NODISCARD std::error_code decode(Source source, Variant& variant);
+
+private:
+    class Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+/// Yields the %Msgpack decoder type for the given input source type.
+template <typename TSource>
+using MsgpackDecoder = SourceDecoder<Msgpack, TSource>;
+
+/// %Msgpack decoder type that decodes from a std::string. */
+using MsgpackStringDecoder = MsgpackDecoder<StringSource>;
+
+/// %Msgpack decoder type that decodes from a MessageBuffer. */
+using MsgpackBufferDecoder = MsgpackDecoder<BufferSource>;
+
+/// %Msgpack decoder type that decodes from a std::istream. */
+using MsgpackStreamDecoder = MsgpackDecoder<StreamSource>;
 
 } // namespace wamp
 

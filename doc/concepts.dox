@@ -88,48 +88,37 @@ Expression                         | Effect
 
 //------------------------------------------------------------------------------
 /** @page CodecEncoder CodecEncoder
-A `CodecEncoder` is a class that supports operations for encoding a Variant
-into a destination codec format.
+A `CodecEncoder` is a specialization of `wamp::SinkEncoder<TFormat, TSink>`
+that supports operations for encoding a Variant into a destination codec format.
 
 Given:
-- `encoder`: an `CodecEncoder` instance
+- `encoder`: a `wamp::SinkEncoder<TFormat, TSink>` instance
 - `variant`: a reference to a const wamp::Variant
-- `output`: a reference to either a `std::string`, a `wamp::CodecBuffer`,
-   or a `std::ostream`
+- `sink`: a value of type `TSink`
+
+then the following expressions must be valid:
+
+Expression                      | Effect
+------------------------------- | ------
+`encoder.encode(variant, sink)` | Encodes the variant into the given output sink.
+*/
+
+//------------------------------------------------------------------------------
+/** @page CodecDecoder CodecDecoder
+A `CodecDecoder` is a specialization of `wamp::SourceDecoder<TFormat, TSource>`
+that supports operations for decoding a sequence of bytes in a codec format
+into a wamp::Variant.
+
+Given:
+- `decoder`: a `wamp::SourceDecoder<TFormat, TSource>` instance
+- `variant`: a reference to a wamp::Variant
+- `source`: a value of type `TSource`
 
 then the following expressions must be valid:
 
 Expression                        | Effect
 --------------------------------- | ------
-`encoder.encode(variant, output)` | Encodes the variant into the given output.
-
-The following classes meet the requirements of `Encoder`:
-- wamp::BasicCborEncoder
-- wamp::BasicJsonEncoder
-- wamp::BasicMsgpackEncoder
-*/
-
-//------------------------------------------------------------------------------
-/** @page CodecDecoder CodecDecoder
-A `CodecDecoder` is a class that supports operations for decoding a sequence of
-bytes in a codec format into a wamp::Variant.
-
-Given:
-- `decoder`: a `CodecDecoder` instance
-- `variant`: a reference to a wamp::Variant
-- `input`: a reference to either a `const std::string`,
-  a `const wamp::CodecBuffer`, or a `std::istream`
-
-then the following expressions must be valid:
-
-Expression                       | Effect
--------------------------------- | ------
-`decoder.decode(input, variant)` | Decodes the input into the given variant, returning a std::error_code.
-
-The following classes meet the requirements of `Decoder`:
-- wamp::BasicCborDecoder
-- wamp::BasicJsonDecoder
-- wamp::BasicMsgpackDecoder
+`decoder.decode(source, variant)` | Decodes the source into the given variant, returning a std::error_code.
 */
 
 //------------------------------------------------------------------------------
@@ -139,16 +128,6 @@ A `CodecFormat` is a static-only class supporting the following expressions:
 Expression                             | Effect
 -------------------------------------- | ------
 `CodecFormat::id()`                    | Returns the `int` ID to use during raw socket handshaking.
-`CodecFormat::template Encoder<O, OC>` | Yields the type used to encode to outputs of type `O` and category `OC`
-`CodecFormat::template Decoder<I, IC>` | Yields the type used to decode inputs of type `I` and category `IC`
-
-where `OC` is either:
-- wamp::ByteContainerOutputCategory
-- wamp::StreamOutputCategory
-
-and where `IC` is either:
-- wamp::ByteArrayInputCategory
-- wamp::StreamInputCategory
 
 The following classes meet the requirements of `CodecFormat`:
 - wamp::Json
