@@ -13,6 +13,7 @@
 //------------------------------------------------------------------------------
 
 #include <istream>
+#include <memory>
 #include <ostream>
 #include "api.hpp"
 #include "config.hpp"
@@ -127,13 +128,11 @@ using SinkTypeFor = typename OutputTraits<ValueTypeOf<TOutput>>::Sink;
 // Encoder
 //******************************************************************************
 
-
 //------------------------------------------------------------------------------
-/** Primary template specialized for codec format tag and sink combinations . */
+/** Primary template specialized for serialization format tag and sink combinations . */
 //------------------------------------------------------------------------------
 template <typename TFormat, typename TSink, typename TEnable = void>
 class SinkEncoder {};
-
 
 //------------------------------------------------------------------------------
 /** Yields the encoder type needed to encode a Variant to the given output type
@@ -144,13 +143,13 @@ class SinkEncoder {};
     @see wamp::encode */
 //------------------------------------------------------------------------------
 template <typename F, typename O>
-using Encoder = SinkEncoder<F, SinkTypeFor<O>>;
+using EncoderFor = SinkEncoder<F, SinkTypeFor<O>>;
 
 //------------------------------------------------------------------------------
 /** Encodes the given variant to the given byte container or stream.
     By design, the output is not cleared before encoding.
     The encoder is instantiated once and then discarded.
-    @tparam TFormat The codec format tag (e.g. Json)
+    @tparam TFormat The serialization format tag (e.g. Json)
     @tparam TOutput The output type (deduced)
     @see wamp::decode
     @see wamp::Encoder */
@@ -158,10 +157,9 @@ using Encoder = SinkEncoder<F, SinkTypeFor<O>>;
 template <typename TFormat, typename TOutput>
 void encode(const Variant& variant, TOutput&& output)
 {
-    Encoder<TFormat, TOutput> encoder;
+    EncoderFor<TFormat, TOutput> encoder;
     encoder.encode(variant, std::forward<TOutput>(output));
 }
-
 
 //******************************************************************************
 // Input Sources
@@ -253,7 +251,7 @@ using SourceTypeFor = typename InputTraits<ValueTypeOf<TInput>>::Source;
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** Primary template specialized for codec format tag and source combinations . */
+/** Primary template specialized for serialization format tag and source combinations . */
 //------------------------------------------------------------------------------
 template <typename TFormat, typename TSource, typename TEnable = void>
 class SourceDecoder {};
@@ -267,12 +265,12 @@ class SourceDecoder {};
     @see wamp::decode */
 //------------------------------------------------------------------------------
 template <typename F, typename I>
-using Decoder = SourceDecoder<F, SourceTypeFor<I>>;;
+using DecoderFor = SourceDecoder<F, SourceTypeFor<I>>;
 
 //------------------------------------------------------------------------------
 /** Decodes from the given byte sequence or stream to the given variant.
     The decoder is instantiated once and then discarded.
-    @tparam TFormat The codec format tag (e.g. Json)
+    @tparam TFormat The serialization format tag (e.g. Json)
     @tparam TInput The input type (deduced)
     @return a std::error_code indicating success or failure
     @see wamp::encode
@@ -281,9 +279,137 @@ using Decoder = SourceDecoder<F, SourceTypeFor<I>>;;
 template <typename TFormat, typename TInput>
 CPPWAMP_NODISCARD std::error_code decode(TInput&& input, Variant& variant)
 {
-    Decoder<TFormat, TInput> decoder;
+    DecoderFor<TFormat, TInput> decoder;
     return decoder.decode(std::forward<TInput>(input), variant);
 }
+
+
+//******************************************************************************
+// Codec and AnyCodec
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+/** Combines an encoder and a decoder for the same serialization format.
+    @tparam TFormat Serialization format tag (e.g. Json).
+    @tparam TSink Output sink type, a specialization of OutputSink.
+    @tparam TSource Input source type, a specialization of InputSource. */
+//------------------------------------------------------------------------------
+template <typename TFormat, typename TSink, typename TSource = TSink>
+class CPPWAMP_API Codec
+{
+public:
+    using Format = TFormat; ///< The encoding/decoding format (e.g. Json).
+    using Sink = TSink;     ///< Output sink type in which to encode.
+    using Source = TSource; ///< Input source type from which to decode.
+
+    /** Encodes the given variant to the given output sink. */
+    void encode(const Variant& variant, Sink sink) override
+    {
+        encoder_.encode(variant, sink);
+    };
+
+    /** Decodes a variant from the given input source. */
+    CPPWAMP_NODISCARD std::error_code decode(Source source,
+                                             Variant& variant) override
+    {
+        return decoder_.decode(source, variant);
+    }
+
+private:
+    SinkEncoder<Format, Sink> encoder_;
+    SourceDecoder<Format, Source> decoder_;
+};
+
+//------------------------------------------------------------------------------
+/** Abstract base class for polymorphic codecs.
+    @tparam TSink Output sink type, a specialization of OutputSink.
+    @tparam TSource Input source type, a specialization of InputSource. */
+//------------------------------------------------------------------------------
+template <typename TSink, typename TSource = TSink>
+class CPPWAMP_API PolymorphicCodecInterface
+{
+public:
+    using Sink = TSink;     ///< Output sink type in which to encode.
+    using Source = TSource; ///< Input source type from which to decode.
+
+    /** Destructor. */
+    virtual ~PolymorphicCodecInterface() {}
+
+    /** Encodes the given variant to the given output sink. */
+    virtual void encode(const Variant& variant, Sink sink) = 0;
+
+    /** Decodes a variant from the given input source. */
+    CPPWAMP_NODISCARD virtual std::error_code decode(Source source,
+                                                     Variant& variant) = 0;
+};
+
+//------------------------------------------------------------------------------
+/** Polymorphic codec.
+    @tparam TFormat Serialization format tag (e.g. Json).
+    @tparam TSink Output sink type, a specialization of OutputSink.
+    @tparam TSource Input source type, a specialization of InputSource. */
+//------------------------------------------------------------------------------
+template <typename TFormat, typename TSink, typename TSource = TSink>
+class CPPWAMP_API PolymorphicCodec
+    : public PolymorphicCodecInterface<TSink, TSource>
+{
+public:
+    using Format = TFormat; ///< The encoding/decoding format (e.g. Json).
+    using Sink = TSink;     ///< Output sink type in which to encode.
+    using Source = TSource; ///< Input source type from which to decode.
+
+    /** Encodes the given variant to the given output sink. */
+    void encode(const Variant& variant, Sink sink) override
+    {
+        codec_.encode(variant, sink);
+    };
+
+    /** Decodes a variant from the given input source. */
+    CPPWAMP_NODISCARD std::error_code decode(Source source,
+                                             Variant& variant) override
+    {
+        return codec_.decode(source, variant);
+    }
+
+private:
+    Codec<Format, Sink, Source> codec_;
+};
+
+//------------------------------------------------------------------------------
+/** Wrapper that type-erases polymorphic codec.
+    @tparam TSink Output sink type, a specialization of OutputSink.
+    @tparam TSource Input source type, a specialization of InputSource. */
+//------------------------------------------------------------------------------
+template <typename TSink, typename TSource = TSink>
+class CPPWAMP_API AnyCodec
+{
+public:
+    using Sink = TSink;     ///< Output sink type in which to encode.
+    using Source = TSource; ///< Input source type from which to decode.
+
+    /** Constructor taking a serialization format tag (e.g. wamp::json). */
+    template <typename TFormat>
+    AnyCodec(TFormat)
+        : codec_(new PolymorphicCodec<TFormat, Sink, Source>())
+    {}
+
+    /** Encodes the given variant to the given output sink. */
+    void encode(const Variant& variant, Sink sink)
+    {
+        codec_.encode(variant, sink);
+    };
+
+    /** Decodes a variant from the given input source. */
+    CPPWAMP_NODISCARD std::error_code decode(Source source, Variant& variant)
+    {
+        return codec_.decode(source, variant);
+    }
+
+private:
+    using Interface = PolymorphicCodecInterface<Sink, Source>;
+    std::unique_ptr<Interface> codec_;
+};
+
 
 } // namespace wamp
 

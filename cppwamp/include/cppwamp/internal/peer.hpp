@@ -219,8 +219,8 @@ private:
     using RequestKey = typename Message::RequestKey;
     using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
     using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
-    using EncoderType = Encoder<Codec, MessageBuffer>;
-    using DecoderType = Decoder<Codec, MessageBuffer>;
+    using EncoderType = EncoderFor<Codec, MessageBuffer>;
+    using DecoderType = DecoderFor<Codec, MessageBuffer>;
 
     void setState(State s)
     {

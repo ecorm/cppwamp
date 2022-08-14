@@ -30,9 +30,15 @@ namespace wamp
 //------------------------------------------------------------------------------
 struct Cbor
 {
+    /** Default contructor. */
+    constexpr Cbor() = default;
+
     /** Obtains a numeric identifier associated with this codec. */
     static constexpr int id() {return KnownCodecIds::cbor();}
 };
+
+/** Instance of the Cbor tag. */
+constexpr CPPWAMP_INLINE Cbor cbor;
 
 //------------------------------------------------------------------------------
 /** CBOR encoder.

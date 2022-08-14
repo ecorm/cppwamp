@@ -30,9 +30,15 @@ namespace wamp
 //------------------------------------------------------------------------------
 struct Msgpack
 {
+    /** Default contructor. */
+    constexpr Msgpack() = default;
+
     /** Obtains a numeric identifier associated with this codec. */
     static constexpr int id() {return KnownCodecIds::msgpack();}
 };
+
+/** Instance of the Msgpack tag. */
+constexpr CPPWAMP_INLINE Msgpack msgpack;
 
 //------------------------------------------------------------------------------
 /** %Msgpack encoder.

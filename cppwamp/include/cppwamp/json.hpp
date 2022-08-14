@@ -30,9 +30,15 @@ namespace wamp
 //------------------------------------------------------------------------------
 struct Json
 {
+    /** Default contructor. */
+    constexpr Json() = default;
+
     /** Obtains a numeric identifier associated with this codec. */
     static constexpr int id() {return KnownCodecIds::json();}
 };
+
+/** Instance of the Json tag. */
+constexpr CPPWAMP_INLINE Json json;
 
 //------------------------------------------------------------------------------
 /** JSON encoder.
