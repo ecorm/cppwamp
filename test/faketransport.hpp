@@ -75,10 +75,9 @@ class FakeMsgTypeTransport :
 public:
     using Ptr = std::shared_ptr<FakeMsgTypeTransport>;
 
-    static Ptr create(SocketPtr&& s, size_t maxTxLength, size_t maxRxLength)
+    static Ptr create(SocketPtr&& s, TransportLimits limits)
     {
-        return Ptr(new FakeMsgTypeTransport(
-            std::move(s), maxTxLength, maxRxLength));
+        return Ptr(new FakeMsgTypeTransport(std::move(s), limits));
     }
 
     void send(MessageBuffer message)
@@ -114,7 +113,7 @@ public:
         if (!hs.hasError())
         {
             auto trnsp = FakeMsgTypeTransport::create(std::move(socket_),
-                                                      64*1024, 64*1024);
+                                                      {64*1024, 64*1024});
             std::error_code ec = make_error_code(TransportErrc::success);
             boost::asio::post(strand_,
                               std::bind(handler_, ec, KnownCodecIds::json(),
@@ -149,7 +148,7 @@ public:
         else if (hs.codecId() == KnownCodecIds::json())
         {
             auto trnsp = FakeMsgTypeTransport::create(std::move(socket_),
-                                                      64*1024, 64*1024);
+                                                      {64*1024, 64*1024});
             std::error_code ec = make_error_code(TransportErrc::success);
             boost::asio::post(strand_,
                               std::bind(handler_, ec, KnownCodecIds::json(),

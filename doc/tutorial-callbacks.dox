@@ -78,7 +78,7 @@ using namespace wamp;
 class App
 {
 public:
-    explicit App(wamp::Connector::Ptr connector)
+    explicit App(wamp::Connecting::Ptr connector)
         : session_(wamp::Session::create(connector))
     {}
 

@@ -71,7 +71,7 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 @page Tutorial Tutorial
 
 1. @subpage VariantsTutorial &ndash; A `Variant` mimics a dynamic Javascript variable.
-2. @subpage ConnectorsTutorial &ndash; A `Connector` is used for establishing client transport endpoints.
+2. @subpage ConnectorsTutorial &ndash; A `Connecting` is used for establishing client transport endpoints.
 3. @subpage SessionsTutorial &ndash; How to establish a WAMP session using stackful coroutines.
 4. @subpage ErrorsTutorial &ndash; How to handle runtime errors emitted by `Session`.
 5. @subpage RpcTutorial &ndash; How to register and invoke remote procedure calls.

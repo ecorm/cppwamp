@@ -26,12 +26,12 @@ const short testPort = 12345;
 const std::string authTestRealm = "cppwamp.authtest";
 const short authTestPort = 23456;
 
-Connector::Ptr tcp(AsioContext& ioctx)
+Connecting::Ptr tcp(AsioContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", testPort));
 }
 
-Connector::Ptr authTcp(AsioContext& ioctx)
+Connecting::Ptr authTcp(AsioContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", authTestPort));
 }

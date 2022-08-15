@@ -73,7 +73,7 @@ A `yield_context` is obtained via [boost::asio::spawn][1].
 Creating the Session Object
 ---------------------------
 
-Once one or more wamp::Connector objects have been created, they are passed to
+Once one or more wamp::Connecting objects have been created, they are passed to
 the @ref wamp::Session::create "create" factory method of the session API.
 `create` then returns a `std::shared_ptr` to the newly created
 wamp::Session object.

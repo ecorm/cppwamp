@@ -17,14 +17,26 @@
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "codec.hpp"
+#include "config.hpp"
 #include "connector.hpp"
 #include "tcphost.hpp"
+#include "transport.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-class CPPWAMP_API TcpConnector : public Connector
+struct Tcp
+{
+    constexpr Tcp() = default;
+};
+
+//constexpr CPPWAMP_INLINE_VARIABLE Tcp tcp;
+
+
+// TODO: Doxygen
+//------------------------------------------------------------------------------
+class CPPWAMP_API TcpConnector : public Connecting
 {
 public:
     using Ptr = std::shared_ptr<TcpConnector>;
@@ -34,7 +46,7 @@ public:
     IoStrand strand() const override;
 
 protected:
-    Connector::Ptr clone() const override;
+    Connecting::Ptr clone() const override;
 
     void establish(Handler&& handler) override;
 
@@ -48,18 +60,18 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/** Creates a Connector that can establish a TCP raw socket transport.
+/** Creates a Connecting that can establish a TCP raw socket transport.
 
     This overload takes an executor that is convertible to
     the boost::asio::any_io_executor polymorphic wrapper.
 
     @relates TcpHost
-    @returns a `std::shared_ptr` to a Connector
+    @returns a `std::shared_ptr` to a Connecting
     @tparam TFormat The serialization format to use over this transport.
-    @see Connector, Json, Msgpack */
+    @see Connecting, Json, Msgpack */
 //------------------------------------------------------------------------------
 template <typename TFormat>
-CPPWAMP_API Connector::Ptr connector(
+CPPWAMP_API TcpConnector::Ptr connector(
     const AnyIoExecutor& e, ///< The executor to be used by the transport.
     TcpHost h               ///< TCP host address and other socket options.
 )
@@ -75,13 +87,13 @@ CPPWAMP_API Connector::Ptr connector(
     `isExecutionContext<TExecutionContext>() == true`
 
     @relates TcpHost
-    @returns a `std::shared_ptr` to a Connector
+    @returns a `std::shared_ptr` to a Connecting
     @tparam TFormat The serialization format to use over this transport.
     @tparam TExecutionContext The given execution context type (deduced).
-    @see Connector, Json, Msgpack */
+    @see Connecting, Json, Msgpack */
 //------------------------------------------------------------------------------
 template <typename TFormat, typename TExecutionContext>
-CPPWAMP_ENABLED_TYPE(Connector::Ptr, isExecutionContext<TExecutionContext>())
+CPPWAMP_ENABLED_TYPE(TcpConnector::Ptr, isExecutionContext<TExecutionContext>())
 connector(
     TExecutionContext& context, /**< The I/O context containing the executor
                                      to be used by the transport. */

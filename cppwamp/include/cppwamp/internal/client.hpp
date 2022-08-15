@@ -20,10 +20,10 @@
 #include "../codec.hpp"
 #include "../registration.hpp"
 #include "../subscription.hpp"
+#include "../transport.hpp"
 #include "../version.hpp"
 #include "callertimeout.hpp"
 #include "clientinterface.hpp"
-#include "transport.hpp"
 #include "peer.hpp"
 
 namespace wamp
@@ -40,7 +40,7 @@ class Client : public ClientInterface, public Peer
 public:
     using Ptr          = std::shared_ptr<Client>;
     using WeakPtr      = std::weak_ptr<Client>;
-    using TransportPtr = TransportBase::Ptr;
+    using TransportPtr = Transporting::Ptr;
     using State        = SessionState;
 
     using LogHandler         = AnyReusableHandler<void(std::string)>;

@@ -20,9 +20,9 @@
 #include "../codec.hpp"
 #include "../error.hpp"
 #include "../peerdata.hpp"
+#include "../transport.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
-#include "transport.hpp"
 #include "wampmessage.hpp"
 
 namespace wamp
@@ -38,7 +38,7 @@ namespace internal
 class Peer : public std::enable_shared_from_this<Peer>
 {
 public:
-    using TransportPtr = TransportBase::Ptr;
+    using TransportPtr = Transporting::Ptr;
     using State        = SessionState;
 
     State state() const {return state_.load();}
@@ -57,6 +57,7 @@ protected:
         : strand_(transport->strand()),
           codec_(std::move(codec)),
           transport_(std::move(transport)),
+          maxTxLength_(transport_->limits().maxTxLength),
           state_(State::closed)
     {}
 
@@ -234,7 +235,7 @@ private:
 
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
-        if (buffer.size() > transport_->maxSendLength())
+        if (buffer.size() > maxTxLength_)
             throw error::Failure(make_error_code(TransportErrc::badTxLength));
 
         trace(msg, true);
@@ -251,7 +252,7 @@ private:
         auto requestId = setMessageRequestId(msg);
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
-        if (buffer.size() > transport_->maxSendLength())
+        if (buffer.size() > maxTxLength_)
             throw error::Failure(make_error_code(TransportErrc::badTxLength));
 
         auto key = msg.requestKey();
@@ -541,6 +542,7 @@ private:
     AnyIoExecutor userExecutor_;
     AnyBufferCodec codec_;
     TransportPtr transport_;
+    std::size_t maxTxLength_;
     LogHandler traceHandler_;
     StateChangeHandler stateChangeHandler_;
     std::atomic<State> state_;

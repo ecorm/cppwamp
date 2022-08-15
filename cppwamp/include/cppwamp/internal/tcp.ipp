@@ -6,11 +6,15 @@
 
 #include "../tcp.hpp"
 #include "asioconnector.hpp"
+#include "asiotransport.hpp"
 #include "rawsockconnector.hpp"
 #include "tcpopener.hpp"
 
 namespace wamp
 {
+//******************************************************************************
+// TcpConnector
+//******************************************************************************
 
 //------------------------------------------------------------------------------
 struct TcpConnector::Impl
@@ -43,7 +47,7 @@ CPPWAMP_INLINE IoStrand TcpConnector::strand() const
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector::Ptr TcpConnector::clone() const
+CPPWAMP_INLINE Connecting::Ptr TcpConnector::clone() const
 {
     auto& c = *(impl_->cnct);
     return Ptr(new TcpConnector(c.strand(), c.info(), c.codecBuilder()));

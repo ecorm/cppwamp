@@ -27,8 +27,8 @@
 #include "../error.hpp"
 #include "../messagebuffer.hpp"
 #include "../rawsockoptions.hpp"
+#include "../transport.hpp"
 #include "rawsockheader.hpp"
-#include "transport.hpp"
 
 namespace wamp
 {
@@ -100,16 +100,24 @@ private:
 
 //------------------------------------------------------------------------------
 template <typename TSocket>
-class AsioTransport : public TransportBase
+class AsioTransport : public Transporting
 {
 public:
+    using Ptr         = std::shared_ptr<AsioTransport>;
     using Socket      = TSocket;
     using SocketPtr   = std::unique_ptr<Socket>;
+    using RxHandler   = typename Transporting::RxHandler;
+    using FailHandler = typename Transporting::FailHandler;
+    using PingHandler = typename Transporting::PingHandler;
 
-    static Ptr create(SocketPtr&& s, size_t maxTxLength, size_t maxRxLength)
+    static Ptr create(SocketPtr&& s, TransportLimits limits)
     {
-        return Ptr(new AsioTransport(std::move(s), maxTxLength, maxRxLength));
+        return Ptr(new AsioTransport(std::move(s), limits));
     }
+
+    IoStrand strand() const override {return strand_;}
+
+    TransportLimits limits() const override {return limits_;}
 
     bool isOpen() const override {return socket_ && socket_->is_open();}
 
@@ -152,10 +160,10 @@ protected:
     using TransmitQueue = std::deque<AsioFrame::Ptr>;
     using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
-    AsioTransport(SocketPtr&& socket, size_t maxTxLength, size_t maxRxLength)
-        : Base(boost::asio::make_strand(socket->get_executor()),
-               maxTxLength, maxRxLength),
-          socket_(std::move(socket))
+    AsioTransport(SocketPtr&& socket, TransportLimits limits)
+        : strand_(boost::asio::make_strand(socket->get_executor())),
+          socket_(std::move(socket)),
+          limits_(limits)
     {}
 
     AsioFrame::Ptr newFrame(RawsockMsgType type, MessageBuffer&& payload)
@@ -167,14 +175,14 @@ protected:
     virtual void sendFrame(AsioFrame::Ptr frame)
     {
         assert(socket_ && "Attempting to send on bad transport");
-        assert((frame->payload().size() <= maxSendLength()) &&
+        assert((frame->payload().size() <= limits_.maxTxLength) &&
                "Outgoing message is longer than allowed by peer");
         txQueue_.push_back(std::move(frame));
         transmit();
     }
 
 private:
-    using Base = TransportBase;
+    using Base = Transporting;
 
     void transmit()
     {
@@ -227,7 +235,7 @@ private:
     {
         auto hdr = rxFrame_.header();
         auto len  = hdr.length();
-        bool ok = check(len <= maxReceiveLength(), TransportErrc::badRxLength)
+        bool ok = check(len <= limits_.maxRxLength, TransportErrc::badRxLength)
                && check(hdr.msgTypeIsValid(), RawsockErrc::badMessageType);
         if (ok)
             receivePayload(hdr.msgType(), len);
@@ -296,6 +304,13 @@ private:
                (rxFrame_.payload() == pingFrame_->payload());
     }
 
+    template <typename F, typename... Ts>
+    void post(F&& handler, Ts&&... args)
+    {
+        boost::asio::post(strand_, std::bind(std::forward<F>(handler),
+                                             std::forward<Ts>(args)...));
+    }
+
     bool check(AsioErrorCode asioEc)
     {
         if (asioEc)
@@ -335,7 +350,9 @@ private:
         socket_.reset();
     }
 
+    IoStrand strand_;
     std::unique_ptr<TSocket> socket_;
+    TransportLimits limits_;
     bool started_ = false;
     RxHandler rxHandler_;
     FailHandler failHandler_;

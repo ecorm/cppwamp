@@ -22,7 +22,7 @@ namespace wamp
 CPPWAMP_INLINE Session::Ptr Session::create(
     AnyIoExecutor exec,             /**< Fallback executor with which to execute
                                          user-provided handlers. */
-    const Connector::Ptr& connector /**< Connection details for the transport
+    const Connecting::Ptr& connector /**< Connection details for the transport
                                          to use. */
 )
 {

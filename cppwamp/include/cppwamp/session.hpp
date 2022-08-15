@@ -152,13 +152,13 @@ public:
         boost::asio::async_initiate<C, void(T)>(std::declval<GenericOp&>(),
                                                 std::declval<C&>()));
     /** Creates a new Session instance. */
-    static Ptr create(AnyIoExecutor exec, const Connector::Ptr& connector);
+    static Ptr create(AnyIoExecutor exec, const Connecting::Ptr& connector);
 
     /** Creates a new Session instance. */
     static Ptr create(AnyIoExecutor exec, const ConnectorList& connectors);
 
     /** Creates a new Session instance.
-        @copydetails Session::create(AnyIoExecutor, const Connector::Ptr&)
+        @copydetails Session::create(AnyIoExecutor, const Connecting::Ptr&)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
         @tparam TExecutionContext Must meet the requirements of
@@ -168,7 +168,7 @@ public:
     create(
         TExecutionContext& context, /**< Provides executor with which to
                                          post all user-provided handlers. */
-        const Connector::Ptr& connector /**< Connection details for the
+        const Connecting::Ptr& connector /**< Connection details for the
                                              transport to use. */
         )
     {
@@ -503,7 +503,7 @@ private:
 
     AnyIoExecutor userExecutor_;
     ConnectorList connectors_;
-    Connector::Ptr currentConnector_;
+    Connecting::Ptr currentConnector_;
     ReusableHandler<std::string> warningHandler_;
     ReusableHandler<std::string> traceHandler_;
     ReusableHandler<State> stateChangeHandler_;
@@ -574,10 +574,10 @@ struct Session::ConnectOp
 //------------------------------------------------------------------------------
 /** @details
     The session will attempt to connect using the transports that were
-    specified by the wamp::Connector objects passed during create().
+    specified by the wamp::Connecting objects passed during create().
     If more than one transport was specified, they will be traversed in the
     same order as they appeared in the @ref ConnectorList.
-    @return The index of the Connector object used to establish the connetion.
+    @return The index of the Connecting object used to establish the connetion.
     @post `this->state() == SessionState::connecting` if successful
     @par Error Codes
         - TransportErrc::aborted if the connection attempt was aborted.

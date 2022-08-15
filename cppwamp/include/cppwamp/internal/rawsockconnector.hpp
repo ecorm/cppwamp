@@ -30,11 +30,11 @@ class RawsockConnector
     : public std::enable_shared_from_this<RawsockConnector<TEndpoint>>
 {
 public:
-    using Endpoint = TEndpoint;
+    using Endpoint    = TEndpoint;
     using Establisher = typename Endpoint::Establisher;
-    using Info = typename Endpoint::Establisher::Info;
-    using Transport = typename Endpoint::Transport;
-    using Ptr = std::shared_ptr<RawsockConnector>;
+    using Info        = typename Endpoint::Establisher::Info;
+    using Transport   = typename Endpoint::Transport;
+    using Ptr         = std::shared_ptr<RawsockConnector>;
 
     using Handler =
         std::function<void (std::error_code,
@@ -60,7 +60,7 @@ public:
             Handler handler;
 
             void operator()(std::error_code ec, int codecId,
-                            typename Transport::Ptr trnsp)
+                            typename Transporting::Ptr trnsp)
             {
                 auto& me = *self;
                 internal::ClientInterface::Ptr client;

@@ -40,17 +40,17 @@ const unsigned short validPort = 12345;
 const unsigned short invalidPort = 54321;
 const std::string testUdsPath = "./.crossbar/udstest";
 
-Connector::Ptr tcp(AsioContext& ioctx)
+Connecting::Ptr tcp(AsioContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", validPort));
 }
 
-Connector::Ptr invalidTcp(AsioContext& ioctx)
+Connecting::Ptr invalidTcp(AsioContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", invalidPort));
 }
 
-Connector::Ptr alternateTcp(AsioContext& ioctx)
+Connecting::Ptr alternateTcp(AsioContext& ioctx)
 {
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     auto where = UdsPath(testUdsPath);

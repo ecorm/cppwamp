@@ -167,7 +167,7 @@ inline void checkCannedServerHandshake(uint32_t cannedHandshake,
                                        std::error_code expectedErrorCode)
 {
     using AsioConnector = internal::AsioConnector<internal::TcpOpener>;
-    using TransportPtr = AsioConnector::TransportBasePtr;
+    using TransportPtr  = AsioConnector::TransportingPtr;
 
     AsioContext ioctx;
     internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
@@ -208,7 +208,7 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
                                 TErrorCode expectedClientCode)
 {
     using AsioListener = internal::AsioListener<internal::TcpAcceptor>;
-    using TransportPtr = AsioListener::TransportBasePtr;
+    using TransportPtr = AsioListener::TransportingPtr;
 
     AsioContext ioctx;
     internal::TcpOpener opnr(ioctx.get_executor(),
@@ -349,15 +349,15 @@ SCENARIO( "Maximum length messages", "[Transport]" )
 GIVEN( "a connected client/server TCP transport pair" )
 {
     TcpLoopbackFixture f;
-    const MessageBuffer message(f.client->maxReceiveLength(), 'm');
-    const MessageBuffer reply(f.server->maxReceiveLength(), 'r');;
+    const MessageBuffer message(f.client->limits().maxRxLength, 'm');
+    const MessageBuffer reply(f.server->limits().maxRxLength, 'r');;
     checkSendReply(f, message, reply);
 }
 GIVEN( "a connected client/server UDS transport pair" )
 {
     UdsLoopbackFixture f;
-    const MessageBuffer message(f.client->maxReceiveLength(), 'm');
-    const MessageBuffer reply(f.server->maxReceiveLength(), 'r');;
+    const MessageBuffer message(f.client->limits().maxRxLength, 'm');
+    const MessageBuffer reply(f.server->limits().maxRxLength, 'r');;
     checkSendReply(f, message, reply);
 }
 }
@@ -564,7 +564,7 @@ SCENARIO( "Receiving messages longer than maximum", "[Transport]" )
 {
 using AsioConnector = internal::AsioConnector<internal::TcpOpener>;
 using AsioListener  = internal::AsioListener<internal::TcpAcceptor>;
-using TransportPtr  = AsioConnector::TransportBasePtr;
+using TransportPtr  = AsioConnector::TransportingPtr;
 
 MessageBuffer tooLong(64*1024 + 1, 'A');
 
@@ -715,7 +715,7 @@ SCENARIO( "Receiving an invalid message type", "[Transport]" )
 {
 using AsioConnector    = internal::AsioConnector<internal::TcpOpener>;
 using AsioListener     = internal::AsioListener<internal::TcpAcceptor>;
-using TransportPtr     = AsioConnector::TransportBasePtr;
+using TransportPtr     = AsioConnector::TransportingPtr;
 using FakeTransport    = FakeMsgTypeAsioListener::Transport;
 using FakeTransportPtr = FakeMsgTypeAsioListener::TransportPtr;
 

@@ -9,7 +9,7 @@
 
 @tableofcontents
 
-wamp::Connector is the abstract base class for objects that can establish
+wamp::Connecting is the abstract base class for objects that can establish
 client transport endpoints.
 
 The library currently supports two types of connectors:
@@ -30,7 +30,7 @@ to use for encoding WAMP messages. The following codecs are currently supported:
 
 Connectors are created on the heap using the `wamp::connector` factory function
 as shown in the examples below. `wamp::connector` returns a `std::shared_ptr`
-to the newly created wamp::Connector.
+to the newly created wamp::Connecting.
 
 After you have created one or more connectors, you pass them to the session
 API. The session object will then use these connectors while establishing a
@@ -104,12 +104,12 @@ auto tcp = connector<Json>(
 Combining Connectors
 --------------------
 
-More than one `Connector` can be passed to a session object. In such cases, the
+More than one `Connecting` can be passed to a session object. In such cases, the
 session will successively attempt to establish a transport connection with each
 of the connectors until one succeeds. This allows you to specify "fallback"
 transports if the primary one fails to establish.
 
-To achieve this, you must pass a `std::vector` of `Connector` shared pointers
+To achieve this, you must pass a `std::vector` of `Connecting` shared pointers
 while creating session objects. The following example uses two `TcpConnector`
 objects, each specifying a different serializer:
 ```

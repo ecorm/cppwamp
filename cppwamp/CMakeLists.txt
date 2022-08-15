@@ -34,6 +34,7 @@ set(HEADERS
     include/cppwamp/tcp.hpp
     include/cppwamp/tcphost.hpp
     include/cppwamp/traits.hpp
+    include/cppwamp/transport.hpp
     include/cppwamp/uds.hpp
     include/cppwamp/udspath.hpp
     include/cppwamp/unpacker.hpp
@@ -69,7 +70,6 @@ set(HEADERS
     include/cppwamp/internal/subscriber.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
-    include/cppwamp/internal/transport.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
     include/cppwamp/internal/variantdecoding.hpp

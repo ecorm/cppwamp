@@ -13,7 +13,7 @@
 #include <cppwamp/codec.hpp>
 #include <cppwamp/error.hpp>
 #include <cppwamp/rawsockoptions.hpp>
-#include <cppwamp/internal/transport.hpp>
+#include <cppwamp/transport.hpp>
 
 using namespace wamp;
 
@@ -43,7 +43,7 @@ struct LoopbackFixture
     using Opener       = typename Connector::Establisher;
     using Acceptor     = typename Listener::Establisher;
     using Transport    = typename Connector::Transport;
-    using TransportPtr = typename internal::TransportBase::Ptr;
+    using TransportPtr = typename Transporting::Ptr;
 
     template <typename TServerCodecIds>
     LoopbackFixture(AsioContext& clientCtx,
@@ -134,15 +134,15 @@ template <typename TFixture>
 void checkConnection(TFixture& f, int expectedCodec,
         size_t clientMaxRxLength = 64*1024, size_t serverMaxRxLength = 64*1024)
 {
-    using TransportPtr = typename internal::TransportBase::Ptr;
+    using TransportPtr = typename Transporting::Ptr;
     f.lstn.establish([&](std::error_code ec, int codec,
                          TransportPtr transport)
     {
         REQUIRE_FALSE( ec );
         REQUIRE( transport );
-        CHECK( transport->maxReceiveLength() == serverMaxRxLength );
-        CHECK( transport->maxSendLength()    == clientMaxRxLength );
-        CHECK( codec                         == expectedCodec );
+        CHECK( transport->limits().maxRxLength == serverMaxRxLength );
+        CHECK( transport->limits().maxTxLength == clientMaxRxLength );
+        CHECK( codec == expectedCodec );
         f.server = transport;
     });
 
@@ -151,9 +151,9 @@ void checkConnection(TFixture& f, int expectedCodec,
     {
         REQUIRE_FALSE( ec );
         REQUIRE( transport );
-        CHECK( transport->maxReceiveLength() == clientMaxRxLength );
-        CHECK( transport->maxSendLength()    == serverMaxRxLength );
-        CHECK( codec                         == expectedCodec );
+        CHECK( transport->limits().maxRxLength == clientMaxRxLength );
+        CHECK( transport->limits().maxTxLength == serverMaxRxLength );
+        CHECK( codec == expectedCodec );
         f.client = transport;
     });
 
@@ -275,9 +275,9 @@ void checkCommunications(TFixture& f)
         {
             REQUIRE_FALSE( ec );
             REQUIRE( transport );
-            CHECK( transport->maxReceiveLength() == 64*1024 );
-            CHECK( transport->maxSendLength()    == 64*1024 );
-            CHECK( codec                         == KnownCodecIds::json() );
+            CHECK( transport->limits().maxRxLength == 64*1024 );
+            CHECK( transport->limits().maxTxLength == 64*1024 );
+            CHECK( codec == KnownCodecIds::json() );
             server2 = transport;
             f.sctx.stop();
         });
@@ -287,9 +287,9 @@ void checkCommunications(TFixture& f)
         {
             REQUIRE_FALSE( ec );
             REQUIRE( transport );
-            CHECK( transport->maxReceiveLength() == 64*1024 );
-            CHECK( transport->maxSendLength()    == 64*1024 );
-            CHECK( codec                         == KnownCodecIds::json() );
+            CHECK( transport->limits().maxRxLength == 64*1024 );
+            CHECK( transport->limits().maxTxLength == 64*1024 );
+            CHECK( codec == KnownCodecIds::json() );
             client2 = transport;
             f.cctx.stop();
         });
@@ -524,7 +524,7 @@ void checkCancelSend(TFixture& f)
         REQUIRE_FALSE( ec );
         REQUIRE( transport );
         f.client = transport;
-        CHECK( f.client->maxSendLength() == 16*1024*1024 );
+        CHECK( f.client->limits().maxTxLength == 16*1024*1024 );
     });
 
     CHECK_NOTHROW( f.run() );
@@ -541,7 +541,7 @@ void checkCancelSend(TFixture& f)
                 CHECK( ec == TransportErrc::aborted );
             });
 
-        MessageBuffer message(f.client->maxSendLength(), 'a');
+        MessageBuffer message(f.client->limits().maxTxLength, 'a');
         f.client->send(message);
         REQUIRE_NOTHROW( f.cctx.poll() );
         f.cctx.reset();

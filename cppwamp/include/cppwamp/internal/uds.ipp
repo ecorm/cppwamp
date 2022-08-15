@@ -43,7 +43,7 @@ CPPWAMP_INLINE IoStrand UdsConnector::strand() const
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector::Ptr UdsConnector::clone() const
+CPPWAMP_INLINE Connecting::Ptr UdsConnector::clone() const
 {
     auto& c = *(impl_->cnct);
     return Ptr(new UdsConnector(c.strand(), c.info(), c.codecBuilder()));

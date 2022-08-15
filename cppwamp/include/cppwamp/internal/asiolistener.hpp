@@ -11,6 +11,7 @@
 #include <set>
 #include <utility>
 #include "../error.hpp"
+#include "../transport.hpp"
 #include "../rawsockoptions.hpp"
 #include "asioendpoint.hpp"
 
@@ -65,13 +66,18 @@ protected:
     virtual void onHandshakeSent(Handshake hs) override
     {
         if (!hs.hasError())
-            Base::complete(hs.codecId(), Handshake::byteLengthOf(maxTxLength_),
-                           Handshake::byteLengthOf(maxRxLength_));
+            Base::complete(hs.codecId(), limits());
         else
             Base::fail(hs.errorCode());
     }
 
 private:
+    TransportLimits limits() const
+    {
+        return {Handshake::byteLengthOf(maxTxLength_),
+                Handshake::byteLengthOf(maxRxLength_)};
+    }
+
     CodecIds codecIds_;
     RawsockMaxLength maxTxLength_;
     RawsockMaxLength maxRxLength_;

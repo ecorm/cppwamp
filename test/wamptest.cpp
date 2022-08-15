@@ -37,19 +37,19 @@ const unsigned short invalidPort = 54321;
 const std::string testUdsPath = "./.crossbar/udstest";
 
 template <typename TIoContext>
-Connector::Ptr tcp(TIoContext& ioctx)
+Connecting::Ptr tcp(TIoContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", validPort));
 }
 
 template <typename TIoContext>
-Connector::Ptr invalidTcp(TIoContext& ioctx)
+Connecting::Ptr invalidTcp(TIoContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", invalidPort));
 }
 
 template <typename TIoContext>
-Connector::Ptr alternateTcp(TIoContext& ioctx)
+Connecting::Ptr alternateTcp(TIoContext& ioctx)
 {
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     auto where = UdsPath(testUdsPath);

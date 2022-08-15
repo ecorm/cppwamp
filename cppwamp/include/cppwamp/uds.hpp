@@ -24,8 +24,9 @@
 namespace wamp
 {
 
+// TODO: Doxygen
 //------------------------------------------------------------------------------
-class CPPWAMP_API UdsConnector : public Connector
+class CPPWAMP_API UdsConnector : public Connecting
 {
 public:
     using Ptr = std::shared_ptr<UdsConnector>;
@@ -35,7 +36,7 @@ public:
     IoStrand strand() const override;
 
 protected:
-    Connector::Ptr clone() const override;
+    Connecting::Ptr clone() const override;
 
     void establish(Handler&& handler) override;
 
@@ -55,12 +56,12 @@ private:
     the boost::asio::any_io_executor polymorphic wrapper.
 
     @relates UdsPath
-    @returns a `std::shared_ptr` to a Connector
+    @returns a `std::shared_ptr` to a Connecting
     @tparam TFormat The serialization format to use over this transport.
-    @see Connector, Json, Msgpack */
+    @see Connecting, Json, Msgpack */
 //------------------------------------------------------------------------------
 template <typename TFormat>
-CPPWAMP_API Connector::Ptr connector(
+CPPWAMP_API UdsConnector::Ptr connector(
     const AnyIoExecutor& e, ///< The executor to be used by the transport.
     UdsPath p ///< Unix domain socket path and other socket options.
 )
@@ -76,13 +77,13 @@ CPPWAMP_API Connector::Ptr connector(
     `isExecutionContext<TExecutionContext>() == true`
 
     @relates TcpHost
-    @returns a `std::shared_ptr` to a Connector
+    @returns a `std::shared_ptr` to a Connecting
     @tparam TFormat The serialization formatto use over this transport.
     @tparam TExecutionContext The given execution context type (deduced).
-    @see Connector, Json, Msgpack */
+    @see Connecting, Json, Msgpack */
 //------------------------------------------------------------------------------
 template <typename TFormat, typename TExecutionContext>
-CPPWAMP_ENABLED_TYPE(Connector::Ptr, isExecutionContext<TExecutionContext>())
+CPPWAMP_ENABLED_TYPE(UdsConnector::Ptr, isExecutionContext<TExecutionContext>())
 connector(
     TExecutionContext& context, /**< The I/O context containing the executor
                                      to be used by the transport. */
