@@ -24,12 +24,21 @@
 namespace wamp
 {
 
-// TODO: Doxygen
 //------------------------------------------------------------------------------
-class CPPWAMP_API UdsConnector : public Connecting
+struct Uds
+{
+    constexpr Uds() = default;
+};
+
+constexpr CPPWAMP_INLINE_VARIABLE Uds uds;
+
+
+//------------------------------------------------------------------------------
+template <>
+class CPPWAMP_API Connector<Uds> : public Connecting
 {
 public:
-    using Ptr = std::shared_ptr<UdsConnector>;
+    using Ptr = std::shared_ptr<Connector>;
 
     static Ptr create(const AnyIoExecutor& e, UdsPath p, BufferCodecBuilder b);
 
@@ -43,11 +52,13 @@ protected:
     void cancel()  override;
 
 private:
-    CPPWAMP_HIDDEN UdsConnector(IoStrand s, UdsPath p, BufferCodecBuilder b);
+    CPPWAMP_HIDDEN Connector(IoStrand s, UdsPath p, BufferCodecBuilder b);
 
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };
+
+using UdsConnector = Connector<Uds>;
 
 //------------------------------------------------------------------------------
 /** Creates a Connector that can establish a Unix domain socket transport.

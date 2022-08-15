@@ -31,15 +31,16 @@ struct Tcp
     constexpr Tcp() = default;
 };
 
-//constexpr CPPWAMP_INLINE_VARIABLE Tcp tcp;
+constexpr CPPWAMP_INLINE_VARIABLE Tcp tcp;
 
 
 // TODO: Doxygen
 //------------------------------------------------------------------------------
-class CPPWAMP_API TcpConnector : public Connecting
+template <>
+class CPPWAMP_API Connector<Tcp> : public Connecting
 {
 public:
-    using Ptr = std::shared_ptr<TcpConnector>;
+    using Ptr = std::shared_ptr<Connector>;
 
     static Ptr create(const AnyIoExecutor& e, TcpHost h, BufferCodecBuilder b);
 
@@ -53,11 +54,13 @@ protected:
     void cancel()  override;
 
 private:
-    CPPWAMP_HIDDEN TcpConnector(IoStrand s, TcpHost h, BufferCodecBuilder b);
+    CPPWAMP_HIDDEN Connector(IoStrand s, TcpHost h, BufferCodecBuilder b);
 
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };
+
+using TcpConnector = Connector<Tcp>;
 
 //------------------------------------------------------------------------------
 /** Creates a Connecting that can establish a TCP raw socket transport.

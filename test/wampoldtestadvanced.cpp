@@ -32,7 +32,7 @@ const short testPort = 12345;
 const std::string authTestRealm = "cppwamp.authtest";
 const short authTestPort = 23456;
 
-Connecting::Ptr tcp(AsioContext& ioctx)
+Connecting::Ptr withTcp(AsioContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", testPort));
 }
@@ -145,7 +145,7 @@ SCENARIO( "Old WAMP RPC advanced features", "[OldWAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    RpcFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "using caller identification" )
     {
@@ -222,7 +222,7 @@ SCENARIO( "Old WAMP progressive call results", "[OldWAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    RpcFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "using progressive call results" )
     {
@@ -439,7 +439,7 @@ SCENARIO( "Old RPC Cancellation", "[OldWAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    RpcFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "cancelling an RPC in kill mode before it returns" )
     {
@@ -668,7 +668,7 @@ SCENARIO( "Old Caller-initiated timeouts", "[OldWAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    RpcFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "the caller initiates timeouts" )
     {
@@ -763,7 +763,7 @@ SCENARIO( "Old WAMP pub/sub advanced features", "[OldWAMP][Advanced]" )
 GIVEN( "a publisher and a subscriber" )
 {
     AsioContext ioctx;
-    PubSubFixture f(ioctx, tcp(ioctx));
+    PubSubFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "using publisher identification" )
     {
@@ -879,7 +879,7 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using subscriber black/white listing" )
     {
-        auto subscriber2 = CoroSession<>::create(ioctx, tcp(ioctx));
+        auto subscriber2 = CoroSession<>::create(ioctx, withTcp(ioctx));
 
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {

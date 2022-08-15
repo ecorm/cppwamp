@@ -26,7 +26,7 @@ const short testPort = 12345;
 const std::string authTestRealm = "cppwamp.authtest";
 const short authTestPort = 23456;
 
-Connecting::Ptr tcp(AsioContext& ioctx)
+Connecting::Ptr withTcp(AsioContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", testPort));
 }
@@ -146,7 +146,7 @@ SCENARIO( "WAMP RPC advanced features", "[WAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    RpcFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "using caller identification" )
     {
@@ -223,7 +223,7 @@ SCENARIO( "WAMP progressive call results", "[WAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    RpcFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "using progressive call results" )
     {
@@ -440,7 +440,7 @@ SCENARIO( "RPC Cancellation", "[WAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    RpcFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "cancelling an RPC in kill mode via a CallChit before it returns" )
     {
@@ -832,7 +832,7 @@ SCENARIO( "Caller-initiated timeouts", "[WAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    RpcFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "the caller initiates timeouts" )
     {
@@ -927,7 +927,7 @@ SCENARIO( "WAMP pub/sub advanced features", "[WAMP][Advanced]" )
 GIVEN( "a publisher and a subscriber" )
 {
     AsioContext ioctx;
-    PubSubFixture f(ioctx, tcp(ioctx));
+    PubSubFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "using publisher identification" )
     {
@@ -1044,7 +1044,7 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using subscriber black/white listing" )
     {
-        auto subscriber2 = Session::create(ioctx, tcp(ioctx));
+        auto subscriber2 = Session::create(ioctx, withTcp(ioctx));
 
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {

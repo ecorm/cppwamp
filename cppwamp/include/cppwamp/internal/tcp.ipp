@@ -17,7 +17,7 @@ namespace wamp
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-struct TcpConnector::Impl
+struct Connector<Tcp>::Impl
 {
     using Endpoint = internal::AsioConnector<internal::TcpOpener>;
     using ConcreteConnector = internal::RawsockConnector<Endpoint>;
@@ -33,38 +33,38 @@ struct TcpConnector::Impl
 };
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE TcpConnector::Ptr
-TcpConnector::create(const AnyIoExecutor& e, TcpHost h, BufferCodecBuilder b)
+CPPWAMP_INLINE Connector<Tcp>::Ptr
+Connector<Tcp>::create(const AnyIoExecutor& e, TcpHost h, BufferCodecBuilder b)
 {
     using std::move;
-    return Ptr(new TcpConnector(boost::asio::make_strand(e), move(h), move(b)));
+    return Ptr(new Connector(boost::asio::make_strand(e), move(h), move(b)));
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE IoStrand TcpConnector::strand() const
+CPPWAMP_INLINE IoStrand Connector<Tcp>::strand() const
 {
     return impl_->cnct->strand();
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Connecting::Ptr TcpConnector::clone() const
+CPPWAMP_INLINE Connecting::Ptr Connector<Tcp>::clone() const
 {
     auto& c = *(impl_->cnct);
-    return Ptr(new TcpConnector(c.strand(), c.info(), c.codecBuilder()));
+    return Ptr(new Connector(c.strand(), c.info(), c.codecBuilder()));
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void TcpConnector::establish(Handler&& handler)
+CPPWAMP_INLINE void Connector<Tcp>::establish(Handler&& handler)
 {
     impl_->cnct->establish(std::move(handler));
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void TcpConnector::cancel() {impl_->cnct->cancel();}
+CPPWAMP_INLINE void Connector<Tcp>::cancel() {impl_->cnct->cancel();}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE TcpConnector::TcpConnector(IoStrand s, TcpHost h,
-                                          BufferCodecBuilder b)
+CPPWAMP_INLINE Connector<Tcp>::Connector(IoStrand s, TcpHost h,
+                                         BufferCodecBuilder b)
     : impl_(new Impl(std::move(s), std::move(h), std::move(b)))
 {}
 

@@ -40,7 +40,7 @@ const unsigned short validPort = 12345;
 const unsigned short invalidPort = 54321;
 const std::string testUdsPath = "./.crossbar/udstest";
 
-Connecting::Ptr tcp(AsioContext& ioctx)
+Connecting::Ptr withTcp(AsioContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", validPort));
 }
@@ -223,7 +223,7 @@ void checkInvalidUri(TThrowDelegate&& throwDelegate,
     AsioContext ioctx;
     boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(ioctx, tcp(ioctx));
+        auto session = CoroSession<>::create(ioctx, withTcp(ioctx));
         session->connect(yield);
         if (joined)
             session->join(Realm(testRealm), yield);
@@ -252,7 +252,7 @@ void checkDisconnect(TDelegate&& delegate)
     AsyncResult<TResult> result;
     boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(ioctx, tcp(ioctx));
+        auto session = CoroSession<>::create(ioctx, withTcp(ioctx));
         session->connect(yield);
         delegate(*session, yield, completed, result);
         session->disconnect();
@@ -458,7 +458,7 @@ GIVEN( "an IO service and a TCP connector" )
 {
     using SS = SessionState;
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
     StateChangeListener changes;
 
     WHEN( "connecting and disconnecting" )
@@ -838,7 +838,7 @@ SCENARIO( "Old WAMP Pub-Sub", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "publishing and subscribing" )
     {
@@ -960,7 +960,7 @@ SCENARIO( "Old WAMP Subscription Lifetimes", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "unsubscribing multiple times" )
     {
@@ -1208,7 +1208,7 @@ SCENARIO( "Old WAMP RPCs", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "calling remote procedures taking dynamically-typed args" )
     {
@@ -1377,7 +1377,7 @@ SCENARIO( "Old WAMP Registation Lifetimes", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "unregistering after a session is destroyed" )
     {
@@ -1570,7 +1570,7 @@ GIVEN( "these test fixture objects" )
     using Yield = boost::asio::yield_context;
 
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
     auto session1 = CoroSession<>::create(ioctx, cnct);
     auto session2 = CoroSession<>::create(ioctx, cnct);
 
@@ -1853,7 +1853,7 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
 {
     using SS = SessionState;
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
     auto badCnct = invalidTcp(ioctx);
     StateChangeListener changes;
 
@@ -1953,7 +1953,7 @@ SCENARIO( "Old WAMP RPC Failures", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "registering an already existing procedure" )
     {
@@ -2286,7 +2286,7 @@ SCENARIO( "Old Invalid WAMP URIs", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "joining with an invalid realm URI" )
     {
@@ -2415,7 +2415,7 @@ SCENARIO( "Old WAMP Precondition Failures", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "constructing a session with an empty connector list" )
     {
@@ -2568,7 +2568,7 @@ SCENARIO( "Old WAMP Disconnect/Leave During Async Ops", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "disconnecting during async join" )
     {
@@ -2786,7 +2786,7 @@ SCENARIO( "Old Outbound Messages are Properly Enqueued", "[OldWAMP][Basic]" )
 GIVEN( "these test fixture objects" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
     auto session1 = CoroSession<>::create(ioctx, cnct);
     auto session2 = CoroSession<>::create(ioctx, cnct);
 

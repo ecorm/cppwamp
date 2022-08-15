@@ -26,6 +26,10 @@ namespace wamp
 namespace internal {class ClientInterface;}
 
 //------------------------------------------------------------------------------
+template <typename TProtocol>
+class Connector {};
+
+//------------------------------------------------------------------------------
 /** Interface for establishing client transport endpoints.
     A concrete Connecting instance is used to establish a transport connection
     from a client to a router. Once the connection is established, the connector
