@@ -22,6 +22,7 @@
 #include "../error.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
+#include "transport.hpp"
 #include "wampmessage.hpp"
 
 namespace wamp
@@ -34,13 +35,12 @@ namespace internal
 // Base class providing session functionality common to both clients and
 // router peers. This class is extended by Client to implement a client session.
 //------------------------------------------------------------------------------
-template <typename TCodec, typename TTransport>
-class Peer : public std::enable_shared_from_this<Peer<TCodec, TTransport>>
+template <typename TCodec, typename TIgnored = void>
+class Peer : public std::enable_shared_from_this<Peer<TCodec, TIgnored>>
 {
 public:
     using Codec        = TCodec;
-    using Transport    = TTransport;
-    using TransportPtr = std::shared_ptr<Transport>;
+    using TransportPtr = TransportBase::Ptr;
     using State        = SessionState;
 
     State state() const {return state_.load();}

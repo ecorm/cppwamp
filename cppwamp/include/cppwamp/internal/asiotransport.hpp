@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_ASIOTRANSPORT_HPP
-#define CPPWAMP_ASIOTRANSPORT_HPP
+#ifndef CPPWAMP_INTERNAL_ASIOTRANSPORT_HPP
+#define CPPWAMP_INTERNAL_ASIOTRANSPORT_HPP
 
 #include <array>
 #include <chrono>
@@ -29,6 +29,7 @@
 #include "../messagebuffer.hpp"
 #include "../rawsockoptions.hpp"
 #include "rawsockheader.hpp"
+#include "transport.hpp"
 
 namespace wamp
 {
@@ -100,15 +101,9 @@ private:
 
 //------------------------------------------------------------------------------
 template <typename TSocket>
-class AsioTransport :
-        public std::enable_shared_from_this<AsioTransport<TSocket>>
+class AsioTransport : public TransportBase
 {
 public:
-    using Ptr         = std::shared_ptr<AsioTransport>;
-    using RxHandler   = std::function<void (MessageBuffer)>;
-    using FailHandler = std::function<void (std::error_code ec)>;
-    using PingHandler = std::function<void (float)>;
-
     using Socket      = TSocket;
     using SocketPtr   = std::unique_ptr<Socket>;
 
@@ -119,21 +114,11 @@ public:
                                      maxRxLength));
     }
 
-    // Noncopyable
-    AsioTransport(const AsioTransport&) = delete;
-    AsioTransport& operator=(const AsioTransport&) = delete;
+    bool isOpen() const override {return socket_ && socket_->is_open();}
 
-    virtual ~AsioTransport() {}
+    bool isStarted() const override {return started_;}
 
-    size_t maxSendLength() const {return maxTxLength_;}
-
-    size_t maxReceiveLength() const {return maxRxLength_;}
-
-    bool isOpen() const {return socket_ && socket_->is_open();}
-
-    bool isStarted() const {return started_;}
-
-    void start(RxHandler rxHandler, FailHandler failHandler)
+    void start(RxHandler rxHandler, FailHandler failHandler) override
     {
         assert(!started_);
         rxHandler_ = rxHandler;
@@ -142,14 +127,14 @@ public:
         started_ = true;
     }
 
-    void send(MessageBuffer message)
+    void send(MessageBuffer message) override
     {
         assert(started_);
         auto buf = newFrame(RawsockMsgType::wamp, std::move(message));
         sendFrame(std::move(buf));
     }
 
-    void close()
+    void close() override
     {
         txQueue_.clear();
         rxHandler_ = nullptr;
@@ -157,9 +142,7 @@ public:
             socket_->close();
     }
 
-    IoStrand strand() const {return strand_;}
-
-    void ping(MessageBuffer message, PingHandler handler)
+    void ping(MessageBuffer message, PingHandler handler) override
     {
         assert(started_);
         pingHandler_ = std::move(handler);
@@ -173,10 +156,8 @@ protected:
     using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
     AsioTransport(SocketPtr&& socket, size_t maxTxLength, size_t maxRxLength)
-        : socket_(std::move(socket)),
-          strand_(boost::asio::make_strand(socket_->get_executor())),
-          maxTxLength_(maxTxLength),
-          maxRxLength_(maxRxLength)
+        : Base(boost::asio::make_strand(socket_->get_executor()),
+               maxTxLength, maxRxLength)
     {}
 
     AsioFrame::Ptr newFrame(RawsockMsgType type, MessageBuffer&& payload)
@@ -195,11 +176,7 @@ protected:
     }
 
 private:
-    template <typename TFunctor>
-    void post(TFunctor&& fn)
-    {
-        boost::asio::post(strand_, std::forward<TFunctor>(fn));
-    }
+    using Base = TransportBase;
 
     void transmit()
     {
@@ -274,8 +251,7 @@ private:
                     case RawsockMsgType::wamp:
                         if (rxHandler_)
                         {
-                            post(std::bind(rxHandler_,
-                                           std::move(rxFrame_).payload()));
+                            post(rxHandler_, std::move(rxFrame_).payload());
                         }
                         receive();
                         break;
@@ -310,7 +286,7 @@ private:
             pingStop_ = chrn::high_resolution_clock::now();
             using Fms = chrn::duration<float, chrn::milliseconds::period>;
             float elapsed = Fms(pingStop_ - pingStart_).count();
-            post(std::bind(pingHandler_, elapsed));
+            post(pingHandler_, elapsed);
             pingHandler_ = nullptr;
         }
         pingFrame_.reset();
@@ -331,7 +307,7 @@ private:
             {
                 auto ec = make_error_code(
                             static_cast<std::errc>(asioEc.value()));
-                post(std::bind(failHandler_, ec));
+                post(failHandler_, ec);
             }
             cleanup();
         }
@@ -344,7 +320,7 @@ private:
         if (!condition)
         {
             if (failHandler_)
-                post(std::bind(failHandler_, make_error_code(errc)));
+                post(failHandler_, make_error_code(errc));
             cleanup();
         }
         return condition;
@@ -382,4 +358,4 @@ private:
 
 } // namespace wamp
 
-#endif // CPPWAMP_ASIOTRANSPORT_HPP
+#endif // CPPWAMP_INTERNAL_ASIOTRANSPORT_HPP

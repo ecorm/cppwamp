@@ -22,6 +22,7 @@
 #include "../version.hpp"
 #include "callertimeout.hpp"
 #include "clientinterface.hpp"
+#include "transport.hpp"
 #include "peer.hpp"
 
 namespace wamp
@@ -33,15 +34,14 @@ namespace internal
 //------------------------------------------------------------------------------
 // Provides the implementation of the wamp::Session class.
 //------------------------------------------------------------------------------
-template <typename TCodec, typename TTransport>
-class Client : public ClientInterface, public Peer<TCodec, TTransport>
+template <typename TCodec, typename TIgnored = void>
+class Client : public ClientInterface, public Peer<TCodec>
 {
 public:
     using Ptr          = std::shared_ptr<Client>;
     using WeakPtr      = std::weak_ptr<Client>;
     using Codec        = TCodec;
-    using Transport    = TTransport;
-    using TransportPtr = std::shared_ptr<Transport>;
+    using TransportPtr = TransportBase::Ptr;
     using State        = SessionState;
 
     template <typename TValue>
@@ -619,7 +619,7 @@ private:
         InterruptSlot interruptSlot;
     };
 
-    using Base           = Peer<Codec, Transport>;
+    using Base           = Peer<Codec>;
     using WampMsgType    = internal::WampMsgType;
     using Message        = internal::WampMessage;
     using SlotId         = uint64_t;

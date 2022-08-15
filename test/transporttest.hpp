@@ -13,6 +13,7 @@
 #include <cppwamp/codec.hpp>
 #include <cppwamp/error.hpp>
 #include <cppwamp/rawsockoptions.hpp>
+#include <cppwamp/internal/transport.hpp>
 
 using namespace wamp;
 
@@ -42,7 +43,7 @@ struct LoopbackFixture
     using Opener       = typename Connector::Establisher;
     using Acceptor     = typename Listener::Establisher;
     using Transport    = typename Connector::Transport;
-    using TransportPtr = std::shared_ptr<Transport>;
+    using TransportPtr = typename internal::TransportBase::Ptr;
 
     template <typename TServerCodecIds>
     LoopbackFixture(AsioContext& clientCtx,
@@ -133,7 +134,7 @@ template <typename TFixture>
 void checkConnection(TFixture& f, int expectedCodec,
         size_t clientMaxRxLength = 64*1024, size_t serverMaxRxLength = 64*1024)
 {
-    using TransportPtr = typename TFixture::TransportPtr;
+    using TransportPtr = typename internal::TransportBase::Ptr;
     f.lstn.establish([&](std::error_code ec, int codec,
                          TransportPtr transport)
     {

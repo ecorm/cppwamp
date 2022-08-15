@@ -34,12 +34,12 @@ template <typename TEstablisher,
 class AsioEndpoint
 {
 public:
-    using Establisher  = TEstablisher;
-    using Socket       = typename Establisher::Socket;
-    using Transport    = TTransport<Socket>;
-    using TransportPtr = std::shared_ptr<Transport>;
-    using Handler      = std::function<void (std::error_code, int codecId,
-                                             TransportPtr)>;
+    using Establisher      = TEstablisher;
+    using Socket           = typename Establisher::Socket;
+    using Transport        = TTransport<Socket>;
+    using TransportBasePtr = typename TransportBase::Ptr;
+    using Handler          = std::function<void (std::error_code, int codecId,
+                                                 TransportBasePtr)>;
 
     explicit AsioEndpoint(Establisher&& est)
         : strand_(est.strand()),
@@ -112,7 +112,7 @@ protected:
     void complete(int codecId, size_t maxTxLength, size_t maxRxLength)
     {
         auto transport = Transport::create(std::move(socket_), maxTxLength,
-                                    maxRxLength);
+                                           maxRxLength);
         std::error_code ec = make_error_code(TransportErrc::success);
         postHandler(ec, codecId, std::move(transport));
         socket_.reset();

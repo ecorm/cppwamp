@@ -167,7 +167,7 @@ inline void checkCannedServerHandshake(uint32_t cannedHandshake,
                                        std::error_code expectedErrorCode)
 {
     using AsioConnector = internal::AsioConnector<internal::TcpOpener>;
-    using TransportPtr = AsioConnector::TransportPtr;
+    using TransportPtr = AsioConnector::TransportBasePtr;
 
     AsioContext ioctx;
     internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
@@ -208,7 +208,7 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
                                 TErrorCode expectedClientCode)
 {
     using AsioListener = internal::AsioListener<internal::TcpAcceptor>;
-    using TransportPtr = AsioListener::TransportPtr;
+    using TransportPtr = AsioListener::TransportBasePtr;
 
     AsioContext ioctx;
     internal::TcpOpener opnr(ioctx.get_executor(),
@@ -564,7 +564,7 @@ SCENARIO( "Receiving messages longer than maximum", "[Transport]" )
 {
 using AsioConnector = internal::AsioConnector<internal::TcpOpener>;
 using AsioListener  = internal::AsioListener<internal::TcpAcceptor>;
-using TransportPtr  = AsioConnector::TransportPtr;
+using TransportPtr  = AsioConnector::TransportBasePtr;
 
 MessageBuffer tooLong(64*1024 + 1, 'A');
 
@@ -715,7 +715,7 @@ SCENARIO( "Receiving an invalid message type", "[Transport]" )
 {
 using AsioConnector    = internal::AsioConnector<internal::TcpOpener>;
 using AsioListener     = internal::AsioListener<internal::TcpAcceptor>;
-using TransportPtr     = AsioConnector::TransportPtr;
+using TransportPtr     = AsioConnector::TransportBasePtr;
 using FakeTransport    = FakeMsgTypeAsioListener::Transport;
 using FakeTransportPtr = FakeMsgTypeAsioListener::TransportPtr;
 

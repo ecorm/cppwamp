@@ -69,6 +69,7 @@ set(HEADERS
     include/cppwamp/internal/subscriber.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
+    include/cppwamp/internal/transport.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
     include/cppwamp/internal/variantdecoding.hpp
