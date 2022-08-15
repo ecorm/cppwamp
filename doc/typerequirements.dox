@@ -5,14 +5,12 @@
 ------------------------------------------------------------------------------*/
 
 //------------------------------------------------------------------------------
-/** @page Concepts Concepts
+/** @page TypeRequirements Type Requirements
 Describes restrictions on types used by generic facilities.
-Concepts:
 - @subpage VisitorConcept
 - @subpage CodecEncoder
 - @subpage CodecDecoder
 - @subpage CodecFormat
-- @subpage Transport
 - @subpage Establisher
 */
 
@@ -125,53 +123,14 @@ Expression                        | Effect
 /** @page CodecFormat CodecFormat
 A `CodecFormat` is a static-only class supporting the following expressions:
 
-Expression                             | Effect
--------------------------------------- | ------
-`CodecFormat::id()`                    | Returns the `int` ID to use during raw socket handshaking.
+Expression          | Effect
+------------------- | ------
+`CodecFormat::id()` | Returns the `int` ID to use during raw socket handshaking.
 
 The following classes meet the requirements of `CodecFormat`:
 - wamp::Json
 - wamp::Msgpack
 - wamp::Cbor
-*/
-
-//------------------------------------------------------------------------------
-/** @page Transport Transport
-A `Transport` is used to transmit WAMP messages between peers. It must provide
-the following minimal generic interface:
-
-```
-class MeetsTransport
-{
-public:
-    // Handler type called when a WAMP message is received
-    using RxHandler = std::function<void (Buffer)>;
-
-    // Handler type called when a transport error occurs
-    using FailHandler = std::function<void (std::error_code ec)>;
-
-    // Returns the maximum length of a message that can be transmitted.
-    size_t maxSendLength() const;
-
-    // Returns `true` if the transport has been started.
-    bool isStarted() const;
-
-    // Enables the receiving of messages on the transport.
-    void start(RxHandler rxHandler, FailHandler failHandler);
-
-    // Enqueues the given message for transmission.
-    void send(wamp::CodecBuffer message);
-
-    // Closes the transport connection, aborting all pending send/receive
-    // operations.
-    void close();
-
-    // Obtains the transport's execution strand.
-    boost::asio::strand<boost::asio::any_executor> strand() const;
-```
-
-The following classes meet the requirements of `Transport`:
-- `wamp::internal::AsioTransport`
 */
 
 //------------------------------------------------------------------------------

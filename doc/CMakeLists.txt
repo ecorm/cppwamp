@@ -6,7 +6,6 @@
 
 set(CPPWAMP_DOCUMENTS
     Doxyfile.in
-    concepts.dox
     cppwamp.dox
     registrations.dox
     subscriptions.dox
@@ -18,6 +17,7 @@ set(CPPWAMP_DOCUMENTS
     tutorial-pubsub.dox
     tutorial-callbacks.dox
     tutorial-conversions.dox
+    typerequirements.dox
 )
 
 find_package(Doxygen)
