@@ -53,8 +53,9 @@ template <typename TCodec>
 Connector::Ptr connector(AnyIoExecutor exec, TcpHost host)
 {
     using Endpoint = internal::AsioConnector<internal::TcpOpener>;
-    using ConcreteConnector = internal::RawsockConnector<TCodec, Endpoint>;
-    return ConcreteConnector::create(exec, std::move(host));
+    using ConcreteConnector = internal::RawsockConnector<Endpoint>;
+    return ConcreteConnector::create(exec, BufferCodecBuilder{TCodec{}},
+                                     std::move(host));
 }
 #endif
 

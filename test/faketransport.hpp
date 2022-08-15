@@ -75,11 +75,10 @@ class FakeMsgTypeTransport :
 public:
     using Ptr = std::shared_ptr<FakeMsgTypeTransport>;
 
-    static Ptr create(SocketPtr&& socket, size_t maxTxLength,
-                      size_t maxRxLength)
+    static Ptr create(SocketPtr&& s, size_t maxTxLength, size_t maxRxLength)
     {
-        return Ptr(new FakeMsgTypeTransport(std::move(socket),
-                   maxTxLength, maxRxLength));
+        return Ptr(new FakeMsgTypeTransport(
+            std::move(s), maxTxLength, maxRxLength));
     }
 
     void send(MessageBuffer message)

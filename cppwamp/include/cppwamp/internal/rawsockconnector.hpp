@@ -14,6 +14,7 @@
 #include <boost/asio/post.hpp>
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
+#include "../codec.hpp"
 #include "../connector.hpp"
 #include "../error.hpp"
 #include "client.hpp"
@@ -25,19 +26,19 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename TCodec, typename TEndpoint>
+template <typename TEndpoint>
 class RawsockConnector : public Connector
 {
 public:
-    using Codec = TCodec;
     using Endpoint = TEndpoint;
     using Info = typename Endpoint::Establisher::Info;
     using Transport = typename Endpoint::Transport;
     using Ptr = std::shared_ptr<RawsockConnector>;
 
-    static Ptr create(const AnyIoExecutor& exec, Info info)
+    static Ptr create(const AnyIoExecutor& e, BufferCodecBuilder b, Info i)
     {
-        return Ptr(new RawsockConnector(IoStrand(exec), std::move(info)));
+        using std::move;
+        return Ptr(new RawsockConnector(IoStrand(e), move(b), move(i)));
     }
 
     IoStrand strand() const override {return strand_;}
@@ -47,7 +48,8 @@ protected:
 
     virtual Connector::Ptr clone() const override
     {
-        return Connector::Ptr(new RawsockConnector(strand_, info_));
+        return Connector::Ptr(new RawsockConnector(strand_, codecBuilder_,
+                                                   info_));
     }
 
     virtual void establish(Handler&& handler) override
@@ -62,11 +64,11 @@ protected:
             {
                 auto& me = *self;
                 internal::ClientInterface::Ptr client;
-                using ClientType = internal::Client<Codec, Transport>;
                 if (!ec)
                 {
-                    assert(codecId == Codec::id());
-                    client = ClientType::create(std::move(trnsp));
+                    assert(codecId == me.codecBuilder_.id());
+                    client = internal::Client::create(me.codecBuilder_(),
+                                                      std::move(trnsp));
                 }
                 boost::asio::post(me.strand_,
                                   std::bind(std::move(handler), ec, client));
@@ -76,7 +78,7 @@ protected:
 
         CPPWAMP_LOGIC_CHECK(!endpoint_, "Connection already in progress");
         endpoint_.reset(new Endpoint( Establisher(strand_, info_),
-                                      Codec::id(),
+                                      codecBuilder_.id(),
                                       info_.maxRxLength() ));
         auto self =
             std::static_pointer_cast<RawsockConnector>(shared_from_this());
@@ -90,12 +92,14 @@ protected:
     }
 
 private:
-    RawsockConnector(IoStrand strand, Info info)
-        : strand_(std::move(strand)),
-          info_(std::move(info))
+    RawsockConnector(IoStrand s, BufferCodecBuilder b, Info i)
+        : strand_(std::move(s)),
+          codecBuilder_(b),
+          info_(std::move(i))
     {}
 
     boost::asio::strand<AnyIoExecutor> strand_;
+    BufferCodecBuilder codecBuilder_;
     Info info_;
     std::unique_ptr<Endpoint> endpoint_;
 };

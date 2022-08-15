@@ -13,6 +13,7 @@
 //------------------------------------------------------------------------------
 
 #include <istream>
+#include <functional>
 #include <memory>
 #include <ostream>
 #include "api.hpp"
@@ -294,7 +295,7 @@ CPPWAMP_NODISCARD std::error_code decode(TInput&& input, Variant& variant)
     @tparam TSink Output sink type, a specialization of OutputSink.
     @tparam TSource Input source type, a specialization of InputSource. */
 //------------------------------------------------------------------------------
-template <typename TFormat, typename TSink, typename TSource = TSink>
+template <typename TFormat, typename TSink, typename TSource>
 class CPPWAMP_API Codec
 {
 public:
@@ -303,14 +304,13 @@ public:
     using Source = TSource; ///< Input source type from which to decode.
 
     /** Encodes the given variant to the given output sink. */
-    void encode(const Variant& variant, Sink sink) override
+    void encode(const Variant& variant, Sink sink)
     {
         encoder_.encode(variant, sink);
     };
 
     /** Decodes a variant from the given input source. */
-    CPPWAMP_NODISCARD std::error_code decode(Source source,
-                                             Variant& variant) override
+    CPPWAMP_NODISCARD std::error_code decode(Source source, Variant& variant)
     {
         return decoder_.decode(source, variant);
     }
@@ -325,7 +325,7 @@ private:
     @tparam TSink Output sink type, a specialization of OutputSink.
     @tparam TSource Input source type, a specialization of InputSource. */
 //------------------------------------------------------------------------------
-template <typename TSink, typename TSource = TSink>
+template <typename TSink, typename TSource>
 class CPPWAMP_API PolymorphicCodecInterface
 {
 public:
@@ -349,7 +349,7 @@ public:
     @tparam TSink Output sink type, a specialization of OutputSink.
     @tparam TSource Input source type, a specialization of InputSource. */
 //------------------------------------------------------------------------------
-template <typename TFormat, typename TSink, typename TSource = TSink>
+template <typename TFormat, typename TSink, typename TSource>
 class CPPWAMP_API PolymorphicCodec
     : public PolymorphicCodecInterface<TSink, TSource>
 {
@@ -376,11 +376,11 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/** Wrapper that type-erases polymorphic codec.
+/** Wrapper that type-erases a polymorphic codec.
     @tparam TSink Output sink type, a specialization of OutputSink.
     @tparam TSource Input source type, a specialization of InputSource. */
 //------------------------------------------------------------------------------
-template <typename TSink, typename TSource = TSink>
+template <typename TSink, typename TSource>
 class CPPWAMP_API AnyCodec
 {
 public:
@@ -390,26 +390,73 @@ public:
     /** Constructor taking a serialization format tag (e.g. wamp::json). */
     template <typename TFormat>
     AnyCodec(TFormat)
-        : codec_(new PolymorphicCodec<TFormat, Sink, Source>())
+        : codec_(std::make_shared<PolymorphicCodec<TFormat, Sink, Source>>())
     {}
 
     /** Encodes the given variant to the given output sink. */
     void encode(const Variant& variant, Sink sink)
     {
-        codec_.encode(variant, sink);
+        codec_->encode(variant, sink);
     };
 
     /** Decodes a variant from the given input source. */
     CPPWAMP_NODISCARD std::error_code decode(Source source, Variant& variant)
     {
-        return codec_.decode(source, variant);
+        return codec_->decode(source, variant);
     }
 
 private:
     using Interface = PolymorphicCodecInterface<Sink, Source>;
-    std::unique_ptr<Interface> codec_;
+    std::shared_ptr<Interface> codec_;
 };
 
+/// Type-erased codec for string sources/sinks.
+using AnyStringCodec = AnyCodec<StringSink, StringSource>;
+
+/// Type-erased codec for buffer sources/sinks.
+using AnyBufferCodec = AnyCodec<BufferSink, BufferSource>;
+
+/// Type-erased codec for stream sources/sinks.
+using AnyStreamCodec = AnyCodec<StreamSink, StreamSource>;
+
+//------------------------------------------------------------------------------
+/** Builds a codec on demand.
+    @tparam TSink Output sink type, a specialization of OutputSink.
+    @tparam TSource Input source type, a specialization of InputSource. */
+//------------------------------------------------------------------------------
+template <typename TSink, typename TSource>
+class CPPWAMP_API CodecBuilder
+{
+public:
+    /** AnyCodec specialization to be built. */
+    using AnyCodecType = AnyCodec<TSink, TSource>;
+
+    /** Constructor taking a serialization format tag. */
+    template <typename TFormat>
+    explicit CodecBuilder(TFormat)
+        : builder_([]() -> AnyCodecType {return AnyCodecType(TFormat{});}),
+          id_(TFormat::id())
+    {}
+
+    int id() const {return id_;}
+
+    /** Builds and returns a codec for the serialzation format that was given
+        during construction. */
+    AnyCodecType operator()() const {return builder_();}
+
+private:
+    std::function<AnyCodecType ()> builder_;
+    int id_;
+};
+
+/// Builds a type-erased codec for string sources/sinks.
+using StringCodecBuilder = CodecBuilder<StringSink, StringSource>;
+
+/// Builds a type-erased codec for buffer sources/sinks.
+using BufferCodecBuilder = CodecBuilder<BufferSink, BufferSource>;
+
+/// Builds a type-erased codec for stream sources/sinks.
+using StreamCodecBuilder = CodecBuilder<StreamSink, StreamSource>;
 
 } // namespace wamp
 

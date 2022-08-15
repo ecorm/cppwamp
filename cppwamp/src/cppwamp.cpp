@@ -49,24 +49,27 @@ template <> CPPWAMP_API Connector::Ptr
 connector<Json>(AnyIoExecutor exec, TcpHost host)
 {
     using Endpoint = internal::AsioConnector<internal::TcpOpener>;
-    using ConcreteConnector = internal::RawsockConnector<Json, Endpoint>;
-    return ConcreteConnector::create(exec, std::move(host));
+    using ConcreteConnector = internal::RawsockConnector<Endpoint>;
+    return ConcreteConnector::create(exec, BufferCodecBuilder{json},
+                                     std::move(host));
 }
 
 template <> CPPWAMP_API Connector::Ptr
 connector<Msgpack>(AnyIoExecutor exec, TcpHost host)
 {
     using Endpoint = internal::AsioConnector<internal::TcpOpener>;
-    using ConcreteConnector = internal::RawsockConnector<Msgpack, Endpoint>;
-    return ConcreteConnector::create(exec, std::move(host));
+    using ConcreteConnector = internal::RawsockConnector<Endpoint>;
+    return ConcreteConnector::create(exec, BufferCodecBuilder{msgpack},
+                                     std::move(host));
 }
 
 template <> CPPWAMP_API Connector::Ptr
 connector<Cbor>(AnyIoExecutor exec, TcpHost host)
 {
     using Endpoint = internal::AsioConnector<internal::TcpOpener>;
-    using ConcreteConnector = internal::RawsockConnector<Cbor, Endpoint>;
-    return ConcreteConnector::create(exec, std::move(host));
+    using ConcreteConnector = internal::RawsockConnector<Endpoint>;
+    return ConcreteConnector::create(exec, BufferCodecBuilder{cbor},
+                                     std::move(host));
 }
 
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
@@ -74,24 +77,27 @@ template <> CPPWAMP_API Connector::Ptr
 connector<Json>(AnyIoExecutor exec, UdsPath path)
 {
     using Endpoint = internal::AsioConnector<internal::UdsOpener>;
-    using ConcreteConnector = internal::RawsockConnector<Json, Endpoint>;
-    return ConcreteConnector::create(exec, std::move(path));
+    using ConcreteConnector = internal::RawsockConnector<Endpoint>;
+    return ConcreteConnector::create(exec, BufferCodecBuilder{json},
+                                     std::move(path));
 }
 
 template <> CPPWAMP_API Connector::Ptr
 connector<Msgpack>(AnyIoExecutor exec, UdsPath path)
 {
     using Endpoint = internal::AsioConnector<internal::UdsOpener>;
-    using ConcreteConnector = internal::RawsockConnector<Msgpack, Endpoint>;
-    return ConcreteConnector::create(exec, std::move(path));
+    using ConcreteConnector = internal::RawsockConnector<Endpoint>;
+    return ConcreteConnector::create(exec, BufferCodecBuilder{msgpack},
+                                     std::move(path));
 }
 
 template <> CPPWAMP_API Connector::Ptr
 connector<Cbor>(AnyIoExecutor exec, UdsPath path)
 {
     using Endpoint = internal::AsioConnector<internal::UdsOpener>;
-    using ConcreteConnector = internal::RawsockConnector<Cbor, Endpoint>;
-    return ConcreteConnector::create(exec, std::move(path));
+    using ConcreteConnector = internal::RawsockConnector<Endpoint>;
+    return ConcreteConnector::create(exec, BufferCodecBuilder{cbor},
+                                     std::move(path));
 }
 #endif
 

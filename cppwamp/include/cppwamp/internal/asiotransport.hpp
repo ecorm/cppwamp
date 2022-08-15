@@ -24,7 +24,6 @@
 #include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
 #include "../asiodefs.hpp"
-#include "../codec.hpp"
 #include "../error.hpp"
 #include "../messagebuffer.hpp"
 #include "../rawsockoptions.hpp"
@@ -107,11 +106,9 @@ public:
     using Socket      = TSocket;
     using SocketPtr   = std::unique_ptr<Socket>;
 
-    static Ptr create(SocketPtr&& socket, size_t maxTxLength,
-                      size_t maxRxLength)
+    static Ptr create(SocketPtr&& s, size_t maxTxLength, size_t maxRxLength)
     {
-        return Ptr(new AsioTransport(std::move(socket), maxTxLength,
-                                     maxRxLength));
+        return Ptr(new AsioTransport(std::move(s), maxTxLength, maxRxLength));
     }
 
     bool isOpen() const override {return socket_ && socket_->is_open();}
@@ -156,8 +153,9 @@ protected:
     using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
     AsioTransport(SocketPtr&& socket, size_t maxTxLength, size_t maxRxLength)
-        : Base(boost::asio::make_strand(socket_->get_executor()),
-               maxTxLength, maxRxLength)
+        : Base(boost::asio::make_strand(socket->get_executor()),
+               maxTxLength, maxRxLength),
+          socket_(std::move(socket))
     {}
 
     AsioFrame::Ptr newFrame(RawsockMsgType type, MessageBuffer&& payload)
@@ -169,7 +167,7 @@ protected:
     virtual void sendFrame(AsioFrame::Ptr frame)
     {
         assert(socket_ && "Attempting to send on bad transport");
-        assert((frame->payload().size() <= maxTxLength_) &&
+        assert((frame->payload().size() <= maxSendLength()) &&
                "Outgoing message is longer than allowed by peer");
         txQueue_.push_back(std::move(frame));
         transmit();
@@ -228,12 +226,11 @@ private:
     virtual void processHeader()
     {
         auto hdr = rxFrame_.header();
-        auto length  = hdr.length();
-        if ( check(length <= maxRxLength_, TransportErrc::badRxLength) &&
-             check(hdr.msgTypeIsValid(), RawsockErrc::badMessageType) )
-        {
-            receivePayload(hdr.msgType(), length);
-        }
+        auto len  = hdr.length();
+        bool ok = check(len <= maxReceiveLength(), TransportErrc::badRxLength)
+               && check(hdr.msgTypeIsValid(), RawsockErrc::badMessageType);
+        if (ok)
+            receivePayload(hdr.msgType(), len);
     }
 
     void receivePayload(RawsockMsgType msgType, size_t length)
@@ -339,9 +336,6 @@ private:
     }
 
     std::unique_ptr<TSocket> socket_;
-    IoStrand strand_;
-    size_t maxTxLength_;
-    size_t maxRxLength_;
     bool started_ = false;
     RxHandler rxHandler_;
     FailHandler failHandler_;

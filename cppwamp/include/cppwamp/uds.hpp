@@ -54,8 +54,9 @@ template <typename TCodec>
 CPPWAMP_API Connector::Ptr connector(AnyIoExecutor exec, UdsPath path)
 {
     using Endpoint = internal::AsioConnector<internal::UdsOpener>;
-    using ConcreteConnector = internal::RawsockConnector<TCodec, Endpoint>;
-    return ConcreteConnector::create(exec, std::move(path));
+    using ConcreteConnector = internal::RawsockConnector<Endpoint>;
+    return ConcreteConnector::create(exec, BufferCodecBuilder{TCodec{}},
+                                     std::move(path));
 }
 #endif
 

@@ -18,8 +18,8 @@
 #include <boost/asio/strand.hpp>
 #include "../anyhandler.hpp"
 #include "../codec.hpp"
-#include "../peerdata.hpp"
 #include "../error.hpp"
+#include "../peerdata.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
 #include "transport.hpp"
@@ -35,11 +35,9 @@ namespace internal
 // Base class providing session functionality common to both clients and
 // router peers. This class is extended by Client to implement a client session.
 //------------------------------------------------------------------------------
-template <typename TCodec, typename TIgnored = void>
-class Peer : public std::enable_shared_from_this<Peer<TCodec, TIgnored>>
+class Peer : public std::enable_shared_from_this<Peer>
 {
 public:
-    using Codec        = TCodec;
     using TransportPtr = TransportBase::Ptr;
     using State        = SessionState;
 
@@ -55,8 +53,9 @@ protected:
     using LogHandler = AnyReusableHandler<void (std::string)>;
     using StateChangeHandler = AnyReusableHandler<void (State)>;
 
-    explicit Peer(TransportPtr&& transport)
+    explicit Peer(AnyBufferCodec&& codec, TransportPtr&& transport)
         : strand_(transport->strand()),
+          codec_(std::move(codec)),
           transport_(std::move(transport)),
           state_(State::closed)
     {}
@@ -219,8 +218,6 @@ private:
     using RequestKey = typename Message::RequestKey;
     using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
     using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
-    using EncoderType = EncoderFor<Codec, MessageBuffer>;
-    using DecoderType = DecoderFor<Codec, MessageBuffer>;
 
     void setState(State s)
     {
@@ -236,7 +233,7 @@ private:
         auto requestId = setMessageRequestId(msg);
 
         MessageBuffer buffer;
-        encoder_.encode(msg.fields(), buffer);
+        codec_.encode(msg.fields(), buffer);
         if (buffer.size() > transport_->maxSendLength())
             throw error::Failure(make_error_code(TransportErrc::badTxLength));
 
@@ -253,7 +250,7 @@ private:
 
         auto requestId = setMessageRequestId(msg);
         MessageBuffer buffer;
-        encoder_.encode(msg.fields(), buffer);
+        codec_.encode(msg.fields(), buffer);
         if (buffer.size() > transport_->maxSendLength())
             throw error::Failure(make_error_code(TransportErrc::badTxLength));
 
@@ -317,7 +314,7 @@ private:
 
     std::error_code decode(const MessageBuffer& buffer, Variant& variant)
     {
-        return decoder_.decode(buffer, variant);
+        return codec_.decode(buffer, variant);
     }
 
     void processMessage(Message&& msg)
@@ -542,9 +539,8 @@ private:
 
     IoStrand strand_;
     AnyIoExecutor userExecutor_;
+    AnyBufferCodec codec_;
     TransportPtr transport_;
-    EncoderType encoder_;
-    DecoderType decoder_;
     LogHandler traceHandler_;
     StateChangeHandler stateChangeHandler_;
     std::atomic<State> state_;

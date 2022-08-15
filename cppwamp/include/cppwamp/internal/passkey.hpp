@@ -18,8 +18,8 @@ namespace internal
     {
         PassKey() {}
 
-        template <typename, typename> friend class Peer;
-        template <typename, typename> friend class Client;
+        friend class Peer;
+        friend class Client;
         friend class wamp::Session;
     };
 }

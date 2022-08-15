@@ -17,6 +17,7 @@
 #include <utility>
 #include <boost/asio/post.hpp>
 #include "../anyhandler.hpp"
+#include "../codec.hpp"
 #include "../registration.hpp"
 #include "../subscription.hpp"
 #include "../version.hpp"
@@ -34,22 +35,23 @@ namespace internal
 //------------------------------------------------------------------------------
 // Provides the implementation of the wamp::Session class.
 //------------------------------------------------------------------------------
-template <typename TCodec, typename TIgnored = void>
-class Client : public ClientInterface, public Peer<TCodec>
+class Client : public ClientInterface, public Peer
 {
 public:
     using Ptr          = std::shared_ptr<Client>;
     using WeakPtr      = std::weak_ptr<Client>;
-    using Codec        = TCodec;
     using TransportPtr = TransportBase::Ptr;
     using State        = SessionState;
+
+    using LogHandler         = AnyReusableHandler<void(std::string)>;
+    using StateChangeHandler = AnyReusableHandler<void(SessionState)>;
 
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    static Ptr create(TransportPtr&& transport)
+    static Ptr create(AnyBufferCodec&& codec, TransportPtr&& transport)
     {
-        return Ptr(new Client(std::move(transport)));
+        return Ptr(new Client(std::move(codec), std::move(transport)));
     }
 
     ~Client() override {terminate();}
@@ -619,7 +621,7 @@ private:
         InterruptSlot interruptSlot;
     };
 
-    using Base           = Peer<Codec>;
+    using Base           = Peer;
     using WampMsgType    = internal::WampMsgType;
     using Message        = internal::WampMessage;
     using SlotId         = uint64_t;
@@ -632,8 +634,8 @@ private:
 
     using Base::userExecutor;
 
-    Client(TransportPtr transport)
-        : Base(std::move(transport)),
+    Client(AnyBufferCodec codec, TransportPtr transport)
+        : Base(std::move(codec), std::move(transport)),
           timeoutScheduler_(CallerTimeoutScheduler::create(this->strand()))
     {}
 
