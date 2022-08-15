@@ -15,7 +15,6 @@
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
 #include "../codec.hpp"
-#include "../connector.hpp"
 #include "../error.hpp"
 #include "client.hpp"
 
@@ -27,32 +26,33 @@ namespace internal
 
 //------------------------------------------------------------------------------
 template <typename TEndpoint>
-class RawsockConnector : public Connector
+class RawsockConnector
+    : public std::enable_shared_from_this<RawsockConnector<TEndpoint>>
 {
 public:
     using Endpoint = TEndpoint;
+    using Establisher = typename Endpoint::Establisher;
     using Info = typename Endpoint::Establisher::Info;
     using Transport = typename Endpoint::Transport;
     using Ptr = std::shared_ptr<RawsockConnector>;
 
-    static Ptr create(const AnyIoExecutor& e, BufferCodecBuilder b, Info i)
+    using Handler =
+        std::function<void (std::error_code,
+                            std::shared_ptr<internal::ClientInterface>)>;
+
+    static Ptr create(IoStrand s, Info i, BufferCodecBuilder b)
     {
         using std::move;
-        return Ptr(new RawsockConnector(IoStrand(e), move(b), move(i)));
+        return Ptr(new RawsockConnector(move(s), move(i), move(b)));
     }
 
-    IoStrand strand() const override {return strand_;}
+    const IoStrand& strand() const {return strand_;}
 
-protected:
-    using Establisher = typename Endpoint::Establisher;
+    const Info& info() const {return info_;}
 
-    virtual Connector::Ptr clone() const override
-    {
-        return Connector::Ptr(new RawsockConnector(strand_, codecBuilder_,
-                                                   info_));
-    }
+    const BufferCodecBuilder& codecBuilder() const {return codecBuilder_;}
 
-    virtual void establish(Handler&& handler) override
+    void establish(Handler&& handler)
     {
         struct Established
         {
@@ -80,27 +80,26 @@ protected:
         endpoint_.reset(new Endpoint( Establisher(strand_, info_),
                                       codecBuilder_.id(),
                                       info_.maxRxLength() ));
-        auto self =
-            std::static_pointer_cast<RawsockConnector>(shared_from_this());
-        endpoint_->establish(Established{std::move(self), std::move(handler)});
+        endpoint_->establish(Established{this->shared_from_this(),
+                                         std::move(handler)});
     }
 
-    virtual void cancel() override
+    void cancel()
     {
         if (endpoint_)
             endpoint_->cancel();
     }
 
 private:
-    RawsockConnector(IoStrand s, BufferCodecBuilder b, Info i)
+    RawsockConnector(IoStrand s, Info i, BufferCodecBuilder b)
         : strand_(std::move(s)),
-          codecBuilder_(b),
-          info_(std::move(i))
+          info_(std::move(i)),
+          codecBuilder_(std::move(b))
     {}
 
     boost::asio::strand<AnyIoExecutor> strand_;
-    BufferCodecBuilder codecBuilder_;
     Info info_;
+    BufferCodecBuilder codecBuilder_;
     std::unique_ptr<Endpoint> endpoint_;
 };
 

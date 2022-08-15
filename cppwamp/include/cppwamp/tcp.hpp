@@ -12,24 +12,40 @@
     @brief Contains facilities for creating TCP transport connectors. */
 //------------------------------------------------------------------------------
 
-#include <cassert>
 #include <memory>
-#include <string>
 #include <utility>
 #include "api.hpp"
 #include "asiodefs.hpp"
+#include "codec.hpp"
 #include "connector.hpp"
 #include "tcphost.hpp"
-#include "traits.hpp"
-
-#ifndef CPPWAMP_COMPILED_LIB
-    #include "internal/asioconnector.hpp"
-    #include "internal/rawsockconnector.hpp"
-    #include "internal/tcpopener.hpp"
-#endif
 
 namespace wamp
 {
+
+//------------------------------------------------------------------------------
+class CPPWAMP_API TcpConnector : public Connector
+{
+public:
+    using Ptr = std::shared_ptr<TcpConnector>;
+
+    static Ptr create(const AnyIoExecutor& e, TcpHost h, BufferCodecBuilder b);
+
+    IoStrand strand() const override;
+
+protected:
+    Connector::Ptr clone() const override;
+
+    void establish(Handler&& handler) override;
+
+    void cancel()  override;
+
+private:
+    CPPWAMP_HIDDEN TcpConnector(IoStrand s, TcpHost h, BufferCodecBuilder b);
+
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
 
 //------------------------------------------------------------------------------
 /** Creates a Connector that can establish a TCP raw socket transport.
@@ -39,25 +55,17 @@ namespace wamp
 
     @relates TcpHost
     @returns a `std::shared_ptr` to a Connector
-    @tparam TCodec The serialization to use over this transport.
+    @tparam TFormat The serialization format to use over this transport.
     @see Connector, Json, Msgpack */
 //------------------------------------------------------------------------------
-template <typename TCodec>
+template <typename TFormat>
 CPPWAMP_API Connector::Ptr connector(
-    AnyIoExecutor exec, ///< The executor to be used by the transport.
-    TcpHost host      ///< TCP host address and other socket options.
-);
-
-#ifndef CPPWAMP_COMPILED_LIB
-template <typename TCodec>
-Connector::Ptr connector(AnyIoExecutor exec, TcpHost host)
+    const AnyIoExecutor& e, ///< The executor to be used by the transport.
+    TcpHost h               ///< TCP host address and other socket options.
+)
 {
-    using Endpoint = internal::AsioConnector<internal::TcpOpener>;
-    using ConcreteConnector = internal::RawsockConnector<Endpoint>;
-    return ConcreteConnector::create(exec, BufferCodecBuilder{TCodec{}},
-                                     std::move(host));
+    return TcpConnector::create(e, std::move(h), BufferCodecBuilder{TFormat{}});
 }
-#endif
 
 
 //------------------------------------------------------------------------------
@@ -68,11 +76,11 @@ Connector::Ptr connector(AnyIoExecutor exec, TcpHost host)
 
     @relates TcpHost
     @returns a `std::shared_ptr` to a Connector
-    @tparam TCodec The serialization to use over this transport.
+    @tparam TFormat The serialization format to use over this transport.
     @tparam TExecutionContext The given execution context type (deduced).
     @see Connector, Json, Msgpack */
 //------------------------------------------------------------------------------
-template <typename TCodec, typename TExecutionContext>
+template <typename TFormat, typename TExecutionContext>
 CPPWAMP_ENABLED_TYPE(Connector::Ptr, isExecutionContext<TExecutionContext>())
 connector(
     TExecutionContext& context, /**< The I/O context containing the executor
@@ -80,9 +88,13 @@ connector(
     TcpHost host                ///< TCP host address and other socket options.
 )
 {
-    return connector<TCodec>(context.get_executor(), std::move(host));
+    return connector<TFormat>(context.get_executor(), std::move(host));
 }
 
 } // namespace wamp
+
+#ifndef CPPWAMP_COMPILED_LIB
+#include "internal/tcp.ipp"
+#endif
 
 #endif // CPPWAMP_TCP_HPP

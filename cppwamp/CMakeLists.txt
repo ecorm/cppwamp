@@ -99,7 +99,9 @@ set(INLINES
     include/cppwamp/internal/registration.ipp
     include/cppwamp/internal/session.ipp
     include/cppwamp/internal/subscription.ipp
+    include/cppwamp/internal/tcp.ipp
     include/cppwamp/internal/tcphost.ipp
+    include/cppwamp/internal/uds.ipp
     include/cppwamp/internal/udspath.ipp
     include/cppwamp/internal/variant.ipp
     include/cppwamp/internal/version.ipp
