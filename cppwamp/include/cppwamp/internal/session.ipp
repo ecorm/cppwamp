@@ -601,38 +601,42 @@ CPPWAMP_INLINE void Session::doConnect(
     using std::move;
     struct Established
     {
-        Ptr self;
+        std::weak_ptr<Session> self;
         ConnectionWishList wishes;
         size_t index;
         std::shared_ptr<CompletionHandler<size_t>> handler;
 
         void operator()(ErrorOr<Transporting::Ptr> transport)
         {
-            auto& me = *self;
-            if (!me.isTerminating_)
+            auto locked = self.lock();
+            if (!locked)
+                return;
+
+            auto& me = *locked;
+            if (me.isTerminating_)
+                return;
+
+            if (!transport)
             {
-                if (!transport)
-                {
-                    me.onConnectFailure(move(wishes), index, transport.error(),
-                                        move(handler));
-                }
-                else if (me.state() != State::connecting)
-                {
-                    auto ec = make_error_code(TransportErrc::aborted);
-                    postVia(me.userExecutor_, std::move(*handler),
-                            UnexpectedError(ec));
-                }
-                else
-                {
-                    auto codec = wishes.at(index).makeCodec();
-                    me.onConnectSuccess(index, move(codec), move(*transport),
-                                        move(handler));
-                }
+                me.onConnectFailure(move(wishes), index, transport.error(),
+                                    move(handler));
+            }
+            else if (me.state() == State::connecting)
+            {
+                auto codec = wishes.at(index).makeCodec();
+                me.onConnectSuccess(index, move(codec), move(*transport),
+                                    move(handler));
+            }
+            else
+            {
+                auto ec = make_error_code(TransportErrc::aborted);
+                postVia(me.userExecutor_, std::move(*handler),
+                        UnexpectedError(ec));
             }
         }
     };
 
-    auto connector = wishes.at(index).makeConnector(strand_);
+    currentConnector_ = wishes.at(index).makeConnector(strand_);
     currentConnector_->establish(
         Established{shared_from_this(), move(wishes), index, move(handler)});
 }

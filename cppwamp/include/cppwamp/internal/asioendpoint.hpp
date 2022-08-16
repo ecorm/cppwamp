@@ -130,6 +130,8 @@ protected:
         {
             socket_.reset();
             auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
+            if (ec == std::errc::operation_canceled)
+                ec = make_error_code(TransportErrc::aborted);
             postHandler(makeUnexpected(ec));
             handler_ = nullptr;
         }

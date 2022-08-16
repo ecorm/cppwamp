@@ -220,8 +220,8 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
     lstn.establish(
         [&](ErrorOr<TransportPtr> transport)
         {
-            CHECK( transport == makeUnexpectedError(expectedServerCode) );
-            CHECK_FALSE( transport );
+            REQUIRE_FALSE( transport.has_value() );
+            CHECK( transport.error() == expectedServerCode );
             serverAborted = true;
         });
 
@@ -229,7 +229,8 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
     cnct.establish(
         [&](ErrorOr<TransportPtr> transport)
         {
-            CHECK( transport == makeUnexpectedError(expectedClientCode) );
+            REQUIRE_FALSE( transport.has_value() );
+            CHECK( transport.error() == expectedClientCode );
             clientAborted = true;
         });
 

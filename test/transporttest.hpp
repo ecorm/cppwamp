@@ -399,7 +399,6 @@ void checkCancelListen(TFixture& f)
     f.lstn.establish([&](ErrorOr<TransportPtr> transport)
     {
         CHECK( transport == makeUnexpectedError(TransportErrc::aborted) );
-        CHECK_FALSE( transport );
     });
     f.lstn.cancel();
     CHECK_NOTHROW( f.run() );

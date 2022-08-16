@@ -254,7 +254,7 @@ void checkDisconnect(TDelegate&& delegate)
 void checkInvalidConnect(Session::Ptr session,
                          boost::asio::yield_context yield)
 {
-    auto index = session->connect(yield);
+    auto index = session->connect(withTcp, yield);
     CHECK( index == makeUnexpected(SessionErrc::invalidState) );
     CHECK_THROWS_AS( index.value(), error::Failure );
 }
@@ -470,7 +470,7 @@ GIVEN( "an IO service and a TCP connector" )
                 CHECK( changes.empty() );
 
                 // Check that we can reconnect.
-                CHECK( s->connect(yield).value() == 0 );
+                CHECK( s->connect(where, yield).value() == 0 );
                 CHECK( changes.check(s, {SS::connecting, SS::closed}, yield) );
 
                 // Reset by letting session instance go out of scope.
@@ -647,7 +647,7 @@ GIVEN( "an IO service and a TCP connector" )
             s->reset();
             ec.clear();
             bool connected = false;
-            s->connect([&](ErrorOr<size_t> result)
+            s->connect(where, [&](ErrorOr<size_t> result)
             {
                 if (!result)
                     ec = result.error();
@@ -1844,24 +1844,9 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
         {
             auto s = Session::create(ioctx);
             s->setStateChangeHandler(changes);
-            bool throws = false;
-            try
-            {
-                s->connect(badWhere, yield).value();
-            }
-            catch (const error::Failure& e)
-            {
-                throws = true;
-                CHECK( e.code() == TransportErrc::failed );
-            }
-            CHECK( throws );
-            CHECK( changes.check(s, {SS::connecting, SS::failed}, yield) );
-
-            s->disconnect();
-            auto index = s->connect(yield);
+            auto index = s->connect(badWhere, yield);
             CHECK( index == makeUnexpected(TransportErrc::failed) );
-            CHECK( changes.check(s, {SS::disconnected, SS::connecting,
-                                     SS::failed}, yield) );
+            CHECK( changes.check(s, {SS::connecting, SS::failed}, yield) );
         });
 
         ioctx.run();
