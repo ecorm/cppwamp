@@ -15,6 +15,7 @@
 
 #include <string>
 #include "api.hpp"
+#include "config.hpp"
 #include "rawsockoptions.hpp"
 #include "internal/socketoptions.hpp"
 
@@ -25,6 +26,13 @@ namespace wamp
 {
 
 namespace internal { class UdsOpener; } // Forward declaration
+
+//------------------------------------------------------------------------------
+struct Uds
+{
+    constexpr Uds() = default;
+};
+
 
 //------------------------------------------------------------------------------
 /** Contains options for the UNIX domain socket transport.
@@ -95,6 +103,9 @@ private:
 class CPPWAMP_API UdsPath
 {
 public:
+    /// Transport protocol tag associated these settings.
+    using Protocol = Uds;
+
     /// The default maximum length permitted for incoming messages.
     static constexpr RawsockMaxLength defaultMaxRxLength =
         RawsockMaxLength::MB_16;

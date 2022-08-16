@@ -81,13 +81,13 @@ public:
     using YieldContext = boost::asio::basic_yield_context<TSpawnHandler>;
 
     /** Creates a new CoroSession instance. */
-    static Ptr create(AnyIoExecutor exec, const Connecting::Ptr& connector);
+    static Ptr create(AnyIoExecutor exec, LegacyConnector connector);
 
     /** Creates a new CoroSession instance. */
     static Ptr create(AnyIoExecutor exec, const ConnectorList& connectors);
 
     /** Creates a new CoroSession instance.
-        @copydetails Session::create(AnyIoExecutor, const Connecting::Ptr&)
+        @copydetails Session::create(AnyIoExecutor, LegacyConnector)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
         @tparam TExecutionContext Must meet the requirements of
@@ -97,15 +97,15 @@ public:
     create(
         TExecutionContext& context, /**< Provides executor with which to
                                          post all user-provided handlers. */
-        const Connecting::Ptr& connector /**< Connection details for the
-                                             transport to use. */
-        )
+        LegacyConnector connector   /**< Connection details for the
+                                         transport to use. */
+    )
     {
         return create(context.get_executor(), connector);
     }
 
     /** Creates a new CoroSession instance.
-        @copydetails Session::create(AnyIoExecutor, const Connecting::Ptr&)
+        @copydetails Session::create(AnyIoExecutor, LegacyConnector)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
         @tparam TExecutionContext Must meet the requirements of
@@ -267,21 +267,21 @@ protected:
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::create(AnyIoExecutor, const Connecting::Ptr&) */
+/** @copydetails Session::create(AnyIoExecutor, LegacyConnector) */
 //------------------------------------------------------------------------------
 template <typename B>
 typename CoroSession<B>::Ptr CoroSession<B>::create(
-    AnyIoExecutor exec,             /**< Executor with which to post all
-                                         user-provided handlers. */
-    const Connecting::Ptr& connector /**< Connection details for the transport
-                                         to use. */
+    AnyIoExecutor exec,       /**< Executor with which to post all
+                                   user-provided handlers. */
+    LegacyConnector connector /**< Connection details for the transport
+                                   to use. */
     )
 {
     return Ptr(new CoroSession(exec, {connector}));
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::create(AnyIoExecutor, const ConnectorList&) */
+/** @copydetails Session::create(AnyIoExecutor, LegacyConnector) */
 //------------------------------------------------------------------------------
 template <typename B>
 typename CoroSession<B>::Ptr CoroSession<B>::create(

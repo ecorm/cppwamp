@@ -22,35 +22,18 @@ struct Connector<Tcp>::Impl
     using Endpoint = internal::AsioConnector<internal::TcpOpener>;
     using ConcreteConnector = internal::RawsockConnector<Endpoint>;
 
-    Impl(IoStrand s, TcpHost h, BufferCodecBuilder b)
-        : cnct(ConcreteConnector::create(std::move(s), std::move(h),
-                                         std::move(b)))
+    Impl(IoStrand s, TcpHost h, int codecId)
+        : cnct(ConcreteConnector::create(std::move(s), std::move(h), codecId))
     {}
-
-    Impl(ConcreteConnector::Ptr clone) : cnct(std::move(clone)) {}
 
     ConcreteConnector::Ptr cnct;
 };
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Connector<Tcp>::Ptr
-Connector<Tcp>::create(const AnyIoExecutor& e, TcpHost h, BufferCodecBuilder b)
+Connector<Tcp>::create(IoStrand s, TcpHost h, int codecId)
 {
-    using std::move;
-    return Ptr(new Connector(boost::asio::make_strand(e), move(h), move(b)));
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE IoStrand Connector<Tcp>::strand() const
-{
-    return impl_->cnct->strand();
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Connecting::Ptr Connector<Tcp>::clone() const
-{
-    auto& c = *(impl_->cnct);
-    return Ptr(new Connector(c.strand(), c.info(), c.codecBuilder()));
+    return Ptr(new Connector(std::move(s), std::move(h), codecId));
 }
 
 //------------------------------------------------------------------------------
@@ -63,9 +46,8 @@ CPPWAMP_INLINE void Connector<Tcp>::establish(Handler&& handler)
 CPPWAMP_INLINE void Connector<Tcp>::cancel() {impl_->cnct->cancel();}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector<Tcp>::Connector(IoStrand s, TcpHost h,
-                                         BufferCodecBuilder b)
-    : impl_(new Impl(std::move(s), std::move(h), std::move(b)))
+CPPWAMP_INLINE Connector<Tcp>::Connector(IoStrand s, TcpHost h, int codecId)
+    : impl_(new Impl(std::move(s), std::move(h), codecId))
 {}
 
 } // namespace wamp

@@ -110,14 +110,14 @@ public:
     using FailHandler = typename Transporting::FailHandler;
     using PingHandler = typename Transporting::PingHandler;
 
-    static Ptr create(SocketPtr&& s, TransportLimits limits)
+    static Ptr create(SocketPtr&& s, TransportInfo info)
     {
-        return Ptr(new AsioTransport(std::move(s), limits));
+        return Ptr(new AsioTransport(std::move(s), info));
     }
 
     IoStrand strand() const override {return strand_;}
 
-    TransportLimits limits() const override {return limits_;}
+    TransportInfo info() const override {return info_;}
 
     bool isOpen() const override {return socket_ && socket_->is_open();}
 
@@ -160,10 +160,10 @@ protected:
     using TransmitQueue = std::deque<AsioFrame::Ptr>;
     using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
-    AsioTransport(SocketPtr&& socket, TransportLimits limits)
+    AsioTransport(SocketPtr&& socket, TransportInfo info)
         : strand_(boost::asio::make_strand(socket->get_executor())),
           socket_(std::move(socket)),
-          limits_(limits)
+          info_(info)
     {}
 
     AsioFrame::Ptr newFrame(RawsockMsgType type, MessageBuffer&& payload)
@@ -175,7 +175,7 @@ protected:
     virtual void sendFrame(AsioFrame::Ptr frame)
     {
         assert(socket_ && "Attempting to send on bad transport");
-        assert((frame->payload().size() <= limits_.maxTxLength) &&
+        assert((frame->payload().size() <= info_.maxTxLength) &&
                "Outgoing message is longer than allowed by peer");
         txQueue_.push_back(std::move(frame));
         transmit();
@@ -235,7 +235,7 @@ private:
     {
         auto hdr = rxFrame_.header();
         auto len  = hdr.length();
-        bool ok = check(len <= limits_.maxRxLength, TransportErrc::badRxLength)
+        bool ok = check(len <= info_.maxRxLength, TransportErrc::badRxLength)
                && check(hdr.msgTypeIsValid(), RawsockErrc::badMessageType);
         if (ok)
             receivePayload(hdr.msgType(), len);
@@ -352,7 +352,7 @@ private:
 
     IoStrand strand_;
     std::unique_ptr<TSocket> socket_;
-    TransportLimits limits_;
+    TransportInfo info_;
     bool started_ = false;
     RxHandler rxHandler_;
     FailHandler failHandler_;

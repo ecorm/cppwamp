@@ -66,15 +66,16 @@ protected:
     virtual void onHandshakeSent(Handshake hs) override
     {
         if (!hs.hasError())
-            Base::complete(hs.codecId(), limits());
+            Base::complete(info(hs));
         else
             Base::fail(hs.errorCode());
     }
 
 private:
-    TransportLimits limits() const
+    TransportInfo info(Handshake hs) const
     {
-        return {Handshake::byteLengthOf(maxTxLength_),
+        return {hs.codecId(),
+                Handshake::byteLengthOf(maxTxLength_),
                 Handshake::byteLengthOf(maxRxLength_)};
     }
 

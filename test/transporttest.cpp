@@ -147,16 +147,14 @@ void checkUnsupportedSerializer(TFixture& f)
 {
     using TransportPtr = typename TFixture::TransportPtr;
 
-    f.lstn.establish([&](std::error_code ec, int, TransportPtr transport)
+    f.lstn.establish([&](ErrorOr<TransportPtr> transport)
     {
-        CHECK( ec == RawsockErrc::badSerializer );
-        CHECK_FALSE( transport );
+        CHECK( transport == makeUnexpectedError(RawsockErrc::badSerializer) );
     });
 
-    f.cnct.establish([&](std::error_code ec, int, TransportPtr transport)
+    f.cnct.establish([&](ErrorOr<TransportPtr> transport)
     {
-        CHECK( ec == RawsockErrc::badSerializer );
-        CHECK_FALSE( transport );
+        CHECK( transport == makeUnexpectedError(RawsockErrc::badSerializer) );
     });
 
     CHECK_NOTHROW( f.run() );
@@ -167,7 +165,7 @@ inline void checkCannedServerHandshake(uint32_t cannedHandshake,
                                        std::error_code expectedErrorCode)
 {
     using AsioConnector = internal::AsioConnector<internal::TcpOpener>;
-    using TransportPtr  = AsioConnector::TransportingPtr;
+    using TransportingPtr  = typename Transporting::Ptr;
 
     AsioContext ioctx;
     internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
@@ -178,14 +176,13 @@ inline void checkCannedServerHandshake(uint32_t cannedHandshake,
                              {tcpLoopbackAddr, tcpTestPort});
     AsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
 
-    lstn.establish( [](std::error_code, int, TransportPtr) {} );
+    lstn.establish( [](ErrorOr<TransportingPtr>) {} );
 
     bool aborted = false;
     cnct.establish(
-        [&](std::error_code ec, int, TransportPtr transport)
+        [&](ErrorOr<TransportingPtr> transport)
         {
-            CHECK( ec == expectedErrorCode );
-            CHECK_FALSE( transport );
+            CHECK( transport == makeUnexpected(expectedErrorCode) );
             aborted = true;
         });
 
@@ -221,19 +218,18 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
 
     bool serverAborted = false;
     lstn.establish(
-        [&](std::error_code ec, int, TransportPtr transport)
+        [&](ErrorOr<TransportPtr> transport)
         {
-            CHECK( ec == expectedServerCode );
+            CHECK( transport == makeUnexpectedError(expectedServerCode) );
             CHECK_FALSE( transport );
             serverAborted = true;
         });
 
     bool clientAborted = false;
     cnct.establish(
-        [&](std::error_code ec, int, TransportPtr transport)
+        [&](ErrorOr<TransportPtr> transport)
         {
-            CHECK( ec == expectedClientCode );
-            CHECK_FALSE( transport );
+            CHECK( transport == makeUnexpectedError(expectedClientCode) );
             clientAborted = true;
         });
 
@@ -349,15 +345,15 @@ SCENARIO( "Maximum length messages", "[Transport]" )
 GIVEN( "a connected client/server TCP transport pair" )
 {
     TcpLoopbackFixture f;
-    const MessageBuffer message(f.client->limits().maxRxLength, 'm');
-    const MessageBuffer reply(f.server->limits().maxRxLength, 'r');;
+    const MessageBuffer message(f.client->info().maxRxLength, 'm');
+    const MessageBuffer reply(f.server->info().maxRxLength, 'r');;
     checkSendReply(f, message, reply);
 }
 GIVEN( "a connected client/server UDS transport pair" )
 {
     UdsLoopbackFixture f;
-    const MessageBuffer message(f.client->limits().maxRxLength, 'm');
-    const MessageBuffer reply(f.server->limits().maxRxLength, 'r');;
+    const MessageBuffer message(f.client->info().maxRxLength, 'm');
+    const MessageBuffer reply(f.server->info().maxRxLength, 'r');;
     checkSendReply(f, message, reply);
 }
 }
@@ -583,17 +579,17 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
     TransportPtr client;
 
     lstn.establish(
-        [&](std::error_code ec, int, TransportPtr transport)
+        [&](ErrorOr<TransportPtr> transport)
         {
-            REQUIRE_FALSE( ec );
-            server = std::move(transport);
+            REQUIRE( transport.has_value() );
+            server = std::move(*transport);
         });
 
     cnct.establish(
-        [&](std::error_code ec, int, TransportPtr transport)
+        [&](ErrorOr<TransportPtr> transport)
         {
-            REQUIRE_FALSE( ec );
-            client = std::move(transport);
+            REQUIRE( transport.has_value() );
+            client = std::move(*transport);
         });
 
     CHECK_NOTHROW( ioctx.run() );
@@ -653,17 +649,17 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
     TransportPtr client;
 
     lstn.establish(
-        [&](std::error_code ec, int, TransportPtr transport)
+        [&](ErrorOr<TransportPtr> transport)
         {
-            REQUIRE_FALSE( ec );
-            server = std::move(transport);
+            REQUIRE( transport.has_value() );
+            server = std::move(*transport);
         });
 
     cnct.establish(
-        [&](std::error_code ec, int, TransportPtr transport)
+        [&](ErrorOr<TransportPtr> transport)
         {
-            REQUIRE_FALSE( ec );
-            client = std::move(transport);
+            REQUIRE( transport.has_value() );
+            client = std::move(*transport);
         });
 
     CHECK_NOTHROW( ioctx.run() );
@@ -733,17 +729,17 @@ GIVEN ( "A fake server that sends an invalid message type" )
     TransportPtr client;
 
     lstn.establish(
-        [&](std::error_code ec, int, TransportPtr transport)
+        [&](ErrorOr<TransportPtr> transport)
         {
-            REQUIRE_FALSE( ec );
-            server = std::static_pointer_cast<FakeTransport>(transport);
+            REQUIRE( transport.has_value() );
+            server = std::dynamic_pointer_cast<FakeTransport>(*transport);
         });
 
     cnct.establish(
-        [&](std::error_code ec, int, TransportPtr transport)
+        [&](ErrorOr<TransportPtr> transport)
         {
-            REQUIRE_FALSE( ec );
-            client = std::move(transport);
+            REQUIRE( transport.has_value() );
+            client = std::move(*transport);
         });
 
     CHECK_NOTHROW( ioctx.run() );
@@ -803,17 +799,17 @@ GIVEN ( "A fake client that sends an invalid message type" )
     FakeTransportPtr client;
 
     lstn.establish(
-        [&](std::error_code ec, int, TransportPtr transport)
+        [&](ErrorOr<TransportPtr> transport)
         {
-            REQUIRE_FALSE( ec );
-            server = std::move(transport);
+            REQUIRE( transport.has_value() );
+            server = std::move(*transport);
         });
 
     cnct.establish(
-        [&](std::error_code ec, int, TransportPtr transport)
+        [&](ErrorOr<TransportPtr> transport)
         {
-            REQUIRE_FALSE( ec );
-            client = std::static_pointer_cast<FakeTransport>(transport);
+            REQUIRE( transport.has_value() );
+            client = std::dynamic_pointer_cast<FakeTransport>(*transport);
         });
 
     CHECK_NOTHROW( ioctx.run() );

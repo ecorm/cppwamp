@@ -53,7 +53,7 @@ protected:
         else if (hs.reserved() != 0)
             Base::fail(RawsockErrc::reservedBitsUsed);
         else if (hs.codecId() == codecId_)
-            Base::complete(codecId_, limits(hs));
+            Base::complete(info(hs));
         else if (hs.hasError())
             Base::fail(hs.errorCode());
         else
@@ -61,9 +61,11 @@ protected:
     }
 
 private:
-    TransportLimits limits(Handshake hs) const
+    TransportInfo info(Handshake hs) const
     {
-        return {hs.maxLengthInBytes(), Handshake::byteLengthOf(maxRxLength_)};
+        return {codecId_,
+                hs.maxLengthInBytes(),
+                Handshake::byteLengthOf(maxRxLength_)};
     }
 
     int codecId_;

@@ -28,6 +28,12 @@ namespace wamp
 namespace internal { class TcpOpener; } // Forward declaration
 
 //------------------------------------------------------------------------------
+struct Tcp
+{
+    constexpr Tcp() = default;
+};
+
+//------------------------------------------------------------------------------
 /** Contains options for the TCP transport.
     @note Support for these options depends on the the operating system.
     @see https://man7.org/linux/man-pages/man7/socket.7.html
@@ -103,6 +109,9 @@ private:
 class CPPWAMP_API TcpHost
 {
 public:
+    /// Transport protocol tag associated these settings.
+    using Protocol = Tcp;
+
     /// The default maximum length permitted for incoming messages.
     static constexpr RawsockMaxLength defaultMaxRxLength =
         RawsockMaxLength::MB_16;

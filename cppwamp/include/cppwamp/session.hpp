@@ -22,6 +22,7 @@
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "chits.hpp"
+#include "codec.hpp"
 #include "config.hpp"
 #include "connector.hpp"
 #include "error.hpp"
@@ -152,31 +153,33 @@ public:
         boost::asio::async_initiate<C, void(T)>(std::declval<GenericOp&>(),
                                                 std::declval<C&>()));
     /** Creates a new Session instance. */
-    static Ptr create(AnyIoExecutor exec, const Connecting::Ptr& connector);
+    static Ptr create(const AnyIoExecutor& exec);
 
     /** Creates a new Session instance. */
-    static Ptr create(AnyIoExecutor exec, const ConnectorList& connectors);
+    static Ptr create(const AnyIoExecutor& exec, AnyIoExecutor userExec);
 
-    /** Creates a new Session instance.
-        @copydetails Session::create(AnyIoExecutor, const Connecting::Ptr&)
-        @details Only participates in overload resolution when
-                 `isExecutionContext<TExecutionContext>() == true`
-        @tparam TExecutionContext Must meet the requirements of
-                                  Boost.Asio's ExecutionContext */
     template <typename TExecutionContext>
     static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<TExecutionContext>())
     create(
-        TExecutionContext& context, /**< Provides executor with which to
-                                         post all user-provided handlers. */
-        const Connecting::Ptr& connector /**< Connection details for the
-                                             transport to use. */
-        )
+        TExecutionContext& context
+            /**< Context providing the executor from which Session will extract
+                 a strand for its internal I/O operations. */
+    )
     {
-        return create(context.get_executor(), connector);
+        return create(context.get_executor());
     }
 
     /** Creates a new Session instance.
-        @copydetails Session::create(AnyIoExecutor, const ConnectorList&)
+        @deprecated Pass connection wish list to Session::connect instead. */
+    static Ptr create(AnyIoExecutor userExec, LegacyConnector connector);
+
+    /** Creates a new Session instance.
+        @deprecated Pass connection wish list to Session::connect instead. */
+    static Ptr create(AnyIoExecutor userExec, ConnectorList connectors);
+
+    /** Creates a new Session instance.
+        @deprecated Pass connection wish list to Session::connect instead.
+        @copydetails Session::create(AnyIoExecutor, LegacyConnector)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
         @tparam TExecutionContext Must meet the requirements of
@@ -184,13 +187,32 @@ public:
     template <typename TExecutionContext>
     static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<TExecutionContext>())
     create(
-        TExecutionContext& context, /**< Provides executor with which to
-                                         post all user-provided handlers. */
-        const ConnectorList& connectors  /**< Connection details for the
-                                              transport to use. */
+        TExecutionContext& userContext, /**< Provides executor with which to
+                                             post all user-provided handlers. */
+        LegacyConnector connector /**< Connection details for the
+                                       transport to use. */
+        )
+    {
+        return create(userContext.get_executor(), std::move(connector));
+    }
+
+    /** Creates a new Session instance.
+        @deprecated Pass connection wish list to Session::connect instead.
+        @copydetails Session::create(AnyIoExecutor, ConnectorList)
+        @details Only participates in overload resolution when
+                 `isExecutionContext<TExecutionContext>() == true`
+        @tparam TExecutionContext Must meet the requirements of
+                                  Boost.Asio's ExecutionContext */
+    template <typename TExecutionContext>
+    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<TExecutionContext>())
+    create(
+        TExecutionContext& userContext, /**< Provides executor with which to
+                                             post all user-provided handlers. */
+        ConnectorList connectors  /**< Connection details for the
+                                       transport to use. */
     )
     {
-        return create(context.get_executor(), connectors);
+        return create(userContext.get_executor(), std::move(connectors));
     }
 
     /** Obtains a dictionary of roles and features supported on the client
@@ -255,9 +277,32 @@ public:
     /** Asynchronously attempts to connect to a router. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
-    connect(C&& completion);
+    connect(ConnectionWish wish, C&& completion);
 
     /** Thread-safe connect. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
+    connect(ThreadSafe, ConnectionWish wish, C&& completion);
+
+    /** Asynchronously attempts to connect to a router. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
+    connect(ConnectionWishList wishes, C&& completion);
+
+    /** Thread-safe connect. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
+    connect(ThreadSafe, ConnectionWishList wishes, C&& completion);
+
+    /** Asynchronously attempts to connect to a router using the legacy
+        connectors passed during session creation.
+        @deprecated Use a connect overload taking wishes instead. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
+    connect(C&& completion);
+
+    /** Thread-safe legacy connect.
+        @deprecated Use a connect overload taking wishes instead. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
     connect(ThreadSafe, C&& completion);
@@ -481,28 +526,34 @@ private:
     template <typename TResultValue, typename F>
     bool checkState(State expectedState, F& handler);
 
-    void asyncConnect(CompletionHandler<size_t>&& handler);
+    void asyncConnect(ConnectionWishList wishes,
+                      CompletionHandler<size_t>&& handler);
+
+    CPPWAMP_HIDDEN explicit Session(const AnyIoExecutor& exec,
+                                    AnyIoExecutor userExec);
 
     CPPWAMP_HIDDEN explicit Session(AnyIoExecutor userExec,
-                                    const ConnectorList& connectors);
+                                    ConnectorList connectors);
 
     CPPWAMP_HIDDEN void warn(std::string message);
 
     CPPWAMP_HIDDEN void setState(SessionState state);
 
     CPPWAMP_HIDDEN void doConnect(
-        size_t index, std::shared_ptr<CompletionHandler<size_t>> handler);
-
-    CPPWAMP_INLINE void onConnectFailure(
-        size_t index, std::error_code ec,
+        ConnectionWishList&& wishes, size_t index,
         std::shared_ptr<CompletionHandler<size_t>> handler);
 
-    CPPWAMP_INLINE void onConnectSuccess(
-        size_t index, ImplPtr impl,
+    CPPWAMP_HIDDEN void onConnectFailure(
+        ConnectionWishList&& wishes, size_t index, std::error_code ec,
+        std::shared_ptr<CompletionHandler<size_t>> handler);
+
+    CPPWAMP_HIDDEN void onConnectSuccess(
+        size_t index, AnyBufferCodec&& codec, Transporting::Ptr transport,
             std::shared_ptr<CompletionHandler<size_t>> handler);
 
+    IoStrand strand_;
     AnyIoExecutor userExecutor_;
-    ConnectorList connectors_;
+    ConnectorList legacyConnectors_;
     Connecting::Ptr currentConnector_;
     ReusableHandler<std::string> warningHandler_;
     ReusableHandler<std::string> traceHandler_;
@@ -565,20 +616,136 @@ struct Session::ConnectOp
 {
     using ResultValue = size_t;
     Session* self;
+    ConnectionWishList wishes;
     template <typename F> void operator()(F&& f)
     {
-        self->asyncConnect(std::forward<F>(f));
+        self->asyncConnect(std::move(wishes), std::forward<F>(f));
     }
 };
 
 //------------------------------------------------------------------------------
 /** @details
+    The session will attempt to connect using the transport/codec combinations
+    specified in the given ConnectionWishList, in the same order.
+    @return The index of the ConnectionWish used to establish the connetion
+            (always zero for this overload).
+    @post `this->state() == SessionState::connecting` if successful
+    @par Error Codes
+        - TransportErrc::aborted if the connection attempt was aborted.
+        - SessionErrc::allTransportsFailed if more than one transport was
+          specified and they all failed to connect.
+        - SessionErrc::invalidState if the session was not disconnected
+          before the attempt to connect.
+        - Some other platform or transport-dependent `std::error_code` if
+          only one transport was specified and it failed to connect. */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<std::size_t>, C>
+#else
+Session::template Deduced<ErrorOr<std::size_t>, C>
+#endif
+Session::connect(
+    ConnectionWish wish, /**< Transport/codec combination to use for
+                              attempting connection. */
+    C&& completion /**< A callable handler of type `void(ErrorOr<size_t>)`,
+                        or a compatible Boost.Asio completion token. */
+    )
+{
+    return connect(ConnectionWishList{std::move(wish)},
+                   std::forward<C>(completion));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::connect(ConnectionWishList, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<std::size_t>, C>
+#else
+Session::template Deduced<ErrorOr<std::size_t>, C>
+#endif
+Session::connect(
+    ThreadSafe,
+    ConnectionWish wish, /**< Transport/codec combination to use for
+                              attempting connection. */
+    C&& completion /**< A callable handler of type void(ErrorOr<size_t>),
+                        or a compatible Boost.Asio completion token. */
+    )
+{
+    return connect(threadSafe, ConnectionWishList{std::move(wish)},
+                   std::forward<C>(completion));
+}
+
+//------------------------------------------------------------------------------
+/** @details
+    The session will attempt to connect using the transport/codec combinations
+    specified in the given ConnectionWishList, in the same order.
+    @return The index of the ConnectionWish used to establish the connetion.
+    @pre `wishes.empty() == false`
+    @post `this->state() == SessionState::connecting` if successful
+    @throws error::Logic if the given wish list is empty
+    @par Error Codes
+        - TransportErrc::aborted if the connection attempt was aborted.
+        - SessionErrc::allTransportsFailed if more than one transport was
+          specified and they all failed to connect.
+        - SessionErrc::invalidState if the session was not disconnected
+          before the attempt to connect.
+        - Some other platform or transport-dependent `std::error_code` if
+          only one transport was specified and it failed to connect. */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<std::size_t>, C>
+#else
+Session::template Deduced<ErrorOr<std::size_t>, C>
+#endif
+Session::connect(
+    ConnectionWishList wishes, /**< List of transport addresses/options/codecs
+                                    to use for attempting connection. */
+    C&& completion /**< A callable handler of type `void(ErrorOr<size_t>)`,
+                        or a compatible Boost.Asio completion token. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(!wishes.empty(),
+                        "Session::connect ConnectionWishList cannot be empty");
+    return initiate<ConnectOp>(std::forward<C>(completion), std::move(wishes));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::connect(ConnectionWishList, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<std::size_t>, C>
+#else
+Session::template Deduced<ErrorOr<std::size_t>, C>
+#endif
+Session::connect(
+    ThreadSafe,
+    ConnectionWishList wishes, /**< List of transport addresses/options/codecs
+                                    to use for attempting connection. */
+    C&& completion /**< A callable handler of type void(ErrorOr<size_t>),
+                        or a compatible Boost.Asio completion token. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(!wishes.empty(),
+                        "Session::connect ConnectionWishList cannot be empty");
+    return safelyInitiate<ConnectOp>(std::forward<C>(completion),
+                                     std::move(wishes));
+}
+
+//------------------------------------------------------------------------------
+/** @details
     The session will attempt to connect using the transports that were
-    specified by the wamp::Connecting objects passed during create().
+    specified by the wamp::LegacyConnect objects passed during create().
     If more than one transport was specified, they will be traversed in the
     same order as they appeared in the @ref ConnectorList.
     @return The index of the Connecting object used to establish the connetion.
+    @pre The Session::create overload taking legacy connectors was used.
     @post `this->state() == SessionState::connecting` if successful
+    @throws error::Logic if the Session::create overload taking legacy
+            connectors was not used.
     @par Error Codes
         - TransportErrc::aborted if the connection attempt was aborted.
         - SessionErrc::allTransportsFailed if more than one transport was
@@ -599,7 +766,13 @@ Session::connect(
                         or a compatible Boost.Asio completion token. */
     )
 {
-    return initiate<ConnectOp>(std::forward<C>(completion));
+    CPPWAMP_LOGIC_CHECK(!legacyConnectors_.empty(),
+                        "Session::connect: No legacy connectors passed "
+                        "in Session::create");
+    ConnectionWishList wishes;
+    for (const auto& c: legacyConnectors_)
+        wishes.emplace_back(c);
+    return connect(std::move(wishes), std::forward<C>(completion));
 }
 
 //------------------------------------------------------------------------------
@@ -617,7 +790,13 @@ Session::connect(
                         or a compatible Boost.Asio completion token. */
     )
 {
-    return safelyInitiate<ConnectOp>(std::forward<C>(completion));
+    CPPWAMP_LOGIC_CHECK(!legacyConnectors_.empty(),
+                        "Session::connect: No legacy connectors passed "
+                        "in Session::create");
+    ConnectionWishList wishes;
+    for (const auto& c: legacyConnectors_)
+        wishes.emplace_back(c);
+    return connect(threadSafe, std::move(wishes), std::forward<C>(completion));
 }
 
 //------------------------------------------------------------------------------

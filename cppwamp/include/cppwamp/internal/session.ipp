@@ -7,9 +7,30 @@
 #include "../session.hpp"
 #include <cassert>
 #include "../api.hpp"
+#include "client.hpp"
 
 namespace wamp
 {
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Session::Ptr Session::create(
+    const AnyIoExecutor& exec /**< Executor from which Session will extract
+                                   a strand for its internal I/O operations */
+)
+{
+    return Ptr(new Session(exec, exec));
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Session::Ptr Session::create(
+    const AnyIoExecutor& exec, /**< Executor from which Session will extract
+                                    a strand for its internal I/O operations */
+    AnyIoExecutor userExec     /**< Fallback executor to use for user
+                                    handlers that have none bound. */
+)
+{
+    return Ptr(new Session(exec, std::move(userExec)));
+}
 
 //------------------------------------------------------------------------------
 /** @details
@@ -20,13 +41,13 @@ namespace wamp
     @return A shared pointer to the created session object. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
-    AnyIoExecutor exec,             /**< Fallback executor with which to execute
-                                         user-provided handlers. */
-    const Connecting::Ptr& connector /**< Connection details for the transport
-                                         to use. */
+    AnyIoExecutor userExec,   /**< Fallback executor with which to execute
+                                   user-provided handlers. */
+    LegacyConnector connector /**< Connection details for the transport to use. */
 )
 {
-    return Ptr(new Session(exec, {connector}));
+    return Ptr(new Session(std::move(userExec),
+                           ConnectorList{std::move(connector)}));
 }
 
 //------------------------------------------------------------------------------
@@ -40,13 +61,14 @@ CPPWAMP_INLINE Session::Ptr Session::create(
     @throws error::Logic if `connectors.empty() == true` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
-    AnyIoExecutor exec,             /**< Fallback executor with which to execute
-                                         user-provided handlers. */
-    const ConnectorList& connectors /**< A list of connection details for
-                                         the transports to use. */
+    AnyIoExecutor userExec,  /**< Fallback executor with which to execute
+                                  user-provided handlers. */
+    ConnectorList connectors /**< A list of connection details for
+                                  the transports to use. */
 )
 {
-    return Ptr(new Session(exec, connectors));
+    CPPWAMP_LOGIC_CHECK(!connectors.empty(), "Connector list is empty");
+    return Ptr(new Session(std::move(userExec), std::move(connectors)));
 }
 
 //------------------------------------------------------------------------------
@@ -91,12 +113,7 @@ CPPWAMP_INLINE AnyIoExecutor Session::userIosvc() const
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE IoStrand Session::strand() const
 {
-    auto impl = std::weak_ptr<internal::ClientInterface>(impl_).lock();
-    if (impl)
-        return impl->strand();
-    else if (!connectors_.empty())
-        return connectors_.front()->strand();
-    return {};
+    return strand_;
 }
 
 //------------------------------------------------------------------------------
@@ -526,9 +543,10 @@ CPPWAMP_INLINE void Session::cancel(
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::asyncConnect(CompletionHandler<size_t>&& handler)
+CPPWAMP_INLINE void Session::asyncConnect(ConnectionWishList wishes,
+                                          CompletionHandler<size_t>&& handler)
 {
-    assert(!connectors_.empty());
+    assert(!wishes.empty());
     if (!checkState<size_t>(State::disconnected, handler))
         return;
 
@@ -541,19 +559,25 @@ CPPWAMP_INLINE void Session::asyncConnect(CompletionHandler<size_t>&& handler)
     auto sharedHandler =
         std::make_shared<CompletionHandler<size_t>>(std::move(handler));
 
-    doConnect(0, std::move(sharedHandler));
+    doConnect(std::move(wishes), 0, std::move(sharedHandler));
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Session::Session(AnyIoExecutor userExec,
-                                const ConnectorList& connectors)
-    : userExecutor_(userExec),
+CPPWAMP_INLINE Session::Session(const AnyIoExecutor& exec,
+                                AnyIoExecutor userExec)
+    : strand_(boost::asio::make_strand(exec)),
+      userExecutor_(std::move(userExec)),
       state_(State::disconnected)
-{
-    CPPWAMP_LOGIC_CHECK(!connectors.empty(), "Connector list is empty");
-    for (const auto& cnct: connectors)
-        connectors_.push_back(cnct->clone());
-}
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Session::Session(AnyIoExecutor userExec,
+                                ConnectorList connectors)
+    : strand_(boost::asio::make_strand(connectors.at(0).executor())),
+      userExecutor_(std::move(userExec)),
+      legacyConnectors_(std::move(connectors)),
+      state_(State::disconnected)
+{}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::warn(std::string log)
@@ -572,41 +596,50 @@ CPPWAMP_INLINE void Session::setState(SessionState s)
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::doConnect(
-    size_t index, std::shared_ptr<CompletionHandler<size_t>> handler)
+    ConnectionWishList&& wishes, size_t index, std::shared_ptr<CompletionHandler<size_t>> handler)
 {
+    using std::move;
     struct Established
     {
-        std::weak_ptr<Session> self;
+        Ptr self;
+        ConnectionWishList wishes;
         size_t index;
         std::shared_ptr<CompletionHandler<size_t>> handler;
 
-        void operator()(std::error_code ec, ImplPtr impl)
+        void operator()(ErrorOr<Transporting::Ptr> transport)
         {
-            auto me = self.lock();
-            if (me && !me->isTerminating_)
+            auto& me = *self;
+            if (!me.isTerminating_)
             {
-                if (ec)
+                if (!transport)
                 {
-                    me->onConnectFailure(index, ec, std::move(handler));
+                    me.onConnectFailure(move(wishes), index, transport.error(),
+                                        move(handler));
+                }
+                else if (me.state() != State::connecting)
+                {
+                    auto ec = make_error_code(TransportErrc::aborted);
+                    postVia(me.userExecutor_, std::move(*handler),
+                            UnexpectedError(ec));
                 }
                 else
                 {
-                    assert(impl);
-                    me->onConnectSuccess(index, std::move(impl),
-                                         std::move(handler));
+                    auto codec = wishes.at(index).makeCodec();
+                    me.onConnectSuccess(index, move(codec), move(*transport),
+                                        move(handler));
                 }
             }
         }
     };
 
-    currentConnector_ = connectors_.at(index);
+    auto connector = wishes.at(index).makeConnector(strand_);
     currentConnector_->establish(
-        Established{shared_from_this(), index, std::move(handler)});
+        Established{shared_from_this(), move(wishes), index, move(handler)});
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::onConnectFailure(
-    size_t index, std::error_code ec,
+    ConnectionWishList&& wishes, size_t index, std::error_code ec,
     std::shared_ptr<CompletionHandler<size_t>> handler)
 {
     if (ec == TransportErrc::aborted)
@@ -616,12 +649,14 @@ CPPWAMP_INLINE void Session::onConnectFailure(
     else
     {
         auto newIndex = index + 1;
-        if (newIndex < connectors_.size())
-            doConnect(newIndex, std::move(handler));
+        if (newIndex < wishes.size())
+        {
+            doConnect(std::move(wishes), newIndex, std::move(handler));
+        }
         else
         {
             setState(State::failed);
-            if (connectors_.size() > 1)
+            if (wishes.size() > 1)
                 ec = make_error_code(SessionErrc::allTransportsFailed);
             postVia(userExecutor_, std::move(*handler), UnexpectedError(ec));
         }
@@ -630,22 +665,15 @@ CPPWAMP_INLINE void Session::onConnectFailure(
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::onConnectSuccess(
-    size_t index, ImplPtr impl,
+    size_t index, AnyBufferCodec&& codec, Transporting::Ptr transport,
     std::shared_ptr<CompletionHandler<size_t>> handler)
 {
-    if (state() == State::connecting)
-    {
-        impl_ = std::move(impl);
-        impl_->initialize(userExecutor_, warningHandler_, traceHandler_,
-                          stateChangeHandler_, challengeHandler_);
-        setState(State::closed);
-        postVia(userExecutor_, std::move(*handler), index);
-    }
-    else
-    {
-        auto ec = make_error_code(TransportErrc::aborted);
-        postVia(userExecutor_, std::move(*handler), UnexpectedError(ec));
-    }
+    impl_ = internal::Client::create(std::move(codec),
+                                     std::move(transport));
+    impl_->initialize(userExecutor_, warningHandler_, traceHandler_,
+                      stateChangeHandler_, challengeHandler_);
+    setState(State::closed);
+    postVia(userExecutor_, std::move(*handler), index);
 }
 
 } // namespace wamp

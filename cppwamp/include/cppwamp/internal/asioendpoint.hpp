@@ -14,7 +14,7 @@
 #include <boost/asio/read.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/write.hpp>
-#include "../error.hpp"
+#include "../erroror.hpp"
 #include "asiotransport.hpp"
 #include "rawsockhandshake.hpp"
 
@@ -38,8 +38,7 @@ public:
     using Socket          = typename Establisher::Socket;
     using Transport       = TTransport<Socket>;
     using TransportingPtr = typename Transporting::Ptr;
-    using Handler         = std::function<void (std::error_code, int codecId,
-                                                TransportingPtr)>;
+    using Handler         = std::function<void (ErrorOr<TransportingPtr>)>;
 
     explicit AsioEndpoint(Establisher&& est)
         : strand_(est.strand()),
@@ -109,11 +108,11 @@ protected:
             });
     }
 
-    void complete(int codecId, TransportLimits limits)
+    void complete(TransportInfo info)
     {
-        auto transport = Transport::create(std::move(socket_), limits);
-        std::error_code ec = make_error_code(TransportErrc::success);
-        postHandler(ec, codecId, std::move(transport));
+        Transporting::Ptr transport{Transport::create(std::move(socket_),
+                                                      info)};
+        postHandler(std::move(transport));
         socket_.reset();
         handler_ = nullptr;
     }
@@ -121,7 +120,7 @@ protected:
     void fail(RawsockErrc errc)
     {
         socket_.reset();
-        postHandler(make_error_code(errc), 0, nullptr);
+        postHandler(makeUnexpectedError(errc));
         handler_ = nullptr;
     }
 
@@ -129,9 +128,9 @@ protected:
     {
         if (asioEc)
         {
-            auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
             socket_.reset();
-            postHandler(ec, 0, nullptr);
+            auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
+            postHandler(makeUnexpected(ec));
             handler_ = nullptr;
         }
         return !asioEc;

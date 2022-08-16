@@ -10,6 +10,7 @@
 #include <functional>
 #include <memory>
 #include <system_error>
+#include <vector>
 #include "asiodefs.hpp"
 #include "messagebuffer.hpp"
 
@@ -17,8 +18,9 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-struct TransportLimits
+struct TransportInfo
 {
+    int codecId;
     std::size_t maxTxLength;
     std::size_t maxRxLength;
 };
@@ -44,7 +46,7 @@ public:
 
     virtual IoStrand strand() const = 0;
 
-    virtual TransportLimits limits() const = 0;
+    virtual TransportInfo info() const = 0;
 
     virtual bool isOpen() const = 0;
 

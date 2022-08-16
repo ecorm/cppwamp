@@ -75,9 +75,9 @@ class FakeMsgTypeTransport :
 public:
     using Ptr = std::shared_ptr<FakeMsgTypeTransport>;
 
-    static Ptr create(SocketPtr&& s, TransportLimits limits)
+    static Ptr create(SocketPtr&& s, TransportInfo info)
     {
-        return Ptr(new FakeMsgTypeTransport(std::move(s), limits));
+        return Ptr(new FakeMsgTypeTransport(std::move(s), info));
     }
 
     void send(MessageBuffer message)
@@ -112,12 +112,11 @@ public:
     {
         if (!hs.hasError())
         {
-            auto trnsp = FakeMsgTypeTransport::create(std::move(socket_),
-                                                      {64*1024, 64*1024});
-            std::error_code ec = make_error_code(TransportErrc::success);
-            boost::asio::post(strand_,
-                              std::bind(handler_, ec, KnownCodecIds::json(),
-                                        std::move(trnsp)));
+            Transporting::Ptr trnsp{
+                FakeMsgTypeTransport::create(
+                    std::move(socket_),
+                    {KnownCodecIds::json(), 64*1024, 64*1024})};
+            boost::asio::post(strand_, std::bind(handler_, std::move(trnsp)));
             socket_.reset();
             handler_ = nullptr;
         }
@@ -147,12 +146,11 @@ public:
             Base::fail(RawsockErrc::reservedBitsUsed);
         else if (hs.codecId() == KnownCodecIds::json())
         {
-            auto trnsp = FakeMsgTypeTransport::create(std::move(socket_),
-                                                      {64*1024, 64*1024});
-            std::error_code ec = make_error_code(TransportErrc::success);
-            boost::asio::post(strand_,
-                              std::bind(handler_, ec, KnownCodecIds::json(),
-                                        std::move(trnsp)));
+            Transporting::Ptr trnsp{
+                FakeMsgTypeTransport::create(
+                    std::move(socket_),
+                    {KnownCodecIds::json(), 64*1024, 64*1024})};
+            boost::asio::post(strand_, std::bind(handler_, std::move(trnsp)));
             socket_.reset();
             handler_ = nullptr;
         }

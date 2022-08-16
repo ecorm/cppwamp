@@ -25,16 +25,8 @@ const std::string testRealm = "cppwamp.test";
 const short testPort = 12345;
 const std::string authTestRealm = "cppwamp.authtest";
 const short authTestPort = 23456;
-
-Connecting::Ptr withTcp(AsioContext& ioctx)
-{
-    return connector<Json>(ioctx, TcpHost("localhost", testPort));
-}
-
-Connecting::Ptr authTcp(AsioContext& ioctx)
-{
-    return connector<Json>(ioctx, TcpHost("localhost", authTestPort));
-}
+const ConnectionWish withTcp{TcpHost("localhost", testPort), json};
+const ConnectionWish authTcp{TcpHost("localhost", authTestPort), json};
 
 void suspendCoro(boost::asio::yield_context& yield)
 {
@@ -44,17 +36,17 @@ void suspendCoro(boost::asio::yield_context& yield)
 //------------------------------------------------------------------------------
 struct RpcFixture
 {
-    template <typename TConnector>
-    RpcFixture(AsioContext& ioctx, TConnector cnct)
-        : caller(Session::create(ioctx, cnct)),
-          callee(Session::create(ioctx, cnct))
+    RpcFixture(AsioContext& ioctx, ConnectionWish wish)
+        : where(std::move(wish)),
+          caller(Session::create(ioctx)),
+          callee(Session::create(ioctx))
     {}
 
     void join(boost::asio::yield_context yield)
     {
-        caller->connect(yield).value();
+        caller->connect(where, yield).value();
         callerId = caller->join(Realm(testRealm), yield).value().id();
-        callee->connect(yield).value();
+        callee->connect(where, yield).value();
         callee->join(Realm(testRealm), yield).value();
     }
 
@@ -63,6 +55,8 @@ struct RpcFixture
         caller->disconnect();
         callee->disconnect();
     }
+
+    ConnectionWish where;
 
     Session::Ptr caller;
     Session::Ptr callee;
@@ -73,17 +67,17 @@ struct RpcFixture
 //------------------------------------------------------------------------------
 struct PubSubFixture
 {
-    template <typename TConnector>
-    PubSubFixture(AsioContext& ioctx, TConnector cnct)
-        : publisher(Session::create(ioctx, cnct)),
-          subscriber(Session::create(ioctx, cnct))
+    PubSubFixture(AsioContext& ioctx, ConnectionWish wish)
+        : where(std::move(wish)),
+          publisher(Session::create(ioctx)),
+          subscriber(Session::create(ioctx))
     {}
 
     void join(boost::asio::yield_context yield)
     {
-        publisher->connect(yield).value();
+        publisher->connect(where, yield).value();
         publisherId = publisher->join(Realm(testRealm), yield).value().id();
-        subscriber->connect(yield).value();
+        subscriber->connect(where, yield).value();
         subscriber->join(Realm(testRealm), yield).value();
     }
 
@@ -92,6 +86,8 @@ struct PubSubFixture
         publisher->disconnect();
         subscriber->disconnect();
     }
+
+    ConnectionWish where;
 
     Session::Ptr publisher;
     Session::Ptr subscriber;
@@ -103,9 +99,9 @@ struct PubSubFixture
 //------------------------------------------------------------------------------
 struct TicketAuthFixture
 {
-    template <typename TConnector>
-    TicketAuthFixture(AsioContext& ioctx, TConnector cnct)
-        : session(Session::create(ioctx, cnct))
+    TicketAuthFixture(AsioContext& ioctx, ConnectionWish wish)
+        : where(std::move(wish)),
+          session(Session::create(ioctx))
     {
         session->setChallengeHandler( [this](Challenge c){onChallenge(c);} );
     }
@@ -113,7 +109,7 @@ struct TicketAuthFixture
     void join(String authId, String signature, boost::asio::yield_context yield)
     {
         this->signature = std::move(signature);
-        session->connect(yield).value();
+        session->connect(where, yield).value();
         info = session->join(Realm(authTestRealm).withAuthMethods({"ticket"})
                                                  .withAuthId(std::move(authId))
                                                  .captureAbort(abort),
@@ -128,6 +124,7 @@ struct TicketAuthFixture
         authChallenge.authenticate(Authentication(signature));
     }
 
+    ConnectionWish where;
     Session::Ptr session;
     String signature;
     SessionState challengeState = SessionState::closed;
@@ -146,7 +143,7 @@ SCENARIO( "WAMP RPC advanced features", "[WAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, withTcp(ioctx));
+    RpcFixture f(ioctx, withTcp);
 
     WHEN( "using caller identification" )
     {
@@ -223,7 +220,7 @@ SCENARIO( "WAMP progressive call results", "[WAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, withTcp(ioctx));
+    RpcFixture f(ioctx, withTcp);
 
     WHEN( "using progressive call results" )
     {
@@ -440,7 +437,7 @@ SCENARIO( "RPC Cancellation", "[WAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, withTcp(ioctx));
+    RpcFixture f(ioctx, withTcp);
 
     WHEN( "cancelling an RPC in kill mode via a CallChit before it returns" )
     {
@@ -832,7 +829,7 @@ SCENARIO( "Caller-initiated timeouts", "[WAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, withTcp(ioctx));
+    RpcFixture f(ioctx, withTcp);
 
     WHEN( "the caller initiates timeouts" )
     {
@@ -927,7 +924,7 @@ SCENARIO( "WAMP pub/sub advanced features", "[WAMP][Advanced]" )
 GIVEN( "a publisher and a subscriber" )
 {
     AsioContext ioctx;
-    PubSubFixture f(ioctx, withTcp(ioctx));
+    PubSubFixture f(ioctx, withTcp);
 
     WHEN( "using publisher identification" )
     {
@@ -1044,7 +1041,7 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using subscriber black/white listing" )
     {
-        auto subscriber2 = Session::create(ioctx, withTcp(ioctx));
+        auto subscriber2 = Session::create(ioctx);
 
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
@@ -1052,7 +1049,7 @@ GIVEN( "a publisher and a subscriber" )
             int eventCount2 = 0;
 
             f.join(yield);
-            subscriber2->connect(yield).value();
+            subscriber2->connect(withTcp, yield).value();
             auto subscriber2Id =
                 subscriber2->join(Realm(testRealm), yield).value().id();
 
@@ -1097,7 +1094,7 @@ SCENARIO( "WAMP ticket authentication", "[WAMP][Advanced]" )
 GIVEN( "a Session with a registered challenge handler" )
 {
     AsioContext ioctx;
-    TicketAuthFixture f(ioctx, authTcp(ioctx));
+    TicketAuthFixture f(ioctx, authTcp);
 
     WHEN( "joining with ticket authentication requested" )
     {

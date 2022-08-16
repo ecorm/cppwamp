@@ -18,35 +18,18 @@ struct Connector<Uds>::Impl
     using Endpoint = internal::AsioConnector<internal::UdsOpener>;
     using ConcreteConnector = internal::RawsockConnector<Endpoint>;
 
-    Impl(IoStrand s, UdsPath p, BufferCodecBuilder b)
-        : cnct(ConcreteConnector::create(std::move(s), std::move(p),
-                                         std::move(b)))
+    Impl(IoStrand s, UdsPath p, int codecId)
+        : cnct(ConcreteConnector::create(std::move(s), std::move(p), codecId))
     {}
-
-    Impl(ConcreteConnector::Ptr clone) : cnct(std::move(clone)) {}
 
     ConcreteConnector::Ptr cnct;
 };
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Connector<Uds>::Ptr
-Connector<Uds>::create(const AnyIoExecutor& e, UdsPath h, BufferCodecBuilder b)
+Connector<Uds>::create(IoStrand s, UdsPath h, int codecId)
 {
-    using std::move;
-    return Ptr(new Connector(boost::asio::make_strand(e), move(h), move(b)));
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE IoStrand Connector<Uds>::strand() const
-{
-    return impl_->cnct->strand();
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Connecting::Ptr Connector<Uds>::clone() const
-{
-    auto& c = *(impl_->cnct);
-    return Ptr(new Connector(c.strand(), c.info(), c.codecBuilder()));
+    return Ptr(new Connector(std::move(s), std::move(h), codecId));
 }
 
 //------------------------------------------------------------------------------
@@ -59,9 +42,8 @@ CPPWAMP_INLINE void Connector<Uds>::establish(Handler&& handler)
 CPPWAMP_INLINE void Connector<Uds>::cancel() {impl_->cnct->cancel();}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector<Uds>::Connector(IoStrand s, UdsPath h,
-                                         BufferCodecBuilder b)
-    : impl_(new Impl(std::move(s), std::move(h), std::move(b)))
+CPPWAMP_INLINE Connector<Uds>::Connector(IoStrand s, UdsPath h, int codecId)
+    : impl_(new Impl(std::move(s), std::move(h), codecId))
 {}
 
 } // namespace wamp

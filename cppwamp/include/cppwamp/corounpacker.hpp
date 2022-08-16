@@ -21,6 +21,10 @@
 namespace wamp
 {
 
+// TODO: Make unpackers take an any_io_executor in their constructors instead
+// of using Session::userExecutor_ which should really be an
+// any_completion_executor.
+
 //------------------------------------------------------------------------------
 /** Wrapper around an event coroutine slot which automatically unpacks
     positional payload arguments.

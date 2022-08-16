@@ -68,21 +68,19 @@ struct LoopbackFixture
     void connect()
     {
         lstn.establish(
-            [&](std::error_code ec, int codec, TransportPtr transport)
+            [&](ErrorOr<TransportPtr> transportOrError)
             {
-                if (ec)
-                    throw error::Failure(ec);
-                serverCodec = codec;
+                auto transport = transportOrError.value();
+                serverCodec = transport->info().codecId;
                 server = std::move(transport);
             });
 
         cnct.establish(
-            [&](std::error_code ec, int codec, TransportPtr transport)
+            [&](ErrorOr<TransportPtr> transportOrError)
             {
-                if (ec)
-                    throw error::Failure(ec);
-                clientCodec = codec;
-                client = transport;
+                auto transport = transportOrError.value();
+                clientCodec =transport->info().codecId;
+                client = std::move(transport);
             });
 
         run();
@@ -132,28 +130,29 @@ MessageBuffer makeMessageBuffer(const std::string& str)
 //------------------------------------------------------------------------------
 template <typename TFixture>
 void checkConnection(TFixture& f, int expectedCodec,
-        size_t clientMaxRxLength = 64*1024, size_t serverMaxRxLength = 64*1024)
+                     size_t clientMaxRxLength = 64*1024,
+                     size_t serverMaxRxLength = 64*1024)
 {
     using TransportPtr = typename Transporting::Ptr;
-    f.lstn.establish([&](std::error_code ec, int codec,
-                         TransportPtr transport)
+    f.lstn.establish([&](ErrorOr<TransportPtr> transportOrError)
     {
-        REQUIRE_FALSE( ec );
+        REQUIRE( transportOrError.has_value() );
+        auto transport = *transportOrError;
         REQUIRE( transport );
-        CHECK( transport->limits().maxRxLength == serverMaxRxLength );
-        CHECK( transport->limits().maxTxLength == clientMaxRxLength );
-        CHECK( codec == expectedCodec );
+        CHECK( transport->info().codecId == expectedCodec );
+        CHECK( transport->info().maxRxLength == serverMaxRxLength );
+        CHECK( transport->info().maxTxLength == clientMaxRxLength );
         f.server = transport;
     });
 
-    f.cnct.establish([&](std::error_code ec, int codec,
-                         TransportPtr transport)
+    f.cnct.establish([&](ErrorOr<TransportPtr> transportOrError)
     {
-        REQUIRE_FALSE( ec );
+        REQUIRE( transportOrError.has_value() );
+        auto transport = *transportOrError;
         REQUIRE( transport );
-        CHECK( transport->limits().maxRxLength == clientMaxRxLength );
-        CHECK( transport->limits().maxTxLength == serverMaxRxLength );
-        CHECK( codec == expectedCodec );
+        CHECK( transport->info().codecId == expectedCodec );
+        CHECK( transport->info().maxRxLength == clientMaxRxLength );
+        CHECK( transport->info().maxTxLength == serverMaxRxLength );
         f.client = transport;
     });
 
@@ -271,25 +270,27 @@ void checkCommunications(TFixture& f)
     receivedReply = false;
 
     f.lstn.establish(
-        [&](std::error_code ec, int codec, TransportPtr transport)
+        [&](ErrorOr<TransportPtr> transportOrError)
         {
-            REQUIRE_FALSE( ec );
+            REQUIRE( transportOrError.has_value() );
+            auto transport = *transportOrError;
             REQUIRE( transport );
-            CHECK( transport->limits().maxRxLength == 64*1024 );
-            CHECK( transport->limits().maxTxLength == 64*1024 );
-            CHECK( codec == KnownCodecIds::json() );
+            CHECK( transport->info().codecId == KnownCodecIds::json() );
+            CHECK( transport->info().maxRxLength == 64*1024 );
+            CHECK( transport->info().maxTxLength == 64*1024 );
             server2 = transport;
             f.sctx.stop();
         });
 
     f.cnct.establish(
-        [&](std::error_code ec, int codec, TransportPtr transport)
+        [&](ErrorOr<TransportPtr> transportOrError)
         {
-            REQUIRE_FALSE( ec );
+            REQUIRE( transportOrError.has_value() );
+            auto transport = *transportOrError;
             REQUIRE( transport );
-            CHECK( transport->limits().maxRxLength == 64*1024 );
-            CHECK( transport->limits().maxTxLength == 64*1024 );
-            CHECK( codec == KnownCodecIds::json() );
+            CHECK( transport->info().codecId == KnownCodecIds::json() );
+            CHECK( transport->info().maxRxLength == 64*1024 );
+            CHECK( transport->info().maxTxLength == 64*1024 );
             client2 = transport;
             f.cctx.stop();
         });
@@ -395,9 +396,9 @@ template <typename TFixture>
 void checkCancelListen(TFixture& f)
 {
     using TransportPtr = typename TFixture::TransportPtr;
-    f.lstn.establish([&](std::error_code ec, int, TransportPtr transport)
+    f.lstn.establish([&](ErrorOr<TransportPtr> transport)
     {
-        CHECK( ec == TransportErrc::aborted );
+        CHECK( transport == makeUnexpectedError(TransportErrc::aborted) );
         CHECK_FALSE( transport );
     });
     f.lstn.cancel();
@@ -411,33 +412,27 @@ void checkCancelConnect(TFixture& f)
     using TransportPtr = typename TFixture::TransportPtr;
     WHEN( "the client cancels before the connection is established" )
     {
-        f.lstn.establish([&](std::error_code ec, int, TransportPtr transport)
+        f.lstn.establish([&](ErrorOr<TransportPtr> transport)
         {
-            if (!ec)
-            {
-                CHECK( transport );
-                f.server = transport;
-            }
-            else
-                CHECK_FALSE( transport );
+            if (transport.has_value())
+                f.server = *transport;
         });
 
         bool connectCanceled = false;
         bool connectCompleted = false;
         f.cnct.establish(
-            [&](std::error_code ec, int, TransportPtr transport)
+            [&](ErrorOr<TransportPtr> transport)
             {
-                REQUIRE(( !ec || ec == TransportErrc::aborted ));
-                if (ec)
+                if (transport.has_value())
                 {
-                    connectCanceled = true;
-                    CHECK_FALSE( transport );
+                    connectCompleted = true;
+                    f.client = *transport;
                 }
                 else
                 {
-                    connectCompleted = true;
-                    CHECK( transport );
-                    f.client = transport;
+                    CHECK( transport ==
+                           makeUnexpectedError(TransportErrc::aborted) );
+                    connectCanceled = true;
                 }
                 f.stop();
             });
@@ -512,19 +507,17 @@ void checkCancelSend(TFixture& f)
 {
     using TransportPtr = typename TFixture::TransportPtr;
 
-    f.lstn.establish([&](std::error_code ec, int, TransportPtr transport)
+    f.lstn.establish([&](ErrorOr<TransportPtr> transport)
     {
-        REQUIRE_FALSE( ec );
-        REQUIRE( transport );
-        f.server = transport;
+        REQUIRE(transport.has_value());
+        f.server = *transport;
     });
 
-    f.cnct.establish([&](std::error_code ec, int, TransportPtr transport)
+    f.cnct.establish([&](ErrorOr<TransportPtr> transport)
     {
-        REQUIRE_FALSE( ec );
-        REQUIRE( transport );
-        f.client = transport;
-        CHECK( f.client->limits().maxTxLength == 16*1024*1024 );
+        REQUIRE(transport.has_value());
+        f.client = *transport;
+        CHECK( f.client->info().maxTxLength == 16*1024*1024 );
     });
 
     CHECK_NOTHROW( f.run() );
@@ -541,7 +534,7 @@ void checkCancelSend(TFixture& f)
                 CHECK( ec == TransportErrc::aborted );
             });
 
-        MessageBuffer message(f.client->limits().maxTxLength, 'a');
+        MessageBuffer message(f.client->info().maxTxLength, 'a');
         f.client->send(message);
         REQUIRE_NOTHROW( f.cctx.poll() );
         f.cctx.reset();

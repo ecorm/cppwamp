@@ -57,7 +57,7 @@ protected:
         : strand_(transport->strand()),
           codec_(std::move(codec)),
           transport_(std::move(transport)),
-          maxTxLength_(transport_->limits().maxTxLength),
+          maxTxLength_(transport_->info().maxTxLength),
           state_(State::closed)
     {}
 

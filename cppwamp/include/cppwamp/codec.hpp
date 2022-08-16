@@ -25,6 +25,8 @@
 namespace wamp
 {
 
+// TODO: Codec options specializations
+
 //------------------------------------------------------------------------------
 /** IDs used by rawsocket transports to negotiate the serializer.
     As described in section Advanced Profile / Other Advanced Features /
