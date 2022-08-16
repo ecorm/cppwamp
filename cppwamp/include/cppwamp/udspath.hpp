@@ -16,6 +16,7 @@
 #include <string>
 #include "api.hpp"
 #include "config.hpp"
+#include "connector.hpp"
 #include "rawsockoptions.hpp"
 #include "internal/socketoptions.hpp"
 
@@ -103,7 +104,7 @@ private:
 class CPPWAMP_API UdsPath
 {
 public:
-    /// Transport protocol tag associated these settings.
+    /// Transport protocol tag associated with these settings.
     using Protocol = Uds;
 
     /// The default maximum length permitted for incoming messages.
@@ -123,6 +124,14 @@ public:
 
     /** Specifies the maximum length permitted for incoming messages. */
     UdsPath& withMaxRxLength(RawsockMaxLength length);
+
+    /** Couples a serialization format with these transport settings to
+        produce a ConnectionWish that can be passed to Session::connect. */
+    template <typename TFormat>
+    ConnectionWish withFormat(TFormat) const
+    {
+        return ConnectionWish{*this, TFormat{}};
+    }
 
     /** Obtains the path name. */
     const std::string& pathName() const;

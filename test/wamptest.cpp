@@ -35,13 +35,13 @@ const std::string testRealm = "cppwamp.test";
 const unsigned short validPort = 12345;
 const unsigned short invalidPort = 54321;
 const std::string testUdsPath = "./.crossbar/udstest";
-const ConnectionWish withTcp{TcpHost("localhost", validPort), json};
-const ConnectionWish invalidTcp{TcpHost("localhost", invalidPort), json};
+const auto withTcp = TcpHost("localhost", validPort).withFormat(json);
+const auto invalidTcp = TcpHost("localhost", invalidPort).withFormat(json);
 
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
-const ConnectionWish alternateTcp{UdsPath(testUdsPath), msgpack};
+const auto alternateTcp = UdsPath(testUdsPath).withFormat(msgpack);
 #else
-const ConnectionWish alternateTcp{TcpHost("localhost", validPort), msgpack};
+const auto alternateTcp = TcpHost("localhost", validPort).withFormat(msgpack);
 #endif
 
 //------------------------------------------------------------------------------

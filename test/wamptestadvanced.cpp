@@ -25,8 +25,8 @@ const std::string testRealm = "cppwamp.test";
 const short testPort = 12345;
 const std::string authTestRealm = "cppwamp.authtest";
 const short authTestPort = 23456;
-const ConnectionWish withTcp{TcpHost("localhost", testPort), json};
-const ConnectionWish authTcp{TcpHost("localhost", authTestPort), json};
+const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
+const auto authTcp = TcpHost("localhost", authTestPort).withFormat(json);
 
 void suspendCoro(boost::asio::yield_context& yield)
 {
