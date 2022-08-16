@@ -9,12 +9,14 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the declaration of the Connecting abstract base class. */
+    @brief Contains facilities for type-erasing the method of establishing
+           a transport. */
 //------------------------------------------------------------------------------
 
 #include <functional>
 #include <memory>
 #include <system_error>
+#include <type_traits>
 #include <vector>
 #include "api.hpp"
 #include "asiodefs.hpp"
@@ -28,6 +30,8 @@ namespace wamp
 // Forward declaration
 namespace internal {class ClientInterface;}
 
+//------------------------------------------------------------------------------
+/** Primary template, specialized for each transport protocol tag. */
 //------------------------------------------------------------------------------
 template <typename TProtocol>
 class Connector {};
@@ -61,18 +65,20 @@ public:
 
 
 //------------------------------------------------------------------------------
+/** Builds a transport connector on demand when needed. */
+//------------------------------------------------------------------------------
 class CPPWAMP_API ConnectorBuilder
 {
 public:
+    /** Constructor taking transport settings (e.g. TcpHost) */
     template <typename S>
     explicit ConnectorBuilder(S&& transportSettings)
         : builder_(makeBuilder(std::forward<S>(transportSettings)))
     {}
 
-    Connecting::Ptr operator()(IoStrand s, int codecId) const
-    {
-        return builder_(std::move(s), codecId);
-    }
+    /** Builds a connector appropriate for the transport settings given
+        in the constructor. */
+    Connecting::Ptr operator()(IoStrand s, int codecId) const;
 
 private:
     using Function = std::function<Connecting::Ptr (IoStrand s, int codecId)>;
@@ -80,19 +86,24 @@ private:
     template <typename S>
     static Function makeBuilder(S&& transportSettings)
     {
-        using Protocol = typename S::Protocol;
+        using Settings = typename std::decay<S>::type;
+        using Protocol = typename Settings::Protocol;
         using ConcreteConnector = Connector<Protocol>;
         return Function{
-            [transportSettings](IoStrand s, int codecId) mutable
+            [transportSettings](IoStrand s, int codecId)
             {
                 return ConcreteConnector::create(
-                    std::move(s), std::move(transportSettings), codecId);
+                    std::move(s), transportSettings, codecId);
             }};
     }
 
     Function builder_;
 };
 
+//------------------------------------------------------------------------------
+/** Adapter for legacy connectors generatated via the deprecated
+    wamp::connector functions.
+    @deprecated Use wamp::ConnectionWish instead. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API LegacyConnector
 {
@@ -104,11 +115,11 @@ public:
           codecBuilder_(TFormat{})
     {}
 
-    const AnyIoExecutor& executor() const {return exec_;}
+    const AnyIoExecutor& executor() const;
 
-    const ConnectorBuilder& connectorBuilder() const {return connectorBuilder_;}
+    const ConnectorBuilder& connectorBuilder() const;
 
-    const BufferCodecBuilder& codecBuilder() const {return codecBuilder_;}
+    const BufferCodecBuilder& codecBuilder() const;
 
 private:
     AnyIoExecutor exec_;
@@ -117,10 +128,14 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/** List of Connecting objects to use when attempting connection. */
+/** List of LegacyConnector objects to use when attempting connection.
+    @deprecated Use ConnectionWishList instead. */
 //------------------------------------------------------------------------------
 using ConnectorList = std::vector<LegacyConnector>;
 
+//------------------------------------------------------------------------------
+/** Couple desired transport settings together with a desired serialization
+    format, to allow generating connectors and codecs on demand. */
 //------------------------------------------------------------------------------
 class ConnectionWish
 {
@@ -131,19 +146,13 @@ public:
           codecBuilder_(TFormat{})
     {}
 
-    explicit ConnectionWish(const LegacyConnector& c)
-        : connectorBuilder_(c.connectorBuilder()),
-          codecBuilder_(c.codecBuilder())
-    {}
+    explicit ConnectionWish(const LegacyConnector& c);
 
-    int codecId() const {return codecBuilder_.id();}
+    int codecId() const;
 
-    Connecting::Ptr makeConnector(IoStrand s) const
-    {
-        return connectorBuilder_(std::move(s), codecId());
-    }
+    Connecting::Ptr makeConnector(IoStrand s) const;
 
-    AnyBufferCodec makeCodec() const {return codecBuilder_();}
+    AnyBufferCodec makeCodec() const;
 
 private:
     ConnectorBuilder connectorBuilder_;
@@ -151,8 +160,14 @@ private:
 };
 
 //------------------------------------------------------------------------------
+/** List desired transport/codec couplings. */
+//------------------------------------------------------------------------------
 using ConnectionWishList = std::vector<ConnectionWish>;
 
 } // namespace wamp
+
+#ifndef CPPWAMP_COMPILED_LIB
+#include "internal/connector.ipp"
+#endif
 
 #endif // CPPWAMP_CONNECTOR_HPP
