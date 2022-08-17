@@ -91,23 +91,15 @@ void checkPing(TFixture& f)
     constexpr int sleepMs = 50;
 
     f.client->start(
-        [&](MessageBuffer)
+        [&](ErrorOr<MessageBuffer>)
         {
-            FAIL( "unexpected receive");
-        },
-        [&](std::error_code ec)
-        {
-            FAIL( "unexpected error" << ec );
+            FAIL( "unexpected receive or error");
         });
 
     f.server->start(
-        [&](MessageBuffer)
+        [&](ErrorOr<MessageBuffer>)
         {
-            FAIL( "unexpected receive");
-        },
-        [&](std::error_code ec)
-        {
-            FAIL( "unexpected error" << ec );
+            FAIL( "unexpected receive or error");
         });
 
     bool pingCompleted = false;
@@ -603,25 +595,19 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
         bool clientFailed = false;
         bool serverFailed = false;
         client->start(
-            [&](MessageBuffer)
+            [&](ErrorOr<MessageBuffer> message)
             {
-                FAIL( "unexpected receive" );
-            },
-            [&](std::error_code ec)
-            {
-                CHECK( ec == TransportErrc::badRxLength );
+                REQUIRE( !message );
+                CHECK( message.error() == TransportErrc::badRxLength );
                 clientFailed = true;
             });
 
         server->start(
-            [&](MessageBuffer)
+            [&](ErrorOr<MessageBuffer> message)
             {
-                FAIL( "unexpected receive" );
-            },
-            [&](std::error_code)
-            {
+                REQUIRE( !message );
                 serverFailed = true;
-            } );
+            });
 
         server->send(tooLong);
 
@@ -630,8 +616,6 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
             CHECK_NOTHROW( ioctx.run() );
             CHECK( clientFailed );
             CHECK( serverFailed );
-            CHECK_FALSE( client->isOpen() );
-            CHECK_FALSE( server->isOpen() );
         }
     }
 }
@@ -673,25 +657,18 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
         bool clientFailed = false;
         bool serverFailed = false;
         client->start(
-            [&](MessageBuffer)
+            [&](ErrorOr<MessageBuffer> message)
             {
-                FAIL( "unexpected receive" );
-            },
-            [&](std::error_code)
-            {
+                REQUIRE( !message );
                 clientFailed = true;
             });
 
         server->start(
-            [&](MessageBuffer)
+            [&](ErrorOr<MessageBuffer> message)
             {
-                FAIL( "unexpected receive" );
-            },
-            [&](std::error_code ec)
-            {
-                CHECK( ec == TransportErrc::badRxLength );
+                REQUIRE( !message );
                 serverFailed = true;
-            } );
+            });
 
         client->send(std::move(tooLong));
 
@@ -700,8 +677,6 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
             CHECK_NOTHROW( ioctx.run() );
             CHECK( clientFailed );
             CHECK( serverFailed );
-            CHECK_FALSE( client->isOpen() );
-            CHECK_FALSE( server->isOpen() );
         }
     }
 }
@@ -753,25 +728,19 @@ GIVEN ( "A fake server that sends an invalid message type" )
         bool clientFailed = false;
         bool serverFailed = false;
         client->start(
-            [&](MessageBuffer)
+            [&](ErrorOr<MessageBuffer> message)
             {
-                FAIL( "unexpected receive" );
-            },
-            [&](std::error_code ec)
-            {
-                CHECK( ec == RawsockErrc::badMessageType );
+                REQUIRE( !message );
+                CHECK( message.error() == RawsockErrc::badMessageType );
                 clientFailed = true;
             });
 
         server->start(
-            [&](MessageBuffer)
+            [&](ErrorOr<MessageBuffer> message)
             {
-                FAIL( "unexpected receive" );
-            },
-            [&](std::error_code)
-            {
+                REQUIRE( !message );
                 serverFailed = true;
-            } );
+            });
 
         auto msg = makeMessageBuffer("Hello");;
         server->send(msg);
@@ -781,8 +750,6 @@ GIVEN ( "A fake server that sends an invalid message type" )
             CHECK_NOTHROW( ioctx.run() );
             CHECK( clientFailed );
             CHECK( serverFailed );
-            CHECK_FALSE( client->isOpen() );
-            CHECK_FALSE( server->isOpen() );
         }
     }
 }
@@ -823,25 +790,19 @@ GIVEN ( "A fake client that sends an invalid message type" )
         bool clientFailed = false;
         bool serverFailed = false;
         client->start(
-            [&](MessageBuffer)
+            [&](ErrorOr<MessageBuffer> message)
             {
-                FAIL( "unexpected receive" );
-            },
-            [&](std::error_code)
-            {
+                REQUIRE( !message );
                 clientFailed = true;
             });
 
         server->start(
-            [&](MessageBuffer)
+            [&](ErrorOr<MessageBuffer> message)
             {
-                FAIL( "unexpected receive" );
-            },
-            [&](std::error_code ec)
-            {
-                CHECK( ec == RawsockErrc::badMessageType );
+                REQUIRE( !message );
+                CHECK( message.error() == RawsockErrc::badMessageType );
                 serverFailed = true;
-            } );
+            });
 
         auto msg = makeMessageBuffer("Hello");
         client->send(std::move(msg));
@@ -851,8 +812,6 @@ GIVEN ( "A fake client that sends an invalid message type" )
             CHECK_NOTHROW( ioctx.run() );
             CHECK( clientFailed );
             CHECK( serverFailed );
-            CHECK_FALSE( client->isOpen() );
-            CHECK_FALSE( server->isOpen() );
         }
     }
 }

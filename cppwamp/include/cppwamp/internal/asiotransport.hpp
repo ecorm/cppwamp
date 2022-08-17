@@ -107,7 +107,6 @@ public:
     using Socket      = TSocket;
     using SocketPtr   = std::unique_ptr<Socket>;
     using RxHandler   = typename Transporting::RxHandler;
-    using FailHandler = typename Transporting::FailHandler;
     using PingHandler = typename Transporting::PingHandler;
 
     static Ptr create(SocketPtr&& s, TransportInfo info)
@@ -115,26 +114,24 @@ public:
         return Ptr(new AsioTransport(std::move(s), info));
     }
 
+    // TODO: Remove
     IoStrand strand() const override {return strand_;}
 
     TransportInfo info() const override {return info_;}
 
-    bool isOpen() const override {return socket_ && socket_->is_open();}
+    bool isStarted() const override {return running_;}
 
-    bool isStarted() const override {return started_;}
-
-    void start(RxHandler rxHandler, FailHandler failHandler) override
+    void start(RxHandler rxHandler) override
     {
-        assert(!started_);
+        assert(!running_);
         rxHandler_ = rxHandler;
-        failHandler_ = failHandler;
         receive();
-        started_ = true;
+        running_ = true;
     }
 
     void send(MessageBuffer message) override
     {
-        assert(started_);
+        assert(running_);
         auto buf = newFrame(RawsockMsgType::wamp, std::move(message));
         sendFrame(std::move(buf));
     }
@@ -142,14 +139,14 @@ public:
     void close() override
     {
         txQueue_.clear();
-        rxHandler_ = nullptr;
+        running_ = false;
         if (socket_)
             socket_->close();
     }
 
     void ping(MessageBuffer message, PingHandler handler) override
     {
-        assert(started_);
+        assert(running_);
         pingHandler_ = std::move(handler);
         pingFrame_ = newFrame(RawsockMsgType::ping, std::move(message));
         sendFrame(pingFrame_);
@@ -250,7 +247,7 @@ private:
             {
                 if (ec)
                     rxFrame_.clear();
-                if (check(ec))
+                if (check(ec) && running_)
                     switch (msgType)
                     {
                     case RawsockMsgType::wamp:
@@ -315,11 +312,11 @@ private:
     {
         if (asioEc)
         {
-            if (failHandler_)
+            if (rxHandler_)
             {
                 auto ec = make_error_code(
                             static_cast<std::errc>(asioEc.value()));
-                post(failHandler_, ec);
+                post(rxHandler_, UnexpectedError(ec));
             }
             cleanup();
         }
@@ -331,8 +328,8 @@ private:
     {
         if (!condition)
         {
-            if (failHandler_)
-                post(failHandler_, make_error_code(errc));
+            if (rxHandler_)
+                post(rxHandler_, makeUnexpectedError(errc));
             cleanup();
         }
         return condition;
@@ -341,7 +338,6 @@ private:
     void cleanup()
     {
         rxHandler_ = nullptr;
-        failHandler_ = nullptr;
         pingHandler_ = nullptr;
         rxFrame_.clear();
         txQueue_.clear();
@@ -353,9 +349,8 @@ private:
     IoStrand strand_;
     std::unique_ptr<TSocket> socket_;
     TransportInfo info_;
-    bool started_ = false;
+    bool running_ = false;
     RxHandler rxHandler_;
-    FailHandler failHandler_;
     PingHandler pingHandler_;
     AsioFrame rxFrame_;
     TransmitQueue txQueue_;

@@ -12,6 +12,7 @@
 #include <system_error>
 #include <vector>
 #include "asiodefs.hpp"
+#include "erroror.hpp"
 #include "messagebuffer.hpp"
 
 namespace wamp
@@ -31,34 +32,45 @@ struct TransportInfo
 class Transporting : public std::enable_shared_from_this<Transporting>
 {
 public:
-    using Ptr         = std::shared_ptr<Transporting>;
-    using RxHandler   = std::function<void (MessageBuffer)>;
-    using FailHandler = std::function<void (std::error_code ec)>;
-    using PingHandler = std::function<void (float)>;
+    /// Shared pointer to a Transporting object.
+    using Ptr = std::shared_ptr<Transporting>;
 
-    Transporting() = default;
+    /// Handler type used for message received events.
+    using RxHandler = std::function<void (ErrorOr<MessageBuffer>)>;
+
+    /// Handler type used for ping response events.
+    using PingHandler = std::function<void (float)>;
 
     // Noncopyable
     Transporting(const Transporting&) = delete;
     Transporting& operator=(const Transporting&) = delete;
 
+    /** Destructor. */
     virtual ~Transporting() {}
 
+    // TODO: Remove
     virtual IoStrand strand() const = 0;
 
+    /** Obtains information pertaining to this transport. */
     virtual TransportInfo info() const = 0;
 
-    virtual bool isOpen() const = 0;
-
+    /** Returns true if the transport has been started. */
     virtual bool isStarted() const = 0;
 
-    virtual void start(RxHandler rxHandler, FailHandler failHandler) = 0;
+    /** Starts the transport's I/O operations. */
+    virtual void start(RxHandler rxHandler) = 0;
 
+    /** Sends the given serialized message via the transport. */
     virtual void send(MessageBuffer message) = 0;
 
+    /** Stops I/O operations and closes the underlying socket. */
     virtual void close() = 0;
 
+    /** Sends a transport-level ping message. */
     virtual void ping(MessageBuffer message, PingHandler handler) = 0;
+
+protected:
+    Transporting() = default;
 };
 
 } // namespace wamp

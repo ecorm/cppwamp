@@ -55,6 +55,7 @@ public:
         {
             // The Connector that initiated 'establish' must keep this object
             // alive until completion.
+            // TODO: Use ErrorOr<SocketPtr>
             est_.establish( [this](AsioErrorCode ec, SocketPtr&& socket)
             {
                 if (check(ec))

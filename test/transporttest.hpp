@@ -169,28 +169,35 @@ void checkSendReply(TFixture& f,
 {
     bool receivedMessage = false;
     bool receivedReply = false;
+
     receiver->start(
-        [&](MessageBuffer buf)
+        [&](ErrorOr<MessageBuffer> buf)
         {
-            receivedMessage = true;
-            CHECK( message == buf );
-            receiver->send(reply);
-        },
-        [&](std::error_code ec)
-        {
-            CHECK( ec == TransportErrc::aborted );
+            if (buf.has_value())
+            {
+                receivedMessage = true;
+                CHECK( message == *buf );
+                receiver->send(reply);
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
         });
 
     sender->start(
-        [&](MessageBuffer buf)
+        [&](ErrorOr<MessageBuffer> buf)
         {
-            receivedReply = true;
-            CHECK( reply == buf );
-            f.disconnect();
-        },
-        [&](std::error_code ec)
-        {
-            CHECK( ec == TransportErrc::aborted );
+            if (buf.has_value())
+            {
+                receivedReply = true;
+                CHECK( reply == *buf );
+                f.disconnect();
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
         });
 
     sender->send(message);
@@ -223,26 +230,32 @@ void checkCommunications(TFixture& f)
     bool receivedReply = false;
 
     receiver->start(
-        [&](MessageBuffer buf)
+        [&](ErrorOr<MessageBuffer> buf)
         {
-            receivedMessage = true;
-            CHECK( message == buf );
-            receiver->send(reply);
-        },
-        [&](std::error_code ec)
-        {
-            CHECK( ec == TransportErrc::aborted );
+            if (buf.has_value())
+            {
+                receivedMessage = true;
+                CHECK( message == *buf );
+                receiver->send(reply);
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
         });
 
     sender->start(
-        [&](MessageBuffer buf)
+        [&](ErrorOr<MessageBuffer> buf)
         {
-            receivedReply = true;
-            CHECK( reply == buf );
-        },
-        [&](std::error_code ec)
-        {
-            CHECK( ec == TransportErrc::aborted );
+            if (buf.has_value())
+            {
+                receivedReply = true;
+                CHECK( reply == *buf );
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
         });
 
     sender->send(message);
@@ -304,28 +317,34 @@ void checkCommunications(TFixture& f)
 
     // The two client/server pairs communicate independently
     receiver2->start(
-        [&](MessageBuffer buf)
+        [&](ErrorOr<MessageBuffer> buf)
         {
-            receivedMessage2 = true;
-            CHECK( message2 == buf );
-            receiver2->send(reply2);
-        },
-        [&](std::error_code ec)
-        {
-            CHECK( ec == TransportErrc::aborted );
+            if (buf.has_value())
+            {
+                receivedMessage2 = true;
+                CHECK( message2 == *buf );
+                receiver2->send(reply2);
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
         });
 
     sender2->start(
-        [&](MessageBuffer buf)
+        [&](ErrorOr<MessageBuffer> buf)
         {
-            receivedReply2 = true;
-            CHECK( reply2 == buf );
-            sender2->close();
-            receiver2->close();
-        },
-        [&](std::error_code ec)
-        {
-            CHECK( ec == TransportErrc::aborted );
+            if (buf.has_value())
+            {
+                receivedReply2 = true;
+                CHECK( reply2 == *buf );
+                sender2->close();
+                receiver2->close();
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
         });
 
     sender->send(message);
@@ -360,29 +379,29 @@ void checkConsecutiveSendReceive(
         messages.emplace_back(i, 'A' + i);
 
     sender->start(
-        [&](MessageBuffer)
+        [&](ErrorOr<MessageBuffer> buf)
         {
-            FAIL( "Unexpected receive" );
-        },
-        [&](std::error_code ec)
-        {
-            CHECK( ec == TransportErrc::aborted );
+            REQUIRE( !buf );
+            CHECK( buf.error() == TransportErrc::aborted );
         });
 
     size_t count = 0;
 
     receiver->start(
-        [&](MessageBuffer buf)
+        [&](ErrorOr<MessageBuffer> buf)
         {
-            REQUIRE( messages.at(count) == buf );
-            if (++count == messages.size())
+            if (buf.has_value())
             {
-                f.disconnect();
+                REQUIRE( messages.at(count) == *buf );
+                if (++count == messages.size())
+                {
+                    f.disconnect();
+                }
             }
-        },
-        [&](std::error_code ec)
-        {
-            CHECK( ec == TransportErrc::aborted );
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
         });
 
     for (const auto& msg: messages)
@@ -463,24 +482,18 @@ void checkCancelReceive(TFixture& f)
     {
         bool transportFailed = false;
         f.client->start(
-            [&](MessageBuffer)
+            [&](ErrorOr<MessageBuffer> buf)
             {
-                FAIL( "Unexpected receive" );
-            },
-            [&](std::error_code ec)
-            {
+                REQUIRE( !buf );
                 transportFailed = true;
-                CHECK( ec == TransportErrc::aborted );
+                CHECK( buf.error() == TransportErrc::aborted );
             });
 
         f.server->start(
-            [&](MessageBuffer)
+            [&](ErrorOr<MessageBuffer> buf)
             {
-                FAIL( "Unexpected receive" );
-            },
-            [&](std::error_code ec)
-            {
-                CHECK( ec == std::errc::no_such_file_or_directory );
+                REQUIRE( !buf );
+                CHECK( buf.error() == std::errc::no_such_file_or_directory );
             });
 
         f.cctx.poll();
@@ -494,7 +507,6 @@ void checkCancelReceive(TFixture& f)
             THEN( "the operation is aborted" )
             {
                 CHECK( transportFailed );
-                CHECK_FALSE( f.client->isOpen() );
             }
         }
     }
@@ -524,13 +536,10 @@ void checkCancelSend(TFixture& f)
     WHEN( "a send operation is in progress" )
     {
         f.client->start(
-            [&](MessageBuffer)
+            [&](ErrorOr<MessageBuffer> buf)
             {
-                FAIL( "Unexpected receive" );
-            },
-            [&](std::error_code ec)
-            {
-                CHECK( ec == TransportErrc::aborted );
+                REQUIRE(!buf);
+                CHECK( buf.error() == TransportErrc::aborted );
             });
 
         MessageBuffer message(f.client->info().maxTxLength, 'a');
@@ -545,7 +554,6 @@ void checkCancelSend(TFixture& f)
             THEN( "the operation either aborts or completes" )
             {
                 REQUIRE_NOTHROW( f.run() );
-                CHECK_FALSE( f.client->isOpen() );
             }
         }
     }

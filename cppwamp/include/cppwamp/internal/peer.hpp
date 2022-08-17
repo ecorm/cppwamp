@@ -77,17 +77,16 @@ protected:
             std::weak_ptr<Peer> self(this->shared_from_this());
 
             transport_->start(
-                [self](MessageBuffer buffer)
+                [self](ErrorOr<MessageBuffer> buffer)
                 {
                     auto me = self.lock();
                     if (me)
-                        me->onTransportRx(std::move(buffer));
-                },
-                [self](std::error_code ec)
-                {
-                    auto me = self.lock();
-                    if (me)
-                        me->checkError(ec);
+                    {
+                        if (buffer.has_value())
+                            me->onTransportRx(std::move(*buffer));
+                        else
+                            me->checkError(buffer.error());
+                    }
                 }
             );
         }
