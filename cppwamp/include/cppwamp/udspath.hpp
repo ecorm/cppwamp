@@ -29,6 +29,8 @@ namespace wamp
 namespace internal { class UdsOpener; } // Forward declaration
 
 //------------------------------------------------------------------------------
+/** Tag type associated with Unix Domain Sockets transport. */
+//------------------------------------------------------------------------------
 struct Uds
 {
     constexpr Uds() = default;
@@ -98,8 +100,9 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/** Contains a Unix domain socket path, as well as other socket options.
-    @see RawsockOptions, connector */
+/** Contains a Unix Domain Socket path, as well as other socket options.
+    Meets the requirements of @ref TransportSettings.
+    @see ConnectionWish */
 //------------------------------------------------------------------------------
 class CPPWAMP_API UdsPath
 {
@@ -116,7 +119,7 @@ public:
         std::string pathName,        ///< Path name of the Unix domain socket.
         UdsOptions options = {},     ///< Socket options.
         RawsockMaxLength maxRxLength
-        = defaultMaxRxLength         ///< Maximum inbound message length
+            = defaultMaxRxLength     ///< Maximum inbound message length
     );
 
     /** Specifies the socket options to use. */

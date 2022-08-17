@@ -55,7 +55,8 @@ public:
         {
             // The Connector that initiated 'establish' must keep this object
             // alive until completion.
-            // TODO: Use ErrorOr<SocketPtr>
+            // ErrorOr cannot be used here without a bunch of conversions
+            // from boost::system::error_code to std::error_code.
             est_.establish( [this](AsioErrorCode ec, SocketPtr&& socket)
             {
                 if (check(ec))

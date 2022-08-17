@@ -29,6 +29,8 @@ namespace wamp
 namespace internal { class TcpOpener; } // Forward declaration
 
 //------------------------------------------------------------------------------
+/** Tag type associated with the TCP transport. */
+//------------------------------------------------------------------------------
 struct Tcp
 {
     constexpr Tcp() = default;
@@ -105,7 +107,8 @@ private:
 
 //------------------------------------------------------------------------------
 /** Contains TCP host address information, as well as other socket options.
-    @see connector */
+    Meets the requirements of @ref TransportSettings.
+    @see ConnectionWish */
 //------------------------------------------------------------------------------
 class CPPWAMP_API TcpHost
 {

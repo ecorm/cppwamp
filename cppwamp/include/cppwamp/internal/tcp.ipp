@@ -30,11 +30,14 @@ struct Connector<Tcp>::Impl
 };
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector<Tcp>::Ptr
-Connector<Tcp>::create(IoStrand s, TcpHost h, int codecId)
-{
-    return Ptr(new Connector(std::move(s), std::move(h), codecId));
-}
+CPPWAMP_INLINE Connector<Tcp>::Connector(IoStrand s, TcpHost h, int codecId)
+    : impl_(new Impl(std::move(s), std::move(h), codecId))
+{}
+
+//------------------------------------------------------------------------------
+// Needed to avoid incomplete type errors.
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Connector<Tcp>::~Connector() {}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Connector<Tcp>::establish(Handler&& handler)
@@ -44,10 +47,5 @@ CPPWAMP_INLINE void Connector<Tcp>::establish(Handler&& handler)
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Connector<Tcp>::cancel() {impl_->cnct->cancel();}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector<Tcp>::Connector(IoStrand s, TcpHost h, int codecId)
-    : impl_(new Impl(std::move(s), std::move(h), codecId))
-{}
 
 } // namespace wamp

@@ -25,26 +25,32 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
+/** Connector specialization that establishes a Unix domain socket transport.
+    Users do not need to use this class directly and should use
+    ConnectionWish instead. */
+//------------------------------------------------------------------------------
 template <>
 class CPPWAMP_API Connector<Uds> : public Connecting
 {
 public:
-    using Ptr = std::shared_ptr<Connector>;
+    /** Constructor. */
+    Connector(IoStrand s, UdsPath p, int codecId);
 
-    static Ptr create(IoStrand s, UdsPath p, int codecId);
+    /** Destructor. */
+    ~Connector();
 
+    /** Starts establishing the transport connection, emitting a
+        Transportable::Ptr via the given handler if successful. */
     void establish(Handler&& handler) override;
 
+    /** Cancels transport connection in progress, emitting an error code
+        via the handler passed to the establish method. */
     void cancel() override;
 
 private:
-    CPPWAMP_HIDDEN Connector(IoStrand s, UdsPath p, int codecId);
-
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };
-
-using UdsConnector = Connector<Uds>;
 
 //------------------------------------------------------------------------------
 /** Creates a LegacyConnector that can establish a Unix domain socket transport.
@@ -52,7 +58,7 @@ using UdsConnector = Connector<Uds>;
     This overload takes an executor that is convertible to
     the boost::asio::any_io_executor polymorphic wrapper.
 
-    @deprecated Use wamp::TransportWishes instead
+    @deprecated Use wamp::ConnectionWish instead
     @relates UdsPath
     @returns a `std::shared_ptr` to a Connecting
     @tparam TFormat The serialization format to use over this transport.
@@ -73,7 +79,7 @@ CPPWAMP_API LegacyConnector connector(
     Only participates in overload resolution when
     `isExecutionContext<TExecutionContext>() == true`
 
-    @deprecated Use wamp::TransportWishes instead
+    @deprecated Use wamp::ConnectionWish instead
     @relates TcpHost
     @returns a `std::shared_ptr` to a Connecting
     @tparam TFormat The serialization formatto use over this transport.

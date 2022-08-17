@@ -92,8 +92,8 @@ private:
         return Function{
             [transportSettings](IoStrand s, int codecId)
             {
-                return ConcreteConnector::create(
-                    std::move(s), transportSettings, codecId);
+                return Connecting::Ptr(new ConcreteConnector(
+                    std::move(s), transportSettings, codecId));
             }};
     }
 
@@ -134,24 +134,30 @@ private:
 using ConnectorList = std::vector<LegacyConnector>;
 
 //------------------------------------------------------------------------------
-/** Couple desired transport settings together with a desired serialization
-    format, to allow generating connectors and codecs on demand. */
+/** Couples desired transport settings together with a desired serialization
+    format, to allow the generation of connectors and codecs on demand. */
 //------------------------------------------------------------------------------
 class ConnectionWish
 {
 public:
-    template <typename W, typename TFormat>
-    ConnectionWish(W&& wish, TFormat)
-        : connectorBuilder_(std::forward<W>(wish)),
-          codecBuilder_(TFormat{})
+    /** Constructor taking a @ref TransportSettings instance and a
+        @ref CodecFormat instance. */
+    template <typename TTransportSettings, typename TCodecFormat>
+    ConnectionWish(TTransportSettings&& wish, TCodecFormat)
+        : connectorBuilder_(std::forward<TTransportSettings>(wish)),
+          codecBuilder_(TCodecFormat{})
     {}
 
+    /** Constructor taking a LegacyConnector. */
     explicit ConnectionWish(const LegacyConnector& c);
 
+    /** Obtains the numeric codec ID of the desired serialization format. */
     int codecId() const;
 
+    /** Generates a `Connector` for the desired transport. */
     Connecting::Ptr makeConnector(IoStrand s) const;
 
+    /** Generates a codec for the desitred serialization format. */
     AnyBufferCodec makeCodec() const;
 
 private:

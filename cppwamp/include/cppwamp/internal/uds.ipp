@@ -26,11 +26,14 @@ struct Connector<Uds>::Impl
 };
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector<Uds>::Ptr
-Connector<Uds>::create(IoStrand s, UdsPath h, int codecId)
-{
-    return Ptr(new Connector(std::move(s), std::move(h), codecId));
-}
+CPPWAMP_INLINE Connector<Uds>::Connector(IoStrand s, UdsPath h, int codecId)
+    : impl_(new Impl(std::move(s), std::move(h), codecId))
+{}
+
+//------------------------------------------------------------------------------
+// Needed to avoid incomplete type errors.
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Connector<Uds>::~Connector() {}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Connector<Uds>::establish(Handler&& handler)
@@ -40,10 +43,5 @@ CPPWAMP_INLINE void Connector<Uds>::establish(Handler&& handler)
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Connector<Uds>::cancel() {impl_->cnct->cancel();}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector<Uds>::Connector(IoStrand s, UdsPath h, int codecId)
-    : impl_(new Impl(std::move(s), std::move(h), codecId))
-{}
 
 } // namespace wamp
