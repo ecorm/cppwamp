@@ -9,11 +9,11 @@
 //
 
 // Original retrieved from
-// https://github.com/chriskohlhoff/boost/asio/blob/any-completion-handler/boost/asio/include/boost/asio/any_completion_executor.hpp
+// https://github.com/chriskohlhoff/asio/blob/any-completion-handler/asio/include/asio/any_completion_executor.hpp
 // Adapted for use by CppWAMP
 
-#ifndef BOOST_ASIO_ANY_COMPLETION_EXECUTOR_HPP
-#define BOOST_ASIO_ANY_COMPLETION_EXECUTOR_HPP
+#ifndef CPPWAMP_BUNDLED_BOOST_ASIO_ANY_COMPLETION_EXECUTOR_HPP
+#define CPPWAMP_BUNDLED_BOOST_ASIO_ANY_COMPLETION_EXECUTOR_HPP
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1200)
 # pragma once
@@ -123,40 +123,6 @@ public:
   }
 #endif // defined(GENERATING_DOCUMENTATION)
 
-  /// Construct to point to the same target as another any_executor.
-#if defined(GENERATING_DOCUMENTATION)
-  template <class... OtherSupportableProperties>
-    any_completion_executor(std::nothrow_t,
-      execution::any_executor<OtherSupportableProperties...> e);
-#else // defined(GENERATING_DOCUMENTATION)
-  template <typename OtherAnyExecutor>
-  any_completion_executor(std::nothrow_t, OtherAnyExecutor e,
-      typename constraint<
-        conditional<
-          !is_same<OtherAnyExecutor, any_completion_executor>::value
-            && is_base_of<execution::detail::any_executor_base,
-              OtherAnyExecutor>::value,
-          typename execution::detail::supportable_properties<
-            0, supportable_properties_type>::template
-              is_valid_target<OtherAnyExecutor>,
-          false_type
-        >::type::value
-      >::type = 0) BOOST_ASIO_NOEXCEPT
-    : base_type(std::nothrow, BOOST_ASIO_MOVE_CAST(OtherAnyExecutor)(e))
-  {
-  }
-#endif // defined(GENERATING_DOCUMENTATION)
-
-  /// Construct to point to the same target as another any_executor.
-  BOOST_ASIO_DECL any_completion_executor(std::nothrow_t,
-      const any_completion_executor& e) BOOST_ASIO_NOEXCEPT;
-
-#if defined(BOOST_ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
-  /// Construct to point to the same target as another any_executor.
-  BOOST_ASIO_DECL any_completion_executor(std::nothrow_t,
-      any_completion_executor&& e) BOOST_ASIO_NOEXCEPT;
-#endif // defined(BOOST_ASIO_HAS_MOVE) || defined(GENERATING_DOCUMENTATION)
-
   /// Construct a polymorphic wrapper for the specified executor.
 #if defined(GENERATING_DOCUMENTATION)
   template <BOOST_ASIO_EXECUTION_EXECUTOR Executor>
@@ -175,28 +141,6 @@ public:
         >::type::value
       >::type = 0)
     : base_type(BOOST_ASIO_MOVE_CAST(Executor)(e))
-  {
-  }
-#endif // defined(GENERATING_DOCUMENTATION)
-
-  /// Construct a polymorphic wrapper for the specified executor.
-#if defined(GENERATING_DOCUMENTATION)
-  template <BOOST_ASIO_EXECUTION_EXECUTOR Executor>
-  any_completion_executor(std::nothrow_t, Executor e);
-#else // defined(GENERATING_DOCUMENTATION)
-  template <BOOST_ASIO_EXECUTION_EXECUTOR Executor>
-  any_completion_executor(std::nothrow_t, Executor e,
-      typename constraint<
-        conditional<
-          !is_same<Executor, any_completion_executor>::value
-            && !is_base_of<execution::detail::any_executor_base,
-              Executor>::value,
-          execution::detail::is_valid_target_executor<
-            Executor, supportable_properties_type>,
-          false_type
-        >::type::value
-      >::type = 0) BOOST_ASIO_NOEXCEPT
-    : base_type(std::nothrow, BOOST_ASIO_MOVE_CAST(Executor)(e))
   {
   }
 #endif // defined(GENERATING_DOCUMENTATION)
@@ -223,11 +167,11 @@ public:
   /// Obtain a polymorphic wrapper with the specified property.
   /**
    * Do not call this function directly. It is intended for use with the
-   * boost::asio::require and boost::asio::prefer customisation points.
+   * asio::require and asio::prefer customisation points.
    *
    * For example:
    * @code any_completion_executor ex = ...;
-   * auto ex2 = boost::asio::require(ex, execution::blocking.possibly); @endcode
+   * auto ex2 = asio::require(ex, execution::blocking.possibly); @endcode
    */
   template <typename Property>
   any_completion_executor require(const Property& p,
@@ -241,11 +185,11 @@ public:
   /// Obtain a polymorphic wrapper with the specified property.
   /**
    * Do not call this function directly. It is intended for use with the
-   * boost::asio::prefer customisation point.
+   * asio::prefer customisation point.
    *
    * For example:
    * @code any_completion_executor ex = ...;
-   * auto ex2 = boost::asio::prefer(ex, execution::blocking.possibly); @endcode
+   * auto ex2 = asio::prefer(ex, execution::blocking.possibly); @endcode
    */
   template <typename Property>
   any_completion_executor prefer(const Property& p,
@@ -351,10 +295,11 @@ struct prefer_member<any_completion_executor, Prop> :
 
 #include "boost/asio/detail/pop_options.hpp"
 
-#if defined(BOOST_ASIO_HEADER_ONLY) \
-  && !defined(BOOST_ASIO_USE_TS_EXECUTOR_AS_DEFAULT)
+// Modified for use with CppWAMP
+//#if defined(BOOST_ASIO_HEADER_ONLY) && !defined(BOOST_ASIO_USE_TS_EXECUTOR_AS_DEFAULT)
+#if !defined(BOOST_ASIO_USE_TS_EXECUTOR_AS_DEFAULT)
 # include "boost_asio_impl_any_completion_executor.ipp"
 #endif // defined(BOOST_ASIO_HEADER_ONLY)
        //   && !defined(BOOST_ASIO_USE_TS_EXECUTOR_AS_DEFAULT)
 
-#endif // BOOST_ASIO_ANY_COMPLETION_EXECUTOR_HPP
+#endif // CPPWAMP_BUNDLED_BOOST_ASIO_ANY_COMPLETION_EXECUTOR_HPP

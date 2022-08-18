@@ -9,11 +9,11 @@
 //
 
 // Original retrieved from
-// https://github.com/chriskohlhoff/boost/asio/blob/any-completion-handler/boost/asio/include/boost/asio/any_completion_executor.hpp
+// https://github.com/chriskohlhoff/asio/blob/any-completion-handler/asio/include/asio/any_completion_handler.hpp
 // Adapted for use by CppWAMP
 
-#ifndef BOOST_ASIO_ANY_COMPLETION_HANDLER_HPP
-#define BOOST_ASIO_ANY_COMPLETION_HANDLER_HPP
+#ifndef CPPWAMP_BUNDLED_BOOST_ASIO_ANY_COMPLETION_HANDLER_HPP
+#define CPPWAMP_BUNDLED_BOOST_ASIO_ANY_COMPLETION_HANDLER_HPP
 
 #include "boost/asio/detail/config.hpp"
 #include <cstring>
@@ -113,7 +113,7 @@ public:
 
   any_completion_executor executor(const any_completion_executor& candidate) const
   {
-    return any_completion_executor(std::nothrow, (get_associated_executor)(handler_, candidate));
+    return (get_associated_executor)(handler_, candidate);
   }
 
   void* allocate(std::size_t size, std::size_t align) const
@@ -607,9 +607,9 @@ struct associated_executor<any_completion_handler<Signatures...>, Candidate>
 {
   using type = any_completion_executor;
 
-  static type get(const any_completion_handler<Signatures...>& handler, const Candidate& candidate = Candidate()) noexcept
+  static type get(const any_completion_handler<Signatures...>& handler, const type& candidate = Candidate()) noexcept
   {
-    return handler.fn_table_->executor(handler.impl_, any_completion_executor(std::nothrow, candidate));
+    return handler.fn_table_->executor(handler.impl_, candidate);
   }
 };
 
@@ -618,4 +618,4 @@ struct associated_executor<any_completion_handler<Signatures...>, Candidate>
 
 #include "boost/asio/detail/pop_options.hpp"
 
-#endif // BOOST_ASIO_ANY_COMPLETION_HANDLER_HPP
+#endif // CPPWAMP_BUNDLED_BOOST_ASIO_ANY_COMPLETION_HANDLER_HPP
