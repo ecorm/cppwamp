@@ -49,7 +49,6 @@ void onTimeTick(std::tm time)
 //------------------------------------------------------------------------------
 int main()
 {
-    using namespace wamp;
     using boost::asio::use_future;
 
     // Run the io_context off in its own thread so that it operates
@@ -58,22 +57,23 @@ int main()
     auto work = boost::asio::make_work_guard(ioctx);
     std::thread thread([&ioctx](){ ioctx.run(); });
 
-    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = Session::create(ioctx, tcp);
+    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
+    auto session = wamp::Session::create(ioctx);
 
     // get() blocks the main thread until completion.
     // value() throws if there was an error.
-    auto index = session->connect(use_future).get().value();
+    auto index = session->connect(std::move(tcp), use_future).get().value();
     std::cout << "Connected via " << index << std::endl;
 
-    auto info = session->join(Realm(realm), use_future).get().value();
+    auto info = session->join(wamp::Realm(realm), use_future).get().value();
     std::cout << "Joined, SessionId=" << info.id() << std::endl;
 
-    auto result = session->call(Rpc("get_time"), use_future).get().value();
+    auto result = session->call(wamp::Rpc("get_time"),
+                                use_future).get().value();
     auto time = result[0].to<std::tm>();
     std::cout << "The current time is: " << std::asctime(&time) << "\n";
 
-    session->subscribe(Topic("time_tick"),
+    session->subscribe(wamp::Topic("time_tick"),
                        wamp::simpleEvent<std::tm>(&onTimeTick),
                        use_future).get().value();
 

@@ -79,8 +79,9 @@ struct AftermathChecker
 class TimeClient : boost::asio::coroutine
 {
 public:
-    explicit TimeClient(wamp::Session::Ptr session)
-        : session_(session)
+    explicit TimeClient(wamp::AnyIoExecutor exec, wamp::ConnectionWish where)
+        : session_(wamp::Session::create(std::move(exec))),
+          where_(std::move(where))
     {}
 
     void operator()(Aftermath aftermath = {})
@@ -90,7 +91,7 @@ public:
 
         reenter (this)
         {
-            yield session_->connect(*this);
+            yield session_->connect(where_, *this);
             std::cout << "Connected via "
                       << boost::variant2::get<1>(aftermath).value() << std::endl;
             yield session_->join(wamp::Realm(realm), *this);
@@ -113,17 +114,15 @@ private:
     // The session object must be stored as a shared pointer due to
     // TimeClient getting copied around.
     wamp::Session::Ptr session_;
+    wamp::ConnectionWish where_;
 };
 
 //------------------------------------------------------------------------------
 int main()
 {
-    using namespace wamp;
-
-    AsioContext ioctx;
-    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = Session::create(ioctx, tcp);
-    TimeClient client(session);
+    wamp::AsioContext ioctx;
+    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
+    TimeClient client(ioctx.get_executor(), std::move(tcp));
     client();
     ioctx.run();
     return 0;

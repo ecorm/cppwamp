@@ -49,22 +49,19 @@ void onTimeTick(std::tm time)
 //------------------------------------------------------------------------------
 int main()
 {
-    using namespace wamp;
+    wamp::AsioContext ioctx;
+    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
+    auto session = wamp::Session::create(ioctx.get_executor());
 
-    AsioContext ioctx;
-    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = Session::create(ioctx, tcp);
-
-    boost::asio::spawn(ioctx, [&session](boost::asio::yield_context yield)
+    boost::asio::spawn(ioctx, [tcp, &session](boost::asio::yield_context yield)
     {
-        session->connect(yield).value();
-        session->join(Realm(realm), yield).value();
-
-        auto result = session->call(Rpc("get_time"), yield).value();
+        session->connect(tcp, yield).value();
+        session->join(wamp::Realm(realm), yield).value();
+        auto result = session->call(wamp::Rpc("get_time"), yield).value();
         auto time = result[0].to<std::tm>();
         std::cout << "The current time is: " << std::asctime(&time) << "\n";
 
-        session->subscribe(Topic("time_tick"),
+        session->subscribe(wamp::Topic("time_tick"),
                            wamp::simpleEvent<std::tm>(&onTimeTick),
                            yield).value();
     });

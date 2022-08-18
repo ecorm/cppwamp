@@ -52,18 +52,18 @@ std::tm getTime()
 //------------------------------------------------------------------------------
 int main()
 {
-    using namespace wamp;
-    AsioContext ioctx;
-    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = Session::create(ioctx, tcp);
+    wamp::AsioContext ioctx;
+    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
+    auto session = wamp::Session::create(ioctx.get_executor());
     boost::asio::steady_timer timer(ioctx);
 
     boost::asio::spawn(ioctx,
-        [&session, &timer](boost::asio::yield_context yield)
+        [tcp, &session, &timer](boost::asio::yield_context yield)
         {
-            session->connect(yield).value();
-            session->join(Realm(realm), yield).value();
-            session->enroll(Procedure("get_time"), simpleRpc<std::tm>(&getTime),
+            session->connect(tcp, yield).value();
+            session->join(wamp::Realm(realm), yield).value();
+            session->enroll(wamp::Procedure("get_time"),
+                            wamp::simpleRpc<std::tm>(&getTime),
                             yield).value();
 
             auto deadline = std::chrono::steady_clock::now();
@@ -75,7 +75,7 @@ int main()
 
                 auto t = std::time(nullptr);
                 const std::tm* local = std::localtime(&t);
-                session->publish(Pub("time_tick").withArgs(*local),
+                session->publish(wamp::Pub("time_tick").withArgs(*local),
                                  yield).value();
                 std::cout << "Tick: " << std::asctime(local) << "\n";
             }

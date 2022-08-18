@@ -16,8 +16,6 @@
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
 
-// TODO: Use ConnectionWish here and other examples
-
 const std::string realm = "cppwamp.demo.time";
 const std::string address = "localhost";
 const short port = 12345u;
@@ -45,24 +43,26 @@ namespace wamp
 class TimeClient : public std::enable_shared_from_this<TimeClient>
 {
 public:
-    static std::shared_ptr<TimeClient> create(wamp::Session::Ptr session)
+    static std::shared_ptr<TimeClient> create(wamp::AnyIoExecutor exec)
     {
-        return std::shared_ptr<TimeClient>(new TimeClient(session));
+        return std::shared_ptr<TimeClient>(new TimeClient(std::move(exec)));
     }
 
-    void start()
+    void start(wamp::ConnectionWish where)
     {
         auto self = shared_from_this();
-        session_->connect([this, self](wamp::ErrorOr<size_t> index)
-        {
-            index.value(); // Throws if connect failed
-            join();
-        });
+        session_->connect(
+            std::move(where),
+            [this, self](wamp::ErrorOr<size_t> index)
+            {
+                index.value(); // Throws if connect failed
+                join();
+            });
     }
 
 private:
-    explicit TimeClient(wamp::Session::Ptr session)
-        : session_(session)
+    TimeClient(wamp::AnyIoExecutor exec)
+        : session_(wamp::Session::create(std::move(exec)))
     {}
 
     static void onTimeTick(std::tm time)
@@ -114,15 +114,9 @@ private:
 //------------------------------------------------------------------------------
 int main()
 {
-    using namespace wamp;
-
-    AsioContext ioctx;
-    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = Session::create(ioctx, tcp);
-
-    auto client = TimeClient::create(session);
-    client->start();
+    wamp::AsioContext ioctx;
+    auto client = TimeClient::create(ioctx.get_executor());
+    client->start(wamp::TcpHost(address, port).withFormat(wamp::json));
     ioctx.run();
-
     return 0;
 }

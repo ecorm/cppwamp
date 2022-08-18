@@ -45,26 +45,27 @@ namespace wamp
 class TimeService : public std::enable_shared_from_this<TimeService>
 {
 public:
-    static std::shared_ptr<TimeService> create(wamp::AsioContext& ioctx,
-                                               wamp::Session::Ptr session)
+    static std::shared_ptr<TimeService> create(wamp::AnyIoExecutor exec)
     {
-        return std::shared_ptr<TimeService>(new TimeService(ioctx, session));
+        return std::shared_ptr<TimeService>(new TimeService(std::move(exec)));
     }
 
-    void start()
+    void start(wamp::ConnectionWish where)
     {
         auto self = shared_from_this();
-        session_->connect([this, self](wamp::ErrorOr<size_t> index)
-        {
-            index.value(); // Throws if connect failed
-            join();
-        });
+        session_->connect(
+            std::move(where),
+            [this, self](wamp::ErrorOr<size_t> index)
+            {
+                index.value(); // Throws if connect failed
+                join();
+            });
     }
 
 private:
-    explicit TimeService(wamp::AsioContext& ioctx, wamp::Session::Ptr session)
-        : session_(session),
-          timer_(ioctx)
+    explicit TimeService(wamp::AnyIoExecutor exec)
+        : session_(wamp::Session::create(exec)),
+          timer_(std::move(exec))
     {}
 
     static std::tm getTime()
@@ -130,13 +131,9 @@ private:
 //------------------------------------------------------------------------------
 int main()
 {
-    using namespace wamp;
-    AsioContext ioctx;
-    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = Session::create(ioctx, tcp);
-
-    auto service = TimeService::create(ioctx, session);
-    service->start();
+    wamp::AsioContext ioctx;
+    auto service = TimeService::create(ioctx.get_executor());
+    service->start(wamp::TcpHost(address, port).withFormat(wamp::json));
     ioctx.run();
 
     return 0;
