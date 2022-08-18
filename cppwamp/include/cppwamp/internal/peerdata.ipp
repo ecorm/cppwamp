@@ -618,7 +618,8 @@ CPPWAMP_INLINE Rpc& Rpc::captureError(Error& error)
 }
 
 /** @details
-    This sets the `CALL.Options.receive_progress|bool` option. */
+    This sets the `CALL.Options.receive_progress|bool` option.
+    @note this is automatically set by Session::ongoingCall. */
 CPPWAMP_INLINE Rpc& Rpc::withProgressiveResults(bool enabled)
 {
     progressiveResultsEnabled_ = enabled;

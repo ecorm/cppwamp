@@ -464,6 +464,27 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
     call(ThreadSafe, Rpc rpc, CallChit& chit, C&& completion);
 
+    /** Calls a remote procedure with progressive results. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
+    ongoingCall(Rpc rpc, C&& completion);
+
+    /** Thread-safe call with progressive results. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
+    ongoingCall(ThreadSafe, Rpc rpc, C&& completion);
+
+    /** Calls a remote procedure with progressive results, obtaining a token
+        that can be used for cancellation. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
+    ongoingCall(Rpc rpc, CallChit& chit, C&& completion);
+
+    /** Thread-safe call with CallChit capture and progressive results. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
+    ongoingCall(ThreadSafe, Rpc rpc, CallChit& chit, C&& completion);
+
     /** Cancels a remote procedure using the cancel mode that was specified
         in the @ref wamp::Rpc "Rpc". */
     void cancel(CallChit);
@@ -511,6 +532,7 @@ private:
     struct EnrollIntrOp;
     struct UnregisterOp;
     struct CallOp;
+    struct OngoingCallOp;
 
     template <typename O, typename C, typename... As>
     Deduced<ErrorOr<typename O::ResultValue>, C>
@@ -1412,46 +1434,14 @@ struct Session::CallOp
     template <typename F>
     void operator()(F&& f)
     {
-        if (chitPtr)
-            *chitPtr = {};
-        auto chit = call(std::is_copy_constructible<ValueTypeOf<F>>{},
-                         std::forward<F>(f));
+        CallChit chit;
         if (chitPtr)
             *chitPtr = chit;
-    }
-
-    template <typename F>
-    CallChit call(std::true_type, F&& f)
-    {
-        using std::move;
-        CallChit chit;
-        if (rpc.progressiveResultsAreEnabled())
-        {
-            MultiShotCallHandler handler(std::forward<F>(f));
-            if (self->checkState<Result>(State::established, handler))
-                chit = self->impl_->ongoingCall(move(rpc), move(handler));
-        }
-        else
-        {
-            OneShotCallHandler handler(std::forward<F>(f));
-            if (self->checkState<Result>(State::established, handler))
-                chit = self->impl_->oneShotCall(move(rpc), move(handler));
-        }
-        return chit;
-    }
-
-    template <typename F>
-    CallChit call(std::false_type, F&& f)
-    {
-        using std::move;
-        CallChit chit;
-        CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
-                            "Progressive results require copyable "
-                            "multi-shot handler");
         CompletionHandler<Result> handler(std::forward<F>(f));
         if (self->checkState<ResultValue>(State::established, handler))
-            chit = self->impl_->oneShotCall(move(rpc), move(handler));
-        return chit;
+            chit = self->impl_->oneShotCall(std::move(rpc), std::move(handler));
+        if (chitPtr)
+            *chitPtr = chit;
     }
 };
 
@@ -1468,13 +1458,9 @@ struct Session::CallOp
           or more invalid arguments.
         - SessionErrc::callError if the router reports some other error.
         - Some other `std::error_code` for protocol and transport errors.
-    @note If progressive results are enabled, then the given (or generated)
-          completion handler must be copy-constructible so that it can be
-          executed multiple times (checked at runtime).
-    @pre `rpc.withProgressiveResults() == false ||
-          std::is_copy_constructible_v<std::remove_cvref_t<C>>`
-    @throws error::Logic if progressive results are enabled but the given
-            (or generated) completion handler is not copy-constructible. */
+    @note Use Session::ongoingCall if progressive results are desired.
+    @pre `rpc.withProgressiveResults() == false`
+    @throws error::Logic if `rpc.progressiveResultsAreEnabled() == true`. */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
@@ -1488,6 +1474,8 @@ Session::call(
                         or a compatible Boost.Asio completion token. */
 )
 {
+    CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
+                        "Use Session::ongoingCall for progressive results");
     return initiate<CallOp>(std::forward<C>(completion), std::move(rpc),
                             nullptr);
 }
@@ -1508,6 +1496,8 @@ Session::call(
                         or a compatible Boost.Asio completion token. */
     )
 {
+    CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
+                        "Use Session::ongoingCall for progressive results");
     return safelyInitiate<CallOp>(std::forward<C>(completion), std::move(rpc),
                                   nullptr);
 }
@@ -1528,6 +1518,8 @@ Session::call(
                          a compatible Boost.Asio completion token. */
     )
 {
+    CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
+                        "Use Session::ongoingCall for progressive results");
     return initiate<CallOp>(std::forward<C>(completion), std::move(rpc), &chit);
 }
 
@@ -1548,8 +1540,127 @@ Session::call(
                          or a compatible Boost.Asio completion token. */
     )
 {
+    CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
+                        "Use Session::ongoingCall for progressive results");
     return safelyInitiate<CallOp>(std::forward<C>(completion), std::move(rpc),
                                   &chit);
+}
+
+//------------------------------------------------------------------------------
+struct Session::OngoingCallOp
+{
+    using ResultValue = Result;
+    Session* self;
+    Rpc rpc;
+    CallChit* chitPtr;
+
+    template <typename F>
+    void operator()(F&& f)
+    {
+        CallChit chit;
+        if (chitPtr)
+            chitPtr = {};
+        rpc.withProgressiveResults(true);
+        MultiShotCallHandler handler(std::forward<F>(f));
+        if (self->checkState<Result>(State::established, handler))
+            chit = self->impl_->ongoingCall(std::move(rpc), std::move(handler));
+        if (chitPtr)
+            *chitPtr = chit;
+    }
+};
+
+//------------------------------------------------------------------------------
+/** @return The remote procedure result.
+    @par Error Codes
+        - SessionErrc::invalidState if the session was not established
+          before the attempt to call.
+        - SessionErrc::sessionEnded if the operation was aborted.
+        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
+        - SessionErrc::noSuchProcedure if the router reports that there is
+          no such procedure registered by that name.
+        - SessionErrc::invalidArgument if the callee reports that there are one
+          or more invalid arguments.
+        - SessionErrc::callError if the router reports some other error.
+        - Some other `std::error_code` for protocol and transport errors.
+    @note `withProgessiveResults(true)` is automatically performed on the
+           given `rpc` argument.
+    @note The given completion handler must allow multi-shot invocation. */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Result>, C>
+#else
+Session::template Deduced<ErrorOr<Result>, C>
+#endif
+Session::ongoingCall(
+    Rpc rpc,       /**< Details about the RPC. */
+    C&& completion /**< Callable handler of type `void(ErrorOr<Result>)`,
+                        or a compatible Boost.Asio completion token. */
+    )
+{
+    return initiate<OngoingCallOp>(std::forward<C>(completion), std::move(rpc),
+                                   nullptr);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::ongoingCall(Rpc, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Result>, C>
+#else
+Session::template Deduced<ErrorOr<Result>, C>
+#endif
+Session::ongoingCall(
+    ThreadSafe,
+    Rpc rpc,       /**< Details about the RPC. */
+    C&& completion /**< Callable handler of type `void(ErrorOr<Result>)`,
+                        or a compatible Boost.Asio completion token. */
+    )
+{
+    return safelyInitiate<OngoingCallOp>(std::forward<C>(completion),
+                                         std::move(rpc), nullptr);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::ongoingCall(Rpc, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Result>, C>
+#else
+Session::template Deduced<ErrorOr<Result>, C>
+#endif
+Session::ongoingCall(
+    Rpc rpc,        /**< Details about the RPC. */
+    CallChit& chit, /**< [out] Token that can be used to cancel the RPC. */
+    C&& completion  /**< Callable handler of type `void(ErrorOr<Result>)`, or
+                         a compatible Boost.Asio completion token. */
+    )
+{
+    return initiate<OngoingCallOp>(std::forward<C>(completion), std::move(rpc),
+                                   &chit);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::ongoingCall(Rpc, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Result>, C>
+#else
+Session::template Deduced<ErrorOr<Result>, C>
+#endif
+Session::ongoingCall(
+    ThreadSafe,
+    Rpc rpc,        /**< Details about the RPC. */
+    CallChit& chit, /**< [out] Token that can be used to cancel the RPC. */
+    C&& completion  /**< Callable handler of type `void(ErrorOr<Result>)`,
+                         or a compatible Boost.Asio completion token. */
+    )
+{
+    return safelyInitiate<OngoingCallOp>(std::forward<C>(completion),
+                                         std::move(rpc), &chit);
 }
 
 //------------------------------------------------------------------------------

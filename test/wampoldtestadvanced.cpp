@@ -265,8 +265,8 @@ GIVEN( "a caller and a callee" )
 
             for (unsigned i=0; i<2; ++i)
             {
-                f.caller->call(
-                    Rpc("com.myapp.foo").withProgressiveResults(),
+                f.caller->ongoingCall(
+                    Rpc("com.myapp.foo"),
                     [&output, &input](AsyncResult<Result> r)
                     {
                         const auto& result = r.get();
@@ -333,10 +333,8 @@ GIVEN( "a caller and a callee" )
             {
                 Error error;
                 bool receivedError = false;
-                f.caller->call(
-                    Rpc("com.myapp.foo")
-                        .withProgressiveResults()
-                        .captureError(error),
+                f.caller->ongoingCall(
+                    Rpc("com.myapp.foo").captureError(error),
                     [&output, &input, &receivedError](AsyncResult<Result> r)
                     {
                         if (output.size() == input.size())
@@ -406,8 +404,8 @@ GIVEN( "a caller and a callee" )
                 },
                 yield);
 
-            f.caller->call(
-                Rpc("com.myapp.foo").withProgressiveResults(),
+            f.caller->ongoingCall(
+                Rpc("com.myapp.foo"),
                 [&output](AsyncResult<Result> r)
                 {
                     if (r.errorCode() == SessionErrc::sessionEnded)

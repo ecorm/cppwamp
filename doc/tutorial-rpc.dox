@@ -599,10 +599,9 @@ int main()
 ```
 A caller wanting to call an RPC with progressive call results must:
 
-- Pass a callback handler function to wamp::Session::call so that it doesn't
-  block.
-- Set the "receive_progress" option of the outgoing `CALL` message via
-  wamp::Rpc::withProgressiveResults.
+- Use Session::ongoingCall instead of Session::call.
+- Pass a completion token that allows the resulting completion handler
+  to be copied and invoked multiple times.
 
 The following example shows a caller that calls the RPC from the previous
 example:
@@ -621,13 +620,14 @@ int main()
 
         // The handler will remain in the Session's internal records
         // until either a non-progressive RESULT or an ERROR is received.
-        session->call(Rpc("countdown").withProgressiveResults(),
-                      [](ErrorOr<Result> r)
-                      {
-                          unsigned n = 0;
-                          r.value().convertTo(n);
-                          std::cout << "Tick: " << n << "\n";
-                      });
+        session->ongoingCall(
+            Rpc("countdown"),
+            [](ErrorOr<Result> r)
+            {
+                unsigned n = 0;
+                r.value().convertTo(n);
+                std::cout << "Tick: " << n << "\n";
+            });
     });
     ioctx.run();
     return 0;
