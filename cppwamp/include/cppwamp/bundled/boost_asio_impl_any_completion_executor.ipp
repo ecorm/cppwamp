@@ -9,7 +9,7 @@
 //
 
 // Original retrieved from
-// https://github.com/chriskohlhoff/asio/blob/any-completion-handler/asio/include/asio/impl/any_completion_executor.ipp
+// https://github.com/chriskohlhoff/boost/asio/blob/any-completion-handler/boost/asio/include/boost/asio/any_completion_executor.hpp
 // Adapted for use by CppWAMP
 
 #ifndef BOOST_ASIO_IMPL_ANY_COMPLETION_EXECUTOR_IPP
@@ -45,8 +45,20 @@ any_completion_executor::any_completion_executor(const any_completion_executor& 
 {
 }
 
+any_completion_executor::any_completion_executor(std::nothrow_t,
+    const any_completion_executor& e) BOOST_ASIO_NOEXCEPT
+  : base_type(static_cast<const base_type&>(e))
+{
+}
+
 #if defined(BOOST_ASIO_HAS_MOVE)
 any_completion_executor::any_completion_executor(any_completion_executor&& e) BOOST_ASIO_NOEXCEPT
+  : base_type(static_cast<base_type&&>(e))
+{
+}
+
+any_completion_executor::any_completion_executor(std::nothrow_t,
+    any_completion_executor&& e) BOOST_ASIO_NOEXCEPT
   : base_type(static_cast<base_type&&>(e))
 {
 }
