@@ -61,6 +61,12 @@ LegacyConnector alternateTcp(AsioContext& ioctx)
     return connector<Msgpack>(ioctx, where);
 }
 
+//------------------------------------------------------------------------------
+void suspendCoro(boost::asio::yield_context& yield)
+{
+    auto exec = boost::asio::get_associated_executor(yield);
+    boost::asio::post(exec, yield);
+}
 
 //------------------------------------------------------------------------------
 struct PubSubFixture
@@ -693,7 +699,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             while (s->state() != SS::establishing)
-                ioctx.post(yield);
+                suspendCoro(yield);
             s->disconnect();
         });
 

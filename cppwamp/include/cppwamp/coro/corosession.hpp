@@ -937,7 +937,8 @@ template <typename B>
 template <typename H>
 void CoroSession<B>::suspend(YieldContext<H> yield)
 {
-    boost::asio::post(this->userIosvc(), yield);
+    auto exec = boost::asio::get_associated_executor(yield);
+    boost::asio::post(exec, yield);
 }
 
 } // namespace wamp
