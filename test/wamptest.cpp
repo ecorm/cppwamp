@@ -455,7 +455,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             {
-                // Connect and disconnect a session->
+                // Connect and disconnect a session
                 auto s = Session::create(ioctx);
                 s->setStateChangeHandler(changes);
                 CHECK( s->state() == SS::disconnected );
