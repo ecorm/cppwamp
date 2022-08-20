@@ -32,8 +32,11 @@ template <>
 class CPPWAMP_API Connector<Tcp> : public Connecting
 {
 public:
+    /** Type containing the transport settings. */
+    using Settings = TcpHost;
+
     /** Constructor. */
-    Connector(IoStrand s, TcpHost h, int codecId);
+    Connector(IoStrand i, Settings s, int codecId);
 
     /** Destructor. */
     ~Connector();

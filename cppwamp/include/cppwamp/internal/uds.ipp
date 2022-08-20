@@ -16,16 +16,16 @@ struct Connector<Uds>::Impl
 {
     using RawsockOpener = internal::RawsockConnector<internal::UdsOpener>;
 
-    Impl(IoStrand s, UdsPath p, int codecId)
-        : cnct(RawsockOpener::create(std::move(s), std::move(p), codecId))
+    Impl(IoStrand i, Settings s, int codecId)
+        : cnct(RawsockOpener::create(std::move(i), std::move(s), codecId))
     {}
 
     RawsockOpener::Ptr cnct;
 };
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Connector<Uds>::Connector(IoStrand s, UdsPath h, int codecId)
-    : impl_(new Impl(std::move(s), std::move(h), codecId))
+CPPWAMP_INLINE Connector<Uds>::Connector(IoStrand i, Settings s, int codecId)
+    : impl_(new Impl(std::move(i), std::move(s), codecId))
 {}
 
 //------------------------------------------------------------------------------

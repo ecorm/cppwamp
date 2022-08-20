@@ -33,8 +33,11 @@ template <>
 class CPPWAMP_API Connector<Uds> : public Connecting
 {
 public:
+    /** Type containing the transport settings. */
+    using Settings = UdsPath;
+
     /** Constructor. */
-    Connector(IoStrand s, UdsPath p, int codecId);
+    Connector(IoStrand i, Settings s, int codecId);
 
     /** Destructor. */
     ~Connector();

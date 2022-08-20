@@ -13,7 +13,6 @@ Describes restrictions on types used by generic facilities.
 - @subpage CodecFormat
 - @subpage TransportConnector
 - @subpage TransportSettings
-- @subpage Establisher
 */
 
 //------------------------------------------------------------------------------
@@ -144,7 +143,7 @@ is used by `wamp::Session` to establish transport connections.
 Given
 - `t`: a `TransportConnector` instance
 - `i`: a wamp::IoStrand instance
-- `s`: an object containing the transport's address and settings (e.g. wamp::TcpHost)
+- `s`: an instance of `TransportConnector::Settings`
 - `c` a number of type `int` for desired serialization format (codec ID)
 - 'h' a handler with signature:
 
@@ -159,6 +158,7 @@ then:
 
 Expression                         | Effect
 ---------------------------------- | ------
+TransportConnector::Settings       | Yields the type containing transport settings.
 `new TransportConnector(i, s, c)`  | Instantiates the connector.
 `t->establish(std::move(h))`       | Starts establishing transport connection.
 `t->cancel()`                      | Cancels transport connection establishment in progress.
@@ -191,38 +191,4 @@ Expression                    | Effect
 The following classes meet the requirements of `TransportSettings`:
 - `wamp::TcpHost`
 - `wamp::UdsPath`
-*/
-
-//------------------------------------------------------------------------------
-/** @page Establisher Establisher
-An `Establisher` is used by `internal::AsioEndpoint` to create and connect a
-Boost.Asio socket.
-
-Given
-- `est`: an `Establisher` instance
-- `handler`: a callable entity with the signature:
-
-```
-void (boost::system::error_code, Establisher::SocketPtr&&)
-```
-
-then:
-- `Establisher` must be move-constrictible, and,
-- the following expressions must be valid:
-
-Expression               | Effect
------------------------- | ------
-`Establisher::Socket`    | Yields the type of socket that the Establisher creates and connects.
-`Establisher::SocketPtr` | Yields a shared pointer type to an Establisher::Socket.
-`est.establish(handler)` | Establishes the socket connection, then calls `handler`.
-`est.cancel()`           | Cancels an `establish` operation in progress.
-
-If an `establish` operation is cancelled, it shall return, via the completion
-handler,  an error code equivalent to `boost::system::errc::operation_canceled`.
-
-The following classes meet the requirements of `Establisher`:
-- `wamp::internal::TcpAcceptor`
-- `wamp::internal::TcpOpener`
-- `wamp::internal::UdsAcceptor`
-- `wamp::internal::UdsOpener`
 */
