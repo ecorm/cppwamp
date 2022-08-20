@@ -13,11 +13,27 @@
 #include <cppwamp/internal/asiolistener.hpp>
 #include <cppwamp/internal/asiotransport.hpp>
 #include <cppwamp/internal/rawsockheader.hpp>
+#include <cppwamp/internal/rawsockconnector.hpp>
 #include <cppwamp/internal/tcpacceptor.hpp>
 #include <cppwamp/internal/tcpopener.hpp>
 
 namespace wamp
 {
+
+//------------------------------------------------------------------------------
+struct CannedHandshakeConfig : internal::DefaultRawsockClientConfig
+{
+    static uint32_t hostOrderBytes(int, RawsockMaxLength)
+    {
+        return internal::endian::nativeToBig32(cannedNativeBytes());
+    }
+
+    static uint32_t& cannedNativeBytes()
+    {
+        static uint32_t bytes = 0;
+        return bytes;
+    }
+};
 
 //------------------------------------------------------------------------------
 class FakeHandshakeAsioListener :
@@ -40,26 +56,6 @@ public:
             Handshake().setCodecId(KnownCodecIds::json())
                        .setMaxLength(RawsockMaxLength::kB_64) );
     }
-
-    void setCannedHandshake(uint32_t hostOrder)
-        {cannedHandshake_ = Handshake(hostOrder);}
-
-private:
-    Handshake cannedHandshake_;
-};
-
-//------------------------------------------------------------------------------
-class FakeHandshakeAsioConnector :
-        public internal::AsioConnector<wamp::internal::TcpOpener>
-{
-private:
-    using Base = internal::AsioConnector<wamp::internal::TcpOpener>;
-
-public:
-    using Base::Base;
-
-    virtual void onEstablished() override
-        {Base::sendHandshake(cannedHandshake_);}
 
     void setCannedHandshake(uint32_t hostOrder)
         {cannedHandshake_ = Handshake(hostOrder);}
@@ -126,39 +122,11 @@ public:
 };
 
 //------------------------------------------------------------------------------
-class FakeMsgTypeAsioConnector :
-        public internal::AsioConnector<wamp::internal::TcpOpener>
+struct FakeTransportClientConfig : internal::DefaultRawsockClientConfig
 {
-private:
-    using Base = internal::AsioConnector<wamp::internal::TcpOpener>;
+    template <typename>
+    using TransportType = FakeMsgTypeTransport;
 
-public:
-    using Transport = FakeMsgTypeTransport;
-    using TransportPtr = std::shared_ptr<Transport>;
-
-    using Base::Base;
-
-    virtual void onHandshakeReceived(Handshake hs) override
-    {
-        if (!hs.hasMagicOctet())
-            Base::fail(RawsockErrc::badHandshake);
-        else if (hs.reserved() != 0)
-            Base::fail(RawsockErrc::reservedBitsUsed);
-        else if (hs.codecId() == KnownCodecIds::json())
-        {
-            Transporting::Ptr trnsp{
-                FakeMsgTypeTransport::create(
-                    std::move(socket_),
-                    {KnownCodecIds::json(), 64*1024, 64*1024})};
-            boost::asio::post(strand_, std::bind(handler_, std::move(trnsp)));
-            socket_.reset();
-            handler_ = nullptr;
-        }
-        else if (hs.hasError())
-            Base::fail(hs.errorCode());
-        else
-            Base::fail(RawsockErrc::badHandshake);
-    }
 };
 
 } // namespace wamp

@@ -22,9 +22,23 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename TOpener>
+struct DefaultRawsockClientConfig
+{
+    template <typename TOpener>
+    using TransportType = AsioTransport<typename TOpener::Socket>;
+
+    static uint32_t hostOrderBytes(int codecId, RawsockMaxLength maxRxLength)
+    {
+        return RawsockHandshake().setCodecId(codecId)
+                                 .setMaxLength(maxRxLength)
+                                 .toBigEndian();
+    }
+};
+
+//------------------------------------------------------------------------------
+template <typename TOpener, typename TConfig = DefaultRawsockClientConfig>
 class RawsockConnector
-    : public std::enable_shared_from_this<RawsockConnector<TOpener>>
+    : public std::enable_shared_from_this<RawsockConnector<TOpener, TConfig>>
 {
 public:
     using Ptr       = std::shared_ptr<RawsockConnector>;
@@ -74,7 +88,7 @@ private:
     using Handshake = internal::RawsockHandshake;
     using Socket    = typename Opener::Socket;
     using SocketPtr = std::unique_ptr<Socket>;
-    using Transport = AsioTransport<Socket>;
+    using Transport = typename TConfig::template TransportType<Opener>;
 
     RawsockConnector(IoStrand s, Info i, int codecId)
         : codecId_(codecId),
@@ -84,9 +98,7 @@ private:
 
     void sendHandshake()
     {
-        handshake_ = Handshake().setCodecId(codecId_)
-                                .setMaxLength(maxRxLength_)
-                                .toBigEndian();
+        handshake_ = TConfig::hostOrderBytes(codecId_, maxRxLength_);
         auto self = this->shared_from_this();
         boost::asio::async_write(
             *socket_,

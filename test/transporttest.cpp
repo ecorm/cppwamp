@@ -11,6 +11,7 @@
 #include <cppwamp/internal/asiolistener.hpp>
 #include <cppwamp/internal/tcpopener.hpp>
 #include <cppwamp/internal/tcpacceptor.hpp>
+#include <cppwamp/internal/rawsockconnector.hpp>
 #include <cppwamp/internal/udsopener.hpp>
 #include <cppwamp/internal/udsacceptor.hpp>
 #include "faketransport.hpp"
@@ -137,14 +138,12 @@ void checkPing(TFixture& f)
 template <typename TFixture>
 void checkUnsupportedSerializer(TFixture& f)
 {
-    using TransportPtr = typename TFixture::TransportPtr;
-
-    f.lstn.establish([&](ErrorOr<TransportPtr> transport)
+    f.lstn.establish([&](ErrorOr<Transporting::Ptr> transport)
     {
         CHECK( transport == makeUnexpectedError(RawsockErrc::badSerializer) );
     });
 
-    f.cnct.establish([&](ErrorOr<TransportPtr> transport)
+    f.cnct.establish([&](ErrorOr<Transporting::Ptr> transport)
     {
         CHECK( transport == makeUnexpectedError(RawsockErrc::badSerializer) );
     });
@@ -196,21 +195,22 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
                                 RawsockErrc expectedServerCode,
                                 TErrorCode expectedClientCode)
 {
+    using FakeConnector = internal::RawsockConnector<internal::TcpOpener,
+                                                     CannedHandshakeConfig>;
     using AsioListener = internal::AsioListener<internal::TcpAcceptor>;
-    using TransportPtr = AsioListener::TransportingPtr;
 
     AsioContext ioctx;
-    internal::TcpOpener opnr(ioctx.get_executor(),
-                             {tcpLoopbackAddr, tcpTestPort});
-    FakeHandshakeAsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
-    cnct.setCannedHandshake(cannedHandshake);
+    IoStrand strand{ioctx.get_executor()};
+    auto cnct = FakeConnector::create(strand, {tcpLoopbackAddr, tcpTestPort},
+                                      jsonId);
+    CannedHandshakeConfig::cannedNativeBytes() = cannedHandshake;
 
     internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
     AsioListener lstn(std::move(acpt), {jsonId}, RML::kB_64);
 
     bool serverAborted = false;
     lstn.establish(
-        [&](ErrorOr<TransportPtr> transport)
+        [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE_FALSE( transport.has_value() );
             CHECK( transport.error() == expectedServerCode );
@@ -218,8 +218,8 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
         });
 
     bool clientAborted = false;
-    cnct.establish(
-        [&](ErrorOr<TransportPtr> transport)
+    cnct->establish(
+        [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE_FALSE( transport.has_value() );
             CHECK( transport.error() == expectedClientCode );
@@ -553,33 +553,35 @@ SCENARIO( "Receiving messages longer than maximum", "[Transport]" )
 {
 using AsioConnector = internal::AsioConnector<internal::TcpOpener>;
 using AsioListener  = internal::AsioListener<internal::TcpAcceptor>;
-using TransportPtr  = AsioConnector::TransportingPtr;
+using FakeConnector = internal::RawsockConnector<internal::TcpOpener,
+                                                 CannedHandshakeConfig>;
 
 MessageBuffer tooLong(64*1024 + 1, 'A');
 
 GIVEN ( "A server tricked into sending overly long messages to a client" )
 {
     AsioContext ioctx;
-    internal::TcpOpener opnr(ioctx.get_executor(),
-                             {tcpLoopbackAddr, tcpTestPort});
-    FakeHandshakeAsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
-    cnct.setCannedHandshake(0x7F810000);
+    IoStrand strand{ioctx.get_executor()};
+    auto tcpHost = TcpHost{tcpLoopbackAddr, tcpTestPort}
+                       .withMaxRxLength(RML::kB_64);
+    auto cnct = FakeConnector::create(strand, tcpHost, jsonId);
+    CannedHandshakeConfig::cannedNativeBytes() = 0x7F810000;
 
     internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
     AsioListener lstn(std::move(acpt), {jsonId}, RML::kB_64);
 
-    TransportPtr server;
-    TransportPtr client;
+    Transporting::Ptr server;
+    Transporting::Ptr client;
 
     lstn.establish(
-        [&](ErrorOr<TransportPtr> transport)
+        [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );
             server = std::move(*transport);
         });
 
-    cnct.establish(
-        [&](ErrorOr<TransportPtr> transport)
+    cnct->establish(
+        [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );
             client = std::move(*transport);
@@ -630,18 +632,18 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
                              {tcpLoopbackAddr, tcpTestPort});
     AsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
 
-    TransportPtr server;
-    TransportPtr client;
+    Transporting::Ptr server;
+    Transporting::Ptr client;
 
     lstn.establish(
-        [&](ErrorOr<TransportPtr> transport)
+        [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );
             server = std::move(*transport);
         });
 
     cnct.establish(
-        [&](ErrorOr<TransportPtr> transport)
+        [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );
             client = std::move(*transport);
@@ -687,9 +689,8 @@ SCENARIO( "Receiving an invalid message type", "[Transport]" )
 {
 using AsioConnector    = internal::AsioConnector<internal::TcpOpener>;
 using AsioListener     = internal::AsioListener<internal::TcpAcceptor>;
-using TransportPtr     = AsioConnector::TransportingPtr;
 using FakeTransport    = FakeMsgTypeAsioListener::Transport;
-using FakeTransportPtr = FakeMsgTypeAsioListener::TransportPtr;
+using FakeTransportPtr = FakeMsgTypeAsioListener::Transport::Ptr;
 
 GIVEN ( "A fake server that sends an invalid message type" )
 {
@@ -702,17 +703,17 @@ GIVEN ( "A fake server that sends an invalid message type" )
     AsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
 
     FakeTransportPtr server;
-    TransportPtr client;
+    Transporting::Ptr client;
 
     lstn.establish(
-        [&](ErrorOr<TransportPtr> transport)
+        [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );
             server = std::dynamic_pointer_cast<FakeTransport>(*transport);
         });
 
     cnct.establish(
-        [&](ErrorOr<TransportPtr> transport)
+        [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );
             client = std::move(*transport);
@@ -755,26 +756,30 @@ GIVEN ( "A fake server that sends an invalid message type" )
 }
 GIVEN ( "A fake client that sends an invalid message type" )
 {
+    using FakeConnector = internal::RawsockConnector<internal::TcpOpener,
+                                                     FakeTransportClientConfig>;
+
     AsioContext ioctx;
-    internal::TcpOpener opnr(ioctx.get_executor(),
-                             {tcpLoopbackAddr, tcpTestPort});
-    FakeMsgTypeAsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
+    IoStrand strand{ioctx.get_executor()};
+    auto tcpHost = TcpHost{tcpLoopbackAddr, tcpTestPort}
+                       .withMaxRxLength(RML::kB_64);
+    auto cnct = FakeConnector::create(strand, tcpHost, jsonId);
 
     internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
     AsioListener lstn(std::move(acpt), {jsonId}, RML::kB_64);
 
-    TransportPtr server;
+    Transporting::Ptr server;
     FakeTransportPtr client;
 
     lstn.establish(
-        [&](ErrorOr<TransportPtr> transport)
+        [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );
             server = std::move(*transport);
         });
 
-    cnct.establish(
-        [&](ErrorOr<TransportPtr> transport)
+    cnct->establish(
+        [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );
             client = std::dynamic_pointer_cast<FakeTransport>(*transport);
