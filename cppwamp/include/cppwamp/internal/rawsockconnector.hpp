@@ -32,7 +32,7 @@ struct DefaultRawsockClientConfig
     {
         return RawsockHandshake().setCodecId(codecId)
                                  .setMaxLength(maxRxLength)
-                                 .toBigEndian();
+                                 .toHostOrder();
     }
 };
 
@@ -74,7 +74,7 @@ public:
                     auto ec = socket.error();
                     if (ec == std::errc::operation_canceled)
                         ec = make_error_code(TransportErrc::aborted);
-                    handler_(UnexpectedError(ec));
+                    dispatchHandler(UnexpectedError(ec));
                 }
             }
         );
@@ -99,7 +99,8 @@ private:
 
     void sendHandshake()
     {
-        handshake_ = TConfig::hostOrderHandshakeBytes(codecId_, maxRxLength_);
+        auto bytes = TConfig::hostOrderHandshakeBytes(codecId_, maxRxLength_);
+        handshake_ = endian::nativeToBig32(bytes);
         auto self = this->shared_from_this();
         boost::asio::async_write(
             *socket_,
@@ -147,32 +148,33 @@ private:
             auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
             if (ec == std::errc::operation_canceled)
                 ec = make_error_code(TransportErrc::aborted);
-            Handler handler(std::move(handler_));
-            handler_ = nullptr;
-            handler(makeUnexpected(ec));
+            dispatchHandler(makeUnexpected(ec));
         }
         return !asioEc;
     }
 
     void complete(Handshake hs)
     {
-        TransportInfo info{codecId_,
-                           hs.maxLengthInBytes(),
-                           Handshake::byteLengthOf(maxRxLength_)};
-        Transporting::Ptr transport{Transport::create(std::move(socket_),
-                                                      info)};
+        TransportInfo i{codecId_,
+                        hs.maxLengthInBytes(),
+                        Handshake::byteLengthOf(maxRxLength_)};
+        Transporting::Ptr transport{Transport::create(std::move(socket_), i)};
         socket_.reset();
-        Handler handler(std::move(handler_));
-        handler_ = nullptr;
-        handler(std::move(transport));
+        dispatchHandler(std::move(transport));
     }
 
     void fail(RawsockErrc errc)
     {
         socket_.reset();
+        dispatchHandler(makeUnexpectedError(errc));
+    }
+
+    template <typename TArg>
+    void dispatchHandler(TArg&& arg)
+    {
         Handler handler(std::move(handler_));
         handler_ = nullptr;
-        handler(makeUnexpectedError(errc));
+        handler(std::forward<TArg>(arg));
     }
 
     SocketPtr socket_;

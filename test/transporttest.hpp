@@ -41,25 +41,24 @@ struct LoopbackFixture
     using Connector      = TConnector;
     using ClientSettings = typename TConnector::Settings;
     using Listener       = TListener;
-    using Acceptor       = typename Listener::Establisher;
+    using ServerSettings = typename TListener::Settings;
     using Transport      = typename Connector::Transport;
-    using TransportPtr   = typename Transporting::Ptr;
 
     template <typename TServerCodecIds>
     LoopbackFixture(AsioContext& clientCtx,
                     AsioContext& serverCtx,
                     ClientSettings clientSettings,
                     int clientCodec,
-                    Acceptor&& acceptor,
+                    ServerSettings serverSettings,
                     TServerCodecIds&& serverCodecs,
-                    RawsockMaxLength serverMaxRxLength,
                     bool connected = true)
         : cctx(clientCtx),
           sctx(serverCtx),
           cnct(Connector::create(IoStrand{clientCtx.get_executor()},
                                  std::move(clientSettings), clientCodec)),
-          lstn(std::move(acceptor), std::forward<TServerCodecIds>(serverCodecs),
-               serverMaxRxLength)
+          lstn(Listener::create(IoStrand{serverCtx.get_executor()},
+                                std::move(serverSettings),
+                                std::forward<TServerCodecIds>(serverCodecs)))
     {
         if (connected)
             connect();
@@ -67,8 +66,8 @@ struct LoopbackFixture
 
     void connect()
     {
-        lstn.establish(
-            [&](ErrorOr<TransportPtr> transportOrError)
+        lstn->establish(
+            [&](ErrorOr<Transporting::Ptr> transportOrError)
             {
                 auto transport = transportOrError.value();
                 serverCodec = transport->info().codecId;
@@ -76,7 +75,7 @@ struct LoopbackFixture
             });
 
         cnct->establish(
-            [&](ErrorOr<TransportPtr> transportOrError)
+            [&](ErrorOr<Transporting::Ptr> transportOrError)
             {
                 auto transport = transportOrError.value();
                 clientCodec = transport->info().codecId;
@@ -112,11 +111,11 @@ struct LoopbackFixture
     AsioContext& cctx;
     AsioContext& sctx;
     typename Connector::Ptr cnct;
-    Listener  lstn;
+    typename Listener::Ptr lstn;
     int clientCodec;
     int serverCodec;
-    TransportPtr client;
-    TransportPtr server;
+    Transporting::Ptr client;
+    Transporting::Ptr server;
 };
 
 //------------------------------------------------------------------------------
@@ -133,8 +132,7 @@ void checkConnection(TFixture& f, int expectedCodec,
                      size_t clientMaxRxLength = 64*1024,
                      size_t serverMaxRxLength = 64*1024)
 {
-    using TransportPtr = typename Transporting::Ptr;
-    f.lstn.establish([&](ErrorOr<TransportPtr> transportOrError)
+    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transportOrError)
     {
         REQUIRE( transportOrError.has_value() );
         auto transport = *transportOrError;
@@ -145,7 +143,7 @@ void checkConnection(TFixture& f, int expectedCodec,
         f.server = transport;
     });
 
-    f.cnct->establish([&](ErrorOr<TransportPtr> transportOrError)
+    f.cnct->establish([&](ErrorOr<Transporting::Ptr> transportOrError)
     {
         REQUIRE( transportOrError.has_value() );
         auto transport = *transportOrError;
@@ -162,8 +160,8 @@ void checkConnection(TFixture& f, int expectedCodec,
 //------------------------------------------------------------------------------
 template <typename TFixture>
 void checkSendReply(TFixture& f,
-                    typename TFixture::TransportPtr sender,
-                    typename TFixture::TransportPtr receiver,
+                    Transporting::Ptr sender,
+                    Transporting::Ptr receiver,
                     const MessageBuffer& message,
                     const MessageBuffer& reply)
 {
@@ -220,10 +218,8 @@ void checkSendReply(TFixture& f, const MessageBuffer& message,
 template <typename TFixture>
 void checkCommunications(TFixture& f)
 {
-    using TransportPtr = typename TFixture::TransportPtr;
-
-    TransportPtr sender = f.client;
-    TransportPtr receiver = f.server;
+    Transporting::Ptr sender = f.client;
+    Transporting::Ptr receiver = f.server;
     auto message = makeMessageBuffer("Hello");
     auto reply = makeMessageBuffer("World");
     bool receivedMessage = false;
@@ -271,8 +267,8 @@ void checkCommunications(TFixture& f)
     CHECK( receivedMessage );
 
     // Another client connects to the same endpoint
-    TransportPtr server2;
-    TransportPtr client2;
+    Transporting::Ptr server2;
+    Transporting::Ptr client2;
     auto message2 = makeMessageBuffer("Hola");
     auto reply2 = makeMessageBuffer("Mundo");
     bool receivedMessage2 = false;
@@ -282,8 +278,8 @@ void checkCommunications(TFixture& f)
     receivedMessage = false;
     receivedReply = false;
 
-    f.lstn.establish(
-        [&](ErrorOr<TransportPtr> transportOrError)
+    f.lstn->establish(
+        [&](ErrorOr<Transporting::Ptr> transportOrError)
         {
             REQUIRE( transportOrError.has_value() );
             auto transport = *transportOrError;
@@ -296,7 +292,7 @@ void checkCommunications(TFixture& f)
         });
 
     f.cnct->establish(
-        [&](ErrorOr<TransportPtr> transportOrError)
+        [&](ErrorOr<Transporting::Ptr> transportOrError)
         {
             REQUIRE( transportOrError.has_value() );
             auto transport = *transportOrError;
@@ -369,10 +365,8 @@ void checkCommunications(TFixture& f)
 
 //------------------------------------------------------------------------------
 template <typename TFixture>
-void checkConsecutiveSendReceive(
-        TFixture& f,
-        typename TFixture::TransportPtr& sender,
-        typename TFixture::TransportPtr& receiver)
+void checkConsecutiveSendReceive(TFixture& f, Transporting::Ptr& sender,
+                                 Transporting::Ptr& receiver)
 {
     std::vector<MessageBuffer> messages;
     for (int i=0; i<100; ++i)
@@ -414,12 +408,11 @@ void checkConsecutiveSendReceive(
 template <typename TFixture>
 void checkCancelListen(TFixture& f)
 {
-    using TransportPtr = typename TFixture::TransportPtr;
-    f.lstn.establish([&](ErrorOr<TransportPtr> transport)
+    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
         CHECK( transport == makeUnexpectedError(TransportErrc::aborted) );
     });
-    f.lstn.cancel();
+    f.lstn->cancel();
     CHECK_NOTHROW( f.run() );
 }
 
@@ -427,10 +420,9 @@ void checkCancelListen(TFixture& f)
 template <typename TFixture>
 void checkCancelConnect(TFixture& f)
 {
-    using TransportPtr = typename TFixture::TransportPtr;
     WHEN( "the client cancels before the connection is established" )
     {
-        f.lstn.establish([&](ErrorOr<TransportPtr> transport)
+        f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
         {
             if (transport.has_value())
                 f.server = *transport;
@@ -439,7 +431,7 @@ void checkCancelConnect(TFixture& f)
         bool connectCanceled = false;
         bool connectCompleted = false;
         f.cnct->establish(
-            [&](ErrorOr<TransportPtr> transport)
+            [&](ErrorOr<Transporting::Ptr> transport)
             {
                 if (transport.has_value())
                 {
@@ -516,15 +508,13 @@ void checkCancelReceive(TFixture& f)
 template <typename TFixture>
 void checkCancelSend(TFixture& f)
 {
-    using TransportPtr = typename TFixture::TransportPtr;
-
-    f.lstn.establish([&](ErrorOr<TransportPtr> transport)
+    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
         REQUIRE(transport.has_value());
         f.server = *transport;
     });
 
-    f.cnct->establish([&](ErrorOr<TransportPtr> transport)
+    f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
         REQUIRE(transport.has_value());
         f.client = *transport;
