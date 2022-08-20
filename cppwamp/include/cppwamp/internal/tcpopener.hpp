@@ -14,6 +14,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
+#include "../erroror.hpp"
 #include "../tcphost.hpp"
 
 namespace wamp
@@ -33,10 +34,11 @@ public:
     template <typename TExecutorOrStrand>
     TcpOpener(TExecutorOrStrand&& exec, Info info)
         : strand_(std::forward<TExecutorOrStrand>(exec)),
-          info_(std::move(info))
+          info_(std::move(info)),
+          resolver_(strand_)
     {}
 
-    IoStrand strand() {return strand_;}
+    IoStrand strand() {return strand_;} // TODO: Remove
 
     template <typename F>
     void establish(F&& callback)
@@ -46,39 +48,41 @@ public:
             TcpOpener* self;
             typename std::decay<F>::type callback;
 
-            void operator()(AsioErrorCode ec, tcp::resolver::iterator iterator)
+            void operator()(AsioErrorCode asioEc,
+                            tcp::resolver::iterator iterator)
             {
-                if (ec)
-                {
-                    self->resolver_.reset();
-                    callback(ec, nullptr);
-                }
-                else
+                if (self->checkError(asioEc, callback))
                     self->connect(iterator, std::move(callback));
             }
         };
 
-        assert(!resolver_ && "Connect already in progress");
-
-        resolver_.reset(new tcp::resolver(strand_));
-
-        tcp::resolver::query query(info_.hostName(), info_.serviceName());
-
-        // AsioConnector will keep this object alive until completion.
-        resolver_->async_resolve(query,
-                                 Resolved{this, std::forward<F>(callback)});
+        // RawsockConnector will keep this object alive until completion.
+        boost::asio::ip::tcp::resolver::query query{info_.hostName(),
+                                                    info_.serviceName()};
+        resolver_.async_resolve(query,
+                                Resolved{this, std::forward<F>(callback)});
     }
 
     void cancel()
     {
-        if (resolver_)
-            resolver_->cancel();
+        resolver_.cancel();
         if (socket_)
             socket_->close();
     }
 
 private:
     using tcp = boost::asio::ip::tcp;
+
+    template <typename F>
+    bool checkError(AsioErrorCode asioEc, F& callback)
+    {
+        if (asioEc)
+        {
+            auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
+            callback(UnexpectedError(ec));
+        }
+        return !asioEc;
+    }
 
     template <typename F>
     void connect(tcp::resolver::iterator iterator, F&& callback)
@@ -88,13 +92,12 @@ private:
             TcpOpener* self;
             typename std::decay<F>::type callback;
 
-            void operator()(AsioErrorCode ec, tcp::resolver::iterator)
+            void operator()(AsioErrorCode asioEc, tcp::resolver::iterator)
             {
-                self->resolver_.reset();
-                if (ec)
-                    self->socket_.reset();
-                callback(ec, std::move(self->socket_));
+                SocketPtr socket{std::move(self->socket_)};
                 self->socket_.reset();
+                if (self->checkError(asioEc, callback))
+                    callback(std::move(socket));
             }
         };
 
@@ -103,14 +106,14 @@ private:
         socket_->open(boost::asio::ip::tcp::v4());
         info_.options().applyTo(*socket_);
 
-        // AsioConnector will keep this object alive until completion.
+        // RawsockConnector will keep this object alive until completion.
         boost::asio::async_connect(*socket_, iterator,
                                    Connected{this, std::forward<F>(callback)});
     }
 
     IoStrand strand_;
     Info info_;
-    std::unique_ptr<tcp::resolver> resolver_;
+    boost::asio::ip::tcp::resolver resolver_;
     SocketPtr socket_;
 };
 

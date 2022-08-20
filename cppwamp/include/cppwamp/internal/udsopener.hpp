@@ -13,6 +13,7 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
+#include "../erroror.hpp"
 #include "../udspath.hpp"
 
 namespace wamp
@@ -35,7 +36,7 @@ public:
           info_(std::move(info))
     {}
 
-    IoStrand strand() {return strand_;}
+    IoStrand strand() {return strand_;} // TODO: Remove
 
     template <typename F>
     void establish(F&& callback)
@@ -45,12 +46,12 @@ public:
             UdsOpener* self;
             typename std::decay<F>::type callback;
 
-            void operator()(AsioErrorCode ec)
+            void operator()(AsioErrorCode asioEc)
             {
-                if (ec)
-                    self->socket_.reset();
-                callback(ec, std::move(self->socket_));
+                SocketPtr socket{std::move(self->socket_)};
                 self->socket_.reset();
+                if (self->checkError(asioEc, callback))
+                    callback(std::move(socket));
             }
         };
 
@@ -60,7 +61,7 @@ public:
         socket_->open();
         info_.options().applyTo(*socket_);
 
-        // AsioConnector will keep this object alive until completion.
+        // RawsockConnector will keep this object alive until completion.
         socket_->async_connect(info_.pathName(),
                                Connected{this, std::forward<F>(callback)});
     }
@@ -72,6 +73,17 @@ public:
     }
 
 private:
+    template <typename F>
+    bool checkError(AsioErrorCode asioEc, F& callback)
+    {
+        if (asioEc)
+        {
+            auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
+            callback(UnexpectedError(ec));
+        }
+        return !asioEc;
+    }
+
     IoStrand strand_;
     Info info_;
     SocketPtr socket_;

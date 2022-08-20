@@ -55,14 +55,20 @@ public:
         {
             // The Connector that initiated 'establish' must keep this object
             // alive until completion.
-            // ErrorOr cannot be used here without a bunch of conversions
-            // from boost::system::error_code to std::error_code.
-            est_.establish( [this](AsioErrorCode ec, SocketPtr&& socket)
+            est_.establish( [this](ErrorOr<SocketPtr> socket)
             {
-                if (check(ec))
+                if (socket.has_value())
                 {
-                    socket_ = std::move(socket);
+                    socket_ = std::move(*socket);
                     onEstablished();
+                }
+                else
+                {
+                    auto ec = socket.error();
+                    if (ec == std::errc::operation_canceled)
+                        ec = make_error_code(TransportErrc::aborted);
+                    postHandler(makeUnexpected(ec));
+                    handler_ = nullptr;
                 }
             });
         }

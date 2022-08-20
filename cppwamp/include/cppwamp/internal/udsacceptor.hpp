@@ -13,6 +13,7 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
+#include "../erroror.hpp"
 
 namespace wamp
 {
@@ -35,7 +36,7 @@ public:
           deleteFile_(deleteFile)
     {}
 
-    IoStrand& strand() {return strand_;}
+    IoStrand strand() {return strand_;} // TODO: Remove
 
     template <typename F>
     void establish(F&& callback)
@@ -45,24 +46,24 @@ public:
             UdsAcceptor* self;
             typename std::decay<F>::type callback;
 
-            void operator()(AsioErrorCode ec)
+            void operator()(AsioErrorCode asioEc)
             {
-                if (ec)
-                {
-                    self->acceptor_.reset();
-                    self->socket_.reset();
-                }
-                callback(ec, std::move(self->socket_));
+                SocketPtr socket{std::move(self->socket_)};
+                self->socket_.reset();
+                if (self->checkError(asioEc, callback))
+                    callback(std::move(socket));
             }
         };
 
         assert(!socket_ && "Accept already in progress");
 
+        // Acceptor must be constructed lazily to give a chance to delete
+        // remnant file.
         if (!acceptor_)
         {
             if (deleteFile_)
                 std::remove(path_.c_str());
-            acceptor_.reset(new uds::acceptor(strand_, path_));
+            acceptor_.reset(new Acceptor(strand_, path_));
         }
         socket_.reset(new Socket(strand_));
 
@@ -74,16 +75,27 @@ public:
     void cancel()
     {
         if (acceptor_)
-            acceptor_->close();
+            acceptor_->cancel();
     }
 
 private:
-    using uds = boost::asio::local::stream_protocol;
+    using Acceptor = boost::asio::local::stream_protocol::acceptor;
+
+    template <typename F>
+    bool checkError(AsioErrorCode asioEc, F& callback)
+    {
+        if (asioEc)
+        {
+            auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
+            callback(UnexpectedError(ec));
+        }
+        return !asioEc;
+    }
 
     IoStrand strand_;
     std::string path_;
     bool deleteFile_;
-    std::unique_ptr<uds::acceptor> acceptor_;
+    std::unique_ptr<Acceptor> acceptor_;
     SocketPtr socket_;
 };
 

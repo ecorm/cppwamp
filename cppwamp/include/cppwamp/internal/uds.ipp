@@ -15,14 +15,13 @@ namespace wamp
 //------------------------------------------------------------------------------
 struct Connector<Uds>::Impl
 {
-    using Endpoint = internal::AsioConnector<internal::UdsOpener>;
-    using ConcreteConnector = internal::RawsockConnector<Endpoint>;
+    using RawsockOpener = internal::RawsockConnector<internal::UdsOpener>;
 
     Impl(IoStrand s, UdsPath p, int codecId)
-        : cnct(ConcreteConnector::create(std::move(s), std::move(p), codecId))
+        : cnct(RawsockOpener::create(std::move(s), std::move(p), codecId))
     {}
 
-    ConcreteConnector::Ptr cnct;
+    RawsockOpener::Ptr cnct;
 };
 
 //------------------------------------------------------------------------------

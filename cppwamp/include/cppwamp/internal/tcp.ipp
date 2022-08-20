@@ -19,14 +19,13 @@ namespace wamp
 //------------------------------------------------------------------------------
 struct Connector<Tcp>::Impl
 {
-    using Endpoint = internal::AsioConnector<internal::TcpOpener>;
-    using ConcreteConnector = internal::RawsockConnector<Endpoint>;
+    using RawsockOpener = internal::RawsockConnector<internal::TcpOpener>;
 
     Impl(IoStrand s, TcpHost h, int codecId)
-        : cnct(ConcreteConnector::create(std::move(s), std::move(h), codecId))
+        : cnct(RawsockOpener::create(std::move(s), std::move(h), codecId))
     {}
 
-    ConcreteConnector::Ptr cnct;
+    RawsockOpener::Ptr cnct;
 };
 
 //------------------------------------------------------------------------------
