@@ -6,31 +6,139 @@
 
 #include <set>
 #include <thread>
+#include <vector>
+#include <catch2/catch.hpp>
+#include <cppwamp/asiodefs.hpp>
 #include <cppwamp/codec.hpp>
+#include <cppwamp/error.hpp>
+#include <cppwamp/rawsockoptions.hpp>
+#include <cppwamp/transport.hpp>
 #include <cppwamp/internal/tcpopener.hpp>
 #include <cppwamp/internal/tcpacceptor.hpp>
 #include <cppwamp/internal/rawsockconnector.hpp>
 #include <cppwamp/internal/rawsocklistener.hpp>
 #include <cppwamp/internal/udsopener.hpp>
 #include <cppwamp/internal/udsacceptor.hpp>
-#include "faketransport.hpp"
-#include "transporttest.hpp"
 
 using namespace wamp;
 
+namespace
+{
+
+//------------------------------------------------------------------------------
 using TcpRawsockConnector = internal::RawsockConnector<internal::TcpOpener>;
 using TcpRawsockListener  = internal::RawsockListener<internal::TcpAcceptor>;
 using UdsRawsockConnector = internal::RawsockConnector<internal::UdsOpener>;
 using UdsRawsockListener  = internal::RawsockListener<internal::UdsAcceptor>;
 using RML                 = RawsockMaxLength;
+using CodecIds            = std::set<int>;
 
-using CodecIds = std::set<int>;
+//------------------------------------------------------------------------------
+constexpr auto jsonId = KnownCodecIds::json();
+constexpr auto msgpackId = KnownCodecIds::msgpack();
+constexpr unsigned short tcpTestPort = 9090;
+constexpr const char tcpLoopbackAddr[] = "127.0.0.1";
+constexpr const char udsTestPath[] = "cppwamptestuds";
+const auto tcpHost = TcpHost{tcpLoopbackAddr, tcpTestPort}
+                         .withMaxRxLength(RML::kB_64);
+const auto tcpEndpoint = TcpEndpoint{tcpTestPort}.withMaxRxLength(RML::kB_64);
 
-static constexpr auto jsonId = KnownCodecIds::json();
-static constexpr auto msgpackId = KnownCodecIds::msgpack();
-
-namespace
+//------------------------------------------------------------------------------
+struct LoopbackFixtureBase
 {
+    // These members need to be already initialized when initializing
+    // TcpLoopbackFixture and UdsLoopbackFixture
+    // TODO: Why?
+    AsioContext clientCtx;
+    AsioContext serverCtx;
+};
+
+//------------------------------------------------------------------------------
+template <typename TConnector, typename TListener>
+struct LoopbackFixture
+{
+    using Connector      = TConnector;
+    using ClientSettings = typename TConnector::Settings;
+    using Listener       = TListener;
+    using ServerSettings = typename TListener::Settings;
+    using Transport      = typename Connector::Transport;
+
+    template <typename TServerCodecIds>
+    LoopbackFixture(AsioContext& clientCtx,
+                    AsioContext& serverCtx,
+                    ClientSettings clientSettings,
+                    int clientCodec,
+                    ServerSettings serverSettings,
+                    TServerCodecIds&& serverCodecs,
+                    bool connected = true)
+        : cctx(clientCtx),
+        sctx(serverCtx),
+        cnct(Connector::create(IoStrand{clientCtx.get_executor()},
+                               std::move(clientSettings), clientCodec)),
+        lstn(Listener::create(IoStrand{serverCtx.get_executor()},
+                              std::move(serverSettings),
+                              std::forward<TServerCodecIds>(serverCodecs)))
+    {
+        if (connected)
+            connect();
+    }
+
+    void connect()
+    {
+        lstn->establish(
+            [&](ErrorOr<Transporting::Ptr> transportOrError)
+            {
+                auto transport = transportOrError.value();
+                serverCodec = transport->info().codecId;
+                server = std::move(transport);
+            });
+
+        cnct->establish(
+            [&](ErrorOr<Transporting::Ptr> transportOrError)
+            {
+                auto transport = transportOrError.value();
+                clientCodec = transport->info().codecId;
+                client = std::move(transport);
+            });
+
+        run();
+    }
+
+    void disconnect()
+    {
+        server->close();
+        client->close();
+    }
+
+    void run()
+    {
+        while (!sctx.stopped() || !cctx.stopped())
+        {
+            if (!sctx.stopped())
+                sctx.poll();
+            if (!cctx.stopped())
+                cctx.poll();
+        }
+        sctx.reset();
+        cctx.reset();
+    }
+
+    void stop()
+    {
+        sctx.stop();
+        cctx.stop();
+    }
+
+    AsioContext& cctx;
+    AsioContext& sctx;
+    typename Connector::Ptr cnct;
+    typename Listener::Ptr lstn;
+    int clientCodec;
+    int serverCodec;
+    Transporting::Ptr client;
+    Transporting::Ptr server;
+};
+
 
 //------------------------------------------------------------------------------
 struct TcpLoopbackFixture :
@@ -78,52 +186,189 @@ struct UdsLoopbackFixture :
 };
 
 //------------------------------------------------------------------------------
-template <typename TFixture>
-void checkPing(TFixture& f)
+struct CannedHandshakeConfig : internal::DefaultRawsockClientConfig
 {
-    constexpr int sleepMs = 50;
-
-    f.client->start(
-        [&](ErrorOr<MessageBuffer>)
-        {
-            FAIL( "unexpected receive or error");
-        });
-
-    f.server->start(
-        [&](ErrorOr<MessageBuffer>)
-        {
-            FAIL( "unexpected receive or error");
-        });
-
-    bool pingCompleted = false;
-    auto payload = makeMessageBuffer("hello");
-    f.client->ping(payload, [&](float elapsed)
+    static uint32_t hostOrderHandshakeBytes(int, RawsockMaxLength)
     {
-        CHECK( elapsed > sleepMs );
-        pingCompleted = true;
-        f.stop();
+        return cannedHostBytes();
+    }
+
+    static uint32_t& cannedHostBytes()
+    {
+        static uint32_t bytes = 0;
+        return bytes;
+    }
+};
+
+//------------------------------------------------------------------------------
+struct BadMsgTypeTransportConfig : internal::DefaultRawsockTransportConfig
+{
+    static internal::RawsockFrame::Ptr enframe(internal::RawsockMsgType type,
+                                               MessageBuffer&& payload)
+    {
+        auto badType = internal::RawsockMsgType(
+            (int)internal::RawsockMsgType::pong + 1);
+        return std::make_shared<internal::RawsockFrame>(badType,
+                                                        std::move(payload));
+    }
+};
+
+//------------------------------------------------------------------------------
+using BadMsgTypeTransport =
+    internal::RawsockTransport<boost::asio::ip::tcp::socket,
+                               BadMsgTypeTransportConfig>;
+
+//------------------------------------------------------------------------------
+struct FakeTransportClientConfig : internal::DefaultRawsockClientConfig
+{
+    template <typename>
+    using TransportType = BadMsgTypeTransport;
+
+};
+
+//------------------------------------------------------------------------------
+struct FakeTransportServerConfig : internal::DefaultRawsockServerConfig
+{
+    template <typename>
+    using TransportType = BadMsgTypeTransport;
+
+};
+
+//------------------------------------------------------------------------------
+MessageBuffer makeMessageBuffer(const std::string& str)
+{
+    using MessageBufferByte = typename MessageBuffer::value_type;
+    auto data = reinterpret_cast<const MessageBufferByte*>(str.data());
+    return MessageBuffer(data, data + str.size());
+}
+
+//------------------------------------------------------------------------------
+template <typename TFixture>
+void checkConnection(TFixture& f, int expectedCodec,
+                     size_t clientMaxRxLength = 64*1024,
+                     size_t serverMaxRxLength = 64*1024)
+{
+    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transportOrError)
+    {
+        REQUIRE( transportOrError.has_value() );
+        auto transport = *transportOrError;
+        REQUIRE( transport );
+        CHECK( transport->info().codecId == expectedCodec );
+        CHECK( transport->info().maxRxLength == serverMaxRxLength );
+        CHECK( transport->info().maxTxLength == clientMaxRxLength );
+        f.server = transport;
     });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
-
-    CHECK_NOTHROW( f.run() );
-
-    CHECK( pingCompleted );
-
-    pingCompleted = false;
-    payload = makeMessageBuffer("bonjour");
-    f.server->ping(payload, [&](float elapsed)
+    f.cnct->establish([&](ErrorOr<Transporting::Ptr> transportOrError)
     {
-        CHECK( elapsed > sleepMs );
-        pingCompleted = true;
-        f.stop();
+        REQUIRE( transportOrError.has_value() );
+        auto transport = *transportOrError;
+        REQUIRE( transport );
+        CHECK( transport->info().codecId == expectedCodec );
+        CHECK( transport->info().maxRxLength == clientMaxRxLength );
+        CHECK( transport->info().maxTxLength == serverMaxRxLength );
+        f.client = transport;
     });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
+    CHECK_NOTHROW( f.run() );
+}
+
+//------------------------------------------------------------------------------
+template <typename TFixture>
+void checkSendReply(TFixture& f,
+                    Transporting::Ptr sender,
+                    Transporting::Ptr receiver,
+                    const MessageBuffer& message,
+                    const MessageBuffer& reply)
+{
+    bool receivedMessage = false;
+    bool receivedReply = false;
+
+    receiver->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                receivedMessage = true;
+                CHECK( message == *buf );
+                receiver->send(reply);
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
+        });
+
+    sender->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                receivedReply = true;
+                CHECK( reply == *buf );
+                f.disconnect();
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
+        });
+
+    sender->send(message);
+
+    REQUIRE_NOTHROW( f.run() );
+
+    CHECK( receivedMessage );
+    CHECK( receivedReply );
+}
+
+//------------------------------------------------------------------------------
+template <typename TFixture>
+void checkSendReply(TFixture& f, const MessageBuffer& message,
+                    const MessageBuffer& reply)
+{
+    checkSendReply(f, f.client, f.server, message, reply);
+}
+
+//------------------------------------------------------------------------------
+template <typename TFixture>
+void checkConsecutiveSendReceive(TFixture& f, Transporting::Ptr& sender,
+                                 Transporting::Ptr& receiver)
+{
+    std::vector<MessageBuffer> messages;
+    for (int i=0; i<100; ++i)
+        messages.emplace_back(i, 'A' + i);
+
+    sender->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            REQUIRE( !buf );
+            CHECK( buf.error() == TransportErrc::aborted );
+        });
+
+    size_t count = 0;
+
+    receiver->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                REQUIRE( messages.at(count) == *buf );
+                if (++count == messages.size())
+                {
+                    f.disconnect();
+                }
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
+        });
+
+    for (const auto& msg: messages)
+        sender->send(msg);
 
     CHECK_NOTHROW( f.run() );
-
-    CHECK( pingCompleted );
 }
 
 //------------------------------------------------------------------------------
@@ -144,26 +389,20 @@ void checkUnsupportedSerializer(TFixture& f)
 }
 
 //------------------------------------------------------------------------------
-inline void checkCannedServerHandshake(uint32_t cannedHandshake,
-                                       std::error_code expectedErrorCode)
+void checkCannedServerHandshake(uint32_t cannedHandshake,
+                                std::error_code expectedErrorCode)
 {
     AsioContext ioctx;
     IoStrand strand{ioctx.get_executor()};
 
-    using FakeHandshakeListener =
-        internal::RawsockListener<internal::TcpAcceptor, CannedHandshakeConfig>;
-    auto lstn = FakeHandshakeListener::create(
-        strand, TcpEndpoint{tcpTestPort}.withMaxRxLength(RML::kB_64), {jsonId});
+    using MockListener = internal::RawsockListener<internal::TcpAcceptor,
+                                                   CannedHandshakeConfig>;
+    auto lstn = MockListener::create(strand, tcpEndpoint, {jsonId});
     CannedHandshakeConfig::cannedHostBytes() = cannedHandshake;
-
-    auto cnct = TcpRawsockConnector::create(
-        strand,
-        TcpHost{tcpLoopbackAddr, tcpTestPort}.withMaxRxLength(RML::kB_64),
-        jsonId);
-
     lstn->establish( [](ErrorOr<Transporting::Ptr>) {} );
 
     bool aborted = false;
+    auto cnct = TcpRawsockConnector::create(strand, tcpHost, jsonId);
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
@@ -176,7 +415,7 @@ inline void checkCannedServerHandshake(uint32_t cannedHandshake,
 }
 
 //------------------------------------------------------------------------------
-inline void checkCannedServerHandshake(uint32_t cannedHandshake,
+void checkCannedServerHandshake(uint32_t cannedHandshake,
                                        RawsockErrc expectedErrorCode)
 {
     return checkCannedServerHandshake(cannedHandshake,
@@ -189,20 +428,11 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
                                 RawsockErrc expectedServerCode,
                                 TErrorCode expectedClientCode)
 {
-    using FakeConnector = internal::RawsockConnector<internal::TcpOpener,
-                                                     CannedHandshakeConfig>;
-
     AsioContext ioctx;
     IoStrand strand{ioctx.get_executor()};
 
-    auto cnct = FakeConnector::create(strand, {tcpLoopbackAddr, tcpTestPort},
-                                      jsonId);
-    CannedHandshakeConfig::cannedHostBytes() = cannedHandshake;
-
-    auto lstn = TcpRawsockListener::create(
-        strand, TcpEndpoint{tcpTestPort}.withMaxRxLength(RML::kB_64), {jsonId});
-
     bool serverAborted = false;
+    auto lstn = TcpRawsockListener::create(strand, tcpEndpoint, {jsonId});
     lstn->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
@@ -211,6 +441,10 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
             serverAborted = true;
         });
 
+    using MockConnector = internal::RawsockConnector<internal::TcpOpener,
+                                                     CannedHandshakeConfig>;
+    auto cnct = MockConnector::create(strand, tcpHost, jsonId);
+    CannedHandshakeConfig::cannedHostBytes() = cannedHandshake;
     bool clientAborted = false;
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
@@ -285,169 +519,383 @@ GIVEN( "an unconnected UDS connector/listener pair" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Normal communications", "[Transport]" )
+TEMPLATE_TEST_CASE( "Normal communications", "[Transport]",
+                    TcpLoopbackFixture, UdsLoopbackFixture )
 {
-GIVEN( "a connected client/server TCP transport pair" )
-{
-    TcpLoopbackFixture f;
-    checkCommunications(f);
-}
-GIVEN( "a connected client/server UDS transport pair" )
-{
-    UdsLoopbackFixture f;
-    checkCommunications(f);
-}
-}
+    TestType f;
+    Transporting::Ptr sender = f.client;
+    Transporting::Ptr receiver = f.server;
+    auto message = makeMessageBuffer("Hello");
+    auto reply = makeMessageBuffer("World");
+    bool receivedMessage = false;
+    bool receivedReply = false;
+
+    receiver->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                receivedMessage = true;
+                CHECK( message == *buf );
+                receiver->send(reply);
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
+        });
+
+    sender->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                receivedReply = true;
+                CHECK( reply == *buf );
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
+        });
+
+    sender->send(message);
+
+    while (!receivedReply)
+    {
+        f.sctx.poll();
+        f.cctx.poll();
+    }
+    f.sctx.reset();
+    f.cctx.reset();
+
+    CHECK( receivedMessage );
+
+    // Another client connects to the same endpoint
+    Transporting::Ptr server2;
+    Transporting::Ptr client2;
+    auto message2 = makeMessageBuffer("Hola");
+    auto reply2 = makeMessageBuffer("Mundo");
+    bool receivedMessage2 = false;
+    bool receivedReply2 = false;
+    message = makeMessageBuffer("Bonjour");
+    reply = makeMessageBuffer("Le Monde");
+    receivedMessage = false;
+    receivedReply = false;
+
+    f.lstn->establish(
+        [&](ErrorOr<Transporting::Ptr> transportOrError)
+        {
+            REQUIRE( transportOrError.has_value() );
+            auto transport = *transportOrError;
+            REQUIRE( transport );
+            CHECK( transport->info().codecId == KnownCodecIds::json() );
+            CHECK( transport->info().maxRxLength == 64*1024 );
+            CHECK( transport->info().maxTxLength == 64*1024 );
+            server2 = transport;
+            f.sctx.stop();
+        });
+
+    f.cnct->establish(
+        [&](ErrorOr<Transporting::Ptr> transportOrError)
+        {
+            REQUIRE( transportOrError.has_value() );
+            auto transport = *transportOrError;
+            REQUIRE( transport );
+            CHECK( transport->info().codecId == KnownCodecIds::json() );
+            CHECK( transport->info().maxRxLength == 64*1024 );
+            CHECK( transport->info().maxTxLength == 64*1024 );
+            client2 = transport;
+            f.cctx.stop();
+        });
+
+    REQUIRE_NOTHROW( f.run() );
+
+    REQUIRE( client2 );
+    REQUIRE( server2 );
+    auto sender2 = client2;
+    auto receiver2 = server2;
+
+    // The two client/server pairs communicate independently
+    receiver2->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                receivedMessage2 = true;
+                CHECK( message2 == *buf );
+                receiver2->send(reply2);
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
+        });
+
+    sender2->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            if (buf.has_value())
+            {
+                receivedReply2 = true;
+                CHECK( reply2 == *buf );
+                sender2->close();
+                receiver2->close();
+            }
+            else
+            {
+                CHECK( buf.error() == TransportErrc::aborted );
+            }
+        });
+
+    sender->send(message);
+    sender2->send(message2);
+
+    while (!receivedReply || !receivedReply2)
+    {
+        f.sctx.poll();
+        f.cctx.poll();
+    }
+    f.sctx.reset();
+    f.cctx.reset();
+
+    CHECK( receivedMessage );
+    CHECK( receivedReply );
+    CHECK( receivedMessage2 );
+    CHECK( receivedReply2 );
+
+    f.disconnect();
+    REQUIRE_NOTHROW( f.run() );}
 
 //------------------------------------------------------------------------------
-SCENARIO( "Consecutive send/receive", "[Transport]" )
-{
-GIVEN( "a connected client/server TCP transport pair" )
+TEMPLATE_TEST_CASE( "Consecutive send/receive", "[Transport]",
+                    TcpLoopbackFixture, UdsLoopbackFixture )
 {
     {
-        TcpLoopbackFixture f;
+        TestType f;
         checkConsecutiveSendReceive(f, f.client, f.server);
     }
     {
-        TcpLoopbackFixture f;
+        TestType f;
         checkConsecutiveSendReceive(f, f.server, f.client);
     }
-}
-GIVEN( "a connected client/server UDS transport pair" )
-{
-    {
-        UdsLoopbackFixture f;
-        checkConsecutiveSendReceive(f, f.client, f.server);
-    }
-    {
-        UdsLoopbackFixture f;
-        checkConsecutiveSendReceive(f, f.server, f.client);
-    }
-}
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Maximum length messages", "[Transport]" )
+TEMPLATE_TEST_CASE( "Maximum length messages", "[Transport]",
+                    TcpLoopbackFixture, UdsLoopbackFixture )
 {
-GIVEN( "a connected client/server TCP transport pair" )
-{
-    TcpLoopbackFixture f;
+    TestType f;
     const MessageBuffer message(f.client->info().maxRxLength, 'm');
     const MessageBuffer reply(f.server->info().maxRxLength, 'r');;
     checkSendReply(f, message, reply);
 }
-GIVEN( "a connected client/server UDS transport pair" )
+
+//------------------------------------------------------------------------------
+TEMPLATE_TEST_CASE( "Zero length messages", "[Transport]",
+                    TcpLoopbackFixture, UdsLoopbackFixture )
 {
-    UdsLoopbackFixture f;
-    const MessageBuffer message(f.client->info().maxRxLength, 'm');
-    const MessageBuffer reply(f.server->info().maxRxLength, 'r');;
+    const MessageBuffer message;
+    const MessageBuffer reply;
+
+    TestType f;
     checkSendReply(f, message, reply);
-}
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Zero length messages", "[Transport]" )
+TEMPLATE_TEST_CASE( "Ping/pong messages", "[Transport]",
+                    TcpLoopbackFixture, UdsLoopbackFixture )
 {
-const MessageBuffer message;
-const MessageBuffer reply;
+    TestType f;
+    constexpr int sleepMs = 50;
 
-GIVEN( "a connected client/server TCP transport pair" )
-{
-    TcpLoopbackFixture f;
-    checkSendReply(f, message, reply);
-}
-GIVEN( "a connected client/server UDS transport pair" )
-{
-    UdsLoopbackFixture f;
-    checkSendReply(f, message, reply);
-}
+    f.client->start(
+        [&](ErrorOr<MessageBuffer>)
+        {
+            FAIL( "unexpected receive or error");
+        });
+
+    f.server->start(
+        [&](ErrorOr<MessageBuffer>)
+        {
+            FAIL( "unexpected receive or error");
+        });
+
+    bool pingCompleted = false;
+    auto payload = makeMessageBuffer("hello");
+    f.client->ping(payload, [&](float elapsed)
+    {
+        CHECK( elapsed > sleepMs );
+        pingCompleted = true;
+        f.stop();
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
+
+    CHECK_NOTHROW( f.run() );
+
+    CHECK( pingCompleted );
+
+    pingCompleted = false;
+    payload = makeMessageBuffer("bonjour");
+    f.server->ping(payload, [&](float elapsed)
+    {
+        CHECK( elapsed > sleepMs );
+        pingCompleted = true;
+        f.stop();
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
+
+    CHECK_NOTHROW( f.run() );
+
+    CHECK( pingCompleted );
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Ping/pong messages", "[Transport]" )
-{
-GIVEN( "a connected client/server TCP transport pair" )
-{
-    TcpLoopbackFixture f;
-    checkPing(f);
-}
-GIVEN( "a connected client/server UDS transport pair" )
-{
-    UdsLoopbackFixture f;
-    checkPing(f);
-}
-}
-
-//------------------------------------------------------------------------------
-SCENARIO( "Cancel listen", "[Transport]" )
+TEMPLATE_TEST_CASE( "Cancel listen", "[Transport]",
+                    TcpLoopbackFixture, UdsLoopbackFixture )
 {
     auto message = makeMessageBuffer("Hello");
     auto reply = makeMessageBuffer("World");
 
-    GIVEN( "an unconnected TCP listener/connector pair" )
+    TestType f(false);
+    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
-        TcpLoopbackFixture f(false);
-        checkCancelListen(f);
-        checkConnection(f, jsonId);
-        checkSendReply(f, message, reply);
-    }
-    GIVEN( "an unconnected UDS listener/connector pair" )
-    {
-        UdsLoopbackFixture f(false);
-        checkCancelListen(f);
-        checkConnection(f, jsonId);
-        checkSendReply(f, message, reply);
-    }
+        CHECK( transport == makeUnexpectedError(TransportErrc::aborted) );
+    });
+    f.lstn->cancel();
+    CHECK_NOTHROW( f.run() );
+
+    // Check that a transport can be established after cancelling.
+    checkConnection(f, jsonId);
+    checkSendReply(f, message, reply);
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Cancel connect", "[Transport]" )
+TEMPLATE_TEST_CASE( "Cancel connect", "[Transport]",
+                    TcpLoopbackFixture, UdsLoopbackFixture )
 {
-    GIVEN( "an unconnected TCP listener/connector pair" )
+    bool listenCompleted = false;
+    TestType f(false);
+    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
-        TcpLoopbackFixture f(false);
-        checkCancelConnect(f);
-    }
-    GIVEN( "an unconnected UDS listener/connector pair" )
+        if (transport.has_value())
+            f.server = *transport;
+        listenCompleted = true;
+    });
+
+    bool connectCanceled = false;
+    bool connectCompleted = false;
+    f.cnct->establish(
+        [&](ErrorOr<Transporting::Ptr> transport)
+        {
+            if (transport.has_value())
+            {
+                connectCompleted = true;
+                f.client = *transport;
+            }
+            else
+            {
+                connectCanceled = true;
+                CHECK( transport ==
+                       makeUnexpectedError(TransportErrc::aborted) );
+            }
+            f.lstn->cancel();
+        });
+    f.cctx.poll();
+    f.cctx.reset();
+
+    f.cnct->cancel();
+    f.run();
+
+    // Check that the operation either aborts or completes
+    REQUIRE( (connectCanceled || connectCompleted) );
+    if (connectCanceled)
     {
-        UdsLoopbackFixture f(false);
-        checkCancelConnect(f);
+        CHECK_FALSE( f.client );
+        CHECK_FALSE( f.server );
     }
+    else if (connectCompleted)
+        CHECK( f.client );
+
+    // Check that a transport can be established after cancelling.
+    REQUIRE( listenCompleted );
+    auto message = makeMessageBuffer("Hello");
+    auto reply = makeMessageBuffer("World");
+    checkConnection(f, jsonId);
+    checkSendReply(f, message, reply);
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Cancel receive", "[Transport]" )
+TEMPLATE_TEST_CASE( "Cancel receive", "[Transport]",
+                    TcpLoopbackFixture, UdsLoopbackFixture )
 {
-    GIVEN( "a connected TCP listener/connector pair" )
-    {
-        TcpLoopbackFixture f;
-        checkCancelReceive(f);
-    }
-    GIVEN( "a connected UDS listener/connector pair" )
-    {
-        UdsLoopbackFixture f;
-        checkCancelReceive(f);
-    }
+    TestType f;
+    bool transportFailed = false;
+    f.client->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            REQUIRE( !buf );
+            transportFailed = true;
+            CHECK( buf.error() == TransportErrc::aborted );
+        });
+
+    f.server->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            REQUIRE( !buf );
+            CHECK( buf.error() == std::errc::no_such_file_or_directory );
+        });
+
+    f.cctx.poll();
+    f.cctx.reset();
+
+    // Close the transport while the receive operation is in progress,
+    // and check that the operation is aborted.
+    f.client->close();
+    REQUIRE_NOTHROW( f.run() );
+    CHECK( transportFailed );
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Cancel send", "[Transport]" )
+TEMPLATE_TEST_CASE( "Cancel send", "[Transport]",
+                    TcpLoopbackFixture, UdsLoopbackFixture )
 {
     // The size of transmission is set to maximum to increase the likelyhood
     // of the operation being aborted, rather than completed.
+    TestType f(false, jsonId, {jsonId}, RML::MB_16, RML::MB_16);
+    f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
+    {
+        REQUIRE(transport.has_value());
+        f.server = *transport;
+    });
+    f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
+    {
+        REQUIRE(transport.has_value());
+        f.client = *transport;
+        CHECK( f.client->info().maxTxLength == 16*1024*1024 );
+    });
+    f.run();
 
-    GIVEN( "a connected TCP listener/connector pair" )
-    {
-        TcpLoopbackFixture f(false, jsonId, {jsonId},
-                RML::MB_16, RML::MB_16);
-        checkCancelSend(f);
-    }
-    GIVEN( "a connected UDS listener/connector pair" )
-    {
-        UdsLoopbackFixture f(false, jsonId, {jsonId},
-                RML::MB_16, RML::MB_16);
-        checkCancelSend(f);
-    }
+    // Start a send operation
+    bool sendAborted = false;
+    f.client->start(
+        [&](ErrorOr<MessageBuffer> buf)
+        {
+            REQUIRE(!buf);
+            CHECK( buf.error() == TransportErrc::aborted );
+            sendAborted = true;
+        });
+    MessageBuffer message(f.client->info().maxTxLength, 'a');
+    f.client->send(message);
+    REQUIRE_NOTHROW( f.cctx.poll() );
+    f.cctx.reset();
+
+    // Close the transport and check that the send operation was aborted.
+    f.client->close();
+    f.run();
+    CHECK( sendAborted );
 }
 
 //------------------------------------------------------------------------------
@@ -543,28 +991,19 @@ GIVEN( "a client that uses reserved bits" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Receiving messages longer than maximum", "[Transport]" )
+SCENARIO( "Client sending a message longer than maximum", "[Transport]" )
 {
-using FakeConnector = internal::RawsockConnector<internal::TcpOpener,
-                                                 CannedHandshakeConfig>;
-
-MessageBuffer tooLong(64*1024 + 1, 'A');
-
-GIVEN ( "A server tricked into sending overly long messages to a client" )
+GIVEN ( "a mock server under-reporting its maximum receive length" )
 {
     AsioContext ioctx;
     IoStrand strand{ioctx.get_executor()};
-    auto tcpHost = TcpHost{tcpLoopbackAddr, tcpTestPort}
-                       .withMaxRxLength(RML::kB_64);
-    auto cnct = FakeConnector::create(strand, tcpHost, jsonId);
-    CannedHandshakeConfig::cannedHostBytes() = 0x7F810000;
+    MessageBuffer tooLong(64*1024 + 1, 'A');
 
-    auto lstn = TcpRawsockListener::create(
-        strand, TcpEndpoint{tcpTestPort}.withMaxRxLength(RML::kB_64), {jsonId});
-
+    using MockListener = internal::RawsockListener<internal::TcpAcceptor,
+                                                   CannedHandshakeConfig>;
     Transporting::Ptr server;
-    Transporting::Ptr client;
-
+    auto lstn = MockListener::create(strand, tcpEndpoint, {jsonId});
+    CannedHandshakeConfig::cannedHostBytes() = 0x7F810000;
     lstn->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
@@ -572,73 +1011,8 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
             server = std::move(*transport);
         });
 
-    cnct->establish(
-        [&](ErrorOr<Transporting::Ptr> transport)
-        {
-            REQUIRE( transport.has_value() );
-            client = std::move(*transport);
-        });
-
-    CHECK_NOTHROW( ioctx.run() );
-    ioctx.restart();
-    REQUIRE( server );
-    REQUIRE( client );
-
-    WHEN( "the server sends a message that exceeds the client's maximum" )
-    {
-        bool clientFailed = false;
-        bool serverFailed = false;
-        client->start(
-            [&](ErrorOr<MessageBuffer> message)
-            {
-                REQUIRE( !message );
-                CHECK( message.error() == TransportErrc::badRxLength );
-                clientFailed = true;
-            });
-
-        server->start(
-            [&](ErrorOr<MessageBuffer> message)
-            {
-                REQUIRE( !message );
-                serverFailed = true;
-            });
-
-        server->send(tooLong);
-
-        THEN( "the client obtains an error while receiving" )
-        {
-            CHECK_NOTHROW( ioctx.run() );
-            CHECK( clientFailed );
-            CHECK( serverFailed );
-        }
-    }
-}
-GIVEN ( "A client tricked into sending overly long messages to a server" )
-{
-    AsioContext ioctx;
-    IoStrand strand{ioctx.get_executor()};
-
-    using FakeHandshakeListener =
-        internal::RawsockListener<internal::TcpAcceptor, CannedHandshakeConfig>;
-    auto lstn = FakeHandshakeListener::create(
-        strand, TcpEndpoint{tcpTestPort}.withMaxRxLength(RML::kB_64), {jsonId});
-    CannedHandshakeConfig::cannedHostBytes() = 0x7F810000;
-
-    auto cnct = TcpRawsockConnector::create(
-        strand,
-        TcpHost{tcpLoopbackAddr, tcpTestPort}.withMaxRxLength(RML::kB_64),
-        jsonId);
-
-    Transporting::Ptr server;
     Transporting::Ptr client;
-
-    lstn->establish(
-        [&](ErrorOr<Transporting::Ptr> transport)
-        {
-            REQUIRE( transport.has_value() );
-            server = std::move(*transport);
-        });
-
+    auto cnct = TcpRawsockConnector::create(strand, tcpHost, jsonId);
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
@@ -682,33 +1056,28 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Receiving an invalid message type", "[Transport]" )
+SCENARIO( "Server sending a message longer than maximum", "[Transport]" )
 {
-GIVEN ( "A fake server that sends an invalid message type" )
+GIVEN ( "a mock client under-reporting its maximum receive length" )
 {
     AsioContext ioctx;
     IoStrand strand{ioctx.get_executor()};
-
-    using FakeListener = internal::RawsockListener<internal::TcpAcceptor,
-                                                   FakeTransportServerConfig>;
-    auto lstn = FakeListener::create(
-        strand, TcpEndpoint{tcpTestPort}.withMaxRxLength(RML::kB_64), {jsonId});
-
-    auto cnct = TcpRawsockConnector::create(
-        strand,
-        TcpHost{tcpLoopbackAddr, tcpTestPort}.withMaxRxLength(RML::kB_64),
-        jsonId);
+    MessageBuffer tooLong(64*1024 + 1, 'A');
 
     Transporting::Ptr server;
-    Transporting::Ptr client;
-
+    auto lstn = TcpRawsockListener::create(strand, tcpEndpoint, {jsonId});
     lstn->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );
-            server = *transport;
+            server = std::move(*transport);
         });
 
+    using MockConnector = internal::RawsockConnector<internal::TcpOpener,
+                                                     CannedHandshakeConfig>;
+    auto cnct = MockConnector::create(strand, tcpHost, jsonId);
+    CannedHandshakeConfig::cannedHostBytes() = 0x7F810000;
+    Transporting::Ptr client;
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
@@ -721,7 +1090,7 @@ GIVEN ( "A fake server that sends an invalid message type" )
     REQUIRE( server );
     REQUIRE( client );
 
-    WHEN( "the server sends an invalid message to the client" )
+    WHEN( "the server sends a message that exceeds the client's maximum" )
     {
         bool clientFailed = false;
         bool serverFailed = false;
@@ -729,7 +1098,7 @@ GIVEN ( "A fake server that sends an invalid message type" )
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
-                CHECK( message.error() == RawsockErrc::badMessageType );
+                CHECK( message.error() == TransportErrc::badRxLength );
                 clientFailed = true;
             });
 
@@ -740,8 +1109,7 @@ GIVEN ( "A fake server that sends an invalid message type" )
                 serverFailed = true;
             });
 
-        auto msg = makeMessageBuffer("Hello");;
-        server->send(msg);
+        server->send(tooLong);
 
         THEN( "the client obtains an error while receiving" )
         {
@@ -751,23 +1119,18 @@ GIVEN ( "A fake server that sends an invalid message type" )
         }
     }
 }
-GIVEN ( "A fake client that sends an invalid message type" )
-{
-    using FakeConnector = internal::RawsockConnector<internal::TcpOpener,
-                                                     FakeTransportClientConfig>;
+}
 
+//------------------------------------------------------------------------------
+SCENARIO( "Client sending an invalid message type", "[Transport]" )
+{
+GIVEN ( "A mock client that sends an invalid message type" )
+{
     AsioContext ioctx;
     IoStrand strand{ioctx.get_executor()};
-    auto tcpHost = TcpHost{tcpLoopbackAddr, tcpTestPort}
-                       .withMaxRxLength(RML::kB_64);
-    auto cnct = FakeConnector::create(strand, tcpHost, jsonId);
 
-    auto lstn = TcpRawsockListener::create(
-        strand, TcpEndpoint{tcpTestPort}.withMaxRxLength(RML::kB_64), {jsonId});
-
+    auto lstn = TcpRawsockListener::create(strand, tcpEndpoint, {jsonId});
     Transporting::Ptr server;
-    Transporting::Ptr client;
-
     lstn->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
@@ -775,6 +1138,10 @@ GIVEN ( "A fake client that sends an invalid message type" )
             server = std::move(*transport);
         });
 
+    using MockConnector = internal::RawsockConnector<internal::TcpOpener,
+                                                     FakeTransportClientConfig>;
+    auto cnct = MockConnector::create(strand, tcpHost, jsonId);
+    Transporting::Ptr client;
     cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
@@ -810,6 +1177,71 @@ GIVEN ( "A fake client that sends an invalid message type" )
         client->send(std::move(msg));
 
         THEN( "the server obtains an error while receiving" )
+        {
+            CHECK_NOTHROW( ioctx.run() );
+            CHECK( clientFailed );
+            CHECK( serverFailed );
+        }
+    }
+}
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Server sending an invalid message type", "[Transport]" )
+{
+GIVEN ( "A mock server that sends an invalid message type" )
+{
+    AsioContext ioctx;
+    IoStrand strand{ioctx.get_executor()};
+
+    using MockListener = internal::RawsockListener<internal::TcpAcceptor,
+                                                   FakeTransportServerConfig>;
+    auto lstn = MockListener::create(strand, tcpEndpoint, {jsonId});
+    Transporting::Ptr server;
+    lstn->establish(
+        [&](ErrorOr<Transporting::Ptr> transport)
+        {
+            REQUIRE( transport.has_value() );
+            server = *transport;
+        });
+
+    auto cnct = TcpRawsockConnector::create(strand, tcpHost, jsonId);
+    Transporting::Ptr client;
+    cnct->establish(
+        [&](ErrorOr<Transporting::Ptr> transport)
+        {
+            REQUIRE( transport.has_value() );
+            client = std::move(*transport);
+        });
+
+    CHECK_NOTHROW( ioctx.run() );
+    ioctx.restart();
+    REQUIRE( server );
+    REQUIRE( client );
+
+    WHEN( "the server sends an invalid message to the client" )
+    {
+        bool clientFailed = false;
+        bool serverFailed = false;
+        client->start(
+            [&](ErrorOr<MessageBuffer> message)
+            {
+                REQUIRE( !message );
+                CHECK( message.error() == RawsockErrc::badMessageType );
+                clientFailed = true;
+            });
+
+        server->start(
+            [&](ErrorOr<MessageBuffer> message)
+            {
+                REQUIRE( !message );
+                serverFailed = true;
+            });
+
+        auto msg = makeMessageBuffer("Hello");;
+        server->send(msg);
+
+        THEN( "the client obtains an error while receiving" )
         {
             CHECK_NOTHROW( ioctx.run() );
             CHECK( clientFailed );
