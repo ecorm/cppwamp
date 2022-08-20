@@ -35,37 +35,28 @@ struct CannedHandshakeConfig : internal::DefaultRawsockClientConfig
 };
 
 //------------------------------------------------------------------------------
-class FakeMsgTypeTransport :
-        public internal::RawsockTransport<boost::asio::ip::tcp::socket>
+struct BadMsgTypeTransportConfig : internal::DefaultRawsockTransportConfig
 {
-public:
-    using Ptr = std::shared_ptr<FakeMsgTypeTransport>;
-
-    static Ptr create(SocketPtr&& s, TransportInfo info)
+    static internal::RawsockFrame::Ptr enframe(internal::RawsockMsgType type,
+                                               MessageBuffer&& payload)
     {
-        return Ptr(new FakeMsgTypeTransport(std::move(s), info));
+        auto badType = internal::RawsockMsgType(
+            (int)internal::RawsockMsgType::pong + 1);
+        return std::make_shared<internal::RawsockFrame>(badType,
+                                                        std::move(payload));
     }
-
-    void send(MessageBuffer message)
-    {
-        auto fakeType = internal::RawsockMsgType(
-                            (int)internal::RawsockMsgType::pong + 1);
-        auto frame = newFrame(fakeType, std::move(message));
-        sendFrame(std::move(frame));
-    }
-
-private:
-    using Base = internal::RawsockTransport<boost::asio::ip::tcp::socket>;
-
-protected:
-    using Base::Base;
 };
+
+//------------------------------------------------------------------------------
+using BadMsgTypeTransport =
+    internal::RawsockTransport<boost::asio::ip::tcp::socket,
+                               BadMsgTypeTransportConfig>;
 
 //------------------------------------------------------------------------------
 struct FakeTransportClientConfig : internal::DefaultRawsockClientConfig
 {
     template <typename>
-    using TransportType = FakeMsgTypeTransport;
+    using TransportType = BadMsgTypeTransport;
 
 };
 
@@ -73,7 +64,7 @@ struct FakeTransportClientConfig : internal::DefaultRawsockClientConfig
 struct FakeTransportServerConfig : internal::DefaultRawsockServerConfig
 {
     template <typename>
-    using TransportType = FakeMsgTypeTransport;
+    using TransportType = BadMsgTypeTransport;
 
 };
 

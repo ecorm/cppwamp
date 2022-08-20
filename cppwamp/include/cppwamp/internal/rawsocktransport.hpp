@@ -99,12 +99,24 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename TSocket>
+struct DefaultRawsockTransportConfig
+{
+    static RawsockFrame::Ptr enframe(RawsockMsgType type,
+                                     MessageBuffer&& payload)
+    {
+        // TODO: Reuse frames somehow
+        return std::make_shared<RawsockFrame>(type, std::move(payload));
+    }
+};
+
+//------------------------------------------------------------------------------
+template <typename TSocket, typename TConfig = DefaultRawsockTransportConfig>
 class RawsockTransport : public Transporting
 {
 public:
     using Ptr         = std::shared_ptr<RawsockTransport>;
     using Socket      = TSocket;
+    using Config      = TConfig;
     using SocketPtr   = std::unique_ptr<Socket>;
     using RxHandler   = typename Transporting::RxHandler;
     using PingHandler = typename Transporting::PingHandler;
@@ -132,7 +144,7 @@ public:
     void send(MessageBuffer message) override
     {
         assert(running_);
-        auto buf = newFrame(RawsockMsgType::wamp, std::move(message));
+        auto buf = enframe(RawsockMsgType::wamp, std::move(message));
         sendFrame(std::move(buf));
     }
 
@@ -148,28 +160,28 @@ public:
     {
         assert(running_);
         pingHandler_ = std::move(handler);
-        pingFrame_ = newFrame(RawsockMsgType::ping, std::move(message));
+        pingFrame_ = enframe(RawsockMsgType::ping, std::move(message));
         sendFrame(pingFrame_);
         pingStart_ = std::chrono::high_resolution_clock::now();
     }
 
-protected:
+private:
+    using Base = Transporting;
     using TransmitQueue = std::deque<RawsockFrame::Ptr>;
     using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
     RawsockTransport(SocketPtr&& socket, TransportInfo info)
         : strand_(boost::asio::make_strand(socket->get_executor())),
-          socket_(std::move(socket)),
-          info_(info)
+        socket_(std::move(socket)),
+        info_(info)
     {}
 
-    RawsockFrame::Ptr newFrame(RawsockMsgType type, MessageBuffer&& payload)
+    RawsockFrame::Ptr enframe(RawsockMsgType type, MessageBuffer&& payload)
     {
-        // TODO: Reuse frames somehow
-        return std::make_shared<RawsockFrame>(type, std::move(payload));
+        return Config::enframe(type, std::move(payload));
     }
 
-    virtual void sendFrame(RawsockFrame::Ptr frame)
+    void sendFrame(RawsockFrame::Ptr frame)
     {
         assert(socket_ && "Attempting to send on bad transport");
         assert((frame->payload().size() <= info_.maxTxLength) &&
@@ -177,9 +189,6 @@ protected:
         txQueue_.push_back(std::move(frame));
         transmit();
     }
-
-private:
-    using Base = Transporting;
 
     void transmit()
     {
@@ -228,7 +237,7 @@ private:
         }
     }
 
-    virtual void processHeader()
+    void processHeader()
     {
         auto hdr = rxFrame_.header();
         auto len  = hdr.length();
@@ -274,7 +283,7 @@ private:
 
     void sendPong()
     {
-        auto frame = newFrame(RawsockMsgType::pong,
+        auto frame = enframe(RawsockMsgType::pong,
                               std::move(rxFrame_).payload());
         sendFrame(std::move(frame));
         receive();
