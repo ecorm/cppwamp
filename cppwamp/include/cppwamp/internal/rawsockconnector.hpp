@@ -12,8 +12,8 @@
 #include <utility>
 #include "../asiodefs.hpp"
 #include "../erroror.hpp"
-#include "asiotransport.hpp"
 #include "rawsockhandshake.hpp"
+#include "rawsocktransport.hpp"
 
 namespace wamp
 {
@@ -25,7 +25,7 @@ namespace internal
 struct DefaultRawsockClientConfig
 {
     template <typename TSocket>
-    using TransportType = AsioTransport<TSocket>;
+    using TransportType = RawsockTransport<TSocket>;
 
     static uint32_t hostOrderHandshakeBytes(int codecId,
                                             RawsockMaxLength maxRxLength)

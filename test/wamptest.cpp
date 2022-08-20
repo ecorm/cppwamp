@@ -2743,9 +2743,9 @@ GIVEN( "these test fixture objects" )
                                  [](ErrorOr<Result>) {});
 
                 /*  Try to get callee to send an RPC response while it's still
-                    transmitting the large event payload. AsioTransport should
-                    properly enqueue the RPC response while the large event
-                    payload is being transmitted. */
+                    transmitting the large event payload. RawsockTransport
+                    should properly enqueue the RPC response while the large
+                    event payload is being transmitted. */
                 while (eventString.empty())
                     subscriber->call(Rpc("echo").withArgs("hello"), yield).value();
 

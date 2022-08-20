@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_ASIOTRANSPORT_HPP
-#define CPPWAMP_INTERNAL_ASIOTRANSPORT_HPP
+#ifndef CPPWAMP_INTERNAL_RAWSOCKTRANSPORT_HPP
+#define CPPWAMP_INTERNAL_RAWSOCKTRANSPORT_HPP
 
 #include <array>
 #include <chrono>
@@ -39,16 +39,16 @@ namespace internal
 //------------------------------------------------------------------------------
 // Combines a raw socket transport header with an encoded message payload.
 //------------------------------------------------------------------------------
-class AsioFrame
+class RawsockFrame
 {
 public:
-    using Ptr        = std::shared_ptr<AsioFrame>;
+    using Ptr        = std::shared_ptr<RawsockFrame>;
     using Header     = uint32_t;
     using GatherBufs = std::array<boost::asio::const_buffer, 2>;
 
-    AsioFrame() = default;
+    RawsockFrame() = default;
 
-    AsioFrame(RawsockMsgType type, MessageBuffer&& payload)
+    RawsockFrame(RawsockMsgType type, MessageBuffer&& payload)
         : header_(computeHeader(type, payload)),
           payload_(std::move(payload))
     {}
@@ -100,10 +100,10 @@ private:
 
 //------------------------------------------------------------------------------
 template <typename TSocket>
-class AsioTransport : public Transporting
+class RawsockTransport : public Transporting
 {
 public:
-    using Ptr         = std::shared_ptr<AsioTransport>;
+    using Ptr         = std::shared_ptr<RawsockTransport>;
     using Socket      = TSocket;
     using SocketPtr   = std::unique_ptr<Socket>;
     using RxHandler   = typename Transporting::RxHandler;
@@ -111,7 +111,7 @@ public:
 
     static Ptr create(SocketPtr&& s, TransportInfo info)
     {
-        return Ptr(new AsioTransport(std::move(s), info));
+        return Ptr(new RawsockTransport(std::move(s), info));
     }
 
     // TODO: Remove
@@ -154,22 +154,22 @@ public:
     }
 
 protected:
-    using TransmitQueue = std::deque<AsioFrame::Ptr>;
+    using TransmitQueue = std::deque<RawsockFrame::Ptr>;
     using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
-    AsioTransport(SocketPtr&& socket, TransportInfo info)
+    RawsockTransport(SocketPtr&& socket, TransportInfo info)
         : strand_(boost::asio::make_strand(socket->get_executor())),
           socket_(std::move(socket)),
           info_(info)
     {}
 
-    AsioFrame::Ptr newFrame(RawsockMsgType type, MessageBuffer&& payload)
+    RawsockFrame::Ptr newFrame(RawsockMsgType type, MessageBuffer&& payload)
     {
         // TODO: Reuse frames somehow
-        return std::make_shared<AsioFrame>(type, std::move(payload));
+        return std::make_shared<RawsockFrame>(type, std::move(payload));
     }
 
-    virtual void sendFrame(AsioFrame::Ptr frame)
+    virtual void sendFrame(RawsockFrame::Ptr frame)
     {
         assert(socket_ && "Attempting to send on bad transport");
         assert((frame->payload().size() <= info_.maxTxLength) &&
@@ -352,10 +352,10 @@ private:
     bool running_ = false;
     RxHandler rxHandler_;
     PingHandler pingHandler_;
-    AsioFrame rxFrame_;
+    RawsockFrame rxFrame_;
     TransmitQueue txQueue_;
-    AsioFrame::Ptr txFrame_;
-    AsioFrame::Ptr pingFrame_;
+    RawsockFrame::Ptr txFrame_;
+    RawsockFrame::Ptr pingFrame_;
     TimePoint pingStart_;
     TimePoint pingStop_;
 };
@@ -364,4 +364,4 @@ private:
 
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_ASIOTRANSPORT_HPP
+#endif // CPPWAMP_INTERNAL_RAWSOCKTRANSPORT_HPP

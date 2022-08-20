@@ -9,10 +9,10 @@
 
 #include <boost/asio/post.hpp>
 #include <cppwamp/codec.hpp>
-#include <cppwamp/internal/asiotransport.hpp>
 #include <cppwamp/internal/rawsockheader.hpp>
 #include <cppwamp/internal/rawsockconnector.hpp>
 #include <cppwamp/internal/rawsocklistener.hpp>
+#include <cppwamp/internal/rawsocktransport.hpp>
 #include <cppwamp/internal/tcpacceptor.hpp>
 #include <cppwamp/internal/tcpopener.hpp>
 
@@ -36,7 +36,7 @@ struct CannedHandshakeConfig : internal::DefaultRawsockClientConfig
 
 //------------------------------------------------------------------------------
 class FakeMsgTypeTransport :
-        public internal::AsioTransport<boost::asio::ip::tcp::socket>
+        public internal::RawsockTransport<boost::asio::ip::tcp::socket>
 {
 public:
     using Ptr = std::shared_ptr<FakeMsgTypeTransport>;
@@ -55,7 +55,7 @@ public:
     }
 
 private:
-    using Base = internal::AsioTransport<boost::asio::ip::tcp::socket>;
+    using Base = internal::RawsockTransport<boost::asio::ip::tcp::socket>;
 
 protected:
     using Base::Base;

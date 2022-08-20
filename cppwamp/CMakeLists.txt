@@ -49,7 +49,6 @@ set(HEADERS
     include/cppwamp/bundled/boost_asio_any_completion_executor.hpp
     include/cppwamp/bundled/boost_asio_any_completion_handler.hpp
     include/cppwamp/coro/corosession.hpp
-    include/cppwamp/internal/asiotransport.hpp
     include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/callee.hpp
     include/cppwamp/internal/caller.hpp
@@ -67,6 +66,7 @@ set(HEADERS
     include/cppwamp/internal/rawsockhandshake.hpp
     include/cppwamp/internal/rawsockheader.hpp
     include/cppwamp/internal/rawsocklistener.hpp
+    include/cppwamp/internal/rawsocktransport.hpp
     include/cppwamp/internal/socketoptions.hpp
     include/cppwamp/internal/subscriber.hpp
     include/cppwamp/internal/tcpacceptor.hpp
