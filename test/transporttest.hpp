@@ -38,17 +38,17 @@ struct LoopbackFixtureBase
 template <typename TConnector, typename TListener>
 struct LoopbackFixture
 {
-    using Connector     = TConnector;
-    using ConnectorInfo = typename TConnector::Info;
-    using Listener      = TListener;
-    using Acceptor      = typename Listener::Establisher;
-    using Transport     = typename Connector::Transport;
-    using TransportPtr  = typename Transporting::Ptr;
+    using Connector      = TConnector;
+    using ClientSettings = typename TConnector::Settings;
+    using Listener       = TListener;
+    using Acceptor       = typename Listener::Establisher;
+    using Transport      = typename Connector::Transport;
+    using TransportPtr   = typename Transporting::Ptr;
 
     template <typename TServerCodecIds>
     LoopbackFixture(AsioContext& clientCtx,
                     AsioContext& serverCtx,
-                    ConnectorInfo clientInfo,
+                    ClientSettings clientSettings,
                     int clientCodec,
                     Acceptor&& acceptor,
                     TServerCodecIds&& serverCodecs,
@@ -57,7 +57,7 @@ struct LoopbackFixture
         : cctx(clientCtx),
           sctx(serverCtx),
           cnct(Connector::create(IoStrand{clientCtx.get_executor()},
-                                 std::move(clientInfo), clientCodec)),
+                                 std::move(clientSettings), clientCodec)),
           lstn(std::move(acceptor), std::forward<TServerCodecIds>(serverCodecs),
                serverMaxRxLength)
     {

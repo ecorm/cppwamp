@@ -26,14 +26,14 @@ namespace internal
 class UdsOpener
 {
 public:
-    using Info      = UdsPath;
+    using Settings  = UdsPath;
     using Socket    = boost::asio::local::stream_protocol::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
     template <typename TExecutorOrStrand>
-    UdsOpener(TExecutorOrStrand&& exec, Info info)
+    UdsOpener(TExecutorOrStrand&& exec, Settings s)
         : strand_(std::forward<TExecutorOrStrand>(exec)),
-          info_(std::move(info))
+          settings_(std::move(s))
     {}
 
     IoStrand strand() {return strand_;} // TODO: Remove
@@ -59,10 +59,10 @@ public:
 
         socket_.reset(new Socket(strand_));
         socket_->open();
-        info_.options().applyTo(*socket_);
+        settings_.options().applyTo(*socket_);
 
         // RawsockConnector will keep this object alive until completion.
-        socket_->async_connect(info_.pathName(),
+        socket_->async_connect(settings_.pathName(),
                                Connected{this, std::forward<F>(callback)});
     }
 
@@ -85,7 +85,7 @@ private:
     }
 
     IoStrand strand_;
-    Info info_;
+    Settings settings_;
     SocketPtr socket_;
 };
 

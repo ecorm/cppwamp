@@ -44,15 +44,15 @@ class RawsockConnector
 public:
     using Ptr       = std::shared_ptr<RawsockConnector>;
     using Opener    = TOpener;
-    using Info      = typename Opener::Info;
+    using Settings  = typename Opener::Settings;
     using Socket    = typename Opener::Socket;
     using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
     using SocketPtr = std::unique_ptr<Socket>;
     using Transport = typename TConfig::template TransportType<Socket>;
 
-    static Ptr create(IoStrand s, Info i, int codecId)
+    static Ptr create(IoStrand i, Settings s, int codecId)
     {
-        return Ptr(new RawsockConnector(std::move(s), std::move(i), codecId));
+        return Ptr(new RawsockConnector(std::move(i), std::move(s), codecId));
     }
 
     void establish(Handler&& handler)
@@ -91,10 +91,10 @@ public:
 private:
     using Handshake = internal::RawsockHandshake;
 
-    RawsockConnector(IoStrand s, Info i, int codecId)
+    RawsockConnector(IoStrand i, Settings s, int codecId)
         : codecId_(codecId),
-          maxRxLength_(i.maxRxLength()),
-          opener_(std::move(s), std::move(i))
+          maxRxLength_(s.maxRxLength()),
+          opener_(std::move(i), std::move(s))
     {}
 
     void sendHandshake()

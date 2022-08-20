@@ -26,14 +26,14 @@ namespace internal
 class TcpAcceptor
 {
 public:
-    using Info      = TcpEndpoint;
+    using Settings  = TcpEndpoint;
     using Socket    = boost::asio::ip::tcp::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
     template <typename TExecutorOrStrand>
-    TcpAcceptor(TExecutorOrStrand&& exec, const Info& info)
+    TcpAcceptor(TExecutorOrStrand&& exec, const Settings& s)
         : strand_(std::forward<TExecutorOrStrand>(exec)),
-          acceptor_(strand_, makeEndpoint(info))
+          acceptor_(strand_, makeEndpoint(s))
     {}
 
     IoStrand strand() {return strand_;} // TODO: Remove
@@ -70,12 +70,12 @@ public:
     }
 
 private:
-    static boost::asio::ip::tcp::endpoint makeEndpoint(const Info& info)
+    static boost::asio::ip::tcp::endpoint makeEndpoint(const Settings& s)
     {
-        if (!info.address().empty())
-            return {boost::asio::ip::make_address(info.address()), info.port()};
+        if (!s.address().empty())
+            return {boost::asio::ip::make_address(s.address()), s.port()};
         else
-            return {boost::asio::ip::tcp::v4(), info.port()};
+            return {boost::asio::ip::tcp::v4(), s.port()};
     }
 
     template <typename F>

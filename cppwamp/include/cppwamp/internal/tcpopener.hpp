@@ -27,14 +27,14 @@ namespace internal
 class TcpOpener
 {
 public:
-    using Info      = TcpHost;
+    using Settings  = TcpHost;
     using Socket    = boost::asio::ip::tcp::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
     template <typename TExecutorOrStrand>
-    TcpOpener(TExecutorOrStrand&& exec, Info info)
+    TcpOpener(TExecutorOrStrand&& exec, Settings s)
         : strand_(std::forward<TExecutorOrStrand>(exec)),
-          info_(std::move(info)),
+          settings_(std::move(s)),
           resolver_(strand_)
     {}
 
@@ -57,10 +57,10 @@ public:
         };
 
         // RawsockConnector will keep this object alive until completion.
-        boost::asio::ip::tcp::resolver::query query{info_.hostName(),
-                                                    info_.serviceName()};
-        resolver_.async_resolve(query,
-                                Resolved{this, std::forward<F>(callback)});
+        boost::asio::ip::tcp::resolver::query query{settings_.hostName(),
+                                                    settings_.serviceName()};
+        resolver_.async_resolve(
+            query, Resolved{this, std::forward<F>(callback)});
     }
 
     void cancel()
@@ -104,7 +104,7 @@ private:
         assert(!socket_);
         socket_.reset(new Socket(strand_));
         socket_->open(boost::asio::ip::tcp::v4());
-        info_.options().applyTo(*socket_);
+        settings_.options().applyTo(*socket_);
 
         // RawsockConnector will keep this object alive until completion.
         boost::asio::async_connect(*socket_, iterator,
@@ -112,7 +112,7 @@ private:
     }
 
     IoStrand strand_;
-    Info info_;
+    Settings settings_;
     boost::asio::ip::tcp::resolver resolver_;
     SocketPtr socket_;
 };

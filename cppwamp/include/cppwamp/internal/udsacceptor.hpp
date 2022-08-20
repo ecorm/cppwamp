@@ -26,14 +26,14 @@ namespace internal
 class UdsAcceptor
 {
 public:
-    using Info      = UdsPath;
+    using Settings  = UdsPath;
     using Socket    = boost::asio::local::stream_protocol::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
     template <typename TExecutorOrStrand>
-    UdsAcceptor(TExecutorOrStrand&& exec, Info info)
+    UdsAcceptor(TExecutorOrStrand&& exec, Settings s)
         : strand_(std::forward<TExecutorOrStrand>(exec)),
-          info_(std::move(info))
+          settings_(std::move(s))
     {}
 
     IoStrand strand() {return strand_;} // TODO: Remove
@@ -61,9 +61,9 @@ public:
         // remnant file.
         if (!acceptor_)
         {
-            if (info_.deletePathEnabled())
-                std::remove(info_.pathName().c_str());
-            acceptor_.reset(new Acceptor(strand_, info_.pathName()));
+            if (settings_.deletePathEnabled())
+                std::remove(settings_.pathName().c_str());
+            acceptor_.reset(new Acceptor(strand_, settings_.pathName()));
         }
         socket_.reset(new Socket(strand_));
 
@@ -93,7 +93,7 @@ private:
     }
 
     IoStrand strand_;
-    Info info_;
+    Settings settings_;
     std::unique_ptr<Acceptor> acceptor_;
     SocketPtr socket_;
 };

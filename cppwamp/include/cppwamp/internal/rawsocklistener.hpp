@@ -44,17 +44,17 @@ class RawsockListener
 public:
     using Ptr       = std::shared_ptr<RawsockListener>;
     using Acceptor  = TAcceptor;
-    using Info      = typename Acceptor::Info;
+    using Settings  = typename Acceptor::Settings;
     using CodecIds  = std::set<int>;
     using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
     using Socket    = typename Acceptor::Socket;
     using SocketPtr = std::unique_ptr<Socket>;
     using Transport = typename TConfig::template TransportType<Socket>;
 
-    static Ptr create(IoStrand s, Info i, CodecIds codecIds)
+    static Ptr create(IoStrand i, Settings s, CodecIds codecIds)
     {
         using std::move;
-        return Ptr(new RawsockListener(move(s), move(i), move(codecIds)));
+        return Ptr(new RawsockListener(move(i), move(s), move(codecIds)));
     }
 
     void establish(Handler&& handler)
@@ -93,10 +93,10 @@ public:
 private:
     using Handshake = internal::RawsockHandshake;
 
-    RawsockListener(IoStrand s, Info i, CodecIds codecIds)
+    RawsockListener(IoStrand i, Settings s, CodecIds codecIds)
         : codecIds_(std::move(codecIds)),
-          maxRxLength_(i.maxRxLength()),
-          acceptor_(std::move(s), std::move(i))
+          maxRxLength_(s.maxRxLength()),
+          acceptor_(std::move(i), std::move(s))
     {}
 
     void receiveHandshake()
