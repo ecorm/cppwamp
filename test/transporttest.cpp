@@ -44,16 +44,6 @@ const auto tcpHost = TcpHost{tcpLoopbackAddr, tcpTestPort}
 const auto tcpEndpoint = TcpEndpoint{tcpTestPort}.withMaxRxLength(RML::kB_64);
 
 //------------------------------------------------------------------------------
-struct LoopbackFixtureBase
-{
-    // These members need to be already initialized when initializing
-    // TcpLoopbackFixture and UdsLoopbackFixture
-    // TODO: Why?
-    AsioContext clientCtx;
-    AsioContext serverCtx;
-};
-
-//------------------------------------------------------------------------------
 template <typename TConnector, typename TListener>
 struct LoopbackFixture
 {
@@ -64,21 +54,17 @@ struct LoopbackFixture
     using Transport      = typename Connector::Transport;
 
     template <typename TServerCodecIds>
-    LoopbackFixture(AsioContext& clientCtx,
-                    AsioContext& serverCtx,
-                    ClientSettings clientSettings,
+    LoopbackFixture(ClientSettings clientSettings,
                     int clientCodec,
                     ServerSettings serverSettings,
                     TServerCodecIds&& serverCodecs,
                     bool connected = true)
-        : cctx(clientCtx),
-        sctx(serverCtx),
-        cnct(Connector::create(IoStrand{clientCtx.get_executor()},
-                               std::move(clientSettings), clientCodec)),
-        lstn(Listener::create(IoStrand{serverCtx.get_executor()},
-                              std::move(serverSettings),
-                              std::forward<TServerCodecIds>(serverCodecs)))
     {
+        cnct = Connector::create(IoStrand{cctx.get_executor()},
+                                 std::move(clientSettings), clientCodec);
+        lstn = Listener::create(IoStrand{sctx.get_executor()},
+                                std::move(serverSettings),
+                                std::forward<TServerCodecIds>(serverCodecs));
         if (connected)
             connect();
     }
@@ -129,8 +115,8 @@ struct LoopbackFixture
         cctx.stop();
     }
 
-    AsioContext& cctx;
-    AsioContext& sctx;
+    AsioContext cctx;
+    AsioContext sctx;
     typename Connector::Ptr cnct;
     typename Listener::Ptr lstn;
     int clientCodec;
@@ -142,7 +128,6 @@ struct LoopbackFixture
 
 //------------------------------------------------------------------------------
 struct TcpLoopbackFixture :
-        protected LoopbackFixtureBase,
         public LoopbackFixture<TcpRawsockConnector, TcpRawsockListener>
 {
     TcpLoopbackFixture(
@@ -152,8 +137,6 @@ struct TcpLoopbackFixture :
                 RawsockMaxLength clientMaxRxLength = RML::kB_64,
                 RawsockMaxLength serverMaxRxLength = RML::kB_64 )
         : LoopbackFixture(
-              clientCtx,
-              serverCtx,
               TcpHost{tcpLoopbackAddr, tcpTestPort}
                 .withMaxRxLength(clientMaxRxLength),
               clientCodec,
@@ -165,7 +148,7 @@ struct TcpLoopbackFixture :
 
 //------------------------------------------------------------------------------
 struct UdsLoopbackFixture :
-        protected LoopbackFixtureBase,
+        /* protected LoopbackFixtureBase, */
         public LoopbackFixture<UdsRawsockConnector, UdsRawsockListener>
 {
     UdsLoopbackFixture(
@@ -175,8 +158,6 @@ struct UdsLoopbackFixture :
                 RawsockMaxLength clientMaxRxLength = RML::kB_64,
                 RawsockMaxLength serverMaxRxLength = RML::kB_64 )
         : LoopbackFixture(
-              clientCtx,
-              serverCtx,
               UdsPath{udsTestPath}.withMaxRxLength(clientMaxRxLength),
               clientCodec,
               UdsPath{udsTestPath}.withMaxRxLength(serverMaxRxLength),
