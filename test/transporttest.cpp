@@ -7,7 +7,6 @@
 #include <set>
 #include <thread>
 #include <cppwamp/codec.hpp>
-#include <cppwamp/internal/asioconnector.hpp>
 #include <cppwamp/internal/asiolistener.hpp>
 #include <cppwamp/internal/tcpopener.hpp>
 #include <cppwamp/internal/tcpacceptor.hpp>
@@ -19,13 +18,11 @@
 
 using namespace wamp;
 
-using TcpAsioConnector = internal::AsioConnector<internal::TcpOpener>;
-using TcpAsioListener  = internal::AsioListener<internal::TcpAcceptor>;
-using UdsAsioConnector = internal::AsioConnector<internal::UdsOpener>;
-using UdsAsioListener  = internal::AsioListener<internal::UdsAcceptor>;
-using TcpTransport     = TcpAsioConnector::Transport;
-using UdsTransport     = UdsAsioConnector::Transport;
-using RML              = RawsockMaxLength;
+using TcpRawsockConnector = internal::RawsockConnector<internal::TcpOpener>;
+using TcpAsioListener     = internal::AsioListener<internal::TcpAcceptor>;
+using UdsRawsockConnector = internal::RawsockConnector<internal::UdsOpener>;
+using UdsAsioListener     = internal::AsioListener<internal::UdsAcceptor>;
+using RML                 = RawsockMaxLength;
 
 using CodecIds = std::set<int>;
 
@@ -38,7 +35,7 @@ namespace
 //------------------------------------------------------------------------------
 struct TcpLoopbackFixture :
         protected LoopbackFixtureBase,
-        public LoopbackFixture<TcpAsioConnector, TcpAsioListener>
+        public LoopbackFixture<TcpRawsockConnector, TcpAsioListener>
 {
     TcpLoopbackFixture(
                 bool connected = true,
@@ -49,10 +46,9 @@ struct TcpLoopbackFixture :
         : LoopbackFixture(
               clientCtx,
               serverCtx,
-              internal::TcpOpener(clientCtx.get_executor(),
-                                  {tcpLoopbackAddr, tcpTestPort}),
+              TcpHost{tcpLoopbackAddr, tcpTestPort}
+                .withMaxRxLength(clientMaxRxLength),
               clientCodec,
-              clientMaxRxLength,
               internal::TcpAcceptor(serverCtx.get_executor(), tcpTestPort),
               serverCodecs,
               serverMaxRxLength,
@@ -63,7 +59,7 @@ struct TcpLoopbackFixture :
 //------------------------------------------------------------------------------
 struct UdsLoopbackFixture :
         protected LoopbackFixtureBase,
-        public LoopbackFixture<UdsAsioConnector, UdsAsioListener>
+        public LoopbackFixture<UdsRawsockConnector, UdsAsioListener>
 {
     UdsLoopbackFixture(
                 bool connected = true,
@@ -74,9 +70,8 @@ struct UdsLoopbackFixture :
         : LoopbackFixture(
               clientCtx,
               serverCtx,
-              internal::UdsOpener(clientCtx.get_executor(), {udsTestPath}),
+              UdsPath{udsTestPath}.withMaxRxLength(clientMaxRxLength),
               clientCodec,
-              clientMaxRxLength,
               internal::UdsAcceptor(serverCtx.get_executor(), udsTestPath,
                                     true),
               serverCodecs,
@@ -143,7 +138,7 @@ void checkUnsupportedSerializer(TFixture& f)
         CHECK( transport == makeUnexpectedError(RawsockErrc::badSerializer) );
     });
 
-    f.cnct.establish([&](ErrorOr<Transporting::Ptr> transport)
+    f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
         CHECK( transport == makeUnexpectedError(RawsockErrc::badSerializer) );
     });
@@ -155,23 +150,22 @@ void checkUnsupportedSerializer(TFixture& f)
 inline void checkCannedServerHandshake(uint32_t cannedHandshake,
                                        std::error_code expectedErrorCode)
 {
-    using AsioConnector = internal::AsioConnector<internal::TcpOpener>;
-    using TransportingPtr  = typename Transporting::Ptr;
-
     AsioContext ioctx;
+    IoStrand strand{ioctx.get_executor()};
     internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
     FakeHandshakeAsioListener lstn(std::move(acpt), {jsonId}, RML::kB_64);
     lstn.setCannedHandshake(cannedHandshake);
 
-    internal::TcpOpener opnr(ioctx.get_executor(),
-                             {tcpLoopbackAddr, tcpTestPort});
-    AsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
+    auto cnct = TcpRawsockConnector::create(
+        strand,
+        TcpHost{tcpLoopbackAddr, tcpTestPort}.withMaxRxLength(RML::kB_64),
+        jsonId);
 
-    lstn.establish( [](ErrorOr<TransportingPtr>) {} );
+    lstn.establish( [](ErrorOr<Transporting::Ptr>) {} );
 
     bool aborted = false;
-    cnct.establish(
-        [&](ErrorOr<TransportingPtr> transport)
+    cnct->establish(
+        [&](ErrorOr<Transporting::Ptr> transport)
         {
             CHECK( transport == makeUnexpected(expectedErrorCode) );
             aborted = true;
@@ -551,7 +545,6 @@ GIVEN( "a client that uses reserved bits" )
 //------------------------------------------------------------------------------
 SCENARIO( "Receiving messages longer than maximum", "[Transport]" )
 {
-using AsioConnector = internal::AsioConnector<internal::TcpOpener>;
 using AsioListener  = internal::AsioListener<internal::TcpAcceptor>;
 using FakeConnector = internal::RawsockConnector<internal::TcpOpener,
                                                  CannedHandshakeConfig>;
@@ -624,13 +617,15 @@ GIVEN ( "A server tricked into sending overly long messages to a client" )
 GIVEN ( "A client tricked into sending overly long messages to a server" )
 {
     AsioContext ioctx;
+    IoStrand strand{ioctx.get_executor()};
     internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
     FakeHandshakeAsioListener lstn(std::move(acpt), {jsonId}, RML::kB_64);
     lstn.setCannedHandshake(0x7F810000);
 
-    internal::TcpOpener opnr(ioctx.get_executor(),
-                             {tcpLoopbackAddr, tcpTestPort});
-    AsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
+    auto cnct = TcpRawsockConnector::create(
+        strand,
+        TcpHost{tcpLoopbackAddr, tcpTestPort}.withMaxRxLength(RML::kB_64),
+        jsonId);
 
     Transporting::Ptr server;
     Transporting::Ptr client;
@@ -642,7 +637,7 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
             server = std::move(*transport);
         });
 
-    cnct.establish(
+    cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );
@@ -687,7 +682,6 @@ GIVEN ( "A client tricked into sending overly long messages to a server" )
 //------------------------------------------------------------------------------
 SCENARIO( "Receiving an invalid message type", "[Transport]" )
 {
-using AsioConnector    = internal::AsioConnector<internal::TcpOpener>;
 using AsioListener     = internal::AsioListener<internal::TcpAcceptor>;
 using FakeTransport    = FakeMsgTypeAsioListener::Transport;
 using FakeTransportPtr = FakeMsgTypeAsioListener::Transport::Ptr;
@@ -695,12 +689,16 @@ using FakeTransportPtr = FakeMsgTypeAsioListener::Transport::Ptr;
 GIVEN ( "A fake server that sends an invalid message type" )
 {
     AsioContext ioctx;
+    IoStrand strand{ioctx.get_executor()};
     internal::TcpAcceptor acpt(ioctx.get_executor(), tcpTestPort);
     FakeMsgTypeAsioListener lstn(std::move(acpt), {jsonId}, RML::kB_64);
 
     internal::TcpOpener opnr(ioctx.get_executor(),
                              {tcpLoopbackAddr, tcpTestPort});
-    AsioConnector cnct(std::move(opnr), jsonId, RML::kB_64);
+    auto cnct = TcpRawsockConnector::create(
+        strand,
+        TcpHost{tcpLoopbackAddr, tcpTestPort}.withMaxRxLength(RML::kB_64),
+        jsonId);
 
     FakeTransportPtr server;
     Transporting::Ptr client;
@@ -712,7 +710,7 @@ GIVEN ( "A fake server that sends an invalid message type" )
             server = std::dynamic_pointer_cast<FakeTransport>(*transport);
         });
 
-    cnct.establish(
+    cnct->establish(
         [&](ErrorOr<Transporting::Ptr> transport)
         {
             REQUIRE( transport.has_value() );

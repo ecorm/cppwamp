@@ -24,10 +24,11 @@ namespace internal
 //------------------------------------------------------------------------------
 struct DefaultRawsockClientConfig
 {
-    template <typename TOpener>
-    using TransportType = AsioTransport<typename TOpener::Socket>;
+    template <typename TSocket>
+    using TransportType = AsioTransport<TSocket>;
 
-    static uint32_t hostOrderBytes(int codecId, RawsockMaxLength maxRxLength)
+    static uint32_t hostOrderHandshakeBytes(int codecId,
+                                            RawsockMaxLength maxRxLength)
     {
         return RawsockHandshake().setCodecId(codecId)
                                  .setMaxLength(maxRxLength)
@@ -44,7 +45,10 @@ public:
     using Ptr       = std::shared_ptr<RawsockConnector>;
     using Opener    = TOpener;
     using Info      = typename Opener::Info;
+    using Socket    = typename Opener::Socket;
     using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
+    using SocketPtr = std::unique_ptr<Socket>;
+    using Transport = typename TConfig::template TransportType<Socket>;
 
     static Ptr create(IoStrand s, Info i, int codecId)
     {
@@ -70,7 +74,7 @@ public:
                     auto ec = socket.error();
                     if (ec == std::errc::operation_canceled)
                         ec = make_error_code(TransportErrc::aborted);
-                    handler_(UnexpectedError(socket.error()));
+                    handler_(UnexpectedError(ec));
                 }
             }
         );
@@ -86,9 +90,6 @@ public:
 
 private:
     using Handshake = internal::RawsockHandshake;
-    using Socket    = typename Opener::Socket;
-    using SocketPtr = std::unique_ptr<Socket>;
-    using Transport = typename TConfig::template TransportType<Opener>;
 
     RawsockConnector(IoStrand s, Info i, int codecId)
         : codecId_(codecId),
@@ -98,7 +99,7 @@ private:
 
     void sendHandshake()
     {
-        handshake_ = TConfig::hostOrderBytes(codecId_, maxRxLength_);
+        handshake_ = TConfig::hostOrderHandshakeBytes(codecId_, maxRxLength_);
         auto self = this->shared_from_this();
         boost::asio::async_write(
             *socket_,

@@ -46,7 +46,6 @@ set(HEADERS
     include/cppwamp/bundled/boost_asio_any_completion_executor.hpp
     include/cppwamp/bundled/boost_asio_any_completion_handler.hpp
     include/cppwamp/coro/corosession.hpp
-    include/cppwamp/internal/asioconnector.hpp
     include/cppwamp/internal/asioendpoint.hpp
     include/cppwamp/internal/asiolistener.hpp
     include/cppwamp/internal/asiotransport.hpp

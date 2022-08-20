@@ -5,7 +5,6 @@
 ------------------------------------------------------------------------------*/
 
 #include "../uds.hpp"
-#include "asioconnector.hpp"
 #include "rawsockconnector.hpp"
 #include "udsopener.hpp"
 

@@ -38,26 +38,26 @@ struct LoopbackFixtureBase
 template <typename TConnector, typename TListener>
 struct LoopbackFixture
 {
-    using Connector    = TConnector;
-    using Listener     = TListener;
-    using Opener       = typename Connector::Establisher;
-    using Acceptor     = typename Listener::Establisher;
-    using Transport    = typename Connector::Transport;
-    using TransportPtr = typename Transporting::Ptr;
+    using Connector     = TConnector;
+    using ConnectorInfo = typename TConnector::Info;
+    using Listener      = TListener;
+    using Acceptor      = typename Listener::Establisher;
+    using Transport     = typename Connector::Transport;
+    using TransportPtr  = typename Transporting::Ptr;
 
     template <typename TServerCodecIds>
     LoopbackFixture(AsioContext& clientCtx,
                     AsioContext& serverCtx,
-                    Opener&& opener,
+                    ConnectorInfo clientInfo,
                     int clientCodec,
-                    RawsockMaxLength clientMaxRxLength,
                     Acceptor&& acceptor,
                     TServerCodecIds&& serverCodecs,
                     RawsockMaxLength serverMaxRxLength,
                     bool connected = true)
         : cctx(clientCtx),
           sctx(serverCtx),
-          cnct(std::move(opener), clientCodec, clientMaxRxLength),
+          cnct(Connector::create(IoStrand{clientCtx.get_executor()},
+                                 std::move(clientInfo), clientCodec)),
           lstn(std::move(acceptor), std::forward<TServerCodecIds>(serverCodecs),
                serverMaxRxLength)
     {
@@ -75,11 +75,11 @@ struct LoopbackFixture
                 server = std::move(transport);
             });
 
-        cnct.establish(
+        cnct->establish(
             [&](ErrorOr<TransportPtr> transportOrError)
             {
                 auto transport = transportOrError.value();
-                clientCodec =transport->info().codecId;
+                clientCodec = transport->info().codecId;
                 client = std::move(transport);
             });
 
@@ -111,7 +111,7 @@ struct LoopbackFixture
 
     AsioContext& cctx;
     AsioContext& sctx;
-    Connector cnct;
+    typename Connector::Ptr cnct;
     Listener  lstn;
     int clientCodec;
     int serverCodec;
@@ -145,7 +145,7 @@ void checkConnection(TFixture& f, int expectedCodec,
         f.server = transport;
     });
 
-    f.cnct.establish([&](ErrorOr<TransportPtr> transportOrError)
+    f.cnct->establish([&](ErrorOr<TransportPtr> transportOrError)
     {
         REQUIRE( transportOrError.has_value() );
         auto transport = *transportOrError;
@@ -295,7 +295,7 @@ void checkCommunications(TFixture& f)
             f.sctx.stop();
         });
 
-    f.cnct.establish(
+    f.cnct->establish(
         [&](ErrorOr<TransportPtr> transportOrError)
         {
             REQUIRE( transportOrError.has_value() );
@@ -438,7 +438,7 @@ void checkCancelConnect(TFixture& f)
 
         bool connectCanceled = false;
         bool connectCompleted = false;
-        f.cnct.establish(
+        f.cnct->establish(
             [&](ErrorOr<TransportPtr> transport)
             {
                 if (transport.has_value())
@@ -457,7 +457,7 @@ void checkCancelConnect(TFixture& f)
         f.cctx.poll();
         f.cctx.reset();
 
-        f.cnct.cancel();
+        f.cnct->cancel();
         f.run();
 
         THEN( "the operation either aborts or completes" )
@@ -524,7 +524,7 @@ void checkCancelSend(TFixture& f)
         f.server = *transport;
     });
 
-    f.cnct.establish([&](ErrorOr<TransportPtr> transport)
+    f.cnct->establish([&](ErrorOr<TransportPtr> transport)
     {
         REQUIRE(transport.has_value());
         f.client = *transport;

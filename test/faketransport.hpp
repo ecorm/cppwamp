@@ -9,7 +9,6 @@
 
 #include <boost/asio/post.hpp>
 #include <cppwamp/codec.hpp>
-#include <cppwamp/internal/asioconnector.hpp>
 #include <cppwamp/internal/asiolistener.hpp>
 #include <cppwamp/internal/asiotransport.hpp>
 #include <cppwamp/internal/rawsockheader.hpp>
@@ -23,7 +22,7 @@ namespace wamp
 //------------------------------------------------------------------------------
 struct CannedHandshakeConfig : internal::DefaultRawsockClientConfig
 {
-    static uint32_t hostOrderBytes(int, RawsockMaxLength)
+    static uint32_t hostOrderHandshakeBytes(int, RawsockMaxLength)
     {
         return internal::endian::nativeToBig32(cannedNativeBytes());
     }

@@ -5,7 +5,6 @@
 ------------------------------------------------------------------------------*/
 
 #include "../tcp.hpp"
-#include "asioconnector.hpp"
 #include "asiotransport.hpp"
 #include "rawsockconnector.hpp"
 #include "tcpopener.hpp"
