@@ -32,11 +32,14 @@ set(HEADERS
     include/cppwamp/sessiondata.hpp
     include/cppwamp/subscription.hpp
     include/cppwamp/tcp.hpp
+    include/cppwamp/tcpendpoint.hpp
     include/cppwamp/tcphost.hpp
+    include/cppwamp/tcpprotocol.hpp
     include/cppwamp/traits.hpp
     include/cppwamp/transport.hpp
     include/cppwamp/uds.hpp
     include/cppwamp/udspath.hpp
+    include/cppwamp/udsprotocol.hpp
     include/cppwamp/unpacker.hpp
     include/cppwamp/variant.hpp
     include/cppwamp/variantdefs.hpp
@@ -101,9 +104,12 @@ set(INLINES
     include/cppwamp/internal/session.ipp
     include/cppwamp/internal/subscription.ipp
     include/cppwamp/internal/tcp.ipp
+    include/cppwamp/internal/tcpendpoint.ipp
     include/cppwamp/internal/tcphost.ipp
+    include/cppwamp/internal/tcpprotocol.ipp
     include/cppwamp/internal/uds.ipp
     include/cppwamp/internal/udspath.ipp
+    include/cppwamp/internal/udsprotocol.ipp
     include/cppwamp/internal/variant.ipp
     include/cppwamp/internal/version.ipp
 )

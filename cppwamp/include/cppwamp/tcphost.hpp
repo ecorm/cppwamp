@@ -18,92 +18,10 @@
 #include "config.hpp"
 #include "connector.hpp"
 #include "rawsockoptions.hpp"
-#include "internal/socketoptions.hpp"
-
-// Forward declaration
-namespace boost { namespace asio { namespace ip { class tcp; }}}
+#include "tcpprotocol.hpp"
 
 namespace wamp
 {
-
-namespace internal { class TcpOpener; } // Forward declaration
-
-//------------------------------------------------------------------------------
-/** Tag type associated with the TCP transport. */
-//------------------------------------------------------------------------------
-struct Tcp
-{
-    constexpr Tcp() = default;
-};
-
-//------------------------------------------------------------------------------
-/** Contains options for the TCP transport.
-    @note Support for these options depends on the the operating system.
-    @see https://man7.org/linux/man-pages/man7/socket.7.html
-    @see https://docs.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-setsockopt
-    @see https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/setsockopt.2.html */
-//------------------------------------------------------------------------------
-class CPPWAMP_API TcpOptions
-{
-public:
-    /** Adds the SO_BROADCAST socket option. */
-    TcpOptions& withBroadcast(bool enabled = true);
-
-    /** Adds the SO_DEBUG socket option. */
-    TcpOptions& withDebug(bool enabled = true);
-
-    /** Adds the SO_DONTROUTE socket option. */
-    TcpOptions& withDoNotRoute(bool enabled = true);
-
-    /** Adds the SO_KEEPALIVE socket option. */
-    TcpOptions& withKeepAlive(bool enabled = true);
-
-    /** Adds the SO_LINGER socket option. */
-    TcpOptions& withLinger(bool enabled, int timeout);
-
-    /** Adds the SO_OOBINLINE socket option. */
-    TcpOptions& withOutOfBandInline(bool enabled);
-
-    /** Adds the SO_RCVBUF socket option. */
-    TcpOptions& withReceiveBufferSize(int size);
-
-    /** Adds the SO_RCVLOWAT socket option. */
-    TcpOptions& withReceiveLowWatermark(int size);
-
-    /** Adds the SO_REUSEADDR socket option. */
-    TcpOptions& withReuseAddress(bool enabled = true);
-
-    /** Adds the SO_SNDBUF socket option. */
-    TcpOptions& withSendBufferSize(int size);
-
-    /** Adds the SO_SNDLOWAT socket option. */
-    TcpOptions& withSendLowWatermark(int size);
-
-    /** Adds the IP_UNICAST_TTL socket option. */
-    TcpOptions& withUnicastHops(int hops);
-
-    /** Adds the IP_V6ONLY socket option. */
-    TcpOptions& withIpV6Only(bool enabled = true);
-
-    /** Adds the TCP_NODELAY socket option.
-        This option is for disabling the Nagle algorithm. */
-    TcpOptions& withNoDelay(bool enabled = true);
-
-private:
-    template <typename TOption, typename... TArgs>
-    TcpOptions& set(TArgs... args);
-
-    template <typename TSocket> void applyTo(TSocket& socket) const;
-
-    internal::SocketOptionList<boost::asio::ip::tcp> options_;
-
-    friend class internal::TcpOpener;
-
-    /* Implementation note: Explicit template instantiation does not seem
-       to play nice with CRTP, so it was not feasible to factor out the
-       commonality with UdsOptions as a mixin (not without giving up the
-       fluent API). */
-};
 
 //------------------------------------------------------------------------------
 /** Contains TCP host address information, as well as other socket options.

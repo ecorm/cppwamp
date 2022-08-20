@@ -14,6 +14,7 @@
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
 #include "../erroror.hpp"
+#include "../udspath.hpp"
 
 namespace wamp
 {
@@ -25,15 +26,14 @@ namespace internal
 class UdsAcceptor
 {
 public:
+    using Info      = UdsPath;
     using Socket    = boost::asio::local::stream_protocol::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
     template <typename TExecutorOrStrand>
-    UdsAcceptor(TExecutorOrStrand&& exec, const std::string& path,
-                bool deleteFile)
+    UdsAcceptor(TExecutorOrStrand&& exec, Info info)
         : strand_(std::forward<TExecutorOrStrand>(exec)),
-          path_(path),
-          deleteFile_(deleteFile)
+          info_(std::move(info))
     {}
 
     IoStrand strand() {return strand_;} // TODO: Remove
@@ -61,9 +61,9 @@ public:
         // remnant file.
         if (!acceptor_)
         {
-            if (deleteFile_)
-                std::remove(path_.c_str());
-            acceptor_.reset(new Acceptor(strand_, path_));
+            if (info_.deletePathEnabled())
+                std::remove(info_.pathName().c_str());
+            acceptor_.reset(new Acceptor(strand_, info_.pathName()));
         }
         socket_.reset(new Socket(strand_));
 
@@ -93,8 +93,7 @@ private:
     }
 
     IoStrand strand_;
-    std::string path_;
-    bool deleteFile_;
+    Info info_;
     std::unique_ptr<Acceptor> acceptor_;
     SocketPtr socket_;
 };

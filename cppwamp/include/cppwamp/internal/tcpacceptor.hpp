@@ -14,6 +14,7 @@
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
 #include "../erroror.hpp"
+#include "../tcpendpoint.hpp"
 
 namespace wamp
 {
@@ -25,20 +26,14 @@ namespace internal
 class TcpAcceptor
 {
 public:
+    using Info      = TcpEndpoint;
     using Socket    = boost::asio::ip::tcp::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
     template <typename TExecutorOrStrand>
-    TcpAcceptor(TExecutorOrStrand&& exec, const std::string addr,
-                unsigned short port)
+    TcpAcceptor(TExecutorOrStrand&& exec, const Info& info)
         : strand_(std::forward<TExecutorOrStrand>(exec)),
-          acceptor_(strand_, makeEndpoint(addr, port))
-    {}
-
-    template <typename TExecutorOrStrand>
-    TcpAcceptor(TExecutorOrStrand&& exec, unsigned short port)
-        : strand_(std::forward<TExecutorOrStrand>(exec)),
-          acceptor_(strand_, makeEndpoint(port))
+          acceptor_(strand_, makeEndpoint(info))
     {}
 
     IoStrand strand() {return strand_;} // TODO: Remove
@@ -75,15 +70,12 @@ public:
     }
 
 private:
-    static boost::asio::ip::tcp::endpoint makeEndpoint(const std::string addr,
-                                                       unsigned short port)
+    static boost::asio::ip::tcp::endpoint makeEndpoint(const Info& info)
     {
-        return {boost::asio::ip::address::from_string(addr), port};
-    }
-
-    static boost::asio::ip::tcp::endpoint makeEndpoint(unsigned short port)
-    {
-        return {boost::asio::ip::tcp::v4(), port};
+        if (!info.address().empty())
+            return {boost::asio::ip::make_address(info.address()), info.port()};
+        else
+            return {boost::asio::ip::tcp::v4(), info.port()};
     }
 
     template <typename F>

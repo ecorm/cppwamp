@@ -23,11 +23,14 @@
 #include <cppwamp/internal/session.ipp>
 #include <cppwamp/internal/subscription.ipp>
 #include <cppwamp/internal/tcp.ipp>
+#include <cppwamp/internal/tcpendpoint.ipp>
 #include <cppwamp/internal/tcphost.ipp>
+#include <cppwamp/internal/tcpprotocol.ipp>
 #include <cppwamp/internal/variant.ipp>
 #include <cppwamp/internal/version.ipp>
 
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     #include <cppwamp/internal/uds.ipp>
     #include <cppwamp/internal/udspath.ipp>
+    #include <cppwamp/internal/udsprotocol.ipp>
 #endif

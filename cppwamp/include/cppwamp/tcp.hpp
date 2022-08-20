@@ -16,10 +16,9 @@
 #include <utility>
 #include "api.hpp"
 #include "asiodefs.hpp"
-#include "codec.hpp"
-#include "config.hpp"
 #include "connector.hpp"
 #include "tcphost.hpp"
+#include "traits.hpp"
 
 namespace wamp
 {

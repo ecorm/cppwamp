@@ -17,9 +17,9 @@
 #include <utility>
 #include "api.hpp"
 #include "asiodefs.hpp"
-#include "codec.hpp"
 #include "connector.hpp"
 #include "udspath.hpp"
+#include "traits.hpp"
 
 namespace wamp
 {

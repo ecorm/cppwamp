@@ -72,8 +72,8 @@ struct UdsLoopbackFixture :
               serverCtx,
               UdsPath{udsTestPath}.withMaxRxLength(clientMaxRxLength),
               clientCodec,
-              internal::UdsAcceptor(serverCtx.get_executor(), udsTestPath,
-                                    true),
+              internal::UdsAcceptor(serverCtx.get_executor(),
+                                    std::string(udsTestPath)),
               serverCodecs,
               serverMaxRxLength,
               connected )
