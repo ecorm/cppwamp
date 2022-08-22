@@ -2,8 +2,59 @@ v0.11.0
 =======
 Polymorphic codecs and transports.
 
+- Added `ConnectionWish` and `ConnectionWishList` which should now be used
+  in place of the old `Connection` and `ConnectionList` classes.
+- Passing `ConnectionWish` and `ConnectionWishList` via `Session::connect` is
+  now preferred over passing the legacy `Connector` instances via
+  `Session::create`.
+- `TcpHost` and `UdsPath` now have `withFormat` methods which generate a
+  `ConnectionWish` that can be passed to `Session`.
+- Relaxed `Session::state` preconditions for `Session`'s `unsubscribe` and
+  `unregister` operations taking completion handlers. If the session state
+  does not allow the transmission of `UNSUBSCRIBE` and `UNREGISTER` WAMP
+  messages, a warning is emitted instead of an error being emitted via the
+  completion handler.
+- `Session::yield` operations while not established will emit a warning instead
+  of failing.
+- Added `Session::ongoingCall` for progressive call results, which
+  automatically applies `rpc.withProgessiveResults(true)`.
+- Handlers registered via `Session`'s `setWarningHandler`, `setTraceHandler`,
+  and `setStateChangeHandler` will no longer be fired after
+  `Session::tenminate` is called and before `Session::connect` is called.
+
+Implementation improvements:
+
 - Codecs are now specializations of `SinkEncoder` and `SourceDecoder`.
 - Simplified codec tags to only provide their numeric ID.
+- Added `AnyCodec` polymorphic wrapper for codecs.
+- Added `Transporting` interface class which replaces the old Transport
+  type requirement.
+- `internal::Client` is now non-templated and is retained by `Session` during
+  the latter's lifetime.
+- `Session::connect` logic has been moved to `internal::Client`.
+- Renamed `internal::AsioTransport` to `internal::RawsockTransport` and
+  simplified its previously convoluted design.
+- `internal::RawsockConnector` and `internal::RawsockTransport` now use
+  policy classes instead of polymorphism to alter their behavior for tests.
+- Tidying of transport tests.
+
+### Beaking Changes
+
+- `Session::call` can no longer be used for progessive call results, use
+  `Session::ongoingCall` instead.
+- The `Session` destructor now automatically invokes `Session::disconnect`
+  instead of `Session::terminate`, to better emulate the cancellation behavior
+  of Asio sockets being destroyed.
+  
+### Migration Guide
+
+- Replace `connection<TCodec>(TcpHost)` with `TcpHost::withFormat`.
+  E.g.: `wamp::TcpHost{"localhost", 12345}.withFormat(wamp::json)`
+- Replace `Session::call` with `Session::ongoingCall` when progressive results
+  are desired.
+- Manually call `Session::terminate` before a `Session` is destroyed if you
+  must suppress the execution of pending completion handlers.
+
 
 v0.10.0
 =======

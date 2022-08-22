@@ -105,6 +105,8 @@ CPPWAMP_INLINE_VARIABLE constexpr ThreadSafe threadSafe;
 //------------------------------------------------------------------------------
 class CPPWAMP_API Session : public std::enable_shared_from_this<Session>
 {
+    // TODO: Remove heap allocation requirement
+
 private:
     struct GenericOp { template <typename F> void operator()(F&&) {} };
 

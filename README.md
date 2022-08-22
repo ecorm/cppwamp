@@ -78,14 +78,11 @@ Roadmap
 
 ### v1.0
 
+- Embedded router functionality
 - Remove all deprecated types and functions.
 - Aim for API stability until v2.0.
 
-### v1.1
-
-- Embedded router functionality
-
-### v1.2 (maybe)
+### v1.1 (maybe)
 
 - Websocket support via Boost.Beast
 
