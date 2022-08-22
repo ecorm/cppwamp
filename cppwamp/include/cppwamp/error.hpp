@@ -145,6 +145,7 @@ enum class SessionErrc
     success = 0,            ///< Operation successful
     sessionEnded,           ///< Operation aborted; session ended by this peer
     sessionEndedByPeer,     ///< Session ended by other peer
+    sessionAbortedByPeer,   ///< Session aborted by other peer
     allTransportsFailed,    ///< All transports failed during connection
     joinError,              ///< Join error reported by router
     publishError,           ///< Publish error reported by broker
@@ -165,6 +166,7 @@ enum class SessionErrc
     systemShutdown,         ///< The other peer is shutting down
     closeRealm,             ///< The other peer is leaving the realm
     goodbyeAndOut,          ///< Session ended successfully
+    protocolViolation,      ///< Invalid WAMP message for current session state.
     notAuthorized,          ///< This peer is not authorized to perform the operation
     authorizationFailed,    ///< The authorization operation failed
     noSuchRealm,            ///< Attempt to join non-existent realm
@@ -315,8 +317,8 @@ enum class ProtocolErrc
 };
 
 //------------------------------------------------------------------------------
-/** std::error_category used for reporting protocol errors related to invalid
-    WAMP messages.
+/** std::error_category used for reporting protocol errors related to badly
+    formed WAMP messages.
     @see ProtocolErrc */
 //------------------------------------------------------------------------------
 class CPPWAMP_API ProtocolCategory : public std::error_category

@@ -236,9 +236,9 @@ void checkDisconnect(TDelegate&& delegate)
     AsioContext ioctx;
     bool completed = false;
     ErrorOr<TResult> result;
+    auto session = Session::create(ioctx);
     boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
-        auto session = Session::create(ioctx);
         session->connect(withTcp, yield).value();
         delegate(*session, yield, completed, result);
         session->disconnect();
@@ -372,6 +372,21 @@ struct StateChangeListener
 
     bool empty() const {return changes().empty();}
 
+    bool check(const std::vector<SessionState>& expected,
+               boost::asio::yield_context yield)
+    {
+        int triesLeft = 1000;
+        while (triesLeft > 0)
+        {
+            if (changes().size() >= expected.size())
+                break;
+            suspendCoro(yield);
+            --triesLeft;
+        }
+        CHECK( triesLeft > 0 );
+        return are(expected);
+    };
+
     bool check(const Session::Ptr& session,
                const std::vector<SessionState>& expected,
                boost::asio::yield_context yield)
@@ -476,6 +491,8 @@ GIVEN( "an IO service and a TCP connector" )
 
                 // Reset by letting session instance go out of scope.
             }
+
+            CHECK( changes.check({SS::disconnected}, yield) );
 
             // State change events should not be fired when the
             // session is destructing.
@@ -711,7 +728,8 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( changes.check(s, {SS::connecting, SS::disconnected}, ioctx) );
+        CHECK( changes.are({SS::connecting}) );
+        CHECK( s->state() == SS::disconnected );
     }
 
     WHEN( "resetting during join" )
@@ -730,8 +748,8 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( changes.check(s, {SS::connecting, SS::closed,
-                                 SS::establishing, SS::disconnected}, ioctx) );
+        CHECK( changes.are({SS::connecting, SS::closed, SS::establishing}) );
+        CHECK( s->state() == SS::disconnected );
     }
 
     WHEN( "session goes out of scope during connect" )
@@ -754,7 +772,7 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( changes.are({SS::connecting}) );
+        CHECK( changes.are({SS::connecting, SS::disconnected}) );
     }
 }}
 
@@ -846,7 +864,7 @@ GIVEN( "an IO service and a TCP connector" )
             f.publisher->publish(Pub("str.num").withArgs("one", 1));
             pid = f.publisher->publish(Pub("str.num").withArgs("two", 2),
                                        yield).value();
-            while (f.dynamicPubs.size() < 2)
+            while (f.dynamicPubs.size() < 2 && f.staticPubs.size() < 2)
                 suspendCoro(yield);
 
             REQUIRE( f.dynamicPubs.size() == 2 );
@@ -1056,7 +1074,8 @@ GIVEN( "an IO service and a TCP connector" )
 
             // Unsubscribe the static subscription manually.
             auto unsubscribed = f.subscriber->unsubscribe(f.staticSub, yield);
-            CHECK( unsubscribed == makeUnexpected(SessionErrc::invalidState) );
+            REQUIRE( unsubscribed.has_value() );
+            CHECK( unsubscribed.value() == false );
             REQUIRE_NOTHROW( f.staticSub.unsubscribe() );
 
             // Check that the dynamic and static slots no longer fire.
@@ -1090,8 +1109,8 @@ GIVEN( "an IO service and a TCP connector" )
 
             // Unsubscribe the dynamic subscription manually.
             auto unsubscribed = f.subscriber->unsubscribe(f.dynamicSub, yield);
-            REQUIRE( !unsubscribed );
-            CHECK( unsubscribed == makeUnexpected(SessionErrc::invalidState) );
+            REQUIRE( unsubscribed.has_value() );
+            CHECK( unsubscribed.value() == false );
             REQUIRE_NOTHROW( f.dynamicSub.unsubscribe() );
 
             // Unsubscribe the static subscription via RAII.
@@ -1419,7 +1438,8 @@ GIVEN( "an IO service and a TCP connector" )
 
             // Manually unregister a RPC.
             auto unregistered = f.callee->unregister(f.dynamicReg, yield);
-            CHECK( unregistered == makeUnexpected(SessionErrc::invalidState) );
+            REQUIRE( unregistered.has_value() );
+            CHECK( unregistered.value() == false );
             REQUIRE_NOTHROW( f.dynamicReg.unregister() );
 
             // Unregister an RPC via RAII.
@@ -1452,7 +1472,8 @@ GIVEN( "an IO service and a TCP connector" )
 
             // Manually unregister a RPC.
             auto unregistered = f.callee->unregister(f.dynamicReg, yield);
-            CHECK( unregistered == makeUnexpected(SessionErrc::invalidState) );
+            REQUIRE( unregistered.has_value() );
+            CHECK( unregistered.value() == false );
             REQUIRE_NOTHROW( f.dynamicReg.unregister() );
 
             // Unregister an RPC via RAII.
@@ -1851,7 +1872,7 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
         });
 
         ioctx.run();
-        CHECK( changes.empty() );
+        CHECK( changes.are({SS::disconnected}) );
     }
 
     WHEN( "connecting with multiple transports" )

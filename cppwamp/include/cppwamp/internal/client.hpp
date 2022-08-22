@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_CLIENT_HPP
 #define CPPWAMP_INTERNAL_CLIENT_HPP
 
+#include <atomic>
 #include <cassert>
 #include <map>
 #include <memory>
@@ -18,6 +19,7 @@
 #include <boost/asio/post.hpp>
 #include "../anyhandler.hpp"
 #include "../codec.hpp"
+#include "../connector.hpp"
 #include "../registration.hpp"
 #include "../subscription.hpp"
 #include "../transport.hpp"
@@ -49,16 +51,39 @@ public:
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    static Ptr create(AnyBufferCodec&& codec, TransportPtr&& transport)
+    static Ptr create(IoStrand strand, AnyIoExecutor userExecutor)
     {
-        return Ptr(new Client(std::move(codec), std::move(transport)));
+        return Ptr(new Client(std::move(strand), std::move(userExecutor)));
     }
 
-    ~Client() override {terminate();}
+    State state() const override {return Peer::state();}
 
-    State state() const override {return Base::state();}
+    const IoStrand& strand() const override {return Peer::strand();}
 
-    IoStrand strand() const override {return Base::strand();}
+    const AnyIoExecutor& userExecutor() const override
+    {
+        return Peer::userExecutor();
+    }
+
+    void connect(ConnectionWishList wishes,
+                 CompletionHandler<size_t>&& handler) override
+    {
+        assert(!wishes.empty());
+
+        if (!checkState<size_t>(State::disconnected, handler))
+            return;
+
+        setTerminating(false);
+        setState(State::connecting);
+        currentConnector_ = nullptr;
+
+        // This makes it easier to transport the move-only completion handler
+        // through the gauntlet of intermediary handler functions.
+        auto sharedHandler =
+            std::make_shared<CompletionHandler<size_t>>(std::move(handler));
+
+        doConnect(std::move(wishes), 0, std::move(sharedHandler));
+    }
 
     void join(Realm&& realm, CompletionHandler<SessionInfo>&& handler) override
     {
@@ -84,17 +109,26 @@ public:
             }
         };
 
+        if (!checkState<SessionInfo>(State::closed, handler))
+            return;
+
         realm.withOption("agent", Version::agentString())
              .withOption("roles", roles());
-        this->start();
-        this->request(realm.message({}),
+        Peer::start();
+        Peer::request(realm.message({}),
                       Requested{shared_from_this(), std::move(handler),
                                 realm.uri(), realm.abort({})});
     }
 
     void authenticate(Authentication&& auth) override
     {
-        this->send(auth.message({}));
+        if (state() != State::authenticating)
+        {
+            warn("Authentication message discarded called while not "
+                 "in the authenticating state");
+            return;
+        }
+        Peer::send(auth.message({}));
     }
 
     void safeAuthenticate(Authentication&& auth) override
@@ -126,6 +160,7 @@ public:
             void operator()(std::error_code ec, Message reply)
             {
                 auto& me = *self;
+                me.topics_.clear();
                 me.readership_.clear();
                 me.registry_.clear();
                 if (me.checkError(ec, handler))
@@ -137,26 +172,33 @@ public:
             }
         };
 
-        using std::move;
+        if (!checkState<Reason>(State::established, handler))
+            return;
         timeoutScheduler_->clear();
-        auto self = this->shared_from_this();
-        Base::adjourn(reason,
+        Peer::adjourn(reason,
                       Adjourned{shared_from_this(), std::move(handler)});
     }
 
     void disconnect() override
     {
-        pendingInvocations_.clear();
-        timeoutScheduler_->clear();
-        this->close(false);
+        doDisconnect();
+    }
+
+    void safeDisconnect() override
+    {
+        auto self = shared_from_this();
+        boost::asio::dispatch(
+            strand(),
+            [self]()
+            {
+                self->doDisconnect();
+            });
     }
 
     void terminate() override
     {
-        initialize({}, {}, {}, {}, {});
-        pendingInvocations_.clear();
-        timeoutScheduler_->clear();
-        this->close(true);
+        setTerminating(true);
+        doDisconnect();
     }
 
     void subscribe(Topic&& topic, EventSlot&& slot,
@@ -186,6 +228,9 @@ public:
             }
         };
 
+        if (!checkState<Subscription>(State::established, handler))
+            return;
+
         using std::move;
         SubscriptionRecord rec = {topic.uri(), move(slot)};
 
@@ -193,7 +238,7 @@ public:
         if (kv == topics_.end())
         {
             auto self = this->shared_from_this();
-            this->request(
+            Peer::request(
                 topic.message({}),
                 Requested{shared_from_this(), move(rec), move(handler)});
         }
@@ -203,7 +248,7 @@ public:
             auto slotId = nextSlotId();
             Subscription sub{this->shared_from_this(), subId, slotId, {}};
             readership_[subId][slotId] = move(rec);
-            dispatchUserHandler(handler, move(sub));
+            postUserHandler(handler, move(sub));
         }
     }
 
@@ -235,7 +280,6 @@ public:
     void unsubscribe(const Subscription& sub,
                      CompletionHandler<bool>&& handler) override
     {
-        bool unsubscribed = false;
         auto kv = readership_.find(sub.id());
         if (kv != readership_.end())
         {
@@ -245,7 +289,6 @@ public:
                 auto subKv = localSubs.find(sub.slotId({}));
                 if (subKv != localSubs.end())
                 {
-                    unsubscribed = true;
                     if (localSubs.size() == 1u)
                         topics_.erase(subKv->second.topicUri);
 
@@ -260,7 +303,7 @@ public:
         }
         else
         {
-            postVia(userExecutor(), std::move(handler), unsubscribed);
+            postUserHandler(handler, false);
         }
     }
 
@@ -279,7 +322,12 @@ public:
 
     void publish(Pub&& pub) override
     {
-        this->send(pub.message({}));
+        if (state() != State::established)
+        {
+            warn("Publish message discarded while not established");
+            return;
+        }
+        Peer::send(pub.message({}));
     }
 
     void publish(Pub&& pub, CompletionHandler<PublicationId>&& handler) override
@@ -301,9 +349,12 @@ public:
             }
         };
 
+        if (!checkState<PublicationId>(State::established, handler))
+            return;
+
         pub.withOption("acknowledge", true);
         auto self = this->shared_from_this();
-        this->request(pub.message({}),
+        Peer::request(pub.message({}),
                       Requested{shared_from_this(), std::move(handler)});
     }
 
@@ -332,10 +383,13 @@ public:
             }
         };
 
+        if (!checkState<Registration>(State::established, handler))
+            return;
+
         using std::move;
         RegistrationRecord rec{ move(callSlot), move(interruptSlot) };
         auto self = this->shared_from_this();
-        this->request(procedure.message({}),
+        Peer::request(procedure.message({}),
                       Requested{shared_from_this(), move(rec), move(handler)});
     }
 
@@ -362,7 +416,7 @@ public:
             {
                 auto self = this->shared_from_this();
                 UnregisterMessage msg(reg.id());
-                this->request(msg, Requested{shared_from_this()});
+                Peer::request(msg, Requested{shared_from_this()});
             }
         }
     }
@@ -386,20 +440,26 @@ public:
             }
         };
 
-        CPPWAMP_LOGIC_CHECK(state() == State::established,
-                            "Session is not established");
         auto kv = registry_.find(reg.id());
         if (kv != registry_.end())
         {
             registry_.erase(kv);
             auto self = this->shared_from_this();
             UnregisterMessage msg(reg.id());
-            this->request(msg,
-                          Requested{shared_from_this(), std::move(handler)});
+            if (state() == State::established)
+            {
+                Peer::request(msg, Requested{shared_from_this(),
+                                             std::move(handler)});
+            }
+            else
+            {
+                warn("Unregister message discarded while not established");
+                postUserHandler(handler, true);
+            }
         }
         else
         {
-            postVia(userExecutor(), std::move(handler), false);
+            postUserHandler(handler, false);
         }
     }
 
@@ -438,10 +498,13 @@ public:
             }
         };
 
+        if (!checkState<Result>(State::established, handler))
+            return {};
+
         auto self = this->shared_from_this();
         auto cancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
-        auto requestId = this->request(
+        auto requestId = Peer::request(
             rpc.message({}),
             Requested{shared_from_this(), rpc.error({}), std::move(handler)});
         CallChit chit{shared_from_this(), requestId, rpc.cancelMode(), {}};
@@ -460,8 +523,6 @@ public:
 
     CallChit ongoingCall(Rpc&& rpc, OngoingCallHandler&& handler) override
     {
-        using std::move;
-
         struct Requested
         {
             Ptr self;
@@ -481,10 +542,13 @@ public:
             }
         };
 
+        if (!checkState<Result>(State::established, handler))
+            return {};
+
         auto self = this->shared_from_this();
         auto cancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
-        auto requestId = this->ongoingRequest(
+        auto requestId = Peer::ongoingRequest(
             rpc.message({}),
             Requested{shared_from_this(), rpc.error({}), std::move(handler)});
         CallChit chit{shared_from_this(), requestId, rpc.cancelMode(), {}};
@@ -503,7 +567,12 @@ public:
 
     void cancelCall(RequestId reqId, CallCancelMode mode) override
     {
-        Base::cancelCall(CallCancellation{reqId, mode});
+        if (state() != State::established)
+        {
+            warn("Cancel RPC message discarded while not established");
+            return;
+        }
+        Peer::cancelCall(CallCancellation{reqId, mode});
     }
 
     void safeCancelCall(RequestId reqId, CallCancelMode mode) override
@@ -521,15 +590,27 @@ public:
 
     void yield(RequestId reqId, Result&& result) override
     {
+        if (state() != State::established)
+        {
+            warn("Yield message discarded while not established");
+            return;
+        }
+
         if (!result.isProgressive())
             pendingInvocations_.erase(reqId);
-        this->send(result.yieldMessage({}, reqId));
+        Peer::send(result.yieldMessage({}, reqId));
     }
 
     void yield(RequestId reqId, Error&& error) override
     {
+        if (state() != State::established)
+        {
+            warn("Yield message discarded while not established");
+            return;
+        }
+
         pendingInvocations_.erase(reqId);
-        this->sendError(WampMsgType::invocation, reqId, std::move(error));
+        Peer::sendError(WampMsgType::invocation, reqId, std::move(error));
     }
 
     void safeYield(RequestId reqId, Result&& result) override
@@ -574,20 +655,6 @@ public:
             Dispatched{shared_from_this(), reqId, std::move(error)});
     }
 
-    void initialize(
-        AnyIoExecutor userExecutor,
-        LogHandler warningHandler,
-        LogHandler traceHandler,
-        StateChangeHandler stateChangeHandler,
-        ChallengeHandler challengeHandler) override
-    {
-        Base::setUserExecutor(std::move(userExecutor));
-        warningHandler_ = std::move(warningHandler);
-        Base::setTraceHandler(std::move(traceHandler));
-        Base::setStateChangeHandler(std::move(stateChangeHandler));
-        challengeHandler_ = std::move(challengeHandler);
-    }
-
     void setWarningHandler(LogHandler handler) override
     {
         warningHandler_ = std::move(handler);
@@ -595,12 +662,12 @@ public:
 
     void setTraceHandler(LogHandler handler) override
     {
-        Base::setTraceHandler(std::move(handler));
+        Peer::setTraceHandler(std::move(handler));
     }
 
     void setStateChangeHandler(StateChangeHandler handler) override
     {
-        Base::setStateChangeHandler(std::move(handler));
+        Peer::setStateChangeHandler(std::move(handler));
     }
 
     void setChallengeHandler( ChallengeHandler handler) override
@@ -632,16 +699,114 @@ private:
     using InvocationMap  = std::map<RequestId, RegistrationId>;
     using CallerTimeoutDuration = typename Rpc::CallerTimeoutDuration;
 
-    using Base::userExecutor;
+    using Peer::userExecutor;
 
-    Client(AnyBufferCodec codec, TransportPtr transport)
-        : Base(std::move(codec), std::move(transport)),
-          timeoutScheduler_(CallerTimeoutScheduler::create(this->strand()))
+    Client(IoStrand strand, AnyIoExecutor userExecutor)
+        : Base(strand, std::move(userExecutor)),
+          timeoutScheduler_(CallerTimeoutScheduler::create(std::move(strand)))
     {}
 
     Ptr shared_from_this()
     {
-        return std::static_pointer_cast<Client>( Base::shared_from_this() );
+        return std::static_pointer_cast<Client>( Peer::shared_from_this() );
+    }
+
+    // TODO: Remove TResultValue if possible
+    template <typename TResultValue, typename F>
+    bool checkState(State expectedState, F& handler)
+    {
+        bool valid = state() == expectedState;
+        if (!valid)
+        {
+            ErrorOr<TResultValue> e{
+                makeUnexpectedError(SessionErrc::invalidState)};
+            if (!isTerminating())
+                postVia(userExecutor(), std::move(handler), std::move(e));
+        }
+        return valid;
+    }
+
+    void doConnect(ConnectionWishList&& wishes, size_t index,
+                   std::shared_ptr<CompletionHandler<size_t>> handler)
+    {
+        using std::move;
+        struct Established
+        {
+            std::weak_ptr<Client> self;
+            ConnectionWishList wishes;
+            size_t index;
+            std::shared_ptr<CompletionHandler<size_t>> handler;
+
+            void operator()(ErrorOr<Transporting::Ptr> transport)
+            {
+                auto locked = self.lock();
+                if (!locked)
+                    return;
+
+                auto& me = *locked;
+                if (me.isTerminating())
+                    return;
+
+                if (!transport)
+                {
+                    me.onConnectFailure(move(wishes), index, transport.error(),
+                                        move(handler));
+                }
+                else if (me.state() == State::connecting)
+                {
+                    auto codec = wishes.at(index).makeCodec();
+                    me.open(std::move(*transport), std::move(codec));
+                    me.dispatchUserHandler(*handler, index);
+                }
+                else
+                {
+                    auto ec = make_error_code(TransportErrc::aborted);
+                    me.postUserHandler(*handler, UnexpectedError(ec));
+                }
+            }
+        };
+
+        currentConnector_ = wishes.at(index).makeConnector(strand());
+        currentConnector_->establish(
+            Established{shared_from_this(), move(wishes), index, move(handler)});
+    }
+
+    void onConnectFailure(ConnectionWishList&& wishes, size_t index,
+                          std::error_code ec,
+                          std::shared_ptr<CompletionHandler<size_t>> handler)
+    {
+        if (ec == TransportErrc::aborted)
+        {
+            dispatchUserHandler(*handler, UnexpectedError(ec));
+        }
+        else
+        {
+            auto newIndex = index + 1;
+            if (newIndex < wishes.size())
+            {
+                doConnect(std::move(wishes), newIndex, std::move(handler));
+            }
+            else
+            {
+                setState(State::failed);
+                if (wishes.size() > 1)
+                    ec = make_error_code(SessionErrc::allTransportsFailed);
+                dispatchUserHandler(*handler, UnexpectedError(ec));
+            }
+        }
+    }
+
+    void doDisconnect()
+    {
+        if (Peer::state() == State::connecting)
+            currentConnector_->cancel();
+
+        topics_.clear();
+        readership_.clear();
+        registry_.clear();
+        pendingInvocations_.clear();
+        timeoutScheduler_->clear();
+        Peer::close();
     }
 
     void sendUnsubscribe(SubscriptionId subId)
@@ -663,7 +828,7 @@ private:
         {
             auto self = this->shared_from_this();
             UnsubscribeMessage msg(subId);
-            this->request(msg, Requested{shared_from_this()});
+            Peer::request(msg, Requested{shared_from_this()});
         }
     }
 
@@ -686,11 +851,16 @@ private:
             }
         };
 
-        CPPWAMP_LOGIC_CHECK((this->state() == State::established),
-                            "Session is not established");
+        if (state() != State::established)
+        {
+            warn("Unsubscribe message discarded while not established");
+            postUserHandler(handler, true);
+            return;
+        }
+
         auto self = this->shared_from_this();
         UnsubscribeMessage msg(subId);
-        this->request(msg, Requested{shared_from_this(), std::move(handler)});
+        Peer::request(msg, Requested{shared_from_this(), std::move(handler)});
     }
 
     virtual bool isMsgSupported(const MessageTraits& traits) override
@@ -883,7 +1053,7 @@ private:
         }
         else
         {
-            this->sendError(WampMsgType::invocation, requestId,
+            Peer::sendError(WampMsgType::invocation, requestId,
                             Error("wamp.error.no_such_procedure"));
         }
     }
@@ -1048,21 +1218,35 @@ private:
     }
 
     template <typename S, typename... Ts>
+    void postUserHandler(AnyCompletionHandler<S>& handler, Ts&&... args)
+    {
+        if (!isTerminating())
+        {
+            postVia(userExecutor(), std::move(handler),
+                    std::forward<Ts>(args)...);
+        }
+    }
+
+    template <typename S, typename... Ts>
     void dispatchUserHandler(AnyCompletionHandler<S>& handler, Ts&&... args)
     {
-        dispatchVia(userExecutor(), std::move(handler),
-                    std::forward<Ts>(args)...);
+        if (!isTerminating())
+        {
+            dispatchVia(userExecutor(), std::move(handler),
+                        std::forward<Ts>(args)...);
+        }
     }
 
     template <typename S, typename... Ts>
     void dispatchUserHandler(const AnyReusableHandler<S>& handler, Ts&&... args)
     {
-        dispatchVia(userExecutor(), handler, std::forward<Ts>(args)...);
+        if (!isTerminating())
+            dispatchVia(userExecutor(), handler, std::forward<Ts>(args)...);
     }
 
     SlotId nextSlotId() {return nextSlotId_++;}
 
-    SlotId nextSlotId_ = 0;
+    Connecting::Ptr currentConnector_;
     TopicMap topics_;
     Readership readership_;
     Registry registry_;
@@ -1070,6 +1254,7 @@ private:
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
     LogHandler warningHandler_;
     ChallengeHandler challengeHandler_;
+    SlotId nextSlotId_ = 0;
 };
 
 } // namespace internal

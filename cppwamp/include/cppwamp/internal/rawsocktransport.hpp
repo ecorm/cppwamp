@@ -150,6 +150,7 @@ public:
 
     void close() override
     {
+        rxHandler_ = nullptr;
         txQueue_.clear();
         running_ = false;
         if (socket_)
@@ -205,6 +206,7 @@ private:
                     if (ec)
                     {
                         txQueue_.clear();
+                        // TODO: Emit error via receive handler
                         socket_.reset();
                     }
                     else

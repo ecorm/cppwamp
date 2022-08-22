@@ -41,9 +41,13 @@ public:
     using TransportPtr = Transporting::Ptr;
     using State        = SessionState;
 
+    virtual ~Peer() {}
+
     State state() const {return state_.load();}
 
-    IoStrand strand() const {return strand_;}
+    const IoStrand& strand() const {return strand_;}
+
+    const AnyIoExecutor& userExecutor() const {return userExecutor_;}
 
 protected:
     using Message = WampMessage;
@@ -53,23 +57,43 @@ protected:
     using LogHandler = AnyReusableHandler<void (std::string)>;
     using StateChangeHandler = AnyReusableHandler<void (State)>;
 
-    explicit Peer(AnyBufferCodec&& codec, TransportPtr&& transport)
-        : strand_(transport->strand()),
-          codec_(std::move(codec)),
-          transport_(std::move(transport)),
-          maxTxLength_(transport_->info().maxTxLength),
-          state_(State::closed)
+    explicit Peer(IoStrand strand, AnyIoExecutor userExecutor)
+        : strand_(std::move(strand)),
+          userExecutor_(std::move(userExecutor)),
+          state_(State::disconnected),
+          isTerminating_(false)
     {}
 
     virtual bool isMsgSupported(const MessageTraits& traits) = 0;
 
     virtual void onInbound(Message msg) = 0;
 
-    const AnyIoExecutor& userExecutor() const {return userExecutor_;}
+    State setState(State s)
+    {
+        auto old = state_.exchange(s);
+        if (old != s && stateChangeHandler_ && !isTerminating_)
+            postVia(userExecutor_, stateChangeHandler_, s);
+        return old;
+    }
+
+    void setTerminating(bool terminating) {isTerminating_.store(terminating);}
+
+    bool isTerminating() const {return isTerminating_.load();}
+
+    void open(Transporting::Ptr transport, AnyBufferCodec codec)
+    {
+        assert(state() == State::connecting);
+        transport_ = std::move(transport);
+        codec_ = std::move(codec);
+        setState(State::closed);
+        maxTxLength_ = transport_->info().maxTxLength;
+    }
 
     void start()
     {
         assert(state() == State::closed || state() == State::disconnected);
+        assert(transport_ != nullptr);
+
         setState(State::establishing);
 
         if (!transport_->isStarted())
@@ -79,14 +103,14 @@ protected:
             transport_->start(
                 [self](ErrorOr<MessageBuffer> buffer)
                 {
-                    auto me = self.lock();
-                    if (me)
-                    {
-                        if (buffer.has_value())
-                            me->onTransportRx(std::move(*buffer));
-                        else
-                            me->checkError(buffer.error());
-                    }
+                    auto locked = self.lock();
+                    if (!locked)
+                        return;
+                    auto& me = *locked;
+                    if (buffer.has_value())
+                        me.onTransportRx(std::move(*buffer));
+                    else if (me.state() != SessionState::disconnected)
+                        me.checkError(buffer.error());
                 }
             );
         }
@@ -123,11 +147,15 @@ protected:
                 Requested{this->shared_from_this(), std::move(handler)});
     }
 
-    void close(bool terminating)
+    void close()
     {
         setState(State::disconnected);
-        abortPending(make_error_code(SessionErrc::sessionEnded), terminating);
-        transport_->close();
+        abortPending(make_error_code(SessionErrc::sessionEnded));
+        if (transport_)
+        {
+            transport_->close();
+            transport_.reset();
+        }
     }
 
     void send(Message& msg)
@@ -183,6 +211,7 @@ protected:
         sendMessage(cancellation.message({}));
     }
 
+    // TODO: Send ABORT message for protocol violations
     template <typename TErrorValue>
     void fail(TErrorValue errc)
     {
@@ -219,13 +248,6 @@ private:
     using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
     using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
 
-    void setState(State s)
-    {
-        auto old = state_.exchange(s);
-        if (old != s && stateChangeHandler_)
-            postVia(userExecutor_, stateChangeHandler_, s);
-    }
-
     RequestId sendMessage(Message& msg)
     {
         assert(msg.type() != WampMsgType::none);
@@ -238,6 +260,7 @@ private:
             throw error::Failure(make_error_code(TransportErrc::badTxLength));
 
         trace(msg, true);
+        assert(transport_ != nullptr);
         transport_->send(std::move(buffer));
         return requestId;
     }
@@ -266,6 +289,7 @@ private:
         requests.emplace(msg.requestKey(), std::move(handler));
 
         trace(msg, true);
+        assert(transport_ != nullptr);
         transport_->send(std::move(buffer));
         return requestId;
     }
@@ -411,18 +435,29 @@ private:
 
     void processWelcome(Message&& msg)
     {
-        assert((state() == State::establishing) ||
-               (state() == State::authenticating));
+        auto s = state();
+        assert(s == State::establishing || s == State::authenticating);
         setState(State::established);
         processWampReply(RequestKey(WampMsgType::hello, 0), std::move(msg));
     }
 
     void processAbort(Message&& msg)
     {
-        assert((state() == State::establishing) ||
-               (state() == State::authenticating));
-        setState(State::closed);
-        processWampReply(RequestKey(WampMsgType::hello, 0), std::move(msg));
+        auto s = state();
+        if (s == State::establishing || s == State::authenticating)
+        {
+            setState(State::closed);
+            processWampReply(RequestKey(WampMsgType::hello, 0), std::move(msg));
+        }
+        else if (s != State::shuttingDown)
+        {
+            // TODO: Emit a warning.
+            const auto& abortMsg = message_cast<AbortMessage>(msg);
+            SessionErrc errc = {};
+            lookupWampErrorUri(abortMsg.reasonUri(),
+                               SessionErrc::sessionAbortedByPeer, errc);
+            return fail(errc);
+        }
     }
 
     void processGoodbye(Message&& msg)
@@ -434,6 +469,7 @@ private:
         }
         else
         {
+            // TODO: Emit a warning.
             const auto& reason = message_cast<GoodbyeMessage>(msg).reasonUri();
             SessionErrc errc;
             lookupWampErrorUri(reason, SessionErrc::closeRealm, errc);
@@ -465,7 +501,7 @@ private:
         bool valid = isMsgSupported(traits);
 
         if (!valid)
-            fail(ProtocolErrc::unsupportedMsg);
+            fail(SessionErrc::protocolViolation); // TODO: Emit a warning.
         else
         {
             switch (state())
@@ -489,7 +525,7 @@ private:
             }
 
             if (!valid)
-                fail(ProtocolErrc::unexpectedMsg);
+                fail(SessionErrc::protocolViolation); // TODO: Emit a warning.
         }
 
         return valid;
@@ -499,12 +535,16 @@ private:
     {
         setState(State::failed);
         abortPending(ec);
-        transport_->close();
+        if (transport_)
+        {
+            transport_->close();
+            transport_.reset();
+        }
     }
 
-    void abortPending(std::error_code ec, bool terminating = false)
+    void abortPending(std::error_code ec)
     {
-        if (!terminating)
+        if (!isTerminating_)
         {
             for (auto& kv: oneShotRequestMap_)
                 post(std::move(kv.second), ec, Message());
@@ -533,7 +573,8 @@ private:
                 }
             }
             oss << ']';
-            dispatchVia(userExecutor_, traceHandler_, oss.str());
+            if (!isTerminating_)
+                dispatchVia(userExecutor_, traceHandler_, oss.str());
         }
     }
 
@@ -541,13 +582,14 @@ private:
     AnyIoExecutor userExecutor_;
     AnyBufferCodec codec_;
     TransportPtr transport_;
-    std::size_t maxTxLength_;
     LogHandler traceHandler_;
     StateChangeHandler stateChangeHandler_;
-    std::atomic<State> state_;
     OneShotRequestMap oneShotRequestMap_;
     MultiShotRequestMap multiShotRequestMap_;
+    std::atomic<State> state_;
+    std::atomic<bool> isTerminating_;
     RequestId nextRequestId_ = nullRequestId();
+    std::size_t maxTxLength_ = 0;
 
     static constexpr RequestId maxRequestId_ = 9007199254740992ull;
 };

@@ -389,6 +389,21 @@ struct StateChangeListener
 
     bool empty() const {return changes().empty();}
 
+    bool check(const std::vector<SessionState>& expected,
+               boost::asio::yield_context yield)
+    {
+        int triesLeft = 1000;
+        while (triesLeft > 0)
+        {
+            if (changes().size() >= expected.size())
+                break;
+            suspendCoro(yield);
+            --triesLeft;
+        }
+        CHECK( triesLeft > 0 );
+        return are(expected);
+    };
+
     bool check(const CoroSession<>::Ptr& session,
                const std::vector<SessionState>& expected,
                boost::asio::yield_context yield)
@@ -494,9 +509,7 @@ GIVEN( "an IO service and a TCP connector" )
                 // Reset by letting session instance go out of scope.
             }
 
-            // State change events should not be fired when the
-            // session is destructing.
-            CHECK(changes.empty());
+            CHECK( changes.check({SS::disconnected}, yield) );
 
             // Check that another client can connect and disconnect.
             auto s2 = CoroSession<>::create(ioctx, cnct);
@@ -724,7 +737,8 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( changes.check(s, {SS::connecting, SS::disconnected}, ioctx) );
+        CHECK( changes.are({SS::connecting}) );
+        CHECK( s->state() == SS::disconnected );
     }
 
     WHEN( "resetting during join" )
@@ -743,8 +757,8 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( changes.check(s, {SS::connecting, SS::closed,
-                                 SS::establishing, SS::disconnected}, ioctx) );
+        CHECK( changes.are({SS::connecting, SS::closed, SS::establishing}) );
+        CHECK( s->state() == SS::disconnected );
     }
 
     WHEN( "session goes out of scope during connect" )
@@ -767,7 +781,7 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( changes.are({SS::connecting}) );
+        CHECK( changes.are({SS::connecting, SS::disconnected}) );
     }
 }}
 
@@ -859,7 +873,7 @@ GIVEN( "an IO service and a TCP connector" )
             f.publisher->publish(Pub("str.num").withArgs("one", 1));
             pid = f.publisher->publish(Pub("str.num").withArgs("two", 2),
                                        yield);
-            while (f.dynamicPubs.size() < 2)
+            while (f.dynamicPubs.size() < 2  && f.staticPubs.size() < 2)
                 f.subscriber->suspend(yield);
 
             REQUIRE( f.dynamicPubs.size() == 2 );
@@ -1891,7 +1905,7 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
         });
 
         ioctx.run();
-        CHECK( changes.empty() );
+        CHECK( changes.are({SS::disconnected}) );
     }
 
     WHEN( "connecting with multiple transports" )

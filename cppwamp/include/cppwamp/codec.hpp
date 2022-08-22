@@ -12,6 +12,7 @@
     @brief Contains essential definitions for wamp::Variant codecs. */
 //------------------------------------------------------------------------------
 
+#include <cassert>
 #include <istream>
 #include <functional>
 #include <memory>
@@ -389,21 +390,29 @@ public:
     using Sink = TSink;     ///< Output sink type in which to encode.
     using Source = TSource; ///< Input source type from which to decode.
 
+    /** Constructs an empty AnyCodec. */
+    AnyCodec() = default;
+
     /** Constructor taking a serialization format tag (e.g. wamp::json). */
     template <typename TFormat>
     AnyCodec(TFormat)
         : codec_(std::make_shared<PolymorphicCodec<TFormat, Sink, Source>>())
     {}
 
+    /** Returns false if the AnyCodec is empty. */
+    explicit operator bool() const {return codec_ != nullptr;}
+
     /** Encodes the given variant to the given output sink. */
     void encode(const Variant& variant, Sink sink)
     {
+        assert(codec_ != nullptr);
         codec_->encode(variant, sink);
     };
 
     /** Decodes a variant from the given input source. */
     CPPWAMP_NODISCARD std::error_code decode(Source source, Variant& variant)
     {
+        assert(codec_ != nullptr);
         return codec_->decode(source, variant);
     }
 

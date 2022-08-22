@@ -32,11 +32,11 @@ struct WampMessage
 
     static WampMessage parse(Array&& fields, std::error_code& ec)
     {
-        ProtocolErrc errc = ProtocolErrc::success;
+        SessionErrc errc = SessionErrc::success;
         WampMsgType type = parseMsgType(fields);
         if (type == WampMsgType::none)
         {
-            errc = ProtocolErrc::badSchema;
+            errc = SessionErrc::protocolViolation;
         }
         else
         {
@@ -44,7 +44,7 @@ struct WampMessage
             if ( fields.size() < traits.minSize ||
                  fields.size() > traits.maxSize )
             {
-                errc = ProtocolErrc::badSchema;
+                errc = SessionErrc::protocolViolation;
             }
             else
             {
@@ -54,7 +54,7 @@ struct WampMessage
                 {
                     if (fields[i].typeId() != traits.fieldTypes[i])
                     {
-                        errc = ProtocolErrc::badSchema;
+                        errc = SessionErrc::protocolViolation;
                         break;
                     }
                 }

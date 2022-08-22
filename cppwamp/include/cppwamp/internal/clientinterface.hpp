@@ -12,6 +12,7 @@
 #include "../anyhandler.hpp"
 #include "../asiodefs.hpp"
 #include "../chits.hpp"
+#include "../connector.hpp"
 #include "../error.hpp"
 #include "../peerdata.hpp"
 #include "../registration.hpp"
@@ -58,7 +59,12 @@ public:
 
     virtual SessionState state() const = 0;
 
-    virtual IoStrand strand() const = 0;
+    virtual const IoStrand& strand() const = 0;
+
+    virtual const AnyIoExecutor& userExecutor() const = 0;
+
+    virtual void connect(ConnectionWishList wishes,
+                         CompletionHandler<size_t>&& handler) = 0;
 
     virtual void join(Realm&&, CompletionHandler<SessionInfo>&&) = 0;
 
@@ -67,6 +73,8 @@ public:
     virtual void leave(Reason&&, CompletionHandler<Reason>&&) = 0;
 
     virtual void disconnect() = 0;
+
+    virtual void safeDisconnect() = 0;
 
     virtual void terminate() = 0;
 
@@ -96,12 +104,6 @@ public:
     virtual void yield(RequestId, wamp::Result&&) = 0;
 
     virtual void yield(RequestId, wamp::Error&&) = 0;
-
-    virtual void initialize(AnyIoExecutor userExecutor,
-                            LogHandler warningHandler,
-                            LogHandler traceHandler,
-                            StateChangeHandler stateChangeHandler,
-                            ChallengeHandler challengeHandler) = 0;
 
     virtual void setWarningHandler(LogHandler) = 0;
 

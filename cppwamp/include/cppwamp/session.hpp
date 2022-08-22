@@ -13,24 +13,19 @@
            in WAMP applications. */
 //------------------------------------------------------------------------------
 
-#include <atomic>
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "chits.hpp"
-#include "codec.hpp"
 #include "config.hpp"
 #include "connector.hpp"
-#include "error.hpp"
 #include "erroror.hpp"
 #include "peerdata.hpp"
 #include "registration.hpp"
 #include "subscription.hpp"
-#include "traits.hpp"
 #include "wampdefs.hpp"
 #include "internal/clientinterface.hpp"
 
@@ -231,15 +226,15 @@ public:
     /// @name Observers
     /// @{
 
+    /** Obtains the execution context in which which I/O operations are
+        serialized. */
+    const IoStrand& strand() const;
+
     /** Obtains the fallback executor used to execute user-provided handlers. */
     AnyIoExecutor userExecutor() const;
 
     /** Legacy function kept for backward compatiblity. */
     CPPWAMP_DEPRECATED AnyIoExecutor userIosvc() const;
-
-    /** Obtains the execution context in which which I/O operations are
-        serialized. */
-    IoStrand strand() const;
 
     /** Returns the current state of the session. */
     SessionState state() const;
@@ -350,6 +345,7 @@ public:
     void disconnect(ThreadSafe);
 
     /** Terminates the transport connection between the client and router. */
+    // TODO: Rename to terminate
     void reset();
 
     /** Thread-safe reset. */
@@ -545,44 +541,14 @@ private:
     template <typename F>
     void dispatchViaStrand(F&& operation);
 
-    template <typename TResultValue, typename F>
-    bool checkState(State expectedState, F& handler);
-
-    void asyncConnect(ConnectionWishList wishes,
-                      CompletionHandler<size_t>&& handler);
-
     CPPWAMP_HIDDEN explicit Session(const AnyIoExecutor& exec,
                                     AnyIoExecutor userExec);
 
     CPPWAMP_HIDDEN explicit Session(AnyIoExecutor userExec,
                                     ConnectorList connectors);
 
-    CPPWAMP_HIDDEN void warn(std::string message);
-
-    CPPWAMP_HIDDEN void setState(SessionState state);
-
-    CPPWAMP_HIDDEN void doConnect(
-        ConnectionWishList&& wishes, size_t index,
-        std::shared_ptr<CompletionHandler<size_t>> handler);
-
-    CPPWAMP_HIDDEN void onConnectFailure(
-        ConnectionWishList&& wishes, size_t index, std::error_code ec,
-        std::shared_ptr<CompletionHandler<size_t>> handler);
-
-    CPPWAMP_HIDDEN void onConnectSuccess(
-        size_t index, AnyBufferCodec&& codec, Transporting::Ptr transport,
-            std::shared_ptr<CompletionHandler<size_t>> handler);
-
     IoStrand strand_;
-    AnyIoExecutor userExecutor_;
     ConnectorList legacyConnectors_;
-    Connecting::Ptr currentConnector_;
-    ReusableHandler<std::string> warningHandler_;
-    ReusableHandler<std::string> traceHandler_;
-    ReusableHandler<State> stateChangeHandler_;
-    ReusableHandler<Challenge> challengeHandler_;
-    std::atomic<SessionState> state_;
-    bool isTerminating_ = false;
     ImplPtr impl_;
 
     // TODO: Remove this once CoroSession is removed
@@ -641,7 +607,7 @@ struct Session::ConnectOp
     ConnectionWishList wishes;
     template <typename F> void operator()(F&& f)
     {
-        self->asyncConnect(std::move(wishes), std::forward<F>(f));
+        self->impl_->connect(std::move(wishes), std::forward<F>(f));
     }
 };
 
@@ -829,9 +795,7 @@ struct Session::JoinOp
     Realm realm;
     template <typename F> void operator()(F&& f)
     {
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::closed, handler))
-            self->impl_->join(std::move(realm), std::move(handler));
+        self->impl_->join(std::move(realm), std::forward<F>(f));
     }
 };
 
@@ -894,9 +858,7 @@ struct Session::LeaveOp
     Reason reason;
     template <typename F> void operator()(F&& f)
     {
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            self->impl_->leave(std::move(reason), std::move(handler));
+        self->impl_->leave(std::move(reason), std::forward<F>(f));
     }
 };
 
@@ -1004,9 +966,7 @@ struct Session::SubscribeOp
     template <typename F> void operator()(F&& f)
     {
         using std::move;
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            self->impl_->subscribe(move(topic), move(slot), move(handler));
+        self->impl_->subscribe(move(topic), move(slot), std::forward<F>(f));
     }
 };
 
@@ -1072,14 +1032,15 @@ struct Session::UnsubscribeOp
     Subscription sub;
     template <typename F> void operator()(F&& f)
     {
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            self->impl_->unsubscribe(std::move(sub), std::move(handler));
+        self->impl_->unsubscribe(std::move(sub), std::forward<F>(f));
     }
 };
 
 //------------------------------------------------------------------------------
 /** @details
+    This function may be called during any session state. If the subscription
+    is no longer applicable, then the unsubscribe operation will effectively
+    do nothing and a `false` value will be emitted via the completion handler.
     If there are other local subscriptions on this session remaining for the
     same topic, then the session does not send an `UNSUBSCRIBE` message to
     the router.
@@ -1089,8 +1050,6 @@ struct Session::UnsubscribeOp
           are safely ignored.
     @pre `!!sub == true`
     @par Error Codes
-        - SessionErrc::invalidState if the session was not established
-          before the attempt to unsubscribe.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
         - SessionErrc::noSuchSubscription if the router reports that there was
@@ -1144,9 +1103,7 @@ struct Session::PublishOp
     Pub pub;
     template <typename F> void operator()(F&& f)
     {
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            self->impl_->publish(std::move(pub), std::move(handler));
+        self->impl_->publish(std::move(pub), std::move(std::forward<F>(f)));
     }
 };
 
@@ -1205,11 +1162,8 @@ struct Session::EnrollOp
     CallSlot slot;
     template <typename F> void operator()(F&& f)
     {
-        using std::move;
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            self->impl_->enroll(move(procedure), move(slot), nullptr,
-                                move(handler));
+        self->impl_->enroll(std::move(procedure), std::move(slot), nullptr,
+                            std::forward<F>(f));
     }
 };
 
@@ -1281,12 +1235,8 @@ struct Session::EnrollIntrOp
     InterruptSlot interruptSlot;
     template <typename F> void operator()(F&& f)
     {
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-        {
-            self->impl_->enroll(std::move(procedure), std::move(callSlot),
-                                std::move(interruptSlot), std::move(handler));
-        }
+        self->impl_->enroll(std::move(procedure), std::move(callSlot),
+                            std::move(interruptSlot), std::forward<F>(f));
     }
 };
 
@@ -1363,14 +1313,16 @@ struct Session::UnregisterOp
     Registration reg;
     template <typename F> void operator()(F&& f)
     {
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            self->impl_->unregister(std::move(reg), std::move(handler));
+        self->impl_->unregister(std::move(reg), std::forward<F>(f));
     }
 };
 
 //------------------------------------------------------------------------------
-/** @see Registration, ScopedRegistration
+/** @details
+    This function may be called during any session state. If the subscription
+    is no longer applicable, then the unregister operation will effectively
+    do nothing and a `false` value will be emitted via the completion handler.
+    @see Registration, ScopedRegistration
     @returns `false` if the registration was already removed, `true` otherwise.
     @note Duplicate unregistrations using the same Registration handle
           are safely ignored.
@@ -1437,9 +1389,7 @@ struct Session::CallOp
         CallChit chit;
         if (chitPtr)
             *chitPtr = chit;
-        CompletionHandler<Result> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            chit = self->impl_->oneShotCall(std::move(rpc), std::move(handler));
+        chit = self->impl_->oneShotCall(std::move(rpc), std::forward<F>(f));
         if (chitPtr)
             *chitPtr = chit;
     }
@@ -1559,11 +1509,10 @@ struct Session::OngoingCallOp
     {
         CallChit chit;
         if (chitPtr)
-            chitPtr = {};
+            *chitPtr = chit;
         rpc.withProgressiveResults(true);
         MultiShotCallHandler handler(std::forward<F>(f));
-        if (self->checkState<Result>(State::established, handler))
-            chit = self->impl_->ongoingCall(std::move(rpc), std::move(handler));
+        chit = self->impl_->ongoingCall(std::move(rpc), std::forward<F>(f));
         if (chitPtr)
             *chitPtr = chit;
     }
@@ -1696,19 +1645,6 @@ template <typename F>
 void Session::dispatchViaStrand(F&& operation)
 {
     boost::asio::dispatch(strand(), std::forward<F>(operation));
-}
-
-//------------------------------------------------------------------------------
-template <typename TResultValue, typename F>
-bool Session::checkState(State expectedState, F& handler)
-{
-    bool valid = state() == expectedState;
-    if (!valid)
-    {
-        ErrorOr<TResultValue> e{makeUnexpectedError(SessionErrc::invalidState)};
-        postVia(userExecutor_, std::move(handler), std::move(e));
-    }
-    return valid;
 }
 
 } // namespace wamp

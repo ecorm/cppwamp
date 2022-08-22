@@ -813,30 +813,30 @@ TEMPLATE_TEST_CASE( "Cancel receive", "[Transport]",
                     TcpLoopbackFixture, UdsLoopbackFixture )
 {
     TestType f;
-    bool transportFailed = false;
+    bool clientHandlerInvoked = false;
     f.client->start(
         [&](ErrorOr<MessageBuffer> buf)
         {
-            REQUIRE( !buf );
-            transportFailed = true;
-            CHECK( buf.error() == TransportErrc::aborted );
+            clientHandlerInvoked = true;
         });
 
+    std::error_code serverError;
     f.server->start(
         [&](ErrorOr<MessageBuffer> buf)
         {
             REQUIRE( !buf );
-            CHECK( buf.error() == std::errc::no_such_file_or_directory );
+            serverError = buf.error();
         });
 
     f.cctx.poll();
     f.cctx.reset();
 
     // Close the transport while the receive operation is in progress,
-    // and check that the operation is aborted.
+    // and check the client handler is not invoked.
     f.client->close();
     REQUIRE_NOTHROW( f.run() );
-    CHECK( transportFailed );
+    CHECK_FALSE( clientHandlerInvoked );
+    CHECK_FALSE( !serverError );
 }
 
 //------------------------------------------------------------------------------
@@ -860,23 +860,21 @@ TEMPLATE_TEST_CASE( "Cancel send", "[Transport]",
     f.run();
 
     // Start a send operation
-    bool sendAborted = false;
+    bool handlerInvoked = false;
     f.client->start(
         [&](ErrorOr<MessageBuffer> buf)
         {
-            REQUIRE(!buf);
-            CHECK( buf.error() == TransportErrc::aborted );
-            sendAborted = true;
+            handlerInvoked = true;
         });
     MessageBuffer message(f.client->info().maxTxLength, 'a');
     f.client->send(message);
     REQUIRE_NOTHROW( f.cctx.poll() );
     f.cctx.reset();
 
-    // Close the transport and check that the send operation was aborted.
+    // Close the transport and check that the client handler was not invoked.
     f.client->close();
     f.run();
-    CHECK( sendAborted );
+    CHECK_FALSE( handlerInvoked );
 }
 
 //------------------------------------------------------------------------------

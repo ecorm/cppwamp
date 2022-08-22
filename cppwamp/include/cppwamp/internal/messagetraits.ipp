@@ -39,7 +39,7 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
 /*  0 */ {nullptr,        W::none,        0, 0, 0, 0, 0, 0, 0, 0, {i,n,n,n,n,n,n}},
 /*  1 */ {"HELLO",        W::none,        0, 3, 3, 0, 1, 1, 0, 0, {i,s,o,n,n,n,n}},
 /*  2 */ {"WELCOME",      W::none,        0, 3, 3, 1, 0, 1, 1, 0, {i,i,o,n,n,n,n}},
-/*  3 */ {"ABORT",        W::none,        0, 3, 3, 1, 0, 1, 1, 0, {i,o,s,n,n,n,n}},
+/*  3 */ {"ABORT",        W::none,        0, 3, 3, 1, 0, 1, 1, 1, {i,o,s,n,n,n,n}},
 /*  4 */ {"CHALLENGE",    W::none,        0, 3, 3, 1, 0, 1, 1, 0, {i,s,o,n,n,n,n}},
 /*  5 */ {"AUTHENTICATE", W::challenge,   0, 3, 3, 0, 1, 0, 1, 0, {i,s,o,n,n,n,n}},
 /*  6 */ {"GOODBYE",      W::none,        0, 3, 3, 1, 1, 0, 0, 1, {i,o,s,n,n,n,n}},
