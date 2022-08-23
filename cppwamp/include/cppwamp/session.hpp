@@ -26,28 +26,12 @@
 #include "peerdata.hpp"
 #include "registration.hpp"
 #include "subscription.hpp"
+#include "tagtypes.hpp"
 #include "wampdefs.hpp"
 #include "internal/clientinterface.hpp"
 
 namespace wamp
 {
-
-//------------------------------------------------------------------------------
-/** Tag type used to specify than an operation is to be dispatched via the
-    called objects's execution strand.
-    Use the @ref threadSafe constant to conveniently pass this tag
-    to functions. */
-//------------------------------------------------------------------------------
-struct ThreadSafe
-{
-    constexpr ThreadSafe() = default;
-};
-
-//------------------------------------------------------------------------------
-/** Constant ThreadSafe object instance that can be passed to functions. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE_VARIABLE constexpr ThreadSafe threadSafe;
-
 
 //------------------------------------------------------------------------------
 /** %Session API used by a _client_ peer in WAMP applications.
@@ -519,7 +503,6 @@ private:
 
     // These initiator function objects are needed due to C++11 lacking
     // generic lambdas.
-    template <typename O> class SafeOp;
     struct ConnectOp;
     struct JoinOp;
     struct LeaveOp;
@@ -539,9 +522,6 @@ private:
     template <typename O, typename C, typename... As>
     Deduced<ErrorOr<typename O::ResultValue>, C>
     safelyInitiate(C&& token, As&&... args);
-
-    template <typename F>
-    void dispatchViaStrand(F&& operation);
 
     CPPWAMP_HIDDEN explicit Session(const AnyIoExecutor& exec,
                                     AnyIoExecutor userExec);
@@ -563,53 +543,20 @@ private:
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-template <typename O>
-class Session::SafeOp
-{
-public:
-    using ResultValue = typename O::ResultValue;
-
-    template <typename... Ts>
-    SafeOp(Session* self, Ts&&... args)
-        : self_(self),
-          operation_({self, std::forward<Ts>(args)...})
-    {}
-
-    template <typename F>
-    void operator()(F&& handler)
-    {
-        struct Dispatched
-        {
-            Session::Ptr self;
-            O operation;
-            typename std::decay<F>::type handler;
-
-            void operator()()
-            {
-                operation(std::move(handler));
-            }
-        };
-
-        boost::asio::dispatch(self_->strand(),
-                              Dispatched{self_->shared_from_this(),
-                                         std::move(operation_),
-                                         std::forward<F>(handler)});
-    }
-
-private:
-    Session* self_;
-    O operation_;
-};
-
-//------------------------------------------------------------------------------
 struct Session::ConnectOp
 {
     using ResultValue = size_t;
     Session* self;
     ConnectionWishList wishes;
+
     template <typename F> void operator()(F&& f)
     {
         self->impl_->connect(std::move(wishes), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->impl_->safeConnect(std::move(wishes), std::forward<F>(f));
     }
 };
 
@@ -795,9 +742,15 @@ struct Session::JoinOp
     using ResultValue = SessionInfo;
     Session* self;
     Realm realm;
+
     template <typename F> void operator()(F&& f)
     {
         self->impl_->join(std::move(realm), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->impl_->join(threadSafe, std::move(realm), std::forward<F>(f));
     }
 };
 
@@ -858,9 +811,15 @@ struct Session::LeaveOp
     using ResultValue = Reason;
     Session* self;
     Reason reason;
+
     template <typename F> void operator()(F&& f)
     {
         self->impl_->leave(std::move(reason), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->impl_->safeLeave(std::move(reason), std::forward<F>(f));
     }
 };
 
@@ -965,10 +924,17 @@ struct Session::SubscribeOp
     Session* self;
     Topic topic;
     EventSlot slot;
+
     template <typename F> void operator()(F&& f)
     {
         using std::move;
         self->impl_->subscribe(move(topic), move(slot), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        using std::move;
+        self->impl_->safeSubscribe(move(topic), move(slot), std::forward<F>(f));
     }
 };
 
@@ -1032,9 +998,15 @@ struct Session::UnsubscribeOp
     using ResultValue = bool;
     Session* self;
     Subscription sub;
+
     template <typename F> void operator()(F&& f)
     {
         self->impl_->unsubscribe(std::move(sub), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->impl_->safeUnsubscribe(std::move(sub), std::forward<F>(f));
     }
 };
 
@@ -1103,9 +1075,15 @@ struct Session::PublishOp
     using ResultValue = PublicationId;
     Session* self;
     Pub pub;
+
     template <typename F> void operator()(F&& f)
     {
         self->impl_->publish(std::move(pub), std::move(std::forward<F>(f)));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->impl_->safePublish(std::move(pub), std::move(std::forward<F>(f)));
     }
 };
 
@@ -1162,10 +1140,17 @@ struct Session::EnrollOp
     Session* self;
     Procedure procedure;
     CallSlot slot;
+
     template <typename F> void operator()(F&& f)
     {
         self->impl_->enroll(std::move(procedure), std::move(slot), nullptr,
                             std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->impl_->safeEnroll(std::move(procedure), std::move(slot), nullptr,
+                                std::forward<F>(f));
     }
 };
 
@@ -1235,10 +1220,17 @@ struct Session::EnrollIntrOp
     Procedure procedure;
     CallSlot callSlot;
     InterruptSlot interruptSlot;
+
     template <typename F> void operator()(F&& f)
     {
         self->impl_->enroll(std::move(procedure), std::move(callSlot),
                             std::move(interruptSlot), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->impl_->safeEnroll(std::move(procedure), std::move(callSlot),
+                                std::move(interruptSlot), std::forward<F>(f));
     }
 };
 
@@ -1313,9 +1305,15 @@ struct Session::UnregisterOp
     using ResultValue = bool;
     Session* self;
     Registration reg;
+
     template <typename F> void operator()(F&& f)
     {
         self->impl_->unregister(std::move(reg), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->impl_->safeUnregister(std::move(reg), std::forward<F>(f));
     }
 };
 
@@ -1383,17 +1381,16 @@ struct Session::CallOp
     using ResultValue = Result;
     Session* self;
     Rpc rpc;
-    CallChit* chitPtr;
+    CallChit* chit;
 
-    template <typename F>
-    void operator()(F&& f)
+    template <typename F> void operator()(F&& f)
     {
-        CallChit chit;
-        if (chitPtr)
-            *chitPtr = chit;
-        chit = self->impl_->oneShotCall(std::move(rpc), std::forward<F>(f));
-        if (chitPtr)
-            *chitPtr = chit;
+        self->impl_->oneShotCall(std::move(rpc), chit, std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->impl_->safeOneShotCall(std::move(rpc), chit, std::forward<F>(f));
     }
 };
 
@@ -1504,19 +1501,16 @@ struct Session::OngoingCallOp
     using ResultValue = Result;
     Session* self;
     Rpc rpc;
-    CallChit* chitPtr;
+    CallChit* chit;
 
-    template <typename F>
-    void operator()(F&& f)
+    template <typename F> void operator()(F&& f)
     {
-        CallChit chit;
-        if (chitPtr)
-            *chitPtr = chit;
-        rpc.withProgressiveResults(true);
-        MultiShotCallHandler handler(std::forward<F>(f));
-        chit = self->impl_->ongoingCall(std::move(rpc), std::forward<F>(f));
-        if (chitPtr)
-            *chitPtr = chit;
+        self->impl_->ongoingCall(std::move(rpc), chit, std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->impl_->safeOngoingCall(std::move(rpc), chit, std::forward<F>(f));
     }
 };
 
@@ -1637,16 +1631,9 @@ Session::template Deduced<ErrorOr<typename O::ResultValue>, C>
 #endif
 Session::safelyInitiate(C&& token, As&&... args)
 {
-
-    return initiate<SafeOp<O>>(std::forward<C>(token),
-                               std::forward<As>(args)...);
-}
-
-//------------------------------------------------------------------------------
-template <typename F>
-void Session::dispatchViaStrand(F&& operation)
-{
-    boost::asio::dispatch(strand(), std::forward<F>(operation));
+    return boost::asio::async_initiate<
+        C, void(ErrorOr<typename O::ResultValue>)>(
+        O{this, std::forward<As>(args)...}, token, threadSafe);
 }
 
 } // namespace wamp

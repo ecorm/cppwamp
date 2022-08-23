@@ -31,6 +31,7 @@ set(HEADERS
     include/cppwamp/session.hpp
     include/cppwamp/sessiondata.hpp
     include/cppwamp/subscription.hpp
+    include/cppwamp/tagtypes.hpp
     include/cppwamp/tcp.hpp
     include/cppwamp/tcpendpoint.hpp
     include/cppwamp/tcphost.hpp

@@ -65,6 +65,74 @@ public:
         return Peer::userExecutor();
     }
 
+    void setWarningHandler(LogHandler handler) override
+    {
+        warningHandler_ = std::move(handler);
+    }
+
+    void safeSetWarningHandler(LogHandler f) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            LogHandler f;
+            void operator()() {self->setWarningHandler(std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(f));
+    }
+
+    void setTraceHandler(LogHandler handler) override
+    {
+        Peer::setTraceHandler(std::move(handler));
+    }
+
+    void safeSetTraceHandler(LogHandler f) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            LogHandler f;
+            void operator()() {self->setTraceHandler(std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(f));
+    }
+
+    void setStateChangeHandler(StateChangeHandler handler) override
+    {
+        Peer::setStateChangeHandler(std::move(handler));
+    }
+
+    void safeSetStateChangeHandler(StateChangeHandler f) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            StateChangeHandler f;
+            void operator()() {self->setStateChangeHandler(std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(f));
+    }
+
+    void setChallengeHandler(ChallengeHandler handler) override
+    {
+        challengeHandler_ = std::move(handler);
+    }
+
+    void safeSetChallengeHandler(ChallengeHandler f) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            ChallengeHandler f;
+            void operator()() {self->setChallengeHandler(std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(f));
+    }
+
     void connect(ConnectionWishList wishes,
                  CompletionHandler<size_t>&& handler) override
     {
@@ -83,6 +151,20 @@ public:
             std::make_shared<CompletionHandler<size_t>>(std::move(handler));
 
         doConnect(std::move(wishes), 0, std::move(sharedHandler));
+    }
+
+    void safeConnect(ConnectionWishList w,
+                     CompletionHandler<size_t>&& f) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            ConnectionWishList w;
+            CompletionHandler<size_t> f;
+            void operator()() {self->connect(std::move(w), std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(w), std::move(f));
     }
 
     void join(Realm&& realm, CompletionHandler<SessionInfo>&& handler) override
@@ -120,6 +202,19 @@ public:
                                 realm.uri(), realm.abort({})});
     }
 
+    void safeJoin(Realm&& r, CompletionHandler<SessionInfo>&& f) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Realm r;
+            CompletionHandler<SessionInfo> f;
+            void operator()() {self->join(std::move(r), std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(r), std::move(f));
+    }
+
     void authenticate(Authentication&& auth) override
     {
         if (state() != State::authenticating)
@@ -131,23 +226,16 @@ public:
         Peer::send(auth.message({}));
     }
 
-    void safeAuthenticate(Authentication&& auth) override
+    void safeAuthenticate(Authentication&& a) override
     {
         struct Dispatched
         {
-            std::weak_ptr<Client> self;
-            Authentication auth;
-
-            void operator()()
-            {
-                auto me = self.lock();
-                if (me)
-                    me->authenticate(std::move(auth));
-            }
+            Ptr self;
+            Authentication a;
+            void operator()() {self->authenticate(std::move(a));}
         };
 
-        boost::asio::dispatch(strand(),
-                              Dispatched{shared_from_this(), std::move(auth)});
+        safelyDispatch<Dispatched>(std::move(a));
     }
 
     void leave(Reason&& reason, CompletionHandler<Reason>&& handler) override
@@ -179,6 +267,19 @@ public:
                       Adjourned{shared_from_this(), std::move(handler)});
     }
 
+    void safeLeave(Reason&& r, CompletionHandler<Reason>&& f) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Reason r;
+            CompletionHandler<Reason> f;
+            void operator()() {self->leave(std::move(r), std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(r), std::move(f));
+    }
+
     void disconnect() override
     {
         doDisconnect();
@@ -186,19 +287,30 @@ public:
 
     void safeDisconnect() override
     {
-        auto self = shared_from_this();
-        boost::asio::dispatch(
-            strand(),
-            [self]()
-            {
-                self->doDisconnect();
-            });
+        struct Dispatched
+        {
+            Ptr self;
+            void operator()() {self->disconnect();}
+        };
+
+        safelyDispatch<Dispatched>();
     }
 
     void terminate() override
     {
         setTerminating(true);
         doDisconnect();
+    }
+
+    void safeTerminate() override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            void operator()() {self->terminate();}
+        };
+
+        safelyDispatch<Dispatched>();
     }
 
     void subscribe(Topic&& topic, EventSlot&& slot,
@@ -252,6 +364,23 @@ public:
         }
     }
 
+    void safeSubscribe(Topic&& t, EventSlot&& s,
+                       CompletionHandler<Subscription>&& f) override
+    {
+        using std::move;
+
+        struct Dispatched
+        {
+            Ptr self;
+            Topic t;
+            EventSlot s;
+            CompletionHandler<Subscription> f;
+            void operator()() {self->subscribe(move(t), move(s), move(f));}
+        };
+
+        safelyDispatch<Dispatched>(move(t), move(s), move(f));
+    }
+
     void unsubscribe(const Subscription& sub) override
     {
         auto kv = readership_.find(sub.id());
@@ -275,6 +404,18 @@ public:
                 }
             }
         }
+    }
+
+    void safeUnsubscribe(const Subscription& s) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Subscription s;
+            void operator()() {self->unsubscribe(s);}
+        };
+
+        safelyDispatch<Dispatched>(s);
     }
 
     void unsubscribe(const Subscription& sub,
@@ -307,17 +448,18 @@ public:
         }
     }
 
-    void safeUnsubscribe(const Subscription& sub) override
+    void safeUnsubscribe(const Subscription& s,
+                         CompletionHandler<bool>&& f) override
     {
-        auto self = std::weak_ptr<Client>(shared_from_this());
-        boost::asio::dispatch(
-            strand(),
-            [self, sub]() mutable
-            {
-                auto me = self.lock();
-                if (me)
-                    me->unsubscribe(std::move(sub));
-            });
+        struct Dispatched
+        {
+            Ptr self;
+            Subscription s;
+            CompletionHandler<bool> f;
+            void operator()() {self->unsubscribe(s, std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(s, std::move(f));
     }
 
     void publish(Pub&& pub) override
@@ -328,6 +470,18 @@ public:
             return;
         }
         Peer::send(pub.message({}));
+    }
+
+    void safePublish(Pub&& p) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Pub p;
+            void operator()() {self->publish(std::move(p));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(p));
     }
 
     void publish(Pub&& pub, CompletionHandler<PublicationId>&& handler) override
@@ -356,6 +510,19 @@ public:
         auto self = this->shared_from_this();
         Peer::request(pub.message({}),
                       Requested{shared_from_this(), std::move(handler)});
+    }
+
+    void safePublish(Pub&& p, CompletionHandler<PublicationId>&& f) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Pub p;
+            CompletionHandler<PublicationId> f;
+            void operator()() {self->publish(std::move(p), std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(p), std::move(f));
     }
 
     void enroll(Procedure&& procedure, CallSlot&& callSlot,
@@ -393,6 +560,28 @@ public:
                       Requested{shared_from_this(), move(rec), move(handler)});
     }
 
+    void safeEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
+                    CompletionHandler<Registration>&& f) override
+    {
+        using std::move;
+
+        struct Dispatched
+        {
+            Ptr self;
+            Procedure p;
+            CallSlot c;
+            InterruptSlot i;
+            CompletionHandler<Registration> f;
+
+            void operator()()
+            {
+                self->enroll(move(p), move(c), move(i), move(f));
+            }
+        };
+
+        safelyDispatch<Dispatched>(move(p), move(c), move(i), move(f));
+    }
+
     void unregister(const Registration& reg) override
     {
         struct Requested
@@ -419,6 +608,18 @@ public:
                 Peer::request(msg, Requested{shared_from_this()});
             }
         }
+    }
+
+    void safeUnregister(const Registration& r) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Registration r;
+            void operator()() {self->unregister(r);}
+        };
+
+        safelyDispatch<Dispatched>(r);
     }
 
     void unregister(const Registration& reg,
@@ -463,21 +664,22 @@ public:
         }
     }
 
-    void safeUnregister(const Registration& reg) override
+    void safeUnregister(const Registration& r,
+                        CompletionHandler<bool>&& f) override
     {
-        auto self = std::weak_ptr<Client>(shared_from_this());
-        boost::asio::dispatch(
-            strand(),
-            [self, reg]() mutable
-            {
-                auto me = self.lock();
-                if (me)
-                    me->unregister(std::move(reg));
-            });
+        struct Dispatched
+        {
+            Ptr self;
+            Registration r;
+            CompletionHandler<bool> f;
+            void operator()() {self->unregister(std::move(r), std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(r, std::move(f));
     }
 
-    CallChit oneShotCall(Rpc&& rpc,
-                         CompletionHandler<Result>&& handler) override
+    void oneShotCall(Rpc&& rpc, CallChit* chitPtr,
+                     CompletionHandler<Result>&& handler) override
     {
         struct Requested
         {
@@ -498,8 +700,11 @@ public:
             }
         };
 
+        if (chitPtr)
+            *chitPtr = CallChit{};
+
         if (!checkState<Result>(State::established, handler))
-            return {};
+            return;
 
         auto self = this->shared_from_this();
         auto cancelSlot =
@@ -518,10 +723,29 @@ public:
         if (rpc.callerTimeout().count() != 0)
             timeoutScheduler_->add(rpc.callerTimeout(), requestId);
 
-        return chit;
+        if (chitPtr)
+            *chitPtr = chit;
     }
 
-    CallChit ongoingCall(Rpc&& rpc, OngoingCallHandler&& handler) override
+    void safeOneShotCall(Rpc&& r, CallChit* c,
+                         CompletionHandler<Result>&& f) override
+    {
+        using std::move;
+
+        struct Dispatched
+        {
+            Ptr self;
+            Rpc r;
+            CallChit* c;
+            CompletionHandler<Result> f;
+            void operator()() {self->oneShotCall(move(r), c, move(f));}
+        };
+
+        safelyDispatch<Dispatched>(move(r), c, move(f));
+    }
+
+    void ongoingCall(Rpc&& rpc, CallChit* chitPtr,
+                     OngoingCallHandler&& handler) override
     {
         struct Requested
         {
@@ -542,10 +766,14 @@ public:
             }
         };
 
-        if (!checkState<Result>(State::established, handler))
-            return {};
+        if (chitPtr)
+            *chitPtr = CallChit{};
 
-        auto self = this->shared_from_this();
+        if (!checkState<Result>(State::established, handler))
+            return;
+
+        rpc.withProgressiveResults(true);
+
         auto cancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
         auto requestId = Peer::ongoingRequest(
@@ -562,7 +790,24 @@ public:
         if (rpc.callerTimeout().count() != 0)
             timeoutScheduler_->add(rpc.callerTimeout(), requestId);
 
-        return chit;
+        if (chitPtr)
+            *chitPtr = chit;
+    }
+
+    void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f) override
+    {
+        using std::move;
+
+        struct Dispatched
+        {
+            Ptr self;
+            Rpc r;
+            CallChit* c;
+            OngoingCallHandler f;
+            void operator()() {self->ongoingCall(move(r), c, move(f));}
+        };
+
+        safelyDispatch<Dispatched>(move(r), c, move(f));
     }
 
     void cancelCall(RequestId reqId, CallCancelMode mode) override
@@ -575,17 +820,17 @@ public:
         Peer::cancelCall(CallCancellation{reqId, mode});
     }
 
-    void safeCancelCall(RequestId reqId, CallCancelMode mode) override
+    void safeCancelCall(RequestId r, CallCancelMode m) override
     {
-        std::weak_ptr<Client> self{shared_from_this()};
-        boost::asio::dispatch(
-            strand(),
-            [self, reqId, mode]()
-            {
-                auto me = self.lock();
-                if (me)
-                    me->cancelCall(reqId, mode);
-            });
+        struct Dispatched
+        {
+            Ptr self;
+            RequestId r;
+            CallCancelMode m;
+            void operator()() {self->cancelCall(r, m);}
+        };
+
+        safelyDispatch<Dispatched>(r, m);
     }
 
     void yield(RequestId reqId, Result&& result) override
@@ -601,6 +846,19 @@ public:
         Peer::send(result.yieldMessage({}, reqId));
     }
 
+    void safeYield(RequestId i, Result&& r) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RequestId i;
+            Result r;
+            void operator()() {self->yield(i, std::move(r));}
+        };
+
+        safelyDispatch<Dispatched>(i, std::move(r));
+    }
+
     void yield(RequestId reqId, Error&& error) override
     {
         if (state() != State::established)
@@ -613,66 +871,17 @@ public:
         Peer::sendError(WampMsgType::invocation, reqId, std::move(error));
     }
 
-    void safeYield(RequestId reqId, Result&& result) override
+    void safeYield(RequestId r, Error&& e) override
     {
         struct Dispatched
         {
-            std::weak_ptr<Client> self;
-            RequestId reqId;
-            Result result;
-
-            void operator()()
-            {
-                auto me = self.lock();
-                if (me)
-                    me->yield(reqId, std::move(result));
-            }
+            Ptr self;
+            RequestId r;
+            Error e;
+            void operator()() {self->yield(r, std::move(e));}
         };
 
-        boost::asio::dispatch(
-            strand(),
-            Dispatched{shared_from_this(), reqId, std::move(result)});
-    }
-
-    void safeYield(RequestId reqId, Error&& error) override
-    {
-        struct Dispatched
-        {
-            std::weak_ptr<Client> self;
-            RequestId reqId;
-            Error error;
-
-            void operator()()
-            {
-                auto me = self.lock();
-                if (me)
-                    me->yield(reqId, std::move(error));
-            }
-        };
-
-        boost::asio::dispatch(
-            strand(),
-            Dispatched{shared_from_this(), reqId, std::move(error)});
-    }
-
-    void setWarningHandler(LogHandler handler) override
-    {
-        warningHandler_ = std::move(handler);
-    }
-
-    void setTraceHandler(LogHandler handler) override
-    {
-        Peer::setTraceHandler(std::move(handler));
-    }
-
-    void setStateChangeHandler(StateChangeHandler handler) override
-    {
-        Peer::setStateChangeHandler(std::move(handler));
-    }
-
-    void setChallengeHandler( ChallengeHandler handler) override
-    {
-        challengeHandler_ = std::move(handler);
+        safelyDispatch<Dispatched>(r, std::move(e));
     }
 
 private:
@@ -709,6 +918,13 @@ private:
     Ptr shared_from_this()
     {
         return std::static_pointer_cast<Client>( Peer::shared_from_this() );
+    }
+
+    template <typename F, typename... Ts>
+    void safelyDispatch(Ts&&... args)
+    {
+        boost::asio::dispatch(
+            strand(), F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
     // TODO: Remove TResultValue if possible

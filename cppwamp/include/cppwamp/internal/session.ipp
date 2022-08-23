@@ -144,14 +144,7 @@ CPPWAMP_INLINE void Session::setWarningHandler(
     LogHandler handler /**< Callable handler of type `<void (std::string)>`. */
 )
 {
-    struct Dispatched
-    {
-        Ptr self;
-        LogHandler handler;
-        void operator()() {self->setWarningHandler(std::move(handler));}
-    };
-
-    dispatchViaStrand(Dispatched{shared_from_this(), std::move(handler)});
+    impl_->safeSetWarningHandler(handler);
 }
 
 //------------------------------------------------------------------------------
@@ -173,14 +166,7 @@ CPPWAMP_INLINE void Session::setTraceHandler(
     LogHandler handler /**< Callable handler of type `<void (std::string)>`. */
 )
 {
-    struct Dispatched
-    {
-        Ptr self;
-        LogHandler handler;
-        void operator()() {self->setTraceHandler(std::move(handler));}
-    };
-
-    dispatchViaStrand(Dispatched{shared_from_this(), std::move(handler)});
+    impl_->safeSetTraceHandler(handler);
 }
 
 //------------------------------------------------------------------------------
@@ -202,14 +188,7 @@ CPPWAMP_INLINE void Session::setStateChangeHandler(
     StateChangeHandler handler /**< Callable handler of type `<void (SessionState)>`. */
 )
 {
-    struct Dispatched
-    {
-        Ptr self;
-        StateChangeHandler handler;
-        void operator()() {self->setStateChangeHandler(std::move(handler));}
-    };
-
-    dispatchViaStrand(Dispatched{shared_from_this(), std::move(handler)});
+    impl_->safeSetStateChangeHandler(handler);
 }
 
 //------------------------------------------------------------------------------
@@ -228,14 +207,7 @@ CPPWAMP_INLINE void Session::setChallengeHandler(
     ChallengeHandler handler /**< Callable handler of type `<void (Challenge)>`. */
     )
 {
-    struct Dispatched
-    {
-        Ptr self;
-        ChallengeHandler handler;
-        void operator()() {self->setChallengeHandler(std::move(handler));}
-    };
-
-    dispatchViaStrand(Dispatched{shared_from_this(), std::move(handler)});
+    impl_->safeSetChallengeHandler(handler);
 }
 
 //------------------------------------------------------------------------------
@@ -260,14 +232,7 @@ CPPWAMP_INLINE void Session::authenticate(
                              and other options. */
 )
 {
-    struct Dispatched
-    {
-        Ptr self;
-        Authentication auth;
-        void operator()() {self->authenticate(std::move(auth));}
-    };
-
-    dispatchViaStrand(Dispatched{shared_from_this(), std::move(auth)});
+    impl_->safeAuthenticate(std::move(auth));
 }
 
 //------------------------------------------------------------------------------
@@ -286,8 +251,7 @@ CPPWAMP_INLINE void Session::disconnect()
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::disconnect(ThreadSafe)
 {
-    auto self = shared_from_this();
-    boost::asio::dispatch(strand(), [self]() {self->disconnect();});
+    impl_->safeDisconnect();
 }
 
 //------------------------------------------------------------------------------
@@ -310,8 +274,7 @@ CPPWAMP_INLINE void Session::reset()
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::reset(ThreadSafe)
 {
-    auto self = shared_from_this();
-    boost::asio::dispatch(strand(), [self]() {self->reset();});
+    impl_->safeTerminate();
 }
 
 //------------------------------------------------------------------------------
@@ -342,8 +305,7 @@ CPPWAMP_INLINE void Session::unsubscribe(
     )
 {
     CPPWAMP_LOGIC_CHECK(bool(sub), "The subscription is empty");
-    auto self = shared_from_this();
-    boost::asio::dispatch(strand(), [self, sub]() {self->unsubscribe(sub);});
+    impl_->safeUnsubscribe(sub);
 }
 
 //------------------------------------------------------------------------------
@@ -366,14 +328,7 @@ CPPWAMP_INLINE void Session::publish(
     Pub pub /**< The publication to publish. */
 )
 {
-    struct Dispatched
-    {
-        Ptr self;
-        Pub pub;
-        void operator()() {self->publish(std::move(pub));}
-    };
-
-    dispatchViaStrand(Dispatched{shared_from_this(), std::move(pub)});
+    impl_->safePublish(std::move(pub));
 }
 
 //------------------------------------------------------------------------------
@@ -404,8 +359,7 @@ CPPWAMP_INLINE void Session::unregister(
     )
 {
     CPPWAMP_LOGIC_CHECK(bool(reg), "The registration is empty");
-    auto self = shared_from_this();
-    boost::asio::dispatch(strand(), [self, reg]() {self->unregister(reg);});
+    impl_->safeUnregister(reg);
 }
 
 //------------------------------------------------------------------------------
@@ -451,9 +405,7 @@ CPPWAMP_INLINE void Session::cancel(
     CallCancelMode mode /**< The mode with which to cancel the call. */
     )
 {
-    auto self = shared_from_this();
-    boost::asio::dispatch(strand(),
-                          [self, chit, mode]() {self->cancel(chit, mode);});
+    return impl_->safeCancelCall(chit.requestId(), mode);
 }
 
 //------------------------------------------------------------------------------
@@ -476,9 +428,7 @@ CPPWAMP_INLINE void Session::cancel(
                                          and other options. */
 )
 {
-    auto self = shared_from_this();
-    boost::asio::dispatch(strand(),
-                          [self, cancellation]() {self->cancel(cancellation);});
+    return impl_->safeCancelCall(cancellation.requestId(), cancellation.mode());
 }
 
 //------------------------------------------------------------------------------

@@ -57,20 +57,43 @@ public:
 
     virtual ~ClientInterface() {}
 
-    virtual SessionState state() const = 0;
-
     virtual const IoStrand& strand() const = 0;
 
     virtual const AnyIoExecutor& userExecutor() const = 0;
 
+    virtual SessionState state() const = 0;
+
+    virtual void setWarningHandler(LogHandler) = 0;
+
+    virtual void safeSetWarningHandler(LogHandler) = 0;
+
+    virtual void setTraceHandler(LogHandler) = 0;
+
+    virtual void safeSetTraceHandler(LogHandler) = 0;
+
+    virtual void setStateChangeHandler(StateChangeHandler) = 0;
+
+    virtual void safeSetStateChangeHandler(StateChangeHandler) = 0;
+
+    virtual void setChallengeHandler(ChallengeHandler) = 0;
+
+    virtual void safeSetChallengeHandler(ChallengeHandler) = 0;
+
     virtual void connect(ConnectionWishList wishes,
                          CompletionHandler<size_t>&& handler) = 0;
 
+    virtual void safeConnect(ConnectionWishList wishes,
+                             CompletionHandler<size_t>&& handler) = 0;
+
     virtual void join(Realm&&, CompletionHandler<SessionInfo>&&) = 0;
+
+    virtual void safeJoin(Realm&&, CompletionHandler<SessionInfo>&&) = 0;
 
     virtual void authenticate(Authentication&& auth) = 0;
 
     virtual void leave(Reason&&, CompletionHandler<Reason>&&) = 0;
+
+    virtual void safeLeave(Reason&&, CompletionHandler<Reason>&&) = 0;
 
     virtual void disconnect() = 0;
 
@@ -78,8 +101,13 @@ public:
 
     virtual void terminate() = 0;
 
+    virtual void safeTerminate() = 0;
+
     virtual void subscribe(Topic&&, EventSlot&&,
                            CompletionHandler<Subscription>&&) = 0;
+
+    virtual void safeSubscribe(Topic&&, EventSlot&&,
+                               CompletionHandler<Subscription>&&) = 0;
 
     virtual void unsubscribe(const Subscription&) = 0;
 
@@ -88,30 +116,34 @@ public:
 
     virtual void publish(Pub&&) = 0;
 
+    virtual void safePublish(Pub&&) = 0;
+
     virtual void publish(Pub&&, CompletionHandler<PublicationId>&&) = 0;
+
+    virtual void safePublish(Pub&&, CompletionHandler<PublicationId>&&) = 0;
 
     virtual void enroll(Procedure&&, CallSlot&&, InterruptSlot&&,
                         CompletionHandler<Registration>&&) = 0;
+
+    virtual void safeEnroll(Procedure&&, CallSlot&&, InterruptSlot&&,
+                            CompletionHandler<Registration>&&) = 0;
 
     virtual void unregister(const Registration&) = 0;
 
     virtual void unregister(const Registration&, CompletionHandler<bool>&&) = 0;
 
-    virtual CallChit oneShotCall(Rpc&&, CompletionHandler<Result>&&) = 0;
+    virtual void oneShotCall(Rpc&&, CallChit*, CompletionHandler<Result>&&) = 0;
 
-    virtual CallChit ongoingCall(Rpc&&, OngoingCallHandler&&) = 0;
+    virtual void safeOneShotCall(Rpc&&, CallChit*,
+                                 CompletionHandler<Result>&&) = 0;
+
+    virtual void ongoingCall(Rpc&&, CallChit*, OngoingCallHandler&&) = 0;
+
+    virtual void safeOngoingCall(Rpc&&, CallChit*, OngoingCallHandler&&) = 0;
 
     virtual void yield(RequestId, wamp::Result&&) = 0;
 
     virtual void yield(RequestId, wamp::Error&&) = 0;
-
-    virtual void setWarningHandler(LogHandler) = 0;
-
-    virtual void setTraceHandler(LogHandler) = 0;
-
-    virtual void setStateChangeHandler(StateChangeHandler) = 0;
-
-    virtual void setChallengeHandler(ChallengeHandler) = 0;
 };
 
 inline const Object& ClientInterface::roles()
