@@ -54,15 +54,15 @@ int main()
 {
     wamp::AsioContext ioctx;
     auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
-    auto session = wamp::Session::create(ioctx.get_executor());
+    wamp::Session session(ioctx.get_executor());
     boost::asio::steady_timer timer(ioctx);
 
     boost::asio::spawn(ioctx,
         [tcp, &session, &timer](boost::asio::yield_context yield)
         {
-            session->connect(tcp, yield).value();
-            session->join(wamp::Realm(realm), yield).value();
-            session->enroll(wamp::Procedure("get_time"),
+            session.connect(tcp, yield).value();
+            session.join(wamp::Realm(realm), yield).value();
+            session.enroll(wamp::Procedure("get_time"),
                             wamp::simpleRpc<std::tm>(&getTime),
                             yield).value();
 
@@ -75,8 +75,8 @@ int main()
 
                 auto t = std::time(nullptr);
                 const std::tm* local = std::localtime(&t);
-                session->publish(wamp::Pub("time_tick").withArgs(*local),
-                                 yield).value();
+                session.publish(wamp::Pub("time_tick").withArgs(*local),
+                                yield).value();
                 std::cout << "Tick: " << std::asctime(local) << "\n";
             }
         });

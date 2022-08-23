@@ -57,6 +57,17 @@ protected:
     using LogHandler = AnyReusableHandler<void (std::string)>;
     using StateChangeHandler = AnyReusableHandler<void (State)>;
 
+    explicit Peer(AnyIoExecutor exec)
+        : strand_(boost::asio::make_strand(exec)),
+          userExecutor_(std::move(exec)),
+          state_(State::disconnected),
+          isTerminating_(false)
+    {}
+
+    explicit Peer(const AnyIoExecutor& exec, AnyIoExecutor userExecutor)
+        : Peer(boost::asio::make_strand(exec), std::move(userExecutor))
+    {}
+
     explicit Peer(IoStrand strand, AnyIoExecutor userExecutor)
         : strand_(std::move(strand)),
           userExecutor_(std::move(userExecutor)),

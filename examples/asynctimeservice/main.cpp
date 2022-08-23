@@ -53,7 +53,7 @@ public:
     void start(wamp::ConnectionWish where)
     {
         auto self = shared_from_this();
-        session_->connect(
+        session_.connect(
             std::move(where),
             [this, self](wamp::ErrorOr<size_t> index)
             {
@@ -64,7 +64,7 @@ public:
 
 private:
     explicit TimeService(wamp::AnyIoExecutor exec)
-        : session_(wamp::Session::create(exec)),
+        : session_(exec),
           timer_(std::move(exec))
     {}
 
@@ -77,7 +77,7 @@ private:
     void join()
     {
         auto self = shared_from_this();
-        session_->join(
+        session_.join(
             wamp::Realm(realm),
             [this, self](wamp::ErrorOr<wamp::SessionInfo> info)
             {
@@ -89,7 +89,7 @@ private:
     void enroll()
     {
         auto self = shared_from_this();
-        session_->enroll(
+        session_.enroll(
             wamp::Procedure("get_time"),
             wamp::simpleRpc<std::tm>(&getTime),
             [this, self](wamp::ErrorOr<wamp::Registration> reg)
@@ -119,11 +119,11 @@ private:
     {
         auto t = std::time(nullptr);
         const std::tm* local = std::localtime(&t);
-        session_->publish(wamp::Pub("time_tick").withArgs(*local));
+        session_.publish(wamp::Pub("time_tick").withArgs(*local));
         std::cout << "Tick: " << std::asctime(local) << "\n";
     }
 
-    wamp::Session::Ptr session_;
+    wamp::Session session_;
     boost::asio::steady_timer timer_;
     std::chrono::steady_clock::time_point deadline_;
 };

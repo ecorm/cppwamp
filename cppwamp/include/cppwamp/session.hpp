@@ -60,42 +60,39 @@ namespace wamp
 
     @par Aborting Asynchronous Operations
     All pending asynchronous operations can be _aborted_ by dropping the client
-    connection via Session::disconnect. Pending post-join operations can be also
-    be aborted via Session::leave. There is currently no way to abort a single
-    operation without dropping the connection or leaving the realm.
+    connection via Session::disconnect, or by destroying the Session object.
+    Pending post-join operations can be also be aborted via Session::leave.
+    Except for RPCs, there is currently no way to abort a single operation
+    without dropping the connection or leaving the realm.
 
     @par Terminating Asynchronous Operations
-    All pending asynchronous operations can be _terminated_ by dropping the
-    client connection via Session::reset or the Session destructor. By design,
-    the handlers for pending operations will not be invoked if they
-    were terminated in this way (this will result in hung coroutine operations).
-    This is useful if a client application needs to shutdown abruptly and cannot
-    enforce the lifetime of objects accessed within the asynchronous operation
-    handlers.
+    All pending asynchronous operations can be _terminated_ via Session::reset.
+    When terminating, the handlers for pending operations will not be invoked
+    (this will result in hung coroutine operations). This is useful if a client
+    application needs to shutdown abruptly and cannot enforce the lifetime of
+    objects accessed within the asynchronous operation handlers.
 
     @par Thread-safety
     Undecorated methods must be called within the Session's execution
     [strand](https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/core/strands.html).
-    If the same `io_context` is used by a single-threaded app and a Session's
-    transport, calls to undecorated methods will implicitly be within the
-    Session's strand. If invoked from other threads, calls to undecorated
-    methods must be executed via
-    `boost::asio::dispatch(session->stand(), operation)`. Session methods
+    If the same `io_context` is used by a single-threaded app and a Session,
+    calls to undecorated methods will implicitly be within the Session's strand.
+    If invoked from other threads, calls to undecorated methods must be executed
+    via `boost::asio::dispatch(session->stand(), operation)`. Session methods
     decorated with the ThreadSafe tag type may be safely used concurrently by
     multiple threads. These decorated methods take care of executing operations
     via a Session's strand so that they become sequential.
 
     @see ErrorOr, Registration, Subscription. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Session : public std::enable_shared_from_this<Session>
+class CPPWAMP_API Session
 {
-    // TODO: Remove heap allocation requirement
-
 private:
     struct GenericOp { template <typename F> void operator()(F&&) {} };
 
 public:
-    /** Shared pointer to a Session. */
+    /** Shared pointer to a Session.
+        @deprecated will be removed */
     using Ptr = std::shared_ptr<Session>;
 
     /** Enumerates the possible states that a Session can be in. */
@@ -133,52 +130,89 @@ public:
     using Deduced = decltype(
         boost::asio::async_initiate<C, void(T)>(std::declval<GenericOp&>(),
                                                 std::declval<C&>()));
-    /** Creates a new Session instance. */
-    static Ptr create(const AnyIoExecutor& exec);
 
-    /** Creates a new Session instance. */
+    /// @name Construction
+    /// @{
+    /** Creates a new Session instance on the heap.
+        @deprecated Stack allocation is now permitted. */
+    static Ptr create(AnyIoExecutor exec);
+
+    /** Creates a new Session instance on the heap. */
     static Ptr create(const AnyIoExecutor& exec, AnyIoExecutor userExec);
 
-    template <typename TExecutionContext>
-    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<TExecutionContext>())
+    /** Creates a new Session instance on the heap.
+        @deprecated Stack allocation is now permitted.
+        @copydetails Session::create(AnyIoExecutor)
+        @details Only participates in overload resolution when
+                 `isExecutionContext<TExecutionContext>() == true`
+        @tparam TExecutionContext Must meet the requirements of
+                Boost.Asio's ExecutionContext */
+    template <typename E>
+    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
     create(
-        TExecutionContext& context
-            /**< Context providing the executor from which Session will extract
-                 a strand for its internal I/O operations. */
+        E& executionContext /**< Context providing the executor from which
+                                 Session will extract a strand for its
+                                 internal I/O operations. */
     )
     {
-        return create(context.get_executor());
+        return create(executionContext.get_executor());
+    }
+
+    /** Creates a new Session instance on the heap.
+        @deprecated Stack allocation is now permitted.
+        @copydetails Session::create(AnyIoExecutor)
+        @details Only participates in overload resolution when
+                 `isExecutionContext<TExecutionContext>() == true`
+        @tparam TExecutionContext Must meet the requirements of
+                Boost.Asio's ExecutionContext */
+    template <typename E1, typename E2>
+    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E1>() &&
+                                     isExecutionContext<E2>())
+    create(
+        E1& executionContext, /**< Context providing the executor from which
+                                   Session will extract a strand for
+                                   its internal I/O operations. */
+        E1& userExecutionContext /**< Providing the executor with which to
+                                      post all user handlers. */
+    )
+    {
+        return create(executionContext.get_executor(),
+                      userExecutionContext.get_executor());
     }
 
     /** Creates a new Session instance.
-        @deprecated Pass connection wish list to Session::connect instead. */
+        @deprecated Pass connection wish list to Session::connect instead.
+        @deprecated Stack allocation is now permitted. */
     static Ptr create(AnyIoExecutor userExec, LegacyConnector connector);
 
     /** Creates a new Session instance.
-        @deprecated Pass connection wish list to Session::connect instead. */
+        @deprecated Pass connection wish list to Session::connect instead.
+        @deprecated Stack allocation is now permitted. */
     static Ptr create(AnyIoExecutor userExec, ConnectorList connectors);
 
     /** Creates a new Session instance.
         @deprecated Pass connection wish list to Session::connect instead.
+        @deprecated Stack allocation is now permitted.
         @copydetails Session::create(AnyIoExecutor, LegacyConnector)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
         @tparam TExecutionContext Must meet the requirements of
                                   Boost.Asio's ExecutionContext */
-    template <typename TExecutionContext>
-    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<TExecutionContext>())
+    template <typename E>
+    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
     create(
-        TExecutionContext& userContext, /**< Provides executor with which to
-                                             post all user-provided handlers. */
+        E& userExecutionContext,  /**< Provides the executor with which to
+                                       post all user-provided handlers. */
         LegacyConnector connector /**< Connection details for the
                                        transport to use. */
         )
     {
-        return create(userContext.get_executor(), std::move(connector));
+        return create(userExecutionContext.get_executor(), std::move(connector));
     }
 
     /** Creates a new Session instance.
         @deprecated Pass connection wish list to Session::connect instead.
+        @deprecated Stack allocation is now permitted.
         @copydetails Session::create(AnyIoExecutor, ConnectorList)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
@@ -196,21 +230,44 @@ public:
         return create(userContext.get_executor(), std::move(connectors));
     }
 
-    /** Obtains a dictionary of roles and features supported on the client
-        side. */
-    static const Object& roles();
+    /** Constructor taking an executor. */
+    explicit Session(AnyIoExecutor exec);
 
-    /// @name Non-copyable
-    /// @{
-    Session(const Session&) = delete;
-    Session& operator=(const Session&) = delete;
-    /// @}
+    /** Constructor taking an executor and another for user handlers. */
+    Session(const AnyIoExecutor& exec, AnyIoExecutor userExec);
+
+    /** Constructor taking an execution context. */
+    template <typename E, EnableIf<isExecutionContext<E>()> = 0>
+    explicit Session(E& executionContext)
+        : Session(executionContext.get_executor())
+    {}
+
+    /** Constructor taking an execution context and another for user handlers. */
+    template <typename E1, typename E2,
+             EnableIf<isExecutionContext<E1>() && isExecutionContext<E2>()> = 0>
+    explicit Session(E1& executionContext, E2& userExecutionContext)
+        : Session(executionContext.get_executor(),
+                  userExecutionContext.get_executor())
+    {}
 
     /** Destructor. */
-    virtual ~Session();
+    ~Session();
+    /// @}
+
+    /// @name Move-only
+    /// @{
+    Session(const Session&) = delete;
+    Session(Session&&) = default;
+    Session& operator=(const Session&) = delete;
+    Session& operator=(Session&&) = default;
+    /// @}
 
     /// @name Observers
     /// @{
+
+    /** Obtains a dictionary of roles and features supported on the client
+        side. */
+    static const Object& roles();
 
     /** Obtains the execution context in which which I/O operations are
         serialized. */
@@ -515,6 +572,9 @@ private:
     struct CallOp;
     struct OngoingCallOp;
 
+    CPPWAMP_HIDDEN explicit Session(AnyIoExecutor userExec,
+                                    ConnectorList connectors);
+
     template <typename O, typename C, typename... As>
     Deduced<ErrorOr<typename O::ResultValue>, C>
     initiate(C&& token, As&&... args);
@@ -523,13 +583,6 @@ private:
     Deduced<ErrorOr<typename O::ResultValue>, C>
     safelyInitiate(C&& token, As&&... args);
 
-    CPPWAMP_HIDDEN explicit Session(const AnyIoExecutor& exec,
-                                    AnyIoExecutor userExec);
-
-    CPPWAMP_HIDDEN explicit Session(AnyIoExecutor userExec,
-                                    ConnectorList connectors);
-
-    IoStrand strand_;
     ConnectorList legacyConnectors_;
     ImplPtr impl_;
 

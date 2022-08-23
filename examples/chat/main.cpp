@@ -22,22 +22,22 @@ public:
     using Yield = boost::asio::yield_context;
 
     explicit ChatService(wamp::AnyIoExecutor exec)
-        : session_(wamp::Session::create(std::move(exec)))
+        : session_(std::move(exec))
     {}
 
     void start(wamp::ConnectionWishList where, Yield yield)
     {
         using namespace wamp;
-        auto index = session_->connect(std::move(where), yield).value();
+        auto index = session_.connect(std::move(where), yield).value();
         std::cout << "Chat service connected on transport #"
                   << (index + 1) << "\n";
 
-        auto info = session_->join(Realm(realm), yield).value();
+        auto info = session_.join(Realm(realm), yield).value();
         std::cout << "Chat service joined, session ID = " << info.id() << "\n";
 
         using namespace std::placeholders;
 
-        registration_ = session_->enroll(
+        registration_ = session_.enroll(
             Procedure("say"),
             simpleRpc<void, std::string, std::string>(
                                 std::bind(&ChatService::say, this, _1, _2)),
@@ -47,18 +47,18 @@ public:
     void quit(Yield yield)
     {
         registration_.unregister();
-        session_->leave(wamp::Reason(), yield).value();
-        session_->disconnect();
+        session_.leave(wamp::Reason(), yield).value();
+        session_.disconnect();
     }
 
 private:
     void say(std::string user, std::string message)
     {
         // Rebroadcast message to all subscribers
-        session_->publish( wamp::Pub("said").withArgs(user, message) );
+        session_.publish( wamp::Pub("said").withArgs(user, message) );
     }
 
-    wamp::Session::Ptr session_;
+    wamp::Session session_;
     wamp::ScopedRegistration registration_;
 };
 
@@ -70,7 +70,7 @@ public:
     using Yield = boost::asio::yield_context;
 
     ChatClient(wamp::AnyIoExecutor exec, std::string user)
-        : session_(wamp::Session::create(std::move(exec))),
+        : session_(std::move(exec)),
           user_(std::move(user))
     {}
 
@@ -78,14 +78,14 @@ public:
     {
         using namespace wamp;
 
-        auto index = session_->connect(std::move(where), yield).value();
+        auto index = session_.connect(std::move(where), yield).value();
         std::cout << user_ << " connected on transport #" << (index + 1) << "\n";
 
-        auto info = session_->join(Realm(realm), yield).value();
+        auto info = session_.join(Realm(realm), yield).value();
         std::cout << user_ << " joined, session ID = " << info.id() << "\n";
 
         using namespace std::placeholders;
-        subscription_ = session_->subscribe(
+        subscription_ = session_.subscribe(
                 Topic("said"),
                 simpleEvent<std::string, std::string>(
                         std::bind(&ChatClient::said, this, _1, _2)),
@@ -95,14 +95,14 @@ public:
     void leave(Yield yield)
     {
         subscription_.unsubscribe();
-        session_->leave(wamp::Reason(), yield).value();
+        session_.leave(wamp::Reason(), yield).value();
         session_.reset();
     }
 
     void say(const std::string& message, Yield yield)
     {
         std::cout << user_ << " says \"" << message << "\"\n";
-        session_->call(wamp::Rpc("say").withArgs(user_, message),
+        session_.call(wamp::Rpc("say").withArgs(user_, message),
                        yield).value();
     }
 
@@ -113,7 +113,7 @@ private:
                   << message << "\"\n";
     }
 
-    wamp::Session::Ptr session_;
+    wamp::Session session_;
     std::string user_;
     wamp::ScopedSubscription subscription_;
 };

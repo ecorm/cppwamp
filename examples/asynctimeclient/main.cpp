@@ -51,7 +51,7 @@ public:
     void start(wamp::ConnectionWish where)
     {
         auto self = shared_from_this();
-        session_->connect(
+        session_.connect(
             std::move(where),
             [this, self](wamp::ErrorOr<size_t> index)
             {
@@ -62,7 +62,7 @@ public:
 
 private:
     TimeClient(wamp::AnyIoExecutor exec)
-        : session_(wamp::Session::create(std::move(exec)))
+        : session_(std::move(exec))
     {}
 
     static void onTimeTick(std::tm time)
@@ -73,7 +73,7 @@ private:
     void join()
     {
         auto self = shared_from_this();
-        session_->join(
+        session_.join(
             wamp::Realm(realm),
             [this, self](wamp::ErrorOr<wamp::SessionInfo> info)
             {
@@ -85,7 +85,7 @@ private:
     void getTime()
     {
         auto self = shared_from_this();
-        session_->call(
+        session_.call(
             wamp::Rpc("get_time"),
             [this, self](wamp::ErrorOr<wamp::Result> result)
             {
@@ -98,7 +98,7 @@ private:
 
     void subscribe()
     {
-        session_->subscribe(
+        session_.subscribe(
             wamp::Topic("time_tick"),
             wamp::simpleEvent<std::tm>(&TimeClient::onTimeTick),
             [](wamp::ErrorOr<wamp::Subscription> sub)
@@ -107,7 +107,7 @@ private:
             });
     }
 
-    wamp::Session::Ptr session_;
+    wamp::Session session_;
 };
 
 

@@ -51,19 +51,19 @@ int main()
 {
     wamp::AsioContext ioctx;
     auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
-    auto session = wamp::Session::create(ioctx.get_executor());
+    wamp::Session session(ioctx);
 
     boost::asio::spawn(ioctx, [tcp, &session](boost::asio::yield_context yield)
     {
-        session->connect(tcp, yield).value();
-        session->join(wamp::Realm(realm), yield).value();
-        auto result = session->call(wamp::Rpc("get_time"), yield).value();
+        session.connect(tcp, yield).value();
+        session.join(wamp::Realm(realm), yield).value();
+        auto result = session.call(wamp::Rpc("get_time"), yield).value();
         auto time = result[0].to<std::tm>();
         std::cout << "The current time is: " << std::asctime(&time) << "\n";
 
-        session->subscribe(wamp::Topic("time_tick"),
-                           wamp::simpleEvent<std::tm>(&onTimeTick),
-                           yield).value();
+        session.subscribe(wamp::Topic("time_tick"),
+                          wamp::simpleEvent<std::tm>(&onTimeTick),
+                          yield).value();
     });
 
     ioctx.run();

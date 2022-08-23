@@ -51,9 +51,14 @@ public:
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    static Ptr create(IoStrand strand, AnyIoExecutor userExecutor)
+    static Ptr create(AnyIoExecutor exec)
     {
-        return Ptr(new Client(std::move(strand), std::move(userExecutor)));
+        return Ptr(new Client(std::move(exec)));
+    }
+
+    static Ptr create(const AnyIoExecutor& exec, AnyIoExecutor userExec)
+    {
+        return Ptr(new Client(exec, std::move(userExec)));
     }
 
     State state() const override {return Peer::state();}
@@ -910,9 +915,14 @@ private:
 
     using Peer::userExecutor;
 
-    Client(IoStrand strand, AnyIoExecutor userExecutor)
-        : Base(strand, std::move(userExecutor)),
-          timeoutScheduler_(CallerTimeoutScheduler::create(std::move(strand)))
+    Client(AnyIoExecutor exec)
+        : Base(std::move(exec)),
+          timeoutScheduler_(CallerTimeoutScheduler::create(Base::strand()))
+    {}
+
+    Client(const AnyIoExecutor& exec, AnyIoExecutor userExec)
+        : Base(exec, std::move(userExec)),
+          timeoutScheduler_(CallerTimeoutScheduler::create(Base::strand()))
     {}
 
     Ptr shared_from_this()

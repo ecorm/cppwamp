@@ -58,22 +58,22 @@ int main()
     std::thread thread([&ioctx](){ ioctx.run(); });
 
     auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
-    auto session = wamp::Session::create(ioctx);
+    wamp::Session session(ioctx);
 
     // get() blocks the main thread until completion.
     // value() throws if there was an error.
-    auto index = session->connect(std::move(tcp), use_future).get().value();
+    auto index = session.connect(std::move(tcp), use_future).get().value();
     std::cout << "Connected via " << index << std::endl;
 
-    auto info = session->join(wamp::Realm(realm), use_future).get().value();
+    auto info = session.join(wamp::Realm(realm), use_future).get().value();
     std::cout << "Joined, SessionId=" << info.id() << std::endl;
 
-    auto result = session->call(wamp::Rpc("get_time"),
+    auto result = session.call(wamp::Rpc("get_time"),
                                 use_future).get().value();
     auto time = result[0].to<std::tm>();
     std::cout << "The current time is: " << std::asctime(&time) << "\n";
 
-    session->subscribe(wamp::Topic("time_tick"),
+    session.subscribe(wamp::Topic("time_tick"),
                        wamp::simpleEvent<std::tm>(&onTimeTick),
                        use_future).get().value();
 

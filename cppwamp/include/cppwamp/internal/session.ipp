@@ -12,18 +12,20 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
+/** @copydetails Session(AnyIoExecutor) */
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
-    const AnyIoExecutor& exec /**< Executor from which Session will extract
-                                   a strand for its internal I/O operations */
+    AnyIoExecutor exec /**< Executor for internal I/O operations and as a
+                            fallback for user handlers. */
 )
 {
-    return Ptr(new Session(exec, exec));
+    return Ptr(new Session(std::move(exec)));
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
     const AnyIoExecutor& exec, /**< Executor from which Session will extract
-                                    a strand for its internal I/O operations */
+                                    a strand for its internal I/O operations. */
     AnyIoExecutor userExec     /**< Fallback executor to use for user
                                     handlers that have none bound. */
 )
@@ -36,6 +38,8 @@ CPPWAMP_INLINE Session::Ptr Session::create(
     The provided executor serves as a fallback when asynchronous operation
     handlers don't bind a specific executor (in lieu of using the system
     executor as fallback.
+    From the given connector, session will extract an execution strand for use
+    with its internal I/O operations.
     @post `session->state() == SessionState::disconnected`
     @return A shared pointer to the created session object. */
 //------------------------------------------------------------------------------
@@ -54,6 +58,8 @@ CPPWAMP_INLINE Session::Ptr Session::create(
     The provided executor serves as a fallback when asynchronous operation
     handlers don't bind a specific executor (in lieu of using the system
     executor as fallback.
+    From the given connectors, session will extract an execution strand for use
+    with its internal I/O operations.
     @pre `connectors.empty() == false`
     @post `session->state() == SessionState::disconnected`
     @return A shared pointer to the created Session object.
@@ -72,16 +78,26 @@ CPPWAMP_INLINE Session::Ptr Session::create(
 
 //------------------------------------------------------------------------------
 /** @details
-    The dictionary is structured as per `HELLO.Details.roles`, as desribed in
-    the ["Client: Role and Feature Announcement"][feature-announcement]
-    section of the advanced WAMP specification.
-
-    [feature-announcement]: https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.7.1.1.1 */
+    Session will extract a strand from the given executor for use with its
+    internal I/O operations. The given extractor also serves as the fallback
+    executor to use for user handlers that have none bound. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE const Object& Session::roles()
-{
-    return internal::ClientInterface::roles();
-}
+CPPWAMP_INLINE Session::Session(
+    AnyIoExecutor exec /**< Executor for internal I/O operations and as a
+                            fallback for user handlers. */
+)
+    : impl_(internal::Client::create(std::move(exec)))
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Session::Session(
+    const AnyIoExecutor& exec, /**< Executor from which Session will extract
+                                    a strand for its internal I/O operations */
+    AnyIoExecutor userExec     /**< Fallback executor to use for user handlers
+                                    that have none bound. */
+)
+    : impl_(internal::Client::create(exec, std::move(userExec)))
+{}
 
 //------------------------------------------------------------------------------
 /** @details
@@ -90,14 +106,28 @@ CPPWAMP_INLINE const Object& Session::roles()
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::~Session()
 {
-    // TODO: Make destructor non-virtual once CoroSession is removed
+    // CoroSession does not define a destructor, so ~Session does not need
+    // to be virtual.
     impl_->safeDisconnect();
+}
+
+//------------------------------------------------------------------------------
+/** @details
+    The dictionary is structured as per `HELLO.Details.roles`, as desribed in
+    the ["Client: Role and Feature Announcement"][1] section of the advanced
+    WAMP specification.
+
+    [1]: https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.7.1.1.1 */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE const Object& Session::roles()
+{
+    return internal::ClientInterface::roles();
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE const IoStrand& Session::strand() const
 {
-    return strand_;
+    return impl_->strand();
 }
 
 //------------------------------------------------------------------------------
@@ -432,18 +462,12 @@ CPPWAMP_INLINE void Session::cancel(
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Session::Session(const AnyIoExecutor& exec,
-                                AnyIoExecutor userExec)
-    : strand_(boost::asio::make_strand(exec)),
-      impl_(internal::Client::create(strand_, std::move(userExec)))
-{}
-
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Session(AnyIoExecutor userExec,
                                 ConnectorList connectors)
-    : strand_(boost::asio::make_strand(connectors.at(0).executor())),
-      legacyConnectors_(std::move(connectors)),
-      impl_(internal::Client::create(strand_, std::move(userExec)))
+    : legacyConnectors_(std::move(connectors)),
+      impl_(internal::Client::create(
+                boost::asio::make_strand(legacyConnectors_.at(0).executor()),
+                std::move(userExec)))
 {}
 
 } // namespace wamp
