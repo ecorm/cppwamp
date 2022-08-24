@@ -121,9 +121,9 @@ boost::asio::spawn(
     [&](boost::asio::yield_context yield)
     {
         auto tcp = wamp::TcpHost("localhost", 8001).withFormat(wamp::json);
-        auto session = wamp::Session::create(ioctx);
-        session->connect(tcp, yield).value();
-        auto sessionInfo = session->join(wamp::Realm("myrealm"), yield).value();
+        wamp::Session session(ioctx);
+        session.connect(tcp, yield).value();
+        auto sessionInfo = session.join(wamp::Realm("myrealm"), yield).value();
         std::cout << "Client joined. Session ID = "
                   << sessionInfo.id() << "\n";
         // etc.
@@ -137,17 +137,17 @@ boost::asio::spawn(ioctx,
     [&](boost::asio::yield_context yield)
     {
         :::
-        session->enroll(wamp::Procedure("add"),
-                        wamp::simpleRpc<int, int, int>(
-                            [](int n, int m) -> int {return n+m;}),
-                        yield).value();
+        session.enroll(wamp::Procedure("add"),
+                       wamp::simpleRpc<int, int, int>(
+                           [](int n, int m) -> int {return n+m;}),
+                       yield).value();
         :::
     });
 ```
 
 ### Calling a remote procedure
 ```c++
-auto result = session->call(wamp::Rpc("add").withArgs(2, 2), yield).value();
+auto result = session.call(wamp::Rpc("add").withArgs(2, 2), yield).value();
 std::cout << "2 + 2 is " << result[0].to<int>() << "\n";
 ```
 
@@ -163,9 +163,9 @@ boost::asio::spawn(
     [&](boost::asio::yield_context yield)
     {
         :::
-        session->subscribe(wamp::Topic("sensorSampled"),
-                           wamp::simpleEvent<float>(&sensorSampled),
-                           yield).value();
+        session.subscribe(wamp::Topic("sensorSampled"),
+                          wamp::simpleEvent<float>(&sensorSampled),
+                          yield).value();
         :::
     });
 ```
@@ -173,7 +173,7 @@ boost::asio::spawn(
 ### Publishing an event
 ```c++
 float value = std::rand() % 10;
-session->publish(wamp::Pub("sensorSampled").withArgs(value));
+session.publish(wamp::Pub("sensorSampled").withArgs(value));
 ```
 
 
@@ -186,7 +186,7 @@ class App : public std::enable_shared_from_this<App>
 { 
 public:
     App(wamp::AnyIoExecutor exec)
-        : session_(wamp::Session::create(std::move(exec)))
+        : session_(std::move(exec))
     {}
 
     void start(wamp::ConnectionWish where)
@@ -196,7 +196,7 @@ public:
         auto self = shared_from_this();
 
         // Perform the connection, then chain to the next operation.
-        session_->connect(
+        session_.connect(
             where,
             [this, self](wamp::ErrorOr<size_t> result)
             {
@@ -211,7 +211,7 @@ private:
     void onConnect()
     {
         auto self = shared_from_this();
-        session_->join(
+        session_.join(
             wamp::Realm("myrealm"),
             [this, self](wamp::ErrorOr<wamp::SessionInfo> info)
             {
@@ -226,7 +226,7 @@ private:
         // etc...
     }
 
-    wamp::Session::Ptr session_;
+    wamp::Session session_;
 };
 
 int main()
@@ -255,7 +255,7 @@ private:
     void onJoin(wamp::SessionInfo)
     {
         auto self = shared_from_this();
-        session_->enroll(
+        session_.enroll(
             wamp::Procedure("add"),
             wamp::simpleRpc<int, int, int>(&App::add),
             [this, self](wamp::ErrorOr<Registration> reg)
@@ -269,7 +269,7 @@ private:
         // etc
     }
 
-    wamp::Session::Ptr session_;
+    wamp::Session session_;
 };
 
 ```
@@ -288,7 +288,7 @@ private:
     void onJoin(wamp::SessionInfo info)
     {
         auto self = shared_from_this();
-        session_->call(
+        session_.call(
             wamp::Rpc("add").withArgs(2, 2),
             [this, self](wamp::ErrorOr<wamp::Result> sum)
             {
@@ -301,7 +301,7 @@ private:
         std::cout << "2 + 2 is " << result[0].to<int>() << "\n";
     }
 
-    wamp::Session::Ptr session_;
+    wamp::Session session_;
 };
 ```
 
@@ -324,7 +324,7 @@ private:
     void onJoin(wamp::SessionInfo info)
     {
         auto self = shared_from_this();
-        session_->subscribe(
+        session_.subscribe(
             wamp::Topic("sensorSampled"),
             wamp::simpleEvent<float>(&App::sensorSampled),
             [this, self](wamp::ErrorOr<wamp::Subscription> sub)
@@ -338,14 +338,14 @@ private:
         std::cout << "Subscribed, subscription ID = " << sub.id() << "\n";
     }
 
-    wamp::Session::Ptr session_;
+    wamp::Session session_;
 };
 ```
 
 ### Publishing an event
 ```c++
 float value = std::rand() % 10;
-session_->publish(wamp::Pub("sensorSampled").withArgs(value));
+session_.publish(wamp::Pub("sensorSampled").withArgs(value));
 ```
 
 

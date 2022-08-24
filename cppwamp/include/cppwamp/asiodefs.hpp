@@ -51,6 +51,9 @@ static constexpr bool isExecutionContext()
     return std::is_base_of<boost::asio::execution_context, T>::value;
 }
 
+// TODO: Utility header with aliases for boost::asio::spawn and
+// boost::asio::yield_context
+
 } // namespace wamp
 
 #endif // CPPWAMP_ASIODEFS_HPP

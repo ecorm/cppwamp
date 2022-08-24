@@ -80,7 +80,7 @@ class TimeClient : boost::asio::coroutine
 {
 public:
     explicit TimeClient(wamp::AnyIoExecutor exec, wamp::ConnectionWish where)
-        : session_(wamp::Session::create(std::move(exec))),
+        : session_(std::make_shared<wamp::Session>(std::move(exec))),
           where_(std::move(where))
     {}
 
@@ -113,7 +113,7 @@ public:
 private:
     // The session object must be stored as a shared pointer due to
     // TimeClient getting copied around.
-    wamp::Session::Ptr session_;
+    std::shared_ptr<wamp::Session> session_;
     wamp::ConnectionWish where_;
 };
 

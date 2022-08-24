@@ -83,7 +83,7 @@ class TimeService : boost::asio::coroutine
 {
 public:
     explicit TimeService(wamp::AnyIoExecutor exec, wamp::ConnectionWish where)
-        : session_(wamp::Session::create(exec)),
+        : session_(std::make_shared<wamp::Session>(exec)),
           timer_(std::make_shared<Timer>(std::move(exec))),
           where_(std::move(where))
     {}
@@ -141,7 +141,7 @@ private:
 
     // The session and timer objects must be stored as shared pointers
     // due to TimeService getting copied around.
-    wamp::Session::Ptr session_;
+    std::shared_ptr<wamp::Session> session_;
     std::shared_ptr<Timer> timer_;
     wamp::ConnectionWish where_;
     std::chrono::steady_clock::time_point deadline_;

@@ -40,7 +40,7 @@ CPPWAMP_INLINE Session::Ptr Session::create(
     executor as fallback.
     From the given connector, session will extract an execution strand for use
     with its internal I/O operations.
-    @post `session->state() == SessionState::disconnected`
+    @post `this->state() == SessionState::disconnected`
     @return A shared pointer to the created session object. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
@@ -61,7 +61,7 @@ CPPWAMP_INLINE Session::Ptr Session::create(
     From the given connectors, session will extract an execution strand for use
     with its internal I/O operations.
     @pre `connectors.empty() == false`
-    @post `session->state() == SessionState::disconnected`
+    @post `this->state() == SessionState::disconnected`
     @return A shared pointer to the created Session object.
     @throws error::Logic if `connectors.empty() == true` */
 //------------------------------------------------------------------------------

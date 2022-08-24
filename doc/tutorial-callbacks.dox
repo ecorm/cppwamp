@@ -24,18 +24,17 @@ handler functions:
 #include <cppwamp/session.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/tcp.hpp>
-using namespace wamp;
 
 int main()
 {
+    using namespace wamp;
     AsioContext ioctx;
-    auto tcp = connector<Json>(ioctx, TcpHost("localhost", 8001));
-
-    auto session = Session::create(ioctx, tcp);
+    Session session(ioctx);
+    auto tcp = TcpHost("localhost", 8001).withFormat(json);
 
     // Asynchronously connect to the router, using a lambda function for
     // the handler
-    session->connect( [](ErrorOr<size_t> result)
+    session.connect(std::move(tcp), [](ErrorOr<size_t> result)
     {
         // Obtain the result of the connect operation, which is the index of
         // the connector used to establish the transport connection.
@@ -49,13 +48,13 @@ int main()
 }
 ```
 
-Instead of letting wamp::ErrorOr::get throw an exception upon failure,
-@ref wamp::ErrorOr::operator bool() and wamp::ErrorOr::errorCode can be
+Instead of letting wamp::ErrorOr::value throw an exception upon failure,
+@ref wamp::ErrorOr::operator bool() and wamp::ErrorOr::error can be
 used to check the error status of an asynchronous operation:
 
 ```
 using namespace wamp;
-session->connect( [](ErrorOr<size_t> index)
+session.connect(std::move(tcp), [](ErrorOr<size_t> index)
 {
     if (index)
     {
@@ -73,29 +72,33 @@ The following example shows how to call member functions within asynchronous
 handlers, and how to chain one asynchronous operation after another:
 
 ```
-using namespace wamp;
+#include <cppwamp/session.hpp>
+#include <cppwamp/json.hpp>
+#include <cppwamp/tcp.hpp>
 
 class App
 {
 public:
-    explicit App(wamp::Connecting::Ptr connector)
-        : session_(wamp::Session::create(connector))
+    explicit App(boost::asio::io_context& ioctx)
+        : session_(ioctx)
     {}
 
-    void start()
+    void start(ConnectionWish where)
     {
-        session_->connect( [this](wamp::AsyncHandler<size_t> index)
-        {
-            index.value(); // throws if connection failed
-            this->join();
-        });
+        session_.connect(
+            std::move(where),
+            [this](wamp::ErrorOr<size_t> index)
+            {
+                index.value(); // throws if connection failed
+                this->join();
+            });
     }
 
 private:
     void join()
     {
-        session_->join(Realm("somerealm"),
-            [this](wamp::AsyncHandler<wamp::SessionInfo> info)
+        session_.join(Realm("somerealm"),
+            [this](wamp::ErrorOr<wamp::SessionInfo> info)
             {
                 sessionInfo_ = info.value(); // throws if join failed
                 // Continue with other asynchronous operations...
@@ -103,9 +106,18 @@ private:
         );
     }
 
-    wamp::Session::Ptr session_;
+    wamp::Session session_;
     wamp::SessionInfo sessionInfo_;
 };
+
+int main()
+{
+    using namespace wamp;
+    wamp::AsioContext ioctx;
+    App app(ioctx);
+    app.start(TcpHost{"localhost", 8001}.withFormat(json));
+    ioctx.run();
+}
 ```
 
 With this asynchronous style of programming, it is not immediately obvious how

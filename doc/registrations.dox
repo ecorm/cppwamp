@@ -90,17 +90,16 @@ int purchase(std::string item, int cost, int qty) { ... }
 
 The above slots can be registered as follows:
 ```
-session->enroll(Procedure("setSpeed"),
-                simpleRpc<void, float>(&setSpeed),
-                handler);
+session.enroll(Procedure("setSpeed"),
+               simpleRpc<void, float>(&setSpeed),
+               handler);
 
-session->enroll(Procedure("purchase"),
-                simpleRpc<int, std::string, int, int>(&purchase),
-                handler);
+session.enroll(Procedure("purchase"),
+               simpleRpc<int, std::string, int, int>(&purchase),
+               handler);
 ```
 
-where `handler` is the asynchronous handler (or coroutine yield context)
-for the **enroll operation itself**.
+where `handler` is the completion token for the **enroll operation itself**.
 
 Whenever a wamp::Session dispatches an RPC invocation to the above slots, it
 automatically unpacks the invocation payload positional arguments, and
@@ -149,17 +148,16 @@ int purchase(std::string item, int cost, int qty, Yield yield) { ... }
 
 The above slots can be registered as follows:
 ```
-session->enroll(Procedure("setSpeed"),
-                simpleCoroRpc<void, float>(&setSpeed),
-                handler);
+session.enroll(Procedure("setSpeed"),
+               simpleCoroRpc<void, float>(&setSpeed),
+               handler);
 
-session->enroll(Procedure("purchase"),
-                simpleCoroRpc<int, std::string, int, int>(&purchase),
-                handler);
+session.enroll(Procedure("purchase"),
+               simpleCoroRpc<int, std::string, int, int>(&purchase),
+               handler);
 ```
 
-where `handler` is the asynchronous handler (or coroutine yield context)
-for the **enroll operation itself**.
+where `handler` is the completion token for the **enroll operation itself**.
 
 Whenever a wamp::Session dispatches an RPC invocation to the above slots, it
 spawns a new coroutine to be executed on wamp::Session::userIosvc(). It then
@@ -214,13 +212,13 @@ Outcome purchase(Invocation inv, std::string item, int cost, int qty) { ... }
 
 The above slots can be registered as follows:
 ```
-session->enroll(Procedure("setSpeed"),
-                unpackedRpc<float>(&setSpeed),
-                handler);
+session.enroll(Procedure("setSpeed"),
+               unpackedRpc<float>(&setSpeed),
+               handler);
 
-session->enroll(Procedure("purchase"),
-                unpackedRpc<std::string, int, int>(&purchase),
-                handler);
+session.enroll(Procedure("purchase"),
+               unpackedRpc<std::string, int, int>(&purchase),
+               handler);
 ```
 
 where `handler` is the asynchronous handler (or coroutine yield context)
@@ -347,8 +345,8 @@ Outcome Client::addPerson(Invocation inv, Object person)
     boost::asio::spawn(inv.executor(),
         [this, inv](boost::asio::yield_context yield)
         {
-            auto dbResult = session_->call( Rpc("db.add").withArgs(person),
-                                            yield );
+            auto dbResult = session_.call( Rpc("db.add").withArgs(person),
+                                           yield );
             // Manually send the result back to the caller
             auto personId = dbResult[0].to<int>();
             inv.yield({personId});
@@ -380,14 +378,14 @@ using namespace wamp;
 class Service // One of several services using the same Session
 {
 public:
-    void start(Session::Ptr session)
+    void start(Session& session, boost::asio::yield_context yield)
     {
         // The session has already connected and joined when this is called.
 
-        auto r1 = session_->enroll(Procedure("sum"), &Service::sum,
-                                   yield).value();
-        auto r2 = session_->enroll(Procedure("prod"), &Service::prod,
-                                   yield).value();
+        auto r1 = session_.enroll(Procedure("sum"), &Service::sum,
+                                  yield).value();
+        auto r2 = session_.enroll(Procedure("prod"), &Service::prod,
+                                  yield).value();
 
         // Store scoped registrations in private member
         registrations_.push_back(r1);

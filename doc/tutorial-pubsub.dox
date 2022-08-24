@@ -12,9 +12,9 @@
 Publishing Events
 -----------------
 
-The session @ref wamp::Session::publish "publish" operation is used to
-publish events related to a topic. It takes a wamp::Pub object as a parameter,
-which contains the following information related to the publication:
+wamp::Session::publish operation is used to publish events related to a topic.
+It takes a wamp::Pub object as a parameter, which contains the following
+information related to the publication:
 
 - the topic URI to publish under,
 - positional wamp::Variant arguments, if applicable,
@@ -25,24 +25,38 @@ The follwing example uses a non-blocking publish, which enqueues the
 publication for transmission.
 
 ```
-using namespace wamp;
-boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+#include <boost/asio/spawn.hpp>
+#include <cppwamp/json.hpp>
+#include <cppwamp/session.hpp>
+#include <cppwamp/tcp.hpp>
+
+int main()
 {
-    auto session = Session::create(tcp);
-    session->connect(yield).value();
-    session->join(ioctx, "somerealm", yield).value();
+    using namespace wamp;
+    AsioContext ioctx;
+    Session session(ioctx);
 
-    // Publish a publication with no arguments
-    session->publish(Pub("topic"));
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    {
+        auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
+        session.connect(std::move(tcp), yield).value();
+        session.join(ioctx, "somerealm", yield).value();
 
-    // Publish a publication with two positional arguments
-    session->publish(Pub("topic").withArgs(12, "foo"));
+        // Publish a publication with no arguments
+        session.publish(Pub("topic"));
 
-    // Publish a publication with a single keyword argument.
-    // Also enable the 'disclose_me' advanced feature.
-    session->publish( Pub("topic").withKwargs({{"name", "John"}})
-                                  .withDiscloseMe() );
-});
+        // Publish a publication with two positional arguments
+        session.publish(Pub("topic").withArgs(12, "foo"));
+
+        // Publish a publication with a single keyword argument.
+        // Also enable the 'disclose_me' advanced feature.
+        session.publish( Pub("topic").withKwargs({{"name", "John"}})
+                                     .withDiscloseMe() );
+    });
+
+    ioctx.run();
+    return 0;
+}
 ```
 
 If you need to obtain the publication ID of a published event,
@@ -50,8 +64,8 @@ then you need to use the overload that takes a completion token:
 
 ```
 using namespace wamp;
-PublicationId pid = session->publish(Pub("topic").withArgs(12, "foo"),
-                                     yield).value();
+PublicationId pid = session.publish(Pub("topic").withArgs(12, "foo"),
+                                    yield).value();
 ```
 
 Event Slots
@@ -73,12 +87,13 @@ can be stored into a [`std::function`][stdfunction]:
 Subscribing to Events
 ---------------------
 
-@ref wamp::Session::subscribe "subscribe()" is used to register an event
-slot for a given topic:
+wamp::Session::subscribe is used to register an event slot for a given topic:
+
 ```
 using namespace wamp;
-Subscription sub = session->subscribe(Topic("name"), slot, yield);
+Subscription sub = session.subscribe(Topic("name"), slot, yield);
 ```
+
 where:
 - wamp::Subscription is a lightweight object that can be later used to
 unsubscribe from the event,
@@ -97,6 +112,12 @@ related to the event publication.
 
 Example:
 ```
+#include <boost/asio/spawn.hpp>
+#include <cppwamp/json.hpp>
+#include <cppwamp/session.hpp>
+#include <cppwamp/tcp.hpp>
+
+// The event slot
 void onSensorSampled(Event event)
 {
     float value = 0;
@@ -104,15 +125,31 @@ void onSensorSampled(Event event)
     std::cout << "Sensor sample value: " << value << "\n";
 }
 
-// Within coroutine
-using namespace wamp;
-auto sub = session->subscribe(
-    Topic("sensor.").usingPrefixMatch(),
-    &onSensorSampled,
-    yield).value();
-// :::
-// Unsubscribing
-sub.unsubscribe();
+int main()
+{
+    using namespace wamp;
+    AsioContext ioctx;
+    Session session(ioctx);
+
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    {
+        auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
+        session.connect(std::move(tcp), yield).value();
+        session.join(Realm("somerealm"), yield).value();
+
+        // Subscribing to events
+        auto sub = session.subscribe(
+            Topic("sensor.").usingPrefixMatch(),
+            &onSensorSampled,
+            yield).value();
+
+        // Unsubscribing
+        sub.unsubscribe();
+    });
+
+    ioctx.run();
+    return 0;
+}
 ```
 
 For a more in-depth discussion on subscriptions, consult the
@@ -130,7 +167,7 @@ function can be used:
 #include <cppwamp/unpacker.hpp>
 // :::
 using namespace wamp;
-Subscription sub = session->subscribe(
+Subscription sub = session.subscribe(
     Topic("name"),
     simpleEvent<StaticTypeList...>(slot),
     yield).value();
@@ -144,17 +181,39 @@ where:
 
 Example:
 ```
+#include <boost/asio/spawn.hpp>
+#include <cppwamp/json.hpp>
+#include <cppwamp/session.hpp>
+#include <cppwamp/tcp.hpp>
+
+// The event slot with static argument types
 void onSensorSampled(float value)
 {
     std::cout << "Sensor sample value: " << value << "\n";
 }
 
-// Within coroutine
-using namespace wamp;
-session->subscribe(Topic("sensorSampled"),
-                   simpleEvent<float>(&onSensorSampled), yield);
-//                            ^^^^^
-//         Note that this type matches the one in onSensorSampled
+int main()
+{
+    using namespace wamp;
+    AsioContext ioctx;
+    Session session(ioctx);
+
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    {
+        auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
+        session.connect(std::move(tcp), yield).value();
+        session.join(Realm("somerealm"), yield).value();
+
+        // Subscribing to an event with static types.
+        session.subscribe(Topic("sensorSampled"),
+                          simpleEvent<float>(&onSensorSampled), yield);
+        //                            ^^^^^
+        //         Note that this type matches the one in onSensorSampled
+    });
+
+    ioctx.run();
+    return 0;
+}
 ```
 
 When a statically-typed event handler needs the `wamp::Event` object, the
@@ -164,7 +223,7 @@ be used instead:
 #include <cppwamp/unpacker.hpp>
 // :::
 using namespace wamp;
-Subscription sub = session->subscribe(
+Subscription sub = session.subscribe(
     Topic("name"),
     unpackedEvent<StaticTypeList...>(slot),
     yield).value();
@@ -178,19 +237,41 @@ where:
 
 Example:
 ```
+#include <boost/asio/spawn.hpp>
+#include <cppwamp/json.hpp>
+#include <cppwamp/session.hpp>
+#include <cppwamp/tcp.hpp>
+
+// Event slot needing the Event object
 void onSensorSampled(Event event, float value)
 {
     std::cout << "Sensor sample value: " << value << "\n";
     std::cout << "Publication ID: " << event.pubId() << "\n";
 }
 
-// Within coroutine
-using namespace wamp;
-session->subscribe(Topic("sensorSampled"),
-                   unpackedEvent<float>(&onSensorSampled), yield);
-//                               ^^^^^
-//         Note that this type matches the one in onSensorSampled
-//         (following the Event parameter)
+int main()
+{
+    using namespace wamp;
+    AsioContext ioctx;
+    Session session(ioctx);
+
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    {
+        auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
+        session.connect(std::move(tcp), yield).value();
+        session.join(Realm("somerealm"), yield).value();
+
+        // Subscribe with an event slot requiring the Event object.
+        session.subscribe(Topic("sensorSampled"),
+                          unpackedEvent<float>(&onSensorSampled), yield);
+        //                              ^^^^^
+        //         Note that this type matches the one in onSensorSampled
+        //         (following the Event parameter)
+    });
+
+    ioctx.run();
+    return 0;
+}
 ```
 
 
@@ -204,17 +285,40 @@ the context of a coroutine, then
 be used:
 
 ```
-void sensorSampled(float value, boost::asio::yield_context yield)
-{
-    // Perform asynchronous operation within event handler
-    session->call(Rpc("log.append").withArgs(value), yield).value();
-}
+#include <boost/asio/spawn.hpp>
+#include <cppwamp/json.hpp>
+#include <cppwamp/session.hpp>
+#include <cppwamp/tcp.hpp>
 
-// Within coroutine
-using namespace wamp;
-session->subscribe(Topic("sensor_sampled"),
-                   simpleCoroEvent<float>(&sensorSampled),
-                   yield).value();
+int main()
+{
+    using namespace wamp;
+    AsioContext ioctx;
+    Session session(ioctx);
+
+    // Event slot needing a coroutine context.
+    auto sensorSampled =
+        [&session](float value, boost::asio::yield_context yield)
+        {
+            // Perform asynchronous operations within event handler
+            session.call(Rpc("log.append").withArgs(value), yield).value();
+        }
+
+    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    {
+        auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
+        session.connect(std::move(tcp), yield).value();
+        session.join(Realm("somerealm"), yield).value();
+
+        // Subscribe with a coroutine event handler.
+        session.subscribe(Topic("sensor_sampled"),
+                          simpleCoroEvent<float>(sensorSampled),
+                          yield).value();
+    });
+
+    ioctx.run();
+    return 0;
+}
 ```
 
 @note This will spawn a new coroutine every time the event handler is invoked.
@@ -234,7 +338,7 @@ techniques.
 using namespace wamp;
 
 {
-    ScopedSubscription sub = session->subscribe(Topic("foo"), &onFoo, yield);
+    ScopedSubscription sub = session.subscribe(Topic("foo"), &onFoo, yield);
 }
 // The "foo" is automatically unsubscribed when the 'sub' scoped subscription
 // goes out of scope here.

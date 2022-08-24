@@ -10,7 +10,7 @@ set(CPPWAMP_DOCUMENTS
     registrations.dox
     subscriptions.dox
     tutorial-variants.dox
-    tutorial-connectors.dox
+    tutorial-connections.dox
     tutorial-sessions.dox
     tutorial-errors.dox
     tutorial-rpc.dox
