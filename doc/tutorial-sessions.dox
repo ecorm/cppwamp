@@ -257,7 +257,7 @@ int main()
 Terminating
 -----------
 
-wamp::Session::reset may be used to terminate all operations abruptly, while
+wamp::Session::terminate may be used to terminate all operations abruptly, while
 prohibiting the execution of any pending completion handlers. This may be useful
 when an application needs to terminate quickly and cannot prolong the lifetime
 of any pending completion handlers.

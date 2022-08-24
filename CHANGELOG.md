@@ -2,6 +2,8 @@ v0.11.0
 =======
 Polymorphic codecs and transports.
 
+- Session is now a move-only type that can be instantiated on the stack.
+- Deprecated `Session::create`.
 - Added `ConnectionWish` and `ConnectionWishList` which should now be used
   in place of the old `Connection` and `ConnectionList` classes.
 - Passing `ConnectionWish` and `ConnectionWishList` via `Session::connect` is
@@ -18,9 +20,11 @@ Polymorphic codecs and transports.
   of failing.
 - Added `Session::ongoingCall` for progressive call results, which
   automatically applies `rpc.withProgessiveResults(true)`.
+- Renamed `Session::reset` to `Session::terminate`, leaving the former as
+  a deprecated alias.
 - Handlers registered via `Session`'s `setWarningHandler`, `setTraceHandler`,
   and `setStateChangeHandler` will no longer be fired after
-  `Session::tenminate` is called and before `Session::connect` is called.
+  `Session::terminate` is called and before `Session::connect` is called.
 
 Implementation improvements:
 
@@ -48,10 +52,13 @@ Implementation improvements:
   
 ### Migration Guide
 
+- Replace `Session::create(args...)` with std::make_shared<Session>(args...),
+  or instantiate Session as a stack or member variable.
 - Replace `connection<TCodec>(TcpHost)` with `TcpHost::withFormat`.
   E.g.: `wamp::TcpHost{"localhost", 12345}.withFormat(wamp::json)`
 - Replace `Session::call` with `Session::ongoingCall` when progressive results
   are desired.
+- Replace `Session::reset` with `Session::terminate`.
 - Manually call `Session::terminate` before a `Session` is destroyed if you
   must suppress the execution of pending completion handlers.
 

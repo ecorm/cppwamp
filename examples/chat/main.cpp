@@ -96,7 +96,7 @@ public:
     {
         subscription_.unsubscribe();
         session_.leave(wamp::Reason(), yield).value();
-        session_.reset();
+        session_.disconnect();
     }
 
     void say(const std::string& message, Yield yield)

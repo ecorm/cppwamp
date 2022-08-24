@@ -648,7 +648,7 @@ GIVEN( "a Session and a ConnectionWish" )
             CHECK( ec == TransportErrc::aborted );
 
             // Check that we can reconnect.
-            s.reset();
+            s.disconnect();
             ec.clear();
             bool connected = false;
             s.connect(where, [&](ErrorOr<size_t> result)
@@ -698,7 +698,7 @@ GIVEN( "a Session and a ConnectionWish" )
                                  SS::establishing, SS::disconnected}, ioctx) );
     }
 
-    WHEN( "resetting during connect" )
+    WHEN( "terminating during connect" )
     {
         bool handlerWasInvoked = false;
         // TODO: Remove if not needed: REQUIRE( changes.empty() );
@@ -706,7 +706,7 @@ GIVEN( "a Session and a ConnectionWish" )
         {
             handlerWasInvoked = true;
         });
-        s.reset();
+        s.terminate();
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
@@ -714,7 +714,7 @@ GIVEN( "a Session and a ConnectionWish" )
         CHECK( s.state() == SS::disconnected );
     }
 
-    WHEN( "resetting during join" )
+    WHEN( "terminating during join" )
     {
         bool handlerWasInvoked = false;
         s.connect(where, [&](ErrorOr<size_t>)
@@ -723,7 +723,7 @@ GIVEN( "a Session and a ConnectionWish" )
             {
                 handlerWasInvoked = true;
             });
-            s.reset();
+            s.terminate();
         });
         ioctx.run();
 
@@ -1008,8 +1008,10 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.join(yield);
             f.subscribe(yield);
 
-            // Destroy the subscriber session
-            f.subscriber.reset();
+            // Move and destroy f.subscriber.impl_
+            {
+                Session temp{std::move(f.subscriber)};
+            }
 
             // Unsubscribe the dynamic subscription manually.
             REQUIRE_NOTHROW( f.dynamicSub.unsubscribe() );
@@ -1119,8 +1121,10 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.join(yield);
             f.subscribe(yield);
 
-            // Destroy the subscriber
-            f.subscriber.reset();
+            // Move and destroy f.subscriber.impl_
+            {
+                Session temp{std::move(f.subscriber)};
+            }
 
             // Unsubscribe the static subscription via RAII.
             REQUIRE_NOTHROW( f.staticSub = ScopedSubscription() );
@@ -1379,8 +1383,10 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.join(yield);
             f.enroll(yield);
 
-            // Destroy the callee session
-            f.callee.reset();
+            // Move and destroy f.callee.impl_
+            {
+                Session temp{std::move(f.callee)};
+            }
 
             // Manually unregister a RPC.
             REQUIRE_NOTHROW( f.dynamicReg.unregister() );
@@ -1478,8 +1484,10 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.join(yield);
             f.enroll(yield);
 
-            // Destroy the callee.
-            f.callee.reset();
+            // Move and destroy f.callee.impl_
+            {
+                Session temp{std::move(f.callee)};
+            }
 
             // Unregister an RPC via RAII.
             REQUIRE_NOTHROW( f.staticReg = ScopedRegistration() );

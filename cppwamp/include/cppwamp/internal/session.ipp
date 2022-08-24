@@ -294,13 +294,29 @@ CPPWAMP_INLINE void Session::disconnect(ThreadSafe)
           be fired again until the commencement of the next connect operation.
     @post `this->state() == SessionState::disconnected` */
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::terminate()
+{
+    impl_->terminate();
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::terminate */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::terminate(ThreadSafe)
+{
+    impl_->safeTerminate();
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::terminate */
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::reset()
 {
     impl_->terminate();
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::reset */
+/** @copydetails Session::terminate */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::reset(ThreadSafe)
 {

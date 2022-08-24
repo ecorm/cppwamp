@@ -392,10 +392,15 @@ public:
     void disconnect(ThreadSafe);
 
     /** Terminates the transport connection between the client and router. */
-    // TODO: Rename to terminate
-    void reset();
+    void terminate();
 
     /** Thread-safe reset. */
+    void terminate(ThreadSafe);
+
+    /** @deprecated Use Session::terminate instead. */
+    void reset();
+
+    /** @deprecated Use Session::terminate instead. */
     void reset(ThreadSafe);
     /// @}
 
