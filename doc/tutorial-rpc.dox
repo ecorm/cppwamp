@@ -25,9 +25,9 @@ If successful, `call` emits a wamp::Result object via the completion handler.
 `Result` contains the result payload and other details returned by the callee.
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -36,7 +36,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -110,9 +110,9 @@ related to the RPC invocation.
 
 Example:
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 wamp::Outcome addToCart(wamp::Invocation inv)
@@ -131,7 +131,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -187,9 +187,9 @@ where:
 
 Example:
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 float sum(float x, float y)
@@ -203,7 +203,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -243,9 +243,9 @@ where:
 
 Example:
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 Outcome sum(Invocation inv, float x, float y)
@@ -259,7 +259,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -288,9 +288,9 @@ within the context of a coroutine, then
 be used:
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -300,15 +300,14 @@ int main()
     Session session(ioctx);
 
     auto getName =
-        [&session](std::string id,
-                   boost::asio::yield_context yield) -> std::string
+        [&session](std::string id, YieldContext yield) -> std::string
         {
             // Perform asynchronous operation within RPC handler
             auto result = session.call(Rpc("db.lookup").withArgs(id), yield);
             return result.kwargs["name"];
         };
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -392,9 +391,9 @@ When calling an RPC, `ERROR` messages returned by the caller can be captured
 via the `wamp::Rpc::captureError` option:
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -403,7 +402,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -473,10 +472,10 @@ method.
 Example interruptible callee:
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -492,7 +491,7 @@ int main()
     // The call slot
     auto delayedEcho =
         [&ioctx, &timers](std::string message,
-                          boost::asio::yield_context yield) -> std::string
+                          YieldContext yield) -> std::string
         {
             int seconds;
             inv.convertTo(message, seconds);
@@ -515,7 +514,7 @@ int main()
             found->second->cancel();
     }
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -538,10 +537,10 @@ int main()
 
 Example caller issuing a call cancellation via wamp::CallChit:
 ```
-#include <boost/asio/spawn.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -550,7 +549,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -586,10 +585,10 @@ Example caller issuing a call cancellation via a
 (https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/cancellation_signal.html)
 ```
 #include <boost/asio/cancellation_signal.hpp>
-#include <boost/asio/spawn.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -598,7 +597,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -687,10 +686,10 @@ The following example shows a callee registering an RPC that yields
 progressive results at fixed time intervals:
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 using namespace wamp;
@@ -703,9 +702,9 @@ Outcome countdown(Invocation inv)
     unsigned count = 0;
     inv.convertTo(count);
 
-    boost::asio::spawn(
+    spawn(
         inv.executor(),
-        [inv, &count](boost::asio::yield_context yield)
+        [inv, &count](YieldContext yield)
         {
             boost::asio::steady_timer timer(inv.executor());
             auto deadline = std::chrono::steady_clock::now();
@@ -750,7 +749,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -773,9 +772,9 @@ The following example shows a caller that calls the RPC from the previous
 example:
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -784,7 +783,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();

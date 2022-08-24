@@ -116,12 +116,12 @@ documentation._
 ### Establishing a WAMP session
 ```c++
 wamp::AsioContext ioctx;
-boost::asio::spawn(
+wamp::Session session(ioctx);
+wamp::spawn(
     ioctx,
-    [&](boost::asio::yield_context yield)
+    [&](wamp::YieldContext yield)
     {
         auto tcp = wamp::TcpHost("localhost", 8001).withFormat(wamp::json);
-        wamp::Session session(ioctx);
         session.connect(tcp, yield).value();
         auto sessionInfo = session.join(wamp::Realm("myrealm"), yield).value();
         std::cout << "Client joined. Session ID = "
@@ -133,8 +133,9 @@ ioctx.run();
 
 ### Registering a remote procedure
 ```c++
-boost::asio::spawn(ioctx,
-    [&](boost::asio::yield_context yield)
+wamp::spawn(
+    ioctx,
+    [&](wamp::YieldContext yield)
     {
         :::
         session.enroll(wamp::Procedure("add"),
@@ -158,9 +159,9 @@ void sensorSampled(float value)
     std::cout << "Sensor sampled, value = " << value << "\n";
 }
 
-boost::asio::spawn(
+wamp::spawn(
     ioctx,
-    [&](boost::asio::yield_context yield)
+    [&](wamp::YieldContext yield)
     {
         :::
         session.subscribe(wamp::Topic("sensorSampled"),

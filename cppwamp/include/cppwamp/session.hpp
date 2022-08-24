@@ -123,7 +123,7 @@ public:
         Token Type                   | Deduced Return Type
         ---------------------------- | -------------------
         Callback function            | `void`
-        `boost::asio::yield_context` | `ErrorOr<Value>`
+        `wamp::YieldContext`         | `ErrorOr<Value>`
         `boost::asio::use_awaitable` | An awaitable yielding `ErrorOr<Value>`
         `boost::asio::use_future`    | `std::future<ErrorOr<Value>>` */
     template <typename T, typename C>

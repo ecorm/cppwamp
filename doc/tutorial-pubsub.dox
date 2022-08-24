@@ -25,9 +25,9 @@ The follwing example uses a non-blocking publish, which enqueues the
 publication for transmission.
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -36,7 +36,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -112,9 +112,9 @@ related to the event publication.
 
 Example:
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 // The event slot
@@ -131,7 +131,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -181,9 +181,9 @@ where:
 
 Example:
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 // The event slot with static argument types
@@ -198,7 +198,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -237,9 +237,9 @@ where:
 
 Example:
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 // Event slot needing the Event object
@@ -255,7 +255,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -285,9 +285,9 @@ the context of a coroutine, then
 be used:
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -298,13 +298,13 @@ int main()
 
     // Event slot needing a coroutine context.
     auto sensorSampled =
-        [&session](float value, boost::asio::yield_context yield)
+        [&session](float value, YieldContext yield)
         {
             // Perform asynchronous operations within event handler
             session.call(Rpc("log.append").withArgs(value), yield).value();
         }
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();

@@ -25,6 +25,8 @@ Polymorphic codecs and transports.
 - Handlers registered via `Session`'s `setWarningHandler`, `setTraceHandler`,
   and `setStateChangeHandler` will no longer be fired after
   `Session::terminate` is called and before `Session::connect` is called.
+- Added wamp::spawn and wamp::yield_context in <cppwamp/spawn.hpp>, which are
+  aliases to their Boost.Asio counterparts.
 
 Implementation improvements:
 

@@ -49,7 +49,7 @@ be used with the library:
 | [Unpacked Event Slot](@ref UnpackedEventSlots)                    | `wamp::unpackedEvent<TArgs...>`     | `void function(Event, TArgs...)`        |
 | [Unpacked Coroutine Event Slot](@ref UnpackedCoroutineEventSlots) | `wamp::unpackedCoroEvent<TArgs...>` | `void function(Event, TArgs..., Yield)` |
 
-where `Yield` represents the type `boost::asio::yield_context`.
+where `Yield` represents the type `wamp::BasicYieldContext<E>`.
 
 @section SimpleEventSlots Simple Event Slots
 
@@ -112,22 +112,20 @@ passed to wamp::Session::subscribe.
 `wamp::simpleCoroEvent` expects an event slot with the following signature:
 
 ```
-void function(TArgs..., boost::asio::yield_context)
+void function(TArgs..., wamp::BasicYieldContext<E>)
 ```
 where
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::simpleEvent`.
-- `boost::asio::yield_context` represents the event handler's coroutine context.
+- `wamp::BasicYieldContext<E>` represents the event handler's coroutine context.
 
 Examples of simple coroutine event slots are:
 ```
-using Yield = boost::asio::yield_context;
-
-void onSensorSampled(float value, Yield yield) { ... }
+void onSensorSampled(float value, YieldContext yield) { ... }
 //                     ^
 //                    TArgs
 
-void onPurchase(std::string item, int cost, int qty, Yield yield) { ... }
+void onPurchase(std::string item, int cost, int qty, YieldContext yield) { ... }
 //                      ^          ^          ^
 //                      \----------|----------/
 //                               TArgs
@@ -220,14 +218,14 @@ registering such event slots.
 `wamp::unpackedCoroEvent` expects an event slot with the following signature:
 
 ```
-void function(wamp::Event, TArgs..., boost::asio::yield_context)
+void function(wamp::Event, TArgs..., wamp::BasicYieldContext<E>)
 ```
 where
 - wamp::Event is an object containing information and payload arguments related
   to the publication, and,
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::unpackedEvent`.
-- `boost::asio::yield_context` represents the event handler's coroutine context.
+- `wamp::BasicYieldContext<E>` represents the event handler's coroutine context.
 
 
 @section ScopedSubscriptions Scoped Subscriptions
@@ -248,7 +246,7 @@ using namespace wamp;
 class Observer // One of several classes using the same Session
 {
 public:
-    void start(Session& session, boost::asio::yield_context yield)
+    void start(Session& session, YieldContext yield)
     {
         // The session has already connected and joined when this is called.
 

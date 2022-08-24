@@ -57,17 +57,17 @@ a synchronous manner. Due to the ease in following the logic, the following
 tutorial pages will make use of stackful couroutines. Using asynchronous
 callbacks is covered in @ref AsyncCallbacksTutorial.
 
-[boost::asio::spawn][2] is used to launch stackful coroutines. `spawn`
-passes a [boost::asio::yield_context][3] to the coroutine, which can
-thereafter be used as the completion token for `Session`'s asynchronous
-operations.
+wamp::spawn (which is an alias of [boost::asio::spawn][2]) is used to launch
+stackful coroutines. `spawn` passes a wamp::YieldContext (which is an alias
+of [boost::asio::yield_context][3]) to the coroutine, which can thereafter be
+used as the completion token for `Session`'s asynchronous operations.
 
-When passing a `yield_context` to a `Session` asynchronous operation, the
+When passing a `YieldContext` to a `Session` asynchronous operation, the
 operation will block within the coroutine until it is completed or fails.
 While the operation is blocking, control is yielded to other pending
 asynchronous operations via the I/O context.
 
-When passed a `yield_context`, the `ErrorOr` result of a `Session` operation
+When passed a `YieldContext`, the `ErrorOr` result of a `Session` operation
 is returned directly by the member function's return value.
 
 [1]: https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/composition/spawn.html
@@ -130,9 +130,9 @@ The following example shows how to spawn a coroutine, and how the
 operations.
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -141,7 +141,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -179,9 +179,9 @@ To gracefully end a WAMP session, the @ref wamp::Session::leave "leave" and
 @ref wamp::Session::disconnect "disconnect" operations are used:
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -190,7 +190,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
@@ -222,9 +222,9 @@ your session leaving. This may be useful when handling error conditions where
 further attempts to communicate are futile.
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -232,7 +232,7 @@ int main()
     using namespace wamp;
     AsioContext ioctx;
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         Session session(ioctx);
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
@@ -347,9 +347,9 @@ desired/supported authentication methods via wamp::Realm::withAuthMethods.
 The following example shows how to perform ticket authentication.
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -370,7 +370,7 @@ int main()
     Session session(ioctx);
     session.setChallengeHandler(onChallenge);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         ticket = "guest";
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
@@ -397,12 +397,12 @@ for example, to attempt reconnection when the session is disconnected due to a
 network failure.
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
-void rejoinSession(Session& session, boost::asio::yield_context yield)
+void rejoinSession(Session& session, wamp::YieldContext yield)
 {
     auto tcp = wamp::TcpHost{"localhost", 8001}.withFormat(wamp::json);
     session.connect(std::move(tcp), yield).value();
@@ -414,13 +414,14 @@ void onStateChange(wamp::SessionState state, Session& session)
 {
     if (state == wamp::SessionState::failed)
     {
-        boost::asio::spawn(session.userExecutor(),
-                           [session](boost::asio::yield_context yield)
-        {
-            // You may want to throttle and limit the reconnection
-            // attempts here.
-            rejoinSession(session, yield);
-        });
+        wamp::spawn(
+            session.userExecutor(),
+            [session](wamp::YieldContext yield)
+            {
+                // You may want to throttle and limit the reconnection
+                // attempts here.
+                rejoinSession(session, yield);
+            });
     }
 }
 
@@ -432,7 +433,7 @@ int main()
     session.setStateChangeHandler(
         [&session](SessionState state) { onStateChange(state, session); });
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         rejoinSession(session, yield);
        // etc.

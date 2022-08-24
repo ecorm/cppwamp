@@ -9,8 +9,8 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Common type definitions used by transports
-           that rely on Boost.Asio. */
+    @brief Commonly used Boost.Asio type aliases.
+    @see <cppwamp/spawn.hpp> */
 //------------------------------------------------------------------------------
 
 #include <type_traits>
@@ -31,7 +31,7 @@ using AnyIoExecutor = boost::asio::any_io_executor;
 using AnyExecutor CPPWAMP_DEPRECATED = AnyIoExecutor;
 
 /** Queues and runs I/O completion handlers. */
-using AsioContext = boost::asio::io_context;
+using AsioContext = boost::asio::io_context; // TODO: Rename to IoContext
 
 /** Alias of AsioContext kept for backward compatibility.
     @deprecated Use wamp::AsioContext instead. */
@@ -41,7 +41,7 @@ using AsioService CPPWAMP_DEPRECATED = AsioContext;
 using IoStrand = boost::asio::strand<AnyIoExecutor>;
 
 /** Type used by Boost.Asio for reporting errors. */
-using AsioErrorCode = boost::system::error_code;
+using AsioErrorCode = boost::system::error_code; // TODO: Remove
 
 /** Metafunction that determines if T meets the requirements of
     Boost.Asio's ExecutionContext. */
@@ -50,9 +50,6 @@ static constexpr bool isExecutionContext()
 {
     return std::is_base_of<boost::asio::execution_context, T>::value;
 }
-
-// TODO: Utility header with aliases for boost::asio::spawn and
-// boost::asio::yield_context
 
 } // namespace wamp
 

@@ -30,9 +30,9 @@ derives from [`std::system_error`][system_error], it contains a
 Example where `ErrorOr` is manually checked:
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -41,7 +41,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         auto index = session.connect(std::move(tcp), yield);
@@ -69,9 +69,9 @@ int main()
 Example where `ErrorOr::value` is allowed to throw exceptions:
 
 ```
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 int main()
@@ -80,7 +80,7 @@ int main()
     AsioContext ioctx;
     Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         try
         {

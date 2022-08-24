@@ -18,6 +18,7 @@
 #include <cppwamp/json.hpp>
 #include <cppwamp/msgpack.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 
@@ -45,7 +46,7 @@ const auto alternateTcp = TcpHost("localhost", validPort).withFormat(msgpack);
 #endif
 
 //------------------------------------------------------------------------------
-void suspendCoro(boost::asio::yield_context& yield)
+void suspendCoro(YieldContext& yield)
 {
     auto exec = boost::asio::get_associated_executor(yield);
     boost::asio::post(exec, yield);
@@ -64,7 +65,7 @@ struct PubSubFixture
           otherSubscriber(ioctx)
     {}
 
-    void join(boost::asio::yield_context yield)
+    void join(YieldContext yield)
     {
         publisher.connect(where, yield).value();
         publisher.join(Realm(testRealm), yield).value();
@@ -74,7 +75,7 @@ struct PubSubFixture
         otherSubscriber.join(Realm(testRealm), yield).value();
     }
 
-    void subscribe(boost::asio::yield_context yield)
+    void subscribe(YieldContext yield)
     {
         using namespace std::placeholders;
         dynamicSub = subscriber.subscribe(
@@ -150,7 +151,7 @@ struct RpcFixture
           callee(ioctx)
     {}
 
-    void join(boost::asio::yield_context yield)
+    void join(YieldContext yield)
     {
         caller.connect(where, yield).value();
         caller.join(Realm(testRealm), yield).value();
@@ -158,7 +159,7 @@ struct RpcFixture
         callee.join(Realm(testRealm), yield).value();
     }
 
-    void enroll(boost::asio::yield_context yield)
+    void enroll(YieldContext yield)
     {
         using namespace std::placeholders;
         dynamicReg = callee.enroll(
@@ -212,7 +213,7 @@ void checkInvalidUri(TDelegate&& delegate, bool joined = true)
 {
     AsioContext ioctx;
     Session session(ioctx);
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         session.connect(withTcp, yield).value();
         if (joined)
@@ -237,7 +238,7 @@ void checkDisconnect(TDelegate&& delegate)
     ErrorOr<TResult> result;
     AsioContext ioctx;
     Session session(ioctx);
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         session.connect(withTcp, yield).value();
         delegate(session, yield, completed, result);
@@ -252,14 +253,14 @@ void checkDisconnect(TDelegate&& delegate)
 }
 
 //------------------------------------------------------------------------------
-void checkInvalidConnect(Session& session, boost::asio::yield_context yield)
+void checkInvalidConnect(Session& session, YieldContext yield)
 {
     auto index = session.connect(withTcp, yield);
     CHECK( index == makeUnexpected(SessionErrc::invalidState) );
     CHECK_THROWS_AS( index.value(), error::Failure );
 }
 
-void checkInvalidJoin(Session& session, boost::asio::yield_context yield)
+void checkInvalidJoin(Session& session, YieldContext yield)
 {
     auto info = session.join(Realm(testRealm), yield);
     CHECK( info == makeUnexpected(SessionErrc::invalidState) );
@@ -267,8 +268,7 @@ void checkInvalidJoin(Session& session, boost::asio::yield_context yield)
                      error::Failure );
 }
 
-void checkInvalidAuthenticate(Session& session,
-                              boost::asio::yield_context yield)
+void checkInvalidAuthenticate(Session& session, YieldContext yield)
 {
     std::string warning;
     auto exec = boost::asio::get_associated_executor(yield);
@@ -287,14 +287,14 @@ void checkInvalidAuthenticate(Session& session,
     CHECK_FALSE( warning.empty() );
 }
 
-void checkInvalidLeave(Session& session, boost::asio::yield_context yield)
+void checkInvalidLeave(Session& session, YieldContext yield)
 {
     auto reason = session.leave(yield);
     CHECK( reason == makeUnexpected(SessionErrc::invalidState) );
     CHECK_THROWS_AS( reason.value(), error::Failure );
 }
 
-void checkInvalidOps(Session& session, boost::asio::yield_context yield)
+void checkInvalidOps(Session& session, YieldContext yield)
 {
     std::string warning;
     int tries= 0;
@@ -368,8 +368,7 @@ struct StateChangeListener
 
     bool empty() const {return changes().empty();}
 
-    bool check(const std::vector<SessionState>& expected,
-               boost::asio::yield_context yield)
+    bool check(const std::vector<SessionState>& expected, YieldContext yield)
     {
         int triesLeft = 1000;
         while (triesLeft > 0)
@@ -384,8 +383,7 @@ struct StateChangeListener
     };
 
     bool check(const Session& session,
-               const std::vector<SessionState>& expected,
-               boost::asio::yield_context yield)
+               const std::vector<SessionState>& expected, YieldContext yield)
     {
         int triesLeft = 1000;
         while (triesLeft > 0)
@@ -465,7 +463,7 @@ GIVEN( "a Session and a ConnectionWish" )
 
     WHEN( "connecting and disconnecting" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             {
                 // Connect and disconnect a session
@@ -506,7 +504,7 @@ GIVEN( "a Session and a ConnectionWish" )
 
     WHEN( "joining and leaving" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             s.connect(where, yield).value();
             CHECK( s.state() == SessionState::closed );
@@ -565,7 +563,7 @@ GIVEN( "a Session and a ConnectionWish" )
 
     WHEN( "connecting, joining, leaving, and disconnecting" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             {
                 // Connect
@@ -669,7 +667,7 @@ GIVEN( "a Session and a ConnectionWish" )
     {
         std::error_code ec;
         bool connected = false;
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             try
             {
@@ -683,7 +681,7 @@ GIVEN( "a Session and a ConnectionWish" )
             }
         });
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             while (s.state() != SS::establishing)
                 suspendCoro(yield);
@@ -764,7 +762,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
 
     WHEN( "joining and leaving" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             s.connect(where, yield).value();
             CHECK( s.state() == SessionState::closed );
@@ -829,7 +827,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "publishing and subscribing" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             PublicationId pid = 0;
             PubSubFixture f(ioctx, where);
@@ -919,7 +917,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "subscribing simple events" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             PubSubFixture f(ioctx, where);
             f.join(yield);
@@ -952,7 +950,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "unsubscribing multiple times" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             PublicationId pid = 0;
             PubSubFixture f(ioctx, where);
@@ -1000,7 +998,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "unsubscribing after session is destroyed" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             PublicationId pid = 0;
             PubSubFixture f(ioctx, where);
@@ -1037,7 +1035,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "unsubscribing after leaving" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             PublicationId pid = 0;
             PubSubFixture f(ioctx, where);
@@ -1075,7 +1073,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "unsubscribing after disconnecting" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             PublicationId pid = 0;
             PubSubFixture f(ioctx, where);
@@ -1113,7 +1111,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "unsubscribing after reset" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             PublicationId pid = 0;
             PubSubFixture f(ioctx, where);
@@ -1147,7 +1145,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "moving a ScopedSubscription" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             PubSubFixture f(ioctx, where);
             f.join(yield);
@@ -1213,7 +1211,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "calling remote procedures taking dynamically-typed args" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             RpcFixture f(ioctx, where);
             f.join(yield);
@@ -1261,7 +1259,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "calling remote procedures taking statically-typed args" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             RpcFixture f(ioctx, where);
             f.join(yield);
@@ -1308,7 +1306,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "calling simple remote procedures" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             RpcFixture f(ioctx, where);
             f.join(yield);
@@ -1376,7 +1374,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "unregistering after a session is destroyed" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             RpcFixture f(ioctx, where);
             f.join(yield);
@@ -1409,7 +1407,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "unregistering after leaving" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             RpcFixture f(ioctx, where);
             f.join(yield);
@@ -1443,7 +1441,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "unregistering after disconnecting" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             RpcFixture f(ioctx, where);
             f.join(yield);
@@ -1477,7 +1475,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "unregistering after reset" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             RpcFixture f(ioctx, where);
             f.join(yield);
@@ -1506,7 +1504,7 @@ GIVEN( "an IO service and a ConnectionWish" )
     }
     WHEN( "moving a ScopedRegistration" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             RpcFixture f(ioctx, where);
             f.join(yield);
@@ -1553,8 +1551,6 @@ SCENARIO( "Nested WAMP RPCs and Events", "[WAMP][Basic]" )
 {
 GIVEN( "these test fixture objects" )
 {
-    using Yield = boost::asio::yield_context;
-
     AsioContext ioctx;
     const auto where = withTcp;
     Session session1(ioctx);
@@ -1571,7 +1567,7 @@ GIVEN( "these test fixture objects" )
     WHEN( "calling remote procedures within an invocation" )
     {
         auto uppercat = [&session2](std::string str1, std::string str2,
-                                    boost::asio::yield_context yield) -> String
+                                    YieldContext yield) -> String
         {
             auto upper1 = session2.call(
                     Rpc("upperify").withArgs(str1), yield).value();
@@ -1580,7 +1576,7 @@ GIVEN( "these test fixture objects" )
             return upper1[0].to<std::string>() + upper2[0].to<std::string>();
         };
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             session1.connect(where, yield).value();
             session1.join(Realm(testRealm), yield).value();
@@ -1614,15 +1610,14 @@ GIVEN( "these test fixture objects" )
 
         std::string upperized;
         auto onEvent =
-            [&upperized, &subscriber](std::string str,
-                                      boost::asio::yield_context yield)
+            [&upperized, &subscriber](std::string str, YieldContext yield)
             {
                 auto result = subscriber.call(Rpc("upperify").withArgs(str),
                                                yield).value();
                 upperized = result[0].to<std::string>();
             };
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             callee.connect(where, yield).value();
             callee.join(Realm(testRealm), yield).value();
@@ -1658,7 +1653,7 @@ GIVEN( "these test fixture objects" )
         };
 
         auto shout =
-            [&callee](Invocation, std::string str, Yield yield) -> Outcome
+            [&callee](Invocation, std::string str, YieldContext yield) -> Outcome
             {
                 std::string upper = str;
                 std::transform(upper.begin(), upper.end(),
@@ -1667,7 +1662,7 @@ GIVEN( "these test fixture objects" )
                 return Result({upper});
             };
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             callee.connect(where, yield).value();
             callee.join(Realm(testRealm), yield).value();
@@ -1699,14 +1694,14 @@ GIVEN( "these test fixture objects" )
         int callCount = 0;
         Registration reg;
 
-        auto oneShot = [&callCount, &reg, &callee](Yield yield)
+        auto oneShot = [&callCount, &reg, &callee](YieldContext yield)
         {
             // We need a yield context here for a blocking unregister.
             ++callCount;
             callee.unregister(reg, yield).value();
         };
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             callee.connect(where, yield).value();
             callee.join(Realm(testRealm), yield).value();
@@ -1735,7 +1730,7 @@ GIVEN( "these test fixture objects" )
     {
         std::string upperized;
 
-        auto onTalk = [&session1](std::string str, Yield yield)
+        auto onTalk = [&session1](std::string str, YieldContext yield)
         {
             // We need a separate yield context here for a blocking
             // publish.
@@ -1750,7 +1745,7 @@ GIVEN( "these test fixture objects" )
             upperized = str;
         };
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             session1.connect(where, yield).value();
             session1.join(Realm(testRealm), yield).value();
@@ -1783,14 +1778,14 @@ GIVEN( "these test fixture objects" )
         int eventCount = 0;
         Subscription sub;
 
-        auto onEvent = [&eventCount, &sub, &subscriber](Event, Yield yield)
+        auto onEvent = [&eventCount, &sub, &subscriber](Event, YieldContext yield)
         {
             // We need a yield context here for a blocking unsubscribe.
             ++eventCount;
             subscriber.unsubscribe(sub, yield).value();
         };
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             publisher.connect(where, yield).value();
             publisher.join(Realm(testRealm), yield).value();
@@ -1848,7 +1843,7 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
 
     WHEN( "connecting to an invalid port" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             auto index = s.connect(badWhere, yield);
             CHECK( index == makeUnexpected(TransportErrc::failed) );
@@ -1863,7 +1858,7 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
     {
         const ConnectionWishList wishList = {badWhere, where};
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             for (int i=0; i<2; ++i)
             {
@@ -1907,7 +1902,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "registering an already existing procedure" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             RpcFixture f(ioctx, where);
             f.join(yield);
@@ -1925,7 +1920,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "an RPC returns an error URI" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             int callCount = 0;
             RpcFixture f(ioctx, where);
@@ -1963,7 +1958,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "an RPC throws an error URI" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             int callCount = 0;
             RpcFixture f(ioctx, where);
@@ -2001,7 +1996,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "invoking a statically-typed RPC with invalid argument types" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             RpcFixture f(ioctx, where);
             f.join(yield);
@@ -2027,7 +2022,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "receiving a statically-typed event with invalid argument types" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             PublicationId pid = 0;
             PubSubFixture f(ioctx, where);
@@ -2060,7 +2055,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "invoking an RPC that throws a wamp::error::BadType exceptions" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             RpcFixture f(ioctx, where);
             f.join(yield);
@@ -2077,10 +2072,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.callee.enroll(
                 Procedure("bad_conv_coro"),
                 simpleCoroRpc<void, Variant>(
-                [](Variant v, boost::asio::yield_context yield)
-                {
-                    v.to<String>();
-                }),
+                [](Variant v, YieldContext yield) { v.to<String>(); }),
                 yield).value();
 
             f.callee.enroll(
@@ -2091,7 +2083,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.callee.enroll(
                 Procedure("bad_access_coro"),
                 unpackedCoroRpc<Variant>(
-                [](Invocation inv, Variant v, boost::asio::yield_context yield)
+                [](Invocation inv, Variant v, YieldContext yield)
                 {
                     v.as<String>();
                     return Result();
@@ -2129,7 +2121,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "an event handler throws wamp::error::BadType exceptions" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             unsigned warningCount = 0;
             PubSubFixture f(ioctx, where);
@@ -2152,19 +2144,13 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.subscriber.subscribe(
                 Topic("bad_conversion_coro"),
                 simpleCoroEvent<Variant>(
-                    [](Variant v, boost::asio::yield_context y)
-                    {
-                        v.to<String>();
-                    }),
+                    [](Variant v, YieldContext y) { v.to<String>(); }),
                 yield).value();
 
             f.subscriber.subscribe(
                 Topic("bad_access_coro"),
                 unpackedCoroEvent<Variant>(
-                    [](Event ev, Variant v, boost::asio::yield_context y)
-                    {
-                        v.to<String>();
-                    }),
+                    [](Event ev, Variant v, YieldContext y) {v.to<String>();}),
                 yield).value();
 
             f.publisher.publish(Pub("bad_conversion").withArgs(42));
@@ -2196,9 +2182,8 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "joining with an invalid realm URI" )
     {
-        using Yield = boost::asio::yield_context;
         checkInvalidUri(
-            [](Session& session, Yield yield)
+            [](Session& session, YieldContext yield)
             {
                 return session.join(Realm("#bad"), yield);
             },
@@ -2207,9 +2192,8 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "leaving with an invalid reason URI" )
     {
-        using Yield = boost::asio::yield_context;
         checkInvalidUri(
-            [](Session& session, Yield yield)
+            [](Session& session, YieldContext yield)
             {
                 return session.leave(Reason("#bad"), yield);
             } );
@@ -2217,9 +2201,8 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "subscribing with an invalid topic URI" )
     {
-        using Yield = boost::asio::yield_context;
         checkInvalidUri(
-            [](Session& session, Yield yield)
+            [](Session& session, YieldContext yield)
             {
                 return session.subscribe(Topic("#bad"), [](Event) {}, yield);
             } );
@@ -2227,9 +2210,8 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "publishing with an invalid topic URI" )
     {
-        using Yield = boost::asio::yield_context;
         checkInvalidUri(
-            [](Session& session, Yield yield)
+            [](Session& session, YieldContext yield)
             {
                 return session.publish(Pub("#bad"), yield);
             } );
@@ -2237,7 +2219,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         AND_WHEN( "publishing with args" )
         {
             checkInvalidUri(
-                [](Session& session, Yield yield)
+                [](Session& session, YieldContext yield)
                 {
                     return session.publish(Pub("#bad").withArgs(42), yield);
                 } );
@@ -2246,9 +2228,8 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "enrolling with an invalid procedure URI" )
     {
-        using Yield = boost::asio::yield_context;
         checkInvalidUri(
-            [](Session& session, Yield yield)
+            [](Session& session, YieldContext yield)
             {
                 return session.enroll(Procedure("#bad"),
                                       [](Invocation)->Outcome {return {};},
@@ -2259,9 +2240,8 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "calling with an invalid procedure URI" )
     {
-        using Yield = boost::asio::yield_context;
         checkInvalidUri(
-            [](Session& session, Yield yield)
+            [](Session& session, YieldContext yield)
             {
                 return session.call(Rpc("#bad"), yield);
             } );
@@ -2269,7 +2249,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         AND_WHEN( "calling with args" )
         {
             checkInvalidUri(
-                [](Session& session, Yield yield)
+                [](Session& session, YieldContext yield)
                 {
                     return session.call(Rpc("#bad").withArgs(42), yield);
                 } );
@@ -2278,7 +2258,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "joining a non-existing realm" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             Session session(ioctx);
             session.connect(where, yield).value();
@@ -2303,7 +2283,7 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "using invalid operations while disconnected" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             Session session(ioctx);
             REQUIRE( session.state() == SessionState::disconnected );
@@ -2321,7 +2301,7 @@ GIVEN( "an IO service and a TCP connector" )
         Session session(ioctx);
         session.connect(where, [](ErrorOr<size_t>){} );
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             ioctx.stop();
             ioctx.restart();
@@ -2338,7 +2318,7 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "using invalid operations while failed" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             Session session(ioctx);
             CHECK_THROWS( session.connect(invalidTcp, yield).value() );
@@ -2354,7 +2334,7 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "using invalid operations while closed" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             Session session(ioctx);
             session.connect(where, yield).value();
@@ -2371,7 +2351,7 @@ GIVEN( "an IO service and a TCP connector" )
     WHEN( "using invalid operations while establishing" )
     {
         Session session(ioctx);
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             session.connect(where, yield).value();
         });
@@ -2381,7 +2361,7 @@ GIVEN( "an IO service and a TCP connector" )
         session.join(Realm(testRealm), [](ErrorOr<SessionInfo>){});
 
         AsioContext ioctx2;
-        boost::asio::spawn(ioctx2, [&](boost::asio::yield_context yield)
+        spawn(ioctx2, [&](YieldContext yield)
         {
             REQUIRE( session.state() == SessionState::establishing );
             checkInvalidConnect(session, yield);
@@ -2396,7 +2376,7 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "using invalid operations while established" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             Session session(ioctx);
             session.connect(where, yield).value();
@@ -2413,7 +2393,7 @@ GIVEN( "an IO service and a TCP connector" )
     WHEN( "using invalid operations while shutting down" )
     {
         Session session(ioctx);
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             session.connect(where, yield).value();
             session.join(Realm(testRealm), yield).value();
@@ -2425,7 +2405,7 @@ GIVEN( "an IO service and a TCP connector" )
         session.leave([](ErrorOr<Reason>){});
 
         AsioContext ioctx2;
-        boost::asio::spawn(ioctx2, [&](boost::asio::yield_context yield)
+        spawn(ioctx2, [&](YieldContext yield)
         {
             REQUIRE( session.state() == SessionState::shuttingDown );
             checkInvalidConnect(session, yield);
@@ -2449,8 +2429,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "disconnecting during async join" )
     {
-        checkDisconnect<SessionInfo>([](Session& session,
-                                        boost::asio::yield_context,
+        checkDisconnect<SessionInfo>([](Session& session, YieldContext,
                                         bool& completed,
                                         ErrorOr<SessionInfo>& result)
         {
@@ -2464,10 +2443,8 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "disconnecting during async leave" )
     {
-        checkDisconnect<Reason>([](Session& session,
-                                   boost::asio::yield_context yield,
-                                   bool& completed,
-                                   ErrorOr<Reason>& result)
+        checkDisconnect<Reason>([](Session& session, YieldContext yield,
+                                   bool& completed, ErrorOr<Reason>& result)
         {
             session.join(Realm(testRealm), yield).value();
             session.leave([&](ErrorOr<Reason> reason)
@@ -2481,27 +2458,23 @@ GIVEN( "an IO service and a ConnectionWish" )
     WHEN( "disconnecting during async subscribe" )
     {
         checkDisconnect<Subscription>(
-                    [](Session& session,
-                    boost::asio::yield_context yield,
-                    bool& completed,
-                    ErrorOr<Subscription>& result)
-        {
-            session.join(Realm(testRealm), yield).value();
-            session.subscribe(Topic("topic"), [] (Event) {},
-                [&](ErrorOr<Subscription> sub)
-                {
-                    completed = true;
-                    result = sub;
-                });
-        });
+            [](Session& session, YieldContext yield, bool& completed,
+               ErrorOr<Subscription>& result)
+            {
+                session.join(Realm(testRealm), yield).value();
+                session.subscribe(Topic("topic"), [] (Event) {},
+                    [&](ErrorOr<Subscription> sub)
+                    {
+                        completed = true;
+                        result = sub;
+                    });
+            });
     }
 
     WHEN( "disconnecting during async unsubscribe" )
     {
-        checkDisconnect<bool>([](Session& session,
-                                 boost::asio::yield_context yield,
-                                 bool& completed,
-                                 ErrorOr<bool>& result)
+        checkDisconnect<bool>([](Session& session, YieldContext yield,
+                                 bool& completed, ErrorOr<bool>& result)
         {
             session.join(Realm(testRealm), yield).value();
             auto sub = session.subscribe(Topic("topic"), [] (Event) {},
@@ -2516,10 +2489,8 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "disconnecting during async unsubscribe via session" )
     {
-        checkDisconnect<bool>([](Session& session,
-                                 boost::asio::yield_context yield,
-                                 bool& completed,
-                                 ErrorOr<bool>& result)
+        checkDisconnect<bool>([](Session& session, YieldContext yield,
+                                 bool& completed, ErrorOr<bool>& result)
         {
             session.join(Realm(testRealm), yield).value();
             auto sub = session.subscribe(Topic("topic"), [](Event) {},
@@ -2534,8 +2505,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "disconnecting during async publish" )
     {
-        checkDisconnect<PublicationId>([](Session& session,
-                                          boost::asio::yield_context yield,
+        checkDisconnect<PublicationId>([](Session& session, YieldContext yield,
                                           bool& completed,
                                           ErrorOr<PublicationId>& result)
         {
@@ -2550,8 +2520,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "disconnecting during async publish with args" )
     {
-        checkDisconnect<PublicationId>([](Session& session,
-                                          boost::asio::yield_context yield,
+        checkDisconnect<PublicationId>([](Session& session, YieldContext yield,
                                           bool& completed,
                                           ErrorOr<PublicationId>& result)
         {
@@ -2568,28 +2537,24 @@ GIVEN( "an IO service and a ConnectionWish" )
     WHEN( "disconnecting during async enroll" )
     {
         checkDisconnect<Registration>(
-                    [](Session& session,
-                    boost::asio::yield_context yield,
-                    bool& completed,
-                    ErrorOr<Registration>& result)
-        {
-            session.join(Realm(testRealm), yield).value();
-            session.enroll(Procedure("rpc"),
-                           [](Invocation)->Outcome {return {};},
-                           [&](ErrorOr<Registration> reg)
-                           {
-                               completed = true;
-                               result = reg;
-                           });
-        });
+            [](Session& session, YieldContext yield,
+               bool& completed, ErrorOr<Registration>& result)
+            {
+                session.join(Realm(testRealm), yield).value();
+                session.enroll(Procedure("rpc"),
+                               [](Invocation)->Outcome {return {};},
+                               [&](ErrorOr<Registration> reg)
+                               {
+                                   completed = true;
+                                   result = reg;
+                               });
+            });
     }
 
     WHEN( "disconnecting during async unregister" )
     {
-        checkDisconnect<bool>([](Session& session,
-                                 boost::asio::yield_context yield,
-                                 bool& completed,
-                                 ErrorOr<bool>& result)
+        checkDisconnect<bool>([](Session& session, YieldContext yield,
+                                 bool& completed, ErrorOr<bool>& result)
         {
             session.join(Realm(testRealm), yield).value();
             auto reg = session.enroll(Procedure("rpc"),
@@ -2606,7 +2571,7 @@ GIVEN( "an IO service and a ConnectionWish" )
     WHEN( "disconnecting during async unregister via session" )
     {
         checkDisconnect<bool>([](Session& session,
-                                 boost::asio::yield_context yield,
+                                 YieldContext yield,
                                  bool& completed,
                                  ErrorOr<bool>& result)
         {
@@ -2624,10 +2589,8 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "disconnecting during async call" )
     {
-        checkDisconnect<Result>([](Session& session,
-                                   boost::asio::yield_context yield,
-                                   bool& completed,
-                                   ErrorOr<Result>& result)
+        checkDisconnect<Result>([](Session& session, YieldContext yield,
+                                   bool& completed, ErrorOr<Result>& result)
         {
             session.join(Realm(testRealm), yield).value();
             session.call(Rpc("rpc").withArgs("foo"),
@@ -2642,7 +2605,7 @@ GIVEN( "an IO service and a ConnectionWish" )
     WHEN( "issuing an asynchronous operation just before leaving" )
     {
         bool published = false;
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             Session s(ioctx);
             s.connect(where, yield).value();
@@ -2700,7 +2663,7 @@ GIVEN( "these test fixture objects" )
                 return Result();
             };
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             callee.connect(where, yield).value();
             callee.join(Realm(testRealm), yield).value();
@@ -2812,7 +2775,7 @@ GIVEN( "a thread pool execution context" )
         ++eventCount;
     };
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
         session.connect(where, yield).value();
         session.join(testRealm, yield).value();

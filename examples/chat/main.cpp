@@ -5,9 +5,9 @@
 ------------------------------------------------------------------------------*/
 
 #include <iostream>
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 
@@ -19,13 +19,11 @@ const short port = 12345;
 class ChatService
 {
 public:
-    using Yield = boost::asio::yield_context;
-
     explicit ChatService(wamp::AnyIoExecutor exec)
         : session_(std::move(exec))
     {}
 
-    void start(wamp::ConnectionWishList where, Yield yield)
+    void start(wamp::ConnectionWishList where, wamp::YieldContext yield)
     {
         using namespace wamp;
         auto index = session_.connect(std::move(where), yield).value();
@@ -44,7 +42,7 @@ public:
             yield).value();
     }
 
-    void quit(Yield yield)
+    void quit(wamp::YieldContext yield)
     {
         registration_.unregister();
         session_.leave(wamp::Reason(), yield).value();
@@ -67,14 +65,12 @@ private:
 class ChatClient
 {
 public:
-    using Yield = boost::asio::yield_context;
-
     ChatClient(wamp::AnyIoExecutor exec, std::string user)
         : session_(std::move(exec)),
           user_(std::move(user))
     {}
 
-    void join(wamp::ConnectionWishList where, Yield yield)
+    void join(wamp::ConnectionWishList where, wamp::YieldContext yield)
     {
         using namespace wamp;
 
@@ -92,14 +88,14 @@ public:
                 yield).value();
     }
 
-    void leave(Yield yield)
+    void leave(wamp::YieldContext yield)
     {
         subscription_.unsubscribe();
         session_.leave(wamp::Reason(), yield).value();
         session_.disconnect();
     }
 
-    void say(const std::string& message, Yield yield)
+    void say(const std::string& message, wamp::YieldContext yield)
     {
         std::cout << user_ << " says \"" << message << "\"\n";
         session_.call(wamp::Rpc("say").withArgs(user_, message),
@@ -132,7 +128,7 @@ int main()
     ChatClient alice(ioctx.get_executor(), "Alice");
     ChatClient bob(ioctx.get_executor(), "Bob");
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    wamp::spawn(ioctx, [&](wamp::YieldContext yield)
     {
         chat.start({tcp}, yield);
 

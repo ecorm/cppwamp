@@ -8,11 +8,11 @@
 
 #include <algorithm>
 #include <boost/asio/bind_cancellation_slot.hpp>
-#include <boost/asio/spawn.hpp>
 #include <catch2/catch.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/msgpack.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 using namespace wamp;
@@ -28,7 +28,7 @@ const short authTestPort = 23456;
 const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
 const auto authTcp = TcpHost("localhost", authTestPort).withFormat(json);
 
-void suspendCoro(boost::asio::yield_context& yield)
+void suspendCoro(YieldContext& yield)
 {
     boost::asio::post(yield);
 }
@@ -42,7 +42,7 @@ struct RpcFixture
           callee(ioctx)
     {}
 
-    void join(boost::asio::yield_context yield)
+    void join(YieldContext yield)
     {
         caller.connect(where, yield).value();
         callerId = caller.join(Realm(testRealm), yield).value().id();
@@ -73,7 +73,7 @@ struct PubSubFixture
           subscriber(ioctx)
     {}
 
-    void join(boost::asio::yield_context yield)
+    void join(YieldContext yield)
     {
         publisher.connect(where, yield).value();
         publisherId = publisher.join(Realm(testRealm), yield).value().id();
@@ -106,7 +106,7 @@ struct TicketAuthFixture
         session.setChallengeHandler( [this](Challenge c){onChallenge(c);} );
     }
 
-    void join(String authId, String signature, boost::asio::yield_context yield)
+    void join(String authId, String signature, YieldContext yield)
     {
         this->signature = std::move(signature);
         session.connect(where, yield).value();
@@ -147,7 +147,7 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "using caller identification" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             SessionId disclosedId = -1;
 
@@ -171,7 +171,7 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "using pattern-based registrations" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             int prefixMatchCount = 0;
             int wildcardMatchCount = 0;
@@ -224,7 +224,7 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "using progressive call results" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             std::vector<int> input{9, 3, 7, 5};
             std::vector<int> output;
@@ -237,26 +237,26 @@ GIVEN( "a caller and a callee" )
                 {
                     CHECK( inv.isProgressive() );
 
-                    boost::asio::spawn(
+                    spawn(
                         inv.executor(),
-                        [&ioctx, &input, inv](boost::asio::yield_context yield)
-                    {
-                        boost::asio::steady_timer timer(ioctx);
-
-                        for (unsigned i=0; i<input.size(); ++i)
+                        [&ioctx, &input, inv](YieldContext yield)
                         {
-                            // Simulate a streaming app that throttles
-                            // the intermediary results at a fixed rate.
-                            timer.expires_from_now(
-                                std::chrono::milliseconds(25));
-                            timer.async_wait(yield);
+                            boost::asio::steady_timer timer(ioctx);
 
-                            Result result({input.at(i)});
-                            if (i < (input.size() - 1))
-                                result.withProgress();
-                            inv.yield(result);
-                        }
-                    });
+                            for (unsigned i=0; i<input.size(); ++i)
+                            {
+                                // Simulate a streaming app that throttles
+                                // the intermediary results at a fixed rate.
+                                timer.expires_from_now(
+                                    std::chrono::milliseconds(25));
+                                timer.async_wait(yield);
+
+                                Result result({input.at(i)});
+                                if (i < (input.size() - 1))
+                                    result.withProgress();
+                                inv.yield(result);
+                            }
+                        });
                     return deferment;
                 },
                 yield).value();
@@ -287,7 +287,7 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "returning an error instead of a progressive call result" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             std::vector<int> input{9, 3, 7, 5};
             std::vector<int> output;
@@ -300,29 +300,29 @@ GIVEN( "a caller and a callee" )
                 {
                     CHECK( inv.isProgressive() );
 
-                    boost::asio::spawn(
+                    spawn(
                         inv.executor(),
-                        [&ioctx, &input, inv](boost::asio::yield_context yield)
-                    {
-                        boost::asio::steady_timer timer(ioctx);
-
-                        for (unsigned i=0; i<input.size(); ++i)
+                        [&ioctx, &input, inv](YieldContext yield)
                         {
-                            // Simulate a streaming app that throttles
-                            // the intermediary results at a fixed rate.
+                            boost::asio::steady_timer timer(ioctx);
+
+                            for (unsigned i=0; i<input.size(); ++i)
+                            {
+                                // Simulate a streaming app that throttles
+                                // the intermediary results at a fixed rate.
+                                timer.expires_from_now(
+                                    std::chrono::milliseconds(25));
+                                timer.async_wait(yield);
+
+                                Result result({input.at(i)});
+                                result.withProgress();
+                                inv.yield(result);
+                            }
+
                             timer.expires_from_now(
                                 std::chrono::milliseconds(25));
-                            timer.async_wait(yield);
-
-                            Result result({input.at(i)});
-                            result.withProgress();
-                            inv.yield(result);
-                        }
-
-                        timer.expires_from_now(
-                            std::chrono::milliseconds(25));
-                        inv.yield(Error("some_reason"));
-                    });
+                            inv.yield(Error("some_reason"));
+                        });
                     return deferment;
                 },
                 yield).value();
@@ -363,7 +363,7 @@ GIVEN( "a caller and a callee" )
     {
         bool interrupted = false;
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             std::vector<int> output;
             int tickCount = 0;
@@ -375,9 +375,9 @@ GIVEN( "a caller and a callee" )
                 [&](Invocation inv) -> Outcome
                 {
                     CHECK( inv.isProgressive() );
-                    boost::asio::spawn(
+                    spawn(
                         inv.executor(),
-                        [&, inv](boost::asio::yield_context yield)
+                        [&, inv](YieldContext yield)
                         {
                             boost::asio::steady_timer timer(ioctx);
 
@@ -439,7 +439,7 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "cancelling an RPC in kill mode via a CallChit before it returns" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             CallChit chit;
             RequestId invocationRequestId = 0;
@@ -495,7 +495,7 @@ GIVEN( "a caller and a callee" )
     WHEN( "cancelling an RPC in kill mode via Session::cancel "
           "before it returns" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             CallChit chit;
             RequestId invocationRequestId = 0;
@@ -551,7 +551,7 @@ GIVEN( "a caller and a callee" )
     WHEN( "cancelling an RPC in kill mode via an Asio cancellation slot "
           "before it returns" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             boost::asio::cancellation_signal cancelSignal;
             RequestId invocationRequestId = 0;
@@ -606,7 +606,7 @@ GIVEN( "a caller and a callee" )
     WHEN( "cancelling via an Asio cancellation slot when calling with a "
           "stackful coroutine completion token")
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             boost::asio::cancellation_signal cancelSignal;
             RequestId invocationRequestId = 0;
@@ -652,7 +652,7 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "cancelling an RPC in killnowait mode before it returns" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             CallChit chit;
             RequestId invocationRequestId = 0;
@@ -710,7 +710,7 @@ GIVEN( "a caller and a callee" )
 #if 0
     WHEN( "cancelling an RPC in skip mode before it returns" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             CallChit chit;
             RequestId invocationRequestId = 0;
@@ -768,7 +768,7 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "cancelling an RPC after it returns" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             CallChit chit;
             RequestId invocationRequestId = 0;
@@ -831,7 +831,7 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "the caller initiates timeouts" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             std::vector<ErrorOr<Result>> results;
             std::vector<RequestId> interruptions;
@@ -843,9 +843,9 @@ GIVEN( "a caller and a callee" )
                 Procedure("com.myapp.foo"),
                 [&](Invocation inv) -> Outcome
                 {
-                    boost::asio::spawn(
+                    spawn(
                         inv.executor(),
-                        [&, inv](boost::asio::yield_context yield)
+                        [&, inv](YieldContext yield)
                         {
                             int arg = 0;
                             inv.convertTo(arg);
@@ -926,7 +926,7 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using publisher identification" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             SessionId disclosedId = -1;
             int eventCount = 0;
@@ -953,7 +953,7 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using pattern-based subscriptions" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             int prefixMatchCount = 0;
             int wildcardMatchCount = 0;
@@ -1009,7 +1009,7 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using publisher exclusion" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             int subscriberEventCount = 0;
             int publisherEventCount = 0;
@@ -1041,7 +1041,7 @@ GIVEN( "a publisher and a subscriber" )
     {
         Session subscriber2(ioctx);
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             int eventCount1 = 0;
             int eventCount2 = 0;
@@ -1096,7 +1096,7 @@ GIVEN( "a Session with a registered challenge handler" )
 
     WHEN( "joining with ticket authentication requested" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             f.join("alice", "password123", yield);
             f.session.disconnect();
@@ -1116,7 +1116,7 @@ GIVEN( "a Session with a registered challenge handler" )
 
     WHEN( "joining with an invalid ticket" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             f.join("alice", "badpassword", yield);
             f.session.disconnect();

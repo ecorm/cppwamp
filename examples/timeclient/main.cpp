@@ -10,9 +10,9 @@
 
 #include <ctime>
 #include <iostream>
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
@@ -53,7 +53,7 @@ int main()
     auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
     wamp::Session session(ioctx);
 
-    boost::asio::spawn(ioctx, [tcp, &session](boost::asio::yield_context yield)
+    wamp::spawn(ioctx, [tcp, &session](wamp::YieldContext yield)
     {
         session.connect(tcp, yield).value();
         session.join(wamp::Realm(realm), yield).value();
