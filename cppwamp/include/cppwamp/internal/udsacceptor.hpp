@@ -36,8 +36,6 @@ public:
           settings_(std::move(s))
     {}
 
-    IoStrand strand() {return strand_;} // TODO: Remove
-
     template <typename F>
     void establish(F&& callback)
     {

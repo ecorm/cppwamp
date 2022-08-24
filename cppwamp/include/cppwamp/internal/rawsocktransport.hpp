@@ -126,9 +126,6 @@ public:
         return Ptr(new RawsockTransport(std::move(s), info));
     }
 
-    // TODO: Remove
-    IoStrand strand() const override {return strand_;}
-
     TransportInfo info() const override {return info_;}
 
     bool isStarted() const override {return running_;}

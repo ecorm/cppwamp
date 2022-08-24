@@ -36,8 +36,6 @@ public:
           acceptor_(strand_, makeEndpoint(s))
     {}
 
-    IoStrand strand() {return strand_;} // TODO: Remove
-
     template <typename F>
     void establish(F&& callback)
     {

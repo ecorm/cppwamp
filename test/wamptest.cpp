@@ -701,7 +701,6 @@ GIVEN( "a Session and a ConnectionWish" )
     WHEN( "terminating during connect" )
     {
         bool handlerWasInvoked = false;
-        // TODO: Remove if not needed: REQUIRE( changes.empty() );
         s.connect(where, [&handlerWasInvoked](ErrorOr<size_t>)
         {
             handlerWasInvoked = true;

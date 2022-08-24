@@ -48,9 +48,6 @@ public:
     /** Destructor. */
     virtual ~Transporting() {}
 
-    // TODO: Remove
-    virtual IoStrand strand() const = 0;
-
     /** Obtains information pertaining to this transport. */
     virtual TransportInfo info() const = 0;
 
