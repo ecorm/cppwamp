@@ -38,28 +38,28 @@ struct RpcFixture
 {
     RpcFixture(AsioContext& ioctx, ConnectionWish wish)
         : where(std::move(wish)),
-          caller(Session::create(ioctx)),
-          callee(Session::create(ioctx))
+          caller(ioctx),
+          callee(ioctx)
     {}
 
     void join(boost::asio::yield_context yield)
     {
-        caller->connect(where, yield).value();
-        callerId = caller->join(Realm(testRealm), yield).value().id();
-        callee->connect(where, yield).value();
-        callee->join(Realm(testRealm), yield).value();
+        caller.connect(where, yield).value();
+        callerId = caller.join(Realm(testRealm), yield).value().id();
+        callee.connect(where, yield).value();
+        callee.join(Realm(testRealm), yield).value();
     }
 
     void disconnect()
     {
-        caller->disconnect();
-        callee->disconnect();
+        caller.disconnect();
+        callee.disconnect();
     }
 
     ConnectionWish where;
 
-    Session::Ptr caller;
-    Session::Ptr callee;
+    Session caller;
+    Session callee;
 
     SessionId callerId = -1;
 };
@@ -69,28 +69,28 @@ struct PubSubFixture
 {
     PubSubFixture(AsioContext& ioctx, ConnectionWish wish)
         : where(std::move(wish)),
-          publisher(Session::create(ioctx)),
-          subscriber(Session::create(ioctx))
+          publisher(ioctx),
+          subscriber(ioctx)
     {}
 
     void join(boost::asio::yield_context yield)
     {
-        publisher->connect(where, yield).value();
-        publisherId = publisher->join(Realm(testRealm), yield).value().id();
-        subscriber->connect(where, yield).value();
-        subscriber->join(Realm(testRealm), yield).value();
+        publisher.connect(where, yield).value();
+        publisherId = publisher.join(Realm(testRealm), yield).value().id();
+        subscriber.connect(where, yield).value();
+        subscriber.join(Realm(testRealm), yield).value();
     }
 
     void disconnect()
     {
-        publisher->disconnect();
-        subscriber->disconnect();
+        publisher.disconnect();
+        subscriber.disconnect();
     }
 
     ConnectionWish where;
 
-    Session::Ptr publisher;
-    Session::Ptr subscriber;
+    Session publisher;
+    Session subscriber;
 
     SessionId publisherId = -1;
     SessionId subscriberId = -1;
@@ -101,31 +101,31 @@ struct TicketAuthFixture
 {
     TicketAuthFixture(AsioContext& ioctx, ConnectionWish wish)
         : where(std::move(wish)),
-          session(Session::create(ioctx))
+          session(ioctx)
     {
-        session->setChallengeHandler( [this](Challenge c){onChallenge(c);} );
+        session.setChallengeHandler( [this](Challenge c){onChallenge(c);} );
     }
 
     void join(String authId, String signature, boost::asio::yield_context yield)
     {
         this->signature = std::move(signature);
-        session->connect(where, yield).value();
-        info = session->join(Realm(authTestRealm).withAuthMethods({"ticket"})
-                                                 .withAuthId(std::move(authId))
-                                                 .captureAbort(abort),
-                             yield);
+        session.connect(where, yield).value();
+        info = session.join(Realm(authTestRealm).withAuthMethods({"ticket"})
+                                                .withAuthId(std::move(authId))
+                                                .captureAbort(abort),
+                            yield);
     }
 
     void onChallenge(Challenge authChallenge)
     {
         ++challengeCount;
         challenge = authChallenge;
-        challengeState = session->state();
+        challengeState = session.state();
         authChallenge.authenticate(Authentication(signature));
     }
 
     ConnectionWish where;
-    Session::Ptr session;
+    Session session;
     String signature;
     SessionState challengeState = SessionState::closed;
     unsigned challengeCount = 0;
@@ -153,7 +153,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&disclosedId](Invocation inv) -> Outcome
                 {
@@ -162,7 +162,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(Rpc("rpc").withDiscloseMe(), yield).value();
+            f.caller.call(Rpc("rpc").withDiscloseMe(), yield).value();
             CHECK( disclosedId == f.callerId );
             f.disconnect();
         });
@@ -178,7 +178,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("com.myapp").usingPrefixMatch(),
                 [&prefixMatchCount](Invocation inv) -> Outcome
                 {
@@ -189,7 +189,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("com.other..rpc").usingWildcardMatch(),
                 [&wildcardMatchCount](Invocation inv) -> Outcome
                 {
@@ -200,11 +200,11 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(Rpc("com.myapp.foo"), yield).value();
+            f.caller.call(Rpc("com.myapp.foo"), yield).value();
             CHECK( prefixMatchCount == 1 );
             CHECK( wildcardMatchCount == 0 );
 
-            f.caller->call(Rpc("com.other.foo.rpc"), yield).value();
+            f.caller.call(Rpc("com.other.foo.rpc"), yield).value();
             CHECK( prefixMatchCount == 1 );
             CHECK( wildcardMatchCount == 1 );
 
@@ -231,7 +231,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("com.myapp.foo"),
                 [&ioctx, &input](Invocation inv) -> Outcome
                 {
@@ -263,7 +263,7 @@ GIVEN( "a caller and a callee" )
 
             for (unsigned i=0; i<2; ++i)
             {
-                f.caller->ongoingCall(
+                f.caller.ongoingCall(
                     Rpc("com.myapp.foo"),
                     [&output, &input](ErrorOr<Result> r)
                     {
@@ -294,7 +294,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("com.myapp.foo"),
                 [&ioctx, &input](Invocation inv) -> Outcome
                 {
@@ -331,7 +331,7 @@ GIVEN( "a caller and a callee" )
             {
                 Error error;
                 bool receivedError = false;
-                f.caller->ongoingCall(
+                f.caller.ongoingCall(
                     Rpc("com.myapp.foo").captureError(error),
                     [&output, &input, &receivedError](ErrorOr<Result> r)
                     {
@@ -370,7 +370,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("com.myapp.foo"),
                 [&](Invocation inv) -> Outcome
                 {
@@ -402,7 +402,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-           f.caller->ongoingCall(
+           f.caller.ongoingCall(
                 Rpc("com.myapp.foo"),
                 [&output](ErrorOr<Result> r)
                 {
@@ -416,7 +416,7 @@ GIVEN( "a caller and a callee" )
 
             while (output.size() < 2)
                 suspendCoro(yield);
-            f.caller->leave(yield).value();
+            f.caller.leave(yield).value();
 
             while (!interrupted)
                 suspendCoro(yield);
@@ -449,7 +449,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
@@ -463,7 +463,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(
+            f.caller.call(
                 Rpc("rpc"),
                 chit,
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
@@ -505,7 +505,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
@@ -519,7 +519,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-             f.caller->call(
+             f.caller.call(
                 Rpc("rpc"),
                 chit,
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
@@ -535,7 +535,7 @@ GIVEN( "a caller and a callee" )
 
             REQUIRE( invocationRequestId != 0 );
 
-            f.caller->cancel(chit, CallCancelMode::kill);
+            f.caller.cancel(chit, CallCancelMode::kill);
 
             while (!responseReceived)
                 suspendCoro(yield);
@@ -561,7 +561,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
@@ -575,7 +575,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(
+            f.caller.call(
                 Rpc("rpc").withCancelMode(CallCancelMode::kill),
                 boost::asio::bind_cancellation_slot(
                     cancelSignal.slot(),
@@ -615,7 +615,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
@@ -637,7 +637,7 @@ GIVEN( "a caller and a callee" )
                     cancelSignal.emit(boost::asio::cancellation_type::total);
                 });
 
-            auto result = f.caller->call(
+            auto result = f.caller.call(
                 Rpc("rpc").withCancelMode(CallCancelMode::kill),
                 boost::asio::bind_cancellation_slot(cancelSignal.slot(),
                                                     yield));
@@ -662,7 +662,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
@@ -676,7 +676,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(
+            f.caller.call(
                 Rpc("rpc"),
                 chit,
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
@@ -721,7 +721,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId, &invocation](Invocation inv) -> Outcome
                 {
@@ -736,7 +736,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(
+            f.caller.call(
                 Rpc("rpc"),
                 chit,
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
@@ -778,7 +778,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
@@ -792,7 +792,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(
+            f.caller.call(
                 Rpc("rpc"),
                 chit,
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
@@ -810,7 +810,7 @@ GIVEN( "a caller and a callee" )
 
             /* Router should not treat late CANCEL as a protocol error, and
                should allow clients to continue calling RPCs. */
-            f.caller->call(Rpc("rpc"), yield).value();
+            f.caller.call(Rpc("rpc"), yield).value();
 
             /* Router should discard INTERRUPT messages for non-pending RPCs. */
             CHECK( interruptionRequestId == 0 );
@@ -839,7 +839,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("com.myapp.foo"),
                 [&](Invocation inv) -> Outcome
                 {
@@ -880,17 +880,17 @@ GIVEN( "a caller and a callee" )
 
             for (int i=0; i<2; ++i)
             {
-                f.caller->call(
+                f.caller.call(
                     Rpc("com.myapp.foo")
                         .withArgs(1)
                         .withCallerTimeout(std::chrono::milliseconds(100)),
                     callHandler);
 
-                f.caller->call(
+                f.caller.call(
                     Rpc("com.myapp.foo").withArgs(2).withCallerTimeout(50),
                     callHandler);
 
-                f.caller->call(
+                f.caller.call(
                     Rpc("com.myapp.foo").withArgs(3),
                     callHandler);
 
@@ -933,7 +933,7 @@ GIVEN( "a publisher and a subscriber" )
 
             f.join(yield);
 
-            f.subscriber->subscribe(
+            f.subscriber.subscribe(
                 Topic("onEvent"),
                 [&disclosedId, &eventCount](Event event)
                 {
@@ -942,7 +942,7 @@ GIVEN( "a publisher and a subscriber" )
                 },
                 yield).value();
 
-            f.publisher->publish(Pub("onEvent").withDiscloseMe(), yield).value();
+            f.publisher.publish(Pub("onEvent").withDiscloseMe(), yield).value();
             while (eventCount == 0)
                 suspendCoro(yield);
             CHECK( disclosedId == f.publisherId );
@@ -962,7 +962,7 @@ GIVEN( "a publisher and a subscriber" )
 
             f.join(yield);
 
-            f.subscriber->subscribe(
+            f.subscriber.subscribe(
                 Topic("com.myapp").usingPrefixMatch(),
                 [&prefixMatchCount, &prefixTopic](Event event)
                 {
@@ -971,7 +971,7 @@ GIVEN( "a publisher and a subscriber" )
                 },
                 yield).value();
 
-            f.subscriber->subscribe(
+            f.subscriber.subscribe(
                 Topic("com..onEvent").usingWildcardMatch(),
                 [&wildcardMatchCount, &wildcardTopic](Event event)
                 {
@@ -980,21 +980,21 @@ GIVEN( "a publisher and a subscriber" )
                 },
                 yield).value();
 
-            f.publisher->publish(Pub("com.myapp.foo"), yield).value();
+            f.publisher.publish(Pub("com.myapp.foo"), yield).value();
             while (prefixMatchCount < 1)
                 suspendCoro(yield);
             CHECK( prefixMatchCount == 1 );
             CHECK_THAT( prefixTopic, Equals("com.myapp.foo") );
             CHECK( wildcardMatchCount == 0 );
 
-            f.publisher->publish(Pub("com.foo.onEvent"), yield).value();
+            f.publisher.publish(Pub("com.foo.onEvent"), yield).value();
             while (wildcardMatchCount < 1)
                 suspendCoro(yield);
             CHECK( prefixMatchCount == 1 );
             CHECK( wildcardMatchCount == 1 );
             CHECK_THAT( wildcardTopic, Equals("com.foo.onEvent") );
 
-            f.publisher->publish(Pub("com.myapp.onEvent"), yield).value();
+            f.publisher.publish(Pub("com.myapp.onEvent"), yield).value();
             while ((prefixMatchCount < 2) || (wildcardMatchCount < 2))
                 suspendCoro(yield);
             CHECK( prefixMatchCount == 2 );
@@ -1016,17 +1016,17 @@ GIVEN( "a publisher and a subscriber" )
 
             f.join(yield);
 
-            f.subscriber->subscribe(
+            f.subscriber.subscribe(
                 Topic("onEvent"),
                 [&subscriberEventCount](Event) {++subscriberEventCount;},
                 yield).value();
 
-            f.publisher->subscribe(
+            f.publisher.subscribe(
                 Topic("onEvent"),
                 [&publisherEventCount](Event) {++publisherEventCount;},
                 yield).value();
 
-            f.publisher->publish(Pub("onEvent").withExcludeMe(false),
+            f.publisher.publish(Pub("onEvent").withExcludeMe(false),
                                  yield).value();
             while ((subscriberEventCount < 1) || (publisherEventCount < 1))
                 suspendCoro(yield);
@@ -1039,7 +1039,7 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using subscriber black/white listing" )
     {
-        auto subscriber2 = Session::create(ioctx);
+        Session subscriber2(ioctx);
 
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
@@ -1047,22 +1047,22 @@ GIVEN( "a publisher and a subscriber" )
             int eventCount2 = 0;
 
             f.join(yield);
-            subscriber2->connect(withTcp, yield).value();
+            subscriber2.connect(withTcp, yield).value();
             auto subscriber2Id =
-                subscriber2->join(Realm(testRealm), yield).value().id();
+                subscriber2.join(Realm(testRealm), yield).value().id();
 
-            f.subscriber->subscribe(
+            f.subscriber.subscribe(
                 Topic("onEvent"),
                 [&eventCount1](Event) {++eventCount1;},
                 yield).value();
 
-            subscriber2->subscribe(
+            subscriber2.subscribe(
                 Topic("onEvent"),
                 [&eventCount2](Event) {++eventCount2;},
                 yield).value();
 
             // Block subscriber2
-            f.publisher->publish(Pub("onEvent")
+            f.publisher.publish(Pub("onEvent")
                                      .withExcludedSessions({subscriber2Id}),
                                  yield).value();
             while (eventCount1 < 1)
@@ -1071,7 +1071,7 @@ GIVEN( "a publisher and a subscriber" )
             CHECK( eventCount2 == 0 );
 
             // Allow subscriber2
-            f.publisher->publish(Pub("onEvent")
+            f.publisher.publish(Pub("onEvent")
                                      .withEligibleSessions({subscriber2Id}),
                                  yield).value();
             while (eventCount2 < 1)
@@ -1080,7 +1080,7 @@ GIVEN( "a publisher and a subscriber" )
             CHECK( eventCount2 == 1 );
 
             f.disconnect();
-            subscriber2->disconnect();
+            subscriber2.disconnect();
         });
         ioctx.run();
     }
@@ -1099,7 +1099,7 @@ GIVEN( "a Session with a registered challenge handler" )
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             f.join("alice", "password123", yield);
-            f.session->disconnect();
+            f.session.disconnect();
         });
         ioctx.run();
 
@@ -1119,7 +1119,7 @@ GIVEN( "a Session with a registered challenge handler" )
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             f.join("alice", "badpassword", yield);
-            f.session->disconnect();
+            f.session.disconnect();
         });
         ioctx.run();
 

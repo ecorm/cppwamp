@@ -873,7 +873,7 @@ GIVEN( "an IO service and a TCP connector" )
             f.publisher->publish(Pub("str.num").withArgs("one", 1));
             pid = f.publisher->publish(Pub("str.num").withArgs("two", 2),
                                        yield);
-            while (f.dynamicPubs.size() < 2  && f.staticPubs.size() < 2)
+            while (f.dynamicPubs.size() < 2  || f.staticPubs.size() < 2)
                 f.subscriber->suspend(yield);
 
             REQUIRE( f.dynamicPubs.size() == 2 );
@@ -1182,7 +1182,7 @@ GIVEN( "an IO service and a TCP connector" )
                 CHECK( !f.dynamicSub );
 
                 f.publisher->publish(Pub("str.num").withArgs("", 0), yield);
-                while (f.dynamicPubs.size() < 1)
+                while (f.dynamicPubs.size() < 1 || f.staticPubs.size() < 1)
                     f.subscriber->suspend(yield);
                 CHECK( f.dynamicPubs.size() == 1 );
                 CHECK( f.staticPubs.size() == 1 );

@@ -148,7 +148,7 @@ public:
         @tparam TExecutionContext Must meet the requirements of
                 Boost.Asio's ExecutionContext */
     template <typename E>
-    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
+    CPPWAMP_DEPRECATED static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
     create(
         E& executionContext /**< Context providing the executor from which
                                  Session will extract a strand for its
@@ -166,8 +166,9 @@ public:
         @tparam TExecutionContext Must meet the requirements of
                 Boost.Asio's ExecutionContext */
     template <typename E1, typename E2>
-    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E1>() &&
-                                     isExecutionContext<E2>())
+    CPPWAMP_DEPRECATED static
+        CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E1>() &&
+                                  isExecutionContext<E2>())
     create(
         E1& executionContext, /**< Context providing the executor from which
                                    Session will extract a strand for
@@ -183,12 +184,14 @@ public:
     /** Creates a new Session instance.
         @deprecated Pass connection wish list to Session::connect instead.
         @deprecated Stack allocation is now permitted. */
-    static Ptr create(AnyIoExecutor userExec, LegacyConnector connector);
+    CPPWAMP_DEPRECATED static Ptr create(AnyIoExecutor userExec,
+                                         LegacyConnector connector);
 
     /** Creates a new Session instance.
         @deprecated Pass connection wish list to Session::connect instead.
         @deprecated Stack allocation is now permitted. */
-    static Ptr create(AnyIoExecutor userExec, ConnectorList connectors);
+    CPPWAMP_DEPRECATED static Ptr create(AnyIoExecutor userExec,
+                                         ConnectorList connectors);
 
     /** Creates a new Session instance.
         @deprecated Pass connection wish list to Session::connect instead.
@@ -199,7 +202,7 @@ public:
         @tparam TExecutionContext Must meet the requirements of
                                   Boost.Asio's ExecutionContext */
     template <typename E>
-    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
+    CPPWAMP_DEPRECATED static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
     create(
         E& userExecutionContext,  /**< Provides the executor with which to
                                        post all user-provided handlers. */
@@ -219,7 +222,8 @@ public:
         @tparam TExecutionContext Must meet the requirements of
                                   Boost.Asio's ExecutionContext */
     template <typename TExecutionContext>
-    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<TExecutionContext>())
+    CPPWAMP_DEPRECATED static
+        CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<TExecutionContext>())
     create(
         TExecutionContext& userContext, /**< Provides executor with which to
                                              post all user-provided handlers. */
