@@ -43,8 +43,9 @@ using AsioService CPPWAMP_DEPRECATED = IoContext;
 /** Serializes I/O operations. */
 using IoStrand = boost::asio::strand<AnyIoExecutor>;
 
-/** Type used by Boost.Asio for reporting errors. */
-using AsioErrorCode = boost::system::error_code; // TODO: Remove
+/** Type used by Boost.Asio for reporting errors.
+    @deprecated Will be removed */
+using AsioErrorCode = boost::system::error_code;
 
 /** Metafunction that determines if T meets the requirements of
     Boost.Asio's ExecutionContext. */

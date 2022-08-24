@@ -106,7 +106,7 @@ private:
         boost::asio::async_read(
             *socket_,
             boost::asio::buffer(&handshake_, sizeof(handshake_)),
-            [this, self](AsioErrorCode ec, size_t)
+            [this, self](boost::system::error_code ec, size_t)
             {
                 if (check(ec))
                     onHandshakeReceived(Handshake::fromBigEndian(handshake_));
@@ -139,7 +139,7 @@ private:
         boost::asio::async_write(
             *socket_,
             boost::asio::buffer(&handshake_, sizeof(handshake_)),
-            [this, self, hs](AsioErrorCode ec, size_t)
+            [this, self, hs](boost::system::error_code ec, size_t)
             {
                 if (check(ec))
                 {
@@ -151,7 +151,7 @@ private:
             });
     }
 
-    bool check(AsioErrorCode asioEc)
+    bool check(boost::system::error_code asioEc)
     {
         if (asioEc)
         {

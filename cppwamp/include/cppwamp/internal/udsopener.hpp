@@ -44,7 +44,7 @@ public:
             UdsOpener* self;
             typename std::decay<F>::type callback;
 
-            void operator()(AsioErrorCode asioEc)
+            void operator()(boost::system::error_code asioEc)
             {
                 SocketPtr socket{std::move(self->socket_)};
                 self->socket_.reset();
@@ -72,7 +72,7 @@ public:
 
 private:
     template <typename F>
-    bool checkError(AsioErrorCode asioEc, F& callback)
+    bool checkError(boost::system::error_code asioEc, F& callback)
     {
         if (asioEc)
         {

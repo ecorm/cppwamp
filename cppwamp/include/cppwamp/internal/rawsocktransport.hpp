@@ -197,7 +197,7 @@ private:
 
             auto self = this->shared_from_this();
             boost::asio::async_write(*socket_, txFrame_->gatherBuffers(),
-                [this, self](AsioErrorCode ec, size_t size)
+                [this, self](boost::system::error_code ec, size_t size)
                 {
                     txFrame_.reset();
                     if (ec)
@@ -228,7 +228,7 @@ private:
             rxFrame_.clear();
             auto self = this->shared_from_this();
             boost::asio::async_read(*socket_, rxFrame_.headerBuffer(),
-                [this, self](AsioErrorCode ec, size_t)
+                [this, self](boost::system::error_code ec, size_t)
                 {
                     if (check(ec))
                         processHeader();
@@ -251,7 +251,7 @@ private:
         rxFrame_.resize(length);
         auto self = this->shared_from_this();
         boost::asio::async_read(*socket_, rxFrame_.payloadBuffer(),
-            [this, self, msgType](AsioErrorCode ec, size_t)
+            [this, self, msgType](boost::system::error_code ec, size_t)
             {
                 if (ec)
                     rxFrame_.clear();
@@ -316,7 +316,7 @@ private:
                                              std::forward<Ts>(args)...));
     }
 
-    bool check(AsioErrorCode asioEc)
+    bool check(boost::system::error_code asioEc)
     {
         if (asioEc)
         {

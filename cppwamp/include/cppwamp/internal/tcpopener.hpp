@@ -46,7 +46,7 @@ public:
             TcpOpener* self;
             typename std::decay<F>::type callback;
 
-            void operator()(AsioErrorCode asioEc,
+            void operator()(boost::system::error_code asioEc,
                             tcp::resolver::iterator iterator)
             {
                 if (self->checkError(asioEc, callback))
@@ -72,7 +72,7 @@ private:
     using tcp = boost::asio::ip::tcp;
 
     template <typename F>
-    bool checkError(AsioErrorCode asioEc, F& callback)
+    bool checkError(boost::system::error_code asioEc, F& callback)
     {
         if (asioEc)
         {
@@ -90,7 +90,8 @@ private:
             TcpOpener* self;
             typename std::decay<F>::type callback;
 
-            void operator()(AsioErrorCode asioEc, tcp::resolver::iterator)
+            void operator()(boost::system::error_code asioEc,
+                            tcp::resolver::iterator)
             {
                 SocketPtr socket{std::move(self->socket_)};
                 self->socket_.reset();
