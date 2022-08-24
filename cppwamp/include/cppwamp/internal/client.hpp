@@ -143,7 +143,7 @@ public:
     {
         assert(!wishes.empty());
 
-        if (!checkState<size_t>(State::disconnected, handler))
+        if (!checkState(State::disconnected, handler))
             return;
 
         setTerminating(false);
@@ -196,7 +196,7 @@ public:
             }
         };
 
-        if (!checkState<SessionInfo>(State::closed, handler))
+        if (!checkState(State::closed, handler))
             return;
 
         realm.withOption("agent", Version::agentString())
@@ -265,7 +265,7 @@ public:
             }
         };
 
-        if (!checkState<Reason>(State::established, handler))
+        if (!checkState(State::established, handler))
             return;
         timeoutScheduler_->clear();
         Peer::adjourn(reason,
@@ -345,7 +345,7 @@ public:
             }
         };
 
-        if (!checkState<Subscription>(State::established, handler))
+        if (!checkState(State::established, handler))
             return;
 
         using std::move;
@@ -508,7 +508,7 @@ public:
             }
         };
 
-        if (!checkState<PublicationId>(State::established, handler))
+        if (!checkState(State::established, handler))
             return;
 
         pub.withOption("acknowledge", true);
@@ -555,7 +555,7 @@ public:
             }
         };
 
-        if (!checkState<Registration>(State::established, handler))
+        if (!checkState(State::established, handler))
             return;
 
         using std::move;
@@ -708,7 +708,7 @@ public:
         if (chitPtr)
             *chitPtr = CallChit{};
 
-        if (!checkState<Result>(State::established, handler))
+        if (!checkState(State::established, handler))
             return;
 
         auto self = this->shared_from_this();
@@ -774,7 +774,7 @@ public:
         if (chitPtr)
             *chitPtr = CallChit{};
 
-        if (!checkState<Result>(State::established, handler))
+        if (!checkState(State::established, handler))
             return;
 
         rpc.withProgressiveResults(true);
@@ -937,17 +937,15 @@ private:
             strand(), F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
-    // TODO: Remove TResultValue if possible
-    template <typename TResultValue, typename F>
+    template <typename F>
     bool checkState(State expectedState, F& handler)
     {
         bool valid = state() == expectedState;
         if (!valid)
         {
-            ErrorOr<TResultValue> e{
-                makeUnexpectedError(SessionErrc::invalidState)};
+            auto unex = makeUnexpectedError(SessionErrc::invalidState);
             if (!isTerminating())
-                postVia(userExecutor(), std::move(handler), std::move(e));
+                postVia(userExecutor(), std::move(handler), std::move(unex));
         }
         return valid;
     }
