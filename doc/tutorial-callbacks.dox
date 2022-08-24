@@ -28,7 +28,7 @@ handler functions:
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
     auto tcp = TcpHost("localhost", 8001).withFormat(json);
 
@@ -113,7 +113,7 @@ private:
 int main()
 {
     using namespace wamp;
-    wamp::AsioContext ioctx;
+    IoContext ioctx;
     App app(ioctx);
     app.start(TcpHost{"localhost", 8001}.withFormat(json));
     ioctx.run();

@@ -38,7 +38,7 @@ Example where `ErrorOr` is manually checked:
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -77,7 +77,7 @@ Example where `ErrorOr::value` is allowed to throw exceptions:
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)

@@ -115,8 +115,8 @@ struct LoopbackFixture
         cctx.stop();
     }
 
-    AsioContext cctx;
-    AsioContext sctx;
+    IoContext cctx;
+    IoContext sctx;
     typename Connector::Ptr cnct;
     typename Listener::Ptr lstn;
     int clientCodec;
@@ -373,7 +373,7 @@ void checkUnsupportedSerializer(TFixture& f)
 void checkCannedServerHandshake(uint32_t cannedHandshake,
                                 std::error_code expectedErrorCode)
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     IoStrand strand{ioctx.get_executor()};
 
     using MockListener = internal::RawsockListener<internal::TcpAcceptor,
@@ -409,7 +409,7 @@ void checkCannedClientHandshake(uint32_t cannedHandshake,
                                 RawsockErrc expectedServerCode,
                                 TErrorCode expectedClientCode)
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     IoStrand strand{ioctx.get_executor()};
 
     bool serverAborted = false;
@@ -974,7 +974,7 @@ SCENARIO( "Client sending a message longer than maximum", "[Transport]" )
 {
 GIVEN ( "a mock server under-reporting its maximum receive length" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     IoStrand strand{ioctx.get_executor()};
     MessageBuffer tooLong(64*1024 + 1, 'A');
 
@@ -1039,7 +1039,7 @@ SCENARIO( "Server sending a message longer than maximum", "[Transport]" )
 {
 GIVEN ( "a mock client under-reporting its maximum receive length" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     IoStrand strand{ioctx.get_executor()};
     MessageBuffer tooLong(64*1024 + 1, 'A');
 
@@ -1105,7 +1105,7 @@ SCENARIO( "Client sending an invalid message type", "[Transport]" )
 {
 GIVEN ( "A mock client that sends an invalid message type" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     IoStrand strand{ioctx.get_executor()};
 
     auto lstn = TcpRawsockListener::create(strand, tcpEndpoint, {jsonId});
@@ -1170,7 +1170,7 @@ SCENARIO( "Server sending an invalid message type", "[Transport]" )
 {
 GIVEN ( "A mock server that sends an invalid message type" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     IoStrand strand{ioctx.get_executor()};
 
     using MockListener = internal::RawsockListener<internal::TcpAcceptor,

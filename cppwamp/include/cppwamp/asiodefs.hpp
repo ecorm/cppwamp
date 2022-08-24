@@ -23,7 +23,7 @@
 namespace wamp
 {
 
-/** Polymorphic executor for all I/O objects. */
+/** Polymorphic executor for I/O objects. */
 using AnyIoExecutor = boost::asio::any_io_executor;
 
 /** Alias of AnyIoExecutor kept for backward compatibility.
@@ -31,11 +31,14 @@ using AnyIoExecutor = boost::asio::any_io_executor;
 using AnyExecutor CPPWAMP_DEPRECATED = AnyIoExecutor;
 
 /** Queues and runs I/O completion handlers. */
-using AsioContext = boost::asio::io_context; // TODO: Rename to IoContext
+using IoContext = boost::asio::io_context;
+
+/** Alias of IoContext kept for backward compatibility. */
+using AsioContext CPPWAMP_DEPRECATED = boost::asio::io_context;
 
 /** Alias of AsioContext kept for backward compatibility.
     @deprecated Use wamp::AsioContext instead. */
-using AsioService CPPWAMP_DEPRECATED = AsioContext;
+using AsioService CPPWAMP_DEPRECATED = IoContext;
 
 /** Serializes I/O operations. */
 using IoStrand = boost::asio::strand<AnyIoExecutor>;

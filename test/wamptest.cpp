@@ -57,7 +57,7 @@ struct PubSubFixture
 {
     using PubVec = std::vector<PublicationId>;
 
-    PubSubFixture(AsioContext& ioctx, ConnectionWish wish)
+    PubSubFixture(IoContext& ioctx, ConnectionWish wish)
         : ioctx(ioctx),
           where(std::move(wish)),
           publisher(ioctx),
@@ -122,7 +122,7 @@ struct PubSubFixture
         otherPubs.push_back(event.pubId());
     }
 
-    AsioContext& ioctx;
+    IoContext& ioctx;
     ConnectionWish where;
 
     Session publisher;
@@ -144,7 +144,7 @@ struct PubSubFixture
 //------------------------------------------------------------------------------
 struct RpcFixture
 {
-    RpcFixture(AsioContext& ioctx, ConnectionWish wish)
+    RpcFixture(IoContext& ioctx, ConnectionWish wish)
         : ioctx(ioctx),
           where(std::move(wish)),
           caller(ioctx),
@@ -194,7 +194,7 @@ struct RpcFixture
         return {str, num};
     }
 
-    AsioContext& ioctx;
+    IoContext& ioctx;
     ConnectionWish where;
 
     Session caller;
@@ -211,7 +211,7 @@ struct RpcFixture
 template <typename TDelegate>
 void checkInvalidUri(TDelegate&& delegate, bool joined = true)
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
     spawn(ioctx, [&](YieldContext yield)
     {
@@ -236,7 +236,7 @@ void checkDisconnect(TDelegate&& delegate)
 {
     bool completed = false;
     ErrorOr<TResult> result;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
     spawn(ioctx, [&](YieldContext yield)
     {
@@ -400,7 +400,7 @@ struct StateChangeListener
 
     bool check(const Session& session,
                const std::vector<SessionState>& expected,
-               AsioContext& ioctx)
+               IoContext& ioctx)
     {
         int triesLeft = 1000;
         while (triesLeft > 0)
@@ -455,7 +455,7 @@ SCENARIO( "WAMP session management", "[WAMP][Basic]" )
 GIVEN( "a Session and a ConnectionWish" )
 {
     using SS = SessionState;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session s(ioctx);
     const auto where = withTcp;
     StateChangeListener changes;
@@ -756,7 +756,7 @@ SCENARIO( "Using alternate transport and/or serializer", "[WAMP][Basic]" )
 {
 GIVEN( "a Session and an alternate ConnectionWish" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     Session s(ioctx);
     const auto where = alternateTcp;
 
@@ -822,7 +822,7 @@ SCENARIO( "WAMP Pub-Sub", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a ConnectionWish" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     const auto where = withTcp;
 
     WHEN( "publishing and subscribing" )
@@ -945,7 +945,7 @@ SCENARIO( "WAMP Subscription Lifetimes", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a ConnectionWish" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     const auto where = withTcp;
 
     WHEN( "unsubscribing multiple times" )
@@ -1206,7 +1206,7 @@ SCENARIO( "WAMP RPCs", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a ConnectionWish" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     const auto where = withTcp;
 
     WHEN( "calling remote procedures taking dynamically-typed args" )
@@ -1369,7 +1369,7 @@ SCENARIO( "WAMP Registation Lifetimes", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a ConnectionWish" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     const auto where = withTcp;
 
     WHEN( "unregistering after a session is destroyed" )
@@ -1551,7 +1551,7 @@ SCENARIO( "Nested WAMP RPCs and Events", "[WAMP][Basic]" )
 {
 GIVEN( "these test fixture objects" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     const auto where = withTcp;
     Session session1(ioctx);
     Session session2(ioctx);
@@ -1834,7 +1834,7 @@ SCENARIO( "WAMP Connection Failures", "[WAMP][Basic]" )
 GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
 {
     using SS = SessionState;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session s(ioctx);
     StateChangeListener changes;
     s.setStateChangeHandler(changes);
@@ -1897,7 +1897,7 @@ SCENARIO( "WAMP RPC Failures", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a ConnectionWish" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     const auto where = withTcp;
 
     WHEN( "registering an already existing procedure" )
@@ -2177,7 +2177,7 @@ SCENARIO( "Invalid WAMP URIs", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a ConnectionWish" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     const auto where = withTcp;
 
     WHEN( "joining with an invalid realm URI" )
@@ -2278,7 +2278,7 @@ SCENARIO( "WAMP Precondition Failures", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     const auto where = withTcp;
 
     WHEN( "using invalid operations while disconnected" )
@@ -2360,7 +2360,7 @@ GIVEN( "an IO service and a TCP connector" )
 
         session.join(Realm(testRealm), [](ErrorOr<SessionInfo>){});
 
-        AsioContext ioctx2;
+        IoContext ioctx2;
         spawn(ioctx2, [&](YieldContext yield)
         {
             REQUIRE( session.state() == SessionState::establishing );
@@ -2404,7 +2404,7 @@ GIVEN( "an IO service and a TCP connector" )
 
         session.leave([](ErrorOr<Reason>){});
 
-        AsioContext ioctx2;
+        IoContext ioctx2;
         spawn(ioctx2, [&](YieldContext yield)
         {
             REQUIRE( session.state() == SessionState::shuttingDown );
@@ -2424,7 +2424,7 @@ SCENARIO( "WAMP Disconnect/Leave During Async Ops", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a ConnectionWish" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     const auto where = withTcp;
 
     WHEN( "disconnecting during async join" )
@@ -2627,7 +2627,7 @@ SCENARIO( "Outbound Messages are Properly Enqueued", "[WAMP][Basic]" )
 {
 GIVEN( "these test fixture objects" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     const auto where = withTcp;
     Session session1(ioctx);
     Session session2(ioctx);

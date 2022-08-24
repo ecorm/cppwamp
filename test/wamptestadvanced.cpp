@@ -36,7 +36,7 @@ void suspendCoro(YieldContext& yield)
 //------------------------------------------------------------------------------
 struct RpcFixture
 {
-    RpcFixture(AsioContext& ioctx, ConnectionWish wish)
+    RpcFixture(IoContext& ioctx, ConnectionWish wish)
         : where(std::move(wish)),
           caller(ioctx),
           callee(ioctx)
@@ -67,7 +67,7 @@ struct RpcFixture
 //------------------------------------------------------------------------------
 struct PubSubFixture
 {
-    PubSubFixture(AsioContext& ioctx, ConnectionWish wish)
+    PubSubFixture(IoContext& ioctx, ConnectionWish wish)
         : where(std::move(wish)),
           publisher(ioctx),
           subscriber(ioctx)
@@ -99,7 +99,7 @@ struct PubSubFixture
 //------------------------------------------------------------------------------
 struct TicketAuthFixture
 {
-    TicketAuthFixture(AsioContext& ioctx, ConnectionWish wish)
+    TicketAuthFixture(IoContext& ioctx, ConnectionWish wish)
         : where(std::move(wish)),
           session(ioctx)
     {
@@ -142,7 +142,7 @@ SCENARIO( "WAMP RPC advanced features", "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     RpcFixture f(ioctx, withTcp);
 
     WHEN( "using caller identification" )
@@ -219,7 +219,7 @@ SCENARIO( "WAMP progressive call results", "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     RpcFixture f(ioctx, withTcp);
 
     WHEN( "using progressive call results" )
@@ -434,7 +434,7 @@ SCENARIO( "RPC Cancellation", "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     RpcFixture f(ioctx, withTcp);
 
     WHEN( "cancelling an RPC in kill mode via a CallChit before it returns" )
@@ -826,7 +826,7 @@ SCENARIO( "Caller-initiated timeouts", "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     RpcFixture f(ioctx, withTcp);
 
     WHEN( "the caller initiates timeouts" )
@@ -921,7 +921,7 @@ SCENARIO( "WAMP pub/sub advanced features", "[WAMP][Advanced]" )
 {
 GIVEN( "a publisher and a subscriber" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     PubSubFixture f(ioctx, withTcp);
 
     WHEN( "using publisher identification" )
@@ -1091,7 +1091,7 @@ SCENARIO( "WAMP ticket authentication", "[WAMP][Advanced]" )
 {
 GIVEN( "a Session with a registered challenge handler" )
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     TicketAuthFixture f(ioctx, authTcp);
 
     WHEN( "joining with ticket authentication requested" )

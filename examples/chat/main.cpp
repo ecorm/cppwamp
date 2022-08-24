@@ -118,7 +118,7 @@ private:
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::AsioContext ioctx;
+    wamp::IoContext ioctx;
 
     auto tcp = wamp::TcpHost("localhost", 12345).withFormat(wamp::json);
 

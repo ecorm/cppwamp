@@ -33,7 +33,7 @@ If successful, `call` emits a wamp::Result object via the completion handler.
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -128,7 +128,7 @@ wamp::Outcome addToCart(wamp::Invocation inv)
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -200,7 +200,7 @@ float sum(float x, float y)
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -256,7 +256,7 @@ Outcome sum(Invocation inv, float x, float y)
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -296,7 +296,7 @@ be used:
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     auto getName =
@@ -399,7 +399,7 @@ via the `wamp::Rpc::captureError` option:
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -481,7 +481,7 @@ Example interruptible callee:
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     // This is not meant to be efficient or scalable! A more sophisticated
@@ -546,7 +546,7 @@ Example caller issuing a call cancellation via wamp::CallChit:
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -594,7 +594,7 @@ Example caller issuing a call cancellation via a
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -746,7 +746,7 @@ Outcome interrupt(Interruption intr)
 
 int main()
 {
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -780,7 +780,7 @@ example:
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)

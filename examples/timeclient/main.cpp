@@ -49,7 +49,7 @@ void onTimeTick(std::tm time)
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::AsioContext ioctx;
+    wamp::IoContext ioctx;
     auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
     wamp::Session session(ioctx);
 

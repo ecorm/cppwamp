@@ -27,6 +27,7 @@ Polymorphic codecs and transports.
   `Session::terminate` is called and before `Session::connect` is called.
 - Added wamp::spawn and wamp::yield_context in <cppwamp/spawn.hpp>, which are
   aliases to their Boost.Asio counterparts.
+- Renamed AsioContext to IoContext, leaving the former as a deprecated alias.
 
 Implementation improvements:
 
@@ -63,6 +64,7 @@ Implementation improvements:
 - Replace `Session::reset` with `Session::terminate`.
 - Manually call `Session::terminate` before a `Session` is destroyed if you
   must suppress the execution of pending completion handlers.
+- Replace `AsioContext` with `IoContext`.
 
 
 v0.10.0

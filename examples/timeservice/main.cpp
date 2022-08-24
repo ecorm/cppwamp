@@ -52,7 +52,7 @@ std::tm getTime()
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::AsioContext ioctx;
+    wamp::IoContext ioctx;
     auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
     wamp::Session session(ioctx.get_executor());
     boost::asio::steady_timer timer(ioctx);

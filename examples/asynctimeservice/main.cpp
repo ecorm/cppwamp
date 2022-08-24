@@ -131,7 +131,7 @@ private:
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::AsioContext ioctx;
+    wamp::IoContext ioctx;
     auto service = TimeService::create(ioctx.get_executor());
     service->start(wamp::TcpHost(address, port).withFormat(wamp::json));
     ioctx.run();

@@ -72,7 +72,7 @@ boost::asio::awaitable<void> client(wamp::Session& session,
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::AsioContext ioctx;
+    wamp::IoContext ioctx;
     auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
     wamp::Session session(ioctx);
     boost::asio::co_spawn(ioctx, client(session, tcp), boost::asio::detached);

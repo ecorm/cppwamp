@@ -33,7 +33,7 @@ publication for transmission.
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -128,7 +128,7 @@ void onSensorSampled(Event event)
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -195,7 +195,7 @@ void onSensorSampled(float value)
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -252,7 +252,7 @@ void onSensorSampled(Event event, float value)
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     spawn(ioctx, [&](YieldContext yield)
@@ -293,7 +293,7 @@ be used:
 int main()
 {
     using namespace wamp;
-    AsioContext ioctx;
+    IoContext ioctx;
     Session session(ioctx);
 
     // Event slot needing a coroutine context.
