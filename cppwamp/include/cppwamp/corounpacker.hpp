@@ -13,6 +13,8 @@
            event slots and call slots that spawn coroutines. */
 //------------------------------------------------------------------------------
 
+#include <exception>
+#include <boost/version.hpp>
 #include "config.hpp"
 #include "spawn.hpp"
 #include "unpacker.hpp"
@@ -20,10 +22,6 @@
 
 namespace wamp
 {
-
-// TODO: Make unpackers take an any_io_executor in their constructors instead
-// of using Session::userExecutor_ which should really be an
-// any_completion_executor.
 
 //------------------------------------------------------------------------------
 /** Wrapper around an event coroutine slot which automatically unpacks
@@ -34,9 +32,9 @@ namespace wamp
     @see [wamp::unpackedCoroEvent](@ref CoroEventUnpacker::unpackedCoroEvent)
     @see @ref UnpackedCoroutineEventSlots
     @tparam TSlot Function type to be wrapped. Must have the signature
-            `void function(Event, TArgs..., wamp::BasicYieldContext<E>)`.
+            `void function(Event, TArgs..., wamp::YieldContext)`.
     @tparam TArgs List of static types the event slot expects following the
-            Event parameter and preceding the `wamp::BasicYieldContext<E>`
+            Event parameter and preceding the `wamp::YieldContext`
             parameter. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename... TArgs>
@@ -69,14 +67,14 @@ private:
     Converts an unpacked event slot into a regular slot than can be passed
     to Session::subscribe.
     The slot will be executed within the context of a coroutine and will be
-    given a `wamp::BasicYieldContext<E>` as the last call argument.
+    given a `wamp::YieldContext` as the last call argument.
     @see @ref UnpackedCoroutineEventSlots
     @returns An CoroEventUnpacker that wraps the the given slot.
     @tparam TArgs List of static types the event slot expects following the
             Event parameter, and preceding the
-            `wamp::BasicYieldContext<E>` parameter.
+            `wamp::YieldContext` parameter.
     @tparam TSlot (deduced) Function type to be converted. Must have the signature
-            `void function(Event, TArgs..., wamp::BasicYieldContext<E>)`. */
+            `void function(Event, TArgs..., wamp::YieldContext)`. */
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
 CoroEventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedCoroEvent(TSlot&& slot);
@@ -93,9 +91,9 @@ CoroEventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedCoroEvent(TSlot&& slot);
     @see [wamp::simpleCoroEvent](@ref SimpleCoroEventUnpacker::simpleCoroEvent)
     @see @ref SimpleCoroutineEventSlots
     @tparam TSlot Function type to be wrapped. Must have the signature
-            `void function(TArgs..., wamp::BasicYieldContext<E>)`.
+            `void function(TArgs..., wamp::YieldContext)`.
     @tparam TArgs List of static types the event slot expects as arguments
-            preceding the `wamp::BasicYieldContext<E>` parameter. */
+            preceding the `wamp::YieldContext` parameter. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename... TArgs>
 class SimpleCoroEventUnpacker
@@ -139,9 +137,9 @@ using BasicCoroEventUnpacker CPPWAMP_DEPRECATED
     @see @ref SimpleCoroutineEventSlots
     @returns An SimpleCoroEventUnpacker that wraps the the given slot.
     @tparam TArgs List of static types the event slot expects as arguments,
-                  preceding the `wamp::BasicYieldContext<E>` parameter.
+                  preceding the `wamp::YieldContext` parameter.
     @tparam TSlot (deduced) Function type to be converted. Must have the
-            signature `void function(TArgs..., wamp::BasicYieldContext<E>)`.*/
+            signature `void function(TArgs..., wamp::YieldContext)`.*/
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
 SimpleCoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>
@@ -164,9 +162,9 @@ basicCoroEvent(TSlot&& slot);
     @see [wamp::unpackedCoroRpc](@ref CoroInvocationUnpacker::unpackedCoroRpc)
     @see @ref UnpackedCoroutineCallSlots
     @tparam TSlot Function type to be wrapped. Must have the signature
-            `void function(Invocation, TArgs..., wamp::BasicYieldContext<E>)`.
+            `void function(Invocation, TArgs..., wamp::YieldContext)`.
     @tparam TArgs List of static types the call slot expects following the
-            Invocation parameter, and preceding the wamp::BasicYieldContext<E>
+            Invocation parameter, and preceding the wamp::YieldContext
             parameter. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename... TArgs>
@@ -202,9 +200,9 @@ private:
     @returns A CoroInvocationUnpacker that wraps the the given slot.
     @tparam TArgs List of static types the call slot expects following the
                   Invocation parameter, and preceding the
-                  `wamp::BasicYieldContext<E>` parameter.
+                  `wamp::YieldContext` parameter.
     @tparam TSlot (deduced) Function type to be converted. Must have the signature
-            `Outcome function(Invocation, TArgs..., wamp::BasicYieldContext<E>)`.*/
+            `Outcome function(Invocation, TArgs..., wamp::YieldContext)`.*/
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
 CoroInvocationUnpacker<DecayedSlot<TSlot>, TArgs...>
@@ -224,10 +222,10 @@ unpackedCoroRpc(TSlot&& slot);
     @see [wamp::simpleCoroRpc](@ref SimpleCoroInvocationUnpacker::simpleCoroRpc)
     @see @ref SimpleCoroutineCallSlots
     @tparam TSlot Function type to be wrapped. Must have the signature
-            `TResult function(TArgs..., wamp::BasicYieldContext<E>)`.
+            `TResult function(TArgs..., wamp::YieldContext)`.
     @tparam TResult The static result type returned by the slot (may be `void`).
     @tparam TArgs List of static types the call slot expects as arguments,
-            preceding the `wamp::BasicYieldContext<E>` argument. */
+            preceding the `wamp::YieldContext` argument. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename TResult, typename... TArgs>
 class SimpleCoroInvocationUnpacker
@@ -280,10 +278,10 @@ using BasicCoroInvocationUnpacker =
     @see @ref SimpleCoroutineCallSlots
     @returns A SimpleCoroInvocationUnpacker that wraps the the given slot.
     @tparam TArgs List of static types the call slot expects as arguments,
-            preceding the `wamp::BasicYieldContext<E>` argument.
+            preceding the `wamp::YieldContext` argument.
     @tparam TResult The static result type returned by the slot (may be `void`).
     @tparam TSlot (deduced) Function type to be converted. Must have the signature
-            `TResult function(TArgs..., wamp::BasicYieldContext<E>)`.*/
+            `TResult function(TArgs..., wamp::YieldContext)`.*/
 //------------------------------------------------------------------------------
 template <typename TResult, typename... TArgs, typename TSlot>
 SimpleCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
@@ -296,8 +294,9 @@ template <typename TResult, typename... TArgs, typename TSlot>
 SimpleCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
 basicCoroRpc(TSlot&& slot);
 
+
 //******************************************************************************
-// Internal helper types
+// Internal helpers
 //******************************************************************************
 
 namespace internal
@@ -311,6 +310,37 @@ struct UnpackCoroError : public Error
 {
     UnpackCoroError() : Error("wamp.error.invalid_argument") {}
 };
+
+//------------------------------------------------------------------------------
+template <typename E>
+struct UnpackedSpawner
+{
+    template <typename F>
+    static void spawn(E& executor, F&& function)
+    {
+        spawn(executor, std::forward<F>(function));
+    }
+};
+
+template <>
+struct UnpackedSpawner<AnyCompletionExecutor>
+{
+    template <typename F>
+    static void spawn(AnyCompletionExecutor& executor, F&& function)
+    {
+        spawnCompletionHandler(executor, std::forward<F>(function));
+    }
+};
+
+template <typename E, typename F>
+void unpackedSpawn(E& executor, F&& function)
+{
+#ifdef CPPWAMP_USE_COMPLETION_YIELD_CONTEXT
+    spawn(executor, std::forward<F>(function), propagating);
+#else
+    UnpackedSpawner<E>::spawn(executor, std::forward<F>(function));
+#endif
+}
 
 } // namespace internal
 
@@ -376,9 +406,8 @@ template <int... Seq>
 void CoroEventUnpacker<S,A...>::invoke(Event&& event,
                                        internal::IntegerSequence<Seq...>) const
 {
-    auto executor =
-        boost::asio::get_associated_executor(slot_, event.executor());
-    wamp::spawn(executor, Spawned<Seq...>{slot_, std::move(event)});
+    auto ex = boost::asio::get_associated_executor(slot_, event.executor());
+    internal::unpackedSpawn(ex, Spawned<Seq...>{slot_, std::move(event)});
 }
 
 //------------------------------------------------------------------------------
@@ -451,9 +480,8 @@ void
 SimpleCoroEventUnpacker<S,A...>::invoke(Event&& event,
                                        internal::IntegerSequence<Seq...>) const
 {
-    auto executor =
-        boost::asio::get_associated_executor(slot_, event.executor());
-    wamp::spawn(executor, Spawned<Seq...>{slot_, std::move(event)});
+    auto ex = boost::asio::get_associated_executor(slot_, event.executor());
+    internal::unpackedSpawn(ex, Spawned<Seq...>{slot_, std::move(event)});
 }
 
 //------------------------------------------------------------------------------
@@ -588,9 +616,8 @@ void
 CoroInvocationUnpacker<S,A...>::invoke(Invocation&& inv,
                                        internal::IntegerSequence<Seq...>) const
 {
-    auto executor =
-        boost::asio::get_associated_executor(slot_, inv.executor());
-    wamp::spawn(executor, Spawned<Seq...>{slot_, std::move(inv)});
+    auto ex = boost::asio::get_associated_executor(slot_, inv.executor());
+    internal::unpackedSpawn(ex, Spawned<Seq...>{slot_, std::move(inv)});
 }
 
 //------------------------------------------------------------------------------
@@ -701,9 +728,8 @@ template <int... Seq>
 void SimpleCoroInvocationUnpacker<S,R,A...>::invoke(
     TrueType, Invocation&& inv, internal::IntegerSequence<Seq...>) const
 {
-    auto executor =
-        boost::asio::get_associated_executor(slot_, inv.executor());
-    wamp::spawn(executor, SpawnedWithVoid<Seq...>{slot_, std::move(inv)});
+    auto ex = boost::asio::get_associated_executor(slot_, inv.executor());
+    internal::unpackedSpawn(ex, SpawnedWithVoid<Seq...>{slot_, std::move(inv)});
 }
 
 //------------------------------------------------------------------------------
@@ -712,9 +738,9 @@ template <int... Seq>
 void SimpleCoroInvocationUnpacker<S,R,A...>::invoke(
     FalseType, Invocation&& inv, internal::IntegerSequence<Seq...>) const
 {
-    auto executor =
-        boost::asio::get_associated_executor(slot_, inv.executor());
-    wamp::spawn(executor, SpawnedWithResult<Seq...>{slot_, std::move(inv)});
+    using std::move;
+    auto ex = boost::asio::get_associated_executor(slot_, inv.executor());
+    internal::unpackedSpawn(ex, SpawnedWithResult<Seq...>{slot_, move(inv)});
 }
 
 //------------------------------------------------------------------------------

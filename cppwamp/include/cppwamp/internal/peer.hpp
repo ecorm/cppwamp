@@ -47,7 +47,7 @@ public:
 
     const IoStrand& strand() const {return strand_;}
 
-    const AnyIoExecutor& userExecutor() const {return userExecutor_;}
+    const AnyCompletionExecutor& userExecutor() const {return userExecutor_;}
 
 protected:
     using Message = WampMessage;
@@ -64,11 +64,11 @@ protected:
           isTerminating_(false)
     {}
 
-    explicit Peer(const AnyIoExecutor& exec, AnyIoExecutor userExecutor)
+    explicit Peer(const AnyIoExecutor& exec, AnyCompletionExecutor userExecutor)
         : Peer(boost::asio::make_strand(exec), std::move(userExecutor))
     {}
 
-    explicit Peer(IoStrand strand, AnyIoExecutor userExecutor)
+    explicit Peer(IoStrand strand, AnyCompletionExecutor userExecutor)
         : strand_(std::move(strand)),
           userExecutor_(std::move(userExecutor)),
           state_(State::disconnected),
@@ -590,7 +590,7 @@ private:
     }
 
     IoStrand strand_;
-    AnyIoExecutor userExecutor_;
+    AnyCompletionExecutor userExecutor_;
     AnyBufferCodec codec_;
     TransportPtr transport_;
     LogHandler traceHandler_;

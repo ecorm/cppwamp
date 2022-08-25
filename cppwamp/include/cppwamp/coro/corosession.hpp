@@ -87,7 +87,7 @@ public:
     static Ptr create(AnyIoExecutor exec, const ConnectorList& connectors);
 
     /** Creates a new CoroSession instance.
-        @copydetails Session::create(AnyIoExecutor, LegacyConnector)
+        @copydetails Session::create(AnyCompletionExecutor, LegacyConnector)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
         @tparam TExecutionContext Must meet the requirements of
@@ -105,7 +105,7 @@ public:
     }
 
     /** Creates a new CoroSession instance.
-        @copydetails Session::create(AnyIoExecutor, LegacyConnector)
+        @copydetails Session::create(AnyCompletionExecutor, LegacyConnector)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
         @tparam TExecutionContext Must meet the requirements of
@@ -267,7 +267,7 @@ protected:
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::create(AnyIoExecutor, LegacyConnector) */
+/** @copydetails Session::create(AnyCompletionExecutor, LegacyConnector) */
 //------------------------------------------------------------------------------
 template <typename B>
 typename CoroSession<B>::Ptr CoroSession<B>::create(
@@ -281,7 +281,7 @@ typename CoroSession<B>::Ptr CoroSession<B>::create(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::create(AnyIoExecutor, LegacyConnector) */
+/** @copydetails Session::create(AnyCompletionExecutor, LegacyConnector) */
 //------------------------------------------------------------------------------
 template <typename B>
 typename CoroSession<B>::Ptr CoroSession<B>::create(

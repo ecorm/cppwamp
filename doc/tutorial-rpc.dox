@@ -191,6 +191,7 @@ Example:
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
+#include <cppwamp/unpacker.hpp>
 
 float sum(float x, float y)
 {
@@ -247,6 +248,7 @@ Example:
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
+#include <cppwamp/unpacker.hpp>
 
 Outcome sum(Invocation inv, float x, float y)
 {
@@ -288,6 +290,7 @@ within the context of a coroutine, then
 be used:
 
 ```
+#include <cppwamp/corounpacker.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
@@ -692,21 +695,21 @@ progressive results at fixed time intervals:
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
-using namespace wamp;
-
-std::set<RequestId> interruptions;
-
-Outcome countdown(Invocation inv)
+int main()
 {
-    // The first positional argument contains the count.
-    unsigned count = 0;
-    inv.convertTo(count);
+    IoContext ioctx;
+    Session session(ioctx);
+    std::set<RequestId> interruptions;
 
-    spawn(
-        inv.executor(),
-        [inv, &count](YieldContext yield)
+    auto countdown = [&session, &interruptions](Invocation inv) -> Outcome
+    {
+        // The first positional argument contains the count.
+        unsigned count = 0;
+        inv.convertTo(count);
+
+        spawn(ioctx, [inv, &count, &ioctx](YieldContext yield)
         {
-            boost::asio::steady_timer timer(inv.executor());
+            boost::asio::steady_timer timer(ioctx);
             auto deadline = std::chrono::steady_clock::now();
 
             while (count > 0)
@@ -734,28 +737,23 @@ Outcome countdown(Invocation inv)
             inv.yield(Result({count}));
         });
 
-    return deferment;
-}
+        return deferment;
+    }
 
-Outcome interrupt(Interruption intr)
-{
-    // Make the coroutine in the countdown function break out of its loop.
-    interruptions.insert(intr.requestId());
-    return Error("wamp.error.canceled");
-}
+    auto interrupt = [&interruptions](Interruption intr) -> Outcome
+    {
+        // Make the coroutine in the countdown function break out of its loop.
+        interruptions.insert(intr.requestId());
+        return Error("wamp.error.canceled");
+    }
 
-int main()
-{
-    IoContext ioctx;
-    Session session(ioctx);
-
-    spawn(ioctx, [&](YieldContext yield)
+    spawn(ioctx, [&session](YieldContext yield)
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
         session.join(Realm("somerealm"), yield).value();
-        session.enroll(Procedure("countdown"), &countdown, &interrupt,
-                        yield).value();
+        session.enroll(Procedure("countdown"), countdown, interrupt,
+                       yield).value();
     });
 
     ioctx.run();

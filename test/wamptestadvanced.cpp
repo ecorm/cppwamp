@@ -238,7 +238,7 @@ GIVEN( "a caller and a callee" )
                     CHECK( inv.isProgressive() );
 
                     spawn(
-                        inv.executor(),
+                        ioctx,
                         [&ioctx, &input, inv](YieldContext yield)
                         {
                             boost::asio::steady_timer timer(ioctx);
@@ -301,7 +301,7 @@ GIVEN( "a caller and a callee" )
                     CHECK( inv.isProgressive() );
 
                     spawn(
-                        inv.executor(),
+                        ioctx,
                         [&ioctx, &input, inv](YieldContext yield)
                         {
                             boost::asio::steady_timer timer(ioctx);
@@ -375,24 +375,22 @@ GIVEN( "a caller and a callee" )
                 [&](Invocation inv) -> Outcome
                 {
                     CHECK( inv.isProgressive() );
-                    spawn(
-                        inv.executor(),
-                        [&, inv](YieldContext yield)
+                    spawn(ioctx, [&, inv](YieldContext yield)
+                    {
+                        boost::asio::steady_timer timer(ioctx);
+
+                        while (!interrupted)
                         {
-                            boost::asio::steady_timer timer(ioctx);
+                            timer.expires_from_now(
+                                std::chrono::milliseconds(50));
+                            timer.async_wait(yield);
 
-                            while (!interrupted)
-                            {
-                                timer.expires_from_now(
-                                    std::chrono::milliseconds(50));
-                                timer.async_wait(yield);
-
-                                Result result({tickCount});
-                                result.withProgress();
-                                ++tickCount;
-                                inv.yield(result);
-                            }
-                        });
+                            Result result({tickCount});
+                            result.withProgress();
+                            ++tickCount;
+                            inv.yield(result);
+                        }
+                    });
                     return deferment;
                 },
                 [&interrupted](Interruption intr) -> Outcome
@@ -843,26 +841,24 @@ GIVEN( "a caller and a callee" )
                 Procedure("com.myapp.foo"),
                 [&](Invocation inv) -> Outcome
                 {
-                    spawn(
-                        inv.executor(),
-                        [&, inv](YieldContext yield)
-                        {
-                            int arg = 0;
-                            inv.convertTo(arg);
-                            valuesByRequestId[inv.requestId()] = arg;
-                            boost::asio::steady_timer timer(inv.executor());
-                            timer.expires_from_now(std::chrono::milliseconds(150));
-                            timer.async_wait(yield);
+                    spawn(ioctx, [&, inv](YieldContext yield)
+                    {
+                        int arg = 0;
+                        inv.convertTo(arg);
+                        valuesByRequestId[inv.requestId()] = arg;
+                        boost::asio::steady_timer timer(ioctx);
+                        timer.expires_from_now(std::chrono::milliseconds(150));
+                        timer.async_wait(yield);
 
-                            bool interrupted =
-                                std::count(interruptions.begin(),
-                                           interruptions.end(),
-                                           inv.requestId()) != 0;
-                            if (interrupted)
-                                inv.yield(Error("wamp.error.canceled"));
-                            else
-                                inv.yield({arg});
-                        });
+                        bool interrupted =
+                            std::count(interruptions.begin(),
+                                       interruptions.end(),
+                                       inv.requestId()) != 0;
+                        if (interrupted)
+                            inv.yield(Error("wamp.error.canceled"));
+                        else
+                            inv.yield({arg});
+                    });
 
                     return deferment;
                 },

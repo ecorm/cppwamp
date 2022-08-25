@@ -13,8 +13,8 @@
     @see <cppwamp/spawn.hpp> */
 //------------------------------------------------------------------------------
 
-#include <type_traits>
 #include <boost/asio/any_io_executor.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/system/error_code.hpp>
@@ -54,6 +54,16 @@ static constexpr bool isExecutionContext()
 {
     return std::is_base_of<boost::asio::execution_context, T>::value;
 }
+
+/** Completion token used to indicate that there is no completion handler
+    waiting for the operation's result. */
+using Detached = boost::asio::detached_t;
+
+#if defined(BOOST_ASIO_HAS_CONSTEXPR) || defined(CPPWAMP_FOR_DOXYGEN)
+constexpr Detached detached;
+#endif
+
+// boost::asio::detached
 
 } // namespace wamp
 

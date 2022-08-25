@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 #include "api.hpp"
+#include "anyhandler.hpp"
 #include "asiodefs.hpp"
 #include "config.hpp"
 #include "options.hpp"
@@ -441,7 +442,7 @@ public:
     PublicationId pubId() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
-    AnyIoExecutor executor() const;
+    AnyCompletionExecutor executor() const;
 
     /** @name Publisher Identification
         See [Publisher Identification in the WAMP Specification]
@@ -474,11 +475,11 @@ public:
 private:
     using Base = Payload<Event, internal::EventMessage>;
 
-    AnyIoExecutor executor_;
+    AnyCompletionExecutor executor_;
 
 public:
     // Internal use only
-    Event(internal::PassKey, AnyIoExecutor executor,
+    Event(internal::PassKey, AnyCompletionExecutor executor,
           internal::EventMessage&& msg);
 };
 
@@ -815,7 +816,7 @@ public:
     RequestId requestId() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
-    AnyIoExecutor executor() const;
+    AnyCompletionExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
     void yield(Result result = Result()) const;
@@ -863,14 +864,15 @@ public:
 public:
     // Internal use only
     using CalleePtr = std::weak_ptr<internal::Callee>;
-    Invocation(internal::PassKey, CalleePtr callee, AnyIoExecutor executor,
+    Invocation(internal::PassKey, CalleePtr callee,
+               AnyCompletionExecutor executor,
                internal::InvocationMessage&& msg);
 
 private:
     using Base = Payload<Invocation, internal::InvocationMessage>;
 
     CalleePtr callee_;
-    AnyIoExecutor executor_ = nullptr;
+    AnyCompletionExecutor executor_ = nullptr;
 
     template <typename, typename...> friend class CoroInvocationUnpacker;
 };
@@ -932,7 +934,7 @@ public:
     RequestId requestId() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
-    AnyIoExecutor executor() const;
+    AnyCompletionExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
     void yield(Result result = Result()) const;
@@ -943,14 +945,15 @@ public:
 public:
     // Internal use only
     using CalleePtr = std::weak_ptr<internal::Callee>;
-    Interruption(internal::PassKey, CalleePtr callee, AnyIoExecutor executor,
+    Interruption(internal::PassKey, CalleePtr callee,
+                 AnyCompletionExecutor executor,
                  internal::InterruptMessage&& msg);
 
 private:
     using Base = Options<Interruption, internal::InterruptMessage>;
 
     CalleePtr callee_;
-    AnyIoExecutor executor_ = nullptr;
+    AnyCompletionExecutor executor_ = nullptr;
 };
 
 CPPWAMP_API std::ostream& operator<<(std::ostream& out,

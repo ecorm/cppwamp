@@ -18,15 +18,31 @@ Polymorphic codecs and transports.
   completion handler.
 - `Session::yield` operations while not established will emit a warning instead
   of failing.
+- AnyCompletionExecutor is now used by session to contain the user executor.
 - Added `Session::ongoingCall` for progressive call results, which
   automatically applies `rpc.withProgessiveResults(true)`.
 - Renamed `Session::reset` to `Session::terminate`, leaving the former as
   a deprecated alias.
+- Renamed `Session::userExecutor` to `Session::fallbackExecutor`, leaving the
+  former as a deprecated alias.
 - Handlers registered via `Session`'s `setWarningHandler`, `setTraceHandler`,
   and `setStateChangeHandler` will no longer be fired after
   `Session::terminate` is called and before `Session::connect` is called.
-- Added wamp::spawn and wamp::yield_context in <cppwamp/spawn.hpp>, which are
-  aliases to their Boost.Asio counterparts.
+- `Session::userExecutor` type relaxed to `AnyCompletionExecutor`.
+- Added `wamp::spawn` and `wamp::yield_context` in `<cppwamp/spawn.hpp>`, which
+  are aliases to their Boost.Asio counterparts.
+- Added `wamp::spawnCompletionHandler` and `wamp::CompletionYieldContext`
+  to support spawning coroutines via `Event::executor` and
+  `Invocation::executor`.
+- When `CPPWAMP_USE_COMPLETION_YIELD_CONTEXT` is defined,
+  wamp::BasicYieldContext<wamp::AnyCompletionExecutor> will be passed to
+  coroutines spawned via Event/Invocation unpackers. The relaxes the requirement
+  that the `Session::userExecutor()` originate from `boost::asio::io_context`.
+- When `CPPWAMP_USE_COMPLETION_YIELD_CONTEXT` and `ASIO_DISABLE_BOOST_COROUTINE`
+  are defined, the coroutine Event/Invocation unpackers will use the new
+  Boost.Context-based coroutines introduced in Boost 1.80.0. Please note this
+  [bug](https://github.com/chriskohlhoff/asio/issues/1110) in Boost 1.80.0
+  concerning exceptions thrown from these new Boost.Context-based coroutines.
 - Renamed `AsioContext` to `IoContext`, leaving the former as a deprecated
   alias.
 - Deprecated `AsioErrorCode`.
@@ -54,6 +70,9 @@ Implementation improvements:
 - The `Session` destructor now automatically invokes `Session::disconnect`
   instead of `Session::terminate`, to better emulate the cancellation behavior
   of Asio sockets being destroyed.
+- `Event::executor` and `Invocation::executor` can no longer be directly used
+  by Boost.Coroutine-based `boost::asio::spawn` to spawn coroutines.
+  See workaround below in the Migration Guide.
   
 ### Migration Guide
 
@@ -64,10 +83,12 @@ Implementation improvements:
 - Replace `Session::call` with `Session::ongoingCall` when progressive results
   are desired.
 - Replace `Session::reset` with `Session::terminate`.
+- Replace `Session::userExecutor` with `Session::fallbackExecutor`
 - Manually call `Session::terminate` before a `Session` is destroyed if you
   must suppress the execution of pending completion handlers.
 - Replace `AsioContext` with `IoContext`.
-
+- When using `Event::executor` or `Invocation::executor` to spawn coroutines,
+  use `wamp::spawnCompletionHandler` instead of `boost::asio::spawn`.
 
 v0.10.0
 =======

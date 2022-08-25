@@ -45,14 +45,12 @@ where:
 The following table summarizes the different types of call slots that can
 be used with the library:
 
-| Slot Type                                                       | Wrapper Function                         | Slot Signature                                  |
-|-----------------------------------------------------------------|------------------------------------------|-------------------------------------------------|
-| [Simple Call Slot](@ref SimpleCallSlots)                        | `wamp::simpleRpc<TResult, TArgs...>`     | `TResult function(TArgs...)`                    |
-| [Simple Coroutine Call Slot](@ref SimpleCoroutineCallSlots)     | `wamp::simpleCoroRpc<TResult, TArgs...>` | `TResult function(TArgs..., Yield)`             |
-| [Unpacked Call Slot](@ref UnpackedCallSlots)                    | `wamp::unpackedRpc<TArgs...>`            | `Outcome function(Invocation, TArgs...)`        |
-| [Unpacked Coroutine Call Slot](@ref UnpackedCoroutineCallSlots) | `wamp::unpackedCoroRpc<TArgs...>`        | `Outcome function(Invocation, TArgs..., Yield)` |
-
-where `Yield` represents the type `wamp::BasicYieldContext<E>`.
+| Slot Type                                                       | Wrapper Function                         | Slot Signature                                         |
+|-----------------------------------------------------------------|------------------------------------------|--------------------------------------------------------|
+| [Simple Call Slot](@ref SimpleCallSlots)                        | `wamp::simpleRpc<TResult, TArgs...>`     | `TResult function(TArgs...)`                           |
+| [Simple Coroutine Call Slot](@ref SimpleCoroutineCallSlots)     | `wamp::simpleCoroRpc<TResult, TArgs...>` | `TResult function(TArgs..., YieldContext)`             |
+| [Unpacked Call Slot](@ref UnpackedCallSlots)                    | `wamp::unpackedRpc<TArgs...>`            | `Outcome function(Invocation, TArgs...)`               |
+| [Unpacked Coroutine Call Slot](@ref UnpackedCoroutineCallSlots) | `wamp::unpackedCoroRpc<TArgs...>`        | `Outcome function(Invocation, TArgs..., YieldContext)` |
 
 
 @section SimpleCallSlots Simple Call Slots
@@ -121,7 +119,7 @@ passed to wamp::Session::enroll.
 `wamp::simpleCoroRpc` expects a call slot with the following signature:
 
 ```
-TResult function(TArgs..., wamp::BasicYieldContext<E>)
+TResult function(TArgs..., wamp::YieldContext)
 ```
 where
 - `TResult` is a static return type that will be automatically converted
@@ -130,7 +128,8 @@ where
   to return a value.
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::simpleCoroRpc`.
-- `wamp::BasicYieldContext<E>` represents the RPC's coroutine context.
+- `wamp::YieldContext` is a completion token that can be passed to
+   asynchronous operations.
 
 Examples of simple coroutine call slots are:
 ```
@@ -240,7 +239,7 @@ registering such call slots.
 `wamp::unpackedCoroRpc` expects a call slot with the following signature:
 
 ```
-wamp::Outcome function(wamp::Invocation, TArgs..., wamp::BasicYieldContext<E>)
+wamp::Outcome function(wamp::Invocation, TArgs..., wamp::YieldContext)
 ```
 where
 - wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
@@ -249,7 +248,8 @@ where
   related to the RPC invocation, and,
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::unpackedRpc`.
-- `wamp::BasicYieldContext<E>` represents the RPC's coroutine context.
+- `wamp::YieldContext` is a completion token that can be passed to
+   asynchronous operations.
 
 
 @section RpcOutcomes RPC Outcomes
@@ -342,7 +342,8 @@ Outcome Client::addPerson(Invocation inv, Object person)
 {
     // We need to issue another RPC to the database service before we can
     // fulfill this RPC.
-    spawn(inv.executor(),
+    spawn(
+        ioctx,
         [this, inv](YieldContext yield)
         {
             auto dbResult = session_.call( Rpc("db.add").withArgs(person),

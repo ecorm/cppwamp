@@ -56,7 +56,7 @@ public:
         return Ptr(new Client(std::move(exec)));
     }
 
-    static Ptr create(const AnyIoExecutor& exec, AnyIoExecutor userExec)
+    static Ptr create(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
     {
         return Ptr(new Client(exec, std::move(userExec)));
     }
@@ -65,7 +65,7 @@ public:
 
     const IoStrand& strand() const override {return Peer::strand();}
 
-    const AnyIoExecutor& userExecutor() const override
+    const AnyCompletionExecutor& userExecutor() const override
     {
         return Peer::userExecutor();
     }
@@ -920,7 +920,7 @@ private:
           timeoutScheduler_(CallerTimeoutScheduler::create(Base::strand()))
     {}
 
-    Client(const AnyIoExecutor& exec, AnyIoExecutor userExec)
+    Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
         : Base(exec, std::move(userExec)),
           timeoutScheduler_(CallerTimeoutScheduler::create(Base::strand()))
     {}

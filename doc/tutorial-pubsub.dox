@@ -185,6 +185,7 @@ Example:
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
+#include <cppwamp/unpacker.hpp>
 
 // The event slot with static argument types
 void onSensorSampled(float value)
@@ -241,6 +242,7 @@ Example:
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
+#include <cppwamp/unpacker.hpp>
 
 // Event slot needing the Event object
 void onSensorSampled(Event event, float value)
@@ -285,6 +287,7 @@ the context of a coroutine, then
 be used:
 
 ```
+#include <cppwamp/corounpacker.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>

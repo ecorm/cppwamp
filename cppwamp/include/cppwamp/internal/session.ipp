@@ -12,25 +12,27 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** @copydetails Session(AnyIoExecutor) */
+/** @copydetails Session(Executor) */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
-    AnyIoExecutor exec /**< Executor for internal I/O operations and as a
-                            fallback for user handlers. */
+    Executor exec /**< Executor used for internal I/O operations and as
+                       a fallback for user-provided handlers. */
 )
 {
     return Ptr(new Session(std::move(exec)));
 }
 
 //------------------------------------------------------------------------------
+/** @copydetails Session(const Executor&, FallbackExecutor) */
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
-    const AnyIoExecutor& exec, /**< Executor from which Session will extract
-                                    a strand for its internal I/O operations. */
-    AnyIoExecutor userExec     /**< Fallback executor to use for user
-                                    handlers that have none bound. */
+    const Executor& exec,         /**< Executor from which Session will extract
+                                       a strand for its internal I/O operations. */
+    FallbackExecutor fallbackExec /**< Fallback executor to use for
+                                       user-provided handlers. */
 )
 {
-    return Ptr(new Session(exec, std::move(userExec)));
+    return Ptr(new Session(exec, std::move(fallbackExec)));
 }
 
 //------------------------------------------------------------------------------
@@ -38,65 +40,66 @@ CPPWAMP_INLINE Session::Ptr Session::create(
     The provided executor serves as a fallback when asynchronous operation
     handlers don't bind a specific executor (in lieu of using the system
     executor as fallback.
-    From the given connector, session will extract an execution strand for use
-    with its internal I/O operations.
+    From the given connector(s), session will extract an execution strand for
+    use with its internal I/O operations.
     @post `this->state() == SessionState::disconnected`
+    @post `this->fallbackExecutor() == exec`
     @return A shared pointer to the created session object. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
-    AnyIoExecutor userExec,   /**< Fallback executor with which to execute
-                                   user-provided handlers. */
-    LegacyConnector connector /**< Connection details for the transport to use. */
+    FallbackExecutor fallbackExec, /**< Fallback executor for
+                                        user-provided handlers. */
+    LegacyConnector connector      /**< Connection details for the transport
+                                        to use. */
 )
 {
-    return Ptr(new Session(std::move(userExec),
+    return Ptr(new Session(std::move(fallbackExec),
                            ConnectorList{std::move(connector)}));
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    The provided executor serves as a fallback when asynchronous operation
-    handlers don't bind a specific executor (in lieu of using the system
-    executor as fallback.
-    From the given connectors, session will extract an execution strand for use
-    with its internal I/O operations.
+/** @copydetails Session::create(FallbackExecutor, LegacyConnector)
     @pre `connectors.empty() == false`
     @post `this->state() == SessionState::disconnected`
     @return A shared pointer to the created Session object.
     @throws error::Logic if `connectors.empty() == true` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Ptr Session::create(
-    AnyIoExecutor userExec,  /**< Fallback executor with which to execute
-                                  user-provided handlers. */
-    ConnectorList connectors /**< A list of connection details for
-                                  the transports to use. */
+    FallbackExecutor fallbackExec, /**< Fallback executor with which to execute
+                                        user-provided handlers. */
+    ConnectorList connectors       /**< A list of connection details for
+                                        the transports to use. */
 )
 {
     CPPWAMP_LOGIC_CHECK(!connectors.empty(), "Connector list is empty");
-    return Ptr(new Session(std::move(userExec), std::move(connectors)));
+    return Ptr(new Session(std::move(fallbackExec), std::move(connectors)));
 }
 
 //------------------------------------------------------------------------------
 /** @details
     Session will extract a strand from the given executor for use with its
-    internal I/O operations. The given extractor also serves as the fallback
-    executor to use for user handlers that have none bound. */
+    internal I/O operations. The given executor also serves as fallback
+    for user-provided handlers.
+    @post `this->fallbackExecutor() == exec` */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Session(
-    AnyIoExecutor exec /**< Executor for internal I/O operations and as a
-                            fallback for user handlers. */
+    Executor exec /**< Executor for internal I/O operations, as well as
+                       fallback for user-provided handlers. */
 )
     : impl_(internal::Client::create(std::move(exec)))
 {}
 
 //------------------------------------------------------------------------------
+/** @details
+    @post `this->fallbackExecutor() == exec` */
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Session(
-    const AnyIoExecutor& exec, /**< Executor from which Session will extract
-                                    a strand for its internal I/O operations */
-    AnyIoExecutor userExec     /**< Fallback executor to use for user handlers
-                                    that have none bound. */
+    const Executor& exec, /**< Executor from which Session will extract
+                               a strand for its internal I/O operations */
+    FallbackExecutor fallbackExec /**< Fallback executor to use for
+                                       user-provided handlers. */
 )
-    : impl_(internal::Client::create(exec, std::move(userExec)))
+    : impl_(internal::Client::create(exec, std::move(fallbackExec)))
 {}
 
 //------------------------------------------------------------------------------
@@ -135,17 +138,23 @@ CPPWAMP_INLINE const IoStrand& Session::strand() const
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AnyIoExecutor Session::userExecutor() const
+CPPWAMP_INLINE Session::FallbackExecutor Session::fallbackExecutor() const
 {
     return impl_->userExecutor();
 }
 
 //------------------------------------------------------------------------------
-/** @deprecated Use wamp::Session::userExecutor instead. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE AnyIoExecutor Session::userIosvc() const
+CPPWAMP_INLINE Session::FallbackExecutor Session::userExecutor() const
 {
-    return userExecutor();
+    return impl_->userExecutor();
+}
+
+//------------------------------------------------------------------------------
+/** @deprecated Use wamp::Session::fallbackExecutor instead. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Session::FallbackExecutor Session::userIosvc() const
+{
+    return fallbackExecutor();
 }
 
 //------------------------------------------------------------------------------
@@ -482,12 +491,12 @@ CPPWAMP_INLINE void Session::cancel(
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Session::Session(AnyIoExecutor userExec,
+CPPWAMP_INLINE Session::Session(FallbackExecutor fallbackExec,
                                 ConnectorList connectors)
     : legacyConnectors_(std::move(connectors)),
       impl_(internal::Client::create(
                 boost::asio::make_strand(legacyConnectors_.at(0).executor()),
-                std::move(userExec)))
+                std::move(fallbackExec)))
 {}
 
 } // namespace wamp

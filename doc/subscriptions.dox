@@ -42,14 +42,14 @@ related to the publication.
 The following table summarizes the different types of event slots that can
 be used with the library:
 
-| Slot Type                                                         | Wrapper Function                    | Slot Signature                          |
-|-------------------------------------------------------------------|-------------------------------------|-----------------------------------------|
-| [Simple Event Slot](@ref SimpleEventSlots)                        | `wamp::simpleEvent<TArgs...>`       | `void function(TArgs...)`               |
-| [Simple Coroutine Event Slot](@ref SimpleCoroutineEventSlots)     | `wamp::simpleCoroEvent<TArgs...>`   | `void function(TArgs..., Yield)`        |
-| [Unpacked Event Slot](@ref UnpackedEventSlots)                    | `wamp::unpackedEvent<TArgs...>`     | `void function(Event, TArgs...)`        |
-| [Unpacked Coroutine Event Slot](@ref UnpackedCoroutineEventSlots) | `wamp::unpackedCoroEvent<TArgs...>` | `void function(Event, TArgs..., Yield)` |
+| Slot Type                                                         | Wrapper Function                    | Slot Signature                                 |
+|-------------------------------------------------------------------|-------------------------------------|------------------------------------------------|
+| [Simple Event Slot](@ref SimpleEventSlots)                        | `wamp::simpleEvent<TArgs...>`       | `void function(TArgs...)`                      |
+| [Simple Coroutine Event Slot](@ref SimpleCoroutineEventSlots)     | `wamp::simpleCoroEvent<TArgs...>`   | `void function(TArgs..., YieldContext)`        |
+| [Unpacked Event Slot](@ref UnpackedEventSlots)                    | `wamp::unpackedEvent<TArgs...>`     | `void function(Event, TArgs...)`               |
+| [Unpacked Coroutine Event Slot](@ref UnpackedCoroutineEventSlots) | `wamp::unpackedCoroEvent<TArgs...>` | `void function(Event, TArgs..., YieldContext)` |
 
-where `Yield` represents the type `wamp::BasicYieldContext<E>`.
+where `Yield` represents the type `wamp::YieldContext`.
 
 @section SimpleEventSlots Simple Event Slots
 
@@ -112,12 +112,13 @@ passed to wamp::Session::subscribe.
 `wamp::simpleCoroEvent` expects an event slot with the following signature:
 
 ```
-void function(TArgs..., wamp::BasicYieldContext<E>)
+void function(TArgs..., wamp::YieldContext)
 ```
 where
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::simpleEvent`.
-- `wamp::BasicYieldContext<E>` represents the event handler's coroutine context.
+- `wamp::YieldContext` is a completion token that can be passed to
+   asynchronous operations.
 
 Examples of simple coroutine event slots are:
 ```
@@ -218,14 +219,15 @@ registering such event slots.
 `wamp::unpackedCoroEvent` expects an event slot with the following signature:
 
 ```
-void function(wamp::Event, TArgs..., wamp::BasicYieldContext<E>)
+void function(wamp::Event, TArgs..., wamp::YieldContext)
 ```
 where
 - wamp::Event is an object containing information and payload arguments related
   to the publication, and,
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::unpackedEvent`.
-- `wamp::BasicYieldContext<E>` represents the event handler's coroutine context.
+- `wamp::YieldContext` is a completion token that can passed to
+   asynchronous operations.
 
 
 @section ScopedSubscriptions Scoped Subscriptions

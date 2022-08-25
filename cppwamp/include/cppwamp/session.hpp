@@ -54,9 +54,14 @@ namespace wamp
           listed under **Returns** refer to results that are emitted via
           ErrorOr.
 
-    The `boost::asio::io_context` passed via `create()` is used when executing
-    handler functions passed-in by the user. This can be the same, or different
-    than the `io_context` passed to the `Connector` creation functions.
+    @par Fallback Executor
+    A *fallback executor* may optionally be passed to Session for use in
+    executing user-provided handlers. If there is no executor bound to the
+    handler, Session will use Session::fallbackExecutor() instead.
+    When using Boost versions prior to 1.80.0, if one of the unpackers in
+    cppwamp/corounpacker.hpp is used to register an event or RPC handler, then
+    the fallback executor must originate from wamp::IoExecutor or
+    wamp::AnyIoExecutor.
 
     @par Aborting Asynchronous Operations
     All pending asynchronous operations can be _aborted_ by dropping the client
@@ -94,6 +99,12 @@ public:
     /** Shared pointer to a Session.
         @deprecated will be removed */
     using Ptr = std::shared_ptr<Session>;
+
+    /** Executor type used for I/O operations. */
+    using Executor = AnyIoExecutor;
+
+    /** Fallback executor type for user-provided handlers. */
+    using FallbackExecutor = AnyCompletionExecutor;
 
     /** Enumerates the possible states that a Session can be in. */
     using State = SessionState;
@@ -138,15 +149,14 @@ public:
     static Ptr create(AnyIoExecutor exec);
 
     /** Creates a new Session instance on the heap. */
-    static Ptr create(const AnyIoExecutor& exec, AnyIoExecutor userExec);
+    static Ptr create(const AnyIoExecutor& exec, FallbackExecutor fallbackExec);
 
     /** Creates a new Session instance on the heap.
         @deprecated Stack allocation is now permitted.
-        @copydetails Session::create(AnyIoExecutor)
+        @copydetails Session::create(Executor)
         @details Only participates in overload resolution when
-                 `isExecutionContext<TExecutionContext>() == true`
-        @tparam TExecutionContext Must meet the requirements of
-                Boost.Asio's ExecutionContext */
+                 `isExecutionContext<E>() == true`
+        @tparam E Must meet the requirements of Boost.Asio's ExecutionContext */
     template <typename E>
     CPPWAMP_DEPRECATED static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
     create(
@@ -160,43 +170,42 @@ public:
 
     /** Creates a new Session instance on the heap.
         @deprecated Stack allocation is now permitted.
-        @copydetails Session::create(AnyIoExecutor)
+        @copydetails Session::create(Executor)
         @details Only participates in overload resolution when
-                 `isExecutionContext<TExecutionContext>() == true`
-        @tparam TExecutionContext Must meet the requirements of
-                Boost.Asio's ExecutionContext */
+                 `isExecutionContext<E1>() && isExecutionContext<E1>() == true`
+        @tparam E1 Must meet the requirements of Boost.Asio's ExecutionContext
+        @tparam E2 Must meet the requirements of Boost.Asio's ExecutionContext */
     template <typename E1, typename E2>
     CPPWAMP_DEPRECATED static
         CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E1>() &&
                                   isExecutionContext<E2>())
     create(
-        E1& executionContext, /**< Context providing the executor from which
-                                   Session will extract a strand for
-                                   its internal I/O operations. */
-        E1& userExecutionContext /**< Providing the executor with which to
-                                      post all user handlers. */
+        E1& context,        /**< Context providing the executor from which
+                                 Session will extract a strand for
+                                 its internal I/O operations. */
+        E1& fallbackContext /**< Context providing the executor which serves
+                                 as fallback for all user-provided handlers. */
     )
     {
-        return create(executionContext.get_executor(),
-                      userExecutionContext.get_executor());
+        return create(context.get_executor(), fallbackContext.get_executor());
     }
 
     /** Creates a new Session instance.
         @deprecated Pass connection wish list to Session::connect instead.
         @deprecated Stack allocation is now permitted. */
-    CPPWAMP_DEPRECATED static Ptr create(AnyIoExecutor userExec,
+    CPPWAMP_DEPRECATED static Ptr create(FallbackExecutor fallbackExec,
                                          LegacyConnector connector);
 
     /** Creates a new Session instance.
         @deprecated Pass connection wish list to Session::connect instead.
         @deprecated Stack allocation is now permitted. */
-    CPPWAMP_DEPRECATED static Ptr create(AnyIoExecutor userExec,
+    CPPWAMP_DEPRECATED static Ptr create(FallbackExecutor fallbackExec,
                                          ConnectorList connectors);
 
     /** Creates a new Session instance.
         @deprecated Pass connection wish list to Session::connect instead.
         @deprecated Stack allocation is now permitted.
-        @copydetails Session::create(AnyIoExecutor, LegacyConnector)
+        @copydetails Session::create(FallbackExecutor, LegacyConnector)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
         @tparam TExecutionContext Must meet the requirements of
@@ -204,54 +213,52 @@ public:
     template <typename E>
     CPPWAMP_DEPRECATED static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
     create(
-        E& userExecutionContext,  /**< Provides the executor with which to
-                                       post all user-provided handlers. */
+        E& fallbackContext,  /**< Context providing the executor which serves
+                                  as fallback for all user-provided handlers. */
         LegacyConnector connector /**< Connection details for the
                                        transport to use. */
         )
     {
-        return create(userExecutionContext.get_executor(), std::move(connector));
+        return create(fallbackContext.get_executor(), std::move(connector));
     }
 
     /** Creates a new Session instance.
         @deprecated Pass connection wish list to Session::connect instead.
         @deprecated Stack allocation is now permitted.
-        @copydetails Session::create(AnyIoExecutor, ConnectorList)
+        @copydetails Session::create(FallbackExecutor, ConnectorList)
         @details Only participates in overload resolution when
-                 `isExecutionContext<TExecutionContext>() == true`
-        @tparam TExecutionContext Must meet the requirements of
-                                  Boost.Asio's ExecutionContext */
-    template <typename TExecutionContext>
-    CPPWAMP_DEPRECATED static
-        CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<TExecutionContext>())
+                 `isExecutionContext<E>() == true`
+        @tparam E Must meet the requirements of Boost.Asio's ExecutionContext */
+    template <typename E>
+    CPPWAMP_DEPRECATED static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
     create(
-        TExecutionContext& userContext, /**< Provides executor with which to
-                                             post all user-provided handlers. */
+        E& fallbackContext, /**< Context providing the executor which serves
+                                 as fallback for all user-provided handlers. */
         ConnectorList connectors  /**< Connection details for the
                                        transport to use. */
     )
     {
-        return create(userContext.get_executor(), std::move(connectors));
+        return create(fallbackContext.get_executor(), std::move(connectors));
     }
 
     /** Constructor taking an executor. */
-    explicit Session(AnyIoExecutor exec);
+    explicit Session(Executor exec);
 
-    /** Constructor taking an executor and another for user handlers. */
-    Session(const AnyIoExecutor& exec, AnyIoExecutor userExec);
+    /** Constructor taking an executor for I/O operations
+        and another for user-provided handlers. */
+    Session(const Executor& exec, FallbackExecutor fallbackExec);
 
     /** Constructor taking an execution context. */
     template <typename E, EnableIf<isExecutionContext<E>()> = 0>
-    explicit Session(E& executionContext)
-        : Session(executionContext.get_executor())
-    {}
+    explicit Session(E& context) : Session(context.get_executor()) {}
 
-    /** Constructor taking an execution context and another for user handlers. */
+    /** Constructor taking an I/O execution context and another as fallback
+        for user-provided handlers. */
     template <typename E1, typename E2,
              EnableIf<isExecutionContext<E1>() && isExecutionContext<E2>()> = 0>
-    explicit Session(E1& executionContext, E2& userExecutionContext)
+    explicit Session(E1& executionContext, E2& fallbackExecutionContext)
         : Session(executionContext.get_executor(),
-                  userExecutionContext.get_executor())
+                  fallbackExecutionContext.get_executor())
     {}
 
     /** Destructor. */
@@ -277,11 +284,14 @@ public:
         serialized. */
     const IoStrand& strand() const;
 
-    /** Obtains the fallback executor used to execute user-provided handlers. */
-    AnyIoExecutor userExecutor() const;
+    /** Obtains the fallback executor used for user-provided handlers. */
+    FallbackExecutor fallbackExecutor() const;
+
+    /** @deprecated Use Session::fallbackExecutor instead */
+    CPPWAMP_DEPRECATED FallbackExecutor userExecutor() const;
 
     /** Legacy function kept for backward compatiblity. */
-    CPPWAMP_DEPRECATED AnyIoExecutor userIosvc() const;
+    CPPWAMP_DEPRECATED FallbackExecutor userIosvc() const;
 
     /** Returns the current state of the session. */
     SessionState state() const;
@@ -581,7 +591,7 @@ private:
     struct CallOp;
     struct OngoingCallOp;
 
-    CPPWAMP_HIDDEN explicit Session(AnyIoExecutor userExec,
+    CPPWAMP_HIDDEN explicit Session(FallbackExecutor fallbackExec,
                                     ConnectorList connectors);
 
     template <typename O, typename C, typename... As>

@@ -57,9 +57,10 @@ public:
 
     virtual ~ClientInterface() {}
 
+    // TODO: Remove virtual functions below
     virtual const IoStrand& strand() const = 0;
 
-    virtual const AnyIoExecutor& userExecutor() const = 0;
+    virtual const AnyCompletionExecutor& userExecutor() const = 0;
 
     virtual SessionState state() const = 0;
 

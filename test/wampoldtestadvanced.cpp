@@ -240,25 +240,25 @@ GIVEN( "a caller and a callee" )
                     CHECK( inv.isProgressive() );
 
                     boost::asio::spawn(
-                        inv.executor(),
+                        ioctx,
                         [&ioctx, &input, inv](boost::asio::yield_context yield)
-                    {
-                        boost::asio::steady_timer timer(ioctx);
-
-                        for (unsigned i=0; i<input.size(); ++i)
                         {
-                            // Simulate a streaming app that throttles
-                            // the intermediary results at a fixed rate.
-                            timer.expires_from_now(
-                                std::chrono::milliseconds(25));
-                            timer.async_wait(yield);
+                            boost::asio::steady_timer timer(ioctx);
 
-                            Result result({input.at(i)});
-                            if (i < (input.size() - 1))
-                                result.withProgress();
-                            inv.yield(result);
-                        }
-                    });
+                            for (unsigned i=0; i<input.size(); ++i)
+                            {
+                                // Simulate a streaming app that throttles
+                                // the intermediary results at a fixed rate.
+                                timer.expires_from_now(
+                                    std::chrono::milliseconds(25));
+                                timer.async_wait(yield);
+
+                                Result result({input.at(i)});
+                                if (i < (input.size() - 1))
+                                    result.withProgress();
+                                inv.yield(result);
+                            }
+                        });
                     return Outcome::deferred();
                 },
                 yield);
@@ -303,28 +303,28 @@ GIVEN( "a caller and a callee" )
                     CHECK( inv.isProgressive() );
 
                     boost::asio::spawn(
-                        inv.executor(),
+                        ioctx,
                         [&ioctx, &input, inv](boost::asio::yield_context yield)
-                    {
-                        boost::asio::steady_timer timer(ioctx);
-
-                        for (unsigned i=0; i<input.size(); ++i)
                         {
-                            // Simulate a streaming app that throttles
-                            // the intermediary results at a fixed rate.
+                            boost::asio::steady_timer timer(ioctx);
+
+                            for (unsigned i=0; i<input.size(); ++i)
+                            {
+                                // Simulate a streaming app that throttles
+                                // the intermediary results at a fixed rate.
+                                timer.expires_from_now(
+                                    std::chrono::milliseconds(25));
+                                timer.async_wait(yield);
+
+                                Result result({input.at(i)});
+                                result.withProgress();
+                                inv.yield(result);
+                            }
+
                             timer.expires_from_now(
                                 std::chrono::milliseconds(25));
-                            timer.async_wait(yield);
-
-                            Result result({input.at(i)});
-                            result.withProgress();
-                            inv.yield(result);
-                        }
-
-                        timer.expires_from_now(
-                            std::chrono::milliseconds(25));
-                        inv.yield(Error("some_reason"));
-                    });
+                            inv.yield(Error("some_reason"));
+                        });
                     return Outcome::deferred();
                 },
                 yield);
@@ -378,7 +378,7 @@ GIVEN( "a caller and a callee" )
                 {
                     CHECK( inv.isProgressive() );
                     boost::asio::spawn(
-                        inv.executor(),
+                        ioctx,
                         [&, inv](boost::asio::yield_context yield)
                         {
                             boost::asio::steady_timer timer(ioctx);
@@ -683,7 +683,7 @@ GIVEN( "a caller and a callee" )
                 [&](Invocation inv) -> Outcome
                 {
                     boost::asio::spawn(
-                        inv.executor(),
+                        ioctx,
                         [&, inv](boost::asio::yield_context yield)
                         {
                             int arg = 0;

@@ -513,7 +513,7 @@ CPPWAMP_INLINE PublicationId Event::pubId() const
 
 /** @returns the same object as Session::userExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AnyIoExecutor Event::executor() const
+CPPWAMP_INLINE AnyCompletionExecutor Event::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Event is empty");
     return executor_;
@@ -548,7 +548,7 @@ CPPWAMP_INLINE Variant Event::topic() const
     return this->optionByKey("topic");
 }
 
-CPPWAMP_INLINE Event::Event(internal::PassKey, AnyIoExecutor executor,
+CPPWAMP_INLINE Event::Event(internal::PassKey, AnyCompletionExecutor executor,
                             internal::EventMessage&& msg)
     : Base(std::move(msg)),
     executor_(executor)
@@ -930,7 +930,7 @@ CPPWAMP_INLINE RequestId Invocation::requestId() const
 
 /** @returns the same object as Session::userExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AnyIoExecutor Invocation::executor() const
+CPPWAMP_INLINE AnyCompletionExecutor Invocation::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Invocation is empty");
     return executor_;
@@ -993,11 +993,11 @@ CPPWAMP_INLINE Variant Invocation::procedure() const
 }
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,
-                                      AnyIoExecutor executor,
+                                      AnyCompletionExecutor executor,
                                       internal::InvocationMessage&& msg)
     : Base(std::move(msg)),
-    callee_(callee),
-    executor_(executor)
+      callee_(callee),
+      executor_(executor)
 {}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
@@ -1074,7 +1074,7 @@ CPPWAMP_INLINE RequestId Interruption::requestId() const
 
 /** @returns the same object as Session::userExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AnyIoExecutor Interruption::executor() const
+CPPWAMP_INLINE AnyCompletionExecutor Interruption::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Interruption is empty");
     return executor_;
@@ -1097,11 +1097,11 @@ CPPWAMP_INLINE void Interruption::yield(Error error) const
 }
 
 CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,
-                                          AnyIoExecutor executor,
+                                          AnyCompletionExecutor executor,
                                           internal::InterruptMessage&& msg)
     : Base(std::move(msg)),
-    callee_(callee),
-    executor_(executor)
+      callee_(callee),
+      executor_(executor)
 {}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
