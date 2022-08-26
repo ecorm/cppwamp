@@ -184,7 +184,7 @@ private:
                 if (n >= 0 && n <= max)
                 {
                     result = static_cast<WampMsgType>(n);
-                    if (!MessageTraits::lookup(result).isValid())
+                    if (!MessageTraits::lookup(result).isValidType())
                         result = WampMsgType::none;
                 }
             }

@@ -46,11 +46,10 @@ class Client : public Callee, public Caller, public Subscriber,
                public Challengee, public Peer
 {
 public:
-    using Ptr          = std::shared_ptr<Client>;
-    using WeakPtr      = std::weak_ptr<Client>;
-    using TransportPtr = Transporting::Ptr;
-    using State        = SessionState;
-
+    using Ptr                = std::shared_ptr<Client>;
+    using WeakPtr            = std::weak_ptr<Client>;
+    using TransportPtr       = Transporting::Ptr;
+    using State              = SessionState;
     using EventSlot          = AnyReusableHandler<void (Event)>;
     using CallSlot           = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot      = AnyReusableHandler<Outcome (Interruption)>;
@@ -61,6 +60,12 @@ public:
 
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
+
+    using Peer::state;
+    using Peer::strand;
+    using Peer::userExecutor;
+    using Peer::setTraceHandler;
+    using Peer::setStateChangeHandler;
 
     static Ptr create(AnyIoExecutor exec)
     {
@@ -105,15 +110,6 @@ public:
         return rolesDict;
     }
 
-    State state() const {return Peer::state();}
-
-    const IoStrand& strand() const {return Peer::strand();}
-
-    const AnyCompletionExecutor& userExecutor() const
-    {
-        return Peer::userExecutor();
-    }
-
     void setWarningHandler(LogHandler handler)
     {
         warningHandler_ = std::move(handler);
@@ -131,11 +127,6 @@ public:
         safelyDispatch<Dispatched>(std::move(f));
     }
 
-    void setTraceHandler(LogHandler handler)
-    {
-        Peer::setTraceHandler(std::move(handler));
-    }
-
     void safeSetTraceHandler(LogHandler f)
     {
         struct Dispatched
@@ -146,11 +137,6 @@ public:
         };
 
         safelyDispatch<Dispatched>(std::move(f));
-    }
-
-    void setStateChangeHandler(StateChangeHandler handler)
-    {
-        Peer::setStateChangeHandler(std::move(handler));
     }
 
     void safeSetStateChangeHandler(StateChangeHandler f)
@@ -946,15 +932,13 @@ private:
     using InvocationMap  = std::map<RequestId, RegistrationId>;
     using CallerTimeoutDuration = typename Rpc::CallerTimeoutDuration;
 
-    using Peer::userExecutor;
-
     Client(AnyIoExecutor exec)
-        : Base(std::move(exec)),
+        : Base(false, std::move(exec)),
           timeoutScheduler_(CallerTimeoutScheduler::create(Base::strand()))
     {}
 
     Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
-        : Base(exec, std::move(userExec)),
+        : Base(false, exec, std::move(userExec)),
           timeoutScheduler_(CallerTimeoutScheduler::create(Base::strand()))
     {}
 
@@ -1055,7 +1039,7 @@ private:
 
     void doDisconnect()
     {
-        if (Peer::state() == State::connecting)
+        if (state() == State::connecting)
             currentConnector_->cancel();
 
         topics_.clear();
@@ -1116,11 +1100,6 @@ private:
 
         UnsubscribeMessage msg(subId);
         Peer::request(msg, Requested{shared_from_this(), std::move(handler)});
-    }
-
-    virtual bool isMsgSupported(const MessageTraits& traits) override
-    {
-        return traits.isClientRx;
     }
 
     virtual void onInbound(Message msg) override

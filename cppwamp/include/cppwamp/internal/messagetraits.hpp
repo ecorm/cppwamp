@@ -9,7 +9,8 @@
 
 #include <cstdint>
 #include "../api.hpp"
-#include "../variant.hpp"
+#include "../wampdefs.hpp"
+#include "../variantdefs.hpp"
 
 namespace wamp
 {
@@ -54,7 +55,9 @@ struct CPPWAMP_API MessageTraits
 
     static const MessageTraits& lookup(WampMsgType type);
 
-    bool isValid() const;
+    bool isValidType() const;
+
+    bool isValidRx(SessionState s, bool isRouter) const;
 
     const char* name;
     WampMsgType repliesTo   : 8;

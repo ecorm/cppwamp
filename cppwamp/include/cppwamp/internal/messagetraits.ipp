@@ -126,9 +126,42 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
     return traits[index];
 }
 
-CPPWAMP_INLINE bool MessageTraits::isValid() const
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool MessageTraits::isValidType() const
 {
     return minSize != 0;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool MessageTraits::isValidRx(SessionState state,
+                                             bool isRouter) const
+{
+    bool valid = isRouter ? isRouterRx : isClientRx;
+
+    if (valid)
+    {
+        switch (state)
+        {
+        case SessionState::establishing:
+            valid = forEstablishing;
+            break;
+
+        case SessionState::authenticating:
+            valid = forChallenging;
+            break;
+
+        case SessionState::established:
+        case SessionState::shuttingDown:
+            valid = forEstablished;
+            break;
+
+        default:
+            valid = false;
+            break;
+        }
+    }
+
+    return valid;
 }
 
 } // namespace internal

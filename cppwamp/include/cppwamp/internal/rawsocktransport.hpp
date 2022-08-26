@@ -26,7 +26,6 @@
 #include "../asiodefs.hpp"
 #include "../error.hpp"
 #include "../messagebuffer.hpp"
-#include "../rawsockoptions.hpp"
 #include "../transport.hpp"
 #include "rawsockheader.hpp"
 

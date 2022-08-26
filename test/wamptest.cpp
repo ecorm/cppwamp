@@ -1160,7 +1160,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
                 f.publisher.publish(Pub("str.num").withArgs("", 0),
                                      yield).value();
-                while (f.dynamicPubs.size() < 1)
+                while (f.dynamicPubs.size() < 1 || f.staticPubs.size() < 1)
                     suspendCoro(yield);
                 CHECK( f.dynamicPubs.size() == 1 );
                 CHECK( f.staticPubs.size() == 1 );

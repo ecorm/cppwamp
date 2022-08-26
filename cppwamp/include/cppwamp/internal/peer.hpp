@@ -37,46 +37,53 @@ namespace internal
 //------------------------------------------------------------------------------
 class Peer : public std::enable_shared_from_this<Peer>
 {
-public:
-    using TransportPtr = Transporting::Ptr;
-    using State        = SessionState;
+protected:
+    using TransportPtr       = Transporting::Ptr;
+    using State              = SessionState;
+    using Message            = WampMessage;
+    // TODO: Use ErrorOr<Message>
+    using OneShotHandler     = AnyCompletionHandler<void (std::error_code, Message)>;
+    using MultiShotHandler   = std::function<void (std::error_code, Message)>;
+    using LogHandler         = AnyReusableHandler<void (std::string)>;
+    using StateChangeHandler = AnyReusableHandler<void (State)>;
 
-    virtual ~Peer() {}
+    explicit Peer(bool isRouter, AnyIoExecutor exec)
+        : strand_(boost::asio::make_strand(exec)),
+          userExecutor_(std::move(exec)),
+          state_(State::disconnected),
+          isTerminating_(false),
+          isRouter_(isRouter)
+    {}
+
+    explicit Peer(bool isRouter, const AnyIoExecutor& exec,
+                  AnyCompletionExecutor userExecutor)
+        : Peer(isRouter, boost::asio::make_strand(exec),
+               std::move(userExecutor))
+    {}
+
+    explicit Peer(bool isRouter, IoStrand strand,
+                  AnyCompletionExecutor userExecutor)
+        : strand_(std::move(strand)),
+          userExecutor_(std::move(userExecutor)),
+          state_(State::disconnected),
+          isTerminating_(false),
+          isRouter_(isRouter)
+    {}
+
+    virtual ~Peer()
+    {
+        if (transport_)
+        {
+            transport_->close();
+            transport_.reset();
+        }
+    }
 
     State state() const {return state_.load();}
 
     const IoStrand& strand() const {return strand_;}
 
     const AnyCompletionExecutor& userExecutor() const {return userExecutor_;}
-
-protected:
-    using Message = WampMessage;
-    using OneShotHandler = AnyCompletionHandler<void (std::error_code, Message)>;
-    using MultiShotHandler = std::function<void (std::error_code, Message)>;
-    using LogHandler = AnyReusableHandler<void (std::string)>;
-    using StateChangeHandler = AnyReusableHandler<void (State)>;
-
-    explicit Peer(AnyIoExecutor exec)
-        : strand_(boost::asio::make_strand(exec)),
-          userExecutor_(std::move(exec)),
-          state_(State::disconnected),
-          isTerminating_(false)
-    {}
-
-    explicit Peer(const AnyIoExecutor& exec, AnyCompletionExecutor userExecutor)
-        : Peer(boost::asio::make_strand(exec), std::move(userExecutor))
-    {}
-
-    explicit Peer(IoStrand strand, AnyCompletionExecutor userExecutor)
-        : strand_(std::move(strand)),
-          userExecutor_(std::move(userExecutor)),
-          state_(State::disconnected),
-          isTerminating_(false)
-    {}
-
-    virtual bool isMsgSupported(const MessageTraits& traits) = 0;
-
-    virtual void onInbound(Message msg) = 0;
 
     State setState(State s)
     {
@@ -108,19 +115,13 @@ protected:
 
         if (!transport_->isStarted())
         {
-            std::weak_ptr<Peer> self(shared_from_this());
-
             transport_->start(
-                [self](ErrorOr<MessageBuffer> buffer)
+                [this](ErrorOr<MessageBuffer> buffer)
                 {
-                    auto locked = self.lock();
-                    if (!locked)
-                        return;
-                    auto& me = *locked;
                     if (buffer.has_value())
-                        me.onTransportRx(std::move(*buffer));
-                    else if (me.state() != SessionState::disconnected)
-                        me.checkError(buffer.error());
+                        onTransportRx(std::move(*buffer));
+                    else if (state() != SessionState::disconnected)
+                        checkError(buffer.error());
                 }
             );
         }
@@ -130,30 +131,29 @@ protected:
     {
         struct Requested
         {
-            std::shared_ptr<Peer> self;
+            Peer* self; // Client will keep Peer alive during request
             OneShotHandler handler;
 
             void operator()(std::error_code ec, Message reply)
             {
-                auto& me = *self;
                 if (!ec)
                 {
-                    me.setState(State::closed);
-                    me.abortPending(make_error_code(SessionErrc::sessionEnded));
-                    me.post(std::move(handler),
-                            make_error_code(ProtocolErrc::success),
+                    self->setState(State::closed);
+                    self->abortPending(make_error_code(SessionErrc::sessionEnded));
+                    handler(make_error_code(ProtocolErrc::success),
                             std::move(reply));
                 }
                 else
-                    me.post(move(handler), ec, Message());
+                {
+                    handler(ec, Message());
+                }
             }
         };
 
         using std::move;
         assert(state() == State::established);
         setState(State::shuttingDown);
-        request(reason.message({}),
-                Requested{shared_from_this(), std::move(handler)});
+        request(reason.message({}), Requested{this, std::move(handler)});
     }
 
     void close()
@@ -257,6 +257,8 @@ private:
     using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
     using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
 
+    virtual void onInbound(Message msg) = 0;
+
     RequestId sendMessage(Message& msg)
     {
         assert(msg.type() != WampMsgType::none);
@@ -283,9 +285,13 @@ private:
         auto requestId = setMessageRequestId(msg);
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
+        // TODO: Emit error, don't throw
         if (buffer.size() > maxTxLength_)
             throw error::Failure(make_error_code(TransportErrc::badTxLength));
 
+        // In the unlikely (impossible?) event that there is an old pending
+        // request with the same request ID (that is, we used the entire
+        // 2^53 set of IDs), then cancel the old request.
         auto key = msg.requestKey();
         auto found = requests.find(key);
         if (found != requests.end())
@@ -325,9 +331,7 @@ private:
 
     void onTransportRx(MessageBuffer buffer)
     {
-        auto s = state();
-        if (s == State::establishing || s == State::authenticating ||
-            s == State::established  || s == State::shuttingDown)
+        if (readyToReceive())
         {
             Variant v;
             if (checkError(decode(buffer, v)) &&
@@ -343,6 +347,18 @@ private:
                 }
             }
         }
+        else
+        {
+            fail(SessionErrc::protocolViolation); // TODO: Emit a warning.
+        }
+
+    }
+
+    bool readyToReceive() const
+    {
+        auto s = state();
+        return s == State::establishing || s == State::authenticating ||
+               s == State::established  || s == State::shuttingDown;
     }
 
     std::error_code decode(const MessageBuffer& buffer, Variant& variant)
@@ -387,7 +403,7 @@ private:
                 // Role-specific unsolicited messages. Ignore them if we're
                 // shutting down.
                 if (state() != State::shuttingDown)
-                    post(&Peer::onInbound, shared_from_this(), std::move(msg));
+                    onInbound(msg);
                 break;
         }
     }
@@ -399,8 +415,7 @@ private:
         {
             auto handler = std::move(kv->second);
             oneShotRequestMap_.erase(kv);
-            post(std::move(handler), make_error_code(ProtocolErrc::success),
-                 std::move(msg));
+            handler(make_error_code(ProtocolErrc::success), std::move(msg));
         }
         else
         {
@@ -409,15 +424,16 @@ private:
             {
                 if (msg.isProgressiveResponse())
                 {
-                    post(kv->second,
-                         make_error_code(ProtocolErrc::success), std::move(msg));
+                    const auto& handler = kv->second;
+                    handler(make_error_code(ProtocolErrc::success),
+                            std::move(msg));
                 }
                 else
                 {
                     auto handler = std::move(kv->second);
                     multiShotRequestMap_.erase(kv);
-                    post(std::move(handler),
-                         make_error_code(ProtocolErrc::success), std::move(msg));
+                    handler(make_error_code(ProtocolErrc::success),
+                            std::move(msg));
                 }
             }
         }
@@ -427,14 +443,14 @@ private:
     {
         assert(state() == State::establishing);
         setState(State::established);
-        post(&Peer::onInbound, shared_from_this(), std::move(msg));
+        onInbound(std::move(msg));
     }
 
     void processChallenge(Message&& msg)
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
-        post(&Peer::onInbound, shared_from_this(), std::move(msg));
+        onInbound(std::move(msg));
     }
 
     void processWelcome(Message&& msg)
@@ -502,47 +518,23 @@ private:
     bool checkValidMsg(WampMsgType type)
     {
         auto traits = MessageTraits::lookup(type);
-        bool valid = isMsgSupported(traits);
-
+        bool valid = traits.isValidRx(state(), isRouter_);
         if (!valid)
             fail(SessionErrc::protocolViolation); // TODO: Emit a warning.
-        else
-        {
-            switch (state())
-            {
-            case State::establishing:
-                valid = traits.forEstablishing;
-                break;
-
-            case State::authenticating:
-                valid = traits.forChallenging;
-                break;
-
-            case State::established:
-            case State::shuttingDown:
-                valid = traits.forEstablished;
-                break;
-
-            default:
-                valid = false;
-                break;
-            }
-
-            if (!valid)
-                fail(SessionErrc::protocolViolation); // TODO: Emit a warning.
-        }
-
         return valid;
     }
 
     void fail(std::error_code ec)
     {
-        setState(State::failed);
-        abortPending(ec);
-        if (transport_)
+        auto oldState = setState(State::failed);
+        if (oldState != State::failed)
         {
-            transport_->close();
-            transport_.reset();
+            abortPending(ec);
+            if (transport_)
+            {
+                transport_->close();
+                transport_.reset();
+            }
         }
     }
 
@@ -594,6 +586,7 @@ private:
     std::atomic<bool> isTerminating_;
     RequestId nextRequestId_ = nullRequestId();
     std::size_t maxTxLength_ = 0;
+    bool isRouter_ = false;
 
     static constexpr RequestId maxRequestId_ = 9007199254740992ull;
 };
