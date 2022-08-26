@@ -108,7 +108,7 @@ protected:
 
         if (!transport_->isStarted())
         {
-            std::weak_ptr<Peer> self(this->shared_from_this());
+            std::weak_ptr<Peer> self(shared_from_this());
 
             transport_->start(
                 [self](ErrorOr<MessageBuffer> buffer)
@@ -152,9 +152,8 @@ protected:
         using std::move;
         assert(state() == State::established);
         setState(State::shuttingDown);
-        auto self = this->shared_from_this();
         request(reason.message({}),
-                Requested{this->shared_from_this(), std::move(handler)});
+                Requested{shared_from_this(), std::move(handler)});
     }
 
     void close()
@@ -388,10 +387,7 @@ private:
                 // Role-specific unsolicited messages. Ignore them if we're
                 // shutting down.
                 if (state() != State::shuttingDown)
-                {
-                    auto self = this->shared_from_this();
-                    post(&Peer::onInbound, self, std::move(msg));
-                }
+                    post(&Peer::onInbound, shared_from_this(), std::move(msg));
                 break;
         }
     }
@@ -431,16 +427,14 @@ private:
     {
         assert(state() == State::establishing);
         setState(State::established);
-        auto self = this->shared_from_this();
-        post(&Peer::onInbound, self, std::move(msg));
+        post(&Peer::onInbound, shared_from_this(), std::move(msg));
     }
 
     void processChallenge(Message&& msg)
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
-        auto self = this->shared_from_this();
-        post(&Peer::onInbound, self, std::move(msg));
+        post(&Peer::onInbound, shared_from_this(), std::move(msg));
     }
 
     void processWelcome(Message&& msg)

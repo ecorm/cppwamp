@@ -397,7 +397,6 @@ public:
         auto kv = topics_.find(rec.topicUri);
         if (kv == topics_.end())
         {
-            auto self = this->shared_from_this();
             Peer::request(
                 topic.message({}),
                 Requested{shared_from_this(), move(rec), move(handler)});
@@ -406,7 +405,7 @@ public:
         {
             auto subId = kv->second;
             auto slotId = nextSlotId();
-            Subscription sub{this->shared_from_this(), subId, slotId, {}};
+            Subscription sub{shared_from_this(), subId, slotId, {}};
             readership_[subId][slotId] = move(rec);
             postUserHandler(handler, move(sub));
         }
@@ -554,7 +553,6 @@ public:
             return;
 
         pub.withOption("acknowledge", true);
-        auto self = this->shared_from_this();
         Peer::request(pub.message({}),
                       Requested{shared_from_this(), std::move(handler)});
     }
@@ -602,7 +600,6 @@ public:
 
         using std::move;
         RegistrationRecord rec{ move(callSlot), move(interruptSlot) };
-        auto self = this->shared_from_this();
         Peer::request(procedure.message({}),
                       Requested{shared_from_this(), move(rec), move(handler)});
     }
@@ -650,7 +647,6 @@ public:
             registry_.erase(kv);
             if (state() == State::established)
             {
-                auto self = this->shared_from_this();
                 UnregisterMessage msg(reg.id());
                 Peer::request(msg, Requested{shared_from_this()});
             }
@@ -691,7 +687,6 @@ public:
         if (kv != registry_.end())
         {
             registry_.erase(kv);
-            auto self = this->shared_from_this();
             UnregisterMessage msg(reg.id());
             if (state() == State::established)
             {
@@ -752,7 +747,6 @@ public:
         if (!checkState(State::established, handler))
             return;
 
-        auto self = this->shared_from_this();
         auto cancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
         auto requestId = Peer::request(
@@ -1089,7 +1083,6 @@ private:
 
         if (state() == State::established)
         {
-            auto self = this->shared_from_this();
             UnsubscribeMessage msg(subId);
             Peer::request(msg, Requested{shared_from_this()});
         }
@@ -1121,7 +1114,6 @@ private:
             return;
         }
 
-        auto self = this->shared_from_this();
         UnsubscribeMessage msg(subId);
         Peer::request(msg, Requested{shared_from_this(), std::move(handler)});
     }
@@ -1159,7 +1151,7 @@ private:
     void onWelcome(CompletionHandler<SessionInfo>&& handler, Message&& reply,
                    String&& realmUri)
     {
-        WeakPtr self = this->shared_from_this();
+        WeakPtr self = shared_from_this();
         timeoutScheduler_->listen([self](RequestId reqId)
         {
             auto ptr = self.lock();
@@ -1201,9 +1193,8 @@ private:
 
     void onChallenge(Message&& msg)
     {
-        auto self = this->shared_from_this();
         auto& challengeMsg = message_cast<ChallengeMessage>(msg);
-        Challenge challenge({}, self, std::move(challengeMsg));
+        Challenge challenge({}, shared_from_this(), std::move(challengeMsg));
 
         if (challengeHandler_)
         {
@@ -1308,9 +1299,9 @@ private:
         auto kv = registry_.find(regId);
         if (kv != registry_.end())
         {
-            auto self = this->shared_from_this();
             const RegistrationRecord& rec = kv->second;
-            Invocation inv({}, self, userExecutor(), std::move(invMsg));
+            Invocation inv({}, shared_from_this(), userExecutor(),
+                           std::move(invMsg));
             pendingInvocations_[requestId] = regId;
             postRpcRequest(rec.callSlot, std::move(inv));
         }
@@ -1333,10 +1324,10 @@ private:
             if ((kv != registry_.end()) &&
                 (kv->second.interruptSlot != nullptr))
             {
-                auto self = this->shared_from_this();
                 const RegistrationRecord& rec = kv->second;
                 using std::move;
-                Interruption intr({}, self, userExecutor(), move(interruptMsg));
+                Interruption intr({}, shared_from_this(), userExecutor(),
+                                  move(interruptMsg));
                 postRpcRequest(rec.interruptSlot, move(intr));
             }
         }
