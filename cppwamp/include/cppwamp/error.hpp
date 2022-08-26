@@ -297,6 +297,7 @@ CPPWAMP_API std::error_condition make_error_condition(DecodingErrc errc);
 //******************************************************************************
 // Protocol Error Codes
 //******************************************************************************
+// TODO: Deprecate
 
 //------------------------------------------------------------------------------
 /** %Error code values used with the ProtocolCategory error category.

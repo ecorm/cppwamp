@@ -40,7 +40,7 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// Provides a WAMP client implementation.
+// Provides the WAMP client implementation.
 //------------------------------------------------------------------------------
 class Client : public std::enable_shared_from_this<Client>, public Callee,
                public Caller, public Subscriber, public Challengee
@@ -220,16 +220,16 @@ public:
             String realmUri;
             Abort* abortPtr;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkError(ec, handler))
+                if (me.checkError(reply, handler))
                 {
-                    if (reply.type() == WampMsgType::welcome)
-                        me.onWelcome(std::move(handler), std::move(reply),
+                    if (reply->type() == WampMsgType::welcome)
+                        me.onWelcome(std::move(handler), std::move(*reply),
                                      std::move(realmUri));
                     else
-                        me.onJoinAborted(std::move(handler), std::move(reply),
+                        me.onJoinAborted(std::move(handler), std::move(*reply),
                                          abortPtr);
                 }
             }
@@ -289,15 +289,15 @@ public:
             Ptr self;
             CompletionHandler<Reason> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
                 me.topics_.clear();
                 me.readership_.clear();
                 me.registry_.clear();
-                if (me.checkError(ec, handler))
+                if (me.checkError(reply, handler))
                 {
-                    auto& goodBye = message_cast<GoodbyeMessage>(reply);
+                    auto& goodBye = message_cast<GoodbyeMessage>(*reply);
                     me.dispatchUserHandler(handler,
                                            Reason({}, std::move(goodBye)));
                 }
@@ -366,21 +366,20 @@ public:
             SubscriptionRecord rec;
             CompletionHandler<Subscription> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::subscribed, ec, reply,
+                if (me.checkReply(reply, WampMsgType::subscribed,
                                   SessionErrc::subscribeError, handler))
                 {
-                    const auto& subMsg = message_cast<SubscribedMessage>(reply);
-                    auto subId = subMsg.subscriptionId();
+                    const auto& msg = message_cast<SubscribedMessage>(*reply);
+                    auto subId = msg.subscriptionId();
                     auto slotId = me.nextSlotId();
                     Subscription sub(self, subId, slotId, {});
                     me.topics_.emplace(rec.topicUri, subId);
                     me.readership_[subId][slotId] = std::move(rec);
                     me.dispatchUserHandler(handler, std::move(sub));
                 }
-
             }
         };
 
@@ -533,13 +532,13 @@ public:
             Ptr self;
             CompletionHandler<PublicationId> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::published, ec, reply,
+                if (me.checkReply(reply, WampMsgType::published,
                                   SessionErrc::publishError, handler))
                 {
-                    const auto& pubMsg = message_cast<PublishedMessage>(reply);
+                    const auto& pubMsg = message_cast<PublishedMessage>(*reply);
                     me.dispatchUserHandler(handler, pubMsg.publicationId());
                 }
             }
@@ -576,14 +575,14 @@ public:
             RegistrationRecord rec;
             CompletionHandler<Registration> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::registered, ec, reply,
+                if (me.checkReply(reply, WampMsgType::registered,
                                   SessionErrc::registerError, handler))
                 {
-                    const auto& regMsg = message_cast<RegisteredMessage>(reply);
-                    auto regId = regMsg.registrationId();
+                    const auto& msg = message_cast<RegisteredMessage>(*reply);
+                    auto regId = msg.registrationId();
                     Registration reg(self, regId, {});
                     me.registry_[regId] = std::move(rec);
                     me.dispatchUserHandler(handler, std::move(reg));
@@ -628,11 +627,11 @@ public:
         {
             Ptr self;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 // Don't propagate WAMP errors, as we prefer this
                 // to be a no-fail cleanup operation.
-                self->warnReply(WampMsgType::unregistered, ec, reply,
+                self->warnReply(reply, WampMsgType::unregistered,
                                 SessionErrc::unregisterError);
             }
         };
@@ -668,10 +667,10 @@ public:
             Ptr self;
             CompletionHandler<bool> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::unregistered, ec, reply,
+                if (me.checkReply(reply, WampMsgType::unregistered,
                                   SessionErrc::unregisterError, handler))
                 {
                     me.dispatchUserHandler(handler, true);
@@ -724,15 +723,14 @@ public:
             Error* errorPtr;
             CompletionHandler<Result> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::result, ec, reply,
+                if (me.checkReply(reply, WampMsgType::result,
                                   SessionErrc::callError, handler, errorPtr))
                 {
-                    auto& resultMsg = message_cast<ResultMessage>(reply);
-                    me.dispatchUserHandler(handler,
-                                           Result({}, std::move(resultMsg)));
+                    auto& msg = message_cast<ResultMessage>(*reply);
+                    me.dispatchUserHandler(handler, Result({}, std::move(msg)));
                 }
             }
         };
@@ -787,13 +785,13 @@ public:
             Error* errorPtr;
             OngoingCallHandler handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::result, ec, reply,
+                if (me.checkReply(reply, WampMsgType::result,
                                   SessionErrc::callError, handler, errorPtr))
                 {
-                    auto& resultMsg = message_cast<ResultMessage>(reply);
+                    auto& resultMsg = message_cast<ResultMessage>(*reply);
                     me.dispatchUserHandler(handler,
                                            Result({}, std::move(resultMsg)));
                 }
@@ -1067,11 +1065,11 @@ private:
         {
             Ptr self;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 // Don't propagate WAMP errors, as we prefer
                 // this to be a no-fail cleanup operation.
-                self->warnReply(WampMsgType::unsubscribed, ec, reply,
+                self->warnReply(reply, WampMsgType::unsubscribed,
                                 SessionErrc::unsubscribeError);
             }
         };
@@ -1091,10 +1089,10 @@ private:
             Ptr self;
             CompletionHandler<bool> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::unsubscribed, ec, reply,
+                if (me.checkReply(reply,WampMsgType::unsubscribed,
                                   SessionErrc::unsubscribeError, handler))
                 {
                     me.dispatchUserHandler(handler, true);
@@ -1381,25 +1379,26 @@ private:
     }
 
     template <typename THandler>
-    bool checkError(std::error_code ec, THandler& handler)
+    bool checkError(const ErrorOr<Message>& msg, THandler& handler)
     {
-        if (ec)
-            dispatchUserHandler(handler, UnexpectedError(ec));
-        return !ec;
+        bool ok = msg.has_value();
+        if (!ok)
+            dispatchUserHandler(handler, UnexpectedError(msg.error()));
+        return ok;
     }
 
     template <typename THandler>
-    bool checkReply(WampMsgType type, std::error_code ec, Message& reply,
+    bool checkReply(ErrorOr<Message>& reply, WampMsgType type,
                     SessionErrc defaultErrc, THandler& handler,
                     Error* errorPtr = nullptr)
     {
-        bool success = checkError(ec, handler);
-        if (success)
+        bool ok = checkError(reply, handler);
+        if (ok)
         {
-            if (reply.type() == WampMsgType::error)
+            if (reply->type() == WampMsgType::error)
             {
-                success = false;
-                auto& errMsg = message_cast<ErrorMessage>(reply);
+                ok = false;
+                auto& errMsg = message_cast<ErrorMessage>(*reply);
                 const auto& uri = errMsg.reasonUri();
                 SessionErrc errc;
                 bool found = lookupWampErrorUri(uri, defaultErrc, errc);
@@ -1424,34 +1423,37 @@ private:
                 dispatchUserHandler(handler, makeUnexpectedError(errc));
             }
             else
-                assert((reply.type() == type) && "Unexpected WAMP message type");
+            {
+                assert((reply->type() == type) &&
+                       "Unexpected WAMP message type");
+            }
         }
-        return success;
+        return ok;
     }
 
-    void warnReply(WampMsgType type, std::error_code ec, Message& reply,
+    void warnReply(ErrorOr<Message>& reply, WampMsgType type,
                    SessionErrc defaultErrc)
     {
-        if (ec)
+        if (!reply.has_value())
         {
-            warn(error::Failure::makeMessage(ec));
+            warn(error::Failure::makeMessage(reply.error()));
         }
-        else if (reply.type() == WampMsgType::error)
+        else if (reply->type() == WampMsgType::error)
         {
-            auto& errMsg = message_cast<ErrorMessage>(reply);
-            const auto& uri = errMsg.reasonUri();
+            auto& msg = message_cast<ErrorMessage>(*reply);
+            const auto& uri = msg.reasonUri();
             std::ostringstream oss;
             oss << "Expected " << MessageTraits::lookup(type).name
                 << " reply but got ERROR with URI=" << uri;
-            if (!errMsg.args().empty())
-                oss << ", Args=" << errMsg.args();
-            if (!errMsg.kwargs().empty())
-                oss << ", ArgsKv=" << errMsg.kwargs();
+            if (!msg.args().empty())
+                oss << ", Args=" << msg.args();
+            if (!msg.kwargs().empty())
+                oss << ", ArgsKv=" << msg.kwargs();
             warn(oss.str());
         }
         else
         {
-            assert((reply.type() == type) && "Unexpected WAMP message type");
+            assert((reply->type() == type) && "Unexpected WAMP message type");
         }
     }
 

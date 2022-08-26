@@ -18,7 +18,7 @@
 #include <boost/asio/strand.hpp>
 #include "../anyhandler.hpp"
 #include "../codec.hpp"
-#include "../error.hpp"
+#include "../erroror.hpp"
 #include "../peerdata.hpp"
 #include "../transport.hpp"
 #include "../variant.hpp"
@@ -40,9 +40,8 @@ public:
     using State                 = SessionState;
     using Message               = WampMessage;
     using InboundMessageHandler = std::function<void (Message)>;
-    // TODO: Use ErrorOr<Message>
-    using OneShotHandler        = AnyCompletionHandler<void (std::error_code, Message)>;
-    using MultiShotHandler      = std::function<void (std::error_code, Message)>;
+    using OneShotHandler        = AnyCompletionHandler<void (ErrorOr<Message>)>;
+    using MultiShotHandler      = std::function<void (ErrorOr<Message>)>;
     using LogHandler            = AnyReusableHandler<void (std::string)>;
     using StateChangeHandler    = AnyReusableHandler<void (State)>;
 
@@ -148,19 +147,14 @@ public:
             Peer* self; // Client will keep Peer alive during request
             OneShotHandler handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
-                if (!ec)
+                if (reply)
                 {
                     self->setState(State::closed);
                     self->abortPending(make_error_code(SessionErrc::sessionEnded));
-                    handler(make_error_code(ProtocolErrc::success),
-                            std::move(reply));
                 }
-                else
-                {
-                    handler(ec, Message());
-                }
+                handler(std::move(reply));
             }
         };
 
@@ -209,13 +203,14 @@ public:
         RequestKey key{WampMsgType::call, cancellation.requestId()};
         if (cancellation.mode() != CallCancelMode::kill)
         {
+            auto unex = makeUnexpectedError(SessionErrc::cancelled);
+
             auto kv = oneShotRequestMap_.find(key);
             if (kv != oneShotRequestMap_.end())
             {
                 auto handler = std::move(kv->second);
                 oneShotRequestMap_.erase(kv);
-                auto ec = make_error_code(SessionErrc::cancelled);
-                post(std::move(handler), ec, Message());
+                post(std::move(handler), unex);
             }
             else
             {
@@ -224,8 +219,7 @@ public:
                 {
                     auto handler = std::move(kv->second);
                     multiShotRequestMap_.erase(kv);
-                    auto ec = make_error_code(SessionErrc::cancelled);
-                    post(std::move(handler), ec, Message());
+                    post(std::move(handler), unex);
                 }
             }
         }
@@ -294,7 +288,7 @@ private:
         if (found != requests.end())
         {
             post(std::move(found->second),
-                 make_error_code(SessionErrc::cancelled), Message());
+                 makeUnexpectedError(SessionErrc::cancelled));
             requests.erase(found);
         }
 
@@ -412,7 +406,7 @@ private:
         {
             auto handler = std::move(kv->second);
             oneShotRequestMap_.erase(kv);
-            handler(make_error_code(ProtocolErrc::success), std::move(msg));
+            handler(std::move(msg));
         }
         else
         {
@@ -422,15 +416,13 @@ private:
                 if (msg.isProgressiveResponse())
                 {
                     const auto& handler = kv->second;
-                    handler(make_error_code(ProtocolErrc::success),
-                            std::move(msg));
+                    handler(std::move(msg));
                 }
                 else
                 {
                     auto handler = std::move(kv->second);
                     multiShotRequestMap_.erase(kv);
-                    handler(make_error_code(ProtocolErrc::success),
-                            std::move(msg));
+                    handler(std::move(msg));
                 }
             }
         }
@@ -537,12 +529,13 @@ private:
 
     void abortPending(std::error_code ec)
     {
+        UnexpectedError unex{ec};
         if (!isTerminating_)
         {
             for (auto& kv: oneShotRequestMap_)
-                post(std::move(kv.second), ec, Message());
+                post(std::move(kv.second), unex);
             for (auto& kv: multiShotRequestMap_)
-                post(std::move(kv.second), ec, Message());
+                post(std::move(kv.second), unex);
         }
         oneShotRequestMap_.clear();
         multiShotRequestMap_.clear();
