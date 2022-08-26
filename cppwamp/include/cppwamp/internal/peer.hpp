@@ -276,9 +276,13 @@ private:
         auto requestId = setMessageRequestId(msg);
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
-        // TODO: Emit error, don't throw
+
         if (buffer.size() > maxTxLength_)
-            throw error::Failure(make_error_code(TransportErrc::badTxLength));
+        {
+            post(std::move(handler),
+                 makeUnexpectedError(TransportErrc::badTxLength));
+            return requestId;
+        }
 
         // In the unlikely (impossible?) event that there is an old pending
         // request with the same request ID (that is, we used the entire

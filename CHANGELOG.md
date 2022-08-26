@@ -43,6 +43,9 @@ Polymorphic codecs and transports.
   Boost.Context-based coroutines introduced in Boost 1.80.0. Please note this
   [bug](https://github.com/chriskohlhoff/asio/issues/1110) in Boost 1.80.0
   concerning exceptions thrown from these new Boost.Context-based coroutines.
+- Instead of throwing an exception, `Session` now emits a
+  `TransportErrc::badTxLength` error via the completion handler when the
+  payload exceeds the transport's limit.
 - Renamed `AsioContext` to `IoContext`, leaving the former as a deprecated
   alias.
 - Deprecated `AsioErrorCode`.
@@ -62,6 +65,8 @@ Implementation improvements:
 - `internal::RawsockConnector` and `internal::RawsockTransport` now use
   policy classes instead of polymorphism to alter their behavior for tests.
 - Tidying of transport tests.
+- `internal::Peer` composition instead of inheritance.
+- Avoid unnecessary `boost::asio::post` in intermediate handlers.
 
 ### Beaking Changes
 

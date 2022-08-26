@@ -2629,31 +2629,31 @@ GIVEN( "these test fixture objects" )
 {
     IoContext ioctx;
     const auto where = withTcp;
-    Session session1(ioctx);
-    Session session2(ioctx);
+    Session caller(ioctx);
+    Session callee(ioctx);
+
+    // Simple RPC that returns the string argument back to the caller.
+    std::string echoedString;
+    auto echo =
+        [&echoedString](Invocation, std::string str) -> Outcome
+    {
+        echoedString = str;
+        return Result({str});
+    };
 
     WHEN( "an RPC is invoked while a large event payload is being transmitted" )
     {
-        auto& callee = session1;
-        auto& subscriber = session2;
-        std::string eventString;
-
         // Fill large string with repeating character sequence
         std::string largeString(1024*1024, ' ');
         for (size_t i=0; i<largeString.length(); ++i)
             largeString[i] = '0' + (i % 64);
 
+        std::string eventString;
+
         auto onEvent = [&eventString](Event, std::string str)
         {
             eventString = std::move(str);
         };
-
-        // Simple RPC that returns the string argument back to the caller.
-        auto echo =
-            [](Invocation, std::string str) -> Outcome
-            {
-                return Result({str});
-            };
 
         // RPC that triggers the publishing of a large event payload
         auto trigger =
@@ -2665,22 +2665,22 @@ GIVEN( "these test fixture objects" )
 
         spawn(ioctx, [&](YieldContext yield)
         {
+            caller.connect(where, yield).value();
+            caller.join(Realm(testRealm), yield).value();
+            caller.subscribe(Topic("grapevine"),
+                             unpackedEvent<std::string>(onEvent),
+                             yield).value();
+
             callee.connect(where, yield).value();
             callee.join(Realm(testRealm), yield).value();
             callee.enroll(Procedure("echo"), unpackedRpc<std::string>(echo),
-                           yield).value();
+                          yield).value();
             callee.enroll(Procedure("trigger"), trigger, yield).value();
-
-            subscriber.connect(where, yield).value();
-            subscriber.join(Realm(testRealm), yield).value();
-            subscriber.subscribe(Topic("grapevine"),
-                                  unpackedEvent<std::string>(onEvent),
-                                  yield).value();
 
             for (int i=0; i<10; ++i)
             {
                 // Use async call so that it doesn't block until completion.
-                subscriber.call(Rpc("trigger").withArgs("hello"),
+                caller.call(Rpc("trigger").withArgs("hello"),
                                  [](ErrorOr<Result>) {});
 
                 /*  Try to get callee to send an RPC response while it's still
@@ -2688,13 +2688,41 @@ GIVEN( "these test fixture objects" )
                     should properly enqueue the RPC response while the large
                     event payload is being transmitted. */
                 while (eventString.empty())
-                    subscriber.call(Rpc("echo").withArgs("hello"), yield).value();
+                    caller.call(Rpc("echo").withArgs("hello"), yield).value();
 
                 CHECK_THAT( eventString, Equals(largeString) );
                 eventString.clear();
             }
             callee.disconnect();
-            subscriber.disconnect();
+            caller.disconnect();
+        });
+
+        ioctx.run();
+    }
+
+    WHEN( "sending a payload exceeds the router's transport limit" )
+    {
+        // Fill large string with repeating character sequence
+        std::string largeString(17*1024*1024, ' ');
+        for (size_t i=0; i<largeString.length(); ++i)
+            largeString[i] = '0' + (i % 64);
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            caller.connect(where, yield).value();
+            caller.join(Realm(testRealm), yield).value();
+
+            callee.connect(where, yield).value();
+            callee.join(Realm(testRealm), yield).value();
+            callee.enroll(Procedure("echo"), unpackedRpc<std::string>(echo),
+                          yield).value();
+
+            auto result = caller.call(Rpc("echo").withArgs(largeString), yield);
+            CHECK( result == makeUnexpectedError(TransportErrc::badTxLength) );
+            CHECK( echoedString.empty() );
+
+            callee.disconnect();
+            caller.disconnect();
         });
 
         ioctx.run();
