@@ -19,13 +19,18 @@
 #include <boost/asio/post.hpp>
 #include "../anyhandler.hpp"
 #include "../codec.hpp"
+#include "../chits.hpp"
 #include "../connector.hpp"
+#include "../peerdata.hpp"
 #include "../registration.hpp"
 #include "../subscription.hpp"
 #include "../transport.hpp"
 #include "../version.hpp"
+#include "callee.hpp"
+#include "caller.hpp"
 #include "callertimeout.hpp"
-#include "clientinterface.hpp"
+#include "challengee.hpp"
+#include "subscriber.hpp"
 #include "peer.hpp"
 
 namespace wamp
@@ -37,7 +42,8 @@ namespace internal
 //------------------------------------------------------------------------------
 // Provides the implementation of the wamp::Session class.
 //------------------------------------------------------------------------------
-class Client : public ClientInterface, public Peer
+class Client : public Callee, public Caller, public Subscriber,
+               public Challengee, public Peer
 {
 public:
     using Ptr          = std::shared_ptr<Client>;
@@ -45,8 +51,13 @@ public:
     using TransportPtr = Transporting::Ptr;
     using State        = SessionState;
 
+    using EventSlot          = AnyReusableHandler<void (Event)>;
+    using CallSlot           = AnyReusableHandler<Outcome (Invocation)>;
+    using InterruptSlot      = AnyReusableHandler<Outcome (Interruption)>;
     using LogHandler         = AnyReusableHandler<void(std::string)>;
     using StateChangeHandler = AnyReusableHandler<void(SessionState)>;
+    using ChallengeHandler   = AnyReusableHandler<void(Challenge)>;
+    using OngoingCallHandler = AnyReusableHandler<void(ErrorOr<Result>)>;
 
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
@@ -61,21 +72,54 @@ public:
         return Ptr(new Client(exec, std::move(userExec)));
     }
 
-    State state() const override {return Peer::state();}
+    static const Object& roles()
+    {
+        static const Object rolesDict =
+        {
+            {"callee", Object{{"features", Object{{
+                {"call_canceling", true},
+                {"call_timeout", true},
+                {"call_trustlevels", true},
+                {"caller_identification", true},
+                {"pattern_based_registration", true},
+                {"progressive_call_results", true}
+            }}}}},
+            {"caller", Object{{"features", Object{{
+                {"call_canceling", true},
+                {"call_timeout", true},
+                {"caller_exclusion", true},
+                {"caller_identification", true},
+                {"progressive_call_results", true}
+            }}}}},
+            {"publisher", Object{{"features", Object{{
+                {"publisher_exclusion", true},
+                {"publisher_identification", true},
+                {"subscriber_blackwhite_listing", true}
+            }}}}},
+            {"subscriber", Object{{"features", Object{{
+                {"pattern_based_subscription", true},
+                {"publication_trustlevels", true},
+                {"publisher_identification", true},
+            }}}}}
+        };
+        return rolesDict;
+    }
 
-    const IoStrand& strand() const override {return Peer::strand();}
+    State state() const {return Peer::state();}
 
-    const AnyCompletionExecutor& userExecutor() const override
+    const IoStrand& strand() const {return Peer::strand();}
+
+    const AnyCompletionExecutor& userExecutor() const
     {
         return Peer::userExecutor();
     }
 
-    void setWarningHandler(LogHandler handler) override
+    void setWarningHandler(LogHandler handler)
     {
         warningHandler_ = std::move(handler);
     }
 
-    void safeSetWarningHandler(LogHandler f) override
+    void safeSetWarningHandler(LogHandler f)
     {
         struct Dispatched
         {
@@ -87,12 +131,12 @@ public:
         safelyDispatch<Dispatched>(std::move(f));
     }
 
-    void setTraceHandler(LogHandler handler) override
+    void setTraceHandler(LogHandler handler)
     {
         Peer::setTraceHandler(std::move(handler));
     }
 
-    void safeSetTraceHandler(LogHandler f) override
+    void safeSetTraceHandler(LogHandler f)
     {
         struct Dispatched
         {
@@ -104,12 +148,12 @@ public:
         safelyDispatch<Dispatched>(std::move(f));
     }
 
-    void setStateChangeHandler(StateChangeHandler handler) override
+    void setStateChangeHandler(StateChangeHandler handler)
     {
         Peer::setStateChangeHandler(std::move(handler));
     }
 
-    void safeSetStateChangeHandler(StateChangeHandler f) override
+    void safeSetStateChangeHandler(StateChangeHandler f)
     {
         struct Dispatched
         {
@@ -121,12 +165,12 @@ public:
         safelyDispatch<Dispatched>(std::move(f));
     }
 
-    void setChallengeHandler(ChallengeHandler handler) override
+    void setChallengeHandler(ChallengeHandler handler)
     {
         challengeHandler_ = std::move(handler);
     }
 
-    void safeSetChallengeHandler(ChallengeHandler f) override
+    void safeSetChallengeHandler(ChallengeHandler f)
     {
         struct Dispatched
         {
@@ -138,8 +182,8 @@ public:
         safelyDispatch<Dispatched>(std::move(f));
     }
 
-    void connect(ConnectionWishList wishes,
-                 CompletionHandler<size_t>&& handler) override
+    void connect(ConnectionWishList&& wishes,
+                 CompletionHandler<size_t>&& handler)
     {
         assert(!wishes.empty());
 
@@ -158,8 +202,7 @@ public:
         doConnect(std::move(wishes), 0, std::move(sharedHandler));
     }
 
-    void safeConnect(ConnectionWishList w,
-                     CompletionHandler<size_t>&& f) override
+    void safeConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f)
     {
         struct Dispatched
         {
@@ -172,7 +215,7 @@ public:
         safelyDispatch<Dispatched>(std::move(w), std::move(f));
     }
 
-    void join(Realm&& realm, CompletionHandler<SessionInfo>&& handler) override
+    void join(Realm&& realm, CompletionHandler<SessionInfo>&& handler)
     {
         struct Requested
         {
@@ -207,7 +250,7 @@ public:
                                 realm.uri(), realm.abort({})});
     }
 
-    void safeJoin(Realm&& r, CompletionHandler<SessionInfo>&& f) override
+    void safeJoin(Realm&& r, CompletionHandler<SessionInfo>&& f)
     {
         struct Dispatched
         {
@@ -220,7 +263,7 @@ public:
         safelyDispatch<Dispatched>(std::move(r), std::move(f));
     }
 
-    void authenticate(Authentication&& auth) override
+    void authenticate(Authentication&& auth)
     {
         if (state() != State::authenticating)
         {
@@ -243,7 +286,7 @@ public:
         safelyDispatch<Dispatched>(std::move(a));
     }
 
-    void leave(Reason&& reason, CompletionHandler<Reason>&& handler) override
+    void leave(Reason&& reason, CompletionHandler<Reason>&& handler)
     {
         struct Adjourned
         {
@@ -272,7 +315,7 @@ public:
                       Adjourned{shared_from_this(), std::move(handler)});
     }
 
-    void safeLeave(Reason&& r, CompletionHandler<Reason>&& f) override
+    void safeLeave(Reason&& r, CompletionHandler<Reason>&& f)
     {
         struct Dispatched
         {
@@ -285,12 +328,12 @@ public:
         safelyDispatch<Dispatched>(std::move(r), std::move(f));
     }
 
-    void disconnect() override
+    void disconnect()
     {
         doDisconnect();
     }
 
-    void safeDisconnect() override
+    void safeDisconnect()
     {
         struct Dispatched
         {
@@ -301,13 +344,13 @@ public:
         safelyDispatch<Dispatched>();
     }
 
-    void terminate() override
+    void terminate()
     {
         setTerminating(true);
         doDisconnect();
     }
 
-    void safeTerminate() override
+    void safeTerminate()
     {
         struct Dispatched
         {
@@ -319,7 +362,7 @@ public:
     }
 
     void subscribe(Topic&& topic, EventSlot&& slot,
-                   CompletionHandler<Subscription>&& handler) override
+                   CompletionHandler<Subscription>&& handler)
     {
         struct Requested
         {
@@ -370,7 +413,7 @@ public:
     }
 
     void safeSubscribe(Topic&& t, EventSlot&& s,
-                       CompletionHandler<Subscription>&& f) override
+                       CompletionHandler<Subscription>&& f)
     {
         using std::move;
 
@@ -386,7 +429,7 @@ public:
         safelyDispatch<Dispatched>(move(t), move(s), move(f));
     }
 
-    void unsubscribe(const Subscription& sub) override
+    void unsubscribe(const Subscription& sub)
     {
         auto kv = readership_.find(sub.id());
         if (kv != readership_.end())
@@ -423,8 +466,7 @@ public:
         safelyDispatch<Dispatched>(s);
     }
 
-    void unsubscribe(const Subscription& sub,
-                     CompletionHandler<bool>&& handler) override
+    void unsubscribe(const Subscription& sub, CompletionHandler<bool>&& handler)
     {
         auto kv = readership_.find(sub.id());
         if (kv != readership_.end())
@@ -467,7 +509,7 @@ public:
         safelyDispatch<Dispatched>(s, std::move(f));
     }
 
-    void publish(Pub&& pub) override
+    void publish(Pub&& pub)
     {
         if (state() != State::established)
         {
@@ -477,7 +519,7 @@ public:
         Peer::send(pub.message({}));
     }
 
-    void safePublish(Pub&& p) override
+    void safePublish(Pub&& p)
     {
         struct Dispatched
         {
@@ -489,7 +531,7 @@ public:
         safelyDispatch<Dispatched>(std::move(p));
     }
 
-    void publish(Pub&& pub, CompletionHandler<PublicationId>&& handler) override
+    void publish(Pub&& pub, CompletionHandler<PublicationId>&& handler)
     {
         struct Requested
         {
@@ -517,7 +559,7 @@ public:
                       Requested{shared_from_this(), std::move(handler)});
     }
 
-    void safePublish(Pub&& p, CompletionHandler<PublicationId>&& f) override
+    void safePublish(Pub&& p, CompletionHandler<PublicationId>&& f)
     {
         struct Dispatched
         {
@@ -532,7 +574,7 @@ public:
 
     void enroll(Procedure&& procedure, CallSlot&& callSlot,
                 InterruptSlot&& interruptSlot,
-                CompletionHandler<Registration>&& handler) override
+                CompletionHandler<Registration>&& handler)
     {
         struct Requested
         {
@@ -566,7 +608,7 @@ public:
     }
 
     void safeEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
-                    CompletionHandler<Registration>&& f) override
+                    CompletionHandler<Registration>&& f)
     {
         using std::move;
 
@@ -587,7 +629,7 @@ public:
         safelyDispatch<Dispatched>(move(p), move(c), move(i), move(f));
     }
 
-    void unregister(const Registration& reg) override
+    void unregister(const Registration& reg)
     {
         struct Requested
         {
@@ -627,8 +669,7 @@ public:
         safelyDispatch<Dispatched>(r);
     }
 
-    void unregister(const Registration& reg,
-                    CompletionHandler<bool>&& handler) override
+    void unregister(const Registration& reg, CompletionHandler<bool>&& handler)
     {
         struct Requested
         {
@@ -684,7 +725,7 @@ public:
     }
 
     void oneShotCall(Rpc&& rpc, CallChit* chitPtr,
-                     CompletionHandler<Result>&& handler) override
+                     CompletionHandler<Result>&& handler)
     {
         struct Requested
         {
@@ -732,8 +773,7 @@ public:
             *chitPtr = chit;
     }
 
-    void safeOneShotCall(Rpc&& r, CallChit* c,
-                         CompletionHandler<Result>&& f) override
+    void safeOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
     {
         using std::move;
 
@@ -749,8 +789,7 @@ public:
         safelyDispatch<Dispatched>(move(r), c, move(f));
     }
 
-    void ongoingCall(Rpc&& rpc, CallChit* chitPtr,
-                     OngoingCallHandler&& handler) override
+    void ongoingCall(Rpc&& rpc, CallChit* chitPtr, OngoingCallHandler&& handler)
     {
         struct Requested
         {
@@ -799,7 +838,7 @@ public:
             *chitPtr = chit;
     }
 
-    void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f) override
+    void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f)
     {
         using std::move;
 
@@ -815,7 +854,7 @@ public:
         safelyDispatch<Dispatched>(move(r), c, move(f));
     }
 
-    void cancelCall(RequestId reqId, CallCancelMode mode) override
+    void cancelCall(RequestId reqId, CallCancelMode mode)
     {
         if (state() != State::established)
         {
@@ -838,7 +877,7 @@ public:
         safelyDispatch<Dispatched>(r, m);
     }
 
-    void yield(RequestId reqId, Result&& result) override
+    void yield(RequestId reqId, Result&& result)
     {
         if (state() != State::established)
         {
@@ -864,7 +903,7 @@ public:
         safelyDispatch<Dispatched>(i, std::move(r));
     }
 
-    void yield(RequestId reqId, Error&& error) override
+    void yield(RequestId reqId, Error&& error)
     {
         if (state() != State::established)
         {

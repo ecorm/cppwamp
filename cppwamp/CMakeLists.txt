@@ -57,7 +57,6 @@ set(HEADERS
     include/cppwamp/internal/callertimeout.hpp
     include/cppwamp/internal/challengee.hpp
     include/cppwamp/internal/client.hpp
-    include/cppwamp/internal/clientinterface.hpp
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/integersequence.hpp
     include/cppwamp/internal/jsonencoding.hpp

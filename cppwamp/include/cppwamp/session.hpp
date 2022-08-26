@@ -28,10 +28,12 @@
 #include "subscription.hpp"
 #include "tagtypes.hpp"
 #include "wampdefs.hpp"
-#include "internal/clientinterface.hpp"
 
 namespace wamp
 {
+
+// Forward declaration
+namespace internal { class Client; }
 
 //------------------------------------------------------------------------------
 /** %Session API used by a _client_ peer in WAMP applications.
@@ -566,16 +568,13 @@ public:
     /// @}
 
 private:
-    using ImplPtr = typename internal::ClientInterface::Ptr;
-
     template <typename T>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<T>)>;
 
     template <typename T>
     using ReusableHandler = AnyReusableHandler<void(T)>;
 
-    using OneShotCallHandler   = CompletionHandler<Result>;
-    using MultiShotCallHandler = AnyReusableHandler<void(ErrorOr<Result>)>;
+    using OngoingCallHandler = AnyReusableHandler<void(ErrorOr<Result>)>;
 
     // These initiator function objects are needed due to C++11 lacking
     // generic lambdas.
@@ -602,8 +601,33 @@ private:
     Deduced<ErrorOr<typename O::ResultValue>, C>
     safelyInitiate(C&& token, As&&... args);
 
+    void doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
+    void safeConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
+    void doJoin(Realm&& realm, CompletionHandler<SessionInfo>&& f);
+    void safeJoin(Realm&& r, CompletionHandler<SessionInfo>&& f);
+    void doLeave(Reason&& reason, CompletionHandler<Reason>&& f);
+    void safeLeave(Reason&& r, CompletionHandler<Reason>&& f);
+    void doSubscribe(Topic&& t, EventSlot&& s,
+                     CompletionHandler<Subscription>&& f);
+    void safeSubscribe(Topic&& t, EventSlot&& s,
+                       CompletionHandler<Subscription>&& f);
+    void doUnsubscribe(const Subscription& s, CompletionHandler<bool>&& f);
+    void safeUnsubscribe(const Subscription& s, CompletionHandler<bool>&& f);
+    void doPublish(Pub&& p, CompletionHandler<PublicationId>&& f);
+    void safePublish(Pub&& p, CompletionHandler<PublicationId>&& f);
+    void doEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
+                  CompletionHandler<Registration>&& f);
+    void safeEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
+                    CompletionHandler<Registration>&& f);
+    void doUnregister(const Registration& r, CompletionHandler<bool>&& f);
+    void safeUnregister(const Registration& r, CompletionHandler<bool>&& f);
+    void doOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f);
+    void safeOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f);
+    void doOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f);
+    void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f);
+
     ConnectorList legacyConnectors_;
-    ImplPtr impl_;
+    std::shared_ptr<internal::Client> impl_;
 
     // TODO: Remove this once CoroSession is removed
     template <typename> friend class CoroSession;
@@ -619,16 +643,16 @@ struct Session::ConnectOp
 {
     using ResultValue = size_t;
     Session* self;
-    ConnectionWishList wishes;
+    ConnectionWishList w;
 
     template <typename F> void operator()(F&& f)
     {
-        self->impl_->connect(std::move(wishes), std::forward<F>(f));
+        self->doConnect(std::move(w), std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->impl_->safeConnect(std::move(wishes), std::forward<F>(f));
+        self->safeConnect(std::move(w), std::forward<F>(f));
     }
 };
 
@@ -813,16 +837,16 @@ struct Session::JoinOp
 {
     using ResultValue = SessionInfo;
     Session* self;
-    Realm realm;
+    Realm r;
 
     template <typename F> void operator()(F&& f)
     {
-        self->impl_->join(std::move(realm), std::forward<F>(f));
+        self->doJoin(std::move(r), std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->impl_->join(threadSafe, std::move(realm), std::forward<F>(f));
+        self->safeJoin(threadSafe, std::move(r), std::forward<F>(f));
     }
 };
 
@@ -882,16 +906,16 @@ struct Session::LeaveOp
 {
     using ResultValue = Reason;
     Session* self;
-    Reason reason;
+    Reason r;
 
     template <typename F> void operator()(F&& f)
     {
-        self->impl_->leave(std::move(reason), std::forward<F>(f));
+        self->doLeave(std::move(r), std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->impl_->safeLeave(std::move(reason), std::forward<F>(f));
+        self->safeLeave(std::move(r), std::forward<F>(f));
     }
 };
 
@@ -994,19 +1018,17 @@ struct Session::SubscribeOp
 {
     using ResultValue = Subscription;
     Session* self;
-    Topic topic;
-    EventSlot slot;
+    Topic t;
+    EventSlot s;
 
     template <typename F> void operator()(F&& f)
     {
-        using std::move;
-        self->impl_->subscribe(move(topic), move(slot), std::forward<F>(f));
+        self->doSubscribe(std::move(t), std::move(s), std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        using std::move;
-        self->impl_->safeSubscribe(move(topic), move(slot), std::forward<F>(f));
+        self->safeSubscribe(std::move(t), std::move(s), std::forward<F>(f));
     }
 };
 
@@ -1069,16 +1091,16 @@ struct Session::UnsubscribeOp
 {
     using ResultValue = bool;
     Session* self;
-    Subscription sub;
+    Subscription s;
 
     template <typename F> void operator()(F&& f)
     {
-        self->impl_->unsubscribe(std::move(sub), std::forward<F>(f));
+        self->doUnsubscribe(std::move(s), std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->impl_->safeUnsubscribe(std::move(sub), std::forward<F>(f));
+        self->safeUnsubscribe(std::move(s), std::forward<F>(f));
     }
 };
 
@@ -1146,16 +1168,16 @@ struct Session::PublishOp
 {
     using ResultValue = PublicationId;
     Session* self;
-    Pub pub;
+    Pub p;
 
     template <typename F> void operator()(F&& f)
     {
-        self->impl_->publish(std::move(pub), std::move(std::forward<F>(f)));
+        self->doPublish(std::move(p), std::move(std::forward<F>(f)));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->impl_->safePublish(std::move(pub), std::move(std::forward<F>(f)));
+        self->safePublish(std::move(p), std::move(std::forward<F>(f)));
     }
 };
 
@@ -1210,19 +1232,18 @@ struct Session::EnrollOp
 {
     using ResultValue = Registration;
     Session* self;
-    Procedure procedure;
-    CallSlot slot;
+    Procedure p;
+    CallSlot s;
 
     template <typename F> void operator()(F&& f)
     {
-        self->impl_->enroll(std::move(procedure), std::move(slot), nullptr,
-                            std::forward<F>(f));
+        self->doEnroll(std::move(p), std::move(s), nullptr, std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->impl_->safeEnroll(std::move(procedure), std::move(slot), nullptr,
-                                std::forward<F>(f));
+        self->safeEnroll(std::move(p), std::move(s), nullptr,
+                         std::forward<F>(f));
     }
 };
 
@@ -1289,20 +1310,20 @@ struct Session::EnrollIntrOp
 {
     using ResultValue = Registration;
     Session* self;
-    Procedure procedure;
-    CallSlot callSlot;
-    InterruptSlot interruptSlot;
+    Procedure p;
+    CallSlot c;
+    InterruptSlot i;
 
     template <typename F> void operator()(F&& f)
     {
-        self->impl_->enroll(std::move(procedure), std::move(callSlot),
-                            std::move(interruptSlot), std::forward<F>(f));
+        self->doEnroll(std::move(p), std::move(c), std::move(i),
+                       std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->impl_->safeEnroll(std::move(procedure), std::move(callSlot),
-                                std::move(interruptSlot), std::forward<F>(f));
+        self->safeEnroll(std::move(p), std::move(c), std::move(i),
+                         std::forward<F>(f));
     }
 };
 
@@ -1376,16 +1397,16 @@ struct Session::UnregisterOp
 {
     using ResultValue = bool;
     Session* self;
-    Registration reg;
+    Registration r;
 
     template <typename F> void operator()(F&& f)
     {
-        self->impl_->unregister(std::move(reg), std::forward<F>(f));
+        self->doUnregister(std::move(r), std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->impl_->safeUnregister(std::move(reg), std::forward<F>(f));
+        self->safeUnregister(std::move(r), std::forward<F>(f));
     }
 };
 
@@ -1452,17 +1473,17 @@ struct Session::CallOp
 {
     using ResultValue = Result;
     Session* self;
-    Rpc rpc;
-    CallChit* chit;
+    Rpc r;
+    CallChit* c;
 
     template <typename F> void operator()(F&& f)
     {
-        self->impl_->oneShotCall(std::move(rpc), chit, std::forward<F>(f));
+        self->doOneShotCall(std::move(r), c, std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->impl_->safeOneShotCall(std::move(rpc), chit, std::forward<F>(f));
+        self->safeOneShotCall(std::move(r), c, std::forward<F>(f));
     }
 };
 
@@ -1572,17 +1593,17 @@ struct Session::OngoingCallOp
 {
     using ResultValue = Result;
     Session* self;
-    Rpc rpc;
-    CallChit* chit;
+    Rpc r;
+    CallChit* c;
 
     template <typename F> void operator()(F&& f)
     {
-        self->impl_->ongoingCall(std::move(rpc), chit, std::forward<F>(f));
+        self->doOngoingCall(std::move(r), c, std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->impl_->safeOngoingCall(std::move(rpc), chit, std::forward<F>(f));
+        self->safeOngoingCall(std::move(r), c, std::forward<F>(f));
     }
 };
 

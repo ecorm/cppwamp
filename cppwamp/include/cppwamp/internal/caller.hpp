@@ -25,8 +25,6 @@ public:
 
     virtual ~Caller() {}
 
-    virtual void cancelCall(RequestId, CallCancelMode) = 0;
-
     virtual void safeCancelCall(RequestId, CallCancelMode) = 0;
 };
 

@@ -51,8 +51,7 @@ public:
 
 protected:
     using Message = WampMessage;
-    using OneShotHandler =
-        AnyCompletionHandler<void (std::error_code, Message)>;
+    using OneShotHandler = AnyCompletionHandler<void (std::error_code, Message)>;
     using MultiShotHandler = std::function<void (std::error_code, Message)>;
     using LogHandler = AnyReusableHandler<void (std::string)>;
     using StateChangeHandler = AnyReusableHandler<void (State)>;

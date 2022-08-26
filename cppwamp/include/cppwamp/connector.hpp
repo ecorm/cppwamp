@@ -27,9 +27,6 @@
 namespace wamp
 {
 
-// Forward declaration
-namespace internal {class ClientInterface;}
-
 //------------------------------------------------------------------------------
 /** Primary template, specialized for each transport protocol tag. */
 //------------------------------------------------------------------------------

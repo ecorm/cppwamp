@@ -9,9 +9,6 @@
 namespace wamp
 {
 
-// Forward declaration
-namespace internal {class ClientInterface;}
-
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Connecting::Ptr ConnectorBuilder::operator()(IoStrand s,
                                                             int codecId) const
