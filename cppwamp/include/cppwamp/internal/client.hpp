@@ -40,10 +40,10 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// Provides the implementation of the wamp::Session class.
+// Provides a WAMP client implementation.
 //------------------------------------------------------------------------------
-class Client : public Callee, public Caller, public Subscriber,
-               public Challengee, public Peer
+class Client : public std::enable_shared_from_this<Client>, public Callee,
+               public Caller, public Subscriber, public Challengee
 {
 public:
     using Ptr                = std::shared_ptr<Client>;
@@ -60,12 +60,6 @@ public:
 
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
-
-    using Peer::state;
-    using Peer::strand;
-    using Peer::userExecutor;
-    using Peer::setTraceHandler;
-    using Peer::setStateChangeHandler;
 
     static Ptr create(AnyIoExecutor exec)
     {
@@ -110,6 +104,15 @@ public:
         return rolesDict;
     }
 
+    State state() const {return peer_.state();}
+
+    const IoStrand& strand() const {return peer_.strand();}
+
+    const AnyCompletionExecutor& userExecutor() const
+    {
+        return peer_.userExecutor();
+    }
+
     void setWarningHandler(LogHandler handler)
     {
         warningHandler_ = std::move(handler);
@@ -127,6 +130,8 @@ public:
         safelyDispatch<Dispatched>(std::move(f));
     }
 
+    void setTraceHandler(LogHandler f) {peer_.setTraceHandler(std::move(f));}
+
     void safeSetTraceHandler(LogHandler f)
     {
         struct Dispatched
@@ -137,6 +142,11 @@ public:
         };
 
         safelyDispatch<Dispatched>(std::move(f));
+    }
+
+    void setStateChangeHandler(StateChangeHandler f)
+    {
+        peer_.setStateChangeHandler(std::move(f));
     }
 
     void safeSetStateChangeHandler(StateChangeHandler f)
@@ -176,8 +186,8 @@ public:
         if (!checkState(State::disconnected, handler))
             return;
 
-        setTerminating(false);
-        setState(State::connecting);
+        peer_.setTerminating(false);
+        peer_.setState(State::connecting);
         currentConnector_ = nullptr;
 
         // This makes it easier to transport the move-only completion handler
@@ -230,8 +240,8 @@ public:
 
         realm.withOption("agent", Version::agentString())
              .withOption("roles", roles());
-        Peer::start();
-        Peer::request(realm.message({}),
+        peer_.start();
+        peer_.request(realm.message({}),
                       Requested{shared_from_this(), std::move(handler),
                                 realm.uri(), realm.abort({})});
     }
@@ -257,7 +267,7 @@ public:
                  "in the authenticating state");
             return;
         }
-        Peer::send(auth.message({}));
+        peer_.send(auth.message({}));
     }
 
     void safeAuthenticate(Authentication&& a) override
@@ -297,7 +307,7 @@ public:
         if (!checkState(State::established, handler))
             return;
         timeoutScheduler_->clear();
-        Peer::adjourn(reason,
+        peer_.adjourn(reason,
                       Adjourned{shared_from_this(), std::move(handler)});
     }
 
@@ -332,7 +342,7 @@ public:
 
     void terminate()
     {
-        setTerminating(true);
+        peer_.setTerminating(true);
         doDisconnect();
     }
 
@@ -383,7 +393,7 @@ public:
         auto kv = topics_.find(rec.topicUri);
         if (kv == topics_.end())
         {
-            Peer::request(
+            peer_.request(
                 topic.message({}),
                 Requested{shared_from_this(), move(rec), move(handler)});
         }
@@ -501,7 +511,7 @@ public:
             warn("Publish message discarded while not established");
             return;
         }
-        Peer::send(pub.message({}));
+        peer_.send(pub.message({}));
     }
 
     void safePublish(Pub&& p)
@@ -539,7 +549,7 @@ public:
             return;
 
         pub.withOption("acknowledge", true);
-        Peer::request(pub.message({}),
+        peer_.request(pub.message({}),
                       Requested{shared_from_this(), std::move(handler)});
     }
 
@@ -586,7 +596,7 @@ public:
 
         using std::move;
         RegistrationRecord rec{ move(callSlot), move(interruptSlot) };
-        Peer::request(procedure.message({}),
+        peer_.request(procedure.message({}),
                       Requested{shared_from_this(), move(rec), move(handler)});
     }
 
@@ -634,7 +644,7 @@ public:
             if (state() == State::established)
             {
                 UnregisterMessage msg(reg.id());
-                Peer::request(msg, Requested{shared_from_this()});
+                peer_.request(msg, Requested{shared_from_this()});
             }
         }
     }
@@ -676,7 +686,7 @@ public:
             UnregisterMessage msg(reg.id());
             if (state() == State::established)
             {
-                Peer::request(msg, Requested{shared_from_this(),
+                peer_.request(msg, Requested{shared_from_this(),
                                              std::move(handler)});
             }
             else
@@ -735,7 +745,7 @@ public:
 
         auto cancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
-        auto requestId = Peer::request(
+        auto requestId = peer_.request(
             rpc.message({}),
             Requested{shared_from_this(), rpc.error({}), std::move(handler)});
         CallChit chit{shared_from_this(), requestId, rpc.cancelMode(), {}};
@@ -800,7 +810,7 @@ public:
 
         auto cancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
-        auto requestId = Peer::ongoingRequest(
+        auto requestId = peer_.ongoingRequest(
             rpc.message({}),
             Requested{shared_from_this(), rpc.error({}), std::move(handler)});
         CallChit chit{shared_from_this(), requestId, rpc.cancelMode(), {}};
@@ -841,7 +851,7 @@ public:
             warn("Cancel RPC message discarded while not established");
             return;
         }
-        Peer::cancelCall(CallCancellation{reqId, mode});
+        peer_.cancelCall(CallCancellation{reqId, mode});
     }
 
     void safeCancelCall(RequestId r, CallCancelMode m) override
@@ -867,7 +877,7 @@ public:
 
         if (!result.isProgressive())
             pendingInvocations_.erase(reqId);
-        Peer::send(result.yieldMessage({}, reqId));
+        peer_.send(result.yieldMessage({}, reqId));
     }
 
     void safeYield(RequestId i, Result&& r) override
@@ -892,7 +902,7 @@ public:
         }
 
         pendingInvocations_.erase(reqId);
-        Peer::sendError(WampMsgType::invocation, reqId, std::move(error));
+        peer_.sendError(WampMsgType::invocation, reqId, std::move(error));
     }
 
     void safeYield(RequestId r, Error&& e) override
@@ -933,18 +943,19 @@ private:
     using CallerTimeoutDuration = typename Rpc::CallerTimeoutDuration;
 
     Client(AnyIoExecutor exec)
-        : Base(false, std::move(exec)),
-          timeoutScheduler_(CallerTimeoutScheduler::create(Base::strand()))
-    {}
+        : peer_(false, std::move(exec)),
+          timeoutScheduler_(CallerTimeoutScheduler::create(peer_.strand()))
+    {
+        peer_.setInboundMessageHandler(
+            [this](Message msg) {onInbound(std::move(msg));} );
+    }
 
     Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
-        : Base(false, exec, std::move(userExec)),
-          timeoutScheduler_(CallerTimeoutScheduler::create(Base::strand()))
-    {}
-
-    Ptr shared_from_this()
+        : peer_(false, exec, std::move(userExec)),
+          timeoutScheduler_(CallerTimeoutScheduler::create(peer_.strand()))
     {
-        return std::static_pointer_cast<Client>( Peer::shared_from_this() );
+        peer_.setInboundMessageHandler(
+            [this](Message msg) {onInbound(std::move(msg));} );
     }
 
     template <typename F, typename... Ts>
@@ -961,7 +972,7 @@ private:
         if (!valid)
         {
             auto unex = makeUnexpectedError(SessionErrc::invalidState);
-            if (!isTerminating())
+            if (!peer_.isTerminating())
                 postVia(userExecutor(), std::move(handler), std::move(unex));
         }
         return valid;
@@ -985,7 +996,7 @@ private:
                     return;
 
                 auto& me = *locked;
-                if (me.isTerminating())
+                if (me.peer_.isTerminating())
                     return;
 
                 if (!transport)
@@ -996,7 +1007,7 @@ private:
                 else if (me.state() == State::connecting)
                 {
                     auto codec = wishes.at(index).makeCodec();
-                    me.open(std::move(*transport), std::move(codec));
+                    me.peer_.open(std::move(*transport), std::move(codec));
                     me.dispatchUserHandler(*handler, index);
                 }
                 else
@@ -1029,7 +1040,7 @@ private:
             }
             else
             {
-                setState(State::failed);
+                peer_.setState(State::failed);
                 if (wishes.size() > 1)
                     ec = make_error_code(SessionErrc::allTransportsFailed);
                 dispatchUserHandler(*handler, UnexpectedError(ec));
@@ -1047,7 +1058,7 @@ private:
         registry_.clear();
         pendingInvocations_.clear();
         timeoutScheduler_->clear();
-        Peer::close();
+        peer_.close();
     }
 
     void sendUnsubscribe(SubscriptionId subId)
@@ -1068,7 +1079,7 @@ private:
         if (state() == State::established)
         {
             UnsubscribeMessage msg(subId);
-            Peer::request(msg, Requested{shared_from_this()});
+            peer_.request(msg, Requested{shared_from_this()});
         }
     }
 
@@ -1099,10 +1110,10 @@ private:
         }
 
         UnsubscribeMessage msg(subId);
-        Peer::request(msg, Requested{shared_from_this(), std::move(handler)});
+        peer_.request(msg, Requested{shared_from_this(), std::move(handler)});
     }
 
-    virtual void onInbound(Message msg) override
+    void onInbound(Message msg)
     {
         switch (msg.type())
         {
@@ -1286,7 +1297,7 @@ private:
         }
         else
         {
-            Peer::sendError(WampMsgType::invocation, requestId,
+            peer_.sendError(WampMsgType::invocation, requestId,
                             Error("wamp.error.no_such_procedure"));
         }
     }
@@ -1453,7 +1464,7 @@ private:
     template <typename S, typename... Ts>
     void postUserHandler(AnyCompletionHandler<S>& handler, Ts&&... args)
     {
-        if (!isTerminating())
+        if (!peer_.isTerminating())
         {
             postVia(userExecutor(), std::move(handler),
                     std::forward<Ts>(args)...);
@@ -1463,7 +1474,7 @@ private:
     template <typename S, typename... Ts>
     void dispatchUserHandler(AnyCompletionHandler<S>& handler, Ts&&... args)
     {
-        if (!isTerminating())
+        if (!peer_.isTerminating())
         {
             dispatchVia(userExecutor(), std::move(handler),
                         std::forward<Ts>(args)...);
@@ -1473,12 +1484,13 @@ private:
     template <typename S, typename... Ts>
     void dispatchUserHandler(const AnyReusableHandler<S>& handler, Ts&&... args)
     {
-        if (!isTerminating())
+        if (!peer_.isTerminating())
             dispatchVia(userExecutor(), handler, std::forward<Ts>(args)...);
     }
 
     SlotId nextSlotId() {return nextSlotId_++;}
 
+    Peer peer_;
     Connecting::Ptr currentConnector_;
     TopicMap topics_;
     Readership readership_;

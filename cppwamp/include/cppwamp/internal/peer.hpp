@@ -32,20 +32,19 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// Base class providing session functionality common to both clients and
-// router peers. This class is extended by Client to implement a client session.
+// Provides session functionality common to both clients and router peers.
 //------------------------------------------------------------------------------
-class Peer : public std::enable_shared_from_this<Peer>
+class Peer
 {
-protected:
-    using TransportPtr       = Transporting::Ptr;
-    using State              = SessionState;
-    using Message            = WampMessage;
+public:
+    using State                 = SessionState;
+    using Message               = WampMessage;
+    using InboundMessageHandler = std::function<void (Message)>;
     // TODO: Use ErrorOr<Message>
-    using OneShotHandler     = AnyCompletionHandler<void (std::error_code, Message)>;
-    using MultiShotHandler   = std::function<void (std::error_code, Message)>;
-    using LogHandler         = AnyReusableHandler<void (std::string)>;
-    using StateChangeHandler = AnyReusableHandler<void (State)>;
+    using OneShotHandler        = AnyCompletionHandler<void (std::error_code, Message)>;
+    using MultiShotHandler      = std::function<void (std::error_code, Message)>;
+    using LogHandler            = AnyReusableHandler<void (std::string)>;
+    using StateChangeHandler    = AnyReusableHandler<void (State)>;
 
     explicit Peer(bool isRouter, AnyIoExecutor exec)
         : strand_(boost::asio::make_strand(exec)),
@@ -84,6 +83,21 @@ protected:
     const IoStrand& strand() const {return strand_;}
 
     const AnyCompletionExecutor& userExecutor() const {return userExecutor_;}
+
+    void setInboundMessageHandler(InboundMessageHandler f)
+    {
+        inboundMessageHandler_ = std::move(f);
+    }
+
+    void setTraceHandler(LogHandler handler)
+    {
+        traceHandler_ = std::move(handler);
+    }
+
+    void setStateChangeHandler(StateChangeHandler handler)
+    {
+        stateChangeHandler_ = std::move(handler);
+    }
 
     State setState(State s)
     {
@@ -227,21 +241,6 @@ protected:
         fail(make_error_code(errc));
     }
 
-    void setUserExecutor(AnyIoExecutor exec)
-    {
-        userExecutor_ = std::move(exec);
-    }
-
-    void setTraceHandler(LogHandler handler)
-    {
-        traceHandler_ = std::move(handler);
-    }
-
-    void setStateChangeHandler(StateChangeHandler handler)
-    {
-        stateChangeHandler_ = std::move(handler);
-    }
-
     template <typename TFunctor, typename... TArgs>
     void post(TFunctor&& fn, TArgs&&... args)
     {
@@ -256,8 +255,6 @@ private:
     using RequestKey = typename Message::RequestKey;
     using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
     using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
-
-    virtual void onInbound(Message msg) = 0;
 
     RequestId sendMessage(Message& msg)
     {
@@ -403,7 +400,7 @@ private:
                 // Role-specific unsolicited messages. Ignore them if we're
                 // shutting down.
                 if (state() != State::shuttingDown)
-                    onInbound(msg);
+                    inboundMessageHandler_(std::move(msg));
                 break;
         }
     }
@@ -443,14 +440,14 @@ private:
     {
         assert(state() == State::establishing);
         setState(State::established);
-        onInbound(std::move(msg));
+        inboundMessageHandler_(std::move(msg));
     }
 
     void processChallenge(Message&& msg)
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
-        onInbound(std::move(msg));
+        inboundMessageHandler_(std::move(msg));
     }
 
     void processWelcome(Message&& msg)
@@ -577,7 +574,8 @@ private:
     IoStrand strand_;
     AnyCompletionExecutor userExecutor_;
     AnyBufferCodec codec_;
-    TransportPtr transport_;
+    Transporting::Ptr transport_;
+    InboundMessageHandler inboundMessageHandler_;
     LogHandler traceHandler_;
     StateChangeHandler stateChangeHandler_;
     OneShotRequestMap oneShotRequestMap_;
