@@ -244,6 +244,15 @@ CPPWAMP_INLINE bool lookupWampErrorUri(
                                  URI, or the given fallback value if not found */
 )
 {
+    /* TODO: Add:
+        wamp.error.unavailable
+        wamp.error.no_such_subscription
+        wamp.error.feature_not_supported
+        wamp.error.option_disallowed.disclose_me
+        no_eligible_callee -> wamp.error.no_available_callee
+        cppwamp.error.result_too_long
+    */
+
     using SE = SessionErrc;
     static std::map<std::string, SessionErrc> table =
     {
@@ -256,7 +265,7 @@ CPPWAMP_INLINE bool lookupWampErrorUri(
         {"wamp.error.system_shutdown",               SE::systemShutdown},
         {"wamp.error.close_realm",                   SE::closeRealm},
         {"wamp.error.goodbye_and_out",               SE::goodbyeAndOut},
-        {"wamp.error.protocol_violation",            SE::goodbyeAndOut},
+        {"wamp.error.protocol_violation",            SE::protocolViolation},
         {"wamp.error.not_authorized",                SE::notAuthorized},
         {"wamp.error.authorization_failed",          SE::authorizationFailed},
         {"wamp.error.no_such_realm",                 SE::noSuchRealm},

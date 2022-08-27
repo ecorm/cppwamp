@@ -11,13 +11,10 @@ Polymorphic codecs and transports.
   `Session::create`.
 - `TcpHost` and `UdsPath` now have `withFormat` methods which generate a
   `ConnectionWish` that can be passed to `Session`.
-- Relaxed `Session::state` preconditions for `Session`'s `unsubscribe` and
-  `unregister` operations taking completion handlers. If the session state
-  does not allow the transmission of `UNSUBSCRIBE` and `UNREGISTER` WAMP
-  messages, a warning is emitted instead of an error being emitted via the
-  completion handler.
 - `Session::yield` operations while not established will emit a warning instead
   of failing.
+- The `authenticate`, `publish`, `unsubscribe`, `unregister`, and `cancel`
+  `Session` methods not taking a completion handler now return an `ErrorOrDone`.
 - AnyCompletionExecutor is now used by session to contain the user executor.
 - Added `Session::ongoingCall` for progressive call results, which
   automatically applies `rpc.withProgessiveResults(true)`.

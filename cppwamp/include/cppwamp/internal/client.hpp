@@ -19,6 +19,7 @@
 #include <boost/asio/post.hpp>
 #include "../anyhandler.hpp"
 #include "../codec.hpp"
+#include "../config.hpp"
 #include "../chits.hpp"
 #include "../connector.hpp"
 #include "../peerdata.hpp"
@@ -259,24 +260,21 @@ public:
         safelyDispatch<Dispatched>(std::move(r), std::move(f));
     }
 
-    void authenticate(Authentication&& auth)
+    CPPWAMP_NODISCARD ErrorOrDone authenticate(Authentication&& auth)
     {
         if (state() != State::authenticating)
-        {
-            warn("Authentication message discarded called while not "
-                 "in the authenticating state");
-            return;
-        }
-        peer_.send(auth.message({}));
+            return makeUnexpectedError(SessionErrc::invalidState);
+        return peer_.send(auth.message({}));
     }
 
+    // TODO: Return std::future
     void safeAuthenticate(Authentication&& a) override
     {
         struct Dispatched
         {
             Ptr self;
             Authentication a;
-            void operator()() {self->authenticate(std::move(a));}
+            void operator()() {(void)self->authenticate(std::move(a));}
         };
 
         safelyDispatch<Dispatched>(std::move(a));
@@ -423,8 +421,9 @@ public:
         safelyDispatch<Dispatched>(move(t), move(s), move(f));
     }
 
-    void unsubscribe(const Subscription& sub)
+    ErrorOrDone unsubscribe(const Subscription& sub)
     {
+        bool found = false;
         auto kv = readership_.find(sub.id());
         if (kv != readership_.end())
         {
@@ -434,6 +433,7 @@ public:
                 auto subKv = localSubs.find(sub.slotId({}));
                 if (subKv != localSubs.end())
                 {
+                    found = true;
                     if (localSubs.size() == 1u)
                         topics_.erase(subKv->second.topicUri);
 
@@ -441,11 +441,12 @@ public:
                     if (localSubs.empty())
                     {
                         readership_.erase(kv);
-                        sendUnsubscribe(sub.id());
+                        return sendUnsubscribe(sub.id());
                     }
                 }
             }
         }
+        return found;
     }
 
     void safeUnsubscribe(const Subscription& s) override
@@ -503,14 +504,11 @@ public:
         safelyDispatch<Dispatched>(s, std::move(f));
     }
 
-    void publish(Pub&& pub)
+    CPPWAMP_NODISCARD ErrorOrDone publish(Pub&& pub)
     {
         if (state() != State::established)
-        {
-            warn("Publish message discarded while not established");
-            return;
-        }
-        peer_.send(pub.message({}));
+            return makeUnexpectedError(SessionErrc::invalidState);
+        return peer_.send(pub.message({}));
     }
 
     void safePublish(Pub&& p)
@@ -519,7 +517,7 @@ public:
         {
             Ptr self;
             Pub p;
-            void operator()() {self->publish(std::move(p));}
+            void operator()() {(void)self->publish(std::move(p));}
         };
 
         safelyDispatch<Dispatched>(std::move(p));
@@ -621,7 +619,7 @@ public:
         safelyDispatch<Dispatched>(move(p), move(c), move(i), move(f));
     }
 
-    void unregister(const Registration& reg)
+    ErrorOrDone unregister(const Registration& reg)
     {
         struct Requested
         {
@@ -640,12 +638,13 @@ public:
         if (kv != registry_.end())
         {
             registry_.erase(kv);
-            if (state() == State::established)
-            {
-                UnregisterMessage msg(reg.id());
-                peer_.request(msg, Requested{shared_from_this()});
-            }
+            if (state() != State::established)
+                return makeUnexpectedError(SessionErrc::invalidState);
+            UnregisterMessage msg(reg.id());
+            peer_.request(msg, Requested{shared_from_this()});
+            return true;
         }
+        return false;
     }
 
     void safeUnregister(const Registration& r) override
@@ -683,15 +682,10 @@ public:
         {
             registry_.erase(kv);
             UnregisterMessage msg(reg.id());
-            if (state() == State::established)
+            if (checkState(State::established, handler))
             {
                 peer_.request(msg, Requested{shared_from_this(),
-                                             std::move(handler)});
-            }
-            else
-            {
-                warn("Unregister message discarded while not established");
-                postUserHandler(handler, true);
+                                                 std::move(handler)});
             }
         }
         else
@@ -842,14 +836,12 @@ public:
         safelyDispatch<Dispatched>(move(r), c, move(f));
     }
 
-    void cancelCall(RequestId reqId, CallCancelMode mode)
+    CPPWAMP_NODISCARD ErrorOrDone cancelCall(RequestId reqId,
+                                             CallCancelMode mode)
     {
         if (state() != State::established)
-        {
-            warn("Cancel RPC message discarded while not established");
-            return;
-        }
-        peer_.cancelCall(CallCancellation{reqId, mode});
+            return makeUnexpectedError(SessionErrc::invalidState);
+        return peer_.cancelCall(CallCancellation{reqId, mode});
     }
 
     void safeCancelCall(RequestId r, CallCancelMode m) override
@@ -859,23 +851,23 @@ public:
             Ptr self;
             RequestId r;
             CallCancelMode m;
-            void operator()() {self->cancelCall(r, m);}
+            void operator()() {(void)self->cancelCall(r, m);}
         };
 
         safelyDispatch<Dispatched>(r, m);
     }
 
-    void yield(RequestId reqId, Result&& result)
+    CPPWAMP_NODISCARD ErrorOrDone yield(RequestId reqId, Result&& result)
     {
         if (state() != State::established)
-        {
-            warn("Yield message discarded while not established");
-            return;
-        }
+            return makeUnexpectedError(SessionErrc::invalidState);
 
         if (!result.isProgressive())
             pendingInvocations_.erase(reqId);
-        peer_.send(result.yieldMessage({}, reqId));
+        auto done = peer_.send(result.yieldMessage({}, reqId));
+        if (done == makeUnexpectedError(TransportErrc::badTxLength))
+            (void)yield(reqId, Error("cppwamp.error.result_too_long"));
+        return done;
     }
 
     void safeYield(RequestId i, Result&& r) override
@@ -885,22 +877,20 @@ public:
             Ptr self;
             RequestId i;
             Result r;
-            void operator()() {self->yield(i, std::move(r));}
+            void operator()() {(void)self->yield(i, std::move(r));}
         };
 
         safelyDispatch<Dispatched>(i, std::move(r));
     }
 
-    void yield(RequestId reqId, Error&& error)
+    CPPWAMP_NODISCARD ErrorOrDone yield(RequestId reqId, Error&& error)
     {
         if (state() != State::established)
-        {
-            warn("Yield message discarded while not established");
-            return;
-        }
+            return makeUnexpectedError(SessionErrc::invalidState);
 
         pendingInvocations_.erase(reqId);
-        peer_.sendError(WampMsgType::invocation, reqId, std::move(error));
+        return peer_.sendError(WampMsgType::invocation, reqId,
+                               std::move(error));
     }
 
     void safeYield(RequestId r, Error&& e) override
@@ -910,7 +900,7 @@ public:
             Ptr self;
             RequestId r;
             Error e;
-            void operator()() {self->yield(r, std::move(e));}
+            void operator()() {(void)self->yield(r, std::move(e));}
         };
 
         safelyDispatch<Dispatched>(r, std::move(e));
@@ -1059,7 +1049,7 @@ private:
         peer_.close();
     }
 
-    void sendUnsubscribe(SubscriptionId subId)
+    ErrorOrDone sendUnsubscribe(SubscriptionId subId)
     {
         struct Requested
         {
@@ -1074,11 +1064,11 @@ private:
             }
         };
 
-        if (state() == State::established)
-        {
-            UnsubscribeMessage msg(subId);
-            peer_.request(msg, Requested{shared_from_this()});
-        }
+        if (state() != State::established)
+            return makeUnexpectedError(SessionErrc::invalidState);
+
+        UnsubscribeMessage msg(subId);
+        return peer_.request(msg, Requested{shared_from_this()});
     }
 
     void sendUnsubscribe(SubscriptionId subId,
@@ -1092,7 +1082,7 @@ private:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply,WampMsgType::unsubscribed,
+                if (me.checkReply(reply, WampMsgType::unsubscribed,
                                   SessionErrc::unsubscribeError, handler))
                 {
                     me.dispatchUserHandler(handler, true);
@@ -1100,15 +1090,12 @@ private:
             }
         };
 
-        if (state() != State::established)
+        if (checkState(State::established, handler))
         {
-            warn("Unsubscribe message discarded while not established");
-            postUserHandler(handler, true);
-            return;
+            UnsubscribeMessage msg(subId);
+            peer_.request(msg, Requested{shared_from_this(),
+                                         std::move(handler)});
         }
-
-        UnsubscribeMessage msg(subId);
-        peer_.request(msg, Requested{shared_from_this(), std::move(handler)});
     }
 
     void onInbound(Message msg)
@@ -1144,7 +1131,7 @@ private:
         {
             auto ptr = self.lock();
             if (ptr)
-                ptr->cancelCall(reqId, CallCancelMode::killNoWait);
+                (void)ptr->cancelCall(reqId, CallCancelMode::killNoWait);
         });
 
         auto& welcomeMsg = message_cast<WelcomeMessage>(reply);
@@ -1200,7 +1187,7 @@ private:
             }
 
             // Send empty signature to avoid deadlock with other peer.
-            authenticate(Authentication(""));
+            (void)authenticate(Authentication(""));
         }
     }
 
@@ -1295,8 +1282,9 @@ private:
         }
         else
         {
-            peer_.sendError(WampMsgType::invocation, requestId,
-                            Error("wamp.error.no_such_procedure"));
+            // TODO: emit warning
+            (void)peer_.sendError(WampMsgType::invocation, requestId,
+                                  Error("wamp.error.no_such_procedure"));
         }
     }
 
@@ -1362,12 +1350,12 @@ private:
                 }
                 catch (Error& error)
                 {
-                    me.yield(requestId, move(error));
+                    (void)me.yield(requestId, move(error));
                 }
                 catch (const error::BadType& e)
                 {
                     // Forward Variant conversion exceptions as ERROR messages.
-                    me.yield(requestId, Error(e));
+                    me.yield(requestId, Error(e)).value();
                 }
             }
         };

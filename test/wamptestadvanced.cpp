@@ -533,7 +533,7 @@ GIVEN( "a caller and a callee" )
 
             REQUIRE( invocationRequestId != 0 );
 
-            f.caller.cancel(chit, CallCancelMode::kill);
+            CHECK( f.caller.cancel(chit, CallCancelMode::kill).value() );
 
             while (!responseReceived)
                 suspendCoro(yield);

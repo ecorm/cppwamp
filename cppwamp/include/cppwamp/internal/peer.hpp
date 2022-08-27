@@ -18,6 +18,7 @@
 #include <boost/asio/strand.hpp>
 #include "../anyhandler.hpp"
 #include "../codec.hpp"
+#include "../config.hpp"
 #include "../erroror.hpp"
 #include "../peerdata.hpp"
 #include "../transport.hpp"
@@ -175,14 +176,26 @@ public:
         }
     }
 
-    void send(Message& msg)
+    CPPWAMP_NODISCARD ErrorOrDone send(Message& msg)
     {
-        sendMessage(msg);
+        auto reqId = sendMessage(msg);
+        if (!reqId)
+            return UnexpectedError(reqId.error());
+        return true;
     }
 
-    void sendError(WampMsgType reqType, RequestId reqId, Error&& error)
+    CPPWAMP_NODISCARD ErrorOrDone
+    sendError(WampMsgType reqType, RequestId reqId, Error&& error)
     {
-        send(error.errorMessage({}, reqType, reqId));
+        auto done = send(error.errorMessage({}, reqType, reqId));
+        if (done == makeUnexpectedError(TransportErrc::badTxLength))
+        {
+            error.withArgs(std::string("(Details removed due "
+                                       "to transport limits)"));
+            error.withKwargs({});
+            (void)send(error.errorMessage({}, reqType, reqId));
+        }
+        return done;
     }
 
     RequestId request(Message& msg, OneShotHandler&& handler)
@@ -195,27 +208,34 @@ public:
         return sendRequest(msg, multiShotRequestMap_, std::move(handler));
     }
 
-    void cancelCall(CallCancellation&& cancellation)
+    CPPWAMP_NODISCARD ErrorOrDone cancelCall(CallCancellation&& cancellation)
     {
         // If the cancel mode is not 'kill', don't wait for the router's
         // ERROR message and post the request handler immediately
         // with a SessionErrc::cancelled error code.
-        RequestKey key{WampMsgType::call, cancellation.requestId()};
-        if (cancellation.mode() != CallCancelMode::kill)
-        {
-            auto unex = makeUnexpectedError(SessionErrc::cancelled);
 
-            auto kv = oneShotRequestMap_.find(key);
-            if (kv != oneShotRequestMap_.end())
+        bool found = false;
+        RequestKey key{WampMsgType::call, cancellation.requestId()};
+        auto unex = makeUnexpectedError(SessionErrc::cancelled);
+
+        auto kv = oneShotRequestMap_.find(key);
+        if (kv != oneShotRequestMap_.end())
+        {
+            found = true;
+            if (cancellation.mode() != CallCancelMode::kill)
             {
                 auto handler = std::move(kv->second);
                 oneShotRequestMap_.erase(kv);
                 post(std::move(handler), unex);
             }
-            else
+        }
+        else
+        {
+            auto kv = multiShotRequestMap_.find(key);
+            if (kv != multiShotRequestMap_.end())
             {
-                auto kv = multiShotRequestMap_.find(key);
-                if (kv != multiShotRequestMap_.end())
+                found = true;
+                if (cancellation.mode() != CallCancelMode::kill)
                 {
                     auto handler = std::move(kv->second);
                     multiShotRequestMap_.erase(kv);
@@ -224,8 +244,15 @@ public:
             }
         }
 
-        // Always send the CANCEL message in all modes.
-        sendMessage(cancellation.message({}));
+        // Always send the CANCEL message in all modes if a matching
+        // call was found.
+        if (found)
+        {
+            auto reqId = sendMessage(cancellation.message({}));
+            if (!reqId)
+                return UnexpectedError(reqId.error());
+        }
+        return found;
     }
 
     // TODO: Send ABORT message for protocol violations
@@ -250,7 +277,7 @@ private:
     using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
     using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
 
-    RequestId sendMessage(Message& msg)
+    CPPWAMP_NODISCARD ErrorOr<RequestId> sendMessage(Message& msg)
     {
         assert(msg.type() != WampMsgType::none);
 
@@ -259,7 +286,7 @@ private:
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
         if (buffer.size() > maxTxLength_)
-            throw error::Failure(make_error_code(TransportErrc::badTxLength));
+            return makeUnexpectedError(TransportErrc::badTxLength);
 
         trace(msg, true);
         assert(transport_ != nullptr);
@@ -488,7 +515,7 @@ private:
             lookupWampErrorUri(reason, SessionErrc::closeRealm, errc);
             abortPending(make_error_code(errc));
             GoodbyeMessage msg("wamp.error.goodbye_and_out");
-            send(msg);
+            send(msg).value();
             setState(State::closed);
         }
     }

@@ -270,21 +270,8 @@ void checkInvalidJoin(Session& session, YieldContext yield)
 
 void checkInvalidAuthenticate(Session& session, YieldContext yield)
 {
-    std::string warning;
-    auto exec = boost::asio::get_associated_executor(yield);
-    session.setWarningHandler(
-        boost::asio::bind_executor(
-            exec,
-            [&warning](std::string msg){warning = msg;}
-    ));
-    session.authenticate(Authentication("signature"));
-    int tries = 0;
-    while (warning.empty() && tries < 100)
-    {
-        suspendCoro(yield);
-        ++tries;
-    }
-    CHECK_FALSE( warning.empty() );
+    auto done = session.authenticate(Authentication("signature"));
+    CHECK( done == makeUnexpected(SessionErrc::invalidState) );
 }
 
 void checkInvalidLeave(Session& session, YieldContext yield)
@@ -296,57 +283,38 @@ void checkInvalidLeave(Session& session, YieldContext yield)
 
 void checkInvalidOps(Session& session, YieldContext yield)
 {
-    std::string warning;
-    int tries= 0;
+    auto unex = makeUnexpected(SessionErrc::invalidState);
 
-    auto exec = boost::asio::get_associated_executor(yield);
-    session.setWarningHandler(
-        boost::asio::bind_executor(
-            exec,
-            [&warning](std::string msg) {warning = msg;}
-    ));
+    CHECK( session.authenticate(Authentication("signature")) == unex );
 
-    session.publish(Pub("topic"));
-    while (warning.empty() && tries < 100)
-    {
-        suspendCoro(yield);
-        ++tries;
-    }
-    CHECK( !warning.empty() );
-    warning.clear();
-    session.publish(Pub("topic").withArgs(42));
-    while (warning.empty() && tries < 100)
-    {
-        suspendCoro(yield);
-        ++tries;
-    }
-    CHECK( !warning.empty() );
+    CHECK( session.publish(Pub("topic")) == unex );
+    CHECK( session.publish(Pub("topic").withArgs(42)) == unex );
     auto pub = session.publish(Pub("topic"), yield);
-    CHECK( pub == makeUnexpected(SessionErrc::invalidState) );
+    CHECK( pub == unex );
     CHECK_THROWS_AS( pub.value(), error::Failure );
     pub = session.publish(Pub("topic").withArgs(42), yield);
-    CHECK( pub == makeUnexpected(SessionErrc::invalidState) );
+    CHECK( pub == unex );
     CHECK_THROWS_AS( pub.value(), error::Failure );
 
     auto reason = session.leave(yield);
-    CHECK( reason == makeUnexpected(SessionErrc::invalidState) );
+    CHECK( reason == unex );
     CHECK_THROWS_AS( reason.value(), error::Failure );
 
     auto sub = session.subscribe(Topic("topic"), [](Event){}, yield);
-    CHECK( sub == makeUnexpected(SessionErrc::invalidState) );
+    CHECK( sub == unex );
     CHECK_THROWS_AS( sub.value(), error::Failure );
 
     auto reg = session.enroll(Procedure("rpc"),
                                [](Invocation)->Outcome{return {};},
                                yield);
-    CHECK( reg == makeUnexpected(SessionErrc::invalidState) );
+    CHECK( reg == unex );
     CHECK_THROWS_AS( reg.value(), error::Failure );
 
     auto result = session.call(Rpc("rpc"), yield);
-    CHECK( result == makeUnexpected(SessionErrc::invalidState) );
+    CHECK( result == unex );
     CHECK_THROWS_AS( result.value(), error::Failure );
     result = session.call(Rpc("rpc").withArgs(42), yield);
-    CHECK( result == makeUnexpected(SessionErrc::invalidState) );
+    CHECK( result == unex );
     CHECK_THROWS_AS( result.value(), error::Failure );
 }
 
@@ -835,7 +803,8 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.subscribe(yield);
 
             // Check dynamic and static subscriptions.
-            f.publisher.publish(Pub("str.num").withArgs("one", 1));
+            CHECK( f.publisher.publish(Pub("str.num")
+                                           .withArgs("one", 1)).value() );
             pid = f.publisher.publish(Pub("str.num").withArgs("two", 2),
                                        yield).value();
             while (f.dynamicPubs.size() < 2 || f.staticPubs.size() < 2)
@@ -850,7 +819,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             CHECK( f.otherPubs.empty() );
 
             // Check subscription from another client.
-            f.publisher.publish(Pub("other"));
+            CHECK( f.publisher.publish(Pub("other")).value() );
             pid = f.publisher.publish(Pub("other"), yield).value();
             while (f.otherPubs.size() < 2)
                 suspendCoro(yield);
@@ -929,7 +898,8 @@ GIVEN( "an IO service and a ConnectionWish" )
                 }),
                 yield).value();
 
-            f.publisher.publish(Pub("str.num").withArgs("one", 1));
+            CHECK( f.publisher.publish(Pub("str.num")
+                                          .withArgs("one", 1)).value() );
 
             while (f.staticArgs.size() < 2)
                 suspendCoro(yield);
@@ -2153,11 +2123,11 @@ GIVEN( "an IO service and a ConnectionWish" )
                     [](Event ev, Variant v, YieldContext y) {v.to<String>();}),
                 yield).value();
 
-            f.publisher.publish(Pub("bad_conversion").withArgs(42));
-            f.publisher.publish(Pub("bad_access").withArgs(42));
-            f.publisher.publish(Pub("bad_conversion_coro").withArgs(42));
-            f.publisher.publish(Pub("bad_access_coro").withArgs(42));
-            f.publisher.publish(Pub("other"));
+            f.publisher.publish(Pub("bad_conversion").withArgs(42)).value();
+            f.publisher.publish(Pub("bad_access").withArgs(42)).value();
+            f.publisher.publish(Pub("bad_conversion_coro").withArgs(42)).value();
+            f.publisher.publish(Pub("bad_access_coro").withArgs(42)).value();
+            f.publisher.publish(Pub("other")).value();
 
             while (f.otherPubs.empty() || warningCount < 2)
                 suspendCoro(yield);
@@ -2659,7 +2629,7 @@ GIVEN( "these test fixture objects" )
         auto trigger =
             [&callee, &largeString] (Invocation) -> Outcome
             {
-                callee.publish(Pub("grapevine").withArgs(largeString));
+                callee.publish(Pub("grapevine").withArgs(largeString)).value();
                 return Result();
             };
 

@@ -372,7 +372,7 @@ public:
     join(ThreadSafe, Realm realm, C&& completion);
 
     /** Sends an `AUTHENTICATE` in response to a `CHALLENGE`. */
-    void authenticate(Authentication auth);
+    CPPWAMP_NODISCARD ErrorOrDone authenticate(Authentication auth);
 
     /** Thread-safe authenticate. */
     void authenticate(ThreadSafe, Authentication auth);
@@ -429,7 +429,7 @@ public:
     subscribe(ThreadSafe, Topic topic, EventSlot eventSlot, C&& completion);
 
     /** Unsubscribes a subscription to a topic. */
-    void unsubscribe(Subscription sub);
+    ErrorOrDone unsubscribe(Subscription sub);
 
     /** Thread-safe unsubscribe. */
     void unsubscribe(ThreadSafe, Subscription sub);
@@ -446,7 +446,7 @@ public:
     unsubscribe(ThreadSafe, Subscription sub, C&& completion);
 
     /** Publishes an event. */
-    void publish(Pub pub);
+    CPPWAMP_NODISCARD ErrorOrDone publish(Pub pub);
 
     /** Thread-safe publish. */
     void publish(ThreadSafe, Pub pub);
@@ -487,7 +487,7 @@ public:
            InterruptSlot interruptSlot, C&& completion);
 
     /** Unregisters a remote procedure call. */
-    void unregister(Registration reg);
+    ErrorOrDone unregister(Registration reg);
 
     /** Thread-safe unregister. */
     void unregister(ThreadSafe, Registration reg);
@@ -547,13 +547,13 @@ public:
 
     /** Cancels a remote procedure using the cancel mode that was specified
         in the @ref wamp::Rpc "Rpc". */
-    void cancel(CallChit);
+    ErrorOrDone cancel(CallChit);
 
     /** Thread-safe cancel. */
     void cancel(ThreadSafe, CallChit);
 
     /** Cancels a remote procedure using the given mode. */
-    void cancel(CallChit, CallCancelMode mode);
+    ErrorOrDone cancel(CallChit, CallCancelMode mode);
 
     /** Thread-safe cancel with a given mode. */
     void cancel(ThreadSafe, CallChit, CallCancelMode mode);
@@ -668,7 +668,7 @@ struct Session::ConnectOp
         - SessionErrc::allTransportsFailed if more than one transport was
           specified and they all failed to connect.
         - SessionErrc::invalidState if the session was not disconnected
-          before the attempt to connect.
+          during attempt to connect.
         - Some other platform or transport-dependent `std::error_code` if
           only one transport was specified and it failed to connect. */
 //------------------------------------------------------------------------------
@@ -927,7 +927,7 @@ struct Session::LeaveOp
     @post `this->state() == SessionState::shuttingDown` if successful
     @par Error Codes
         - SessionErrc::invalidState if the session was not established
-          before the attempt to leave.
+          while attempting to leave.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer
           before a `GOODBYE` response was received.
@@ -1039,7 +1039,7 @@ struct Session::SubscribeOp
             lifetime.
     @par Error Codes
         - SessionErrc::invalidState if the session was not established
-          before the attempt to subscribe.
+          while attempting to subscribe.
         - SessionErrc::subscribeError if the router replied with an `ERROR`
           response.
         - Some other `std::error_code` for protocol and transport errors. */
@@ -1106,18 +1106,20 @@ struct Session::UnsubscribeOp
 
 //------------------------------------------------------------------------------
 /** @details
-    This function may be called during any session state. If the subscription
-    is no longer applicable, then the unsubscribe operation will effectively
-    do nothing and a `false` value will be emitted via the completion handler.
     If there are other local subscriptions on this session remaining for the
     same topic, then the session does not send an `UNSUBSCRIBE` message to
-    the router.
+    the router and `true` will be passed to the completion handler.
+    If the subscription is no longer applicable, then this operation will
+    effectively do nothing and a `false` value will be emitted via the
+    completion handler.
     @see Subscription, ScopedSubscription
-    @returns `false` if the subscription was already removed, `true` otherwise.
+    @returns `true` if the subscription was found.
     @note Duplicate unsubscribes using the same Subscription handle
           are safely ignored.
     @pre `!!sub == true`
     @par Error Codes
+        - SessionErrc::invalidState if the session was not established
+          while attempting to subsubscribe.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
         - SessionErrc::noSuchSubscription if the router reports that there was
@@ -1412,17 +1414,17 @@ struct Session::UnregisterOp
 
 //------------------------------------------------------------------------------
 /** @details
-    This function may be called during any session state. If the subscription
-    is no longer applicable, then the unregister operation will effectively
-    do nothing and a `false` value will be emitted via the completion handler.
+    If the registration is no longer applicable, then this operation will
+    effectively do nothing and a `false` value will be emitted via the
+    completion handler.
     @see Registration, ScopedRegistration
-    @returns `false` if the registration was already removed, `true` otherwise.
+    @returns `true` if the registration was found.
     @note Duplicate unregistrations using the same Registration handle
           are safely ignored.
     @pre `!!reg == true`
     @par Error Codes
         - SessionErrc::invalidState if the session was not established
-          before the attempt to unregister.
+          while attempting to unregister.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
         - SessionErrc::noSuchRegistration if the router reports that there is

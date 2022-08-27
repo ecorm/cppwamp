@@ -254,16 +254,19 @@ CPPWAMP_INLINE void Session::setChallengeHandler(
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    If `this->state() != SessionState::authenticating`, then the authentication
-    is discarded and not sent.  */
+/** @returns `true` if the authentication was sent, a std::error_code otherwise.
+    @par Error Codes
+        - TransportErrc::badTxLength if the message exceeds the
+          transport's limits.
+        - SessionErrc::invalidState if the session was not authenticating
+          during the attempt to authenticate (can be safely discarded). */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::authenticate(
+CPPWAMP_INLINE ErrorOrDone Session::authenticate(
     Authentication auth /**< Contains the authentication signature
                              and other options. */
 )
 {
-    impl_->authenticate(std::move(auth));
+    return impl_->authenticate(std::move(auth));
 }
 
 //------------------------------------------------------------------------------
@@ -344,15 +347,19 @@ CPPWAMP_INLINE void Session::reset(ThreadSafe)
     @see Subscription, ScopedSubscription
     @note Duplicate unsubscribes using the same Subscription object
           are safely ignored.
+    @returns `true` or `false` depending if the subscription was found.
+    @par Error Codes
+        - SessionErrc::invalidState if the subscription was found but the
+          session was not established (can be safely discarded).
     @pre `bool(sub) == true`
     @throws error::Logic if the given subscription is empty */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::unsubscribe(
+CPPWAMP_INLINE ErrorOrDone Session::unsubscribe(
     Subscription sub /**< The subscription to unsubscribe from. */
 )
 {
     CPPWAMP_LOGIC_CHECK(bool(sub), "The subscription is empty");
-    impl_->unsubscribe(sub);
+    return impl_->unsubscribe(sub);
 }
 
 //------------------------------------------------------------------------------
@@ -368,15 +375,18 @@ CPPWAMP_INLINE void Session::unsubscribe(
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    If `this->state() != SessionState::established`, then the publication is
-    discarded and not sent. */
+/** @returns `true` if the authentication was sent, a std::error_code otherwise.
+    @par Error Codes
+        - TransportErrc::badTxLength if the message exceeds the
+          transport's limits.
+        - SessionErrc::invalidState if the session was not established
+          during the attempt to publish (can be safely discarded). */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::publish(
+CPPWAMP_INLINE ErrorOrDone Session::publish(
     Pub pub /**< The publication to publish. */
 )
 {
-    impl_->publish(std::move(pub));
+    return impl_->publish(std::move(pub));
 }
 
 //------------------------------------------------------------------------------
@@ -398,15 +408,19 @@ CPPWAMP_INLINE void Session::publish(
     @see Registration, ScopedRegistration
     @note Duplicate unregistrations using the same Registration handle
           are safely ignored.
+    @returns `true` or `false` depending if the registration was found.
+    @par Error Codes
+        - SessionErrc::invalidState if the registration was found but the
+          session was not established (can be safely discarded).
     @pre `bool(reg) == true`
     @throws error::Logic if the given registration is empty */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::unregister(
+CPPWAMP_INLINE ErrorOrDone Session::unregister(
     Registration reg /**< The RPC registration to unregister. */
 )
 {
     CPPWAMP_LOGIC_CHECK(bool(reg), "The registration is empty");
-    impl_->unregister(reg);
+    return impl_->unregister(reg);
 }
 
 //------------------------------------------------------------------------------
@@ -422,11 +436,13 @@ CPPWAMP_INLINE void Session::unregister(
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    If `this->state() != SessionState::established`, then the cancellation
-    is discarded and not sent. */
+/** @returns `true` or `false` depending if a pending call matching the given
+              chit was found.
+    @par Error Codes
+        - SessionErrc::invalidState if the session was not established
+          during the attempt to cancel (can be safely discarded). */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::cancel(
+CPPWAMP_INLINE ErrorOrDone Session::cancel(
     CallChit chit /**< Contains the request ID of the call to cancel. */
     )
 {
@@ -447,7 +463,7 @@ CPPWAMP_INLINE void Session::cancel(
 //------------------------------------------------------------------------------
 /** @copydetails Session::cancel(CallChit) */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::cancel(
+CPPWAMP_INLINE ErrorOrDone Session::cancel(
     CallChit chit,      /**< Contains the request ID of the call to cancel. */
     CallCancelMode mode /**< The mode with which to cancel the call. */
     )
@@ -464,7 +480,7 @@ CPPWAMP_INLINE void Session::cancel(
     CallCancelMode mode /**< The mode with which to cancel the call. */
     )
 {
-    return impl_->safeCancelCall(chit.requestId(), mode);
+    impl_->safeCancelCall(chit.requestId(), mode);
 }
 
 //------------------------------------------------------------------------------
@@ -475,7 +491,7 @@ CPPWAMP_INLINE void Session::cancel(
                                        and other options. */
 )
 {
-    return impl_->cancelCall(cancellation.requestId(), cancellation.mode());
+    (void)impl_->cancelCall(cancellation.requestId(), cancellation.mode());
 }
 
 //------------------------------------------------------------------------------
@@ -487,7 +503,7 @@ CPPWAMP_INLINE void Session::cancel(
                                          and other options. */
 )
 {
-    return impl_->safeCancelCall(cancellation.requestId(), cancellation.mode());
+    impl_->safeCancelCall(cancellation.requestId(), cancellation.mode());
 }
 
 //------------------------------------------------------------------------------
