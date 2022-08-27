@@ -168,7 +168,6 @@ GIVEN( "an empty Msgpack message" )
     auto ec = decoder.decode(empty, v);
     CHECK_FALSE( !ec );
     CHECK( ec == DecodingErrc::failure );
-    CHECK( ec == ProtocolErrc::badDecode );
     CHECK( ec == jsoncons::msgpack::msgpack_errc::unexpected_eof );
 
     WHEN( "decoding a valid message after an error" )
@@ -187,7 +186,6 @@ GIVEN( "an invalid Msgpack message" )
     auto ec = decode<Msgpack>(oss.str(), v);
     CHECK_FALSE( !ec );
     CHECK( ec == DecodingErrc::failure );
-    CHECK( ec == ProtocolErrc::badDecode );
     CHECK( ec == jsoncons::msgpack::msgpack_errc::unknown_type );
 }
 GIVEN( "a short Msgpack message" )
@@ -198,7 +196,6 @@ GIVEN( "a short Msgpack message" )
     auto ec = decoder.decode(buffer, v);
     CHECK_FALSE( !ec );
     CHECK( ec == DecodingErrc::failure );
-    CHECK( ec == ProtocolErrc::badDecode );
     CHECK( ec == jsoncons::msgpack::msgpack_errc::unexpected_eof );
 
     WHEN( "decoding a valid message after an error" )
@@ -217,7 +214,6 @@ GIVEN( "a Msgpack message with a non-string key" )
     auto ec = decoder.decode(buffer, v);
     CHECK( ec == DecodingErrc::failure );
     CHECK( ec == DecodingErrc::expectedStringKey );
-    CHECK( ec == ProtocolErrc::badDecode );
 
     WHEN( "decoding a valid message after an error" )
     {

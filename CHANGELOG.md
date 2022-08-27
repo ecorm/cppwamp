@@ -49,6 +49,8 @@ Polymorphic codecs and transports.
 - Renamed `AsioContext` to `IoContext`, leaving the former as a deprecated
   alias.
 - Deprecated `AsioErrorCode`.
+- Deprecated `ProtocolErrc` and `ProtocolCategory` in favor of
+  `SessionErrc::protocolViolation`.
 
 Implementation improvements:
 
@@ -99,6 +101,8 @@ Implementation improvements:
 - When calling `Challenge::authenticate`, `Invocation::yield` and
   `Interruption::yield` from multiple threads, use the new overloads taking the
   `ThreadSafe` tag type.
+- If checking for `ProtocolErrc` errors specifically, check for
+  `SessionErrc::protocolViolation` instead.
 
 v0.10.0
 =======

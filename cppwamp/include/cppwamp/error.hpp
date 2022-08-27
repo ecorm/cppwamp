@@ -17,6 +17,7 @@
 #include <string>
 #include <system_error>
 #include "api.hpp"
+#include "config.hpp"
 
 //------------------------------------------------------------------------------
 /** Throws an error::Logic exception having the given message string.
@@ -311,7 +312,8 @@ CPPWAMP_API std::error_condition make_error_condition(DecodingErrc errc);
     - wamp::DecodingErrc
     - `jsoncons::json_errc`
     - `jsoncons::cbor::cbor_errc`
-    - `jsoncons::msgpack::msgpack_errc` */
+    - `jsoncons::msgpack::msgpack_errc`
+    @deprecated Will be removed */
 //------------------------------------------------------------------------------
 enum class ProtocolErrc
 {
@@ -325,7 +327,8 @@ enum class ProtocolErrc
 //------------------------------------------------------------------------------
 /** std::error_category used for reporting protocol errors related to badly
     formed WAMP messages.
-    @see ProtocolErrc */
+    @see ProtocolErrc
+    @deprecated Will be removed */
 //------------------------------------------------------------------------------
 class CPPWAMP_API ProtocolCategory : public std::error_category
 {

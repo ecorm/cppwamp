@@ -115,12 +115,15 @@ An error code can either belong to [`std::generic_category`][generic_category],
 or to one of the error categories defined by the library in `<cppwamp/error.hpp>`:
 
 Error category            | Values                | Used for reporting
-------------------------- | ----------------------| ------------------
-`wamp::SessionCategory`   | `wamp::SessionErrc`   | WAMP session errors
-`wamp::ProtocolCategory`  | `wamp::ProtocolErrc`  | invalid WAMP messages
+------------------------- | --------------------- | ------------------
+`wamp::SessionCategory`   | `wamp::SessionErrc`   | WAMP session/protocol errors
+`wamp::DecodingCategory`  | `wamp::DecodingErrc`  | general deserialization errors
 `wamp::TransportCategory` | `wamp::TransportErrc` | general transport layer errors
 `wamp::RawsockCategory`   | `wamp::RawsockErrc`   | raw socket transport errors
-[`std::generic_category`][generic_category] | [`std::errc`][std_errc] | OS-level socket errors
+[`std::generic_category`][generic_category] | [`std::errc`][std_errc]           | OS-level socket errors
+`jsoncons::json_error_category`             | `jsoncons::json_errc`             | JSON deserialzation errors
+`jsoncons::cbor::cbor_error_category`       | `jsoncons::cbor::cbor_errc`       | CBOR deserialzation errors
+`jsoncons::msgpack::msgpack_error_category` | `jsoncons::msgpack::msgpack_errc` | Msgpack deserialzation errors
 
 
 Failed Preconditions

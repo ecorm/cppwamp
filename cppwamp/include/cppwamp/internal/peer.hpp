@@ -355,7 +355,7 @@ private:
         {
             Variant v;
             if (checkError(decode(buffer, v)) &&
-                check(v.is<Array>(), ProtocolErrc::badSchema))
+                check(v.is<Array>(), SessionErrc::protocolViolation))
             {
                 std::error_code ec;
                 auto msg = Message::parse(std::move(v.as<Array>()), ec);
@@ -526,7 +526,8 @@ private:
         return success;
     }
 
-    bool check(bool condition, ProtocolErrc errc)
+    template <typename TErrc>
+    bool check(bool condition, TErrc errc)
     {
         if (!condition)
             fail(errc);
