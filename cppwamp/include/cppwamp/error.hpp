@@ -17,7 +17,6 @@
 #include <string>
 #include <system_error>
 #include "api.hpp"
-#include "config.hpp"
 
 //------------------------------------------------------------------------------
 /** Throws an error::Logic exception having the given message string.
@@ -173,9 +172,15 @@ enum class SessionErrc
     noSuchRole,             ///< Attempt to authenticate under unsupported role
     cancelled,              ///< A previously issued call was cancelled
     optionNotAllowed,       ///< Option is disallowed by the router
-    noEligibleCallee,       ///< Call options lead to the exclusion of all callees providing the procedure
     discloseMeDisallowed,   ///< Router rejected client request to disclose its identity
-    networkFailure          ///< Router encountered a network failure
+    networkFailure,         ///< Router encountered a network failure
+    unavailable,            ///< Callee is unable to handle an invocation
+    noAvailableCallee,      ///< All registered callees are unable to handle an invocation
+    featureNotSupported,    ///< Advanced feature is not supported
+
+    // Errors mapped to predefined URIs not currently in the WAMP spec
+    noEligibleCallee,       ///< Call options lead to the exclusion of all callees providing the procedure
+    payloadSizeExceeded     ///< Serialized payload exceeds transport limits
 };
 
 //------------------------------------------------------------------------------

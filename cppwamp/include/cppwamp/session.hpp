@@ -858,7 +858,7 @@ struct Session::JoinOp
            or a compatible Boost.Asio completion token.
     @post `this->state() == SessionState::establishing` if successful
     @par Error Codes
-        - TransportErrc::badTxLength if the resulting JOIN message exceeds
+        - SessionErrc::payloadSizeExceeded if the resulting JOIN message exceeds
           the transport's limits.
         - SessionErrc::invalidState if the session was not closed
           during the attempt to join.
@@ -930,7 +930,7 @@ struct Session::LeaveOp
             by the router.
     @post `this->state() == SessionState::shuttingDown` if successful
     @par Error Codes
-        - TransportErrc::badTxLength if the resulting GOODBYE message exceeds
+        - SessionErrc::payloadSizeExceeded if the resulting GOODBYE message exceeds
           the transport's limits.
         - SessionErrc::invalidState if the session was not established
           while attempting to leave.
@@ -977,7 +977,7 @@ Session::leave(
             by the router.
     @post `this->state() == SessionState::shuttingDown` if successful
     @par Error Codes
-        - TransportErrc::badTxLength if the resulting GOODBYE message exceeds
+        - SessionErrc::payloadSizeExceeded if the resulting GOODBYE message exceeds
           the transport's limits.
         - SessionErrc::invalidState if the session was not established
           during the attempt to leave.
@@ -1046,7 +1046,7 @@ struct Session::SubscribeOp
     @return A Subscription object, therafter used to manage the subscription's
             lifetime.
     @par Error Codes
-        - TransportErrc::badTxLength if the resulting SUBSCRIBE message exceeds
+        - SessionErrc::payloadSizeExceeded if the resulting SUBSCRIBE message exceeds
           the transport's limits.
         - SessionErrc::invalidState if the session was not established
           while attempting to subscribe.
@@ -1196,7 +1196,7 @@ struct Session::PublishOp
 //------------------------------------------------------------------------------
 /** @return The publication ID for this event.
     @par Error Codes
-        - TransportErrc::badTxLength if the resulting PUBLISH message exceeds
+        - SessionErrc::payloadSizeExceeded if the resulting PUBLISH message exceeds
           the transport's limits.
         - SessionErrc::invalidState if the session was not established
           during the attempt to publish.
@@ -1269,7 +1269,7 @@ struct Session::EnrollOp
     @note This function was named `enroll` because `register` is a reserved
           C++ keyword.
     @par Error Codes
-        - TransportErrc::badTxLength if the resulting REGISTER message exceeds
+        - SessionErrc::payloadSizeExceeded if the resulting REGISTER message exceeds
           the transport's limits.
         - SessionErrc::invalidState if the session was not established
           during the attempt to enroll.
@@ -1351,7 +1351,7 @@ struct Session::EnrollIntrOp
     @note This function was named `enroll` because `register` is a reserved
           C++ keyword.
     @par Error Codes
-        - TransportErrc::badTxLength if the resulting REGISTER message exceeds
+        - SessionErrc::payloadSizeExceeded if the resulting REGISTER message exceeds
           the transport's limits.
         - SessionErrc::invalidState if the session was not established
           during the attempt to enroll.
@@ -1508,7 +1508,7 @@ struct Session::CallOp
 //------------------------------------------------------------------------------
 /** @return The remote procedure result.
     @par Error Codes
-        - TransportErrc::badTxLength if the resulting CALL message exceeds
+        - SessionErrc::payloadSizeExceeded if the resulting CALL message exceeds
           the transport's limits.
         - SessionErrc::invalidState if the session was not established
           during the attempt to call.
@@ -1630,7 +1630,7 @@ struct Session::OngoingCallOp
 //------------------------------------------------------------------------------
 /** @return The remote procedure result.
     @par Error Codes
-        - TransportErrc::badTxLength if the resulting CALL message exceeds
+        - SessionErrc::payloadSizeExceeded if the resulting CALL message exceeds
           the transport's limits.
         - SessionErrc::invalidState if the session was not established
           during the attempt to call.

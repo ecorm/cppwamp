@@ -11,8 +11,6 @@ Polymorphic codecs and transports.
   `Session::create`.
 - `TcpHost` and `UdsPath` now have `withFormat` methods which generate a
   `ConnectionWish` that can be passed to `Session`.
-- `Session::yield` operations while not established will emit a warning instead
-  of failing.
 - The `authenticate`, `publish`, 'yield', and `cancel` methods of `Session`
   not taking a completion handler now return an `ErrorOrDone`. The thread-safe
   overloads for those now return a `std::future<ErrorOrDone>`.
@@ -23,10 +21,10 @@ Polymorphic codecs and transports.
   a deprecated alias.
 - Renamed `Session::userExecutor` to `Session::fallbackExecutor`, leaving the
   former as a deprecated alias.
+- `Session::fallbackExecutor` type relaxed to `AnyCompletionExecutor`.
 - Handlers registered via `Session`'s `setWarningHandler`, `setTraceHandler`,
   and `setStateChangeHandler` will no longer be fired after
   `Session::terminate` is called and before `Session::connect` is called.
-- `Session::userExecutor` type relaxed to `AnyCompletionExecutor`.
 - Added `wamp::spawn` and `wamp::yield_context` in `<cppwamp/spawn.hpp>`, which
   are aliases to their Boost.Asio counterparts.
 - Added `wamp::spawnCompletionHandler` and `wamp::CompletionYieldContext`
@@ -46,6 +44,8 @@ Polymorphic codecs and transports.
   when the payload exceeds the transport's limit.
 - `Challenge::authenticate`, `Invocation::yield` and `Interruption::yield`
   now have thread-safe and non-thread-safe overloads.
+- Added `SessionErrc` error codes corresponding to new predefined error
+  URIs that have appeared in the WAMP spec.
 - Renamed `AsioContext` to `IoContext`, leaving the former as a deprecated
   alias.
 - Deprecated `AsioErrorCode`.
@@ -97,7 +97,7 @@ Implementation improvements:
 - When using `Event::executor` or `Invocation::executor` to spawn coroutines,
   use `wamp::spawnCompletionHandler` instead of `boost::asio::spawn`.
 - When calling `Challenge::authenticate`, `Invocation::yield` and
-  `Interruption::yield` from multiple threads, use the overloads taking the
+  `Interruption::yield` from multiple threads, use the new overloads taking the
   `ThreadSafe` tag type.
 
 v0.10.0

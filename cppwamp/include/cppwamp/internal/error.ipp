@@ -162,9 +162,13 @@ CPPWAMP_INLINE std::string SessionCategory::message(int ev) const
 /* noSuchRole             */ "Attempt to authenticate under unsupported role",
 /* cancelled              */ "A previously issued call was cancelled",
 /* optionNotAllowed       */ "Option is disallowed by the router",
-/* noEligibleCallee       */ "Call options lead to the exclusion of all callees providing the procedure",
 /* discloseMeDisallowed   */ "Router rejected client request to disclose its identity",
-/* networkFailure         */ "Router encountered a network failure"
+/* networkFailure         */ "Router encountered a network failure",
+/* unavailable            */ "Callee is unable to handle an invocation",
+/* noAvailableCallee      */ "All registered callees are unable to handle an invocation",
+/* featureNotSupported    */ "Advanced feature is not supported",
+/* noEligibleCallee       */ "Call options lead to the exclusion of all callees providing the procedure",
+/* payloadSizeExceeded    */ "Serialized payload exceeds transport limits"
     };
 
     if (ev >= 0 && ev < (int)std::extent<decltype(msg)>::value)
@@ -245,12 +249,7 @@ CPPWAMP_INLINE bool lookupWampErrorUri(
 )
 {
     /* TODO: Add:
-        wamp.error.unavailable
-        wamp.error.no_such_subscription
         wamp.error.feature_not_supported
-        wamp.error.option_disallowed.disclose_me
-        no_eligible_callee -> wamp.error.no_available_callee
-        cppwamp.error.result_too_long
     */
 
     using SE = SessionErrc;
@@ -270,11 +269,16 @@ CPPWAMP_INLINE bool lookupWampErrorUri(
         {"wamp.error.authorization_failed",          SE::authorizationFailed},
         {"wamp.error.no_such_realm",                 SE::noSuchRealm},
         {"wamp.error.no_such_role",                  SE::noSuchRole},
+
         {"wamp.error.canceled",                      SE::cancelled},
         {"wamp.error.option_not_allowed",            SE::optionNotAllowed},
-        {"wamp.error.no_eligible_callee",            SE::noEligibleCallee},
         {"wamp.error.option_disallowed.disclose_me", SE::discloseMeDisallowed},
-        {"wamp.error.network_failure",               SE::networkFailure}
+        {"wamp.error.network_failure",               SE::networkFailure},
+        {"wamp.error.unavailable",                   SE::unavailable},
+        {"wamp.error.no_available_callee",           SE::noAvailableCallee},
+        {"wamp.error.feature_not_supported",         SE::featureNotSupported},
+        {"wamp.error.no_eligible_callee",            SE::noEligibleCallee},
+        {"wamp.error.payload_size_exceeded",         SE::payloadSizeExceeded}
     };
 
     auto kv = table.find(uri);

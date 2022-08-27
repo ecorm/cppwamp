@@ -906,8 +906,8 @@ public:
         if (!result.isProgressive())
             pendingInvocations_.erase(reqId);
         auto done = peer_.send(result.yieldMessage({}, reqId));
-        if (done == makeUnexpectedError(TransportErrc::badTxLength))
-            (void)yield(reqId, Error("cppwamp.error.result_too_long"));
+        if (done == makeUnexpectedError(SessionErrc::payloadSizeExceeded))
+            yield(reqId, Error("wamp.error.payload_size_exceeded"));
         return done;
     }
 
@@ -1140,7 +1140,7 @@ private:
         if (state() == State::established)
         {
             UnsubscribeMessage msg(subId);
-            (void)peer_.request(msg, Requested{shared_from_this()});
+            peer_.request(msg, Requested{shared_from_this()});
         }
     }
 
@@ -1204,7 +1204,7 @@ private:
         {
             auto ptr = self.lock();
             if (ptr)
-                (void)ptr->cancelCall(reqId, CallCancelMode::killNoWait);
+                ptr->cancelCall(reqId, CallCancelMode::killNoWait);
         });
 
         auto& welcomeMsg = message_cast<WelcomeMessage>(reply);
@@ -1260,7 +1260,7 @@ private:
             }
 
             // Send empty signature to avoid deadlock with other peer.
-            (void)authenticate(Authentication(""));
+            authenticate(Authentication(""));
         }
     }
 
@@ -1356,7 +1356,7 @@ private:
         else
         {
             // TODO: emit warning
-            (void)peer_.sendError(WampMsgType::invocation, requestId,
+            peer_.sendError(WampMsgType::invocation, requestId,
                                   Error("wamp.error.no_such_procedure"));
         }
     }
@@ -1423,7 +1423,7 @@ private:
                 }
                 catch (Error& error)
                 {
-                    (void)me.yield(requestId, move(error));
+                    me.yield(requestId, move(error));
                 }
                 catch (const error::BadType& e)
                 {

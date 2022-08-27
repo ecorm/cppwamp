@@ -2688,7 +2688,7 @@ GIVEN( "these test fixture objects" )
                           yield).value();
 
             auto result = caller.call(Rpc("echo").withArgs(largeString), yield);
-            CHECK( result == makeUnexpectedError(TransportErrc::badTxLength) );
+            CHECK( result == makeUnexpectedError(SessionErrc::payloadSizeExceeded) );
             CHECK( echoedString.empty() );
 
             callee.disconnect();

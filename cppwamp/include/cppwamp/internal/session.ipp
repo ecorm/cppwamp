@@ -256,7 +256,7 @@ CPPWAMP_INLINE void Session::setChallengeHandler(
 //------------------------------------------------------------------------------
 /** @returns `true` if the authentication was sent, a std::error_code otherwise.
     @par Error Codes
-        - TransportErrc::badTxLength if the resulting AUTHENTICATE message
+        - SessionErrc::payloadSizeExceeded if the resulting AUTHENTICATE message
           exceeds the transport's limits.
         - SessionErrc::invalidState if the session was not authenticating
           during the attempt to authenticate (can be safely discarded). */
@@ -375,7 +375,7 @@ CPPWAMP_INLINE void Session::unsubscribe(
 //------------------------------------------------------------------------------
 /** @returns `true` if the authentication was sent, a std::error_code otherwise.
     @par Error Codes
-        - TransportErrc::badTxLength if the resulting PUBLISH message exceeds
+        - SessionErrc::payloadSizeExceeded if the resulting PUBLISH message exceeds
           the transport's limits.
         - SessionErrc::invalidState if the session was not established
           during the attempt to publish (can be safely discarded). */

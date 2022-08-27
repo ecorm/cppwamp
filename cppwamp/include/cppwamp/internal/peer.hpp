@@ -186,7 +186,7 @@ public:
     ErrorOrDone sendError(WampMsgType reqType, RequestId reqId, Error&& error)
     {
         auto done = send(error.errorMessage({}, reqType, reqId));
-        if (done == makeUnexpectedError(TransportErrc::badTxLength))
+        if (done == makeUnexpectedError(SessionErrc::payloadSizeExceeded))
         {
             error.withArgs(std::string("(Details removed due "
                                        "to transport limits)"));
@@ -284,7 +284,7 @@ private:
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
         if (buffer.size() > maxTxLength_)
-            return makeUnexpectedError(TransportErrc::badTxLength);
+            return makeUnexpectedError(SessionErrc::payloadSizeExceeded);
 
         trace(msg, true);
         assert(transport_ != nullptr);
@@ -305,7 +305,7 @@ private:
         if (buffer.size() > maxTxLength_)
         {
             post(std::move(handler),
-                 makeUnexpectedError(TransportErrc::badTxLength));
+                 makeUnexpectedError(SessionErrc::payloadSizeExceeded));
             return requestId;
         }
 
