@@ -13,8 +13,9 @@ Polymorphic codecs and transports.
   `ConnectionWish` that can be passed to `Session`.
 - `Session::yield` operations while not established will emit a warning instead
   of failing.
-- The `authenticate`, `publish`, `unsubscribe`, `unregister`, and `cancel`
-  `Session` methods not taking a completion handler now return an `ErrorOrDone`.
+- The `authenticate`, `publish`, 'yield', and `cancel` methods of `Session`
+  not taking a completion handler now return an `ErrorOrDone`. The thread-safe
+  overloads for those now return a `std::future<ErrorOrDone>`.
 - AnyCompletionExecutor is now used by session to contain the user executor.
 - Added `Session::ongoingCall` for progressive call results, which
   automatically applies `rpc.withProgessiveResults(true)`.
@@ -41,8 +42,10 @@ Polymorphic codecs and transports.
   [bug](https://github.com/chriskohlhoff/asio/issues/1110) in Boost 1.80.0
   concerning exceptions thrown from these new Boost.Context-based coroutines.
 - Instead of throwing an exception, `Session` now emits a
-  `TransportErrc::badTxLength` error via the completion handler when the
-  payload exceeds the transport's limit.
+  `TransportErrc::badTxLength` error via the completion handler or return value
+  when the payload exceeds the transport's limit.
+- `Challenge::authenticate`, `Invocation::yield` and `Interruption::yield`
+  now have thread-safe and non-thread-safe overloads.
 - Renamed `AsioContext` to `IoContext`, leaving the former as a deprecated
   alias.
 - Deprecated `AsioErrorCode`.
@@ -75,6 +78,8 @@ Implementation improvements:
 - `Event::executor` and `Invocation::executor` can no longer be directly used
   by Boost.Coroutine-based `boost::asio::spawn` to spawn coroutines.
   See workaround below in the Migration Guide.
+- The undecorated `Challenge::authenticate`, `Invocation::yield` and
+  `Interruption::yield` are no longer thread-safe. See Migration Guide below.
   
 ### Migration Guide
 
@@ -91,6 +96,9 @@ Implementation improvements:
 - Replace `AsioContext` with `IoContext`.
 - When using `Event::executor` or `Invocation::executor` to spawn coroutines,
   use `wamp::spawnCompletionHandler` instead of `boost::asio::spawn`.
+- When calling `Challenge::authenticate`, `Invocation::yield` and
+  `Interruption::yield` from multiple threads, use the overloads taking the
+  `ThreadSafe` tag type.
 
 v0.10.0
 =======

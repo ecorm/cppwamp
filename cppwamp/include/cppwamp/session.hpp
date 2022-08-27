@@ -13,6 +13,7 @@
            in WAMP applications. */
 //------------------------------------------------------------------------------
 
+#include <future>
 #include <memory>
 #include <string>
 #include <utility>
@@ -375,7 +376,8 @@ public:
     CPPWAMP_NODISCARD ErrorOrDone authenticate(Authentication auth);
 
     /** Thread-safe authenticate. */
-    void authenticate(ThreadSafe, Authentication auth);
+    CPPWAMP_NODISCARD std::future<ErrorOrDone>
+    authenticate(ThreadSafe, Authentication auth);
 
     /** Asynchronously leaves the WAMP session. */
     template <typename C>
@@ -429,7 +431,7 @@ public:
     subscribe(ThreadSafe, Topic topic, EventSlot eventSlot, C&& completion);
 
     /** Unsubscribes a subscription to a topic. */
-    ErrorOrDone unsubscribe(Subscription sub);
+    void unsubscribe(Subscription sub);
 
     /** Thread-safe unsubscribe. */
     void unsubscribe(ThreadSafe, Subscription sub);
@@ -449,7 +451,7 @@ public:
     CPPWAMP_NODISCARD ErrorOrDone publish(Pub pub);
 
     /** Thread-safe publish. */
-    void publish(ThreadSafe, Pub pub);
+    CPPWAMP_NODISCARD std::future<ErrorOrDone> publish(ThreadSafe, Pub pub);
 
     /** Publishes an event and waits for an acknowledgement from the router. */
     template <typename C>
@@ -487,7 +489,7 @@ public:
            InterruptSlot interruptSlot, C&& completion);
 
     /** Unregisters a remote procedure call. */
-    ErrorOrDone unregister(Registration reg);
+    void unregister(Registration reg);
 
     /** Thread-safe unregister. */
     void unregister(ThreadSafe, Registration reg);
@@ -550,13 +552,13 @@ public:
     ErrorOrDone cancel(CallChit);
 
     /** Thread-safe cancel. */
-    void cancel(ThreadSafe, CallChit);
+    std::future<ErrorOrDone> cancel(ThreadSafe, CallChit);
 
     /** Cancels a remote procedure using the given mode. */
     ErrorOrDone cancel(CallChit, CallCancelMode mode);
 
     /** Thread-safe cancel with a given mode. */
-    void cancel(ThreadSafe, CallChit, CallCancelMode mode);
+    std::future<ErrorOrDone> cancel(ThreadSafe, CallChit, CallCancelMode mode);
 
     /** Cancels a remote procedure.
         @deprecated Use the overload taking a CallChit. */
@@ -723,7 +725,7 @@ Session::connect(
         - SessionErrc::allTransportsFailed if more than one transport was
           specified and they all failed to connect.
         - SessionErrc::invalidState if the session was not disconnected
-          before the attempt to connect.
+          during the attempt to connect.
         - Some other platform or transport-dependent `std::error_code` if
           only one transport was specified and it failed to connect. */
 //------------------------------------------------------------------------------
@@ -784,7 +786,7 @@ Session::connect(
         - SessionErrc::allTransportsFailed if more than one transport was
           specified and they all failed to connect.
         - SessionErrc::invalidState if the session was not disconnected
-          before the attempt to connect.
+          during the attempt to connect.
         - Some other platform or transport-dependent `std::error_code` if
           only one transport was specified and it failed to connect. */
 //------------------------------------------------------------------------------
@@ -856,8 +858,10 @@ struct Session::JoinOp
            or a compatible Boost.Asio completion token.
     @post `this->state() == SessionState::establishing` if successful
     @par Error Codes
+        - TransportErrc::badTxLength if the resulting JOIN message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not closed
-          before the attempt to join.
+          during the attempt to join.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
         - SessionErrc::noSuchRealm if the realm does not exist.
@@ -926,6 +930,8 @@ struct Session::LeaveOp
             by the router.
     @post `this->state() == SessionState::shuttingDown` if successful
     @par Error Codes
+        - TransportErrc::badTxLength if the resulting GOODBYE message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
           while attempting to leave.
         - SessionErrc::sessionEnded if the operation was aborted.
@@ -971,8 +977,10 @@ Session::leave(
             by the router.
     @post `this->state() == SessionState::shuttingDown` if successful
     @par Error Codes
+        - TransportErrc::badTxLength if the resulting GOODBYE message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to leave.
+          during the attempt to leave.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer
           before a `GOODBYE` response was received.
@@ -1038,6 +1046,8 @@ struct Session::SubscribeOp
     @return A Subscription object, therafter used to manage the subscription's
             lifetime.
     @par Error Codes
+        - TransportErrc::badTxLength if the resulting SUBSCRIBE message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
           while attempting to subscribe.
         - SessionErrc::subscribeError if the router replied with an `ERROR`
@@ -1186,8 +1196,10 @@ struct Session::PublishOp
 //------------------------------------------------------------------------------
 /** @return The publication ID for this event.
     @par Error Codes
+        - TransportErrc::badTxLength if the resulting PUBLISH message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to publish.
+          during the attempt to publish.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
         - SessionErrc::publishError if the router replies with an ERROR
@@ -1257,8 +1269,10 @@ struct Session::EnrollOp
     @note This function was named `enroll` because `register` is a reserved
           C++ keyword.
     @par Error Codes
+        - TransportErrc::badTxLength if the resulting REGISTER message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to enroll.
+          during the attempt to enroll.
         - SessionErrc::procedureAlreadyExists if the router reports that the
           procedure has already been registered for this realm.
         - SessionErrc::registerError if the router reports some other error.
@@ -1337,8 +1351,10 @@ struct Session::EnrollIntrOp
     @note This function was named `enroll` because `register` is a reserved
           C++ keyword.
     @par Error Codes
+        - TransportErrc::badTxLength if the resulting REGISTER message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to enroll.
+          during the attempt to enroll.
         - SessionErrc::procedureAlreadyExists if the router reports that the
           procedure has already been registered for this realm.
         - SessionErrc::registerError if the router reports some other error.
@@ -1492,8 +1508,10 @@ struct Session::CallOp
 //------------------------------------------------------------------------------
 /** @return The remote procedure result.
     @par Error Codes
+        - TransportErrc::badTxLength if the resulting CALL message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to call.
+          during the attempt to call.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
         - SessionErrc::noSuchProcedure if the router reports that there is
@@ -1612,8 +1630,10 @@ struct Session::OngoingCallOp
 //------------------------------------------------------------------------------
 /** @return The remote procedure result.
     @par Error Codes
+        - TransportErrc::badTxLength if the resulting CALL message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to call.
+          during the attempt to call.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
         - SessionErrc::noSuchProcedure if the router reports that there is

@@ -9,6 +9,7 @@
 
 #include <cassert>
 #include <chrono>
+#include <future>
 #include <initializer_list>
 #include <memory>
 #include <set>
@@ -16,10 +17,11 @@
 #include <vector>
 #include "api.hpp"
 #include "anyhandler.hpp"
-#include "asiodefs.hpp"
 #include "config.hpp"
+#include "erroror.hpp"
 #include "options.hpp"
 #include "payload.hpp"
+#include "tagtypes.hpp"
 #include "variant.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
@@ -271,7 +273,10 @@ public:
     Variant memory() const;
 
     /** Sends an `AUTHENTICATE` message back in response to the challenge. */
-    void authenticate(Authentication auth);
+    ErrorOrDone authenticate(Authentication auth);
+
+    /** Thread-safe authenticate. */
+    std::future<ErrorOrDone> authenticate(ThreadSafe, Authentication auth);
 
 public:
     // Internal use only
@@ -819,10 +824,16 @@ public:
     AnyCompletionExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
-    void yield(Result result = Result()) const;
+    ErrorOrDone yield(Result result = Result()) const;
+
+    /** Thread-safe yield result. */
+    std::future<ErrorOrDone> yield(ThreadSafe, Result result = Result()) const;
 
     /** Manually sends an `ERROR` result back to the callee. */
-    void yield(Error error) const;
+    ErrorOrDone yield(Error error) const;
+
+    /** Thread-safe yield error. */
+    std::future<ErrorOrDone> yield(ThreadSafe, Error error) const;
 
     /** @name Progressive Call Results
         See [Progressive Call Results in the WAMP Specification]
@@ -937,10 +948,16 @@ public:
     AnyCompletionExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
-    void yield(Result result = Result()) const;
+    ErrorOrDone yield(Result result = Result()) const;
+
+    /** Thread-safe yield result. */
+    std::future<ErrorOrDone> yield(ThreadSafe, Result result = Result()) const;
 
     /** Manually sends an `ERROR` result back to the callee. */
-    void yield(Error error) const;
+    ErrorOrDone yield(Error error) const;
+
+    /** Thread-safe yield error. */
+    std::future<ErrorOrDone> yield(ThreadSafe, Error error) const;
 
 public:
     // Internal use only

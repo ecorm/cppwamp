@@ -352,12 +352,27 @@ CPPWAMP_INLINE Variant Challenge::memory() const
     return optionByKey("memory");
 }
 
-CPPWAMP_INLINE void Challenge::authenticate(Authentication auth)
+CPPWAMP_INLINE ErrorOrDone Challenge::authenticate(Authentication auth)
 {
     // Discard the authentication if client no longer exists
     auto challengee = challengee_.lock();
     if (challengee)
-        challengee->safeAuthenticate(std::move(auth));
+        return challengee->authenticate(std::move(auth));
+    return false;
+}
+
+CPPWAMP_INLINE std::future<ErrorOrDone>
+Challenge::authenticate(ThreadSafe, Authentication auth)
+{
+    // Discard the authentication if client no longer exists
+    auto challengee = challengee_.lock();
+    if (challengee)
+        return challengee->safeAuthenticate(std::move(auth));
+
+    std::promise<ErrorOrDone> p;
+    auto f = p.get_future();
+    p.set_value(false);
+    return f;
 }
 
 CPPWAMP_INLINE Challenge::Challenge(internal::PassKey, ChallengeePtr challengee,
@@ -936,22 +951,50 @@ CPPWAMP_INLINE AnyCompletionExecutor Invocation::executor() const
     return executor_;
 }
 
-/** @pre `this->calleeHasExpired == false` */
-CPPWAMP_INLINE void Invocation::yield(Result result) const
+CPPWAMP_INLINE ErrorOrDone Invocation::yield(Result result) const
 {
     // Discard the result if client no longer exists
     auto callee = callee_.lock();
     if (callee)
-        callee->safeYield(requestId(), std::move(result));
+        return callee->yield(requestId(), std::move(result));
+    return false;
 }
 
-/** @pre `this->calleeHasExpired == false` */
-CPPWAMP_INLINE void Invocation::yield(Error error) const
+CPPWAMP_INLINE std::future<ErrorOrDone>
+Invocation::yield(ThreadSafe, Result result) const
 {
     // Discard the result if client no longer exists
     auto callee = callee_.lock();
     if (callee)
-        callee->safeYield(requestId(), std::move(error));
+        return callee->safeYield(requestId(), std::move(result));
+
+    std::promise<ErrorOrDone> p;
+    auto f = p.get_future();
+    p.set_value(false);
+    return f;
+}
+
+CPPWAMP_INLINE ErrorOrDone Invocation::yield(Error error) const
+{
+    // Discard the error if client no longer exists
+    auto callee = callee_.lock();
+    if (callee)
+        return callee->yield(requestId(), std::move(error));
+    return false;
+}
+
+CPPWAMP_INLINE std::future<ErrorOrDone>
+Invocation::yield(ThreadSafe, Error error) const
+{
+    // Discard the error if client no longer exists
+    auto callee = callee_.lock();
+    if (callee)
+        return callee->safeYield(requestId(), std::move(error));
+
+    std::promise<ErrorOrDone> p;
+    auto f = p.get_future();
+    p.set_value(false);
+    return f;
 }
 
 /** @details
@@ -1080,20 +1123,50 @@ CPPWAMP_INLINE AnyCompletionExecutor Interruption::executor() const
     return executor_;
 }
 
-/** @pre `this->calleeHasExpired == false` */
-CPPWAMP_INLINE void Interruption::yield(Result result) const
+CPPWAMP_INLINE ErrorOrDone Interruption::yield(Result result) const
 {
+    // Discard the result if client no longer exists
     auto callee = callee_.lock();
-    CPPWAMP_LOGIC_CHECK(!!callee, "Client no longer exists");
-    callee->safeYield(requestId(), std::move(result));
+    if (callee)
+        return callee->yield(requestId(), std::move(result));
+    return false;
 }
 
-/** @pre `this->calleeHasExpired == false` */
-CPPWAMP_INLINE void Interruption::yield(Error error) const
+CPPWAMP_INLINE std::future<ErrorOrDone>
+Interruption::yield(ThreadSafe, Result result) const
 {
+    // Discard the result if client no longer exists
     auto callee = callee_.lock();
-    CPPWAMP_LOGIC_CHECK(!!callee, "Client no longer exists");
-    callee->safeYield(requestId(), std::move(error));
+    if (callee)
+        return callee->safeYield(requestId(), std::move(result));
+
+    std::promise<ErrorOrDone> p;
+    auto f = p.get_future();
+    p.set_value(false);
+    return f;
+}
+
+CPPWAMP_INLINE ErrorOrDone Interruption::yield(Error error) const
+{
+    // Discard the error if client no longer exists
+    auto callee = callee_.lock();
+    if (callee)
+        return callee->yield(requestId(), std::move(error));
+    return false;
+}
+
+CPPWAMP_INLINE std::future<ErrorOrDone>
+Interruption::yield(ThreadSafe, Error error) const
+{
+    // Discard the error if client no longer exists
+    auto callee = callee_.lock();
+    if (callee)
+        return callee->safeYield(requestId(), std::move(error));
+
+    std::promise<ErrorOrDone> p;
+    auto f = p.get_future();
+    p.set_value(false);
+    return f;
 }
 
 CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,

@@ -18,7 +18,6 @@
 #include <boost/asio/strand.hpp>
 #include "../anyhandler.hpp"
 #include "../codec.hpp"
-#include "../config.hpp"
 #include "../erroror.hpp"
 #include "../peerdata.hpp"
 #include "../transport.hpp"
@@ -176,7 +175,7 @@ public:
         }
     }
 
-    CPPWAMP_NODISCARD ErrorOrDone send(Message& msg)
+    ErrorOrDone send(Message& msg)
     {
         auto reqId = sendMessage(msg);
         if (!reqId)
@@ -184,8 +183,7 @@ public:
         return true;
     }
 
-    CPPWAMP_NODISCARD ErrorOrDone
-    sendError(WampMsgType reqType, RequestId reqId, Error&& error)
+    ErrorOrDone sendError(WampMsgType reqType, RequestId reqId, Error&& error)
     {
         auto done = send(error.errorMessage({}, reqType, reqId));
         if (done == makeUnexpectedError(TransportErrc::badTxLength))
@@ -208,7 +206,7 @@ public:
         return sendRequest(msg, multiShotRequestMap_, std::move(handler));
     }
 
-    CPPWAMP_NODISCARD ErrorOrDone cancelCall(CallCancellation&& cancellation)
+    ErrorOrDone cancelCall(CallCancellation&& cancellation)
     {
         // If the cancel mode is not 'kill', don't wait for the router's
         // ERROR message and post the request handler immediately
@@ -277,7 +275,7 @@ private:
     using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
     using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
 
-    CPPWAMP_NODISCARD ErrorOr<RequestId> sendMessage(Message& msg)
+    ErrorOr<RequestId> sendMessage(Message& msg)
     {
         assert(msg.type() != WampMsgType::none);
 

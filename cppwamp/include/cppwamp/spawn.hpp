@@ -84,7 +84,7 @@ void spawnCompletionHandler(
         return;
     }
 
-    throw error::Logic("Session::userExecutor() must originate from "
+    throw error::Logic("Session::fallbackExecutor() must originate from "
                        "IoContext::executor_type or AnyIoExecutor");
 }
 #endif

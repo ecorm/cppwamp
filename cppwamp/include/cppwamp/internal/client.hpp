@@ -9,6 +9,8 @@
 
 #include <atomic>
 #include <cassert>
+#include <exception>
+#include <future>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -19,7 +21,6 @@
 #include <boost/asio/post.hpp>
 #include "../anyhandler.hpp"
 #include "../codec.hpp"
-#include "../config.hpp"
 #include "../chits.hpp"
 #include "../connector.hpp"
 #include "../peerdata.hpp"
@@ -51,6 +52,7 @@ public:
     using WeakPtr            = std::weak_ptr<Client>;
     using TransportPtr       = Transporting::Ptr;
     using State              = SessionState;
+    using FutureErrorOrDone  = std::future<ErrorOrDone>;
     using EventSlot          = AnyReusableHandler<void (Event)>;
     using CallSlot           = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot      = AnyReusableHandler<Outcome (Interruption)>;
@@ -260,24 +262,38 @@ public:
         safelyDispatch<Dispatched>(std::move(r), std::move(f));
     }
 
-    CPPWAMP_NODISCARD ErrorOrDone authenticate(Authentication&& auth)
+    ErrorOrDone authenticate(Authentication&& auth) override
     {
         if (state() != State::authenticating)
             return makeUnexpectedError(SessionErrc::invalidState);
         return peer_.send(auth.message({}));
     }
 
-    // TODO: Return std::future
-    void safeAuthenticate(Authentication&& a) override
+    FutureErrorOrDone safeAuthenticate(Authentication&& a) override
     {
         struct Dispatched
         {
             Ptr self;
             Authentication a;
-            void operator()() {(void)self->authenticate(std::move(a));}
+            ErrorOrDonePromise p;
+
+            void operator()()
+            {
+                try
+                {
+                    p.set_value(self->authenticate(std::move(a)));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
+            }
         };
 
-        safelyDispatch<Dispatched>(std::move(a));
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(std::move(a), std::move(p));
+        return fut;
     }
 
     void leave(Reason&& reason, CompletionHandler<Reason>&& handler)
@@ -421,9 +437,8 @@ public:
         safelyDispatch<Dispatched>(move(t), move(s), move(f));
     }
 
-    ErrorOrDone unsubscribe(const Subscription& sub)
+    void unsubscribe(const Subscription& sub)
     {
-        bool found = false;
         auto kv = readership_.find(sub.id());
         if (kv != readership_.end())
         {
@@ -433,7 +448,6 @@ public:
                 auto subKv = localSubs.find(sub.slotId({}));
                 if (subKv != localSubs.end())
                 {
-                    found = true;
                     if (localSubs.size() == 1u)
                         topics_.erase(subKv->second.topicUri);
 
@@ -441,12 +455,11 @@ public:
                     if (localSubs.empty())
                     {
                         readership_.erase(kv);
-                        return sendUnsubscribe(sub.id());
+                        sendUnsubscribe(sub.id());
                     }
                 }
             }
         }
-        return found;
     }
 
     void safeUnsubscribe(const Subscription& s) override
@@ -504,23 +517,38 @@ public:
         safelyDispatch<Dispatched>(s, std::move(f));
     }
 
-    CPPWAMP_NODISCARD ErrorOrDone publish(Pub&& pub)
+    ErrorOrDone publish(Pub&& pub)
     {
         if (state() != State::established)
             return makeUnexpectedError(SessionErrc::invalidState);
         return peer_.send(pub.message({}));
     }
 
-    void safePublish(Pub&& p)
+    FutureErrorOrDone safePublish(Pub&& p)
     {
         struct Dispatched
         {
             Ptr self;
             Pub p;
-            void operator()() {(void)self->publish(std::move(p));}
+            ErrorOrDonePromise prom;
+
+            void operator()()
+            {
+                try
+                {
+                    prom.set_value(self->publish(std::move(p)));
+                }
+                catch (...)
+                {
+                    prom.set_exception(std::current_exception());
+                }
+            }
         };
 
-        safelyDispatch<Dispatched>(std::move(p));
+        ErrorOrDonePromise prom;
+        auto fut = prom.get_future();
+        safelyDispatch<Dispatched>(std::move(p), std::move(prom));
+        return fut;
     }
 
     void publish(Pub&& pub, CompletionHandler<PublicationId>&& handler)
@@ -619,7 +647,7 @@ public:
         safelyDispatch<Dispatched>(move(p), move(c), move(i), move(f));
     }
 
-    ErrorOrDone unregister(const Registration& reg)
+    void unregister(const Registration& reg)
     {
         struct Requested
         {
@@ -638,13 +666,12 @@ public:
         if (kv != registry_.end())
         {
             registry_.erase(kv);
-            if (state() != State::established)
-                return makeUnexpectedError(SessionErrc::invalidState);
-            UnregisterMessage msg(reg.id());
-            peer_.request(msg, Requested{shared_from_this()});
-            return true;
+            if (state() == State::established)
+            {
+                UnregisterMessage msg(reg.id());
+                peer_.request(msg, Requested{shared_from_this()});
+            }
         }
-        return false;
     }
 
     void safeUnregister(const Registration& r) override
@@ -836,28 +863,42 @@ public:
         safelyDispatch<Dispatched>(move(r), c, move(f));
     }
 
-    CPPWAMP_NODISCARD ErrorOrDone cancelCall(RequestId reqId,
-                                             CallCancelMode mode)
+    ErrorOrDone cancelCall(RequestId reqId, CallCancelMode mode)
     {
         if (state() != State::established)
             return makeUnexpectedError(SessionErrc::invalidState);
         return peer_.cancelCall(CallCancellation{reqId, mode});
     }
 
-    void safeCancelCall(RequestId r, CallCancelMode m) override
+    FutureErrorOrDone safeCancelCall(RequestId r, CallCancelMode m) override
     {
         struct Dispatched
         {
             Ptr self;
             RequestId r;
             CallCancelMode m;
-            void operator()() {(void)self->cancelCall(r, m);}
+            ErrorOrDonePromise p;
+
+            void operator()()
+            {
+                try
+                {
+                    p.set_value(self->cancelCall(r, m));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
+            }
         };
 
-        safelyDispatch<Dispatched>(r, m);
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(r, m, std::move(p));
+        return fut;
     }
 
-    CPPWAMP_NODISCARD ErrorOrDone yield(RequestId reqId, Result&& result)
+    ErrorOrDone yield(RequestId reqId, Result&& result) override
     {
         if (state() != State::established)
             return makeUnexpectedError(SessionErrc::invalidState);
@@ -870,20 +911,35 @@ public:
         return done;
     }
 
-    void safeYield(RequestId i, Result&& r) override
+    FutureErrorOrDone safeYield(RequestId i, Result&& r) override
     {
         struct Dispatched
         {
             Ptr self;
             RequestId i;
             Result r;
-            void operator()() {(void)self->yield(i, std::move(r));}
+            ErrorOrDonePromise p;
+
+            void operator()()
+            {
+                try
+                {
+                    p.set_value(self->yield(i, std::move(r)));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
+            }
         };
 
-        safelyDispatch<Dispatched>(i, std::move(r));
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(i, std::move(r), std::move(p));
+        return fut;
     }
 
-    CPPWAMP_NODISCARD ErrorOrDone yield(RequestId reqId, Error&& error)
+    ErrorOrDone yield(RequestId reqId, Error&& error) override
     {
         if (state() != State::established)
             return makeUnexpectedError(SessionErrc::invalidState);
@@ -893,20 +949,37 @@ public:
                                std::move(error));
     }
 
-    void safeYield(RequestId r, Error&& e) override
+    FutureErrorOrDone safeYield(RequestId r, Error&& e) override
     {
         struct Dispatched
         {
             Ptr self;
             RequestId r;
             Error e;
-            void operator()() {(void)self->yield(r, std::move(e));}
+            ErrorOrDonePromise p;
+
+            void operator()()
+            {
+                try
+                {
+                    p.set_value(self->yield(r, std::move(e)));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
+            }
         };
 
-        safelyDispatch<Dispatched>(r, std::move(e));
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(r, std::move(e), std::move(p));
+        return fut;
     }
 
 private:
+    using ErrorOrDonePromise = std::promise<ErrorOrDone>;
+
     struct SubscriptionRecord
     {
         String topicUri;
@@ -1049,7 +1122,7 @@ private:
         peer_.close();
     }
 
-    ErrorOrDone sendUnsubscribe(SubscriptionId subId)
+    void sendUnsubscribe(SubscriptionId subId)
     {
         struct Requested
         {
@@ -1064,11 +1137,11 @@ private:
             }
         };
 
-        if (state() != State::established)
-            return makeUnexpectedError(SessionErrc::invalidState);
-
-        UnsubscribeMessage msg(subId);
-        return peer_.request(msg, Requested{shared_from_this()});
+        if (state() == State::established)
+        {
+            UnsubscribeMessage msg(subId);
+            (void)peer_.request(msg, Requested{shared_from_this()});
+        }
     }
 
     void sendUnsubscribe(SubscriptionId subId,

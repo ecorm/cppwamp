@@ -7,7 +7,6 @@
 #ifndef CPPWAMP_INTERNAL_SUBSCRIBER_HPP
 #define CPPWAMP_INTERNAL_SUBSCRIBER_HPP
 
-#include <functional>
 #include <memory>
 #include "../anyhandler.hpp"
 #include "../erroror.hpp"

@@ -256,8 +256,8 @@ CPPWAMP_INLINE void Session::setChallengeHandler(
 //------------------------------------------------------------------------------
 /** @returns `true` if the authentication was sent, a std::error_code otherwise.
     @par Error Codes
-        - TransportErrc::badTxLength if the message exceeds the
-          transport's limits.
+        - TransportErrc::badTxLength if the resulting AUTHENTICATE message
+          exceeds the transport's limits.
         - SessionErrc::invalidState if the session was not authenticating
           during the attempt to authenticate (can be safely discarded). */
 //------------------------------------------------------------------------------
@@ -270,15 +270,17 @@ CPPWAMP_INLINE ErrorOrDone Session::authenticate(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::authenticate(Authentication) */
+/** @copydetails Session::authenticate(Authentication)
+    @note It is safe to call `get()` on the returned `std::future` within the
+          same thread as the one used by Session::strand. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::authenticate(
+CPPWAMP_INLINE std::future<ErrorOrDone> Session::authenticate(
     ThreadSafe,
     Authentication auth /**< Contains the authentication signature
                              and other options. */
 )
 {
-    impl_->safeAuthenticate(std::move(auth));
+    return impl_->safeAuthenticate(std::move(auth));
 }
 
 //------------------------------------------------------------------------------
@@ -342,24 +344,20 @@ CPPWAMP_INLINE void Session::reset(ThreadSafe)
 //------------------------------------------------------------------------------
 /** @details
     This function can be safely called during any session state. If the
-    subscription is no longer applicable, then the unsubscribe operation
-    will effectively do nothing.
+    subscription is no longer applicable, then this operation will
+    effectively do nothing.
     @see Subscription, ScopedSubscription
     @note Duplicate unsubscribes using the same Subscription object
           are safely ignored.
-    @returns `true` or `false` depending if the subscription was found.
-    @par Error Codes
-        - SessionErrc::invalidState if the subscription was found but the
-          session was not established (can be safely discarded).
     @pre `bool(sub) == true`
     @throws error::Logic if the given subscription is empty */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE ErrorOrDone Session::unsubscribe(
+CPPWAMP_INLINE void Session::unsubscribe(
     Subscription sub /**< The subscription to unsubscribe from. */
 )
 {
     CPPWAMP_LOGIC_CHECK(bool(sub), "The subscription is empty");
-    return impl_->unsubscribe(sub);
+    impl_->unsubscribe(sub);
 }
 
 //------------------------------------------------------------------------------
@@ -377,8 +375,8 @@ CPPWAMP_INLINE void Session::unsubscribe(
 //------------------------------------------------------------------------------
 /** @returns `true` if the authentication was sent, a std::error_code otherwise.
     @par Error Codes
-        - TransportErrc::badTxLength if the message exceeds the
-          transport's limits.
+        - TransportErrc::badTxLength if the resulting PUBLISH message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
           during the attempt to publish (can be safely discarded). */
 //------------------------------------------------------------------------------
@@ -390,37 +388,35 @@ CPPWAMP_INLINE ErrorOrDone Session::publish(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::publish(Pub pub) */
+/** @copydetails Session::publish(Pub pub)
+    @note It is safe to call `get()` on the returned `std::future` within the
+          same thread as the one used by Session::strand. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::publish(
+CPPWAMP_INLINE std::future<ErrorOrDone> Session::publish(
     ThreadSafe,
     Pub pub /**< The publication to publish. */
 )
 {
-    impl_->safePublish(std::move(pub));
+    return impl_->safePublish(std::move(pub));
 }
 
 //------------------------------------------------------------------------------
 /** @details
     This function can be safely called during any session state. If the
-    registration is no longer applicable, then the unregister operation
-    will effectively do nothing.
+    registration is no longer applicable, then this operation will
+    effectively do nothing.
     @see Registration, ScopedRegistration
     @note Duplicate unregistrations using the same Registration handle
           are safely ignored.
-    @returns `true` or `false` depending if the registration was found.
-    @par Error Codes
-        - SessionErrc::invalidState if the registration was found but the
-          session was not established (can be safely discarded).
     @pre `bool(reg) == true`
     @throws error::Logic if the given registration is empty */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE ErrorOrDone Session::unregister(
+CPPWAMP_INLINE void Session::unregister(
     Registration reg /**< The RPC registration to unregister. */
 )
 {
     CPPWAMP_LOGIC_CHECK(bool(reg), "The registration is empty");
-    return impl_->unregister(reg);
+    impl_->unregister(reg);
 }
 
 //------------------------------------------------------------------------------
@@ -450,9 +446,11 @@ CPPWAMP_INLINE ErrorOrDone Session::cancel(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::cancel(CallChit) */
+/** @copydetails Session::cancel(CallChit)
+    @note It is safe to call `get()` on the returned `std::future` within the
+          same thread as the one used by Session::strand. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::cancel(
+CPPWAMP_INLINE std::future<ErrorOrDone> Session::cancel(
     ThreadSafe,
     CallChit chit /**< Contains the request ID of the call to cancel. */
     )
@@ -472,15 +470,15 @@ CPPWAMP_INLINE ErrorOrDone Session::cancel(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::cancel(CallChit) */
+/** @copydetails Session::cancel(ThreadSafe, CallChit) */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::cancel(
+CPPWAMP_INLINE std::future<ErrorOrDone> Session::cancel(
     ThreadSafe,
     CallChit chit,      /**< Contains the request ID of the call to cancel. */
     CallCancelMode mode /**< The mode with which to cancel the call. */
     )
 {
-    impl_->safeCancelCall(chit.requestId(), mode);
+    return impl_->safeCancelCall(chit.requestId(), mode);
 }
 
 //------------------------------------------------------------------------------

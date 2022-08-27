@@ -2735,10 +2735,22 @@ GIVEN( "a thread pool execution context" )
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         auto n = inv.args().at(0).to<int>();
-        session.publish(
-            threadSafe,
-            Pub("topic").withExcludeMe(false).withArgs(n),
-            [](ErrorOr<PublicationId> pubId) {pubId.value();});
+
+        // Alternate between publish taking a completion token, and
+        // publish returning a std::future
+        if (n % 2 == 0)
+        {
+            session.publish(
+                threadSafe,
+                Pub("topic").withExcludeMe(false).withArgs(n),
+                [](ErrorOr<PublicationId> pubId) {pubId.value();});
+        }
+        else
+        {
+            session.publish(
+                threadSafe,
+                Pub("topic").withExcludeMe(false).withArgs(n)).get().value();
+        }
 
         {
             std::lock_guard<std::mutex> lock(callMutex);
@@ -2746,7 +2758,7 @@ GIVEN( "a thread pool execution context" )
             --callParallelism;
         }
 
-        inv.yield(Result{n});
+        inv.yield(threadSafe, Result{n});
 
         return deferment;
     };
