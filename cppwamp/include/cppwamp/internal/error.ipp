@@ -39,8 +39,7 @@ CPPWAMP_INLINE std::string Failure::makeMessage(std::error_code ec)
 {
     std::ostringstream oss;
     oss << "error::Failure: \n"
-           "    error value = " << ec.value() << "\n"
-           "    category = \"" << ec.category().name() << "\"\n"
+           "    error code = " << ec << "\n"
            "    message = \"" << ec.message() << "\"\n";
     return oss.str();
 }
@@ -248,10 +247,6 @@ CPPWAMP_INLINE bool lookupWampErrorUri(
                                  URI, or the given fallback value if not found */
 )
 {
-    /* TODO: Add:
-        wamp.error.feature_not_supported
-    */
-
     using SE = SessionErrc;
     static std::map<std::string, SessionErrc> table =
     {

@@ -20,6 +20,7 @@ set(HEADERS
     include/cppwamp/error.hpp
     include/cppwamp/erroror.hpp
     include/cppwamp/json.hpp
+    include/cppwamp/logging.hpp
     include/cppwamp/messagebuffer.hpp
     include/cppwamp/msgpack.hpp
     include/cppwamp/null.hpp
@@ -60,6 +61,7 @@ set(HEADERS
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/integersequence.hpp
     include/cppwamp/internal/jsonencoding.hpp
+    include/cppwamp/internal/logging.ipp
     include/cppwamp/internal/messagetraits.hpp
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/peer.hpp

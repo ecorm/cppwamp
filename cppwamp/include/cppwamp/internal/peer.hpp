@@ -88,6 +88,11 @@ public:
         inboundMessageHandler_ = std::move(f);
     }
 
+    void setWarningHandler(LogHandler handler)
+    {
+        warningHandler_ = std::move(handler);
+    }
+
     void setTraceHandler(LogHandler handler)
     {
         traceHandler_ = std::move(handler);
@@ -253,12 +258,27 @@ public:
         return found;
     }
 
-    // TODO: Send ABORT message for protocol violations
+    bool hasWarningHandler() const {return warningHandler_ != nullptr;}
+
+    void warn(std::string log)
+    {
+        if (warningHandler_ && !isTerminating())
+            dispatchVia(userExecutor_, warningHandler_, std::move(log));
+    }
+
     template <typename TErrorValue>
     void fail(TErrorValue errc)
     {
         fail(make_error_code(errc));
     }
+
+    template <typename TErrorValue>
+    void fail(TErrorValue errc, std::string warning)
+    {
+        fail(make_error_code(errc));
+        warn(std::move(warning));
+    }
+
 
     template <typename TFunctor, typename... TArgs>
     void post(TFunctor&& fn, TArgs&&... args)
@@ -369,7 +389,9 @@ private:
         }
         else
         {
-            fail(SessionErrc::protocolViolation); // TODO: Emit a warning.
+            fail(SessionErrc::protocolViolation,
+                 "Received WAMP message while session "
+                 "was not ready to receive");
         }
 
     }
@@ -543,7 +565,7 @@ private:
         return valid;
     }
 
-    void fail(std::error_code ec)
+    void fail(std::error_code ec, std::string info = {})
     {
         auto oldState = setState(State::failed);
         if (oldState != State::failed)
@@ -599,6 +621,7 @@ private:
     AnyBufferCodec codec_;
     Transporting::Ptr transport_;
     InboundMessageHandler inboundMessageHandler_;
+    LogHandler warningHandler_;
     LogHandler traceHandler_;
     StateChangeHandler stateChangeHandler_;
     OneShotRequestMap oneShotRequestMap_;

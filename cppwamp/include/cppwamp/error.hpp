@@ -17,7 +17,6 @@
 #include <string>
 #include <system_error>
 #include "api.hpp"
-#include "config.hpp"
 
 //------------------------------------------------------------------------------
 /** Throws an error::Logic exception having the given message string.

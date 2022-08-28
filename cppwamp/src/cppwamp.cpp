@@ -16,6 +16,7 @@
 #include <cppwamp/internal/connector.ipp>
 #include <cppwamp/internal/error.ipp>
 #include <cppwamp/internal/json.ipp>
+#include <cppwamp/internal/logging.ipp>
 #include <cppwamp/internal/messagetraits.ipp>
 #include <cppwamp/internal/msgpack.ipp>
 #include <cppwamp/internal/peerdata.ipp>

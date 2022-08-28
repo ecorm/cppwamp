@@ -118,7 +118,7 @@ public:
 
     void setWarningHandler(LogHandler handler)
     {
-        warningHandler_ = std::move(handler);
+        peer_.setWarningHandler(std::move(handler));
     }
 
     void safeSetWarningHandler(LogHandler f)
@@ -1227,7 +1227,7 @@ private:
         {
             *abortPtr = Abort({}, move(abortMsg));
         }
-        else if (warningHandler_ && (!found || !details.empty()))
+        else if (hasWarningHandler() && (!found || !details.empty()))
         {
             std::ostringstream oss;
             oss << "JOIN request aborted with error URI=" << uri;
@@ -1250,7 +1250,7 @@ private:
         }
         else
         {
-            if (warningHandler_)
+            if (hasWarningHandler())
             {
                 std::ostringstream oss;
                 oss << "Received a CHALLENGE with no registered handler "
@@ -1276,7 +1276,7 @@ private:
             for (const auto& subKv: localSubs)
                 postEvent(subKv.second, event);
         }
-        else if (warningHandler_)
+        else if (hasWarningHandler())
         {
             std::ostringstream oss;
             oss << "Received an EVENT that is not subscribed to "
@@ -1311,13 +1311,11 @@ private:
                 }
                 catch (const Error& e)
                 {
-                    if (me.warningHandler_)
-                        me.warnEventError(e, subId, pubId);
+                    me.warnEventError(e, subId, pubId);
                 }
                 catch (const error::BadType& e)
                 {
-                    if (me.warningHandler_)
-                        me.warnEventError(Error(e), subId, pubId);
+                    me.warnEventError(Error(e), subId, pubId);
                 }
             }
         };
@@ -1330,12 +1328,15 @@ private:
     void warnEventError(const Error& e, SubscriptionId subId,
                         PublicationId pubId)
     {
-        std::ostringstream oss;
-        oss << "EVENT handler reported an error: "
-            << e.args()
-            << " (with subId=" << subId
-            << " pubId=" << pubId << ")";
-        warn(oss.str());
+        if (hasWarningHandler())
+        {
+            std::ostringstream oss;
+            oss << "EVENT handler reported an error: "
+                << e.args()
+                << " (with subId=" << subId
+                << " pubId=" << pubId << ")";
+            warn(oss.str());
+        }
     }
 
     void onInvocation(Message&& msg)
@@ -1355,9 +1356,10 @@ private:
         }
         else
         {
-            // TODO: emit warning
             peer_.sendError(WampMsgType::invocation, requestId,
                                   Error("wamp.error.no_such_procedure"));
+            warn("No matching procedure for INVOCATION with registration ID "
+                 + std::to_string(regId));
         }
     }
 
@@ -1469,7 +1471,7 @@ private:
                 {
                     *errorPtr = Error({}, std::move(errMsg));
                 }
-                else if (warningHandler_ && (!found || hasArgs))
+                else if (hasWarningHandler() && (!found || hasArgs))
                 {
                     std::ostringstream oss;
                     oss << "Expected " << MessageTraits::lookup(type).name
@@ -1518,10 +1520,11 @@ private:
         }
     }
 
+    bool hasWarningHandler() const {return peer_.hasWarningHandler();}
+
     void warn(std::string log)
     {
-        if (warningHandler_)
-            dispatchUserHandler(warningHandler_, std::move(log));
+        peer_.warn(std::move(log));
     }
 
     template <typename S, typename... Ts>
@@ -1560,7 +1563,6 @@ private:
     Registry registry_;
     InvocationMap pendingInvocations_;
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
-    LogHandler warningHandler_;
     ChallengeHandler challengeHandler_;
     SlotId nextSlotId_ = 0;
 };
