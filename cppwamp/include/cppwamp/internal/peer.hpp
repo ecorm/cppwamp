@@ -19,6 +19,7 @@
 #include "../anyhandler.hpp"
 #include "../codec.hpp"
 #include "../erroror.hpp"
+#include "../logging.hpp"
 #include "../peerdata.hpp"
 #include "../transport.hpp"
 #include "../variant.hpp"
@@ -42,13 +43,15 @@ public:
     using InboundMessageHandler = std::function<void (Message)>;
     using OneShotHandler        = AnyCompletionHandler<void (ErrorOr<Message>)>;
     using MultiShotHandler      = std::function<void (ErrorOr<Message>)>;
-    using LogHandler            = AnyReusableHandler<void (std::string)>;
+    using LogHandler            = AnyReusableHandler<void (LogEntry)>;
+    using LogStringHandler      = AnyReusableHandler<void (std::string)>; // TODO: Remove
     using StateChangeHandler    = AnyReusableHandler<void (State)>;
 
     explicit Peer(bool isRouter, AnyIoExecutor exec)
         : strand_(boost::asio::make_strand(exec)),
           userExecutor_(std::move(exec)),
           state_(State::disconnected),
+          logLevel_(LogLevel::warning),
           isTerminating_(false),
           isRouter_(isRouter)
     {}
@@ -64,6 +67,7 @@ public:
         : strand_(std::move(strand)),
           userExecutor_(std::move(userExecutor)),
           state_(State::disconnected),
+          logLevel_(LogLevel::warning),
           isTerminating_(false),
           isRouter_(isRouter)
     {}
@@ -88,12 +92,52 @@ public:
         inboundMessageHandler_ = std::move(f);
     }
 
-    void setWarningHandler(LogHandler handler)
+    void setLogHandler(LogHandler handler) {logHandler_ = std::move(handler);}
+
+    void setLogLevel(LogLevel level) {logLevel_ = level;}
+
+    LogLevel logLevel() const
+    {
+        if (logHandler_)
+            return logLevel_.load();
+        if (warningHandler_)
+            return LogLevel::warning;
+        if (traceHandler_)
+            return LogLevel::trace;
+        return LogLevel::off;
+    }
+
+    void log(LogLevel severity, std::string message, std::error_code ec = {})
+    {
+        if (logHandler_ && (logLevel_.load() <= severity))
+        {
+            LogEntry entry{severity, std::move(message), ec};
+            if (!isTerminating_)
+                dispatchVia(userExecutor_, logHandler_, std::move(entry));
+        }
+
+        if (warningHandler_ && (severity >= LogLevel::warning))
+        {
+            std::ostringstream oss;
+            oss << message;
+            if (ec)
+            {
+                oss << " (with error code " << ec
+                    << " '" << ec.message() << "')";
+            }
+            if (!isTerminating_)
+                dispatchVia(userExecutor_, warningHandler_, oss.str());
+        }
+    }
+
+    // TODO: Remove
+    void setWarningHandler(LogStringHandler handler)
     {
         warningHandler_ = std::move(handler);
     }
 
-    void setTraceHandler(LogHandler handler)
+    // TODO: Remove
+    void setTraceHandler(LogStringHandler handler)
     {
         traceHandler_ = std::move(handler);
     }
@@ -258,14 +302,6 @@ public:
         return found;
     }
 
-    bool hasWarningHandler() const {return warningHandler_ != nullptr;}
-
-    void warn(std::string log)
-    {
-        if (warningHandler_ && !isTerminating())
-            dispatchVia(userExecutor_, warningHandler_, std::move(log));
-    }
-
     template <typename TErrorValue>
     void fail(TErrorValue errc)
     {
@@ -273,10 +309,11 @@ public:
     }
 
     template <typename TErrorValue>
-    void fail(TErrorValue errc, std::string warning)
+    void fail(TErrorValue errc, LogLevel severity, std::string message)
     {
-        fail(make_error_code(errc));
-        warn(std::move(warning));
+        auto ec = make_error_code(errc);
+        fail(ec);
+        log(severity, std::move(message), ec);
     }
 
 
@@ -389,7 +426,7 @@ private:
         }
         else
         {
-            fail(SessionErrc::protocolViolation,
+            fail(SessionErrc::protocolViolation, LogLevel::critical,
                  "Received WAMP message while session "
                  "was not ready to receive");
         }
@@ -595,7 +632,7 @@ private:
 
     void trace(const Message& msg, bool isTx)
     {
-        if (traceHandler_)
+        if (logLevel() == LogLevel::trace)
         {
             std::ostringstream oss;
             oss << (isTx ? "Tx" : "Rx") << " message: [";
@@ -611,8 +648,18 @@ private:
                 }
             }
             oss << ']';
+
             if (!isTerminating_)
-                dispatchVia(userExecutor_, traceHandler_, oss.str());
+            {
+                if (logHandler_)
+                {
+                    LogEntry entry{LogLevel::trace, oss.str()};
+                    dispatchVia(userExecutor_, logHandler_, std::move(entry));
+                }
+
+                if (traceHandler_)
+                    dispatchVia(userExecutor_, traceHandler_, oss.str());
+            }
         }
     }
 
@@ -621,12 +668,14 @@ private:
     AnyBufferCodec codec_;
     Transporting::Ptr transport_;
     InboundMessageHandler inboundMessageHandler_;
-    LogHandler warningHandler_;
-    LogHandler traceHandler_;
+    LogHandler logHandler_;
+    LogStringHandler warningHandler_;
+    LogStringHandler traceHandler_;
     StateChangeHandler stateChangeHandler_;
     OneShotRequestMap oneShotRequestMap_;
     MultiShotRequestMap multiShotRequestMap_;
     std::atomic<State> state_;
+    std::atomic<LogLevel> logLevel_;
     std::atomic<bool> isTerminating_;
     RequestId nextRequestId_ = nullRequestId();
     std::size_t maxTxLength_ = 0;

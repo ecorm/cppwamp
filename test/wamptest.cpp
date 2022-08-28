@@ -2093,11 +2093,15 @@ GIVEN( "an IO service and a ConnectionWish" )
     {
         spawn(ioctx, [&](YieldContext yield)
         {
-            unsigned warningCount = 0;
+            unsigned errorLogCount = 0;
             PubSubFixture f(ioctx, where);
-            f.subscriber.setWarningHandler(
-                [&warningCount](std::string){++warningCount;}
-                );
+            f.subscriber.setLogHandler(
+                [&errorLogCount](LogEntry entry)
+                {
+                    if (entry.severity() == LogLevel::error)
+                        ++errorLogCount;
+                });
+
             f.join(yield);
             f.subscribe(yield);
 
@@ -2129,14 +2133,14 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.publisher.publish(Pub("bad_access_coro").withArgs(42)).value();
             f.publisher.publish(Pub("other")).value();
 
-            while (f.otherPubs.empty() || warningCount < 2)
+            while (f.otherPubs.empty() || errorLogCount < 2)
                 suspendCoro(yield);
 
             // The coroutine event handlers will not trigger
             // warning logs because the error::BadType exeception cannot
             // be propagated to Client by time it's thrown from within
             // the coroutine.
-            CHECK( warningCount == 2 );
+            CHECK( errorLogCount == 2 );
         });
         ioctx.run();
     }

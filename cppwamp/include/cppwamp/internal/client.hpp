@@ -23,6 +23,7 @@
 #include "../codec.hpp"
 #include "../chits.hpp"
 #include "../connector.hpp"
+#include "../logging.hpp"
 #include "../peerdata.hpp"
 #include "../registration.hpp"
 #include "../subscription.hpp"
@@ -56,7 +57,8 @@ public:
     using EventSlot          = AnyReusableHandler<void (Event)>;
     using CallSlot           = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot      = AnyReusableHandler<Outcome (Interruption)>;
-    using LogHandler         = AnyReusableHandler<void(std::string)>;
+    using LogHandler         = AnyReusableHandler<void(LogEntry)>;
+    using LogStringHandler   = AnyReusableHandler<void(std::string)>; // TODO: Remove
     using StateChangeHandler = AnyReusableHandler<void(SessionState)>;
     using ChallengeHandler   = AnyReusableHandler<void(Challenge)>;
     using OngoingCallHandler = AnyReusableHandler<void(ErrorOr<Result>)>;
@@ -116,31 +118,54 @@ public:
         return peer_.userExecutor();
     }
 
-    void setWarningHandler(LogHandler handler)
+    void setLogHandler(LogHandler handler)
     {
-        peer_.setWarningHandler(std::move(handler));
+        peer_.setLogHandler(std::move(handler));
     }
 
-    void safeSetWarningHandler(LogHandler f)
+    void setLogLevel(LogLevel level) {peer_.setLogLevel(level);}
+
+    void safeSetLogHandler(LogHandler f)
     {
         struct Dispatched
         {
             Ptr self;
             LogHandler f;
+            void operator()() {self->setLogHandler(std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(f));
+    }
+
+    // TODO: Remove
+    void setWarningHandler(LogStringHandler handler)
+    {
+        peer_.setWarningHandler(std::move(handler));
+    }
+
+    // TODO: Remove
+    void safeSetWarningHandler(LogStringHandler f)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            LogStringHandler f;
             void operator()() {self->setWarningHandler(std::move(f));}
         };
 
         safelyDispatch<Dispatched>(std::move(f));
     }
 
-    void setTraceHandler(LogHandler f) {peer_.setTraceHandler(std::move(f));}
+    // TODO: Remove
+    void setTraceHandler(LogStringHandler f) {peer_.setTraceHandler(std::move(f));}
 
-    void safeSetTraceHandler(LogHandler f)
+    // TODO: Remove
+    void safeSetTraceHandler(LogStringHandler f)
     {
         struct Dispatched
         {
             Ptr self;
-            LogHandler f;
+            LogStringHandler f;
             void operator()() {self->setTraceHandler(std::move(f));}
         };
 
@@ -657,8 +682,7 @@ public:
             {
                 // Don't propagate WAMP errors, as we prefer this
                 // to be a no-fail cleanup operation.
-                self->warnReply(reply, WampMsgType::unregistered,
-                                SessionErrc::unregisterError);
+                self->checkReply(reply, WampMsgType::unregistered);
             }
         };
 
@@ -1132,8 +1156,7 @@ private:
             {
                 // Don't propagate WAMP errors, as we prefer
                 // this to be a no-fail cleanup operation.
-                self->warnReply(reply, WampMsgType::unsubscribed,
-                                SessionErrc::unsubscribeError);
+                self->checkReply(reply, WampMsgType::unsubscribed);
             }
         };
 
@@ -1227,13 +1250,14 @@ private:
         {
             *abortPtr = Abort({}, move(abortMsg));
         }
-        else if (hasWarningHandler() && (!found || !details.empty()))
+        else if ((logLevel() <= LogLevel::error) &&
+                 (!found || !details.empty()))
         {
             std::ostringstream oss;
-            oss << "JOIN request aborted with error URI=" << uri;
+            oss << "JOIN request aborted by peer with error URI=" << uri;
             if (!reply.as<Object>(1).empty())
                 oss << ", Details=" << reply.at(1);
-            warn(oss.str());
+            log(LogLevel::error, oss.str());
         }
 
         dispatchUserHandler(handler, makeUnexpectedError(errc));
@@ -1250,13 +1274,13 @@ private:
         }
         else
         {
-            if (hasWarningHandler())
+            if (logLevel() <= LogLevel::error)
             {
                 std::ostringstream oss;
                 oss << "Received a CHALLENGE with no registered handler "
                        "(with method=" << challenge.method() << " extra="
                     << challenge.options() << ")";
-                warn(oss.str());
+                log(LogLevel::error, oss.str());
             }
 
             // Send empty signature to avoid deadlock with other peer.
@@ -1276,13 +1300,13 @@ private:
             for (const auto& subKv: localSubs)
                 postEvent(subKv.second, event);
         }
-        else if (hasWarningHandler())
+        else if (logLevel() <= LogLevel::warning)
         {
             std::ostringstream oss;
             oss << "Received an EVENT that is not subscribed to "
                    "(with subId=" << eventMsg.subscriptionId()
                 << " pubId=" << eventMsg.publicationId() << ")";
-            warn(oss.str());
+            log(LogLevel::warning, oss.str());
         }
     }
 
@@ -1328,14 +1352,14 @@ private:
     void warnEventError(const Error& e, SubscriptionId subId,
                         PublicationId pubId)
     {
-        if (hasWarningHandler())
+        if (logLevel() <= LogLevel::error)
         {
             std::ostringstream oss;
             oss << "EVENT handler reported an error: "
                 << e.args()
                 << " (with subId=" << subId
                 << " pubId=" << pubId << ")";
-            warn(oss.str());
+            log(LogLevel::error, oss.str());
         }
     }
 
@@ -1357,8 +1381,9 @@ private:
         else
         {
             peer_.sendError(WampMsgType::invocation, requestId,
-                                  Error("wamp.error.no_such_procedure"));
-            warn("No matching procedure for INVOCATION with registration ID "
+                            Error("wamp.error.no_such_procedure"));
+            log(LogLevel::warning,
+                "No matching procedure for INVOCATION with registration ID "
                  + std::to_string(regId));
         }
     }
@@ -1471,7 +1496,7 @@ private:
                 {
                     *errorPtr = Error({}, std::move(errMsg));
                 }
-                else if (hasWarningHandler() && (!found || hasArgs))
+                else if ((logLevel() <= LogLevel::error) && (!found || hasArgs))
                 {
                     std::ostringstream oss;
                     oss << "Expected " << MessageTraits::lookup(type).name
@@ -1480,7 +1505,7 @@ private:
                         oss << ", Args=" << errMsg.args();
                     if (!errMsg.kwargs().empty())
                         oss << ", ArgsKv=" << errMsg.kwargs();
-                    warn(oss.str());
+                    log(LogLevel::error, oss.str());
                 }
 
                 dispatchUserHandler(handler, makeUnexpectedError(errc));
@@ -1494,25 +1519,27 @@ private:
         return ok;
     }
 
-    void warnReply(ErrorOr<Message>& reply, WampMsgType type,
-                   SessionErrc defaultErrc)
+    void checkReply(ErrorOr<Message>& reply, WampMsgType type)
     {
+        std::string msgTypeName(MessageTraits::lookup(type).name);
         if (!reply.has_value())
         {
-            warn(error::Failure::makeMessage(reply.error()));
+            log(LogLevel::warning,
+                "Failure receiving reply for " + msgTypeName + " message",
+                reply.error());
         }
         else if (reply->type() == WampMsgType::error)
         {
             auto& msg = message_cast<ErrorMessage>(*reply);
             const auto& uri = msg.reasonUri();
             std::ostringstream oss;
-            oss << "Expected " << MessageTraits::lookup(type).name
-                << " reply but got ERROR with URI=" << uri;
+            oss << "Expected reply for " << msgTypeName
+                << " message but got ERROR with URI=" << uri;
             if (!msg.args().empty())
                 oss << ", Args=" << msg.args();
             if (!msg.kwargs().empty())
                 oss << ", ArgsKv=" << msg.kwargs();
-            warn(oss.str());
+            log(LogLevel::warning, oss.str());
         }
         else
         {
@@ -1520,11 +1547,11 @@ private:
         }
     }
 
-    bool hasWarningHandler() const {return peer_.hasWarningHandler();}
+    LogLevel logLevel() const {return peer_.logLevel();}
 
-    void warn(std::string log)
+    void log(LogLevel severity, std::string message, std::error_code ec = {})
     {
-        peer_.warn(std::move(log));
+        peer_.log(severity, std::move(message), ec);
     }
 
     template <typename S, typename... Ts>

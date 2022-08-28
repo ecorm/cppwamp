@@ -35,9 +35,9 @@ CPPWAMP_INLINE const std::string& logLevelLabel(LogLevel lv)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE LogEntry::LogEntry(LogLevel severity, std::string info,
+CPPWAMP_INLINE LogEntry::LogEntry(LogLevel severity, std::string message,
                                   std::error_code ec)
-    : info_(std::move(info)),
+    : info_(std::move(message)),
       ec_(ec),
       when_(std::chrono::system_clock::now()),
       severity_(severity)

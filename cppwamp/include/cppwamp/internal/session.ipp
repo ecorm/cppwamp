@@ -165,6 +165,46 @@ CPPWAMP_INLINE SessionState Session::state() const
 
 //------------------------------------------------------------------------------
 /** @details
+    Log events are emitted in the following situations:
+    - Critical: Protocol violations or deserialization errors that require
+                the session to be aborted.
+    - Errors: Unsupported features, invalid states, inability to perform
+              operations, conversion errors or transport payload overflows.
+    - Warnings: Problems that do not prevent operations from proceeding.
+    - Traces: Transmitted and received WAMP messages presented in JSON format.
+
+    Log events are discarded when there is no log handler set. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::setLogHandler(
+    LogHandler handler /**< Callable handler of type `<void (LogEntry)>`. */
+)
+{
+    impl_->setLogHandler(handler);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::setLogHandler(LogHandler) */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::setLogHandler(
+    ThreadSafe,
+    LogHandler handler /**< Callable handler of type `<void (LogEntry)>`. */
+)
+{
+    impl_->safeSetLogHandler(handler);
+}
+
+//------------------------------------------------------------------------------
+/** @details
+    The default log level is LogLevel::warning if never set.
+    @note This method is thread-safe. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::setLogLevel(LogLevel level)
+{
+    impl_->setLogLevel(level);
+}
+
+//------------------------------------------------------------------------------
+/** @details
     Warnings occur when the session encounters problems that do not prevent
     it from proceeding normally. An example of such warnings is when a
     peer attempts to send an event with arguments that does not match the types
@@ -173,18 +213,18 @@ CPPWAMP_INLINE SessionState Session::state() const
     By default, warnings are discarded. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setWarningHandler(
-    LogHandler handler /**< Callable handler of type `<void (std::string)>`. */
+    LogStringHandler handler /**< Callable handler of type `<void (std::string)>`. */
 )
 {
     impl_->setWarningHandler(handler);
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::setWarningHandler(LogHandler) */
+/** @copydetails Session::setWarningHandler(LogStringHandler) */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setWarningHandler(
     ThreadSafe,
-    LogHandler handler /**< Callable handler of type `<void (std::string)>`. */
+    LogStringHandler handler /**< Callable handler of type `<void (std::string)>`. */
 )
 {
     impl_->safeSetWarningHandler(handler);
@@ -195,18 +235,18 @@ CPPWAMP_INLINE void Session::setWarningHandler(
     By default, debug traces are discarded. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setTraceHandler(
-    LogHandler handler /**< Callable handler of type `<void (std::string)>`. */
+    LogStringHandler handler /**< Callable handler of type `<void (std::string)>`. */
 )
 {
     impl_->setTraceHandler(handler);
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::setTraceHandler(LogHandler) */
+/** @copydetails Session::setTraceHandler(LogStringHandler) */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setTraceHandler(
     ThreadSafe,
-    LogHandler handler /**< Callable handler of type `<void (std::string)>`. */
+    LogStringHandler handler /**< Callable handler of type `<void (std::string)>`. */
 )
 {
     impl_->safeSetTraceHandler(handler);

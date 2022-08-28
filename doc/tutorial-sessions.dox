@@ -277,46 +277,45 @@ dropping the connection or leaving the realm.
 Logging
 -------
 
-`wamp::Session` can generate log events at runtime, for warnings and for
-inbound/outbound WAMP messages. CppWAMP is not opinionated about where the log
-events should go, so it provides the
-@ref wamp::Session::setWarningHandler "setWarningHandler" and
-@ref wamp::Session::setTraceHandler "setTraceHandler" methods that
-allow you to register handlers for these log events.
+`wamp::Session` can generate log events at runtime, for warnings, error
+conditions and for inbound/outbound WAMP messages. CppWAMP is not opinionated
+about where the log events should go, so it provides the
+@ref wamp::Session::setLogHandler "setLogHandler" method that
+allows you to register a handler for these log events, as well as
+the @ref wamp::Session::setLogLevel "setLogLevel" method that allows you to
+filter log events based on severity.
 
 Warnings are generated when there are problems detected that don't
-prevent CppWAMP from performing its job.
+prevent CppWAMP from performing its job. Error logs are generated when the
+information can't otherwise be reported back via the API.
 
 Traces contain a stringified version of the WAMP protocol messages.
 They can be useful for troubleshooting protocol logic without having to set up
 a network analyzer.
 
-Both warning and trace handlers must be callable entities with the
+The log handler must be callable entities with the
 signature:
 ```
-void handler(std::string)
+void handler(wamp::LogEntry)
 ```
 
-Unless they already have a bound executor, the handlers are posted via
+Unless they already have a bound executor, the log handler is dispatched via
 `Session::userExecutor()`.
 
-With these handlers you may, for example, log the messages to the
+With this handler you may, for example, log the messages to the
 console.
 
 ```
 wamp::IoContext ioctx;
 wamp::Session session(ioctx);
 
-session.setWarningHandler([](std::string message)
+session.setLogHandler([](wamp::LogEntry entry)
 {
-    std::cerr << "CppWAMP warning: " << message << "\n";
+    if (entry.severity() < wamp::LogLevel::warning)
+        std::cerr << entry << std::endl;
+    else
+        std::clog << entry << "\n";
 });
-
-session.setTraceHandler([](std::string message)
-{
-    std::clog << "WAMP message: " << message << "\n";
-});
-
 ```
 
 Authentication

@@ -45,7 +45,7 @@ public:
     using TimePoint = std::chrono::system_clock::time_point;
 
     /** Constructor. */
-    LogEntry(LogLevel severity, std::string info, std::error_code ec = {});
+    LogEntry(LogLevel severity, std::string message, std::error_code ec = {});
 
     /** Obtains the entry's severity level. */
     LogLevel severity() const;

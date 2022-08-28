@@ -46,11 +46,16 @@ Polymorphic codecs and transports.
   now have thread-safe and non-thread-safe overloads.
 - Added `SessionErrc` error codes corresponding to new predefined error
   URIs that have appeared in the WAMP spec.
+- Added `Session::setLogHandler` which takes a handler of type `void (LogEntry)`
+  and unifies all log event handling.
+- Added `Session::setLogLevel` for use with `Session::setLogHandler`.
 - Renamed `AsioContext` to `IoContext`, leaving the former as a deprecated
   alias.
 - Deprecated `AsioErrorCode`.
 - Deprecated `ProtocolErrc` and `ProtocolCategory` in favor of
   `SessionErrc::protocolViolation`.
+- Deprecated `Session::setWarningHandler` and `Session::setTraceHandler` in
+  favor of `Session::setLogHandler`.
 
 Implementation improvements:
 
@@ -103,6 +108,8 @@ Implementation improvements:
   `ThreadSafe` tag type.
 - If checking for `ProtocolErrc` errors specifically, check for
   `SessionErrc::protocolViolation` instead.
+- Replace `Session::setWarningHandler` and `Session::setTraceHandler` with
+  `Session::setLogHandler` and `Session::setLogLevel`.
 
 v0.10.0
 =======

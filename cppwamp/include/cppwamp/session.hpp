@@ -24,6 +24,7 @@
 #include "config.hpp"
 #include "connector.hpp"
 #include "erroror.hpp"
+#include "logging.hpp"
 #include "peerdata.hpp"
 #include "registration.hpp"
 #include "subscription.hpp"
@@ -122,13 +123,17 @@ public:
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
 
     /** Type-erased wrapper around a log event handler. */
-    using LogHandler = AnyReusableHandler<void(std::string)>;
+    using LogHandler = AnyReusableHandler<void (LogEntry)>;
+
+    /** Type-erased wrapper around a log string event handler. */
+    // TODO: Remove
+    using LogStringHandler = AnyReusableHandler<void (std::string)>;
 
     /** Type-erased wrapper around a Session state change handler. */
-    using StateChangeHandler = AnyReusableHandler<void(SessionState)>;
+    using StateChangeHandler = AnyReusableHandler<void (SessionState)>;
 
     /** Type-erased wrapper around an authentication challenge handler. */
-    using ChallengeHandler = AnyReusableHandler<void(Challenge)>;
+    using ChallengeHandler = AnyReusableHandler<void (Challenge)>;
 
     /** Obtains the type returned by [boost::asio::async_initiate]
         (https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/async_initiate.html)
@@ -302,17 +307,28 @@ public:
 
     /// @name Modifiers
     /// @{
+    /** Sets the handler that is dispatched for logging events. */
+    void setLogHandler(LogHandler handler);
+
+    /** Thread-safe setting of log handler. */
+    void setLogHandler(ThreadSafe, LogHandler handler);
+
+    /** Sets the maximum level of log events that will be emitted. */
+    void setLogLevel(LogLevel level);
+
     /** Sets the log handler that is dispatched for warnings. */
-    void setWarningHandler(LogHandler handler);
+    CPPWAMP_DEPRECATED void setWarningHandler(LogStringHandler handler);
 
     /** Thread-safe setting of warning handler. */
-    void setWarningHandler(ThreadSafe, LogHandler handler);
+    CPPWAMP_DEPRECATED void setWarningHandler(ThreadSafe,
+                                              LogStringHandler handler);
 
     /** Sets the log handler that is dispatched for debug traces. */
-    void setTraceHandler(LogHandler handler);
+    CPPWAMP_DEPRECATED void setTraceHandler(LogStringHandler handler);
 
     /** Thread-safe setting of trace handler. */
-    void setTraceHandler(ThreadSafe, LogHandler handler);
+    CPPWAMP_DEPRECATED void setTraceHandler(ThreadSafe,
+                                            LogStringHandler handler);
 
     /** Sets the handler that is posted for session state changes. */
     void setStateChangeHandler(StateChangeHandler handler);
