@@ -166,14 +166,21 @@ CPPWAMP_INLINE SessionState Session::state() const
 //------------------------------------------------------------------------------
 /** @details
     Log events are emitted in the following situations:
-    - Critical: Protocol violations or deserialization errors that require
-                the session to be aborted.
-    - Errors: Unsupported features, invalid states, inability to perform
-              operations, conversion errors or transport payload overflows.
+    - Errors: Protocol violations, message deserialization errors, unsupported
+              features, invalid states, inability to perform operations,
+              conversion errors, or transport payload overflows.
     - Warnings: Problems that do not prevent operations from proceeding.
     - Traces: Transmitted and received WAMP messages presented in JSON format.
 
-    Log events are discarded when there is no log handler set. */
+    Log events are discarded when there is no log handler set.
+
+    Copies of the handler are made when they are dispatched. If the handler
+    needs to be stateful, or is non-copyable, then pass a stateless copyable
+    proxy instead.
+
+    @note No state change events are fired when the session object is
+          terminating.
+    @see Session::setLogLevel */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setLogHandler(
     LogHandler handler /**< Callable handler of type `<void (LogEntry)>`. */
@@ -196,21 +203,14 @@ CPPWAMP_INLINE void Session::setLogHandler(
 //------------------------------------------------------------------------------
 /** @details
     The default log level is LogLevel::warning if never set.
-    @note This method is thread-safe. */
+    @note This method is thread-safe.
+    @see Session::setLogHandler */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setLogLevel(LogLevel level)
 {
     impl_->setLogLevel(level);
 }
 
-//------------------------------------------------------------------------------
-/** @details
-    Warnings occur when the session encounters problems that do not prevent
-    it from proceeding normally. An example of such warnings is when a
-    peer attempts to send an event with arguments that does not match the types
-    of a statically-typed event slot.
-
-    By default, warnings are discarded. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setWarningHandler(
     LogStringHandler handler /**< Callable handler of type `<void (std::string)>`. */
@@ -219,8 +219,6 @@ CPPWAMP_INLINE void Session::setWarningHandler(
     impl_->setWarningHandler(handler);
 }
 
-//------------------------------------------------------------------------------
-/** @copydetails Session::setWarningHandler(LogStringHandler) */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setWarningHandler(
     ThreadSafe,
@@ -231,9 +229,6 @@ CPPWAMP_INLINE void Session::setWarningHandler(
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    By default, debug traces are discarded. */
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setTraceHandler(
     LogStringHandler handler /**< Callable handler of type `<void (std::string)>`. */
 )
@@ -241,8 +236,6 @@ CPPWAMP_INLINE void Session::setTraceHandler(
     impl_->setTraceHandler(handler);
 }
 
-//------------------------------------------------------------------------------
-/** @copydetails Session::setTraceHandler(LogStringHandler) */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setTraceHandler(
     ThreadSafe,
@@ -253,8 +246,13 @@ CPPWAMP_INLINE void Session::setTraceHandler(
 }
 
 //------------------------------------------------------------------------------
-/** @note No state change events are fired when the session object is
-          destructing. */
+/** @details
+    Copies of the handler are made when they are dispatched. If the handler
+    needs to be stateful, or is non-copyable, then pass a stateless copyable
+    proxy instead.
+
+    @note No state change events are fired when the session object is
+          terminating. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setStateChangeHandler(
     StateChangeHandler handler /**< Callable handler of type `<void (SessionState)>`. */
@@ -274,6 +272,14 @@ CPPWAMP_INLINE void Session::setStateChangeHandler(
     impl_->safeSetStateChangeHandler(handler);
 }
 
+//------------------------------------------------------------------------------
+/** @details
+    Copies of the handler are made when they are dispatched. If the handler
+    needs to be stateful, or is non-copyable, then pass a stateless copyable
+    proxy instead.
+
+    @note No challenge events are fired when the session object is
+          terminating. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setChallengeHandler(
     ChallengeHandler handler /**< Callable handler of type `<void (Challenge)>`. */

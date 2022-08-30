@@ -16,6 +16,7 @@ set(HEADERS
     include/cppwamp/config.hpp
     include/cppwamp/connector.hpp
     include/cppwamp/conversionaccess.hpp
+    include/cppwamp/consolelogger.hpp
     include/cppwamp/corounpacker.hpp
     include/cppwamp/error.hpp
     include/cppwamp/erroror.hpp
@@ -96,6 +97,7 @@ set(INLINES
     include/cppwamp/internal/cbor.ipp
     include/cppwamp/internal/chits.ipp
     include/cppwamp/internal/connector.ipp
+    include/cppwamp/internal/consolelogger.ipp
     include/cppwamp/internal/error.ipp
     include/cppwamp/internal/json.ipp
     include/cppwamp/internal/messagetraits.ipp

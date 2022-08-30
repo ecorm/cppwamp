@@ -301,23 +301,18 @@ signature:
 void handler(wamp::LogEntry)
 ```
 
-Unless they already have a bound executor, the log handler is dispatched via
-`Session::userExecutor()`.
+Unless it already has a bound executor, the log handler is dispatched via
+`Session::fallbackExecutor()`.
 
-With this handler you may, for example, log the messages to the
-console.
+CppWAMP provides wamp::ConsoleLogger and wamp::ColorConsoleLogger that
+output log entries to the console. You can pass instances of them directly
+to Session::setLogHandler.
 
 ```
 wamp::IoContext ioctx;
 wamp::Session session(ioctx);
 
-session.setLogHandler([](wamp::LogEntry entry)
-{
-    if (entry.severity() < wamp::LogLevel::warning)
-        std::cerr << entry << std::endl;
-    else
-        std::clog << entry << "\n";
-});
+session.setLogHandler(wamp::ColorConsoleLogger{});
 ```
 
 Authentication
@@ -403,34 +398,35 @@ network failure.
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
-void rejoinSession(Session& session, wamp::YieldContext yield)
-{
-    auto tcp = wamp::TcpHost{"localhost", 8001}.withFormat(wamp::json);
-    session.connect(std::move(tcp), yield).value();
-    session.join(wamp::Realm("somerealm", yield).value();
-    // Register RPCs, subscribe to topics, etc.
-}
-
-void onStateChange(wamp::SessionState state, Session& session)
-{
-    if (state == wamp::SessionState::failed)
-    {
-        wamp::spawn(
-            session.userExecutor(),
-            [session](wamp::YieldContext yield)
-            {
-                // You may want to throttle and limit the reconnection
-                // attempts here.
-                rejoinSession(session, yield);
-            });
-    }
-}
-
 int main()
 {
     using namespace wamp;
     IoContext ioctx;
     Session session(ioctx);
+
+    auto rejoinSession = [&ioctx, &session](wamp::YieldContext yield)
+    {
+        auto tcp = wamp::TcpHost{"localhost", 8001}.withFormat(wamp::json);
+        session.connect(std::move(tcp), yield).value();
+        session.join(wamp::Realm("somerealm", yield).value();
+        // Register RPCs, subscribe to topics, etc.
+    }
+
+    auto onStateChange = [&ioctx, &session](wamp::SessionState state)
+    {
+        if (state == wamp::SessionState::failed)
+        {
+            wamp::spawn(
+                ioctx,
+                [&session](wamp::YieldContext yield)
+                {
+                    // You may want to throttle and limit the reconnection
+                    // attempts here.
+                    rejoinSession(yield);
+                });
+        }
+    }
+
     session.setStateChangeHandler(
         [&session](SessionState state) { onStateChange(state, session); });
 

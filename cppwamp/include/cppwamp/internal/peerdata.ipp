@@ -526,7 +526,7 @@ CPPWAMP_INLINE PublicationId Event::pubId() const
     return message().publicationId();
 }
 
-/** @returns the same object as Session::userExecutor().
+/** @returns the same object as Session::fallbackExecutor().
     @pre `this->empty() == false` */
 CPPWAMP_INLINE AnyCompletionExecutor Event::executor() const
 {
@@ -943,7 +943,7 @@ CPPWAMP_INLINE RequestId Invocation::requestId() const
     return message().requestId();
 }
 
-/** @returns the same object as Session::userExecutor().
+/** @returns the same object as Session::fallbackExecutor().
     @pre `this->empty() == false` */
 CPPWAMP_INLINE AnyCompletionExecutor Invocation::executor() const
 {
@@ -1115,7 +1115,7 @@ CPPWAMP_INLINE RequestId Interruption::requestId() const
     return message().requestId();
 }
 
-/** @returns the same object as Session::userExecutor().
+/** @returns the same object as Session::fallbackExecutor().
     @pre `this->empty() == false` */
 CPPWAMP_INLINE AnyCompletionExecutor Interruption::executor() const
 {
