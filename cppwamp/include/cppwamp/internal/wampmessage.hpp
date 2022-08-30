@@ -11,7 +11,7 @@
 #include <limits>
 #include <type_traits>
 #include <utility>
-#include "../error.hpp"
+#include "../erroror.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
 #include "messagetraits.hpp"
@@ -30,38 +30,49 @@ struct WampMessage
 {
     using RequestKey = std::pair<WampMsgType, RequestId>;
 
-    static WampMessage parse(Array&& fields, std::error_code& ec)
+    static ErrorOr<WampMessage> parse(Array&& fields)
     {
-        SessionErrc errc = SessionErrc::success;
         WampMsgType type = parseMsgType(fields);
+        auto unex = makeUnexpectedError(SessionErrc::protocolViolation);
         if (type == WampMsgType::none)
+            return unex;
+
+        auto traits = MessageTraits::lookup(type);
+        if ( fields.size() < traits.minSize || fields.size() > traits.maxSize )
+            return unex;
+
+        assert(fields.size() <=
+               std::extent<decltype(traits.fieldTypes)>::value);
+        for (size_t i=0; i<fields.size(); ++i)
         {
-            errc = SessionErrc::protocolViolation;
+            if (fields[i].typeId() != traits.fieldTypes[i])
+                return unex;
         }
-        else
+
+        return WampMessage(type, std::move(fields));
+    }
+
+    static WampMsgType parseMsgType(const Array& fields)
+    {
+        auto result = WampMsgType::none;
+
+        if (!fields.empty())
         {
-            auto traits = MessageTraits::lookup(type);
-            if ( fields.size() < traits.minSize ||
-                 fields.size() > traits.maxSize )
+            const auto& first = fields.front();
+            if (first.is<Int>())
             {
-                errc = SessionErrc::protocolViolation;
-            }
-            else
-            {
-                assert(fields.size() <=
-                       std::extent<decltype(traits.fieldTypes)>::value);
-                for (size_t i=0; i<fields.size(); ++i)
+                using T = std::underlying_type<WampMsgType>::type;
+                static constexpr auto max = std::numeric_limits<T>::max();
+                auto n = first.to<Int>();
+                if (n >= 0 && n <= max)
                 {
-                    if (fields[i].typeId() != traits.fieldTypes[i])
-                    {
-                        errc = SessionErrc::protocolViolation;
-                        break;
-                    }
+                    result = static_cast<WampMsgType>(n);
+                    if (!MessageTraits::lookup(result).isValidType())
+                        result = WampMsgType::none;
                 }
             }
         }
-        ec = make_error_code(errc);
-        return WampMessage(type, std::move(fields));
+        return result;
     }
 
     WampMessage() : type_(WampMsgType::none) {}
@@ -167,30 +178,6 @@ struct WampMessage
 protected:
     WampMsgType type_;
     mutable Array fields_; // Mutable for lazy-loaded empty payloads
-
-private:
-    static WampMsgType parseMsgType(const Array& fields)
-    {
-        auto result = WampMsgType::none;
-
-        if (!fields.empty())
-        {
-            const auto& first = fields.front();
-            if (first.is<Int>())
-            {
-                using T = std::underlying_type<WampMsgType>::type;
-                static constexpr auto max = std::numeric_limits<T>::max();
-                auto n = first.to<Int>();
-                if (n >= 0 && n <= max)
-                {
-                    result = static_cast<WampMsgType>(n);
-                    if (!MessageTraits::lookup(result).isValidType())
-                        result = WampMsgType::none;
-                }
-            }
-        }
-        return result;
-    }
 };
 
 //------------------------------------------------------------------------------

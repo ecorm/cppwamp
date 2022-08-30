@@ -180,10 +180,11 @@ public:
             transport_->start(
                 [this](ErrorOr<MessageBuffer> buffer)
                 {
+                    // Ignore transport cancellation errors when disconnecting.
                     if (buffer.has_value())
                         onTransportRx(std::move(*buffer));
                     else if (state() != SessionState::disconnected)
-                        checkError(buffer.error());
+                        fail(buffer.error(), "Transport failure");
                 }
             );
         }
@@ -201,7 +202,7 @@ public:
                 if (reply)
                 {
                     self->setState(State::closed);
-                    self->abortPending(make_error_code(SessionErrc::sessionEnded));
+                    self->abortPending(SessionErrc::sessionEnded);
                 }
                 handler(std::move(reply));
             }
@@ -216,7 +217,7 @@ public:
     void close()
     {
         setState(State::disconnected);
-        abortPending(make_error_code(SessionErrc::sessionEnded));
+        abortPending(SessionErrc::sessionEnded);
         if (transport_)
         {
             transport_->close();
@@ -241,6 +242,14 @@ public:
                                        "to transport limits)"));
             error.withKwargs({});
             (void)send(error.errorMessage({}, reqType, reqId));
+            if (logLevel() <= LogLevel::warning)
+            {
+                std::ostringstream oss;
+                oss << "Stripped args of outbound ERROR message due to "
+                       "transport payload limits, with error URI "
+                    << error.reason() << " and request ID " << reqId;
+                log(LogLevel::warning, oss.str());
+            }
         }
         return done;
     }
@@ -302,20 +311,12 @@ public:
         return found;
     }
 
-    template <typename TErrorValue>
-    void fail(TErrorValue errc)
-    {
-        fail(make_error_code(errc));
-    }
+private:
+    static constexpr unsigned progressiveResponseFlag_ = 0x01;
 
-    template <typename TErrorValue>
-    void fail(TErrorValue errc, LogLevel severity, std::string message)
-    {
-        auto ec = make_error_code(errc);
-        fail(ec);
-        log(severity, std::move(message), ec);
-    }
-
+    using RequestKey = typename Message::RequestKey;
+    using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
+    using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
 
     template <typename TFunctor, typename... TArgs>
     void post(TFunctor&& fn, TArgs&&... args)
@@ -324,13 +325,6 @@ public:
                           std::bind(std::forward<TFunctor>(fn),
                                     std::forward<TArgs>(args)...));
     }
-
-private:
-    static constexpr unsigned progressiveResponseFlag_ = 0x01;
-
-    using RequestKey = typename Message::RequestKey;
-    using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
-    using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
 
     ErrorOr<RequestId> sendMessage(Message& msg)
     {
@@ -343,7 +337,7 @@ private:
         if (buffer.size() > maxTxLength_)
             return makeUnexpectedError(SessionErrc::payloadSizeExceeded);
 
-        trace(msg, true);
+        traceTx(msg);
         assert(transport_ != nullptr);
         transport_->send(std::move(buffer));
         return requestId;
@@ -379,8 +373,7 @@ private:
         }
 
         requests.emplace(msg.requestKey(), std::move(handler));
-
-        trace(msg, true);
+        traceTx(msg);
         assert(transport_ != nullptr);
         transport_->send(std::move(buffer));
         return requestId;
@@ -408,41 +401,40 @@ private:
 
     void onTransportRx(MessageBuffer buffer)
     {
-        if (readyToReceive())
-        {
-            Variant v;
-            if (checkError(decode(buffer, v)) &&
-                check(v.is<Array>(), SessionErrc::protocolViolation))
-            {
-                std::error_code ec;
-                auto msg = Message::parse(std::move(v.as<Array>()), ec);
-                if (checkError(ec))
-                {
-                    trace(msg, false);
-                    if (checkValidMsg(msg.type()))
-                        processMessage(std::move(msg));
-                }
-            }
-        }
-        else
-        {
-            fail(SessionErrc::protocolViolation, LogLevel::critical,
-                 "Received WAMP message while session "
-                 "was not ready to receive");
-        }
+        static constexpr auto errc = SessionErrc::protocolViolation;
 
-    }
-
-    bool readyToReceive() const
-    {
         auto s = state();
-        return s == State::establishing || s == State::authenticating ||
+        bool readyToReceive =
+               s == State::establishing || s == State::authenticating ||
                s == State::established  || s == State::shuttingDown;
-    }
+        if (!readyToReceive)
+        {
+            return fail(errc, "Received WAMP message while session "
+                              "unready to receive");
+        }
 
-    std::error_code decode(const MessageBuffer& buffer, Variant& variant)
-    {
-        return codec_.decode(buffer, variant);
+        Variant v;
+        auto ec = codec_.decode(buffer, v);
+        if (ec)
+            return fail(ec, "Error deserializing received WAMP message");
+
+        if (!v.is<Array>())
+            return fail(errc, "Received WAMP message is not an array");
+
+        auto& fields = v.as<Array>();
+        traceRx(fields);
+
+        auto msg = Message::parse(std::move(fields));
+        if (!msg)
+        {
+            return fail(errc, "Received WAMP message has invalid type number "
+                              "or field schema");
+        }
+
+        if (!msg->traits().isValidRx(state(), isRouter_))
+            return fail(errc, "Received invalid WAMP message for peer role");
+
+        processMessage(std::move(*msg));
     }
 
     void processMessage(Message&& msg)
@@ -481,8 +473,16 @@ private:
             default:
                 // Role-specific unsolicited messages. Ignore them if we're
                 // shutting down.
-                if (state() != State::shuttingDown)
+                if (state() == State::shuttingDown)
+                {
+                    log(LogLevel::warning,
+                        "Discarding received " + std::string(msg.name()) +
+                        " message while session is shutting down");
+                }
+                else
+                {
                     inboundMessageHandler_(std::move(msg));
+                }
                 break;
         }
     }
@@ -546,14 +546,31 @@ private:
             setState(State::closed);
             processWampReply(RequestKey(WampMsgType::hello, 0), std::move(msg));
         }
-        else if (s != State::shuttingDown)
+        else if (s == State::shuttingDown)
         {
-            // TODO: Emit a warning.
+            log(LogLevel::warning, "Discarding received ABORT message "
+                                   "while session is shutting down");
+        }
+        else
+        {
             const auto& abortMsg = message_cast<AbortMessage>(msg);
             SessionErrc errc = {};
             lookupWampErrorUri(abortMsg.reasonUri(),
                                SessionErrc::sessionAbortedByPeer, errc);
-            return fail(errc);
+
+            if (logLevel() <= LogLevel::error)
+            {
+                std::ostringstream oss;
+                oss << "Session aborted by peer with reason URI "
+                    << abortMsg.reasonUri();
+                if (!abortMsg.options().empty())
+                    oss << " and details " << abortMsg.options();
+                fail(errc, oss.str());
+            }
+            else
+            {
+                fail(errc);
+            }
         }
     }
 
@@ -566,40 +583,25 @@ private:
         }
         else
         {
-            // TODO: Emit a warning.
-            const auto& reason = message_cast<GoodbyeMessage>(msg).reasonUri();
+            const auto& goodbyeMsg = message_cast<GoodbyeMessage>(msg);
             SessionErrc errc;
-            lookupWampErrorUri(reason, SessionErrc::closeRealm, errc);
-            abortPending(make_error_code(errc));
-            GoodbyeMessage msg("wamp.error.goodbye_and_out");
-            send(msg).value();
+            lookupWampErrorUri(goodbyeMsg.reasonUri(), SessionErrc::closeRealm,
+                               errc);
+            abortPending(errc);
+            GoodbyeMessage outgoingGoodbye("wamp.error.goodbye_and_out");
+            send(outgoingGoodbye).value();
             setState(State::closed);
+
+            if (logLevel() <= LogLevel::warning)
+            {
+                std::ostringstream oss;
+                oss << "Session ended by peer with reason URI "
+                    << goodbyeMsg.reasonUri();
+                if (!goodbyeMsg.options().empty())
+                    oss << " and details " << goodbyeMsg.options();
+                log(LogLevel::warning, oss.str());
+            }
         }
-    }
-
-    bool checkError(std::error_code ec)
-    {
-        bool success = !ec;
-        if (!success)
-            fail(ec);
-        return success;
-    }
-
-    template <typename TErrc>
-    bool check(bool condition, TErrc errc)
-    {
-        if (!condition)
-            fail(errc);
-        return condition;
-    }
-
-    bool checkValidMsg(WampMsgType type)
-    {
-        auto traits = MessageTraits::lookup(type);
-        bool valid = traits.isValidRx(state(), isRouter_);
-        if (!valid)
-            fail(SessionErrc::protocolViolation); // TODO: Emit a warning.
-        return valid;
     }
 
     void fail(std::error_code ec, std::string info = {})
@@ -613,7 +615,16 @@ private:
                 transport_->close();
                 transport_.reset();
             }
+
+            if (!info.empty())
+                log(LogLevel::error, std::move(info), ec);
         }
+    }
+
+    template <typename TErrc>
+    void fail(TErrc errc, std::string info = {})
+    {
+        fail(make_error_code(errc), std::move(info));
     }
 
     void abortPending(std::error_code ec)
@@ -630,37 +641,45 @@ private:
         multiShotRequestMap_.clear();
     }
 
-    void trace(const Message& msg, bool isTx)
+    template <typename TErrc>
+    void abortPending(TErrc errc) {abortPending(make_error_code(errc));}
+
+    void traceRx(const Array& fields)
     {
-        if (logLevel() == LogLevel::trace)
+        trace(Message::parseMsgType(fields), fields, "Rx message: ");
+    }
+
+    void traceTx(const Message& msg)
+    {
+        trace(msg.type(), msg.fields(), "Tx message: ");
+    }
+
+    void trace(WampMsgType type, const Array& fields, const char* label)
+    {
+        if (isTerminating_ || (logLevel() > LogLevel::trace))
+            return;
+
+        std::ostringstream oss;
+        oss << label << "[";
+        if (!fields.empty())
         {
-            std::ostringstream oss;
-            oss << (isTx ? "Tx" : "Rx") << " message: [";
-            if (!msg.fields().empty())
-            {
-                // Print message type field as {"NAME":<Field>} pair
-                oss << "{\"" << msg.nameOr("INVALID") << "\":"
-                    << msg.fields().at(0) << "}";
+            // Print message type field as {"NAME":<Field>} pair
+            auto name = MessageTraits::lookup(type).nameOr("INVALID");
+            oss << "{\"" << name << "\":" << fields[0] << "}";
 
-                for (Array::size_type i=1; i<msg.fields().size(); ++i)
-                {
-                    oss << "," << msg.fields().at(i);
-                }
-            }
-            oss << ']';
-
-            if (!isTerminating_)
-            {
-                if (logHandler_)
-                {
-                    LogEntry entry{LogLevel::trace, oss.str()};
-                    dispatchVia(userExecutor_, logHandler_, std::move(entry));
-                }
-
-                if (traceHandler_)
-                    dispatchVia(userExecutor_, traceHandler_, oss.str());
-            }
+            for (Array::size_type i=1; i<fields.size(); ++i)
+                oss << "," << fields[i];
         }
+        oss << ']';
+
+        if (logHandler_)
+        {
+            LogEntry entry{LogLevel::trace, oss.str()};
+            dispatchVia(userExecutor_, logHandler_, std::move(entry));
+        }
+
+        if (traceHandler_)
+            dispatchVia(userExecutor_, traceHandler_, oss.str());
     }
 
     IoStrand strand_;

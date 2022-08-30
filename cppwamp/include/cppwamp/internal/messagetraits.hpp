@@ -59,6 +59,8 @@ struct CPPWAMP_API MessageTraits
 
     bool isValidRx(SessionState s, bool isRouter) const;
 
+    const char* nameOr(const char* fallback) const;
+
     const char* name;
     WampMsgType repliesTo   : 8;
     size_t idPosition       : 8;

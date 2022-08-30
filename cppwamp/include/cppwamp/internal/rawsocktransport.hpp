@@ -202,7 +202,7 @@ private:
                     if (ec)
                     {
                         txQueue_.clear();
-                        // TODO: Emit error via receive handler
+                        // TODO: Notify Peer of error
                         socket_.reset();
                     }
                     else
@@ -259,9 +259,7 @@ private:
                     {
                     case RawsockMsgType::wamp:
                         if (rxHandler_)
-                        {
                             post(rxHandler_, std::move(rxFrame_).payload());
-                        }
                         receive();
                         break;
 

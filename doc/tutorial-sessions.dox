@@ -285,9 +285,11 @@ allows you to register a handler for these log events, as well as
 the @ref wamp::Session::setLogLevel "setLogLevel" method that allows you to
 filter log events based on severity.
 
-Warnings are generated when there are problems detected that don't
-prevent CppWAMP from performing its job. Error logs are generated when the
-information can't otherwise be reported back via the API.
+Warning-level log entries are generated when there are problems detected that
+don't prevent a session from continuing its operations.
+
+Error-level log enties are generated when there is error information that
+can't be reported back via completion handlers.
 
 Traces contain a stringified version of the WAMP protocol messages.
 They can be useful for troubleshooting protocol logic without having to set up

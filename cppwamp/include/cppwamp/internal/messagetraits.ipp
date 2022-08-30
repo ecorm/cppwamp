@@ -164,6 +164,12 @@ CPPWAMP_INLINE bool MessageTraits::isValidRx(SessionState state,
     return valid;
 }
 
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE const char* MessageTraits::nameOr(const char* fallback) const
+{
+    return (name == nullptr) ? fallback : name;
+}
+
 } // namespace internal
 
 } // namespace wamp
