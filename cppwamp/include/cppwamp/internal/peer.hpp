@@ -184,7 +184,13 @@ public:
                     if (buffer.has_value())
                         onTransportRx(std::move(*buffer));
                     else if (state() != SessionState::disconnected)
-                        fail(buffer.error(), "Transport failure");
+                        fail(buffer.error(), "Transport receive failure");
+                },
+                [this](std::error_code ec)
+                {
+                    // Ignore transport cancellation errors when disconnecting.
+                    if (state() != SessionState::disconnected)
+                        fail(ec, "Transport send failure");
                 }
             );
         }

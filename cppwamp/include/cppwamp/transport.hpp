@@ -38,6 +38,9 @@ public:
     /// Handler type used for message received events.
     using RxHandler = std::function<void (ErrorOr<MessageBuffer>)>;
 
+    /// Handler type used for transmission error events.
+    using TxErrorHandler = std::function<void (std::error_code)>;
+
     /// Handler type used for ping response events.
     using PingHandler = std::function<void (float)>;
 
@@ -55,7 +58,8 @@ public:
     virtual bool isStarted() const = 0;
 
     /** Starts the transport's I/O operations. */
-    virtual void start(RxHandler rxHandler) = 0;
+    virtual void start(RxHandler rxHandler,
+                       TxErrorHandler txHandler = nullptr) = 0;
 
     /** Sends the given serialized message via the transport. */
     virtual void send(MessageBuffer message) = 0;

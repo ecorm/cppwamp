@@ -113,12 +113,13 @@ template <typename TSocket, typename TConfig = DefaultRawsockTransportConfig>
 class RawsockTransport : public Transporting
 {
 public:
-    using Ptr         = std::shared_ptr<RawsockTransport>;
-    using Socket      = TSocket;
-    using Config      = TConfig;
-    using SocketPtr   = std::unique_ptr<Socket>;
-    using RxHandler   = typename Transporting::RxHandler;
-    using PingHandler = typename Transporting::PingHandler;
+    using Ptr            = std::shared_ptr<RawsockTransport>;
+    using Socket         = TSocket;
+    using Config         = TConfig;
+    using SocketPtr      = std::unique_ptr<Socket>;
+    using RxHandler      = typename Transporting::RxHandler;
+    using TxErrorHandler = typename Transporting::TxErrorHandler;
+    using PingHandler    = typename Transporting::PingHandler;
 
     static Ptr create(SocketPtr&& s, TransportInfo info)
     {
@@ -129,10 +130,11 @@ public:
 
     bool isStarted() const override {return running_;}
 
-    void start(RxHandler rxHandler) override
+    void start(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
         assert(!running_);
         rxHandler_ = rxHandler;
+        txErrorHandler_ = txErrorHandler;
         receive();
         running_ = true;
     }
@@ -147,6 +149,7 @@ public:
     void close() override
     {
         rxHandler_ = nullptr;
+        txErrorHandler_ = nullptr;
         txQueue_.clear();
         running_ = false;
         if (socket_)
@@ -196,13 +199,18 @@ private:
 
             auto self = this->shared_from_this();
             boost::asio::async_write(*socket_, txFrame_->gatherBuffers(),
-                [this, self](boost::system::error_code ec, size_t size)
+                [this, self](boost::system::error_code asioEc, size_t size)
                 {
                     txFrame_.reset();
-                    if (ec)
+                    if (asioEc)
                     {
                         txQueue_.clear();
-                        // TODO: Notify Peer of error
+                        if (txErrorHandler_)
+                        {
+                            auto ec = make_error_code(
+                                static_cast<std::errc>(asioEc.value()));
+                            txErrorHandler_(ec);
+                        }
                         socket_.reset();
                     }
                     else
@@ -343,6 +351,7 @@ private:
     void cleanup()
     {
         rxHandler_ = nullptr;
+        txErrorHandler_ = nullptr;
         pingHandler_ = nullptr;
         rxFrame_.clear();
         txQueue_.clear();
@@ -356,6 +365,7 @@ private:
     TransportInfo info_;
     bool running_ = false;
     RxHandler rxHandler_;
+    TxErrorHandler txErrorHandler_;
     PingHandler pingHandler_;
     RawsockFrame rxFrame_;
     TransmitQueue txQueue_;
