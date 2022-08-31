@@ -59,6 +59,9 @@ Polymorphic codecs and transports.
 
 Implementation improvements:
 
+- Adding more codecs or transports in the future will no longer result in a
+  combinatorial explosion of explicit template instantions due to the number
+  of transport/codec combinations.
 - Codecs are now specializations of `SinkEncoder` and `SourceDecoder`.
 - Simplified codec tags to only provide their numeric ID.
 - Added `AnyCodec` polymorphic wrapper for codecs.

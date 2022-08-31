@@ -71,11 +71,6 @@ This library has been tested with:
 Roadmap
 -------
 
-### v0.11
-
-- Polymorphic codecs and transports to prevent combinatorial explosion of
-  explicit template instantiations when new codecs/transports are added.
-
 ### v1.0
 
 - Embedded router functionality
