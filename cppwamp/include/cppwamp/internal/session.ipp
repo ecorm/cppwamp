@@ -112,10 +112,7 @@ CPPWAMP_INLINE Session::~Session()
     // CoroSession does not define a destructor, so ~Session does not need
     // to be virtual.
     if (impl_)
-    {
         impl_->safeDisconnect();
-        impl_.reset();
-    }
 }
 
 //------------------------------------------------------------------------------

@@ -2248,7 +2248,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP Precondition Failures", "[WAMP][Basic]" )
+SCENARIO( "WAMP Invalid State Failures", "[WAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
@@ -2389,6 +2389,7 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidOps(session, yield);
         });
         CHECK_NOTHROW( ioctx2.run() );
+        session.terminate();
     }
 }}
 

@@ -362,11 +362,11 @@ GIVEN( "a caller and a callee" )
     WHEN( "caller leaves during progressive call results" )
     {
         bool interrupted = false;
+        int tickCount = 0;
 
         spawn(ioctx, [&](YieldContext yield)
         {
             std::vector<int> output;
-            int tickCount = 0;
 
             f.join(yield);
 

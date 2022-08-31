@@ -2243,9 +2243,10 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "an event handler throws wamp::error::BadType exceptions" )
     {
+        unsigned warningCount = 0;
+
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            unsigned warningCount = 0;
             PubSubFixture f(ioctx, cnct);
             f.subscriber->setWarningHandler(
                 [&warningCount](std::string){++warningCount;}
@@ -2430,7 +2431,7 @@ GIVEN( "an IO service and a TCP connector" )
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "Old WAMP Precondition Failures", "[OldWAMP][Basic]" )
+SCENARIO( "Old WAMP Invalid State Failures", "[OldWAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
@@ -2535,6 +2536,7 @@ GIVEN( "an IO service and a TCP connector" )
         });
 
         CHECK_NOTHROW( ioctx2.run() );
+        session->terminate();
     }
 
     WHEN( "using invalid operations while established" )
@@ -2578,6 +2580,7 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidOps(session, yield);
         });
         CHECK_NOTHROW( ioctx2.run() );
+        session->terminate();
     }
 }}
 

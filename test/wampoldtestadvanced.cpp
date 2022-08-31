@@ -364,11 +364,11 @@ GIVEN( "a caller and a callee" )
     WHEN( "caller leaves during progressive call results" )
     {
         bool interrupted = false;
+        int tickCount = 0;
 
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             std::vector<int> output;
-            int tickCount = 0;
 
             f.join(yield);
 
