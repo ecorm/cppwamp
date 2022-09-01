@@ -1,3 +1,8 @@
+v0.11.1
+=======
+Updated UML diagrams.
+
+
 v0.11.0
 =======
 Polymorphic codecs and transports.
