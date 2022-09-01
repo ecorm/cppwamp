@@ -28,7 +28,7 @@ namespace wamp
 /** CBOR format tag type.
     Meets the requirements of the @ref CodecFormat concept. */
 //------------------------------------------------------------------------------
-struct Cbor
+struct CPPWAMP_API Cbor
 {
     /** Default contructor. */
     constexpr Cbor() = default;

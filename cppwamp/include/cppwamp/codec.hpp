@@ -59,7 +59,7 @@ class OutputSink
 /** Output sink specialization referencing a std::string. */
 //------------------------------------------------------------------------------
 template <>
-class OutputSink<std::string>
+class CPPWAMP_API OutputSink<std::string>
 {
 public:
     using Output = std::string;
@@ -74,7 +74,7 @@ private:
 /** Output sink specialization referencing a wamp::MessageBuffer. */
 //------------------------------------------------------------------------------
 template <>
-class OutputSink<MessageBuffer>
+class CPPWAMP_API OutputSink<MessageBuffer>
 {
 public:
     using Output = MessageBuffer;
@@ -89,7 +89,7 @@ private:
 /** Output sink specialization referencing a std::ostream. */
 //------------------------------------------------------------------------------
 template <>
-class OutputSink<std::ostream>
+class CPPWAMP_API OutputSink<std::ostream>
 {
 public:
     using Output = std::ostream;
@@ -181,7 +181,7 @@ class InputSource
 /** Input source specialization referencing a std::string. */
 //------------------------------------------------------------------------------
 template <>
-class InputSource<std::string>
+class CPPWAMP_API InputSource<std::string>
 {
 public:
     using Input = std::string;
@@ -196,7 +196,7 @@ private:
 /** Input source specialization referencing a wamp::MessageBuffer. */
 //------------------------------------------------------------------------------
 template <>
-class InputSource<MessageBuffer>
+class CPPWAMP_API InputSource<MessageBuffer>
 {
 public:
     using Input = MessageBuffer;
@@ -211,7 +211,7 @@ private:
 /** Input source specialization referencing a std::ostream. */
 //------------------------------------------------------------------------------
 template <>
-class InputSource<std::istream>
+class CPPWAMP_API InputSource<std::istream>
 {
 public:
     using Input = std::istream;

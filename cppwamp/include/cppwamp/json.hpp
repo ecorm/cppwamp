@@ -28,7 +28,7 @@ namespace wamp
 /** JSON format tag type.
     Meets the requirements of the @ref CodecFormat concept. */
 //------------------------------------------------------------------------------
-struct Json
+struct CPPWAMP_API Json
 {
     /** Default contructor. */
     constexpr Json() = default;

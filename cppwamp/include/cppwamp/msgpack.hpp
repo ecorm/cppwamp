@@ -28,7 +28,7 @@ namespace wamp
 /** %Msgpack format tag type.
     Meets the requirements of the @ref CodecFormat concept. */
 //------------------------------------------------------------------------------
-struct Msgpack
+struct CPPWAMP_API Msgpack
 {
     /** Default contructor. */
     constexpr Msgpack() = default;
