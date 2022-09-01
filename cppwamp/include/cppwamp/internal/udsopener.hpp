@@ -13,6 +13,7 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
+#include "../erroror.hpp"
 #include "../udspath.hpp"
 
 namespace wamp
@@ -25,17 +26,15 @@ namespace internal
 class UdsOpener
 {
 public:
-    using Info      = UdsPath;
+    using Settings  = UdsPath;
     using Socket    = boost::asio::local::stream_protocol::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
     template <typename TExecutorOrStrand>
-    UdsOpener(TExecutorOrStrand&& exec, Info info)
+    UdsOpener(TExecutorOrStrand&& exec, Settings s)
         : strand_(std::forward<TExecutorOrStrand>(exec)),
-          info_(std::move(info))
+          settings_(std::move(s))
     {}
-
-    IoStrand strand() {return strand_;}
 
     template <typename F>
     void establish(F&& callback)
@@ -45,12 +44,12 @@ public:
             UdsOpener* self;
             typename std::decay<F>::type callback;
 
-            void operator()(AsioErrorCode ec)
+            void operator()(boost::system::error_code asioEc)
             {
-                if (ec)
-                    self->socket_.reset();
-                callback(ec, std::move(self->socket_));
+                SocketPtr socket{std::move(self->socket_)};
                 self->socket_.reset();
+                if (self->checkError(asioEc, callback))
+                    callback(std::move(socket));
             }
         };
 
@@ -58,10 +57,10 @@ public:
 
         socket_.reset(new Socket(strand_));
         socket_->open();
-        info_.options().applyTo(*socket_);
+        settings_.options().applyTo(*socket_);
 
-        // AsioConnector will keep this object alive until completion.
-        socket_->async_connect(info_.pathName(),
+        // RawsockConnector will keep this object alive until completion.
+        socket_->async_connect(settings_.pathName(),
                                Connected{this, std::forward<F>(callback)});
     }
 
@@ -72,8 +71,19 @@ public:
     }
 
 private:
+    template <typename F>
+    bool checkError(boost::system::error_code asioEc, F& callback)
+    {
+        if (asioEc)
+        {
+            auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
+            callback(UnexpectedError(ec));
+        }
+        return !asioEc;
+    }
+
     IoStrand strand_;
-    Info info_;
+    Settings settings_;
     SocketPtr socket_;
 };
 

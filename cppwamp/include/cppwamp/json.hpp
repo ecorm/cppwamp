@@ -25,6 +25,22 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
+/** JSON format tag type.
+    Meets the requirements of the @ref CodecFormat concept. */
+//------------------------------------------------------------------------------
+struct CPPWAMP_API Json
+{
+    /** Default contructor. */
+    constexpr Json() = default;
+
+    /** Obtains a numeric identifier associated with this codec. */
+    static constexpr int id() {return KnownCodecIds::json();}
+};
+
+/** Instance of the Json tag. */
+constexpr CPPWAMP_INLINE Json json;
+
+//------------------------------------------------------------------------------
 /** JSON encoder.
     This class uses [jsoncons][1] to serialize JSON payloads from Variant
     instances.
@@ -32,39 +48,42 @@ namespace wamp
 
     Meets the requirements of the @ref CodecEncoder concept.
 
-    @tparam O The output type in which to encode.
-    @tparam C The output category type (deduced). */
+    @tparam TSink The output sink type in which to encode. */
 //------------------------------------------------------------------------------
-template <typename O, typename C = OutputCategoryTypeOf<O>>
-class CPPWAMP_API BasicJsonEncoder
+template <typename TSink>
+class CPPWAMP_API SinkEncoder<Json, TSink>
 {
 public:
-    using Output = O;
-    using OutputCategory = C;
+    using Sink = TSink;
+    using Output = typename Sink::Output;
 
     /** Default constructor. */
-    BasicJsonEncoder();
+    SinkEncoder();
 
     /** Destructor. */
-    ~BasicJsonEncoder();
+    ~SinkEncoder();
 
-    /** Serializes from the given variant to the given output
+    /** Serializes from the given variant to the given output sink
         (it does not first clear the output, by design). */
-    void encode(const Variant& variant, Output& output);
+    void encode(const Variant& variant, Sink sink);
 
 private:
     class Impl;
     std::unique_ptr<Impl> impl_;
 };
 
+/// Yields the JSON encoder type for the given output sink type.
+template <typename TSink>
+using JsonEncoder = SinkEncoder<Json, TSink>;
+
 /// JSON encoder type that encodes into a std::string. */
-using JsonStringEncoder = BasicJsonEncoder<std::string>;
+using JsonStringEncoder = JsonEncoder<StringSink>;
 
 /// JSON encoder type that encodes into a MessageBuffer. */
-using JsonBufferEncoder = BasicJsonEncoder<MessageBuffer>;
+using JsonBufferEncoder = JsonEncoder<BufferSink>;
 
 /// JSON encoder type that encodes into a std::ostream. */
-using JsonStreamEncoder = BasicJsonEncoder<std::ostream>;
+using JsonStreamEncoder = JsonEncoder<StreamSink>;
 
 
 //------------------------------------------------------------------------------
@@ -75,89 +94,42 @@ using JsonStreamEncoder = BasicJsonEncoder<std::ostream>;
 
     Meets the requirements of the @ref CodecDecoder concept.
 
-    @tparam I The input type from which to decode.
-    @tparam C The input category type (deduced). */
+    @tparam TSource The input source type from which to decode. */
 //------------------------------------------------------------------------------
-template <typename I, typename C = InputCategoryTypeOf<I>>
-class CPPWAMP_API BasicJsonDecoder
+template <typename TSource>
+class CPPWAMP_API SourceDecoder<Json, TSource>
 {
 public:
-    using Input = I;
-    using InputCategory = C;
+    using Source = TSource;
+    using Input = typename Source::Input;
 
     /** Default constructor. */
-    BasicJsonDecoder();
+    SourceDecoder();
 
     /** Destructor. */
-    ~BasicJsonDecoder();
+    ~SourceDecoder();
 
-    /** Deserializes from the given input to the given variant. */
-    CPPWAMP_NODISCARD std::error_code decode(const Input& input,
-                                             Variant& variant);
+    /** Deserializes from the given input source to the given variant. */
+    CPPWAMP_NODISCARD std::error_code decode(Source source, Variant& variant);
 
 private:
     class Impl;
     std::unique_ptr<Impl> impl_;
 };
 
-//------------------------------------------------------------------------------
-/** JSON decoder specialization for stream inputs.
-    This class uses [jsoncons][1] to deserialize JSON payloads into Variant
-    instances.
-    [1]: https://github.com/danielaparker/jsoncons
-
-    Meets the requirements of the @ref CodecDecoder concept.
-
-    @tparam I The input stream type from which to decode. */
-//------------------------------------------------------------------------------
-template <typename I>
-class CPPWAMP_API BasicJsonDecoder<I, StreamInputCategory>
-{
-public:
-    using Input = I;
-    using InputCategory = StreamInputCategory;
-
-    /** Default constructor. */
-    BasicJsonDecoder();
-
-    /** Destructor. */
-    ~BasicJsonDecoder();
-
-    /** Deserializes from the given input stream to the given variant. */
-    CPPWAMP_NODISCARD std::error_code decode(Input& input, Variant& variant);
-
-private:
-    class Impl;
-    Impl* impl_;
-};
+/// Yields the JSON decoder type for the given input source type.
+template <typename TSource>
+using JsonDecoder = SourceDecoder<Json, TSource>;
 
 /// JSON decoder type that decodes from a std::string. */
-using JsonStringDecoder = BasicJsonDecoder<std::string>;
+using JsonStringDecoder = JsonDecoder<StringSource>;
 
 /// JSON decoder type that decodes from a MessageBuffer. */
-using JsonBufferDecoder = BasicJsonDecoder<MessageBuffer>;
+using JsonBufferDecoder = JsonDecoder<BufferSource>;
 
 /// JSON decoder type that decodes from a std::ostream. */
-using JsonStreamDecoder = BasicJsonDecoder<std::istream>;
+using JsonStreamDecoder = JsonDecoder<StreamSource>;
 
-
-//------------------------------------------------------------------------------
-/** JSON format tag type.
-    Meets the requirements of the @ref CodecFormat concept. */
-//------------------------------------------------------------------------------
-struct Json
-{
-    template <typename TOutput,
-              typename TOutputCategory = OutputCategoryTypeOf<TOutput>>
-    using Encoder = BasicJsonEncoder<TOutput, TOutputCategory>;
-
-    template <typename TInput,
-              typename TInputCategory = InputCategoryTypeOf<TInput>>
-    using Decoder = BasicJsonDecoder<TInput, TInputCategory>;
-
-    /** Obtains a numeric identifier associated with this codec. */
-    static constexpr int id() {return KnownCodecIds::json();}
-};
 
 } // namespace wamp
 

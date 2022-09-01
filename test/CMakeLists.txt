@@ -31,12 +31,7 @@ set(SOURCES
     main.cpp
 )
 
-set(HEADERS
-    faketransport.hpp
-    transporttest.hpp
-)
-
-add_executable(cppwamp-test ${SOURCES} ${HEADERS})
+add_executable(cppwamp-test ${SOURCES})
 
 # Use header-only version of CppWAMP to facilitate debugging tests.
 target_link_libraries(cppwamp-test

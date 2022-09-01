@@ -24,24 +24,25 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+template <typename TInput>
 class JsonDecoderImpl
 {
 public:
     JsonDecoderImpl() : parser_(jsoncons::strict_json_parsing{}) {}
 
-    std::error_code decode(const void* data, std::size_t length,
-                           Variant& variant)
+    std::error_code decode(const TInput& input, Variant& variant)
     {
         parser_.reinitialize();
-        parser_.update(static_cast<const char*>(data), length);
+        parser_.update(reinterpret_cast<const char*>(input.data()),
+                       input.size());
         visitor_.reset();
         std::error_code ec;
         parser_.finish_parse(visitor_, ec);
 
         if (!ec)
         {
-            // jsoncons::basic_json_parser does treat an input with no tokens
-            // as an error.
+            // jsoncons::basic_json_parser does not treat an input with no
+            // tokens as an error.
             if (visitor_.empty())
                 ec = make_error_code(DecodingErrc::emptyInput);
             else
@@ -60,6 +61,29 @@ private:
     Visitor visitor_;
 };
 
+//------------------------------------------------------------------------------
+template <>
+class JsonDecoderImpl<std::istream> : public JsonDecoderImpl<std::string>
+{
+public:
+    std::error_code decode(std::istream& in, Variant& variant)
+    {
+        bytes_.clear();
+        char buffer[4096];
+        while (in.read(buffer, sizeof(buffer)))
+            bytes_.append(buffer, sizeof(buffer));
+        bytes_.append(buffer, in.gcount());
+        auto ec = Base::decode(bytes_, variant);
+        bytes_.clear();
+        return ec;
+    }
+
+private:
+    using Base = JsonDecoderImpl<std::string>;
+
+    std::string bytes_;
+};
+
 } // namespace internal
 
 
@@ -68,8 +92,8 @@ private:
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-template <typename O, typename C>
-class BasicJsonEncoder<O, C>::Impl
+template <typename TSink>
+class SinkEncoder<Json, TSink>::Impl
 {
 public:
     template <typename TSinkable>
@@ -79,38 +103,39 @@ public:
     }
 
 private:
-    using Sink = typename std::conditional<
-            isSameType<C, StreamOutputCategory>(),
+    using Output = typename TSink::Output;
+    using ImplSink = typename std::conditional<
+            isSameType<TSink, StreamSink>(),
             jsoncons::stream_sink<char>,
-            jsoncons::string_sink<O>>::type;
+            jsoncons::string_sink<Output>>::type;
 
-    internal::JsonEncoderImpl<Sink> encoderImpl_;
+    internal::JsonEncoderImpl<ImplSink> encoderImpl_;
 };
 
 //------------------------------------------------------------------------------
-template <typename O, typename C>
-BasicJsonEncoder<O, C>::BasicJsonEncoder() : impl_(new Impl) {}
+template <typename TSink>
+SinkEncoder<Json, TSink>::SinkEncoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
 // Avoids incomplete type errors.
 //------------------------------------------------------------------------------
-template <typename O, typename C>
-BasicJsonEncoder<O, C>::~BasicJsonEncoder() {}
+template <typename TSink>
+SinkEncoder<Json, TSink>::~SinkEncoder() {}
 
 //------------------------------------------------------------------------------
-template <typename O, typename C>
-void BasicJsonEncoder<O, C>::encode(const Variant& variant, O& output)
+template <typename TSink>
+void SinkEncoder<Json, TSink>::encode(const Variant& variant, Sink sink)
 {
-    impl_->encode(variant, output);
+    impl_->encode(variant, sink.output());
 }
 
 //------------------------------------------------------------------------------
 // Explicit template instantiations
 //------------------------------------------------------------------------------
 #ifdef CPPWAMP_COMPILED_LIB
-template class BasicJsonEncoder<std::string, ByteContainerOutputCategory>;
-template class BasicJsonEncoder<MessageBuffer, ByteContainerOutputCategory>;
-template class BasicJsonEncoder<std::ostream, StreamOutputCategory>;
+template class SinkEncoder<Json, StringSink>;
+template class SinkEncoder<Json, BufferSink>;
+template class SinkEncoder<Json, StreamSink>;
 #endif
 
 
@@ -119,85 +144,44 @@ template class BasicJsonEncoder<std::ostream, StreamOutputCategory>;
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-template <typename I, typename C>
-class BasicJsonDecoder<I, C>::Impl
+template <typename TSource>
+class SourceDecoder<Json, TSource>::Impl
 {
 public:
-    std::error_code decode(const I& input, Variant& variant)
+    std::error_code decode(Source source, Variant& variant)
     {
-        return decoderImpl_.decode(input.data(), input.size(), variant);
+        return decoderImpl_.decode(source.input(), variant);
     }
 
 private:
-    internal::JsonDecoderImpl decoderImpl_;
+    internal::JsonDecoderImpl<typename TSource::Input> decoderImpl_;
 };
 
 //------------------------------------------------------------------------------
-template <typename I, typename C>
-BasicJsonDecoder<I, C>::BasicJsonDecoder() : impl_(new Impl) {}
+template <typename TSource>
+SourceDecoder<Json, TSource>::SourceDecoder() : impl_(new Impl) {}
 
 //------------------------------------------------------------------------------
 // Avoids incomplete type errors.
 //------------------------------------------------------------------------------
-template <typename I, typename C>
-BasicJsonDecoder<I, C>::~BasicJsonDecoder() {}
+template <typename TSource>
+SourceDecoder<Json, TSource>::~SourceDecoder() {}
 
 //------------------------------------------------------------------------------
-template <typename I, typename C>
-std::error_code BasicJsonDecoder<I, C>::decode(const I& input, Variant& variant)
+template <typename TSource>
+std::error_code SourceDecoder<Json, TSource>::decode(Source source,
+                                                     Variant& variant)
 {
-    return impl_->decode(input, variant);
-}
-
-//------------------------------------------------------------------------------
-template <typename I>
-class BasicJsonDecoder<I, StreamInputCategory>::Impl
-{
-public:
-    std::error_code decode(I& input, Variant& variant)
-    {
-        bytes_.clear();
-        char buffer[4096];
-        while (input.read(buffer, sizeof(buffer)))
-            bytes_.append(buffer, sizeof(buffer));
-        bytes_.append(buffer, input.gcount());
-        auto ec = decoderImpl_.decode(bytes_.data(), bytes_.size(), variant);
-        bytes_.clear();
-        return ec;
-    }
-
-private:
-    internal::JsonDecoderImpl decoderImpl_;
-    std::string bytes_;
-};
-
-//------------------------------------------------------------------------------
-template <typename I>
-BasicJsonDecoder<I, StreamInputCategory>::BasicJsonDecoder()
-    : impl_(new Impl)
-{}
-
-//------------------------------------------------------------------------------
-// Avoids incomplete type errors.
-//------------------------------------------------------------------------------
-template <typename I>
-BasicJsonDecoder<I, StreamInputCategory>::~BasicJsonDecoder() {}
-
-//------------------------------------------------------------------------------
-template <typename I>
-std::error_code
-BasicJsonDecoder<I, StreamInputCategory>::decode(I& input, Variant& variant)
-{
-    return impl_->decode(input, variant);
+    return impl_->decode(source.input(), variant);
 }
 
 //------------------------------------------------------------------------------
 // Explicit template instantiations
 //------------------------------------------------------------------------------
 #ifdef CPPWAMP_COMPILED_LIB
-template class BasicJsonDecoder<std::string, ByteArrayInputCategory>;
-template class BasicJsonDecoder<MessageBuffer, ByteArrayInputCategory>;
-template class BasicJsonDecoder<std::istream, StreamInputCategory>;
+template class SourceDecoder<Json, StringSource>;
+template class SourceDecoder<Json, BufferSource>;
+template class SourceDecoder<Json, StreamSource>;
 #endif
 
 } // namespace wamp

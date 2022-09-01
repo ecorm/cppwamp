@@ -32,12 +32,12 @@ const short testPort = 12345;
 const std::string authTestRealm = "cppwamp.authtest";
 const short authTestPort = 23456;
 
-Connector::Ptr tcp(AsioContext& ioctx)
+LegacyConnector withTcp(AsioContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", testPort));
 }
 
-Connector::Ptr authTcp(AsioContext& ioctx)
+LegacyConnector authTcp(AsioContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", authTestPort));
 }
@@ -145,7 +145,7 @@ SCENARIO( "Old WAMP RPC advanced features", "[OldWAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    RpcFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "using caller identification" )
     {
@@ -222,7 +222,7 @@ SCENARIO( "Old WAMP progressive call results", "[OldWAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    RpcFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "using progressive call results" )
     {
@@ -240,33 +240,33 @@ GIVEN( "a caller and a callee" )
                     CHECK( inv.isProgressive() );
 
                     boost::asio::spawn(
-                        inv.executor(),
+                        ioctx,
                         [&ioctx, &input, inv](boost::asio::yield_context yield)
-                    {
-                        boost::asio::steady_timer timer(ioctx);
-
-                        for (unsigned i=0; i<input.size(); ++i)
                         {
-                            // Simulate a streaming app that throttles
-                            // the intermediary results at a fixed rate.
-                            timer.expires_from_now(
-                                std::chrono::milliseconds(25));
-                            timer.async_wait(yield);
+                            boost::asio::steady_timer timer(ioctx);
 
-                            Result result({input.at(i)});
-                            if (i < (input.size() - 1))
-                                result.withProgress();
-                            inv.yield(result);
-                        }
-                    });
+                            for (unsigned i=0; i<input.size(); ++i)
+                            {
+                                // Simulate a streaming app that throttles
+                                // the intermediary results at a fixed rate.
+                                timer.expires_from_now(
+                                    std::chrono::milliseconds(25));
+                                timer.async_wait(yield);
+
+                                Result result({input.at(i)});
+                                if (i < (input.size() - 1))
+                                    result.withProgress();
+                                inv.yield(result);
+                            }
+                        });
                     return Outcome::deferred();
                 },
                 yield);
 
             for (unsigned i=0; i<2; ++i)
             {
-                f.caller->call(
-                    Rpc("com.myapp.foo").withProgressiveResults(),
+                f.caller->ongoingCall(
+                    Rpc("com.myapp.foo"),
                     [&output, &input](AsyncResult<Result> r)
                     {
                         const auto& result = r.get();
@@ -303,28 +303,28 @@ GIVEN( "a caller and a callee" )
                     CHECK( inv.isProgressive() );
 
                     boost::asio::spawn(
-                        inv.executor(),
+                        ioctx,
                         [&ioctx, &input, inv](boost::asio::yield_context yield)
-                    {
-                        boost::asio::steady_timer timer(ioctx);
-
-                        for (unsigned i=0; i<input.size(); ++i)
                         {
-                            // Simulate a streaming app that throttles
-                            // the intermediary results at a fixed rate.
+                            boost::asio::steady_timer timer(ioctx);
+
+                            for (unsigned i=0; i<input.size(); ++i)
+                            {
+                                // Simulate a streaming app that throttles
+                                // the intermediary results at a fixed rate.
+                                timer.expires_from_now(
+                                    std::chrono::milliseconds(25));
+                                timer.async_wait(yield);
+
+                                Result result({input.at(i)});
+                                result.withProgress();
+                                inv.yield(result);
+                            }
+
                             timer.expires_from_now(
                                 std::chrono::milliseconds(25));
-                            timer.async_wait(yield);
-
-                            Result result({input.at(i)});
-                            result.withProgress();
-                            inv.yield(result);
-                        }
-
-                        timer.expires_from_now(
-                            std::chrono::milliseconds(25));
-                        inv.yield(Error("some_reason"));
-                    });
+                            inv.yield(Error("some_reason"));
+                        });
                     return Outcome::deferred();
                 },
                 yield);
@@ -333,10 +333,8 @@ GIVEN( "a caller and a callee" )
             {
                 Error error;
                 bool receivedError = false;
-                f.caller->call(
-                    Rpc("com.myapp.foo")
-                        .withProgressiveResults()
-                        .captureError(error),
+                f.caller->ongoingCall(
+                    Rpc("com.myapp.foo").captureError(error),
                     [&output, &input, &receivedError](AsyncResult<Result> r)
                     {
                         if (output.size() == input.size())
@@ -366,11 +364,11 @@ GIVEN( "a caller and a callee" )
     WHEN( "caller leaves during progressive call results" )
     {
         bool interrupted = false;
+        int tickCount = 0;
 
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             std::vector<int> output;
-            int tickCount = 0;
 
             f.join(yield);
 
@@ -380,7 +378,7 @@ GIVEN( "a caller and a callee" )
                 {
                     CHECK( inv.isProgressive() );
                     boost::asio::spawn(
-                        inv.executor(),
+                        ioctx,
                         [&, inv](boost::asio::yield_context yield)
                         {
                             boost::asio::steady_timer timer(ioctx);
@@ -406,8 +404,8 @@ GIVEN( "a caller and a callee" )
                 },
                 yield);
 
-            f.caller->call(
-                Rpc("com.myapp.foo").withProgressiveResults(),
+            f.caller->ongoingCall(
+                Rpc("com.myapp.foo"),
                 [&output](AsyncResult<Result> r)
                 {
                     if (r.errorCode() == SessionErrc::sessionEnded)
@@ -439,7 +437,7 @@ SCENARIO( "Old RPC Cancellation", "[OldWAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    RpcFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "cancelling an RPC in kill mode before it returns" )
     {
@@ -668,7 +666,7 @@ SCENARIO( "Old Caller-initiated timeouts", "[OldWAMP][Advanced]" )
 GIVEN( "a caller and a callee" )
 {
     AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    RpcFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "the caller initiates timeouts" )
     {
@@ -685,7 +683,7 @@ GIVEN( "a caller and a callee" )
                 [&](Invocation inv) -> Outcome
                 {
                     boost::asio::spawn(
-                        inv.executor(),
+                        ioctx,
                         [&, inv](boost::asio::yield_context yield)
                         {
                             int arg = 0;
@@ -763,7 +761,7 @@ SCENARIO( "Old WAMP pub/sub advanced features", "[OldWAMP][Advanced]" )
 GIVEN( "a publisher and a subscriber" )
 {
     AsioContext ioctx;
-    PubSubFixture f(ioctx, tcp(ioctx));
+    PubSubFixture f(ioctx, withTcp(ioctx));
 
     WHEN( "using publisher identification" )
     {
@@ -879,7 +877,7 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using subscriber black/white listing" )
     {
-        auto subscriber2 = CoroSession<>::create(ioctx, tcp(ioctx));
+        auto subscriber2 = CoroSession<>::create(ioctx, withTcp(ioctx));
 
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {

@@ -9,7 +9,8 @@
 
 #include <cstdint>
 #include <memory>
-#include <string>
+#include "../anyhandler.hpp"
+#include "../erroror.hpp"
 #include "../peerdata.hpp"
 #include "../wampdefs.hpp"
 
@@ -31,9 +32,17 @@ public:
 
     virtual void safeUnregister(const Registration&) = 0;
 
-    virtual void safeYield(RequestId, wamp::Result&&) = 0;
+    virtual void safeUnregister(
+        const Registration&,
+        AnyCompletionHandler<void(ErrorOr<bool>)>&& handler) = 0;
 
-    virtual void safeYield(RequestId, wamp::Error&&) = 0;
+    virtual ErrorOrDone yield(RequestId, wamp::Result&&) = 0;
+
+    virtual std::future<ErrorOrDone> safeYield(RequestId, wamp::Result&&) = 0;
+
+    virtual ErrorOrDone yield(RequestId, wamp::Error&&) = 0;
+
+    virtual std::future<ErrorOrDone> safeYield(RequestId, wamp::Error&&) = 0;
 };
 
 } // namespace internal

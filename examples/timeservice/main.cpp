@@ -11,10 +11,10 @@
 #include <chrono>
 #include <ctime>
 #include <iostream>
-#include <boost/asio/spawn.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
@@ -52,18 +52,18 @@ std::tm getTime()
 //------------------------------------------------------------------------------
 int main()
 {
-    using namespace wamp;
-    AsioContext ioctx;
-    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = Session::create(ioctx, tcp);
+    wamp::IoContext ioctx;
+    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
+    wamp::Session session(ioctx.get_executor());
     boost::asio::steady_timer timer(ioctx);
 
-    boost::asio::spawn(ioctx,
-        [&session, &timer](boost::asio::yield_context yield)
+    wamp::spawn(ioctx,
+        [tcp, &session, &timer](wamp::YieldContext yield)
         {
-            session->connect(yield).value();
-            session->join(Realm(realm), yield).value();
-            session->enroll(Procedure("get_time"), simpleRpc<std::tm>(&getTime),
+            session.connect(tcp, yield).value();
+            session.join(wamp::Realm(realm), yield).value();
+            session.enroll(wamp::Procedure("get_time"),
+                            wamp::simpleRpc<std::tm>(&getTime),
                             yield).value();
 
             auto deadline = std::chrono::steady_clock::now();
@@ -75,8 +75,8 @@ int main()
 
                 auto t = std::time(nullptr);
                 const std::tm* local = std::localtime(&t);
-                session->publish(Pub("time_tick").withArgs(*local),
-                                 yield).value();
+                session.publish(wamp::Pub("time_tick").withArgs(*local),
+                                yield).value();
                 std::cout << "Tick: " << std::asctime(local) << "\n";
             }
         });

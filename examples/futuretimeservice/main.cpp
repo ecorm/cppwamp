@@ -53,7 +53,6 @@ std::tm getTime()
 //------------------------------------------------------------------------------
 int main()
 {
-    using namespace wamp;
     using boost::asio::use_future;
 
     // Run the io_context off in its own thread so that it operates
@@ -62,21 +61,21 @@ int main()
     auto work = boost::asio::make_work_guard(ioctx);
     std::thread thread([&ioctx](){ ioctx.run(); });
 
-    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = Session::create(ioctx, tcp);
+    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
+    wamp::Session session(ioctx);
     boost::asio::steady_timer timer(ioctx);
 
     // get() blocks the main thread until completion.
     // value() throws if there was an error.
-    auto index = session->connect(use_future).get().value();
+    auto index = session.connect(std::move(tcp), use_future).get().value();
     std::cout << "Connected via " << index << std::endl;
 
-    auto info = session->join(Realm(realm), use_future).get().value();
+    auto info = session.join(wamp::Realm(realm), use_future).get().value();
     std::cout << "Joined, SessionId=" << info.id() << std::endl;
 
-    auto reg = session->enroll(Procedure("get_time"),
-                               simpleRpc<std::tm>(&getTime),
-                               use_future).get().value();
+    auto reg = session.enroll(wamp::Procedure("get_time"),
+                              wamp::simpleRpc<std::tm>(&getTime),
+                              use_future).get().value();
     std::cout << "Registered 'get_time', RegistrationId=" << reg.id()
               << std::endl;
 
@@ -89,7 +88,7 @@ int main()
 
         auto t = std::time(nullptr);
         const std::tm* local = std::localtime(&t);
-        session->publish(Pub("time_tick").withArgs(*local),
+        session.publish(wamp::Pub("time_tick").withArgs(*local),
                          use_future).get().value();
         std::cout << "Tick: " << std::asctime(local) << "\n";
     }

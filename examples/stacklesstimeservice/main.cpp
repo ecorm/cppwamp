@@ -82,9 +82,10 @@ struct AftermathChecker
 class TimeService : boost::asio::coroutine
 {
 public:
-    explicit TimeService(wamp::AsioContext& ioctx, wamp::Session::Ptr session)
-        : session_(session),
-          timer_(std::make_shared<Timer>(ioctx))
+    explicit TimeService(wamp::AnyIoExecutor exec, wamp::ConnectionWish where)
+        : session_(std::make_shared<wamp::Session>(exec)),
+          timer_(std::make_shared<Timer>(std::move(exec))),
+          where_(std::move(where))
     {}
 
     void operator()(Aftermath aftermath = {})
@@ -96,7 +97,7 @@ public:
 
         reenter (this)
         {
-            yield session_->connect(*this);
+            yield session_->connect(where_, *this);
             std::cout << "Connected via "
                       << boost::variant2::get<1>(aftermath).value() << std::endl;
             yield session_->join(wamp::Realm(realm), *this);
@@ -140,19 +141,18 @@ private:
 
     // The session and timer objects must be stored as shared pointers
     // due to TimeService getting copied around.
-    wamp::Session::Ptr session_;
+    std::shared_ptr<wamp::Session> session_;
     std::shared_ptr<Timer> timer_;
+    wamp::ConnectionWish where_;
     std::chrono::steady_clock::time_point deadline_;
 };
 
 //------------------------------------------------------------------------------
 int main()
 {
-    using namespace wamp;
-    AsioContext ioctx;
-    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = Session::create(ioctx, tcp);
-    TimeService service(ioctx, session);
+    wamp::IoContext ioctx;
+    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
+    TimeService service(ioctx.get_executor(), std::move(tcp));
     service();
     ioctx.run();
     return 0;

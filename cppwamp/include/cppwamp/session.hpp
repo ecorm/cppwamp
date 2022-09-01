@@ -13,45 +13,29 @@
            in WAMP applications. */
 //------------------------------------------------------------------------------
 
-#include <atomic>
+#include <future>
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "chits.hpp"
 #include "config.hpp"
 #include "connector.hpp"
-#include "error.hpp"
 #include "erroror.hpp"
+#include "logging.hpp"
 #include "peerdata.hpp"
 #include "registration.hpp"
 #include "subscription.hpp"
-#include "traits.hpp"
+#include "tagtypes.hpp"
 #include "wampdefs.hpp"
-#include "internal/clientinterface.hpp"
 
 namespace wamp
 {
 
-//------------------------------------------------------------------------------
-/** Tag type used to specify than an operation is to be dispatched via the
-    called objects's execution strand.
-    Use the @ref threadSafe constant to conveniently pass this tag
-    to functions. */
-//------------------------------------------------------------------------------
-struct ThreadSafe
-{
-    constexpr ThreadSafe() = default;
-};
-
-//------------------------------------------------------------------------------
-/** Constant ThreadSafe object instance that can be passed to functions. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE_VARIABLE constexpr ThreadSafe threadSafe;
-
+// Forward declaration
+namespace internal { class Client; }
 
 //------------------------------------------------------------------------------
 /** %Session API used by a _client_ peer in WAMP applications.
@@ -74,47 +58,57 @@ CPPWAMP_INLINE_VARIABLE constexpr ThreadSafe threadSafe;
           listed under **Returns** refer to results that are emitted via
           ErrorOr.
 
-    The `boost::asio::io_context` passed via `create()` is used when executing
-    handler functions passed-in by the user. This can be the same, or different
-    than the `io_context` passed to the `Connector` creation functions.
+    @par Fallback Executor
+    A *fallback executor* may optionally be passed to Session for use in
+    executing user-provided handlers. If there is no executor bound to the
+    handler, Session will use Session::fallbackExecutor() instead.
+    When using Boost versions prior to 1.80.0, if one of the unpackers in
+    cppwamp/corounpacker.hpp is used to register an event or RPC handler, then
+    the fallback executor must originate from wamp::IoExecutor or
+    wamp::AnyIoExecutor.
 
     @par Aborting Asynchronous Operations
     All pending asynchronous operations can be _aborted_ by dropping the client
-    connection via Session::disconnect. Pending post-join operations can be also
-    be aborted via Session::leave. There is currently no way to abort a single
-    operation without dropping the connection or leaving the realm.
+    connection via Session::disconnect, or by destroying the Session object.
+    Pending post-join operations can be also be aborted via Session::leave.
+    Except for RPCs, there is currently no way to abort a single operation
+    without dropping the connection or leaving the realm.
 
     @par Terminating Asynchronous Operations
-    All pending asynchronous operations can be _terminated_ by dropping the
-    client connection via Session::reset or the Session destructor. By design,
-    the handlers for pending operations will not be invoked if they
-    were terminated in this way (this will result in hung coroutine operations).
-    This is useful if a client application needs to shutdown abruptly and cannot
-    enforce the lifetime of objects accessed within the asynchronous operation
-    handlers.
+    All pending asynchronous operations can be _terminated_ via Session::reset.
+    When terminating, the handlers for pending operations will not be invoked
+    (this will result in hung coroutine operations). This is useful if a client
+    application needs to shutdown abruptly and cannot enforce the lifetime of
+    objects accessed within the asynchronous operation handlers.
 
     @par Thread-safety
     Undecorated methods must be called within the Session's execution
     [strand](https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/core/strands.html).
-    If the same `io_context` is used by a single-threaded app and a Session's
-    transport, calls to undecorated methods will implicitly be within the
-    Session's strand. If invoked from other threads, calls to undecorated
-    methods must be executed via
-    `boost::asio::dispatch(session->stand(), operation)`. Session methods
+    If the same `io_context` is used by a single-threaded app and a Session,
+    calls to undecorated methods will implicitly be within the Session's strand.
+    If invoked from other threads, calls to undecorated methods must be executed
+    via `boost::asio::dispatch(session.stand(), operation)`. Session methods
     decorated with the ThreadSafe tag type may be safely used concurrently by
     multiple threads. These decorated methods take care of executing operations
     via a Session's strand so that they become sequential.
 
     @see ErrorOr, Registration, Subscription. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Session : public std::enable_shared_from_this<Session>
+class CPPWAMP_API Session
 {
 private:
     struct GenericOp { template <typename F> void operator()(F&&) {} };
 
 public:
-    /** Shared pointer to a Session. */
+    /** Shared pointer to a Session.
+        @deprecated will be removed */
     using Ptr = std::shared_ptr<Session>;
+
+    /** Executor type used for I/O operations. */
+    using Executor = AnyIoExecutor;
+
+    /** Fallback executor type for user-provided handlers. */
+    using FallbackExecutor = AnyCompletionExecutor;
 
     /** Enumerates the possible states that a Session can be in. */
     using State = SessionState;
@@ -129,13 +123,17 @@ public:
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
 
     /** Type-erased wrapper around a log event handler. */
-    using LogHandler = AnyReusableHandler<void(std::string)>;
+    using LogHandler = AnyReusableHandler<void (LogEntry)>;
+
+    /** Type-erased wrapper around a log string event handler. */
+    // TODO: Remove
+    using LogStringHandler = AnyReusableHandler<void (std::string)>;
 
     /** Type-erased wrapper around a Session state change handler. */
-    using StateChangeHandler = AnyReusableHandler<void(SessionState)>;
+    using StateChangeHandler = AnyReusableHandler<void (SessionState)>;
 
     /** Type-erased wrapper around an authentication challenge handler. */
-    using ChallengeHandler = AnyReusableHandler<void(Challenge)>;
+    using ChallengeHandler = AnyReusableHandler<void (Challenge)>;
 
     /** Obtains the type returned by [boost::asio::async_initiate]
         (https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/async_initiate.html)
@@ -144,80 +142,164 @@ public:
         Token Type                   | Deduced Return Type
         ---------------------------- | -------------------
         Callback function            | `void`
-        `boost::asio::yield_context` | `ErrorOr<Value>`
+        `wamp::YieldContext`         | `ErrorOr<Value>`
         `boost::asio::use_awaitable` | An awaitable yielding `ErrorOr<Value>`
         `boost::asio::use_future`    | `std::future<ErrorOr<Value>>` */
     template <typename T, typename C>
     using Deduced = decltype(
         boost::asio::async_initiate<C, void(T)>(std::declval<GenericOp&>(),
                                                 std::declval<C&>()));
-    /** Creates a new Session instance. */
-    static Ptr create(AnyIoExecutor exec, const Connector::Ptr& connector);
 
-    /** Creates a new Session instance. */
-    static Ptr create(AnyIoExecutor exec, const ConnectorList& connectors);
+    /// @name Construction
+    /// @{
+    /** Creates a new Session instance on the heap.
+        @deprecated Stack allocation is now permitted. */
+    static Ptr create(AnyIoExecutor exec);
 
-    /** Creates a new Session instance.
-        @copydetails Session::create(AnyIoExecutor, const Connector::Ptr&)
+    /** Creates a new Session instance on the heap. */
+    static Ptr create(const AnyIoExecutor& exec, FallbackExecutor fallbackExec);
+
+    /** Creates a new Session instance on the heap.
+        @deprecated Stack allocation is now permitted.
+        @copydetails Session::create(Executor)
         @details Only participates in overload resolution when
-                 `isExecutionContext<TExecutionContext>() == true`
-        @tparam TExecutionContext Must meet the requirements of
-                                  Boost.Asio's ExecutionContext */
-    template <typename TExecutionContext>
-    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<TExecutionContext>())
+                 `isExecutionContext<E>() == true`
+        @tparam E Must meet the requirements of Boost.Asio's ExecutionContext */
+    template <typename E>
+    CPPWAMP_DEPRECATED static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
     create(
-        TExecutionContext& context, /**< Provides executor with which to
-                                         post all user-provided handlers. */
-        const Connector::Ptr& connector /**< Connection details for the
-                                             transport to use. */
-        )
-    {
-        return create(context.get_executor(), connector);
-    }
-
-    /** Creates a new Session instance.
-        @copydetails Session::create(AnyIoExecutor, const ConnectorList&)
-        @details Only participates in overload resolution when
-                 `isExecutionContext<TExecutionContext>() == true`
-        @tparam TExecutionContext Must meet the requirements of
-                                  Boost.Asio's ExecutionContext */
-    template <typename TExecutionContext>
-    static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<TExecutionContext>())
-    create(
-        TExecutionContext& context, /**< Provides executor with which to
-                                         post all user-provided handlers. */
-        const ConnectorList& connectors  /**< Connection details for the
-                                              transport to use. */
+        E& executionContext /**< Context providing the executor from which
+                                 Session will extract a strand for its
+                                 internal I/O operations. */
     )
     {
-        return create(context.get_executor(), connectors);
+        return create(executionContext.get_executor());
     }
+
+    /** Creates a new Session instance on the heap.
+        @deprecated Stack allocation is now permitted.
+        @copydetails Session::create(Executor)
+        @details Only participates in overload resolution when
+                 `isExecutionContext<E1>() && isExecutionContext<E1>() == true`
+        @tparam E1 Must meet the requirements of Boost.Asio's ExecutionContext
+        @tparam E2 Must meet the requirements of Boost.Asio's ExecutionContext */
+    template <typename E1, typename E2>
+    CPPWAMP_DEPRECATED static
+        CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E1>() &&
+                                  isExecutionContext<E2>())
+    create(
+        E1& context,        /**< Context providing the executor from which
+                                 Session will extract a strand for
+                                 its internal I/O operations. */
+        E1& fallbackContext /**< Context providing the executor which serves
+                                 as fallback for all user-provided handlers. */
+    )
+    {
+        return create(context.get_executor(), fallbackContext.get_executor());
+    }
+
+    /** Creates a new Session instance.
+        @deprecated Pass connection wish list to Session::connect instead.
+        @deprecated Stack allocation is now permitted. */
+    CPPWAMP_DEPRECATED static Ptr create(FallbackExecutor fallbackExec,
+                                         LegacyConnector connector);
+
+    /** Creates a new Session instance.
+        @deprecated Pass connection wish list to Session::connect instead.
+        @deprecated Stack allocation is now permitted. */
+    CPPWAMP_DEPRECATED static Ptr create(FallbackExecutor fallbackExec,
+                                         ConnectorList connectors);
+
+    /** Creates a new Session instance.
+        @deprecated Pass connection wish list to Session::connect instead.
+        @deprecated Stack allocation is now permitted.
+        @copydetails Session::create(FallbackExecutor, LegacyConnector)
+        @details Only participates in overload resolution when
+                 `isExecutionContext<TExecutionContext>() == true`
+        @tparam TExecutionContext Must meet the requirements of
+                                  Boost.Asio's ExecutionContext */
+    template <typename E>
+    CPPWAMP_DEPRECATED static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
+    create(
+        E& fallbackContext,  /**< Context providing the executor which serves
+                                  as fallback for all user-provided handlers. */
+        LegacyConnector connector /**< Connection details for the
+                                       transport to use. */
+        )
+    {
+        return create(fallbackContext.get_executor(), std::move(connector));
+    }
+
+    /** Creates a new Session instance.
+        @deprecated Pass connection wish list to Session::connect instead.
+        @deprecated Stack allocation is now permitted.
+        @copydetails Session::create(FallbackExecutor, ConnectorList)
+        @details Only participates in overload resolution when
+                 `isExecutionContext<E>() == true`
+        @tparam E Must meet the requirements of Boost.Asio's ExecutionContext */
+    template <typename E>
+    CPPWAMP_DEPRECATED static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
+    create(
+        E& fallbackContext, /**< Context providing the executor which serves
+                                 as fallback for all user-provided handlers. */
+        ConnectorList connectors  /**< Connection details for the
+                                       transport to use. */
+    )
+    {
+        return create(fallbackContext.get_executor(), std::move(connectors));
+    }
+
+    /** Constructor taking an executor. */
+    explicit Session(Executor exec);
+
+    /** Constructor taking an executor for I/O operations
+        and another for user-provided handlers. */
+    Session(const Executor& exec, FallbackExecutor fallbackExec);
+
+    /** Constructor taking an execution context. */
+    template <typename E, EnableIf<isExecutionContext<E>()> = 0>
+    explicit Session(E& context) : Session(context.get_executor()) {}
+
+    /** Constructor taking an I/O execution context and another as fallback
+        for user-provided handlers. */
+    template <typename E1, typename E2,
+             EnableIf<isExecutionContext<E1>() && isExecutionContext<E2>()> = 0>
+    explicit Session(E1& executionContext, E2& fallbackExecutionContext)
+        : Session(executionContext.get_executor(),
+                  fallbackExecutionContext.get_executor())
+    {}
+
+    /** Destructor. */
+    ~Session();
+    /// @}
+
+    /// @name Move-only
+    /// @{
+    Session(const Session&) = delete;
+    Session(Session&&) = default;
+    Session& operator=(const Session&) = delete;
+    Session& operator=(Session&&) = default;
+    /// @}
+
+    /// @name Observers
+    /// @{
 
     /** Obtains a dictionary of roles and features supported on the client
         side. */
     static const Object& roles();
 
-    /// @name Non-copyable
-    /// @{
-    Session(const Session&) = delete;
-    Session& operator=(const Session&) = delete;
-    /// @}
-
-    /** Destructor. */
-    virtual ~Session();
-
-    /// @name Observers
-    /// @{
-
-    /** Obtains the fallback executor used to execute user-provided handlers. */
-    AnyIoExecutor userExecutor() const;
-
-    /** Legacy function kept for backward compatiblity. */
-    CPPWAMP_DEPRECATED AnyIoExecutor userIosvc() const;
-
     /** Obtains the execution context in which which I/O operations are
         serialized. */
-    IoStrand strand() const;
+    const IoStrand& strand() const;
+
+    /** Obtains the fallback executor used for user-provided handlers. */
+    FallbackExecutor fallbackExecutor() const;
+
+    /** @deprecated Use Session::fallbackExecutor instead */
+    CPPWAMP_DEPRECATED FallbackExecutor userExecutor() const;
+
+    /** Legacy function kept for backward compatiblity. */
+    CPPWAMP_DEPRECATED FallbackExecutor userIosvc() const;
 
     /** Returns the current state of the session. */
     SessionState state() const;
@@ -225,17 +307,28 @@ public:
 
     /// @name Modifiers
     /// @{
+    /** Sets the handler that is dispatched for logging events. */
+    void setLogHandler(LogHandler handler);
+
+    /** Thread-safe setting of log handler. */
+    void setLogHandler(ThreadSafe, LogHandler handler);
+
+    /** Sets the maximum level of log events that will be emitted. */
+    void setLogLevel(LogLevel level);
+
     /** Sets the log handler that is dispatched for warnings. */
-    void setWarningHandler(LogHandler handler);
+    CPPWAMP_DEPRECATED void setWarningHandler(LogStringHandler handler);
 
     /** Thread-safe setting of warning handler. */
-    void setWarningHandler(ThreadSafe, LogHandler handler);
+    CPPWAMP_DEPRECATED void setWarningHandler(ThreadSafe,
+                                              LogStringHandler handler);
 
     /** Sets the log handler that is dispatched for debug traces. */
-    void setTraceHandler(LogHandler handler);
+    CPPWAMP_DEPRECATED void setTraceHandler(LogStringHandler handler);
 
     /** Thread-safe setting of trace handler. */
-    void setTraceHandler(ThreadSafe, LogHandler handler);
+    CPPWAMP_DEPRECATED void setTraceHandler(ThreadSafe,
+                                            LogStringHandler handler);
 
     /** Sets the handler that is posted for session state changes. */
     void setStateChangeHandler(StateChangeHandler handler);
@@ -255,9 +348,32 @@ public:
     /** Asynchronously attempts to connect to a router. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
-    connect(C&& completion);
+    connect(ConnectionWish wish, C&& completion);
 
     /** Thread-safe connect. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
+    connect(ThreadSafe, ConnectionWish wish, C&& completion);
+
+    /** Asynchronously attempts to connect to a router. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
+    connect(ConnectionWishList wishes, C&& completion);
+
+    /** Thread-safe connect. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
+    connect(ThreadSafe, ConnectionWishList wishes, C&& completion);
+
+    /** Asynchronously attempts to connect to a router using the legacy
+        connectors passed during session creation.
+        @deprecated Use a connect overload taking wishes instead. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
+    connect(C&& completion);
+
+    /** Thread-safe legacy connect.
+        @deprecated Use a connect overload taking wishes instead. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
     connect(ThreadSafe, C&& completion);
@@ -273,10 +389,11 @@ public:
     join(ThreadSafe, Realm realm, C&& completion);
 
     /** Sends an `AUTHENTICATE` in response to a `CHALLENGE`. */
-    void authenticate(Authentication auth);
+    CPPWAMP_NODISCARD ErrorOrDone authenticate(Authentication auth);
 
     /** Thread-safe authenticate. */
-    void authenticate(ThreadSafe, Authentication auth);
+    CPPWAMP_NODISCARD std::future<ErrorOrDone>
+    authenticate(ThreadSafe, Authentication auth);
 
     /** Asynchronously leaves the WAMP session. */
     template <typename C>
@@ -305,9 +422,15 @@ public:
     void disconnect(ThreadSafe);
 
     /** Terminates the transport connection between the client and router. */
-    void reset();
+    void terminate();
 
     /** Thread-safe reset. */
+    void terminate(ThreadSafe);
+
+    /** @deprecated Use Session::terminate instead. */
+    void reset();
+
+    /** @deprecated Use Session::terminate instead. */
     void reset(ThreadSafe);
     /// @}
 
@@ -341,10 +464,10 @@ public:
     unsubscribe(ThreadSafe, Subscription sub, C&& completion);
 
     /** Publishes an event. */
-    void publish(Pub pub);
+    CPPWAMP_NODISCARD ErrorOrDone publish(Pub pub);
 
     /** Thread-safe publish. */
-    void publish(ThreadSafe, Pub pub);
+    CPPWAMP_NODISCARD std::future<ErrorOrDone> publish(ThreadSafe, Pub pub);
 
     /** Publishes an event and waits for an acknowledgement from the router. */
     template <typename C>
@@ -419,18 +542,39 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
     call(ThreadSafe, Rpc rpc, CallChit& chit, C&& completion);
 
+    /** Calls a remote procedure with progressive results. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
+    ongoingCall(Rpc rpc, C&& completion);
+
+    /** Thread-safe call with progressive results. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
+    ongoingCall(ThreadSafe, Rpc rpc, C&& completion);
+
+    /** Calls a remote procedure with progressive results, obtaining a token
+        that can be used for cancellation. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
+    ongoingCall(Rpc rpc, CallChit& chit, C&& completion);
+
+    /** Thread-safe call with CallChit capture and progressive results. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
+    ongoingCall(ThreadSafe, Rpc rpc, CallChit& chit, C&& completion);
+
     /** Cancels a remote procedure using the cancel mode that was specified
         in the @ref wamp::Rpc "Rpc". */
-    void cancel(CallChit);
+    ErrorOrDone cancel(CallChit);
 
     /** Thread-safe cancel. */
-    void cancel(ThreadSafe, CallChit);
+    std::future<ErrorOrDone> cancel(ThreadSafe, CallChit);
 
     /** Cancels a remote procedure using the given mode. */
-    void cancel(CallChit, CallCancelMode mode);
+    ErrorOrDone cancel(CallChit, CallCancelMode mode);
 
     /** Thread-safe cancel with a given mode. */
-    void cancel(ThreadSafe, CallChit, CallCancelMode mode);
+    std::future<ErrorOrDone> cancel(ThreadSafe, CallChit, CallCancelMode mode);
 
     /** Cancels a remote procedure.
         @deprecated Use the overload taking a CallChit. */
@@ -442,20 +586,16 @@ public:
     /// @}
 
 private:
-    using ImplPtr = typename internal::ClientInterface::Ptr;
-
     template <typename T>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<T>)>;
 
     template <typename T>
     using ReusableHandler = AnyReusableHandler<void(T)>;
 
-    using OneShotCallHandler   = CompletionHandler<Result>;
-    using MultiShotCallHandler = AnyReusableHandler<void(ErrorOr<Result>)>;
+    using OngoingCallHandler = AnyReusableHandler<void(ErrorOr<Result>)>;
 
     // These initiator function objects are needed due to C++11 lacking
     // generic lambdas.
-    template <typename O> class SafeOp;
     struct ConnectOp;
     struct JoinOp;
     struct LeaveOp;
@@ -466,6 +606,10 @@ private:
     struct EnrollIntrOp;
     struct UnregisterOp;
     struct CallOp;
+    struct OngoingCallOp;
+
+    CPPWAMP_HIDDEN explicit Session(FallbackExecutor fallbackExec,
+                                    ConnectorList connectors);
 
     template <typename O, typename C, typename... As>
     Deduced<ErrorOr<typename O::ResultValue>, C>
@@ -475,42 +619,33 @@ private:
     Deduced<ErrorOr<typename O::ResultValue>, C>
     safelyInitiate(C&& token, As&&... args);
 
-    template <typename F>
-    void dispatchViaStrand(F&& operation);
+    void doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
+    void safeConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
+    void doJoin(Realm&& realm, CompletionHandler<SessionInfo>&& f);
+    void safeJoin(Realm&& r, CompletionHandler<SessionInfo>&& f);
+    void doLeave(Reason&& reason, CompletionHandler<Reason>&& f);
+    void safeLeave(Reason&& r, CompletionHandler<Reason>&& f);
+    void doSubscribe(Topic&& t, EventSlot&& s,
+                     CompletionHandler<Subscription>&& f);
+    void safeSubscribe(Topic&& t, EventSlot&& s,
+                       CompletionHandler<Subscription>&& f);
+    void doUnsubscribe(const Subscription& s, CompletionHandler<bool>&& f);
+    void safeUnsubscribe(const Subscription& s, CompletionHandler<bool>&& f);
+    void doPublish(Pub&& p, CompletionHandler<PublicationId>&& f);
+    void safePublish(Pub&& p, CompletionHandler<PublicationId>&& f);
+    void doEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
+                  CompletionHandler<Registration>&& f);
+    void safeEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
+                    CompletionHandler<Registration>&& f);
+    void doUnregister(const Registration& r, CompletionHandler<bool>&& f);
+    void safeUnregister(const Registration& r, CompletionHandler<bool>&& f);
+    void doOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f);
+    void safeOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f);
+    void doOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f);
+    void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f);
 
-    template <typename TResultValue, typename F>
-    bool checkState(State expectedState, F& handler);
-
-    void asyncConnect(CompletionHandler<size_t>&& handler);
-
-    CPPWAMP_HIDDEN explicit Session(AnyIoExecutor userExec,
-                                    const ConnectorList& connectors);
-
-    CPPWAMP_HIDDEN void warn(std::string message);
-
-    CPPWAMP_HIDDEN void setState(SessionState state);
-
-    CPPWAMP_HIDDEN void doConnect(
-        size_t index, std::shared_ptr<CompletionHandler<size_t>> handler);
-
-    CPPWAMP_INLINE void onConnectFailure(
-        size_t index, std::error_code ec,
-        std::shared_ptr<CompletionHandler<size_t>> handler);
-
-    CPPWAMP_INLINE void onConnectSuccess(
-        size_t index, ImplPtr impl,
-            std::shared_ptr<CompletionHandler<size_t>> handler);
-
-    AnyIoExecutor userExecutor_;
-    ConnectorList connectors_;
-    Connector::Ptr currentConnector_;
-    ReusableHandler<std::string> warningHandler_;
-    ReusableHandler<std::string> traceHandler_;
-    ReusableHandler<State> stateChangeHandler_;
-    ReusableHandler<Challenge> challengeHandler_;
-    std::atomic<SessionState> state_;
-    bool isTerminating_ = false;
-    ImplPtr impl_;
+    ConnectorList legacyConnectors_;
+    std::shared_ptr<internal::Client> impl_;
 
     // TODO: Remove this once CoroSession is removed
     template <typename> friend class CoroSession;
@@ -522,69 +657,152 @@ private:
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-template <typename O>
-class Session::SafeOp
-{
-public:
-    using ResultValue = typename O::ResultValue;
-
-    template <typename... Ts>
-    SafeOp(Session* self, Ts&&... args)
-        : self_(self),
-          operation_({self, std::forward<Ts>(args)...})
-    {}
-
-    template <typename F>
-    void operator()(F&& handler)
-    {
-        struct Dispatched
-        {
-            Session::Ptr self;
-            O operation;
-            typename std::decay<F>::type handler;
-
-            void operator()()
-            {
-                operation(std::move(handler));
-            }
-        };
-
-        boost::asio::dispatch(self_->strand(),
-                              Dispatched{self_->shared_from_this(),
-                                         std::move(operation_),
-                                         std::forward<F>(handler)});
-    }
-
-private:
-    Session* self_;
-    O operation_;
-};
-
-//------------------------------------------------------------------------------
 struct Session::ConnectOp
 {
     using ResultValue = size_t;
     Session* self;
+    ConnectionWishList w;
+
     template <typename F> void operator()(F&& f)
     {
-        self->asyncConnect(std::forward<F>(f));
+        self->doConnect(std::move(w), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->safeConnect(std::move(w), std::forward<F>(f));
     }
 };
 
 //------------------------------------------------------------------------------
 /** @details
-    The session will attempt to connect using the transports that were
-    specified by the wamp::Connector objects passed during create().
-    If more than one transport was specified, they will be traversed in the
-    same order as they appeared in the @ref ConnectorList.
-    @return The index of the Connector object used to establish the connetion.
+    The session will attempt to connect using the transport/codec combinations
+    specified in the given ConnectionWishList, in the same order.
+    @return The index of the ConnectionWish used to establish the connetion
+            (always zero for this overload).
     @post `this->state() == SessionState::connecting` if successful
     @par Error Codes
         - TransportErrc::aborted if the connection attempt was aborted.
         - SessionErrc::allTransportsFailed if more than one transport was
           specified and they all failed to connect.
         - SessionErrc::invalidState if the session was not disconnected
-          before the attempt to connect.
+          during attempt to connect.
+        - Some other platform or transport-dependent `std::error_code` if
+          only one transport was specified and it failed to connect. */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<std::size_t>, C>
+#else
+Session::template Deduced<ErrorOr<std::size_t>, C>
+#endif
+Session::connect(
+    ConnectionWish wish, /**< Transport/codec combination to use for
+                              attempting connection. */
+    C&& completion /**< A callable handler of type `void(ErrorOr<size_t>)`,
+                        or a compatible Boost.Asio completion token. */
+    )
+{
+    return connect(ConnectionWishList{std::move(wish)},
+                   std::forward<C>(completion));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::connect(ConnectionWishList, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<std::size_t>, C>
+#else
+Session::template Deduced<ErrorOr<std::size_t>, C>
+#endif
+Session::connect(
+    ThreadSafe,
+    ConnectionWish wish, /**< Transport/codec combination to use for
+                              attempting connection. */
+    C&& completion /**< A callable handler of type void(ErrorOr<size_t>),
+                        or a compatible Boost.Asio completion token. */
+    )
+{
+    return connect(threadSafe, ConnectionWishList{std::move(wish)},
+                   std::forward<C>(completion));
+}
+
+//------------------------------------------------------------------------------
+/** @details
+    The session will attempt to connect using the transport/codec combinations
+    specified in the given ConnectionWishList, in the same order.
+    @return The index of the ConnectionWish used to establish the connetion.
+    @pre `wishes.empty() == false`
+    @post `this->state() == SessionState::connecting` if successful
+    @throws error::Logic if the given wish list is empty
+    @par Error Codes
+        - TransportErrc::aborted if the connection attempt was aborted.
+        - SessionErrc::allTransportsFailed if more than one transport was
+          specified and they all failed to connect.
+        - SessionErrc::invalidState if the session was not disconnected
+          during the attempt to connect.
+        - Some other platform or transport-dependent `std::error_code` if
+          only one transport was specified and it failed to connect. */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<std::size_t>, C>
+#else
+Session::template Deduced<ErrorOr<std::size_t>, C>
+#endif
+Session::connect(
+    ConnectionWishList wishes, /**< List of transport addresses/options/codecs
+                                    to use for attempting connection. */
+    C&& completion /**< A callable handler of type `void(ErrorOr<size_t>)`,
+                        or a compatible Boost.Asio completion token. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(!wishes.empty(),
+                        "Session::connect ConnectionWishList cannot be empty");
+    return initiate<ConnectOp>(std::forward<C>(completion), std::move(wishes));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::connect(ConnectionWishList, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<std::size_t>, C>
+#else
+Session::template Deduced<ErrorOr<std::size_t>, C>
+#endif
+Session::connect(
+    ThreadSafe,
+    ConnectionWishList wishes, /**< List of transport addresses/options/codecs
+                                    to use for attempting connection. */
+    C&& completion /**< A callable handler of type void(ErrorOr<size_t>),
+                        or a compatible Boost.Asio completion token. */
+    )
+{
+    CPPWAMP_LOGIC_CHECK(!wishes.empty(),
+                        "Session::connect ConnectionWishList cannot be empty");
+    return safelyInitiate<ConnectOp>(std::forward<C>(completion),
+                                     std::move(wishes));
+}
+
+//------------------------------------------------------------------------------
+/** @details
+    The session will attempt to connect using the transports that were
+    specified by the wamp::LegacyConnect objects passed during create().
+    If more than one transport was specified, they will be traversed in the
+    same order as they appeared in the @ref ConnectorList.
+    @return The index of the Connecting object used to establish the connetion.
+    @pre The Session::create overload taking legacy connectors was used.
+    @post `this->state() == SessionState::connecting` if successful
+    @throws error::Logic if the Session::create overload taking legacy
+            connectors was not used.
+    @par Error Codes
+        - TransportErrc::aborted if the connection attempt was aborted.
+        - SessionErrc::allTransportsFailed if more than one transport was
+          specified and they all failed to connect.
+        - SessionErrc::invalidState if the session was not disconnected
+          during the attempt to connect.
         - Some other platform or transport-dependent `std::error_code` if
           only one transport was specified and it failed to connect. */
 //------------------------------------------------------------------------------
@@ -599,7 +817,13 @@ Session::connect(
                         or a compatible Boost.Asio completion token. */
     )
 {
-    return initiate<ConnectOp>(std::forward<C>(completion));
+    CPPWAMP_LOGIC_CHECK(!legacyConnectors_.empty(),
+                        "Session::connect: No legacy connectors passed "
+                        "in Session::create");
+    ConnectionWishList wishes;
+    for (const auto& c: legacyConnectors_)
+        wishes.emplace_back(c);
+    return connect(std::move(wishes), std::forward<C>(completion));
 }
 
 //------------------------------------------------------------------------------
@@ -617,7 +841,13 @@ Session::connect(
                         or a compatible Boost.Asio completion token. */
     )
 {
-    return safelyInitiate<ConnectOp>(std::forward<C>(completion));
+    CPPWAMP_LOGIC_CHECK(!legacyConnectors_.empty(),
+                        "Session::connect: No legacy connectors passed "
+                        "in Session::create");
+    ConnectionWishList wishes;
+    for (const auto& c: legacyConnectors_)
+        wishes.emplace_back(c);
+    return connect(threadSafe, std::move(wishes), std::forward<C>(completion));
 }
 
 //------------------------------------------------------------------------------
@@ -625,12 +855,16 @@ struct Session::JoinOp
 {
     using ResultValue = SessionInfo;
     Session* self;
-    Realm realm;
+    Realm r;
+
     template <typename F> void operator()(F&& f)
     {
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::closed, handler))
-            self->impl_->join(std::move(realm), std::move(handler));
+        self->doJoin(std::move(r), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->safeJoin(threadSafe, std::move(r), std::forward<F>(f));
     }
 };
 
@@ -640,8 +874,10 @@ struct Session::JoinOp
            or a compatible Boost.Asio completion token.
     @post `this->state() == SessionState::establishing` if successful
     @par Error Codes
+        - SessionErrc::payloadSizeExceeded if the resulting JOIN message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not closed
-          before the attempt to join.
+          during the attempt to join.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
         - SessionErrc::noSuchRealm if the realm does not exist.
@@ -690,12 +926,16 @@ struct Session::LeaveOp
 {
     using ResultValue = Reason;
     Session* self;
-    Reason reason;
+    Reason r;
+
     template <typename F> void operator()(F&& f)
     {
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            self->impl_->leave(std::move(reason), std::move(handler));
+        self->doLeave(std::move(r), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->safeLeave(std::move(r), std::forward<F>(f));
     }
 };
 
@@ -706,8 +946,10 @@ struct Session::LeaveOp
             by the router.
     @post `this->state() == SessionState::shuttingDown` if successful
     @par Error Codes
+        - SessionErrc::payloadSizeExceeded if the resulting GOODBYE message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to leave.
+          while attempting to leave.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer
           before a `GOODBYE` response was received.
@@ -751,8 +993,10 @@ Session::leave(
             by the router.
     @post `this->state() == SessionState::shuttingDown` if successful
     @par Error Codes
+        - SessionErrc::payloadSizeExceeded if the resulting GOODBYE message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to leave.
+          during the attempt to leave.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer
           before a `GOODBYE` response was received.
@@ -798,14 +1042,17 @@ struct Session::SubscribeOp
 {
     using ResultValue = Subscription;
     Session* self;
-    Topic topic;
-    EventSlot slot;
+    Topic t;
+    EventSlot s;
+
     template <typename F> void operator()(F&& f)
     {
-        using std::move;
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            self->impl_->subscribe(move(topic), move(slot), move(handler));
+        self->doSubscribe(std::move(t), std::move(s), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->safeSubscribe(std::move(t), std::move(s), std::forward<F>(f));
     }
 };
 
@@ -815,8 +1062,10 @@ struct Session::SubscribeOp
     @return A Subscription object, therafter used to manage the subscription's
             lifetime.
     @par Error Codes
+        - SessionErrc::payloadSizeExceeded if the resulting SUBSCRIBE message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to subscribe.
+          while attempting to subscribe.
         - SessionErrc::subscribeError if the router replied with an `ERROR`
           response.
         - Some other `std::error_code` for protocol and transport errors. */
@@ -868,12 +1117,16 @@ struct Session::UnsubscribeOp
 {
     using ResultValue = bool;
     Session* self;
-    Subscription sub;
+    Subscription s;
+
     template <typename F> void operator()(F&& f)
     {
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            self->impl_->unsubscribe(std::move(sub), std::move(handler));
+        self->doUnsubscribe(std::move(s), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->safeUnsubscribe(std::move(s), std::forward<F>(f));
     }
 };
 
@@ -881,15 +1134,18 @@ struct Session::UnsubscribeOp
 /** @details
     If there are other local subscriptions on this session remaining for the
     same topic, then the session does not send an `UNSUBSCRIBE` message to
-    the router.
+    the router and `true` will be passed to the completion handler.
+    If the subscription is no longer applicable, then this operation will
+    effectively do nothing and a `false` value will be emitted via the
+    completion handler.
     @see Subscription, ScopedSubscription
-    @returns `false` if the subscription was already removed, `true` otherwise.
+    @returns `true` if the subscription was found.
     @note Duplicate unsubscribes using the same Subscription handle
           are safely ignored.
     @pre `!!sub == true`
     @par Error Codes
         - SessionErrc::invalidState if the session was not established
-          before the attempt to unsubscribe.
+          while attempting to subsubscribe.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
         - SessionErrc::noSuchSubscription if the router reports that there was
@@ -940,20 +1196,26 @@ struct Session::PublishOp
 {
     using ResultValue = PublicationId;
     Session* self;
-    Pub pub;
+    Pub p;
+
     template <typename F> void operator()(F&& f)
     {
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            self->impl_->publish(std::move(pub), std::move(handler));
+        self->doPublish(std::move(p), std::move(std::forward<F>(f)));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->safePublish(std::move(p), std::move(std::forward<F>(f)));
     }
 };
 
 //------------------------------------------------------------------------------
 /** @return The publication ID for this event.
     @par Error Codes
+        - SessionErrc::payloadSizeExceeded if the resulting PUBLISH message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to publish.
+          during the attempt to publish.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
         - SessionErrc::publishError if the router replies with an ERROR
@@ -1000,15 +1262,18 @@ struct Session::EnrollOp
 {
     using ResultValue = Registration;
     Session* self;
-    Procedure procedure;
-    CallSlot slot;
+    Procedure p;
+    CallSlot s;
+
     template <typename F> void operator()(F&& f)
     {
-        using std::move;
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            self->impl_->enroll(move(procedure), move(slot), nullptr,
-                                move(handler));
+        self->doEnroll(std::move(p), std::move(s), nullptr, std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->safeEnroll(std::move(p), std::move(s), nullptr,
+                         std::forward<F>(f));
     }
 };
 
@@ -1020,8 +1285,10 @@ struct Session::EnrollOp
     @note This function was named `enroll` because `register` is a reserved
           C++ keyword.
     @par Error Codes
+        - SessionErrc::payloadSizeExceeded if the resulting REGISTER message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to enroll.
+          during the attempt to enroll.
         - SessionErrc::procedureAlreadyExists if the router reports that the
           procedure has already been registered for this realm.
         - SessionErrc::registerError if the router reports some other error.
@@ -1075,17 +1342,20 @@ struct Session::EnrollIntrOp
 {
     using ResultValue = Registration;
     Session* self;
-    Procedure procedure;
-    CallSlot callSlot;
-    InterruptSlot interruptSlot;
+    Procedure p;
+    CallSlot c;
+    InterruptSlot i;
+
     template <typename F> void operator()(F&& f)
     {
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-        {
-            self->impl_->enroll(std::move(procedure), std::move(callSlot),
-                                std::move(interruptSlot), std::move(handler));
-        }
+        self->doEnroll(std::move(p), std::move(c), std::move(i),
+                       std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->safeEnroll(std::move(p), std::move(c), std::move(i),
+                         std::forward<F>(f));
     }
 };
 
@@ -1097,8 +1367,10 @@ struct Session::EnrollIntrOp
     @note This function was named `enroll` because `register` is a reserved
           C++ keyword.
     @par Error Codes
+        - SessionErrc::payloadSizeExceeded if the resulting REGISTER message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to enroll.
+          during the attempt to enroll.
         - SessionErrc::procedureAlreadyExists if the router reports that the
           procedure has already been registered for this realm.
         - SessionErrc::registerError if the router reports some other error.
@@ -1159,24 +1431,32 @@ struct Session::UnregisterOp
 {
     using ResultValue = bool;
     Session* self;
-    Registration reg;
+    Registration r;
+
     template <typename F> void operator()(F&& f)
     {
-        CompletionHandler<ResultValue> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            self->impl_->unregister(std::move(reg), std::move(handler));
+        self->doUnregister(std::move(r), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->safeUnregister(std::move(r), std::forward<F>(f));
     }
 };
 
 //------------------------------------------------------------------------------
-/** @see Registration, ScopedRegistration
-    @returns `false` if the registration was already removed, `true` otherwise.
+/** @details
+    If the registration is no longer applicable, then this operation will
+    effectively do nothing and a `false` value will be emitted via the
+    completion handler.
+    @see Registration, ScopedRegistration
+    @returns `true` if the registration was found.
     @note Duplicate unregistrations using the same Registration handle
           are safely ignored.
     @pre `!!reg == true`
     @par Error Codes
         - SessionErrc::invalidState if the session was not established
-          before the attempt to unregister.
+          while attempting to unregister.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
         - SessionErrc::noSuchRegistration if the router reports that there is
@@ -1227,60 +1507,27 @@ struct Session::CallOp
 {
     using ResultValue = Result;
     Session* self;
-    Rpc rpc;
-    CallChit* chitPtr;
+    Rpc r;
+    CallChit* c;
 
-    template <typename F>
-    void operator()(F&& f)
+    template <typename F> void operator()(F&& f)
     {
-        if (chitPtr)
-            *chitPtr = {};
-        auto chit = call(std::is_copy_constructible<ValueTypeOf<F>>{},
-                         std::forward<F>(f));
-        if (chitPtr)
-            *chitPtr = chit;
+        self->doOneShotCall(std::move(r), c, std::forward<F>(f));
     }
 
-    template <typename F>
-    CallChit call(std::true_type, F&& f)
+    template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        using std::move;
-        CallChit chit;
-        if (rpc.progressiveResultsAreEnabled())
-        {
-            MultiShotCallHandler handler(std::forward<F>(f));
-            if (self->checkState<Result>(State::established, handler))
-                chit = self->impl_->ongoingCall(move(rpc), move(handler));
-        }
-        else
-        {
-            OneShotCallHandler handler(std::forward<F>(f));
-            if (self->checkState<Result>(State::established, handler))
-                chit = self->impl_->oneShotCall(move(rpc), move(handler));
-        }
-        return chit;
-    }
-
-    template <typename F>
-    CallChit call(std::false_type, F&& f)
-    {
-        using std::move;
-        CallChit chit;
-        CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
-                            "Progressive results require copyable "
-                            "multi-shot handler");
-        CompletionHandler<Result> handler(std::forward<F>(f));
-        if (self->checkState<ResultValue>(State::established, handler))
-            chit = self->impl_->oneShotCall(move(rpc), move(handler));
-        return chit;
+        self->safeOneShotCall(std::move(r), c, std::forward<F>(f));
     }
 };
 
 //------------------------------------------------------------------------------
 /** @return The remote procedure result.
     @par Error Codes
+        - SessionErrc::payloadSizeExceeded if the resulting CALL message exceeds
+          the transport's limits.
         - SessionErrc::invalidState if the session was not established
-          before the attempt to call.
+          during the attempt to call.
         - SessionErrc::sessionEnded if the operation was aborted.
         - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
         - SessionErrc::noSuchProcedure if the router reports that there is
@@ -1289,13 +1536,9 @@ struct Session::CallOp
           or more invalid arguments.
         - SessionErrc::callError if the router reports some other error.
         - Some other `std::error_code` for protocol and transport errors.
-    @note If progressive results are enabled, then the given (or generated)
-          completion handler must be copy-constructible so that it can be
-          executed multiple times (checked at runtime).
-    @pre `rpc.withProgressiveResults() == false ||
-          std::is_copy_constructible_v<std::remove_cvref_t<C>>`
-    @throws error::Logic if progressive results are enabled but the given
-            (or generated) completion handler is not copy-constructible. */
+    @note Use Session::ongoingCall if progressive results are desired.
+    @pre `rpc.withProgressiveResults() == false`
+    @throws error::Logic if `rpc.progressiveResultsAreEnabled() == true`. */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
@@ -1309,6 +1552,8 @@ Session::call(
                         or a compatible Boost.Asio completion token. */
 )
 {
+    CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
+                        "Use Session::ongoingCall for progressive results");
     return initiate<CallOp>(std::forward<C>(completion), std::move(rpc),
                             nullptr);
 }
@@ -1329,6 +1574,8 @@ Session::call(
                         or a compatible Boost.Asio completion token. */
     )
 {
+    CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
+                        "Use Session::ongoingCall for progressive results");
     return safelyInitiate<CallOp>(std::forward<C>(completion), std::move(rpc),
                                   nullptr);
 }
@@ -1349,6 +1596,8 @@ Session::call(
                          a compatible Boost.Asio completion token. */
     )
 {
+    CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
+                        "Use Session::ongoingCall for progressive results");
     return initiate<CallOp>(std::forward<C>(completion), std::move(rpc), &chit);
 }
 
@@ -1369,8 +1618,125 @@ Session::call(
                          or a compatible Boost.Asio completion token. */
     )
 {
+    CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
+                        "Use Session::ongoingCall for progressive results");
     return safelyInitiate<CallOp>(std::forward<C>(completion), std::move(rpc),
                                   &chit);
+}
+
+//------------------------------------------------------------------------------
+struct Session::OngoingCallOp
+{
+    using ResultValue = Result;
+    Session* self;
+    Rpc r;
+    CallChit* c;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doOngoingCall(std::move(r), c, std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->safeOngoingCall(std::move(r), c, std::forward<F>(f));
+    }
+};
+
+//------------------------------------------------------------------------------
+/** @return The remote procedure result.
+    @par Error Codes
+        - SessionErrc::payloadSizeExceeded if the resulting CALL message exceeds
+          the transport's limits.
+        - SessionErrc::invalidState if the session was not established
+          during the attempt to call.
+        - SessionErrc::sessionEnded if the operation was aborted.
+        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
+        - SessionErrc::noSuchProcedure if the router reports that there is
+          no such procedure registered by that name.
+        - SessionErrc::invalidArgument if the callee reports that there are one
+          or more invalid arguments.
+        - SessionErrc::callError if the router reports some other error.
+        - Some other `std::error_code` for protocol and transport errors.
+    @note `withProgessiveResults(true)` is automatically performed on the
+           given `rpc` argument.
+    @note The given completion handler must allow multi-shot invocation. */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Result>, C>
+#else
+Session::template Deduced<ErrorOr<Result>, C>
+#endif
+Session::ongoingCall(
+    Rpc rpc,       /**< Details about the RPC. */
+    C&& completion /**< Callable handler of type `void(ErrorOr<Result>)`,
+                        or a compatible Boost.Asio completion token. */
+    )
+{
+    return initiate<OngoingCallOp>(std::forward<C>(completion), std::move(rpc),
+                                   nullptr);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::ongoingCall(Rpc, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Result>, C>
+#else
+Session::template Deduced<ErrorOr<Result>, C>
+#endif
+Session::ongoingCall(
+    ThreadSafe,
+    Rpc rpc,       /**< Details about the RPC. */
+    C&& completion /**< Callable handler of type `void(ErrorOr<Result>)`,
+                        or a compatible Boost.Asio completion token. */
+    )
+{
+    return safelyInitiate<OngoingCallOp>(std::forward<C>(completion),
+                                         std::move(rpc), nullptr);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::ongoingCall(Rpc, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Result>, C>
+#else
+Session::template Deduced<ErrorOr<Result>, C>
+#endif
+Session::ongoingCall(
+    Rpc rpc,        /**< Details about the RPC. */
+    CallChit& chit, /**< [out] Token that can be used to cancel the RPC. */
+    C&& completion  /**< Callable handler of type `void(ErrorOr<Result>)`, or
+                         a compatible Boost.Asio completion token. */
+    )
+{
+    return initiate<OngoingCallOp>(std::forward<C>(completion), std::move(rpc),
+                                   &chit);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::ongoingCall(Rpc, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Result>, C>
+#else
+Session::template Deduced<ErrorOr<Result>, C>
+#endif
+Session::ongoingCall(
+    ThreadSafe,
+    Rpc rpc,        /**< Details about the RPC. */
+    CallChit& chit, /**< [out] Token that can be used to cancel the RPC. */
+    C&& completion  /**< Callable handler of type `void(ErrorOr<Result>)`,
+                         or a compatible Boost.Asio completion token. */
+    )
+{
+    return safelyInitiate<OngoingCallOp>(std::forward<C>(completion),
+                                         std::move(rpc), &chit);
 }
 
 //------------------------------------------------------------------------------
@@ -1396,29 +1762,9 @@ Session::template Deduced<ErrorOr<typename O::ResultValue>, C>
 #endif
 Session::safelyInitiate(C&& token, As&&... args)
 {
-
-    return initiate<SafeOp<O>>(std::forward<C>(token),
-                               std::forward<As>(args)...);
-}
-
-//------------------------------------------------------------------------------
-template <typename F>
-void Session::dispatchViaStrand(F&& operation)
-{
-    boost::asio::dispatch(strand(), std::forward<F>(operation));
-}
-
-//------------------------------------------------------------------------------
-template <typename TResultValue, typename F>
-bool Session::checkState(State expectedState, F& handler)
-{
-    bool valid = state() == expectedState;
-    if (!valid)
-    {
-        ErrorOr<TResultValue> e{makeUnexpectedError(SessionErrc::invalidState)};
-        postVia(userExecutor_, std::move(handler), std::move(e));
-    }
-    return valid;
+    return boost::asio::async_initiate<
+        C, void(ErrorOr<typename O::ResultValue>)>(
+        O{this, std::forward<As>(args)...}, token, threadSafe);
 }
 
 } // namespace wamp

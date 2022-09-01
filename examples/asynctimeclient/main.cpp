@@ -43,24 +43,26 @@ namespace wamp
 class TimeClient : public std::enable_shared_from_this<TimeClient>
 {
 public:
-    static std::shared_ptr<TimeClient> create(wamp::Session::Ptr session)
+    static std::shared_ptr<TimeClient> create(wamp::AnyIoExecutor exec)
     {
-        return std::shared_ptr<TimeClient>(new TimeClient(session));
+        return std::shared_ptr<TimeClient>(new TimeClient(std::move(exec)));
     }
 
-    void start()
+    void start(wamp::ConnectionWish where)
     {
         auto self = shared_from_this();
-        session_->connect([this, self](wamp::ErrorOr<size_t> index)
-        {
-            index.value(); // Throws if connect failed
-            join();
-        });
+        session_.connect(
+            std::move(where),
+            [this, self](wamp::ErrorOr<size_t> index)
+            {
+                index.value(); // Throws if connect failed
+                join();
+            });
     }
 
 private:
-    explicit TimeClient(wamp::Session::Ptr session)
-        : session_(session)
+    TimeClient(wamp::AnyIoExecutor exec)
+        : session_(std::move(exec))
     {}
 
     static void onTimeTick(std::tm time)
@@ -71,7 +73,7 @@ private:
     void join()
     {
         auto self = shared_from_this();
-        session_->join(
+        session_.join(
             wamp::Realm(realm),
             [this, self](wamp::ErrorOr<wamp::SessionInfo> info)
             {
@@ -83,7 +85,7 @@ private:
     void getTime()
     {
         auto self = shared_from_this();
-        session_->call(
+        session_.call(
             wamp::Rpc("get_time"),
             [this, self](wamp::ErrorOr<wamp::Result> result)
             {
@@ -96,7 +98,7 @@ private:
 
     void subscribe()
     {
-        session_->subscribe(
+        session_.subscribe(
             wamp::Topic("time_tick"),
             wamp::simpleEvent<std::tm>(&TimeClient::onTimeTick),
             [](wamp::ErrorOr<wamp::Subscription> sub)
@@ -105,22 +107,16 @@ private:
             });
     }
 
-    wamp::Session::Ptr session_;
+    wamp::Session session_;
 };
 
 
 //------------------------------------------------------------------------------
 int main()
 {
-    using namespace wamp;
-
-    AsioContext ioctx;
-    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = Session::create(ioctx, tcp);
-
-    auto client = TimeClient::create(session);
-    client->start();
+    wamp::IoContext ioctx;
+    auto client = TimeClient::create(ioctx.get_executor());
+    client->start(wamp::TcpHost(address, port).withFormat(wamp::json));
     ioctx.run();
-
     return 0;
 }

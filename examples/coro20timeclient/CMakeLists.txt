@@ -10,8 +10,7 @@ target_compile_features(cppwamp-example-coro20timeclient PRIVATE cxx_std_20)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(cppwamp-example-coro20timeclient
-                           PRIVATE "-stdlib=libc++" "-fcoroutines-ts"
-                                   "-ftemplate-backtrace-limit=0")
+                           PRIVATE "-stdlib=libc++" "-fcoroutines-ts")
     target_link_options(cppwamp-example-coro20timeclient
                         PRIVATE "-stdlib=libc++")
     target_link_libraries(cppwamp-example-coro20timeclient

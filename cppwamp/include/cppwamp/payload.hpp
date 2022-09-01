@@ -271,7 +271,7 @@ Variant& Payload<D,M>::operator[](const std::string& keyword)
 /** @par Example
 ```
 // Result derives from Payload
-Result result = session->call("rpc", yield);
+Result result = session.call("rpc", yield).value();
 std::string s;
 int n = 0;
 result.convertTo(s, n);
@@ -304,7 +304,7 @@ size_t Payload<D, M>::convertToTuple(std::tuple<Ts...>& tuple) const
 /** @par Example
 ```
 // Result derives from Payload
-Result result = session->call("rpc", yield);
+Result result = session.call("rpc", yield).value();
 String s;
 Int n = 0;
 result.moveTo(s, n);

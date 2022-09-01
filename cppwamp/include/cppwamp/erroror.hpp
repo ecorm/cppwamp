@@ -490,7 +490,13 @@ CPPWAMP_API bool operator!=(const Unexpected<E>& e, const ErrorOr<T>& x)
 }
 
 //------------------------------------------------------------------------------
-/** Type alias for a handler taking an `ErrorOr<T>` parameter. */
+/** Used to conveniently check if an operation completed, throwing an
+    error::Failure if there was a failure. */
+//------------------------------------------------------------------------------
+using ErrorOrDone = ErrorOr<bool>;
+
+//------------------------------------------------------------------------------
+/** @deprecated Use ErrorOr instead */
 //------------------------------------------------------------------------------
 template <typename T> using AsyncHandler = std::function<void (ErrorOr<T>)>;
 

@@ -13,6 +13,8 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
+#include "../erroror.hpp"
+#include "../udspath.hpp"
 
 namespace wamp
 {
@@ -24,18 +26,15 @@ namespace internal
 class UdsAcceptor
 {
 public:
+    using Settings  = UdsPath;
     using Socket    = boost::asio::local::stream_protocol::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
     template <typename TExecutorOrStrand>
-    UdsAcceptor(TExecutorOrStrand&& exec, const std::string& path,
-                bool deleteFile)
+    UdsAcceptor(TExecutorOrStrand&& exec, Settings s)
         : strand_(std::forward<TExecutorOrStrand>(exec)),
-          path_(path),
-          deleteFile_(deleteFile)
+          settings_(std::move(s))
     {}
-
-    IoStrand& strand() {return strand_;}
 
     template <typename F>
     void establish(F&& callback)
@@ -45,28 +44,28 @@ public:
             UdsAcceptor* self;
             typename std::decay<F>::type callback;
 
-            void operator()(AsioErrorCode ec)
+            void operator()(boost::system::error_code asioEc)
             {
-                if (ec)
-                {
-                    self->acceptor_.reset();
-                    self->socket_.reset();
-                }
-                callback(ec, std::move(self->socket_));
+                SocketPtr socket{std::move(self->socket_)};
+                self->socket_.reset();
+                if (self->checkError(asioEc, callback))
+                    callback(std::move(socket));
             }
         };
 
         assert(!socket_ && "Accept already in progress");
 
+        // Acceptor must be constructed lazily to give a chance to delete
+        // remnant file.
         if (!acceptor_)
         {
-            if (deleteFile_)
-                std::remove(path_.c_str());
-            acceptor_.reset(new uds::acceptor(strand_, path_));
+            if (settings_.deletePathEnabled())
+                std::remove(settings_.pathName().c_str());
+            acceptor_.reset(new Acceptor(strand_, settings_.pathName()));
         }
         socket_.reset(new Socket(strand_));
 
-        // AsioListener will keep this object alive until completion.
+        // RawsockListener will keep this object alive until completion.
         acceptor_->async_accept(*socket_,
                                 Accepted{this, std::forward<F>(callback)});
     }
@@ -74,16 +73,26 @@ public:
     void cancel()
     {
         if (acceptor_)
-            acceptor_->close();
+            acceptor_->cancel();
     }
 
 private:
-    using uds = boost::asio::local::stream_protocol;
+    using Acceptor = boost::asio::local::stream_protocol::acceptor;
+
+    template <typename F>
+    bool checkError(boost::system::error_code asioEc, F& callback)
+    {
+        if (asioEc)
+        {
+            auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
+            callback(UnexpectedError(ec));
+        }
+        return !asioEc;
+    }
 
     IoStrand strand_;
-    std::string path_;
-    bool deleteFile_;
-    std::unique_ptr<uds::acceptor> acceptor_;
+    Settings settings_;
+    std::unique_ptr<Acceptor> acceptor_;
     SocketPtr socket_;
 };
 

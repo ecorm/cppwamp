@@ -18,8 +18,10 @@
 #include <boost/asio/strand.hpp>
 #include "../anyhandler.hpp"
 #include "../codec.hpp"
+#include "../erroror.hpp"
+#include "../logging.hpp"
 #include "../peerdata.hpp"
-#include "../error.hpp"
+#include "../transport.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
 #include "wampmessage.hpp"
@@ -31,63 +33,164 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// Base class providing session functionality common to both clients and
-// router peers. This class is extended by Client to implement a client session.
+// Provides session functionality common to both clients and router peers.
 //------------------------------------------------------------------------------
-template <typename TCodec, typename TTransport>
-class Peer : public std::enable_shared_from_this<Peer<TCodec, TTransport>>
+class Peer
 {
 public:
-    using Codec        = TCodec;
-    using Transport    = TTransport;
-    using TransportPtr = std::shared_ptr<Transport>;
-    using State        = SessionState;
+    using State                 = SessionState;
+    using Message               = WampMessage;
+    using InboundMessageHandler = std::function<void (Message)>;
+    using OneShotHandler        = AnyCompletionHandler<void (ErrorOr<Message>)>;
+    using MultiShotHandler      = std::function<void (ErrorOr<Message>)>;
+    using LogHandler            = AnyReusableHandler<void (LogEntry)>;
+    using LogStringHandler      = AnyReusableHandler<void (std::string)>; // TODO: Remove
+    using StateChangeHandler    = AnyReusableHandler<void (State)>;
+
+    explicit Peer(bool isRouter, AnyIoExecutor exec)
+        : strand_(boost::asio::make_strand(exec)),
+          userExecutor_(std::move(exec)),
+          state_(State::disconnected),
+          logLevel_(LogLevel::warning),
+          isTerminating_(false),
+          isRouter_(isRouter)
+    {}
+
+    explicit Peer(bool isRouter, const AnyIoExecutor& exec,
+                  AnyCompletionExecutor userExecutor)
+        : Peer(isRouter, boost::asio::make_strand(exec),
+               std::move(userExecutor))
+    {}
+
+    explicit Peer(bool isRouter, IoStrand strand,
+                  AnyCompletionExecutor userExecutor)
+        : strand_(std::move(strand)),
+          userExecutor_(std::move(userExecutor)),
+          state_(State::disconnected),
+          logLevel_(LogLevel::warning),
+          isTerminating_(false),
+          isRouter_(isRouter)
+    {}
+
+    virtual ~Peer()
+    {
+        if (transport_)
+        {
+            transport_->close();
+            transport_.reset();
+        }
+    }
 
     State state() const {return state_.load();}
 
-    IoStrand strand() const {return strand_;}
+    const IoStrand& strand() const {return strand_;}
 
-protected:
-    using Message = WampMessage;
-    using OneShotHandler =
-        AnyCompletionHandler<void (std::error_code, Message)>;
-    using MultiShotHandler = std::function<void (std::error_code, Message)>;
-    using LogHandler = AnyReusableHandler<void (std::string)>;
-    using StateChangeHandler = AnyReusableHandler<void (State)>;
+    const AnyCompletionExecutor& userExecutor() const {return userExecutor_;}
 
-    explicit Peer(TransportPtr&& transport)
-        : strand_(transport->strand()),
-          transport_(std::move(transport)),
-          state_(State::closed)
-    {}
+    void setInboundMessageHandler(InboundMessageHandler f)
+    {
+        inboundMessageHandler_ = std::move(f);
+    }
 
-    virtual bool isMsgSupported(const MessageTraits& traits) = 0;
+    void setLogHandler(LogHandler handler) {logHandler_ = std::move(handler);}
 
-    virtual void onInbound(Message msg) = 0;
+    void setLogLevel(LogLevel level) {logLevel_ = level;}
 
-    const AnyIoExecutor& userExecutor() const {return userExecutor_;}
+    LogLevel logLevel() const
+    {
+        if (logHandler_)
+            return logLevel_.load();
+        if (warningHandler_)
+            return LogLevel::warning;
+        if (traceHandler_)
+            return LogLevel::trace;
+        return LogLevel::off;
+    }
+
+    void log(LogLevel severity, std::string message, std::error_code ec = {})
+    {
+        if (logHandler_ && (logLevel_.load() <= severity))
+        {
+            LogEntry entry{severity, std::move(message), ec};
+            if (!isTerminating_)
+                dispatchVia(userExecutor_, logHandler_, std::move(entry));
+        }
+
+        if (warningHandler_ && (severity >= LogLevel::warning))
+        {
+            std::ostringstream oss;
+            oss << message;
+            if (ec)
+            {
+                oss << " (with error code " << ec
+                    << " '" << ec.message() << "')";
+            }
+            if (!isTerminating_)
+                dispatchVia(userExecutor_, warningHandler_, oss.str());
+        }
+    }
+
+    // TODO: Remove
+    void setWarningHandler(LogStringHandler handler)
+    {
+        warningHandler_ = std::move(handler);
+    }
+
+    // TODO: Remove
+    void setTraceHandler(LogStringHandler handler)
+    {
+        traceHandler_ = std::move(handler);
+    }
+
+    void setStateChangeHandler(StateChangeHandler handler)
+    {
+        stateChangeHandler_ = std::move(handler);
+    }
+
+    State setState(State s)
+    {
+        auto old = state_.exchange(s);
+        if (old != s && stateChangeHandler_ && !isTerminating_)
+            postVia(userExecutor_, stateChangeHandler_, s);
+        return old;
+    }
+
+    void setTerminating(bool terminating) {isTerminating_.store(terminating);}
+
+    bool isTerminating() const {return isTerminating_.load();}
+
+    void open(Transporting::Ptr transport, AnyBufferCodec codec)
+    {
+        assert(state() == State::connecting);
+        transport_ = std::move(transport);
+        codec_ = std::move(codec);
+        setState(State::closed);
+        maxTxLength_ = transport_->info().maxTxLength;
+    }
 
     void start()
     {
         assert(state() == State::closed || state() == State::disconnected);
+        assert(transport_ != nullptr);
+
         setState(State::establishing);
 
         if (!transport_->isStarted())
         {
-            std::weak_ptr<Peer> self(this->shared_from_this());
-
             transport_->start(
-                [self](MessageBuffer buffer)
+                [this](ErrorOr<MessageBuffer> buffer)
                 {
-                    auto me = self.lock();
-                    if (me)
-                        me->onTransportRx(std::move(buffer));
+                    // Ignore transport cancellation errors when disconnecting.
+                    if (buffer.has_value())
+                        onTransportRx(std::move(*buffer));
+                    else if (state() != SessionState::disconnected)
+                        fail(buffer.error(), "Transport receive failure");
                 },
-                [self](std::error_code ec)
+                [this](std::error_code ec)
                 {
-                    auto me = self.lock();
-                    if (me)
-                        me->checkError(ec);
+                    // Ignore transport cancellation errors when disconnecting.
+                    if (state() != SessionState::disconnected)
+                        fail(ec, "Transport send failure");
                 }
             );
         }
@@ -97,48 +200,64 @@ protected:
     {
         struct Requested
         {
-            std::shared_ptr<Peer> self;
+            Peer* self; // Client will keep Peer alive during request
             OneShotHandler handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
-                auto& me = *self;
-                if (!ec)
+                if (reply)
                 {
-                    me.setState(State::closed);
-                    me.abortPending(make_error_code(SessionErrc::sessionEnded));
-                    me.post(std::move(handler),
-                            make_error_code(ProtocolErrc::success),
-                            std::move(reply));
+                    self->setState(State::closed);
+                    self->abortPending(SessionErrc::sessionEnded);
                 }
-                else
-                    me.post(move(handler), ec, Message());
+                handler(std::move(reply));
             }
         };
 
         using std::move;
         assert(state() == State::established);
         setState(State::shuttingDown);
-        auto self = this->shared_from_this();
-        request(reason.message({}),
-                Requested{this->shared_from_this(), std::move(handler)});
+        request(reason.message({}), Requested{this, std::move(handler)});
     }
 
-    void close(bool terminating)
+    void close()
     {
         setState(State::disconnected);
-        abortPending(make_error_code(SessionErrc::sessionEnded), terminating);
-        transport_->close();
+        abortPending(SessionErrc::sessionEnded);
+        if (transport_)
+        {
+            transport_->close();
+            transport_.reset();
+        }
     }
 
-    void send(Message& msg)
+    ErrorOrDone send(Message& msg)
     {
-        sendMessage(msg);
+        auto reqId = sendMessage(msg);
+        if (!reqId)
+            return UnexpectedError(reqId.error());
+        return true;
     }
 
-    void sendError(WampMsgType reqType, RequestId reqId, Error&& error)
+    ErrorOrDone sendError(WampMsgType reqType, RequestId reqId, Error&& error)
     {
-        send(error.errorMessage({}, reqType, reqId));
+        auto done = send(error.errorMessage({}, reqType, reqId));
+        if (done == makeUnexpectedError(SessionErrc::payloadSizeExceeded))
+        {
+            error.withArgs(std::string("(Details removed due "
+                                       "to transport limits)"));
+            error.withKwargs({});
+            (void)send(error.errorMessage({}, reqType, reqId));
+            if (logLevel() <= LogLevel::warning)
+            {
+                std::ostringstream oss;
+                oss << "Stripped args of outbound ERROR message due to "
+                       "transport payload limits, with error URI "
+                    << error.reason() << " and request ID " << reqId;
+                log(LogLevel::warning, oss.str());
+            }
+        }
+        return done;
     }
 
     RequestId request(Message& msg, OneShotHandler&& handler)
@@ -151,59 +270,59 @@ protected:
         return sendRequest(msg, multiShotRequestMap_, std::move(handler));
     }
 
-    void cancelCall(CallCancellation&& cancellation)
+    ErrorOrDone cancelCall(CallCancellation&& cancellation)
     {
         // If the cancel mode is not 'kill', don't wait for the router's
         // ERROR message and post the request handler immediately
         // with a SessionErrc::cancelled error code.
+
+        bool found = false;
         RequestKey key{WampMsgType::call, cancellation.requestId()};
-        if (cancellation.mode() != CallCancelMode::kill)
+        auto unex = makeUnexpectedError(SessionErrc::cancelled);
+
+        auto kv = oneShotRequestMap_.find(key);
+        if (kv != oneShotRequestMap_.end())
         {
-            auto kv = oneShotRequestMap_.find(key);
-            if (kv != oneShotRequestMap_.end())
+            found = true;
+            if (cancellation.mode() != CallCancelMode::kill)
             {
                 auto handler = std::move(kv->second);
                 oneShotRequestMap_.erase(kv);
-                auto ec = make_error_code(SessionErrc::cancelled);
-                post(std::move(handler), ec, Message());
+                post(std::move(handler), unex);
             }
-            else
+        }
+        else
+        {
+            auto kv = multiShotRequestMap_.find(key);
+            if (kv != multiShotRequestMap_.end())
             {
-                auto kv = multiShotRequestMap_.find(key);
-                if (kv != multiShotRequestMap_.end())
+                found = true;
+                if (cancellation.mode() != CallCancelMode::kill)
                 {
                     auto handler = std::move(kv->second);
                     multiShotRequestMap_.erase(kv);
-                    auto ec = make_error_code(SessionErrc::cancelled);
-                    post(std::move(handler), ec, Message());
+                    post(std::move(handler), unex);
                 }
             }
         }
 
-        // Always send the CANCEL message in all modes.
-        sendMessage(cancellation.message({}));
+        // Always send the CANCEL message in all modes if a matching
+        // call was found.
+        if (found)
+        {
+            auto reqId = sendMessage(cancellation.message({}));
+            if (!reqId)
+                return UnexpectedError(reqId.error());
+        }
+        return found;
     }
 
-    template <typename TErrorValue>
-    void fail(TErrorValue errc)
-    {
-        fail(make_error_code(errc));
-    }
+private:
+    static constexpr unsigned progressiveResponseFlag_ = 0x01;
 
-    void setUserExecutor(AnyIoExecutor exec)
-    {
-        userExecutor_ = std::move(exec);
-    }
-
-    void setTraceHandler(LogHandler handler)
-    {
-        traceHandler_ = std::move(handler);
-    }
-
-    void setStateChangeHandler(StateChangeHandler handler)
-    {
-        stateChangeHandler_ = std::move(handler);
-    }
+    using RequestKey = typename Message::RequestKey;
+    using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
+    using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
 
     template <typename TFunctor, typename... TArgs>
     void post(TFunctor&& fn, TArgs&&... args)
@@ -213,34 +332,19 @@ protected:
                                     std::forward<TArgs>(args)...));
     }
 
-private:
-    static constexpr unsigned progressiveResponseFlag_ = 0x01;
-
-    using RequestKey = typename Message::RequestKey;
-    using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
-    using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
-    using EncoderType = Encoder<Codec, MessageBuffer>;
-    using DecoderType = Decoder<Codec, MessageBuffer>;
-
-    void setState(State s)
-    {
-        auto old = state_.exchange(s);
-        if (old != s && stateChangeHandler_)
-            postVia(userExecutor_, stateChangeHandler_, s);
-    }
-
-    RequestId sendMessage(Message& msg)
+    ErrorOr<RequestId> sendMessage(Message& msg)
     {
         assert(msg.type() != WampMsgType::none);
 
         auto requestId = setMessageRequestId(msg);
 
         MessageBuffer buffer;
-        encoder_.encode(msg.fields(), buffer);
-        if (buffer.size() > transport_->maxSendLength())
-            throw error::Failure(make_error_code(TransportErrc::badTxLength));
+        codec_.encode(msg.fields(), buffer);
+        if (buffer.size() > maxTxLength_)
+            return makeUnexpectedError(SessionErrc::payloadSizeExceeded);
 
-        trace(msg, true);
+        traceTx(msg);
+        assert(transport_ != nullptr);
         transport_->send(std::move(buffer));
         return requestId;
     }
@@ -253,22 +357,30 @@ private:
 
         auto requestId = setMessageRequestId(msg);
         MessageBuffer buffer;
-        encoder_.encode(msg.fields(), buffer);
-        if (buffer.size() > transport_->maxSendLength())
-            throw error::Failure(make_error_code(TransportErrc::badTxLength));
+        codec_.encode(msg.fields(), buffer);
 
+        if (buffer.size() > maxTxLength_)
+        {
+            post(std::move(handler),
+                 makeUnexpectedError(SessionErrc::payloadSizeExceeded));
+            return requestId;
+        }
+
+        // In the unlikely (impossible?) event that there is an old pending
+        // request with the same request ID (that is, we used the entire
+        // 2^53 set of IDs), then cancel the old request.
         auto key = msg.requestKey();
         auto found = requests.find(key);
         if (found != requests.end())
         {
             post(std::move(found->second),
-                 make_error_code(SessionErrc::cancelled), Message());
+                 makeUnexpectedError(SessionErrc::cancelled));
             requests.erase(found);
         }
 
         requests.emplace(msg.requestKey(), std::move(handler));
-
-        trace(msg, true);
+        traceTx(msg);
+        assert(transport_ != nullptr);
         transport_->send(std::move(buffer));
         return requestId;
     }
@@ -295,29 +407,40 @@ private:
 
     void onTransportRx(MessageBuffer buffer)
     {
-        auto s = state();
-        if (s == State::establishing || s == State::authenticating ||
-            s == State::established  || s == State::shuttingDown)
-        {
-            Variant v;
-            if (checkError(decode(buffer, v)) &&
-                check(v.is<Array>(), ProtocolErrc::badSchema))
-            {
-                std::error_code ec;
-                auto msg = Message::parse(std::move(v.as<Array>()), ec);
-                if (checkError(ec))
-                {
-                    trace(msg, false);
-                    if (checkValidMsg(msg.type()))
-                        processMessage(std::move(msg));
-                }
-            }
-        }
-    }
+        static constexpr auto errc = SessionErrc::protocolViolation;
 
-    std::error_code decode(const MessageBuffer& buffer, Variant& variant)
-    {
-        return decoder_.decode(buffer, variant);
+        auto s = state();
+        bool readyToReceive =
+               s == State::establishing || s == State::authenticating ||
+               s == State::established  || s == State::shuttingDown;
+        if (!readyToReceive)
+        {
+            return fail(errc, "Received WAMP message while session "
+                              "unready to receive");
+        }
+
+        Variant v;
+        auto ec = codec_.decode(buffer, v);
+        if (ec)
+            return fail(ec, "Error deserializing received WAMP message");
+
+        if (!v.is<Array>())
+            return fail(errc, "Received WAMP message is not an array");
+
+        auto& fields = v.as<Array>();
+        traceRx(fields);
+
+        auto msg = Message::parse(std::move(fields));
+        if (!msg)
+        {
+            return fail(errc, "Received WAMP message has invalid type number "
+                              "or field schema");
+        }
+
+        if (!msg->traits().isValidRx(state(), isRouter_))
+            return fail(errc, "Received invalid WAMP message for peer role");
+
+        processMessage(std::move(*msg));
     }
 
     void processMessage(Message&& msg)
@@ -356,10 +479,15 @@ private:
             default:
                 // Role-specific unsolicited messages. Ignore them if we're
                 // shutting down.
-                if (state() != State::shuttingDown)
+                if (state() == State::shuttingDown)
                 {
-                    auto self = this->shared_from_this();
-                    post(&Peer::onInbound, self, std::move(msg));
+                    log(LogLevel::warning,
+                        "Discarding received " + std::string(msg.name()) +
+                        " message while session is shutting down");
+                }
+                else
+                {
+                    inboundMessageHandler_(std::move(msg));
                 }
                 break;
         }
@@ -372,8 +500,7 @@ private:
         {
             auto handler = std::move(kv->second);
             oneShotRequestMap_.erase(kv);
-            post(std::move(handler), make_error_code(ProtocolErrc::success),
-                 std::move(msg));
+            handler(std::move(msg));
         }
         else
         {
@@ -382,15 +509,14 @@ private:
             {
                 if (msg.isProgressiveResponse())
                 {
-                    post(kv->second,
-                         make_error_code(ProtocolErrc::success), std::move(msg));
+                    const auto& handler = kv->second;
+                    handler(std::move(msg));
                 }
                 else
                 {
                     auto handler = std::move(kv->second);
                     multiShotRequestMap_.erase(kv);
-                    post(std::move(handler),
-                         make_error_code(ProtocolErrc::success), std::move(msg));
+                    handler(std::move(msg));
                 }
             }
         }
@@ -400,32 +526,58 @@ private:
     {
         assert(state() == State::establishing);
         setState(State::established);
-        auto self = this->shared_from_this();
-        post(&Peer::onInbound, self, std::move(msg));
+        inboundMessageHandler_(std::move(msg));
     }
 
     void processChallenge(Message&& msg)
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
-        auto self = this->shared_from_this();
-        post(&Peer::onInbound, self, std::move(msg));
+        inboundMessageHandler_(std::move(msg));
     }
 
     void processWelcome(Message&& msg)
     {
-        assert((state() == State::establishing) ||
-               (state() == State::authenticating));
+        auto s = state();
+        assert(s == State::establishing || s == State::authenticating);
         setState(State::established);
         processWampReply(RequestKey(WampMsgType::hello, 0), std::move(msg));
     }
 
     void processAbort(Message&& msg)
     {
-        assert((state() == State::establishing) ||
-               (state() == State::authenticating));
-        setState(State::closed);
-        processWampReply(RequestKey(WampMsgType::hello, 0), std::move(msg));
+        auto s = state();
+        if (s == State::establishing || s == State::authenticating)
+        {
+            setState(State::closed);
+            processWampReply(RequestKey(WampMsgType::hello, 0), std::move(msg));
+        }
+        else if (s == State::shuttingDown)
+        {
+            log(LogLevel::warning, "Discarding received ABORT message "
+                                   "while session is shutting down");
+        }
+        else
+        {
+            const auto& abortMsg = message_cast<AbortMessage>(msg);
+            SessionErrc errc = {};
+            lookupWampErrorUri(abortMsg.reasonUri(),
+                               SessionErrc::sessionAbortedByPeer, errc);
+
+            if (logLevel() <= LogLevel::error)
+            {
+                std::ostringstream oss;
+                oss << "Session aborted by peer with reason URI "
+                    << abortMsg.reasonUri();
+                if (!abortMsg.options().empty())
+                    oss << " and details " << abortMsg.options();
+                fail(errc, oss.str());
+            }
+            else
+            {
+                fail(errc);
+            }
+        }
     }
 
     void processGoodbye(Message&& msg)
@@ -437,120 +589,122 @@ private:
         }
         else
         {
-            const auto& reason = message_cast<GoodbyeMessage>(msg).reasonUri();
+            const auto& goodbyeMsg = message_cast<GoodbyeMessage>(msg);
             SessionErrc errc;
-            lookupWampErrorUri(reason, SessionErrc::closeRealm, errc);
-            abortPending(make_error_code(errc));
-            GoodbyeMessage msg("wamp.error.goodbye_and_out");
-            send(msg);
+            lookupWampErrorUri(goodbyeMsg.reasonUri(), SessionErrc::closeRealm,
+                               errc);
+            abortPending(errc);
+            GoodbyeMessage outgoingGoodbye("wamp.error.goodbye_and_out");
+            send(outgoingGoodbye).value();
             setState(State::closed);
+
+            if (logLevel() <= LogLevel::warning)
+            {
+                std::ostringstream oss;
+                oss << "Session ended by peer with reason URI "
+                    << goodbyeMsg.reasonUri();
+                if (!goodbyeMsg.options().empty())
+                    oss << " and details " << goodbyeMsg.options();
+                log(LogLevel::warning, oss.str());
+            }
         }
     }
 
-    bool checkError(std::error_code ec)
+    void fail(std::error_code ec, std::string info = {})
     {
-        bool success = !ec;
-        if (!success)
-            fail(ec);
-        return success;
-    }
-
-    bool check(bool condition, ProtocolErrc errc)
-    {
-        if (!condition)
-            fail(errc);
-        return condition;
-    }
-
-    bool checkValidMsg(WampMsgType type)
-    {
-        auto traits = MessageTraits::lookup(type);
-        bool valid = isMsgSupported(traits);
-
-        if (!valid)
-            fail(ProtocolErrc::unsupportedMsg);
-        else
+        auto oldState = setState(State::failed);
+        if (oldState != State::failed)
         {
-            switch (state())
+            abortPending(ec);
+            if (transport_)
             {
-            case State::establishing:
-                valid = traits.forEstablishing;
-                break;
-
-            case State::authenticating:
-                valid = traits.forChallenging;
-                break;
-
-            case State::established:
-            case State::shuttingDown:
-                valid = traits.forEstablished;
-                break;
-
-            default:
-                valid = false;
-                break;
+                transport_->close();
+                transport_.reset();
             }
 
-            if (!valid)
-                fail(ProtocolErrc::unexpectedMsg);
+            if (!info.empty())
+                log(LogLevel::error, std::move(info), ec);
         }
-
-        return valid;
     }
 
-    void fail(std::error_code ec)
+    template <typename TErrc>
+    void fail(TErrc errc, std::string info = {})
     {
-        setState(State::failed);
-        abortPending(ec);
-        transport_->close();
+        fail(make_error_code(errc), std::move(info));
     }
 
-    void abortPending(std::error_code ec, bool terminating = false)
+    void abortPending(std::error_code ec)
     {
-        if (!terminating)
+        UnexpectedError unex{ec};
+        if (!isTerminating_)
         {
             for (auto& kv: oneShotRequestMap_)
-                post(std::move(kv.second), ec, Message());
+                post(std::move(kv.second), unex);
             for (auto& kv: multiShotRequestMap_)
-                post(std::move(kv.second), ec, Message());
+                post(std::move(kv.second), unex);
         }
         oneShotRequestMap_.clear();
         multiShotRequestMap_.clear();
     }
 
-    void trace(const Message& msg, bool isTx)
-    {
-        if (traceHandler_)
-        {
-            std::ostringstream oss;
-            oss << (isTx ? "Tx" : "Rx") << " message: [";
-            if (!msg.fields().empty())
-            {
-                // Print message type field as {"NAME":<Field>} pair
-                oss << "{\"" << msg.nameOr("INVALID") << "\":"
-                    << msg.fields().at(0) << "}";
+    template <typename TErrc>
+    void abortPending(TErrc errc) {abortPending(make_error_code(errc));}
 
-                for (Array::size_type i=1; i<msg.fields().size(); ++i)
-                {
-                    oss << "," << msg.fields().at(i);
-                }
-            }
-            oss << ']';
-            dispatchVia(userExecutor_, traceHandler_, oss.str());
+    void traceRx(const Array& fields)
+    {
+        trace(Message::parseMsgType(fields), fields, "Rx message: ");
+    }
+
+    void traceTx(const Message& msg)
+    {
+        trace(msg.type(), msg.fields(), "Tx message: ");
+    }
+
+    void trace(WampMsgType type, const Array& fields, const char* label)
+    {
+        if (isTerminating_ || (logLevel() > LogLevel::trace))
+            return;
+
+        std::ostringstream oss;
+        oss << label << "[";
+        if (!fields.empty())
+        {
+            // Print message type field as {"NAME":<Field>} pair
+            auto name = MessageTraits::lookup(type).nameOr("INVALID");
+            oss << "{\"" << name << "\":" << fields[0] << "}";
+
+            for (Array::size_type i=1; i<fields.size(); ++i)
+                oss << "," << fields[i];
         }
+        oss << ']';
+
+        if (logHandler_)
+        {
+            LogEntry entry{LogLevel::trace, oss.str()};
+            dispatchVia(userExecutor_, logHandler_, std::move(entry));
+        }
+
+        if (traceHandler_)
+            dispatchVia(userExecutor_, traceHandler_, oss.str());
     }
 
     IoStrand strand_;
-    AnyIoExecutor userExecutor_;
-    TransportPtr transport_;
-    EncoderType encoder_;
-    DecoderType decoder_;
-    LogHandler traceHandler_;
+    AnyCompletionExecutor userExecutor_;
+    AnyBufferCodec codec_;
+    Transporting::Ptr transport_;
+    InboundMessageHandler inboundMessageHandler_;
+    LogHandler logHandler_;
+    LogStringHandler warningHandler_;
+    LogStringHandler traceHandler_;
     StateChangeHandler stateChangeHandler_;
-    std::atomic<State> state_;
     OneShotRequestMap oneShotRequestMap_;
     MultiShotRequestMap multiShotRequestMap_;
+    std::atomic<State> state_;
+    std::atomic<LogLevel> logLevel_;
+    std::atomic<bool> isTerminating_;
     RequestId nextRequestId_ = nullRequestId();
+    std::size_t maxTxLength_ = 0;
+    bool isRouter_ = false;
 
     static constexpr RequestId maxRequestId_ = 9007199254740992ull;
 };

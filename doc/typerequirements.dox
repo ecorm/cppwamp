@@ -5,15 +5,14 @@
 ------------------------------------------------------------------------------*/
 
 //------------------------------------------------------------------------------
-/** @page Concepts Concepts
+/** @page TypeRequirements Type Requirements
 Describes restrictions on types used by generic facilities.
-Concepts:
 - @subpage VisitorConcept
 - @subpage CodecEncoder
 - @subpage CodecDecoder
 - @subpage CodecFormat
-- @subpage Transport
-- @subpage Establisher
+- @subpage TransportConnector
+- @subpage TransportSettings
 */
 
 //------------------------------------------------------------------------------
@@ -88,67 +87,47 @@ Expression                         | Effect
 
 //------------------------------------------------------------------------------
 /** @page CodecEncoder CodecEncoder
-A `CodecEncoder` is a class that supports operations for encoding a Variant
-into a destination codec format.
+A `CodecEncoder` is a specialization of `wamp::SinkEncoder<TFormat, TSink>`
+that supports operations for encoding a Variant into a destination codec format.
 
 Given:
-- `encoder`: an `CodecEncoder` instance
+- `encoder`: a `wamp::SinkEncoder<TFormat, TSink>` instance
 - `variant`: a reference to a const wamp::Variant
-- `output`: a reference to either a `std::string`, a `wamp::CodecBuffer`,
-   or a `std::ostream`
+- `sink`: a value of type `TSink`
+
+then the following expressions must be valid:
+
+Expression                      | Effect
+------------------------------- | ------
+`encoder.encode(variant, sink)` | Encodes the variant into the given output sink.
+*/
+
+//------------------------------------------------------------------------------
+/** @page CodecDecoder CodecDecoder
+A `CodecDecoder` is a specialization of `wamp::SourceDecoder<TFormat, TSource>`
+that supports operations for decoding a sequence of bytes in a codec format
+into a wamp::Variant.
+
+Given:
+- `decoder`: a `wamp::SourceDecoder<TFormat, TSource>` instance
+- `variant`: a reference to a wamp::Variant
+- `source`: a value of type `TSource`
 
 then the following expressions must be valid:
 
 Expression                        | Effect
 --------------------------------- | ------
-`encoder.encode(variant, output)` | Encodes the variant into the given output.
-
-The following classes meet the requirements of `Encoder`:
-- wamp::BasicCborEncoder
-- wamp::BasicJsonEncoder
-- wamp::BasicMsgpackEncoder
-*/
-
-//------------------------------------------------------------------------------
-/** @page CodecDecoder CodecDecoder
-A `CodecDecoder` is a class that supports operations for decoding a sequence of
-bytes in a codec format into a wamp::Variant.
-
-Given:
-- `decoder`: a `CodecDecoder` instance
-- `variant`: a reference to a wamp::Variant
-- `input`: a reference to either a `const std::string`,
-  a `const wamp::CodecBuffer`, or a `std::istream`
-
-then the following expressions must be valid:
-
-Expression                       | Effect
--------------------------------- | ------
-`decoder.decode(input, variant)` | Decodes the input into the given variant, returning a std::error_code.
-
-The following classes meet the requirements of `Decoder`:
-- wamp::BasicCborDecoder
-- wamp::BasicJsonDecoder
-- wamp::BasicMsgpackDecoder
+`decoder.decode(source, variant)` | Decodes the source into the given variant, returning a std::error_code.
 */
 
 //------------------------------------------------------------------------------
 /** @page CodecFormat CodecFormat
-A `CodecFormat` is a static-only class supporting the following expressions:
+A `CodecFormat` is a static-only tag type class supporting the following
+expressions:
 
-Expression                             | Effect
--------------------------------------- | ------
-`CodecFormat::id()`                    | Returns the `int` ID to use during raw socket handshaking.
-`CodecFormat::template Encoder<O, OC>` | Yields the type used to encode to outputs of type `O` and category `OC`
-`CodecFormat::template Decoder<I, IC>` | Yields the type used to decode inputs of type `I` and category `IC`
-
-where `OC` is either:
-- wamp::ByteContainerOutputCategory
-- wamp::StreamOutputCategory
-
-and where `IC` is either:
-- wamp::ByteArrayInputCategory
-- wamp::StreamInputCategory
+Expression          | Effect
+------------------- | ------
+`CodecFormat::id()` | Returns the `int` ID to use during raw socket handshaking.
 
 The following classes meet the requirements of `CodecFormat`:
 - wamp::Json
@@ -157,74 +136,59 @@ The following classes meet the requirements of `CodecFormat`:
 */
 
 //------------------------------------------------------------------------------
-/** @page Transport Transport
-A `Transport` is used to transmit WAMP messages between peers. It must provide
-the following minimal generic interface:
-
-```
-class MeetsTransport
-{
-public:
-    // Handler type called when a WAMP message is received
-    using RxHandler = std::function<void (Buffer)>;
-
-    // Handler type called when a transport error occurs
-    using FailHandler = std::function<void (std::error_code ec)>;
-
-    // Returns the maximum length of a message that can be transmitted.
-    size_t maxSendLength() const;
-
-    // Returns `true` if the transport has been started.
-    bool isStarted() const;
-
-    // Enables the receiving of messages on the transport.
-    void start(RxHandler rxHandler, FailHandler failHandler);
-
-    // Enqueues the given message for transmission.
-    void send(wamp::CodecBuffer message);
-
-    // Closes the transport connection, aborting all pending send/receive
-    // operations.
-    void close();
-
-    // Obtains the transport's execution strand.
-    boost::asio::strand<boost::asio::any_executor> strand() const;
-```
-
-The following classes meet the requirements of `Transport`:
-- `wamp::internal::AsioTransport`
-*/
-
-//------------------------------------------------------------------------------
-/** @page Establisher Establisher
-An `Establisher` is used by `internal::AsioEndpoint` to create and connect a
-Boost.Asio socket.
+/** @page TransportConnector TransportConnector
+A `TransportConnector` is a specialization of `wamp::Connector<TProtocol>` that
+is used by `wamp::Session` to establish transport connections.
 
 Given
-- `est`: an `Establisher` instance
-- `handler`: a callable entity with the signature:
+- `t`: a `TransportConnector` instance
+- `i`: a wamp::IoStrand instance
+- `s`: an instance of `TransportConnector::Settings`
+- `c` a number of type `int` for desired serialization format (codec ID)
+- 'h' a handler with signature:
 
 ```
-void (boost::system::error_code, Establisher::SocketPtr&&)
+void (ErrorOr<Transporting::Ptr>)
 ```
 
 then:
-- `Establisher` must be move-constrictible, and,
+- `TransportConnector` must publicly inherit from the `wamp::Connecting`
+  base class, and,
 - the following expressions must be valid:
 
-Expression               | Effect
------------------------- | ------
-`Establisher::Socket`    | Yields the type of socket that the Establisher creates and connects.
-`Establisher::SocketPtr` | Yields a shared pointer type to an Establisher::Socket.
-`est.establish(handler)` | Establishes the socket connection, then calls `handler`.
-`est.cancel()`           | Cancels an `establish` operation in progress.
+Expression                         | Effect
+---------------------------------- | ------
+TransportConnector::Settings       | Yields the type containing transport settings.
+`new TransportConnector(i, s, c)`  | Instantiates the connector.
+`t->establish(std::move(h))`       | Starts establishing transport connection.
+`t->cancel()`                      | Cancels transport connection establishment in progress.
+
+If the `establish` operation is sucessful, it shall emit, via the completion
+handler, a `Transporting::Ptr` for the newly established transport.
+
+If the `establish` operation fails, it shall emit, via the completion
+handler, a `std::error_code` corresponding to the failure.
 
 If an `establish` operation is cancelled, it shall return, via the completion
-handler,  an error code equivalent to `boost::system::errc::operation_canceled`.
+handler, an `std::error_code` equivalent to `TransportErrc::aborted`.
 
-The following classes meet the requirements of `Establisher`:
-- `wamp::internal::TcpAcceptor`
-- `wamp::internal::TcpOpener`
-- `wamp::internal::UdsAcceptor`
-- `wamp::internal::UdsOpener`
+The following classes meet the requirements of `TransportConnector`:
+- `wamp::Connector<wamp::Tcp>`
+- `wamp::Connector<wamp::Uds>`
+*/
+
+//------------------------------------------------------------------------------
+/** @page TransportSettings TransportSettings
+A `TransportSettings` contains the network/internet address of a transport,
+as well as options pertaining to the transport (i.e. socket options).
+
+The following expressions must be valid:
+
+Expression                    | Effect
+----------------------------- | ------
+`TransportSettings::Protocol` | Yields the protocol tag type associated with the settings (e.g. wamp::Tcp)
+
+The following classes meet the requirements of `TransportSettings`:
+- `wamp::TcpHost`
+- `wamp::UdsPath`
 */

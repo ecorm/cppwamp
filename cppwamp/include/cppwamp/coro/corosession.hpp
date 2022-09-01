@@ -81,13 +81,13 @@ public:
     using YieldContext = boost::asio::basic_yield_context<TSpawnHandler>;
 
     /** Creates a new CoroSession instance. */
-    static Ptr create(AnyIoExecutor exec, const Connector::Ptr& connector);
+    static Ptr create(AnyIoExecutor exec, LegacyConnector connector);
 
     /** Creates a new CoroSession instance. */
     static Ptr create(AnyIoExecutor exec, const ConnectorList& connectors);
 
     /** Creates a new CoroSession instance.
-        @copydetails Session::create(AnyIoExecutor, const Connector::Ptr&)
+        @copydetails Session::create(AnyCompletionExecutor, LegacyConnector)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
         @tparam TExecutionContext Must meet the requirements of
@@ -97,15 +97,15 @@ public:
     create(
         TExecutionContext& context, /**< Provides executor with which to
                                          post all user-provided handlers. */
-        const Connector::Ptr& connector /**< Connection details for the
-                                             transport to use. */
-        )
+        LegacyConnector connector   /**< Connection details for the
+                                         transport to use. */
+    )
     {
         return create(context.get_executor(), connector);
     }
 
     /** Creates a new CoroSession instance.
-        @copydetails Session::create(AnyIoExecutor, const Connector::Ptr&)
+        @copydetails Session::create(AnyCompletionExecutor, LegacyConnector)
         @details Only participates in overload resolution when
                  `isExecutionContext<TExecutionContext>() == true`
         @tparam TExecutionContext Must meet the requirements of
@@ -267,21 +267,21 @@ protected:
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::create(AnyIoExecutor, const Connector::Ptr&) */
+/** @copydetails Session::create(AnyCompletionExecutor, LegacyConnector) */
 //------------------------------------------------------------------------------
 template <typename B>
 typename CoroSession<B>::Ptr CoroSession<B>::create(
-    AnyIoExecutor exec,             /**< Executor with which to post all
-                                         user-provided handlers. */
-    const Connector::Ptr& connector /**< Connection details for the transport
-                                         to use. */
+    AnyIoExecutor exec,       /**< Executor with which to post all
+                                   user-provided handlers. */
+    LegacyConnector connector /**< Connection details for the transport
+                                   to use. */
     )
 {
     return Ptr(new CoroSession(exec, {connector}));
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::create(AnyIoExecutor, const ConnectorList&) */
+/** @copydetails Session::create(AnyCompletionExecutor, LegacyConnector) */
 //------------------------------------------------------------------------------
 template <typename B>
 typename CoroSession<B>::Ptr CoroSession<B>::create(
@@ -297,10 +297,10 @@ typename CoroSession<B>::Ptr CoroSession<B>::create(
 //------------------------------------------------------------------------------
 /** @details
     The session will attempt to connect using the transports that were
-    specified by the wamp::Connector objects passed during create().
+    specified by the wamp::Connecting objects passed during create().
     If more than one transport was specified, they will be traversed in the
     same order as they appeared in the @ref ConnectorList.
-    @return The index of the Connector object used to establish the connetion.
+    @return The index of the Connecting object used to establish the connetion.
     @pre `this->state() == SessionState::disconnected`
     @post `this->state() == SessionState::connecting`
     @par Error Codes
@@ -937,7 +937,8 @@ template <typename B>
 template <typename H>
 void CoroSession<B>::suspend(YieldContext<H> yield)
 {
-    boost::asio::post(this->userIosvc(), yield);
+    auto exec = boost::asio::get_associated_executor(yield);
+    boost::asio::post(exec, yield);
 }
 
 } // namespace wamp

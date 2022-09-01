@@ -13,52 +13,68 @@
            transport connectors. */
 //------------------------------------------------------------------------------
 
-#include <cassert>
 #include <memory>
-#include <string>
 #include <utility>
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "connector.hpp"
-#include "traits.hpp"
 #include "udspath.hpp"
-
-#ifndef CPPWAMP_COMPILED_LIB
-#include "internal/asioconnector.hpp"
-#include "internal/rawsockconnector.hpp"
-#include "internal/udsopener.hpp"
-#endif
+#include "traits.hpp"
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** Creates a Connector that can establish a Unix domain socket transport.
+/** Connector specialization that establishes a Unix domain socket transport.
+    Users do not need to use this class directly and should use
+    ConnectionWish instead. */
+//------------------------------------------------------------------------------
+template <>
+class CPPWAMP_API Connector<Uds> : public Connecting
+{
+public:
+    /** Type containing the transport settings. */
+    using Settings = UdsPath;
+
+    /** Constructor. */
+    Connector(IoStrand i, Settings s, int codecId);
+
+    /** Destructor. */
+    ~Connector();
+
+    /** Starts establishing the transport connection, emitting a
+        Transportable::Ptr via the given handler if successful. */
+    void establish(Handler&& handler) override;
+
+    /** Cancels transport connection in progress, emitting an error code
+        via the handler passed to the establish method. */
+    void cancel() override;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+//------------------------------------------------------------------------------
+/** Creates a LegacyConnector that can establish a Unix domain socket transport.
 
     This overload takes an executor that is convertible to
     the boost::asio::any_io_executor polymorphic wrapper.
 
+    @deprecated Use wamp::ConnectionWish instead
     @relates UdsPath
-    @returns a `std::shared_ptr` to a Connector
-    @tparam TCodec The serialization to use over this transport.
-    @see Connector, Json, Msgpack */
+    @returns a `std::shared_ptr` to a Connecting
+    @tparam TFormat The serialization format to use over this transport.
+    @see Connecting, Json, Msgpack */
 //------------------------------------------------------------------------------
-template <typename TCodec>
-CPPWAMP_API Connector::Ptr connector(
-    AnyIoExecutor exec, ///< The executor to be used by the transport.
-    UdsPath path      ///< Unix domain socket path and other socket options.
-);
-
-#ifndef CPPWAMP_COMPILED_LIB
-template <typename TCodec>
-CPPWAMP_API Connector::Ptr connector(AnyIoExecutor exec, UdsPath path)
+template <typename TFormat>
+CPPWAMP_API LegacyConnector connector(
+    AnyIoExecutor e, ///< The executor to be used by the transport.
+    UdsPath p        ///< Unix domain socket path and other socket options.
+)
 {
-    using Endpoint = internal::AsioConnector<internal::UdsOpener>;
-    using ConcreteConnector = internal::RawsockConnector<TCodec, Endpoint>;
-    return ConcreteConnector::create(exec, std::move(path));
+    return LegacyConnector{std::move(e), std::move(p), TFormat{}};
 }
-#endif
-
 
 //------------------------------------------------------------------------------
 /** Creates a Connector that can establish a TCP raw socket transport.
@@ -66,23 +82,28 @@ CPPWAMP_API Connector::Ptr connector(AnyIoExecutor exec, UdsPath path)
     Only participates in overload resolution when
     `isExecutionContext<TExecutionContext>() == true`
 
+    @deprecated Use wamp::ConnectionWish instead
     @relates TcpHost
-    @returns a `std::shared_ptr` to a Connector
-    @tparam TCodec The serialization to use over this transport.
+    @returns a `std::shared_ptr` to a Connecting
+    @tparam TFormat The serialization formatto use over this transport.
     @tparam TExecutionContext The given execution context type (deduced).
-    @see Connector, Json, Msgpack */
+    @see Connecting, Json, Msgpack */
 //------------------------------------------------------------------------------
-template <typename TCodec, typename TExecutionContext>
-CPPWAMP_ENABLED_TYPE(Connector::Ptr, isExecutionContext<TExecutionContext>())
+template <typename TFormat, typename TExecutionContext>
+CPPWAMP_ENABLED_TYPE(LegacyConnector, isExecutionContext<TExecutionContext>())
 connector(
     TExecutionContext& context, /**< The I/O context containing the executor
                                      to be used by the transport. */
     UdsPath path ///< Unix domain socket path and other socket options.
 )
 {
-    return connector<TCodec>(context.get_executor(), std::move(path));
+    return connector<TFormat>(context.get_executor(), std::move(path));
 }
 
 } // namespace wamp
+
+#ifndef CPPWAMP_COMPILED_LIB
+#include "internal/uds.ipp"
+#endif
 
 #endif // CPPWAMP_UDS_HPP

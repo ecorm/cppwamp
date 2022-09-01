@@ -9,16 +9,19 @@
 
 #include <cassert>
 #include <chrono>
+#include <future>
 #include <initializer_list>
 #include <memory>
 #include <set>
 #include <string>
 #include <vector>
 #include "api.hpp"
-#include "asiodefs.hpp"
+#include "anyhandler.hpp"
 #include "config.hpp"
+#include "erroror.hpp"
 #include "options.hpp"
 #include "payload.hpp"
+#include "tagtypes.hpp"
 #include "variant.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
@@ -270,7 +273,10 @@ public:
     Variant memory() const;
 
     /** Sends an `AUTHENTICATE` message back in response to the challenge. */
-    void authenticate(Authentication auth);
+    ErrorOrDone authenticate(Authentication auth);
+
+    /** Thread-safe authenticate. */
+    std::future<ErrorOrDone> authenticate(ThreadSafe, Authentication auth);
 
 public:
     // Internal use only
@@ -441,7 +447,7 @@ public:
     PublicationId pubId() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
-    AnyIoExecutor executor() const;
+    AnyCompletionExecutor executor() const;
 
     /** @name Publisher Identification
         See [Publisher Identification in the WAMP Specification]
@@ -474,11 +480,11 @@ public:
 private:
     using Base = Payload<Event, internal::EventMessage>;
 
-    AnyIoExecutor executor_;
+    AnyCompletionExecutor executor_;
 
 public:
     // Internal use only
-    Event(internal::PassKey, AnyIoExecutor executor,
+    Event(internal::PassKey, AnyCompletionExecutor executor,
           internal::EventMessage&& msg);
 };
 
@@ -815,13 +821,19 @@ public:
     RequestId requestId() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
-    AnyIoExecutor executor() const;
+    AnyCompletionExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
-    void yield(Result result = Result()) const;
+    ErrorOrDone yield(Result result = Result()) const;
+
+    /** Thread-safe yield result. */
+    std::future<ErrorOrDone> yield(ThreadSafe, Result result = Result()) const;
 
     /** Manually sends an `ERROR` result back to the callee. */
-    void yield(Error error) const;
+    ErrorOrDone yield(Error error) const;
+
+    /** Thread-safe yield error. */
+    std::future<ErrorOrDone> yield(ThreadSafe, Error error) const;
 
     /** @name Progressive Call Results
         See [Progressive Call Results in the WAMP Specification]
@@ -863,14 +875,15 @@ public:
 public:
     // Internal use only
     using CalleePtr = std::weak_ptr<internal::Callee>;
-    Invocation(internal::PassKey, CalleePtr callee, AnyIoExecutor executor,
+    Invocation(internal::PassKey, CalleePtr callee,
+               AnyCompletionExecutor executor,
                internal::InvocationMessage&& msg);
 
 private:
     using Base = Payload<Invocation, internal::InvocationMessage>;
 
     CalleePtr callee_;
-    AnyIoExecutor executor_ = nullptr;
+    AnyCompletionExecutor executor_ = nullptr;
 
     template <typename, typename...> friend class CoroInvocationUnpacker;
 };
@@ -932,25 +945,32 @@ public:
     RequestId requestId() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
-    AnyIoExecutor executor() const;
+    AnyCompletionExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
-    void yield(Result result = Result()) const;
+    ErrorOrDone yield(Result result = Result()) const;
+
+    /** Thread-safe yield result. */
+    std::future<ErrorOrDone> yield(ThreadSafe, Result result = Result()) const;
 
     /** Manually sends an `ERROR` result back to the callee. */
-    void yield(Error error) const;
+    ErrorOrDone yield(Error error) const;
+
+    /** Thread-safe yield error. */
+    std::future<ErrorOrDone> yield(ThreadSafe, Error error) const;
 
 public:
     // Internal use only
     using CalleePtr = std::weak_ptr<internal::Callee>;
-    Interruption(internal::PassKey, CalleePtr callee, AnyIoExecutor executor,
+    Interruption(internal::PassKey, CalleePtr callee,
+                 AnyCompletionExecutor executor,
                  internal::InterruptMessage&& msg);
 
 private:
     using Base = Options<Interruption, internal::InterruptMessage>;
 
     CalleePtr callee_;
-    AnyIoExecutor executor_ = nullptr;
+    AnyCompletionExecutor executor_ = nullptr;
 };
 
 CPPWAMP_API std::ostream& operator<<(std::ostream& out,

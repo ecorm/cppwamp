@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_ASIOTRANSPORT_HPP
-#define CPPWAMP_ASIOTRANSPORT_HPP
+#ifndef CPPWAMP_INTERNAL_RAWSOCKTRANSPORT_HPP
+#define CPPWAMP_INTERNAL_RAWSOCKTRANSPORT_HPP
 
 #include <array>
 #include <chrono>
@@ -24,10 +24,9 @@
 #include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
 #include "../asiodefs.hpp"
-#include "../codec.hpp"
 #include "../error.hpp"
 #include "../messagebuffer.hpp"
-#include "../rawsockoptions.hpp"
+#include "../transport.hpp"
 #include "rawsockheader.hpp"
 
 namespace wamp
@@ -39,16 +38,16 @@ namespace internal
 //------------------------------------------------------------------------------
 // Combines a raw socket transport header with an encoded message payload.
 //------------------------------------------------------------------------------
-class AsioFrame
+class RawsockFrame
 {
 public:
-    using Ptr        = std::shared_ptr<AsioFrame>;
+    using Ptr        = std::shared_ptr<RawsockFrame>;
     using Header     = uint32_t;
     using GatherBufs = std::array<boost::asio::const_buffer, 2>;
 
-    AsioFrame() = default;
+    RawsockFrame() = default;
 
-    AsioFrame(RawsockMsgType type, MessageBuffer&& payload)
+    RawsockFrame(RawsockMsgType type, MessageBuffer&& payload)
         : header_(computeHeader(type, payload)),
           payload_(std::move(payload))
     {}
@@ -99,106 +98,96 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename TSocket>
-class AsioTransport :
-        public std::enable_shared_from_this<AsioTransport<TSocket>>
+struct DefaultRawsockTransportConfig
+{
+    static RawsockFrame::Ptr enframe(RawsockMsgType type,
+                                     MessageBuffer&& payload)
+    {
+        // TODO: Reuse frames somehow
+        return std::make_shared<RawsockFrame>(type, std::move(payload));
+    }
+};
+
+//------------------------------------------------------------------------------
+template <typename TSocket, typename TConfig = DefaultRawsockTransportConfig>
+class RawsockTransport : public Transporting
 {
 public:
-    using Ptr         = std::shared_ptr<AsioTransport>;
-    using RxHandler   = std::function<void (MessageBuffer)>;
-    using FailHandler = std::function<void (std::error_code ec)>;
-    using PingHandler = std::function<void (float)>;
+    using Ptr            = std::shared_ptr<RawsockTransport>;
+    using Socket         = TSocket;
+    using Config         = TConfig;
+    using SocketPtr      = std::unique_ptr<Socket>;
+    using RxHandler      = typename Transporting::RxHandler;
+    using TxErrorHandler = typename Transporting::TxErrorHandler;
+    using PingHandler    = typename Transporting::PingHandler;
 
-    using Socket      = TSocket;
-    using SocketPtr   = std::unique_ptr<Socket>;
-
-    static Ptr create(SocketPtr&& socket, size_t maxTxLength,
-                      size_t maxRxLength)
+    static Ptr create(SocketPtr&& s, TransportInfo info)
     {
-        return Ptr(new AsioTransport(std::move(socket), maxTxLength,
-                                     maxRxLength));
+        return Ptr(new RawsockTransport(std::move(s), info));
     }
 
-    // Noncopyable
-    AsioTransport(const AsioTransport&) = delete;
-    AsioTransport& operator=(const AsioTransport&) = delete;
+    TransportInfo info() const override {return info_;}
 
-    virtual ~AsioTransport() {}
+    bool isStarted() const override {return running_;}
 
-    size_t maxSendLength() const {return maxTxLength_;}
-
-    size_t maxReceiveLength() const {return maxRxLength_;}
-
-    bool isOpen() const {return socket_ && socket_->is_open();}
-
-    bool isStarted() const {return started_;}
-
-    void start(RxHandler rxHandler, FailHandler failHandler)
+    void start(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
-        assert(!started_);
+        assert(!running_);
         rxHandler_ = rxHandler;
-        failHandler_ = failHandler;
+        txErrorHandler_ = txErrorHandler;
         receive();
-        started_ = true;
+        running_ = true;
     }
 
-    void send(MessageBuffer message)
+    void send(MessageBuffer message) override
     {
-        assert(started_);
-        auto buf = newFrame(RawsockMsgType::wamp, std::move(message));
+        assert(running_);
+        auto buf = enframe(RawsockMsgType::wamp, std::move(message));
         sendFrame(std::move(buf));
     }
 
-    void close()
+    void close() override
     {
-        txQueue_.clear();
         rxHandler_ = nullptr;
+        txErrorHandler_ = nullptr;
+        txQueue_.clear();
+        running_ = false;
         if (socket_)
             socket_->close();
     }
 
-    IoStrand strand() const {return strand_;}
-
-    void ping(MessageBuffer message, PingHandler handler)
+    void ping(MessageBuffer message, PingHandler handler) override
     {
-        assert(started_);
+        assert(running_);
         pingHandler_ = std::move(handler);
-        pingFrame_ = newFrame(RawsockMsgType::ping, std::move(message));
+        pingFrame_ = enframe(RawsockMsgType::ping, std::move(message));
         sendFrame(pingFrame_);
         pingStart_ = std::chrono::high_resolution_clock::now();
     }
 
-protected:
-    using TransmitQueue = std::deque<AsioFrame::Ptr>;
+private:
+    using Base = Transporting;
+    using TransmitQueue = std::deque<RawsockFrame::Ptr>;
     using TimePoint     = std::chrono::high_resolution_clock::time_point;
 
-    AsioTransport(SocketPtr&& socket, size_t maxTxLength, size_t maxRxLength)
-        : socket_(std::move(socket)),
-          strand_(boost::asio::make_strand(socket_->get_executor())),
-          maxTxLength_(maxTxLength),
-          maxRxLength_(maxRxLength)
+    RawsockTransport(SocketPtr&& socket, TransportInfo info)
+        : strand_(boost::asio::make_strand(socket->get_executor())),
+        socket_(std::move(socket)),
+        info_(info)
     {}
 
-    AsioFrame::Ptr newFrame(RawsockMsgType type, MessageBuffer&& payload)
+    RawsockFrame::Ptr enframe(RawsockMsgType type, MessageBuffer&& payload)
     {
-        // TODO: Reuse frames somehow
-        return std::make_shared<AsioFrame>(type, std::move(payload));
+        return Config::enframe(type, std::move(payload));
     }
 
-    virtual void sendFrame(AsioFrame::Ptr frame)
+    void sendFrame(RawsockFrame::Ptr frame)
     {
         assert(socket_ && "Attempting to send on bad transport");
-        assert((frame->payload().size() <= maxTxLength_) &&
+        assert((frame->payload().size() <= info_.maxTxLength) &&
                "Outgoing message is longer than allowed by peer");
         txQueue_.push_back(std::move(frame));
         transmit();
-    }
-
-private:
-    template <typename TFunctor>
-    void post(TFunctor&& fn)
-    {
-        boost::asio::post(strand_, std::forward<TFunctor>(fn));
     }
 
     void transmit()
@@ -210,12 +199,18 @@ private:
 
             auto self = this->shared_from_this();
             boost::asio::async_write(*socket_, txFrame_->gatherBuffers(),
-                [this, self](AsioErrorCode ec, size_t size)
+                [this, self](boost::system::error_code asioEc, size_t size)
                 {
                     txFrame_.reset();
-                    if (ec)
+                    if (asioEc)
                     {
                         txQueue_.clear();
+                        if (txErrorHandler_)
+                        {
+                            auto ec = make_error_code(
+                                static_cast<std::errc>(asioEc.value()));
+                            txErrorHandler_(ec);
+                        }
                         socket_.reset();
                     }
                     else
@@ -240,7 +235,7 @@ private:
             rxFrame_.clear();
             auto self = this->shared_from_this();
             boost::asio::async_read(*socket_, rxFrame_.headerBuffer(),
-                [this, self](AsioErrorCode ec, size_t)
+                [this, self](boost::system::error_code ec, size_t)
                 {
                     if (check(ec))
                         processHeader();
@@ -248,15 +243,14 @@ private:
         }
     }
 
-    virtual void processHeader()
+    void processHeader()
     {
         auto hdr = rxFrame_.header();
-        auto length  = hdr.length();
-        if ( check(length <= maxRxLength_, TransportErrc::badRxLength) &&
-             check(hdr.msgTypeIsValid(), RawsockErrc::badMessageType) )
-        {
-            receivePayload(hdr.msgType(), length);
-        }
+        auto len  = hdr.length();
+        bool ok = check(len <= info_.maxRxLength, TransportErrc::badRxLength)
+               && check(hdr.msgTypeIsValid(), RawsockErrc::badMessageType);
+        if (ok)
+            receivePayload(hdr.msgType(), len);
     }
 
     void receivePayload(RawsockMsgType msgType, size_t length)
@@ -264,19 +258,16 @@ private:
         rxFrame_.resize(length);
         auto self = this->shared_from_this();
         boost::asio::async_read(*socket_, rxFrame_.payloadBuffer(),
-            [this, self, msgType](AsioErrorCode ec, size_t)
+            [this, self, msgType](boost::system::error_code ec, size_t)
             {
                 if (ec)
                     rxFrame_.clear();
-                if (check(ec))
+                if (check(ec) && running_)
                     switch (msgType)
                     {
                     case RawsockMsgType::wamp:
                         if (rxHandler_)
-                        {
-                            post(std::bind(rxHandler_,
-                                           std::move(rxFrame_).payload()));
-                        }
+                            post(rxHandler_, std::move(rxFrame_).payload());
                         receive();
                         break;
 
@@ -296,7 +287,7 @@ private:
 
     void sendPong()
     {
-        auto frame = newFrame(RawsockMsgType::pong,
+        auto frame = enframe(RawsockMsgType::pong,
                               std::move(rxFrame_).payload());
         sendFrame(std::move(frame));
         receive();
@@ -310,7 +301,7 @@ private:
             pingStop_ = chrn::high_resolution_clock::now();
             using Fms = chrn::duration<float, chrn::milliseconds::period>;
             float elapsed = Fms(pingStop_ - pingStart_).count();
-            post(std::bind(pingHandler_, elapsed));
+            post(pingHandler_, elapsed);
             pingHandler_ = nullptr;
         }
         pingFrame_.reset();
@@ -323,15 +314,22 @@ private:
                (rxFrame_.payload() == pingFrame_->payload());
     }
 
-    bool check(AsioErrorCode asioEc)
+    template <typename F, typename... Ts>
+    void post(F&& handler, Ts&&... args)
+    {
+        boost::asio::post(strand_, std::bind(std::forward<F>(handler),
+                                             std::forward<Ts>(args)...));
+    }
+
+    bool check(boost::system::error_code asioEc)
     {
         if (asioEc)
         {
-            if (failHandler_)
+            if (rxHandler_)
             {
                 auto ec = make_error_code(
                             static_cast<std::errc>(asioEc.value()));
-                post(std::bind(failHandler_, ec));
+                post(rxHandler_, UnexpectedError(ec));
             }
             cleanup();
         }
@@ -343,8 +341,8 @@ private:
     {
         if (!condition)
         {
-            if (failHandler_)
-                post(std::bind(failHandler_, make_error_code(errc)));
+            if (rxHandler_)
+                post(rxHandler_, makeUnexpectedError(errc));
             cleanup();
         }
         return condition;
@@ -353,7 +351,7 @@ private:
     void cleanup()
     {
         rxHandler_ = nullptr;
-        failHandler_ = nullptr;
+        txErrorHandler_ = nullptr;
         pingHandler_ = nullptr;
         rxFrame_.clear();
         txQueue_.clear();
@@ -362,18 +360,17 @@ private:
         socket_.reset();
     }
 
-    std::unique_ptr<TSocket> socket_;
     IoStrand strand_;
-    size_t maxTxLength_;
-    size_t maxRxLength_;
-    bool started_ = false;
+    std::unique_ptr<TSocket> socket_;
+    TransportInfo info_;
+    bool running_ = false;
     RxHandler rxHandler_;
-    FailHandler failHandler_;
+    TxErrorHandler txErrorHandler_;
     PingHandler pingHandler_;
-    AsioFrame rxFrame_;
+    RawsockFrame rxFrame_;
     TransmitQueue txQueue_;
-    AsioFrame::Ptr txFrame_;
-    AsioFrame::Ptr pingFrame_;
+    RawsockFrame::Ptr txFrame_;
+    RawsockFrame::Ptr pingFrame_;
     TimePoint pingStart_;
     TimePoint pingStop_;
 };
@@ -382,4 +379,4 @@ private:
 
 } // namespace wamp
 
-#endif // CPPWAMP_ASIOTRANSPORT_HPP
+#endif // CPPWAMP_INTERNAL_RAWSOCKTRANSPORT_HPP

@@ -9,12 +9,12 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Common type definitions used by transports
-           that rely on Boost.Asio. */
+    @brief Commonly used Boost.Asio type aliases.
+    @see <cppwamp/spawn.hpp> */
 //------------------------------------------------------------------------------
 
-#include <type_traits>
 #include <boost/asio/any_io_executor.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/system/error_code.hpp>
@@ -23,7 +23,7 @@
 namespace wamp
 {
 
-/** Polymorphic executor for all I/O objects. */
+/** Polymorphic executor for I/O objects. */
 using AnyIoExecutor = boost::asio::any_io_executor;
 
 /** Alias of AnyIoExecutor kept for backward compatibility.
@@ -31,16 +31,20 @@ using AnyIoExecutor = boost::asio::any_io_executor;
 using AnyExecutor CPPWAMP_DEPRECATED = AnyIoExecutor;
 
 /** Queues and runs I/O completion handlers. */
-using AsioContext = boost::asio::io_context;
+using IoContext = boost::asio::io_context;
+
+/** Alias of IoContext kept for backward compatibility. */
+using AsioContext CPPWAMP_DEPRECATED = boost::asio::io_context;
 
 /** Alias of AsioContext kept for backward compatibility.
     @deprecated Use wamp::AsioContext instead. */
-using AsioService CPPWAMP_DEPRECATED = AsioContext;
+using AsioService CPPWAMP_DEPRECATED = IoContext;
 
 /** Serializes I/O operations. */
 using IoStrand = boost::asio::strand<AnyIoExecutor>;
 
-/** Type used by Boost.Asio for reporting errors. */
+/** Type used by Boost.Asio for reporting errors.
+    @deprecated Will be removed */
 using AsioErrorCode = boost::system::error_code;
 
 /** Metafunction that determines if T meets the requirements of
@@ -50,6 +54,16 @@ static constexpr bool isExecutionContext()
 {
     return std::is_base_of<boost::asio::execution_context, T>::value;
 }
+
+/** Completion token used to indicate that there is no completion handler
+    waiting for the operation's result. */
+using Detached = boost::asio::detached_t;
+
+#if defined(BOOST_ASIO_HAS_CONSTEXPR) || defined(CPPWAMP_FOR_DOXYGEN)
+constexpr Detached detached;
+#endif
+
+// boost::asio::detached
 
 } // namespace wamp
 

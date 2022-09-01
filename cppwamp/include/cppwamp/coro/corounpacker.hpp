@@ -8,7 +8,11 @@
 #ifndef CPPWAMP_CORO_COROUNPACKER_HPP
 #define CPPWAMP_CORO_COROUNPACKER_HPP
 
-// Backward compatility header which includes <cppwamp/corounpacker.hpp> */
+//------------------------------------------------------------------------------
+/** @file
+    @brief Backward compatilibity header: use <cppwamp/corounpacker.hpp>
+           instead. */
+//------------------------------------------------------------------------------
 
 #include <cppwamp/corounpacker.hpp>
 

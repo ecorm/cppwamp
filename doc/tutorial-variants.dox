@@ -283,6 +283,6 @@ std::cout << v << "\n"; // Prints "["foo", false, 123]"
 
 - - -
 
-Next: @ref ConnectorsTutorial
+Next: @ref ConnectionsTutorial
 
 */

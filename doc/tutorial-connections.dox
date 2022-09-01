@@ -1,0 +1,110 @@
+/*------------------------------------------------------------------------------
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
+------------------------------------------------------------------------------*/
+
+/**
+@page ConnectionsTutorial Connections
+
+@tableofcontents
+
+A wamp::ConnectionWish represents the combination of a transport and serialization
+format desired by the user. It is used by wamp::Session to generate an
+appropriate transport and codec on demand when performing its connection
+operation.
+
+The easiest way to generate a `ConnectionWish` is through a *transport settings*
+type. CppWAMP currently supports two transport settings types:
+
+Transport Settings Type | Declared in         | For Transport
+----------------------- | ------------------- | -----------
+@ref wamp::TcpHost      | `<cppwamp/tcp.hpp>` | TCP raw socket
+@ref wamp::UdsPath      | `<cppwamp/uds.hpp>` | Unix domain socket
+
+To generatate a `ConnectionWish`, specify a serialization format tag in the
+`withFormat` method of one of the above transport settings types.
+
+The following serialization format tags are currently supported:
+
+| Format tag    | Declared in             |
+| ------------- | ----------------------- |
+| wamp::json    | `<cppwamp/json.hpp>`    |
+| wamp::msgpack | `<cppwamp/msgpack.hpp>` |
+| wamp::cbor    | `<cppwamp/cbor.hpp>`    |
+
+
+Example with TCP Raw Socket Transport and Json Format
+-----------------------------------------------------
+
+```
+#include <cppwamp/json.hpp>
+#include <cppwamp/tcp.hpp>
+
+auto tcp =                // 'tcp' will be of type wamp::ConnectionWish
+    wamp::TcpHost{        // Raw TCP transport is desired
+        "127.0.0.1",      // Host address
+        8001              // Port number (could also be a service name string)
+}.withFormat(wamp::json); // JSON serialization format is desired
+```
+
+Example with Unix Domain Socket Transport and Msgpack Format
+------------------------------------------------------------
+
+```
+#include <cppwamp/msgpack.hpp>
+#include <cppwamp/uds.hpp>
+
+ auto uds =                  // 'tcp' will be of type wamp::ConnectionWish
+    wamp::UdpPath{           // Raw Unix domain socket transport is desired
+        "path/to/uds"        // Path name of the Unix domain socket
+}.withFormat(wamp::msgpack); // Msgpack serialization format
+```
+
+Specifying Extra Socket Options
+-------------------------------
+
+The wamp::TcpHost and wamp::UdsPath objects allow you to specify extra socket
+options. See the reference documentation for more details.
+
+This snippet below shows how to create a TCP connection wish with a specified
+maximum incoming message length, as well as with Nagle's algorithm disabled:
+
+```
+auto tcp = wamp::TcpHost{"127.0.0.1", 8001}
+           .withMaxRxLength(wamp::RawsockMaxLength::MB_1)
+           .withOptions(wamp::TcpOptions.withNoDelay())
+           .withFormat(wamp::json)
+);
+```
+
+Combining Connectors
+--------------------
+
+More than one `ConnectionWish` can be passed to a wamp::Session object. In such
+cases, the session will successively attempt to establish a connection with
+each of the transport/serialization combinations until one succeeds. This
+allows you to specify "fallback" transports if the primary one fails to
+establish.
+
+To achieve this, you must pass a wamp::ConnectionWishList to
+wamp::Session::connect. `ConnectionWishList` is a container (a std::vector)
+for several `ConnectionWish` objects. The following example uses two
+`TcpHost` settings, each specifying a different serialization format:
+
+```
+#include <cppwamp/json.hpp>
+#include <cppwamp/msgpack.hpp>
+#include <cppwamp/tcp.hpp>
+
+wamp::ConnectionWishList wishList{
+    wamp::TcpHost{"localhost", 8001}.withFormat(wamp::json),
+    wamp::TcpHost{"localhost", 8001}.withFormat(wamp::msgpack)
+};
+```
+
+- - -
+
+Next: @ref SessionsTutorial
+
+*/

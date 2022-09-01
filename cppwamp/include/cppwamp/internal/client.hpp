@@ -7,7 +7,10 @@
 #ifndef CPPWAMP_INTERNAL_CLIENT_HPP
 #define CPPWAMP_INTERNAL_CLIENT_HPP
 
+#include <atomic>
 #include <cassert>
+#include <exception>
+#include <future>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -17,11 +20,20 @@
 #include <utility>
 #include <boost/asio/post.hpp>
 #include "../anyhandler.hpp"
+#include "../codec.hpp"
+#include "../chits.hpp"
+#include "../connector.hpp"
+#include "../logging.hpp"
+#include "../peerdata.hpp"
 #include "../registration.hpp"
 #include "../subscription.hpp"
+#include "../transport.hpp"
 #include "../version.hpp"
+#include "callee.hpp"
+#include "caller.hpp"
 #include "callertimeout.hpp"
-#include "clientinterface.hpp"
+#include "challengee.hpp"
+#include "subscriber.hpp"
 #include "peer.hpp"
 
 namespace wamp
@@ -31,34 +43,203 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// Provides the implementation of the wamp::Session class.
+// Provides the WAMP client implementation.
 //------------------------------------------------------------------------------
-template <typename TCodec, typename TTransport>
-class Client : public ClientInterface, public Peer<TCodec, TTransport>
+class Client : public std::enable_shared_from_this<Client>, public Callee,
+               public Caller, public Subscriber, public Challengee
 {
 public:
-    using Ptr          = std::shared_ptr<Client>;
-    using WeakPtr      = std::weak_ptr<Client>;
-    using Codec        = TCodec;
-    using Transport    = TTransport;
-    using TransportPtr = std::shared_ptr<Transport>;
-    using State        = SessionState;
+    using Ptr                = std::shared_ptr<Client>;
+    using WeakPtr            = std::weak_ptr<Client>;
+    using TransportPtr       = Transporting::Ptr;
+    using State              = SessionState;
+    using FutureErrorOrDone  = std::future<ErrorOrDone>;
+    using EventSlot          = AnyReusableHandler<void (Event)>;
+    using CallSlot           = AnyReusableHandler<Outcome (Invocation)>;
+    using InterruptSlot      = AnyReusableHandler<Outcome (Interruption)>;
+    using LogHandler         = AnyReusableHandler<void(LogEntry)>;
+    using LogStringHandler   = AnyReusableHandler<void(std::string)>; // TODO: Remove
+    using StateChangeHandler = AnyReusableHandler<void(SessionState)>;
+    using ChallengeHandler   = AnyReusableHandler<void(Challenge)>;
+    using OngoingCallHandler = AnyReusableHandler<void(ErrorOr<Result>)>;
 
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    static Ptr create(TransportPtr&& transport)
+    static Ptr create(AnyIoExecutor exec)
     {
-        return Ptr(new Client(std::move(transport)));
+        return Ptr(new Client(std::move(exec)));
     }
 
-    ~Client() override {terminate();}
+    static Ptr create(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
+    {
+        return Ptr(new Client(exec, std::move(userExec)));
+    }
 
-    State state() const override {return Base::state();}
+    static const Object& roles()
+    {
+        static const Object rolesDict =
+        {
+            {"callee", Object{{"features", Object{{
+                {"call_canceling", true},
+                {"call_timeout", true},
+                {"call_trustlevels", true},
+                {"caller_identification", true},
+                {"pattern_based_registration", true},
+                {"progressive_call_results", true}
+            }}}}},
+            {"caller", Object{{"features", Object{{
+                {"call_canceling", true},
+                {"call_timeout", true},
+                {"caller_exclusion", true},
+                {"caller_identification", true},
+                {"progressive_call_results", true}
+            }}}}},
+            {"publisher", Object{{"features", Object{{
+                {"publisher_exclusion", true},
+                {"publisher_identification", true},
+                {"subscriber_blackwhite_listing", true}
+            }}}}},
+            {"subscriber", Object{{"features", Object{{
+                {"pattern_based_subscription", true},
+                {"publication_trustlevels", true},
+                {"publisher_identification", true},
+            }}}}}
+        };
+        return rolesDict;
+    }
 
-    IoStrand strand() const override {return Base::strand();}
+    State state() const {return peer_.state();}
 
-    void join(Realm&& realm, CompletionHandler<SessionInfo>&& handler) override
+    const IoStrand& strand() const {return peer_.strand();}
+
+    const AnyCompletionExecutor& userExecutor() const
+    {
+        return peer_.userExecutor();
+    }
+
+    void setLogHandler(LogHandler handler)
+    {
+        peer_.setLogHandler(std::move(handler));
+    }
+
+    void setLogLevel(LogLevel level) {peer_.setLogLevel(level);}
+
+    void safeSetLogHandler(LogHandler f)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            LogHandler f;
+            void operator()() {self->setLogHandler(std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(f));
+    }
+
+    // TODO: Remove
+    void setWarningHandler(LogStringHandler handler)
+    {
+        peer_.setWarningHandler(std::move(handler));
+    }
+
+    // TODO: Remove
+    void safeSetWarningHandler(LogStringHandler f)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            LogStringHandler f;
+            void operator()() {self->setWarningHandler(std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(f));
+    }
+
+    // TODO: Remove
+    void setTraceHandler(LogStringHandler f) {peer_.setTraceHandler(std::move(f));}
+
+    // TODO: Remove
+    void safeSetTraceHandler(LogStringHandler f)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            LogStringHandler f;
+            void operator()() {self->setTraceHandler(std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(f));
+    }
+
+    void setStateChangeHandler(StateChangeHandler f)
+    {
+        peer_.setStateChangeHandler(std::move(f));
+    }
+
+    void safeSetStateChangeHandler(StateChangeHandler f)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            StateChangeHandler f;
+            void operator()() {self->setStateChangeHandler(std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(f));
+    }
+
+    void setChallengeHandler(ChallengeHandler handler)
+    {
+        challengeHandler_ = std::move(handler);
+    }
+
+    void safeSetChallengeHandler(ChallengeHandler f)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            ChallengeHandler f;
+            void operator()() {self->setChallengeHandler(std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(f));
+    }
+
+    void connect(ConnectionWishList&& wishes,
+                 CompletionHandler<size_t>&& handler)
+    {
+        assert(!wishes.empty());
+
+        if (!checkState(State::disconnected, handler))
+            return;
+
+        peer_.setTerminating(false);
+        peer_.setState(State::connecting);
+        currentConnector_ = nullptr;
+
+        // This makes it easier to transport the move-only completion handler
+        // through the gauntlet of intermediary handler functions.
+        auto sharedHandler =
+            std::make_shared<CompletionHandler<size_t>>(std::move(handler));
+
+        doConnect(std::move(wishes), 0, std::move(sharedHandler));
+    }
+
+    void safeConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            ConnectionWishList w;
+            CompletionHandler<size_t> f;
+            void operator()() {self->connect(std::move(w), std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(w), std::move(f));
+    }
+
+    void join(Realm&& realm, CompletionHandler<SessionInfo>&& handler)
     {
         struct Requested
         {
@@ -67,98 +248,156 @@ public:
             String realmUri;
             Abort* abortPtr;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkError(ec, handler))
+                if (me.checkError(reply, handler))
                 {
-                    if (reply.type() == WampMsgType::welcome)
-                        me.onWelcome(std::move(handler), std::move(reply),
+                    if (reply->type() == WampMsgType::welcome)
+                        me.onWelcome(std::move(handler), std::move(*reply),
                                      std::move(realmUri));
                     else
-                        me.onJoinAborted(std::move(handler), std::move(reply),
+                        me.onJoinAborted(std::move(handler), std::move(*reply),
                                          abortPtr);
                 }
             }
         };
 
+        if (!checkState(State::closed, handler))
+            return;
+
         realm.withOption("agent", Version::agentString())
              .withOption("roles", roles());
-        this->start();
-        this->request(realm.message({}),
+        peer_.start();
+        peer_.request(realm.message({}),
                       Requested{shared_from_this(), std::move(handler),
                                 realm.uri(), realm.abort({})});
     }
 
-    void authenticate(Authentication&& auth) override
-    {
-        this->send(auth.message({}));
-    }
-
-    void safeAuthenticate(Authentication&& auth) override
+    void safeJoin(Realm&& r, CompletionHandler<SessionInfo>&& f)
     {
         struct Dispatched
         {
-            std::weak_ptr<Client> self;
-            Authentication auth;
+            Ptr self;
+            Realm r;
+            CompletionHandler<SessionInfo> f;
+            void operator()() {self->join(std::move(r), std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(r), std::move(f));
+    }
+
+    ErrorOrDone authenticate(Authentication&& auth) override
+    {
+        if (state() != State::authenticating)
+            return makeUnexpectedError(SessionErrc::invalidState);
+        return peer_.send(auth.message({}));
+    }
+
+    FutureErrorOrDone safeAuthenticate(Authentication&& a) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Authentication a;
+            ErrorOrDonePromise p;
 
             void operator()()
             {
-                auto me = self.lock();
-                if (me)
-                    me->authenticate(std::move(auth));
+                try
+                {
+                    p.set_value(self->authenticate(std::move(a)));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
             }
         };
 
-        boost::asio::dispatch(strand(),
-                              Dispatched{shared_from_this(), std::move(auth)});
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(std::move(a), std::move(p));
+        return fut;
     }
 
-    void leave(Reason&& reason, CompletionHandler<Reason>&& handler) override
+    void leave(Reason&& reason, CompletionHandler<Reason>&& handler)
     {
         struct Adjourned
         {
             Ptr self;
             CompletionHandler<Reason> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
+                me.topics_.clear();
                 me.readership_.clear();
                 me.registry_.clear();
-                if (me.checkError(ec, handler))
+                if (me.checkError(reply, handler))
                 {
-                    auto& goodBye = message_cast<GoodbyeMessage>(reply);
+                    auto& goodBye = message_cast<GoodbyeMessage>(*reply);
                     me.dispatchUserHandler(handler,
                                            Reason({}, std::move(goodBye)));
                 }
             }
         };
 
-        using std::move;
+        if (!checkState(State::established, handler))
+            return;
         timeoutScheduler_->clear();
-        auto self = this->shared_from_this();
-        Base::adjourn(reason,
+        peer_.adjourn(reason,
                       Adjourned{shared_from_this(), std::move(handler)});
     }
 
-    void disconnect() override
+    void safeLeave(Reason&& r, CompletionHandler<Reason>&& f)
     {
-        pendingInvocations_.clear();
-        timeoutScheduler_->clear();
-        this->close(false);
+        struct Dispatched
+        {
+            Ptr self;
+            Reason r;
+            CompletionHandler<Reason> f;
+            void operator()() {self->leave(std::move(r), std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(r), std::move(f));
     }
 
-    void terminate() override
+    void disconnect()
     {
-        initialize({}, {}, {}, {}, {});
-        pendingInvocations_.clear();
-        timeoutScheduler_->clear();
-        this->close(true);
+        doDisconnect();
+    }
+
+    void safeDisconnect()
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            void operator()() {self->disconnect();}
+        };
+
+        safelyDispatch<Dispatched>();
+    }
+
+    void terminate()
+    {
+        peer_.setTerminating(true);
+        doDisconnect();
+    }
+
+    void safeTerminate()
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            void operator()() {self->terminate();}
+        };
+
+        safelyDispatch<Dispatched>();
     }
 
     void subscribe(Topic&& topic, EventSlot&& slot,
-                   CompletionHandler<Subscription>&& handler) override
+                   CompletionHandler<Subscription>&& handler)
     {
         struct Requested
         {
@@ -166,23 +405,25 @@ public:
             SubscriptionRecord rec;
             CompletionHandler<Subscription> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::subscribed, ec, reply,
+                if (me.checkReply(reply, WampMsgType::subscribed,
                                   SessionErrc::subscribeError, handler))
                 {
-                    const auto& subMsg = message_cast<SubscribedMessage>(reply);
-                    auto subId = subMsg.subscriptionId();
+                    const auto& msg = message_cast<SubscribedMessage>(*reply);
+                    auto subId = msg.subscriptionId();
                     auto slotId = me.nextSlotId();
                     Subscription sub(self, subId, slotId, {});
                     me.topics_.emplace(rec.topicUri, subId);
                     me.readership_[subId][slotId] = std::move(rec);
                     me.dispatchUserHandler(handler, std::move(sub));
                 }
-
             }
         };
+
+        if (!checkState(State::established, handler))
+            return;
 
         using std::move;
         SubscriptionRecord rec = {topic.uri(), move(slot)};
@@ -190,8 +431,7 @@ public:
         auto kv = topics_.find(rec.topicUri);
         if (kv == topics_.end())
         {
-            auto self = this->shared_from_this();
-            this->request(
+            peer_.request(
                 topic.message({}),
                 Requested{shared_from_this(), move(rec), move(handler)});
         }
@@ -199,13 +439,30 @@ public:
         {
             auto subId = kv->second;
             auto slotId = nextSlotId();
-            Subscription sub{this->shared_from_this(), subId, slotId, {}};
+            Subscription sub{shared_from_this(), subId, slotId, {}};
             readership_[subId][slotId] = move(rec);
-            dispatchUserHandler(handler, move(sub));
+            postUserHandler(handler, move(sub));
         }
     }
 
-    void unsubscribe(const Subscription& sub) override
+    void safeSubscribe(Topic&& t, EventSlot&& s,
+                       CompletionHandler<Subscription>&& f)
+    {
+        using std::move;
+
+        struct Dispatched
+        {
+            Ptr self;
+            Topic t;
+            EventSlot s;
+            CompletionHandler<Subscription> f;
+            void operator()() {self->subscribe(move(t), move(s), move(f));}
+        };
+
+        safelyDispatch<Dispatched>(move(t), move(s), move(f));
+    }
+
+    void unsubscribe(const Subscription& sub)
     {
         auto kv = readership_.find(sub.id());
         if (kv != readership_.end())
@@ -230,10 +487,20 @@ public:
         }
     }
 
-    void unsubscribe(const Subscription& sub,
-                     CompletionHandler<bool>&& handler) override
+    void safeUnsubscribe(const Subscription& s) override
     {
-        bool unsubscribed = false;
+        struct Dispatched
+        {
+            Ptr self;
+            Subscription s;
+            void operator()() {self->unsubscribe(s);}
+        };
+
+        safelyDispatch<Dispatched>(s);
+    }
+
+    void unsubscribe(const Subscription& sub, CompletionHandler<bool>&& handler)
+    {
         auto kv = readership_.find(sub.id());
         if (kv != readership_.end())
         {
@@ -243,7 +510,6 @@ public:
                 auto subKv = localSubs.find(sub.slotId({}));
                 if (subKv != localSubs.end())
                 {
-                    unsubscribed = true;
                     if (localSubs.size() == 1u)
                         topics_.erase(subKv->second.topicUri);
 
@@ -258,56 +524,101 @@ public:
         }
         else
         {
-            postVia(userExecutor(), std::move(handler), unsubscribed);
+            postUserHandler(handler, false);
         }
     }
 
-    void safeUnsubscribe(const Subscription& sub) override
+    void safeUnsubscribe(const Subscription& s,
+                         CompletionHandler<bool>&& f) override
     {
-        auto self = std::weak_ptr<Client>(shared_from_this());
-        boost::asio::dispatch(
-            strand(),
-            [self, sub]() mutable
+        struct Dispatched
+        {
+            Ptr self;
+            Subscription s;
+            CompletionHandler<bool> f;
+            void operator()() {self->unsubscribe(s, std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(s, std::move(f));
+    }
+
+    ErrorOrDone publish(Pub&& pub)
+    {
+        if (state() != State::established)
+            return makeUnexpectedError(SessionErrc::invalidState);
+        return peer_.send(pub.message({}));
+    }
+
+    FutureErrorOrDone safePublish(Pub&& p)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Pub p;
+            ErrorOrDonePromise prom;
+
+            void operator()()
             {
-                auto me = self.lock();
-                if (me)
-                    me->unsubscribe(std::move(sub));
-            });
+                try
+                {
+                    prom.set_value(self->publish(std::move(p)));
+                }
+                catch (...)
+                {
+                    prom.set_exception(std::current_exception());
+                }
+            }
+        };
+
+        ErrorOrDonePromise prom;
+        auto fut = prom.get_future();
+        safelyDispatch<Dispatched>(std::move(p), std::move(prom));
+        return fut;
     }
 
-    void publish(Pub&& pub) override
-    {
-        this->send(pub.message({}));
-    }
-
-    void publish(Pub&& pub, CompletionHandler<PublicationId>&& handler) override
+    void publish(Pub&& pub, CompletionHandler<PublicationId>&& handler)
     {
         struct Requested
         {
             Ptr self;
             CompletionHandler<PublicationId> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::published, ec, reply,
+                if (me.checkReply(reply, WampMsgType::published,
                                   SessionErrc::publishError, handler))
                 {
-                    const auto& pubMsg = message_cast<PublishedMessage>(reply);
+                    const auto& pubMsg = message_cast<PublishedMessage>(*reply);
                     me.dispatchUserHandler(handler, pubMsg.publicationId());
                 }
             }
         };
 
+        if (!checkState(State::established, handler))
+            return;
+
         pub.withOption("acknowledge", true);
-        auto self = this->shared_from_this();
-        this->request(pub.message({}),
+        peer_.request(pub.message({}),
                       Requested{shared_from_this(), std::move(handler)});
+    }
+
+    void safePublish(Pub&& p, CompletionHandler<PublicationId>&& f)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Pub p;
+            CompletionHandler<PublicationId> f;
+            void operator()() {self->publish(std::move(p), std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(p), std::move(f));
     }
 
     void enroll(Procedure&& procedure, CallSlot&& callSlot,
                 InterruptSlot&& interruptSlot,
-                CompletionHandler<Registration>&& handler) override
+                CompletionHandler<Registration>&& handler)
     {
         struct Requested
         {
@@ -315,14 +626,14 @@ public:
             RegistrationRecord rec;
             CompletionHandler<Registration> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::registered, ec, reply,
+                if (me.checkReply(reply, WampMsgType::registered,
                                   SessionErrc::registerError, handler))
                 {
-                    const auto& regMsg = message_cast<RegisteredMessage>(reply);
-                    auto regId = regMsg.registrationId();
+                    const auto& msg = message_cast<RegisteredMessage>(*reply);
+                    auto regId = msg.registrationId();
                     Registration reg(self, regId, {});
                     me.registry_[regId] = std::move(rec);
                     me.dispatchUserHandler(handler, std::move(reg));
@@ -330,25 +641,48 @@ public:
             }
         };
 
+        if (!checkState(State::established, handler))
+            return;
+
         using std::move;
         RegistrationRecord rec{ move(callSlot), move(interruptSlot) };
-        auto self = this->shared_from_this();
-        this->request(procedure.message({}),
+        peer_.request(procedure.message({}),
                       Requested{shared_from_this(), move(rec), move(handler)});
     }
 
-    void unregister(const Registration& reg) override
+    void safeEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
+                    CompletionHandler<Registration>&& f)
+    {
+        using std::move;
+
+        struct Dispatched
+        {
+            Ptr self;
+            Procedure p;
+            CallSlot c;
+            InterruptSlot i;
+            CompletionHandler<Registration> f;
+
+            void operator()()
+            {
+                self->enroll(move(p), move(c), move(i), move(f));
+            }
+        };
+
+        safelyDispatch<Dispatched>(move(p), move(c), move(i), move(f));
+    }
+
+    void unregister(const Registration& reg)
     {
         struct Requested
         {
             Ptr self;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 // Don't propagate WAMP errors, as we prefer this
                 // to be a no-fail cleanup operation.
-                self->warnReply(WampMsgType::unregistered, ec, reply,
-                                SessionErrc::unregisterError);
+                self->checkReply(reply, WampMsgType::unregistered);
             }
         };
 
@@ -358,25 +692,35 @@ public:
             registry_.erase(kv);
             if (state() == State::established)
             {
-                auto self = this->shared_from_this();
                 UnregisterMessage msg(reg.id());
-                this->request(msg, Requested{shared_from_this()});
+                peer_.request(msg, Requested{shared_from_this()});
             }
         }
     }
 
-    void unregister(const Registration& reg,
-                    CompletionHandler<bool>&& handler) override
+    void safeUnregister(const Registration& r) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Registration r;
+            void operator()() {self->unregister(r);}
+        };
+
+        safelyDispatch<Dispatched>(r);
+    }
+
+    void unregister(const Registration& reg, CompletionHandler<bool>&& handler)
     {
         struct Requested
         {
             Ptr self;
             CompletionHandler<bool> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::unregistered, ec, reply,
+                if (me.checkReply(reply, WampMsgType::unregistered,
                                   SessionErrc::unregisterError, handler))
                 {
                     me.dispatchUserHandler(handler, true);
@@ -384,38 +728,39 @@ public:
             }
         };
 
-        CPPWAMP_LOGIC_CHECK(state() == State::established,
-                            "Session is not established");
         auto kv = registry_.find(reg.id());
         if (kv != registry_.end())
         {
             registry_.erase(kv);
-            auto self = this->shared_from_this();
             UnregisterMessage msg(reg.id());
-            this->request(msg,
-                          Requested{shared_from_this(), std::move(handler)});
+            if (checkState(State::established, handler))
+            {
+                peer_.request(msg, Requested{shared_from_this(),
+                                                 std::move(handler)});
+            }
         }
         else
         {
-            postVia(userExecutor(), std::move(handler), false);
+            postUserHandler(handler, false);
         }
     }
 
-    void safeUnregister(const Registration& reg) override
+    void safeUnregister(const Registration& r,
+                        CompletionHandler<bool>&& f) override
     {
-        auto self = std::weak_ptr<Client>(shared_from_this());
-        boost::asio::dispatch(
-            strand(),
-            [self, reg]() mutable
-            {
-                auto me = self.lock();
-                if (me)
-                    me->unregister(std::move(reg));
-            });
+        struct Dispatched
+        {
+            Ptr self;
+            Registration r;
+            CompletionHandler<bool> f;
+            void operator()() {self->unregister(std::move(r), std::move(f));}
+        };
+
+        safelyDispatch<Dispatched>(r, std::move(f));
     }
 
-    CallChit oneShotCall(Rpc&& rpc,
-                         CompletionHandler<Result>&& handler) override
+    void oneShotCall(Rpc&& rpc, CallChit* chitPtr,
+                     CompletionHandler<Result>&& handler)
     {
         struct Requested
         {
@@ -423,23 +768,27 @@ public:
             Error* errorPtr;
             CompletionHandler<Result> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::result, ec, reply,
+                if (me.checkReply(reply, WampMsgType::result,
                                   SessionErrc::callError, handler, errorPtr))
                 {
-                    auto& resultMsg = message_cast<ResultMessage>(reply);
-                    me.dispatchUserHandler(handler,
-                                           Result({}, std::move(resultMsg)));
+                    auto& msg = message_cast<ResultMessage>(*reply);
+                    me.dispatchUserHandler(handler, Result({}, std::move(msg)));
                 }
             }
         };
 
-        auto self = this->shared_from_this();
+        if (chitPtr)
+            *chitPtr = CallChit{};
+
+        if (!checkState(State::established, handler))
+            return;
+
         auto cancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
-        auto requestId = this->request(
+        auto requestId = peer_.request(
             rpc.message({}),
             Requested{shared_from_this(), rpc.error({}), std::move(handler)});
         CallChit chit{shared_from_this(), requestId, rpc.cancelMode(), {}};
@@ -453,36 +802,58 @@ public:
         if (rpc.callerTimeout().count() != 0)
             timeoutScheduler_->add(rpc.callerTimeout(), requestId);
 
-        return chit;
+        if (chitPtr)
+            *chitPtr = chit;
     }
 
-    CallChit ongoingCall(Rpc&& rpc, OngoingCallHandler&& handler) override
+    void safeOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
     {
         using std::move;
 
+        struct Dispatched
+        {
+            Ptr self;
+            Rpc r;
+            CallChit* c;
+            CompletionHandler<Result> f;
+            void operator()() {self->oneShotCall(move(r), c, move(f));}
+        };
+
+        safelyDispatch<Dispatched>(move(r), c, move(f));
+    }
+
+    void ongoingCall(Rpc&& rpc, CallChit* chitPtr, OngoingCallHandler&& handler)
+    {
         struct Requested
         {
             Ptr self;
             Error* errorPtr;
             OngoingCallHandler handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::result, ec, reply,
+                if (me.checkReply(reply, WampMsgType::result,
                                   SessionErrc::callError, handler, errorPtr))
                 {
-                    auto& resultMsg = message_cast<ResultMessage>(reply);
+                    auto& resultMsg = message_cast<ResultMessage>(*reply);
                     me.dispatchUserHandler(handler,
                                            Result({}, std::move(resultMsg)));
                 }
             }
         };
 
-        auto self = this->shared_from_this();
+        if (chitPtr)
+            *chitPtr = CallChit{};
+
+        if (!checkState(State::established, handler))
+            return;
+
+        rpc.withProgressiveResults(true);
+
         auto cancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
-        auto requestId = this->ongoingRequest(
+        auto requestId = peer_.ongoingRequest(
             rpc.message({}),
             Requested{shared_from_this(), rpc.error({}), std::move(handler)});
         CallChit chit{shared_from_this(), requestId, rpc.cancelMode(), {}};
@@ -496,117 +867,143 @@ public:
         if (rpc.callerTimeout().count() != 0)
             timeoutScheduler_->add(rpc.callerTimeout(), requestId);
 
-        return chit;
+        if (chitPtr)
+            *chitPtr = chit;
     }
 
-    void cancelCall(RequestId reqId, CallCancelMode mode) override
+    void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f)
     {
-        Base::cancelCall(CallCancellation{reqId, mode});
+        using std::move;
+
+        struct Dispatched
+        {
+            Ptr self;
+            Rpc r;
+            CallChit* c;
+            OngoingCallHandler f;
+            void operator()() {self->ongoingCall(move(r), c, move(f));}
+        };
+
+        safelyDispatch<Dispatched>(move(r), c, move(f));
     }
 
-    void safeCancelCall(RequestId reqId, CallCancelMode mode) override
+    ErrorOrDone cancelCall(RequestId reqId, CallCancelMode mode)
     {
-        std::weak_ptr<Client> self{shared_from_this()};
-        boost::asio::dispatch(
-            strand(),
-            [self, reqId, mode]()
+        if (state() != State::established)
+            return makeUnexpectedError(SessionErrc::invalidState);
+        return peer_.cancelCall(CallCancellation{reqId, mode});
+    }
+
+    FutureErrorOrDone safeCancelCall(RequestId r, CallCancelMode m) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RequestId r;
+            CallCancelMode m;
+            ErrorOrDonePromise p;
+
+            void operator()()
             {
-                auto me = self.lock();
-                if (me)
-                    me->cancelCall(reqId, mode);
-            });
+                try
+                {
+                    p.set_value(self->cancelCall(r, m));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
+            }
+        };
+
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(r, m, std::move(p));
+        return fut;
     }
 
-    void yield(RequestId reqId, Result&& result) override
+    ErrorOrDone yield(RequestId reqId, Result&& result) override
     {
+        if (state() != State::established)
+            return makeUnexpectedError(SessionErrc::invalidState);
+
         if (!result.isProgressive())
             pendingInvocations_.erase(reqId);
-        this->send(result.yieldMessage({}, reqId));
+        auto done = peer_.send(result.yieldMessage({}, reqId));
+        if (done == makeUnexpectedError(SessionErrc::payloadSizeExceeded))
+            yield(reqId, Error("wamp.error.payload_size_exceeded"));
+        return done;
     }
 
-    void yield(RequestId reqId, Error&& error) override
+    FutureErrorOrDone safeYield(RequestId i, Result&& r) override
     {
+        struct Dispatched
+        {
+            Ptr self;
+            RequestId i;
+            Result r;
+            ErrorOrDonePromise p;
+
+            void operator()()
+            {
+                try
+                {
+                    p.set_value(self->yield(i, std::move(r)));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
+            }
+        };
+
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(i, std::move(r), std::move(p));
+        return fut;
+    }
+
+    ErrorOrDone yield(RequestId reqId, Error&& error) override
+    {
+        if (state() != State::established)
+            return makeUnexpectedError(SessionErrc::invalidState);
+
         pendingInvocations_.erase(reqId);
-        this->sendError(WampMsgType::invocation, reqId, std::move(error));
+        return peer_.sendError(WampMsgType::invocation, reqId,
+                               std::move(error));
     }
 
-    void safeYield(RequestId reqId, Result&& result) override
+    FutureErrorOrDone safeYield(RequestId r, Error&& e) override
     {
         struct Dispatched
         {
-            std::weak_ptr<Client> self;
-            RequestId reqId;
-            Result result;
+            Ptr self;
+            RequestId r;
+            Error e;
+            ErrorOrDonePromise p;
 
             void operator()()
             {
-                auto me = self.lock();
-                if (me)
-                    me->yield(reqId, std::move(result));
+                try
+                {
+                    p.set_value(self->yield(r, std::move(e)));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
             }
         };
 
-        boost::asio::dispatch(
-            strand(),
-            Dispatched{shared_from_this(), reqId, std::move(result)});
-    }
-
-    void safeYield(RequestId reqId, Error&& error) override
-    {
-        struct Dispatched
-        {
-            std::weak_ptr<Client> self;
-            RequestId reqId;
-            Error error;
-
-            void operator()()
-            {
-                auto me = self.lock();
-                if (me)
-                    me->yield(reqId, std::move(error));
-            }
-        };
-
-        boost::asio::dispatch(
-            strand(),
-            Dispatched{shared_from_this(), reqId, std::move(error)});
-    }
-
-    void initialize(
-        AnyIoExecutor userExecutor,
-        LogHandler warningHandler,
-        LogHandler traceHandler,
-        StateChangeHandler stateChangeHandler,
-        ChallengeHandler challengeHandler) override
-    {
-        Base::setUserExecutor(std::move(userExecutor));
-        warningHandler_ = std::move(warningHandler);
-        Base::setTraceHandler(std::move(traceHandler));
-        Base::setStateChangeHandler(std::move(stateChangeHandler));
-        challengeHandler_ = std::move(challengeHandler);
-    }
-
-    void setWarningHandler(LogHandler handler) override
-    {
-        warningHandler_ = std::move(handler);
-    }
-
-    void setTraceHandler(LogHandler handler) override
-    {
-        Base::setTraceHandler(std::move(handler));
-    }
-
-    void setStateChangeHandler(StateChangeHandler handler) override
-    {
-        Base::setStateChangeHandler(std::move(handler));
-    }
-
-    void setChallengeHandler( ChallengeHandler handler) override
-    {
-        challengeHandler_ = std::move(handler);
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(r, std::move(e), std::move(p));
+        return fut;
     }
 
 private:
+    using ErrorOrDonePromise = std::promise<ErrorOrDone>;
+
     struct SubscriptionRecord
     {
         String topicUri;
@@ -619,7 +1016,7 @@ private:
         InterruptSlot interruptSlot;
     };
 
-    using Base           = Peer<Codec, Transport>;
+    using Base           = Peer;
     using WampMsgType    = internal::WampMsgType;
     using Message        = internal::WampMessage;
     using SlotId         = uint64_t;
@@ -630,16 +1027,123 @@ private:
     using InvocationMap  = std::map<RequestId, RegistrationId>;
     using CallerTimeoutDuration = typename Rpc::CallerTimeoutDuration;
 
-    using Base::userExecutor;
-
-    Client(TransportPtr transport)
-        : Base(std::move(transport)),
-          timeoutScheduler_(CallerTimeoutScheduler::create(this->strand()))
-    {}
-
-    Ptr shared_from_this()
+    Client(AnyIoExecutor exec)
+        : peer_(false, std::move(exec)),
+          timeoutScheduler_(CallerTimeoutScheduler::create(peer_.strand()))
     {
-        return std::static_pointer_cast<Client>( Base::shared_from_this() );
+        peer_.setInboundMessageHandler(
+            [this](Message msg) {onInbound(std::move(msg));} );
+    }
+
+    Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
+        : peer_(false, exec, std::move(userExec)),
+          timeoutScheduler_(CallerTimeoutScheduler::create(peer_.strand()))
+    {
+        peer_.setInboundMessageHandler(
+            [this](Message msg) {onInbound(std::move(msg));} );
+    }
+
+    template <typename F, typename... Ts>
+    void safelyDispatch(Ts&&... args)
+    {
+        boost::asio::dispatch(
+            strand(), F{shared_from_this(), std::forward<Ts>(args)...});
+    }
+
+    template <typename F>
+    bool checkState(State expectedState, F& handler)
+    {
+        bool valid = state() == expectedState;
+        if (!valid)
+        {
+            auto unex = makeUnexpectedError(SessionErrc::invalidState);
+            if (!peer_.isTerminating())
+                postVia(userExecutor(), std::move(handler), std::move(unex));
+        }
+        return valid;
+    }
+
+    void doConnect(ConnectionWishList&& wishes, size_t index,
+                   std::shared_ptr<CompletionHandler<size_t>> handler)
+    {
+        using std::move;
+        struct Established
+        {
+            std::weak_ptr<Client> self;
+            ConnectionWishList wishes;
+            size_t index;
+            std::shared_ptr<CompletionHandler<size_t>> handler;
+
+            void operator()(ErrorOr<Transporting::Ptr> transport)
+            {
+                auto locked = self.lock();
+                if (!locked)
+                    return;
+
+                auto& me = *locked;
+                if (me.peer_.isTerminating())
+                    return;
+
+                if (!transport)
+                {
+                    me.onConnectFailure(move(wishes), index, transport.error(),
+                                        move(handler));
+                }
+                else if (me.state() == State::connecting)
+                {
+                    auto codec = wishes.at(index).makeCodec();
+                    me.peer_.open(std::move(*transport), std::move(codec));
+                    me.dispatchUserHandler(*handler, index);
+                }
+                else
+                {
+                    auto ec = make_error_code(TransportErrc::aborted);
+                    me.postUserHandler(*handler, UnexpectedError(ec));
+                }
+            }
+        };
+
+        currentConnector_ = wishes.at(index).makeConnector(strand());
+        currentConnector_->establish(
+            Established{shared_from_this(), move(wishes), index, move(handler)});
+    }
+
+    void onConnectFailure(ConnectionWishList&& wishes, size_t index,
+                          std::error_code ec,
+                          std::shared_ptr<CompletionHandler<size_t>> handler)
+    {
+        if (ec == TransportErrc::aborted)
+        {
+            dispatchUserHandler(*handler, UnexpectedError(ec));
+        }
+        else
+        {
+            auto newIndex = index + 1;
+            if (newIndex < wishes.size())
+            {
+                doConnect(std::move(wishes), newIndex, std::move(handler));
+            }
+            else
+            {
+                peer_.setState(State::failed);
+                if (wishes.size() > 1)
+                    ec = make_error_code(SessionErrc::allTransportsFailed);
+                dispatchUserHandler(*handler, UnexpectedError(ec));
+            }
+        }
+    }
+
+    void doDisconnect()
+    {
+        if (state() == State::connecting)
+            currentConnector_->cancel();
+
+        topics_.clear();
+        readership_.clear();
+        registry_.clear();
+        pendingInvocations_.clear();
+        timeoutScheduler_->clear();
+        peer_.close();
     }
 
     void sendUnsubscribe(SubscriptionId subId)
@@ -648,20 +1152,18 @@ private:
         {
             Ptr self;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 // Don't propagate WAMP errors, as we prefer
                 // this to be a no-fail cleanup operation.
-                self->warnReply(WampMsgType::unsubscribed, ec, reply,
-                                SessionErrc::unsubscribeError);
+                self->checkReply(reply, WampMsgType::unsubscribed);
             }
         };
 
         if (state() == State::established)
         {
-            auto self = this->shared_from_this();
             UnsubscribeMessage msg(subId);
-            this->request(msg, Requested{shared_from_this()});
+            peer_.request(msg, Requested{shared_from_this()});
         }
     }
 
@@ -673,10 +1175,10 @@ private:
             Ptr self;
             CompletionHandler<bool> handler;
 
-            void operator()(std::error_code ec, Message reply)
+            void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(WampMsgType::unsubscribed, ec, reply,
+                if (me.checkReply(reply, WampMsgType::unsubscribed,
                                   SessionErrc::unsubscribeError, handler))
                 {
                     me.dispatchUserHandler(handler, true);
@@ -684,19 +1186,15 @@ private:
             }
         };
 
-        CPPWAMP_LOGIC_CHECK((this->state() == State::established),
-                            "Session is not established");
-        auto self = this->shared_from_this();
-        UnsubscribeMessage msg(subId);
-        this->request(msg, Requested{shared_from_this(), std::move(handler)});
+        if (checkState(State::established, handler))
+        {
+            UnsubscribeMessage msg(subId);
+            peer_.request(msg, Requested{shared_from_this(),
+                                         std::move(handler)});
+        }
     }
 
-    virtual bool isMsgSupported(const MessageTraits& traits) override
-    {
-        return traits.isClientRx;
-    }
-
-    virtual void onInbound(Message msg) override
+    void onInbound(Message msg)
     {
         switch (msg.type())
         {
@@ -724,7 +1222,7 @@ private:
     void onWelcome(CompletionHandler<SessionInfo>&& handler, Message&& reply,
                    String&& realmUri)
     {
-        WeakPtr self = this->shared_from_this();
+        WeakPtr self = shared_from_this();
         timeoutScheduler_->listen([self](RequestId reqId)
         {
             auto ptr = self.lock();
@@ -752,13 +1250,14 @@ private:
         {
             *abortPtr = Abort({}, move(abortMsg));
         }
-        else if (warningHandler_ && (!found || !details.empty()))
+        else if ((logLevel() <= LogLevel::error) &&
+                 (!found || !details.empty()))
         {
             std::ostringstream oss;
-            oss << "JOIN request aborted with error URI=" << uri;
+            oss << "JOIN request aborted by peer with error URI=" << uri;
             if (!reply.as<Object>(1).empty())
                 oss << ", Details=" << reply.at(1);
-            warn(oss.str());
+            log(LogLevel::error, oss.str());
         }
 
         dispatchUserHandler(handler, makeUnexpectedError(errc));
@@ -766,9 +1265,8 @@ private:
 
     void onChallenge(Message&& msg)
     {
-        auto self = this->shared_from_this();
         auto& challengeMsg = message_cast<ChallengeMessage>(msg);
-        Challenge challenge({}, self, std::move(challengeMsg));
+        Challenge challenge({}, shared_from_this(), std::move(challengeMsg));
 
         if (challengeHandler_)
         {
@@ -776,13 +1274,13 @@ private:
         }
         else
         {
-            if (warningHandler_)
+            if (logLevel() <= LogLevel::error)
             {
                 std::ostringstream oss;
                 oss << "Received a CHALLENGE with no registered handler "
                        "(with method=" << challenge.method() << " extra="
                     << challenge.options() << ")";
-                warn(oss.str());
+                log(LogLevel::error, oss.str());
             }
 
             // Send empty signature to avoid deadlock with other peer.
@@ -802,13 +1300,13 @@ private:
             for (const auto& subKv: localSubs)
                 postEvent(subKv.second, event);
         }
-        else if (warningHandler_)
+        else if (logLevel() <= LogLevel::warning)
         {
             std::ostringstream oss;
             oss << "Received an EVENT that is not subscribed to "
                    "(with subId=" << eventMsg.subscriptionId()
                 << " pubId=" << eventMsg.publicationId() << ")";
-            warn(oss.str());
+            log(LogLevel::warning, oss.str());
         }
     }
 
@@ -837,13 +1335,11 @@ private:
                 }
                 catch (const Error& e)
                 {
-                    if (me.warningHandler_)
-                        me.warnEventError(e, subId, pubId);
+                    me.warnEventError(e, subId, pubId);
                 }
                 catch (const error::BadType& e)
                 {
-                    if (me.warningHandler_)
-                        me.warnEventError(Error(e), subId, pubId);
+                    me.warnEventError(Error(e), subId, pubId);
                 }
             }
         };
@@ -856,12 +1352,15 @@ private:
     void warnEventError(const Error& e, SubscriptionId subId,
                         PublicationId pubId)
     {
-        std::ostringstream oss;
-        oss << "EVENT handler reported an error: "
-            << e.args()
-            << " (with subId=" << subId
-            << " pubId=" << pubId << ")";
-        warn(oss.str());
+        if (logLevel() <= LogLevel::error)
+        {
+            std::ostringstream oss;
+            oss << "EVENT handler reported an error: "
+                << e.args()
+                << " (with subId=" << subId
+                << " pubId=" << pubId << ")";
+            log(LogLevel::error, oss.str());
+        }
     }
 
     void onInvocation(Message&& msg)
@@ -873,16 +1372,19 @@ private:
         auto kv = registry_.find(regId);
         if (kv != registry_.end())
         {
-            auto self = this->shared_from_this();
             const RegistrationRecord& rec = kv->second;
-            Invocation inv({}, self, userExecutor(), std::move(invMsg));
+            Invocation inv({}, shared_from_this(), userExecutor(),
+                           std::move(invMsg));
             pendingInvocations_[requestId] = regId;
             postRpcRequest(rec.callSlot, std::move(inv));
         }
         else
         {
-            this->sendError(WampMsgType::invocation, requestId,
+            peer_.sendError(WampMsgType::invocation, requestId,
                             Error("wamp.error.no_such_procedure"));
+            log(LogLevel::warning,
+                "No matching procedure for INVOCATION with registration ID "
+                 + std::to_string(regId));
         }
     }
 
@@ -898,10 +1400,10 @@ private:
             if ((kv != registry_.end()) &&
                 (kv->second.interruptSlot != nullptr))
             {
-                auto self = this->shared_from_this();
                 const RegistrationRecord& rec = kv->second;
                 using std::move;
-                Interruption intr({}, self, userExecutor(), move(interruptMsg));
+                Interruption intr({}, shared_from_this(), userExecutor(),
+                                  move(interruptMsg));
                 postRpcRequest(rec.interruptSlot, move(intr));
             }
         }
@@ -953,7 +1455,7 @@ private:
                 catch (const error::BadType& e)
                 {
                     // Forward Variant conversion exceptions as ERROR messages.
-                    me.yield(requestId, Error(e));
+                    me.yield(requestId, Error(e)).value();
                 }
             }
         };
@@ -965,25 +1467,26 @@ private:
     }
 
     template <typename THandler>
-    bool checkError(std::error_code ec, THandler& handler)
+    bool checkError(const ErrorOr<Message>& msg, THandler& handler)
     {
-        if (ec)
-            dispatchUserHandler(handler, UnexpectedError(ec));
-        return !ec;
+        bool ok = msg.has_value();
+        if (!ok)
+            dispatchUserHandler(handler, UnexpectedError(msg.error()));
+        return ok;
     }
 
     template <typename THandler>
-    bool checkReply(WampMsgType type, std::error_code ec, Message& reply,
+    bool checkReply(ErrorOr<Message>& reply, WampMsgType type,
                     SessionErrc defaultErrc, THandler& handler,
                     Error* errorPtr = nullptr)
     {
-        bool success = checkError(ec, handler);
-        if (success)
+        bool ok = checkError(reply, handler);
+        if (ok)
         {
-            if (reply.type() == WampMsgType::error)
+            if (reply->type() == WampMsgType::error)
             {
-                success = false;
-                auto& errMsg = message_cast<ErrorMessage>(reply);
+                ok = false;
+                auto& errMsg = message_cast<ErrorMessage>(*reply);
                 const auto& uri = errMsg.reasonUri();
                 SessionErrc errc;
                 bool found = lookupWampErrorUri(uri, defaultErrc, errc);
@@ -993,7 +1496,7 @@ private:
                 {
                     *errorPtr = Error({}, std::move(errMsg));
                 }
-                else if (warningHandler_ && (!found || hasArgs))
+                else if ((logLevel() <= LogLevel::error) && (!found || hasArgs))
                 {
                     std::ostringstream oss;
                     oss << "Expected " << MessageTraits::lookup(type).name
@@ -1002,72 +1505,93 @@ private:
                         oss << ", Args=" << errMsg.args();
                     if (!errMsg.kwargs().empty())
                         oss << ", ArgsKv=" << errMsg.kwargs();
-                    warn(oss.str());
+                    log(LogLevel::error, oss.str());
                 }
 
                 dispatchUserHandler(handler, makeUnexpectedError(errc));
             }
             else
-                assert((reply.type() == type) && "Unexpected WAMP message type");
+            {
+                assert((reply->type() == type) &&
+                       "Unexpected WAMP message type");
+            }
         }
-        return success;
+        return ok;
     }
 
-    void warnReply(WampMsgType type, std::error_code ec, Message& reply,
-                   SessionErrc defaultErrc)
+    void checkReply(ErrorOr<Message>& reply, WampMsgType type)
     {
-        if (ec)
+        std::string msgTypeName(MessageTraits::lookup(type).name);
+        if (!reply.has_value())
         {
-            warn(error::Failure::makeMessage(ec));
+            log(LogLevel::warning,
+                "Failure receiving reply for " + msgTypeName + " message",
+                reply.error());
         }
-        else if (reply.type() == WampMsgType::error)
+        else if (reply->type() == WampMsgType::error)
         {
-            auto& errMsg = message_cast<ErrorMessage>(reply);
-            const auto& uri = errMsg.reasonUri();
+            auto& msg = message_cast<ErrorMessage>(*reply);
+            const auto& uri = msg.reasonUri();
             std::ostringstream oss;
-            oss << "Expected " << MessageTraits::lookup(type).name
-                << " reply but got ERROR with URI=" << uri;
-            if (!errMsg.args().empty())
-                oss << ", Args=" << errMsg.args();
-            if (!errMsg.kwargs().empty())
-                oss << ", ArgsKv=" << errMsg.kwargs();
-            warn(oss.str());
+            oss << "Expected reply for " << msgTypeName
+                << " message but got ERROR with URI=" << uri;
+            if (!msg.args().empty())
+                oss << ", Args=" << msg.args();
+            if (!msg.kwargs().empty())
+                oss << ", ArgsKv=" << msg.kwargs();
+            log(LogLevel::warning, oss.str());
         }
         else
         {
-            assert((reply.type() == type) && "Unexpected WAMP message type");
+            assert((reply->type() == type) && "Unexpected WAMP message type");
         }
     }
 
-    void warn(std::string log)
+    LogLevel logLevel() const {return peer_.logLevel();}
+
+    void log(LogLevel severity, std::string message, std::error_code ec = {})
     {
-        if (warningHandler_)
-            dispatchUserHandler(warningHandler_, std::move(log));
+        peer_.log(severity, std::move(message), ec);
+    }
+
+    template <typename S, typename... Ts>
+    void postUserHandler(AnyCompletionHandler<S>& handler, Ts&&... args)
+    {
+        if (!peer_.isTerminating())
+        {
+            postVia(userExecutor(), std::move(handler),
+                    std::forward<Ts>(args)...);
+        }
     }
 
     template <typename S, typename... Ts>
     void dispatchUserHandler(AnyCompletionHandler<S>& handler, Ts&&... args)
     {
-        dispatchVia(userExecutor(), std::move(handler),
-                    std::forward<Ts>(args)...);
+        if (!peer_.isTerminating())
+        {
+            dispatchVia(userExecutor(), std::move(handler),
+                        std::forward<Ts>(args)...);
+        }
     }
 
     template <typename S, typename... Ts>
     void dispatchUserHandler(const AnyReusableHandler<S>& handler, Ts&&... args)
     {
-        dispatchVia(userExecutor(), handler, std::forward<Ts>(args)...);
+        if (!peer_.isTerminating())
+            dispatchVia(userExecutor(), handler, std::forward<Ts>(args)...);
     }
 
     SlotId nextSlotId() {return nextSlotId_++;}
 
-    SlotId nextSlotId_ = 0;
+    Peer peer_;
+    Connecting::Ptr currentConnector_;
     TopicMap topics_;
     Readership readership_;
     Registry registry_;
     InvocationMap pendingInvocations_;
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
-    LogHandler warningHandler_;
     ChallengeHandler challengeHandler_;
+    SlotId nextSlotId_ = 0;
 };
 
 } // namespace internal

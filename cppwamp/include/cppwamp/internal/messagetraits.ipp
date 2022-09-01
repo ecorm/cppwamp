@@ -39,7 +39,7 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
 /*  0 */ {nullptr,        W::none,        0, 0, 0, 0, 0, 0, 0, 0, {i,n,n,n,n,n,n}},
 /*  1 */ {"HELLO",        W::none,        0, 3, 3, 0, 1, 1, 0, 0, {i,s,o,n,n,n,n}},
 /*  2 */ {"WELCOME",      W::none,        0, 3, 3, 1, 0, 1, 1, 0, {i,i,o,n,n,n,n}},
-/*  3 */ {"ABORT",        W::none,        0, 3, 3, 1, 0, 1, 1, 0, {i,o,s,n,n,n,n}},
+/*  3 */ {"ABORT",        W::none,        0, 3, 3, 1, 0, 1, 1, 1, {i,o,s,n,n,n,n}},
 /*  4 */ {"CHALLENGE",    W::none,        0, 3, 3, 1, 0, 1, 1, 0, {i,s,o,n,n,n,n}},
 /*  5 */ {"AUTHENTICATE", W::challenge,   0, 3, 3, 0, 1, 0, 1, 0, {i,s,o,n,n,n,n}},
 /*  6 */ {"GOODBYE",      W::none,        0, 3, 3, 1, 1, 0, 0, 1, {i,o,s,n,n,n,n}},
@@ -126,9 +126,48 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
     return traits[index];
 }
 
-CPPWAMP_INLINE bool MessageTraits::isValid() const
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool MessageTraits::isValidType() const
 {
     return minSize != 0;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool MessageTraits::isValidRx(SessionState state,
+                                             bool isRouter) const
+{
+    bool valid = isRouter ? isRouterRx : isClientRx;
+
+    if (valid)
+    {
+        switch (state)
+        {
+        case SessionState::establishing:
+            valid = forEstablishing;
+            break;
+
+        case SessionState::authenticating:
+            valid = forChallenging;
+            break;
+
+        case SessionState::established:
+        case SessionState::shuttingDown:
+            valid = forEstablished;
+            break;
+
+        default:
+            valid = false;
+            break;
+        }
+    }
+
+    return valid;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE const char* MessageTraits::nameOr(const char* fallback) const
+{
+    return (name == nullptr) ? fallback : name;
 }
 
 } // namespace internal

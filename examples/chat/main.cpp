@@ -5,9 +5,9 @@
 ------------------------------------------------------------------------------*/
 
 #include <iostream>
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 
@@ -19,49 +19,44 @@ const short port = 12345;
 class ChatService
 {
 public:
-    using Yield = boost::asio::yield_context;
-
-    explicit ChatService(wamp::AsioContext& ioctx)
-        : ioctx_(ioctx)
+    explicit ChatService(wamp::AnyIoExecutor exec)
+        : session_(std::move(exec))
     {}
 
-    void start(wamp::ConnectorList connectors, Yield yield)
+    void start(wamp::ConnectionWishList where, wamp::YieldContext yield)
     {
         using namespace wamp;
-        session_ = Session::create(ioctx_, connectors);
-
-        auto index = session_->connect(yield).value();
+        auto index = session_.connect(std::move(where), yield).value();
         std::cout << "Chat service connected on transport #"
                   << (index + 1) << "\n";
 
-        auto info = session_->join(Realm(realm), yield).value();
+        auto info = session_.join(Realm(realm), yield).value();
         std::cout << "Chat service joined, session ID = " << info.id() << "\n";
 
         using namespace std::placeholders;
 
-        registration_ = session_->enroll(
+        registration_ = session_.enroll(
             Procedure("say"),
             simpleRpc<void, std::string, std::string>(
                                 std::bind(&ChatService::say, this, _1, _2)),
             yield).value();
     }
 
-    void quit(Yield yield)
+    void quit(wamp::YieldContext yield)
     {
         registration_.unregister();
-        session_->leave(wamp::Reason(), yield).value();
-        session_->disconnect();
+        session_.leave(wamp::Reason(), yield).value();
+        session_.disconnect();
     }
 
 private:
     void say(std::string user, std::string message)
     {
         // Rebroadcast message to all subscribers
-        session_->publish( wamp::Pub("said").withArgs(user, message) );
+        session_.publish( wamp::Pub("said").withArgs(user, message) ).value();
     }
 
-    wamp::AsioContext& ioctx_;
-    wamp::Session::Ptr session_;
+    wamp::Session session_;
     wamp::ScopedRegistration registration_;
 };
 
@@ -70,43 +65,40 @@ private:
 class ChatClient
 {
 public:
-    using Yield = boost::asio::yield_context;
-
-    ChatClient(wamp::AsioContext& ioctx, std::string user)
-        : ioctx_(ioctx),
+    ChatClient(wamp::AnyIoExecutor exec, std::string user)
+        : session_(std::move(exec)),
           user_(std::move(user))
     {}
 
-    void join(wamp::ConnectorList connectors, Yield yield)
+    void join(wamp::ConnectionWishList where, wamp::YieldContext yield)
     {
         using namespace wamp;
-        session_ = Session::create(ioctx_, connectors);
 
-        auto index = session_->connect(yield).value();
-        std::cout << user_ << " connected on transport #" << index << "\n";
+        auto index = session_.connect(std::move(where), yield).value();
+        std::cout << user_ << " connected on transport #" << (index + 1) << "\n";
 
-        auto info = session_->join(Realm(realm), yield).value();
+        auto info = session_.join(Realm(realm), yield).value();
         std::cout << user_ << " joined, session ID = " << info.id() << "\n";
 
         using namespace std::placeholders;
-        subscription_ = session_->subscribe(
+        subscription_ = session_.subscribe(
                 Topic("said"),
                 simpleEvent<std::string, std::string>(
                         std::bind(&ChatClient::said, this, _1, _2)),
                 yield).value();
     }
 
-    void leave(Yield yield)
+    void leave(wamp::YieldContext yield)
     {
         subscription_.unsubscribe();
-        session_->leave(wamp::Reason(), yield).value();
-        session_.reset();
+        session_.leave(wamp::Reason(), yield).value();
+        session_.disconnect();
     }
 
-    void say(const std::string& message, Yield yield)
+    void say(const std::string& message, wamp::YieldContext yield)
     {
         std::cout << user_ << " says \"" << message << "\"\n";
-        session_->call(wamp::Rpc("say").withArgs(user_, message),
+        session_.call(wamp::Rpc("say").withArgs(user_, message),
                        yield).value();
     }
 
@@ -117,9 +109,8 @@ private:
                   << message << "\"\n";
     }
 
-    wamp::AsioContext& ioctx_;
+    wamp::Session session_;
     std::string user_;
-    wamp::Session::Ptr session_;
     wamp::ScopedSubscription subscription_;
 };
 
@@ -127,18 +118,17 @@ private:
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::AsioContext ioctx;
+    wamp::IoContext ioctx;
 
-    auto tcp = wamp::connector<wamp::Json>( ioctx,
-                                            wamp::TcpHost("localhost", 12345) );
+    auto tcp = wamp::TcpHost("localhost", 12345).withFormat(wamp::json);
 
     // Normally, the service and client instances would be in separate programs.
     // We run them all here in the same coroutine for demonstration purposes.
-    ChatService chat(ioctx);
-    ChatClient alice(ioctx, "Alice");
-    ChatClient bob(ioctx, "Bob");
+    ChatService chat(ioctx.get_executor());
+    ChatClient alice(ioctx.get_executor(), "Alice");
+    ChatClient bob(ioctx.get_executor(), "Bob");
 
-    boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+    wamp::spawn(ioctx, [&](wamp::YieldContext yield)
     {
         chat.start({tcp}, yield);
 

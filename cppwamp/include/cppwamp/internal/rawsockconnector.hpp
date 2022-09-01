@@ -9,14 +9,11 @@
 
 #include <cassert>
 #include <memory>
-#include <string>
 #include <utility>
-#include <boost/asio/post.hpp>
-#include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
-#include "../connector.hpp"
-#include "../error.hpp"
-#include "client.hpp"
+#include "../erroror.hpp"
+#include "rawsockhandshake.hpp"
+#include "rawsocktransport.hpp"
 
 namespace wamp
 {
@@ -25,79 +22,167 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename TCodec, typename TEndpoint>
-class RawsockConnector : public Connector
+struct DefaultRawsockClientConfig
+{
+    template <typename TSocket>
+    using TransportType = RawsockTransport<TSocket>;
+
+    static uint32_t hostOrderHandshakeBytes(int codecId,
+                                            RawsockMaxLength maxRxLength)
+    {
+        return RawsockHandshake().setCodecId(codecId)
+                                 .setMaxLength(maxRxLength)
+                                 .toHostOrder();
+    }
+};
+
+//------------------------------------------------------------------------------
+template <typename TOpener, typename TConfig = DefaultRawsockClientConfig>
+class RawsockConnector
+    : public std::enable_shared_from_this<RawsockConnector<TOpener, TConfig>>
 {
 public:
-    using Codec = TCodec;
-    using Endpoint = TEndpoint;
-    using Info = typename Endpoint::Establisher::Info;
-    using Transport = typename Endpoint::Transport;
-    using Ptr = std::shared_ptr<RawsockConnector>;
+    using Ptr       = std::shared_ptr<RawsockConnector>;
+    using Opener    = TOpener;
+    using Settings  = typename Opener::Settings;
+    using Socket    = typename Opener::Socket;
+    using Handler   = std::function<void (ErrorOr<Transporting::Ptr>)>;
+    using SocketPtr = std::unique_ptr<Socket>;
+    using Transport = typename TConfig::template TransportType<Socket>;
 
-    static Ptr create(const AnyIoExecutor& exec, Info info)
+    static Ptr create(IoStrand i, Settings s, int codecId)
     {
-        return Ptr(new RawsockConnector(IoStrand(exec), std::move(info)));
+        return Ptr(new RawsockConnector(std::move(i), std::move(s), codecId));
     }
 
-    IoStrand strand() const override {return strand_;}
-
-protected:
-    using Establisher = typename Endpoint::Establisher;
-
-    virtual Connector::Ptr clone() const override
+    void establish(Handler&& handler)
     {
-        return Connector::Ptr(new RawsockConnector(strand_, info_));
-    }
-
-    virtual void establish(Handler&& handler) override
-    {
-        struct Established
-        {
-            Ptr self;
-            Handler handler;
-
-            void operator()(std::error_code ec, int codecId,
-                            typename Transport::Ptr trnsp)
+        assert(!handler_ &&
+               "RawsockConnector establishment already in progress");
+        handler_ = std::move(handler);
+        auto self = this->shared_from_this();
+        opener_.establish(
+            [this, self](ErrorOr<SocketPtr> socket)
             {
-                auto& me = *self;
-                internal::ClientInterface::Ptr client;
-                using ClientType = internal::Client<Codec, Transport>;
-                if (!ec)
+                if (socket)
                 {
-                    assert(codecId == Codec::id());
-                    client = ClientType::create(std::move(trnsp));
+                    socket_ = std::move(*socket);
+                    sendHandshake();
                 }
-                boost::asio::post(me.strand_,
-                                  std::bind(std::move(handler), ec, client));
-                me.endpoint_.reset();
+                else
+                {
+                    auto ec = socket.error();
+                    if (ec == std::errc::operation_canceled)
+                        ec = make_error_code(TransportErrc::aborted);
+                    dispatchHandler(UnexpectedError(ec));
+                }
             }
-        };
-
-        CPPWAMP_LOGIC_CHECK(!endpoint_, "Connection already in progress");
-        endpoint_.reset(new Endpoint( Establisher(strand_, info_),
-                                      Codec::id(),
-                                      info_.maxRxLength() ));
-        auto self =
-            std::static_pointer_cast<RawsockConnector>(shared_from_this());
-        endpoint_->establish(Established{std::move(self), std::move(handler)});
+        );
     }
 
-    virtual void cancel() override
+    void cancel()
     {
-        if (endpoint_)
-            endpoint_->cancel();
+        if (socket_)
+            socket_->close();
+        else
+            opener_.cancel();
     }
 
 private:
-    RawsockConnector(IoStrand strand, Info info)
-        : strand_(std::move(strand)),
-          info_(std::move(info))
+    using Handshake = internal::RawsockHandshake;
+
+    RawsockConnector(IoStrand i, Settings s, int codecId)
+        : codecId_(codecId),
+          maxRxLength_(s.maxRxLength()),
+          opener_(std::move(i), std::move(s))
     {}
 
-    boost::asio::strand<AnyIoExecutor> strand_;
-    Info info_;
-    std::unique_ptr<Endpoint> endpoint_;
+    void sendHandshake()
+    {
+        auto bytes = TConfig::hostOrderHandshakeBytes(codecId_, maxRxLength_);
+        handshake_ = endian::nativeToBig32(bytes);
+        auto self = this->shared_from_this();
+        boost::asio::async_write(
+            *socket_,
+            boost::asio::buffer(&handshake_, sizeof(handshake_)),
+            [this, self](boost::system::error_code ec, size_t)
+            {
+                if (check(ec))
+                    receiveHandshake();
+            });
+    }
+
+    void receiveHandshake()
+    {
+        handshake_ = 0;
+        auto self = this->shared_from_this();
+        boost::asio::async_read(
+            *socket_,
+            boost::asio::buffer(&handshake_, sizeof(handshake_)),
+            [this, self](boost::system::error_code ec, size_t)
+            {
+                if (check(ec))
+                    onHandshakeReceived(Handshake::fromBigEndian(handshake_));
+            });
+    }
+
+    void onHandshakeReceived(Handshake hs)
+    {
+        if (!hs.hasMagicOctet())
+            fail(RawsockErrc::badHandshake);
+        else if (hs.reserved() != 0)
+            fail(RawsockErrc::reservedBitsUsed);
+        else if (hs.codecId() == codecId_)
+            complete(hs);
+        else if (hs.hasError())
+            fail(hs.errorCode());
+        else
+            fail(RawsockErrc::badHandshake);
+    }
+
+    bool check(boost::system::error_code asioEc)
+    {
+        if (asioEc)
+        {
+            socket_.reset();
+            auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
+            if (ec == std::errc::operation_canceled)
+                ec = make_error_code(TransportErrc::aborted);
+            dispatchHandler(makeUnexpected(ec));
+        }
+        return !asioEc;
+    }
+
+    void complete(Handshake hs)
+    {
+        TransportInfo i{codecId_,
+                        hs.maxLengthInBytes(),
+                        Handshake::byteLengthOf(maxRxLength_)};
+        Transporting::Ptr transport{Transport::create(std::move(socket_), i)};
+        socket_.reset();
+        dispatchHandler(std::move(transport));
+    }
+
+    void fail(RawsockErrc errc)
+    {
+        socket_.reset();
+        dispatchHandler(makeUnexpectedError(errc));
+    }
+
+    template <typename TArg>
+    void dispatchHandler(TArg&& arg)
+    {
+        Handler handler(std::move(handler_));
+        handler_ = nullptr;
+        handler(std::forward<TArg>(arg));
+    }
+
+    SocketPtr socket_;
+    Handler handler_;
+    int codecId_;
+    RawsockMaxLength maxRxLength_;
+    uint32_t handshake_;
+    Opener opener_;
 };
 
 } // namespace internal

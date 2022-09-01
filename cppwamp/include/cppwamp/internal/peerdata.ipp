@@ -352,12 +352,27 @@ CPPWAMP_INLINE Variant Challenge::memory() const
     return optionByKey("memory");
 }
 
-CPPWAMP_INLINE void Challenge::authenticate(Authentication auth)
+CPPWAMP_INLINE ErrorOrDone Challenge::authenticate(Authentication auth)
 {
     // Discard the authentication if client no longer exists
     auto challengee = challengee_.lock();
     if (challengee)
-        challengee->safeAuthenticate(std::move(auth));
+        return challengee->authenticate(std::move(auth));
+    return false;
+}
+
+CPPWAMP_INLINE std::future<ErrorOrDone>
+Challenge::authenticate(ThreadSafe, Authentication auth)
+{
+    // Discard the authentication if client no longer exists
+    auto challengee = challengee_.lock();
+    if (challengee)
+        return challengee->safeAuthenticate(std::move(auth));
+
+    std::promise<ErrorOrDone> p;
+    auto f = p.get_future();
+    p.set_value(false);
+    return f;
 }
 
 CPPWAMP_INLINE Challenge::Challenge(internal::PassKey, ChallengeePtr challengee,
@@ -511,9 +526,9 @@ CPPWAMP_INLINE PublicationId Event::pubId() const
     return message().publicationId();
 }
 
-/** @returns the same object as Session::userExecutor().
+/** @returns the same object as Session::fallbackExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AnyIoExecutor Event::executor() const
+CPPWAMP_INLINE AnyCompletionExecutor Event::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Event is empty");
     return executor_;
@@ -548,7 +563,7 @@ CPPWAMP_INLINE Variant Event::topic() const
     return this->optionByKey("topic");
 }
 
-CPPWAMP_INLINE Event::Event(internal::PassKey, AnyIoExecutor executor,
+CPPWAMP_INLINE Event::Event(internal::PassKey, AnyCompletionExecutor executor,
                             internal::EventMessage&& msg)
     : Base(std::move(msg)),
     executor_(executor)
@@ -618,7 +633,8 @@ CPPWAMP_INLINE Rpc& Rpc::captureError(Error& error)
 }
 
 /** @details
-    This sets the `CALL.Options.receive_progress|bool` option. */
+    This sets the `CALL.Options.receive_progress|bool` option.
+    @note this is automatically set by Session::ongoingCall. */
 CPPWAMP_INLINE Rpc& Rpc::withProgressiveResults(bool enabled)
 {
     progressiveResultsEnabled_ = enabled;
@@ -927,30 +943,58 @@ CPPWAMP_INLINE RequestId Invocation::requestId() const
     return message().requestId();
 }
 
-/** @returns the same object as Session::userExecutor().
+/** @returns the same object as Session::fallbackExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AnyIoExecutor Invocation::executor() const
+CPPWAMP_INLINE AnyCompletionExecutor Invocation::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Invocation is empty");
     return executor_;
 }
 
-/** @pre `this->calleeHasExpired == false` */
-CPPWAMP_INLINE void Invocation::yield(Result result) const
+CPPWAMP_INLINE ErrorOrDone Invocation::yield(Result result) const
 {
     // Discard the result if client no longer exists
     auto callee = callee_.lock();
     if (callee)
-        callee->safeYield(requestId(), std::move(result));
+        return callee->yield(requestId(), std::move(result));
+    return false;
 }
 
-/** @pre `this->calleeHasExpired == false` */
-CPPWAMP_INLINE void Invocation::yield(Error error) const
+CPPWAMP_INLINE std::future<ErrorOrDone>
+Invocation::yield(ThreadSafe, Result result) const
 {
     // Discard the result if client no longer exists
     auto callee = callee_.lock();
     if (callee)
-        callee->safeYield(requestId(), std::move(error));
+        return callee->safeYield(requestId(), std::move(result));
+
+    std::promise<ErrorOrDone> p;
+    auto f = p.get_future();
+    p.set_value(false);
+    return f;
+}
+
+CPPWAMP_INLINE ErrorOrDone Invocation::yield(Error error) const
+{
+    // Discard the error if client no longer exists
+    auto callee = callee_.lock();
+    if (callee)
+        return callee->yield(requestId(), std::move(error));
+    return false;
+}
+
+CPPWAMP_INLINE std::future<ErrorOrDone>
+Invocation::yield(ThreadSafe, Error error) const
+{
+    // Discard the error if client no longer exists
+    auto callee = callee_.lock();
+    if (callee)
+        return callee->safeYield(requestId(), std::move(error));
+
+    std::promise<ErrorOrDone> p;
+    auto f = p.get_future();
+    p.set_value(false);
+    return f;
 }
 
 /** @details
@@ -992,11 +1036,11 @@ CPPWAMP_INLINE Variant Invocation::procedure() const
 }
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,
-                                      AnyIoExecutor executor,
+                                      AnyCompletionExecutor executor,
                                       internal::InvocationMessage&& msg)
     : Base(std::move(msg)),
-    callee_(callee),
-    executor_(executor)
+      callee_(callee),
+      executor_(executor)
 {}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
@@ -1071,36 +1115,66 @@ CPPWAMP_INLINE RequestId Interruption::requestId() const
     return message().requestId();
 }
 
-/** @returns the same object as Session::userExecutor().
+/** @returns the same object as Session::fallbackExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AnyIoExecutor Interruption::executor() const
+CPPWAMP_INLINE AnyCompletionExecutor Interruption::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Interruption is empty");
     return executor_;
 }
 
-/** @pre `this->calleeHasExpired == false` */
-CPPWAMP_INLINE void Interruption::yield(Result result) const
+CPPWAMP_INLINE ErrorOrDone Interruption::yield(Result result) const
 {
+    // Discard the result if client no longer exists
     auto callee = callee_.lock();
-    CPPWAMP_LOGIC_CHECK(!!callee, "Client no longer exists");
-    callee->safeYield(requestId(), std::move(result));
+    if (callee)
+        return callee->yield(requestId(), std::move(result));
+    return false;
 }
 
-/** @pre `this->calleeHasExpired == false` */
-CPPWAMP_INLINE void Interruption::yield(Error error) const
+CPPWAMP_INLINE std::future<ErrorOrDone>
+Interruption::yield(ThreadSafe, Result result) const
 {
+    // Discard the result if client no longer exists
     auto callee = callee_.lock();
-    CPPWAMP_LOGIC_CHECK(!!callee, "Client no longer exists");
-    callee->safeYield(requestId(), std::move(error));
+    if (callee)
+        return callee->safeYield(requestId(), std::move(result));
+
+    std::promise<ErrorOrDone> p;
+    auto f = p.get_future();
+    p.set_value(false);
+    return f;
+}
+
+CPPWAMP_INLINE ErrorOrDone Interruption::yield(Error error) const
+{
+    // Discard the error if client no longer exists
+    auto callee = callee_.lock();
+    if (callee)
+        return callee->yield(requestId(), std::move(error));
+    return false;
+}
+
+CPPWAMP_INLINE std::future<ErrorOrDone>
+Interruption::yield(ThreadSafe, Error error) const
+{
+    // Discard the error if client no longer exists
+    auto callee = callee_.lock();
+    if (callee)
+        return callee->safeYield(requestId(), std::move(error));
+
+    std::promise<ErrorOrDone> p;
+    auto f = p.get_future();
+    p.set_value(false);
+    return f;
 }
 
 CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,
-                                          AnyIoExecutor executor,
+                                          AnyCompletionExecutor executor,
                                           internal::InterruptMessage&& msg)
     : Base(std::move(msg)),
-    callee_(callee),
-    executor_(executor)
+      callee_(callee),
+      executor_(executor)
 {}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,

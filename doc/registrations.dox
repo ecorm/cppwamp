@@ -45,14 +45,12 @@ where:
 The following table summarizes the different types of call slots that can
 be used with the library:
 
-| Slot Type                                                       | Wrapper Function                         | Slot Signature                                  |
-|-----------------------------------------------------------------|------------------------------------------|-------------------------------------------------|
-| [Simple Call Slot](@ref SimpleCallSlots)                        | `wamp::simpleRpc<TResult, TArgs...>`     | `TResult function(TArgs...)`                    |
-| [Simple Coroutine Call Slot](@ref SimpleCoroutineCallSlots)     | `wamp::simpleCoroRpc<TResult, TArgs...>` | `TResult function(TArgs..., Yield)`             |
-| [Unpacked Call Slot](@ref UnpackedCallSlots)                    | `wamp::unpackedRpc<TArgs...>`            | `Outcome function(Invocation, TArgs...)`        |
-| [Unpacked Coroutine Call Slot](@ref UnpackedCoroutineCallSlots) | `wamp::unpackedCoroRpc<TArgs...>`        | `Outcome function(Invocation, TArgs..., Yield)` |
-
-where `Yield` represents the type `boost::asio::yield_context`.
+| Slot Type                                                       | Wrapper Function                         | Slot Signature                                         |
+|-----------------------------------------------------------------|------------------------------------------|--------------------------------------------------------|
+| [Simple Call Slot](@ref SimpleCallSlots)                        | `wamp::simpleRpc<TResult, TArgs...>`     | `TResult function(TArgs...)`                           |
+| [Simple Coroutine Call Slot](@ref SimpleCoroutineCallSlots)     | `wamp::simpleCoroRpc<TResult, TArgs...>` | `TResult function(TArgs..., YieldContext)`             |
+| [Unpacked Call Slot](@ref UnpackedCallSlots)                    | `wamp::unpackedRpc<TArgs...>`            | `Outcome function(Invocation, TArgs...)`               |
+| [Unpacked Coroutine Call Slot](@ref UnpackedCoroutineCallSlots) | `wamp::unpackedCoroRpc<TArgs...>`        | `Outcome function(Invocation, TArgs..., YieldContext)` |
 
 
 @section SimpleCallSlots Simple Call Slots
@@ -90,17 +88,16 @@ int purchase(std::string item, int cost, int qty) { ... }
 
 The above slots can be registered as follows:
 ```
-session->enroll(Procedure("setSpeed"),
-                simpleRpc<void, float>(&setSpeed),
-                handler);
+session.enroll(Procedure("setSpeed"),
+               simpleRpc<void, float>(&setSpeed),
+               handler);
 
-session->enroll(Procedure("purchase"),
-                simpleRpc<int, std::string, int, int>(&purchase),
-                handler);
+session.enroll(Procedure("purchase"),
+               simpleRpc<int, std::string, int, int>(&purchase),
+               handler);
 ```
 
-where `handler` is the asynchronous handler (or coroutine yield context)
-for the **enroll operation itself**.
+where `handler` is the completion token for the **enroll operation itself**.
 
 Whenever a wamp::Session dispatches an RPC invocation to the above slots, it
 automatically unpacks the invocation payload positional arguments, and
@@ -122,7 +119,7 @@ passed to wamp::Session::enroll.
 `wamp::simpleCoroRpc` expects a call slot with the following signature:
 
 ```
-TResult function(TArgs..., boost::asio::yield_context)
+TResult function(TArgs..., wamp::YieldContext)
 ```
 where
 - `TResult` is a static return type that will be automatically converted
@@ -131,17 +128,16 @@ where
   to return a value.
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::simpleCoroRpc`.
-- `boost::asio::yield_context` represents the RPC's coroutine context.
+- `wamp::YieldContext` is a completion token that can be passed to
+   asynchronous operations.
 
 Examples of simple coroutine call slots are:
 ```
-using Yield = boost::asio::yield_context;
-
-void setSpeed(float speed, Yield yield) { ... }
+void setSpeed(float speed, YieldContext yield) { ... }
 // ^            ^
 // TResult    TArgs
 
-int purchase(std::string item, int cost, int qty, Yield yield) { ... }
+int purchase(std::string item, int cost, int qty, YieldContext yield) { ... }
 //^                  ^          ^         ^
 // \                 \----------|---------/
 // TResult                    TArgs
@@ -149,17 +145,16 @@ int purchase(std::string item, int cost, int qty, Yield yield) { ... }
 
 The above slots can be registered as follows:
 ```
-session->enroll(Procedure("setSpeed"),
-                simpleCoroRpc<void, float>(&setSpeed),
-                handler);
+session.enroll(Procedure("setSpeed"),
+               simpleCoroRpc<void, float>(&setSpeed),
+               handler);
 
-session->enroll(Procedure("purchase"),
-                simpleCoroRpc<int, std::string, int, int>(&purchase),
-                handler);
+session.enroll(Procedure("purchase"),
+               simpleCoroRpc<int, std::string, int, int>(&purchase),
+               handler);
 ```
 
-where `handler` is the asynchronous handler (or coroutine yield context)
-for the **enroll operation itself**.
+where `handler` is the completion token for the **enroll operation itself**.
 
 Whenever a wamp::Session dispatches an RPC invocation to the above slots, it
 spawns a new coroutine to be executed on wamp::Session::userIosvc(). It then
@@ -214,13 +209,13 @@ Outcome purchase(Invocation inv, std::string item, int cost, int qty) { ... }
 
 The above slots can be registered as follows:
 ```
-session->enroll(Procedure("setSpeed"),
-                unpackedRpc<float>(&setSpeed),
-                handler);
+session.enroll(Procedure("setSpeed"),
+               unpackedRpc<float>(&setSpeed),
+               handler);
 
-session->enroll(Procedure("purchase"),
-                unpackedRpc<std::string, int, int>(&purchase),
-                handler);
+session.enroll(Procedure("purchase"),
+               unpackedRpc<std::string, int, int>(&purchase),
+               handler);
 ```
 
 where `handler` is the asynchronous handler (or coroutine yield context)
@@ -244,7 +239,7 @@ registering such call slots.
 `wamp::unpackedCoroRpc` expects a call slot with the following signature:
 
 ```
-wamp::Outcome function(wamp::Invocation, TArgs..., boost::asio::yield_context)
+wamp::Outcome function(wamp::Invocation, TArgs..., wamp::YieldContext)
 ```
 where
 - wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
@@ -253,7 +248,8 @@ where
   related to the RPC invocation, and,
 - `TArgs...` matches the template parameter pack that was passed to
   `wamp::unpackedRpc`.
-- `boost::asio::yield_context` represents the RPC's coroutine context.
+- `wamp::YieldContext` is a completion token that can be passed to
+   asynchronous operations.
 
 
 @section RpcOutcomes RPC Outcomes
@@ -340,15 +336,18 @@ context.
 
 Example:
 ```
+using namespace wamp;
+
 Outcome Client::addPerson(Invocation inv, Object person)
 {
     // We need to issue another RPC to the database service before we can
     // fulfill this RPC.
-    boost::asio::spawn(inv.executor(),
-        [this, inv](boost::asio::yield_context yield)
+    spawn(
+        ioctx,
+        [this, inv](YieldContext yield)
         {
-            auto dbResult = session_->call( Rpc("db.add").withArgs(person),
-                                            yield );
+            auto dbResult = session_.call( Rpc("db.add").withArgs(person),
+                                           yield );
             // Manually send the result back to the caller
             auto personId = dbResult[0].to<int>();
             inv.yield({personId});
@@ -380,14 +379,14 @@ using namespace wamp;
 class Service // One of several services using the same Session
 {
 public:
-    void start(Session::Ptr session)
+    void start(Session& session, YieldContext yield)
     {
         // The session has already connected and joined when this is called.
 
-        auto r1 = session_->enroll(Procedure("sum"), &Service::sum,
-                                   yield).value();
-        auto r2 = session_->enroll(Procedure("prod"), &Service::prod,
-                                   yield).value();
+        auto r1 = session_.enroll(Procedure("sum"), &Service::sum,
+                                  yield).value();
+        auto r2 = session_.enroll(Procedure("prod"), &Service::prod,
+                                  yield).value();
 
         // Store scoped registrations in private member
         registrations_.push_back(r1);

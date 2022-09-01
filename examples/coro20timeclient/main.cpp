@@ -50,20 +50,21 @@ void onTimeTick(std::tm time)
 }
 
 //------------------------------------------------------------------------------
-boost::asio::awaitable<void> client(wamp::Session::Ptr session)
+boost::asio::awaitable<void> client(wamp::Session& session,
+                                    wamp::ConnectionWish where)
 {
     using namespace wamp;
     using boost::asio::use_awaitable;
 
-    (co_await session->connect(use_awaitable)).value();
-    (co_await session->join(Realm(realm), use_awaitable)).value();
+    (co_await session.connect(std::move(where), use_awaitable)).value();
+    (co_await session.join(Realm(realm), use_awaitable)).value();
 
-    auto result = (co_await session->call(Rpc("get_time"),
+    auto result = (co_await session.call(Rpc("get_time"),
                                           use_awaitable)).value();
     auto time = result[0].to<std::tm>();
     std::cout << "The current time is: " << std::asctime(&time) << "\n";
 
-    (co_await session->subscribe(Topic("time_tick"),
+    (co_await session.subscribe(Topic("time_tick"),
                                  wamp::simpleEvent<std::tm>(&onTimeTick),
                                  use_awaitable)).value();
 }
@@ -71,11 +72,10 @@ boost::asio::awaitable<void> client(wamp::Session::Ptr session)
 //------------------------------------------------------------------------------
 int main()
 {
-    using namespace wamp;
-    AsioContext ioctx;
-    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = Session::create(ioctx, tcp);
-    boost::asio::co_spawn(ioctx, client(session), boost::asio::detached);
+    wamp::IoContext ioctx;
+    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
+    wamp::Session session(ioctx);
+    boost::asio::co_spawn(ioctx, client(session, tcp), boost::asio::detached);
     ioctx.run();
     return 0;
 }

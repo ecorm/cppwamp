@@ -40,17 +40,17 @@ const unsigned short validPort = 12345;
 const unsigned short invalidPort = 54321;
 const std::string testUdsPath = "./.crossbar/udstest";
 
-Connector::Ptr tcp(AsioContext& ioctx)
+LegacyConnector withTcp(AsioContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", validPort));
 }
 
-Connector::Ptr invalidTcp(AsioContext& ioctx)
+LegacyConnector invalidTcp(AsioContext& ioctx)
 {
     return connector<Json>(ioctx, TcpHost("localhost", invalidPort));
 }
 
-Connector::Ptr alternateTcp(AsioContext& ioctx)
+LegacyConnector alternateTcp(AsioContext& ioctx)
 {
 #if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     auto where = UdsPath(testUdsPath);
@@ -61,6 +61,12 @@ Connector::Ptr alternateTcp(AsioContext& ioctx)
     return connector<Msgpack>(ioctx, where);
 }
 
+//------------------------------------------------------------------------------
+void suspendCoro(boost::asio::yield_context& yield)
+{
+    auto exec = boost::asio::get_associated_executor(yield);
+    boost::asio::post(exec, yield);
+}
 
 //------------------------------------------------------------------------------
 struct PubSubFixture
@@ -223,7 +229,7 @@ void checkInvalidUri(TThrowDelegate&& throwDelegate,
     AsioContext ioctx;
     boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(ioctx, tcp(ioctx));
+        auto session = CoroSession<>::create(ioctx, withTcp(ioctx));
         session->connect(yield);
         if (joined)
             session->join(Realm(testRealm), yield);
@@ -252,7 +258,7 @@ void checkDisconnect(TDelegate&& delegate)
     AsyncResult<TResult> result;
     boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
     {
-        auto session = CoroSession<>::create(ioctx, tcp(ioctx));
+        auto session = CoroSession<>::create(ioctx, withTcp(ioctx));
         session->connect(yield);
         delegate(*session, yield, completed, result);
         session->disconnect();
@@ -383,6 +389,21 @@ struct StateChangeListener
 
     bool empty() const {return changes().empty();}
 
+    bool check(const std::vector<SessionState>& expected,
+               boost::asio::yield_context yield)
+    {
+        int triesLeft = 1000;
+        while (triesLeft > 0)
+        {
+            if (changes().size() >= expected.size())
+                break;
+            suspendCoro(yield);
+            --triesLeft;
+        }
+        CHECK( triesLeft > 0 );
+        return are(expected);
+    };
+
     bool check(const CoroSession<>::Ptr& session,
                const std::vector<SessionState>& expected,
                boost::asio::yield_context yield)
@@ -458,7 +479,7 @@ GIVEN( "an IO service and a TCP connector" )
 {
     using SS = SessionState;
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
     StateChangeListener changes;
 
     WHEN( "connecting and disconnecting" )
@@ -488,9 +509,7 @@ GIVEN( "an IO service and a TCP connector" )
                 // Reset by letting session instance go out of scope.
             }
 
-            // State change events should not be fired when the
-            // session is destructing.
-            CHECK(changes.empty());
+            CHECK( changes.check({SS::disconnected}, yield) );
 
             // Check that another client can connect and disconnect.
             auto s2 = CoroSession<>::create(ioctx, cnct);
@@ -693,7 +712,7 @@ GIVEN( "an IO service and a TCP connector" )
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
             while (s->state() != SS::establishing)
-                ioctx.post(yield);
+                suspendCoro(yield);
             s->disconnect();
         });
 
@@ -718,7 +737,8 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( changes.check(s, {SS::connecting, SS::disconnected}, ioctx) );
+        CHECK( changes.are({SS::connecting}) );
+        CHECK( s->state() == SS::disconnected );
     }
 
     WHEN( "resetting during join" )
@@ -737,8 +757,8 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( changes.check(s, {SS::connecting, SS::closed,
-                                 SS::establishing, SS::disconnected}, ioctx) );
+        CHECK( changes.are({SS::connecting, SS::closed, SS::establishing}) );
+        CHECK( s->state() == SS::disconnected );
     }
 
     WHEN( "session goes out of scope during connect" )
@@ -761,7 +781,7 @@ GIVEN( "an IO service and a TCP connector" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( changes.are({SS::connecting}) );
+        CHECK( changes.are({SS::connecting, SS::disconnected}) );
     }
 }}
 
@@ -838,7 +858,7 @@ SCENARIO( "Old WAMP Pub-Sub", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "publishing and subscribing" )
     {
@@ -853,7 +873,7 @@ GIVEN( "an IO service and a TCP connector" )
             f.publisher->publish(Pub("str.num").withArgs("one", 1));
             pid = f.publisher->publish(Pub("str.num").withArgs("two", 2),
                                        yield);
-            while (f.dynamicPubs.size() < 2)
+            while (f.dynamicPubs.size() < 2  || f.staticPubs.size() < 2)
                 f.subscriber->suspend(yield);
 
             REQUIRE( f.dynamicPubs.size() == 2 );
@@ -960,7 +980,7 @@ SCENARIO( "Old WAMP Subscription Lifetimes", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "unsubscribing multiple times" )
     {
@@ -1162,7 +1182,7 @@ GIVEN( "an IO service and a TCP connector" )
                 CHECK( !f.dynamicSub );
 
                 f.publisher->publish(Pub("str.num").withArgs("", 0), yield);
-                while (f.dynamicPubs.size() < 1)
+                while (f.dynamicPubs.size() < 1 || f.staticPubs.size() < 1)
                     f.subscriber->suspend(yield);
                 CHECK( f.dynamicPubs.size() == 1 );
                 CHECK( f.staticPubs.size() == 1 );
@@ -1208,7 +1228,7 @@ SCENARIO( "Old WAMP RPCs", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "calling remote procedures taking dynamically-typed args" )
     {
@@ -1377,7 +1397,7 @@ SCENARIO( "Old WAMP Registation Lifetimes", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "unregistering after a session is destroyed" )
     {
@@ -1570,7 +1590,7 @@ GIVEN( "these test fixture objects" )
     using Yield = boost::asio::yield_context;
 
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
     auto session1 = CoroSession<>::create(ioctx, cnct);
     auto session2 = CoroSession<>::create(ioctx, cnct);
 
@@ -1853,7 +1873,7 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
 {
     using SS = SessionState;
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
     auto badCnct = invalidTcp(ioctx);
     StateChangeListener changes;
 
@@ -1885,7 +1905,7 @@ GIVEN( "an IO service, a valid TCP connector, and an invalid connector" )
         });
 
         ioctx.run();
-        CHECK( changes.empty() );
+        CHECK( changes.are({SS::disconnected}) );
     }
 
     WHEN( "connecting with multiple transports" )
@@ -1953,7 +1973,7 @@ SCENARIO( "Old WAMP RPC Failures", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "registering an already existing procedure" )
     {
@@ -2223,9 +2243,10 @@ GIVEN( "an IO service and a TCP connector" )
 
     WHEN( "an event handler throws wamp::error::BadType exceptions" )
     {
+        unsigned warningCount = 0;
+
         boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
         {
-            unsigned warningCount = 0;
             PubSubFixture f(ioctx, cnct);
             f.subscriber->setWarningHandler(
                 [&warningCount](std::string){++warningCount;}
@@ -2286,7 +2307,7 @@ SCENARIO( "Old Invalid WAMP URIs", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "joining with an invalid realm URI" )
     {
@@ -2410,12 +2431,12 @@ GIVEN( "an IO service and a TCP connector" )
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "Old WAMP Precondition Failures", "[OldWAMP][Basic]" )
+SCENARIO( "Old WAMP Invalid State Failures", "[OldWAMP][Basic]" )
 {
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "constructing a session with an empty connector list" )
     {
@@ -2515,6 +2536,7 @@ GIVEN( "an IO service and a TCP connector" )
         });
 
         CHECK_NOTHROW( ioctx2.run() );
+        session->terminate();
     }
 
     WHEN( "using invalid operations while established" )
@@ -2558,6 +2580,7 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidOps(session, yield);
         });
         CHECK_NOTHROW( ioctx2.run() );
+        session->terminate();
     }
 }}
 
@@ -2568,7 +2591,7 @@ SCENARIO( "Old WAMP Disconnect/Leave During Async Ops", "[OldWAMP][Basic]" )
 GIVEN( "an IO service and a TCP connector" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
 
     WHEN( "disconnecting during async join" )
     {
@@ -2786,7 +2809,7 @@ SCENARIO( "Old Outbound Messages are Properly Enqueued", "[OldWAMP][Basic]" )
 GIVEN( "these test fixture objects" )
 {
     AsioContext ioctx;
-    auto cnct = tcp(ioctx);
+    auto cnct = withTcp(ioctx);
     auto session1 = CoroSession<>::create(ioctx, cnct);
     auto session2 = CoroSession<>::create(ioctx, cnct);
 
@@ -2842,9 +2865,9 @@ GIVEN( "these test fixture objects" )
                                  [](AsyncResult<Result>) {});
 
                 /*  Try to get callee to send an RPC response while it's still
-                    transmitting the large event payload. AsioTransport should
-                    properly enqueue the RPC response while the large event
-                    payload is being transmitted. */
+                    transmitting the large event payload. RawsockTransport
+                    should properly enqueue the RPC response while the large
+                    event payload is being transmitted. */
                 while (eventString.empty())
                     subscriber->call(Rpc("echo").withArgs("hello"), yield);
 

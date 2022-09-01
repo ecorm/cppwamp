@@ -10,9 +10,9 @@
 
 #include <ctime>
 #include <iostream>
-#include <boost/asio/spawn.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
@@ -49,24 +49,21 @@ void onTimeTick(std::tm time)
 //------------------------------------------------------------------------------
 int main()
 {
-    using namespace wamp;
+    wamp::IoContext ioctx;
+    auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
+    wamp::Session session(ioctx);
 
-    AsioContext ioctx;
-    auto tcp = connector<Json>(ioctx, TcpHost(address, port));
-    auto session = Session::create(ioctx, tcp);
-
-    boost::asio::spawn(ioctx, [&session](boost::asio::yield_context yield)
+    wamp::spawn(ioctx, [tcp, &session](wamp::YieldContext yield)
     {
-        session->connect(yield).value();
-        session->join(Realm(realm), yield).value();
-
-        auto result = session->call(Rpc("get_time"), yield).value();
+        session.connect(tcp, yield).value();
+        session.join(wamp::Realm(realm), yield).value();
+        auto result = session.call(wamp::Rpc("get_time"), yield).value();
         auto time = result[0].to<std::tm>();
         std::cout << "The current time is: " << std::asctime(&time) << "\n";
 
-        session->subscribe(Topic("time_tick"),
-                           wamp::simpleEvent<std::tm>(&onTimeTick),
-                           yield).value();
+        session.subscribe(wamp::Topic("time_tick"),
+                          wamp::simpleEvent<std::tm>(&onTimeTick),
+                          yield).value();
     });
 
     ioctx.run();

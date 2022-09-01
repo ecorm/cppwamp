@@ -14,79 +14,98 @@ This page describes how error handling is done via `ErrorOr`.
 ErrorOr and Exceptions
 ----------------------
 
-Whenever an asynchronous wamp::Session operation fails, it will emit a
-wamp::ErrorOr that contains a [`std::error_code`][error_code] instead of an
-actual result.
+wamp::ErrorOr is a type that contains either a [`std::error_code`][error_code]
+or an actual value. It is an minimalistic implementation of
+[std::expected](https://wg21.link/P0323)<T, std::error_code>, and it used to
+report the status of wamp::Session asynchronous operations. Whenever an
+asynchronous operation fails, an wamp::ErrorOr containing a `std::error_code`
+will be emitted via the completion handler instead of an actual result.
 
-The wamp::ErrorOr::value method would normally be used to retrieve the
-underlying result of the asynchronous operation. If the `ErrorOr` instead
-contains an error, `ErrorOr::value` will throw a wamp::error::Failure
-exception. Since `Failure` derives from [`std::system_error`][system_error],
-it contains a `std::error_code` that represents the cause of the error.
+The wamp::ErrorOr::value method is used to retrieve the underlying result of
+the asynchronous operation. If the `ErrorOr` actually contains an error,
+`ErrorOr::value` will throw a wamp::error::Failure exception. Since `Failure`
+derives from [`std::system_error`][system_error], it contains a
+`std::error_code` that represents the cause of the error.
 
-Example using error codes:
+Example where `ErrorOr` is manually checked:
 
 ```
-using namespace wamp;
-AsioContext ioctx;
-auto tcp = TcpConnector::create<Json>(ioctx, {"localhost", 8001});
+#include <cppwamp/json.hpp>
+#include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
+#include <cppwamp/tcp.hpp>
 
-boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+int main()
 {
-    auto session = Session::create(ioctx, tcp);
-    auto index = session->connect(yield);
-    if (!index)
+    using namespace wamp;
+    IoContext ioctx;
+    Session session(ioctx);
+
+    spawn(ioctx, [&](YieldContext yield)
     {
-        std::cerr << "Connect failed: " << index.error() << "\n";
-        return;
-    }
+        auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
+        auto index = session.connect(std::move(tcp), yield);
+        if (!index)
+        {
+            std::cerr << "Connect failed: " << index.error() << "\n";
+            return;
+        }
 
-    auto info = session->join(Realm("somerealm"), yield);
-    if (!info)
-    {
-        std::cerr << "Join failed: " << info.error() << "\n";
-        return;
-    }
+        auto info = session.join(Realm("somerealm"), yield);
+        if (!info)
+        {
+            std::cerr << "Join failed: " << info.error() << "\n";
+            return;
+        }
 
-    // etc.
-});
-
-ioctx.run();
-
-```
-
-Example using exceptions:
-
-```
-using namespace wamp;
-AsioContext ioctx;
-auto tcp = TcpConnector::create<Json>(ioctx, {"localhost", 8001});
-
-boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
-{
-    auto session = Session::create(ioctx, tcp);
-    try
-    {
-        session->connect(yield).value(); // Note the .value()
-        session->join(Realm("somerealm"), yield).value(); // Note the .value()
         // etc.
-    }
-    catch (const error::Failure& e)
+    });
+
+    ioctx.run();
+    return 0;
+}
+```
+
+Example where `ErrorOr::value` is allowed to throw exceptions:
+
+```
+#include <cppwamp/json.hpp>
+#include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
+#include <cppwamp/tcp.hpp>
+
+int main()
+{
+    using namespace wamp;
+    IoContext ioctx;
+    Session session(ioctx);
+
+    spawn(ioctx, [&](YieldContext yield)
     {
-        // Print a message describing the error
-        std::cerr << e.what() << "\n";
+        try
+        {
+            auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
+            session.connect(std::move(tcp), yield).value(); // Note the .value()
+            session.join(Realm("somerealm"), yield).value(); // Note the .value()
+            // etc.
+        }
+        catch (const error::Failure& e)
+        {
+            // Print a message describing the error
+            std::cerr << e.what() << "\n";
 
-        // Obtain the std::error_code associated with the exception
-        auto ec = e.code();
-        if (ec == SessionErrc::noSuchRealm)
-            std::cerr << "The realm doesn't exist\n";
-        else
-            std::cerr << "Unexpected error: " << ec << "\n";
-    }
-});
+            // Obtain the std::error_code associated with the exception
+            auto ec = e.code();
+            if (ec == SessionErrc::noSuchRealm)
+                std::cerr << "The realm doesn't exist\n";
+            else
+                std::cerr << "Unexpected error: " << ec << "\n";
+        }
+    });
 
-ioctx.run();
-
+    ioctx.run();
+    return 0;
+}
 ```
 
 Error Codes
@@ -96,12 +115,15 @@ An error code can either belong to [`std::generic_category`][generic_category],
 or to one of the error categories defined by the library in `<cppwamp/error.hpp>`:
 
 Error category            | Values                | Used for reporting
-------------------------- | ----------------------| ------------------
-`wamp::SessionCategory`   | `wamp::SessionErrc`   | WAMP session errors
-`wamp::ProtocolCategory`  | `wamp::ProtocolErrc`  | invalid WAMP messages
+------------------------- | --------------------- | ------------------
+`wamp::SessionCategory`   | `wamp::SessionErrc`   | WAMP session/protocol errors
+`wamp::DecodingCategory`  | `wamp::DecodingErrc`  | general deserialization errors
 `wamp::TransportCategory` | `wamp::TransportErrc` | general transport layer errors
 `wamp::RawsockCategory`   | `wamp::RawsockErrc`   | raw socket transport errors
-[`std::generic_category`][generic_category] | [`std::errc`][std_errc] | OS-level socket errors
+[`std::generic_category`][generic_category] | [`std::errc`][std_errc]           | OS-level socket errors
+`jsoncons::json_error_category`             | `jsoncons::json_errc`             | JSON deserialzation errors
+`jsoncons::cbor::cbor_error_category`       | `jsoncons::cbor::cbor_errc`       | CBOR deserialzation errors
+`jsoncons::msgpack::msgpack_error_category` | `jsoncons::msgpack::msgpack_errc` | Msgpack deserialzation errors
 
 
 Failed Preconditions

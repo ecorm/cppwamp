@@ -13,8 +13,10 @@
            event slots and call slots that spawn coroutines. */
 //------------------------------------------------------------------------------
 
-#include <boost/asio/spawn.hpp>
+#include <exception>
+#include <boost/version.hpp>
 #include "config.hpp"
+#include "spawn.hpp"
 #include "unpacker.hpp"
 #include "internal/callee.hpp"
 
@@ -30,9 +32,9 @@ namespace wamp
     @see [wamp::unpackedCoroEvent](@ref CoroEventUnpacker::unpackedCoroEvent)
     @see @ref UnpackedCoroutineEventSlots
     @tparam TSlot Function type to be wrapped. Must have the signature
-            `void function(Event, TArgs..., boost::asio::yield_context)`.
+            `void function(Event, TArgs..., wamp::YieldContext)`.
     @tparam TArgs List of static types the event slot expects following the
-            Event parameter and preceding the `boost::asio::yield_context`
+            Event parameter and preceding the `wamp::YieldContext`
             parameter. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename... TArgs>
@@ -52,9 +54,9 @@ public:
     void operator()(Event event) const;
 
 private:
-    using Yield = boost::asio::yield_context;
+    template <int... Seq> struct Spawned;
 
-    template <int ...S>
+    template <int... S>
     void invoke(Event&& event, internal::IntegerSequence<S...>) const;
 
     Slot slot_;
@@ -65,14 +67,14 @@ private:
     Converts an unpacked event slot into a regular slot than can be passed
     to Session::subscribe.
     The slot will be executed within the context of a coroutine and will be
-    given a `boost::asio::yield_context` as the last call argument.
+    given a `wamp::YieldContext` as the last call argument.
     @see @ref UnpackedCoroutineEventSlots
     @returns An CoroEventUnpacker that wraps the the given slot.
     @tparam TArgs List of static types the event slot expects following the
             Event parameter, and preceding the
-            `boost::asio::yield_context` parameter.
+            `wamp::YieldContext` parameter.
     @tparam TSlot (deduced) Function type to be converted. Must have the signature
-            `void function(Event, TArgs..., boost::asio::yield_context)`. */
+            `void function(Event, TArgs..., wamp::YieldContext)`. */
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
 CoroEventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedCoroEvent(TSlot&& slot);
@@ -89,9 +91,9 @@ CoroEventUnpacker<DecayedSlot<TSlot>, TArgs...> unpackedCoroEvent(TSlot&& slot);
     @see [wamp::simpleCoroEvent](@ref SimpleCoroEventUnpacker::simpleCoroEvent)
     @see @ref SimpleCoroutineEventSlots
     @tparam TSlot Function type to be wrapped. Must have the signature
-            `void function(TArgs..., boost::asio::yield_context)`.
+            `void function(TArgs..., wamp::YieldContext)`.
     @tparam TArgs List of static types the event slot expects as arguments
-            preceding the `boost::asio::yield_context` parameter. */
+            preceding the `wamp::YieldContext` parameter. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename... TArgs>
 class SimpleCoroEventUnpacker
@@ -110,9 +112,9 @@ public:
     void operator()(Event event) const;
 
 private:
-    using Yield = boost::asio::yield_context;
+    template <int... Seq> struct Spawned;
 
-    template <int ...S>
+    template <int... S>
     void invoke(Event&& event, internal::IntegerSequence<S...>) const;
 
     Slot slot_;
@@ -135,9 +137,9 @@ using BasicCoroEventUnpacker CPPWAMP_DEPRECATED
     @see @ref SimpleCoroutineEventSlots
     @returns An SimpleCoroEventUnpacker that wraps the the given slot.
     @tparam TArgs List of static types the event slot expects as arguments,
-                  preceding the `boost::asio::yield_context` parameter.
+                  preceding the `wamp::YieldContext` parameter.
     @tparam TSlot (deduced) Function type to be converted. Must have the
-            signature `void function(TArgs..., boost::asio::yield_context)`.*/
+            signature `void function(TArgs..., wamp::YieldContext)`.*/
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
 SimpleCoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>
@@ -160,9 +162,9 @@ basicCoroEvent(TSlot&& slot);
     @see [wamp::unpackedCoroRpc](@ref CoroInvocationUnpacker::unpackedCoroRpc)
     @see @ref UnpackedCoroutineCallSlots
     @tparam TSlot Function type to be wrapped. Must have the signature
-            `void function(Invocation, TArgs..., boost::asio::yield_context)`.
+            `void function(Invocation, TArgs..., wamp::YieldContext)`.
     @tparam TArgs List of static types the call slot expects following the
-            Invocation parameter, and preceding the boost::asio::yield_context
+            Invocation parameter, and preceding the wamp::YieldContext
             parameter. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename... TArgs>
@@ -182,9 +184,9 @@ public:
     Outcome operator()(Invocation inv) const;
 
 private:
-    using Yield = boost::asio::yield_context;
+    template <int... Seq> class Spawned;
 
-    template <int ...S>
+    template <int... S>
     void invoke(Invocation&& inv, internal::IntegerSequence<S...>) const;
 
     Slot slot_;
@@ -198,9 +200,9 @@ private:
     @returns A CoroInvocationUnpacker that wraps the the given slot.
     @tparam TArgs List of static types the call slot expects following the
                   Invocation parameter, and preceding the
-                  `boost::asio::yield_context` parameter.
+                  `wamp::YieldContext` parameter.
     @tparam TSlot (deduced) Function type to be converted. Must have the signature
-            `Outcome function(Invocation, TArgs..., boost::asio::yield_context)`.*/
+            `Outcome function(Invocation, TArgs..., wamp::YieldContext)`.*/
 //------------------------------------------------------------------------------
 template <typename... TArgs, typename TSlot>
 CoroInvocationUnpacker<DecayedSlot<TSlot>, TArgs...>
@@ -220,10 +222,10 @@ unpackedCoroRpc(TSlot&& slot);
     @see [wamp::simpleCoroRpc](@ref SimpleCoroInvocationUnpacker::simpleCoroRpc)
     @see @ref SimpleCoroutineCallSlots
     @tparam TSlot Function type to be wrapped. Must have the signature
-            `TResult function(TArgs..., boost::asio::yield_context)`.
+            `TResult function(TArgs..., wamp::YieldContext)`.
     @tparam TResult The static result type returned by the slot (may be `void`).
     @tparam TArgs List of static types the call slot expects as arguments,
-            preceding the `boost::asio::yield_context` argument. */
+            preceding the `wamp::YieldContext` argument. */
 //------------------------------------------------------------------------------
 template <typename TSlot, typename TResult, typename... TArgs>
 class SimpleCoroInvocationUnpacker
@@ -245,13 +247,14 @@ public:
     Outcome operator()(Invocation inv) const;
 
 private:
-    using Yield = boost::asio::yield_context;
+    template <int... Seq> struct SpawnedWithVoid;
+    template <int... Seq> struct SpawnedWithResult;
 
-    template <int ...S>
+    template <int... S>
     void invoke(TrueType, Invocation&& inv,
                 internal::IntegerSequence<S...>) const;
 
-    template <int ...S>
+    template <int... S>
     void invoke(FalseType, Invocation&& inv,
                 internal::IntegerSequence<S...>) const;
 
@@ -275,10 +278,10 @@ using BasicCoroInvocationUnpacker =
     @see @ref SimpleCoroutineCallSlots
     @returns A SimpleCoroInvocationUnpacker that wraps the the given slot.
     @tparam TArgs List of static types the call slot expects as arguments,
-            preceding the `boost::asio::yield_context` argument.
+            preceding the `wamp::YieldContext` argument.
     @tparam TResult The static result type returned by the slot (may be `void`).
     @tparam TSlot (deduced) Function type to be converted. Must have the signature
-            `TResult function(TArgs..., boost::asio::yield_context)`.*/
+            `TResult function(TArgs..., wamp::YieldContext)`.*/
 //------------------------------------------------------------------------------
 template <typename TResult, typename... TArgs, typename TSlot>
 SimpleCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
@@ -291,8 +294,9 @@ template <typename TResult, typename... TArgs, typename TSlot>
 SimpleCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
 basicCoroRpc(TSlot&& slot);
 
+
 //******************************************************************************
-// Internal helper types
+// Internal helpers
 //******************************************************************************
 
 namespace internal
@@ -306,6 +310,37 @@ struct UnpackCoroError : public Error
 {
     UnpackCoroError() : Error("wamp.error.invalid_argument") {}
 };
+
+//------------------------------------------------------------------------------
+template <typename E>
+struct UnpackedSpawner
+{
+    template <typename F>
+    static void spawn(E& executor, F&& function)
+    {
+        spawn(executor, std::forward<F>(function));
+    }
+};
+
+template <>
+struct UnpackedSpawner<AnyCompletionExecutor>
+{
+    template <typename F>
+    static void spawn(AnyCompletionExecutor& executor, F&& function)
+    {
+        spawnCompletionHandler(executor, std::forward<F>(function));
+    }
+};
+
+template <typename E, typename F>
+void unpackedSpawn(E& executor, F&& function)
+{
+#ifdef CPPWAMP_USE_COMPLETION_YIELD_CONTEXT
+    spawn(executor, std::forward<F>(function), propagating);
+#else
+    UnpackedSpawner<E>::spawn(executor, std::forward<F>(function));
+#endif
+}
 
 } // namespace internal
 
@@ -340,36 +375,39 @@ void CoroEventUnpacker<S,A...>::operator()(Event event) const
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-template <int ...Seq>
+template <int... Seq>
+struct CoroEventUnpacker<S,A...>::Spawned
+{
+    Slot slot;
+    Event event;
+
+    template <typename TYieldContext>
+    void operator()(TYieldContext yield)
+    {
+        std::tuple<ValueTypeOf<A>...> args;
+        try
+        {
+            event.convertToTuple(args);
+            slot(std::move(event), std::get<Seq>(std::move(args))...,
+                 yield);
+        }
+        catch (const error::BadType&)
+        {
+            /*  Do nothing. This is to prevent the publisher crashing
+                subscribers when it passes Variant objects having
+                incorrect schema. */
+        }
+    }
+};
+
+//------------------------------------------------------------------------------
+template <typename S, typename... A>
+template <int... Seq>
 void CoroEventUnpacker<S,A...>::invoke(Event&& event,
                                        internal::IntegerSequence<Seq...>) const
 {
-    struct Spawned
-    {
-        Slot slot;
-        Event event;
-
-        void operator()(Yield yield)
-        {
-            std::tuple<ValueTypeOf<A>...> args;
-            try
-            {
-                event.convertToTuple(args);
-                slot(std::move(event), std::get<Seq>(std::move(args))...,
-                     yield);
-            }
-            catch (const error::BadType&)
-            {
-                /*  Do nothing. This is to prevent the publisher crashing
-                subscribers when it passes Variant objects having
-                incorrect schema. */
-            }
-        }
-    };
-
-    auto executor =
-        boost::asio::get_associated_executor(slot_, event.executor());
-    boost::asio::spawn(executor, Spawned{slot_, std::move(event)});
+    auto ex = boost::asio::get_associated_executor(slot_, event.executor());
+    internal::unpackedSpawn(ex, Spawned<Seq...>{slot_, std::move(event)});
 }
 
 //------------------------------------------------------------------------------
@@ -411,36 +449,39 @@ void SimpleCoroEventUnpacker<S,A...>::operator()(Event event) const
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-template <int ...Seq>
+template <int... Seq>
+struct SimpleCoroEventUnpacker<S,A...>::Spawned
+{
+    Slot slot;
+    Event event;
+
+    template <typename TYieldContext>
+    void operator()(TYieldContext yield)
+    {
+        std::tuple<ValueTypeOf<A>...> args;
+        try
+        {
+            event.convertToTuple(args);
+            slot(std::get<Seq>(std::move(args))..., yield);
+        }
+        catch (const error::BadType&)
+        {
+            /* Do nothing. This is to prevent the publisher crashing
+                   subscribers when it passes Variant objects having
+                   incorrect schema. */
+        }
+    }
+};
+
+//------------------------------------------------------------------------------
+template <typename S, typename... A>
+template <int... Seq>
 void
 SimpleCoroEventUnpacker<S,A...>::invoke(Event&& event,
                                        internal::IntegerSequence<Seq...>) const
 {
-    struct Spawned
-    {
-        Slot slot;
-        Event event;
-
-        void operator()(Yield yield)
-        {
-            std::tuple<ValueTypeOf<A>...> args;
-            try
-            {
-                event.convertToTuple(args);
-                slot(std::get<Seq>(std::move(args))..., yield);
-            }
-            catch (const error::BadType&)
-            {
-                /* Do nothing. This is to prevent the publisher crashing
-                   subscribers when it passes Variant objects having
-                   incorrect schema. */
-            }
-        }
-    };
-
-    auto executor =
-        boost::asio::get_associated_executor(slot_, event.executor());
-    boost::asio::spawn(executor, Spawned{slot_, std::move(event)});
+    auto ex = boost::asio::get_associated_executor(slot_, event.executor());
+    internal::unpackedSpawn(ex, Spawned<Seq...>{slot_, std::move(event)});
 }
 
 //------------------------------------------------------------------------------
@@ -494,85 +535,89 @@ Outcome CoroInvocationUnpacker<S,A...>::operator()(Invocation inv) const
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-template <int ...Seq>
+template <int... Seq>
+class CoroInvocationUnpacker<S,A...>::Spawned
+{
+public:
+    Spawned(const Slot& slot, Invocation&& inv)
+        : slot_(slot),
+        calleePtr_(inv.callee_),
+        reqId_(inv.requestId()),
+        inv_(std::move(inv))
+    {}
+
+    template <typename TYieldContext>
+    void operator()(TYieldContext yield)
+    {
+        try
+        {
+            std::tuple<ValueTypeOf<A>...> args;
+            inv_.convertToTuple(args);
+            Outcome outcome = slot_(std::move(inv_),
+                                    std::get<Seq>(std::move(args))...,
+                                    yield);
+
+            switch (outcome.type())
+            {
+            case Outcome::Type::deferred:
+                // Do nothing
+                break;
+
+            case Outcome::Type::result:
+                safeYield(std::move(outcome).asResult());
+                break;
+
+            case Outcome::Type::error:
+                safeYield(std::move(outcome).asError());
+                break;
+
+            default:
+                assert(false && "Unexpected wamp::Outcome::Type enumerator");
+            }
+
+        }
+        catch (Error e)
+        {
+            safeYield(std::move(e));
+        }
+        catch (const error::BadType& e)
+        {
+            // Forward Variant conversion exceptions as ERROR messages.
+            safeYield(Error(e));
+        }
+    }
+
+private:
+    void safeYield(Result&& result)
+    {
+        auto callee = calleePtr_.lock();
+        if (callee)
+            callee->safeYield(reqId_, std::move(result));
+    }
+
+    void safeYield(Error&& error)
+    {
+        auto callee = calleePtr_.lock();
+        if (callee)
+            callee->safeYield(reqId_, std::move(error));
+    }
+
+    Slot slot_;
+    std::weak_ptr<internal::Callee> calleePtr_;
+    RequestId reqId_;
+    Invocation inv_;
+};
+
+
+//------------------------------------------------------------------------------
+template <typename S, typename... A>
+template <int... Seq>
 void
 CoroInvocationUnpacker<S,A...>::invoke(Invocation&& inv,
                                        internal::IntegerSequence<Seq...>) const
 {
-    class Spawned
-    {
-    public:
-        Spawned(const Slot& slot, Invocation&& inv)
-            : slot_(slot),
-              calleePtr_(inv.callee_),
-              reqId_(inv.requestId()),
-              inv_(std::move(inv))
-        {}
-
-        void operator()(Yield yield)
-        {
-            try
-            {
-                std::tuple<ValueTypeOf<A>...> args;
-                inv_.convertToTuple(args);
-                Outcome outcome = slot_(std::move(inv_),
-                                        std::get<Seq>(std::move(args))...,
-                                        yield);
-
-                switch (outcome.type())
-                {
-                case Outcome::Type::deferred:
-                    // Do nothing
-                    break;
-
-                case Outcome::Type::result:
-                    safeYield(std::move(outcome).asResult());
-                    break;
-
-                case Outcome::Type::error:
-                    safeYield(std::move(outcome).asError());
-                    break;
-
-                default:
-                    assert(false && "Unexpected wamp::Outcome::Type enumerator");
-                }
-
-            }
-            catch (Error e)
-            {
-                safeYield(std::move(e));
-            }
-            catch (const error::BadType& e)
-            {
-                // Forward Variant conversion exceptions as ERROR messages.
-                safeYield(Error(e));
-            }
-        }
-
-    private:
-        void safeYield(Result&& result)
-        {
-            auto callee = calleePtr_.lock();
-            if (callee)
-                callee->safeYield(reqId_, std::move(result));
-        }
-
-        void safeYield(Error&& error)
-        {
-            auto callee = calleePtr_.lock();
-            if (callee)
-                callee->safeYield(reqId_, std::move(error));
-        }
-
-        Slot slot_;
-        std::weak_ptr<internal::Callee> calleePtr_;
-        RequestId reqId_;
-        Invocation inv_;
-    };
-
-    auto executor =
-        boost::asio::get_associated_executor(slot_, inv.executor());
-    boost::asio::spawn(executor, Spawned{slot_, std::move(inv)});
+    auto ex = boost::asio::get_associated_executor(slot_, inv.executor());
+    internal::unpackedSpawn(ex, Spawned<Seq...>{slot_, std::move(inv)});
 }
 
 //------------------------------------------------------------------------------
@@ -618,76 +663,84 @@ SimpleCoroInvocationUnpacker<S,R,A...>::operator()(Invocation inv) const
 
 //------------------------------------------------------------------------------
 template <typename S, typename R, typename... A>
-template <int ...Seq>
+template <int... Seq>
+struct SimpleCoroInvocationUnpacker<S,R,A...>::SpawnedWithVoid
+{
+    Slot slot;
+    Invocation inv;
+
+    template <typename TYieldContext>
+    void operator()(TYieldContext yield)
+    {
+        try
+        {
+            std::tuple<ValueTypeOf<A>...> args;
+            inv.convertToTuple(args);
+            slot(std::get<Seq>(std::move(args))..., yield);
+            inv.yield();
+        }
+        catch (const Error& e)
+        {
+            inv.yield(e);
+        }
+        catch (const error::BadType& e)
+        {
+            // Forward Variant conversion exceptions as ERROR messages.
+            inv.yield(Error(e));
+        }
+    }
+};
+
+//------------------------------------------------------------------------------
+template <typename S, typename R, typename... A>
+template <int... Seq>
+struct SimpleCoroInvocationUnpacker<S,R,A...>::SpawnedWithResult
+{
+    Slot slot;
+    Invocation inv;
+
+    template <typename TYieldContext>
+    void operator()(TYieldContext yield)
+    {
+        try
+        {
+            std::tuple<ValueTypeOf<A>...> args;
+            inv.convertToTuple(args);
+            ResultType result = slot(std::get<Seq>(std::move(args))...,
+                                     yield);
+            inv.yield(Result().withArgs(std::move(result)));
+        }
+        catch (const Error& e)
+        {
+            inv.yield(e);
+        }
+        catch (const error::BadType& e)
+        {
+            // Forward Variant conversion exceptions as ERROR messages.
+            inv.yield(Error(e));
+        }
+    }
+};
+
+//------------------------------------------------------------------------------
+template <typename S, typename R, typename... A>
+template <int... Seq>
 void SimpleCoroInvocationUnpacker<S,R,A...>::invoke(
     TrueType, Invocation&& inv, internal::IntegerSequence<Seq...>) const
 {
-    struct Spawned
-    {
-        Slot slot;
-        Invocation inv;
-
-        void operator()(Yield yield)
-        {
-            try
-            {
-                std::tuple<ValueTypeOf<A>...> args;
-                inv.convertToTuple(args);
-                slot(std::get<Seq>(std::move(args))..., yield);
-                inv.yield();
-            }
-            catch (const Error& e)
-            {
-                inv.yield(e);
-            }
-            catch (const error::BadType& e)
-            {
-                // Forward Variant conversion exceptions as ERROR messages.
-                inv.yield(Error(e));
-            }
-        }
-    };
-
-    auto executor =
-        boost::asio::get_associated_executor(slot_, inv.executor());
-    boost::asio::spawn(executor, Spawned{slot_, std::move(inv)});
+    auto ex = boost::asio::get_associated_executor(slot_, inv.executor());
+    internal::unpackedSpawn(ex, SpawnedWithVoid<Seq...>{slot_, std::move(inv)});
 }
 
 //------------------------------------------------------------------------------
 template <typename S, typename R, typename... A>
-template <int ...Seq>
+template <int... Seq>
 void SimpleCoroInvocationUnpacker<S,R,A...>::invoke(
     FalseType, Invocation&& inv, internal::IntegerSequence<Seq...>) const
 {
-    struct Spawned
-    {
-        Slot slot;
-        Invocation inv;
-
-        void operator()(Yield yield)
-        {
-            try
-            {
-                std::tuple<ValueTypeOf<A>...> args;
-                inv.convertToTuple(args);
-                ResultType result = slot(std::get<Seq>(std::move(args))...,
-                                         yield);
-                inv.yield(Result().withArgs(std::move(result)));
-            }
-            catch (const Error& e)
-            {
-                inv.yield(e);
-            }
-            catch (const error::BadType& e)
-            {
-                // Forward Variant conversion exceptions as ERROR messages.
-                inv.yield(Error(e));
-            }
-        }
-    };
-
-    auto executor = inv.executor();
-    boost::asio::spawn(executor, Spawned{slot_, std::move(inv)});
+    using std::move;
+    auto ex = boost::asio::get_associated_executor(slot_, inv.executor());
+    internal::unpackedSpawn(ex, SpawnedWithResult<Seq...>{slot_, move(inv)});
 }
 
 //------------------------------------------------------------------------------

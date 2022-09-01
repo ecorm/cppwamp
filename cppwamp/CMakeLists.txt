@@ -16,10 +16,12 @@ set(HEADERS
     include/cppwamp/config.hpp
     include/cppwamp/connector.hpp
     include/cppwamp/conversionaccess.hpp
+    include/cppwamp/consolelogger.hpp
     include/cppwamp/corounpacker.hpp
     include/cppwamp/error.hpp
     include/cppwamp/erroror.hpp
     include/cppwamp/json.hpp
+    include/cppwamp/logging.hpp
     include/cppwamp/messagebuffer.hpp
     include/cppwamp/msgpack.hpp
     include/cppwamp/null.hpp
@@ -30,12 +32,18 @@ set(HEADERS
     include/cppwamp/registration.hpp
     include/cppwamp/session.hpp
     include/cppwamp/sessiondata.hpp
+    include/cppwamp/spawn.hpp
     include/cppwamp/subscription.hpp
+    include/cppwamp/tagtypes.hpp
     include/cppwamp/tcp.hpp
+    include/cppwamp/tcpendpoint.hpp
     include/cppwamp/tcphost.hpp
+    include/cppwamp/tcpprotocol.hpp
     include/cppwamp/traits.hpp
+    include/cppwamp/transport.hpp
     include/cppwamp/uds.hpp
     include/cppwamp/udspath.hpp
+    include/cppwamp/udsprotocol.hpp
     include/cppwamp/unpacker.hpp
     include/cppwamp/variant.hpp
     include/cppwamp/variantdefs.hpp
@@ -45,26 +53,24 @@ set(HEADERS
     include/cppwamp/bundled/boost_asio_any_completion_executor.hpp
     include/cppwamp/bundled/boost_asio_any_completion_handler.hpp
     include/cppwamp/coro/corosession.hpp
-    include/cppwamp/internal/asioconnector.hpp
-    include/cppwamp/internal/asioendpoint.hpp
-    include/cppwamp/internal/asiolistener.hpp
-    include/cppwamp/internal/asiotransport.hpp
     include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/callee.hpp
     include/cppwamp/internal/caller.hpp
     include/cppwamp/internal/callertimeout.hpp
     include/cppwamp/internal/challengee.hpp
     include/cppwamp/internal/client.hpp
-    include/cppwamp/internal/clientinterface.hpp
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/integersequence.hpp
     include/cppwamp/internal/jsonencoding.hpp
+    include/cppwamp/internal/logging.ipp
     include/cppwamp/internal/messagetraits.hpp
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/peer.hpp
     include/cppwamp/internal/rawsockconnector.hpp
     include/cppwamp/internal/rawsockhandshake.hpp
     include/cppwamp/internal/rawsockheader.hpp
+    include/cppwamp/internal/rawsocklistener.hpp
+    include/cppwamp/internal/rawsocktransport.hpp
     include/cppwamp/internal/socketoptions.hpp
     include/cppwamp/internal/subscriber.hpp
     include/cppwamp/internal/tcpacceptor.hpp
@@ -90,6 +96,8 @@ set(INLINES
     include/cppwamp/internal/blob.ipp
     include/cppwamp/internal/cbor.ipp
     include/cppwamp/internal/chits.ipp
+    include/cppwamp/internal/connector.ipp
+    include/cppwamp/internal/consolelogger.ipp
     include/cppwamp/internal/error.ipp
     include/cppwamp/internal/json.ipp
     include/cppwamp/internal/messagetraits.ipp
@@ -98,8 +106,13 @@ set(INLINES
     include/cppwamp/internal/registration.ipp
     include/cppwamp/internal/session.ipp
     include/cppwamp/internal/subscription.ipp
+    include/cppwamp/internal/tcp.ipp
+    include/cppwamp/internal/tcpendpoint.ipp
     include/cppwamp/internal/tcphost.ipp
+    include/cppwamp/internal/tcpprotocol.ipp
+    include/cppwamp/internal/uds.ipp
     include/cppwamp/internal/udspath.ipp
+    include/cppwamp/internal/udsprotocol.ipp
     include/cppwamp/internal/variant.ipp
     include/cppwamp/internal/version.ipp
 )

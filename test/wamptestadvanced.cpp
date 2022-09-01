@@ -8,11 +8,11 @@
 
 #include <algorithm>
 #include <boost/asio/bind_cancellation_slot.hpp>
-#include <boost/asio/spawn.hpp>
 #include <catch2/catch.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/msgpack.hpp>
 #include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 
 using namespace wamp;
@@ -25,18 +25,10 @@ const std::string testRealm = "cppwamp.test";
 const short testPort = 12345;
 const std::string authTestRealm = "cppwamp.authtest";
 const short authTestPort = 23456;
+const auto withTcp = TcpHost("localhost", testPort).withFormat(json);
+const auto authTcp = TcpHost("localhost", authTestPort).withFormat(json);
 
-Connector::Ptr tcp(AsioContext& ioctx)
-{
-    return connector<Json>(ioctx, TcpHost("localhost", testPort));
-}
-
-Connector::Ptr authTcp(AsioContext& ioctx)
-{
-    return connector<Json>(ioctx, TcpHost("localhost", authTestPort));
-}
-
-void suspendCoro(boost::asio::yield_context& yield)
+void suspendCoro(YieldContext& yield)
 {
     boost::asio::post(yield);
 }
@@ -44,28 +36,30 @@ void suspendCoro(boost::asio::yield_context& yield)
 //------------------------------------------------------------------------------
 struct RpcFixture
 {
-    template <typename TConnector>
-    RpcFixture(AsioContext& ioctx, TConnector cnct)
-        : caller(Session::create(ioctx, cnct)),
-          callee(Session::create(ioctx, cnct))
+    RpcFixture(IoContext& ioctx, ConnectionWish wish)
+        : where(std::move(wish)),
+          caller(ioctx),
+          callee(ioctx)
     {}
 
-    void join(boost::asio::yield_context yield)
+    void join(YieldContext yield)
     {
-        caller->connect(yield).value();
-        callerId = caller->join(Realm(testRealm), yield).value().id();
-        callee->connect(yield).value();
-        callee->join(Realm(testRealm), yield).value();
+        caller.connect(where, yield).value();
+        callerId = caller.join(Realm(testRealm), yield).value().id();
+        callee.connect(where, yield).value();
+        callee.join(Realm(testRealm), yield).value();
     }
 
     void disconnect()
     {
-        caller->disconnect();
-        callee->disconnect();
+        caller.disconnect();
+        callee.disconnect();
     }
 
-    Session::Ptr caller;
-    Session::Ptr callee;
+    ConnectionWish where;
+
+    Session caller;
+    Session callee;
 
     SessionId callerId = -1;
 };
@@ -73,28 +67,30 @@ struct RpcFixture
 //------------------------------------------------------------------------------
 struct PubSubFixture
 {
-    template <typename TConnector>
-    PubSubFixture(AsioContext& ioctx, TConnector cnct)
-        : publisher(Session::create(ioctx, cnct)),
-          subscriber(Session::create(ioctx, cnct))
+    PubSubFixture(IoContext& ioctx, ConnectionWish wish)
+        : where(std::move(wish)),
+          publisher(ioctx),
+          subscriber(ioctx)
     {}
 
-    void join(boost::asio::yield_context yield)
+    void join(YieldContext yield)
     {
-        publisher->connect(yield).value();
-        publisherId = publisher->join(Realm(testRealm), yield).value().id();
-        subscriber->connect(yield).value();
-        subscriber->join(Realm(testRealm), yield).value();
+        publisher.connect(where, yield).value();
+        publisherId = publisher.join(Realm(testRealm), yield).value().id();
+        subscriber.connect(where, yield).value();
+        subscriber.join(Realm(testRealm), yield).value();
     }
 
     void disconnect()
     {
-        publisher->disconnect();
-        subscriber->disconnect();
+        publisher.disconnect();
+        subscriber.disconnect();
     }
 
-    Session::Ptr publisher;
-    Session::Ptr subscriber;
+    ConnectionWish where;
+
+    Session publisher;
+    Session subscriber;
 
     SessionId publisherId = -1;
     SessionId subscriberId = -1;
@@ -103,32 +99,33 @@ struct PubSubFixture
 //------------------------------------------------------------------------------
 struct TicketAuthFixture
 {
-    template <typename TConnector>
-    TicketAuthFixture(AsioContext& ioctx, TConnector cnct)
-        : session(Session::create(ioctx, cnct))
+    TicketAuthFixture(IoContext& ioctx, ConnectionWish wish)
+        : where(std::move(wish)),
+          session(ioctx)
     {
-        session->setChallengeHandler( [this](Challenge c){onChallenge(c);} );
+        session.setChallengeHandler( [this](Challenge c){onChallenge(c);} );
     }
 
-    void join(String authId, String signature, boost::asio::yield_context yield)
+    void join(String authId, String signature, YieldContext yield)
     {
         this->signature = std::move(signature);
-        session->connect(yield).value();
-        info = session->join(Realm(authTestRealm).withAuthMethods({"ticket"})
-                                                 .withAuthId(std::move(authId))
-                                                 .captureAbort(abort),
-                             yield);
+        session.connect(where, yield).value();
+        info = session.join(Realm(authTestRealm).withAuthMethods({"ticket"})
+                                                .withAuthId(std::move(authId))
+                                                .captureAbort(abort),
+                            yield);
     }
 
     void onChallenge(Challenge authChallenge)
     {
         ++challengeCount;
         challenge = authChallenge;
-        challengeState = session->state();
+        challengeState = session.state();
         authChallenge.authenticate(Authentication(signature));
     }
 
-    Session::Ptr session;
+    ConnectionWish where;
+    Session session;
     String signature;
     SessionState challengeState = SessionState::closed;
     unsigned challengeCount = 0;
@@ -145,18 +142,18 @@ SCENARIO( "WAMP RPC advanced features", "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
-    AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    IoContext ioctx;
+    RpcFixture f(ioctx, withTcp);
 
     WHEN( "using caller identification" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             SessionId disclosedId = -1;
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&disclosedId](Invocation inv) -> Outcome
                 {
@@ -165,7 +162,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(Rpc("rpc").withDiscloseMe(), yield).value();
+            f.caller.call(Rpc("rpc").withDiscloseMe(), yield).value();
             CHECK( disclosedId == f.callerId );
             f.disconnect();
         });
@@ -174,14 +171,14 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "using pattern-based registrations" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             int prefixMatchCount = 0;
             int wildcardMatchCount = 0;
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("com.myapp").usingPrefixMatch(),
                 [&prefixMatchCount](Invocation inv) -> Outcome
                 {
@@ -192,7 +189,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("com.other..rpc").usingWildcardMatch(),
                 [&wildcardMatchCount](Invocation inv) -> Outcome
                 {
@@ -203,11 +200,11 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(Rpc("com.myapp.foo"), yield).value();
+            f.caller.call(Rpc("com.myapp.foo"), yield).value();
             CHECK( prefixMatchCount == 1 );
             CHECK( wildcardMatchCount == 0 );
 
-            f.caller->call(Rpc("com.other.foo.rpc"), yield).value();
+            f.caller.call(Rpc("com.other.foo.rpc"), yield).value();
             CHECK( prefixMatchCount == 1 );
             CHECK( wildcardMatchCount == 1 );
 
@@ -222,52 +219,52 @@ SCENARIO( "WAMP progressive call results", "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
-    AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    IoContext ioctx;
+    RpcFixture f(ioctx, withTcp);
 
     WHEN( "using progressive call results" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             std::vector<int> input{9, 3, 7, 5};
             std::vector<int> output;
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("com.myapp.foo"),
                 [&ioctx, &input](Invocation inv) -> Outcome
                 {
                     CHECK( inv.isProgressive() );
 
-                    boost::asio::spawn(
-                        inv.executor(),
-                        [&ioctx, &input, inv](boost::asio::yield_context yield)
-                    {
-                        boost::asio::steady_timer timer(ioctx);
-
-                        for (unsigned i=0; i<input.size(); ++i)
+                    spawn(
+                        ioctx,
+                        [&ioctx, &input, inv](YieldContext yield)
                         {
-                            // Simulate a streaming app that throttles
-                            // the intermediary results at a fixed rate.
-                            timer.expires_from_now(
-                                std::chrono::milliseconds(25));
-                            timer.async_wait(yield);
+                            boost::asio::steady_timer timer(ioctx);
 
-                            Result result({input.at(i)});
-                            if (i < (input.size() - 1))
-                                result.withProgress();
-                            inv.yield(result);
-                        }
-                    });
+                            for (unsigned i=0; i<input.size(); ++i)
+                            {
+                                // Simulate a streaming app that throttles
+                                // the intermediary results at a fixed rate.
+                                timer.expires_from_now(
+                                    std::chrono::milliseconds(25));
+                                timer.async_wait(yield);
+
+                                Result result({input.at(i)});
+                                if (i < (input.size() - 1))
+                                    result.withProgress();
+                                inv.yield(result);
+                            }
+                        });
                     return deferment;
                 },
                 yield).value();
 
             for (unsigned i=0; i<2; ++i)
             {
-                f.caller->call(
-                    Rpc("com.myapp.foo").withProgressiveResults(),
+                f.caller.ongoingCall(
+                    Rpc("com.myapp.foo"),
                     [&output, &input](ErrorOr<Result> r)
                     {
                         const auto& result = r.value();
@@ -290,42 +287,42 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "returning an error instead of a progressive call result" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             std::vector<int> input{9, 3, 7, 5};
             std::vector<int> output;
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("com.myapp.foo"),
                 [&ioctx, &input](Invocation inv) -> Outcome
                 {
                     CHECK( inv.isProgressive() );
 
-                    boost::asio::spawn(
-                        inv.executor(),
-                        [&ioctx, &input, inv](boost::asio::yield_context yield)
-                    {
-                        boost::asio::steady_timer timer(ioctx);
-
-                        for (unsigned i=0; i<input.size(); ++i)
+                    spawn(
+                        ioctx,
+                        [&ioctx, &input, inv](YieldContext yield)
                         {
-                            // Simulate a streaming app that throttles
-                            // the intermediary results at a fixed rate.
+                            boost::asio::steady_timer timer(ioctx);
+
+                            for (unsigned i=0; i<input.size(); ++i)
+                            {
+                                // Simulate a streaming app that throttles
+                                // the intermediary results at a fixed rate.
+                                timer.expires_from_now(
+                                    std::chrono::milliseconds(25));
+                                timer.async_wait(yield);
+
+                                Result result({input.at(i)});
+                                result.withProgress();
+                                inv.yield(result);
+                            }
+
                             timer.expires_from_now(
                                 std::chrono::milliseconds(25));
-                            timer.async_wait(yield);
-
-                            Result result({input.at(i)});
-                            result.withProgress();
-                            inv.yield(result);
-                        }
-
-                        timer.expires_from_now(
-                            std::chrono::milliseconds(25));
-                        inv.yield(Error("some_reason"));
-                    });
+                            inv.yield(Error("some_reason"));
+                        });
                     return deferment;
                 },
                 yield).value();
@@ -334,10 +331,8 @@ GIVEN( "a caller and a callee" )
             {
                 Error error;
                 bool receivedError = false;
-                f.caller->call(
-                    Rpc("com.myapp.foo")
-                        .withProgressiveResults()
-                        .captureError(error),
+                f.caller.ongoingCall(
+                    Rpc("com.myapp.foo").captureError(error),
                     [&output, &input, &receivedError](ErrorOr<Result> r)
                     {
                         if (output.size() == input.size())
@@ -367,37 +362,35 @@ GIVEN( "a caller and a callee" )
     WHEN( "caller leaves during progressive call results" )
     {
         bool interrupted = false;
+        int tickCount = 0;
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             std::vector<int> output;
-            int tickCount = 0;
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("com.myapp.foo"),
                 [&](Invocation inv) -> Outcome
                 {
                     CHECK( inv.isProgressive() );
-                    boost::asio::spawn(
-                        inv.executor(),
-                        [&, inv](boost::asio::yield_context yield)
+                    spawn(ioctx, [&, inv](YieldContext yield)
+                    {
+                        boost::asio::steady_timer timer(ioctx);
+
+                        while (!interrupted)
                         {
-                            boost::asio::steady_timer timer(ioctx);
+                            timer.expires_from_now(
+                                std::chrono::milliseconds(50));
+                            timer.async_wait(yield);
 
-                            while (!interrupted)
-                            {
-                                timer.expires_from_now(
-                                    std::chrono::milliseconds(50));
-                                timer.async_wait(yield);
-
-                                Result result({tickCount});
-                                result.withProgress();
-                                ++tickCount;
-                                inv.yield(result);
-                            }
-                        });
+                            Result result({tickCount});
+                            result.withProgress();
+                            ++tickCount;
+                            inv.yield(result);
+                        }
+                    });
                     return deferment;
                 },
                 [&interrupted](Interruption intr) -> Outcome
@@ -407,8 +400,8 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-           f.caller->call(
-                Rpc("com.myapp.foo").withProgressiveResults(),
+           f.caller.ongoingCall(
+                Rpc("com.myapp.foo"),
                 [&output](ErrorOr<Result> r)
                 {
                     if (r == makeUnexpected(SessionErrc::sessionEnded))
@@ -421,7 +414,7 @@ GIVEN( "a caller and a callee" )
 
             while (output.size() < 2)
                 suspendCoro(yield);
-            f.caller->leave(yield).value();
+            f.caller.leave(yield).value();
 
             while (!interrupted)
                 suspendCoro(yield);
@@ -439,12 +432,12 @@ SCENARIO( "RPC Cancellation", "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
-    AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    IoContext ioctx;
+    RpcFixture f(ioctx, withTcp);
 
     WHEN( "cancelling an RPC in kill mode via a CallChit before it returns" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             CallChit chit;
             RequestId invocationRequestId = 0;
@@ -454,7 +447,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
@@ -468,7 +461,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(
+            f.caller.call(
                 Rpc("rpc"),
                 chit,
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
@@ -500,7 +493,7 @@ GIVEN( "a caller and a callee" )
     WHEN( "cancelling an RPC in kill mode via Session::cancel "
           "before it returns" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             CallChit chit;
             RequestId invocationRequestId = 0;
@@ -510,7 +503,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
@@ -524,7 +517,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-             f.caller->call(
+             f.caller.call(
                 Rpc("rpc"),
                 chit,
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
@@ -540,7 +533,7 @@ GIVEN( "a caller and a callee" )
 
             REQUIRE( invocationRequestId != 0 );
 
-            f.caller->cancel(chit, CallCancelMode::kill);
+            CHECK( f.caller.cancel(chit, CallCancelMode::kill).value() );
 
             while (!responseReceived)
                 suspendCoro(yield);
@@ -556,7 +549,7 @@ GIVEN( "a caller and a callee" )
     WHEN( "cancelling an RPC in kill mode via an Asio cancellation slot "
           "before it returns" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             boost::asio::cancellation_signal cancelSignal;
             RequestId invocationRequestId = 0;
@@ -566,7 +559,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
@@ -580,7 +573,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(
+            f.caller.call(
                 Rpc("rpc").withCancelMode(CallCancelMode::kill),
                 boost::asio::bind_cancellation_slot(
                     cancelSignal.slot(),
@@ -611,7 +604,7 @@ GIVEN( "a caller and a callee" )
     WHEN( "cancelling via an Asio cancellation slot when calling with a "
           "stackful coroutine completion token")
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             boost::asio::cancellation_signal cancelSignal;
             RequestId invocationRequestId = 0;
@@ -620,7 +613,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
@@ -642,7 +635,7 @@ GIVEN( "a caller and a callee" )
                     cancelSignal.emit(boost::asio::cancellation_type::total);
                 });
 
-            auto result = f.caller->call(
+            auto result = f.caller.call(
                 Rpc("rpc").withCancelMode(CallCancelMode::kill),
                 boost::asio::bind_cancellation_slot(cancelSignal.slot(),
                                                     yield));
@@ -657,7 +650,7 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "cancelling an RPC in killnowait mode before it returns" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             CallChit chit;
             RequestId invocationRequestId = 0;
@@ -667,7 +660,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
@@ -681,7 +674,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(
+            f.caller.call(
                 Rpc("rpc"),
                 chit,
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
@@ -715,7 +708,7 @@ GIVEN( "a caller and a callee" )
 #if 0
     WHEN( "cancelling an RPC in skip mode before it returns" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             CallChit chit;
             RequestId invocationRequestId = 0;
@@ -726,7 +719,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId, &invocation](Invocation inv) -> Outcome
                 {
@@ -741,7 +734,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(
+            f.caller.call(
                 Rpc("rpc"),
                 chit,
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
@@ -773,7 +766,7 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "cancelling an RPC after it returns" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             CallChit chit;
             RequestId invocationRequestId = 0;
@@ -783,7 +776,7 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("rpc"),
                 [&invocationRequestId](Invocation inv) -> Outcome
                 {
@@ -797,7 +790,7 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
-            f.caller->call(
+            f.caller.call(
                 Rpc("rpc"),
                 chit,
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
@@ -815,7 +808,7 @@ GIVEN( "a caller and a callee" )
 
             /* Router should not treat late CANCEL as a protocol error, and
                should allow clients to continue calling RPCs. */
-            f.caller->call(Rpc("rpc"), yield).value();
+            f.caller.call(Rpc("rpc"), yield).value();
 
             /* Router should discard INTERRUPT messages for non-pending RPCs. */
             CHECK( interruptionRequestId == 0 );
@@ -831,12 +824,12 @@ SCENARIO( "Caller-initiated timeouts", "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
-    AsioContext ioctx;
-    RpcFixture f(ioctx, tcp(ioctx));
+    IoContext ioctx;
+    RpcFixture f(ioctx, withTcp);
 
     WHEN( "the caller initiates timeouts" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             std::vector<ErrorOr<Result>> results;
             std::vector<RequestId> interruptions;
@@ -844,30 +837,28 @@ GIVEN( "a caller and a callee" )
 
             f.join(yield);
 
-            f.callee->enroll(
+            f.callee.enroll(
                 Procedure("com.myapp.foo"),
                 [&](Invocation inv) -> Outcome
                 {
-                    boost::asio::spawn(
-                        inv.executor(),
-                        [&, inv](boost::asio::yield_context yield)
-                        {
-                            int arg = 0;
-                            inv.convertTo(arg);
-                            valuesByRequestId[inv.requestId()] = arg;
-                            boost::asio::steady_timer timer(inv.executor());
-                            timer.expires_from_now(std::chrono::milliseconds(150));
-                            timer.async_wait(yield);
+                    spawn(ioctx, [&, inv](YieldContext yield)
+                    {
+                        int arg = 0;
+                        inv.convertTo(arg);
+                        valuesByRequestId[inv.requestId()] = arg;
+                        boost::asio::steady_timer timer(ioctx);
+                        timer.expires_from_now(std::chrono::milliseconds(150));
+                        timer.async_wait(yield);
 
-                            bool interrupted =
-                                std::count(interruptions.begin(),
-                                           interruptions.end(),
-                                           inv.requestId()) != 0;
-                            if (interrupted)
-                                inv.yield(Error("wamp.error.canceled"));
-                            else
-                                inv.yield({arg});
-                        });
+                        bool interrupted =
+                            std::count(interruptions.begin(),
+                                       interruptions.end(),
+                                       inv.requestId()) != 0;
+                        if (interrupted)
+                            inv.yield(Error("wamp.error.canceled"));
+                        else
+                            inv.yield({arg});
+                    });
 
                     return deferment;
                 },
@@ -885,17 +876,17 @@ GIVEN( "a caller and a callee" )
 
             for (int i=0; i<2; ++i)
             {
-                f.caller->call(
+                f.caller.call(
                     Rpc("com.myapp.foo")
                         .withArgs(1)
                         .withCallerTimeout(std::chrono::milliseconds(100)),
                     callHandler);
 
-                f.caller->call(
+                f.caller.call(
                     Rpc("com.myapp.foo").withArgs(2).withCallerTimeout(50),
                     callHandler);
 
-                f.caller->call(
+                f.caller.call(
                     Rpc("com.myapp.foo").withArgs(3),
                     callHandler);
 
@@ -926,19 +917,19 @@ SCENARIO( "WAMP pub/sub advanced features", "[WAMP][Advanced]" )
 {
 GIVEN( "a publisher and a subscriber" )
 {
-    AsioContext ioctx;
-    PubSubFixture f(ioctx, tcp(ioctx));
+    IoContext ioctx;
+    PubSubFixture f(ioctx, withTcp);
 
     WHEN( "using publisher identification" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             SessionId disclosedId = -1;
             int eventCount = 0;
 
             f.join(yield);
 
-            f.subscriber->subscribe(
+            f.subscriber.subscribe(
                 Topic("onEvent"),
                 [&disclosedId, &eventCount](Event event)
                 {
@@ -947,7 +938,7 @@ GIVEN( "a publisher and a subscriber" )
                 },
                 yield).value();
 
-            f.publisher->publish(Pub("onEvent").withDiscloseMe(), yield).value();
+            f.publisher.publish(Pub("onEvent").withDiscloseMe(), yield).value();
             while (eventCount == 0)
                 suspendCoro(yield);
             CHECK( disclosedId == f.publisherId );
@@ -958,7 +949,7 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using pattern-based subscriptions" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             int prefixMatchCount = 0;
             int wildcardMatchCount = 0;
@@ -967,7 +958,7 @@ GIVEN( "a publisher and a subscriber" )
 
             f.join(yield);
 
-            f.subscriber->subscribe(
+            f.subscriber.subscribe(
                 Topic("com.myapp").usingPrefixMatch(),
                 [&prefixMatchCount, &prefixTopic](Event event)
                 {
@@ -976,7 +967,7 @@ GIVEN( "a publisher and a subscriber" )
                 },
                 yield).value();
 
-            f.subscriber->subscribe(
+            f.subscriber.subscribe(
                 Topic("com..onEvent").usingWildcardMatch(),
                 [&wildcardMatchCount, &wildcardTopic](Event event)
                 {
@@ -985,21 +976,21 @@ GIVEN( "a publisher and a subscriber" )
                 },
                 yield).value();
 
-            f.publisher->publish(Pub("com.myapp.foo"), yield).value();
+            f.publisher.publish(Pub("com.myapp.foo"), yield).value();
             while (prefixMatchCount < 1)
                 suspendCoro(yield);
             CHECK( prefixMatchCount == 1 );
             CHECK_THAT( prefixTopic, Equals("com.myapp.foo") );
             CHECK( wildcardMatchCount == 0 );
 
-            f.publisher->publish(Pub("com.foo.onEvent"), yield).value();
+            f.publisher.publish(Pub("com.foo.onEvent"), yield).value();
             while (wildcardMatchCount < 1)
                 suspendCoro(yield);
             CHECK( prefixMatchCount == 1 );
             CHECK( wildcardMatchCount == 1 );
             CHECK_THAT( wildcardTopic, Equals("com.foo.onEvent") );
 
-            f.publisher->publish(Pub("com.myapp.onEvent"), yield).value();
+            f.publisher.publish(Pub("com.myapp.onEvent"), yield).value();
             while ((prefixMatchCount < 2) || (wildcardMatchCount < 2))
                 suspendCoro(yield);
             CHECK( prefixMatchCount == 2 );
@@ -1014,24 +1005,24 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using publisher exclusion" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             int subscriberEventCount = 0;
             int publisherEventCount = 0;
 
             f.join(yield);
 
-            f.subscriber->subscribe(
+            f.subscriber.subscribe(
                 Topic("onEvent"),
                 [&subscriberEventCount](Event) {++subscriberEventCount;},
                 yield).value();
 
-            f.publisher->subscribe(
+            f.publisher.subscribe(
                 Topic("onEvent"),
                 [&publisherEventCount](Event) {++publisherEventCount;},
                 yield).value();
 
-            f.publisher->publish(Pub("onEvent").withExcludeMe(false),
+            f.publisher.publish(Pub("onEvent").withExcludeMe(false),
                                  yield).value();
             while ((subscriberEventCount < 1) || (publisherEventCount < 1))
                 suspendCoro(yield);
@@ -1044,30 +1035,30 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using subscriber black/white listing" )
     {
-        auto subscriber2 = Session::create(ioctx, tcp(ioctx));
+        Session subscriber2(ioctx);
 
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             int eventCount1 = 0;
             int eventCount2 = 0;
 
             f.join(yield);
-            subscriber2->connect(yield).value();
+            subscriber2.connect(withTcp, yield).value();
             auto subscriber2Id =
-                subscriber2->join(Realm(testRealm), yield).value().id();
+                subscriber2.join(Realm(testRealm), yield).value().id();
 
-            f.subscriber->subscribe(
+            f.subscriber.subscribe(
                 Topic("onEvent"),
                 [&eventCount1](Event) {++eventCount1;},
                 yield).value();
 
-            subscriber2->subscribe(
+            subscriber2.subscribe(
                 Topic("onEvent"),
                 [&eventCount2](Event) {++eventCount2;},
                 yield).value();
 
             // Block subscriber2
-            f.publisher->publish(Pub("onEvent")
+            f.publisher.publish(Pub("onEvent")
                                      .withExcludedSessions({subscriber2Id}),
                                  yield).value();
             while (eventCount1 < 1)
@@ -1076,7 +1067,7 @@ GIVEN( "a publisher and a subscriber" )
             CHECK( eventCount2 == 0 );
 
             // Allow subscriber2
-            f.publisher->publish(Pub("onEvent")
+            f.publisher.publish(Pub("onEvent")
                                      .withEligibleSessions({subscriber2Id}),
                                  yield).value();
             while (eventCount2 < 1)
@@ -1085,7 +1076,7 @@ GIVEN( "a publisher and a subscriber" )
             CHECK( eventCount2 == 1 );
 
             f.disconnect();
-            subscriber2->disconnect();
+            subscriber2.disconnect();
         });
         ioctx.run();
     }
@@ -1096,15 +1087,15 @@ SCENARIO( "WAMP ticket authentication", "[WAMP][Advanced]" )
 {
 GIVEN( "a Session with a registered challenge handler" )
 {
-    AsioContext ioctx;
-    TicketAuthFixture f(ioctx, authTcp(ioctx));
+    IoContext ioctx;
+    TicketAuthFixture f(ioctx, authTcp);
 
     WHEN( "joining with ticket authentication requested" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             f.join("alice", "password123", yield);
-            f.session->disconnect();
+            f.session.disconnect();
         });
         ioctx.run();
 
@@ -1121,10 +1112,10 @@ GIVEN( "a Session with a registered challenge handler" )
 
     WHEN( "joining with an invalid ticket" )
     {
-        boost::asio::spawn(ioctx, [&](boost::asio::yield_context yield)
+        spawn(ioctx, [&](YieldContext yield)
         {
             f.join("alice", "badpassword", yield);
-            f.session->disconnect();
+            f.session.disconnect();
         });
         ioctx.run();
 

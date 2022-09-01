@@ -13,6 +13,8 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
+#include "../erroror.hpp"
+#include "../tcpendpoint.hpp"
 
 namespace wamp
 {
@@ -24,23 +26,15 @@ namespace internal
 class TcpAcceptor
 {
 public:
+    using Settings  = TcpEndpoint;
     using Socket    = boost::asio::ip::tcp::socket;
     using SocketPtr = std::unique_ptr<Socket>;
 
     template <typename TExecutorOrStrand>
-    TcpAcceptor(TExecutorOrStrand&& exec, const std::string addr,
-                unsigned short port)
+    TcpAcceptor(TExecutorOrStrand&& exec, const Settings& s)
         : strand_(std::forward<TExecutorOrStrand>(exec)),
-          endpoint_(boost::asio::ip::address::from_string(addr), port)
+          acceptor_(strand_, makeEndpoint(s))
     {}
-
-    template <typename TExecutorOrStrand>
-    TcpAcceptor(TExecutorOrStrand&& exec, unsigned short port)
-        : strand_(std::forward<TExecutorOrStrand>(exec)),
-          endpoint_(boost::asio::ip::tcp::v4(), port)
-    {}
-
-    IoStrand strand() {return strand_;}
 
     template <typename F>
     void establish(F&& callback)
@@ -50,40 +44,51 @@ public:
             TcpAcceptor* self;
             typename std::decay<F>::type callback;
 
-            void operator()(AsioErrorCode ec)
+            void operator()(boost::system::error_code asioEc)
             {
-                if (ec)
-                {
-                    self->acceptor_.reset();
-                    self->socket_.reset();
-                }
-                callback(ec, std::move(self->socket_));
+                SocketPtr socket{std::move(self->socket_)};
+                self->socket_.reset();
+                if (self->checkError(asioEc, callback))
+                    callback(std::move(socket));
             }
         };
 
         assert(!socket_ && "Accept already in progress");
 
-        if (!acceptor_)
-            acceptor_.reset(new tcp::acceptor(strand_, endpoint_));
         socket_.reset(new Socket(strand_));
 
-        // AsioListener will keep this object alive until completion.
-        acceptor_->async_accept(*socket_,
-                                Accepted{this, std::forward<F>(callback)});
+        // RawsockListener will keep this object alive until completion.
+        acceptor_.async_accept(*socket_,
+                               Accepted{this, std::forward<F>(callback)});
     }
 
     void cancel()
     {
-        if (acceptor_)
-            acceptor_->close();
+        acceptor_.cancel();
     }
 
 private:
-    using tcp = boost::asio::ip::tcp;
+    static boost::asio::ip::tcp::endpoint makeEndpoint(const Settings& s)
+    {
+        if (!s.address().empty())
+            return {boost::asio::ip::make_address(s.address()), s.port()};
+        else
+            return {boost::asio::ip::tcp::v4(), s.port()};
+    }
+
+    template <typename F>
+    bool checkError(boost::system::error_code asioEc, F& callback)
+    {
+        if (asioEc)
+        {
+            auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
+            callback(UnexpectedError(ec));
+        }
+        return !asioEc;
+    }
 
     IoStrand strand_;
-    tcp::endpoint endpoint_;
-    std::unique_ptr<tcp::acceptor> acceptor_;
+    boost::asio::ip::tcp::acceptor acceptor_;
     SocketPtr socket_;
 };
 
