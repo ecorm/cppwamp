@@ -97,7 +97,7 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 @section Registrations_UML Registrations
 ![](registrations.svg)
 
-@section Messaging_UML WAMP Sessions and Messaging
+@section Messaging_UML WAMP Messaging
 ![](messaging.svg)
 
 @section Transport_Establishment_UML Transport Establishment
