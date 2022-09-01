@@ -8,7 +8,6 @@ set(HEADERS
     include/cppwamp/anyhandler.hpp
     include/cppwamp/api.hpp
     include/cppwamp/asiodefs.hpp
-    include/cppwamp/asyncresult.hpp
     include/cppwamp/blob.hpp
     include/cppwamp/cbor.hpp
     include/cppwamp/chits.hpp
@@ -31,7 +30,6 @@ set(HEADERS
     include/cppwamp/rawsockoptions.hpp
     include/cppwamp/registration.hpp
     include/cppwamp/session.hpp
-    include/cppwamp/sessiondata.hpp
     include/cppwamp/spawn.hpp
     include/cppwamp/subscription.hpp
     include/cppwamp/tagtypes.hpp
@@ -52,7 +50,6 @@ set(HEADERS
     include/cppwamp/wampdefs.hpp
     include/cppwamp/bundled/boost_asio_any_completion_executor.hpp
     include/cppwamp/bundled/boost_asio_any_completion_handler.hpp
-    include/cppwamp/coro/corosession.hpp
     include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/callee.hpp
     include/cppwamp/internal/caller.hpp

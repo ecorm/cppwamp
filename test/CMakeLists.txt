@@ -26,8 +26,6 @@ set(SOURCES
     varianttestvisitation.cpp
     wamptest.cpp
     wamptestadvanced.cpp
-    wampoldtest.cpp
-    wampoldtestadvanced.cpp
     main.cpp
 )
 
