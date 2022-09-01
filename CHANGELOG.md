@@ -1,5 +1,121 @@
+v0.11.0
+=======
+Polymorphic codecs and transports.
+
+- Session is now a move-only type that can be instantiated on the stack.
+- Deprecated `Session::create`.
+- Added `ConnectionWish` and `ConnectionWishList` which should now be used
+  in place of the old `Connection` and `ConnectionList` classes.
+- Passing `ConnectionWish` and `ConnectionWishList` via `Session::connect` is
+  now preferred over passing the legacy `Connector` instances via
+  `Session::create`.
+- `TcpHost` and `UdsPath` now have `withFormat` methods which generate a
+  `ConnectionWish` that can be passed to `Session`.
+- The `authenticate`, `publish`, 'yield', and `cancel` methods of `Session`
+  not taking a completion handler now return an `ErrorOrDone`. The thread-safe
+  overloads for those now return a `std::future<ErrorOrDone>`.
+- AnyCompletionExecutor is now used by session to contain the user executor.
+- Added `Session::ongoingCall` for progressive call results, which
+  automatically applies `rpc.withProgessiveResults(true)`.
+- Renamed `Session::reset` to `Session::terminate`, leaving the former as
+  a deprecated alias.
+- Renamed `Session::userExecutor` to `Session::fallbackExecutor`, leaving the
+  former as a deprecated alias.
+- `Session::fallbackExecutor` type relaxed to `AnyCompletionExecutor`.
+- Handlers registered via `Session`'s `setWarningHandler`, `setTraceHandler`,
+  and `setStateChangeHandler` will no longer be fired after
+  `Session::terminate` is called and before `Session::connect` is called.
+- Added `wamp::spawn` and `wamp::yield_context` in `<cppwamp/spawn.hpp>`, which
+  are aliases to their Boost.Asio counterparts.
+- Added `wamp::spawnCompletionHandler` and `wamp::CompletionYieldContext`
+  to support spawning coroutines via `Event::executor` and
+  `Invocation::executor`.
+- When `CPPWAMP_USE_COMPLETION_YIELD_CONTEXT` is defined,
+  wamp::BasicYieldContext<wamp::AnyCompletionExecutor> will be passed to
+  coroutines spawned via Event/Invocation unpackers. The relaxes the requirement
+  that the `Session::userExecutor()` originate from `boost::asio::io_context`.
+- When `CPPWAMP_USE_COMPLETION_YIELD_CONTEXT` and `ASIO_DISABLE_BOOST_COROUTINE`
+  are defined, the coroutine Event/Invocation unpackers will use the new
+  Boost.Context-based coroutines introduced in Boost 1.80.0. Please note this
+  [bug](https://github.com/chriskohlhoff/asio/issues/1110) in Boost 1.80.0
+  concerning exceptions thrown from these new Boost.Context-based coroutines.
+- Instead of throwing an exception, `Session` now emits a
+  `TransportErrc::badTxLength` error via the completion handler or return value
+  when the payload exceeds the transport's limit.
+- `Challenge::authenticate`, `Invocation::yield` and `Interruption::yield`
+  now have thread-safe and non-thread-safe overloads.
+- Added `SessionErrc` error codes corresponding to new predefined error
+  URIs that have appeared in the WAMP spec.
+- Added `Session::setLogHandler` which takes a handler of type `void (LogEntry)`
+  and unifies all log event handling.
+- Added `Session::setLogLevel` for use with `Session::setLogHandler`.
+- Renamed `AsioContext` to `IoContext`, leaving the former as a deprecated
+  alias.
+- Deprecated `AsioErrorCode`.
+- Deprecated `ProtocolErrc` and `ProtocolCategory` in favor of
+  `SessionErrc::protocolViolation`.
+- Deprecated `Session::setWarningHandler` and `Session::setTraceHandler` in
+  favor of `Session::setLogHandler`.
+
+Implementation improvements:
+
+- Adding more codecs or transports in the future will no longer result in a
+  combinatorial explosion of explicit template instantions due to the number
+  of transport/codec combinations.
+- Codecs are now specializations of `SinkEncoder` and `SourceDecoder`.
+- Simplified codec tags to only provide their numeric ID.
+- Added `AnyCodec` polymorphic wrapper for codecs.
+- Added `Transporting` interface class which replaces the old Transport
+  type requirement.
+- `internal::Client` is now non-templated and is retained by `Session` during
+  the latter's lifetime.
+- `Session::connect` logic has been moved to `internal::Client`.
+- Renamed `internal::AsioTransport` to `internal::RawsockTransport` and
+  simplified its previously convoluted design.
+- `internal::RawsockConnector` and `internal::RawsockTransport` now use
+  policy classes instead of polymorphism to alter their behavior for tests.
+- Tidying of transport tests.
+- `internal::Peer` composition instead of inheritance.
+- Avoid unnecessary `boost::asio::post` in intermediate handlers.
+
+### Beaking Changes
+
+- `Session::call` can no longer be used for progessive call results, use
+  `Session::ongoingCall` instead.
+- The `Session` destructor now automatically invokes `Session::disconnect`
+  instead of `Session::terminate`, to better emulate the cancellation behavior
+  of Asio sockets being destroyed.
+- `Event::executor` and `Invocation::executor` can no longer be directly used
+  by Boost.Coroutine-based `boost::asio::spawn` to spawn coroutines.
+  See workaround below in the Migration Guide.
+- The undecorated `Challenge::authenticate`, `Invocation::yield` and
+  `Interruption::yield` are no longer thread-safe. See Migration Guide below.
+  
+### Migration Guide
+
+- Replace `Session::create(args...)` with std::make_shared<Session>(args...),
+  or instantiate Session as a stack or member variable.
+- Replace `connection<TCodec>(TcpHost)` with `TcpHost::withFormat`.
+  E.g.: `wamp::TcpHost{"localhost", 12345}.withFormat(wamp::json)`
+- Replace `Session::call` with `Session::ongoingCall` when progressive results
+  are desired.
+- Replace `Session::reset` with `Session::terminate`.
+- Replace `Session::userExecutor` with `Session::fallbackExecutor`
+- Manually call `Session::terminate` before a `Session` is destroyed if you
+  must suppress the execution of pending completion handlers.
+- Replace `AsioContext` with `IoContext`.
+- When using `Event::executor` or `Invocation::executor` to spawn coroutines,
+  use `wamp::spawnCompletionHandler` instead of `boost::asio::spawn`.
+- When calling `Challenge::authenticate`, `Invocation::yield` and
+  `Interruption::yield` from multiple threads, use the new overloads taking the
+  `ThreadSafe` tag type.
+- If checking for `ProtocolErrc` errors specifically, check for
+  `SessionErrc::protocolViolation` instead.
+- Replace `Session::setWarningHandler` and `Session::setTraceHandler` with
+  `Session::setLogHandler` and `Session::setLogLevel`.
+
 v0.10.0
-======
+=======
 Asio completion token support and thread-safe Session operations.
 
 - All asynchronous operations in Session now accept a generic
