@@ -15,7 +15,6 @@
 
 #include <string>
 #include "api.hpp"
-#include "config.hpp"
 #include "connector.hpp"
 #include "rawsockoptions.hpp"
 #include "udsprotocol.hpp"

@@ -15,7 +15,6 @@
 
 #include <exception>
 #include <boost/version.hpp>
-#include "config.hpp"
 #include "spawn.hpp"
 #include "unpacker.hpp"
 #include "internal/callee.hpp"

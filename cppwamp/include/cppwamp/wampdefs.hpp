@@ -7,8 +7,6 @@
 #ifndef CPPWAMP_WAMPDEFS_HPP
 #define CPPWAMP_WAMPDEFS_HPP
 
-#include "config.hpp"
-
 //------------------------------------------------------------------------------
 /** @file
     @brief Contains type definitions related to WAMP IDs and sessions. */

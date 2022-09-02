@@ -13,7 +13,6 @@
 //------------------------------------------------------------------------------
 
 #include "api.hpp"
-#include "config.hpp"
 #include "internal/socketoptions.hpp"
 
 // Forward declaration

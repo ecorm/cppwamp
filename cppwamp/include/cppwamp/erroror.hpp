@@ -17,7 +17,6 @@
 #include <system_error>
 #include <utility>
 #include "api.hpp"
-#include "config.hpp"
 #include "error.hpp"
 #include "traits.hpp"
 

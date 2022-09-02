@@ -16,10 +16,8 @@
 #include <functional>
 #include <tuple>
 #include "api.hpp"
-#include "config.hpp"
 #include "peerdata.hpp"
 #include "traits.hpp"
-#include "variant.hpp"
 #include "./internal/integersequence.hpp"
 
 namespace wamp
