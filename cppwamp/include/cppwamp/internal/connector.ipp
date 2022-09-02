@@ -17,27 +17,6 @@ CPPWAMP_INLINE Connecting::Ptr ConnectorBuilder::operator()(IoStrand s,
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE const AnyIoExecutor& LegacyConnector::executor() const
-{
-    return exec_;
-}
-
-CPPWAMP_INLINE const ConnectorBuilder& LegacyConnector::connectorBuilder() const
-{
-    return connectorBuilder_;
-}
-
-CPPWAMP_INLINE const BufferCodecBuilder& LegacyConnector::codecBuilder() const
-{
-    return codecBuilder_;
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE ConnectionWish::ConnectionWish(const LegacyConnector& c)
-    : connectorBuilder_(c.connectorBuilder()),
-      codecBuilder_(c.codecBuilder())
-{}
-
 CPPWAMP_INLINE int ConnectionWish::codecId() const {return codecBuilder_.id();}
 
 CPPWAMP_INLINE Connecting::Ptr ConnectionWish::makeConnector(IoStrand s) const

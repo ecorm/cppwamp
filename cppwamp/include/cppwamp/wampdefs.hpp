@@ -53,12 +53,6 @@ enum class CallCancelMode
     skip        ///< No INTERRUPT sent to callee; router immediately returns ERROR
 };
 
-//------------------------------------------------------------------------------
-/** Alias to CallCancelMode kept for backward compatibility.
-    @deprecated Use CallCancelMode instead. */
-//------------------------------------------------------------------------------
-using CancelMode CPPWAMP_DEPRECATED = CallCancelMode;
-
 } // namespace wamp
 
 #endif // CPPWAMP_WAMPDEFS_HPP

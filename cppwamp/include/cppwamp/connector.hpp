@@ -98,39 +98,6 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/** Adapter for legacy connectors generatated via the deprecated
-    wamp::connector functions.
-    @deprecated Use wamp::ConnectionWish instead. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API LegacyConnector
-{
-public:
-    template <typename S, typename TFormat>
-    LegacyConnector(AnyIoExecutor exec, S&& settings, TFormat)
-        : exec_(std::move(exec)),
-          connectorBuilder_(std::forward<S>(settings)),
-          codecBuilder_(TFormat{})
-    {}
-
-    const AnyIoExecutor& executor() const;
-
-    const ConnectorBuilder& connectorBuilder() const;
-
-    const BufferCodecBuilder& codecBuilder() const;
-
-private:
-    AnyIoExecutor exec_;
-    ConnectorBuilder connectorBuilder_;
-    BufferCodecBuilder codecBuilder_;
-};
-
-//------------------------------------------------------------------------------
-/** List of LegacyConnector objects to use when attempting connection.
-    @deprecated Use ConnectionWishList instead. */
-//------------------------------------------------------------------------------
-using ConnectorList = std::vector<LegacyConnector>;
-
-//------------------------------------------------------------------------------
 /** Couples desired transport settings together with a desired serialization
     format, to allow the generation of connectors and codecs on demand. */
 //------------------------------------------------------------------------------
@@ -144,9 +111,6 @@ public:
         : connectorBuilder_(std::forward<TTransportSettings>(wish)),
           codecBuilder_(TCodecFormat{})
     {}
-
-    /** Constructor taking a LegacyConnector. */
-    explicit ConnectionWish(const LegacyConnector& c);
 
     /** Obtains the numeric codec ID of the desired serialization format. */
     int codecId() const;

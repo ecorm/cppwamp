@@ -117,14 +117,6 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/** Alias to SimpleEventUnpacker kept for backward compatiblity.
-    @deprecated Use SimpleEventUnpacker instead. */
-//------------------------------------------------------------------------------
-template <typename TSlot, typename... TArgs>
-using BasicEventUnpacker CPPWAMP_DEPRECATED
-    = SimpleEventUnpacker<TSlot, TArgs...>;
-
-//------------------------------------------------------------------------------
 /** @relates SimpleEventUnpacker
     Converts an unpacked event slot into a regular slot than can be passed
     to Session::subscribe.
@@ -138,13 +130,6 @@ using BasicEventUnpacker CPPWAMP_DEPRECATED
 template <typename... TArgs, typename TSlot>
 CPPWAMP_API SimpleEventUnpacker<DecayedSlot<TSlot>, TArgs...>
 simpleEvent(TSlot&& slot);
-
-//------------------------------------------------------------------------------
-/** @deprecated Use simpleEvent instead. */
-//------------------------------------------------------------------------------
-template <typename... TArgs, typename TSlot>
-CPPWAMP_API SimpleEventUnpacker<DecayedSlot<TSlot>, TArgs...>
-basicEvent(TSlot&& slot);
 
 
 //------------------------------------------------------------------------------
@@ -243,14 +228,6 @@ private:
 
 
 //------------------------------------------------------------------------------
-/** Alias to SimpleInvocationUnpacker kept for backward compability.
-    @deprecated Use SimpleInvocationUnpacker instead. */
-//------------------------------------------------------------------------------
-template <typename TSlot, typename TResult, typename... TArgs>
-using BasicInvocationUnpacker CPPWAMP_DEPRECATED =
-    SimpleInvocationUnpacker<TSlot, TResult, TArgs...>;
-
-//------------------------------------------------------------------------------
 /** @relates SimpleInvocationUnpacker
     Converts an unpacked call slot into a regular slot than can be passed
     to Session::enroll.
@@ -265,14 +242,6 @@ using BasicInvocationUnpacker CPPWAMP_DEPRECATED =
 template <typename TResult, typename... TArgs, typename TSlot>
 CPPWAMP_API SimpleInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
 simpleRpc(TSlot&& slot);
-
-//------------------------------------------------------------------------------
-/** @deprecated Use wamp::simpleRpc instead. */
-//------------------------------------------------------------------------------
-template <typename TResult, typename... TArgs, typename TSlot>
-CPPWAMP_API SimpleInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
-basicRpc(TSlot&& slot);
-
 
 
 //******************************************************************************

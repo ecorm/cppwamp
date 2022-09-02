@@ -324,66 +324,6 @@ public:
             return std::forward<U>(v);
     }
 
-    /// @deprecated Use ErrorOr::value_type instead
-    using ValueType = value_type;
-
-    /// @name Deprecated member functions from old AsyncReult
-    /// @{
-
-    /** @deprecated Use constructor taking an Unexpected. */
-    CPPWAMP_DEPRECATED ErrorOr(std::error_code ec)
-        : ErrorOr(makeUnexpected(ec))
-    {}
-
-    /** @deprecated Use constructor taking an Unexpected. */
-    CPPWAMP_DEPRECATED ErrorOr(std::error_code ec, std::string)
-        : ErrorOr(makeUnexpected(ec))
-    {}
-
-    /** @deprecated Use ErrorOr::value instead. */
-    CPPWAMP_DEPRECATED ValueType& get() {return value();}
-
-    /** @deprecated Use ErrorOr::value instead. */
-    CPPWAMP_DEPRECATED const ValueType& get() const {return value();}
-
-    /** @deprecated Use ErrorOr::error instead. */
-    CPPWAMP_DEPRECATED std::error_code errorCode() const
-    {
-        return hasError_ ? error() : error_type{};
-    }
-
-    /** @deprecated Additional informational text no longer provided. */
-    CPPWAMP_DEPRECATED const std::string& errorInfo() const
-    {
-        static const std::string empty;
-        return empty;
-    }
-
-    /** @deprecated Use assignment or ErrorOr::emplace instead. */
-    CPPWAMP_DEPRECATED ErrorOr& setValue(T value)
-    {
-        value_ = std::move(value);
-        error_ = error_type();
-        hasError_ = false;
-        return *this;
-    }
-
-    /** @deprecated Use operator=(Unexpected<G>) instead. */
-    CPPWAMP_DEPRECATED ErrorOr& setError(std::error_code ec)
-    {
-        error_ = ec;
-        value_ = value_type();
-        hasError_ = true;
-        return *this;
-    }
-
-    /** @deprecated Use operator=(Unexpected<G>) instead. */
-    CPPWAMP_DEPRECATED ErrorOr& setError(std::error_code ec, std::string)
-    {
-        setError(ec);
-    }
-    /// @}
-
 private:
     CPPWAMP_HIDDEN void checkError() const
     {
@@ -494,11 +434,6 @@ CPPWAMP_API bool operator!=(const Unexpected<E>& e, const ErrorOr<T>& x)
     error::Failure if there was a failure. */
 //------------------------------------------------------------------------------
 using ErrorOrDone = ErrorOr<bool>;
-
-//------------------------------------------------------------------------------
-/** @deprecated Use ErrorOr instead */
-//------------------------------------------------------------------------------
-template <typename T> using AsyncHandler = std::function<void (ErrorOr<T>)>;
 
 } // namespace wamp
 

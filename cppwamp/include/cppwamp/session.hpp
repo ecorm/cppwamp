@@ -100,10 +100,6 @@ private:
     struct GenericOp { template <typename F> void operator()(F&&) {} };
 
 public:
-    /** Shared pointer to a Session.
-        @deprecated will be removed */
-    using Ptr = std::shared_ptr<Session>;
-
     /** Executor type used for I/O operations. */
     using Executor = AnyIoExecutor;
 
@@ -152,103 +148,6 @@ public:
 
     /// @name Construction
     /// @{
-    /** Creates a new Session instance on the heap.
-        @deprecated Stack allocation is now permitted. */
-    static Ptr create(AnyIoExecutor exec);
-
-    /** Creates a new Session instance on the heap. */
-    static Ptr create(const AnyIoExecutor& exec, FallbackExecutor fallbackExec);
-
-    /** Creates a new Session instance on the heap.
-        @deprecated Stack allocation is now permitted.
-        @copydetails Session::create(Executor)
-        @details Only participates in overload resolution when
-                 `isExecutionContext<E>() == true`
-        @tparam E Must meet the requirements of Boost.Asio's ExecutionContext */
-    template <typename E>
-    CPPWAMP_DEPRECATED static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
-    create(
-        E& executionContext /**< Context providing the executor from which
-                                 Session will extract a strand for its
-                                 internal I/O operations. */
-    )
-    {
-        return create(executionContext.get_executor());
-    }
-
-    /** Creates a new Session instance on the heap.
-        @deprecated Stack allocation is now permitted.
-        @copydetails Session::create(Executor)
-        @details Only participates in overload resolution when
-                 `isExecutionContext<E1>() && isExecutionContext<E1>() == true`
-        @tparam E1 Must meet the requirements of Boost.Asio's ExecutionContext
-        @tparam E2 Must meet the requirements of Boost.Asio's ExecutionContext */
-    template <typename E1, typename E2>
-    CPPWAMP_DEPRECATED static
-        CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E1>() &&
-                                  isExecutionContext<E2>())
-    create(
-        E1& context,        /**< Context providing the executor from which
-                                 Session will extract a strand for
-                                 its internal I/O operations. */
-        E1& fallbackContext /**< Context providing the executor which serves
-                                 as fallback for all user-provided handlers. */
-    )
-    {
-        return create(context.get_executor(), fallbackContext.get_executor());
-    }
-
-    /** Creates a new Session instance.
-        @deprecated Pass connection wish list to Session::connect instead.
-        @deprecated Stack allocation is now permitted. */
-    CPPWAMP_DEPRECATED static Ptr create(FallbackExecutor fallbackExec,
-                                         LegacyConnector connector);
-
-    /** Creates a new Session instance.
-        @deprecated Pass connection wish list to Session::connect instead.
-        @deprecated Stack allocation is now permitted. */
-    CPPWAMP_DEPRECATED static Ptr create(FallbackExecutor fallbackExec,
-                                         ConnectorList connectors);
-
-    /** Creates a new Session instance.
-        @deprecated Pass connection wish list to Session::connect instead.
-        @deprecated Stack allocation is now permitted.
-        @copydetails Session::create(FallbackExecutor, LegacyConnector)
-        @details Only participates in overload resolution when
-                 `isExecutionContext<TExecutionContext>() == true`
-        @tparam TExecutionContext Must meet the requirements of
-                                  Boost.Asio's ExecutionContext */
-    template <typename E>
-    CPPWAMP_DEPRECATED static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
-    create(
-        E& fallbackContext,  /**< Context providing the executor which serves
-                                  as fallback for all user-provided handlers. */
-        LegacyConnector connector /**< Connection details for the
-                                       transport to use. */
-        )
-    {
-        return create(fallbackContext.get_executor(), std::move(connector));
-    }
-
-    /** Creates a new Session instance.
-        @deprecated Pass connection wish list to Session::connect instead.
-        @deprecated Stack allocation is now permitted.
-        @copydetails Session::create(FallbackExecutor, ConnectorList)
-        @details Only participates in overload resolution when
-                 `isExecutionContext<E>() == true`
-        @tparam E Must meet the requirements of Boost.Asio's ExecutionContext */
-    template <typename E>
-    CPPWAMP_DEPRECATED static CPPWAMP_ENABLED_TYPE(Ptr, isExecutionContext<E>())
-    create(
-        E& fallbackContext, /**< Context providing the executor which serves
-                                 as fallback for all user-provided handlers. */
-        ConnectorList connectors  /**< Connection details for the
-                                       transport to use. */
-    )
-    {
-        return create(fallbackContext.get_executor(), std::move(connectors));
-    }
-
     /** Constructor taking an executor. */
     explicit Session(Executor exec);
 
@@ -295,12 +194,6 @@ public:
     /** Obtains the fallback executor used for user-provided handlers. */
     FallbackExecutor fallbackExecutor() const;
 
-    /** @deprecated Use Session::fallbackExecutor instead */
-    CPPWAMP_DEPRECATED FallbackExecutor userExecutor() const;
-
-    /** Legacy function kept for backward compatiblity. */
-    CPPWAMP_DEPRECATED FallbackExecutor userIosvc() const;
-
     /** Returns the current state of the session. */
     SessionState state() const;
     /// @}
@@ -315,20 +208,6 @@ public:
 
     /** Sets the maximum level of log events that will be emitted. */
     void setLogLevel(LogLevel level);
-
-    /** Sets the log handler that is dispatched for warnings. */
-    CPPWAMP_DEPRECATED void setWarningHandler(LogStringHandler handler);
-
-    /** Thread-safe setting of warning handler. */
-    CPPWAMP_DEPRECATED void setWarningHandler(ThreadSafe,
-                                              LogStringHandler handler);
-
-    /** Sets the log handler that is dispatched for debug traces. */
-    CPPWAMP_DEPRECATED void setTraceHandler(LogStringHandler handler);
-
-    /** Thread-safe setting of trace handler. */
-    CPPWAMP_DEPRECATED void setTraceHandler(ThreadSafe,
-                                            LogStringHandler handler);
 
     /** Sets the handler that is posted for session state changes. */
     void setStateChangeHandler(StateChangeHandler handler);
@@ -364,19 +243,6 @@ public:
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
     connect(ThreadSafe, ConnectionWishList wishes, C&& completion);
-
-    /** Asynchronously attempts to connect to a router using the legacy
-        connectors passed during session creation.
-        @deprecated Use a connect overload taking wishes instead. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
-    connect(C&& completion);
-
-    /** Thread-safe legacy connect.
-        @deprecated Use a connect overload taking wishes instead. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
-    connect(ThreadSafe, C&& completion);
 
     /** Asynchronously attempts to join the given WAMP realm. */
     template <typename C>
@@ -426,12 +292,6 @@ public:
 
     /** Thread-safe reset. */
     void terminate(ThreadSafe);
-
-    /** @deprecated Use Session::terminate instead. */
-    void reset();
-
-    /** @deprecated Use Session::terminate instead. */
-    void reset(ThreadSafe);
     /// @}
 
     /// @name Pub/Sub
@@ -575,14 +435,6 @@ public:
 
     /** Thread-safe cancel with a given mode. */
     std::future<ErrorOrDone> cancel(ThreadSafe, CallChit, CallCancelMode mode);
-
-    /** Cancels a remote procedure.
-        @deprecated Use the overload taking a CallChit. */
-    void cancel(CallCancellation cancellation);
-
-    /** Thread-safe cancel.
-        @deprecated Use the overload taking a CallChit. */
-    void cancel(ThreadSafe, CallCancellation cancellation);
     /// @}
 
 private:
@@ -607,9 +459,6 @@ private:
     struct UnregisterOp;
     struct CallOp;
     struct OngoingCallOp;
-
-    CPPWAMP_HIDDEN explicit Session(FallbackExecutor fallbackExec,
-                                    ConnectorList connectors);
 
     template <typename O, typename C, typename... As>
     Deduced<ErrorOr<typename O::ResultValue>, C>
@@ -644,7 +493,6 @@ private:
     void doOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f);
     void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f);
 
-    ConnectorList legacyConnectors_;
     std::shared_ptr<internal::Client> impl_;
 
     // TODO: Remove this once CoroSession is removed
@@ -784,70 +632,6 @@ Session::connect(
                         "Session::connect ConnectionWishList cannot be empty");
     return safelyInitiate<ConnectOp>(std::forward<C>(completion),
                                      std::move(wishes));
-}
-
-//------------------------------------------------------------------------------
-/** @details
-    The session will attempt to connect using the transports that were
-    specified by the wamp::LegacyConnect objects passed during create().
-    If more than one transport was specified, they will be traversed in the
-    same order as they appeared in the @ref ConnectorList.
-    @return The index of the Connecting object used to establish the connetion.
-    @pre The Session::create overload taking legacy connectors was used.
-    @post `this->state() == SessionState::connecting` if successful
-    @throws error::Logic if the Session::create overload taking legacy
-            connectors was not used.
-    @par Error Codes
-        - TransportErrc::aborted if the connection attempt was aborted.
-        - SessionErrc::allTransportsFailed if more than one transport was
-          specified and they all failed to connect.
-        - SessionErrc::invalidState if the session was not disconnected
-          during the attempt to connect.
-        - Some other platform or transport-dependent `std::error_code` if
-          only one transport was specified and it failed to connect. */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<std::size_t>, C>
-#else
-Session::template Deduced<ErrorOr<std::size_t>, C>
-#endif
-Session::connect(
-    C&& completion /**< A callable handler of type `void(ErrorOr<size_t>)`,
-                        or a compatible Boost.Asio completion token. */
-    )
-{
-    CPPWAMP_LOGIC_CHECK(!legacyConnectors_.empty(),
-                        "Session::connect: No legacy connectors passed "
-                        "in Session::create");
-    ConnectionWishList wishes;
-    for (const auto& c: legacyConnectors_)
-        wishes.emplace_back(c);
-    return connect(std::move(wishes), std::forward<C>(completion));
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::connect(C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<std::size_t>, C>
-#else
-Session::template Deduced<ErrorOr<std::size_t>, C>
-#endif
-Session::connect(
-    ThreadSafe,
-    C&& completion /**< A callable handler of type void(ErrorOr<size_t>),
-                        or a compatible Boost.Asio completion token. */
-    )
-{
-    CPPWAMP_LOGIC_CHECK(!legacyConnectors_.empty(),
-                        "Session::connect: No legacy connectors passed "
-                        "in Session::create");
-    ConnectionWishList wishes;
-    for (const auto& c: legacyConnectors_)
-        wishes.emplace_back(c);
-    return connect(threadSafe, std::move(wishes), std::forward<C>(completion));
 }
 
 //------------------------------------------------------------------------------

@@ -106,15 +106,6 @@ CPPWAMP_INLINE Conversion::Conversion(const std::string& what)
     : BadType("wamp::error::Conversion: " + what)
 {}
 
-//------------------------------------------------------------------------------
-// error::Decode exception
-//------------------------------------------------------------------------------
-
-CPPWAMP_INLINE Decode::Decode(const std::string& what)
-    : std::runtime_error("wamp::error::Decode: " + what)
-{}
-
-
 } // namespace error
 
 
@@ -350,66 +341,6 @@ CPPWAMP_INLINE std::error_condition make_error_condition(DecodingErrc errc)
 {
     return std::error_condition(static_cast<int>(errc),
                                 decodingCategory());
-}
-
-
-//------------------------------------------------------------------------------
-// WAMP Protocol Error Codes
-//------------------------------------------------------------------------------
-
-CPPWAMP_INLINE const char* ProtocolCategory::name() const noexcept
-{
-    return "wamp::ProtocolCategory";
-}
-
-CPPWAMP_INLINE std::string ProtocolCategory::message(int ev) const
-{
-    static const std::string msg[] =
-    {
-        /* success        */ "Operation successful",
-        /* badDecode      */ "Error decoding WAMP message payload",
-        /* badSchema      */ "Invalid WAMP message schema",
-        /* unsupportedMsg */ "Received unsupported WAMP message",
-        /* unexpectedMsg  */ "Received unexpected WAMP message"
-    };
-
-    if (ev >= 0 && ev < (int)std::extent<decltype(msg)>::value)
-        return msg[ev];
-    else
-        return "Unknown error";
-}
-
-CPPWAMP_INLINE bool ProtocolCategory::equivalent(const std::error_code& code,
-                                                 int condition) const noexcept
-{
-    const auto& cat = code.category();
-
-    if (cat == protocolCategory())
-        return code.value() == condition;
-    else if (condition == (int)ProtocolErrc::success)
-        return !code;
-    else if (bool(code) && (condition == (int)ProtocolErrc::badDecode))
-        return code == DecodingErrc::failure;
-    else
-        return false;
-}
-
-CPPWAMP_INLINE ProtocolCategory::ProtocolCategory() {}
-
-CPPWAMP_INLINE ProtocolCategory& protocolCategory()
-{
-    static ProtocolCategory instance;
-    return instance;
-}
-
-CPPWAMP_INLINE std::error_code make_error_code(ProtocolErrc errc)
-{
-    return std::error_code(static_cast<int>(errc), protocolCategory());
-}
-
-CPPWAMP_INLINE std::error_condition make_error_condition(ProtocolErrc errc)
-{
-    return std::error_condition(static_cast<int>(errc), protocolCategory());
 }
 
 

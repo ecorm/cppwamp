@@ -724,10 +724,6 @@ public:
         error     ///< Contains a wamp::Error to be yielded back to the caller.
     };
 
-    /** Constructs an Outcome having Type::deferred.
-        @deprecated Use wamp::deferment instead. */
-    CPPWAMP_DEPRECATED static Outcome deferred();
-
     /** Default-constructs an outcome containing an empty Result object. */
     Outcome();
 
@@ -915,10 +911,6 @@ private:
     RequestId requestId_;
     CallCancelMode mode_;
 };
-
-/** Alias of CallCancellation kept for backward compatiblity.
-    @deprecated Use wamp::CallCancellation instead.*/
-using Cancellation CPPWAMP_DEPRECATED = CallCancellation;
 
 //------------------------------------------------------------------------------
 /** Contains details within WAMP `INTERRUPT` messages.

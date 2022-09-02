@@ -107,15 +107,6 @@ struct CPPWAMP_API Conversion : public BadType
     explicit Conversion(const std::string& what);
 };
 
-//------------------------------------------------------------------------------
-/** Exception type thrown when codec deserialization fails.
-    @deprecated Decoders now return a `std::error_code`.*/
-//------------------------------------------------------------------------------
-struct CPPWAMP_API Decode: public std::runtime_error
-{
-    explicit Decode(const std::string& what);
-};
-
 } // namespace error
 
 
@@ -300,74 +291,6 @@ CPPWAMP_API std::error_condition make_error_condition(DecodingErrc errc);
 
 
 //******************************************************************************
-// Protocol Error Codes
-//******************************************************************************
-// TODO: Deprecate
-
-//------------------------------------------------------------------------------
-/** %Error code values used with the ProtocolCategory error category.
-    All of the following non-zero codes are equivalent to the
-    ProtocolErrc::badDecode condition:
-    - wamp::DecodingErrc
-    - `jsoncons::json_errc`
-    - `jsoncons::cbor::cbor_errc`
-    - `jsoncons::msgpack::msgpack_errc`
-    @deprecated Will be removed */
-//------------------------------------------------------------------------------
-enum class ProtocolErrc
-{
-    success = 0,    ///< Operation successful
-    badDecode,      ///< Error decoding WAMP message payload
-    badSchema,      ///< Invalid WAMP message schema
-    unsupportedMsg, ///< Received unsupported WAMP message
-    unexpectedMsg   ///< Received unexpected WAMP message
-};
-
-//------------------------------------------------------------------------------
-/** std::error_category used for reporting protocol errors related to badly
-    formed WAMP messages.
-    @see ProtocolErrc
-    @deprecated Will be removed */
-//------------------------------------------------------------------------------
-class CPPWAMP_API ProtocolCategory : public std::error_category
-{
-public:
-    /** Obtains the name of the category. */
-    virtual const char* name() const noexcept override;
-
-    /** Obtains the explanatory string. */
-    virtual std::string message(int ev) const override;
-
-    /** Compares `error_code` and and error condition for equivalence. */
-    virtual bool equivalent(const std::error_code& code,
-                            int condition) const noexcept override;
-
-private:
-    CPPWAMP_HIDDEN ProtocolCategory();
-
-    friend ProtocolCategory& protocolCategory();
-};
-
-//------------------------------------------------------------------------------
-/** Obtains a reference to the static error category object for protocol errors.
-    @relates ProtocolCategory */
-//------------------------------------------------------------------------------
-CPPWAMP_API ProtocolCategory& protocolCategory();
-
-//------------------------------------------------------------------------------
-/** Creates an error code value from a ProtocolErrc enumerator.
-    @relates ProtocolCategory */
-//-----------------------------------------------------------------------------
-CPPWAMP_API std::error_code make_error_code(ProtocolErrc errc);
-
-//------------------------------------------------------------------------------
-/** Creates an error condition value from a ProtocolErrc enumerator.
-    @relates ProtocolCategory */
-//-----------------------------------------------------------------------------
-CPPWAMP_API std::error_condition make_error_condition(ProtocolErrc errc);
-
-
-//******************************************************************************
 // Transport Error Codes
 //******************************************************************************
 
@@ -504,11 +427,6 @@ struct CPPWAMP_API is_error_condition_enum<wamp::SessionErrc>
 
 template <>
 struct CPPWAMP_API is_error_condition_enum<wamp::DecodingErrc>
-    : public true_type
-{};
-
-template <>
-struct CPPWAMP_API is_error_condition_enum<wamp::ProtocolErrc>
     : public true_type
 {};
 

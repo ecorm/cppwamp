@@ -121,14 +121,6 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/** Alias to SimpleCoroEventUnpacker kept for backward compatibility.
-    @deprecated Use SimpleCoroEventUnpacker instead. */
-//------------------------------------------------------------------------------
-template <typename TSlot, typename... TArgs>
-using BasicCoroEventUnpacker CPPWAMP_DEPRECATED
-    = SimpleCoroEventUnpacker<TSlot, TArgs...>;
-
-//------------------------------------------------------------------------------
 /** @relates SimpleCoroEventUnpacker
     Converts an unpacked event slot into a regular slot than can be passed
     to Session::subscribe.
@@ -144,13 +136,6 @@ using BasicCoroEventUnpacker CPPWAMP_DEPRECATED
 template <typename... TArgs, typename TSlot>
 SimpleCoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>
 simpleCoroEvent(TSlot&& slot);
-
-//------------------------------------------------------------------------------
-/** @deprecated Use simpleCoroEvent instead. */
-//------------------------------------------------------------------------------
-template <typename... TArgs, typename TSlot>
-SimpleCoroEventUnpacker<DecayedSlot<TSlot>, TArgs...>
-basicCoroEvent(TSlot&& slot);
 
 
 //------------------------------------------------------------------------------
@@ -262,14 +247,6 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/** Alias to SimpleCoroInvocationUnpacker kept for backward compability.
-    @deprecated Use SimpleCoroInvocationUnpacker instead. */
-//------------------------------------------------------------------------------
-template <typename TSlot, typename TResult, typename... TArgs>
-using BasicCoroInvocationUnpacker =
-    SimpleCoroInvocationUnpacker<TSlot, TResult, TArgs...>;
-
-//------------------------------------------------------------------------------
 /** @relates SimpleCoroInvocationUnpacker
     Converts an unpacked call slot into a regular slot than can be passed
     to Session::enroll.
@@ -286,13 +263,6 @@ using BasicCoroInvocationUnpacker =
 template <typename TResult, typename... TArgs, typename TSlot>
 SimpleCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
 simpleCoroRpc(TSlot&& slot);
-
-//------------------------------------------------------------------------------
-/** @deprecated Use simpleCoroRpc instead. */
-//------------------------------------------------------------------------------
-template <typename TResult, typename... TArgs, typename TSlot>
-SimpleCoroInvocationUnpacker<DecayedSlot<TSlot>, TResult, TArgs...>
-basicCoroRpc(TSlot&& slot);
 
 
 //******************************************************************************

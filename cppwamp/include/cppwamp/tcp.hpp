@@ -18,7 +18,6 @@
 #include "asiodefs.hpp"
 #include "connector.hpp"
 #include "tcphost.hpp"
-#include "traits.hpp"
 
 namespace wamp
 {
@@ -53,51 +52,6 @@ private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };
-
-//------------------------------------------------------------------------------
-/** Creates a LegacyConnector that can establish a TCP raw socket transport.
-
-    This overload takes an executor that is convertible to
-    the boost::asio::any_io_executor polymorphic wrapper.
-
-    @deprecated Use wamp::ConnectionWish instead
-    @relates TcpHost
-    @returns a `std::shared_ptr` to a Connecting
-    @tparam TFormat The serialization format to use over this transport.
-    @see Connecting, Json, Msgpack */
-//------------------------------------------------------------------------------
-template <typename TFormat>
-CPPWAMP_API LegacyConnector connector(
-    AnyIoExecutor e, ///< The executor to be used by the transport.
-    TcpHost h        ///< TCP host address and other socket options.
-)
-{
-    return LegacyConnector{std::move(e), std::move(h), TFormat{}};
-}
-
-//------------------------------------------------------------------------------
-/** Creates a LegacyConnector that can establish a TCP raw socket transport.
-
-    Only participates in overload resolution when
-    `isExecutionContext<TExecutionContext>() == true`
-
-    @deprecated Use wamp::ConnectionWish instead
-    @relates TcpHost
-    @returns a `std::shared_ptr` to a Connecting
-    @tparam TFormat The serialization format to use over this transport.
-    @tparam TExecutionContext The given execution context type (deduced).
-    @see Connecting, Json, Msgpack */
-//------------------------------------------------------------------------------
-template <typename TFormat, typename TExecutionContext>
-CPPWAMP_ENABLED_TYPE(LegacyConnector, isExecutionContext<TExecutionContext>())
-connector(
-    TExecutionContext& context, /**< The I/O context containing the executor
-                                     to be used by the transport. */
-    TcpHost host                ///< TCP host address and other socket options.
-)
-{
-    return connector<TFormat>(context.get_executor(), std::move(host));
-}
 
 } // namespace wamp
 

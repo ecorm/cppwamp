@@ -737,8 +737,6 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Result& result)
 // Outcome
 //******************************************************************************
 
-CPPWAMP_INLINE  Outcome Outcome::deferred() {return Outcome(nullptr);}
-
 /** @post `this->type() == Type::result` */
 CPPWAMP_INLINE Outcome::Outcome() : Outcome(Result()) {}
 
