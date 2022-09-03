@@ -9,8 +9,8 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the asynchronous session API used by a _client_ peer
-           in WAMP applications. */
+    @brief Contains the session API used by a _client_ peer in
+           WAMP applications. */
 //------------------------------------------------------------------------------
 
 #include <future>
@@ -121,10 +121,6 @@ public:
     /** Type-erased wrapper around a log event handler. */
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
 
-    /** Type-erased wrapper around a log string event handler. */
-    // TODO: Remove
-    using LogStringHandler = AnyReusableHandler<void (std::string)>;
-
     /** Type-erased wrapper around a Session state change handler. */
     using StateChangeHandler = AnyReusableHandler<void (SessionState)>;
 
@@ -187,8 +183,7 @@ public:
         side. */
     static const Object& roles();
 
-    /** Obtains the execution context in which which I/O operations are
-        serialized. */
+    /** Obtains the execution context in which I/O operations are serialized. */
     const IoStrand& strand() const;
 
     /** Obtains the fallback executor used for user-provided handlers. */

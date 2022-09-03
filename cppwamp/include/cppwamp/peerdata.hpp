@@ -32,6 +32,8 @@
            WAMP peers. */
 //------------------------------------------------------------------------------
 
+// TODO: Use name-based WAMP spec links
+
 namespace wamp
 {
 
@@ -160,6 +162,9 @@ public:
 
     /** Obtains the authentication provider. */
     Variant authProvider() const;
+
+    /** Obtains extra authentication details. */
+    Variant authExtra() const;
     /// @}
 
 private:

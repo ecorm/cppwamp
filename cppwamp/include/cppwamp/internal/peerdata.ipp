@@ -208,6 +208,16 @@ CPPWAMP_INLINE Variant SessionInfo::authProvider() const
     return optionByKey("authprovider");
 }
 
+/** @details
+    This function returns the value of the `HELLO.Details.authextra|object`
+    detail.
+    @returns An object variant if the extra authentication details are
+             available. Otherwise, a null variant is returned. */
+CPPWAMP_INLINE Variant SessionInfo::authExtra() const
+{
+    return optionByKey("authextra");
+}
+
 CPPWAMP_INLINE SessionInfo::SessionInfo(internal::PassKey, String&& realm,
                                         internal::WelcomeMessage&& msg)
     : Base(std::move(msg)),

@@ -29,6 +29,7 @@ set(HEADERS
     include/cppwamp/peerdata.hpp
     include/cppwamp/rawsockoptions.hpp
     include/cppwamp/registration.hpp
+    include/cppwamp/router.hpp
     include/cppwamp/session.hpp
     include/cppwamp/spawn.hpp
     include/cppwamp/subscription.hpp
