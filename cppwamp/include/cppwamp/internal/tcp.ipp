@@ -6,21 +6,27 @@
 
 #include "../tcp.hpp"
 #include "rawsockconnector.hpp"
+#include "rawsocklistener.hpp"
+#include "tcpacceptor.hpp"
 #include "tcpopener.hpp"
 
 namespace wamp
 {
 
+//******************************************************************************
+// Connector<Tcp>
+//******************************************************************************
+
 //------------------------------------------------------------------------------
 struct Connector<Tcp>::Impl
 {
-    using RawsockOpener = internal::RawsockConnector<internal::TcpOpener>;
+    using RawsockConnector = internal::RawsockConnector<internal::TcpOpener>;
 
     Impl(IoStrand i, Settings s, int codecId)
-        : cnct(RawsockOpener::create(std::move(i), std::move(s), codecId))
+        : cnct(RawsockConnector::create(std::move(i), std::move(s), codecId))
     {}
 
-    RawsockOpener::Ptr cnct;
+    RawsockConnector::Ptr cnct;
 };
 
 //------------------------------------------------------------------------------
@@ -41,5 +47,42 @@ CPPWAMP_INLINE void Connector<Tcp>::establish(Handler&& handler)
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Connector<Tcp>::cancel() {impl_->cnct->cancel();}
+
+
+//******************************************************************************
+// Listener<Tcp>
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+struct Listener<Tcp>::Impl
+{
+    using RawsockListener = internal::RawsockListener<internal::TcpAcceptor>;
+
+    Impl(IoStrand i, Settings s, CodecIds codecIds)
+        : lstn(RawsockListener::create(std::move(i), std::move(s),
+                                       std::move(codecIds)))
+    {}
+
+    RawsockListener::Ptr lstn;
+};
+
+CPPWAMP_INLINE Listener<Tcp>::Listener(IoStrand i, Settings s,
+                                       std::set<int> codecIds)
+    : impl_(new Impl(std::move(i), std::move(s), std::move(codecIds)))
+{}
+
+//------------------------------------------------------------------------------
+// Needed to avoid incomplete type errors.
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Listener<Tcp>::~Listener() {}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Listener<Tcp>::establish(Handler&& handler)
+{
+    impl_->lstn->establish(std::move(handler));
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Listener<Tcp>::cancel() {impl_->lstn->cancel();}
 
 } // namespace wamp

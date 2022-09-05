@@ -20,6 +20,7 @@ set(HEADERS
     include/cppwamp/error.hpp
     include/cppwamp/erroror.hpp
     include/cppwamp/json.hpp
+    include/cppwamp/listener.hpp
     include/cppwamp/logging.hpp
     include/cppwamp/messagebuffer.hpp
     include/cppwamp/msgpack.hpp
@@ -94,7 +95,6 @@ set(INLINES
     include/cppwamp/internal/blob.ipp
     include/cppwamp/internal/cbor.ipp
     include/cppwamp/internal/chits.ipp
-    include/cppwamp/internal/connector.ipp
     include/cppwamp/internal/consolelogger.ipp
     include/cppwamp/internal/error.ipp
     include/cppwamp/internal/json.ipp

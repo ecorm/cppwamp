@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2022.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -20,9 +20,14 @@
 #include "anyhandler.hpp"
 #include "asiodefs.hpp"
 #include "chits.hpp"
+#include "json.hpp"
+#include "listener.hpp"
 #include "peerdata.hpp"
 #include "registration.hpp"
 #include "subscription.hpp"
+#include "internal/callee.hpp"
+#include "internal/caller.hpp"
+#include "internal/subscriber.hpp"
 #include "internal/peer.hpp"
 
 namespace wamp
@@ -70,55 +75,10 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/** Primary template, specialized for each transport protocol tag. */
-//------------------------------------------------------------------------------
-template <typename TProtocol>
-class Listener {};
-
-//------------------------------------------------------------------------------
-/** Interface for establishing client transport endpoints.
-    A concrete Connecting instance is used to establish a transport connection
-    from a client to a router. Once the connection is established, the connector
-    creates a concrete wamp::Transporting for use by wamp::Session. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API Listening : public std::enable_shared_from_this<Listening>
-{
-public:
-    /// Shared pointer to a Connecting
-    using Ptr = std::shared_ptr<Listening>;
-
-    /** Asynchronous handler function type called by Listening::establish. */
-    using Handler = std::function<void (ErrorOr<Transporting::Ptr>)>;
-
-    /** Destructor. */
-    virtual ~Listening() {}
-
-    /** Starts establishing a transport connection. */
-    virtual void establish(Handler&& handler) = 0;
-
-    /** Cancels a transport connection in progress.
-        A TransportErrc::aborted error code will be returned via the
-        Listening::establish asynchronous handler. */
-    virtual void cancel() = 0;
-};
-
-//------------------------------------------------------------------------------
-class ListenerBuilder
-{
-    /** Constructor taking transport settings (e.g. TcpEndpoint) */
-    template <typename S>
-    explicit ListenerBuilder(S&& transportSettings);
-
-    /** Builds a connector appropriate for the transport settings given
-        in the constructor. */
-    Listening::Ptr operator()(IoStrand s, std::set<int> codecIds) const;
-};
-
-//------------------------------------------------------------------------------
 struct RoutingServiceConfig
 {
     std::string name;
-    ListenerBuilder transport;
+    ListenerBuilder listenerBuilder;
     std::set<int> codecIds;
     AnyReusableHandler<void (AuthExchange)> authenticator;
 };
@@ -129,40 +89,140 @@ namespace internal
 class RouterImpl;
 
 //------------------------------------------------------------------------------
-class RoutingSession
+class RoutingSession : public std::enable_shared_from_this<RoutingSession>
 {
 public:
     using Ptr = std::shared_ptr<RoutingSession>;
+    using RouterPtr = std::weak_ptr<internal::RouterImpl>;
+
+    static Ptr create(IoStrand s, RouterPtr r)
+    {
+        return Ptr(new RoutingSession(std::move(s), std::move(r)));
+    }
+
+    void open(Transporting::Ptr transport, AnyBufferCodec codec)
+    {
+        peer_.open(std::move(transport), std::move(codec));
+    }
+
+    void close()
+    {
+        peer_.close();
+    }
 
 private:
+    RoutingSession(IoStrand s, RouterPtr r)
+        : peer_(true, std::move(s)),
+          router_(r)
+    {
+        peer_.setInboundMessageHandler(
+            [this](WampMessage msg) {onInbound(std::move(msg));} );
+    }
+
+    void onInbound(WampMessage msg)
+    {
+        // TODO
+    }
+
     Peer peer_;
-    std::weak_ptr<internal::RouterImpl> router_;
+    RouterPtr router_;
 };
 
+} // namespace internal
+
 //------------------------------------------------------------------------------
-class RouterImpl
+class RoutingService : public std::enable_shared_from_this<RoutingService>
+{
+public:
+    using Ptr = std::shared_ptr<RoutingService>;
+    using Executor = AnyIoExecutor;
+    using RouterPtr = std::weak_ptr<internal::RouterImpl>;
+
+    RoutingService(AnyIoExecutor exec, RouterPtr router,
+                   RoutingServiceConfig config)
+        : strand_(boost::asio::make_strand(exec)),
+          config_(std::move(config)),
+          router_(std::move(router))
+    {}
+
+    void start()
+    {
+        if (!listener_)
+        {
+            listener_ = config_.listenerBuilder(strand_, config_.codecIds);
+            listen();
+        }
+    }
+
+    void stop()
+    {
+        if (listener_)
+        {
+            listener_->cancel();
+            listener_.reset();
+        }
+    }
+
+    const std::string& name() const {return config_.name;}
+
+    bool isRunning() const {return listener_ != nullptr;}
+
+private:
+    void listen()
+    {
+        if (!listener_)
+            return;
+
+        std::weak_ptr<RoutingService> self = shared_from_this();
+        listener_->establish(
+            [this, self](ErrorOr<Transporting::Ptr> transport)
+            {
+                auto me = self.lock();
+                if (!me)
+                    return;
+
+                if (transport)
+                {
+                    onEstablished(*transport);
+                }
+                else
+                {
+                    // TODO
+                }
+            });
+    }
+
+    void onEstablished(Transporting::Ptr transport)
+    {
+        auto codecId = transport->info().codecId;
+        assert(config_.codecIds.count(codecId));
+        auto s = internal::RoutingSession::create(strand_, router_);
+        // TODO: Codec factory
+        s->open(std::move(transport), AnyBufferCodec{json});
+        listen();
+    }
+
+    IoStrand strand_;
+    RoutingServiceConfig config_;
+    std::weak_ptr<internal::RouterImpl> router_;
+    Listening::Ptr listener_;
+    std::set<internal::RoutingSession::Ptr> sessions_;
+};
+
+namespace internal
+{
+
+//------------------------------------------------------------------------------
+class RouterImpl : public Challenger, public Callee, public Caller,
+                   public Subscriber
+
 {
 public:
     using Ptr = std::shared_ptr<RouterImpl>;
     using Executor = AnyIoExecutor;
 
 private:
-    std::map<SessionId, RoutingSession::Ptr> sessions_;
-};
-
-//------------------------------------------------------------------------------
-class RoutingService
-{
-public:
-    using Ptr = std::shared_ptr<RoutingService>;
-    using Executor = AnyIoExecutor;
-
-    void start();
-    void stop();
-
-private:
-    RoutingServiceConfig config_;
-    internal::RouterImpl::Ptr router_;
+    std::map<std::string, RoutingService::Ptr> services_;
     std::map<SessionId, RoutingSession::Ptr> sessions_;
 };
 
@@ -357,7 +417,7 @@ public:
 
     /// @name Setup
     /// @{
-    void addService(RoutingServiceConfig config);
+    RoutingService::Ptr addService(RoutingServiceConfig config);
 
     void removeService(const std::string& name);
 
@@ -376,6 +436,8 @@ public:
     /** Obtains the execution context in which I/O operations are serialized. */
     const IoStrand& strand() const;
 
+    RoutingService::Ptr service(const std::string& name);
+
     RouterProxy proxy() const;
 
     RouterProxy proxy(FallbackExecutor fallbackExecutor) const;
@@ -385,11 +447,7 @@ public:
     /// @{
     void startAll();
 
-    void startService(const std::string& serviceName);
-
     void stopAll();
-
-    void stopService(const std::string& serviceName);
     /// @}
 
 private:

@@ -13,7 +13,6 @@
 #include <cppwamp/internal/blob.ipp>
 #include <cppwamp/internal/cbor.ipp>
 #include <cppwamp/internal/chits.ipp>
-#include <cppwamp/internal/connector.ipp>
 #include <cppwamp/internal/consolelogger.ipp>
 #include <cppwamp/internal/error.ipp>
 #include <cppwamp/internal/json.ipp>

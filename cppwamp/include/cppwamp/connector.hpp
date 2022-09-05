@@ -75,7 +75,10 @@ public:
 
     /** Builds a connector appropriate for the transport settings given
         in the constructor. */
-    Connecting::Ptr operator()(IoStrand s, int codecId) const;
+    Connecting::Ptr operator()(IoStrand s, int codecId) const
+    {
+        return builder_(std::move(s), codecId);
+    }
 
 private:
     using Function = std::function<Connecting::Ptr (IoStrand s, int codecId)>;
@@ -113,13 +116,19 @@ public:
     {}
 
     /** Obtains the numeric codec ID of the desired serialization format. */
-    int codecId() const;
+    int codecId() const {return codecBuilder_.id();}
 
     /** Generates a `Connector` for the desired transport. */
-    Connecting::Ptr makeConnector(IoStrand s) const;
+    Connecting::Ptr makeConnector(IoStrand s) const
+    {
+        return connectorBuilder_(std::move(s), codecId());
+    }
 
-    /** Generates a codec for the desitred serialization format. */
-    AnyBufferCodec makeCodec() const;
+    /** Generates a codec for the desired serialization format. */
+    AnyBufferCodec makeCodec() const
+    {
+        return codecBuilder_();
+    }
 
 private:
     ConnectorBuilder connectorBuilder_;
@@ -132,9 +141,5 @@ private:
 using ConnectionWishList = std::vector<ConnectionWish>;
 
 } // namespace wamp
-
-#ifndef CPPWAMP_COMPILED_LIB
-#include "internal/connector.ipp"
-#endif
 
 #endif // CPPWAMP_CONNECTOR_HPP

@@ -18,6 +18,7 @@
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "connector.hpp"
+#include "listener.hpp"
 #include "udspath.hpp"
 
 namespace wamp
@@ -40,6 +41,40 @@ public:
 
     /** Destructor. */
     ~Connector();
+
+    /** Starts establishing the transport connection, emitting a
+        Transportable::Ptr via the given handler if successful. */
+    void establish(Handler&& handler) override;
+
+    /** Cancels transport connection in progress, emitting an error code
+        via the handler passed to the establish method. */
+    void cancel() override;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+//------------------------------------------------------------------------------
+/** Listener specialization that establishes a server-side TCP transport.
+    Users do not need to use this class directly and should use
+    ConnectionWish instead. */
+//------------------------------------------------------------------------------
+template <>
+class CPPWAMP_API Listener<Uds> : public Listening
+{
+public:
+    /** Type containing the transport settings. */
+    using Settings = UdsPath;
+
+    /** Collection type used for codec IDs. */
+    using CodecIds = std::set<int>;
+
+    /** Constructor. */
+    Listener(IoStrand i, Settings s, CodecIds codecIds);
+
+    /** Destructor. */
+    ~Listener();
 
     /** Starts establishing the transport connection, emitting a
         Transportable::Ptr via the given handler if successful. */

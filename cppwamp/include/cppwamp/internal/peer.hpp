@@ -47,6 +47,7 @@ public:
     using LogStringHandler      = AnyReusableHandler<void (std::string)>; // TODO: Remove
     using StateChangeHandler    = AnyReusableHandler<void (State)>;
 
+    // TODO: Consolidate constructors
     explicit Peer(bool isRouter, AnyIoExecutor exec)
         : strand_(boost::asio::make_strand(exec)),
           userExecutor_(std::move(exec)),
