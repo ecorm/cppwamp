@@ -254,11 +254,16 @@ public:
                 if (me.checkError(reply, handler))
                 {
                     if (reply->type() == WampMsgType::welcome)
+                    {
                         me.onWelcome(std::move(handler), std::move(*reply),
                                      std::move(realmUri));
+                    }
                     else
+                    {
+                        assert(reply->type() == WampMsgType::abort);
                         me.onJoinAborted(std::move(handler), std::move(*reply),
                                          abortPtr);
+                    }
                 }
             }
         };

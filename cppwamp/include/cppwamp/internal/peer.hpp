@@ -44,7 +44,6 @@ public:
     using OneShotHandler        = AnyCompletionHandler<void (ErrorOr<Message>)>;
     using MultiShotHandler      = std::function<void (ErrorOr<Message>)>;
     using LogHandler            = AnyReusableHandler<void (LogEntry)>;
-    using LogStringHandler      = AnyReusableHandler<void (std::string)>; // TODO: Remove
     using StateChangeHandler    = AnyReusableHandler<void (State)>;
 
     // TODO: Consolidate constructors
@@ -99,13 +98,7 @@ public:
 
     LogLevel logLevel() const
     {
-        if (logHandler_)
-            return logLevel_.load();
-        if (warningHandler_)
-            return LogLevel::warning;
-        if (traceHandler_)
-            return LogLevel::trace;
-        return LogLevel::off;
+        return logHandler_ ? logLevel_.load() : LogLevel::off;
     }
 
     void log(LogLevel severity, std::string message, std::error_code ec = {})
@@ -116,31 +109,6 @@ public:
             if (!isTerminating_)
                 dispatchVia(userExecutor_, logHandler_, std::move(entry));
         }
-
-        if (warningHandler_ && (severity >= LogLevel::warning))
-        {
-            std::ostringstream oss;
-            oss << message;
-            if (ec)
-            {
-                oss << " (with error code " << ec
-                    << " '" << ec.message() << "')";
-            }
-            if (!isTerminating_)
-                dispatchVia(userExecutor_, warningHandler_, oss.str());
-        }
-    }
-
-    // TODO: Remove
-    void setWarningHandler(LogStringHandler handler)
-    {
-        warningHandler_ = std::move(handler);
-    }
-
-    // TODO: Remove
-    void setTraceHandler(LogStringHandler handler)
-    {
-        traceHandler_ = std::move(handler);
     }
 
     void setStateChangeHandler(StateChangeHandler handler)
@@ -401,9 +369,13 @@ private:
 
     RequestId nextRequestId()
     {
-        if (nextRequestId_ >= maxRequestId_)
-            nextRequestId_ = nullRequestId();
-        return ++nextRequestId_;
+        // Apply bit mask to constrain the sequence to consecutive integers
+        // that can be represented by a double.
+        static constexpr auto digits = std::numeric_limits<Real>::digits;
+        static constexpr uint64_t mask = (1ull << digits) - 1u;
+        uint64_t n = nextRequestId_ + 1;
+        nextRequestId_ = static_cast<int64_t>(n & mask);
+        return nextRequestId_;
     }
 
     void onTransportRx(MessageBuffer buffer)
@@ -446,56 +418,47 @@ private:
 
     void processMessage(Message&& msg)
     {
-        if (msg.repliesTo() != WampMsgType::none)
+        using std::move;
+
+        switch (msg.type())
         {
-            processWampReply( RequestKey(msg.repliesTo(), msg.requestId()),
-                              std::move(msg) );
-        }
-        else switch(msg.type())
-        {
-            case WampMsgType::hello:
-                processHello(std::move(msg));
-                break;
-
-            case WampMsgType::challenge:
-                processChallenge(std::move(msg));
-                break;
-
-            case WampMsgType::welcome:
-                processWelcome(std::move(msg));
-                break;
-
-            case WampMsgType::abort:
-                processAbort(std::move(msg));
-                break;
-
-            case WampMsgType::goodbye:
-                processGoodbye(std::move(msg));
-                break;
-
-            case WampMsgType::error:
-                processWampReply(msg.requestKey(), std::move(msg));
-                break;
+            case WampMsgType::hello:     return processHello(move(msg));
+            case WampMsgType::welcome:   return processWelcome(move(msg));
+            case WampMsgType::abort:     return processAbort(move(msg));
+            case WampMsgType::challenge: return processChallenge(move(msg));
+            case WampMsgType::goodbye:   return processGoodbye(move(msg));
+            case WampMsgType::error:     return processWampReply(move(msg));
 
             default:
-                // Role-specific unsolicited messages. Ignore them if we're
-                // shutting down.
-                if (state() == State::shuttingDown)
+                if (msg.repliesTo() == WampMsgType::none)
                 {
-                    log(LogLevel::warning,
-                        "Discarding received " + std::string(msg.name()) +
-                        " message while session is shutting down");
+                    // Role-specific unsolicited messages. Ignore it if we're
+                    // shutting down.
+                    if (state() == State::shuttingDown)
+                    {
+                        log(LogLevel::warning,
+                            "Discarding received " + std::string(msg.name()) +
+                                " message while WAMP session is shutting down");
+                    }
+                    else
+                    {
+                        inboundMessageHandler_(move(msg));
+                    }
                 }
                 else
                 {
-                    inboundMessageHandler_(std::move(msg));
+                    processWampReply(move(msg));
                 }
                 break;
         }
     }
 
-    void processWampReply(const RequestKey& key, Message&& msg)
+    void processWampReply(Message&& msg)
     {
+        if (isRouter_)
+            return inboundMessageHandler_(std::move(msg));
+
+        auto key = msg.requestKey();
         auto kv = oneShotRequestMap_.find(key);
         if (kv != oneShotRequestMap_.end())
         {
@@ -521,6 +484,8 @@ private:
                 }
             }
         }
+
+        // TODO: Log warning if no matching request found
     }
 
     void processHello(Message&& msg)
@@ -530,19 +495,12 @@ private:
         inboundMessageHandler_(std::move(msg));
     }
 
-    void processChallenge(Message&& msg)
-    {
-        assert(state() == State::establishing);
-        setState(State::authenticating);
-        inboundMessageHandler_(std::move(msg));
-    }
-
     void processWelcome(Message&& msg)
     {
         auto s = state();
         assert(s == State::establishing || s == State::authenticating);
         setState(State::established);
-        processWampReply(RequestKey(WampMsgType::hello, 0), std::move(msg));
+        processWampReply(std::move(msg));
     }
 
     void processAbort(Message&& msg)
@@ -551,7 +509,7 @@ private:
         if (s == State::establishing || s == State::authenticating)
         {
             setState(State::closed);
-            processWampReply(RequestKey(WampMsgType::hello, 0), std::move(msg));
+            processWampReply(std::move(msg));
         }
         else if (s == State::shuttingDown)
         {
@@ -581,12 +539,19 @@ private:
         }
     }
 
+    void processChallenge(Message&& msg)
+    {
+        assert(state() == State::establishing);
+        setState(State::authenticating);
+        inboundMessageHandler_(std::move(msg));
+    }
+
     void processGoodbye(Message&& msg)
     {
         if (state() == State::shuttingDown)
         {
             setState(State::closed);
-            processWampReply(msg.requestKey(), std::move(msg));
+            processWampReply(std::move(msg));
         }
         else
         {
@@ -679,14 +644,8 @@ private:
         }
         oss << ']';
 
-        if (logHandler_)
-        {
-            LogEntry entry{LogLevel::trace, oss.str()};
-            dispatchVia(userExecutor_, logHandler_, std::move(entry));
-        }
-
-        if (traceHandler_)
-            dispatchVia(userExecutor_, traceHandler_, oss.str());
+        LogEntry entry{LogLevel::trace, oss.str()};
+        dispatchVia(userExecutor_, logHandler_, std::move(entry));
     }
 
     IoStrand strand_;
@@ -695,8 +654,6 @@ private:
     Transporting::Ptr transport_;
     InboundMessageHandler inboundMessageHandler_;
     LogHandler logHandler_;
-    LogStringHandler warningHandler_;
-    LogStringHandler traceHandler_;
     StateChangeHandler stateChangeHandler_;
     OneShotRequestMap oneShotRequestMap_;
     MultiShotRequestMap multiShotRequestMap_;
@@ -706,8 +663,6 @@ private:
     RequestId nextRequestId_ = nullRequestId();
     std::size_t maxTxLength_ = 0;
     bool isRouter_ = false;
-
-    static constexpr RequestId maxRequestId_ = 9007199254740992ull;
 };
 
 } // namespace internal

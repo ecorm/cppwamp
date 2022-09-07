@@ -19,7 +19,7 @@ CPPWAMP_INLINE ConsoleLogger::ConsoleLogger(std::string originLabel)
     : origin_(std::move(originLabel))
 {}
 
-CPPWAMP_INLINE void ConsoleLogger::operator()(LogEntry entry) const
+CPPWAMP_INLINE void ConsoleLogger::operator()(const LogEntry& entry) const
 {
     if (entry.severity() < LogLevel::warning)
         toStream(std::clog, entry, origin_) << "\n";
@@ -36,7 +36,7 @@ CPPWAMP_INLINE ColorConsoleLogger::ColorConsoleLogger(std::string originLabel)
     : origin_(std::move(originLabel))
 {}
 
-CPPWAMP_INLINE void ColorConsoleLogger::operator()(LogEntry entry) const
+CPPWAMP_INLINE void ColorConsoleLogger::operator()(const LogEntry& entry) const
 {
     if (entry.severity() < LogLevel::warning)
         toColorStream(std::clog, entry, origin_) << "\n";

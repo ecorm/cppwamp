@@ -9,6 +9,7 @@
 #include "../api.hpp"
 #include "callee.hpp"
 #include "challengee.hpp"
+#include "challenger.hpp"
 
 namespace wamp
 {
@@ -390,6 +391,64 @@ CPPWAMP_INLINE Challenge::Challenge(internal::PassKey, ChallengeePtr challengee,
     : Base(std::move(msg)),
       challengee_(std::move(challengee))
 {}
+
+
+//******************************************************************************
+// AuthExchange
+//******************************************************************************
+
+const Realm& AuthExchange::realm() const {return realm_;}
+
+const Authentication& AuthExchange::authentication() const
+{
+    return authentication_;
+}
+
+unsigned AuthExchange::stage() const {return stage_;}
+
+const Variant& AuthExchange::memento() const {return memento_;}
+
+void AuthExchange::challenge(Challenge challenge, Variant memento)
+{
+    auto c = challenger_.lock();
+    if (c)
+        c->challenge(id_, std::move(challenge), std::move(memento));
+}
+
+void AuthExchange::challenge(ThreadSafe, Challenge challenge, Variant memento)
+{
+    auto c = challenger_.lock();
+    if (c)
+        c->safeChallenge(id_, std::move(challenge), std::move(memento));
+}
+
+void AuthExchange::welcome(Object details)
+{
+    auto c = challenger_.lock();
+    if (c)
+        c->welcome(id_, std::move(details));
+}
+
+void AuthExchange::welcome(ThreadSafe, Object details)
+{
+    auto c = challenger_.lock();
+    if (c)
+        c->safeWelcome(id_, std::move(details));
+}
+
+void AuthExchange::abort(Object details)
+{
+    auto c = challenger_.lock();
+    if (c)
+        c->abortJoin(id_, std::move(details));
+}
+
+void AuthExchange::abort(ThreadSafe, Object details)
+{
+    auto c = challenger_.lock();
+    if (c)
+        c->safeAbortJoin(id_, std::move(details));
+}
 
 
 //******************************************************************************

@@ -81,6 +81,13 @@ CPPWAMP_INLINE const std::string& LogEntry::message() const & {return message_;}
 CPPWAMP_INLINE std::string&& LogEntry::message() && {return std::move(message_);}
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE LogEntry& LogEntry::append(std::string extra)
+{
+    message_ += std::move(extra);
+    return *this;
+}
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE const std::error_code& LogEntry::error() const {return ec_;}
 
 //------------------------------------------------------------------------------

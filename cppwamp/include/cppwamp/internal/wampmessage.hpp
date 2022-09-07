@@ -151,8 +151,11 @@ struct WampMessage
 
     RequestKey requestKey() const
     {
-        WampMsgType reqType = (type_ != WampMsgType::error) ? type_ :
-                static_cast<WampMsgType>(fields_.at(1).as<Int>());
+        auto repliesToType = repliesTo();
+        auto reqType = (repliesToType == WampMsgType::none) ? type_
+                                                            : repliesToType;
+        if (type_ == WampMsgType::error)
+            reqType = static_cast<WampMsgType>(fields_.at(1).as<Int>());
         return std::make_pair(reqType, requestId());
     }
 

@@ -12,23 +12,23 @@
     @brief Contains the API used by a _router_ peer in WAMP applications. */
 //------------------------------------------------------------------------------
 
+#include <cassert>
 #include <functional>
 #include <map>
 #include <memory>
 #include <set>
+#include <vector>
 #include "api.hpp"
 #include "anyhandler.hpp"
 #include "asiodefs.hpp"
 #include "chits.hpp"
-#include "json.hpp"
+#include "codec.hpp"
 #include "listener.hpp"
+#include "logging.hpp"
 #include "peerdata.hpp"
 #include "registration.hpp"
 #include "subscription.hpp"
-#include "internal/callee.hpp"
-#include "internal/caller.hpp"
-#include "internal/subscriber.hpp"
-#include "internal/peer.hpp"
+#include "tagtypes.hpp"
 
 namespace wamp
 {
@@ -37,199 +37,71 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class Challenger
-{
-public:
-    using Id = unsigned long long;
-
-    virtual void challenge(Id id, Challenge challenge, Variant memento) = 0;
-    virtual void welcome(Id id, Object details) = 0;
-    virtual void abortJoin(Id id, Object details) = 0;
-};
-
-} // namespace internal
-
+// Forward declarations
 //------------------------------------------------------------------------------
-class AuthExchange
-{
-public:
-    const Realm& realm() const;
-    const Authentication& authentication() const;
-    unsigned stage() const;
-    const Variant& memento() const;
-
-    void challenge(Challenge challenge, Variant memento = {});
-    void challenge(ThreadSafe, Challenge challenge, Variant memento = {});
-    void welcome(Object details);
-    void welcome(ThreadSafe, Object details);
-    void abort(Object details = {});
-    void abort(ThreadSafe, Object details = {});
-
-private:
-    std::weak_ptr<internal::Challenger> challenger_;
-    Realm realm_;
-    Authentication authentication_;
-    Variant memento_; // Useful for keeping the authorizer stateless
-    unsigned long long id_;
-    unsigned stage_;
-};
-
-//------------------------------------------------------------------------------
-struct RoutingServiceConfig
-{
-    std::string name;
-    ListenerBuilder listenerBuilder;
-    std::set<int> codecIds;
-    AnyReusableHandler<void (AuthExchange)> authenticator;
-};
-
-namespace internal
-{
-
+class RouterSession;
+class RouterServer;
+class RouterRealmImpl;
 class RouterImpl;
 
-//------------------------------------------------------------------------------
-class RoutingSession : public std::enable_shared_from_this<RoutingSession>
-{
-public:
-    using Ptr = std::shared_ptr<RoutingSession>;
-    using RouterPtr = std::weak_ptr<internal::RouterImpl>;
-
-    static Ptr create(IoStrand s, RouterPtr r)
-    {
-        return Ptr(new RoutingSession(std::move(s), std::move(r)));
-    }
-
-    void open(Transporting::Ptr transport, AnyBufferCodec codec)
-    {
-        peer_.open(std::move(transport), std::move(codec));
-    }
-
-    void close()
-    {
-        peer_.close();
-    }
-
-private:
-    RoutingSession(IoStrand s, RouterPtr r)
-        : peer_(true, std::move(s)),
-          router_(r)
-    {
-        peer_.setInboundMessageHandler(
-            [this](WampMessage msg) {onInbound(std::move(msg));} );
-    }
-
-    void onInbound(WampMessage msg)
-    {
-        // TODO
-    }
-
-    Peer peer_;
-    RouterPtr router_;
-};
-
 } // namespace internal
 
+
 //------------------------------------------------------------------------------
-class RoutingService : public std::enable_shared_from_this<RoutingService>
+class ServerConfig
 {
 public:
-    using Ptr = std::shared_ptr<RoutingService>;
-    using Executor = AnyIoExecutor;
-    using RouterPtr = std::weak_ptr<internal::RouterImpl>;
+    using AuthExchangeHandler = AnyReusableHandler<void (AuthExchange)>;
 
-    RoutingService(AnyIoExecutor exec, RouterPtr router,
-                   RoutingServiceConfig config)
-        : strand_(boost::asio::make_strand(exec)),
-          config_(std::move(config)),
-          router_(std::move(router))
+    template <typename S>
+    explicit ServerConfig(std::string name, S&& transportSettings)
+        : name_(std::move(name)),
+          listenerBuilder_(std::forward<S>(transportSettings))
     {}
 
-    void start()
+    template <typename... TFormats>
+    ServerConfig& withFormats(TFormats... formats)
     {
-        if (!listener_)
-        {
-            listener_ = config_.listenerBuilder(strand_, config_.codecIds);
-            listen();
-        }
+        codecBuilders_ = {BufferCodecBuilder{formats}...};
+        return *this;
     }
 
-    void stop()
-    {
-        if (listener_)
-        {
-            listener_->cancel();
-            listener_.reset();
-        }
-    }
+    ServerConfig& withAuthenticator(AuthExchangeHandler f);
 
-    const std::string& name() const {return config_.name;}
-
-    bool isRunning() const {return listener_ != nullptr;}
+    const std::string& name() const;
 
 private:
-    void listen()
-    {
-        if (!listener_)
-            return;
+    Listening::Ptr makeListener(IoStrand s) const;
 
-        std::weak_ptr<RoutingService> self = shared_from_this();
-        listener_->establish(
-            [this, self](ErrorOr<Transporting::Ptr> transport)
-            {
-                auto me = self.lock();
-                if (!me)
-                    return;
+    AnyBufferCodec makeCodec(int codecId) const;
 
-                if (transport)
-                {
-                    onEstablished(*transport);
-                }
-                else
-                {
-                    // TODO
-                }
-            });
-    }
+    std::string name_;
+    ListenerBuilder listenerBuilder_;
+    std::vector<BufferCodecBuilder> codecBuilders_;
+    AnyReusableHandler<void (AuthExchange)> authenticator_;
 
-    void onEstablished(Transporting::Ptr transport)
-    {
-        auto codecId = transport->info().codecId;
-        assert(config_.codecIds.count(codecId));
-        auto s = internal::RoutingSession::create(strand_, router_);
-        // TODO: Codec factory
-        s->open(std::move(transport), AnyBufferCodec{json});
-        listen();
-    }
-
-    IoStrand strand_;
-    RoutingServiceConfig config_;
-    std::weak_ptr<internal::RouterImpl> router_;
-    Listening::Ptr listener_;
-    std::set<internal::RoutingSession::Ptr> sessions_;
+    friend class internal::RouterServer;
 };
 
-namespace internal
-{
-
 //------------------------------------------------------------------------------
-class RouterImpl : public Challenger, public Callee, public Caller,
-                   public Subscriber
-
+class Server : public std::enable_shared_from_this<Server>
 {
 public:
-    using Ptr = std::shared_ptr<RouterImpl>;
-    using Executor = AnyIoExecutor;
+    using Ptr = std::shared_ptr<Server>;
 
-private:
-    std::map<std::string, RoutingService::Ptr> services_;
-    std::map<SessionId, RoutingSession::Ptr> sessions_;
+    virtual ~Server() {}
+
+    virtual void start() = 0;
+
+    virtual void stop() = 0;
+
+    virtual const std::string& name() const = 0;
+
+    virtual bool isRunning() const = 0;
 };
 
-} // namespace internal
-
 //------------------------------------------------------------------------------
-class RouterProxy
+class RouterRealm
 {
 private:
     struct GenericOp { template <typename F> void operator()(F&&) {} };
@@ -369,14 +241,26 @@ public:
     /// @}
 
 private:
-    using RouterImplPtr = std::shared_ptr<internal::RouterImpl>;
+    using ImplPtr = std::shared_ptr<internal::RouterRealmImpl>;
 
-    RouterProxy(RouterImplPtr router, FallbackExecutor fallbackExec);
+    RouterRealm(ImplPtr impl, FallbackExecutor fallbackExec);
 
-    RouterImplPtr router_;
+    ImplPtr realm_;
     FallbackExecutor fallbackExec_;
 
     friend class Router;
+};
+
+//------------------------------------------------------------------------------
+class RouterConfig
+{
+public:
+    RouterConfig& withLogLevel(LogLevel l) {logLevel_ = l; return *this;}
+
+    LogLevel logLevel() const {return logLevel_;}
+
+private:
+    LogLevel logLevel_ = LogLevel::warning;
 };
 
 //------------------------------------------------------------------------------
@@ -397,11 +281,13 @@ public:
     /// @name Construction
     /// @{
     /** Constructor taking an executor. */
-    explicit Router(Executor exec);
+    explicit Router(Executor exec, RouterConfig config = {});
 
     /** Constructor taking an execution context. */
     template <typename E, EnableIf<isExecutionContext<E>()> = 0>
-    explicit Router(E& context) : Router(context.get_executor()) {}
+    explicit Router(E& context, RouterConfig config = {})
+        : Router(context.get_executor(), std::move(config))
+    {}
 
     /** Destructor. */
     ~Router();
@@ -417,7 +303,7 @@ public:
 
     /// @name Setup
     /// @{
-    RoutingService::Ptr addService(RoutingServiceConfig config);
+    Server::Ptr addService(ServerConfig config);
 
     void removeService(const std::string& name);
 
@@ -436,11 +322,12 @@ public:
     /** Obtains the execution context in which I/O operations are serialized. */
     const IoStrand& strand() const;
 
-    RoutingService::Ptr service(const std::string& name);
+    Server::Ptr service(const std::string& name);
 
-    RouterProxy proxy() const;
+    RouterRealm realm(const std::string& name);
 
-    RouterProxy proxy(FallbackExecutor fallbackExecutor) const;
+    RouterRealm realm(const std::string& name,
+                      FallbackExecutor fallbackExecutor);
     /// @}
 
     /// @name Operations
@@ -456,8 +343,8 @@ private:
 
 } // namespace wamp
 
-//#ifndef CPPWAMP_COMPILED_LIB
-//#include "internal/router.ipp"
-//#endif
+#ifndef CPPWAMP_COMPILED_LIB
+#include "internal/router.ipp"
+#endif
 
 #endif // CPPWAMP_ROUTER_HPP

@@ -35,7 +35,7 @@ public:
     explicit ConsoleLogger(std::string originLabel);
 
     /** Outputs the given log entry to the console. */
-    void operator()(LogEntry entry) const;
+    void operator()(const LogEntry& entry) const;
 
 private:
     std::string origin_;
@@ -58,7 +58,7 @@ public:
     explicit ColorConsoleLogger(std::string originLabel);
 
     /** Outputs the given log entry to the console. */
-    void operator()(LogEntry entry) const;
+    void operator()(const LogEntry& entry) const;
 
 private:
     std::string origin_;

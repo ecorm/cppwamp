@@ -63,6 +63,9 @@ public:
     /** Moves the entry's information text. */
     std::string&& message() &&;
 
+    /** Appends the given text to the entry's information text. */
+    LogEntry& append(std::string extra);
+
     /** Obtains the error code associated with this entry, if applicable. */
     const std::error_code& error() const;
 

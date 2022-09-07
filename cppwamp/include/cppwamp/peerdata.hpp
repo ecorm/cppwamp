@@ -296,6 +296,36 @@ private:
 };
 
 
+namespace internal { class Challenger; } // Forward declaration
+
+//------------------------------------------------------------------------------
+/** Contains information on an authorization exchange with a router.  */
+//------------------------------------------------------------------------------
+class AuthExchange
+{
+public:
+    const Realm& realm() const;
+    const Authentication& authentication() const;
+    unsigned stage() const;
+    const Variant& memento() const;
+
+    void challenge(Challenge challenge, Variant memento = {});
+    void challenge(ThreadSafe, Challenge challenge, Variant memento = {});
+    void welcome(Object details);
+    void welcome(ThreadSafe, Object details);
+    void abort(Object details = {});
+    void abort(ThreadSafe, Object details = {});
+
+private:
+    std::weak_ptr<internal::Challenger> challenger_;
+    Realm realm_;
+    Authentication authentication_;
+    Variant memento_; // Useful for keeping the authorizer stateless
+    unsigned long long id_;
+    unsigned stage_;
+};
+
+
 //------------------------------------------------------------------------------
 /** Provides the _reason_ URI, options, and payload arguments contained
     within WAMP `ERROR` messages. */

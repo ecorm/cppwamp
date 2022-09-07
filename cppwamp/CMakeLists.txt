@@ -52,11 +52,13 @@ set(HEADERS
     include/cppwamp/wampdefs.hpp
     include/cppwamp/bundled/boost_asio_any_completion_executor.hpp
     include/cppwamp/bundled/boost_asio_any_completion_handler.hpp
+    include/cppwamp/bundled/sevmeyer_prng.hpp
     include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/callee.hpp
     include/cppwamp/internal/caller.hpp
     include/cppwamp/internal/callertimeout.hpp
     include/cppwamp/internal/challengee.hpp
+    include/cppwamp/internal/challenger.hpp
     include/cppwamp/internal/client.hpp
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/integersequence.hpp
@@ -102,6 +104,7 @@ set(INLINES
     include/cppwamp/internal/msgpack.ipp
     include/cppwamp/internal/peerdata.ipp
     include/cppwamp/internal/registration.ipp
+    include/cppwamp/internal/router.ipp
     include/cppwamp/internal/session.ipp
     include/cppwamp/internal/subscription.ipp
     include/cppwamp/internal/tcp.ipp

@@ -528,6 +528,10 @@ This library bundles modified versions of `any_completion_handler` and
 Copyright (c) 2003-2022, under the terms of the Boost Software License,
 Version 1.0 (http://www.boost.org/LICENSE_1_0.txt).
 
+This library bundles a modified version of `prng.hpp` (an SFC64 implementation)
+written by Severin Meyer, Copyright (c) 2019, under the terms of the Boost
+Software License, Version 1.0 (http://www.boost.org/LICENSE_1_0.txt).
+
 
 License
 -------
