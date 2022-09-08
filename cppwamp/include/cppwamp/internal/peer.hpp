@@ -202,6 +202,10 @@ public:
 
     ErrorOrDone send(Message& msg)
     {
+        // TODO: Special handling for ABORT messages
+        //       - Clear other messages in queue
+        //       - Bump to front of queue
+        //       - Provide handler for send complete
         auto reqId = sendMessage(msg);
         if (!reqId)
             return UnexpectedError(reqId.error());
@@ -356,7 +360,7 @@ private:
 
     RequestId setMessageRequestId(Message& msg)
     {
-        RequestId requestId = nullRequestId();
+        RequestId requestId = nullId();
 
         if (msg.hasRequestId())
         {
@@ -372,9 +376,9 @@ private:
         // Apply bit mask to constrain the sequence to consecutive integers
         // that can be represented by a double.
         static constexpr auto digits = std::numeric_limits<Real>::digits;
-        static constexpr uint64_t mask = (1ull << digits) - 1u;
-        uint64_t n = nextRequestId_ + 1;
-        nextRequestId_ = static_cast<int64_t>(n & mask);
+        static constexpr RequestId mask = (1ull << digits) - 1u;
+        RequestId n = nextRequestId_ + 1;
+        nextRequestId_ = n & mask;
         return nextRequestId_;
     }
 
@@ -660,7 +664,7 @@ private:
     std::atomic<State> state_;
     std::atomic<LogLevel> logLevel_;
     std::atomic<bool> isTerminating_;
-    RequestId nextRequestId_ = nullRequestId();
+    RequestId nextRequestId_ = nullId();
     std::size_t maxTxLength_ = 0;
     bool isRouter_ = false;
 };

@@ -51,7 +51,7 @@ public:
 private:
     using CallerPtr = std::weak_ptr<internal::Caller>;
 
-    static constexpr RequestId invalidId_ = -1;
+    static constexpr RequestId invalidId_ = 0;
     CallerPtr caller_;
     RequestId reqId_ = invalidId_;
     CallCancelMode cancelMode_ = {};

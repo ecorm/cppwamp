@@ -69,7 +69,7 @@ public:
 private:
     using CalleePtr = std::weak_ptr<internal::Callee>;
 
-    static constexpr RegistrationId invalidId_ = -1;
+    static constexpr RegistrationId invalidId_ = 0;
     CalleePtr callee_;
     RegistrationId id_ = invalidId_;
 

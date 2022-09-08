@@ -69,7 +69,7 @@ private:
     using SubscriberPtr = std::weak_ptr<internal::Subscriber>;
     using SlotId = uint64_t;
 
-    static constexpr SubscriptionId invalidId_ = -1;
+    static constexpr SubscriptionId invalidId_ = 0;
 
     SubscriberPtr subscriber_;
     SubscriptionId subId_ = invalidId_;

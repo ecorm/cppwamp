@@ -66,11 +66,16 @@ public:
 
     /** Constructor taking transport settings (e.g. TcpEndpoint) */
     template <typename S>
-    explicit ListenerBuilder(S&& transportSettings);
+    explicit ListenerBuilder(S&& transportSettings)
+        : builder_(makeBuilder(std::forward<S>(transportSettings)))
+    {}
 
     /** Builds a connector appropriate for the transport settings given
         in the constructor. */
-    Listening::Ptr operator()(IoStrand s, CodecIds codecIds) const;
+    Listening::Ptr operator()(IoStrand s, CodecIds codecIds) const
+    {
+        return builder_(std::move(s), std::move(codecIds));
+    }
 
 private:
     using Function = std::function<Listening::Ptr (IoStrand s, CodecIds)>;

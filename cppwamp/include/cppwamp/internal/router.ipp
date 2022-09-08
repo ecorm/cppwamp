@@ -11,11 +11,13 @@
 #include <thread>
 #include <utility>
 #include "../api.hpp"
+#include "base64.hpp"
 #include "callee.hpp"
 #include "caller.hpp"
 #include "challenger.hpp"
 #include "subscriber.hpp"
 #include "peer.hpp"
+#include "../bundled/amosnier_sha256.hpp"
 #include "../bundled/sevmeyer_prng.hpp"
 
 namespace wamp
@@ -24,6 +26,62 @@ namespace wamp
 
 namespace internal
 {
+
+//------------------------------------------------------------------------------
+// TODO: Put in internal/idgen.hpp
+class RandomIdGenerator
+{
+public:
+    RandomIdGenerator() {}
+
+    RandomIdGenerator(EphemeralId seed) : prng_(seed) {}
+
+    EphemeralId operator()()
+    {
+        EphemeralId n = prng_();
+
+        // Apply bit mask to constrain the distribution to consecutive integers
+        // that can be represented by a double.
+        static constexpr auto digits = std::numeric_limits<Real>::digits;
+        static constexpr EphemeralId mask = (1ull << digits) - 1u;
+        n &= mask;
+
+        // Zero is reserved according to the WAMP spec.
+        if (n == 0)
+            n = 1; // Neglibibly biases the 1 value by 1/2^53
+
+        return n;
+    }
+
+private:
+    wamp::bundled::prng::Generator prng_;
+};
+
+//------------------------------------------------------------------------------
+// TODO: Put in internal/idgen.hpp
+class IdAnonymizer
+{
+public:
+    IdAnonymizer() {}
+
+    std::string operator()(EphemeralId id)
+    {
+        /*  Compute SHA256 hash of id, then stringify the result with Base64Url.
+            Truncate the hash to 128 bits to keep the anonymized ID reasonably
+            short in the logs. Truncating only affects the (exceedingly small)
+            probability that two ephemeral ids have the same anonymized ID in
+            the logs. See https://security.stackexchange.com/a/34797/169835. */
+        uint8_t hash[32];
+        wamp::bundled::sha256::calc_sha_256(hash, &id, sizeof(id));
+        std::string s;
+        Base64Url::encode(hash, 16, s);
+        return s;
+    }
+
+private:
+    wamp::bundled::prng::Generator prng_;
+};
+
 
 //------------------------------------------------------------------------------
 class RouterContext
@@ -58,6 +116,10 @@ class RouterSession : public std::enable_shared_from_this<RouterSession>
 {
 public:
     using Ptr = std::shared_ptr<RouterSession>;
+    using State = SessionState;
+
+    template <typename TValue>
+    using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
     static Ptr create(IoStrand i, Transporting::Ptr t, AnyBufferCodec c,
                       ServerContext s)
@@ -66,7 +128,9 @@ public:
         return Ptr(new RouterSession(move(i), move(t), move(c), move(s)));
     }
 
-    SessionId id() {return id_;}
+    SessionId id() const {return id_;}
+
+    State state() const {return peer_.state();}
 
     void start(SessionId id)
     {
@@ -78,6 +142,43 @@ public:
 
     void close() {peer_.close();}
 
+    void challenge(Challenge&& challenge)
+    {
+        if (state() == State::authenticating)
+            peer_.send(challenge.message({}));
+    }
+
+    void welcome(SessionInfo&& info)
+    {
+        if (state() == State::authenticating)
+            peer_.send(info.message({}));
+    }
+
+    void abort(Abort&& info)
+    {
+        if (state() == State::authenticating)
+            peer_.send(info.message({}));
+    }
+
+    void kick(Reason&& reason)
+    {
+        if (state() != State::established)
+            return;
+
+        auto self = shared_from_this();
+        peer_.adjourn(
+            reason,
+            [this, self](ErrorOr<WampMessage> reply)
+            {
+                if (reply.has_value())
+                {
+                    auto& goodBye = message_cast<GoodbyeMessage>(*reply);
+                    Reason reason({}, std::move(goodBye));
+                    // TODO: Log
+                }
+            });
+    }
+
 private:
     RouterSession(IoStrand&& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
                   ServerContext&& s)
@@ -87,7 +188,7 @@ private:
 
     {
         peer_.setLogHandler(
-            [this](LogEntry entry) {onLogEntry(std::move(entry));});
+            [this](LogEntry entry) {log(std::move(entry));});
         peer_.setLogLevel(server_.logLevel());
 
         peer_.setInboundMessageHandler(
@@ -102,7 +203,7 @@ private:
         peer_.open(std::move(t), std::move(c));
     }
 
-    void onLogEntry(LogEntry&& e)
+    void log(LogEntry&& e)
     {
         e.append(logSuffix_);
         server_.log(std::move(e));
@@ -151,7 +252,8 @@ public:
             listener_.reset();
         }
 
-        // TODO: Close all sessions
+        for (auto& s: sessions_)
+            s->close();
     }
 
     const std::string& name() const override {return config_.name();}
@@ -361,35 +463,6 @@ private:
     FallbackExecutor fallbackExec_;
 
     friend class RouterImpl;
-};
-
-//------------------------------------------------------------------------------
-class RandomIdGenerator
-{
-public:
-    RandomIdGenerator() {}
-
-    RandomIdGenerator(uint64_t seed) : prng_(seed) {}
-
-    int64_t operator()()
-    {
-        uint64_t n = prng_();
-
-        // Apply bit mask to constrain the distribution to consecutive integers
-        // that can be represented by a double.
-        static constexpr auto digits = std::numeric_limits<Real>::digits;
-        static constexpr uint64_t mask = (1ull << digits) - 1u;
-        n &= mask;
-
-        // Zero is reserved according to the WAMP spec.
-        if (n == 0)
-            n = 1; // Neglibibly biases the 1 value by 1/2^53
-
-        return static_cast<int64_t>(n);
-    }
-
-private:
-    wamp::bundled::prng::Generator prng_;
 };
 
 //------------------------------------------------------------------------------
@@ -635,13 +708,9 @@ CPPWAMP_INLINE RouterRealm Router::realm(const std::string& name) {}
 
 CPPWAMP_INLINE RouterRealm Router::realm(const std::string& name,
                                          FallbackExecutor fallbackExecutor) {}
-/// @}
 
-/// @name Operations
-/// @{
-void startAll();
+CPPWAMP_INLINE void Router::startAll() {}
 
-void stopAll();
-/// @}
+CPPWAMP_INLINE void Router::stopAll() {}
 
 } // namespace wamp

@@ -5,6 +5,7 @@
 #-------------------------------------------------------------------------------
 
 set(SOURCES
+    base64test.cpp
     codectestcbor.cpp
     codectestjson.cpp
     codectestmsgpack.cpp

@@ -50,6 +50,7 @@ set(HEADERS
     include/cppwamp/version.hpp
     include/cppwamp/visitor.hpp
     include/cppwamp/wampdefs.hpp
+    include/cppwamp/bundled/amosnier_sha256.hpp
     include/cppwamp/bundled/boost_asio_any_completion_executor.hpp
     include/cppwamp/bundled/boost_asio_any_completion_handler.hpp
     include/cppwamp/bundled/sevmeyer_prng.hpp

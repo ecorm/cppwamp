@@ -137,41 +137,6 @@ public:
         safelyDispatch<Dispatched>(std::move(f));
     }
 
-    // TODO: Remove
-    void setWarningHandler(LogStringHandler handler)
-    {
-        peer_.setWarningHandler(std::move(handler));
-    }
-
-    // TODO: Remove
-    void safeSetWarningHandler(LogStringHandler f)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            LogStringHandler f;
-            void operator()() {self->setWarningHandler(std::move(f));}
-        };
-
-        safelyDispatch<Dispatched>(std::move(f));
-    }
-
-    // TODO: Remove
-    void setTraceHandler(LogStringHandler f) {peer_.setTraceHandler(std::move(f));}
-
-    // TODO: Remove
-    void safeSetTraceHandler(LogStringHandler f)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            LogStringHandler f;
-            void operator()() {self->setTraceHandler(std::move(f));}
-        };
-
-        safelyDispatch<Dispatched>(std::move(f));
-    }
-
     void setStateChangeHandler(StateChangeHandler f)
     {
         peer_.setStateChangeHandler(std::move(f));

@@ -20,7 +20,8 @@ namespace internal
 
         friend class Peer;
         friend class Client;
-        friend class wamp::Session;
+        friend class wamp::Session; // TODO: Remove if unused
+        friend class RouterSession;
     };
 }
 
