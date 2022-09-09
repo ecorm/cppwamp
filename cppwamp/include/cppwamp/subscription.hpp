@@ -15,7 +15,7 @@
 #include <memory>
 #include <string>
 #include "api.hpp"
-#include "erroror.hpp"
+#include "tagtypes.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
 
@@ -64,6 +64,9 @@ public:
 
     /** Unsubscribes from the topic. */
     void unsubscribe() const;
+
+    /** Thread-safe unsubscribe. */
+    void unsubscribe(ThreadSafe) const;
 
 private:
     using SubscriberPtr = std::weak_ptr<internal::Subscriber>;

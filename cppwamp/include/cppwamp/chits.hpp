@@ -14,6 +14,7 @@
 
 #include <memory>
 #include "api.hpp"
+#include "tagtypes.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
 
@@ -45,8 +46,14 @@ public:
         was specified in the @ref wamp::Rpc "Rpc". */
     void cancel() const;
 
+    /** Thread-safe cancel. */
+    void cancel(ThreadSafe) const;
+
     /** Requests cancellation of the call using the given mode. */
     void cancel(CallCancelMode mode) const;
+
+    /** Thread-safe cancel with mode */
+    void cancel(ThreadSafe, CallCancelMode mode) const;
 
 private:
     using CallerPtr = std::weak_ptr<internal::Caller>;

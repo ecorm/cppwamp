@@ -789,6 +789,12 @@ CPPWAMP_INLINE Result::Result(internal::PassKey, internal::ResultMessage&& msg)
     : Base(std::move(msg))
 {}
 
+CPPWAMP_INLINE Result::Result(internal::PassKey, internal::YieldMessage&& msg)
+{
+    withArgs(std::move(msg).args());
+    withKwargs(std::move(msg).kwargs());
+}
+
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Result& result)
 {
     out << "[ Request|id = " << result.requestId();

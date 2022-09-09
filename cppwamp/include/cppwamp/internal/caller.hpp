@@ -26,6 +26,8 @@ public:
 
     virtual ~Caller() {}
 
+    virtual ErrorOrDone cancelCall(RequestId, CallCancelMode) = 0;
+
     virtual std::future<ErrorOrDone> safeCancelCall(RequestId,
                                                     CallCancelMode) = 0;
 };

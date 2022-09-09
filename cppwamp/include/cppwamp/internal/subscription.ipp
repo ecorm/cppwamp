@@ -68,6 +68,13 @@ CPPWAMP_INLINE void Subscription::unsubscribe() const
 {
     auto subscriber = subscriber_.lock();
     if (subscriber)
+        subscriber->unsubscribe(*this);
+}
+
+CPPWAMP_INLINE void Subscription::unsubscribe(ThreadSafe) const
+{
+    auto subscriber = subscriber_.lock();
+    if (subscriber)
         subscriber->safeUnsubscribe(*this);
 }
 
@@ -100,13 +107,13 @@ ScopedSubscription::ScopedSubscription(Subscription subscription)
 
 CPPWAMP_INLINE ScopedSubscription::~ScopedSubscription()
 {
-    unsubscribe();
+    unsubscribe(threadSafe);
 }
 
 CPPWAMP_INLINE ScopedSubscription&
 ScopedSubscription::operator=(ScopedSubscription&& other) noexcept
 {
-    unsubscribe();
+    unsubscribe(threadSafe);
     Base::operator=(std::move(other));
     return *this;
 }
@@ -114,7 +121,7 @@ ScopedSubscription::operator=(ScopedSubscription&& other) noexcept
 CPPWAMP_INLINE ScopedSubscription&
 ScopedSubscription::operator=(Subscription subscription)
 {
-    unsubscribe();
+    unsubscribe(threadSafe);
     Base::operator=(std::move(subscription));
     return *this;
 }

@@ -15,8 +15,7 @@
 #include <memory>
 #include <string>
 #include "api.hpp"
-#include "erroror.hpp"
-#include "peerdata.hpp"
+#include "tagtypes.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
 
@@ -65,6 +64,9 @@ public:
 
     /** Unregisters the RPC. */
     void unregister() const;
+
+    /** Thread-safe unregister. */
+    void unregister(ThreadSafe) const;
 
 private:
     using CalleePtr = std::weak_ptr<internal::Callee>;

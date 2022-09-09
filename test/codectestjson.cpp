@@ -239,9 +239,8 @@ GIVEN( "invalid JSON strings" )
     checkError(d, R"("\u0000AA=A")",       DE::badBase64Padding);
     checkError(d, R"("\u0000=AA=")",       DE::badBase64Padding);
     checkError(d, R"("\u0000A")",          DE::badBase64Length);
-    checkError(d, R"("\u0000AA==A")",      DE::badBase64Length);
+    checkError(d, R"("\u0000AA==A")",      DE::badBase64Padding);
     checkError(d, R"("\u0000AAAAA")",      DE::badBase64Length);
-    checkError(d, R"("\u0000AA=")",        DE::badBase64Length);
     checkError(d, R"("\u0000AAA ")",       DE::badBase64Char);
     checkError(d, R"("\u0000AAA.")",       DE::badBase64Char);
     checkError(d, R"("\u0000AAA:")",       DE::badBase64Char);

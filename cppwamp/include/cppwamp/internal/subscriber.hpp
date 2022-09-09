@@ -8,8 +8,6 @@
 #define CPPWAMP_INTERNAL_SUBSCRIBER_HPP
 
 #include <memory>
-#include "../anyhandler.hpp"
-#include "../erroror.hpp"
 #include "../subscription.hpp"
 
 namespace wamp
@@ -28,10 +26,9 @@ public:
 
     virtual ~Subscriber() {}
 
-    virtual void safeUnsubscribe(const Subscription&) = 0;
+    virtual void unsubscribe(const Subscription&) = 0;
 
-    virtual void safeUnsubscribe(
-        const Subscription&, AnyCompletionHandler<void(ErrorOr<bool>)>&&) = 0;
+    virtual void safeUnsubscribe(const Subscription&) = 0;
 };
 
 } // namespace internal

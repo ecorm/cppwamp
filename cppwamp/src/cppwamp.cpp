@@ -16,6 +16,7 @@
 #include <cppwamp/internal/consolelogger.ipp>
 #include <cppwamp/internal/error.ipp>
 #include <cppwamp/internal/json.ipp>
+#include <cppwamp/internal/localsession.ipp>
 #include <cppwamp/internal/logging.ipp>
 #include <cppwamp/internal/messagetraits.ipp>
 #include <cppwamp/internal/msgpack.ipp>

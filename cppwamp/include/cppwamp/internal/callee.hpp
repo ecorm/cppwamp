@@ -8,8 +8,8 @@
 #define CPPWAMP_INTERNAL_CALLEE_HPP
 
 #include <cstdint>
+#include <future>
 #include <memory>
-#include "../anyhandler.hpp"
 #include "../erroror.hpp"
 #include "../peerdata.hpp"
 #include "../wampdefs.hpp"
@@ -30,11 +30,9 @@ public:
 
     virtual ~Callee() {}
 
-    virtual void safeUnregister(const Registration&) = 0;
+    virtual void unregister(const Registration&) = 0;
 
-    virtual void safeUnregister(
-        const Registration&,
-        AnyCompletionHandler<void(ErrorOr<bool>)>&& handler) = 0;
+    virtual void safeUnregister(const Registration&) = 0;
 
     virtual ErrorOrDone yield(RequestId, wamp::Result&&) = 0;
 

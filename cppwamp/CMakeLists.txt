@@ -20,6 +20,7 @@ set(HEADERS
     include/cppwamp/error.hpp
     include/cppwamp/erroror.hpp
     include/cppwamp/json.hpp
+    include/cppwamp/localsession.hpp
     include/cppwamp/listener.hpp
     include/cppwamp/logging.hpp
     include/cppwamp/messagebuffer.hpp
@@ -31,6 +32,8 @@ set(HEADERS
     include/cppwamp/rawsockoptions.hpp
     include/cppwamp/registration.hpp
     include/cppwamp/router.hpp
+    include/cppwamp/routerconfig.hpp
+    include/cppwamp/server.hpp
     include/cppwamp/session.hpp
     include/cppwamp/spawn.hpp
     include/cppwamp/subscription.hpp
@@ -62,9 +65,10 @@ set(HEADERS
     include/cppwamp/internal/challenger.hpp
     include/cppwamp/internal/client.hpp
     include/cppwamp/internal/endian.hpp
+    include/cppwamp/internal/idgen.hpp
     include/cppwamp/internal/integersequence.hpp
     include/cppwamp/internal/jsonencoding.hpp
-    include/cppwamp/internal/logging.ipp
+    include/cppwamp/internal/localsessionimpl.hpp
     include/cppwamp/internal/messagetraits.hpp
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/peer.hpp
@@ -73,6 +77,9 @@ set(HEADERS
     include/cppwamp/internal/rawsockheader.hpp
     include/cppwamp/internal/rawsocklistener.hpp
     include/cppwamp/internal/rawsocktransport.hpp
+    include/cppwamp/internal/routercontext.hpp
+    include/cppwamp/internal/routerimpl.hpp
+    include/cppwamp/internal/routerserver.hpp
     include/cppwamp/internal/socketoptions.hpp
     include/cppwamp/internal/subscriber.hpp
     include/cppwamp/internal/tcpacceptor.hpp
@@ -101,6 +108,8 @@ set(INLINES
     include/cppwamp/internal/consolelogger.ipp
     include/cppwamp/internal/error.ipp
     include/cppwamp/internal/json.ipp
+    include/cppwamp/internal/localsession.ipp
+    include/cppwamp/internal/logging.ipp
     include/cppwamp/internal/messagetraits.ipp
     include/cppwamp/internal/msgpack.ipp
     include/cppwamp/internal/peerdata.ipp

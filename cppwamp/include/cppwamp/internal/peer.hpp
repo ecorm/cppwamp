@@ -261,7 +261,7 @@ public:
             {
                 auto handler = std::move(kv->second);
                 oneShotRequestMap_.erase(kv);
-                post(std::move(handler), unex);
+                complete(handler, unex);
             }
         }
         else
@@ -274,7 +274,7 @@ public:
                 {
                     auto handler = std::move(kv->second);
                     multiShotRequestMap_.erase(kv);
-                    post(std::move(handler), unex);
+                    complete(handler, unex);
                 }
             }
         }
@@ -297,12 +297,11 @@ private:
     using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
     using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
 
-    template <typename TFunctor, typename... TArgs>
-    void post(TFunctor&& fn, TArgs&&... args)
+    template <typename F, typename... Ts>
+    void complete(F& handler, Ts&&... args)
     {
-        boost::asio::post(strand_,
-                          std::bind(std::forward<TFunctor>(fn),
-                                    std::forward<TArgs>(args)...));
+        boost::asio::post(strand_, std::bind(std::move(handler),
+                                             std::forward<Ts>(args)...));
     }
 
     ErrorOr<RequestId> sendMessage(Message& msg)
@@ -334,8 +333,8 @@ private:
 
         if (buffer.size() > maxTxLength_)
         {
-            post(std::move(handler),
-                 makeUnexpectedError(SessionErrc::payloadSizeExceeded));
+            complete(handler,
+                     makeUnexpectedError(SessionErrc::payloadSizeExceeded));
             return requestId;
         }
 
@@ -346,8 +345,8 @@ private:
         auto found = requests.find(key);
         if (found != requests.end())
         {
-            post(std::move(found->second),
-                 makeUnexpectedError(SessionErrc::cancelled));
+            complete(found->second,
+                     makeUnexpectedError(SessionErrc::cancelled));
             requests.erase(found);
         }
 
@@ -609,9 +608,9 @@ private:
         if (!isTerminating_)
         {
             for (auto& kv: oneShotRequestMap_)
-                post(std::move(kv.second), unex);
+                complete(kv.second, unex);
             for (auto& kv: multiShotRequestMap_)
-                post(std::move(kv.second), unex);
+                complete(kv.second, unex);
         }
         oneShotRequestMap_.clear();
         multiShotRequestMap_.clear();

@@ -717,6 +717,8 @@ public:
     // Internal use only
     Result(internal::PassKey, internal::ResultMessage&& msg);
 
+    Result(internal::PassKey, internal::YieldMessage&& msg);
+
     internal::YieldMessage& yieldMessage(internal::PassKey, RequestId reqId)
     {
         message().setRequestId(reqId);

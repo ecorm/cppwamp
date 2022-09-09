@@ -423,21 +423,19 @@ public:
     ErrorOrDone cancel(CallChit);
 
     /** Thread-safe cancel. */
-    std::future<ErrorOrDone> cancel(ThreadSafe, CallChit);
+    std::future<ErrorOrDone> cancel(ThreadSafe, CallChit chit);
 
     /** Cancels a remote procedure using the given mode. */
-    ErrorOrDone cancel(CallChit, CallCancelMode mode);
+    ErrorOrDone cancel(CallChit chit, CallCancelMode mode);
 
     /** Thread-safe cancel with a given mode. */
-    std::future<ErrorOrDone> cancel(ThreadSafe, CallChit, CallCancelMode mode);
+    std::future<ErrorOrDone> cancel(ThreadSafe, CallChit chit,
+                                    CallCancelMode mode);
     /// @}
 
 private:
     template <typename T>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<T>)>;
-
-    template <typename T>
-    using ReusableHandler = AnyReusableHandler<void(T)>;
 
     using OngoingCallHandler = AnyReusableHandler<void(ErrorOr<Result>)>;
 

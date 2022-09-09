@@ -29,7 +29,21 @@ CPPWAMP_INLINE void CallChit::cancel() const
 }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE void CallChit::cancel(ThreadSafe) const
+{
+    cancel(threadSafe, cancelMode_);
+}
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE void CallChit::cancel(CallCancelMode mode) const
+{
+    auto caller = caller_.lock();
+    if (caller)
+        caller->cancelCall(reqId_, mode);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void CallChit::cancel(ThreadSafe, CallCancelMode mode) const
 {
     auto caller = caller_.lock();
     if (caller)

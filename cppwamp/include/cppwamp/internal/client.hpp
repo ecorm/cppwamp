@@ -50,7 +50,6 @@ class Client : public std::enable_shared_from_this<Client>, public Callee,
 {
 public:
     using Ptr                = std::shared_ptr<Client>;
-    using WeakPtr            = std::weak_ptr<Client>;
     using TransportPtr       = Transporting::Ptr;
     using State              = SessionState;
     using FutureErrorOrDone  = std::future<ErrorOrDone>;
@@ -58,7 +57,6 @@ public:
     using CallSlot           = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot      = AnyReusableHandler<Outcome (Interruption)>;
     using LogHandler         = AnyReusableHandler<void(LogEntry)>;
-    using LogStringHandler   = AnyReusableHandler<void(std::string)>; // TODO: Remove
     using StateChangeHandler = AnyReusableHandler<void(SessionState)>;
     using ChallengeHandler   = AnyReusableHandler<void(Challenge)>;
     using OngoingCallHandler = AnyReusableHandler<void(ErrorOr<Result>)>;
@@ -307,8 +305,7 @@ public:
                 if (me.checkError(reply, handler))
                 {
                     auto& goodBye = message_cast<GoodbyeMessage>(*reply);
-                    me.dispatchUserHandler(handler,
-                                           Reason({}, std::move(goodBye)));
+                    me.completeNow(handler, Reason({}, std::move(goodBye)));
                 }
             }
         };
@@ -387,7 +384,7 @@ public:
                     Subscription sub(self, subId, slotId, {});
                     me.topics_.emplace(rec.topicUri, subId);
                     me.readership_[subId][slotId] = std::move(rec);
-                    me.dispatchUserHandler(handler, std::move(sub));
+                    me.completeNow(handler, std::move(sub));
                 }
             }
         };
@@ -411,7 +408,7 @@ public:
             auto slotId = nextSlotId();
             Subscription sub{shared_from_this(), subId, slotId, {}};
             readership_[subId][slotId] = move(rec);
-            postUserHandler(handler, move(sub));
+            complete(handler, move(sub));
         }
     }
 
@@ -432,7 +429,7 @@ public:
         safelyDispatch<Dispatched>(move(t), move(s), move(f));
     }
 
-    void unsubscribe(const Subscription& sub)
+    void unsubscribe(const Subscription& sub) override
     {
         auto kv = readership_.find(sub.id());
         if (kv != readership_.end())
@@ -494,12 +491,11 @@ public:
         }
         else
         {
-            postUserHandler(handler, false);
+            complete(handler, false);
         }
     }
 
-    void safeUnsubscribe(const Subscription& s,
-                         CompletionHandler<bool>&& f) override
+    void safeUnsubscribe(const Subscription& s, CompletionHandler<bool>&& f)
     {
         struct Dispatched
         {
@@ -560,7 +556,7 @@ public:
                                   SessionErrc::publishError, handler))
                 {
                     const auto& pubMsg = message_cast<PublishedMessage>(*reply);
-                    me.dispatchUserHandler(handler, pubMsg.publicationId());
+                    me.completeNow(handler, pubMsg.publicationId());
                 }
             }
         };
@@ -606,7 +602,7 @@ public:
                     auto regId = msg.registrationId();
                     Registration reg(self, regId, {});
                     me.registry_[regId] = std::move(rec);
-                    me.dispatchUserHandler(handler, std::move(reg));
+                    me.completeNow(handler, std::move(reg));
                 }
             }
         };
@@ -642,7 +638,7 @@ public:
         safelyDispatch<Dispatched>(move(p), move(c), move(i), move(f));
     }
 
-    void unregister(const Registration& reg)
+    void unregister(const Registration& reg) override
     {
         struct Requested
         {
@@ -693,7 +689,7 @@ public:
                 if (me.checkReply(reply, WampMsgType::unregistered,
                                   SessionErrc::unregisterError, handler))
                 {
-                    me.dispatchUserHandler(handler, true);
+                    me.completeNow(handler, true);
                 }
             }
         };
@@ -711,12 +707,11 @@ public:
         }
         else
         {
-            postUserHandler(handler, false);
+            complete(handler, false);
         }
     }
 
-    void safeUnregister(const Registration& r,
-                        CompletionHandler<bool>&& f) override
+    void safeUnregister(const Registration& r, CompletionHandler<bool>&& f)
     {
         struct Dispatched
         {
@@ -745,7 +740,7 @@ public:
                                   SessionErrc::callError, handler, errorPtr))
                 {
                     auto& msg = message_cast<ResultMessage>(*reply);
-                    me.dispatchUserHandler(handler, Result({}, std::move(msg)));
+                    me.completeNow(handler, Result({}, std::move(msg)));
                 }
             }
         };
@@ -807,8 +802,8 @@ public:
                                   SessionErrc::callError, handler, errorPtr))
                 {
                     auto& resultMsg = message_cast<ResultMessage>(*reply);
-                    me.dispatchUserHandler(handler,
-                                           Result({}, std::move(resultMsg)));
+                    me.dispatchHandler(handler,
+                                       Result({}, std::move(resultMsg)));
                 }
             }
         };
@@ -857,7 +852,7 @@ public:
         safelyDispatch<Dispatched>(move(r), c, move(f));
     }
 
-    ErrorOrDone cancelCall(RequestId reqId, CallCancelMode mode)
+    ErrorOrDone cancelCall(RequestId reqId, CallCancelMode mode) override
     {
         if (state() != State::established)
             return makeUnexpectedError(SessionErrc::invalidState);
@@ -986,9 +981,7 @@ private:
         InterruptSlot interruptSlot;
     };
 
-    using Base           = Peer;
-    using WampMsgType    = internal::WampMsgType;
-    using Message        = internal::WampMessage;
+    using Message        = WampMessage;
     using SlotId         = uint64_t;
     using LocalSubs      = std::map<SlotId, SubscriptionRecord>;
     using Readership     = std::map<SubscriptionId, LocalSubs>;
@@ -1063,12 +1056,12 @@ private:
                 {
                     auto codec = wishes.at(index).makeCodec();
                     me.peer_.open(std::move(*transport), std::move(codec));
-                    me.dispatchUserHandler(*handler, index);
+                    me.completeNow(*handler, index);
                 }
                 else
                 {
                     auto ec = make_error_code(TransportErrc::aborted);
-                    me.postUserHandler(*handler, UnexpectedError(ec));
+                    me.completeNow(*handler, UnexpectedError(ec));
                 }
             }
         };
@@ -1084,7 +1077,7 @@ private:
     {
         if (ec == TransportErrc::aborted)
         {
-            dispatchUserHandler(*handler, UnexpectedError(ec));
+            completeNow(*handler, UnexpectedError(ec));
         }
         else
         {
@@ -1098,7 +1091,7 @@ private:
                 peer_.setState(State::failed);
                 if (wishes.size() > 1)
                     ec = make_error_code(SessionErrc::allTransportsFailed);
-                dispatchUserHandler(*handler, UnexpectedError(ec));
+                completeNow(*handler, UnexpectedError(ec));
             }
         }
     }
@@ -1151,7 +1144,7 @@ private:
                 if (me.checkReply(reply, WampMsgType::unsubscribed,
                                   SessionErrc::unsubscribeError, handler))
                 {
-                    me.dispatchUserHandler(handler, true);
+                    me.completeNow(handler, true);
                 }
             }
         };
@@ -1192,7 +1185,7 @@ private:
     void onWelcome(CompletionHandler<SessionInfo>&& handler, Message&& reply,
                    String&& realmUri)
     {
-        WeakPtr self = shared_from_this();
+        std::weak_ptr<Client> self = shared_from_this();
         timeoutScheduler_->listen([self](RequestId reqId)
         {
             auto ptr = self.lock();
@@ -1202,7 +1195,7 @@ private:
 
         auto& welcomeMsg = message_cast<WelcomeMessage>(reply);
         SessionInfo info{{}, std::move(realmUri), std::move(welcomeMsg)};
-        dispatchUserHandler(handler, std::move(info));
+        completeNow(handler, std::move(info));
     }
 
     void onJoinAborted(CompletionHandler<SessionInfo>&& handler,
@@ -1230,7 +1223,7 @@ private:
             log(LogLevel::error, oss.str());
         }
 
-        dispatchUserHandler(handler, makeUnexpectedError(errc));
+        completeNow(handler, makeUnexpectedError(errc));
     }
 
     void onChallenge(Message&& msg)
@@ -1240,7 +1233,7 @@ private:
 
         if (challengeHandler_)
         {
-            dispatchUserHandler(challengeHandler_, std::move(challenge));
+            dispatchHandler(challengeHandler_, std::move(challenge));
         }
         else
         {
@@ -1441,7 +1434,7 @@ private:
     {
         bool ok = msg.has_value();
         if (!ok)
-            dispatchUserHandler(handler, UnexpectedError(msg.error()));
+            dispatchHandler(handler, UnexpectedError(msg.error()));
         return ok;
     }
 
@@ -1478,7 +1471,7 @@ private:
                     log(LogLevel::error, oss.str());
                 }
 
-                dispatchUserHandler(handler, makeUnexpectedError(errc));
+                dispatchHandler(handler, makeUnexpectedError(errc));
             }
             else
             {
@@ -1525,17 +1518,7 @@ private:
     }
 
     template <typename S, typename... Ts>
-    void postUserHandler(AnyCompletionHandler<S>& handler, Ts&&... args)
-    {
-        if (!peer_.isTerminating())
-        {
-            postVia(userExecutor(), std::move(handler),
-                    std::forward<Ts>(args)...);
-        }
-    }
-
-    template <typename S, typename... Ts>
-    void dispatchUserHandler(AnyCompletionHandler<S>& handler, Ts&&... args)
+    void dispatchHandler(AnyCompletionHandler<S>& handler, Ts&&... args)
     {
         if (!peer_.isTerminating())
         {
@@ -1545,10 +1528,26 @@ private:
     }
 
     template <typename S, typename... Ts>
-    void dispatchUserHandler(const AnyReusableHandler<S>& handler, Ts&&... args)
+    void dispatchHandler(const AnyReusableHandler<S>& handler, Ts&&... args)
     {
         if (!peer_.isTerminating())
             dispatchVia(userExecutor(), handler, std::forward<Ts>(args)...);
+    }
+
+    template <typename S, typename... Ts>
+    void complete(AnyCompletionHandler<S>& handler, Ts&&... args)
+    {
+        if (!peer_.isTerminating())
+        {
+            postVia(userExecutor(), std::move(handler),
+                    std::forward<Ts>(args)...);
+        }
+    }
+
+    template <typename S, typename... Ts>
+    void completeNow(AnyCompletionHandler<S>& handler, Ts&&... args)
+    {
+        dispatchHandler(handler, std::forward<Ts>(args)...);
     }
 
     SlotId nextSlotId() {return nextSlotId_++;}
