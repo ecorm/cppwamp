@@ -16,13 +16,13 @@
 #include <utility>
 #include "../chits.hpp"
 #include "../registration.hpp"
+#include "../routerconfig.hpp"
 #include "../subscription.hpp"
 #include "callee.hpp"
 #include "caller.hpp"
 #include "callertimeout.hpp"
-#include "routerimpl.hpp"
+#include "routercontext.hpp"
 #include "subscriber.hpp"
-#include "peer.hpp"
 
 namespace wamp
 {
@@ -46,14 +46,18 @@ public:
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    static Ptr create(RouterImpl::Ptr router)
+    static Ptr create(RealmContext r, AuthorizationInfo a)
     {
-        return Ptr(new LocalSessionImpl(std::move(router), router->strand()));
+        using std::move;
+        auto s = r.strand();
+        return Ptr(new LocalSessionImpl(move(r), move(a), move(s)));
     }
 
-    static Ptr create(RouterImpl::Ptr router, AnyCompletionExecutor userExec)
+    static Ptr create(RealmContext r, AuthorizationInfo a,
+                      AnyCompletionExecutor e)
     {
-        return Ptr(new LocalSessionImpl(std::move(router), std::move(userExec)));
+        using std::move;
+        return Ptr(new LocalSessionImpl(move(r), move(a), move(e)));
     }
 
     const IoStrand& strand() const {return strand_;}
@@ -62,6 +66,13 @@ public:
     {
         return userExecutor_;
     }
+
+    SessionId id() const
+    {
+        return authInfo_.sessionId();
+    }
+
+    const AuthorizationInfo& authInfo() const {return authInfo_;}
 
     Subscription subscribe(Topic&& topic, EventSlot&& slot)
     {
@@ -594,10 +605,13 @@ private:
     using InvocationMap  = std::map<RequestId, RegistrationId>;
     using CallerTimeoutDuration = typename Rpc::CallerTimeoutDuration;
 
-    LocalSessionImpl(RouterImpl::Ptr router, AnyCompletionExecutor userExec)
-        : strand_(router->strand()),
-          userExecutor_(std::move(userExec)),
-          router_(std::move(router)),
+    LocalSessionImpl(RealmContext r, AuthorizationInfo a,
+                     AnyCompletionExecutor e)
+        : strand_(r.strand()),
+          userExecutor_(std::move(e)),
+          realm_(std::move(r)),
+          authInfo_(std::move(a)),
+          logger_(realm_.logger()),
           timeoutScheduler_(CallerTimeoutScheduler::create(strand_))
     {}
 
@@ -866,22 +880,28 @@ private:
         std::string msgTypeName(MessageTraits::lookup(type).name);
         if (!reply.has_value())
         {
-            log(LogLevel::warning,
-                "Failure receiving reply for " + msgTypeName + " message",
-                reply.error());
+            if (logLevel() >= LogLevel::warning)
+            {
+                log(LogLevel::warning,
+                    "Failure receiving reply for " + msgTypeName + " message",
+                    reply.error());
+            }
         }
         else if (reply->type() == WampMsgType::error)
         {
-            auto& msg = message_cast<ErrorMessage>(*reply);
-            const auto& uri = msg.reasonUri();
-            std::ostringstream oss;
-            oss << "Expected reply for " << msgTypeName
-                << " message but got ERROR with URI=" << uri;
-            if (!msg.args().empty())
-                oss << ", Args=" << msg.args();
-            if (!msg.kwargs().empty())
-                oss << ", ArgsKv=" << msg.kwargs();
-            log(LogLevel::warning, oss.str());
+            if (logLevel() >= LogLevel::warning)
+            {
+                auto& msg = message_cast<ErrorMessage>(*reply);
+                const auto& uri = msg.reasonUri();
+                std::ostringstream oss;
+                oss << "Expected reply for " << msgTypeName
+                    << " message but got ERROR with URI=" << uri;
+                if (!msg.args().empty())
+                    oss << ", Args=" << msg.args();
+                if (!msg.kwargs().empty())
+                    oss << ", ArgsKv=" << msg.kwargs();
+                log(LogLevel::warning, oss.str());
+            }
         }
         else
         {
@@ -889,11 +909,11 @@ private:
         }
     }
 
-    LogLevel logLevel() const {return router_->logLevel();}
+    LogLevel logLevel() const {return logger_->level();}
 
     void log(LogLevel severity, std::string message, std::error_code ec = {})
     {
-        router_->log({severity, std::move(message), ec});
+        logger_->log({severity, std::move(message), ec});
     }
 
     template <typename S, typename... Ts>
@@ -935,11 +955,13 @@ private:
 
     IoStrand strand_;
     AnyCompletionExecutor userExecutor_;
-    RouterImpl::Ptr router_;
+    RealmContext realm_;
     TopicMap topics_;
     Readership readership_;
     Registry registry_;
     InvocationMap pendingInvocations_;
+    AuthorizationInfo authInfo_;
+    RouterLogger::Ptr logger_;
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
     std::atomic<bool> isTerminating_;
     SlotId nextSlotId_ = 0;

@@ -15,9 +15,40 @@
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "logging.hpp"
+#include "wampdefs.hpp"
 
 namespace wamp
 {
+
+//------------------------------------------------------------------------------
+struct CPPWAMP_API AuthorizationInfo
+{
+public:
+    AuthorizationInfo() = default;
+
+    AuthorizationInfo(std::string realmUri, std::string authRole,
+                      std::string authId)
+        : realmUri_(std::move(realmUri)),
+          authRole_(std::move(authRole)),
+          authId_(std::move(authId))
+    {}
+
+    void setSessionId(SessionId id) {sessionId_ = id;}
+
+    const std::string& realmUri() const {return realmUri_;}
+
+    const std::string& authRole() const {return authRole_;}
+
+    const std::string& authId() const {return authId_;}
+
+    SessionId sessionId() const {return sessionId_;}
+
+private:
+    std::string realmUri_;
+    std::string authRole_;
+    std::string authId_;
+    SessionId sessionId_ = 0;
+};
 
 //------------------------------------------------------------------------------
 class CPPWAMP_API RouterConfig

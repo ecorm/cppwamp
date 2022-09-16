@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <utility>
+#include "../routerconfig.hpp"
 #include "../server.hpp"
 #include "idgen.hpp"
 #include "peer.hpp"
@@ -53,13 +54,15 @@ public:
         return Ptr(new ServerSession(move(i), move(t), move(c), move(s)));
     }
 
-    SessionId id() const {return id_;}
+    SessionId id() const {return authInfo_.sessionId();}
+
+    const AuthorizationInfo& authInfo() const {return authInfo_;}
 
     State state() const {return peer_.state();}
 
     void start(SessionId id)
     {
-        id_ = id;
+        authInfo_.setSessionId(id);
         logSuffix_ = ", for session " + server_.serverName() + '/' +
                      IdAnonymizer::anonymize(id);
         peer_.start();
@@ -138,18 +141,19 @@ private:
                   ServerContext&& s)
         : peer_(true, i),
           strand_(std::move(i)),
-          server_(std::move(s))
-
+          server_(std::move(s)),
+          logger_(server_.logger())
     {
         peer_.setLogHandler(
             [this](LogEntry entry) {log(std::move(entry));});
-        peer_.setLogLevel(server_.logLevel());
+        peer_.setLogLevel(logger_->level());
 
         peer_.setInboundMessageHandler(
             [this](WampMessage msg)
             {
-                server_.onMessage(shared_from_this(), std::move(msg));}
-            );
+                // TODO
+                // realm_.onMessage(shared_from_this(), std::move(msg));
+            });
 
         peer_.setStateChangeHandler(
             [this](SessionState s) {onStateChanged(s);} );
@@ -160,7 +164,7 @@ private:
     void log(LogEntry&& e)
     {
         e.append(logSuffix_);
-        server_.log(std::move(e));
+        logger_->log(std::move(e));
     }
 
     void onStateChanged(SessionState s)
@@ -186,8 +190,10 @@ private:
     Peer peer_;
     IoStrand strand_;
     ServerContext server_;
+    RealmContext realm_;
+    AuthorizationInfo authInfo_;
+    RouterLogger::Ptr logger_;
     std::string logSuffix_;
-    SessionId id_ = 0;
 };
 
 //------------------------------------------------------------------------------
@@ -265,13 +271,11 @@ private:
         auto s = ServerSession::create(strand_, std::move(transport),
                                        std::move(codec), std::move(ctx));
         sessions_.insert(s);
-        router_.addSession(std::move(s));
         listen();
     }
 
     void removeSession(ServerSession::Ptr s)
     {
-        router_.removeSession(s);
         sessions_.erase(s);
     }
 

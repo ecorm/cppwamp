@@ -49,20 +49,16 @@ CPPWAMP_INLINE Server::Ptr Router::server(const std::string& name) const
     return impl_->server(name);
 }
 
-CPPWAMP_INLINE LocalSession Router::join(const std::string& realmUri,
-                                         std::string authId)
+CPPWAMP_INLINE LocalSession Router::join(AuthorizationInfo authInfo)
 {
-    auto localSessionImpl = impl_->join(realmUri, std::move(authId), strand());
-    return LocalSession{std::move(localSessionImpl)};
+    return LocalSession{impl_->joinLocal(std::move(authInfo), strand())};
 }
 
-CPPWAMP_INLINE LocalSession Router::join(const std::string& realmUri,
-                                         std::string authId,
+CPPWAMP_INLINE LocalSession Router::join(AuthorizationInfo authInfo,
                                          AnyCompletionExecutor fallbackExecutor)
 {
-    auto localSessionImpl = impl_->join(realmUri, std::move(authId),
-                                        std::move(fallbackExecutor));
-    return LocalSession{std::move(localSessionImpl)};
+    return LocalSession{impl_->joinLocal(std::move(authInfo),
+                                         std::move(fallbackExecutor))};
 }
 
 CPPWAMP_INLINE void Router::startAll() {impl_->startAll();}

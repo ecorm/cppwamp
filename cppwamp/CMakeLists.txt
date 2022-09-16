@@ -79,6 +79,7 @@ set(HEADERS
     include/cppwamp/internal/rawsocktransport.hpp
     include/cppwamp/internal/routercontext.hpp
     include/cppwamp/internal/routerimpl.hpp
+    include/cppwamp/internal/routerrealm.hpp
     include/cppwamp/internal/routerserver.hpp
     include/cppwamp/internal/socketoptions.hpp
     include/cppwamp/internal/subscriber.hpp

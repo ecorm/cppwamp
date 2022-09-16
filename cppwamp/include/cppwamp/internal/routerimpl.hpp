@@ -13,7 +13,9 @@
 #include <string>
 #include <utility>
 #include "../routerconfig.hpp"
+#include "idgen.hpp"
 #include "routercontext.hpp"
+#include "routerrealm.hpp"
 #include "routerserver.hpp"
 
 namespace wamp
@@ -48,6 +50,29 @@ public:
 
     }
 
+    LocalSessionImpl::Ptr joinLocal(AuthorizationInfo a,
+                                    AnyCompletionExecutor e)
+    {
+        auto realm = findOrCreateRealm(a.realmUri());
+        a.setSessionId(sessionIdPool_->allocate());
+        using std::move;
+        auto session = LocalSessionImpl::create({realm}, move(a), move(e));
+        realm->join(session);
+        return session;
+    }
+
+    void startAll()
+    {
+        for (auto& kv: servers_)
+            kv.second->start();
+    }
+
+    void stopAll()
+    {
+        for (auto& kv: servers_)
+            kv.second->stop();
+    }
+
     static const Object& roles()
     {
         static const Object routerRoles;
@@ -64,35 +89,11 @@ public:
         return found->second;
     }
 
-    // Definition is below class declaration.
-    std::shared_ptr<LocalSessionImpl>
-    join(const std::string& realmUri, std::string authId,
-         AnyCompletionExecutor fallbackExecutor);
-
-    LogLevel logLevel() const {return config_.logLevel();}
-
-    void log(LogEntry entry)
-    {
-        if (entry.severity() >= config_.logLevel())
-            dispatchVia(strand_, config_.logHandler(), std::move(entry));
-    }
-
-    void startAll()
-    {
-        for (auto& kv: servers_)
-            kv.second->start();
-    }
-
-    void stopAll()
-    {
-        for (auto& kv: servers_)
-            kv.second->stop();
-    }
-
 private:
-    RouterImpl(Executor exec, RouterConfig config)
-        : strand_(boost::asio::make_strand(exec)),
-        config_(std::move(config))
+    RouterImpl(Executor e, RouterConfig c)
+        : strand_(boost::asio::make_strand(e)),
+          logger_(RouterLogger::create(strand_, c.logHandler(), c.logLevel())),
+          config_(std::move(c))
     {}
 
     template <typename F>
@@ -101,75 +102,32 @@ private:
         boost::asio::dispatch(strand_, std::forward<F>(f));
     }
 
-    void safeAddSession(std::shared_ptr<ServerSession> s)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            std::shared_ptr<ServerSession> s;
-            void operator()() {self->addSession(std::move(s));}
-        };
+    RouterLogger::Ptr logger() const {return logger_;}
 
-        dispatch(Dispatched{shared_from_this(), std::move(s)});
+    RealmContext joinRemote(ServerSession::Ptr s)
+    {
+        auto realm = findOrCreateRealm(s->authInfo().realmUri());
+        realm->join(s);
+        return {realm};
     }
 
-    void addSession(std::shared_ptr<ServerSession> session)
+    RouterRealm::Ptr findOrCreateRealm(const std::string& uri)
     {
-        SessionId id = 0;
-        do
-        {
-            id = sessionIdGenerator_();
-        }
-        while (sessions_.find(id) != sessions_.end());
+        auto kv = realms_.find(uri);
+        if (kv != realms_.end())
+            return kv->second;
 
-        sessions_.emplace(id, session);
-        session->start(id);
-    }
-
-    void safeRemoveSession(std::shared_ptr<ServerSession> s)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            std::shared_ptr<ServerSession> s;
-            void operator()() {self->removeSession(std::move(s));}
-        };
-
-        dispatch(Dispatched{shared_from_this(), std::move(s)});
-    }
-
-    void removeSession(std::shared_ptr<ServerSession> session)
-    {
-        // TODO
-    }
-
-    void safeOnMessage(std::shared_ptr<ServerSession> s, WampMessage m)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            std::shared_ptr<ServerSession> s;
-            WampMessage m;
-
-            void operator()()
-            {
-                self->onMessage(std::move(s), std::move(m));
-            }
-        };
-
-        dispatch(Dispatched{shared_from_this(), std::move(s), std::move(m)});
-    }
-
-    void onMessage(std::shared_ptr<ServerSession> session, WampMessage msg)
-    {
-        // TODO
+        auto realm = RouterRealm::create(strand_, {shared_from_this()}, uri);
+        realms_.emplace(uri, realm);
+        return realm;
     }
 
     IoStrand strand_;
-    RouterConfig config_;
     std::map<std::string, Server::Ptr> servers_;
-    std::map<SessionId, ServerSession::Ptr> sessions_;
-    RandomIdGenerator sessionIdGenerator_;
+    std::map<std::string, RouterRealm::Ptr> realms_;
+    RandomIdPool::Ptr sessionIdPool_;
+    RouterLogger::Ptr logger_;
+    RouterConfig config_;
 
     friend class RouterContext;
 };
@@ -183,62 +141,24 @@ inline RouterContext::RouterContext(std::shared_ptr<RouterImpl> r)
     : router_(std::move(r))
 {}
 
-inline LogLevel RouterContext::logLevel() const
-{
-    auto r = router_.lock();
-    return r ? r->logLevel() : LogLevel::off;
-}
-
-inline void RouterContext::addSession(std::shared_ptr<ServerSession> s)
+inline RouterLogger::Ptr RouterContext::logger() const
 {
     auto r = router_.lock();
     if (r)
-        r->safeAddSession(std::move(s));
-}
-
-inline void RouterContext::removeSession(std::shared_ptr<ServerSession> s)
-{
-    auto r = router_.lock();
-    if (r)
-        r->safeRemoveSession(std::move(s));
-}
-
-inline void RouterContext::onMessage(std::shared_ptr<ServerSession> s,
-                                     WampMessage m)
-{
-    auto r = router_.lock();
-    if (r)
-        r->safeOnMessage(std::move(s), std::move(m));
-}
-
-inline void RouterContext::log(LogEntry e)
-{
-    auto r = router_.lock();
-    if (r)
-        r->log(std::move(e));
-}
-
-} // namespace internal
-
-} // namespace wamp
-
-
-#include "localsessionimpl.hpp"
-
-namespace wamp
-{
-
-namespace internal
-{
-
-inline std::shared_ptr<LocalSessionImpl>
-RouterImpl::join(const std::string& realmUri, std::string authId,
-                 AnyCompletionExecutor fallbackExecutor)
-{
+        return r->logger();
     return nullptr;
 }
 
+inline RealmContext RouterContext::join(std::shared_ptr<ServerSession> s)
+{
+    auto r = router_.lock();
+    if (r)
+        return r->joinRemote(std::move(s));
+    return {};
+}
+
 } // namespace internal
+
 } // namespace wamp
 
 #endif // CPPWAMP_INTERNAL_ROUTERIMPL_HPP

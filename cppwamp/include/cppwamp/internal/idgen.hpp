@@ -8,6 +8,9 @@
 #define CPPWAMP_INTERNAL_IDGEN_HPP
 
 #include <limits>
+#include <memory>
+#include <mutex>
+#include <set>
 #include "../wampdefs.hpp"
 #include "../variantdefs.hpp"
 #include "../bundled/amosnier_sha256.hpp"
@@ -48,6 +51,52 @@ public:
 
 private:
     wamp::bundled::prng::Generator prng_;
+};
+
+//------------------------------------------------------------------------------
+class RandomIdPool
+{
+public:
+    using Ptr = std::shared_ptr<RandomIdPool>;
+
+    static Ptr create() {return Ptr(new RandomIdPool);}
+
+    static Ptr create(EphemeralId seed) {return Ptr(new RandomIdPool(seed));}
+
+    EphemeralId allocate()
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const auto end = ids_.cend();
+        IdSet::const_iterator found;
+        EphemeralId id;
+
+        do
+        {
+            id = gen_();
+            found = ids_.find(id);
+        }
+        while (found != end);
+
+        ids_.emplace(id);
+        return id;
+    }
+
+    void free(EphemeralId id)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        ids_.erase(id);
+    }
+
+private:
+    using IdSet = std::set<EphemeralId>;
+
+    RandomIdPool() {}
+
+    RandomIdPool(EphemeralId seed) : gen_(seed) {}
+
+    RandomIdGenerator gen_;
+    IdSet ids_;
+    std::mutex mutex_;
 };
 
 //------------------------------------------------------------------------------

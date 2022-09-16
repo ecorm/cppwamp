@@ -1487,22 +1487,28 @@ private:
         std::string msgTypeName(MessageTraits::lookup(type).name);
         if (!reply.has_value())
         {
-            log(LogLevel::warning,
-                "Failure receiving reply for " + msgTypeName + " message",
-                reply.error());
+            if (logLevel() >= LogLevel::warning)
+            {
+                log(LogLevel::warning,
+                    "Failure receiving reply for " + msgTypeName + " message",
+                    reply.error());
+            }
         }
         else if (reply->type() == WampMsgType::error)
         {
-            auto& msg = message_cast<ErrorMessage>(*reply);
-            const auto& uri = msg.reasonUri();
-            std::ostringstream oss;
-            oss << "Expected reply for " << msgTypeName
-                << " message but got ERROR with URI=" << uri;
-            if (!msg.args().empty())
-                oss << ", Args=" << msg.args();
-            if (!msg.kwargs().empty())
-                oss << ", ArgsKv=" << msg.kwargs();
-            log(LogLevel::warning, oss.str());
+            if (logLevel() >= LogLevel::warning)
+            {
+                auto& msg = message_cast<ErrorMessage>(*reply);
+                const auto& uri = msg.reasonUri();
+                std::ostringstream oss;
+                oss << "Expected reply for " << msgTypeName
+                    << " message but got ERROR with URI=" << uri;
+                if (!msg.args().empty())
+                    oss << ", Args=" << msg.args();
+                if (!msg.kwargs().empty())
+                    oss << ", ArgsKv=" << msg.kwargs();
+                log(LogLevel::warning, oss.str());
+            }
         }
         else
         {

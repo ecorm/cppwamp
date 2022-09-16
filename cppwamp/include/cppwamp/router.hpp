@@ -39,6 +39,8 @@ namespace internal { class RouterImpl; }
 class CPPWAMP_API Router
 {
 public:
+    // TODO: Thread-safe operations
+
     /** Executor type used for I/O operations. */
     using Executor = AnyIoExecutor;
 
@@ -87,9 +89,9 @@ public:
 
     Server::Ptr server(const std::string& name) const;
 
-    LocalSession join(const std::string& realmUri, std::string authId);
+    LocalSession join(AuthorizationInfo authInfo);
 
-    LocalSession join(const std::string& realmUri, std::string authId,
+    LocalSession join(AuthorizationInfo authInfo,
                       AnyCompletionExecutor fallbackExecutor);
     /// @}
 
