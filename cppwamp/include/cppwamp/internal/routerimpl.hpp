@@ -12,6 +12,7 @@
 #include <thread>
 #include <string>
 #include <utility>
+#include "../erroror.hpp"
 #include "../routerconfig.hpp"
 #include "idgen.hpp"
 #include "routercontext.hpp"
@@ -33,61 +34,117 @@ class RouterImpl : public std::enable_shared_from_this<RouterImpl>
 public:
     using Ptr = std::shared_ptr<RouterImpl>;
     using Executor = AnyIoExecutor;
-    using LogHandler = AnyReusableHandler<void (LogEntry)>;
 
     static Ptr create(Executor exec, RouterConfig config)
     {
         return Ptr(new RouterImpl(std::move(exec), std::move(config)));
     }
 
-    Server::Ptr addServer(ServerConfig config)
+    bool addRealm(RealmConfig c)
     {
-        return nullptr;
+        auto uri = c.uri();
+        if (realms_.find(uri) != realms_.end())
+            return false;
+        using std::move;
+        auto r = RouterRealm::create(strand_, move(c), {shared_from_this()});
+        realms_.emplace(move(uri), move(r));
+        return true;
     }
 
-    void removeServer(const std::string& name)
+    bool shutDownRealm(const std::string& name)
     {
+        auto kv = realms_.find(name);
+        if (kv == realms_.end())
+            return false;
 
+        kv->second->shutDown();
+        realms_.erase(kv);
+        return true;
+    }
+
+    bool terminateRealm(const std::string& name)
+    {
+        auto kv = realms_.find(name);
+        if (kv == realms_.end())
+            return false;
+
+        kv->second->terminate();
+        realms_.erase(kv);
+        return true;
+    }
+
+    bool startServer(ServerConfig c)
+    {
+        auto name = c.name();
+        if (servers_.find(name) == servers_.end())
+            return false;
+
+        using std::move;
+        auto s = RouterServer::create(strand_, move(c), {shared_from_this()});
+        servers_.emplace(std::move(name), s);
+        s->start();
+        return true;
+    }
+
+    bool shutDownServer(const std::string& name)
+    {
+        auto kv = servers_.find(name);
+        if (kv == servers_.end())
+            return false;
+
+        kv->second->shutDown();
+        servers_.erase(kv);
+        return true;
+    }
+
+    bool terminateServer(const std::string& name)
+    {
+        auto kv = servers_.find(name);
+        if (kv == servers_.end())
+            return false;
+
+        kv->second->terminate();
+        servers_.erase(kv);
+        return true;
     }
 
     LocalSessionImpl::Ptr joinLocal(AuthorizationInfo a,
                                     AnyCompletionExecutor e)
     {
-        auto realm = findOrCreateRealm(a.realmUri());
-        a.setSessionId(sessionIdPool_->allocate());
+        auto kv = realms_.find(a.realmUri());
+        if (kv == realms_.end())
+            return nullptr;
+
+        auto realm = kv->second;
+        a.setSessionId(allocateSessionId());
         using std::move;
         auto session = LocalSessionImpl::create({realm}, move(a), move(e));
         realm->join(session);
         return session;
     }
 
-    void startAll()
+    void shutDown()
     {
         for (auto& kv: servers_)
-            kv.second->start();
+            kv.second->shutDown();
+        servers_.clear();
+        for (auto& kv: realms_)
+            kv.second->kickLocalSessions();
+        realms_.clear();
+        // TODO: Wait for GOODBYE acknowledgements or timeout
     }
 
-    void stopAll()
+    void terminate()
     {
         for (auto& kv: servers_)
-            kv.second->stop();
-    }
-
-    static const Object& roles()
-    {
-        static const Object routerRoles;
-        return routerRoles;
+            kv.second->terminate();
+        servers_.clear();
+        for (auto& kv: realms_)
+            kv.second->kickLocalSessions();
+        realms_.clear();
     }
 
     const IoStrand& strand() const {return strand_;}
-
-    Server::Ptr server(const std::string& name) const
-    {
-        auto found = servers_.find(name);
-        if (found == servers_.end())
-            return nullptr;
-        return found->second;
-    }
 
 private:
     RouterImpl(Executor e, RouterConfig c)
@@ -104,28 +161,25 @@ private:
 
     RouterLogger::Ptr logger() const {return logger_;}
 
-    RealmContext joinRemote(ServerSession::Ptr s)
+    SessionId allocateSessionId()
     {
-        auto realm = findOrCreateRealm(s->authInfo().realmUri());
+        return sessionIdPool_.allocate();
+    }
+
+    ErrorOr<RealmContext> joinRemote(ServerSession::Ptr s)
+    {
+        auto kv = realms_.find(s->authInfo()->realmUri());
+        if (kv == realms_.end())
+            return makeUnexpectedError(SessionErrc::noSuchRealm);
+        auto realm = kv->second;
         realm->join(s);
         return {realm};
     }
 
-    RouterRealm::Ptr findOrCreateRealm(const std::string& uri)
-    {
-        auto kv = realms_.find(uri);
-        if (kv != realms_.end())
-            return kv->second;
-
-        auto realm = RouterRealm::create(strand_, {shared_from_this()}, uri);
-        realms_.emplace(uri, realm);
-        return realm;
-    }
-
     IoStrand strand_;
-    std::map<std::string, Server::Ptr> servers_;
+    std::map<std::string, RouterServer::Ptr> servers_;
     std::map<std::string, RouterRealm::Ptr> realms_;
-    RandomIdPool::Ptr sessionIdPool_;
+    RandomIdPool sessionIdPool_;
     RouterLogger::Ptr logger_;
     RouterConfig config_;
 
@@ -136,6 +190,22 @@ private:
 //******************************************************************************
 // RouterContext
 //******************************************************************************
+
+inline const Object& RouterContext::roles()
+{
+    static const Object routerRoles =
+    {
+        {"dealer", Object{{"features", Object{{
+            {"call_canceling", true},
+            {"caller_identification", true}
+        }}}}},
+        {"broker", Object{{"features", Object{{
+            {"publisher_exclusion", true},
+            {"publisher_identification", true}
+        }}}}}
+    };
+    return routerRoles;
+}
 
 inline RouterContext::RouterContext(std::shared_ptr<RouterImpl> r)
     : router_(std::move(r))
@@ -149,12 +219,21 @@ inline RouterLogger::Ptr RouterContext::logger() const
     return nullptr;
 }
 
-inline RealmContext RouterContext::join(std::shared_ptr<ServerSession> s)
+inline SessionId RouterContext::allocateSessionId() const
 {
     auto r = router_.lock();
     if (r)
-        return r->joinRemote(std::move(s));
-    return {};
+        return r->allocateSessionId();
+    return 0;
+}
+
+inline ErrorOr<RealmContext>
+RouterContext::join(std::shared_ptr<ServerSession> s)
+{
+    auto r = router_.lock();
+    if (!r)
+        return makeUnexpectedError(SessionErrc::noSuchRealm);
+    return r->joinRemote(std::move(s));
 }
 
 } // namespace internal

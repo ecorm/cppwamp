@@ -23,6 +23,7 @@ namespace internal
         friend class wamp::Session; // TODO: Remove if unused
         friend class ServerSession;
         friend class LocalSessionImpl;
+        friend class RouterServer;
     };
 }
 

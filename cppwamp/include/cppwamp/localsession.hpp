@@ -72,6 +72,15 @@ public:
         boost::asio::async_initiate<C, void(T)>(std::declval<GenericOp&>(),
                                                 std::declval<C&>()));
 
+    LocalSession();
+
+    /// @name Observers
+    /// @{
+    /** Return true if the local session is expired due to its bound realm
+        being shut down. */
+    bool expired() const;
+    /// @}
+
     /// @name Pub/Sub
     /// @{
     /** Subscribes to WAMP pub/sub events having the given topic. */

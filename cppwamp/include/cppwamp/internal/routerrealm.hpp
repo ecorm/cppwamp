@@ -12,6 +12,7 @@
 #include <thread>
 #include <string>
 #include <utility>
+#include "../routerconfig.hpp"
 #include "localsessionimpl.hpp"
 #include "routercontext.hpp"
 #include "routerserver.hpp"
@@ -31,17 +32,15 @@ class RouterRealm : public std::enable_shared_from_this<RouterRealm>
 public:
     using Ptr = std::shared_ptr<RouterRealm>;
     using Executor = AnyIoExecutor;
-    using LogHandler = AnyReusableHandler<void (LogEntry)>;
 
-    static Ptr create(Executor exec, RouterContext router, std::string uri)
+    static Ptr create(Executor e, RealmConfig c, RouterContext r)
     {
-        using std::move;
-        return Ptr(new RouterRealm(move(exec), move(router), move(uri)));
+        return Ptr(new RouterRealm(std::move(e), std::move(c), std::move(r)));
     }
 
     const IoStrand& strand() const {return strand_;}
 
-    const std::string& uri() const {return uri_;}
+    const std::string& uri() const {return config_.uri();}
 
     void join(LocalSessionImpl::Ptr session)
     {
@@ -55,11 +54,34 @@ public:
         serverSessions_.emplace(id, std::move(session));
     }
 
+    void shutDown()
+    {
+        for (auto& kv: serverSessions_)
+            kv.second->kick(Reason{"wamp.close.system_shutdown"});
+        serverSessions_.clear();
+        kickLocalSessions();
+    }
+
+    void terminate()
+    {
+        for (auto& kv: serverSessions_)
+            kv.second->close();
+        serverSessions_.clear();
+        kickLocalSessions();
+    }
+
+    void kickLocalSessions()
+    {
+        for (auto& kv: localSessions_)
+            kv.second->kick();
+        localSessions_.clear();
+    }
+
 private:
-    RouterRealm(Executor exec, RouterContext router, std::string uri)
-        : strand_(boost::asio::make_strand(exec)),
-          router_(std::move(router)),
-          uri_(std::move(uri)),
+    RouterRealm(Executor&& e, RealmConfig&& c, RouterContext&& r)
+        : strand_(boost::asio::make_strand(e)),
+          router_(std::move(r)),
+          config_(std::move(c)),
           logger_(router_.logger())
     {}
 
@@ -86,13 +108,11 @@ private:
 
     void leave(LocalSessionImpl::Ptr session)
     {
-        // TODO
         localSessions_.erase(session->id());
     }
 
     void leave(ServerSession::Ptr session)
     {
-        // TODO
         serverSessions_.erase(session->id());
     }
 
@@ -122,7 +142,7 @@ private:
     RouterContext router_;
     std::map<SessionId, LocalSessionImpl::Ptr> localSessions_;
     std::map<SessionId, ServerSession::Ptr> serverSessions_;
-    std::string uri_;
+    RealmConfig config_;
     RouterLogger::Ptr logger_;
 
     // TODO: Consider common interface for local and server sessions
@@ -138,6 +158,11 @@ private:
 inline RealmContext::RealmContext(std::shared_ptr<RouterRealm> r)
     : realm_(std::move(r))
 {}
+
+inline bool RealmContext::expired() const
+{
+    return realm_.expired();
+}
 
 inline IoStrand RealmContext::strand() const
 {
@@ -175,6 +200,11 @@ inline void RealmContext::leave(std::shared_ptr<ServerSession> s)
     auto r = realm_.lock();
     if (r)
         r->safeLeave(std::move(s));
+}
+
+inline void RealmContext::reset()
+{
+    realm_.reset();
 }
 
 } // namespace internal

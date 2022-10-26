@@ -11,6 +11,13 @@
 namespace wamp
 {
 
+CPPWAMP_INLINE LocalSession::LocalSession() {}
+
+CPPWAMP_INLINE bool LocalSession::expired() const
+{
+    return !impl_ || impl_->expired();
+}
+
 CPPWAMP_INLINE Subscription LocalSession::subscribe(Topic topic,
                                                     EventSlot eventSlot)
 {

@@ -165,6 +165,15 @@ public:
         }
     }
 
+    void welcome(SessionId sid, Object opts = {})
+    {
+        assert(isRouter_);
+        assert(state() == State::establishing);
+        WelcomeMessage msg{sid, std::move(opts)};
+        send(msg);
+        setState(State::established);
+    }
+
     void adjourn(Reason& reason, OneShotHandler&& handler)
     {
         struct Requested
@@ -183,7 +192,6 @@ public:
             }
         };
 
-        using std::move;
         assert(state() == State::established);
         setState(State::shuttingDown);
         request(reason.message({}), Requested{this, std::move(handler)});

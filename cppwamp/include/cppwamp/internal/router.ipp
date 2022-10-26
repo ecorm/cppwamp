@@ -22,47 +22,61 @@ CPPWAMP_INLINE Router::Router(Executor exec, RouterConfig config)
 
 CPPWAMP_INLINE Router::~Router() {}
 
-CPPWAMP_INLINE Server::Ptr Router::addServer(ServerConfig config)
+CPPWAMP_INLINE bool Router::addRealm(RealmConfig config)
 {
-    return impl_->addServer(std::move(config));
+    return impl_->addRealm(std::move(config));
 }
 
-CPPWAMP_INLINE void Router::removeServer(const Server::Ptr& server)
+CPPWAMP_INLINE bool Router::shutDownRealm(const std::string& name)
 {
-    impl_->removeServer(server->name());
+    return impl_->shutDownRealm(name);
 }
 
-CPPWAMP_INLINE void Router::removeServer(const std::string& name)
+CPPWAMP_INLINE bool Router::terminateRealm(const std::string& name)
 {
-    impl_->removeServer(name);
+    return impl_->terminateRealm(name);
 }
 
-CPPWAMP_INLINE const Object& Router::roles()
+CPPWAMP_INLINE bool Router::startServer(ServerConfig config)
 {
-    return internal::RouterImpl::roles();
+    return impl_->startServer(std::move(config));
 }
 
-CPPWAMP_INLINE const IoStrand& Router::strand() const {return impl_->strand();}
-
-CPPWAMP_INLINE Server::Ptr Router::server(const std::string& name) const
+CPPWAMP_INLINE void Router::shutDownServer(const std::string& name)
 {
-    return impl_->server(name);
+    impl_->shutDownServer(name);
+}
+
+CPPWAMP_INLINE void Router::terminateServer(const std::string& name)
+{
+    impl_->terminateServer(name);
 }
 
 CPPWAMP_INLINE LocalSession Router::join(AuthorizationInfo authInfo)
 {
-    return LocalSession{impl_->joinLocal(std::move(authInfo), strand())};
+    auto s = impl_->joinLocal(std::move(authInfo), strand());
+    CPPWAMP_LOGIC_CHECK(bool(s), "No such realm");
+    return LocalSession{std::move(s)};
 }
 
 CPPWAMP_INLINE LocalSession Router::join(AuthorizationInfo authInfo,
                                          AnyCompletionExecutor fallbackExecutor)
 {
-    return LocalSession{impl_->joinLocal(std::move(authInfo),
-                                         std::move(fallbackExecutor))};
+    auto s = impl_->joinLocal(std::move(authInfo),
+                              std::move(fallbackExecutor));
+    CPPWAMP_LOGIC_CHECK(bool(s), "No such realm");
+    return LocalSession{std::move(s)};
 }
 
-CPPWAMP_INLINE void Router::startAll() {impl_->startAll();}
+CPPWAMP_INLINE void Router::shutDown() {impl_->shutDown();}
 
-CPPWAMP_INLINE void Router::stopAll() {impl_->stopAll();}
+CPPWAMP_INLINE void Router::terminate() {impl_->terminate();}
+
+CPPWAMP_INLINE const Object& Router::roles()
+{
+    return internal::RouterContext::roles();
+}
+
+CPPWAMP_INLINE const IoStrand& Router::strand() const {return impl_->strand();}
 
 } // namespace wamp

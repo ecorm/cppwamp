@@ -57,11 +57,9 @@ private:
 class RandomIdPool
 {
 public:
-    using Ptr = std::shared_ptr<RandomIdPool>;
+    RandomIdPool() {}
 
-    static Ptr create() {return Ptr(new RandomIdPool);}
-
-    static Ptr create(EphemeralId seed) {return Ptr(new RandomIdPool(seed));}
+    RandomIdPool(EphemeralId seed) : gen_(seed) {}
 
     EphemeralId allocate()
     {
@@ -89,10 +87,6 @@ public:
 
 private:
     using IdSet = std::set<EphemeralId>;
-
-    RandomIdPool() {}
-
-    RandomIdPool(EphemeralId seed) : gen_(seed) {}
 
     RandomIdGenerator gen_;
     IdSet ids_;

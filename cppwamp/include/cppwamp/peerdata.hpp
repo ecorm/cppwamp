@@ -84,6 +84,12 @@ public:
 
     /** Sets the `HELLO.Details.authid` option. */
     Realm& withAuthId(String authId);
+
+    /** Obtains the `authmethods` array, or an empty array if absent. */
+    Array authMethods() const;
+
+    /** Obtains the `authid` string, or an empty string if absent. */
+    String authId() const;
     /// @}
 
 private:
@@ -92,7 +98,9 @@ private:
     Abort* abort_ = nullptr;
 
 public:
-    Abort* abort(internal::PassKey); // Internal use only
+    // Internal use only
+    Realm(internal::PassKey, internal::HelloMessage&& msg);
+    Abort* abort(internal::PassKey);
 };
 
 
@@ -152,6 +160,7 @@ public:
 
     /** Obtains the authentication ID the client was actually
         authenticated as. */
+    // TODO: Return string instead that can be empty if field is absent
     Variant authId() const;
 
     /** Obtains the role the client was authenticated for. */
@@ -304,6 +313,8 @@ namespace internal { class Challenger; } // Forward declaration
 class AuthExchange
 {
 public:
+    using Ptr = std::shared_ptr<AuthExchange>;
+
     const Realm& realm() const;
     const Authentication& authentication() const;
     unsigned stage() const;
@@ -316,12 +327,18 @@ public:
     void abort(Object details = {});
     void abort(ThreadSafe, Object details = {});
 
+public:
+    // Internal use only
+    using ChallengerPtr = std::weak_ptr<internal::Challenger>;
+    static Ptr create(internal::PassKey, Realm&& r, ChallengerPtr c);
+
 private:
-    std::weak_ptr<internal::Challenger> challenger_;
+    AuthExchange(Realm&& r, ChallengerPtr c);
+
     Realm realm_;
+    ChallengerPtr challenger_;
     Authentication authentication_;
     Variant memento_; // Useful for keeping the authorizer stateless
-    unsigned long long id_;
     unsigned stage_;
 };
 

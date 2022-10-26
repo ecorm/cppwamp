@@ -23,21 +23,18 @@ class Challenger
 {
 public:
     using WeakPtr = std::weak_ptr<Challenger>;
-    using ExchangeId = unsigned long long;
 
-    virtual void challenge(ExchangeId id, Challenge&& challenge,
-                           Variant&& memento) = 0;
+    virtual void challenge(Challenge&& challenge, Variant&& memento) = 0;
 
-    virtual void safeChallenge(ExchangeId id, Challenge&& challenge,
-                               Variant&& memento) = 0;
+    virtual void safeChallenge(Challenge&& challenge, Variant&& memento) = 0;
 
-    virtual void welcome(ExchangeId id, Object details) = 0;
+    virtual void welcome(Object details) = 0;
 
-    virtual void safeWelcome(ExchangeId id, Object details) = 0;
+    virtual void safeWelcome(Object details) = 0;
 
-    virtual void abortJoin(ExchangeId id, Object details) = 0;
+    virtual void abortJoin(Object details) = 0;
 
-    virtual void safeAbortJoin(ExchangeId id, Object details) = 0;
+    virtual void safeAbortJoin(Object details) = 0;
 };
 
 } // namespace internal

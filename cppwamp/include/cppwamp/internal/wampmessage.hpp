@@ -263,7 +263,9 @@ struct HelloMessage : public MessageWithOptions<WampMsgType::hello, 2>
         : Base({0, std::move(realmUri), Object{}})
     {}
 
-    const String& realmUri() const {return fields_.at(1).as<String>();}
+    const String& realmUri() const & {return fields_.at(1).as<String>();}
+
+    String&& realmUri() && {return std::move(fields_.at(1).as<String>());}
 
 private:
     using Base = MessageWithOptions<WampMsgType::hello, 2>;
@@ -297,7 +299,9 @@ private:
 //------------------------------------------------------------------------------
 struct WelcomeMessage : public MessageWithOptions<WampMsgType::welcome, 2>
 {
-    WelcomeMessage() : Base({0, 0, Object{}}) {}
+    explicit WelcomeMessage(SessionId sid = 0, Object opts = {})
+        : Base({0, sid, std::move(opts)})
+    {}
 
     SessionId sessionId() const {return fields_.at(1).to<SessionId>();}
 
@@ -308,7 +312,7 @@ private:
 //------------------------------------------------------------------------------
 struct AbortMessage : public MessageWithOptions<WampMsgType::abort, 1>
 {
-    AbortMessage(String reason = "", Object opts = {})
+    explicit AbortMessage(String reason = "", Object opts = {})
         : Base({0, std::move(opts), std::move(reason)}) {}
 
     const String& reasonUri() const {return fields_.at(2).as<String>();}

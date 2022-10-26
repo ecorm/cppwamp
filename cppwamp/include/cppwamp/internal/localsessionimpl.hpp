@@ -67,12 +67,17 @@ public:
         return userExecutor_;
     }
 
-    SessionId id() const
-    {
-        return authInfo_.sessionId();
-    }
+    SessionId id() const {return id_;}
 
-    const AuthorizationInfo& authInfo() const {return authInfo_;}
+    bool expired() const {return realm_.expired();}
+
+    const AuthorizationInfo::Ptr& authInfo() const {return authInfo_;}
+
+    void kick()
+    {
+        realm_.reset();
+        // TODO: Cancel pending RPCS, clear subscriptions & registrations
+    }
 
     Subscription subscribe(Topic&& topic, EventSlot&& slot)
     {
@@ -610,9 +615,10 @@ private:
         : strand_(r.strand()),
           userExecutor_(std::move(e)),
           realm_(std::move(r)),
-          authInfo_(std::move(a)),
+          authInfo_(std::make_shared<AuthorizationInfo>(std::move(a))),
           logger_(realm_.logger()),
-          timeoutScheduler_(CallerTimeoutScheduler::create(strand_))
+          timeoutScheduler_(CallerTimeoutScheduler::create(strand_)),
+          id_(a.sessionId())
     {}
 
     template <typename F, typename... Ts>
@@ -949,9 +955,9 @@ private:
         dispatchHandler(handler, std::forward<Ts>(args)...);
     }
 
-    SlotId nextSlotId() {return nextSlotId_++;}
-
     bool isTerminating() const {return isTerminating_.load();}
+
+    SlotId nextSlotId() {return nextSlotId_++;}
 
     IoStrand strand_;
     AnyCompletionExecutor userExecutor_;
@@ -960,10 +966,11 @@ private:
     Readership readership_;
     Registry registry_;
     InvocationMap pendingInvocations_;
-    AuthorizationInfo authInfo_;
+    AuthorizationInfo::Ptr authInfo_;
     RouterLogger::Ptr logger_;
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
     std::atomic<bool> isTerminating_;
+    SessionId id_;
     SlotId nextSlotId_ = 0;
 };
 

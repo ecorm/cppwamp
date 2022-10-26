@@ -33,7 +33,6 @@ set(HEADERS
     include/cppwamp/registration.hpp
     include/cppwamp/router.hpp
     include/cppwamp/routerconfig.hpp
-    include/cppwamp/server.hpp
     include/cppwamp/session.hpp
     include/cppwamp/spawn.hpp
     include/cppwamp/subscription.hpp

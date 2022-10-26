@@ -11,6 +11,7 @@
 #include <memory>
 #include "../anyhandler.hpp"
 #include "../asiodefs.hpp"
+#include "../erroror.hpp"
 #include "../logging.hpp"
 #include "wampmessage.hpp"
 
@@ -67,11 +68,13 @@ class RealmContext
 public:
     RealmContext() = default;
     RealmContext(std::shared_ptr<RouterRealm> r);
+    bool expired() const;
     IoStrand strand() const;
     RouterLogger::Ptr logger() const;
     void onMessage(std::shared_ptr<ServerSession> s, WampMessage m);
     void leave(std::shared_ptr<LocalSessionImpl> s);
     void leave(std::shared_ptr<ServerSession> s);
+    void reset();
 
 private:
     std::weak_ptr<RouterRealm> realm_;
@@ -81,9 +84,11 @@ private:
 class RouterContext
 {
 public:
+    static const Object& roles();
     RouterContext(std::shared_ptr<RouterImpl> r);
     RouterLogger::Ptr logger() const;
-    RealmContext join(std::shared_ptr<ServerSession> s);
+    SessionId allocateSessionId() const;
+    ErrorOr<RealmContext> join(std::shared_ptr<ServerSession> s);
 
 private:
     std::weak_ptr<RouterImpl> router_;

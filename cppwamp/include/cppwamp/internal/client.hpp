@@ -89,7 +89,6 @@ public:
             {"caller", Object{{"features", Object{{
                 {"call_canceling", true},
                 {"call_timeout", true},
-                {"caller_exclusion", true},
                 {"caller_identification", true},
                 {"progressive_call_results", true}
             }}}}},

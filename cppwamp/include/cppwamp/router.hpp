@@ -23,7 +23,6 @@
 #include "asiodefs.hpp"
 #include "logging.hpp"
 #include "routerconfig.hpp"
-#include "server.hpp"
 
 namespace wamp
 {
@@ -70,13 +69,28 @@ public:
     Router& operator=(Router&&) = default;
     /// @}
 
-    /// @name Setup
+    /// @name Operations
     /// @{
-    Server::Ptr addServer(ServerConfig config);
+    bool addRealm(RealmConfig config);
 
-    void removeServer(const Server::Ptr& server);
+    bool shutDownRealm(const std::string& name);
 
-    void removeServer(const std::string& name);
+    bool terminateRealm(const std::string& name);
+
+    bool startServer(ServerConfig config);
+
+    void shutDownServer(const std::string& name);
+
+    void terminateServer(const std::string& name);
+
+    LocalSession join(AuthorizationInfo authInfo);
+
+    LocalSession join(AuthorizationInfo authInfo,
+                      AnyCompletionExecutor fallbackExecutor);
+
+    void shutDown();
+
+    void terminate();
     /// @}
 
     /// @name Observers
@@ -86,20 +100,6 @@ public:
 
     /** Obtains the execution context in which I/O operations are serialized. */
     const IoStrand& strand() const;
-
-    Server::Ptr server(const std::string& name) const;
-
-    LocalSession join(AuthorizationInfo authInfo);
-
-    LocalSession join(AuthorizationInfo authInfo,
-                      AnyCompletionExecutor fallbackExecutor);
-    /// @}
-
-    /// @name Operations
-    /// @{
-    void startAll();
-
-    void stopAll();
     /// @}
 
 private:

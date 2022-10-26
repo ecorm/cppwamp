@@ -675,6 +675,8 @@ Session::join(
                         or a compatible Boost.Asio completion token. */
     )
 {
+    // TODO: Return SessionInfoOrChallenge variant instead of
+    // using setChallengeHandler
     return initiate<JoinOp>(std::forward<C>(completion), std::move(realm));
 }
 
@@ -743,6 +745,7 @@ Session::leave(
                         or a compatible Boost.Asio completion token. */
     )
 {
+    // TODO: Timeout
     return leave(Reason("wamp.close.close_realm"), std::forward<C>(completion));
 }
 
