@@ -57,20 +57,14 @@ CPPWAMP_INLINE Realm& Realm::withAuthId(String authId)
     return withOption("authid", std::move(authId));
 }
 
-CPPWAMP_INLINE Array Realm::authMethods() const
+CPPWAMP_INLINE ErrorOr<Array> Realm::authMethods() const
 {
-    auto kv = options().find("authmethods");
-    if (kv != options().end() && kv->second.is<Array>())
-        return kv->second.as<Array>();
-    return Array{};
+    return this->optionAs<Array>("authmethods");
 }
 
-CPPWAMP_INLINE String Realm::authId() const
+CPPWAMP_INLINE ErrorOr<String> Realm::authId() const
 {
-    auto kv = options().find("authid");
-    if (kv != options().end() && kv->second.is<String>())
-        return kv->second.as<String>();
-    return String{};
+    return this->optionAs<String>("authid");
 }
 
 CPPWAMP_INLINE Realm::Realm(internal::PassKey, internal::HelloMessage&& msg)
@@ -97,17 +91,17 @@ CPPWAMP_INLINE const String& SessionInfo::realm() const
 }
 
 /** @returns The value of the `HELLO.Details.agent|string`
-             detail, or an empty string if it is not available. */
-CPPWAMP_INLINE String SessionInfo::agentString() const
+             detail, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<String> SessionInfo::agentString() const
 {
-    return optionOr("agent", String());
+    return optionAs<String>("agent");
 }
 
 /** @returns The value of the `HELLO.Details.roles|dict`
-             detail, or an empty Object if it is not available. */
-CPPWAMP_INLINE Object SessionInfo::roles() const
+             detail, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<Object> SessionInfo::roles() const
 {
-    return optionOr("roles", Object());
+    return optionAs<Object>("roles");
 }
 
 /** @details
@@ -120,7 +114,7 @@ Possible role strings include:
     bool supported = sessionInfo.supportsRoles({"broker", "dealer"});
 ```
         */
-    CPPWAMP_INLINE bool SessionInfo::supportsRoles(const RoleSet& roles) const
+CPPWAMP_INLINE bool SessionInfo::supportsRoles(const RoleSet& roles) const
 {
     if (roles.empty())
         return true;
@@ -191,68 +185,58 @@ CPPWAMP_INLINE bool SessionInfo::supportsFeatures(
 
 /** @details
     This function returns the value of the `HELLO.Details.authid|string`
-    detail.
-    @returns A string variant if the authentication ID is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant SessionInfo::authId() const
+    detail, or an empty string if not available. */
+CPPWAMP_INLINE ErrorOr<String> SessionInfo::authId() const
 {
-    return optionByKey("authid");
+    return optionAs<String>("authid");
 }
 
 /** @details
     This function returns the value of the `HELLO.Details.authrole|string`
-    detail. This is not to be confused with the _dealer roles_.
-    @returns A string variant if the authentication role is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant SessionInfo::authRole() const
+    detail, if available, or an error code. Not to be confused with
+    the _dealer roles_. */
+CPPWAMP_INLINE ErrorOr<String> SessionInfo::authRole() const
 {
-    return optionByKey("authrole");
+    return optionAs<String>("authrole");
 }
 
 /** @details
     This function returns the value of the `HELLO.Details.authmethod|string`
-    detail.
-    @returns A string variant if the authentication method is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant SessionInfo::authMethod() const
+    detail, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<String> SessionInfo::authMethod() const
 {
-    return optionByKey("authmethod");
+    return optionAs<String>("authmethod");
 }
 
 /** @details
     This function returns the value of the `HELLO.Details.authprovider|string`
-    detail.
-    @returns A string variant if the authentication provider is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant SessionInfo::authProvider() const
+    detail, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<String> SessionInfo::authProvider() const
 {
-    return optionByKey("authprovider");
+    return optionAs<String>("authprovider");
 }
 
 /** @details
     This function returns the value of the `HELLO.Details.authextra|object`
-    detail.
-    @returns An object variant if the extra authentication details are
-             available. Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant SessionInfo::authExtra() const
+    detail, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<Object> SessionInfo::authExtra() const
 {
-    return optionByKey("authextra");
+    return optionAs<Object>("authextra");
 }
 
 CPPWAMP_INLINE SessionInfo::SessionInfo(internal::PassKey, String&& realm,
                                         internal::WelcomeMessage&& msg)
     : Base(std::move(msg)),
-    realm_(std::move(realm))
+      realm_(std::move(realm))
 {}
 
-CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
-                                        const SessionInfo& info)
+CPPWAMP_INLINE std::ostream& operator<<(std::ostream& o, const SessionInfo& i)
 {
-    out << "[ Realm|uri = " << info.realm()
-        << ", Session|id = " << info.id();
-    if (!info.options().empty())
-        out << ", Details|dict = " << info.options();
-    return out << " ]";
+    o << "[ Realm|uri = " << i.realm()
+      << ", Session|id = " << i.id();
+    if (!i.options().empty())
+        o << ", Details|dict = " << i.options();
+    return o << " ]";
 }
 
 
@@ -323,64 +307,48 @@ CPPWAMP_INLINE const String& Challenge::method() const
     return message().authMethod();
 }
 
-/** @details
-    This function returns the value of the `CHALLENGE.Details.challenge|string`
-    detail used by the WAMP-CRA authentication method.
-    @returns A string variant if the challenge string is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant Challenge::challenge() const
+/** @returns The value of the `CHALLENGE.Details.challenge|string` detail used
+    by the WAMP-CRA authentication method, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<String> Challenge::challenge() const
 {
-    return optionByKey("challenge");
+    return optionAs<String>("challenge");
 }
 
-/** @details
-    This function returns the value of the `CHALLENGE.Details.salt|string`
-    detail used by the WAMP-CRA authentication method.
-    @returns A string variant if the salt is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant Challenge::salt() const
+/** @returns The value of the `CHALLENGE.Details.salt|string` detail used by
+    the WAMP-CRA authentication method, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<String> Challenge::salt() const
 {
-    return optionByKey("salt");
+    return optionAs<String>("salt");
 }
 
-/** @details
-    This function returns the value of the `CHALLENGE.Details.keylen|integer`
-    detail used by the WAMP-CRA authentication method.
-    @returns An integer variant if the key length is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant Challenge::keyLength() const
+/** @returns The value of the `CHALLENGE.Details.keylen|integer`detail used by
+    the WAMP-CRA authentication method, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<UInt> Challenge::keyLength() const
 {
-    return optionByKey("keylen");
+    return toUnsignedInteger("keylen");
 }
 
-/** @details
-    This function returns the value of the `CHALLENGE.Details.iterations|integer`
-    detail used by the WAMP-CRA and WAMP-SCRAM authentication methods.
-    @returns An integer variant if the iteration count is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant Challenge::iterations() const
+/** @returns The value of the `CHALLENGE.Details.iterations|integer` detail
+    used by the WAMP-CRA and WAMP-SCRAM authentication methods, if available,
+    or an error code. */
+CPPWAMP_INLINE ErrorOr<UInt> Challenge::iterations() const
 {
-    return optionByKey("iterations");
+    return toUnsignedInteger("iterations");
 }
 
-/** @details
-    This function returns the value of the `CHALLENGE.Details.kdf|string`
-    detail used by the WAMP-SCRAM authentication method.
-    @returns A string variant if the KDF identifier is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant Challenge::kdf() const
+/** @returns The value of the `CHALLENGE.Details.kdf|string` detail used by
+    the WAMP-SCRAM authentication method, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<String> Challenge::kdf() const
 {
-    return optionByKey("kdf");
+    return optionAs<String>("kdf");
 }
 
-/** @details
-    This function returns the value of the `CHALLENGE.Details.memory|integer`
-    detail used by the WAMP-SCRAM authentication method for the Argon2 KDF.
-    @returns An integer variant if the memory cost factor is available.
-             Otherwise, a null variant is returned. */
-CPPWAMP_INLINE Variant Challenge::memory() const
+/** @returns The value of the `CHALLENGE.Details.memory|integer` detail used by
+    the WAMP-SCRAM authentication method for the Argon2 KDF, if available,
+    or an error code. */
+CPPWAMP_INLINE ErrorOr<UInt> Challenge::memory() const
 {
-    return optionByKey("memory");
+    return toUnsignedInteger("memory");
 }
 
 CPPWAMP_INLINE ErrorOrDone Challenge::authenticate(Authentication auth)
@@ -637,30 +605,27 @@ CPPWAMP_INLINE AnyCompletionExecutor Event::executor() const
 /** @details
     This function returns the value of the `EVENT.Details.publisher|integer`
     detail.
-    @returns An integer variant if the publisher ID is available. Otherwise,
-             a null variant is returned. */
-CPPWAMP_INLINE Variant Event::publisher() const
+    @returns The publisher ID, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<UInt> Event::publisher() const
 {
-    return this->optionByKey("publisher");
+    return toUnsignedInteger("publisher");
 }
 
 /** @details
     This function returns the value of the `EVENT.Details.trustlevel|integer`
     detail.
-    @returns An integer variant if the trust level is available. Otherwise,
-             a null variant is returned. */
-CPPWAMP_INLINE Variant Event::trustLevel() const
+    @returns The trust level, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<UInt> Event::trustLevel() const
 {
-    return this->optionByKey("trustlevel");
+    return toUnsignedInteger("trustlevel");
 }
 
 /** @details
     This function checks the value of the `EVENT.Details.topic|uri` detail.
-    @returns A string variant if the topic URI is available. Otherwise,
-             a null variant is returned. */
-CPPWAMP_INLINE Variant Event::topic() const
+    @returns The topic URI, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<String> Event::topic() const
 {
-    return this->optionByKey("topic");
+    return optionAs<String>("topic");
 }
 
 CPPWAMP_INLINE Event::Event(internal::PassKey, AnyCompletionExecutor executor,
@@ -1106,17 +1071,16 @@ Invocation::yield(ThreadSafe, Error error) const
     detail is `true`. */
 CPPWAMP_INLINE bool Invocation::isProgressive() const
 {
-    return optionOr("receive_progress", false);
+    return optionOr<bool>("receive_progress", false);
 }
 
 /** @details
     This function returns the value of the `INVOCATION.Details.caller|integer`
     detail.
-    @returns An integer variant if the caller ID is available. Otherwise,
-             a null variant is returned.*/
-CPPWAMP_INLINE Variant Invocation::caller() const
+    @returns The caller ID, if available, or an error code. */
+CPPWAMP_INLINE ErrorOr<UInt> Invocation::caller() const
 {
-    return optionByKey("caller");
+    return toUnsignedInteger("caller");
 }
 
 /** @details
@@ -1124,9 +1088,9 @@ CPPWAMP_INLINE Variant Invocation::caller() const
     detail.
     @returns An integer variant if the trust level is available. Otherwise,
              a null variant is returned. */
-CPPWAMP_INLINE Variant Invocation::trustLevel() const
+CPPWAMP_INLINE ErrorOr<UInt> Invocation::trustLevel() const
 {
-    return optionByKey("trustlevel");
+    return toUnsignedInteger("trustlevel");
 }
 
 /** @details
@@ -1134,9 +1098,9 @@ CPPWAMP_INLINE Variant Invocation::trustLevel() const
     detail.
     @returns A string variant if the procedure URI is available. Otherwise,
              a null variant is returned. */
-CPPWAMP_INLINE Variant Invocation::procedure() const
+CPPWAMP_INLINE ErrorOr<String> Invocation::procedure() const
 {
-    return optionByKey("procedure");
+    return optionAs<String>("procedure");
 }
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,

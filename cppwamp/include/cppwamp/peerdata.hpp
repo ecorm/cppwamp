@@ -85,11 +85,11 @@ public:
     /** Sets the `HELLO.Details.authid` option. */
     Realm& withAuthId(String authId);
 
-    /** Obtains the `authmethods` array, or an empty array if absent. */
-    Array authMethods() const;
+    /** Obtains the `authmethods` array. */
+    ErrorOr<Array> authMethods() const;
 
-    /** Obtains the `authid` string, or an empty string if absent. */
-    String authId() const;
+    /** Obtains the `authid` string, or an empty string if unavailable. */
+    ErrorOr<String> authId() const;
     /// @}
 
 private:
@@ -134,8 +134,8 @@ public:
         (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.8)
         @{ */
 
-    /** Obtains the agent string of the WAMP router, if available. */
-    String agentString() const;
+    /** Obtains the agent string of the WAMP router. */
+    ErrorOr<String> agentString() const;
     /// @}
 
     /** @name Role and Feature Announcement
@@ -144,7 +144,7 @@ public:
         @{ */
 
     /** Obtains the `WELCOME.Details.roles` dictionary for the router. */
-    Object roles() const;
+    ErrorOr<Object> roles() const;
 
     /** Checks that the router supports the given set of roles. */
     bool supportsRoles(const RoleSet& roles) const;
@@ -160,20 +160,19 @@ public:
 
     /** Obtains the authentication ID the client was actually
         authenticated as. */
-    // TODO: Return string instead that can be empty if field is absent
-    Variant authId() const;
+    ErrorOr<String> authId() const;
 
     /** Obtains the role the client was authenticated for. */
-    Variant authRole() const;
+    ErrorOr<String> authRole() const;
 
     /** Obtains the method that was used for authentication. */
-    Variant authMethod() const;
+    ErrorOr<String> authMethod() const;
 
     /** Obtains the authentication provider. */
-    Variant authProvider() const;
+    ErrorOr<String> authProvider() const;
 
     /** Obtains extra authentication details. */
-    Variant authExtra() const;
+    ErrorOr<Object> authExtra() const;
     /// @}
 
 private:
@@ -187,8 +186,7 @@ public:
                 internal::WelcomeMessage&& msg);
 };
 
-CPPWAMP_API std::ostream& operator<<(std::ostream& out,
-                                     const SessionInfo& info);
+CPPWAMP_API std::ostream& operator<<(std::ostream& o, const SessionInfo& i);
 
 
 //------------------------------------------------------------------------------
@@ -268,23 +266,23 @@ public:
     /** Obtains the authentication method string. */
     const String& method() const;
 
-    /** Returns an optional challenge string. */
-    Variant challenge() const;
+    /** Obtains the challenge string. */
+    ErrorOr<String> challenge() const;
 
-    /** Returns an optional salt string. */
-    Variant salt() const;
+    /** Obtains the salt string. */
+    ErrorOr<String> salt() const;
 
-    /** Returns an optional key length. */
-    Variant keyLength() const;
+    /** Obtains the key length. */
+    ErrorOr<UInt> keyLength() const;
 
-    /** Returns an optional iteration count. */
-    Variant iterations() const;
+    /** Obtains the iteration count. */
+    ErrorOr<UInt> iterations() const;
 
-    /** Returns an optional key derivation function (KDF) identifier. */
-    Variant kdf() const;
+    /** Obtains the key derivation function (KDF) identifier. */
+    ErrorOr<String> kdf() const;
 
-    /** Returns an optional KDF memory cost factor integer. */
-    Variant memory() const;
+    /** Obtains an optional KDF memory cost factor integer. */
+    ErrorOr<UInt> memory() const;
 
     /** Sends an `AUTHENTICATE` message back in response to the challenge. */
     ErrorOrDone authenticate(Authentication auth);
@@ -506,8 +504,8 @@ public:
         (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.3)
         @{ */
 
-    /** Obtains an optional publisher ID integer. */
-    Variant publisher() const;
+    /** Obtains the publisher ID integer. */
+    ErrorOr<UInt> publisher() const;
     /// @}
 
     /** @name Publication Trust Levels
@@ -515,8 +513,8 @@ public:
         (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.4)
         @{ */
 
-    /** Obtains an optional trust level integer. */
-    Variant trustLevel() const;
+    /** Obtains the trust level integer. */
+    ErrorOr<UInt> trustLevel() const;
     /// @}
 
     /** @name Pattern-based Subscriptions
@@ -524,9 +522,8 @@ public:
         (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.6)
         @{ */
 
-    /** Obtains an optional string of the original topic URI used to make the
-        publication. */
-    Variant topic() const;
+    /** Obtains the original topic URI string used to make the publication. */
+    ErrorOr<String> topic() const;
     /// @}
 
 private:
@@ -899,8 +896,8 @@ public:
         (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.5)
         @{ */
 
-    /** Returns an optional session ID integer of the caller. */
-    Variant caller() const;
+    /** Obtains the session ID integer of the caller. */
+    ErrorOr<UInt> caller() const;
     /// @}
 
     /** @name Call Trust Levels
@@ -908,8 +905,8 @@ public:
         (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.6)
         @{ */
 
-    /** Returns an optional trust level integer. */
-    Variant trustLevel() const;
+    /** Obtains the trust level integer. */
+    ErrorOr<UInt> trustLevel() const;
     /// @}
 
     /** @name Pattern-based Registrations
@@ -917,9 +914,8 @@ public:
         (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.8)
         @{ */
 
-    /** Returns an optional string of the original procedure URI used to make
-        this call. */
-    Variant procedure() const;
+    /** Obtains the original procedure URI string used to make this call. */
+    ErrorOr<String> procedure() const;
     /// @}
 
 public:

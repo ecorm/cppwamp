@@ -145,6 +145,8 @@ enum class SessionErrc
     unregisterError,        ///< Unregister error reported by dealer
     callError,              ///< Call error reported by callee or dealer
     invalidState,           ///< Invalid state for this operation
+    noSuchOption,           ///< Missing WAMP message option
+    badOption,              ///< Invalid WAMP message option
 
     // Errors mapped to predefined URIs
     invalidUri,             ///< An invalid WAMP URI was provided
@@ -156,7 +158,7 @@ enum class SessionErrc
     systemShutdown,         ///< The other peer is shutting down
     closeRealm,             ///< The other peer is leaving the realm
     goodbyeAndOut,          ///< Session ended successfully
-    protocolViolation,      ///< Invalid WAMP message for current session state.
+    protocolViolation,      ///< Invalid, unexpected, or malformed WAMP message.
     notAuthorized,          ///< This peer is not authorized to perform the operation
     authorizationFailed,    ///< The authorization operation failed
     noSuchRealm,            ///< Attempt to join non-existent realm

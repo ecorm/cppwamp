@@ -32,11 +32,10 @@ struct CPPWAMP_API AuthorizationInfo
 public:
     using Ptr = std::shared_ptr<AuthorizationInfo>;
 
-    explicit AuthorizationInfo(const Realm& realm, std::string role = "",
-                               std::string method = "",
-                               std::string provider = "")
+    explicit AuthorizationInfo(const Realm& realm, String role = "",
+                               String method = "", String provider = "")
         : realmUri_(realm.uri()),
-          id_(realm.authId()),
+          id_(realm.authId().value_or("")),
           role_(std::move(role)),
           method_(std::move(method)),
           provider_(std::move(provider))
@@ -44,15 +43,15 @@ public:
 
     SessionId sessionId() const {return sessionId_;}
 
-    const std::string& realmUri() const {return realmUri_;}
+    const String& realmUri() const {return realmUri_;}
 
-    const std::string& id() const {return id_;}
+    const String& id() const {return id_;}
 
-    const std::string& role() const {return role_;}
+    const String& role() const {return role_;}
 
-    const std::string& method() const {return method_;}
+    const String& method() const {return method_;}
 
-    const std::string& provider() const {return provider_;}
+    const String& provider() const {return provider_;}
 
     Object welcomeDetails() const
     {
@@ -71,11 +70,11 @@ public:
     void setSessionId(SessionId sid) {sessionId_ = sid;}
 
 private:
-    std::string realmUri_;
-    std::string id_;
-    std::string role_;
-    std::string method_;
-    std::string provider_;
+    String realmUri_;
+    String id_;
+    String role_;
+    String method_;
+    String provider_;
     SessionId sessionId_ = 0;
 };
 
@@ -92,7 +91,7 @@ struct AuthorizationRequest
 
     AuthorizationInfo::Ptr authInfo;
     Object options;
-    std::string uri;
+    String uri;
     Action action;
 };
 
@@ -103,7 +102,7 @@ public:
     using AuthorizationHandler =
         AnyReusableHandler<bool (AuthorizationRequest)>;
 
-    RealmConfig(std::string uri) : uri_(std::move(uri)) {}
+    RealmConfig(String uri) : uri_(std::move(uri)) {}
 
     RealmConfig& withAuthorizationHandler(AuthorizationHandler f)
     {
@@ -117,13 +116,13 @@ public:
         return *this;
     }
 
-    const std::string& uri() const {return uri_;}
+    const String& uri() const {return uri_;}
 
     bool authorizationCacheEnabled() const {return authorizationCacheEnabled_;}
 
 private:
     AuthorizationHandler authorizationHandler_;
-    std::string uri_;
+    String uri_;
     bool authorizationCacheEnabled_ = false;
 };
 
@@ -134,7 +133,7 @@ public:
     using AuthExchangeHandler = AnyReusableHandler<void (AuthExchange::Ptr)>;
 
     template <typename S>
-    explicit ServerConfig(std::string name, S&& transportSettings)
+    explicit ServerConfig(String name, S&& transportSettings)
         : name_(std::move(name)),
         listenerBuilder_(std::forward<S>(transportSettings))
     {}
@@ -152,7 +151,7 @@ public:
         return *this;
     }
 
-    const std::string& name() const {return name_;}
+    const String& name() const {return name_;}
 
     const AuthExchangeHandler& authenticator() const {return authenticator_;}
 
@@ -174,7 +173,7 @@ private:
         return {};
     }
 
-    std::string name_;
+    String name_;
     ListenerBuilder listenerBuilder_;
     std::vector<BufferCodecBuilder> codecBuilders_;
     AuthExchangeHandler authenticator_;

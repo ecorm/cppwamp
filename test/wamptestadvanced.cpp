@@ -157,7 +157,7 @@ GIVEN( "a caller and a callee" )
                 Procedure("rpc"),
                 [&disclosedId](Invocation inv) -> Outcome
                 {
-                    disclosedId = inv.caller().valueOr<SessionId>(-1);
+                    disclosedId = inv.caller().value_or(0);
                     return {};
                 },
                 yield).value();
@@ -183,7 +183,7 @@ GIVEN( "a caller and a callee" )
                 [&prefixMatchCount](Invocation inv) -> Outcome
                 {
                     ++prefixMatchCount;
-                    CHECK_THAT( inv.procedure().valueOr<std::string>(""),
+                    CHECK_THAT( inv.procedure().value_or(""),
                                 Equals("com.myapp.foo") );
                     return {};
                 },
@@ -194,7 +194,7 @@ GIVEN( "a caller and a callee" )
                 [&wildcardMatchCount](Invocation inv) -> Outcome
                 {
                     ++wildcardMatchCount;
-                    CHECK_THAT( inv.procedure().valueOr<std::string>(""),
+                    CHECK_THAT( inv.procedure().value_or(""),
                                 Equals("com.other.foo.rpc") );
                     return {};
                 },
@@ -933,7 +933,7 @@ GIVEN( "a publisher and a subscriber" )
                 Topic("onEvent"),
                 [&disclosedId, &eventCount](Event event)
                 {
-                    disclosedId = event.publisher().valueOr<SessionId>(-1);
+                    disclosedId = event.publisher().value_or(0);
                     ++eventCount;
                 },
                 yield).value();
@@ -962,7 +962,7 @@ GIVEN( "a publisher and a subscriber" )
                 Topic("com.myapp").usingPrefixMatch(),
                 [&prefixMatchCount, &prefixTopic](Event event)
                 {
-                    prefixTopic = event.topic().valueOr<std::string>("");
+                    prefixTopic = event.topic().value_or("");
                     ++prefixMatchCount;
                 },
                 yield).value();
@@ -971,7 +971,7 @@ GIVEN( "a publisher and a subscriber" )
                 Topic("com..onEvent").usingWildcardMatch(),
                 [&wildcardMatchCount, &wildcardTopic](Event event)
                 {
-                    wildcardTopic = event.topic().valueOr<std::string>("");
+                    wildcardTopic = event.topic().value_or("");
                     ++wildcardMatchCount;
                 },
                 yield).value();

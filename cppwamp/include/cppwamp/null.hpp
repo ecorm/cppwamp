@@ -57,9 +57,9 @@ struct CPPWAMP_API Null
     Outputs a `Null` object to the given output stream.
     The string `"null"` (without the quotes) will be outputted. */
 //------------------------------------------------------------------------------
-CPPWAMP_API inline std::ostream& operator<<(std::ostream& out, Null)
+CPPWAMP_API inline std::ostream& operator<<(std::ostream& o, Null i)
 {
-    return out << "null";
+    return o << "null";
 }
 
 //------------------------------------------------------------------------------
