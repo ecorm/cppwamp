@@ -56,6 +56,8 @@ private:
 public:
     // Internal use only
     Abort(internal::PassKey, internal::AbortMessage&& msg);
+
+    internal::AbortMessage& abortMessage(internal::PassKey);
 };
 
 //------------------------------------------------------------------------------
@@ -300,44 +302,6 @@ private:
     using Base = Options<Challenge, internal::ChallengeMessage>;
 
     ChallengeePtr challengee_;
-};
-
-
-namespace internal { class Challenger; } // Forward declaration
-
-//------------------------------------------------------------------------------
-/** Contains information on an authorization exchange with a router.  */
-//------------------------------------------------------------------------------
-class AuthExchange
-{
-public:
-    using Ptr = std::shared_ptr<AuthExchange>;
-
-    const Realm& realm() const;
-    const Authentication& authentication() const;
-    unsigned stage() const;
-    const Variant& memento() const;
-
-    void challenge(Challenge challenge, Variant memento = {});
-    void challenge(ThreadSafe, Challenge challenge, Variant memento = {});
-    void welcome(Object details);
-    void welcome(ThreadSafe, Object details);
-    void abort(Object details = {});
-    void abort(ThreadSafe, Object details = {});
-
-public:
-    // Internal use only
-    using ChallengerPtr = std::weak_ptr<internal::Challenger>;
-    static Ptr create(internal::PassKey, Realm&& r, ChallengerPtr c);
-
-private:
-    AuthExchange(Realm&& r, ChallengerPtr c);
-
-    Realm realm_;
-    ChallengerPtr challenger_;
-    Authentication authentication_;
-    Variant memento_; // Useful for keeping the authorizer stateless
-    unsigned stage_;
 };
 
 

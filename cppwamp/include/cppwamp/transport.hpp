@@ -64,6 +64,10 @@ public:
     /** Sends the given serialized message via the transport. */
     virtual void send(MessageBuffer message) = 0;
 
+    /** Sends the given serialized message, placing it at the top of the queue,
+        then closes the underlying socket. */
+    virtual void sendNowAndClose(MessageBuffer message) = 0;
+
     /** Stops I/O operations and closes the underlying socket. */
     virtual void close() = 0;
 

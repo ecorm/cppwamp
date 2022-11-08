@@ -66,7 +66,7 @@ public:
 
     static Ptr create(AnyIoExecutor exec)
     {
-        return Ptr(new Client(std::move(exec)));
+        return Ptr(new Client(exec, exec));
     }
 
     static Ptr create(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
@@ -176,8 +176,7 @@ public:
         if (!checkState(State::disconnected, handler))
             return;
 
-        peer_.setTerminating(false);
-        peer_.setState(State::connecting);
+        peer_.startConnecting();
         currentConnector_ = nullptr;
 
         // This makes it easier to transport the move-only completion handler
@@ -235,7 +234,7 @@ public:
 
         realm.withOption("agent", Version::agentString())
              .withOption("roles", roles());
-        peer_.start();
+        peer_.establishSession();
         peer_.request(realm.message({}),
                       Requested{shared_from_this(), std::move(handler),
                                 realm.uri(), realm.abort({})});
@@ -312,7 +311,7 @@ public:
         if (!checkState(State::established, handler))
             return;
         timeoutScheduler_->clear();
-        peer_.adjourn(reason,
+        peer_.closeSession(reason,
                       Adjourned{shared_from_this(), std::move(handler)});
     }
 
@@ -331,7 +330,10 @@ public:
 
     void disconnect()
     {
-        doDisconnect();
+        if (state() == State::connecting)
+            currentConnector_->cancel();
+        clear();
+        peer_.disconnect();
     }
 
     void safeDisconnect()
@@ -347,8 +349,10 @@ public:
 
     void terminate()
     {
-        peer_.setTerminating(true);
-        doDisconnect();
+        if (state() == State::connecting)
+            currentConnector_->cancel();
+        clear();
+        peer_.terminate();
     }
 
     void safeTerminate()
@@ -989,14 +993,6 @@ private:
     using InvocationMap  = std::map<RequestId, RegistrationId>;
     using CallerTimeoutDuration = typename Rpc::CallerTimeoutDuration;
 
-    Client(AnyIoExecutor exec)
-        : peer_(false, std::move(exec)),
-          timeoutScheduler_(CallerTimeoutScheduler::create(peer_.strand()))
-    {
-        peer_.setInboundMessageHandler(
-            [this](Message msg) {onInbound(std::move(msg));} );
-    }
-
     Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
         : peer_(false, exec, std::move(userExec)),
           timeoutScheduler_(CallerTimeoutScheduler::create(peer_.strand()))
@@ -1054,7 +1050,7 @@ private:
                 else if (me.state() == State::connecting)
                 {
                     auto codec = wishes.at(index).makeCodec();
-                    me.peer_.open(std::move(*transport), std::move(codec));
+                    me.peer_.connect(std::move(*transport), std::move(codec));
                     me.completeNow(*handler, index);
                 }
                 else
@@ -1087,7 +1083,7 @@ private:
             }
             else
             {
-                peer_.setState(State::failed);
+                peer_.failConnecting();
                 if (wishes.size() > 1)
                     ec = make_error_code(SessionErrc::allTransportsFailed);
                 completeNow(*handler, UnexpectedError(ec));
@@ -1095,17 +1091,13 @@ private:
         }
     }
 
-    void doDisconnect()
+    void clear()
     {
-        if (state() == State::connecting)
-            currentConnector_->cancel();
-
         topics_.clear();
         readership_.clear();
         registry_.clear();
         pendingInvocations_.clear();
         timeoutScheduler_->clear();
-        peer_.close();
     }
 
     void sendUnsubscribe(SubscriptionId subId)

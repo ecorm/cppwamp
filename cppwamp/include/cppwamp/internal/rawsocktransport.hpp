@@ -52,7 +52,12 @@ public:
           payload_(std::move(payload))
     {}
 
-    void clear() {header_ = 0; payload_.clear();}
+    void clear()
+    {
+        header_ = 0;
+        payload_.clear();
+        isPoisoned_ =false;
+    }
 
     void resize(size_t length) {payload_.resize(length);}
 
@@ -67,6 +72,10 @@ public:
     const MessageBuffer& payload() const & {return payload_;}
 
     MessageBuffer&& payload() && {return std::move(payload_);}
+
+    void poison(bool poisoned = true) {isPoisoned_ = poisoned;}
+
+    bool isPoisoned() const {return isPoisoned_;}
 
     GatherBufs gatherBuffers()
     {
@@ -95,6 +104,7 @@ private:
 
     Header header_;
     MessageBuffer payload_;
+    bool isPoisoned_ = false;
 };
 
 //------------------------------------------------------------------------------
@@ -132,7 +142,7 @@ public:
 
     void start(RxHandler rxHandler, TxErrorHandler txErrorHandler) override
     {
-        assert(!running_);
+        assert(!isStarted());
         rxHandler_ = rxHandler;
         txErrorHandler_ = txErrorHandler;
         receive();
@@ -141,9 +151,21 @@ public:
 
     void send(MessageBuffer message) override
     {
-        assert(running_);
+        assert(isStarted());
         auto buf = enframe(RawsockMsgType::wamp, std::move(message));
         sendFrame(std::move(buf));
+    }
+
+    void sendNowAndClose(MessageBuffer message) override
+    {
+        assert(isStarted());
+        assert(socket_ && "Attempting to send on bad transport");
+        auto frame = enframe(RawsockMsgType::wamp, std::move(message));
+        assert((frame->payload().size() <= info_.maxTxLength) &&
+               "Outgoing message is longer than allowed by peer");
+        frame->poison();
+        txQueue_.push_front(std::move(frame));
+        transmit();
     }
 
     void close() override
@@ -158,7 +180,7 @@ public:
 
     void ping(MessageBuffer message, PingHandler handler) override
     {
-        assert(running_);
+        assert(isStarted());
         pingHandler_ = std::move(handler);
         pingFrame_ = enframe(RawsockMsgType::ping, std::move(message));
         sendFrame(pingFrame_);
@@ -201,17 +223,21 @@ private:
             boost::asio::async_write(*socket_, txFrame_->gatherBuffers(),
                 [this, self](boost::system::error_code asioEc, size_t size)
                 {
+                    bool frameWasPoisoned = txFrame_->isPoisoned();
                     txFrame_.reset();
                     if (asioEc)
                     {
-                        txQueue_.clear();
                         if (txErrorHandler_)
                         {
                             auto ec = make_error_code(
                                 static_cast<std::errc>(asioEc.value()));
                             txErrorHandler_(ec);
                         }
-                        socket_.reset();
+                        cleanup();
+                    }
+                    else if (frameWasPoisoned)
+                    {
+                        close();
                     }
                     else
                     {
@@ -363,7 +389,6 @@ private:
     IoStrand strand_;
     std::unique_ptr<TSocket> socket_;
     TransportInfo info_;
-    bool running_ = false;
     RxHandler rxHandler_;
     TxErrorHandler txErrorHandler_;
     PingHandler pingHandler_;
@@ -373,6 +398,7 @@ private:
     RawsockFrame::Ptr pingFrame_;
     TimePoint pingStart_;
     TimePoint pingStop_;
+    bool running_ = false;
 };
 
 } // namespace internal

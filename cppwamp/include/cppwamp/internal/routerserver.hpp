@@ -49,11 +49,11 @@ public:
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    static Ptr create(IoStrand i, Transporting::Ptr t, AnyBufferCodec c,
+    static Ptr create(const IoStrand& i, Transporting::Ptr t, AnyBufferCodec c,
                       ServerContext s)
     {
         using std::move;
-        return Ptr(new ServerSession(move(i), move(t), move(c), move(s)));
+        return Ptr(new ServerSession(i, move(t), move(c), move(s)));
     }
 
     SessionId id() const {return id_;}
@@ -64,13 +64,13 @@ public:
 
     void start()
     {
-        peer_.start();
+        peer_.establishSession();
     }
 
     void close()
     {
         realm_.reset();
-        peer_.close();
+        peer_.disconnect();
     }
 
     void join(RealmContext realm)
@@ -88,7 +88,7 @@ public:
         realm_.reset();
 
         auto self = shared_from_this();
-        peer_.adjourn(
+        peer_.closeSession(
             reason,
             [this, self](ErrorOr<WampMessage> reply)
             {
@@ -157,9 +157,9 @@ public:
     }
 
 private:
-    ServerSession(IoStrand&& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
+    ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
                   ServerContext&& s)
-        : peer_(true, i),
+        : peer_(true, i, i),
           strand_(std::move(i)),
           server_(std::move(s)),
           logger_(server_.logger())
@@ -184,7 +184,7 @@ private:
         peer_.setStateChangeHandler(
             [this](SessionState st) {onStateChanged(st);} );
 
-        peer_.open(std::move(t), std::move(c));
+        peer_.connect(std::move(t), std::move(c));
     }
 
     void log(LogEntry&& e)
@@ -254,6 +254,20 @@ private:
 
     void onAuthenticate(Authentication&& authentication)
     {
+        const auto* config = server_.config();
+        if (!config)
+            return;
+
+        const auto& authenticator = config->authenticator();
+        if (authenticator && authExchange_)
+        {
+            authExchange_->setAuthentication({}, std::move(authentication));
+            dispatchVia(strand_, authenticator, authExchange_);
+        }
+        else
+        {
+            // TODO: Abort
+        }
     }
 
     template <typename F, typename... Ts>

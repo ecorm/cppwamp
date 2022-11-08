@@ -9,7 +9,6 @@
 #include "../api.hpp"
 #include "callee.hpp"
 #include "challengee.hpp"
-#include "challenger.hpp"
 
 namespace wamp
 {
@@ -28,6 +27,11 @@ CPPWAMP_INLINE const String& Abort::uri() const
 CPPWAMP_INLINE Abort::Abort(internal::PassKey, internal::AbortMessage&& msg)
     : Base(std::move(msg))
 {}
+
+CPPWAMP_INLINE internal::AbortMessage& Abort::abortMessage(internal::PassKey)
+{
+    return message();
+}
 
 
 //******************************************************************************
@@ -378,75 +382,6 @@ CPPWAMP_INLINE Challenge::Challenge(internal::PassKey, ChallengeePtr challengee,
                                     internal::ChallengeMessage&& msg)
     : Base(std::move(msg)),
       challengee_(std::move(challengee))
-{}
-
-
-//******************************************************************************
-// AuthExchange
-//******************************************************************************
-
-CPPWAMP_INLINE const Realm& AuthExchange::realm() const {return realm_;}
-
-CPPWAMP_INLINE const Authentication& AuthExchange::authentication() const
-{
-    return authentication_;
-}
-
-CPPWAMP_INLINE unsigned AuthExchange::stage() const {return stage_;}
-
-CPPWAMP_INLINE const Variant& AuthExchange::memento() const {return memento_;}
-
-CPPWAMP_INLINE void AuthExchange::challenge(Challenge challenge, Variant memento)
-{
-    auto c = challenger_.lock();
-    if (c)
-        c->challenge(std::move(challenge), std::move(memento));
-}
-
-CPPWAMP_INLINE void AuthExchange::challenge(ThreadSafe, Challenge challenge, Variant memento)
-{
-    auto c = challenger_.lock();
-    if (c)
-        c->safeChallenge(std::move(challenge), std::move(memento));
-}
-
-CPPWAMP_INLINE void AuthExchange::welcome(Object details)
-{
-    auto c = challenger_.lock();
-    if (c)
-        c->welcome(std::move(details));
-}
-
-CPPWAMP_INLINE void AuthExchange::welcome(ThreadSafe, Object details)
-{
-    auto c = challenger_.lock();
-    if (c)
-        c->safeWelcome(std::move(details));
-}
-
-CPPWAMP_INLINE void AuthExchange::abort(Object details)
-{
-    auto c = challenger_.lock();
-    if (c)
-        c->abortJoin(std::move(details));
-}
-
-CPPWAMP_INLINE void AuthExchange::abort(ThreadSafe, Object details)
-{
-    auto c = challenger_.lock();
-    if (c)
-        c->safeAbortJoin(std::move(details));
-}
-
-CPPWAMP_INLINE AuthExchange::Ptr
-AuthExchange::create(internal::PassKey, Realm&& r, ChallengerPtr c)
-{
-    return Ptr(new AuthExchange(std::move(r), std::move(c)));
-}
-
-CPPWAMP_INLINE AuthExchange::AuthExchange(Realm&& r, ChallengerPtr c)
-    : realm_(std::move(r)),
-      challenger_(c)
 {}
 
 

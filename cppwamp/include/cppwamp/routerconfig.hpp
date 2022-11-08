@@ -20,6 +20,7 @@
 #include "peerdata.hpp"
 #include "variant.hpp"
 #include "wampdefs.hpp"
+#include "internal/challenger.hpp"
 
 namespace wamp
 {
@@ -126,6 +127,45 @@ private:
     bool authorizationCacheEnabled_ = false;
 };
 
+namespace internal { class Challenger; } // Forward declaration
+
+//------------------------------------------------------------------------------
+/** Contains information on an authorization exchange with a router.  */
+//------------------------------------------------------------------------------
+class AuthExchange
+{
+public:
+    using Ptr = std::shared_ptr<AuthExchange>;
+
+    const Realm& realm() const;
+    const Authentication& authentication() const;
+    unsigned stage() const;
+    const Variant& memento() const;
+
+    void challenge(Challenge challenge, Variant memento = {});
+    void challenge(ThreadSafe, Challenge challenge, Variant memento = {});
+    void welcome(Object details);
+    void welcome(ThreadSafe, Object details);
+    void abort(Object details = {});
+    void abort(ThreadSafe, Object details = {});
+
+public:
+    // Internal use only
+    using ChallengerPtr = std::weak_ptr<internal::Challenger>;
+    static Ptr create(internal::PassKey, Realm&& r, ChallengerPtr c);
+    void setAuthentication(internal::PassKey, Authentication&& a);
+
+private:
+    AuthExchange(Realm&& r, ChallengerPtr c);
+
+    Realm realm_;
+    ChallengerPtr challenger_;
+    Authentication authentication_;
+    Variant memento_; // Useful for keeping the authorizer stateless
+    unsigned stage_ = 0;
+};
+
+
 //------------------------------------------------------------------------------
 class CPPWAMP_API ServerConfig
 {
@@ -135,7 +175,7 @@ public:
     template <typename S>
     explicit ServerConfig(String name, S&& transportSettings)
         : name_(std::move(name)),
-        listenerBuilder_(std::forward<S>(transportSettings))
+          listenerBuilder_(std::forward<S>(transportSettings))
     {}
 
     template <typename... TFormats>
@@ -209,6 +249,90 @@ private:
     LogHandler logHandler_;
     LogLevel logLevel_ = LogLevel::warning;
 };
+
+//******************************************************************************
+// AuthExchange
+//******************************************************************************
+
+CPPWAMP_INLINE const Realm& AuthExchange::realm() const {return realm_;}
+
+CPPWAMP_INLINE const Authentication& AuthExchange::authentication() const
+{
+    return authentication_;
+}
+
+CPPWAMP_INLINE unsigned AuthExchange::stage() const {return stage_;}
+
+CPPWAMP_INLINE const Variant& AuthExchange::memento() const {return memento_;}
+
+CPPWAMP_INLINE void AuthExchange::challenge(Challenge challenge,
+                                            Variant memento)
+{
+    auto c = challenger_.lock();
+    if (c)
+    {
+        ++stage_;
+        c->challenge(std::move(challenge), std::move(memento));
+    }
+}
+
+CPPWAMP_INLINE void AuthExchange::challenge(ThreadSafe, Challenge challenge,
+                                            Variant memento)
+{
+    auto c = challenger_.lock();
+    if (c)
+    {
+        ++stage_;
+        c->safeChallenge(std::move(challenge), std::move(memento));
+    }
+}
+
+CPPWAMP_INLINE void AuthExchange::welcome(Object details)
+{
+    auto c = challenger_.lock();
+    if (c)
+        c->welcome(std::move(details));
+}
+
+CPPWAMP_INLINE void AuthExchange::welcome(ThreadSafe, Object details)
+{
+    auto c = challenger_.lock();
+    if (c)
+        c->safeWelcome(std::move(details));
+}
+
+CPPWAMP_INLINE void AuthExchange::abort(Object details)
+{
+    auto c = challenger_.lock();
+    if (c)
+        c->abortJoin(std::move(details));
+}
+
+CPPWAMP_INLINE void AuthExchange::abort(ThreadSafe, Object details)
+{
+    auto c = challenger_.lock();
+    if (c)
+        c->safeAbortJoin(std::move(details));
+}
+
+CPPWAMP_INLINE AuthExchange::Ptr
+AuthExchange::create(internal::PassKey, Realm&& r, ChallengerPtr c)
+{
+    return Ptr(new AuthExchange(std::move(r), std::move(c)));
+}
+
+CPPWAMP_INLINE void AuthExchange::setAuthentication(internal::PassKey,
+                                                    Authentication&& a)
+{
+    authentication_ = std::move(a);
+}
+
+CPPWAMP_INLINE AuthExchange::AuthExchange(Realm&& r, ChallengerPtr c)
+    : realm_(std::move(r)),
+      challenger_(c)
+{}
+
+
 
 } // namespace wamp
 

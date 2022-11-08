@@ -46,25 +46,9 @@ public:
     using LogHandler            = AnyReusableHandler<void (LogEntry)>;
     using StateChangeHandler    = AnyReusableHandler<void (State)>;
 
-    // TODO: Consolidate constructors
-    explicit Peer(bool isRouter, AnyIoExecutor exec)
-        : strand_(boost::asio::make_strand(exec)),
-          userExecutor_(std::move(exec)),
-          state_(State::disconnected),
-          logLevel_(LogLevel::warning),
-          isTerminating_(false),
-          isRouter_(isRouter)
-    {}
-
     explicit Peer(bool isRouter, const AnyIoExecutor& exec,
                   AnyCompletionExecutor userExecutor)
-        : Peer(isRouter, boost::asio::make_strand(exec),
-               std::move(userExecutor))
-    {}
-
-    explicit Peer(bool isRouter, IoStrand strand,
-                  AnyCompletionExecutor userExecutor)
-        : strand_(std::move(strand)),
+        : strand_(boost::asio::make_strand(exec)),
           userExecutor_(std::move(userExecutor)),
           state_(State::disconnected),
           logLevel_(LogLevel::warning),
@@ -82,6 +66,8 @@ public:
     }
 
     State state() const {return state_.load();}
+
+    bool isTerminating() const {return isTerminating_.load();}
 
     const IoStrand& strand() const {return strand_;}
 
@@ -116,19 +102,15 @@ public:
         stateChangeHandler_ = std::move(handler);
     }
 
-    State setState(State s)
+    void startConnecting()
     {
-        auto old = state_.exchange(s);
-        if (old != s && stateChangeHandler_ && !isTerminating_)
-            postVia(userExecutor_, stateChangeHandler_, s);
-        return old;
+        isTerminating_.store(false);
+        setState(State::connecting);
     }
 
-    void setTerminating(bool terminating) {isTerminating_.store(terminating);}
+    void failConnecting() {setState(State::failed);}
 
-    bool isTerminating() const {return isTerminating_.load();}
-
-    void open(Transporting::Ptr transport, AnyBufferCodec codec)
+    void connect(Transporting::Ptr transport, AnyBufferCodec codec)
     {
         assert(state() == State::connecting);
         transport_ = std::move(transport);
@@ -137,7 +119,7 @@ public:
         maxTxLength_ = transport_->info().maxTxLength;
     }
 
-    void start()
+    void establishSession()
     {
         assert(state() == State::closed || state() == State::disconnected);
         assert(transport_ != nullptr);
@@ -174,8 +156,10 @@ public:
         setState(State::established);
     }
 
-    void adjourn(Reason& reason, OneShotHandler&& handler)
+    void closeSession(Reason& reason, OneShotHandler&& handler)
     {
+        // TODO: Reply timeout
+
         struct Requested
         {
             Peer* self; // Client will keep Peer alive during request
@@ -197,7 +181,7 @@ public:
         request(reason.message({}), Requested{this, std::move(handler)});
     }
 
-    void close()
+    void disconnect()
     {
         setState(State::disconnected);
         abortPending(SessionErrc::sessionEnded);
@@ -208,12 +192,14 @@ public:
         }
     }
 
+    void terminate()
+    {
+        isTerminating_.store(true);
+        disconnect();
+    }
+
     ErrorOrDone send(Message& msg)
     {
-        // TODO: Special handling for ABORT messages
-        //       - Clear other messages in queue
-        //       - Bump to front of queue
-        //       - Provide handler for send complete
         auto reqId = sendMessage(msg);
         if (!reqId)
             return UnexpectedError(reqId.error());
@@ -239,6 +225,34 @@ public:
             }
         }
         return done;
+    }
+
+    ErrorOrDone abort(Abort&& a)
+    {
+        if (!transport_ || !transport_->isStarted())
+            return makeUnexpectedError(SessionErrc::invalidState);
+
+        auto& msg = a.abortMessage({});
+        MessageBuffer buffer;
+        codec_.encode(msg.fields(), buffer);
+
+        bool fits = buffer.size() <= maxTxLength_;
+        if (!fits)
+        {
+            a.withOptions(Object{});
+            buffer.clear();
+            codec_.encode(msg.fields(), buffer);
+            log(LogLevel::warning,
+                "Stripped options of outbound ABORT message with reason URI " +
+                a.uri() + ", due to transport payload limits");
+        }
+
+        setState(State::failed);
+        traceTx(msg);
+        transport_->sendNowAndClose(std::move(buffer));
+        if (!fits)
+            return makeUnexpectedError(SessionErrc::payloadSizeExceeded);
+        return true;
     }
 
     RequestId request(Message& msg, OneShotHandler&& handler)
@@ -310,6 +324,14 @@ private:
     {
         boost::asio::post(strand_, std::bind(std::move(handler),
                                              std::forward<Ts>(args)...));
+    }
+
+    State setState(State s)
+    {
+        auto old = state_.exchange(s);
+        if (old != s && stateChangeHandler_ && !isTerminating_)
+            postVia(userExecutor_, stateChangeHandler_, s);
+        return old;
     }
 
     ErrorOr<RequestId> sendMessage(Message& msg)
@@ -449,7 +471,7 @@ private:
                     {
                         log(LogLevel::warning,
                             "Discarding received " + std::string(msg.name()) +
-                                " message while WAMP session is shutting down");
+                            " message while WAMP session is shutting down");
                     }
                     else
                     {
@@ -469,10 +491,12 @@ private:
         if (isRouter_)
             return inboundMessageHandler_(std::move(msg));
 
+        bool matchingRequestFound = false;
         auto key = msg.requestKey();
         auto kv = oneShotRequestMap_.find(key);
         if (kv != oneShotRequestMap_.end())
         {
+            matchingRequestFound = true;
             auto handler = std::move(kv->second);
             oneShotRequestMap_.erase(kv);
             handler(std::move(msg));
@@ -482,6 +506,7 @@ private:
             auto kv = multiShotRequestMap_.find(key);
             if (kv != multiShotRequestMap_.end())
             {
+                matchingRequestFound = true;
                 if (msg.isProgressiveResponse())
                 {
                     const auto& handler = kv->second;
@@ -496,7 +521,12 @@ private:
             }
         }
 
-        // TODO: Log warning if no matching request found
+        if (!matchingRequestFound)
+        {
+            log(LogLevel::warning,
+                "Discarding received " + std::string(msg.name()) +
+                " message with no matching request");
+        }
     }
 
     void processHello(Message&& msg)
