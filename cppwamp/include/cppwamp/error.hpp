@@ -173,7 +173,8 @@ enum class SessionErrc
 
     // Errors mapped to predefined URIs not currently in the WAMP spec
     noEligibleCallee,       ///< Call options lead to the exclusion of all callees providing the procedure
-    payloadSizeExceeded     ///< Serialized payload exceeds transport limits
+    payloadSizeExceeded,    ///< Serialized payload exceeds transport limits
+    cannotAuthenticate      ///< Authentication failed
 };
 
 //------------------------------------------------------------------------------

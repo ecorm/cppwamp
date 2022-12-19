@@ -30,7 +30,7 @@ class ServerContext : public RouterContext
 {
 public:
     ServerContext(RouterContext r, std::shared_ptr<RouterServer> s);
-    const ServerConfig* config() const;
+    ServerConfig::Ptr config() const;
     void removeSession(std::shared_ptr<ServerSession> s);
 
 private:
@@ -162,6 +162,7 @@ private:
         : peer_(true, i, i),
           strand_(std::move(i)),
           server_(std::move(s)),
+          serverConfig_(server_.config()),
           logger_(server_.logger())
     {
         id_ = server_.allocateSessionId();
@@ -195,16 +196,18 @@ private:
 
     void onStateChanged(SessionState s)
     {
-        if (s == SessionState::disconnected || s == SessionState::failed)
-        {
-            // Transport was disconnected or failed
-            server_.removeSession(shared_from_this());
-        }
-        else if (s == SessionState::closed && !realm_.expired())
-        {
-            // Session was closed by remote peer
+        bool transportDropped = (s == SessionState::disconnected) ||
+                                (s == SessionState::failed);
+
+        bool closedByRemotePeer = (s == SessionState::closed);
+
+        // Don't remove session from server if it was closed gracefully, as the
+        // same transport session can be reused to establish a new WAMP session.
+        // See https://wamp-proto.org/wamp_latest_ietf.html#name-transport-and-session-lifet
+        if (transportDropped)
+            retire();
+        else if (closedByRemotePeer)
             realm_.leave(shared_from_this());
-        }
     }
 
     void onMessage(WampMessage&& msg)
@@ -212,12 +215,14 @@ private:
         if (msg.type() == WampMsgType::hello)
         {
             auto& helloMsg = message_cast<HelloMessage>(msg);
-            Realm realm({}, std::move(helloMsg));
+            Realm realm{{}, std::move(helloMsg)};
             onHello(std::move(realm));
         }
         else if (msg.type() == WampMsgType::authenticate)
         {
-
+            auto& authenticateMsg = message_cast<AuthenticateMessage>(msg);
+            Authentication authentication{{}, std::move(authenticateMsg)};
+            onAuthenticate(std::move(authentication));
         }
         else if (!realm_.expired())
         {
@@ -227,11 +232,7 @@ private:
 
     void onHello(Realm&& realm)
     {
-        const auto* config = server_.config();
-        if (!config)
-            return;
-
-        const auto& authenticator = config->authenticator();
+        const auto& authenticator = serverConfig_->authenticator();
         if (authenticator)
         {
             authExchange_ = AuthExchange::create({}, std::move(realm),
@@ -240,34 +241,50 @@ private:
         }
         else
         {
+            auto realmContext = server_.join(shared_from_this());
+            if (!realmContext)
+            {
+                kick("wamp.error.no_such_realm",
+                     "Kicked remote peer joining non-existent realm");
+                return;
+            }
+
             authInfo_ = std::make_shared<AuthorizationInfo>(realm);
             authInfo_->setSessionId(id_);
-            if (peer_.state() == SessionState::establishing)
-            {
-                auto details = authInfo_->welcomeDetails();
-                details.emplace("roles", server_.roles());
-                peer_.welcome(id_, std::move(details));
-                server_.join(shared_from_this());
-            }
+            auto details = authInfo_->welcomeDetails();
+            details.emplace("roles", server_.roles());
+            peer_.welcome(id_, std::move(details));
         }
     }
 
     void onAuthenticate(Authentication&& authentication)
     {
-        const auto* config = server_.config();
-        if (!config)
-            return;
+        const auto& authenticator = serverConfig_->authenticator();
+        bool isExpected = authenticator && authExchange_ &&
+                          peer_.state() == SessionState::authenticating;
+        if (!isExpected)
+        {
+            kick("wamp.error.protocol_violation",
+                 "Kicked remote peer sending unexpected AUTHENTICATE message");
+        }
 
-        const auto& authenticator = config->authenticator();
-        if (authenticator && authExchange_)
-        {
-            authExchange_->setAuthentication({}, std::move(authentication));
-            dispatchVia(strand_, authenticator, authExchange_);
-        }
-        else
-        {
-            // TODO: Abort
-        }
+        authExchange_->setAuthentication({}, std::move(authentication));
+        dispatchVia(strand_, authenticator, authExchange_);
+    }
+
+    void retire()
+    {
+        auto self = shared_from_this();
+        server_.removeSession(self);
+        realm_.leave(self);
+    }
+
+    void kick(std::string reasonUri, std::string logMessage,
+              LogLevel severity = LogLevel::warning)
+    {
+        log({severity, std::move(logMessage)});
+        peer_.abort({std::move(reasonUri)});
+        retire();
     }
 
     template <typename F, typename... Ts>
@@ -282,40 +299,88 @@ private:
         dispatchVia(strand_, std::move(handler), std::forward<Ts>(args)...);
     }
 
-    void challenge(Challenge&& challenge, Variant&& memento) override
+    void challenge() override
     {
-
+        if (peer_.state() != SessionState::establishing)
+            return;
+        assert(authExchange_ != nullptr);
+        peer_.challenge(authExchange_->accessChallenge({}));
     }
 
-    void safeChallenge(Challenge&& challenge, Variant&& memento) override
+    void safeChallenge() override
     {
+        struct Dispatched
+        {
+            Ptr self;
+            void operator()() {self->challenge();}
+        };
 
+        safelyDispatch<Dispatched>();
     }
 
     void welcome(Object details) override
     {
-
+        auto s = peer_.state();
+        bool readyToWelcome = s == SessionState::establishing ||
+                              s == SessionState::authenticating;
+        if (!readyToWelcome)
+            return;
+        peer_.welcome(id_, std::move(details));
     }
 
     void safeWelcome(Object details) override
     {
+        struct Dispatched
+        {
+            Ptr self;
+            Object details;
+            void operator()() {self->welcome(std::move(details));}
+        };
 
+        safelyDispatch<Dispatched>(std::move(details));
     }
 
-    void abortJoin(Object details) override
+    void reject(Object details, String reasonUri) override
     {
-
+        auto a = Abort{std::move(reasonUri)}.withOptions(std::move(details));
+        rejectAuthorization(std::move(a));
     }
 
-    void safeAbortJoin(Object details) override
+    void safeReject(Object details, String reasonUri) override
     {
+        struct Dispatched
+        {
+            Ptr self;
+            Abort abort;
+            void operator()() {self->rejectAuthorization(std::move(abort));}
+        };
 
+        auto a = Abort{std::move(reasonUri)}.withOptions(std::move(details));
+        safelyDispatch<Dispatched>(std::move(a));
+    }
+
+    void rejectAuthorization(Abort&& a)
+    {
+        auto s = peer_.state();
+        bool readyToReject = s == SessionState::establishing ||
+                             s == SessionState::authenticating;
+        if (!readyToReject)
+            return;
+        peer_.abort(std::move(a));
+    }
+
+    template <typename F, typename... Ts>
+    void safelyDispatch(Ts&&... args)
+    {
+        boost::asio::dispatch(
+            strand_, F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
     Peer peer_;
     IoStrand strand_;
     ServerContext server_;
     RealmContext realm_;
+    ServerConfig::Ptr serverConfig_;
     AuthExchange::Ptr authExchange_;
     AuthorizationInfo::Ptr authInfo_;
     RouterLogger::Ptr logger_;
@@ -338,7 +403,7 @@ public:
     void start()
     {
         assert(!listener_);
-        listener_ = config_.makeListener(strand_);
+        listener_ = config_->makeListener(strand_);
         listen();
     }
 
@@ -362,13 +427,13 @@ public:
             s->close();
     }
 
-    const ServerConfig& config() const {return config_;}
+    ServerConfig::Ptr config() const {return config_;}
 
 private:
     RouterServer(AnyIoExecutor e, ServerConfig&& c, RouterContext&& r)
         : strand_(boost::asio::make_strand(e)),
-          config_(std::move(c)),
           router_(std::move(r)),
+          config_(std::make_shared<ServerConfig>(std::move(c))),
           logger_(router_.logger())
     {}
 
@@ -401,7 +466,7 @@ private:
 
     void onEstablished(Transporting::Ptr transport)
     {
-        auto codec = config_.makeCodec(transport->info().codecId);
+        auto codec = config_->makeCodec(transport->info().codecId);
         auto self = std::static_pointer_cast<RouterServer>(shared_from_this());
         ServerContext ctx{router_, std::move(self)};
         auto s = ServerSession::create(strand_, std::move(transport),
@@ -416,10 +481,10 @@ private:
     }
 
     IoStrand strand_;
-    ServerConfig config_;
-    RouterContext router_;
-    Listening::Ptr listener_;
     std::set<ServerSession::Ptr> sessions_;
+    RouterContext router_;
+    ServerConfig::Ptr config_;
+    Listening::Ptr listener_;
     RouterLogger::Ptr logger_;
 
     friend class ServerContext;
@@ -436,10 +501,10 @@ inline ServerContext::ServerContext(RouterContext r,
       server_(std::move(s))
 {}
 
-inline const ServerConfig* ServerContext::config() const
+inline ServerConfig::Ptr ServerContext::config() const
 {
     auto s = server_.lock();
-    return s ? &(s->config()) : nullptr;
+    return s ? s->config() : nullptr;
 
 }
 

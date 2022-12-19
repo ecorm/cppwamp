@@ -138,6 +138,7 @@ public:
     using Ptr = std::shared_ptr<AuthExchange>;
 
     const Realm& realm() const;
+    const Challenge& challenge() const;
     const Authentication& authentication() const;
     unsigned stage() const;
     const Variant& memento() const;
@@ -146,20 +147,22 @@ public:
     void challenge(ThreadSafe, Challenge challenge, Variant memento = {});
     void welcome(Object details);
     void welcome(ThreadSafe, Object details);
-    void abort(Object details = {});
-    void abort(ThreadSafe, Object details = {});
+    void reject(Object details = {}, String reasonUri = {});
+    void reject(ThreadSafe, Object details = {}, String reasonUri = {});
 
 public:
     // Internal use only
     using ChallengerPtr = std::weak_ptr<internal::Challenger>;
     static Ptr create(internal::PassKey, Realm&& r, ChallengerPtr c);
     void setAuthentication(internal::PassKey, Authentication&& a);
+    Challenge& accessChallenge(internal::PassKey);
 
 private:
     AuthExchange(Realm&& r, ChallengerPtr c);
 
     Realm realm_;
     ChallengerPtr challenger_;
+    Challenge challenge_;
     Authentication authentication_;
     Variant memento_; // Useful for keeping the authorizer stateless
     unsigned stage_ = 0;
@@ -170,6 +173,7 @@ private:
 class CPPWAMP_API ServerConfig
 {
 public:
+    using Ptr = std::shared_ptr<ServerConfig>;
     using AuthExchangeHandler = AnyReusableHandler<void (AuthExchange::Ptr)>;
 
     template <typename S>
@@ -256,6 +260,11 @@ private:
 
 CPPWAMP_INLINE const Realm& AuthExchange::realm() const {return realm_;}
 
+CPPWAMP_INLINE const Challenge& AuthExchange::challenge() const
+{
+    return challenge_;
+}
+
 CPPWAMP_INLINE const Authentication& AuthExchange::authentication() const
 {
     return authentication_;
@@ -268,22 +277,26 @@ CPPWAMP_INLINE const Variant& AuthExchange::memento() const {return memento_;}
 CPPWAMP_INLINE void AuthExchange::challenge(Challenge challenge,
                                             Variant memento)
 {
+    challenge_ = std::move(challenge);
+    memento_ = std::move(memento);
     auto c = challenger_.lock();
     if (c)
     {
         ++stage_;
-        c->challenge(std::move(challenge), std::move(memento));
+        c->challenge();
     }
 }
 
 CPPWAMP_INLINE void AuthExchange::challenge(ThreadSafe, Challenge challenge,
                                             Variant memento)
 {
+    challenge_ = std::move(challenge);
+    memento_ = std::move(memento);
     auto c = challenger_.lock();
     if (c)
     {
         ++stage_;
-        c->safeChallenge(std::move(challenge), std::move(memento));
+        c->safeChallenge();
     }
 }
 
@@ -301,18 +314,27 @@ CPPWAMP_INLINE void AuthExchange::welcome(ThreadSafe, Object details)
         c->safeWelcome(std::move(details));
 }
 
-CPPWAMP_INLINE void AuthExchange::abort(Object details)
+CPPWAMP_INLINE void AuthExchange::reject(Object details, String reasonUri)
 {
     auto c = challenger_.lock();
     if (c)
-        c->abortJoin(std::move(details));
+    {
+        if (reasonUri.empty())
+            reasonUri = "wamp.error.cannot_authenticate";
+        c->reject(std::move(details), std::move(reasonUri));
+    }
 }
 
-CPPWAMP_INLINE void AuthExchange::abort(ThreadSafe, Object details)
+CPPWAMP_INLINE void AuthExchange::reject(ThreadSafe, Object details,
+                                         String reasonUri)
 {
     auto c = challenger_.lock();
     if (c)
-        c->safeAbortJoin(std::move(details));
+    {
+        if (reasonUri.empty())
+            reasonUri = "wamp.error.cannot_authenticate";
+        c->safeReject(std::move(details), std::move(reasonUri));
+    }
 }
 
 CPPWAMP_INLINE AuthExchange::Ptr
@@ -325,6 +347,11 @@ CPPWAMP_INLINE void AuthExchange::setAuthentication(internal::PassKey,
                                                     Authentication&& a)
 {
     authentication_ = std::move(a);
+}
+
+CPPWAMP_INLINE Challenge& AuthExchange::accessChallenge(internal::PassKey)
+{
+    return challenge_;
 }
 
 CPPWAMP_INLINE AuthExchange::AuthExchange(Realm&& r, ChallengerPtr c)

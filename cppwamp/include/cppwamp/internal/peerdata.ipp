@@ -294,6 +294,11 @@ Authentication::withChannelBinding(std::string type, std::string data)
     return withOption("cbind_data", std::move(data));
 }
 
+CPPWAMP_INLINE Authentication::Authentication(
+    internal::PassKey, internal::AuthenticateMessage&& msg)
+    : Base(std::move(msg))
+{}
+
 
 //******************************************************************************
 // Challenge

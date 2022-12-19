@@ -242,7 +242,12 @@ public:
 
 private:
     using Base = Options<Authentication, internal::AuthenticateMessage>;
+
+public:
+    // Internal use only
+    Authentication(internal::PassKey, internal::AuthenticateMessage&& msg);
 };
+
 
 
 namespace internal { class Challengee; } // Forward declaration
@@ -260,6 +265,8 @@ class CPPWAMP_API Challenge : public Options<Challenge,
 public:
     /** Constructs an empty challenge. */
     Challenge();
+
+    // TODO: Setters
 
     /** Determines if the Session object that dispatched this
         invocation still exists or has expired. */

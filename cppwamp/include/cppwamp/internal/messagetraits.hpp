@@ -69,7 +69,7 @@ struct CPPWAMP_API MessageTraits
     bool isClientRx         : 1;
     bool isRouterRx         : 1;
     bool forEstablishing    : 1;
-    bool forChallenging     : 1;
+    bool forAuthenticating  : 1;
     bool forEstablished     : 1;
     TypeId fieldTypes[7];
 };

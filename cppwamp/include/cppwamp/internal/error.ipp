@@ -160,7 +160,8 @@ CPPWAMP_INLINE std::string SessionCategory::message(int ev) const
 /* noAvailableCallee      */ "All registered callees are unable to handle an invocation",
 /* featureNotSupported    */ "Advanced feature is not supported",
 /* noEligibleCallee       */ "Call options lead to the exclusion of all callees providing the procedure",
-/* payloadSizeExceeded    */ "Serialized payload exceeds transport limits"
+/* payloadSizeExceeded    */ "Serialized payload exceeds transport limits",
+/* cannotAuthenticate     */ "Authentication failed"
     };
 
     if (ev >= 0 && ev < (int)std::extent<decltype(msg)>::value)
@@ -266,7 +267,8 @@ CPPWAMP_INLINE bool lookupWampErrorUri(
         {"wamp.error.no_available_callee",           SE::noAvailableCallee},
         {"wamp.error.feature_not_supported",         SE::featureNotSupported},
         {"wamp.error.no_eligible_callee",            SE::noEligibleCallee},
-        {"wamp.error.payload_size_exceeded",         SE::payloadSizeExceeded}
+        {"wamp.error.payload_size_exceeded",         SE::payloadSizeExceeded},
+        {"wamp.error.cannot_authenticate",           SE::cannotAuthenticate}
     };
 
     auto kv = table.find(uri);

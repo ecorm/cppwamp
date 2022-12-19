@@ -28,7 +28,7 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
     {
 //                      forEstablished ------------------------+
 //                      forChallenging ---------------------+  |
-//                     forEstablishing ------------------+  |  |
+//                   forAuthenticating ------------------+  |  |
 //                          isRouterRx ---------------+  |  |  |
 //                          isClientRx ------------+  |  |  |  |
 //                             maxSize ---------+  |  |  |  |  |
@@ -41,8 +41,8 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
 /*  2 */ {"WELCOME",      W::hello,       0, 3, 3, 1, 0, 1, 1, 0, {i,i,o,n,n,n,n}},
 /*  3 */ {"ABORT",        W::hello,       0, 3, 3, 1, 0, 1, 1, 1, {i,o,s,n,n,n,n}},
 /*  4 */ {"CHALLENGE",    W::none,        0, 3, 3, 1, 0, 1, 1, 0, {i,s,o,n,n,n,n}},
-/*  5 */ {"AUTHENTICATE", W::challenge,   0, 3, 3, 0, 1, 0, 1, 0, {i,s,o,n,n,n,n}},
-/*  6 */ {"GOODBYE",      W::goodbye,     0, 3, 3, 1, 1, 0, 0, 1, {i,o,s,n,n,n,n}},
+/*  5 */ {"AUTHENTICATE", W::none,        0, 3, 3, 0, 1, 0, 1, 0, {i,s,o,n,n,n,n}},
+/*  6 */ {"GOODBYE",      W::none,        0, 3, 3, 1, 1, 0, 0, 1, {i,o,s,n,n,n,n}},
 /*  7 */ {nullptr,        W::none,        0, 0, 0, 0, 0, 0, 0, 0, {i,n,n,n,n,n,n}},
 /*  8 */ {"ERROR",        W::none,        0, 5, 7, 1, 1, 0, 0, 1, {i,i,i,o,s,a,o}},
 /*  9 */ {nullptr,        W::none,        0, 0, 0, 0, 0, 0, 0, 0, {i,n,n,n,n,n,n}},
@@ -147,7 +147,7 @@ CPPWAMP_INLINE bool MessageTraits::isValidRx(SessionState state,
             break;
 
         case SessionState::authenticating:
-            valid = forChallenging;
+            valid = forAuthenticating;
             break;
 
         case SessionState::established:

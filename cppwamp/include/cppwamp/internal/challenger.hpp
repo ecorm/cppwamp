@@ -24,17 +24,17 @@ class Challenger
 public:
     using WeakPtr = std::weak_ptr<Challenger>;
 
-    virtual void challenge(Challenge&& challenge, Variant&& memento) = 0;
+    virtual void challenge() = 0;
 
-    virtual void safeChallenge(Challenge&& challenge, Variant&& memento) = 0;
+    virtual void safeChallenge() = 0;
 
     virtual void welcome(Object details) = 0;
 
     virtual void safeWelcome(Object details) = 0;
 
-    virtual void abortJoin(Object details) = 0;
+    virtual void reject(Object details, String reasonUri) = 0;
 
-    virtual void safeAbortJoin(Object details) = 0;
+    virtual void safeReject(Object details, String reasonUri) = 0;
 };
 
 } // namespace internal

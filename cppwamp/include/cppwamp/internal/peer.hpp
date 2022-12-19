@@ -134,23 +134,30 @@ public:
                     // Ignore transport cancellation errors when disconnecting.
                     if (buffer.has_value())
                         onTransportRx(std::move(*buffer));
-                    else if (state() != SessionState::disconnected)
+                    else if (state() != State::disconnected)
                         fail(buffer.error(), "Transport receive failure");
                 },
                 [this](std::error_code ec)
                 {
                     // Ignore transport cancellation errors when disconnecting.
-                    if (state() != SessionState::disconnected)
+                    if (state() != State::disconnected)
                         fail(ec, "Transport send failure");
                 }
             );
         }
     }
 
+    void challenge(Challenge& challenge)
+    {
+        assert(isRouter_);
+        assert(state() == State::authenticating);
+        send(challenge.message({}));
+    }
+
     void welcome(SessionId sid, Object opts = {})
     {
         assert(isRouter_);
-        assert(state() == State::establishing);
+        assert(state() == State::authenticating);
         WelcomeMessage msg{sid, std::move(opts)};
         send(msg);
         setState(State::established);
@@ -465,7 +472,7 @@ private:
             default:
                 if (msg.repliesTo() == WampMsgType::none)
                 {
-                    // Role-specific unsolicited messages. Ignore it if we're
+                    // Role-specific non-reply messages. Ignore it if we're
                     // shutting down.
                     if (state() == State::shuttingDown)
                     {
@@ -532,7 +539,7 @@ private:
     void processHello(Message&& msg)
     {
         assert(state() == State::establishing);
-        setState(State::established);
+        setState(State::authenticating);
         inboundMessageHandler_(std::move(msg));
     }
 
