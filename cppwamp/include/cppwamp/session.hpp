@@ -487,9 +487,6 @@ private:
     void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f);
 
     std::shared_ptr<internal::Client> impl_;
-
-    // TODO: Remove this once CoroSession is removed
-    template <typename> friend class CoroSession;
 };
 
 

@@ -243,15 +243,24 @@ public:
         return *this;
     }
 
+    // With seed == nullid(), the random generator state is initialized
+    // with system entropy.
+    RouterConfig& withSessionIdSeed(EphemeralId seed)
+    {
+        sessionIdSeed_ = seed;
+        return *this;
+    }
+
     const LogHandler& logHandler() const {return logHandler_;}
 
     LogLevel logLevel() const {return logLevel_;}
 
-    // TODO: SessionID seed
+    EphemeralId sessionIdSeed() const {return sessionIdSeed_;}
 
 private:
     LogHandler logHandler_;
     LogLevel logLevel_ = LogLevel::warning;
+    EphemeralId sessionIdSeed_ = nullId();
 };
 
 //******************************************************************************

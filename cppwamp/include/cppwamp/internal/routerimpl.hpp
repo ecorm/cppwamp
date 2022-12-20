@@ -149,6 +149,7 @@ public:
 private:
     RouterImpl(Executor e, RouterConfig c)
         : strand_(boost::asio::make_strand(e)),
+          sessionIdPool_(c.sessionIdSeed()),
           logger_(RouterLogger::create(strand_, c.logHandler(), c.logLevel())),
           config_(std::move(c))
     {}

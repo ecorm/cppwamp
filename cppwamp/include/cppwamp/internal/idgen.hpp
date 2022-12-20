@@ -57,9 +57,13 @@ private:
 class RandomIdPool
 {
 public:
-    RandomIdPool() {}
-
-    RandomIdPool(EphemeralId seed) : gen_(seed) {}
+    explicit RandomIdPool(EphemeralId seed = nullId())
+    {
+        if (seed == nullId())
+            gen_.reset(new RandomIdGenerator);
+        else
+            gen_.reset(new RandomIdGenerator(seed));
+    }
 
     EphemeralId allocate()
     {
@@ -70,7 +74,7 @@ public:
 
         do
         {
-            id = gen_();
+            id = (*gen_)();
             found = ids_.find(id);
         }
         while (found != end);
@@ -88,7 +92,7 @@ public:
 private:
     using IdSet = std::set<EphemeralId>;
 
-    RandomIdGenerator gen_;
+    std::unique_ptr<RandomIdGenerator> gen_;
     IdSet ids_;
     std::mutex mutex_;
 };
