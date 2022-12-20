@@ -209,12 +209,6 @@ public:
 
     /** Thread-safe setting of state change handler. */
     void setStateChangeHandler(ThreadSafe, StateChangeHandler handler);
-
-    /** Sets the handler that is dispatched for authentication challenges. */
-    void setChallengeHandler(ChallengeHandler handler);
-
-    /** Thread-safe setting of state change handler. */
-    void setChallengeHandler(ThreadSafe, ChallengeHandler handler);
     /// @}
 
     /// @name Session Management
@@ -248,6 +242,17 @@ public:
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<SessionInfo>, C>
     join(ThreadSafe, Realm realm, C&& completion);
+
+    /** Asynchronously attempts to join the given WAMP realm, using the given
+        authentication challenge handler. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<SessionInfo>, C>
+    join(Realm realm, ChallengeHandler handler, C&& completion);
+
+    /** Thread-safe join with challenge handler. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<SessionInfo>, C>
+    join(ThreadSafe, Realm realm, ChallengeHandler handler, C&& completion);
 
     /** Sends an `AUTHENTICATE` in response to a `CHALLENGE`. */
     CPPWAMP_NODISCARD ErrorOrDone authenticate(Authentication auth);
@@ -463,8 +468,10 @@ private:
 
     void doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
     void safeConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
-    void doJoin(Realm&& realm, CompletionHandler<SessionInfo>&& f);
-    void safeJoin(Realm&& r, CompletionHandler<SessionInfo>&& f);
+    void doJoin(Realm&& r, ChallengeHandler c,
+                CompletionHandler<SessionInfo>&& f);
+    void safeJoin(Realm&& r, ChallengeHandler c,
+                  CompletionHandler<SessionInfo>&& f);
     void doLeave(Reason&& reason, CompletionHandler<Reason>&& f);
     void safeLeave(Reason&& r, CompletionHandler<Reason>&& f);
     void doSubscribe(Topic&& t, EventSlot&& s,
@@ -630,15 +637,17 @@ struct Session::JoinOp
     using ResultValue = SessionInfo;
     Session* self;
     Realm r;
+    ChallengeHandler c;
 
     template <typename F> void operator()(F&& f)
     {
-        self->doJoin(std::move(r), std::forward<F>(f));
+        self->doJoin(std::move(r), std::move(c), std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->safeJoin(threadSafe, std::move(r), std::forward<F>(f));
+        self->safeJoin(threadSafe, std::move(r), std::move(c),
+                       std::forward<F>(f));
     }
 };
 
@@ -672,9 +681,8 @@ Session::join(
                         or a compatible Boost.Asio completion token. */
     )
 {
-    // TODO: Return SessionInfoOrChallenge variant instead of
-    // using setChallengeHandler
-    return initiate<JoinOp>(std::forward<C>(completion), std::move(realm));
+    return initiate<JoinOp>(std::forward<C>(completion), std::move(realm),
+                            nullptr);
 }
 
 //------------------------------------------------------------------------------
@@ -694,7 +702,55 @@ Session::join(
     )
 {
     return safelyInitiate<JoinOp>(std::forward<C>(completion),
-                                  std::move(realm));
+                                  std::move(realm), nullptr);
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::join(Realm, C&&)
+    @note A copy of the handler is made when it is dispatched. If the handler
+    needs to be stateful, or is non-copyable, then pass a stateless copyable
+    proxy instead. */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<SessionInfo>, C>
+#else
+Session::template Deduced<ErrorOr<SessionInfo>, C>
+#endif
+Session::join(
+    Realm realm,                  /**< Details on the realm to join. */
+    ChallengeHandler onChallenge, /**< Callable handler of type
+                                       `<void (Challenge)>`. */
+    C&& completion                /**< Callable handler of type
+                                       `void(ErrorOr<SessionInfo>)`, or a
+                                       compatible Boost.Asio completion token. */
+    )
+{
+    return initiate<JoinOp>(std::forward<C>(completion), std::move(realm),
+                            std::move(onChallenge));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::join(Realm, ChallengeHandler, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<SessionInfo>, C>
+#else
+Session::template Deduced<ErrorOr<SessionInfo>, C>
+#endif
+Session::join(
+    ThreadSafe,
+    Realm realm,                  /**< Details on the realm to join. */
+    ChallengeHandler onChallenge, /**< Callable handler of type
+                                       `<void (Challenge)>`. */
+    C&& completion                /**< Callable handler of type
+                                       `void(ErrorOr<SessionInfo>)`, or a
+                                       compatible Boost.Asio completion token. */
+    )
+{
+    return safelyInitiate<JoinOp>(std::forward<C>(completion),
+                                  std::move(realm), std::move(onChallenge));
 }
 
 //------------------------------------------------------------------------------

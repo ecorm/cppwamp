@@ -151,23 +151,6 @@ public:
         safelyDispatch<Dispatched>(std::move(f));
     }
 
-    void setChallengeHandler(ChallengeHandler handler)
-    {
-        challengeHandler_ = std::move(handler);
-    }
-
-    void safeSetChallengeHandler(ChallengeHandler f)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            ChallengeHandler f;
-            void operator()() {self->setChallengeHandler(std::move(f));}
-        };
-
-        safelyDispatch<Dispatched>(std::move(f));
-    }
-
     void connect(ConnectionWishList&& wishes,
                  CompletionHandler<size_t>&& handler)
     {
@@ -200,7 +183,8 @@ public:
         safelyDispatch<Dispatched>(std::move(w), std::move(f));
     }
 
-    void join(Realm&& realm, CompletionHandler<SessionInfo>&& handler)
+    void join(Realm&& realm, ChallengeHandler onChallenge,
+              CompletionHandler<SessionInfo>&& handler)
     {
         struct Requested
         {
@@ -212,6 +196,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
+                me.challengeHandler_ = nullptr;
                 if (me.checkError(reply, handler))
                 {
                     if (reply->type() == WampMsgType::welcome)
@@ -234,23 +219,27 @@ public:
 
         realm.withOption("agent", Version::agentString())
              .withOption("roles", roles());
+        challengeHandler_ = std::move(onChallenge);
         peer_.establishSession();
         peer_.request(realm.message({}),
                       Requested{shared_from_this(), std::move(handler),
                                 realm.uri(), realm.abort({})});
     }
 
-    void safeJoin(Realm&& r, CompletionHandler<SessionInfo>&& f)
+    void safeJoin(Realm&& r, ChallengeHandler c,
+                  CompletionHandler<SessionInfo>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Realm r;
+            ChallengeHandler c;
             CompletionHandler<SessionInfo> f;
-            void operator()() {self->join(std::move(r), std::move(f));}
+            void operator()() {self->join(std::move(r), std::move(c),
+                               std::move(f));}
         };
 
-        safelyDispatch<Dispatched>(std::move(r), std::move(f));
+        safelyDispatch<Dispatched>(std::move(r), std::move(c), std::move(f));
     }
 
     ErrorOrDone authenticate(Authentication&& auth) override

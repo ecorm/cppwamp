@@ -321,7 +321,6 @@ private:
     ChallengeePtr challengee_;
 };
 
-
 //------------------------------------------------------------------------------
 /** Provides the _reason_ URI, options, and payload arguments contained
     within WAMP `ERROR` messages. */

@@ -156,33 +156,6 @@ CPPWAMP_INLINE void Session::setStateChangeHandler(
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    Copies of the handler are made when they are dispatched. If the handler
-    needs to be stateful, or is non-copyable, then pass a stateless copyable
-    proxy instead.
-
-    @note No challenge events are fired when the session object is
-          terminating. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::setChallengeHandler(
-    ChallengeHandler handler /**< Callable handler of type `<void (Challenge)>`. */
-)
-{
-    impl_->setChallengeHandler(handler);
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::setChallengeHandler(ChallengeHandler) */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::setChallengeHandler(
-    ThreadSafe,
-    ChallengeHandler handler /**< Callable handler of type `<void (Challenge)>`. */
-    )
-{
-    impl_->safeSetChallengeHandler(handler);
-}
-
-//------------------------------------------------------------------------------
 /** @returns `true` if the authentication was sent, a std::error_code otherwise.
     @par Error Codes
         - SessionErrc::payloadSizeExceeded if the resulting AUTHENTICATE message
@@ -401,11 +374,11 @@ CPPWAMP_INLINE void Session::doConnect(ConnectionWishList&& w, CompletionHandler
 CPPWAMP_INLINE void Session::safeConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f)
     {impl_->safeConnect(std::move(w), std::move(f));}
 
-CPPWAMP_INLINE void Session::doJoin(Realm&& r, CompletionHandler<SessionInfo>&& f)
-    {impl_->join(std::move(r), std::move(f));}
+CPPWAMP_INLINE void Session::doJoin(Realm&& r, ChallengeHandler c, CompletionHandler<SessionInfo>&& f)
+    {impl_->join(std::move(r), std::move(c), std::move(f));}
 
-CPPWAMP_INLINE void Session::safeJoin(Realm&& r, CompletionHandler<SessionInfo>&& f)
-    {impl_->safeJoin(std::move(r), std::move(f));}
+CPPWAMP_INLINE void Session::safeJoin(Realm&& r, ChallengeHandler c, CompletionHandler<SessionInfo>&& f)
+    {impl_->safeJoin(std::move(r), std::move(c), std::move(f));}
 
 CPPWAMP_INLINE void Session::doLeave(Reason&& r, CompletionHandler<Reason>&& f)
     {impl_->leave(std::move(r), std::move(f));}

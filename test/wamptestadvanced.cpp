@@ -102,9 +102,7 @@ struct TicketAuthFixture
     TicketAuthFixture(IoContext& ioctx, ConnectionWish wish)
         : where(std::move(wish)),
           session(ioctx)
-    {
-        session.setChallengeHandler( [this](Challenge c){onChallenge(c);} );
-    }
+    {}
 
     void join(String authId, String signature, YieldContext yield)
     {
@@ -113,6 +111,7 @@ struct TicketAuthFixture
         info = session.join(Realm(authTestRealm).withAuthMethods({"ticket"})
                                                 .withAuthId(std::move(authId))
                                                 .captureAbort(abort),
+                            [this](Challenge c) {onChallenge(std::move(c));},
                             yield);
     }
 

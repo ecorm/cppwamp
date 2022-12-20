@@ -325,8 +325,8 @@ CppWAMP users must therefore compute these themselves using other cryptographic
 libraries. Once computed, the signatures can be passed to CppWAMP via
 wamp::Authentication.
 
-To enable authentication, you must set the challenge handler via
-wamp::Session::setChallengeHandler. The handler must be a callable entity
+To enable authentication, you must use a Session::join overload that takes
+a challenge handler. The handler must be a callable entity
 with the following signature:
 
 ```
@@ -343,6 +343,7 @@ desired/supported authentication methods via wamp::Realm::withAuthMethods.
 The following example shows how to perform ticket authentication.
 
 ```
+#include <iostream>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
@@ -352,19 +353,22 @@ int main()
 {
     using namespace wamp;
 
-    std::string ticket;
-
-    auto onChallenge = [&ticket](wamp::Challenge challenge)
-    {
-        if (challenge.method() == "ticket")
-            challenge.authenticate(wamp::Authentication(ticket));
-        else
-            throw std::runtime_error("Unsupported authentication method");
-    };
-
     IoContext ioctx;
     Session session(ioctx);
-    session.setChallengeHandler(onChallenge);
+    std::string ticket;
+
+    auto onChallenge = [&ticket, &session](wamp::Challenge challenge)
+    {
+        if (challenge.method() == "ticket")
+        {
+            challenge.authenticate(wamp::Authentication(ticket));
+        }
+        else
+        {
+            std::cerr << "Unexpected authentication method\n";
+            session.disconnect();
+        }
+    };
 
     spawn(ioctx, [&](YieldContext yield)
     {
@@ -373,6 +377,7 @@ int main()
         session.connect(std::move(tcp), yield).value();
         session.join(Realm("somerealm").withAuthId("alice")
                                        .withAuthMethods({"ticket"}),
+                     onChallenge,
                      yield).value();
         ticket.clear();
         // etc.
