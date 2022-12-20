@@ -223,7 +223,7 @@ private:
             boost::asio::async_write(*socket_, txFrame_->gatherBuffers(),
                 [this, self](boost::system::error_code asioEc, size_t size)
                 {
-                    bool frameWasPoisoned = txFrame_->isPoisoned();
+                    bool frameWasPoisoned = txFrame_ && txFrame_->isPoisoned();
                     txFrame_.reset();
                     if (asioEc)
                     {
