@@ -263,10 +263,20 @@ class CPPWAMP_API Challenge : public Options<Challenge,
                                              internal::ChallengeMessage>
 {
 public:
-    /** Constructs an empty challenge. */
-    Challenge();
+    /** Constructs a challenge. */
+    Challenge(String authMethod = {});
 
-    // TODO: Setters
+    Challenge& withChallenge(String challenge);
+
+    Challenge& withSalt(String salt);
+
+    Challenge& withKeyLength(UInt keyLength);
+
+    Challenge& withIterations(UInt iterations);
+
+    Challenge& withKdf(String kdf);
+
+    Challenge& withMemory(UInt memory);
 
     /** Determines if the Session object that dispatched this
         invocation still exists or has expired. */

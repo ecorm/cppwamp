@@ -304,7 +304,39 @@ CPPWAMP_INLINE Authentication::Authentication(
 // Challenge
 //******************************************************************************
 
-CPPWAMP_INLINE Challenge::Challenge() {}
+CPPWAMP_INLINE Challenge::Challenge(String authMethod)
+    : Base(std::move(authMethod))
+{}
+
+CPPWAMP_INLINE Challenge& Challenge::withChallenge(String challenge)
+{
+    return withOption("challenge", std::move(challenge));
+}
+
+CPPWAMP_INLINE Challenge& Challenge::withSalt(String salt)
+{
+    return withOption("salt", std::move(salt));
+}
+
+CPPWAMP_INLINE Challenge& Challenge::withKeyLength(UInt keyLength)
+{
+    return withOption("keylen", keyLength);
+}
+
+CPPWAMP_INLINE Challenge& Challenge::withIterations(UInt iterations)
+{
+    return withOption("iterations", iterations);
+}
+
+CPPWAMP_INLINE Challenge& Challenge::withKdf(String kdf)
+{
+    return withOption("kdf", std::move(kdf));
+}
+
+CPPWAMP_INLINE Challenge& Challenge::withMemory(UInt memory)
+{
+    return withOption("memory", memory);
+}
 
 CPPWAMP_INLINE bool Challenge::challengeeHasExpired() const
 {
