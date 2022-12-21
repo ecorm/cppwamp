@@ -56,4 +56,12 @@ CPPWAMP_INLINE RawsockMaxLength TcpEndpoint::maxRxLength() const
     return maxRxLength_;
 }
 
+CPPWAMP_INLINE std::string TcpEndpoint::label() const
+{
+    if (address_.empty())
+        return "TCP Port " + std::to_string(port_);
+    else
+        return "TCP " + address_ + ':' + std::to_string(port_);
+}
+
 } // namespace wamp

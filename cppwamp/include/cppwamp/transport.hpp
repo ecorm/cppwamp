@@ -74,6 +74,8 @@ public:
     /** Sends a transport-level ping message. */
     virtual void ping(MessageBuffer message, PingHandler handler) = 0;
 
+    virtual std::string remoteEndpointLabel() = 0;
+
 protected:
     Transporting() = default;
 };

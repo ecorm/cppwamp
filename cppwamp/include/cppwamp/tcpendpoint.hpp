@@ -69,6 +69,9 @@ public:
     /** Obtains the specified maximum incoming message length. */
     RawsockMaxLength maxRxLength() const;
 
+    /** Generates a human-friendly string of the TCP address/port. */
+    std::string label() const;
+
 private:
     std::string address_;
     TcpOptions options_;

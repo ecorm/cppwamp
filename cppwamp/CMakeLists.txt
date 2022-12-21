@@ -115,6 +115,7 @@ set(INLINES
     include/cppwamp/internal/peerdata.ipp
     include/cppwamp/internal/registration.ipp
     include/cppwamp/internal/router.ipp
+    include/cppwamp/internal/routerconfig.ipp
     include/cppwamp/internal/session.ipp
     include/cppwamp/internal/subscription.ipp
     include/cppwamp/internal/tcp.ipp

@@ -69,12 +69,18 @@ public:
     /** Converting constructor taking a realm URI. */
     Realm(String uri);
 
-    /** Obtains the realm URI. */
-    const String& uri() const;
-
     /** Specifies the Abort object in which to store abort details returned
         by the router. */
     Realm& captureAbort(Abort& abort);
+
+    /** Obtains the realm URI. */
+    const String& uri() const;
+
+    /** Obtains the agent string. */
+    ErrorOr<String> agent() const;
+
+    /** Obtains the roles dictionary. */
+    ErrorOr<Object> roles() const;
 
     /** @name Authentication
         See [Authentication in the WAMP Specification]

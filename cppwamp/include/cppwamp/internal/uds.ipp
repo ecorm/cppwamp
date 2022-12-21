@@ -68,7 +68,8 @@ struct Listener<Uds>::Impl
 
 CPPWAMP_INLINE Listener<Uds>::Listener(IoStrand i, Settings s,
                                        std::set<int> codecIds)
-    : impl_(new Impl(std::move(i), std::move(s), std::move(codecIds)))
+    : Listening(s.label()),
+      impl_(new Impl(std::move(i), std::move(s), std::move(codecIds)))
 {}
 
 //------------------------------------------------------------------------------

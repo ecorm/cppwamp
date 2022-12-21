@@ -49,13 +49,24 @@ public:
     /** Destructor. */
     virtual ~Listening() {}
 
-    /** Starts establishing a transport connection. */
+    /** Starts establishing the transport connection, emitting a
+        Transportable::Ptr via the given handler if successful. */
     virtual void establish(Handler&& handler) = 0;
 
     /** Cancels a transport connection in progress.
         A TransportErrc::aborted error code will be returned via the
         Listening::establish asynchronous handler. */
     virtual void cancel() = 0;
+
+    /** Obtains a human-friedly string indicating the address/port/path where
+        the transport is to be established. */
+    const std::string& where() const {return where_;}
+
+protected:
+    explicit Listening(std::string where) : where_(std::move(where)) {}
+
+private:
+    std::string where_;
 };
 
 //------------------------------------------------------------------------------
@@ -98,9 +109,5 @@ private:
 };
 
 } // namespace wamp
-
-//#ifndef CPPWAMP_COMPILED_LIB
-//#include "internal/listener.ipp"
-//#endif
 
 #endif // CPPWAMP_LISTENER_HPP

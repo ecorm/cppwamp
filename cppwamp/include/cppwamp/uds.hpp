@@ -76,12 +76,8 @@ public:
     /** Destructor. */
     ~Listener();
 
-    /** Starts establishing the transport connection, emitting a
-        Transportable::Ptr via the given handler if successful. */
     void establish(Handler&& handler) override;
 
-    /** Cancels transport connection in progress, emitting an error code
-        via the handler passed to the establish method. */
     void cancel() override;
 
 private:

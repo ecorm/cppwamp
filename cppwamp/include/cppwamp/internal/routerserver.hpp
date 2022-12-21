@@ -169,8 +169,10 @@ private:
 
         const auto& config = server_.config();
         assert(config != nullptr);
-        logSuffix_ = ", for session " + config->name() + '/' +
-                     IdAnonymizer::anonymize(id());
+        logSuffix_ = " (Session " + config->name() + '/' +
+                     IdAnonymizer::anonymize(id()) + ')';
+        log({LogLevel::info, "Client connected from " +
+                             t->remoteEndpointLabel()});
 
         peer_.setLogHandler(
             [this](LogEntry entry) {log(std::move(entry));});
@@ -232,6 +234,9 @@ private:
 
     void onHello(Realm&& realm)
     {
+        log({LogLevel::debug,
+            "Received HELLO with realm URI '" + realm.uri() +
+            "' and agent string '" + realm.agent().value_or("<absent>") + "'"});
         const auto& authenticator = serverConfig_->authenticator();
         if (authenticator)
         {
@@ -404,11 +409,15 @@ public:
     {
         assert(!listener_);
         listener_ = config_->makeListener(strand_);
+        log({LogLevel::info,
+             "Starting server listening on " + listener_->where()});
         listen();
     }
 
     void shutDown()
     {
+        log({LogLevel::info,
+             "Shutting down server listening on " + listener_->where()});
         if (!listener_)
             return;
         listener_->cancel();
@@ -419,6 +428,8 @@ public:
 
     void terminate()
     {
+        log({LogLevel::info,
+             "Terminating server listening on " + listener_->where()});
         if (!listener_)
             return;
         listener_->cancel();
@@ -432,6 +443,7 @@ public:
 private:
     RouterServer(AnyIoExecutor e, ServerConfig&& c, RouterContext&& r)
         : strand_(boost::asio::make_strand(e)),
+          logSuffix_(" (Server " + c.name() + ')'),
           router_(std::move(r)),
           config_(std::make_shared<ServerConfig>(std::move(c))),
           logger_(router_.logger())
@@ -456,8 +468,7 @@ private:
                 }
                 else
                 {
-                    logger_->log(
-                        {LogLevel::error,
+                    log({LogLevel::error,
                          "Failure establishing connection with remote peer",
                          transport.error()});
                 }
@@ -472,6 +483,7 @@ private:
         auto s = ServerSession::create(strand_, std::move(transport),
                                        std::move(codec), std::move(ctx));
         sessions_.insert(s);
+        s->start();
         listen();
     }
 
@@ -480,8 +492,15 @@ private:
         sessions_.erase(s);
     }
 
+    void log(LogEntry&& e)
+    {
+        e.append(logSuffix_);
+        logger_->log(std::move(e));
+    }
+
     IoStrand strand_;
     std::set<ServerSession::Ptr> sessions_;
+    std::string logSuffix_;
     RouterContext router_;
     ServerConfig::Ptr config_;
     Listening::Ptr listener_;

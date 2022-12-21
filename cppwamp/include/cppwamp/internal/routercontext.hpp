@@ -42,7 +42,7 @@ public:
 
     void log(LogEntry entry)
     {
-        if (entry.severity() <= level())
+        if (entry.severity() >= level())
             dispatchVia(strand_, handler_, std::move(entry));
     }
 

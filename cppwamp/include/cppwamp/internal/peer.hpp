@@ -112,6 +112,9 @@ public:
 
     void connect(Transporting::Ptr transport, AnyBufferCodec codec)
     {
+        auto s = state();
+        if (s == State::disconnected || s == State::failed)
+            startConnecting();
         assert(state() == State::connecting);
         transport_ = std::move(transport);
         codec_ = std::move(codec);

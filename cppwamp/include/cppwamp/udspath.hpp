@@ -75,6 +75,9 @@ public:
     /** Returns true if path deletion before listening is enabled. */
     bool deletePathEnabled() const;
 
+    /** Generates a human-friendly string of the UDS path. */
+    std::string label() const;
+
 private:
     std::string pathName_;
     UdsOptions options_;

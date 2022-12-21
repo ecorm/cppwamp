@@ -40,15 +40,25 @@ CPPWAMP_INLINE internal::AbortMessage& Abort::abortMessage(internal::PassKey)
 
 CPPWAMP_INLINE Realm::Realm(String uri) : Base(std::move(uri)) {}
 
+CPPWAMP_INLINE Realm& Realm::captureAbort(Abort& abort)
+{
+    abort_ = &abort;
+    return *this;
+}
+
 CPPWAMP_INLINE const String& Realm::uri() const
 {
     return message().realmUri();
 }
 
-CPPWAMP_INLINE Realm& Realm::captureAbort(Abort& abort)
+CPPWAMP_INLINE ErrorOr<String> Realm::agent() const
 {
-    abort_ = &abort;
-    return *this;
+    return this->optionAs<String>("agent");
+}
+
+CPPWAMP_INLINE ErrorOr<Object> Realm::roles() const
+{
+    return this->optionAs<Object>("roles");
 }
 
 CPPWAMP_INLINE Realm& Realm::withAuthMethods(std::vector<String> methods)

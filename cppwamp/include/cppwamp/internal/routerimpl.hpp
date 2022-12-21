@@ -44,7 +44,13 @@ public:
     {
         auto uri = c.uri();
         if (realms_.find(uri) != realms_.end())
+        {
+            log({LogLevel::warning,
+                 "Rejected attempt to add realm with duplicate URI '" + uri + "'"});
             return false;
+        }
+
+        log({LogLevel::info, "Adding realm '" + uri + "'"});
         using std::move;
         auto r = RouterRealm::create(strand_, move(c), {shared_from_this()});
         realms_.emplace(move(uri), move(r));
@@ -55,7 +61,11 @@ public:
     {
         auto kv = realms_.find(name);
         if (kv == realms_.end())
+        {
+            log({LogLevel::warning,
+                 "Attempting to shut down non-existent realm named '" + name + "'"});
             return false;
+        }
 
         kv->second->shutDown();
         realms_.erase(kv);
@@ -66,7 +76,11 @@ public:
     {
         auto kv = realms_.find(name);
         if (kv == realms_.end())
+        {
+            log({LogLevel::warning,
+                 "Attempting to terminate non-existent realm named '" + name + "'"});
             return false;
+        }
 
         kv->second->terminate();
         realms_.erase(kv);
@@ -76,8 +90,12 @@ public:
     bool startServer(ServerConfig c)
     {
         auto name = c.name();
-        if (servers_.find(name) == servers_.end())
+        if (servers_.find(name) != servers_.end())
+        {
+            log({LogLevel::warning,
+                 "Rejected attempt to start a server with duplicate name '" + name + "'"});
             return false;
+        }
 
         using std::move;
         auto s = RouterServer::create(strand_, move(c), {shared_from_this()});
@@ -90,7 +108,11 @@ public:
     {
         auto kv = servers_.find(name);
         if (kv == servers_.end())
+        {
+            log({LogLevel::warning,
+                 "Attempting to shut down non-existent server named '" + name + "'"});
             return false;
+        }
 
         kv->second->shutDown();
         servers_.erase(kv);
@@ -101,7 +123,11 @@ public:
     {
         auto kv = servers_.find(name);
         if (kv == servers_.end())
+        {
+            log({LogLevel::warning,
+                 "Attempting to terminate non-existent server named '" + name + "'"});
             return false;
+        }
 
         kv->second->terminate();
         servers_.erase(kv);
@@ -125,6 +151,7 @@ public:
 
     void shutDown()
     {
+        log({LogLevel::info, "Shutting down router"});
         for (auto& kv: servers_)
             kv.second->shutDown();
         servers_.clear();
@@ -136,6 +163,7 @@ public:
 
     void terminate()
     {
+        log({LogLevel::info, "Terminating router"});
         for (auto& kv: servers_)
             kv.second->terminate();
         servers_.clear();
@@ -159,6 +187,8 @@ private:
     {
         boost::asio::dispatch(strand_, std::forward<F>(f));
     }
+
+    void log(LogEntry&& e) {logger_->log(std::move(e));}
 
     RouterLogger::Ptr logger() const {return logger_;}
 

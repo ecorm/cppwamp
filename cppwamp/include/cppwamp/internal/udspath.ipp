@@ -46,4 +46,9 @@ CPPWAMP_INLINE bool UdsPath::deletePathEnabled() const
     return deletePathEnabled_;
 }
 
+CPPWAMP_INLINE std::string UdsPath::label() const
+{
+    return "Unix domain socket path '" + pathName_ + "'";
+}
+
 } // namespace wamp

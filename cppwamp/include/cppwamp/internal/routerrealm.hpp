@@ -56,6 +56,7 @@ public:
 
     void shutDown()
     {
+        log({LogLevel::info, "Shutting down realm"});
         for (auto& kv: serverSessions_)
             kv.second->kick(Reason{"wamp.close.system_shutdown"});
         serverSessions_.clear();
@@ -64,6 +65,7 @@ public:
 
     void terminate()
     {
+        log({LogLevel::info, "Terminating realm"});
         for (auto& kv: serverSessions_)
             kv.second->close();
         serverSessions_.clear();
@@ -82,8 +84,15 @@ private:
         : strand_(boost::asio::make_strand(e)),
           router_(std::move(r)),
           config_(std::move(c)),
+          logSuffix_(" (Realm " + config_.uri() + ")"),
           logger_(router_.logger())
     {}
+
+    void log(LogEntry&& e)
+    {
+        e.append(logSuffix_);
+        logger_->log(std::move(e));
+    }
 
     template <typename F>
     void dispatch(F&& f)
@@ -143,6 +152,7 @@ private:
     std::map<SessionId, LocalSessionImpl::Ptr> localSessions_;
     std::map<SessionId, ServerSession::Ptr> serverSessions_;
     RealmConfig config_;
+    std::string logSuffix_;
     RouterLogger::Ptr logger_;
 
     // TODO: Consider common interface for local and server sessions

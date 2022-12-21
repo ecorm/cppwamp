@@ -13,6 +13,7 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -185,6 +186,15 @@ public:
         pingFrame_ = enframe(RawsockMsgType::ping, std::move(message));
         sendFrame(pingFrame_);
         pingStart_ = std::chrono::high_resolution_clock::now();
+    }
+
+    virtual std::string remoteEndpointLabel() override
+    {
+        if (!socket_)
+            return "<unavailable>";
+        std::ostringstream oss;
+        oss << socket_->remote_endpoint();
+        return oss.str();
     }
 
 private:
