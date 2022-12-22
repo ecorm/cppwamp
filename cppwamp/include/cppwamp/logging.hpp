@@ -16,6 +16,7 @@
 #include <ostream>
 #include <string>
 #include "api.hpp"
+#include "variant.hpp"
 
 
 namespace wamp
@@ -100,7 +101,7 @@ std::ostream& toStream(std::ostream& out, const LogEntry& entry,
     @relates LogEntry */
 std::ostream& toColorStream(std::ostream& out, const LogEntry& entry);
 
-/** Obtains a formatted, colored log entry with a custom origin field.
+/** Outputs a formatted, colored log entry with a custom origin field.
     @relates LogEntry */
 std::ostream& toColorStream(std::ostream& out, const LogEntry& entry,
                             std::string origin);
@@ -108,6 +109,96 @@ std::ostream& toColorStream(std::ostream& out, const LogEntry& entry,
 /** Outputs a LogEntry to an output stream.
     @relates LogEntry */
 std::ostream& operator<<(std::ostream& out, const LogEntry& entry);
+
+
+//------------------------------------------------------------------------------
+struct CPPWAMP_API AccessSessionInfo
+{
+    std::string endpoint;
+    std::string serverName;
+    std::string sessionIdHash;
+    std::string realmUri;
+    std::string authId;
+    std::string agent;
+};
+
+//------------------------------------------------------------------------------
+struct CPPWAMP_API AccessActionInfo
+{
+    AccessActionInfo();
+
+    AccessActionInfo(std::string action, std::string target = {},
+                     Object options = {}, std::string status = {},
+                     bool ok = true);
+
+    AccessActionInfo(std::string action, std::string target,
+                     Object options, std::error_code ec);
+
+    std::string action;
+    std::string target;
+    std::string status;
+    Object options;
+    bool ok = false;
+};
+
+//------------------------------------------------------------------------------
+/** Contains access logging information. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API AccessLogEntry
+{
+public:
+    using TimePoint = std::chrono::system_clock::time_point;
+
+    /** Outputs a timestamp in RFC3339 format. */
+    static std::ostream& outputTime(std::ostream& out, TimePoint when);
+
+    /** Constructor. */
+    AccessLogEntry(AccessSessionInfo session, AccessActionInfo action);
+
+    /** Accesses the session information. */
+    const AccessSessionInfo& session() const;
+
+    /** Accesses the action information. */
+    const AccessActionInfo& action() const;
+
+    /** Obtains the entry's timestamp. */
+    TimePoint when() const;
+
+private:
+    AccessSessionInfo session_;
+    AccessActionInfo action_;
+    TimePoint when_;
+};
+
+/** Obtains a formatted log entry string combining all available information.
+    @relates AccessLogEntry */
+std::string toString(const AccessLogEntry& entry);
+
+/** Obtains a formatted log entry string with a custom origin field.
+    @relates AccessLogEntry */
+std::string toString(const AccessLogEntry& entry, const std::string& origin);
+
+/** Outputs a formatted log entry combining all available information.
+    @relates AccessLogEntry */
+std::ostream& toStream(std::ostream& out, const AccessLogEntry& entry);
+
+/** Outputs a formatted log entry with a custom origin field.
+    @relates AccessLogEntry */
+std::ostream& toStream(std::ostream& out, const AccessLogEntry& entry,
+                       const std::string& origin);
+
+/** Outputs a formatted access log entry using ANSI color escape codes.
+    @relates AccessLogEntry */
+std::ostream& toColorStream(std::ostream& out, const AccessLogEntry& entry);
+
+/** Outputs a formatted, colored access log entry with a custom origin field.
+    @relates AccessLogEntry */
+std::ostream& toColorStream(std::ostream& out, const AccessLogEntry& entry,
+                            std::string origin);
+
+/** Outputs a AccessLogEntry to an output stream.
+    @relates AccessLogEntry */
+std::ostream& operator<<(std::ostream& out, const AccessLogEntry& entry);
 
 } // namespace wamp
 

@@ -27,6 +27,11 @@ CPPWAMP_INLINE void ConsoleLogger::operator()(const LogEntry& entry) const
         toStream(std::cerr, entry, origin_) << std::endl;
 }
 
+CPPWAMP_INLINE void ConsoleLogger::operator()(const AccessLogEntry& entry) const
+{
+    toStream(std::clog, entry, origin_) << "\n";
+}
+
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ColorConsoleLogger::ColorConsoleLogger()
     : origin_("cppwamp")
@@ -42,6 +47,12 @@ CPPWAMP_INLINE void ColorConsoleLogger::operator()(const LogEntry& entry) const
         toColorStream(std::clog, entry, origin_) << "\n";
     else
         toColorStream(std::cerr, entry, origin_) << std::endl;
+}
+
+CPPWAMP_INLINE void
+ColorConsoleLogger::operator()(const AccessLogEntry& entry) const
+{
+    toColorStream(std::clog, entry, origin_) << "\n";
 }
 
 } // namespace wamp

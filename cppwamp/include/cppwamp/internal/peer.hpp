@@ -150,7 +150,7 @@ public:
         }
     }
 
-    void challenge(Challenge& challenge)
+    void challenge(Challenge challenge)
     {
         assert(isRouter_);
         assert(state() == State::authenticating);
@@ -166,7 +166,7 @@ public:
         setState(State::established);
     }
 
-    void closeSession(Reason& reason, OneShotHandler&& handler)
+    void closeSession(Reason reason, OneShotHandler&& handler)
     {
         // TODO: Reply timeout
 
@@ -237,7 +237,7 @@ public:
         return done;
     }
 
-    ErrorOrDone abort(Abort&& a)
+    ErrorOrDone abort(Abort a)
     {
         if (!transport_ || !transport_->isStarted())
             return makeUnexpectedError(SessionErrc::invalidState);

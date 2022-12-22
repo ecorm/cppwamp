@@ -73,9 +73,9 @@ public:
 
     const AuthorizationInfo::Ptr& authInfo() const {return authInfo_;}
 
-    void kick()
+    void kick(String hint, String reasonUri)
     {
-        realm_.reset();
+        realm_.leave(shared_from_this());
         // TODO: Cancel pending RPCS, clear subscriptions & registrations
     }
 

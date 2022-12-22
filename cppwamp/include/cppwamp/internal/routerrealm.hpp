@@ -54,28 +54,42 @@ public:
         serverSessions_.emplace(id, std::move(session));
     }
 
-    void shutDown()
+    void shutDown(String hint = {}, String reasonUri = {})
     {
-        log({LogLevel::info, "Shutting down realm"});
+        if (reasonUri.empty())
+            reasonUri = "wamp.close.system_shutdown";
+        std::string msg = "Shutting down realm with reason " + reasonUri;
+        if (!hint.empty())
+            msg += ": " + hint;
+        log({LogLevel::info, std::move(msg)});
+
         for (auto& kv: serverSessions_)
-            kv.second->kick(Reason{"wamp.close.system_shutdown"});
+            kv.second->kick(hint, reasonUri);
         serverSessions_.clear();
         kickLocalSessions();
     }
 
-    void terminate()
+    void terminate(String hint = {}, String reasonUri = {})
     {
-        log({LogLevel::info, "Terminating realm"});
+        if (reasonUri.empty())
+            reasonUri = "wamp.close.system_shutdown";
+        std::string msg = "Terminating realm with reason " + reasonUri;
+        if (!hint.empty())
+            msg += ": " + hint;
+        log({LogLevel::info, std::move(msg)});
+
         for (auto& kv: serverSessions_)
-            kv.second->close();
+            kv.second->terminate(hint);
         serverSessions_.clear();
-        kickLocalSessions();
+        kickLocalSessions(hint, reasonUri);
     }
 
-    void kickLocalSessions()
+    void kickLocalSessions(String hint = {}, String reasonUri = {})
     {
+        if (reasonUri.empty())
+            reasonUri = "wamp.close.system_shutdown";
         for (auto& kv: localSessions_)
-            kv.second->kick();
+            kv.second->kick(hint, reasonUri);
         localSessions_.clear();
     }
 
@@ -203,6 +217,7 @@ inline void RealmContext::leave(std::shared_ptr<LocalSessionImpl> s)
     auto r = realm_.lock();
     if (r)
         r->safeLeave(std::move(s));
+    realm_.reset();
 }
 
 inline void RealmContext::leave(std::shared_ptr<ServerSession> s)
@@ -210,10 +225,6 @@ inline void RealmContext::leave(std::shared_ptr<ServerSession> s)
     auto r = realm_.lock();
     if (r)
         r->safeLeave(std::move(s));
-}
-
-inline void RealmContext::reset()
-{
     realm_.reset();
 }
 

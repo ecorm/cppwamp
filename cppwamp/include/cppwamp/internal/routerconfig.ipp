@@ -190,11 +190,6 @@ CPPWAMP_INLINE void AuthExchange::setAuthentication(internal::PassKey,
     authentication_ = std::move(a);
 }
 
-CPPWAMP_INLINE Challenge& AuthExchange::accessChallenge(internal::PassKey)
-{
-    return challenge_;
-}
-
 CPPWAMP_INLINE AuthExchange::AuthExchange(Realm&& r, ChallengerPtr c)
     : realm_(std::move(r)),
     challenger_(c)
@@ -254,6 +249,13 @@ CPPWAMP_INLINE RouterConfig& RouterConfig::withLogLevel(LogLevel l)
     return *this;
 }
 
+CPPWAMP_INLINE RouterConfig&
+RouterConfig::withAccessLogHandler(AccessLogHandler f)
+{
+    accessLogHandler_ = std::move(f);
+    return *this;
+}
+
 // With seed == nullid(), the random generator state is initialized
 // with system entropy.
 CPPWAMP_INLINE RouterConfig& RouterConfig::withSessionIdSeed(EphemeralId seed)
@@ -268,6 +270,12 @@ CPPWAMP_INLINE const RouterConfig::LogHandler& RouterConfig::logHandler() const
 }
 
 CPPWAMP_INLINE LogLevel RouterConfig::logLevel() const {return logLevel_;}
+
+CPPWAMP_INLINE const RouterConfig::AccessLogHandler&
+RouterConfig::accessLogHandler() const
+{
+    return accessLogHandler_;
+}
 
 CPPWAMP_INLINE EphemeralId RouterConfig::sessionIdSeed() const
 {

@@ -300,8 +300,8 @@ public:
         if (!checkState(State::established, handler))
             return;
         timeoutScheduler_->clear();
-        peer_.closeSession(reason,
-                      Adjourned{shared_from_this(), std::move(handler)});
+        peer_.closeSession(std::move(reason),
+                           Adjourned{shared_from_this(), std::move(handler)});
     }
 
     void safeLeave(Reason&& r, CompletionHandler<Reason>&& f)

@@ -20,11 +20,13 @@ void onAuthenticate(wamp::AuthExchange::Ptr ex)
 }
 
 //------------------------------------------------------------------------------
-wamp::RouterConfig routerConfig(wamp::RouterConfig::LogHandler logger)
+template <typename L>
+wamp::RouterConfig routerConfig(L logger)
 {
     return wamp::RouterConfig()
-        .withLogHandler(std::move(logger))
-        .withLogLevel(wamp::LogLevel::debug);
+        .withLogHandler(logger)
+        .withLogLevel(wamp::LogLevel::debug)
+        .withAccessLogHandler(logger);
 }
 
 //------------------------------------------------------------------------------
@@ -38,8 +40,8 @@ wamp::ServerConfig serverConfig()
 {
     return wamp::ServerConfig("tcp12345",
                               wamp::TcpEndpoint{12345},
-                              wamp::json)
-        .withAuthenticator(&onAuthenticate);
+                              wamp::json);
+//        .withAuthenticator(&onAuthenticate);
 }
 
 //------------------------------------------------------------------------------

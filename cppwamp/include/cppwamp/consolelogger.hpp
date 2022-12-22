@@ -37,6 +37,9 @@ public:
     /** Outputs the given log entry to the console. */
     void operator()(const LogEntry& entry) const;
 
+    /** Outputs the given access log entry to the console. */
+    void operator()(const AccessLogEntry& entry) const;
+
 private:
     std::string origin_;
 };
@@ -59,6 +62,9 @@ public:
 
     /** Outputs the given log entry to the console. */
     void operator()(const LogEntry& entry) const;
+
+    /** Outputs the given access log entry to the console. */
+    void operator()(const AccessLogEntry& entry) const;
 
 private:
     std::string origin_;

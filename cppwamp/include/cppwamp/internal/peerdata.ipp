@@ -19,9 +19,20 @@ namespace wamp
 
 CPPWAMP_INLINE Abort::Abort(String uri) : Base(std::move(uri)) {}
 
+CPPWAMP_INLINE Abort& Abort::withHint(String text)
+{
+    withOption("message", std::move(text));
+    return *this;
+}
+
 CPPWAMP_INLINE const String& Abort::uri() const
 {
     return message().reasonUri();
+}
+
+CPPWAMP_INLINE ErrorOr<String> Abort::hint() const
+{
+    return optionAs<String>("message");
 }
 
 CPPWAMP_INLINE Abort::Abort(internal::PassKey, internal::AbortMessage&& msg)
@@ -59,6 +70,13 @@ CPPWAMP_INLINE ErrorOr<String> Realm::agent() const
 CPPWAMP_INLINE ErrorOr<Object> Realm::roles() const
 {
     return this->optionAs<Object>("roles");
+}
+
+CPPWAMP_INLINE Object Realm::sanitizedOptions() const
+{
+    auto filtered = options();
+    filtered.erase("authextra");
+    return filtered;
 }
 
 CPPWAMP_INLINE Realm& Realm::withAuthMethods(std::vector<String> methods)
@@ -260,9 +278,20 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& o, const SessionInfo& i)
 
 CPPWAMP_INLINE Reason::Reason(String uri) : Base(std::move(uri)) {}
 
+CPPWAMP_INLINE Reason& Reason::withHint(String text)
+{
+    withOption("message", std::move(text));
+    return *this;
+}
+
 CPPWAMP_INLINE const String& Reason::uri() const
 {
     return message().reasonUri();
+}
+
+CPPWAMP_INLINE ErrorOr<String> Reason::hint() const
+{
+    return optionAs<String>("message");
 }
 
 CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::GoodbyeMessage&& msg)

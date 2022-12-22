@@ -67,45 +67,43 @@ public:
         peer_.establishSession();
     }
 
-    void close()
+    void terminate(String hint)
     {
-        realm_.reset();
-        peer_.disconnect();
+        logAccess({"server-terminate", {}, {{"message", std::move(hint)}}});
+        leaveRealm();
+        peer_.terminate();
     }
 
-    void join(RealmContext realm)
-    {
-        realm_ = std::move(realm);
-    }
-
-    void kick(Reason&& reason)
+    void kick(String hint, String reasonUri)
     {
         if (state() != State::established)
             return;
 
-        log({LogLevel::info,
-             "Kicking peer from realm with reason '" + reason.uri() + "'"});
-        realm_.reset();
+        leaveRealm(false);
+
+        Reason reason{std::move(reasonUri)};
+        if (!hint.empty())
+            reason.withHint(std::move(hint));
 
         auto self = shared_from_this();
         peer_.closeSession(
             reason,
-            [this, self](ErrorOr<WampMessage> reply)
+            [this, self, reason](ErrorOr<WampMessage> reply)
             {
                 if (reply.has_value())
                 {
                     auto& goodBye = message_cast<GoodbyeMessage>(*reply);
                     Reason peerReason({}, std::move(goodBye));
-                    log({LogLevel::info,
-                         "Peer left realm cleanly with reason '" +
-                        peerReason.uri() + "'"});
+                    logAccess({"server-goodbye", reason.uri(), reason.options(),
+                               peerReason.uri()});
                 }
                 else
                 {
-                    log({LogLevel::warning,
-                         "Peer failed to leave realm cleanly",
-                         reply.error()});
+                    logAccess({"server-goodbye", reason.uri(), reason.options(),
+                               reply.error()});
                 }
+
+                clearWampSessionAccessLogInfo();
             });
     }
 
@@ -166,13 +164,18 @@ private:
           logger_(server_.logger())
     {
         id_ = server_.allocateSessionId();
+        auto hashedId = IdAnonymizer::anonymize(id_);
 
         const auto& config = server_.config();
         assert(config != nullptr);
-        logSuffix_ = " (Session " + config->name() + '/' +
-                     IdAnonymizer::anonymize(id()) + ')';
-        log({LogLevel::info, "Client connected from " +
-                             t->remoteEndpointLabel()});
+
+        logSuffix_ = " [Session " + config->name() + '/' + hashedId + ']';
+
+        accessSessionInfo_.endpoint = t->remoteEndpointLabel();
+        accessSessionInfo_.serverName = config->name();
+        accessSessionInfo_.sessionIdHash = std::move(hashedId);
+
+        logAccess({"client-connect"});
 
         peer_.setLogHandler(
             [this](LogEntry entry) {log(std::move(entry));});
@@ -196,6 +199,18 @@ private:
         logger_->log(std::move(e));
     }
 
+    void logAccess(AccessActionInfo&& i)
+    {
+        logger_->log(AccessLogEntry{accessSessionInfo_, std::move(i)});
+    }
+
+    void clearWampSessionAccessLogInfo()
+    {
+        accessSessionInfo_.realmUri.clear();
+        accessSessionInfo_.authId.clear();
+        accessSessionInfo_.agent.clear();
+    }
+
     void onStateChanged(SessionState s)
     {
         bool transportDropped = (s == SessionState::disconnected) ||
@@ -209,7 +224,7 @@ private:
         if (transportDropped)
             retire();
         else if (closedByRemotePeer)
-            realm_.leave(shared_from_this());
+            leaveRealm();
     }
 
     void onMessage(WampMessage&& msg)
@@ -228,15 +243,24 @@ private:
         }
         else if (!realm_.expired())
         {
+            // TODO: Authorizer
             realm_.onMessage(shared_from_this(), std::move(msg));
         }
     }
 
     void onHello(Realm&& realm)
     {
-        log({LogLevel::debug,
-            "Received HELLO with realm URI '" + realm.uri() +
-            "' and agent string '" + realm.agent().value_or("<absent>") + "'"});
+        accessSessionInfo_.agent = realm.agent().value_or("");
+        accessSessionInfo_.authId = realm.authId().value_or("");
+
+        if (!server_.realmExists(realm.uri()))
+        {
+            logAccess({"client-hello", realm.uri(), realm.sanitizedOptions(),
+                       "wamp.error.no_such_realm", false});
+            abort("wamp.error.no_such_realm");
+            return;
+        }
+
         const auto& authenticator = serverConfig_->authenticator();
         if (authenticator)
         {
@@ -246,16 +270,20 @@ private:
         }
         else
         {
-            auto realmContext = server_.join(shared_from_this());
+            auto realmContext = server_.join(realm.uri(), shared_from_this());
             if (!realmContext)
             {
-                kick("wamp.error.no_such_realm",
-                     "Kicked remote peer joining non-existent realm");
+                logAccess({"client-hello", realm.uri(),
+                           realm.sanitizedOptions(), realmContext.error()});
+                abort("wamp.error.no_such_realm");
                 return;
             }
 
+            realm_ = *realmContext;
             authInfo_ = std::make_shared<AuthorizationInfo>(realm);
             authInfo_->setSessionId(id_);
+            accessSessionInfo_.realmUri = realm.uri();
+            logAccess({"client-hello", realm.uri(), realm.sanitizedOptions()});
             auto details = authInfo_->welcomeDetails();
             details.emplace("roles", server_.roles());
             peer_.welcome(id_, std::move(details));
@@ -269,27 +297,48 @@ private:
                           peer_.state() == SessionState::authenticating;
         if (!isExpected)
         {
-            kick("wamp.error.protocol_violation",
-                 "Kicked remote peer sending unexpected AUTHENTICATE message");
+            logAccess({"client-authenticate", "", {},
+                       "wamp.error.protocol_violation"});
+            abort("wamp.error.protocol_violation",
+                  "Unexpected AUTHENTICATE message");
+            return;
         }
 
         authExchange_->setAuthentication({}, std::move(authentication));
         dispatchVia(strand_, authenticator, authExchange_);
     }
 
-    void retire()
+    void abort(String reasonUri, String hint = {})
     {
-        auto self = shared_from_this();
-        server_.removeSession(self);
-        realm_.leave(self);
+        if (state() != State::established)
+            return;
+
+        leaveRealm(false);
+
+        auto a = Abort{std::move(reasonUri)};
+        if (!hint.empty())
+            a.withHint(std::move(hint));
+
+        auto done = peer_.abort(a);
+        if (done)
+            logAccess({"server-abort", a.uri(), a.options()});
+        else
+            logAccess({"server-abort", a.uri(), a.options(), done.error()});
+
+        clearWampSessionAccessLogInfo();
     }
 
-    void kick(std::string reasonUri, std::string logMessage,
-              LogLevel severity = LogLevel::warning)
+    void leaveRealm(bool clearAccessLogInfo = true)
     {
-        log({severity, std::move(logMessage)});
-        peer_.abort({std::move(reasonUri)});
-        retire();
+        realm_.leave(shared_from_this());
+        if (clearAccessLogInfo)
+            clearWampSessionAccessLogInfo();
+    }
+
+    void retire()
+    {
+        server_.removeSession(shared_from_this());
+        leaveRealm();
     }
 
     template <typename F, typename... Ts>
@@ -309,7 +358,7 @@ private:
         if (peer_.state() != SessionState::establishing)
             return;
         assert(authExchange_ != nullptr);
-        peer_.challenge(authExchange_->accessChallenge({}));
+        peer_.challenge(authExchange_->challenge());
     }
 
     void safeChallenge() override
@@ -388,6 +437,7 @@ private:
     ServerConfig::Ptr serverConfig_;
     AuthExchange::Ptr authExchange_;
     AuthorizationInfo::Ptr authInfo_;
+    AccessSessionInfo accessSessionInfo_;
     RouterLogger::Ptr logger_;
     std::string logSuffix_;
     SessionId id_;
@@ -414,28 +464,37 @@ public:
         listen();
     }
 
-    void shutDown()
+    void shutDown(String hint = {}, String reasonUri = {})
     {
-        log({LogLevel::info,
-             "Shutting down server listening on " + listener_->where()});
+        if (reasonUri.empty())
+            reasonUri = "wamp.close.system_shutdown";
+        std::string msg =
+            "Shutting down server listening on " + listener_->where() +
+            " with reason " + reasonUri;
+        if (!hint.empty())
+            msg += ": " + hint;
+        log({LogLevel::info, std::move(msg)});
         if (!listener_)
             return;
         listener_->cancel();
         listener_.reset();
         for (auto& s: sessions_)
-            s->kick(Reason{"wamp.close.system_shutdown"});
+            s->kick(hint, reasonUri);
     }
 
-    void terminate()
+    void terminate(String hint = {})
     {
-        log({LogLevel::info,
-             "Terminating server listening on " + listener_->where()});
+        std::string msg =
+            "Terminating server listening on " + listener_->where();
+        if (!hint.empty())
+            msg += ": " + hint;
+        log({LogLevel::info, std::move(msg)});
         if (!listener_)
             return;
         listener_->cancel();
         listener_.reset();
         for (auto& s: sessions_)
-            s->close();
+            s->terminate(hint);
     }
 
     ServerConfig::Ptr config() const {return config_;}
@@ -443,7 +502,7 @@ public:
 private:
     RouterServer(AnyIoExecutor e, ServerConfig&& c, RouterContext&& r)
         : strand_(boost::asio::make_strand(e)),
-          logSuffix_(" (Server " + c.name() + ')'),
+          logSuffix_(" [Server " + c.name() + ']'),
           router_(std::move(r)),
           config_(std::make_shared<ServerConfig>(std::move(c))),
           logger_(router_.logger())

@@ -129,7 +129,6 @@ public:
     using ChallengerPtr = std::weak_ptr<internal::Challenger>;
     static Ptr create(internal::PassKey, Realm&& r, ChallengerPtr c);
     void setAuthentication(internal::PassKey, Authentication&& a);
-    Challenge& accessChallenge(internal::PassKey);
 
 private:
     AuthExchange(Realm&& r, ChallengerPtr c);
@@ -147,6 +146,7 @@ private:
 class CPPWAMP_API ServerConfig
 {
 public:
+    // TODO: IP filter
     using Ptr = std::shared_ptr<ServerConfig>;
     using AuthExchangeHandler = AnyReusableHandler<void (AuthExchange::Ptr)>;
 
@@ -191,10 +191,13 @@ class CPPWAMP_API RouterConfig
 {
 public:
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
+    using AccessLogHandler = AnyReusableHandler<void (AccessLogEntry)>;
 
     RouterConfig& withLogHandler(LogHandler f);
 
     RouterConfig& withLogLevel(LogLevel l);
+
+    RouterConfig& withAccessLogHandler(AccessLogHandler f);
 
     RouterConfig& withSessionIdSeed(EphemeralId seed);
 
@@ -202,10 +205,13 @@ public:
 
     LogLevel logLevel() const;
 
+    const AccessLogHandler& accessLogHandler() const;
+
     EphemeralId sessionIdSeed() const;
 
 private:
     LogHandler logHandler_;
+    AccessLogHandler accessLogHandler_;
     LogLevel logLevel_ = LogLevel::warning;
     EphemeralId sessionIdSeed_ = nullId();
 };

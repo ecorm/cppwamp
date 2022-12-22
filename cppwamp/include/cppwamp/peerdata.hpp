@@ -47,8 +47,14 @@ public:
     /** Converting constructor taking an optional reason URI. */
     Abort(String uri = "");
 
+    /** Sets the `message` member of the details dictionary. */
+    Abort& withHint(String message);
+
     /** Obtains the reason URI. */
     const String& uri() const;
+
+    /** Obtains the `message` member of the details dictionary. */
+    ErrorOr<String> hint() const;
 
 private:
     using Base = Options<Abort, internal::AbortMessage>;
@@ -81,6 +87,10 @@ public:
 
     /** Obtains the roles dictionary. */
     ErrorOr<Object> roles() const;
+
+    /** Obtains the options dictionary with sensitive authentication data
+        filtered out for logging purposes. */
+    Object sanitizedOptions() const;
 
     /** @name Authentication
         See [Authentication in the WAMP Specification]
@@ -207,8 +217,14 @@ public:
     /** Converting constructor taking an optional reason URI. */
     Reason(String uri = "");
 
+    /** Sets the `message` member of the details dictionary. */
+    Reason& withHint(String message);
+
     /** Obtains the reason URI. */
     const String& uri() const;
+
+    /** Obtains the `message` member of the details dictionary. */
+    ErrorOr<String> hint() const;
 
 private:
     using Base = Options<Reason, internal::GoodbyeMessage>;

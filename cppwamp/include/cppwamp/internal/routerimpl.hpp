@@ -149,26 +149,38 @@ public:
         return session;
     }
 
-    void shutDown()
+    void shutDown(String hint = {}, String reasonUri = {})
     {
-        log({LogLevel::info, "Shutting down router"});
+        std::string msg = "Shutting down router";
+        if (!hint.empty())
+            msg += ": " + hint;
+        log({LogLevel::info, std::move(msg)});
+
+        if (reasonUri.empty())
+            reasonUri = "wamp.close.system_shutdown";
         for (auto& kv: servers_)
-            kv.second->shutDown();
+            kv.second->shutDown(hint, reasonUri);
         servers_.clear();
         for (auto& kv: realms_)
-            kv.second->kickLocalSessions();
+            kv.second->kickLocalSessions(hint, reasonUri);
         realms_.clear();
         // TODO: Wait for GOODBYE acknowledgements or timeout
     }
 
-    void terminate()
+    void terminate(String hint = {}, String reasonUri = {})
     {
-        log({LogLevel::info, "Terminating router"});
+        std::string msg = "Terminating router";
+        if (!hint.empty())
+            msg += ": " + hint;
+        log({LogLevel::info, std::move(msg)});
+
+        if (reasonUri.empty())
+            reasonUri = "wamp.close.system_shutdown";
         for (auto& kv: servers_)
-            kv.second->terminate();
+            kv.second->terminate(hint);
         servers_.clear();
         for (auto& kv: realms_)
-            kv.second->kickLocalSessions();
+            kv.second->kickLocalSessions(reasonUri, hint);
         realms_.clear();
     }
 
@@ -178,7 +190,8 @@ private:
     RouterImpl(Executor e, RouterConfig c)
         : strand_(boost::asio::make_strand(e)),
           sessionIdPool_(c.sessionIdSeed()),
-          logger_(RouterLogger::create(strand_, c.logHandler(), c.logLevel())),
+          logger_(RouterLogger::create(strand_, c.logHandler(), c.logLevel(),
+                                       c.accessLogHandler())),
           config_(std::move(c))
     {}
 
@@ -197,9 +210,15 @@ private:
         return sessionIdPool_.allocate();
     }
 
-    ErrorOr<RealmContext> joinRemote(ServerSession::Ptr s)
+    bool realmExists(const String& uri) const
     {
-        auto kv = realms_.find(s->authInfo()->realmUri());
+        return realms_.find(uri) != realms_.end();
+    }
+
+    ErrorOr<RealmContext> joinRemote(const String& realmUri,
+                                     ServerSession::Ptr s)
+    {
+        auto kv = realms_.find(realmUri);
         if (kv == realms_.end())
             return makeUnexpectedError(SessionErrc::noSuchRealm);
         auto realm = kv->second;
@@ -258,13 +277,21 @@ inline SessionId RouterContext::allocateSessionId() const
     return 0;
 }
 
+inline bool RouterContext::realmExists(const String& uri) const
+{
+    auto r = router_.lock();
+    if (!r)
+        return false;
+    return r->realmExists(uri);
+}
+
 inline ErrorOr<RealmContext>
-RouterContext::join(std::shared_ptr<ServerSession> s)
+RouterContext::join(const String& realmUri, std::shared_ptr<ServerSession> s)
 {
     auto r = router_.lock();
     if (!r)
         return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->joinRemote(std::move(s));
+    return r->joinRemote(realmUri, std::move(s));
 }
 
 } // namespace internal
