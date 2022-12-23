@@ -8,6 +8,8 @@
 #include <map>
 #include <sstream>
 #include <type_traits>
+#include <boost/asio/error.hpp>
+#include <boost/system/error_category.hpp>
 #include <jsoncons/json_error.hpp>
 #include <jsoncons_ext/cbor/cbor_error.hpp>
 #include <jsoncons_ext/msgpack/msgpack_error.hpp>
@@ -291,7 +293,7 @@ CPPWAMP_INLINE std::string DecodingCategory::message(int ev) const
 {
     static const std::string msg[] =
     {
-        /* success           */ "Operation succesful",
+        /* success           */ "Decoding succesful",
         /* failure           */ "Decoding failed",
         /* emptyInput        */ "Input is empty or has no tokens",
         /* expectedStringKey */ "Expected a string key",
@@ -361,11 +363,12 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
 {
     static const std::string msg[] =
     {
-        /* success */     "Operation successful",
-        /* aborted */     "Operation aborted",
-        /* failed */      "Operation failed",
-        /* badTxLength */ "Outgoing message exceeds maximum length",
-        /* badRxLength */ "Incoming message exceeds maximum length"
+        /* success */      "Transport operation successful",
+        /* aborted */      "Transport operation aborted",
+        /* failed */       "Transport operation failed",
+        /* disconnected */ "Transport disconnected by other peer",
+        /* badTxLength */  "Outgoing message exceeds transport's maximum length",
+        /* badRxLength */  "Incoming message exceeds transport's maximum length"
     };
 
     if (ev >= 0 && ev < (int)std::extent<decltype(msg)>::value)
@@ -394,13 +397,27 @@ CPPWAMP_INLINE bool TransportCategory::equivalent(const std::error_code& code,
             return !code;
 
         case (int)TransportErrc::aborted:
-            return code == std::errc::operation_canceled;
+            return code == std::errc::operation_canceled ||
+                   code == make_error_code(boost::asio::error::operation_aborted);
 
         case (int)TransportErrc::failed:
         {
-            return ( code.category() == std::generic_category() ||
-                     code.category() == std::system_category() ) && bool(code);
+            if (!code)
+                return false;
+            const auto& cat = code.category();
+            return cat == std::generic_category() ||
+                   cat == std::system_category() ||
+                   cat == boost::system::generic_category() ||
+                   cat == boost::system::system_category() ||
+                   cat == boost::asio::error::get_addrinfo_category() ||
+                   cat == boost::asio::error::get_misc_category() ||
+                   cat == boost::asio::error::get_netdb_category();
         }
+
+        case (int)TransportErrc::disconnected:
+            return code == std::errc::connection_reset ||
+                   code == make_error_code(boost::asio::error::connection_reset) ||
+                   code == make_error_code(boost::asio::error::eof);
 
         default:
             return false;

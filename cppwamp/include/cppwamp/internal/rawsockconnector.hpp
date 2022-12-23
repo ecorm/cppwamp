@@ -145,8 +145,8 @@ private:
         if (asioEc)
         {
             socket_.reset();
-            auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
-            if (ec == std::errc::operation_canceled)
+            auto ec = static_cast<std::error_code>(asioEc);
+            if (asioEc == boost::asio::error::operation_aborted)
                 ec = make_error_code(TransportErrc::aborted);
             dispatchHandler(makeUnexpected(ec));
         }

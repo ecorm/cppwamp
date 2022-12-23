@@ -56,6 +56,11 @@ public:
         return Ptr(new ServerSession(i, move(t), move(c), move(s)));
     }
 
+    ~ServerSession()
+    {
+        log({LogLevel::debug, "ServerSession destructor"});
+    }
+
     SessionId id() const {return id_;}
 
     const AuthorizationInfo::Ptr& authInfo() const {return authInfo_;}
@@ -64,14 +69,78 @@ public:
 
     void start()
     {
-        peer_.establishSession();
+        std::weak_ptr<ServerSession> self = shared_from_this();
+
+        peer_.setLogLevel(logger_->level());
+
+        peer_.setLogHandler(
+            [this, self](LogEntry entry)
+            {
+                auto me = self.lock();
+                if (me)
+                    log(std::move(entry));
+            });
+
+        peer_.setInboundMessageHandler(
+            [this, self](WampMessage msg)
+            {
+                auto me = self.lock();
+                if (me)
+                    onMessage(std::move(msg));
+            });
+
+        peer_.setStateChangeHandler(
+            [this, self](SessionState st)
+            {
+                auto me = self.lock();
+                if (me)
+                    onStateChanged(st);
+            });
+
+        peer_.connect(std::move(transport_), std::move(codec_));
     }
 
     void terminate(String hint)
     {
+        shuttingDown_ = true;
         logAccess({"server-terminate", {}, {{"message", std::move(hint)}}});
         leaveRealm();
         peer_.terminate();
+    }
+
+    void shutDown(String hint, String reasonUri)
+    {
+        if (state() != State::established)
+            return terminate(std::move(hint));
+
+        shuttingDown_ = true;
+        leaveRealm(false);
+
+        Reason reason{std::move(reasonUri)};
+        if (!hint.empty())
+            reason.withHint(std::move(hint));
+
+        auto self = shared_from_this();
+        peer_.closeSession(
+            reason,
+            [this, self, reason](ErrorOr<WampMessage> reply)
+            {
+                if (reply.has_value())
+                {
+                    auto& goodBye = message_cast<GoodbyeMessage>(*reply);
+                    Reason peerReason({}, std::move(goodBye));
+                    logAccess({"server-goodbye", reason.uri(), reason.options(),
+                               peerReason.uri()});
+                }
+                else
+                {
+                    logAccess({"server-goodbye", reason.uri(), reason.options(),
+                               reply.error()});
+                }
+                clearWampSessionAccessLogInfo();
+                logAccess({"server-disconnect", reason.uri(), reason.options()});
+                peer_.terminate();
+            });
     }
 
     void kick(String hint, String reasonUri)
@@ -154,45 +223,6 @@ public:
             peer_.send(msg);
     }
 
-private:
-    ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
-                  ServerContext&& s)
-        : peer_(true, i, i),
-          strand_(std::move(i)),
-          server_(std::move(s)),
-          serverConfig_(server_.config()),
-          logger_(server_.logger())
-    {
-        id_ = server_.allocateSessionId();
-        auto hashedId = IdAnonymizer::anonymize(id_);
-
-        const auto& config = server_.config();
-        assert(config != nullptr);
-
-        logSuffix_ = " [Session " + config->name() + '/' + hashedId + ']';
-
-        accessSessionInfo_.endpoint = t->remoteEndpointLabel();
-        accessSessionInfo_.serverName = config->name();
-        accessSessionInfo_.sessionIdHash = std::move(hashedId);
-
-        logAccess({"client-connect"});
-
-        peer_.setLogHandler(
-            [this](LogEntry entry) {log(std::move(entry));});
-        peer_.setLogLevel(logger_->level());
-
-        peer_.setInboundMessageHandler(
-            [this](WampMessage msg)
-            {
-                onMessage(std::move(msg));
-            });
-
-        peer_.setStateChangeHandler(
-            [this](SessionState st) {onStateChanged(st);} );
-
-        peer_.connect(std::move(t), std::move(c));
-    }
-
     void log(LogEntry&& e)
     {
         e.append(logSuffix_);
@@ -204,6 +234,31 @@ private:
         logger_->log(AccessLogEntry{accessSessionInfo_, std::move(i)});
     }
 
+private:
+    ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
+                  ServerContext&& s)
+        : peer_(true, i, i),
+          strand_(std::move(i)),
+          transport_(t),
+          codec_(std::move(c)),
+          server_(std::move(s)),
+          serverConfig_(server_.config()),
+          logger_(server_.logger())
+    {
+        assert(serverConfig_ != nullptr);
+        accessSessionInfo_.endpoint = t->remoteEndpointLabel();
+        accessSessionInfo_.serverName = serverConfig_->name();
+        allocateId();
+    }
+
+    void allocateId()
+    {
+        id_ = server_.allocateSessionId();
+        auto hashedId = IdAnonymizer::anonymize(id_);
+        logSuffix_ = " [Session " + serverConfig_->name() + '/' + hashedId + ']';
+        accessSessionInfo_.sessionIdHash = std::move(hashedId);
+    }
+
     void clearWampSessionAccessLogInfo()
     {
         accessSessionInfo_.realmUri.clear();
@@ -213,43 +268,65 @@ private:
 
     void onStateChanged(SessionState s)
     {
-        bool transportDropped = (s == SessionState::disconnected) ||
-                                (s == SessionState::failed);
+        log({LogLevel::debug,
+             "ServerSession onStateChanged: " + std::to_string(int(s))});
 
-        bool closedByRemotePeer = (s == SessionState::closed);
+        switch (s)
+        {
+        case SessionState::connecting:
+            logAccess({"client-connect"});
+            break;
 
-        // Don't remove session from server if it was closed gracefully, as the
-        // same transport session can be reused to establish a new WAMP session.
-        // See https://wamp-proto.org/wamp_latest_ietf.html#name-transport-and-session-lifet
-        if (transportDropped)
+        case SessionState::disconnected:
+            logAccess({"client-disconnect"});
             retire();
-        else if (closedByRemotePeer)
+            break;
+
+        case SessionState::closed:
             leaveRealm();
+            if (!shuttingDown_)
+                peer_.establishSession();
+            break;
+
+        case SessionState::establishing:
+            if (id_ == nullId())
+                allocateId();
+            break;
+
+        case SessionState::failed:
+            logAccess({"client-disconnect", {}, {},
+                       make_error_code(TransportErrc::failed)});
+            retire();
+            break;
+
+        default:
+            // Do nothing
+            break;
+        }
     }
 
     void onMessage(WampMessage&& msg)
     {
-        if (msg.type() == WampMsgType::hello)
+        log({LogLevel::debug, "ServerSession onMessage"});
+
+        switch (msg.type())
         {
-            auto& helloMsg = message_cast<HelloMessage>(msg);
-            Realm realm{{}, std::move(helloMsg)};
-            onHello(std::move(realm));
-        }
-        else if (msg.type() == WampMsgType::authenticate)
-        {
-            auto& authenticateMsg = message_cast<AuthenticateMessage>(msg);
-            Authentication authentication{{}, std::move(authenticateMsg)};
-            onAuthenticate(std::move(authentication));
-        }
-        else if (!realm_.expired())
-        {
+        case WampMsgType::hello:        return onHello(msg);
+        case WampMsgType::authenticate: return onAuthenticate(msg);
+        case WampMsgType::goodbye:      return onGoodbye(msg);
+
+        default:
             // TODO: Authorizer
             realm_.onMessage(shared_from_this(), std::move(msg));
+            break;
         }
     }
 
-    void onHello(Realm&& realm)
+    void onHello(WampMessage& msg)
     {
+        auto& helloMsg = message_cast<HelloMessage>(msg);
+        Realm realm{{}, std::move(helloMsg)};
+
         accessSessionInfo_.agent = realm.agent().value_or("");
         accessSessionInfo_.authId = realm.authId().value_or("");
 
@@ -290,8 +367,11 @@ private:
         }
     }
 
-    void onAuthenticate(Authentication&& authentication)
+    void onAuthenticate(WampMessage& msg)
     {
+        auto& authenticateMsg = message_cast<AuthenticateMessage>(msg);
+        Authentication authentication{{}, std::move(authenticateMsg)};
+
         const auto& authenticator = serverConfig_->authenticator();
         bool isExpected = authenticator && authExchange_ &&
                           peer_.state() == SessionState::authenticating;
@@ -306,6 +386,16 @@ private:
 
         authExchange_->setAuthentication({}, std::move(authentication));
         dispatchVia(strand_, authenticator, authExchange_);
+    }
+
+    void onGoodbye(WampMessage& msg)
+    {
+        auto& goodbyeMsg = message_cast<GoodbyeMessage>(msg);
+        Reason reason{{}, std::move(goodbyeMsg)};
+        logAccess({"client-goodbye", reason.uri(), reason.options(),
+                   "wamp.error.goodbye_and_out"});
+        // Peer already took care of sending the reply, aborting pending
+        // requests, and will close the session state.
     }
 
     void abort(String reasonUri, String hint = {})
@@ -432,6 +522,8 @@ private:
 
     Peer peer_;
     IoStrand strand_;
+    Transporting::Ptr transport_;
+    AnyBufferCodec codec_;
     ServerContext server_;
     RealmContext realm_;
     ServerConfig::Ptr serverConfig_;
@@ -440,7 +532,9 @@ private:
     AccessSessionInfo accessSessionInfo_;
     RouterLogger::Ptr logger_;
     std::string logSuffix_;
-    SessionId id_;
+    SessionId id_ = nullId();
+    // TODO: Separate ID for server sessions
+    bool shuttingDown_ = false;
 };
 
 //------------------------------------------------------------------------------
@@ -479,7 +573,7 @@ public:
         listener_->cancel();
         listener_.reset();
         for (auto& s: sessions_)
-            s->kick(hint, reasonUri);
+            s->shutDown(hint, reasonUri);
     }
 
     void terminate(String hint = {})

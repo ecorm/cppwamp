@@ -191,7 +191,7 @@ public:
     virtual std::string remoteEndpointLabel() override
     {
         if (!socket_)
-            return "<unavailable>";
+            return {};
         std::ostringstream oss;
         oss << socket_->remote_endpoint();
         return oss.str();
@@ -239,8 +239,7 @@ private:
                     {
                         if (txErrorHandler_)
                         {
-                            auto ec = make_error_code(
-                                static_cast<std::errc>(asioEc.value()));
+                            auto ec = static_cast<std::error_code>(asioEc);
                             txErrorHandler_(ec);
                         }
                         cleanup();
@@ -273,10 +272,24 @@ private:
             boost::asio::async_read(*socket_, rxFrame_.headerBuffer(),
                 [this, self](boost::system::error_code ec, size_t)
                 {
-                    if (check(ec))
+                    if (ec == boost::asio::error::connection_reset ||
+                        ec == boost::asio::error::eof)
+                    {
+                        onRemoteDisconnect();
+                    }
+                    else if (check(ec))
+                    {
                         processHeader();
+                    }
                 });
         }
+    }
+
+    void onRemoteDisconnect()
+    {
+        if (rxHandler_)
+            post(rxHandler_, makeUnexpectedError(TransportErrc::disconnected));
+        cleanup();
     }
 
     void processHeader()
@@ -363,8 +376,7 @@ private:
         {
             if (rxHandler_)
             {
-                auto ec = make_error_code(
-                            static_cast<std::errc>(asioEc.value()));
+                auto ec = static_cast<std::error_code>(asioEc);
                 post(rxHandler_, UnexpectedError(ec));
             }
             cleanup();

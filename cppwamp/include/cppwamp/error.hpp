@@ -241,7 +241,7 @@ CPPWAMP_API bool lookupWampErrorUri(const std::string& uri,
 //------------------------------------------------------------------------------
 enum class DecodingErrc
 {
-    success           = 0, ///< Operation succesful
+    success           = 0, ///< Decoding succesful
     failure           = 1, ///< Decoding failed
     emptyInput        = 2, ///< Input is empty or has no tokens
     expectedStringKey = 3, ///< Expected a string key
@@ -302,11 +302,12 @@ CPPWAMP_API std::error_condition make_error_condition(DecodingErrc errc);
 //------------------------------------------------------------------------------
 enum class TransportErrc
 {
-    success     = 0, ///< Operation successful
-    aborted     = 1, ///< Operation aborted
-    failed      = 2, ///< Operation failed
-    badTxLength = 3, ///< Outgoing message exceeds maximum length
-    badRxLength = 4  ///< Incoming message exceeds maximum length
+    success      = 0, ///< Transport operation successful
+    aborted      = 1, ///< Transport operation aborted
+    failed       = 2, ///< Transport operation failed
+    disconnected = 3, ///< Transport disconnected by other peer
+    badTxLength  = 4, ///< Outgoing message exceeds transport's maximum length
+    badRxLength  = 5  ///< Incoming message exceeds transport's maximum length
 };
 
 //------------------------------------------------------------------------------

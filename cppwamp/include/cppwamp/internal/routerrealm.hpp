@@ -156,9 +156,77 @@ private:
         dispatch(Dispatched{shared_from_this(), std::move(s), std::move(m)});
     }
 
-    void onMessage(std::shared_ptr<ServerSession> session, WampMessage msg)
+    void onMessage(std::shared_ptr<ServerSession> s, WampMessage m)
     {
-        // TODO
+        using M = WampMsgType;
+        switch (m.type())
+        {
+        case M::error:       return onError(std::move(s), m);
+        case M::publish:     return onPublish(std::move(s), m);
+        case M::subscribe:   return onSubscribe(std::move(s), m);
+        case M::unsubscribe: return onUnsubscribe(std::move(s), m);
+        case M::call:        return onCall(std::move(s), m);
+        case M::cancel:      return onCancel(std::move(s), m);
+        case M::enroll:      return onRegister(std::move(s), m);
+        case M::unregister:  return onUnregister(std::move(s), m);
+        case M::yield:       return onYield(std::move(s), m);
+        default:             assert(false && "Unexpected message type"); break;
+        }
+    }
+
+    void onError(std::shared_ptr<ServerSession> s, WampMessage& m)
+    {
+        auto& msg = message_cast<ErrorMessage>(m);
+        s->logAccess({"client-error", {}, msg.options(), msg.reasonUri(),
+                      false});
+    }
+
+    void onPublish(std::shared_ptr<ServerSession> s, WampMessage& m)
+    {
+        auto& msg = message_cast<PublishMessage>(m);
+        s->logAccess({"client-publish", msg.topicUri(), msg.options()});
+    }
+
+    void onSubscribe(std::shared_ptr<ServerSession> s, WampMessage& m)
+    {
+        auto& msg = message_cast<SubscribeMessage>(m);
+        s->logAccess({"client-subscribe", msg.topicUri(), msg.options()});
+    }
+
+    void onUnsubscribe(std::shared_ptr<ServerSession> s, WampMessage& m)
+    {
+        auto& msg = message_cast<UnsubscribeMessage>(m);
+        s->logAccess({"client-unsubscribe"});
+    }
+
+    void onCall(std::shared_ptr<ServerSession> s, WampMessage& m)
+    {
+        auto& msg = message_cast<CallMessage>(m);
+        s->logAccess({"client-call", msg.procedureUri(), msg.options()});
+    }
+
+    void onCancel(std::shared_ptr<ServerSession> s, WampMessage& m)
+    {
+        auto& msg = message_cast<CancelMessage>(m);
+        s->logAccess({"client-cancel", {}, msg.options()});
+    }
+
+    void onRegister(std::shared_ptr<ServerSession> s, WampMessage& m)
+    {
+        auto& msg = message_cast<RegisterMessage>(m);
+        s->logAccess({"client-register", msg.procedureUri(), msg.options()});
+    }
+
+    void onUnregister(std::shared_ptr<ServerSession> s, WampMessage& m)
+    {
+        auto& msg = message_cast<UnregisterMessage>(m);
+        s->logAccess({"client-unregister"});
+    }
+
+    void onYield(std::shared_ptr<ServerSession> s, WampMessage& m)
+    {
+        auto& msg = message_cast<YieldMessage>(m);
+        s->logAccess({"client-yield", {}, msg.options()});
     }
 
     IoStrand strand_;

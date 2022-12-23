@@ -137,6 +137,8 @@ public:
                     // Ignore transport cancellation errors when disconnecting.
                     if (buffer.has_value())
                         onTransportRx(std::move(*buffer));
+                    else if (buffer.error() == TransportErrc::disconnected)
+                        onRemoteDisconnect();
                     else if (state() != State::disconnected)
                         fail(buffer.error(), "Transport receive failure");
                 },
@@ -610,12 +612,12 @@ private:
             SessionErrc errc;
             lookupWampErrorUri(goodbyeMsg.reasonUri(), SessionErrc::closeRealm,
                                errc);
-            abortPending(errc);
-            GoodbyeMessage outgoingGoodbye("wamp.error.goodbye_and_out");
-            send(outgoingGoodbye).value();
-            setState(State::closed);
 
-            if (logLevel() <= LogLevel::warning)
+            if (isRouter_)
+            {
+                inboundMessageHandler_(std::move(msg));
+            }
+            else if (logLevel() <= LogLevel::warning)
             {
                 std::ostringstream oss;
                 oss << "Session ended by peer with reason URI "
@@ -624,7 +626,30 @@ private:
                     oss << " and details " << goodbyeMsg.options();
                 log(LogLevel::warning, oss.str());
             }
+
+            abortPending(errc);
+            setState(State::closed);
+            GoodbyeMessage outgoingGoodbye("wamp.error.goodbye_and_out");
+            send(outgoingGoodbye).value();
         }
+    }
+
+    void onRemoteDisconnect()
+    {
+        auto s = state();
+        if (s == State::disconnected || s == State::failed)
+            return;
+
+        setState(State::disconnected);
+        abortPending(make_error_code(TransportErrc::disconnected));
+        if (transport_)
+        {
+            transport_->close();
+            transport_.reset();
+        }
+
+        if (!isRouter_)
+            log(LogLevel::warning, "Transport disconnected by remote peer");
     }
 
     void fail(std::error_code ec, std::string info = {})

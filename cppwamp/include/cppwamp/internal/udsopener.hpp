@@ -76,7 +76,7 @@ private:
     {
         if (asioEc)
         {
-            auto ec = make_error_code(static_cast<std::errc>(asioEc.value()));
+            auto ec = static_cast<std::error_code>(asioEc);
             callback(UnexpectedError(ec));
         }
         return !asioEc;

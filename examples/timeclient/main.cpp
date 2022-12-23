@@ -57,13 +57,19 @@ int main()
     {
         session.connect(tcp, yield).value();
         session.join(wamp::Realm(realm), yield).value();
-        auto result = session.call(wamp::Rpc("get_time"), yield).value();
-        auto time = result[0].to<std::tm>();
-        std::cout << "The current time is: " << std::asctime(&time) << "\n";
+//        auto result = session.call(wamp::Rpc("get_time"), yield).value();
+//        auto time = result[0].to<std::tm>();
+//        std::cout << "The current time is: " << std::asctime(&time) << "\n";
 
-        session.subscribe(wamp::Topic("time_tick"),
-                          wamp::simpleEvent<std::tm>(&onTimeTick),
-                          yield).value();
+//        session.subscribe(wamp::Topic("time_tick"),
+//                          wamp::simpleEvent<std::tm>(&onTimeTick),
+//                          yield).value();
+        auto r = session.leave({"because.i.feel.like.it"}, yield);
+        std::cout << r.value().uri() << std::endl;
+        session.join(wamp::Realm(realm), yield).value();
+        r = session.leave({"because.i.feel.like.it.again"}, yield);
+        std::cout << r.value().uri() << std::endl;
+        session.disconnect();
     });
 
     ioctx.run();
