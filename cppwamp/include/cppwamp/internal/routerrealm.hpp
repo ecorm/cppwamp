@@ -50,7 +50,7 @@ public:
 
     void join(ServerSession::Ptr session)
     {
-        auto id = session->id();
+        auto id = session->wampSessionId();
         serverSessions_.emplace(id, std::move(session));
     }
 
@@ -136,7 +136,7 @@ private:
 
     void leave(ServerSession::Ptr session)
     {
-        serverSessions_.erase(session->id());
+        serverSessions_.erase(session->wampSessionId());
     }
 
     void safeOnMessage(std::shared_ptr<ServerSession> s, WampMessage m)

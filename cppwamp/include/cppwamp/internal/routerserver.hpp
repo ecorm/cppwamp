@@ -8,7 +8,9 @@
 #define CPPWAMP_INTERNAL_ROUTER_SERVER_HPP
 
 #include <cassert>
+#include <cstdint>
 #include <memory>
+#include <string>
 #include <utility>
 #include "../routerconfig.hpp"
 #include "challenger.hpp"
@@ -45,23 +47,30 @@ class ServerSession : public std::enable_shared_from_this<ServerSession>,
 public:
     using Ptr = std::shared_ptr<ServerSession>;
     using State = SessionState;
+    using Index = uint64_t;
 
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
     static Ptr create(const IoStrand& i, Transporting::Ptr t, AnyBufferCodec c,
-                      ServerContext s)
+                      ServerContext s, Index sessionIndex)
     {
-        using std::move;
-        return Ptr(new ServerSession(i, move(t), move(c), move(s)));
+        return Ptr(new ServerSession(i, std::move(t), std::move(c),
+                                     std::move(s), sessionIndex));
     }
 
     ~ServerSession()
     {
-        log({LogLevel::debug, "ServerSession destructor"});
+        if (wampSessionId_ != nullId())
+        {
+            server_.freeSessionId(wampSessionId_);
+            wampSessionId_ = nullId();
+        }
     }
 
-    SessionId id() const {return id_;}
+    Index sessionIndex() const {return sessionInfo_.serverSessionIndex;}
+
+    SessionId wampSessionId() const {return wampSessionId_;}
 
     const AuthorizationInfo::Ptr& authInfo() const {return authInfo_;}
 
@@ -69,6 +78,9 @@ public:
 
     void start()
     {
+        assert(!alreadyStarted_);
+        alreadyStarted_ = true;
+
         std::weak_ptr<ServerSession> self = shared_from_this();
 
         peer_.setLogLevel(logger_->level());
@@ -137,7 +149,7 @@ public:
                     logAccess({"server-goodbye", reason.uri(), reason.options(),
                                reply.error()});
                 }
-                clearWampSessionAccessLogInfo();
+                clearWampSessionInfo();
                 logAccess({"server-disconnect", reason.uri(), reason.options()});
                 peer_.terminate();
             });
@@ -172,8 +184,14 @@ public:
                                reply.error()});
                 }
 
-                clearWampSessionAccessLogInfo();
+                clearWampSessionInfo();
             });
+    }
+
+    void setWampSessionId(SessionId id)
+    {
+        wampSessionId_ = id;
+        sessionInfo_.wampSessionIdHash = IdAnonymizer::anonymize(id);
     }
 
     void invoke(Invocation&& inv, CompletionHandler<Outcome>&& handler)
@@ -231,12 +249,12 @@ public:
 
     void logAccess(AccessActionInfo&& i)
     {
-        logger_->log(AccessLogEntry{accessSessionInfo_, std::move(i)});
+        logger_->log(AccessLogEntry{sessionInfo_, std::move(i)});
     }
 
 private:
     ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
-                  ServerContext&& s)
+                  ServerContext&& s, Index sessionIndex)
         : peer_(true, i, i),
           strand_(std::move(i)),
           transport_(t),
@@ -246,24 +264,23 @@ private:
           logger_(server_.logger())
     {
         assert(serverConfig_ != nullptr);
-        accessSessionInfo_.endpoint = t->remoteEndpointLabel();
-        accessSessionInfo_.serverName = serverConfig_->name();
-        allocateId();
+        sessionInfo_.endpoint = t->remoteEndpointLabel();
+        sessionInfo_.serverName = serverConfig_->name();
+        sessionInfo_.serverSessionIndex = sessionIndex;
+        logSuffix_ = " [Session " + serverConfig_->name() + '/' +
+                     std::to_string(sessionInfo_.serverSessionIndex) + ']';
     }
 
-    void allocateId()
+    void clearWampSessionInfo()
     {
-        id_ = server_.allocateSessionId();
-        auto hashedId = IdAnonymizer::anonymize(id_);
-        logSuffix_ = " [Session " + serverConfig_->name() + '/' + hashedId + ']';
-        accessSessionInfo_.sessionIdHash = std::move(hashedId);
-    }
-
-    void clearWampSessionAccessLogInfo()
-    {
-        accessSessionInfo_.realmUri.clear();
-        accessSessionInfo_.authId.clear();
-        accessSessionInfo_.agent.clear();
+        if (wampSessionId_ != nullId())
+        {
+            server_.freeSessionId(wampSessionId_);
+            wampSessionId_ = nullId();
+        }
+        sessionInfo_.realmUri.clear();
+        sessionInfo_.authId.clear();
+        sessionInfo_.agent.clear();
     }
 
     void onStateChanged(SessionState s)
@@ -286,11 +303,6 @@ private:
             leaveRealm();
             if (!shuttingDown_)
                 peer_.establishSession();
-            break;
-
-        case SessionState::establishing:
-            if (id_ == nullId())
-                allocateId();
             break;
 
         case SessionState::failed:
@@ -327,8 +339,8 @@ private:
         auto& helloMsg = message_cast<HelloMessage>(msg);
         Realm realm{{}, std::move(helloMsg)};
 
-        accessSessionInfo_.agent = realm.agent().value_or("");
-        accessSessionInfo_.authId = realm.authId().value_or("");
+        sessionInfo_.agent = realm.agent().value_or("");
+        sessionInfo_.authId = realm.authId().value_or("");
 
         if (!server_.realmExists(realm.uri()))
         {
@@ -358,12 +370,12 @@ private:
 
             realm_ = *realmContext;
             authInfo_ = std::make_shared<AuthorizationInfo>(realm);
-            authInfo_->setSessionId(id_);
-            accessSessionInfo_.realmUri = realm.uri();
+            authInfo_->setSessionId(wampSessionId_);
+            sessionInfo_.realmUri = realm.uri();
             logAccess({"client-hello", realm.uri(), realm.sanitizedOptions()});
             auto details = authInfo_->welcomeDetails();
             details.emplace("roles", server_.roles());
-            peer_.welcome(id_, std::move(details));
+            peer_.welcome(wampSessionId_, std::move(details));
         }
     }
 
@@ -394,7 +406,7 @@ private:
         Reason reason{{}, std::move(goodbyeMsg)};
         logAccess({"client-goodbye", reason.uri(), reason.options(),
                    "wamp.error.goodbye_and_out"});
-        // Peer already took care of sending the reply, aborting pending
+        // peer_ already took care of sending the reply, aborting pending
         // requests, and will close the session state.
     }
 
@@ -415,14 +427,14 @@ private:
         else
             logAccess({"server-abort", a.uri(), a.options(), done.error()});
 
-        clearWampSessionAccessLogInfo();
+        clearWampSessionInfo();
     }
 
     void leaveRealm(bool clearAccessLogInfo = true)
     {
         realm_.leave(shared_from_this());
         if (clearAccessLogInfo)
-            clearWampSessionAccessLogInfo();
+            clearWampSessionInfo();
     }
 
     void retire()
@@ -469,7 +481,7 @@ private:
                               s == SessionState::authenticating;
         if (!readyToWelcome)
             return;
-        peer_.welcome(id_, std::move(details));
+        peer_.welcome(wampSessionId_, std::move(details));
     }
 
     void safeWelcome(Object details) override
@@ -529,11 +541,11 @@ private:
     ServerConfig::Ptr serverConfig_;
     AuthExchange::Ptr authExchange_;
     AuthorizationInfo::Ptr authInfo_;
-    AccessSessionInfo accessSessionInfo_;
+    AccessSessionInfo sessionInfo_;
     RouterLogger::Ptr logger_;
     std::string logSuffix_;
-    SessionId id_ = nullId();
-    // TODO: Separate ID for server sessions
+    SessionId wampSessionId_ = nullId();
+    bool alreadyStarted_ = false;
     bool shuttingDown_ = false;
 };
 
@@ -633,8 +645,11 @@ private:
         auto codec = config_->makeCodec(transport->info().codecId);
         auto self = std::static_pointer_cast<RouterServer>(shared_from_this());
         ServerContext ctx{router_, std::move(self)};
+        if (++nextSessionIndex_ == 0u)
+            nextSessionIndex_ = 1u;
         auto s = ServerSession::create(strand_, std::move(transport),
-                                       std::move(codec), std::move(ctx));
+                                       std::move(codec), std::move(ctx),
+                                       nextSessionIndex_);
         sessions_.insert(s);
         s->start();
         listen();
@@ -658,6 +673,7 @@ private:
     ServerConfig::Ptr config_;
     Listening::Ptr listener_;
     RouterLogger::Ptr logger_;
+    ServerSession::Index nextSessionIndex_ = 0;
 
     friend class ServerContext;
 };

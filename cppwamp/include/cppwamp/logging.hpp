@@ -116,10 +116,11 @@ struct CPPWAMP_API AccessSessionInfo
 {
     std::string endpoint;
     std::string serverName;
-    std::string sessionIdHash;
     std::string realmUri;
     std::string authId;
+    std::string wampSessionIdHash;
     std::string agent;
+    uint64_t serverSessionIndex;
 };
 
 //------------------------------------------------------------------------------

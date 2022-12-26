@@ -142,7 +142,7 @@ public:
             return nullptr;
 
         auto realm = kv->second;
-        a.setSessionId(allocateSessionId());
+        a.setSessionId(sessionIdPool_.allocate());
         using std::move;
         auto session = LocalSessionImpl::create({realm}, move(a), move(e));
         realm->join(session);
@@ -205,9 +205,9 @@ private:
 
     RouterLogger::Ptr logger() const {return logger_;}
 
-    SessionId allocateSessionId()
+    void freeSessionId(SessionId id)
     {
-        return sessionIdPool_.allocate();
+        return sessionIdPool_.free(id);
     }
 
     bool realmExists(const String& uri) const
@@ -222,6 +222,7 @@ private:
         if (kv == realms_.end())
             return makeUnexpectedError(SessionErrc::noSuchRealm);
         auto realm = kv->second;
+        s->setWampSessionId(sessionIdPool_.allocate());
         realm->join(s);
         return {realm};
     }
@@ -269,12 +270,11 @@ inline RouterLogger::Ptr RouterContext::logger() const
     return nullptr;
 }
 
-inline SessionId RouterContext::allocateSessionId() const
+inline void RouterContext::freeSessionId(SessionId id) const
 {
     auto r = router_.lock();
     if (r)
-        return r->allocateSessionId();
-    return 0;
+        r->freeSessionId(id);
 }
 
 inline bool RouterContext::realmExists(const String& uri) const

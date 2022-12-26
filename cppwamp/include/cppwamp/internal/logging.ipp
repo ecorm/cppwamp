@@ -39,6 +39,47 @@ CPPWAMP_INLINE std::ostream& outputLogEntryTime(
     return out;
 }
 
+CPPWAMP_INLINE void outputAccessLogEntry(
+    std::ostream& out, const AccessLogEntry& entry, std::string origin,
+    bool colored)
+{
+    static constexpr const char* red = "\x1b[1;31m";
+    static constexpr const char* plain = "\x1b[0m";
+
+    struct PutField
+    {
+        std::ostream& out;
+
+        PutField& operator<<(const std::string& field)
+        {
+            if (field.empty())
+                out << " | -";
+            else
+                out << " | " << field;
+            return *this;
+        }
+    };
+
+    const auto& s = entry.session();
+    const auto& a = entry.action();
+    AccessLogEntry::outputTime(out, entry.when());
+    PutField{out} << s.serverName;
+    out << " | " << s.serverSessionIndex;
+    PutField{out} << s.endpoint << s.realmUri << s.authId
+                  << s.wampSessionIdHash << s.agent << a.action << a.target;
+
+    out << " | ";
+    if (entry.action().ok)
+        out << "ok";
+    else if (colored)
+        out << red << "error" << plain;
+    else
+        out << "error";
+
+    PutField{out} << a.status;
+    out << " | " << a.options;
+}
+
 }
 
 //******************************************************************************
@@ -326,9 +367,9 @@ CPPWAMP_INLINE AccessLogEntry::TimePoint AccessLogEntry::when() const
     @details
     The following format is used:
     ```
-    YYYY-MM-DDTHH:MM:SS.sss | endpoint | agent | authid | realmUri |
-    server name | session id hash | action | action URI |
-    ok/error | status | {action options}
+    YYYY-MM-DDTHH:MM:SS.sss | server name | server session index |
+    transport endpoint | realmUri | authid | wamp session id hash | agent |
+    action | target URI | ok/error | status | {action options}
     ```
     @note This function uses std::gmtime which may or may not be thread-safe
           on the target platform. */
@@ -368,33 +409,7 @@ CPPWAMP_INLINE std::ostream& toStream(std::ostream& out,
                                       const AccessLogEntry& entry,
                                       const std::string& origin)
 {
-    struct PutField
-    {
-        std::ostream& out;
-
-        PutField& operator<<(const std::string& field)
-        {
-            if (field.empty())
-                out << " | -";
-            else
-                out << " | " << field;
-            return *this;
-        }
-    };
-
-    const auto& s = entry.session();
-    const auto& a = entry.action();
-    AccessLogEntry::outputTime(out, entry.when());
-    PutField{out} << s.endpoint << s.agent << s.authId << s.realmUri
-                  << s.serverName << s.sessionIdHash << a.action << a.target;
-
-    if (entry.action().ok)
-        out << " | ok";
-    else
-        out << " | error";
-
-    PutField{out} << a.status;
-    out << " | " << a.options;
+    internal::outputAccessLogEntry(out, entry, origin, false);
     return out;
 }
 
@@ -416,37 +431,7 @@ CPPWAMP_INLINE std::ostream&
 toColorStream(std::ostream& out, const AccessLogEntry& entry,
               std::string origin)
 {
-    static constexpr const char* red = "\x1b[1;31m";
-    static constexpr const char* plain = "\x1b[0m";
-
-    struct PutField
-    {
-        std::ostream& out;
-
-        PutField& operator<<(const std::string& field)
-        {
-            if (field.empty())
-                out << " | -";
-            else
-                out << " | " << field;
-            return *this;
-        }
-    };
-
-    const auto& s = entry.session();
-    const auto& a = entry.action();
-    AccessLogEntry::outputTime(out, entry.when());
-    PutField{out} << s.endpoint << s.agent << s.authId << s.realmUri
-                  << s.serverName << s.sessionIdHash << a.action << a.target;
-
-    out << " | ";
-    if (entry.action().ok)
-        out << "ok";
-    else
-        out << red << "error" << plain;
-
-    PutField{out} << a.status;
-    out << " | " << a.options;
+    internal::outputAccessLogEntry(out, entry, origin, true);
     return out;
 }
 

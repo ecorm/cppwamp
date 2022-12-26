@@ -97,7 +97,7 @@ public:
     static const Object& roles();
     RouterContext(std::shared_ptr<RouterImpl> r);
     RouterLogger::Ptr logger() const;
-    SessionId allocateSessionId() const;
+    void freeSessionId(SessionId id) const;
     bool realmExists(const String& realmUri) const;
     ErrorOr<RealmContext> join(const String& realmUri,
                                std::shared_ptr<ServerSession> s);
