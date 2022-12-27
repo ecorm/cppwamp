@@ -274,8 +274,8 @@ private:
 //------------------------------------------------------------------------------
 struct ChallengeMessage : public MessageWithOptions<WampMsgType::challenge, 2>
 {
-    ChallengeMessage(String authMethod = {})
-        : Base({0, std::move(authMethod)})
+    ChallengeMessage(String authMethod = {}, Object opts = {})
+        : Base({0, std::move(authMethod), std::move(opts)})
     {}
 
     const String& authMethod() const {return fields_.at(1).as<String>();}

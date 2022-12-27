@@ -14,45 +14,46 @@
 #include <cppwamp/router.hpp>
 
 //------------------------------------------------------------------------------
-void onAuthenticate(wamp::AuthExchange::Ptr ex)
-{
-    ex->welcome();
-}
-
-//------------------------------------------------------------------------------
-template <typename L>
-wamp::RouterConfig routerConfig(L logger)
-{
-    return wamp::RouterConfig()
-        .withLogHandler(logger)
-        .withLogLevel(wamp::LogLevel::debug)
-        .withAccessLogHandler(logger);
-}
-
-//------------------------------------------------------------------------------
-wamp::RealmConfig realmConfig()
-{
-    return wamp::RealmConfig("cppwamp.demo.time");
-}
-
-//------------------------------------------------------------------------------
-wamp::ServerConfig serverConfig()
-{
-    return wamp::ServerConfig("tcp12345",
-                              wamp::TcpEndpoint{12345},
-                              wamp::json);
-//        .withAuthenticator(&onAuthenticate);
-}
-
-//------------------------------------------------------------------------------
 int main()
 {
     wamp::ColorConsoleLogger logger{"router"};
+
+    auto onAuthenticate = [&logger](wamp::AuthExchange::Ptr ex)
+    {
+        logger({
+            wamp::LogLevel::debug,
+            "main onAuthenticate: authid=" +
+                ex->realm().authId().value_or("anonymous")});
+        //ex->welcome();
+        if (ex->challengeCount() == 0)
+            ex->challenge(wamp::Challenge("ticket").withChallenge("quest"));
+        else if (ex->challengeCount() == 1)
+        {
+            if (ex->authentication().signature() == "grail")
+                ex->welcome({{"authrole", "admin"}});
+            else
+                ex->reject();
+        }
+        else
+            ex->reject();
+    };
+
+    auto config = wamp::RouterConfig()
+        .withLogHandler(logger)
+        .withLogLevel(wamp::LogLevel::debug)
+        .withAccessLogHandler(logger);
+
+    auto realmConfig = wamp::RealmConfig("cppwamp.demo.time");
+
+    auto serverConfig =
+        wamp::ServerConfig("tcp12345", wamp::TcpEndpoint{12345}, wamp::json)
+            .withAuthenticator(onAuthenticate);
+
     logger({wamp::LogLevel::info, "CppWAMP Example Router launched"});
     wamp::IoContext ioctx;
-    wamp::Router router{ioctx, routerConfig(logger)};
-    router.addRealm(realmConfig());
-    router.startServer(serverConfig());
+    wamp::Router router{ioctx, config};
+    router.addRealm(realmConfig);
+    router.startServer(serverConfig);
     ioctx.run();
     logger({wamp::LogLevel::info, "CppWAMP Example Router exit"});
     return 0;

@@ -10,6 +10,7 @@
 
 #include <ctime>
 #include <iostream>
+#include <cppwamp/consolelogger.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
@@ -49,14 +50,28 @@ void onTimeTick(std::tm time)
 //------------------------------------------------------------------------------
 int main()
 {
+    wamp::ConsoleLogger logger;
     wamp::IoContext ioctx;
     auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
     wamp::Session session(ioctx);
+    session.setLogHandler(logger);
+    session.setLogLevel(wamp::LogLevel::trace);
 
-    wamp::spawn(ioctx, [tcp, &session](wamp::YieldContext yield)
+    auto onChallenge = [](wamp::Challenge c)
+    {
+        std::cout << "challenge=" << c.challenge().value_or("none") << std::endl;
+        c.authenticate({"blue_no_red"});
+    };
+
+    wamp::spawn(ioctx, [tcp, &session, onChallenge](wamp::YieldContext yield)
     {
         session.connect(tcp, yield).value();
-        session.join(wamp::Realm(realm), yield).value();
+        auto info = session.join(
+            wamp::Realm(realm)
+                .withAuthId("alice")
+                .withAuthMethods({"ticket"}),
+            onChallenge,
+            yield).value();
 //        auto result = session.call(wamp::Rpc("get_time"), yield).value();
 //        auto time = result[0].to<std::tm>();
 //        std::cout << "The current time is: " << std::asctime(&time) << "\n";
@@ -64,10 +79,8 @@ int main()
 //        session.subscribe(wamp::Topic("time_tick"),
 //                          wamp::simpleEvent<std::tm>(&onTimeTick),
 //                          yield).value();
+        std::cout << info << std::endl;
         auto r = session.leave({"because.i.feel.like.it"}, yield);
-        std::cout << r.value().uri() << std::endl;
-        session.join(wamp::Realm(realm), yield).value();
-        r = session.leave({"because.i.feel.like.it.again"}, yield);
         std::cout << r.value().uri() << std::endl;
         session.disconnect();
     });

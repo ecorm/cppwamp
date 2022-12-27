@@ -19,6 +19,8 @@ namespace wamp
 
 CPPWAMP_INLINE Abort::Abort(String uri) : Base(std::move(uri)) {}
 
+CPPWAMP_INLINE Abort::Abort(SessionErrc errc) : Base(errcToUri(errc)) {}
+
 CPPWAMP_INLINE Abort& Abort::withHint(String text)
 {
     withOption("message", std::move(text));
@@ -33,6 +35,13 @@ CPPWAMP_INLINE const String& Abort::uri() const
 CPPWAMP_INLINE ErrorOr<String> Abort::hint() const
 {
     return optionAs<String>("message");
+}
+
+CPPWAMP_INLINE String Abort::errcToUri(SessionErrc errc)
+{
+    auto uri = errorCodeToUri(errc);
+    assert(!uri.empty() && "Error code must map to URI");
+    return uri;
 }
 
 CPPWAMP_INLINE Abort::Abort(internal::PassKey, internal::AbortMessage&& msg)

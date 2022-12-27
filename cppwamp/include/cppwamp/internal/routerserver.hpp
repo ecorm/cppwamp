@@ -102,11 +102,11 @@ public:
             });
 
         peer_.setStateChangeHandler(
-            [this, self](SessionState st)
+            [this, self](SessionState st, std::error_code ec)
             {
                 auto me = self.lock();
                 if (me)
-                    onStateChanged(st);
+                    onStateChanged(st, ec);
             });
 
         peer_.connect(std::move(transport_), std::move(codec_));
@@ -283,10 +283,10 @@ private:
         sessionInfo_.agent.clear();
     }
 
-    void onStateChanged(SessionState s)
+    void onStateChanged(SessionState s, std::error_code ec)
     {
-        log({LogLevel::debug,
-             "ServerSession onStateChanged: " + std::to_string(int(s))});
+//        log({LogLevel::debug,
+//             "ServerSession onStateChanged: " + std::to_string(int(s))});
 
         switch (s)
         {
@@ -295,7 +295,7 @@ private:
             break;
 
         case SessionState::disconnected:
-            logAccess({"client-disconnect"});
+            logAccess({"client-disconnect", {}, {}, ec});
             retire();
             break;
 
@@ -306,8 +306,7 @@ private:
             break;
 
         case SessionState::failed:
-            logAccess({"client-disconnect", {}, {},
-                       make_error_code(TransportErrc::failed)});
+            logAccess({"client-disconnect", {}, {}, ec});
             retire();
             break;
 
@@ -346,7 +345,7 @@ private:
         {
             logAccess({"client-hello", realm.uri(), realm.sanitizedOptions(),
                        "wamp.error.no_such_realm", false});
-            abort("wamp.error.no_such_realm");
+            abort({SessionErrc::noSuchRealm});
             return;
         }
 
@@ -364,7 +363,7 @@ private:
             {
                 logAccess({"client-hello", realm.uri(),
                            realm.sanitizedOptions(), realmContext.error()});
-                abort("wamp.error.no_such_realm");
+                abort({SessionErrc::noSuchRealm});
                 return;
             }
 
@@ -391,8 +390,8 @@ private:
         {
             logAccess({"client-authenticate", "", {},
                        "wamp.error.protocol_violation"});
-            abort("wamp.error.protocol_violation",
-                  "Unexpected AUTHENTICATE message");
+            abort(Abort(SessionErrc::protocolViolation)
+                      .withHint("Unexpected AUTHENTICATE message"));
             return;
         }
 
@@ -410,16 +409,12 @@ private:
         // requests, and will close the session state.
     }
 
-    void abort(String reasonUri, String hint = {})
+    void abort(Abort a)
     {
         if (state() != State::established)
             return;
 
         leaveRealm(false);
-
-        auto a = Abort{std::move(reasonUri)};
-        if (!hint.empty())
-            a.withHint(std::move(hint));
 
         auto done = peer_.abort(a);
         if (done)
@@ -457,10 +452,11 @@ private:
 
     void challenge() override
     {
-        if (peer_.state() != SessionState::establishing)
-            return;
-        assert(authExchange_ != nullptr);
-        peer_.challenge(authExchange_->challenge());
+        if (peer_.state() == SessionState::authenticating &&
+            authExchange_ != nullptr)
+        {
+            peer_.challenge(authExchange_->challenge());
+        }
     }
 
     void safeChallenge() override
@@ -481,6 +477,19 @@ private:
                               s == SessionState::authenticating;
         if (!readyToWelcome)
             return;
+
+        if (authExchange_)
+        {
+            logAccess({"client-hello",
+                       authExchange_->realm().uri(),
+                       authExchange_->realm().sanitizedOptions()});
+        }
+        else
+        {
+            logAccess({"client-hello"});
+        }
+
+        authExchange_.reset();
         peer_.welcome(wampSessionId_, std::move(details));
     }
 
@@ -496,33 +505,42 @@ private:
         safelyDispatch<Dispatched>(std::move(details));
     }
 
-    void reject(Object details, String reasonUri) override
-    {
-        auto a = Abort{std::move(reasonUri)}.withOptions(std::move(details));
-        rejectAuthorization(std::move(a));
-    }
-
-    void safeReject(Object details, String reasonUri) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Abort abort;
-            void operator()() {self->rejectAuthorization(std::move(abort));}
-        };
-
-        auto a = Abort{std::move(reasonUri)}.withOptions(std::move(details));
-        safelyDispatch<Dispatched>(std::move(a));
-    }
-
-    void rejectAuthorization(Abort&& a)
+    void reject(Abort a) override
     {
         auto s = peer_.state();
         bool readyToReject = s == SessionState::establishing ||
                              s == SessionState::authenticating;
         if (!readyToReject)
             return;
+
+        if (authExchange_)
+        {
+            logAccess({"client-hello",
+                       authExchange_->realm().uri(),
+                       authExchange_->realm().sanitizedOptions(),
+                       a.uri(),
+                       false});
+        }
+        else
+        {
+            logAccess({"client-hello", {}, {}, a.uri()});
+        }
+
+        authExchange_.reset();
+        clearWampSessionInfo();
         peer_.abort(std::move(a));
+    }
+
+    void safeReject(Abort a) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Abort a;
+            void operator()() {self->reject(std::move(a));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(a));
     }
 
     template <typename F, typename... Ts>

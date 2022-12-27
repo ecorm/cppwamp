@@ -114,15 +114,16 @@ public:
     const Realm& realm() const;
     const Challenge& challenge() const;
     const Authentication& authentication() const;
-    unsigned stage() const;
+    unsigned challengeCount() const;
     const Variant& memento() const;
 
+    // TODO: Use std:any-like structure for memento
     void challenge(Challenge challenge, Variant memento = {});
     void challenge(ThreadSafe, Challenge challenge, Variant memento = {});
     void welcome(Object details = {});
     void welcome(ThreadSafe, Object details = {});
-    void reject(Object details = {}, String reasonUri = {});
-    void reject(ThreadSafe, Object details = {}, String reasonUri = {});
+    void reject(Abort a = {SessionErrc::cannotAuthenticate});
+    void reject(ThreadSafe, Abort a = {SessionErrc::cannotAuthenticate});
 
 public:
     // Internal use only
@@ -138,7 +139,7 @@ private:
     Challenge challenge_;
     Authentication authentication_;
     Variant memento_; // Useful for keeping the authorizer stateless
-    unsigned stage_ = 0;
+    unsigned challengeCount_ = 0;
 };
 
 
@@ -147,6 +148,7 @@ class CPPWAMP_API ServerConfig
 {
 public:
     // TODO: IP filter
+    // TODO: Authentication cooldown
     using Ptr = std::shared_ptr<ServerConfig>;
     using AuthExchangeHandler = AnyReusableHandler<void (AuthExchange::Ptr)>;
 

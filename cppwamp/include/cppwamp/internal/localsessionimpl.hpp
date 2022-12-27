@@ -851,7 +851,7 @@ private:
                 auto& errMsg = message_cast<ErrorMessage>(*reply);
                 const auto& uri = errMsg.reasonUri();
                 SessionErrc errc;
-                bool found = lookupWampErrorUri(uri, defaultErrc, errc);
+                bool found = errorUriToCode(uri, defaultErrc, errc);
                 bool hasArgs = !errMsg.args().empty() ||
                                !errMsg.kwargs().empty();
                 if (errorPtr != nullptr)

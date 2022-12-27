@@ -44,7 +44,8 @@ public:
     using OneShotHandler        = AnyCompletionHandler<void (ErrorOr<Message>)>;
     using MultiShotHandler      = std::function<void (ErrorOr<Message>)>;
     using LogHandler            = AnyReusableHandler<void (LogEntry)>;
-    using StateChangeHandler    = AnyReusableHandler<void (State)>;
+    using StateChangeHandler    = AnyReusableHandler<void (State,
+                                                           std::error_code)>;
 
     explicit Peer(bool isRouter, const AnyIoExecutor& exec,
                   AnyCompletionExecutor userExecutor)
@@ -108,7 +109,7 @@ public:
         setState(State::connecting);
     }
 
-    void failConnecting() {setState(State::failed);}
+    void failConnecting(std::error_code ec) {setState(State::failed, ec);}
 
     void connect(Transporting::Ptr transport, AnyBufferCodec codec)
     {
@@ -244,22 +245,24 @@ public:
         if (!transport_ || !transport_->isStarted())
             return makeUnexpectedError(SessionErrc::invalidState);
 
-        auto& msg = a.abortMessage({});
+        auto& msg = a.message({});
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
 
         bool fits = buffer.size() <= maxTxLength_;
         if (!fits)
         {
-            a.withOptions(Object{});
+            msg.options().clear();
             buffer.clear();
             codec_.encode(msg.fields(), buffer);
             log(LogLevel::warning,
                 "Stripped options of outbound ABORT message with reason URI " +
-                a.uri() + ", due to transport payload limits");
+                    msg.reasonUri() + ", due to transport payload limits");
         }
 
-        setState(State::failed);
+        SessionErrc errc;
+        errorUriToCode(a.uri(), SessionErrc::sessionAborted, errc);
+        setState(State::failed, make_error_code(errc));
         traceTx(msg);
         transport_->sendNowAndClose(std::move(buffer));
         if (!fits)
@@ -338,11 +341,11 @@ private:
                                              std::forward<Ts>(args)...));
     }
 
-    State setState(State s)
+    State setState(State s, std::error_code ec = {})
     {
         auto old = state_.exchange(s);
         if (old != s && stateChangeHandler_ && !isTerminating_)
-            postVia(userExecutor_, stateChangeHandler_, s);
+            postVia(userExecutor_, stateChangeHandler_, s, ec);
         return old;
     }
 
@@ -573,8 +576,8 @@ private:
         {
             const auto& abortMsg = message_cast<AbortMessage>(msg);
             SessionErrc errc = {};
-            lookupWampErrorUri(abortMsg.reasonUri(),
-                               SessionErrc::sessionAbortedByPeer, errc);
+            errorUriToCode(abortMsg.reasonUri(),
+                           SessionErrc::sessionAbortedByPeer, errc);
 
             if (logLevel() <= LogLevel::error)
             {
@@ -610,8 +613,8 @@ private:
         {
             const auto& goodbyeMsg = message_cast<GoodbyeMessage>(msg);
             SessionErrc errc;
-            lookupWampErrorUri(goodbyeMsg.reasonUri(), SessionErrc::closeRealm,
-                               errc);
+            errorUriToCode(goodbyeMsg.reasonUri(), SessionErrc::closeRealm,
+                           errc);
 
             if (isRouter_)
             {
@@ -654,7 +657,7 @@ private:
 
     void fail(std::error_code ec, std::string info = {})
     {
-        auto oldState = setState(State::failed);
+        auto oldState = setState(State::failed, ec);
         if (oldState != State::failed)
         {
             abortPending(ec);

@@ -135,6 +135,7 @@ enum class SessionErrc
     success = 0,            ///< Operation successful
     sessionEnded,           ///< Operation aborted; session ended by this peer
     sessionEndedByPeer,     ///< Session ended by other peer
+    sessionAborted,         ///< Session aborted by this peer
     sessionAbortedByPeer,   ///< Session aborted by other peer
     allTransportsFailed,    ///< All transports failed during connection
     joinError,              ///< Join error reported by router
@@ -222,8 +223,15 @@ CPPWAMP_API std::error_condition make_error_condition(SessionErrc errc);
 /** Looks up the SessionErrc enumerator that corresponds to the given error URI.
     @relates SessionCategory */
 //-----------------------------------------------------------------------------
-CPPWAMP_API bool lookupWampErrorUri(const std::string& uri,
-                                    SessionErrc fallback, SessionErrc& result);
+CPPWAMP_API bool errorUriToCode(const std::string& uri,
+                                SessionErrc fallback, SessionErrc& result);
+
+//------------------------------------------------------------------------------
+/** Looks up the error URI that corresponds to the given error code belonging
+    to SessionCategory.
+    @relates SessionCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::string errorCodeToUri(SessionErrc errc);
 
 
 //******************************************************************************

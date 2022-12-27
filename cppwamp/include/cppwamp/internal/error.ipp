@@ -5,9 +5,11 @@
 ------------------------------------------------------------------------------*/
 
 #include "../error.hpp"
-#include <map>
+#include <algorithm>
+#include <array>
 #include <sstream>
 #include <type_traits>
+#include <utility>
 #include <boost/asio/error.hpp>
 #include <boost/system/error_category.hpp>
 #include <jsoncons/json_error.hpp>
@@ -127,6 +129,7 @@ CPPWAMP_INLINE std::string SessionCategory::message(int ev) const
 /* success                */ "Operation successful",
 /* sessionEnded           */ "Operation aborted; session ended by this peer",
 /* sessionEndedByPeer     */ "Session ended by other peer",
+/* sessionAborted         */ "Session aborted by this peer",
 /* sessionAbortedByPeer   */ "Session aborted by other peer",
 /* allTransportsFailed    */ "All transports failed during connection",
 /* joinError              */ "Join error reported by router",
@@ -235,48 +238,100 @@ CPPWAMP_INLINE std::error_condition make_error_condition(SessionErrc errc)
 
 //------------------------------------------------------------------------------
 /** @return 'true' if the corresponding error code was found. */
-//-----------------------------------------------------------------------------
-CPPWAMP_INLINE bool lookupWampErrorUri(
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool errorUriToCode(
     const std::string& uri, ///< The URI to search under.
-    SessionErrc fallback,   ///< Defaul value to used if the URI was not found.
+    SessionErrc fallback,   ///< Default value to used if the URI was not found.
     SessionErrc& result     /**< [out] The error code corresponding to the given
                                  URI, or the given fallback value if not found */
 )
 {
-    using SE = SessionErrc;
-    static std::map<std::string, SessionErrc> table =
+    struct Record
     {
-        {"wamp.error.invalid_uri",                   SE::invalidUri},
-        {"wamp.error.no_such_procedure",             SE::noSuchProcedure},
-        {"wamp.error.procedure_already_exists",      SE::procedureAlreadyExists},
-        {"wamp.error.no_such_registration",          SE::noSuchRegistration},
-        {"wamp.error.no_such_subscription",          SE::noSuchSubscription},
-        {"wamp.error.invalid_argument",              SE::invalidArgument},
-        {"wamp.error.system_shutdown",               SE::systemShutdown},
-        {"wamp.error.close_realm",                   SE::closeRealm},
-        {"wamp.error.goodbye_and_out",               SE::goodbyeAndOut},
-        {"wamp.error.protocol_violation",            SE::protocolViolation},
-        {"wamp.error.not_authorized",                SE::notAuthorized},
-        {"wamp.error.authorization_failed",          SE::authorizationFailed},
-        {"wamp.error.no_such_realm",                 SE::noSuchRealm},
-        {"wamp.error.no_such_role",                  SE::noSuchRole},
+        const char* uri;
+        SessionErrc errc;
 
-        {"wamp.error.canceled",                      SE::cancelled},
-        {"wamp.error.option_not_allowed",            SE::optionNotAllowed},
-        {"wamp.error.option_disallowed.disclose_me", SE::discloseMeDisallowed},
-        {"wamp.error.network_failure",               SE::networkFailure},
-        {"wamp.error.unavailable",                   SE::unavailable},
-        {"wamp.error.no_available_callee",           SE::noAvailableCallee},
-        {"wamp.error.feature_not_supported",         SE::featureNotSupported},
-        {"wamp.error.no_eligible_callee",            SE::noEligibleCallee},
-        {"wamp.error.payload_size_exceeded",         SE::payloadSizeExceeded},
-        {"wamp.error.cannot_authenticate",           SE::cannotAuthenticate}
+        bool operator<(const std::string& key) const {return uri < key;}
     };
 
-    auto kv = table.find(uri);
-    bool found = kv != table.end();
-    result = found ? kv->second : fallback;
+    using SE = SessionErrc;
+    static const Record sortedByUri[] =
+    {
+        {"wamp.error.authorization_failed",          SE::authorizationFailed},
+        {"wamp.error.canceled",                      SE::cancelled},
+        {"wamp.error.cannot_authenticate",           SE::cannotAuthenticate},
+        {"wamp.error.close_realm",                   SE::closeRealm},
+        {"wamp.error.feature_not_supported",         SE::featureNotSupported},
+        {"wamp.error.goodbye_and_out",               SE::goodbyeAndOut},
+        {"wamp.error.invalid_argument",              SE::invalidArgument},
+        {"wamp.error.invalid_uri",                   SE::invalidUri},
+        {"wamp.error.network_failure",               SE::networkFailure},
+        {"wamp.error.no_available_callee",           SE::noAvailableCallee},
+        {"wamp.error.no_eligible_callee",            SE::noEligibleCallee},
+        {"wamp.error.no_such_procedure",             SE::noSuchProcedure},
+        {"wamp.error.no_such_realm",                 SE::noSuchRealm},
+        {"wamp.error.no_such_registration",          SE::noSuchRegistration},
+        {"wamp.error.no_such_role",                  SE::noSuchRole},
+        {"wamp.error.no_such_subscription",          SE::noSuchSubscription},
+        {"wamp.error.not_authorized",                SE::notAuthorized},
+        {"wamp.error.option_disallowed.disclose_me", SE::discloseMeDisallowed},
+        {"wamp.error.option_not_allowed",            SE::optionNotAllowed},
+        {"wamp.error.payload_size_exceeded",         SE::payloadSizeExceeded},
+        {"wamp.error.procedure_already_exists",      SE::procedureAlreadyExists},
+        {"wamp.error.protocol_violation",            SE::protocolViolation},
+        {"wamp.error.system_shutdown",               SE::systemShutdown},
+        {"wamp.error.unavailable",                   SE::unavailable}
+    };
+
+    auto end = std::end(sortedByUri);
+    auto iter = std::lower_bound(std::begin(sortedByUri), end, uri);
+    bool found = iter != end;
+    result = found ? iter->errc : fallback;
     return found;
+}
+
+
+//------------------------------------------------------------------------------
+/** @return The corresponding error URI, or an empty string if not found. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE std::string errorCodeToUri(SessionErrc errc)
+{
+    static const char* sortedByErrc[] =
+    {
+        "wamp.error.invalid_uri",
+        "wamp.error.no_such_procedure",
+        "wamp.error.procedure_already_exists",
+        "wamp.error.no_such_registration",
+        "wamp.error.no_such_subscription",
+        "wamp.error.invalid_argument",
+        "wamp.error.system_shutdown",
+        "wamp.error.close_realm",
+        "wamp.error.goodbye_and_out",
+        "wamp.error.protocol_violation",
+        "wamp.error.not_authorized",
+        "wamp.error.authorization_failed",
+        "wamp.error.no_such_realm",
+        "wamp.error.no_such_role",
+        "wamp.error.canceled",
+        "wamp.error.option_not_allowed",
+        "wamp.error.option_disallowed.disclose_me",
+        "wamp.error.network_failure",
+        "wamp.error.unavailable",
+        "wamp.error.no_available_callee",
+        "wamp.error.feature_not_supported",
+        "wamp.error.no_eligible_callee",
+        "wamp.error.payload_size_exceeded",
+        "wamp.error.cannot_authenticate"
+    };
+
+    static constexpr int extent = std::extent<decltype(sortedByErrc)>::value;
+    static constexpr auto firstValue = static_cast<int>(SessionErrc::invalidUri);
+    static constexpr auto lastValue = firstValue + extent - 1;
+
+    auto n = static_cast<int>(errc);
+    bool found = (n >= firstValue) && (n <= lastValue);
+    auto index = n - firstValue;
+    return found ? sortedByErrc[index] : "";
 }
 
 

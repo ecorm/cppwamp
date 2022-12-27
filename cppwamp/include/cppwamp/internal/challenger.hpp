@@ -8,6 +8,7 @@
 #define CPPWAMP_INTERNAL_CHALLENGER_HPP
 
 #include <memory>
+#include "../peerdata.hpp"
 #include "../variant.hpp"
 
 namespace wamp
@@ -32,9 +33,9 @@ public:
 
     virtual void safeWelcome(Object details) = 0;
 
-    virtual void reject(Object details, String reasonUri) = 0;
+    virtual void reject(Abort) = 0;
 
-    virtual void safeReject(Object details, String reasonUri) = 0;
+    virtual void safeReject(Abort) = 0;
 };
 
 } // namespace internal

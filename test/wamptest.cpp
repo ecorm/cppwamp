@@ -327,7 +327,7 @@ struct StateChangeListener
         return theChanges;
     }
 
-    void operator()(SessionState s)
+    void operator()(SessionState s, std::error_code)
     {
         changes().push_back(s);
     }

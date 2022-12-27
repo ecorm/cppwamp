@@ -121,8 +121,11 @@ public:
     /** Type-erased wrapper around a log event handler. */
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
 
-    /** Type-erased wrapper around a Session state change handler. */
-    using StateChangeHandler = AnyReusableHandler<void (SessionState)>;
+    /** Type-erased wrapper around a Session state change handler.
+        The error code is used to provide additional information for the
+        failed and disconnected states. */
+    using StateChangeHandler = AnyReusableHandler<void (SessionState,
+                                                        std::error_code ec)>;
 
     /** Type-erased wrapper around an authentication challenge handler. */
     using ChallengeHandler = AnyReusableHandler<void (Challenge)>;

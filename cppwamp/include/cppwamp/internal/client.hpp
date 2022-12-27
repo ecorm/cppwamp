@@ -57,7 +57,8 @@ public:
     using CallSlot           = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot      = AnyReusableHandler<Outcome (Interruption)>;
     using LogHandler         = AnyReusableHandler<void(LogEntry)>;
-    using StateChangeHandler = AnyReusableHandler<void(SessionState)>;
+    using StateChangeHandler = AnyReusableHandler<void(SessionState,
+                                                       std::error_code)>;
     using ChallengeHandler   = AnyReusableHandler<void(Challenge)>;
     using OngoingCallHandler = AnyReusableHandler<void(ErrorOr<Result>)>;
 
@@ -1072,9 +1073,9 @@ private:
             }
             else
             {
-                peer_.failConnecting();
                 if (wishes.size() > 1)
                     ec = make_error_code(SessionErrc::allTransportsFailed);
+                peer_.failConnecting(ec);
                 completeNow(*handler, UnexpectedError(ec));
             }
         }
@@ -1186,7 +1187,7 @@ private:
         auto& abortMsg = message_cast<AbortMessage>(reply);
         const auto& uri = abortMsg.reasonUri();
         SessionErrc errc;
-        bool found = lookupWampErrorUri(uri, SessionErrc::joinError, errc);
+        bool found = errorUriToCode(uri, SessionErrc::joinError, errc);
         const auto& details = reply.as<Object>(1);
 
         if (abortPtr != nullptr)
@@ -1432,7 +1433,7 @@ private:
                 auto& errMsg = message_cast<ErrorMessage>(*reply);
                 const auto& uri = errMsg.reasonUri();
                 SessionErrc errc;
-                bool found = lookupWampErrorUri(uri, defaultErrc, errc);
+                bool found = errorUriToCode(uri, defaultErrc, errc);
                 bool hasArgs = !errMsg.args().empty() ||
                                !errMsg.kwargs().empty();
                 if (errorPtr != nullptr)

@@ -111,7 +111,7 @@ CPPWAMP_INLINE const Authentication& AuthExchange::authentication() const
     return authentication_;
 }
 
-CPPWAMP_INLINE unsigned AuthExchange::stage() const {return stage_;}
+CPPWAMP_INLINE unsigned AuthExchange::challengeCount() const {return challengeCount_;}
 
 CPPWAMP_INLINE const Variant& AuthExchange::memento() const {return memento_;}
 
@@ -123,7 +123,7 @@ CPPWAMP_INLINE void AuthExchange::challenge(Challenge challenge,
     auto c = challenger_.lock();
     if (c)
     {
-        ++stage_;
+        ++challengeCount_;
         c->challenge();
     }
 }
@@ -136,7 +136,7 @@ CPPWAMP_INLINE void AuthExchange::challenge(ThreadSafe, Challenge challenge,
     auto c = challenger_.lock();
     if (c)
     {
-        ++stage_;
+        ++challengeCount_;
         c->safeChallenge();
     }
 }
@@ -155,27 +155,18 @@ CPPWAMP_INLINE void AuthExchange::welcome(ThreadSafe, Object details)
         c->safeWelcome(std::move(details));
 }
 
-CPPWAMP_INLINE void AuthExchange::reject(Object details, String reasonUri)
+CPPWAMP_INLINE void AuthExchange::reject(Abort a)
 {
     auto c = challenger_.lock();
     if (c)
-    {
-        if (reasonUri.empty())
-            reasonUri = "wamp.error.cannot_authenticate";
-        c->reject(std::move(details), std::move(reasonUri));
-    }
+        c->reject(std::move(a));
 }
 
-CPPWAMP_INLINE void AuthExchange::reject(ThreadSafe, Object details,
-                                         String reasonUri)
+CPPWAMP_INLINE void AuthExchange::reject(ThreadSafe, Abort a)
 {
     auto c = challenger_.lock();
     if (c)
-    {
-        if (reasonUri.empty())
-            reasonUri = "wamp.error.cannot_authenticate";
-        c->safeReject(std::move(details), std::move(reasonUri));
-    }
+        c->safeReject(std::move(a));
 }
 
 CPPWAMP_INLINE AuthExchange::Ptr

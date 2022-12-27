@@ -47,6 +47,9 @@ public:
     /** Converting constructor taking an optional reason URI. */
     Abort(String uri = "");
 
+    /** Converting constructor taking an error code. */
+    Abort(SessionErrc errc);
+
     /** Sets the `message` member of the details dictionary. */
     Abort& withHint(String message);
 
@@ -58,6 +61,8 @@ public:
 
 private:
     using Base = Options<Abort, internal::AbortMessage>;
+
+    static String errcToUri(SessionErrc errc);
 
 public:
     // Internal use only
@@ -124,6 +129,7 @@ public:
 
 //------------------------------------------------------------------------------
 /** Session information contained within WAMP `WELCOME` messages. */
+// TODO: Rename to Welcome
 //------------------------------------------------------------------------------
 class CPPWAMP_API SessionInfo : public Options<SessionInfo,
                                                internal::WelcomeMessage>
@@ -209,7 +215,8 @@ CPPWAMP_API std::ostream& operator<<(std::ostream& o, const SessionInfo& i);
 
 //------------------------------------------------------------------------------
 /** Provides the _reason_ URI and other options contained within
-    `GOODBYE` messages. */
+    `GOODBYE` messages.*/
+// TODO: Consider renaming to Goodbye
 //------------------------------------------------------------------------------
 class CPPWAMP_API Reason : public Options<Reason, internal::GoodbyeMessage>
 {
