@@ -78,6 +78,22 @@ void checkSurrogateAnyValue(const SurrogateAny& a, const T& x, bool isLocal,
 }
 
 //------------------------------------------------------------------------------
+template <typename T, typename U, typename X>
+void checkBadSurrogateAnyCast(X value)
+{
+    SurrogateAny a{T{value}};
+    const SurrogateAny& c = a;
+    CHECK( anyCast<U>(&a) == nullptr );
+    CHECK( anyCast<U>(&c) == nullptr );
+    CHECK_THROWS_AS( anyCast<U>(a), BadAnyCast );
+    CHECK_THROWS_AS( anyCast<U>(c), BadAnyCast );
+    CHECK_THROWS_AS( anyCast<const U&>(a), BadAnyCast );
+    CHECK_THROWS_AS( anyCast<const U&>(c), BadAnyCast );
+    CHECK_THROWS_AS( anyCast<U&>(a), BadAnyCast );
+    CHECK_THROWS_AS( anyCast<U&&>(std::move(a)), BadAnyCast );
+}
+
+//------------------------------------------------------------------------------
 struct Small
 {
     Small(int n = 0) : value(n), valueConstructed(true) {}
@@ -862,13 +878,114 @@ TEST_CASE( "SurrogateAny Swap", "[SurrogateAny]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Valid SurrogateAny Casts", "[SurrogateAny]" )
+TEST_CASE( "Good SurrogateAny Casts", "[SurrogateAny]" )
 {
-    // TODO
+    int n = 42;
+    SurrogateAny a(n);
+    const SurrogateAny& c(n);
+    SurrogateAny s(Small{n});
+
+    SECTION( "pointer to const" )
+    {
+        auto p = anyCast<int>(&c);
+        CHECK( p != nullptr );
+        CHECK( *p == n );
+        using T = std::remove_reference<decltype(*p)>::type;
+        CHECK( std::is_const<T>::value );
+    }
+
+    SECTION( "pointer to mutable" )
+    {
+        auto p = anyCast<int>(&a);
+        CHECK( p != nullptr );
+        CHECK( *p == n );
+        *p = 24;
+        CHECK( anyCast<const int&>(a) == 24 );
+    }
+
+    SECTION( "value from const reference" )
+    {
+        auto i = anyCast<int>(c);
+        using T = std::remove_reference<decltype(i)>::type;
+        CHECK_FALSE( std::is_const<T>::value );
+        CHECK( i == n );
+        i = 24;
+        CHECK( i == 24 );
+        CHECK( anyCast<const int&>(a) == 42 );
+    }
+
+    SECTION( "value from mutable reference" )
+    {
+        auto i = anyCast<int>(a);
+        using T = std::remove_reference<decltype(i)>::type;
+        CHECK_FALSE( std::is_const<T>::value );
+        CHECK( i == n );
+        i = 24;
+        CHECK( i == 24 );
+        CHECK( anyCast<const int&>(a) == 42 );
+    }
+
+    SECTION( "const reference from const reference" )
+    {
+        auto& i = anyCast<const int&>(c);
+        using T = std::remove_reference<decltype(i)>::type;
+        CHECK( std::is_const<T>::value );
+        CHECK( i == n );
+    }
+
+    SECTION( "const reference from mutable reference" )
+    {
+        auto& i = anyCast<const int&>(a);
+        using T = std::remove_reference<decltype(i)>::type;
+        CHECK( std::is_const<T>::value );
+        CHECK( i == n );
+    }
+
+    SECTION( "mutable reference from mutable reference" )
+    {
+        auto& i = anyCast<int&>(a);
+        using T = std::remove_reference<decltype(i)>::type;
+        CHECK_FALSE( std::is_const<T>::value );
+        CHECK( i == n );
+        i = 24;
+        CHECK( anyCast<const int&>(a) == 24 );
+    }
+
+    SECTION( "r-value reference" )
+    {
+        auto x = anyCast<Small&&>(std::move(s));
+        using T = std::remove_reference<decltype(x)>::type;
+        CHECK_FALSE( std::is_const<T>::value );
+        CHECK( x.value == n );
+        CHECK( anyCast<const Small&>(s).movedFrom );
+        x.value = 24;
+        CHECK( x.value == 24 );
+        CHECK( anyCast<const Small&>(s) == 42 );
+    }
 }
 
 //------------------------------------------------------------------------------
 TEST_CASE( "Bad SurrogateAny Casts", "[SurrogateAny]" )
 {
-    // TODO
+    SECTION( "Implicitly convertible type" )
+    {
+        checkBadSurrogateAnyCast<int, float>(42);
+    }
+
+    SECTION( "Derived type" )
+    {
+        struct Base
+        {
+            int n = 42;
+        };
+
+        struct Derived : Base {};
+
+        checkBadSurrogateAnyCast<Base, Derived>(42);
+    }
+
+    SECTION( "Pointer type" )
+    {
+        checkBadSurrogateAnyCast<int, int*>(42);
+    }
 }

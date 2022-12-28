@@ -24,11 +24,16 @@ int main()
             wamp::LogLevel::debug,
             "main onAuthenticate: authid=" +
                 ex->realm().authId().value_or("anonymous")});
-        //ex->welcome();
         if (ex->challengeCount() == 0)
-            ex->challenge(wamp::Challenge("ticket").withChallenge("quest"));
+        {
+            ex->challenge(wamp::Challenge("ticket").withChallenge("quest"),
+                          std::string("memento"));
+        }
         else if (ex->challengeCount() == 1)
         {
+            logger({wamp::LogLevel::debug,
+                    "memento = " +
+                        wamp::any_cast<const std::string&>(ex->memento())});
             if (ex->authentication().signature() == "grail")
                 ex->welcome({{"authrole", "admin"}});
             else
