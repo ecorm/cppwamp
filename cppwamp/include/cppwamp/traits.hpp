@@ -32,12 +32,14 @@ namespace wamp
 
 //------------------------------------------------------------------------------
 /** Metafunction used to enable overloads based on a boolean condition. */
+// TODO: Rename to shorter Needs
 //------------------------------------------------------------------------------
 template<bool B, typename T = int>
 using EnableIf = typename std::enable_if<B,T>::type;
 
 //------------------------------------------------------------------------------
 /** Metafunction used to disable overloads based on a boolean condition. */
+// TODO: Use Needs<!cond> instead
 //------------------------------------------------------------------------------
 template<bool B, typename T = int>
 using DisableIf = typename std::enable_if<!B,T>::type;
@@ -58,6 +60,7 @@ CPPWAMP_API constexpr bool isSameType() {return std::is_same<T, U>::value;}
 
 //------------------------------------------------------------------------------
 /** Determines if the given type is considered a boolean. */
+// TODO: Remove if unused
 //------------------------------------------------------------------------------
 template <typename T>
 CPPWAMP_API constexpr bool isBool()
@@ -107,6 +110,7 @@ template<int N, typename... Ts> using NthTypeOf =
 
 //------------------------------------------------------------------------------
 /** Equivalent to std::bool_constant provided in C++17. */
+// TODO: Rename to MetaBool
 //------------------------------------------------------------------------------
 template <bool B>
 using BoolConstant = std::integral_constant<bool, B>;

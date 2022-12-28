@@ -5,6 +5,7 @@
 #-------------------------------------------------------------------------------
 
 set(HEADERS
+    include/cppwamp/any.hpp
     include/cppwamp/anyhandler.hpp
     include/cppwamp/api.hpp
     include/cppwamp/asiodefs.hpp
@@ -82,6 +83,7 @@ set(HEADERS
     include/cppwamp/internal/routerserver.hpp
     include/cppwamp/internal/socketoptions.hpp
     include/cppwamp/internal/subscriber.hpp
+    include/cppwamp/internal/surrogateany.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
     include/cppwamp/internal/udsacceptor.hpp

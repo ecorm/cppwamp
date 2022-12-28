@@ -12,6 +12,8 @@
     @brief Contains the API used by a _router_ peer in WAMP applications. */
 //------------------------------------------------------------------------------
 
+#include <memory>
+#include "any.hpp"
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "codec.hpp"
@@ -115,14 +117,19 @@ public:
     const Challenge& challenge() const;
     const Authentication& authentication() const;
     unsigned challengeCount() const;
-    const Variant& memento() const;
+    const any& memento() const &;
+    any&& memento() &&;
 
-    // TODO: Use std:any-like structure for memento
-    void challenge(Challenge challenge, Variant memento = {});
-    void challenge(ThreadSafe, Challenge challenge, Variant memento = {});
+    void challenge(Challenge challenge, any memento = {});
+
+    void challenge(ThreadSafe, Challenge challenge, any memento = {});
+
     void welcome(Object details = {});
+
     void welcome(ThreadSafe, Object details = {});
+
     void reject(Abort a = {SessionErrc::cannotAuthenticate});
+
     void reject(ThreadSafe, Abort a = {SessionErrc::cannotAuthenticate});
 
 public:
@@ -138,7 +145,7 @@ private:
     ChallengerPtr challenger_;
     Challenge challenge_;
     Authentication authentication_;
-    Variant memento_; // Useful for keeping the authorizer stateless
+    any memento_; // Keeps the authorizer stateless
     unsigned challengeCount_ = 0;
 };
 

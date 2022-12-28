@@ -113,10 +113,11 @@ CPPWAMP_INLINE const Authentication& AuthExchange::authentication() const
 
 CPPWAMP_INLINE unsigned AuthExchange::challengeCount() const {return challengeCount_;}
 
-CPPWAMP_INLINE const Variant& AuthExchange::memento() const {return memento_;}
+CPPWAMP_INLINE const any& AuthExchange::memento() const & {return memento_;}
 
-CPPWAMP_INLINE void AuthExchange::challenge(Challenge challenge,
-                                            Variant memento)
+CPPWAMP_INLINE any&& AuthExchange::memento() && {return std::move(memento_);}
+
+CPPWAMP_INLINE void AuthExchange::challenge(Challenge challenge, any memento)
 {
     challenge_ = std::move(challenge);
     memento_ = std::move(memento);
@@ -129,7 +130,7 @@ CPPWAMP_INLINE void AuthExchange::challenge(Challenge challenge,
 }
 
 CPPWAMP_INLINE void AuthExchange::challenge(ThreadSafe, Challenge challenge,
-                                            Variant memento)
+                                            any memento)
 {
     challenge_ = std::move(challenge);
     memento_ = std::move(memento);
