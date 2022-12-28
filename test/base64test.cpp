@@ -11,12 +11,6 @@ using namespace wamp;
 using namespace wamp::internal;
 namespace Matchers = Catch::Matchers;
 
-namespace
-{
-
-
-} // anonymous namespace
-
 //------------------------------------------------------------------------------
 SCENARIO( "Valid Base64 Encoding/Decoding", "[Base64]" )
 {

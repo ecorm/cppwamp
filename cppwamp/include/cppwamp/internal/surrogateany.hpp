@@ -131,7 +131,7 @@ public:
              EnableIf<Reqs::listEmplaceable<T, U, As...>()> = 0>
     explicit SurrogateAny(InPlaceType<T>, std::initializer_list<U> list,
                  As&&... args )
-        : box_(list, construct<Decayed<T>>(std::forward<As>(args)...))
+        : box_(construct<Decayed<T>>(list, std::forward<As>(args)...))
     {}
 
     SurrogateAny& operator=(const SurrogateAny& rhs)
@@ -150,7 +150,7 @@ public:
         return *this;
     }
 
-    template <typename T, EnableIf<Reqs::assignable<T>> = 0>
+    template <typename T, EnableIf<Reqs::assignable<T>()> = 0>
     SurrogateAny& operator=(T&& rhs)
     {
         SurrogateAny temp(std::forward<T>(rhs));
@@ -189,7 +189,7 @@ public:
             return;
 
         if (isLocal())
-            box_->~Boxable();
+            box_->~Boxing();
         else
             delete box_;
         box_ = nullptr;
@@ -213,17 +213,17 @@ public:
     }
 
 private:
-    struct Boxable
+    struct Boxing
     {
-        virtual ~Boxable() {}
-        virtual const std::type_info& type() const noexcept;
-        virtual Boxable* copyLocal(char* buffer) const = 0;
-        virtual Boxable* copyHeaped() const = 0;
-        virtual Boxable* moveLocal(char* buffer) noexcept = 0;
+        virtual ~Boxing() {}
+        virtual const std::type_info& type() const noexcept = 0;
+        virtual Boxing* copyLocal(char* buffer) const = 0;
+        virtual Boxing* copyHeaped() const = 0;
+        virtual Boxing* moveLocal(char* buffer) noexcept = 0;
     };
 
     template <typename T>
-    struct Boxed : Boxable
+    struct Boxed : Boxing
     {
         T value;
 
@@ -235,28 +235,26 @@ private:
             return typeid(T);
         }
 
-        Boxable* copyLocal(char* buffer) const override
+        Boxing* copyLocal(char* buffer) const override
         {
-            return new (buffer) T(value);
+            return new (buffer) Boxed<T>(value);
         }
 
-        Boxable* copyHeaped() const override
+        Boxing* copyHeaped() const override
         {
-            return new T(value);
+            return new Boxed<T>(value);
         }
 
-        Boxable* moveLocal(char* buffer) noexcept override
+        Boxing* moveLocal(char* buffer) noexcept override
         {
-            return new T(std::move(value));
+            return new (buffer) Boxed<T>(std::move(value));
         }
     };
 
     // Have enough capacity to locally store two pointers.
-    using StorageLimitType = Boxed<std::array<Boxable*, 2>>;
+    using StorageLimitType = Boxed<std::array<Boxing*, 2>>;
 
-    static constexpr auto size_ = sizeof(StorageLimitType);
-
-    static constexpr auto capacity_ = size_ - alignof(bool);
+    static constexpr auto capacity_ = sizeof(StorageLimitType);
 
     static constexpr auto alignment_ = alignof(StorageLimitType);
 
@@ -286,7 +284,7 @@ private:
             return new Boxed<T>(il, std::forward<As>(args)...);
     }
 
-    Boxable* copy(Buffer& localBuffer) const
+    Boxing* copy(Buffer& localBuffer) const
     {
         if (!has_value())
             return nullptr;
@@ -295,7 +293,7 @@ private:
                          : box_->copyHeaped();
     }
 
-    Boxable* move(Buffer& localBuffer)
+    Boxing* move(Buffer& localBuffer)
     {
         if (!has_value())
             return nullptr;
@@ -303,7 +301,7 @@ private:
         if (isLocal())
         {
             auto ptr = box_->moveLocal(localBuffer.data());
-            box_->~Boxable();
+            box_->~Boxing();
             box_ = nullptr;
             return ptr;
         }
@@ -322,13 +320,15 @@ private:
     }
 
     alignas(alignment_) Buffer buffer_ = {0};
-    Boxable* box_ = nullptr;
+    Boxing* box_ = nullptr;
 
     template <typename T>
     friend const T* anyCast(const SurrogateAny* a) noexcept;
 
     template<typename T>
     friend T* anyCast(SurrogateAny* a) noexcept;
+
+    friend struct SurrogateAnyTestAccess;
 };
 
 inline void swap(SurrogateAny& lhs, SurrogateAny& rhs) noexcept {lhs.swap(rhs);}
