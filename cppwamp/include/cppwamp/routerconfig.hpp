@@ -13,72 +13,19 @@
 //------------------------------------------------------------------------------
 
 #include <memory>
-#include "any.hpp"
 #include "anyhandler.hpp"
 #include "api.hpp"
+#include "authinfo.hpp"
 #include "codec.hpp"
 #include "listener.hpp"
 #include "logging.hpp"
-#include "peerdata.hpp"
 #include "variant.hpp"
 #include "wampdefs.hpp"
-#include "internal/challenger.hpp"
 
 namespace wamp
 {
 
 namespace internal { class RouterServer; } // Forward declaration
-
-//------------------------------------------------------------------------------
-struct CPPWAMP_API AuthorizationInfo
-{
-public:
-    using Ptr = std::shared_ptr<AuthorizationInfo>;
-
-    explicit AuthorizationInfo(const Realm& realm, String role = "",
-                               String method = "", String provider = "");
-
-    SessionId sessionId() const;
-
-    const String& realmUri() const;
-
-    const String& id() const;
-
-    const String& role() const;
-
-    const String& method() const;
-
-    const String& provider() const;
-
-    Object welcomeDetails() const;
-
-    void setSessionId(SessionId sid);
-
-private:
-    String realmUri_;
-    String id_;
-    String role_;
-    String method_;
-    String provider_;
-    SessionId sessionId_ = 0;
-};
-
-//------------------------------------------------------------------------------
-struct CPPWAMP_API AuthorizationRequest
-{
-    enum class Action
-    {
-        publish,
-        subscribe,
-        enroll,
-        call
-    };
-
-    AuthorizationInfo::Ptr authInfo;
-    Object options;
-    String uri;
-    Action action;
-};
 
 //------------------------------------------------------------------------------
 class CPPWAMP_API RealmConfig
@@ -106,49 +53,28 @@ private:
 namespace internal { class Challenger; } // Forward declaration
 
 //------------------------------------------------------------------------------
-/** Contains information on an authorization exchange with a router.  */
-//------------------------------------------------------------------------------
-class AuthExchange
+class CPPWAMP_API AnonymousAuthenticator
 {
 public:
-    using Ptr = std::shared_ptr<AuthExchange>;
+    AnonymousAuthenticator()
+        : authId_("anonymous"),
+          authRole_("public")
+    {}
 
-    const Realm& realm() const;
-    const Challenge& challenge() const;
-    const Authentication& authentication() const;
-    unsigned challengeCount() const;
-    const any& memento() const &;
-    any&& memento() &&;
+    AnonymousAuthenticator(String authId, String authRole)
+        : authId_(std::move(authId)),
+          authRole_(std::move(authRole))
+    {}
 
-    void challenge(Challenge challenge, any memento = {});
-
-    void challenge(ThreadSafe, Challenge challenge, any memento = {});
-
-    void welcome(Object details = {});
-
-    void welcome(ThreadSafe, Object details = {});
-
-    void reject(Abort a = {SessionErrc::cannotAuthenticate});
-
-    void reject(ThreadSafe, Abort a = {SessionErrc::cannotAuthenticate});
-
-public:
-    // Internal use only
-    using ChallengerPtr = std::weak_ptr<internal::Challenger>;
-    static Ptr create(internal::PassKey, Realm&& r, ChallengerPtr c);
-    void setAuthentication(internal::PassKey, Authentication&& a);
+    void operator()(AuthExchange::Ptr ex)
+    {
+        ex->welcome({authId_, authRole_, "anonymous", "static"});
+    }
 
 private:
-    AuthExchange(Realm&& r, ChallengerPtr c);
-
-    Realm realm_;
-    ChallengerPtr challenger_;
-    Challenge challenge_;
-    Authentication authentication_;
-    any memento_; // Keeps the authorizer stateless
-    unsigned challengeCount_ = 0;
+    String authId_;
+    String authRole_;
 };
-
 
 //------------------------------------------------------------------------------
 class CPPWAMP_API ServerConfig
@@ -189,7 +115,8 @@ template <typename S, typename F, typename... Fs>
 ServerConfig::ServerConfig(String name, S&& transportSettings, F format,
                            Fs... extraFormats)
     : name_(std::move(name)),
-      listenerBuilder_(std::forward<S>(transportSettings))
+      listenerBuilder_(std::forward<S>(transportSettings)),
+      authenticator_(AnonymousAuthenticator{})
 {
     codecBuilders_ = {BufferCodecBuilder{format},
                       BufferCodecBuilder{extraFormats}...};

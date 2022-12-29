@@ -83,9 +83,9 @@ public:
 
     void terminateServer(const std::string& name);
 
-    LocalSession join(AuthorizationInfo authInfo);
+    LocalSession join(String realmUri, AuthInfo authInfo);
 
-    LocalSession join(AuthorizationInfo authInfo,
+    LocalSession join(String realmUri, AuthInfo authInfo,
                       AnyCompletionExecutor fallbackExecutor);
 
     void shutDown();

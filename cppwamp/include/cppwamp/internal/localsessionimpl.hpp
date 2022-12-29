@@ -46,14 +46,14 @@ public:
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    static Ptr create(RealmContext r, AuthorizationInfo a)
+    static Ptr create(RealmContext r, AuthInfo a)
     {
         using std::move;
         auto s = r.strand();
         return Ptr(new LocalSessionImpl(move(r), move(a), move(s)));
     }
 
-    static Ptr create(RealmContext r, AuthorizationInfo a,
+    static Ptr create(RealmContext r, AuthInfo a,
                       AnyCompletionExecutor e)
     {
         using std::move;
@@ -71,7 +71,7 @@ public:
 
     bool expired() const {return realm_.expired();}
 
-    const AuthorizationInfo::Ptr& authInfo() const {return authInfo_;}
+    const AuthInfo::Ptr& authInfo() const {return authInfo_;}
 
     void kick(String hint, String reasonUri)
     {
@@ -610,12 +610,12 @@ private:
     using InvocationMap  = std::map<RequestId, RegistrationId>;
     using CallerTimeoutDuration = typename Rpc::CallerTimeoutDuration;
 
-    LocalSessionImpl(RealmContext r, AuthorizationInfo a,
+    LocalSessionImpl(RealmContext r, AuthInfo a,
                      AnyCompletionExecutor e)
         : strand_(r.strand()),
           userExecutor_(std::move(e)),
           realm_(std::move(r)),
-          authInfo_(std::make_shared<AuthorizationInfo>(std::move(a))),
+          authInfo_(std::make_shared<AuthInfo>(std::move(a))),
           logger_(realm_.logger()),
           timeoutScheduler_(CallerTimeoutScheduler::create(strand_)),
           id_(a.sessionId())
@@ -966,7 +966,7 @@ private:
     Readership readership_;
     Registry registry_;
     InvocationMap pendingInvocations_;
-    AuthorizationInfo::Ptr authInfo_;
+    AuthInfo::Ptr authInfo_;
     RouterLogger::Ptr logger_;
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
     std::atomic<bool> isTerminating_;

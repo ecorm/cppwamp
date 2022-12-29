@@ -134,17 +134,18 @@ public:
         return true;
     }
 
-    LocalSessionImpl::Ptr joinLocal(AuthorizationInfo a,
+    LocalSessionImpl::Ptr joinLocal(String realmUri, AuthInfo a,
                                     AnyCompletionExecutor e)
     {
-        auto kv = realms_.find(a.realmUri());
+        auto kv = realms_.find(realmUri);
         if (kv == realms_.end())
             return nullptr;
 
         auto realm = kv->second;
-        a.setSessionId(sessionIdPool_.allocate());
-        using std::move;
-        auto session = LocalSessionImpl::create({realm}, move(a), move(e));
+        a.join({}, std::move(realmUri), sessionIdPool_.allocate(),
+               RouterContext::roles());
+        auto session = LocalSessionImpl::create({realm}, std::move(a),
+                                                std::move(e));
         realm->join(session);
         return session;
     }

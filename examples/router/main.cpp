@@ -35,7 +35,7 @@ int main()
                     "memento = " +
                         wamp::any_cast<const std::string&>(ex->memento())});
             if (ex->authentication().signature() == "grail")
-                ex->welcome({{"authrole", "admin"}});
+                ex->welcome({"authrole", "admin", "ticket", "static"});
             else
                 ex->reject();
         }

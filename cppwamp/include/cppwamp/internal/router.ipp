@@ -52,19 +52,20 @@ CPPWAMP_INLINE void Router::terminateServer(const std::string& name)
     impl_->terminateServer(name);
 }
 
-CPPWAMP_INLINE LocalSession Router::join(AuthorizationInfo authInfo)
+CPPWAMP_INLINE LocalSession Router::join(String realmUri, AuthInfo authInfo)
 {
-    auto s = impl_->joinLocal(std::move(authInfo), strand());
-    CPPWAMP_LOGIC_CHECK(bool(s), "No such realm");
+    auto s = impl_->joinLocal(std::move(realmUri), std::move(authInfo),
+                              strand());
+    CPPWAMP_LOGIC_CHECK(bool(s), "No such realm '" + realmUri + "'");
     return LocalSession{std::move(s)};
 }
 
-CPPWAMP_INLINE LocalSession Router::join(AuthorizationInfo authInfo,
+CPPWAMP_INLINE LocalSession Router::join(String realmUri, AuthInfo authInfo,
                                          AnyCompletionExecutor fallbackExecutor)
 {
-    auto s = impl_->joinLocal(std::move(authInfo),
+    auto s = impl_->joinLocal(std::move(realmUri), std::move(authInfo),
                               std::move(fallbackExecutor));
-    CPPWAMP_LOGIC_CHECK(bool(s), "No such realm");
+    CPPWAMP_LOGIC_CHECK(bool(s), "No such realm '" + realmUri + "'");
     return LocalSession{std::move(s)};
 }
 

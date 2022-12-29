@@ -9,6 +9,7 @@ set(HEADERS
     include/cppwamp/anyhandler.hpp
     include/cppwamp/api.hpp
     include/cppwamp/asiodefs.hpp
+    include/cppwamp/authinfo.hpp
     include/cppwamp/blob.hpp
     include/cppwamp/cbor.hpp
     include/cppwamp/chits.hpp
@@ -81,6 +82,7 @@ set(HEADERS
     include/cppwamp/internal/routerimpl.hpp
     include/cppwamp/internal/routerrealm.hpp
     include/cppwamp/internal/routerserver.hpp
+    include/cppwamp/internal/routersession.hpp
     include/cppwamp/internal/socketoptions.hpp
     include/cppwamp/internal/subscriber.hpp
     include/cppwamp/internal/surrogateany.hpp
@@ -104,6 +106,7 @@ set(HEADERS
 
 set(INLINES
     include/cppwamp/bundled/boost_asio_impl_any_completion_executor.ipp
+    include/cppwamp/internal/authinfo.ipp
     include/cppwamp/internal/blob.ipp
     include/cppwamp/internal/cbor.ipp
     include/cppwamp/internal/chits.ipp

@@ -10,6 +10,7 @@
 
 #include <cppwamp/config.hpp>
 
+#include <cppwamp/internal/authinfo.ipp>
 #include <cppwamp/internal/blob.ipp>
 #include <cppwamp/internal/cbor.ipp>
 #include <cppwamp/internal/chits.ipp>

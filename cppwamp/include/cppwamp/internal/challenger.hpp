@@ -8,13 +8,12 @@
 #define CPPWAMP_INTERNAL_CHALLENGER_HPP
 
 #include <memory>
-#include "../peerdata.hpp"
-#include "../variant.hpp"
 
 namespace wamp
 {
 
-class Challenge;
+class Abort;
+class AuthInfo;
 
 namespace internal
 {
@@ -29,13 +28,14 @@ public:
 
     virtual void safeChallenge() = 0;
 
-    virtual void welcome(Object details) = 0;
+    // TODO: Pass Realm/Welcome object instead
+    virtual void welcome(AuthInfo&&) = 0;
 
-    virtual void safeWelcome(Object details) = 0;
+    virtual void safeWelcome(AuthInfo&&) = 0;
 
-    virtual void reject(Abort) = 0;
+    virtual void reject(Abort&&) = 0;
 
-    virtual void safeReject(Abort) = 0;
+    virtual void safeReject(Abort&&) = 0;
 };
 
 } // namespace internal

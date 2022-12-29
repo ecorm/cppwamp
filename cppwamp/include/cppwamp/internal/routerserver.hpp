@@ -17,6 +17,7 @@
 #include "idgen.hpp"
 #include "peer.hpp"
 #include "routercontext.hpp"
+#include "routersession.hpp"
 
 namespace wamp
 {
@@ -42,6 +43,7 @@ private:
 
 //------------------------------------------------------------------------------
 class ServerSession : public std::enable_shared_from_this<ServerSession>,
+                      public RouterSession,
                       public Challenger
 {
 public:
@@ -61,18 +63,14 @@ public:
 
     ~ServerSession()
     {
-        if (wampSessionId_ != nullId())
+        if (wampSessionId() != nullId())
         {
-            server_.freeSessionId(wampSessionId_);
-            wampSessionId_ = nullId();
+            server_.freeSessionId(wampSessionId());
+            clearWampSessionId();
         }
     }
 
     Index sessionIndex() const {return sessionInfo_.serverSessionIndex;}
-
-    SessionId wampSessionId() const {return wampSessionId_;}
-
-    const AuthorizationInfo::Ptr& authInfo() const {return authInfo_;}
 
     State state() const {return peer_.state();}
 
@@ -112,7 +110,7 @@ public:
         peer_.connect(std::move(transport_), std::move(codec_));
     }
 
-    void terminate(String hint)
+    void terminate(String hint) override
     {
         shuttingDown_ = true;
         logAccess({"server-terminate", {}, {{"message", std::move(hint)}}});
@@ -120,7 +118,7 @@ public:
         peer_.terminate();
     }
 
-    void shutDown(String hint, String reasonUri)
+    void shutDown(String hint, String reasonUri) override
     {
         if (state() != State::established)
             return terminate(std::move(hint));
@@ -190,69 +188,40 @@ public:
 
     void setWampSessionId(SessionId id)
     {
-        wampSessionId_ = id;
+        Base::setWampSessionId(id);
         sessionInfo_.wampSessionIdHash = IdAnonymizer::anonymize(id);
     }
 
-    void invoke(Invocation&& inv, CompletionHandler<Outcome>&& handler)
-    {
-        struct Requested
-        {
-            Ptr self;
-            CompletionHandler<Outcome> f;
+    void sendSubscribed(RequestId, SubscriptionId) override {}
 
-            void operator()(ErrorOr<WampMessage> reply)
-            {
-                auto& me = *self;
-                if (!reply)
-                    me.completeNow(f, UnexpectedError(reply.error()));
+    void sendUnsubscribed(RequestId) override {}
 
-                if (reply->type() == WampMsgType::yield)
-                {
-                    auto& msg = message_cast<YieldMessage>(*reply);
-                    Result result{{}, std::move(msg)};
-                    me.completeNow(f, Outcome{std::move(result)});
-                }
-                else if (reply->type() == WampMsgType::error)
-                {
-                    auto& msg = message_cast<ErrorMessage>(*reply);
-                    Error error{{}, std::move(msg)};
-                    me.completeNow(f, Outcome{std::move(error)});
-                }
-                else
-                {
-                    assert(false);
-                }
-            }
-        };
+    void sendRegistered(RequestId, RegistrationId) override {}
 
-        if (state() != State::established)
-            return;
+    void sendUnregistered(RequestId) override {}
 
-        auto self = shared_from_this();
-        peer_.request(inv.message({}),
-                      Requested{shared_from_this(), std::move(handler)});
-    }
+    void sendInvocation(Invocation&&) override {}
 
-    void send(WampMessage&& msg,
-              SessionState expectedState = SessionState::established)
-    {
-        if (state() == expectedState)
-            peer_.send(msg);
-    }
+    void sendError(Error&&) override {}
 
-    void log(LogEntry&& e)
+    void sendResult(Result&&) override {}
+
+    void sendInterruption(Interruption&&) override {}
+
+    void log(LogEntry&& e) override
     {
         e.append(logSuffix_);
         logger_->log(std::move(e));
     }
 
-    void logAccess(AccessActionInfo&& i)
+    void logAccess(AccessActionInfo&& i) override
     {
         logger_->log(AccessLogEntry{sessionInfo_, std::move(i)});
     }
 
 private:
+    using Base = RouterSession;
+
     ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
                   ServerContext&& s, Index sessionIndex)
         : peer_(true, i, i),
@@ -273,10 +242,10 @@ private:
 
     void clearWampSessionInfo()
     {
-        if (wampSessionId_ != nullId())
+        if (wampSessionId() != nullId())
         {
-            server_.freeSessionId(wampSessionId_);
-            wampSessionId_ = nullId();
+            server_.freeSessionId(wampSessionId());
+            clearWampSessionId();
         }
         sessionInfo_.realmUri.clear();
         sessionInfo_.authId.clear();
@@ -350,32 +319,10 @@ private:
         }
 
         const auto& authenticator = serverConfig_->authenticator();
-        if (authenticator)
-        {
-            authExchange_ = AuthExchange::create({}, std::move(realm),
-                                                 shared_from_this());
-            dispatchVia(strand_, authenticator, authExchange_);
-        }
-        else
-        {
-            auto realmContext = server_.join(realm.uri(), shared_from_this());
-            if (!realmContext)
-            {
-                logAccess({"client-hello", realm.uri(),
-                           realm.sanitizedOptions(), realmContext.error()});
-                abort({SessionErrc::noSuchRealm});
-                return;
-            }
-
-            realm_ = *realmContext;
-            authInfo_ = std::make_shared<AuthorizationInfo>(realm);
-            authInfo_->setSessionId(wampSessionId_);
-            sessionInfo_.realmUri = realm.uri();
-            logAccess({"client-hello", realm.uri(), realm.sanitizedOptions()});
-            auto details = authInfo_->welcomeDetails();
-            details.emplace("roles", server_.roles());
-            peer_.welcome(wampSessionId_, std::move(details));
-        }
+        assert(authenticator != nullptr);
+        authExchange_ = AuthExchange::create({}, std::move(realm),
+                                             shared_from_this());
+        dispatchVia(strand_, authenticator, authExchange_);
     }
 
     void onAuthenticate(WampMessage& msg)
@@ -452,6 +399,7 @@ private:
 
     void challenge() override
     {
+        // TODO: Challenge timeout
         if (peer_.state() == SessionState::authenticating &&
             authExchange_ != nullptr)
         {
@@ -470,42 +418,48 @@ private:
         safelyDispatch<Dispatched>();
     }
 
-    void welcome(Object details) override
+    void welcome(AuthInfo&& info) override
     {
         auto s = peer_.state();
-        bool readyToWelcome = s == SessionState::establishing ||
-                              s == SessionState::authenticating;
+        bool readyToWelcome = authExchange_ != nullptr &&
+                              (s == SessionState::establishing ||
+                               s == SessionState::authenticating);
         if (!readyToWelcome)
             return;
 
-        if (authExchange_)
+        const auto& realm = authExchange_->realm();
+        auto context = server_.join(realm.uri(), shared_from_this());
+        if (!context)
         {
-            logAccess({"client-hello",
-                       authExchange_->realm().uri(),
-                       authExchange_->realm().sanitizedOptions()});
-        }
-        else
-        {
-            logAccess({"client-hello"});
+            logAccess({"client-hello", realm.uri(), realm.sanitizedOptions(),
+                       context.error()});
+            abort({SessionErrc::noSuchRealm});
+            return;
         }
 
+        realm_ = *context;
+        auto details = info.join({}, realm.uri(), wampSessionId(),
+                                 server_.roles());
+        setAuthInfo(std::move(info));
+        sessionInfo_.realmUri = realm.uri();
+        logAccess({"client-hello", realm.uri(), realm.sanitizedOptions()});
         authExchange_.reset();
-        peer_.welcome(wampSessionId_, std::move(details));
+        peer_.welcome(wampSessionId(), std::move(details));
     }
 
-    void safeWelcome(Object details) override
+    void safeWelcome(AuthInfo&& info) override
     {
         struct Dispatched
         {
             Ptr self;
-            Object details;
-            void operator()() {self->welcome(std::move(details));}
+            AuthInfo info;
+            void operator()() {self->welcome(std::move(info));}
         };
 
-        safelyDispatch<Dispatched>(std::move(details));
+        safelyDispatch<Dispatched>(std::move(info));
     }
 
-    void reject(Abort a) override
+    void reject(Abort&& a) override
     {
         auto s = peer_.state();
         bool readyToReject = s == SessionState::establishing ||
@@ -531,7 +485,7 @@ private:
         peer_.abort(std::move(a));
     }
 
-    void safeReject(Abort a) override
+    void safeReject(Abort&& a) override
     {
         struct Dispatched
         {
@@ -558,11 +512,9 @@ private:
     RealmContext realm_;
     ServerConfig::Ptr serverConfig_;
     AuthExchange::Ptr authExchange_;
-    AuthorizationInfo::Ptr authInfo_;
     AccessSessionInfo sessionInfo_;
     RouterLogger::Ptr logger_;
     std::string logSuffix_;
-    SessionId wampSessionId_ = nullId();
     bool alreadyStarted_ = false;
     bool shuttingDown_ = false;
 };
