@@ -57,8 +57,8 @@ int main()
     logger({wamp::LogLevel::info, "CppWAMP Example Router launched"});
     wamp::IoContext ioctx;
     wamp::Router router{ioctx, config};
-    router.addRealm(realmConfig);
-    router.startServer(serverConfig);
+    router.openRealm(realmConfig);
+    router.openServer(serverConfig);
     ioctx.run();
     logger({wamp::LogLevel::info, "CppWAMP Example Router exit"});
     return 0;

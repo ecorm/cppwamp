@@ -8,6 +8,7 @@
 #define CPPWAMP_INTERNAL_ROUTERSESSION_HPP
 
 #include <memory>
+#include "../peerdata.hpp"
 #include "../routerconfig.hpp"
 
 namespace wamp
@@ -24,15 +25,13 @@ public:
 
     virtual ~RouterSession() {}
 
-    SessionId wampSessionId() const {return wampSessionId_;}
+    SessionId wampId() const {return wampId_;}
 
     const AuthInfo& authInfo() const {return *authInfo_;}
 
     AuthInfo::Ptr sharedAuthInfo() const {return authInfo_;}
 
-    virtual void terminate(String hint) = 0;
-
-    virtual void shutDown(String hint, String reasonUri) = 0;
+    virtual void close(bool terminate, Reason) = 0;
 
     virtual void sendSubscribed(RequestId, SubscriptionId) = 0;
 
@@ -57,9 +56,9 @@ public:
 protected:
     RouterSession() : authInfo_(std::make_shared<AuthInfo>()) {}
 
-    void clearWampSessionId() {wampSessionId_ = nullId();}
+    void clearWampId() {wampId_ = nullId();}
 
-    void setWampSessionId(SessionId id) {wampSessionId_ = id;}
+    void setWampId(SessionId id) {wampId_ = id;}
 
     void setAuthInfo(AuthInfo&& info)
     {
@@ -70,7 +69,7 @@ protected:
     }
 
 private:
-    SessionId wampSessionId_ = nullId();
+    SessionId wampId_ = nullId();
     AuthInfo::Ptr authInfo_;
 };
 

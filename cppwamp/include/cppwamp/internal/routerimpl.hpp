@@ -51,49 +51,34 @@ public:
         }
 
         log({LogLevel::info, "Adding realm '" + uri + "'"});
-        using std::move;
-        auto r = RouterRealm::create(strand_, move(c), {shared_from_this()});
-        realms_.emplace(move(uri), move(r));
+        auto r = RouterRealm::create(strand_, std::move(c),
+                                     {shared_from_this()});
+        realms_.emplace(std::move(uri), std::move(r));
         return true;
     }
 
-    bool shutDownRealm(const std::string& name)
+    bool closeRealm(const std::string& name, bool terminate, Reason r)
     {
         auto kv = realms_.find(name);
         if (kv == realms_.end())
         {
             log({LogLevel::warning,
-                 "Attempting to shut down non-existent realm named '" + name + "'"});
+                 "Attempting to close non-existent realm named '" + name + "'"});
             return false;
         }
 
-        kv->second->shutDown();
+        kv->second->close(terminate, std::move(r));
         realms_.erase(kv);
         return true;
     }
 
-    bool terminateRealm(const std::string& name)
-    {
-        auto kv = realms_.find(name);
-        if (kv == realms_.end())
-        {
-            log({LogLevel::warning,
-                 "Attempting to terminate non-existent realm named '" + name + "'"});
-            return false;
-        }
-
-        kv->second->terminate();
-        realms_.erase(kv);
-        return true;
-    }
-
-    bool startServer(ServerConfig c)
+    bool openServer(ServerConfig c)
     {
         auto name = c.name();
         if (servers_.find(name) != servers_.end())
         {
             log({LogLevel::warning,
-                 "Rejected attempt to start a server with duplicate name '" + name + "'"});
+                 "Rejected attempt to open a server with duplicate name '" + name + "'"});
             return false;
         }
 
@@ -104,37 +89,22 @@ public:
         return true;
     }
 
-    bool shutDownServer(const std::string& name)
+    bool closeServer(const std::string& name, bool terminate, Reason r)
     {
         auto kv = servers_.find(name);
         if (kv == servers_.end())
         {
             log({LogLevel::warning,
-                 "Attempting to shut down non-existent server named '" + name + "'"});
+                 "Attempting to close non-existent server named '" + name + "'"});
             return false;
         }
 
-        kv->second->shutDown();
+        kv->second->close(terminate, std::move(r));
         servers_.erase(kv);
         return true;
     }
 
-    bool terminateServer(const std::string& name)
-    {
-        auto kv = servers_.find(name);
-        if (kv == servers_.end())
-        {
-            log({LogLevel::warning,
-                 "Attempting to terminate non-existent server named '" + name + "'"});
-            return false;
-        }
-
-        kv->second->terminate();
-        servers_.erase(kv);
-        return true;
-    }
-
-    LocalSessionImpl::Ptr joinLocal(String realmUri, AuthInfo a,
+    LocalSessionImpl::Ptr localJoin(String realmUri, AuthInfo a,
                                     AnyCompletionExecutor e)
     {
         auto kv = realms_.find(realmUri);
@@ -150,39 +120,23 @@ public:
         return session;
     }
 
-    void shutDown(String hint = {}, String reasonUri = {})
+    void close(bool terminate, Reason r)
     {
-        std::string msg = "Shutting down router";
-        if (!hint.empty())
-            msg += ": " + hint;
+        // TODO: Check already closed
+        std::string msg = terminate ? "Shutting down router, with reason "
+                                    : "Terminating router, with reason ";
+        msg += r.uri();
+        if (!r.options().empty())
+            msg += " " + toString(r.options());
         log({LogLevel::info, std::move(msg)});
 
-        if (reasonUri.empty())
-            reasonUri = "wamp.close.system_shutdown";
         for (auto& kv: servers_)
-            kv.second->shutDown(hint, reasonUri);
+            kv.second->close(terminate, r);
         servers_.clear();
         for (auto& kv: realms_)
-            kv.second->kickLocalSessions(hint, reasonUri);
+            kv.second->close(terminate, r);
         realms_.clear();
         // TODO: Wait for GOODBYE acknowledgements or timeout
-    }
-
-    void terminate(String hint = {}, String reasonUri = {})
-    {
-        std::string msg = "Terminating router";
-        if (!hint.empty())
-            msg += ": " + hint;
-        log({LogLevel::info, std::move(msg)});
-
-        if (reasonUri.empty())
-            reasonUri = "wamp.close.system_shutdown";
-        for (auto& kv: servers_)
-            kv.second->terminate(hint);
-        servers_.clear();
-        for (auto& kv: realms_)
-            kv.second->kickLocalSessions(reasonUri, hint);
-        realms_.clear();
     }
 
     const IoStrand& strand() const {return strand_;}

@@ -22,6 +22,7 @@
 #include "caller.hpp"
 #include "callertimeout.hpp"
 #include "routercontext.hpp"
+#include "routersession.hpp"
 #include "subscriber.hpp"
 
 namespace wamp
@@ -32,6 +33,7 @@ namespace internal
 
 //------------------------------------------------------------------------------
 class LocalSessionImpl : public std::enable_shared_from_this<LocalSessionImpl>,
+                         public RouterSession,
                          public Callee, public Caller, public Subscriber
 {
 public:
@@ -67,11 +69,7 @@ public:
         return userExecutor_;
     }
 
-    SessionId id() const {return id_;}
-
     bool expired() const {return realm_.expired();}
-
-    const AuthInfo::Ptr& authInfo() const {return authInfo_;}
 
     void kick(String hint, String reasonUri)
     {
@@ -586,7 +584,42 @@ public:
         return fut;
     }
 
+    void close(bool terminate, Reason r) override
+    {
+        // TODO
+    }
+
+    void sendSubscribed(RequestId, SubscriptionId) override {}
+
+    void sendUnsubscribed(RequestId) override {}
+
+    void sendRegistered(RequestId, RegistrationId) override {}
+
+    void sendUnregistered(RequestId) override {}
+
+    void sendInvocation(Invocation&&) override {}
+
+    void sendError(Error&&) override {}
+
+    void sendResult(Result&&) override {}
+
+    void sendInterruption(Interruption&&) override {}
+
+    void log(LogEntry&& e) override
+    {
+        // TODO
+//        e.append(logSuffix_);
+//        logger_->log(std::move(e));
+    }
+
+    void logAccess(AccessActionInfo&& i) override
+    {
+        // TODO
+//        logger_->log(AccessLogEntry{sessionInfo_, std::move(i)});
+    }
+
 private:
+    using Base = RouterSession;
     using ErrorOrDonePromise = std::promise<ErrorOrDone>;
 
     struct SubscriptionRecord
@@ -615,11 +648,11 @@ private:
         : strand_(r.strand()),
           userExecutor_(std::move(e)),
           realm_(std::move(r)),
-          authInfo_(std::make_shared<AuthInfo>(std::move(a))),
           logger_(realm_.logger()),
-          timeoutScheduler_(CallerTimeoutScheduler::create(strand_)),
-          id_(a.sessionId())
-    {}
+          timeoutScheduler_(CallerTimeoutScheduler::create(strand_))
+    {
+        Base::setAuthInfo(std::move(a));
+    }
 
     template <typename F, typename... Ts>
     void safelyDispatch(Ts&&... args)
@@ -966,11 +999,9 @@ private:
     Readership readership_;
     Registry registry_;
     InvocationMap pendingInvocations_;
-    AuthInfo::Ptr authInfo_;
     RouterLogger::Ptr logger_;
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
     std::atomic<bool> isTerminating_;
-    SessionId id_;
     SlotId nextSlotId_ = 0;
 };
 

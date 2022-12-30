@@ -42,55 +42,24 @@ public:
 
     const std::string& uri() const {return config_.uri();}
 
-    void join(LocalSessionImpl::Ptr session)
+    void join(RouterSession::Ptr session)
     {
-        auto id = session->id();
-        localSessions_.emplace(id, std::move(session));
+        auto id = session->wampId();
+        sessions_.emplace(id, std::move(session));
     }
 
-    void join(ServerSession::Ptr session)
+    void close(bool terminate, Reason r)
     {
-        auto id = session->wampSessionId();
-        serverSessions_.emplace(id, std::move(session));
-    }
-
-    void shutDown(String hint = {}, String reasonUri = {})
-    {
-        if (reasonUri.empty())
-            reasonUri = "wamp.close.system_shutdown";
-        std::string msg = "Shutting down realm with reason " + reasonUri;
-        if (!hint.empty())
-            msg += ": " + hint;
+        std::string msg = terminate ? "Shutting down realm with reason "
+                                    : "Terminating realm with reason ";
+        msg += r.uri();
+        if (!r.options().empty())
+            msg += " " + toString(r.options());
         log({LogLevel::info, std::move(msg)});
 
-        for (auto& kv: serverSessions_)
-            kv.second->kick(hint, reasonUri);
-        serverSessions_.clear();
-        kickLocalSessions();
-    }
-
-    void terminate(String hint = {}, String reasonUri = {})
-    {
-        if (reasonUri.empty())
-            reasonUri = "wamp.close.system_shutdown";
-        std::string msg = "Terminating realm with reason " + reasonUri;
-        if (!hint.empty())
-            msg += ": " + hint;
-        log({LogLevel::info, std::move(msg)});
-
-        for (auto& kv: serverSessions_)
-            kv.second->terminate(hint);
-        serverSessions_.clear();
-        kickLocalSessions(hint, reasonUri);
-    }
-
-    void kickLocalSessions(String hint = {}, String reasonUri = {})
-    {
-        if (reasonUri.empty())
-            reasonUri = "wamp.close.system_shutdown";
-        for (auto& kv: localSessions_)
-            kv.second->kick(hint, reasonUri);
-        localSessions_.clear();
+        for (auto& kv: sessions_)
+            kv.second->close(terminate, r);
+        sessions_.clear();
     }
 
 private:
@@ -129,14 +98,9 @@ private:
         dispatch(Dispatched{shared_from_this(), std::move(s)});
     }
 
-    void leave(LocalSessionImpl::Ptr session)
+    void leave(RouterSession::Ptr session)
     {
-        localSessions_.erase(session->id());
-    }
-
-    void leave(ServerSession::Ptr session)
-    {
-        serverSessions_.erase(session->wampSessionId());
+        sessions_.erase(session->wampId());
     }
 
     void safeOnMessage(std::shared_ptr<ServerSession> s, WampMessage m)
@@ -231,8 +195,7 @@ private:
 
     IoStrand strand_;
     RouterContext router_;
-    std::map<SessionId, LocalSessionImpl::Ptr> localSessions_;
-    std::map<SessionId, ServerSession::Ptr> serverSessions_;
+    std::map<SessionId, RouterSession::Ptr> sessions_;
     RealmConfig config_;
     std::string logSuffix_;
     RouterLogger::Ptr logger_;

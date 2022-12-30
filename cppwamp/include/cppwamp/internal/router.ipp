@@ -16,45 +16,47 @@ namespace wamp
 // Router
 //******************************************************************************
 
+CPPWAMP_INLINE Reason Router::closeRealmReason()
+{
+    return {"wamp.close.close_realm"};
+}
+
+CPPWAMP_INLINE Reason Router::shutdownReason()
+{
+    return {"wamp.close.system_shutdown"};
+}
+
 CPPWAMP_INLINE Router::Router(Executor exec, RouterConfig config)
     : impl_(internal::RouterImpl::create(std::move(exec), std::move(config)))
 {}
 
 CPPWAMP_INLINE Router::~Router() {}
 
-CPPWAMP_INLINE bool Router::addRealm(RealmConfig config)
+CPPWAMP_INLINE bool Router::openRealm(RealmConfig config)
 {
     return impl_->addRealm(std::move(config));
 }
 
-CPPWAMP_INLINE bool Router::shutDownRealm(const std::string& name)
+CPPWAMP_INLINE bool Router::closeRealm(const std::string& name,
+                                       bool terminate, Reason r)
 {
-    return impl_->shutDownRealm(name);
+    return impl_->closeRealm(name, terminate, std::move(r));
 }
 
-CPPWAMP_INLINE bool Router::terminateRealm(const std::string& name)
+CPPWAMP_INLINE bool Router::openServer(ServerConfig config)
 {
-    return impl_->terminateRealm(name);
+    return impl_->openServer(std::move(config));
 }
 
-CPPWAMP_INLINE bool Router::startServer(ServerConfig config)
+CPPWAMP_INLINE void Router::closeServer(const std::string& name, bool terminate,
+                                        Reason r)
 {
-    return impl_->startServer(std::move(config));
-}
-
-CPPWAMP_INLINE void Router::shutDownServer(const std::string& name)
-{
-    impl_->shutDownServer(name);
-}
-
-CPPWAMP_INLINE void Router::terminateServer(const std::string& name)
-{
-    impl_->terminateServer(name);
+    impl_->closeServer(name, terminate, std::move(r));
 }
 
 CPPWAMP_INLINE LocalSession Router::join(String realmUri, AuthInfo authInfo)
 {
-    auto s = impl_->joinLocal(std::move(realmUri), std::move(authInfo),
+    auto s = impl_->localJoin(std::move(realmUri), std::move(authInfo),
                               strand());
     CPPWAMP_LOGIC_CHECK(bool(s), "No such realm '" + realmUri + "'");
     return LocalSession{std::move(s)};
@@ -63,15 +65,16 @@ CPPWAMP_INLINE LocalSession Router::join(String realmUri, AuthInfo authInfo)
 CPPWAMP_INLINE LocalSession Router::join(String realmUri, AuthInfo authInfo,
                                          AnyCompletionExecutor fallbackExecutor)
 {
-    auto s = impl_->joinLocal(std::move(realmUri), std::move(authInfo),
+    auto s = impl_->localJoin(std::move(realmUri), std::move(authInfo),
                               std::move(fallbackExecutor));
     CPPWAMP_LOGIC_CHECK(bool(s), "No such realm '" + realmUri + "'");
     return LocalSession{std::move(s)};
 }
 
-CPPWAMP_INLINE void Router::shutDown() {impl_->shutDown();}
-
-CPPWAMP_INLINE void Router::terminate() {impl_->terminate();}
+CPPWAMP_INLINE void Router::close(bool terminate, Reason r)
+{
+    impl_->close(terminate, std::move(r));
+}
 
 CPPWAMP_INLINE const Object& Router::roles()
 {

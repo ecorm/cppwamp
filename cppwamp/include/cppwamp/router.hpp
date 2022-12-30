@@ -46,6 +46,10 @@ public:
     /** Type-erased wrapper around a log event handler. */
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
 
+    static Reason closeRealmReason();
+
+    static Reason shutdownReason();
+
     /// @name Construction
     /// @{
     /** Constructor taking an executor. */
@@ -71,26 +75,22 @@ public:
 
     /// @name Operations
     /// @{
-    bool addRealm(RealmConfig config);
+    bool openRealm(RealmConfig config);
 
-    bool shutDownRealm(const std::string& name);
+    bool closeRealm(const std::string& name, bool terminate = false,
+                    Reason r = closeRealmReason());
 
-    bool terminateRealm(const std::string& name);
+    bool openServer(ServerConfig config);
 
-    bool startServer(ServerConfig config);
-
-    void shutDownServer(const std::string& name);
-
-    void terminateServer(const std::string& name);
+    void closeServer(const std::string& name, bool terminate = false,
+                     Reason r = shutdownReason());
 
     LocalSession join(String realmUri, AuthInfo authInfo);
 
     LocalSession join(String realmUri, AuthInfo authInfo,
                       AnyCompletionExecutor fallbackExecutor);
 
-    void shutDown();
-
-    void terminate();
+    void close(bool terminate = false, Reason r = shutdownReason());
     /// @}
 
     /// @name Observers
