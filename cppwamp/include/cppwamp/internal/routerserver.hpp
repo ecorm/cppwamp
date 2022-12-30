@@ -137,7 +137,7 @@ public:
             {
                 if (reply.has_value())
                 {
-                    auto& goodBye = message_cast<GoodbyeMessage>(*reply);
+                    auto& goodBye = messageCast<GoodbyeMessage>(*reply);
                     Reason peerReason({}, std::move(goodBye));
                     logAccess({"server-goodbye", reason.uri(), reason.options(),
                                peerReason.uri()});
@@ -171,7 +171,7 @@ public:
             {
                 if (reply.has_value())
                 {
-                    auto& goodBye = message_cast<GoodbyeMessage>(*reply);
+                    auto& goodBye = messageCast<GoodbyeMessage>(*reply);
                     Reason peerReason({}, std::move(goodBye));
                     logAccess({"server-goodbye", reason.uri(), reason.options(),
                                peerReason.uri()});
@@ -242,11 +242,8 @@ private:
 
     void clearWampSessionInfo()
     {
-        if (wampSessionId() != nullId())
-        {
-            server_.freeSessionId(wampSessionId());
-            clearWampSessionId();
-        }
+        server_.freeSessionId(wampSessionId());
+        clearWampSessionId();
         sessionInfo_.realmUri.clear();
         sessionInfo_.authId.clear();
         sessionInfo_.agent.clear();
@@ -254,9 +251,6 @@ private:
 
     void onStateChanged(SessionState s, std::error_code ec)
     {
-//        log({LogLevel::debug,
-//             "ServerSession onStateChanged: " + std::to_string(int(s))});
-
         switch (s)
         {
         case SessionState::connecting:
@@ -287,8 +281,6 @@ private:
 
     void onMessage(WampMessage&& msg)
     {
-        log({LogLevel::debug, "ServerSession onMessage"});
-
         switch (msg.type())
         {
         case WampMsgType::hello:        return onHello(msg);
@@ -304,7 +296,7 @@ private:
 
     void onHello(WampMessage& msg)
     {
-        auto& helloMsg = message_cast<HelloMessage>(msg);
+        auto& helloMsg = messageCast<HelloMessage>(msg);
         Realm realm{{}, std::move(helloMsg)};
 
         sessionInfo_.agent = realm.agent().value_or("");
@@ -322,16 +314,17 @@ private:
         assert(authenticator != nullptr);
         authExchange_ = AuthExchange::create({}, std::move(realm),
                                              shared_from_this());
-        dispatchVia(strand_, authenticator, authExchange_);
+        completeNow(authenticator, authExchange_);
     }
 
     void onAuthenticate(WampMessage& msg)
     {
-        auto& authenticateMsg = message_cast<AuthenticateMessage>(msg);
+        auto& authenticateMsg = messageCast<AuthenticateMessage>(msg);
         Authentication authentication{{}, std::move(authenticateMsg)};
 
         const auto& authenticator = serverConfig_->authenticator();
-        bool isExpected = authenticator && authExchange_ &&
+        assert(authenticator != nullptr);
+        bool isExpected = authExchange_ != nullptr &&
                           peer_.state() == SessionState::authenticating;
         if (!isExpected)
         {
@@ -343,16 +336,16 @@ private:
         }
 
         authExchange_->setAuthentication({}, std::move(authentication));
-        dispatchVia(strand_, authenticator, authExchange_);
+        completeNow(authenticator, authExchange_);
     }
 
     void onGoodbye(WampMessage& msg)
     {
-        auto& goodbyeMsg = message_cast<GoodbyeMessage>(msg);
+        auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
         Reason reason{{}, std::move(goodbyeMsg)};
         logAccess({"client-goodbye", reason.uri(), reason.options(),
                    "wamp.error.goodbye_and_out"});
-        // peer_ already took care of sending the reply, aborting pending
+        // peer_ already took care of sending the reply, cancelling pending
         // requests, and will close the session state.
     }
 
@@ -372,10 +365,10 @@ private:
         clearWampSessionInfo();
     }
 
-    void leaveRealm(bool clearAccessLogInfo = true)
+    void leaveRealm(bool clearSessionInfo = true)
     {
         realm_.leave(shared_from_this());
-        if (clearAccessLogInfo)
+        if (clearSessionInfo)
             clearWampSessionInfo();
     }
 
@@ -500,8 +493,7 @@ private:
     template <typename F, typename... Ts>
     void safelyDispatch(Ts&&... args)
     {
-        boost::asio::dispatch(
-            strand_, F{shared_from_this(), std::forward<Ts>(args)...});
+        completeNow(F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
     Peer peer_;

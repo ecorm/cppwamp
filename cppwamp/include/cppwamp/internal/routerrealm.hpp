@@ -176,56 +176,56 @@ private:
 
     void onError(std::shared_ptr<ServerSession> s, WampMessage& m)
     {
-        auto& msg = message_cast<ErrorMessage>(m);
+        auto& msg = messageCast<ErrorMessage>(m);
         s->logAccess({"client-error", {}, msg.options(), msg.reasonUri(),
                       false});
     }
 
     void onPublish(std::shared_ptr<ServerSession> s, WampMessage& m)
     {
-        auto& msg = message_cast<PublishMessage>(m);
+        auto& msg = messageCast<PublishMessage>(m);
         s->logAccess({"client-publish", msg.topicUri(), msg.options()});
     }
 
     void onSubscribe(std::shared_ptr<ServerSession> s, WampMessage& m)
     {
-        auto& msg = message_cast<SubscribeMessage>(m);
+        auto& msg = messageCast<SubscribeMessage>(m);
         s->logAccess({"client-subscribe", msg.topicUri(), msg.options()});
     }
 
     void onUnsubscribe(std::shared_ptr<ServerSession> s, WampMessage& m)
     {
-        auto& msg = message_cast<UnsubscribeMessage>(m);
+        auto& msg = messageCast<UnsubscribeMessage>(m);
         s->logAccess({"client-unsubscribe"});
     }
 
     void onCall(std::shared_ptr<ServerSession> s, WampMessage& m)
     {
-        auto& msg = message_cast<CallMessage>(m);
+        auto& msg = messageCast<CallMessage>(m);
         s->logAccess({"client-call", msg.procedureUri(), msg.options()});
     }
 
     void onCancel(std::shared_ptr<ServerSession> s, WampMessage& m)
     {
-        auto& msg = message_cast<CancelMessage>(m);
+        auto& msg = messageCast<CancelMessage>(m);
         s->logAccess({"client-cancel", {}, msg.options()});
     }
 
     void onRegister(std::shared_ptr<ServerSession> s, WampMessage& m)
     {
-        auto& msg = message_cast<RegisterMessage>(m);
+        auto& msg = messageCast<RegisterMessage>(m);
         s->logAccess({"client-register", msg.procedureUri(), msg.options()});
     }
 
     void onUnregister(std::shared_ptr<ServerSession> s, WampMessage& m)
     {
-        auto& msg = message_cast<UnregisterMessage>(m);
+        auto& msg = messageCast<UnregisterMessage>(m);
         s->logAccess({"client-unregister"});
     }
 
     void onYield(std::shared_ptr<ServerSession> s, WampMessage& m)
     {
-        auto& msg = message_cast<YieldMessage>(m);
+        auto& msg = messageCast<YieldMessage>(m);
         s->logAccess({"client-yield", {}, msg.options()});
     }
 

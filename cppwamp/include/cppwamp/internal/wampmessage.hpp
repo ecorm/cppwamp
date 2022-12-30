@@ -621,7 +621,7 @@ private:
 
 //------------------------------------------------------------------------------
 template <typename TDerived>
-TDerived& message_cast(WampMessage& msg)
+TDerived& messageCast(WampMessage& msg)
 {
     assert(msg.type() == TDerived::kind);
     return static_cast<TDerived&>(msg);
@@ -629,7 +629,7 @@ TDerived& message_cast(WampMessage& msg)
 
 //------------------------------------------------------------------------------
 template <typename TDerived>
-const TDerived& message_cast(const WampMessage& msg)
+const TDerived& messageCast(const WampMessage& msg)
 {
     assert(msg.type() == TDerived::kind);
     return static_cast<const TDerived&>(msg);

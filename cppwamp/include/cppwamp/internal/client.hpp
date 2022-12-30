@@ -292,7 +292,7 @@ public:
                 me.registry_.clear();
                 if (me.checkError(reply, handler))
                 {
-                    auto& goodBye = message_cast<GoodbyeMessage>(*reply);
+                    auto& goodBye = messageCast<GoodbyeMessage>(*reply);
                     me.completeNow(handler, Reason({}, std::move(goodBye)));
                 }
             }
@@ -371,7 +371,7 @@ public:
                 if (me.checkReply(reply, WampMsgType::subscribed,
                                   SessionErrc::subscribeError, handler))
                 {
-                    const auto& msg = message_cast<SubscribedMessage>(*reply);
+                    const auto& msg = messageCast<SubscribedMessage>(*reply);
                     auto subId = msg.subscriptionId();
                     auto slotId = me.nextSlotId();
                     Subscription sub(self, subId, slotId, {});
@@ -548,7 +548,7 @@ public:
                 if (me.checkReply(reply, WampMsgType::published,
                                   SessionErrc::publishError, handler))
                 {
-                    const auto& pubMsg = message_cast<PublishedMessage>(*reply);
+                    const auto& pubMsg = messageCast<PublishedMessage>(*reply);
                     me.completeNow(handler, pubMsg.publicationId());
                 }
             }
@@ -591,7 +591,7 @@ public:
                 if (me.checkReply(reply, WampMsgType::registered,
                                   SessionErrc::registerError, handler))
                 {
-                    const auto& msg = message_cast<RegisteredMessage>(*reply);
+                    const auto& msg = messageCast<RegisteredMessage>(*reply);
                     auto regId = msg.registrationId();
                     Registration reg(self, regId, {});
                     me.registry_[regId] = std::move(rec);
@@ -732,7 +732,7 @@ public:
                 if (me.checkReply(reply, WampMsgType::result,
                                   SessionErrc::callError, handler, errorPtr))
                 {
-                    auto& msg = message_cast<ResultMessage>(*reply);
+                    auto& msg = messageCast<ResultMessage>(*reply);
                     me.completeNow(handler, Result({}, std::move(msg)));
                 }
             }
@@ -794,7 +794,7 @@ public:
                 if (me.checkReply(reply, WampMsgType::result,
                                   SessionErrc::callError, handler, errorPtr))
                 {
-                    auto& resultMsg = message_cast<ResultMessage>(*reply);
+                    auto& resultMsg = messageCast<ResultMessage>(*reply);
                     me.dispatchHandler(handler,
                                        Result({}, std::move(resultMsg)));
                 }
@@ -1174,7 +1174,7 @@ private:
                 ptr->cancelCall(reqId, CallCancelMode::killNoWait);
         });
 
-        auto& welcomeMsg = message_cast<WelcomeMessage>(reply);
+        auto& welcomeMsg = messageCast<WelcomeMessage>(reply);
         SessionInfo info{{}, std::move(realmUri), std::move(welcomeMsg)};
         completeNow(handler, std::move(info));
     }
@@ -1184,7 +1184,7 @@ private:
     {
         using std::move;
 
-        auto& abortMsg = message_cast<AbortMessage>(reply);
+        auto& abortMsg = messageCast<AbortMessage>(reply);
         const auto& uri = abortMsg.reasonUri();
         SessionErrc errc;
         bool found = errorUriToCode(uri, SessionErrc::joinError, errc);
@@ -1209,7 +1209,7 @@ private:
 
     void onChallenge(Message&& msg)
     {
-        auto& challengeMsg = message_cast<ChallengeMessage>(msg);
+        auto& challengeMsg = messageCast<ChallengeMessage>(msg);
         Challenge challenge({}, shared_from_this(), std::move(challengeMsg));
 
         if (challengeHandler_)
@@ -1234,7 +1234,7 @@ private:
 
     void onEvent(Message&& msg)
     {
-        auto& eventMsg = message_cast<EventMessage>(msg);
+        auto& eventMsg = messageCast<EventMessage>(msg);
         auto kv = readership_.find(eventMsg.subscriptionId());
         if (kv != readership_.end())
         {
@@ -1309,7 +1309,7 @@ private:
 
     void onInvocation(Message&& msg)
     {
-        auto& invMsg = message_cast<InvocationMessage>(msg);
+        auto& invMsg = messageCast<InvocationMessage>(msg);
         auto requestId = invMsg.requestId();
         auto regId = invMsg.registrationId();
 
@@ -1334,7 +1334,7 @@ private:
 
     void onInterrupt(Message&& msg)
     {
-        auto& interruptMsg = message_cast<InterruptMessage>(msg);
+        auto& interruptMsg = messageCast<InterruptMessage>(msg);
         auto found = pendingInvocations_.find(interruptMsg.requestId());
         if (found != pendingInvocations_.end())
         {
@@ -1430,7 +1430,7 @@ private:
             if (reply->type() == WampMsgType::error)
             {
                 ok = false;
-                auto& errMsg = message_cast<ErrorMessage>(*reply);
+                auto& errMsg = messageCast<ErrorMessage>(*reply);
                 const auto& uri = errMsg.reasonUri();
                 SessionErrc errc;
                 bool found = errorUriToCode(uri, defaultErrc, errc);
@@ -1479,7 +1479,7 @@ private:
         {
             if (logLevel() >= LogLevel::warning)
             {
-                auto& msg = message_cast<ErrorMessage>(*reply);
+                auto& msg = messageCast<ErrorMessage>(*reply);
                 const auto& uri = msg.reasonUri();
                 std::ostringstream oss;
                 oss << "Expected reply for " << msgTypeName

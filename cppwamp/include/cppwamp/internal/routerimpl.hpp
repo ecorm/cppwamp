@@ -273,6 +273,8 @@ inline RouterLogger::Ptr RouterContext::logger() const
 
 inline void RouterContext::freeSessionId(SessionId id) const
 {
+    if (id == nullId())
+        return;
     auto r = router_.lock();
     if (r)
         r->freeSessionId(id);

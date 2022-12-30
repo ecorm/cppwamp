@@ -574,7 +574,7 @@ private:
         }
         else
         {
-            const auto& abortMsg = message_cast<AbortMessage>(msg);
+            const auto& abortMsg = messageCast<AbortMessage>(msg);
             SessionErrc errc = {};
             errorUriToCode(abortMsg.reasonUri(),
                            SessionErrc::sessionAbortedByPeer, errc);
@@ -611,7 +611,7 @@ private:
         }
         else
         {
-            const auto& goodbyeMsg = message_cast<GoodbyeMessage>(msg);
+            const auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
             SessionErrc errc;
             errorUriToCode(goodbyeMsg.reasonUri(), SessionErrc::closeRealm,
                            errc);
