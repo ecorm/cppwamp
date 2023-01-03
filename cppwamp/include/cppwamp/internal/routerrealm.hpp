@@ -30,7 +30,7 @@ namespace internal
 class RealmBroker
 {
 public:
-    ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr s, Topic&& t)
+    ErrorOr<SubscriptionId> subscribe(Topic&& t, RouterSession::Ptr s)
     {
         UriAndPolicy topic{std::move(t)};
         if (!topic.uriIsValid())
@@ -58,6 +58,16 @@ public:
         }
 
         return subId;
+    }
+
+    ErrorOrDone unsubscribe(SubscriptionId subId, SessionId sid)
+    {
+        // TODO
+    }
+
+    ErrorOr<PublicationId> publish(Pub&& p, SessionId sid)
+    {
+        // TODO
     }
 
 private:
@@ -115,6 +125,40 @@ private:
     RandomIdGenerator pubIdGenerator_;
 };
 
+//------------------------------------------------------------------------------
+class RealmDealer
+{
+public:
+    ErrorOr<RegistrationId> enroll(Procedure&& p, RouterSession::Ptr s)
+    {
+        // TODO
+    }
+
+    ErrorOrDone unregister(RegistrationId rid, SessionId sid)
+    {
+        // TODO
+    }
+
+    ErrorOrDone call(Rpc&& p, SessionId sid)
+    {
+        // TODO
+    }
+
+    bool cancel(RequestId rid, SessionId sid)
+    {
+        // TODO
+    }
+
+    void yieldResult(Result&& r, SessionId sid)
+    {
+        // TODO
+    }
+
+    void yieldError(Error&& e, SessionId sid)
+    {
+        // TODO
+    }
+};
 
 //------------------------------------------------------------------------------
 class RouterRealm : public std::enable_shared_from_this<RouterRealm>
@@ -153,6 +197,11 @@ public:
     }
 
 private:
+    template <typename T>
+    using FutureErrorOr = std::future<ErrorOr<T>>;
+
+    using FutureErrorOrDone = std::future<ErrorOrDone>;
+
     RouterRealm(Executor&& e, RealmConfig&& c, RouterContext&& r)
         : strand_(boost::asio::make_strand(e)),
           router_(std::move(r)),
@@ -192,118 +241,59 @@ private:
         sessions_.erase(session->wampId());
     }
 
-    void safeOnMessage(RouterSession::Ptr s, WampMessage m)
+    ErrorOr<SubscriptionId> subscribe(Topic&& t, RouterSession::Ptr s)
     {
-        struct Dispatched
-        {
-            Ptr self;
-            RouterSession::Ptr s;
-            WampMessage m;
-
-            void operator()()
-            {
-                self->onMessage(std::move(s), std::move(m));
-            }
-        };
-
-        dispatch(Dispatched{shared_from_this(), std::move(s), std::move(m)});
+        return broker_.subscribe(std::move(t), std::move(s));
     }
 
-    void onMessage(RouterSession::Ptr s, WampMessage m)
+    ErrorOrDone unsubscribe(SubscriptionId subId, SessionId sessionId)
     {
-        using M = WampMsgType;
-        switch (m.type())
-        {
-        case M::error:       return onError(std::move(s), m);
-        case M::publish:     return onPublish(std::move(s), m);
-        case M::subscribe:   return onSubscribe(std::move(s), m);
-        case M::unsubscribe: return onUnsubscribe(std::move(s), m);
-        case M::call:        return onCall(std::move(s), m);
-        case M::cancel:      return onCancel(std::move(s), m);
-        case M::enroll:      return onRegister(std::move(s), m);
-        case M::unregister:  return onUnregister(std::move(s), m);
-        case M::yield:       return onYield(std::move(s), m);
-        default:             assert(false && "Unexpected message type"); break;
-        }
+        return broker_.unsubscribe(subId, sessionId);
     }
 
-    void onError(RouterSession::Ptr s, WampMessage& m)
+    ErrorOr<PublicationId> publish(Pub&& pub, SessionId sid)
     {
-        auto& msg = messageCast<ErrorMessage>(m);
-        s->logAccess({"client-error", {}, msg.options(), msg.reasonUri(),
-                      false});
+        return broker_.publish(std::move(pub), sid);
     }
 
-    void onPublish(RouterSession::Ptr s, WampMessage& m)
+    ErrorOr<RegistrationId> enroll(Procedure&& proc, RouterSession::Ptr s)
     {
-        auto& msg = messageCast<PublishMessage>(m);
-        s->logAccess({"client-publish", msg.topicUri(), msg.options()});
+        return dealer_.enroll(std::move(proc), std::move(s));
     }
 
-    void onSubscribe(RouterSession::Ptr s, WampMessage& m)
+    ErrorOrDone unregister(RegistrationId rid, SessionId sid)
     {
-        auto& msg = messageCast<SubscribeMessage>(m);
-        Topic topic{{}, std::move(msg)};
-
-        auto subId = broker_.subscribe(std::move(s), std::move(topic));
-        if (subId)
-        {
-            s->logAccess({"client-subscribe", msg.topicUri(), msg.options()});
-            // TODO: Send SUBSCRIBED message
-        }
-        else
-        {
-            s->logAccess({"client-subscribe", msg.topicUri(), msg.options(),
-                          subId.error()});
-            // TODO: Send ERROR message
-        }
+        return dealer_.unregister(rid, sid);
     }
 
-    void onUnsubscribe(RouterSession::Ptr s, WampMessage& m)
+    ErrorOrDone call(Rpc&& rpc, SessionId sid)
     {
-        auto& msg = messageCast<UnsubscribeMessage>(m);
-        s->logAccess({"client-unsubscribe"});
+        return dealer_.call(std::move(rpc), sid);
     }
 
-    void onCall(RouterSession::Ptr s, WampMessage& m)
+    bool cancelCall(RequestId rid, SessionId sid)
     {
-        auto& msg = messageCast<CallMessage>(m);
-        s->logAccess({"client-call", msg.procedureUri(), msg.options()});
+        return dealer_.cancel(rid, sid);
     }
 
-    void onCancel(RouterSession::Ptr s, WampMessage& m)
+    void yieldResult(Result&& r, SessionId sid)
     {
-        auto& msg = messageCast<CancelMessage>(m);
-        s->logAccess({"client-cancel", {}, msg.options()});
+        dealer_.yieldResult(std::move(r), sid);
     }
 
-    void onRegister(RouterSession::Ptr s, WampMessage& m)
+    void yieldError(Error&& e, SessionId sid)
     {
-        auto& msg = messageCast<RegisterMessage>(m);
-        s->logAccess({"client-register", msg.procedureUri(), msg.options()});
-    }
-
-    void onUnregister(RouterSession::Ptr s, WampMessage& m)
-    {
-        auto& msg = messageCast<UnregisterMessage>(m);
-        s->logAccess({"client-unregister"});
-    }
-
-    void onYield(RouterSession::Ptr s, WampMessage& m)
-    {
-        auto& msg = messageCast<YieldMessage>(m);
-        s->logAccess({"client-yield", {}, msg.options()});
+        dealer_.yieldError(std::move(e), sid);
     }
 
     IoStrand strand_;
     RouterContext router_;
     std::map<SessionId, RouterSession::Ptr> sessions_;
     RealmBroker broker_;
+    RealmDealer dealer_;
     RealmConfig config_;
     std::string logSuffix_;
     RouterLogger::Ptr logger_;
-
-    // TODO: Consider common interface for local and server sessions
 
     friend class RealmContext;
 };
@@ -338,20 +328,282 @@ inline RouterLogger::Ptr RealmContext::logger() const
     return {};
 }
 
-inline void RealmContext::onMessage(std::shared_ptr<RouterSession> s,
-                                    WampMessage m)
-{
-    auto r = realm_.lock();
-    if (r)
-        r->safeOnMessage(std::move(s), std::move(m));
-}
-
 inline void RealmContext::leave(std::shared_ptr<RouterSession> s)
 {
     auto r = realm_.lock();
     if (r)
         r->safeLeave(std::move(s));
     realm_.reset();
+}
+
+inline RealmContext::FutureErrorOr<SubscriptionId>
+RealmContext::subscribe(Topic t, RouterSessionPtr s)
+{
+    struct Dispatched
+    {
+        RouterRealm::Ptr realm;
+        std::promise<ErrorOr<SubscriptionId>> p;
+        Topic t;
+        RouterSession::Ptr s;
+
+        void operator()()
+        {
+            try
+            {
+                p.set_value(realm->subscribe(std::move(t), std::move(s)));
+            }
+            catch (...)
+            {
+                p.set_exception(std::current_exception());
+            }
+        }
+    };
+
+    std::promise<ErrorOr<SubscriptionId>> p;
+    auto fut = p.get_future();
+    auto realm = realm_.lock();
+    if (realm)
+    {
+        realm->dispatch(Dispatched{realm, std::move(p), std::move(t),
+                                   std::move(s)});
+    }
+    else
+    {
+        p.set_value(makeUnexpectedError(SessionErrc::noSuchRealm));
+    }
+    return fut;
+}
+
+inline RealmContext::FutureErrorOrDone
+RealmContext::unsubscribe(SubscriptionId subId, SessionId sessionId)
+{
+    struct Dispatched
+    {
+        RouterRealm::Ptr realm;
+        std::promise<ErrorOrDone> p;
+        SubscriptionId subId;
+        SessionId sessionId;
+
+        void operator()()
+        {
+            try
+            {
+                p.set_value(realm->unsubscribe(subId, sessionId));
+            }
+            catch (...)
+            {
+                p.set_exception(std::current_exception());
+            }
+        }
+    };
+
+    std::promise<ErrorOrDone> p;
+    auto fut = p.get_future();
+    auto realm = realm_.lock();
+    if (realm)
+        realm->dispatch(Dispatched{realm, std::move(p), subId, sessionId});
+    else
+        p.set_value(makeUnexpectedError(SessionErrc::noSuchRealm));
+    return fut;
+}
+
+inline RealmContext::FutureErrorOr<PublicationId>
+RealmContext::publish(Pub pub, SessionId sid)
+{
+    struct Dispatched
+    {
+        RouterRealm::Ptr realm;
+        std::promise<ErrorOr<PublicationId>> p;
+        Pub pub;
+        SessionId s;
+
+        void operator()()
+        {
+            try
+            {
+                p.set_value(realm->publish(std::move(pub), s));
+            }
+            catch (...)
+            {
+                p.set_exception(std::current_exception());
+            }
+        }
+    };
+
+    std::promise<ErrorOr<PublicationId>> p;
+    auto fut = p.get_future();
+    auto realm = realm_.lock();
+    if (realm)
+        realm->dispatch(Dispatched{realm, std::move(p), std::move(pub), sid});
+    else
+        p.set_value(makeUnexpectedError(SessionErrc::noSuchRealm));
+    return fut;
+}
+
+inline RealmContext::FutureErrorOr<RegistrationId>
+RealmContext::enroll(Procedure proc, RouterSessionPtr s)
+{
+    struct Dispatched
+    {
+        RouterRealm::Ptr realm;
+        std::promise<ErrorOr<RegistrationId>> p;
+        Procedure proc;
+        RouterSession::Ptr s;
+
+        void operator()()
+        {
+            try
+            {
+                p.set_value(realm->enroll(std::move(proc), std::move(s)));
+            }
+            catch (...)
+            {
+                p.set_exception(std::current_exception());
+            }
+        }
+    };
+
+    std::promise<ErrorOr<RegistrationId>> p;
+    auto fut = p.get_future();
+    auto realm = realm_.lock();
+    if (realm)
+    {
+        realm->dispatch(Dispatched{realm, std::move(p), std::move(proc),
+                                   std::move(s)});
+    }
+    else
+    {
+        p.set_value(makeUnexpectedError(SessionErrc::noSuchRealm));
+    }
+    return fut;
+}
+
+inline RealmContext::FutureErrorOrDone
+RealmContext::unregister(RegistrationId rid, SessionId sid)
+{
+    struct Dispatched
+    {
+        RouterRealm::Ptr router;
+        std::promise<ErrorOrDone> p;
+        RegistrationId r;
+        SessionId s;
+
+        void operator()()
+        {
+            try
+            {
+                p.set_value(router->unregister(r, s));
+            }
+            catch (...)
+            {
+                p.set_exception(std::current_exception());
+            }
+        }
+    };
+
+    std::promise<ErrorOrDone> p;
+    auto fut = p.get_future();
+    auto realm = realm_.lock();
+    if (realm)
+        realm->dispatch(Dispatched{realm, std::move(p), rid, sid});
+    else
+        p.set_value(makeUnexpectedError(SessionErrc::noSuchRealm));
+    return fut;
+}
+
+inline RealmContext::FutureErrorOrDone
+RealmContext::call(Rpc rpc, SessionId sid)
+{
+    struct Dispatched
+    {
+        RouterRealm::Ptr realm;
+        std::promise<ErrorOrDone> p;
+        Rpc r;
+        SessionId s;
+
+        void operator()()
+        {
+            try
+            {
+                p.set_value(realm->call(std::move(r), s));
+            }
+            catch (...)
+            {
+                p.set_exception(std::current_exception());
+            }
+        }
+    };
+
+    std::promise<ErrorOrDone> p;
+    auto fut = p.get_future();
+    auto realm = realm_.lock();
+    if (realm)
+        realm->dispatch(Dispatched{realm, std::move(p), std::move(rpc), sid});
+    else
+        p.set_value(makeUnexpectedError(SessionErrc::noSuchRealm));
+    return fut;
+}
+
+inline std::future<bool> RealmContext::cancelCall(RequestId rid, SessionId sid)
+{
+    struct Dispatched
+    {
+        RouterRealm::Ptr realm;
+        std::promise<bool> p;
+        RequestId r;
+        SessionId s;
+
+        void operator()()
+        {
+            try
+            {
+                p.set_value(realm->cancelCall(r, s));
+            }
+            catch (...)
+            {
+                p.set_exception(std::current_exception());
+            }
+        }
+    };
+
+    std::promise<bool> p;
+    auto fut = p.get_future();
+    auto realm = realm_.lock();
+    if (realm)
+        realm->dispatch(Dispatched{realm, std::move(p), rid, sid});
+    else
+        p.set_value(false);
+    return fut;
+}
+
+inline void RealmContext::yieldResult(Result r, SessionId sid)
+{
+    struct Dispatched
+    {
+        RouterRealm::Ptr realm;
+        Result r;
+        SessionId s;
+        void operator()() {realm->yieldResult(std::move(r), s);}
+    };
+
+    auto realm = realm_.lock();
+    if (realm)
+        realm->dispatch(Dispatched{realm, std::move(r), sid});
+}
+
+inline void RealmContext::yieldError(Error e, SessionId sid)
+{
+    struct Dispatched
+    {
+        RouterRealm::Ptr realm;
+        Error e;
+        SessionId s;
+        void operator()() {realm->yieldError(std::move(e), s);}
+    };
+
+    auto realm = realm_.lock();
+    if (realm)
+        realm->dispatch(Dispatched{realm, std::move(e), sid});
 }
 
 } // namespace internal

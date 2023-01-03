@@ -271,18 +271,24 @@ private:
         }
     }
 
-    void onMessage(WampMessage&& msg)
+    void onMessage(WampMessage&& m)
     {
-        switch (msg.type())
+        using M = WampMsgType;
+        switch (m.type())
         {
-        case WampMsgType::hello:        return onHello(msg);
-        case WampMsgType::authenticate: return onAuthenticate(msg);
-        case WampMsgType::goodbye:      return onGoodbye(msg);
-
-        default:
-            // TODO: Authorizer
-            realm_.onMessage(shared_from_this(), std::move(msg));
-            break;
+        case M::hello:        return onHello(m);
+        case M::authenticate: return onAuthenticate(m);
+        case M::goodbye:      return onGoodbye(m);
+        case M::error:        return onError(m);
+        case M::publish:      return onPublish(m);
+        case M::subscribe:    return onSubscribe(m);
+        case M::unsubscribe:  return onUnsubscribe(m);
+        case M::call:         return onCall(m);
+        case M::cancel:       return onCancelCall(m);
+        case M::enroll:       return onRegister(m);
+        case M::unregister:   return onUnregister(m);
+        case M::yield:        return onYield(m);
+        default:              assert(false && "Unexpected message type"); break;
         }
     }
 
@@ -339,6 +345,101 @@ private:
                    "wamp.error.goodbye_and_out"});
         // peer_ already took care of sending the reply, cancelling pending
         // requests, and will close the session state.
+    }
+
+    void onError(WampMessage& m)
+    {
+        // TODO: Generate AccessActionInfo from message class
+        auto& msg = messageCast<ErrorMessage>(m);
+        Error error{{}, std::move(msg)};
+        logAccess({"client-error", error.reason(), error.options()});
+        realm_.yieldError(std::move(error), wampId());
+    }
+
+    void onPublish(WampMessage& m)
+    {
+        auto& msg = messageCast<PublishMessage>(m);
+        logAccess({"client-publish", msg.topicUri(), msg.options()});
+    }
+
+    void onSubscribe(WampMessage& m)
+    {
+        auto& msg = messageCast<SubscribeMessage>(m);
+        Topic topic{{}, std::move(msg)};
+        AccessActionInfo info{"client-subscribe", topic.uri(), topic.options()};
+
+        auto subId = realm_.subscribe(std::move(topic),
+                                      shared_from_this()).get();
+        logAccess(std::move(info.withResult(subId)));
+        if (!subId)
+        {
+            // TODO: Send ERROR message
+        }
+    }
+
+    void onUnsubscribe(WampMessage& m)
+    {
+        auto& msg = messageCast<UnsubscribeMessage>(m);
+        AccessActionInfo info{"client-unsubscribe"};
+        auto done = realm_.unsubscribe(msg.subscriptionId(), wampId()).get();
+        logAccess(std::move(info.withResult(done)));
+        if (!done)
+        {
+            // TODO: Send ERROR message
+        }
+    }
+
+    void onCall(WampMessage& m)
+    {
+        auto& msg = messageCast<CallMessage>(m);
+        Rpc rpc{{}, std::move(msg)};
+        AccessActionInfo info{"client-call", rpc.procedure(), rpc.options()};
+        auto done = realm_.call(std::move(rpc), wampId()).get();
+        logAccess(std::move(info.withResult(done)));
+        if (!done)
+        {
+            // TODO: Send ERROR message
+        }
+    }
+
+    void onCancelCall(WampMessage& m)
+    {
+        auto& msg = messageCast<CancelMessage>(m);
+        realm_.cancelCall(msg.requestId(), wampId());
+        logAccess({"client-cancel-call"});
+    }
+
+    void onRegister(WampMessage& m)
+    {
+        auto& msg = messageCast<RegisterMessage>(m);
+        Procedure proc({}, std::move(msg));
+        AccessActionInfo info{"client-register", proc.uri(), proc.options()};
+        auto done = realm_.enroll(std::move(proc), shared_from_this()).get();
+        logAccess(std::move(info.withResult(done)));
+        if (!done)
+        {
+            // TODO: Send ERROR message
+        }
+    }
+
+    void onUnregister(WampMessage& m)
+    {
+        auto& msg = messageCast<UnregisterMessage>(m);
+        AccessActionInfo info{"client-unregister"};
+        auto done = realm_.unsubscribe(msg.registrationId(), wampId()).get();
+        logAccess(std::move(info.withResult(done)));
+        if (!done)
+        {
+            // TODO: Send ERROR message
+        }
+    }
+
+    void onYield(WampMessage& m)
+    {
+        auto& msg = messageCast<YieldMessage>(m);
+        Result result{{}, std::move(msg)};
+        logAccess({"client-yield", {}, result.options()});
+        realm_.yieldResult(std::move(result), wampId());
     }
 
     void leaveRealm(bool clearSessionInfo = true)

@@ -734,6 +734,10 @@ CPPWAMP_INLINE Procedure& Procedure::withDiscloseCaller(bool disclosed)
     return withOption("disclose_caller", disclosed);
 }
 
+CPPWAMP_INLINE Procedure::Procedure(internal::PassKey,
+                                    internal::RegisterMessage&& msg)
+    : Base(std::move(msg))
+{}
 
 //******************************************************************************
 // Rpc
@@ -804,6 +808,10 @@ CPPWAMP_INLINE Rpc& Rpc::withCancelMode(CallCancelMode mode)
 }
 
 CPPWAMP_INLINE CallCancelMode Rpc::cancelMode() const {return cancelMode_;}
+
+CPPWAMP_INLINE Rpc::Rpc(internal::PassKey, internal::CallMessage&& msg)
+    : Base(std::move(msg))
+{}
 
 CPPWAMP_INLINE Error* Rpc::error(internal::PassKey) {return error_;}
 

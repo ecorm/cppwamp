@@ -601,6 +601,10 @@ public:
 
 private:
     using Base = Options<Procedure, internal::RegisterMessage>;
+
+public:
+    // Internal use only
+    Procedure(internal::PassKey, internal::RegisterMessage&& msg);
 };
 
 
@@ -711,6 +715,7 @@ private:
     bool progressiveResultsEnabled_ = false;
 
 public:
+    Rpc(internal::PassKey, internal::CallMessage&& msg);
     Error* error(internal::PassKey); // Internal use only
 };
 

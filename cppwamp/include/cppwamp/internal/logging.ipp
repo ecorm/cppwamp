@@ -317,9 +317,33 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
       options(std::move(options)),
       ok(!ec)
 {
-    std::ostringstream oss;
-    oss << ec << " (" << ec.message() << ")";
-    status = oss.str();
+    if (ec)
+    {
+        std::ostringstream oss;
+        oss << ec << " (" << ec.message() << ")";
+        status = oss.str();
+    }
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AccessActionInfo&
+AccessActionInfo::withStatus(std::string status, bool ok)
+{
+    this->status = std::move(status);
+    this->ok = ok;
+    return *this;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AccessActionInfo& AccessActionInfo::withError(std::error_code ec)
+{
+    if (ec)
+    {
+        std::ostringstream oss;
+        oss << ec << " (" << ec.message() << ")";
+        status = oss.str();
+    }
+    ok = !ec;
 }
 
 

@@ -16,6 +16,7 @@
 #include <ostream>
 #include <string>
 #include "api.hpp"
+#include "erroror.hpp"
 #include "variant.hpp"
 
 
@@ -134,6 +135,18 @@ struct CPPWAMP_API AccessActionInfo
 
     AccessActionInfo(std::string action, std::string target,
                      Object options, std::error_code ec);
+
+    AccessActionInfo& withStatus(std::string status, bool ok = false);
+
+    AccessActionInfo& withError(std::error_code ec);
+
+    template <typename T>
+    AccessActionInfo& withResult(const ErrorOr<T>& e)
+    {
+        if (!e)
+            withError(e.error());
+        return *this;
+    }
 
     std::string action;
     std::string target;

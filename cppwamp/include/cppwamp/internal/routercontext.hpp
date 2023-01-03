@@ -8,11 +8,13 @@
 #define CPPWAMP_INTERNAL_ROUTER_CONTEXT_HPP
 
 #include <atomic>
+#include <future>
 #include <memory>
 #include "../anyhandler.hpp"
 #include "../asiodefs.hpp"
 #include "../erroror.hpp"
 #include "../logging.hpp"
+#include "../peerdata.hpp"
 #include "wampmessage.hpp"
 
 namespace wamp
@@ -77,13 +79,42 @@ private:
 class RealmContext
 {
 public:
+    template <typename T>
+    using FutureErrorOr = std::future<ErrorOr<T>>;
+
+    using FutureErrorOrDone = std::future<ErrorOrDone>;
+
+    using RouterSessionPtr = std::shared_ptr<RouterSession>;
+
     RealmContext() = default;
+
     RealmContext(std::shared_ptr<RouterRealm> r);
+
     bool expired() const;
+
     IoStrand strand() const;
+
     RouterLogger::Ptr logger() const;
-    void onMessage(std::shared_ptr<RouterSession> s, WampMessage m);
-    void leave(std::shared_ptr<RouterSession> s);
+
+    void leave(RouterSessionPtr s);
+
+    FutureErrorOr<SubscriptionId> subscribe(Topic t, RouterSessionPtr s);
+
+    FutureErrorOrDone unsubscribe(SubscriptionId subId, SessionId sessionId);
+
+    FutureErrorOr<PublicationId> publish(Pub pub, SessionId sid);
+
+    FutureErrorOr<RegistrationId> enroll(Procedure proc, RouterSessionPtr s);
+
+    FutureErrorOrDone unregister(RegistrationId rid, SessionId sid);
+
+    FutureErrorOrDone call(Rpc rpc, SessionId sid);
+
+    std::future<bool> cancelCall(RequestId rid, SessionId sid);
+
+    void yieldResult(Result r, SessionId sid);
+
+    void yieldError(Error e, SessionId sid);
 
 private:
     std::weak_ptr<RouterRealm> realm_;
