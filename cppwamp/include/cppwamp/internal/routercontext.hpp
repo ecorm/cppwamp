@@ -21,8 +21,8 @@ namespace wamp
 namespace internal
 {
 
-class LocalSessionImpl;
 class ServerSession;
+class RouterSession;
 class RouterRealm;
 class RouterImpl;
 
@@ -82,9 +82,8 @@ public:
     bool expired() const;
     IoStrand strand() const;
     RouterLogger::Ptr logger() const;
-    void onMessage(std::shared_ptr<ServerSession> s, WampMessage m);
-    void leave(std::shared_ptr<LocalSessionImpl> s);
-    void leave(std::shared_ptr<ServerSession> s);
+    void onMessage(std::shared_ptr<RouterSession> s, WampMessage m);
+    void leave(std::shared_ptr<RouterSession> s);
 
 private:
     std::weak_ptr<RouterRealm> realm_;

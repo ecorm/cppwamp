@@ -406,7 +406,9 @@ struct SubscribeMessage : public MessageWithOptions<WampMsgType::subscribe, 2>
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
-    const String& topicUri() const {return fields_.at(3).as<String>();}
+    const String& topicUri() const & {return fields_.at(3).as<String>();}
+
+    String&& topicUri() && {return std::move(fields_.at(3).as<String>());}
 
 private:
     using Base = MessageWithOptions<WampMsgType::subscribe, 2>;

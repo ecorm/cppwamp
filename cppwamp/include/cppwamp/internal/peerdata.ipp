@@ -514,21 +514,56 @@ Error::errorMessage(internal::PassKey, internal::WampMsgType reqType,
 CPPWAMP_INLINE Topic::Topic(String uri) : Base(std::move(uri)) {}
 
 /** @details
-    This sets the `SUBSCRIBE.Options.match|string` option to `"prefix"`. */
-CPPWAMP_INLINE Topic& Topic::usingPrefixMatch()
+    This sets the `SUBSCRIBE.Options.match|string` option. */
+CPPWAMP_INLINE Topic& Topic::withMatchPolicy(MatchPolicy policy)
 {
-    return withOption("match", "prefix");
+    CPPWAMP_LOGIC_CHECK(policy != MatchPolicy::unknown,
+                        "Cannot specify unknown match policy");
+
+    switch (policy)
+    {
+    case MatchPolicy::exact:
+        break;
+
+    case MatchPolicy::prefix:
+        withOption("match", "prefix");
+        break;
+
+    case MatchPolicy::wildcard:
+        withOption("match", "wildcard");
+        break;
+
+    default:
+        assert(false && "Unexpected MatchPolicy enumerator");
+    }
+
+    return *this;
 }
 
-/** @details
-    This sets the `SUBSCRIBE.Options.match|string` option to `"wildcard"`. */
-CPPWAMP_INLINE Topic& Topic::usingWildcardMatch()
+/** Obtains the matching policy used for this subscription. */
+CPPWAMP_INLINE Topic::MatchPolicy Topic::matchPolicy() const
 {
-    return withOption("match", "wildcard");
+    const auto p = optionAs<String>("match");
+    if (p.has_value())
+    {
+        if (*p == "prefix")
+            return MatchPolicy::prefix;
+        if (*p == "wildcard")
+            return MatchPolicy::wildcard;
+    }
+    return MatchPolicy::unknown;
 }
 
 CPPWAMP_INLINE const String& Topic::uri() const {return message().topicUri();}
 
+CPPWAMP_INLINE Topic::Topic(internal::PassKey, internal::SubscribeMessage&& msg)
+    : Base(std::move(msg))
+{}
+
+CPPWAMP_INLINE String&& Topic::uri(internal::PassKey) &&
+{
+    return std::move(message()).topicUri();
+}
 
 //******************************************************************************
 // Pub

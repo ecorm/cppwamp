@@ -958,7 +958,7 @@ GIVEN( "a publisher and a subscriber" )
             f.join(yield);
 
             f.subscriber.subscribe(
-                Topic("com.myapp").usingPrefixMatch(),
+                Topic("com.myapp").withMatchPolicy(Topic::MatchPolicy::prefix),
                 [&prefixMatchCount, &prefixTopic](Event event)
                 {
                     prefixTopic = event.topic().value_or("");
@@ -967,7 +967,8 @@ GIVEN( "a publisher and a subscriber" )
                 yield).value();
 
             f.subscriber.subscribe(
-                Topic("com..onEvent").usingWildcardMatch(),
+                Topic("com..onEvent").withMatchPolicy(
+                                Topic::MatchPolicy::wildcard),
                 [&wildcardMatchCount, &wildcardTopic](Event event)
                 {
                     wildcardTopic = event.topic().value_or("");

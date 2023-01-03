@@ -8,10 +8,14 @@
 #define CPPWAMP_INTERNAL_ROUTERSESSION_HPP
 
 #include <memory>
+#include "../authinfo.hpp"
+#include "../logging.hpp"
 #include "../peerdata.hpp"
-#include "../routerconfig.hpp"
 
 namespace wamp
+{
+
+namespace internal
 {
 
 //------------------------------------------------------------------------------
@@ -19,6 +23,7 @@ class RouterSession
 {
 public:
     using Ptr = std::shared_ptr<RouterSession>;
+    using WeakPtr = std::weak_ptr<RouterSession>;
 
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
@@ -73,6 +78,7 @@ private:
     AuthInfo::Ptr authInfo_;
 };
 
+} // namespace internal
 
 } // namespace wamp
 

@@ -396,6 +396,14 @@ public:
 class CPPWAMP_API Topic : public Options<Topic, internal::SubscribeMessage>
 {
 public:
+    enum class MatchPolicy
+    {
+        unknown,
+        exact,
+        prefix,
+        wildcard
+    };
+
     /** Converting constructor taking a topic URI. */
     Topic(String uri);
 
@@ -404,13 +412,11 @@ public:
         (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.6)
         @{ */
 
-    /** Specifies that the _prefix-matching policy_ is to be used for this
-        subscription. */
-    Topic& usingPrefixMatch();
+    /** Sets the matching policy is to be used for this subscription. */
+    Topic& withMatchPolicy(MatchPolicy);
 
-    /** Specifies that the _wildcard-matching policy_ is to be used for this
-        subscription. */
-    Topic& usingWildcardMatch();
+    /** Obtains the matching policy used for this subscription. */
+    MatchPolicy matchPolicy() const;
     /// @}
 
     /** Obtains the topic URI. */
@@ -418,6 +424,11 @@ public:
 
 private:
     using Base = Options<Topic, internal::SubscribeMessage>;
+
+public:
+    // Internal use only
+    Topic(internal::PassKey, internal::SubscribeMessage&& msg);
+    String&& uri(internal::PassKey) &&;
 };
 
 
@@ -570,6 +581,7 @@ public:
 
     /** Specifies that the _prefix-matching policy_ is to be used for this
         registration. */
+    // TODO: MatchPolicy enum instead
     Procedure& usingPrefixMatch();
 
     /** Specifies that the _wildcard-matching policy_ is to be used for this

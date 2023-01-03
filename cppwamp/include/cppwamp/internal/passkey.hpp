@@ -22,7 +22,9 @@ namespace internal
         friend class Client;
         friend class ServerSession;
         friend class LocalSessionImpl;
+        friend class RealmBroker;
         friend class RouterImpl;
+        friend class RouterRealm;
         friend class RouterServer;
     };
 }
