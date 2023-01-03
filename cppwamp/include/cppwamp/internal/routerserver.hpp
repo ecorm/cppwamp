@@ -368,8 +368,7 @@ private:
         Topic topic{{}, std::move(msg)};
         AccessActionInfo info{"client-subscribe", topic.uri(), topic.options()};
 
-        auto subId = realm_.subscribe(std::move(topic),
-                                      shared_from_this()).get();
+        auto subId = realm_.subscribe(std::move(topic), shared_from_this());
         logAccess(std::move(info.withResult(subId)));
         if (!subId)
         {
@@ -381,7 +380,7 @@ private:
     {
         auto& msg = messageCast<UnsubscribeMessage>(m);
         AccessActionInfo info{"client-unsubscribe"};
-        auto done = realm_.unsubscribe(msg.subscriptionId(), wampId()).get();
+        auto done = realm_.unsubscribe(msg.subscriptionId(), wampId());
         logAccess(std::move(info.withResult(done)));
         if (!done)
         {
@@ -394,7 +393,7 @@ private:
         auto& msg = messageCast<CallMessage>(m);
         Rpc rpc{{}, std::move(msg)};
         AccessActionInfo info{"client-call", rpc.procedure(), rpc.options()};
-        auto done = realm_.call(std::move(rpc), wampId()).get();
+        auto done = realm_.call(std::move(rpc), wampId());
         logAccess(std::move(info.withResult(done)));
         if (!done)
         {
@@ -414,7 +413,7 @@ private:
         auto& msg = messageCast<RegisterMessage>(m);
         Procedure proc({}, std::move(msg));
         AccessActionInfo info{"client-register", proc.uri(), proc.options()};
-        auto done = realm_.enroll(std::move(proc), shared_from_this()).get();
+        auto done = realm_.enroll(std::move(proc), shared_from_this());
         logAccess(std::move(info.withResult(done)));
         if (!done)
         {
@@ -426,7 +425,7 @@ private:
     {
         auto& msg = messageCast<UnregisterMessage>(m);
         AccessActionInfo info{"client-unregister"};
-        auto done = realm_.unsubscribe(msg.registrationId(), wampId()).get();
+        auto done = realm_.unsubscribe(msg.registrationId(), wampId());
         logAccess(std::move(info.withResult(done)));
         if (!done)
         {

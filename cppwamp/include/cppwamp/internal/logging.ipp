@@ -344,6 +344,7 @@ CPPWAMP_INLINE AccessActionInfo& AccessActionInfo::withError(std::error_code ec)
         status = oss.str();
     }
     ok = !ec;
+    return *this;
 }
 
 

@@ -129,9 +129,9 @@ public:
         struct Dispatched
         {
             Ptr self;
+            std::promise<Subscription> p;
             Topic t;
             EventSlot s;
-            std::promise<Subscription> p;
 
             void operator()()
             {
@@ -148,7 +148,7 @@ public:
 
         std::promise<Subscription> p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(t), std::move(s), std::move(p));
+        safelyDispatch<Dispatched>(std::move(p), std::move(t), std::move(s));
         return fut;
     }
 
@@ -200,30 +200,30 @@ public:
         return true;
     }
 
-    std::future<PublicationId> safePublish(Pub&& p)
+    std::future<PublicationId> safePublish(Pub&& pub)
     {
         struct Dispatched
         {
             Ptr self;
-            Pub p;
-            std::promise<PublicationId> prom;
+            std::promise<PublicationId> p;
+            Pub pub;
 
             void operator()()
             {
                 try
                 {
-                    prom.set_value(self->publish(std::move(p)));
+                    p.set_value(self->publish(std::move(pub)));
                 }
                 catch (...)
                 {
-                    prom.set_exception(std::current_exception());
+                    p.set_exception(std::current_exception());
                 }
             }
         };
 
-        std::promise<PublicationId> prom;
-        auto fut = prom.get_future();
-        safelyDispatch<Dispatched>(std::move(p), std::move(prom));
+        std::promise<PublicationId> p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(std::move(p), std::move(pub));
         return fut;
     }
 
@@ -262,7 +262,7 @@ public:
         return {};
     }
 
-    std::future<Registration> safeEnroll(Procedure&& p, CallSlot&& c,
+    std::future<Registration> safeEnroll(Procedure&& proc, CallSlot&& c,
                                          InterruptSlot&& i)
     {
         using std::move;
@@ -270,27 +270,27 @@ public:
         struct Dispatched
         {
             Ptr self;
-            Procedure p;
+            std::promise<Registration> p;
+            Procedure proc;
             CallSlot c;
             InterruptSlot i;
-            std::promise<Registration> prom;
 
             void operator()()
             {
                 try
                 {
-                    prom.set_value(self->enroll(move(p), move(c), move(i)));
+                    p.set_value(self->enroll(move(proc), move(c), move(i)));
                 }
                 catch (...)
                 {
-                    prom.set_exception(std::current_exception());
+                    p.set_exception(std::current_exception());
                 }
             }
         };
 
-        std::promise<Registration> prom;
-        auto fut = prom.get_future();
-        safelyDispatch<Dispatched>(move(p), move(c), move(i), move(prom));
+        std::promise<Registration> p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(move(p), move(proc), move(c), move(i));
         return fut;
     }
 
@@ -478,9 +478,9 @@ public:
         struct Dispatched
         {
             Ptr self;
+            ErrorOrDonePromise p;
             RequestId r;
             CallCancelMode m;
-            ErrorOrDonePromise p;
 
             void operator()()
             {
@@ -497,7 +497,7 @@ public:
 
         ErrorOrDonePromise p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(r, m, std::move(p));
+        safelyDispatch<Dispatched>(std::move(p), r, m);
         return fut;
     }
 
@@ -521,9 +521,9 @@ public:
         struct Dispatched
         {
             Ptr self;
-            RequestId i;
-            Result r;
             ErrorOrDonePromise p;
+            Result r;
+            RequestId i;
 
             void operator()()
             {
@@ -540,7 +540,7 @@ public:
 
         ErrorOrDonePromise p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(i, std::move(r), std::move(p));
+        safelyDispatch<Dispatched>(std::move(p), std::move(r), i);
         return fut;
     }
 
@@ -556,20 +556,20 @@ public:
         return true;
     }
 
-    FutureErrorOrDone safeYield(RequestId r, Error&& e) override
+    FutureErrorOrDone safeYield(RequestId i, Error&& e) override
     {
         struct Dispatched
         {
             Ptr self;
-            RequestId r;
-            Error e;
             ErrorOrDonePromise p;
+            RequestId i;
+            Error e;
 
             void operator()()
             {
                 try
                 {
-                    p.set_value(self->yield(r, std::move(e)));
+                    p.set_value(self->yield(i, std::move(e)));
                 }
                 catch (...)
                 {
@@ -580,7 +580,7 @@ public:
 
         ErrorOrDonePromise p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(r, std::move(e), std::move(p));
+        safelyDispatch<Dispatched>(std::move(p), i, std::move(e));
         return fut;
     }
 
@@ -643,8 +643,7 @@ private:
     using InvocationMap  = std::map<RequestId, RegistrationId>;
     using CallerTimeoutDuration = typename Rpc::CallerTimeoutDuration;
 
-    LocalSessionImpl(RealmContext r, AuthInfo a,
-                     AnyCompletionExecutor e)
+    LocalSessionImpl(RealmContext r, AuthInfo a, AnyCompletionExecutor e)
         : strand_(r.strand()),
           userExecutor_(std::move(e)),
           realm_(std::move(r)),

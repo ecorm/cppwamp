@@ -79,11 +79,6 @@ private:
 class RealmContext
 {
 public:
-    template <typename T>
-    using FutureErrorOr = std::future<ErrorOr<T>>;
-
-    using FutureErrorOrDone = std::future<ErrorOrDone>;
-
     using RouterSessionPtr = std::shared_ptr<RouterSession>;
 
     RealmContext() = default;
@@ -98,19 +93,19 @@ public:
 
     void leave(RouterSessionPtr s);
 
-    FutureErrorOr<SubscriptionId> subscribe(Topic t, RouterSessionPtr s);
+    ErrorOr<SubscriptionId> subscribe(Topic t, RouterSessionPtr s);
 
-    FutureErrorOrDone unsubscribe(SubscriptionId subId, SessionId sessionId);
+    ErrorOrDone unsubscribe(SubscriptionId subId, SessionId sessionId);
 
-    FutureErrorOr<PublicationId> publish(Pub pub, SessionId sid);
+    ErrorOr<PublicationId> publish(Pub pub, SessionId sid);
 
-    FutureErrorOr<RegistrationId> enroll(Procedure proc, RouterSessionPtr s);
+    ErrorOr<RegistrationId> enroll(Procedure proc, RouterSessionPtr s);
 
-    FutureErrorOrDone unregister(RegistrationId rid, SessionId sid);
+    ErrorOrDone unregister(RegistrationId rid, SessionId sid);
 
-    FutureErrorOrDone call(Rpc rpc, SessionId sid);
+    ErrorOrDone call(Rpc rpc, SessionId sid);
 
-    std::future<bool> cancelCall(RequestId rid, SessionId sid);
+    bool cancelCall(RequestId rid, SessionId sid);
 
     void yieldResult(Result r, SessionId sid);
 

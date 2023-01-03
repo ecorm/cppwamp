@@ -15,6 +15,7 @@
 #include "../erroror.hpp"
 #include "../routerconfig.hpp"
 #include "idgen.hpp"
+#include "localsessionimpl.hpp"
 #include "routercontext.hpp"
 #include "routerrealm.hpp"
 #include "routerserver.hpp"
@@ -25,8 +26,6 @@ namespace wamp
 
 namespace internal
 {
-
-class LocalSessionImpl;
 
 //------------------------------------------------------------------------------
 class RouterImpl : public std::enable_shared_from_this<RouterImpl>
