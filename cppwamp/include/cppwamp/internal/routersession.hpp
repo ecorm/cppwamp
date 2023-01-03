@@ -11,6 +11,7 @@
 #include "../authinfo.hpp"
 #include "../logging.hpp"
 #include "../peerdata.hpp"
+#include "idgen.hpp"
 
 namespace wamp
 {
@@ -30,7 +31,7 @@ public:
 
     virtual ~RouterSession() {}
 
-    SessionId wampId() const {return wampId_;}
+    SessionId wampId() const {return wampId_.get();}
 
     const AuthInfo& authInfo() const {return *authInfo_;}
 
@@ -61,9 +62,7 @@ public:
 protected:
     RouterSession() : authInfo_(std::make_shared<AuthInfo>()) {}
 
-    void clearWampId() {wampId_ = nullId();}
-
-    void setWampId(SessionId id) {wampId_ = id;}
+    void clearWampId() {wampId_.reset();}
 
     void setAuthInfo(AuthInfo&& info)
     {
@@ -74,8 +73,12 @@ protected:
     }
 
 private:
-    SessionId wampId_ = nullId();
+    ReservedId wampId_;
     AuthInfo::Ptr authInfo_;
+
+public:
+    // Internal use only
+    void setWampId(PassKey, ReservedId&& id) {wampId_ = std::move(id);}
 };
 
 } // namespace internal

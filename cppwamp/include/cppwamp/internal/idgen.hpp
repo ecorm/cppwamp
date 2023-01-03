@@ -53,19 +53,68 @@ private:
     wamp::bundled::prng::Generator prng_;
 };
 
+class RandomIdPool;
+
 //------------------------------------------------------------------------------
-class RandomIdPool
+class ReservedId
 {
 public:
-    explicit RandomIdPool(EphemeralId seed = nullId())
+    ReservedId() = default;
+
+    ReservedId(const ReservedId& rhs) = delete;
+
+    ReservedId(ReservedId&& rhs) noexcept {moveFrom(rhs);}
+
+    ~ReservedId() {reset();}
+
+    ReservedId& operator=(const ReservedId& rhs) = delete;
+
+    ReservedId& operator=(ReservedId&& rhs) noexcept
     {
-        if (seed == nullId())
-            gen_.reset(new RandomIdGenerator);
-        else
-            gen_.reset(new RandomIdGenerator(seed));
+        moveFrom(rhs);
+        return *this;
     }
 
-    EphemeralId allocate()
+    void reset();
+
+    EphemeralId get() const {return value_;}
+
+    operator EphemeralId() const {return value_;}
+
+private:
+    ReservedId(std::shared_ptr<RandomIdPool> pool, EphemeralId id)
+        : pool_(std::move(pool)),
+          value_(id)
+    {}
+
+    void moveFrom(ReservedId& rhs) noexcept
+    {
+        reset();
+        value_ = rhs.value_;
+        rhs.value_ = nullId();
+    }
+
+    std::weak_ptr<RandomIdPool> pool_;
+    EphemeralId value_ = nullId();
+
+    friend class RandomIdPool;
+};
+
+//------------------------------------------------------------------------------
+class RandomIdPool : std::enable_shared_from_this<RandomIdPool>
+{
+public:
+    using Ptr = std::shared_ptr<RandomIdPool>;
+
+    static Ptr create() {return Ptr(new RandomIdPool);}
+
+    static Ptr create(EphemeralId seed) {return Ptr(new RandomIdPool(seed));}
+
+    RandomIdPool(const RandomIdPool&) = delete;
+
+    RandomIdPool& operator=(const RandomIdPool&) = delete;
+
+    ReservedId reserve()
     {
         std::lock_guard<std::mutex> lock(mutex_);
         const auto end = ids_.cend();
@@ -74,14 +123,21 @@ public:
 
         do
         {
-            id = (*gen_)();
+            id = gen_();
             found = ids_.find(id);
         }
         while (found != end);
 
         ids_.emplace(id);
-        return id;
+        return ReservedId{shared_from_this(), id};
     }
+
+private:
+    using IdSet = std::set<EphemeralId>;
+
+    RandomIdPool() {}
+
+    explicit RandomIdPool(EphemeralId seed) : gen_(seed) {}
 
     void free(EphemeralId id)
     {
@@ -89,13 +145,24 @@ public:
         ids_.erase(id);
     }
 
-private:
-    using IdSet = std::set<EphemeralId>;
-
-    std::unique_ptr<RandomIdGenerator> gen_;
+    RandomIdGenerator gen_;
     IdSet ids_;
     std::mutex mutex_;
+
+    friend class ReservedId;
 };
+
+inline void ReservedId::reset()
+{
+    if (value_ != nullId())
+    {
+        auto n = value_;
+        value_ = nullId();
+        auto pool = pool_.lock();
+        if (pool)
+            pool->free(n);
+    }
+}
 
 //------------------------------------------------------------------------------
 class IdAnonymizer

@@ -61,15 +61,8 @@ public:
                                      std::move(s), sessionIndex));
     }
 
-    ~ServerSession()
+    void setWampSessionId(ReservedId id)
     {
-        server_.freeSessionId(wampId());
-        Base::clearWampId();
-    }
-
-    void setWampSessionId(SessionId id)
-    {
-        Base::setWampId(id);
         sessionInfo_.wampSessionIdHash = IdAnonymizer::anonymize(id);
     }
 
@@ -234,8 +227,8 @@ private:
 
     void clearWampSessionInfo()
     {
-        server_.freeSessionId(wampId());
         Base::clearWampId();
+        realm_.reset();
         sessionInfo_.realmUri.clear();
         sessionInfo_.authId.clear();
         sessionInfo_.agent.clear();
@@ -300,7 +293,8 @@ private:
         sessionInfo_.agent = realm.agent().value_or("");
         sessionInfo_.authId = realm.authId().value_or("");
 
-        if (!server_.realmExists(realm.uri()))
+        realm_ = server_.realmAt(realm.uri());
+        if (!realm_)
         {
             logAccess({"client-hello", realm.uri(), realm.sanitizedOptions(),
                        "wamp.error.no_such_realm", false});
@@ -443,7 +437,7 @@ private:
 
     void leaveRealm(bool clearSessionInfo = true)
     {
-        realm_.leave(shared_from_this());
+        realm_.leave(wampId());
         if (clearSessionInfo)
             clearWampSessionInfo();
     }
@@ -497,16 +491,15 @@ private:
             return;
 
         const auto& realm = authExchange_->realm();
-        auto context = server_.join(realm.uri(), shared_from_this());
-        if (!context)
+        if (!realm_)
         {
+            auto errc = SessionErrc::noSuchRealm;
             logAccess({"client-hello", realm.uri(), realm.sanitizedOptions(),
-                       context.error()});
+                       make_error_code(errc)});
             abort({SessionErrc::noSuchRealm});
             return;
         }
 
-        realm_ = *context;
         auto details = info.join({}, realm.uri(), wampId(), server_.roles());
         setAuthInfo(std::move(info));
         sessionInfo_.realmUri = realm.uri();

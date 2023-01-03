@@ -48,18 +48,18 @@ public:
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    static Ptr create(RealmContext r, AuthInfo a)
+    static Ptr create(IoStrand s, AnyCompletionExecutor e)
     {
-        using std::move;
-        auto s = r.strand();
-        return Ptr(new LocalSessionImpl(move(r), move(a), move(s)));
+        return Ptr(new LocalSessionImpl(std::move(s), std::move(e)));
     }
 
-    static Ptr create(RealmContext r, AuthInfo a,
-                      AnyCompletionExecutor e)
+    void join(RealmContext r, String realmUri, AuthInfo a)
     {
-        using std::move;
-        return Ptr(new LocalSessionImpl(move(r), move(a), move(e)));
+        realm_ = std::move(r);
+        logger_ = realm_.logger();
+        realm_.join(shared_from_this());
+        a.join({}, std::move(realmUri), wampId());
+        Base::setAuthInfo(std::move(a));
     }
 
     const IoStrand& strand() const {return strand_;}
@@ -73,7 +73,7 @@ public:
 
     void kick(String hint, String reasonUri)
     {
-        realm_.leave(shared_from_this());
+        realm_.leave(wampId());
         // TODO: Cancel pending RPCS, clear subscriptions & registrations
     }
 
@@ -643,15 +643,11 @@ private:
     using InvocationMap  = std::map<RequestId, RegistrationId>;
     using CallerTimeoutDuration = typename Rpc::CallerTimeoutDuration;
 
-    LocalSessionImpl(RealmContext r, AuthInfo a, AnyCompletionExecutor e)
-        : strand_(r.strand()),
+    LocalSessionImpl(IoStrand s, AnyCompletionExecutor e)
+        : strand_(std::move(s)),
           userExecutor_(std::move(e)),
-          realm_(std::move(r)),
-          logger_(realm_.logger()),
           timeoutScheduler_(CallerTimeoutScheduler::create(strand_))
-    {
-        Base::setAuthInfo(std::move(a));
-    }
+    {}
 
     template <typename F, typename... Ts>
     void safelyDispatch(Ts&&... args)

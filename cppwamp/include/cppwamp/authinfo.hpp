@@ -64,6 +64,7 @@ private:
 
 public:
     // Internal use only
+    void join(internal::PassKey, String realmUri, SessionId sessionId);
     Object join(internal::PassKey, String realmUri, SessionId sessionId,
                 Object routerRoles);
 };

@@ -15,6 +15,7 @@
 #include "../erroror.hpp"
 #include "../logging.hpp"
 #include "../peerdata.hpp"
+#include "idgen.hpp"
 #include "wampmessage.hpp"
 
 namespace wamp
@@ -87,11 +88,17 @@ public:
 
     bool expired() const;
 
+    explicit operator bool() const;
+
     IoStrand strand() const;
 
     RouterLogger::Ptr logger() const;
 
-    void leave(RouterSessionPtr s);
+    void reset();
+
+    void join(RouterSessionPtr s);
+
+    void leave(SessionId sid);
 
     ErrorOr<SubscriptionId> subscribe(Topic t, RouterSessionPtr s);
 
@@ -120,15 +127,18 @@ class RouterContext
 {
 public:
     static const Object& roles();
+
     RouterContext(std::shared_ptr<RouterImpl> r);
+
     RouterLogger::Ptr logger() const;
-    void freeSessionId(SessionId id) const;
-    bool realmExists(const String& realmUri) const;
-    ErrorOr<RealmContext> join(const String& realmUri,
-                               std::shared_ptr<ServerSession> s);
+
+    ReservedId reserveSessionId();
+
+    RealmContext realmAt(const String& uri) const;
 
 private:
     std::weak_ptr<RouterImpl> router_;
+    std::weak_ptr<RandomIdPool> sessionIdPool_;
 };
 
 } // namespace internal

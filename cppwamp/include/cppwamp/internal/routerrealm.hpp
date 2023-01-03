@@ -184,8 +184,10 @@ public:
 
     void join(RouterSession::Ptr session)
     {
+        auto reservedId = router_.reserveSessionId();
+        auto id = reservedId.get();
+        session->setWampId({}, std::move(reservedId));
         MutexGuard lock(mutex_);
-        auto id = session->wampId();
         sessions_.emplace(id, std::move(session));
     }
 
@@ -229,10 +231,10 @@ private:
 
     RouterLogger::Ptr logger() const {return logger_;}
 
-    void leave(RouterSession::Ptr session)
+    void leave(SessionId sid)
     {
         MutexGuard lock(mutex_);
-        sessions_.erase(session->wampId());
+        sessions_.erase(sid);
     }
 
     ErrorOr<SubscriptionId> subscribe(Topic&& t, RouterSession::Ptr s)
@@ -316,6 +318,8 @@ inline bool RealmContext::expired() const
     return realm_.expired();
 }
 
+RealmContext::operator bool() const {return !realm_.expired();}
+
 inline IoStrand RealmContext::strand() const
 {
     auto r = realm_.lock();
@@ -332,11 +336,21 @@ inline RouterLogger::Ptr RealmContext::logger() const
     return {};
 }
 
-inline void RealmContext::leave(std::shared_ptr<RouterSession> s)
+inline void RealmContext::reset() {realm_.reset();}
+
+inline void RealmContext::join(RouterSessionPtr s)
 {
     auto r = realm_.lock();
     if (r)
-        r->leave(std::move(s));
+        r->join(std::move(s));
+    realm_.reset();
+}
+
+inline void RealmContext::leave(SessionId sid)
+{
+    auto r = realm_.lock();
+    if (r)
+        r->leave(sid);
     realm_.reset();
 }
 

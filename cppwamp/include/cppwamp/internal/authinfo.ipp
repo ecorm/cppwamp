@@ -48,12 +48,21 @@ CPPWAMP_INLINE const String& AuthInfo::method() const {return method_;}
 
 CPPWAMP_INLINE const String& AuthInfo::provider() const {return provider_;}
 
+CPPWAMP_INLINE const any& AuthInfo::note() const {return note_;}
+
+CPPWAMP_INLINE void AuthInfo::join(internal::PassKey, String realmUri,
+                                   SessionId sessionId)
+{
+    realmUri_ = std::move(realmUri);
+    sessionId_ = sessionId;
+}
+
 CPPWAMP_INLINE Object
 AuthInfo::join(internal::PassKey, String realmUri, SessionId sessionId,
                Object routerRoles)
 {
-    sessionId_ = sessionId;
     realmUri_ = std::move(realmUri);
+    sessionId_ = sessionId;
 
     Object details;
     if (!id_.empty())

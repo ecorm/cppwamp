@@ -111,11 +111,8 @@ public:
             return nullptr;
 
         auto realm = kv->second;
-        a.join({}, std::move(realmUri), sessionIdPool_.allocate(),
-               RouterContext::roles());
-        auto session = LocalSessionImpl::create({realm}, std::move(a),
-                                                std::move(e));
-        realm->join(session);
+        auto session = LocalSessionImpl::create(strand_, std::move(e));
+        session->join({std::move(realm)}, std::move(realmUri), std::move(a));
         return session;
     }
 
@@ -143,7 +140,7 @@ public:
 private:
     RouterImpl(Executor e, RouterConfig c)
         : strand_(boost::asio::make_strand(e)),
-          sessionIdPool_(c.sessionIdSeed()),
+          sessionIdPool_(RandomIdPool::create(c.sessionIdSeed())),
           logger_(RouterLogger::create(strand_, c.logHandler(), c.logLevel(),
                                        c.accessLogHandler())),
           config_(std::move(c))
@@ -159,14 +156,17 @@ private:
 
     RouterLogger::Ptr logger() const {return logger_;}
 
-    void freeSessionId(SessionId id)
+    ReservedId reserveSessionId()
     {
-        return sessionIdPool_.free(id);
+        return sessionIdPool_->reserve();
     }
 
-    bool realmExists(const String& uri) const
+    RealmContext realmAt(const String& uri) const
     {
-        return realms_.find(uri) != realms_.end();
+        auto found = realms_.find(uri);
+        if (found == realms_.end())
+            return {};
+        return {found->second};
     }
 
     ErrorOr<RealmContext> joinRemote(const String& realmUri,
@@ -176,7 +176,7 @@ private:
         if (kv == realms_.end())
             return makeUnexpectedError(SessionErrc::noSuchRealm);
         auto realm = kv->second;
-        s->setWampSessionId(sessionIdPool_.allocate());
+        s->setWampSessionId(sessionIdPool_->reserve());
         realm->join(s);
         return {realm};
     }
@@ -184,7 +184,7 @@ private:
     IoStrand strand_;
     std::map<std::string, RouterServer::Ptr> servers_;
     std::map<std::string, RouterRealm::Ptr> realms_;
-    RandomIdPool sessionIdPool_;
+    RandomIdPool::Ptr sessionIdPool_;
     RouterLogger::Ptr logger_;
     RouterConfig config_;
 
@@ -213,7 +213,8 @@ inline const Object& RouterContext::roles()
 }
 
 inline RouterContext::RouterContext(std::shared_ptr<RouterImpl> r)
-    : router_(std::move(r))
+    : router_(r),
+      sessionIdPool_(r->sessionIdPool_)
 {}
 
 inline RouterLogger::Ptr RouterContext::logger() const
@@ -224,30 +225,20 @@ inline RouterLogger::Ptr RouterContext::logger() const
     return nullptr;
 }
 
-inline void RouterContext::freeSessionId(SessionId id) const
+inline ReservedId RouterContext::reserveSessionId()
 {
-    if (id == nullId())
-        return;
-    auto r = router_.lock();
-    if (r)
-        r->freeSessionId(id);
+    auto p = sessionIdPool_.lock();
+    if (!p)
+        return {};
+    return p->reserve();
 }
 
-inline bool RouterContext::realmExists(const String& uri) const
+inline RealmContext RouterContext::realmAt(const String& uri) const
 {
     auto r = router_.lock();
     if (!r)
-        return false;
-    return r->realmExists(uri);
-}
-
-inline ErrorOr<RealmContext>
-RouterContext::join(const String& realmUri, std::shared_ptr<ServerSession> s)
-{
-    auto r = router_.lock();
-    if (!r)
-        return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->joinRemote(realmUri, std::move(s));
+        return {};
+    return r->realmAt(uri);
 }
 
 } // namespace internal
