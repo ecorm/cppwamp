@@ -33,7 +33,6 @@ class ServerContext : public RouterContext
 {
 public:
     ServerContext(RouterContext r, std::shared_ptr<RouterServer> s);
-    ServerConfig::Ptr config() const;
     void removeSession(std::shared_ptr<ServerSession> s);
 
 private:
@@ -55,10 +54,10 @@ public:
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
     static Ptr create(const IoStrand& i, Transporting::Ptr t, AnyBufferCodec c,
-                      ServerContext s, Index sessionIndex)
+                      ServerContext s, ServerConfig::Ptr sc, Index sessionIndex)
     {
         return Ptr(new ServerSession(i, std::move(t), std::move(c),
-                                     std::move(s), sessionIndex));
+                                     std::move(s), std::move(sc), sessionIndex));
     }
 
     void start()
@@ -155,13 +154,13 @@ private:
     using Base = RouterSession;
 
     ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
-                  ServerContext&& s, Index sessionIndex)
+                  ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)
         : peer_(true, i, i),
           strand_(std::move(i)),
           transport_(t),
           codec_(std::move(c)),
           server_(std::move(s)),
-          serverConfig_(server_.config()),
+          serverConfig_(std::move(sc)),
           logger_(server_.logger())
     {
         assert(serverConfig_ != nullptr);
@@ -658,14 +657,45 @@ public:
 
     void start()
     {
-        assert(!listener_);
-        listener_ = config_->makeListener(strand_);
-        inform("Starting server listening on " + listener_->where());
         auto self = shared_from_this();
-        boost::asio::post(strand_, [this, self](){listen();});
+        boost::asio::post(strand_, [this, self](){doStart();});
     }
 
     void close(bool terminate, Reason r)
+    {
+        struct Posted
+        {
+            Ptr self;
+            Reason r;
+            bool terminate;
+            void operator()() {self->doClose(terminate, std::move(r));}
+        };
+
+        boost::asio::post(strand_, Posted{shared_from_this(), std::move(r),
+                                          terminate});
+    }
+
+    ServerConfig::Ptr config() const {return config_;}
+
+private:
+    RouterServer(AnyIoExecutor e, ServerConfig&& c, RouterContext&& r)
+        : executor_(std::move(e)),
+          strand_(boost::asio::make_strand(executor_)),
+          logSuffix_(" [Server " + c.name() + ']'),
+          router_(std::move(r)),
+          config_(std::make_shared<ServerConfig>(std::move(c))),
+          logger_(router_.logger())
+    {}
+
+    void doStart()
+    {
+        assert(!listener_);
+        listener_ = config_->makeListener(strand_);
+        inform("Starting server listening on " + listener_->where());
+        listen();
+    }
+
+    void doClose(bool terminate, Reason r)
     {
         std::string msg = terminate ? "Shutting down server listening on "
                                     : "Terminating server listening on ";
@@ -682,18 +712,6 @@ public:
         for (auto& s: sessions_)
             s->close(terminate, r);
     }
-
-    ServerConfig::Ptr config() const {return config_;}
-
-private:
-    RouterServer(AnyIoExecutor e, ServerConfig&& c, RouterContext&& r)
-        : executor_(std::move(e)),
-          strand_(boost::asio::make_strand(executor_)),
-          logSuffix_(" [Server " + c.name() + ']'),
-          router_(std::move(r)),
-          config_(std::make_shared<ServerConfig>(std::move(c))),
-          logger_(router_.logger())
-    {}
 
     void listen()
     {
@@ -730,7 +748,7 @@ private:
         auto s = ServerSession::create(boost::asio::make_strand(executor_),
                                        std::move(transport),
                                        std::move(codec), std::move(ctx),
-                                       nextSessionIndex_);
+                                       config_, nextSessionIndex_);
         sessions_.insert(s);
         s->start();
         listen();
@@ -782,13 +800,6 @@ inline ServerContext::ServerContext(RouterContext r,
     : Base(std::move(r)),
       server_(std::move(s))
 {}
-
-inline ServerConfig::Ptr ServerContext::config() const
-{
-    auto s = server_.lock();
-    return s ? s->config() : nullptr;
-
-}
 
 inline void ServerContext::removeSession(std::shared_ptr<ServerSession> s)
 {

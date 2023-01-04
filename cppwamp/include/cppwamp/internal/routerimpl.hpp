@@ -54,8 +54,10 @@ public:
             exists = realms_.find(uri) != realms_.end();
             if (!exists)
             {
-                auto r = RouterRealm::create(strand_, std::move(c),
-                                             {shared_from_this()});
+                auto r = RouterRealm::create(
+                    boost::asio::make_strand(executor_),
+                    std::move(c),
+                    {shared_from_this()});
                 realms_.emplace(std::move(uri), std::move(r));
             }
         }
@@ -108,7 +110,7 @@ public:
             MutexGuard lock(serversMutex_);
             if (servers_.find(name) != servers_.end())
             {
-                server = RouterServer::create(strand_, std::move(c),
+                server = RouterServer::create(executor_, std::move(c),
                                               {shared_from_this()});
                 servers_.emplace(std::move(name), server);
             }
@@ -208,7 +210,8 @@ private:
 
     RouterImpl(Executor e, RouterConfig c)
         : config_(std::move(c)),
-          strand_(boost::asio::make_strand(e)),
+          executor_(std::move(e)),
+          strand_(boost::asio::make_strand(executor_)),
           sessionIdPool_(RandomIdPool::create(config_.sessionIdSeed())),
           logger_(RouterLogger::create(strand_, config_.logHandler(),
                                        config_.logLevel(),
@@ -258,6 +261,7 @@ private:
     std::map<std::string, RouterServer::Ptr> servers_;
     std::map<std::string, RouterRealm::Ptr> realms_;
     RouterConfig config_;
+    AnyIoExecutor executor_;
     IoStrand strand_;
     std::mutex serversMutex_;
     std::mutex realmsMutex_;
