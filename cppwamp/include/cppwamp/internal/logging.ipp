@@ -326,6 +326,13 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
 }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
+    std::string action, std::string target, Object options, SessionErrc errc)
+    : AccessActionInfo(std::move(action), std::move(target),
+                       std::move(options), make_error_code(errc))
+{}
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo&
 AccessActionInfo::withStatus(std::string status, bool ok)
 {

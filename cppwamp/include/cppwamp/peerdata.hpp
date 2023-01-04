@@ -363,6 +363,10 @@ public:
     /** Converting constructor taking a reason URI. */
     Error(String reason);
 
+    /** Converting constructor taking an error code, attempting to convert
+        it to a reason URI. */
+    Error(std::error_code ec);
+
     /** Constructor taking an error::BadType exception and
         interpreting it as a `wamp.error.invalid_argument` reason URI. */
     explicit Error(const error::BadType& e);
@@ -378,6 +382,8 @@ public:
 
 private:
     using Base = Payload<Error, internal::ErrorMessage>;
+
+    static String toUri(std::error_code ec);
 
 public:
     // Internal use only

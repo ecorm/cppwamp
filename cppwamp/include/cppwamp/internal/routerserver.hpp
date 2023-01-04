@@ -145,7 +145,7 @@ public:
         logger_->log(std::move(e));
     }
 
-    void logAccess(AccessActionInfo&& i) override
+    void report(AccessActionInfo&& i) override
     {
         logger_->log(AccessLogEntry{sessionInfo_, std::move(i)});
     }
@@ -221,11 +221,11 @@ private:
         if (readyToAbort)
         {
             auto done = peer_.abort(a);
-            logAccess({"server-abort", a.uri(), a.options(), done});
+            report({"server-abort", a.uri(), a.options(), done});
         }
         else
         {
-            logAccess({"server-terminate", a.uri(), a.options()});
+            report({"server-terminate", a.uri(), a.options()});
             peer_.terminate();
         }
 
@@ -265,16 +265,16 @@ private:
                 {
                     auto& goodBye = messageCast<GoodbyeMessage>(*reply);
                     Reason peerReason({}, std::move(goodBye));
-                    logAccess({"server-goodbye", reason.uri(), reason.options(),
-                               peerReason.uri()});
+                    report({"server-goodbye", reason.uri(), reason.options(),
+                            peerReason.uri()});
                 }
                 else
                 {
-                    logAccess({"server-goodbye", reason.uri(), reason.options(),
+                    report({"server-goodbye", reason.uri(), reason.options(),
                                reply.error()});
                 }
                 clearWampSessionInfo();
-                logAccess({"server-disconnect", reason.uri(), reason.options()});
+                report({"server-disconnect", reason.uri(), reason.options()});
                 peer_.terminate();
             });
     }
@@ -282,7 +282,7 @@ private:
     void terminate(Reason reason)
     {
         shuttingDown_ = true;
-        logAccess({"server-terminate", reason.uri(), reason.options()});
+        report({"server-terminate", reason.uri(), reason.options()});
         leaveRealm();
         peer_.terminate();
     }
@@ -301,11 +301,11 @@ private:
         switch (s)
         {
         case State::connecting:
-            logAccess({"client-connect"});
+            report({"client-connect"});
             break;
 
         case State::disconnected:
-            logAccess({"client-disconnect", {}, {}, ec});
+            report({"client-disconnect", {}, {}, ec});
             retire();
             break;
 
@@ -316,7 +316,7 @@ private:
             break;
 
         case State::failed:
-            logAccess({"client-disconnect", {}, {}, ec});
+            report({"client-disconnect", {}, {}, ec});
             retire();
             break;
 
@@ -358,9 +358,10 @@ private:
         realm_ = server_.realmAt(realm.uri());
         if (!realm_)
         {
-            logAccess({"client-hello", realm.uri(), realm.sanitizedOptions(),
-                       "wamp.error.no_such_realm", false});
-            doAbort({SessionErrc::noSuchRealm});
+            auto errc = SessionErrc::noSuchRealm;
+            report({"client-hello", realm.uri(), realm.sanitizedOptions(),
+                    errc});
+            doAbort({errc});
             return;
         }
 
@@ -382,10 +383,9 @@ private:
                           state() == State::authenticating;
         if (!isExpected)
         {
-            logAccess({"client-authenticate", "", {},
-                       "wamp.error.protocol_violation"});
-            doAbort(Abort(SessionErrc::protocolViolation)
-                        .withHint("Unexpected AUTHENTICATE message"));
+            auto errc = SessionErrc::protocolViolation;
+            report({"client-authenticate", "", {}, errc});
+            doAbort(Abort(errc).withHint("Unexpected AUTHENTICATE message"));
             return;
         }
 
@@ -397,8 +397,8 @@ private:
     {
         auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
         Reason reason{{}, std::move(goodbyeMsg)};
-        logAccess({"client-goodbye", reason.uri(), reason.options(),
-                   "wamp.error.goodbye_and_out"});
+        report({"client-goodbye", reason.uri(), reason.options(),
+                "wamp.error.goodbye_and_out"});
         // peer_ already took care of sending the reply, cancelling pending
         // requests, and will close the session state.
     }
@@ -408,92 +408,91 @@ private:
         // TODO: Generate AccessActionInfo from message class
         auto& msg = messageCast<ErrorMessage>(m);
         Error error{{}, std::move(msg)};
-        logAccess({"client-error", error.reason(), error.options()});
+        report({"client-error", error.reason(), error.options()});
         realm_.yieldError(std::move(error), wampId());
     }
 
     void onPublish(WampMessage& m)
     {
         auto& msg = messageCast<PublishMessage>(m);
-        logAccess({"client-publish", msg.topicUri(), msg.options()});
+        report({"client-publish", msg.topicUri(), msg.options()});
     }
 
     void onSubscribe(WampMessage& m)
     {
         auto& msg = messageCast<SubscribeMessage>(m);
+        auto reqId = msg.requestId();
         Topic topic{{}, std::move(msg)};
         AccessActionInfo info{"client-subscribe", topic.uri(), topic.options()};
-
         auto subId = realm_.subscribe(std::move(topic), shared_from_this());
-        logAccess(std::move(info.withResult(subId)));
-        if (!subId)
+        report(std::move(info.withResult(subId)));
+        if (!subId && state() == State::established)
         {
-            // TODO: Send ERROR message
+            peer_.sendError(WampMsgType::subscribe, reqId,
+                            Error{subId.error()});
         }
     }
 
     void onUnsubscribe(WampMessage& m)
     {
         auto& msg = messageCast<UnsubscribeMessage>(m);
-        AccessActionInfo info{"client-unsubscribe"};
+        auto reqId = msg.requestId();
         auto done = realm_.unsubscribe(msg.subscriptionId(), wampId());
-        logAccess(std::move(info.withResult(done)));
+        report(AccessActionInfo{"client-unsubscribe", {}, {}, done});
         if (!done)
         {
-            // TODO: Send ERROR message
+            peer_.sendError(WampMsgType::unsubscribe, reqId,
+                            Error{done.error()});
         }
     }
 
     void onCall(WampMessage& m)
     {
         auto& msg = messageCast<CallMessage>(m);
+        auto reqId = msg.requestId();
         Rpc rpc{{}, std::move(msg)};
         AccessActionInfo info{"client-call", rpc.procedure(), rpc.options()};
         auto done = realm_.call(std::move(rpc), wampId());
-        logAccess(std::move(info.withResult(done)));
+        report(std::move(info.withResult(done)));
         if (!done)
-        {
-            // TODO: Send ERROR message
-        }
+            peer_.sendError(WampMsgType::call, reqId, Error{done.error()});
     }
 
     void onCancelCall(WampMessage& m)
     {
         auto& msg = messageCast<CancelMessage>(m);
         realm_.cancelCall(msg.requestId(), wampId());
-        logAccess({"client-cancel-call"});
+        report({"client-cancel-call"});
     }
 
     void onRegister(WampMessage& m)
     {
         auto& msg = messageCast<RegisterMessage>(m);
+        auto reqId = msg.requestId();
         Procedure proc({}, std::move(msg));
         AccessActionInfo info{"client-register", proc.uri(), proc.options()};
         auto done = realm_.enroll(std::move(proc), shared_from_this());
-        logAccess(std::move(info.withResult(done)));
+        report(std::move(info.withResult(done)));
         if (!done)
-        {
-            // TODO: Send ERROR message
-        }
+            peer_.sendError(WampMsgType::enroll, reqId, Error{done.error()});
     }
 
     void onUnregister(WampMessage& m)
     {
         auto& msg = messageCast<UnregisterMessage>(m);
-        AccessActionInfo info{"client-unregister"};
+        auto reqId = msg.requestId();
+        AccessActionInfo{"client-unregister"};
         auto done = realm_.unsubscribe(msg.registrationId(), wampId());
-        logAccess(std::move(info.withResult(done)));
+        report(AccessActionInfo{"client-unregister", {}, {}, done});
         if (!done)
-        {
-            // TODO: Send ERROR message
-        }
+            peer_.sendError(WampMsgType::unregister, reqId, Error{done.error()});
     }
 
     void onYield(WampMessage& m)
     {
         auto& msg = messageCast<YieldMessage>(m);
         Result result{{}, std::move(msg)};
-        logAccess({"client-yield", {}, result.options()});
+        report({"client-yield", {}, result.options()});
         realm_.yieldResult(std::move(result), wampId());
     }
 
@@ -556,7 +555,7 @@ private:
         if (!realm_)
         {
             auto errc = SessionErrc::noSuchRealm;
-            logAccess({"client-hello", realm.uri(), realm.sanitizedOptions(),
+            report({"client-hello", realm.uri(), realm.sanitizedOptions(),
                        make_error_code(errc)});
             doAbort({SessionErrc::noSuchRealm});
             return;
@@ -567,7 +566,7 @@ private:
         setAuthInfo(std::move(info));
         sessionInfo_.realmUri = realm.uri();
         sessionInfo_.wampSessionIdHash = IdAnonymizer::anonymize(wampId());
-        logAccess({"client-hello", realm.uri(), realm.sanitizedOptions()});
+        report({"client-hello", realm.uri(), realm.sanitizedOptions()});
         authExchange_.reset();
         peer_.welcome(wampId(), std::move(details));
     }
@@ -594,7 +593,7 @@ private:
 
         if (authExchange_)
         {
-            logAccess({"client-hello",
+            report({"client-hello",
                        authExchange_->realm().uri(),
                        authExchange_->realm().sanitizedOptions(),
                        a.uri(),
@@ -602,7 +601,7 @@ private:
         }
         else
         {
-            logAccess({"client-hello", {}, {}, a.uri()});
+            report({"client-hello", {}, {}, a.uri()});
         }
 
         authExchange_.reset();

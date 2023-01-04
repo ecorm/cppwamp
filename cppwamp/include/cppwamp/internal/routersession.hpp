@@ -49,7 +49,7 @@ public:
 
     virtual void log(LogEntry&& e) = 0;
 
-    virtual void logAccess(AccessActionInfo&& i) = 0;
+    virtual void report(AccessActionInfo&& i) = 0;
 
 protected:
     RouterSession() : authInfo_(std::make_shared<AuthInfo>()) {}

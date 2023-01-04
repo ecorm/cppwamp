@@ -604,7 +604,7 @@ public:
 //        logger_->log(std::move(e));
     }
 
-    void logAccess(AccessActionInfo&& i) override
+    void report(AccessActionInfo&& i) override
     {
         // TODO
 //        logger_->log(AccessLogEntry{sessionInfo_, std::move(i)});

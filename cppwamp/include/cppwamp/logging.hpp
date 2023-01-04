@@ -136,6 +136,9 @@ struct CPPWAMP_API AccessActionInfo
     AccessActionInfo(std::string action, std::string target,
                      Object options, std::error_code ec);
 
+    AccessActionInfo(std::string action, std::string target,
+                     Object options, SessionErrc errc);
+
     template <typename T>
     AccessActionInfo(std::string action, std::string target,
                      Object options, const ErrorOr<T>& x)

@@ -478,6 +478,8 @@ CPPWAMP_INLINE Error::Error() {}
 
 CPPWAMP_INLINE Error::Error(String reason) : Base(std::move(reason)) {}
 
+CPPWAMP_INLINE Error::Error(std::error_code ec) : Base(toUri(ec)) {}
+
 CPPWAMP_INLINE Error::Error(const error::BadType& e)
     : Base("wamp.error.invalid_argument")
 {
@@ -491,6 +493,16 @@ CPPWAMP_INLINE Error::operator bool() const {return !reason().empty();}
 CPPWAMP_INLINE const String& Error::reason() const
 {
     return message().reasonUri();
+}
+
+CPPWAMP_INLINE String Error::toUri(std::error_code ec)
+{
+    String uri;
+    if (ec.category() == wampCategory())
+        uri = errorCodeToUri(static_cast<SessionErrc>(ec.value()));
+    if (uri.empty())
+        uri = "cppwamp.error." + ec.message();
+    return uri;
 }
 
 CPPWAMP_INLINE Error::Error(internal::PassKey, internal::ErrorMessage&& msg)
