@@ -96,6 +96,8 @@ namespace internal { class Client; }
 //------------------------------------------------------------------------------
 class CPPWAMP_API Session
 {
+    // TODO: Make all public operations thread-safe
+
 private:
     struct GenericOp { template <typename F> void operator()(F&&) {} };
 

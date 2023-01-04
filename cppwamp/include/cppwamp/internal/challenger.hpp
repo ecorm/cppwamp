@@ -22,6 +22,8 @@ namespace internal
 class Challenger
 {
 public:
+    // TODO: Make them all thread-safe and remove safeFoo alternatives
+
     using WeakPtr = std::weak_ptr<Challenger>;
 
     virtual void challenge() = 0;

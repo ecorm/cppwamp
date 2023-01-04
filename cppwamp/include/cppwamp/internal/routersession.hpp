@@ -39,14 +39,6 @@ public:
 
     virtual void close(bool terminate, Reason) = 0;
 
-    virtual void sendSubscribed(RequestId, SubscriptionId) = 0;
-
-    virtual void sendUnsubscribed(RequestId) = 0;
-
-    virtual void sendRegistered(RequestId, RegistrationId) = 0;
-
-    virtual void sendUnregistered(RequestId) = 0;
-
     virtual void sendInvocation(Invocation&&) = 0;
 
     virtual void sendError(Error&&) = 0;

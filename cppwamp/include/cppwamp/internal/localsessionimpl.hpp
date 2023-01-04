@@ -589,14 +589,6 @@ public:
         // TODO
     }
 
-    void sendSubscribed(RequestId, SubscriptionId) override {}
-
-    void sendUnsubscribed(RequestId) override {}
-
-    void sendRegistered(RequestId, RegistrationId) override {}
-
-    void sendUnregistered(RequestId) override {}
-
     void sendInvocation(Invocation&&) override {}
 
     void sendError(Error&&) override {}

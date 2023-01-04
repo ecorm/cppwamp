@@ -49,12 +49,12 @@ public:
     void log(LogEntry entry)
     {
         if (entry.severity() >= level())
-            dispatchVia(strand_, logHandler_, std::move(entry));
+            postVia(strand_, logHandler_, std::move(entry));
     }
 
     void log(AccessLogEntry entry)
     {
-        dispatchVia(strand_, accessLogHandler_, std::move(entry));
+        postVia(strand_, accessLogHandler_, std::move(entry));
     }
 
 private:

@@ -61,12 +61,120 @@ public:
                                      std::move(s), sessionIndex));
     }
 
-    void setWampSessionId(ReservedId id)
+    void start()
     {
-        sessionInfo_.wampSessionIdHash = IdAnonymizer::anonymize(id);
+        auto self = shared_from_this();
+        completeNow([this, self]() {doStart();});
     }
 
-    void start()
+    void abort(Abort a)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Abort a;
+            void operator()() {self->doAbort(std::move(a));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(a));
+    }
+
+    void close(bool terminate, Reason r) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Reason r;
+            bool terminate;
+            void operator()() {self->doClose(terminate, std::move(r));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(r), terminate);
+    }
+
+    void sendInvocation(Invocation&& inv) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Invocation i;
+            void operator()() {self->send(std::move(i));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(inv));
+    }
+
+    void sendError(Error&& err) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Error e;
+            void operator()() {self->send(std::move(e));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(err));
+    }
+
+    void sendResult(Result&& r) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Result r;
+            void operator()() {self->send(std::move(r));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(r));
+    }
+
+    void sendInterruption(Interruption&& intr) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Interruption i;
+            void operator()() {self->send(std::move(i));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(intr));
+    }
+
+    void log(LogEntry&& e) override
+    {
+        e.append(logSuffix_);
+        logger_->log(std::move(e));
+    }
+
+    void logAccess(AccessActionInfo&& i) override
+    {
+        logger_->log(AccessLogEntry{sessionInfo_, std::move(i)});
+    }
+
+private:
+    using Base = RouterSession;
+
+    ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
+                  ServerContext&& s, Index sessionIndex)
+        : peer_(true, i, i),
+          strand_(std::move(i)),
+          transport_(t),
+          codec_(std::move(c)),
+          server_(std::move(s)),
+          serverConfig_(server_.config()),
+          logger_(server_.logger())
+    {
+        assert(serverConfig_ != nullptr);
+        sessionInfo_.endpoint = t->remoteEndpointLabel();
+        sessionInfo_.serverName = serverConfig_->name();
+        sessionInfo_.serverSessionIndex = sessionIndex;
+        logSuffix_ = " [Session " + serverConfig_->name() + '/' +
+                     std::to_string(sessionInfo_.serverSessionIndex) + ']';
+    }
+
+    State state() const {return peer_.state();}
+
+    void doStart()
     {
         assert(!alreadyStarted_);
         alreadyStarted_ = true;
@@ -102,7 +210,7 @@ public:
         peer_.connect(std::move(transport_), std::move(codec_));
     }
 
-    void abort(Abort a)
+    void doAbort(Abort a)
     {
         shuttingDown_ = true;
         leaveRealm(false);
@@ -114,10 +222,7 @@ public:
         if (readyToAbort)
         {
             auto done = peer_.abort(a);
-            if (done)
-                logAccess({"server-abort", a.uri(), a.options()});
-            else
-                logAccess({"server-abort", a.uri(), a.options(), done.error()});
+            logAccess({"server-abort", a.uri(), a.options(), done});
         }
         else
         {
@@ -128,7 +233,7 @@ public:
         clearWampSessionInfo();
     }
 
-    void close(bool terminate, Reason r) override
+    void doClose(bool terminate, Reason r)
     {
         if (terminate)
             this->terminate(std::move(r));
@@ -136,55 +241,13 @@ public:
             shutDown(std::move(r));
     }
 
-    void sendSubscribed(RequestId, SubscriptionId) override {}
-
-    void sendUnsubscribed(RequestId) override {}
-
-    void sendRegistered(RequestId, RegistrationId) override {}
-
-    void sendUnregistered(RequestId) override {}
-
-    void sendInvocation(Invocation&&) override {}
-
-    void sendError(Error&&) override {}
-
-    void sendResult(Result&&) override {}
-
-    void sendInterruption(Interruption&&) override {}
-
-    void log(LogEntry&& e) override
+    template <typename T>
+    void send(T&& messageData)
     {
-        e.append(logSuffix_);
-        logger_->log(std::move(e));
+        if (state() != State::established)
+            return;
+        peer_.send(messageData.message({}));
     }
-
-    void logAccess(AccessActionInfo&& i) override
-    {
-        logger_->log(AccessLogEntry{sessionInfo_, std::move(i)});
-    }
-
-private:
-    using Base = RouterSession;
-
-    ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
-                  ServerContext&& s, Index sessionIndex)
-        : peer_(true, i, i),
-          strand_(std::move(i)),
-          transport_(t),
-          codec_(std::move(c)),
-          server_(std::move(s)),
-          serverConfig_(server_.config()),
-          logger_(server_.logger())
-    {
-        assert(serverConfig_ != nullptr);
-        sessionInfo_.endpoint = t->remoteEndpointLabel();
-        sessionInfo_.serverName = serverConfig_->name();
-        sessionInfo_.serverSessionIndex = sessionIndex;
-        logSuffix_ = " [Session " + serverConfig_->name() + '/' +
-                     std::to_string(sessionInfo_.serverSessionIndex) + ']';
-    }
-
-    State state() const {return peer_.state();}
 
     void shutDown(Reason reason)
     {
@@ -298,7 +361,7 @@ private:
         {
             logAccess({"client-hello", realm.uri(), realm.sanitizedOptions(),
                        "wamp.error.no_such_realm", false});
-            abort({SessionErrc::noSuchRealm});
+            doAbort({SessionErrc::noSuchRealm});
             return;
         }
 
@@ -322,8 +385,8 @@ private:
         {
             logAccess({"client-authenticate", "", {},
                        "wamp.error.protocol_violation"});
-            abort(Abort(SessionErrc::protocolViolation)
-                      .withHint("Unexpected AUTHENTICATE message"));
+            doAbort(Abort(SessionErrc::protocolViolation)
+                        .withHint("Unexpected AUTHENTICATE message"));
             return;
         }
 
@@ -496,13 +559,15 @@ private:
             auto errc = SessionErrc::noSuchRealm;
             logAccess({"client-hello", realm.uri(), realm.sanitizedOptions(),
                        make_error_code(errc)});
-            abort({SessionErrc::noSuchRealm});
+            doAbort({SessionErrc::noSuchRealm});
             return;
         }
 
+        realm_.join(shared_from_this());
         auto details = info.join({}, realm.uri(), wampId(), server_.roles());
         setAuthInfo(std::move(info));
         sessionInfo_.realmUri = realm.uri();
+        sessionInfo_.wampSessionIdHash = IdAnonymizer::anonymize(wampId());
         logAccess({"client-hello", realm.uri(), realm.sanitizedOptions()});
         authExchange_.reset();
         peer_.welcome(wampId(), std::move(details));
@@ -595,8 +660,7 @@ public:
     {
         assert(!listener_);
         listener_ = config_->makeListener(strand_);
-        log({LogLevel::info,
-             "Starting server listening on " + listener_->where()});
+        inform("Starting server listening on " + listener_->where());
         auto self = shared_from_this();
         boost::asio::post(strand_, [this, self](){listen();});
     }
@@ -609,7 +673,7 @@ public:
         msg += listener_->where() + " with reason " + r.uri();
         if (!r.options().empty())
             msg += " " + toString(r.options());
-        log({LogLevel::info, std::move(msg)});
+        inform(std::move(msg));
 
         if (!listener_)
             return;
@@ -623,7 +687,8 @@ public:
 
 private:
     RouterServer(AnyIoExecutor e, ServerConfig&& c, RouterContext&& r)
-        : strand_(boost::asio::make_strand(e)),
+        : executor_(std::move(e)),
+          strand_(boost::asio::make_strand(executor_)),
           logSuffix_(" [Server " + c.name() + ']'),
           router_(std::move(r)),
           config_(std::make_shared<ServerConfig>(std::move(c))),
@@ -649,9 +714,8 @@ private:
                 }
                 else
                 {
-                    log({LogLevel::error,
-                         "Failure establishing connection with remote peer",
-                         transport.error()});
+                    alert("Failure establishing connection with remote peer",
+                          transport.error());
                 }
             });
     }
@@ -663,7 +727,8 @@ private:
         ServerContext ctx{router_, std::move(self)};
         if (++nextSessionIndex_ == 0u)
             nextSessionIndex_ = 1u;
-        auto s = ServerSession::create(strand_, std::move(transport),
+        auto s = ServerSession::create(boost::asio::make_strand(executor_),
+                                       std::move(transport),
                                        std::move(codec), std::move(ctx),
                                        nextSessionIndex_);
         sessions_.insert(s);
@@ -682,6 +747,19 @@ private:
         logger_->log(std::move(e));
     }
 
+    void inform(String msg) {log({LogLevel::info, std::move(msg)});}
+
+    void warn(String msg, std::error_code ec = {})
+    {
+        log({LogLevel::warning, std::move(msg), ec});
+    }
+
+    void alert(String msg, std::error_code ec = {})
+    {
+        log({LogLevel::error, std::move(msg), ec});
+    }
+
+    AnyIoExecutor executor_;
     IoStrand strand_;
     std::set<ServerSession::Ptr> sessions_;
     std::string logSuffix_;

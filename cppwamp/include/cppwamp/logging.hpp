@@ -136,15 +136,25 @@ struct CPPWAMP_API AccessActionInfo
     AccessActionInfo(std::string action, std::string target,
                      Object options, std::error_code ec);
 
+    template <typename T>
+    AccessActionInfo(std::string action, std::string target,
+                     Object options, const ErrorOr<T>& x)
+        : AccessActionInfo(std::move(action), std::move(target),
+                           std::move(options))
+    {
+        if (!x)
+            withError(x.error());
+    }
+
     AccessActionInfo& withStatus(std::string status, bool ok = false);
 
     AccessActionInfo& withError(std::error_code ec);
 
     template <typename T>
-    AccessActionInfo& withResult(const ErrorOr<T>& e)
+    AccessActionInfo& withResult(const ErrorOr<T>& x)
     {
-        if (!e)
-            withError(e.error());
+        if (!x)
+            withError(x.error());
         return *this;
     }
 
