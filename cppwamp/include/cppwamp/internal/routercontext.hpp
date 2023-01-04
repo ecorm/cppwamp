@@ -138,7 +138,7 @@ public:
 
 private:
     std::weak_ptr<RouterImpl> router_;
-    std::weak_ptr<RandomIdPool> sessionIdPool_;
+    RandomIdPool::Ptr sessionIdPool_;
 };
 
 } // namespace internal

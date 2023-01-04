@@ -597,7 +597,8 @@ public:
         listener_ = config_->makeListener(strand_);
         log({LogLevel::info,
              "Starting server listening on " + listener_->where()});
-        listen();
+        auto self = shared_from_this();
+        boost::asio::post(strand_, [this, self](){listen();});
     }
 
     void close(bool terminate, Reason r)

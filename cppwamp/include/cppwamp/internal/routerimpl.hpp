@@ -39,78 +39,136 @@ public:
         return Ptr(new RouterImpl(std::move(exec), std::move(config)));
     }
 
+    ~RouterImpl()
+    {
+        close(true, {"wamp.close.system_shutdown"});
+    }
+
     bool addRealm(RealmConfig c)
     {
         auto uri = c.uri();
-        if (realms_.find(uri) != realms_.end())
+        bool exists = false;
+
         {
-            log({LogLevel::warning,
-                 "Rejected attempt to add realm with duplicate URI '" + uri + "'"});
-            return false;
+            MutexGuard lock(realmsMutex_);
+            exists = realms_.find(uri) != realms_.end();
+            if (!exists)
+            {
+                auto r = RouterRealm::create(strand_, std::move(c),
+                                             {shared_from_this()});
+                realms_.emplace(std::move(uri), std::move(r));
+            }
         }
 
-        log({LogLevel::info, "Adding realm '" + uri + "'"});
-        auto r = RouterRealm::create(strand_, std::move(c),
-                                     {shared_from_this()});
-        realms_.emplace(std::move(uri), std::move(r));
-        return true;
+        if (exists)
+        {
+            alert("Rejected attempt to add realm "
+                  "with duplicate URI '" + uri + "'");
+        }
+        else
+        {
+            inform("Adding realm '" + uri + "'");
+        }
+
+        return !exists;
     }
 
-    bool closeRealm(const std::string& name, bool terminate, Reason r)
+    bool closeRealm(const std::string& uri, bool terminate, Reason r)
     {
-        auto kv = realms_.find(name);
-        if (kv == realms_.end())
+        RouterRealm::Ptr realm;
+
         {
-            log({LogLevel::warning,
-                 "Attempting to close non-existent realm named '" + name + "'"});
-            return false;
+            MutexGuard lock(realmsMutex_);
+            auto kv = realms_.find(uri);
+            if (kv != realms_.end())
+            {
+                realm = std::move(kv->second);
+                realms_.erase(kv);
+            }
         }
 
-        kv->second->close(terminate, std::move(r));
-        realms_.erase(kv);
-        return true;
+        if (realm)
+        {
+            realm->close(terminate, std::move(r));
+        }
+        else
+        {
+            warn("Attempting to close non-existent realm named '" + uri + "'");
+        }
+
+        return realm != nullptr;
     }
 
     bool openServer(ServerConfig c)
     {
+        RouterServer::Ptr server;
         auto name = c.name();
-        if (servers_.find(name) != servers_.end())
+
         {
-            log({LogLevel::warning,
-                 "Rejected attempt to open a server with duplicate name '" + name + "'"});
-            return false;
+            MutexGuard lock(serversMutex_);
+            if (servers_.find(name) != servers_.end())
+            {
+                server = RouterServer::create(strand_, std::move(c),
+                                              {shared_from_this()});
+                servers_.emplace(std::move(name), server);
+            }
         }
 
-        using std::move;
-        auto s = RouterServer::create(strand_, move(c), {shared_from_this()});
-        servers_.emplace(std::move(name), s);
-        s->start();
-        return true;
+        if (server)
+        {
+            server->start();
+        }
+        else
+        {
+            alert("Rejected attempt to open a server with duplicate name '" +
+                  name + "'");
+        }
+
+        return server != nullptr;
     }
 
     bool closeServer(const std::string& name, bool terminate, Reason r)
     {
-        auto kv = servers_.find(name);
-        if (kv == servers_.end())
+        RouterServer::Ptr server;
+
         {
-            log({LogLevel::warning,
-                 "Attempting to close non-existent server named '" + name + "'"});
-            return false;
+            MutexGuard lock(serversMutex_);
+            auto kv = servers_.find(name);
+            if (kv != servers_.end())
+            {
+                server = kv->second;
+                servers_.erase(kv);
+            }
         }
 
-        kv->second->close(terminate, std::move(r));
-        servers_.erase(kv);
-        return true;
+        if (server)
+        {
+            server->close(terminate, std::move(r));
+        }
+        else
+        {
+            warn("Attempting to close non-existent server named '" +
+                 name + "'");
+        }
+
+        return server != nullptr;
     }
 
     LocalSessionImpl::Ptr localJoin(String realmUri, AuthInfo a,
                                     AnyCompletionExecutor e)
     {
-        auto kv = realms_.find(realmUri);
-        if (kv == realms_.end())
+        RouterRealm::Ptr realm;
+
+        {
+            MutexGuard lock(realmsMutex_);
+            auto kv = realms_.find(realmUri);
+            if (kv != realms_.end())
+                realm = kv->second;
+        }
+
+        if (!realm)
             return nullptr;
 
-        auto realm = kv->second;
         auto session = LocalSessionImpl::create(strand_, std::move(e));
         session->join({std::move(realm)}, std::move(realmUri), std::move(a));
         return session;
@@ -118,38 +176,64 @@ public:
 
     void close(bool terminate, Reason r)
     {
-        // TODO: Check already closed
         std::string msg = terminate ? "Shutting down router, with reason "
                                     : "Terminating router, with reason ";
         msg += r.uri();
         if (!r.options().empty())
             msg += " " + toString(r.options());
-        log({LogLevel::info, std::move(msg)});
+        inform(std::move(msg));
 
-        for (auto& kv: servers_)
-            kv.second->close(terminate, r);
-        servers_.clear();
-        for (auto& kv: realms_)
-            kv.second->close(terminate, r);
-        realms_.clear();
-        // TODO: Wait for GOODBYE acknowledgements or timeout
+        {
+            MutexGuard lock(serversMutex_);
+            for (auto& kv: servers_)
+                kv.second->close(terminate, r);
+            servers_.clear();
+        }
+
+        {
+            MutexGuard lock(realmsMutex_);
+            for (auto& kv: realms_)
+                kv.second->close(terminate, r);
+            realms_.clear();
+        }
+
+        // TODO: Added overload with completion handler when all GOODBYEs
+        // are acknowledged or timeout occurs
     }
 
     const IoStrand& strand() const {return strand_;}
 
 private:
+    using MutexGuard = std::lock_guard<std::mutex>;
+
     RouterImpl(Executor e, RouterConfig c)
-        : strand_(boost::asio::make_strand(e)),
-          sessionIdPool_(RandomIdPool::create(c.sessionIdSeed())),
-          logger_(RouterLogger::create(strand_, c.logHandler(), c.logLevel(),
-                                       c.accessLogHandler())),
-          config_(std::move(c))
+        : config_(std::move(c)),
+          strand_(boost::asio::make_strand(e)),
+          sessionIdPool_(RandomIdPool::create(config_.sessionIdSeed())),
+          logger_(RouterLogger::create(strand_, config_.logHandler(),
+                                       config_.logLevel(),
+                                       config_.accessLogHandler()))
     {}
 
     template <typename F>
     void dispatch(F&& f)
     {
         boost::asio::dispatch(strand_, std::forward<F>(f));
+    }
+
+    void inform(String msg)
+    {
+        logger_->log({LogLevel::info, std::move(msg)});
+    }
+
+    void warn(String msg, std::error_code ec = {})
+    {
+        logger_->log({LogLevel::warning, std::move(msg), ec});
+    }
+
+    void alert(String msg, std::error_code ec = {})
+    {
+        logger_->log({LogLevel::error, std::move(msg), ec});
     }
 
     void log(LogEntry&& e) {logger_->log(std::move(e));}
@@ -163,30 +247,22 @@ private:
 
     RealmContext realmAt(const String& uri) const
     {
+        MutexGuard lock(const_cast<std::mutex&>(realmsMutex_));
+
         auto found = realms_.find(uri);
         if (found == realms_.end())
             return {};
         return {found->second};
     }
 
-    ErrorOr<RealmContext> joinRemote(const String& realmUri,
-                                     ServerSession::Ptr s)
-    {
-        auto kv = realms_.find(realmUri);
-        if (kv == realms_.end())
-            return makeUnexpectedError(SessionErrc::noSuchRealm);
-        auto realm = kv->second;
-        s->setWampSessionId(sessionIdPool_->reserve());
-        realm->join(s);
-        return {realm};
-    }
-
-    IoStrand strand_;
     std::map<std::string, RouterServer::Ptr> servers_;
     std::map<std::string, RouterRealm::Ptr> realms_;
+    RouterConfig config_;
+    IoStrand strand_;
+    std::mutex serversMutex_;
+    std::mutex realmsMutex_;
     RandomIdPool::Ptr sessionIdPool_;
     RouterLogger::Ptr logger_;
-    RouterConfig config_;
 
     friend class RouterContext;
 };
@@ -227,10 +303,7 @@ inline RouterLogger::Ptr RouterContext::logger() const
 
 inline ReservedId RouterContext::reserveSessionId()
 {
-    auto p = sessionIdPool_.lock();
-    if (!p)
-        return {};
-    return p->reserve();
+    return sessionIdPool_->reserve();
 }
 
 inline RealmContext RouterContext::realmAt(const String& uri) const
