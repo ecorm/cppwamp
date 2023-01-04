@@ -191,14 +191,19 @@ struct MessageWithOptions : public WampMessage
 
     static constexpr unsigned optionsPos = I;
 
-    const Object& options() const
+    const Object& options() const &
     {
         return fields_.at(optionsPos).template as<Object>();
     }
 
-    Object& options()
+    Object& options() &
     {
         return fields_.at(optionsPos).template as<Object>();
+    }
+
+    Object&& options() &&
+    {
+        return std::move(fields_.at(optionsPos).template as<Object>());
     }
 
 protected:
@@ -460,6 +465,10 @@ struct UnsubscribedMessage : public WampMessage
 struct EventMessage : public MessageWithPayload<WampMsgType::event, 3, 4>
 {
     EventMessage() : Base({0, 0, 0, Object{}}) {}
+
+    EventMessage(SubscriptionId subId, PublicationId pubId, Object opts = {})
+        : Base({0, subId, pubId, std::move(opts)})
+    {}
 
     SubscriptionId subscriptionId() const
     {

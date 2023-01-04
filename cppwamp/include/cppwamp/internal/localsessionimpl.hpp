@@ -589,6 +589,8 @@ public:
         // TODO
     }
 
+    void sendEvent(Event&&) override {}
+
     void sendInvocation(Invocation&&) override {}
 
     void sendError(Error&&) override {}

@@ -62,14 +62,30 @@ public:
 
     ErrorOrDone unsubscribe(SubscriptionId subId, SessionId sid)
     {
-        // TODO
+        auto found = topicsBySubId_.find(subId);
+        if (found == topicsBySubId_.end())
+            return makeUnexpectedError(SessionErrc::noSuchSubscription);
+        auto subsByTopicIter = found->second;
+        auto& info = subsByTopicIter->second;
+        bool erased = info.sessions.erase(sid) != 0;
+        if (info.sessions.empty())
+        {
+            subsByTopic_.erase(subsByTopicIter);
+            topicsBySubId_.erase(found);
+        }
+        if (!erased)
+            return makeUnexpectedError(SessionErrc::noSuchSubscription);
         return true;
     }
 
-    ErrorOr<PublicationId> publish(Pub&& p, SessionId sid)
+    ErrorOr<PublicationId> publish(const Pub& pub, SessionId sid)
     {
-        // TODO
-        return true;
+        // TODO: publish and event options
+        auto pubId = pubIdGenerator_();
+        publishExactMatches(pub, sid, pubId);
+        publishPrefixMatches(pub, sid, pubId);
+        publishWildcardMatches(pub, sid, pubId);
+        return pubId;
     }
 
 private:
@@ -78,11 +94,15 @@ private:
     struct UriAndPolicy
     {
         String uri;
-        Topic::MatchPolicy policy;
+        Policy policy;
+
+        explicit UriAndPolicy(String uri, Policy p = Policy::unknown)
+            : uri(std::move(uri)),
+              policy(p)
+        {}
 
         explicit UriAndPolicy(Topic&& t)
-            : uri(std::move(t).uri({})),
-              policy(t.matchPolicy())
+            : UriAndPolicy(std::move(t).uri({}), t.matchPolicy())
         {}
 
         bool uriIsValid() const
@@ -95,12 +115,7 @@ private:
 
         bool operator<(const UriAndPolicy& rhs) const
         {
-            return std::tie(uri, policy) < std::tie(rhs.uri, rhs.policy);
-        }
-
-        bool operator<(const String& topicUri) const
-        {
-            return uri < topicUri;
+            return std::tie(policy, uri) < std::tie(rhs.policy, rhs.uri);
         }
     };
 
@@ -112,6 +127,23 @@ private:
 
     using SubsByTopic = std::map<UriAndPolicy, SubInfo>;
 
+    static Event eventFromPub(const Pub& pub, SubscriptionId subId,
+                              PublicationId pubId, Object opts)
+    {
+        Event ev{subId, pubId, std::move(opts)};
+        if (!pub.args().empty() || !pub.kwargs().empty())
+            ev.withArgList(pub.args());
+        if (!pub.kwargs().empty())
+            ev.withKwargs(pub.kwargs());
+        return ev;
+    }
+
+    static bool startsWith(const String& s, const String& prefix)
+    {
+        // https://stackoverflow.com/a/40441240/245265
+        return s.rfind(prefix, 0) == 0;
+    }
+
     SubscriptionId nextSubId()
     {
         auto s = nextSubscriptionId_;
@@ -119,6 +151,52 @@ private:
             ++s;
         nextSubscriptionId_ = s + 1;
         return s;
+    }
+
+    void publishExactMatches(const Pub& pub, SessionId sid, PublicationId pubId)
+    {
+        UriAndPolicy key{pub.topic(),  Policy::exact};
+        auto found = subsByTopic_.find(key);
+        if (found != subsByTopic_.end())
+            publishMatches(pub, sid, pubId, found->second);
+    }
+
+    void publishPrefixMatches(const Pub& pub, SessionId sid,
+                              PublicationId pubId)
+    {
+        const auto& pubUri = pub.topic();
+        UriAndPolicy key{pubUri, Policy::prefix};
+        auto begin = subsByTopic_.begin();
+        auto iter = subsByTopic_.upper_bound(key);
+        while (iter != begin)
+        {
+            --iter;
+            const auto& topic = iter->first;
+            if (topic.policy != Policy::prefix ||
+                !startsWith(pubUri, topic.uri))
+            {
+                break;
+            }
+            publishMatches(pub, sid, pubId, iter->second);
+        }
+    }
+
+    void publishWildcardMatches(const Pub& pub, SessionId sid,
+                                PublicationId pubId)
+    {
+        // TODO
+    }
+
+    void publishMatches(const Pub& pub, SessionId sid, PublicationId pubId,
+                         const SubInfo& info)
+    {
+        auto ev = eventFromPub(pub, info.subId, pubId, {});
+        for (auto& kv : info.sessions)
+        {
+            auto session = kv.second.lock();
+            if (session)
+                session->sendEvent(Event{ev});
+        }
     }
 
     SubsByTopic subsByTopic_;

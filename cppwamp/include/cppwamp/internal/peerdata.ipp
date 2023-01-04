@@ -583,7 +583,7 @@ CPPWAMP_INLINE String&& Topic::uri(internal::PassKey) &&
 
 CPPWAMP_INLINE Pub::Pub(String topic) : Base(std::move(topic)) {}
 
-CPPWAMP_INLINE const String& Pub::topic() {return message().topicUri();}
+CPPWAMP_INLINE const String& Pub::topic() const {return message().topicUri();}
 
 /** @details
     This sets the `PUBLISH.Options.exclude|list` option. */
@@ -648,6 +648,11 @@ CPPWAMP_INLINE Pub& Pub::withDiscloseMe(bool disclosed)
 
 /** @post `this->empty() == true` */
 CPPWAMP_INLINE Event::Event() {}
+
+CPPWAMP_INLINE Event::Event(SubscriptionId subId, PublicationId pubId,
+                            Object opts)
+    : Base(subId, pubId, std::move(opts))
+{}
 
 CPPWAMP_INLINE bool Event::empty() const {return executor_ == nullptr;}
 

@@ -37,7 +37,10 @@ public:
     TDerived& withOptions(Object opts);
 
     /** Accesses the entire dictionary of options. */
-    const Object& options() const;
+    const Object& options() const &;
+
+    /** Moves the entire dictionary of options. */
+    Object&& options() &&;
 
     /** Obtains an option by key. */
     const Variant& optionByKey(const String& key) const;
@@ -94,7 +97,11 @@ D& Options<D,M>::withOptions(Object opts)
 
 //------------------------------------------------------------------------------
 template <typename D, typename M>
-const Object& Options<D,M>::options() const {return message_.options();}
+const Object& Options<D,M>::options() const & {return message_.options();}
+
+//------------------------------------------------------------------------------
+template <typename D, typename M>
+Object&& Options<D,M>::options() && {return std::move(message_).options();}
 
 //------------------------------------------------------------------------------
 template <typename D, typename M>

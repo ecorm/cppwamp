@@ -454,7 +454,7 @@ public:
         @{ */
 
     /** Obtains the topic URI. */
-    const String& topic();
+    const String& topic() const;
 
     /** Specifies the list of (potential) _Subscriber_ session IDs that
         won't receive the published event. */
@@ -511,6 +511,9 @@ class CPPWAMP_API Event : public Payload<Event, internal::EventMessage>
 public:
     /** Default constructor. */
     Event();
+
+    /** Constructor taking details. */
+    Event(SubscriptionId subId, PublicationId pubId, Object opts = {});
 
     /** Returns `false` if the Event has been initialized and is ready
         for use. */

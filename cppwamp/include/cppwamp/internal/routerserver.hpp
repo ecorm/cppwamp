@@ -91,6 +91,18 @@ public:
         safelyDispatch<Dispatched>(std::move(r), terminate);
     }
 
+    void sendEvent(Event&& ev) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Event e;
+            void operator()() {self->send(std::move(e));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(ev));
+    }
+
     void sendInvocation(Invocation&& inv) override
     {
         struct Dispatched

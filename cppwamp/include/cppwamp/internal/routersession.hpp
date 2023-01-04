@@ -39,6 +39,8 @@ public:
 
     virtual void close(bool terminate, Reason) = 0;
 
+    virtual void sendEvent(Event&&) = 0;
+
     virtual void sendInvocation(Invocation&&) = 0;
 
     virtual void sendError(Error&&) = 0;
