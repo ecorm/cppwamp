@@ -7,6 +7,9 @@
 #ifndef CPPWAMP_INTERNAL_ROUTERREALM_HPP
 #define CPPWAMP_INTERNAL_ROUTERREALM_HPP
 
+#include <algorithm>
+#include <cassert>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <set>
@@ -15,6 +18,7 @@
 #include <tuple>
 #include <utility>
 #include "../routerconfig.hpp"
+#include "../uri.hpp"
 #include "idgen.hpp"
 #include "routercontext.hpp"
 #include "routersession.hpp"
@@ -38,14 +42,13 @@ public:
         if (!topic.policyIsKnown())
             return makeUnexpectedError(SessionErrc::optionNotAllowed);
 
-        auto sessionId = s->wampId();
         SubscriptionId subId = nullId();
 
         auto iter = subsByTopic_.find(topic);
         if (iter == subsByTopic_.end())
         {
             subId = nextSubId();
-            SubInfo info{{{sessionId, std::move(s)}}, subId};
+            SubInfo info{std::move(s), subId};
             iter = subsByTopic_.emplace(std::move(topic),
                                         std::move(info)).first;
             topicsBySubId_.emplace(subId, iter);
@@ -54,7 +57,7 @@ public:
         {
             auto& info = iter->second;
             subId = info.subId;
-            info.sessions.emplace(sessionId, std::move(s));
+            info.addSession(std::move(s));
         }
 
         return subId;
@@ -67,7 +70,7 @@ public:
             return makeUnexpectedError(SessionErrc::noSuchSubscription);
         auto subsByTopicIter = found->second;
         auto& info = subsByTopicIter->second;
-        bool erased = info.sessions.erase(sid) != 0;
+        bool erased = info.removeSession(sid);
         if (info.sessions.empty())
         {
             subsByTopic_.erase(subsByTopicIter);
@@ -121,7 +124,30 @@ private:
 
     struct SubInfo
     {
+        SubInfo(RouterSession::Ptr s, SubscriptionId subId)
+            : sessions({{s->wampId(), s}}),
+              subId(subId)
+        {}
+
+        SubInfo(RouterSession::Ptr s, SubscriptionId subId,
+                const String& patternUri)
+            : sessions({{s->wampId(), s}}),
+              pattern(tokenizeUri(patternUri)),
+              subId(subId)
+        {}
+
+        void addSession(RouterSession::Ptr s)
+        {
+            sessions.emplace(s->wampId(), s);
+        }
+
+        bool removeSession(SessionId sid)
+        {
+            return sessions.erase(sid) != 0;
+        }
+
         std::map<SessionId, RouterSession::WeakPtr> sessions;
+        SplitUri pattern;
         SubscriptionId subId;
     };
 
@@ -164,6 +190,8 @@ private:
     void publishPrefixMatches(const Pub& pub, SessionId sid,
                               PublicationId pubId)
     {
+        // TODO: Use trie or similar data structure
+
         const auto& pubUri = pub.topic();
         UriAndPolicy key{pubUri, Policy::prefix};
         auto begin = subsByTopic_.begin();
@@ -184,7 +212,32 @@ private:
     void publishWildcardMatches(const Pub& pub, SessionId sid,
                                 PublicationId pubId)
     {
-        // TODO
+        // TODO: Figure out how to do better than O(N * M)
+
+        struct Compare
+        {
+            bool operator()(const SubsByTopic::value_type& kv, Policy p) const
+            {
+                return kv.first.policy == p;
+            };
+
+            bool operator()(Policy p, const SubsByTopic::value_type& kv) const
+            {
+                return kv.first.policy == p;
+            };
+        };
+
+        auto splitPubUri = tokenizeUri(pub.topic());
+
+        auto range = std::equal_range(subsByTopic_.begin(), subsByTopic_.end(),
+                                      Policy::wildcard, Compare{});
+
+        for (auto iter = range.first; iter != range.second; ++iter)
+        {
+            const auto& info = iter->second;
+            if (uriMatchesWildcardPattern(splitPubUri, info.pattern))
+                publishMatches(pub, sid, pubId, info);
+        }
     }
 
     void publishMatches(const Pub& pub, SessionId sid, PublicationId pubId,

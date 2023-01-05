@@ -49,6 +49,7 @@ set(HEADERS
     include/cppwamp/udspath.hpp
     include/cppwamp/udsprotocol.hpp
     include/cppwamp/unpacker.hpp
+    include/cppwamp/uri.hpp
     include/cppwamp/variant.hpp
     include/cppwamp/variantdefs.hpp
     include/cppwamp/version.hpp
@@ -130,6 +131,7 @@ set(INLINES
     include/cppwamp/internal/uds.ipp
     include/cppwamp/internal/udspath.ipp
     include/cppwamp/internal/udsprotocol.ipp
+    include/cppwamp/internal/uri.ipp
     include/cppwamp/internal/variant.ipp
     include/cppwamp/internal/version.ipp
 )
