@@ -58,6 +58,7 @@ set(HEADERS
     include/cppwamp/bundled/amosnier_sha256.hpp
     include/cppwamp/bundled/boost_asio_any_completion_executor.hpp
     include/cppwamp/bundled/boost_asio_any_completion_handler.hpp
+    include/cppwamp/bundled/tessil_htrie/htrie_map.h
     include/cppwamp/bundled/sevmeyer_prng.hpp
     include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/callee.hpp
@@ -89,6 +90,7 @@ set(HEADERS
     include/cppwamp/internal/surrogateany.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
+    include/cppwamp/internal/trie.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
     include/cppwamp/internal/variantdecoding.hpp
