@@ -1541,7 +1541,7 @@ private:
 
     Peer peer_;
     Connecting::Ptr currentConnector_;
-    TopicMap topics_;
+    TopicMap topics_; // TODO: Separate by match policy
     Readership readership_;
     Registry registry_;
     InvocationMap pendingInvocations_;

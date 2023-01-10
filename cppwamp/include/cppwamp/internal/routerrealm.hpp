@@ -22,6 +22,7 @@
 #include "idgen.hpp"
 #include "routercontext.hpp"
 #include "routersession.hpp"
+#include "trie.hpp"
 
 namespace wamp
 {
@@ -37,58 +38,110 @@ public:
     ErrorOr<SubscriptionId> subscribe(Topic&& t, RouterSession::Ptr s)
     {
         UriAndPolicy topic{std::move(t)};
-        if (!topic.uriIsValid())
-            return makeUnexpectedError(SessionErrc::invalidUri);
-        if (!topic.policyIsKnown())
+        auto topicError = topic.check();
+        if (topicError)
+            return makeUnexpected(topicError);
+        SessionId sid = s->wampId();
+        SubscriberInfo info{std::move(s)};
+
+        switch (topic.policy)
+        {
+        case Policy::unknown:
             return makeUnexpectedError(SessionErrc::optionNotAllowed);
 
-        SubscriptionId subId = nullId();
-
-        auto iter = subsByTopic_.find(topic);
-        if (iter == subsByTopic_.end())
+        case Policy::exact:
         {
-            subId = nextSubId();
-            SubInfo info{std::move(s), subId};
-            iter = subsByTopic_.emplace(std::move(topic),
-                                        std::move(info)).first;
-            topicsBySubId_.emplace(subId, iter);
-        }
-        else
-        {
-            auto& info = iter->second;
-            subId = info.subId;
-            info.addSession(std::move(s));
+            auto key = topic.uri;
+            return doSubscribe(byExact_, std::move(key), std::move(topic),
+                               std::move(info), sid);
         }
 
-        return subId;
+        case Policy::prefix:
+        {
+            auto key = topic.uri;
+            return doSubscribe(byPrefix_, std::move(key), std::move(topic),
+                               std::move(info), sid);
+        }
+
+        case Policy::wildcard:
+        {
+            auto key = tokenizeUri(topic.uri);
+//            return doSubscribe(byWildcard_, std::move(key), std::move(topic),
+//                               std::move(info), sid);
+            SubscriptionId subId = nullId();
+            auto found = byWildcard_.find(key);
+            if (found == byWildcard_.end())
+            {
+                subId = nextSubId();
+                auto uri = topic.uri;
+                SubscriptionRecord rec{std::move(topic)};
+                rec.addSubscriber(sid, std::move(info));
+                auto emplaced = subscriptions_.emplace(subId, std::move(rec));
+                assert(emplaced.second);
+                byWildcard_.emplace(std::move(key), emplaced.first);
+            }
+            else
+            {
+                subId = (*found)->first;
+                SubscriptionRecord& rec = (*found)->second;
+                rec.addSubscriber(sid, std::move(info));
+            }
+            return subId;
+        }
+
+        default:
+            break;
+        }
+
+        assert(false && "Unexpected Topic::MatchPolicy enumerator");
+        return 0;
     }
 
-    ErrorOrDone unsubscribe(SubscriptionId subId, SessionId sid)
+    ErrorOrDone unsubscribe(SubscriptionId subId, SessionId sessionId)
     {
-        auto found = topicsBySubId_.find(subId);
-        if (found == topicsBySubId_.end())
+        auto found = subscriptions_.find(subId);
+        if (found == subscriptions_.end())
             return makeUnexpectedError(SessionErrc::noSuchSubscription);
-        auto subsByTopicIter = found->second;
-        auto& info = subsByTopicIter->second;
-        bool erased = info.removeSession(sid);
-        if (info.sessions.empty())
+        SubscriptionRecord& rec = found->second;
+        bool erased = rec.removeSubscriber(sessionId);
+
+        if (rec.sessions.empty())
         {
-            subsByTopic_.erase(subsByTopicIter);
-            topicsBySubId_.erase(found);
+            UriAndPolicy topic = std::move(rec.topic);
+            subscriptions_.erase(found);
+            switch (topic.policy)
+            {
+            case Policy::exact:
+                byExact_.erase(topic.uri);
+                break;
+
+            case Policy::prefix:
+                byPrefix_.erase(topic.uri);
+                break;
+
+            case Policy::wildcard:
+                byWildcard_.erase(topic.uri);
+                break;
+
+            default:
+                assert(false && "Unexpected Topic::MatchPolicy enumerator");
+                break;
+            }
         }
+
         if (!erased)
             return makeUnexpectedError(SessionErrc::noSuchSubscription);
-        return true;
+        return erased;
     }
 
-    ErrorOr<PublicationId> publish(const Pub& pub, SessionId sid)
+    ErrorOr<PublicationId> publish(const Pub& pub, SessionId publisherId)
     {
         // TODO: publish and event options
-        auto pubId = pubIdGenerator_();
-        publishExactMatches(pub, sid, pubId);
-        publishPrefixMatches(pub, sid, pubId);
-        publishWildcardMatches(pub, sid, pubId);
-        return pubId;
+        auto publicationId = pubIdGenerator_();
+        publishExactMatches(pub, publisherId, publicationId);
+        publishPrefixMatches(pub, publisherId, publicationId);
+        publishWildcardMatches(pub, publisherId, publicationId);
+        return publicationId;
     }
 
 private:
@@ -99,6 +152,8 @@ private:
         String uri;
         Policy policy;
 
+        UriAndPolicy() = default;
+
         explicit UriAndPolicy(String uri, Policy p = Policy::unknown)
             : uri(std::move(uri)),
               policy(p)
@@ -108,53 +163,52 @@ private:
             : UriAndPolicy(std::move(t).uri({}), t.matchPolicy())
         {}
 
-        bool uriIsValid() const
+        std::error_code check() const
         {
-            // TODO:
-            return true;
-        }
-
-        bool policyIsKnown() const {return policy != Policy::unknown;}
-
-        bool operator<(const UriAndPolicy& rhs) const
-        {
-            return std::tie(policy, uri) < std::tie(rhs.policy, rhs.uri);
+            // TODO: Check valid URI
+            return {};
         }
     };
 
-    struct SubInfo
+    struct SubscriberInfo
     {
-        SubInfo(RouterSession::Ptr s, SubscriptionId subId)
-            : sessions({{s->wampId(), s}}),
-              subId(subId)
-        {}
+        RouterSession::WeakPtr session;
+    };
 
-        SubInfo(RouterSession::Ptr s, SubscriptionId subId,
-                const String& patternUri)
-            : sessions({{s->wampId(), s}}),
-              pattern(tokenizeUri(patternUri)),
-              subId(subId)
-        {}
+    struct SubscriptionRecord
+    {
+        SubscriptionRecord() = default;
 
-        void addSession(RouterSession::Ptr s)
+        SubscriptionRecord(UriAndPolicy topic) : topic(std::move(topic)) {}
+
+        void addSubscriber(SessionId sid, SubscriberInfo info)
         {
-            sessions.emplace(s->wampId(), s);
+            sessions.emplace(sid, std::move(info));
         }
 
-        bool removeSession(SessionId sid)
+        bool removeSubscriber(SessionId sid)
         {
             return sessions.erase(sid) != 0;
         }
 
-        std::map<SessionId, RouterSession::WeakPtr> sessions;
-        SplitUri pattern;
-        SubscriptionId subId;
+        std::map<SessionId, SubscriberInfo> sessions;
+        UriAndPolicy topic;
     };
 
-    using SubsByTopic = std::map<UriAndPolicy, SubInfo>;
+    // Need associative container with stable iterators
+    // for use in by-pattern maps.
+    using SubscriptionMap = std::map<SubscriptionId, SubscriptionRecord>;
 
-    static Event eventFromPub(const Pub& pub, SubscriptionId subId,
-                              PublicationId pubId, Object opts)
+    SubscriptionMap subscriptions_;
+    TrieMap<char, SubscriptionMap::iterator> byExact_;
+    TrieMap<char, SubscriptionMap::iterator> byPrefix_;
+    WildcardTrie<SubscriptionMap::iterator> byWildcard_;
+    EphemeralId nextSubscriptionId_ = nullId();
+    RandomIdGenerator pubIdGenerator_;
+
+
+    static Event eventFromPub(const Pub& pub, PublicationId pubId,
+                              SubscriptionId subId, Object opts)
     {
         Event ev{subId, pubId, std::move(opts)};
         if (!pub.args().empty() || !pub.kwargs().empty())
@@ -170,92 +224,89 @@ private:
         return s.rfind(prefix, 0) == 0;
     }
 
+    template <typename TTrie, typename TKey>
+    ErrorOr<SubscriptionId> doSubscribe(
+        TTrie& trie, TKey&& key, UriAndPolicy&& topic, SubscriberInfo&& info,
+        SessionId sessionId)
+    {
+        SubscriptionId subId = nullId();
+        auto found = trie.find(key);
+        if (found == trie.end())
+        {
+            subId = nextSubId();
+            auto uri = topic.uri;
+            SubscriptionRecord rec{std::move(topic)};
+            rec.addSubscriber(sessionId, std::move(info));
+            auto emplaced = subscriptions_.emplace(subId, std::move(rec));
+            assert(emplaced.second);
+            trie.emplace(std::move(key), emplaced.first);
+        }
+        else
+        {
+            subId = (*found)->first;
+            SubscriptionRecord& rec = (*found)->second;
+            rec.addSubscriber(sessionId, std::move(info));
+        }
+        return subId;
+    }
+
     SubscriptionId nextSubId()
     {
         auto s = nextSubscriptionId_;
-        while ((s == nullId()) || (topicsBySubId_.count(s) == 1))
+        while ((s == nullId()) || (subscriptions_.count(s) == 1))
             ++s;
         nextSubscriptionId_ = s + 1;
         return s;
     }
 
-    void publishExactMatches(const Pub& pub, SessionId sid, PublicationId pubId)
+    void publishExactMatches(const Pub& pub, SessionId publisherId,
+                             PublicationId publicationId)
     {
-        UriAndPolicy key{pub.topic(),  Policy::exact};
-        auto found = subsByTopic_.find(key);
-        if (found != subsByTopic_.end())
-            publishMatches(pub, sid, pubId, found->second);
-    }
-
-    void publishPrefixMatches(const Pub& pub, SessionId sid,
-                              PublicationId pubId)
-    {
-        // TODO: Use trie or similar data structure
-
-        const auto& pubUri = pub.topic();
-        UriAndPolicy key{pubUri, Policy::prefix};
-        auto begin = subsByTopic_.begin();
-        auto iter = subsByTopic_.upper_bound(key);
-        while (iter != begin)
+        auto found = byExact_.find(pub.topic());
+        if (found != byExact_.end())
         {
-            --iter;
-            const auto& topic = iter->first;
-            if (topic.policy != Policy::prefix ||
-                !startsWith(pubUri, topic.uri))
-            {
-                break;
-            }
-            publishMatches(pub, sid, pubId, iter->second);
+            SubscriptionId subId = (*found)->first;
+            const SubscriptionRecord& rec = (*found)->second;
+            publishMatches(pub, publisherId, publicationId, subId, rec);
         }
     }
 
-    void publishWildcardMatches(const Pub& pub, SessionId sid,
-                                PublicationId pubId)
+    void publishPrefixMatches(const Pub& pub, SessionId publisherId,
+                              PublicationId publicationId)
     {
-        // TODO: Figure out how to do better than O(N * M)
-
-        struct Compare
+        auto range = byPrefix_.equal_prefix_range(pub.topic());
+        for (; range.first != range.second; ++range.first)
         {
-            bool operator()(const SubsByTopic::value_type& kv, Policy p) const
-            {
-                return kv.first.policy == p;
-            };
-
-            bool operator()(Policy p, const SubsByTopic::value_type& kv) const
-            {
-                return kv.first.policy == p;
-            };
-        };
-
-        auto splitPubUri = tokenizeUri(pub.topic());
-
-        auto range = std::equal_range(subsByTopic_.begin(), subsByTopic_.end(),
-                                      Policy::wildcard, Compare{});
-
-        for (auto iter = range.first; iter != range.second; ++iter)
-        {
-            const auto& info = iter->second;
-            if (uriMatchesWildcardPattern(splitPubUri, info.pattern))
-                publishMatches(pub, sid, pubId, info);
+            SubscriptionId subId = (*range.first)->first;
+            const SubscriptionRecord& rec = (*range.first)->second;
+            publishMatches(pub, publisherId, publicationId, subId, rec);
         }
     }
 
-    void publishMatches(const Pub& pub, SessionId sid, PublicationId pubId,
-                         const SubInfo& info)
+    void publishWildcardMatches(const Pub& pub, SessionId publisherId,
+                                PublicationId publicationId)
     {
-        auto ev = eventFromPub(pub, info.subId, pubId, {});
-        for (auto& kv : info.sessions)
+        auto range = byWildcard_.match_range(pub.topic());
+        for (; range.first != range.second; ++range.first)
         {
-            auto session = kv.second.lock();
+            SubscriptionId subId = (*range.first)->first;
+            const SubscriptionRecord& rec = (*range.first)->second;
+            publishMatches(pub, publisherId, publicationId, subId, rec);
+        }
+    }
+
+    void publishMatches(const Pub& pub, SessionId publisherId,
+                        PublicationId publicationId, SubscriptionId subId,
+                        const SubscriptionRecord& rec)
+    {
+        auto ev = eventFromPub(pub, publicationId, subId, {});
+        for (auto& kv : rec.sessions)
+        {
+            auto session = kv.second.session.lock();
             if (session)
                 session->sendEvent(Event{ev});
         }
     }
-
-    SubsByTopic subsByTopic_;
-    std::map<SubscriptionId, SubsByTopic::iterator> topicsBySubId_;
-    EphemeralId nextSubscriptionId_ = nullId();
-    RandomIdGenerator pubIdGenerator_;
 };
 
 //------------------------------------------------------------------------------
