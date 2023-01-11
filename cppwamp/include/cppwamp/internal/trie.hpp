@@ -11,6 +11,7 @@
 #include <map>
 #include <string>
 #include <utility>
+#include <tuple>
 #include <type_traits>
 #include <vector>
 
@@ -41,36 +42,45 @@ struct WildcardTrieNode
     using Value = T;
     using StringType = typename SplitUri::value_type;
     using Tree = std::map<StringType, WildcardTrieNode>;
-    using ChildIterator = typename Tree::iterator;
+    using TreeIterator = typename Tree::iterator;
 
-    WildcardTrieNode() = default;
+    WildcardTrieNode() : iter(children.end()) {}
 
     template <typename... Us>
-    explicit WildcardTrieNode(Us&&... args)
+    WildcardTrieNode(WildcardTrieNode* parent, bool isTerminal, Us&&... args)
         : value(std::forward<Us>(args)...),
-          isTerminal(true)
+          parent(parent),
+          isTerminal(isTerminal)
     {}
 
     template <typename... Us>
-    ChildIterator addTerminal(StringType token, Us&&... args)
+    TreeIterator addTerminal(StringType label, Us&&... args)
     {
         auto result = children.emplace(
             std::piecewise_construct,
-            std::forward_as_tuple(std::move(token)),
-            std::forward_as_tuple(std::forward<Us>(args)...));
+            std::forward_as_tuple(std::move(label)),
+            std::forward_as_tuple(this, true, std::forward<Us>(args)...));
         assert(result.second);
+        result.first->second.iter = result.first;
         return result.first;
     }
 
     template <typename... Us>
-    ChildIterator addLink(StringType token)
+    TreeIterator addLink(StringType label)
     {
         auto result = children.emplace(
             std::piecewise_construct,
-            std::forward_as_tuple(std::move(token)),
-            std::forward_as_tuple());
-        assert(result.second);
+            std::forward_as_tuple(std::move(label)),
+            std::forward_as_tuple(this, false));
+        result.first->second.iter = result.first;
         return result.first;
+    }
+
+    template <typename... Us>
+    void setValue(Us&&... args)
+    {
+        value = Value(std::forward<Us>(args)...);
+        isTerminal = true;
     }
 
     void clear()
@@ -87,10 +97,15 @@ struct WildcardTrieNode
         swap(isTerminal, other.isTerminal);
     }
 
+    bool isRoot() const {return parent == nullptr;}
+
     bool isLeaf() const {return children.empty();}
 
     Tree children;
-    Value value;
+    Value value = {};
+    TreeIterator iter = {};
+    WildcardTrieNode* parent = nullptr;
+
     bool isTerminal = false;
 };
 
@@ -99,249 +114,272 @@ struct WildcardTrieNode
 template <typename T>
 class WildcardTrieContext
 {
-public:
-    static constexpr bool isConst = std::is_const<T>::value;
+    using Node = WildcardTrieNode<T>;
+    using TreeIterator = typename Node::TreeIterator;
+    using Key = SplitUri;
+    using Level = typename Key::size_type;
 
-    using Value = typename std::remove_cv<T>::type;
-    using Reference = T&;
-    using Pointer = T*;
-
-    using Node = WildcardTrieNode<Value>;
-    using NodePointer =
-        typename std::conditional<isConst, const Node*, Node*>::type;
-
-    using Tree = typename Node::Tree;
-    using ChildIterator =
-        typename std::conditional<isConst,
-                                  typename Tree::const_iterator,
-                                  typename Tree::iterator>::type;
-
-    using StringType = typename Node::StringType;
-
-    explicit WildcardTrieContext(NodePointer parent)
-        : WildcardTrieContext(parent, parent->children.begin())
-    {}
-
-    WildcardTrieContext(NodePointer parent, ChildIterator child)
-        : parent_(parent),
-          child_(child)
-    {}
-
-    void advance() {++child_;}
-
-    bool find(const StringType& label)
+    static WildcardTrieContext begin(Node& root)
     {
-        if (isWildcard())
-            return true;
-        return findExact(label);
+        return WildcardTrieContext(root, root.children.begin());
     }
 
-    bool findExact(const StringType& label)
+    static WildcardTrieContext end(Node& root)
     {
-        child_ = parent_->children.find(label);
-        return !atEnd();
+        return WildcardTrieContext(root, root.children.end());
     }
 
-    bool atEnd() const {return child_ == parent_->children.end();}
+    WildcardTrieContext() = default;
 
-    NodePointer childNode() {return &child_->second;}
+    template <typename... Us>
+    bool set(bool clobber, Key key, Us&&... args)
+    {
+        if (key.empty())
+            return false;
 
-    const Node* childNode() const {return &child_->second;}
+        bool placed = false;
+        const auto tokenCount = key.size();
+
+        for (SplitUri::size_type i = 0; i < tokenCount - 1; ++i)
+        {
+            auto& token = key[i];
+            iter = parent->addLink(std::move(token));
+            parent = iter->second.parent;
+        }
+
+        auto& token = key[tokenCount - 1];
+        iter = parent->children.find(token);
+        if (iter == parent->children.end())
+        {
+            placed = true;
+            iter = parent->addTerminal(std::move(token),
+                                       std::forward<Us>(args)...);
+        }
+        else if (clobber)
+        {
+            iter->second.setValue(std::forward<Us>(args)...);
+        }
+        parent = iter->second.parent;
+
+        return placed;
+    }
+
+    void locate(const Key& key)
+    {
+        if (key.empty())
+            return end;
+
+        Node* root = parent;
+        const TreeIterator end = parent->children.end();
+        bool found = true;
+
+        const auto labelCount = key.size();
+        for (typename Key::size_type i = 0; i<labelCount; ++i)
+        {
+            const auto& label = key[i];
+            iter = parent->children.find(label);
+            if (iter == parent->children.end())
+            {
+                found = false;
+                break;
+            }
+            parent = iter->second.parent;
+        }
+
+        found = found && iter->second.isTerminal;
+        if (!found)
+        {
+            parent = root;
+            iter = end;
+        }
+    }
+
+    void advanceToFirstTerminal()
+    {
+        if (!isTerminal())
+            advanceToNextTerminal();
+    }
+
+    void advanceToNextTerminal()
+    {
+        while (!atEnd())
+        {
+            advanceDepthFirst();
+            if (isTerminal())
+                break;
+        }
+    }
+
+    Level matchFirst(const Key& key)
+    {
+        Level level = 0;
+        if (key.empty())
+        {
+            iter = parent->children.end();
+        }
+        else if (!isMatch(key, 0))
+        {
+            level = matchNext(key, 0);
+        }
+        return level;
+    }
+
+    Level matchNext(const Key& key, Level level)
+    {
+        while (!atEnd())
+        {
+            level = tryNextMatchCandidate(key, level);
+            if (isMatch(key, level))
+                break;
+        }
+        return level;
+    }
+
+    bool atEnd() const
+    {
+        return parent->isRoot() && (iter == parent->children.end());
+    }
 
     bool operator==(const WildcardTrieContext& rhs) const
     {
-        return std::tie(parent_, child_) == std::tie(rhs.parent_, rhs.child_);
+        return std::tie(parent, iter) == std::tie(rhs.parent, rhs.iter);
     }
 
     bool operator!=(const WildcardTrieContext& rhs) const
     {
-        return std::tie(parent_, child_) != std::tie(rhs.parent_, rhs.child_);
+        return std::tie(parent, iter) != std::tie(rhs.parent, rhs.iter);
     }
+
+    Node* parent = nullptr;
+    TreeIterator iter = {};
 
 private:
-    bool atFront() const
-    {
-        return child_ == parent_->children.begin() &&
-               child_ != parent_->children.end();
-    }
-
-    bool isWildcard() const {return atFront() && childToken().empty();}
-
-    const StringType& childToken() const {return child_->first;}
-
-    NodePointer parent_;
-    ChildIterator child_;
-
-    template <typename> friend class WildcardTrieStack;
-};
-
-
-//------------------------------------------------------------------------------
-template <typename T>
-class WildcardTrieStack
-{
-public:
-    using Value = typename std::remove_cv<T>::type;
-    using Context = WildcardTrieContext<T>;
-    using NodePointer = typename Context::NodePointer;
-    using ChildIterator = typename Context::ChildIterator;
-    using SizeType = typename std::vector<Context>::size_type;
-
-    WildcardTrieStack() = default;
-
-    explicit WildcardTrieStack(NodePointer parent)
-        : stack_({Context{parent}})
+    WildcardTrieContext(Node& root, TreeIterator iter)
+        : parent(root),
+          iter(iter)
     {}
 
-    void advanceToNextTerminal()
+    bool isTerminal() const
     {
-        context().advance();
-        findNextTerminal();
+        return (iter != parent->children.end()) && iter->second.isTerminal;
     }
 
-    void findNextTerminal()
+    bool isMatch(const Key& key, Level level) const
     {
-        // Depth-first search of next terminal node
-        while (!stack_.empty())
+        assert(!key.empty());
+        const Level maxLevel = key.size() - 1;
+        if ((level != maxLevel) || (iter == parent->children.end()))
+            return false;
+
+        const auto& label = iter->first;
+        auto& node = iter->second;
+        assert(level < key.size());
+        return node.isTerminal && (label.empty() || label == key[level]);
+    }
+
+    void advanceDepthFirst()
+    {
+        if (iter != parent->children.end())
         {
-            auto& context = stack_.back();
-            if (context.atEnd())
+            if (!iter->second.isLeaf())
             {
-                popAndAdvance();
+                auto& child = iter->second;
+                parent = &child;
+                iter = child.children.begin();
             }
             else
             {
-                auto child = context.childNode();
-                if (child->isTerminal)
-                {
-                    break;
-                }
-                else
-                {
-                    assert(!child->isLeaf());
-                    push(child);
-                }
+                ++iter;
             }
+        }
+        else if (!parent->isRoot())
+        {
+            iter = parent->iter;
+            parent = parent->parent;
+            ++iter;
         }
     }
 
-    void findNextWildcardMatch(const SplitUri& key)
+    Level tryNextMatchCandidate(const Key& key, Level level)
     {
-        while (!empty())
+        const Level maxLevel = key.size() - 1;
+        if (iter != parent->children.end())
         {
-            auto level = depth();
-            assert(level <= key.size());
-            const auto& label = key[level];
-            auto& ctx = context();
-            if (ctx.find(label))
+            assert(level < key.size());
+            const auto& label = iter->first;
+            const auto& expectedLabel = key[level];
+            auto& node = iter->second;
+            bool canDescend = !node.isLeaf() && (level < maxLevel) &&
+                              (label.empty() || label == expectedLabel);
+            if (canDescend)
             {
-                auto child = ctx.childNode();
-                if (level < key.size())
-                {
-                    if (!child->isLeaf())
-                        push(child);
-                }
-                else if (child->isTerminal)
-                {
-                    break;
-                }
+                ++level;
+                parent = &node;
+                iter = node.children.begin();
             }
             else
             {
-                // Backtrack and find the next label match in the parent
-                pop();
+                iter = parent->children.find(expectedLabel);
             }
         }
+        else if (!parent->isRoot())
+        {
+            assert(level > 0);
+            --level;
+            iter = parent->iter;
+            parent = parent->parent;
+            if (iter != parent->children.end())
+                iter = parent->children.find(key[level]);
+        }
     }
-
-    void pop()
-    {
-        assert(!stack_.empty());
-        stack_.pop_back();
-    }
-
-    void eraseChildAndPop()
-    {
-        assert(!stack_.empty());
-        auto& ctx = context();
-        ctx.parent_->children.erase(ctx.child_);
-        stack_.pop_back();
-    }
-
-    void push(NodePointer parent) {stack_.emplace_back(parent);}
-
-    void push(NodePointer parent, ChildIterator child)
-    {
-        stack_.emplace_back(Context{parent, child});
-    }
-
-    void clear() {stack_.clear();}
-
-    bool empty() const {return stack_.empty();}
-
-    SizeType depth() const
-    {
-        // Do not include root node in depth
-        assert(!empty());
-        return stack_.size() - 1;
-    }
-
-    Context& context()
-    {
-        assert(!empty());
-        return stack_.back();
-    }
-
-    bool operator==(const WildcardTrieStack& rhs) const
-    {
-        return stack_ == rhs.stack_;
-    }
-
-    bool operator!=(const WildcardTrieStack& rhs) const
-    {
-        return stack_ != rhs.stack_;
-    }
-
-private:
-    void popAndAdvance()
-    {
-        assert(!stack_.empty());
-        stack_.pop_back();
-        if (!stack_.empty())
-            stack_.back().advance();
-    }
-
-    std::vector<Context> stack_;
 };
 
+
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename T, bool IsMutable>
 class WildcardTrieIterator
 {
 public:
     using iterator_category = std::forward_iterator_tag;
     using difference_type   = std::ptrdiff_t;
     using value_type        = typename std::remove_cv<T>::type;
-    using pointer           = T*;
-    using reference         = T&;
+    using pointer           = std::conditional<IsMutable, T*, const T*>;
+    using reference         = std::conditional<IsMutable, T&, const T&>;
 
     WildcardTrieIterator() = default;
 
-    reference operator*() {return stack_.context().childNode()->value;}
+    // Allow construction of const iterator from mutable iterator
+    template <bool M,
+              typename std::enable_if<!IsMutable && M, int>::type = 0>
+    WildcardTrieIterator(const WildcardTrieIterator<T, M>& rhs)
+        : context_(rhs.context_)
+    {}
 
-    const value_type& operator*() const
+    // Allow assignment of const iterator from mutable iterator
+    template <bool M,
+             typename std::enable_if<!IsMutable && M, int>::type = 0>
+    WildcardTrieIterator& operator=(const WildcardTrieIterator<T, M>& rhs)
     {
-        return stack_.context().childNode()->value();
+        context_ = rhs.context_;
+        return *this;
     }
 
-    pointer operator->() {return &(stack_.context().value());}
+    reference value() {return context_.iter->second.value;}
 
-    const value_type* operator->() const {return &(stack_.context().value());}
+    const value_type& value() const {return context_.iter->second.value;}
+
+    reference operator*() {return value();}
+
+    const value_type& operator*() const {return value();}
+
+    pointer operator->() {return &(value());}
+
+    const value_type* operator->() const {return &(value());}
 
     WildcardTrieIterator& operator++() // Prefix
     {
-        assert(!stack_.empty());
-        stack_.advanceToNextTerminal();
+        context_.advanceToNextMatch();
+        return *this;
     }
 
     WildcardTrieIterator operator++(int) // Postfix
@@ -351,71 +389,77 @@ public:
         return temp;
     }
 
-    friend bool operator==(const WildcardTrieIterator& lhs,
-                           const WildcardTrieIterator& rhs)
+    template <bool LM, bool RM>
+    friend bool operator==(const WildcardTrieIterator<T, LM>& lhs,
+                           const WildcardTrieIterator<T, RM>& rhs)
     {
-        return lhs.stack_ == rhs.stack_;
+        return lhs.context_ == rhs.context_;
     };
 
-    friend bool operator!=(const WildcardTrieIterator& lhs,
-                           const WildcardTrieIterator& rhs)
+    template <bool LM, bool RM>
+    friend bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
+                           const WildcardTrieIterator<T, RM>& rhs)
     {
-        return lhs.stack_ != rhs.stack_;
+        return lhs.context_ != rhs.context_;
     };
 
 private:
-    using Stack = WildcardTrieStack<T>;
-    using NodePointer = typename Stack::NodePointer;
-    using ChildIterator = typename Stack::ChildIterator;
+    using Context = WildcardTrieContext<value_type>;
 
-    explicit WildcardTrieIterator(NodePointer root)
-        : stack_({root})
-    {
-        stack_.findNextTerminal();
-    }
-
-    explicit WildcardTrieIterator(Stack&& stack)
-        : stack_(std::move(stack))
+    explicit WildcardTrieIterator(Context context)
+        : context_(context)
     {}
 
-    void push(NodePointer parent, ChildIterator child)
-    {
-        stack_.push(parent, child);
-    }
-
-    Stack stack_;
+    Context context_;
 
     template <typename> friend class WildcardTrie;
 };
 
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename T, bool IsMutable>
 class WildcardTrieMatchIterator
 {
 public:
     using iterator_category = std::forward_iterator_tag;
     using difference_type   = std::ptrdiff_t;
     using value_type        = typename std::remove_cv<T>::type;
-    using pointer           = T*;
-    using reference         = T&;
+    using pointer           = std::conditional<IsMutable, T*, const T*>;
+    using reference         = std::conditional<IsMutable, T&, const T&>;
 
     WildcardTrieMatchIterator() = default;
 
-    reference operator*() {return stack_.context().childNode()->value;}
+    // Allow construction of const iterator from mutable iterator
+    template <bool M,
+             typename std::enable_if<!IsMutable && M, int>::type = 0>
+    WildcardTrieMatchIterator(const WildcardTrieMatchIterator<T, M>& rhs)
+        : context_(rhs.iter_)
+    {}
 
-    const value_type& operator*() const
+    // Allow assignment of const iterator from mutable iterator
+    template <bool M,
+             typename std::enable_if<!IsMutable && M, int>::type = 0>
+    WildcardTrieMatchIterator&
+    operator=(const WildcardTrieMatchIterator<T, M>& rhs)
     {
-        return stack_.context().childNode()->value();
+        context_ = rhs.iter_;
+        return *this;
     }
 
-    pointer operator->() {return &(stack_.context().value());}
+    reference value() {return context_->second.value;}
 
-    const value_type* operator->() const {return &(stack_.context().value());}
+    const value_type& value() const {return context_->second.value;}
+
+    reference operator*() {return value();}
+
+    const value_type& operator*() const {return value();}
+
+    pointer operator->() {return &(value());}
+
+    const value_type* operator->() const {return &(value());}
 
     WildcardTrieMatchIterator& operator++() // Prefix
     {
-        assert(!stack_.empty());
-        stack_.findNextWildcardMatch(labels_);
+        context_.advanceToNextMatch();
         return *this;
     }
 
@@ -426,56 +470,65 @@ public:
         return temp;
     }
 
-    friend bool operator==(const WildcardTrieMatchIterator& lhs,
-                           const WildcardTrieMatchIterator& rhs)
+    template <bool LM, bool RM>
+    friend bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
+                           const WildcardTrieMatchIterator<T, RM>& rhs)
     {
-        return lhs.stack_ == rhs.stack_;
+        return lhs.context_ == rhs.context_;
     };
 
-    friend bool operator!=(const WildcardTrieMatchIterator& lhs,
-                           const WildcardTrieMatchIterator& rhs)
+    template <bool LM, bool RM>
+    friend bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
+                           const WildcardTrieMatchIterator<T, RM>& rhs)
     {
-        return lhs.stack_ != rhs.stack_;
+        return lhs.context_ != rhs.context_;
     };
 
-    friend bool operator==(const WildcardTrieMatchIterator& lhs,
-                           const WildcardTrieIterator<T>& rhs)
+    template <bool LM, bool RM>
+    friend bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
+                           const WildcardTrieIterator<T, RM>& rhs)
     {
-        return lhs.stack_ == rhs.stack_;
+        return lhs.context_ == rhs.context_;
     };
 
-    friend bool operator!=(const WildcardTrieMatchIterator& lhs,
-                           const WildcardTrieIterator<T>& rhs)
+    template <bool LM, bool RM>
+    friend bool operator==(const WildcardTrieIterator<T, LM>& lhs,
+                           const WildcardTrieMatchIterator<T, RM>& rhs)
     {
-        return lhs.stack_ != rhs.stack_;
+        return lhs.context_ == rhs.context_;
     };
 
-    friend bool operator==(const WildcardTrieIterator<T>& lhs,
-                           const WildcardTrieMatchIterator& rhs)
+    template <bool LM, bool RM>
+    friend bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
+                           const WildcardTrieIterator<T, RM>& rhs)
     {
-        return lhs.stack_ == rhs.stack_;
+        return lhs.context_ != rhs.context_;
     };
 
-    friend bool operator!=(const WildcardTrieIterator<T>& lhs,
-                           const WildcardTrieMatchIterator& rhs)
+    template <bool LM, bool RM>
+    friend bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
+                           const WildcardTrieMatchIterator<T, RM>& rhs)
     {
-        return lhs.stack_ != rhs.stack_;
+        return lhs.context_ != rhs.context_;
     };
 
 private:
-    using Stack = WildcardTrieStack<T>;
-    using NodePointer = typename Stack::NodePointer;
-    using ChildIterator = typename Stack::ChildIterator;
+    using Context = WildcardTrieContext<value_type>;
 
-    explicit WildcardTrieMatchIterator(NodePointer root, SplitUri labels)
-        : stack_({root}),
-          labels_(std::move(labels))
+    explicit WildcardTrieMatchIterator(Context endContext)
+        : context_(endContext)
+    {}
+
+    explicit WildcardTrieMatchIterator(Context beginContext, SplitUri labels_)
+        : labels_(std::move(labels_)),
+          context_(beginContext)
     {
-        stack_.findNextWildcardMatch(labels_);
+        level_ = context_.advanceToFirstMatch();
     }
 
-    Stack stack_;
     SplitUri labels_;
+    Context context_;
+    typename SplitUri::size_type level_ = 0;
 
     template <typename> friend class WildcardTrie;
 };
@@ -493,10 +546,10 @@ public:
     using mapped_type = T;
     using value_type = std::pair<const key_type, mapped_type>;
     using size_type = typename WildcardTrieNode<T>::Tree::size_type;
-    using iterator = WildcardTrieIterator<T>;
-    using const_iterator = WildcardTrieIterator<const T>;
-    using match_iterator = WildcardTrieMatchIterator<T>;
-    using const_match_iterator = WildcardTrieMatchIterator<const T>;
+    using iterator = WildcardTrieIterator<T, true>;
+    using const_iterator = WildcardTrieIterator<T, false>;
+    using match_iterator = WildcardTrieMatchIterator<T, true>;
+    using const_match_iterator = WildcardTrieMatchIterator<T, false>;
 
     WildcardTrie() = default;
 
@@ -512,14 +565,14 @@ public:
 
     template <typename TInputPairIterator>
     WildcardTrie(TInputPairIterator first, TInputPairIterator last)
+        : root_(typename Node::RootTag{})
     {
         insert(first, last);
     }
 
     WildcardTrie(std::initializer_list<value_type> list)
-    {
-        insert(list);
-    }
+        : WildcardTrie(list.begin(), list.end())
+    {}
 
     WildcardTrie& operator=(const WildcardTrie& rhs)
     {
@@ -581,27 +634,17 @@ public:
 
     // Iterators
 
-    iterator begin()
-    {
-        if (empty())
-            return end();
-        return iterator{&root_};
-    }
+    iterator begin() {return iterator{firstTerminal()};}
 
     const_iterator begin() const {return cbegin();}
 
-    iterator end() {return iterator{};}
+    iterator end() {return iterator{Context::end(root_)};}
 
     const_iterator end() const {return cend();}
 
-    const_iterator cbegin() const
-    {
-        if (empty())
-            return cend();
-        return const_iterator{&root_};
-    }
+    const_iterator cbegin() const {return const_iterator{firstTerminal()};}
 
-    const_iterator cend() const {return const_iterator{};}
+    const_iterator cend() const {return const_iterator{Context::end(root_)};}
 
 
     // Capacity
@@ -631,12 +674,12 @@ public:
 
     template <typename P,
              typename std::enable_if<
-                 std::is_constructible<value_type, P&&>::value &&
+                 std::is_constructible<value_type, P&&>::value /* TODO &&
                      !std::is_same<
                          value_type,
                          typename std::remove_cv<
                              typename std::remove_reference<P>::type
-                             >::type>::value,
+                             >::type>::value */,
                  int>::type = 0>
     std::pair<iterator, bool> insert(P&& kv)
     {
@@ -699,24 +742,13 @@ public:
 
     size_type erase(const key_type& key)
     {
-        auto stack = exactSearch(key);
-        bool found = !stack.empty();
+        auto ctx = locate(key);
+        bool found = !ctx.atEnd();
         if (found)
         {
-            auto& context = stack.context();
-            context.childNode()->clear();
-
-            // Erase dead links up the chain
-            while (!stack.empty())
-            {
-                auto& context = stack.context();
-                if (context.childNode()->isLeaf())
-                    stack.eraseChildAndPop();
-                else
-                    break;
-            }
+            // TODO: Erase unanchored nodes up the chain
         }
-        return found;
+        return found ? 1 : 0;
     }
 
     size_type erase(const string_type& uri)
@@ -744,11 +776,11 @@ public:
         return count(tokenizeUri(uri));
     }
 
-    iterator find(const key_type& key) {return iterator{exactSearch(key)};}
+    iterator find(const key_type& key) {return iterator{locate(key)};}
 
     const_iterator find(const key_type& key) const
     {
-        return const_iterator{exactSearch(key)};
+        return const_iterator{locate(key)};
     }
 
     iterator find(const string_type& uri)
@@ -761,10 +793,7 @@ public:
         return find(tokenizeUri(uri));
     }
 
-    bool contains(const key_type& key) const
-    {
-        return locate(key) != nullptr;
-    }
+    bool contains(const key_type& key) const {return find(key) != cend();}
 
     bool contains(const string_type& uri) const
     {
@@ -773,13 +802,14 @@ public:
 
     std::pair<match_iterator, match_iterator> match_range(const key_type& key)
     {
-        return {match_iterator{&root_, key}, match_iterator{}};
+        return getMatchRange<match_iterator>(key);
     }
 
-    std::pair<match_iterator, match_iterator>
+    std::pair<const_match_iterator, const_match_iterator>
     match_range(const key_type& key) const
     {
-        return {const_match_iterator{&root_, key}, const_match_iterator{}};
+        auto self = const_cast<WildcardTrie&>(*this);
+        return self.template getMatchRange<const_match_iterator>(key);
     }
 
     std::pair<match_iterator, match_iterator>
@@ -796,6 +826,40 @@ public:
 
 private:
     using Node = WildcardTrieNode<T>;
+    using Context = WildcardTrieContext<T>;
+
+    Context firstTerminal()
+    {
+        auto ctx = Context::begin(root_);
+        ctx.advanceToFirstTerminal();
+        return ctx;
+    }
+
+    Context firstTerminal() const
+    {
+        return const_cast<WildcardTrie&>(*this).firstTerminal();
+    }
+
+    Context locate(const key_type& key)
+    {
+        auto ctx = Context::begin(root_);
+        ctx.locate(key);
+        return ctx;
+    }
+
+    Context locate(const key_type& key) const
+    {
+        return const_cast<WildcardTrie&>(*this).locate();
+    }
+
+    template <typename I>
+    std::pair<I, I> getMatchRange(const key_type& key) const
+    {
+        if (key.empty())
+            return {I{Context::end(root_)}, I{Context::end(root_)}};
+
+        return {I{Context::begin(root_), key}, I{Context::end(root_)}};
+    }
 
     template <typename... Us>
     std::pair<iterator, bool> add(key_type key, Us&&... args)
@@ -806,106 +870,10 @@ private:
     template <typename... Us>
     std::pair<iterator, bool> set(bool clobber, key_type key, Us&&... args)
     {
-        iterator where;
-        bool placed = false;
-        Node* node = &root_;
-        const auto tokenCount = key.size();
-        for (SplitUri::size_type i = 0; i < tokenCount; ++i)
-        {
-            auto& token = key[i];
-            auto iter = node->children.find(token);
-            bool needsNewBranchOrLeaf = iter == node->children.end();
-            bool lastToken = i+1 == tokenCount;
-            if (needsNewBranchOrLeaf)
-            {
-                placed = lastToken;
-                iter = lastToken ? node->addTerminal(std::move(token),
-                                                     std::forward<Us>(args)...)
-                                 : node->addLink(std::move(token));
-            }
-            else if (clobber && lastToken)
-            {
-                mapped_type x(std::forward<Us>(args)...);
-                iter->second.value = std::move(x);
-                iter->second.isTerminal = true;
-            }
-            node = &(iter->second);
-            where.push(node, iter);
-        }
-
-        if (placed)
-        {
-            assert(size_ < std::numeric_limits<size_type>::max());
-            ++size_;
-        }
-
-        return {where, placed};
-    }
-
-    WildcardTrieStack<T> exactSearch(const key_type& key)
-    {
-        return doExactSearch<WildcardTrieStack<T>>(*this, key);
-    }
-
-    WildcardTrieStack<const T> exactSearch(const key_type& key) const
-    {
-        return doExactSearch<WildcardTrieStack<const T>>(*this, key);
-    }
-
-    template <typename TStack, typename TSelf>
-    static TStack doExactSearch(TSelf& self, const key_type& key)
-    {
-        TStack stack;
-        if (!key.empty())
-            stack.push(&self.root_);
-
-        for (const auto& label: key)
-        {
-            auto& context = stack.context();
-            if (context.findExact(label))
-            {
-                stack.push(context.childNode());
-            }
-            else
-            {
-                stack.clear();
-                break;
-            }
-        }
-        return stack;
-    }
-
-    Node* locate(const key_type& key)
-    {
-        return doLocate<Node>(*this, key);
-    }
-
-    const Node* locate(const key_type& key) const
-    {
-        return doLocate<const Node>(*this, key);
-    }
-
-    template <typename TNode, typename TSelf>
-    static TNode* doLocate(TSelf& self, const key_type& key)
-    {
-        const auto labelCount = key.size();
-        TNode* node = &self.root_;
-        for (typename key_type::size_type i = 0; i<labelCount; ++i)
-        {
-            const auto& label = key[i];
-            auto found = node->children.find(label);
-            if (found == node->children.cend())
-                return nullptr;
-            node = &(found->second);
-            if (i+1 < labelCount)
-            {
-                if (node->isLeaf())
-                    return nullptr;
-            }
-            else if (!node->isTerminal)
-                return nullptr;
-        }
-        return node;
+        auto ctx = Context::begin(root_);
+        bool placed = ctx.set(clobber, std::move(key),
+                              std::forward<Us>(args)...);
+        return {iterator{ctx}, placed};
     }
 
     Node root_;
