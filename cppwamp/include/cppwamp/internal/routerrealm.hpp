@@ -65,28 +65,8 @@ public:
 
         case Policy::wildcard:
         {
-            auto key = tokenizeUri(topic.uri);
-//            return doSubscribe(byWildcard_, std::move(key), std::move(topic),
-//                               std::move(info), sid);
-            SubscriptionId subId = nullId();
-            auto found = byWildcard_.find(key);
-            if (found == byWildcard_.end())
-            {
-                subId = nextSubId();
-                auto uri = topic.uri;
-                SubscriptionRecord rec{std::move(topic)};
-                rec.addSubscriber(sid, std::move(info));
-                auto emplaced = subscriptions_.emplace(subId, std::move(rec));
-                assert(emplaced.second);
-                byWildcard_.emplace(std::move(key), emplaced.first);
-            }
-            else
-            {
-                subId = (*found)->first;
-                SubscriptionRecord& rec = (*found)->second;
-                rec.addSubscriber(sid, std::move(info));
-            }
-            return subId;
+            return doSubscribe(byWildcard_, tokenizeUri(topic.uri),
+                               std::move(topic), std::move(info), sid);
         }
 
         default:

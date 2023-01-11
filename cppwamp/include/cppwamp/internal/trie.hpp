@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_TRIE_HPP
 #define CPPWAMP_INTERNAL_TRIE_HPP
 
+#include <algorithm>
 #include <initializer_list>
 #include <map>
 #include <string>
@@ -114,9 +115,11 @@ struct WildcardTrieNode
 template <typename T>
 class WildcardTrieContext
 {
+public:
     using Node = WildcardTrieNode<T>;
     using TreeIterator = typename Node::TreeIterator;
     using Key = SplitUri;
+    using StringType = typename Key::value_type;
     using Level = typename Key::size_type;
 
     static WildcardTrieContext begin(Node& root)
@@ -130,6 +133,37 @@ class WildcardTrieContext
     }
 
     WildcardTrieContext() = default;
+
+    void locate(const Key& key)
+    {
+        Node* root = parent;
+        const TreeIterator end = parent->children.end();
+        bool found = !key.empty();
+
+        if (found)
+        {
+            for (typename Key::size_type i = 0; i<key.size(); ++i)
+            {
+                const auto& label = key[i];
+                iter = parent->children.find(label);
+                if (iter == parent->children.end())
+                {
+                    found = false;
+                    break;
+                }
+
+                if (i < key.size() - 1)
+                    parent = &(iter->second);
+            }
+            found = found && iter->second.isTerminal;
+        }
+
+        if (!found)
+        {
+            parent = root;
+            iter = end;
+        }
+    }
 
     template <typename... Us>
     bool set(bool clobber, Key key, Us&&... args)
@@ -164,33 +198,16 @@ class WildcardTrieContext
         return placed;
     }
 
-    void locate(const Key& key)
+    void eraseFromHere()
     {
-        if (key.empty())
-            return end;
-
-        Node* root = parent;
-        const TreeIterator end = parent->children.end();
-        bool found = true;
-
-        const auto labelCount = key.size();
-        for (typename Key::size_type i = 0; i<labelCount; ++i)
+        // Erase the terminal node, then all obsolete links up the chain until
+        // we hit another terminal node.
+        iter->second.isTerminal = false;
+        while (iter->second.isTerminal && !parent->isRoot())
         {
-            const auto& label = key[i];
-            iter = parent->children.find(label);
-            if (iter == parent->children.end())
-            {
-                found = false;
-                break;
-            }
-            parent = iter->second.parent;
-        }
-
-        found = found && iter->second.isTerminal;
-        if (!found)
-        {
-            parent = root;
-            iter = end;
+            parent->children.erase(iter);
+            iter = parent->iter;
+            parent = parent->parent;
         }
     }
 
@@ -228,7 +245,7 @@ class WildcardTrieContext
     {
         while (!atEnd())
         {
-            level = tryNextMatchCandidate(key, level);
+            level = findNextMatchCandidate(key, level);
             if (isMatch(key, level))
                 break;
         }
@@ -255,26 +272,13 @@ class WildcardTrieContext
 
 private:
     WildcardTrieContext(Node& root, TreeIterator iter)
-        : parent(root),
+        : parent(&root),
           iter(iter)
     {}
 
     bool isTerminal() const
     {
         return (iter != parent->children.end()) && iter->second.isTerminal;
-    }
-
-    bool isMatch(const Key& key, Level level) const
-    {
-        assert(!key.empty());
-        const Level maxLevel = key.size() - 1;
-        if ((level != maxLevel) || (iter == parent->children.end()))
-            return false;
-
-        const auto& label = iter->first;
-        auto& node = iter->second;
-        assert(level < key.size());
-        return node.isTerminal && (label.empty() || label == key[level]);
     }
 
     void advanceDepthFirst()
@@ -300,36 +304,87 @@ private:
         }
     }
 
-    Level tryNextMatchCandidate(const Key& key, Level level)
+    bool isMatch(const Key& key, Level level) const
+    {
+        assert(!key.empty());
+        const Level maxLevel = key.size() - 1;
+        if ((level != maxLevel) || (iter == parent->children.end()))
+            return false;
+
+        // All nodes above the current level are matches. Only the bottom
+        // level needs to be checked.
+        assert(level < key.size());
+        return iter->second.isTerminal && labelMatches(key[level]);
+    }
+
+    bool labelMatches(const StringType& expectedLabel) const
+    {
+        return iter->first.empty() || iter->first == expectedLabel;
+    }
+
+    Level findNextMatchCandidate(const Key& key, Level level)
     {
         const Level maxLevel = key.size() - 1;
         if (iter != parent->children.end())
         {
             assert(level < key.size());
-            const auto& label = iter->first;
             const auto& expectedLabel = key[level];
-            auto& node = iter->second;
-            bool canDescend = !node.isLeaf() && (level < maxLevel) &&
-                              (label.empty() || label == expectedLabel);
+            bool canDescend = !iter->second.isLeaf() && (level < maxLevel) &&
+                              labelMatches(expectedLabel);
             if (canDescend)
-            {
-                ++level;
-                parent = &node;
-                iter = node.children.begin();
-            }
+                level = descend(level);
             else
-            {
-                iter = parent->children.find(expectedLabel);
-            }
+                findLabelInLevel(expectedLabel);
         }
         else if (!parent->isRoot())
         {
-            assert(level > 0);
-            --level;
-            iter = parent->iter;
-            parent = parent->parent;
+            level = ascend(level);
             if (iter != parent->children.end())
-                iter = parent->children.find(key[level]);
+                findLabelInLevel(key[level]);
+        }
+    }
+
+    Level ascend(Level level)
+    {
+        assert(level > 0);
+        iter = parent->iter;
+        parent = parent->parent;
+        return level - 1;
+    }
+
+    Level descend(Level level)
+    {
+        auto& node = iter->second;
+        parent = &node;
+        iter = node.children.begin();
+        return level + 1;
+    }
+
+    void findLabelInLevel(const StringType& label)
+    {
+        struct Compare
+        {
+            bool operator()(const typename TreeIterator::value_type& kv,
+                            const StringType& s) const
+            {
+                return kv.first < s;
+            }
+
+            bool operator()(const StringType& s,
+                            const typename TreeIterator::value_type& kv) const
+            {
+                return s < kv.first;
+            }
+        };
+
+        if (iter == parent->children.begin())
+        {
+            iter = std::lower_bound(++iter, parent->children.end(), label,
+                                    Compare{});
+        }
+        else
+        {
+            iter = parent->children.end();
         }
     }
 };
@@ -343,8 +398,8 @@ public:
     using iterator_category = std::forward_iterator_tag;
     using difference_type   = std::ptrdiff_t;
     using value_type        = typename std::remove_cv<T>::type;
-    using pointer           = std::conditional<IsMutable, T*, const T*>;
-    using reference         = std::conditional<IsMutable, T&, const T&>;
+    using pointer   = typename std::conditional<IsMutable, T*, const T*>::type;
+    using reference = typename std::conditional<IsMutable, T&, const T&>::type;
 
     WildcardTrieIterator() = default;
 
@@ -423,8 +478,8 @@ public:
     using iterator_category = std::forward_iterator_tag;
     using difference_type   = std::ptrdiff_t;
     using value_type        = typename std::remove_cv<T>::type;
-    using pointer           = std::conditional<IsMutable, T*, const T*>;
-    using reference         = std::conditional<IsMutable, T&, const T&>;
+    using pointer   = typename std::conditional<IsMutable, T*, const T*>::type;
+    using reference = typename std::conditional<IsMutable, T&, const T&>::type;
 
     WildcardTrieMatchIterator() = default;
 
@@ -445,9 +500,9 @@ public:
         return *this;
     }
 
-    reference value() {return context_->second.value;}
+    reference value() {return context_.iter->second.value;}
 
-    const value_type& value() const {return context_->second.value;}
+    const value_type& value() const {return context_.iter->second.value;}
 
     reference operator*() {return value();}
 
@@ -459,7 +514,7 @@ public:
 
     WildcardTrieMatchIterator& operator++() // Prefix
     {
-        context_.advanceToNextMatch();
+        context_.matchNext(key_, level_);
         return *this;
     }
 
@@ -520,13 +575,13 @@ private:
     {}
 
     explicit WildcardTrieMatchIterator(Context beginContext, SplitUri labels_)
-        : labels_(std::move(labels_)),
+        : key_(std::move(labels_)),
           context_(beginContext)
     {
-        level_ = context_.advanceToFirstMatch();
+        level_ = context_.matchFirst(key_);
     }
 
-    SplitUri labels_;
+    SplitUri key_;
     Context context_;
     typename SplitUri::size_type level_ = 0;
 
@@ -674,12 +729,7 @@ public:
 
     template <typename P,
              typename std::enable_if<
-                 std::is_constructible<value_type, P&&>::value /* TODO &&
-                     !std::is_same<
-                         value_type,
-                         typename std::remove_cv<
-                             typename std::remove_reference<P>::type
-                             >::type>::value */,
+                 std::is_constructible<value_type, P&&>::value,
                  int>::type = 0>
     std::pair<iterator, bool> insert(P&& kv)
     {
@@ -745,9 +795,7 @@ public:
         auto ctx = locate(key);
         bool found = !ctx.atEnd();
         if (found)
-        {
-            // TODO: Erase unanchored nodes up the chain
-        }
+            ctx.eraseFromHere();
         return found ? 1 : 0;
     }
 
@@ -855,10 +903,11 @@ private:
     template <typename I>
     std::pair<I, I> getMatchRange(const key_type& key) const
     {
+        auto& root = const_cast<Node&>(root_);
         if (key.empty())
-            return {I{Context::end(root_)}, I{Context::end(root_)}};
+            return {I{Context::end(root)}, I{Context::end(root)}};
 
-        return {I{Context::begin(root_), key}, I{Context::end(root_)}};
+        return {I{Context::begin(root), key}, I{Context::end(root)}};
     }
 
     template <typename... Us>

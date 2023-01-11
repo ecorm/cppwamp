@@ -183,8 +183,6 @@ else()
     target_compile_options(cppwamp-core PRIVATE
         $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall>
         $<$<CXX_COMPILER_ID:MSVC>:/W4>)
-    target_compile_options(cppwamp-core PRIVATE
-        -ftemplate-backtrace-limit=0)
 
     # Make it so that warnings are only disabled when CppWAMP is included
     # by an external project.
