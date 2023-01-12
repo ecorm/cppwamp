@@ -294,6 +294,20 @@ public:
         return level;
     }
 
+    Key generateKey() const
+    {
+        Key key;
+        Node* node = parent;
+        while (!node->isRoot())
+        {
+            if (node->position != node->children.end())
+                key.emplace_back(node->position.first);
+            node = node->parent;
+        }
+        std::reverse(key.begin(), key.end());
+        return key;
+    }
+
     bool atEnd() const
     {
         return parent->isRoot() && (iter == parent->children.end());
@@ -439,6 +453,7 @@ class WildcardTrieIterator
 public:
     using iterator_category = std::forward_iterator_tag;
     using difference_type   = std::ptrdiff_t;
+    using key_type          = SplitUri;
     using value_type        = typename std::remove_cv<T>::type;
     using pointer   = typename std::conditional<IsMutable, T*, const T*>::type;
     using reference = typename std::conditional<IsMutable, T&, const T&>::type;
@@ -460,6 +475,8 @@ public:
         context_ = rhs.context_;
         return *this;
     }
+
+    SplitUri key() const {return context_.generateKey();}
 
     reference value() {return context_.iter->second.value;}
 
@@ -519,6 +536,7 @@ class WildcardTrieMatchIterator
 public:
     using iterator_category = std::forward_iterator_tag;
     using difference_type   = std::ptrdiff_t;
+    using key_type          = SplitUri;
     using value_type        = typename std::remove_cv<T>::type;
     using pointer   = typename std::conditional<IsMutable, T*, const T*>::type;
     using reference = typename std::conditional<IsMutable, T&, const T&>::type;
@@ -541,6 +559,8 @@ public:
         context_ = rhs.iter_;
         return *this;
     }
+
+    SplitUri key() const {return context_.generateKey();}
 
     reference value() {return context_.iter->second.value;}
 
