@@ -354,7 +354,7 @@ private:
         }
         else if (!parent->isRoot())
         {
-            iter = parent->iter;
+            iter = parent->position;
             parent = parent->parent;
             ++iter;
         }
@@ -398,6 +398,7 @@ private:
             if (iter != parent->children.end())
                 findLabelInLevel(key[level]);
         }
+        return level;
     }
 
     Level ascend(Level level)
@@ -503,20 +504,6 @@ public:
         return temp;
     }
 
-    template <bool LM, bool RM>
-    friend bool operator==(const WildcardTrieIterator<T, LM>& lhs,
-                           const WildcardTrieIterator<T, RM>& rhs)
-    {
-        return lhs.context_ == rhs.context_;
-    };
-
-    template <bool LM, bool RM>
-    friend bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
-                           const WildcardTrieIterator<T, RM>& rhs)
-    {
-        return lhs.context_ != rhs.context_;
-    };
-
 private:
     using Context = WildcardTrieContext<value_type>;
 
@@ -527,6 +514,28 @@ private:
     Context context_;
 
     template <typename> friend class WildcardTrie;
+
+    template <typename U, bool LM, bool RM>
+    friend bool operator==(const WildcardTrieIterator<U, LM>& lhs,
+                           const WildcardTrieIterator<U, RM>& rhs);
+
+    template <typename U, bool LM, bool RM>
+    friend bool operator!=(const WildcardTrieIterator<U, LM>& lhs,
+                           const WildcardTrieIterator<U, RM>& rhs);
+};
+
+template <typename T, bool LM, bool RM>
+inline bool operator==(const WildcardTrieIterator<T, LM>& lhs,
+                       const WildcardTrieIterator<T, RM>& rhs)
+{
+    return lhs.context_ == rhs.context_;
+};
+
+template <typename T, bool LM, bool RM>
+inline bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
+                       const WildcardTrieIterator<T, RM>& rhs)
+{
+    return lhs.context_ != rhs.context_;
 };
 
 //------------------------------------------------------------------------------
@@ -587,48 +596,6 @@ public:
         return temp;
     }
 
-    template <bool LM, bool RM>
-    friend bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
-                           const WildcardTrieMatchIterator<T, RM>& rhs)
-    {
-        return lhs.context_ == rhs.context_;
-    };
-
-    template <bool LM, bool RM>
-    friend bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
-                           const WildcardTrieMatchIterator<T, RM>& rhs)
-    {
-        return lhs.context_ != rhs.context_;
-    };
-
-    template <bool LM, bool RM>
-    friend bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
-                           const WildcardTrieIterator<T, RM>& rhs)
-    {
-        return lhs.context_ == rhs.context_;
-    };
-
-    template <bool LM, bool RM>
-    friend bool operator==(const WildcardTrieIterator<T, LM>& lhs,
-                           const WildcardTrieMatchIterator<T, RM>& rhs)
-    {
-        return lhs.context_ == rhs.context_;
-    };
-
-    template <bool LM, bool RM>
-    friend bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
-                           const WildcardTrieIterator<T, RM>& rhs)
-    {
-        return lhs.context_ != rhs.context_;
-    };
-
-    template <bool LM, bool RM>
-    friend bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
-                           const WildcardTrieMatchIterator<T, RM>& rhs)
-    {
-        return lhs.context_ != rhs.context_;
-    };
-
 private:
     using Context = WildcardTrieContext<value_type>;
 
@@ -648,7 +615,74 @@ private:
     typename SplitUri::size_type level_ = 0;
 
     template <typename> friend class WildcardTrie;
+
+    template <typename U, bool LM, bool RM>
+    friend bool operator==(const WildcardTrieMatchIterator<U, LM>& lhs,
+                           const WildcardTrieMatchIterator<U, RM>& rhs);
+
+    template <typename U, bool LM, bool RM>
+    friend bool operator!=(const WildcardTrieMatchIterator<U, LM>& lhs,
+                           const WildcardTrieMatchIterator<U, RM>& rhs);
+
+    template <typename U, bool LM, bool RM>
+    friend bool operator==(const WildcardTrieIterator<U, LM>& lhs,
+                           const WildcardTrieMatchIterator<U, RM>& rhs);
+
+    template <typename U, bool LM, bool RM>
+    friend bool operator!=(const WildcardTrieIterator<U, LM>& lhs,
+                           const WildcardTrieMatchIterator<U, RM>& rhs);
+
+    template <typename U, bool LM, bool RM>
+    friend bool operator==(const WildcardTrieIterator<U, LM>& lhs,
+                           const WildcardTrieIterator<U, RM>& rhs);
+
+    template <typename U, bool LM, bool RM>
+    friend bool operator!=(const WildcardTrieIterator<U, LM>& lhs,
+                           const WildcardTrieIterator<U, RM>& rhs);
 };
+
+template <typename T, bool LM, bool RM>
+inline bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
+                       const WildcardTrieMatchIterator<T, RM>& rhs)
+{
+    return lhs.context_ == rhs.context_;
+};
+
+template <typename T, bool LM, bool RM>
+inline bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
+                       const WildcardTrieMatchIterator<T, RM>& rhs)
+{
+    return lhs.context_ != rhs.context_;
+};
+
+template <typename T, bool LM, bool RM>
+inline bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
+                       const WildcardTrieIterator<T, RM>& rhs)
+{
+    return lhs.context_ == rhs.context_;
+};
+
+template <typename T, bool LM, bool RM>
+inline bool operator==(const WildcardTrieIterator<T, LM>& lhs,
+                       const WildcardTrieMatchIterator<T, RM>& rhs)
+{
+    return lhs.context_ == rhs.context_;
+};
+
+template <typename T, bool LM, bool RM>
+inline bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
+                       const WildcardTrieIterator<T, RM>& rhs)
+{
+    return lhs.context_ != rhs.context_;
+};
+
+template <typename T, bool LM, bool RM>
+inline bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
+                       const WildcardTrieMatchIterator<T, RM>& rhs)
+{
+    return lhs.context_ != rhs.context_;
+};
+
 
 //------------------------------------------------------------------------------
 template <typename T>
@@ -682,7 +716,6 @@ public:
 
     template <typename TInputPairIterator>
     WildcardTrie(TInputPairIterator first, TInputPairIterator last)
-        : root_(typename Node::RootTag{})
     {
         insert(first, last);
     }
@@ -766,7 +799,8 @@ public:
 
     const_iterator cend() const noexcept
     {
-        return const_iterator{Context::end(root_)};
+        auto& root = const_cast<Node&>(root_);
+        return const_iterator{Context::end(root)};
     }
 
 

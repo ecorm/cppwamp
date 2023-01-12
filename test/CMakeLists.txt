@@ -28,6 +28,7 @@ set(SOURCES
     varianttestvisitation.cpp
     wamptest.cpp
     wamptestadvanced.cpp
+    wildcardtrietest.cpp
     main.cpp
 )
 
