@@ -41,11 +41,13 @@ template <typename T>
 struct WildcardTrieNode
 {
     using Value = T;
-    using StringType = typename SplitUri::value_type;
+    using Key = SplitUri;
+    using StringType = typename Key::value_type;
     using Tree = std::map<StringType, WildcardTrieNode>;
     using TreeIterator = typename Tree::iterator;
+    using Level = typename Key::size_type;
 
-    WildcardTrieNode() : iter(children.end()) {}
+    WildcardTrieNode() : position(children.end()) {}
 
     template <typename... Us>
     WildcardTrieNode(WildcardTrieNode* parent, bool isTerminal, Us&&... args)
@@ -55,26 +57,28 @@ struct WildcardTrieNode
     {}
 
     template <typename... Us>
-    TreeIterator addTerminal(StringType label, Us&&... args)
+    void buildSubtree(Key&& key, Level level, Us&&... args)
     {
-        auto result = children.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(this, true, std::forward<Us>(args)...));
-        assert(result.second);
-        result.first->second.iter = result.first;
-        return result.first;
+        const auto tokenCount = key.size();
+        WildcardTrieNode* node = this;
+
+        // Add intermediary link nodes
+        for (; level < tokenCount - 1; ++level)
+        {
+            auto iter = node->addLink(std::move(key[level+1]));
+            node = &(iter->second);
+        }
+
+        // Add terminal node
+        node->addTerminal(std::move(key[level+1]), std::forward<Us>(args)...);
     }
 
-    template <typename... Us>
-    TreeIterator addLink(StringType label)
+    void addSubtree(StringType&& label, WildcardTrieNode&& subtree)
     {
-        auto result = children.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(this, false));
-        result.first->second.iter = result.first;
-        return result.first;
+        auto iter = children.emplace(std::move(label),
+                                     std::move(subtree)).first;
+        iter->second.parent = this;
+        iter->second.position = iter;
     }
 
     template <typename... Us>
@@ -104,10 +108,34 @@ struct WildcardTrieNode
 
     Tree children;
     Value value = {};
-    TreeIterator iter = {};
+    TreeIterator position = {};
     WildcardTrieNode* parent = nullptr;
 
     bool isTerminal = false;
+
+private:
+    template <typename... Us>
+    TreeIterator addTerminal(StringType label, Us&&... args)
+    {
+        auto result = children.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(std::move(label)),
+            std::forward_as_tuple(this, true, std::forward<Us>(args)...));
+        assert(result.second);
+        result.first->second.position = result.first;
+        return result.first;
+    }
+
+    template <typename... Us>
+    TreeIterator addLink(StringType label)
+    {
+        auto result = children.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(std::move(label)),
+            std::forward_as_tuple(this, false));
+        result.first->second.position = result.first;
+        return result.first;
+    }
 };
 
 
@@ -119,6 +147,7 @@ public:
     using Node = WildcardTrieNode<T>;
     using TreeIterator = typename Node::TreeIterator;
     using Key = SplitUri;
+    using Value = typename Node::Value;
     using StringType = typename Key::value_type;
     using Level = typename Key::size_type;
 
@@ -166,34 +195,47 @@ public:
     }
 
     template <typename... Us>
-    bool set(bool clobber, Key key, Us&&... args)
+    bool put(bool clobber, Key key, Us&&... args)
     {
         if (key.empty())
             return false;
 
+        // To avoid dangling link nodes in the event of an exception,
+        // build a subtree first with the new node, than attach it to the
+        // existing tree using move semantics.
+
         bool placed = false;
         const auto tokenCount = key.size();
 
-        for (SplitUri::size_type i = 0; i < tokenCount - 1; ++i)
+        // Find existing node from which to possibly attach a subtree with
+        // the new node.
+        Level level = 0;
+        for (; level < tokenCount; ++level)
         {
-            auto& token = key[i];
-            iter = parent->addLink(std::move(token));
+            auto& label = key[level];
+            iter = parent->children.find(label);
+            if (iter == parent->children.end())
+                break;
             parent = iter->second.parent;
         }
 
-        auto& token = key[tokenCount - 1];
-        iter = parent->children.find(token);
-        if (iter == parent->children.end())
+        // Check if node already exists at the destination level
+        // in the existing tree.
+        if (level == tokenCount)
         {
-            placed = true;
-            iter = parent->addTerminal(std::move(token),
-                                       std::forward<Us>(args)...);
+            placed = !iter->second.isTerminal;
+            if (placed || clobber)
+                iter->second.setValue(std::forward<Us>(args)...);
+            return placed;
         }
-        else if (clobber)
-        {
-            iter->second.setValue(std::forward<Us>(args)...);
-        }
-        parent = iter->second.parent;
+
+        // Build and attach the subtree containing the new node.
+        assert(level < tokenCount);
+        Node subtree;
+        auto label = std::move(key[level]);
+        subtree.buildSubtree(std::move(key), level, std::forward<Us>(args)...);
+        parent->addSubtree(std::move(label), std::move(subtree));
+        placed = true;
 
         return placed;
     }
@@ -206,7 +248,7 @@ public:
         while (iter->second.isTerminal && !parent->isRoot())
         {
             parent->children.erase(iter);
-            iter = parent->iter;
+            iter = parent->position;
             parent = parent->parent;
         }
     }
@@ -347,7 +389,7 @@ private:
     Level ascend(Level level)
     {
         assert(level > 0);
-        iter = parent->iter;
+        iter = parent->position;
         parent = parent->parent;
         return level - 1;
     }
@@ -689,17 +731,23 @@ public:
 
     // Iterators
 
-    iterator begin() {return iterator{firstTerminal()};}
+    iterator begin() noexcept {return iterator{firstTerminal()};}
 
-    const_iterator begin() const {return cbegin();}
+    const_iterator begin() const noexcept {return cbegin();}
 
-    iterator end() {return iterator{Context::end(root_)};}
+    iterator end() noexcept {return iterator{Context::end(root_)};}
 
-    const_iterator end() const {return cend();}
+    const_iterator end() const noexcept {return cend();}
 
-    const_iterator cbegin() const {return const_iterator{firstTerminal()};}
+    const_iterator cbegin() const noexcept
+    {
+        return const_iterator{firstTerminal()};
+    }
 
-    const_iterator cend() const {return const_iterator{Context::end(root_)};}
+    const_iterator cend() const noexcept
+    {
+        return const_iterator{Context::end(root_)};
+    }
 
 
     // Capacity
@@ -711,7 +759,7 @@ public:
 
     // Modifiers
 
-    void clear()
+    void clear() noexcept
     {
         root_.children.clear();
         size_ = 0;
@@ -751,13 +799,13 @@ public:
     template <typename M>
     std::pair<iterator, bool> insert_or_assign(const key_type& key, M&& arg)
     {
-        return set(true, key, std::forward<M>(arg));
+        return put(true, key, std::forward<M>(arg));
     }
 
     template <typename M>
     std::pair<iterator, bool> insert_or_assign(key_type&& key, M&& arg)
     {
-        return set(true, std::move(key), std::forward<M>(arg));
+        return put(true, std::move(key), std::forward<M>(arg));
     }
 
     template <typename M>
@@ -913,14 +961,14 @@ private:
     template <typename... Us>
     std::pair<iterator, bool> add(key_type key, Us&&... args)
     {
-        return set(false, std::move(key), std::forward<Us>(args)...);
+        return put(false, std::move(key), std::forward<Us>(args)...);
     }
 
     template <typename... Us>
-    std::pair<iterator, bool> set(bool clobber, key_type key, Us&&... args)
+    std::pair<iterator, bool> put(bool clobber, key_type key, Us&&... args)
     {
         auto ctx = Context::begin(root_);
-        bool placed = ctx.set(clobber, std::move(key),
+        bool placed = ctx.put(clobber, std::move(key),
                               std::forward<Us>(args)...);
         return {iterator{ctx}, placed};
     }
