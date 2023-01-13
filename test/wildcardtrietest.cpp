@@ -16,6 +16,8 @@ namespace
 
 using Trie = WildcardTrie<int>;
 
+using TrieTestVector = std::initializer_list<std::pair<SplitUri, int>>;
+
 template <typename T>
 void checkEmptyWildcardTrie(WildcardTrie<T>& t)
 {
@@ -28,8 +30,7 @@ void checkEmptyWildcardTrie(WildcardTrie<T>& t)
 }
 
 template <typename T>
-void checkWildcardTrieContents(WildcardTrie<T>& t,
-                               const std::map<SplitUri, T>& m)
+void checkWildcardTrieContents(WildcardTrie<T>& t, std::map<SplitUri, T> m)
 {
     const WildcardTrie<T>& c = t;
     CHECK(c.empty() == m.empty());
@@ -37,6 +38,18 @@ void checkWildcardTrieContents(WildcardTrie<T>& t,
     CHECK(c.begin() != c.end());
     CHECK(t.begin() != t.end());
     CHECK(t.cbegin() != t.cend());
+
+    auto ti = t.begin();
+    auto mi = m.begin();
+    for (unsigned i=0; i<m.size(); ++i)
+    {
+        INFO("at position " << i);
+        CHECK(ti.value() == mi->second);
+        CHECK(*ti == mi->second);
+        CHECK(ti.key() == mi->first);
+        ++ti;
+        ++mi;
+    }
 }
 
 } // anonymous namespace
@@ -65,20 +78,32 @@ TEST_CASE( "Empty WildcardTrie Construction", "[WildcardTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WildcardTrie Construction With a Single Element", "[WildcardTrie]" )
+TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
 {
-    std::map<SplitUri, int> m({ {{"foo"}, 42} });
+    using Map = std::map<SplitUri, int>;
 
-    SECTION( "via iterator range" )
+    std::vector<Map> maps =
     {
-        Trie trie(m.begin(), m.end());
-        checkWildcardTrieContents(trie, m);
+        { {{""}, 0} },
+        { {{"foo"}, 1} },
+        { {{"foo", "bar"}, 2} },
     };
 
-    SECTION( "via initializer list" )
+    for (unsigned i=0; i<maps.size(); ++i)
     {
-        Trie trie({ {{"foo"}, 42} });
-        checkWildcardTrieContents(trie, m);
+        const auto& map = maps[i];
+        INFO( "for maps[" << i << "]" );
+        SECTION( "via constuctor taking iterator range" )
+        {
+            Trie trie(map.begin(), map.end());
+            checkWildcardTrieContents(trie, map);
+        };
+    }
+
+    SECTION( "via constuctor taking initializer list" )
+    {
+        Trie trie({ {{"foo"}, 1} });
+        checkWildcardTrieContents(trie, maps.at(1));
     };
 }
 

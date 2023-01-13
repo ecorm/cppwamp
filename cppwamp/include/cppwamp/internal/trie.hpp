@@ -61,6 +61,7 @@ struct WildcardTrieNode
     {
         const auto tokenCount = key.size();
         WildcardTrieNode* node = this;
+        ++level;
 
         // Add intermediary link nodes
         for (; level < tokenCount - 1; ++level)
@@ -70,7 +71,8 @@ struct WildcardTrieNode
         }
 
         // Add terminal node
-        node->addTerminal(std::move(key[level+1]), std::forward<Us>(args)...);
+        assert(level < key.size());
+        node->addTerminal(std::move(key[level]), std::forward<Us>(args)...);
     }
 
     void addSubtree(StringType&& label, WildcardTrieNode&& subtree)
@@ -105,6 +107,19 @@ struct WildcardTrieNode
     bool isRoot() const {return parent == nullptr;}
 
     bool isLeaf() const {return children.empty();}
+
+    Key generateKey() const
+    {
+        Key key;
+        const WildcardTrieNode* node = this;
+        while (!node->isRoot())
+        {
+            key.emplace_back(node->position->first);
+            node = node->parent;
+        }
+        std::reverse(key.begin(), key.end());
+        return key;
+    }
 
     Tree children;
     Value value = {};
@@ -194,6 +209,13 @@ public:
         }
     }
 
+    Key generateKey() const
+    {
+        if (iter == parent->children.end())
+            return {};
+        return iter->second.generateKey();
+    }
+
     template <typename... Us>
     bool put(bool clobber, Key key, Us&&... args)
     {
@@ -212,7 +234,7 @@ public:
         Level level = 0;
         for (; level < tokenCount; ++level)
         {
-            auto& label = key[level];
+            const auto& label = key[level];
             iter = parent->children.find(label);
             if (iter == parent->children.end())
                 break;
@@ -292,20 +314,6 @@ public:
                 break;
         }
         return level;
-    }
-
-    Key generateKey() const
-    {
-        Key key;
-        Node* node = parent;
-        while (!node->isRoot())
-        {
-            if (node->position != node->children.end())
-                key.emplace_back(node->position.first);
-            node = node->parent;
-        }
-        std::reverse(key.begin(), key.end());
-        return key;
     }
 
     bool atEnd() const
@@ -493,7 +501,7 @@ public:
 
     WildcardTrieIterator& operator++() // Prefix
     {
-        context_.advanceToNextMatch();
+        context_.advanceToNextTerminal();
         return *this;
     }
 
@@ -841,7 +849,7 @@ public:
     template <typename TInputPairIterator>
     void insert(TInputPairIterator first, TInputPairIterator last)
     {
-        for (; first != last; ++last)
+        for (; first != last; ++first)
             add(first->first, first->second);
     }
 
@@ -897,7 +905,10 @@ public:
         auto ctx = locate(key);
         bool found = !ctx.atEnd();
         if (found)
+        {
             ctx.eraseFromHere();
+            --size_;
+        }
         return found ? 1 : 0;
     }
 
@@ -1024,6 +1035,8 @@ private:
         auto ctx = Context::begin(root_);
         bool placed = ctx.put(clobber, std::move(key),
                               std::forward<Us>(args)...);
+        if (placed)
+            ++size_;
         return {iterator{ctx}, placed};
     }
 
