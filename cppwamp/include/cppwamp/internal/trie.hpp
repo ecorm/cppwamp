@@ -50,14 +50,24 @@ struct WildcardTrieNode
     WildcardTrieNode() : position(children.end()) {}
 
     template <typename... Us>
-    WildcardTrieNode(WildcardTrieNode* parent, bool isTerminal, Us&&... args)
+    WildcardTrieNode(bool isTerminal, Us&&... args)
         : value(std::forward<Us>(args)...),
-          parent(parent),
           isTerminal(isTerminal)
     {}
 
     template <typename... Us>
-    void buildSubtree(Key&& key, Level level, Us&&... args)
+    TreeIterator addTerminal(StringType label, Us&&... args)
+    {
+        auto result = children.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(std::move(label)),
+            std::forward_as_tuple(true, std::forward<Us>(args)...));
+        assert(result.second);
+        return result.first;
+    }
+
+    template <typename... Us>
+    void buildChain(Key&& key, Level level, Us&&... args)
     {
         const auto tokenCount = key.size();
         WildcardTrieNode* node = this;
@@ -66,7 +76,7 @@ struct WildcardTrieNode
         // Add intermediary link nodes
         for (; level < tokenCount - 1; ++level)
         {
-            auto iter = node->addLink(std::move(key[level+1]));
+            auto iter = node->buildLink(std::move(key[level+1]));
             node = &(iter->second);
         }
 
@@ -75,12 +85,27 @@ struct WildcardTrieNode
         node->addTerminal(std::move(key[level]), std::forward<Us>(args)...);
     }
 
-    void addSubtree(StringType&& label, WildcardTrieNode&& subtree)
+    void addChain(StringType&& label, WildcardTrieNode&& chain)
     {
-        auto iter = children.emplace(std::move(label),
-                                     std::move(subtree)).first;
-        iter->second.parent = this;
-        iter->second.position = iter;
+        auto result = children.emplace(std::move(label), std::move(chain));
+        assert(result.second);
+
+        // Traverse down the emplaced chain and set the parent/position
+        // fields to their proper values. Better to do this after emplacing
+        // the chain to avoid invalid pointers/iterators.
+        auto iter = result.first;
+        auto node = this;
+        while (!node->isLeaf())
+        {
+            WildcardTrieNode* child = &(iter->second);
+            child->position = iter;
+            child->parent = node;
+            node = child;
+            iter = child->children.begin();
+        }
+
+        position = iter;
+        parent = node->parent;
     }
 
     template <typename... Us>
@@ -130,25 +155,13 @@ struct WildcardTrieNode
 
 private:
     template <typename... Us>
-    TreeIterator addTerminal(StringType label, Us&&... args)
+    TreeIterator buildLink(StringType label)
     {
         auto result = children.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(this, true, std::forward<Us>(args)...));
+            std::forward_as_tuple(false));
         assert(result.second);
-        result.first->second.position = result.first;
-        return result.first;
-    }
-
-    template <typename... Us>
-    TreeIterator addLink(StringType label)
-    {
-        auto result = children.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(this, false));
-        result.first->second.position = result.first;
         return result.first;
     }
 };
@@ -223,13 +236,13 @@ public:
             return false;
 
         // To avoid dangling link nodes in the event of an exception,
-        // build a subtree first with the new node, than attach it to the
+        // build a sub-chain first with the new node, than attach it to the
         // existing tree using move semantics.
 
         bool placed = false;
         const auto tokenCount = key.size();
 
-        // Find existing node from which to possibly attach a subtree with
+        // Find existing node from which to possibly attach a sub-chain with
         // the new node.
         Level level = 0;
         for (; level < tokenCount; ++level)
@@ -251,12 +264,21 @@ public:
             return placed;
         }
 
-        // Build and attach the subtree containing the new node.
+        // Check if only a single terminal node needs to be added
         assert(level < tokenCount);
-        Node subtree;
+        if (tokenCount - level == 1)
+        {
+            iter = parent->addTerminal(key[level], std::forward<Us>(args)...);
+            iter->second.position = iter;
+            iter->second.parent = parent;
+            return true;
+        }
+
+        // Build and attach the sub-chain containing the new node.
+        Node chain;
         auto label = std::move(key[level]);
-        subtree.buildSubtree(std::move(key), level, std::forward<Us>(args)...);
-        parent->addSubtree(std::move(label), std::move(subtree));
+        chain.buildChain(std::move(key), level, std::forward<Us>(args)...);
+        parent->addChain(std::move(label), std::move(chain));
         placed = true;
 
         return placed;
