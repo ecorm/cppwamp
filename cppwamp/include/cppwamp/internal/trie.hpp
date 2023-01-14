@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <initializer_list>
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <tuple>
@@ -733,26 +734,28 @@ public:
     using match_iterator = WildcardTrieMatchIterator<T, true>;
     using const_match_iterator = WildcardTrieMatchIterator<T, false>;
 
-    WildcardTrie() = default;
+    WildcardTrie()
+        : root_(new Node)
+    {}
 
     WildcardTrie(const WildcardTrie& rhs)
-        : root_(rhs.root_),
+        : root_(new Node(*rhs.root_)),
           size_(rhs.size_)
     {
         scanTree();
     }
 
     WildcardTrie(WildcardTrie&& rhs)
-        : root_(std::move(rhs.root_)),
+        : root_(new Node(*rhs.root_)),
           size_(rhs.size_)
     {
-        rhs.root_.clear();
-        rhs.size_ = 0;
-        scanTree();
+        root_.swap(rhs.root_);
+        rhs.clear();
     }
 
     template <typename TInputPairIterator>
     WildcardTrie(TInputPairIterator first, TInputPairIterator last)
+        : WildcardTrie()
     {
         insert(first, last);
     }
@@ -768,14 +771,11 @@ public:
         return *this;
     }
 
-    WildcardTrie& operator=(WildcardTrie&& rhs)
-        noexcept(std::is_nothrow_move_assignable<Tree>::value)
+    WildcardTrie& operator=(WildcardTrie&& rhs) noexcept
     {
-        root_ = std::move(rhs.root_);
+        root_.swap(rhs.root_);
         size_ = rhs.size_;
-        rhs.root_.clear();
-        rhs.size_ = 0;
-        scanTree();
+        rhs.clear();
         return *this;
     }
 
@@ -826,7 +826,7 @@ public:
 
     const_iterator begin() const noexcept {return cbegin();}
 
-    iterator end() noexcept {return iterator{Context::end(root_)};}
+    iterator end() noexcept {return iterator{Context::end(*root_)};}
 
     const_iterator end() const noexcept {return cend();}
 
@@ -837,7 +837,7 @@ public:
 
     const_iterator cend() const noexcept
     {
-        auto& root = const_cast<Node&>(root_);
+        auto& root = const_cast<Node&>(*root_);
         return const_iterator{Context::end(root)};
     }
 
@@ -853,7 +853,7 @@ public:
 
     void clear() noexcept
     {
-        root_.children.clear();
+        root_->children.clear();
         size_ = 0;
     }
 
@@ -947,8 +947,7 @@ public:
         return erase(tokenizeUri(uri));
     }
 
-    void swap(WildcardTrie& other)
-        noexcept(std::is_nothrow_swappable<Tree>::value)
+    void swap(WildcardTrie& other) noexcept
     {
         root_.swap(other.root_);
         std::swap(size_, other.size_);
@@ -1021,7 +1020,7 @@ private:
 
     Context firstTerminal()
     {
-        auto ctx = Context::begin(root_);
+        auto ctx = Context::begin(*root_);
         ctx.advanceToFirstTerminal();
         return ctx;
     }
@@ -1033,7 +1032,7 @@ private:
 
     Context locate(const key_type& key)
     {
-        auto ctx = Context::begin(root_);
+        auto ctx = Context::begin(*root_);
         ctx.locate(key);
         return ctx;
     }
@@ -1046,7 +1045,7 @@ private:
     template <typename I>
     std::pair<I, I> getMatchRange(const key_type& key) const
     {
-        auto& root = const_cast<Node&>(root_);
+        auto& root = const_cast<Node&>(*root_);
         if (key.empty())
             return {I{Context::end(root)}, I{Context::end(root)}};
 
@@ -1062,7 +1061,7 @@ private:
     template <typename... Us>
     std::pair<iterator, bool> put(bool clobber, key_type key, Us&&... args)
     {
-        auto ctx = Context::begin(root_);
+        auto ctx = Context::begin(*root_);
         bool placed = ctx.put(clobber, std::move(key),
                               std::forward<Us>(args)...);
         if (placed)
@@ -1072,9 +1071,9 @@ private:
 
     void scanTree()
     {
-        root_.position = root_.children.end();
-        Node* parent = &root_;
-        auto iter = root_.children.begin();
+        root_->position = root_->children.end();
+        Node* parent = root_.get();
+        auto iter = root_->children.begin();
         while (parent != nullptr)
         {
             if (iter != parent->children.end())
@@ -1104,7 +1103,7 @@ private:
         }
     }
 
-    Node root_;
+    std::unique_ptr<Node> root_;
     size_type size_ = 0;
 };
 
