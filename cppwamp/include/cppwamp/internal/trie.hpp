@@ -735,7 +735,12 @@ public:
 
     WildcardTrie() = default;
 
-    WildcardTrie(const WildcardTrie&) = default;
+    WildcardTrie(const WildcardTrie& rhs)
+        : root_(rhs.root_),
+          size_(rhs.size_)
+    {
+        scanTree();
+    }
 
     WildcardTrie(WildcardTrie&& rhs)
         : root_(std::move(rhs.root_)),
@@ -743,6 +748,7 @@ public:
     {
         rhs.root_.clear();
         rhs.size_ = 0;
+        scanTree();
     }
 
     template <typename TInputPairIterator>
@@ -769,6 +775,7 @@ public:
         size_ = rhs.size_;
         rhs.root_.clear();
         rhs.size_ = 0;
+        scanTree();
         return *this;
     }
 
@@ -1061,6 +1068,40 @@ private:
         if (placed)
             ++size_;
         return {iterator{ctx}, placed};
+    }
+
+    void scanTree()
+    {
+        root_.position = root_.children.end();
+        Node* parent = &root_;
+        auto iter = root_.children.begin();
+        while (parent != nullptr)
+        {
+            if (iter != parent->children.end())
+            {
+                auto& node = iter->second;
+                node.position = iter;
+                node.parent = parent;
+
+                if (!node.isLeaf())
+                {
+                    auto& child = iter->second;
+                    parent = &child;
+                    iter = child.children.begin();
+                }
+                else
+                {
+                    ++iter;
+                }
+            }
+            else
+            {
+                iter = parent->position;
+                parent = parent->parent;
+                if (parent != nullptr)
+                    ++iter;
+            }
+        }
     }
 
     Node root_;

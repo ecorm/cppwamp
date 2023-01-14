@@ -122,10 +122,11 @@ void checkWildcardTrieInsertion(const TrieTestPairs& pairs, bool clobbers,
 //------------------------------------------------------------------------------
 TEST_CASE( "Empty WildcardTrie Construction", "[WildcardTrie]" )
 {
+    Trie empty;
+
     SECTION( "default contruction" )
     {
-        Trie trie;
-        checkEmptyWildcardTrie(trie);
+        checkEmptyWildcardTrie(empty);
     };
 
     SECTION( "via iterator range" )
@@ -139,6 +140,36 @@ TEST_CASE( "Empty WildcardTrie Construction", "[WildcardTrie]" )
     {
         Trie trie({});
         checkEmptyWildcardTrie(trie);
+    };
+
+    SECTION( "via copy constructor" )
+    {
+        Trie b(empty);
+        checkEmptyWildcardTrie(empty);
+        checkEmptyWildcardTrie(b);
+    };
+
+    SECTION( "via move constructor" )
+    {
+        Trie b(std::move(empty));
+        checkEmptyWildcardTrie(empty);
+        checkEmptyWildcardTrie(b);
+    };
+
+    SECTION( "via copy assignment" )
+    {
+        Trie b{{{"a"}, 1}};
+        b = empty;
+        checkEmptyWildcardTrie(empty);
+        checkEmptyWildcardTrie(b);
+    };
+
+    SECTION( "via move assignment" )
+    {
+        Trie b{{{"a"}, 1}};
+        b = std::move(empty);
+        checkEmptyWildcardTrie(empty);
+        checkEmptyWildcardTrie(b);
     };
 }
 
@@ -257,13 +288,85 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
                 });
         };
     }
+}
 
-    SECTION( "via constuctor taking initializer list" )
+//------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Inializer Lists", "[WildcardTrie]" )
+{
+    using Pair = std::pair<const SplitUri, int>;
+    using Pairs = std::vector<Pair>;
+
+    Pairs pairs({ {{"a", "b", "c"}, 1}, {{"a"}, 2} });
+
+    SECTION( "constuctor taking initializer list" )
     {
         Trie trie({ {{"a", "b", "c"}, 1}, {{"a"}, 2} });
-        Pairs pairs({ {{"a", "b", "c"}, 1}, {{"a"}, 2} });
         checkWildcardTrieContents(trie, pairs);
     };
+
+    SECTION( "assignment from initializer list" )
+    {
+        Trie trie({ {{"z"}, 3} });
+        trie = { {{"a", "b", "c"}, 1}, {{"a"}, 2} };
+        checkWildcardTrieContents(trie, pairs);
+    };
+
+    SECTION( "assignment from empty initializer list" )
+    {
+        Trie trie({ {{"z"}, 3} });
+        trie = {};
+        checkEmptyWildcardTrie(trie);
+    };
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
+{
+    using Pair = std::pair<const SplitUri, int>;
+    using Pairs = std::vector<Pair>;
+
+    std::vector<Pairs> inputs = {
+        { {{"a"},           1} },
+        { {{"a", "b", "c"}, 1}, {{"a", "b"}, 2}},
+        { {{"a", "b", "c"}, 1}, {{"d", "e"}, 2}},
+    };
+
+    for (unsigned i=0; i<inputs.size(); ++i)
+    {
+        INFO("for input[" << i << "]");
+        const auto& input = inputs[i];
+        Trie a(input.begin(), input.end());
+
+        SECTION( "copy construction" )
+        {
+            Trie b(a);
+            checkWildcardTrieContents(a, input);
+            checkWildcardTrieContents(b, input);
+        };
+
+        SECTION( "move construction" )
+        {
+            Trie b(std::move(a));
+            checkEmptyWildcardTrie(a);
+            checkWildcardTrieContents(b, input);
+        };
+
+        SECTION( "copy assignment" )
+        {
+            Trie b;
+            b = a;
+            checkWildcardTrieContents(a, input);
+            checkWildcardTrieContents(b, input);
+        };
+
+        SECTION( "move assignment" )
+        {
+            Trie b;
+            b = std::move(a);
+            checkEmptyWildcardTrie(a);
+            checkWildcardTrieContents(b, input);
+        };
+    }
 }
 
 //------------------------------------------------------------------------------
