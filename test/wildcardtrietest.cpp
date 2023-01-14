@@ -6,7 +6,9 @@
 
 #include <cppwamp/internal/trie.hpp>
 #include <catch2/catch.hpp>
+#include <set>
 #include <map>
+#include <vector>
 
 using namespace wamp;
 using namespace wamp::internal;
@@ -118,6 +120,76 @@ void checkWildcardTrieInsertion(const TrieTestPairs& pairs, bool clobbers,
 }
 
 } // anonymous namespace
+
+//------------------------------------------------------------------------------
+TEST_CASE( "URI Tokenization", "[WildcardTrie]" )
+{
+    std::vector<std::pair<std::string, SplitUri>> inputs =
+    {
+        {"",      {}},
+        {".",     {"", ""}},
+        {"..",    {"", "", ""}},
+        {"..a",   {"", "", "a"}},
+        {".a",    {"", "a"}},
+        {".a.",   {"", "a", ""}},
+        {".a..",  {"", "a", "", ""}},
+        {".a.b",  {"", "a", "b"}},
+        {"a",     {"a"}},
+        {"a.",    {"a", ""}},
+        {"a..",   {"a", "", ""}},
+        {"a..b",  {"a", "", "b"}},
+        {"a.b",   {"a", "b"}},
+        {"a.b.",  {"a", "b", ""}},
+        {"a.b.c", {"a", "b", "c"}},
+    };
+
+    for (const auto& pair: inputs)
+    {
+        const auto& uri = pair.first;
+        const auto& labels = pair.second;
+        INFO("For URI '" + uri+ "'");
+        CHECK(tokenizeUri(uri) == labels);
+        CHECK(untokenizeUri(labels) == uri);
+    }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "URI Wildcard Matching", "[WildcardTrie]" )
+{
+    // Same test vectors as used by Crossbar
+    std::vector<std::string> patterns =
+    {
+         "", ".", "a..c", "a.b.", "a..", ".b.", "..", "x..", ".x.", "..x",
+         "x..x", "x.x.", ".x.x", "x.x.x"
+    };
+
+    std::vector<std::pair<std::string, std::set<std::string>>> inputs =
+    {
+        {"abc",     {}},
+        {"a.b",     {"."}},
+        {"a.b.c",   {"a..c", "a.b.", "a..", ".b.", ".."}},
+        {"a.x.c",   {"a..c", "a..", "..", ".x."}},
+        {"a.b.x",   {"a.b.", "a..", ".b.", "..", "..x"}},
+        {"a.x.x",   {"a..", "..", ".x.", "..x", ".x.x"}},
+        {"x.y.z",   {"..", "x.."}},
+        {"a.b.c.d", {}}
+    };
+
+    for (const auto& pair: inputs)
+    {
+        const auto& uri = pair.first;
+        const auto& matches = pair.second;
+        INFO("For URI '" + uri+ "'");
+        for (const auto& pattern: patterns)
+        {
+            INFO("For pattern '" + pattern+ "'");
+            bool uriMatches = uriMatchesWildcardPattern(tokenizeUri(uri),
+                                                        tokenizeUri(pattern));
+            bool expected = matches.count(pattern) == 1;
+            CHECK(uriMatches == expected);
+        }
+    }
+}
 
 //------------------------------------------------------------------------------
 TEST_CASE( "Empty WildcardTrie Construction", "[WildcardTrie]" )

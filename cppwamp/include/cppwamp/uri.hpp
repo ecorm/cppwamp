@@ -29,6 +29,11 @@ using SplitUri = std::vector<std::string>;
 SplitUri tokenizeUri(const std::string uri);
 
 //------------------------------------------------------------------------------
+/** Recombines split labels into an URI. */
+//------------------------------------------------------------------------------
+std::string untokenizeUri(const SplitUri& labels);
+
+//------------------------------------------------------------------------------
 /** Determines if the given URI matches the given wildcard pattern. */
 //------------------------------------------------------------------------------
 bool uriMatchesWildcardPattern(const SplitUri& uri, const SplitUri& pattern);
