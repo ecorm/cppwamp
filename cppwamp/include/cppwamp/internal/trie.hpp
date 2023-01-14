@@ -76,7 +76,7 @@ struct WildcardTrieNode
         // Add intermediary link nodes
         for (; level < tokenCount - 1; ++level)
         {
-            auto iter = node->buildLink(std::move(key[level+1]));
+            auto iter = node->buildLink(std::move(key[level]));
             node = &(iter->second);
         }
 
@@ -85,7 +85,7 @@ struct WildcardTrieNode
         node->addTerminal(std::move(key[level]), std::forward<Us>(args)...);
     }
 
-    void addChain(StringType&& label, WildcardTrieNode&& chain)
+    TreeIterator addChain(StringType&& label, WildcardTrieNode&& chain)
     {
         auto result = children.emplace(std::move(label), std::move(chain));
         assert(result.second);
@@ -97,15 +97,13 @@ struct WildcardTrieNode
         auto node = this;
         while (!node->isLeaf())
         {
-            WildcardTrieNode* child = &(iter->second);
-            child->position = iter;
-            child->parent = node;
-            node = child;
-            iter = child->children.begin();
+            WildcardTrieNode& child = iter->second;
+            child.position = iter;
+            child.parent = node;
+            node = &child;
+            iter = child.children.begin();
         }
-
-        position = iter;
-        parent = node->parent;
+        return node->position;
     }
 
     template <typename... Us>
@@ -251,16 +249,18 @@ public:
             iter = parent->children.find(label);
             if (iter == parent->children.end())
                 break;
-            parent = iter->second.parent;
+            parent = &(iter->second);
         }
 
         // Check if node already exists at the destination level
         // in the existing tree.
         if (level == tokenCount)
         {
-            placed = !iter->second.isTerminal;
+            auto& node = iter->second;
+            parent = node.parent;
+            placed = !node.isTerminal;
             if (placed || clobber)
-                iter->second.setValue(std::forward<Us>(args)...);
+                node.setValue(std::forward<Us>(args)...);
             return placed;
         }
 
@@ -278,7 +278,8 @@ public:
         Node chain;
         auto label = std::move(key[level]);
         chain.buildChain(std::move(key), level, std::forward<Us>(args)...);
-        parent->addChain(std::move(label), std::move(chain));
+        iter = parent->addChain(std::move(label), std::move(chain));
+        parent = iter->second.parent;
         placed = true;
 
         return placed;
@@ -782,18 +783,18 @@ public:
 
     mapped_type& at(const key_type& key)
     {
-        auto node = locate(key);
-        if (node == nullptr)
+        auto ctx = locate(key);
+        if (ctx.atEnd())
             throw std::out_of_range("wamp::WildcardTrie::at key out of range");
-        return node->value;
+        return ctx.iter->second.value;
     }
 
-    const mapped_type& at(key_type&& key) const
+    const mapped_type& at(const key_type& key) const
     {
-        auto node = locate(key);
-        if (node == nullptr)
+        auto ctx = locate(key);
+        if (ctx.atEnd())
             throw std::out_of_range("wamp::WildcardTrie::at key out of range");
-        return node->value;
+        return ctx.iter->second.value;
     }
 
     mapped_type& operator[](const key_type& key)
@@ -951,7 +952,7 @@ public:
 
     size_type count(const key_type& key) const
     {
-        return locate(key) == nullptr ? 0 : 1;
+        return locate(key).atEnd() ? 0 : 1;
     }
 
     size_type count(const string_type& uri) const
@@ -1032,7 +1033,7 @@ private:
 
     Context locate(const key_type& key) const
     {
-        return const_cast<WildcardTrie&>(*this).locate();
+        return const_cast<WildcardTrie&>(*this).locate(key);
     }
 
     template <typename I>
