@@ -84,7 +84,8 @@ using TrieInsertionOp =
             (WildcardTrie<int>&, std::pair<const SplitUri, int>)>;
 
 //------------------------------------------------------------------------------
-void checkWildcardTrieInsertion(const TrieTestPairs& pairs, TrieInsertionOp op)
+void checkWildcardTrieInsertion(const TrieTestPairs& pairs, bool clobbers,
+                                TrieInsertionOp op)
 {
     WildcardTrie<int> trie;
     for (unsigned i=0; i<pairs.size(); ++i)
@@ -93,9 +94,27 @@ void checkWildcardTrieInsertion(const TrieTestPairs& pairs, TrieInsertionOp op)
         const auto& pair = pairs[i];
         auto result = op(trie, pair);
         CHECK(result.second);
+        CHECK(*result.first == pair.second);
+        CHECK(result.first.value() == pair.second);
+        CHECK(result.first.key() == pair.first);
         CHECK(result.first == trie.find(pair.first));
     }
     checkWildcardTrieContents(trie, pairs);
+
+    // Check duplicate insertions
+    for (unsigned i=0; i<pairs.size(); ++i)
+    {
+        INFO( "for pairs[" << i << "]" );
+        auto pair = pairs[i];
+        pair.second = -pair.second;
+        auto result = op(trie, pair);
+        CHECK_FALSE(result.second);
+        CHECK(result.first.key() == pair.first);
+        if (!clobbers)
+            pair.second = -pair.second;
+        CHECK(*result.first == pair.second);
+        CHECK(result.first.value() == pair.second);
+    }
 }
 
 } // anonymous namespace
@@ -131,25 +150,26 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
 
     std::vector<Pairs> inputs =
     {
-        { {{""}, 1} },
-        { {{"a"}, 1} },
-        { {{"a", "b"}, 1} },
-        { {{"a"}, 1}, {{"b"}, 2}},
-        { {{"b"}, 1}, {{"a"}, 2}},
-        { {{"a"}, 1}, {{"a", "b"}, 2}},
-        { {{"a", "b"}, 1}, {{"a"}, 2}},
-        { {{"a", "b"}, 1}, {{"b"}, 2}},
-        { {{"a", "b"}, 1}, {{"b", "a"}, 2}},
-        { {{"a", "b"}, 1}, {{"c", "d"}, 2}},
+        { {{""},            1} },
+        { {{"a"},           1} },
+        { {{"a", "b"},      1} },
+        { {{"a", "b", "c"}, 1} },
+        { {{"a"}, 1},           {{"b"}, 2}},
+        { {{"b"}, 1},           {{"a"}, 2}},
+        { {{"a"}, 1},           {{"a", "b"}, 2}},
+        { {{"a", "b"}, 1},      {{"a"}, 2}},
+        { {{"a", "b"}, 1},      {{"b"}, 2}},
+        { {{"a", "b"}, 1},      {{"b", "a"}, 2}},
+        { {{"a", "b"}, 1},      {{"c", "d"}, 2}},
         { {{"a", "b", "c"}, 1}, {{"a"}, 2}},
         { {{"a", "b", "c"}, 1}, {{"b"}, 2}},
         { {{"a", "b", "c"}, 1}, {{"c"}, 2}},
+        { {{"a", "b", "c"}, 1}, {{"d"}, 2}},
         { {{"a", "b", "c"}, 1}, {{"a", "b"}, 2}},
         { {{"a", "b", "c"}, 1}, {{"b", "c"}, 2}},
+        { {{"a", "b", "c"}, 1}, {{"d", "e"}, 2}},
         { {{"a", "b", "c"}, 1}, {{"a", "b", "d"}, 2}},
         { {{"a", "b", "c"}, 1}, {{"a", "d", "e"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"d"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"d", "e"}, 2}},
         { {{"a", "b", "c"}, 1}, {{"d", "e", "f"}, 2}},
     };
 
@@ -166,22 +186,19 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
 
         SECTION( "via insert pair" )
         {
-            checkWildcardTrieInsertion(
-                input,
+            checkWildcardTrieInsertion(input, false,
                 [](Trie& t, Pair p) {return t.insert(p);});
         };
 
         SECTION( "via insert moved pair" )
         {
-            checkWildcardTrieInsertion(
-                input,
+            checkWildcardTrieInsertion(input, false,
                 [](Trie& t, Pair p) {return t.insert(Pair{p});});
         };
 
         SECTION( "via insert_or_assign" )
         {
-            checkWildcardTrieInsertion(
-                input,
+            checkWildcardTrieInsertion(input, true,
                 [](Trie& t, Pair p)
                 {
                     return t.insert_or_assign(p.first, p.second);
@@ -190,35 +207,53 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
 
         SECTION( "via insert_or_assign with moved key" )
         {
-            checkWildcardTrieInsertion(
-                input,
+            checkWildcardTrieInsertion(input, true,
                 [](Trie& t, Pair p)
                 {
-                    return t.insert_or_assign(SplitUri{p.first}, p.second);
+                    return t.insert_or_assign(std::move(p.first), p.second);
                 });
         };
 
         SECTION( "via emplace" )
         {
-            checkWildcardTrieInsertion(
-                input,
+            checkWildcardTrieInsertion(input, false,
                 [](Trie& t, Pair p) {return t.emplace(p.first, p.second);});
         };
 
         SECTION( "via try_emplace" )
         {
-            checkWildcardTrieInsertion(
-                input,
+            checkWildcardTrieInsertion(input, false,
                 [](Trie& t, Pair p) {return t.try_emplace(p.first, p.second);});
         };
 
         SECTION( "via try_emplace with moved key" )
         {
-            checkWildcardTrieInsertion(
-                input,
+            checkWildcardTrieInsertion(input, false,
                 [](Trie& t, Pair p)
                 {
-                    return t.try_emplace(SplitUri{p.first}, p.second);
+                    return t.try_emplace(std::move(p.first), p.second);
+                });
+        };
+
+        SECTION( "via operator[]" )
+        {
+            checkWildcardTrieInsertion(input, true,
+                [](Trie& t, Pair p)
+                {
+                    bool inserted = t.find(p.first) == t.end();
+                    t[p.first] = p.second;
+                    return std::make_pair(t.find(p.first), inserted);
+                });
+        };
+
+        SECTION( "via operator[] with moved key" )
+        {
+            checkWildcardTrieInsertion(input, true,
+                [](Trie& t, Pair p)
+                {
+                    bool inserted = t.find(p.first) == t.end();
+                    t[std::move(p.first)] = p.second;
+                    return std::make_pair(t.find(p.first), inserted);
                 });
         };
     }
