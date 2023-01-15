@@ -533,12 +533,25 @@ TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
         INFO("for input[" << i << "]");
         const auto& input = inputs[i];
         Trie a(input.begin(), input.end());
+        auto aBegin = a.begin();
+        auto aEnd = a.end();
 
         SECTION( "copy construction" )
         {
             Trie b(a);
             checkWildcardTrieContents(a, input);
             checkWildcardTrieContents(b, input);
+
+            // Check iterators to RHS are preserved
+            CHECK(aEnd == a.end());
+            CHECK(aBegin == a.begin());
+            if (!input.empty())
+            {
+                REQUIRE(aBegin != aEnd);
+                CHECK(aBegin.key() == input.front().first);
+            }
+            if (input.size() == 1)
+                CHECK(++aBegin == aEnd);
         };
 
         SECTION( "move construction" )
@@ -546,6 +559,16 @@ TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
             Trie b(std::move(a));
             checkEmptyWildcardTrie(a);
             checkWildcardTrieContents(b, input);
+
+            // Check non-end iterators to RHS are preserved
+            if (!input.empty())
+            {
+                REQUIRE(b.begin() != b.end());
+                CHECK(aBegin == b.begin());
+                CHECK(b.begin().key() == input.front().first);
+                if (input.size() == 1)
+                    CHECK(++aBegin == b.end());
+            }
         };
 
         SECTION( "copy assignment to empty trie" )
@@ -554,6 +577,17 @@ TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
             b = a;
             checkWildcardTrieContents(a, input);
             checkWildcardTrieContents(b, input);
+
+            // Check iterators to RHS are preserved
+            CHECK(aEnd == a.end());
+            CHECK(aBegin == a.begin());
+            if (!input.empty())
+            {
+                REQUIRE(aBegin != aEnd);
+                CHECK(aBegin.key() == input.front().first);
+            }
+            if (input.size() == 1)
+                CHECK(++aBegin == aEnd);
         };
 
         SECTION( "copy assignment to non-empty trie" )
@@ -562,6 +596,17 @@ TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
             b = a;
             checkWildcardTrieContents(a, input);
             checkWildcardTrieContents(b, input);
+
+            // Check iterators to RHS are preserved
+            CHECK(aEnd == a.end());
+            CHECK(aBegin == a.begin());
+            if (!input.empty())
+            {
+                REQUIRE(aBegin != aEnd);
+                CHECK(aBegin.key() == input.front().first);
+            }
+            if (input.size() == 1)
+                CHECK(++aBegin == aEnd);
         };
 
         SECTION( "move assignment to empty trie" )
@@ -570,6 +615,16 @@ TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
             b = std::move(a);
             checkEmptyWildcardTrie(a);
             checkWildcardTrieContents(b, input);
+
+            // Check non-end iterators to RHS are preserved
+            if (!input.empty())
+            {
+                REQUIRE(b.begin() != b.end());
+                CHECK(aBegin == b.begin());
+                CHECK(b.begin().key() == input.front().first);
+            }
+            if (input.size() == 1)
+                CHECK(++aBegin == b.end());
         };
 
         SECTION( "move assignment to non-empty trie" )
@@ -578,6 +633,16 @@ TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
             b = std::move(a);
             checkEmptyWildcardTrie(a);
             checkWildcardTrieContents(b, input);
+
+            // Check non-end iterators to RHS are preserved
+            if (!input.empty())
+            {
+                REQUIRE(b.begin() != b.end());
+                CHECK(aBegin == b.begin());
+                CHECK(b.begin().key() == input.front().first);
+            }
+            if (input.size() == 1)
+                CHECK(++aBegin == b.end());
         };
     }
 }
@@ -897,11 +962,11 @@ TEST_CASE( "WildcardTrie Clear", "[WildcardTrie]" )
 TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
 {
     Trie a({ {{"a"}, 1} });
+    auto aBegin = a.begin();
     Trie b({ {{"b"}, 2}, {{"c"}, 3} });
+    auto bBegin = b.begin();
     Trie x;
     Trie y;
-
-    // TODO: Check iterator preservation
 
     SECTION("populated tries")
     {
@@ -909,27 +974,53 @@ TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
         CHECK(a.size() == 2);
         CHECK(a.contains("b"));
         CHECK(a.contains("c"));
+        CHECK(aBegin == b.begin());
+        REQUIRE(aBegin != b.end());
+        CHECK(aBegin.uri() == "a");
+        CHECK(++Trie::iterator(aBegin) == b.end());
         CHECK(b.size() == 1);
         CHECK(b.contains("a"));
+        CHECK(bBegin == a.begin());
+        REQUIRE(bBegin != a.end());
+        CHECK(bBegin.uri() == "b");
+        CHECK((++Trie::iterator(bBegin)).uri() == "c");
+        CHECK(++(++Trie::iterator(bBegin)) == a.end());
 
         swap(b, a);
         CHECK(a.size() == 1);
         CHECK(a.contains("a"));
+        CHECK(aBegin == a.begin());
+        REQUIRE(aBegin != a.end());
+        CHECK(aBegin.uri() == "a");
+        CHECK(++Trie::iterator(aBegin) == a.end());
         CHECK(b.size() == 2);
         CHECK(b.contains("b"));
         CHECK(b.contains("c"));
+        CHECK(bBegin == b.begin());
+        REQUIRE(bBegin != b.end());
+        CHECK(bBegin.uri() == "b");
+        CHECK((++Trie::iterator(bBegin)).uri() == "c");
+        CHECK(++(++Trie::iterator(bBegin)) == b.end());
     }
 
     SECTION("rhs trie is empty")
     {
         a.swap(x);
         CHECK(a.empty());
+        CHECK(aBegin == x.begin());
+        REQUIRE(aBegin != x.end());
+        CHECK(aBegin.uri() == "a");
+        CHECK(++Trie::iterator(aBegin) == x.end());
         CHECK(x.size() == 1);
         CHECK(x.contains("a"));
 
         swap(x, a);
         CHECK(a.size() == 1);
         CHECK(a.contains("a"));
+        CHECK(aBegin == a.begin());
+        CHECK(++Trie::iterator(aBegin) == a.end());
+        REQUIRE(aBegin != a.end());
+        CHECK(aBegin.uri() == "a");
         CHECK(x.empty());
     }
 
@@ -939,10 +1030,18 @@ TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
         CHECK(x.size() == 1);
         CHECK(x.contains("a"));
         CHECK(a.empty());
+        CHECK(aBegin == x.begin());
+        REQUIRE(aBegin != x.end());
+        CHECK(aBegin.uri() == "a");
+        CHECK(++Trie::iterator(aBegin) == x.end());
 
         swap(a, x);
         CHECK(a.size() == 1);
         CHECK(a.contains("a"));
+        CHECK(aBegin == a.begin());
+        REQUIRE(aBegin != a.end());
+        CHECK(aBegin.uri() == "a");
+        CHECK(++Trie::iterator(aBegin) == a.end());
         CHECK(x.empty());
     }
 
@@ -959,17 +1058,37 @@ TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
 
     SECTION("self-swap populated trie")
     {
-        // TODO
+        a.swap(a);
+        CHECK(a.size() == 1);
+        CHECK(a.contains("a"));
+        CHECK(aBegin == a.begin());
+        REQUIRE(aBegin != a.end());
+        CHECK(aBegin.uri() == "a");
+        CHECK(++Trie::iterator(aBegin) == a.end());
+
+        swap(b, b);
+        CHECK(b.size() == 2);
+        CHECK(b.contains("b"));
+        CHECK(b.contains("c"));
+        CHECK(bBegin == b.begin());
+        REQUIRE(bBegin != b.end());
+        CHECK(bBegin.uri() == "b");
+        CHECK((++Trie::iterator(bBegin)).uri() == "c");
+        CHECK(++(++Trie::iterator(bBegin)) == b.end());
     }
 
     SECTION("self-swap empty trie")
     {
-        // TODO
+        x.swap(x);
+        CHECK(x.empty());
+
+        swap(y, y);
+        CHECK(y.empty());
     }
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WildcardTrie Iterator Preservation", "[WildcardTrie]" )
+TEST_CASE( "WildcardTrie Modification Preserves Iterators", "[WildcardTrie]" )
 {
     // TODO: Various erases and insertions
 }
