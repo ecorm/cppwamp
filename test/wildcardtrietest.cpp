@@ -35,8 +35,12 @@ void checkEmptyWildcardTrie(WildcardTrie<T>& t)
 
 //------------------------------------------------------------------------------
 template <typename T>
-void checkWildcardTrieContents(WildcardTrie<T>& t, const TrieTestPairList& pairs)
+void checkWildcardTrieContents(WildcardTrie<T>& t,
+                               const TrieTestPairList& pairs)
 {
+    if (pairs.empty())
+        return checkEmptyWildcardTrie(t);
+
     std::map<SplitUri, T> m(pairs.begin(), pairs.end());
     const WildcardTrie<T>& c = t;
     CHECK( c.empty() == m.empty() );
@@ -370,6 +374,7 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
         { {{"a", "b", "c"}, 1}, {{"a", "b", "d"}, 2}},
         { {{"a", "b", "c"}, 1}, {{"a", "d", "e"}, 2}},
         { {{"a", "b", "c"}, 1}, {{"d", "e", "f"}, 2}},
+        { {{"d"}, 4}, {{"a"}, 1}, {{"c"}, 3}, {{"b"}, 2}, {{"e"}, 5}},
     };
 
     for (unsigned i=0; i<inputs.size(); ++i)
@@ -517,6 +522,7 @@ TEST_CASE( "WildcardTrie Inializer Lists", "[WildcardTrie]" )
 TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
 {
     std::vector<TrieTestPairList> inputs = {
+        { },
         { {{"a"},           1} },
         { {{"a", "b", "c"}, 1}, {{"a", "b"}, 2}},
         { {{"a", "b", "c"}, 1}, {{"d", "e"}, 2}},
@@ -542,7 +548,7 @@ TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
             checkWildcardTrieContents(b, input);
         };
 
-        SECTION( "copy assignment" )
+        SECTION( "copy assignment to empty trie" )
         {
             Trie b;
             b = a;
@@ -550,13 +556,89 @@ TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
             checkWildcardTrieContents(b, input);
         };
 
-        SECTION( "move assignment" )
+        SECTION( "copy assignment to non-empty trie" )
+        {
+            Trie b({ {{"x"}, 3} });
+            b = a;
+            checkWildcardTrieContents(a, input);
+            checkWildcardTrieContents(b, input);
+        };
+
+        SECTION( "move assignment to empty trie" )
         {
             Trie b;
             b = std::move(a);
             checkEmptyWildcardTrie(a);
             checkWildcardTrieContents(b, input);
         };
+
+        SECTION( "move assignment to non-empty trie" )
+        {
+            Trie b({ {{"x"}, 3} });
+            b = std::move(a);
+            checkEmptyWildcardTrie(a);
+            checkWildcardTrieContents(b, input);
+        };
+    }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Self-Assignment", "[WildcardTrie]" )
+{
+    SECTION( "self copy assignment of populated trie" )
+    {
+        Trie t({ {{"a"}, 1} });
+        auto& r = t; // To avoid self-assignment warnings
+        auto begin = t.begin();
+        auto end = t.end();
+        t = r;
+        CHECK(t.size() == 1);
+        REQUIRE(t.contains("a"));
+        CHECK(t["a"] == 1);
+        CHECK(begin == t.begin());
+        CHECK(end == t.end());
+        CHECK(begin.uri() == "a");
+        CHECK(begin.value() == 1);
+        CHECK(++begin == end);
+    }
+
+    SECTION( "self copy assignment of empty trie" )
+    {
+        Trie t;
+        auto& r = t;
+        auto end = t.end();
+        t = r;
+        CHECK(t.empty());
+        CHECK(end == t.begin());
+        CHECK(end == t.end());
+    }
+
+    SECTION( "self move assignment of populated trie" )
+    {
+        Trie t({ {{"a"}, 1} });
+        auto& r = t;
+        auto begin = t.begin();
+        auto end = t.end();
+        t = std::move(r);
+        CHECK(t.size() == 1);
+        REQUIRE(t.contains("a"));
+        CHECK(t["a"] == 1);
+        CHECK(begin == t.begin());
+        CHECK(end == t.end());
+        CHECK(begin.uri() == "a");
+        CHECK(begin.value() == 1);
+        CHECK(++begin == end);
+    }
+
+    SECTION( "self copy assignment of empty trie" )
+    {
+        Trie t;
+        auto& r = t;
+        auto end = t.end();
+        t = std::move(r);
+        CHECK(t.empty());
+        CHECK(end == t.begin());
+        CHECK(end == t.end());
     }
 }
 
@@ -729,6 +811,17 @@ TEST_CASE( "WildcardTrie Erase", "[WildcardTrie]" )
         CHECK(trie.find("a") == trie.end());
         CHECK_FALSE(trie.contains("a"));
 
+        // Re-insert last deleted key and erase it again
+        auto inserted = trie.try_emplace("a", 1);
+        REQUIRE(inserted.second);
+        CHECK(trie.contains("a"));
+        iter = trie.erase(inserted.first);
+        CHECK(iter != trie.end());
+        CHECK(iter.uri() == "b");
+        CHECK(trie.size() == 1);
+        CHECK(trie.find("a") == trie.end());
+        CHECK_FALSE(trie.contains("a"));
+
         iter = trie.erase(trie.begin());
         CHECK(iter == trie.end());
         CHECK(trie.empty());
@@ -758,18 +851,127 @@ TEST_CASE( "WildcardTrie Erase", "[WildcardTrie]" )
         CHECK_FALSE(erased);
         CHECK(trie.size() == 1);
 
+        // Re-insert last deleted key and erase it again
+        auto inserted = trie.try_emplace("a", 1);
+        REQUIRE(inserted.second);
+        CHECK(trie.contains("a"));
+        erased = trie.erase("a");
+        CHECK(erased);
+        CHECK(trie.size() == 1);
+        CHECK(trie.find("a") == trie.end());
+        CHECK_FALSE(trie.contains("a"));
+
         erased = trie.erase("b");
         CHECK(erased);
         CHECK(trie.empty());
         CHECK(trie.find("b") == trie.end());
         CHECK_FALSE(trie.contains("b"));
     }
+
+    // TODO: Check tree pruning
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Clear", "[WildcardTrie]" )
+{
+    SECTION("non-empty trie")
+    {
+        Trie t({ {{"a"}, 1} });
+        t.clear();
+        checkEmptyWildcardTrie(t);
+        t.clear();
+        checkEmptyWildcardTrie(t);
+    }
+
+    SECTION("default-constructed trie")
+    {
+        Trie t;
+        t.clear();
+        checkEmptyWildcardTrie(t);
+        t.clear();
+        checkEmptyWildcardTrie(t);
+    }
 }
 
 //------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
 {
-    // TODO
+    Trie a({ {{"a"}, 1} });
+    Trie b({ {{"b"}, 2}, {{"c"}, 3} });
+    Trie x;
+    Trie y;
+
+    // TODO: Check iterator preservation
+
+    SECTION("populated tries")
+    {
+        a.swap(b);
+        CHECK(a.size() == 2);
+        CHECK(a.contains("b"));
+        CHECK(a.contains("c"));
+        CHECK(b.size() == 1);
+        CHECK(b.contains("a"));
+
+        swap(b, a);
+        CHECK(a.size() == 1);
+        CHECK(a.contains("a"));
+        CHECK(b.size() == 2);
+        CHECK(b.contains("b"));
+        CHECK(b.contains("c"));
+    }
+
+    SECTION("rhs trie is empty")
+    {
+        a.swap(x);
+        CHECK(a.empty());
+        CHECK(x.size() == 1);
+        CHECK(x.contains("a"));
+
+        swap(x, a);
+        CHECK(a.size() == 1);
+        CHECK(a.contains("a"));
+        CHECK(x.empty());
+    }
+
+    SECTION("lhs trie is empty")
+    {
+        x.swap(a);
+        CHECK(x.size() == 1);
+        CHECK(x.contains("a"));
+        CHECK(a.empty());
+
+        swap(a, x);
+        CHECK(a.size() == 1);
+        CHECK(a.contains("a"));
+        CHECK(x.empty());
+    }
+
+    SECTION("both tries are empty")
+    {
+        x.swap(y);
+        CHECK(x.empty());
+        CHECK(y.empty());
+
+        swap(y, x);
+        CHECK(x.empty());
+        CHECK(y.empty());
+    }
+
+    SECTION("self-swap populated trie")
+    {
+        // TODO
+    }
+
+    SECTION("self-swap empty trie")
+    {
+        // TODO
+    }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Iterator Preservation", "[WildcardTrie]" )
+{
+    // TODO: Various erases and insertions
 }
 
 //------------------------------------------------------------------------------

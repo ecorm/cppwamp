@@ -785,8 +785,13 @@ public:
 
     WildcardTrie& operator=(const WildcardTrie& rhs)
     {
-        WildcardTrie temp(rhs);
-        (*this) = std::move(temp);
+        // Do nothing for self-assignment to enfore the invariant that
+        // the RHS iterators remain valid.
+        if (&rhs != this)
+        {
+            WildcardTrie temp(rhs);
+            (*this) = std::move(temp);
+        }
         return *this;
     }
 
@@ -794,7 +799,9 @@ public:
     // by https://cplusplus.github.io/LWG/lwg-active.html#2321.
     WildcardTrie& operator=(WildcardTrie&& rhs) noexcept
     {
-        moveFrom(rhs);
+        // Do nothing for self-move-assignment to avoid invalidating iterators.
+        if (&rhs != this)
+            moveFrom(rhs);
         return *this;
     }
 
@@ -1075,11 +1082,11 @@ private:
 
     void moveFrom(WildcardTrie& rhs) noexcept
     {
-        root_ = std::move(rhs.root_);
+        root_.swap(rhs.root_);
         size_ = rhs.size_;
+        rhs.size_ = 0;
         if (root_)
             root_->parent = &sentinel_;
-        rhs.size_ = 0;
     }
 
     Cursor rootCursor()
