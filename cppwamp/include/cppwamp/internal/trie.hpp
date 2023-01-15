@@ -471,100 +471,7 @@ private:
     }
 };
 
-
-//------------------------------------------------------------------------------
-template <typename T, bool IsMutable>
-class WildcardTrieIterator
-{
-public:
-    using iterator_category = std::forward_iterator_tag;
-    using difference_type   = std::ptrdiff_t;
-    using key_type          = SplitUri;
-    using string_type       = typename SplitUri::value_type;
-    using value_type        = typename std::remove_cv<T>::type;
-    using pointer   = typename std::conditional<IsMutable, T*, const T*>::type;
-    using reference = typename std::conditional<IsMutable, T&, const T&>::type;
-
-    WildcardTrieIterator() = default;
-
-    // Allow construction of const iterator from mutable iterator
-    template <bool M,
-              typename std::enable_if<!IsMutable && M, int>::type = 0>
-    WildcardTrieIterator(const WildcardTrieIterator<T, M>& rhs)
-        : cursor_(rhs.cursor_)
-    {}
-
-    // Allow assignment of const iterator from mutable iterator
-    template <bool M,
-             typename std::enable_if<!IsMutable && M, int>::type = 0>
-    WildcardTrieIterator& operator=(const WildcardTrieIterator<T, M>& rhs)
-    {
-        cursor_ = rhs.cursor_;
-        return *this;
-    }
-
-    key_type key() const {return cursor_.generateKey();}
-
-    string_type uri() const {return untokenizeUri(key());}
-
-    reference value() {return cursor_.iter->second.value;}
-
-    const value_type& value() const {return cursor_.iter->second.value;}
-
-    reference operator*() {return value();}
-
-    const value_type& operator*() const {return value();}
-
-    pointer operator->() {return &(value());}
-
-    const value_type* operator->() const {return &(value());}
-
-    WildcardTrieIterator& operator++() // Prefix
-    {
-        cursor_.advanceToNextTerminal();
-        return *this;
-    }
-
-    WildcardTrieIterator operator++(int) // Postfix
-    {
-        auto temp = *this;
-        ++(*this);
-        return temp;
-    }
-
-private:
-    using Cursor = WildcardTrieCursor<value_type>;
-
-    explicit WildcardTrieIterator(Cursor cursor)
-        : cursor_(cursor)
-    {}
-
-    Cursor cursor_;
-
-    template <typename> friend class WildcardTrie;
-
-    template <typename U, bool LM, bool RM>
-    friend bool operator==(const WildcardTrieIterator<U, LM>& lhs,
-                           const WildcardTrieIterator<U, RM>& rhs);
-
-    template <typename U, bool LM, bool RM>
-    friend bool operator!=(const WildcardTrieIterator<U, LM>& lhs,
-                           const WildcardTrieIterator<U, RM>& rhs);
-};
-
-template <typename T, bool LM, bool RM>
-inline bool operator==(const WildcardTrieIterator<T, LM>& lhs,
-                       const WildcardTrieIterator<T, RM>& rhs)
-{
-    return lhs.cursor_ == rhs.cursor_;
-};
-
-template <typename T, bool LM, bool RM>
-inline bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
-                       const WildcardTrieIterator<T, RM>& rhs)
-{
-    return lhs.cursor_ != rhs.cursor_;
-};
+template <typename, bool> class WildcardTrieIterator;
 
 //------------------------------------------------------------------------------
 template <typename T, bool IsMutable>
@@ -672,6 +579,119 @@ private:
                            const WildcardTrieIterator<U, RM>& rhs);
 };
 
+
+//------------------------------------------------------------------------------
+template <typename T, bool IsMutable>
+class WildcardTrieIterator
+{
+public:
+    using iterator_category = std::forward_iterator_tag;
+    using difference_type   = std::ptrdiff_t;
+    using key_type          = SplitUri;
+    using string_type       = typename SplitUri::value_type;
+    using value_type        = typename std::remove_cv<T>::type;
+    using pointer   = typename std::conditional<IsMutable, T*, const T*>::type;
+    using reference = typename std::conditional<IsMutable, T&, const T&>::type;
+
+    WildcardTrieIterator() = default;
+
+    // Allow construction of const iterator from mutable iterator
+    template <bool M,
+              typename std::enable_if<!IsMutable && M, int>::type = 0>
+    WildcardTrieIterator(const WildcardTrieIterator<T, M>& rhs)
+        : cursor_(rhs.cursor_)
+    {}
+
+    // Allow construction from match iterator
+    template <bool M,
+              typename std::enable_if<(IsMutable || !M), int>::type = 0>
+    WildcardTrieIterator(const WildcardTrieMatchIterator<T, M>& rhs)
+        : cursor_(rhs.cursor_)
+    {}
+
+    // Allow assignment of const iterator from mutable iterator
+    template <bool M,
+              typename std::enable_if<!IsMutable && M, int>::type = 0>
+    WildcardTrieIterator& operator=(const WildcardTrieIterator<T, M>& rhs)
+    {
+        cursor_ = rhs.cursor_;
+        return *this;
+    }
+
+    // Allow assignment from match iterator
+    template <bool M,
+              typename std::enable_if<(IsMutable || !M), int>::type = 0>
+    WildcardTrieIterator& operator=(const WildcardTrieIterator<T, M>& rhs)
+    {
+        cursor_ = rhs.cursor_;
+        return *this;
+    }
+
+    key_type key() const {return cursor_.generateKey();}
+
+    string_type uri() const {return untokenizeUri(key());}
+
+    reference value() {return cursor_.iter->second.value;}
+
+    const value_type& value() const {return cursor_.iter->second.value;}
+
+    reference operator*() {return value();}
+
+    const value_type& operator*() const {return value();}
+
+    pointer operator->() {return &(value());}
+
+    const value_type* operator->() const {return &(value());}
+
+    WildcardTrieIterator& operator++() // Prefix
+    {
+        cursor_.advanceToNextTerminal();
+        return *this;
+    }
+
+    WildcardTrieIterator operator++(int) // Postfix
+    {
+        auto temp = *this;
+        ++(*this);
+        return temp;
+    }
+
+private:
+    using Cursor = WildcardTrieCursor<value_type>;
+
+    explicit WildcardTrieIterator(Cursor cursor)
+        : cursor_(cursor)
+    {}
+
+    Cursor cursor_;
+
+    template <typename> friend class WildcardTrie;
+
+    template <typename U, bool LM, bool RM>
+    friend bool operator==(const WildcardTrieIterator<U, LM>& lhs,
+                           const WildcardTrieIterator<U, RM>& rhs);
+
+    template <typename U, bool LM, bool RM>
+    friend bool operator!=(const WildcardTrieIterator<U, LM>& lhs,
+                           const WildcardTrieIterator<U, RM>& rhs);
+};
+
+template <typename T, bool LM, bool RM>
+inline bool operator==(const WildcardTrieIterator<T, LM>& lhs,
+                       const WildcardTrieIterator<T, RM>& rhs)
+{
+    return lhs.cursor_ == rhs.cursor_;
+};
+
+template <typename T, bool LM, bool RM>
+inline bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
+                       const WildcardTrieIterator<T, RM>& rhs)
+{
+    return lhs.cursor_ != rhs.cursor_;
+};
+
+// TODO: Remove these in favor of implicit converversions from
+// WildcardTrieMatchIterator to WildcardTrieIterator.
 template <typename T, bool LM, bool RM>
 inline bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
                        const WildcardTrieMatchIterator<T, RM>& rhs)
@@ -713,7 +733,6 @@ inline bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
 {
     return lhs.cursor_ != rhs.cursor_;
 };
-
 
 //------------------------------------------------------------------------------
 template <typename T>
@@ -790,18 +809,18 @@ public:
 
     mapped_type& at(const key_type& key)
     {
-        auto ctx = locate(key);
-        if (ctx.isSentinel())
+        auto cursor = locate(key);
+        if (cursor.isSentinel())
             throw std::out_of_range("wamp::WildcardTrie::at key out of range");
-        return ctx.iter->second.value;
+        return cursor.iter->second.value;
     }
 
     const mapped_type& at(const key_type& key) const
     {
-        auto ctx = locate(key);
-        if (ctx.isSentinel())
+        auto cursor = locate(key);
+        if (cursor.isSentinel())
             throw std::out_of_range("wamp::WildcardTrie::at key out of range");
-        return ctx.iter->second.value;
+        return cursor.iter->second.value;
     }
 
     mapped_type& at(const string_type& uri)
@@ -940,13 +959,33 @@ public:
         return add(tokenizeUri(uri), std::forward<Us>(args)...);
     }
 
+    iterator erase(iterator pos)
+    {
+        auto cursor = pos.cursor_;
+        assert(!cursor.isSentinel());
+        ++pos;
+        cursor.eraseFromHere();
+        --size_;
+        return pos;
+    }
+
+    iterator erase(const_iterator pos)
+    {
+        auto cursor = pos.cursor_;
+        assert(!cursor.isSentinel());
+        ++pos;
+        cursor.eraseFromHere();
+        --size_;
+        return pos;
+    }
+
     size_type erase(const key_type& key)
     {
-        auto ctx = locate(key);
-        bool found = !ctx.isSentinel();
+        auto cursor = locate(key);
+        bool found = !cursor.isSentinel();
         if (found)
         {
-            ctx.eraseFromHere();
+            cursor.eraseFromHere();
             --size_;
         }
         return found ? 1 : 0;
@@ -1059,9 +1098,9 @@ private:
     {
         if (empty())
             return sentinelCursor();
-        auto ctx = rootCursor();
-        ctx.advanceToFirstTerminal();
-        return ctx;
+        auto cursor = rootCursor();
+        cursor.advanceToFirstTerminal();
+        return cursor;
     }
 
     Cursor firstTerminalCursor() const
@@ -1080,9 +1119,9 @@ private:
     {
         if (empty() || key.empty())
             return sentinelCursor();
-        auto ctx = rootCursor();
-        ctx.locate(key);
-        return ctx;
+        auto cursor = rootCursor();
+        cursor.locate(key);
+        return cursor;
     }
 
     Cursor locate(const key_type& key) const
@@ -1117,12 +1156,12 @@ private:
             root_->parent = &sentinel_;
         }
 
-        auto ctx = rootCursor();
-        bool placed = ctx.put(clobber, std::move(key),
+        auto cursor = rootCursor();
+        bool placed = cursor.put(clobber, std::move(key),
                               std::forward<Us>(args)...);
         if (placed)
             ++size_;
-        return {iterator{ctx}, placed};
+        return {iterator{cursor}, placed};
     }
 
     void scanTree()

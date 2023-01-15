@@ -225,18 +225,17 @@ TEST_CASE( "URI Tokenization", "[WildcardTrie]" )
     std::vector<std::pair<std::string, SplitUri>> inputs =
     {
         {"",      {""}},
-        {".",     {"", ""}},
-        {"..",    {"", "", ""}},
-        {"..a",   {"", "", "a"}},
-        {".a",    {"", "a"}},
-        {".a.",   {"", "a", ""}},
-        {".a..",  {"", "a", "", ""}},
-        {".a.b",  {"", "a", "b"}},
         {"a",     {"a"}},
         {"a.",    {"a", ""}},
-        {"a..",   {"a", "", ""}},
-        {"a..b",  {"a", "", "b"}},
+        {".",     {"",  ""}},
+        {".b",    {"",  "b"}},
         {"a.b",   {"a", "b"}},
+        {"..",    {"",  "",  ""}},
+        {"..c",   {"",  "",  "c"}},
+        {".b.",   {"",  "b", ""}},
+        {".b.c",  {"",  "b", "c"}},
+        {"a..",   {"a", "",  ""}},
+        {"a..c",  {"a", "",  "c"}},
         {"a.b.",  {"a", "b", ""}},
         {"a.b.c", {"a", "b", "c"}},
     };
@@ -254,8 +253,7 @@ TEST_CASE( "URI Tokenization", "[WildcardTrie]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "URI Wildcard Matching", "[WildcardTrie]" )
 {
-    // Same test vectors as used by Crossbar, with an additional
-    // empty pattern URI.
+    // Same test vectors as used by Crossbar
     std::vector<std::string> patterns =
     {
          "", ".", "a..c", "a.b.", "a..", ".b.", "..", "x..", ".x.", "..x",
@@ -607,8 +605,7 @@ TEST_CASE( "WildcardTrie Bad Access/Lookups", "[WildcardTrie]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Pattern Matching", "[WildcardTrie]" )
 {
-    // Same test vectors as used by Crossbar, with an additional
-    // empty pattern URI.
+    // Same test vectors as used by Crossbar
     std::vector<std::string> patterns =
     {
         "", ".", "a..c", "a.b.", "a..", ".b.", "..", "x..", ".x.", "..x",
@@ -708,3 +705,81 @@ TEST_CASE( "WildcardTrie Pattern Matching", "[WildcardTrie]" )
     }
 }
 
+//------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Erase", "[WildcardTrie]" )
+{
+    Trie trie({ {{"a"}, 1}, {{"b"}, 2}, {{"b", "c"}, 3} });
+
+    SECTION( "erasing via iterator" )
+    {
+        auto pos = trie.find("b.c");
+        REQUIRE(pos.uri() == "b.c");
+        auto iter = trie.erase(pos);
+        CHECK(iter == trie.end());
+        CHECK(trie.size() == 2);
+        CHECK(trie.find("b.c") == trie.end());
+        CHECK_FALSE(trie.contains("b.c"));
+
+        pos = trie.find("a");
+        REQUIRE(pos.uri() == "a");
+        iter = trie.erase(pos);
+        CHECK(iter != trie.end());
+        CHECK(iter.uri() == "b");
+        CHECK(trie.size() == 1);
+        CHECK(trie.find("a") == trie.end());
+        CHECK_FALSE(trie.contains("a"));
+
+        iter = trie.erase(trie.begin());
+        CHECK(iter == trie.end());
+        CHECK(trie.empty());
+        CHECK(trie.find("b") == trie.end());
+        CHECK_FALSE(trie.contains("b"));
+    }
+
+    SECTION( "erasing via key" )
+    {
+        bool erased = trie.erase("z");
+        CHECK_FALSE(erased);
+        CHECK(trie.size() == 3);
+
+        erased = trie.erase("b.c");
+        CHECK(erased);
+        CHECK(trie.size() == 2);
+        CHECK(trie.find("b.c") == trie.end());
+        CHECK_FALSE(trie.contains("b.c"));
+
+        erased = trie.erase("a");
+        CHECK(erased);
+        CHECK(trie.size() == 1);
+        CHECK(trie.find("a") == trie.end());
+        CHECK_FALSE(trie.contains("a"));
+
+        erased = trie.erase("a");
+        CHECK_FALSE(erased);
+        CHECK(trie.size() == 1);
+
+        erased = trie.erase("b");
+        CHECK(erased);
+        CHECK(trie.empty());
+        CHECK(trie.find("b") == trie.end());
+        CHECK_FALSE(trie.contains("b"));
+    }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
+{
+    // TODO
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Iterator Conversions", "[WildcardTrie]" )
+{
+    // TODO
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Mixed Iterator Comparisons", "[WildcardTrie]" )
+{
+    // TODO
+}
