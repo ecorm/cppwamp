@@ -6,6 +6,7 @@
 
 #include "../uri.hpp"
 #include "../api.hpp"
+#include "../error.hpp"
 
 namespace wamp
 {
@@ -15,6 +16,11 @@ CPPWAMP_INLINE SplitUri tokenizeUri(const std::string uri)
 {
     static constexpr char separator = '.';
     SplitUri tokens;
+    if (uri.empty())
+    {
+        tokens.emplace_back();
+        return tokens;
+    }
 
     auto next = uri.cbegin();
     auto end = uri.cend();
@@ -41,6 +47,9 @@ CPPWAMP_INLINE SplitUri tokenizeUri(const std::string uri)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::string untokenizeUri(const SplitUri& labels)
 {
+    CPPWAMP_LOGIC_CHECK(!labels.empty(),
+                        "wamp::untokenizeUri labels cannot be empty");
+
     static constexpr char separator = '.';
     std::string uri;
     bool first = true;

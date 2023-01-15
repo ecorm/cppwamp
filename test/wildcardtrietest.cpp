@@ -39,34 +39,42 @@ void checkWildcardTrieContents(WildcardTrie<T>& t, const TrieTestPairList& pairs
 {
     std::map<SplitUri, T> m(pairs.begin(), pairs.end());
     const WildcardTrie<T>& c = t;
-    CHECK(c.empty() == m.empty());
-    CHECK(c.size() == m.size());
-    CHECK(c.begin() != c.end());
-    CHECK(t.begin() != t.end());
-    CHECK(t.cbegin() != t.cend());
+    CHECK( c.empty() == m.empty() );
+    CHECK( c.size() == m.size() );
+    CHECK( c.begin() != c.end() );
+    CHECK( t.begin() != t.end() );
+    CHECK( t.cbegin() != t.cend() );
 
     auto ti = t.begin();
+    auto ci = c.begin();
     auto mi = m.begin();
     for (unsigned i=0; i<m.size(); ++i)
     {
         auto key = mi->first;
+        auto uri = untokenizeUri(key);
         auto value = mi->second;
-        INFO("at position " << i);
-        CHECK(*ti == value);
-        CHECK(ti.value() == value);
-        CHECK(ti.key() == key);
-        CHECK(c.at(key) == value);
-        CHECK(t.at(key) == value);
-        CHECK(t[key] == value);
-        CHECK(t[SplitUri{key}] == value);
-        CHECK(c.count(key) == 1);
-        CHECK(c.contains(key));
+        INFO( "at position " << i );
 
-        auto cf = c.find(key);
-        REQUIRE( cf != c.end() );
-        CHECK( *cf == value );
-        CHECK( cf.key() == key );
-        CHECK( cf.value() == value );
+        REQUIRE( ti != t.end() );
+        REQUIRE( ci != c.end() );
+
+        CHECK( *ti == value );
+        CHECK( *ci == value );
+        CHECK( ti.value() == value );
+        CHECK( ci.value() == value );
+        CHECK( ti.key() == key );
+        CHECK( ci.key() == key );
+        CHECK( c.at(key) == value );
+        CHECK( t.at(key) == value );
+        CHECK( c.at(uri) == value );
+        CHECK( t.at(uri) == value );
+        CHECK( t[key] == value );
+        CHECK( t[SplitUri{key}] == value );
+        CHECK( t[uri] == value );
+        CHECK( c.count(key) == 1 );
+        CHECK( c.count(uri) == 1 );
+        CHECK( c.contains(key) );
+        CHECK( c.contains(uri) );
 
         auto mf = t.find(key);
         REQUIRE( mf != t.end() );
@@ -74,15 +82,41 @@ void checkWildcardTrieContents(WildcardTrie<T>& t, const TrieTestPairList& pairs
         CHECK( mf.key() == key );
         CHECK( mf.value() == value );
 
+        mf = t.find(uri);
+        REQUIRE( mf != t.end() );
+        CHECK( *mf == value );
+        CHECK( mf.key() == key );
+        CHECK( mf.uri() == uri );
+        CHECK( mf.value() == value );
+
+        auto cf = c.find(key);
+        REQUIRE( cf != c.end() );
+        CHECK( *cf == value );
+        CHECK( cf.key() == key );
+        CHECK( cf.uri() == uri );
+        CHECK( cf.value() == value );
+
+        cf = c.find(uri);
+        REQUIRE( cf != c.end() );
+        CHECK( *cf == value );
+        CHECK( cf.key() == key );
+        CHECK( cf.value() == value );
+
         ++ti;
+        ++ci;
         ++mi;
     }
+
+    CHECK( ti == t.end() );
+    CHECK( ci == c.end() );
 }
 
 //------------------------------------------------------------------------------
-using TrieInsertionResult = std::pair<WildcardTrie<int>::iterator, bool>;
+using TrieInsertionResult = std::pair<Trie::iterator, bool>;
 using TrieInsertionOp =
-    std::function<TrieInsertionResult (WildcardTrie<int>&, TrieTestPair)>;
+    std::function<TrieInsertionResult (Trie&, TrieTestPair)>;
+using TrieInsertionWithUriOp =
+    std::function<TrieInsertionResult (Trie&, const std::string&, int)>;
 
 //------------------------------------------------------------------------------
 void checkWildcardTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
@@ -118,14 +152,79 @@ void checkWildcardTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
     }
 }
 
+//------------------------------------------------------------------------------
+void checkWildcardTrieInsertionWithUri(const TrieTestPairList& pairs,
+                                       bool clobbers, TrieInsertionWithUriOp op)
+{
+    WildcardTrie<int> trie;
+    for (unsigned i=0; i<pairs.size(); ++i)
+    {
+        INFO( "for pairs[" << i << "]" );
+        const auto& pair = pairs[i];
+        auto result = op(trie, untokenizeUri(pair.first), pair.second);
+        CHECK(result.second);
+        CHECK(*result.first == pair.second);
+        CHECK(result.first.value() == pair.second);
+        CHECK(result.first.key() == pair.first);
+        CHECK(result.first == trie.find(pair.first));
+    }
+    checkWildcardTrieContents(trie, pairs);
+
+    // Check duplicate insertions
+    for (unsigned i=0; i<pairs.size(); ++i)
+    {
+        INFO( "for pairs[" << i << "]" );
+        auto pair = pairs[i];
+        pair.second = -pair.second;
+        auto result = op(trie, untokenizeUri(pair.first), pair.second);
+        CHECK_FALSE(result.second);
+        CHECK(result.first.key() == pair.first);
+        if (!clobbers)
+            pair.second = -pair.second;
+        CHECK(*result.first == pair.second);
+        CHECK(result.first.value() == pair.second);
+    }
+}
+
+//------------------------------------------------------------------------------
+void checkBadWildcardTrieAccess(const std::string& info,
+                                const TrieTestPairList& pairs,
+                                const SplitUri& key)
+{
+    INFO(info);
+    SplitUri emptyKey;
+    auto uri = untokenizeUri(key);
+    Trie t(pairs.begin(), pairs.end());
+    const Trie& c = t;
+    CHECK_THROWS_AS(t.at(emptyKey), std::out_of_range);
+    CHECK_THROWS_AS(c.at(emptyKey), std::out_of_range);
+    CHECK_THROWS_AS(t.at(key), std::out_of_range);
+    CHECK_THROWS_AS(c.at(key), std::out_of_range);
+    CHECK_THROWS_AS(t.at(uri), std::out_of_range);
+    CHECK_THROWS_AS(c.at(uri), std::out_of_range);
+    CHECK(t.find(emptyKey) == t.end());
+    CHECK(c.find(emptyKey) == c.end());
+    CHECK(t.find(key) == t.end());
+    CHECK(c.find(key) == c.end());
+    CHECK(t.find(uri) == t.end());
+    CHECK(c.find(uri) == c.end());
+    CHECK(c.count(emptyKey) == 0);
+    CHECK(c.count(key) == 0);
+    CHECK(c.count(uri) == 0);
+    CHECK_FALSE(c.contains(emptyKey));
+    CHECK_FALSE(c.contains(key));
+    CHECK_FALSE(c.contains(uri));
+}
+
 } // anonymous namespace
+
 
 //------------------------------------------------------------------------------
 TEST_CASE( "URI Tokenization", "[WildcardTrie]" )
 {
     std::vector<std::pair<std::string, SplitUri>> inputs =
     {
-        {"",      {}},
+        {"",      {""}},
         {".",     {"", ""}},
         {"..",    {"", "", ""}},
         {"..a",   {"", "", "a"}},
@@ -155,7 +254,8 @@ TEST_CASE( "URI Tokenization", "[WildcardTrie]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "URI Wildcard Matching", "[WildcardTrie]" )
 {
-    // Same test vectors as used by Crossbar
+    // Same test vectors as used by Crossbar, with an additional
+    // empty pattern URI.
     std::vector<std::string> patterns =
     {
          "", ".", "a..c", "a.b.", "a..", ".b.", "..", "x..", ".x.", "..x",
@@ -164,7 +264,7 @@ TEST_CASE( "URI Wildcard Matching", "[WildcardTrie]" )
 
     std::vector<std::pair<std::string, std::set<std::string>>> inputs =
     {
-        {"abc",     {}},
+        {"abc",     {""}},
         {"a.b",     {"."}},
         {"a.b.c",   {"a..c", "a.b.", "a..", ".b.", ".."}},
         {"a.x.c",   {"a..c", "a..", "..", ".x."}},
@@ -315,6 +415,15 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
                 });
         };
 
+        SECTION( "via insert_or_assign with URI string" )
+        {
+            checkWildcardTrieInsertionWithUri(input, true,
+                [](Trie& t, const std::string& uri, int value)
+                {
+                    return t.insert_or_assign(uri, value);
+                });
+        };
+
         SECTION( "via emplace" )
         {
             checkWildcardTrieInsertion(input, false,
@@ -334,6 +443,15 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
                 {
                     return t.try_emplace(std::move(p.first), p.second);
                 });
+        };
+
+        SECTION( "via try_emplace with URI string" )
+        {
+            checkWildcardTrieInsertionWithUri(input, false,
+            [](Trie& t, const std::string& uri, int value)
+            {
+                return t.try_emplace(uri, value);
+            });
         };
 
         SECTION( "via operator[]" )
@@ -356,6 +474,17 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
                     t[std::move(p.first)] = p.second;
                     return std::make_pair(t.find(p.first), inserted);
                 });
+        };
+
+        SECTION( "via operator[] with URI string" )
+        {
+            checkWildcardTrieInsertionWithUri(input, true,
+            [](Trie& t, const std::string& uri, int value)
+            {
+                bool inserted = t.find(uri) == t.end();
+                t[uri] = value;
+                return std::make_pair(t.find(uri), inserted);
+            });
         };
     }
 }
@@ -460,51 +589,122 @@ TEST_CASE( "Reusing Moved WildcardTrie", "[WildcardTrie]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Bad Access/Lookups", "[WildcardTrie]" )
 {
-    SplitUri emptyKey;
-    SplitUri key{"a"};
-
-    SECTION( "empty trie" )
+    auto check = [](const std::string& info, const TrieTestPairList& pairs,
+                    const SplitUri& key)
     {
-        Trie t;
-        const Trie& c = t;
-        CHECK_THROWS_AS(t.at(emptyKey), std::out_of_range);
-        CHECK_THROWS_AS(c.at(emptyKey), std::out_of_range);
-        CHECK_THROWS_AS(t.at(key), std::out_of_range);
-        CHECK_THROWS_AS(c.at(key), std::out_of_range);
-        CHECK(t.find(emptyKey) == t.end());
-        CHECK(c.find(emptyKey) == c.end());
-        CHECK(t.find(key) == t.end());
-        CHECK(c.find(key) == c.end());
-        CHECK(c.count(emptyKey) == 0);
-        CHECK(c.count(key) == 0);
-        CHECK_FALSE(c.contains(emptyKey));
-        CHECK_FALSE(c.contains(key));
+        checkBadWildcardTrieAccess(info, pairs, key);
     };
 
-    SECTION( "populated trie" )
-    {
-        Trie t({ {{"b"}, 1} });
-        const Trie& c = t;
-        CHECK_THROWS_AS(t.at(emptyKey), std::out_of_range);
-        CHECK_THROWS_AS(c.at(emptyKey), std::out_of_range);
-        CHECK_THROWS_AS(t.at(key), std::out_of_range);
-        CHECK_THROWS_AS(c.at(key), std::out_of_range);
-        CHECK(t.find(emptyKey) == t.end());
-        CHECK(c.find(emptyKey) == c.end());
-        CHECK(t.find(key) == t.end());
-        CHECK(c.find(key) == c.end());
-        CHECK(c.count(emptyKey) == 0);
-        CHECK(c.count(key) == 0);
-        CHECK_FALSE(c.contains(emptyKey));
-        CHECK_FALSE(c.contains(key));
-    };
+    check("empty trie",        {},                {"a"});
+    check("populated trie",    {{{"a"}, 1}},      {"b"});
+    check("key is wildcard",   {{{"a"}, 1}},      {""});
+    check("trie has wildcard", {{{""}, 1}},       {"a"});
+    check("key is prefix",     {{{"a", "b"}, 1}}, {"a"});
+    check("key is partial",    {{{"a", "b"}, 1}}, {"a", "c"});
+    check("key too long",      {{{"a"}, 1}},      {"a", "b"});
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WildcardTrie Test Case", "[WildcardTrie]" )
+TEST_CASE( "WildcardTrie Pattern Matching", "[WildcardTrie]" )
 {
-    SECTION( "some section" )
+    // Same test vectors as used by Crossbar, with an additional
+    // empty pattern URI.
+    std::vector<std::string> patterns =
     {
+        "", ".", "a..c", "a.b.", "a..", ".b.", "..", "x..", ".x.", "..x",
+        "x..x", "x.x.", ".x.x", "x.x.x"
     };
+
+    std::vector<std::pair<std::string, std::set<std::string>>> inputs =
+    {
+        {"abc",     {""}},
+        {"a.b",     {"."}},
+        {"a.b.c",   {"a..c", "a.b.", "a..", ".b.", ".."}},
+        {"a.x.c",   {"a..c", "a..", "..", ".x."}},
+        {"a.b.x",   {"a.b.", "a..", ".b.", "..", "..x"}},
+        {"a.x.x",   {"a..", "..", ".x.", "..x", ".x.x"}},
+        {"x.y.z",   {"..", "x.."}},
+        {"a.b.c.d", {}},
+
+        // Additional corner cases where looked-up URIs have empty labels
+        {"",        {""}},
+        {".",       {"."}},
+        {".b",      {"."}},
+        {"a.",      {"."}},
+        {"..c",     {".."}},
+        {".b.",     {".b.", ".."}},
+        {".b.c",    {".b.", ".."}},
+        {"a..",     {"a..", ".."}},
+        {"a..c",    {"a..c", "a..", ".."}},
+        {"a.b.",    {"a.b.", "a..", ".b.", ".."}},
+        {".x.",     {"..", ".x."}},
+        {".x.c",    {"..", ".x."}},
+        {"a.x.",    {"a..", "..", ".x."}},
+        {"..x",     {"..", "..x"}},
+        {".b.x",    {".b.", "..", "..x"}},
+        {"a..x",    {"a..", "..", "..x"}},
+        {".x.x",    {"..", ".x.", "..x", ".x.x"}},
+        {"..z",     {".."}},
+        {".y.",     {".."}},
+        {".y.z",    {".."}},
+        {"x..",     {"..", "x.."}},
+        {"x.y.z",   {"..", "x.."}},
+        {"x..z",    {"..", "x.."}},
+        {"x.y.",    {"..", "x.."}},
+        {"...",     {}},
+        {"a...",    {}},
+        {"a.b..",   {}},
+        {".b..",    {}},
+        {"a..c.",   {}},
+        {"a.b.c.d", {}},
+        {"a.b.c.",  {}},
+        {"a.b..d",  {}},
+        {"a..c.d",  {}},
+        {".b.c.d",  {}},
+    };
+
+    WildcardTrie<std::string> trie;
+    for (const auto& pattern: patterns)
+        trie.insert_or_assign(pattern, pattern);
+
+    for (unsigned i=0; i<inputs.size(); ++i)
+    {
+        INFO( "for input[" << i << "]" );
+        auto uri = inputs[i].first;
+        auto key = tokenizeUri(uri);
+        auto expectedHits = inputs[i].second;
+
+        auto range = trie.match_range(key);
+        auto match = range.first;
+        std::set<std::string> hits;
+        for (unsigned i = 0; i != expectedHits.size(); ++i)
+        {
+            REQUIRE(match != range.second);
+            auto matchUri = untokenizeUri(match.key());
+            CHECK(match.uri() == matchUri);
+            CHECK( match.value() == matchUri );
+            CHECK( *match == matchUri );
+            REQUIRE( hits.emplace(matchUri).second );
+            ++match;
+        }
+        CHECK(match == range.second);
+        CHECK(hits == expectedHits);
+
+        range = trie.match_range(uri);
+        match = range.first;
+        hits.clear();
+        for (unsigned i = 0; i != expectedHits.size(); ++i)
+        {
+            REQUIRE( match != range.second );
+            auto matchUri = untokenizeUri(match.key());
+            CHECK( match.uri() == matchUri );
+            CHECK( match.value() == matchUri );
+            CHECK( *match == matchUri );
+            REQUIRE( hits.emplace(matchUri).second );
+            ++match;
+        }
+        CHECK( match == range.second );
+        CHECK(hits == expectedHits);
+    }
 }
 

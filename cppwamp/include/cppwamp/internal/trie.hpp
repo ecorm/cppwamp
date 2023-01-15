@@ -376,6 +376,8 @@ private:
             node = node->parent;
             if (!node->isSentinel())
                 ++iter;
+            else
+                iter = node->children.end();
         }
     }
 
@@ -478,6 +480,7 @@ public:
     using iterator_category = std::forward_iterator_tag;
     using difference_type   = std::ptrdiff_t;
     using key_type          = SplitUri;
+    using string_type       = typename SplitUri::value_type;
     using value_type        = typename std::remove_cv<T>::type;
     using pointer   = typename std::conditional<IsMutable, T*, const T*>::type;
     using reference = typename std::conditional<IsMutable, T&, const T&>::type;
@@ -500,7 +503,9 @@ public:
         return *this;
     }
 
-    SplitUri key() const {return cursor_.generateKey();}
+    key_type key() const {return cursor_.generateKey();}
+
+    string_type uri() const {return untokenizeUri(key());}
 
     reference value() {return cursor_.iter->second.value;}
 
@@ -569,6 +574,7 @@ public:
     using iterator_category = std::forward_iterator_tag;
     using difference_type   = std::ptrdiff_t;
     using key_type          = SplitUri;
+    using string_type       = typename SplitUri::value_type;
     using value_type        = typename std::remove_cv<T>::type;
     using pointer   = typename std::conditional<IsMutable, T*, const T*>::type;
     using reference = typename std::conditional<IsMutable, T&, const T&>::type;
@@ -592,7 +598,9 @@ public:
         return *this;
     }
 
-    SplitUri key() const {return cursor_.generateKey();}
+    key_type key() const {return cursor_.generateKey();}
+
+    string_type uri() const {return untokenizeUri(key());}
 
     reference value() {return cursor_.iter->second.value;}
 
@@ -741,11 +749,8 @@ public:
     // Does not invalidate iterators, except the end iterator, as permitted
     // by https://cplusplus.github.io/LWG/lwg-active.html#2321.
     WildcardTrie(WildcardTrie&& rhs) noexcept
-        : size_(rhs.size_)
     {
-        root_ = std::move(rhs.root_);
-        rhs.root_.reset();
-        rhs.size_ = 0;
+        moveFrom(rhs);
     }
 
     template <typename TInputPairIterator>
@@ -770,11 +775,7 @@ public:
     // by https://cplusplus.github.io/LWG/lwg-active.html#2321.
     WildcardTrie& operator=(WildcardTrie&& rhs) noexcept
     {
-        root_ = std::move(rhs.root_);
-        size_ = rhs.size_;
-        if (root_)
-            root_->parent = &sentinel_;
-        rhs.size_ = 0;
+        moveFrom(rhs);
         return *this;
     }
 
@@ -801,6 +802,16 @@ public:
         if (ctx.isSentinel())
             throw std::out_of_range("wamp::WildcardTrie::at key out of range");
         return ctx.iter->second.value;
+    }
+
+    mapped_type& at(const string_type& uri)
+    {
+        return at(tokenizeUri(uri));
+    }
+
+    const mapped_type& at(const string_type& uri) const
+    {
+        return at(tokenizeUri(uri));
     }
 
     mapped_type& operator[](const key_type& key)
@@ -1022,6 +1033,15 @@ public:
 private:
     using Node = WildcardTrieNode<T>;
     using Cursor = WildcardTrieCursor<T>;
+
+    void moveFrom(WildcardTrie& rhs) noexcept
+    {
+        root_ = std::move(rhs.root_);
+        size_ = rhs.size_;
+        if (root_)
+            root_->parent = &sentinel_;
+        rhs.size_ = 0;
+    }
 
     Cursor rootCursor()
     {
