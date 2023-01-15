@@ -185,7 +185,7 @@ public:
 
     void locate(const Key& key)
     {
-        Node* root = parent;
+        Node* sentinel = node->parent;
         bool found = false;
 
         if (!key.empty())
@@ -194,29 +194,29 @@ public:
             for (Level level = 0; level<key.size(); ++level)
             {
                 const auto& label = key[level];
-                iter = parent->children.find(label);
-                if (iter == parent->children.end())
+                iter = node->children.find(label);
+                if (iter == node->children.end())
                 {
                     found = false;
                     break;
                 }
 
                 if (level < key.size() - 1)
-                    parent = &(iter->second);
+                    node = &(iter->second);
             }
             found = found && iter->second.isTerminal;
         }
 
         if (!found)
         {
-            parent = nullptr;
-            iter = root->parent->children.end();
+            node = sentinel;
+            iter = sentinel->children.end();
         }
     }
 
     Key generateKey() const
     {
-        if (parent == nullptr || iter == parent->children.end())
+        if (node == nullptr || iter == node->children.end())
             return {};
         return iter->second.generateKey();
     }
@@ -237,10 +237,10 @@ public:
         for (; level < tokenCount; ++level)
         {
             const auto& label = key[level];
-            iter = parent->children.find(label);
-            if (iter == parent->children.end())
+            iter = node->children.find(label);
+            if (iter == node->children.end())
                 break;
-            parent = &(iter->second);
+            node = &(iter->second);
         }
 
         // Check if node already exists at the destination level
@@ -248,11 +248,11 @@ public:
         if (level == tokenCount)
         {
             bool placed = false;
-            auto& node = iter->second;
-            parent = node.parent;
-            placed = !node.isTerminal;
+            auto& child = iter->second;
+            node = child.parent;
+            placed = !child.isTerminal;
             if (placed || clobber)
-                node.setValue(std::forward<Us>(args)...);
+                child.setValue(std::forward<Us>(args)...);
             return placed;
         }
 
@@ -260,9 +260,9 @@ public:
         assert(level < tokenCount);
         if (tokenCount - level == 1)
         {
-            iter = parent->addTerminal(key[level], std::forward<Us>(args)...);
+            iter = node->addTerminal(key[level], std::forward<Us>(args)...);
             iter->second.position = iter;
-            iter->second.parent = parent;
+            iter->second.parent = node;
             return true;
         }
 
@@ -270,8 +270,8 @@ public:
         Node chain;
         auto label = std::move(key[level]);
         chain.buildChain(std::move(key), level, std::forward<Us>(args)...);
-        iter = parent->addChain(std::move(label), std::move(chain));
-        parent = iter->second.parent;
+        iter = node->addChain(std::move(label), std::move(chain));
+        node = iter->second.parent;
         return true;
     }
 
@@ -280,11 +280,11 @@ public:
         // Erase the terminal node, then all obsolete links up the chain until
         // we hit another terminal node.
         iter->second.isTerminal = false;
-        while (iter->second.isTerminal && !parent->isRoot())
+        while (iter->second.isTerminal && !node->isRoot())
         {
-            parent->children.erase(iter);
-            iter = parent->position;
-            parent = parent->parent;
+            node->children.erase(iter);
+            iter = node->position;
+            node = node->parent;
         }
     }
 
@@ -309,7 +309,7 @@ public:
         Level level = 0;
         if (key.empty())
         {
-            iter = parent->children.end();
+            iter = node->children.end();
         }
         else if (!isMatch(key, 0))
         {
@@ -329,40 +329,40 @@ public:
         return level;
     }
 
-    bool isSentinel() const {return parent == nullptr;}
+    bool isSentinel() const {return node->parent == nullptr;}
 
     bool operator==(const WildcardTrieCursor& rhs) const
     {
-        return std::tie(parent, iter) == std::tie(rhs.parent, rhs.iter);
+        return std::tie(node, iter) == std::tie(rhs.node, rhs.iter);
     }
 
     bool operator!=(const WildcardTrieCursor& rhs) const
     {
-        return std::tie(parent, iter) != std::tie(rhs.parent, rhs.iter);
+        return std::tie(node, iter) != std::tie(rhs.node, rhs.iter);
     }
 
-    Node* parent = nullptr;
+    Node* node = nullptr;
     TreeIterator iter = {};
 
 private:
     WildcardTrieCursor(Node& root, TreeIterator iter)
-        : parent(&root),
+        : node(&root),
           iter(iter)
     {}
 
     bool isTerminal() const
     {
-        return (iter != parent->children.end()) && iter->second.isTerminal;
+        return (iter != node->children.end()) && iter->second.isTerminal;
     }
 
     void advanceDepthFirst()
     {
-        if (iter != parent->children.end())
+        if (iter != node->children.end())
         {
             if (!iter->second.isLeaf())
             {
                 auto& child = iter->second;
-                parent = &child;
+                node = &child;
                 iter = child.children.begin();
             }
             else
@@ -370,11 +370,11 @@ private:
                 ++iter;
             }
         }
-        else if (!parent->isSentinel())
+        else if (!node->isSentinel())
         {
-            iter = parent->position;
-            parent = parent->parent;
-            if (!parent->isSentinel())
+            iter = node->position;
+            node = node->parent;
+            if (!node->isSentinel())
                 ++iter;
         }
     }
@@ -383,7 +383,7 @@ private:
     {
         assert(!key.empty());
         const Level maxLevel = key.size() - 1;
-        if ((level != maxLevel) || (iter == parent->children.end()))
+        if ((level != maxLevel) || (iter == node->children.end()))
             return false;
 
         // All nodes above the current level are matches. Only the bottom
@@ -400,7 +400,7 @@ private:
     Level findNextMatchCandidate(const Key& key, Level level)
     {
         const Level maxLevel = key.size() - 1;
-        if (iter != parent->children.end())
+        if (iter != node->children.end())
         {
             assert(level < key.size());
             const auto& expectedLabel = key[level];
@@ -414,7 +414,7 @@ private:
         else if (!isSentinel())
         {
             level = ascend(level);
-            if (!isSentinel() || iter != parent->children.end())
+            if (!isSentinel() || iter != node->children.end())
                 findLabelInLevel(key[level]);
         }
         return level;
@@ -422,8 +422,8 @@ private:
 
     Level ascend(Level level)
     {
-        iter = parent->position;
-        parent = parent->parent;
+        iter = node->position;
+        node = node->parent;
         if (!isSentinel())
         {
             assert(level > 0);
@@ -434,9 +434,9 @@ private:
 
     Level descend(Level level)
     {
-        auto& node = iter->second;
-        parent = &node;
-        iter = node.children.begin();
+        auto& child = iter->second;
+        node = &child;
+        iter = child.children.begin();
         return level + 1;
     }
 
@@ -457,14 +457,14 @@ private:
             }
         };
 
-        if (iter == parent->children.begin())
+        if (iter == node->children.begin())
         {
-            iter = std::lower_bound(++iter, parent->children.end(), label,
+            iter = std::lower_bound(++iter, node->children.end(), label,
                                     Compare{});
         }
         else
         {
-            iter = parent->children.end();
+            iter = node->children.end();
         }
     }
 };
@@ -1058,7 +1058,7 @@ private:
 
     Cursor locate(const key_type& key)
     {
-        if (empty())
+        if (empty() || key.empty())
             return sentinelCursor();
         auto ctx = rootCursor();
         ctx.locate(key);

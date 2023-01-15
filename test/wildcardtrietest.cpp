@@ -18,8 +18,8 @@ namespace
 
 //------------------------------------------------------------------------------
 using Trie = WildcardTrie<int>;
-
-using TrieTestPairs = std::vector<std::pair<const SplitUri, int>>;
+using TrieTestPair = std::pair<const SplitUri, int>;
+using TrieTestPairList = std::vector<TrieTestPair>;
 
 //------------------------------------------------------------------------------
 template <typename T>
@@ -35,7 +35,7 @@ void checkEmptyWildcardTrie(WildcardTrie<T>& t)
 
 //------------------------------------------------------------------------------
 template <typename T>
-void checkWildcardTrieContents(WildcardTrie<T>& t, const TrieTestPairs& pairs)
+void checkWildcardTrieContents(WildcardTrie<T>& t, const TrieTestPairList& pairs)
 {
     std::map<SplitUri, T> m(pairs.begin(), pairs.end());
     const WildcardTrie<T>& c = t;
@@ -80,13 +80,12 @@ void checkWildcardTrieContents(WildcardTrie<T>& t, const TrieTestPairs& pairs)
 }
 
 //------------------------------------------------------------------------------
+using TrieInsertionResult = std::pair<WildcardTrie<int>::iterator, bool>;
 using TrieInsertionOp =
-    std::function<
-        std::pair<WildcardTrie<int>::iterator, bool>
-            (WildcardTrie<int>&, std::pair<const SplitUri, int>)>;
+    std::function<TrieInsertionResult (WildcardTrie<int>&, TrieTestPair)>;
 
 //------------------------------------------------------------------------------
-void checkWildcardTrieInsertion(const TrieTestPairs& pairs, bool clobbers,
+void checkWildcardTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
                                 TrieInsertionOp op)
 {
     WildcardTrie<int> trie;
@@ -248,10 +247,9 @@ TEST_CASE( "Empty WildcardTrie Construction", "[WildcardTrie]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
 {
-    using Pair = std::pair<const SplitUri, int>;
-    using Pairs = std::vector<Pair>;
+    using Pair = TrieTestPair;
 
-    std::vector<Pairs> inputs =
+    std::vector<TrieTestPairList> inputs =
     {
         { {{""},            1} },
         { {{"a"},           1} },
@@ -365,10 +363,7 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Inializer Lists", "[WildcardTrie]" )
 {
-    using Pair = std::pair<const SplitUri, int>;
-    using Pairs = std::vector<Pair>;
-
-    Pairs pairs({ {{"a", "b", "c"}, 1}, {{"a"}, 2} });
+    TrieTestPairList pairs({ {{"a", "b", "c"}, 1}, {{"a"}, 2} });
 
     SECTION( "constuctor taking initializer list" )
     {
@@ -394,10 +389,7 @@ TEST_CASE( "WildcardTrie Inializer Lists", "[WildcardTrie]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
 {
-    using Pair = std::pair<const SplitUri, int>;
-    using Pairs = std::vector<Pair>;
-
-    std::vector<Pairs> inputs = {
+    std::vector<TrieTestPairList> inputs = {
         { {{"a"},           1} },
         { {{"a", "b", "c"}, 1}, {{"a", "b"}, 2}},
         { {{"a", "b", "c"}, 1}, {{"d", "e"}, 2}},
@@ -439,6 +431,73 @@ TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
             checkWildcardTrieContents(b, input);
         };
     }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Reusing Moved WildcardTrie", "[WildcardTrie]" )
+{
+    TrieTestPairList pairs({ {{"a", "b", "c"}, 1}, {{"a"}, 2} });
+    Trie a({ {{"d"}, 3} });
+
+    SECTION( "move constructor" )
+    {
+        Trie b(std::move(a));
+        checkEmptyWildcardTrie(a);
+        a.insert(pairs.begin(), pairs.end());
+        checkWildcardTrieContents(a, pairs);
+    }
+
+    SECTION( "move assignment" )
+    {
+        Trie b;
+        b = (std::move(a));
+        checkEmptyWildcardTrie(a);
+        a.insert(pairs.begin(), pairs.end());
+        checkWildcardTrieContents(a, pairs);
+    }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Bad Access/Lookups", "[WildcardTrie]" )
+{
+    SplitUri emptyKey;
+    SplitUri key{"a"};
+
+    SECTION( "empty trie" )
+    {
+        Trie t;
+        const Trie& c = t;
+        CHECK_THROWS_AS(t.at(emptyKey), std::out_of_range);
+        CHECK_THROWS_AS(c.at(emptyKey), std::out_of_range);
+        CHECK_THROWS_AS(t.at(key), std::out_of_range);
+        CHECK_THROWS_AS(c.at(key), std::out_of_range);
+        CHECK(t.find(emptyKey) == t.end());
+        CHECK(c.find(emptyKey) == c.end());
+        CHECK(t.find(key) == t.end());
+        CHECK(c.find(key) == c.end());
+        CHECK(c.count(emptyKey) == 0);
+        CHECK(c.count(key) == 0);
+        CHECK_FALSE(c.contains(emptyKey));
+        CHECK_FALSE(c.contains(key));
+    };
+
+    SECTION( "populated trie" )
+    {
+        Trie t({ {{"b"}, 1} });
+        const Trie& c = t;
+        CHECK_THROWS_AS(t.at(emptyKey), std::out_of_range);
+        CHECK_THROWS_AS(c.at(emptyKey), std::out_of_range);
+        CHECK_THROWS_AS(t.at(key), std::out_of_range);
+        CHECK_THROWS_AS(c.at(key), std::out_of_range);
+        CHECK(t.find(emptyKey) == t.end());
+        CHECK(c.find(emptyKey) == c.end());
+        CHECK(t.find(key) == t.end());
+        CHECK(c.find(key) == c.end());
+        CHECK(c.count(emptyKey) == 0);
+        CHECK(c.count(key) == 0);
+        CHECK_FALSE(c.contains(emptyKey));
+        CHECK_FALSE(c.contains(key));
+    };
 }
 
 //------------------------------------------------------------------------------
