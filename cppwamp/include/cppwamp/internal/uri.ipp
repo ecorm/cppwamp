@@ -76,4 +76,11 @@ CPPWAMP_INLINE bool uriMatchesWildcardPattern(const SplitUri& uri,
     return true;
 }
 
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool uriMatchesWildcardPattern(const std::string& uri,
+                                              const std::string& pattern)
+{
+    return uriMatchesWildcardPattern(tokenizeUri(uri), tokenizeUri(pattern));
+}
+
 } // namespace wamp

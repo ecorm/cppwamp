@@ -321,6 +321,9 @@ TEST_CASE( "URI Wildcard Matching", "[WildcardTrie]" )
                                                         tokenizeUri(pattern));
             bool expected = matches.count(pattern) == 1;
             CHECK(uriMatches == expected);
+
+            uriMatches = uriMatchesWildcardPattern(uri, pattern);
+            CHECK(uriMatches == expected);
         }
     }
 }

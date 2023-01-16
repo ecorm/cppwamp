@@ -38,6 +38,12 @@ std::string untokenizeUri(const SplitUri& labels);
 //------------------------------------------------------------------------------
 bool uriMatchesWildcardPattern(const SplitUri& uri, const SplitUri& pattern);
 
+//------------------------------------------------------------------------------
+/** Determines if the given URI matches the given wildcard pattern. */
+//------------------------------------------------------------------------------
+bool uriMatchesWildcardPattern(const std::string& uri,
+                               const std::string& pattern);
+
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
