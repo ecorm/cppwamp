@@ -277,14 +277,23 @@ public:
 
     void eraseFromHere()
     {
-        // Erase the terminal node, then all obsolete links up the chain until
-        // we hit another terminal node.
         iter->second.isTerminal = false;
-        while (iter->second.isTerminal && !node->isRoot())
+        if (iter->second.isLeaf())
         {
-            node->children.erase(iter);
-            iter = node->position;
-            node = node->parent;
+            // Erase the terminal node, then all obsolete links up the chain
+            // until we hit another terminal node or the sentinel.
+            while (!iter->second.isTerminal && !node->isSentinel())
+            {
+                node->children.erase(iter);
+                iter = node->position;
+                node = node->parent;
+            }
+        }
+        else
+        {
+            // The terminal node to be erased has children, so we must
+            // preserve it and only clear its value.
+            iter->second.value = Value();
         }
     }
 
@@ -666,6 +675,7 @@ private:
     Cursor cursor_;
 
     template <typename> friend class WildcardTrie;
+    friend struct TestAccess;
 
     template <typename U, bool LM, bool RM>
     friend bool operator==(const WildcardTrieIterator<U, LM>& lhs,

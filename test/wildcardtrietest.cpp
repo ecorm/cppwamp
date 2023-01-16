@@ -13,6 +13,20 @@
 using namespace wamp;
 using namespace wamp::internal;
 
+namespace wamp { namespace internal
+{
+//------------------------------------------------------------------------------
+struct TestAccess
+{
+    template <typename T, bool M>
+    static WildcardTrieCursor<T> cursor(WildcardTrieIterator<T, M> iter)
+    {
+        return iter.cursor_;
+    }
+};
+
+} } // namespace wamp::internal
+
 namespace
 {
 
@@ -220,6 +234,39 @@ void checkBadWildcardTrieAccess(const std::string& info,
     CHECK_FALSE(c.contains(uri));
 }
 
+//------------------------------------------------------------------------------
+bool checkWildcardTrieUris(const Trie& t, const std::vector<std::string>& uris)
+{
+    REQUIRE(t.size() == uris.size());
+    bool same = true;
+    auto iter = t.begin();
+    for (unsigned i=0; i<uris.size(); ++i)
+    {
+        INFO("for uris[" << i << "]");
+        CHECK(iter.uri() == uris[i]);
+        same = same && (iter.uri() == uris[i]);
+        ++iter;
+    }
+    return same;
+}
+
+//------------------------------------------------------------------------------
+bool checkWildcardTrieIterators(const Trie& t,
+                                const std::vector<Trie::iterator>& expected)
+{
+    bool same = true;
+    REQUIRE((t.size() + 1) == expected.size());
+    auto iter = t.begin();
+    for (unsigned i=0; i<expected.size(); ++i)
+    {
+        INFO("for expected[" << i << "]");
+        CHECK(iter == expected[i]);
+        same = same && (iter == expected[i]);
+        ++iter;
+    }
+    return same;
+}
+
 } // anonymous namespace
 
 
@@ -360,6 +407,7 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
         { {{"a"}, 1},           {{"b"}, 2}},
         { {{"b"}, 1},           {{"a"}, 2}},
         { {{"a"}, 1},           {{"a", "b"}, 2}},
+        { {{"a"}, 1},           {{"a", "b", "c"}, 2}},
         { {{"a", "b"}, 1},      {{"a"}, 2}},
         { {{"a", "b"}, 1},      {{"b"}, 2}},
         { {{"a", "b"}, 1},      {{"b", "a"}, 2}},
@@ -855,85 +903,83 @@ TEST_CASE( "WildcardTrie Pattern Matching", "[WildcardTrie]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Erase", "[WildcardTrie]" )
 {
-    Trie trie({ {{"a"}, 1}, {{"b"}, 2}, {{"b", "c"}, 3} });
+    Trie trie({ {{"a"}, 1}, {{"a", "b", "c"}, 2}, {{"d"}, 3}, {{"d", "e"}, 4} });
+    auto rootNode = TestAccess::cursor(trie.begin()).node;
+    REQUIRE(rootNode->isRoot());
 
     SECTION( "erasing via iterator" )
     {
-        auto pos = trie.find("b.c");
-        REQUIRE(pos.uri() == "b.c");
+        auto pos = trie.find("a.b.c");
+        REQUIRE(pos != trie.end());
         auto iter = trie.erase(pos);
-        CHECK(iter == trie.end());
-        CHECK(trie.size() == 2);
-        CHECK(trie.find("b.c") == trie.end());
-        CHECK_FALSE(trie.contains("b.c"));
+        CHECK(iter == trie.find("d"));
+        CHECK(checkWildcardTrieUris(trie, {"a", "d", "d.e"}));
+        // Check pruning below "a" node
+        auto cursor = TestAccess::cursor(trie.find("a"));
+        CHECK(cursor.iter->second.children.empty());
+
+        pos = trie.find("d");
+        REQUIRE(pos != trie.end());
+        iter = trie.erase(pos);
+        CHECK(iter == trie.find("d.e"));
+        CHECK(checkWildcardTrieUris(trie, {"a", "d.e"}));
+        // Check non-terminal "d" node still exists
+        cursor = TestAccess::cursor(trie.find("d.e"));
+        CHECK(cursor.node->position->first == "d");
+        CHECK(!cursor.node->isTerminal);
 
         pos = trie.find("a");
-        REQUIRE(pos.uri() == "a");
+        REQUIRE(pos != trie.end());
         iter = trie.erase(pos);
-        CHECK(iter != trie.end());
-        CHECK(iter.uri() == "b");
-        CHECK(trie.size() == 1);
-        CHECK(trie.find("a") == trie.end());
-        CHECK_FALSE(trie.contains("a"));
+        CHECK(iter == trie.find("d.e"));
+        CHECK(checkWildcardTrieUris(trie, {"d.e"}));
+        // Check root node has a single "d" child node
+        REQUIRE(rootNode->children.size() == 1);
+        CHECK(rootNode->children.begin()->first == "d");
 
         // Re-insert last deleted key and erase it again
         auto inserted = trie.try_emplace("a", 1);
         REQUIRE(inserted.second);
-        CHECK(trie.contains("a"));
+        CHECK(checkWildcardTrieUris(trie, {"a", "d.e"}));
         iter = trie.erase(inserted.first);
-        CHECK(iter != trie.end());
-        CHECK(iter.uri() == "b");
-        CHECK(trie.size() == 1);
-        CHECK(trie.find("a") == trie.end());
-        CHECK_FALSE(trie.contains("a"));
+        CHECK(iter == trie.find("d.e"));
+        CHECK(checkWildcardTrieUris(trie, {"d.e"}));
+        // Check root node has a single "d" child node
+        REQUIRE(rootNode->children.size() == 1);
+        CHECK(rootNode->children.begin()->first == "d");
 
-        iter = trie.erase(trie.begin());
+        pos = trie.find("d.e");
+        REQUIRE(pos != trie.end());
+        iter = trie.erase(pos);
         CHECK(iter == trie.end());
         CHECK(trie.empty());
-        CHECK(trie.find("b") == trie.end());
-        CHECK_FALSE(trie.contains("b"));
+        // Check root node has no child nodes
+        CHECK(rootNode->children.empty());
     }
 
     SECTION( "erasing via key" )
     {
-        bool erased = trie.erase("z");
-        CHECK_FALSE(erased);
-        CHECK(trie.size() == 3);
+        CHECK_FALSE(trie.erase("z"));
+        CHECK(checkWildcardTrieUris(trie, {"a", "a.b.c", "d", "d.e"}));
 
-        erased = trie.erase("b.c");
-        CHECK(erased);
-        CHECK(trie.size() == 2);
-        CHECK(trie.find("b.c") == trie.end());
-        CHECK_FALSE(trie.contains("b.c"));
+        CHECK(trie.erase("a.b.c"));
+        CHECK(checkWildcardTrieUris(trie, {"a", "d", "d.e"}));
 
-        erased = trie.erase("a");
-        CHECK(erased);
-        CHECK(trie.size() == 1);
-        CHECK(trie.find("a") == trie.end());
-        CHECK_FALSE(trie.contains("a"));
+        CHECK(trie.erase("d"));
+        CHECK(checkWildcardTrieUris(trie, {"a", "d.e"}));
 
-        erased = trie.erase("a");
-        CHECK_FALSE(erased);
-        CHECK(trie.size() == 1);
+        CHECK(trie.erase("a"));
+        CHECK(checkWildcardTrieUris(trie, {"d.e"}));
 
         // Re-insert last deleted key and erase it again
         auto inserted = trie.try_emplace("a", 1);
         REQUIRE(inserted.second);
-        CHECK(trie.contains("a"));
-        erased = trie.erase("a");
-        CHECK(erased);
-        CHECK(trie.size() == 1);
-        CHECK(trie.find("a") == trie.end());
-        CHECK_FALSE(trie.contains("a"));
+        CHECK(trie.erase("a"));
+        CHECK(checkWildcardTrieUris(trie, {"d.e"}));
 
-        erased = trie.erase("b");
-        CHECK(erased);
+        CHECK(trie.erase("d.e"));
         CHECK(trie.empty());
-        CHECK(trie.find("b") == trie.end());
-        CHECK_FALSE(trie.contains("b"));
     }
-
-    // TODO: Check tree pruning
 }
 
 //------------------------------------------------------------------------------
@@ -1090,7 +1136,24 @@ TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Modification Preserves Iterators", "[WildcardTrie]" )
 {
-    // TODO: Various erases and insertions
+    Trie t;
+    auto z = t.end();
+    auto b = t.insert_or_assign("b", 2).first;
+    CHECK(checkWildcardTrieIterators(t, {b, z}));
+    auto a = t.insert_or_assign("a", 2).first;
+    CHECK(checkWildcardTrieIterators(t, {a, b, z}));
+    auto d = t.insert_or_assign("d", 4).first;
+    CHECK(checkWildcardTrieIterators(t, {a, b, d, z}));
+    auto bc = t.insert_or_assign("b.c", 3).first;
+    CHECK(checkWildcardTrieIterators(t, {a, b, bc, d, z}));
+    t.erase("b");
+    CHECK(checkWildcardTrieIterators(t, {a, bc, d, z}));
+    t.erase("a");
+    CHECK(checkWildcardTrieIterators(t, {bc, d, z}));
+    t.erase("d");
+    CHECK(checkWildcardTrieIterators(t, {bc, z}));
+    t.erase("b.c");
+    CHECK(checkWildcardTrieIterators(t, {z}));
 }
 
 //------------------------------------------------------------------------------
