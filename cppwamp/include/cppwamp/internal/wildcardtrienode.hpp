@@ -124,6 +124,9 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
         return key;
     }
 
+    // TODO: Use std::optional (or a pre-C++17 surrogate) for the value
+    // to avoid it needing to be default constructible.
+
     Tree children;
     Value value = {};
     TreeIterator position = {};

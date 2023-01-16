@@ -7,6 +7,11 @@
 #ifndef CPPWAMP_WILDCARDTRIE_HPP
 #define CPPWAMP_WILDCARDTRIE_HPP
 
+//------------------------------------------------------------------------------
+/** @file
+    @brief Contains the WildcardTrie template class. */
+//------------------------------------------------------------------------------
+
 #include <cassert>
 #include <cstddef>
 #include <initializer_list>
@@ -22,52 +27,88 @@
 namespace wamp
 {
 
+// Forward declaration
 namespace internal { struct WildcardTrieIteratorAccess; }
 
+//------------------------------------------------------------------------------
+/** Detects if an iterator is one of the types returned by WildcardTrie. */
+//------------------------------------------------------------------------------
+template <typename I, typename Enable = void>
+struct IsSpecialWildcardTrieIterator : std::false_type
+{};
+
+//------------------------------------------------------------------------------
+/** WildcardTrie iterator that advances to wildcard matches in
+    lexicographic order. */
 //------------------------------------------------------------------------------
 template <typename T, bool IsMutable>
 class CPPWAMP_API WildcardTrieMatchIterator
 {
 public:
+    /// The category of the iterator
     using iterator_category = std::forward_iterator_tag;
-    using difference_type   = std::ptrdiff_t;
-    using key_type          = SplitUri;
-    using string_type       = typename SplitUri::value_type;
-    using value_type        = T;
-    using pointer   = typename std::conditional<IsMutable, T*, const T*>::type;
+
+    /// Type used to identify distance between iterators
+    using difference_type = std::ptrdiff_t;
+
+    /// Type of the split URI associated with this iterator.
+    using key_type = SplitUri;
+
+    /// Type of the URI string associated with this iterator.
+    using string_type = typename SplitUri::value_type;
+
+    /** Type of the mapped value associated with this iterator.
+        @note It differs from std::map in that it's not a key-value pair. */
+    using value_type = T;
+
+    /// Pointer to the mapped value type iterated over.
+    using pointer = typename std::conditional<IsMutable, T*, const T*>::type;
+
+    /// Reference to the mapped value type iterated over.
     using reference = typename std::conditional<IsMutable, T&, const T&>::type;
 
+    /** Default constructor. */
     WildcardTrieMatchIterator();
 
-    // Allow construction of const iterator from mutable iterator
+    /** Implicit conversion from mutable iterator to const iterator. */
     template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
     WildcardTrieMatchIterator(const WildcardTrieMatchIterator<T, RM>& rhs);
 
-    // Allow assignment of const iterator from mutable iterator
+    /** Assignment from mutable iterator to const iterator. */
     template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
     WildcardTrieMatchIterator&
     operator=(const WildcardTrieMatchIterator<T, RM>& rhs);
 
+    /** Generates the split URI labels associated with the current element. */
     key_type key() const;
 
+    /** Generates the URI associated with the current element. */
     string_type uri() const;
 
+    /** Accesses the value associated with the current element. */
     reference value();
 
+    /** Accesses the value associated with the current element. */
     const value_type& value() const;
 
+    /** Accesses the value associated with the current element. */
     reference operator*();
 
+    /** Accesses the value associated with the current element. */
     const value_type& operator*() const;
 
+    /** Accesses a member of the value associated with the current element. */
     pointer operator->();
 
+    /** Accesses a member of the value associated with the current element. */
     const value_type* operator->() const;
 
-    // Prefix
+    /** Prefix increment, advances to the next matching key
+        in lexigraphic order. */
     WildcardTrieMatchIterator& operator++();
 
-    // Postfix
+    /** Postfix increment, advances to the next matching key
+        in lexigraphic order. */
     WildcardTrieMatchIterator operator++(int);
 
 private:
@@ -86,60 +127,108 @@ private:
     friend struct internal::WildcardTrieIteratorAccess;
 };
 
+/** Compares two match iterators for equality.
+    @relates WildcardTrieMatchIterator */
+template <typename T, bool LM, bool RM>
+bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
+                const WildcardTrieMatchIterator<T, RM>& rhs)
+{
+    return internal::WildcardTrieIteratorAccess::equals(lhs, rhs);
+};
 
+/** Compares two match iterators for inequality.
+    @relates WildcardTrieMatchIterator */
+template <typename T, bool LM, bool RM>
+bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
+                const WildcardTrieMatchIterator<T, RM>& rhs)
+{
+    return internal::WildcardTrieIteratorAccess::differs(lhs, rhs);
+};
+
+template <typename T, bool M>
+struct IsSpecialWildcardTrieIterator<WildcardTrieMatchIterator<T, M>>
+    : std::true_type
+{};
+
+
+//------------------------------------------------------------------------------
+/** WildcardTrie iterator that advances to contained values in
+    lexicographic order of their associated keys. */
 //------------------------------------------------------------------------------
 template <typename T, bool IsMutable>
 class CPPWAMP_API WildcardTrieIterator
 {
 public:
+    /// The category of the iterator.
     using iterator_category = std::forward_iterator_tag;
-    using difference_type   = std::ptrdiff_t;
-    using key_type          = SplitUri;
-    using string_type       = typename SplitUri::value_type;
-    using value_type        = T;
-    using pointer   = typename std::conditional<IsMutable, T*, const T*>::type;
+
+    /// Type used to identify distance between iterators.
+    using difference_type = std::ptrdiff_t;
+
+    /// Type of the split URI associated with this iterator.
+    using key_type = SplitUri;
+
+    /// Type of the URI string associated with this iterator.
+    using string_type = typename SplitUri::value_type;
+
+    /** Type of the mapped value associated with this iterator.
+        @note It differs from std::map in that it's not a key-value pair. */
+    using value_type = T;
+
+    /// Pointer to the mapped value type iterated over.
+    using pointer = typename std::conditional<IsMutable, T*, const T*>::type;
+
+    /// Reference to the mapped value type iterated over.
     using reference = typename std::conditional<IsMutable, T&, const T&>::type;
 
+
+    /** Default constructor. */
     WildcardTrieIterator();
 
-    // Allow implicit conversions from mutable iterator to const iterator.
+    /** Implicit conversion from mutable iterator to const iterator. */
     template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
     WildcardTrieIterator(const WildcardTrieIterator<T, M>& rhs);
 
-    // If const, allow implicit conversions from const/mutable match iterator,
-    // otherwise, only allow implicit conversions from mutable match iterator.
+    /** Implicit conversion from match iterator. */
     template <bool M, typename std::enable_if<(!IsMutable || M), int>::type = 0>
     WildcardTrieIterator(const WildcardTrieMatchIterator<T, M>& rhs);
 
-    // Allow assignment of const iterator from mutable iterator
+    /** Assignment from mutable iterator to const iterator. */
     template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
     WildcardTrieIterator& operator=(const WildcardTrieIterator<T, M>& rhs);
 
-    // If const, allow assignment from const/mutable match iterator,
-    // otherwise, only allow assignment from mutable match iterator.
+    /** Assignment from match iterator. */
     template <bool M, typename std::enable_if<(!IsMutable || M), int>::type = 0>
     WildcardTrieIterator& operator=(const WildcardTrieIterator<T, M>& rhs);
 
+    /** Generates the split URI labels associated with the current element. */
     key_type key() const;
 
+    /** Generates the URI associated with the current element. */
     string_type uri() const;
 
+    /** Accesses the value associated with the current element. */
     reference value();
 
+    /** Accesses the value associated with the current element. */
     const value_type& value() const;
 
+    /** Accesses the value associated with the current element. */
     reference operator*();
 
+    /** Accesses the value associated with the current element. */
     const value_type& operator*() const;
 
+    /** Accesses a member of the value associated with the current element. */
     pointer operator->();
 
+    /** Accesses a member of the value associated with the current element. */
     const value_type* operator->() const;
 
-    // Prefix
+    /** Prefix increment, advances to the next key in lexigraphic order. */
     WildcardTrieIterator& operator++();
 
-    // Postfix
+    /** Postfix increment, advances to the next key in lexigraphic order. */
     WildcardTrieIterator operator++(int);
 
 private:
@@ -154,6 +243,13 @@ private:
     friend struct internal::WildcardTrieIteratorAccess;
 };
 
+template <typename T, bool M>
+struct IsSpecialWildcardTrieIterator<WildcardTrieIterator<T, M>>
+    : std::true_type
+{};
+
+/** Compares two iterators for equality.
+    @relates WildcardTrieIterator */
 template <typename T, bool LM, bool RM>
 bool operator==(const WildcardTrieIterator<T, LM>& lhs,
                 const WildcardTrieIterator<T, RM>& rhs)
@@ -161,6 +257,8 @@ bool operator==(const WildcardTrieIterator<T, LM>& lhs,
     return internal::WildcardTrieIteratorAccess::equals(lhs, rhs);
 };
 
+/** Compares two iterators for inequality.
+    @relates WildcardTrieIterator */
 template <typename T, bool LM, bool RM>
 bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
                 const WildcardTrieIterator<T, RM>& rhs)
@@ -168,20 +266,8 @@ bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
     return internal::WildcardTrieIteratorAccess::differs(lhs, rhs);
 };
 
-template <typename T, bool LM, bool RM>
-bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
-                const WildcardTrieMatchIterator<T, RM>& rhs)
-{
-    return internal::WildcardTrieIteratorAccess::equals(lhs, rhs);
-};
-
-template <typename T, bool LM, bool RM>
-bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
-                const WildcardTrieMatchIterator<T, RM>& rhs)
-{
-    return internal::WildcardTrieIteratorAccess::differs(lhs, rhs);
-};
-
+/** Compares a match iterator and a regular iterator for equality.
+    @relates WildcardTrieIterator */
 template <typename T, bool LM, bool RM>
 bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
                 const WildcardTrieIterator<T, RM>& rhs)
@@ -189,13 +275,8 @@ bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
     return internal::WildcardTrieIteratorAccess::equals(lhs, rhs);
 };
 
-template <typename T, bool LM, bool RM>
-bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
-                const WildcardTrieIterator<T, RM>& rhs)
-{
-    return internal::WildcardTrieIteratorAccess::differs(lhs, rhs);
-};
-
+/** Compares a match iterator and a regular iterator for equality.
+    @relates WildcardTrieIterator */
 template <typename T, bool LM, bool RM>
 bool operator==(const WildcardTrieIterator<T, LM>& lhs,
                 const WildcardTrieMatchIterator<T, RM>& rhs)
@@ -203,6 +284,17 @@ bool operator==(const WildcardTrieIterator<T, LM>& lhs,
     return internal::WildcardTrieIteratorAccess::equals(lhs, rhs);
 };
 
+/** Compares a match iterator and a regular iterator for inequality.
+    @relates WildcardTrieIterator */
+template <typename T, bool LM, bool RM>
+bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
+                const WildcardTrieIterator<T, RM>& rhs)
+{
+    return internal::WildcardTrieIteratorAccess::differs(lhs, rhs);
+};
+
+/** Compares a match iterator and a regular iterator for inequality.
+    @relates WildcardTrieIterator */
 template <typename T, bool LM, bool RM>
 bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
                 const WildcardTrieMatchIterator<T, RM>& rhs)
@@ -210,6 +302,25 @@ bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
     return internal::WildcardTrieIteratorAccess::differs(lhs, rhs);
 };
 
+
+//------------------------------------------------------------------------------
+/** Associative container that performs efficient searches of wildcard URI
+    patterns matching a given URI.
+
+    Like std::map, this container does not invalidate iterators during
+    - insertions
+    - erasures
+    - swaps
+
+    In addition, this container further guarantees that non-end iterators are
+    not invalidated during
+    - move-construction
+    - move-assignment
+    - self-move-assignment
+    - self-copy-assignment
+    - self-swap.
+
+    @tparam T Type of the mapped value. Must be default constructible. */
 //------------------------------------------------------------------------------
 template <typename T>
 class CPPWAMP_API WildcardTrie
@@ -223,89 +334,167 @@ private:
         return std::is_constructible<value_type, P&&>::value;
     }
 
+    template <typename I>
+    static constexpr bool isSpecial()
+    {
+        return IsSpecialWildcardTrieIterator<I>::value;
+    }
+
 public:
-    using key_type               = SplitUri;
-    using string_type            = typename SplitUri::value_type;
-    using mapped_type            = T;
-    using value_type             = std::pair<const key_type, mapped_type>;
-    using size_type              = typename Tree::size_type;
-    using iterator               = WildcardTrieIterator<T, true>;
-    using const_iterator         = WildcardTrieIterator<T, false>;
-    using match_iterator         = WildcardTrieMatchIterator<T, true>;
-    using const_match_iterator   = WildcardTrieMatchIterator<T, false>;
-    using result                 = std::pair<iterator, bool>;
-    using match_range_type       = std::pair<match_iterator, match_iterator>;
+    /** Split URI type used as the primary key type. */
+    using key_type = SplitUri;
+
+    /** URI string type that can be used as an alternate key type that is
+        automatically split into labels. */
+    using string_type = typename SplitUri::value_type;
+
+    /** Type of the mapped value. */
+    using mapped_type = T;
+
+    /** Type used to combine a key and its associated value.
+        @note Unlike std::map, keys are not stored alongside their associated
+              value due to the distributed nature of how keys are stored inside
+              the trie. This type is provided to make the interface more closely
+              match that of std::map. */
+    using value_type = std::pair<const key_type, mapped_type>;
+
+    /** Type used to count the number of elements in the container. */
+    using size_type = typename Tree::size_type;
+
+    /** Mutable iterator type which advances through contained values in
+        lexicographic order of their associated keys. */
+    using iterator  = WildcardTrieIterator<T, true>;
+
+    /** Immutable iterator type which advances through contained values in
+        lexicographic order of their associated keys. */
+    using const_iterator = WildcardTrieIterator<T, false>;
+
+    /** Mutable iterator type which advances through wildcard matches in
+        lexicographic order. */
+    using match_iterator = WildcardTrieMatchIterator<T, true>;
+
+    /** Mutable iterator type which advances through wildcard matches in
+        lexicographic order. */
+    using const_match_iterator = WildcardTrieMatchIterator<T, false>;
+
+    /** Pairs an iterator with the boolean success result of an
+        insertion operation. */
+    using result = std::pair<iterator, bool>;
+
+    /** Pairs two mutable iterators corresponding to the first and
+        one-past-the-last match. */
+    using match_range_type = std::pair<match_iterator, match_iterator>;
+
+    /** Pairs two immutable iterators corresponding to the first and
+        one-past-the-last match. */
     using const_match_range_type = std::pair<const_match_iterator,
                                              const_match_iterator>;
 
+    /** Default constructor. */
     WildcardTrie();
 
+    /** Copy constructor. */
     WildcardTrie(const WildcardTrie& rhs);
 
-    // Does not invalidate iterators, except the end iterator, as permitted
-    // by https://cplusplus.github.io/LWG/lwg-active.html#2321.
+    /** Move constructor. */
     WildcardTrie(WildcardTrie&& rhs) noexcept;
 
-    template <typename TInputPairIterator>
-    WildcardTrie(TInputPairIterator first, TInputPairIterator last);
+    /** Constructs using the given iterator range. */
+    template <typename I>
+    WildcardTrie(I first, I last);
 
+    /** Constructs using contents of the given initializer list, where
+        each element is a key-value pair. */
     WildcardTrie(std::initializer_list<value_type> list);
 
+    /** Copy assignment. */
     WildcardTrie& operator=(const WildcardTrie& rhs);
 
-    // Does not invalidate iterators, except the end iterator, as permitted
-    // by https://cplusplus.github.io/LWG/lwg-active.html#2321.
+    /** Move assignment. */
     WildcardTrie& operator=(WildcardTrie&& rhs) noexcept;
 
+    /** Replaces contents with that of the given initializer list,  where
+        each element is a key-value pair. */
     WildcardTrie& operator=(std::initializer_list<value_type> list);
 
-    // Element access
+    /// @{
+    /// Element Access
 
+    /** Accesses the element associated with the given key,
+        with bounds checking. */
     mapped_type& at(const key_type& key);
 
+    /** Accesses the element associated with the given key,
+        with bounds checking. */
     const mapped_type& at(const key_type& key) const;
 
+    /** Accesses the element associated with the given URI string,
+        with bounds checking. */
     mapped_type& at(const string_type& uri);
 
+    /** Accesses the element associated with the given URI string,
+        with bounds checking. */
     const mapped_type& at(const string_type& uri) const;
 
+    /** Accesses or inserts an element with the given key. */
     mapped_type& operator[](const key_type& key);
 
+    /** Accesses or inserts an element with the given key. */
     mapped_type& operator[](key_type&& key);
 
+    /** Accesses or inserts an element with the given URI string. */
     mapped_type& operator[](const string_type& uri);
+    /// @}
 
+    /// @{
+    /// Iterators
 
-    // Iterators
-
+    /** Obtains an iterator to the beginning. */
     iterator begin() noexcept;
 
+    /** Obtains an iterator to the beginning. */
     const_iterator begin() const noexcept;
 
-    iterator end() noexcept;
-
-    const_iterator end() const noexcept;
-
+    /** Obtains an iterator to the beginning. */
     const_iterator cbegin() const noexcept;
 
+    /** Obtains an iterator to the end. */
+    iterator end() noexcept;
+
+    /** Obtains an iterator to the end. */
+    const_iterator end() const noexcept;
+
+    /** Obtains an iterator to the end. */
     const_iterator cend() const noexcept;
+    /// @}
 
 
-    // Capacity
+    /// @{
+    /// Capacity
 
+    /** Checks whether the container is empty. */
     bool empty() const noexcept;
 
+    /** Obtains the number of elements. */
     size_type size() const noexcept;
+    /// @}
 
 
-    // Modifiers
+    /// @{
+    /// Modifiers
 
+    /** Removes all elements. */
     void clear() noexcept;
 
+    /** Inserts an element. */
     result insert(const value_type& kv);
 
+    /** Inserts an element. */
     result insert(value_type&& kv);
 
+    /** Inserts an element.
+        Only participates in overload resolution if
+        `std::is_constructible_v<value_type, P&&> == true` */
     template <typename P,
               typename std::enable_if<isInsertable<P>(), int>::type = 0>
     result insert(P&& kv)
@@ -314,9 +503,27 @@ public:
         return add(std::move(pair.first), std::move(pair.second));
     }
 
-    template <typename TInputPairIterator>
-    void insert(TInputPairIterator first, TInputPairIterator last);
+    /** Inserts elements from the given iterator range, where the
+        iterators dereference to a key-value pair. */
+    template <typename I,
+             typename std::enable_if<!isSpecial<I>(), int>::type = 0>
+    void insert(I first, I last)
+    {
+        for (; first != last; ++first)
+            add(first->first, first->second);
+    }
 
+    /** Inserts elements from the given iterator range, where the
+        iterators provide key() and value() members. */
+    template <typename I,
+             typename std::enable_if<isSpecial<I>(), int>::type = 0>
+    void insert(I first, I last)
+    {
+        for (; first != last; ++first)
+            add(first.key(), first.value());
+    }
+
+    /** Inserts elements from the given initializer list of key-value pairs. */
     void insert(std::initializer_list<value_type> list);
 
     template <typename M>
@@ -351,9 +558,10 @@ public:
     // Does not invalidate iterators, except the end iterator, as permitted
     // by the standard.
     void swap(WildcardTrie& other) noexcept;
+    /// @}
 
-
-    // Lookup
+    /// @{
+    /// Lookup
 
     size_type count(const key_type& key) const;
 
@@ -378,6 +586,7 @@ public:
     match_range_type match_range(const string_type& uri);
 
     const_match_range_type match_range(const string_type& uri) const;
+    /// @}
 
 private:
     using Node = internal::WildcardTrieNode<T>;
@@ -661,6 +870,8 @@ WildcardTrie<T>::WildcardTrie(const WildcardTrie& rhs)
     }
 }
 
+/** The moved-from container is left in a default-constructed state,
+    except during self-assignment where it is left in its current state. */
 template <typename T>
 WildcardTrie<T>::WildcardTrie(WildcardTrie&& rhs) noexcept {moveFrom(rhs);}
 
@@ -677,6 +888,8 @@ WildcardTrie<T>::WildcardTrie(std::initializer_list<value_type> list)
     : WildcardTrie(list.begin(), list.end())
 {}
 
+/** @par Exception Safety
+    Has no effect if an exception is thrown while copying elements. */
 template <typename T>
 WildcardTrie<T>& WildcardTrie<T>::operator=(const WildcardTrie& rhs)
 {
@@ -690,6 +903,8 @@ WildcardTrie<T>& WildcardTrie<T>::operator=(const WildcardTrie& rhs)
     return *this;
 }
 
+/** The moved-from container is left in a default-constructed state,
+    except during self-assignment where it is left in its current state. */
 template <typename T>
 WildcardTrie<T>& WildcardTrie<T>::operator=(WildcardTrie&& rhs) noexcept
 {
@@ -699,6 +914,8 @@ WildcardTrie<T>& WildcardTrie<T>::operator=(WildcardTrie&& rhs) noexcept
     return *this;
 }
 
+/** @par Exception Safety
+    Has no effect if an exception is thrown while assigning elements. */
 template <typename T>
 WildcardTrie<T>&
 WildcardTrie<T>::operator=(std::initializer_list<value_type> list)
@@ -708,6 +925,8 @@ WildcardTrie<T>::operator=(std::initializer_list<value_type> list)
     return *this;
 }
 
+/** @throws std::out_of_range if the container does not have an element
+            with the given key. */
 template <typename T>
 typename WildcardTrie<T>::mapped_type& WildcardTrie<T>::at(const key_type& key)
 {
@@ -717,6 +936,8 @@ typename WildcardTrie<T>::mapped_type& WildcardTrie<T>::at(const key_type& key)
     return cursor.iter->second.value;
 }
 
+/** @throws std::out_of_range if the container does not have an element
+            with the given key. */
 template <typename T>
 const typename WildcardTrie<T>::mapped_type&
 WildcardTrie<T>::at(const key_type& key) const
@@ -727,6 +948,8 @@ WildcardTrie<T>::at(const key_type& key) const
     return cursor.iter->second.value;
 }
 
+/** @throws std::out_of_range if the container does not have an element
+            with the given URI. */
 template <typename T>
 typename WildcardTrie<T>::mapped_type&
 WildcardTrie<T>::at(const string_type& uri)
@@ -734,6 +957,8 @@ WildcardTrie<T>::at(const string_type& uri)
     return at(tokenizeUri(uri));
 }
 
+/** @throws std::out_of_range if the container does not have an element
+            with the given URI. */
 template <typename T>
 const typename WildcardTrie<T>::mapped_type&
 WildcardTrie<T>::at(const string_type& uri) const
@@ -741,6 +966,9 @@ WildcardTrie<T>::at(const string_type& uri) const
     return at(tokenizeUri(uri));
 }
 
+/** @par Exception Safety
+    Has no effect if an exception is thrown during insertion of a
+    new element. */
 template <typename T>
 typename WildcardTrie<T>::mapped_type&
 WildcardTrie<T>::operator[](const key_type& key)
@@ -748,6 +976,9 @@ WildcardTrie<T>::operator[](const key_type& key)
     return *(add(key).first);
 }
 
+/** @par Exception Safety
+    Has no effect if an exception is thrown during insertion of a
+    new element. */
 template <typename T>
 typename WildcardTrie<T>::mapped_type&
 WildcardTrie<T>::operator[](key_type&& key)
@@ -755,6 +986,9 @@ WildcardTrie<T>::operator[](key_type&& key)
     return *(add(std::move(key)).first);
 }
 
+/** @par Exception Safety
+    Has no effect if an exception is thrown during insertion of a
+    new element. */
 template <typename T>
 typename WildcardTrie<T>::mapped_type&
 WildcardTrie<T>::operator[](const string_type& uri)
@@ -775,6 +1009,13 @@ typename WildcardTrie<T>::const_iterator WildcardTrie<T>::begin() const noexcept
 }
 
 template <typename T>
+typename WildcardTrie<T>::const_iterator
+WildcardTrie<T>::cbegin() const noexcept
+{
+    return const_iterator{firstTerminalCursor()};
+}
+
+template <typename T>
 typename WildcardTrie<T>::iterator WildcardTrie<T>::end() noexcept
 {
     return iterator{sentinelCursor()};
@@ -784,13 +1025,6 @@ template <typename T>
 typename WildcardTrie<T>::const_iterator WildcardTrie<T>::end() const noexcept
 {
     return cend();
-}
-
-template <typename T>
-typename WildcardTrie<T>::const_iterator
-WildcardTrie<T>::cbegin() const noexcept
-{
-    return const_iterator{firstTerminalCursor()};
 }
 
 template <typename T>
@@ -826,14 +1060,6 @@ template <typename T>
 typename WildcardTrie<T>::result WildcardTrie<T>::insert(value_type&& kv)
 {
     return add(std::move(kv.first), std::move(kv.second));
-}
-
-template <typename T>
-template <typename I>
-void WildcardTrie<T>::insert(I first, I last)
-{
-    for (; first != last; ++first)
-        add(first->first, first->second);
 }
 
 template <typename T>

@@ -425,6 +425,28 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
             checkWildcardTrieContents(trie, input);
         };
 
+        SECTION( "via constuctor taking special iterator range" )
+        {
+            Trie a(input.begin(), input.end());
+            Trie b(a.begin(), a.end());
+            checkWildcardTrieContents(b, input);
+        };
+
+        SECTION( "via insert iterator range" )
+        {
+            Trie trie;
+            trie.insert(input.begin(), input.end());
+            checkWildcardTrieContents(trie, input);
+        };
+
+        SECTION( "via insert special iterator range" )
+        {
+            Trie a(input.begin(), input.end());
+            Trie b;
+            b.insert(a.begin(), a.end());
+            checkWildcardTrieContents(b, input);
+        };
+
         SECTION( "via insert pair" )
         {
             checkWildcardTrieInsertion(input, false,
