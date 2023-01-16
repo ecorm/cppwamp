@@ -38,7 +38,7 @@ struct IsSpecialWildcardTrieIterator : std::false_type
 {};
 
 //------------------------------------------------------------------------------
-/** WildcardTrie iterator that advances to wildcard matches in
+/** WildcardTrie iterator that advances through wildcard matches in
     lexicographic order. */
 //------------------------------------------------------------------------------
 template <typename T, bool IsMutable>
@@ -61,10 +61,10 @@ public:
         @note It differs from std::map in that it's not a key-value pair. */
     using value_type = T;
 
-    /// Pointer to the mapped value type iterated over.
+    /// Pointer to the mapped value type being iterated over.
     using pointer = typename std::conditional<IsMutable, T*, const T*>::type;
 
-    /// Reference to the mapped value type iterated over.
+    /// Reference to the mapped value type being iterated over.
     using reference = typename std::conditional<IsMutable, T&, const T&>::type;
 
     /** Default constructor. */
@@ -152,8 +152,8 @@ struct IsSpecialWildcardTrieIterator<WildcardTrieMatchIterator<T, M>>
 
 
 //------------------------------------------------------------------------------
-/** WildcardTrie iterator that advances to contained values in
-    lexicographic order of their associated keys. */
+/** WildcardTrie iterator that advances through elements in lexicographic order
+    of their respective keys. */
 //------------------------------------------------------------------------------
 template <typename T, bool IsMutable>
 class CPPWAMP_API WildcardTrieIterator
@@ -175,10 +175,10 @@ public:
         @note It differs from std::map in that it's not a key-value pair. */
     using value_type = T;
 
-    /// Pointer to the mapped value type iterated over.
+    /// Pointer to the mapped value type being iterated over.
     using pointer = typename std::conditional<IsMutable, T*, const T*>::type;
 
-    /// Reference to the mapped value type iterated over.
+    /// Reference to the mapped value type being iterated over.
     using reference = typename std::conditional<IsMutable, T&, const T&>::type;
 
 
@@ -361,12 +361,12 @@ public:
     /** Type used to count the number of elements in the container. */
     using size_type = typename Tree::size_type;
 
-    /** Mutable iterator type which advances through contained values in
-        lexicographic order of their associated keys. */
+    /** Mutable iterator type which advances through elements in lexicographic
+        order of their respective keys. */
     using iterator  = WildcardTrieIterator<T, true>;
 
-    /** Immutable iterator type which advances through contained values in
-        lexicographic order of their associated keys. */
+    /** Immutable iterator type which advances through elements in
+        lexicographic order of their respective keys. */
     using const_iterator = WildcardTrieIterator<T, false>;
 
     /** Mutable iterator type which advances through wildcard matches in
@@ -417,8 +417,8 @@ public:
         each element is a key-value pair. */
     WildcardTrie& operator=(std::initializer_list<value_type> list);
 
+    /// @name Element Access
     /// @{
-    /// Element Access
 
     /** Accesses the element associated with the given key,
         with bounds checking. */
@@ -446,8 +446,8 @@ public:
     mapped_type& operator[](const string_type& uri);
     /// @}
 
+    /// @name Iterators
     /// @{
-    /// Iterators
 
     /** Obtains an iterator to the beginning. */
     iterator begin() noexcept;
@@ -469,8 +469,8 @@ public:
     /// @}
 
 
+    /// @name Capacity
     /// @{
-    /// Capacity
 
     /** Checks whether the container is empty. */
     bool empty() const noexcept;
@@ -480,8 +480,8 @@ public:
     /// @}
 
 
+    /// @name Modifiers
     /// @{
-    /// Modifiers
 
     /** Removes all elements. */
     void clear() noexcept;
@@ -494,7 +494,10 @@ public:
 
     /** Inserts an element.
         Only participates in overload resolution if
-        `std::is_constructible_v<value_type, P&&> == true` */
+        `std::is_constructible_v<value_type, P&&> == true`
+        @par Exception Safety
+        Has no effect if an exception is thrown during insertion of the
+        elements.*/
     template <typename P,
               typename std::enable_if<isInsertable<P>(), int>::type = 0>
     result insert(P&& kv)
@@ -503,88 +506,103 @@ public:
         return add(std::move(pair.first), std::move(pair.second));
     }
 
-    /** Inserts elements from the given iterator range, where the
-        iterators dereference to a key-value pair. */
-    template <typename I,
-             typename std::enable_if<!isSpecial<I>(), int>::type = 0>
-    void insert(I first, I last)
-    {
-        for (; first != last; ++first)
-            add(first->first, first->second);
-    }
-
-    /** Inserts elements from the given iterator range, where the
-        iterators provide key() and value() members. */
-    template <typename I,
-             typename std::enable_if<isSpecial<I>(), int>::type = 0>
-    void insert(I first, I last)
-    {
-        for (; first != last; ++first)
-            add(first.key(), first.value());
-    }
+    /** Inserts elements from the given iterator range. */
+    template <typename I>
+    void insert(I first, I last);
 
     /** Inserts elements from the given initializer list of key-value pairs. */
     void insert(std::initializer_list<value_type> list);
 
+    /** Inserts an element or assigns to the current element if the key
+        already exists. */
     template <typename M>
     result insert_or_assign(const key_type& key, M&& arg);
 
+    /** Inserts an element or assigns to the current element if the key
+        already exists. */
     template <typename M>
     result insert_or_assign(key_type&& key, M&& arg);
 
+    /** Inserts an element or assigns to the current element if the URI
+        string already exists. */
     template <typename M>
     result insert_or_assign(const string_type& uri, M&& arg);
 
+    /** Inserts an element from a key-value pair constructed in-place using
+        the given arguments. */
     template <typename... Us>
     result emplace(Us&&... args);
 
+    /** Inserts in-place only if the key does not exist. */
     template <typename... Us>
     result try_emplace(const key_type& key, Us&&... args);
 
+    /** Inserts in-place only if the key does not exist. */
     template <typename... Us>
     result try_emplace(key_type&& key, Us&&... args);
 
+    /** Inserts in-place only if the URI string does not exist. */
     template <typename... Us>
     result try_emplace(const string_type& uri, Us&&... args);
 
+    /** Erases the element at the given iterator position. */
     iterator erase(iterator pos);
 
+    /** Erases the element at the given iterator position. */
     iterator erase(const_iterator pos);
 
+    /** Erases the element associated with the given key. */
     size_type erase(const key_type& key);
 
+    /** Erases the element associated with the given URI string. */
     size_type erase(const string_type& uri);
 
-    // Does not invalidate iterators, except the end iterator, as permitted
-    // by the standard.
+    /** Swaps the contents of this container with the given container. */
     void swap(WildcardTrie& other) noexcept;
     /// @}
 
+    /// @name Lookup
     /// @{
-    /// Lookup
 
+    /** Returns the number of elements associated with the given key. */
     size_type count(const key_type& key) const;
 
+    /** Returns the number of elements associated with the given URI string. */
     size_type count(const string_type& uri) const;
 
+    /** Finds the element associated with the given key. */
     iterator find(const key_type& key);
 
+    /** Finds the element associated with the given key. */
     const_iterator find(const key_type& key) const;
 
+    /** Finds the element associated with the given URI string. */
     iterator find(const string_type& uri);
 
+    /** Finds the element associated with the given URI string. */
     const_iterator find(const string_type& uri) const;
 
+    /** Checks if the container contains the element with the given key. */
     bool contains(const key_type& key) const;
 
+    /** Checks if the container contains the element with the given
+        URI string. */
     bool contains(const string_type& uri) const;
 
+    /** Obtains the range of elements with wildcard patterns matching
+        the given key. */
     match_range_type match_range(const key_type& key);
 
+    /** Obtains the range of elements with wildcard patterns matching
+        the given key. */
     const_match_range_type match_range(const key_type& key) const;
 
+    /** Obtains the range of elements with wildcard patterns matching
+        the given URI string. */
     match_range_type match_range(const string_type& uri);
 
+    /** Obtains the range of elements with wildcard patterns matching
+        the given URI string. */
     const_match_range_type match_range(const string_type& uri) const;
     /// @}
 
@@ -612,6 +630,12 @@ private:
 
     template <typename I>
     std::pair<I, I> getMatchRange(const key_type& key) const;
+
+    template <typename I>
+    void insertRange(std::true_type, I first, I last);
+
+    template <typename I>
+    void insertRange(std::false_type, I first, I last);
 
     template <typename... Us>
     std::pair<iterator, bool> add(key_type key, Us&&... args);
@@ -1050,24 +1074,47 @@ void WildcardTrie<T>::clear() noexcept
     size_ = 0;
 }
 
+/** @par Exception Safety
+    Has no effect if an exception is thrown during insertion of a
+    new element. */
 template <typename T>
 typename WildcardTrie<T>::result WildcardTrie<T>::insert(const value_type& kv)
 {
     return add(kv.first, kv.second);
 }
 
+/** @par Exception Safety
+    Has no effect if an exception is thrown during insertion of a
+    new element. */
 template <typename T>
 typename WildcardTrie<T>::result WildcardTrie<T>::insert(value_type&& kv)
 {
     return add(std::move(kv.first), std::move(kv.second));
 }
 
+/** @par Exception Safety
+    Has no effect if an exception is thrown during insertion of the elements.*/
+template <typename T>
+template <typename I>
+void WildcardTrie<T>::insert(I first, I last)
+{
+    return insertRange(IsSpecialWildcardTrieIterator<I>{}, first, last);
+}
+
+/** @par Exception Safety
+    Has no effect if an exception is thrown during insertion of the
+    elements. */
 template <typename T>
 void WildcardTrie<T>::insert(std::initializer_list<value_type> list)
 {
     insert(list.begin(), list.end());
 }
 
+/** @returns A pair with an iterator component to the inserted/updated element,
+             and a bool component indicating if insertion took place.
+    @par Exception Safety
+    Has no effect if an exception is thrown during insertion of a new
+    element. */
 template <typename T>
 template <typename M>
 typename WildcardTrie<T>::result
@@ -1076,6 +1123,11 @@ WildcardTrie<T>::insert_or_assign(const key_type& key, M&& arg)
     return put(true, key, std::forward<M>(arg));
 }
 
+/** @returns A pair with an iterator component to the inserted/updated element,
+             and a bool component indicating if insertion took place.
+    @par Exception Safety
+    Has no effect if an exception is thrown during insertion of a new
+    element. */
 template <typename T>
 template <typename M>
 typename WildcardTrie<T>::result
@@ -1084,6 +1136,11 @@ WildcardTrie<T>::insert_or_assign(key_type&& key, M&& arg)
     return put(true, std::move(key), std::forward<M>(arg));
 }
 
+/** @returns A pair with an iterator component to the inserted/updated element,
+             and a bool component indicating if insertion took place.
+    @par Exception Safety
+    Has no effect if an exception is thrown during insertion of a new
+    element. */
 template <typename T>
 template <typename M>
 typename WildcardTrie<T>::result
@@ -1092,6 +1149,16 @@ WildcardTrie<T>::insert_or_assign(const string_type& uri, M&& arg)
     return insert_or_assign(tokenizeUri(uri), std::forward<M>(arg));
 }
 
+/** @returns A pair with an iterator component to the inserted/existing element,
+             and a bool component indicating if insertion took place.
+    @par Exception Safety
+    Has no effect if an exception is thrown during insertion of a new
+    element.
+    @note This actually constructs a temporary key-value pair which is then
+    split into separate key and value parts. Unlike std::map, it does not
+    construct elements in place because only values (and not key-value pairs)
+    are stored in the trie's nodes, due to the keys being distrubuted. Use
+    WildcardTrie::try_emplace instead to construct node values in-place. */
 template <typename T>
 template <typename... Us>
 typename WildcardTrie<T>::result WildcardTrie<T>::emplace(Us&&... args)
@@ -1099,6 +1166,11 @@ typename WildcardTrie<T>::result WildcardTrie<T>::emplace(Us&&... args)
     return insert(value_type(std::forward<Us>(args)...));
 }
 
+/** @returns A pair with an iterator component to the inserted/existing element,
+             and a bool component indicating if insertion took place.
+    @par Exception Safety
+    Has no effect if an exception is thrown during insertion of a new
+    element. */
 template <typename T>
 template <typename... Us>
 typename WildcardTrie<T>::result
@@ -1107,6 +1179,11 @@ WildcardTrie<T>::try_emplace(const key_type& key, Us&&... args)
     return add(key, std::forward<Us>(args)...);
 }
 
+/** @returns A pair with an iterator component to the inserted/existing element,
+             and a bool component indicating if insertion took place.
+    @par Exception Safety
+    Has no effect if an exception is thrown during insertion of a new
+    element. */
 template <typename T>
 template <typename... Us>
 typename WildcardTrie<T>::result
@@ -1115,6 +1192,11 @@ WildcardTrie<T>::try_emplace(key_type&& key, Us&&... args)
     return add(std::move(key), std::forward<Us>(args)...);
 }
 
+/** @returns A pair with an iterator component to the inserted/existing element,
+             and a bool component indicating if insertion took place.
+    @par Exception Safety
+    Has no effect if an exception is thrown during insertion of a new
+    element. */
 template <typename T>
 template <typename... Us>
 typename WildcardTrie<T>::result
@@ -1123,6 +1205,7 @@ WildcardTrie<T>::try_emplace(const string_type& uri, Us&&... args)
     return add(tokenizeUri(uri), std::forward<Us>(args)...);
 }
 
+/** @returns An iterator following the removed element. */
 template <typename T>
 typename WildcardTrie<T>::iterator WildcardTrie<T>::erase(iterator pos)
 {
@@ -1134,6 +1217,7 @@ typename WildcardTrie<T>::iterator WildcardTrie<T>::erase(iterator pos)
     return pos;
 }
 
+/** @returns An iterator following the removed element. */
 template <typename T>
 typename WildcardTrie<T>::iterator WildcardTrie<T>::erase(const_iterator pos)
 {
@@ -1145,6 +1229,7 @@ typename WildcardTrie<T>::iterator WildcardTrie<T>::erase(const_iterator pos)
     return pos;
 }
 
+/** @returns The number of elements erased (0 or 1). */
 template <typename T>
 typename WildcardTrie<T>::size_type WildcardTrie<T>::erase(const key_type& key)
 {
@@ -1158,6 +1243,7 @@ typename WildcardTrie<T>::size_type WildcardTrie<T>::erase(const key_type& key)
     return found ? 1 : 0;
 }
 
+/** @returns The number of elements erased (0 or 1). */
 template <typename T>
 typename WildcardTrie<T>::size_type
 WildcardTrie<T>::erase(const string_type& uri)
@@ -1229,6 +1315,8 @@ bool WildcardTrie<T>::contains(const string_type& uri) const
     return contains(tokenizeUri(uri));
 }
 
+/** The range is determined as if every key were checked against
+    the wamp::uriMatchesWildcardPattern function. */
 template <typename T>
 typename WildcardTrie<T>::match_range_type
 WildcardTrie<T>::match_range(const key_type& key)
@@ -1236,6 +1324,8 @@ WildcardTrie<T>::match_range(const key_type& key)
     return getMatchRange<match_iterator>(key);
 }
 
+/** The range is determined as if every key were checked against
+    the wamp::uriMatchesWildcardPattern function. */
 template <typename T>
 typename WildcardTrie<T>::const_match_range_type
 WildcardTrie<T>::match_range(const key_type& key) const
@@ -1244,6 +1334,8 @@ WildcardTrie<T>::match_range(const key_type& key) const
     return self.template getMatchRange<const_match_iterator>(key);
 }
 
+/** The range is determined as if every key were checked against
+    the wamp::uriMatchesWildcardPattern function. */
 template <typename T>
 typename WildcardTrie<T>::match_range_type
 WildcardTrie<T>::match_range(const string_type& uri)
@@ -1251,6 +1343,8 @@ WildcardTrie<T>::match_range(const string_type& uri)
     return match_range(tokenizeUri(uri));
 }
 
+/** The range is determined as if every key were checked against
+    the wamp::uriMatchesWildcardPattern function. */
 template <typename T>
 typename WildcardTrie<T>::const_match_range_type
 WildcardTrie<T>::match_range(const string_type& uri) const
@@ -1335,6 +1429,22 @@ std::pair<I, I> WildcardTrie<T>::getMatchRange(const key_type& key) const
         return {I{sentinelCursor()}, I{sentinelCursor()}};
 
     return {I{rootCursor(), key}, I{sentinelCursor()}};
+}
+
+template <typename T>
+template <typename I>
+void WildcardTrie<T>::insertRange(std::true_type, I first, I last)
+{
+    for (; first != last; ++first)
+        add(first.key(), first.value());
+}
+
+template <typename T>
+template <typename I>
+void WildcardTrie<T>::insertRange(std::false_type, I first, I last)
+{
+    for (; first != last; ++first)
+        add(first->first, first->second);
 }
 
 template <typename T>
