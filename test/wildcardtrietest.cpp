@@ -912,6 +912,27 @@ TEST_CASE( "WildcardTrie Pattern Matching", "[WildcardTrie]" )
 }
 
 //------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Insertion From Match Range", "[WildcardTrie]" )
+{
+    Trie trie({ {{"a"}, 1}, {{"a", ""}, 2}, {{"", "b"}, 3} });
+
+    SECTION( "constructor taking match range" )
+    {
+        auto range = trie.match_range("a.b");
+        Trie matches(range.first, range.second);
+        checkWildcardTrieUris(matches, {".b", "a."});
+    };
+
+    SECTION( "insert taking match range" )
+    {
+        auto range = trie.match_range("a.b");
+        Trie matches;
+        matches.insert(range.first, range.second);
+        checkWildcardTrieUris(matches, {".b", "a."});
+    };
+}
+
+//------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Erase", "[WildcardTrie]" )
 {
     Trie trie({ {{"a"}, 1}, {{"a", "b", "c"}, 2}, {{"d"}, 3}, {{"d", "e"}, 4} });
