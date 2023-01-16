@@ -18,11 +18,11 @@
 #include <tuple>
 #include <utility>
 #include "../routerconfig.hpp"
-#include "../uri.hpp"
+#include "../trie.hpp"
+#include "../wildcardtrie.hpp"
 #include "idgen.hpp"
 #include "routercontext.hpp"
 #include "routersession.hpp"
-#include "trie.hpp"
 
 namespace wamp
 {
@@ -180,8 +180,8 @@ private:
     using SubscriptionMap = std::map<SubscriptionId, SubscriptionRecord>;
 
     SubscriptionMap subscriptions_;
-    TrieMap<char, SubscriptionMap::iterator> byExact_;
-    TrieMap<char, SubscriptionMap::iterator> byPrefix_;
+    BasicTrieMap<char, SubscriptionMap::iterator> byExact_;
+    BasicTrieMap<char, SubscriptionMap::iterator> byPrefix_;
     WildcardTrie<SubscriptionMap::iterator> byWildcard_;
     EphemeralId nextSubscriptionId_ = nullId();
     RandomIdGenerator pubIdGenerator_;

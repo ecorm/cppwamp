@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include <cppwamp/internal/trie.hpp>
+#include <cppwamp/wildcardtrie.hpp>
 #include <catch2/catch.hpp>
 #include <set>
 #include <map>

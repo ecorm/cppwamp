@@ -45,6 +45,7 @@ set(HEADERS
     include/cppwamp/tcpprotocol.hpp
     include/cppwamp/traits.hpp
     include/cppwamp/transport.hpp
+    include/cppwamp/trie.hpp
     include/cppwamp/uds.hpp
     include/cppwamp/udspath.hpp
     include/cppwamp/udsprotocol.hpp
@@ -54,6 +55,7 @@ set(HEADERS
     include/cppwamp/variantdefs.hpp
     include/cppwamp/version.hpp
     include/cppwamp/visitor.hpp
+    include/cppwamp/wildcardtrie.hpp
     include/cppwamp/wampdefs.hpp
     include/cppwamp/bundled/amosnier_sha256.hpp
     include/cppwamp/bundled/boost_asio_any_completion_executor.hpp
@@ -90,7 +92,6 @@ set(HEADERS
     include/cppwamp/internal/surrogateany.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
-    include/cppwamp/internal/trie.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
     include/cppwamp/internal/variantdecoding.hpp
@@ -98,6 +99,7 @@ set(HEADERS
     include/cppwamp/internal/varianttraits.hpp
     include/cppwamp/internal/variantvisitors.hpp
     include/cppwamp/internal/wampmessage.hpp
+    include/cppwamp/internal/wildcardtrienode.hpp
     include/cppwamp/types/array.hpp
     include/cppwamp/types/boostoptional.hpp
     include/cppwamp/types/optional.hpp
