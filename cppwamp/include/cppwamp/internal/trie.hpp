@@ -342,12 +342,12 @@ public:
 
     bool operator==(const WildcardTrieCursor& rhs) const
     {
-        return std::tie(node, iter) == std::tie(rhs.node, rhs.iter);
+        return (node == rhs.node) && (iter == rhs.iter);
     }
 
     bool operator!=(const WildcardTrieCursor& rhs) const
     {
-        return std::tie(node, iter) != std::tie(rhs.node, rhs.iter);
+        return (node != rhs.node) || (iter != rhs.iter);
     }
 
     Node* node = nullptr;
@@ -483,6 +483,29 @@ private:
 template <typename, bool> class WildcardTrieIterator;
 
 //------------------------------------------------------------------------------
+struct WildcardTrieIteratorAccess
+{
+    template <typename I>
+    static const WildcardTrieCursor<typename I::value_type>&
+    cursor(const I& iterator)
+    {
+        return iterator.cursor_;
+    }
+
+    template <typename L, typename R>
+    static bool equals(const L& lhs, const R& rhs)
+    {
+        return lhs.cursor_ == rhs.cursor_;
+    }
+
+    template <typename L, typename R>
+    static bool differs(const L& lhs, const R& rhs)
+    {
+        return lhs.cursor_ != rhs.cursor_;
+    }
+};
+
+//------------------------------------------------------------------------------
 template <typename T, bool IsMutable>
 class WildcardTrieMatchIterator
 {
@@ -501,7 +524,7 @@ public:
     template <bool M,
              typename std::enable_if<!IsMutable && M, int>::type = 0>
     WildcardTrieMatchIterator(const WildcardTrieMatchIterator<T, M>& rhs)
-        : cursor_(rhs.iter_)
+        : cursor_(WildcardTrieIteratorAccess::cursor(rhs))
     {}
 
     // Allow assignment of const iterator from mutable iterator
@@ -510,7 +533,7 @@ public:
     WildcardTrieMatchIterator&
     operator=(const WildcardTrieMatchIterator<T, M>& rhs)
     {
-        cursor_ = rhs.iter_;
+        cursor_ = WildcardTrieIteratorAccess::cursor(rhs);
         return *this;
     }
 
@@ -562,32 +585,8 @@ private:
     typename SplitUri::size_type level_ = 0;
 
     template <typename> friend class WildcardTrie;
-
-    template <typename U, bool LM, bool RM>
-    friend bool operator==(const WildcardTrieMatchIterator<U, LM>& lhs,
-                           const WildcardTrieMatchIterator<U, RM>& rhs);
-
-    template <typename U, bool LM, bool RM>
-    friend bool operator!=(const WildcardTrieMatchIterator<U, LM>& lhs,
-                           const WildcardTrieMatchIterator<U, RM>& rhs);
-
-    template <typename U, bool LM, bool RM>
-    friend bool operator==(const WildcardTrieIterator<U, LM>& lhs,
-                           const WildcardTrieMatchIterator<U, RM>& rhs);
-
-    template <typename U, bool LM, bool RM>
-    friend bool operator!=(const WildcardTrieIterator<U, LM>& lhs,
-                           const WildcardTrieMatchIterator<U, RM>& rhs);
-
-    template <typename U, bool LM, bool RM>
-    friend bool operator==(const WildcardTrieIterator<U, LM>& lhs,
-                           const WildcardTrieIterator<U, RM>& rhs);
-
-    template <typename U, bool LM, bool RM>
-    friend bool operator!=(const WildcardTrieIterator<U, LM>& lhs,
-                           const WildcardTrieIterator<U, RM>& rhs);
+    friend struct WildcardTrieIteratorAccess;
 };
-
 
 //------------------------------------------------------------------------------
 template <typename T, bool IsMutable>
@@ -604,18 +603,19 @@ public:
 
     WildcardTrieIterator() = default;
 
-    // Allow construction of const iterator from mutable iterator
+    // Allow implicit conversions from mutable iterator to const iterator.
     template <bool M,
               typename std::enable_if<!IsMutable && M, int>::type = 0>
     WildcardTrieIterator(const WildcardTrieIterator<T, M>& rhs)
-        : cursor_(rhs.cursor_)
+        : cursor_(WildcardTrieIteratorAccess::cursor(rhs))
     {}
 
-    // Allow construction from match iterator
+    // If const, allow implicit conversions from const/mutable match iterator,
+    // otherwise, only allow implicit conversions from mutable match iterator.
     template <bool M,
-              typename std::enable_if<(IsMutable || !M), int>::type = 0>
+              typename std::enable_if<(!IsMutable || M), int>::type = 0>
     WildcardTrieIterator(const WildcardTrieMatchIterator<T, M>& rhs)
-        : cursor_(rhs.cursor_)
+        : cursor_(WildcardTrieIteratorAccess::cursor(rhs))
     {}
 
     // Allow assignment of const iterator from mutable iterator
@@ -627,9 +627,10 @@ public:
         return *this;
     }
 
-    // Allow assignment from match iterator
+    // If const, allow assignment from const/mutable match iterator,
+    // otherwise, only allow assignment from mutable match iterator.
     template <bool M,
-              typename std::enable_if<(IsMutable || !M), int>::type = 0>
+              typename std::enable_if<(!IsMutable || M), int>::type = 0>
     WildcardTrieIterator& operator=(const WildcardTrieIterator<T, M>& rhs)
     {
         cursor_ = rhs.cursor_;
@@ -675,73 +676,63 @@ private:
     Cursor cursor_;
 
     template <typename> friend class WildcardTrie;
-    friend struct TestAccess;
-
-    template <typename U, bool LM, bool RM>
-    friend bool operator==(const WildcardTrieIterator<U, LM>& lhs,
-                           const WildcardTrieIterator<U, RM>& rhs);
-
-    template <typename U, bool LM, bool RM>
-    friend bool operator!=(const WildcardTrieIterator<U, LM>& lhs,
-                           const WildcardTrieIterator<U, RM>& rhs);
+    friend struct WildcardTrieIteratorAccess;
 };
 
 template <typename T, bool LM, bool RM>
 inline bool operator==(const WildcardTrieIterator<T, LM>& lhs,
                        const WildcardTrieIterator<T, RM>& rhs)
 {
-    return lhs.cursor_ == rhs.cursor_;
+    return WildcardTrieIteratorAccess::equals(lhs, rhs);
 };
 
 template <typename T, bool LM, bool RM>
 inline bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
                        const WildcardTrieIterator<T, RM>& rhs)
 {
-    return lhs.cursor_ != rhs.cursor_;
+    return WildcardTrieIteratorAccess::differs(lhs, rhs);
 };
 
-// TODO: Remove these in favor of implicit converversions from
-// WildcardTrieMatchIterator to WildcardTrieIterator.
 template <typename T, bool LM, bool RM>
 inline bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
                        const WildcardTrieMatchIterator<T, RM>& rhs)
 {
-    return lhs.cursor_ == rhs.cursor_;
+    return WildcardTrieIteratorAccess::equals(lhs, rhs);
 };
 
 template <typename T, bool LM, bool RM>
 inline bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
                        const WildcardTrieMatchIterator<T, RM>& rhs)
 {
-    return lhs.cursor_ != rhs.cursor_;
+    return WildcardTrieIteratorAccess::differs(lhs, rhs);
 };
 
 template <typename T, bool LM, bool RM>
 inline bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
                        const WildcardTrieIterator<T, RM>& rhs)
 {
-    return lhs.cursor_ == rhs.cursor_;
+    return WildcardTrieIteratorAccess::equals(lhs, rhs);
+};
+
+template <typename T, bool LM, bool RM>
+inline bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
+                       const WildcardTrieIterator<T, RM>& rhs)
+{
+    return WildcardTrieIteratorAccess::differs(lhs, rhs);
 };
 
 template <typename T, bool LM, bool RM>
 inline bool operator==(const WildcardTrieIterator<T, LM>& lhs,
                        const WildcardTrieMatchIterator<T, RM>& rhs)
 {
-    return lhs.cursor_ == rhs.cursor_;
-};
-
-template <typename T, bool LM, bool RM>
-inline bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
-                       const WildcardTrieIterator<T, RM>& rhs)
-{
-    return lhs.cursor_ != rhs.cursor_;
+    return WildcardTrieIteratorAccess::equals(lhs, rhs);
 };
 
 template <typename T, bool LM, bool RM>
 inline bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
                        const WildcardTrieMatchIterator<T, RM>& rhs)
 {
-    return lhs.cursor_ != rhs.cursor_;
+    return WildcardTrieIteratorAccess::differs(lhs, rhs);
 };
 
 //------------------------------------------------------------------------------
@@ -1062,7 +1053,8 @@ public:
         return contains(tokenizeUri(uri));
     }
 
-    std::pair<match_iterator, match_iterator> match_range(const key_type& key)
+    std::pair<match_iterator, match_iterator>
+    match_range(const key_type& key)
     {
         return getMatchRange<match_iterator>(key);
     }
@@ -1070,7 +1062,7 @@ public:
     std::pair<const_match_iterator, const_match_iterator>
     match_range(const key_type& key) const
     {
-        auto self = const_cast<WildcardTrie&>(*this);
+        auto& self = const_cast<WildcardTrie&>(*this);
         return self.template getMatchRange<const_match_iterator>(key);
     }
 
@@ -1080,7 +1072,7 @@ public:
         return match_range(tokenizeUri(uri));
     }
 
-    std::pair<match_iterator, match_iterator>
+    std::pair<const_match_iterator, const_match_iterator>
     match_range(const string_type& uri) const
     {
         return match_range(tokenizeUri(uri));

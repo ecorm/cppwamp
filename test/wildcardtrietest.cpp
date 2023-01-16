@@ -13,20 +13,6 @@
 using namespace wamp;
 using namespace wamp::internal;
 
-namespace wamp { namespace internal
-{
-//------------------------------------------------------------------------------
-struct TestAccess
-{
-    template <typename T, bool M>
-    static WildcardTrieCursor<T> cursor(WildcardTrieIterator<T, M> iter)
-    {
-        return iter.cursor_;
-    }
-};
-
-} } // namespace wamp::internal
-
 namespace
 {
 
@@ -904,7 +890,7 @@ TEST_CASE( "WildcardTrie Pattern Matching", "[WildcardTrie]" )
 TEST_CASE( "WildcardTrie Erase", "[WildcardTrie]" )
 {
     Trie trie({ {{"a"}, 1}, {{"a", "b", "c"}, 2}, {{"d"}, 3}, {{"d", "e"}, 4} });
-    auto rootNode = TestAccess::cursor(trie.begin()).node;
+    auto rootNode = WildcardTrieIteratorAccess::cursor(trie.begin()).node;
     REQUIRE(rootNode->isRoot());
 
     SECTION( "erasing via iterator" )
@@ -915,7 +901,7 @@ TEST_CASE( "WildcardTrie Erase", "[WildcardTrie]" )
         CHECK(iter == trie.find("d"));
         CHECK(checkWildcardTrieUris(trie, {"a", "d", "d.e"}));
         // Check pruning below "a" node
-        auto cursor = TestAccess::cursor(trie.find("a"));
+        auto cursor = WildcardTrieIteratorAccess::cursor(trie.find("a"));
         CHECK(cursor.iter->second.children.empty());
 
         pos = trie.find("d");
@@ -924,7 +910,7 @@ TEST_CASE( "WildcardTrie Erase", "[WildcardTrie]" )
         CHECK(iter == trie.find("d.e"));
         CHECK(checkWildcardTrieUris(trie, {"a", "d.e"}));
         // Check non-terminal "d" node still exists
-        cursor = TestAccess::cursor(trie.find("d.e"));
+        cursor = WildcardTrieIteratorAccess::cursor(trie.find("d.e"));
         CHECK(cursor.node->position->first == "d");
         CHECK(!cursor.node->isTerminal);
 
@@ -1157,13 +1143,75 @@ TEST_CASE( "WildcardTrie Modification Preserves Iterators", "[WildcardTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WildcardTrie Iterator Conversions", "[WildcardTrie]" )
+TEST_CASE( "WildcardTrie Iterator Conversions and Mixed Comparisons",
+           "[WildcardTrie]" )
 {
-    // TODO
-}
+    using CI = Trie::const_iterator;
+    using CM = Trie::const_match_iterator;
+    using MI = Trie::iterator;
+    using MM = Trie::match_iterator;
 
-//------------------------------------------------------------------------------
-TEST_CASE( "WildcardTrie Mixed Iterator Comparisons", "[WildcardTrie]" )
-{
-    // TODO
+    CHECK(std::is_convertible<CI, CM>::value == false);
+    CHECK(std::is_convertible<CI, MI>::value == false);
+    CHECK(std::is_convertible<CI, MM>::value == false);
+    CHECK(std::is_convertible<CM, CI>::value == true);
+    CHECK(std::is_convertible<CM, MI>::value == false);
+    CHECK(std::is_convertible<CM, MM>::value == false);
+    CHECK(std::is_convertible<MI, CI>::value == true);
+    CHECK(std::is_convertible<MI, CM>::value == false);
+    CHECK(std::is_convertible<MI, MM>::value == false);
+    CHECK(std::is_convertible<MM, CI>::value == true);
+    CHECK(std::is_convertible<MM, CM>::value == true);
+    CHECK(std::is_convertible<MM, MI>::value == true);
+
+    Trie t({ {{"a"}, 1} });
+    const auto& c = t;
+    CI ci = t.cbegin();
+    CM cm = c.match_range("a").first;
+    MI mi = t.begin();
+    MM mm = t.match_range("a").first;
+
+    CHECK(CI(ci).uri() == "a");
+    CHECK(CI(cm).uri() == "a");
+    CHECK(CI(mi).uri() == "a");
+    CHECK(CI(mm).uri() == "a");
+    CHECK(CM(cm).uri() == "a");
+    CHECK(CM(mm).uri() == "a");
+    CHECK(MI(mi).uri() == "a");
+    CHECK(MI(mm).uri() == "a");
+    CHECK(MM(mm).uri() == "a");
+
+    CHECK((ci == ci));
+    CHECK((ci == cm));
+    CHECK((ci == mi));
+    CHECK((ci == mm));
+    CHECK((cm == ci));
+    CHECK((cm == cm));
+    CHECK((cm == mi));
+    CHECK((cm == mm));
+    CHECK((mi == ci));
+    CHECK((mi == cm));
+    CHECK((mi == mi));
+    CHECK((mi == mm));
+    CHECK((mm == ci));
+    CHECK((mm == cm));
+    CHECK((mm == mi));
+    CHECK((mm == mm));
+
+    CHECK_FALSE((ci != ci));
+    CHECK_FALSE((ci != cm));
+    CHECK_FALSE((ci != mi));
+    CHECK_FALSE((ci != mm));
+    CHECK_FALSE((cm != ci));
+    CHECK_FALSE((cm != cm));
+    CHECK_FALSE((cm != mi));
+    CHECK_FALSE((cm != mm));
+    CHECK_FALSE((mi != ci));
+    CHECK_FALSE((mi != cm));
+    CHECK_FALSE((mi != mi));
+    CHECK_FALSE((mi != mm));
+    CHECK_FALSE((mm != ci));
+    CHECK_FALSE((mm != cm));
+    CHECK_FALSE((mm != mi));
+    CHECK_FALSE((mm != mm));
 }
