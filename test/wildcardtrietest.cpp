@@ -1232,6 +1232,30 @@ TEST_CASE( "WildcardTrie Comparisons", "[WildcardTrie]" )
 }
 
 //------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie erase_if", "[WildcardTrie]" )
+{
+    Trie trie({{{"a"}, 1}, {{"b"}, 2}, {{"b", "c"}, 1}});
+
+    SECTION( "criteria based on value" )
+    {
+        auto n = erase_if(
+            trie,
+            [](Trie::value_type kv) {return kv.second == 1;} );
+        CHECK(n == 2);
+        checkWildcardTrieUris(trie, {"b"});
+    }
+
+    SECTION( "criteria based on key" )
+    {
+        auto n = erase_if(
+            trie,
+            [](Trie::value_type kv) {return kv.first.front() == "b";} );
+        CHECK(n == 2);
+        checkWildcardTrieUris(trie, {"a"});
+    }
+}
+
+//------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Iterator Conversions and Mixed Comparisons",
            "[WildcardTrie]" )
 {

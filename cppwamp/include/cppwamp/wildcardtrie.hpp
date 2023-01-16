@@ -606,55 +606,39 @@ public:
     const_match_range_type match_range(const string_type& uri) const;
     /// @}
 
+    /** Non-member swap. */
     friend void swap(WildcardTrie& a, WildcardTrie& b) noexcept {a.swap(b);}
 
+    /** Erases all elements satisfying given criteria. */
+    template <typename P>
+    friend size_type erase_if(WildcardTrie& t, P predicate)
+    {
+        return t.doEraseIf(std::move(predicate));
+    }
+
+    /** Equality comparison. */
     friend bool operator==(const WildcardTrie& a,
                            const WildcardTrie& b) noexcept
     {
-        if (a.empty() || b.empty())
-            return a.empty() == b.empty();
-
-        auto curA = a.rootCursor();
-        auto curB = b.rootCursor();
-        while (!curA.isSentinel())
-        {
-            if (curB.isSentinel())
-                return false;
-            if (curA.iter->first != curB.iter->first)
-                return false;
-            if (curA.iter->second != curB.iter->second)
-                return false;
-            curA.advanceToNextNode();
-            curB.advanceToNextNode();
-        }
-        return curB.isSentinel();
+        return equals(a, b);
     }
 
+    /** Inequality comparison. */
     friend bool operator!=(const WildcardTrie& a,
                            const WildcardTrie& b) noexcept
     {
-        if (a.empty() || b.empty())
-            return a.empty() != b.empty();
-
-        auto curA = a.rootCursor();
-        auto curB = b.rootCursor();
-        while (!curA.isSentinel())
-        {
-            if (curB.isSentinel())
-                return true;
-            if (curA.iter->first != curB.iter->first)
-                return true;
-            if (curA.iter->second != curB.iter->second)
-                return true;
-            curA.advanceToNextNode();
-            curB.advanceToNextNode();
-        }
-        return !curB.isSentinel();
+        return differs(a, b);
     }
 
 private:
     using Node = internal::WildcardTrieNode<T>;
     using Cursor = internal::WildcardTrieCursor<T>;
+
+    static bool equals(const WildcardTrie& a,
+                       const WildcardTrie& b) noexcept;
+
+    static bool differs(const WildcardTrie& a,
+                        const WildcardTrie& b) noexcept;
 
     void moveFrom(WildcardTrie& rhs) noexcept;
 
@@ -690,6 +674,9 @@ private:
     std::pair<iterator, bool> put(bool clobber, key_type key, Us&&... args);
 
     void scanTree();
+
+    template <typename P>
+    size_type doEraseIf(P predicate);
 
     Node sentinel_;
     std::unique_ptr<Node> root_;
@@ -1391,6 +1378,52 @@ WildcardTrie<T>::match_range(const string_type& uri) const
 }
 
 template <typename T>
+bool WildcardTrie<T>::equals(const WildcardTrie& a,
+                             const WildcardTrie& b) noexcept
+{
+    if (a.empty() || b.empty())
+        return a.empty() == b.empty();
+
+    auto curA = a.rootCursor();
+    auto curB = b.rootCursor();
+    while (!curA.isSentinel())
+    {
+        if (curB.isSentinel())
+            return false;
+        if (curA.iter->first != curB.iter->first)
+            return false;
+        if (curA.iter->second != curB.iter->second)
+            return false;
+        curA.advanceToNextNode();
+        curB.advanceToNextNode();
+    }
+    return curB.isSentinel();
+}
+
+template <typename T>
+bool WildcardTrie<T>::differs(const WildcardTrie& a,
+                              const WildcardTrie& b) noexcept
+{
+    if (a.empty() || b.empty())
+        return a.empty() != b.empty();
+
+    auto curA = a.rootCursor();
+    auto curB = b.rootCursor();
+    while (!curA.isSentinel())
+    {
+        if (curB.isSentinel())
+            return true;
+        if (curA.iter->first != curB.iter->first)
+            return true;
+        if (curA.iter->second != curB.iter->second)
+            return true;
+        curA.advanceToNextNode();
+        curB.advanceToNextNode();
+    }
+    return !curB.isSentinel();
+}
+
+template <typename T>
 void WildcardTrie<T>::moveFrom(WildcardTrie& rhs) noexcept
 {
     root_.swap(rhs.root_);
@@ -1548,6 +1581,24 @@ void WildcardTrie<T>::scanTree()
                 ++iter;
         }
     }
+}
+
+template <typename T>
+template <typename P>
+typename WildcardTrie<T>::size_type WildcardTrie<T>::doEraseIf(P predicate)
+{
+    using Pair = std::pair<const key_type&, const mapped_type&>;
+    auto oldSize = size();
+    auto last = end();
+    auto iter = begin();
+    while (iter != last)
+    {
+        if (predicate(Pair{iter.key(), iter.value()}))
+            iter = erase(iter);
+        else
+            ++iter;
+    }
+    return oldSize - size();
 }
 
 } // namespace wamp
