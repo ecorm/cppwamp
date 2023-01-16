@@ -124,6 +124,20 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
         return key;
     }
 
+    bool operator==(const WildcardTrieNode& rhs) const
+    {
+        if (!isTerminal)
+            return !rhs.isTerminal;
+        return rhs.isTerminal && (value == rhs.value);
+    }
+
+    bool operator!=(const WildcardTrieNode& rhs) const
+    {
+        if (!isTerminal)
+            return rhs.isTerminal;
+        return !rhs.isTerminal || (value != rhs.value);
+    }
+
     // TODO: Use std::optional (or a pre-C++17 surrogate) for the value
     // to avoid it needing to be default constructible.
 
@@ -297,6 +311,16 @@ public:
         {
             advanceDepthFirst();
             if (isTerminal())
+                break;
+        }
+    }
+
+    void advanceToNextNode()
+    {
+        while (!isSentinel())
+        {
+            advanceDepthFirst();
+            if (iter != node->children.end())
                 break;
         }
     }

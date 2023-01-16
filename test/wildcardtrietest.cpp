@@ -253,6 +253,22 @@ bool checkWildcardTrieIterators(const Trie& t,
     return same;
 }
 
+//------------------------------------------------------------------------------
+bool checkWildcardTrieComparisons(const Trie& a, const Trie& b)
+{
+    CHECK((a == a));
+    CHECK_FALSE((a != a));
+    CHECK((b == b));
+    CHECK_FALSE((b != b));
+    CHECK_FALSE((a == b));
+    CHECK((a != b));
+    CHECK_FALSE((b == a));
+    CHECK((b != a));
+
+    return (a == a) && !(a != a) && (b == b) && !(b != b) &&
+           !(a == b) && (a != b) && !(b == a) && (b != a);
+}
+
 } // anonymous namespace
 
 
@@ -1186,6 +1202,33 @@ TEST_CASE( "WildcardTrie Modification Preserves Iterators", "[WildcardTrie]" )
     CHECK(checkWildcardTrieIterators(t, {bc, z}));
     t.erase("b.c");
     CHECK(checkWildcardTrieIterators(t, {z}));
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Comparisons", "[WildcardTrie]" )
+{
+    auto check = [](const Trie& a, const Trie& b) -> bool
+    {
+        return checkWildcardTrieComparisons(a, b);
+    };
+
+    CHECK( check({ {} },
+                 { {{"a"}, 1} }) );
+
+    CHECK( check({ {{"a"}, 1} },
+                 { {{"a"}, 2} }) );
+
+    CHECK( check({ {{"a"}, 1} },
+                 { {{"b"}, 1} }) );
+
+    CHECK( check({ {{"a", "b"}, 1} },
+                 { {{"a"}, 1} }) );
+
+    CHECK( check({ {{"a"}, 1}, {{"b"}, 2} },
+                 { {{"a"}, 1} }) );
+
+    CHECK( check({ {{"a"}, 1}, {{"a", "b"}, 2} },
+                 { {{"a", "b"}, 2} }) );
 }
 
 //------------------------------------------------------------------------------

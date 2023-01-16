@@ -606,6 +606,52 @@ public:
     const_match_range_type match_range(const string_type& uri) const;
     /// @}
 
+    friend void swap(WildcardTrie& a, WildcardTrie& b) noexcept {a.swap(b);}
+
+    friend bool operator==(const WildcardTrie& a,
+                           const WildcardTrie& b) noexcept
+    {
+        if (a.empty() || b.empty())
+            return a.empty() == b.empty();
+
+        auto curA = a.rootCursor();
+        auto curB = b.rootCursor();
+        while (!curA.isSentinel())
+        {
+            if (curB.isSentinel())
+                return false;
+            if (curA.iter->first != curB.iter->first)
+                return false;
+            if (curA.iter->second != curB.iter->second)
+                return false;
+            curA.advanceToNextNode();
+            curB.advanceToNextNode();
+        }
+        return curB.isSentinel();
+    }
+
+    friend bool operator!=(const WildcardTrie& a,
+                           const WildcardTrie& b) noexcept
+    {
+        if (a.empty() || b.empty())
+            return a.empty() != b.empty();
+
+        auto curA = a.rootCursor();
+        auto curB = b.rootCursor();
+        while (!curA.isSentinel())
+        {
+            if (curB.isSentinel())
+                return true;
+            if (curA.iter->first != curB.iter->first)
+                return true;
+            if (curA.iter->second != curB.iter->second)
+                return true;
+            curA.advanceToNextNode();
+            curB.advanceToNextNode();
+        }
+        return !curB.isSentinel();
+    }
+
 private:
     using Node = internal::WildcardTrieNode<T>;
     using Cursor = internal::WildcardTrieCursor<T>;
@@ -649,14 +695,6 @@ private:
     std::unique_ptr<Node> root_;
     size_type size_ = 0;
 };
-
-template <typename T>
-void swap(WildcardTrie<T>& a, WildcardTrie<T>& b) noexcept
-{
-    a.swap(b);
-}
-
-// TODO: Comparison operators
 
 
 //******************************************************************************
