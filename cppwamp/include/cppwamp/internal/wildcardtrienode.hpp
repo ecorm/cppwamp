@@ -28,10 +28,12 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
 {
     using Value = T;
     using Key = SplitUri;
-    using StringType = typename Key::value_type;
-    using Tree = std::map<StringType, WildcardTrieNode>;
+    using Atom = typename Key::value_type;
+    using Tree = std::map<Atom, WildcardTrieNode>;
     using TreeIterator = typename Tree::iterator;
     using Level = typename Key::size_type;
+    using Size = typename Tree::size_type;
+    using Allocator = typename Tree::allocator_type;
 
     WildcardTrieNode() : position(children.end()) {}
 
@@ -42,7 +44,7 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
     {}
 
     template <typename... Us>
-    TreeIterator addTerminal(StringType label, Us&&... args)
+    TreeIterator addTerminal(Atom label, Us&&... args)
     {
         auto result = children.emplace(
             std::piecewise_construct,
@@ -71,7 +73,7 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
         node->addTerminal(std::move(key[level]), std::forward<Us>(args)...);
     }
 
-    TreeIterator addChain(StringType&& label, WildcardTrieNode&& chain)
+    TreeIterator addChain(Atom&& label, WildcardTrieNode&& chain)
     {
         auto result = children.emplace(std::move(label), std::move(chain));
         assert(result.second);
@@ -149,7 +151,7 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
 
 private:
     template <typename... Us>
-    TreeIterator buildLink(StringType label)
+    TreeIterator buildLink(Atom label)
     {
         auto result = children.emplace(
             std::piecewise_construct,

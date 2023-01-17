@@ -14,8 +14,10 @@
 
 #include <cassert>
 #include <cstddef>
+#include <functional>
 #include <initializer_list>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <type_traits>
@@ -55,7 +57,7 @@ public:
     using key_type = SplitUri;
 
     /// Type of the URI string associated with this iterator.
-    using string_type = typename SplitUri::value_type;
+    using uri_type = typename SplitUri::value_type;
 
     /** Type of the mapped value associated with this iterator.
         @note It differs from std::map in that it's not a key-value pair. */
@@ -83,7 +85,7 @@ public:
     key_type key() const;
 
     /** Generates the URI associated with the current element. */
-    string_type uri() const;
+    uri_type uri() const;
 
     /** Accesses the value associated with the current element. */
     reference value();
@@ -169,7 +171,7 @@ public:
     using key_type = SplitUri;
 
     /// Type of the URI string associated with this iterator.
-    using string_type = typename SplitUri::value_type;
+    using uri_type = typename SplitUri::value_type;
 
     /** Type of the mapped value associated with this iterator.
         @note It differs from std::map in that it's not a key-value pair. */
@@ -205,7 +207,7 @@ public:
     key_type key() const;
 
     /** Generates the URI associated with the current element. */
-    string_type uri() const;
+    uri_type uri() const;
 
     /** Accesses the value associated with the current element. */
     reference value();
@@ -326,7 +328,8 @@ template <typename T>
 class CPPWAMP_API WildcardTrie
 {
 private:
-    using Tree = typename internal::WildcardTrieNode<T>::Tree;
+    using Node = internal::WildcardTrieNode<T>;
+    using NodeAllocatorTraits = std::allocator_traits<typename Node::Allocator>;
 
     template <typename P>
     static constexpr bool isInsertable()
@@ -346,7 +349,7 @@ public:
 
     /** URI string type that can be used as an alternate key type that is
         automatically split into labels. */
-    using string_type = typename SplitUri::value_type;
+    using uri_type = typename SplitUri::value_type;
 
     /** Type of the mapped value. */
     using mapped_type = T;
@@ -359,7 +362,30 @@ public:
     using value_type = std::pair<const key_type, mapped_type>;
 
     /** Type used to count the number of elements in the container. */
-    using size_type = typename Tree::size_type;
+    using size_type = typename Node::Size;
+
+    /// Type used to identify distance between iterators.
+    using difference_type = std::ptrdiff_t;
+
+    /// Comparison function that determines how keys are sorted.
+    using key_compare = std::less<key_type>;
+
+    /// Allocator type
+    using allocator_type =
+        typename NodeAllocatorTraits::template rebind_alloc<value_type>;
+
+    /// Reference to value_type.
+    using reference = value_type&;
+
+    /// Reference to constant value_type.
+    using const_reference = const value_type&;
+
+    /// Pointer to value_type
+    using pointer = typename std::allocator_traits<allocator_type>::pointer;
+
+    /// Pointer to const value_type
+    using const_pointer =
+        typename std::allocator_traits<allocator_type>::const_pointer;
 
     /** Mutable iterator type which advances through elements in lexicographic
         order of their respective keys. */
@@ -396,6 +422,26 @@ public:
     using const_match_range_type = std::pair<const_match_iterator,
                                              const_match_iterator>;
 
+    class value_compare
+    {
+    public:
+        using result_type = bool;
+        using first_argument_type = value_type;
+        using second_argument_type = value_type;
+
+        value_compare() = default;
+
+        bool operator()(const value_type& a, const value_type& b)
+        {
+            return comp(a.first, b.first);
+        }
+
+    protected:
+        value_compare(key_compare c) : comp(std::move(c)) {}
+
+        key_compare comp;
+    };
+
     /** Default constructor. */
     WildcardTrie();
 
@@ -423,6 +469,8 @@ public:
         each element is a key-value pair. */
     WildcardTrie& operator=(std::initializer_list<value_type> list);
 
+    allocator_type get_allocator() const noexcept;
+
     /// @name Element Access
     /// @{
 
@@ -436,11 +484,11 @@ public:
 
     /** Accesses the element associated with the given URI string,
         with bounds checking. */
-    mapped_type& at(const string_type& uri);
+    mapped_type& at(const uri_type& uri);
 
     /** Accesses the element associated with the given URI string,
         with bounds checking. */
-    const mapped_type& at(const string_type& uri) const;
+    const mapped_type& at(const uri_type& uri) const;
 
     /** Accesses or inserts an element with the given key. */
     mapped_type& operator[](const key_type& key);
@@ -449,7 +497,7 @@ public:
     mapped_type& operator[](key_type&& key);
 
     /** Accesses or inserts an element with the given URI string. */
-    mapped_type& operator[](const string_type& uri);
+    mapped_type& operator[](const uri_type& uri);
     /// @}
 
     /// @name Iterators
@@ -483,6 +531,9 @@ public:
 
     /** Obtains the number of elements. */
     size_type size() const noexcept;
+
+    /** Obtains the maximum possible number of elements. */
+    size_type max_size() const noexcept;
     /// @}
 
 
@@ -532,7 +583,7 @@ public:
     /** Inserts an element or assigns to the current element if the URI
         string already exists. */
     template <typename M>
-    result insert_or_assign(const string_type& uri, M&& arg);
+    result insert_or_assign(const uri_type& uri, M&& arg);
 
     /** Inserts an element from a key-value pair constructed in-place using
         the given arguments. */
@@ -549,7 +600,7 @@ public:
 
     /** Inserts in-place only if the URI string does not exist. */
     template <typename... Us>
-    result try_emplace(const string_type& uri, Us&&... args);
+    result try_emplace(const uri_type& uri, Us&&... args);
 
     /** Erases the element at the given iterator position. */
     iterator erase(iterator pos);
@@ -561,7 +612,7 @@ public:
     size_type erase(const key_type& key);
 
     /** Erases the element associated with the given URI string. */
-    size_type erase(const string_type& uri);
+    size_type erase(const uri_type& uri);
 
     /** Swaps the contents of this container with the given container. */
     void swap(WildcardTrie& other) noexcept;
@@ -574,7 +625,7 @@ public:
     size_type count(const key_type& key) const;
 
     /** Returns the number of elements associated with the given URI string. */
-    size_type count(const string_type& uri) const;
+    size_type count(const uri_type& uri) const;
 
     /** Finds the element associated with the given key. */
     iterator find(const key_type& key);
@@ -583,49 +634,17 @@ public:
     const_iterator find(const key_type& key) const;
 
     /** Finds the element associated with the given URI string. */
-    iterator find(const string_type& uri);
+    iterator find(const uri_type& uri);
 
     /** Finds the element associated with the given URI string. */
-    const_iterator find(const string_type& uri) const;
+    const_iterator find(const uri_type& uri) const;
 
     /** Checks if the container contains the element with the given key. */
     bool contains(const key_type& key) const;
 
     /** Checks if the container contains the element with the given
         URI string. */
-    bool contains(const string_type& uri) const;
-
-    /** Obtains an iterator to the first element not less than the
-        given key. */
-    iterator lower_bound(const key_type& key);
-
-    /** Obtains an iterator to the first element not less than the
-        given key. */
-    const_iterator lower_bound(const key_type& key) const;
-
-    /** Obtains an iterator to the first element not less than the
-        given URI string. */
-    iterator lower_bound(const string_type& uri);
-
-    /** Obtains an iterator to the first element not less than the
-        given URI string. */
-    const_iterator lower_bound(const string_type& key) const;
-
-    /** Obtains an iterator to the first element greater than than the
-        given key. */
-    iterator upper_bound(const key_type& key);
-
-    /** Obtains an iterator to the first element greater than than the
-        given key. */
-    const_iterator upper_bound(const key_type& key) const;
-
-    /** Obtains an iterator to the first element greater than than the
-        given URI string. */
-    iterator upper_bound(const string_type& uri);
-
-    /** Obtains an iterator to the first element greater than than the
-        given URI string. */
-    const_iterator upper_bound(const string_type& key) const;
+    bool contains(const uri_type& uri) const;
 
     /** Obtains the range of elements lexicographically matching
         the given key.*/
@@ -637,11 +656,43 @@ public:
 
     /** Obtains the range of elements lexicographically matching
         the given URI string.*/
-    range_type equal_range(const string_type& uri);
+    range_type equal_range(const uri_type& uri);
 
     /** Obtains the range of elements lexicographically matching
         the given URI string.*/
-    const_range_type equal_range(const string_type& uri) const;
+    const_range_type equal_range(const uri_type& uri) const;
+
+    /** Obtains an iterator to the first element not less than the
+        given key. */
+    iterator lower_bound(const key_type& key);
+
+    /** Obtains an iterator to the first element not less than the
+        given key. */
+    const_iterator lower_bound(const key_type& key) const;
+
+    /** Obtains an iterator to the first element not less than the
+        given URI string. */
+    iterator lower_bound(const uri_type& uri);
+
+    /** Obtains an iterator to the first element not less than the
+        given URI string. */
+    const_iterator lower_bound(const uri_type& key) const;
+
+    /** Obtains an iterator to the first element greater than than the
+        given key. */
+    iterator upper_bound(const key_type& key);
+
+    /** Obtains an iterator to the first element greater than than the
+        given key. */
+    const_iterator upper_bound(const key_type& key) const;
+
+    /** Obtains an iterator to the first element greater than than the
+        given URI string. */
+    iterator upper_bound(const uri_type& uri);
+
+    /** Obtains an iterator to the first element greater than than the
+        given URI string. */
+    const_iterator upper_bound(const uri_type& key) const;
 
     /** Obtains the range of elements with wildcard patterns matching
         the given key. */
@@ -653,22 +704,19 @@ public:
 
     /** Obtains the range of elements with wildcard patterns matching
         the given URI string. */
-    match_range_type match_range(const string_type& uri);
+    match_range_type match_range(const uri_type& uri);
 
     /** Obtains the range of elements with wildcard patterns matching
         the given URI string. */
-    const_match_range_type match_range(const string_type& uri) const;
+    const_match_range_type match_range(const uri_type& uri) const;
+
+    /** Obtains the function that compares keys. */
+    key_compare key_comp() const;
+
+    /** Obtains the function that compares keys in value_type objects. */
+    value_compare value_comp() const;
+
     /// @}
-
-    /** Non-member swap. */
-    friend void swap(WildcardTrie& a, WildcardTrie& b) noexcept {a.swap(b);}
-
-    /** Erases all elements satisfying given criteria. */
-    template <typename P>
-    friend size_type erase_if(WildcardTrie& t, P predicate)
-    {
-        return t.doEraseIf(std::move(predicate));
-    }
 
     /** Equality comparison. */
     friend bool operator==(const WildcardTrie& a,
@@ -684,8 +732,17 @@ public:
         return differs(a, b);
     }
 
+    /** Non-member swap. */
+    friend void swap(WildcardTrie& a, WildcardTrie& b) noexcept {a.swap(b);}
+
+    /** Erases all elements satisfying given criteria. */
+    template <typename P>
+    friend size_type erase_if(WildcardTrie& t, P predicate)
+    {
+        return t.doEraseIf(std::move(predicate));
+    }
+
 private:
-    using Node = internal::WildcardTrieNode<T>;
     using Cursor = internal::WildcardTrieCursor<T>;
 
     static bool equals(const WildcardTrie& a,
@@ -1035,6 +1092,10 @@ WildcardTrie<T>::operator=(std::initializer_list<value_type> list)
     return *this;
 }
 
+template <typename T>
+typename WildcardTrie<T>::allocator_type
+WildcardTrie<T>::get_allocator() const noexcept {return allocator_type();}
+
 /** @throws std::out_of_range if the container does not have an element
             with the given key. */
 template <typename T>
@@ -1062,7 +1123,7 @@ WildcardTrie<T>::at(const key_type& key) const
             with the given URI. */
 template <typename T>
 typename WildcardTrie<T>::mapped_type&
-WildcardTrie<T>::at(const string_type& uri)
+WildcardTrie<T>::at(const uri_type& uri)
 {
     return at(tokenizeUri(uri));
 }
@@ -1071,7 +1132,7 @@ WildcardTrie<T>::at(const string_type& uri)
             with the given URI. */
 template <typename T>
 const typename WildcardTrie<T>::mapped_type&
-WildcardTrie<T>::at(const string_type& uri) const
+WildcardTrie<T>::at(const uri_type& uri) const
 {
     return at(tokenizeUri(uri));
 }
@@ -1101,7 +1162,7 @@ WildcardTrie<T>::operator[](key_type&& key)
     new element. */
 template <typename T>
 typename WildcardTrie<T>::mapped_type&
-WildcardTrie<T>::operator[](const string_type& uri)
+WildcardTrie<T>::operator[](const uri_type& uri)
 {
     return this->operator[](tokenizeUri(uri));
 }
@@ -1150,6 +1211,14 @@ template <typename T>
 typename WildcardTrie<T>::size_type WildcardTrie<T>::size() const noexcept
 {
     return size_;
+}
+
+template <typename T>
+typename WildcardTrie<T>::size_type WildcardTrie<T>::max_size() const noexcept
+{
+    // Can't return the max_size() of the underlying std::map because
+    // there can be more than one in the node tree.
+    return std::numeric_limits<difference_type>::max();
 }
 
 template <typename T>
@@ -1230,7 +1299,7 @@ WildcardTrie<T>::insert_or_assign(key_type&& key, M&& arg)
 template <typename T>
 template <typename M>
 typename WildcardTrie<T>::result
-WildcardTrie<T>::insert_or_assign(const string_type& uri, M&& arg)
+WildcardTrie<T>::insert_or_assign(const uri_type& uri, M&& arg)
 {
     return insert_or_assign(tokenizeUri(uri), std::forward<M>(arg));
 }
@@ -1286,7 +1355,7 @@ WildcardTrie<T>::try_emplace(key_type&& key, Us&&... args)
 template <typename T>
 template <typename... Us>
 typename WildcardTrie<T>::result
-WildcardTrie<T>::try_emplace(const string_type& uri, Us&&... args)
+WildcardTrie<T>::try_emplace(const uri_type& uri, Us&&... args)
 {
     return add(tokenizeUri(uri), std::forward<Us>(args)...);
 }
@@ -1332,7 +1401,7 @@ typename WildcardTrie<T>::size_type WildcardTrie<T>::erase(const key_type& key)
 /** @returns The number of elements erased (0 or 1). */
 template <typename T>
 typename WildcardTrie<T>::size_type
-WildcardTrie<T>::erase(const string_type& uri)
+WildcardTrie<T>::erase(const uri_type& uri)
 {
     return erase(tokenizeUri(uri));
 }
@@ -1357,7 +1426,7 @@ WildcardTrie<T>::count(const key_type& key) const
 
 template <typename T>
 typename WildcardTrie<T>::size_type
-WildcardTrie<T>::count(const string_type& uri) const
+WildcardTrie<T>::count(const uri_type& uri) const
 {
     return count(tokenizeUri(uri));
 }
@@ -1377,14 +1446,14 @@ WildcardTrie<T>::find(const key_type& key) const
 }
 
 template <typename T>
-typename WildcardTrie<T>::iterator WildcardTrie<T>::find(const string_type& uri)
+typename WildcardTrie<T>::iterator WildcardTrie<T>::find(const uri_type& uri)
 {
     return find(tokenizeUri(uri));
 }
 
 template <typename T>
 typename WildcardTrie<T>::const_iterator
-WildcardTrie<T>::find(const string_type& uri) const
+WildcardTrie<T>::find(const uri_type& uri) const
 {
     return find(tokenizeUri(uri));
 }
@@ -1396,9 +1465,37 @@ bool WildcardTrie<T>::contains(const key_type& key) const
 }
 
 template <typename T>
-bool WildcardTrie<T>::contains(const string_type& uri) const
+bool WildcardTrie<T>::contains(const uri_type& uri) const
 {
     return contains(tokenizeUri(uri));
+}
+
+template <typename T>
+typename WildcardTrie<T>::range_type
+WildcardTrie<T>::equal_range(const key_type& key)
+{
+    return getEqualRange<iterator>(key);
+}
+
+template <typename T>
+typename WildcardTrie<T>::const_range_type
+WildcardTrie<T>::equal_range(const key_type& key) const
+{
+    return getEqualRange<const_iterator>(key);
+}
+
+template <typename T>
+typename WildcardTrie<T>::range_type
+WildcardTrie<T>::equal_range(const uri_type& uri)
+{
+    return equal_range(tokenizeUri(uri));
+}
+
+template <typename T>
+typename WildcardTrie<T>::const_range_type
+WildcardTrie<T>::equal_range(const uri_type& uri) const
+{
+    return equal_range(tokenizeUri(uri));
 }
 
 template <typename T>
@@ -1417,14 +1514,14 @@ WildcardTrie<T>::lower_bound(const key_type& key) const
 
 template <typename T>
 typename WildcardTrie<T>::iterator
-WildcardTrie<T>::lower_bound(const string_type& uri)
+WildcardTrie<T>::lower_bound(const uri_type& uri)
 {
     return lower_bound(tokenizeUri(uri));
 }
 
 template <typename T>
 typename WildcardTrie<T>::const_iterator
-WildcardTrie<T>::lower_bound(const string_type& uri) const
+WildcardTrie<T>::lower_bound(const uri_type& uri) const
 {
     return lower_bound(tokenizeUri(uri));
 }
@@ -1445,44 +1542,16 @@ WildcardTrie<T>::upper_bound(const key_type& key) const
 
 template <typename T>
 typename WildcardTrie<T>::iterator
-WildcardTrie<T>::upper_bound(const string_type& uri)
+WildcardTrie<T>::upper_bound(const uri_type& uri)
 {
     return upper_bound(tokenizeUri(uri));
 }
 
 template <typename T>
 typename WildcardTrie<T>::const_iterator
-WildcardTrie<T>::upper_bound(const string_type& uri) const
+WildcardTrie<T>::upper_bound(const uri_type& uri) const
 {
     return upper_bound(tokenizeUri(uri));
-}
-
-template <typename T>
-typename WildcardTrie<T>::range_type
-WildcardTrie<T>::equal_range(const key_type& key)
-{
-    return getEqualRange<iterator>(key);
-}
-
-template <typename T>
-typename WildcardTrie<T>::const_range_type
-WildcardTrie<T>::equal_range(const key_type& key) const
-{
-    return getEqualRange<const_iterator>(key);
-}
-
-template <typename T>
-typename WildcardTrie<T>::range_type
-WildcardTrie<T>::equal_range(const string_type& uri)
-{
-    return equal_range(tokenizeUri(uri));
-}
-
-template <typename T>
-typename WildcardTrie<T>::const_range_type
-WildcardTrie<T>::equal_range(const string_type& uri) const
-{
-    return equal_range(tokenizeUri(uri));
 }
 
 /** The range is determined as if every key were checked against
@@ -1508,7 +1577,7 @@ WildcardTrie<T>::match_range(const key_type& key) const
     the wamp::uriMatchesWildcardPattern function. */
 template <typename T>
 typename WildcardTrie<T>::match_range_type
-WildcardTrie<T>::match_range(const string_type& uri)
+WildcardTrie<T>::match_range(const uri_type& uri)
 {
     return match_range(tokenizeUri(uri));
 }
@@ -1517,9 +1586,21 @@ WildcardTrie<T>::match_range(const string_type& uri)
     the wamp::uriMatchesWildcardPattern function. */
 template <typename T>
 typename WildcardTrie<T>::const_match_range_type
-WildcardTrie<T>::match_range(const string_type& uri) const
+WildcardTrie<T>::match_range(const uri_type& uri) const
 {
     return match_range(tokenizeUri(uri));
+}
+
+template <typename T>
+typename WildcardTrie<T>::key_compare WildcardTrie<T>::key_comp() const
+{
+    return key_compare();
+}
+
+template <typename T>
+typename WildcardTrie<T>::value_compare WildcardTrie<T>::value_comp() const
+{
+    return value_compare();
 }
 
 template <typename T>
