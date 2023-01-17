@@ -817,11 +817,61 @@ TEST_CASE( "WildcardTrie Bad Access/Lookups", "[WildcardTrie]" )
 
     check("empty trie",        {},                {"a"});
     check("populated trie",    {{{"a"}, 1}},      {"b"});
-    check("key is wildcard",   {{{"a"}, 1}},      {""});
     check("trie has wildcard", {{{""}, 1}},       {"a"});
+    check("key is wildcard",   {{{"a"}, 1}},      {""});
     check("key is prefix",     {{{"a", "b"}, 1}}, {"a"});
     check("key is partial",    {{{"a", "b"}, 1}}, {"a", "c"});
     check("key too long",      {{{"a"}, 1}},      {"a", "b"});
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WildcardTrie Lower Bound", "[WildcardTrie]" )
+{
+    SECTION ("Empty trie")
+    {
+        Trie t;
+        auto end = t.end();
+        CHECK(t.lower_bound("") == end);
+        CHECK(t.lower_bound(" ") == end);
+        CHECK(t.lower_bound("a") == end);
+        CHECK(t.lower_bound("a.b") == end);
+        CHECK(t.lower_bound(SplitUri{}) == end);
+    }
+
+    SECTION ("Populated trie")
+    {
+        Trie t({{{"a"}, 1}, {{"a", "b", "c"}, 2}, {{"d"}, 3}, {{"d", "f"}, 4}});
+        auto end = t.end();
+        CHECK(t.lower_bound(""      ).uri() == "a");
+        CHECK(t.lower_bound(" "     ).uri() == "a");
+        CHECK(t.lower_bound("`"     ).uri() == "a");
+        CHECK(t.lower_bound("a"     ).uri() == "a");
+        CHECK(t.lower_bound("a."    ).uri() == "a.b.c");
+        CHECK(t.lower_bound("a.b"   ).uri() == "a.b.c");
+        CHECK(t.lower_bound("a.b."  ).uri() == "a.b.c");
+        CHECK(t.lower_bound("a.b. " ).uri() == "a.b.c");
+        CHECK(t.lower_bound("a.b.a" ).uri() == "a.b.c");
+        CHECK(t.lower_bound("a.b.c" ).uri() == "a.b.c");
+        CHECK(t.lower_bound("a.b.c" ).uri() == "a.b.c");
+        CHECK(t.lower_bound("a "    ).uri() == "d");
+        CHECK(t.lower_bound("aa"    ).uri() == "d");
+        CHECK(t.lower_bound("a.b "  ).uri() == "d");
+        CHECK(t.lower_bound("a.ba"  ).uri() == "d");
+        CHECK(t.lower_bound("a.b.c ").uri() == "d");
+        CHECK(t.lower_bound("a.b.c.").uri() == "d");
+        CHECK(t.lower_bound("a.b.d" ).uri() == "d");
+        CHECK(t.lower_bound("b"     ).uri() == "d");
+        CHECK(t.lower_bound("d"     ).uri() == "d");
+        CHECK(t.lower_bound("d."    ).uri() == "d.f");
+        CHECK(t.lower_bound("d.e"   ).uri() == "d.f");
+        CHECK(t.lower_bound("d.f"   ).uri() == "d.f");
+        CHECK(t.lower_bound("d.f "  ) == end);
+        CHECK(t.lower_bound("d.g"   ) == end);
+        CHECK(t.lower_bound("d "    ) == end);
+        CHECK(t.lower_bound("da"    ) == end);
+        CHECK(t.lower_bound("e"     ) == end);
+        CHECK(t.lower_bound(SplitUri{}) == end);
+    }
 }
 
 //------------------------------------------------------------------------------

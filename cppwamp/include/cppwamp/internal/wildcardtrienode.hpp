@@ -187,27 +187,23 @@ public:
 
     void locate(const Key& key)
     {
+        assert(!key.empty());
         Node* sentinel = node->parent;
-        bool found = false;
-
-        if (!key.empty())
+        bool found = true;
+        for (Level level = 0; level<key.size(); ++level)
         {
-            found = true;
-            for (Level level = 0; level<key.size(); ++level)
+            const auto& label = key[level];
+            iter = node->children.find(label);
+            if (iter == node->children.end())
             {
-                const auto& label = key[level];
-                iter = node->children.find(label);
-                if (iter == node->children.end())
-                {
-                    found = false;
-                    break;
-                }
-
-                if (level < key.size() - 1)
-                    node = &(iter->second);
+                found = false;
+                break;
             }
-            found = found && iter->second.isTerminal;
+
+            if (level < key.size() - 1)
+                node = &(iter->second);
         }
+        found = found && iter->second.isTerminal;
 
         if (!found)
         {
@@ -323,6 +319,36 @@ public:
             if (iter != node->children.end())
                 break;
         }
+    }
+
+    void findLowerBound(const Key& key)
+    {
+        assert(!key.empty());
+        const Level maxLevel = key.size() - 1;
+
+        bool found = true;
+        for (Level level = 0; level <= maxLevel; ++level)
+        {
+            iter = findLowerBoundInNode(*node, key[level]);
+            if (iter == node->children.end())
+            {
+                found = false;
+                break;
+            }
+
+            if (level < maxLevel)
+            {
+                if (iter->second.isLeaf())
+                {
+                    found = false;
+                    break;
+                }
+                node = &(iter->second);
+            }
+        }
+
+        if (!found || !iter->second.isTerminal)
+            advanceToNextTerminal();
     }
 
     Level matchFirst(const Key& key)
@@ -463,32 +489,40 @@ private:
         return level + 1;
     }
 
+    struct Compare
+    {
+        bool operator()(const typename TreeIterator::value_type& kv,
+                        const StringType& s) const
+        {
+            return kv.first < s;
+        }
+
+        bool operator()(const StringType& s,
+                        const typename TreeIterator::value_type& kv) const
+        {
+            return s < kv.first;
+        }
+    };
+
     void findLabelInLevel(const StringType& label)
     {
-        struct Compare
-        {
-            bool operator()(const typename TreeIterator::value_type& kv,
-                            const StringType& s) const
-            {
-                return kv.first < s;
-            }
-
-            bool operator()(const StringType& s,
-                            const typename TreeIterator::value_type& kv) const
-            {
-                return s < kv.first;
-            }
-        };
-
         if (iter == node->children.begin())
         {
             iter = std::lower_bound(++iter, node->children.end(), label,
                                     Compare{});
+            if (iter != node->children.end() && iter->first != label)
+                iter = node->children.end();
         }
         else
         {
             iter = node->children.end();
         }
+    }
+
+    static TreeIterator findLowerBoundInNode(Node& n, const StringType& label)
+    {
+        return std::lower_bound(n.children.begin(),
+                                n.children.end(), label, Compare{});
     }
 };
 

@@ -589,6 +589,22 @@ public:
         URI string. */
     bool contains(const string_type& uri) const;
 
+    /** Obtains an iterator to the first element not less than the
+        given key. */
+    iterator lower_bound(const key_type& key);
+
+    /** Obtains an iterator to the first element not less than the
+        given key. */
+    const_iterator lower_bound(const key_type& key) const;
+
+    /** Obtains an iterator to the first element not less than the
+        given URI string. */
+    iterator lower_bound(const string_type& uri);
+
+    /** Obtains an iterator to the first element not less than the
+        given URI string. */
+    const_iterator lower_bound(const string_type& key) const;
+
     /** Obtains the range of elements with wildcard patterns matching
         the given key. */
     match_range_type match_range(const key_type& key);
@@ -657,6 +673,8 @@ private:
     Cursor locate(const key_type& key);
 
     Cursor locate(const key_type& key) const;
+
+    Cursor findLowerBound(const key_type& key) const;
 
     template <typename I>
     std::pair<I, I> getMatchRange(const key_type& key) const;
@@ -1340,6 +1358,34 @@ bool WildcardTrie<T>::contains(const string_type& uri) const
     return contains(tokenizeUri(uri));
 }
 
+template <typename T>
+typename WildcardTrie<T>::iterator
+WildcardTrie<T>::lower_bound(const key_type& key)
+{
+    return iterator(findLowerBound(key));
+}
+
+template <typename T>
+typename WildcardTrie<T>::const_iterator
+WildcardTrie<T>::lower_bound(const key_type& key) const
+{
+    return const_iterator(findLowerBound(key));
+}
+
+template <typename T>
+typename WildcardTrie<T>::iterator
+WildcardTrie<T>::lower_bound(const string_type& uri)
+{
+    return lower_bound(tokenizeUri(uri));
+}
+
+template <typename T>
+typename WildcardTrie<T>::const_iterator
+WildcardTrie<T>::lower_bound(const string_type& uri) const
+{
+    return lower_bound(tokenizeUri(uri));
+}
+
 /** The range is determined as if every key were checked against
     the wamp::uriMatchesWildcardPattern function. */
 template <typename T>
@@ -1490,6 +1536,17 @@ typename WildcardTrie<T>::Cursor
 WildcardTrie<T>::locate(const key_type& key) const
 {
     return const_cast<WildcardTrie&>(*this).locate(key);
+}
+
+template <typename T>
+typename WildcardTrie<T>::Cursor
+WildcardTrie<T>::findLowerBound(const key_type& key) const
+{
+    if (empty() || key.empty())
+        return sentinelCursor();
+    auto cursor = rootCursor();
+    cursor.findLowerBound(key);
+    return cursor;
 }
 
 template <typename T>
