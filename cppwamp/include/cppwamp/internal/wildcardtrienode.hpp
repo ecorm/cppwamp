@@ -321,9 +321,34 @@ public:
         }
     }
 
-    void findLowerBound(const Key& key) {findBound(key, false);}
+    void findLowerBound(const Key& key)
+    {
+        findBound(key);
+        if (!iter->second.isTerminal)
+            advanceToNextTerminal();
+    }
 
-    void findUpperBound(const Key& key) {findBound(key, true);}
+    void findUpperBound(const Key& key)
+    {
+        bool foundExact = findBound(key);
+        if (!iter->second.isTerminal || foundExact)
+            advanceToNextTerminal();
+    }
+
+    static std::pair<WildcardTrieCursor, WildcardTrieCursor>
+    findEqualRange(Node& rootNode, const Key& key)
+    {
+        auto lower = begin(rootNode);
+        bool foundExact = lower.findBound(key);
+        bool isTerminal = lower.iter->second.isTerminal;
+        if (!isTerminal)
+            lower.advanceToNextTerminal();
+
+        WildcardTrieCursor upper{lower};
+        if (isTerminal && foundExact)
+            upper.advanceToNextTerminal();
+        return {lower, upper};
+    }
 
     Level matchFirst(const Key& key)
     {
@@ -508,12 +533,12 @@ private:
         }
     }
 
-    void findBound(const Key& key, bool upper)
+    bool findBound(const Key& key)
     {
         assert(!key.empty());
         const Level maxLevel = key.size() - 1;
 
-        bool found = false;
+        bool foundExact = false;
         for (Level level = 0; level <= maxLevel; ++level)
         {
             const auto& targetLabel = key[level];
@@ -536,12 +561,11 @@ private:
             }
             else
             {
-                found = true;
+                foundExact = true;
             }
         }
 
-        if (!iter->second.isTerminal || (upper && found))
-            advanceToNextTerminal();
+        return foundExact;
     }
 
     static TreeIterator findLowerBoundInNode(Node& n, const StringType& label)

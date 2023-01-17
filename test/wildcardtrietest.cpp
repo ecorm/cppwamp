@@ -254,6 +254,39 @@ bool checkWildcardTrieIterators(const Trie& t,
 }
 
 //------------------------------------------------------------------------------
+void checkWildcardTrieEqualRange(const Trie& t, const std::string& uri, const std::string& lbUri,
+                                 const std::string& ubUri)
+{
+    INFO("For uri '" << uri << "'");
+
+    auto er = t.equal_range(uri);
+
+    auto lb = t.lower_bound(uri);
+    CHECK(lb == er.first);
+    if (lbUri.empty())
+    {
+        CHECK(lb == t.end());
+    }
+    else
+    {
+        CHECK(lb.uri() == lbUri);
+        CHECK(er.first.uri() == lbUri);
+    }
+
+    auto ub = t.upper_bound(uri);
+    CHECK(ub == er.second);
+    if (ubUri.empty())
+    {
+        CHECK(ub == t.end());
+    }
+    else
+    {
+        CHECK(ub.uri() == ubUri);
+        CHECK(er.second.uri() == ubUri);
+    }
+}
+
+//------------------------------------------------------------------------------
 bool checkWildcardTrieComparisons(const Trie& a, const Trie& b)
 {
     CHECK((a == a));
@@ -825,7 +858,7 @@ TEST_CASE( "WildcardTrie Bad Access/Lookups", "[WildcardTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WildcardTrie Lower/Upper Bound", "[WildcardTrie]" )
+TEST_CASE( "WildcardTrie Lower/Upper Bound and Equal Range", "[WildcardTrie]" )
 {
     SECTION ("Empty trie")
     {
@@ -850,17 +883,7 @@ TEST_CASE( "WildcardTrie Lower/Upper Bound", "[WildcardTrie]" )
         auto check = [&t](const std::string& uri, const std::string& lbUri,
                           const std::string& ubUri)
         {
-            INFO("For uri '" << uri << "'");
-
-            if (lbUri.empty())
-                CHECK(t.lower_bound(uri) == t.end());
-            else
-                CHECK(t.lower_bound(uri).uri() == lbUri);
-
-            if (ubUri.empty())
-                CHECK(t.upper_bound(uri) == t.end());
-            else
-                CHECK(t.upper_bound(uri).uri() == ubUri);
+            return checkWildcardTrieEqualRange(t, uri, lbUri, ubUri);
         };
 
         auto end = t.end();
@@ -899,6 +922,9 @@ TEST_CASE( "WildcardTrie Lower/Upper Bound", "[WildcardTrie]" )
 
         CHECK(t.lower_bound(SplitUri{}) == end);
         CHECK(t.upper_bound(SplitUri{}) == end);
+        auto er = t.equal_range(SplitUri{});
+        CHECK(er.first == end);
+        CHECK(er.second == end);
     }
 }
 

@@ -381,11 +381,17 @@ public:
         insertion operation. */
     using result = std::pair<iterator, bool>;
 
-    /** Pairs two mutable iterators corresponding to the first and
+    /** Pair of mutable iterators corresponding to a range. */
+    using range_type = std::pair<iterator, iterator>;
+
+    /** Pair of immutable iterators corresponding to a range. */
+    using const_range_type = std::pair<const_iterator, const_iterator>;
+
+    /** Pair of mutable iterators corresponding to the first and
         one-past-the-last match. */
     using match_range_type = std::pair<match_iterator, match_iterator>;
 
-    /** Pairs two immutable iterators corresponding to the first and
+    /** Pair of immutable iterators corresponding to the first and
         one-past-the-last match. */
     using const_match_range_type = std::pair<const_match_iterator,
                                              const_match_iterator>;
@@ -621,6 +627,22 @@ public:
         given URI string. */
     const_iterator upper_bound(const string_type& key) const;
 
+    /** Obtains the range of elements lexicographically matching
+        the given key.*/
+    range_type equal_range(const key_type& key);
+
+    /** Obtains the range of elements lexicographically matching
+        the given key.*/
+    const_range_type equal_range(const key_type& key) const;
+
+    /** Obtains the range of elements lexicographically matching
+        the given URI string.*/
+    range_type equal_range(const string_type& uri);
+
+    /** Obtains the range of elements lexicographically matching
+        the given URI string.*/
+    const_range_type equal_range(const string_type& uri) const;
+
     /** Obtains the range of elements with wildcard patterns matching
         the given key. */
     match_range_type match_range(const key_type& key);
@@ -693,6 +715,9 @@ private:
     Cursor findLowerBound(const key_type& key) const;
 
     Cursor findUpperBound(const key_type& key) const;
+
+    template <typename I>
+    std::pair<I, I> getEqualRange(const key_type& key) const;
 
     template <typename I>
     std::pair<I, I> getMatchRange(const key_type& key) const;
@@ -1432,6 +1457,34 @@ WildcardTrie<T>::upper_bound(const string_type& uri) const
     return upper_bound(tokenizeUri(uri));
 }
 
+template <typename T>
+typename WildcardTrie<T>::range_type
+WildcardTrie<T>::equal_range(const key_type& key)
+{
+    return getEqualRange<iterator>(key);
+}
+
+template <typename T>
+typename WildcardTrie<T>::const_range_type
+WildcardTrie<T>::equal_range(const key_type& key) const
+{
+    return getEqualRange<const_iterator>(key);
+}
+
+template <typename T>
+typename WildcardTrie<T>::range_type
+WildcardTrie<T>::equal_range(const string_type& uri)
+{
+    return equal_range(tokenizeUri(uri));
+}
+
+template <typename T>
+typename WildcardTrie<T>::const_range_type
+WildcardTrie<T>::equal_range(const string_type& uri) const
+{
+    return equal_range(tokenizeUri(uri));
+}
+
 /** The range is determined as if every key were checked against
     the wamp::uriMatchesWildcardPattern function. */
 template <typename T>
@@ -1604,6 +1657,16 @@ WildcardTrie<T>::findUpperBound(const key_type& key) const
     auto cursor = rootCursor();
     cursor.findUpperBound(key);
     return cursor;
+}
+
+template <typename T>
+template <typename I>
+std::pair<I, I> WildcardTrie<T>::getEqualRange(const key_type& key) const
+{
+    if (empty() || key.empty())
+        return {I{sentinelCursor()}, I{sentinelCursor()}};
+    auto range = Cursor::findEqualRange(*root_, key);
+    return {I{range.first}, I{range.second}};
 }
 
 template <typename T>
