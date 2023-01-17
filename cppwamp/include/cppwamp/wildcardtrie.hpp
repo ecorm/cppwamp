@@ -605,6 +605,22 @@ public:
         given URI string. */
     const_iterator lower_bound(const string_type& key) const;
 
+    /** Obtains an iterator to the first element greater than than the
+        given key. */
+    iterator upper_bound(const key_type& key);
+
+    /** Obtains an iterator to the first element greater than than the
+        given key. */
+    const_iterator upper_bound(const key_type& key) const;
+
+    /** Obtains an iterator to the first element greater than than the
+        given URI string. */
+    iterator upper_bound(const string_type& uri);
+
+    /** Obtains an iterator to the first element greater than than the
+        given URI string. */
+    const_iterator upper_bound(const string_type& key) const;
+
     /** Obtains the range of elements with wildcard patterns matching
         the given key. */
     match_range_type match_range(const key_type& key);
@@ -675,6 +691,8 @@ private:
     Cursor locate(const key_type& key) const;
 
     Cursor findLowerBound(const key_type& key) const;
+
+    Cursor findUpperBound(const key_type& key) const;
 
     template <typename I>
     std::pair<I, I> getMatchRange(const key_type& key) const;
@@ -1386,6 +1404,34 @@ WildcardTrie<T>::lower_bound(const string_type& uri) const
     return lower_bound(tokenizeUri(uri));
 }
 
+template <typename T>
+typename WildcardTrie<T>::iterator
+WildcardTrie<T>::upper_bound(const key_type& key)
+{
+    return iterator(findUpperBound(key));
+}
+
+template <typename T>
+typename WildcardTrie<T>::const_iterator
+WildcardTrie<T>::upper_bound(const key_type& key) const
+{
+    return const_iterator(findUpperBound(key));
+}
+
+template <typename T>
+typename WildcardTrie<T>::iterator
+WildcardTrie<T>::upper_bound(const string_type& uri)
+{
+    return upper_bound(tokenizeUri(uri));
+}
+
+template <typename T>
+typename WildcardTrie<T>::const_iterator
+WildcardTrie<T>::upper_bound(const string_type& uri) const
+{
+    return upper_bound(tokenizeUri(uri));
+}
+
 /** The range is determined as if every key were checked against
     the wamp::uriMatchesWildcardPattern function. */
 template <typename T>
@@ -1546,6 +1592,17 @@ WildcardTrie<T>::findLowerBound(const key_type& key) const
         return sentinelCursor();
     auto cursor = rootCursor();
     cursor.findLowerBound(key);
+    return cursor;
+}
+
+template <typename T>
+typename WildcardTrie<T>::Cursor
+WildcardTrie<T>::findUpperBound(const key_type& key) const
+{
+    if (empty() || key.empty())
+        return sentinelCursor();
+    auto cursor = rootCursor();
+    cursor.findUpperBound(key);
     return cursor;
 }
 

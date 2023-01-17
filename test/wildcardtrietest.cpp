@@ -825,7 +825,7 @@ TEST_CASE( "WildcardTrie Bad Access/Lookups", "[WildcardTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WildcardTrie Lower Bound", "[WildcardTrie]" )
+TEST_CASE( "WildcardTrie Lower/Upper Bound", "[WildcardTrie]" )
 {
     SECTION ("Empty trie")
     {
@@ -836,41 +836,69 @@ TEST_CASE( "WildcardTrie Lower Bound", "[WildcardTrie]" )
         CHECK(t.lower_bound("a") == end);
         CHECK(t.lower_bound("a.b") == end);
         CHECK(t.lower_bound(SplitUri{}) == end);
+        CHECK(t.upper_bound("") == end);
+        CHECK(t.upper_bound(" ") == end);
+        CHECK(t.upper_bound("a") == end);
+        CHECK(t.upper_bound("a.b") == end);
+        CHECK(t.upper_bound(SplitUri{}) == end);
     }
 
     SECTION ("Populated trie")
     {
         Trie t({{{"a"}, 1}, {{"a", "b", "c"}, 2}, {{"d"}, 3}, {{"d", "f"}, 4}});
+
+        auto check = [&t](const std::string& uri, const std::string& lbUri,
+                          const std::string& ubUri)
+        {
+            INFO("For uri '" << uri << "'");
+
+            if (lbUri.empty())
+                CHECK(t.lower_bound(uri) == t.end());
+            else
+                CHECK(t.lower_bound(uri).uri() == lbUri);
+
+            if (ubUri.empty())
+                CHECK(t.upper_bound(uri) == t.end());
+            else
+                CHECK(t.upper_bound(uri).uri() == ubUri);
+        };
+
         auto end = t.end();
-        CHECK(t.lower_bound(""      ).uri() == "a");
-        CHECK(t.lower_bound(" "     ).uri() == "a");
-        CHECK(t.lower_bound("`"     ).uri() == "a");
-        CHECK(t.lower_bound("a"     ).uri() == "a");
-        CHECK(t.lower_bound("a."    ).uri() == "a.b.c");
-        CHECK(t.lower_bound("a.b"   ).uri() == "a.b.c");
-        CHECK(t.lower_bound("a.b."  ).uri() == "a.b.c");
-        CHECK(t.lower_bound("a.b. " ).uri() == "a.b.c");
-        CHECK(t.lower_bound("a.b.a" ).uri() == "a.b.c");
-        CHECK(t.lower_bound("a.b.c" ).uri() == "a.b.c");
-        CHECK(t.lower_bound("a.b.c" ).uri() == "a.b.c");
-        CHECK(t.lower_bound("a "    ).uri() == "d");
-        CHECK(t.lower_bound("aa"    ).uri() == "d");
-        CHECK(t.lower_bound("a.b "  ).uri() == "d");
-        CHECK(t.lower_bound("a.ba"  ).uri() == "d");
-        CHECK(t.lower_bound("a.b.c ").uri() == "d");
-        CHECK(t.lower_bound("a.b.c.").uri() == "d");
-        CHECK(t.lower_bound("a.b.d" ).uri() == "d");
-        CHECK(t.lower_bound("b"     ).uri() == "d");
-        CHECK(t.lower_bound("d"     ).uri() == "d");
-        CHECK(t.lower_bound("d."    ).uri() == "d.f");
-        CHECK(t.lower_bound("d.e"   ).uri() == "d.f");
-        CHECK(t.lower_bound("d.f"   ).uri() == "d.f");
-        CHECK(t.lower_bound("d.f "  ) == end);
-        CHECK(t.lower_bound("d.g"   ) == end);
-        CHECK(t.lower_bound("d "    ) == end);
-        CHECK(t.lower_bound("da"    ) == end);
-        CHECK(t.lower_bound("e"     ) == end);
+        check("",        "a",       "a");
+        check(" ",       "a",       "a");
+        check("`",       "a",       "a");
+        check("a",       "a",       "a.b.c");
+        check("a.",      "a.b.c",   "a.b.c");
+        check("a.b",     "a.b.c",   "a.b.c");
+        check("a.b.",    "a.b.c",   "a.b.c");
+        check("a.b. ",   "a.b.c",   "a.b.c");
+        check("a.b.a",   "a.b.c",   "a.b.c");
+        check("a.b.c",   "a.b.c",   "d");
+        check("a ",      "d",       "d");
+        check("aa",      "d",       "d");
+        check("a.b ",    "d",       "d");
+        check("a.ba",    "d",       "d");
+        check("a.b.c ",  "d",       "d");
+        check("a.b.c.",  "d",       "d");
+        check("a.b.c.d", "d",       "d");
+        check("a.b.d",   "d",       "d");
+        check("a.c",     "d",       "d");
+        check("b",       "d",       "d");
+        check("b.c",     "d",       "d");
+        check("c",       "d",       "d");
+        check("d",       "d",       "d.f");
+        check("d.",      "d.f",     "d.f");
+        check("d.e",     "d.f",     "d.f");
+        check("d.e ",    "d.f",     "d.f");
+        check("d.f",     "d.f",     "");
+        check("d.f ",    "",        "");
+        check("d.g",     "",        "");
+        check("d ",      "",        "");
+        check("da",      "",        "");
+        check("e",       "",        "");
+
         CHECK(t.lower_bound(SplitUri{}) == end);
+        CHECK(t.upper_bound(SplitUri{}) == end);
     }
 }
 

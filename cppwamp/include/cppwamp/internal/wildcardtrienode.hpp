@@ -321,35 +321,9 @@ public:
         }
     }
 
-    void findLowerBound(const Key& key)
-    {
-        assert(!key.empty());
-        const Level maxLevel = key.size() - 1;
+    void findLowerBound(const Key& key) {findBound(key, false);}
 
-        bool found = true;
-        for (Level level = 0; level <= maxLevel; ++level)
-        {
-            iter = findLowerBoundInNode(*node, key[level]);
-            if (iter == node->children.end())
-            {
-                found = false;
-                break;
-            }
-
-            if (level < maxLevel)
-            {
-                if (iter->second.isLeaf())
-                {
-                    found = false;
-                    break;
-                }
-                node = &(iter->second);
-            }
-        }
-
-        if (!found || !iter->second.isTerminal)
-            advanceToNextTerminal();
-    }
+    void findUpperBound(const Key& key) {findBound(key, true);}
 
     Level matchFirst(const Key& key)
     {
@@ -489,7 +463,7 @@ private:
         return level + 1;
     }
 
-    struct Compare
+    struct Less
     {
         bool operator()(const typename TreeIterator::value_type& kv,
                         const StringType& s) const
@@ -504,12 +478,27 @@ private:
         }
     };
 
+    struct LessEqual
+    {
+        bool operator()(const typename TreeIterator::value_type& kv,
+                        const StringType& s) const
+        {
+            return kv.first <= s;
+        }
+
+        bool operator()(const StringType& s,
+                        const typename TreeIterator::value_type& kv) const
+        {
+            return s <= kv.first;
+        }
+    };
+
     void findLabelInLevel(const StringType& label)
     {
         if (iter == node->children.begin())
         {
-            iter = std::lower_bound(++iter, node->children.end(), label,
-                                    Compare{});
+            iter = std::lower_bound(++iter, node->children.end(),
+                                    label, Less{});
             if (iter != node->children.end() && iter->first != label)
                 iter = node->children.end();
         }
@@ -519,10 +508,46 @@ private:
         }
     }
 
+    void findBound(const Key& key, bool upper)
+    {
+        assert(!key.empty());
+        const Level maxLevel = key.size() - 1;
+
+        bool found = false;
+        for (Level level = 0; level <= maxLevel; ++level)
+        {
+            const auto& targetLabel = key[level];
+            iter = findLowerBoundInNode(*node, targetLabel);
+            if (iter == node->children.end())
+                break;
+
+            if (iter->first != targetLabel)
+                break;
+
+            if (level < maxLevel)
+            {
+                if (iter->second.isLeaf() )
+                {
+                    ++iter;
+                    break;
+                }
+                node = &(iter->second);
+                iter = node->children.begin();
+            }
+            else
+            {
+                found = true;
+            }
+        }
+
+        if (!iter->second.isTerminal || (upper && found))
+            advanceToNextTerminal();
+    }
+
     static TreeIterator findLowerBoundInNode(Node& n, const StringType& label)
     {
-        return std::lower_bound(n.children.begin(),
-                                n.children.end(), label, Compare{});
+        return std::lower_bound(n.children.begin(), n.children.end(),
+                                label, Less{});
     }
 };
 
