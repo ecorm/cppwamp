@@ -28,8 +28,421 @@
 namespace wamp
 {
 
-// Forward declaration
-namespace internal { struct TokenTrieIteratorAccess; }
+//------------------------------------------------------------------------------
+template <typename K, typename T>
+class CPPWAMP_API TokenTrieCursor
+{
+public:
+    using Node = internal::TokenTrieNode<K, T>;
+    using TreeIterator = typename Node::TreeIterator;
+    using Key = K;
+    using Value = typename Node::Value;
+    using StringType = typename Key::value_type;
+    using Level = typename Key::size_type;
+
+    static TokenTrieCursor begin(Node& rootNode)
+    {
+        return TokenTrieCursor(rootNode, rootNode.children.begin());
+    }
+
+    static TokenTrieCursor end(Node& sentinelNode)
+    {
+        return TokenTrieCursor(sentinelNode, sentinelNode.children.end());
+    }
+
+    TokenTrieCursor() = default;
+
+    void locate(const Key& key)
+    {
+        assert(!key.empty());
+        Node* sentinel = node->parent;
+        bool found = true;
+        for (Level level = 0; level<key.size(); ++level)
+        {
+            const auto& label = key[level];
+            iter = node->children.find(label);
+            if (iter == node->children.end())
+            {
+                found = false;
+                break;
+            }
+
+            if (level < key.size() - 1)
+                node = &(iter->second);
+        }
+        found = found && iter->second.isTerminal;
+
+        if (!found)
+        {
+            node = sentinel;
+            iter = sentinel->children.end();
+        }
+    }
+
+    Key generateKey() const
+    {
+        if (node == nullptr || iter == node->children.end())
+            return {};
+        return iter->second.generateKey();
+    }
+
+    template <typename... Us>
+    bool put(bool clobber, Key key, Us&&... args)
+    {
+        // To avoid dangling link nodes in the event of an exception,
+        // build a sub-chain first with the new node, than attach it to the
+        // existing tree using move semantics.
+
+        assert(!key.empty());
+        const auto tokenCount = key.size();
+
+        // Find existing node from which to possibly attach a sub-chain with
+        // the new node.
+        Level level = 0;
+        for (; level < tokenCount; ++level)
+        {
+            const auto& label = key[level];
+            iter = node->children.find(label);
+            if (iter == node->children.end())
+                break;
+            node = &(iter->second);
+        }
+
+        // Check if node already exists at the destination level
+        // in the existing tree.
+        if (level == tokenCount)
+        {
+            bool placed = false;
+            auto& child = iter->second;
+            node = child.parent;
+            placed = !child.isTerminal;
+            if (placed || clobber)
+                child.setValue(std::forward<Us>(args)...);
+            return placed;
+        }
+
+        // Check if only a single terminal node needs to be added
+        assert(level < tokenCount);
+        if (tokenCount - level == 1)
+        {
+            iter = node->addTerminal(key[level], std::forward<Us>(args)...);
+            iter->second.position = iter;
+            iter->second.parent = node;
+            return true;
+        }
+
+        // Build and attach the sub-chain containing the new node.
+        Node chain;
+        auto label = std::move(key[level]);
+        chain.buildChain(std::move(key), level, std::forward<Us>(args)...);
+        iter = node->addChain(std::move(label), std::move(chain));
+        node = iter->second.parent;
+        return true;
+    }
+
+    void eraseFromHere()
+    {
+        iter->second.isTerminal = false;
+        if (iter->second.isLeaf())
+        {
+            // Erase the terminal node, then all obsolete links up the chain
+            // until we hit another terminal node or the sentinel.
+            while (!iter->second.isTerminal && !node->isSentinel())
+            {
+                node->children.erase(iter);
+                iter = node->position;
+                node = node->parent;
+            }
+        }
+        else
+        {
+            // The terminal node to be erased has children, so we must
+            // preserve it and only clear its value.
+            iter->second.value = Value();
+        }
+    }
+
+    void advanceToFirstTerminal()
+    {
+        if (!isTerminal())
+            advanceToNextTerminal();
+    }
+
+    void advanceToNextTerminal()
+    {
+        while (!isSentinel())
+        {
+            advanceDepthFirst();
+            if (isTerminal())
+                break;
+        }
+    }
+
+    void advanceToNextNode()
+    {
+        while (!isSentinel())
+        {
+            advanceDepthFirst();
+            if (iter != node->children.end())
+                break;
+        }
+    }
+
+    void findLowerBound(const Key& key)
+    {
+        findBound(key);
+        if (!iter->second.isTerminal)
+            advanceToNextTerminal();
+    }
+
+    void findUpperBound(const Key& key)
+    {
+        bool foundExact = findBound(key);
+        if (!iter->second.isTerminal || foundExact)
+            advanceToNextTerminal();
+    }
+
+    static std::pair<TokenTrieCursor, TokenTrieCursor>
+    findEqualRange(Node& rootNode, const Key& key)
+    {
+        auto lower = begin(rootNode);
+        bool foundExact = lower.findBound(key);
+        bool isTerminal = lower.iter->second.isTerminal;
+        if (!isTerminal)
+            lower.advanceToNextTerminal();
+
+        TokenTrieCursor upper{lower};
+        if (isTerminal && foundExact)
+            upper.advanceToNextTerminal();
+        return {lower, upper};
+    }
+
+    Level matchFirst(const Key& key)
+    {
+        Level level = 0;
+        if (key.empty())
+        {
+            iter = node->children.end();
+        }
+        else if (!isMatch(key, 0))
+        {
+            level = matchNext(key, 0);
+        }
+        return level;
+    }
+
+    Level matchNext(const Key& key, Level level)
+    {
+        while (!isSentinel())
+        {
+            level = findNextMatchCandidate(key, level);
+            if (isMatch(key, level))
+                break;
+        }
+        return level;
+    }
+
+    bool isSentinel() const {return node->parent == nullptr;}
+
+    bool operator==(const TokenTrieCursor& rhs) const
+    {
+        return (node == rhs.node) && (iter == rhs.iter);
+    }
+
+    bool operator!=(const TokenTrieCursor& rhs) const
+    {
+        return (node != rhs.node) || (iter != rhs.iter);
+    }
+
+    Node* node = nullptr;
+    TreeIterator iter = {};
+
+private:
+    TokenTrieCursor(Node& root, TreeIterator iter)
+        : node(&root),
+        iter(iter)
+    {}
+
+    bool isTerminal() const
+    {
+        return (iter != node->children.end()) && iter->second.isTerminal;
+    }
+
+    void advanceDepthFirst()
+    {
+        if (iter != node->children.end())
+        {
+            if (!iter->second.isLeaf())
+            {
+                auto& child = iter->second;
+                node = &child;
+                iter = child.children.begin();
+            }
+            else
+            {
+                ++iter;
+            }
+        }
+        else if (!node->isSentinel())
+        {
+            iter = node->position;
+            node = node->parent;
+            if (!node->isSentinel())
+                ++iter;
+            else
+                iter = node->children.end();
+        }
+    }
+
+    bool isMatch(const Key& key, Level level) const
+    {
+        assert(!key.empty());
+        const Level maxLevel = key.size() - 1;
+        if ((level != maxLevel) || (iter == node->children.end()))
+            return false;
+
+        // All nodes above the current level are matches. Only the bottom
+        // level needs to be checked.
+        assert(level < key.size());
+        return iter->second.isTerminal && labelMatches(key[level]);
+    }
+
+    bool labelMatches(const StringType& expectedLabel) const
+    {
+        return iter->first.empty() || iter->first == expectedLabel;
+    }
+
+    Level findNextMatchCandidate(const Key& key, Level level)
+    {
+        const Level maxLevel = key.size() - 1;
+        if (iter != node->children.end())
+        {
+            assert(level < key.size());
+            const auto& expectedLabel = key[level];
+            bool canDescend = !iter->second.isLeaf() && (level < maxLevel) &&
+                              labelMatches(expectedLabel);
+            if (canDescend)
+                level = descend(level);
+            else
+                findLabelInLevel(expectedLabel);
+        }
+        else if (!isSentinel())
+        {
+            level = ascend(level);
+            if (!isSentinel() || iter != node->children.end())
+                findLabelInLevel(key[level]);
+        }
+        return level;
+    }
+
+    Level ascend(Level level)
+    {
+        iter = node->position;
+        node = node->parent;
+        if (!isSentinel())
+        {
+            assert(level > 0);
+            --level;
+        }
+        return level;
+    }
+
+    Level descend(Level level)
+    {
+        auto& child = iter->second;
+        node = &child;
+        iter = child.children.begin();
+        return level + 1;
+    }
+
+    struct Less
+    {
+        bool operator()(const typename TreeIterator::value_type& kv,
+                        const StringType& s) const
+        {
+            return kv.first < s;
+        }
+
+        bool operator()(const StringType& s,
+                        const typename TreeIterator::value_type& kv) const
+        {
+            return s < kv.first;
+        }
+    };
+
+    struct LessEqual
+    {
+        bool operator()(const typename TreeIterator::value_type& kv,
+                        const StringType& s) const
+        {
+            return kv.first <= s;
+        }
+
+        bool operator()(const StringType& s,
+                        const typename TreeIterator::value_type& kv) const
+        {
+            return s <= kv.first;
+        }
+    };
+
+    void findLabelInLevel(const StringType& label)
+    {
+        if (iter == node->children.begin())
+        {
+            iter = std::lower_bound(++iter, node->children.end(),
+                                    label, Less{});
+            if (iter != node->children.end() && iter->first != label)
+                iter = node->children.end();
+        }
+        else
+        {
+            iter = node->children.end();
+        }
+    }
+
+    bool findBound(const Key& key)
+    {
+        assert(!key.empty());
+        const Level maxLevel = key.size() - 1;
+
+        bool foundExact = false;
+        for (Level level = 0; level <= maxLevel; ++level)
+        {
+            const auto& targetLabel = key[level];
+            iter = findLowerBoundInNode(*node, targetLabel);
+            if (iter == node->children.end())
+                break;
+
+            if (iter->first != targetLabel)
+                break;
+
+            if (level < maxLevel)
+            {
+                if (iter->second.isLeaf() )
+                {
+                    ++iter;
+                    break;
+                }
+                node = &(iter->second);
+                iter = node->children.begin();
+            }
+            else
+            {
+                foundExact = true;
+            }
+        }
+
+        return foundExact;
+    }
+
+    static TreeIterator findLowerBoundInNode(Node& n, const StringType& label)
+    {
+        return std::lower_bound(n.children.begin(), n.children.end(),
+                                label, Less{});
+    }
+};
+
+template <typename, typename, bool> class TokenTrieIterator;
 
 //------------------------------------------------------------------------------
 /** Detects if an iterator is one of the types returned by TokenTrie. */
@@ -68,19 +481,21 @@ public:
     /// Reference to the mapped value type being iterated over.
     using reference = typename std::conditional<IsMutable, T&, const T&>::type;
 
+    using Cursor = TokenTrieCursor<K, T>;
+
     /** Default constructor. */
     TokenTrieMatchIterator() {}
 
     /** Implicit conversion from mutable iterator to const iterator. */
     template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
     TokenTrieMatchIterator(const TokenTrieMatchIterator<K, T, RM>& rhs)
-        : cursor_(Access::cursor(rhs)) {}
+        : cursor_(rhs.cursor()) {}
 
     /** Assignment from mutable iterator to const iterator. */
     template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
     TokenTrieMatchIterator&
     operator=(const TokenTrieMatchIterator<K, T, RM>& rhs)
-        {cursor_ = Access::cursor(rhs); return *this;}
+        {cursor_ = rhs.cursor(); return *this;}
 
     /** Generates the split URI labels associated with the current element. */
     key_type key() const {return cursor_.generateKey();}
@@ -93,6 +508,9 @@ public:
 
     /** Accesses the value associated with the current element. */
     const value_type& value() const {return cursor_.iter->second.value;}
+
+    /** Obtains a copy of the cursor associated with the current element. */
+    Cursor cursor() const {return cursor_;}
 
     /** Accesses the value associated with the current element. */
     reference operator*() {return value();}
@@ -118,7 +536,6 @@ public:
 
 private:
     using Access = internal::TokenTrieIteratorAccess;
-    using Cursor = internal::TokenTrieCursor<K, T>;
     using Level = typename key_type::size_type;
 
     TokenTrieMatchIterator(Cursor endCursor) : cursor_(endCursor) {}
@@ -192,6 +609,7 @@ public:
     /// Reference to the mapped value type being iterated over.
     using reference = typename std::conditional<IsMutable, T&, const T&>::type;
 
+    using Cursor = TokenTrieCursor<K, T>;
 
     /** Default constructor. */
     TokenTrieIterator() {}
@@ -199,12 +617,12 @@ public:
     /** Implicit conversion from mutable iterator to const iterator. */
     template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
     TokenTrieIterator(const TokenTrieIterator<K, T, M>& rhs)
-        : cursor_(Access::cursor(rhs)) {}
+        : cursor_(rhs.cursor()) {}
 
     /** Implicit conversion from match iterator. */
     template <bool M, typename std::enable_if<(!IsMutable || M), int>::type = 0>
     TokenTrieIterator(const TokenTrieMatchIterator<K, T, M>& rhs)
-        : cursor_(Access::cursor(rhs)) {}
+        : cursor_(rhs.cursor()) {}
 
     /** Assignment from mutable iterator to const iterator. */
     template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
@@ -228,6 +646,9 @@ public:
     /** Accesses the value associated with the current element. */
     const value_type& value() const {return cursor_.iter->second.value;}
 
+    /** Obtains a copy of the cursor associated with the current element. */
+    Cursor cursor() const {return cursor_;}
+
     /** Accesses the value associated with the current element. */
     reference operator*() {return value();}
 
@@ -250,7 +671,6 @@ public:
 
 private:
     using Access = internal::TokenTrieIteratorAccess;
-    using Cursor = internal::TokenTrieCursor<K, T>;
 
     TokenTrieIterator(Cursor cursor) : cursor_(cursor) {}
 
@@ -438,6 +858,8 @@ public:
         one-past-the-last match. */
     using const_match_range_type = std::pair<const_match_iterator,
                                              const_match_iterator>;
+
+    using Cursor = TokenTrieCursor<K, T>;
 
     class value_compare
     {
@@ -697,8 +1119,6 @@ public:
         {return t.doEraseIf(std::move(predicate));}
 
 private:
-    using Cursor = internal::TokenTrieCursor<K, T>;
-
     static bool equals(const TokenTrie& a, const TokenTrie& b) noexcept;
     static bool differs(const TokenTrie& a, const TokenTrie& b) noexcept;
     void moveFrom(TokenTrie& rhs) noexcept;

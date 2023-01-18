@@ -966,7 +966,7 @@ TEST_CASE( "UriTrie Insertion From Match Range", "[Uri]" )
 TEST_CASE( "UriTrie Erase", "[Uri]" )
 {
     Trie trie({ {"a", 1}, {"a.b.c", 2}, {"d", 3}, {"d.e", 4} });
-    auto rootNode = TokenTrieIteratorAccess::cursor(trie.begin()).node;
+    auto rootNode = trie.begin().cursor().node;
     REQUIRE(rootNode->isRoot());
 
     SECTION( "erasing via iterator" )
@@ -977,7 +977,7 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         CHECK(iter == trie.find("d"));
         CHECK(checkUriTrieUris(trie, {"a", "d", "d.e"}));
         // Check pruning below "a" node
-        auto cursor = TokenTrieIteratorAccess::cursor(trie.find("a"));
+        auto cursor = trie.find("a").cursor();
         CHECK(cursor.iter->second.children.empty());
 
         pos = trie.find("d");
@@ -986,7 +986,7 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         CHECK(iter == trie.find("d.e"));
         CHECK(checkUriTrieUris(trie, {"a", "d.e"}));
         // Check non-terminal "d" node still exists
-        cursor = TokenTrieIteratorAccess::cursor(trie.find("d.e"));
+        cursor = trie.find("d.e").cursor();
         CHECK(cursor.node->position->first == "d");
         CHECK(!cursor.node->isTerminal);
 
