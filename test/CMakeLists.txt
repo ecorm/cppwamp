@@ -12,6 +12,7 @@ set(SOURCES
     codectestmsgpack.cpp
     payloadtest.cpp
     transporttest.cpp
+    uritest.cpp
     varianttestassign.cpp
     varianttestbadaccess.cpp
     varianttestcomparison.cpp
@@ -28,7 +29,6 @@ set(SOURCES
     varianttestvisitation.cpp
     wamptest.cpp
     wamptestadvanced.cpp
-    wildcardtrietest.cpp
     main.cpp
 )
 

@@ -4,7 +4,6 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include <cppwamp/tokentrie.hpp>
 #include <cppwamp/wildcarduri.hpp>
 #include <catch2/catch.hpp>
 #include <set>
@@ -18,15 +17,15 @@ namespace
 {
 
 //------------------------------------------------------------------------------
-using Trie = TokenTrie<SplitUri, int>;
+using Trie = UriTrie<int>;
 using TrieTestPair = std::pair<const SplitUri, int>;
 using TrieTestPairList = std::vector<TrieTestPair>;
 
 //------------------------------------------------------------------------------
-template <typename K, typename T>
-void checkEmptyTokenTrie(TokenTrie<K, T>& t)
+template <typename T>
+void checkEmptyUriTrie(UriTrie<T>& t)
 {
-    const TokenTrie<K, T>& c = t;
+    const auto& c = t;
     CHECK(c.empty());
     CHECK(c.size() == 0);
     CHECK(c.begin() == c.end());
@@ -35,14 +34,14 @@ void checkEmptyTokenTrie(TokenTrie<K, T>& t)
 }
 
 //------------------------------------------------------------------------------
-template <typename K, typename T>
-void checkTokenTrieContents(TokenTrie<K, T>& t, const TrieTestPairList& pairs)
+template <typename T>
+void checkUriTrieContents(UriTrie<T>& t, const TrieTestPairList& pairs)
 {
     if (pairs.empty())
-        return checkEmptyTokenTrie(t);
+        return checkEmptyUriTrie(t);
 
     std::map<SplitUri, T> m(pairs.begin(), pairs.end());
-    const TokenTrie<K, T>& c = t;
+    const auto& c = t;
     CHECK( c.empty() == m.empty() );
     CHECK( c.size() == m.size() );
     CHECK( c.begin() != c.end() );
@@ -108,8 +107,8 @@ using TrieInsertionWithUriOp =
     std::function<TrieInsertionResult (Trie&, const std::string&, int)>;
 
 //------------------------------------------------------------------------------
-void checkTokenTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
-                             TrieInsertionOp op)
+void checkUriTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
+                           TrieInsertionOp op)
 {
     Trie trie;
     for (unsigned i=0; i<pairs.size(); ++i)
@@ -123,7 +122,7 @@ void checkTokenTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
         CHECK(result.first.key() == pair.first);
         CHECK(result.first == trie.find(pair.first));
     }
-    checkTokenTrieContents(trie, pairs);
+    checkUriTrieContents(trie, pairs);
 
     // Check duplicate insertions
     for (unsigned i=0; i<pairs.size(); ++i)
@@ -142,9 +141,8 @@ void checkTokenTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
 }
 
 //------------------------------------------------------------------------------
-void checkBadTokenTrieAccess(const std::string& info,
-                                const TrieTestPairList& pairs,
-                                const SplitUri& key)
+void checkBadUriTrieAccess(const std::string& info,
+                           const TrieTestPairList& pairs, const SplitUri& key)
 {
     INFO(info);
     SplitUri emptyKey;
@@ -165,7 +163,7 @@ void checkBadTokenTrieAccess(const std::string& info,
 }
 
 //------------------------------------------------------------------------------
-bool checkTokenTrieUris(const Trie& t, const std::vector<std::string>& uris)
+bool checkUriTrieUris(const Trie& t, const std::vector<std::string>& uris)
 {
     REQUIRE(t.size() == uris.size());
     bool same = true;
@@ -181,8 +179,8 @@ bool checkTokenTrieUris(const Trie& t, const std::vector<std::string>& uris)
 }
 
 //------------------------------------------------------------------------------
-bool checkTokenTrieIterators(const Trie& t,
-                                const std::vector<Trie::iterator>& expected)
+bool checkUriTrieIterators(const Trie& t,
+                           const std::vector<Trie::iterator>& expected)
 {
     bool same = true;
     REQUIRE((t.size() + 1) == expected.size());
@@ -198,9 +196,8 @@ bool checkTokenTrieIterators(const Trie& t,
 }
 
 //------------------------------------------------------------------------------
-void checkTokenTrieEqualRange(const Trie& t, const std::string& uri,
-                                 const std::string& lbUri,
-                                 const std::string& ubUri)
+void checkUriTrieEqualRange(const Trie& t, const std::string& uri,
+                            const std::string& lbUri, const std::string& ubUri)
 {
     INFO("For uri '" << uri << "'");
 
@@ -232,7 +229,7 @@ void checkTokenTrieEqualRange(const Trie& t, const std::string& uri,
 }
 
 //------------------------------------------------------------------------------
-bool checkTokenTrieComparisons(const Trie& a, const Trie& b)
+bool checkUriTrieComparisons(const Trie& a, const Trie& b)
 {
     CHECK((a == a));
     CHECK_FALSE((a != a));
@@ -251,7 +248,7 @@ bool checkTokenTrieComparisons(const Trie& a, const Trie& b)
 
 
 //------------------------------------------------------------------------------
-TEST_CASE( "URI Tokenization", "[TokenTrie]" )
+TEST_CASE( "URI Tokenization", "[Uri]" )
 {
     std::vector<std::pair<std::string, SplitUri::storage_type>> inputs =
     {
@@ -283,7 +280,7 @@ TEST_CASE( "URI Tokenization", "[TokenTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "URI Wildcard Matching", "[TokenTrie]" )
+TEST_CASE( "URI Wildcard Matching", "[Uri]" )
 {
     // Same test vectors as used by Crossbar
     std::vector<std::string> patterns =
@@ -320,61 +317,61 @@ TEST_CASE( "URI Wildcard Matching", "[TokenTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Empty TokenTrie Construction", "[TokenTrie]" )
+TEST_CASE( "Empty UriTrie Construction", "[Uri]" )
 {
     Trie empty;
 
     SECTION( "default contruction" )
     {
-        checkEmptyTokenTrie(empty);
+        checkEmptyUriTrie(empty);
     };
 
     SECTION( "via iterator range" )
     {
         std::map<SplitUri, int> m;
         Trie trie(m.begin(), m.end());
-        checkEmptyTokenTrie(trie);
+        checkEmptyUriTrie(trie);
     };
 
     SECTION( "via initializer list" )
     {
         Trie trie({});
-        checkEmptyTokenTrie(trie);
+        checkEmptyUriTrie(trie);
     };
 
     SECTION( "via copy constructor" )
     {
         Trie b(empty);
-        checkEmptyTokenTrie(empty);
-        checkEmptyTokenTrie(b);
+        checkEmptyUriTrie(empty);
+        checkEmptyUriTrie(b);
     };
 
     SECTION( "via move constructor" )
     {
         Trie b(std::move(empty));
-        checkEmptyTokenTrie(empty);
-        checkEmptyTokenTrie(b);
+        checkEmptyUriTrie(empty);
+        checkEmptyUriTrie(b);
     };
 
     SECTION( "via copy assignment" )
     {
         Trie b{{{"a"}, 1}};
         b = empty;
-        checkEmptyTokenTrie(empty);
-        checkEmptyTokenTrie(b);
+        checkEmptyUriTrie(empty);
+        checkEmptyUriTrie(b);
     };
 
     SECTION( "via move assignment" )
     {
         Trie b{{{"a"}, 1}};
         b = std::move(empty);
-        checkEmptyTokenTrie(empty);
-        checkEmptyTokenTrie(b);
+        checkEmptyUriTrie(empty);
+        checkEmptyUriTrie(b);
     };
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Insertion", "[TokenTrie]" )
+TEST_CASE( "UriTrie Insertion", "[Uri]" )
 {
     using Pair = TrieTestPair;
 
@@ -413,21 +410,21 @@ TEST_CASE( "TokenTrie Insertion", "[TokenTrie]" )
         SECTION( "via constuctor taking iterator range" )
         {
             Trie trie(input.begin(), input.end());
-            checkTokenTrieContents(trie, input);
+            checkUriTrieContents(trie, input);
         };
 
         SECTION( "via constuctor taking special iterator range" )
         {
             Trie a(input.begin(), input.end());
             Trie b(a.begin(), a.end());
-            checkTokenTrieContents(b, input);
+            checkUriTrieContents(b, input);
         };
 
         SECTION( "via insert iterator range" )
         {
             Trie trie;
             trie.insert(input.begin(), input.end());
-            checkTokenTrieContents(trie, input);
+            checkUriTrieContents(trie, input);
         };
 
         SECTION( "via insert special iterator range" )
@@ -435,24 +432,24 @@ TEST_CASE( "TokenTrie Insertion", "[TokenTrie]" )
             Trie a(input.begin(), input.end());
             Trie b;
             b.insert(a.begin(), a.end());
-            checkTokenTrieContents(b, input);
+            checkUriTrieContents(b, input);
         };
 
         SECTION( "via insert pair" )
         {
-            checkTokenTrieInsertion(input, false,
+            checkUriTrieInsertion(input, false,
                 [](Trie& t, Pair p) {return t.insert(p);});
         };
 
         SECTION( "via insert moved pair" )
         {
-            checkTokenTrieInsertion(input, false,
+            checkUriTrieInsertion(input, false,
                 [](Trie& t, Pair p) {return t.insert(Pair{p});});
         };
 
         SECTION( "via insert_or_assign" )
         {
-            checkTokenTrieInsertion(input, true,
+            checkUriTrieInsertion(input, true,
                 [](Trie& t, Pair p)
                 {
                     return t.insert_or_assign(p.first, p.second);
@@ -461,7 +458,7 @@ TEST_CASE( "TokenTrie Insertion", "[TokenTrie]" )
 
         SECTION( "via insert_or_assign with moved key" )
         {
-            checkTokenTrieInsertion(input, true,
+            checkUriTrieInsertion(input, true,
                 [](Trie& t, Pair p)
                 {
                     return t.insert_or_assign(std::move(p.first), p.second);
@@ -470,19 +467,19 @@ TEST_CASE( "TokenTrie Insertion", "[TokenTrie]" )
 
         SECTION( "via emplace" )
         {
-            checkTokenTrieInsertion(input, false,
+            checkUriTrieInsertion(input, false,
                 [](Trie& t, Pair p) {return t.emplace(p.first, p.second);});
         };
 
         SECTION( "via try_emplace" )
         {
-            checkTokenTrieInsertion(input, false,
+            checkUriTrieInsertion(input, false,
                 [](Trie& t, Pair p) {return t.try_emplace(p.first, p.second);});
         };
 
         SECTION( "via try_emplace with moved key" )
         {
-            checkTokenTrieInsertion(input, false,
+            checkUriTrieInsertion(input, false,
                 [](Trie& t, Pair p)
                 {
                     return t.try_emplace(std::move(p.first), p.second);
@@ -491,7 +488,7 @@ TEST_CASE( "TokenTrie Insertion", "[TokenTrie]" )
 
         SECTION( "via operator[]" )
         {
-            checkTokenTrieInsertion(input, true,
+            checkUriTrieInsertion(input, true,
                 [](Trie& t, Pair p)
                 {
                     bool inserted = t.find(p.first) == t.end();
@@ -502,7 +499,7 @@ TEST_CASE( "TokenTrie Insertion", "[TokenTrie]" )
 
         SECTION( "via operator[] with moved key" )
         {
-            checkTokenTrieInsertion(input, true,
+            checkUriTrieInsertion(input, true,
                 [](Trie& t, Pair p)
                 {
                     bool inserted = t.find(p.first) == t.end();
@@ -514,33 +511,33 @@ TEST_CASE( "TokenTrie Insertion", "[TokenTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Inializer Lists", "[TokenTrie]" )
+TEST_CASE( "UriTrie Inializer Lists", "[Uri]" )
 {
     TrieTestPairList pairs({ {"a.b.c", 1}, {"a", 2} });
 
     SECTION( "constuctor taking initializer list" )
     {
         Trie trie({ {"a.b.c", 1}, {"a", 2} });
-        checkTokenTrieContents(trie, pairs);
+        checkUriTrieContents(trie, pairs);
     };
 
     SECTION( "assignment from initializer list" )
     {
         Trie trie({ {"z", 3} });
         trie = { {"a.b.c", 1}, {"a", 2} };
-        checkTokenTrieContents(trie, pairs);
+        checkUriTrieContents(trie, pairs);
     };
 
     SECTION( "assignment from empty initializer list" )
     {
         Trie trie({ {{"z"}, 3} });
         trie = {};
-        checkEmptyTokenTrie(trie);
+        checkEmptyUriTrie(trie);
     };
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Copy/Move Construction/Assignment", "[TokenTrie]" )
+TEST_CASE( "UriTrie Copy/Move Construction/Assignment", "[Uri]" )
 {
     std::vector<TrieTestPairList> inputs = {
         { },
@@ -560,8 +557,8 @@ TEST_CASE( "TokenTrie Copy/Move Construction/Assignment", "[TokenTrie]" )
         SECTION( "copy construction" )
         {
             Trie b(a);
-            checkTokenTrieContents(a, input);
-            checkTokenTrieContents(b, input);
+            checkUriTrieContents(a, input);
+            checkUriTrieContents(b, input);
 
             // Check iterators to RHS are preserved
             CHECK(aEnd == a.end());
@@ -578,8 +575,8 @@ TEST_CASE( "TokenTrie Copy/Move Construction/Assignment", "[TokenTrie]" )
         SECTION( "move construction" )
         {
             Trie b(std::move(a));
-            checkEmptyTokenTrie(a);
-            checkTokenTrieContents(b, input);
+            checkEmptyUriTrie(a);
+            checkUriTrieContents(b, input);
 
             // Check non-end iterators to RHS are preserved
             if (!input.empty())
@@ -596,8 +593,8 @@ TEST_CASE( "TokenTrie Copy/Move Construction/Assignment", "[TokenTrie]" )
         {
             Trie b;
             b = a;
-            checkTokenTrieContents(a, input);
-            checkTokenTrieContents(b, input);
+            checkUriTrieContents(a, input);
+            checkUriTrieContents(b, input);
 
             // Check iterators to RHS are preserved
             CHECK(aEnd == a.end());
@@ -615,8 +612,8 @@ TEST_CASE( "TokenTrie Copy/Move Construction/Assignment", "[TokenTrie]" )
         {
             Trie b({ {{"x"}, 3} });
             b = a;
-            checkTokenTrieContents(a, input);
-            checkTokenTrieContents(b, input);
+            checkUriTrieContents(a, input);
+            checkUriTrieContents(b, input);
 
             // Check iterators to RHS are preserved
             CHECK(aEnd == a.end());
@@ -634,8 +631,8 @@ TEST_CASE( "TokenTrie Copy/Move Construction/Assignment", "[TokenTrie]" )
         {
             Trie b;
             b = std::move(a);
-            checkEmptyTokenTrie(a);
-            checkTokenTrieContents(b, input);
+            checkEmptyUriTrie(a);
+            checkUriTrieContents(b, input);
 
             // Check non-end iterators to RHS are preserved
             if (!input.empty())
@@ -652,8 +649,8 @@ TEST_CASE( "TokenTrie Copy/Move Construction/Assignment", "[TokenTrie]" )
         {
             Trie b({ {{"x"}, 3} });
             b = std::move(a);
-            checkEmptyTokenTrie(a);
-            checkTokenTrieContents(b, input);
+            checkEmptyUriTrie(a);
+            checkUriTrieContents(b, input);
 
             // Check non-end iterators to RHS are preserved
             if (!input.empty())
@@ -669,7 +666,7 @@ TEST_CASE( "TokenTrie Copy/Move Construction/Assignment", "[TokenTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Self-Assignment", "[TokenTrie]" )
+TEST_CASE( "UriTrie Self-Assignment", "[Uri]" )
 {
     SECTION( "self copy assignment of populated trie" )
     {
@@ -729,7 +726,7 @@ TEST_CASE( "TokenTrie Self-Assignment", "[TokenTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Reusing Moved TokenTrie", "[TokenTrie]" )
+TEST_CASE( "Reusing Moved UriTrie", "[Uri]" )
 {
     TrieTestPairList pairs({ {"a.b.c", 1}, {"a", 2} });
     Trie a({ {{"d"}, 3} });
@@ -737,28 +734,28 @@ TEST_CASE( "Reusing Moved TokenTrie", "[TokenTrie]" )
     SECTION( "move constructor" )
     {
         Trie b(std::move(a));
-        checkEmptyTokenTrie(a);
+        checkEmptyUriTrie(a);
         a.insert(pairs.begin(), pairs.end());
-        checkTokenTrieContents(a, pairs);
+        checkUriTrieContents(a, pairs);
     }
 
     SECTION( "move assignment" )
     {
         Trie b;
         b = (std::move(a));
-        checkEmptyTokenTrie(a);
+        checkEmptyUriTrie(a);
         a.insert(pairs.begin(), pairs.end());
-        checkTokenTrieContents(a, pairs);
+        checkUriTrieContents(a, pairs);
     }
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Bad Access/Lookups", "[TokenTrie]" )
+TEST_CASE( "UriTrie Bad Access/Lookups", "[Uri]" )
 {
     auto check = [](const std::string& info, const TrieTestPairList& pairs,
                     const SplitUri& key)
     {
-        checkBadTokenTrieAccess(info, pairs, key);
+        checkBadUriTrieAccess(info, pairs, key);
     };
 
     check("empty trie",        {},           "a");
@@ -771,7 +768,7 @@ TEST_CASE( "TokenTrie Bad Access/Lookups", "[TokenTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Lower/Upper Bound and Equal Range", "[TokenTrie]" )
+TEST_CASE( "UriTrie Lower/Upper Bound and Equal Range", "[Uri]" )
 {
     SECTION ("Empty trie")
     {
@@ -796,7 +793,7 @@ TEST_CASE( "TokenTrie Lower/Upper Bound and Equal Range", "[TokenTrie]" )
         auto check = [&t](const std::string& uri, const std::string& lbUri,
                           const std::string& ubUri)
         {
-            return checkTokenTrieEqualRange(t, uri, lbUri, ubUri);
+            return checkUriTrieEqualRange(t, uri, lbUri, ubUri);
         };
 
         auto end = t.end();
@@ -842,7 +839,7 @@ TEST_CASE( "TokenTrie Lower/Upper Bound and Equal Range", "[TokenTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Pattern Matching", "[TokenTrie]" )
+TEST_CASE( "UriTrie Pattern Matching", "[Uri]" )
 {
     // Same test vectors as used by Crossbar
     std::vector<std::string> patterns =
@@ -899,7 +896,7 @@ TEST_CASE( "TokenTrie Pattern Matching", "[TokenTrie]" )
         {".b.c.d",  {}},
     };
 
-    TokenTrie<SplitUri, std::string> trie;
+    UriTrie<std::string> trie;
     for (const auto& pattern: patterns)
         trie.insert_or_assign(pattern, pattern);
 
@@ -945,7 +942,7 @@ TEST_CASE( "TokenTrie Pattern Matching", "[TokenTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Insertion From Match Range", "[TokenTrie]" )
+TEST_CASE( "UriTrie Insertion From Match Range", "[Uri]" )
 {
     Trie trie({ {"a", 1}, {"a.", 2}, {".b", 3} });
 
@@ -953,7 +950,7 @@ TEST_CASE( "TokenTrie Insertion From Match Range", "[TokenTrie]" )
     {
         auto range = trie.match_range("a.b");
         Trie matches(range.first, range.second);
-        checkTokenTrieUris(matches, {".b", "a."});
+        checkUriTrieUris(matches, {".b", "a."});
     };
 
     SECTION( "insert taking match range" )
@@ -961,12 +958,12 @@ TEST_CASE( "TokenTrie Insertion From Match Range", "[TokenTrie]" )
         auto range = trie.match_range("a.b");
         Trie matches;
         matches.insert(range.first, range.second);
-        checkTokenTrieUris(matches, {".b", "a."});
+        checkUriTrieUris(matches, {".b", "a."});
     };
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Erase", "[TokenTrie]" )
+TEST_CASE( "UriTrie Erase", "[Uri]" )
 {
     Trie trie({ {"a", 1}, {"a.b.c", 2}, {"d", 3}, {"d.e", 4} });
     auto rootNode = TokenTrieIteratorAccess::cursor(trie.begin()).node;
@@ -978,7 +975,7 @@ TEST_CASE( "TokenTrie Erase", "[TokenTrie]" )
         REQUIRE(pos != trie.end());
         auto iter = trie.erase(pos);
         CHECK(iter == trie.find("d"));
-        CHECK(checkTokenTrieUris(trie, {"a", "d", "d.e"}));
+        CHECK(checkUriTrieUris(trie, {"a", "d", "d.e"}));
         // Check pruning below "a" node
         auto cursor = TokenTrieIteratorAccess::cursor(trie.find("a"));
         CHECK(cursor.iter->second.children.empty());
@@ -987,7 +984,7 @@ TEST_CASE( "TokenTrie Erase", "[TokenTrie]" )
         REQUIRE(pos != trie.end());
         iter = trie.erase(pos);
         CHECK(iter == trie.find("d.e"));
-        CHECK(checkTokenTrieUris(trie, {"a", "d.e"}));
+        CHECK(checkUriTrieUris(trie, {"a", "d.e"}));
         // Check non-terminal "d" node still exists
         cursor = TokenTrieIteratorAccess::cursor(trie.find("d.e"));
         CHECK(cursor.node->position->first == "d");
@@ -997,7 +994,7 @@ TEST_CASE( "TokenTrie Erase", "[TokenTrie]" )
         REQUIRE(pos != trie.end());
         iter = trie.erase(pos);
         CHECK(iter == trie.find("d.e"));
-        CHECK(checkTokenTrieUris(trie, {"d.e"}));
+        CHECK(checkUriTrieUris(trie, {"d.e"}));
         // Check root node has a single "d" child node
         REQUIRE(rootNode->children.size() == 1);
         CHECK(rootNode->children.begin()->first == "d");
@@ -1005,10 +1002,10 @@ TEST_CASE( "TokenTrie Erase", "[TokenTrie]" )
         // Re-insert last deleted key and erase it again
         auto inserted = trie.try_emplace("a", 1);
         REQUIRE(inserted.second);
-        CHECK(checkTokenTrieUris(trie, {"a", "d.e"}));
+        CHECK(checkUriTrieUris(trie, {"a", "d.e"}));
         iter = trie.erase(inserted.first);
         CHECK(iter == trie.find("d.e"));
-        CHECK(checkTokenTrieUris(trie, {"d.e"}));
+        CHECK(checkUriTrieUris(trie, {"d.e"}));
         // Check root node has a single "d" child node
         REQUIRE(rootNode->children.size() == 1);
         CHECK(rootNode->children.begin()->first == "d");
@@ -1025,22 +1022,22 @@ TEST_CASE( "TokenTrie Erase", "[TokenTrie]" )
     SECTION( "erasing via key" )
     {
         CHECK_FALSE(trie.erase("z"));
-        CHECK(checkTokenTrieUris(trie, {"a", "a.b.c", "d", "d.e"}));
+        CHECK(checkUriTrieUris(trie, {"a", "a.b.c", "d", "d.e"}));
 
         CHECK(trie.erase("a.b.c"));
-        CHECK(checkTokenTrieUris(trie, {"a", "d", "d.e"}));
+        CHECK(checkUriTrieUris(trie, {"a", "d", "d.e"}));
 
         CHECK(trie.erase("d"));
-        CHECK(checkTokenTrieUris(trie, {"a", "d.e"}));
+        CHECK(checkUriTrieUris(trie, {"a", "d.e"}));
 
         CHECK(trie.erase("a"));
-        CHECK(checkTokenTrieUris(trie, {"d.e"}));
+        CHECK(checkUriTrieUris(trie, {"d.e"}));
 
         // Re-insert last deleted key and erase it again
         auto inserted = trie.try_emplace("a", 1);
         REQUIRE(inserted.second);
         CHECK(trie.erase("a"));
-        CHECK(checkTokenTrieUris(trie, {"d.e"}));
+        CHECK(checkUriTrieUris(trie, {"d.e"}));
 
         CHECK(trie.erase("d.e"));
         CHECK(trie.empty());
@@ -1048,29 +1045,29 @@ TEST_CASE( "TokenTrie Erase", "[TokenTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Clear", "[TokenTrie]" )
+TEST_CASE( "UriTrie Clear", "[Uri]" )
 {
     SECTION("non-empty trie")
     {
         Trie t({ {{"a"}, 1} });
         t.clear();
-        checkEmptyTokenTrie(t);
+        checkEmptyUriTrie(t);
         t.clear();
-        checkEmptyTokenTrie(t);
+        checkEmptyUriTrie(t);
     }
 
     SECTION("default-constructed trie")
     {
         Trie t;
         t.clear();
-        checkEmptyTokenTrie(t);
+        checkEmptyUriTrie(t);
         t.clear();
-        checkEmptyTokenTrie(t);
+        checkEmptyUriTrie(t);
     }
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Swap", "[TokenTrie]" )
+TEST_CASE( "UriTrie Swap", "[Uri]" )
 {
     Trie a({ {{"a"}, 1} });
     auto aBegin = a.begin();
@@ -1199,34 +1196,34 @@ TEST_CASE( "TokenTrie Swap", "[TokenTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Modification Preserves Iterators", "[TokenTrie]" )
+TEST_CASE( "UriTrie Modification Preserves Iterators", "[Uri]" )
 {
     Trie t;
     auto z = t.end();
     auto b = t.insert_or_assign("b", 2).first;
-    CHECK(checkTokenTrieIterators(t, {b, z}));
+    CHECK(checkUriTrieIterators(t, {b, z}));
     auto a = t.insert_or_assign("a", 2).first;
-    CHECK(checkTokenTrieIterators(t, {a, b, z}));
+    CHECK(checkUriTrieIterators(t, {a, b, z}));
     auto d = t.insert_or_assign("d", 4).first;
-    CHECK(checkTokenTrieIterators(t, {a, b, d, z}));
+    CHECK(checkUriTrieIterators(t, {a, b, d, z}));
     auto bc = t.insert_or_assign("b.c", 3).first;
-    CHECK(checkTokenTrieIterators(t, {a, b, bc, d, z}));
+    CHECK(checkUriTrieIterators(t, {a, b, bc, d, z}));
     t.erase("b");
-    CHECK(checkTokenTrieIterators(t, {a, bc, d, z}));
+    CHECK(checkUriTrieIterators(t, {a, bc, d, z}));
     t.erase("a");
-    CHECK(checkTokenTrieIterators(t, {bc, d, z}));
+    CHECK(checkUriTrieIterators(t, {bc, d, z}));
     t.erase("d");
-    CHECK(checkTokenTrieIterators(t, {bc, z}));
+    CHECK(checkUriTrieIterators(t, {bc, z}));
     t.erase("b.c");
-    CHECK(checkTokenTrieIterators(t, {z}));
+    CHECK(checkUriTrieIterators(t, {z}));
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Comparisons", "[TokenTrie]" )
+TEST_CASE( "UriTrie Comparisons", "[Uri]" )
 {
     auto check = [](const Trie& a, const Trie& b) -> bool
     {
-        return checkTokenTrieComparisons(a, b);
+        return checkUriTrieComparisons(a, b);
     };
 
     CHECK( check({{}},                      {{"a", 1}}) );
@@ -1238,7 +1235,7 @@ TEST_CASE( "TokenTrie Comparisons", "[TokenTrie]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie erase_if", "[TokenTrie]" )
+TEST_CASE( "UriTrie erase_if", "[Uri]" )
 {
     Trie trie({{"a", 1}, {"b", 2}, {"b.c", 1}});
 
@@ -1248,7 +1245,7 @@ TEST_CASE( "TokenTrie erase_if", "[TokenTrie]" )
             trie,
             [](Trie::value_type kv) {return kv.second == 1;} );
         CHECK(n == 2);
-        checkTokenTrieUris(trie, {"b"});
+        checkUriTrieUris(trie, {"b"});
     }
 
     SECTION( "criteria based on key" )
@@ -1257,13 +1254,12 @@ TEST_CASE( "TokenTrie erase_if", "[TokenTrie]" )
             trie,
             [](Trie::value_type kv) {return kv.first.front() == "b";} );
         CHECK(n == 2);
-        checkTokenTrieUris(trie, {"a"});
+        checkUriTrieUris(trie, {"a"});
     }
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie Iterator Conversions and Mixed Comparisons",
-           "[TokenTrie]" )
+TEST_CASE( "UriTrie Iterator Conversions and Mixed Comparisons", "[Uri]" )
 {
     using CI = Trie::const_iterator;
     using CM = Trie::const_match_iterator;

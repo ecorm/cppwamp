@@ -18,6 +18,7 @@
 #include <vector>
 #include "erroror.hpp"
 #include "tagtypes.hpp"
+#include "tokentrie.hpp"
 
 namespace wamp
 {
@@ -169,6 +170,11 @@ inline bool isWildcardLabel(const SplitUri::label_type& label)
     @relates SplitUri */
 //------------------------------------------------------------------------------
 bool wildcardMatches(const SplitUri& uri, const SplitUri& pattern);
+
+
+//------------------------------------------------------------------------------
+template <typename T>
+using UriTrie = TokenTrie<SplitUri, T>;
 
 } // namespace wamp
 
