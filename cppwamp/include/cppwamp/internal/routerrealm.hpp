@@ -182,7 +182,7 @@ private:
     SubscriptionMap subscriptions_;
     BasicTrieMap<char, SubscriptionMap::iterator> byExact_;
     BasicTrieMap<char, SubscriptionMap::iterator> byPrefix_;
-    WildcardTrie<SubscriptionMap::iterator> byWildcard_;
+    TokenTrie<SubscriptionMap::iterator> byWildcard_;
     EphemeralId nextSubscriptionId_ = nullId();
     RandomIdGenerator pubIdGenerator_;
 

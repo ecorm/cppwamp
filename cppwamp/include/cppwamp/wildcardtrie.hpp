@@ -9,7 +9,7 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the WildcardTrie template class. */
+    @brief Contains the TokenTrie template class. */
 //------------------------------------------------------------------------------
 
 #include <cassert>
@@ -30,21 +30,21 @@ namespace wamp
 {
 
 // Forward declaration
-namespace internal { struct WildcardTrieIteratorAccess; }
+namespace internal { struct TokenTrieIteratorAccess; }
 
 //------------------------------------------------------------------------------
-/** Detects if an iterator is one of the types returned by WildcardTrie. */
+/** Detects if an iterator is one of the types returned by TokenTrie. */
 //------------------------------------------------------------------------------
 template <typename I, typename Enable = void>
-struct IsSpecialWildcardTrieIterator : std::false_type
+struct IsSpecialTokenTrieIterator : std::false_type
 {};
 
 //------------------------------------------------------------------------------
-/** WildcardTrie iterator that advances through wildcard matches in
+/** TokenTrie iterator that advances through wildcard matches in
     lexicographic order. */
 //------------------------------------------------------------------------------
-template <typename T, bool IsMutable>
-class CPPWAMP_API WildcardTrieMatchIterator
+template <typename K, typename T, bool IsMutable>
+class CPPWAMP_API TokenTrieMatchIterator
 {
 public:
     /// The category of the iterator
@@ -53,8 +53,8 @@ public:
     /// Type used to identify distance between iterators
     using difference_type = std::ptrdiff_t;
 
-    /// Type of the split URI associated with this iterator.
-    using key_type = SplitUri;
+    /// Type of the key associated with this iterator.
+    using key_type = K;
 
     /// Type of the URI string associated with this iterator.
     using uri_type = typename SplitUri::value_type;
@@ -70,95 +70,104 @@ public:
     using reference = typename std::conditional<IsMutable, T&, const T&>::type;
 
     /** Default constructor. */
-    WildcardTrieMatchIterator();
+    TokenTrieMatchIterator() {}
 
     /** Implicit conversion from mutable iterator to const iterator. */
     template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
-    WildcardTrieMatchIterator(const WildcardTrieMatchIterator<T, RM>& rhs);
+    TokenTrieMatchIterator(const TokenTrieMatchIterator<K, T, RM>& rhs)
+        : cursor_(Access::cursor(rhs)) {}
 
     /** Assignment from mutable iterator to const iterator. */
     template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
-    WildcardTrieMatchIterator&
-    operator=(const WildcardTrieMatchIterator<T, RM>& rhs);
+    TokenTrieMatchIterator&
+    operator=(const TokenTrieMatchIterator<K, T, RM>& rhs)
+        {cursor_ = Access::cursor(rhs); return *this;}
 
     /** Generates the split URI labels associated with the current element. */
-    key_type key() const;
+    key_type key() const {return cursor_.generateKey();}
 
     /** Obtains the token associated with the current element. */
-    uri_type token() const;
+    uri_type token() const {return cursor_.token();}
 
     /** Accesses the value associated with the current element. */
-    reference value();
+    reference value() {return cursor_.iter->second.value;}
 
     /** Accesses the value associated with the current element. */
-    const value_type& value() const;
+    const value_type& value() const {return cursor_.iter->second.value;}
 
     /** Accesses the value associated with the current element. */
-    reference operator*();
+    reference operator*() {return value();}
 
     /** Accesses the value associated with the current element. */
-    const value_type& operator*() const;
+    const value_type& operator*() const {return value();}
 
     /** Accesses a member of the value associated with the current element. */
-    pointer operator->();
+    pointer operator->() {return &(value());}
 
     /** Accesses a member of the value associated with the current element. */
-    const value_type* operator->() const;
+    const value_type* operator->() const {return &(value());}
 
     /** Prefix increment, advances to the next matching key
         in lexigraphic order. */
-    WildcardTrieMatchIterator& operator++();
+    TokenTrieMatchIterator& operator++()
+        {cursor_.matchNext(key_, level_); return *this;}
 
     /** Postfix increment, advances to the next matching key
         in lexigraphic order. */
-    WildcardTrieMatchIterator operator++(int);
+    TokenTrieMatchIterator operator++(int)
+        {auto temp = *this; ++(*this); return temp;}
 
 private:
-    using Access = internal::WildcardTrieIteratorAccess;
-    using Cursor = internal::WildcardTrieCursor<value_type>;
+    using Access = internal::TokenTrieIteratorAccess;
+    using Cursor = internal::TokenTrieCursor<value_type>;
 
-    explicit WildcardTrieMatchIterator(Cursor endCursor);
+    TokenTrieMatchIterator(Cursor endCursor) : cursor_(endCursor) {}
 
-    explicit WildcardTrieMatchIterator(Cursor beginCursor, SplitUri labels_);
+    TokenTrieMatchIterator(Cursor beginCursor, SplitUri labels_)
+        : key_(std::move(labels_)), cursor_(beginCursor)
+    {
+        level_ = cursor_.matchFirst(key_);
+    }
+
 
     SplitUri key_;
     Cursor cursor_;
     typename SplitUri::size_type level_ = 0;
 
-    template <typename> friend class WildcardTrie;
-    friend struct internal::WildcardTrieIteratorAccess;
+    template <typename> friend class TokenTrie;
+    friend struct internal::TokenTrieIteratorAccess;
 };
 
 /** Compares two match iterators for equality.
-    @relates WildcardTrieMatchIterator */
-template <typename T, bool LM, bool RM>
-bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
-                const WildcardTrieMatchIterator<T, RM>& rhs)
+    @relates TokenTrieMatchIterator */
+template <typename T, typename K, bool LM, bool RM>
+bool operator==(const TokenTrieMatchIterator<K, T, LM>& lhs,
+                const TokenTrieMatchIterator<K, T, RM>& rhs)
 {
-    return internal::WildcardTrieIteratorAccess::equals(lhs, rhs);
+    return internal::TokenTrieIteratorAccess::equals(lhs, rhs);
 };
 
 /** Compares two match iterators for inequality.
-    @relates WildcardTrieMatchIterator */
-template <typename T, bool LM, bool RM>
-bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
-                const WildcardTrieMatchIterator<T, RM>& rhs)
+    @relates TokenTrieMatchIterator */
+template <typename T, typename K, bool LM, bool RM>
+bool operator!=(const TokenTrieMatchIterator<K, T, LM>& lhs,
+                const TokenTrieMatchIterator<K, T, RM>& rhs)
 {
-    return internal::WildcardTrieIteratorAccess::differs(lhs, rhs);
+    return internal::TokenTrieIteratorAccess::differs(lhs, rhs);
 };
 
-template <typename T, bool M>
-struct IsSpecialWildcardTrieIterator<WildcardTrieMatchIterator<T, M>>
+template <typename T, typename K, bool M>
+struct IsSpecialTokenTrieIterator<TokenTrieMatchIterator<K, T, M>>
     : std::true_type
 {};
 
 
 //------------------------------------------------------------------------------
-/** WildcardTrie iterator that advances through elements in lexicographic order
+/** TokenTrie iterator that advances through elements in lexicographic order
     of their respective keys. */
 //------------------------------------------------------------------------------
-template <typename T, bool IsMutable>
-class CPPWAMP_API WildcardTrieIterator
+template <typename K, typename T, bool IsMutable>
+class CPPWAMP_API TokenTrieIterator
 {
 public:
     /// The category of the iterator.
@@ -168,10 +177,10 @@ public:
     using difference_type = std::ptrdiff_t;
 
     /// Type of the split URI associated with this iterator.
-    using key_type = SplitUri;
+    using key_type = K;
 
     /// Type of the URI string associated with this iterator.
-    using label_type = typename SplitUri::label_type;
+    using label_type = typename K::value_type;
 
     /** Type of the mapped value associated with this iterator.
         @note It differs from std::map in that it's not a key-value pair. */
@@ -185,123 +194,129 @@ public:
 
 
     /** Default constructor. */
-    WildcardTrieIterator();
+    TokenTrieIterator() {}
 
     /** Implicit conversion from mutable iterator to const iterator. */
     template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
-    WildcardTrieIterator(const WildcardTrieIterator<T, M>& rhs);
+    TokenTrieIterator(const TokenTrieIterator<K, T, M>& rhs)
+        : cursor_(Access::cursor(rhs)) {}
 
     /** Implicit conversion from match iterator. */
     template <bool M, typename std::enable_if<(!IsMutable || M), int>::type = 0>
-    WildcardTrieIterator(const WildcardTrieMatchIterator<T, M>& rhs);
+    TokenTrieIterator(const TokenTrieMatchIterator<K, T, M>& rhs)
+        : cursor_(Access::cursor(rhs)) {}
 
     /** Assignment from mutable iterator to const iterator. */
     template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
-    WildcardTrieIterator& operator=(const WildcardTrieIterator<T, M>& rhs);
+    TokenTrieIterator& operator=(const TokenTrieIterator<K, T, M>& rhs)
+        {cursor_ = rhs.cursor_; return *this;}
 
     /** Assignment from match iterator. */
     template <bool M, typename std::enable_if<(!IsMutable || M), int>::type = 0>
-    WildcardTrieIterator& operator=(const WildcardTrieIterator<T, M>& rhs);
+    TokenTrieIterator& operator=(const TokenTrieIterator<K, T, M>& rhs)
+        {cursor_ = rhs.cursor_; return *this;}
 
     /** Generates the split URI labels associated with the current element. */
-    key_type key() const;
+    key_type key() const {return cursor_.generateKey();}
 
     /** Obtains the token associated with the current element. */
-    label_type token() const;
+    label_type token() const {return cursor_.token();}
 
     /** Accesses the value associated with the current element. */
-    reference value();
+    reference value() {return cursor_.iter->second.value;}
 
     /** Accesses the value associated with the current element. */
-    const value_type& value() const;
+    const value_type& value() const {return cursor_.iter->second.value;}
 
     /** Accesses the value associated with the current element. */
-    reference operator*();
+    reference operator*() {return value();}
 
     /** Accesses the value associated with the current element. */
-    const value_type& operator*() const;
+    const value_type& operator*() const {return value();}
 
     /** Accesses a member of the value associated with the current element. */
-    pointer operator->();
+    pointer operator->() {return &(value());}
 
     /** Accesses a member of the value associated with the current element. */
-    const value_type* operator->() const;
+    const value_type* operator->() const {return &(value());}
 
     /** Prefix increment, advances to the next key in lexigraphic order. */
-    WildcardTrieIterator& operator++();
+    TokenTrieIterator& operator++()
+        {cursor_.advanceToNextTerminal(); return *this;}
 
     /** Postfix increment, advances to the next key in lexigraphic order. */
-    WildcardTrieIterator operator++(int);
+    TokenTrieIterator operator++(int)
+        {auto temp = *this; ++(*this); return temp;}
 
 private:
-    using Access = internal::WildcardTrieIteratorAccess;
-    using Cursor = internal::WildcardTrieCursor<value_type>;
+    using Access = internal::TokenTrieIteratorAccess;
+    using Cursor = internal::TokenTrieCursor<value_type>;
 
-    explicit WildcardTrieIterator(Cursor cursor);
+    TokenTrieIterator(Cursor cursor) : cursor_(cursor) {}
 
     Cursor cursor_;
 
-    template <typename> friend class WildcardTrie;
-    friend struct internal::WildcardTrieIteratorAccess;
+    template <typename> friend class TokenTrie;
+    friend struct internal::TokenTrieIteratorAccess;
 };
 
-template <typename T, bool M>
-struct IsSpecialWildcardTrieIterator<WildcardTrieIterator<T, M>>
+template <typename T, typename K, bool M>
+struct IsSpecialTokenTrieIterator<TokenTrieIterator<K, T, M>>
     : std::true_type
 {};
 
 /** Compares two iterators for equality.
-    @relates WildcardTrieIterator */
-template <typename T, bool LM, bool RM>
-bool operator==(const WildcardTrieIterator<T, LM>& lhs,
-                const WildcardTrieIterator<T, RM>& rhs)
+    @relates TokenTrieIterator */
+template <typename T, typename K, bool LM, bool RM>
+bool operator==(const TokenTrieIterator<K, T, LM>& lhs,
+                const TokenTrieIterator<K, T, RM>& rhs)
 {
-    return internal::WildcardTrieIteratorAccess::equals(lhs, rhs);
+    return internal::TokenTrieIteratorAccess::equals(lhs, rhs);
 };
 
 /** Compares two iterators for inequality.
-    @relates WildcardTrieIterator */
-template <typename T, bool LM, bool RM>
-bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
-                const WildcardTrieIterator<T, RM>& rhs)
+    @relates TokenTrieIterator */
+template <typename T, typename K, bool LM, bool RM>
+bool operator!=(const TokenTrieIterator<K, T, LM>& lhs,
+                const TokenTrieIterator<K, T, RM>& rhs)
 {
-    return internal::WildcardTrieIteratorAccess::differs(lhs, rhs);
+    return internal::TokenTrieIteratorAccess::differs(lhs, rhs);
 };
 
 /** Compares a match iterator and a regular iterator for equality.
-    @relates WildcardTrieIterator */
-template <typename T, bool LM, bool RM>
-bool operator==(const WildcardTrieMatchIterator<T, LM>& lhs,
-                const WildcardTrieIterator<T, RM>& rhs)
+    @relates TokenTrieIterator */
+template <typename T, typename K, bool LM, bool RM>
+bool operator==(const TokenTrieMatchIterator<K, T, LM>& lhs,
+                const TokenTrieIterator<K, T, RM>& rhs)
 {
-    return internal::WildcardTrieIteratorAccess::equals(lhs, rhs);
+    return internal::TokenTrieIteratorAccess::equals(lhs, rhs);
 };
 
 /** Compares a match iterator and a regular iterator for equality.
-    @relates WildcardTrieIterator */
-template <typename T, bool LM, bool RM>
-bool operator==(const WildcardTrieIterator<T, LM>& lhs,
-                const WildcardTrieMatchIterator<T, RM>& rhs)
+    @relates TokenTrieIterator */
+template <typename T, typename K, bool LM, bool RM>
+bool operator==(const TokenTrieIterator<K, T, LM>& lhs,
+                const TokenTrieMatchIterator<K, T, RM>& rhs)
 {
-    return internal::WildcardTrieIteratorAccess::equals(lhs, rhs);
+    return internal::TokenTrieIteratorAccess::equals(lhs, rhs);
 };
 
 /** Compares a match iterator and a regular iterator for inequality.
-    @relates WildcardTrieIterator */
-template <typename T, bool LM, bool RM>
-bool operator!=(const WildcardTrieMatchIterator<T, LM>& lhs,
-                const WildcardTrieIterator<T, RM>& rhs)
+    @relates TokenTrieIterator */
+template <typename T, typename K, bool LM, bool RM>
+bool operator!=(const TokenTrieMatchIterator<K, T, LM>& lhs,
+                const TokenTrieIterator<K, T, RM>& rhs)
 {
-    return internal::WildcardTrieIteratorAccess::differs(lhs, rhs);
+    return internal::TokenTrieIteratorAccess::differs(lhs, rhs);
 };
 
 /** Compares a match iterator and a regular iterator for inequality.
-    @relates WildcardTrieIterator */
-template <typename T, bool LM, bool RM>
-bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
-                const WildcardTrieMatchIterator<T, RM>& rhs)
+    @relates TokenTrieIterator */
+template <typename T, typename K, bool LM, bool RM>
+bool operator!=(const TokenTrieIterator<K, T, LM>& lhs,
+                const TokenTrieMatchIterator<K, T, RM>& rhs)
 {
-    return internal::WildcardTrieIteratorAccess::differs(lhs, rhs);
+    return internal::TokenTrieIteratorAccess::differs(lhs, rhs);
 };
 
 
@@ -325,10 +340,10 @@ bool operator!=(const WildcardTrieIterator<T, LM>& lhs,
     @tparam T Type of the mapped value. Must be default constructible. */
 //------------------------------------------------------------------------------
 template <typename T>
-class CPPWAMP_API WildcardTrie
+class CPPWAMP_API TokenTrie
 {
 private:
-    using Node = internal::WildcardTrieNode<T>;
+    using Node = internal::TokenTrieNode<T>;
     using NodeAllocatorTraits = std::allocator_traits<typename Node::Allocator>;
 
     template <typename P>
@@ -340,7 +355,7 @@ private:
     template <typename I>
     static constexpr bool isSpecial()
     {
-        return IsSpecialWildcardTrieIterator<I>::value;
+        return IsSpecialTokenTrieIterator<I>::value;
     }
 
 public:
@@ -385,19 +400,19 @@ public:
 
     /** Mutable iterator type which advances through elements in lexicographic
         order of their respective keys. */
-    using iterator  = WildcardTrieIterator<T, true>;
+    using iterator  = TokenTrieIterator<key_type, T, true>;
 
     /** Immutable iterator type which advances through elements in
         lexicographic order of their respective keys. */
-    using const_iterator = WildcardTrieIterator<T, false>;
+    using const_iterator = TokenTrieIterator<key_type, T, false>;
 
     /** Mutable iterator type which advances through wildcard matches in
         lexicographic order. */
-    using match_iterator = WildcardTrieMatchIterator<T, true>;
+    using match_iterator = TokenTrieMatchIterator<key_type, T, true>;
 
     /** Mutable iterator type which advances through wildcard matches in
         lexicographic order. */
-    using const_match_iterator = WildcardTrieMatchIterator<T, false>;
+    using const_match_iterator = TokenTrieMatchIterator<key_type, T, false>;
 
     /** Pairs an iterator with the boolean success result of an
         insertion operation. */
@@ -439,33 +454,35 @@ public:
     };
 
     /** Default constructor. */
-    WildcardTrie();
+    TokenTrie() {}
 
     /** Copy constructor. */
-    WildcardTrie(const WildcardTrie& rhs);
+    TokenTrie(const TokenTrie& rhs);
 
     /** Move constructor. */
-    WildcardTrie(WildcardTrie&& rhs) noexcept;
+    TokenTrie(TokenTrie&& rhs) noexcept;
 
     /** Constructs using the given iterator range. */
     template <typename I>
-    WildcardTrie(I first, I last);
+    TokenTrie(I first, I last) {insert(first, last);}
 
     /** Constructs using contents of the given initializer list, where
         each element is a key-value pair. */
-    WildcardTrie(std::initializer_list<value_type> list);
+    TokenTrie(std::initializer_list<value_type> list)
+        : TokenTrie(list.begin(), list.end())
+    {}
 
     /** Copy assignment. */
-    WildcardTrie& operator=(const WildcardTrie& rhs);
+    TokenTrie& operator=(const TokenTrie& rhs);
 
     /** Move assignment. */
-    WildcardTrie& operator=(WildcardTrie&& rhs) noexcept;
+    TokenTrie& operator=(TokenTrie&& rhs) noexcept;
 
     /** Replaces contents with that of the given initializer list,  where
         each element is a key-value pair. */
-    WildcardTrie& operator=(std::initializer_list<value_type> list);
+    TokenTrie& operator=(std::initializer_list<value_type> list);
 
-    allocator_type get_allocator() const noexcept;
+    allocator_type get_allocator() const noexcept {return allocator_type();}
 
     /// @name Element Access
     /// @{
@@ -488,22 +505,22 @@ public:
     /// @{
 
     /** Obtains an iterator to the beginning. */
-    iterator begin() noexcept;
+    iterator begin() noexcept {return firstTerminalCursor();}
 
     /** Obtains an iterator to the beginning. */
-    const_iterator begin() const noexcept;
+    const_iterator begin() const noexcept {return cbegin();}
 
     /** Obtains an iterator to the beginning. */
-    const_iterator cbegin() const noexcept;
+    const_iterator cbegin() const noexcept {return firstTerminalCursor();}
 
     /** Obtains an iterator to the end. */
-    iterator end() noexcept;
+    iterator end() noexcept {return sentinelCursor();}
 
     /** Obtains an iterator to the end. */
-    const_iterator end() const noexcept;
+    const_iterator end() const noexcept {return cend();}
 
     /** Obtains an iterator to the end. */
-    const_iterator cend() const noexcept;
+    const_iterator cend() const noexcept {return sentinelCursor();}
     /// @}
 
 
@@ -511,10 +528,10 @@ public:
     /// @{
 
     /** Checks whether the container is empty. */
-    bool empty() const noexcept;
+    bool empty() const noexcept {return size_ == 0;}
 
     /** Obtains the number of elements. */
-    size_type size() const noexcept;
+    size_type size() const noexcept {return size_;}
 
     /** Obtains the maximum possible number of elements. */
     size_type max_size() const noexcept;
@@ -587,117 +604,102 @@ public:
     size_type erase(const key_type& key);
 
     /** Swaps the contents of this container with the given container. */
-    void swap(WildcardTrie& other) noexcept;
+    void swap(TokenTrie& other) noexcept;
     /// @}
 
     /// @name Lookup
     /// @{
 
     /** Returns the number of elements associated with the given key. */
-    size_type count(const key_type& key) const;
+    size_type count(const key_type& key) const
+        {return locate(key).isSentinel() ? 0 : 1;}
 
     /** Finds the element associated with the given key. */
-    iterator find(const key_type& key);
+    iterator find(const key_type& key) {return locate(key);}
 
     /** Finds the element associated with the given key. */
-    const_iterator find(const key_type& key) const;
+    const_iterator find(const key_type& key) const {return locate(key);}
 
     /** Checks if the container contains the element with the given key. */
-    bool contains(const key_type& key) const;
+    bool contains(const key_type& key) const {return !locate(key).isSentinel();}
 
     /** Obtains the range of elements lexicographically matching
         the given key.*/
-    range_type equal_range(const key_type& key);
+    range_type equal_range(const key_type& key)
+        {return getEqualRange<iterator>(key);}
 
     /** Obtains the range of elements lexicographically matching
         the given key.*/
-    const_range_type equal_range(const key_type& key) const;
+    const_range_type equal_range(const key_type& key) const
+        {return getEqualRange<const_iterator>(key);}
 
     /** Obtains an iterator to the first element not less than the
         given key. */
-    iterator lower_bound(const key_type& key);
+    iterator lower_bound(const key_type& key) {return findLowerBound(key);}
 
     /** Obtains an iterator to the first element not less than the
         given key. */
-    const_iterator lower_bound(const key_type& key) const;
+    const_iterator lower_bound(const key_type& key) const
+        {return findLowerBound(key);}
 
     /** Obtains an iterator to the first element greater than than the
         given key. */
-    iterator upper_bound(const key_type& key);
+    iterator upper_bound(const key_type& key) {return findUpperBound(key);}
 
     /** Obtains an iterator to the first element greater than than the
         given key. */
-    const_iterator upper_bound(const key_type& key) const;
+    const_iterator upper_bound(const key_type& key) const
+        {return findUpperBound(key);}
 
     /** Obtains the range of elements with wildcard patterns matching
         the given key. */
-    match_range_type match_range(const key_type& key);
+    match_range_type match_range(const key_type& key)
+        {return getMatchRange<match_iterator>(key);}
 
     /** Obtains the range of elements with wildcard patterns matching
         the given key. */
-    const_match_range_type match_range(const key_type& key) const;
+    const_match_range_type match_range(const key_type& key) const
+        {return getMatchRange<const_match_iterator>(key);}
 
     /** Obtains the function that compares keys. */
-    key_compare key_comp() const;
+    key_compare key_comp() const {return key_compare();}
 
     /** Obtains the function that compares keys in value_type objects. */
-    value_compare value_comp() const;
+    value_compare value_comp() const {return value_compare();}
 
     /// @}
 
     /** Equality comparison. */
-    friend bool operator==(const WildcardTrie& a,
-                           const WildcardTrie& b) noexcept
-    {
-        return equals(a, b);
-    }
+    friend bool operator==(const TokenTrie& a, const TokenTrie& b) noexcept
+        {return equals(a, b);}
 
     /** Inequality comparison. */
-    friend bool operator!=(const WildcardTrie& a,
-                           const WildcardTrie& b) noexcept
-    {
-        return differs(a, b);
-    }
+    friend bool operator!=(const TokenTrie& a, const TokenTrie& b) noexcept
+        {return differs(a, b);}
 
     /** Non-member swap. */
-    friend void swap(WildcardTrie& a, WildcardTrie& b) noexcept {a.swap(b);}
+    friend void swap(TokenTrie& a, TokenTrie& b) noexcept {a.swap(b);}
 
     /** Erases all elements satisfying given criteria. */
     template <typename P>
-    friend size_type erase_if(WildcardTrie& t, P predicate)
-    {
-        return t.doEraseIf(std::move(predicate));
-    }
+    friend size_type erase_if(TokenTrie& t, P predicate)
+        {return t.doEraseIf(std::move(predicate));}
 
 private:
-    using Cursor = internal::WildcardTrieCursor<T>;
+    using Cursor = internal::TokenTrieCursor<T>;
 
-    static bool equals(const WildcardTrie& a,
-                       const WildcardTrie& b) noexcept;
-
-    static bool differs(const WildcardTrie& a,
-                        const WildcardTrie& b) noexcept;
-
-    void moveFrom(WildcardTrie& rhs) noexcept;
-
+    static bool equals(const TokenTrie& a, const TokenTrie& b) noexcept;
+    static bool differs(const TokenTrie& a, const TokenTrie& b) noexcept;
+    void moveFrom(TokenTrie& rhs) noexcept;
     Cursor rootCursor();
-
     Cursor rootCursor() const;
-
     Cursor firstTerminalCursor();
-
     Cursor firstTerminalCursor() const;
-
     Cursor sentinelCursor();
-
     Cursor sentinelCursor() const;
-
     Cursor locate(const key_type& key);
-
     Cursor locate(const key_type& key) const;
-
     Cursor findLowerBound(const key_type& key) const;
-
     Cursor findUpperBound(const key_type& key) const;
 
     template <typename I>
@@ -718,6 +720,9 @@ private:
     template <typename... Us>
     std::pair<iterator, bool> put(bool clobber, key_type key, Us&&... args);
 
+    template <typename I>
+    I eraseAt(I pos);
+
     void scanTree();
 
     template <typename P>
@@ -730,230 +735,11 @@ private:
 
 
 //******************************************************************************
-// WildcardTrieMatchIterator implementation
-//******************************************************************************
-
-template <typename T, bool M>
-WildcardTrieMatchIterator<T,M>::WildcardTrieMatchIterator() {}
-
-template <typename T, bool M>
-template <bool RM, typename std::enable_if<!M && RM, int>::type>
-WildcardTrieMatchIterator<T,M>::WildcardTrieMatchIterator(
-    const WildcardTrieMatchIterator<T, RM>& rhs)
-    : cursor_(Access::cursor(rhs))
-{}
-
-template <typename T, bool M>
-template <bool RM, typename std::enable_if<!M && RM, int>::type>
-WildcardTrieMatchIterator<T,M>& WildcardTrieMatchIterator<T,M>::operator=(
-    const WildcardTrieMatchIterator<T, RM>& rhs)
-{
-    cursor_ = Access::cursor(rhs);
-    return *this;
-}
-
-template <typename T, bool M>
-SplitUri WildcardTrieMatchIterator<T,M>::key() const
-{
-    return cursor_.generateKey();
-}
-
-template <typename T, bool M>
-std::string WildcardTrieMatchIterator<T,M>::token() const
-{
-    return cursor_.token();
-}
-
-template <typename T, bool M>
-typename WildcardTrieMatchIterator<T,M>::reference
-WildcardTrieMatchIterator<T,M>::value()
-{
-    return cursor_.iter->second.value;
-}
-
-template <typename T, bool M>
-const T& WildcardTrieMatchIterator<T,M>::value() const
-{
-    return cursor_.iter->second.value;
-}
-
-template <typename T, bool M>
-typename WildcardTrieMatchIterator<T,M>::reference
-WildcardTrieMatchIterator<T,M>::operator*()
-{
-    return value();
-}
-
-template <typename T, bool M>
-const T& WildcardTrieMatchIterator<T,M>::operator*() const
-{
-    return value();
-}
-
-template <typename T, bool M>
-typename WildcardTrieMatchIterator<T,M>::pointer
-WildcardTrieMatchIterator<T,M>::operator->()
-{
-    return &(value());
-}
-
-template <typename T, bool M>
-const T* WildcardTrieMatchIterator<T,M>::operator->() const
-{
-    return &(value());
-}
-
-template <typename T, bool M>
-WildcardTrieMatchIterator<T,M>& WildcardTrieMatchIterator<T,M>::operator++()
-{
-    cursor_.matchNext(key_, level_);
-    return *this;
-}
-
-template <typename T, bool M>
-WildcardTrieMatchIterator<T,M> WildcardTrieMatchIterator<T,M>::operator++(int)
-{
-    auto temp = *this;
-    ++(*this);
-    return temp;
-}
-
-template <typename T, bool M>
-WildcardTrieMatchIterator<T,M>::WildcardTrieMatchIterator(Cursor endCursor)
-    : cursor_(endCursor)
-{}
-
-template <typename T, bool M>
-WildcardTrieMatchIterator<T,M>::WildcardTrieMatchIterator(Cursor beginCursor,
-                                                          SplitUri labels_)
-    : key_(std::move(labels_)),
-      cursor_(beginCursor)
-{
-    level_ = cursor_.matchFirst(key_);
-}
-
-
-
-//******************************************************************************
-// WildcardTrieIterator implementation
-//******************************************************************************
-
-template <typename T, bool M>
-WildcardTrieIterator<T,M>::WildcardTrieIterator() {}
-
-template <typename T, bool M>
-template <bool RM, typename std::enable_if<!M && RM, int>::type>
-WildcardTrieIterator<T,M>::WildcardTrieIterator(
-    const WildcardTrieIterator<T, RM>& rhs)
-    : cursor_(Access::cursor(rhs))
-{}
-
-template <typename T, bool M>
-template <bool RM, typename std::enable_if<(!M || RM), int>::type>
-WildcardTrieIterator<T,M>::WildcardTrieIterator(
-    const WildcardTrieMatchIterator<T, RM>& rhs)
-    : cursor_(Access::cursor(rhs))
-{}
-
-template <typename T, bool M>
-template <bool RM, typename std::enable_if<!M && RM, int>::type>
-WildcardTrieIterator<T,M>&
-WildcardTrieIterator<T,M>::operator=(const WildcardTrieIterator<T, RM>& rhs)
-{
-    cursor_ = rhs.cursor_;
-    return *this;
-}
-
-template <typename T, bool M>
-template <bool RM, typename std::enable_if<(!M || RM), int>::type>
-WildcardTrieIterator<T,M>&
-WildcardTrieIterator<T,M>::operator=(const WildcardTrieIterator<T, RM>& rhs)
-{
-    cursor_ = rhs.cursor_;
-    return *this;
-}
-
-template <typename T, bool M>
-SplitUri WildcardTrieIterator<T,M>::key() const
-{
-    return cursor_.generateKey();
-}
-
-template <typename T, bool M>
-std::string WildcardTrieIterator<T,M>::token() const
-{
-    return cursor_.token();
-}
-
-template <typename T, bool M>
-typename WildcardTrieIterator<T,M>::reference
-WildcardTrieIterator<T,M>::value()
-{
-    return cursor_.iter->second.value;
-}
-
-template <typename T, bool M>
-const T& WildcardTrieIterator<T,M>::value() const
-{
-    return cursor_.iter->second.value;
-}
-
-template <typename T, bool M>
-typename WildcardTrieIterator<T,M>::reference
-WildcardTrieIterator<T,M>::operator*()
-{
-    return value();
-}
-
-template <typename T, bool M>
-const T& WildcardTrieIterator<T,M>::operator*() const
-{
-    return value();
-}
-
-template <typename T, bool M>
-typename WildcardTrieIterator<T,M>::pointer
-WildcardTrieIterator<T,M>::operator->()
-{
-    return &(value());
-}
-
-template <typename T, bool M>
-const T* WildcardTrieIterator<T,M>::operator->() const
-{
-    return &(value());
-}
-
-template <typename T, bool M>
-WildcardTrieIterator<T,M>& WildcardTrieIterator<T,M>::operator++()
-{
-    cursor_.advanceToNextTerminal();
-    return *this;
-}
-
-template <typename T, bool M>
-WildcardTrieIterator<T,M> WildcardTrieIterator<T,M>::operator++(int)
-{
-    auto temp = *this;
-    ++(*this);
-    return temp;
-}
-
-template <typename T, bool M>
-WildcardTrieIterator<T,M>::WildcardTrieIterator(Cursor cursor)
-    : cursor_(cursor)
-{}
-
-
-//******************************************************************************
-// WildcardTrie implementation
+// TokenTrie member function definitions
 //******************************************************************************
 
 template <typename T>
-WildcardTrie<T>::WildcardTrie() {}
-
-template <typename T>
-WildcardTrie<T>::WildcardTrie(const WildcardTrie& rhs)
+TokenTrie<T>::TokenTrie(const TokenTrie& rhs)
     : size_(rhs.size_)
 {
     if (rhs.root_)
@@ -967,31 +753,18 @@ WildcardTrie<T>::WildcardTrie(const WildcardTrie& rhs)
 /** The moved-from container is left in a default-constructed state,
     except during self-assignment where it is left in its current state. */
 template <typename T>
-WildcardTrie<T>::WildcardTrie(WildcardTrie&& rhs) noexcept {moveFrom(rhs);}
-
-template <typename T>
-template <typename I>
-WildcardTrie<T>::WildcardTrie(I first, I last)
-    : WildcardTrie()
-{
-    insert(first, last);
-}
-
-template <typename T>
-WildcardTrie<T>::WildcardTrie(std::initializer_list<value_type> list)
-    : WildcardTrie(list.begin(), list.end())
-{}
+TokenTrie<T>::TokenTrie(TokenTrie&& rhs) noexcept {moveFrom(rhs);}
 
 /** @par Exception Safety
     Has no effect if an exception is thrown while copying elements. */
 template <typename T>
-WildcardTrie<T>& WildcardTrie<T>::operator=(const WildcardTrie& rhs)
+TokenTrie<T>& TokenTrie<T>::operator=(const TokenTrie& rhs)
 {
     // Do nothing for self-assignment to enfore the invariant that
     // the RHS iterators remain valid.
     if (&rhs != this)
     {
-        WildcardTrie temp(rhs);
+        TokenTrie temp(rhs);
         (*this) = std::move(temp);
     }
     return *this;
@@ -1000,7 +773,7 @@ WildcardTrie<T>& WildcardTrie<T>::operator=(const WildcardTrie& rhs)
 /** The moved-from container is left in a default-constructed state,
     except during self-assignment where it is left in its current state. */
 template <typename T>
-WildcardTrie<T>& WildcardTrie<T>::operator=(WildcardTrie&& rhs) noexcept
+TokenTrie<T>& TokenTrie<T>::operator=(TokenTrie&& rhs) noexcept
 {
     // Do nothing for self-move-assignment to avoid invalidating iterators.
     if (&rhs != this)
@@ -1011,38 +784,34 @@ WildcardTrie<T>& WildcardTrie<T>::operator=(WildcardTrie&& rhs) noexcept
 /** @par Exception Safety
     Has no effect if an exception is thrown while assigning elements. */
 template <typename T>
-WildcardTrie<T>&
-WildcardTrie<T>::operator=(std::initializer_list<value_type> list)
+TokenTrie<T>&
+TokenTrie<T>::operator=(std::initializer_list<value_type> list)
 {
-    WildcardTrie temp(list);
+    TokenTrie temp(list);
     *this = std::move(temp);
     return *this;
 }
 
-template <typename T>
-typename WildcardTrie<T>::allocator_type
-WildcardTrie<T>::get_allocator() const noexcept {return allocator_type();}
-
 /** @throws std::out_of_range if the container does not have an element
             with the given key. */
 template <typename T>
-typename WildcardTrie<T>::mapped_type& WildcardTrie<T>::at(const key_type& key)
+typename TokenTrie<T>::mapped_type& TokenTrie<T>::at(const key_type& key)
 {
     auto cursor = locate(key);
     if (cursor.isSentinel())
-        throw std::out_of_range("wamp::WildcardTrie::at key out of range");
+        throw std::out_of_range("wamp::TokenTrie::at key out of range");
     return cursor.iter->second.value;
 }
 
 /** @throws std::out_of_range if the container does not have an element
             with the given key. */
 template <typename T>
-const typename WildcardTrie<T>::mapped_type&
-WildcardTrie<T>::at(const key_type& key) const
+const typename TokenTrie<T>::mapped_type&
+TokenTrie<T>::at(const key_type& key) const
 {
     auto cursor = locate(key);
     if (cursor.isSentinel())
-        throw std::out_of_range("wamp::WildcardTrie::at key out of range");
+        throw std::out_of_range("wamp::TokenTrie::at key out of range");
     return cursor.iter->second.value;
 }
 
@@ -1050,8 +819,8 @@ WildcardTrie<T>::at(const key_type& key) const
     Has no effect if an exception is thrown during insertion of a
     new element. */
 template <typename T>
-typename WildcardTrie<T>::mapped_type&
-WildcardTrie<T>::operator[](const key_type& key)
+typename TokenTrie<T>::mapped_type&
+TokenTrie<T>::operator[](const key_type& key)
 {
     return *(add(key).first);
 }
@@ -1060,60 +829,14 @@ WildcardTrie<T>::operator[](const key_type& key)
     Has no effect if an exception is thrown during insertion of a
     new element. */
 template <typename T>
-typename WildcardTrie<T>::mapped_type&
-WildcardTrie<T>::operator[](key_type&& key)
+typename TokenTrie<T>::mapped_type&
+TokenTrie<T>::operator[](key_type&& key)
 {
     return *(add(std::move(key)).first);
 }
 
 template <typename T>
-typename WildcardTrie<T>::iterator WildcardTrie<T>::begin() noexcept
-{
-    return iterator{firstTerminalCursor()};
-}
-
-template <typename T>
-typename WildcardTrie<T>::const_iterator WildcardTrie<T>::begin() const noexcept
-{
-    return cbegin();
-}
-
-template <typename T>
-typename WildcardTrie<T>::const_iterator
-WildcardTrie<T>::cbegin() const noexcept
-{
-    return const_iterator{firstTerminalCursor()};
-}
-
-template <typename T>
-typename WildcardTrie<T>::iterator WildcardTrie<T>::end() noexcept
-{
-    return iterator{sentinelCursor()};
-}
-
-template <typename T>
-typename WildcardTrie<T>::const_iterator WildcardTrie<T>::end() const noexcept
-{
-    return cend();
-}
-
-template <typename T>
-typename WildcardTrie<T>::const_iterator WildcardTrie<T>::cend() const noexcept
-{
-    return const_iterator{sentinelCursor()};
-}
-
-template <typename T>
-bool WildcardTrie<T>::empty() const noexcept {return size_ == 0;}
-
-template <typename T>
-typename WildcardTrie<T>::size_type WildcardTrie<T>::size() const noexcept
-{
-    return size_;
-}
-
-template <typename T>
-typename WildcardTrie<T>::size_type WildcardTrie<T>::max_size() const noexcept
+typename TokenTrie<T>::size_type TokenTrie<T>::max_size() const noexcept
 {
     // Can't return the max_size() of the underlying std::map because
     // there can be more than one in the node tree.
@@ -1121,7 +844,7 @@ typename WildcardTrie<T>::size_type WildcardTrie<T>::max_size() const noexcept
 }
 
 template <typename T>
-void WildcardTrie<T>::clear() noexcept
+void TokenTrie<T>::clear() noexcept
 {
     if (root_)
         root_->children.clear();
@@ -1132,7 +855,7 @@ void WildcardTrie<T>::clear() noexcept
     Has no effect if an exception is thrown during insertion of a
     new element. */
 template <typename T>
-typename WildcardTrie<T>::result WildcardTrie<T>::insert(const value_type& kv)
+typename TokenTrie<T>::result TokenTrie<T>::insert(const value_type& kv)
 {
     return add(kv.first, kv.second);
 }
@@ -1141,7 +864,7 @@ typename WildcardTrie<T>::result WildcardTrie<T>::insert(const value_type& kv)
     Has no effect if an exception is thrown during insertion of a
     new element. */
 template <typename T>
-typename WildcardTrie<T>::result WildcardTrie<T>::insert(value_type&& kv)
+typename TokenTrie<T>::result TokenTrie<T>::insert(value_type&& kv)
 {
     return add(std::move(kv.first), std::move(kv.second));
 }
@@ -1150,16 +873,16 @@ typename WildcardTrie<T>::result WildcardTrie<T>::insert(value_type&& kv)
     Has no effect if an exception is thrown during insertion of the elements.*/
 template <typename T>
 template <typename I>
-void WildcardTrie<T>::insert(I first, I last)
+void TokenTrie<T>::insert(I first, I last)
 {
-    return insertRange(IsSpecialWildcardTrieIterator<I>{}, first, last);
+    return insertRange(IsSpecialTokenTrieIterator<I>{}, first, last);
 }
 
 /** @par Exception Safety
     Has no effect if an exception is thrown during insertion of the
     elements. */
 template <typename T>
-void WildcardTrie<T>::insert(std::initializer_list<value_type> list)
+void TokenTrie<T>::insert(std::initializer_list<value_type> list)
 {
     insert(list.begin(), list.end());
 }
@@ -1171,8 +894,8 @@ void WildcardTrie<T>::insert(std::initializer_list<value_type> list)
     element. */
 template <typename T>
 template <typename M>
-typename WildcardTrie<T>::result
-WildcardTrie<T>::insert_or_assign(const key_type& key, M&& arg)
+typename TokenTrie<T>::result
+TokenTrie<T>::insert_or_assign(const key_type& key, M&& arg)
 {
     return put(true, key, std::forward<M>(arg));
 }
@@ -1184,8 +907,8 @@ WildcardTrie<T>::insert_or_assign(const key_type& key, M&& arg)
     element. */
 template <typename T>
 template <typename M>
-typename WildcardTrie<T>::result
-WildcardTrie<T>::insert_or_assign(key_type&& key, M&& arg)
+typename TokenTrie<T>::result
+TokenTrie<T>::insert_or_assign(key_type&& key, M&& arg)
 {
     return put(true, std::move(key), std::forward<M>(arg));
 }
@@ -1199,10 +922,10 @@ WildcardTrie<T>::insert_or_assign(key_type&& key, M&& arg)
     split into separate key and value parts. Unlike std::map, it does not
     construct elements in place because only values (and not key-value pairs)
     are stored in the trie's nodes, due to the keys being distrubuted. Use
-    WildcardTrie::try_emplace instead to construct node values in-place. */
+    TokenTrie::try_emplace instead to construct node values in-place. */
 template <typename T>
 template <typename... Us>
-typename WildcardTrie<T>::result WildcardTrie<T>::emplace(Us&&... args)
+typename TokenTrie<T>::result TokenTrie<T>::emplace(Us&&... args)
 {
     return insert(value_type(std::forward<Us>(args)...));
 }
@@ -1214,8 +937,8 @@ typename WildcardTrie<T>::result WildcardTrie<T>::emplace(Us&&... args)
     element. */
 template <typename T>
 template <typename... Us>
-typename WildcardTrie<T>::result
-WildcardTrie<T>::try_emplace(const key_type& key, Us&&... args)
+typename TokenTrie<T>::result
+TokenTrie<T>::try_emplace(const key_type& key, Us&&... args)
 {
     return add(key, std::forward<Us>(args)...);
 }
@@ -1227,39 +950,29 @@ WildcardTrie<T>::try_emplace(const key_type& key, Us&&... args)
     element. */
 template <typename T>
 template <typename... Us>
-typename WildcardTrie<T>::result
-WildcardTrie<T>::try_emplace(key_type&& key, Us&&... args)
+typename TokenTrie<T>::result
+TokenTrie<T>::try_emplace(key_type&& key, Us&&... args)
 {
     return add(std::move(key), std::forward<Us>(args)...);
 }
 
 /** @returns An iterator following the removed element. */
 template <typename T>
-typename WildcardTrie<T>::iterator WildcardTrie<T>::erase(iterator pos)
+typename TokenTrie<T>::iterator TokenTrie<T>::erase(iterator pos)
 {
-    auto cursor = pos.cursor_;
-    assert(!cursor.isSentinel());
-    ++pos;
-    cursor.eraseFromHere();
-    --size_;
-    return pos;
+    return eraseAt(pos);
 }
 
 /** @returns An iterator following the removed element. */
 template <typename T>
-typename WildcardTrie<T>::iterator WildcardTrie<T>::erase(const_iterator pos)
+typename TokenTrie<T>::iterator TokenTrie<T>::erase(const_iterator pos)
 {
-    auto cursor = pos.cursor_;
-    assert(!cursor.isSentinel());
-    ++pos;
-    cursor.eraseFromHere();
-    --size_;
-    return pos;
+    return eraseAt(pos);
 }
 
 /** @returns The number of elements erased (0 or 1). */
 template <typename T>
-typename WildcardTrie<T>::size_type WildcardTrie<T>::erase(const key_type& key)
+typename TokenTrie<T>::size_type TokenTrie<T>::erase(const key_type& key)
 {
     auto cursor = locate(key);
     bool found = !cursor.isSentinel();
@@ -1272,7 +985,7 @@ typename WildcardTrie<T>::size_type WildcardTrie<T>::erase(const key_type& key)
 }
 
 template <typename T>
-void WildcardTrie<T>::swap(WildcardTrie& other) noexcept
+void TokenTrie<T>::swap(TokenTrie& other) noexcept
 {
     root_.swap(other.root_);
     std::swap(size_, other.size_);
@@ -1283,108 +996,7 @@ void WildcardTrie<T>::swap(WildcardTrie& other) noexcept
 }
 
 template <typename T>
-typename WildcardTrie<T>::size_type
-WildcardTrie<T>::count(const key_type& key) const
-{
-    return locate(key).isSentinel() ? 0 : 1;
-}
-
-template <typename T>
-typename WildcardTrie<T>::iterator
-WildcardTrie<T>::find(const key_type& key)
-{
-    return iterator{locate(key)};
-}
-
-template <typename T>
-typename WildcardTrie<T>::const_iterator
-WildcardTrie<T>::find(const key_type& key) const
-{
-    return const_iterator{locate(key)};
-}
-
-template <typename T>
-bool WildcardTrie<T>::contains(const key_type& key) const
-{
-    return find(key) != cend();
-}
-
-template <typename T>
-typename WildcardTrie<T>::range_type
-WildcardTrie<T>::equal_range(const key_type& key)
-{
-    return getEqualRange<iterator>(key);
-}
-
-template <typename T>
-typename WildcardTrie<T>::const_range_type
-WildcardTrie<T>::equal_range(const key_type& key) const
-{
-    return getEqualRange<const_iterator>(key);
-}
-
-template <typename T>
-typename WildcardTrie<T>::iterator
-WildcardTrie<T>::lower_bound(const key_type& key)
-{
-    return iterator(findLowerBound(key));
-}
-
-template <typename T>
-typename WildcardTrie<T>::const_iterator
-WildcardTrie<T>::lower_bound(const key_type& key) const
-{
-    return const_iterator(findLowerBound(key));
-}
-
-template <typename T>
-typename WildcardTrie<T>::iterator
-WildcardTrie<T>::upper_bound(const key_type& key)
-{
-    return iterator(findUpperBound(key));
-}
-
-template <typename T>
-typename WildcardTrie<T>::const_iterator
-WildcardTrie<T>::upper_bound(const key_type& key) const
-{
-    return const_iterator(findUpperBound(key));
-}
-
-/** The range is determined as if every key were checked against
-    the wamp::uriMatchesWildcardPattern function. */
-template <typename T>
-typename WildcardTrie<T>::match_range_type
-WildcardTrie<T>::match_range(const key_type& key)
-{
-    return getMatchRange<match_iterator>(key);
-}
-
-/** The range is determined as if every key were checked against
-    the wamp::uriMatchesWildcardPattern function. */
-template <typename T>
-typename WildcardTrie<T>::const_match_range_type
-WildcardTrie<T>::match_range(const key_type& key) const
-{
-    auto& self = const_cast<WildcardTrie&>(*this);
-    return self.template getMatchRange<const_match_iterator>(key);
-}
-
-template <typename T>
-typename WildcardTrie<T>::key_compare WildcardTrie<T>::key_comp() const
-{
-    return key_compare();
-}
-
-template <typename T>
-typename WildcardTrie<T>::value_compare WildcardTrie<T>::value_comp() const
-{
-    return value_compare();
-}
-
-template <typename T>
-bool WildcardTrie<T>::equals(const WildcardTrie& a,
-                             const WildcardTrie& b) noexcept
+bool TokenTrie<T>::equals(const TokenTrie& a, const TokenTrie& b) noexcept
 {
     if (a.empty() || b.empty())
         return a.empty() == b.empty();
@@ -1406,8 +1018,7 @@ bool WildcardTrie<T>::equals(const WildcardTrie& a,
 }
 
 template <typename T>
-bool WildcardTrie<T>::differs(const WildcardTrie& a,
-                              const WildcardTrie& b) noexcept
+bool TokenTrie<T>::differs(const TokenTrie& a, const TokenTrie& b) noexcept
 {
     if (a.empty() || b.empty())
         return a.empty() != b.empty();
@@ -1429,7 +1040,7 @@ bool WildcardTrie<T>::differs(const WildcardTrie& a,
 }
 
 template <typename T>
-void WildcardTrie<T>::moveFrom(WildcardTrie& rhs) noexcept
+void TokenTrie<T>::moveFrom(TokenTrie& rhs) noexcept
 {
     root_.swap(rhs.root_);
     size_ = rhs.size_;
@@ -1439,21 +1050,21 @@ void WildcardTrie<T>::moveFrom(WildcardTrie& rhs) noexcept
 }
 
 template <typename T>
-typename WildcardTrie<T>::Cursor WildcardTrie<T>::rootCursor()
+typename TokenTrie<T>::Cursor TokenTrie<T>::rootCursor()
 {
     assert(root_ != nullptr);
     return Cursor::begin(*root_);
 }
 
 template <typename T>
-typename WildcardTrie<T>::Cursor WildcardTrie<T>::rootCursor() const
+typename TokenTrie<T>::Cursor TokenTrie<T>::rootCursor() const
 {
     assert(root_ != nullptr);
     return Cursor::begin(const_cast<Node&>(*root_));
 }
 
 template <typename T>
-typename WildcardTrie<T>::Cursor WildcardTrie<T>::firstTerminalCursor()
+typename TokenTrie<T>::Cursor TokenTrie<T>::firstTerminalCursor()
 {
     if (empty())
         return sentinelCursor();
@@ -1463,25 +1074,25 @@ typename WildcardTrie<T>::Cursor WildcardTrie<T>::firstTerminalCursor()
 }
 
 template <typename T>
-typename WildcardTrie<T>::Cursor WildcardTrie<T>::firstTerminalCursor() const
+typename TokenTrie<T>::Cursor TokenTrie<T>::firstTerminalCursor() const
 {
-    return const_cast<WildcardTrie&>(*this).firstTerminalCursor();
+    return const_cast<TokenTrie&>(*this).firstTerminalCursor();
 }
 
 template <typename T>
-typename WildcardTrie<T>::Cursor WildcardTrie<T>::sentinelCursor()
+typename TokenTrie<T>::Cursor TokenTrie<T>::sentinelCursor()
 {
     return Cursor::end(sentinel_);
 }
 
 template <typename T>
-typename WildcardTrie<T>::Cursor WildcardTrie<T>::sentinelCursor() const
+typename TokenTrie<T>::Cursor TokenTrie<T>::sentinelCursor() const
 {
     return Cursor::end(const_cast<Node&>(sentinel_));
 }
 
 template <typename T>
-typename WildcardTrie<T>::Cursor WildcardTrie<T>::locate(const key_type& key)
+typename TokenTrie<T>::Cursor TokenTrie<T>::locate(const key_type& key)
 {
     if (empty() || key.empty())
         return sentinelCursor();
@@ -1491,15 +1102,15 @@ typename WildcardTrie<T>::Cursor WildcardTrie<T>::locate(const key_type& key)
 }
 
 template <typename T>
-typename WildcardTrie<T>::Cursor
-WildcardTrie<T>::locate(const key_type& key) const
+typename TokenTrie<T>::Cursor
+TokenTrie<T>::locate(const key_type& key) const
 {
-    return const_cast<WildcardTrie&>(*this).locate(key);
+    return const_cast<TokenTrie&>(*this).locate(key);
 }
 
 template <typename T>
-typename WildcardTrie<T>::Cursor
-WildcardTrie<T>::findLowerBound(const key_type& key) const
+typename TokenTrie<T>::Cursor
+TokenTrie<T>::findLowerBound(const key_type& key) const
 {
     if (empty() || key.empty())
         return sentinelCursor();
@@ -1509,8 +1120,8 @@ WildcardTrie<T>::findLowerBound(const key_type& key) const
 }
 
 template <typename T>
-typename WildcardTrie<T>::Cursor
-WildcardTrie<T>::findUpperBound(const key_type& key) const
+typename TokenTrie<T>::Cursor
+TokenTrie<T>::findUpperBound(const key_type& key) const
 {
     if (empty() || key.empty())
         return sentinelCursor();
@@ -1521,7 +1132,7 @@ WildcardTrie<T>::findUpperBound(const key_type& key) const
 
 template <typename T>
 template <typename I>
-std::pair<I, I> WildcardTrie<T>::getEqualRange(const key_type& key) const
+std::pair<I, I> TokenTrie<T>::getEqualRange(const key_type& key) const
 {
     if (empty() || key.empty())
         return {I{sentinelCursor()}, I{sentinelCursor()}};
@@ -1531,7 +1142,7 @@ std::pair<I, I> WildcardTrie<T>::getEqualRange(const key_type& key) const
 
 template <typename T>
 template <typename I>
-std::pair<I, I> WildcardTrie<T>::getMatchRange(const key_type& key) const
+std::pair<I, I> TokenTrie<T>::getMatchRange(const key_type& key) const
 {
     if (empty() || key.empty())
         return {I{sentinelCursor()}, I{sentinelCursor()}};
@@ -1541,7 +1152,7 @@ std::pair<I, I> WildcardTrie<T>::getMatchRange(const key_type& key) const
 
 template <typename T>
 template <typename I>
-void WildcardTrie<T>::insertRange(std::true_type, I first, I last)
+void TokenTrie<T>::insertRange(std::true_type, I first, I last)
 {
     for (; first != last; ++first)
         add(first.key(), first.value());
@@ -1549,7 +1160,7 @@ void WildcardTrie<T>::insertRange(std::true_type, I first, I last)
 
 template <typename T>
 template <typename I>
-void WildcardTrie<T>::insertRange(std::false_type, I first, I last)
+void TokenTrie<T>::insertRange(std::false_type, I first, I last)
 {
     for (; first != last; ++first)
         add(first->first, first->second);
@@ -1557,7 +1168,7 @@ void WildcardTrie<T>::insertRange(std::false_type, I first, I last)
 
 template <typename T>
 template <typename... Us>
-typename WildcardTrie<T>::result WildcardTrie<T>::add(key_type key,
+typename TokenTrie<T>::result TokenTrie<T>::add(key_type key,
                                                       Us&&... args)
 {
     return put(false, std::move(key), std::forward<Us>(args)...);
@@ -1565,8 +1176,8 @@ typename WildcardTrie<T>::result WildcardTrie<T>::add(key_type key,
 
 template <typename T>
 template <typename... Us>
-typename WildcardTrie<T>::result
-WildcardTrie<T>::put(bool clobber, key_type key, Us&&... args)
+typename TokenTrie<T>::result
+TokenTrie<T>::put(bool clobber, key_type key, Us&&... args)
 {
     if (key.empty())
         return {end(), false};
@@ -1586,7 +1197,19 @@ WildcardTrie<T>::put(bool clobber, key_type key, Us&&... args)
 }
 
 template <typename T>
-void WildcardTrie<T>::scanTree()
+template <typename I>
+I TokenTrie<T>::eraseAt(I pos)
+{
+    auto cursor = pos.cursor_;
+    assert(!cursor.isSentinel());
+    ++pos;
+    cursor.eraseFromHere();
+    --size_;
+    return pos;
+}
+
+template <typename T>
+void TokenTrie<T>::scanTree()
 {
     root_->position = root_->children.end();
     Node* parent = root_.get();
@@ -1622,7 +1245,7 @@ void WildcardTrie<T>::scanTree()
 
 template <typename T>
 template <typename P>
-typename WildcardTrie<T>::size_type WildcardTrie<T>::doEraseIf(P predicate)
+typename TokenTrie<T>::size_type TokenTrie<T>::doEraseIf(P predicate)
 {
     using Pair = std::pair<const key_type&, const mapped_type&>;
     auto oldSize = size();

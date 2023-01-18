@@ -24,21 +24,21 @@ namespace internal
 
 //------------------------------------------------------------------------------
 template <typename T>
-struct CPPWAMP_HIDDEN WildcardTrieNode
+struct CPPWAMP_HIDDEN TokenTrieNode
 {
     using Value = T;
     using Key = SplitUri;
     using Atom = typename Key::value_type;
-    using Tree = std::map<Atom, WildcardTrieNode>;
+    using Tree = std::map<Atom, TokenTrieNode>;
     using TreeIterator = typename Tree::iterator;
     using Level = typename Key::size_type;
     using Size = typename Tree::size_type;
     using Allocator = typename Tree::allocator_type;
 
-    WildcardTrieNode() : position(children.end()) {}
+    TokenTrieNode() : position(children.end()) {}
 
     template <typename... Us>
-    WildcardTrieNode(bool isTerminal, Us&&... args)
+    TokenTrieNode(bool isTerminal, Us&&... args)
         : value(std::forward<Us>(args)...),
           isTerminal(isTerminal)
     {}
@@ -58,7 +58,7 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
     void buildChain(Key&& key, Level level, Us&&... args)
     {
         const auto tokenCount = key.size();
-        WildcardTrieNode* node = this;
+        TokenTrieNode* node = this;
         ++level;
 
         // Add intermediary link nodes
@@ -73,7 +73,7 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
         node->addTerminal(std::move(key[level]), std::forward<Us>(args)...);
     }
 
-    TreeIterator addChain(Atom&& label, WildcardTrieNode&& chain)
+    TreeIterator addChain(Atom&& label, TokenTrieNode&& chain)
     {
         auto result = children.emplace(std::move(label), std::move(chain));
         assert(result.second);
@@ -85,7 +85,7 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
         auto node = this;
         while (!node->isLeaf())
         {
-            WildcardTrieNode& child = iter->second;
+            TokenTrieNode& child = iter->second;
             child.position = iter;
             child.parent = node;
             node = &child;
@@ -124,7 +124,7 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
     Key generateKey() const
     {
         Key key;
-        const WildcardTrieNode* node = this;
+        const TokenTrieNode* node = this;
         while (!node->isRoot())
         {
             key.push_back(node->position->first);
@@ -134,14 +134,14 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
         return key;
     }
 
-    bool operator==(const WildcardTrieNode& rhs) const
+    bool operator==(const TokenTrieNode& rhs) const
     {
         if (!isTerminal)
             return !rhs.isTerminal;
         return rhs.isTerminal && (value == rhs.value);
     }
 
-    bool operator!=(const WildcardTrieNode& rhs) const
+    bool operator!=(const TokenTrieNode& rhs) const
     {
         if (!isTerminal)
             return rhs.isTerminal;
@@ -154,7 +154,7 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
     Tree children;
     Value value = {};
     TreeIterator position = {};
-    WildcardTrieNode* parent = nullptr;
+    TokenTrieNode* parent = nullptr;
     bool isTerminal = false;
 
 private:
@@ -173,27 +173,27 @@ private:
 
 //------------------------------------------------------------------------------
 template <typename T>
-class CPPWAMP_HIDDEN WildcardTrieCursor
+class CPPWAMP_HIDDEN TokenTrieCursor
 {
 public:
-    using Node = WildcardTrieNode<T>;
+    using Node = TokenTrieNode<T>;
     using TreeIterator = typename Node::TreeIterator;
     using Key = SplitUri;
     using Value = typename Node::Value;
     using StringType = typename Key::value_type;
     using Level = typename Key::size_type;
 
-    static WildcardTrieCursor begin(Node& rootNode)
+    static TokenTrieCursor begin(Node& rootNode)
     {
-        return WildcardTrieCursor(rootNode, rootNode.children.begin());
+        return TokenTrieCursor(rootNode, rootNode.children.begin());
     }
 
-    static WildcardTrieCursor end(Node& sentinelNode)
+    static TokenTrieCursor end(Node& sentinelNode)
     {
-        return WildcardTrieCursor(sentinelNode, sentinelNode.children.end());
+        return TokenTrieCursor(sentinelNode, sentinelNode.children.end());
     }
 
-    WildcardTrieCursor() = default;
+    TokenTrieCursor() = default;
 
     void locate(const Key& key)
     {
@@ -345,7 +345,7 @@ public:
             advanceToNextTerminal();
     }
 
-    static std::pair<WildcardTrieCursor, WildcardTrieCursor>
+    static std::pair<TokenTrieCursor, TokenTrieCursor>
     findEqualRange(Node& rootNode, const Key& key)
     {
         auto lower = begin(rootNode);
@@ -354,7 +354,7 @@ public:
         if (!isTerminal)
             lower.advanceToNextTerminal();
 
-        WildcardTrieCursor upper{lower};
+        TokenTrieCursor upper{lower};
         if (isTerminal && foundExact)
             upper.advanceToNextTerminal();
         return {lower, upper};
@@ -387,12 +387,12 @@ public:
 
     bool isSentinel() const {return node->parent == nullptr;}
 
-    bool operator==(const WildcardTrieCursor& rhs) const
+    bool operator==(const TokenTrieCursor& rhs) const
     {
         return (node == rhs.node) && (iter == rhs.iter);
     }
 
-    bool operator!=(const WildcardTrieCursor& rhs) const
+    bool operator!=(const TokenTrieCursor& rhs) const
     {
         return (node != rhs.node) || (iter != rhs.iter);
     }
@@ -401,7 +401,7 @@ public:
     TreeIterator iter = {};
 
 private:
-    WildcardTrieCursor(Node& root, TreeIterator iter)
+    TokenTrieCursor(Node& root, TreeIterator iter)
         : node(&root),
           iter(iter)
     {}
@@ -585,13 +585,13 @@ private:
     }
 };
 
-template <typename, bool> class WildcardTrieIterator;
+template <typename, bool> class TokenTrieIterator;
 
 //------------------------------------------------------------------------------
-struct CPPWAMP_HIDDEN WildcardTrieIteratorAccess
+struct CPPWAMP_HIDDEN TokenTrieIteratorAccess
 {
     template <typename I>
-    static const WildcardTrieCursor<typename I::value_type>&
+    static const TokenTrieCursor<typename I::value_type>&
     cursor(const I& iterator)
     {
         return iterator.cursor_;
