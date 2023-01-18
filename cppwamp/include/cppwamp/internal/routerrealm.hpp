@@ -20,6 +20,7 @@
 #include "../routerconfig.hpp"
 #include "../trie.hpp"
 #include "../wildcardtrie.hpp"
+#include "../wildcarduri.hpp"
 #include "idgen.hpp"
 #include "routercontext.hpp"
 #include "routersession.hpp"
@@ -182,7 +183,7 @@ private:
     SubscriptionMap subscriptions_;
     BasicTrieMap<char, SubscriptionMap::iterator> byExact_;
     BasicTrieMap<char, SubscriptionMap::iterator> byPrefix_;
-    TokenTrie<SubscriptionMap::iterator> byWildcard_;
+    TokenTrie<SplitUri, SubscriptionMap::iterator> byWildcard_;
     EphemeralId nextSubscriptionId_ = nullId();
     RandomIdGenerator pubIdGenerator_;
 

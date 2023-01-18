@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include <cppwamp/wildcardtrie.hpp>
+#include <cppwamp/wildcarduri.hpp>
 #include <catch2/catch.hpp>
 #include <set>
 #include <map>
@@ -17,15 +18,15 @@ namespace
 {
 
 //------------------------------------------------------------------------------
-using Trie = TokenTrie<int>;
+using Trie = TokenTrie<SplitUri, int>;
 using TrieTestPair = std::pair<const SplitUri, int>;
 using TrieTestPairList = std::vector<TrieTestPair>;
 
 //------------------------------------------------------------------------------
-template <typename T>
-void checkEmptyTokenTrie(TokenTrie<T>& t)
+template <typename K, typename T>
+void checkEmptyTokenTrie(TokenTrie<K, T>& t)
 {
-    const TokenTrie<T>& c = t;
+    const TokenTrie<K, T>& c = t;
     CHECK(c.empty());
     CHECK(c.size() == 0);
     CHECK(c.begin() == c.end());
@@ -34,15 +35,14 @@ void checkEmptyTokenTrie(TokenTrie<T>& t)
 }
 
 //------------------------------------------------------------------------------
-template <typename T>
-void checkTokenTrieContents(TokenTrie<T>& t,
-                               const TrieTestPairList& pairs)
+template <typename K, typename T>
+void checkTokenTrieContents(TokenTrie<K, T>& t, const TrieTestPairList& pairs)
 {
     if (pairs.empty())
         return checkEmptyTokenTrie(t);
 
     std::map<SplitUri, T> m(pairs.begin(), pairs.end());
-    const TokenTrie<T>& c = t;
+    const TokenTrie<K, T>& c = t;
     CHECK( c.empty() == m.empty() );
     CHECK( c.size() == m.size() );
     CHECK( c.begin() != c.end() );
@@ -109,9 +109,9 @@ using TrieInsertionWithUriOp =
 
 //------------------------------------------------------------------------------
 void checkTokenTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
-                                TrieInsertionOp op)
+                             TrieInsertionOp op)
 {
-    TokenTrie<int> trie;
+    Trie trie;
     for (unsigned i=0; i<pairs.size(); ++i)
     {
         INFO( "for pairs[" << i << "]" );
@@ -899,7 +899,7 @@ TEST_CASE( "TokenTrie Pattern Matching", "[TokenTrie]" )
         {".b.c.d",  {}},
     };
 
-    TokenTrie<std::string> trie;
+    TokenTrie<SplitUri, std::string> trie;
     for (const auto& pattern: patterns)
         trie.insert_or_assign(pattern, pattern);
 

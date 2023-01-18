@@ -14,7 +14,6 @@
 #include <utility>
 
 #include "../api.hpp"
-#include "../wildcarduri.hpp"
 
 namespace wamp
 {
@@ -23,13 +22,13 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename K, typename T>
 struct CPPWAMP_HIDDEN TokenTrieNode
 {
     using Value = T;
-    using Key = SplitUri;
-    using Atom = typename Key::value_type;
-    using Tree = std::map<Atom, TokenTrieNode>;
+    using Key = K;
+    using Token = typename Key::value_type;
+    using Tree = std::map<Token, TokenTrieNode>;
     using TreeIterator = typename Tree::iterator;
     using Level = typename Key::size_type;
     using Size = typename Tree::size_type;
@@ -44,7 +43,7 @@ struct CPPWAMP_HIDDEN TokenTrieNode
     {}
 
     template <typename... Us>
-    TreeIterator addTerminal(Atom label, Us&&... args)
+    TreeIterator addTerminal(Token label, Us&&... args)
     {
         auto result = children.emplace(
             std::piecewise_construct,
@@ -73,7 +72,7 @@ struct CPPWAMP_HIDDEN TokenTrieNode
         node->addTerminal(std::move(key[level]), std::forward<Us>(args)...);
     }
 
-    TreeIterator addChain(Atom&& label, TokenTrieNode&& chain)
+    TreeIterator addChain(Token&& label, TokenTrieNode&& chain)
     {
         auto result = children.emplace(std::move(label), std::move(chain));
         assert(result.second);
@@ -113,9 +112,9 @@ struct CPPWAMP_HIDDEN TokenTrieNode
 
     bool isLeaf() const {return children.empty();}
 
-    Atom token() const
+    Token token() const
     {
-        Atom s;
+        Token s;
         if (!isRoot())
             s = position->first;
         return s;
@@ -159,7 +158,7 @@ struct CPPWAMP_HIDDEN TokenTrieNode
 
 private:
     template <typename... Us>
-    TreeIterator buildLink(Atom label)
+    TreeIterator buildLink(Token label)
     {
         auto result = children.emplace(
             std::piecewise_construct,
@@ -172,13 +171,13 @@ private:
 
 
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename K, typename T>
 class CPPWAMP_HIDDEN TokenTrieCursor
 {
 public:
-    using Node = TokenTrieNode<T>;
+    using Node = TokenTrieNode<K, T>;
     using TreeIterator = typename Node::TreeIterator;
-    using Key = SplitUri;
+    using Key = K;
     using Value = typename Node::Value;
     using StringType = typename Key::value_type;
     using Level = typename Key::size_type;
@@ -591,7 +590,7 @@ template <typename, bool> class TokenTrieIterator;
 struct CPPWAMP_HIDDEN TokenTrieIteratorAccess
 {
     template <typename I>
-    static const TokenTrieCursor<typename I::value_type>&
+    static const TokenTrieCursor<typename I::key_type, typename I::value_type>&
     cursor(const I& iterator)
     {
         return iterator.cursor_;

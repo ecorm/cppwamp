@@ -23,7 +23,6 @@
 #include <type_traits>
 #include <utility>
 #include "api.hpp"
-#include "wildcarduri.hpp"
 #include "internal/wildcardtrienode.hpp"
 
 namespace wamp
@@ -57,7 +56,7 @@ public:
     using key_type = K;
 
     /// Type of the URI string associated with this iterator.
-    using uri_type = typename SplitUri::value_type;
+    using token_type = typename key_type::value_type;
 
     /** Type of the mapped value associated with this iterator.
         @note It differs from std::map in that it's not a key-value pair. */
@@ -87,7 +86,7 @@ public:
     key_type key() const {return cursor_.generateKey();}
 
     /** Obtains the token associated with the current element. */
-    uri_type token() const {return cursor_.token();}
+    token_type token() const {return cursor_.token();}
 
     /** Accesses the value associated with the current element. */
     reference value() {return cursor_.iter->second.value;}
@@ -119,22 +118,23 @@ public:
 
 private:
     using Access = internal::TokenTrieIteratorAccess;
-    using Cursor = internal::TokenTrieCursor<value_type>;
+    using Cursor = internal::TokenTrieCursor<K, T>;
+    using Level = typename key_type::size_type;
 
     TokenTrieMatchIterator(Cursor endCursor) : cursor_(endCursor) {}
 
-    TokenTrieMatchIterator(Cursor beginCursor, SplitUri labels_)
+    TokenTrieMatchIterator(Cursor beginCursor, key_type labels_)
         : key_(std::move(labels_)), cursor_(beginCursor)
     {
         level_ = cursor_.matchFirst(key_);
     }
 
 
-    SplitUri key_;
+    key_type key_;
     Cursor cursor_;
-    typename SplitUri::size_type level_ = 0;
+    Level level_ = 0;
 
-    template <typename> friend class TokenTrie;
+    template <typename, typename> friend class TokenTrie;
     friend struct internal::TokenTrieIteratorAccess;
 };
 
@@ -250,13 +250,13 @@ public:
 
 private:
     using Access = internal::TokenTrieIteratorAccess;
-    using Cursor = internal::TokenTrieCursor<value_type>;
+    using Cursor = internal::TokenTrieCursor<K, T>;
 
     TokenTrieIterator(Cursor cursor) : cursor_(cursor) {}
 
     Cursor cursor_;
 
-    template <typename> friend class TokenTrie;
+    template <typename, typename> friend class TokenTrie;
     friend struct internal::TokenTrieIteratorAccess;
 };
 
@@ -321,8 +321,9 @@ bool operator!=(const TokenTrieIterator<K, T, LM>& lhs,
 
 
 //------------------------------------------------------------------------------
-/** Associative container that performs efficient searches of wildcard URI
-    patterns matching a given URI.
+/** Associative container suited for pattern matching, where keys are
+    small containers of tokens that have been split from strings
+    (e.g. domain names).
 
     Like std::map, this container does not invalidate iterators during
     - insertions
@@ -337,13 +338,18 @@ bool operator!=(const TokenTrieIterator<K, T, LM>& lhs,
     - self-copy-assignment
     - self-swap.
 
-    @tparam T Type of the mapped value. Must be default constructible. */
+    Strong exception safety is provided for all modification operations.
+
+    @tparam K Split token container type.
+            Must be a Sequence with a `push_back` member.
+    @tparam T Mapped value type.
+            Must be default constructible. */
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename K, typename T>
 class CPPWAMP_API TokenTrie
 {
 private:
-    using Node = internal::TokenTrieNode<T>;
+    using Node = internal::TokenTrieNode<K, T>;
     using NodeAllocatorTraits = std::allocator_traits<typename Node::Allocator>;
 
     template <typename P>
@@ -359,8 +365,8 @@ private:
     }
 
 public:
-    /** Split URI type used as the primary key type. */
-    using key_type = SplitUri;
+    /** Split token container type used as the key. */
+    using key_type = K;
 
     /** Type of the mapped value. */
     using mapped_type = T;
@@ -496,10 +502,10 @@ public:
     const mapped_type& at(const key_type& key) const;
 
     /** Accesses or inserts an element with the given key. */
-    mapped_type& operator[](const key_type& key);
+    mapped_type& operator[](const key_type& key) {return *(add(key).first);}
 
     /** Accesses or inserts an element with the given key. */
-    mapped_type& operator[](key_type&& key);
+    mapped_type& operator[](key_type&& key) {return *(add(key).first);}
 
     /// @name Iterators
     /// @{
@@ -545,17 +551,15 @@ public:
     void clear() noexcept;
 
     /** Inserts an element. */
-    result insert(const value_type& kv);
+    result insert(const value_type& kv) {return add(kv.first, kv.second);}
 
     /** Inserts an element. */
-    result insert(value_type&& kv);
+    result insert(value_type&& kv)
+        {return add(std::move(kv.first), std::move(kv.second));}
 
     /** Inserts an element.
         Only participates in overload resolution if
-        `std::is_constructible_v<value_type, P&&> == true`
-        @par Exception Safety
-        Has no effect if an exception is thrown during insertion of the
-        elements.*/
+        `std::is_constructible_v<value_type, P&&> == true` */
     template <typename P,
               typename std::enable_if<isInsertable<P>(), int>::type = 0>
     result insert(P&& kv)
@@ -566,39 +570,46 @@ public:
 
     /** Inserts elements from the given iterator range. */
     template <typename I>
-    void insert(I first, I last);
+    void insert(I first, I last)
+        {return insertRange(IsSpecialTokenTrieIterator<I>{}, first, last);}
 
     /** Inserts elements from the given initializer list of key-value pairs. */
-    void insert(std::initializer_list<value_type> list);
+    void insert(std::initializer_list<value_type> list)
+        {insert(list.begin(), list.end());}
 
     /** Inserts an element or assigns to the current element if the key
         already exists. */
     template <typename M>
-    result insert_or_assign(const key_type& key, M&& arg);
+    result insert_or_assign(const key_type& key, M&& arg)
+        {return put(true, key, std::forward<M>(arg));}
 
     /** Inserts an element or assigns to the current element if the key
         already exists. */
     template <typename M>
-    result insert_or_assign(key_type&& key, M&& arg);
+    result insert_or_assign(key_type&& key, M&& arg)
+        {return put(true, std::move(key), std::forward<M>(arg));}
 
     /** Inserts an element from a key-value pair constructed in-place using
         the given arguments. */
     template <typename... Us>
-    result emplace(Us&&... args);
+    result emplace(Us&&... args)
+        {return insert(value_type(std::forward<Us>(args)...));}
 
     /** Inserts in-place only if the key does not exist. */
     template <typename... Us>
-    result try_emplace(const key_type& key, Us&&... args);
+    result try_emplace(const key_type& key, Us&&... args)
+        {return add(key, std::forward<Us>(args)...);}
 
     /** Inserts in-place only if the key does not exist. */
     template <typename... Us>
-    result try_emplace(key_type&& key, Us&&... args);
+    result try_emplace(key_type&& key, Us&&... args)
+        {return add(std::move(key), std::forward<Us>(args)...);}
 
     /** Erases the element at the given iterator position. */
-    iterator erase(iterator pos);
+    iterator erase(iterator pos) {return eraseAt(pos);}
 
     /** Erases the element at the given iterator position. */
-    iterator erase(const_iterator pos);
+    iterator erase(const_iterator pos) {return eraseAt(pos);}
 
     /** Erases the element associated with the given key. */
     size_type erase(const key_type& key);
@@ -686,7 +697,7 @@ public:
         {return t.doEraseIf(std::move(predicate));}
 
 private:
-    using Cursor = internal::TokenTrieCursor<T>;
+    using Cursor = internal::TokenTrieCursor<K, T>;
 
     static bool equals(const TokenTrie& a, const TokenTrie& b) noexcept;
     static bool differs(const TokenTrie& a, const TokenTrie& b) noexcept;
@@ -733,13 +744,12 @@ private:
     size_type size_ = 0;
 };
 
-
 //******************************************************************************
 // TokenTrie member function definitions
 //******************************************************************************
 
-template <typename T>
-TokenTrie<T>::TokenTrie(const TokenTrie& rhs)
+template <typename K, typename T>
+TokenTrie<K,T>::TokenTrie(const TokenTrie& rhs)
     : size_(rhs.size_)
 {
     if (rhs.root_)
@@ -752,13 +762,11 @@ TokenTrie<T>::TokenTrie(const TokenTrie& rhs)
 
 /** The moved-from container is left in a default-constructed state,
     except during self-assignment where it is left in its current state. */
-template <typename T>
-TokenTrie<T>::TokenTrie(TokenTrie&& rhs) noexcept {moveFrom(rhs);}
+template <typename K, typename T>
+TokenTrie<K,T>::TokenTrie(TokenTrie&& rhs) noexcept {moveFrom(rhs);}
 
-/** @par Exception Safety
-    Has no effect if an exception is thrown while copying elements. */
-template <typename T>
-TokenTrie<T>& TokenTrie<T>::operator=(const TokenTrie& rhs)
+template <typename K, typename T>
+TokenTrie<K,T>& TokenTrie<K,T>::operator=(const TokenTrie& rhs)
 {
     // Do nothing for self-assignment to enfore the invariant that
     // the RHS iterators remain valid.
@@ -772,8 +780,8 @@ TokenTrie<T>& TokenTrie<T>::operator=(const TokenTrie& rhs)
 
 /** The moved-from container is left in a default-constructed state,
     except during self-assignment where it is left in its current state. */
-template <typename T>
-TokenTrie<T>& TokenTrie<T>::operator=(TokenTrie&& rhs) noexcept
+template <typename K, typename T>
+TokenTrie<K,T>& TokenTrie<K,T>::operator=(TokenTrie&& rhs) noexcept
 {
     // Do nothing for self-move-assignment to avoid invalidating iterators.
     if (&rhs != this)
@@ -781,11 +789,9 @@ TokenTrie<T>& TokenTrie<T>::operator=(TokenTrie&& rhs) noexcept
     return *this;
 }
 
-/** @par Exception Safety
-    Has no effect if an exception is thrown while assigning elements. */
-template <typename T>
-TokenTrie<T>&
-TokenTrie<T>::operator=(std::initializer_list<value_type> list)
+template <typename K, typename T>
+TokenTrie<K,T>&
+TokenTrie<K,T>::operator=(std::initializer_list<value_type> list)
 {
     TokenTrie temp(list);
     *this = std::move(temp);
@@ -794,8 +800,8 @@ TokenTrie<T>::operator=(std::initializer_list<value_type> list)
 
 /** @throws std::out_of_range if the container does not have an element
             with the given key. */
-template <typename T>
-typename TokenTrie<T>::mapped_type& TokenTrie<T>::at(const key_type& key)
+template <typename K, typename T>
+typename TokenTrie<K,T>::mapped_type& TokenTrie<K,T>::at(const key_type& key)
 {
     auto cursor = locate(key);
     if (cursor.isSentinel())
@@ -805,9 +811,9 @@ typename TokenTrie<T>::mapped_type& TokenTrie<T>::at(const key_type& key)
 
 /** @throws std::out_of_range if the container does not have an element
             with the given key. */
-template <typename T>
-const typename TokenTrie<T>::mapped_type&
-TokenTrie<T>::at(const key_type& key) const
+template <typename K, typename T>
+const typename TokenTrie<K,T>::mapped_type&
+TokenTrie<K,T>::at(const key_type& key) const
 {
     auto cursor = locate(key);
     if (cursor.isSentinel())
@@ -815,164 +821,25 @@ TokenTrie<T>::at(const key_type& key) const
     return cursor.iter->second.value;
 }
 
-/** @par Exception Safety
-    Has no effect if an exception is thrown during insertion of a
-    new element. */
-template <typename T>
-typename TokenTrie<T>::mapped_type&
-TokenTrie<T>::operator[](const key_type& key)
-{
-    return *(add(key).first);
-}
-
-/** @par Exception Safety
-    Has no effect if an exception is thrown during insertion of a
-    new element. */
-template <typename T>
-typename TokenTrie<T>::mapped_type&
-TokenTrie<T>::operator[](key_type&& key)
-{
-    return *(add(std::move(key)).first);
-}
-
-template <typename T>
-typename TokenTrie<T>::size_type TokenTrie<T>::max_size() const noexcept
+template <typename K, typename T>
+typename TokenTrie<K,T>::size_type TokenTrie<K,T>::max_size() const noexcept
 {
     // Can't return the max_size() of the underlying std::map because
     // there can be more than one in the node tree.
     return std::numeric_limits<difference_type>::max();
 }
 
-template <typename T>
-void TokenTrie<T>::clear() noexcept
+template <typename K, typename T>
+void TokenTrie<K,T>::clear() noexcept
 {
     if (root_)
         root_->children.clear();
     size_ = 0;
 }
 
-/** @par Exception Safety
-    Has no effect if an exception is thrown during insertion of a
-    new element. */
-template <typename T>
-typename TokenTrie<T>::result TokenTrie<T>::insert(const value_type& kv)
-{
-    return add(kv.first, kv.second);
-}
-
-/** @par Exception Safety
-    Has no effect if an exception is thrown during insertion of a
-    new element. */
-template <typename T>
-typename TokenTrie<T>::result TokenTrie<T>::insert(value_type&& kv)
-{
-    return add(std::move(kv.first), std::move(kv.second));
-}
-
-/** @par Exception Safety
-    Has no effect if an exception is thrown during insertion of the elements.*/
-template <typename T>
-template <typename I>
-void TokenTrie<T>::insert(I first, I last)
-{
-    return insertRange(IsSpecialTokenTrieIterator<I>{}, first, last);
-}
-
-/** @par Exception Safety
-    Has no effect if an exception is thrown during insertion of the
-    elements. */
-template <typename T>
-void TokenTrie<T>::insert(std::initializer_list<value_type> list)
-{
-    insert(list.begin(), list.end());
-}
-
-/** @returns A pair with an iterator component to the inserted/updated element,
-             and a bool component indicating if insertion took place.
-    @par Exception Safety
-    Has no effect if an exception is thrown during insertion of a new
-    element. */
-template <typename T>
-template <typename M>
-typename TokenTrie<T>::result
-TokenTrie<T>::insert_or_assign(const key_type& key, M&& arg)
-{
-    return put(true, key, std::forward<M>(arg));
-}
-
-/** @returns A pair with an iterator component to the inserted/updated element,
-             and a bool component indicating if insertion took place.
-    @par Exception Safety
-    Has no effect if an exception is thrown during insertion of a new
-    element. */
-template <typename T>
-template <typename M>
-typename TokenTrie<T>::result
-TokenTrie<T>::insert_or_assign(key_type&& key, M&& arg)
-{
-    return put(true, std::move(key), std::forward<M>(arg));
-}
-
-/** @returns A pair with an iterator component to the inserted/existing element,
-             and a bool component indicating if insertion took place.
-    @par Exception Safety
-    Has no effect if an exception is thrown during insertion of a new
-    element.
-    @note This actually constructs a temporary key-value pair which is then
-    split into separate key and value parts. Unlike std::map, it does not
-    construct elements in place because only values (and not key-value pairs)
-    are stored in the trie's nodes, due to the keys being distrubuted. Use
-    TokenTrie::try_emplace instead to construct node values in-place. */
-template <typename T>
-template <typename... Us>
-typename TokenTrie<T>::result TokenTrie<T>::emplace(Us&&... args)
-{
-    return insert(value_type(std::forward<Us>(args)...));
-}
-
-/** @returns A pair with an iterator component to the inserted/existing element,
-             and a bool component indicating if insertion took place.
-    @par Exception Safety
-    Has no effect if an exception is thrown during insertion of a new
-    element. */
-template <typename T>
-template <typename... Us>
-typename TokenTrie<T>::result
-TokenTrie<T>::try_emplace(const key_type& key, Us&&... args)
-{
-    return add(key, std::forward<Us>(args)...);
-}
-
-/** @returns A pair with an iterator component to the inserted/existing element,
-             and a bool component indicating if insertion took place.
-    @par Exception Safety
-    Has no effect if an exception is thrown during insertion of a new
-    element. */
-template <typename T>
-template <typename... Us>
-typename TokenTrie<T>::result
-TokenTrie<T>::try_emplace(key_type&& key, Us&&... args)
-{
-    return add(std::move(key), std::forward<Us>(args)...);
-}
-
-/** @returns An iterator following the removed element. */
-template <typename T>
-typename TokenTrie<T>::iterator TokenTrie<T>::erase(iterator pos)
-{
-    return eraseAt(pos);
-}
-
-/** @returns An iterator following the removed element. */
-template <typename T>
-typename TokenTrie<T>::iterator TokenTrie<T>::erase(const_iterator pos)
-{
-    return eraseAt(pos);
-}
-
 /** @returns The number of elements erased (0 or 1). */
-template <typename T>
-typename TokenTrie<T>::size_type TokenTrie<T>::erase(const key_type& key)
+template <typename K, typename T>
+typename TokenTrie<K,T>::size_type TokenTrie<K,T>::erase(const key_type& key)
 {
     auto cursor = locate(key);
     bool found = !cursor.isSentinel();
@@ -984,8 +851,8 @@ typename TokenTrie<T>::size_type TokenTrie<T>::erase(const key_type& key)
     return found ? 1 : 0;
 }
 
-template <typename T>
-void TokenTrie<T>::swap(TokenTrie& other) noexcept
+template <typename K, typename T>
+void TokenTrie<K,T>::swap(TokenTrie& other) noexcept
 {
     root_.swap(other.root_);
     std::swap(size_, other.size_);
@@ -995,8 +862,8 @@ void TokenTrie<T>::swap(TokenTrie& other) noexcept
         other.root_->parent = &other.sentinel_;
 }
 
-template <typename T>
-bool TokenTrie<T>::equals(const TokenTrie& a, const TokenTrie& b) noexcept
+template <typename K, typename T>
+bool TokenTrie<K,T>::equals(const TokenTrie& a, const TokenTrie& b) noexcept
 {
     if (a.empty() || b.empty())
         return a.empty() == b.empty();
@@ -1017,8 +884,8 @@ bool TokenTrie<T>::equals(const TokenTrie& a, const TokenTrie& b) noexcept
     return curB.isSentinel();
 }
 
-template <typename T>
-bool TokenTrie<T>::differs(const TokenTrie& a, const TokenTrie& b) noexcept
+template <typename K, typename T>
+bool TokenTrie<K,T>::differs(const TokenTrie& a, const TokenTrie& b) noexcept
 {
     if (a.empty() || b.empty())
         return a.empty() != b.empty();
@@ -1039,8 +906,8 @@ bool TokenTrie<T>::differs(const TokenTrie& a, const TokenTrie& b) noexcept
     return !curB.isSentinel();
 }
 
-template <typename T>
-void TokenTrie<T>::moveFrom(TokenTrie& rhs) noexcept
+template <typename K, typename T>
+void TokenTrie<K,T>::moveFrom(TokenTrie& rhs) noexcept
 {
     root_.swap(rhs.root_);
     size_ = rhs.size_;
@@ -1049,22 +916,22 @@ void TokenTrie<T>::moveFrom(TokenTrie& rhs) noexcept
         root_->parent = &sentinel_;
 }
 
-template <typename T>
-typename TokenTrie<T>::Cursor TokenTrie<T>::rootCursor()
+template <typename K, typename T>
+typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::rootCursor()
 {
     assert(root_ != nullptr);
     return Cursor::begin(*root_);
 }
 
-template <typename T>
-typename TokenTrie<T>::Cursor TokenTrie<T>::rootCursor() const
+template <typename K, typename T>
+typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::rootCursor() const
 {
     assert(root_ != nullptr);
     return Cursor::begin(const_cast<Node&>(*root_));
 }
 
-template <typename T>
-typename TokenTrie<T>::Cursor TokenTrie<T>::firstTerminalCursor()
+template <typename K, typename T>
+typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::firstTerminalCursor()
 {
     if (empty())
         return sentinelCursor();
@@ -1073,26 +940,26 @@ typename TokenTrie<T>::Cursor TokenTrie<T>::firstTerminalCursor()
     return cursor;
 }
 
-template <typename T>
-typename TokenTrie<T>::Cursor TokenTrie<T>::firstTerminalCursor() const
+template <typename K, typename T>
+typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::firstTerminalCursor() const
 {
     return const_cast<TokenTrie&>(*this).firstTerminalCursor();
 }
 
-template <typename T>
-typename TokenTrie<T>::Cursor TokenTrie<T>::sentinelCursor()
+template <typename K, typename T>
+typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::sentinelCursor()
 {
     return Cursor::end(sentinel_);
 }
 
-template <typename T>
-typename TokenTrie<T>::Cursor TokenTrie<T>::sentinelCursor() const
+template <typename K, typename T>
+typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::sentinelCursor() const
 {
     return Cursor::end(const_cast<Node&>(sentinel_));
 }
 
-template <typename T>
-typename TokenTrie<T>::Cursor TokenTrie<T>::locate(const key_type& key)
+template <typename K, typename T>
+typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::locate(const key_type& key)
 {
     if (empty() || key.empty())
         return sentinelCursor();
@@ -1101,16 +968,16 @@ typename TokenTrie<T>::Cursor TokenTrie<T>::locate(const key_type& key)
     return cursor;
 }
 
-template <typename T>
-typename TokenTrie<T>::Cursor
-TokenTrie<T>::locate(const key_type& key) const
+template <typename K, typename T>
+typename TokenTrie<K,T>::Cursor
+TokenTrie<K,T>::locate(const key_type& key) const
 {
     return const_cast<TokenTrie&>(*this).locate(key);
 }
 
-template <typename T>
-typename TokenTrie<T>::Cursor
-TokenTrie<T>::findLowerBound(const key_type& key) const
+template <typename K, typename T>
+typename TokenTrie<K,T>::Cursor
+TokenTrie<K,T>::findLowerBound(const key_type& key) const
 {
     if (empty() || key.empty())
         return sentinelCursor();
@@ -1119,9 +986,9 @@ TokenTrie<T>::findLowerBound(const key_type& key) const
     return cursor;
 }
 
-template <typename T>
-typename TokenTrie<T>::Cursor
-TokenTrie<T>::findUpperBound(const key_type& key) const
+template <typename K, typename T>
+typename TokenTrie<K,T>::Cursor
+TokenTrie<K,T>::findUpperBound(const key_type& key) const
 {
     if (empty() || key.empty())
         return sentinelCursor();
@@ -1130,9 +997,9 @@ TokenTrie<T>::findUpperBound(const key_type& key) const
     return cursor;
 }
 
-template <typename T>
+template <typename K, typename T>
 template <typename I>
-std::pair<I, I> TokenTrie<T>::getEqualRange(const key_type& key) const
+std::pair<I, I> TokenTrie<K,T>::getEqualRange(const key_type& key) const
 {
     if (empty() || key.empty())
         return {I{sentinelCursor()}, I{sentinelCursor()}};
@@ -1140,9 +1007,9 @@ std::pair<I, I> TokenTrie<T>::getEqualRange(const key_type& key) const
     return {I{range.first}, I{range.second}};
 }
 
-template <typename T>
+template <typename K, typename T>
 template <typename I>
-std::pair<I, I> TokenTrie<T>::getMatchRange(const key_type& key) const
+std::pair<I, I> TokenTrie<K,T>::getMatchRange(const key_type& key) const
 {
     if (empty() || key.empty())
         return {I{sentinelCursor()}, I{sentinelCursor()}};
@@ -1150,34 +1017,34 @@ std::pair<I, I> TokenTrie<T>::getMatchRange(const key_type& key) const
     return {I{rootCursor(), key}, I{sentinelCursor()}};
 }
 
-template <typename T>
+template <typename K, typename T>
 template <typename I>
-void TokenTrie<T>::insertRange(std::true_type, I first, I last)
+void TokenTrie<K,T>::insertRange(std::true_type, I first, I last)
 {
     for (; first != last; ++first)
         add(first.key(), first.value());
 }
 
-template <typename T>
+template <typename K, typename T>
 template <typename I>
-void TokenTrie<T>::insertRange(std::false_type, I first, I last)
+void TokenTrie<K,T>::insertRange(std::false_type, I first, I last)
 {
     for (; first != last; ++first)
         add(first->first, first->second);
 }
 
-template <typename T>
+template <typename K, typename T>
 template <typename... Us>
-typename TokenTrie<T>::result TokenTrie<T>::add(key_type key,
+typename TokenTrie<K,T>::result TokenTrie<K,T>::add(key_type key,
                                                       Us&&... args)
 {
     return put(false, std::move(key), std::forward<Us>(args)...);
 }
 
-template <typename T>
+template <typename K, typename T>
 template <typename... Us>
-typename TokenTrie<T>::result
-TokenTrie<T>::put(bool clobber, key_type key, Us&&... args)
+typename TokenTrie<K,T>::result
+TokenTrie<K,T>::put(bool clobber, key_type key, Us&&... args)
 {
     if (key.empty())
         return {end(), false};
@@ -1196,9 +1063,9 @@ TokenTrie<T>::put(bool clobber, key_type key, Us&&... args)
     return {iterator{cursor}, placed};
 }
 
-template <typename T>
+template <typename K, typename T>
 template <typename I>
-I TokenTrie<T>::eraseAt(I pos)
+I TokenTrie<K,T>::eraseAt(I pos)
 {
     auto cursor = pos.cursor_;
     assert(!cursor.isSentinel());
@@ -1208,8 +1075,8 @@ I TokenTrie<T>::eraseAt(I pos)
     return pos;
 }
 
-template <typename T>
-void TokenTrie<T>::scanTree()
+template <typename K, typename T>
+void TokenTrie<K,T>::scanTree()
 {
     root_->position = root_->children.end();
     Node* parent = root_.get();
@@ -1243,9 +1110,9 @@ void TokenTrie<T>::scanTree()
     }
 }
 
-template <typename T>
+template <typename K, typename T>
 template <typename P>
-typename TokenTrie<T>::size_type TokenTrie<T>::doEraseIf(P predicate)
+typename TokenTrie<K,T>::size_type TokenTrie<K,T>::doEraseIf(P predicate)
 {
     using Pair = std::pair<const key_type&, const mapped_type&>;
     auto oldSize = size();
