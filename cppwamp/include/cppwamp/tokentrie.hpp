@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_WILDCARDTRIE_HPP
-#define CPPWAMP_WILDCARDTRIE_HPP
+#ifndef CPPWAMP_TOKENTRIE_HPP
+#define CPPWAMP_TOKENTRIE_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -23,7 +23,7 @@
 #include <type_traits>
 #include <utility>
 #include "api.hpp"
-#include "internal/wildcardtrienode.hpp"
+#include "internal/tokentrienode.hpp"
 
 namespace wamp
 {
@@ -1130,4 +1130,4 @@ typename TokenTrie<K,T>::size_type TokenTrie<K,T>::doEraseIf(P predicate)
 
 } // namespace wamp
 
-#endif // CPPWAMP_WILDCARDTRIE_HPP
+#endif // CPPWAMP_TOKENTRIE_HPP

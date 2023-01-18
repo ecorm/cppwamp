@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_WILCARDTRIENODE_HPP
-#define CPPWAMP_INTERNAL_WILCARDTRIENODE_HPP
+#ifndef CPPWAMP_INTERNAL_TOKENTRIENODE_HPP
+#define CPPWAMP_INTERNAL_TOKENTRIENODE_HPP
 
 #include <algorithm>
 #include <cassert>
@@ -613,4 +613,4 @@ struct CPPWAMP_HIDDEN TokenTrieIteratorAccess
 
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_WILCARDTRIENODE_HPP
+#endif // CPPWAMP_INTERNAL_TOKENTRIENODE_HPP

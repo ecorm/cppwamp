@@ -18,8 +18,8 @@
 #include <tuple>
 #include <utility>
 #include "../routerconfig.hpp"
+#include "../tokentrie.hpp"
 #include "../trie.hpp"
-#include "../wildcardtrie.hpp"
 #include "../wildcarduri.hpp"
 #include "idgen.hpp"
 #include "routercontext.hpp"

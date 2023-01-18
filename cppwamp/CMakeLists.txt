@@ -43,6 +43,7 @@ set(HEADERS
     include/cppwamp/tcpendpoint.hpp
     include/cppwamp/tcphost.hpp
     include/cppwamp/tcpprotocol.hpp
+    include/cppwamp/tokentrie.hpp
     include/cppwamp/traits.hpp
     include/cppwamp/transport.hpp
     include/cppwamp/trie.hpp
@@ -55,7 +56,6 @@ set(HEADERS
     include/cppwamp/version.hpp
     include/cppwamp/visitor.hpp
     include/cppwamp/wildcarduri.hpp
-    include/cppwamp/wildcardtrie.hpp
     include/cppwamp/wampdefs.hpp
     include/cppwamp/bundled/amosnier_sha256.hpp
     include/cppwamp/bundled/boost_asio_any_completion_executor.hpp
@@ -92,6 +92,7 @@ set(HEADERS
     include/cppwamp/internal/surrogateany.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
+    include/cppwamp/internal/tokentrienode.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
     include/cppwamp/internal/variantdecoding.hpp
@@ -99,7 +100,6 @@ set(HEADERS
     include/cppwamp/internal/varianttraits.hpp
     include/cppwamp/internal/variantvisitors.hpp
     include/cppwamp/internal/wampmessage.hpp
-    include/cppwamp/internal/wildcardtrienode.hpp
     include/cppwamp/types/array.hpp
     include/cppwamp/types/boostoptional.hpp
     include/cppwamp/types/optional.hpp
