@@ -35,7 +35,7 @@
 #include <cppwamp/internal/variant.ipp>
 #include <cppwamp/internal/version.ipp>
 
-#if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
+#ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     #include <cppwamp/internal/uds.ipp>
     #include <cppwamp/internal/udspath.ipp>
     #include <cppwamp/internal/udsprotocol.ipp>

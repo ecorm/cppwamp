@@ -38,18 +38,11 @@ using any = std::any;
 
 #else
 
+#include "tagtypes.hpp"
 #include "internal/surrogateany.hpp"
 
 namespace wamp
 {
-
-template <typename T>
-using in_place_type_t = internal::InPlaceType<T>;
-
-#ifdef __cpp_variable_templates
-template <typename T>
-constexpr in_place_type_t<T> in_place_type{};
-#endif
 
 using bad_any_cast = internal::BadAnyCast;
 
@@ -75,14 +68,14 @@ T any_cast(any&& a) {return internal::anyCast<T>(std::move(a));}
 template <typename T, typename... As >
 any make_any(As&&... args)
 {
-    return internal::SurrogateAny(internal::inPlaceType<T>,
+    return internal::SurrogateAny(in_place_type_t<T>{},
                                   std::forward<As>(args)...);
 }
 
 template <typename T, typename U, typename... As>
 any make_any(std::initializer_list<U> il, As&&... args)
 {
-    return internal::SurrogateAny(internal::inPlaceType<T>, il,
+    return internal::SurrogateAny(in_place_type_t<T>{}, il,
                                   std::forward<As>(args)...);
 }
 

@@ -22,7 +22,7 @@
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 
-#if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
+#ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     #include <cppwamp/uds.hpp>
 #endif
 
@@ -39,7 +39,7 @@ const std::string testUdsPath = "./.crossbar/udstest";
 const auto withTcp = TcpHost("localhost", validPort).withFormat(json);
 const auto invalidTcp = TcpHost("localhost", invalidPort).withFormat(json);
 
-#if CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
+#ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
 const auto alternateTcp = UdsPath(testUdsPath).withFormat(msgpack);
 #else
 const auto alternateTcp = TcpHost("localhost", validPort).withFormat(msgpack);

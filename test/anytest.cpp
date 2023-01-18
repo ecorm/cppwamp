@@ -230,7 +230,7 @@ TEST_CASE( "SurrogateAny Emplacement", "[SurrogateAny]" )
         using Pair = std::pair<int, float>;
         Pair p = {12, 34.56};
 
-        SurrogateAny a(InPlaceType<Pair>{}, p.first, p.second);
+        SurrogateAny a(in_place_type_t<Pair>{}, p.first, p.second);
         checkSurrogateAnyValue(a, p, true, "a");
 
         SurrogateAny b;
@@ -261,7 +261,7 @@ TEST_CASE( "SurrogateAny Emplacement", "[SurrogateAny]" )
 
         Foo foo({12, 34}, 56.78);
 
-        SurrogateAny a(InPlaceType<Foo>{}, {12, 34}, foo.x);
+        SurrogateAny a(in_place_type_t<Foo>{}, {12, 34}, foo.x);
         checkSurrogateAnyValue(a, foo, true, "a");
 
         SurrogateAny b;
@@ -277,7 +277,7 @@ TEST_CASE( "SurrogateAny Emplacement", "[SurrogateAny]" )
         std::iota(p.first.begin(), p.first.end(), 0);
         p.second = 12.34;
 
-        SurrogateAny a(InPlaceType<Type>{}, p.first, p.second);
+        SurrogateAny a(in_place_type_t<Type>{}, p.first, p.second);
         checkSurrogateAnyValue(a, p, false, "a");
 
         SurrogateAny b;
@@ -290,7 +290,7 @@ TEST_CASE( "SurrogateAny Emplacement", "[SurrogateAny]" )
         using Type = long double;
         Type x = 123.45;
 
-        SurrogateAny a(InPlaceType<Type>{}, x);
+        SurrogateAny a(in_place_type_t<Type>{}, x);
         checkSurrogateAnyValue(a, x, false, "a");
 
         SurrogateAny b;
@@ -325,7 +325,7 @@ TEST_CASE( "SurrogateAny Emplacement", "[SurrogateAny]" )
         std::iota(s.begin(), s.end(), 0);
         Foo foo({12, 34}, s);
 
-        SurrogateAny a(InPlaceType<Foo>{}, {12, 34}, s);
+        SurrogateAny a(in_place_type_t<Foo>{}, {12, 34}, s);
         checkSurrogateAnyValue(a, foo, false, "a");
 
         SurrogateAny b;
@@ -348,7 +348,7 @@ TEST_CASE( "SurrogateAny Copy and Move Construction", "[SurrogateAny]" )
     SECTION( "copy small rhs" )
     {
         Small x(42);
-        SurrogateAny rhs(InPlaceType<Small>{}, x.value);
+        SurrogateAny rhs(in_place_type_t<Small>{}, x.value);
         SurrogateAny lhs(rhs);
         checkSurrogateAnyValue(lhs, x, true, "lhs");
         checkSurrogateAnyValue(rhs, x, true, "rh");
@@ -359,7 +359,7 @@ TEST_CASE( "SurrogateAny Copy and Move Construction", "[SurrogateAny]" )
     SECTION( "copy large rhs" )
     {
         Large x;
-        SurrogateAny rhs(InPlaceType<Large>{}, x.array.front());
+        SurrogateAny rhs(in_place_type_t<Large>{}, x.array.front());
         SurrogateAny lhs(rhs);
         checkSurrogateAnyValue(lhs, x, false, "lhs");
         checkSurrogateAnyValue(rhs, x, false, "rhs");
@@ -378,7 +378,7 @@ TEST_CASE( "SurrogateAny Copy and Move Construction", "[SurrogateAny]" )
     SECTION( "move small rhs" )
     {
         Small x(42);
-        SurrogateAny rhs(InPlaceType<Small>{}, x.value);
+        SurrogateAny rhs(in_place_type_t<Small>{}, x.value);
         SurrogateAny lhs(std::move(rhs));
         checkSurrogateAnyValue(lhs, x, true);
         checkSurrogateAnyIsEmpty(rhs);
@@ -388,7 +388,7 @@ TEST_CASE( "SurrogateAny Copy and Move Construction", "[SurrogateAny]" )
     SECTION( "move large rhs" )
     {
         Large x;
-        SurrogateAny rhs(InPlaceType<Large>{}, x.array.front());
+        SurrogateAny rhs(in_place_type_t<Large>{}, x.array.front());
         SurrogateAny lhs(std::move(rhs));
         checkSurrogateAnyValue(lhs, x, false);
         checkSurrogateAnyIsEmpty(rhs);

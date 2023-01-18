@@ -12,7 +12,7 @@
 #include <initializer_list>
 #include <typeinfo>
 #include <utility>
-#include "../config.hpp"
+#include "../tagtypes.hpp"
 #include "../traits.hpp"
 
 namespace wamp
@@ -20,18 +20,6 @@ namespace wamp
 
 namespace internal
 {
-
-//------------------------------------------------------------------------------
-template <typename T>
-struct InPlaceType
-{
-    constexpr explicit InPlaceType() = default;
-};
-
-#ifdef __cpp_variable_templates
-template <typename T>
-CPPWAMP_INLINE_VARIABLE constexpr InPlaceType<T> inPlaceType{};
-#endif
 
 //------------------------------------------------------------------------------
 class BadAnyCast : public std::bad_cast
@@ -57,16 +45,16 @@ struct AnyReqs
     struct IsInPlaceType : std::false_type {};
 
     template <typename T>
-    struct IsInPlaceType<InPlaceType<T>> : std::true_type {};
+    struct IsInPlaceType<in_place_type_t<T>> : std::true_type {};
 
     template <typename T>
-    static constexpr bool isInPlaceType() {return IsInPlaceType<T>::value;}
+    static constexpr bool in_place_type() {return IsInPlaceType<T>::value;}
 
     template <typename T>
     static constexpr bool constructible()
     {
         using D = typename std::decay<T>::type;
-        return !isSameType<D, SurrogateAny>() && !isInPlaceType<D>() &&
+        return !isSameType<D, SurrogateAny>() && !in_place_type<D>() &&
                std::is_copy_constructible<D>::value;
     }
 
@@ -123,13 +111,13 @@ public:
 
     template <typename T, typename... As,
              EnableIf<Reqs::emplaceable<T, As...>()> = 0>
-    explicit SurrogateAny(InPlaceType<T>, As&&... args)
+    explicit SurrogateAny(in_place_type_t<T>, As&&... args)
         : box_(construct<Decayed<T>>(std::forward<As>(args)...))
     {}
 
     template<typename T, typename U, typename... As,
              EnableIf<Reqs::listEmplaceable<T, U, As...>()> = 0>
-    explicit SurrogateAny(InPlaceType<T>, std::initializer_list<U> list,
+    explicit SurrogateAny(in_place_type_t<T>, std::initializer_list<U> list,
                  As&&... args )
         : box_(construct<Decayed<T>>(list, std::forward<As>(args)...))
     {}

@@ -7,9 +7,7 @@
 #ifndef CPPWAMP_CONFIG_HPP
 #define CPPWAMP_CONFIG_HPP
 
-#ifdef _WIN32
-#define CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS 0
-#else
+#ifndef _WIN32
 #define CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS 1
 #endif
 

@@ -12,10 +12,27 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE SplitUri tokenizeUri(const std::string uri)
+CPPWAMP_INLINE ErrorOr<SplitUri::uri_type> SplitUri::unsplit() const
 {
-    static constexpr char separator = '.';
-    SplitUri tokens;
+    if (labels_.empty())
+        return makeUnexpectedError(std::errc::result_out_of_range);
+
+    std::string uri;
+    bool first = true;
+    for (const auto& label: labels_)
+    {
+        if (!first)
+            uri += separator;
+        first = false;
+        uri += label;
+    }
+    return uri;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE SplitUri::storage_type SplitUri::tokenize(const uri_type uri)
+{
+    storage_type tokens;
     if (uri.empty())
     {
         tokens.emplace_back();
@@ -45,7 +62,8 @@ CPPWAMP_INLINE SplitUri tokenizeUri(const std::string uri)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE std::string untokenizeUri(const SplitUri& labels)
+CPPWAMP_INLINE SplitUri::uri_type
+SplitUri::untokenize(const storage_type& labels)
 {
     CPPWAMP_LOGIC_CHECK(!labels.empty(),
                         "wamp::untokenizeUri labels cannot be empty");
@@ -64,23 +82,16 @@ CPPWAMP_INLINE std::string untokenizeUri(const SplitUri& labels)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE bool uriMatchesWildcardPattern(const SplitUri& uri,
-                                              const SplitUri& pattern)
+CPPWAMP_INLINE bool wildcardMatches(const SplitUri& uri,
+                                    const SplitUri& pattern)
 {
     auto uriSize = uri.size();
     if (uriSize != pattern.size())
         return false;
     for (SplitUri::size_type i = 0; i != uriSize; ++i)
-        if (!pattern[i].empty() && uri[i] != pattern[i])
+        if (!isWildcardLabel(pattern[i]) && (uri[i] != pattern[i]))
             return false;
     return true;
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE bool uriMatchesWildcardPattern(const std::string& uri,
-                                              const std::string& pattern)
-{
-    return uriMatchesWildcardPattern(tokenizeUri(uri), tokenizeUri(pattern));
 }
 
 } // namespace wamp

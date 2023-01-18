@@ -113,13 +113,21 @@ struct CPPWAMP_HIDDEN WildcardTrieNode
 
     bool isLeaf() const {return children.empty();}
 
+    Atom token() const
+    {
+        Atom s;
+        if (!isRoot())
+            s = position->first;
+        return s;
+    }
+
     Key generateKey() const
     {
         Key key;
         const WildcardTrieNode* node = this;
         while (!node->isRoot())
         {
-            key.emplace_back(node->position->first);
+            key.push_back(node->position->first);
             node = node->parent;
         }
         std::reverse(key.begin(), key.end());

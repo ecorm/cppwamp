@@ -65,8 +65,8 @@ public:
 
         case Policy::wildcard:
         {
-            return doSubscribe(byWildcard_, tokenizeUri(topic.uri),
-                               std::move(topic), std::move(info), sid);
+            return doSubscribe(byWildcard_, topic.uri, std::move(topic),
+                               std::move(info), sid);
         }
 
         default:

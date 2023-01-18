@@ -55,7 +55,6 @@ void checkWildcardTrieContents(WildcardTrie<T>& t,
     for (unsigned i=0; i<m.size(); ++i)
     {
         auto key = mi->first;
-        auto uri = untokenizeUri(key);
         auto value = mi->second;
         INFO( "at position " << i );
 
@@ -70,15 +69,10 @@ void checkWildcardTrieContents(WildcardTrie<T>& t,
         CHECK( ci.key() == key );
         CHECK( c.at(key) == value );
         CHECK( t.at(key) == value );
-        CHECK( c.at(uri) == value );
-        CHECK( t.at(uri) == value );
         CHECK( t[key] == value );
         CHECK( t[SplitUri{key}] == value );
-        CHECK( t[uri] == value );
         CHECK( c.count(key) == 1 );
-        CHECK( c.count(uri) == 1 );
         CHECK( c.contains(key) );
-        CHECK( c.contains(uri) );
 
         auto mf = t.find(key);
         REQUIRE( mf != t.end() );
@@ -86,21 +80,12 @@ void checkWildcardTrieContents(WildcardTrie<T>& t,
         CHECK( mf.key() == key );
         CHECK( mf.value() == value );
 
-        mf = t.find(uri);
         REQUIRE( mf != t.end() );
         CHECK( *mf == value );
         CHECK( mf.key() == key );
-        CHECK( mf.uri() == uri );
         CHECK( mf.value() == value );
 
         auto cf = c.find(key);
-        REQUIRE( cf != c.end() );
-        CHECK( *cf == value );
-        CHECK( cf.key() == key );
-        CHECK( cf.uri() == uri );
-        CHECK( cf.value() == value );
-
-        cf = c.find(uri);
         REQUIRE( cf != c.end() );
         CHECK( *cf == value );
         CHECK( cf.key() == key );
@@ -157,67 +142,26 @@ void checkWildcardTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
 }
 
 //------------------------------------------------------------------------------
-void checkWildcardTrieInsertionWithUri(const TrieTestPairList& pairs,
-                                       bool clobbers, TrieInsertionWithUriOp op)
-{
-    WildcardTrie<int> trie;
-    for (unsigned i=0; i<pairs.size(); ++i)
-    {
-        INFO( "for pairs[" << i << "]" );
-        const auto& pair = pairs[i];
-        auto result = op(trie, untokenizeUri(pair.first), pair.second);
-        CHECK(result.second);
-        CHECK(*result.first == pair.second);
-        CHECK(result.first.value() == pair.second);
-        CHECK(result.first.key() == pair.first);
-        CHECK(result.first == trie.find(pair.first));
-    }
-    checkWildcardTrieContents(trie, pairs);
-
-    // Check duplicate insertions
-    for (unsigned i=0; i<pairs.size(); ++i)
-    {
-        INFO( "for pairs[" << i << "]" );
-        auto pair = pairs[i];
-        pair.second = -pair.second;
-        auto result = op(trie, untokenizeUri(pair.first), pair.second);
-        CHECK_FALSE(result.second);
-        CHECK(result.first.key() == pair.first);
-        if (!clobbers)
-            pair.second = -pair.second;
-        CHECK(*result.first == pair.second);
-        CHECK(result.first.value() == pair.second);
-    }
-}
-
-//------------------------------------------------------------------------------
 void checkBadWildcardTrieAccess(const std::string& info,
                                 const TrieTestPairList& pairs,
                                 const SplitUri& key)
 {
     INFO(info);
     SplitUri emptyKey;
-    auto uri = untokenizeUri(key);
     Trie t(pairs.begin(), pairs.end());
     const Trie& c = t;
     CHECK_THROWS_AS(t.at(emptyKey), std::out_of_range);
     CHECK_THROWS_AS(c.at(emptyKey), std::out_of_range);
     CHECK_THROWS_AS(t.at(key), std::out_of_range);
     CHECK_THROWS_AS(c.at(key), std::out_of_range);
-    CHECK_THROWS_AS(t.at(uri), std::out_of_range);
-    CHECK_THROWS_AS(c.at(uri), std::out_of_range);
     CHECK(t.find(emptyKey) == t.end());
     CHECK(c.find(emptyKey) == c.end());
     CHECK(t.find(key) == t.end());
     CHECK(c.find(key) == c.end());
-    CHECK(t.find(uri) == t.end());
-    CHECK(c.find(uri) == c.end());
     CHECK(c.count(emptyKey) == 0);
     CHECK(c.count(key) == 0);
-    CHECK(c.count(uri) == 0);
     CHECK_FALSE(c.contains(emptyKey));
     CHECK_FALSE(c.contains(key));
-    CHECK_FALSE(c.contains(uri));
 }
 
 //------------------------------------------------------------------------------
@@ -229,8 +173,8 @@ bool checkWildcardTrieUris(const Trie& t, const std::vector<std::string>& uris)
     for (unsigned i=0; i<uris.size(); ++i)
     {
         INFO("for uris[" << i << "]");
-        CHECK(iter.uri() == uris[i]);
-        same = same && (iter.uri() == uris[i]);
+        CHECK(iter.key() == uris[i]);
+        same = same && (iter.key() == uris[i]);
         ++iter;
     }
     return same;
@@ -254,7 +198,8 @@ bool checkWildcardTrieIterators(const Trie& t,
 }
 
 //------------------------------------------------------------------------------
-void checkWildcardTrieEqualRange(const Trie& t, const std::string& uri, const std::string& lbUri,
+void checkWildcardTrieEqualRange(const Trie& t, const std::string& uri,
+                                 const std::string& lbUri,
                                  const std::string& ubUri)
 {
     INFO("For uri '" << uri << "'");
@@ -269,8 +214,8 @@ void checkWildcardTrieEqualRange(const Trie& t, const std::string& uri, const st
     }
     else
     {
-        CHECK(lb.uri() == lbUri);
-        CHECK(er.first.uri() == lbUri);
+        CHECK(lb.key() == lbUri);
+        CHECK(er.first.key() == lbUri);
     }
 
     auto ub = t.upper_bound(uri);
@@ -281,8 +226,8 @@ void checkWildcardTrieEqualRange(const Trie& t, const std::string& uri, const st
     }
     else
     {
-        CHECK(ub.uri() == ubUri);
-        CHECK(er.second.uri() == ubUri);
+        CHECK(ub.key() == ubUri);
+        CHECK(er.second.key() == ubUri);
     }
 }
 
@@ -308,7 +253,7 @@ bool checkWildcardTrieComparisons(const Trie& a, const Trie& b)
 //------------------------------------------------------------------------------
 TEST_CASE( "URI Tokenization", "[WildcardTrie]" )
 {
-    std::vector<std::pair<std::string, SplitUri>> inputs =
+    std::vector<std::pair<std::string, SplitUri::storage_type>> inputs =
     {
         {"",      {""}},
         {"a",     {"a"}},
@@ -331,8 +276,9 @@ TEST_CASE( "URI Tokenization", "[WildcardTrie]" )
         const auto& uri = pair.first;
         const auto& labels = pair.second;
         INFO("For URI '" + uri+ "'");
-        CHECK(tokenizeUri(uri) == labels);
-        CHECK(untokenizeUri(labels) == uri);
+        SplitUri s(labels);
+        CHECK(s.labels() == labels);
+        CHECK(s.unsplit() == uri);
     }
 }
 
@@ -366,12 +312,8 @@ TEST_CASE( "URI Wildcard Matching", "[WildcardTrie]" )
         for (const auto& pattern: patterns)
         {
             INFO("For pattern '" + pattern+ "'");
-            bool uriMatches = uriMatchesWildcardPattern(tokenizeUri(uri),
-                                                        tokenizeUri(pattern));
+            bool uriMatches = wildcardMatches(uri, pattern);
             bool expected = matches.count(pattern) == 1;
-            CHECK(uriMatches == expected);
-
-            uriMatches = uriMatchesWildcardPattern(uri, pattern);
             CHECK(uriMatches == expected);
         }
     }
@@ -438,29 +380,29 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
 
     std::vector<TrieTestPairList> inputs =
     {
-        { {{""},            1} },
-        { {{"a"},           1} },
-        { {{"a", "b"},      1} },
-        { {{"a", "b", "c"}, 1} },
-        { {{"a"}, 1},           {{"b"}, 2}},
-        { {{"b"}, 1},           {{"a"}, 2}},
-        { {{"a"}, 1},           {{"a", "b"}, 2}},
-        { {{"a"}, 1},           {{"a", "b", "c"}, 2}},
-        { {{"a", "b"}, 1},      {{"a"}, 2}},
-        { {{"a", "b"}, 1},      {{"b"}, 2}},
-        { {{"a", "b"}, 1},      {{"b", "a"}, 2}},
-        { {{"a", "b"}, 1},      {{"c", "d"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"a"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"b"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"c"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"d"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"a", "b"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"b", "c"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"d", "e"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"a", "b", "d"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"a", "d", "e"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"d", "e", "f"}, 2}},
-        { {{"d"}, 4}, {{"a"}, 1}, {{"c"}, 3}, {{"b"}, 2}, {{"e"}, 5}},
+        { {"",      1} },
+        { {"a",     1} },
+        { {"a.b",   1} },
+        { {"a.b.c", 1} },
+        { {"a",     1},  {"b",     2}},
+        { {"b",     1},  {"a",     2}},
+        { {"a",     1},  {"a.b",   2}},
+        { {"a",     1},  {"a.b.c", 2}},
+        { {"a.b",   1},  {"a",     2}},
+        { {"a.b",   1},  {"b",     2}},
+        { {"a.b",   1},  {"b.a",   2}},
+        { {"a.b",   1},  {"c.d",   2}},
+        { {"a.b.c", 1},  {"a",     2}},
+        { {"a.b.c", 1},  {"b",     2}},
+        { {"a.b.c", 1},  {"c",     2}},
+        { {"a.b.c", 1},  {"d",     2}},
+        { {"a.b.c", 1},  {"a.b",   2}},
+        { {"a.b.c", 1},  {"b.c",   2}},
+        { {"a.b.c", 1},  {"d.e",   2}},
+        { {"a.b.c", 1},  {"a.b.d", 2}},
+        { {"a.b.c", 1},  {"a.d.e", 2}},
+        { {"a.b.c", 1},  {"d.e.f", 2}},
+        { {"d",     4},  {"a", 1}, {"c", 3}, {"b", 2}, {"e", 5}},
     };
 
     for (unsigned i=0; i<inputs.size(); ++i)
@@ -526,15 +468,6 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
                 });
         };
 
-        SECTION( "via insert_or_assign with URI string" )
-        {
-            checkWildcardTrieInsertionWithUri(input, true,
-                [](Trie& t, const std::string& uri, int value)
-                {
-                    return t.insert_or_assign(uri, value);
-                });
-        };
-
         SECTION( "via emplace" )
         {
             checkWildcardTrieInsertion(input, false,
@@ -554,15 +487,6 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
                 {
                     return t.try_emplace(std::move(p.first), p.second);
                 });
-        };
-
-        SECTION( "via try_emplace with URI string" )
-        {
-            checkWildcardTrieInsertionWithUri(input, false,
-            [](Trie& t, const std::string& uri, int value)
-            {
-                return t.try_emplace(uri, value);
-            });
         };
 
         SECTION( "via operator[]" )
@@ -586,35 +510,24 @@ TEST_CASE( "WildcardTrie Insertion", "[WildcardTrie]" )
                     return std::make_pair(t.find(p.first), inserted);
                 });
         };
-
-        SECTION( "via operator[] with URI string" )
-        {
-            checkWildcardTrieInsertionWithUri(input, true,
-            [](Trie& t, const std::string& uri, int value)
-            {
-                bool inserted = t.find(uri) == t.end();
-                t[uri] = value;
-                return std::make_pair(t.find(uri), inserted);
-            });
-        };
     }
 }
 
 //------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Inializer Lists", "[WildcardTrie]" )
 {
-    TrieTestPairList pairs({ {{"a", "b", "c"}, 1}, {{"a"}, 2} });
+    TrieTestPairList pairs({ {"a.b.c", 1}, {"a", 2} });
 
     SECTION( "constuctor taking initializer list" )
     {
-        Trie trie({ {{"a", "b", "c"}, 1}, {{"a"}, 2} });
+        Trie trie({ {"a.b.c", 1}, {"a", 2} });
         checkWildcardTrieContents(trie, pairs);
     };
 
     SECTION( "assignment from initializer list" )
     {
-        Trie trie({ {{"z"}, 3} });
-        trie = { {{"a", "b", "c"}, 1}, {{"a"}, 2} };
+        Trie trie({ {"z", 3} });
+        trie = { {"a.b.c", 1}, {"a", 2} };
         checkWildcardTrieContents(trie, pairs);
     };
 
@@ -631,9 +544,9 @@ TEST_CASE( "WildcardTrie Copy/Move Construction/Assignment", "[WildcardTrie]" )
 {
     std::vector<TrieTestPairList> inputs = {
         { },
-        { {{"a"},           1} },
-        { {{"a", "b", "c"}, 1}, {{"a", "b"}, 2}},
-        { {{"a", "b", "c"}, 1}, {{"d", "e"}, 2}},
+        { {"a", 1} },
+        { {"a.b.c", 1}, {"a.b", 2}},
+        { {"a.b.c", 1}, {"d.e", 2}},
     };
 
     for (unsigned i=0; i<inputs.size(); ++i)
@@ -770,7 +683,7 @@ TEST_CASE( "WildcardTrie Self-Assignment", "[WildcardTrie]" )
         CHECK(t["a"] == 1);
         CHECK(begin == t.begin());
         CHECK(end == t.end());
-        CHECK(begin.uri() == "a");
+        CHECK(begin.key() == "a");
         CHECK(begin.value() == 1);
         CHECK(++begin == end);
     }
@@ -798,7 +711,7 @@ TEST_CASE( "WildcardTrie Self-Assignment", "[WildcardTrie]" )
         CHECK(t["a"] == 1);
         CHECK(begin == t.begin());
         CHECK(end == t.end());
-        CHECK(begin.uri() == "a");
+        CHECK(begin.key() == "a");
         CHECK(begin.value() == 1);
         CHECK(++begin == end);
     }
@@ -818,7 +731,7 @@ TEST_CASE( "WildcardTrie Self-Assignment", "[WildcardTrie]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "Reusing Moved WildcardTrie", "[WildcardTrie]" )
 {
-    TrieTestPairList pairs({ {{"a", "b", "c"}, 1}, {{"a"}, 2} });
+    TrieTestPairList pairs({ {"a.b.c", 1}, {"a", 2} });
     Trie a({ {{"d"}, 3} });
 
     SECTION( "move constructor" )
@@ -848,13 +761,13 @@ TEST_CASE( "WildcardTrie Bad Access/Lookups", "[WildcardTrie]" )
         checkBadWildcardTrieAccess(info, pairs, key);
     };
 
-    check("empty trie",        {},                {"a"});
-    check("populated trie",    {{{"a"}, 1}},      {"b"});
-    check("trie has wildcard", {{{""}, 1}},       {"a"});
-    check("key is wildcard",   {{{"a"}, 1}},      {""});
-    check("key is prefix",     {{{"a", "b"}, 1}}, {"a"});
-    check("key is partial",    {{{"a", "b"}, 1}}, {"a", "c"});
-    check("key too long",      {{{"a"}, 1}},      {"a", "b"});
+    check("empty trie",        {},           "a");
+    check("populated trie",    {{"a",   1}}, "b");
+    check("trie has wildcard", {{"",    1}}, "a");
+    check("key is wildcard",   {{"a",   1}}, "");
+    check("key is prefix",     {{"a.b", 1}}, "a");
+    check("key is partial",    {{"a.b", 1}}, "a.c");
+    check("key too long",      {{"a",   1}}, "a.b");
 }
 
 //------------------------------------------------------------------------------
@@ -878,7 +791,7 @@ TEST_CASE( "WildcardTrie Lower/Upper Bound and Equal Range", "[WildcardTrie]" )
 
     SECTION ("Populated trie")
     {
-        Trie t({{{"a"}, 1}, {{"a", "b", "c"}, 2}, {{"d"}, 3}, {{"d", "f"}, 4}});
+        Trie t({{"a", 1}, {"a.b.c", 2}, {"d", 3}, {"d.f", 4}});
 
         auto check = [&t](const std::string& uri, const std::string& lbUri,
                           const std::string& ubUri)
@@ -994,7 +907,7 @@ TEST_CASE( "WildcardTrie Pattern Matching", "[WildcardTrie]" )
     {
         INFO( "for input[" << i << "]" );
         auto uri = inputs[i].first;
-        auto key = tokenizeUri(uri);
+        auto key = SplitUri(uri);
         auto expectedHits = inputs[i].second;
 
         auto range = trie.match_range(key);
@@ -1003,8 +916,8 @@ TEST_CASE( "WildcardTrie Pattern Matching", "[WildcardTrie]" )
         for (unsigned i = 0; i != expectedHits.size(); ++i)
         {
             REQUIRE(match != range.second);
-            auto matchUri = untokenizeUri(match.key());
-            CHECK(match.uri() == matchUri);
+            auto matchUri = match.key().unsplit().value();
+            CHECK(match.key() == matchUri);
             CHECK( match.value() == matchUri );
             CHECK( *match == matchUri );
             REQUIRE( hits.emplace(matchUri).second );
@@ -1019,8 +932,8 @@ TEST_CASE( "WildcardTrie Pattern Matching", "[WildcardTrie]" )
         for (unsigned i = 0; i != expectedHits.size(); ++i)
         {
             REQUIRE( match != range.second );
-            auto matchUri = untokenizeUri(match.key());
-            CHECK( match.uri() == matchUri );
+            auto matchUri = match.key().unsplit().value();
+            CHECK( match.key() == matchUri );
             CHECK( match.value() == matchUri );
             CHECK( *match == matchUri );
             REQUIRE( hits.emplace(matchUri).second );
@@ -1034,7 +947,7 @@ TEST_CASE( "WildcardTrie Pattern Matching", "[WildcardTrie]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Insertion From Match Range", "[WildcardTrie]" )
 {
-    Trie trie({ {{"a"}, 1}, {{"a", ""}, 2}, {{"", "b"}, 3} });
+    Trie trie({ {"a", 1}, {"a.", 2}, {".b", 3} });
 
     SECTION( "constructor taking match range" )
     {
@@ -1055,7 +968,7 @@ TEST_CASE( "WildcardTrie Insertion From Match Range", "[WildcardTrie]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie Erase", "[WildcardTrie]" )
 {
-    Trie trie({ {{"a"}, 1}, {{"a", "b", "c"}, 2}, {{"d"}, 3}, {{"d", "e"}, 4} });
+    Trie trie({ {"a", 1}, {"a.b.c", 2}, {"d", 3}, {"d.e", 4} });
     auto rootNode = WildcardTrieIteratorAccess::cursor(trie.begin()).node;
     REQUIRE(rootNode->isRoot());
 
@@ -1174,14 +1087,14 @@ TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
         CHECK(a.contains("c"));
         CHECK(aBegin == b.begin());
         REQUIRE(aBegin != b.end());
-        CHECK(aBegin.uri() == "a");
+        CHECK(aBegin.key() == "a");
         CHECK(++Trie::iterator(aBegin) == b.end());
         CHECK(b.size() == 1);
         CHECK(b.contains("a"));
         CHECK(bBegin == a.begin());
         REQUIRE(bBegin != a.end());
-        CHECK(bBegin.uri() == "b");
-        CHECK((++Trie::iterator(bBegin)).uri() == "c");
+        CHECK(bBegin.key() == "b");
+        CHECK((++Trie::iterator(bBegin)).key() == "c");
         CHECK(++(++Trie::iterator(bBegin)) == a.end());
 
         swap(b, a);
@@ -1189,15 +1102,15 @@ TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
         CHECK(a.contains("a"));
         CHECK(aBegin == a.begin());
         REQUIRE(aBegin != a.end());
-        CHECK(aBegin.uri() == "a");
+        CHECK(aBegin.key() == "a");
         CHECK(++Trie::iterator(aBegin) == a.end());
         CHECK(b.size() == 2);
         CHECK(b.contains("b"));
         CHECK(b.contains("c"));
         CHECK(bBegin == b.begin());
         REQUIRE(bBegin != b.end());
-        CHECK(bBegin.uri() == "b");
-        CHECK((++Trie::iterator(bBegin)).uri() == "c");
+        CHECK(bBegin.key() == "b");
+        CHECK((++Trie::iterator(bBegin)).key() == "c");
         CHECK(++(++Trie::iterator(bBegin)) == b.end());
     }
 
@@ -1207,7 +1120,7 @@ TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
         CHECK(a.empty());
         CHECK(aBegin == x.begin());
         REQUIRE(aBegin != x.end());
-        CHECK(aBegin.uri() == "a");
+        CHECK(aBegin.key() == "a");
         CHECK(++Trie::iterator(aBegin) == x.end());
         CHECK(x.size() == 1);
         CHECK(x.contains("a"));
@@ -1218,7 +1131,7 @@ TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
         CHECK(aBegin == a.begin());
         CHECK(++Trie::iterator(aBegin) == a.end());
         REQUIRE(aBegin != a.end());
-        CHECK(aBegin.uri() == "a");
+        CHECK(aBegin.key() == "a");
         CHECK(x.empty());
     }
 
@@ -1230,7 +1143,7 @@ TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
         CHECK(a.empty());
         CHECK(aBegin == x.begin());
         REQUIRE(aBegin != x.end());
-        CHECK(aBegin.uri() == "a");
+        CHECK(aBegin.key() == "a");
         CHECK(++Trie::iterator(aBegin) == x.end());
 
         swap(a, x);
@@ -1238,7 +1151,7 @@ TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
         CHECK(a.contains("a"));
         CHECK(aBegin == a.begin());
         REQUIRE(aBegin != a.end());
-        CHECK(aBegin.uri() == "a");
+        CHECK(aBegin.key() == "a");
         CHECK(++Trie::iterator(aBegin) == a.end());
         CHECK(x.empty());
     }
@@ -1261,7 +1174,7 @@ TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
         CHECK(a.contains("a"));
         CHECK(aBegin == a.begin());
         REQUIRE(aBegin != a.end());
-        CHECK(aBegin.uri() == "a");
+        CHECK(aBegin.key() == "a");
         CHECK(++Trie::iterator(aBegin) == a.end());
 
         swap(b, b);
@@ -1270,8 +1183,8 @@ TEST_CASE( "WildcardTrie Swap", "[WildcardTrie]" )
         CHECK(b.contains("c"));
         CHECK(bBegin == b.begin());
         REQUIRE(bBegin != b.end());
-        CHECK(bBegin.uri() == "b");
-        CHECK((++Trie::iterator(bBegin)).uri() == "c");
+        CHECK(bBegin.key() == "b");
+        CHECK((++Trie::iterator(bBegin)).key() == "c");
         CHECK(++(++Trie::iterator(bBegin)) == b.end());
     }
 
@@ -1316,29 +1229,18 @@ TEST_CASE( "WildcardTrie Comparisons", "[WildcardTrie]" )
         return checkWildcardTrieComparisons(a, b);
     };
 
-    CHECK( check({ {} },
-                 { {{"a"}, 1} }) );
-
-    CHECK( check({ {{"a"}, 1} },
-                 { {{"a"}, 2} }) );
-
-    CHECK( check({ {{"a"}, 1} },
-                 { {{"b"}, 1} }) );
-
-    CHECK( check({ {{"a", "b"}, 1} },
-                 { {{"a"}, 1} }) );
-
-    CHECK( check({ {{"a"}, 1}, {{"b"}, 2} },
-                 { {{"a"}, 1} }) );
-
-    CHECK( check({ {{"a"}, 1}, {{"a", "b"}, 2} },
-                 { {{"a", "b"}, 2} }) );
+    CHECK( check({{}},                      {{"a", 1}}) );
+    CHECK( check({{"a",   1}},              {{"a", 2}}) );
+    CHECK( check({{"a",   1}},              {{"b", 1}}) );
+    CHECK( check({{"a.b", 1}},              {{"a", 1}}) );
+    CHECK( check({{"a",   1}, {"b",   2}},  {{"a", 1}}) );
+    CHECK( check({{"a",   1}, {"a.b", 2}},  {{"a.b", 2}}) );
 }
 
 //------------------------------------------------------------------------------
 TEST_CASE( "WildcardTrie erase_if", "[WildcardTrie]" )
 {
-    Trie trie({{{"a"}, 1}, {{"b"}, 2}, {{"b", "c"}, 1}});
+    Trie trie({{"a", 1}, {"b", 2}, {"b.c", 1}});
 
     SECTION( "criteria based on value" )
     {
@@ -1388,15 +1290,15 @@ TEST_CASE( "WildcardTrie Iterator Conversions and Mixed Comparisons",
     MI mi = t.begin();
     MM mm = t.match_range("a").first;
 
-    CHECK(CI(ci).uri() == "a");
-    CHECK(CI(cm).uri() == "a");
-    CHECK(CI(mi).uri() == "a");
-    CHECK(CI(mm).uri() == "a");
-    CHECK(CM(cm).uri() == "a");
-    CHECK(CM(mm).uri() == "a");
-    CHECK(MI(mi).uri() == "a");
-    CHECK(MI(mm).uri() == "a");
-    CHECK(MM(mm).uri() == "a");
+    CHECK(CI(ci).key() == "a");
+    CHECK(CI(cm).key() == "a");
+    CHECK(CI(mi).key() == "a");
+    CHECK(CI(mm).key() == "a");
+    CHECK(CM(cm).key() == "a");
+    CHECK(CM(mm).key() == "a");
+    CHECK(MI(mi).key() == "a");
+    CHECK(MI(mm).key() == "a");
+    CHECK(MM(mm).key() == "a");
 
     CHECK((ci == ci));
     CHECK((ci == cm));
