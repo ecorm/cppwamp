@@ -50,11 +50,11 @@ set(HEADERS
     include/cppwamp/udspath.hpp
     include/cppwamp/udsprotocol.hpp
     include/cppwamp/unpacker.hpp
-    include/cppwamp/uri.hpp
     include/cppwamp/variant.hpp
     include/cppwamp/variantdefs.hpp
     include/cppwamp/version.hpp
     include/cppwamp/visitor.hpp
+    include/cppwamp/wildcarduri.hpp
     include/cppwamp/wildcardtrie.hpp
     include/cppwamp/wampdefs.hpp
     include/cppwamp/bundled/amosnier_sha256.hpp
@@ -135,9 +135,9 @@ set(INLINES
     include/cppwamp/internal/uds.ipp
     include/cppwamp/internal/udspath.ipp
     include/cppwamp/internal/udsprotocol.ipp
-    include/cppwamp/internal/uri.ipp
     include/cppwamp/internal/variant.ipp
     include/cppwamp/internal/version.ipp
+    include/cppwamp/internal/wildcarduri.ipp
 )
 
 set(SOURCES

@@ -31,9 +31,9 @@
 #include <cppwamp/internal/tcpendpoint.ipp>
 #include <cppwamp/internal/tcphost.ipp>
 #include <cppwamp/internal/tcpprotocol.ipp>
-#include <cppwamp/internal/uri.ipp>
 #include <cppwamp/internal/variant.ipp>
 #include <cppwamp/internal/version.ipp>
+#include <cppwamp/internal/wildcarduri.ipp>
 
 #ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
     #include <cppwamp/internal/uds.ipp>

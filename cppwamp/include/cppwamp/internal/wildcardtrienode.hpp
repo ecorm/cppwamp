@@ -14,7 +14,7 @@
 #include <utility>
 
 #include "../api.hpp"
-#include "../uri.hpp"
+#include "../wildcarduri.hpp"
 
 namespace wamp
 {

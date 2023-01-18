@@ -173,7 +173,7 @@ bool wildcardMatches(const SplitUri& uri, const SplitUri& pattern);
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "./internal/uri.ipp"
+#include "./internal/wildcarduri.ipp"
 #endif
 
 #endif // CPPWAMP_URI_HPP

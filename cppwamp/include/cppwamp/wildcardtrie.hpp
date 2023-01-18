@@ -23,7 +23,7 @@
 #include <type_traits>
 #include <utility>
 #include "api.hpp"
-#include "uri.hpp"
+#include "wildcarduri.hpp"
 #include "internal/wildcardtrienode.hpp"
 
 namespace wamp

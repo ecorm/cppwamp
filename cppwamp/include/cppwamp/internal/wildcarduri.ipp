@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../uri.hpp"
+#include "../wildcarduri.hpp"
 #include "../api.hpp"
 #include "../error.hpp"
 
