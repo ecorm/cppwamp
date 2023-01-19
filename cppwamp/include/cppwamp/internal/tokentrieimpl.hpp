@@ -205,20 +205,17 @@ public:
             other.root_->parent_ = &other.sentinel_;
     }
 
-    bool equals(const TokenTrieImpl& rhs) const noexcept
+    template <typename TOther>
+    bool equals(const TOther& rhs) const noexcept
     {
         if (empty() || rhs.empty())
             return empty() == rhs.empty();
 
         auto curA = rootCursor();
         auto curB = rhs.rootCursor();
-        while (curA)
+        while (!curA.atEnd())
         {
-            if (!curB)
-                return false;
-            if (curA.childToken() != curB.childToken())
-                return false;
-            if (curA.child_->second.value_ != curB.child_->second.value_)
+            if (curA != curB)
                 return false;
             curA.advanceToNextNode();
             curB.advanceToNextNode();
@@ -226,21 +223,20 @@ public:
         return !curB;
     }
 
-    bool differs(const TokenTrieImpl& rhs) const noexcept
+    template <typename TOther>
+    bool differs(const TOther& rhs) const noexcept
     {
         if (empty() || rhs.empty())
             return empty() != rhs.empty();
 
         auto curA = rootCursor();
         auto curB = rhs.rootCursor();
-        while (curA)
+        while (!curA.atEnd())
         {
-            if (!curB)
+            if (curB.atEnd())
                 return true;
-            if (curA.childToken() != curB.childToken())
-                return true;
-            if (curA.child_->second.value_ != curB.child_->second.value_)
-                return true;
+            if (curA == curB)
+                return false;
             curA.advanceToNextNode();
             curB.advanceToNextNode();
         }

@@ -10,15 +10,401 @@
 #include <algorithm>
 #include <cassert>
 #include <map>
+#include <memory>
+#include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 #include "api.hpp"
+#include "error.hpp"
+#include "tagtypes.hpp"
 
 namespace wamp
 {
 
-namespace internal { template <typename, typename> class TokenTrieImpl; }
+namespace internal
+{
+
+template <typename, typename> class TokenTrieImpl;
+
+//------------------------------------------------------------------------------
+template <typename T>
+struct TokenTrieValueTraits
+{
+    template <typename U>
+    static constexpr bool isCopyConstructible()
+    {
+        return std::is_copy_constructible<U>::value;
+    }
+
+    template <typename U>
+    static constexpr bool isMoveConstructible()
+    {
+        return std::is_move_constructible<U>::value;
+    }
+
+    template <typename U, typename THolder>
+    static constexpr bool isCopyAssignable()
+    {
+        return std::is_same<U, THolder>::value &&
+               std::is_copy_assignable<U>::value;
+    }
+
+    template <typename U, typename THolder>
+    static constexpr bool isMoveAssignable()
+    {
+        using V = typename std::remove_cv<
+            typename std::remove_reference<U>::type>::type;
+        return std::is_same<V, THolder>::value &&
+               std::is_move_assignable<U>::value;
+    }
+};
+
+//------------------------------------------------------------------------------
+template <typename T>
+class TokenTrieValueLocalStorage
+{
+private:
+    using Traits = TokenTrieValueTraits<T>;
+    using Self = TokenTrieValueLocalStorage;
+
+public:
+    using Value = T;
+
+    TokenTrieValueLocalStorage() noexcept = default;
+
+    template <typename... Us>
+    TokenTrieValueLocalStorage(in_place_t, Us&&... args)
+    {
+        construct(std::forward<Us>(args)...);
+    }
+
+    template <typename U = T>
+    TokenTrieValueLocalStorage(
+        const TokenTrieValueLocalStorage& rhs,
+        typename std::enable_if<Traits::template isCopyConstructible<U>(),
+                                int>::type = 0)
+    {
+        if (rhs.has_value())
+            construct(rhs.get());
+    }
+
+    template <typename U = T>
+    TokenTrieValueLocalStorage(
+        const TokenTrieValueLocalStorage&& rhs,
+        typename std::enable_if<Traits::template isMoveConstructible<U>(),
+                                int>::type = 0)
+    {
+        if (rhs.has_value())
+            construct(std::move(rhs.get()));
+    }
+
+    ~TokenTrieValueLocalStorage() {reset();}
+
+    template <typename U>
+    typename std::enable_if<Traits::template isCopyAssignable<U, Self>(),
+                            TokenTrieValueLocalStorage&>
+    operator=(const U& rhs)
+    {
+        if (!rhs.has_value())
+            reset();
+        else if (has_value())
+            get() = rhs.get();
+        else
+            new (&storage_.asValue) Value(*rhs);
+    }
+
+    template <typename U>
+    typename std::enable_if<Traits::template isMoveAssignable<U, Self>(),
+                            TokenTrieValueLocalStorage&>
+    operator=(U&& rhs)
+    {
+        if (!rhs.has_value())
+            reset();
+        else if (has_value())
+            get() = std::move(rhs.get());
+        else
+            new (&storage_.asValue) Value(std::move(*rhs));
+    }
+
+    bool has_value() const noexcept {return hasValue_;}
+
+    Value& get() {return storage_.asValue;}
+
+    const Value& get() const {return storage_.asValue;}
+
+    template <typename... Us>
+    void emplace(Us&&... args)
+    {
+        reset();
+        new (&storage_.asValue) Value(std::forward<Us>(args)...);
+    }
+
+    template <typename U>
+    void assign(U&& value)
+    {
+        if (has_value())
+            get() = std::forward<U>(value);
+        else
+            new (&storage_.asValue) Value(std::forward<U>(value));
+    }
+
+    void reset()
+    {
+        if (has_value())
+            get().~Value();
+        hasValue_ = false;
+    }
+
+    bool operator==(const TokenTrieValueLocalStorage& rhs) const noexcept
+    {
+        if (!has_value())
+            return !rhs.has_value();
+        return rhs.has_value() && (get() == rhs.get());
+    }
+
+    bool operator!=(const TokenTrieValueLocalStorage& rhs) const noexcept
+    {
+        if (!has_value())
+            return rhs.has_value();
+        return !rhs.has_value() || (get() != rhs.get());
+    }
+
+private:
+    template <typename... Us>
+    void construct(Us&&... args)
+    {
+        new (&storage_.asValue) Value(std::forward<Us>(args)...);
+    }
+
+    union Storage
+    {
+        Storage() : asNone(false) {}
+        bool asNone;
+        Value asValue;
+    } storage_;
+
+    bool hasValue_ = false;
+};
+
+//------------------------------------------------------------------------------
+template <typename T>
+class TokenTrieValueHeapStorage
+{
+private:
+    using Traits = TokenTrieValueTraits<T>;
+    using Self = TokenTrieValueHeapStorage;
+
+public:
+    using Value = T;
+
+    TokenTrieValueHeapStorage() noexcept = default;
+
+    template <typename... Us>
+    TokenTrieValueHeapStorage(in_place_t, Us&&... args)
+    {
+        construct(std::forward<Us>(args)...);
+    }
+
+    template <typename U = T>
+    TokenTrieValueHeapStorage(
+        const TokenTrieValueHeapStorage& rhs,
+        typename std::enable_if<Traits::template isCopyConstructible<U>(),
+                                int>::type = 0)
+    {
+        if (rhs.has_value())
+            construct(rhs.get());
+    }
+
+    template <typename U = T>
+    TokenTrieValueHeapStorage(
+        const TokenTrieValueHeapStorage&& rhs,
+        typename std::enable_if<Traits::template isMoveConstructible<U>(),
+                                int>::type = 0)
+    {
+        if (rhs.has_value())
+            construct(std::move(rhs.get()));
+    }
+
+    template <typename U>
+    typename std::enable_if<Traits::template isCopyAssignable<U, Self>(),
+                            TokenTrieValueHeapStorage&>
+    operator=(const U& rhs)
+    {
+        if (!rhs.has_value())
+            reset();
+        else if (has_value())
+            get() = rhs.get();
+        else
+            ptr_.reset(new Value(*rhs));
+    }
+
+    template <typename U>
+    typename std::enable_if<Traits::template isMoveAssignable<U, Self>(),
+                            TokenTrieValueHeapStorage&>
+    operator=(U&& rhs)
+    {
+        if (!rhs.has_value())
+            reset();
+        else if (has_value())
+            get() = std::move(rhs.get());
+        else
+            ptr_.reset(new Value(std::move(*rhs)));
+    }
+
+    bool has_value() const noexcept {return ptr_ != nullptr;}
+
+    Value& get() {return *ptr_;}
+
+    const Value& get() const {return *ptr_;}
+
+    template <typename... Us>
+    void emplace(Us&&... args)
+    {
+        reset();
+        ptr_.reset(new Value(std::forward<Us>(args)...));
+    }
+
+    template <typename U>
+    void assign(U&& value)
+    {
+        if (has_value())
+            get() = std::forward<U>(value);
+        else
+            ptr_.reset(new Value(std::forward<U>(value)));
+    }
+
+    void reset() {ptr_.reset();}
+
+    bool operator==(const TokenTrieValueHeapStorage& rhs) const noexcept
+    {
+        if (!has_value())
+            return !rhs.has_value();
+        return rhs.has_value() && (get() == rhs.get());
+    }
+
+    bool operator!=(const TokenTrieValueHeapStorage& rhs) const noexcept
+    {
+        if (!has_value())
+            return rhs.has_value();
+        return !rhs.has_value() || (get() != rhs.get());
+    }
+
+private:
+    template <typename... Us>
+    void construct(Us&&... args)
+    {
+        ptr_.reset(new Value(std::forward<Us>(args)...));
+    }
+
+    std::unique_ptr<Value> ptr_;
+};
+
+} // namespace internal
+
+//------------------------------------------------------------------------------
+template <typename T>
+class TokenTrieOptionalValue
+{
+private:
+    using Self = TokenTrieOptionalValue;
+
+public:
+    using Value = T;
+
+    TokenTrieOptionalValue() noexcept = default;
+
+    template <typename... Us>
+    TokenTrieOptionalValue(in_place_t, Us&&... args)
+        : value_(in_place_t{}, std::forward<Us>(args)...)
+    {}
+
+    TokenTrieOptionalValue& operator=(const Value& x)
+    {
+        value_.assign(x);
+        return *this;
+    }
+
+    TokenTrieOptionalValue& operator=(Value&& x)
+    {
+        value_.assign(std::move(x));
+        return *this;
+    }
+
+    bool has_value() const noexcept {return value_.has_value();}
+
+    explicit operator bool() const noexcept {return has_value();}
+
+    Value& operator*() {return get();}
+
+    const Value& operator*() const {return get();}
+
+    Value& value() &
+    {
+        CPPWAMP_LOGIC_CHECK(has_value(), "TokenTrieOptionalValue bad access");
+        return get();
+    }
+
+    Value&& value() &&
+    {
+        CPPWAMP_LOGIC_CHECK(has_value(), "TokenTrieOptionalValue bad access");
+        return std::move(get());
+    }
+
+    const Value& value() const &
+    {
+        CPPWAMP_LOGIC_CHECK(has_value(), "TokenTrieOptionalValue bad access");
+        return get();
+    }
+
+    const Value&& value() const &&
+    {
+        CPPWAMP_LOGIC_CHECK(has_value(), "TokenTrieOptionalValue bad access");
+        return std::move(get());
+    }
+
+    template <typename... Us>
+    void emplace(Us&&... args) {value_.emplace(std::forward<Us>(args)...);}
+
+    void reset() {value_.reset();}
+
+    bool operator==(const TokenTrieOptionalValue& rhs) const noexcept
+    {
+        if (!has_value())
+            return !rhs.has_value();
+        return rhs.has_value() && (get() == rhs.get());
+    }
+
+    bool operator!=(const TokenTrieOptionalValue& rhs) const noexcept
+    {
+        if (!has_value())
+            return rhs.has_value();
+        return !rhs.has_value() || (get() != rhs.get());
+    }
+
+private:
+    static constexpr bool locallyStored = sizeof(T) < sizeof(std::string);
+
+    using Storage =
+        typename std::conditional<locallyStored,
+                                  internal::TokenTrieValueLocalStorage<T>,
+                                  internal::TokenTrieValueHeapStorage<T>>::type;
+
+    Value& get()
+    {
+        assert(has_value());
+        return value_.get();
+    }
+
+    const Value& get() const
+    {
+        assert(has_value());
+        return value_.get();
+    }
+
+    Storage value_;
+};
 
 //------------------------------------------------------------------------------
 template <typename K, typename T>
@@ -26,6 +412,7 @@ class CPPWAMP_API TokenTrieNode
 {
 public:
     using Value = T;
+    using OptionalValue = TokenTrieOptionalValue<Value>;
     using Key = K;
     using Token = typename Key::value_type;
     using Tree = std::map<Token, TokenTrieNode>;
@@ -37,9 +424,8 @@ public:
     TokenTrieNode() : position_(children_.end()) {}
 
     template <typename... Us>
-    TokenTrieNode(bool isTerminal, Us&&... args)
-        : value_(std::forward<Us>(args)...),
-          isTerminal_(isTerminal)
+    TokenTrieNode(in_place_t, Us&&... args)
+        : value_(in_place, std::forward<Us>(args)...)
     {}
 
     bool isSentinel() const {return parent_ == nullptr;}
@@ -48,19 +434,18 @@ public:
 
     bool isLeaf() const {return children_.empty();}
 
-    bool isTerminal() const {return isTerminal_;}
-
     const TokenTrieNode* parent() const {return parent_;}
 
     const Token& token() const
     {
+        assert(!isSentinel());
         static Token emptyToken;
         if (isRoot())
             return emptyToken;
         return position_->first;
     }
 
-    Key generateKey() const
+    Key key() const
     {
         Key key;
         const TokenTrieNode* node = this;
@@ -73,56 +458,28 @@ public:
         return key;
     }
 
-    Value& value()
-    {
-        assert(isTerminal_);
-        return value_;
-    }
+    OptionalValue& value() {return value_;}
 
-    const Value& value() const
-    {
-        assert(isTerminal_);
-        return value_;
-    }
+    const OptionalValue& value() const {return value_;}
 
     const Tree& children() const {return children_;}
 
-    bool operator==(const TokenTrieNode& rhs) const
-    {
-        if (!isTerminal_)
-            return !rhs.isTerminal;
-        return rhs.isTerminal && (value_ == rhs.value);
-    }
+    // TODO
+//    bool operator==(const TokenTrieNode& rhs) const
+//    {
+//        return value_ == rhs.value_;
+//    }
 
-    bool operator!=(const TokenTrieNode& rhs) const
-    {
-        if (!isTerminal_)
-            return rhs.isTerminal;
-        return !rhs.isTerminal || (value_ != rhs.value);
-    }
+//    bool operator!=(const TokenTrieNode& rhs) const
+//    {
+//        return value_ != rhs.value_;
+//    }
 
 private:
-    template <typename... Us>
-    void setValue(Us&&... args)
-    {
-        value_ = Value(std::forward<Us>(args)...);
-        isTerminal_ = true;
-    }
-
-    void clearValue()
-    {
-        value_ = Value();
-        isTerminal_ = false;
-    }
-
-    // TODO: Store the value in heap memory to avoid wasting space in
-    // non-terminal nodes and to avoid it needing to be default constructible.
-
     Tree children_;
-    Value value_ = {};
+    OptionalValue value_;
     TreeIterator position_ = {};
     TokenTrieNode* parent_ = nullptr;
-    bool isTerminal_ = false;
 
     template <typename, typename> friend class TokenTrieCursor;
     template <typename, typename> friend class internal::TokenTrieImpl;
@@ -139,13 +496,43 @@ public:
     using Key = K;
     using Token = typename Key::value_type;
     using Value = typename Node::Value;
+    using OptionalValue = typename Node::OptionalValue;
     using StringType = typename Key::value_type;
     using Level = typename Key::size_type;
 
     TokenTrieCursor() = default;
 
-    explicit operator bool() const
-    {return parent_ == nullptr || parent_->parent_ != nullptr;}
+    explicit operator bool() const {return good();}
+
+    bool good() const {return !atEnd() && !atEndOfLevel();}
+
+    bool atEnd() const {return !parent_ || !parent_->parent_;}
+
+    bool atEndOfLevel() const
+        {return atEnd() || child_ != parent_->children_.end();}
+
+    bool hasValue() const
+        {return !atEndOfLevel() && childNode().value_.has_value();}
+
+    template <typename TCursor>
+    bool equals(const TCursor& rhs) const
+    {
+        if (!good())
+            return !rhs.good();
+
+        return rhs.good() && token() == rhs.token() &&
+               childNode().value() == rhs.childNode().value();
+    }
+
+    template <typename TCursor>
+    bool differs(const TCursor& rhs) const
+    {
+        if (!good())
+            return rhs.good();
+
+        return !rhs.good() || token() != rhs.token() ||
+               childNode().value() != rhs.childNode().value();
+    }
 
     const Node* parent() const {return parent_;}
 
@@ -155,24 +542,22 @@ public:
                                                       : &(child_->second);
     }
 
-    const Token& childToken() const
+    Key key() const {return childNode().key();}
+
+    const Token& token() const
         {assert(!atEndOfLevel()); return child_->first;}
 
-    const Value& childValue() const
-        {assert(!atEndOfLevel()); return child_->second.value();}
+    const Value& value() const {return *(childNode().value());}
 
-    Value& childValue()
-        {assert(!atEndOfLevel()); return child_->second.value();}
-
-    bool atEndOfLevel() const
-        {return !parent_ || child_ == parent_->children_.end();}
+    Value& value()
+        {assert(!atEndOfLevel()); return *(child_->second.value());}
 
     void advanceToNextTerminal()
     {
         while (!parent_->isSentinel())
         {
             advanceDepthFirst();
-            if (!atEndOfLevel() && child()->isTerminal())
+            if (hasValue())
                 break;
         }
     }
@@ -190,14 +575,14 @@ public:
     void findLowerBound(const Key& key)
     {
         findBound(key);
-        if (atEndOfLevel() || !child()->isTerminal())
+        if (!hasValue())
             advanceToNextTerminal();
     }
 
     void findUpperBound(const Key& key)
     {
         bool foundExact = findBound(key);
-        if (atEndOfLevel() || !child()->isTerminal() || foundExact)
+        if (!hasValue() || foundExact)
             advanceToNextTerminal();
     }
 
@@ -206,7 +591,7 @@ public:
     {
         auto lower = begin(rootNode);
         bool foundExact = lower.findBound(key);
-        bool nudged = lower.atEndOfLevel() || !lower.child()->isTerminal();
+        bool nudged = !lower.hasValue();
         if (nudged)
             lower.advanceToNextTerminal();
 
@@ -277,6 +662,12 @@ private:
         return *parent_;
     }
 
+    const Node& childNode() const
+    {
+        assert(!atEndOfLevel());
+        return child_->second;
+    }
+
     void locate(const Key& key)
     {
         assert(!key.empty());
@@ -286,7 +677,7 @@ private:
         {
             const auto& token = key[level];
             child_ = parent_->children_.find(token);
-            if (child_ == parent_->children_.end())
+            if (atEndOfLevel())
             {
                 found = false;
                 break;
@@ -295,7 +686,7 @@ private:
             if (level < key.size() - 1)
                 parent_ = &(child_->second);
         }
-        found = found && child_->second.isTerminal();
+        found = found && hasValue();
 
         if (!found)
         {
@@ -306,7 +697,7 @@ private:
 
     void advanceToFirstTerminal()
     {
-        if (!atEndOfLevel() && !child()->isTerminal())
+        if (!atEndOfLevel() && !child()->value().has_value())
             advanceToNextTerminal();
     }
 
@@ -339,9 +730,9 @@ private:
             bool placed = false;
             auto& child = child_->second;
             parent_ = child.parent_;
-            placed = !child.isTerminal();
+            placed = !hasValue();
             if (placed || clobber)
-                child.setValue(std::forward<Us>(args)...);
+                child.value_ = Value(std::forward<Us>(args)...);
             return placed;
         }
 
@@ -371,7 +762,7 @@ private:
         auto result = node->children_.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(true, std::forward<Us>(args)...));
+            std::forward_as_tuple(in_place, std::forward<Us>(args)...));
         assert(result.second);
         return result.first;
     }
@@ -400,7 +791,7 @@ private:
         auto result = node.children_.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(false));
+            std::forward_as_tuple());
         assert(result.second);
         return result.first;
     }
@@ -429,23 +820,18 @@ private:
 
     void eraseFromHere()
     {
+        child_->second.value_.reset();
+
         if (child()->isLeaf())
         {
-            child_->second.isTerminal_ = false;
             // Erase the terminal node, then all obsolete links up the chain
             // until we hit another terminal node or the sentinel.
-            while (!child()->isTerminal() && !parent()->isSentinel())
+            while (!hasValue() && !atEnd())
             {
                 parent_->children_.erase(child_);
                 child_ = parent_->position_;
                 parent_ = parent_->parent_;
             }
-        }
-        else
-        {
-            // The terminal node to be erased has children, so we must
-            // preserve it and only clear its value.
-            child_->second.clearValue();
         }
     }
 
@@ -485,7 +871,7 @@ private:
         // All nodes above the current level are matches. Only the bottom
         // level needs to be checked.
         assert(level < key.size());
-        return child_->second.isTerminal() && tokenMatches(key[level]);
+        return hasValue() && tokenMatches(key[level]);
     }
 
     bool tokenMatches(const Token& expectedToken) const

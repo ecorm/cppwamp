@@ -105,16 +105,16 @@ public:
 
     /** Generates the split token key container associated with the
     current element. */
-    key_type key() const {return cursor_.child()->generateKey();}
+    key_type key() const {return cursor_.key();}
 
     /** Obtains the token associated with the current element. */
-    token_type token() const {return cursor_.childToken();}
+    token_type token() const {return cursor_.token();}
 
     /** Accesses the value associated with the current element. */
-    reference value() {return cursor_.childValue();}
+    reference value() {return cursor_.value();}
 
     /** Accesses the value associated with the current element. */
-    const value_type& value() const {return cursor_.childValue();}
+    const value_type& value() const {return cursor_.value();}
 
     /** Obtains a copy of the cursor associated with the current element. */
     Cursor cursor() const {return cursor_;}
@@ -142,6 +142,7 @@ public:
         {auto temp = *this; ++(*this); return temp;}
 
 private:
+    using Node = typename Cursor::Node;
     using Access = internal::TokenTrieIteratorAccess;
     using Level = typename key_type::size_type;
 
@@ -152,7 +153,6 @@ private:
     {
         level_ = cursor_.matchFirst(key_);
     }
-
 
     key_type key_;
     Cursor cursor_;
@@ -243,16 +243,16 @@ public:
 
     /** Generates the split token key container associated with the
         current element. */
-    key_type key() const {return cursor_.child()->generateKey();}
+    key_type key() const {return cursor_.key();}
 
     /** Obtains the token associated with the current element. */
-    token_type token() const {return cursor_.childToken();}
+    token_type token() const {return cursor_.token();}
 
     /** Accesses the value associated with the current element. */
-    reference value() {return cursor_.childValue();}
+    reference value() {return cursor_.value();}
 
     /** Accesses the value associated with the current element. */
-    const value_type& value() const {return cursor_.childValue();}
+    const value_type& value() const {return cursor_.value();}
 
     /** Obtains a copy of the cursor associated with the current element. */
     Cursor cursor() const {return cursor_;}
@@ -279,6 +279,7 @@ public:
 
 private:
     using Access = internal::TokenTrieIteratorAccess;
+    using Node = typename Cursor::Node;
 
     TokenTrieIterator(Cursor cursor) : cursor_(cursor) {}
 
@@ -780,7 +781,7 @@ typename TokenTrie<K,T>::mapped_type& TokenTrie<K,T>::at(const key_type& key)
     auto cursor = impl_.locate(key);
     if (!cursor)
         throw std::out_of_range("wamp::TokenTrie::at key out of range");
-    return cursor.childValue();
+    return cursor.value();
 }
 
 /** @throws std::out_of_range if the container does not have an element
@@ -792,7 +793,7 @@ TokenTrie<K,T>::at(const key_type& key) const
     auto cursor = impl_.locate(key);
     if (!cursor)
         throw std::out_of_range("wamp::TokenTrie::at key out of range");
-    return cursor.childValue();
+    return cursor.value();
 }
 
 /** @returns The number of elements erased (0 or 1). */

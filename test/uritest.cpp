@@ -985,7 +985,7 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         // Check non-terminal "d" node still exists
         auto rootNode = trie.begin().cursor().parent();
         CHECK(rootNode->children().find("d") != rootNode->children().end());
-        CHECK(!rootNode->children().find("d")->second.isTerminal());
+        CHECK(!rootNode->children().find("d")->second.value().has_value());
 
         pos = trie.find("a");
         REQUIRE(pos != trie.end());
@@ -995,7 +995,7 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         // Check root node has a single non-terminal "d" child node
         REQUIRE(rootNode->children().size() == 1);
         CHECK(rootNode->children().find("d") != rootNode->children().end());
-        CHECK(!rootNode->children().find("d")->second.isTerminal());
+        CHECK(!rootNode->children().find("d")->second.value().has_value());
 
         // Re-insert last deleted key and erase it again
         auto inserted = trie.try_emplace("a", 1);
@@ -1007,7 +1007,7 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         // Check root node has a single non-terminal "d" child node
         REQUIRE(rootNode->children().size() == 1);
         CHECK(rootNode->children().find("d") != rootNode->children().end());
-        CHECK(!rootNode->children().find("d")->second.isTerminal());
+        CHECK(!rootNode->children().find("d")->second.value().has_value());
 
         pos = trie.find("d.e");
         REQUIRE(pos != trie.end());
