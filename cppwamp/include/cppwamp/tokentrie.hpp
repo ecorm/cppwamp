@@ -24,6 +24,7 @@
 #include <utility>
 #include "api.hpp"
 #include "tokentrienode.hpp"
+#include "internal/tokentrieimpl.hpp"
 
 namespace wamp
 {
@@ -449,7 +450,7 @@ public:
 
     /** Pairs an iterator with the boolean success result of an
         insertion operation. */
-    using result = std::pair<iterator, bool>;
+    using insert_result = std::pair<iterator, bool>;
 
     /** Pair of mutable iterators corresponding to a range. */
     using range_type = std::pair<iterator, iterator>;
@@ -489,13 +490,13 @@ public:
     };
 
     /** Default constructor. */
-    TokenTrie() {}
+    TokenTrie() = default;
 
     /** Copy constructor. */
-    TokenTrie(const TokenTrie& rhs);
+    TokenTrie(const TokenTrie& rhs) = default;
 
     /** Move constructor. */
-    TokenTrie(TokenTrie&& rhs) noexcept;
+    TokenTrie(TokenTrie&& rhs) noexcept = default;
 
     /** Constructs using the given iterator range. */
     template <typename I>
@@ -504,14 +505,13 @@ public:
     /** Constructs using contents of the given initializer list, where
         each element is a key-value pair. */
     TokenTrie(std::initializer_list<value_type> list)
-        : TokenTrie(list.begin(), list.end())
-    {}
+        {insert(list.begin(), list.end());}
 
     /** Copy assignment. */
-    TokenTrie& operator=(const TokenTrie& rhs);
+    TokenTrie& operator=(const TokenTrie& rhs) = default;
 
     /** Move assignment. */
-    TokenTrie& operator=(TokenTrie&& rhs) noexcept;
+    TokenTrie& operator=(TokenTrie&& rhs) noexcept = default;
 
     /** Replaces contents with that of the given initializer list,  where
         each element is a key-value pair. */
@@ -540,22 +540,22 @@ public:
     /// @{
 
     /** Obtains an iterator to the beginning. */
-    iterator begin() noexcept {return firstTerminalCursor();}
+    iterator begin() noexcept {return impl_.firstTerminalCursor();}
 
     /** Obtains an iterator to the beginning. */
     const_iterator begin() const noexcept {return cbegin();}
 
     /** Obtains an iterator to the beginning. */
-    const_iterator cbegin() const noexcept {return firstTerminalCursor();}
+    const_iterator cbegin() const noexcept {return impl_.firstTerminalCursor();}
 
     /** Obtains an iterator to the end. */
-    iterator end() noexcept {return sentinelCursor();}
+    iterator end() noexcept {return impl_.sentinelCursor();}
 
     /** Obtains an iterator to the end. */
     const_iterator end() const noexcept {return cend();}
 
     /** Obtains an iterator to the end. */
-    const_iterator cend() const noexcept {return sentinelCursor();}
+    const_iterator cend() const noexcept {return impl_.sentinelCursor();}
     /// @}
 
 
@@ -563,13 +563,14 @@ public:
     /// @{
 
     /** Checks whether the container is empty. */
-    bool empty() const noexcept {return size_ == 0;}
+    bool empty() const noexcept {return impl_.empty();}
 
     /** Obtains the number of elements. */
-    size_type size() const noexcept {return size_;}
+    size_type size() const noexcept {return impl_.size();}
 
     /** Obtains the maximum possible number of elements. */
-    size_type max_size() const noexcept;
+    size_type max_size() const noexcept
+        {return std::numeric_limits<difference_type>::max();}
     /// @}
 
 
@@ -577,13 +578,14 @@ public:
     /// @{
 
     /** Removes all elements. */
-    void clear() noexcept;
+    void clear() noexcept {impl_.clear();}
 
     /** Inserts an element. */
-    result insert(const value_type& kv) {return add(kv.first, kv.second);}
+    insert_result insert(const value_type& kv)
+        {return add(kv.first, kv.second);}
 
     /** Inserts an element. */
-    result insert(value_type&& kv)
+    insert_result insert(value_type&& kv)
         {return add(std::move(kv.first), std::move(kv.second));}
 
     /** Inserts an element.
@@ -591,7 +593,7 @@ public:
         `std::is_constructible_v<value_type, P&&> == true` */
     template <typename P,
               typename std::enable_if<isInsertable<P>(), int>::type = 0>
-    result insert(P&& kv)
+    insert_result insert(P&& kv)
     {
         value_type pair(std::forward<P>(kv));
         return add(std::move(pair.first), std::move(pair.second));
@@ -609,58 +611,58 @@ public:
     /** Inserts an element or assigns to the current element if the key
         already exists. */
     template <typename M>
-    result insert_or_assign(const key_type& key, M&& arg)
-        {return put(true, key, std::forward<M>(arg));}
+    insert_result insert_or_assign(const key_type& key, M&& arg)
+        {return put(key, std::forward<M>(arg));}
 
     /** Inserts an element or assigns to the current element if the key
         already exists. */
     template <typename M>
-    result insert_or_assign(key_type&& key, M&& arg)
-        {return put(true, std::move(key), std::forward<M>(arg));}
+    insert_result insert_or_assign(key_type&& key, M&& arg)
+        {return put(std::move(key), std::forward<M>(arg));}
 
     /** Inserts an element from a key-value pair constructed in-place using
         the given arguments. */
     template <typename... Us>
-    result emplace(Us&&... args)
+    insert_result emplace(Us&&... args)
         {return insert(value_type(std::forward<Us>(args)...));}
 
     /** Inserts in-place only if the key does not exist. */
     template <typename... Us>
-    result try_emplace(const key_type& key, Us&&... args)
+    insert_result try_emplace(const key_type& key, Us&&... args)
         {return add(key, std::forward<Us>(args)...);}
 
     /** Inserts in-place only if the key does not exist. */
     template <typename... Us>
-    result try_emplace(key_type&& key, Us&&... args)
+    insert_result try_emplace(key_type&& key, Us&&... args)
         {return add(std::move(key), std::forward<Us>(args)...);}
 
     /** Erases the element at the given iterator position. */
-    iterator erase(iterator pos) {return eraseAt(pos);}
+    iterator erase(iterator pos) {return impl_.erase(pos.cursor());}
 
     /** Erases the element at the given iterator position. */
-    iterator erase(const_iterator pos) {return eraseAt(pos);}
+    iterator erase(const_iterator pos) {return impl_.eraseAt(pos.cursor());}
 
     /** Erases the element associated with the given key. */
     size_type erase(const key_type& key);
 
     /** Swaps the contents of this container with the given container. */
-    void swap(TokenTrie& other) noexcept;
+    void swap(TokenTrie& other) noexcept {impl_.swap(other.impl_);}
     /// @}
 
     /// @name Lookup
     /// @{
 
     /** Returns the number of elements associated with the given key. */
-    size_type count(const key_type& key) const {return locate(key) ? 1 : 0;}
+    size_type count(const key_type& key) const {return impl_.locate(key) ? 1 : 0;}
 
     /** Finds the element associated with the given key. */
-    iterator find(const key_type& key) {return locate(key);}
+    iterator find(const key_type& key) {return impl_.locate(key);}
 
     /** Finds the element associated with the given key. */
-    const_iterator find(const key_type& key) const {return locate(key);}
+    const_iterator find(const key_type& key) const {return impl_.locate(key);}
 
     /** Checks if the container contains the element with the given key. */
-    bool contains(const key_type& key) const {return bool(locate(key));}
+    bool contains(const key_type& key) const {return bool(impl_.locate(key));}
 
     /** Obtains the range of elements lexicographically matching
         the given key.*/
@@ -674,21 +676,21 @@ public:
 
     /** Obtains an iterator to the first element not less than the
         given key. */
-    iterator lower_bound(const key_type& key) {return findLowerBound(key);}
+    iterator lower_bound(const key_type& key) {return impl_.lowerBound(key);}
 
     /** Obtains an iterator to the first element not less than the
         given key. */
     const_iterator lower_bound(const key_type& key) const
-        {return findLowerBound(key);}
+        {return impl_.lowerBound(key);}
 
     /** Obtains an iterator to the first element greater than than the
         given key. */
-    iterator upper_bound(const key_type& key) {return findUpperBound(key);}
+    iterator upper_bound(const key_type& key) {return impl_.upperBound(key);}
 
     /** Obtains an iterator to the first element greater than than the
         given key. */
     const_iterator upper_bound(const key_type& key) const
-        {return findUpperBound(key);}
+        {return impl_.upperBound(key);}
 
     /** Obtains the range of elements with wildcard patterns matching
         the given key. */
@@ -710,11 +712,11 @@ public:
 
     /** Equality comparison. */
     friend bool operator==(const TokenTrie& a, const TokenTrie& b) noexcept
-        {return equals(a, b);}
+        {return a.impl_.equals(b.impl_);}
 
     /** Inequality comparison. */
     friend bool operator!=(const TokenTrie& a, const TokenTrie& b) noexcept
-        {return differs(a, b);}
+        {return a.impl_.differs(b.impl_);}
 
     /** Non-member swap. */
     friend void swap(TokenTrie& a, TokenTrie& b) noexcept {a.swap(b);}
@@ -725,19 +727,19 @@ public:
         {return t.doEraseIf(std::move(predicate));}
 
 private:
-    static bool equals(const TokenTrie& a, const TokenTrie& b) noexcept;
-    static bool differs(const TokenTrie& a, const TokenTrie& b) noexcept;
-    void moveFrom(TokenTrie& rhs) noexcept;
-    Cursor rootCursor();
-    Cursor rootCursor() const;
-    Cursor firstTerminalCursor();
-    Cursor firstTerminalCursor() const;
-    Cursor sentinelCursor();
-    Cursor sentinelCursor() const;
-    Cursor locate(const key_type& key);
-    Cursor locate(const key_type& key) const;
-    Cursor findLowerBound(const key_type& key) const;
-    Cursor findUpperBound(const key_type& key) const;
+    template <typename... Us>
+    insert_result add(key_type key, Us&&... args)
+    {
+        auto r = impl_.put(false, std::move(key), std::forward<Us>(args)...);
+        return {iterator{r.first}, r.second};
+    }
+
+    template <typename... Us>
+    insert_result put(key_type key, Us&&... args)
+    {
+        auto r = impl_.put(true, std::move(key), std::forward<Us>(args)...);
+        return {iterator{r.first}, r.second};
+    }
 
     template <typename I>
     std::pair<I, I> getEqualRange(const key_type& key) const;
@@ -751,69 +753,15 @@ private:
     template <typename I>
     void insertRange(std::false_type, I first, I last);
 
-    template <typename... Us>
-    std::pair<iterator, bool> add(key_type key, Us&&... args);
-
-    template <typename... Us>
-    std::pair<iterator, bool> put(bool clobber, key_type key, Us&&... args);
-
-    template <typename I>
-    I eraseAt(I pos);
-
-    void scanTree();
-
     template <typename P>
     size_type doEraseIf(P predicate);
 
-    Node sentinel_;
-    std::unique_ptr<Node> root_;
-    size_type size_ = 0;
+    internal::TokenTrieImpl<K, T> impl_;
 };
 
 //******************************************************************************
 // TokenTrie member function definitions
 //******************************************************************************
-
-template <typename K, typename T>
-TokenTrie<K,T>::TokenTrie(const TokenTrie& rhs)
-    : size_(rhs.size_)
-{
-    if (rhs.root_)
-    {
-        root_.reset(new Node(*rhs.root_));
-        root_->parent_ = &sentinel_;
-        scanTree();
-    }
-}
-
-/** The moved-from container is left in a default-constructed state,
-    except during self-assignment where it is left in its current state. */
-template <typename K, typename T>
-TokenTrie<K,T>::TokenTrie(TokenTrie&& rhs) noexcept {moveFrom(rhs);}
-
-template <typename K, typename T>
-TokenTrie<K,T>& TokenTrie<K,T>::operator=(const TokenTrie& rhs)
-{
-    // Do nothing for self-assignment to enfore the invariant that
-    // the RHS iterators remain valid.
-    if (&rhs != this)
-    {
-        TokenTrie temp(rhs);
-        (*this) = std::move(temp);
-    }
-    return *this;
-}
-
-/** The moved-from container is left in a default-constructed state,
-    except during self-assignment where it is left in its current state. */
-template <typename K, typename T>
-TokenTrie<K,T>& TokenTrie<K,T>::operator=(TokenTrie&& rhs) noexcept
-{
-    // Do nothing for self-move-assignment to avoid invalidating iterators.
-    if (&rhs != this)
-        moveFrom(rhs);
-    return *this;
-}
 
 template <typename K, typename T>
 TokenTrie<K,T>&
@@ -829,7 +777,7 @@ TokenTrie<K,T>::operator=(std::initializer_list<value_type> list)
 template <typename K, typename T>
 typename TokenTrie<K,T>::mapped_type& TokenTrie<K,T>::at(const key_type& key)
 {
-    auto cursor = locate(key);
+    auto cursor = impl_.locate(key);
     if (!cursor)
         throw std::out_of_range("wamp::TokenTrie::at key out of range");
     return cursor.childValue();
@@ -841,196 +789,29 @@ template <typename K, typename T>
 const typename TokenTrie<K,T>::mapped_type&
 TokenTrie<K,T>::at(const key_type& key) const
 {
-    auto cursor = locate(key);
+    auto cursor = impl_.locate(key);
     if (!cursor)
         throw std::out_of_range("wamp::TokenTrie::at key out of range");
     return cursor.childValue();
-}
-
-template <typename K, typename T>
-typename TokenTrie<K,T>::size_type TokenTrie<K,T>::max_size() const noexcept
-{
-    // Can't return the max_size() of the underlying std::map because
-    // there can be more than one in the node tree.
-    return std::numeric_limits<difference_type>::max();
-}
-
-template <typename K, typename T>
-void TokenTrie<K,T>::clear() noexcept
-{
-    if (root_)
-        root_->children_.clear();
-    size_ = 0;
 }
 
 /** @returns The number of elements erased (0 or 1). */
 template <typename K, typename T>
 typename TokenTrie<K,T>::size_type TokenTrie<K,T>::erase(const key_type& key)
 {
-    auto cursor = locate(key);
+    auto cursor = impl_.locate(key);
     bool found = cursor;
     if (found)
-    {
-        cursor.eraseFromHere();
-        --size_;
-    }
+        impl_.erase(cursor);
     return found ? 1 : 0;
-}
-
-template <typename K, typename T>
-void TokenTrie<K,T>::swap(TokenTrie& other) noexcept
-{
-    root_.swap(other.root_);
-    std::swap(size_, other.size_);
-    if (root_)
-        root_->parent_ = &sentinel_;
-    if (other.root_)
-        other.root_->parent_ = &other.sentinel_;
-}
-
-template <typename K, typename T>
-bool TokenTrie<K,T>::equals(const TokenTrie& a, const TokenTrie& b) noexcept
-{
-    if (a.empty() || b.empty())
-        return a.empty() == b.empty();
-
-    auto curA = a.rootCursor();
-    auto curB = b.rootCursor();
-    while (curA)
-    {
-        if (!curB)
-            return false;
-        if (curA.childToken() != curB.childToken())
-            return false;
-        if (curA.child_->second.value_ != curB.child_->second.value_)
-            return false;
-        curA.advanceToNextNode();
-        curB.advanceToNextNode();
-    }
-    return !curB;
-}
-
-template <typename K, typename T>
-bool TokenTrie<K,T>::differs(const TokenTrie& a, const TokenTrie& b) noexcept
-{
-    if (a.empty() || b.empty())
-        return a.empty() != b.empty();
-
-    auto curA = a.rootCursor();
-    auto curB = b.rootCursor();
-    while (curA)
-    {
-        if (!curB)
-            return true;
-        if (curA.childToken() != curB.childToken())
-            return true;
-        if (curA.child_->second.value_ != curB.child_->second.value_)
-            return true;
-        curA.advanceToNextNode();
-        curB.advanceToNextNode();
-    }
-    return bool(curB);
-}
-
-template <typename K, typename T>
-void TokenTrie<K,T>::moveFrom(TokenTrie& rhs) noexcept
-{
-    root_.swap(rhs.root_);
-    size_ = rhs.size_;
-    rhs.size_ = 0;
-    if (root_)
-        root_->parent_ = &sentinel_;
-}
-
-template <typename K, typename T>
-typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::rootCursor()
-{
-    assert(root_ != nullptr);
-    return Cursor::begin(*root_);
-}
-
-template <typename K, typename T>
-typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::rootCursor() const
-{
-    assert(root_ != nullptr);
-    return Cursor::begin(const_cast<Node&>(*root_));
-}
-
-template <typename K, typename T>
-typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::firstTerminalCursor()
-{
-    if (empty())
-        return sentinelCursor();
-    auto cursor = rootCursor();
-    cursor.advanceToFirstTerminal();
-    return cursor;
-}
-
-template <typename K, typename T>
-typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::firstTerminalCursor() const
-{
-    return const_cast<TokenTrie&>(*this).firstTerminalCursor();
-}
-
-template <typename K, typename T>
-typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::sentinelCursor()
-{
-    return Cursor::end(sentinel_);
-}
-
-template <typename K, typename T>
-typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::sentinelCursor() const
-{
-    return Cursor::end(const_cast<Node&>(sentinel_));
-}
-
-template <typename K, typename T>
-typename TokenTrie<K,T>::Cursor TokenTrie<K,T>::locate(const key_type& key)
-{
-    if (empty() || key.empty())
-        return sentinelCursor();
-    auto cursor = rootCursor();
-    cursor.locate(key);
-    return cursor;
-}
-
-template <typename K, typename T>
-typename TokenTrie<K,T>::Cursor
-TokenTrie<K,T>::locate(const key_type& key) const
-{
-    return const_cast<TokenTrie&>(*this).locate(key);
-}
-
-template <typename K, typename T>
-typename TokenTrie<K,T>::Cursor
-TokenTrie<K,T>::findLowerBound(const key_type& key) const
-{
-    if (empty() || key.empty())
-        return sentinelCursor();
-    auto cursor = rootCursor();
-    cursor.findLowerBound(key);
-    return cursor;
-}
-
-template <typename K, typename T>
-typename TokenTrie<K,T>::Cursor
-TokenTrie<K,T>::findUpperBound(const key_type& key) const
-{
-    if (empty() || key.empty())
-        return sentinelCursor();
-    auto cursor = rootCursor();
-    cursor.findUpperBound(key);
-    return cursor;
 }
 
 template <typename K, typename T>
 template <typename I>
 std::pair<I, I> TokenTrie<K,T>::getEqualRange(const key_type& key) const
 {
-    if (empty() || key.empty())
-        return {I{sentinelCursor()}, I{sentinelCursor()}};
-    auto range = Cursor::findEqualRange(*root_, key);
-    return {I{range.first}, I{range.second}};
+    auto er = impl_.equalRange(key);
+    return {I{er.first}, I{er.second}};
 }
 
 template <typename K, typename T>
@@ -1038,9 +819,9 @@ template <typename I>
 std::pair<I, I> TokenTrie<K,T>::getMatchRange(const key_type& key) const
 {
     if (empty() || key.empty())
-        return {I{sentinelCursor()}, I{sentinelCursor()}};
+        return {I{impl_.sentinelCursor()}, I{impl_.sentinelCursor()}};
 
-    return {I{rootCursor(), key}, I{sentinelCursor()}};
+    return {I{impl_.rootCursor(), key}, I{impl_.sentinelCursor()}};
 }
 
 template <typename K, typename T>
@@ -1057,84 +838,6 @@ void TokenTrie<K,T>::insertRange(std::false_type, I first, I last)
 {
     for (; first != last; ++first)
         add(first->first, first->second);
-}
-
-template <typename K, typename T>
-template <typename... Us>
-typename TokenTrie<K,T>::result TokenTrie<K,T>::add(key_type key,
-                                                      Us&&... args)
-{
-    return put(false, std::move(key), std::forward<Us>(args)...);
-}
-
-template <typename K, typename T>
-template <typename... Us>
-typename TokenTrie<K,T>::result
-TokenTrie<K,T>::put(bool clobber, key_type key, Us&&... args)
-{
-    if (key.empty())
-        return {end(), false};
-
-    if (!root_)
-    {
-        root_.reset(new Node);
-        root_->parent_ = &sentinel_;
-    }
-
-    auto cursor = rootCursor();
-    bool placed = bool(cursor.put(clobber, std::move(key),
-                                  std::forward<Us>(args)...));
-    if (placed)
-        ++size_;
-    return {iterator{cursor}, placed};
-}
-
-template <typename K, typename T>
-template <typename I>
-I TokenTrie<K,T>::eraseAt(I pos)
-{
-    auto cursor = pos.cursor_;
-    assert(bool(cursor));
-    ++pos;
-    cursor.eraseFromHere();
-    --size_;
-    return pos;
-}
-
-// TODO: Move this to TokenTrieNode and rename to refresh
-template <typename K, typename T>
-void TokenTrie<K,T>::scanTree()
-{
-    root_->position_ = root_->children_.end();
-    Node* parent = root_.get();
-    auto iter = root_->children_.begin();
-    while (!parent->isRoot())
-    {
-        if (iter != parent->children_.end())
-        {
-            auto& node = iter->second;
-            node.position_ = iter;
-            node.parent_ = parent;
-
-            if (!node.isLeaf())
-            {
-                auto& child = iter->second;
-                parent = &child;
-                iter = child.children_.begin();
-            }
-            else
-            {
-                ++iter;
-            }
-        }
-        else
-        {
-            iter = parent->position_;
-            parent = parent->parent_;
-            if (!parent->isRoot())
-                ++iter;
-        }
-    }
 }
 
 template <typename K, typename T>

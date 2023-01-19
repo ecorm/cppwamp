@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_TOKENTRIENODE_HPP
-#define CPPWAMP_INTERNAL_TOKENTRIENODE_HPP
+#ifndef CPPWAMP_TOKENTRIENODE_HPP
+#define CPPWAMP_TOKENTRIENODE_HPP
 
 #include <algorithm>
 #include <cassert>
@@ -17,6 +17,8 @@
 
 namespace wamp
 {
+
+namespace internal { template <typename, typename> class TokenTrieImpl; }
 
 //------------------------------------------------------------------------------
 template <typename K, typename T>
@@ -185,7 +187,7 @@ private:
     bool isTerminal_ = false;
 
     template <typename, typename> friend class TokenTrieCursor;
-    template <typename, typename> friend class TokenTrie;
+    template <typename, typename> friend class internal::TokenTrieImpl;
 };
 
 //------------------------------------------------------------------------------
@@ -622,9 +624,9 @@ private:
     Node* parent_ = nullptr;
     TreeIterator child_ = {};
 
-    template <typename, typename> friend class TokenTrie;
+    template <typename, typename> friend class internal::TokenTrieImpl;
 };
 
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_TOKENTRIENODE_HPP
+#endif // CPPWAMP_TOKENTRIENODE_HPP
