@@ -44,6 +44,7 @@ set(HEADERS
     include/cppwamp/tcphost.hpp
     include/cppwamp/tcpprotocol.hpp
     include/cppwamp/tokentrie.hpp
+    include/cppwamp/tokentrienode.hpp
     include/cppwamp/traits.hpp
     include/cppwamp/transport.hpp
     include/cppwamp/trie.hpp
@@ -92,7 +93,6 @@ set(HEADERS
     include/cppwamp/internal/surrogateany.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
-    include/cppwamp/internal/tokentrienode.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
     include/cppwamp/internal/variantdecoding.hpp
