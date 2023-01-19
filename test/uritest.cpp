@@ -966,8 +966,6 @@ TEST_CASE( "UriTrie Insertion From Match Range", "[Uri]" )
 TEST_CASE( "UriTrie Erase", "[Uri]" )
 {
     Trie trie({ {"a", 1}, {"a.b.c", 2}, {"d", 3}, {"d.e", 4} });
-    auto rootNode = trie.begin().cursor().node;
-    REQUIRE(rootNode->isRoot());
 
     SECTION( "erasing via iterator" )
     {
@@ -977,8 +975,7 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         CHECK(iter == trie.find("d"));
         CHECK(checkUriTrieUris(trie, {"a", "d", "d.e"}));
         // Check pruning below "a" node
-        auto cursor = trie.find("a").cursor();
-        CHECK(cursor.iter->second.children.empty());
+        CHECK(trie.find("a").cursor().child()->children().empty());
 
         pos = trie.find("d");
         REQUIRE(pos != trie.end());
@@ -986,18 +983,19 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         CHECK(iter == trie.find("d.e"));
         CHECK(checkUriTrieUris(trie, {"a", "d.e"}));
         // Check non-terminal "d" node still exists
-        cursor = trie.find("d.e").cursor();
-        CHECK(cursor.node->position->first == "d");
-        CHECK(!cursor.node->isTerminal);
+        auto rootNode = trie.begin().cursor().parent();
+        CHECK(rootNode->children().find("d") != rootNode->children().end());
+        CHECK(!rootNode->children().find("d")->second.isTerminal());
 
         pos = trie.find("a");
         REQUIRE(pos != trie.end());
         iter = trie.erase(pos);
         CHECK(iter == trie.find("d.e"));
         CHECK(checkUriTrieUris(trie, {"d.e"}));
-        // Check root node has a single "d" child node
-        REQUIRE(rootNode->children.size() == 1);
-        CHECK(rootNode->children.begin()->first == "d");
+        // Check root node has a single non-terminal "d" child node
+        REQUIRE(rootNode->children().size() == 1);
+        CHECK(rootNode->children().find("d") != rootNode->children().end());
+        CHECK(!rootNode->children().find("d")->second.isTerminal());
 
         // Re-insert last deleted key and erase it again
         auto inserted = trie.try_emplace("a", 1);
@@ -1006,9 +1004,10 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         iter = trie.erase(inserted.first);
         CHECK(iter == trie.find("d.e"));
         CHECK(checkUriTrieUris(trie, {"d.e"}));
-        // Check root node has a single "d" child node
-        REQUIRE(rootNode->children.size() == 1);
-        CHECK(rootNode->children.begin()->first == "d");
+        // Check root node has a single non-terminal "d" child node
+        REQUIRE(rootNode->children().size() == 1);
+        CHECK(rootNode->children().find("d") != rootNode->children().end());
+        CHECK(!rootNode->children().find("d")->second.isTerminal());
 
         pos = trie.find("d.e");
         REQUIRE(pos != trie.end());
@@ -1016,7 +1015,7 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         CHECK(iter == trie.end());
         CHECK(trie.empty());
         // Check root node has no child nodes
-        CHECK(rootNode->children.empty());
+        CHECK(rootNode->children().empty());
     }
 
     SECTION( "erasing via key" )
