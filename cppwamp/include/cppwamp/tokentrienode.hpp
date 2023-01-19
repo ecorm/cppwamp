@@ -76,6 +76,7 @@ public:
 
     template <typename... Us>
     TokenTrieValueLocalStorage(in_place_t, Us&&... args)
+        : hasValue_(true)
     {
         construct(std::forward<Us>(args)...);
     }
@@ -85,6 +86,7 @@ public:
         const TokenTrieValueLocalStorage& rhs,
         typename std::enable_if<Traits::template isCopyConstructible<U>(),
                                 int>::type = 0)
+        : hasValue_(rhs.has_value())
     {
         if (rhs.has_value())
             construct(rhs.get());
@@ -92,12 +94,14 @@ public:
 
     template <typename U = T>
     TokenTrieValueLocalStorage(
-        const TokenTrieValueLocalStorage&& rhs,
+        TokenTrieValueLocalStorage&& rhs,
         typename std::enable_if<Traits::template isMoveConstructible<U>(),
                                 int>::type = 0)
+        : hasValue_(rhs.has_value())
     {
         if (rhs.has_value())
             construct(std::move(rhs.get()));
+        rhs.reset();
     }
 
     ~TokenTrieValueLocalStorage() {reset();}
@@ -108,11 +112,18 @@ public:
     operator=(const U& rhs)
     {
         if (!rhs.has_value())
+        {
             reset();
+        }
         else if (has_value())
+        {
             get() = rhs.get();
+        }
         else
-            new (&storage_.asValue) Value(*rhs);
+        {
+            construct(rhs.get());
+            hasValue_ = true;
+        }
     }
 
     template <typename U>
@@ -121,11 +132,18 @@ public:
     operator=(U&& rhs)
     {
         if (!rhs.has_value())
-            reset();
-        else if (has_value())
+            return reset();
+
+        if (has_value())
+        {
             get() = std::move(rhs.get());
+        }
         else
-            new (&storage_.asValue) Value(std::move(*rhs));
+        {
+            construct(std::move(rhs.get()));
+            hasValue_ = true;
+        }
+        rhs.reset();
     }
 
     bool has_value() const noexcept {return hasValue_;}
@@ -139,15 +157,21 @@ public:
     {
         reset();
         new (&storage_.asValue) Value(std::forward<Us>(args)...);
+        hasValue_ = true;
     }
 
     template <typename U>
     void assign(U&& value)
     {
         if (has_value())
+        {
             get() = std::forward<U>(value);
+        }
         else
-            new (&storage_.asValue) Value(std::forward<U>(value));
+        {
+            construct(std::forward<U>(value));
+            hasValue_ = true;
+        }
     }
 
     void reset()
@@ -219,7 +243,7 @@ public:
 
     template <typename U = T>
     TokenTrieValueHeapStorage(
-        const TokenTrieValueHeapStorage&& rhs,
+        TokenTrieValueHeapStorage&& rhs,
         typename std::enable_if<Traits::template isMoveConstructible<U>(),
                                 int>::type = 0)
     {
@@ -464,17 +488,6 @@ public:
 
     const Tree& children() const {return children_;}
 
-    // TODO
-//    bool operator==(const TokenTrieNode& rhs) const
-//    {
-//        return value_ == rhs.value_;
-//    }
-
-//    bool operator!=(const TokenTrieNode& rhs) const
-//    {
-//        return value_ != rhs.value_;
-//    }
-
 private:
     Tree children_;
     OptionalValue value_;
@@ -509,7 +522,7 @@ public:
     bool atEnd() const {return !parent_ || !parent_->parent_;}
 
     bool atEndOfLevel() const
-        {return atEnd() || child_ != parent_->children_.end();}
+        {return atEnd() || child_ == parent_->children_.end();}
 
     bool hasValue() const
         {return !atEndOfLevel() && childNode().value_.has_value();}

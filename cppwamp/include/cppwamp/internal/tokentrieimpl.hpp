@@ -220,7 +220,7 @@ public:
             curA.advanceToNextNode();
             curB.advanceToNextNode();
         }
-        return !curB;
+        return curB.atEnd();
     }
 
     template <typename TOther>
@@ -235,12 +235,12 @@ public:
         {
             if (curB.atEnd())
                 return true;
-            if (curA == curB)
-                return false;
+            if (curA != curB)
+                return true;
             curA.advanceToNextNode();
             curB.advanceToNextNode();
         }
-        return bool(curB);
+        return !curB.atEnd();
     }
 
 private:
