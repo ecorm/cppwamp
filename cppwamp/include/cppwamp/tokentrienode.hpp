@@ -103,68 +103,6 @@ public:
 
 private:
     template <typename... Us>
-    TreeIterator addTerminal(Token label, Us&&... args)
-    {
-        auto result = children_.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(true, std::forward<Us>(args)...));
-        assert(result.second);
-        return result.first;
-    }
-
-    template <typename... Us>
-    void buildChain(Key&& key, Level level, Us&&... args)
-    {
-        const auto tokenCount = key.size();
-        TokenTrieNode* node = this;
-        ++level;
-
-        // Add intermediary link nodes
-        for (; level < tokenCount - 1; ++level)
-        {
-            auto iter = node->buildLink(std::move(key[level]));
-            node = &(iter->second);
-        }
-
-        // Add terminal node
-        assert(level < key.size());
-        node->addTerminal(std::move(key[level]), std::forward<Us>(args)...);
-    }
-
-    template <typename... Us>
-    TreeIterator buildLink(Token label)
-    {
-        auto result = children_.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(false));
-        assert(result.second);
-        return result.first;
-    }
-
-    TreeIterator addChain(Token&& label, TokenTrieNode&& chain)
-    {
-        auto result = children_.emplace(std::move(label), std::move(chain));
-        assert(result.second);
-
-        // Traverse down the emplaced chain and set the parent/position
-        // fields to their proper values. Better to do this after emplacing
-        // the chain to avoid invalid pointers/iterators.
-        auto iter = result.first;
-        auto node = this;
-        while (!node->isLeaf())
-        {
-            TokenTrieNode& child = iter->second;
-            child.position_ = iter;
-            child.parent_ = node;
-            node = &child;
-            iter = child.children_.begin();
-        }
-        return node->position_;
-    }
-
-    template <typename... Us>
     void setValue(Us&&... args)
     {
         value_ = Value(std::forward<Us>(args)...);
@@ -177,8 +115,8 @@ private:
         isTerminal_ = false;
     }
 
-    // TODO: Use std::optional (or a pre-C++17 surrogate) for the value
-    // to avoid it needing to be default constructible.
+    // TODO: Store the value in heap memory to avoid wasting space in
+    // non-terminal nodes and to avoid it needing to be default constructible.
 
     Tree children_;
     Value value_ = {};
@@ -218,16 +156,16 @@ public:
     }
 
     const Token& childToken() const
-    {assert(!atEndOfLevel()); return child_->first;}
+        {assert(!atEndOfLevel()); return child_->first;}
 
     const Value& childValue() const
-    {assert(!atEndOfLevel()); return child_->second.value();}
+        {assert(!atEndOfLevel()); return child_->second.value();}
 
     Value& childValue()
-    {assert(!atEndOfLevel()); return child_->second.value();}
+        {assert(!atEndOfLevel()); return child_->second.value();}
 
     bool atEndOfLevel() const
-    {return !parent_ || child_ == parent_->children_.end();}
+        {return !parent_ || child_ == parent_->children_.end();}
 
     void advanceToNextTerminal()
     {
@@ -411,7 +349,8 @@ private:
         assert(level < tokenCount);
         if (tokenCount - level == 1)
         {
-            child_ = parent_->addTerminal(key[level], std::forward<Us>(args)...);
+            child_ = addTerminal(parent_, key[level],
+                                 std::forward<Us>(args)...);
             child_->second.position_ = child_;
             child_->second.parent_ = parent_;
             return true;
@@ -420,10 +359,72 @@ private:
         // Build and attach the sub-chain containing the new node.
         Node chain;
         auto token = std::move(key[level]);
-        chain.buildChain(std::move(key), level, std::forward<Us>(args)...);
-        child_ = parent_->addChain(std::move(token), std::move(chain));
+        buildChain(&chain, std::move(key), level, std::forward<Us>(args)...);
+        child_ = addChain(std::move(token), std::move(chain));
         parent_ = child_->second.parent_;
         return true;
+    }
+
+    template <typename... Us>
+    TreeIterator addTerminal(Node* node, Token label, Us&&... args)
+    {
+        auto result = node->children_.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(std::move(label)),
+            std::forward_as_tuple(true, std::forward<Us>(args)...));
+        assert(result.second);
+        return result.first;
+    }
+
+    template <typename... Us>
+    void buildChain(Node* node, Key&& key, Level level, Us&&... args)
+    {
+        const auto tokenCount = key.size();
+        ++level;
+
+        // Add intermediary link nodes
+        for (; level < tokenCount - 1; ++level)
+        {
+            auto iter = buildLink(*node, std::move(key[level]));
+            node = &(iter->second);
+        }
+
+        // Add terminal node
+        assert(level < key.size());
+        addTerminal(node, std::move(key[level]), std::forward<Us>(args)...);
+    }
+
+    template <typename... Us>
+    TreeIterator buildLink(Node& node, Token label)
+    {
+        auto result = node.children_.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(std::move(label)),
+            std::forward_as_tuple(false));
+        assert(result.second);
+        return result.first;
+    }
+
+    TreeIterator addChain(Token&& label, Node&& chain)
+    {
+        auto result = parent_->children_.emplace(std::move(label),
+                                                 std::move(chain));
+        assert(result.second);
+
+        // Traverse down the emplaced chain and set the parent/position
+        // fields to their proper values. Better to do this after emplacing
+        // the chain to avoid invalid pointers/iterators.
+        auto iter = result.first;
+        auto node = parent_;
+        while (!node->isLeaf())
+        {
+            Node& child = iter->second;
+            child.position_ = iter;
+            child.parent_ = node;
+            node = &child;
+            iter = child.children_.begin();
+        }
+        return node->position_;
     }
 
     void eraseFromHere()
