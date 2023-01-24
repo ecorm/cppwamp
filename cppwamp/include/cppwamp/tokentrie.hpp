@@ -20,6 +20,7 @@
 #include <limits>
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include "api.hpp"
@@ -61,7 +62,7 @@ struct IsSpecialTokenTrieIterator : std::false_type
 /** TokenTrie iterator that advances through wildcard matches in
     lexicographic order. */
 //------------------------------------------------------------------------------
-template <typename K, typename T, bool IsMutable>
+template <typename N, bool IsMutable>
 class CPPWAMP_API TokenTrieMatchIterator
 {
 public:
@@ -72,35 +73,37 @@ public:
     using difference_type = std::ptrdiff_t;
 
     /// Type of the split token key container associated with this iterator.
-    using key_type = K;
+    using key_type = typename N::Key;
 
     /// Type of token associated with this iterator.
     using token_type = typename key_type::value_type;
 
     /** Type of the mapped value associated with this iterator.
         @note It differs from std::map in that it's not a key-value pair. */
-    using value_type = T;
+    using value_type = typename N::Value;
 
     /// Pointer to the mapped value type being iterated over.
-    using pointer = typename std::conditional<IsMutable, T*, const T*>::type;
+    using pointer = typename std::conditional<IsMutable, value_type*,
+                                              const value_type*>::type;
 
     /// Reference to the mapped value type being iterated over.
-    using reference = typename std::conditional<IsMutable, T&, const T&>::type;
+    using reference = typename std::conditional<IsMutable, value_type&,
+                                                const value_type&>::type;
 
-    using Cursor = TokenTrieCursor<K, T>;
+    using Cursor = TokenTrieCursor<N>;
 
     /** Default constructor. */
     TokenTrieMatchIterator() {}
 
     /** Implicit conversion from mutable iterator to const iterator. */
     template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
-    TokenTrieMatchIterator(const TokenTrieMatchIterator<K, T, RM>& rhs)
+    TokenTrieMatchIterator(const TokenTrieMatchIterator<N, RM>& rhs)
         : cursor_(rhs.cursor()) {}
 
     /** Assignment from mutable iterator to const iterator. */
     template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
     TokenTrieMatchIterator&
-    operator=(const TokenTrieMatchIterator<K, T, RM>& rhs)
+    operator=(const TokenTrieMatchIterator<N, RM>& rhs)
         {cursor_ = rhs.cursor(); return *this;}
 
     /** Generates the split token key container associated with the
@@ -158,30 +161,32 @@ private:
     Cursor cursor_;
     Level level_ = 0;
 
-    template <typename, typename> friend class TokenTrie;
+    template <typename, typename, typename, typename, typename>
+    friend class TokenTrie;
+
     friend struct internal::TokenTrieIteratorAccess;
 };
 
 /** Compares two match iterators for equality.
     @relates TokenTrieMatchIterator */
-template <typename T, typename K, bool LM, bool RM>
-bool operator==(const TokenTrieMatchIterator<K, T, LM>& lhs,
-                const TokenTrieMatchIterator<K, T, RM>& rhs)
+template <typename N, bool LM, bool RM>
+bool operator==(const TokenTrieMatchIterator<N, LM>& lhs,
+                const TokenTrieMatchIterator<N, RM>& rhs)
 {
     return internal::TokenTrieIteratorAccess::equals(lhs, rhs);
 };
 
 /** Compares two match iterators for inequality.
     @relates TokenTrieMatchIterator */
-template <typename T, typename K, bool LM, bool RM>
-bool operator!=(const TokenTrieMatchIterator<K, T, LM>& lhs,
-                const TokenTrieMatchIterator<K, T, RM>& rhs)
+template <typename N, bool LM, bool RM>
+bool operator!=(const TokenTrieMatchIterator<N, LM>& lhs,
+                const TokenTrieMatchIterator<N, RM>& rhs)
 {
     return internal::TokenTrieIteratorAccess::differs(lhs, rhs);
 };
 
-template <typename T, typename K, bool M>
-struct IsSpecialTokenTrieIterator<TokenTrieMatchIterator<K, T, M>>
+template <typename N, bool M>
+struct IsSpecialTokenTrieIterator<TokenTrieMatchIterator<N, M>>
     : std::true_type
 {};
 
@@ -190,7 +195,7 @@ struct IsSpecialTokenTrieIterator<TokenTrieMatchIterator<K, T, M>>
 /** TokenTrie iterator that advances through elements in lexicographic order
     of their respective keys. */
 //------------------------------------------------------------------------------
-template <typename K, typename T, bool IsMutable>
+template <typename N, bool IsMutable>
 class CPPWAMP_API TokenTrieIterator
 {
 public:
@@ -201,44 +206,46 @@ public:
     using difference_type = std::ptrdiff_t;
 
     /// Type of the split token key container associated with this iterator.
-    using key_type = K;
+    using key_type = typename N::Key;
 
     /// Type of token associated with this iterator.
     using token_type = typename key_type::value_type;
 
     /** Type of the mapped value associated with this iterator.
         @note It differs from std::map in that it's not a key-value pair. */
-    using value_type = T;
+    using value_type = typename N::Value;
 
     /// Pointer to the mapped value type being iterated over.
-    using pointer = typename std::conditional<IsMutable, T*, const T*>::type;
+    using pointer = typename std::conditional<IsMutable, value_type*,
+                                              const value_type*>::type;
 
     /// Reference to the mapped value type being iterated over.
-    using reference = typename std::conditional<IsMutable, T&, const T&>::type;
+    using reference = typename std::conditional<IsMutable, value_type&,
+                                                const value_type&>::type;
 
-    using Cursor = TokenTrieCursor<K, T>;
+    using Cursor = TokenTrieCursor<N>;
 
     /** Default constructor. */
     TokenTrieIterator() {}
 
     /** Implicit conversion from mutable iterator to const iterator. */
     template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
-    TokenTrieIterator(const TokenTrieIterator<K, T, M>& rhs)
+    TokenTrieIterator(const TokenTrieIterator<N, M>& rhs)
         : cursor_(rhs.cursor()) {}
 
     /** Implicit conversion from match iterator. */
     template <bool M, typename std::enable_if<(!IsMutable || M), int>::type = 0>
-    TokenTrieIterator(const TokenTrieMatchIterator<K, T, M>& rhs)
+    TokenTrieIterator(const TokenTrieMatchIterator<N, M>& rhs)
         : cursor_(rhs.cursor()) {}
 
     /** Assignment from mutable iterator to const iterator. */
     template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
-    TokenTrieIterator& operator=(const TokenTrieIterator<K, T, M>& rhs)
+    TokenTrieIterator& operator=(const TokenTrieIterator<N, M>& rhs)
         {cursor_ = rhs.cursor_; return *this;}
 
     /** Assignment from match iterator. */
     template <bool M, typename std::enable_if<(!IsMutable || M), int>::type = 0>
-    TokenTrieIterator& operator=(const TokenTrieIterator<K, T, M>& rhs)
+    TokenTrieIterator& operator=(const TokenTrieIterator<N, M>& rhs)
         {cursor_ = rhs.cursor_; return *this;}
 
     /** Generates the split token key container associated with the
@@ -285,69 +292,89 @@ private:
 
     Cursor cursor_;
 
-    template <typename, typename> friend class TokenTrie;
+    template <typename, typename, typename, typename, typename>
+    friend class TokenTrie;
+
     friend struct internal::TokenTrieIteratorAccess;
 };
 
-template <typename T, typename K, bool M>
-struct IsSpecialTokenTrieIterator<TokenTrieIterator<K, T, M>>
+template <typename N, bool M>
+struct IsSpecialTokenTrieIterator<TokenTrieIterator<N, M>>
     : std::true_type
 {};
 
 /** Compares two iterators for equality.
     @relates TokenTrieIterator */
-template <typename T, typename K, bool LM, bool RM>
-bool operator==(const TokenTrieIterator<K, T, LM>& lhs,
-                const TokenTrieIterator<K, T, RM>& rhs)
+template <typename N, bool LM, bool RM>
+bool operator==(const TokenTrieIterator<N, LM>& lhs,
+                const TokenTrieIterator<N, RM>& rhs)
 {
     return internal::TokenTrieIteratorAccess::equals(lhs, rhs);
 };
 
 /** Compares two iterators for inequality.
     @relates TokenTrieIterator */
-template <typename T, typename K, bool LM, bool RM>
-bool operator!=(const TokenTrieIterator<K, T, LM>& lhs,
-                const TokenTrieIterator<K, T, RM>& rhs)
+template <typename N, bool LM, bool RM>
+bool operator!=(const TokenTrieIterator<N, LM>& lhs,
+                const TokenTrieIterator<N, RM>& rhs)
 {
     return internal::TokenTrieIteratorAccess::differs(lhs, rhs);
 };
 
 /** Compares a match iterator and a regular iterator for equality.
     @relates TokenTrieIterator */
-template <typename T, typename K, bool LM, bool RM>
-bool operator==(const TokenTrieMatchIterator<K, T, LM>& lhs,
-                const TokenTrieIterator<K, T, RM>& rhs)
+template <typename N, bool LM, bool RM>
+bool operator==(const TokenTrieMatchIterator<N, LM>& lhs,
+                const TokenTrieIterator<N, RM>& rhs)
 {
     return internal::TokenTrieIteratorAccess::equals(lhs, rhs);
 };
 
 /** Compares a match iterator and a regular iterator for equality.
     @relates TokenTrieIterator */
-template <typename T, typename K, bool LM, bool RM>
-bool operator==(const TokenTrieIterator<K, T, LM>& lhs,
-                const TokenTrieMatchIterator<K, T, RM>& rhs)
+template <typename N, bool LM, bool RM>
+bool operator==(const TokenTrieIterator<N, LM>& lhs,
+                const TokenTrieMatchIterator<N, RM>& rhs)
 {
     return internal::TokenTrieIteratorAccess::equals(lhs, rhs);
 };
 
 /** Compares a match iterator and a regular iterator for inequality.
     @relates TokenTrieIterator */
-template <typename T, typename K, bool LM, bool RM>
-bool operator!=(const TokenTrieMatchIterator<K, T, LM>& lhs,
-                const TokenTrieIterator<K, T, RM>& rhs)
+template <typename N, bool LM, bool RM>
+bool operator!=(const TokenTrieMatchIterator<N, LM>& lhs,
+                const TokenTrieIterator<N, RM>& rhs)
 {
     return internal::TokenTrieIteratorAccess::differs(lhs, rhs);
 };
 
 /** Compares a match iterator and a regular iterator for inequality.
     @relates TokenTrieIterator */
-template <typename T, typename K, bool LM, bool RM>
-bool operator!=(const TokenTrieIterator<K, T, LM>& lhs,
-                const TokenTrieMatchIterator<K, T, RM>& rhs)
+template <typename N, bool LM, bool RM>
+bool operator!=(const TokenTrieIterator<N, LM>& lhs,
+                const TokenTrieMatchIterator<N, RM>& rhs)
 {
     return internal::TokenTrieIteratorAccess::differs(lhs, rhs);
 };
 
+//------------------------------------------------------------------------------
+template <typename T>
+using TokenTrieLocalStorage = internal::TokenTrieValueLocalStorage<T>;
+
+//------------------------------------------------------------------------------
+template <typename T>
+using TokenTrieHeapStorage = internal::TokenTrieValueHeapStorage<T>;
+
+//------------------------------------------------------------------------------
+template <typename T>
+struct CPPWAMP_API TokenTrieDefaultPolicy
+{
+    using value_storage = typename std::conditional<
+        (sizeof(T) > sizeof(std::string)),
+        TokenTrieHeapStorage<T>,
+        TokenTrieLocalStorage<T>>::type;
+
+};
 
 //------------------------------------------------------------------------------
 /** Associative container suited for pattern matching, where keys are
@@ -374,17 +401,18 @@ bool operator!=(const TokenTrieIterator<K, T, LM>& lhs,
     @tparam T Mapped value type.
             Must be default constructible. */
 //------------------------------------------------------------------------------
-template <typename K, typename T>
+template <typename K, typename T, typename = void, typename = void,
+          typename P = TokenTrieDefaultPolicy<T>>
 class CPPWAMP_API TokenTrie
 {
 private:
-    using Node = TokenTrieNode<K, T>;
+    using Node = TokenTrieNode<K, typename P::value_storage>;
     using NodeAllocatorTraits = std::allocator_traits<typename Node::Allocator>;
 
-    template <typename P>
+    template <typename KV>
     static constexpr bool isInsertable()
     {
-        return std::is_constructible<value_type, P&&>::value;
+        return std::is_constructible<value_type, KV&&>::value;
     }
 
     template <typename I>
@@ -400,12 +428,16 @@ public:
     /** Type of the mapped value. */
     using mapped_type = T;
 
+    using policy_type = P;
+
     /** Type used to combine a key and its associated value.
         @note Unlike std::map, keys are not stored alongside their associated
               value due to the distributed nature of how keys are stored inside
               the trie. This type is provided to make the interface more closely
               match that of std::map. */
     using value_type = std::pair<const key_type, mapped_type>;
+
+    using cursor_node_type = Node;
 
     /** Type used to count the number of elements in the container. */
     using size_type = typename Node::Size;
@@ -435,19 +467,19 @@ public:
 
     /** Mutable iterator type which advances through elements in lexicographic
         order of their respective keys. */
-    using iterator  = TokenTrieIterator<key_type, T, true>;
+    using iterator  = TokenTrieIterator<Node, true>;
 
     /** Immutable iterator type which advances through elements in
         lexicographic order of their respective keys. */
-    using const_iterator = TokenTrieIterator<key_type, T, false>;
+    using const_iterator = TokenTrieIterator<Node, false>;
 
     /** Mutable iterator type which advances through wildcard matches in
         lexicographic order. */
-    using match_iterator = TokenTrieMatchIterator<key_type, T, true>;
+    using match_iterator = TokenTrieMatchIterator<Node, true>;
 
     /** Mutable iterator type which advances through wildcard matches in
         lexicographic order. */
-    using const_match_iterator = TokenTrieMatchIterator<key_type, T, false>;
+    using const_match_iterator = TokenTrieMatchIterator<Node, false>;
 
     /** Pairs an iterator with the boolean success result of an
         insertion operation. */
@@ -468,7 +500,7 @@ public:
     using const_match_range_type = std::pair<const_match_iterator,
                                              const_match_iterator>;
 
-    using Cursor = TokenTrieCursor<K, T>;
+    using Cursor = TokenTrieCursor<Node>;
 
     class value_compare
     {
@@ -516,7 +548,12 @@ public:
 
     /** Replaces contents with that of the given initializer list,  where
         each element is a key-value pair. */
-    TokenTrie& operator=(std::initializer_list<value_type> list);
+    TokenTrie& operator=(std::initializer_list<value_type> list)
+    {
+        TokenTrie temp(list);
+        *this = std::move(temp);
+        return *this;
+    }
 
     allocator_type get_allocator() const noexcept {return allocator_type();}
 
@@ -524,12 +561,18 @@ public:
     /// @{
 
     /** Accesses the element associated with the given key,
-        with bounds checking. */
-    mapped_type& at(const key_type& key);
+        with bounds checking.
+        @throws std::out_of_range if the container does not have an element
+                with the given key. */
+    mapped_type& at(const key_type& key)
+        {return checkedAccess(impl_.locate(key));}
 
     /** Accesses the element associated with the given key,
-        with bounds checking. */
-    const mapped_type& at(const key_type& key) const;
+        with bounds checking.
+        @throws std::out_of_range if the container does not have an element
+                with the given key. */
+    const mapped_type& at(const key_type& key) const
+        {return checkedAccess(impl_.locate(key));}
 
     /** Accesses or inserts an element with the given key. */
     mapped_type& operator[](const key_type& key) {return *(add(key).first);}
@@ -592,11 +635,11 @@ public:
     /** Inserts an element.
         Only participates in overload resolution if
         `std::is_constructible_v<value_type, P&&> == true` */
-    template <typename P,
-              typename std::enable_if<isInsertable<P>(), int>::type = 0>
-    insert_result insert(P&& kv)
+    template <typename KV,
+              typename std::enable_if<isInsertable<KV>(), int>::type = 0>
+    insert_result insert(KV&& kv)
     {
-        value_type pair(std::forward<P>(kv));
+        value_type pair(std::forward<KV>(kv));
         return add(std::move(pair.first), std::move(pair.second));
     }
 
@@ -641,10 +684,18 @@ public:
     iterator erase(iterator pos) {return impl_.erase(pos.cursor());}
 
     /** Erases the element at the given iterator position. */
-    iterator erase(const_iterator pos) {return impl_.eraseAt(pos.cursor());}
+    iterator erase(const_iterator pos) {return impl_.erase(pos.cursor());}
 
-    /** Erases the element associated with the given key. */
-    size_type erase(const key_type& key);
+    /** Erases the element associated with the given key.
+        @returns The number of elements erased (0 or 1). */
+    size_type erase(const key_type& key)
+    {
+        auto cursor = impl_.locate(key);
+        bool found = cursor.good();
+        if (found)
+            impl_.erase(cursor);
+        return found ? 1 : 0;
+    }
 
     /** Swaps the contents of this container with the given container. */
     void swap(TokenTrie& other) noexcept {impl_.swap(other.impl_);}
@@ -723,11 +774,20 @@ public:
     friend void swap(TokenTrie& a, TokenTrie& b) noexcept {a.swap(b);}
 
     /** Erases all elements satisfying given criteria. */
-    template <typename P>
-    friend size_type erase_if(TokenTrie& t, P predicate)
+    template <typename F>
+    friend size_type erase_if(TokenTrie& t, F predicate)
         {return t.doEraseIf(std::move(predicate));}
 
 private:
+    template <typename C>
+    static auto checkedAccess(C&& cursor)
+        -> decltype(std::forward<C>(cursor).value())
+    {
+        if (!cursor)
+            throw std::out_of_range("wamp::TokenTrie::at key out of range");
+        return std::forward<C>(cursor).value();
+    }
+
     template <typename... Us>
     insert_result add(key_type key, Us&&... args)
     {
@@ -743,121 +803,54 @@ private:
     }
 
     template <typename I>
-    std::pair<I, I> getEqualRange(const key_type& key) const;
-
-    template <typename I>
-    std::pair<I, I> getMatchRange(const key_type& key) const;
-
-    template <typename I>
-    void insertRange(std::true_type, I first, I last);
-
-    template <typename I>
-    void insertRange(std::false_type, I first, I last);
-
-    template <typename P>
-    size_type doEraseIf(P predicate);
-
-    internal::TokenTrieImpl<K, T> impl_;
-};
-
-//******************************************************************************
-// TokenTrie member function definitions
-//******************************************************************************
-
-template <typename K, typename T>
-TokenTrie<K,T>&
-TokenTrie<K,T>::operator=(std::initializer_list<value_type> list)
-{
-    TokenTrie temp(list);
-    *this = std::move(temp);
-    return *this;
-}
-
-/** @throws std::out_of_range if the container does not have an element
-            with the given key. */
-template <typename K, typename T>
-typename TokenTrie<K,T>::mapped_type& TokenTrie<K,T>::at(const key_type& key)
-{
-    auto cursor = impl_.locate(key);
-    if (!cursor)
-        throw std::out_of_range("wamp::TokenTrie::at key out of range");
-    return cursor.value();
-}
-
-/** @throws std::out_of_range if the container does not have an element
-            with the given key. */
-template <typename K, typename T>
-const typename TokenTrie<K,T>::mapped_type&
-TokenTrie<K,T>::at(const key_type& key) const
-{
-    auto cursor = impl_.locate(key);
-    if (!cursor)
-        throw std::out_of_range("wamp::TokenTrie::at key out of range");
-    return cursor.value();
-}
-
-/** @returns The number of elements erased (0 or 1). */
-template <typename K, typename T>
-typename TokenTrie<K,T>::size_type TokenTrie<K,T>::erase(const key_type& key)
-{
-    auto cursor = impl_.locate(key);
-    bool found = cursor.good();
-    if (found)
-        impl_.erase(cursor);
-    return found ? 1 : 0;
-}
-
-template <typename K, typename T>
-template <typename I>
-std::pair<I, I> TokenTrie<K,T>::getEqualRange(const key_type& key) const
-{
-    auto er = impl_.equalRange(key);
-    return {I{er.first}, I{er.second}};
-}
-
-template <typename K, typename T>
-template <typename I>
-std::pair<I, I> TokenTrie<K,T>::getMatchRange(const key_type& key) const
-{
-    if (empty() || key.empty())
-        return {I{impl_.sentinelCursor()}, I{impl_.sentinelCursor()}};
-
-    return {I{impl_.rootCursor(), key}, I{impl_.sentinelCursor()}};
-}
-
-template <typename K, typename T>
-template <typename I>
-void TokenTrie<K,T>::insertRange(std::true_type, I first, I last)
-{
-    for (; first != last; ++first)
-        add(first.key(), first.value());
-}
-
-template <typename K, typename T>
-template <typename I>
-void TokenTrie<K,T>::insertRange(std::false_type, I first, I last)
-{
-    for (; first != last; ++first)
-        add(first->first, first->second);
-}
-
-template <typename K, typename T>
-template <typename P>
-typename TokenTrie<K,T>::size_type TokenTrie<K,T>::doEraseIf(P predicate)
-{
-    using Pair = std::pair<const key_type&, const mapped_type&>;
-    auto oldSize = size();
-    auto last = end();
-    auto iter = begin();
-    while (iter != last)
+    std::pair<I, I> getEqualRange(const key_type& key) const
     {
-        if (predicate(Pair{iter.key(), iter.value()}))
-            iter = erase(iter);
-        else
-            ++iter;
+        auto er = impl_.equalRange(key);
+        return {I{er.first}, I{er.second}};
     }
-    return oldSize - size();
-}
+
+    template <typename I>
+    std::pair<I, I> getMatchRange(const key_type& key) const
+    {
+        if (empty() || key.empty())
+            return {I{impl_.sentinelCursor()}, I{impl_.sentinelCursor()}};
+
+        return {I{impl_.rootCursor(), key}, I{impl_.sentinelCursor()}};
+    }
+
+    template <typename I>
+    void insertRange(std::true_type, I first, I last)
+    {
+        for (; first != last; ++first)
+            add(first.key(), first.value());
+    }
+
+    template <typename I>
+    void insertRange(std::false_type, I first, I last)
+    {
+        for (; first != last; ++first)
+            add(first->first, first->second);
+    }
+
+    template <typename F>
+    size_type doEraseIf(F predicate)
+    {
+        using Pair = std::pair<const key_type&, const mapped_type&>;
+        auto oldSize = size();
+        auto last = end();
+        auto iter = begin();
+        while (iter != last)
+        {
+            if (predicate(Pair{iter.key(), iter.value()}))
+                iter = erase(iter);
+            else
+                ++iter;
+        }
+        return oldSize - size();
+    }
+
+    internal::TokenTrieImpl<K, T, P> impl_;
+};
 
 } // namespace wamp
 

@@ -11,7 +11,6 @@
 #include <cassert>
 #include <initializer_list>
 #include <map>
-#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -24,17 +23,21 @@
 namespace wamp
 {
 
-namespace internal { template <typename, typename> class TokenTrieImpl; }
+namespace internal
+{
+    template <typename, typename, typename> class TokenTrieImpl;
+}
 
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename S>
 class CPPWAMP_API TokenTrieOptionalValue
 {
 private:
-    using Traits = internal::TokenTrieValueTraits<T, TokenTrieOptionalValue>;
+    using Traits = internal::TokenTrieValueTraits<typename S::value_type,
+                                                  TokenTrieOptionalValue>;
 
 public:
-    using Value = T;
+    using value_type = typename S::value_type;
 
     TokenTrieOptionalValue() noexcept = default;
 
@@ -82,27 +85,27 @@ public:
 
     explicit operator bool() const noexcept {return has_value();}
 
-    Value& operator*() {return get();}
+    value_type& operator*() {return get();}
 
-    const Value& operator*() const {return get();}
+    const value_type& operator*() const {return get();}
 
-    Value& value() & {return checkedValue(*this);}
+    value_type& value() & {return checkedValue(*this);}
 
-    Value&& value() && {return checkedValue(*this);}
+    value_type&& value() && {return checkedValue(*this);}
 
-    const Value& value() const & {return checkedValue(*this);}
+    const value_type& value() const & {return checkedValue(*this);}
 
-    const Value&& value() const && {return checkedValue(*this);}
+    const value_type&& value() const && {return checkedValue(*this);}
 
     template <typename... Us>
-    Value& emplace(Us&&... args)
+    value_type& emplace(Us&&... args)
     {
         value_.emplace(std::forward<Us>(args)...);
         return value_.get();
     }
 
     template <typename E, typename... Us>
-    Value& emplace(std::initializer_list<E> list, Us&&... args)
+    value_type& emplace(std::initializer_list<E> list, Us&&... args)
     {
         value_.emplace(list, std::forward<Us>(args)...);
         return value_.get();
@@ -146,13 +149,15 @@ public:
     }
 
     template <typename U>
-    friend bool operator==(const TokenTrieOptionalValue& lhs, const T& rhs)
+    friend bool operator==(const TokenTrieOptionalValue& lhs,
+                           const value_type& rhs)
     {
         return lhs.has_value() && (lhs.get() == rhs);
     }
 
     template <typename U>
-    friend bool operator==(const T& lhs, const TokenTrieOptionalValue& rhs)
+    friend bool operator==(const value_type& lhs,
+                           const TokenTrieOptionalValue& rhs)
     {
         return rhs.has_value() && (rhs.get() == lhs);
     }
@@ -166,32 +171,29 @@ public:
     }
 
     template <typename U>
-    friend bool operator!=(const TokenTrieOptionalValue& lhs, const T& rhs)
+    friend bool operator!=(const TokenTrieOptionalValue& lhs,
+                           const value_type& rhs)
     {
         return !lhs.has_value() || (lhs.get() != rhs);
     }
 
     template <typename U>
-    friend bool operator!=(const T& lhs, const TokenTrieOptionalValue& rhs)
+    friend bool operator!=(const value_type& lhs,
+                           const TokenTrieOptionalValue& rhs)
     {
         return !rhs.has_value() || (rhs.get() != lhs);
     }
 
 private:
-    static constexpr bool locallyStored = sizeof(T) < sizeof(std::string);
+    using Storage = S;
 
-    using Storage =
-        typename std::conditional<locallyStored,
-                                  internal::TokenTrieValueLocalStorage<T>,
-                                  internal::TokenTrieValueHeapStorage<T>>::type;
-
-    Value& get()
+    value_type& get()
     {
         assert(has_value());
         return value_.get();
     }
 
-    const Value& get() const
+    const value_type& get() const
     {
         assert(has_value());
         return value_.get();
@@ -209,12 +211,13 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename K, typename T>
+template <typename K, typename S>
 class CPPWAMP_API TokenTrieNode
 {
 public:
-    using Value = T;
-    using OptionalValue = TokenTrieOptionalValue<Value>;
+    using ValueStorage = S;
+    using OptionalValue = TokenTrieOptionalValue<ValueStorage>;
+    using Value = typename OptionalValue::value_type;
     using Key = K;
     using Token = typename Key::value_type;
     using Tree = std::map<Token, TokenTrieNode>;
@@ -272,23 +275,22 @@ private:
     TreeIterator position_ = {};
     TokenTrieNode* parent_ = nullptr;
 
-    template <typename, typename> friend class TokenTrieCursor;
-    template <typename, typename> friend class internal::TokenTrieImpl;
+    template <typename> friend class TokenTrieCursor;
+    template <typename, typename, typename> friend class internal::TokenTrieImpl;
 };
 
 //------------------------------------------------------------------------------
-template <typename K, typename T>
+template <typename N>
 class CPPWAMP_API TokenTrieCursor
 {
 public:
-    using Node = TokenTrieNode<K, T>;
+    using Node = N;
     using Tree = typename Node::Tree;
     using TreeIterator = typename Node::TreeIterator;
-    using Key = K;
-    using Token = typename Key::value_type;
-    using Value = typename Node::Value;
-    using OptionalValue = typename Node::OptionalValue;
-    using StringType = typename Key::value_type;
+    using Key = typename N::Key;
+    using Token = typename N::Token;
+    using Value = typename N::Value;
+    using OptionalValue = typename N::OptionalValue;
     using Level = typename Key::size_type;
 
     TokenTrieCursor() = default;
@@ -793,7 +795,7 @@ private:
         return foundExact;
     }
 
-    static TreeIterator findLowerBoundInNode(Node& n, const StringType& token)
+    static TreeIterator findLowerBoundInNode(Node& n, const Token& token)
     {
         return std::lower_bound(n.children_.begin(), n.children_.end(),
                                 token, Less{});

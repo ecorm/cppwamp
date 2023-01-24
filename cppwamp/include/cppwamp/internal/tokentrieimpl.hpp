@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -32,7 +32,7 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename K, typename T>
+template <typename K, typename T, typename P>
 class CPPWAMP_HIDDEN TokenTrieImpl
 {
 public:
@@ -40,9 +40,15 @@ public:
 
     using mapped_type = T;
 
-    using size_type = typename TokenTrieNode<K, T>::Size;
+    using policy_type = P;
 
-    using Cursor = TokenTrieCursor<K, T>;
+    using value_storage = typename P::value_storage;
+
+    using Node = TokenTrieNode<key_type, value_storage>;
+
+    using size_type = typename TokenTrieNode<key_type, value_storage>::Size;
+
+    using Cursor = TokenTrieCursor<Node>;
 
     TokenTrieImpl() {}
 
@@ -244,8 +250,6 @@ public:
     }
 
 private:
-    using Node = TokenTrieNode<K, T>;
-
     void moveFrom(TokenTrieImpl& rhs) noexcept
     {
         root_.swap(rhs.root_);

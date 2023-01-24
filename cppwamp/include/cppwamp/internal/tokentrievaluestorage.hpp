@@ -25,11 +25,8 @@ namespace internal
 template <typename T>
 class CPPWAMP_HIDDEN TokenTrieValueLocalStorage
 {
-private:
-    using Self = TokenTrieValueLocalStorage;
-
 public:
-    using Value = T;
+    using value_type = T;
 
     TokenTrieValueLocalStorage() noexcept = default;
 
@@ -105,15 +102,15 @@ public:
 
     bool has_value() const noexcept {return hasValue_;}
 
-    Value& get() {return storage_.asValue;}
+    value_type& get() {return storage_.asValue;}
 
-    const Value& get() const {return storage_.asValue;}
+    const value_type& get() const {return storage_.asValue;}
 
     template <typename... Us>
     void emplace(Us&&... args)
     {
         reset();
-        new (&storage_.asValue) Value(std::forward<Us>(args)...);
+        new (&storage_.asValue) value_type(std::forward<Us>(args)...);
         hasValue_ = true;
     }
 
@@ -121,7 +118,7 @@ public:
     void emplace(std::initializer_list<E> list,  Us&&... args)
     {
         reset();
-        new (&storage_.asValue) Value(list, std::forward<Us>(args)...);
+        new (&storage_.asValue) value_type(list, std::forward<Us>(args)...);
         hasValue_ = true;
     }
 
@@ -142,7 +139,7 @@ public:
     void reset()
     {
         if (has_value())
-            get().~Value();
+            get().~value_type();
         hasValue_ = false;
     }
 
@@ -164,13 +161,13 @@ private:
     template <typename... Us>
     void construct(Us&&... args)
     {
-        new (&storage_.asValue) Value(std::forward<Us>(args)...);
+        new (&storage_.asValue) value_type(std::forward<Us>(args)...);
     }
 
     template <typename E, typename... Us>
     void construct(std::initializer_list<E> list, Us&&... args)
     {
-        new (&storage_.asValue) Value(list, std::forward<Us>(args)...);
+        new (&storage_.asValue) value_type(list, std::forward<Us>(args)...);
     }
 
     union Storage
@@ -178,7 +175,7 @@ private:
         Storage() : asNone(false) {}
         ~Storage() {}
         bool asNone;
-        Value asValue;
+        value_type asValue;
     } storage_;
 
     bool hasValue_ = false;
@@ -188,11 +185,8 @@ private:
 template <typename T>
 class CPPWAMP_HIDDEN TokenTrieValueHeapStorage
 {
-private:
-    using Self = TokenTrieValueHeapStorage;
-
 public:
-    using Value = T;
+    using value_type = T;
 
     TokenTrieValueHeapStorage() noexcept = default;
 
@@ -230,7 +224,7 @@ public:
         else if (has_value())
             get() = rhs.get();
         else
-            ptr_.reset(new Value(rhs.get()));
+            ptr_.reset(new value_type(rhs.get()));
         return *this;
     }
 
@@ -241,29 +235,29 @@ public:
         else if (has_value())
             get() = std::move(rhs.get());
         else
-            ptr_.reset(new Value(std::move(rhs.get())));
+            ptr_.reset(new value_type(std::move(rhs.get())));
         // Moved-from side must still contain value
         return *this;
     }
 
     bool has_value() const noexcept {return ptr_ != nullptr;}
 
-    Value& get() {return *ptr_;}
+    value_type& get() {return *ptr_;}
 
-    const Value& get() const {return *ptr_;}
+    const value_type& get() const {return *ptr_;}
 
     template <typename... Us>
     void emplace(Us&&... args)
     {
         reset();
-        ptr_.reset(new Value(std::forward<Us>(args)...));
+        ptr_.reset(new value_type(std::forward<Us>(args)...));
     }
 
     template <typename E, typename... Us>
     void emplace(std::initializer_list<E> list,  Us&&... args)
     {
         reset();
-        ptr_.reset(new Value(list, std::forward<Us>(args)...));
+        ptr_.reset(new value_type(list, std::forward<Us>(args)...));
     }
 
     template <typename U>
@@ -272,7 +266,7 @@ public:
         if (has_value())
             get() = std::forward<U>(value);
         else
-            ptr_.reset(new Value(std::forward<U>(value)));
+            ptr_.reset(new value_type(std::forward<U>(value)));
     }
 
     void reset() {ptr_.reset();}
@@ -295,16 +289,16 @@ private:
     template <typename... Us>
     void construct(Us&&... args)
     {
-        ptr_.reset(new Value(std::forward<Us>(args)...));
+        ptr_.reset(new value_type(std::forward<Us>(args)...));
     }
 
     template <typename E, typename... Us>
     void construct(std::initializer_list<E> list, Us&&... args)
     {
-        ptr_.reset(new Value(list, std::forward<Us>(args)...));
+        ptr_.reset(new value_type(list, std::forward<Us>(args)...));
     }
 
-    std::unique_ptr<Value> ptr_;
+    std::unique_ptr<value_type> ptr_;
 };
 
 //------------------------------------------------------------------------------

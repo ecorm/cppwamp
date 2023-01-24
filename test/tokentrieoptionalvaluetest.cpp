@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include <cppwamp/tokentrienode.hpp>
+#include <cppwamp/tokentrie.hpp>
 #include <utility>
 #include <vector>
 #include <catch2/catch.hpp>
@@ -50,7 +50,8 @@ using optional_swap_fn = decltype(std::declval<X&>().swap(std::declval<X&>()));
 
 //------------------------------------------------------------------------------
 template <typename T>
-using opt = TokenTrieOptionalValue<T>;
+using opt =
+    TokenTrieOptionalValue<typename TokenTrieDefaultPolicy<T>::value_storage>;
 
 } // anonymous namespace
 
