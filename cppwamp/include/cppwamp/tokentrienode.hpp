@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -9,8 +9,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <initializer_list>
 #include <map>
-#include <memory>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -19,340 +19,62 @@
 #include "api.hpp"
 #include "error.hpp"
 #include "tagtypes.hpp"
+#include "internal/tokentrievaluestorage.hpp"
 
 namespace wamp
 {
 
-namespace internal
-{
-
-template <typename, typename> class TokenTrieImpl;
+namespace internal { template <typename, typename> class TokenTrieImpl; }
 
 //------------------------------------------------------------------------------
 template <typename T>
-struct TokenTrieValueTraits
-{
-    template <typename U>
-    static constexpr bool isCopyConstructible()
-    {
-        return std::is_copy_constructible<U>::value;
-    }
-
-    template <typename U>
-    static constexpr bool isMoveConstructible()
-    {
-        return std::is_move_constructible<U>::value;
-    }
-
-    template <typename U, typename THolder>
-    static constexpr bool isCopyAssignable()
-    {
-        return std::is_same<U, THolder>::value &&
-               std::is_copy_assignable<U>::value;
-    }
-
-    template <typename U, typename THolder>
-    static constexpr bool isMoveAssignable()
-    {
-        using V = typename std::remove_cv<
-            typename std::remove_reference<U>::type>::type;
-        return std::is_same<V, THolder>::value &&
-               std::is_move_assignable<U>::value;
-    }
-};
-
-//------------------------------------------------------------------------------
-template <typename T>
-class TokenTrieValueLocalStorage
+class CPPWAMP_API TokenTrieOptionalValue
 {
 private:
-    using Traits = TokenTrieValueTraits<T>;
-    using Self = TokenTrieValueLocalStorage;
-
-public:
-    using Value = T;
-
-    TokenTrieValueLocalStorage() noexcept = default;
-
-    template <typename... Us>
-    TokenTrieValueLocalStorage(in_place_t, Us&&... args)
-        : hasValue_(true)
-    {
-        construct(std::forward<Us>(args)...);
-    }
-
-    template <typename U = T>
-    TokenTrieValueLocalStorage(
-        const TokenTrieValueLocalStorage& rhs,
-        typename std::enable_if<Traits::template isCopyConstructible<U>(),
-                                int>::type = 0)
-        : hasValue_(rhs.has_value())
-    {
-        if (rhs.has_value())
-            construct(rhs.get());
-    }
-
-    template <typename U = T>
-    TokenTrieValueLocalStorage(
-        TokenTrieValueLocalStorage&& rhs,
-        typename std::enable_if<Traits::template isMoveConstructible<U>(),
-                                int>::type = 0)
-        : hasValue_(rhs.has_value())
-    {
-        if (rhs.has_value())
-            construct(std::move(rhs.get()));
-        rhs.reset();
-    }
-
-    ~TokenTrieValueLocalStorage() {reset();}
-
-    template <typename U>
-    typename std::enable_if<Traits::template isCopyAssignable<U, Self>(),
-                            TokenTrieValueLocalStorage&>
-    operator=(const U& rhs)
-    {
-        if (!rhs.has_value())
-        {
-            reset();
-        }
-        else if (has_value())
-        {
-            get() = rhs.get();
-        }
-        else
-        {
-            construct(rhs.get());
-            hasValue_ = true;
-        }
-    }
-
-    template <typename U>
-    typename std::enable_if<Traits::template isMoveAssignable<U, Self>(),
-                            TokenTrieValueLocalStorage&>
-    operator=(U&& rhs)
-    {
-        if (!rhs.has_value())
-            return reset();
-
-        if (has_value())
-        {
-            get() = std::move(rhs.get());
-        }
-        else
-        {
-            construct(std::move(rhs.get()));
-            hasValue_ = true;
-        }
-        rhs.reset();
-    }
-
-    bool has_value() const noexcept {return hasValue_;}
-
-    Value& get() {return storage_.asValue;}
-
-    const Value& get() const {return storage_.asValue;}
-
-    template <typename... Us>
-    void emplace(Us&&... args)
-    {
-        reset();
-        new (&storage_.asValue) Value(std::forward<Us>(args)...);
-        hasValue_ = true;
-    }
-
-    template <typename U>
-    void assign(U&& value)
-    {
-        if (has_value())
-        {
-            get() = std::forward<U>(value);
-        }
-        else
-        {
-            construct(std::forward<U>(value));
-            hasValue_ = true;
-        }
-    }
-
-    void reset()
-    {
-        if (has_value())
-            get().~Value();
-        hasValue_ = false;
-    }
-
-    bool operator==(const TokenTrieValueLocalStorage& rhs) const noexcept
-    {
-        if (!has_value())
-            return !rhs.has_value();
-        return rhs.has_value() && (get() == rhs.get());
-    }
-
-    bool operator!=(const TokenTrieValueLocalStorage& rhs) const noexcept
-    {
-        if (!has_value())
-            return rhs.has_value();
-        return !rhs.has_value() || (get() != rhs.get());
-    }
-
-private:
-    template <typename... Us>
-    void construct(Us&&... args)
-    {
-        new (&storage_.asValue) Value(std::forward<Us>(args)...);
-    }
-
-    union Storage
-    {
-        Storage() : asNone(false) {}
-        bool asNone;
-        Value asValue;
-    } storage_;
-
-    bool hasValue_ = false;
-};
-
-//------------------------------------------------------------------------------
-template <typename T>
-class TokenTrieValueHeapStorage
-{
-private:
-    using Traits = TokenTrieValueTraits<T>;
-    using Self = TokenTrieValueHeapStorage;
-
-public:
-    using Value = T;
-
-    TokenTrieValueHeapStorage() noexcept = default;
-
-    template <typename... Us>
-    TokenTrieValueHeapStorage(in_place_t, Us&&... args)
-    {
-        construct(std::forward<Us>(args)...);
-    }
-
-    template <typename U = T>
-    TokenTrieValueHeapStorage(
-        const TokenTrieValueHeapStorage& rhs,
-        typename std::enable_if<Traits::template isCopyConstructible<U>(),
-                                int>::type = 0)
-    {
-        if (rhs.has_value())
-            construct(rhs.get());
-    }
-
-    template <typename U = T>
-    TokenTrieValueHeapStorage(
-        TokenTrieValueHeapStorage&& rhs,
-        typename std::enable_if<Traits::template isMoveConstructible<U>(),
-                                int>::type = 0)
-    {
-        if (rhs.has_value())
-            construct(std::move(rhs.get()));
-    }
-
-    template <typename U>
-    typename std::enable_if<Traits::template isCopyAssignable<U, Self>(),
-                            TokenTrieValueHeapStorage&>
-    operator=(const U& rhs)
-    {
-        if (!rhs.has_value())
-            reset();
-        else if (has_value())
-            get() = rhs.get();
-        else
-            ptr_.reset(new Value(*rhs));
-    }
-
-    template <typename U>
-    typename std::enable_if<Traits::template isMoveAssignable<U, Self>(),
-                            TokenTrieValueHeapStorage&>
-    operator=(U&& rhs)
-    {
-        if (!rhs.has_value())
-            reset();
-        else if (has_value())
-            get() = std::move(rhs.get());
-        else
-            ptr_.reset(new Value(std::move(*rhs)));
-    }
-
-    bool has_value() const noexcept {return ptr_ != nullptr;}
-
-    Value& get() {return *ptr_;}
-
-    const Value& get() const {return *ptr_;}
-
-    template <typename... Us>
-    void emplace(Us&&... args)
-    {
-        reset();
-        ptr_.reset(new Value(std::forward<Us>(args)...));
-    }
-
-    template <typename U>
-    void assign(U&& value)
-    {
-        if (has_value())
-            get() = std::forward<U>(value);
-        else
-            ptr_.reset(new Value(std::forward<U>(value)));
-    }
-
-    void reset() {ptr_.reset();}
-
-    bool operator==(const TokenTrieValueHeapStorage& rhs) const noexcept
-    {
-        if (!has_value())
-            return !rhs.has_value();
-        return rhs.has_value() && (get() == rhs.get());
-    }
-
-    bool operator!=(const TokenTrieValueHeapStorage& rhs) const noexcept
-    {
-        if (!has_value())
-            return rhs.has_value();
-        return !rhs.has_value() || (get() != rhs.get());
-    }
-
-private:
-    template <typename... Us>
-    void construct(Us&&... args)
-    {
-        ptr_.reset(new Value(std::forward<Us>(args)...));
-    }
-
-    std::unique_ptr<Value> ptr_;
-};
-
-} // namespace internal
-
-//------------------------------------------------------------------------------
-template <typename T>
-class TokenTrieOptionalValue
-{
-private:
-    using Self = TokenTrieOptionalValue;
+    using Traits = internal::TokenTrieValueTraits<T, TokenTrieOptionalValue>;
 
 public:
     using Value = T;
 
     TokenTrieOptionalValue() noexcept = default;
 
+    TokenTrieOptionalValue(const TokenTrieOptionalValue&) = default;
+
+    TokenTrieOptionalValue(TokenTrieOptionalValue&&) = default;
+
+    template <typename U,
+             typename std::enable_if<
+                 Traits::template isConvertible<U>(), int>::type = 0>
+    TokenTrieOptionalValue(U&& x) : value_(in_place, std::forward<U>(x)) {}
+
+    template <typename U,
+             typename std::enable_if<
+                 Traits::template isConstructible<U>(), int>::type = 0>
+    explicit TokenTrieOptionalValue(U&& x)
+        : value_(in_place, std::forward<U>(x))
+    {}
+
     template <typename... Us>
-    TokenTrieOptionalValue(in_place_t, Us&&... args)
+    explicit TokenTrieOptionalValue(in_place_t, Us&&... args)
         : value_(in_place_t{}, std::forward<Us>(args)...)
     {}
 
-    TokenTrieOptionalValue& operator=(const Value& x)
-    {
-        value_.assign(x);
-        return *this;
-    }
+    template <typename E, typename... Us>
+    explicit TokenTrieOptionalValue(in_place_t, std::initializer_list<E> list,
+                                    Us&&... args)
+        : value_(in_place_t{}, list, std::forward<Us>(args)...)
+    {}
 
-    TokenTrieOptionalValue& operator=(Value&& x)
+    TokenTrieOptionalValue& operator=(const TokenTrieOptionalValue&) = default;
+
+    TokenTrieOptionalValue& operator=(TokenTrieOptionalValue&&) = default;
+
+    template <typename U,
+             typename std::enable_if<
+                 Traits::template isAssignable<U>(), int>::type = 0>
+    TokenTrieOptionalValue& operator=(U&& x)
     {
-        value_.assign(std::move(x));
+        value_.assign(std::forward<U>(x));
         return *this;
     }
 
@@ -364,47 +86,95 @@ public:
 
     const Value& operator*() const {return get();}
 
-    Value& value() &
-    {
-        CPPWAMP_LOGIC_CHECK(has_value(), "TokenTrieOptionalValue bad access");
-        return get();
-    }
+    Value& value() & {return checkedValue(*this);}
 
-    Value&& value() &&
-    {
-        CPPWAMP_LOGIC_CHECK(has_value(), "TokenTrieOptionalValue bad access");
-        return std::move(get());
-    }
+    Value&& value() && {return checkedValue(*this);}
 
-    const Value& value() const &
-    {
-        CPPWAMP_LOGIC_CHECK(has_value(), "TokenTrieOptionalValue bad access");
-        return get();
-    }
+    const Value& value() const & {return checkedValue(*this);}
 
-    const Value&& value() const &&
-    {
-        CPPWAMP_LOGIC_CHECK(has_value(), "TokenTrieOptionalValue bad access");
-        return std::move(get());
-    }
+    const Value&& value() const && {return checkedValue(*this);}
 
     template <typename... Us>
-    void emplace(Us&&... args) {value_.emplace(std::forward<Us>(args)...);}
+    Value& emplace(Us&&... args)
+    {
+        value_.emplace(std::forward<Us>(args)...);
+        return value_.get();
+    }
+
+    template <typename E, typename... Us>
+    Value& emplace(std::initializer_list<E> list, Us&&... args)
+    {
+        value_.emplace(list, std::forward<Us>(args)...);
+        return value_.get();
+    }
 
     void reset() {value_.reset();}
 
-    bool operator==(const TokenTrieOptionalValue& rhs) const noexcept
+    void swap(TokenTrieOptionalValue& rhs)
     {
-        if (!has_value())
-            return !rhs.has_value();
-        return rhs.has_value() && (get() == rhs.get());
+        if (has_value())
+        {
+            if (rhs.has_value())
+            {
+                using std::swap;
+                swap(value_.get(), rhs.value_.get());
+            }
+            else
+            {
+                rhs.value_.assign(std::move(value_.get()));
+                reset();
+            }
+        }
+        else if (rhs.has_value())
+        {
+            value_.assign(std::move(rhs.value_.get()));
+            rhs.reset();
+        }
     }
 
-    bool operator!=(const TokenTrieOptionalValue& rhs) const noexcept
+    friend void swap(TokenTrieOptionalValue& lhs, TokenTrieOptionalValue& rhs)
     {
-        if (!has_value())
+        lhs.swap(rhs);
+    }
+
+    friend bool operator==(const TokenTrieOptionalValue& lhs,
+                           const TokenTrieOptionalValue& rhs)
+    {
+        if (!lhs.has_value())
+            return !rhs.has_value();
+        return rhs.has_value() && (lhs.get() == rhs.get());
+    }
+
+    template <typename U>
+    friend bool operator==(const TokenTrieOptionalValue& lhs, const T& rhs)
+    {
+        return lhs.has_value() && (lhs.get() == rhs);
+    }
+
+    template <typename U>
+    friend bool operator==(const T& lhs, const TokenTrieOptionalValue& rhs)
+    {
+        return rhs.has_value() && (rhs.get() == lhs);
+    }
+
+    friend bool operator!=(const TokenTrieOptionalValue& lhs,
+                           const TokenTrieOptionalValue& rhs)
+    {
+        if (!lhs.has_value())
             return rhs.has_value();
-        return !rhs.has_value() || (get() != rhs.get());
+        return !rhs.has_value() || (lhs.get() != rhs.get());
+    }
+
+    template <typename U>
+    friend bool operator!=(const TokenTrieOptionalValue& lhs, const T& rhs)
+    {
+        return !lhs.has_value() || (lhs.get() != rhs);
+    }
+
+    template <typename U>
+    friend bool operator!=(const T& lhs, const TokenTrieOptionalValue& rhs)
+    {
+        return !rhs.has_value() || (rhs.get() != lhs);
     }
 
 private:
@@ -425,6 +195,14 @@ private:
     {
         assert(has_value());
         return value_.get();
+    }
+
+    template <typename Self>
+    static auto checkedValue(Self&& s)
+        -> decltype(std::forward<Self>(s).get())
+    {
+        CPPWAMP_LOGIC_CHECK(s.has_value(), "TokenTrieOptionalValue bad access");
+        return std::forward<Self>(s).get();
     }
 
     Storage value_;

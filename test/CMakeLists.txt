@@ -4,6 +4,10 @@
 # https://www.boost.org/LICENSE_1_0.txt
 #-------------------------------------------------------------------------------
 
+set(HEADERS
+    valuemodels.hpp
+)
+
 set(SOURCES
     anytest.cpp
     base64test.cpp
@@ -11,6 +15,7 @@ set(SOURCES
     codectestjson.cpp
     codectestmsgpack.cpp
     payloadtest.cpp
+    tokentrieoptionalvaluetest.cpp
     transporttest.cpp
     uritest.cpp
     varianttestassign.cpp
@@ -32,7 +37,7 @@ set(SOURCES
     main.cpp
 )
 
-add_executable(cppwamp-test ${SOURCES})
+add_executable(cppwamp-test ${SOURCES} ${HEADERS})
 
 # Use header-only version of CppWAMP to facilitate debugging tests.
 target_link_libraries(cppwamp-test

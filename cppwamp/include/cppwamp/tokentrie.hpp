@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -801,7 +801,7 @@ template <typename K, typename T>
 typename TokenTrie<K,T>::size_type TokenTrie<K,T>::erase(const key_type& key)
 {
     auto cursor = impl_.locate(key);
-    bool found = cursor;
+    bool found = cursor.good();
     if (found)
         impl_.erase(cursor);
     return found ? 1 : 0;

@@ -9,6 +9,7 @@
 #include <utility>
 #include <catch2/catch.hpp>
 #include <cppwamp/internal/surrogateany.hpp>
+#include "valuemodels.hpp"
 
 using namespace wamp;
 using namespace wamp::internal;
@@ -94,85 +95,8 @@ void checkBadSurrogateAnyCast(X value)
 }
 
 //------------------------------------------------------------------------------
-struct Small
-{
-    Small(int n = 0) : value(n), valueConstructed(true) {}
-
-    Small(const Small& rhs) : value(rhs.value), copyConstructed(true) {}
-
-    Small(Small&& rhs) noexcept
-        : value(rhs.value), moveConstructed(true)
-    {
-        rhs.movedFrom = true;
-    }
-
-    Small& operator=(const Small& rhs)
-    {
-        value = rhs.value;
-        copyAssigned = true;
-        return *this;
-    }
-
-    Small& operator=(Small&& rhs) noexcept
-    {
-        value = rhs.value;
-        moveAssigned = true;
-        rhs.movedFrom = true;
-        return *this;
-    }
-
-    bool operator==(const Small& rhs) const {return value == rhs.value;}
-
-    int value = 0;
-    bool valueConstructed = false;
-    bool copyConstructed = false;
-    bool moveConstructed = false;
-    bool copyAssigned = false;
-    bool moveAssigned = false;
-    bool movedFrom = false;
-};
-
-//------------------------------------------------------------------------------
-struct Large
-{
-    Large(char n = 0) : valueConstructed(true)
-    {
-        std::iota(array.begin(), array.end(), n);
-    }
-
-    Large(const Large& rhs) : array(rhs.array), copyConstructed(true) {}
-
-    Large(Large&& rhs) noexcept
-        : array(rhs.array), moveConstructed(true)
-    {
-        rhs.movedFrom = true;
-    }
-
-    Large& operator=(const Large& rhs)
-    {
-        array = rhs.array;
-        copyAssigned = true;
-        return *this;
-    }
-
-    Large& operator=(Large&& rhs) noexcept
-    {
-        array = rhs.array;
-        moveAssigned = true;
-        rhs.movedFrom = true;
-        return *this;
-    }
-
-    bool operator==(const Large& rhs) const {return array == rhs.array;}
-
-    std::array<char, 2*sizeof(SurrogateAny)> array;
-    bool valueConstructed = false;
-    bool copyConstructed = false;
-    bool moveConstructed = false;
-    bool copyAssigned = false;
-    bool moveAssigned = false;
-    bool movedFrom = false;
-};
+using Small = wamp::test::SmallValue;
+using Large = wamp::test::LargeValue<2*sizeof(SurrogateAny)>;
 
 } // anonymous namespace
 
@@ -359,7 +283,7 @@ TEST_CASE( "SurrogateAny Copy and Move Construction", "[SurrogateAny]" )
     SECTION( "copy large rhs" )
     {
         Large x;
-        SurrogateAny rhs(in_place_type_t<Large>{}, x.array.front());
+        SurrogateAny rhs(in_place_type_t<Large>{}, x.value);
         SurrogateAny lhs(rhs);
         checkSurrogateAnyValue(lhs, x, false, "lhs");
         checkSurrogateAnyValue(rhs, x, false, "rhs");
@@ -388,7 +312,7 @@ TEST_CASE( "SurrogateAny Copy and Move Construction", "[SurrogateAny]" )
     SECTION( "move large rhs" )
     {
         Large x;
-        SurrogateAny rhs(in_place_type_t<Large>{}, x.array.front());
+        SurrogateAny rhs(in_place_type_t<Large>{}, x.value);
         SurrogateAny lhs(std::move(rhs));
         checkSurrogateAnyValue(lhs, x, false);
         checkSurrogateAnyIsEmpty(rhs);
@@ -402,8 +326,10 @@ TEST_CASE( "SurrogateAny Copy and Move Construction", "[SurrogateAny]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
 {
-    Small small(42);
-    Large large;
+    Small small(24);
+    Large large(42);
+    Small originalSmall(24);
+    Large originalLarge(42);
 
     SECTION( "empty lhs" )
     {
@@ -418,7 +344,7 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
         SECTION( "copy small rhs" )
         {
             lhs = small;
-            checkSurrogateAnyValue(lhs, small, true);
+            checkSurrogateAnyValue(lhs, originalSmall, true);
             CHECK_FALSE( small.movedFrom );
 
             // Underlying value move-constructed from temporary AnySurrogate
@@ -428,7 +354,7 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
         SECTION( "copy large rhs" )
         {
             lhs = large;
-            checkSurrogateAnyValue(lhs, large, false);
+            checkSurrogateAnyValue(lhs, originalLarge, false);
             CHECK_FALSE( large.movedFrom );
 
             // box_ pointer directly assigned from temporary AnySurrogate
@@ -439,7 +365,7 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
         SECTION( "move small rhs" )
         {
             lhs = std::move(small);
-            checkSurrogateAnyValue(lhs, small, true);
+            checkSurrogateAnyValue(lhs, originalSmall, true);
             CHECK( small.movedFrom );
 
             // Underlying value move-constructed from temporary AnySurrogate
@@ -449,7 +375,7 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
         SECTION( "move large rhs" )
         {
             lhs = std::move(large);
-            checkSurrogateAnyValue(lhs, large, false);
+            checkSurrogateAnyValue(lhs, originalLarge, false);
             CHECK( large.movedFrom );
 
             // box_ pointer directly assigned from temporary AnySurrogate
@@ -471,7 +397,7 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
         SECTION( "copy small rhs" )
         {
             lhs = small;
-            checkSurrogateAnyValue(lhs, small, true);
+            checkSurrogateAnyValue(lhs, originalSmall, true);
             CHECK_FALSE( small.movedFrom );
 
             // Underlying value move-constructed from temporary AnySurrogate
@@ -481,7 +407,7 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
         SECTION( "copy large rhs" )
         {
             lhs = large;
-            checkSurrogateAnyValue(lhs, large, false);
+            checkSurrogateAnyValue(lhs, originalLarge, false);
             CHECK_FALSE( large.movedFrom );
 
             // box_ pointer directly assigned from temporary AnySurrogate
@@ -492,7 +418,7 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
         SECTION( "move small rhs" )
         {
             lhs = std::move(small);
-            checkSurrogateAnyValue(lhs, small, true);
+            checkSurrogateAnyValue(lhs, originalSmall, true);
             CHECK( small.movedFrom );
 
             // Underlying value move-constructed from temporary AnySurrogate
@@ -502,7 +428,7 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
         SECTION( "move large rhs" )
         {
             lhs = std::move(large);
-            checkSurrogateAnyValue(lhs, large, false);
+            checkSurrogateAnyValue(lhs, originalLarge, false);
             CHECK( large.movedFrom );
 
             // box_ pointer directly assigned from temporary AnySurrogate
@@ -524,7 +450,7 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
         SECTION( "copy small rhs" )
         {
             lhs = small;
-            checkSurrogateAnyValue(lhs, small, true);
+            checkSurrogateAnyValue(lhs, originalSmall, true);
             CHECK_FALSE( small.movedFrom );
 
             // Underlying value move-constructed from temporary AnySurrogate
@@ -534,7 +460,7 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
         SECTION( "copy large rhs" )
         {
             lhs = large;
-            checkSurrogateAnyValue(lhs, large, false);
+            checkSurrogateAnyValue(lhs, originalLarge, false);
             CHECK_FALSE( large.movedFrom );
 
             // box_ pointer directly assigned from temporary AnySurrogate
@@ -545,7 +471,7 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
         SECTION( "move small rhs" )
         {
             lhs = std::move(small);
-            checkSurrogateAnyValue(lhs, small, true);
+            checkSurrogateAnyValue(lhs, originalSmall, true);
             CHECK( small.movedFrom );
 
             // Underlying value move-constructed from temporary AnySurrogate
@@ -555,7 +481,7 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
         SECTION( "move large rhs" )
         {
             lhs = std::move(large);
-            checkSurrogateAnyValue(lhs, large, false);
+            checkSurrogateAnyValue(lhs, originalLarge, false);
             CHECK( large.movedFrom );
 
             // box_ pointer directly assigned from temporary AnySurrogate
@@ -568,8 +494,10 @@ TEST_CASE( "SurrogateAny Assignment and Reset", "[SurrogateAny]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
 {
-    Small small(42);
-    Large large;
+    Small small(24);
+    Large large(42);
+    Small originalSmall(24);
+    Large originalLarge(42);
 
     SECTION( "empty lhs" )
     {
@@ -587,8 +515,8 @@ TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
         {
             SurrogateAny rhs(small);
             lhs = rhs;
-            checkSurrogateAnyValue(lhs, small, true);
-            checkSurrogateAnyValue(rhs, small, true);
+            checkSurrogateAnyValue(lhs, originalSmall, true);
+            checkSurrogateAnyValue(rhs, originalSmall, true);
             CHECK_FALSE( anyCast<const Small&>(rhs).movedFrom );
 
             // Underlying value move-constructed from temporary AnySurrogate
@@ -599,8 +527,8 @@ TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
         {
             SurrogateAny rhs(large);
             lhs = rhs;
-            checkSurrogateAnyValue(lhs, large, false);
-            checkSurrogateAnyValue(rhs, large, false);
+            checkSurrogateAnyValue(lhs, originalLarge, false);
+            checkSurrogateAnyValue(rhs, originalLarge, false);
             CHECK_FALSE( anyCast<const Large&>(rhs).movedFrom );
 
             // box_ pointer directly assigned from temporary AnySurrogate
@@ -620,7 +548,7 @@ TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
         {
             SurrogateAny rhs(small);
             lhs = std::move(rhs);
-            checkSurrogateAnyValue(lhs, small, true);
+            checkSurrogateAnyValue(lhs, originalSmall, true);
             checkSurrogateAnyIsEmpty(rhs, "rhs");
 
             // Underlying value move-constructed from rhs
@@ -631,7 +559,7 @@ TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
         {
             SurrogateAny rhs(large);
             lhs = std::move(rhs);
-            checkSurrogateAnyValue(lhs, large, false);
+            checkSurrogateAnyValue(lhs, originalLarge, false);
             checkSurrogateAnyIsEmpty(rhs, "rhs");
 
             // box_ pointer directly assigned from rhs that copy-constructed
@@ -656,8 +584,8 @@ TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
         {
             SurrogateAny rhs(small);
             lhs = rhs;
-            checkSurrogateAnyValue(lhs, small, true, "lhs");
-            checkSurrogateAnyValue(rhs, small, true, "rhs");
+            checkSurrogateAnyValue(lhs, originalSmall, true, "lhs");
+            checkSurrogateAnyValue(rhs, originalSmall, true, "rhs");
             CHECK_FALSE( anyCast<const Small&>(rhs).movedFrom );
 
             // Underlying value move-constructed from temporary AnySurrogate
@@ -668,8 +596,8 @@ TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
         {
             SurrogateAny rhs(large);
             lhs = rhs;
-            checkSurrogateAnyValue(lhs, large, false, "lhs");
-            checkSurrogateAnyValue(rhs, large, false, "rhs");
+            checkSurrogateAnyValue(lhs, originalLarge, false, "lhs");
+            checkSurrogateAnyValue(rhs, originalLarge, false, "rhs");
             CHECK_FALSE( anyCast<const Large&>(rhs).movedFrom );
 
             // box_ pointer directly assigned from temporary AnySurrogate
@@ -689,7 +617,7 @@ TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
         {
             SurrogateAny rhs(small);
             lhs = std::move(rhs);
-            checkSurrogateAnyValue(lhs, small, true);
+            checkSurrogateAnyValue(lhs, originalSmall, true);
             checkSurrogateAnyIsEmpty(rhs);
 
             // Underlying value move-constructed from rhs
@@ -700,7 +628,7 @@ TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
         {
             SurrogateAny rhs(large);
             lhs = std::move(rhs);
-            checkSurrogateAnyValue(lhs, large, false);
+            checkSurrogateAnyValue(lhs, originalLarge, false);
             checkSurrogateAnyIsEmpty(rhs);
 
             // box_ pointer directly assigned from rhs that copy-constructed
@@ -725,8 +653,8 @@ TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
         {
             SurrogateAny rhs(small);
             lhs = rhs;
-            checkSurrogateAnyValue(lhs, small, true, "lhs");
-            checkSurrogateAnyValue(rhs, small, true, "rhs");
+            checkSurrogateAnyValue(lhs, originalSmall, true, "lhs");
+            checkSurrogateAnyValue(rhs, originalSmall, true, "rhs");
             CHECK_FALSE( anyCast<const Small&>(rhs).movedFrom );
 
             // Underlying value move-constructed from temporary AnySurrogate
@@ -737,8 +665,8 @@ TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
         {
             SurrogateAny rhs(large);
             lhs = rhs;
-            checkSurrogateAnyValue(lhs, large, false, "lhs");
-            checkSurrogateAnyValue(rhs, large, false, "rhs");
+            checkSurrogateAnyValue(lhs, originalLarge, false, "lhs");
+            checkSurrogateAnyValue(rhs, originalLarge, false, "rhs");
             CHECK_FALSE( anyCast<const Large&>(rhs).movedFrom );
 
             // box_ pointer directly assigned from temporary AnySurrogate
@@ -758,7 +686,7 @@ TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
         {
             SurrogateAny rhs(small);
             lhs = std::move(rhs);
-            checkSurrogateAnyValue(lhs, small, true);
+            checkSurrogateAnyValue(lhs, originalSmall, true);
             checkSurrogateAnyIsEmpty(rhs);
 
             // Underlying value move-constructed from rhs
@@ -769,7 +697,7 @@ TEST_CASE( "SurrogateAny Copy and Move Assignment", "[SurrogateAny]" )
         {
             SurrogateAny rhs(large);
             lhs = std::move(rhs);
-            checkSurrogateAnyValue(lhs, large, false);
+            checkSurrogateAnyValue(lhs, originalLarge, false);
             checkSurrogateAnyIsEmpty(rhs);
 
             // box_ pointer directly assigned from rhs that copy-constructed
@@ -960,7 +888,7 @@ TEST_CASE( "Good SurrogateAny Casts", "[SurrogateAny]" )
         CHECK( anyCast<const Small&>(s).movedFrom );
         x.value = 24;
         CHECK( x.value == 24 );
-        CHECK( anyCast<const Small&>(s) == 42 );
+        CHECK( anyCast<const Small&>(s) == 0 );
     }
 }
 
