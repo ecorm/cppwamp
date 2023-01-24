@@ -340,7 +340,7 @@ public:
     value_type& value()
         {assert(!at_end_of_level()); return *(child_->second.value());}
 
-    void advance_to_next_terminal()
+    void advance_to_next_value()
     {
         while (!parent_->is_sentinel())
         {
@@ -364,14 +364,14 @@ public:
     {
         findBound(key);
         if (!has_value())
-            advance_to_next_terminal();
+            advance_to_next_value();
     }
 
     void upper_bound(const key_type& key)
     {
         bool foundExact = findBound(key);
         if (!has_value() || foundExact)
-            advance_to_next_terminal();
+            advance_to_next_value();
     }
 
     static std::pair<TokenTrieCursor, TokenTrieCursor>
@@ -381,11 +381,11 @@ public:
         bool foundExact = lower.findBound(key);
         bool nudged = !lower.has_value();
         if (nudged)
-            lower.advance_to_next_terminal();
+            lower.advance_to_next_value();
 
         TokenTrieCursor upper{lower};
         if (!nudged && foundExact)
-            upper.advance_to_next_terminal();
+            upper.advance_to_next_value();
         return {lower, upper};
     }
 
@@ -486,144 +486,10 @@ private:
         }
     }
 
-    void advanceToFirstTerminal()
+    void advanceToFirstValue()
     {
         if (!at_end_of_level() && !child()->value().has_value())
-            advance_to_next_terminal();
-    }
-
-    template <typename... Us>
-    bool put(bool clobber, key_type key, Us&&... args)
-    {
-        // To avoid dangling link nodes in the event of an exception,
-        // build a sub-chain first with the new node, than attach it to the
-        // existing tree using move semantics.
-
-        assert(!key.empty());
-        const auto tokenCount = key.size();
-
-        // Find existing node from which to possibly attach a sub-chain with
-        // the new node.
-        size_type level = 0;
-        for (; level < tokenCount; ++level)
-        {
-            const auto& token = key[level];
-            child_ = parent_->children_.find(token);
-            if (child_ == parent_->children_.end())
-                break;
-            parent_ = &(child_->second);
-        }
-
-        // Check if node already exists at the destination level
-        // in the existing tree.
-        if (level == tokenCount)
-        {
-            bool placed = false;
-            auto& child = child_->second;
-            parent_ = child.parent_;
-            placed = !has_value();
-            if (placed || clobber)
-                child.value_ = value_type(std::forward<Us>(args)...);
-            return placed;
-        }
-
-        // Check if only a single terminal node needs to be added
-        assert(level < tokenCount);
-        if (tokenCount - level == 1)
-        {
-            child_ = addTerminal(parent_, key[level],
-                                 std::forward<Us>(args)...);
-            child_->second.position_ = child_;
-            child_->second.parent_ = parent_;
-            return true;
-        }
-
-        // Build and attach the sub-chain containing the new node.
-        node_type chain;
-        auto token = std::move(key[level]);
-        buildChain(&chain, std::move(key), level, std::forward<Us>(args)...);
-        child_ = addChain(std::move(token), std::move(chain));
-        parent_ = child_->second.parent_;
-        return true;
-    }
-
-    template <typename... Us>
-    TreeIterator addTerminal(node_type* node, token_type label, Us&&... args)
-    {
-        auto result = node->children_.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(in_place, std::forward<Us>(args)...));
-        assert(result.second);
-        return result.first;
-    }
-
-    template <typename... Us>
-    void buildChain(node_type* node, key_type&& key, size_type level, Us&&... args)
-    {
-        const auto tokenCount = key.size();
-        ++level;
-
-        // Add intermediary link nodes
-        for (; level < tokenCount - 1; ++level)
-        {
-            auto iter = buildLink(*node, std::move(key[level]));
-            node = &(iter->second);
-        }
-
-        // Add terminal node
-        assert(level < key.size());
-        addTerminal(node, std::move(key[level]), std::forward<Us>(args)...);
-    }
-
-    template <typename... Us>
-    TreeIterator buildLink(node_type& node, token_type label)
-    {
-        auto result = node.children_.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple());
-        assert(result.second);
-        return result.first;
-    }
-
-    TreeIterator addChain(token_type&& label, node_type&& chain)
-    {
-        auto result = parent_->children_.emplace(std::move(label),
-                                                 std::move(chain));
-        assert(result.second);
-
-        // Traverse down the emplaced chain and set the parent/position
-        // fields to their proper values. Better to do this after emplacing
-        // the chain to avoid invalid pointers/iterators.
-        auto iter = result.first;
-        auto node = parent_;
-        while (!node->is_leaf())
-        {
-            node_type& child = iter->second;
-            child.position_ = iter;
-            child.parent_ = node;
-            node = &child;
-            iter = child.children_.begin();
-        }
-        return node->position_;
-    }
-
-    void eraseFromHere()
-    {
-        child_->second.value_.reset();
-
-        if (child()->is_leaf())
-        {
-            // Erase the terminal node, then all obsolete links up the chain
-            // until we hit another terminal node or the sentinel.
-            while (!has_value() && !at_end())
-            {
-                parent_->children_.erase(child_);
-                child_ = parent_->position_;
-                parent_ = parent_->parent_;
-            }
-        }
+            advance_to_next_value();
     }
 
     void advanceDepthFirst()
@@ -802,7 +668,7 @@ private:
     node_type* parent_ = nullptr;
     TreeIterator child_ = {};
 
-    template <typename, typename> friend class internal::TokenTrieImpl;
+    template <typename, typename, typename> friend class internal::TokenTrieImpl;
 };
 
 } // namespace wamp

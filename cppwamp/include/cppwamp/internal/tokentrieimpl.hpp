@@ -36,18 +36,12 @@ template <typename K, typename T, typename P>
 class CPPWAMP_HIDDEN TokenTrieImpl
 {
 public:
-    using key_type = K;
-
-    using mapped_type = T;
-
-    using policy_type = P;
-
-    using value_storage = typename P::value_storage;
-
-    using Node = TokenTrieNode<key_type, value_storage>;
-
-    using size_type = typename Node::tree_type::size_type;
-
+    using Key = K;
+    using Value = T;
+    using Policy = P;
+    using ValueStorage = typename P::value_storage;
+    using Node = TokenTrieNode<Key, ValueStorage>;
+    using Size = typename Node::tree_type::size_type;
     using Cursor = TokenTrieCursor<Node>;
 
     TokenTrieImpl() {}
@@ -97,18 +91,18 @@ public:
         return Cursor::begin(const_cast<Node&>(*root_));
     }
 
-    Cursor firstTerminalCursor()
+    Cursor firstValueCursor()
     {
         if (empty())
             return sentinelCursor();
         auto cursor = rootCursor();
-        cursor.advanceToFirstTerminal();
+        cursor.advanceToFirstValue();
         return cursor;
     }
 
-    Cursor firstTerminalCursor() const
+    Cursor firstValueCursor() const
     {
-        return const_cast<TokenTrieImpl&>(*this).firstTerminalCursor();
+        return const_cast<TokenTrieImpl&>(*this).firstValueCursor();
     }
 
     Cursor sentinelCursor()
@@ -121,7 +115,7 @@ public:
         return Cursor::end(const_cast<Node&>(sentinel_));
     }
 
-    Cursor locate(const key_type& key)
+    Cursor locate(const Key& key)
     {
         if (empty() || key.empty())
             return sentinelCursor();
@@ -130,12 +124,12 @@ public:
         return cursor;
     }
 
-    Cursor locate(const key_type& key) const
+    Cursor locate(const Key& key) const
     {
         return const_cast<TokenTrieImpl&>(*this).locate(key);
     }
 
-    Cursor lowerBound(const key_type& key) const
+    Cursor lowerBound(const Key& key) const
     {
         if (empty() || key.empty())
             return sentinelCursor();
@@ -144,7 +138,7 @@ public:
         return cursor;
     }
 
-    Cursor upperBound(const key_type& key) const
+    Cursor upperBound(const Key& key) const
     {
         if (empty() || key.empty())
             return sentinelCursor();
@@ -153,16 +147,16 @@ public:
         return cursor;
     }
 
-    std::pair<Cursor, Cursor> equalRange(const key_type& key) const
+    std::pair<Cursor, Cursor> equalRange(const Key& key) const
     {
         if (empty() || key.empty())
             return {sentinelCursor(), sentinelCursor()};
         return Cursor::equal_range(*root_, key);
     }
 
-    size_type empty() const noexcept {return size_ == 0;}
+    Size empty() const noexcept {return size_ == 0;}
 
-    size_type size() const noexcept {return size_;}
+    Size size() const noexcept {return size_;}
 
     void clear() noexcept
     {
@@ -172,7 +166,7 @@ public:
     }
 
     template <typename... Us>
-    std::pair<Cursor, bool> put(bool clobber, key_type key, Us&&... args)
+    std::pair<Cursor, bool> put(bool clobber, Key key, Us&&... args)
     {
         if (key.empty())
             return {sentinelCursor(), false};
@@ -183,20 +177,32 @@ public:
             root_->parent_ = &sentinel_;
         }
 
-        auto cursor = rootCursor();
-        bool placed = bool(cursor.put(clobber, std::move(key),
-                                      std::forward<Us>(args)...));
-        if (placed)
+        auto result = upsert(clobber, std::move(key),
+                             std::forward<Us>(args)...);
+        if (result.second)
             ++size_;
-        return {cursor, placed};
+        return result;
     }
 
     Cursor erase(Cursor pos)
     {
         auto cursor = pos;
         assert(bool(cursor));
-        pos.advance_to_next_terminal();
-        cursor.eraseFromHere();
+        pos.advance_to_next_value();
+
+        cursor.child_->second.value_.reset();
+        if (cursor.child()->is_leaf())
+        {
+            // Erase the value node, then all obsolete links up the chain
+            // until we hit another value node or the sentinel.
+            while (!cursor.has_value() && !cursor.at_end())
+            {
+                cursor.parent_->children_.erase(cursor.child_);
+                cursor.child_ = cursor.parent_->position_;
+                cursor.parent_ = cursor.parent_->parent_;
+            }
+        }
+
         --size_;
         return pos;
     }
@@ -250,6 +256,10 @@ public:
     }
 
 private:
+    using Tree = typename Node::tree_type;
+    using TreeIterator = typename Tree::iterator;
+    using Token = typename Node::token_type;
+
     void moveFrom(TokenTrieImpl& rhs) noexcept
     {
         root_.swap(rhs.root_);
@@ -293,9 +303,128 @@ private:
         }
     }
 
+    template <typename... Us>
+    std::pair<Cursor, bool> upsert(bool clobber, Key key, Us&&... args)
+    {
+        // To avoid dangling link nodes in the event of an exception,
+        // build a sub-chain first with the new node, than attach it to the
+        // existing tree using move semantics.
+
+        assert(!key.empty());
+        assert(root_ != nullptr);
+
+        const auto tokenCount = key.size();
+        auto parent = root_.get();
+        auto child = root_->children_.begin();
+
+        // Find existing node from which to possibly attach a sub-chain with
+        // the new node.
+        Size level = 0;
+        for (; level < tokenCount; ++level)
+        {
+            const auto& token = key[level];
+            child = parent->children_.find(token);
+            if (child == parent->children_.end())
+                break;
+            parent = &(child->second);
+        }
+
+        // Check if node already exists at the destination level
+        // in the existing tree.
+        if (level == tokenCount)
+        {
+            bool placed = false;
+            auto& node = child->second;
+            parent = node.parent_;
+            placed = !node.value().has_value();
+            if (placed || clobber)
+                node.value_.emplace(std::forward<Us>(args)...);
+            return {{*parent, child}, placed};
+        }
+
+        // Check if only a single value node needs to be added
+        assert(level < tokenCount);
+        if (tokenCount - level == 1)
+        {
+            child = addValueNode(parent, key[level], std::forward<Us>(args)...);
+            child->second.position_ = child;
+            child->second.parent_ = parent;
+            return {{*parent, child}, true};
+        }
+
+        // Build and attach the sub-chain containing the new node.
+        Node chain;
+        auto token = std::move(key[level]);
+        buildChain(&chain, std::move(key), level, std::forward<Us>(args)...);
+        child = addChain(parent, std::move(token), std::move(chain));
+        parent = child->second.parent_;
+        return {{*parent, child}, true};
+    }
+
+    template <typename... Us>
+    static TreeIterator addValueNode(Node* node, Token label, Us&&... args)
+    {
+        auto result = node->children_.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(std::move(label)),
+            std::forward_as_tuple(in_place, std::forward<Us>(args)...));
+        assert(result.second);
+        return result.first;
+    }
+
+    template <typename... Us>
+    static void buildChain(Node* node, Key&& key, Size level, Us&&... args)
+    {
+        const auto tokenCount = key.size();
+        ++level;
+
+        // Add intermediary link nodes
+        for (; level < tokenCount - 1; ++level)
+        {
+            auto iter = buildLink(*node, std::move(key[level]));
+            node = &(iter->second);
+        }
+
+        // Add value node
+        assert(level < key.size());
+        addValueNode(node, std::move(key[level]), std::forward<Us>(args)...);
+    }
+
+    template <typename... Us>
+    static TreeIterator buildLink(Node& node, Token label)
+    {
+        auto result = node.children_.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(std::move(label)),
+            std::forward_as_tuple());
+        assert(result.second);
+        return result.first;
+    }
+
+    static TreeIterator addChain(Node* parent, Token&& label, Node&& chain)
+    {
+        auto result = parent->children_.emplace(std::move(label),
+                                                std::move(chain));
+        assert(result.second);
+
+        // Traverse down the emplaced chain and set the parent/position
+        // fields to their proper values. Better to do this after emplacing
+        // the chain to avoid invalid pointers/iterators.
+        auto iter = result.first;
+        while (!parent->is_leaf())
+        {
+            Node& child = iter->second;
+            child.position_ = iter;
+            child.parent_ = parent;
+            parent = &child;
+            iter = child.children_.begin();
+        }
+        return parent->position_;
+    }
+
     Node sentinel_;
     std::unique_ptr<Node> root_;
-    size_type size_ = 0;
+    Size size_ = 0;
 };
 
 } // namespace internal

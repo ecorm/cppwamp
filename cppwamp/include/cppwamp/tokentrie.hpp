@@ -279,7 +279,7 @@ public:
 
     /** Prefix increment, advances to the next key in lexigraphic order. */
     TokenTrieIterator& operator++()
-        {cursor_.advance_to_next_terminal(); return *this;}
+        {cursor_.advance_to_next_value(); return *this;}
 
     /** Postfix increment, advances to the next key in lexigraphic order. */
     TokenTrieIterator operator++(int)
@@ -585,13 +585,13 @@ public:
     /// @{
 
     /** Obtains an iterator to the beginning. */
-    iterator begin() noexcept {return impl_.firstTerminalCursor();}
+    iterator begin() noexcept {return impl_.firstValueCursor();}
 
     /** Obtains an iterator to the beginning. */
     const_iterator begin() const noexcept {return cbegin();}
 
     /** Obtains an iterator to the beginning. */
-    const_iterator cbegin() const noexcept {return impl_.firstTerminalCursor();}
+    const_iterator cbegin() const noexcept {return impl_.firstValueCursor();}
 
     /** Obtains an iterator to the end. */
     iterator end() noexcept {return impl_.sentinelCursor();}
