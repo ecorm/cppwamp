@@ -73,14 +73,14 @@ public:
     using difference_type = std::ptrdiff_t;
 
     /// Type of the split token key container associated with this iterator.
-    using key_type = typename N::Key;
+    using key_type = typename N::key_type;
 
     /// Type of token associated with this iterator.
     using token_type = typename key_type::value_type;
 
     /** Type of the mapped value associated with this iterator.
         @note It differs from std::map in that it's not a key-value pair. */
-    using value_type = typename N::Value;
+    using value_type = typename N::value_type;
 
     /// Pointer to the mapped value type being iterated over.
     using pointer = typename std::conditional<IsMutable, value_type*,
@@ -90,7 +90,8 @@ public:
     using reference = typename std::conditional<IsMutable, value_type&,
                                                 const value_type&>::type;
 
-    using Cursor = TokenTrieCursor<N>;
+    /// Type of the underlying cursor used to traverse nodes. */
+    using cursor_type = TokenTrieCursor<N>;
 
     /** Default constructor. */
     TokenTrieMatchIterator() {}
@@ -120,7 +121,7 @@ public:
     const value_type& value() const {return cursor_.value();}
 
     /** Obtains a copy of the cursor associated with the current element. */
-    Cursor cursor() const {return cursor_;}
+    cursor_type cursor() const {return cursor_;}
 
     /** Accesses the value associated with the current element. */
     reference operator*() {return value();}
@@ -137,7 +138,7 @@ public:
     /** Prefix increment, advances to the next matching key
         in lexigraphic order. */
     TokenTrieMatchIterator& operator++()
-        {cursor_.matchNext(key_, level_); return *this;}
+        {cursor_.match_next(key_, level_); return *this;}
 
     /** Postfix increment, advances to the next matching key
         in lexigraphic order. */
@@ -145,20 +146,20 @@ public:
         {auto temp = *this; ++(*this); return temp;}
 
 private:
-    using Node = typename Cursor::Node;
+    using Node = typename cursor_type::node_type;
     using Access = internal::TokenTrieIteratorAccess;
     using Level = typename key_type::size_type;
 
-    TokenTrieMatchIterator(Cursor endCursor) : cursor_(endCursor) {}
+    TokenTrieMatchIterator(cursor_type endCursor) : cursor_(endCursor) {}
 
-    TokenTrieMatchIterator(Cursor beginCursor, key_type tokens_)
+    TokenTrieMatchIterator(cursor_type beginCursor, key_type tokens_)
         : key_(std::move(tokens_)), cursor_(beginCursor)
     {
-        level_ = cursor_.matchFirst(key_);
+        level_ = cursor_.match_first(key_);
     }
 
     key_type key_;
-    Cursor cursor_;
+    cursor_type cursor_;
     Level level_ = 0;
 
     template <typename, typename, typename, typename, typename>
@@ -206,14 +207,14 @@ public:
     using difference_type = std::ptrdiff_t;
 
     /// Type of the split token key container associated with this iterator.
-    using key_type = typename N::Key;
+    using key_type = typename N::key_type;
 
     /// Type of token associated with this iterator.
-    using token_type = typename key_type::value_type;
+    using token_type = typename N::token_type;
 
     /** Type of the mapped value associated with this iterator.
         @note It differs from std::map in that it's not a key-value pair. */
-    using value_type = typename N::Value;
+    using value_type = typename N::value_type;
 
     /// Pointer to the mapped value type being iterated over.
     using pointer = typename std::conditional<IsMutable, value_type*,
@@ -278,7 +279,7 @@ public:
 
     /** Prefix increment, advances to the next key in lexigraphic order. */
     TokenTrieIterator& operator++()
-        {cursor_.advanceToNextTerminal(); return *this;}
+        {cursor_.advance_to_next_terminal(); return *this;}
 
     /** Postfix increment, advances to the next key in lexigraphic order. */
     TokenTrieIterator operator++(int)
@@ -286,7 +287,7 @@ public:
 
 private:
     using Access = internal::TokenTrieIteratorAccess;
-    using Node = typename Cursor::Node;
+    using Node = typename Cursor::node_type;
 
     TokenTrieIterator(Cursor cursor) : cursor_(cursor) {}
 
@@ -407,7 +408,7 @@ class CPPWAMP_API TokenTrie
 {
 private:
     using Node = TokenTrieNode<K, typename P::value_storage>;
-    using NodeAllocatorTraits = std::allocator_traits<typename Node::Allocator>;
+    using NodeAllocatorTraits = std::allocator_traits<typename Node::allocator_type>;
 
     template <typename KV>
     static constexpr bool isInsertable()
@@ -440,7 +441,7 @@ public:
     using cursor_node_type = Node;
 
     /** Type used to count the number of elements in the container. */
-    using size_type = typename Node::Size;
+    using size_type = typename Node::tree_type::size_type;
 
     /// Type used to identify distance between iterators.
     using difference_type = std::ptrdiff_t;

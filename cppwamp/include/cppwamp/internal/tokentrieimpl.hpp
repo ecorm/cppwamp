@@ -46,7 +46,7 @@ public:
 
     using Node = TokenTrieNode<key_type, value_storage>;
 
-    using size_type = typename TokenTrieNode<key_type, value_storage>::Size;
+    using size_type = typename Node::tree_type::size_type;
 
     using Cursor = TokenTrieCursor<Node>;
 
@@ -140,7 +140,7 @@ public:
         if (empty() || key.empty())
             return sentinelCursor();
         auto cursor = rootCursor();
-        cursor.findLowerBound(key);
+        cursor.lower_bound(key);
         return cursor;
     }
 
@@ -149,7 +149,7 @@ public:
         if (empty() || key.empty())
             return sentinelCursor();
         auto cursor = rootCursor();
-        cursor.findUpperBound(key);
+        cursor.upper_bound(key);
         return cursor;
     }
 
@@ -157,7 +157,7 @@ public:
     {
         if (empty() || key.empty())
             return {sentinelCursor(), sentinelCursor()};
-        return Cursor::findEqualRange(*root_, key);
+        return Cursor::equal_range(*root_, key);
     }
 
     size_type empty() const noexcept {return size_ == 0;}
@@ -195,7 +195,7 @@ public:
     {
         auto cursor = pos;
         assert(bool(cursor));
-        pos.advanceToNextTerminal();
+        pos.advance_to_next_terminal();
         cursor.eraseFromHere();
         --size_;
         return pos;
@@ -219,14 +219,14 @@ public:
 
         auto curA = rootCursor();
         auto curB = rhs.rootCursor();
-        while (!curA.atEnd())
+        while (!curA.at_end())
         {
             if (curA != curB)
                 return false;
-            curA.advanceToNextNode();
-            curB.advanceToNextNode();
+            curA.advance_to_next_node();
+            curB.advance_to_next_node();
         }
-        return curB.atEnd();
+        return curB.at_end();
     }
 
     template <typename TOther>
@@ -237,16 +237,16 @@ public:
 
         auto curA = rootCursor();
         auto curB = rhs.rootCursor();
-        while (!curA.atEnd())
+        while (!curA.at_end())
         {
-            if (curB.atEnd())
+            if (curB.at_end())
                 return true;
             if (curA != curB)
                 return true;
-            curA.advanceToNextNode();
-            curB.advanceToNextNode();
+            curA.advance_to_next_node();
+            curB.advance_to_next_node();
         }
-        return !curB.atEnd();
+        return !curB.at_end();
     }
 
 private:
@@ -264,7 +264,7 @@ private:
         root_->position_ = root_->children_.end();
         Node* parent = root_.get();
         auto iter = root_->children_.begin();
-        while (!parent->isRoot())
+        while (!parent->is_root())
         {
             if (iter != parent->children_.end())
             {
@@ -272,7 +272,7 @@ private:
                 node.position_ = iter;
                 node.parent_ = parent;
 
-                if (!node.isLeaf())
+                if (!node.is_leaf())
                 {
                     auto& child = iter->second;
                     parent = &child;
@@ -287,7 +287,7 @@ private:
             {
                 iter = parent->position_;
                 parent = parent->parent_;
-                if (!parent->isRoot())
+                if (!parent->is_root())
                     ++iter;
             }
         }
