@@ -11,7 +11,6 @@
 #include <cassert>
 #include <initializer_list>
 #include <map>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -307,13 +306,21 @@ public:
     using node_type = N;
     using key_type = typename N::key_type;
     using token_type = typename N::token_type;
-    using size_type = typename key_type::size_type;
+    using level_type = typename key_type::size_type;
     using optional_value = typename N::optional_value;
     using value_type = typename N::value_type;
     using reference = typename std::conditional<IsMutable, optional_value&,
                                                 const optional_value&>::type;
     using node_pointer = typename std::conditional<IsMutable, node_type*,
                                                    const node_type*>::type;
+    using const_iterator = typename node_type::tree_type::const_iterator;
+    using iterator =
+        typename std::conditional<
+            IsMutable,
+            typename node_type::tree_type::iterator,
+            const_iterator>::type;
+
+    static constexpr bool is_mutable() {return IsMutable;}
 
     TokenTrieCursor() = default;
 
@@ -345,22 +352,22 @@ public:
     bool has_value() const
         {return !at_end_of_level() && childNode().element().has_value();}
 
-    bool equals(const TokenTrieCursor& rhs) const
+    bool token_and_value_equals(const TokenTrieCursor& rhs) const
     {
         if (!good())
             return !rhs.good();
 
         return rhs.good() && token() == rhs.token() &&
-               childNode().value() == rhs.childNode().value();
+               childNode().element() == rhs.childNode().element();
     }
 
-    bool differs(const TokenTrieCursor& rhs) const
+    bool token_or_value_differs(const TokenTrieCursor& rhs) const
     {
         if (!good())
             return rhs.good();
 
         return !rhs.good() || token() != rhs.token() ||
-               childNode().value() != rhs.childNode().value();
+               childNode().element() != rhs.childNode().element();
     }
 
     const node_type* parent() const {return parent_;}
@@ -370,6 +377,22 @@ public:
         return child_ == parentNode().children_.end() ? nullptr
                                                       : &(child_->second);
     }
+
+    iterator iter() {return child_;}
+
+    const_iterator iter() const {return child_;}
+
+    iterator begin() {return parentNode().children_.begin();}
+
+    const_iterator begin() const {return parentNode().children_.cbegin();}
+
+    const_iterator cbegin() const {return parentNode().children_.cbegin();}
+
+    iterator end() {return parentNode().children_.end();}
+
+    const_iterator end() const {return parentNode().children_.cend();}
+
+    const_iterator cend() const {return parentNode().children_.cend();}
 
     key_type key() const {return childNode().key();}
 
@@ -401,44 +424,33 @@ public:
         }
     }
 
-    size_type match_first(const key_type& key)
+    void skip_to(iterator iter) {child_ = iter;}
+
+    level_type ascend(level_type level)
     {
-        size_type level = 0;
-        if (key.empty())
+        child_ = parent_->position_;
+        parent_ = parent_->parent_;
+        if (!parent_->is_sentinel())
         {
-            child_ = parent_->children_.end();
-        }
-        else if (!isMatch(key, 0))
-        {
-            level = match_next(key, 0);
+            assert(level > 0);
+            --level;
         }
         return level;
     }
 
-    size_type match_next(const key_type& key, size_type level)
+    level_type descend(level_type level)
     {
-        while (!parent_->is_sentinel())
-        {
-            level = findNextMatchCandidate(key, level);
-            if (isMatch(key, level))
-                break;
-        }
-        return level;
+        assert(good());
+        auto& child = child_->second;
+        assert(!child.is_leaf());
+        parent_ = &child;
+        child_ = child.children_.begin();
+        return level + 1;
     }
 
 private:
-    using Tree = typename node_type::tree_type;
-    using TreeIterator =
-        typename std::conditional<IsMutable,
-                                  typename Tree::iterator,
-                                  typename Tree::const_iterator>::type;
     using NodeRef = typename std::conditional<IsMutable, node_type&,
                                               const node_type&>::type;
-
-    TokenTrieCursor(node_pointer root, TreeIterator iter)
-        : parent_(root),
-          child_(iter)
-    {}
 
     static TokenTrieCursor begin(NodeRef rootNode)
     {
@@ -448,7 +460,8 @@ private:
     static TokenTrieCursor first(NodeRef rootNode)
     {
         auto cursor = begin(rootNode);
-        cursor.advanceToFirstValue();
+        if (!cursor.at_end_of_level() && !cursor.child()->element().has_value())
+            cursor.advance_to_next_element();
         return cursor;
     }
 
@@ -456,6 +469,11 @@ private:
     {
         return TokenTrieCursor(&sentinelNode, sentinelNode.children_.end());
     }
+
+    TokenTrieCursor(node_pointer node, iterator iter)
+        : parent_(node),
+          child_(iter)
+    {}
 
     NodeRef parentNode() const
     {
@@ -467,12 +485,6 @@ private:
     {
         assert(!at_end_of_level());
         return child_->second;
-    }
-
-    void advanceToFirstValue()
-    {
-        if (!at_end_of_level() && !child()->element().has_value())
-            advance_to_next_element();
     }
 
     void advanceDepthFirst()
@@ -501,99 +513,8 @@ private:
         }
     }
 
-    bool isMatch(const key_type& key, size_type level) const
-    {
-        assert(!key.empty());
-        const size_type maxLevel = key.size() - 1;
-        if ((level != maxLevel) || (child_ == parent_->children_.end()))
-            return false;
-
-        // All nodes above the current level are matches. Only the bottom
-        // level needs to be checked.
-        assert(level < key.size());
-        return has_value() && tokenMatches(key[level]);
-    }
-
-    bool tokenMatches(const token_type& expectedToken) const
-    {
-        return child_->first.empty() || child_->first == expectedToken;
-    }
-
-    size_type findNextMatchCandidate(const key_type& key, size_type level)
-    {
-        const size_type maxLevel = key.size() - 1;
-        if (child_ != parent_->children_.end())
-        {
-            assert(level < key.size());
-            const auto& expectedToken = key[level];
-            bool canDescend = !child_->second.is_leaf() && (level < maxLevel) &&
-                              tokenMatches(expectedToken);
-            if (canDescend)
-                level = descend(level);
-            else
-                findTokenInLevel(expectedToken);
-        }
-        else if (!parent_->is_sentinel())
-        {
-            level = ascend(level);
-            if (!parent_->is_sentinel() || child_ != parent_->children_.end())
-                findTokenInLevel(key[level]);
-        }
-        return level;
-    }
-
-    size_type ascend(size_type level)
-    {
-        child_ = parent_->position_;
-        parent_ = parent_->parent_;
-        if (!parent_->is_sentinel())
-        {
-            assert(level > 0);
-            --level;
-        }
-        return level;
-    }
-
-    size_type descend(size_type level)
-    {
-        auto& child = child_->second;
-        parent_ = &child;
-        child_ = child.children_.begin();
-        return level + 1;
-    }
-
-    struct Less
-    {
-        bool operator()(const typename TreeIterator::value_type& kv,
-                        const token_type& s) const
-        {
-            return kv.first < s;
-        }
-
-        bool operator()(const token_type& s,
-                        const typename TreeIterator::value_type& kv) const
-        {
-            return s < kv.first;
-        }
-    };
-
-    void findTokenInLevel(const token_type& token)
-    {
-        if (child_ == parent_->children_.begin())
-        {
-            child_ = std::lower_bound(++child_, parent_->children_.end(),
-                                      token, Less{});
-            if (child_ != parent_->children_.end() && child_->first != token)
-                child_ = parent_->children_.end();
-        }
-        else
-        {
-            child_ = parent_->children_.end();
-        }
-    }
-
     node_pointer parent_ = nullptr;
-    TreeIterator child_ = {};
+    iterator child_ = {};
 
     template <typename, bool> friend class TokenTrieCursor;
 

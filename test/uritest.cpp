@@ -275,7 +275,7 @@ TEST_CASE( "URI Tokenization", "[Uri]" )
         INFO("For URI '" + uri+ "'");
         SplitUri s(labels);
         CHECK(s.labels() == labels);
-        CHECK(s.unsplit() == uri);
+        CHECK(s.flatten() == uri);
     }
 }
 
@@ -309,7 +309,7 @@ TEST_CASE( "URI Wildcard Matching", "[Uri]" )
         for (const auto& pattern: patterns)
         {
             INFO("For pattern '" + pattern+ "'");
-            bool uriMatches = wildcardMatches(uri, pattern);
+            bool uriMatches = matchesWildcardPattern(uri, pattern);
             bool expected = matches.count(pattern) == 1;
             CHECK(uriMatches == expected);
         }
@@ -907,59 +907,21 @@ TEST_CASE( "UriTrie Pattern Matching", "[Uri]" )
         auto key = SplitUri(uri);
         auto expectedHits = inputs[i].second;
 
-        auto range = trie.match_range(key);
-        auto match = range.first;
+        auto matches = wildcardMatches(trie, key);
         std::set<std::string> hits;
         for (unsigned i = 0; i != expectedHits.size(); ++i)
         {
-            REQUIRE(match != range.second);
-            auto matchUri = match.key().unsplit().value();
-            CHECK(match.key() == matchUri);
-            CHECK( match.value() == matchUri );
-            CHECK( *match == matchUri );
+            REQUIRE_FALSE(matches.done());
+            auto matchKey = matches.key();
+            auto matchUri = matchKey.flatten().value();
+            CHECK( matchKey == matchUri );
+            CHECK( matches.value() == matchUri );
             REQUIRE( hits.emplace(matchUri).second );
-            ++match;
+            matches.next();
         }
-        CHECK(match == range.second);
-        CHECK(hits == expectedHits);
-
-        range = trie.match_range(uri);
-        match = range.first;
-        hits.clear();
-        for (unsigned i = 0; i != expectedHits.size(); ++i)
-        {
-            REQUIRE( match != range.second );
-            auto matchUri = match.key().unsplit().value();
-            CHECK( match.key() == matchUri );
-            CHECK( match.value() == matchUri );
-            CHECK( *match == matchUri );
-            REQUIRE( hits.emplace(matchUri).second );
-            ++match;
-        }
-        CHECK( match == range.second );
+        CHECK(matches.done());
         CHECK(hits == expectedHits);
     }
-}
-
-//------------------------------------------------------------------------------
-TEST_CASE( "UriTrie Insertion From Match Range", "[Uri]" )
-{
-    Trie trie({ {"a", 1}, {"a.", 2}, {".b", 3} });
-
-    SECTION( "constructor taking match range" )
-    {
-        auto range = trie.match_range("a.b");
-        Trie matches(range.first, range.second);
-        checkUriTrieUris(matches, {".b", "a."});
-    };
-
-    SECTION( "insert taking match range" )
-    {
-        auto range = trie.match_range("a.b");
-        Trie matches;
-        matches.insert(range.first, range.second);
-        checkUriTrieUris(matches, {".b", "a."});
-    };
 }
 
 //------------------------------------------------------------------------------
@@ -1261,71 +1223,26 @@ TEST_CASE( "UriTrie erase_if", "[Uri]" )
 TEST_CASE( "UriTrie Iterator Conversions and Mixed Comparisons", "[Uri]" )
 {
     using CI = Trie::const_iterator;
-    using CM = Trie::const_match_iterator;
     using MI = Trie::iterator;
-    using MM = Trie::match_iterator;
 
-    CHECK(std::is_convertible<CI, CM>::value == false);
     CHECK(std::is_convertible<CI, MI>::value == false);
-    CHECK(std::is_convertible<CI, MM>::value == false);
-    CHECK(std::is_convertible<CM, CI>::value == true);
-    CHECK(std::is_convertible<CM, MI>::value == false);
-    CHECK(std::is_convertible<CM, MM>::value == false);
     CHECK(std::is_convertible<MI, CI>::value == true);
-    CHECK(std::is_convertible<MI, CM>::value == false);
-    CHECK(std::is_convertible<MI, MM>::value == false);
-    CHECK(std::is_convertible<MM, CI>::value == true);
-    CHECK(std::is_convertible<MM, CM>::value == true);
-    CHECK(std::is_convertible<MM, MI>::value == true);
 
     Trie t({ {{"a"}, 1} });
-    const auto& c = t;
     CI ci = t.cbegin();
-    CM cm = c.match_range("a").first;
     MI mi = t.begin();
-    MM mm = t.match_range("a").first;
 
     CHECK(CI(ci).key() == "a");
-    CHECK(CI(cm).key() == "a");
     CHECK(CI(mi).key() == "a");
-    CHECK(CI(mm).key() == "a");
-    CHECK(CM(cm).key() == "a");
-    CHECK(CM(mm).key() == "a");
     CHECK(MI(mi).key() == "a");
-    CHECK(MI(mm).key() == "a");
-    CHECK(MM(mm).key() == "a");
 
     CHECK((ci == ci));
-    CHECK((ci == cm));
     CHECK((ci == mi));
-    CHECK((ci == mm));
-    CHECK((cm == ci));
-    CHECK((cm == cm));
-    CHECK((cm == mi));
-    CHECK((cm == mm));
     CHECK((mi == ci));
-    CHECK((mi == cm));
     CHECK((mi == mi));
-    CHECK((mi == mm));
-    CHECK((mm == ci));
-    CHECK((mm == cm));
-    CHECK((mm == mi));
-    CHECK((mm == mm));
 
     CHECK_FALSE((ci != ci));
-    CHECK_FALSE((ci != cm));
     CHECK_FALSE((ci != mi));
-    CHECK_FALSE((ci != mm));
-    CHECK_FALSE((cm != ci));
-    CHECK_FALSE((cm != cm));
-    CHECK_FALSE((cm != mi));
-    CHECK_FALSE((cm != mm));
     CHECK_FALSE((mi != ci));
-    CHECK_FALSE((mi != cm));
     CHECK_FALSE((mi != mi));
-    CHECK_FALSE((mi != mm));
-    CHECK_FALSE((mm != ci));
-    CHECK_FALSE((mm != cm));
-    CHECK_FALSE((mm != mi));
-    CHECK_FALSE((mm != mm));
 }

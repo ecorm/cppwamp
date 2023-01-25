@@ -266,12 +266,13 @@ private:
     void publishWildcardMatches(const Pub& pub, SessionId publisherId,
                                 PublicationId publicationId)
     {
-        auto range = byWildcard_.match_range(pub.topic());
-        for (; range.first != range.second; ++range.first)
+        auto matches = wildcardMatches(byWildcard_, pub.topic());
+        while (!matches.done())
         {
-            SubscriptionId subId = (*range.first)->first;
-            const SubscriptionRecord& rec = (*range.first)->second;
+            SubscriptionId subId = matches.value()->first;
+            const SubscriptionRecord& rec = matches.value()->second;
             publishMatches(pub, publisherId, publicationId, subId, rec);
+            matches.next();
         }
     }
 

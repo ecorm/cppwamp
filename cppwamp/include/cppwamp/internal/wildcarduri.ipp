@@ -12,7 +12,7 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE ErrorOr<SplitUri::uri_type> SplitUri::unsplit() const
+CPPWAMP_INLINE ErrorOr<SplitUri::uri_type> SplitUri::flatten() const
 {
     if (labels_.empty())
         return makeUnexpectedError(std::errc::result_out_of_range);
@@ -82,8 +82,8 @@ SplitUri::untokenize(const storage_type& labels)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE bool wildcardMatches(const SplitUri& uri,
-                                    const SplitUri& pattern)
+CPPWAMP_INLINE bool matchesWildcardPattern(const SplitUri& uri,
+                                           const SplitUri& pattern)
 {
     auto uriSize = uri.size();
     if (uriSize != pattern.size())

@@ -4,18 +4,21 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_URI_HPP
-#define CPPWAMP_URI_HPP
+#ifndef CPPWAMP_WILDCARDURI_HPP
+#define CPPWAMP_WILDCARDURI_HPP
 
 //------------------------------------------------------------------------------
 /** @file
     @brief Contains facilities for processing URIs. */
 //------------------------------------------------------------------------------
 
+#include <algorithm>
 #include <ostream>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
+#include "api.hpp"
 #include "erroror.hpp"
 #include "tagtypes.hpp"
 #include "tokentrie.hpp"
@@ -30,7 +33,7 @@ namespace wamp
     functions for converting from/to URI strings. To access the complete set
     of vector operations, use the SplitUri::labels accessor. */
 //------------------------------------------------------------------------------
-class SplitUri
+class CPPWAMP_API SplitUri
 {
 public:
     using uri_type         = std::string;
@@ -116,7 +119,7 @@ public:
     /// @name Labels
     /// @{
     /** Return an URI string composed of this object's split labels. */
-    ErrorOr<uri_type> unsplit() const;
+    ErrorOr<uri_type> flatten() const;
 
     /** Accesses the underlying container of split labels. */
     storage_type& labels() noexcept {return labels_;}
@@ -138,7 +141,7 @@ public:
 
     friend std::ostream& operator<<(const SplitUri& x, std::ostream& out)
     {
-        return out << x.unsplit().value_or("<null>");
+        return out << x.flatten().value_or("<null>");
     }
     /// @}
 
@@ -154,13 +157,16 @@ private:
 /** Obtains the URI wildcard label.
     @relates SplitUri */
 //------------------------------------------------------------------------------
-inline SplitUri::label_type wildcardLabel() {return SplitUri::label_type();}
+inline SplitUri::label_type CPPWAMP_API wildcardLabel()
+{
+    return SplitUri::label_type();
+}
 
 //------------------------------------------------------------------------------
 /** Determines if the given uri label is a wildcard.
     @relates SplitUri */
 //------------------------------------------------------------------------------
-inline bool isWildcardLabel(const SplitUri::label_type& label)
+inline bool CPPWAMP_API isWildcardLabel(const SplitUri::label_type& label)
 {
     return label.empty();
 }
@@ -169,12 +175,227 @@ inline bool isWildcardLabel(const SplitUri::label_type& label)
 /** Determines if the given SplitUri matches the given wildcard pattern.
     @relates SplitUri */
 //------------------------------------------------------------------------------
-bool wildcardMatches(const SplitUri& uri, const SplitUri& pattern);
+bool CPPWAMP_API matchesWildcardPattern(const SplitUri& uri,
+                                        const SplitUri& pattern);
 
 
 //------------------------------------------------------------------------------
 template <typename T>
 using UriTrie = TokenTrie<SplitUri, T>;
+
+
+//------------------------------------------------------------------------------
+/** TokenTrie traverser that advances through wildcard matches in
+    lexicographic order. */
+//------------------------------------------------------------------------------
+template <typename C>
+class CPPWAMP_API WildcardMatcher
+{
+public:
+    /// Type of the underlying cursor used to traverse nodes. */
+    using Cursor = C;
+
+    /// Type of the split token key container associated with this visitor.
+    using Key = typename C::key_type;
+
+    /** Type of the mapped value associated with this visitor. */
+    using Value = typename C::value_type;
+
+    /// Reference to the mapped value type being visited.
+    using Reference = typename std::conditional<C::is_mutable(), Value&,
+                                                const Value&>::type;
+
+    /** Default constructor. */
+    WildcardMatcher(Key key, Cursor root, Cursor sentinel);
+
+    /** Generates the split token key container associated with the
+        current element. */
+    Key key() const {return cursor_.key();}
+
+    /** Accesses the value associated with the current element. */
+    Reference value() {return *(cursor_.element());}
+
+    /** Accesses the value associated with the current element. */
+    const Value& value() const {return *(cursor_.element());}
+
+    explicit operator bool() const {return !done();}
+
+    /** Determines if there are remaining matching elements left. */
+    bool done() const {return cursor_.at_end();}
+
+    /** Advances to the next matching key in lexigraphic order. */
+    WildcardMatcher& next();
+
+    /** Invokes the given functor for every matching key by passing it the
+        key and corresponding value. */
+    template <typename F>
+    void forEach(F&& functor);
+
+private:
+    using Level = typename Key::size_type;
+    using Token = typename Key::value_type;
+
+    struct Less;
+
+    bool isMatch() const;
+    void matchNext();
+    bool tokenMatches(const Token& expectedToken) const;
+    void findNextMatchCandidate();
+    void findTokenInLevel(const Token& token);
+
+    Key key_;
+    Cursor cursor_;
+    Level level_ = 0;
+};
+
+//------------------------------------------------------------------------------
+template <typename T>
+WildcardMatcher<typename UriTrie<T>::cursor> CPPWAMP_API
+wildcardMatches(UriTrie<T>& trie, const SplitUri& key)
+{
+    using Cursor = typename UriTrie<T>::cursor;
+    return WildcardMatcher<Cursor>(key, trie.root(), trie.sentinel());
+}
+
+//------------------------------------------------------------------------------
+template <typename T>
+WildcardMatcher<typename UriTrie<T>::const_cursor> CPPWAMP_API
+wildcardMatches(const UriTrie<T>& trie, const SplitUri& key)
+{
+    using Cursor = typename UriTrie<T>::const_cursor;
+    return WildcardMatcher<Cursor>(key, trie.root(), trie.sentinel());
+}
+
+//******************************************************************************
+// WildcardMatcher member definitions
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+template <typename C>
+struct WildcardMatcher<C>::Less
+{
+    template <typename KV>
+    bool operator()(const KV& kv, const Token& s) const
+    {
+        return kv.first < s;
+    }
+
+    template <typename KV>
+    bool operator()(const Token& s, const KV& kv) const
+    {
+        return s < kv.first;
+    }
+};
+
+//------------------------------------------------------------------------------
+template <typename C>
+WildcardMatcher<C>::WildcardMatcher(Key key, Cursor root, Cursor sentinel)
+    : key_(std::move(key)),
+    cursor_(root)
+{
+    if (key_.empty())
+        cursor_ = sentinel;
+    else if (!isMatch())
+        matchNext();
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+WildcardMatcher<C>& WildcardMatcher<C>::next()
+{
+    assert(!done());
+    matchNext();
+    return *this;
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+template <typename F>
+void WildcardMatcher<C>::forEach(F&& functor)
+{
+    while (!done())
+    {
+        std::forward<F>(functor)(key(), value());
+        next();
+    }
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+bool WildcardMatcher<C>::isMatch() const
+{
+    assert(!key_.empty());
+    const Level maxLevel = key_.size() - 1;
+    if ((level_ != maxLevel) || cursor_.at_end_of_level())
+        return false;
+
+    // All nodes above the current level are matches. Only the bottom
+    // level needs to be checked.
+    assert(level_ < key_.size());
+    return cursor_.has_value() && tokenMatches(key_[level_]);
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+void WildcardMatcher<C>::matchNext()
+{
+    while (!cursor_.at_end())
+    {
+        findNextMatchCandidate();
+        if (isMatch())
+            break;
+    }
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+bool WildcardMatcher<C>::tokenMatches(const Token& expectedToken) const
+{
+    return cursor_.token().empty() || cursor_.token() == expectedToken;
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+void WildcardMatcher<C>::findNextMatchCandidate()
+{
+    const Level maxLevel = key_.size() - 1;
+    if (!cursor_.at_end_of_level())
+    {
+        assert(level_ < key_.size());
+        const auto& expectedToken = key_[level_];
+        bool canDescend = !cursor_.child()->is_leaf() &&
+                          (level_ < maxLevel) &&
+                          tokenMatches(expectedToken);
+        if (canDescend)
+            level_ = cursor_.descend(level_);
+        else
+            findTokenInLevel(expectedToken);
+    }
+    else if (!cursor_.at_end())
+    {
+        level_ = cursor_.ascend(level_);
+        if (!cursor_.at_end_of_level())
+            findTokenInLevel(key_[level_]);
+    }
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+void WildcardMatcher<C>::findTokenInLevel(const Token& token)
+{
+    auto iter = cursor_.iter();
+    if (iter == cursor_.begin())
+    {
+        iter = std::lower_bound(++iter, cursor_.end(), token, Less{});
+        if (iter != cursor_.end() && iter->first != token)
+            iter = cursor_.end();
+    }
+    else
+    {
+        iter = cursor_.end();
+    }
+    cursor_.skip_to(iter);
+}
 
 } // namespace wamp
 
@@ -182,4 +403,4 @@ using UriTrie = TokenTrie<SplitUri, T>;
 #include "./internal/wildcarduri.ipp"
 #endif
 
-#endif // CPPWAMP_URI_HPP
+#endif // CPPWAMP_WILDCARDURI_HPP

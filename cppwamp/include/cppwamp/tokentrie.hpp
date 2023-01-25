@@ -38,137 +38,6 @@ struct IsSpecialTokenTrieIterator : std::false_type
 {};
 
 //------------------------------------------------------------------------------
-/** TokenTrie iterator that advances through wildcard matches in
-    lexicographic order. */
-//------------------------------------------------------------------------------
-template <typename N, bool IsMutable>
-class CPPWAMP_API TokenTrieMatchIterator
-{
-public:
-    /// The category of the iterator
-    using iterator_category = std::forward_iterator_tag;
-
-    /// Type used to identify distance between iterators
-    using difference_type = std::ptrdiff_t;
-
-    /// Type of the split token key container associated with this iterator.
-    using key_type = typename N::key_type;
-
-    /// Type of token associated with this iterator.
-    using token_type = typename key_type::value_type;
-
-    /** Type of the mapped value associated with this iterator.
-        @note It differs from std::map in that it's not a key-value pair. */
-    using value_type = typename N::value_type;
-
-    /// Pointer to the mapped value type being iterated over.
-    using pointer = typename std::conditional<IsMutable, value_type*,
-                                              const value_type*>::type;
-
-    /// Reference to the mapped value type being iterated over.
-    using reference = typename std::conditional<IsMutable, value_type&,
-                                                const value_type&>::type;
-
-    /// Type of the underlying cursor used to traverse nodes. */
-    using cursor_type = TokenTrieCursor<N, IsMutable>;
-
-    /** Default constructor. */
-    TokenTrieMatchIterator() {}
-
-    /** Conversion from mutable iterator to const iterator. */
-    template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
-    TokenTrieMatchIterator(const TokenTrieMatchIterator<N, RM>& rhs)
-        : cursor_(rhs.cursor()) {}
-
-    /** Assignment from mutable iterator to const iterator. */
-    template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
-    TokenTrieMatchIterator&
-    operator=(const TokenTrieMatchIterator<N, RM>& rhs)
-        {cursor_ = rhs.cursor(); return *this;}
-
-    /** Generates the split token key container associated with the
-    current element. */
-    key_type key() const {return cursor_.key();}
-
-    /** Obtains the token associated with the current element. */
-    token_type token() const {return cursor_.token();}
-
-    /** Accesses the value associated with the current element. */
-    reference value() {return *(cursor_.element());}
-
-    /** Accesses the value associated with the current element. */
-    const value_type& value() const {return *(cursor_.element());}
-
-    /** Obtains a copy of the cursor associated with the current element. */
-    cursor_type cursor() const {return cursor_;}
-
-    /** Accesses the value associated with the current element. */
-    reference operator*() {return value();}
-
-    /** Accesses the value associated with the current element. */
-    const value_type& operator*() const {return value();}
-
-    /** Accesses a member of the value associated with the current element. */
-    pointer operator->() {return &(value());}
-
-    /** Accesses a member of the value associated with the current element. */
-    const value_type* operator->() const {return &(value());}
-
-    /** Prefix increment, advances to the next matching key
-        in lexigraphic order. */
-    TokenTrieMatchIterator& operator++()
-        {cursor_.match_next(key_, level_); return *this;}
-
-    /** Postfix increment, advances to the next matching key
-        in lexigraphic order. */
-    TokenTrieMatchIterator operator++(int)
-        {auto temp = *this; ++(*this); return temp;}
-
-private:
-    using Node = typename cursor_type::node_type;
-    using Level = typename key_type::size_type;
-
-    TokenTrieMatchIterator(cursor_type endCursor) : cursor_(endCursor) {}
-
-    TokenTrieMatchIterator(cursor_type beginCursor, key_type tokens_)
-        : key_(std::move(tokens_)), cursor_(beginCursor)
-    {
-        level_ = cursor_.match_first(key_);
-    }
-
-    key_type key_;
-    cursor_type cursor_;
-    Level level_ = 0;
-
-    template <typename, typename, typename, typename, typename>
-    friend class TokenTrie;
-};
-
-/** Compares two match iterators for equality.
-    @relates TokenTrieMatchIterator */
-template <typename N, bool LM, bool RM>
-bool operator==(const TokenTrieMatchIterator<N, LM>& lhs,
-                const TokenTrieMatchIterator<N, RM>& rhs)
-{
-    return lhs.cursor() == rhs.cursor();
-};
-
-/** Compares two match iterators for inequality.
-    @relates TokenTrieMatchIterator */
-template <typename N, bool LM, bool RM>
-bool operator!=(const TokenTrieMatchIterator<N, LM>& lhs,
-                const TokenTrieMatchIterator<N, RM>& rhs)
-{
-    return lhs.cursor() != rhs.cursor();
-};
-
-template <typename N, bool M>
-struct IsSpecialTokenTrieIterator<TokenTrieMatchIterator<N, M>>
-    : std::true_type
-{};
-
-
-//------------------------------------------------------------------------------
 /** TokenTrie iterator that advances through elements in lexicographic order
     of their respective keys. */
 //------------------------------------------------------------------------------
@@ -210,18 +79,8 @@ public:
     TokenTrieIterator(const TokenTrieIterator<N, M>& rhs)
         : cursor_(rhs.cursor()) {}
 
-    /** Conversion from match iterator. */
-    template <bool M, typename std::enable_if<(!IsMutable || M), int>::type = 0>
-    TokenTrieIterator(const TokenTrieMatchIterator<N, M>& rhs)
-        : cursor_(rhs.cursor()) {}
-
     /** Assignment from mutable iterator to const iterator. */
     template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
-    TokenTrieIterator& operator=(const TokenTrieIterator<N, M>& rhs)
-        {cursor_ = rhs.cursor_; return *this;}
-
-    /** Assignment from match iterator. */
-    template <bool M, typename std::enable_if<(!IsMutable || M), int>::type = 0>
     TokenTrieIterator& operator=(const TokenTrieIterator<N, M>& rhs)
         {cursor_ = rhs.cursor_; return *this;}
 
@@ -295,41 +154,6 @@ bool operator!=(const TokenTrieIterator<N, LM>& lhs,
     return lhs.cursor() != rhs.cursor();
 };
 
-/** Compares a match iterator and a regular iterator for equality.
-    @relates TokenTrieIterator */
-template <typename N, bool LM, bool RM>
-bool operator==(const TokenTrieMatchIterator<N, LM>& lhs,
-                const TokenTrieIterator<N, RM>& rhs)
-{
-    return lhs.cursor() == rhs.cursor();
-};
-
-/** Compares a match iterator and a regular iterator for equality.
-    @relates TokenTrieIterator */
-template <typename N, bool LM, bool RM>
-bool operator==(const TokenTrieIterator<N, LM>& lhs,
-                const TokenTrieMatchIterator<N, RM>& rhs)
-{
-    return lhs.cursor() == rhs.cursor();
-};
-
-/** Compares a match iterator and a regular iterator for inequality.
-    @relates TokenTrieIterator */
-template <typename N, bool LM, bool RM>
-bool operator!=(const TokenTrieMatchIterator<N, LM>& lhs,
-                const TokenTrieIterator<N, RM>& rhs)
-{
-    return lhs.cursor() != rhs.cursor();
-};
-
-/** Compares a match iterator and a regular iterator for inequality.
-    @relates TokenTrieIterator */
-template <typename N, bool LM, bool RM>
-bool operator!=(const TokenTrieIterator<N, LM>& lhs,
-                const TokenTrieMatchIterator<N, RM>& rhs)
-{
-    return lhs.cursor() != rhs.cursor();
-};
 
 //------------------------------------------------------------------------------
 template <typename T>
@@ -447,14 +271,6 @@ public:
         lexicographic order of their respective keys. */
     using const_iterator = TokenTrieIterator<Node, false>;
 
-    /** Mutable iterator type which advances through wildcard matches in
-        lexicographic order. */
-    using match_iterator = TokenTrieMatchIterator<Node, true>;
-
-    /** Mutable iterator type which advances through wildcard matches in
-        lexicographic order. */
-    using const_match_iterator = TokenTrieMatchIterator<Node, false>;
-
     /** Pairs an iterator with the boolean success result of an
         insertion operation. */
     using insert_result = std::pair<iterator, bool>;
@@ -465,17 +281,14 @@ public:
     /** Pair of immutable iterators corresponding to a range. */
     using const_range_type = std::pair<const_iterator, const_iterator>;
 
-    /** Pair of mutable iterators corresponding to the first and
-        one-past-the-last match. */
-    using match_range_type = std::pair<match_iterator, match_iterator>;
-
-    /** Pair of immutable iterators corresponding to the first and
-        one-past-the-last match. */
-    using const_match_range_type = std::pair<const_match_iterator,
-                                             const_match_iterator>;
-
+    /** Mutable cursor type used for traversing nodes. */
     using cursor = TokenTrieCursor<Node, true>;
 
+    /** Immutable cursor type used for traversing nodes. */
+    using const_cursor = TokenTrieCursor<Node, true>;
+
+    /** Function object type used for comparing key-value pairs
+        in lexicographic order of their keys. */
     class value_compare
     {
     public:
@@ -583,10 +396,10 @@ public:
     cursor root() noexcept {return impl_.rootCursor();}
 
     /** Obtains a cursor to the root node, or the sentinel node if empty. */
-    // const_cursor root() const noexcept {return croot();}
+    const_cursor root() const noexcept {return croot();}
 
     /** Obtains a cursor to the root node, or the sentinel node if empty. */
-    // const_cursor croot() const noexcept {return impl_.rootCursor();}
+    const_cursor croot() const noexcept {return impl_.rootCursor();}
 
     /** Obtains a cursor to the first value node, or the sentinel node
         if empty. */
@@ -594,20 +407,20 @@ public:
 
     /** Obtains a cursor to the first value node, or the sentinel node
         if empty. */
-    // const_cursor first() const noexcept {return cfirst();}
+    const_cursor first() const noexcept {return cfirst();}
 
     /** Obtains a cursor to the first value node, or the sentinel node
         if empty. */
-    // const_cursor cfirst() const noexcept {return impl_.firstValueCursor();}
+    const_cursor cfirst() const noexcept {return impl_.firstValueCursor();}
 
     /** Obtains a cursor to the sentinel node. */
     cursor sentinel() noexcept {return impl_.sentinelCursor();}
 
     /** Obtains a cursor to the sentinel node. */
-    // const_cursor sentinel() const noexcept {return csentinel();}
+    const_cursor sentinel() const noexcept {return csentinel();}
 
     /** Obtains a cursor to the sentinel node. */
-    // const_cursor csentinel() const noexcept {return impl_.sentinelCursor();}
+    const_cursor csentinel() const noexcept {return impl_.sentinelCursor();}
     /// @}
 
     /// @name Capacity
@@ -750,16 +563,6 @@ public:
         given key. */
     const_iterator upper_bound(const key_type& key) const
         {return impl_.upperBound(key);}
-
-    /** Obtains the range of elements with wildcard patterns matching
-        the given key. */
-    match_range_type match_range(const key_type& key)
-        {return getMatchRange<match_iterator>(*this, key);}
-
-    /** Obtains the range of elements with wildcard patterns matching
-        the given key. */
-    const_match_range_type match_range(const key_type& key) const
-        {return getMatchRange<const_match_iterator>(*this, key);}
 
     /** Obtains the function that compares keys. */
     key_compare key_comp() const {return key_compare();}

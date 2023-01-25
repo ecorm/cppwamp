@@ -12,15 +12,10 @@
     @brief Contains the TokenTrie template class. */
 //------------------------------------------------------------------------------
 
+#include <algorithm>
 #include <cassert>
-#include <cstddef>
-#include <functional>
-#include <initializer_list>
-#include <iterator>
-#include <limits>
 #include <memory>
-#include <stdexcept>
-#include <type_traits>
+#include <tuple>
 #include <utility>
 #include "../api.hpp"
 #include "../tokentrienode.hpp"
@@ -263,7 +258,7 @@ public:
         auto curB = rhs.rootCursor();
         while (!curA.at_end())
         {
-            if (curA != curB)
+            if (curA.token_or_value_differs(curB))
                 return false;
             curA.advance_to_next_node();
             curB.advance_to_next_node();
@@ -283,7 +278,7 @@ public:
         {
             if (curB.at_end())
                 return true;
-            if (curA != curB)
+            if (curA.token_or_value_differs(curB))
                 return true;
             curA.advance_to_next_node();
             curB.advance_to_next_node();
