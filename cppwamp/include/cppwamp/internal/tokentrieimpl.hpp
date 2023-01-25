@@ -42,7 +42,8 @@ public:
     using ValueStorage = typename P::value_storage;
     using Node = TokenTrieNode<Key, ValueStorage>;
     using Size = typename Node::tree_type::size_type;
-    using Cursor = TokenTrieCursor<Node>;
+    using Cursor = TokenTrieCursor<Node, true>;
+    using ConstCursor = TokenTrieCursor<Node, false>;
 
     TokenTrieImpl() {}
 
@@ -85,35 +86,29 @@ public:
         return Cursor::begin(*root_);
     }
 
-    Cursor rootCursor() const
+    ConstCursor rootCursor() const
     {
         assert(root_ != nullptr);
-        return Cursor::begin(const_cast<Node&>(*root_));
+        return ConstCursor::begin(*root_);
     }
 
     Cursor firstValueCursor()
     {
         if (empty())
             return sentinelCursor();
-        auto cursor = rootCursor();
-        cursor.advanceToFirstValue();
-        return cursor;
+        return Cursor::first(*root_);
     }
 
-    Cursor firstValueCursor() const
+    ConstCursor firstValueCursor() const
     {
-        return const_cast<TokenTrieImpl&>(*this).firstValueCursor();
+        if (empty())
+            return sentinelCursor();
+        return ConstCursor::first(*root_);
     }
 
-    Cursor sentinelCursor()
-    {
-        return Cursor::end(sentinel_);
-    }
+    Cursor sentinelCursor() {return Cursor::end(sentinel_);}
 
-    Cursor sentinelCursor() const
-    {
-        return Cursor::end(const_cast<Node&>(sentinel_));
-    }
+    ConstCursor sentinelCursor() const {return ConstCursor::end(sentinel_);}
 
     Cursor locate(const Key& key)
     {
@@ -124,12 +119,16 @@ public:
         return cursor;
     }
 
-    Cursor locate(const Key& key) const
+    ConstCursor locate(const Key& key) const
     {
-        return const_cast<TokenTrieImpl&>(*this).locate(key);
+        if (empty() || key.empty())
+            return sentinelCursor();
+        auto cursor = rootCursor();
+        cursor.locate(key);
+        return cursor;
     }
 
-    Cursor lowerBound(const Key& key) const
+    Cursor lowerBound(const Key& key)
     {
         if (empty() || key.empty())
             return sentinelCursor();
@@ -138,7 +137,16 @@ public:
         return cursor;
     }
 
-    Cursor upperBound(const Key& key) const
+    ConstCursor lowerBound(const Key& key) const
+    {
+        if (empty() || key.empty())
+            return sentinelCursor();
+        auto cursor = rootCursor();
+        cursor.lower_bound(key);
+        return cursor;
+    }
+
+    Cursor upperBound(const Key& key)
     {
         if (empty() || key.empty())
             return sentinelCursor();
@@ -147,11 +155,27 @@ public:
         return cursor;
     }
 
-    std::pair<Cursor, Cursor> equalRange(const Key& key) const
+    ConstCursor upperBound(const Key& key) const
+    {
+        if (empty() || key.empty())
+            return sentinelCursor();
+        auto cursor = rootCursor();
+        cursor.upper_bound(key);
+        return cursor;
+    }
+
+    std::pair<Cursor, Cursor> equalRange(const Key& key)
     {
         if (empty() || key.empty())
             return {sentinelCursor(), sentinelCursor()};
-        return Cursor::equal_range(*root_, key);
+        return Cursor::equal_range(root_.get(), key);
+    }
+
+    std::pair<ConstCursor, ConstCursor> equalRange(const Key& key) const
+    {
+        if (empty() || key.empty())
+            return {sentinelCursor(), sentinelCursor()};
+        return ConstCursor::equal_range(root_.get(), key);
     }
 
     Size empty() const noexcept {return size_ == 0;}
@@ -175,6 +199,7 @@ public:
         {
             root_.reset(new Node);
             root_->parent_ = &sentinel_;
+            root_->position_ = root_->children_.end();
         }
 
         auto result = upsert(clobber, std::move(key),
@@ -188,9 +213,9 @@ public:
     {
         auto cursor = pos;
         assert(bool(cursor));
-        pos.advance_to_next_value();
+        pos.advance_to_next_element();
 
-        cursor.child_->second.value_.reset();
+        cursor.child_->second.element_.reset();
         if (cursor.child()->is_leaf())
         {
             // Erase the value node, then all obsolete links up the chain
@@ -336,10 +361,10 @@ private:
             bool placed = false;
             auto& node = child->second;
             parent = node.parent_;
-            placed = !node.value().has_value();
+            placed = !node.element().has_value();
             if (placed || clobber)
-                node.value_.emplace(std::forward<Us>(args)...);
-            return {{*parent, child}, placed};
+                node.element_ = Value(std::forward<Us>(args)...);
+            return {{parent, child}, placed};
         }
 
         // Check if only a single value node needs to be added
@@ -349,7 +374,7 @@ private:
             child = addValueNode(parent, key[level], std::forward<Us>(args)...);
             child->second.position_ = child;
             child->second.parent_ = parent;
-            return {{*parent, child}, true};
+            return {{parent, child}, true};
         }
 
         // Build and attach the sub-chain containing the new node.
@@ -358,7 +383,7 @@ private:
         buildChain(&chain, std::move(key), level, std::forward<Us>(args)...);
         child = addChain(parent, std::move(token), std::move(chain));
         parent = child->second.parent_;
-        return {{*parent, child}, true};
+        return {{parent, child}, true};
     }
 
     template <typename... Us>

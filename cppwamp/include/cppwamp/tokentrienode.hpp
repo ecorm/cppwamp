@@ -97,6 +97,24 @@ public:
 
     const value_type&& value() const && {return checkedValue(*this);}
 
+    template <typename U>
+    value_type value_or(U&& fallback) const &
+    {
+        if (has_value())
+            return get();
+        else
+            return static_cast<value_type>(std::forward<U>(fallback));
+    }
+
+    template <typename U>
+    value_type value_or(U&& fallback) &&
+    {
+        if (has_value())
+            return std::move(get());
+        else
+            return static_cast<value_type>(std::forward<U>(fallback));
+    }
+
     template <typename... Us>
     value_type& emplace(Us&&... args)
     {
@@ -227,7 +245,7 @@ public:
 
     template <typename... Us>
     TokenTrieNode(in_place_t, Us&&... args)
-        : value_(in_place, std::forward<Us>(args)...)
+        : element_(in_place, std::forward<Us>(args)...)
     {}
 
     bool is_sentinel() const noexcept {return parent_ == nullptr;}
@@ -261,9 +279,9 @@ public:
         return key;
     }
 
-    optional_value& value() {return value_;}
+    optional_value& element() {return element_;}
 
-    const optional_value& value() const {return value_;}
+    const optional_value& element() const {return element_;}
 
     const tree_type& children() const {return children_;}
 
@@ -271,38 +289,61 @@ private:
     using TreeIterator = typename tree_type::iterator;
 
     tree_type children_;
-    optional_value value_;
+    optional_value element_;
     TreeIterator position_ = {};
     TokenTrieNode* parent_ = nullptr;
 
-    template <typename> friend class TokenTrieCursor;
-    template <typename, typename, typename> friend class internal::TokenTrieImpl;
+    template <typename, bool> friend class TokenTrieCursor;
+
+    template <typename, typename, typename>
+    friend class internal::TokenTrieImpl;
 };
 
 //------------------------------------------------------------------------------
-template <typename N>
+template <typename N, bool IsMutable>
 class CPPWAMP_API TokenTrieCursor
 {
 public:
     using node_type = N;
     using key_type = typename N::key_type;
     using token_type = typename N::token_type;
-    using value_type = typename N::value_type;
     using size_type = typename key_type::size_type;
+    using optional_value = typename N::optional_value;
+    using value_type = typename N::value_type;
+    using reference = typename std::conditional<IsMutable, optional_value&,
+                                                const optional_value&>::type;
+    using node_pointer = typename std::conditional<IsMutable, node_type*,
+                                                   const node_type*>::type;
 
     TokenTrieCursor() = default;
+
+    /** Conversion from mutable cursor to const cursor. */
+    template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
+    TokenTrieCursor(const TokenTrieCursor<N, RM>& rhs)
+        : parent_(rhs.parent_),
+          child_(rhs.child_)
+    {}
+
+    /** Assignment from mutable cursor to const cursor. */
+    template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
+    TokenTrieCursor& operator=(const TokenTrieCursor<N, RM>& rhs)
+    {
+        parent_ = rhs.parent_;
+        child_ = rhs.child_;
+        return *this;
+    }
 
     explicit operator bool() const {return good();}
 
     bool good() const {return !at_end() && !at_end_of_level();}
 
-    bool at_end() const {return !parent_ || !parent_->parent_;}
+    bool at_end() const {return !parent_ || !parent_->parent();}
 
     bool at_end_of_level() const
-        {return at_end() || child_ == parent_->children_.end();}
+        {return at_end() || child_ == parent_->children().end();}
 
     bool has_value() const
-        {return !at_end_of_level() && childNode().value_.has_value();}
+        {return !at_end_of_level() && childNode().element().has_value();}
 
     bool equals(const TokenTrieCursor& rhs) const
     {
@@ -335,12 +376,12 @@ public:
     const token_type& token() const
         {assert(!at_end_of_level()); return child_->first;}
 
-    const value_type& value() const {return *(childNode().value());}
+    const optional_value& element() const {return childNode().element();}
 
-    value_type& value()
-        {assert(!at_end_of_level()); return *(child_->second.value());}
+    reference element()
+        {assert(!at_end_of_level()); return child_->second.element();}
 
-    void advance_to_next_value()
+    void advance_to_next_element()
     {
         while (!parent_->is_sentinel())
         {
@@ -364,28 +405,28 @@ public:
     {
         findBound(key);
         if (!has_value())
-            advance_to_next_value();
+            advance_to_next_element();
     }
 
     void upper_bound(const key_type& key)
     {
         bool foundExact = findBound(key);
         if (!has_value() || foundExact)
-            advance_to_next_value();
+            advance_to_next_element();
     }
 
     static std::pair<TokenTrieCursor, TokenTrieCursor>
-    equal_range(node_type& root_node, const key_type& key)
+    equal_range(node_pointer root_node, const key_type& key)
     {
-        auto lower = begin(root_node);
+        auto lower = begin(*root_node);
         bool foundExact = lower.findBound(key);
         bool nudged = !lower.has_value();
         if (nudged)
-            lower.advance_to_next_value();
+            lower.advance_to_next_element();
 
         TokenTrieCursor upper{lower};
         if (!nudged && foundExact)
-            upper.advance_to_next_value();
+            upper.advance_to_next_element();
         return {lower, upper};
     }
 
@@ -414,46 +455,44 @@ public:
         return level;
     }
 
-    bool operator==(const TokenTrieCursor& rhs) const
-    {
-        if (parent_ == nullptr || rhs.parent_ == nullptr)
-            return parent_ == rhs.parent_;
-        return (parent_ == rhs.parent_) && (child_ == rhs.child_);
-    }
-
-    bool operator!=(const TokenTrieCursor& rhs) const
-    {
-        if (parent_ == nullptr || rhs.parent_ == nullptr)
-            return parent_ != rhs.parent_;
-        return (parent_ != rhs.parent_) || (child_ != rhs.child_);
-    }
-
 private:
     using Tree = typename node_type::tree_type;
-    using TreeIterator = typename Tree::iterator;
+    using TreeIterator =
+        typename std::conditional<IsMutable,
+                                  typename Tree::iterator,
+                                  typename Tree::const_iterator>::type;
+    using NodeRef = typename std::conditional<IsMutable, node_type&,
+                                              const node_type&>::type;
 
-    TokenTrieCursor(node_type& root, TreeIterator iter)
-        : parent_(&root),
-        child_(iter)
+    TokenTrieCursor(node_pointer root, TreeIterator iter)
+        : parent_(root),
+          child_(iter)
     {}
 
-    static TokenTrieCursor begin(node_type& rootNode)
+    static TokenTrieCursor begin(NodeRef rootNode)
     {
-        return TokenTrieCursor(rootNode, rootNode.children_.begin());
+        return TokenTrieCursor(&rootNode, rootNode.children_.begin());
     }
 
-    static TokenTrieCursor end(node_type& sentinelNode)
+    static TokenTrieCursor first(NodeRef rootNode)
     {
-        return TokenTrieCursor(sentinelNode, sentinelNode.children_.end());
+        auto cursor = begin(rootNode);
+        cursor.advanceToFirstValue();
+        return cursor;
     }
 
-    const node_type& parentNode() const
+    static TokenTrieCursor end(NodeRef sentinelNode)
+    {
+        return TokenTrieCursor(&sentinelNode, sentinelNode.children_.end());
+    }
+
+    NodeRef parentNode() const
     {
         assert(parent_ != nullptr);
         return *parent_;
     }
 
-    const node_type& childNode() const
+    NodeRef childNode() const
     {
         assert(!at_end_of_level());
         return child_->second;
@@ -488,8 +527,8 @@ private:
 
     void advanceToFirstValue()
     {
-        if (!at_end_of_level() && !child()->value().has_value())
-            advance_to_next_value();
+        if (!at_end_of_level() && !child()->element().has_value())
+            advance_to_next_element();
     }
 
     void advanceDepthFirst()
@@ -659,17 +698,46 @@ private:
         return foundExact;
     }
 
-    static TreeIterator findLowerBoundInNode(node_type& n, const token_type& token)
+    static TreeIterator findLowerBoundInNode(NodeRef n, const token_type& token)
     {
         return std::lower_bound(n.children_.begin(), n.children_.end(),
                                 token, Less{});
     }
 
-    node_type* parent_ = nullptr;
+    node_pointer parent_ = nullptr;
     TreeIterator child_ = {};
 
-    template <typename, typename, typename> friend class internal::TokenTrieImpl;
+    template <typename, bool> friend class TokenTrieCursor;
+
+    template <typename, typename, typename>
+    friend class internal::TokenTrieImpl;
+
+    template <typename TNode, bool L, bool R>
+    friend bool operator==(const TokenTrieCursor<TNode, L>& lhs,
+                           const TokenTrieCursor<TNode, R>& rhs);
+
+    template <typename TNode, bool L, bool R>
+    friend bool operator!=(const TokenTrieCursor<TNode, L>& lhs,
+                           const TokenTrieCursor<TNode, R>& rhs);
 };
+
+template <typename N, bool L, bool R>
+bool operator==(const TokenTrieCursor<N, L>& lhs,
+                const TokenTrieCursor<N, R>& rhs)
+{
+    if (lhs.parent_ == nullptr || rhs.parent_ == nullptr)
+        return lhs.parent_ == rhs.parent_;
+    return (lhs.parent_ == rhs.parent_) && (lhs.child_ == rhs.child_);
+}
+
+template <typename N, bool L, bool R>
+bool operator!=(const TokenTrieCursor<N, L>& lhs,
+                const TokenTrieCursor<N, R>& rhs)
+{
+    if (lhs.parent_ == nullptr || rhs.parent_ == nullptr)
+        return lhs.parent_ != rhs.parent_;
+    return (lhs.parent_ != rhs.parent_) || (lhs.child_ != rhs.child_);
+}
 
 } // namespace wamp
 

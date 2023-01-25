@@ -30,27 +30,6 @@
 namespace wamp
 {
 
-namespace internal
-{
-
-//------------------------------------------------------------------------------
-struct CPPWAMP_HIDDEN TokenTrieIteratorAccess
-{
-    template <typename L, typename R>
-    static bool equals(const L& lhs, const R& rhs)
-    {
-        return lhs.cursor_ == rhs.cursor_;
-    }
-
-    template <typename L, typename R>
-    static bool differs(const L& lhs, const R& rhs)
-    {
-        return lhs.cursor_ != rhs.cursor_;
-    }
-};
-
-} // namespace internal
-
 //------------------------------------------------------------------------------
 /** Detects if an iterator is one of the types returned by TokenTrie. */
 //------------------------------------------------------------------------------
@@ -91,12 +70,12 @@ public:
                                                 const value_type&>::type;
 
     /// Type of the underlying cursor used to traverse nodes. */
-    using cursor_type = TokenTrieCursor<N>;
+    using cursor_type = TokenTrieCursor<N, IsMutable>;
 
     /** Default constructor. */
     TokenTrieMatchIterator() {}
 
-    /** Implicit conversion from mutable iterator to const iterator. */
+    /** Conversion from mutable iterator to const iterator. */
     template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
     TokenTrieMatchIterator(const TokenTrieMatchIterator<N, RM>& rhs)
         : cursor_(rhs.cursor()) {}
@@ -115,10 +94,10 @@ public:
     token_type token() const {return cursor_.token();}
 
     /** Accesses the value associated with the current element. */
-    reference value() {return cursor_.value();}
+    reference value() {return *(cursor_.element());}
 
     /** Accesses the value associated with the current element. */
-    const value_type& value() const {return cursor_.value();}
+    const value_type& value() const {return *(cursor_.element());}
 
     /** Obtains a copy of the cursor associated with the current element. */
     cursor_type cursor() const {return cursor_;}
@@ -147,7 +126,6 @@ public:
 
 private:
     using Node = typename cursor_type::node_type;
-    using Access = internal::TokenTrieIteratorAccess;
     using Level = typename key_type::size_type;
 
     TokenTrieMatchIterator(cursor_type endCursor) : cursor_(endCursor) {}
@@ -164,8 +142,6 @@ private:
 
     template <typename, typename, typename, typename, typename>
     friend class TokenTrie;
-
-    friend struct internal::TokenTrieIteratorAccess;
 };
 
 /** Compares two match iterators for equality.
@@ -174,7 +150,7 @@ template <typename N, bool LM, bool RM>
 bool operator==(const TokenTrieMatchIterator<N, LM>& lhs,
                 const TokenTrieMatchIterator<N, RM>& rhs)
 {
-    return internal::TokenTrieIteratorAccess::equals(lhs, rhs);
+    return lhs.cursor() == rhs.cursor();
 };
 
 /** Compares two match iterators for inequality.
@@ -183,7 +159,7 @@ template <typename N, bool LM, bool RM>
 bool operator!=(const TokenTrieMatchIterator<N, LM>& lhs,
                 const TokenTrieMatchIterator<N, RM>& rhs)
 {
-    return internal::TokenTrieIteratorAccess::differs(lhs, rhs);
+    return lhs.cursor() != rhs.cursor();
 };
 
 template <typename N, bool M>
@@ -224,17 +200,17 @@ public:
     using reference = typename std::conditional<IsMutable, value_type&,
                                                 const value_type&>::type;
 
-    using Cursor = TokenTrieCursor<N>;
+    using cursor_type = TokenTrieCursor<N, IsMutable>;
 
     /** Default constructor. */
     TokenTrieIterator() {}
 
-    /** Implicit conversion from mutable iterator to const iterator. */
+    /** Conversion from mutable iterator to const iterator. */
     template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
     TokenTrieIterator(const TokenTrieIterator<N, M>& rhs)
         : cursor_(rhs.cursor()) {}
 
-    /** Implicit conversion from match iterator. */
+    /** Conversion from match iterator. */
     template <bool M, typename std::enable_if<(!IsMutable || M), int>::type = 0>
     TokenTrieIterator(const TokenTrieMatchIterator<N, M>& rhs)
         : cursor_(rhs.cursor()) {}
@@ -257,13 +233,13 @@ public:
     token_type token() const {return cursor_.token();}
 
     /** Accesses the value associated with the current element. */
-    reference value() {return cursor_.value();}
+    reference value() {return *(cursor_.element());}
 
     /** Accesses the value associated with the current element. */
-    const value_type& value() const {return cursor_.value();}
+    const value_type& value() const {return *(cursor_.element());}
 
     /** Obtains a copy of the cursor associated with the current element. */
-    Cursor cursor() const {return cursor_;}
+    cursor_type cursor() const {return cursor_;}
 
     /** Accesses the value associated with the current element. */
     reference operator*() {return value();}
@@ -279,24 +255,21 @@ public:
 
     /** Prefix increment, advances to the next key in lexigraphic order. */
     TokenTrieIterator& operator++()
-        {cursor_.advance_to_next_value(); return *this;}
+        {cursor_.advance_to_next_element(); return *this;}
 
     /** Postfix increment, advances to the next key in lexigraphic order. */
     TokenTrieIterator operator++(int)
         {auto temp = *this; ++(*this); return temp;}
 
 private:
-    using Access = internal::TokenTrieIteratorAccess;
-    using Node = typename Cursor::node_type;
+    using Node = typename cursor_type::node_type;
 
-    TokenTrieIterator(Cursor cursor) : cursor_(cursor) {}
+    TokenTrieIterator(cursor_type cursor) : cursor_(cursor) {}
 
-    Cursor cursor_;
+    cursor_type cursor_;
 
     template <typename, typename, typename, typename, typename>
     friend class TokenTrie;
-
-    friend struct internal::TokenTrieIteratorAccess;
 };
 
 template <typename N, bool M>
@@ -310,7 +283,7 @@ template <typename N, bool LM, bool RM>
 bool operator==(const TokenTrieIterator<N, LM>& lhs,
                 const TokenTrieIterator<N, RM>& rhs)
 {
-    return internal::TokenTrieIteratorAccess::equals(lhs, rhs);
+    return lhs.cursor() == rhs.cursor();
 };
 
 /** Compares two iterators for inequality.
@@ -319,7 +292,7 @@ template <typename N, bool LM, bool RM>
 bool operator!=(const TokenTrieIterator<N, LM>& lhs,
                 const TokenTrieIterator<N, RM>& rhs)
 {
-    return internal::TokenTrieIteratorAccess::differs(lhs, rhs);
+    return lhs.cursor() != rhs.cursor();
 };
 
 /** Compares a match iterator and a regular iterator for equality.
@@ -328,7 +301,7 @@ template <typename N, bool LM, bool RM>
 bool operator==(const TokenTrieMatchIterator<N, LM>& lhs,
                 const TokenTrieIterator<N, RM>& rhs)
 {
-    return internal::TokenTrieIteratorAccess::equals(lhs, rhs);
+    return lhs.cursor() == rhs.cursor();
 };
 
 /** Compares a match iterator and a regular iterator for equality.
@@ -337,7 +310,7 @@ template <typename N, bool LM, bool RM>
 bool operator==(const TokenTrieIterator<N, LM>& lhs,
                 const TokenTrieMatchIterator<N, RM>& rhs)
 {
-    return internal::TokenTrieIteratorAccess::equals(lhs, rhs);
+    return lhs.cursor() == rhs.cursor();
 };
 
 /** Compares a match iterator and a regular iterator for inequality.
@@ -346,7 +319,7 @@ template <typename N, bool LM, bool RM>
 bool operator!=(const TokenTrieMatchIterator<N, LM>& lhs,
                 const TokenTrieIterator<N, RM>& rhs)
 {
-    return internal::TokenTrieIteratorAccess::differs(lhs, rhs);
+    return lhs.cursor() != rhs.cursor();
 };
 
 /** Compares a match iterator and a regular iterator for inequality.
@@ -355,7 +328,7 @@ template <typename N, bool LM, bool RM>
 bool operator!=(const TokenTrieIterator<N, LM>& lhs,
                 const TokenTrieMatchIterator<N, RM>& rhs)
 {
-    return internal::TokenTrieIteratorAccess::differs(lhs, rhs);
+    return lhs.cursor() != rhs.cursor();
 };
 
 //------------------------------------------------------------------------------
@@ -501,7 +474,7 @@ public:
     using const_match_range_type = std::pair<const_match_iterator,
                                              const_match_iterator>;
 
-    using Cursor = TokenTrieCursor<Node>;
+    using cursor = TokenTrieCursor<Node, true>;
 
     class value_compare
     {
@@ -603,6 +576,39 @@ public:
     const_iterator cend() const noexcept {return impl_.sentinelCursor();}
     /// @}
 
+    /// @name Cursors
+    /// @{
+
+    /** Obtains a cursor to the root node, or the sentinel node if empty. */
+    cursor root() noexcept {return impl_.rootCursor();}
+
+    /** Obtains a cursor to the root node, or the sentinel node if empty. */
+    // const_cursor root() const noexcept {return croot();}
+
+    /** Obtains a cursor to the root node, or the sentinel node if empty. */
+    // const_cursor croot() const noexcept {return impl_.rootCursor();}
+
+    /** Obtains a cursor to the first value node, or the sentinel node
+        if empty. */
+    cursor first() noexcept {return impl_.firstValueCursor();}
+
+    /** Obtains a cursor to the first value node, or the sentinel node
+        if empty. */
+    // const_cursor first() const noexcept {return cfirst();}
+
+    /** Obtains a cursor to the first value node, or the sentinel node
+        if empty. */
+    // const_cursor cfirst() const noexcept {return impl_.firstValueCursor();}
+
+    /** Obtains a cursor to the sentinel node. */
+    cursor sentinel() noexcept {return impl_.sentinelCursor();}
+
+    /** Obtains a cursor to the sentinel node. */
+    // const_cursor sentinel() const noexcept {return csentinel();}
+
+    /** Obtains a cursor to the sentinel node. */
+    // const_cursor csentinel() const noexcept {return impl_.sentinelCursor();}
+    /// @}
 
     /// @name Capacity
     /// @{
@@ -720,12 +726,12 @@ public:
     /** Obtains the range of elements lexicographically matching
         the given key.*/
     range_type equal_range(const key_type& key)
-        {return getEqualRange<iterator>(key);}
+        {return getEqualRange<iterator>(*this, key);}
 
     /** Obtains the range of elements lexicographically matching
         the given key.*/
     const_range_type equal_range(const key_type& key) const
-        {return getEqualRange<const_iterator>(key);}
+        {return getEqualRange<const_iterator>(*this, key);}
 
     /** Obtains an iterator to the first element not less than the
         given key. */
@@ -748,12 +754,12 @@ public:
     /** Obtains the range of elements with wildcard patterns matching
         the given key. */
     match_range_type match_range(const key_type& key)
-        {return getMatchRange<match_iterator>(key);}
+        {return getMatchRange<match_iterator>(*this, key);}
 
     /** Obtains the range of elements with wildcard patterns matching
         the given key. */
     const_match_range_type match_range(const key_type& key) const
-        {return getMatchRange<const_match_iterator>(key);}
+        {return getMatchRange<const_match_iterator>(*this, key);}
 
     /** Obtains the function that compares keys. */
     key_compare key_comp() const {return key_compare();}
@@ -782,11 +788,11 @@ public:
 private:
     template <typename C>
     static auto checkedAccess(C&& cursor)
-        -> decltype(std::forward<C>(cursor).value())
+        -> decltype(*(std::forward<C>(cursor).element()))
     {
         if (!cursor)
             throw std::out_of_range("wamp::TokenTrie::at key out of range");
-        return std::forward<C>(cursor).value();
+        return *(std::forward<C>(cursor).element());
     }
 
     template <typename... Us>
@@ -803,20 +809,22 @@ private:
         return {iterator{r.first}, r.second};
     }
 
-    template <typename I>
-    std::pair<I, I> getEqualRange(const key_type& key) const
+    template <typename I, typename TSelf>
+    std::pair<I, I> getEqualRange(TSelf& self, const key_type& key) const
     {
-        auto er = impl_.equalRange(key);
+        auto er = self.impl_.equalRange(key);
         return {I{er.first}, I{er.second}};
     }
 
-    template <typename I>
-    std::pair<I, I> getMatchRange(const key_type& key) const
+    template <typename I, typename TSelf>
+    std::pair<I, I> getMatchRange(TSelf& self, const key_type& key) const
     {
-        if (empty() || key.empty())
-            return {I{impl_.sentinelCursor()}, I{impl_.sentinelCursor()}};
+        if (self.empty() || key.empty())
+            return {I{self.impl_.sentinelCursor()},
+                    I{self.impl_.sentinelCursor()}};
 
-        return {I{impl_.rootCursor(), key}, I{impl_.sentinelCursor()}};
+        return {I{self.impl_.rootCursor(), key},
+                I{self.impl_.sentinelCursor()}};
     }
 
     template <typename I>
