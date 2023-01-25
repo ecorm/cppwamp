@@ -401,35 +401,6 @@ public:
         }
     }
 
-    void lower_bound(const key_type& key)
-    {
-        findBound(key);
-        if (!has_value())
-            advance_to_next_element();
-    }
-
-    void upper_bound(const key_type& key)
-    {
-        bool foundExact = findBound(key);
-        if (!has_value() || foundExact)
-            advance_to_next_element();
-    }
-
-    static std::pair<TokenTrieCursor, TokenTrieCursor>
-    equal_range(node_pointer root_node, const key_type& key)
-    {
-        auto lower = begin(*root_node);
-        bool foundExact = lower.findBound(key);
-        bool nudged = !lower.has_value();
-        if (nudged)
-            lower.advance_to_next_element();
-
-        TokenTrieCursor upper{lower};
-        if (!nudged && foundExact)
-            upper.advance_to_next_element();
-        return {lower, upper};
-    }
-
     size_type match_first(const key_type& key)
     {
         size_type level = 0;
@@ -496,33 +467,6 @@ private:
     {
         assert(!at_end_of_level());
         return child_->second;
-    }
-
-    void locate(const key_type& key)
-    {
-        assert(!key.empty());
-        node_type* sentinel = parent_->parent_;
-        bool found = true;
-        for (size_type level = 0; level<key.size(); ++level)
-        {
-            const auto& token = key[level];
-            child_ = parent_->children_.find(token);
-            if (at_end_of_level())
-            {
-                found = false;
-                break;
-            }
-
-            if (level < key.size() - 1)
-                parent_ = &(child_->second);
-        }
-        found = found && has_value();
-
-        if (!found)
-        {
-            parent_ = sentinel;
-            child_ = sentinel->children_.end();
-        }
     }
 
     void advanceToFirstValue()
@@ -633,21 +577,6 @@ private:
         }
     };
 
-    struct LessEqual
-    {
-        bool operator()(const typename TreeIterator::value_type& kv,
-                        const token_type& s) const
-        {
-            return kv.first <= s;
-        }
-
-        bool operator()(const token_type& s,
-                        const typename TreeIterator::value_type& kv) const
-        {
-            return s <= kv.first;
-        }
-    };
-
     void findTokenInLevel(const token_type& token)
     {
         if (child_ == parent_->children_.begin())
@@ -661,47 +590,6 @@ private:
         {
             child_ = parent_->children_.end();
         }
-    }
-
-    bool findBound(const key_type& key)
-    {
-        assert(!key.empty());
-        const size_type maxLevel = key.size() - 1;
-
-        bool foundExact = false;
-        for (size_type level = 0; level <= maxLevel; ++level)
-        {
-            const auto& targetToken = key[level];
-            child_ = findLowerBoundInNode(*parent_, targetToken);
-            if (child_ == parent_->children_.end())
-                break;
-
-            if (child_->first != targetToken)
-                break;
-
-            if (level < maxLevel)
-            {
-                if (child_->second.is_leaf() )
-                {
-                    ++child_;
-                    break;
-                }
-                parent_ = &(child_->second);
-                child_ = parent_->children_.begin();
-            }
-            else
-            {
-                foundExact = true;
-            }
-        }
-
-        return foundExact;
-    }
-
-    static TreeIterator findLowerBoundInNode(NodeRef n, const token_type& token)
-    {
-        return std::lower_bound(n.children_.begin(), n.children_.end(),
-                                token, Less{});
     }
 
     node_pointer parent_ = nullptr;

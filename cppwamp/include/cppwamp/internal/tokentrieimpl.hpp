@@ -112,70 +112,81 @@ public:
 
     Cursor locate(const Key& key)
     {
-        if (empty() || key.empty())
-            return sentinelCursor();
-        auto cursor = rootCursor();
-        cursor.locate(key);
-        return cursor;
+        return locateElement<Cursor>(*this, key);
     }
 
     ConstCursor locate(const Key& key) const
     {
-        if (empty() || key.empty())
-            return sentinelCursor();
-        auto cursor = rootCursor();
-        cursor.locate(key);
-        return cursor;
+        return locateElement<ConstCursor>(*this, key);
     }
 
     Cursor lowerBound(const Key& key)
     {
-        if (empty() || key.empty())
+        if (key.empty() || empty())
             return sentinelCursor();
-        auto cursor = rootCursor();
-        cursor.lower_bound(key);
+        auto cursor = findBound<Cursor>(*this, key).first;
+        if (!cursor.has_value())
+            cursor.advance_to_next_element();
         return cursor;
     }
 
     ConstCursor lowerBound(const Key& key) const
     {
-        if (empty() || key.empty())
+        if (key.empty() || empty())
             return sentinelCursor();
-        auto cursor = rootCursor();
-        cursor.lower_bound(key);
+        auto cursor = findBound<ConstCursor>(*this, key).first;
+        if (!cursor.has_value())
+            cursor.advance_to_next_element();
         return cursor;
     }
 
     Cursor upperBound(const Key& key)
     {
-        if (empty() || key.empty())
+        if (key.empty() || empty())
             return sentinelCursor();
-        auto cursor = rootCursor();
-        cursor.upper_bound(key);
-        return cursor;
+        auto result = findBound<Cursor>(*this, key);
+        if (!result.first.has_value() || result.second)
+            result.first.advance_to_next_element();
+        return result.first;
     }
 
     ConstCursor upperBound(const Key& key) const
     {
-        if (empty() || key.empty())
+        if (key.empty() || empty())
             return sentinelCursor();
-        auto cursor = rootCursor();
-        cursor.upper_bound(key);
-        return cursor;
+        auto result = findBound<ConstCursor>(*this, key);
+        if (!result.first.has_value() || result.second)
+            result.first.advance_to_next_element();
+        return result.first;
     }
 
     std::pair<Cursor, Cursor> equalRange(const Key& key)
     {
-        if (empty() || key.empty())
-            return {sentinelCursor(), sentinelCursor()};
-        return Cursor::equal_range(root_.get(), key);
+        return findEqualRange<Cursor>(*this, key);
     }
 
     std::pair<ConstCursor, ConstCursor> equalRange(const Key& key) const
     {
-        if (empty() || key.empty())
-            return {sentinelCursor(), sentinelCursor()};
-        return ConstCursor::equal_range(root_.get(), key);
+        return findEqualRange<ConstCursor>(*this, key);
+    }
+
+    template <typename TCursor, typename TSelf>
+    static std::pair<TCursor, TCursor> findEqualRange(TSelf& self,
+                                                      const Key& key)
+    {
+        if (key.empty() || self.empty())
+            return {self.sentinelCursor(), self.sentinelCursor()};
+
+        auto result = findBound<TCursor>(self, key);
+        bool foundExact = result.second;
+        bool nudged = !result.first.has_value();
+        if (nudged)
+            result.first.advance_to_next_element();
+
+        TCursor upper{result.first};
+        if (!nudged && foundExact)
+            upper.advance_to_next_element();
+        return {result.first, upper};
     }
 
     Size empty() const noexcept {return size_ == 0;}
@@ -284,6 +295,7 @@ private:
     using Tree = typename Node::tree_type;
     using TreeIterator = typename Tree::iterator;
     using Token = typename Node::token_type;
+    using Level = typename Key::size_type;
 
     void moveFrom(TokenTrieImpl& rhs) noexcept
     {
@@ -326,6 +338,34 @@ private:
                     ++iter;
             }
         }
+    }
+
+    template <typename TCursor, typename TSelf>
+    static TCursor locateElement(TSelf& self, const Key& key)
+    {
+        if (self.empty() || key.empty())
+            return self.sentinelCursor();
+
+        auto parent = self.root_.get();
+        auto child = self.root_->children_.begin();
+        bool found = true;
+        for (Level level = 0; level<key.size(); ++level)
+        {
+            const auto& token = key[level];
+            child = parent->children_.find(token);
+            if (child == parent->children().end())
+            {
+                found = false;
+                break;
+            }
+
+            if (level < key.size() - 1)
+                parent = &(child->second);
+        }
+
+        if (!found || !child->second.element_.has_value())
+            return self.sentinelCursor();
+        return {parent, child};
     }
 
     template <typename... Us>
@@ -445,6 +485,60 @@ private:
             iter = child.children_.begin();
         }
         return parent->position_;
+    }
+
+    struct Less
+    {
+        template <typename KV>
+        bool operator()(const KV& kv, const Token& s) const
+        {
+            return kv.first < s;
+        }
+
+        template <typename KV>
+        bool operator()(const Token& s, const KV& kv) const
+        {
+            return s < kv.first;
+        }
+    };
+
+    template <typename TCursor, typename TSelf>
+    static std::pair<TCursor, bool> findBound(TSelf& self, const Key& key)
+    {
+        assert(!key.empty());
+        const Level maxLevel = key.size() - 1;
+
+        auto parent = self.root_.get();
+        auto child = parent->children_.begin();
+        bool foundExact = false;
+        for (Level level = 0; level <= maxLevel; ++level)
+        {
+            const auto& token = key[level];
+            child = std::lower_bound(parent->children_.begin(),
+                                     parent->children_.end(), token, Less{});
+            if (child == parent->children_.end())
+                break;
+
+            if (child->first != token)
+                break;
+
+            if (level < maxLevel)
+            {
+                if (child->second.is_leaf() )
+                {
+                    ++child;
+                    break;
+                }
+                parent = &(child->second);
+                child = parent->children_.begin();
+            }
+            else
+            {
+                foundExact = true;
+            }
+        }
+
+        return {{parent, child}, foundExact};
     }
 
     Node sentinel_;
