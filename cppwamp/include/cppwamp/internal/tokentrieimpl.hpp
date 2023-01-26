@@ -27,15 +27,16 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename K, typename T, typename P>
+template <typename K, typename T, typename C, typename P>
 class CPPWAMP_HIDDEN TokenTrieImpl
 {
 public:
     using Key = K;
     using Value = T;
+    using KeyComp = C;
     using Policy = P;
     using ValueStorage = typename P::value_storage;
-    using Node = TokenTrieNode<Key, ValueStorage>;
+    using Node = TokenTrieNode<Key, ValueStorage, KeyComp>;
     using Size = typename Node::tree_type::size_type;
     using Cursor = TokenTrieCursor<Node, true>;
     using ConstCursor = TokenTrieCursor<Node, false>;
@@ -117,71 +118,32 @@ public:
 
     Cursor lowerBound(const Key& key)
     {
-        if (key.empty() || empty())
-            return sentinelCursor();
-        auto cursor = findBound<Cursor>(*this, key).first;
-        if (!cursor.has_value())
-            cursor.advance_to_next_element();
-        return cursor;
+        return findLowerBound<Cursor>(*this, key);
     }
 
     ConstCursor lowerBound(const Key& key) const
     {
-        if (key.empty() || empty())
-            return sentinelCursor();
-        auto cursor = findBound<ConstCursor>(*this, key).first;
-        if (!cursor.has_value())
-            cursor.advance_to_next_element();
-        return cursor;
+        return findLowerBound<ConstCursor>(*this, key);
     }
 
     Cursor upperBound(const Key& key)
     {
-        if (key.empty() || empty())
-            return sentinelCursor();
-        auto result = findBound<Cursor>(*this, key);
-        if (!result.first.has_value() || result.second)
-            result.first.advance_to_next_element();
-        return result.first;
+        return findUpperBound<Cursor>(*this, key);
     }
 
     ConstCursor upperBound(const Key& key) const
     {
-        if (key.empty() || empty())
-            return sentinelCursor();
-        auto result = findBound<ConstCursor>(*this, key);
-        if (!result.first.has_value() || result.second)
-            result.first.advance_to_next_element();
-        return result.first;
+        return findUpperBound<ConstCursor>(*this, key);
     }
 
     std::pair<Cursor, Cursor> equalRange(const Key& key)
     {
-        return findEqualRange<Cursor>(*this, key);
+        return {lowerBound(key), upperBound(key)};
     }
 
     std::pair<ConstCursor, ConstCursor> equalRange(const Key& key) const
     {
-        return findEqualRange<ConstCursor>(*this, key);
-    }
-
-    template <typename TCursor, typename TSelf>
-    static std::pair<TCursor, TCursor> findEqualRange(TSelf& self,
-                                                      const Key& key)
-    {
-        if (key.empty() || self.empty())
-            return {self.sentinelCursor(), self.sentinelCursor()};
-
-        auto result = findBound<TCursor>(self, key);
-        bool foundExact = result.second;
-        bool nudged = !result.first.has_value();
-        if (nudged)
-            result.first.advance_to_next_element();
-
-        TCursor upper{result.first};
-        if (!nudged && foundExact)
-            upper.advance_to_next_element();
-        return {result.first, upper};
+        return {lowerBound(key), upperBound(key)};
     }
 
     Size empty() const noexcept {return size_ == 0;}
@@ -219,7 +181,7 @@ public:
     {
         auto cursor = pos;
         assert(bool(cursor));
-        pos.advance_to_next_element();
+        pos.advance_depth_first_to_next_element();
 
         cursor.child_->second.element_.reset();
         if (cursor.child()->is_leaf())
@@ -260,8 +222,8 @@ public:
         {
             if (curA.token_or_value_differs(curB))
                 return false;
-            curA.advance_to_next_node();
-            curB.advance_to_next_node();
+            curA.advance_depth_first_to_next_node();
+            curB.advance_depth_first_to_next_node();
         }
         return curB.at_end();
     }
@@ -280,8 +242,8 @@ public:
                 return true;
             if (curA.token_or_value_differs(curB))
                 return true;
-            curA.advance_to_next_node();
-            curB.advance_to_next_node();
+            curA.advance_depth_first_to_next_node();
+            curB.advance_depth_first_to_next_node();
         }
         return !curB.at_end();
     }
@@ -482,58 +444,108 @@ private:
         return parent->position_;
     }
 
-    struct Less
-    {
-        template <typename KV>
-        bool operator()(const KV& kv, const Token& s) const
-        {
-            return kv.first < s;
-        }
-
-        template <typename KV>
-        bool operator()(const Token& s, const KV& kv) const
-        {
-            return s < kv.first;
-        }
-    };
-
     template <typename TCursor, typename TSelf>
-    static std::pair<TCursor, bool> findBound(TSelf& self, const Key& key)
+    static TCursor findLowerBound(TSelf& self, const Key& key)
     {
-        assert(!key.empty());
-        const Level maxLevel = key.size() - 1;
+        if (key.empty() || self.empty())
+            return self.sentinelCursor();
 
         auto parent = self.root_.get();
         auto child = parent->children_.begin();
-        bool foundExact = false;
+        const Level maxLevel = key.size() - 1;
+        KeyComp keyComp;
+        bool keepSearching = false;
+
         for (Level level = 0; level <= maxLevel; ++level)
         {
             const auto& token = key[level];
-            child = std::lower_bound(parent->children_.begin(),
-                                     parent->children_.end(), token, Less{});
+            child = parent->children_.lower_bound(token);
             if (child == parent->children_.end())
                 break;
 
-            if (child->first != token)
+            bool isNotEquivalent = keyComp(token, child->first);
+            if (isNotEquivalent)
                 break;
 
             if (level < maxLevel)
             {
                 if (child->second.is_leaf() )
                 {
-                    ++child;
+                    keepSearching = true;
                     break;
                 }
                 parent = &(child->second);
                 child = parent->children_.begin();
             }
+        }
+
+        TCursor cursor{parent, child};
+
+        while (keepSearching)
+        {
+            cursor.advance_depth_first_to_next_node();
+            keepSearching = !cursor.at_end() && keyComp(cursor.key(), key);
+        }
+
+        if (!cursor.has_value())
+            cursor.advance_depth_first_to_next_element();
+
+        return cursor;
+    }
+
+    template <typename TCursor, typename TSelf>
+    static TCursor findUpperBound(TSelf& self, const Key& key)
+    {
+        if (key.empty() || self.empty())
+            return self.sentinelCursor();
+
+        auto parent = self.root_.get();
+        auto child = parent->children_.begin();
+        const Level maxLevel = key.size() - 1;
+        KeyComp keyComp;
+        bool keepSearching = false;
+
+        for (Level level = 0; level <= maxLevel; ++level)
+        {
+            const auto& token = key[level];
+            child = parent->children_.lower_bound(token);
+
+            if (child == parent->children_.end())
+                break;
+
+            bool isNotEquivalent = keyComp(token, child->first);
+            if (isNotEquivalent)
+                break;
+
+            if (child->second.is_leaf())
+            {
+                child = parent->children_.upper_bound(token);
+                break;
+            }
+
+            if (level < maxLevel)
+            {
+                parent = &(child->second);
+                child = parent->children_.begin();
+            }
             else
             {
-                foundExact = true;
+                keepSearching = true;
             }
         }
 
-        return {{parent, child}, foundExact};
+        TCursor cursor{parent, child};
+
+        while (keepSearching)
+        {
+            cursor.advance_depth_first_to_next_node();
+            keepSearching = !cursor.at_end() && !keyComp(key, cursor.key());
+        }
+
+        if (!cursor.has_value())
+            cursor.advance_depth_first_to_next_element();
+
+        return cursor;
     }
 
     Node sentinel_;

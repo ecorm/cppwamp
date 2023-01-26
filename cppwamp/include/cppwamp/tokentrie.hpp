@@ -14,7 +14,6 @@
 
 #include <cassert>
 #include <cstddef>
-#include <functional>
 #include <initializer_list>
 #include <iterator>
 #include <limits>
@@ -30,12 +29,13 @@
 namespace wamp
 {
 
-//------------------------------------------------------------------------------
-/** Detects if an iterator is one of the types returned by TokenTrie. */
-//------------------------------------------------------------------------------
+namespace internal
+{
+
 template <typename I, typename Enable = void>
-struct IsSpecialTokenTrieIterator : std::false_type
-{};
+struct IsTokenTrieIterator : std::false_type {};
+
+}
 
 //------------------------------------------------------------------------------
 /** TokenTrie iterator that advances through elements in lexicographic order
@@ -69,6 +69,7 @@ public:
     using reference = typename std::conditional<IsMutable, value_type&,
                                                 const value_type&>::type;
 
+    /// Type if the underlying cursor used to traverse nodes.
     using cursor_type = TokenTrieCursor<N, IsMutable>;
 
     /** Default constructor. */
@@ -114,7 +115,7 @@ public:
 
     /** Prefix increment, advances to the next key in lexigraphic order. */
     TokenTrieIterator& operator++()
-        {cursor_.advance_to_next_element(); return *this;}
+        {cursor_.advance_depth_first_to_next_element(); return *this;}
 
     /** Postfix increment, advances to the next key in lexigraphic order. */
     TokenTrieIterator operator++(int)
@@ -131,10 +132,13 @@ private:
     friend class TokenTrie;
 };
 
+namespace internal
+{
+
 template <typename N, bool M>
-struct IsSpecialTokenTrieIterator<TokenTrieIterator<N, M>>
-    : std::true_type
-{};
+struct IsTokenTrieIterator<TokenTrieIterator<N, M>> : std::true_type {};
+
+}
 
 /** Compares two iterators for equality.
     @relates TokenTrieIterator */
@@ -175,6 +179,15 @@ struct CPPWAMP_API TokenTrieDefaultPolicy
 };
 
 //------------------------------------------------------------------------------
+struct CPPWAMP_API TokenTrieDefaultKeyCompare
+{
+    using is_transparent = std::true_type;
+
+    template <typename L, typename R>
+    bool operator()(const L& lhs, const R& rhs) const {return lhs < rhs;}
+};
+
+//------------------------------------------------------------------------------
 /** Associative container suited for pattern matching, where keys are
     small containers of tokens that have been split from strings
     (e.g. domain names).
@@ -195,28 +208,26 @@ struct CPPWAMP_API TokenTrieDefaultPolicy
     Strong exception safety is provided for all modification operations.
 
     @tparam K Split token container type.
-            Must be a Sequence with a `push_back` member.
-    @tparam T Mapped value type.
-            Must be default constructible. */
+            Must be a Sequence with a `push_back` member function.
+    @tparam C Token compare function
+    @tparam T Mapped value type. */
 //------------------------------------------------------------------------------
-template <typename K, typename T, typename = void, typename = void,
+template <typename K,
+          typename T,
+          typename C = TokenTrieDefaultKeyCompare,
+          typename = void,
           typename P = TokenTrieDefaultPolicy<T>>
 class CPPWAMP_API TokenTrie
 {
 private:
-    using Node = TokenTrieNode<K, typename P::value_storage>;
-    using NodeAllocatorTraits = std::allocator_traits<typename Node::allocator_type>;
+    using Node = TokenTrieNode<K, typename P::value_storage, C>;
+    using NodeAllocatorTraits =
+        std::allocator_traits<typename Node::allocator_type>;
 
     template <typename KV>
     static constexpr bool isInsertable()
     {
         return std::is_constructible<value_type, KV&&>::value;
-    }
-
-    template <typename I>
-    static constexpr bool isSpecial()
-    {
-        return IsSpecialTokenTrieIterator<I>::value;
     }
 
 public:
@@ -235,8 +246,6 @@ public:
               match that of std::map. */
     using value_type = std::pair<const key_type, mapped_type>;
 
-    using cursor_node_type = Node;
-
     /** Type used to count the number of elements in the container. */
     using size_type = typename Node::tree_type::size_type;
 
@@ -244,7 +253,7 @@ public:
     using difference_type = std::ptrdiff_t;
 
     /// Comparison function that determines how keys are sorted.
-    using key_compare = std::less<key_type>;
+    using key_compare = C;
 
     /// Allocator type
     using allocator_type =
@@ -287,7 +296,7 @@ public:
     /** Immutable cursor type used for traversing nodes. */
     using const_cursor = TokenTrieCursor<Node, true>;
 
-    /** Function object type used for comparing key-value pairs
+    /** Function object type used for sorting key-value pairs
         in lexicographic order of their keys. */
     class value_compare
     {
@@ -466,7 +475,7 @@ public:
     /** Inserts elements from the given iterator range. */
     template <typename I>
     void insert(I first, I last)
-        {return insertRange(IsSpecialTokenTrieIterator<I>{}, first, last);}
+        {return insertRange(internal::IsTokenTrieIterator<I>{}, first, last);}
 
     /** Inserts elements from the given initializer list of key-value pairs. */
     void insert(std::initializer_list<value_type> list)
@@ -589,13 +598,13 @@ public:
         {return t.doEraseIf(std::move(predicate));}
 
 private:
-    template <typename C>
-    static auto checkedAccess(C&& cursor)
-        -> decltype(*(std::forward<C>(cursor).element()))
+    template <typename TCursor>
+    static auto checkedAccess(TCursor&& cursor)
+        -> decltype(*(std::forward<TCursor>(cursor).element()))
     {
         if (!cursor)
             throw std::out_of_range("wamp::TokenTrie::at key out of range");
-        return *(std::forward<C>(cursor).element());
+        return *(std::forward<TCursor>(cursor).element());
     }
 
     template <typename... Us>
@@ -661,7 +670,7 @@ private:
         return oldSize - size();
     }
 
-    internal::TokenTrieImpl<K, T, P> impl_;
+    internal::TokenTrieImpl<K, T, C, P> impl_;
 };
 
 } // namespace wamp

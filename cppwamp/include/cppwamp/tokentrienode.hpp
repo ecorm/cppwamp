@@ -7,6 +7,11 @@
 #ifndef CPPWAMP_TOKENTRIENODE_HPP
 #define CPPWAMP_TOKENTRIENODE_HPP
 
+//------------------------------------------------------------------------------
+/** @file
+    @brief Contains the TokenTrie node and cursor facilities. */
+//------------------------------------------------------------------------------
+
 #include <algorithm>
 #include <cassert>
 #include <initializer_list>
@@ -24,7 +29,7 @@ namespace wamp
 
 namespace internal
 {
-    template <typename, typename, typename> class TokenTrieImpl;
+    template <typename, typename, typename, typename> class TokenTrieImpl;
 }
 
 //------------------------------------------------------------------------------
@@ -228,16 +233,17 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename K, typename S>
+template <typename K, typename S, typename C>
 class CPPWAMP_API TokenTrieNode
 {
 public:
+    using key_type = K;
     using value_storage = S;
+    using key_compare = C;
     using optional_value = TokenTrieOptionalValue<value_storage>;
     using value_type = typename optional_value::value_type;
-    using key_type = K;
     using token_type = typename key_type::value_type;
-    using tree_type = std::map<token_type, TokenTrieNode>;
+    using tree_type = std::map<token_type, TokenTrieNode, key_compare>;
     using allocator_type = typename tree_type::allocator_type;
 
     TokenTrieNode() : position_(children_.end()) {}
@@ -305,6 +311,7 @@ class CPPWAMP_API TokenTrieCursor
 public:
     using node_type = N;
     using key_type = typename N::key_type;
+    using key_compare = typename N::key_compare;
     using token_type = typename N::token_type;
     using level_type = typename key_type::size_type;
     using optional_value = typename N::optional_value;
@@ -357,7 +364,7 @@ public:
         if (!good())
             return !rhs.good();
 
-        return rhs.good() && token() == rhs.token() &&
+        return rhs.good() && tokensAreEquivalent(token(), rhs.token()) &&
                childNode().element() == rhs.childNode().element();
     }
 
@@ -366,7 +373,7 @@ public:
         if (!good())
             return rhs.good();
 
-        return !rhs.good() || token() != rhs.token() ||
+        return !rhs.good() || tokensAreNotEquivalent(token(), rhs.token()) ||
                childNode().element() != rhs.childNode().element();
     }
 
@@ -382,6 +389,8 @@ public:
 
     const_iterator iter() const {return child_;}
 
+    // TODO: Read-only map view providing mutable iterators
+
     iterator begin() {return parentNode().children_.begin();}
 
     const_iterator begin() const {return parentNode().children_.cbegin();}
@@ -394,6 +403,12 @@ public:
 
     const_iterator cend() const {return parentNode().children_.cend();}
 
+    iterator lower_bound(const token_type& token)
+        {return parentNode().children_.lower_bound(token);}
+
+    const_iterator lower_bound(const token_type& token) const
+        {return parentNode().children_.lower_bound(token);}
+
     key_type key() const {return childNode().key();}
 
     const token_type& token() const
@@ -404,7 +419,17 @@ public:
     reference element()
         {assert(!at_end_of_level()); return child_->second.element();}
 
-    void advance_to_next_element()
+    void advance_depth_first_to_next_node()
+    {
+        while (!parent_->is_sentinel())
+        {
+            advanceDepthFirst();
+            if (child_ != parent_->children_.end())
+                break;
+        }
+    }
+
+    void advance_depth_first_to_next_element()
     {
         while (!parent_->is_sentinel())
         {
@@ -414,14 +439,10 @@ public:
         }
     }
 
-    void advance_to_next_node()
+    void advance_to_next_node_in_level()
     {
-        while (!parent_->is_sentinel())
-        {
-            advanceDepthFirst();
-            if (child_ != parent_->children_.end())
-                break;
-        }
+        assert(!at_end_of_level());
+        ++child_;
     }
 
     void skip_to(iterator iter) {child_ = iter;}
@@ -451,6 +472,7 @@ public:
 private:
     using NodeRef = typename std::conditional<IsMutable, node_type&,
                                               const node_type&>::type;
+    using KeyComp = typename node_type::key_compare;
 
     static TokenTrieCursor begin(NodeRef rootNode)
     {
@@ -461,13 +483,25 @@ private:
     {
         auto cursor = begin(rootNode);
         if (!cursor.at_end_of_level() && !cursor.child()->element().has_value())
-            cursor.advance_to_next_element();
+            cursor.advance_depth_first_to_next_element();
         return cursor;
     }
 
     static TokenTrieCursor end(NodeRef sentinelNode)
     {
         return TokenTrieCursor(&sentinelNode, sentinelNode.children_.end());
+    }
+
+    static bool tokensAreEquivalent(const token_type& a, const token_type& b)
+    {
+        key_compare c;
+        return !c(a, b) && !c(b, a);
+    }
+
+    static bool tokensAreNotEquivalent(const token_type& a, const token_type& b)
+    {
+        key_compare c;
+        return c(a, b) || c(b, a);
     }
 
     TokenTrieCursor(node_pointer node, iterator iter)

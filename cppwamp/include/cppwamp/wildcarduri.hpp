@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2016, 2022.
+    Copyright Butterfly Energy Systems 2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -218,9 +218,10 @@ public:
     /** Accesses the value associated with the current element. */
     const Value& value() const {return *(cursor_.element());}
 
+    /** Determines if there are remaining matching elements left. */
     explicit operator bool() const {return !done();}
 
-    /** Determines if there are remaining matching elements left. */
+    /** Determines if there are no more remaining matching elements left. */
     bool done() const {return cursor_.at_end();}
 
     /** Advances to the next matching key in lexigraphic order. */
@@ -265,6 +266,7 @@ wildcardMatches(const UriTrie<T>& trie, const SplitUri& key)
     using Cursor = typename UriTrie<T>::const_cursor;
     return WildcardMatcher<Cursor>(key, trie.root(), trie.sentinel());
 }
+
 
 //******************************************************************************
 // WildcardMatcher member definitions
@@ -361,7 +363,7 @@ void WildcardMatcher<C>::findNextMatchCandidate()
     const Level maxLevel = key_.size() - 1;
     if (!cursor_.at_end_of_level())
     {
-        assert(level_ < key_.size());
+        assert(level_ <=  maxLevel);
         const auto& expectedToken = key_[level_];
         bool canDescend = !cursor_.child()->is_leaf() &&
                           (level_ < maxLevel) &&
@@ -384,15 +386,23 @@ template <typename C>
 void WildcardMatcher<C>::findTokenInLevel(const Token& token)
 {
     auto iter = cursor_.iter();
+    auto end = cursor_.end();
     if (iter == cursor_.begin())
     {
-        iter = std::lower_bound(++iter, cursor_.end(), token, Less{});
-        if (iter != cursor_.end() && iter->first != token)
-            iter = cursor_.end();
+        if (token.empty())
+        {
+            iter = end;
+        }
+        else
+        {
+            iter = cursor_.lower_bound(token);
+            if (iter != end && iter->first != token)
+                iter = end;
+        }
     }
     else
     {
-        iter = cursor_.end();
+        iter = end;
     }
     cursor_.skip_to(iter);
 }
