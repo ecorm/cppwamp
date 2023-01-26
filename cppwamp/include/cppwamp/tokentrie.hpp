@@ -164,8 +164,8 @@ template <typename T>
 using TokenTrieLocalStorage = internal::TokenTrieValueLocalStorage<T>;
 
 //------------------------------------------------------------------------------
-template <typename T>
-using TokenTrieHeapStorage = internal::TokenTrieValueHeapStorage<T>;
+template <typename T, typename A = std::allocator<T>>
+using TokenTrieHeapStorage = internal::TokenTrieValueHeapStorage<T, A>;
 
 //------------------------------------------------------------------------------
 template <typename T>
@@ -215,14 +215,12 @@ struct CPPWAMP_API TokenTrieDefaultKeyCompare
 template <typename K,
           typename T,
           typename C = TokenTrieDefaultKeyCompare,
-          typename = void,
+          typename A = std::allocator<T>,
           typename P = TokenTrieDefaultPolicy<T>>
 class CPPWAMP_API TokenTrie
 {
 private:
-    using Node = TokenTrieNode<K, typename P::value_storage, C>;
-    using NodeAllocatorTraits =
-        std::allocator_traits<typename Node::allocator_type>;
+    using Node = TokenTrieNode<K, typename P::value_storage, C, A>;
 
     template <typename KV>
     static constexpr bool isInsertable()
@@ -256,8 +254,7 @@ public:
     using key_compare = C;
 
     /// Allocator type
-    using allocator_type =
-        typename NodeAllocatorTraits::template rebind_alloc<value_type>;
+    using allocator_type = A;
 
     /// Reference to value_type.
     using reference = value_type&;
@@ -670,7 +667,7 @@ private:
         return oldSize - size();
     }
 
-    internal::TokenTrieImpl<K, T, C, P> impl_;
+    internal::TokenTrieImpl<K, T, C, A, P> impl_;
 };
 
 } // namespace wamp

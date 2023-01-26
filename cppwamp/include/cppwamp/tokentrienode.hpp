@@ -29,7 +29,8 @@ namespace wamp
 
 namespace internal
 {
-    template <typename, typename, typename, typename> class TokenTrieImpl;
+    template <typename, typename, typename, typename, typename>
+    class TokenTrieImpl;
 }
 
 //------------------------------------------------------------------------------
@@ -233,7 +234,7 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename K, typename S, typename C>
+template <typename K, typename S, typename C, typename A>
 class CPPWAMP_API TokenTrieNode
 {
 public:
@@ -243,14 +244,22 @@ public:
     using optional_value = TokenTrieOptionalValue<value_storage>;
     using value_type = typename optional_value::value_type;
     using token_type = typename key_type::value_type;
-    using tree_type = std::map<token_type, TokenTrieNode, key_compare>;
-    using allocator_type = typename tree_type::allocator_type;
+    using tree_allocator_type =
+        typename std::allocator_traits<A>::template rebind_alloc<
+            std::pair<token_type, TokenTrieNode>>;
+    using tree_type = std::map<token_type, TokenTrieNode, key_compare,
+                               tree_allocator_type>;
 
-    TokenTrieNode() : position_(children_.end()) {}
+    explicit TokenTrieNode(key_compare comp, tree_allocator_type alloc)
+        : children_(std::move(comp), std::move(alloc)),
+          position_(children_.end())
+    {}
 
     template <typename... Us>
-    TokenTrieNode(in_place_t, Us&&... args)
-        : element_(in_place, std::forward<Us>(args)...)
+    TokenTrieNode(key_compare comp, tree_allocator_type alloc,
+                  in_place_t, Us&&... args)
+        : children_(std::move(comp), std::move(alloc)),
+          element_(in_place, std::forward<Us>(args)...)
     {}
 
     bool is_sentinel() const noexcept {return parent_ == nullptr;}
@@ -300,7 +309,7 @@ private:
 
     template <typename, bool> friend class TokenTrieCursor;
 
-    template <typename, typename, typename>
+    template <typename, typename, typename, typename, typename>
     friend class internal::TokenTrieImpl;
 };
 
@@ -552,7 +561,7 @@ private:
 
     template <typename, bool> friend class TokenTrieCursor;
 
-    template <typename, typename, typename>
+    template <typename, typename, typename, typename, typename>
     friend class internal::TokenTrieImpl;
 
     template <typename TNode, bool L, bool R>

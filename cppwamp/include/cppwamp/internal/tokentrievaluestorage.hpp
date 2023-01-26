@@ -67,35 +67,21 @@ public:
     TokenTrieValueLocalStorage& operator=(const TokenTrieValueLocalStorage& rhs)
     {
         if (!rhs.has_value())
-        {
             reset();
-        }
         else if (has_value())
-        {
             get() = rhs.get();
-        }
         else
-        {
             construct(rhs.get());
-            hasValue_ = true;
-        }
     }
 
     TokenTrieValueLocalStorage& operator=(TokenTrieValueLocalStorage&& rhs)
     {
         if (!rhs.has_value())
-        {
             reset();
-        }
         else if (has_value())
-        {
             get() = std::move(rhs.get());
-        }
         else
-        {
             construct(std::move(rhs.get()));
-            hasValue_ = true;
-        }
         // Moved-from side must still contain value
         return *this;
     }
@@ -110,30 +96,23 @@ public:
     void emplace(Us&&... args)
     {
         reset();
-        new (&storage_.asValue) value_type(std::forward<Us>(args)...);
-        hasValue_ = true;
+        construct(std::forward<Us>(args)...);
     }
 
     template <typename E, typename... Us>
     void emplace(std::initializer_list<E> list,  Us&&... args)
     {
         reset();
-        new (&storage_.asValue) value_type(list, std::forward<Us>(args)...);
-        hasValue_ = true;
+        construct(list, std::forward<Us>(args)...);
     }
 
     template <typename U>
     void assign(U&& value)
     {
         if (has_value())
-        {
             get() = std::forward<U>(value);
-        }
         else
-        {
             construct(std::forward<U>(value));
-            hasValue_ = true;
-        }
     }
 
     void reset()
@@ -162,12 +141,14 @@ private:
     void construct(Us&&... args)
     {
         new (&storage_.asValue) value_type(std::forward<Us>(args)...);
+        hasValue_ = true;
     }
 
     template <typename E, typename... Us>
     void construct(std::initializer_list<E> list, Us&&... args)
     {
         new (&storage_.asValue) value_type(list, std::forward<Us>(args)...);
+        hasValue_ = true;
     }
 
     union Storage
@@ -182,11 +163,12 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename T, typename A>
 class CPPWAMP_HIDDEN TokenTrieValueHeapStorage
 {
 public:
     using value_type = T;
+    using allocator_type = A;
 
     TokenTrieValueHeapStorage() noexcept = default;
 
@@ -197,9 +179,8 @@ public:
     }
 
     template <typename E, typename... Us>
-    explicit TokenTrieValueHeapStorage(in_place_t,
-                                       std::initializer_list<E> list,
-                                       Us&&... args)
+    explicit TokenTrieValueHeapStorage(
+        in_place_t, std::initializer_list<E> list, Us&&... args)
     {
         construct(list, std::forward<Us>(args)...);
     }
@@ -224,7 +205,7 @@ public:
         else if (has_value())
             get() = rhs.get();
         else
-            ptr_.reset(new value_type(rhs.get()));
+            construct(rhs.get());
         return *this;
     }
 
@@ -235,7 +216,129 @@ public:
         else if (has_value())
             get() = std::move(rhs.get());
         else
-            ptr_.reset(new value_type(std::move(rhs.get())));
+            construct(std::move(rhs.get()));
+        // Moved-from side must still contain value
+        return *this;
+    }
+
+    bool has_value() const noexcept {return ptr_ != nullptr;}
+
+    value_type& get() {return *ptr_;}
+
+    const value_type& get() const {return *ptr_;}
+
+    template <typename... Us>
+    void emplace(Us&&... args)
+    {
+        reset();
+        construct(std::forward<Us>(args)...);
+    }
+
+    template <typename E, typename... Us>
+    void emplace(std::initializer_list<E> list,  Us&&... args)
+    {
+        reset();
+        construct(list, std::forward<Us>(args)...);
+    }
+
+    template <typename U>
+    void assign(U&& value)
+    {
+        if (has_value())
+            get() = std::forward<U>(value);
+        else
+            construct(std::forward<U>(value));
+    }
+
+    void reset() {ptr_.reset();}
+
+    bool operator==(const TokenTrieValueHeapStorage& rhs) const noexcept
+    {
+        if (!has_value())
+            return !rhs.has_value();
+        return rhs.has_value() && (get() == rhs.get());
+    }
+
+    bool operator!=(const TokenTrieValueHeapStorage& rhs) const noexcept
+    {
+        if (!has_value())
+            return rhs.has_value();
+        return !rhs.has_value() || (get() != rhs.get());
+    }
+
+private:
+    template <typename... Us>
+    void construct(Us&&... args)
+    {
+        ptr_ = std::allocate_shared<value_type>(alloc_,
+                                                std::forward<Us>(args)...);
+    }
+
+    template <typename E, typename... Us>
+    void construct(std::initializer_list<E> list, Us&&... args)
+    {
+        ptr_ = std::allocate_shared<value_type>(alloc_, list,
+                                                std::forward<Us>(args)...);
+    }
+
+    std::shared_ptr<value_type> ptr_;
+    allocator_type alloc_;
+};
+
+//------------------------------------------------------------------------------
+template <typename T>
+class CPPWAMP_HIDDEN TokenTrieValueHeapStorage<T, std::allocator<T>>
+{
+public:
+    using value_type = T;
+
+    TokenTrieValueHeapStorage() noexcept = default;
+
+    template <typename... Us>
+    explicit TokenTrieValueHeapStorage(in_place_t, Us&&... args)
+    {
+        construct(std::forward<Us>(args)...);
+    }
+
+    template <typename E, typename... Us>
+    explicit TokenTrieValueHeapStorage(
+        in_place_t, std::initializer_list<E> list, Us&&... args)
+    {
+        construct(list, std::forward<Us>(args)...);
+    }
+
+    TokenTrieValueHeapStorage(const TokenTrieValueHeapStorage& rhs)
+    {
+        if (rhs.has_value())
+            construct(rhs.get());
+    }
+
+    TokenTrieValueHeapStorage(TokenTrieValueHeapStorage&& rhs)
+    {
+        if (rhs.has_value())
+            construct(std::move(rhs.get()));
+        // Moved-from side must still contain value
+    }
+
+    TokenTrieValueHeapStorage& operator=(const TokenTrieValueHeapStorage& rhs)
+    {
+        if (!rhs.has_value())
+            reset();
+        else if (has_value())
+            get() = rhs.get();
+        else
+            construct(rhs.get());
+        return *this;
+    }
+
+    TokenTrieValueHeapStorage& operator=(TokenTrieValueHeapStorage&& rhs)
+    {
+        if (!rhs.has_value())
+            reset();
+        else if (has_value())
+            get() = std::move(rhs.get());
+        else
+            construct(std::move(rhs.get()));
         // Moved-from side must still contain value
         return *this;
     }
@@ -298,7 +401,7 @@ private:
         ptr_.reset(new value_type(list, std::forward<Us>(args)...));
     }
 
-    std::unique_ptr<value_type> ptr_;
+    std::shared_ptr<value_type> ptr_;
 };
 
 //------------------------------------------------------------------------------
