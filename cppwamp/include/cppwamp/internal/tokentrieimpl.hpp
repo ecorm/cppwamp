@@ -42,17 +42,39 @@ public:
     using Cursor = TokenTrieCursor<Node, true>;
     using ConstCursor = TokenTrieCursor<Node, false>;
 
-    explicit TokenTrieImpl(KeyComp comp = {}, Allocator alloc = {})
+    class ValueComp
+    {
+    public:
+        using result_type = bool;
+        using first_argument_type = Value;
+        using second_argument_type = Value;
+
+        ValueComp() = default;
+
+        bool operator()(const Value& a, const Value& b)
+        {
+            return comp(a.first, b.first);
+        }
+
+    protected:
+        ValueComp(KeyComp c) : comp(std::move(c)) {}
+
+        KeyComp comp;
+
+        friend class TokenTrieImpl;
+    };
+
+    explicit TokenTrieImpl(const KeyComp& comp, const Allocator& alloc)
         : sentinel_(comp, TreeAllocator(alloc)),
-          comp_(std::move(comp)),
-          alloc_(std::move(alloc))
+          alloc_(alloc),
+          comp_(comp)
     {}
 
     TokenTrieImpl(const TokenTrieImpl& rhs)
         : sentinel_(rhs.sentinel_),
-          comp_(rhs.comp_),
           alloc_(rhs.alloc_),
-          size_(rhs.size_)
+          size_(rhs.size_),
+          comp_(rhs.comp_)
     {
         if (rhs.root_)
         {
@@ -64,9 +86,9 @@ public:
 
     TokenTrieImpl(TokenTrieImpl&& rhs) noexcept
         : sentinel_(std::move(rhs.sentinel_)),
-          comp_(std::move(rhs.comp_)),
           alloc_(std::move(rhs.alloc_)),
-          size_(rhs.size_)
+          size_(rhs.size_),
+          comp_(std::move(rhs.comp_))
     {
         moveRootFrom(rhs);
     }
@@ -98,13 +120,17 @@ public:
         if (&rhs != this)
         {
             sentinel_ = std::move(rhs.sentinel_);
-            comp_ = std::move(rhs.comp_);
             alloc_ = std::move(rhs.alloc_);
             size_ = rhs.size_;
+            comp_ = std::move(rhs.comp_);
             moveRootFrom(rhs);
         }
         return *this;
     }
+
+    KeyComp keyComp() const {return comp_.comp;}
+
+    ValueComp valueComp() const {return comp_;}
 
     Cursor rootCursor()
     {
@@ -234,10 +260,10 @@ public:
     {
         using std::swap;
         swap(sentinel_, other.sentinel_);
-        swap(comp_, other.comp_);
         swap(alloc_, other.alloc_);
         swap(root_, other.root_);
         swap(size_, other.size_);
+        swap(comp_, other.comp_);
         if (root_)
             root_->parent_ = &sentinel_;
         if (other.root_)
@@ -296,7 +322,8 @@ private:
     {
         using AT = std::allocator_traits<NodeAllocator>;
         auto ptr = AT::allocate(alloc_, sizeof(Node));
-        AT::construct(alloc_, ptr, comp_, alloc_, std::forward<Us>(args)...);
+        AT::construct(alloc_, ptr, keyComp(), alloc_,
+                      std::forward<Us>(args)...);
         return ptr;
     }
 
@@ -438,7 +465,7 @@ private:
         }
 
         // Build and attach the sub-chain containing the new node.
-        Node chain(comp_, alloc_);
+        Node chain(keyComp(), alloc_);
         auto token = std::move(key[level]);
         buildChain(&chain, std::move(key), level, std::forward<Us>(args)...);
         child = addChain(parent, std::move(token), std::move(chain));
@@ -452,7 +479,7 @@ private:
         auto result = node->children_.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(comp_, alloc_, in_place,
+            std::forward_as_tuple(keyComp(), alloc_, in_place,
                                   std::forward<Us>(args)...));
         assert(result.second);
         return result.first;
@@ -482,7 +509,7 @@ private:
         auto result = node.children_.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(comp_, alloc_));
+            std::forward_as_tuple(keyComp(), alloc_));
         assert(result.second);
         return result.first;
     }
@@ -613,10 +640,10 @@ private:
     }
 
     Node sentinel_;
-    KeyComp comp_;
     NodeAllocator alloc_;
     Node* root_ = nullptr;
     Size size_ = 0;
+    ValueComp comp_;
 };
 
 } // namespace internal

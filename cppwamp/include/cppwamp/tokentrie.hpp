@@ -220,7 +220,8 @@ template <typename K,
 class CPPWAMP_API TokenTrie
 {
 private:
-    using Node = TokenTrieNode<K, typename P::value_storage, C, A>;
+    using Impl = internal::TokenTrieImpl<K, T, C, A, P>;
+    using Node = typename Impl::Node;
 
     template <typename KV>
     static constexpr bool isInsertable()
@@ -295,28 +296,20 @@ public:
 
     /** Function object type used for sorting key-value pairs
         in lexicographic order of their keys. */
-    class value_compare
-    {
-    public:
-        using result_type = bool;
-        using first_argument_type = value_type;
-        using second_argument_type = value_type;
-
-        value_compare() = default;
-
-        bool operator()(const value_type& a, const value_type& b)
-        {
-            return comp(a.first, b.first);
-        }
-
-    protected:
-        value_compare(key_compare c) : comp(std::move(c)) {}
-
-        key_compare comp;
-    };
+    using value_compare = typename Impl::ValueComp;
 
     /** Default constructor. */
-    TokenTrie() = default;
+    TokenTrie() : TokenTrie(key_compare{}, allocator_type{}) {}
+
+    /** Constructor taking a compare function and allocator. */
+    explicit TokenTrie(const key_compare& comp,
+                       const allocator_type& alloc = {} )
+        : impl_(comp, alloc)
+    {}
+
+    /** Constructor taking an allocator. */
+    explicit TokenTrie(const allocator_type& alloc)
+        : TokenTrie(key_compare{}, alloc) {}
 
     /** Copy constructor. */
     TokenTrie(const TokenTrie& rhs) = default;
@@ -326,11 +319,11 @@ public:
 
     /** Constructs using the given iterator range. */
     template <typename I>
-    TokenTrie(I first, I last) {insert(first, last);}
+    TokenTrie(I first, I last) : TokenTrie() {insert(first, last);}
 
     /** Constructs using contents of the given initializer list, where
         each element is a key-value pair. */
-    TokenTrie(std::initializer_list<value_type> list)
+    TokenTrie(std::initializer_list<value_type> list) : TokenTrie()
         {insert(list.begin(), list.end());}
 
     /** Copy assignment. */
@@ -348,7 +341,7 @@ public:
         return *this;
     }
 
-    allocator_type get_allocator() const noexcept {return allocator_type();}
+    allocator_type get_allocator() const noexcept {return alloc_;}
 
     /// @name Element Access
     /// @{
@@ -571,10 +564,10 @@ public:
         {return impl_.upperBound(key);}
 
     /** Obtains the function that compares keys. */
-    key_compare key_comp() const {return key_compare();}
+    key_compare key_comp() const {return impl_.keyComp();}
 
     /** Obtains the function that compares keys in value_type objects. */
-    value_compare value_comp() const {return value_compare();}
+    value_compare value_comp() const {return impl_.valueComp();}
 
     /// @}
 
@@ -668,6 +661,7 @@ private:
     }
 
     internal::TokenTrieImpl<K, T, C, A, P> impl_;
+    allocator_type alloc_;
 };
 
 } // namespace wamp
