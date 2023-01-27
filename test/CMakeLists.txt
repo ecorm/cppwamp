@@ -15,7 +15,6 @@ set(SOURCES
     codectestjson.cpp
     codectestmsgpack.cpp
     payloadtest.cpp
-    tokentrieoptionalvaluetest.cpp
     transporttest.cpp
     uritest.cpp
     varianttestassign.cpp

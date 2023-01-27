@@ -93,10 +93,10 @@ public:
     token_type token() const {return cursor_.token();}
 
     /** Accesses the value associated with the current element. */
-    reference value() {return *(cursor_.element());}
+    reference value() {return cursor_.value();}
 
     /** Accesses the value associated with the current element. */
-    const value_type& value() const {return *(cursor_.element());}
+    const value_type& value() const {return cursor_.value();}
 
     /** Obtains a copy of the cursor associated with the current element. */
     cursor_type cursor() const {return cursor_;}
@@ -128,7 +128,7 @@ private:
 
     cursor_type cursor_;
 
-    template <typename, typename, typename, typename, typename>
+    template <typename, typename, typename, typename>
     friend class TokenTrie;
 };
 
@@ -160,13 +160,6 @@ bool operator!=(const TokenTrieIterator<N, LM>& lhs,
 
 
 //------------------------------------------------------------------------------
-template <typename T>
-struct CPPWAMP_API TokenTrieDefaultPolicy
-{
-    using allocate_values_dynamically = std::false_type;
-};
-
-//------------------------------------------------------------------------------
 struct CPPWAMP_API TokenTrieDefaultKeyCompare
 {
     using is_transparent = std::true_type;
@@ -195,20 +188,35 @@ struct CPPWAMP_API TokenTrieDefaultKeyCompare
 
     Strong exception safety is provided for all modification operations.
 
+    This trie implementation does not implement compaction (like in a radix
+    tree) in order to avoid invalidating iterators upon modification. Thus,
+    not all nodes contain values and T must therefore be default-constructible.
+    If the desired mapped type is not default-constructible, it may be wrapped
+    in a `std::optional` (e.g. `TokenTrie<SplitUri, std::optional<NeverEmpty>>`.
+
+    If the desired mapped type is large, and wasting space for non-value nodes
+    is not derised, the user may choose to dynamically allocate the mapped type
+    and wrap it in a smart pointer (e.g.
+    `TokenTrie<SplitUri, std::shared_ptr<Large>>`).
+
+    This container supports `std::scoped_allocator_adapter` so that the key
+    and mapped types will use the user-provided allocator if they specialize
+    `std::uses_allocator`.
+
     @tparam K Split token container type.
             Must be a Sequence with a `push_back` member function.
-    @tparam C Token compare function
-    @tparam T Mapped value type. */
+    @tparam T Mapped value type. Must be default-constructible.
+    @tparam C Token compare function.
+    @tparam A Allocator */
 //------------------------------------------------------------------------------
 template <typename K,
           typename T,
           typename C = TokenTrieDefaultKeyCompare,
-          typename A = std::allocator<T>,
-          typename P = TokenTrieDefaultPolicy<T>>
+          typename A = std::allocator<T>>
 class CPPWAMP_API TokenTrie
 {
 private:
-    using Impl = internal::TokenTrieImpl<K, T, C, A, P>;
+    using Impl = internal::TokenTrieImpl<K, T, C, A>;
     using Node = typename Impl::Node;
 
     template <typename KV>
@@ -223,8 +231,6 @@ public:
 
     /** Type of the mapped value. */
     using mapped_type = T;
-
-    using policy_type = P;
 
     /** Type used to combine a key and its associated value.
         @note Unlike std::map, keys are not stored alongside their associated
@@ -578,11 +584,11 @@ public:
 private:
     template <typename TCursor>
     static auto checkedAccess(TCursor&& cursor)
-        -> decltype(*(std::forward<TCursor>(cursor).element()))
+        -> decltype(std::forward<TCursor>(cursor).value())
     {
         if (!cursor)
             throw std::out_of_range("wamp::TokenTrie::at key out of range");
-        return *(std::forward<TCursor>(cursor).element());
+        return std::forward<TCursor>(cursor).value();
     }
 
     template <typename... Us>
@@ -648,7 +654,7 @@ private:
         return oldSize - size();
     }
 
-    internal::TokenTrieImpl<K, T, C, A, P> impl_;
+    internal::TokenTrieImpl<K, T, C, A> impl_;
     allocator_type alloc_;
 };
 

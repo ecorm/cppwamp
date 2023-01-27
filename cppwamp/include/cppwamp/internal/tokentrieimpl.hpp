@@ -27,7 +27,7 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename K, typename T, typename C, typename A, typename P>
+template <typename K, typename T, typename C, typename A>
 class CPPWAMP_HIDDEN TokenTrieImpl
 {
 public:
@@ -35,8 +35,7 @@ public:
     using Value = T;
     using KeyComp = C;
     using Allocator = A;
-    using Policy = P;
-    using Node = TokenTrieNode<K, T, C, A, P>;
+    using Node = TokenTrieNode<K, T, C, A>;
     using Size = typename Node::tree_type::size_type;
     using Cursor = TokenTrieCursor<Node, true>;
     using ConstCursor = TokenTrieCursor<Node, false>;
@@ -238,7 +237,8 @@ public:
         assert(bool(cursor));
         pos.advance_depth_first_to_next_element();
 
-        cursor.child_->second.element_.reset();
+        cursor.child_->second.value_ = Value();
+        cursor.child_->second.hasValue_ = false;
         if (cursor.child()->is_leaf())
         {
             // Erase the value node, then all obsolete links up the chain
@@ -279,6 +279,8 @@ public:
         auto curB = rhs.rootCursor();
         while (!curA.at_end())
         {
+            if (curB.at_end())
+                return false;
             if (curA.token_or_value_differs(curB))
                 return false;
             curA.advance_depth_first_to_next_node();
@@ -409,7 +411,7 @@ private:
                 parent = &(child->second);
         }
 
-        if (!found || !child->second.element_.has_value())
+        if (!found || !child->second.has_value())
             return self.sentinelCursor();
         return {parent, child};
     }
@@ -447,9 +449,9 @@ private:
             bool placed = false;
             auto& node = child->second;
             parent = node.parent_;
-            placed = !node.element().has_value();
+            placed = !node.has_value();
             if (placed || clobber)
-                node.element_ = Value(std::forward<Us>(args)...);
+                node.setValue(std::forward<Us>(args)...);
             return {{parent, child}, placed};
         }
 

@@ -94,7 +94,6 @@ set(HEADERS
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
     include/cppwamp/internal/tokentrieimpl.hpp
-    include/cppwamp/internal/tokentrievaluestorage.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
     include/cppwamp/internal/variantdecoding.hpp

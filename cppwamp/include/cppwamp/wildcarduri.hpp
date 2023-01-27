@@ -213,10 +213,10 @@ public:
     Key key() const {return cursor_.key();}
 
     /** Accesses the value associated with the current element. */
-    Reference value() {return *(cursor_.element());}
+    Reference value() {return cursor_.value();}
 
     /** Accesses the value associated with the current element. */
-    const Value& value() const {return *(cursor_.element());}
+    const Value& value() const {return cursor_.value();}
 
     /** Determines if there are remaining matching elements left. */
     explicit operator bool() const {return !done();}

@@ -20,300 +20,25 @@
 #include <utility>
 
 #include "api.hpp"
-#include "error.hpp"
 #include "tagtypes.hpp"
-#include "internal/tokentrievaluestorage.hpp"
 
 namespace wamp
 {
 
 namespace internal
 {
-    template <typename, typename, typename, typename, typename>
-    class TokenTrieImpl;
+    template <typename, typename, typename, typename> class TokenTrieImpl;
 }
 
-using TokenTrieNullAllocator = internal::TokenTrieNullAllocator;
-
 //------------------------------------------------------------------------------
-template <typename T, typename A = TokenTrieNullAllocator>
-class CPPWAMP_API TokenTrieOptionalValue
-{
-private:
-    using Traits = internal::TokenTrieValueTraits<T, TokenTrieOptionalValue>;
-
-public:
-    using value_type = T;
-    using allocator_type = A;
-
-    TokenTrieOptionalValue() noexcept = default;
-
-    explicit TokenTrieOptionalValue(const allocator_type& a) noexcept
-        : storage_(a) {}
-
-    TokenTrieOptionalValue(const TokenTrieOptionalValue& rhs)
-    {
-        if (rhs.has_value())
-            construct(rhs.get());
-    }
-
-    TokenTrieOptionalValue(TokenTrieOptionalValue&& rhs)
-    {
-        if (rhs.has_value())
-            construct(std::move(rhs.get()));
-        // Moved-from side must still contain value
-    }
-
-    template <typename U,
-             typename std::enable_if<
-                 Traits::template isConvertible<U>(), int>::type = 0>
-    TokenTrieOptionalValue(U&& x)
-    {
-        construct(std::forward<U>(x));
-    }
-
-    template <typename U,
-             typename std::enable_if<
-                 Traits::template isConstructible<U>(), int>::type = 0>
-    explicit TokenTrieOptionalValue(U&& x)
-    {
-        construct(std::forward<U>(x));
-    }
-
-    template <typename... Us>
-    explicit TokenTrieOptionalValue(in_place_t, Us&&... args)
-    {
-        construct(std::forward<Us>(args)...);
-    }
-
-    template <typename E, typename... Us>
-    explicit TokenTrieOptionalValue(in_place_t, std::initializer_list<E> list,
-                                    Us&&... args)
-    {
-        construct(list, std::forward<Us>(args)...);
-    }
-
-    TokenTrieOptionalValue& operator=(const TokenTrieOptionalValue& rhs)
-    {
-        if (!rhs.has_value())
-            reset();
-        else if (has_value())
-            get() = rhs.get();
-        else
-            construct(rhs.get());
-        return *this;
-    }
-
-    TokenTrieOptionalValue& operator=(TokenTrieOptionalValue&& rhs)
-    {
-        if (!rhs.has_value())
-            reset();
-        else if (has_value())
-            get() = std::move(rhs.get());
-        else
-            construct(std::move(rhs.get()));
-        // Moved-from side must still contain value
-        return *this;
-    }
-
-    template <typename U,
-             typename std::enable_if<
-                 Traits::template isAssignable<U>(), int>::type = 0>
-    TokenTrieOptionalValue& operator=(U&& x)
-    {
-        if (has_value())
-            get() = std::forward<U>(x);
-        else
-            construct(std::forward<U>(x));
-        return *this;
-    }
-
-    bool has_value() const noexcept {return storage_.has_value();}
-
-    explicit operator bool() const noexcept {return has_value();}
-
-    value_type& operator*() {return get();}
-
-    const value_type& operator*() const {return get();}
-
-    value_type& value() & {return checkedValue(*this);}
-
-    value_type&& value() && {return checkedValue(*this);}
-
-    const value_type& value() const & {return checkedValue(*this);}
-
-    const value_type&& value() const && {return checkedValue(*this);}
-
-    template <typename U>
-    value_type value_or(U&& fallback) const &
-    {
-        if (has_value())
-            return get();
-        else
-            return static_cast<value_type>(std::forward<U>(fallback));
-    }
-
-    template <typename U>
-    value_type value_or(U&& fallback) &&
-    {
-        if (has_value())
-            return std::move(get());
-        else
-            return static_cast<value_type>(std::forward<U>(fallback));
-    }
-
-    template <typename... Us>
-    value_type& emplace(Us&&... args)
-    {
-        reset();
-        construct(std::forward<Us>(args)...);
-        return storage_.get();
-    }
-
-    template <typename E, typename... Us>
-    value_type& emplace(std::initializer_list<E> list, Us&&... args)
-    {
-        reset();
-        construct(list, std::forward<Us>(args)...);
-        return storage_.get();
-    }
-
-    void reset() {storage_.reset();}
-
-    void swap(TokenTrieOptionalValue& rhs)
-    {
-        if (has_value())
-        {
-            if (rhs.has_value())
-            {
-                using std::swap;
-                swap(storage_.get(), rhs.storage_.get());
-            }
-            else
-            {
-                rhs.assign(std::move(storage_.get()));
-                reset();
-            }
-        }
-        else if (rhs.has_value())
-        {
-            assign(std::move(rhs.storage_.get()));
-            rhs.reset();
-        }
-    }
-
-    friend void swap(TokenTrieOptionalValue& lhs, TokenTrieOptionalValue& rhs)
-    {
-        lhs.swap(rhs);
-    }
-
-    friend bool operator==(const TokenTrieOptionalValue& lhs,
-                           const TokenTrieOptionalValue& rhs)
-    {
-        if (!lhs.has_value())
-            return !rhs.has_value();
-        return rhs.has_value() && (lhs.get() == rhs.get());
-    }
-
-    template <typename U>
-    friend bool operator==(const TokenTrieOptionalValue& lhs,
-                           const value_type& rhs)
-    {
-        return lhs.has_value() && (lhs.get() == rhs);
-    }
-
-    template <typename U>
-    friend bool operator==(const value_type& lhs,
-                           const TokenTrieOptionalValue& rhs)
-    {
-        return rhs.has_value() && (rhs.get() == lhs);
-    }
-
-    friend bool operator!=(const TokenTrieOptionalValue& lhs,
-                           const TokenTrieOptionalValue& rhs)
-    {
-        if (!lhs.has_value())
-            return rhs.has_value();
-        return !rhs.has_value() || (lhs.get() != rhs.get());
-    }
-
-    template <typename U>
-    friend bool operator!=(const TokenTrieOptionalValue& lhs,
-                           const value_type& rhs)
-    {
-        return !lhs.has_value() || (lhs.get() != rhs);
-    }
-
-    template <typename U>
-    friend bool operator!=(const value_type& lhs,
-                           const TokenTrieOptionalValue& rhs)
-    {
-        return !rhs.has_value() || (rhs.get() != lhs);
-    }
-
-private:
-    using Storage = internal::TokenTrieValueStorage<T, A>;
-
-    template <typename... Us>
-    void construct(Us&&... args)
-    {
-        storage_.construct(std::forward<Us>(args)...);
-    }
-
-    template <typename E, typename... Us>
-    void construct(std::initializer_list<E> list, Us&&... args)
-    {
-        storage_.construct(list, std::forward<Us>(args)...);
-    }
-
-    template <typename U>
-    void assign(U&& value)
-    {
-        if (has_value())
-            get() = std::forward<U>(value);
-        else
-            construct(std::forward<U>(value));
-    }
-
-    value_type& get()
-    {
-        assert(has_value());
-        return storage_.get();
-    }
-
-    const value_type& get() const
-    {
-        assert(has_value());
-        return storage_.get();
-    }
-
-    template <typename Self>
-    static auto checkedValue(Self&& s)
-        -> decltype(std::forward<Self>(s).get())
-    {
-        CPPWAMP_LOGIC_CHECK(s.has_value(), "TokenTrieOptionalValue bad access");
-        return std::forward<Self>(s).get();
-    }
-
-    Storage storage_;
-};
-
-//------------------------------------------------------------------------------
-template <typename K, typename T, typename C, typename A, typename P>
+template <typename K, typename T, typename C, typename A>
 class CPPWAMP_API TokenTrieNode
 {
-private:
-    using OptionalValueAllocator =
-        typename std::conditional<P::allocate_values_dynamically::value,
-                                  A, TokenTrieNullAllocator>::type;
-
 public:
     using key_type = K;
     using value_type = T;
     using key_compare = C;
     using allocator_type = A;
-    using policy_type = P;
-    using optional_value = TokenTrieOptionalValue<T, OptionalValueAllocator>;
     using token_type = typename key_type::value_type;
     using tree_allocator_type =
         typename std::allocator_traits<A>::template rebind_alloc<
@@ -330,7 +55,8 @@ public:
     TokenTrieNode(key_compare comp, tree_allocator_type alloc,
                   in_place_t, Us&&... args)
         : children_(std::move(comp), std::move(alloc)),
-          element_(in_place, std::forward<Us>(args)...)
+          value_(std::forward<Us>(args)...),
+          hasValue_(true)
     {}
 
     bool is_sentinel() const noexcept {return parent_ == nullptr;}
@@ -339,6 +65,8 @@ public:
         {return !is_sentinel() && parent_->is_sentinel();}
 
     bool is_leaf() const noexcept {return children_.empty();}
+
+    bool has_value() const noexcept {return hasValue_;}
 
     const TokenTrieNode* parent() const {return parent_;}
 
@@ -364,19 +92,27 @@ public:
         return key;
     }
 
-    optional_value& element() {return element_;}
+    value_type& value() {assert(hasValue_); return value_;}
 
-    const optional_value& element() const {return element_;}
+    const value_type& value() const {assert(hasValue_); return value_;}
 
     const tree_type& children() const {return children_;}
 
 private:
     using TreeIterator = typename tree_type::iterator;
 
+    template <typename... Us>
+    void setValue(Us&&... args)
+    {
+        value_ = value_type(std::forward<Us>(args)...);
+        hasValue_ = true;
+    }
+
     tree_type children_;
-    optional_value element_;
+    value_type value_;
     TreeIterator position_ = {};
     TokenTrieNode* parent_ = nullptr;
+    bool hasValue_ = false;
 
     template <typename, bool> friend class TokenTrieCursor;
 
@@ -394,10 +130,9 @@ public:
     using key_compare = typename N::key_compare;
     using token_type = typename N::token_type;
     using level_type = typename key_type::size_type;
-    using optional_value = typename N::optional_value;
     using value_type = typename N::value_type;
-    using reference = typename std::conditional<IsMutable, optional_value&,
-                                                const optional_value&>::type;
+    using reference = typename std::conditional<IsMutable, value_type&,
+                                                const value_type&>::type;
     using node_pointer = typename std::conditional<IsMutable, node_type*,
                                                    const node_type*>::type;
     using const_iterator = typename node_type::tree_type::const_iterator;
@@ -437,24 +172,32 @@ public:
         {return at_end() || child_ == parent_->children().end();}
 
     bool has_value() const
-        {return !at_end_of_level() && childNode().element().has_value();}
+        {return !at_end_of_level() && childNode().has_value();}
 
     bool token_and_value_equals(const TokenTrieCursor& rhs) const
     {
         if (!good())
             return !rhs.good();
+        if (!rhs.good() || tokensAreNotEquivalent(token(), rhs.token()))
+            return false;
 
-        return rhs.good() && tokensAreEquivalent(token(), rhs.token()) &&
-               childNode().element() == rhs.childNode().element();
+        const auto& a = childNode();
+        const auto& b = rhs.childNode();
+        return a.has_value() ? (b.has_value() && (a.value() == b.value()))
+                             : !b.has_value();
     }
 
     bool token_or_value_differs(const TokenTrieCursor& rhs) const
     {
         if (!good())
             return rhs.good();
+        if (!rhs.good() || tokensAreNotEquivalent(token(), rhs.token()))
+            return true;
 
-        return !rhs.good() || tokensAreNotEquivalent(token(), rhs.token()) ||
-               childNode().element() != rhs.childNode().element();
+        const auto& a = childNode();
+        const auto& b = rhs.childNode();
+        return a.has_value() ? (!b.has_value() || (a.value() != b.value()))
+                             : b.has_value();
     }
 
     const node_type* parent() const {return parent_;}
@@ -494,10 +237,11 @@ public:
     const token_type& token() const
         {assert(!at_end_of_level()); return child_->first;}
 
-    const optional_value& element() const {return childNode().element();}
+    const value_type& value() const
+        {assert(has_value()); return child_->second.value();}
 
-    reference element()
-        {assert(!at_end_of_level()); return child_->second.element();}
+    reference value()
+        {assert(has_value()); return child_->second.value();}
 
     void advance_depth_first_to_next_node()
     {
@@ -562,7 +306,7 @@ private:
     static TokenTrieCursor first(NodeRef rootNode)
     {
         auto cursor = begin(rootNode);
-        if (!cursor.at_end_of_level() && !cursor.child()->element().has_value())
+        if (!cursor.at_end_of_level() && !cursor.child()->has_value())
             cursor.advance_depth_first_to_next_element();
         return cursor;
     }
