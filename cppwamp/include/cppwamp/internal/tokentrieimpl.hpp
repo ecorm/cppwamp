@@ -36,8 +36,7 @@ public:
     using KeyComp = C;
     using Allocator = A;
     using Policy = P;
-    using ValueStorage = typename P::value_storage;
-    using Node = TokenTrieNode<Key, ValueStorage, KeyComp, Allocator>;
+    using Node = TokenTrieNode<K, T, C, A, P>;
     using Size = typename Node::tree_type::size_type;
     using Cursor = TokenTrieCursor<Node, true>;
     using ConstCursor = TokenTrieCursor<Node, false>;

@@ -33,60 +33,102 @@ namespace internal
     class TokenTrieImpl;
 }
 
+using TokenTrieNullAllocator = internal::TokenTrieNullAllocator;
+
 //------------------------------------------------------------------------------
-template <typename S>
+template <typename T, typename A = TokenTrieNullAllocator>
 class CPPWAMP_API TokenTrieOptionalValue
 {
 private:
-    using Traits = internal::TokenTrieValueTraits<typename S::value_type,
-                                                  TokenTrieOptionalValue>;
+    using Traits = internal::TokenTrieValueTraits<T, TokenTrieOptionalValue>;
 
 public:
-    using value_type = typename S::value_type;
+    using value_type = T;
+    using allocator_type = A;
 
     TokenTrieOptionalValue() noexcept = default;
 
-    TokenTrieOptionalValue(const TokenTrieOptionalValue&) = default;
+    explicit TokenTrieOptionalValue(const allocator_type& a) noexcept
+        : storage_(a) {}
 
-    TokenTrieOptionalValue(TokenTrieOptionalValue&&) = default;
+    TokenTrieOptionalValue(const TokenTrieOptionalValue& rhs)
+    {
+        if (rhs.has_value())
+            construct(rhs.get());
+    }
+
+    TokenTrieOptionalValue(TokenTrieOptionalValue&& rhs)
+    {
+        if (rhs.has_value())
+            construct(std::move(rhs.get()));
+        // Moved-from side must still contain value
+    }
 
     template <typename U,
              typename std::enable_if<
                  Traits::template isConvertible<U>(), int>::type = 0>
-    TokenTrieOptionalValue(U&& x) : value_(in_place, std::forward<U>(x)) {}
+    TokenTrieOptionalValue(U&& x)
+    {
+        construct(std::forward<U>(x));
+    }
 
     template <typename U,
              typename std::enable_if<
                  Traits::template isConstructible<U>(), int>::type = 0>
     explicit TokenTrieOptionalValue(U&& x)
-        : value_(in_place, std::forward<U>(x))
-    {}
+    {
+        construct(std::forward<U>(x));
+    }
 
     template <typename... Us>
     explicit TokenTrieOptionalValue(in_place_t, Us&&... args)
-        : value_(in_place_t{}, std::forward<Us>(args)...)
-    {}
+    {
+        construct(std::forward<Us>(args)...);
+    }
 
     template <typename E, typename... Us>
     explicit TokenTrieOptionalValue(in_place_t, std::initializer_list<E> list,
                                     Us&&... args)
-        : value_(in_place_t{}, list, std::forward<Us>(args)...)
-    {}
+    {
+        construct(list, std::forward<Us>(args)...);
+    }
 
-    TokenTrieOptionalValue& operator=(const TokenTrieOptionalValue&) = default;
+    TokenTrieOptionalValue& operator=(const TokenTrieOptionalValue& rhs)
+    {
+        if (!rhs.has_value())
+            reset();
+        else if (has_value())
+            get() = rhs.get();
+        else
+            construct(rhs.get());
+        return *this;
+    }
 
-    TokenTrieOptionalValue& operator=(TokenTrieOptionalValue&&) = default;
+    TokenTrieOptionalValue& operator=(TokenTrieOptionalValue&& rhs)
+    {
+        if (!rhs.has_value())
+            reset();
+        else if (has_value())
+            get() = std::move(rhs.get());
+        else
+            construct(std::move(rhs.get()));
+        // Moved-from side must still contain value
+        return *this;
+    }
 
     template <typename U,
              typename std::enable_if<
                  Traits::template isAssignable<U>(), int>::type = 0>
     TokenTrieOptionalValue& operator=(U&& x)
     {
-        value_.assign(std::forward<U>(x));
+        if (has_value())
+            get() = std::forward<U>(x);
+        else
+            construct(std::forward<U>(x));
         return *this;
     }
 
-    bool has_value() const noexcept {return value_.has_value();}
+    bool has_value() const noexcept {return storage_.has_value();}
 
     explicit operator bool() const noexcept {return has_value();}
 
@@ -123,18 +165,20 @@ public:
     template <typename... Us>
     value_type& emplace(Us&&... args)
     {
-        value_.emplace(std::forward<Us>(args)...);
-        return value_.get();
+        reset();
+        construct(std::forward<Us>(args)...);
+        return storage_.get();
     }
 
     template <typename E, typename... Us>
     value_type& emplace(std::initializer_list<E> list, Us&&... args)
     {
-        value_.emplace(list, std::forward<Us>(args)...);
-        return value_.get();
+        reset();
+        construct(list, std::forward<Us>(args)...);
+        return storage_.get();
     }
 
-    void reset() {value_.reset();}
+    void reset() {storage_.reset();}
 
     void swap(TokenTrieOptionalValue& rhs)
     {
@@ -143,17 +187,17 @@ public:
             if (rhs.has_value())
             {
                 using std::swap;
-                swap(value_.get(), rhs.value_.get());
+                swap(storage_.get(), rhs.storage_.get());
             }
             else
             {
-                rhs.value_.assign(std::move(value_.get()));
+                rhs.assign(std::move(storage_.get()));
                 reset();
             }
         }
         else if (rhs.has_value())
         {
-            value_.assign(std::move(rhs.value_.get()));
+            assign(std::move(rhs.storage_.get()));
             rhs.reset();
         }
     }
@@ -208,18 +252,39 @@ public:
     }
 
 private:
-    using Storage = S;
+    using Storage = internal::TokenTrieValueStorage<T, A>;
+
+    template <typename... Us>
+    void construct(Us&&... args)
+    {
+        storage_.construct(std::forward<Us>(args)...);
+    }
+
+    template <typename E, typename... Us>
+    void construct(std::initializer_list<E> list, Us&&... args)
+    {
+        storage_.construct(list, std::forward<Us>(args)...);
+    }
+
+    template <typename U>
+    void assign(U&& value)
+    {
+        if (has_value())
+            get() = std::forward<U>(value);
+        else
+            construct(std::forward<U>(value));
+    }
 
     value_type& get()
     {
         assert(has_value());
-        return value_.get();
+        return storage_.get();
     }
 
     const value_type& get() const
     {
         assert(has_value());
-        return value_.get();
+        return storage_.get();
     }
 
     template <typename Self>
@@ -230,19 +295,25 @@ private:
         return std::forward<Self>(s).get();
     }
 
-    Storage value_;
+    Storage storage_;
 };
 
 //------------------------------------------------------------------------------
-template <typename K, typename S, typename C, typename A>
+template <typename K, typename T, typename C, typename A, typename P>
 class CPPWAMP_API TokenTrieNode
 {
+private:
+    using OptionalValueAllocator =
+        typename std::conditional<P::allocate_values_dynamically::value,
+                                  A, TokenTrieNullAllocator>::type;
+
 public:
     using key_type = K;
-    using value_storage = S;
+    using value_type = T;
     using key_compare = C;
-    using optional_value = TokenTrieOptionalValue<value_storage>;
-    using value_type = typename optional_value::value_type;
+    using allocator_type = A;
+    using policy_type = P;
+    using optional_value = TokenTrieOptionalValue<T, OptionalValueAllocator>;
     using token_type = typename key_type::value_type;
     using tree_allocator_type =
         typename std::allocator_traits<A>::template rebind_alloc<

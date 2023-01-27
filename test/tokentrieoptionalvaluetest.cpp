@@ -50,8 +50,7 @@ using optional_swap_fn = decltype(std::declval<X&>().swap(std::declval<X&>()));
 
 //------------------------------------------------------------------------------
 template <typename T>
-using opt =
-    TokenTrieOptionalValue<typename TokenTrieDefaultPolicy<T>::value_storage>;
+using opt = TokenTrieOptionalValue<T>;
 
 } // anonymous namespace
 

@@ -161,21 +161,9 @@ bool operator!=(const TokenTrieIterator<N, LM>& lhs,
 
 //------------------------------------------------------------------------------
 template <typename T>
-using TokenTrieLocalStorage = internal::TokenTrieValueLocalStorage<T>;
-
-//------------------------------------------------------------------------------
-template <typename T, typename A = std::allocator<T>>
-using TokenTrieHeapStorage = internal::TokenTrieValueHeapStorage<T, A>;
-
-//------------------------------------------------------------------------------
-template <typename T>
 struct CPPWAMP_API TokenTrieDefaultPolicy
 {
-    using value_storage = typename std::conditional<
-        (sizeof(T) > sizeof(std::string)),
-        TokenTrieHeapStorage<T>,
-        TokenTrieLocalStorage<T>>::type;
-
+    using allocate_values_dynamically = std::false_type;
 };
 
 //------------------------------------------------------------------------------

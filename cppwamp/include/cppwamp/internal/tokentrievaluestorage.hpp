@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_TOKENTRIEVALUESTORAGE_HPP
 #define CPPWAMP_INTERNAL_TOKENTRIEVALUESTORAGE_HPP
 
+#include <cassert>
 #include <initializer_list>
 #include <memory>
 #include <type_traits>
@@ -21,70 +22,76 @@ namespace wamp
 namespace internal
 {
 
+struct TokenTrieNullAllocator {};
+
+//------------------------------------------------------------------------------
+template <typename T, typename A>
+class CPPWAMP_HIDDEN TokenTrieValueStorage
+{
+public:
+    using value_type = T;
+    using allocator_type = A;
+
+    TokenTrieValueStorage() noexcept = default;
+
+    explicit TokenTrieValueStorage(const allocator_type& a) noexcept
+        : alloc_(a)
+    {}
+
+    ~TokenTrieValueStorage() {reset();}
+
+    bool has_value() const noexcept {return ptr_ != nullptr;}
+
+    value_type& get() {return *ptr_;}
+
+    const value_type& get() const {return *ptr_;}
+
+    void reset()
+    {
+        if (ptr_ != nullptr)
+        {
+            AllocTraits::destroy(alloc_, ptr_);
+            AllocTraits::deallocate(alloc_, ptr_);
+            ptr_ = nullptr;
+        }
+    }
+
+    template <typename... Us>
+    void construct(Us&&... args)
+    {
+        assert(ptr_ == nullptr);
+        ptr_ = AllocTraits::allocate(alloc_, sizeof(value_type));
+        AllocTraits::construct(alloc_, ptr_, std::forward<Us>(args)...);
+    }
+
+    template <typename E, typename... Us>
+    void construct(std::initializer_list<E> list, Us&&... args)
+    {
+        assert(ptr_ == nullptr);
+        ptr_ = AllocTraits::allocate(alloc_, sizeof(value_type));
+        AllocTraits::construct(alloc_, ptr_, list, std::forward<Us>(args)...);
+    }
+
+private:
+    using AllocTraits = std::allocator_traits<allocator_type>;
+
+    allocator_type alloc_;
+    value_type* ptr_;
+};
+
 //------------------------------------------------------------------------------
 template <typename T>
-class CPPWAMP_HIDDEN TokenTrieValueLocalStorage
+class CPPWAMP_HIDDEN TokenTrieValueStorage<T, TokenTrieNullAllocator>
 {
 public:
     using value_type = T;
 
-    TokenTrieValueLocalStorage() noexcept = default;
+    TokenTrieValueStorage() noexcept = default;
 
-    template <typename... Us>
-    explicit TokenTrieValueLocalStorage(in_place_t, Us&&... args)
-        : hasValue_(true)
-    {
-        construct(std::forward<Us>(args)...);
-    }
+    template <typename TAllocator>
+    explicit TokenTrieValueStorage(const TAllocator&) noexcept {}
 
-    template <typename E, typename... Us>
-    explicit TokenTrieValueLocalStorage(in_place_t,
-                                        std::initializer_list<E> list,
-                                        Us&&... args)
-        : hasValue_(true)
-    {
-        construct(list, std::forward<Us>(args)...);
-    }
-
-    TokenTrieValueLocalStorage(const TokenTrieValueLocalStorage& rhs)
-        : hasValue_(rhs.has_value())
-    {
-        if (rhs.has_value())
-            construct(rhs.get());
-    }
-
-    template <typename U = T>
-    TokenTrieValueLocalStorage(TokenTrieValueLocalStorage&& rhs)
-        : hasValue_(rhs.has_value())
-    {
-        if (rhs.has_value())
-            construct(std::move(rhs.get()));
-        // Moved-from side must still contain value
-    }
-
-    ~TokenTrieValueLocalStorage() {reset();}
-
-    TokenTrieValueLocalStorage& operator=(const TokenTrieValueLocalStorage& rhs)
-    {
-        if (!rhs.has_value())
-            reset();
-        else if (has_value())
-            get() = rhs.get();
-        else
-            construct(rhs.get());
-    }
-
-    TokenTrieValueLocalStorage& operator=(TokenTrieValueLocalStorage&& rhs)
-    {
-        if (!rhs.has_value())
-            reset();
-        else if (has_value())
-            get() = std::move(rhs.get());
-        else
-            construct(std::move(rhs.get()));
-        // Moved-from side must still contain value
-        return *this;
-    }
+    ~TokenTrieValueStorage() {reset();}
 
     bool has_value() const noexcept {return hasValue_;}
 
@@ -93,26 +100,19 @@ public:
     const value_type& get() const {return storage_.asValue;}
 
     template <typename... Us>
-    void emplace(Us&&... args)
+    void construct(Us&&... args)
     {
-        reset();
-        construct(std::forward<Us>(args)...);
+        assert(!hasValue_);
+        new (&storage_.asValue) value_type(std::forward<Us>(args)...);
+        hasValue_ = true;
     }
 
     template <typename E, typename... Us>
-    void emplace(std::initializer_list<E> list,  Us&&... args)
+    void construct(std::initializer_list<E> list, Us&&... args)
     {
-        reset();
-        construct(list, std::forward<Us>(args)...);
-    }
-
-    template <typename U>
-    void assign(U&& value)
-    {
-        if (has_value())
-            get() = std::forward<U>(value);
-        else
-            construct(std::forward<U>(value));
+        assert(!hasValue_);
+        new (&storage_.asValue) value_type(list, std::forward<Us>(args)...);
+        hasValue_ = true;
     }
 
     void reset()
@@ -122,35 +122,7 @@ public:
         hasValue_ = false;
     }
 
-    bool operator==(const TokenTrieValueLocalStorage& rhs) const noexcept
-    {
-        if (!has_value())
-            return !rhs.has_value();
-        return rhs.has_value() && (get() == rhs.get());
-    }
-
-    bool operator!=(const TokenTrieValueLocalStorage& rhs) const noexcept
-    {
-        if (!has_value())
-            return rhs.has_value();
-        return !rhs.has_value() || (get() != rhs.get());
-    }
-
 private:
-    template <typename... Us>
-    void construct(Us&&... args)
-    {
-        new (&storage_.asValue) value_type(std::forward<Us>(args)...);
-        hasValue_ = true;
-    }
-
-    template <typename E, typename... Us>
-    void construct(std::initializer_list<E> list, Us&&... args)
-    {
-        new (&storage_.asValue) value_type(list, std::forward<Us>(args)...);
-        hasValue_ = true;
-    }
-
     union Storage
     {
         Storage() : asNone(false) {}
@@ -163,185 +135,15 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename T, typename A>
-class CPPWAMP_HIDDEN TokenTrieValueHeapStorage
-{
-public:
-    using value_type = T;
-    using allocator_type = A;
-
-    TokenTrieValueHeapStorage() noexcept = default;
-
-    template <typename... Us>
-    explicit TokenTrieValueHeapStorage(in_place_t, Us&&... args)
-    {
-        construct(std::forward<Us>(args)...);
-    }
-
-    template <typename E, typename... Us>
-    explicit TokenTrieValueHeapStorage(
-        in_place_t, std::initializer_list<E> list, Us&&... args)
-    {
-        construct(list, std::forward<Us>(args)...);
-    }
-
-    TokenTrieValueHeapStorage(const TokenTrieValueHeapStorage& rhs)
-    {
-        if (rhs.has_value())
-            construct(rhs.get());
-    }
-
-    TokenTrieValueHeapStorage(TokenTrieValueHeapStorage&& rhs)
-    {
-        if (rhs.has_value())
-            construct(std::move(rhs.get()));
-        // Moved-from side must still contain value
-    }
-
-    TokenTrieValueHeapStorage& operator=(const TokenTrieValueHeapStorage& rhs)
-    {
-        if (!rhs.has_value())
-            reset();
-        else if (has_value())
-            get() = rhs.get();
-        else
-            construct(rhs.get());
-        return *this;
-    }
-
-    TokenTrieValueHeapStorage& operator=(TokenTrieValueHeapStorage&& rhs)
-    {
-        if (!rhs.has_value())
-            reset();
-        else if (has_value())
-            get() = std::move(rhs.get());
-        else
-            construct(std::move(rhs.get()));
-        // Moved-from side must still contain value
-        return *this;
-    }
-
-    bool has_value() const noexcept {return ptr_ != nullptr;}
-
-    value_type& get() {return *ptr_;}
-
-    const value_type& get() const {return *ptr_;}
-
-    template <typename... Us>
-    void emplace(Us&&... args)
-    {
-        reset();
-        construct(std::forward<Us>(args)...);
-    }
-
-    template <typename E, typename... Us>
-    void emplace(std::initializer_list<E> list,  Us&&... args)
-    {
-        reset();
-        construct(list, std::forward<Us>(args)...);
-    }
-
-    template <typename U>
-    void assign(U&& value)
-    {
-        if (has_value())
-            get() = std::forward<U>(value);
-        else
-            construct(std::forward<U>(value));
-    }
-
-    void reset() {ptr_.reset();}
-
-    bool operator==(const TokenTrieValueHeapStorage& rhs) const noexcept
-    {
-        if (!has_value())
-            return !rhs.has_value();
-        return rhs.has_value() && (get() == rhs.get());
-    }
-
-    bool operator!=(const TokenTrieValueHeapStorage& rhs) const noexcept
-    {
-        if (!has_value())
-            return rhs.has_value();
-        return !rhs.has_value() || (get() != rhs.get());
-    }
-
-private:
-    template <typename... Us>
-    void construct(Us&&... args)
-    {
-        ptr_ = std::allocate_shared<value_type>(alloc_,
-                                                std::forward<Us>(args)...);
-    }
-
-    template <typename E, typename... Us>
-    void construct(std::initializer_list<E> list, Us&&... args)
-    {
-        ptr_ = std::allocate_shared<value_type>(alloc_, list,
-                                                std::forward<Us>(args)...);
-    }
-
-    std::shared_ptr<value_type> ptr_;
-    allocator_type alloc_;
-};
-
-//------------------------------------------------------------------------------
 template <typename T>
-class CPPWAMP_HIDDEN TokenTrieValueHeapStorage<T, std::allocator<T>>
+class CPPWAMP_HIDDEN TokenTrieValueStorage<T, std::allocator<T>>
 {
 public:
     using value_type = T;
 
-    TokenTrieValueHeapStorage() noexcept = default;
+    TokenTrieValueStorage() noexcept = default;
 
-    template <typename... Us>
-    explicit TokenTrieValueHeapStorage(in_place_t, Us&&... args)
-    {
-        construct(std::forward<Us>(args)...);
-    }
-
-    template <typename E, typename... Us>
-    explicit TokenTrieValueHeapStorage(
-        in_place_t, std::initializer_list<E> list, Us&&... args)
-    {
-        construct(list, std::forward<Us>(args)...);
-    }
-
-    TokenTrieValueHeapStorage(const TokenTrieValueHeapStorage& rhs)
-    {
-        if (rhs.has_value())
-            construct(rhs.get());
-    }
-
-    TokenTrieValueHeapStorage(TokenTrieValueHeapStorage&& rhs)
-    {
-        if (rhs.has_value())
-            construct(std::move(rhs.get()));
-        // Moved-from side must still contain value
-    }
-
-    TokenTrieValueHeapStorage& operator=(const TokenTrieValueHeapStorage& rhs)
-    {
-        if (!rhs.has_value())
-            reset();
-        else if (has_value())
-            get() = rhs.get();
-        else
-            construct(rhs.get());
-        return *this;
-    }
-
-    TokenTrieValueHeapStorage& operator=(TokenTrieValueHeapStorage&& rhs)
-    {
-        if (!rhs.has_value())
-            reset();
-        else if (has_value())
-            get() = std::move(rhs.get());
-        else
-            construct(std::move(rhs.get()));
-        // Moved-from side must still contain value
-        return *this;
-    }
+    explicit TokenTrieValueStorage(const std::allocator<T>&) noexcept {}
 
     bool has_value() const noexcept {return ptr_ != nullptr;}
 
@@ -349,59 +151,24 @@ public:
 
     const value_type& get() const {return *ptr_;}
 
-    template <typename... Us>
-    void emplace(Us&&... args)
-    {
-        reset();
-        ptr_.reset(new value_type(std::forward<Us>(args)...));
-    }
-
-    template <typename E, typename... Us>
-    void emplace(std::initializer_list<E> list,  Us&&... args)
-    {
-        reset();
-        ptr_.reset(new value_type(list, std::forward<Us>(args)...));
-    }
-
-    template <typename U>
-    void assign(U&& value)
-    {
-        if (has_value())
-            get() = std::forward<U>(value);
-        else
-            ptr_.reset(new value_type(std::forward<U>(value)));
-    }
-
     void reset() {ptr_.reset();}
 
-    bool operator==(const TokenTrieValueHeapStorage& rhs) const noexcept
-    {
-        if (!has_value())
-            return !rhs.has_value();
-        return rhs.has_value() && (get() == rhs.get());
-    }
-
-    bool operator!=(const TokenTrieValueHeapStorage& rhs) const noexcept
-    {
-        if (!has_value())
-            return rhs.has_value();
-        return !rhs.has_value() || (get() != rhs.get());
-    }
-
-private:
     template <typename... Us>
     void construct(Us&&... args)
     {
+        assert(ptr_ == nullptr);
         ptr_.reset(new value_type(std::forward<Us>(args)...));
     }
 
     template <typename E, typename... Us>
     void construct(std::initializer_list<E> list, Us&&... args)
     {
+        assert(ptr_ == nullptr);
         ptr_.reset(new value_type(list, std::forward<Us>(args)...));
     }
 
-    std::shared_ptr<value_type> ptr_;
+private:
+    std::unique_ptr<value_type> ptr_;
 };
 
 //------------------------------------------------------------------------------
