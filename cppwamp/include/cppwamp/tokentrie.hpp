@@ -12,156 +12,21 @@
     @brief Contains the TokenTrie template class. */
 //------------------------------------------------------------------------------
 
-#include <cassert>
 #include <cstddef>
 #include <initializer_list>
-#include <iterator>
 #include <limits>
 #include <memory>
-#include <stdexcept>
-#include <string>
 #include <type_traits>
 #include <utility>
-#include "api.hpp"
+#include "tokentrieiterator.hpp"
 #include "tokentrienode.hpp"
 #include "internal/tokentrieimpl.hpp"
 
 namespace wamp
 {
 
-namespace internal
-{
-
-template <typename I, typename Enable = void>
-struct IsTokenTrieIterator : std::false_type {};
-
-}
-
 //------------------------------------------------------------------------------
-/** TokenTrie iterator that advances through elements in lexicographic order
-    of their respective keys. */
-//------------------------------------------------------------------------------
-template <typename N, bool IsMutable>
-class CPPWAMP_API TokenTrieIterator
-{
-public:
-    /// The category of the iterator.
-    using iterator_category = std::forward_iterator_tag;
-
-    /// Type used to identify distance between iterators.
-    using difference_type = std::ptrdiff_t;
-
-    /// Type of the split token key container associated with this iterator.
-    using key_type = typename N::key_type;
-
-    /// Type of token associated with this iterator.
-    using token_type = typename N::token_type;
-
-    // TODO: Make dereference return key-value pair
-    /** Type of the mapped value associated with this iterator.
-        @note It differs from std::map in that it's not a key-value pair. */
-    using value_type = typename N::value_type;
-
-    /// Pointer to the mapped value type being iterated over.
-    using pointer = typename std::conditional<IsMutable, value_type*,
-                                              const value_type*>::type;
-
-    /// Reference to the mapped value type being iterated over.
-    using reference = typename std::conditional<IsMutable, value_type&,
-                                                const value_type&>::type;
-
-    /// Type if the underlying cursor used to traverse nodes.
-    using cursor_type = TokenTrieCursor<N, IsMutable>;
-
-    /** Default constructor. */
-    TokenTrieIterator() {}
-
-    /** Conversion from mutable iterator to const iterator. */
-    template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
-    TokenTrieIterator(const TokenTrieIterator<N, M>& rhs)
-        : cursor_(rhs.cursor()) {}
-
-    /** Assignment from mutable iterator to const iterator. */
-    template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
-    TokenTrieIterator& operator=(const TokenTrieIterator<N, M>& rhs)
-        {cursor_ = rhs.cursor_; return *this;}
-
-    /** Generates the split token key container associated with the
-        current element. */
-    key_type key() const {return cursor_.key();}
-
-    /** Obtains the token associated with the current element. */
-    token_type token() const {return cursor_.token();}
-
-    /** Accesses the value associated with the current element. */
-    reference value() {return cursor_.value();}
-
-    /** Accesses the value associated with the current element. */
-    const value_type& value() const {return cursor_.value();}
-
-    /** Obtains a copy of the cursor associated with the current element. */
-    cursor_type cursor() const {return cursor_;}
-
-    /** Accesses the value associated with the current element. */
-    reference operator*() {return value();}
-
-    /** Accesses the value associated with the current element. */
-    const value_type& operator*() const {return value();}
-
-    /** Accesses a member of the value associated with the current element. */
-    pointer operator->() {return &(value());}
-
-    /** Accesses a member of the value associated with the current element. */
-    const value_type* operator->() const {return &(value());}
-
-    /** Prefix increment, advances to the next key in lexigraphic order. */
-    TokenTrieIterator& operator++()
-        {cursor_.advance_depth_first_to_next_element(); return *this;}
-
-    /** Postfix increment, advances to the next key in lexigraphic order. */
-    TokenTrieIterator operator++(int)
-        {auto temp = *this; ++(*this); return temp;}
-
-private:
-    using Node = typename cursor_type::node_type;
-
-    TokenTrieIterator(cursor_type cursor) : cursor_(cursor) {}
-
-    cursor_type cursor_;
-
-    template <typename, typename, typename, typename>
-    friend class TokenTrie;
-};
-
-namespace internal
-{
-
-template <typename N, bool M>
-struct IsTokenTrieIterator<TokenTrieIterator<N, M>> : std::true_type {};
-
-}
-
-/** Compares two iterators for equality.
-    @relates TokenTrieIterator */
-template <typename N, bool LM, bool RM>
-bool operator==(const TokenTrieIterator<N, LM>& lhs,
-                const TokenTrieIterator<N, RM>& rhs)
-{
-    return lhs.cursor() == rhs.cursor();
-};
-
-/** Compares two iterators for inequality.
-    @relates TokenTrieIterator */
-template <typename N, bool LM, bool RM>
-bool operator!=(const TokenTrieIterator<N, LM>& lhs,
-                const TokenTrieIterator<N, RM>& rhs)
-{
-    return lhs.cursor() != rhs.cursor();
-};
-
-
-//------------------------------------------------------------------------------
-struct CPPWAMP_API TokenTrieDefaultKeyCompare
+struct TokenTrieDefaultKeyCompare
 {
     using is_transparent = std::true_type;
 
@@ -214,7 +79,7 @@ template <typename K,
           typename T,
           typename C = TokenTrieDefaultKeyCompare,
           typename A = std::allocator<T>>
-class CPPWAMP_API TokenTrie
+class TokenTrie
 {
 private:
     using Impl = internal::TokenTrieImpl<K, T, C, A>;
@@ -252,16 +117,16 @@ public:
     /// Allocator type
     using allocator_type = A;
 
-    /// Reference to value_type.
-    using reference = value_type&;
+    /// Reference to a key-value pair.
+    using reference = TokenTrieKeyValueProxy<key_type, mapped_type, true>;
 
-    /// Reference to constant value_type.
-    using const_reference = const value_type&;
+    /// Reference to an immutable key-value pair.
+    using const_reference = TokenTrieKeyValueProxy<key_type, mapped_type, false>;
 
-    /// Pointer to value_type
+    /// Pointer to key-value pair
     using pointer = typename std::allocator_traits<allocator_type>::pointer;
 
-    /// Pointer to const value_type
+    /// Pointer to an immutable key-value pair
     using const_pointer =
         typename std::allocator_traits<allocator_type>::const_pointer;
 
@@ -380,10 +245,11 @@ public:
         {return checkedAccess(impl_.locate(key));}
 
     /** Accesses or inserts an element with the given key. */
-    mapped_type& operator[](const key_type& key) {return *(add(key).first);}
+    mapped_type& operator[](const key_type& key)
+        {return add(key).first.value();}
 
     /** Accesses or inserts an element with the given key. */
-    mapped_type& operator[](key_type&& key) {return *(add(key).first);}
+    mapped_type& operator[](key_type&& key) {return add(key).first.value();}
 
     /// @name Iterators
     /// @{

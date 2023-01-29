@@ -34,6 +34,59 @@ void checkEmptyUriTrie(UriTrie<T>& t)
 }
 
 //------------------------------------------------------------------------------
+template <typename TI, typename CI>
+void checkUriTrieIterators(TI ti, CI ci, const TrieTestPair& pair)
+{
+    auto key = pair.first;
+    auto value = pair.second;
+    CHECK( ti.key() == key );
+    CHECK( ci.key() == key );
+    CHECK( ti->first == key );
+    CHECK( ci->first == key );
+    CHECK( (*ti).first == key);
+    CHECK( (*ci).first == key);
+    CHECK( ti.value() == value );
+    CHECK( ci.value() == value );
+    CHECK( ti->second == value );
+    CHECK( ci->second == value );
+    CHECK( (*ti).second == value );
+    CHECK( (*ci).second == value );
+    CHECK( static_cast<TrieTestPair>(*ti) == pair );
+    CHECK( static_cast<TrieTestPair>(*ci) == pair );
+}
+
+//------------------------------------------------------------------------------
+template <typename TI, typename CI>
+void checkUriTrieIteratorProxyComparisons(TI ti, CI ci,
+                                          const TrieTestPair& pair)
+{
+    CHECK( *ti == pair );
+    CHECK( *ci == pair );
+    CHECK( *ti <= pair );
+    CHECK( *ci <= pair );
+    CHECK( *ti >= pair );
+    CHECK( *ci >= pair );
+    CHECK_FALSE( *ti != pair );
+    CHECK_FALSE( *ci != pair );
+    CHECK_FALSE( *ti < pair );
+    CHECK_FALSE( *ci < pair );
+    CHECK_FALSE( *ti > pair );
+    CHECK_FALSE( *ci > pair );
+    CHECK( pair == *ti );
+    CHECK( pair == *ci );
+    CHECK( pair <= *ti );
+    CHECK( pair <= *ci );
+    CHECK( pair >= *ti );
+    CHECK( pair >= *ci );
+    CHECK_FALSE( pair != *ti );
+    CHECK_FALSE( pair != *ci );
+    CHECK_FALSE( pair < *ti );
+    CHECK_FALSE( pair < *ci );
+    CHECK_FALSE( pair > *ti );
+    CHECK_FALSE( pair > *ci );
+}
+
+//------------------------------------------------------------------------------
 template <typename T>
 void checkUriTrieContents(UriTrie<T>& t, const TrieTestPairList& pairs)
 {
@@ -55,17 +108,14 @@ void checkUriTrieContents(UriTrie<T>& t, const TrieTestPairList& pairs)
     {
         auto key = mi->first;
         auto value = mi->second;
+        auto pair = *mi;
         INFO( "at position " << i );
 
         REQUIRE( ti != t.end() );
         REQUIRE( ci != c.end() );
+        checkUriTrieIterators(ti, ci, pair);
+        checkUriTrieIteratorProxyComparisons(ti, ci, pair);
 
-        CHECK( *ti == value );
-        CHECK( *ci == value );
-        CHECK( ti.value() == value );
-        CHECK( ci.value() == value );
-        CHECK( ti.key() == key );
-        CHECK( ci.key() == key );
         CHECK( c.at(key) == value );
         CHECK( t.at(key) == value );
         CHECK( t[key] == value );
@@ -75,20 +125,17 @@ void checkUriTrieContents(UriTrie<T>& t, const TrieTestPairList& pairs)
 
         auto mf = t.find(key);
         REQUIRE( mf != t.end() );
-        CHECK( *mf == value );
         CHECK( mf.key() == key );
+        CHECK( mf->first == key );
         CHECK( mf.value() == value );
-
-        REQUIRE( mf != t.end() );
-        CHECK( *mf == value );
-        CHECK( mf.key() == key );
-        CHECK( mf.value() == value );
+        CHECK( mf->second == value );
 
         auto cf = c.find(key);
-        REQUIRE( cf != c.end() );
-        CHECK( *cf == value );
+        REQUIRE( cf != t.end() );
         CHECK( cf.key() == key );
+        CHECK( cf->first == key );
         CHECK( cf.value() == value );
+        CHECK( cf->second == value );
 
         ++ti;
         ++ci;
@@ -117,9 +164,10 @@ void checkUriTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
         const auto& pair = pairs[i];
         auto result = op(trie, pair);
         CHECK(result.second);
-        CHECK(*result.first == pair.second);
-        CHECK(result.first.value() == pair.second);
         CHECK(result.first.key() == pair.first);
+        CHECK(result.first->first == pair.first);
+        CHECK(result.first.value() == pair.second);
+        CHECK(result.first->second == pair.second);
         CHECK(result.first == trie.find(pair.first));
     }
     checkUriTrieContents(trie, pairs);
@@ -133,10 +181,11 @@ void checkUriTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
         auto result = op(trie, pair);
         CHECK_FALSE(result.second);
         CHECK(result.first.key() == pair.first);
+        CHECK(result.first->first == pair.first);
         if (!clobbers)
             pair.second = -pair.second;
-        CHECK(*result.first == pair.second);
         CHECK(result.first.value() == pair.second);
+        CHECK(result.first->second == pair.second);
     }
 }
 

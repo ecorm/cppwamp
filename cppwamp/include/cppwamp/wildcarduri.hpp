@@ -199,7 +199,7 @@ public:
     using Key = typename C::key_type;
 
     /** Type of the mapped value associated with this visitor. */
-    using Value = typename C::value_type;
+    using Value = typename C::mapped_type;
 
     /// Reference to the mapped value type being visited.
     using Reference = typename std::conditional<C::is_mutable(), Value&,

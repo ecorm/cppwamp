@@ -44,6 +44,7 @@ set(HEADERS
     include/cppwamp/tcphost.hpp
     include/cppwamp/tcpprotocol.hpp
     include/cppwamp/tokentrie.hpp
+    include/cppwamp/tokentrieiterator.hpp
     include/cppwamp/tokentrienode.hpp
     include/cppwamp/traits.hpp
     include/cppwamp/transport.hpp

@@ -19,7 +19,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "api.hpp"
 #include "tagtypes.hpp"
 
 namespace wamp
@@ -32,11 +31,11 @@ namespace internal
 
 //------------------------------------------------------------------------------
 template <typename K, typename T, typename C, typename A>
-class CPPWAMP_API TokenTrieNode
+class TokenTrieNode
 {
 public:
     using key_type = K;
-    using value_type = T;
+    using mapped_type = T;
     using key_compare = C;
     using allocator_type = A;
     using token_type = typename key_type::value_type;
@@ -94,9 +93,9 @@ public:
         return key;
     }
 
-    value_type& value() {assert(hasValue_); return value_;}
+    mapped_type& value() {assert(hasValue_); return value_;}
 
-    const value_type& value() const {assert(hasValue_); return value_;}
+    const mapped_type& value() const {assert(hasValue_); return value_;}
 
     const tree_type& children() const {return children_;}
 
@@ -106,12 +105,12 @@ private:
     template <typename... Us>
     void setValue(Us&&... args)
     {
-        value_ = value_type(std::forward<Us>(args)...);
+        value_ = mapped_type(std::forward<Us>(args)...);
         hasValue_ = true;
     }
 
     tree_type children_;
-    value_type value_;
+    mapped_type value_;
     TreeIterator position_ = {};
     TokenTrieNode* parent_ = nullptr;
     bool hasValue_ = false;
@@ -124,7 +123,7 @@ private:
 
 //------------------------------------------------------------------------------
 template <typename N, bool IsMutable>
-class CPPWAMP_API TokenTrieCursor
+class TokenTrieCursor
 {
 public:
     using node_type = N;
@@ -132,9 +131,10 @@ public:
     using key_compare = typename N::key_compare;
     using token_type = typename N::token_type;
     using level_type = typename key_type::size_type;
-    using value_type = typename N::value_type;
-    using reference = typename std::conditional<IsMutable, value_type&,
-                                                const value_type&>::type;
+    using mapped_type = typename N::mapped_type;
+    using reference = typename std::conditional<IsMutable, mapped_type&,
+                                                const mapped_type&>::type;
+    // TODO: Get pointer type via iterator traits
     using node_pointer = typename std::conditional<IsMutable, node_type*,
                                                    const node_type*>::type;
     using const_iterator = typename node_type::tree_type::const_iterator;
@@ -239,7 +239,7 @@ public:
     const token_type& token() const
         {assert(!at_end_of_level()); return child_->first;}
 
-    const value_type& value() const
+    const mapped_type& value() const
         {assert(has_value()); return child_->second.value();}
 
     reference value()

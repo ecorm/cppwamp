@@ -17,7 +17,6 @@
 #include <memory>
 #include <tuple>
 #include <utility>
-#include "../api.hpp"
 #include "../tokentrienode.hpp"
 
 namespace wamp
@@ -28,7 +27,7 @@ namespace internal
 
 //------------------------------------------------------------------------------
 template <typename K, typename T, typename C, typename A>
-class CPPWAMP_HIDDEN TokenTrieImpl
+class TokenTrieImpl
 {
 public:
     using Key = K;

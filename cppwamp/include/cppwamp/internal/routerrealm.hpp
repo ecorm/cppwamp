@@ -223,8 +223,8 @@ private:
         }
         else
         {
-            subId = (*found)->first;
-            SubscriptionRecord& rec = (*found)->second;
+            subId = found.value()->first;
+            SubscriptionRecord& rec = found.value()->second;
             rec.addSubscriber(sessionId, std::move(info));
         }
         return subId;
