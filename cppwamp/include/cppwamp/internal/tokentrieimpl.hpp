@@ -265,16 +265,7 @@ public:
 
     void swap(TokenTrieImpl& other)
     {
-        using std::swap;
-        swap(sentinel_, other.sentinel_);
-        swap(alloc_, other.alloc_);
-        swap(root_, other.root_);
-        swap(size_, other.size_);
-        swap(comp_, other.comp_);
-        if (root_)
-            root_->parent_ = &sentinel_;
-        if (other.root_)
-            other.root_->parent_ = &other.sentinel_;
+        doSwap(typename AllocTraits::propagate_on_container_swap{}, other);
     }
 
     template <typename TOther>
@@ -325,19 +316,22 @@ private:
     using Level = typename Key::size_type;
     using NodeAllocator = typename AllocTraits::template rebind_alloc<Node>;
 
-    void copyAssign(std::true_type, const TokenTrieImpl& rhs)
+    template <typename TSelf>
+    void copyAssign(std::true_type, const TSelf& rhs)
     {
         TokenTrieImpl temp(rhs, rhs.alloc_);
         moveAssign(std::true_type{}, temp);
     }
 
-    void copyAssign(std::false_type, const TokenTrieImpl& rhs)
+    template <typename TSelf>
+    void copyAssign(std::false_type, const TSelf& rhs)
     {
         TokenTrieImpl temp(rhs, alloc_);
         moveAssign(std::false_type{}, temp);
     }
 
-    void moveAssign(std::true_type, TokenTrieImpl& rhs)
+    template <typename TSelf>
+    void moveAssign(std::true_type, TSelf& rhs)
     {
         size_ = rhs.size_;
         comp_ = std::move(rhs.comp_);
@@ -345,7 +339,8 @@ private:
         alloc_ = std::move(rhs.alloc_);
     }
 
-    void moveAssign(std::false_type, TokenTrieImpl& rhs)
+    template <typename TSelf>
+    void moveAssign(std::false_type, TSelf& rhs)
     {
         size_ = rhs.size_;
         comp_ = std::move(rhs.comp_);
@@ -376,6 +371,42 @@ private:
             root_->parent_ = &sentinel_;
         rhs.root_ = nullptr;
         rhs.size_ = 0;
+    }
+
+    template <typename TSelf>
+    void doSwap(std::true_type, TSelf& other)
+    {
+        using std::swap;
+        swap(alloc_, other.alloc_);
+        swap(root_, other.root_);
+        swap(size_, other.size_);
+        swap(comp_, other.comp_);
+        if (root_)
+            root_->parent_ = &sentinel_;
+        if (other.root_)
+            other.root_->parent_ = &other.sentinel_;
+    }
+
+    template <typename TSelf>
+    void doSwap(std::false_type, TSelf& other)
+    {
+        if (alloc_ == other.alloc_)
+        {
+            using std::swap;
+            swap(root_, other.root_);
+            swap(size_, other.size_);
+            swap(comp_, other.comp_);
+            if (root_)
+                root_->parent_ = &sentinel_;
+            if (other.root_)
+                other.root_->parent_ = &other.sentinel_;
+        }
+        else
+        {
+            TokenTrieImpl temp(other, alloc_);
+            other.moveAssign(std::false_type{}, *this);
+            moveAssign(std::true_type{}, temp);
+        }
     }
 
     template <typename... Us>
