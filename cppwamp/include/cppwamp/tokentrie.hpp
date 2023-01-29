@@ -57,6 +57,7 @@ public:
     /// Type of token associated with this iterator.
     using token_type = typename N::token_type;
 
+    // TODO: Make dereference return key-value pair
     /** Type of the mapped value associated with this iterator.
         @note It differs from std::map in that it's not a key-value pair. */
     using value_type = typename N::value_type;
@@ -296,35 +297,59 @@ public:
     TokenTrie() : TokenTrie(key_compare{}, allocator_type{}) {}
 
     /** Constructor taking a compare function and allocator. */
-    explicit TokenTrie(const key_compare& comp,
-                       const allocator_type& alloc = {} )
-        : impl_(comp, alloc)
-    {}
+    explicit TokenTrie(const key_compare& c, const allocator_type& a = {} )
+        : impl_(c, a) {}
 
     /** Constructor taking an allocator. */
     explicit TokenTrie(const allocator_type& alloc)
         : TokenTrie(key_compare{}, alloc) {}
 
     /** Copy constructor. */
-    TokenTrie(const TokenTrie& rhs) = default;
+    TokenTrie(const TokenTrie& rhs) : impl_(rhs.impl_) {}
+
+    /** Copy constructor taking an allocator. */
+    TokenTrie(const TokenTrie& rhs, const allocator_type& a)
+        : impl_(rhs, a) {}
 
     /** Move constructor. */
-    TokenTrie(TokenTrie&& rhs) noexcept = default;
+    TokenTrie(TokenTrie&& rhs)
+        noexcept(std::is_nothrow_move_constructible<value_compare>::value)
+        : impl_(std::move(rhs.impl_)) {}
+
+    /** Move constructor taking an allocator. */
+    TokenTrie(TokenTrie&& rhs, const allocator_type& a) noexcept
+        : impl_(std::move(rhs), a) {}
 
     /** Constructs using the given iterator range. */
     template <typename I>
-    TokenTrie(I first, I last) : TokenTrie() {insert(first, last);}
+    TokenTrie(I first, I last, const key_compare& c = {},
+              const allocator_type& a = {})
+        : TokenTrie(c, a) {insert(first, last);}
+
+    /** Constructs using the given iterator range. */
+    template <typename I>
+    TokenTrie(I first, I last, const allocator_type& a)
+        : TokenTrie(a) {insert(first, last);}
 
     /** Constructs using contents of the given initializer list, where
         each element is a key-value pair. */
-    TokenTrie(std::initializer_list<value_type> list) : TokenTrie()
-        {insert(list.begin(), list.end());}
+    TokenTrie(std::initializer_list<value_type> list, const key_compare& c = {},
+              const allocator_type& a = {})
+        : TokenTrie(c, a) {insert(list.begin(), list.end());}
+
+    /** Constructs using contents of the given initializer list, where
+        each element is a key-value pair. */
+    TokenTrie(std::initializer_list<value_type> list, const allocator_type& a)
+        : TokenTrie(a) {insert(list.begin(), list.end());}
 
     /** Copy assignment. */
     TokenTrie& operator=(const TokenTrie& rhs) = default;
 
     /** Move assignment. */
-    TokenTrie& operator=(TokenTrie&& rhs) noexcept = default;
+    TokenTrie& operator=(TokenTrie&& rhs)
+        noexcept(std::allocator_traits<A>::is_always_equal::value &&
+                     std::is_nothrow_move_assignable<value_compare>::value)
+        = default;
 
     /** Replaces contents with that of the given initializer list,  where
         each element is a key-value pair. */

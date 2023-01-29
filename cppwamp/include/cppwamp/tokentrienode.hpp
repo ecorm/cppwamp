@@ -46,7 +46,9 @@ public:
     using tree_type = std::map<token_type, TokenTrieNode, key_compare,
                                tree_allocator_type>;
 
-    explicit TokenTrieNode(key_compare comp, tree_allocator_type alloc)
+    TokenTrieNode() : position_(children_.end()) {}
+
+    TokenTrieNode(key_compare comp, tree_allocator_type alloc)
         : children_(std::move(comp), std::move(alloc)),
           position_(children_.end())
     {}
@@ -116,7 +118,7 @@ private:
 
     template <typename, bool> friend class TokenTrieCursor;
 
-    template <typename, typename, typename, typename, typename>
+    template <typename, typename, typename, typename>
     friend class internal::TokenTrieImpl;
 };
 
@@ -376,7 +378,7 @@ private:
 
     template <typename, bool> friend class TokenTrieCursor;
 
-    template <typename, typename, typename, typename, typename>
+    template <typename, typename, typename, typename>
     friend class internal::TokenTrieImpl;
 
     template <typename TNode, bool L, bool R>

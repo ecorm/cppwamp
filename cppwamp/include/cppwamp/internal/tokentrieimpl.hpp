@@ -35,6 +35,7 @@ public:
     using Value = T;
     using KeyComp = C;
     using Allocator = A;
+    using AllocTraits = std::allocator_traits<A>;
     using Node = TokenTrieNode<K, T, C, A>;
     using Size = typename Node::tree_type::size_type;
     using Cursor = TokenTrieCursor<Node, true>;
@@ -63,14 +64,17 @@ public:
     };
 
     explicit TokenTrieImpl(const KeyComp& comp, const Allocator& alloc)
-        : sentinel_(comp, TreeAllocator(alloc)),
-          alloc_(alloc),
+        : alloc_(alloc),
           comp_(comp)
     {}
 
     TokenTrieImpl(const TokenTrieImpl& rhs)
-        : sentinel_(rhs.sentinel_),
-          alloc_(rhs.alloc_),
+        : TokenTrieImpl(rhs, AllocTraits::select_on_container_copy_construction(
+                                 rhs.alloc_))
+    {}
+
+    TokenTrieImpl(const TokenTrieImpl& rhs, const Allocator& alloc)
+        : alloc_(alloc),
           size_(rhs.size_),
           comp_(rhs.comp_)
     {
@@ -82,9 +86,14 @@ public:
         }
     }
 
-    TokenTrieImpl(TokenTrieImpl&& rhs) noexcept
-        : sentinel_(std::move(rhs.sentinel_)),
-          alloc_(std::move(rhs.alloc_)),
+    TokenTrieImpl(TokenTrieImpl&& rhs)
+        : TokenTrieImpl(std::move(rhs), rhs.alloc_)
+    {
+        moveRootFrom(rhs);
+    }
+
+    TokenTrieImpl(TokenTrieImpl&& rhs, const Allocator& alloc) noexcept
+        : alloc_(alloc_),
           size_(rhs.size_),
           comp_(std::move(rhs.comp_))
     {
@@ -106,22 +115,21 @@ public:
         // the RHS iterators remain valid.
         if (&rhs != this)
         {
-            TokenTrieImpl temp(rhs);
-            (*this) = std::move(temp);
+            copyAssign(
+                typename AllocTraits::propagate_on_container_copy_assignment{},
+                rhs);
         }
         return *this;
     }
 
-    TokenTrieImpl& operator=(TokenTrieImpl&& rhs) noexcept
+    TokenTrieImpl& operator=(TokenTrieImpl&& rhs)
     {
         // Do nothing for self-move-assignment to avoid invalidating iterators.
         if (&rhs != this)
         {
-            sentinel_ = std::move(rhs.sentinel_);
-            alloc_ = std::move(rhs.alloc_);
-            size_ = rhs.size_;
-            comp_ = std::move(rhs.comp_);
-            moveRootFrom(rhs);
+            moveAssign(
+                typename AllocTraits::propagate_on_container_move_assignment{},
+                rhs);
         }
         return *this;
     }
@@ -200,11 +208,11 @@ public:
         return {lowerBound(key), upperBound(key)};
     }
 
-    Size empty() const noexcept {return size_ == 0;}
+    Size empty() const {return size_ == 0;}
 
-    Size size() const noexcept {return size_;}
+    Size size() const {return size_;}
 
-    void clear() noexcept
+    void clear()
     {
         if (root_)
             root_->children_.clear();
@@ -255,7 +263,7 @@ public:
         return pos;
     }
 
-    void swap(TokenTrieImpl& other) noexcept
+    void swap(TokenTrieImpl& other)
     {
         using std::swap;
         swap(sentinel_, other.sentinel_);
@@ -270,7 +278,7 @@ public:
     }
 
     template <typename TOther>
-    bool equals(const TOther& rhs) const noexcept
+    bool equals(const TOther& rhs) const
     {
         if (empty() || rhs.empty())
             return empty() == rhs.empty();
@@ -290,7 +298,7 @@ public:
     }
 
     template <typename TOther>
-    bool differs(const TOther& rhs) const noexcept
+    bool differs(const TOther& rhs) const
     {
         if (empty() || rhs.empty())
             return empty() != rhs.empty();
@@ -315,8 +323,60 @@ private:
     using TreeAllocator = typename Node::tree_allocator_type;
     using Token = typename Node::token_type;
     using Level = typename Key::size_type;
-    using AllocTraits = std::allocator_traits<A>;
     using NodeAllocator = typename AllocTraits::template rebind_alloc<Node>;
+
+    void copyAssign(std::true_type, const TokenTrieImpl& rhs)
+    {
+        TokenTrieImpl temp(rhs, rhs.alloc_);
+        moveAssign(std::true_type{}, temp);
+    }
+
+    void copyAssign(std::false_type, const TokenTrieImpl& rhs)
+    {
+        TokenTrieImpl temp(rhs, alloc_);
+        moveAssign(std::false_type{}, temp);
+    }
+
+    void moveAssign(std::true_type, TokenTrieImpl& rhs)
+    {
+        size_ = rhs.size_;
+        comp_ = std::move(rhs.comp_);
+        moveRootFrom(rhs);
+        alloc_ = std::move(rhs.alloc_);
+    }
+
+    void moveAssign(std::false_type, TokenTrieImpl& rhs)
+    {
+        size_ = rhs.size_;
+        comp_ = std::move(rhs.comp_);
+        if (alloc_ == rhs.alloc_)
+        {
+            moveRootFrom(rhs);
+            alloc_ = std::move(rhs.alloc_);
+        }
+        else
+        {
+            clear();
+            auto cursor = rhs.firstValueCursor();
+            auto sentinel = rhs.sentinelCursor();
+            while (cursor != sentinel)
+            {
+                put(false, cursor.key(), cursor.value());
+                cursor.advance_depth_first_to_next_element();
+            }
+        }
+    }
+
+    void moveRootFrom(TokenTrieImpl& rhs)
+    {
+        if (root_ != nullptr)
+            destroyNode(root_);
+        root_ = rhs.root_;
+        if (root_)
+            root_->parent_ = &sentinel_;
+        rhs.root_ = nullptr;
+        rhs.size_ = 0;
+    }
 
     template <typename... Us>
     Node* constructNode(Us&&... args)
@@ -341,17 +401,6 @@ private:
         using AT = std::allocator_traits<NodeAllocator>;
         AT::destroy(alloc_, node);
         AT::deallocate(alloc_, node, sizeof(Node));
-    }
-
-    void moveRootFrom(TokenTrieImpl& rhs) noexcept
-    {
-        if (root_ != nullptr)
-            destroyNode(root_);
-        root_ = rhs.root_;
-        if (root_)
-            root_->parent_ = &sentinel_;
-        rhs.root_ = nullptr;
-        rhs.size_ = 0;
     }
 
     void scanTree()
