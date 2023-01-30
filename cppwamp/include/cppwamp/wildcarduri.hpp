@@ -180,8 +180,8 @@ bool CPPWAMP_API matchesWildcardPattern(const SplitUri& uri,
 
 
 //------------------------------------------------------------------------------
-template <typename T>
-using UriTrie = TokenTrie<SplitUri, T>;
+template <typename T, typename A = std::allocator<T>>
+using UriTrie = TokenTrie<SplitUri, T, TokenTrieDefaultOrdering, A>;
 
 
 //------------------------------------------------------------------------------

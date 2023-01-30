@@ -7,6 +7,7 @@
 #include <cppwamp/wildcarduri.hpp>
 #include <catch2/catch.hpp>
 #include <set>
+#include <scoped_allocator>
 #include <map>
 #include <vector>
 
@@ -18,12 +19,82 @@ namespace
 
 //------------------------------------------------------------------------------
 using Trie = UriTrie<int>;
-using TrieTestPair = std::pair<const SplitUri, int>;
-using TrieTestPairList = std::vector<TrieTestPair>;
+
+template <typename T = int>
+using TrieTestPair = std::pair<const SplitUri, T>;
+
+template <typename T = int>
+using TrieTestPairList = std::vector<TrieTestPair<T>>;
 
 //------------------------------------------------------------------------------
 template <typename T>
-void checkEmptyUriTrie(UriTrie<T>& t)
+class UriTrieStatefulAllocator
+{
+private:
+    using Alloc = std::allocator<T>;
+    using AllocTraits = std::allocator_traits<Alloc>;
+
+public:
+    using value_type = T;
+    using pointer = typename AllocTraits::pointer;
+    using is_always_equal = std::false_type;
+    using propagate_on_container_copy_assignment =
+        typename AllocTraits::propagate_on_container_copy_assignment;
+    using propagate_on_container_move_assignment =
+        typename AllocTraits::propagate_on_container_move_assignment;
+    using propagate_on_container_swap =
+        typename AllocTraits::propagate_on_container_swap;
+
+    explicit UriTrieStatefulAllocator(int id = 0) noexcept : id_(id) {}
+
+    template <typename U>
+    UriTrieStatefulAllocator(const UriTrieStatefulAllocator<U>& rhs) noexcept
+        : alloc_(rhs.alloc_),
+          id_(rhs.id_)
+    {}
+
+    int id() const {return id_;}
+
+    pointer allocate(std::size_t n) {return AllocTraits::allocate(alloc_, n);}
+
+    void deallocate(pointer p, std::size_t n) noexcept
+    {
+        AllocTraits::deallocate(alloc_, p, n);
+    }
+
+    template <typename U, typename... Args>
+    void construct(U* p, Args&& ...args)
+    {
+        AllocTraits::construct(alloc_, p, std::forward<Args>(args)...);
+    }
+
+    template <typename U>
+    void destroy(U* p) noexcept {AllocTraits::destroy(alloc_, p);}
+
+private:
+    Alloc alloc_;
+    int id_ = 0;
+
+    template <typename> friend class UriTrieStatefulAllocator;
+};
+
+template <class T, class U>
+bool operator==(const UriTrieStatefulAllocator<T>& lhs,
+                const UriTrieStatefulAllocator<U>& rhs) noexcept
+{
+    return lhs.id() == rhs.id();
+}
+
+template <class T, class U>
+bool operator!=(const UriTrieStatefulAllocator<T>& lhs,
+                const UriTrieStatefulAllocator<U>& rhs) noexcept
+{
+    return lhs.id() != rhs.id();
+}
+
+//------------------------------------------------------------------------------
+template <typename K, typename T, typename C, typename A>
+void checkEmptyUriTrie(TokenTrie<K,T,C,A>& t)
 {
     const auto& c = t;
     CHECK(c.empty());
@@ -34,8 +105,8 @@ void checkEmptyUriTrie(UriTrie<T>& t)
 }
 
 //------------------------------------------------------------------------------
-template <typename TI, typename CI>
-void checkUriTrieIterators(TI ti, CI ci, const TrieTestPair& pair)
+template <typename TI, typename CI, typename K, typename T>
+void checkUriTrieIterators(TI ti, CI ci, const std::pair<const K, T>& pair)
 {
     auto key = pair.first;
     auto value = pair.second;
@@ -47,18 +118,20 @@ void checkUriTrieIterators(TI ti, CI ci, const TrieTestPair& pair)
     CHECK( (*ci).first == key);
     CHECK( ti.value() == value );
     CHECK( ci.value() == value );
-    CHECK( ti->second == value );
-    CHECK( ci->second == value );
-    CHECK( (*ti).second == value );
-    CHECK( (*ci).second == value );
-    CHECK( static_cast<TrieTestPair>(*ti) == pair );
-    CHECK( static_cast<TrieTestPair>(*ci) == pair );
+    CHECK( ti->second.get() == value );
+    CHECK( ci->second.get() == value );
+    CHECK( (*ti).second.get() == value );
+    CHECK( (*ci).second.get() == value );
+
+    using Pair = std::pair<const K, T>;
+    CHECK( static_cast<Pair>(*ti) == pair );
+    CHECK( static_cast<Pair>(*ci) == pair );
 }
 
 //------------------------------------------------------------------------------
-template <typename TI, typename CI>
+template <typename TI, typename CI, typename K, typename T>
 void checkUriTrieIteratorProxyComparisons(TI ti, CI ci,
-                                          const TrieTestPair& pair)
+                                          const std::pair<const K, T>& pair)
 {
     CHECK( *ti == pair );
     CHECK( *ci == pair );
@@ -87,13 +160,14 @@ void checkUriTrieIteratorProxyComparisons(TI ti, CI ci,
 }
 
 //------------------------------------------------------------------------------
-template <typename T>
-void checkUriTrieContents(UriTrie<T>& t, const TrieTestPairList& pairs)
+template <typename K, typename T, typename C, typename A>
+void checkUriTrieContents(TokenTrie<K,T,C,A>& t,
+                          const std::vector<std::pair<const K, T>>& pairs)
 {
     if (pairs.empty())
         return checkEmptyUriTrie(t);
 
-    std::map<SplitUri, T> m(pairs.begin(), pairs.end());
+    std::map<K, T> m(pairs.begin(), pairs.end());
     const auto& c = t;
     CHECK( c.empty() == m.empty() );
     CHECK( c.size() == m.size() );
@@ -119,7 +193,7 @@ void checkUriTrieContents(UriTrie<T>& t, const TrieTestPairList& pairs)
         CHECK( c.at(key) == value );
         CHECK( t.at(key) == value );
         CHECK( t[key] == value );
-        CHECK( t[SplitUri{key}] == value );
+        CHECK( t[K{key}] == value );
         CHECK( c.count(key) == 1 );
         CHECK( c.contains(key) );
 
@@ -128,14 +202,14 @@ void checkUriTrieContents(UriTrie<T>& t, const TrieTestPairList& pairs)
         CHECK( mf.key() == key );
         CHECK( mf->first == key );
         CHECK( mf.value() == value );
-        CHECK( mf->second == value );
+        CHECK( mf->second.get() == value );
 
         auto cf = c.find(key);
         REQUIRE( cf != t.end() );
         CHECK( cf.key() == key );
         CHECK( cf->first == key );
         CHECK( cf.value() == value );
-        CHECK( cf->second == value );
+        CHECK( cf->second.get() == value );
 
         ++ti;
         ++ci;
@@ -149,12 +223,12 @@ void checkUriTrieContents(UriTrie<T>& t, const TrieTestPairList& pairs)
 //------------------------------------------------------------------------------
 using TrieInsertionResult = std::pair<Trie::iterator, bool>;
 using TrieInsertionOp =
-    std::function<TrieInsertionResult (Trie&, TrieTestPair)>;
+    std::function<TrieInsertionResult (Trie&, TrieTestPair<>)>;
 using TrieInsertionWithUriOp =
     std::function<TrieInsertionResult (Trie&, const std::string&, int)>;
 
 //------------------------------------------------------------------------------
-void checkUriTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
+void checkUriTrieInsertion(const TrieTestPairList<>& pairs, bool clobbers,
                            TrieInsertionOp op)
 {
     Trie trie;
@@ -191,7 +265,7 @@ void checkUriTrieInsertion(const TrieTestPairList& pairs, bool clobbers,
 
 //------------------------------------------------------------------------------
 void checkBadUriTrieAccess(const std::string& info,
-                           const TrieTestPairList& pairs, const SplitUri& key)
+                           const TrieTestPairList<>& pairs, const SplitUri& key)
 {
     INFO(info);
     SplitUri emptyKey;
@@ -422,9 +496,9 @@ TEST_CASE( "Empty UriTrie Construction", "[Uri]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "UriTrie Insertion", "[Uri]" )
 {
-    using Pair = TrieTestPair;
+    using Pair = TrieTestPair<>;
 
-    std::vector<TrieTestPairList> inputs =
+    std::vector<TrieTestPairList<>> inputs =
     {
         { {"",      1} },
         { {"a",     1} },
@@ -562,9 +636,9 @@ TEST_CASE( "UriTrie Insertion", "[Uri]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "UriTrie Inializer Lists", "[Uri]" )
 {
-    TrieTestPairList pairs({ {"a.b.c", 1}, {"a", 2} });
+    TrieTestPairList<> pairs({ {"a.b.c", 1}, {"a", 2} });
 
-    SECTION( "constuctor taking initializer list" )
+    SECTION( "constructor taking initializer list" )
     {
         Trie trie({ {"a.b.c", 1}, {"a", 2} });
         checkUriTrieContents(trie, pairs);
@@ -588,7 +662,7 @@ TEST_CASE( "UriTrie Inializer Lists", "[Uri]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "UriTrie Copy/Move Construction/Assignment", "[Uri]" )
 {
-    std::vector<TrieTestPairList> inputs = {
+    std::vector<TrieTestPairList<>> inputs = {
         { },
         { {"a", 1} },
         { {"a.b.c", 1}, {"a.b", 2}},
@@ -777,7 +851,7 @@ TEST_CASE( "UriTrie Self-Assignment", "[Uri]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "Reusing Moved UriTrie", "[Uri]" )
 {
-    TrieTestPairList pairs({ {"a.b.c", 1}, {"a", 2} });
+    TrieTestPairList<> pairs({ {"a.b.c", 1}, {"a", 2} });
     Trie a({ {{"d"}, 3} });
 
     SECTION( "move constructor" )
@@ -801,7 +875,7 @@ TEST_CASE( "Reusing Moved UriTrie", "[Uri]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "UriTrie Bad Access/Lookups", "[Uri]" )
 {
-    auto check = [](const std::string& info, const TrieTestPairList& pairs,
+    auto check = [](const std::string& info, const TrieTestPairList<>& pairs,
                     const SplitUri& key)
     {
         checkBadUriTrieAccess(info, pairs, key);
@@ -1294,4 +1368,106 @@ TEST_CASE( "UriTrie Iterator Conversions and Mixed Comparisons", "[Uri]" )
     CHECK_FALSE((ci != mi));
     CHECK_FALSE((mi != ci));
     CHECK_FALSE((mi != mi));
+}
+
+//------------------------------------------------------------------------------
+template <typename K, typename T, typename C, typename A>
+void checkTrieStatefulAllocator(const TokenTrie<K,T,C,A>& trie, int id)
+{
+    auto cursor = trie.root();
+    unsigned pos = 0;
+    while (cursor != trie.sentinel())
+    {
+        INFO( "At cursor position " << pos <<
+             " with token " << cursor.token());
+        CHECK( cursor.parent()->children().get_allocator().id() == id );
+        CHECK( cursor.token().get_allocator().id() == id );
+        if (cursor.has_value())
+            CHECK( cursor.value().get_allocator().id() == id );
+        cursor.advance_depth_first_to_next_node();
+        ++pos;
+    }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "UriTrie with scoped_allocator_adapter", "[Uri]" )
+{
+    SECTION("with std::allocator<int>")
+    {
+        using A = std::scoped_allocator_adaptor<std::allocator<int>>;
+        TrieTestPairList<> pairs({ {"a.b.c", 1}, {"a", 2} });
+
+        UriTrie<int, A> trie({ {"a.b.c", 1}, {"a", 2} });
+        checkUriTrieContents(trie, pairs);
+    }
+
+    SECTION("with stateful allocator")
+    {
+        using A = std::scoped_allocator_adaptor<UriTrieStatefulAllocator<char>>;
+        using StringType = std::basic_string<char, std::char_traits<char>,
+                                             UriTrieStatefulAllocator<char>>;
+        using Key = std::vector<StringType, A>;
+        using Value = StringType;
+        using TrieType = TokenTrie<Key, Value, TokenTrieDefaultOrdering, A>;
+        using Pair = std::pair<const Key, Value>;
+
+        A alloc1(101);
+        A alloc2(102);
+        std::vector<Pair> pairs({ {{"a", "b", "c"}, "foo"}, {{"a"}, "bar"} });
+        TrieType trie1(pairs.begin(), pairs.end(), alloc1);
+
+        SECTION("construction with allocator")
+        {
+            CHECK(trie1.size() == pairs.size());
+            checkUriTrieContents(trie1, pairs);
+            checkTrieStatefulAllocator(trie1, alloc1.id());
+        }
+
+        SECTION("copy construction propagates allocator")
+        {
+            TrieType trie2(trie1);
+            CHECK(trie2.size() == pairs.size());
+            checkTrieStatefulAllocator(trie2, alloc1.id());
+        }
+
+        SECTION("move construction propagates allocator")
+        {
+            TrieType trie2(std::move(trie1));
+            CHECK(trie2.size() == pairs.size());
+            checkTrieStatefulAllocator(trie2, alloc1.id());
+        }
+
+        SECTION("copy assignment does not propagate allocator")
+        {
+            TrieType trie2(alloc2);
+            trie2 = trie1;
+            CHECK(trie2.size() == pairs.size());
+            checkTrieStatefulAllocator(trie2, alloc2.id());
+        }
+
+        SECTION("move assignment propagates allocator")
+        {
+            TrieType trie2(alloc2);
+            trie2 = std::move(trie1);
+            CHECK(trie2.size() == pairs.size());
+            checkTrieStatefulAllocator(trie2, alloc1.id());
+        }
+
+        SECTION("swap does not propagate allocators")
+        {
+            std::vector<Pair> pairs2({{{"d"}, "baz"}});
+            TrieType trie2(pairs2.begin(), pairs2.end(), alloc2);
+            trie2.swap(trie1);
+            CHECK(trie1.size() == pairs2.size());
+            CHECK(trie2.size() == pairs.size());
+            SECTION("trie1 preserves original allocator")
+            {
+                checkTrieStatefulAllocator(trie1, alloc1.id());
+            }
+            SECTION("trie2 preserves original allocator")
+            {
+                checkTrieStatefulAllocator(trie2, alloc2.id());
+            }
+        }
+    }
 }

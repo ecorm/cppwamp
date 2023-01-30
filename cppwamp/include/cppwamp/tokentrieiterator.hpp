@@ -88,73 +88,108 @@ void swap(TokenTrieKeyValueProxy<K,V,M>& a, TokenTrieKeyValueProxy<K,V,M>&b)
 template <typename K, typename V, bool M>
 bool operator==(const TokenTrieKeyValueProxy<K,V,M>& lhs,
                 const std::pair<const K, V>& rhs)
-    {return std::tie(lhs.first, lhs.second) == std::tie(rhs.first, rhs.second);}
+{
+    return std::tie(lhs.first, lhs.second.get()) ==
+           std::tie(rhs.first, rhs.second);
+}
 
 /** @relates TokenTrieKeyValueProxy */
 template <typename K, typename V, bool M>
 bool operator==(const std::pair<const K, V>& lhs,
                 const TokenTrieKeyValueProxy<K,V,M>& rhs)
-    {return std::tie(lhs.first, lhs.second) == std::tie(rhs.first, rhs.second);}
+{
+    return std::tie(lhs.first, lhs.second) ==
+           std::tie(rhs.first, rhs.second.get());}
 
 /** @relates TokenTrieKeyValueProxy */
 template <typename K, typename V, bool M>
 bool operator!=(const TokenTrieKeyValueProxy<K,V,M>& lhs,
                 const std::pair<const K, V>& rhs)
-    {return std::tie(lhs.first, lhs.second) != std::tie(rhs.first, rhs.second);}
+{
+    return std::tie(lhs.first, lhs.second.get()) !=
+           std::tie(rhs.first, rhs.second);
+}
 
 /** @relates TokenTrieKeyValueProxy */
 template <typename K, typename V, bool M>
 bool operator!=(const std::pair<const K, V>& lhs,
                 const TokenTrieKeyValueProxy<K,V,M>& rhs)
-    {return std::tie(lhs.first, lhs.second) != std::tie(rhs.first, rhs.second);}
+{
+    return std::tie(lhs.first, lhs.second) !=
+           std::tie(rhs.first, rhs.second.get());
+}
 
 /** @relates TokenTrieKeyValueProxy */
 template <typename K, typename V, bool M>
 bool operator<(const TokenTrieKeyValueProxy<K,V,M>& lhs,
                const std::pair<const K, V>& rhs)
-    {return std::tie(lhs.first, lhs.second) < std::tie(rhs.first, rhs.second);}
+{
+    return std::tie(lhs.first, lhs.second.get()) <
+           std::tie(rhs.first, rhs.second);
+}
 
 /** @relates TokenTrieKeyValueProxy */
 template <typename K, typename V, bool M>
 bool operator<(const std::pair<const K, V>& lhs,
                const TokenTrieKeyValueProxy<K,V,M>& rhs)
-    {return std::tie(lhs.first, lhs.second) < std::tie(rhs.first, rhs.second);}
+{
+    return std::tie(lhs.first, lhs.second) <
+           std::tie(rhs.first, rhs.second.get());
+}
 
 /** @relates TokenTrieKeyValueProxy */
 template <typename K, typename V, bool M>
 bool operator<=(const TokenTrieKeyValueProxy<K,V,M>& lhs,
                 const std::pair<const K, V>& rhs)
-    {return std::tie(lhs.first, lhs.second) <= std::tie(rhs.first, rhs.second);}
+{
+    return std::tie(lhs.first, lhs.second.get()) <=
+           std::tie(rhs.first, rhs.second);
+}
 
 /** @relates TokenTrieKeyValueProxy */
 template <typename K, typename V, bool M>
 bool operator<=(const std::pair<const K, V>& lhs,
                 const TokenTrieKeyValueProxy<K,V,M>& rhs)
-    {return std::tie(lhs.first, lhs.second) <= std::tie(rhs.first, rhs.second);}
+{
+    return std::tie(lhs.first, lhs.second) <=
+           std::tie(rhs.first, rhs.second.get());
+}
 
 /** @relates TokenTrieKeyValueProxy */
 template <typename K, typename V, bool M>
 bool operator>(const TokenTrieKeyValueProxy<K,V,M>& lhs,
-                const std::pair<const K, V>& rhs)
-    {return std::tie(lhs.first, lhs.second) > std::tie(rhs.first, rhs.second);}
+               const std::pair<const K, V>& rhs)
+{
+    return std::tie(lhs.first, lhs.second.get()) >
+           std::tie(rhs.first, rhs.second);
+}
 
 /** @relates TokenTrieKeyValueProxy */
 template <typename K, typename V, bool M>
 bool operator>(const std::pair<const K, V>& lhs,
                const TokenTrieKeyValueProxy<K,V,M>& rhs)
-    {return std::tie(lhs.first, lhs.second) > std::tie(rhs.first, rhs.second);}
+{
+    return std::tie(lhs.first, lhs.second) >
+           std::tie(rhs.first, rhs.second.get());
+}
 
 /** @relates TokenTrieKeyValueProxy */
 template <typename K, typename V, bool M>
 bool operator>=(const TokenTrieKeyValueProxy<K,V,M>& lhs,
                 const std::pair<const K, V>& rhs)
-    {return std::tie(lhs.first, lhs.second) >= std::tie(rhs.first, rhs.second);}
+{
+    return std::tie(lhs.first, lhs.second.get()) >=
+           std::tie(rhs.first, rhs.second);
+}
 
 /** @relates TokenTrieKeyValueProxy */
 template <typename K, typename V, bool M>
 bool operator>=(const std::pair<const K, V>& lhs,
                 const TokenTrieKeyValueProxy<K,V,M>& rhs)
-    {return std::tie(lhs.first, lhs.second) >= std::tie(rhs.first, rhs.second);}
+{
+    return std::tie(lhs.first, lhs.second) >=
+           std::tie(rhs.first, rhs.second.get());
+}
 /// @}
 
 //------------------------------------------------------------------------------

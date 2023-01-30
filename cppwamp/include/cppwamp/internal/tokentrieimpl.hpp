@@ -80,16 +80,15 @@ public:
         if (rhs.root_)
         {
             root_ = copyConstructNode(*rhs.root_);
-            root_->parent_ = &sentinel_;
+            auto& root = *root_;
+            root.parent_ = &sentinel_;
             scanTree();
         }
     }
 
     TokenTrieImpl(TokenTrieImpl&& rhs)
         : TokenTrieImpl(std::move(rhs), rhs.alloc_)
-    {
-        moveRootFrom(rhs);
-    }
+    {}
 
     TokenTrieImpl(TokenTrieImpl&& rhs, const Allocator& alloc) noexcept
         : alloc_(alloc_),
@@ -101,10 +100,10 @@ public:
 
     ~TokenTrieImpl()
     {
-        if (root_ != nullptr)
+        if (root_)
         {
             destroyNode(root_);
-            root_ = nullptr;
+            root_ = {};
         }
     }
 
@@ -137,15 +136,17 @@ public:
 
     ValueComp valueComp() const {return comp_;}
 
+    Allocator allocator() const {return alloc_;}
+
     Cursor rootCursor()
     {
-        assert(root_ != nullptr);
+        assert(!!root_);
         return Cursor::begin(*root_);
     }
 
     ConstCursor rootCursor() const
     {
-        assert(root_ != nullptr);
+        assert(!!root_);
         return ConstCursor::begin(*root_);
     }
 
@@ -227,8 +228,9 @@ public:
         if (!root_)
         {
             root_ = constructNode();
-            root_->parent_ = &sentinel_;
-            root_->position_ = root_->children_.end();
+            auto& root = *root_;
+            root.parent_ = &sentinel_;
+            root.position_ = root.children_.end();
         }
 
         auto result = upsert(clobber, std::move(key),
@@ -244,8 +246,7 @@ public:
         assert(bool(cursor));
         pos.advance_depth_first_to_next_element();
 
-        cursor.child_->second.value_ = Value();
-        cursor.child_->second.hasValue_ = false;
+        cursor.child_->second.clearValue();
         if (cursor.child()->is_leaf())
         {
             // Erase the value node, then all obsolete links up the chain
@@ -314,6 +315,8 @@ private:
     using Token = typename Node::token_type;
     using Level = typename Key::size_type;
     using NodeAllocator = typename AllocTraits::template rebind_alloc<Node>;
+    using NodeAllocTraits = typename AllocTraits::template rebind_traits<Node>;
+    using NodePtr = typename NodeAllocTraits::pointer;
 
     template <typename TSelf>
     void copyAssign(std::true_type, const TSelf& rhs)
@@ -341,10 +344,10 @@ private:
     template <typename TSelf>
     void moveAssign(std::false_type, TSelf& rhs)
     {
-        size_ = rhs.size_;
         comp_ = std::move(rhs.comp_);
         if (alloc_ == rhs.alloc_)
         {
+            size_ = rhs.size_;
             moveRootFrom(rhs);
             alloc_ = std::move(rhs.alloc_);
         }
@@ -363,12 +366,12 @@ private:
 
     void moveRootFrom(TokenTrieImpl& rhs)
     {
-        if (root_ != nullptr)
+        if (root_)
             destroyNode(root_);
         root_ = rhs.root_;
         if (root_)
-            root_->parent_ = &sentinel_;
-        rhs.root_ = nullptr;
+            (*root_).parent_ = &sentinel_;
+        rhs.root_ = {};
         rhs.size_ = 0;
     }
 
@@ -381,9 +384,9 @@ private:
         swap(size_, other.size_);
         swap(comp_, other.comp_);
         if (root_)
-            root_->parent_ = &sentinel_;
+            (*root_).parent_ = &sentinel_;
         if (other.root_)
-            other.root_->parent_ = &other.sentinel_;
+            (*other.root_).parent_ = &other.sentinel_;
     }
 
     template <typename TSelf>
@@ -396,49 +399,63 @@ private:
             swap(size_, other.size_);
             swap(comp_, other.comp_);
             if (root_)
-                root_->parent_ = &sentinel_;
+            {
+                auto& root = *root_;
+                root.parent_ = &sentinel_;
+            }
             if (other.root_)
-                other.root_->parent_ = &other.sentinel_;
+            {
+                auto& root = *(other.root_);
+                root.parent_ = &other.sentinel_;
+            }
         }
         else
         {
-            TokenTrieImpl temp(other, alloc_);
-            other.moveAssign(std::false_type{}, *this);
-            moveAssign(std::true_type{}, temp);
+            TokenTrieImpl thisTemp(*this, other.alloc_);
+            TokenTrieImpl otherTemp(other, alloc_);
+            moveAssign(std::true_type{}, otherTemp);
+            other.moveAssign(std::true_type{}, thisTemp);
         }
     }
 
-    template <typename... Us>
-    Node* constructNode(Us&&... args)
+    NodePtr constructNode()
     {
-        using AT = std::allocator_traits<NodeAllocator>;
-        auto ptr = AT::allocate(alloc_, sizeof(Node));
-        AT::construct(alloc_, ptr, keyComp(), alloc_,
-                      std::forward<Us>(args)...);
+        NodePtr ptr = {};
+        try
+        {
+            ptr = NodeAllocTraits::allocate(alloc_, sizeof(Node));
+            NodeAllocTraits::construct(alloc_, ptr, keyComp());
+        }
+        catch (...)
+        {
+            if (!!ptr)
+                NodeAllocTraits::deallocate(alloc_, ptr, sizeof(Node));
+            throw;
+        }
+
         return ptr;
     }
 
-    Node* copyConstructNode(const Node& rhs)
+    NodePtr copyConstructNode(const Node& rhs)
     {
-        using AT = std::allocator_traits<NodeAllocator>;
-        auto ptr = AT::allocate(alloc_, sizeof(Node));
-        AT::construct(alloc_, ptr, rhs);
+        auto ptr = NodeAllocTraits::allocate(alloc_, sizeof(Node));
+        NodeAllocTraits::construct(alloc_, ptr, rhs);
         return ptr;
     }
 
-    void destroyNode(Node* node)
+    void destroyNode(NodePtr node)
     {
-        using AT = std::allocator_traits<NodeAllocator>;
-        AT::destroy(alloc_, node);
-        AT::deallocate(alloc_, node, sizeof(Node));
+        NodeAllocTraits::destroy(alloc_, node);
+        NodeAllocTraits::deallocate(alloc_, node, sizeof(Node));
     }
 
     void scanTree()
     {
-        root_->position_ = root_->children_.end();
-        Node* parent = root_;
-        auto iter = root_->children_.begin();
-        while (!parent->is_root())
+        auto& root = *root_;
+        root.position_ = root.children_.end();
+        Node* parent = &root;
+        auto iter = root.children_.begin();
+        while (!parent->is_sentinel())
         {
             if (iter != parent->children_.end())
             {
@@ -461,7 +478,7 @@ private:
             {
                 iter = parent->position_;
                 parent = parent->parent_;
-                if (!parent->is_root())
+                if (!parent->is_sentinel())
                     ++iter;
             }
         }
@@ -473,8 +490,9 @@ private:
         if (self.empty() || key.empty())
             return self.sentinelCursor();
 
-        auto parent = self.root_;
-        auto child = self.root_->children_.begin();
+        auto& root = *(self.root_);
+        Node* parent = &root;
+        auto child = root.children_.begin();
         bool found = true;
         for (Level level = 0; level<key.size(); ++level)
         {
@@ -503,11 +521,12 @@ private:
         // existing tree using move semantics.
 
         assert(!key.empty());
-        assert(root_ != nullptr);
+        assert(!!root_);
 
         const auto tokenCount = key.size();
-        auto parent = root_;
-        auto child = root_->children_.begin();
+        auto& root = *root_;
+        Node* parent = &root;
+        auto child = root.children_.begin();
 
         // Find existing node from which to possibly attach a sub-chain with
         // the new node.
@@ -545,11 +564,20 @@ private:
         }
 
         // Build and attach the sub-chain containing the new node.
-        Node chain(keyComp(), alloc_);
+        auto chain = constructNode();
         auto token = std::move(key[level]);
-        buildChain(&chain, std::move(key), level, std::forward<Us>(args)...);
-        child = addChain(parent, std::move(token), std::move(chain));
+        buildChain(chain, std::move(key), level, std::forward<Us>(args)...);
+        try
+        {
+            child = addChain(parent, std::move(token), std::move(*chain));
+        }
+        catch (...)
+        {
+            destroyNode(chain);
+            throw;
+        }
         parent = child->second.parent_;
+        destroyNode(chain);
         return {{parent, child}, true};
     }
 
@@ -559,7 +587,7 @@ private:
         auto result = node->children_.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(keyComp(), alloc_, in_place,
+            std::forward_as_tuple(keyComp(), in_place,
                                   std::forward<Us>(args)...));
         assert(result.second);
         return result.first;
@@ -589,7 +617,7 @@ private:
         auto result = node.children_.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(keyComp(), alloc_));
+            std::forward_as_tuple(keyComp()));
         assert(result.second);
         return result.first;
     }
@@ -621,8 +649,9 @@ private:
         if (key.empty() || self.empty())
             return self.sentinelCursor();
 
-        auto parent = self.root_;
-        auto child = parent->children_.begin();
+        auto& root = *(self.root_);
+        Node* parent = &root;
+        auto child = root.children_.begin();
         const Level maxLevel = key.size() - 1;
         KeyComp keyComp;
         bool keepSearching = false;
@@ -670,8 +699,9 @@ private:
         if (key.empty() || self.empty())
             return self.sentinelCursor();
 
-        auto parent = self.root_;
-        auto child = parent->children_.begin();
+        auto& root = *(self.root_);
+        auto parent = &root;
+        auto child = root.children_.begin();
         const Level maxLevel = key.size() - 1;
         KeyComp keyComp;
         bool keepSearching = false;
@@ -721,7 +751,7 @@ private:
 
     Node sentinel_;
     NodeAllocator alloc_;
-    Node* root_ = nullptr;
+    NodePtr root_ = nullptr;
     Size size_ = 0;
     ValueComp comp_;
 };

@@ -26,7 +26,7 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-struct TokenTrieDefaultKeyCompare
+struct TokenTrieDefaultOrdering
 {
     using is_transparent = std::true_type;
 
@@ -55,19 +55,11 @@ struct TokenTrieDefaultKeyCompare
     Strong exception safety is provided for all modification operations.
 
     This trie implementation does not implement compaction (like in a radix
-    tree) in order to avoid invalidating iterators upon modification. Thus,
-    not all nodes contain values and T must therefore be default-constructible.
-    If the desired mapped type is not default-constructible, it may be wrapped
-    in a `std::optional` (e.g. `TokenTrie<SplitUri, std::optional<NeverEmpty>>`.
-
-    If the desired mapped type is large, and wasting space for non-value nodes
-    is not derised, the user may choose to dynamically allocate the mapped type
-    and wrap it in a smart pointer (e.g.
-    `TokenTrie<SplitUri, std::shared_ptr<Large>>`).
+    tree) in order to avoid invalidating iterators upon modification.
 
     This container supports `std::scoped_allocator_adapter` so that the key
-    and mapped types will use the user-provided allocator if they specialize
-    `std::uses_allocator`.
+    and mapped types will respectively use the user-provided allocator if they
+    specialize `std::uses_allocator`.
 
     @tparam K Split token container type.
             Must be a Sequence with a `push_back` member function.
@@ -77,7 +69,7 @@ struct TokenTrieDefaultKeyCompare
 //------------------------------------------------------------------------------
 template <typename K,
           typename T,
-          typename C = TokenTrieDefaultKeyCompare,
+          typename C = TokenTrieDefaultOrdering,
           typename A = std::allocator<T>>
 class TokenTrie
 {
@@ -152,7 +144,7 @@ public:
     using cursor = TokenTrieCursor<Node, true>;
 
     /** Immutable cursor type used for traversing nodes. */
-    using const_cursor = TokenTrieCursor<Node, true>;
+    using const_cursor = TokenTrieCursor<Node, false>;
 
     /** Function object type used for sorting key-value pairs
         in lexicographic order of their keys. */
@@ -225,7 +217,7 @@ public:
         return *this;
     }
 
-    allocator_type get_allocator() const noexcept {return alloc_;}
+    allocator_type get_allocator() const noexcept {return impl_.allocator();}
 
     /// @name Element Access
     /// @{
@@ -546,7 +538,6 @@ private:
     }
 
     internal::TokenTrieImpl<K, T, C, A> impl_;
-    allocator_type alloc_;
 };
 
 } // namespace wamp

@@ -41,24 +41,67 @@ public:
     using token_type = typename key_type::value_type;
     using tree_allocator_type =
         typename std::allocator_traits<A>::template rebind_alloc<
-            std::pair<token_type, TokenTrieNode>>;
+            std::pair<const token_type, TokenTrieNode>>;
     using tree_type = std::map<token_type, TokenTrieNode, key_compare,
                                tree_allocator_type>;
 
     TokenTrieNode() : position_(children_.end()) {}
 
-    TokenTrieNode(key_compare comp, tree_allocator_type alloc)
-        : children_(std::move(comp), std::move(alloc)),
+    TokenTrieNode(key_compare comp)
+        : children_(std::move(comp)),
+          position_(children_.end())
+    {}
+
+    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
+                  key_compare comp)
+        : children_(std::move(comp), alloc),
           position_(children_.end())
     {}
 
     template <typename... Us>
-    TokenTrieNode(key_compare comp, tree_allocator_type alloc,
-                  in_place_t, Us&&... args)
-        : children_(std::move(comp), std::move(alloc)),
-          value_(std::forward<Us>(args)...),
-          hasValue_(true)
-    {}
+    TokenTrieNode(key_compare comp, in_place_t, Us&&... args)
+        : children_(std::move(comp))
+    {
+        constructValue(std::forward<Us>(args)...);
+    }
+
+    template <typename... Us>
+    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
+                  key_compare comp, in_place_t, Us&&... args)
+        : children_(std::move(comp), alloc)
+    {
+        constructValue(std::forward<Us>(args)...);
+    }
+
+    TokenTrieNode(const TokenTrieNode& other)
+        : children_(other.children_)
+    {
+        if (other.has_value())
+            constructValue(other.value());
+    }
+
+    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
+                  const TokenTrieNode& other)
+        : children_(other.children_, alloc)
+    {
+        if (other.has_value())
+            constructValue(other.value());
+    }
+
+    TokenTrieNode(TokenTrieNode&& other)
+        : children_(std::move(other.children_)),
+          position_(std::move(other.position_)),
+          value_(other.value_),
+          parent_(other.parent_)
+    {
+        other.value_ = nullptr;
+    }
+
+    TokenTrieNode& operator=(const TokenTrieNode&) = delete;
+
+    TokenTrieNode& operator=(TokenTrieNode&&) = delete;
+
+    ~TokenTrieNode() {destroyValue();}
 
     bool is_sentinel() const noexcept {return parent_ == nullptr;}
 
@@ -67,7 +110,7 @@ public:
 
     bool is_leaf() const noexcept {return children_.empty();}
 
-    bool has_value() const noexcept {return hasValue_;}
+    bool has_value() const noexcept {return !!value_;}
 
     const TokenTrieNode* parent() const {return parent_;}
 
@@ -93,27 +136,70 @@ public:
         return key;
     }
 
-    mapped_type& value() {assert(hasValue_); return value_;}
+    mapped_type& value() {assert(has_value()); return *value_;}
 
-    const mapped_type& value() const {assert(hasValue_); return value_;}
+    const mapped_type& value() const {assert(has_value()); return *value_;}
 
     const tree_type& children() const {return children_;}
 
 private:
     using TreeIterator = typename tree_type::iterator;
+    using MappedAlloc =
+        typename std::allocator_traits<A>::template rebind_alloc<T>;
+    using MappedPtr = typename std::allocator_traits<MappedAlloc>::pointer;
 
     template <typename... Us>
     void setValue(Us&&... args)
     {
-        value_ = mapped_type(std::forward<Us>(args)...);
-        hasValue_ = true;
+        if (has_value())
+            *value_ = mapped_type(std::forward<Us>(args)...);
+        else
+            constructValue(std::forward<Us>(args)...);
+    }
+
+    void clearValue()
+    {
+        if (has_value())
+            destroyValue();
+    }
+
+    template <typename... Us>
+    void constructValue(Us&&... args)
+    {
+        using AT = std::allocator_traits<MappedAlloc>;
+        assert(value_ == nullptr);
+        MappedAlloc alloc{children_.get_allocator()};
+        MappedPtr ptr = {};
+        try
+        {
+            ptr = AT::allocate(alloc, sizeof(mapped_type));
+            AT::construct(alloc, ptr, std::forward<Us>(args)...);
+        }
+        catch (...)
+        {
+            if (!!ptr)
+                AT::deallocate(alloc, ptr, sizeof(mapped_type));
+            throw;
+        }
+        value_ = ptr;
+    }
+
+    void destroyValue()
+    {
+        if (!has_value())
+            return;
+
+        using AT = std::allocator_traits<MappedAlloc>;
+        MappedAlloc alloc{children_.get_allocator()};
+        AT::destroy(alloc, value_);
+        AT::deallocate(alloc, value_, sizeof(mapped_type));
+        value_ = {};
     }
 
     tree_type children_;
-    mapped_type value_;
     TreeIterator position_ = {};
+    MappedPtr value_ = {};
     TokenTrieNode* parent_ = nullptr;
-    bool hasValue_ = false;
 
     template <typename, bool> friend class TokenTrieCursor;
 
@@ -134,9 +220,6 @@ public:
     using mapped_type = typename N::mapped_type;
     using reference = typename std::conditional<IsMutable, mapped_type&,
                                                 const mapped_type&>::type;
-    // TODO: Get pointer type via iterator traits
-    using node_pointer = typename std::conditional<IsMutable, node_type*,
-                                                   const node_type*>::type;
     using const_iterator = typename node_type::tree_type::const_iterator;
     using iterator =
         typename std::conditional<
@@ -296,6 +379,8 @@ public:
     }
 
 private:
+    using NodePtr = typename std::conditional<IsMutable, node_type*,
+                                              const node_type*>::type;
     using NodeRef = typename std::conditional<IsMutable, node_type&,
                                               const node_type&>::type;
     using KeyComp = typename node_type::key_compare;
@@ -330,7 +415,7 @@ private:
         return c(a, b) || c(b, a);
     }
 
-    TokenTrieCursor(node_pointer node, iterator iter)
+    TokenTrieCursor(NodePtr node, iterator iter)
         : parent_(node),
           child_(iter)
     {}
@@ -373,7 +458,7 @@ private:
         }
     }
 
-    node_pointer parent_ = nullptr;
+    NodePtr parent_ = nullptr;
     iterator child_ = {};
 
     template <typename, bool> friend class TokenTrieCursor;
@@ -409,5 +494,16 @@ bool operator!=(const TokenTrieCursor<N, L>& lhs,
 }
 
 } // namespace wamp
+
+
+namespace std
+{
+
+template <typename K, typename T, typename C, typename A, typename Alloc>
+struct uses_allocator<wamp::TokenTrieNode<K,T,C,A>, Alloc> :
+    std::is_convertible<Alloc, A>
+{};
+
+} // namespace std
 
 #endif // CPPWAMP_TOKENTRIENODE_HPP
