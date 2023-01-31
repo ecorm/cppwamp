@@ -34,48 +34,43 @@ namespace internal
 template <typename K, typename T, typename C, typename A>
 class TokenTrieNode
 {
+private:
+    struct PassKey {};
+
 public:
+    /** Split token container type used as the key. */
     using key_type = K;
+
+    /** Type of the mapped value. */
     using mapped_type = T;
+
+    /// Comparison function that determines how keys are sorted.
     using key_compare = C;
+
+    /// Allocator type passed to the TokenTrie using this node.
     using allocator_type = A;
+
+    /// Token type associated with a node.
     using token_type = typename key_type::value_type;
+
+    /// Allocator type used by the tree contained by this node.
     using tree_allocator_type =
         typename std::allocator_traits<A>::template rebind_alloc<
             std::pair<const token_type, TokenTrieNode>>;
+
+    /// Tree type contained by this node.
     using tree_type = std::map<token_type, TokenTrieNode, key_compare,
                                tree_allocator_type>;
+
+    /** Wrapper around the contained tree that prevents modifying its structure,
+        while allowing its mapped values to be modified. */
     using tree_view_type = TreeView<tree_type, true>;
+
+    /** Wrapper around the contained tree that prevents modifying its structure
+        and its mapped values. */
     using const_tree_view_type = TreeView<tree_type, false>;
 
-    TokenTrieNode() : position_(children_.end()) {}
-
-    TokenTrieNode(key_compare comp)
-        : children_(std::move(comp)),
-          position_(children_.end())
-    {}
-
-    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
-                  key_compare comp)
-        : children_(std::move(comp), alloc),
-          position_(children_.end())
-    {}
-
-    template <typename... Us>
-    TokenTrieNode(key_compare comp, in_place_t, Us&&... args)
-        : children_(std::move(comp))
-    {
-        constructValue(std::forward<Us>(args)...);
-    }
-
-    template <typename... Us>
-    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
-                  key_compare comp, in_place_t, Us&&... args)
-        : children_(std::move(comp), alloc)
-    {
-        constructValue(std::forward<Us>(args)...);
-    }
-
+    /** Copy constructor. */
     TokenTrieNode(const TokenTrieNode& other)
         : children_(other.children_)
     {
@@ -83,6 +78,7 @@ public:
             constructValue(other.value());
     }
 
+    /** Copy constructor taking an allocator. */
     TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
                   const TokenTrieNode& other)
         : children_(other.children_, alloc)
@@ -91,34 +87,41 @@ public:
             constructValue(other.value());
     }
 
-    TokenTrieNode(TokenTrieNode&& other)
-        : children_(std::move(other.children_)),
-          position_(std::move(other.position_)),
-          value_(other.value_),
-          parent_(other.parent_)
-    {
-        other.value_ = nullptr;
-    }
+    /** Non-move-constructible. */
+    TokenTrieNode(TokenTrieNode&& other) = delete;
 
+    /** Non-copy-assignable. */
     TokenTrieNode& operator=(const TokenTrieNode&) = delete;
 
+    /** Non-move-assignable. */
     TokenTrieNode& operator=(TokenTrieNode&&) = delete;
 
+    /** Destructor. */
     ~TokenTrieNode() {destroyValue();}
 
+    /** Determines if this is the sentinel node. */
     bool is_sentinel() const noexcept {return parent_ == nullptr;}
 
+    /** Determines if this is the root node. */
     bool is_root() const noexcept
         {return !is_sentinel() && parent_->is_sentinel();}
 
+    /** Returns true is this node has no children. */
     bool is_leaf() const noexcept {return children_.empty();}
 
+    /** Determines if this node has a mapped value. */
     bool has_value() const noexcept {return !!value_;}
 
+    /** Obtains a pointer to the node's parent, or `nullptr` if this is
+        the sentinel node. */
     TokenTrieNode* parent() {return parent_;}
 
+    /** Obtains a pointer to the node's parent, or `nullptr` if this is
+        the sentinel node. */
     const TokenTrieNode* parent() const {return parent_;}
 
+    /** Accesses the node's token, or an empty one if this is the root node.
+        @pre `!this->is_sentinel` */
     const token_type& token() const
     {
         assert(!is_sentinel());
@@ -128,8 +131,11 @@ public:
         return position_->first;
     }
 
+    /** Generates the split token key associated with this node.
+        @pre `!this->is_sentinel` */
     key_type key() const
     {
+        assert(!is_sentinel());
         key_type key;
         const TokenTrieNode* node = this;
         while (!node->is_root())
@@ -141,13 +147,22 @@ public:
         return key;
     }
 
+    /** Accesses the value associated with this node.
+        @pre `this->has_value()` */
     mapped_type& value() {assert(has_value()); return *value_;}
 
+    /** Accesses the value associated with this node.
+        @pre `this->has_value()` */
     const mapped_type& value() const {assert(has_value()); return *value_;}
 
-    tree_view_type children() {return {&children_};}
+    /** Obtains a view of the node's child tree.
+        @pre `!this->is_sentinel` */
+    tree_view_type children() {assert(!is_sentinel()); return {&children_};}
 
-    const_tree_view_type children() const {return {&children_};}
+    /** Obtains a view of the node's child tree.
+        @pre `!this->is_sentinel` */
+    const_tree_view_type children() const
+        {assert(!is_sentinel()); return {&children_};}
 
 private:
     using TreeIterator = typename tree_type::iterator;
@@ -212,6 +227,54 @@ private:
 
     template <typename, typename, typename, typename>
     friend class internal::TokenTrieImpl;
+
+public: // Internal use only
+    TokenTrieNode(PassKey) : position_(children_.end()) {}
+
+    TokenTrieNode(PassKey, key_compare comp)
+        : children_(std::move(comp)),
+          position_(children_.end())
+    {}
+
+    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
+                  PassKey, key_compare comp)
+        : children_(std::move(comp), alloc),
+          position_(children_.end())
+    {}
+
+    template <typename... Us>
+    TokenTrieNode(PassKey, key_compare comp, in_place_t, Us&&... args)
+        : children_(std::move(comp))
+    {
+        constructValue(std::forward<Us>(args)...);
+    }
+
+    template <typename... Us>
+    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
+                  PassKey, key_compare comp, in_place_t, Us&&... args)
+        : children_(std::move(comp), alloc)
+    {
+        constructValue(std::forward<Us>(args)...);
+    }
+
+    TokenTrieNode(PassKey, TokenTrieNode&& other)
+        : children_(std::move(other.children_)),
+          position_(std::move(other.position_)),
+          value_(other.value_),
+          parent_(other.parent_)
+    {
+        other.value_ = nullptr;
+    }
+
+    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
+                  PassKey, TokenTrieNode&& other)
+        : children_(std::move(other.children_)),
+          position_(std::move(other.position_)),
+          value_(other.value_),
+          parent_(other.parent_)
+    {
+        other.value_ = nullptr;
+    }
 };
 
 //------------------------------------------------------------------------------

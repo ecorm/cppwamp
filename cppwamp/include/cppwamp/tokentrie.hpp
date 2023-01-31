@@ -84,10 +84,10 @@ private:
     }
 
 public:
-    /** Split token container type used as the key. */
+    /// Split token container type used as the key.
     using key_type = K;
 
-    /** Type of the mapped value. */
+    /// Type of the mapped value.
     using mapped_type = T;
 
     /** Type used to combine a key and its associated value.
@@ -97,7 +97,7 @@ public:
               match that of std::map. */
     using value_type = std::pair<const key_type, mapped_type>;
 
-    /** Type used to count the number of elements in the container. */
+    /// Type used to count the number of elements in the container.
     using size_type = typename Node::tree_type::size_type;
 
     /// Type used to identify distance between iterators.
@@ -106,7 +106,7 @@ public:
     /// Comparison function that determines how keys are sorted.
     using key_compare = C;
 
-    /// Allocator type
+    /// Allocator type.
     using allocator_type = A;
 
     /// Reference to a key-value pair.

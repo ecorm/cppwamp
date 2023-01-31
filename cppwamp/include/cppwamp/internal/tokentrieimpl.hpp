@@ -63,7 +63,8 @@ public:
     };
 
     explicit TokenTrieImpl(const KeyComp& comp, const Allocator& alloc)
-        : alloc_(alloc),
+        : sentinel_(PassKey{}),
+          alloc_(alloc),
           comp_(comp)
     {}
 
@@ -73,7 +74,8 @@ public:
     {}
 
     TokenTrieImpl(const TokenTrieImpl& rhs, const Allocator& alloc)
-        : alloc_(alloc),
+        : sentinel_(PassKey{}),
+          alloc_(alloc),
           size_(rhs.size_),
           comp_(rhs.comp_)
     {
@@ -91,7 +93,8 @@ public:
     {}
 
     TokenTrieImpl(TokenTrieImpl&& rhs, const Allocator& alloc) noexcept
-        : alloc_(alloc_),
+        : sentinel_(PassKey{}),
+          alloc_(alloc_),
           size_(rhs.size_),
           comp_(std::move(rhs.comp_))
     {
@@ -317,6 +320,7 @@ private:
     using NodeAllocator = typename AllocTraits::template rebind_alloc<Node>;
     using NodeAllocTraits = typename AllocTraits::template rebind_traits<Node>;
     using NodePtr = typename NodeAllocTraits::pointer;
+    using PassKey = typename Node::PassKey;
 
     template <typename TSelf>
     void copyAssign(std::true_type, const TSelf& rhs)
@@ -424,7 +428,7 @@ private:
         try
         {
             ptr = NodeAllocTraits::allocate(alloc_, sizeof(Node));
-            NodeAllocTraits::construct(alloc_, ptr, keyComp());
+            NodeAllocTraits::construct(alloc_, ptr, PassKey{}, keyComp());
         }
         catch (...)
         {
@@ -587,7 +591,7 @@ private:
         auto result = node->children_.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(keyComp(), in_place,
+            std::forward_as_tuple(PassKey{}, keyComp(), in_place,
                                   std::forward<Us>(args)...));
         assert(result.second);
         return result.first;
@@ -617,15 +621,17 @@ private:
         auto result = node.children_.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(keyComp()));
+            std::forward_as_tuple(PassKey{}, keyComp()));
         assert(result.second);
         return result.first;
     }
 
     static TreeIterator addChain(Node* parent, Token&& label, Node&& chain)
     {
-        auto result = parent->children_.emplace(std::move(label),
-                                                std::move(chain));
+        auto result = parent->children_.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(std::move(label)),
+            std::forward_as_tuple(PassKey{}, std::move(chain)));
         assert(result.second);
 
         // Traverse down the emplaced chain and set the parent/position

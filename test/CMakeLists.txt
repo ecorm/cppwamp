@@ -46,6 +46,7 @@ target_link_libraries(cppwamp-test
         CppWAMP::core-headers
         CppWAMP::coro-usage)
 target_compile_options(cppwamp-test PRIVATE
+#    -ftemplate-backtrace-limit=0
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall>
     $<$<CXX_COMPILER_ID:MSVC>:/W4>)
 target_compile_definitions(cppwamp-test PRIVATE
