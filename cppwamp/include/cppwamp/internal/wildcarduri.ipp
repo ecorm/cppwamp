@@ -4,11 +4,14 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../wildcarduri.hpp"
+#include "../utils/wildcarduri.hpp"
 #include "../api.hpp"
 #include "../error.hpp"
 
 namespace wamp
+{
+
+namespace utils
 {
 
 //------------------------------------------------------------------------------
@@ -93,5 +96,7 @@ CPPWAMP_INLINE bool matchesWildcardPattern(const SplitUri& uri,
             return false;
     return true;
 }
+
+} // namespace utils
 
 } // namespace wamp

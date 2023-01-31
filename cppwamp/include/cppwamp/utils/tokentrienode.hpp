@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TOKENTRIENODE_HPP
-#define CPPWAMP_TOKENTRIENODE_HPP
+#ifndef CPPWAMP_UTILS_TOKENTRIENODE_HPP
+#define CPPWAMP_UTILS_TOKENTRIENODE_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -19,10 +19,13 @@
 #include <type_traits>
 #include <utility>
 
-#include "tagtypes.hpp"
+#include "../tagtypes.hpp"
 #include "treeview.hpp"
 
 namespace wamp
+{
+
+namespace utils
 {
 
 namespace internal
@@ -645,6 +648,8 @@ bool operator!=(const TokenTrieCursor<N, L>& lhs,
     return (lhs.parent_ != rhs.parent_) || (lhs.target_ != rhs.target_);
 }
 
+} // namespace utils
+
 } // namespace wamp
 
 
@@ -652,10 +657,10 @@ namespace std
 {
 
 template <typename K, typename T, typename C, typename A, typename Alloc>
-struct uses_allocator<wamp::TokenTrieNode<K,T,C,A>, Alloc> :
+struct uses_allocator<wamp::utils::TokenTrieNode<K,T,C,A>, Alloc> :
     std::is_convertible<Alloc, A>
 {};
 
 } // namespace std
 
-#endif // CPPWAMP_TOKENTRIENODE_HPP
+#endif // CPPWAMP_UTILS_TOKENTRIENODE_HPP

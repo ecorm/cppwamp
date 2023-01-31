@@ -18,8 +18,8 @@
 #include <tuple>
 #include <utility>
 #include "../routerconfig.hpp"
-#include "../trie.hpp"
-#include "../wildcarduri.hpp"
+#include "../utils/trie.hpp"
+#include "../utils/wildcarduri.hpp"
 #include "idgen.hpp"
 #include "routercontext.hpp"
 #include "routersession.hpp"
@@ -180,9 +180,9 @@ private:
     using SubscriptionMap = std::map<SubscriptionId, SubscriptionRecord>;
 
     SubscriptionMap subscriptions_;
-    BasicTrieMap<char, SubscriptionMap::iterator> byExact_;
-    BasicTrieMap<char, SubscriptionMap::iterator> byPrefix_;
-    UriTrie<SubscriptionMap::iterator> byWildcard_;
+    utils::BasicTrieMap<char, SubscriptionMap::iterator> byExact_;
+    utils::BasicTrieMap<char, SubscriptionMap::iterator> byPrefix_;
+    utils::UriTrie<SubscriptionMap::iterator> byWildcard_;
     EphemeralId nextSubscriptionId_ = nullId();
     RandomIdGenerator pubIdGenerator_;
 

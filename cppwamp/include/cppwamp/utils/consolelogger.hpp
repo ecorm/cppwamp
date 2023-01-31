@@ -1,22 +1,25 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2022.
+    Copyright Butterfly Energy Systems 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_CONSOLELOGGER_HPP
-#define CPPWAMP_CONSOLELOGGER_HPP
+#ifndef CPPWAMP_UTILS_CONSOLELOGGER_HPP
+#define CPPWAMP_UTILS_CONSOLELOGGER_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the ConsoleLogger class. */
+    @brief Contains facilities for logging to the console. */
 //------------------------------------------------------------------------------
 
 #include <iostream>
-#include "api.hpp"
-#include "logging.hpp"
+#include "../api.hpp"
+#include "../logging.hpp"
 
 namespace wamp
+{
+
+namespace utils
 {
 
 //------------------------------------------------------------------------------
@@ -70,10 +73,12 @@ private:
     std::string origin_;
 };
 
+} // namespace utils
+
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/consolelogger.ipp"
+#include "../internal/consolelogger.ipp"
 #endif
 
-#endif // CPPWAMP_CONSOLELOGGER_HPP
+#endif // CPPWAMP_UTILS_CONSOLELOGGER_HPP

@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TREEVIEW_HPP
-#define CPPWAMP_TREEVIEW_HPP
+#ifndef CPPWAMP_UTILS_TREEVIEW_HPP
+#define CPPWAMP_UTILS_TREEVIEW_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -16,6 +16,9 @@
 #include <utility>
 
 namespace wamp
+{
+
+namespace utils
 {
 
 //------------------------------------------------------------------------------
@@ -281,6 +284,8 @@ private:
     template <typename, bool> friend class TreeView;
 };
 
+} // namespace utils
+
 } // namespace wamp
 
-#endif // CPPWAMP_TREEVIEW_HPP
+#endif // CPPWAMP_UTILS_TREEVIEW_HPP

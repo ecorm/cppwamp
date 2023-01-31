@@ -1,13 +1,16 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2022.
+    Copyright Butterfly Energy Systems 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../consolelogger.hpp"
+#include "../utils/consolelogger.hpp"
 #include "../api.hpp"
 
 namespace wamp
+{
+
+namespace utils
 {
 
 //------------------------------------------------------------------------------
@@ -54,5 +57,7 @@ ColorConsoleLogger::operator()(const AccessLogEntry& entry) const
 {
     toColorStream(std::clog, entry, origin_) << "\n";
 }
+
+} // namespace utils
 
 } // namespace wamp

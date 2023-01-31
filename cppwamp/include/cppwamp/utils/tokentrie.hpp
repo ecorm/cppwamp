@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TOKENTRIE_HPP
-#define CPPWAMP_TOKENTRIE_HPP
+#ifndef CPPWAMP_UTILS_TOKENTRIE_HPP
+#define CPPWAMP_UTILS_TOKENTRIE_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -19,10 +19,13 @@
 #include <utility>
 #include "tokentrieiterator.hpp"
 #include "tokentrienode.hpp"
-#include "traits.hpp"
-#include "internal/tokentrieimpl.hpp"
+#include "../traits.hpp"
+#include "../internal/tokentrieimpl.hpp"
 
 namespace wamp
+{
+
+namespace utils
 {
 
 //------------------------------------------------------------------------------
@@ -543,6 +546,19 @@ private:
     internal::TokenTrieImpl<K, T, C, A> impl_;
 };
 
+} // namespace utils
+
 } // namespace wamp
 
-#endif // CPPWAMP_TOKENTRIE_HPP
+
+namespace std
+{
+
+template <typename K, typename T, typename C, typename A, typename Alloc>
+struct uses_allocator<wamp::utils::TokenTrie<K,T,C,A>, Alloc> :
+    std::is_convertible<Alloc, A>
+{};
+
+} // namespace std
+
+#endif // CPPWAMP_UTILS_TOKENTRIE_HPP

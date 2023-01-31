@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2022.
+    Copyright Butterfly Energy Systems 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -8,15 +8,15 @@
 // Example WAMP router.
 //******************************************************************************
 
-#include <cppwamp/consolelogger.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/router.hpp>
+#include <cppwamp/utils/consolelogger.hpp>
 
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::ColorConsoleLogger logger{"router"};
+    wamp::utils::ColorConsoleLogger logger{"router"};
 
     auto onAuthenticate = [&logger](wamp::AuthExchange::Ptr ex)
     {

@@ -17,7 +17,6 @@ set(HEADERS
     include/cppwamp/config.hpp
     include/cppwamp/connector.hpp
     include/cppwamp/conversionaccess.hpp
-    include/cppwamp/consolelogger.hpp
     include/cppwamp/corounpacker.hpp
     include/cppwamp/error.hpp
     include/cppwamp/erroror.hpp
@@ -43,13 +42,8 @@ set(HEADERS
     include/cppwamp/tcpendpoint.hpp
     include/cppwamp/tcphost.hpp
     include/cppwamp/tcpprotocol.hpp
-    include/cppwamp/tokentrie.hpp
-    include/cppwamp/tokentrieiterator.hpp
-    include/cppwamp/tokentrienode.hpp
     include/cppwamp/traits.hpp
     include/cppwamp/transport.hpp
-    include/cppwamp/treeview.hpp
-    include/cppwamp/trie.hpp
     include/cppwamp/uds.hpp
     include/cppwamp/udspath.hpp
     include/cppwamp/udsprotocol.hpp
@@ -58,7 +52,6 @@ set(HEADERS
     include/cppwamp/variantdefs.hpp
     include/cppwamp/version.hpp
     include/cppwamp/visitor.hpp
-    include/cppwamp/wildcarduri.hpp
     include/cppwamp/wampdefs.hpp
     include/cppwamp/bundled/amosnier_sha256.hpp
     include/cppwamp/bundled/boost_asio_any_completion_executor.hpp
@@ -110,6 +103,13 @@ set(HEADERS
     include/cppwamp/types/tuple.hpp
     include/cppwamp/types/unorderedmap.hpp
     include/cppwamp/types/unorderedset.hpp
+    include/cppwamp/utils/consolelogger.hpp
+    include/cppwamp/utils/tokentrie.hpp
+    include/cppwamp/utils/tokentrieiterator.hpp
+    include/cppwamp/utils/tokentrienode.hpp
+    include/cppwamp/utils/treeview.hpp
+    include/cppwamp/utils/trie.hpp
+    include/cppwamp/utils/wildcarduri.hpp
 )
 
 set(INLINES

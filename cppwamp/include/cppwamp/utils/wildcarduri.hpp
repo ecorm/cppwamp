@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_WILDCARDURI_HPP
-#define CPPWAMP_WILDCARDURI_HPP
+#ifndef CPPWAMP_UTILS_WILDCARDURI_HPP
+#define CPPWAMP_UTILS_WILDCARDURI_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -18,12 +18,15 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include "api.hpp"
-#include "erroror.hpp"
-#include "tagtypes.hpp"
+#include "../api.hpp"
+#include "../erroror.hpp"
+#include "../tagtypes.hpp"
 #include "tokentrie.hpp"
 
 namespace wamp
+{
+
+namespace utils
 {
 
 //------------------------------------------------------------------------------
@@ -407,10 +410,12 @@ void WildcardMatcher<C>::findTokenInLevel(const Token& token)
     cursor_.skip_to(iter);
 }
 
+} // namespace utils
+
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "./internal/wildcarduri.ipp"
+#include "../internal/wildcarduri.ipp"
 #endif
 
-#endif // CPPWAMP_WILDCARDURI_HPP
+#endif // CPPWAMP_UTILS_WILDCARDURI_HPP

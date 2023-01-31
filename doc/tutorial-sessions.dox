@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -304,15 +304,15 @@ void handler(wamp::LogEntry)
 Unless it already has a bound executor, the log handler is dispatched via
 `Session::fallbackExecutor()`.
 
-CppWAMP provides wamp::ConsoleLogger and wamp::ColorConsoleLogger that
-output log entries to the console. You can pass instances of them directly
+CppWAMP provides wamp::utils::ConsoleLogger and wamp::utils::ColorConsoleLogger
+that output log entries to the console. You can pass instances of them directly
 to Session::setLogHandler.
 
 ```
 wamp::IoContext ioctx;
 wamp::Session session(ioctx);
 
-session.setLogHandler(wamp::ColorConsoleLogger{});
+session.setLogHandler(wamp::utils::ColorConsoleLogger{});
 ```
 
 Authentication

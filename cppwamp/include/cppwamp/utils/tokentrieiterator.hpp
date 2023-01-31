@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_TOKENTRIEITERATOR_HPP
-#define CPPWAMP_TOKENTRIEITERATOR_HPP
+#ifndef CPPWAMP_UTILS_TOKENTRIEITERATOR_HPP
+#define CPPWAMP_UTILS_TOKENTRIEITERATOR_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -21,6 +21,9 @@
 #include "tokentrienode.hpp"
 
 namespace wamp
+{
+
+namespace utils
 {
 
 namespace internal
@@ -350,6 +353,8 @@ bool operator!=(const TokenTrieIterator<N, LM>& lhs,
     return lhs.cursor() != rhs.cursor();
 };
 
+} // namespace utils
+
 } // namespace wamp
 
-#endif // CPPWAMP_TOKENTRIEITERATOR_HPP
+#endif // CPPWAMP_UTILS_TOKENTRIEITERATOR_HPP

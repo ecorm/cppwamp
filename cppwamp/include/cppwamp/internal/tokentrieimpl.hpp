@@ -17,9 +17,12 @@
 #include <memory>
 #include <tuple>
 #include <utility>
-#include "../tokentrienode.hpp"
+#include "../utils/tokentrienode.hpp"
 
 namespace wamp
+{
+
+namespace utils
 {
 
 namespace internal
@@ -763,6 +766,8 @@ private:
 };
 
 } // namespace internal
+
+} // namespace utils
 
 } // namespace wamp
 

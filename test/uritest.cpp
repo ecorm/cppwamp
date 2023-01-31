@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include <cppwamp/wildcarduri.hpp>
+#include <cppwamp/utils/wildcarduri.hpp>
 #include <catch2/catch.hpp>
 #include <set>
 #include <scoped_allocator>
@@ -12,6 +12,7 @@
 #include <vector>
 
 using namespace wamp;
+using namespace wamp::utils;
 using namespace wamp::internal;
 
 namespace

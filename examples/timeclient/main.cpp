@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -10,13 +10,13 @@
 
 #include <ctime>
 #include <iostream>
-#include <cppwamp/consolelogger.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
+#include <cppwamp/utils/consolelogger.hpp>
 
 const std::string realm = "cppwamp.demo.time";
 const std::string address = "localhost";
@@ -50,7 +50,7 @@ void onTimeTick(std::tm time)
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::ConsoleLogger logger;
+    wamp::utils::ConsoleLogger logger;
     wamp::IoContext ioctx;
     auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
     wamp::Session session(ioctx);
