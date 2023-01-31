@@ -110,20 +110,125 @@ template<int N, typename... Ts> using NthTypeOf =
 
 //------------------------------------------------------------------------------
 /** Equivalent to std::bool_constant provided in C++17. */
-// TODO: Rename to MetaBool
 //------------------------------------------------------------------------------
 template <bool B>
-using BoolConstant = std::integral_constant<bool, B>;
+using MetaBool = std::integral_constant<bool, B>;
 
 //------------------------------------------------------------------------------
 /** Equivalent to std::true_type provided in C++17. */
 //------------------------------------------------------------------------------
-using TrueType = BoolConstant<true>;
+using TrueType = MetaBool<true>;
 
 //------------------------------------------------------------------------------
 /** Equivalent to std::false_type provided in C++17. */
 //------------------------------------------------------------------------------
-using FalseType = BoolConstant<false>;
+using FalseType = MetaBool<false>;
+
+
+namespace internal
+{
+template <typename... Ts>
+struct MakeVoid
+{
+    using type = void;
+};
+} // namespace internal
+
+//------------------------------------------------------------------------------
+/** Pre C++17 substitute for std::void_t. */
+//------------------------------------------------------------------------------
+template <typename... Ts>
+using VoidType = typename internal::MakeVoid<Ts...>::type;
+
+
+namespace internal
+{
+template <typename Default, typename, template <typename...> class Operation,
+         typename... Args>
+struct Detector : FalseType
+{};
+
+template <typename Default, template <typename...> class Operation,
+         typename... Args>
+struct Detector<Default, VoidType<Operation<Args...>>, Operation, Args...>
+    : TrueType {};
+} // namespace internal
+
+//------------------------------------------------------------------------------
+/** Implementation of std::experimental::is_detected. */
+// http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4436.pdf
+//------------------------------------------------------------------------------
+template <template <typename...> class Operation, typename... Args>
+using IsDetected =
+    typename internal::Detector<void, void, Operation, Args...>::type;
+
+template <template <typename...> class Operation, typename... Args>
+constexpr bool isDetected() noexcept
+{
+    return internal::Detector<void, void, Operation, Args...>::value;
+}
+
+
+namespace internal
+{
+// Inspired by
+// https://github.com/acmorrow/error_or/blob/master/detail/is_nothrow_swappable.hpp
+namespace swap_traits
+{
+using std::swap;
+
+template <typename T, typename U>
+using SwapFn = decltype(swap(std::declval<T&>(), std::declval<U&>()));
+
+template <typename T, typename U>
+struct SwapExists : IsDetected<SwapFn, T, U>
+{};
+
+template <bool, typename T, typename U>
+struct IsNothrow
+    : MetaBool<noexcept(swap(std::declval<T&>(), std::declval<U&>()))>
+{};
+
+template <typename T, typename U>
+struct IsNothrow<false, T, U> : FalseType
+{};
+
+} // namespace swap_traits
+
+} // namespace internal
+
+//------------------------------------------------------------------------------
+/** Pre-C++17 substitute for std::is_swappable. */
+//------------------------------------------------------------------------------
+template <typename T, typename U = T>
+struct IsSwappable : internal::swap_traits::SwapExists<T, U>
+{};
+
+//------------------------------------------------------------------------------
+/** Pre-C++17 substitute for std::is_swappable_v. */
+//------------------------------------------------------------------------------
+template <typename T, typename U = T>
+constexpr bool isSwappable() noexcept
+{
+    return IsSwappable<T, U>::value;
+}
+
+//------------------------------------------------------------------------------
+/** Pre-C++17 substitute for std::is_nothrow_swappable. */
+//------------------------------------------------------------------------------
+template <typename T, typename U = T>
+struct IsNothrowSwappable
+    : internal::swap_traits::IsNothrow<isSwappable<T, U>(), T, U>
+{};
+
+//------------------------------------------------------------------------------
+/** Pre-C++17 substitute for std::is_nothrow_swappable_v. */
+//------------------------------------------------------------------------------
+template <typename T, typename U = T>
+constexpr bool isNothrowSwappable() noexcept
+{
+    return IsNothrowSwappable<T, U>::value;
+}
 
 } // namespace wamp
 

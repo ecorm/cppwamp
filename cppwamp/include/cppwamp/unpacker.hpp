@@ -466,7 +466,7 @@ Outcome SimpleInvocationUnpacker<S,R,A...>::operator()(Invocation inv) const
     // Use the integer parameter pack technique shown in
     // http://stackoverflow.com/a/7858971/245265
     using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
-    using IsVoidResult = BoolConstant<std::is_same<ResultType, void>::value>;
+    using IsVoidResult = MetaBool<std::is_same<ResultType, void>::value>;
     return invoke(IsVoidResult{}, std::move(inv), Seq());
 }
 

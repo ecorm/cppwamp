@@ -386,8 +386,8 @@ template <typename C>
 void WildcardMatcher<C>::findTokenInLevel(const Token& token)
 {
     auto iter = cursor_.iter();
-    auto end = cursor_.end();
-    if (iter == cursor_.begin())
+    auto end = cursor_.children().end();
+    if (iter == cursor_.children().begin())
     {
         if (token.empty())
         {
@@ -395,7 +395,7 @@ void WildcardMatcher<C>::findTokenInLevel(const Token& token)
         }
         else
         {
-            iter = cursor_.lower_bound(token);
+            iter = cursor_.children().lower_bound(token);
             if (iter != end && iter->first != token)
                 iter = end;
         }

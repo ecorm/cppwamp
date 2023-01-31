@@ -16,10 +16,10 @@
 #include <initializer_list>
 #include <limits>
 #include <memory>
-#include <type_traits>
 #include <utility>
 #include "tokentrieiterator.hpp"
 #include "tokentrienode.hpp"
+#include "traits.hpp"
 #include "internal/tokentrieimpl.hpp"
 
 namespace wamp
@@ -116,15 +116,14 @@ public:
     using const_reference = TokenTrieKeyValueProxy<key_type, mapped_type, false>;
 
     /// Pointer to key-value pair
-    using pointer = typename std::allocator_traits<allocator_type>::pointer;
+    using pointer = TokenTrieKeyValuePointer<key_type, mapped_type, true>;
 
     /// Pointer to an immutable key-value pair
-    using const_pointer =
-        typename std::allocator_traits<allocator_type>::const_pointer;
+    using const_pointer = TokenTrieKeyValuePointer<key_type, mapped_type, false>;
 
     /** Mutable iterator type which advances through elements in lexicographic
         order of their respective keys. */
-    using iterator  = TokenTrieIterator<Node, true>;
+    using iterator = TokenTrieIterator<Node, true>;
 
     /** Immutable iterator type which advances through elements in
         lexicographic order of their respective keys. */
@@ -217,6 +216,7 @@ public:
         return *this;
     }
 
+    /** Obtains the container's allocator. */
     allocator_type get_allocator() const noexcept {return impl_.allocator();}
 
     /// @name Element Access
@@ -394,7 +394,10 @@ public:
     }
 
     /** Swaps the contents of this container with the given container. */
-    void swap(TokenTrie& other) noexcept {impl_.swap(other.impl_);}
+    void swap(TokenTrie& other)
+        noexcept(std::allocator_traits<A>::is_always_equal::value &&
+                 isNothrowSwappable<C>())
+        {impl_.swap(other.impl_);}
     /// @}
 
     /// @name Lookup
@@ -449,11 +452,11 @@ public:
     /// @}
 
     /** Equality comparison. */
-    friend bool operator==(const TokenTrie& a, const TokenTrie& b) noexcept
+    friend bool operator==(const TokenTrie& a, const TokenTrie& b)
         {return a.impl_.equals(b.impl_);}
 
     /** Inequality comparison. */
-    friend bool operator!=(const TokenTrie& a, const TokenTrie& b) noexcept
+    friend bool operator!=(const TokenTrie& a, const TokenTrie& b)
         {return a.impl_.differs(b.impl_);}
 
     /** Non-member swap. */

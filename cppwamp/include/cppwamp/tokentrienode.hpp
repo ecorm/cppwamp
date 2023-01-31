@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "tagtypes.hpp"
+#include "treeview.hpp"
 
 namespace wamp
 {
@@ -44,6 +45,8 @@ public:
             std::pair<const token_type, TokenTrieNode>>;
     using tree_type = std::map<token_type, TokenTrieNode, key_compare,
                                tree_allocator_type>;
+    using tree_view_type = TreeView<tree_type, true>;
+    using const_tree_view_type = TreeView<tree_type, false>;
 
     TokenTrieNode() : position_(children_.end()) {}
 
@@ -112,6 +115,8 @@ public:
 
     bool has_value() const noexcept {return !!value_;}
 
+    TokenTrieNode* parent() {return parent_;}
+
     const TokenTrieNode* parent() const {return parent_;}
 
     const token_type& token() const
@@ -140,7 +145,9 @@ public:
 
     const mapped_type& value() const {assert(has_value()); return *value_;}
 
-    const tree_type& children() const {return children_;}
+    tree_view_type children() {return {&children_};}
+
+    const_tree_view_type children() const {return {&children_};}
 
 private:
     using TreeIterator = typename tree_type::iterator;
@@ -218,6 +225,8 @@ public:
     using token_type = typename N::token_type;
     using level_type = typename key_type::size_type;
     using mapped_type = typename N::mapped_type;
+    using tree_view_type = TreeView<typename N::tree_type, IsMutable>;
+    using const_tree_view_type = TreeView<typename N::tree_type, false>;
     using reference = typename std::conditional<IsMutable, mapped_type&,
                                                 const mapped_type&>::type;
     using const_iterator = typename node_type::tree_type::const_iterator;
@@ -226,6 +235,8 @@ public:
             IsMutable,
             typename node_type::tree_type::iterator,
             const_iterator>::type;
+    using node_pointer = typename std::conditional<IsMutable, node_type*,
+                                                   const node_type*>::type;
 
     static constexpr bool is_mutable() {return IsMutable;}
 
@@ -285,37 +296,22 @@ public:
                              : b.has_value();
     }
 
+    node_pointer parent() {return parent_;}
+
     const node_type* parent() const {return parent_;}
 
+    node_pointer child() {return good() ? &(child_->second) : nullptr;}
+
     const node_type* child() const
-    {
-        return child_ == parentNode().children_.end() ? nullptr
-                                                      : &(child_->second);
-    }
+         {return good() ? &(child_->second) : nullptr;}
+
+    tree_view_type children() {return parentNode().children();}
+
+    const_tree_view_type children() const {return parentNode().children();}
 
     iterator iter() {return child_;}
 
     const_iterator iter() const {return child_;}
-
-    // TODO: Read-only map view providing mutable iterators
-
-    iterator begin() {return parentNode().children_.begin();}
-
-    const_iterator begin() const {return parentNode().children_.cbegin();}
-
-    const_iterator cbegin() const {return parentNode().children_.cbegin();}
-
-    iterator end() {return parentNode().children_.end();}
-
-    const_iterator end() const {return parentNode().children_.cend();}
-
-    const_iterator cend() const {return parentNode().children_.cend();}
-
-    iterator lower_bound(const token_type& token)
-        {return parentNode().children_.lower_bound(token);}
-
-    const_iterator lower_bound(const token_type& token) const
-        {return parentNode().children_.lower_bound(token);}
 
     key_type key() const {return childNode().key();}
 
@@ -379,8 +375,6 @@ public:
     }
 
 private:
-    using NodePtr = typename std::conditional<IsMutable, node_type*,
-                                              const node_type*>::type;
     using NodeRef = typename std::conditional<IsMutable, node_type&,
                                               const node_type&>::type;
     using KeyComp = typename node_type::key_compare;
@@ -415,7 +409,7 @@ private:
         return c(a, b) || c(b, a);
     }
 
-    TokenTrieCursor(NodePtr node, iterator iter)
+    TokenTrieCursor(node_pointer node, iterator iter)
         : parent_(node),
           child_(iter)
     {}
@@ -458,7 +452,7 @@ private:
         }
     }
 
-    NodePtr parent_ = nullptr;
+    node_pointer parent_ = nullptr;
     iterator child_ = {};
 
     template <typename, bool> friend class TokenTrieCursor;

@@ -48,6 +48,7 @@ set(HEADERS
     include/cppwamp/tokentrienode.hpp
     include/cppwamp/traits.hpp
     include/cppwamp/transport.hpp
+    include/cppwamp/treeview.hpp
     include/cppwamp/trie.hpp
     include/cppwamp/uds.hpp
     include/cppwamp/udspath.hpp
