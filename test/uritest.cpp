@@ -1060,7 +1060,7 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         CHECK(iter == trie.find("d"));
         CHECK(checkUriTrieUris(trie, {"a", "d", "d.e"}));
         // Check pruning below "a" node
-        CHECK(trie.find("a").cursor().child()->children().empty());
+        CHECK(trie.find("a").cursor().target()->children().empty());
 
         pos = trie.find("d");
         REQUIRE(pos != trie.end());

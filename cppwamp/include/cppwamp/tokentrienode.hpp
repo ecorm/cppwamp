@@ -114,11 +114,11 @@ public:
 
     /** Obtains a pointer to the node's parent, or `nullptr` if this is
         the sentinel node. */
-    TokenTrieNode* parent() {return parent_;}
+    TokenTrieNode* parent() noexcept {return parent_;}
 
     /** Obtains a pointer to the node's parent, or `nullptr` if this is
         the sentinel node. */
-    const TokenTrieNode* parent() const {return parent_;}
+    const TokenTrieNode* parent() const noexcept {return parent_;}
 
     /** Accesses the node's token, or an empty one if this is the root node.
         @pre `!this->is_sentinel` */
@@ -340,7 +340,7 @@ public:
     template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
     TokenTrieCursor(const TokenTrieCursor<N, RM>& rhs)
         : parent_(rhs.parent_),
-          child_(rhs.child_)
+          target_(rhs.target_)
     {}
 
     /** Assignment from mutable cursor to const cursor. */
@@ -348,7 +348,7 @@ public:
     TokenTrieCursor& operator=(const TokenTrieCursor<N, RM>& rhs)
     {
         parent_ = rhs.parent_;
-        child_ = rhs.child_;
+        target_ = rhs.target_;
         return *this;
     }
 
@@ -365,7 +365,7 @@ public:
     /** Determines if the cursor reached the end of a level, or the end of
         the entire trie. */
     bool at_end_of_level() const noexcept
-        {return at_end() || child_ == parent_->children().end();}
+        {return at_end() || target_ == parent_->children().end();}
 
     /** Determines if the cursor points to a node containing a mapped value. */
     bool has_value() const noexcept
@@ -411,34 +411,35 @@ public:
 
     /** Returns a pointer to the target node's parent, or `nullptr` if
         the target is the sentinel node. */
-    const node_type* parent() const {return parent_;}
+    const node_type* parent() const noexcept {return parent_;}
 
     /** Returns a pointer to the target node, or `nullptr` if the cursor
         is not good(). */
-    node_pointer child() {return good() ? &(child_->second) : nullptr;}
+    node_pointer target() noexcept
+        {return good() ? &(target_->second) : nullptr;}
 
     /** Returns a pointer to the target node, or `nullptr` if the cursor
         is not good(). */
-    const node_type* child() const
-         {return good() ? &(child_->second) : nullptr;}
+    const node_type* target() const noexcept
+         {return good() ? &(target_->second) : nullptr;}
 
     /** Obtains a view of the parent's child tree.
-        @pre `this->parent() != nullptr` */
+        @pre `!this->at_end()` */
     tree_view_type children() {return parentNode().children();}
 
     /** Obtains a view of the parent's child tree.
-        @pre `this->parent() != nullptr` */
+        @pre `!this->at_end()` */
     const_tree_view_type children() const {return parentNode().children();}
 
     /** Obtains an iterator to the target node's position within the parent's
         child tree.
-        @pre `this->parent() != nullptr` */
-    iterator iter() {assert(parent_ != nullptr); return child_;}
+        @pre `!this->at_end()` */
+    iterator iter() {assert(!at_end()); return target_;}
 
     /** Obtains an iterator to the target node's position within the parent's
         child tree.
-        @pre `this->parent() != nullptr` */
-    const_iterator iter() const {assert(parent_ != nullptr); return child_;}
+        @pre `!this->at_end()` */
+    const_iterator iter() const {assert(!at_end()); return target_;}
 
     /** Generates the key associated with the current target node.
         @pre `!this->at_end_of_level() */
@@ -447,26 +448,26 @@ public:
     /** Obtains the token associated with the current target node.
         @pre `!this->at_end_of_level() */
     const token_type& token() const
-        {assert(!at_end_of_level()); return child_->first;}
+        {assert(!at_end_of_level()); return target_->first;}
 
     /** Accesses the mapped value associated with the current target node.
         @pre `this->has_value()` */
     const mapped_type& value() const
-        {assert(has_value()); return child_->second.value();}
+        {assert(has_value()); return target_->second.value();}
 
     /** Accesses the mapped value associated with the current target node.
         @pre `this->has_value()` */
     reference value()
-        {assert(has_value()); return child_->second.value();}
+        {assert(has_value()); return target_->second.value();}
 
     /** Makes the cursor advance in a depth-first manner to point the next node
         in the trie. Does not advance if already at the sentinel node. */
-    void advance_depth_first_to_next_node()
+    void advance_depth_first_to_next_node() noexcept
     {
-        while (!parent_->is_sentinel())
+        while (!at_end())
         {
             advanceDepthFirst();
-            if (child_ != parent_->children_.end())
+            if (target_ != parent_->children_.end())
                 break;
         }
     }
@@ -474,9 +475,9 @@ public:
     /** Makes the cursor advance in a depth-first manner to point the next node
         in the trie having a mapped value. Does not advance if already at the
         sentinel node. */
-    void advance_depth_first_to_next_element()
+    void advance_depth_first_to_next_element() noexcept
     {
-        while (!parent_->is_sentinel())
+        while (!at_end())
         {
             advanceDepthFirst();
             if (has_value())
@@ -485,27 +486,28 @@ public:
     }
 
     /** Makes the cursor advance in a breadth-first manner to point the next
-        node within the same level in the trie.
-        @pre `!this->at_end_of_level()` */
-    void advance_to_next_node_in_level()
+        node within the same level in the trie. Does not advance is already
+        at the end of the level. */
+    void advance_to_next_node_in_level() noexcept
     {
-        assert(!at_end_of_level());
-        ++child_;
+        if (!at_end_of_level())
+            ++target_;
     }
 
     /** Makes the cursor point to the node within the same level that is
         associated with the given iterator. The given iterator may be the end
         iterator of the current level. */
-    void skip_to(iterator iter) {child_ = iter;}
+    void skip_to(iterator iter) noexcept {target_ = iter;}
 
     /** Makes the cursor point to the current target node's parent. Does not
         ascend if already at the root.
-        @returns `level-1` if ascension occurred, `level` otherwise. */
+        @returns `level-1` if ascension occurred, `level` otherwise.
+        @pre `level > 0 || this->parent()->is_sentinel()` */
     level_type ascend(
         level_type level ///< Index of the current level.
         )
     {
-        child_ = parent_->position_;
+        target_ = parent_->position_;
         parent_ = parent_->parent_;
         if (!parent_->is_sentinel())
         {
@@ -523,10 +525,10 @@ public:
         )
     {
         assert(good());
-        auto& child = child_->second;
+        auto& child = target_->second;
         assert(!child.is_leaf());
         parent_ = &child;
-        child_ = child.children_.begin();
+        target_ = child.children_.begin();
         return level + 1;
     }
 
@@ -543,7 +545,7 @@ private:
     static TokenTrieCursor first(NodeRef rootNode)
     {
         auto cursor = begin(rootNode);
-        if (!cursor.at_end_of_level() && !cursor.child()->has_value())
+        if (!cursor.at_end_of_level() && !cursor.target()->has_value())
             cursor.advance_depth_first_to_next_element();
         return cursor;
     }
@@ -567,49 +569,49 @@ private:
 
     TokenTrieCursor(node_pointer node, iterator iter)
         : parent_(node),
-          child_(iter)
+          target_(iter)
     {}
 
     NodeRef parentNode() const
     {
-        assert(parent_ != nullptr);
+        assert(!at_end());
         return *parent_;
     }
 
     NodeRef childNode() const
     {
         assert(!at_end_of_level());
-        return child_->second;
+        return target_->second;
     }
 
     void advanceDepthFirst()
     {
-        if (child_ != parent_->children_.end())
+        if (target_ != parent_->children_.end())
         {
-            if (!child_->second.is_leaf())
+            if (!target_->second.is_leaf())
             {
-                auto& child = child_->second;
+                auto& child = target_->second;
                 parent_ = &child;
-                child_ = child.children_.begin();
+                target_ = child.children_.begin();
             }
             else
             {
-                ++child_;
+                ++target_;
             }
         }
         else if (!parent_->is_sentinel())
         {
-            child_ = parent_->position_;
+            target_ = parent_->position_;
             parent_ = parent_->parent_;
             if (!parent_->is_sentinel())
-                ++child_;
+                ++target_;
             else
-                child_ = parent_->children_.end();
+                target_ = parent_->children_.end();
         }
     }
 
     node_pointer parent_ = nullptr;
-    iterator child_ = {};
+    iterator target_ = {};
 
     template <typename, bool> friend class TokenTrieCursor;
 
@@ -631,7 +633,7 @@ bool operator==(const TokenTrieCursor<N, L>& lhs,
 {
     if (lhs.parent_ == nullptr || rhs.parent_ == nullptr)
         return lhs.parent_ == rhs.parent_;
-    return (lhs.parent_ == rhs.parent_) && (lhs.child_ == rhs.child_);
+    return (lhs.parent_ == rhs.parent_) && (lhs.target_ == rhs.target_);
 }
 
 template <typename N, bool L, bool R>
@@ -640,7 +642,7 @@ bool operator!=(const TokenTrieCursor<N, L>& lhs,
 {
     if (lhs.parent_ == nullptr || rhs.parent_ == nullptr)
         return lhs.parent_ != rhs.parent_;
-    return (lhs.parent_ != rhs.parent_) || (lhs.child_ != rhs.child_);
+    return (lhs.parent_ != rhs.parent_) || (lhs.target_ != rhs.target_);
 }
 
 } // namespace wamp

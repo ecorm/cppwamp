@@ -249,15 +249,15 @@ public:
         assert(bool(cursor));
         pos.advance_depth_first_to_next_element();
 
-        cursor.child_->second.clearValue();
-        if (cursor.child()->is_leaf())
+        cursor.target_->second.clearValue();
+        if (cursor.target()->is_leaf())
         {
             // Erase the value node, then all obsolete links up the chain
             // until we hit another value node or the sentinel.
             while (!cursor.has_value() && !cursor.at_end())
             {
-                cursor.parent_->children_.erase(cursor.child_);
-                cursor.child_ = cursor.parent_->position_;
+                cursor.parent_->children_.erase(cursor.target_);
+                cursor.target_ = cursor.parent_->position_;
                 cursor.parent_ = cursor.parent_->parent_;
             }
         }

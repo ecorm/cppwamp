@@ -365,7 +365,7 @@ void WildcardMatcher<C>::findNextMatchCandidate()
     {
         assert(level_ <=  maxLevel);
         const auto& expectedToken = key_[level_];
-        bool canDescend = !cursor_.child()->is_leaf() &&
+        bool canDescend = !cursor_.target()->is_leaf() &&
                           (level_ < maxLevel) &&
                           tokenMatches(expectedToken);
         if (canDescend)
