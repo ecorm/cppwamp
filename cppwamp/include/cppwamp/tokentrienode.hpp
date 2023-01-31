@@ -278,21 +278,50 @@ public: // Internal use only
 };
 
 //------------------------------------------------------------------------------
+/** Type used to traverse nodes in a TokenTrie.
+    This type intended for trie algorithms where a forward iterator that only
+    traverses value nodes is insuffient.
+    @tparam N The node type being traversed.
+    @tparam IsMutable Allows node values to be modified when true. */
+//------------------------------------------------------------------------------
 template <typename N, bool IsMutable>
 class TokenTrieCursor
 {
 public:
+    /// Node type being traversed.
     using node_type = N;
+
+    /// Split token container type used as the key.
     using key_type = typename N::key_type;
+
+    /// Comparison function that determines how keys are sorted.
     using key_compare = typename N::key_compare;
+
+    /// Type of the token associated with a node.
     using token_type = typename N::token_type;
+
+    /// Integral type used to represent the depth within the tree.
     using level_type = typename key_type::size_type;
+
+    /// Type of the mapped value.
     using mapped_type = typename N::mapped_type;
+
+    /** Wrapper around a node tree that prevents modifying its structure. */
     using tree_view_type = TreeView<typename N::tree_type, IsMutable>;
+
+    /** Wrapper around a node tree that prevents modifying its structure. */
     using const_tree_view_type = TreeView<typename N::tree_type, false>;
+
+    /** Reference to a mapped value. */
     using reference = typename std::conditional<IsMutable, mapped_type&,
                                                 const mapped_type&>::type;
+
+    /** Iterator type which advances through a tree's child nodes in a
+        breath-first manner (non-recursive). */
     using const_iterator = typename node_type::tree_type::const_iterator;
+
+    /** Iterator type which advances through a tree's child nodes in a
+        breath-first manner (non-recursive). */
     using iterator =
         typename std::conditional<
             IsMutable,
@@ -301,8 +330,10 @@ public:
     using node_pointer = typename std::conditional<IsMutable, node_type*,
                                                    const node_type*>::type;
 
+    /** True if this cursor allows mapped values to be modified. */
     static constexpr bool is_mutable() {return IsMutable;}
 
+    /** Default constructs a cursor that does not point to any node. */
     TokenTrieCursor() = default;
 
     /** Conversion from mutable cursor to const cursor. */
@@ -321,18 +352,29 @@ public:
         return *this;
     }
 
-    explicit operator bool() const {return good();}
+    /** Same as TokenTrieCursor::good */
+    explicit operator bool() const noexcept {return good();}
 
-    bool good() const {return !at_end() && !at_end_of_level();}
+    /** Returns true if the cursor points to a valid node (which may or may
+        not contain a value). */
+    bool good() const noexcept {return !at_end() && !at_end_of_level();}
 
-    bool at_end() const {return !parent_ || !parent_->parent();}
+    /** Determines if the cursor reached the end of the entire trie. */
+    bool at_end() const noexcept {return !parent_ || !parent_->parent();}
 
-    bool at_end_of_level() const
+    /** Determines if the cursor reached the end of a level, or the end of
+        the entire trie. */
+    bool at_end_of_level() const noexcept
         {return at_end() || child_ == parent_->children().end();}
 
-    bool has_value() const
+    /** Determines if the cursor points to a node containing a mapped value. */
+    bool has_value() const noexcept
         {return !at_end_of_level() && childNode().has_value();}
 
+    /** Determines if the token and mapped value of this cursor's node are
+        equivalent to the ones from the given cursor.
+        If either cursor is not good, they are considered equivalent if and
+        only if both cursors are not good. */
     bool token_and_value_equals(const TokenTrieCursor& rhs) const
     {
         if (!good())
@@ -346,6 +388,10 @@ public:
                              : !b.has_value();
     }
 
+    /** Determines if the token or mapped value of this cursor's node are
+        different to the ones from the given cursor.
+        If either cursor is not good, they are considered different if and
+        only if the cursors are not both bad. */
     bool token_or_value_differs(const TokenTrieCursor& rhs) const
     {
         if (!good())
@@ -359,34 +405,62 @@ public:
                              : b.has_value();
     }
 
-    node_pointer parent() {return parent_;}
+    /** Returns a pointer to the target node's parent, or `nullptr` if
+        the target is the sentinel node. */
+    node_pointer parent() noexcept {return parent_;}
 
+    /** Returns a pointer to the target node's parent, or `nullptr` if
+        the target is the sentinel node. */
     const node_type* parent() const {return parent_;}
 
+    /** Returns a pointer to the target node, or `nullptr` if the cursor
+        is not good(). */
     node_pointer child() {return good() ? &(child_->second) : nullptr;}
 
+    /** Returns a pointer to the target node, or `nullptr` if the cursor
+        is not good(). */
     const node_type* child() const
          {return good() ? &(child_->second) : nullptr;}
 
+    /** Obtains a view of the parent's child tree.
+        @pre `this->parent() != nullptr` */
     tree_view_type children() {return parentNode().children();}
 
+    /** Obtains a view of the parent's child tree.
+        @pre `this->parent() != nullptr` */
     const_tree_view_type children() const {return parentNode().children();}
 
-    iterator iter() {return child_;}
+    /** Obtains an iterator to the target node's position within the parent's
+        child tree.
+        @pre `this->parent() != nullptr` */
+    iterator iter() {assert(parent_ != nullptr); return child_;}
 
-    const_iterator iter() const {return child_;}
+    /** Obtains an iterator to the target node's position within the parent's
+        child tree.
+        @pre `this->parent() != nullptr` */
+    const_iterator iter() const {assert(parent_ != nullptr); return child_;}
 
+    /** Generates the key associated with the current target node.
+        @pre `!this->at_end_of_level() */
     key_type key() const {return childNode().key();}
 
+    /** Obtains the token associated with the current target node.
+        @pre `!this->at_end_of_level() */
     const token_type& token() const
         {assert(!at_end_of_level()); return child_->first;}
 
+    /** Accesses the mapped value associated with the current target node.
+        @pre `this->has_value()` */
     const mapped_type& value() const
         {assert(has_value()); return child_->second.value();}
 
+    /** Accesses the mapped value associated with the current target node.
+        @pre `this->has_value()` */
     reference value()
         {assert(has_value()); return child_->second.value();}
 
+    /** Makes the cursor advance in a depth-first manner to point the next node
+        in the trie. Does not advance if already at the sentinel node. */
     void advance_depth_first_to_next_node()
     {
         while (!parent_->is_sentinel())
@@ -397,6 +471,9 @@ public:
         }
     }
 
+    /** Makes the cursor advance in a depth-first manner to point the next node
+        in the trie having a mapped value. Does not advance if already at the
+        sentinel node. */
     void advance_depth_first_to_next_element()
     {
         while (!parent_->is_sentinel())
@@ -407,15 +484,26 @@ public:
         }
     }
 
+    /** Makes the cursor advance in a breadth-first manner to point the next
+        node within the same level in the trie.
+        @pre `!this->at_end_of_level()` */
     void advance_to_next_node_in_level()
     {
         assert(!at_end_of_level());
         ++child_;
     }
 
+    /** Makes the cursor point to the node within the same level that is
+        associated with the given iterator. The given iterator may be the end
+        iterator of the current level. */
     void skip_to(iterator iter) {child_ = iter;}
 
-    level_type ascend(level_type level)
+    /** Makes the cursor point to the current target node's parent. Does not
+        ascend if already at the root.
+        @returns `level-1` if ascension occurred, `level` otherwise. */
+    level_type ascend(
+        level_type level ///< Index of the current level.
+        )
     {
         child_ = parent_->position_;
         parent_ = parent_->parent_;
@@ -427,7 +515,12 @@ public:
         return level;
     }
 
-    level_type descend(level_type level)
+    /** Makes the cursor point to the first child of the current target node.
+        @returns `level+1`
+        @pre `this->good()` */
+    level_type descend(
+        level_type level ///< Index of the current level.
+        )
     {
         assert(good());
         auto& child = child_->second;
