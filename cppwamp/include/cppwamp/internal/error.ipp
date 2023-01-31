@@ -285,7 +285,7 @@ CPPWAMP_INLINE bool errorUriToCode(
 
     auto end = std::end(sortedByUri);
     auto iter = std::lower_bound(std::begin(sortedByUri), end, uri);
-    bool found = iter != end;
+    bool found = (iter != end) && (iter->uri == uri);
     result = found ? iter->errc : fallback;
     return found;
 }
