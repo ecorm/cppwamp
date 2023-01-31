@@ -14,6 +14,11 @@ Namespace for all identifiers defined by the CppWAMP library.
 Namespace containing exception types thrown by the CppWAMP library.
 */
 
+/**
+@namespace wamp::utils
+Namespace for utility classes and functions provided by the CppWAMP library.
+*/
+
 
 /**
 @mainpage

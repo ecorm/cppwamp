@@ -34,6 +34,7 @@ namespace internal
 }
 
 //------------------------------------------------------------------------------
+// TODO: Store pair<const K, T> in the node to avoid proxy mess.
 template <typename K, typename T, typename C, typename A>
 class TokenTrieNode
 {

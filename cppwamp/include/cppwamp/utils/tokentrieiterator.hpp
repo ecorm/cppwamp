@@ -75,14 +75,13 @@ struct TokenTrieKeyValueProxy
         other = std::move(*this);
         *this = std::move(temp);
     }
-};
 
-/// Non-member swap
-template <typename K, typename V, bool M>
-void swap(TokenTrieKeyValueProxy<K,V,M>& a, TokenTrieKeyValueProxy<K,V,M>&b)
-{
-    a.swap(b);
-}
+    /// Non-member swap
+    void swap(TokenTrieKeyValueProxy& a, TokenTrieKeyValueProxy&b)
+    {
+        a.swap(b);
+    }
+};
 
 /** @name Comparison Operators.
     @{ */
