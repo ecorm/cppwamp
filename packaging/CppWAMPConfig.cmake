@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------------
-# Copyright Butterfly Energy Systems 2022.
+# Copyright Butterfly Energy Systems 2022-2023.
 # Distributed under the Boost Software License, Version 1.0.
 # https://www.boost.org/LICENSE_1_0.txt
 #-------------------------------------------------------------------------------
@@ -14,7 +14,7 @@ set(valid_components
     core
     core-headers
     coro-usage)
-set(CPPWAMP_MINIMUM_BOOST_VERSION 1.77.0)
+set(CPPWAMP_MINIMUM_BOOST_VERSION 1.81.0)
 set(CPPWAMP_MINIMUM_MSGPACK_VERSION 1.0.0)
 
 set(${CMAKE_FIND_PACKAGE_NAME}_FOUND FALSE)

@@ -22,7 +22,7 @@ C++11 client library for the [WAMP][wamp] protocol.
 **Dependencies**:
 
 - [Boost.Asio][boost-asio] for raw socket transport
-  (requires [Boost][boost] 1.77 or greater)
+  (requires [Boost][boost] 1.81 or greater)
 - [jsoncons][jsoncons] for serialization
 - (optional) [Boost.Coroutine][boost-coroutine] and
   [Boost.Context][boost-context]
@@ -522,11 +522,6 @@ your project or via your project's CMake scripts (for example by using
 
 Bundled Open-Source Software
 ----------------------------
-
-This library bundles modified versions of `any_completion_handler` and
-`any_completion_executor` written by Christopher M. Kohlhoff,
-Copyright (c) 2003-2022, under the terms of the Boost Software License,
-Version 1.0 (http://www.boost.org/LICENSE_1_0.txt).
 
 This library bundles a modified version of `prng.hpp` (an SFC64 implementation)
 from the [sevmeyer/prng](https://github.com/sevmeyer/prng) project, written by

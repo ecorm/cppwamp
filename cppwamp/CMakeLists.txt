@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------------
-# Copyright Butterfly Energy Systems 2014-2015, 2017, 2022.
+# Copyright Butterfly Energy Systems 2014-2015, 2017, 2022-2023.
 # Distributed under the Boost Software License, Version 1.0.
 # https://www.boost.org/LICENSE_1_0.txt
 #-------------------------------------------------------------------------------
@@ -54,8 +54,6 @@ set(HEADERS
     include/cppwamp/visitor.hpp
     include/cppwamp/wampdefs.hpp
     include/cppwamp/bundled/amosnier_sha256.hpp
-    include/cppwamp/bundled/boost_asio_any_completion_executor.hpp
-    include/cppwamp/bundled/boost_asio_any_completion_handler.hpp
     include/cppwamp/bundled/tessil_htrie/htrie_map.h
     include/cppwamp/bundled/sevmeyer_prng.hpp
     include/cppwamp/internal/base64.hpp
@@ -113,7 +111,6 @@ set(HEADERS
 )
 
 set(INLINES
-    include/cppwamp/bundled/boost_asio_impl_any_completion_executor.ipp
     include/cppwamp/internal/authinfo.ipp
     include/cppwamp/internal/blob.ipp
     include/cppwamp/internal/cbor.ipp

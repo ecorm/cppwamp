@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2022.
+    Copyright Butterfly Energy Systems 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -19,6 +19,8 @@
 #include <utility>
 #include <tuple>
 #include <type_traits>
+#include <boost/asio/any_completion_executor.hpp>
+#include <boost/asio/any_completion_handler.hpp>
 #include <boost/asio/associated_allocator.hpp>
 #include <boost/asio/associated_cancellation_slot.hpp>
 #include <boost/asio/associated_executor.hpp>
@@ -27,12 +29,6 @@
 #include <boost/asio/defer.hpp>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/post.hpp>
-
-#if 1//def CPPWAMP_WITHOUT_BUNDLED_ASIO_ANY_COMPLETION_HANDLER
-#include <boost/asio/any_completion_handler.hpp>
-#else
-#include "bundled/boost_asio_any_completion_handler.hpp"
-#endif
 
 namespace wamp
 {
