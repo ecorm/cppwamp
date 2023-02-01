@@ -118,9 +118,10 @@ public:
     {
         // TODO: publish and event options
         auto publicationId = pubIdGenerator_();
-        publishExactMatches(pub, publisherId, publicationId);
-        publishPrefixMatches(pub, publisherId, publicationId);
-        publishWildcardMatches(pub, publisherId, publicationId);
+        auto ev = eventFromPub(pub, publicationId);
+        publishExactMatches(ev, pub, publisherId);
+        publishPrefixMatches(ev, pub, publisherId);
+        publishWildcardMatches(ev, pub, publisherId);
         return publicationId;
     }
 
@@ -186,11 +187,9 @@ private:
     EphemeralId nextSubscriptionId_ = nullId();
     RandomIdGenerator pubIdGenerator_;
 
-
-    static Event eventFromPub(const Pub& pub, PublicationId pubId,
-                              SubscriptionId subId, Object opts)
+    static Event eventFromPub(const Pub& pub, PublicationId pubId)
     {
-        Event ev{subId, pubId, std::move(opts)};
+        Event ev{pubId};
         if (!pub.args().empty() || !pub.kwargs().empty())
             ev.withArgList(pub.args());
         if (!pub.kwargs().empty())
@@ -239,48 +238,52 @@ private:
         return s;
     }
 
-    void publishExactMatches(const Pub& pub, SessionId publisherId,
-                             PublicationId publicationId)
+    void publishExactMatches(Event& ev, const Pub& pub, SessionId publisherId)
     {
         auto found = byExact_.find(pub.topic());
         if (found != byExact_.end())
         {
             SubscriptionId subId = (*found)->first;
             const SubscriptionRecord& rec = (*found)->second;
-            publishMatches(pub, publisherId, publicationId, subId, rec);
+            publishMatches(ev.withSubscriptionId(subId), pub, publisherId, rec);
         }
     }
 
-    void publishPrefixMatches(const Pub& pub, SessionId publisherId,
-                              PublicationId publicationId)
+    void publishPrefixMatches(Event& ev, const Pub& pub, SessionId publisherId)
     {
         auto range = byPrefix_.equal_prefix_range(pub.topic());
+        if (range.first == range.second)
+            return;
+
+        ev.withOption("topic", pub.topic());
         for (; range.first != range.second; ++range.first)
         {
             SubscriptionId subId = (*range.first)->first;
             const SubscriptionRecord& rec = (*range.first)->second;
-            publishMatches(pub, publisherId, publicationId, subId, rec);
+            publishMatches(ev.withSubscriptionId(subId), pub, publisherId, rec);
         }
     }
 
-    void publishWildcardMatches(const Pub& pub, SessionId publisherId,
-                                PublicationId publicationId)
+    void publishWildcardMatches(Event& ev, const Pub& pub,
+                                SessionId publisherId)
     {
         auto matches = wildcardMatches(byWildcard_, pub.topic());
+        if (matches.done())
+            return;
+
+        ev.withOption("topic", pub.topic());
         while (!matches.done())
         {
             SubscriptionId subId = matches.value()->first;
             const SubscriptionRecord& rec = matches.value()->second;
-            publishMatches(pub, publisherId, publicationId, subId, rec);
+            publishMatches(ev.withSubscriptionId(subId), pub, publisherId, rec);
             matches.next();
         }
     }
 
-    void publishMatches(const Pub& pub, SessionId publisherId,
-                        PublicationId publicationId, SubscriptionId subId,
+    void publishMatches(const Event& ev, const Pub& pub, SessionId publisherId,
                         const SubscriptionRecord& rec)
     {
-        auto ev = eventFromPub(pub, publicationId, subId, {});
         for (auto& kv : rec.sessions)
         {
             auto session = kv.second.session.lock();

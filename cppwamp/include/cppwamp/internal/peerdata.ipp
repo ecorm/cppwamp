@@ -649,10 +649,15 @@ CPPWAMP_INLINE Pub& Pub::withDiscloseMe(bool disclosed)
 /** @post `this->empty() == true` */
 CPPWAMP_INLINE Event::Event() {}
 
-CPPWAMP_INLINE Event::Event(SubscriptionId subId, PublicationId pubId,
-                            Object opts)
-    : Base(subId, pubId, std::move(opts))
+CPPWAMP_INLINE Event::Event(PublicationId pubId, Object opts)
+    : Base(pubId, std::move(opts))
 {}
+
+CPPWAMP_INLINE Event& Event::withSubscriptionId(SubscriptionId subId)
+{
+    Base::message().setSubscriptionId(subId);
+    return *this;
+}
 
 CPPWAMP_INLINE bool Event::empty() const {return executor_ == nullptr;}
 

@@ -513,7 +513,10 @@ public:
     Event();
 
     /** Constructor taking details. */
-    Event(SubscriptionId subId, PublicationId pubId, Object opts = {});
+    explicit Event(PublicationId pubId, Object opts = {});
+
+    /** Sets the subscription ID field of the event. */
+    Event& withSubscriptionId(SubscriptionId subId);
 
     /** Returns `false` if the Event has been initialized and is ready
         for use. */

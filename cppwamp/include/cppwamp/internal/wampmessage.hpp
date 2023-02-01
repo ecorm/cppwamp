@@ -466,9 +466,14 @@ struct EventMessage : public MessageWithPayload<WampMsgType::event, 3, 4>
 {
     EventMessage() : Base({0, 0, 0, Object{}}) {}
 
-    EventMessage(SubscriptionId subId, PublicationId pubId, Object opts = {})
-        : Base({0, subId, pubId, std::move(opts)})
+    EventMessage(PublicationId pubId, Object opts = {})
+        : Base({0, null, pubId, std::move(opts)})
     {}
+
+    void setSubscriptionId(SubscriptionId subId)
+    {
+        fields_.at(0) = subId;
+    }
 
     SubscriptionId subscriptionId() const
     {
