@@ -148,42 +148,192 @@ private:
 };
 
 //------------------------------------------------------------------------------
+// Need associative container with stable iterators
+// for use in by-pattern maps.
+using BrokerSubscriptionMap =
+    std::map<SubscriptionId, BrokerSubscriptionRecord>;
+
+//------------------------------------------------------------------------------
+class BrokerSubscriptionIdGenerator
+{
+public:
+    SubscriptionId next(BrokerSubscriptionMap& subscriptions)
+    {
+        auto s = nextSubscriptionId_;
+        while ((s == nullId()) || (subscriptions.count(s) == 1))
+            ++s;
+        nextSubscriptionId_ = s + 1;
+        return s;
+    }
+
+private:
+    EphemeralId nextSubscriptionId_ = nullId();
+};
+
+//------------------------------------------------------------------------------
+class BrokerSubscribeInfo
+{
+public:
+    BrokerSubscribeInfo(Topic&& t, RouterSession::Ptr s,
+                        BrokerSubscriptionMap& subs,
+                        BrokerSubscriptionIdGenerator& gen)
+        : topic_(std::move(t)),
+          subscriber_({s}),
+          sessionId_(s->wampId()),
+          subscriptions_(subs),
+          subIdGen_(gen)
+    {}
+
+    const String& topicUri() const {return topic_.uri();}
+
+    Topic::MatchPolicy policy() const {return topic_.policy();}
+
+    std::error_code check() const
+    {
+        return topic_.check();
+    }
+
+    BrokerSubscriptionMap::iterator addNewSubscriptionRecord()
+    {
+        auto subId = subIdGen_.next(subscriptions_);
+        BrokerSubscriptionRecord rec{std::move(topic_)};
+        rec.addSubscriber(sessionId_, std::move(subscriber_));
+        auto emplaced = subscriptions_.emplace(subId, std::move(rec));
+        assert(emplaced.second);
+        return emplaced.first;
+    }
+
+    void addSubscriberToExistingRecord(BrokerSubscriptionRecord& rec)
+    {
+        rec.addSubscriber(sessionId_, std::move(subscriber_));
+    }
+
+private:
+    BrokerUriAndPolicy topic_;
+    BrokerSubscriberInfo subscriber_;
+    SessionId sessionId_;
+    BrokerSubscriptionMap& subscriptions_;
+    BrokerSubscriptionIdGenerator& subIdGen_;
+};
+
+//------------------------------------------------------------------------------
+template <typename TTrie>
+class BrokerTopicMap
+{
+public:
+    ErrorOr<SubscriptionId> subscribe(BrokerSubscribeInfo& info)
+    {
+        auto key = info.topicUri();
+        SubscriptionId subId = nullId();
+        auto found = trie_.find(key);
+        if (found == trie_.end())
+        {
+            auto iter = info.addNewSubscriptionRecord();
+            subId = iter->first;
+            trie_.emplace(std::move(key), iter);
+        }
+        else
+        {
+            subId = found.value()->first;
+            info.addSubscriberToExistingRecord(found.value()->second);
+        }
+        return subId;
+    }
+
+    void erase(const String& topicUri) {trie_.erase(topicUri);}
+
+protected:
+    TTrie trie_;
+};
+
+//------------------------------------------------------------------------------
+class BrokerExactTopicMap
+    : public BrokerTopicMap<utils::BasicTrieMap<
+          char, BrokerSubscriptionMap::iterator>>
+{
+public:
+    void publish(BrokerPublicationInfo& info)
+    {
+        auto found = trie_.find(info.topicUri());
+        if (found != trie_.end())
+        {
+            SubscriptionId subId = (*found)->first;
+            const BrokerSubscriptionRecord& rec = (*found)->second;
+            rec.publish(info, subId);
+        }
+    }
+};
+
+//------------------------------------------------------------------------------
+class BrokerPrefixTopicMap
+    : public BrokerTopicMap<utils::BasicTrieMap<
+          char, BrokerSubscriptionMap::iterator>>
+{
+public:
+    void publish(BrokerPublicationInfo& info)
+    {
+        auto range = trie_.equal_prefix_range(info.topicUri());
+        if (range.first == range.second)
+            return;
+
+        info.enableTopicDetail();
+        for (; range.first != range.second; ++range.first)
+        {
+            SubscriptionId subId = (*range.first)->first;
+            const BrokerSubscriptionRecord& rec = (*range.first)->second;
+            rec.publish(info, subId);
+        }
+    }
+};
+
+//------------------------------------------------------------------------------
+class BrokerWildcardTopicMap
+    : public BrokerTopicMap<utils::UriTrie<BrokerSubscriptionMap::iterator>>
+{
+public:
+    void publish(BrokerPublicationInfo& info)
+    {
+        auto matches = wildcardMatches(trie_, info.topicUri());
+        if (matches.done())
+            return;
+
+        info.enableTopicDetail();
+        while (!matches.done())
+        {
+            SubscriptionId subId = matches.value()->first;
+            const BrokerSubscriptionRecord& rec = matches.value()->second;
+            rec.publish(info, subId);
+            matches.next();
+        }
+    }
+};
+
+//------------------------------------------------------------------------------
 class RealmBroker
 {
 public:
     ErrorOr<SubscriptionId> subscribe(Topic&& t, RouterSession::Ptr s)
     {
-        BrokerUriAndPolicy topic{std::move(t)};
-        auto topicError = topic.check();
-        if (topicError)
-            return makeUnexpected(topicError);
-        SessionId sid = s->wampId();
-        BrokerSubscriberInfo info{std::move(s)};
+        BrokerSubscribeInfo info{std::move(t), s, subscriptions_,
+                                 subIdGenerator_};
 
-        switch (topic.policy())
+        auto ec = info.check();
+        if (ec)
+            return makeUnexpected(ec);
+
+        switch (info.policy())
         {
         case Policy::unknown:
             return makeUnexpectedError(SessionErrc::optionNotAllowed);
 
         case Policy::exact:
-        {
-            auto key = topic.uri();
-            return doSubscribe(byExact_, std::move(key), std::move(topic),
-                               std::move(info), sid);
-        }
+            return byExact_.subscribe(info);
 
         case Policy::prefix:
-        {
-            auto key = topic.uri();
-            return doSubscribe(byPrefix_, std::move(key), std::move(topic),
-                               std::move(info), sid);
-        }
+            return byPrefix_.subscribe(info);
 
         case Policy::wildcard:
-        {
-            return doSubscribe(byWildcard_, topic.uri(), std::move(topic),
-                               std::move(info), sid);
-        }
+            return byWildcard_.subscribe(info);
 
         default:
             break;
@@ -234,107 +384,20 @@ public:
     {
         // TODO: publish and event options
         BrokerPublicationInfo info(pub, publisherId, pubIdGenerator_());
-        publishExactMatches(info);
-        publishPrefixMatches(info);
-        publishWildcardMatches(info);
+        byExact_.publish(info);
+        byPrefix_.publish(info);
+        byWildcard_.publish(info);
         return info.publicationId();
     }
 
 private:
     using Policy = Topic::MatchPolicy;
 
-    // Need associative container with stable iterators
-    // for use in by-pattern maps.
-    using SubscriptionMap = std::map<SubscriptionId, BrokerSubscriptionRecord>;
-
-    static bool startsWith(const String& s, const String& prefix)
-    {
-        // https://stackoverflow.com/a/40441240/245265
-        return s.rfind(prefix, 0) == 0;
-    }
-
-    template <typename TTrie, typename TKey>
-    ErrorOr<SubscriptionId> doSubscribe(
-        TTrie& trie, TKey&& key, BrokerUriAndPolicy&& topic,
-        BrokerSubscriberInfo&& info, SessionId sessionId)
-    {
-        SubscriptionId subId = nullId();
-        auto found = trie.find(key);
-        if (found == trie.end())
-        {
-            subId = nextSubId();
-            auto uri = topic.uri();
-            BrokerSubscriptionRecord rec{std::move(topic)};
-            rec.addSubscriber(sessionId, std::move(info));
-            auto emplaced = subscriptions_.emplace(subId, std::move(rec));
-            assert(emplaced.second);
-            trie.emplace(std::move(key), emplaced.first);
-        }
-        else
-        {
-            subId = found.value()->first;
-            BrokerSubscriptionRecord& rec = found.value()->second;
-            rec.addSubscriber(sessionId, std::move(info));
-        }
-        return subId;
-    }
-
-    SubscriptionId nextSubId()
-    {
-        auto s = nextSubscriptionId_;
-        while ((s == nullId()) || (subscriptions_.count(s) == 1))
-            ++s;
-        nextSubscriptionId_ = s + 1;
-        return s;
-    }
-
-    void publishExactMatches(BrokerPublicationInfo& info)
-    {
-        auto found = byExact_.find(info.topicUri());
-        if (found != byExact_.end())
-        {
-            SubscriptionId subId = (*found)->first;
-            const BrokerSubscriptionRecord& rec = (*found)->second;
-            rec.publish(info, subId);
-        }
-    }
-
-    void publishPrefixMatches(BrokerPublicationInfo& info)
-    {
-        auto range = byPrefix_.equal_prefix_range(info.topicUri());
-        if (range.first == range.second)
-            return;
-
-        info.enableTopicDetail();
-        for (; range.first != range.second; ++range.first)
-        {
-            SubscriptionId subId = (*range.first)->first;
-            const BrokerSubscriptionRecord& rec = (*range.first)->second;
-            rec.publish(info, subId);
-        }
-    }
-
-    void publishWildcardMatches(BrokerPublicationInfo& info)
-    {
-        auto matches = wildcardMatches(byWildcard_, info.topicUri());
-        if (matches.done())
-            return;
-
-        info.enableTopicDetail();
-        while (!matches.done())
-        {
-            SubscriptionId subId = matches.value()->first;
-            const BrokerSubscriptionRecord& rec = matches.value()->second;
-            rec.publish(info, subId);
-            matches.next();
-        }
-    }
-
-    SubscriptionMap subscriptions_;
-    utils::BasicTrieMap<char, SubscriptionMap::iterator> byExact_;
-    utils::BasicTrieMap<char, SubscriptionMap::iterator> byPrefix_;
-    utils::UriTrie<SubscriptionMap::iterator> byWildcard_;
-    EphemeralId nextSubscriptionId_ = nullId();
+    BrokerSubscriptionMap subscriptions_;
+    BrokerExactTopicMap byExact_;
+    BrokerPrefixTopicMap byPrefix_;
+    BrokerWildcardTopicMap byWildcard_;
+    BrokerSubscriptionIdGenerator subIdGenerator_;
     RandomIdGenerator pubIdGenerator_;
 };
 
