@@ -18,11 +18,11 @@ namespace internal
     {
         PassKey() {}
 
-        friend class Peer;
+        friend class BrokerUriAndPolicy;
         friend class Client;
-        friend class ServerSession;
         friend class LocalSessionImpl;
-        friend class RealmBroker;
+        friend class Peer;
+        friend class ServerSession;
         friend class RouterImpl;
         friend class RouterRealm;
         friend class RouterServer;
