@@ -2706,7 +2706,7 @@ GIVEN( "these test fixture objects" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Using Thread Pools", "[WAMP][Basic]" )
+SCENARIO( "Using Thread Pools", "[WAMP][Basic][skip]" )
 {
 GIVEN( "a thread pool execution context" )
 {

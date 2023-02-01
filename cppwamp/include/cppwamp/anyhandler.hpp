@@ -22,12 +22,13 @@
 #include <boost/asio/associated_allocator.hpp>
 #include <boost/asio/associated_cancellation_slot.hpp>
 #include <boost/asio/associated_executor.hpp>
+#include <boost/asio/bind_executor.hpp>
 #include <boost/asio/cancellation_signal.hpp>
 #include <boost/asio/defer.hpp>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/post.hpp>
 
-#ifdef CPPWAMP_WITHOUT_BUNDLED_ASIO_ANY_COMPLETION_HANDLER
+#if 1//def CPPWAMP_WITHOUT_BUNDLED_ASIO_ANY_COMPLETION_HANDLER
 #include <boost/asio/any_completion_handler.hpp>
 #else
 #include "bundled/boost_asio_any_completion_handler.hpp"
@@ -283,76 +284,117 @@ struct associated_allocator<wamp::AnyReusableHandler<S>, A>
 namespace wamp
 {
 
+namespace internal
+{
+
+template <typename H, typename F>
+struct BindFallbackExecutorResult
+{
+    struct None{};
+    using HT = typename std::decay<H>::type;
+    using AE = typename boost::asio::associated_executor<HT, None>::type;
+    using Missing = std::is_same<AE, None>;
+    using FB = boost::asio::executor_binder<HT, F>;
+    using Type = typename std::conditional<Missing::value, FB, H&&>::type;
+};
+
+template <typename H, typename F>
+typename BindFallbackExecutorResult<H, F>::FB
+doBindFallbackExecutor(std::true_type, H&& handler, const F& fallbackExec)
+{
+    return boost::asio::bind_executor(std::forward<H>(handler), fallbackExec);
+}
+
+template <typename H, typename F>
+H&& doBindFallbackExecutor(std::false_type, H&& handler, const F&)
+{
+    return std::forward<H>(handler);
+}
+
+template <typename H, typename F>
+typename BindFallbackExecutorResult<H, F>::Type
+bindFallbackExecutor(H&& handler, const F& fallbackExec)
+{
+    using Missing = typename BindFallbackExecutorResult<H, F>::Missing;
+    return doBindFallbackExecutor(Missing{}, std::forward<H>(handler),
+                                  fallbackExec);
+}
+
+} // namespace internal
+
 //------------------------------------------------------------------------------
 /** Dispatches the given handler using its associated executor, passing the
     given arguments. */
 //------------------------------------------------------------------------------
-template <typename F, typename... Ts>
-void dispatchAny(F&& handler, Ts&&... args)
+template <typename E, typename H, typename... Ts>
+void dispatchAny(E& exec, H&& handler, Ts&&... args)
 {
-    auto e = boost::asio::get_associated_executor(handler);
-    boost::asio::dispatch(e, std::bind(std::forward<F>(handler),
-                                       std::forward<Ts>(args)...));
+    boost::asio::dispatch(exec, std::bind(std::forward<H>(handler),
+                                          std::forward<Ts>(args)...));
 }
 
 //------------------------------------------------------------------------------
 /** Dispatches the given handler using the given fallback executor, passing the
     given arguments. */
 //------------------------------------------------------------------------------
-template<typename F, typename E, typename... Ts>
-void dispatchVia(const E& fallbackExec, F&& handler, Ts&&... args)
+template<typename E, typename F, typename H, typename... Ts>
+void dispatchVia(E& exec, const F& fallbackExec, H&& handler, Ts&&... args)
 {
-    auto e = boost::asio::get_associated_executor(handler, fallbackExec);
-    boost::asio::dispatch(e, std::bind(std::forward<F>(handler),
-                                       std::forward<Ts>(args)...));
+    boost::asio::dispatch(
+        exec,
+        std::bind(internal::bindFallbackExecutor(std::forward<H>(handler),
+                                                 fallbackExec),
+                  std::forward<Ts>(args)...));
 }
 
 //------------------------------------------------------------------------------
 /** Posts the given handler using its associated executor, passing the
     given arguments. */
 //------------------------------------------------------------------------------
-template<typename F, typename... Ts>
-void postAny(F&& handler, Ts&&... args)
+template<typename E, typename H, typename... Ts>
+void postAny(E& exec, H&& handler, Ts&&... args)
 {
-    auto e = boost::asio::get_associated_executor(handler);
-    boost::asio::post(e, std::bind(std::forward<F>(handler),
-                                   std::forward<Ts>(args)...));
+    boost::asio::post(exec, std::bind(std::forward<H>(handler),
+                                      std::forward<Ts>(args)...));
 }
 
 //------------------------------------------------------------------------------
 /** Posts the given handler using the given fallback executor, passing the
     given arguments. */
 //------------------------------------------------------------------------------
-template<typename F, typename E, typename... Ts>
-void postVia(const E& fallbackExec, F&& handler, Ts&&... args)
+template<typename E, typename F, typename H, typename... Ts>
+void postVia(E& exec, const F& fallbackExec, H&& handler, Ts&&... args)
 {
-    auto e = boost::asio::get_associated_executor(handler, fallbackExec);
-    boost::asio::post(e, std::bind(std::forward<F>(handler),
-                                   std::forward<Ts>(args)...));
+    boost::asio::post(
+        exec,
+        std::bind(internal::bindFallbackExecutor(std::forward<H>(handler),
+                                                 fallbackExec),
+                  std::forward<Ts>(args)...));
 }
 
 //------------------------------------------------------------------------------
 /** Defers the given handler using its associated executor, passing the
     given arguments. */
 //------------------------------------------------------------------------------
-template<typename F, typename... Ts>
-void deferAny(F&& handler, Ts&&... args)
+template<typename E, typename H, typename... Ts>
+void deferAny(E& exec, H&& handler, Ts&&... args)
 {
-    auto e = boost::asio::get_associated_executor(handler);
-    boost::asio::defer(e, std::bind(std::forward<F>(handler),
-                                    std::forward<Ts>(args)...));
+    boost::asio::defer(exec, std::bind(std::forward<H>(handler),
+                                       std::forward<Ts>(args)...));
 }
 
 //------------------------------------------------------------------------------
 /** Defers the given handler using the given fallback executor, passing the
     given arguments. */
 //------------------------------------------------------------------------------
-template<typename F, typename E, typename... Ts>
-void deferVia(const E& fallbackExec, F&& handler, Ts&&... args)
+template<typename E, typename F, typename H, typename... Ts>
+void deferVia(E& exec, const F& fallbackExec, H&& handler, Ts&&... args)
 {
-    auto e = boost::asio::get_associated_executor(handler, fallbackExec);
-    boost::asio::defer(e, std::bind(std::forward<F>(handler),
-                                    std::forward<Ts>(args)...));
+    boost::asio::defer(
+        exec,
+        std::bind(internal::bindFallbackExecutor(std::forward<H>(handler),
+                                                 fallbackExec),
+                  std::forward<Ts>(args)...));
 }
 
 } // namespace wamp

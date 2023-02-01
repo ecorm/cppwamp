@@ -729,7 +729,9 @@ private:
 
         auto exec = boost::asio::get_associated_executor(sub.slot,
                                                          userExecutor());
-        boost::asio::post(exec, Posted{shared_from_this(), sub.slot, event});
+        Posted posted{shared_from_this(), sub.slot, event};
+        boost::asio::post(strand(),
+                          boost::asio::bind_executor(exec, std::move(posted)));
     }
 
     void warnEventError(const Error& e, SubscriptionId subId,
@@ -845,9 +847,9 @@ private:
         };
 
         auto exec = boost::asio::get_associated_executor(slot, userExecutor());
-        boost::asio::post(
-            exec,
-            Posted{shared_from_this(), move(slot), move(request)});
+        Posted posted{shared_from_this(), move(slot), move(request)};
+        boost::asio::post(strand(),
+                          boost::asio::bind_executor( exec, std::move(posted)));
     }
 
     template <typename THandler>
@@ -947,28 +949,22 @@ private:
     template <typename S, typename... Ts>
     void dispatchHandler(AnyCompletionHandler<S>& handler, Ts&&... args)
     {
-        if (!isTerminating())
-        {
-            dispatchVia(userExecutor(), std::move(handler),
-                        std::forward<Ts>(args)...);
-        }
+        dispatchVia(strand(), userExecutor(), std::move(handler),
+                    std::forward<Ts>(args)...);
     }
 
     template <typename S, typename... Ts>
     void dispatchHandler(const AnyReusableHandler<S>& handler, Ts&&... args)
     {
-        if (!isTerminating())
-            dispatchVia(userExecutor(), handler, std::forward<Ts>(args)...);
+        dispatchVia(strand(), userExecutor(), handler,
+                    std::forward<Ts>(args)...);
     }
 
     template <typename S, typename... Ts>
     void complete(AnyCompletionHandler<S>& handler, Ts&&... args)
     {
-        if (!isTerminating())
-        {
-            postVia(userExecutor(), std::move(handler),
-                    std::forward<Ts>(args)...);
-        }
+        postVia(strand(), userExecutor(), std::move(handler),
+                std::forward<Ts>(args)...);
     }
 
     template <typename S, typename... Ts>

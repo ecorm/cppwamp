@@ -796,7 +796,7 @@ public:
                 {
                     auto& resultMsg = messageCast<ResultMessage>(*reply);
                     me.dispatchHandler(handler,
-                                       Result({}, std::move(resultMsg)));
+                                        Result({}, std::move(resultMsg)));
                 }
             }
         };
@@ -1006,7 +1006,7 @@ private:
         {
             auto unex = makeUnexpectedError(SessionErrc::invalidState);
             if (!peer_.isTerminating())
-                postVia(userExecutor(), std::move(handler), std::move(unex));
+                postVia(strand(), userExecutor(), std::move(handler), std::move(unex));
         }
         return valid;
     }
@@ -1290,7 +1290,9 @@ private:
 
         auto exec = boost::asio::get_associated_executor(sub.slot,
                                                          userExecutor());
-        boost::asio::post(exec, Posted{shared_from_this(), sub.slot, event});
+        Posted posted{shared_from_this(), sub.slot, event};
+        boost::asio::post(strand(),
+                          boost::asio::bind_executor(exec, std::move(posted)));
     }
 
     void warnEventError(const Error& e, SubscriptionId subId,
@@ -1405,9 +1407,9 @@ private:
         };
 
         auto exec = boost::asio::get_associated_executor(slot, userExecutor());
-        boost::asio::post(
-            exec,
-            Posted{shared_from_this(), move(slot), move(request)});
+        Posted posted{shared_from_this(), move(slot), move(request)};
+        boost::asio::post(strand(),
+                          boost::asio::bind_executor( exec, std::move(posted)));
     }
 
     template <typename THandler>
@@ -1509,7 +1511,7 @@ private:
     {
         if (!peer_.isTerminating())
         {
-            dispatchVia(userExecutor(), std::move(handler),
+            dispatchVia(strand(), userExecutor(), std::move(handler),
                         std::forward<Ts>(args)...);
         }
     }
@@ -1518,7 +1520,10 @@ private:
     void dispatchHandler(const AnyReusableHandler<S>& handler, Ts&&... args)
     {
         if (!peer_.isTerminating())
-            dispatchVia(userExecutor(), handler, std::forward<Ts>(args)...);
+        {
+            dispatchVia(strand(), userExecutor(), handler,
+                        std::forward<Ts>(args)...);
+        }
     }
 
     template <typename S, typename... Ts>
@@ -1526,7 +1531,7 @@ private:
     {
         if (!peer_.isTerminating())
         {
-            postVia(userExecutor(), std::move(handler),
+            postVia(strand(), userExecutor(), std::move(handler),
                     std::forward<Ts>(args)...);
         }
     }

@@ -94,7 +94,10 @@ public:
         {
             LogEntry entry{severity, std::move(message), ec};
             if (!isTerminating_)
-                dispatchVia(userExecutor_, logHandler_, std::move(entry));
+            {
+                dispatchVia(strand_, userExecutor_, logHandler_,
+                            std::move(entry));
+            }
         }
     }
 
@@ -345,7 +348,7 @@ private:
     {
         auto old = state_.exchange(s);
         if (old != s && stateChangeHandler_ && !isTerminating_)
-            postVia(userExecutor_, stateChangeHandler_, s, ec);
+            postVia(strand_, userExecutor_, stateChangeHandler_, s, ec);
         return old;
     }
 
@@ -724,7 +727,7 @@ private:
         oss << ']';
 
         LogEntry entry{LogLevel::trace, oss.str()};
-        dispatchVia(userExecutor_, logHandler_, std::move(entry));
+        dispatchVia(strand_, userExecutor_, logHandler_, std::move(entry));
     }
 
     IoStrand strand_;

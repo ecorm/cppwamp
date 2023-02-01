@@ -524,13 +524,13 @@ private:
     template <typename F, typename... Ts>
     void complete(F&& handler, Ts&&... args)
     {
-        postVia(strand_, std::move(handler), std::forward<Ts>(args)...);
+        postAny(strand_, std::move(handler), std::forward<Ts>(args)...);
     }
 
     template <typename F, typename... Ts>
     void completeNow(F&& handler, Ts&&... args)
     {
-        dispatchVia(strand_, std::move(handler), std::forward<Ts>(args)...);
+        dispatchAny(strand_, std::move(handler), std::forward<Ts>(args)...);
     }
 
     void challenge() override
