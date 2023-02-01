@@ -15,7 +15,7 @@ set(valid_components
     core-headers
     coro-usage)
 set(CPPWAMP_MINIMUM_BOOST_VERSION 1.81.0)
-set(CPPWAMP_MINIMUM_MSGPACK_VERSION 1.0.0)
+set(CPPWAMP_MINIMUM_JSONCONS_VERSION 0.169.0)
 
 set(${CMAKE_FIND_PACKAGE_NAME}_FOUND FALSE)
 
@@ -66,9 +66,9 @@ else()
 endif()
 
 if(quietly)
-    find_package(jsoncons QUIET)
+    find_package(jsoncons ${CPPWAMP_MINIMUM_JSONCONS_VERSION} QUIET)
 else()
-    find_package(jsoncons)
+    find_package(jsoncons ${CPPWAMP_MINIMUM_JSONCONS_VERSION})
 endif()
 
 set(linkage static)

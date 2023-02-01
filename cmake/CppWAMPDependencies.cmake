@@ -11,6 +11,7 @@ set(FETCHCONTENT_QUIET OFF CACHE INTERNAL "")
 
 # These minumum dependency versions must be made the same in CppWAMPConfig.cmake
 set(CPPWAMP_MINIMUM_BOOST_VERSION 1.81.0)
+set(CPPWAMP_MINIMUM_JSONCONS_VERSION 0.169.0)
 
 set(CPPWAMP_VENDORIZED_BOOST_VERSION 1.81.0)
 set(CPPWAMP_VENDORIZED_BOOST_SHA256
@@ -34,12 +35,9 @@ else()
         "--with-system")
 endif()
 
-# TODO: Update upon next release
-# set(CPPWAMP_VENDORIZED_JSONCONS_VERSION 0.168.7)
-#set(CPPWAMP_VENDORIZED_JSONCONS_GIT_TAG
-#    "v${CPPWAMP_VENDORIZED_JSONCONS_VERSION}")
+set(CPPWAMP_VENDORIZED_JSONCONS_VERSION 0.169.0)
 set(CPPWAMP_VENDORIZED_JSONCONS_GIT_TAG
-    "8940235dd7ff1b08230197002ab31aee03a5ac73")
+    "v${CPPWAMP_VENDORIZED_JSONCONS_VERSION}")
 
 set(CPPWAMP_MINIMUM_CATCH2_VERSION "2.3.0")
 set(CPPWAMP_VENDORIZED_CATCH2_VERSION "2.13.9")
@@ -189,7 +187,7 @@ endfunction()
 #-------------------------------------------------------------------------------
 macro(cppwamp_find_vendorized_jsoncons)
 
-    find_package(jsoncons
+    find_package(jsoncons ${CPPWAMP_MINIMUM_JSONCONS_VERSION}
         CONFIG
         PATHS ${CPPWAMP_JSONCONS_VENDOR_DIR}
         NO_DEFAULT_PATH)
@@ -224,7 +222,7 @@ macro(cppwamp_resolve_jsoncons_dependency)
     else()
         # Bypass find_package if a parent project has already imported jsoncons
         if(NOT TARGET jsoncons)
-            find_package(jsoncons)
+            find_package(jsoncons ${CPPWAMP_MINIMUM_JSONCONS_VERSION})
             if(NOT ${jsoncons_FOUND})
                 message(WARNING
 "Cannot find jsoncons headers. Please either define jsoncons_ROOT or \
