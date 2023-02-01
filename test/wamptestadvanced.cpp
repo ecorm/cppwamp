@@ -30,7 +30,8 @@ const auto authTcp = TcpHost("localhost", authTestPort).withFormat(json);
 
 void suspendCoro(YieldContext& yield)
 {
-    boost::asio::post(yield);
+    auto exec = boost::asio::get_associated_executor(yield);
+    boost::asio::post(exec, yield);
 }
 
 //------------------------------------------------------------------------------

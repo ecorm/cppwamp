@@ -47,9 +47,10 @@ public:
     using StateChangeHandler    = AnyReusableHandler<void (State,
                                                            std::error_code)>;
 
-    explicit Peer(bool isRouter, const AnyIoExecutor& exec,
+    explicit Peer(bool isRouter, AnyIoExecutor exec,
                   AnyCompletionExecutor userExecutor)
-        : strand_(boost::asio::make_strand(exec)),
+        : executor_(std::move(exec)),
+          strand_(boost::asio::make_strand(executor_)),
           userExecutor_(std::move(userExecutor)),
           state_(State::disconnected),
           logLevel_(LogLevel::warning),
@@ -71,6 +72,8 @@ public:
     bool isTerminating() const {return isTerminating_.load();}
 
     const IoStrand& strand() const {return strand_;}
+
+    const AnyIoExecutor& executor() const {return executor_;}
 
     const AnyCompletionExecutor& userExecutor() const {return userExecutor_;}
 
@@ -95,7 +98,7 @@ public:
             LogEntry entry{severity, std::move(message), ec};
             if (!isTerminating_)
             {
-                dispatchVia(strand_, userExecutor_, logHandler_,
+                dispatchVia(executor_, userExecutor_, logHandler_,
                             std::move(entry));
             }
         }
@@ -348,7 +351,7 @@ private:
     {
         auto old = state_.exchange(s);
         if (old != s && stateChangeHandler_ && !isTerminating_)
-            postVia(strand_, userExecutor_, stateChangeHandler_, s, ec);
+            postVia(executor_, userExecutor_, stateChangeHandler_, s, ec);
         return old;
     }
 
@@ -730,6 +733,7 @@ private:
         dispatchVia(strand_, userExecutor_, logHandler_, std::move(entry));
     }
 
+    AnyIoExecutor executor_;
     IoStrand strand_;
     AnyCompletionExecutor userExecutor_;
     AnyBufferCodec codec_;

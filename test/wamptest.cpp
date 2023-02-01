@@ -2706,11 +2706,10 @@ GIVEN( "these test fixture objects" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Using Thread Pools", "[WAMP][Basic][skip]" )
+SCENARIO( "Using Thread Pools", "[WAMP][Basic]" )
 {
 GIVEN( "a thread pool execution context" )
 {
-    boost::asio::io_context ioctx;
     boost::asio::thread_pool pool(4);
     const auto where = withTcp;
     Session session(pool);
@@ -2764,7 +2763,6 @@ GIVEN( "a thread pool execution context" )
         }
 
         inv.yield(threadSafe, Result{n});
-
         return deferment;
     };
 
@@ -2790,7 +2788,7 @@ GIVEN( "a thread pool execution context" )
         ++eventCount;
     };
 
-    spawn(ioctx, [&](YieldContext yield)
+    spawn(session.strand(), [&](YieldContext yield)
     {
         session.connect(where, yield).value();
         session.join(testRealm, yield).value();
@@ -2808,7 +2806,7 @@ GIVEN( "a thread pool execution context" )
         while ((eventCount.load() < numbers.size()) ||
                (resultNumbers.size() < numbers.size()))
         {
-            boost::asio::post(yield);
+            suspendCoro(yield);
         }
         session.leave(yield).value();
         session.disconnect();
@@ -2820,7 +2818,6 @@ GIVEN( "a thread pool execution context" )
         CHECK_THAT( eventNumbers, Catch::Matchers::UnorderedEquals(numbers) );
     });
 
-    ioctx.run();
     pool.join();
 }
 }

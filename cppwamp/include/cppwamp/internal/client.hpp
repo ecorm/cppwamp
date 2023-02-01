@@ -109,6 +109,8 @@ public:
 
     State state() const {return peer_.state();}
 
+    const AnyIoExecutor& executor() const {return peer_.executor();}
+
     const IoStrand& strand() const {return peer_.strand();}
 
     const AnyCompletionExecutor& userExecutor() const
@@ -985,7 +987,7 @@ private:
 
     Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
         : peer_(false, exec, std::move(userExec)),
-          timeoutScheduler_(CallerTimeoutScheduler::create(peer_.strand()))
+          timeoutScheduler_(CallerTimeoutScheduler::create(strand()))
     {
         peer_.setInboundMessageHandler(
             [this](Message msg) {onInbound(std::move(msg));} );
@@ -1006,7 +1008,10 @@ private:
         {
             auto unex = makeUnexpectedError(SessionErrc::invalidState);
             if (!peer_.isTerminating())
-                postVia(strand(), userExecutor(), std::move(handler), std::move(unex));
+            {
+                postVia(executor(), userExecutor(), std::move(handler),
+                        std::move(unex));
+            }
         }
         return valid;
     }
@@ -1291,7 +1296,7 @@ private:
         auto exec = boost::asio::get_associated_executor(sub.slot,
                                                          userExecutor());
         Posted posted{shared_from_this(), sub.slot, event};
-        boost::asio::post(strand(),
+        boost::asio::post(executor(),
                           boost::asio::bind_executor(exec, std::move(posted)));
     }
 
@@ -1408,7 +1413,7 @@ private:
 
         auto exec = boost::asio::get_associated_executor(slot, userExecutor());
         Posted posted{shared_from_this(), move(slot), move(request)};
-        boost::asio::post(strand(),
+        boost::asio::post(executor(),
                           boost::asio::bind_executor( exec, std::move(posted)));
     }
 
@@ -1511,7 +1516,7 @@ private:
     {
         if (!peer_.isTerminating())
         {
-            dispatchVia(strand(), userExecutor(), std::move(handler),
+            dispatchVia(executor(), userExecutor(), std::move(handler),
                         std::forward<Ts>(args)...);
         }
     }
@@ -1521,7 +1526,7 @@ private:
     {
         if (!peer_.isTerminating())
         {
-            dispatchVia(strand(), userExecutor(), handler,
+            dispatchVia(executor(), userExecutor(), handler,
                         std::forward<Ts>(args)...);
         }
     }
@@ -1531,7 +1536,7 @@ private:
     {
         if (!peer_.isTerminating())
         {
-            postVia(strand(), userExecutor(), std::move(handler),
+            postVia(executor(), userExecutor(), std::move(handler),
                     std::forward<Ts>(args)...);
         }
     }
