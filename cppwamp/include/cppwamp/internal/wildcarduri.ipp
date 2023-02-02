@@ -33,7 +33,7 @@ CPPWAMP_INLINE ErrorOr<SplitUri::uri_type> SplitUri::flatten() const
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE SplitUri::storage_type SplitUri::tokenize(const uri_type uri)
+CPPWAMP_INLINE SplitUri::storage_type SplitUri::tokenize(const uri_type& uri)
 {
     storage_type tokens;
     if (uri.empty())
@@ -62,26 +62,6 @@ CPPWAMP_INLINE SplitUri::storage_type SplitUri::tokenize(const uri_type uri)
         tokens.emplace_back();
 
     return tokens;
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE SplitUri::uri_type
-SplitUri::untokenize(const storage_type& labels)
-{
-    CPPWAMP_LOGIC_CHECK(!labels.empty(),
-                        "wamp::untokenizeUri labels cannot be empty");
-
-    static constexpr char separator = '.';
-    std::string uri;
-    bool first = true;
-    for (auto& label: labels)
-    {
-        if (!first)
-            uri += separator;
-        first = false;
-        uri += label;
-    }
-    return uri;
 }
 
 //------------------------------------------------------------------------------

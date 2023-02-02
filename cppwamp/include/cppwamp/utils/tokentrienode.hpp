@@ -34,12 +34,15 @@ namespace internal
 }
 
 //------------------------------------------------------------------------------
-// TODO: Store pair<const K, T> in the node to avoid proxy mess.
 template <typename K, typename T, typename C, typename A>
 class TokenTrieNode
 {
 private:
     struct PassKey {};
+
+    using AllocTraits =
+        typename std::allocator_traits<A>::template rebind_traits<
+            std::pair<const K, T>>;
 
 public:
     /** Split token container type used as the key. */
@@ -51,11 +54,21 @@ public:
     /// Comparison function that determines how keys are sorted.
     using key_compare = C;
 
-    /// Allocator type passed to the TokenTrie using this node.
-    using allocator_type = A;
-
     /// Token type associated with a node.
     using token_type = typename key_type::value_type;
+
+    /// Key-value pair type for element.
+    using element_type = std::pair<const key_type, mapped_type>;
+
+    /// Allocator type passed to the TokenTrie using this node.
+    using allocator_type =
+        typename std::allocator_traits<A>::template rebind_alloc<element_type>;
+
+    /// Pointer to a key-value pair.
+    using element_pointer = typename AllocTraits::pointer;
+
+    /// Pointer to an immutable key-value pair.
+    using const_element_pointer = typename AllocTraits::const_pointer;
 
     /// Allocator type used by the tree contained by this node.
     using tree_allocator_type =
@@ -78,8 +91,8 @@ public:
     TokenTrieNode(const TokenTrieNode& other)
         : children_(other.children_)
     {
-        if (other.has_value())
-            constructValue(other.value());
+        if (other.has_element())
+            constructElement(other.value());
     }
 
     /** Copy constructor taking an allocator. */
@@ -87,8 +100,8 @@ public:
                   const TokenTrieNode& other)
         : children_(other.children_, alloc)
     {
-        if (other.has_value())
-            constructValue(other.value());
+        if (other.has_element())
+            constructElement(other.value());
     }
 
     /** Non-move-constructible. */
@@ -101,7 +114,7 @@ public:
     TokenTrieNode& operator=(TokenTrieNode&&) = delete;
 
     /** Destructor. */
-    ~TokenTrieNode() {destroyValue();}
+    ~TokenTrieNode() {destroyElement();}
 
     /** Determines if this is the sentinel node. */
     bool is_sentinel() const noexcept {return parent_ == nullptr;}
@@ -114,7 +127,7 @@ public:
     bool is_leaf() const noexcept {return children_.empty();}
 
     /** Determines if this node has a mapped value. */
-    bool has_value() const noexcept {return !!value_;}
+    bool has_element() const noexcept {return bool(element_);}
 
     /** Obtains a pointer to the node's parent, or `nullptr` if this is
         the sentinel node. */
@@ -135,29 +148,26 @@ public:
         return position_->first;
     }
 
-    /** Generates the split token key associated with this node.
-        @pre `!this->is_sentinel` */
-    key_type key() const
-    {
-        assert(!is_sentinel());
-        key_type key;
-        const TokenTrieNode* node = this;
-        while (!node->is_root())
-        {
-            key.push_back(node->token());
-            node = node->parent();
-        }
-        std::reverse(key.begin(), key.end());
-        return key;
-    }
+    /** Accesses the element associated with this node.
+        @pre `this->has_element()` */
+    element_type& element() {assert(has_element()); return *element_;}
 
     /** Accesses the value associated with this node.
-        @pre `this->has_value()` */
-    mapped_type& value() {assert(has_value()); return *value_;}
+        @pre `this->has_element()` */
+    const element_type& element() const
+        {assert(has_element()); return *element_;}
+
+    /** Accesses the split token key associated with this node.
+        @pre `this->has_element` */
+    const key_type& key() const {return element().first;}
 
     /** Accesses the value associated with this node.
-        @pre `this->has_value()` */
-    const mapped_type& value() const {assert(has_value()); return *value_;}
+        @pre `this->has_element()` */
+    mapped_type& value() {return element().second;}
+
+    /** Accesses the value associated with this node.
+        @pre `this->has_element()` */
+    const mapped_type& value() const {return element().second;}
 
     /** Obtains a view of the node's child tree.
         @pre `!this->is_sentinel` */
@@ -170,64 +180,87 @@ public:
 
 private:
     using TreeIterator = typename tree_type::iterator;
-    using MappedAlloc =
-        typename std::allocator_traits<A>::template rebind_alloc<T>;
-    using MappedPtr = typename std::allocator_traits<MappedAlloc>::pointer;
 
     template <typename... Us>
-    void setValue(Us&&... args)
+    void setElement(key_type&& key, Us&&... args)
     {
-        if (has_value())
-            *value_ = mapped_type(std::forward<Us>(args)...);
+        if (has_element())
+            value() = mapped_type(std::forward<Us>(args)...);
         else
-            constructValue(std::forward<Us>(args)...);
+            constructElementWithKey(std::move(key), std::forward<Us>(args)...);
     }
 
     void clearValue()
     {
-        if (has_value())
-            destroyValue();
+        if (has_element())
+            destroyElement();
     }
 
     template <typename... Us>
-    void constructValue(Us&&... args)
+    void constructElement(Us&&... args)
     {
-        using AT = std::allocator_traits<MappedAlloc>;
-        assert(value_ == nullptr);
-        MappedAlloc alloc{children_.get_allocator()};
-        MappedPtr ptr = {};
+        assert(element_ == nullptr);
+        allocator_type alloc{children_.get_allocator()};
+        element_pointer ptr = {};
         try
         {
-            ptr = AT::allocate(alloc, sizeof(mapped_type));
-            AT::construct(alloc, ptr, std::forward<Us>(args)...);
+            ptr = AllocTraits::allocate(alloc, sizeof(element_type));
+            AllocTraits::construct(
+                alloc, ptr, std::piecewise_construct,
+                std::forward_as_tuple(),
+                std::forward_as_tuple(std::forward<Us>(args)...));
         }
         catch (...)
         {
-            if (!!ptr)
-                AT::deallocate(alloc, ptr, sizeof(mapped_type));
+            if (ptr)
+                AllocTraits::deallocate(alloc, ptr, sizeof(element_type));
             throw;
         }
-        value_ = ptr;
+        element_ = ptr;
     }
 
-    void destroyValue()
+    template <typename... Us>
+    void constructElementWithKey(key_type&& key, Us&&... args)
     {
-        if (!has_value())
+        assert(element_ == nullptr);
+        allocator_type alloc{children_.get_allocator()};
+        element_pointer ptr = {};
+        try
+        {
+            ptr = AllocTraits::allocate(alloc, sizeof(element_type));
+            AllocTraits::construct(
+                alloc, ptr, std::piecewise_construct,
+                std::forward_as_tuple(std::move(key)),
+                std::forward_as_tuple(std::forward<Us>(args)...));
+        }
+        catch (...)
+        {
+            if (ptr)
+                AllocTraits::deallocate(alloc, ptr, sizeof(element_type));
+            throw;
+        }
+        element_ = ptr;
+    }
+
+    void destroyElement()
+    {
+        if (!has_element())
             return;
 
-        using AT = std::allocator_traits<MappedAlloc>;
-        MappedAlloc alloc{children_.get_allocator()};
-        AT::destroy(alloc, value_);
-        AT::deallocate(alloc, value_, sizeof(mapped_type));
-        value_ = {};
+        allocator_type alloc{children_.get_allocator()};
+        AllocTraits::destroy(alloc, element_);
+        AllocTraits::deallocate(alloc, element_, sizeof(element_type));
+        element_ = {};
     }
 
     tree_type children_;
     TreeIterator position_ = {};
-    MappedPtr value_ = {};
+    element_pointer element_ = {};
     TokenTrieNode* parent_ = nullptr;
 
     template <typename, bool> friend class TokenTrieCursor;
+
+    template <typename, bool> friend class TokenTrieIterator;
 
     template <typename, typename, typename, typename>
     friend class internal::TokenTrieImpl;
@@ -250,7 +283,7 @@ public: // Internal use only
     TokenTrieNode(PassKey, key_compare comp, in_place_t, Us&&... args)
         : children_(std::move(comp))
     {
-        constructValue(std::forward<Us>(args)...);
+        constructElement(std::forward<Us>(args)...);
     }
 
     template <typename... Us>
@@ -258,26 +291,43 @@ public: // Internal use only
                   PassKey, key_compare comp, in_place_t, Us&&... args)
         : children_(std::move(comp), alloc)
     {
-        constructValue(std::forward<Us>(args)...);
+        constructElement(std::forward<Us>(args)...);
+    }
+
+    template <typename... Us>
+    TokenTrieNode(PassKey, key_compare comp, key_type&& key,
+                  in_place_t, Us&&... args)
+        : children_(std::move(comp))
+    {
+        constructElementWithKey(std::move(key), std::forward<Us>(args)...);
+    }
+
+    template <typename... Us>
+    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
+                  PassKey, key_compare comp, key_type&& key,
+                  in_place_t, Us&&... args)
+        : children_(std::move(comp), alloc)
+    {
+        constructElementWithKey(std::move(key), std::forward<Us>(args)...);
     }
 
     TokenTrieNode(PassKey, TokenTrieNode&& other)
         : children_(std::move(other.children_)),
           position_(std::move(other.position_)),
-          value_(other.value_),
+          element_(other.element_),
           parent_(other.parent_)
     {
-        other.value_ = nullptr;
+        other.element_ = nullptr;
     }
 
     TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
                   PassKey, TokenTrieNode&& other)
         : children_(std::move(other.children_)),
           position_(std::move(other.position_)),
-          value_(other.value_),
+          element_(other.element_),
           parent_(other.parent_)
     {
-        other.value_ = nullptr;
+        other.element_ = nullptr;
     }
 };
 
@@ -307,6 +357,9 @@ public:
     /// Integral type used to represent the depth within the tree.
     using level_type = typename key_type::size_type;
 
+    /// Key-value pair type stored in the node.
+    using element_type = typename N::element_type;
+
     /// Type of the mapped value.
     using mapped_type = typename N::mapped_type;
 
@@ -319,6 +372,11 @@ public:
     /** Reference to a mapped value. */
     using reference = typename std::conditional<IsMutable, mapped_type&,
                                                 const mapped_type&>::type;
+
+    /** Reference to a key-value pair. */
+    using element_reference =
+        typename std::conditional<IsMutable, element_type&,
+                                  const element_type&>::type;
 
     /** Iterator type which advances through a tree's child nodes in a
         breath-first manner (non-recursive). */
@@ -372,8 +430,8 @@ public:
         {return at_end() || target_ == parent_->children().end();}
 
     /** Determines if the cursor points to a node containing a mapped value. */
-    bool has_value() const noexcept
-        {return !at_end_of_level() && childNode().has_value();}
+    bool has_element() const noexcept
+        {return !at_end_of_level() && childNode().has_element();}
 
     /** Determines if the token and mapped value of this cursor's node are
         equivalent to the ones from the given cursor.
@@ -388,8 +446,8 @@ public:
 
         const auto& a = childNode();
         const auto& b = rhs.childNode();
-        return a.has_value() ? (b.has_value() && (a.value() == b.value()))
-                             : !b.has_value();
+        return a.has_element() ? (b.has_element() && (a.value() == b.value()))
+                             : !b.has_element();
     }
 
     /** Determines if the token or mapped value of this cursor's node are
@@ -405,8 +463,8 @@ public:
 
         const auto& a = childNode();
         const auto& b = rhs.childNode();
-        return a.has_value() ? (!b.has_value() || (a.value() != b.value()))
-                             : b.has_value();
+        return a.has_element() ? (!b.has_element() || (a.value() != b.value()))
+                               : b.has_element();
     }
 
     /** Returns a pointer to the target node's parent, or `nullptr` if
@@ -445,24 +503,32 @@ public:
         @pre `!this->at_end()` */
     const_iterator iter() const {assert(!at_end()); return target_;}
 
-    /** Generates the key associated with the current target node.
-        @pre `!this->at_end_of_level() */
-    key_type key() const {return childNode().key();}
-
     /** Obtains the token associated with the current target node.
         @pre `!this->at_end_of_level() */
     const token_type& token() const
         {assert(!at_end_of_level()); return target_->first;}
 
-    /** Accesses the mapped value associated with the current target node.
-        @pre `this->has_value()` */
-    const mapped_type& value() const
-        {assert(has_value()); return target_->second.value();}
+    /** Accesses the element associated with the current target node.
+    @pre `this->has_element()` */
+    const element_type& element() const
+        {assert(has_element()); return target_->second.element();}
 
     /** Accesses the mapped value associated with the current target node.
-        @pre `this->has_value()` */
-    reference value()
-        {assert(has_value()); return target_->second.value();}
+    @pre `this->has_element()` */
+    element_reference element()
+        {assert(has_element()); return target_->second.element();}
+
+    /** Accesses the key associated with the current target node.
+        @pre `this->has_element()` */
+    key_type key() const {return element().first;}
+
+    /** Accesses the mapped value associated with the current target node.
+        @pre `this->has_element()` */
+    const mapped_type& value() const {return element().second;}
+
+    /** Accesses the mapped value associated with the current target node.
+        @pre `this->has_element()` */
+    reference value() {return element().second;}
 
     /** Makes the cursor advance in a depth-first manner to point the next node
         in the trie. Does not advance if already at the sentinel node. */
@@ -484,7 +550,7 @@ public:
         while (!at_end())
         {
             advanceDepthFirst();
-            if (has_value())
+            if (has_element())
                 break;
         }
     }
@@ -549,7 +615,7 @@ private:
     static TokenTrieCursor first(NodeRef rootNode)
     {
         auto cursor = begin(rootNode);
-        if (!cursor.at_end_of_level() && !cursor.target()->has_value())
+        if (!cursor.at_end_of_level() && !cursor.target()->has_element())
             cursor.advance_depth_first_to_next_element();
         return cursor;
     }
@@ -618,6 +684,8 @@ private:
     iterator target_ = {};
 
     template <typename, bool> friend class TokenTrieCursor;
+
+    template <typename, bool> friend class TokenTrieIterator;
 
     template <typename, typename, typename, typename>
     friend class internal::TokenTrieImpl;

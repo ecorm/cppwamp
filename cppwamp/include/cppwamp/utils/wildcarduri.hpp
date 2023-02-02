@@ -15,12 +15,11 @@
 #include <algorithm>
 #include <ostream>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
-#include "../api.hpp"
 #include "../erroror.hpp"
 #include "../tagtypes.hpp"
+#include "../traits.hpp"
 #include "tokentrie.hpp"
 
 namespace wamp
@@ -44,7 +43,6 @@ public:
     using char_type        = typename uri_type::value_type;
     using storage_type     = std::vector<std::string>;
     using value_type       = label_type;
-    using allocator_type   = typename storage_type::allocator_type;
     using size_type        = typename storage_type::size_type;
     using difference_type  = typename storage_type::difference_type;
     using reference        = label_type&;
@@ -114,14 +112,13 @@ public:
     void clear() noexcept               {labels_.clear();}
     void push_back(const label_type& s) {labels_.push_back(s);}
     void push_back(label_type&& s)      {labels_.push_back(std::move(s));}
-    void swap(SplitUri& x)
-        noexcept(std::is_nothrow_swappable<storage_type>::value)
+    void swap(SplitUri& x) noexcept(isNothrowSwappable<storage_type>())
         {labels_.swap(x.labels_);}
     /// @}
 
     /// @name Labels
     /// @{
-    /** Return an URI string composed of this object's split labels. */
+    /** Obtains an URI string composed of this object's split labels. */
     ErrorOr<uri_type> flatten() const;
 
     /** Accesses the underlying container of split labels. */
@@ -140,7 +137,11 @@ public:
     friend bool operator> (const SplitUri& a, const SplitUri& b) {return a.labels_ >  b.labels_;}
     friend bool operator>=(const SplitUri& a, const SplitUri& b) {return a.labels_ >= b.labels_;}
 
-    friend void swap(SplitUri& a, SplitUri& b) {a.swap(b);}
+    friend void swap(SplitUri& a, SplitUri& b)
+        noexcept(isNothrowSwappable<storage_type>())
+    {
+        a.swap(b);
+    }
 
     friend std::ostream& operator<<(const SplitUri& x, std::ostream& out)
     {
@@ -149,9 +150,7 @@ public:
     /// @}
 
 private:
-    static storage_type tokenize(const uri_type uri);
-
-    static uri_type untokenize(const storage_type& labels);
+    static storage_type tokenize(const uri_type& uri);
 
     storage_type labels_;
 };
@@ -167,7 +166,7 @@ inline SplitUri::label_type CPPWAMP_API wildcardLabel()
 
 //------------------------------------------------------------------------------
 /** Determines if the given uri label is a wildcard.
-    @relates SplitUri */
+    @relates BasicSplitUri */
 //------------------------------------------------------------------------------
 inline bool CPPWAMP_API isWildcardLabel(const SplitUri::label_type& label)
 {
@@ -183,13 +182,14 @@ bool CPPWAMP_API matchesWildcardPattern(const SplitUri& uri,
 
 
 //------------------------------------------------------------------------------
-template <typename T, typename A = std::allocator<T>>
-using UriTrie = TokenTrie<SplitUri, T, TokenTrieDefaultOrdering, A>;
+template <typename T>
+using UriTrie = TokenTrie<SplitUri, T, TokenTrieDefaultOrdering>;
 
 
 //------------------------------------------------------------------------------
 /** TokenTrie traverser that advances through wildcard matches in
-    lexicographic order. */
+    lexicographic order.
+    @tparam C TokenTrie cursor type */
 //------------------------------------------------------------------------------
 template <typename C>
 class CPPWAMP_API WildcardMatcher
@@ -253,6 +253,9 @@ private:
 };
 
 //------------------------------------------------------------------------------
+/** Creates a wildcard matcher suitable for the given mutable trie and
+    search key. */
+//------------------------------------------------------------------------------
 template <typename T>
 WildcardMatcher<typename UriTrie<T>::cursor> CPPWAMP_API
 wildcardMatches(UriTrie<T>& trie, const SplitUri& key)
@@ -262,6 +265,8 @@ wildcardMatches(UriTrie<T>& trie, const SplitUri& key)
 }
 
 //------------------------------------------------------------------------------
+/** Creates a wildcard matcher suitable for the given immutable trie and
+    search key. */
 template <typename T>
 WildcardMatcher<typename UriTrie<T>::const_cursor> CPPWAMP_API
 wildcardMatches(const UriTrie<T>& trie, const SplitUri& key)
@@ -337,7 +342,7 @@ bool WildcardMatcher<C>::isMatch() const
     // All nodes above the current level are matches. Only the bottom
     // level needs to be checked.
     assert(level_ < key_.size());
-    return cursor_.has_value() && tokenMatches(key_[level_]);
+    return cursor_.has_element() && tokenMatches(key_[level_]);
 }
 
 //------------------------------------------------------------------------------

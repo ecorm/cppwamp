@@ -217,8 +217,8 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename TTrie>
-class BrokerTopicMap
+template <typename TTrie, typename TDerived>
+class BrokerTopicMapBase
 {
 public:
     ErrorOr<SubscriptionId> subscribe(BrokerSubscribeInfo& info)
@@ -228,14 +228,19 @@ public:
         auto found = trie_.find(key);
         if (found == trie_.end())
         {
-            auto iter = info.addNewSubscriptionRecord();
-            subId = iter->first;
-            trie_.emplace(std::move(key), iter);
+            auto subscriptionMapIter = info.addNewSubscriptionRecord();
+            subId = subscriptionMapIter->first;
+            trie_.emplace(std::move(key), subscriptionMapIter);
         }
         else
         {
-            subId = found.value()->first;
-            info.addSubscriberToExistingRecord(found.value()->second);
+            // tsl::htrie_map iterators don't dereference to a key-value pair
+            // like util::TokenTrie does.
+            auto subscriptionMapIter = TDerived::iteratorValue(found);
+
+            subId = subscriptionMapIter->first;
+            auto& subscriptionRecord = subscriptionMapIter->second;
+            info.addSubscriberToExistingRecord(subscriptionRecord);
         }
         return subId;
     }
@@ -248,10 +253,17 @@ protected:
 
 //------------------------------------------------------------------------------
 class BrokerExactTopicMap
-    : public BrokerTopicMap<utils::BasicTrieMap<
-          char, BrokerSubscriptionMap::iterator>>
+    : public BrokerTopicMapBase<
+          utils::BasicTrieMap<char, BrokerSubscriptionMap::iterator>,
+          BrokerExactTopicMap>
 {
 public:
+    template <typename I>
+    static BrokerSubscriptionMap::iterator iteratorValue(I iter)
+    {
+        return iter.value();
+    }
+
     void publish(BrokerPublicationInfo& info)
     {
         auto found = trie_.find(info.topicUri());
@@ -266,10 +278,17 @@ public:
 
 //------------------------------------------------------------------------------
 class BrokerPrefixTopicMap
-    : public BrokerTopicMap<utils::BasicTrieMap<
-          char, BrokerSubscriptionMap::iterator>>
+    : public BrokerTopicMapBase<
+          utils::BasicTrieMap<char, BrokerSubscriptionMap::iterator>,
+          BrokerPrefixTopicMap>
 {
 public:
+    template <typename I>
+    static BrokerSubscriptionMap::iterator iteratorValue(I iter)
+    {
+        return iter.value();
+    }
+
     void publish(BrokerPublicationInfo& info)
     {
         auto range = trie_.equal_prefix_range(info.topicUri());
@@ -288,9 +307,17 @@ public:
 
 //------------------------------------------------------------------------------
 class BrokerWildcardTopicMap
-    : public BrokerTopicMap<utils::UriTrie<BrokerSubscriptionMap::iterator>>
+    : public BrokerTopicMapBase<
+          utils::UriTrie<BrokerSubscriptionMap::iterator>,
+          BrokerWildcardTopicMap>
 {
 public:
+    template <typename I>
+    static BrokerSubscriptionMap::iterator iteratorValue(I iter)
+    {
+        return iter->second;
+    }
+
     void publish(BrokerPublicationInfo& info)
     {
         auto matches = wildcardMatches(trie_, info.topicUri());

@@ -257,7 +257,7 @@ public:
         {
             // Erase the value node, then all obsolete links up the chain
             // until we hit another value node or the sentinel.
-            while (!cursor.has_value() && !cursor.at_end())
+            while (!cursor.has_element() && !cursor.at_end())
             {
                 cursor.parent_->children_.erase(cursor.target_);
                 cursor.target_ = cursor.parent_->position_;
@@ -515,7 +515,7 @@ private:
                 parent = &(child->second);
         }
 
-        if (!found || !child->second.has_value())
+        if (!found || !child->second.has_element())
             return self.sentinelCursor();
         return {parent, child};
     }
@@ -554,9 +554,9 @@ private:
             bool placed = false;
             auto& node = child->second;
             parent = node.parent_;
-            placed = !node.has_value();
+            placed = !node.has_element();
             if (placed || clobber)
-                node.setValue(std::forward<Us>(args)...);
+                node.setElement(std::move(key), std::forward<Us>(args)...);
             return {{parent, child}, placed};
         }
 
@@ -564,7 +564,9 @@ private:
         assert(level < tokenCount);
         if (tokenCount - level == 1)
         {
-            child = addValueNode(parent, key[level], std::forward<Us>(args)...);
+            auto token = key[level];
+            child = addValueNode(parent, std::move(token), std::move(key),
+                                 std::forward<Us>(args)...);
             child->second.position_ = child;
             child->second.parent_ = parent;
             return {{parent, child}, true};
@@ -572,7 +574,7 @@ private:
 
         // Build and attach the sub-chain containing the new node.
         auto chain = constructNode();
-        auto token = std::move(key[level]);
+        auto token = key[level];
         buildChain(chain, std::move(key), level, std::forward<Us>(args)...);
         try
         {
@@ -589,13 +591,14 @@ private:
     }
 
     template <typename... Us>
-    TreeIterator addValueNode(Node* node, Token label, Us&&... args)
+    TreeIterator addValueNode(Node* node, Token&& label, Key&& key,
+                              Us&&... args)
     {
         auto result = node->children_.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(std::move(label)),
-            std::forward_as_tuple(PassKey{}, keyComp(), in_place,
-                                  std::forward<Us>(args)...));
+            std::forward_as_tuple(PassKey{}, keyComp(), std::move(key),
+                                  in_place, std::forward<Us>(args)...));
         assert(result.second);
         return result.first;
     }
@@ -609,21 +612,23 @@ private:
         // Add intermediary link nodes
         for (; level < tokenCount - 1; ++level)
         {
-            auto iter = buildLink(*node, std::move(key[level]));
+            auto iter = addLink(*node, key[level]);
             node = &(iter->second);
         }
 
         // Add value node
         assert(level < key.size());
-        addValueNode(node, std::move(key[level]), std::forward<Us>(args)...);
+        auto token = key[level];
+        addValueNode(node, std::move(token), std::move(key),
+                     std::forward<Us>(args)...);
     }
 
     template <typename... Us>
-    TreeIterator buildLink(Node& node, Token label)
+    TreeIterator addLink(Node& node, const Token& label)
     {
         auto result = node.children_.emplace(
             std::piecewise_construct,
-            std::forward_as_tuple(std::move(label)),
+            std::forward_as_tuple(label),
             std::forward_as_tuple(PassKey{}, keyComp()));
         assert(result.second);
         return result.first;
@@ -692,11 +697,11 @@ private:
 
         while (keepSearching)
         {
-            cursor.advance_depth_first_to_next_node();
+            cursor.advance_depth_first_to_next_element();
             keepSearching = !cursor.at_end() && keyComp(cursor.key(), key);
         }
 
-        if (!cursor.has_value())
+        if (!cursor.has_element())
             cursor.advance_depth_first_to_next_element();
 
         return cursor;
@@ -748,11 +753,11 @@ private:
 
         while (keepSearching)
         {
-            cursor.advance_depth_first_to_next_node();
+            cursor.advance_depth_first_to_next_element();
             keepSearching = !cursor.at_end() && !keyComp(key, cursor.key());
         }
 
-        if (!cursor.has_value())
+        if (!cursor.has_element())
             cursor.advance_depth_first_to_next_element();
 
         return cursor;

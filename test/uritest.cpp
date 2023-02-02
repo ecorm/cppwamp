@@ -111,18 +111,14 @@ void checkUriTrieIterators(TI ti, CI ci, const std::pair<const K, T>& pair)
 {
     auto key = pair.first;
     auto value = pair.second;
-    CHECK( ti.key() == key );
-    CHECK( ci.key() == key );
     CHECK( ti->first == key );
     CHECK( ci->first == key );
     CHECK( (*ti).first == key);
     CHECK( (*ci).first == key);
-    CHECK( ti.value() == value );
-    CHECK( ci.value() == value );
-    CHECK( ti->second.get() == value );
-    CHECK( ci->second.get() == value );
-    CHECK( (*ti).second.get() == value );
-    CHECK( (*ci).second.get() == value );
+    CHECK( ti->second == value );
+    CHECK( ci->second == value );
+    CHECK( (*ti).second == value );
+    CHECK( (*ci).second == value );
 
     using Pair = std::pair<const K, T>;
     CHECK( static_cast<Pair>(*ti) == pair );
@@ -200,17 +196,13 @@ void checkUriTrieContents(TokenTrie<K,T,C,A>& t,
 
         auto mf = t.find(key);
         REQUIRE( mf != t.end() );
-        CHECK( mf.key() == key );
         CHECK( mf->first == key );
-        CHECK( mf.value() == value );
-        CHECK( mf->second.get() == value );
+        CHECK( mf->second == value );
 
         auto cf = c.find(key);
         REQUIRE( cf != t.end() );
-        CHECK( cf.key() == key );
         CHECK( cf->first == key );
-        CHECK( cf.value() == value );
-        CHECK( cf->second.get() == value );
+        CHECK( cf->second == value );
 
         ++ti;
         ++ci;
@@ -239,9 +231,7 @@ void checkUriTrieInsertion(const TrieTestPairList<>& pairs, bool clobbers,
         const auto& pair = pairs[i];
         auto result = op(trie, pair);
         CHECK(result.second);
-        CHECK(result.first.key() == pair.first);
         CHECK(result.first->first == pair.first);
-        CHECK(result.first.value() == pair.second);
         CHECK(result.first->second == pair.second);
         CHECK(result.first == trie.find(pair.first));
     }
@@ -255,11 +245,9 @@ void checkUriTrieInsertion(const TrieTestPairList<>& pairs, bool clobbers,
         pair.second = -pair.second;
         auto result = op(trie, pair);
         CHECK_FALSE(result.second);
-        CHECK(result.first.key() == pair.first);
         CHECK(result.first->first == pair.first);
         if (!clobbers)
             pair.second = -pair.second;
-        CHECK(result.first.value() == pair.second);
         CHECK(result.first->second == pair.second);
     }
 }
@@ -295,8 +283,8 @@ bool checkUriTrieUris(const Trie& t, const std::vector<std::string>& uris)
     for (unsigned i=0; i<uris.size(); ++i)
     {
         INFO("for uris[" << i << "]");
-        CHECK(iter.key() == uris[i]);
-        same = same && (iter.key() == uris[i]);
+        CHECK(iter->first == uris[i]);
+        same = same && (iter->first == uris[i]);
         ++iter;
     }
     return same;
@@ -335,8 +323,8 @@ void checkUriTrieEqualRange(const Trie& t, const std::string& uri,
     }
     else
     {
-        CHECK(lb.key() == lbUri);
-        CHECK(er.first.key() == lbUri);
+        CHECK(lb->first == lbUri);
+        CHECK(er.first->first == lbUri);
     }
 
     auto ub = t.upper_bound(uri);
@@ -347,8 +335,8 @@ void checkUriTrieEqualRange(const Trie& t, const std::string& uri,
     }
     else
     {
-        CHECK(ub.key() == ubUri);
-        CHECK(er.second.key() == ubUri);
+        CHECK(ub->first == ubUri);
+        CHECK(er.second->first == ubUri);
     }
 }
 
@@ -690,7 +678,7 @@ TEST_CASE( "UriTrie Copy/Move Construction/Assignment", "[Uri]" )
             if (!input.empty())
             {
                 REQUIRE(aBegin != aEnd);
-                CHECK(aBegin.key() == input.front().first);
+                CHECK(aBegin->first == input.front().first);
             }
             if (input.size() == 1)
                 CHECK(++aBegin == aEnd);
@@ -707,7 +695,7 @@ TEST_CASE( "UriTrie Copy/Move Construction/Assignment", "[Uri]" )
             {
                 REQUIRE(b.begin() != b.end());
                 CHECK(aBegin == b.begin());
-                CHECK(b.begin().key() == input.front().first);
+                CHECK(b.begin()->first == input.front().first);
                 if (input.size() == 1)
                     CHECK(++aBegin == b.end());
             }
@@ -726,7 +714,7 @@ TEST_CASE( "UriTrie Copy/Move Construction/Assignment", "[Uri]" )
             if (!input.empty())
             {
                 REQUIRE(aBegin != aEnd);
-                CHECK(aBegin.key() == input.front().first);
+                CHECK(aBegin->first == input.front().first);
             }
             if (input.size() == 1)
                 CHECK(++aBegin == aEnd);
@@ -745,7 +733,7 @@ TEST_CASE( "UriTrie Copy/Move Construction/Assignment", "[Uri]" )
             if (!input.empty())
             {
                 REQUIRE(aBegin != aEnd);
-                CHECK(aBegin.key() == input.front().first);
+                CHECK(aBegin->first == input.front().first);
             }
             if (input.size() == 1)
                 CHECK(++aBegin == aEnd);
@@ -763,7 +751,7 @@ TEST_CASE( "UriTrie Copy/Move Construction/Assignment", "[Uri]" )
             {
                 REQUIRE(b.begin() != b.end());
                 CHECK(aBegin == b.begin());
-                CHECK(b.begin().key() == input.front().first);
+                CHECK(b.begin()->first == input.front().first);
             }
             if (input.size() == 1)
                 CHECK(++aBegin == b.end());
@@ -781,7 +769,7 @@ TEST_CASE( "UriTrie Copy/Move Construction/Assignment", "[Uri]" )
             {
                 REQUIRE(b.begin() != b.end());
                 CHECK(aBegin == b.begin());
-                CHECK(b.begin().key() == input.front().first);
+                CHECK(b.begin()->first == input.front().first);
             }
             if (input.size() == 1)
                 CHECK(++aBegin == b.end());
@@ -804,8 +792,8 @@ TEST_CASE( "UriTrie Self-Assignment", "[Uri]" )
         CHECK(t["a"] == 1);
         CHECK(begin == t.begin());
         CHECK(end == t.end());
-        CHECK(begin.key() == "a");
-        CHECK(begin.value() == 1);
+        CHECK(begin->first == "a");
+        CHECK(begin->second == 1);
         CHECK(++begin == end);
     }
 
@@ -832,8 +820,8 @@ TEST_CASE( "UriTrie Self-Assignment", "[Uri]" )
         CHECK(t["a"] == 1);
         CHECK(begin == t.begin());
         CHECK(end == t.end());
-        CHECK(begin.key() == "a");
-        CHECK(begin.value() == 1);
+        CHECK(begin->first == "a");
+        CHECK(begin->second == 1);
         CHECK(++begin == end);
     }
 
@@ -1071,7 +1059,7 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         // Check non-value "d" node still exists
         auto rootNode = trie.begin().cursor().parent();
         CHECK(rootNode->children().find("d") != rootNode->children().end());
-        CHECK(!rootNode->children().find("d")->second.has_value());
+        CHECK(!rootNode->children().find("d")->second.has_element());
 
         pos = trie.find("a");
         REQUIRE(pos != trie.end());
@@ -1081,7 +1069,7 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         // Check root node has a single non-value "d" child node
         REQUIRE(rootNode->children().size() == 1);
         CHECK(rootNode->children().find("d") != rootNode->children().end());
-        CHECK(!rootNode->children().find("d")->second.has_value());
+        CHECK(!rootNode->children().find("d")->second.has_element());
 
         // Re-insert last deleted key and erase it again
         auto inserted = trie.try_emplace("a", 1);
@@ -1093,7 +1081,7 @@ TEST_CASE( "UriTrie Erase", "[Uri]" )
         // Check root node has a single non-value "d" child node
         REQUIRE(rootNode->children().size() == 1);
         CHECK(rootNode->children().find("d") != rootNode->children().end());
-        CHECK(!rootNode->children().find("d")->second.has_value());
+        CHECK(!rootNode->children().find("d")->second.has_element());
 
         pos = trie.find("d.e");
         REQUIRE(pos != trie.end());
@@ -1169,14 +1157,14 @@ TEST_CASE( "UriTrie Swap", "[Uri]" )
         CHECK(a.contains("c"));
         CHECK(aBegin == b.begin());
         REQUIRE(aBegin != b.end());
-        CHECK(aBegin.key() == "a");
+        CHECK(aBegin->first == "a");
         CHECK(++Trie::iterator(aBegin) == b.end());
         CHECK(b.size() == 1);
         CHECK(b.contains("a"));
         CHECK(bBegin == a.begin());
         REQUIRE(bBegin != a.end());
-        CHECK(bBegin.key() == "b");
-        CHECK((++Trie::iterator(bBegin)).key() == "c");
+        CHECK(bBegin->first == "b");
+        CHECK((++Trie::iterator(bBegin))->first == "c");
         CHECK(++(++Trie::iterator(bBegin)) == a.end());
 
         swap(b, a);
@@ -1184,15 +1172,15 @@ TEST_CASE( "UriTrie Swap", "[Uri]" )
         CHECK(a.contains("a"));
         CHECK(aBegin == a.begin());
         REQUIRE(aBegin != a.end());
-        CHECK(aBegin.key() == "a");
+        CHECK(aBegin->first == "a");
         CHECK(++Trie::iterator(aBegin) == a.end());
         CHECK(b.size() == 2);
         CHECK(b.contains("b"));
         CHECK(b.contains("c"));
         CHECK(bBegin == b.begin());
         REQUIRE(bBegin != b.end());
-        CHECK(bBegin.key() == "b");
-        CHECK((++Trie::iterator(bBegin)).key() == "c");
+        CHECK(bBegin->first == "b");
+        CHECK((++Trie::iterator(bBegin))->first == "c");
         CHECK(++(++Trie::iterator(bBegin)) == b.end());
     }
 
@@ -1202,7 +1190,7 @@ TEST_CASE( "UriTrie Swap", "[Uri]" )
         CHECK(a.empty());
         CHECK(aBegin == x.begin());
         REQUIRE(aBegin != x.end());
-        CHECK(aBegin.key() == "a");
+        CHECK(aBegin->first == "a");
         CHECK(++Trie::iterator(aBegin) == x.end());
         CHECK(x.size() == 1);
         CHECK(x.contains("a"));
@@ -1213,7 +1201,7 @@ TEST_CASE( "UriTrie Swap", "[Uri]" )
         CHECK(aBegin == a.begin());
         CHECK(++Trie::iterator(aBegin) == a.end());
         REQUIRE(aBegin != a.end());
-        CHECK(aBegin.key() == "a");
+        CHECK(aBegin->first == "a");
         CHECK(x.empty());
     }
 
@@ -1225,7 +1213,7 @@ TEST_CASE( "UriTrie Swap", "[Uri]" )
         CHECK(a.empty());
         CHECK(aBegin == x.begin());
         REQUIRE(aBegin != x.end());
-        CHECK(aBegin.key() == "a");
+        CHECK(aBegin->first == "a");
         CHECK(++Trie::iterator(aBegin) == x.end());
 
         swap(a, x);
@@ -1233,7 +1221,7 @@ TEST_CASE( "UriTrie Swap", "[Uri]" )
         CHECK(a.contains("a"));
         CHECK(aBegin == a.begin());
         REQUIRE(aBegin != a.end());
-        CHECK(aBegin.key() == "a");
+        CHECK(aBegin->first == "a");
         CHECK(++Trie::iterator(aBegin) == a.end());
         CHECK(x.empty());
     }
@@ -1256,7 +1244,7 @@ TEST_CASE( "UriTrie Swap", "[Uri]" )
         CHECK(a.contains("a"));
         CHECK(aBegin == a.begin());
         REQUIRE(aBegin != a.end());
-        CHECK(aBegin.key() == "a");
+        CHECK(aBegin->first == "a");
         CHECK(++Trie::iterator(aBegin) == a.end());
 
         swap(b, b);
@@ -1265,8 +1253,8 @@ TEST_CASE( "UriTrie Swap", "[Uri]" )
         CHECK(b.contains("c"));
         CHECK(bBegin == b.begin());
         REQUIRE(bBegin != b.end());
-        CHECK(bBegin.key() == "b");
-        CHECK((++Trie::iterator(bBegin)).key() == "c");
+        CHECK(bBegin->first == "b");
+        CHECK((++Trie::iterator(bBegin))->first == "c");
         CHECK(++(++Trie::iterator(bBegin)) == b.end());
     }
 
@@ -1356,9 +1344,9 @@ TEST_CASE( "UriTrie Iterator Conversions and Mixed Comparisons", "[Uri]" )
     CI ci = t.cbegin();
     MI mi = t.begin();
 
-    CHECK(CI(ci).key() == "a");
-    CHECK(CI(mi).key() == "a");
-    CHECK(MI(mi).key() == "a");
+    CHECK(CI(ci)->first == "a");
+    CHECK(CI(mi)->first == "a");
+    CHECK(MI(mi)->first == "a");
 
     CHECK((ci == ci));
     CHECK((ci == mi));
@@ -1383,7 +1371,7 @@ void checkTrieStatefulAllocator(const TokenTrie<K,T,C,A>& trie, int id)
              " with token " << cursor.token());
         CHECK( cursor.parent()->children().get_allocator().id() == id );
         CHECK( cursor.token().get_allocator().id() == id );
-        if (cursor.has_value())
+        if (cursor.has_element())
             CHECK( cursor.value().get_allocator().id() == id );
         cursor.advance_depth_first_to_next_node();
         ++pos;
@@ -1391,14 +1379,16 @@ void checkTrieStatefulAllocator(const TokenTrie<K,T,C,A>& trie, int id)
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "UriTrie with scoped_allocator_adapter", "[Uri]" )
+TEST_CASE( "TokenTrie with scoped_allocator_adapter", "[Uri]" )
 {
-    SECTION("with std::allocator<int>")
+    SECTION("with non-stateful allocator")
     {
         using A = std::scoped_allocator_adaptor<std::allocator<int>>;
+        using Key = SplitUri;
+        using Value = int;
+        using TrieType = TokenTrie<Key, Value, TokenTrieDefaultOrdering, A>;
         TrieTestPairList<> pairs({ {"a.b.c", 1}, {"a", 2} });
-
-        UriTrie<int, A> trie({ {"a.b.c", 1}, {"a", 2} });
+        TrieType trie({ {"a.b.c", 1}, {"a", 2} });
         checkUriTrieContents(trie, pairs);
     }
 

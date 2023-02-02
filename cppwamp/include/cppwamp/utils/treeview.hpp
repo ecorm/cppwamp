@@ -68,9 +68,6 @@ public:
     /// Comparison function that determines how keys are sorted.
     using key_compare = typename tree_type::key_compare;
 
-    /// The tree's allocator type.
-    using allocator_type = typename tree_type::allocator_type;
-
     /// Reference to a key-value pair.
     using reference = typename std::conditional<IsMutable, value_type&,
                                                 const value_type&>::type;
@@ -117,7 +114,7 @@ public:
     TreeView(TreeView<TTree, M> rhs) : tree_(rhs.tree_) {}
 
     /** Obtains the tree's allocator. */
-    allocator_type get_allocator() const noexcept
+    typename tree_type::allocator_type get_allocator() const noexcept
         {return tree().get_allocator();}
 
     /** Returns true if the tree view has a target. */

@@ -73,7 +73,7 @@ struct TokenTrieDefaultOrdering
 template <typename K,
           typename T,
           typename C = TokenTrieDefaultOrdering,
-          typename A = std::allocator<T>>
+          typename A = std::allocator<std::pair<const K, T>>>
 class TokenTrie
 {
 private:
@@ -93,11 +93,7 @@ public:
     /// Type of the mapped value.
     using mapped_type = T;
 
-    /** Type used to combine a key and its associated value.
-        @note Unlike std::map, keys are not stored alongside their associated
-              value due to the distributed nature of how keys are stored inside
-              the trie. This type is provided to make the interface more closely
-              match that of std::map. */
+    /** Key-value pair type stored in nodes. */
     using value_type = std::pair<const key_type, mapped_type>;
 
     /// Type used to count the number of elements in the container.
@@ -113,16 +109,16 @@ public:
     using allocator_type = A;
 
     /// Reference to a key-value pair.
-    using reference = TokenTrieKeyValueProxy<key_type, mapped_type, true>;
+    using reference = value_type&;
 
     /// Reference to an immutable key-value pair.
-    using const_reference = TokenTrieKeyValueProxy<key_type, mapped_type, false>;
+    using const_reference = const value_type&;
 
-    /// Pointer to key-value pair
-    using pointer = TokenTrieKeyValuePointer<key_type, mapped_type, true>;
+    /// Pointer to key-value pair.
+    using pointer = typename Node::element_pointer;
 
-    /// Pointer to an immutable key-value pair
-    using const_pointer = TokenTrieKeyValuePointer<key_type, mapped_type, false>;
+    /// Pointer to an immutable key-value pair.
+    using const_pointer = typename Node::const_element_pointer;
 
     /** Mutable iterator type which advances through elements in lexicographic
         order of their respective keys. */
@@ -241,10 +237,11 @@ public:
 
     /** Accesses or inserts an element with the given key. */
     mapped_type& operator[](const key_type& key)
-        {return add(key).first.value();}
+        {return add(key).first->second;}
 
     /** Accesses or inserts an element with the given key. */
-    mapped_type& operator[](key_type&& key) {return add(key).first.value();}
+    mapped_type& operator[](key_type&& key)
+        {return add(std::move(key)).first->second;}
 
     /// @name Iterators
     /// @{
@@ -345,7 +342,10 @@ public:
     /** Inserts elements from the given iterator range. */
     template <typename I>
     void insert(I first, I last)
-        {return insertRange(internal::IsTokenTrieIterator<I>{}, first, last);}
+    {
+        for (; first != last; ++first)
+            add(first->first, first->second);
+    }
 
     /** Inserts elements from the given initializer list of key-value pairs. */
     void insert(std::initializer_list<value_type> list)
@@ -512,30 +512,15 @@ private:
                 I{self.impl_.sentinelCursor()}};
     }
 
-    template <typename I>
-    void insertRange(std::true_type, I first, I last)
-    {
-        for (; first != last; ++first)
-            add(first.key(), first.value());
-    }
-
-    template <typename I>
-    void insertRange(std::false_type, I first, I last)
-    {
-        for (; first != last; ++first)
-            add(first->first, first->second);
-    }
-
     template <typename F>
     size_type doEraseIf(F predicate)
     {
-        using Pair = std::pair<const key_type&, const mapped_type&>;
         auto oldSize = size();
         auto last = end();
         auto iter = begin();
         while (iter != last)
         {
-            if (predicate(Pair{iter.key(), iter.value()}))
+            if (predicate(*iter))
                 iter = erase(iter);
             else
                 ++iter;
