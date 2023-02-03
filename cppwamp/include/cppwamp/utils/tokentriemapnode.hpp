@@ -520,7 +520,7 @@ public:
 
     /** Accesses the key associated with the current target node.
         @pre `this->has_element()` */
-    key_type key() const {return element().first;}
+    const key_type& key() const {return element().first;}
 
     /** Accesses the mapped value associated with the current target node.
         @pre `this->has_element()` */

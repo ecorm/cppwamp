@@ -213,9 +213,9 @@ public:
     /** Default constructor. */
     WildcardMatcher(Key key, Cursor root, Cursor sentinel);
 
-    /** Generates the split token key container associated with the
+    /** Accesses the split token key container associated with the
         current element. */
-    Key key() const {return cursor_.key();}
+    const Key& key() const {return cursor_.key();}
 
     /** Accesses the value associated with the current element. */
     Reference value() {return cursor_.value();}

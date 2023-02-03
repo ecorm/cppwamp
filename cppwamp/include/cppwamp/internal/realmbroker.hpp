@@ -116,13 +116,15 @@ class BrokerSubscriptionRecord
 public:
     BrokerSubscriptionRecord() = default;
 
-    BrokerSubscriptionRecord(BrokerUriAndPolicy topic)
+    BrokerSubscriptionRecord(BrokerUriAndPolicy topic, SubscriptionId subId)
         : topic_(std::move(topic))
     {}
 
     bool empty() const {return sessions_.empty();}
 
     BrokerUriAndPolicy topic() const {return topic_;}
+
+    SubscriptionId subscriptionId() const {return subId_;}
 
     void addSubscriber(SessionId sid, BrokerSubscriberInfo info)
     {
@@ -131,9 +133,9 @@ public:
 
     bool removeSubscriber(SessionId sid) {return sessions_.erase(sid) != 0;}
 
-    void publish(BrokerPublicationInfo& info, SubscriptionId subId) const
+    void publish(BrokerPublicationInfo& info) const
     {
-        info.setSubscriptionId(subId);
+        info.setSubscriptionId(subId_);
         for (auto& kv : sessions_)
         {
             auto session = kv.second.session.lock();
@@ -145,6 +147,7 @@ public:
 private:
     std::map<SessionId, BrokerSubscriberInfo> sessions_;
     BrokerUriAndPolicy topic_;
+    SubscriptionId subId_;
 };
 
 //------------------------------------------------------------------------------
@@ -193,14 +196,14 @@ public:
         return topic_.check();
     }
 
-    BrokerSubscriptionMap::iterator addNewSubscriptionRecord()
+    BrokerSubscriptionRecord* addNewSubscriptionRecord()
     {
         auto subId = subIdGen_.next(subscriptions_);
-        BrokerSubscriptionRecord rec{std::move(topic_)};
+        BrokerSubscriptionRecord rec{std::move(topic_), subId};
         rec.addSubscriber(sessionId_, std::move(subscriber_));
         auto emplaced = subscriptions_.emplace(subId, std::move(rec));
         assert(emplaced.second);
-        return emplaced.first;
+        return &(emplaced.first->second);
     }
 
     void addSubscriberToExistingRecord(BrokerSubscriptionRecord& rec)
@@ -228,19 +231,15 @@ public:
         auto found = trie_.find(key);
         if (found == trie_.end())
         {
-            auto subscriptionMapIter = info.addNewSubscriptionRecord();
-            subId = subscriptionMapIter->first;
-            trie_.emplace(std::move(key), subscriptionMapIter);
+            BrokerSubscriptionRecord* rec = info.addNewSubscriptionRecord();
+            trie_.emplace(std::move(key), rec);
         }
         else
         {
             // tsl::htrie_map iterators don't dereference to a key-value pair
             // like util::TokenTrieMap does.
-            auto subscriptionMapIter = TDerived::iteratorValue(found);
-
-            subId = subscriptionMapIter->first;
-            auto& subscriptionRecord = subscriptionMapIter->second;
-            info.addSubscriberToExistingRecord(subscriptionRecord);
+            BrokerSubscriptionRecord* rec = TDerived::iteratorValue(found);
+            info.addSubscriberToExistingRecord(*rec);
         }
         return subId;
     }
@@ -254,12 +253,12 @@ protected:
 //------------------------------------------------------------------------------
 class BrokerExactTopicMap
     : public BrokerTopicMapBase<
-          utils::BasicTrieMap<char, BrokerSubscriptionMap::iterator>,
+          utils::BasicTrieMap<char, BrokerSubscriptionRecord*>,
           BrokerExactTopicMap>
 {
 public:
     template <typename I>
-    static BrokerSubscriptionMap::iterator iteratorValue(I iter)
+    static BrokerSubscriptionRecord* iteratorValue(I iter)
     {
         return iter.value();
     }
@@ -269,9 +268,8 @@ public:
         auto found = trie_.find(info.topicUri());
         if (found != trie_.end())
         {
-            SubscriptionId subId = (*found)->first;
-            const BrokerSubscriptionRecord& rec = (*found)->second;
-            rec.publish(info, subId);
+            const BrokerSubscriptionRecord* rec = found.value();
+            rec->publish(info);
         }
     }
 };
@@ -279,12 +277,12 @@ public:
 //------------------------------------------------------------------------------
 class BrokerPrefixTopicMap
     : public BrokerTopicMapBase<
-          utils::BasicTrieMap<char, BrokerSubscriptionMap::iterator>,
+          utils::BasicTrieMap<char, BrokerSubscriptionRecord*>,
           BrokerPrefixTopicMap>
 {
 public:
     template <typename I>
-    static BrokerSubscriptionMap::iterator iteratorValue(I iter)
+    static BrokerSubscriptionRecord* iteratorValue(I iter)
     {
         return iter.value();
     }
@@ -298,22 +296,20 @@ public:
         info.enableTopicDetail();
         for (; range.first != range.second; ++range.first)
         {
-            SubscriptionId subId = (*range.first)->first;
-            const BrokerSubscriptionRecord& rec = (*range.first)->second;
-            rec.publish(info, subId);
+            const BrokerSubscriptionRecord* rec = range.first.value();
+            rec->publish(info);
         }
     }
 };
 
 //------------------------------------------------------------------------------
 class BrokerWildcardTopicMap
-    : public BrokerTopicMapBase<
-          utils::UriTrieMap<BrokerSubscriptionMap::iterator>,
-          BrokerWildcardTopicMap>
+    : public BrokerTopicMapBase<utils::UriTrieMap<BrokerSubscriptionRecord*>,
+                                BrokerWildcardTopicMap>
 {
 public:
     template <typename I>
-    static BrokerSubscriptionMap::iterator iteratorValue(I iter)
+    static BrokerSubscriptionRecord* iteratorValue(I iter)
     {
         return iter->second;
     }
@@ -327,9 +323,8 @@ public:
         info.enableTopicDetail();
         while (!matches.done())
         {
-            SubscriptionId subId = matches.value()->first;
-            const BrokerSubscriptionRecord& rec = matches.value()->second;
-            rec.publish(info, subId);
+            const BrokerSubscriptionRecord* rec = matches.value();
+            rec->publish(info);
             matches.next();
         }
     }
