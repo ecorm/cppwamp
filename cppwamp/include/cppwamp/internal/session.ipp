@@ -52,10 +52,9 @@ CPPWAMP_INLINE Session::~Session()
 //------------------------------------------------------------------------------
 /** @details
     The dictionary is structured as per `HELLO.Details.roles`, as desribed in
-    the ["Client: Role and Feature Announcement"][1] section of the advanced
-    WAMP specification.
+    the ["HELLO"][1] subsection of the WAMP specification.
 
-    [1]: https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.7.1.1.1 */
+    [1]: https://wamp-proto.org/wamp_latest_ietf.html#name-hello-2 */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE const Object& Session::roles()
 {

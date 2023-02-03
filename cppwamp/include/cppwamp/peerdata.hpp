@@ -109,8 +109,8 @@ public:
     Object sanitizedOptions() const;
 
     /** @name Authentication
-        See [Authentication in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.5.2)
+        See [Authentication Methods in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-authentication-methods)
         @{ */
 
     /** Sets the `HELLO.Details.authmethods` option. */
@@ -166,7 +166,7 @@ public:
 
     /** @name Agent Identification
         See [Agent Identification in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.8)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-hello-2)
         @{ */
 
     /** Obtains the agent string of the WAMP router. */
@@ -175,7 +175,7 @@ public:
 
     /** @name Role and Feature Announcement
         See [Client: Role and Feature Announcement in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.7.1.1.1)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-hello-2)
         @{ */
 
     /** Obtains the `WELCOME.Details.roles` dictionary for the router. */
@@ -189,8 +189,8 @@ public:
     /// @}
 
     /** @name Authentication
-        See [Authentication in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.5.2)
+        See [Authentication Methods in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-authentication-methods)
         @{ */
 
     /** Obtains the authentication ID the client was actually
@@ -256,8 +256,8 @@ public:
 /** Provides the _Signature_ and _Extra_ dictionary contained within
     WAMP `AUTHENTICATE` messages.
 
-    See [Authentication in the WAMP specification]
-    (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.5.2) */
+    See [Authentication Methods in the WAMP specification]
+    (https://wamp-proto.org/wamp_latest_ietf.html#name-authentication-methods) */
 //------------------------------------------------------------------------------
 class CPPWAMP_API Authentication : public Options<Authentication,
                                                   internal::AuthenticateMessage>
@@ -296,8 +296,8 @@ namespace internal { class Challengee; } // Forward declaration
 /** Provides the _AuthMethod_ and _Extra_ dictionary contained within
     WAMP `CHALLENGE` messages.
 
-    See [Authentication in the WAMP specification]
-    (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.5.2) */
+    See [Authentication Methods in the WAMP specification]
+    (https://wamp-proto.org/wamp_latest_ietf.html#name-authentication-methods) */
 //------------------------------------------------------------------------------
 class CPPWAMP_API Challenge : public Options<Challenge,
                                              internal::ChallengeMessage>
@@ -416,9 +416,9 @@ public:
     /** Converting constructor taking a topic URI. */
     Topic(String uri);
 
-    /** @name Pattern-based Subscriptions
-        See [Pattern-based Subscriptions in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.6)
+    /** @name Pattern-based Subscription
+        See [Pattern-based Subscription in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-pattern-based-subscription)
         @{ */
 
     /** Sets the matching policy to be used for this subscription. */
@@ -453,7 +453,7 @@ public:
 
     /** @name Subscriber Allow/Deny Lists
         See [Subscriber Black- and Whitelisting in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.1)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-subscriber-black-and-whitel)
         @{ */
 
     /** Obtains the topic URI. */
@@ -482,7 +482,7 @@ public:
 
     /** @name Publisher Exclusion
         See [Publisher Exclusion in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.2)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-publisher-exclusion)
         @{ */
 
     /** Specifies if this session should be excluded from receiving the
@@ -492,7 +492,7 @@ public:
 
     /** @name Publisher Identification
         See [Publisher Identification in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.3)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-publisher-identification)
         @{ */
 
     /** Requests that the identity (session ID) of this session be disclosed
@@ -536,7 +536,7 @@ public:
 
     /** @name Publisher Identification
         See [Publisher Identification in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.3)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-publisher-identification)
         @{ */
 
     /** Obtains the publisher ID integer. */
@@ -545,16 +545,16 @@ public:
 
     /** @name Publication Trust Levels
         See [Publication Trust Levels in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.4)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-publication-trust-levels)
         @{ */
 
     /** Obtains the trust level integer. */
     ErrorOr<UInt> trustLevel() const;
     /// @}
 
-    /** @name Pattern-based Subscriptions
-        See [Pattern-based Subscriptions in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.6)
+    /** @name Pattern-based Subscription
+        See [Pattern-based Subscription in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-pattern-based-subscription)
         @{ */
 
     /** Obtains the original topic URI string used to make the publication. */
@@ -596,7 +596,7 @@ public:
 
     /** @name Pattern-based Registrations
         See [Pattern-based Registrations in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.8)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-pattern-based-registrations)
         @{ */
 
     /** Sets the matching policy to be used for this subscription. */
@@ -642,7 +642,7 @@ public:
 
     /** @name Progressive Call Results
         See [Progressive Call Results in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
         @{ */
 
     /** Sets willingness to receive progressive results. */
@@ -654,7 +654,7 @@ public:
 
     /** @name Call Timeouts
         See [Call Timeouts in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.3).
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-call-timeouts).
         Setting a duration of zero deactivates the timeout.
         @{ */
 
@@ -693,7 +693,7 @@ public:
 
     /** @name Caller Identification
         See [Caller Identification in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.5)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-caller-identification)
         @{ */
 
     /** Requests that the identity (session ID) of this session be disclosed
@@ -713,7 +713,7 @@ public:
 
     /** @name Pattern-based Registrations
         See [Pattern-based Registrations in the WAMP Specification]
-        (https://wamp-proto.org/wamp_latest_ietf.html#section-11.8)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-pattern-based-registrations)
         @{ */
 
     /** Sets the matching policy to be used for this subscription. */
@@ -758,7 +758,7 @@ public:
 
     /** @name Progressive Call Results
         See [Progressive Call Results in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
         @{ */
 
     /** Lets the callee specify if the yielded result is progressive. */
@@ -929,7 +929,7 @@ public:
 
     /** @name Progressive Call Results
         See [Progressive Call Results in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
         @{ */
 
     /** Checks if the caller requested progressive results. */
@@ -938,7 +938,7 @@ public:
 
     /** @name Caller Identification
         See [Caller Identification in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.5)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-caller-identification)
         @{ */
 
     /** Obtains the session ID integer of the caller. */
@@ -947,7 +947,7 @@ public:
 
     /** @name Call Trust Levels
         See [Call Trust Levels in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.6)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-call-trust-levels)
         @{ */
 
     /** Obtains the trust level integer. */
@@ -956,7 +956,7 @@ public:
 
     /** @name Pattern-based Registrations
         See [Pattern-based Registrations in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.8)
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-pattern-based-registrations)
         @{ */
 
     /** Obtains the original procedure URI string used to make this call. */

@@ -662,7 +662,7 @@ Progressive Calls Results
 -------------------------
 
 [Progressive calls results]
-(https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1)
+(https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
 is a WAMP feature that allows a sequence of partial results to be returned from
 the same remote procedure call.
 
@@ -682,7 +682,7 @@ It may also be desirable to pass an interruption handler to the session
 @ref wamp::Session::enroll "enroll" method, so that the callee may stop
 yielding partial results in the event that the call is cancelled
 (see [Progressive Call Result Cancellation]
-(https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.1.2)
+(https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
 in the WAMP specification).
 
 The following example shows a callee registering an RPC that yields
