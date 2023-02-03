@@ -47,8 +47,7 @@ struct TokenTrieDefaultOrdering
     - erasures
     - swaps
 
-    In addition, this container further guarantees that non-end iterators are
-    not invalidated during
+    In addition, this container does not invalidate non-end iterators during
     - move-construction
     - move-assignment
     - self-move-assignment
@@ -64,10 +63,15 @@ struct TokenTrieDefaultOrdering
     and mapped types will respectively use the user-provided allocator if they
     specialize `std::uses_allocator`.
 
+    Homogenous key overloads are not provided due to the requirement that
+    keys be a split token container type for lookups.
+
     @tparam K Split token container type.
             Must be a Sequence with a `push_back` member function.
     @tparam T Mapped value type. Must be default-constructible.
-    @tparam C Token compare function.
+    @tparam C Key and token compare function. Must be able to compare keys with
+              keys, and tokens with tokens. A *transparent* comparator meets
+              this requirement.
     @tparam A Allocator */
 //------------------------------------------------------------------------------
 template <typename K,
