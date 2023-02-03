@@ -33,7 +33,7 @@ public:
     BrokerPublication(Pub&& pub, PublicationId pid,
                       RouterSession::Ptr publisher)
         : topicUri_(pub.topic()),
-          event_(eventFromPub(std::move(pub), pid)),
+          event_({}, std::move(pub), nullId(), pid),
           publisherId_(publisher->wampId()),
           publicationId_(pid),
           selfPublishEnabled_(pub.optionOr<bool>("exclude_me", false))
@@ -60,16 +60,6 @@ public:
     PublicationId publicationId() const {return publicationId_;}
 
 private:
-    static Event eventFromPub(Pub&& pub, PublicationId pubId)
-    {
-        Event ev{pubId};
-        if (!pub.args().empty() || !pub.kwargs().empty())
-            ev.withArgList(std::move(pub).args());
-        if (!pub.kwargs().empty())
-            ev.withKwargs(std::move(pub).kwargs());
-        return ev;
-    }
-
     String topicUri_;
     Event event_;
     SessionId publisherId_;
@@ -81,7 +71,7 @@ private:
 class BrokerUriAndPolicy
 {
 public:
-    using Policy = Topic::MatchPolicy;
+    using Policy = MatchPolicy;
 
     BrokerUriAndPolicy() = default;
 
@@ -194,7 +184,7 @@ public:
 
     const String& topicUri() const {return topic_.uri();}
 
-    Topic::MatchPolicy policy() const {return topic_.policy();}
+    MatchPolicy policy() const {return topic_.policy();}
 
     std::error_code check() const
     {
@@ -363,7 +353,7 @@ public:
             break;
         }
 
-        assert(false && "Unexpected Topic::MatchPolicy enumerator");
+        assert(false && "Unexpected MatchPolicy enumerator");
         return 0;
     }
 
@@ -394,7 +384,7 @@ public:
                 break;
 
             default:
-                assert(false && "Unexpected Topic::MatchPolicy enumerator");
+                assert(false && "Unexpected MatchPolicy enumerator");
                 break;
             }
         }
@@ -415,7 +405,7 @@ public:
     }
 
 private:
-    using Policy = Topic::MatchPolicy;
+    using Policy = MatchPolicy;
 
     BrokerSubscriptionMap subscriptions_;
     BrokerExactTopicMap byExact_;

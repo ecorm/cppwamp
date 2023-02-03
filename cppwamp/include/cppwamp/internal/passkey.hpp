@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -10,7 +10,8 @@
 namespace wamp
 {
 
-class Session;
+class Event;
+class Invocation;
 
 namespace internal
 {
@@ -18,8 +19,13 @@ namespace internal
     {
         PassKey() {}
 
+        friend class wamp::Event;
+        friend class wamp::Invocation;
+        friend class BrokerPublication;
         friend class BrokerUriAndPolicy;
         friend class Client;
+        friend class DealerInvocation;
+        friend class Invocation;
         friend class LocalSessionImpl;
         friend class Peer;
         friend class ServerSession;

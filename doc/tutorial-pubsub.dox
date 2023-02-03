@@ -139,7 +139,7 @@ int main()
 
         // Subscribing to events
         auto sub = session.subscribe(
-            Topic("sensor.").withMatchPolicy(Topic::MatchPolicy::prefix),
+            Topic("sensor.").withMatchPolicy(MatchPolicy::prefix),
             &onSensorSampled,
             yield).value();
 

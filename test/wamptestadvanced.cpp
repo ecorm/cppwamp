@@ -179,7 +179,7 @@ GIVEN( "a caller and a callee" )
             f.join(yield);
 
             f.callee.enroll(
-                Procedure("com.myapp").usingPrefixMatch(),
+                Procedure("com.myapp").withMatchPolicy(MatchPolicy::prefix),
                 [&prefixMatchCount](Invocation inv) -> Outcome
                 {
                     ++prefixMatchCount;
@@ -190,7 +190,8 @@ GIVEN( "a caller and a callee" )
                 yield).value();
 
             f.callee.enroll(
-                Procedure("com.other..rpc").usingWildcardMatch(),
+                Procedure("com.other..rpc")
+                            .withMatchPolicy(MatchPolicy::wildcard),
                 [&wildcardMatchCount](Invocation inv) -> Outcome
                 {
                     ++wildcardMatchCount;
@@ -959,7 +960,7 @@ GIVEN( "a publisher and a subscriber" )
             f.join(yield);
 
             f.subscriber.subscribe(
-                Topic("com.myapp").withMatchPolicy(Topic::MatchPolicy::prefix),
+                Topic("com.myapp").withMatchPolicy(MatchPolicy::prefix),
                 [&prefixMatchCount, &prefixTopic](Event event)
                 {
                     prefixTopic = event.topic().value_or("");
@@ -968,8 +969,7 @@ GIVEN( "a publisher and a subscriber" )
                 yield).value();
 
             f.subscriber.subscribe(
-                Topic("com..onEvent").withMatchPolicy(
-                                Topic::MatchPolicy::wildcard),
+                Topic("com..onEvent").withMatchPolicy(MatchPolicy::wildcard),
                 [&wildcardMatchCount, &wildcardTopic](Event event)
                 {
                     wildcardTopic = event.topic().value_or("");

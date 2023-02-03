@@ -118,7 +118,9 @@ struct WampMessage
 
     size_t size() const {return fields_.size();}
 
-    const Array& fields() const {return fields_;}
+    const Array& fields() const & {return fields_;}
+
+    Array&& fields() && {return std::move(fields_);}
 
     Variant& at(size_t index) {return fields_.at(index);}
 
@@ -470,6 +472,15 @@ struct EventMessage : public MessageWithPayload<WampMsgType::event, 3, 4>
         : Base({0, null, pubId, std::move(opts)})
     {}
 
+    EventMessage(Array&& publicationFields, SubscriptionId sid,
+                 PublicationId pid, Object opts = {})
+        : Base(std::move(publicationFields))
+    {
+        fields_.at(1) = sid;
+        fields_.at(2) = pid;
+        fields_.at(3) = std::move(opts);
+    }
+
     void setSubscriptionId(SubscriptionId subId)
     {
         fields_.at(0) = subId;
@@ -568,6 +579,14 @@ struct InvocationMessage :
     public MessageWithPayload<WampMsgType::invocation, 3, 4>
 {
     InvocationMessage() : Base({0, 0, 0, Object{}}) {}
+
+    InvocationMessage(Array&& callFields, RegistrationId regId,
+                      Object opts = {})
+        : Base(std::move(callFields))
+    {
+        fields_.at(2) = regId;
+        fields_.at(3) = std::move(opts);
+    }
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 

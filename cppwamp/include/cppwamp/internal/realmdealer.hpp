@@ -25,7 +25,7 @@ class DealerInvocation
 {
 public:
     DealerInvocation(Rpc&& rpc, RegistrationId regId, RouterSession::Ptr)
-        : invocation_(invocationFromRpc(std::move(rpc), regId))
+        : invocation_({}, std::move(rpc), regId)
     {}
 
     void sendTo(RouterSession& session)
@@ -34,17 +34,6 @@ public:
     }
 
 private:
-    static Invocation invocationFromRpc(Rpc&& rpc, RegistrationId regId)
-    {
-        Invocation inv;
-        // TODO Invocation inv{rpc.requestId(), regId};
-        if (!rpc.args().empty() || !rpc.kwargs().empty())
-            inv.withArgList(std::move(rpc).args());
-        if (!rpc.kwargs().empty())
-            inv.withKwargs(std::move(rpc).kwargs());
-        return inv;
-    }
-
     Invocation invocation_;
 };
 

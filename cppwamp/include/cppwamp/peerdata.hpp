@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -36,6 +36,17 @@
 
 namespace wamp
 {
+
+//------------------------------------------------------------------------------
+/** URI matching policy used for subscriptions and registrations. */
+//------------------------------------------------------------------------------
+enum class MatchPolicy
+{
+    unknown,
+    exact,
+    prefix,
+    wildcard
+};
 
 //------------------------------------------------------------------------------
 /** Provides the _reason_ URI and other options contained within
@@ -402,14 +413,6 @@ public:
 class CPPWAMP_API Topic : public Options<Topic, internal::SubscribeMessage>
 {
 public:
-    enum class MatchPolicy
-    {
-        unknown,
-        exact,
-        prefix,
-        wildcard
-    };
-
     /** Converting constructor taking a topic URI. */
     Topic(String uri);
 
@@ -418,7 +421,7 @@ public:
         (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.4.6)
         @{ */
 
-    /** Sets the matching policy is to be used for this subscription. */
+    /** Sets the matching policy to be used for this subscription. */
     Topic& withMatchPolicy(MatchPolicy);
 
     /** Obtains the matching policy used for this subscription. */
@@ -567,6 +570,8 @@ public:
     // Internal use only
     Event(internal::PassKey, AnyCompletionExecutor executor,
           internal::EventMessage&& msg);
+
+    Event(internal::PassKey, Pub&& pub, SubscriptionId sid, PublicationId pid);
 };
 
 CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Event& event);
@@ -594,14 +599,11 @@ public:
         (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.8)
         @{ */
 
-    /** Specifies that the _prefix-matching policy_ is to be used for this
-        registration. */
-    // TODO: MatchPolicy enum instead
-    Procedure& usingPrefixMatch();
+    /** Sets the matching policy to be used for this subscription. */
+    Procedure& withMatchPolicy(MatchPolicy);
 
-    /** Specifies that the _wildcard-matching policy_ is to be used for this
-        subscription. */
-    Procedure& usingWildcardMatch();
+    /** Obtains the matching policy used for this subscription. */
+    MatchPolicy matchPolicy() const;
     /// @}
 
 private:
@@ -707,6 +709,18 @@ public:
 
     /** Obtains the default cancellation mode associated with this RPC. */
     CallCancelMode cancelMode() const;
+    /// @}
+
+    /** @name Pattern-based Registrations
+        See [Pattern-based Registrations in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#section-11.8)
+        @{ */
+
+    /** Sets the matching policy to be used for this subscription. */
+    Rpc& withMatchPolicy(MatchPolicy);
+
+    /** Obtains the matching policy used for this subscription. */
+    MatchPolicy matchPolicy() const;
     /// @}
 
 private:
@@ -952,9 +966,12 @@ public:
 public:
     // Internal use only
     using CalleePtr = std::weak_ptr<internal::Callee>;
+
     Invocation(internal::PassKey, CalleePtr callee,
                AnyCompletionExecutor executor,
                internal::InvocationMessage&& msg);
+
+    Invocation(internal::PassKey, Rpc&& rpc, RegistrationId regId);
 
 private:
     using Base = Payload<Invocation, internal::InvocationMessage>;

@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -12,6 +12,56 @@
 
 namespace wamp
 {
+
+namespace internal
+{
+
+//------------------------------------------------------------------------------
+template <typename T>
+MatchPolicy getMatchPolicyOption(const T& messageData)
+{
+    const auto& opts = messageData.options();
+    auto found = opts.find("match");
+    if (found == opts.end())
+        return MatchPolicy::exact;
+    const auto& opt = found->second;
+    if (opt.template is<String>())
+    {
+        const auto& s = opt.template as<String>();
+        if (s == "prefix")
+            return MatchPolicy::prefix;
+        if (s == "wildcard")
+            return MatchPolicy::wildcard;
+    }
+    return MatchPolicy::unknown;
+}
+
+//------------------------------------------------------------------------------
+template <typename T>
+void setMatchPolicyOption(T& messageData, MatchPolicy policy)
+{
+    CPPWAMP_LOGIC_CHECK(policy != MatchPolicy::unknown,
+                        "Cannot specify unknown match policy");
+
+    switch (policy)
+    {
+    case MatchPolicy::exact:
+        break;
+
+    case MatchPolicy::prefix:
+        messageData.withOption("match", "prefix");
+        break;
+
+    case MatchPolicy::wildcard:
+        messageData.withOption("match", "wildcard");
+        break;
+
+    default:
+        assert(false && "Unexpected MatchPolicy enumerator");
+    }
+}
+
+} // namespace internal
 
 //******************************************************************************
 // Abort
@@ -529,41 +579,14 @@ CPPWAMP_INLINE Topic::Topic(String uri) : Base(std::move(uri)) {}
     This sets the `SUBSCRIBE.Options.match|string` option. */
 CPPWAMP_INLINE Topic& Topic::withMatchPolicy(MatchPolicy policy)
 {
-    CPPWAMP_LOGIC_CHECK(policy != MatchPolicy::unknown,
-                        "Cannot specify unknown match policy");
-
-    switch (policy)
-    {
-    case MatchPolicy::exact:
-        break;
-
-    case MatchPolicy::prefix:
-        withOption("match", "prefix");
-        break;
-
-    case MatchPolicy::wildcard:
-        withOption("match", "wildcard");
-        break;
-
-    default:
-        assert(false && "Unexpected MatchPolicy enumerator");
-    }
-
+    internal::setMatchPolicyOption(*this, policy);
     return *this;
 }
 
 /** Obtains the matching policy used for this subscription. */
-CPPWAMP_INLINE Topic::MatchPolicy Topic::matchPolicy() const
+CPPWAMP_INLINE MatchPolicy Topic::matchPolicy() const
 {
-    const auto p = optionAs<String>("match");
-    if (p.has_value())
-    {
-        if (*p == "prefix")
-            return MatchPolicy::prefix;
-        if (*p == "wildcard")
-            return MatchPolicy::wildcard;
-    }
-    return MatchPolicy::unknown;
+    return internal::getMatchPolicyOption(*this);
 }
 
 CPPWAMP_INLINE const String& Topic::uri() const {return message().topicUri();}
@@ -708,7 +731,12 @@ CPPWAMP_INLINE ErrorOr<String> Event::topic() const
 CPPWAMP_INLINE Event::Event(internal::PassKey, AnyCompletionExecutor executor,
                             internal::EventMessage&& msg)
     : Base(std::move(msg)),
-    executor_(executor)
+      executor_(executor)
+{}
+
+CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
+                            PublicationId pid)
+    : Base(std::move(pub.message({})).fields(), sid, pid)
 {}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Event& event)
@@ -730,13 +758,6 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Event& event)
 
 CPPWAMP_INLINE Procedure::Procedure(String uri) : Base(std::move(uri)) {}
 
-/** @details
-    This sets the `REGISTER.Options.match|string` option to `"prefix"`. */
-CPPWAMP_INLINE Procedure& Procedure::usingPrefixMatch()
-{
-    return this->withOption("match", "prefix");
-}
-
 CPPWAMP_INLINE const String& Procedure::uri() const &
 {
     return message().procedureUri();
@@ -748,10 +769,17 @@ CPPWAMP_INLINE String&& Procedure::uri() &&
 }
 
 /** @details
-    This sets the `REGISTER.Options.match|string` option to `"wildcard"`. */
-CPPWAMP_INLINE Procedure& Procedure::usingWildcardMatch()
+    This sets the `SUBSCRIBE.Options.match|string` option. */
+CPPWAMP_INLINE Procedure& Procedure::withMatchPolicy(MatchPolicy policy)
 {
-    return withOption("match", "wildcard");
+    internal::setMatchPolicyOption(*this, policy);
+    return *this;
+}
+
+/** Obtains the matching policy used for this subscription. */
+CPPWAMP_INLINE MatchPolicy Procedure::matchPolicy() const
+{
+    return internal::getMatchPolicyOption(*this);
 }
 
 CPPWAMP_INLINE Procedure::Procedure(internal::PassKey,
@@ -1192,6 +1220,11 @@ CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,
     : Base(std::move(msg)),
       callee_(callee),
       executor_(executor)
+{}
+
+CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
+                                      RegistrationId regId)
+    : Base(std::move(rpc.message({})).fields(), regId)
 {}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
