@@ -87,7 +87,7 @@ set(HEADERS
     include/cppwamp/internal/surrogateany.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
-    include/cppwamp/internal/tokentrieimpl.hpp
+    include/cppwamp/internal/tokentriemapimpl.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
     include/cppwamp/internal/variantdecoding.hpp
@@ -103,11 +103,11 @@ set(HEADERS
     include/cppwamp/types/unorderedmap.hpp
     include/cppwamp/types/unorderedset.hpp
     include/cppwamp/utils/consolelogger.hpp
-    include/cppwamp/utils/tokentrie.hpp
-    include/cppwamp/utils/tokentrieiterator.hpp
-    include/cppwamp/utils/tokentrienode.hpp
+    include/cppwamp/utils/tokentriemap.hpp
+    include/cppwamp/utils/tokentriemapiterator.hpp
+    include/cppwamp/utils/tokentriemapnode.hpp
     include/cppwamp/utils/treeview.hpp
-    include/cppwamp/utils/trie.hpp
+    include/cppwamp/utils/triemap.hpp
     include/cppwamp/utils/wildcarduri.hpp
 )
 

@@ -4,12 +4,12 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_UTILS_TOKENTRIEITERATOR_HPP
-#define CPPWAMP_UTILS_TOKENTRIEITERATOR_HPP
+#ifndef CPPWAMP_UTILS_TOKENTRIEMAPITERATOR_HPP
+#define CPPWAMP_UTILS_TOKENTRIEMAPITERATOR_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains TokenTrie iterator facilities. */
+    @brief Contains TokenTrieMap iterator facilities. */
 //------------------------------------------------------------------------------
 
 #include <cstddef>
@@ -18,7 +18,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include "tokentrienode.hpp"
+#include "tokentriemapnode.hpp"
 
 namespace wamp
 {
@@ -27,11 +27,11 @@ namespace utils
 {
 
 //------------------------------------------------------------------------------
-/** TokenTrie iterator that advances through elements in lexicographic order
+/** TokenTrieMap iterator that advances through elements in lexicographic order
     of their respective keys. */
 //------------------------------------------------------------------------------
 template <typename N, bool IsMutable>
-class CPPWAMP_API TokenTrieIterator
+class TokenTrieMapIterator
 {
 public:
     /// The category of the iterator.
@@ -73,19 +73,19 @@ public:
     using const_reference = const value_type&;
 
     /// Type if the underlying cursor used to traverse nodes.
-    using cursor_type = TokenTrieCursor<N, IsMutable>;
+    using cursor_type = TokenTrieMapCursor<N, IsMutable>;
 
     /** Default constructor. */
-    TokenTrieIterator() {}
+    TokenTrieMapIterator() {}
 
     /** Conversion from mutable iterator to const iterator. */
     template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
-    TokenTrieIterator(const TokenTrieIterator<N, M>& rhs)
+    TokenTrieMapIterator(const TokenTrieMapIterator<N, M>& rhs)
         : cursor_(rhs.cursor()) {}
 
     /** Assignment from mutable iterator to const iterator. */
     template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
-    TokenTrieIterator& operator=(const TokenTrieIterator<N, M>& rhs)
+    TokenTrieMapIterator& operator=(const TokenTrieMapIterator<N, M>& rhs)
         {cursor_ = rhs.cursor_; return *this;}
 
     /** Obtains a copy of the cursor associated with the current element. */
@@ -116,38 +116,38 @@ public:
     }
 
     /** Prefix increment, advances to the next key in lexigraphic order. */
-    TokenTrieIterator& operator++()
+    TokenTrieMapIterator& operator++()
         {cursor_.advance_depth_first_to_next_element(); return *this;}
 
     /** Postfix increment, advances to the next key in lexigraphic order. */
-    TokenTrieIterator operator++(int)
+    TokenTrieMapIterator operator++(int)
         {auto temp = *this; ++(*this); return temp;}
 
 private:
     using Node = typename cursor_type::node_type;
 
-    TokenTrieIterator(cursor_type cursor) : cursor_(cursor) {}
+    TokenTrieMapIterator(cursor_type cursor) : cursor_(cursor) {}
 
     cursor_type cursor_;
 
     template <typename, typename, typename, typename>
-    friend class TokenTrie;
+    friend class TokenTrieMap;
 };
 
 /** Compares two iterators for equality.
-    @relates TokenTrieIterator */
+    @relates TokenTrieMapIterator */
 template <typename N, bool LM, bool RM>
-bool operator==(const TokenTrieIterator<N, LM>& lhs,
-                const TokenTrieIterator<N, RM>& rhs)
+bool operator==(const TokenTrieMapIterator<N, LM>& lhs,
+                const TokenTrieMapIterator<N, RM>& rhs)
 {
     return lhs.cursor() == rhs.cursor();
 };
 
 /** Compares two iterators for inequality.
-    @relates TokenTrieIterator */
+    @relates TokenTrieMapIterator */
 template <typename N, bool LM, bool RM>
-bool operator!=(const TokenTrieIterator<N, LM>& lhs,
-                const TokenTrieIterator<N, RM>& rhs)
+bool operator!=(const TokenTrieMapIterator<N, LM>& lhs,
+                const TokenTrieMapIterator<N, RM>& rhs)
 {
     return lhs.cursor() != rhs.cursor();
 };
@@ -156,4 +156,4 @@ bool operator!=(const TokenTrieIterator<N, LM>& lhs,
 
 } // namespace wamp
 
-#endif // CPPWAMP_UTILS_TOKENTRIEITERATOR_HPP
+#endif // CPPWAMP_UTILS_TOKENTRIEMAPITERATOR_HPP

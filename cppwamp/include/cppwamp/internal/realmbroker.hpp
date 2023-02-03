@@ -11,7 +11,7 @@
 #include <map>
 #include <utility>
 #include "../erroror.hpp"
-#include "../utils/trie.hpp"
+#include "../utils/triemap.hpp"
 #include "../utils/wildcarduri.hpp"
 #include "idgen.hpp"
 #include "routersession.hpp"
@@ -235,7 +235,7 @@ public:
         else
         {
             // tsl::htrie_map iterators don't dereference to a key-value pair
-            // like util::TokenTrie does.
+            // like util::TokenTrieMap does.
             auto subscriptionMapIter = TDerived::iteratorValue(found);
 
             subId = subscriptionMapIter->first;
@@ -308,7 +308,7 @@ public:
 //------------------------------------------------------------------------------
 class BrokerWildcardTopicMap
     : public BrokerTopicMapBase<
-          utils::UriTrie<BrokerSubscriptionMap::iterator>,
+          utils::UriTrieMap<BrokerSubscriptionMap::iterator>,
           BrokerWildcardTopicMap>
 {
 public:

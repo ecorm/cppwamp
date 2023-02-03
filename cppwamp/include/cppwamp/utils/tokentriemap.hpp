@@ -4,12 +4,12 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_UTILS_TOKENTRIE_HPP
-#define CPPWAMP_UTILS_TOKENTRIE_HPP
+#ifndef CPPWAMP_UTILS_TOKENTRIEMAP_HPP
+#define CPPWAMP_UTILS_TOKENTRIEMAP_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the TokenTrie template class. */
+    @brief Contains the TokenTrieMap template class. */
 //------------------------------------------------------------------------------
 
 #include <cstddef>
@@ -17,10 +17,10 @@
 #include <limits>
 #include <memory>
 #include <utility>
-#include "tokentrieiterator.hpp"
-#include "tokentrienode.hpp"
+#include "tokentriemapiterator.hpp"
+#include "tokentriemapnode.hpp"
 #include "../traits.hpp"
-#include "../internal/tokentrieimpl.hpp"
+#include "../internal/tokentriemapimpl.hpp"
 
 namespace wamp
 {
@@ -29,7 +29,7 @@ namespace utils
 {
 
 //------------------------------------------------------------------------------
-struct TokenTrieDefaultOrdering
+struct TokenTrieMapDefaultOrdering
 {
     using is_transparent = std::true_type;
 
@@ -76,12 +76,12 @@ struct TokenTrieDefaultOrdering
 //------------------------------------------------------------------------------
 template <typename K,
           typename T,
-          typename C = TokenTrieDefaultOrdering,
+          typename C = TokenTrieMapDefaultOrdering,
           typename A = std::allocator<std::pair<const K, T>>>
-class TokenTrie
+class TokenTrieMap
 {
 private:
-    using Impl = internal::TokenTrieImpl<K, T, C, A>;
+    using Impl = internal::TokenTrieMapImpl<K, T, C, A>;
     using Node = typename Impl::Node;
 
     template <typename KV>
@@ -126,11 +126,11 @@ public:
 
     /** Mutable iterator type which advances through elements in lexicographic
         order of their respective keys. */
-    using iterator = TokenTrieIterator<Node, true>;
+    using iterator = TokenTrieMapIterator<Node, true>;
 
     /** Immutable iterator type which advances through elements in
         lexicographic order of their respective keys. */
-    using const_iterator = TokenTrieIterator<Node, false>;
+    using const_iterator = TokenTrieMapIterator<Node, false>;
 
     /** Pairs an iterator with the boolean success result of an
         insertion operation. */
@@ -143,78 +143,78 @@ public:
     using const_range_type = std::pair<const_iterator, const_iterator>;
 
     /** Mutable cursor type used for traversing nodes. */
-    using cursor = TokenTrieCursor<Node, true>;
+    using cursor = TokenTrieMapCursor<Node, true>;
 
     /** Immutable cursor type used for traversing nodes. */
-    using const_cursor = TokenTrieCursor<Node, false>;
+    using const_cursor = TokenTrieMapCursor<Node, false>;
 
     /** Function object type used for sorting key-value pairs
         in lexicographic order of their keys. */
     using value_compare = typename Impl::ValueComp;
 
     /** Default constructor. */
-    TokenTrie() : TokenTrie(key_compare{}, allocator_type{}) {}
+    TokenTrieMap() : TokenTrieMap(key_compare{}, allocator_type{}) {}
 
     /** Constructor taking a compare function and allocator. */
-    explicit TokenTrie(const key_compare& c, const allocator_type& a = {} )
+    explicit TokenTrieMap(const key_compare& c, const allocator_type& a = {} )
         : impl_(c, a) {}
 
     /** Constructor taking an allocator. */
-    explicit TokenTrie(const allocator_type& alloc)
-        : TokenTrie(key_compare{}, alloc) {}
+    explicit TokenTrieMap(const allocator_type& alloc)
+        : TokenTrieMap(key_compare{}, alloc) {}
 
     /** Copy constructor. */
-    TokenTrie(const TokenTrie& rhs) : impl_(rhs.impl_) {}
+    TokenTrieMap(const TokenTrieMap& rhs) : impl_(rhs.impl_) {}
 
     /** Copy constructor taking an allocator. */
-    TokenTrie(const TokenTrie& rhs, const allocator_type& a)
+    TokenTrieMap(const TokenTrieMap& rhs, const allocator_type& a)
         : impl_(rhs, a) {}
 
     /** Move constructor. */
-    TokenTrie(TokenTrie&& rhs)
+    TokenTrieMap(TokenTrieMap&& rhs)
         noexcept(std::is_nothrow_move_constructible<value_compare>::value)
         : impl_(std::move(rhs.impl_)) {}
 
     /** Move constructor taking an allocator. */
-    TokenTrie(TokenTrie&& rhs, const allocator_type& a) noexcept
+    TokenTrieMap(TokenTrieMap&& rhs, const allocator_type& a) noexcept
         : impl_(std::move(rhs), a) {}
 
     /** Constructs using the given iterator range. */
     template <typename I>
-    TokenTrie(I first, I last, const key_compare& c = {},
-              const allocator_type& a = {})
-        : TokenTrie(c, a) {insert(first, last);}
+    TokenTrieMap(I first, I last, const key_compare& c = {},
+                 const allocator_type& a = {})
+        : TokenTrieMap(c, a) {insert(first, last);}
 
     /** Constructs using the given iterator range. */
     template <typename I>
-    TokenTrie(I first, I last, const allocator_type& a)
-        : TokenTrie(a) {insert(first, last);}
+    TokenTrieMap(I first, I last, const allocator_type& a)
+        : TokenTrieMap(a) {insert(first, last);}
 
     /** Constructs using contents of the given initializer list, where
         each element is a key-value pair. */
-    TokenTrie(std::initializer_list<value_type> list, const key_compare& c = {},
-              const allocator_type& a = {})
-        : TokenTrie(c, a) {insert(list.begin(), list.end());}
+    TokenTrieMap(std::initializer_list<value_type> list, const key_compare& c = {},
+                 const allocator_type& a = {})
+        : TokenTrieMap(c, a) {insert(list.begin(), list.end());}
 
     /** Constructs using contents of the given initializer list, where
         each element is a key-value pair. */
-    TokenTrie(std::initializer_list<value_type> list, const allocator_type& a)
-        : TokenTrie(a) {insert(list.begin(), list.end());}
+    TokenTrieMap(std::initializer_list<value_type> list, const allocator_type& a)
+        : TokenTrieMap(a) {insert(list.begin(), list.end());}
 
     /** Copy assignment. */
-    TokenTrie& operator=(const TokenTrie& rhs) = default;
+    TokenTrieMap& operator=(const TokenTrieMap& rhs) = default;
 
     /** Move assignment. */
-    TokenTrie& operator=(TokenTrie&& rhs)
+    TokenTrieMap& operator=(TokenTrieMap&& rhs)
         noexcept(std::allocator_traits<A>::is_always_equal::value &&
-                     std::is_nothrow_move_assignable<value_compare>::value)
+                 std::is_nothrow_move_assignable<value_compare>::value)
         = default;
 
     /** Replaces contents with that of the given initializer list,  where
         each element is a key-value pair. */
-    TokenTrie& operator=(std::initializer_list<value_type> list)
+    TokenTrieMap& operator=(std::initializer_list<value_type> list)
     {
-        TokenTrie temp(list);
+        TokenTrieMap temp(list);
         *this = std::move(temp);
         return *this;
     }
@@ -401,7 +401,7 @@ public:
     }
 
     /** Swaps the contents of this container with the given container. */
-    void swap(TokenTrie& other)
+    void swap(TokenTrieMap& other)
         noexcept(std::allocator_traits<A>::is_always_equal::value &&
                  isNothrowSwappable<C>())
         {impl_.swap(other.impl_);}
@@ -459,19 +459,19 @@ public:
     /// @}
 
     /** Equality comparison. */
-    friend bool operator==(const TokenTrie& a, const TokenTrie& b)
+    friend bool operator==(const TokenTrieMap& a, const TokenTrieMap& b)
         {return a.impl_.equals(b.impl_);}
 
     /** Inequality comparison. */
-    friend bool operator!=(const TokenTrie& a, const TokenTrie& b)
+    friend bool operator!=(const TokenTrieMap& a, const TokenTrieMap& b)
         {return a.impl_.differs(b.impl_);}
 
     /** Non-member swap. */
-    friend void swap(TokenTrie& a, TokenTrie& b) noexcept {a.swap(b);}
+    friend void swap(TokenTrieMap& a, TokenTrieMap& b) noexcept {a.swap(b);}
 
     /** Erases all elements satisfying given criteria. */
     template <typename F>
-    friend size_type erase_if(TokenTrie& t, F predicate)
+    friend size_type erase_if(TokenTrieMap& t, F predicate)
         {return t.doEraseIf(std::move(predicate));}
 
 private:
@@ -480,7 +480,7 @@ private:
         -> decltype(std::forward<TCursor>(cursor).value())
     {
         if (!cursor)
-            throw std::out_of_range("wamp::TokenTrie::at key out of range");
+            throw std::out_of_range("wamp::TokenTrieMap::at key out of range");
         return std::forward<TCursor>(cursor).value();
     }
 
@@ -532,7 +532,7 @@ private:
         return oldSize - size();
     }
 
-    internal::TokenTrieImpl<K, T, C, A> impl_;
+    internal::TokenTrieMapImpl<K, T, C, A> impl_;
 };
 
 } // namespace utils
@@ -544,10 +544,10 @@ namespace std
 {
 
 template <typename K, typename T, typename C, typename A, typename Alloc>
-struct uses_allocator<wamp::utils::TokenTrie<K,T,C,A>, Alloc> :
+struct uses_allocator<wamp::utils::TokenTrieMap<K,T,C,A>, Alloc> :
     std::is_convertible<Alloc, A>
 {};
 
 } // namespace std
 
-#endif // CPPWAMP_UTILS_TOKENTRIE_HPP
+#endif // CPPWAMP_UTILS_TOKENTRIEMAP_HPP

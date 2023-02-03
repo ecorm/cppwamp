@@ -19,7 +19,7 @@ namespace
 {
 
 //------------------------------------------------------------------------------
-using Trie = UriTrie<int>;
+using Trie = UriTrieMap<int>;
 
 template <typename T = int>
 using TrieTestPair = std::pair<const SplitUri, T>;
@@ -95,7 +95,7 @@ bool operator!=(const UriTrieStatefulAllocator<T>& lhs,
 
 //------------------------------------------------------------------------------
 template <typename K, typename T, typename C, typename A>
-void checkEmptyUriTrie(TokenTrie<K,T,C,A>& t)
+void checkEmptyUriTrie(TokenTrieMap<K,T,C,A>& t)
 {
     const auto& c = t;
     CHECK(c.empty());
@@ -158,7 +158,7 @@ void checkUriTrieIteratorProxyComparisons(TI ti, CI ci,
 
 //------------------------------------------------------------------------------
 template <typename K, typename T, typename C, typename A>
-void checkUriTrieContents(TokenTrie<K,T,C,A>& t,
+void checkUriTrieContents(TokenTrieMap<K,T,C,A>& t,
                           const std::vector<std::pair<const K, T>>& pairs)
 {
     if (pairs.empty())
@@ -1008,7 +1008,7 @@ TEST_CASE( "UriTrie Pattern Matching", "[Uri]" )
         {".b.c.d",  {}},
     };
 
-    UriTrie<std::string> trie;
+    UriTrieMap<std::string> trie;
     for (const auto& pattern: patterns)
         trie.insert_or_assign(pattern, pattern);
 
@@ -1361,7 +1361,7 @@ TEST_CASE( "UriTrie Iterator Conversions and Mixed Comparisons", "[Uri]" )
 
 //------------------------------------------------------------------------------
 template <typename K, typename T, typename C, typename A>
-void checkTrieStatefulAllocator(const TokenTrie<K,T,C,A>& trie, int id)
+void checkTrieStatefulAllocator(const TokenTrieMap<K,T,C,A>& trie, int id)
 {
     auto cursor = trie.root();
     unsigned pos = 0;
@@ -1379,14 +1379,15 @@ void checkTrieStatefulAllocator(const TokenTrie<K,T,C,A>& trie, int id)
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "TokenTrie with scoped_allocator_adapter", "[Uri]" )
+TEST_CASE( "TokenTrieMap with scoped_allocator_adapter", "[Uri]" )
 {
     SECTION("with non-stateful allocator")
     {
         using A = std::scoped_allocator_adaptor<std::allocator<int>>;
         using Key = SplitUri;
         using Value = int;
-        using TrieType = TokenTrie<Key, Value, TokenTrieDefaultOrdering, A>;
+        using TrieType = TokenTrieMap<Key, Value,
+                                      TokenTrieMapDefaultOrdering, A>;
         TrieTestPairList<> pairs({ {"a.b.c", 1}, {"a", 2} });
         TrieType trie({ {"a.b.c", 1}, {"a", 2} });
         checkUriTrieContents(trie, pairs);
@@ -1399,7 +1400,8 @@ TEST_CASE( "TokenTrie with scoped_allocator_adapter", "[Uri]" )
                                              UriTrieStatefulAllocator<char>>;
         using Key = std::vector<StringType, A>;
         using Value = StringType;
-        using TrieType = TokenTrie<Key, Value, TokenTrieDefaultOrdering, A>;
+        using TrieType = TokenTrieMap<Key, Value,
+                                      TokenTrieMapDefaultOrdering, A>;
         using Pair = std::pair<const Key, Value>;
 
         A alloc1(101);

@@ -20,7 +20,7 @@
 #include "../erroror.hpp"
 #include "../tagtypes.hpp"
 #include "../traits.hpp"
-#include "tokentrie.hpp"
+#include "tokentriemap.hpp"
 
 namespace wamp
 {
@@ -182,14 +182,16 @@ bool CPPWAMP_API matchesWildcardPattern(const SplitUri& uri,
 
 
 //------------------------------------------------------------------------------
+/** Type alias to a TokenTrieMap using SplitUri as its key type. */
+//------------------------------------------------------------------------------
 template <typename T>
-using UriTrie = TokenTrie<SplitUri, T, TokenTrieDefaultOrdering>;
+using UriTrieMap = TokenTrieMap<SplitUri, T>;
 
 
 //------------------------------------------------------------------------------
-/** TokenTrie traverser that advances through wildcard matches in
+/** TokenTrieMap traverser that advances through wildcard matches in
     lexicographic order.
-    @tparam C TokenTrie cursor type */
+    @tparam C TokenTrieMap cursor type */
 //------------------------------------------------------------------------------
 template <typename C>
 class CPPWAMP_API WildcardMatcher
@@ -257,10 +259,10 @@ private:
     search key. */
 //------------------------------------------------------------------------------
 template <typename T>
-WildcardMatcher<typename UriTrie<T>::cursor> CPPWAMP_API
-wildcardMatches(UriTrie<T>& trie, const SplitUri& key)
+WildcardMatcher<typename UriTrieMap<T>::cursor> CPPWAMP_API
+wildcardMatches(UriTrieMap<T>& trie, const SplitUri& key)
 {
-    using Cursor = typename UriTrie<T>::cursor;
+    using Cursor = typename UriTrieMap<T>::cursor;
     return WildcardMatcher<Cursor>(key, trie.root(), trie.sentinel());
 }
 
@@ -268,10 +270,10 @@ wildcardMatches(UriTrie<T>& trie, const SplitUri& key)
 /** Creates a wildcard matcher suitable for the given immutable trie and
     search key. */
 template <typename T>
-WildcardMatcher<typename UriTrie<T>::const_cursor> CPPWAMP_API
-wildcardMatches(const UriTrie<T>& trie, const SplitUri& key)
+WildcardMatcher<typename UriTrieMap<T>::const_cursor> CPPWAMP_API
+wildcardMatches(const UriTrieMap<T>& trie, const SplitUri& key)
 {
-    using Cursor = typename UriTrie<T>::const_cursor;
+    using Cursor = typename UriTrieMap<T>::const_cursor;
     return WildcardMatcher<Cursor>(key, trie.root(), trie.sentinel());
 }
 

@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_UTILS_TRIE_HPP
-#define CPPWAMP_UTILS_TRIE_HPP
+#ifndef CPPWAMP_UTILS_TRIEMAP_HPP
+#define CPPWAMP_UTILS_TRIEMAP_HPP
 
 #ifdef CPPWAMP_WITHOUT_BUNDLED_TESSIL_HTRIE
 #include <tsl/htrie_map.h>
@@ -32,4 +32,4 @@ using TrieMap = BasicTrieMap<char, T>;
 
 } // namespace wamp
 
-#endif // CPPWAMP_UTILS_TRIE_HPP
+#endif // CPPWAMP_UTILS_TRIEMAP_HPP

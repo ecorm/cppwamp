@@ -4,20 +4,15 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_TOKENTRIEIMPL_HPP
-#define CPPWAMP_INTERNAL_TOKENTRIEIMPL_HPP
-
-//------------------------------------------------------------------------------
-/** @file
-    @brief Contains the TokenTrie template class. */
-//------------------------------------------------------------------------------
+#ifndef CPPWAMP_INTERNAL_TOKENTRIEMAPIMPL_HPP
+#define CPPWAMP_INTERNAL_TOKENTRIEMAPIMPL_HPP
 
 #include <algorithm>
 #include <cassert>
 #include <memory>
 #include <tuple>
 #include <utility>
-#include "../utils/tokentrienode.hpp"
+#include "../utils/tokentriemapnode.hpp"
 
 namespace wamp
 {
@@ -30,7 +25,7 @@ namespace internal
 
 //------------------------------------------------------------------------------
 template <typename K, typename T, typename C, typename A>
-class TokenTrieImpl
+class TokenTrieMapImpl
 {
 public:
     using Key = K;
@@ -38,10 +33,10 @@ public:
     using KeyComp = C;
     using Allocator = A;
     using AllocTraits = std::allocator_traits<A>;
-    using Node = TokenTrieNode<K, T, C, A>;
+    using Node = TokenTrieMapNode<K, T, C, A>;
     using Size = typename Node::tree_type::size_type;
-    using Cursor = TokenTrieCursor<Node, true>;
-    using ConstCursor = TokenTrieCursor<Node, false>;
+    using Cursor = TokenTrieMapCursor<Node, true>;
+    using ConstCursor = TokenTrieMapCursor<Node, false>;
 
     class ValueComp
     {
@@ -62,21 +57,22 @@ public:
 
         KeyComp comp;
 
-        friend class TokenTrieImpl;
+        friend class TokenTrieMapImpl;
     };
 
-    explicit TokenTrieImpl(const KeyComp& comp, const Allocator& alloc)
+    explicit TokenTrieMapImpl(const KeyComp& comp, const Allocator& alloc)
         : sentinel_(PassKey{}),
           alloc_(alloc),
           comp_(comp)
     {}
 
-    TokenTrieImpl(const TokenTrieImpl& rhs)
-        : TokenTrieImpl(rhs, AllocTraits::select_on_container_copy_construction(
-                                 rhs.alloc_))
+    TokenTrieMapImpl(const TokenTrieMapImpl& rhs)
+        : TokenTrieMapImpl(rhs,
+                           AllocTraits::select_on_container_copy_construction(
+                               rhs.alloc_))
     {}
 
-    TokenTrieImpl(const TokenTrieImpl& rhs, const Allocator& alloc)
+    TokenTrieMapImpl(const TokenTrieMapImpl& rhs, const Allocator& alloc)
         : sentinel_(PassKey{}),
           alloc_(alloc),
           size_(rhs.size_),
@@ -91,11 +87,11 @@ public:
         }
     }
 
-    TokenTrieImpl(TokenTrieImpl&& rhs)
-        : TokenTrieImpl(std::move(rhs), rhs.alloc_)
+    TokenTrieMapImpl(TokenTrieMapImpl&& rhs)
+        : TokenTrieMapImpl(std::move(rhs), rhs.alloc_)
     {}
 
-    TokenTrieImpl(TokenTrieImpl&& rhs, const Allocator& alloc) noexcept
+    TokenTrieMapImpl(TokenTrieMapImpl&& rhs, const Allocator& alloc) noexcept
         : sentinel_(PassKey{}),
           alloc_(alloc_),
           size_(rhs.size_),
@@ -104,7 +100,7 @@ public:
         moveRootFrom(rhs);
     }
 
-    ~TokenTrieImpl()
+    ~TokenTrieMapImpl()
     {
         if (root_)
         {
@@ -113,7 +109,7 @@ public:
         }
     }
 
-    TokenTrieImpl& operator=(const TokenTrieImpl& rhs)
+    TokenTrieMapImpl& operator=(const TokenTrieMapImpl& rhs)
     {
         // Do nothing for self-assignment to enfore the invariant that
         // the RHS iterators remain valid.
@@ -126,7 +122,7 @@ public:
         return *this;
     }
 
-    TokenTrieImpl& operator=(TokenTrieImpl&& rhs)
+    TokenTrieMapImpl& operator=(TokenTrieMapImpl&& rhs)
     {
         // Do nothing for self-move-assignment to avoid invalidating iterators.
         if (&rhs != this)
@@ -269,7 +265,7 @@ public:
         return pos;
     }
 
-    void swap(TokenTrieImpl& other)
+    void swap(TokenTrieMapImpl& other)
     {
         doSwap(typename AllocTraits::propagate_on_container_swap{}, other);
     }
@@ -328,14 +324,14 @@ private:
     template <typename TSelf>
     void copyAssign(std::true_type, const TSelf& rhs)
     {
-        TokenTrieImpl temp(rhs, rhs.alloc_);
+        TokenTrieMapImpl temp(rhs, rhs.alloc_);
         moveAssign(std::true_type{}, temp);
     }
 
     template <typename TSelf>
     void copyAssign(std::false_type, const TSelf& rhs)
     {
-        TokenTrieImpl temp(rhs, alloc_);
+        TokenTrieMapImpl temp(rhs, alloc_);
         moveAssign(std::false_type{}, temp);
     }
 
@@ -371,7 +367,7 @@ private:
         }
     }
 
-    void moveRootFrom(TokenTrieImpl& rhs)
+    void moveRootFrom(TokenTrieMapImpl& rhs)
     {
         if (root_)
             destroyNode(root_);
@@ -418,8 +414,8 @@ private:
         }
         else
         {
-            TokenTrieImpl thisTemp(*this, other.alloc_);
-            TokenTrieImpl otherTemp(other, alloc_);
+            TokenTrieMapImpl thisTemp(*this, other.alloc_);
+            TokenTrieMapImpl otherTemp(other, alloc_);
             moveAssign(std::true_type{}, otherTemp);
             other.moveAssign(std::true_type{}, thisTemp);
         }
@@ -776,4 +772,4 @@ private:
 
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_TOKENTRIEIMPL_HPP
+#endif // CPPWAMP_INTERNAL_TOKENTRIEMAPIMPL_HPP

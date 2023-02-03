@@ -4,12 +4,12 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_UTILS_TOKENTRIENODE_HPP
-#define CPPWAMP_UTILS_TOKENTRIENODE_HPP
+#ifndef CPPWAMP_UTILS_TOKENTRIEMAPNODE_HPP
+#define CPPWAMP_UTILS_TOKENTRIEMAPNODE_HPP
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the TokenTrie node and cursor facilities. */
+    @brief Contains the TokenTrieMap node and cursor facilities. */
 //------------------------------------------------------------------------------
 
 #include <algorithm>
@@ -30,12 +30,12 @@ namespace utils
 
 namespace internal
 {
-    template <typename, typename, typename, typename> class TokenTrieImpl;
+    template <typename, typename, typename, typename> class TokenTrieMapImpl;
 }
 
 //------------------------------------------------------------------------------
 template <typename K, typename T, typename C, typename A>
-class TokenTrieNode
+class TokenTrieMapNode
 {
 private:
     struct PassKey {};
@@ -60,7 +60,7 @@ public:
     /// Key-value pair type for element.
     using element_type = std::pair<const key_type, mapped_type>;
 
-    /// Allocator type passed to the TokenTrie using this node.
+    /// Allocator type passed to the TokenTrieMap using this node.
     using allocator_type =
         typename std::allocator_traits<A>::template rebind_alloc<element_type>;
 
@@ -73,10 +73,10 @@ public:
     /// Allocator type used by the tree contained by this node.
     using tree_allocator_type =
         typename std::allocator_traits<A>::template rebind_alloc<
-            std::pair<const token_type, TokenTrieNode>>;
+            std::pair<const token_type, TokenTrieMapNode>>;
 
     /// Tree type contained by this node.
-    using tree_type = std::map<token_type, TokenTrieNode, key_compare,
+    using tree_type = std::map<token_type, TokenTrieMapNode, key_compare,
                                tree_allocator_type>;
 
     /** Wrapper around the contained tree that prevents modifying its structure,
@@ -88,7 +88,7 @@ public:
     using const_tree_view_type = TreeView<tree_type, false>;
 
     /** Copy constructor. */
-    TokenTrieNode(const TokenTrieNode& other)
+    TokenTrieMapNode(const TokenTrieMapNode& other)
         : children_(other.children_)
     {
         if (other.has_element())
@@ -96,8 +96,8 @@ public:
     }
 
     /** Copy constructor taking an allocator. */
-    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
-                  const TokenTrieNode& other)
+    TokenTrieMapNode(std::allocator_arg_t, const tree_allocator_type& alloc,
+                     const TokenTrieMapNode& other)
         : children_(other.children_, alloc)
     {
         if (other.has_element())
@@ -105,16 +105,16 @@ public:
     }
 
     /** Non-move-constructible. */
-    TokenTrieNode(TokenTrieNode&& other) = delete;
+    TokenTrieMapNode(TokenTrieMapNode&& other) = delete;
 
     /** Non-copy-assignable. */
-    TokenTrieNode& operator=(const TokenTrieNode&) = delete;
+    TokenTrieMapNode& operator=(const TokenTrieMapNode&) = delete;
 
     /** Non-move-assignable. */
-    TokenTrieNode& operator=(TokenTrieNode&&) = delete;
+    TokenTrieMapNode& operator=(TokenTrieMapNode&&) = delete;
 
     /** Destructor. */
-    ~TokenTrieNode() {destroyElement();}
+    ~TokenTrieMapNode() {destroyElement();}
 
     /** Determines if this is the sentinel node. */
     bool is_sentinel() const noexcept {return parent_ == nullptr;}
@@ -131,11 +131,11 @@ public:
 
     /** Obtains a pointer to the node's parent, or `nullptr` if this is
         the sentinel node. */
-    TokenTrieNode* parent() noexcept {return parent_;}
+    TokenTrieMapNode* parent() noexcept {return parent_;}
 
     /** Obtains a pointer to the node's parent, or `nullptr` if this is
         the sentinel node. */
-    const TokenTrieNode* parent() const noexcept {return parent_;}
+    const TokenTrieMapNode* parent() const noexcept {return parent_;}
 
     /** Accesses the node's token, or an empty one if this is the root node.
         @pre `!this->is_sentinel` */
@@ -256,62 +256,62 @@ private:
     tree_type children_;
     TreeIterator position_ = {};
     element_pointer element_ = {};
-    TokenTrieNode* parent_ = nullptr;
+    TokenTrieMapNode* parent_ = nullptr;
 
-    template <typename, bool> friend class TokenTrieCursor;
+    template <typename, bool> friend class TokenTrieMapCursor;
 
-    template <typename, bool> friend class TokenTrieIterator;
+    template <typename, bool> friend class TokenTrieMapIterator;
 
     template <typename, typename, typename, typename>
-    friend class internal::TokenTrieImpl;
+    friend class internal::TokenTrieMapImpl;
 
 public: // Internal use only
-    TokenTrieNode(PassKey) : position_(children_.end()) {}
+    TokenTrieMapNode(PassKey) : position_(children_.end()) {}
 
-    TokenTrieNode(PassKey, key_compare comp)
+    TokenTrieMapNode(PassKey, key_compare comp)
         : children_(std::move(comp)),
           position_(children_.end())
     {}
 
-    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
-                  PassKey, key_compare comp)
+    TokenTrieMapNode(std::allocator_arg_t, const tree_allocator_type& alloc,
+                     PassKey, key_compare comp)
         : children_(std::move(comp), alloc),
           position_(children_.end())
     {}
 
     template <typename... Us>
-    TokenTrieNode(PassKey, key_compare comp, in_place_t, Us&&... args)
+    TokenTrieMapNode(PassKey, key_compare comp, in_place_t, Us&&... args)
         : children_(std::move(comp))
     {
         constructElement(std::forward<Us>(args)...);
     }
 
     template <typename... Us>
-    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
-                  PassKey, key_compare comp, in_place_t, Us&&... args)
+    TokenTrieMapNode(std::allocator_arg_t, const tree_allocator_type& alloc,
+                     PassKey, key_compare comp, in_place_t, Us&&... args)
         : children_(std::move(comp), alloc)
     {
         constructElement(std::forward<Us>(args)...);
     }
 
     template <typename... Us>
-    TokenTrieNode(PassKey, key_compare comp, key_type&& key,
-                  in_place_t, Us&&... args)
+    TokenTrieMapNode(PassKey, key_compare comp, key_type&& key,
+                     in_place_t, Us&&... args)
         : children_(std::move(comp))
     {
         constructElementWithKey(std::move(key), std::forward<Us>(args)...);
     }
 
     template <typename... Us>
-    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
-                  PassKey, key_compare comp, key_type&& key,
-                  in_place_t, Us&&... args)
+    TokenTrieMapNode(std::allocator_arg_t, const tree_allocator_type& alloc,
+                     PassKey, key_compare comp, key_type&& key,
+                     in_place_t, Us&&... args)
         : children_(std::move(comp), alloc)
     {
         constructElementWithKey(std::move(key), std::forward<Us>(args)...);
     }
 
-    TokenTrieNode(PassKey, TokenTrieNode&& other)
+    TokenTrieMapNode(PassKey, TokenTrieMapNode&& other)
         : children_(std::move(other.children_)),
           position_(std::move(other.position_)),
           element_(other.element_),
@@ -320,8 +320,8 @@ public: // Internal use only
         other.element_ = nullptr;
     }
 
-    TokenTrieNode(std::allocator_arg_t, const tree_allocator_type& alloc,
-                  PassKey, TokenTrieNode&& other)
+    TokenTrieMapNode(std::allocator_arg_t, const tree_allocator_type& alloc,
+                     PassKey, TokenTrieMapNode&& other)
         : children_(std::move(other.children_)),
           position_(std::move(other.position_)),
           element_(other.element_),
@@ -332,14 +332,14 @@ public: // Internal use only
 };
 
 //------------------------------------------------------------------------------
-/** Type used to traverse nodes in a TokenTrie.
-    This type intended for trie algorithms where a forward iterator that only
+/** Type used to traverse nodes in a TokenTrieMap.
+    This type is intended for trie algorithms where a forward iterator that only
     traverses value nodes is insuffient.
     @tparam N The node type being traversed.
     @tparam IsMutable Allows node values to be modified when true. */
 //------------------------------------------------------------------------------
 template <typename N, bool IsMutable>
-class TokenTrieCursor
+class TokenTrieMapCursor
 {
 public:
     /// Node type being traversed.
@@ -396,25 +396,25 @@ public:
     static constexpr bool is_mutable() {return IsMutable;}
 
     /** Default constructs a cursor that does not point to any node. */
-    TokenTrieCursor() = default;
+    TokenTrieMapCursor() = default;
 
     /** Conversion from mutable cursor to const cursor. */
     template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
-    TokenTrieCursor(const TokenTrieCursor<N, RM>& rhs)
+    TokenTrieMapCursor(const TokenTrieMapCursor<N, RM>& rhs)
         : parent_(rhs.parent_),
           target_(rhs.target_)
     {}
 
     /** Assignment from mutable cursor to const cursor. */
     template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
-    TokenTrieCursor& operator=(const TokenTrieCursor<N, RM>& rhs)
+    TokenTrieMapCursor& operator=(const TokenTrieMapCursor<N, RM>& rhs)
     {
         parent_ = rhs.parent_;
         target_ = rhs.target_;
         return *this;
     }
 
-    /** Same as TokenTrieCursor::good */
+    /** Same as TokenTrieMapCursor::good */
     explicit operator bool() const noexcept {return good();}
 
     /** Returns true if the cursor points to a valid node (which may or may
@@ -437,7 +437,7 @@ public:
         equivalent to the ones from the given cursor.
         If either cursor is not good, they are considered equivalent if and
         only if both cursors are not good. */
-    bool token_and_value_equals(const TokenTrieCursor& rhs) const
+    bool token_and_value_equals(const TokenTrieMapCursor& rhs) const
     {
         if (!good())
             return !rhs.good();
@@ -454,7 +454,7 @@ public:
         different to the ones from the given cursor.
         If either cursor is not good, they are considered different if and
         only if the cursors are not both bad. */
-    bool token_or_value_differs(const TokenTrieCursor& rhs) const
+    bool token_or_value_differs(const TokenTrieMapCursor& rhs) const
     {
         if (!good())
             return rhs.good();
@@ -607,12 +607,12 @@ private:
                                               const node_type&>::type;
     using KeyComp = typename node_type::key_compare;
 
-    static TokenTrieCursor begin(NodeRef rootNode)
+    static TokenTrieMapCursor begin(NodeRef rootNode)
     {
-        return TokenTrieCursor(&rootNode, rootNode.children_.begin());
+        return TokenTrieMapCursor(&rootNode, rootNode.children_.begin());
     }
 
-    static TokenTrieCursor first(NodeRef rootNode)
+    static TokenTrieMapCursor first(NodeRef rootNode)
     {
         auto cursor = begin(rootNode);
         if (!cursor.at_end_of_level() && !cursor.target()->has_element())
@@ -620,9 +620,9 @@ private:
         return cursor;
     }
 
-    static TokenTrieCursor end(NodeRef sentinelNode)
+    static TokenTrieMapCursor end(NodeRef sentinelNode)
     {
-        return TokenTrieCursor(&sentinelNode, sentinelNode.children_.end());
+        return TokenTrieMapCursor(&sentinelNode, sentinelNode.children_.end());
     }
 
     static bool tokensAreEquivalent(const token_type& a, const token_type& b)
@@ -637,7 +637,7 @@ private:
         return c(a, b) || c(b, a);
     }
 
-    TokenTrieCursor(node_pointer node, iterator iter)
+    TokenTrieMapCursor(node_pointer node, iterator iter)
         : parent_(node),
           target_(iter)
     {}
@@ -683,25 +683,25 @@ private:
     node_pointer parent_ = nullptr;
     iterator target_ = {};
 
-    template <typename, bool> friend class TokenTrieCursor;
+    template <typename, bool> friend class TokenTrieMapCursor;
 
-    template <typename, bool> friend class TokenTrieIterator;
+    template <typename, bool> friend class TokenTrieMapIterator;
 
     template <typename, typename, typename, typename>
-    friend class internal::TokenTrieImpl;
+    friend class internal::TokenTrieMapImpl;
 
     template <typename TNode, bool L, bool R>
-    friend bool operator==(const TokenTrieCursor<TNode, L>& lhs,
-                           const TokenTrieCursor<TNode, R>& rhs);
+    friend bool operator==(const TokenTrieMapCursor<TNode, L>& lhs,
+                           const TokenTrieMapCursor<TNode, R>& rhs);
 
     template <typename TNode, bool L, bool R>
-    friend bool operator!=(const TokenTrieCursor<TNode, L>& lhs,
-                           const TokenTrieCursor<TNode, R>& rhs);
+    friend bool operator!=(const TokenTrieMapCursor<TNode, L>& lhs,
+                           const TokenTrieMapCursor<TNode, R>& rhs);
 };
 
 template <typename N, bool L, bool R>
-bool operator==(const TokenTrieCursor<N, L>& lhs,
-                const TokenTrieCursor<N, R>& rhs)
+bool operator==(const TokenTrieMapCursor<N, L>& lhs,
+                const TokenTrieMapCursor<N, R>& rhs)
 {
     if (lhs.parent_ == nullptr || rhs.parent_ == nullptr)
         return lhs.parent_ == rhs.parent_;
@@ -709,8 +709,8 @@ bool operator==(const TokenTrieCursor<N, L>& lhs,
 }
 
 template <typename N, bool L, bool R>
-bool operator!=(const TokenTrieCursor<N, L>& lhs,
-                const TokenTrieCursor<N, R>& rhs)
+bool operator!=(const TokenTrieMapCursor<N, L>& lhs,
+                const TokenTrieMapCursor<N, R>& rhs)
 {
     if (lhs.parent_ == nullptr || rhs.parent_ == nullptr)
         return lhs.parent_ != rhs.parent_;
@@ -726,10 +726,10 @@ namespace std
 {
 
 template <typename K, typename T, typename C, typename A, typename Alloc>
-struct uses_allocator<wamp::utils::TokenTrieNode<K,T,C,A>, Alloc> :
+struct uses_allocator<wamp::utils::TokenTrieMapNode<K,T,C,A>, Alloc> :
     std::is_convertible<Alloc, A>
 {};
 
 } // namespace std
 
-#endif // CPPWAMP_UTILS_TOKENTRIENODE_HPP
+#endif // CPPWAMP_UTILS_TOKENTRIEMAPNODE_HPP
