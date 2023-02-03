@@ -513,7 +513,9 @@ struct RegisterMessage : public MessageWithOptions<WampMsgType::enroll, 2>
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
-    const String& procedureUri() const {return fields_.at(3).as<String>();}
+    const String& procedureUri() const & {return fields_.at(3).as<String>();}
+
+    String&& procedureUri() && {return std::move(fields_.at(3).as<String>());}
 
 private:
     using Base = MessageWithOptions<WampMsgType::enroll, 2>;

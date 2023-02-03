@@ -16,6 +16,10 @@
 #include "idgen.hpp"
 #include "routersession.hpp"
 
+// TODO: Publisher Identification
+// TODO: Subscriber include/exclude lists
+// TODO: Publication Trust Levels
+
 namespace wamp
 {
 
@@ -23,15 +27,16 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class BrokerPublicationInfo
+class BrokerPublication
 {
 public:
-    BrokerPublicationInfo(const Pub& p, SessionId sid, PublicationId pid)
-        : event_(eventFromPub(p, pid)),
-          pub_(p),
-          publisherId_(sid),
+    BrokerPublication(Pub&& pub, PublicationId pid,
+                      RouterSession::Ptr publisher)
+        : topicUri_(pub.topic()),
+          event_(eventFromPub(std::move(pub), pid)),
+          publisherId_(publisher->wampId()),
           publicationId_(pid),
-          selfPublishEnabled_(p.optionOr<bool>("exclude_me", false))
+          selfPublishEnabled_(pub.optionOr<bool>("exclude_me", false))
     {}
 
     void setSubscriptionId(SubscriptionId subId)
@@ -41,32 +46,32 @@ public:
 
     void enableTopicDetail()
     {
-        event_.withOption("topic", pub_.topic());
+        event_.withOption("topic", topicUri_);
     }
 
-    void publishTo(RouterSession& session) const
+    void sendTo(RouterSession& session) const
     {
         if (selfPublishEnabled_ || (session.wampId() != publisherId_))
             session.sendEvent(Event{event_});
     }
 
-    const String& topicUri() const {return pub_.topic();}
+    const String& topicUri() const {return topicUri_;}
 
     PublicationId publicationId() const {return publicationId_;}
 
 private:
-    static Event eventFromPub(const Pub& pub, PublicationId pubId)
+    static Event eventFromPub(Pub&& pub, PublicationId pubId)
     {
         Event ev{pubId};
         if (!pub.args().empty() || !pub.kwargs().empty())
-            ev.withArgList(pub.args());
+            ev.withArgList(std::move(pub).args());
         if (!pub.kwargs().empty())
-            ev.withKwargs(pub.kwargs());
+            ev.withKwargs(std::move(pub).kwargs());
         return ev;
     }
 
+    String topicUri_;
     Event event_;
-    const Pub& pub_;
     SessionId publisherId_;
     PublicationId publicationId_;
     bool selfPublishEnabled_;
@@ -111,12 +116,12 @@ struct BrokerSubscriberInfo
 };
 
 //------------------------------------------------------------------------------
-class BrokerSubscriptionRecord
+class BrokerSubscription
 {
 public:
-    BrokerSubscriptionRecord() = default;
+    BrokerSubscription() = default;
 
-    BrokerSubscriptionRecord(BrokerUriAndPolicy topic, SubscriptionId subId)
+    BrokerSubscription(BrokerUriAndPolicy topic, SubscriptionId subId)
         : topic_(std::move(topic))
     {}
 
@@ -128,19 +133,20 @@ public:
 
     void addSubscriber(SessionId sid, BrokerSubscriberInfo info)
     {
+        // Does not clobber subscriber info if already subscribed.
         sessions_.emplace(sid, std::move(info));
     }
 
     bool removeSubscriber(SessionId sid) {return sessions_.erase(sid) != 0;}
 
-    void publish(BrokerPublicationInfo& info) const
+    void publish(BrokerPublication& info) const
     {
         info.setSubscriptionId(subId_);
         for (auto& kv : sessions_)
         {
-            auto session = kv.second.session.lock();
-            if (session)
-                info.publishTo(*session);
+            auto subscriber = kv.second.session.lock();
+            if (subscriber)
+                info.sendTo(*subscriber);
         }
     }
 
@@ -153,8 +159,7 @@ private:
 //------------------------------------------------------------------------------
 // Need associative container with stable iterators
 // for use in by-pattern maps.
-using BrokerSubscriptionMap =
-    std::map<SubscriptionId, BrokerSubscriptionRecord>;
+using BrokerSubscriptionMap = std::map<SubscriptionId, BrokerSubscription>;
 
 //------------------------------------------------------------------------------
 class BrokerSubscriptionIdGenerator
@@ -174,12 +179,12 @@ private:
 };
 
 //------------------------------------------------------------------------------
-class BrokerSubscribeInfo
+class BrokerSubscribeRequest
 {
 public:
-    BrokerSubscribeInfo(Topic&& t, RouterSession::Ptr s,
-                        BrokerSubscriptionMap& subs,
-                        BrokerSubscriptionIdGenerator& gen)
+    BrokerSubscribeRequest(Topic&& t, RouterSession::Ptr s,
+                           BrokerSubscriptionMap& subs,
+                           BrokerSubscriptionIdGenerator& gen)
         : topic_(std::move(t)),
           subscriber_({s}),
           sessionId_(s->wampId()),
@@ -196,19 +201,19 @@ public:
         return topic_.check();
     }
 
-    BrokerSubscriptionRecord* addNewSubscriptionRecord()
+    BrokerSubscription* addNewSubscriptionRecord()
     {
         auto subId = subIdGen_.next(subscriptions_);
-        BrokerSubscriptionRecord rec{std::move(topic_), subId};
-        rec.addSubscriber(sessionId_, std::move(subscriber_));
-        auto emplaced = subscriptions_.emplace(subId, std::move(rec));
+        BrokerSubscription record{std::move(topic_), subId};
+        record.addSubscriber(sessionId_, std::move(subscriber_));
+        auto emplaced = subscriptions_.emplace(subId, std::move(record));
         assert(emplaced.second);
         return &(emplaced.first->second);
     }
 
-    void addSubscriberToExistingRecord(BrokerSubscriptionRecord& rec)
+    void addSubscriberToExistingRecord(BrokerSubscription& record)
     {
-        rec.addSubscriber(sessionId_, std::move(subscriber_));
+        record.addSubscriber(sessionId_, std::move(subscriber_));
     }
 
 private:
@@ -224,22 +229,24 @@ template <typename TTrie, typename TDerived>
 class BrokerTopicMapBase
 {
 public:
-    ErrorOr<SubscriptionId> subscribe(BrokerSubscribeInfo& info)
+    ErrorOr<SubscriptionId> subscribe(BrokerSubscribeRequest& req)
     {
-        auto key = info.topicUri();
+        auto key = req.topicUri();
         SubscriptionId subId = nullId();
         auto found = trie_.find(key);
         if (found == trie_.end())
         {
-            BrokerSubscriptionRecord* rec = info.addNewSubscriptionRecord();
-            trie_.emplace(std::move(key), rec);
+            BrokerSubscription* record = req.addNewSubscriptionRecord();
+            subId = record->subscriptionId();
+            trie_.emplace(std::move(key), record);
         }
         else
         {
             // tsl::htrie_map iterators don't dereference to a key-value pair
             // like util::TokenTrieMap does.
-            BrokerSubscriptionRecord* rec = TDerived::iteratorValue(found);
-            info.addSubscriberToExistingRecord(*rec);
+            BrokerSubscription* record = TDerived::iteratorValue(found);
+            subId = record->subscriptionId();
+            req.addSubscriberToExistingRecord(*record);
         }
         return subId;
     }
@@ -252,42 +259,37 @@ protected:
 
 //------------------------------------------------------------------------------
 class BrokerExactTopicMap
-    : public BrokerTopicMapBase<
-          utils::BasicTrieMap<char, BrokerSubscriptionRecord*>,
-          BrokerExactTopicMap>
+    : public BrokerTopicMapBase<utils::BasicTrieMap<char, BrokerSubscription*>,
+                                BrokerExactTopicMap>
 {
 public:
     template <typename I>
-    static BrokerSubscriptionRecord* iteratorValue(I iter)
-    {
-        return iter.value();
-    }
+    static BrokerSubscription* iteratorValue(I iter) {return iter.value();}
 
-    void publish(BrokerPublicationInfo& info)
+    void publish(BrokerPublication& info)
     {
         auto found = trie_.find(info.topicUri());
         if (found != trie_.end())
         {
-            const BrokerSubscriptionRecord* rec = found.value();
-            rec->publish(info);
+            const BrokerSubscription* record = found.value();
+            record->publish(info);
         }
     }
 };
 
 //------------------------------------------------------------------------------
 class BrokerPrefixTopicMap
-    : public BrokerTopicMapBase<
-          utils::BasicTrieMap<char, BrokerSubscriptionRecord*>,
-          BrokerPrefixTopicMap>
+    : public BrokerTopicMapBase<utils::BasicTrieMap<char, BrokerSubscription*>,
+                                BrokerPrefixTopicMap>
 {
 public:
     template <typename I>
-    static BrokerSubscriptionRecord* iteratorValue(I iter)
+    static BrokerSubscription* iteratorValue(I iter)
     {
         return iter.value();
     }
 
-    void publish(BrokerPublicationInfo& info)
+    void publish(BrokerPublication& info)
     {
         auto range = trie_.equal_prefix_range(info.topicUri());
         if (range.first == range.second)
@@ -296,25 +298,25 @@ public:
         info.enableTopicDetail();
         for (; range.first != range.second; ++range.first)
         {
-            const BrokerSubscriptionRecord* rec = range.first.value();
-            rec->publish(info);
+            const BrokerSubscription* record = range.first.value();
+            record->publish(info);
         }
     }
 };
 
 //------------------------------------------------------------------------------
 class BrokerWildcardTopicMap
-    : public BrokerTopicMapBase<utils::UriTrieMap<BrokerSubscriptionRecord*>,
+    : public BrokerTopicMapBase<utils::UriTrieMap<BrokerSubscription*>,
                                 BrokerWildcardTopicMap>
 {
 public:
     template <typename I>
-    static BrokerSubscriptionRecord* iteratorValue(I iter)
+    static BrokerSubscription* iteratorValue(I iter)
     {
         return iter->second;
     }
 
-    void publish(BrokerPublicationInfo& info)
+    void publish(BrokerPublication& info)
     {
         auto matches = wildcardMatches(trie_, info.topicUri());
         if (matches.done())
@@ -323,8 +325,8 @@ public:
         info.enableTopicDetail();
         while (!matches.done())
         {
-            const BrokerSubscriptionRecord* rec = matches.value();
-            rec->publish(info);
+            const BrokerSubscription* record = matches.value();
+            record->publish(info);
             matches.next();
         }
     }
@@ -336,26 +338,26 @@ class RealmBroker
 public:
     ErrorOr<SubscriptionId> subscribe(Topic&& t, RouterSession::Ptr s)
     {
-        BrokerSubscribeInfo info{std::move(t), s, subscriptions_,
-                                 subIdGenerator_};
+        BrokerSubscribeRequest req{std::move(t), s, subscriptions_,
+                                   subIdGenerator_};
 
-        auto ec = info.check();
+        auto ec = req.check();
         if (ec)
             return makeUnexpected(ec);
 
-        switch (info.policy())
+        switch (req.policy())
         {
         case Policy::unknown:
             return makeUnexpectedError(SessionErrc::optionNotAllowed);
 
         case Policy::exact:
-            return byExact_.subscribe(info);
+            return byExact_.subscribe(req);
 
         case Policy::prefix:
-            return byPrefix_.subscribe(info);
+            return byPrefix_.subscribe(req);
 
         case Policy::wildcard:
-            return byWildcard_.subscribe(info);
+            return byWildcard_.subscribe(req);
 
         default:
             break;
@@ -370,12 +372,12 @@ public:
         auto found = subscriptions_.find(subId);
         if (found == subscriptions_.end())
             return makeUnexpectedError(SessionErrc::noSuchSubscription);
-        BrokerSubscriptionRecord& rec = found->second;
-        bool erased = rec.removeSubscriber(sessionId);
+        BrokerSubscription& record = found->second;
+        bool erased = record.removeSubscriber(sessionId);
 
-        if (rec.empty())
+        if (record.empty())
         {
-            const BrokerUriAndPolicy& topic = rec.topic();
+            const BrokerUriAndPolicy& topic = record.topic();
             subscriptions_.erase(found);
             switch (topic.policy())
             {
@@ -402,10 +404,10 @@ public:
         return erased;
     }
 
-    ErrorOr<PublicationId> publish(const Pub& pub, SessionId publisherId)
+    ErrorOr<PublicationId> publish(Pub&& pub, RouterSession::Ptr publisher)
     {
-        // TODO: publish and event options
-        BrokerPublicationInfo info(pub, publisherId, pubIdGenerator_());
+        BrokerPublication info(std::move(pub), pubIdGenerator_(),
+                               std::move(publisher));
         byExact_.publish(info);
         byPrefix_.publish(info);
         byWildcard_.publish(info);

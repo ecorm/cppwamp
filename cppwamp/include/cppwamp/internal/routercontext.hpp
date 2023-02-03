@@ -104,13 +104,13 @@ public:
 
     ErrorOrDone unsubscribe(SubscriptionId subId, SessionId sessionId);
 
-    ErrorOr<PublicationId> publish(Pub pub, SessionId sid);
+    ErrorOr<PublicationId> publish(Pub pub, RouterSessionPtr s);
 
     ErrorOr<RegistrationId> enroll(Procedure proc, RouterSessionPtr s);
 
     ErrorOrDone unregister(RegistrationId rid, SessionId sid);
 
-    ErrorOrDone call(Rpc rpc, SessionId sid);
+    ErrorOrDone call(Rpc rpc, RouterSessionPtr s);
 
     bool cancelCall(RequestId rid, SessionId sid);
 

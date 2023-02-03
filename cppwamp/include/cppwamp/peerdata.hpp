@@ -584,7 +584,10 @@ public:
     Procedure(String uri);
 
     /** Obtains the procedure URI. */
-    const String& uri() const;
+    const String& uri() const &;
+
+    /** Moves the procedure URI. */
+    String&& uri() &&;
 
     /** @name Pattern-based Registrations
         See [Pattern-based Registrations in the WAMP Specification]
@@ -599,16 +602,6 @@ public:
     /** Specifies that the _wildcard-matching policy_ is to be used for this
         subscription. */
     Procedure& usingWildcardMatch();
-    /// @}
-
-    /** @name Caller Identification
-        See [Caller Identification in the WAMP Specification]
-        (https://wamp-proto.org/_static/gen/wamp_latest_ietf.html#rfc.section.14.3.5)
-        @{ */
-
-    /** Requests that the identity (session ID) of this session be disclosed
-        in the remote procedure call. */
-    Procedure& withDiscloseCaller(bool disclosed = true);
     /// @}
 
 private:

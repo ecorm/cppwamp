@@ -464,7 +464,7 @@ private:
         auto reqId = msg.requestId();
         Rpc rpc{{}, std::move(msg)};
         AccessActionInfo info{"client-call", rpc.procedure(), rpc.options()};
-        auto done = realm_.call(std::move(rpc), wampId());
+        auto done = realm_.call(std::move(rpc), shared_from_this());
         report(std::move(info.withResult(done)));
         if (!done)
             peer_.sendError(WampMsgType::call, reqId, Error{done.error()});

@@ -15,6 +15,7 @@
 #include "../routerconfig.hpp"
 #include "idgen.hpp"
 #include "realmbroker.hpp"
+#include "realmdealer.hpp"
 #include "routercontext.hpp"
 #include "routersession.hpp"
 
@@ -24,45 +25,6 @@ namespace wamp
 
 namespace internal
 {
-
-//------------------------------------------------------------------------------
-class RealmDealer
-{
-public:
-    ErrorOr<RegistrationId> enroll(Procedure&& p, RouterSession::Ptr s)
-    {
-        // TODO
-        return 0;
-    }
-
-    ErrorOrDone unregister(RegistrationId rid, SessionId sid)
-    {
-        // TODO
-        return true;
-    }
-
-    ErrorOrDone call(Rpc&& p, SessionId sid)
-    {
-        // TODO
-        return true;
-    }
-
-    bool cancel(RequestId rid, SessionId sid)
-    {
-        // TODO
-        return true;
-    }
-
-    void yieldResult(Result&& r, SessionId sid)
-    {
-        // TODO
-    }
-
-    void yieldError(Error&& e, SessionId sid)
-    {
-        // TODO
-    }
-};
 
 //------------------------------------------------------------------------------
 class RouterRealm : public std::enable_shared_from_this<RouterRealm>
@@ -147,10 +109,10 @@ private:
         return broker_.unsubscribe(subId, sessionId);
     }
 
-    ErrorOr<PublicationId> publish(Pub&& pub, SessionId sid)
+    ErrorOr<PublicationId> publish(Pub&& pub, RouterSession::Ptr s)
     {
         MutexGuard lock(mutex_);
-        return broker_.publish(std::move(pub), sid);
+        return broker_.publish(std::move(pub), std::move(s));
     }
 
     ErrorOr<RegistrationId> enroll(Procedure&& proc, RouterSession::Ptr s)
@@ -165,10 +127,10 @@ private:
         return dealer_.unregister(rid, sid);
     }
 
-    ErrorOrDone call(Rpc&& rpc, SessionId sid)
+    ErrorOrDone call(Rpc&& rpc, RouterSession::Ptr s)
     {
         MutexGuard lock(mutex_);
-        return dealer_.call(std::move(rpc), sid);
+        return dealer_.call(std::move(rpc), std::move(s));
     }
 
     bool cancelCall(RequestId rid, SessionId sid)
@@ -271,12 +233,12 @@ inline ErrorOrDone RealmContext::unsubscribe(SubscriptionId subId,
     return r->unsubscribe(subId, sessionId);
 }
 
-inline ErrorOr<PublicationId> RealmContext::publish(Pub pub, SessionId sid)
+inline ErrorOr<PublicationId> RealmContext::publish(Pub pub, RouterSessionPtr s)
 {
     auto r = realm_.lock();
     if (!r)
         return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->publish(std::move(pub), sid);
+    return r->publish(std::move(pub), std::move(s));
 }
 
 inline ErrorOr<RegistrationId> RealmContext::enroll(Procedure proc,
@@ -296,12 +258,12 @@ inline ErrorOrDone RealmContext::unregister(RegistrationId rid, SessionId sid)
     return r->unregister(rid, sid);
 }
 
-inline ErrorOrDone RealmContext::call(Rpc rpc, SessionId sid)
+inline ErrorOrDone RealmContext::call(Rpc rpc, RouterSessionPtr s)
 {
     auto r = realm_.lock();
     if (!r)
         return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->call(std::move(rpc), sid);
+    return r->call(std::move(rpc), std::move(s));
 }
 
 inline bool RealmContext::cancelCall(RequestId rid, SessionId sid)

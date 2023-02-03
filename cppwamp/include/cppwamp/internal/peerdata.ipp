@@ -737,9 +737,14 @@ CPPWAMP_INLINE Procedure& Procedure::usingPrefixMatch()
     return this->withOption("match", "prefix");
 }
 
-CPPWAMP_INLINE const String& Procedure::uri() const
+CPPWAMP_INLINE const String& Procedure::uri() const &
 {
     return message().procedureUri();
+}
+
+CPPWAMP_INLINE String&& Procedure::uri() &&
+{
+    return std::move(message()).procedureUri();
 }
 
 /** @details
@@ -747,13 +752,6 @@ CPPWAMP_INLINE const String& Procedure::uri() const
 CPPWAMP_INLINE Procedure& Procedure::usingWildcardMatch()
 {
     return withOption("match", "wildcard");
-}
-
-/** @details
-    This sets the `REGISTER.Options.disclose_caller|bool` option. */
-CPPWAMP_INLINE Procedure& Procedure::withDiscloseCaller(bool disclosed)
-{
-    return withOption("disclose_caller", disclosed);
 }
 
 CPPWAMP_INLINE Procedure::Procedure(internal::PassKey,

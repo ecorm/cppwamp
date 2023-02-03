@@ -77,6 +77,7 @@ set(HEADERS
     include/cppwamp/internal/rawsocklistener.hpp
     include/cppwamp/internal/rawsocktransport.hpp
     include/cppwamp/internal/realmbroker.hpp
+    include/cppwamp/internal/realmdealer.hpp
     include/cppwamp/internal/routercontext.hpp
     include/cppwamp/internal/routerimpl.hpp
     include/cppwamp/internal/routerrealm.hpp
