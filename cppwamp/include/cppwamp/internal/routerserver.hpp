@@ -497,6 +497,12 @@ private:
     {
         auto& msg = messageCast<CancelMessage>(m);
         auto reqId = msg.requestId();
+        if (reqId >= expectedRequestId_)
+        {
+            return doAbort(Abort(SessionErrc::protocolViolation)
+                               .withHint("Cannot cancel future request ID"));
+        }
+
         CallCancellation cncl({}, std::move(msg));
         auto done = realm_.cancelCall(shared_from_this(), std::move(cncl));
         if (!done)

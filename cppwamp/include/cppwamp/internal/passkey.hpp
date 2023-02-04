@@ -25,6 +25,7 @@ namespace internal
         friend class BrokerUriAndPolicy;
         friend class Client;
         friend class DealerInvocation;
+        friend class DealerJob;
         friend class Invocation;
         friend class LocalSessionImpl;
         friend class Peer;

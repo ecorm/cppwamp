@@ -125,66 +125,122 @@ private:
 using DealerJobKey = std::pair<SessionId, RequestId>;
 
 //------------------------------------------------------------------------------
-struct DealerJob
+class DealerJob
 {
+public:
     // TODO: Timeouts
     // TODO: Per-registration pending call limits
 
     DealerJob(const DealerInvocation& inv, const DealerRegistration&,
               RouterSession::Ptr caller, RouterSession::Ptr callee,
               RequestId calleeRequestId)
-        : caller(caller),
-          callee(callee),
-          callerKey(caller->wampId(), inv.callerRequestId()),
-          calleeKey(callee->wampId(), calleeRequestId)
+        : caller_(caller),
+          callee_(callee),
+          callerKey_(caller->wampId(), inv.callerRequestId()),
+          calleeKey_(callee->wampId(), calleeRequestId)
     {}
 
-    RouterSession::WeakPtr caller;
-    RouterSession::WeakPtr callee;
-    DealerJobKey callerKey;
-    DealerJobKey calleeKey;
-    bool cancelled = false;
+    ErrorOrDone cancel(CallCancelMode mode, bool& eraseNow)
+    {
+        auto callee = this->callee_.lock();
+        if (!callee)
+            return makeUnexpectedError(SessionErrc::noSuchProcedure);
+
+        mode = callee->features().calleeCancelling ? mode
+                                                   : CallCancelMode::skip;
+
+        if (mode != CallCancelMode::skip)
+            callee->sendInterruption({{}, calleeKey_.second, mode});
+
+        if (mode == CallCancelMode::killNoWait)
+            eraseNow = true;
+
+        if (mode != CallCancelMode::kill)
+        {
+            discardResultOrError_ = true;
+            return makeUnexpectedError(SessionErrc::cancelled);
+        }
+
+        return true;
+    }
+
+    void complete(Result&& result)
+    {
+        auto caller = this->caller_.lock();
+        if (!caller || discardResultOrError_)
+            return;
+        result.setRequestId({}, callerKey_.second);
+        result.withOptions({});
+        caller->sendResult(std::move(result));
+    }
+
+    void complete(Error&& error)
+    {
+        auto caller = this->caller_.lock();
+        if (!caller || discardResultOrError_)
+            return;
+        error.setRequestId({}, callerKey_.second);
+        caller->sendError(std::move(error));
+    }
+
+private:
+    RouterSession::WeakPtr caller_;
+    RouterSession::WeakPtr callee_;
+    DealerJobKey callerKey_;
+    DealerJobKey calleeKey_;
+    bool discardResultOrError_ = false;
+
+    friend class DealerJobMap;
 };
 
 //------------------------------------------------------------------------------
 class DealerJobMap
 {
+private:
+    using ByCaller = std::map<DealerJobKey, DealerJob>;
+    using ByCallee = std::map<DealerJobKey, ByCaller::iterator>;
+
 public:
     using Key = DealerJobKey;
     using Job = DealerJob;
+    using ByCalleeIterator = ByCallee::iterator;
+    using ByCallerIterator = ByCaller::iterator;
 
-    void add(Job&& job)
+    void insert(Job&& job)
     {
-        auto calleeKey = job.calleeKey;
-        auto callerKey = job.callerKey;
-        auto emplaced = byCallee_.emplace(calleeKey, std::move(job));
-        assert(emplaced.second);
-        auto ptr = &(emplaced.first->second);
-        auto emplaced2 = byCaller_.emplace(callerKey, ptr);
+        auto callerKey = job.callerKey_;
+        auto calleeKey = job.calleeKey_;
+        auto emplaced1 = byCaller_.emplace(callerKey, std::move(job));
+        assert(emplaced1.second);
+        auto emplaced2 = byCallee_.emplace(calleeKey, emplaced1.first);
         assert(emplaced2.second);
     }
 
-    void erase(const DealerJob& job)
+    ByCalleeIterator byCalleeFind(Key key) {return byCallee_.find(key);}
+
+    ByCalleeIterator byCalleeEnd() {return byCallee_.end();}
+
+    void byCalleeErase(ByCalleeIterator iter)
     {
-        byCallee_.erase(job.calleeKey);
-        byCaller_.erase(job.callerKey);
+        auto callerIter = iter->second;
+        byCaller_.erase(callerIter);
+        byCallee_.erase(iter);
     }
 
-    DealerJob* findByCallee(Key key)
-    {
-        auto found = byCallee_.find(key);
-        return (found == byCallee_.end()) ? nullptr : &(found->second);
-    }
+    ByCallerIterator byCallerFind(Key key) {return byCaller_.find(key);}
 
-    DealerJob* findByCaller(Key key)
+    ByCallerIterator byCallerEnd() {return byCaller_.end();}
+
+    void byCallerErase(ByCallerIterator iter)
     {
-        auto found = byCaller_.find(key);
-        return (found == byCaller_.end()) ? nullptr : found->second;
+        auto calleeKey = iter->second.calleeKey_;
+        byCallee_.erase(calleeKey);
+        byCaller_.erase(iter);
     }
 
 private:
-    std::map<Key, Job> byCallee_;
-    std::map<Key, Job*> byCaller_;
+    ByCallee byCallee_;
+    ByCaller byCaller_;
 };
 
 //------------------------------------------------------------------------------
@@ -206,7 +262,9 @@ public:
 
     ErrorOrDone unregister(RouterSession::Ptr callee, RegistrationId rid)
     {
-        // TODO: Cancel pending requests that can no longer be fulfilled
+        // Consensus on what to do with pending invocations upon unregister
+        // appears to be to allow them to continue.
+        // https://github.com/wamp-proto/wamp-proto/issues/283#issuecomment-429542748
         if (!registry_.erase(callee->wampId(), rid))
             return makeUnexpectedError(SessionErrc::noSuchRegistration);
         return true;
@@ -224,67 +282,47 @@ public:
 
         DealerInvocation inv(std::move(rpc), reg->registrationId());
         auto calleeReqId = inv.sendTo(*callee);
-        DealerJob req{inv, *reg, caller, callee, calleeReqId};
-        jobs_.add(std::move(req));
+        jobs_.insert({inv, *reg, caller, callee, calleeReqId});
         return true;
     }
 
     ErrorOrDone cancelCall(RouterSession::Ptr caller, CallCancellation&& cncl)
     {
         DealerJobKey callerKey{caller->wampId(), cncl.requestId()};
-        auto job = jobs_.findByCaller(callerKey);
-        if (!job)
-            return makeUnexpectedError(SessionErrc::noSuchProcedure);
-
-        auto callee = job->callee.lock();
-        if (!callee)
-            return makeUnexpectedError(SessionErrc::noSuchProcedure);
-
-        job->cancelled = true;
+        auto iter = jobs_.byCallerFind(callerKey);
+        if (iter == jobs_.byCallerEnd())
+            return false;
         using CM = CallCancelMode;
-        auto mode = cncl.mode() == CM::unknown ? CM::killNoWait : cncl.mode();
-        mode = callee->features().calleeCancelling ? mode : CM::skip;
-
-        if (mode != CM::skip)
-            callee->sendInterruption({{}, job->calleeKey.second, mode});
-        if (mode == CM::killNoWait)
-            jobs_.erase(*job);
-        if (mode != CM::kill)
-            return makeUnexpectedError(SessionErrc::cancelled);
-
-        return true;
+        auto mode = (cncl.mode() == CM::unknown) ? CM::killNoWait : cncl.mode();
+        auto& job = iter->second;
+        bool eraseNow = false;
+        auto done = job.cancel(mode, eraseNow);
+        if (eraseNow)
+            jobs_.byCallerErase(iter);
+        return done;
     }
 
     void yieldResult(RouterSession::Ptr callee, Result&& result)
     {
         // TODO: Progressive results
         DealerJobKey calleeKey{callee->wampId(), result.requestId()};
-        auto job = jobs_.findByCallee(calleeKey);
-        if (!job)
+        auto iter = jobs_.byCalleeFind(calleeKey);
+        if (iter == jobs_.byCalleeEnd())
             return;
-
-        auto caller = job->caller.lock();
-        if (!caller)
-            return;
-        result.setRequestId({}, job->callerKey.second);
-        result.withOptions({});
-        jobs_.erase(*job);
-        caller->sendResult(std::move(result));
+        auto& job = iter->second->second;
+        job.complete(std::move(result));
+        jobs_.byCalleeErase(iter);
     }
 
     void yieldError(RouterSession::Ptr callee, Error&& error)
     {
         DealerJobKey calleeKey{callee->wampId(), error.requestId()};
-        auto job = jobs_.findByCallee(calleeKey);
-        if (!job)
+        auto iter = jobs_.byCalleeFind(calleeKey);
+        if (iter == jobs_.byCalleeEnd())
             return;
-
-        auto caller = job->caller.lock();
-        if (!caller)
-            return;
-        error.setRequestId({}, job->callerKey.second);
-        jobs_.erase(*job);
-        caller->sendError(std::move(error));
+        auto& job = iter->second->second;
+        job.complete(std::move(error));
+        jobs_.byCalleeErase(iter);
     }
 
 private:
