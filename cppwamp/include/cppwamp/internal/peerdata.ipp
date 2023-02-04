@@ -572,6 +572,11 @@ CPPWAMP_INLINE Error::~Error() {}
 
 CPPWAMP_INLINE Error::operator bool() const {return !reason().empty();}
 
+CPPWAMP_INLINE RequestId Error::requestId() const
+{
+    return message().requestId();
+}
+
 CPPWAMP_INLINE const String& Error::reason() const
 {
     return message().reasonUri();
@@ -590,6 +595,11 @@ CPPWAMP_INLINE String Error::toUri(std::error_code ec)
 CPPWAMP_INLINE Error::Error(internal::PassKey, internal::ErrorMessage&& msg)
     : Base(std::move(msg))
 {}
+
+CPPWAMP_INLINE void Error::setRequestId(internal::PassKey, RequestId rid)
+{
+    message().setRequestId(rid);
+}
 
 CPPWAMP_INLINE internal::ErrorMessage&
 Error::errorMessage(internal::PassKey, internal::WampMsgType reqType,
@@ -939,6 +949,18 @@ CPPWAMP_INLINE Result::Result(internal::PassKey, internal::YieldMessage&& msg)
     withKwargs(std::move(msg).kwargs());
 }
 
+CPPWAMP_INLINE void Result::setRequestId(internal::PassKey, RequestId rid)
+{
+    message().setRequestId(rid);
+}
+
+CPPWAMP_INLINE internal::YieldMessage& Result::yieldMessage(internal::PassKey,
+                                                            RequestId reqId)
+{
+    message().setRequestId(reqId);
+    return message().transformToYield();
+}
+
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Result& result)
 {
     out << "[ Request|id = " << result.requestId();
@@ -1263,6 +1285,11 @@ CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
                                       RegistrationId regId)
     : Base(std::move(rpc.message({})).fields(), regId)
 {}
+
+CPPWAMP_INLINE void Invocation::setRequestId(internal::PassKey, RequestId rid)
+{
+    message().setRequestId(rid);
+}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
                                         const Invocation& inv)

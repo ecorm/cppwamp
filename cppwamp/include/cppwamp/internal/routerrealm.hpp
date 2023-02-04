@@ -97,58 +97,58 @@ private:
         sessions_.erase(sid);
     }
 
-    ErrorOr<SubscriptionId> subscribe(Topic&& t, RouterSession::Ptr s)
+    ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr s, Topic&& t)
     {
         MutexGuard lock(mutex_);
-        return broker_.subscribe(std::move(t), std::move(s));
+        return broker_.subscribe(std::move(s), std::move(t));
     }
 
-    ErrorOrDone unsubscribe(SubscriptionId subId, SessionId sessionId)
+    ErrorOrDone unsubscribe(RouterSession::Ptr s, SubscriptionId subId)
     {
         MutexGuard lock(mutex_);
-        return broker_.unsubscribe(subId, sessionId);
+        return broker_.unsubscribe(std::move(s), subId);
     }
 
-    ErrorOr<PublicationId> publish(Pub&& pub, RouterSession::Ptr s)
+    ErrorOr<PublicationId> publish(RouterSession::Ptr s, Pub&& pub)
     {
         MutexGuard lock(mutex_);
-        return broker_.publish(std::move(pub), std::move(s));
+        return broker_.publish(std::move(s), std::move(pub));
     }
 
-    ErrorOr<RegistrationId> enroll(Procedure&& proc, RouterSession::Ptr s)
+    ErrorOr<RegistrationId> enroll(RouterSession::Ptr s, Procedure&& proc)
     {
         MutexGuard lock(mutex_);
-        return dealer_.enroll(std::move(proc), std::move(s));
+        return dealer_.enroll(std::move(s), std::move(proc));
     }
 
-    ErrorOrDone unregister(RegistrationId rid, SessionId sid)
+    ErrorOrDone unregister(RouterSession::Ptr s, RegistrationId rid)
     {
         MutexGuard lock(mutex_);
-        return dealer_.unregister(rid, sid);
+        return dealer_.unregister(std::move(s), rid);
     }
 
-    ErrorOrDone call(Rpc&& rpc, RouterSession::Ptr s)
+    ErrorOrDone call(RouterSession::Ptr s, Rpc&& rpc)
     {
         MutexGuard lock(mutex_);
-        return dealer_.call(std::move(rpc), std::move(s));
+        return dealer_.call(std::move(s), std::move(rpc));
     }
 
-    ErrorOrDone cancelCall(CallCancellation&& c, SessionId sid)
+    ErrorOrDone cancelCall(RouterSession::Ptr s, CallCancellation&& c)
     {
         MutexGuard lock(mutex_);
-        return dealer_.cancelCall(std::move(c), sid);
+        return dealer_.cancelCall(std::move(s), std::move(c));
     }
 
-    void yieldResult(Result&& r, SessionId sid)
+    void yieldResult(RouterSession::Ptr s, Result&& r)
     {
         MutexGuard lock(mutex_);
-        dealer_.yieldResult(std::move(r), sid);
+        dealer_.yieldResult(std::move(s), std::move(r));
     }
 
-    void yieldError(Error&& e, SessionId sid)
+    void yieldError(RouterSession::Ptr s, Error&& e)
     {
         MutexGuard lock(mutex_);
-        dealer_.yieldError(std::move(e), sid);
+        dealer_.yieldError(std::move(s), std::move(e));
     }
 
     IoStrand strand_;
@@ -214,78 +214,81 @@ inline void RealmContext::leave(SessionId sid)
     realm_.reset();
 }
 
-inline ErrorOr<SubscriptionId> RealmContext::subscribe(Topic t,
-                                                       RouterSessionPtr s)
+inline ErrorOr<SubscriptionId> RealmContext::subscribe(RouterSessionPtr s,
+                                                       Topic t)
 {
     auto r = realm_.lock();
     if (!r)
         return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->subscribe(std::move(t), std::move(s));
+    return r->subscribe(std::move(s), std::move(t));
 
 }
 
-inline ErrorOrDone RealmContext::unsubscribe(SubscriptionId subId,
-                                             SessionId sessionId)
+inline ErrorOrDone RealmContext::unsubscribe(RouterSessionPtr s,
+                                             SubscriptionId subId)
 {
     auto r = realm_.lock();
     if (!r)
         return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->unsubscribe(subId, sessionId);
+    return r->unsubscribe(std::move(s), subId);
 }
 
-inline ErrorOr<PublicationId> RealmContext::publish(Pub pub, RouterSessionPtr s)
+inline ErrorOr<PublicationId> RealmContext::publish(RouterSessionPtr s,
+                                                    Pub pub)
 {
     auto r = realm_.lock();
     if (!r)
         return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->publish(std::move(pub), std::move(s));
+    return r->publish(std::move(s), std::move(pub));
 }
 
-inline ErrorOr<RegistrationId> RealmContext::enroll(Procedure proc,
-                                                    RouterSessionPtr s)
+inline ErrorOr<RegistrationId> RealmContext::enroll(RouterSessionPtr s,
+                                                    Procedure proc)
 {
     auto r = realm_.lock();
     if (!r)
         return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->enroll(std::move(proc), std::move(s));
+    return r->enroll(std::move(s), std::move(proc));
 }
 
-inline ErrorOrDone RealmContext::unregister(RegistrationId rid, SessionId sid)
+inline ErrorOrDone RealmContext::unregister(RouterSessionPtr s,
+                                            RegistrationId rid)
 {
     auto r = realm_.lock();
     if (!r)
         return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->unregister(rid, sid);
+    return r->unregister(std::move(s), rid);
 }
 
-inline ErrorOrDone RealmContext::call(Rpc rpc, RouterSessionPtr s)
+inline ErrorOrDone RealmContext::call(RouterSessionPtr s, Rpc rpc)
 {
     auto r = realm_.lock();
     if (!r)
         return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->call(std::move(rpc), std::move(s));
+    return r->call(std::move(s), std::move(rpc));
 }
 
-inline ErrorOrDone RealmContext::cancelCall(CallCancellation c, SessionId sid)
+inline ErrorOrDone RealmContext::cancelCall(RouterSessionPtr s,
+                                            CallCancellation c)
 {
     auto r = realm_.lock();
     if (!r)
         return false;
-    return r->cancelCall(std::move(c), sid);
+    return r->cancelCall(std::move(s), std::move(c));
 }
 
-inline void RealmContext::yieldResult(Result result, SessionId sid)
+inline void RealmContext::yieldResult(RouterSessionPtr s, Result result)
 {
     auto r = realm_.lock();
     if (r)
-        r->yieldResult(std::move(result), sid);
+        r->yieldResult(std::move(s), std::move(result));
 }
 
-inline void RealmContext::yieldError(Error e, SessionId sid)
+inline void RealmContext::yieldError(RouterSessionPtr s, Error e)
 {
     auto r = realm_.lock();
     if (r)
-        r->yieldError(std::move(e), sid);
+        r->yieldError(std::move(s), std::move(e));
 }
 
 } // namespace internal

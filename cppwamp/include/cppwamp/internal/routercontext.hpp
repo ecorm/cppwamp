@@ -100,23 +100,23 @@ public:
 
     void leave(SessionId sid);
 
-    ErrorOr<SubscriptionId> subscribe(Topic t, RouterSessionPtr s);
+    ErrorOr<SubscriptionId> subscribe(RouterSessionPtr s, Topic t);
 
-    ErrorOrDone unsubscribe(SubscriptionId subId, SessionId sessionId);
+    ErrorOrDone unsubscribe(RouterSessionPtr s, SubscriptionId subId);
 
-    ErrorOr<PublicationId> publish(Pub pub, RouterSessionPtr s);
+    ErrorOr<PublicationId> publish(RouterSessionPtr s, Pub pub);
 
-    ErrorOr<RegistrationId> enroll(Procedure proc, RouterSessionPtr s);
+    ErrorOr<RegistrationId> enroll(RouterSessionPtr s, Procedure proc);
 
-    ErrorOrDone unregister(RegistrationId rid, SessionId sid);
+    ErrorOrDone unregister(RouterSessionPtr s, RegistrationId rid);
 
-    ErrorOrDone call(Rpc rpc, RouterSessionPtr s);
+    ErrorOrDone call(RouterSessionPtr s, Rpc rpc);
 
-    ErrorOrDone cancelCall(CallCancellation c, SessionId sid);
+    ErrorOrDone cancelCall(RouterSessionPtr s, CallCancellation c);
 
-    void yieldResult(Result r, SessionId sid);
+    void yieldResult(RouterSessionPtr s, Result r);
 
-    void yieldError(Error e, SessionId sid);
+    void yieldError(RouterSessionPtr s, Error e);
 
 private:
     std::weak_ptr<RouterRealm> realm_;

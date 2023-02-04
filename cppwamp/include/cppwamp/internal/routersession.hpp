@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_ROUTERSESSION_HPP
 #define CPPWAMP_INTERNAL_ROUTERSESSION_HPP
 
+#include <atomic>
 #include <cstring>
 #include <memory>
 #include "../authinfo.hpp"
@@ -128,9 +129,16 @@ public:
 
     virtual void sendEvent(Event&&) = 0;
 
-    virtual void sendInvocation(Invocation&&) = 0;
-
     virtual void sendError(Error&&) = 0;
+
+    RequestId sendInvocation(Invocation&& inv)
+    {
+        // Will take 285 years to reach 2^53 at 1 million requests/sec
+        auto id = ++nextOutboundRequestId_;
+        assert(id <= 9007199254740992u);
+        inv.setRequestId({}, id);
+        return id;
+    }
 
     virtual void sendResult(Result&&) = 0;
 
@@ -141,7 +149,12 @@ public:
     virtual void report(AccessActionInfo&& i) = 0;
 
 protected:
-    RouterSession() : authInfo_(std::make_shared<AuthInfo>()) {}
+    RouterSession()
+        : authInfo_(std::make_shared<AuthInfo>()),
+          nextOutboundRequestId_(0)
+    {}
+
+    virtual void onSendInvocation(Invocation&&) = 0;
 
     void clearWampId() {wampId_.reset();}
 
@@ -159,6 +172,7 @@ private:
     ReservedId wampId_;
     AuthInfo::Ptr authInfo_;
     ClientFeatures features_;
+    std::atomic<RequestId> nextOutboundRequestId_;
 
 public:
     // Internal use only

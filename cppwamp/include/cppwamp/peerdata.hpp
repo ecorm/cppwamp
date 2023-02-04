@@ -388,6 +388,9 @@ public:
     /** Conversion to bool operator, returning false if the error is empty. */
     explicit operator bool() const;
 
+    /** Obtains the request ID. */
+    RequestId requestId() const;
+
     /** Obtains the reason URI. */
     const String& reason() const;
 
@@ -399,6 +402,8 @@ private:
 public:
     // Internal use only
     Error(internal::PassKey, internal::ErrorMessage&& msg);
+
+    void setRequestId(internal::PassKey, RequestId rid);
 
     internal::ErrorMessage& errorMessage(internal::PassKey,
                                          internal::WampMsgType reqType,
@@ -781,11 +786,9 @@ public:
 
     Result(internal::PassKey, internal::YieldMessage&& msg);
 
-    internal::YieldMessage& yieldMessage(internal::PassKey, RequestId reqId)
-    {
-        message().setRequestId(reqId);
-        return message().transformToYield();
-    }
+    void setRequestId(internal::PassKey, RequestId rid);
+
+    internal::YieldMessage& yieldMessage(internal::PassKey, RequestId reqId);
 };
 
 CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Result& result);
@@ -975,6 +978,8 @@ public:
                internal::InvocationMessage&& msg);
 
     Invocation(internal::PassKey, Rpc&& rpc, RegistrationId regId);
+
+    void setRequestId(internal::PassKey, RequestId rid);
 
 private:
     using Base = Payload<Invocation, internal::InvocationMessage>;

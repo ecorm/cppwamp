@@ -103,7 +103,7 @@ public:
         safelyDispatch<Dispatched>(std::move(ev));
     }
 
-    void sendInvocation(Invocation&& inv) override
+    void onSendInvocation(Invocation&& inv) override
     {
         struct Dispatched
         {
@@ -425,7 +425,7 @@ private:
         auto& msg = messageCast<ErrorMessage>(m);
         Error error{{}, std::move(msg)};
         report({"client-error", error.reason(), error.options()});
-        realm_.yieldError(std::move(error), wampId());
+        realm_.yieldError(shared_from_this(), std::move(error));
     }
 
     void onPublish(WampMessage& m)
@@ -440,7 +440,7 @@ private:
         auto reqId = msg.requestId();
         Topic topic{{}, std::move(msg)};
         AccessActionInfo info{"client-subscribe", topic.uri(), topic.options()};
-        auto subId = realm_.subscribe(std::move(topic), shared_from_this());
+        auto subId = realm_.subscribe(shared_from_this(), std::move(topic));
         report(std::move(info.withResult(subId)));
         if (!subId && state() == State::established)
         {
@@ -453,7 +453,8 @@ private:
     {
         auto& msg = messageCast<UnsubscribeMessage>(m);
         auto reqId = msg.requestId();
-        auto done = realm_.unsubscribe(msg.subscriptionId(), wampId());
+        auto done = realm_.unsubscribe(shared_from_this(),
+                                       msg.subscriptionId());
         report(AccessActionInfo{"client-unsubscribe", {}, {}, done});
         if (!done)
         {
@@ -468,7 +469,7 @@ private:
         auto reqId = msg.requestId();
         Rpc rpc{{}, std::move(msg)};
         AccessActionInfo info{"client-call", rpc.procedure(), rpc.options()};
-        auto done = realm_.call(std::move(rpc), shared_from_this());
+        auto done = realm_.call(shared_from_this(), std::move(rpc));
         report(std::move(info.withResult(done)));
         if (!done)
             peer_.sendError(WampMsgType::call, reqId, Error{done.error()});
@@ -479,7 +480,7 @@ private:
         auto& msg = messageCast<CancelMessage>(m);
         auto reqId = msg.requestId();
         CallCancellation cncl({}, std::move(msg));
-        auto done = realm_.cancelCall(std::move(cncl), wampId());
+        auto done = realm_.cancelCall(shared_from_this(), std::move(cncl));
         if (!done)
             peer_.sendError(WampMsgType::call, reqId, Error{done.error()});
         report({"client-cancel-call"});
@@ -491,7 +492,7 @@ private:
         auto reqId = msg.requestId();
         Procedure proc({}, std::move(msg));
         AccessActionInfo info{"client-register", proc.uri(), proc.options()};
-        auto done = realm_.enroll(std::move(proc), shared_from_this());
+        auto done = realm_.enroll(shared_from_this(), std::move(proc));
         report(std::move(info.withResult(done)));
         if (!done)
             peer_.sendError(WampMsgType::enroll, reqId, Error{done.error()});
@@ -502,7 +503,8 @@ private:
         auto& msg = messageCast<UnregisterMessage>(m);
         auto reqId = msg.requestId();
         AccessActionInfo{"client-unregister"};
-        auto done = realm_.unsubscribe(msg.registrationId(), wampId());
+        auto done = realm_.unsubscribe(shared_from_this(),
+                                       msg.registrationId());
         report(AccessActionInfo{"client-unregister", {}, {}, done});
         if (!done)
             peer_.sendError(WampMsgType::unregister, reqId, Error{done.error()});
@@ -513,7 +515,7 @@ private:
         auto& msg = messageCast<YieldMessage>(m);
         Result result{{}, std::move(msg)};
         report({"client-yield", {}, result.options()});
-        realm_.yieldResult(std::move(result), wampId());
+        realm_.yieldResult(shared_from_this(), std::move(result));
     }
 
     void leaveRealm(bool clearSessionInfo = true)

@@ -33,6 +33,7 @@ namespace internal
         friend class RouterImpl;
         friend class RouterRealm;
         friend class RouterServer;
+        friend class RouterSession;
     };
 }
 

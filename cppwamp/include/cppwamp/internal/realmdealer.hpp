@@ -24,17 +24,19 @@ class DealerInvocation
 {
 public:
     DealerInvocation(Rpc&& rpc, RegistrationId regId)
-        : invocation_({}, std::move(rpc), regId)
+        : callerRequestId_(rpc.requestId({})),
+          invocation_({}, std::move(rpc), regId)
     {}
 
-    RequestId requestId() const {return invocation_.requestId();}
+    RequestId callerRequestId() const {return callerRequestId_;}
 
-    void sendTo(RouterSession& session)
+    RequestId sendTo(RouterSession& session)
     {
-        session.sendInvocation(std::move(invocation_));
+        return session.sendInvocation(std::move(invocation_));
     }
 
 private:
+    RequestId callerRequestId_;
     Invocation invocation_;
 };
 
@@ -68,13 +70,6 @@ public:
         return (callee != nullptr) && (callee->wampId() == sid);
     }
 
-    void invoke(DealerInvocation& inv) const
-    {
-        auto callee = callee_.lock();
-        if (callee)
-            inv.sendTo(*callee);
-    }
-
     RouterSession::WeakPtr callee() const {return callee_;}
 
 private:
@@ -101,13 +96,14 @@ public:
         byUri_.emplace(std::move(uri), ptr);
     }
 
-    bool erase(RegistrationId rid, SessionId sid)
+    bool erase(SessionId sid, RegistrationId rid)
     {
         auto found = byRegId_.find(rid);
         if (found == byRegId_.end() || !found->second.belongsTo(sid))
             return false;
         const auto& uri = found->second.procedureUri();
-        assert(byUri_.erase(uri) == 1);
+        auto erased = byUri_.erase(uri);
+        assert(erased == 1);
         byRegId_.erase(found);
         return true;
     }
@@ -126,10 +122,77 @@ private:
 };
 
 //------------------------------------------------------------------------------
+using DealerJobKey = std::pair<SessionId, RequestId>;
+
+//------------------------------------------------------------------------------
+struct DealerJob
+{
+    // TODO: Timeouts
+    // TODO: Per-registration pending call limits
+
+    DealerJob(const DealerInvocation& inv, const DealerRegistration&,
+              RouterSession::Ptr caller, RouterSession::Ptr callee,
+              RequestId calleeRequestId)
+        : caller(caller),
+          callee(callee),
+          callerKey(caller->wampId(), inv.callerRequestId()),
+          calleeKey(callee->wampId(), calleeRequestId)
+    {}
+
+    RouterSession::WeakPtr caller;
+    RouterSession::WeakPtr callee;
+    DealerJobKey callerKey;
+    DealerJobKey calleeKey;
+    bool cancelled = false;
+};
+
+//------------------------------------------------------------------------------
+class DealerJobMap
+{
+public:
+    using Key = DealerJobKey;
+    using Job = DealerJob;
+
+    void add(Job&& job)
+    {
+        auto calleeKey = job.calleeKey;
+        auto callerKey = job.callerKey;
+        auto emplaced = byCallee_.emplace(calleeKey, std::move(job));
+        assert(emplaced.second);
+        auto ptr = &(emplaced.first->second);
+        auto emplaced2 = byCaller_.emplace(callerKey, ptr);
+        assert(emplaced2.second);
+    }
+
+    void erase(const DealerJob& job)
+    {
+        byCallee_.erase(job.calleeKey);
+        byCaller_.erase(job.callerKey);
+    }
+
+    DealerJob* findByCallee(Key key)
+    {
+        auto found = byCallee_.find(key);
+        return (found == byCallee_.end()) ? nullptr : &(found->second);
+    }
+
+    DealerJob* findByCaller(Key key)
+    {
+        auto found = byCaller_.find(key);
+        return (found == byCaller_.end()) ? nullptr : found->second;
+    }
+
+
+private:
+    std::map<Key, Job> byCallee_;
+    std::map<Key, Job*> byCaller_;
+};
+
+//------------------------------------------------------------------------------
 class RealmDealer
 {
 public:
-    ErrorOr<RegistrationId> enroll(Procedure&& p, RouterSession::Ptr callee)
+    ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p)
     {
         if (registry_.contains(p.uri()))
             return makeUnexpectedError(SessionErrc::procedureAlreadyExists);
@@ -142,18 +205,18 @@ public:
         return regId;
     }
 
-    ErrorOrDone unregister(RegistrationId rid, SessionId sid)
+    ErrorOrDone unregister(RouterSession::Ptr callee, RegistrationId rid)
     {
-        if (!registry_.erase(rid, sid))
+        // TODO: Cancel pending requests that can no longer be fulfilled
+        if (!registry_.erase(callee->wampId(), rid))
             return makeUnexpectedError(SessionErrc::noSuchRegistration);
         return true;
     }
 
-    ErrorOrDone call(Rpc&& rpc, RouterSession::Ptr caller)
+    ErrorOrDone call(RouterSession::Ptr caller, Rpc&& rpc)
     {
-        auto reqId = rpc.requestId({});
-        if (pendingInvocations_.count(reqId) != 0)
-            return makeUnexpectedError(SessionErrc::protocolViolation);
+        // TODO: Check monotonic caller request ID
+        // TODO: Progressive calls
         auto reg = registry_.find(rpc.procedure());
         if (reg == nullptr)
             return makeUnexpectedError(SessionErrc::noSuchProcedure);
@@ -162,73 +225,75 @@ public:
             return makeUnexpectedError(SessionErrc::noSuchProcedure);
 
         DealerInvocation inv(std::move(rpc), reg->registrationId());
-        InvocationRequest req{inv, *reg, caller};
-        pendingInvocations_.emplace(reqId, std::move(req));
-        reg->invoke(inv);
+        auto calleeReqId = inv.sendTo(*callee);
+        DealerJob req{inv, *reg, caller, callee, calleeReqId};
+        jobs_.add(std::move(req));
         return true;
     }
 
-    ErrorOrDone cancelCall(CallCancellation&& cncl, SessionId sid)
+    ErrorOrDone cancelCall(RouterSession::Ptr caller, CallCancellation&& cncl)
     {
-        auto reqId = cncl.requestId();
-        auto found = pendingInvocations_.find(reqId);
-        if (found == pendingInvocations_.end())
+        DealerJobKey callerKey{caller->wampId(), cncl.requestId()};
+        auto job = jobs_.findByCaller(callerKey);
+        if (!job)
             return makeUnexpectedError(SessionErrc::noSuchProcedure);
 
-        InvocationRequest& req = found->second;
-        auto caller = req.caller.lock();
-        auto callee = req.callee.lock();
-        if (!callee || !caller || caller->wampId() != sid)
+        auto callee = job->callee.lock();
+        if (!callee)
             return makeUnexpectedError(SessionErrc::noSuchProcedure);
 
-        req.cancelled = true;
+        job->cancelled = true;
         using CM = CallCancelMode;
         auto mode = cncl.mode() == CM::unknown ? CM::killNoWait : cncl.mode();
         mode = callee->features().calleeCancelling ? mode : CM::skip;
 
         if (mode != CM::skip)
-            callee->sendInterruption({{}, reqId, mode});
+            callee->sendInterruption({{}, job->calleeKey.second, mode});
         if (mode == CM::killNoWait)
-            pendingInvocations_.erase(found);
+            jobs_.erase(*job);
         if (mode != CM::kill)
             return makeUnexpectedError(SessionErrc::cancelled);
 
         return true;
     }
 
-    void yieldResult(Result&& r, SessionId sid)
+    void yieldResult(RouterSession::Ptr callee, Result&& result)
     {
-        // TODO
+        // TODO: Progressive results
+        DealerJobKey calleeKey{callee->wampId(), result.requestId()};
+        auto job = jobs_.findByCallee(calleeKey);
+        if (!job)
+            return;
+
+        auto caller = job->caller.lock();
+        if (!caller)
+            return;
+        result.setRequestId({}, job->callerKey.second);
+        result.withOptions({});
+        jobs_.erase(*job);
+        caller->sendResult(std::move(result));
     }
 
-    void yieldError(Error&& e, SessionId sid)
+    void yieldError(RouterSession::Ptr callee, Error&& error)
     {
-        // TODO
+        DealerJobKey calleeKey{callee->wampId(), error.requestId()};
+        auto job = jobs_.findByCallee(calleeKey);
+        if (!job)
+            return;
+
+        auto caller = job->caller.lock();
+        if (!caller)
+            return;
+        error.setRequestId({}, job->callerKey.second);
+        jobs_.erase(*job);
+        caller->sendError(std::move(error));
     }
 
 private:
-    struct InvocationRequest
-    {
-        // TODO: Timeouts
-        // TODO: Per-registration pending call limits
-
-        InvocationRequest(const DealerInvocation& inv,
-                          const DealerRegistration& reg,
-                          RouterSession::WeakPtr caller)
-            : id(inv.requestId()),
-              callee(reg.callee()),
-              caller(caller)
-        {}
-
-        RequestId id;
-        RouterSession::WeakPtr callee;
-        RouterSession::WeakPtr caller;
-        bool cancelled = false;
-    };
-
     RegistrationId nextRegistrationId()
     {
         RegistrationId id = nextRegistrationId_ + 1;
+        if (id)
         while ((id == nullId()) || registry_.contains(id))
             ++id;
         nextRegistrationId_ = id;
@@ -236,7 +301,7 @@ private:
     }
 
     DealerRegistry registry_;
-    std::map<RequestId, InvocationRequest> pendingInvocations_;
+    DealerJobMap jobs_;
     RegistrationId nextRegistrationId_ = nullId();
 };
 

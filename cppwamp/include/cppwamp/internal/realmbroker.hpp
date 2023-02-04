@@ -326,9 +326,9 @@ public:
 class RealmBroker
 {
 public:
-    ErrorOr<SubscriptionId> subscribe(Topic&& t, RouterSession::Ptr s)
+    ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t)
     {
-        BrokerSubscribeRequest req{std::move(t), s, subscriptions_,
+        BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
                                    subIdGenerator_};
 
         auto ec = req.check();
@@ -357,13 +357,13 @@ public:
         return 0;
     }
 
-    ErrorOrDone unsubscribe(SubscriptionId subId, SessionId sessionId)
+    ErrorOrDone unsubscribe(RouterSession::Ptr subscriber, SubscriptionId subId)
     {
         auto found = subscriptions_.find(subId);
         if (found == subscriptions_.end())
             return makeUnexpectedError(SessionErrc::noSuchSubscription);
         BrokerSubscription& record = found->second;
-        bool erased = record.removeSubscriber(sessionId);
+        bool erased = record.removeSubscriber(subscriber->wampId());
 
         if (record.empty())
         {
@@ -394,7 +394,7 @@ public:
         return erased;
     }
 
-    ErrorOr<PublicationId> publish(Pub&& pub, RouterSession::Ptr publisher)
+    ErrorOr<PublicationId> publish(RouterSession::Ptr publisher, Pub&& pub)
     {
         BrokerPublication info(std::move(pub), pubIdGenerator_(),
                                std::move(publisher));

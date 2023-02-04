@@ -593,7 +593,7 @@ public:
     // Make these post to strand_ to avoid recursion with RouterRealm
     void sendEvent(Event&&) override {}
 
-    void sendInvocation(Invocation&&) override {}
+    void onSendInvocation(Invocation&&) override {}
 
     void sendError(Error&&) override {}
 
