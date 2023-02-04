@@ -431,13 +431,25 @@ private:
     void onPublish(WampMessage& m)
     {
         auto& msg = messageCast<PublishMessage>(m);
-        report({"client-publish", msg.topicUri(), msg.options()});
+        auto reqId = msg.requestId();
+        if (!checkSequentialRequestId(reqId))
+            return;
+
+        Pub pub({}, std::move(msg));
+        AccessActionInfo info{"client-publish", pub.topic(), pub.options()};
+        auto pubId = realm_.publish(shared_from_this(), std::move(pub));
+        report(std::move(info.withResult(pubId)));
+        if (!pubId)
+            peer_.sendError(WampMsgType::publish, reqId, Error{pubId.error()});
     }
 
     void onSubscribe(WampMessage& m)
     {
         auto& msg = messageCast<SubscribeMessage>(m);
         auto reqId = msg.requestId();
+        if (!checkSequentialRequestId(reqId))
+            return;
+
         Topic topic{{}, std::move(msg)};
         AccessActionInfo info{"client-subscribe", topic.uri(), topic.options()};
         auto subId = realm_.subscribe(shared_from_this(), std::move(topic));
@@ -453,6 +465,9 @@ private:
     {
         auto& msg = messageCast<UnsubscribeMessage>(m);
         auto reqId = msg.requestId();
+        if (!checkSequentialRequestId(reqId))
+            return;
+
         auto done = realm_.unsubscribe(shared_from_this(),
                                        msg.subscriptionId());
         report(AccessActionInfo{"client-unsubscribe", {}, {}, done});
@@ -467,6 +482,9 @@ private:
     {
         auto& msg = messageCast<CallMessage>(m);
         auto reqId = msg.requestId();
+        if (!checkSequentialRequestId(reqId))
+            return;
+
         Rpc rpc{{}, std::move(msg)};
         AccessActionInfo info{"client-call", rpc.procedure(), rpc.options()};
         auto done = realm_.call(shared_from_this(), std::move(rpc));
@@ -490,6 +508,9 @@ private:
     {
         auto& msg = messageCast<RegisterMessage>(m);
         auto reqId = msg.requestId();
+        if (!checkSequentialRequestId(reqId))
+            return;
+
         Procedure proc({}, std::move(msg));
         AccessActionInfo info{"client-register", proc.uri(), proc.options()};
         auto done = realm_.enroll(shared_from_this(), std::move(proc));
@@ -502,6 +523,9 @@ private:
     {
         auto& msg = messageCast<UnregisterMessage>(m);
         auto reqId = msg.requestId();
+        if (!checkSequentialRequestId(reqId))
+            return;
+
         AccessActionInfo{"client-unregister"};
         auto done = realm_.unsubscribe(shared_from_this(),
                                        msg.registrationId());
@@ -541,6 +565,18 @@ private:
     void completeNow(F&& handler, Ts&&... args)
     {
         dispatchAny(strand_, std::move(handler), std::forward<Ts>(args)...);
+    }
+
+    bool checkSequentialRequestId(RequestId rid)
+    {
+        if (rid != expectedRequestId_)
+        {
+            doAbort(Abort(SessionErrc::protocolViolation)
+                        .withHint("Non-sequential request ID"));
+            return false;
+        }
+        ++expectedRequestId_;
+        return true;
     }
 
     void challenge() override
@@ -660,6 +696,7 @@ private:
     AccessSessionInfo sessionInfo_;
     RouterLogger::Ptr logger_;
     std::string logSuffix_;
+    RequestId expectedRequestId_ = 1;
     bool alreadyStarted_ = false;
     bool shuttingDown_ = false;
 };

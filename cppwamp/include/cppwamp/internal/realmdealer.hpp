@@ -182,7 +182,6 @@ public:
         return (found == byCaller_.end()) ? nullptr : found->second;
     }
 
-
 private:
     std::map<Key, Job> byCallee_;
     std::map<Key, Job*> byCaller_;
@@ -215,7 +214,6 @@ public:
 
     ErrorOrDone call(RouterSession::Ptr caller, Rpc&& rpc)
     {
-        // TODO: Check monotonic caller request ID
         // TODO: Progressive calls
         auto reg = registry_.find(rpc.procedure());
         if (reg == nullptr)

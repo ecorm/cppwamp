@@ -507,6 +507,10 @@ public:
 
 private:
     using Base = Payload<Pub, internal::PublishMessage>;
+
+public:
+    // Internal use only
+    Pub(internal::PassKey, internal::PublishMessage&& msg);
 };
 
 

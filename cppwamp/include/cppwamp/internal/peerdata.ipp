@@ -706,6 +706,10 @@ CPPWAMP_INLINE Pub& Pub::withDiscloseMe(bool disclosed)
     return withOption("disclose_me", disclosed);
 }
 
+CPPWAMP_INLINE Pub::Pub(internal::PassKey, internal::PublishMessage&& msg)
+    : Base(std::move(msg))
+{}
+
 
 //******************************************************************************
 // Event
