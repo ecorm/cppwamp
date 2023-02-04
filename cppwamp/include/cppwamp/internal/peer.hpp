@@ -278,6 +278,7 @@ public:
 
     RequestId request(Message& msg, OneShotHandler&& handler)
     {
+        // TODO: Move request logic to Client
         return sendRequest(msg, oneShotRequestMap_, std::move(handler));
     }
 

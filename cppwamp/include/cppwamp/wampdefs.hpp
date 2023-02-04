@@ -47,6 +47,7 @@ enum class SessionState
 //------------------------------------------------------------------------------
 enum class CallCancelMode
 {
+    unknown,    ///< Unrecognized cancel mode
     kill,       ///< INTERRUPT sent to callee; RESULT or ERROR returned, depending on callee
     killNoWait, ///< INTERRUPT sent to callee; router immediately returns ERROR
     skip        ///< No INTERRUPT sent to callee; router immediately returns ERROR

@@ -133,10 +133,10 @@ private:
         return dealer_.call(std::move(rpc), std::move(s));
     }
 
-    bool cancelCall(RequestId rid, SessionId sid)
+    ErrorOrDone cancelCall(CallCancellation&& c, SessionId sid)
     {
         MutexGuard lock(mutex_);
-        return dealer_.cancel(rid, sid);
+        return dealer_.cancelCall(std::move(c), sid);
     }
 
     void yieldResult(Result&& r, SessionId sid)
@@ -266,12 +266,12 @@ inline ErrorOrDone RealmContext::call(Rpc rpc, RouterSessionPtr s)
     return r->call(std::move(rpc), std::move(s));
 }
 
-inline bool RealmContext::cancelCall(RequestId rid, SessionId sid)
+inline ErrorOrDone RealmContext::cancelCall(CallCancellation c, SessionId sid)
 {
     auto r = realm_.lock();
     if (!r)
         return false;
-    return r->cancelCall(rid, sid);
+    return r->cancelCall(std::move(c), sid);
 }
 
 inline void RealmContext::yieldResult(Result result, SessionId sid)

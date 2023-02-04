@@ -112,7 +112,7 @@ public:
 
     ErrorOrDone call(Rpc rpc, RouterSessionPtr s);
 
-    bool cancelCall(RequestId rid, SessionId sid);
+    ErrorOrDone cancelCall(CallCancellation c, SessionId sid);
 
     void yieldResult(Result r, SessionId sid);
 

@@ -9,7 +9,6 @@
 
 #include <cassert>
 #include <map>
-#include <tuple>
 #include <utility>
 #include "../erroror.hpp"
 #include "routersession.hpp"
@@ -24,9 +23,11 @@ namespace internal
 class DealerInvocation
 {
 public:
-    DealerInvocation(Rpc&& rpc, RegistrationId regId, RouterSession::Ptr)
+    DealerInvocation(Rpc&& rpc, RegistrationId regId)
         : invocation_({}, std::move(rpc), regId)
     {}
+
+    RequestId requestId() const {return invocation_.requestId();}
 
     void sendTo(RouterSession& session)
     {
@@ -74,7 +75,7 @@ public:
             inv.sendTo(*callee);
     }
 
-    bool calleeExpired() const {return callee_.expired();}
+    RouterSession::WeakPtr callee() const {return callee_;}
 
 private:
     String procedureUri_;
@@ -150,19 +151,48 @@ public:
 
     ErrorOrDone call(Rpc&& rpc, RouterSession::Ptr caller)
     {
+        auto reqId = rpc.requestId({});
+        if (pendingInvocations_.count(reqId) != 0)
+            return makeUnexpectedError(SessionErrc::protocolViolation);
         auto reg = registry_.find(rpc.procedure());
-        if (reg == nullptr || reg->calleeExpired())
+        if (reg == nullptr)
             return makeUnexpectedError(SessionErrc::noSuchProcedure);
-        DealerInvocation inv(std::move(rpc), reg->registrationId(),
-                             std::move(caller));
+        auto callee = reg->callee().lock();
+        if (!callee)
+            return makeUnexpectedError(SessionErrc::noSuchProcedure);
+
+        DealerInvocation inv(std::move(rpc), reg->registrationId());
+        InvocationRequest req{inv, *reg, caller};
+        pendingInvocations_.emplace(reqId, std::move(req));
         reg->invoke(inv);
-        // TODO: Pending request map and timeouts
         return true;
     }
 
-    bool cancel(RequestId rid, SessionId sid)
+    ErrorOrDone cancelCall(CallCancellation&& cncl, SessionId sid)
     {
-        // TODO
+        auto reqId = cncl.requestId();
+        auto found = pendingInvocations_.find(reqId);
+        if (found == pendingInvocations_.end())
+            return makeUnexpectedError(SessionErrc::noSuchProcedure);
+
+        InvocationRequest& req = found->second;
+        auto caller = req.caller.lock();
+        auto callee = req.callee.lock();
+        if (!callee || !caller || caller->wampId() != sid)
+            return makeUnexpectedError(SessionErrc::noSuchProcedure);
+
+        req.cancelled = true;
+        using CM = CallCancelMode;
+        auto mode = cncl.mode() == CM::unknown ? CM::killNoWait : cncl.mode();
+        mode = callee->features().calleeCancelling ? mode : CM::skip;
+
+        if (mode != CM::skip)
+            callee->sendInterruption({{}, reqId, mode});
+        if (mode == CM::killNoWait)
+            pendingInvocations_.erase(found);
+        if (mode != CM::kill)
+            return makeUnexpectedError(SessionErrc::cancelled);
+
         return true;
     }
 
@@ -177,6 +207,25 @@ public:
     }
 
 private:
+    struct InvocationRequest
+    {
+        // TODO: Timeouts
+        // TODO: Per-registration pending call limits
+
+        InvocationRequest(const DealerInvocation& inv,
+                          const DealerRegistration& reg,
+                          RouterSession::WeakPtr caller)
+            : id(inv.requestId()),
+              callee(reg.callee()),
+              caller(caller)
+        {}
+
+        RequestId id;
+        RouterSession::WeakPtr callee;
+        RouterSession::WeakPtr caller;
+        bool cancelled = false;
+    };
+
     RegistrationId nextRegistrationId()
     {
         RegistrationId id = nextRegistrationId_ + 1;
@@ -187,6 +236,7 @@ private:
     }
 
     DealerRegistry registry_;
+    std::map<RequestId, InvocationRequest> pendingInvocations_;
     RegistrationId nextRegistrationId_ = nullId();
 };
 

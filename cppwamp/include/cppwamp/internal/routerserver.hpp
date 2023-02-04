@@ -364,6 +364,10 @@ private:
         auto& helloMsg = messageCast<HelloMessage>(msg);
         Realm realm{{}, std::move(helloMsg)};
 
+        auto roles = realm.roles();
+        if (roles)
+            setFeatures(*roles);
+
         sessionInfo_.agent = realm.agent().value_or("");
         sessionInfo_.authId = realm.authId().value_or("");
 
@@ -473,7 +477,11 @@ private:
     void onCancelCall(WampMessage& m)
     {
         auto& msg = messageCast<CancelMessage>(m);
-        realm_.cancelCall(msg.requestId(), wampId());
+        auto reqId = msg.requestId();
+        CallCancellation cncl({}, std::move(msg));
+        auto done = realm_.cancelCall(std::move(cncl), wampId());
+        if (!done)
+            peer_.sendError(WampMsgType::call, reqId, Error{done.error()});
         report({"client-cancel-call"});
     }
 

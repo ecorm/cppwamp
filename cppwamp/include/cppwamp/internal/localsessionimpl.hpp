@@ -60,6 +60,7 @@ public:
         realm_.join(shared_from_this());
         a.join({}, std::move(realmUri), wampId());
         Base::setAuthInfo(std::move(a));
+        Base::setFeatures(ClientFeatures::local());
     }
 
     const IoStrand& strand() const {return strand_;}
@@ -589,6 +590,7 @@ public:
         // TODO
     }
 
+    // Make these post to strand_ to avoid recursion with RouterRealm
     void sendEvent(Event&&) override {}
 
     void sendInvocation(Invocation&&) override {}

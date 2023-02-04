@@ -18,7 +18,7 @@ namespace internal
 
 //------------------------------------------------------------------------------
 template <typename T>
-MatchPolicy getMatchPolicyOption(const T& messageData)
+CPPWAMP_INLINE MatchPolicy getMatchPolicyOption(const T& messageData)
 {
     const auto& opts = messageData.options();
     auto found = opts.find("match");
@@ -38,7 +38,7 @@ MatchPolicy getMatchPolicyOption(const T& messageData)
 
 //------------------------------------------------------------------------------
 template <typename T>
-void setMatchPolicyOption(T& messageData, MatchPolicy policy)
+CPPWAMP_INLINE void setMatchPolicyOption(T& messageData, MatchPolicy policy)
 {
     CPPWAMP_LOGIC_CHECK(policy != MatchPolicy::unknown,
                         "Cannot specify unknown match policy");
@@ -59,6 +59,38 @@ void setMatchPolicyOption(T& messageData, MatchPolicy policy)
     default:
         assert(false && "Unexpected MatchPolicy enumerator");
     }
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE String callCancelModeToString(CallCancelMode mode)
+{
+    CPPWAMP_LOGIC_CHECK(mode != CallCancelMode::unknown,
+                        "Cannot specify CallCancelMode::unknown");
+    switch (mode)
+    {
+    case CallCancelMode::kill:       return "kill";
+    case CallCancelMode::killNoWait: return "killnowait";
+    case CallCancelMode::skip:       return "skip";;
+    default: assert(false && "Unexpected CallCancelMode enumerator"); break;
+    }
+    return {};
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE CallCancelMode parseCallCancelModeFromOptions(const Object& opts)
+{
+    auto found = opts.find("mode");
+    if (found != opts.end() && found->second.is<String>())
+    {
+        const auto& s = found->second.as<String>();
+        if (s == "kill")
+            return CallCancelMode::kill;
+        else if (s == "killnowait")
+            return CallCancelMode::killNoWait;
+        else if (s == "skip")
+            return CallCancelMode::skip;
+    }
+    return CallCancelMode::unknown;
 }
 
 } // namespace internal
@@ -863,6 +895,11 @@ CPPWAMP_INLINE Rpc::Rpc(internal::PassKey, internal::CallMessage&& msg)
 
 CPPWAMP_INLINE Error* Rpc::error(internal::PassKey) {return error_;}
 
+CPPWAMP_INLINE RequestId Rpc::requestId(internal::PassKey) const
+{
+    return message().fields().at(1).to<RequestId>();
+}
+
 
 //******************************************************************************
 // Result
@@ -1251,33 +1288,19 @@ CPPWAMP_INLINE CallCancellation::CallCancellation(RequestId reqId,
       requestId_(reqId),
       mode_(cancelMode)
 {
-    String modeStr;
-    switch (cancelMode)
-    {
-    case CallCancelMode::kill:
-        modeStr = "kill";
-        break;
-
-    case CallCancelMode::killNoWait:
-        modeStr = "killnowait";
-        break;
-
-    case CallCancelMode::skip:
-        modeStr = "skip";
-        break;
-
-    default:
-        assert(false && "Unexpected CallCancelMode enumerator");
-        break;
-    }
-
-    if (!modeStr.empty())
-        withOption("mode", std::move(modeStr));
+    withOption("mode", internal::callCancelModeToString(cancelMode));
 }
 
 CPPWAMP_INLINE RequestId CallCancellation::requestId() const {return requestId_;}
 
 CPPWAMP_INLINE CallCancelMode CallCancellation::mode() const {return mode_;}
+
+CPPWAMP_INLINE CallCancellation::CallCancellation(internal::PassKey,
+                                                  internal::CancelMessage&& msg)
+    : Base(std::move(msg))
+{
+    mode_ = internal::parseCallCancelModeFromOptions(options());
+}
 
 
 //******************************************************************************
@@ -1297,6 +1320,11 @@ CPPWAMP_INLINE bool Interruption::calleeHasExpired() const
 CPPWAMP_INLINE RequestId Interruption::requestId() const
 {
     return message().requestId();
+}
+
+CPPWAMP_INLINE CallCancelMode Interruption::cancelMode() const
+{
+    return cancelMode_;
 }
 
 /** @returns the same object as Session::fallbackExecutor().
@@ -1359,6 +1387,14 @@ CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,
     : Base(std::move(msg)),
       callee_(callee),
       executor_(executor)
+{
+    cancelMode_ = internal::parseCallCancelModeFromOptions(options());
+}
+
+CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, RequestId reqId,
+                                          CallCancelMode mode)
+    : Base(reqId, Object{{"mode", internal::callCancelModeToString(mode)}}),
+      cancelMode_(mode)
 {}
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,

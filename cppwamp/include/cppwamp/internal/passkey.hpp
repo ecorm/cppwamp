@@ -29,6 +29,7 @@ namespace internal
         friend class LocalSessionImpl;
         friend class Peer;
         friend class ServerSession;
+        friend class RealmDealer;
         friend class RouterImpl;
         friend class RouterRealm;
         friend class RouterServer;

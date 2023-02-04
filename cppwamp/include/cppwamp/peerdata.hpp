@@ -625,6 +625,7 @@ public:
     /** The duration type used for caller-initiated timeouts. */
     using CallerTimeoutDuration = std::chrono::steady_clock::duration;
 
+    /** The default cancel mode when none is specified. */
     static constexpr CallCancelMode defaultCancelMode() noexcept
     {
         return CallCancelMode::kill;
@@ -734,8 +735,10 @@ private:
     bool progressiveResultsEnabled_ = false;
 
 public:
+    // Internal use only
     Rpc(internal::PassKey, internal::CallMessage&& msg);
-    Error* error(internal::PassKey); // Internal use only
+    Error* error(internal::PassKey);
+    RequestId requestId(internal::PassKey) const;
 };
 
 
@@ -1006,8 +1009,12 @@ public:
 private:
     using Base = Options<CallCancellation, internal::CancelMessage>;
 
-    RequestId requestId_;
-    CallCancelMode mode_;
+    RequestId requestId_ = nullId();
+    CallCancelMode mode_ = CallCancelMode::unknown;
+
+public:
+    // Internal use only
+    CallCancellation(internal::PassKey, internal::CancelMessage&& msg);
 };
 
 //------------------------------------------------------------------------------
@@ -1034,6 +1041,9 @@ public:
     /** Returns the request ID associated with this interruption. */
     RequestId requestId() const;
 
+    /** Obtains the cancellation mode, if available. */
+    CallCancelMode cancelMode() const;
+
     /** Obtains the executor used to execute user-provided handlers. */
     AnyCompletionExecutor executor() const;
 
@@ -1052,15 +1062,19 @@ public:
 public:
     // Internal use only
     using CalleePtr = std::weak_ptr<internal::Callee>;
+
     Interruption(internal::PassKey, CalleePtr callee,
                  AnyCompletionExecutor executor,
                  internal::InterruptMessage&& msg);
+
+    Interruption(internal::PassKey, RequestId reqId, CallCancelMode mode);
 
 private:
     using Base = Options<Interruption, internal::InterruptMessage>;
 
     CalleePtr callee_;
     AnyCompletionExecutor executor_ = nullptr;
+    CallCancelMode cancelMode_ = CallCancelMode::unknown;
 };
 
 CPPWAMP_API std::ostream& operator<<(std::ostream& out,
