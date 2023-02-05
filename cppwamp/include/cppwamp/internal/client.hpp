@@ -983,7 +983,7 @@ private:
     using TopicMap       = std::map<std::string, SubscriptionId>;
     using Registry       = std::map<RegistrationId, RegistrationRecord>;
     using InvocationMap  = std::map<RequestId, RegistrationId>;
-    using CallerTimeoutDuration = typename Rpc::CallerTimeoutDuration;
+    using CallerTimeoutDuration = typename Rpc::TimeoutDuration;
 
     Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
         : peer_(false, exec, std::move(userExec)),

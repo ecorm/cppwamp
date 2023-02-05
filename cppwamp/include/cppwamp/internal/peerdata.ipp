@@ -876,12 +876,20 @@ CPPWAMP_INLINE Rpc& Rpc::withCallerTimeout(UInt milliseconds)
     return withCallerTimeout(std::chrono::milliseconds(milliseconds));
 }
 
-CPPWAMP_INLINE Rpc::CallerTimeoutDuration Rpc::callerTimeout() const
+CPPWAMP_INLINE Rpc::TimeoutDuration Rpc::callerTimeout() const
 {
     return callerTimeout_;
 }
 
-CPPWAMP_INLINE void Rpc::setCallerTimeout(CallerTimeoutDuration duration)
+CPPWAMP_INLINE ErrorOr<Rpc::TimeoutDuration> Rpc::dealerTimeout() const
+{
+    auto timeout = toUnsignedInteger("timeout");
+    if (!timeout)
+        return makeUnexpected(timeout.error());
+    return TimeoutDuration{std::chrono::milliseconds{*timeout}};
+}
+
+CPPWAMP_INLINE void Rpc::setCallerTimeout(TimeoutDuration duration)
 {
     CPPWAMP_LOGIC_CHECK(duration.count() >= 0,
                         "Timeout duration must be zero or positive");
@@ -1288,7 +1296,9 @@ CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
                                       RegistrationId regId)
     : Base(std::move(rpc.message({})).fields(), regId)
-{}
+{
+    withOptions({});
+}
 
 CPPWAMP_INLINE void Invocation::setRequestId(internal::PassKey, RequestId rid)
 {

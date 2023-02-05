@@ -632,7 +632,7 @@ class CPPWAMP_API Rpc : public Payload<Rpc, internal::CallMessage>
 {
 public:
     /** The duration type used for caller-initiated timeouts. */
-    using CallerTimeoutDuration = std::chrono::steady_clock::duration;
+    using TimeoutDuration = std::chrono::steady_clock::duration;
 
     /** The default cancel mode when none is specified. */
     static constexpr CallCancelMode defaultCancelMode() noexcept
@@ -692,12 +692,15 @@ public:
     Rpc& withCallerTimeout(std::chrono::duration<R, P> timeout)
     {
         using namespace std::chrono;
-        setCallerTimeout(duration_cast<CallerTimeoutDuration>(timeout));
+        setCallerTimeout(duration_cast<TimeoutDuration>(timeout));
         return *this;
     }
 
     /** Obtains the caller timeout duration. */
-    CallerTimeoutDuration callerTimeout() const;
+    TimeoutDuration callerTimeout() const;
+
+    /** Obtains the dealer timeout duration. */
+    ErrorOr<TimeoutDuration> dealerTimeout() const;
 
     /// @}
 
@@ -736,10 +739,10 @@ public:
 private:
     using Base = Payload<Rpc, internal::CallMessage>;
 
-    void setCallerTimeout(CallerTimeoutDuration duration);
+    void setCallerTimeout(TimeoutDuration duration);
 
     Error* error_ = nullptr;
-    CallerTimeoutDuration callerTimeout_ = {};
+    TimeoutDuration callerTimeout_ = {};
     CallCancelMode cancelMode_ = defaultCancelMode();
     bool progressiveResultsEnabled_ = false;
 

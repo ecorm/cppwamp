@@ -359,6 +359,8 @@ public:
 
     ErrorOrDone unsubscribe(RouterSession::Ptr subscriber, SubscriptionId subId)
     {
+        // TODO: Unsubscribe all from subscriber leaving realm
+
         auto found = subscriptions_.find(subId);
         if (found == subscriptions_.end())
             return makeUnexpectedError(SessionErrc::noSuchSubscription);

@@ -72,6 +72,7 @@ private:
     RouterRealm(Executor&& e, RealmConfig&& c, RouterContext&& r)
         : strand_(boost::asio::make_strand(e)),
           router_(std::move(r)),
+          dealer_(strand_),
           config_(std::move(c)),
           logSuffix_(" (Realm " + config_.uri() + ")"),
           logger_(router_.logger())
