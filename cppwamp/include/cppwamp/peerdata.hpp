@@ -677,6 +677,7 @@ public:
     template <typename R, typename P>
     Rpc& withDealerTimeout(std::chrono::duration<R, P> timeout)
     {
+        // TODO: Prevent overflow of TimeoutDuration
         using namespace std::chrono;
         auto ms = duration_cast<milliseconds>(timeout).count();
         return withDealerTimeout(static_cast<Int>(ms));

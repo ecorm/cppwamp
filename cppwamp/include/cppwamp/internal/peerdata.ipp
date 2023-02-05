@@ -873,6 +873,7 @@ CPPWAMP_INLINE Rpc& Rpc::withDealerTimeout(UInt milliseconds)
 
 CPPWAMP_INLINE Rpc& Rpc::withCallerTimeout(UInt milliseconds)
 {
+    // TODO: Prevent overflow of TimeoutDuration
     return withCallerTimeout(std::chrono::milliseconds(milliseconds));
 }
 

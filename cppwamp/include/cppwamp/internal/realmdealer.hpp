@@ -9,12 +9,19 @@
 
 #include <cassert>
 #include <chrono>
+#include <functional>
 #include <map>
 #include <utility>
 #include <boost/asio/steady_timer.hpp>
 #include "../asiodefs.hpp"
 #include "../erroror.hpp"
 #include "routersession.hpp"
+
+// TODO: Caller Identification
+// TODO: Call Trust Levels
+// TODO: Progressive Calls
+// TODO: Progressive Call Results
+// TODO: Pending call limits
 
 namespace wamp
 {
@@ -114,8 +121,7 @@ using DealerJobKey = std::pair<SessionId, RequestId>;
 class DealerJob
 {
 public:
-    // TODO: Timeouts
-    // TODO: Per-registration pending call limits
+    using Deadline = std::chrono::steady_clock::time_point;
 
     static ErrorOr<DealerJob> create(
         RouterSession::Ptr caller, RouterSession::Ptr callee, Rpc&& rpc,
@@ -123,8 +129,9 @@ public:
     {
         DealerJob job{caller, callee, rpc.requestId({})};
         auto timeout = rpc.dealerTimeout();
-        if (timeout)
+        if (timeout && (*timeout != Deadline::duration{0}))
         {
+            // TODO: Prevent overflow
             job.deadline_ = std::chrono::steady_clock::now() + *timeout;
             job.hasDeadline_ = true;
         }
@@ -177,9 +184,13 @@ public:
         caller->sendError(std::move(error));
     }
 
-private:
-    using Deadline = std::chrono::steady_clock::time_point;
+    DealerJobKey calleeKey() const {return calleeKey_;}
 
+    bool hasDeadline() const {return hasDeadline_;}
+
+    Deadline deadline() const {return deadline_;}
+
+private:
     DealerJob(const RouterSession::Ptr& caller,
               const RouterSession::Ptr& callee,
               RequestId callerRequestId)
@@ -201,7 +212,7 @@ private:
 };
 
 //------------------------------------------------------------------------------
-class DealerJobMap
+class DealerJobMap : public std::enable_shared_from_this<DealerJobMap>
 {
 private:
     using ByCaller = std::map<DealerJobKey, DealerJob>;
@@ -213,9 +224,11 @@ public:
     using ByCalleeIterator = ByCallee::iterator;
     using ByCallerIterator = ByCaller::iterator;
 
+    DealerJobMap(IoStrand strand) : timer_(strand) {}
+
     void insert(Job&& job)
     {
-
+        updateTimeoutForInserted(job);
         auto callerKey = job.callerKey_;
         auto calleeKey = job.calleeKey_;
         auto emplaced1 = byCaller_.emplace(callerKey, std::move(job));
@@ -230,9 +243,11 @@ public:
 
     void byCalleeErase(ByCalleeIterator iter)
     {
+        auto calleeKey = iter->first;
         auto callerIter = iter->second;
         byCaller_.erase(callerIter);
         byCallee_.erase(iter);
+        updateTimeoutForErased(calleeKey);
     }
 
     ByCallerIterator byCallerFind(Key key) {return byCaller_.find(key);}
@@ -244,20 +259,94 @@ public:
         auto calleeKey = iter->second.calleeKey_;
         byCallee_.erase(calleeKey);
         byCaller_.erase(iter);
+        updateTimeoutForErased(calleeKey);
     }
 
 private:
+    using Deadline = Job::Deadline;
+
+    void updateTimeoutForInserted(const Job& newJob)
+    {
+        if (newJob.hasDeadline() && newJob.deadline() < nextDeadline_)
+            startTimer(newJob.calleeKey(), newJob.deadline());
+    }
+
+    void updateTimeoutForErased(Key erasedCalleeKey)
+    {
+        if (timeoutCalleeKey_ == erasedCalleeKey)
+            if (!armNextTimeout())
+                timer_.cancel();
+    }
+
+    void startTimer(Key key, Deadline deadline)
+    {
+        timeoutCalleeKey_ = key;
+        nextDeadline_ = deadline;
+        std::weak_ptr<DealerJobMap> self{shared_from_this()};
+        timer_.expires_at(deadline);
+        timer_.async_wait(
+            [this, self, key](boost::system::error_code ec)
+            {
+                auto me = self.lock();
+                if (me)
+                {
+                    nextDeadline_ = Deadline::max();
+                    if (ec)
+                        onTimeout(key);
+                    else
+                        assert(ec == boost::asio::error::operation_aborted);
+                }
+            });
+    }
+
+    void onTimeout(DealerJobKey calleeKey)
+    {
+        auto iter = byCallee_.find(calleeKey);
+        if (iter != byCallee_.end())
+        {
+            auto& job = iter->second->second;
+            bool eraseNow = false;
+            job.cancel(CallCancelMode::killNoWait, eraseNow);
+            if (eraseNow)
+                byCalleeErase(iter);
+        }
+        armNextTimeout();
+    }
+
+    bool armNextTimeout()
+    {
+        Key earliest;
+        auto deadline = Deadline::max();
+        bool found = false;
+
+        for (const auto& kv: byCallee_)
+        {
+            const auto& job = kv.second->second;
+            if (job.hasDeadline() && job.deadline() < deadline)
+            {
+                earliest = kv.first;
+                deadline = job.deadline();
+                found = true;
+            }
+        }
+
+        if (found)
+            startTimer(earliest, deadline);
+        return found;
+    }
+
+    boost::asio::steady_timer timer_;
     ByCallee byCallee_;
     ByCaller byCaller_;
+    Key timeoutCalleeKey_;
+    Deadline nextDeadline_ = Deadline::max();
 };
 
 //------------------------------------------------------------------------------
 class RealmDealer
 {
 public:
-    RealmDealer(IoStrand strand)
-        : deadlineTimer_(std::move(strand))
-    {}
+    RealmDealer(IoStrand strand) : jobs_(std::move(strand)) {}
 
     ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p)
     {
@@ -287,7 +376,6 @@ public:
     {
         // TODO: Cancel calls of caller leaving realm
         // TODO: Cancel calls of callee leaving realm
-        // TODO: Progressive calls
         auto reg = registry_.find(rpc.procedure());
         if (reg == nullptr)
             return makeUnexpectedError(SessionErrc::noSuchProcedure);
@@ -323,7 +411,6 @@ public:
 
     void yieldResult(RouterSession::Ptr callee, Result&& result)
     {
-        // TODO: Progressive results
         DealerJobKey calleeKey{callee->wampId(), result.requestId()};
         auto iter = jobs_.byCalleeFind(calleeKey);
         if (iter == jobs_.byCalleeEnd())
@@ -349,7 +436,6 @@ private:
 
     DealerRegistry registry_;
     DealerJobMap jobs_;
-    boost::asio::steady_timer deadlineTimer_;
     RegistrationId nextRegistrationId_ = nullId();
 };
 
