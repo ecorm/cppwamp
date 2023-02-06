@@ -19,6 +19,8 @@
 #include "routercontext.hpp"
 #include "routersession.hpp"
 
+// TODO: Dynamic authorizer
+
 namespace wamp
 {
 

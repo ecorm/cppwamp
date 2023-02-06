@@ -17,11 +17,12 @@
 #include "../erroror.hpp"
 #include "routersession.hpp"
 
-// TODO: Caller Identification
+// TODO: Caller Identification override
 // TODO: Call Trust Levels
 // TODO: Progressive Calls
 // TODO: Progressive Call Results
 // TODO: Pending call limits
+// TODO: Interrupt reason: https://github.com/wamp-proto/wamp-proto/issues/156
 
 namespace wamp
 {
@@ -128,6 +129,7 @@ public:
         const DealerRegistration& reg, Invocation& inv)
     {
         DealerJob job{caller, callee, rpc.requestId({})};
+
         auto timeout = rpc.dealerTimeout();
         if (timeout && (*timeout != Deadline::duration{0}))
         {
@@ -135,7 +137,20 @@ public:
             job.deadline_ = std::chrono::steady_clock::now() + *timeout;
             job.hasDeadline_ = true;
         }
+
+        bool callerDisclosed = rpc.discloseMe();
+
         inv = Invocation({}, std::move(rpc), reg.registrationId());
+
+        if (callerDisclosed)
+        {
+            // https://github.com/wamp-proto/wamp-proto/issues/57
+            const auto& authInfo = caller->authInfo();
+            inv.withOption("caller", authInfo.sessionId());
+            if (!authInfo.id().empty())
+                inv.withOption("caller_authid", authInfo.id());
+            if (!authInfo.role().empty())
+                inv.withOption("caller_authrole", authInfo.role());        }
         return job;
     }
 

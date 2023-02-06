@@ -699,11 +699,21 @@ CPPWAMP_INLINE Pub& Pub::withExcludeMe(bool excluded)
     return withOption("exclude_me", excluded);
 }
 
+CPPWAMP_INLINE bool Pub::excludeMe() const
+{
+    return optionOr<bool>("exclude_me", true);
+}
+
 /** @details
     This sets the `PUBLISH.Options.disclose_me|bool` option. */
 CPPWAMP_INLINE Pub& Pub::withDiscloseMe(bool disclosed)
 {
     return withOption("disclose_me", disclosed);
+}
+
+CPPWAMP_INLINE bool Pub::discloseMe() const
+{
+    return optionOr<bool>("disclose_me", false);
 }
 
 CPPWAMP_INLINE Pub::Pub(internal::PassKey, internal::PublishMessage&& msg)
@@ -902,6 +912,11 @@ CPPWAMP_INLINE void Rpc::setCallerTimeout(TimeoutDuration duration)
 CPPWAMP_INLINE Rpc& Rpc::withDiscloseMe(bool disclosed)
 {
     return withOption("disclose_me", disclosed);
+}
+
+CPPWAMP_INLINE bool Rpc::discloseMe() const
+{
+    return optionOr<bool>("disclose_me", false);
 }
 
 CPPWAMP_INLINE Rpc& Rpc::withCancelMode(CallCancelMode mode)

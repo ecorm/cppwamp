@@ -16,7 +16,7 @@
 #include "idgen.hpp"
 #include "routersession.hpp"
 
-// TODO: Publisher Identification
+// TODO: Publisher Identification override
 // TODO: Subscriber include/exclude lists
 // TODO: Publication Trust Levels
 
@@ -33,11 +33,25 @@ public:
     BrokerPublication(Pub&& pub, PublicationId pid,
                       RouterSession::Ptr publisher)
         : topicUri_(pub.topic()),
-          event_({}, std::move(pub), nullId(), pid),
           publisherId_(publisher->wampId()),
           publicationId_(pid),
-          selfPublishEnabled_(pub.optionOr<bool>("exclude_me", false))
-    {}
+          publisherExcluded_(pub.excludeMe())
+    {
+        bool publisherDisclosed = pub.discloseMe();
+
+        event_ = Event({}, std::move(pub), nullId(), pid);
+
+        if (publisherDisclosed)
+        {
+            // https://github.com/wamp-proto/wamp-proto/issues/57
+            const auto& authInfo = publisher->authInfo();
+            event_.withOption("publisher", authInfo.sessionId());
+            if (!authInfo.id().empty())
+                event_.withOption("publisher_authid", authInfo.id());
+            if (!authInfo.role().empty())
+                event_.withOption("publisher_authrole", authInfo.role());
+        }
+    }
 
     void setSubscriptionId(SubscriptionId subId)
     {
@@ -51,7 +65,7 @@ public:
 
     void sendTo(RouterSession& session) const
     {
-        if (selfPublishEnabled_ || (session.wampId() != publisherId_))
+        if (!publisherExcluded_ || (session.wampId() != publisherId_))
             session.sendEvent(Event{event_});
     }
 
@@ -64,7 +78,7 @@ private:
     Event event_;
     SessionId publisherId_;
     PublicationId publicationId_;
-    bool selfPublishEnabled_;
+    bool publisherExcluded_;
 };
 
 //------------------------------------------------------------------------------

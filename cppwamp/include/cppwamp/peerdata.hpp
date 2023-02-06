@@ -493,6 +493,10 @@ public:
     /** Specifies if this session should be excluded from receiving the
         event. */
     Pub& withExcludeMe(bool excluded = true);
+
+    /** Determines if this session should be excluded from receiving the
+        event. */
+    bool excludeMe() const;
     /// @}
 
     /** @name Publisher Identification
@@ -500,9 +504,12 @@ public:
         (https://wamp-proto.org/wamp_latest_ietf.html#name-publisher-identification)
         @{ */
 
-    /** Requests that the identity (session ID) of this session be disclosed
+    /** Requests that the identity of the publisher be disclosed
         in the event. */
     Pub& withDiscloseMe(bool disclosed = true);
+
+    /** Determines if publisher disclosure was requested. */
+    bool discloseMe() const;
     /// @}
 
 private:
@@ -710,9 +717,12 @@ public:
         (https://wamp-proto.org/wamp_latest_ietf.html#name-caller-identification)
         @{ */
 
-    /** Requests that the identity (session ID) of this session be disclosed
-        in the call invocation. */
+    /** Requests that the identity of the caller be disclosed in the
+        call invocation. */
     Rpc& withDiscloseMe(bool disclosed = true);
+
+    /** Determines if caller disclosure was requested. */
+    bool discloseMe() const;
     /// @}
 
     /** @name Call Cancellation
