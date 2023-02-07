@@ -53,7 +53,6 @@ set(HEADERS
     include/cppwamp/version.hpp
     include/cppwamp/visitor.hpp
     include/cppwamp/wampdefs.hpp
-    include/cppwamp/bundled/amosnier_sha256.hpp
     include/cppwamp/bundled/tessil_htrie/htrie_map.h
     include/cppwamp/bundled/sevmeyer_prng.hpp
     include/cppwamp/internal/base64.hpp

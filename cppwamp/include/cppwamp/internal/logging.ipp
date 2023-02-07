@@ -66,7 +66,7 @@ CPPWAMP_INLINE void outputAccessLogEntry(
     PutField{out} << s.serverName;
     out << " | " << s.serverSessionIndex;
     PutField{out} << s.endpoint << s.realmUri << s.authId
-                  << s.wampSessionIdHash << s.agent;
+                  << s.wampSessionId << s.agent;
     if (a.requestId == nullId())
         out << " | -";
     else

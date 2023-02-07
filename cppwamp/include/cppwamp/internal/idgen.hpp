@@ -13,7 +13,6 @@
 #include <set>
 #include "../wampdefs.hpp"
 #include "../variantdefs.hpp"
-#include "../bundled/amosnier_sha256.hpp"
 #include "../bundled/sevmeyer_prng.hpp"
 #include "base64.hpp"
 
@@ -163,25 +162,6 @@ inline void ReservedId::reset()
             pool->free(n);
     }
 }
-
-//------------------------------------------------------------------------------
-class IdAnonymizer
-{
-public:
-    static std::string anonymize(EphemeralId id)
-    {
-        /*  Compute SHA256 hash of id, then stringify the result with Base64Url.
-            Truncate the hash to 128 bits to keep the anonymized ID reasonably
-            short in the logs. Truncating only affects the (exceedingly small)
-            probability that two ephemeral ids have the same anonymized ID in
-            the logs. See https://security.stackexchange.com/a/34797/169835. */
-        uint8_t hash[32];
-        wamp::bundled::sha256::calc_sha_256(hash, &id, sizeof(id));
-        std::string s;
-        Base64Url::encode(hash, 16, s);
-        return s;
-    }
-};
 
 } // namespace internal
 

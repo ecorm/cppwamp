@@ -14,7 +14,6 @@
 #include <utility>
 #include "../routerconfig.hpp"
 #include "challenger.hpp"
-#include "idgen.hpp"
 #include "peer.hpp"
 #include "routercontext.hpp"
 #include "routersession.hpp"
@@ -298,7 +297,8 @@ private:
           codec_(std::move(c)),
           server_(std::move(s)),
           serverConfig_(std::move(sc)),
-          logger_(server_.logger())
+          logger_(server_.logger()),
+          scrambler_(server_.sessionIdScrambler())
     {
         assert(serverConfig_ != nullptr);
         sessionInfo_.endpoint = t->remoteEndpointLabel();
@@ -735,7 +735,7 @@ private:
         auto details = info.join({}, realm.uri(), wampId(), server_.roles());
         setAuthInfo(std::move(info));
         sessionInfo_.realmUri = realm.uri();
-        sessionInfo_.wampSessionIdHash = IdAnonymizer::anonymize(wampId());
+        sessionInfo_.wampSessionId = scrambler_(wampId());
         authExchange_.reset();
         auto sanitizedDetails = details;
         sanitizedDetails.erase("authextra");
@@ -796,6 +796,7 @@ private:
     AuthExchange::Ptr authExchange_;
     AccessSessionInfo sessionInfo_;
     RouterLogger::Ptr logger_;
+    SessionIdScrambler scrambler_;
     std::string logSuffix_;
     RequestId expectedRequestId_ = 1;
     bool alreadyStarted_ = false;

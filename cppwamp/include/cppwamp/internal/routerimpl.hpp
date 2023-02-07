@@ -243,6 +243,11 @@ private:
 
     RouterLogger::Ptr logger() const {return logger_;}
 
+    SessionIdScrambler sessionIdScrambler() const
+    {
+        return config_.sessionIdScrambler();
+    }
+
     ReservedId reserveSessionId()
     {
         return sessionIdPool_->reserve();
@@ -303,6 +308,14 @@ inline RouterLogger::Ptr RouterContext::logger() const
     auto r = router_.lock();
     if (r)
         return r->logger();
+    return nullptr;
+}
+
+inline SessionIdScrambler RouterContext::sessionIdScrambler() const
+{
+    auto r = router_.lock();
+    if (r)
+        return r->sessionIdScrambler();
     return nullptr;
 }
 

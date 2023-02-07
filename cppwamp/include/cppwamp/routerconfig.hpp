@@ -13,6 +13,7 @@
 //------------------------------------------------------------------------------
 
 #include <memory>
+#include <string>
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "authinfo.hpp"
@@ -135,17 +136,30 @@ ServerConfig::ServerConfig(String name, S&& transportSettings, F format,
 }
 
 //------------------------------------------------------------------------------
+using SessionIdScrambler = std::function<std::string (SessionId)>;
+
+//------------------------------------------------------------------------------
+struct CPPWAMP_API DefaultSessionIdScrambler
+{
+    std::string operator()(SessionId) const {return {};}
+};
+
+//------------------------------------------------------------------------------
 class CPPWAMP_API RouterConfig
 {
 public:
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
     using AccessLogHandler = AnyReusableHandler<void (AccessLogEntry)>;
 
+    RouterConfig();
+
     RouterConfig& withLogHandler(LogHandler f);
 
     RouterConfig& withLogLevel(LogLevel l);
 
     RouterConfig& withAccessLogHandler(AccessLogHandler f);
+
+    RouterConfig& withSessionIdScrambler(SessionIdScrambler f);
 
     RouterConfig& withSessionIdSeed(EphemeralId seed);
 
@@ -155,11 +169,14 @@ public:
 
     const AccessLogHandler& accessLogHandler() const;
 
+    const SessionIdScrambler& sessionIdScrambler() const;
+
     EphemeralId sessionIdSeed() const;
 
 private:
     LogHandler logHandler_;
     AccessLogHandler accessLogHandler_;
+    SessionIdScrambler sessionIdScrambler_;
     LogLevel logLevel_ = LogLevel::warning;
     EphemeralId sessionIdSeed_ = nullId();
 };

@@ -120,7 +120,7 @@ struct CPPWAMP_API AccessSessionInfo
     std::string serverName;
     std::string realmUri;
     std::string authId;
-    std::string wampSessionIdHash; // TODO: SHA-256 too weak. Is hashing even necessary?
+    std::string wampSessionId;
     std::string agent;
     uint64_t serverSessionIndex;
 };

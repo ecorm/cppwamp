@@ -528,14 +528,10 @@ from the [sevmeyer/prng](https://github.com/sevmeyer/prng) project, written by
 Severin Meyer, Copyright (c) 2019, under the terms of the Boost Software
 License, Version 1.0 (http://www.boost.org/LICENSE_1_0.txt).
 
-This library bundles modified versions of `sha-256.h` and `sha-256.c` from the
-[amosnier/sha-2](https://github.com/amosnier/sha-2) project, written by
-Alain Mosnier, Copyright (c) 2021, under the terms of the Unlicense
-(https://opensource.org/licenses/unlicense).
-
 This library bundles [Tessil/hat-trie](https://github.com/Tessil/hat-trie)
 written by Thibaut Goetghebuer-Planchon, Copyright (c) 2017, under the terms
 of the MIT Licence.
+
 
 License for Non-Bundled Software
 --------------------------------

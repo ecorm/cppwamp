@@ -15,6 +15,7 @@
 #include "../erroror.hpp"
 #include "../logging.hpp"
 #include "../peerdata.hpp"
+#include "../routerconfig.hpp"
 #include "idgen.hpp"
 #include "wampmessage.hpp"
 
@@ -131,6 +132,8 @@ public:
     RouterContext(std::shared_ptr<RouterImpl> r);
 
     RouterLogger::Ptr logger() const;
+
+    SessionIdScrambler sessionIdScrambler() const;
 
     ReservedId reserveSessionId();
 

@@ -106,7 +106,7 @@ private:
 };
 
 //------------------------------------------------------------------------------
-class RouterSession
+class RouterSession // TODO: Rename to RealmSession?
 {
 public:
     using Ptr = std::shared_ptr<RouterSession>;

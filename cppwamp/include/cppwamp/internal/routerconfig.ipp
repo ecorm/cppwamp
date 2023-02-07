@@ -109,6 +109,10 @@ CPPWAMP_INLINE AnyBufferCodec ServerConfig::makeCodec(int codecId) const
 // RouterConfig
 //******************************************************************************
 
+CPPWAMP_INLINE RouterConfig::RouterConfig()
+    : sessionIdScrambler_(DefaultSessionIdScrambler{})
+{}
+
 CPPWAMP_INLINE RouterConfig& RouterConfig::withLogHandler(LogHandler f)
 {
     logHandler_ = std::move(f);
@@ -125,6 +129,12 @@ CPPWAMP_INLINE RouterConfig&
 RouterConfig::withAccessLogHandler(AccessLogHandler f)
 {
     accessLogHandler_ = std::move(f);
+    return *this;
+}
+
+RouterConfig& RouterConfig::withSessionIdScrambler(SessionIdScrambler f)
+{
+    sessionIdScrambler_ = std::move(f);
     return *this;
 }
 
@@ -148,6 +158,9 @@ RouterConfig::accessLogHandler() const
 {
     return accessLogHandler_;
 }
+
+CPPWAMP_INLINE const SessionIdScrambler&
+RouterConfig::sessionIdScrambler() const {return sessionIdScrambler_;}
 
 CPPWAMP_INLINE EphemeralId RouterConfig::sessionIdSeed() const
 {
