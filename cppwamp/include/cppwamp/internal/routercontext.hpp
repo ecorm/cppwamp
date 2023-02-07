@@ -100,19 +100,19 @@ public:
 
     void leave(SessionId sid);
 
-    ErrorOr<SubscriptionId> subscribe(RouterSessionPtr s, Topic t);
+    void subscribe(RouterSessionPtr s, Topic t);
 
-    ErrorOrDone unsubscribe(RouterSessionPtr s, SubscriptionId subId);
+    void unsubscribe(RouterSessionPtr s, SubscriptionId subId);
 
-    ErrorOr<PublicationId> publish(RouterSessionPtr s, Pub pub);
+    void publish(RouterSessionPtr s, Pub pub);
 
-    ErrorOr<RegistrationId> enroll(RouterSessionPtr s, Procedure proc);
+    void enroll(RouterSessionPtr s, Procedure proc);
 
-    ErrorOrDone unregister(RouterSessionPtr s, RegistrationId rid);
+    void unregister(RouterSessionPtr s, RegistrationId rid);
 
-    ErrorOrDone call(RouterSessionPtr s, Rpc rpc);
+    void call(RouterSessionPtr s, Rpc rpc);
 
-    ErrorOrDone cancelCall(RouterSessionPtr s, CallCancellation c);
+    void cancelCall(RouterSessionPtr s, CallCancellation c);
 
     void yieldResult(RouterSessionPtr s, Result r);
 

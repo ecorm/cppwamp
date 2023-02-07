@@ -93,16 +93,133 @@ public:
         safelyDispatch<Dispatched>(std::move(r), terminate);
     }
 
+    void sendError(Error&& e) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Error e;
+
+            void operator()()
+            {
+                auto& me = *self;
+                me.report(e.info("server-error"));
+                me.send(std::move(e));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(e));
+    }
+
+    void sendSubscribed(RequestId r, SubscriptionId s) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RequestId r;
+            SubscriptionId s;
+
+            void operator()()
+            {
+                auto& me = *self;
+                me.report({r, "server-subscribed"});
+                me.sendMessage<SubscribedMessage>(r, s);
+            }
+        };
+
+        safelyDispatch<Dispatched>(r);
+    }
+
+    void sendUnsubscribed(RequestId r) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RequestId r;
+
+            void operator()()
+            {
+                auto& me = *self;
+                me.report({r, "server-unsubscribed"});
+                me.sendMessage<UnsubscribedMessage>(r);
+            }
+        };
+
+        safelyDispatch<Dispatched>(r);
+    }
+
+    void sendPublished(RequestId r, PublicationId p) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RequestId r;
+            PublicationId p;
+
+            void operator()()
+            {
+                auto& me = *self;
+                me.report({r, "server-published"});
+                me.sendMessage<PublishedMessage>(r, p);
+            }
+        };
+
+        safelyDispatch<Dispatched>(r, p);
+    }
+
     void sendEvent(Event&& ev) override
     {
         struct Dispatched
         {
             Ptr self;
             Event e;
-            void operator()() {self->send(std::move(e));}
+
+            void operator()()
+            {
+                auto& me = *self;
+                me.report(e.info("server-published"));
+                me.send(std::move(e));
+            }
         };
 
         safelyDispatch<Dispatched>(std::move(ev));
+    }
+
+    void sendRegistered(RequestId reqId, RegistrationId regId) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RequestId reqId;
+            RegistrationId regId;
+
+            void operator()()
+            {
+                auto& me = *self;
+                me.report({reqId, "server-registered"});
+                me.sendMessage<RegisteredMessage>(reqId, regId);
+            }
+        };
+
+        safelyDispatch<Dispatched>(reqId, regId);
+    }
+
+    void sendUnregistered(RequestId r) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RequestId r;
+
+            void operator()()
+            {
+                auto& me = *self;
+                me.report({r, "server-unregistered"});
+                me.sendMessage<UnregisteredMessage>(r);
+            }
+        };
+
+        safelyDispatch<Dispatched>(r);
     }
 
     void onSendInvocation(Invocation&& inv) override
@@ -111,22 +228,16 @@ public:
         {
             Ptr self;
             Invocation i;
-            void operator()() {self->send(std::move(i));}
+
+            void operator()()
+            {
+                auto& me = *self;
+                me.report(i.info());
+                me.send(std::move(i));
+            }
         };
 
         safelyDispatch<Dispatched>(std::move(inv));
-    }
-
-    void sendError(Error&& err) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Error e;
-            void operator()() {self->send(std::move(e));}
-        };
-
-        safelyDispatch<Dispatched>(std::move(err));
     }
 
     void sendResult(Result&& r) override
@@ -135,7 +246,13 @@ public:
         {
             Ptr self;
             Result r;
-            void operator()() {self->send(std::move(r));}
+
+            void operator()()
+            {
+                auto& me = *self;
+                me.report(r.info("server-result"));
+                me.send(std::move(r));
+            }
         };
 
         safelyDispatch<Dispatched>(std::move(r));
@@ -147,19 +264,25 @@ public:
         {
             Ptr self;
             Interruption i;
-            void operator()() {self->send(std::move(i));}
+
+            void operator()()
+            {
+                auto& me = *self;
+                me.report(i.info());
+                self->send(std::move(i));
+            }
         };
 
         safelyDispatch<Dispatched>(std::move(intr));
     }
 
-    void log(LogEntry&& e) override
+    void log(LogEntry e) override
     {
         e.append(logSuffix_);
         logger_->log(std::move(e));
     }
 
-    void report(AccessActionInfo&& i) override
+    void report(AccessActionInfo i) override
     {
         logger_->log(AccessLogEntry{sessionInfo_, std::move(i)});
     }
@@ -235,11 +358,11 @@ private:
         if (readyToAbort)
         {
             auto done = peer_.abort(a);
-            report({"server-abort", a.uri(), a.options(), done});
+            report(a.info("server-abort").withResult(done));
         }
         else
         {
-            report({"server-terminate", a.uri(), a.options()});
+            report(a.info("server-terminate"));
             peer_.terminate();
         }
 
@@ -262,11 +385,21 @@ private:
         peer_.send(messageData.message({}));
     }
 
+    template <typename TMessage, typename... TArgs>
+    void sendMessage(TArgs&&... args)
+    {
+        if (state() != State::established)
+            return;
+        TMessage msg{std::forward<TArgs>(args)...};
+        peer_.send(msg);
+    }
+
     void shutDown(Reason reason)
     {
         if (state() != State::established)
             return terminate(std::move(reason));
 
+        report(reason.info("server-goodbye"));
         shuttingDown_ = true;
         leaveRealm(false);
 
@@ -279,13 +412,12 @@ private:
                 {
                     auto& goodBye = messageCast<GoodbyeMessage>(*reply);
                     Reason peerReason({}, std::move(goodBye));
-                    report({"server-goodbye", reason.uri(), reason.options(),
-                            peerReason.uri()});
+                    report(peerReason.info("client-goodbye"));
                 }
                 else
                 {
-                    report({"server-goodbye", reason.uri(), reason.options(),
-                               reply.error()});
+                    log({LogLevel::warning,
+                         "Server-initiated GOODBYE failed", reply.error()});
                 }
                 clearWampSessionInfo();
                 report({"server-disconnect", reason.uri(), reason.options()});
@@ -377,8 +509,7 @@ private:
         if (!realm_)
         {
             auto errc = SessionErrc::noSuchRealm;
-            report({"client-hello", realm.uri(), realm.sanitizedOptions(),
-                    errc});
+            report(realm.info().withError(errc));
             doAbort({errc});
             return;
         }
@@ -402,11 +533,12 @@ private:
         if (!isExpected)
         {
             auto errc = SessionErrc::protocolViolation;
-            report({"client-authenticate", "", {}, errc});
+            report(authentication.info().withError(errc));
             doAbort(Abort(errc).withHint("Unexpected AUTHENTICATE message"));
             return;
         }
 
+        report(authentication.info());
         authExchange_->setAuthentication({}, std::move(authentication));
         completeNow(authenticator, authExchange_);
     }
@@ -415,18 +547,17 @@ private:
     {
         auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
         Reason reason{{}, std::move(goodbyeMsg)};
-        report({"client-goodbye", reason.uri(), reason.options(),
-                "wamp.error.goodbye_and_out"});
+        report(reason.info("client-goodbye"));
+        report({"server-goodbye", "wamp.error.goodbye_and_out"});
         // peer_ already took care of sending the reply, cancelling pending
         // requests, and will close the session state.
     }
 
     void onError(WampMessage& m)
     {
-        // TODO: Generate AccessActionInfo from message class
         auto& msg = messageCast<ErrorMessage>(m);
         Error error{{}, std::move(msg)};
-        report({"client-error", error.reason(), error.options()});
+        report(error.info("client-error"));
         realm_.yieldError(shared_from_this(), std::move(error));
     }
 
@@ -438,11 +569,8 @@ private:
             return;
 
         Pub pub({}, std::move(msg));
-        AccessActionInfo info{"client-publish", pub.topic(), pub.options()};
-        auto pubId = realm_.publish(shared_from_this(), std::move(pub));
-        report(std::move(info.withResult(pubId)));
-        if (!pubId)
-            peer_.sendError(WampMsgType::publish, reqId, Error{pubId.error()});
+        report(pub.info());
+        realm_.publish(shared_from_this(), std::move(pub));
     }
 
     void onSubscribe(WampMessage& m)
@@ -453,14 +581,8 @@ private:
             return;
 
         Topic topic{{}, std::move(msg)};
-        AccessActionInfo info{"client-subscribe", topic.uri(), topic.options()};
-        auto subId = realm_.subscribe(shared_from_this(), std::move(topic));
-        report(std::move(info.withResult(subId)));
-        if (!subId && state() == State::established)
-        {
-            peer_.sendError(WampMsgType::subscribe, reqId,
-                            Error{subId.error()});
-        }
+        report(topic.info());
+        realm_.subscribe(shared_from_this(), std::move(topic));
     }
 
     void onUnsubscribe(WampMessage& m)
@@ -470,14 +592,8 @@ private:
         if (!checkSequentialRequestId(reqId))
             return;
 
-        auto done = realm_.unsubscribe(shared_from_this(),
-                                       msg.subscriptionId());
-        report(AccessActionInfo{"client-unsubscribe", {}, {}, done});
-        if (!done)
-        {
-            peer_.sendError(WampMsgType::unsubscribe, reqId,
-                            Error{done.error()});
-        }
+        report({reqId, "client-unsubscribe", {}, {}});
+        realm_.unsubscribe(shared_from_this(), msg.subscriptionId());
     }
 
     void onCall(WampMessage& m)
@@ -488,11 +604,8 @@ private:
             return;
 
         Rpc rpc{{}, std::move(msg)};
-        AccessActionInfo info{"client-call", rpc.procedure(), rpc.options()};
-        auto done = realm_.call(shared_from_this(), std::move(rpc));
-        report(std::move(info.withResult(done)));
-        if (!done)
-            peer_.sendError(WampMsgType::call, reqId, Error{done.error()});
+        report(rpc.info());
+        realm_.call(shared_from_this(), std::move(rpc));
     }
 
     void onCancelCall(WampMessage& m)
@@ -506,10 +619,8 @@ private:
         }
 
         CallCancellation cncl({}, std::move(msg));
-        auto done = realm_.cancelCall(shared_from_this(), std::move(cncl));
-        if (!done)
-            peer_.sendError(WampMsgType::call, reqId, Error{done.error()});
-        report({"client-cancel-call"});
+        report(cncl.info());
+        realm_.cancelCall(shared_from_this(), std::move(cncl));
     }
 
     void onRegister(WampMessage& m)
@@ -520,11 +631,8 @@ private:
             return;
 
         Procedure proc({}, std::move(msg));
-        AccessActionInfo info{"client-register", proc.uri(), proc.options()};
-        auto done = realm_.enroll(shared_from_this(), std::move(proc));
-        report(std::move(info.withResult(done)));
-        if (!done)
-            peer_.sendError(WampMsgType::enroll, reqId, Error{done.error()});
+        report(proc.info());
+        realm_.enroll(shared_from_this(), std::move(proc));
     }
 
     void onUnregister(WampMessage& m)
@@ -534,19 +642,15 @@ private:
         if (!checkSequentialRequestId(reqId))
             return;
 
-        AccessActionInfo{"client-unregister"};
-        auto done = realm_.unsubscribe(shared_from_this(),
-                                       msg.registrationId());
-        report(AccessActionInfo{"client-unregister", {}, {}, done});
-        if (!done)
-            peer_.sendError(WampMsgType::unregister, reqId, Error{done.error()});
+        report({"client-unregister"});
+        realm_.unsubscribe(shared_from_this(), msg.registrationId());
     }
 
     void onYield(WampMessage& m)
     {
         auto& msg = messageCast<YieldMessage>(m);
         Result result{{}, std::move(msg)};
-        report({"client-yield", {}, result.options()});
+        report(result.info("client-yield"));
         realm_.yieldResult(shared_from_this(), std::move(result));
     }
 
@@ -593,7 +697,9 @@ private:
         if (state() == State::authenticating &&
             authExchange_ != nullptr)
         {
-            peer_.challenge(authExchange_->challenge());
+            auto c = authExchange_->challenge();
+            report(c.info());
+            peer_.challenge(std::move(c));
         }
     }
 
@@ -621,9 +727,7 @@ private:
         if (!realm_)
         {
             auto errc = SessionErrc::noSuchRealm;
-            report({"client-hello", realm.uri(), realm.sanitizedOptions(),
-                       make_error_code(errc)});
-            doAbort({SessionErrc::noSuchRealm});
+            doAbort({errc});
             return;
         }
 
@@ -632,8 +736,10 @@ private:
         setAuthInfo(std::move(info));
         sessionInfo_.realmUri = realm.uri();
         sessionInfo_.wampSessionIdHash = IdAnonymizer::anonymize(wampId());
-        report({"client-hello", realm.uri(), realm.sanitizedOptions()});
         authExchange_.reset();
+        auto sanitizedDetails = details;
+        sanitizedDetails.erase("authextra");
+        report({"server-welcome", realm.uri(), std::move(sanitizedDetails)});
         peer_.welcome(wampId(), std::move(details));
     }
 
@@ -656,19 +762,6 @@ private:
                              s == State::authenticating;
         if (!readyToReject)
             return;
-
-        if (authExchange_)
-        {
-            report({"client-hello",
-                       authExchange_->realm().uri(),
-                       authExchange_->realm().sanitizedOptions(),
-                       a.uri(),
-                       false});
-        }
-        else
-        {
-            report({"client-hello", {}, {}, a.uri()});
-        }
 
         authExchange_.reset();
         clearWampSessionInfo();

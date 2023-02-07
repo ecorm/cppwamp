@@ -19,6 +19,7 @@
 #include "anyhandler.hpp"
 #include "config.hpp"
 #include "erroror.hpp"
+#include "logging.hpp"
 #include "options.hpp"
 #include "payload.hpp"
 #include "tagtypes.hpp"
@@ -70,6 +71,9 @@ public:
     /** Obtains the `message` member of the details dictionary. */
     ErrorOr<String> hint() const;
 
+    /** Obtains information for the access log. */
+    AccessActionInfo info(std::string action) const;
+
 private:
     using Base = Options<Abort, internal::AbortMessage>;
 
@@ -104,9 +108,8 @@ public:
     /** Obtains the roles dictionary. */
     ErrorOr<Object> roles() const;
 
-    /** Obtains the options dictionary with sensitive authentication data
-        filtered out for logging purposes. */
-    Object sanitizedOptions() const;
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
 
     /** @name Authentication
         See [Authentication Methods in the WAMP Specification]
@@ -163,6 +166,9 @@ public:
 
     /** Obtains realm URI. */
     const String& realm() const;
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
 
     /** @name Agent Identification
         See [Agent Identification in the WAMP Specification]
@@ -221,6 +227,7 @@ public:
                 internal::WelcomeMessage&& msg);
 };
 
+// TODO: Remove if unused
 CPPWAMP_API std::ostream& operator<<(std::ostream& o, const SessionInfo& i);
 
 
@@ -243,6 +250,9 @@ public:
 
     /** Obtains the `message` member of the details dictionary. */
     ErrorOr<String> hint() const;
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info(std::string action) const;
 
 private:
     using Base = Options<Reason, internal::GoodbyeMessage>;
@@ -279,6 +289,9 @@ public:
     /** Sets the channel binding information used with the WAMP-SCRAM
         authentication method. */
     Authentication& withChannelBinding(std::string type, std::string data);
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
 
 private:
     using Base = Options<Authentication, internal::AuthenticateMessage>;
@@ -349,6 +362,9 @@ public:
     /** Thread-safe authenticate. */
     std::future<ErrorOrDone> authenticate(ThreadSafe, Authentication auth);
 
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
+
 public:
     // Internal use only
     using ChallengeePtr = std::weak_ptr<internal::Challengee>;
@@ -388,11 +404,14 @@ public:
     /** Conversion to bool operator, returning false if the error is empty. */
     explicit operator bool() const;
 
-    /** Obtains the request ID. */
+    /** Obtains the ID of the WAMP request associated with this error. */
     RequestId requestId() const;
 
     /** Obtains the reason URI. */
     const String& reason() const;
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info(std::string action) const;
 
 private:
     using Base = Payload<Error, internal::ErrorMessage>;
@@ -421,6 +440,12 @@ public:
     /** Converting constructor taking a topic URI. */
     Topic(String uri);
 
+    /** Obtains the topic URI. */
+    const String& uri() const;
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
+
     /** @name Pattern-based Subscription
         See [Pattern-based Subscription in the WAMP Specification]
         (https://wamp-proto.org/wamp_latest_ietf.html#name-pattern-based-subscription)
@@ -432,9 +457,6 @@ public:
     /** Obtains the matching policy used for this subscription. */
     MatchPolicy matchPolicy() const;
     /// @}
-
-    /** Obtains the topic URI. */
-    const String& uri() const;
 
 private:
     using Base = Options<Topic, internal::SubscribeMessage>;
@@ -456,13 +478,16 @@ public:
     /** Converting constructor taking a topic URI. */
     Pub(String topic);
 
+    /** Obtains the topic URI. */
+    const String& topic() const;
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
+
     /** @name Subscriber Allow/Deny Lists
         See [Subscriber Black- and Whitelisting in the WAMP Specification]
         (https://wamp-proto.org/wamp_latest_ietf.html#name-subscriber-black-and-whitel)
         @{ */
-
-    /** Obtains the topic URI. */
-    const String& topic() const;
 
     /** Specifies the list of (potential) _Subscriber_ session IDs that
         won't receive the published event. */
@@ -550,6 +575,9 @@ public:
     /** Obtains the executor used to execute user-provided handlers. */
     AnyCompletionExecutor executor() const;
 
+    /** Obtains information for the access log. */
+    AccessActionInfo info(std::string action) const;
+
     /** @name Publisher Identification
         See [Publisher Identification in the WAMP Specification]
         (https://wamp-proto.org/wamp_latest_ietf.html#name-publisher-identification)
@@ -590,6 +618,7 @@ public:
     Event(internal::PassKey, Pub&& pub, SubscriptionId sid, PublicationId pid);
 };
 
+// TODO: Remove if unused
 CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Event& event);
 
 
@@ -609,6 +638,9 @@ public:
 
     /** Moves the procedure URI. */
     String&& uri() &&;
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
 
     /** @name Pattern-based Registrations
         See [Pattern-based Registrations in the WAMP Specification]
@@ -656,6 +688,9 @@ public:
     /** Specifies the Error object in which to store call errors returned
         by the callee. */
     Rpc& captureError(Error& error);
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
 
     /** @name Progressive Call Results
         See [Progressive Call Results in the WAMP Specification]
@@ -782,6 +817,9 @@ public:
     /** Obtains the request ID associated with the call. */
     RequestId requestId() const;
 
+    /** Obtains information for the access log. */
+    AccessActionInfo info(std::string action) const;
+
     /** @name Progressive Call Results
         See [Progressive Call Results in the WAMP Specification]
         (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
@@ -809,6 +847,7 @@ public:
     internal::YieldMessage& yieldMessage(internal::PassKey, RequestId reqId);
 };
 
+// TODO: Remove if unused
 CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Result& result);
 
 
@@ -951,6 +990,9 @@ public:
     /** Thread-safe yield error. */
     std::future<ErrorOrDone> yield(ThreadSafe, Error error) const;
 
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
+
     /** @name Progressive Call Results
         See [Progressive Call Results in the WAMP Specification]
         (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
@@ -1008,6 +1050,7 @@ private:
     template <typename, typename...> friend class CoroInvocationUnpacker;
 };
 
+// TODO: Remove if unused
 CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Invocation& inv);
 
 
@@ -1028,6 +1071,9 @@ public:
 
     /** Obtains the cancel mode. */
     CallCancelMode mode() const;
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
 
 private:
     using Base = Options<CallCancellation, internal::CancelMessage>;
@@ -1082,6 +1128,9 @@ public:
     /** Thread-safe yield error. */
     std::future<ErrorOrDone> yield(ThreadSafe, Error error) const;
 
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
+
 public:
     // Internal use only
     using CalleePtr = std::weak_ptr<internal::Callee>;
@@ -1100,6 +1149,7 @@ private:
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
 };
 
+// TODO: Remove if unused
 CPPWAMP_API std::ostream& operator<<(std::ostream& out,
                                      const Interruption& cncltn);
 

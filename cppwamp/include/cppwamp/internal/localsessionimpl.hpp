@@ -58,7 +58,7 @@ public:
         realm_ = std::move(r);
         logger_ = realm_.logger();
         realm_.join(shared_from_this());
-        a.join({}, std::move(realmUri), wampId());
+        a.join({}, std::move(realmUri), wampId(), true);
         Base::setAuthInfo(std::move(a));
         Base::setFeatures(ClientFeatures::local());
     }
@@ -591,24 +591,34 @@ public:
     }
 
     // Make these post to strand_ to avoid recursion with RouterRealm
+    void sendError(Error&&) override {}
+
+    void sendSubscribed(RequestId, SubscriptionId) override {}
+
+    void sendUnsubscribed(RequestId) override {}
+
+    void sendPublished(RequestId r, PublicationId p) override {}
+
     void sendEvent(Event&&) override {}
 
-    void onSendInvocation(Invocation&&) override {}
+    void sendRegistered(RequestId, RegistrationId) override {}
 
-    void sendError(Error&&) override {}
+    void sendUnregistered(RequestId r) override {}
+
+    void onSendInvocation(Invocation&&) override {}
 
     void sendResult(Result&&) override {}
 
     void sendInterruption(Interruption&&) override {}
 
-    void log(LogEntry&& e) override
+    void log(LogEntry e) override
     {
         // TODO
 //        e.append(logSuffix_);
 //        logger_->log(std::move(e));
     }
 
-    void report(AccessActionInfo&& i) override
+    void report(AccessActionInfo i) override
     {
         // TODO
 //        logger_->log(AccessLogEntry{sessionInfo_, std::move(i)});

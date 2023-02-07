@@ -50,6 +50,8 @@ public:
 
     const String& provider() const;
 
+    bool isLocal() const;
+
     const any& note() const;
 
 private:
@@ -61,24 +63,69 @@ private:
     Object extra_;
     any note_;
     SessionId sessionId_ = nullId();
+    bool isLocal_ = false;
 
 public:
     // Internal use only
-    void join(internal::PassKey, String realmUri, SessionId sessionId);
+    void join(internal::PassKey, String realmUri, SessionId sessionId,
+              bool isLocal);
     Object join(internal::PassKey, String realmUri, SessionId sessionId,
                 Object routerRoles);
 };
 
 //------------------------------------------------------------------------------
+enum class OriginatorDisclosure
+{
+    preset,     ///< Disclose originator as per the realm configuration preset.
+    originator, ///< Disclose originator as per its `disclose_me` option.
+    off,        ///< Don't disclose originator.
+    on          ///< Disclose originator.
+};
+
+//------------------------------------------------------------------------------
+struct CPPWAMP_API Authorization
+{
+    Authorization(bool allowed) : allowed_(allowed) {}
+
+    Authorization& withTrustLevel(TrustLevel tl)
+    {
+        trustLevel_ = tl;
+        return *this;
+    }
+
+    Authorization& withDisclosure(OriginatorDisclosure d)
+    {
+        disclosure_ = d;
+        return *this;
+    }
+
+    bool allowed() const {return allowed_;}
+
+    bool hasTrustLevel() const {return trustLevel_ >= 0;}
+
+    TrustLevel trustLevel() const {return trustLevel_;}
+
+    OriginatorDisclosure disclosure() const {return disclosure_;}
+
+private:
+    TrustLevel trustLevel_ = -1;
+    OriginatorDisclosure disclosure_ = OriginatorDisclosure::preset;
+    bool allowed_ = false;
+};
+
+//------------------------------------------------------------------------------
+enum class AuthorizationAction
+{
+    publish,
+    subscribe,
+    enroll,
+    call
+};
+
+//------------------------------------------------------------------------------
 struct CPPWAMP_API AuthorizationRequest
 {
-    enum class Action
-    {
-        publish,
-        subscribe,
-        enroll,
-        call
-    };
+    using Action = AuthorizationAction;
 
     AuthInfo::Ptr authInfo;
     Object options;

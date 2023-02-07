@@ -31,22 +31,34 @@ namespace internal { class RouterServer; } // Forward declaration
 class CPPWAMP_API RealmConfig
 {
 public:
-    using AuthorizationHandler =
-        AnyReusableHandler<bool (AuthorizationRequest)>;
+    using AuthorizedOp = AnyCompletionHandler<void (Authorization)>;
+
+    using Authorizer =
+        AnyReusableHandler<void (AuthorizationRequest, AuthorizedOp)>;
 
     RealmConfig(String uri);
 
-    RealmConfig& withAuthorizationHandler(AuthorizationHandler f);
+    RealmConfig& withAuthorizer(Authorizer f);
 
     RealmConfig& withAuthorizationCacheEnabled(bool enabled = true);
 
+    RealmConfig& withPublisherDisclosure(OriginatorDisclosure d);
+
+    RealmConfig& withCallerDisclosure(OriginatorDisclosure d);
+
     const String& uri() const;
+
+    const Authorizer& authorizer() const;
 
     bool authorizationCacheEnabled() const;
 
 private:
-    AuthorizationHandler authorizationHandler_;
+    struct DefaultAuthorizer;
+
+    Authorizer authorizer_;
     String uri_;
+    OriginatorDisclosure publisherDisclosure_;
+    OriginatorDisclosure callerDisclosure_;
     bool authorizationCacheEnabled_ = false;
 };
 

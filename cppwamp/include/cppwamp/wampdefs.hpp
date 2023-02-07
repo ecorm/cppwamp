@@ -23,6 +23,7 @@ using RequestId      = EphemeralId; ///< Ephemeral ID associated with a WAMP req
 using SubscriptionId = EphemeralId; ///< Ephemeral ID associated with an topic subscription
 using PublicationId  = EphemeralId; ///< Ephemeral ID associated with an event publication
 using RegistrationId = EphemeralId; ///< Ephemeral ID associated with an RPC registration
+using TrustLevel     = int64_t;
 
 ///< Obtains the value representing a blank ephemeral ID.
 constexpr EphemeralId nullId() {return 0;}

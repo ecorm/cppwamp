@@ -93,6 +93,14 @@ CPPWAMP_INLINE CallCancelMode parseCallCancelModeFromOptions(const Object& opts)
     return CallCancelMode::unknown;
 }
 
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void sanitizeOption(Object& opts, const String& key)
+{
+    auto found = opts.find(key);
+    if (found != opts.end())
+        found->second = null;
+}
+
 } // namespace internal
 
 //******************************************************************************
@@ -117,6 +125,11 @@ CPPWAMP_INLINE const String& Abort::uri() const
 CPPWAMP_INLINE ErrorOr<String> Abort::hint() const
 {
     return optionAs<String>("message");
+}
+
+CPPWAMP_INLINE AccessActionInfo Abort::info(std::string action) const
+{
+    return {std::move(action), uri(), options()};
 }
 
 CPPWAMP_INLINE String Abort::errcToUri(SessionErrc errc)
@@ -163,11 +176,11 @@ CPPWAMP_INLINE ErrorOr<Object> Realm::roles() const
     return this->optionAs<Object>("roles");
 }
 
-CPPWAMP_INLINE Object Realm::sanitizedOptions() const
+CPPWAMP_INLINE AccessActionInfo Realm::info() const
 {
     auto filtered = options();
     filtered.erase("authextra");
-    return filtered;
+    return {"client-hello", uri(), std::move(filtered)};
 }
 
 CPPWAMP_INLINE Realm& Realm::withAuthMethods(std::vector<String> methods)
@@ -211,6 +224,14 @@ CPPWAMP_INLINE SessionId SessionInfo::id() const
 CPPWAMP_INLINE const String& SessionInfo::realm() const
 {
     return realm_;
+}
+
+CPPWAMP_INLINE AccessActionInfo SessionInfo::info() const
+{
+    auto sanitized = options();
+    internal::sanitizeOption(sanitized, "authrole");
+    internal::sanitizeOption(sanitized, "authextra");
+    return {"server-welcome", realm(), std::move(sanitized)};
 }
 
 /** @returns The value of the `HELLO.Details.agent|string`
@@ -355,6 +376,7 @@ CPPWAMP_INLINE SessionInfo::SessionInfo(internal::PassKey, String&& realm,
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& o, const SessionInfo& i)
 {
+    // TODO: Sanitize options
     o << "[ Realm|uri = " << i.realm()
       << ", Session|id = " << i.id();
     if (!i.options().empty())
@@ -383,6 +405,11 @@ CPPWAMP_INLINE const String& Reason::uri() const
 CPPWAMP_INLINE ErrorOr<String> Reason::hint() const
 {
     return optionAs<String>("message");
+}
+
+CPPWAMP_INLINE AccessActionInfo Reason::info(std::string action) const
+{
+    return {std::move(action), uri(), options()};
 }
 
 CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::GoodbyeMessage&& msg)
@@ -422,6 +449,11 @@ Authentication::withChannelBinding(std::string type, std::string data)
 {
     withOption("channel_binding", std::move(type));
     return withOption("cbind_data", std::move(data));
+}
+
+CPPWAMP_INLINE AccessActionInfo Authentication::info() const
+{
+    return {"client-authenticate"};
 }
 
 CPPWAMP_INLINE Authentication::Authentication(
@@ -545,6 +577,11 @@ Challenge::authenticate(ThreadSafe, Authentication auth)
     return f;
 }
 
+CPPWAMP_INLINE AccessActionInfo Challenge::info() const
+{
+    return {"server-challenge", method()};
+}
+
 CPPWAMP_INLINE Challenge::Challenge(internal::PassKey, ChallengeePtr challengee,
                                     internal::ChallengeMessage&& msg)
     : Base(std::move(msg)),
@@ -582,6 +619,11 @@ CPPWAMP_INLINE const String& Error::reason() const
     return message().reasonUri();
 }
 
+CPPWAMP_INLINE AccessActionInfo Error::info(std::string action) const
+{
+    return {requestId(), std::move(action), {}, options(), reason()};
+}
+
 CPPWAMP_INLINE String Error::toUri(std::error_code ec)
 {
     String uri;
@@ -617,6 +659,13 @@ Error::errorMessage(internal::PassKey, internal::WampMsgType reqType,
 
 CPPWAMP_INLINE Topic::Topic(String uri) : Base(std::move(uri)) {}
 
+CPPWAMP_INLINE const String& Topic::uri() const {return message().topicUri();}
+
+CPPWAMP_INLINE AccessActionInfo Topic::info() const
+{
+    return {message().requestId(), "client-subscribe", uri(), options()};
+}
+
 /** @details
     This sets the `SUBSCRIBE.Options.match|string` option. */
 CPPWAMP_INLINE Topic& Topic::withMatchPolicy(MatchPolicy policy)
@@ -625,13 +674,10 @@ CPPWAMP_INLINE Topic& Topic::withMatchPolicy(MatchPolicy policy)
     return *this;
 }
 
-/** Obtains the matching policy used for this subscription. */
 CPPWAMP_INLINE MatchPolicy Topic::matchPolicy() const
 {
     return internal::getMatchPolicyOption(*this);
 }
-
-CPPWAMP_INLINE const String& Topic::uri() const {return message().topicUri();}
 
 CPPWAMP_INLINE Topic::Topic(internal::PassKey, internal::SubscribeMessage&& msg)
     : Base(std::move(msg))
@@ -649,6 +695,12 @@ CPPWAMP_INLINE String&& Topic::uri(internal::PassKey) &&
 CPPWAMP_INLINE Pub::Pub(String topic) : Base(std::move(topic)) {}
 
 CPPWAMP_INLINE const String& Pub::topic() const {return message().topicUri();}
+
+CPPWAMP_INLINE AccessActionInfo Pub::info() const
+{
+    // TODO: Sanitize session IDs in allow/deny lists
+    return {message().requestId(), "client-publish", topic(), options()};
+}
 
 /** @details
     This sets the `PUBLISH.Options.exclude|list` option. */
@@ -758,6 +810,14 @@ CPPWAMP_INLINE AnyCompletionExecutor Event::executor() const
     return executor_;
 }
 
+CPPWAMP_INLINE AccessActionInfo Event::info(std::string action) const
+{
+    // TODO: Sanitize the publisher session ID?
+    auto sanitized = options();
+    internal::sanitizeOption(sanitized, "publisher_authrole");
+    return {std::move(action), {}, std::move(sanitized)};
+}
+
 /** @details
     This function returns the value of the `EVENT.Details.publisher|integer`
     detail.
@@ -797,6 +857,7 @@ CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
 
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Event& event)
 {
+    // TODO: Sanitize options
     out << "[ Publication|id = " << event.pubId();
     if (!event.options().empty())
         out << ", Details|dict = " << event.options();
@@ -822,6 +883,12 @@ CPPWAMP_INLINE const String& Procedure::uri() const &
 CPPWAMP_INLINE String&& Procedure::uri() &&
 {
     return std::move(message()).procedureUri();
+}
+
+/** Obtains information for the access log. */
+CPPWAMP_INLINE AccessActionInfo Procedure::info() const
+{
+    return {message().requestId(), "client-register", uri(), options()};
 }
 
 /** @details
@@ -858,6 +925,11 @@ CPPWAMP_INLINE Rpc& Rpc::captureError(Error& error)
 {
     error_ = &error;
     return *this;
+}
+
+CPPWAMP_INLINE AccessActionInfo Rpc::info() const
+{
+    return {message().requestId(), "client-call", procedure(), options()};
 }
 
 /** @details
@@ -952,7 +1024,13 @@ CPPWAMP_INLINE Result::Result(std::initializer_list<Variant> list)
 
 CPPWAMP_INLINE RequestId Result::requestId() const
 {
+    // TODO: Get directly from message field. Same for others.
     return message().requestId();
+}
+
+CPPWAMP_INLINE AccessActionInfo Result::info(std::string action) const
+{
+    return {requestId(), std::move(action), {}, options()};
 }
 
 /** @details
@@ -1264,6 +1342,11 @@ Invocation::yield(ThreadSafe, Error error) const
     return f;
 }
 
+CPPWAMP_INLINE AccessActionInfo Invocation::info() const
+{
+    return {requestId(), "server-invocation", {}, options()};
+}
+
 /** @details
     This function checks if the `INVOCATION.Details.receive_progress|bool`
     detail is `true`. */
@@ -1324,6 +1407,7 @@ CPPWAMP_INLINE void Invocation::setRequestId(internal::PassKey, RequestId rid)
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
                                         const Invocation& inv)
 {
+    // TODO: Sanitize options
     out << "[ Request|id = " << inv.requestId();
     if (!inv.options().empty())
         out << ", Details|dict = " << inv.options();
@@ -1351,6 +1435,11 @@ CPPWAMP_INLINE CallCancellation::CallCancellation(RequestId reqId,
 CPPWAMP_INLINE RequestId CallCancellation::requestId() const {return requestId_;}
 
 CPPWAMP_INLINE CallCancelMode CallCancellation::mode() const {return mode_;}
+
+CPPWAMP_INLINE AccessActionInfo CallCancellation::info() const
+{
+    return {message().requestId(), "client-cancel", {}, options()};
+}
 
 CPPWAMP_INLINE CallCancellation::CallCancellation(internal::PassKey,
                                                   internal::CancelMessage&& msg)
@@ -1436,6 +1525,11 @@ Interruption::yield(ThreadSafe, Error error) const
     auto f = p.get_future();
     p.set_value(false);
     return f;
+}
+
+CPPWAMP_INLINE AccessActionInfo Interruption::info() const
+{
+    return {requestId(), "server-interrupt", {}, options()};
 }
 
 CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,

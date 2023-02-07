@@ -394,7 +394,11 @@ struct PublishedMessage : public WampMessage
 {
     static constexpr auto kind = WampMsgType::published;
 
-    PublishedMessage() : WampMessage(kind, {0, 0, 0}) {}
+    PublishedMessage() : PublishedMessage(0, 0) {}
+
+    PublishedMessage(RequestId r, PublicationId p)
+        : WampMessage(kind, {0, r, p})
+    {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
@@ -426,7 +430,10 @@ struct SubscribedMessage : public WampMessage
 {
     static constexpr auto kind = WampMsgType::subscribed;
 
-    SubscribedMessage() : WampMessage(kind, {0, 0, 0}) {}
+    SubscribedMessage() : SubscribedMessage(0, 0) {}
+
+    SubscribedMessage(RequestId rid, SubscriptionId sid)
+        : WampMessage(kind, {0, rid, sid}) {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
@@ -458,7 +465,8 @@ struct UnsubscribedMessage : public WampMessage
 {
     static constexpr auto kind = WampMsgType::unsubscribed;
 
-    UnsubscribedMessage() : WampMessage(kind, {0, 0}) {}
+    explicit UnsubscribedMessage(RequestId reqId = 0)
+        : WampMessage(kind, {0, reqId}) {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 };
@@ -537,7 +545,11 @@ struct RegisteredMessage : public WampMessage
 {
     static constexpr auto kind = WampMsgType::registered;
 
-    RegisteredMessage() : WampMessage(kind, {0, 0, 0}) {}
+    RegisteredMessage() : RegisteredMessage(0, 0) {}
+
+    RegisteredMessage(RequestId reqId, RegistrationId regId)
+        : WampMessage(kind, {0, reqId, regId})
+    {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
@@ -569,7 +581,7 @@ struct UnregisteredMessage : public WampMessage
 {
     static constexpr auto kind = WampMsgType::unregistered;
 
-    UnregisteredMessage() : WampMessage(kind, {0, 0}) {}
+    explicit UnregisteredMessage(RequestId r = 0) : WampMessage(kind, {0, r}) {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 };

@@ -51,10 +51,11 @@ CPPWAMP_INLINE const String& AuthInfo::provider() const {return provider_;}
 CPPWAMP_INLINE const any& AuthInfo::note() const {return note_;}
 
 CPPWAMP_INLINE void AuthInfo::join(internal::PassKey, String realmUri,
-                                   SessionId sessionId)
+                                   SessionId sessionId, bool isLocal)
 {
     realmUri_ = std::move(realmUri);
     sessionId_ = sessionId;
+    isLocal_ = isLocal;
 }
 
 CPPWAMP_INLINE Object

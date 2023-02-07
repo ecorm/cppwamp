@@ -66,17 +66,22 @@ CPPWAMP_INLINE void outputAccessLogEntry(
     PutField{out} << s.serverName;
     out << " | " << s.serverSessionIndex;
     PutField{out} << s.endpoint << s.realmUri << s.authId
-                  << s.wampSessionIdHash << s.agent << a.action << a.target;
+                  << s.wampSessionIdHash << s.agent;
+    if (a.requestId == nullId())
+        out << " | -";
+    else
+        out << " | " << a.requestId;
+
+    PutField{out} << a.action << a.target;
 
     out << " | ";
-    if (entry.action().ok)
-        out << "ok";
+    if (entry.action().errorUri.empty())
+        out << "-";
     else if (colored)
-        out << red << "error" << plain;
+        out << red << entry.action().errorUri << plain;
     else
-        out << "error";
+        out << entry.action().errorUri;
 
-    PutField{out} << a.status;
     out << " | " << a.options;
 }
 
@@ -300,58 +305,80 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo() {}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
-    std::string action, std::string target, Object options, std::string status,
-    bool ok)
-    : action(std::move(action)),
-      target(std::move(target)),
-      status(std::move(status)),
-      options(std::move(options)),
-      ok(ok)
+    std::string action, std::string target, Object options,
+    std::string errorUri)
+    : AccessActionInfo(nullId(), std::move(action), std::move(target),
+                       std::move(options), std::move(errorUri))
 {}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
     std::string action, std::string target, Object options, std::error_code ec)
-    : action(std::move(action)),
-      target(std::move(target)),
-      options(std::move(options)),
-      ok(!ec)
-{
-    if (ec)
-    {
-        std::ostringstream oss;
-        oss << ec << " (" << ec.message() << ")";
-        status = oss.str();
-    }
-}
+    : AccessActionInfo(nullId(), std::move(action), std::move(target),
+                       std::move(options), ec)
+{}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
     std::string action, std::string target, Object options, SessionErrc errc)
-    : AccessActionInfo(std::move(action), std::move(target),
+    : AccessActionInfo(nullId(), std::move(action), std::move(target),
+                       std::move(options), errc)
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
+    RequestId r, std::string action, std::string target, Object options,
+    std::string errorUri)
+    : action(std::move(action)),
+      target(std::move(target)),
+      errorUri(std::move(errorUri)),
+      options(std::move(options)),
+      requestId(r)
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
+    RequestId r, std::string action, std::string target, Object options,
+    std::error_code ec)
+    : AccessActionInfo(r, std::move(action), std::move(target),
+                       std::move(options), toErrorUri(ec))
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
+    RequestId r, std::string action, std::string target, Object options,
+    SessionErrc errc)
+    : AccessActionInfo(r, std::move(action), std::move(target),
                        std::move(options), make_error_code(errc))
 {}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo&
-AccessActionInfo::withStatus(std::string status, bool ok)
+AccessActionInfo::withErrorUri(std::string uri)
 {
-    this->status = std::move(status);
-    this->ok = ok;
+    errorUri = std::move(uri);
     return *this;
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo& AccessActionInfo::withError(std::error_code ec)
 {
+    return withErrorUri(toErrorUri(ec));
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AccessActionInfo& AccessActionInfo::withError(SessionErrc errc)
+{
+    return withError(make_error_code(errc));
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE std::string AccessActionInfo::toErrorUri(std::error_code ec)
+{
+    std::ostringstream oss;
     if (ec)
-    {
-        std::ostringstream oss;
         oss << ec << " (" << ec.message() << ")";
-        status = oss.str();
-    }
-    ok = !ec;
-    return *this;
+    return oss.str();
 }
 
 

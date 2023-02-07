@@ -127,9 +127,19 @@ public:
 
     virtual void close(bool terminate, Reason) = 0;
 
+    virtual void sendError(Error&&) = 0;
+
+    virtual void sendSubscribed(RequestId, SubscriptionId) = 0;
+
+    virtual void sendUnsubscribed(RequestId) = 0;
+
+    virtual void sendPublished(RequestId, PublicationId) = 0;
+
     virtual void sendEvent(Event&&) = 0;
 
-    virtual void sendError(Error&&) = 0;
+    virtual void sendRegistered(RequestId, RegistrationId) = 0;
+
+    virtual void sendUnregistered(RequestId) = 0;
 
     RequestId sendInvocation(Invocation&& inv)
     {
@@ -137,6 +147,7 @@ public:
         auto id = ++nextOutboundRequestId_;
         assert(id <= 9007199254740992u);
         inv.setRequestId({}, id);
+        onSendInvocation(std::move(inv));
         return id;
     }
 
@@ -144,9 +155,9 @@ public:
 
     virtual void sendInterruption(Interruption&&) = 0;
 
-    virtual void log(LogEntry&& e) = 0;
+    virtual void log(LogEntry e) = 0;
 
-    virtual void report(AccessActionInfo&& i) = 0;
+    virtual void report(AccessActionInfo i) = 0;
 
 protected:
     RouterSession()

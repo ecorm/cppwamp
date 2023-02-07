@@ -10,7 +10,6 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <thread>
 #include <utility>
 #include "../routerconfig.hpp"
 #include "idgen.hpp"
@@ -44,36 +43,57 @@ public:
 
     void join(RouterSession::Ptr session)
     {
-        auto reservedId = router_.reserveSessionId();
-        auto id = reservedId.get();
-        session->setWampId({}, std::move(reservedId));
-        MutexGuard lock(mutex_);
-        sessions_.emplace(id, std::move(session));
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr session;
+
+            void operator()()
+            {
+                auto& me = *self;
+                auto reservedId = me.router_.reserveSessionId();
+                auto id = reservedId.get();
+                session->setWampId({}, std::move(reservedId));
+                me.sessions_.emplace(id, std::move(session));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(session));
     }
 
     void close(bool terminate, Reason r)
     {
-        MutexGuard lock(mutex_);
-        std::string msg = terminate ? "Shutting down realm with reason "
-                                    : "Terminating realm with reason ";
-        msg += r.uri();
-        if (!r.options().empty())
-            msg += " " + toString(r.options());
-        log({LogLevel::info, std::move(msg)});
+        struct Dispatched
+        {
+            Ptr self;
+            bool terminate;
+            Reason r;
 
-        for (auto& kv: sessions_)
-            kv.second->close(terminate, r);
-        sessions_.clear();
+            void operator()()
+            {
+                auto& me = *self;
+                std::string msg = terminate ? "Shutting down realm with reason "
+                                            : "Terminating realm with reason ";
+                msg += r.uri();
+                if (!r.options().empty())
+                    msg += " " + toString(r.options());
+                me.log({LogLevel::info, std::move(msg)});
+
+                for (auto& kv: me.sessions_)
+                    kv.second->close(terminate, r);
+                me.sessions_.clear();
+            }
+        };
+
+        safelyDispatch<Dispatched>(terminate, std::move(r));
     }
 
 private:
-    using MutexGuard = std::lock_guard<std::mutex>;
-
     RouterRealm(Executor&& e, RealmConfig&& c, RouterContext&& r)
         : strand_(boost::asio::make_strand(e)),
+          config_(std::move(c)),
           router_(std::move(r)),
           dealer_(strand_),
-          config_(std::move(c)),
           logSuffix_(" (Realm " + config_.uri() + ")"),
           logger_(router_.logger())
     {}
@@ -84,81 +104,190 @@ private:
         logger_->log(std::move(e));
     }
 
-    template <typename F>
-    void dispatch(F&& f)
+    template <typename F, typename... Ts>
+    void safelyDispatch(Ts&&... args)
     {
-        boost::asio::dispatch(strand_, std::forward<F>(f));
+        boost::asio::dispatch(
+            strand(), F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
     RouterLogger::Ptr logger() const {return logger_;}
 
     void leave(SessionId sid)
     {
-        MutexGuard lock(mutex_);
-        sessions_.erase(sid);
+        struct Dispatched
+        {
+            Ptr self;
+            SessionId sid;
+
+            void operator()()
+            {
+                self->sessions_.erase(sid);
+            }
+        };
+
+        safelyDispatch<Dispatched>(sid);
     }
 
-    ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr s, Topic&& t)
+    void subscribe(RouterSession::Ptr s, Topic&& t)
     {
-        MutexGuard lock(mutex_);
-        return broker_.subscribe(std::move(s), std::move(t));
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr s;
+            Topic t;
+
+            void operator()()
+            {
+                self->broker_.subscribe(std::move(s), std::move(t));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(s), std::move(t));
     }
 
-    ErrorOrDone unsubscribe(RouterSession::Ptr s, SubscriptionId subId)
+    void unsubscribe(RouterSession::Ptr s, SubscriptionId subId)
     {
-        MutexGuard lock(mutex_);
-        return broker_.unsubscribe(std::move(s), subId);
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr s;
+            SubscriptionId subId;
+
+            void operator()()
+            {
+                self->unsubscribe(std::move(s), subId);
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(s), subId);
     }
 
-    ErrorOr<PublicationId> publish(RouterSession::Ptr s, Pub&& pub)
+    void publish(RouterSession::Ptr s, Pub&& pub)
     {
-        MutexGuard lock(mutex_);
-        return broker_.publish(std::move(s), std::move(pub));
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr s;
+            Pub pub;
+
+            void operator()()
+            {
+                self->broker_.publish(std::move(s), std::move(pub));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(s), std::move(pub));
     }
 
-    ErrorOr<RegistrationId> enroll(RouterSession::Ptr s, Procedure&& proc)
+    void enroll(RouterSession::Ptr s, Procedure&& proc)
     {
-        MutexGuard lock(mutex_);
-        return dealer_.enroll(std::move(s), std::move(proc));
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr s;
+            Procedure proc;
+
+            void operator()()
+            {
+                self->dealer_.enroll(std::move(s), std::move(proc));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(s), std::move(proc));
     }
 
-    ErrorOrDone unregister(RouterSession::Ptr s, RegistrationId rid)
+    void unregister(RouterSession::Ptr s, RegistrationId rid)
     {
-        MutexGuard lock(mutex_);
-        return dealer_.unregister(std::move(s), rid);
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr s;
+            RegistrationId rid;
+
+            void operator()()
+            {
+                self->dealer_.unregister(std::move(s), rid);
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(s), rid);
     }
 
-    ErrorOrDone call(RouterSession::Ptr s, Rpc&& rpc)
+    void call(RouterSession::Ptr s, Rpc&& rpc)
     {
-        MutexGuard lock(mutex_);
-        return dealer_.call(std::move(s), std::move(rpc));
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr s;
+            Rpc rpc;
+
+            void operator()()
+            {
+                self->dealer_.call(std::move(s), std::move(rpc));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(s), std::move(rpc));
     }
 
-    ErrorOrDone cancelCall(RouterSession::Ptr s, CallCancellation&& c)
+    void cancelCall(RouterSession::Ptr s, CallCancellation&& c)
     {
-        MutexGuard lock(mutex_);
-        return dealer_.cancelCall(std::move(s), std::move(c));
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr s;
+            CallCancellation c;
+
+            void operator()()
+            {
+                self->dealer_.cancelCall(std::move(s), std::move(c));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(s), std::move(c));
     }
 
     void yieldResult(RouterSession::Ptr s, Result&& r)
     {
-        MutexGuard lock(mutex_);
-        dealer_.yieldResult(std::move(s), std::move(r));
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr s;
+            Result r;
+
+            void operator()()
+            {
+                self->dealer_.yieldResult(std::move(s), std::move(r));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(s), std::move(r));
     }
 
     void yieldError(RouterSession::Ptr s, Error&& e)
     {
-        MutexGuard lock(mutex_);
-        dealer_.yieldError(std::move(s), std::move(e));
+        struct Dispatched
+        {
+            Ptr self;
+            RouterSession::Ptr s;
+            Error e;
+
+            void operator()()
+            {
+                self->dealer_.yieldError(std::move(s), std::move(e));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(s), std::move(e));
     }
 
     IoStrand strand_;
+    RealmConfig config_;
     RouterContext router_;
     std::map<SessionId, RouterSession::Ptr> sessions_;
     RealmBroker broker_;
     RealmDealer dealer_;
-    RealmConfig config_;
-    std::mutex mutex_;
     std::string logSuffix_;
     RouterLogger::Ptr logger_;
 
@@ -215,67 +344,54 @@ inline void RealmContext::leave(SessionId sid)
     realm_.reset();
 }
 
-inline ErrorOr<SubscriptionId> RealmContext::subscribe(RouterSessionPtr s,
-                                                       Topic t)
+inline void RealmContext::subscribe(RouterSessionPtr s, Topic t)
 {
     auto r = realm_.lock();
-    if (!r)
-        return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->subscribe(std::move(s), std::move(t));
+    if (r)
+        r->subscribe(std::move(s), std::move(t));
 
 }
 
-inline ErrorOrDone RealmContext::unsubscribe(RouterSessionPtr s,
-                                             SubscriptionId subId)
+inline void RealmContext::unsubscribe(RouterSessionPtr s, SubscriptionId subId)
 {
     auto r = realm_.lock();
-    if (!r)
-        return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->unsubscribe(std::move(s), subId);
+    if (r)
+        r->unsubscribe(std::move(s), subId);
 }
 
-inline ErrorOr<PublicationId> RealmContext::publish(RouterSessionPtr s,
-                                                    Pub pub)
+inline void RealmContext::publish(RouterSessionPtr s, Pub pub)
 {
     auto r = realm_.lock();
-    if (!r)
-        return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->publish(std::move(s), std::move(pub));
+    if (r)
+        r->publish(std::move(s), std::move(pub));
 }
 
-inline ErrorOr<RegistrationId> RealmContext::enroll(RouterSessionPtr s,
-                                                    Procedure proc)
+inline void RealmContext::enroll(RouterSessionPtr s, Procedure proc)
 {
     auto r = realm_.lock();
-    if (!r)
-        return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->enroll(std::move(s), std::move(proc));
+    if (r)
+        r->enroll(std::move(s), std::move(proc));
 }
 
-inline ErrorOrDone RealmContext::unregister(RouterSessionPtr s,
-                                            RegistrationId rid)
+inline void RealmContext::unregister(RouterSessionPtr s, RegistrationId rid)
 {
     auto r = realm_.lock();
-    if (!r)
-        return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->unregister(std::move(s), rid);
+    if (r)
+        r->unregister(std::move(s), rid);
 }
 
-inline ErrorOrDone RealmContext::call(RouterSessionPtr s, Rpc rpc)
+inline void RealmContext::call(RouterSessionPtr s, Rpc rpc)
 {
     auto r = realm_.lock();
-    if (!r)
-        return makeUnexpectedError(SessionErrc::noSuchRealm);
-    return r->call(std::move(s), std::move(rpc));
+    if (r)
+        r->call(std::move(s), std::move(rpc));
 }
 
-inline ErrorOrDone RealmContext::cancelCall(RouterSessionPtr s,
-                                            CallCancellation c)
+inline void RealmContext::cancelCall(RouterSessionPtr s, CallCancellation c)
 {
     auto r = realm_.lock();
-    if (!r)
-        return false;
-    return r->cancelCall(std::move(s), std::move(c));
+    if (r)
+        r->cancelCall(std::move(s), std::move(c));
 }
 
 inline void RealmContext::yieldResult(RouterSessionPtr s, Result result)

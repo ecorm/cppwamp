@@ -14,12 +14,23 @@ namespace wamp
 // RealmConfig
 //******************************************************************************
 
-CPPWAMP_INLINE RealmConfig::RealmConfig(String uri) : uri_(std::move(uri)) {}
+struct RealmConfig::DefaultAuthorizer
+{
+    void operator()(AuthorizationRequest, AuthorizedOp op) const
+    {
+        op(Authorization{true});
+    }
+};
+
+CPPWAMP_INLINE RealmConfig::RealmConfig(String uri)
+    : authorizer_(DefaultAuthorizer{}),
+      uri_(std::move(uri))
+{}
 
 CPPWAMP_INLINE RealmConfig&
-RealmConfig::withAuthorizationHandler(AuthorizationHandler f)
+RealmConfig::withAuthorizer(Authorizer f)
 {
-    authorizationHandler_ = std::move(f);
+    authorizer_ = std::move(f);
     return *this;
 }
 
@@ -30,7 +41,26 @@ RealmConfig::withAuthorizationCacheEnabled(bool enabled)
     return *this;
 }
 
+CPPWAMP_INLINE RealmConfig&
+RealmConfig::withPublisherDisclosure(OriginatorDisclosure d)
+{
+    publisherDisclosure_ = d;
+    return *this;
+}
+
+CPPWAMP_INLINE RealmConfig&
+RealmConfig::withCallerDisclosure(OriginatorDisclosure d)
+{
+    callerDisclosure_ = d;
+    return *this;
+}
+
 CPPWAMP_INLINE const String& RealmConfig::uri() const {return uri_;}
+
+CPPWAMP_INLINE const RealmConfig::Authorizer& RealmConfig::authorizer() const
+{
+    return authorizer_;
+}
 
 CPPWAMP_INLINE bool RealmConfig::authorizationCacheEnabled() const
 {

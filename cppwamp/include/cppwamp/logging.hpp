@@ -18,6 +18,7 @@
 #include "api.hpp"
 #include "erroror.hpp"
 #include "variant.hpp"
+#include "wampdefs.hpp"
 
 
 namespace wamp
@@ -119,7 +120,7 @@ struct CPPWAMP_API AccessSessionInfo
     std::string serverName;
     std::string realmUri;
     std::string authId;
-    std::string wampSessionIdHash;
+    std::string wampSessionIdHash; // TODO: SHA-256 too weak. Is hashing even necessary?
     std::string agent;
     uint64_t serverSessionIndex;
 };
@@ -130,8 +131,7 @@ struct CPPWAMP_API AccessActionInfo
     AccessActionInfo();
 
     AccessActionInfo(std::string action, std::string target = {},
-                     Object options = {}, std::string status = {},
-                     bool ok = true);
+                     Object options = {}, std::string errorUri = {});
 
     AccessActionInfo(std::string action, std::string target,
                      Object options, std::error_code ec);
@@ -139,19 +139,27 @@ struct CPPWAMP_API AccessActionInfo
     AccessActionInfo(std::string action, std::string target,
                      Object options, SessionErrc errc);
 
+    AccessActionInfo(RequestId r, std::string action, std::string target = {},
+                     Object options = {}, std::string errorUri = {});
+
+    AccessActionInfo(RequestId r, std::string action, std::string target,
+                     Object options, std::error_code ec);
+
+    AccessActionInfo(RequestId r, std::string action, std::string target,
+                     Object options, SessionErrc errc);
+
     template <typename T>
     AccessActionInfo(std::string action, std::string target,
                      Object options, const ErrorOr<T>& x)
         : AccessActionInfo(std::move(action), std::move(target),
-                           std::move(options))
-    {
-        if (!x)
-            withError(x.error());
-    }
+                           std::move(options), toErrorUri(x))
+    {}
 
-    AccessActionInfo& withStatus(std::string status, bool ok = false);
+    AccessActionInfo& withErrorUri(std::string uri);
 
     AccessActionInfo& withError(std::error_code ec);
+
+    AccessActionInfo& withError(SessionErrc errc);
 
     template <typename T>
     AccessActionInfo& withResult(const ErrorOr<T>& x)
@@ -163,9 +171,18 @@ struct CPPWAMP_API AccessActionInfo
 
     std::string action;
     std::string target;
-    std::string status;
+    std::string errorUri;
     Object options;
-    bool ok = false;
+    RequestId requestId = nullId();
+
+private:
+    static std::string toErrorUri(std::error_code ec);
+
+    template <typename T>
+    static std::string toErrorUri(const ErrorOr<T>& x)
+    {
+        return !x ? std::string{} : toErrorUri(x.error());
+    }
 };
 
 //------------------------------------------------------------------------------
