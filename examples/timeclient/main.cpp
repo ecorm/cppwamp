@@ -79,7 +79,7 @@ int main()
 //        session.subscribe(wamp::Topic("time_tick"),
 //                          wamp::simpleEvent<std::tm>(&onTimeTick),
 //                          yield).value();
-        std::cout << info << std::endl;
+        std::cout << info.authId().value_or("unknown") << std::endl;
         auto r = session.leave({"because.i.feel.like.it"}, yield);
         std::cout << r.value().uri() << std::endl;
         session.disconnect();

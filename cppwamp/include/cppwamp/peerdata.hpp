@@ -225,9 +225,6 @@ public:
                 internal::WelcomeMessage&& msg);
 };
 
-// TODO: Remove if unused
-CPPWAMP_API std::ostream& operator<<(std::ostream& o, const SessionInfo& i);
-
 
 //------------------------------------------------------------------------------
 /** Provides the _reason_ URI and other options contained within
@@ -616,9 +613,6 @@ public:
     Event(internal::PassKey, Pub&& pub, SubscriptionId sid, PublicationId pid);
 };
 
-// TODO: Remove if unused
-CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Event& event);
-
 
 //------------------------------------------------------------------------------
 /** Contains the procedure URI and other options contained within
@@ -845,9 +839,6 @@ public:
     internal::YieldMessage& yieldMessage(internal::PassKey, RequestId reqId);
 };
 
-// TODO: Remove if unused
-CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Result& result);
-
 
 //------------------------------------------------------------------------------
 /** Tag type that can be passed to wamp::Outcome to construct a
@@ -1048,9 +1039,6 @@ private:
     template <typename, typename...> friend class CoroInvocationUnpacker;
 };
 
-// TODO: Remove if unused
-CPPWAMP_API std::ostream& operator<<(std::ostream& out, const Invocation& inv);
-
 
 //------------------------------------------------------------------------------
 /** Contains the request ID and options contained within
@@ -1146,10 +1134,6 @@ private:
     AnyCompletionExecutor executor_ = nullptr;
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
 };
-
-// TODO: Remove if unused
-CPPWAMP_API std::ostream& operator<<(std::ostream& out,
-                                     const Interruption& cncltn);
 
 } // namespace wamp
 

@@ -376,16 +376,6 @@ CPPWAMP_INLINE SessionInfo::SessionInfo(internal::PassKey, String&& realm,
       realm_(std::move(realm))
 {}
 
-CPPWAMP_INLINE std::ostream& operator<<(std::ostream& o, const SessionInfo& i)
-{
-    // TODO: Sanitize options
-    o << "[ Realm|uri = " << i.realm()
-      << ", Session|id = " << i.id();
-    if (!i.options().empty())
-        o << ", Details|dict = " << i.options();
-    return o << " ]";
-}
-
 
 //******************************************************************************
 // Reason
@@ -864,19 +854,6 @@ CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
     : Base(std::move(pub.message({})).fields(), sid, pid)
 {}
 
-CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Event& event)
-{
-    // TODO: Sanitize options
-    out << "[ Publication|id = " << event.pubId();
-    if (!event.options().empty())
-        out << ", Details|dict = " << event.options();
-    if (!event.args().empty())
-        out << ", Arguments|list = " << event.args();
-    if (!event.kwargs().empty())
-        out << ", ArgumentsKw|dict = " << event.kwargs();
-    return out << " ]";
-}
-
 
 //******************************************************************************
 // Procedure
@@ -1074,18 +1051,6 @@ CPPWAMP_INLINE internal::YieldMessage& Result::yieldMessage(internal::PassKey,
 {
     message().setRequestId(reqId);
     return message().transformToYield();
-}
-
-CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out, const Result& result)
-{
-    out << "[ Request|id = " << result.requestId();
-    if (!result.options().empty())
-        out << ", Details|dict = " << result.options();
-    if (!result.args().empty())
-        out << ", Arguments|list = " << result.args();
-    if (!result.kwargs().empty())
-        out << ", ArgumentsKw|dict = " << result.kwargs();
-    return out << " ]";
 }
 
 
@@ -1417,20 +1382,6 @@ CPPWAMP_INLINE void Invocation::setRequestId(internal::PassKey, RequestId rid)
     message().setRequestId(rid);
 }
 
-CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
-                                        const Invocation& inv)
-{
-    // TODO: Sanitize options
-    out << "[ Request|id = " << inv.requestId();
-    if (!inv.options().empty())
-        out << ", Details|dict = " << inv.options();
-    if (!inv.args().empty())
-        out << ", Arguments|list = " << inv.args();
-    if (!inv.kwargs().empty())
-        out << ", ArgumentsKw|dict = " << inv.kwargs();
-    return out << " ]";
-}
-
 
 //******************************************************************************
 // CallCancellation
@@ -1560,16 +1511,5 @@ CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, RequestId reqId,
     : Base(reqId, Object{{"mode", internal::callCancelModeToString(mode)}}),
       cancelMode_(mode)
 {}
-
-CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
-                                        const Interruption& intr)
-{
-    out << "[ Request|id = " << intr.requestId();
-    if (!intr.options().empty())
-        out << ", Details|dict = " << intr.options();
-    return out << " ]";
-}
-
-
 
 } // namespace wamp
