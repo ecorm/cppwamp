@@ -94,7 +94,7 @@ CPPWAMP_INLINE CallCancelMode parseCallCancelModeFromOptions(const Object& opts)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void sanitizeOption(Object& opts, const String& key)
+CPPWAMP_INLINE void hideOption(Object& opts, const String& key)
 {
     auto found = opts.find(key);
     if (found != opts.end())
@@ -178,9 +178,10 @@ CPPWAMP_INLINE ErrorOr<Object> Realm::roles() const
 
 CPPWAMP_INLINE AccessActionInfo Realm::info() const
 {
-    auto filtered = options();
-    filtered.erase("authextra");
-    return {"client-hello", uri(), std::move(filtered)};
+    // Allow authid to be logged.
+    auto opts = options();
+    opts.erase("authextra");
+    return {"client-hello", uri(), std::move(opts)};
 }
 
 CPPWAMP_INLINE Realm& Realm::withAuthMethods(std::vector<String> methods)
@@ -228,10 +229,11 @@ CPPWAMP_INLINE const String& SessionInfo::realm() const
 
 CPPWAMP_INLINE AccessActionInfo SessionInfo::info() const
 {
-    auto sanitized = options();
-    internal::sanitizeOption(sanitized, "authrole");
-    internal::sanitizeOption(sanitized, "authextra");
-    return {"server-welcome", realm(), std::move(sanitized)};
+    // Allow authid to be logged
+    auto opts = options();
+    internal::hideOption(opts, "authrole");
+    internal::hideOption(opts, "authextra");
+    return {"server-welcome", realm(), std::move(opts)};
 }
 
 /** @returns The value of the `HELLO.Details.agent|string`
@@ -698,8 +700,14 @@ CPPWAMP_INLINE const String& Pub::topic() const {return message().topicUri();}
 
 CPPWAMP_INLINE AccessActionInfo Pub::info() const
 {
-    // TODO: Sanitize session IDs in allow/deny lists
-    return {message().requestId(), "client-publish", topic(), options()};
+    auto opts = options();
+    internal::hideOption(opts, "exclude");
+    internal::hideOption(opts, "exclude_authid");
+    internal::hideOption(opts, "exclude_authrole");
+    internal::hideOption(opts, "eligible");
+    internal::hideOption(opts, "eligible_authid");
+    internal::hideOption(opts, "eligible_authrole");
+    return {message().requestId(), "client-publish", topic(), std::move(opts)};
 }
 
 /** @details
@@ -812,10 +820,11 @@ CPPWAMP_INLINE AnyCompletionExecutor Event::executor() const
 
 CPPWAMP_INLINE AccessActionInfo Event::info(std::string action) const
 {
-    // TODO: Sanitize the publisher session ID?
-    auto sanitized = options();
-    internal::sanitizeOption(sanitized, "publisher_authrole");
-    return {std::move(action), {}, std::move(sanitized)};
+    auto opts = options();
+    internal::hideOption(opts, "publisher_id");
+    internal::hideOption(opts, "publisher_authid");
+    internal::hideOption(opts, "publisher_authrole");
+    return {std::move(action), {}, std::move(opts)};
 }
 
 /** @details
@@ -1344,7 +1353,11 @@ Invocation::yield(ThreadSafe, Error error) const
 
 CPPWAMP_INLINE AccessActionInfo Invocation::info() const
 {
-    return {requestId(), "server-invocation", {}, options()};
+    auto opts = options();
+    internal::hideOption(opts, "caller_id");
+    internal::hideOption(opts, "caller_authid");
+    internal::hideOption(opts, "caller_authrole");
+    return {requestId(), "server-invocation", {}, std::move(opts)};
 }
 
 /** @details

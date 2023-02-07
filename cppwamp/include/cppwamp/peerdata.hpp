@@ -33,8 +33,6 @@
            WAMP peers. */
 //------------------------------------------------------------------------------
 
-// TODO: Use name-based WAMP spec links
-
 namespace wamp
 {
 
