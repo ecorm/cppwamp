@@ -8,16 +8,13 @@
 #define CPPWAMP_INTERNAL_ROUTER_CONTEXT_HPP
 
 #include <atomic>
-#include <future>
+#include <cassert>
 #include <memory>
 #include "../anyhandler.hpp"
 #include "../asiodefs.hpp"
-#include "../erroror.hpp"
 #include "../logging.hpp"
 #include "../peerdata.hpp"
-#include "../routerconfig.hpp"
 #include "idgen.hpp"
-#include "wampmessage.hpp"
 
 namespace wamp
 {
@@ -39,39 +36,50 @@ public:
     using AccessLogHandler = AnyReusableHandler<void (AccessLogEntry)>;
 
     static Ptr create(IoStrand s, LogHandler lh, LogLevel lv,
-                      AccessLogHandler alh)
+                      AccessLogHandler alh, AccessLogFilter alf)
     {
         return Ptr(new RouterLogger(std::move(s), std::move(lh), lv,
-                                    std::move(alh)));
+                                    std::move(alh), std::move(alf)));
     }
 
     LogLevel level() const {return logLevel_.load();}
 
     void log(LogEntry entry)
     {
-        if (entry.severity() >= level())
+        if (logHandler_ && entry.severity() >= level())
             postAny(strand_, logHandler_, std::move(entry));
     }
 
     void log(AccessLogEntry entry)
     {
-        postAny(strand_, accessLogHandler_, std::move(entry));
+        if (accessLogHandler_)
+        {
+            assert(accessLogFilter_ != nullptr);
+            bool allowed = accessLogFilter_(entry);
+            if (allowed)
+                postAny(strand_, accessLogHandler_, std::move(entry));
+        }
     }
 
 private:
     RouterLogger(IoStrand&& s, LogHandler&& lh, LogLevel lv,
-                 AccessLogHandler&& alh)
+                 AccessLogHandler&& alh, AccessLogFilter&& alf)
         : strand_(std::move(s)),
           logHandler_(std::move(lh)),
           accessLogHandler_(std::move(alh)),
+          accessLogFilter_(std::move(alf)),
           logLevel_(lv)
-    {}
+    {
+        if ((accessLogHandler_ != nullptr) && (accessLogFilter_ == nullptr))
+            accessLogFilter_ = DefaultAccessLogFilter{};
+    }
 
     void setLevel(LogLevel level) {logLevel_.store(level);}
 
     IoStrand strand_;
     LogHandler logHandler_;
     AccessLogHandler accessLogHandler_;
+    AccessLogFilter accessLogFilter_;
     std::atomic<LogLevel> logLevel_;
 
     friend class RouterImpl;
@@ -132,8 +140,6 @@ public:
     RouterContext(std::shared_ptr<RouterImpl> r);
 
     RouterLogger::Ptr logger() const;
-
-    SessionIdScrambler sessionIdScrambler() const;
 
     ReservedId reserveSessionId();
 

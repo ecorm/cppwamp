@@ -20,7 +20,6 @@
 #include "codec.hpp"
 #include "listener.hpp"
 #include "logging.hpp"
-#include "variant.hpp"
 #include "wampdefs.hpp"
 
 namespace wamp
@@ -136,22 +135,11 @@ ServerConfig::ServerConfig(String name, S&& transportSettings, F format,
 }
 
 //------------------------------------------------------------------------------
-using SessionIdScrambler = std::function<std::string (SessionId)>;
-
-//------------------------------------------------------------------------------
-struct CPPWAMP_API DefaultSessionIdScrambler
-{
-    std::string operator()(SessionId) const {return {};}
-};
-
-//------------------------------------------------------------------------------
 class CPPWAMP_API RouterConfig
 {
 public:
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
     using AccessLogHandler = AnyReusableHandler<void (AccessLogEntry)>;
-
-    RouterConfig();
 
     RouterConfig& withLogHandler(LogHandler f);
 
@@ -159,7 +147,7 @@ public:
 
     RouterConfig& withAccessLogHandler(AccessLogHandler f);
 
-    RouterConfig& withSessionIdScrambler(SessionIdScrambler f);
+    RouterConfig& withAccessLogFilter(AccessLogFilter f);
 
     RouterConfig& withSessionIdSeed(EphemeralId seed);
 
@@ -169,14 +157,14 @@ public:
 
     const AccessLogHandler& accessLogHandler() const;
 
-    const SessionIdScrambler& sessionIdScrambler() const;
+    const AccessLogFilter& accessLogFilter() const;
 
     EphemeralId sessionIdSeed() const;
 
 private:
     LogHandler logHandler_;
     AccessLogHandler accessLogHandler_;
-    SessionIdScrambler sessionIdScrambler_;
+    AccessLogFilter accessLogFilter_;
     LogLevel logLevel_ = LogLevel::warning;
     EphemeralId sessionIdSeed_ = nullId();
 };

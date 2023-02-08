@@ -213,9 +213,9 @@ private:
           executor_(std::move(e)),
           strand_(boost::asio::make_strand(executor_)),
           sessionIdPool_(RandomIdPool::create(config_.sessionIdSeed())),
-          logger_(RouterLogger::create(strand_, config_.logHandler(),
-                                       config_.logLevel(),
-                                       config_.accessLogHandler()))
+          logger_(RouterLogger::create(
+            strand_, config_.logHandler(), config_.logLevel(),
+            config_.accessLogHandler(), config_.accessLogFilter()))
     {}
 
     template <typename F>
@@ -242,11 +242,6 @@ private:
     void log(LogEntry&& e) {logger_->log(std::move(e));}
 
     RouterLogger::Ptr logger() const {return logger_;}
-
-    SessionIdScrambler sessionIdScrambler() const
-    {
-        return config_.sessionIdScrambler();
-    }
 
     ReservedId reserveSessionId()
     {
@@ -308,14 +303,6 @@ inline RouterLogger::Ptr RouterContext::logger() const
     auto r = router_.lock();
     if (r)
         return r->logger();
-    return nullptr;
-}
-
-inline SessionIdScrambler RouterContext::sessionIdScrambler() const
-{
-    auto r = router_.lock();
-    if (r)
-        return r->sessionIdScrambler();
     return nullptr;
 }
 

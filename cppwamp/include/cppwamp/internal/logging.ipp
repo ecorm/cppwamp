@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2022.
+    Copyright Butterfly Energy Systems 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -25,7 +25,14 @@ CPPWAMP_INLINE std::ostream& outputLogEntryTime(
 {
     namespace chrono = std::chrono;
     auto time = chrono::system_clock::to_time_t(when);
+
+#if _POSIX_C_SOURCE >= 1 || _XOPEN_SOURCE || _BSD_SOURCE || _SVID_SOURCE || \
+    _POSIX_SOURCE
+    std::tm tmbResult;
+    std::tm* tmb = ::gmtime_r(&time, &tmbResult);
+#else
     std::tm* tmb = std::gmtime(&time);
+#endif
     auto d = when.time_since_epoch();
     auto mins = chrono::duration_cast<chrono::minutes>(d);
     auto remainder1 = (when - mins).time_since_epoch();
@@ -39,6 +46,7 @@ CPPWAMP_INLINE std::ostream& outputLogEntryTime(
     return out;
 }
 
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE void outputAccessLogEntry(
     std::ostream& out, const AccessLogEntry& entry, std::string origin,
     bool colored)
@@ -60,27 +68,26 @@ CPPWAMP_INLINE void outputAccessLogEntry(
         }
     };
 
-    const auto& s = entry.session();
-    const auto& a = entry.action();
-    AccessLogEntry::outputTime(out, entry.when());
+    const auto& s = entry.session;
+    const auto& a = entry.action;
+    AccessLogEntry::outputTime(out, entry.when);
     PutField{out} << s.serverName;
     out << " | " << s.serverSessionIndex;
-    PutField{out} << s.endpoint << s.realmUri << s.authId
-                  << s.wampSessionId << s.agent;
+    PutField{out} << s.endpoint << s.realmUri << s.authId << s.agent;
     if (a.requestId == nullId())
         out << " | -";
     else
         out << " | " << a.requestId;
 
-    PutField{out} << a.action << a.target;
+    PutField{out} << a.name << a.target;
 
     out << " | ";
-    if (entry.action().errorUri.empty())
+    if (a.errorUri.empty())
         out << "-";
     else if (colored)
-        out << red << entry.action().errorUri << plain;
+        out << red << a.errorUri << plain;
     else
-        out << entry.action().errorUri;
+        out << a.errorUri;
 
     out << " | " << a.options;
 }
@@ -329,7 +336,7 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
     RequestId r, std::string action, std::string target, Object options,
     std::string errorUri)
-    : action(std::move(action)),
+    : name(std::move(action)),
       target(std::move(target)),
       errorUri(std::move(errorUri)),
       options(std::move(options)),
@@ -398,28 +405,10 @@ CPPWAMP_INLINE std::ostream& AccessLogEntry::outputTime(std::ostream& out,
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(AccessSessionInfo session,
                                               AccessActionInfo action)
-    : session_(std::move(session)),
-      action_(std::move(action)),
-      when_(std::chrono::system_clock::now())
+    : session(std::move(session)),
+      action(std::move(action)),
+      when(std::chrono::system_clock::now())
 {}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE const AccessSessionInfo& AccessLogEntry::session() const
-{
-    return session_;
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE const AccessActionInfo& AccessLogEntry::action() const
-{
-    return action_;
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE AccessLogEntry::TimePoint AccessLogEntry::when() const
-{
-    return when_;
-}
 
 //------------------------------------------------------------------------------
 /** @relates AccessLogEntry
@@ -427,11 +416,11 @@ CPPWAMP_INLINE AccessLogEntry::TimePoint AccessLogEntry::when() const
     The following format is used:
     ```
     YYYY-MM-DDTHH:MM:SS.sss | server name | server session index |
-    transport endpoint | realmUri | authid | wamp session id hash | agent |
-    action | target URI | ok/error | status | {action options}
+    transport endpoint | realm URI | authid | agent |
+    action | target URI | error URI | {action options}
     ```
-    @note This function uses std::gmtime which may or may not be thread-safe
-          on the target platform. */
+    @note This function uses `std::gmtime` on platforms where `gmtime_r` is not
+          available, where the former may not be thread-safe. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::string toString(const AccessLogEntry& entry)
 {
@@ -494,12 +483,48 @@ toColorStream(std::ostream& out, const AccessLogEntry& entry,
     return out;
 }
 
-
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
                                         const AccessLogEntry& entry)
 {
     return toStream(out, entry);
+}
+
+
+//******************************************************************************
+// DefaultAccessLogFilter
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE const std::set<String>& DefaultAccessLogFilter::bannedOptions()
+{
+    // Allow authid option in client-hello and server-welcome for
+    // auditing purposes.
+    // https://github.com/wamp-proto/wamp-proto/issues/442
+    static const std::set<String> banned(
+        {"authextra", "authrole", "caller_authid", "caller_authrole",
+         "caller_id", "eligible", "eligible_authid", "eligible_authrole",
+         "exclude", "exclude_authid", "exclude_authrole", "forward_for",
+         "publisher_authid", "publisher_authrole", "publisher_id"});
+    return banned;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool DefaultAccessLogFilter::operator()(AccessLogEntry& e) const
+{
+    auto& a = e.action;
+    if (a.name == "client-authenticate" || a.name == "server-challenge")
+    {
+        a.options.clear();
+    }
+    else
+    {
+        for (auto& kv: a.options)
+            if (bannedOptions().count(kv.first) != 0)
+                kv.second = null;
+    }
+
+    return true;
 }
 
 } // namespace wamp

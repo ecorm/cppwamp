@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2022.
+    Copyright Butterfly Energy Systems 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -9,11 +9,13 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for reporting and describing errors. */
+    @brief Contains facilities for logging. */
 //------------------------------------------------------------------------------
 
 #include <chrono>
+#include <functional>
 #include <ostream>
+#include <set>
 #include <string>
 #include "api.hpp"
 #include "erroror.hpp"
@@ -113,6 +115,9 @@ std::ostream& toColorStream(std::ostream& out, const LogEntry& entry,
 std::ostream& operator<<(std::ostream& out, const LogEntry& entry);
 
 
+// TODO: Move below to separate module so that client-only users don't
+// import it.
+
 //------------------------------------------------------------------------------
 struct CPPWAMP_API AccessSessionInfo
 {
@@ -120,9 +125,10 @@ struct CPPWAMP_API AccessSessionInfo
     std::string serverName;
     std::string realmUri;
     std::string authId;
-    std::string wampSessionId;
+    std::string scrambledWampSessionId;
     std::string agent;
     uint64_t serverSessionIndex;
+    SessionId wampSessionId;
 };
 
 //------------------------------------------------------------------------------
@@ -169,7 +175,7 @@ struct CPPWAMP_API AccessActionInfo
         return *this;
     }
 
-    std::string action;
+    std::string name;
     std::string target;
     std::string errorUri;
     Object options;
@@ -185,12 +191,12 @@ private:
     }
 };
 
+
 //------------------------------------------------------------------------------
 /** Contains access logging information. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API AccessLogEntry
+struct CPPWAMP_API AccessLogEntry
 {
-public:
     using TimePoint = std::chrono::system_clock::time_point;
 
     /** Outputs a timestamp in RFC3339 format. */
@@ -199,19 +205,14 @@ public:
     /** Constructor. */
     AccessLogEntry(AccessSessionInfo session, AccessActionInfo action);
 
-    /** Accesses the session information. */
-    const AccessSessionInfo& session() const;
+    /** The session information. */
+    AccessSessionInfo session;
 
-    /** Accesses the action information. */
-    const AccessActionInfo& action() const;
+    /** The action information. */
+    AccessActionInfo action;
 
-    /** Obtains the entry's timestamp. */
-    TimePoint when() const;
-
-private:
-    AccessSessionInfo session_;
-    AccessActionInfo action_;
-    TimePoint when_;
+    /** Timestamp. */
+    TimePoint when;
 };
 
 /** Obtains a formatted log entry string combining all available information.
@@ -243,6 +244,35 @@ std::ostream& toColorStream(std::ostream& out, const AccessLogEntry& entry,
 /** Outputs a AccessLogEntry to an output stream.
     @relates AccessLogEntry */
 std::ostream& operator<<(std::ostream& out, const AccessLogEntry& entry);
+
+
+//------------------------------------------------------------------------------
+/** Function type for filtering entries in the access log.
+    If the function returns false, the entry will not be logged.
+    The log entry is passed by reference so that the function may
+    sanitize any of the fields. */
+//------------------------------------------------------------------------------
+using AccessLogFilter = std::function<bool (AccessLogEntry&)>;
+
+//------------------------------------------------------------------------------
+/// Default access log filter function used by the router if none is specified.
+//------------------------------------------------------------------------------
+struct DefaultAccessLogFilter
+{
+    static const std::set<String>& bannedOptions();
+
+    bool operator()(AccessLogEntry& entry) const;
+};
+
+//------------------------------------------------------------------------------
+/** Access log filter that allows everything and does not touch the entries.
+    May be used to allow the filtering logic to be performed by a custom
+    log handler. */
+//------------------------------------------------------------------------------
+struct AccessLogPassthruFilter
+{
+    bool operator()(AccessLogEntry&) const {return true;}
+};
 
 } // namespace wamp
 
