@@ -134,6 +134,8 @@ ServerConfig::ServerConfig(String name, S&& transportSettings, F format,
                       BufferCodecBuilder{extraFormats}...};
 }
 
+// TODO: User-provided PRNG
+
 //------------------------------------------------------------------------------
 class CPPWAMP_API RouterConfig
 {

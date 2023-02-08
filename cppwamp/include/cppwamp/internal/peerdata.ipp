@@ -93,14 +93,6 @@ CPPWAMP_INLINE CallCancelMode parseCallCancelModeFromOptions(const Object& opts)
     return CallCancelMode::unknown;
 }
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void hideOption(Object& opts, const String& key)
-{
-    auto found = opts.find(key);
-    if (found != opts.end())
-        found->second = null;
-}
-
 } // namespace internal
 
 //******************************************************************************
@@ -178,10 +170,7 @@ CPPWAMP_INLINE ErrorOr<Object> Realm::roles() const
 
 CPPWAMP_INLINE AccessActionInfo Realm::info() const
 {
-    // Allow authid to be logged.
-    auto opts = options();
-    opts.erase("authextra");
-    return {"client-hello", uri(), std::move(opts)};
+    return {"client-hello", uri(), options()};
 }
 
 CPPWAMP_INLINE Realm& Realm::withAuthMethods(std::vector<String> methods)
@@ -229,11 +218,7 @@ CPPWAMP_INLINE const String& SessionInfo::realm() const
 
 CPPWAMP_INLINE AccessActionInfo SessionInfo::info() const
 {
-    // Allow authid to be logged
-    auto opts = options();
-    internal::hideOption(opts, "authrole");
-    internal::hideOption(opts, "authextra");
-    return {"server-welcome", realm(), std::move(opts)};
+    return {"server-welcome", realm(), options()};
 }
 
 /** @returns The value of the `HELLO.Details.agent|string`
@@ -445,7 +430,7 @@ Authentication::withChannelBinding(std::string type, std::string data)
 
 CPPWAMP_INLINE AccessActionInfo Authentication::info() const
 {
-    return {"client-authenticate"};
+    return {"client-authenticate", "", options()};
 }
 
 CPPWAMP_INLINE Authentication::Authentication(
@@ -571,7 +556,7 @@ Challenge::authenticate(ThreadSafe, Authentication auth)
 
 CPPWAMP_INLINE AccessActionInfo Challenge::info() const
 {
-    return {"server-challenge", method()};
+    return {"server-challenge", method(), options()};
 }
 
 CPPWAMP_INLINE Challenge::Challenge(internal::PassKey, ChallengeePtr challengee,
@@ -690,14 +675,7 @@ CPPWAMP_INLINE const String& Pub::topic() const {return message().topicUri();}
 
 CPPWAMP_INLINE AccessActionInfo Pub::info() const
 {
-    auto opts = options();
-    internal::hideOption(opts, "exclude");
-    internal::hideOption(opts, "exclude_authid");
-    internal::hideOption(opts, "exclude_authrole");
-    internal::hideOption(opts, "eligible");
-    internal::hideOption(opts, "eligible_authid");
-    internal::hideOption(opts, "eligible_authrole");
-    return {message().requestId(), "client-publish", topic(), std::move(opts)};
+    return {message().requestId(), "client-publish", topic(), options()};
 }
 
 /** @details
@@ -810,11 +788,7 @@ CPPWAMP_INLINE AnyCompletionExecutor Event::executor() const
 
 CPPWAMP_INLINE AccessActionInfo Event::info(std::string action) const
 {
-    auto opts = options();
-    internal::hideOption(opts, "publisher_id");
-    internal::hideOption(opts, "publisher_authid");
-    internal::hideOption(opts, "publisher_authrole");
-    return {std::move(action), {}, std::move(opts)};
+    return {std::move(action), {}, options()};
 }
 
 /** @details
@@ -1318,11 +1292,7 @@ Invocation::yield(ThreadSafe, Error error) const
 
 CPPWAMP_INLINE AccessActionInfo Invocation::info() const
 {
-    auto opts = options();
-    internal::hideOption(opts, "caller_id");
-    internal::hideOption(opts, "caller_authid");
-    internal::hideOption(opts, "caller_authrole");
-    return {requestId(), "server-invocation", {}, std::move(opts)};
+    return {requestId(), "server-invocation", {}, options()};
 }
 
 /** @details
