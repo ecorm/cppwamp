@@ -7,6 +7,7 @@
 #include "../logging.hpp"
 #include <cassert>
 #include <sstream>
+#include <type_traits>
 #include <utility>
 #include "../api.hpp"
 #include "timeformatting.hpp"
@@ -34,8 +35,9 @@ CPPWAMP_INLINE const std::string& logLevelLabel(LogLevel lv)
         "off"
     };
 
-    assert(lv <= LogLevel::off);
-    return labels[static_cast<unsigned>(lv)];
+    auto n = static_cast<std::underlying_type<LogLevel>::type>(lv);
+    assert(n >= 0 && n <= std::extent<decltype(labels)>::value);
+    return labels[n];
 }
 
 

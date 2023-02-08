@@ -65,13 +65,13 @@ public:
     Abort& withHint(String message);
 
     /** Obtains the reason URI. */
-    const String& uri() const;
+    const String& reason() const;
 
     /** Obtains the `message` member of the details dictionary. */
     ErrorOr<String> hint() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(std::string action) const;
+    AccessActionInfo info(bool isServer) const;
 
 private:
     using Base = Options<Abort, internal::AbortMessage>;
@@ -248,7 +248,7 @@ public:
     ErrorOr<String> hint() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(std::string action) const;
+    AccessActionInfo info(bool isServer) const;
 
 private:
     using Base = Options<Reason, internal::GoodbyeMessage>;
@@ -407,7 +407,7 @@ public:
     const String& reason() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(std::string action) const;
+    AccessActionInfo info(bool isServer) const;
 
 private:
     using Base = Payload<Error, internal::ErrorMessage>;
@@ -572,7 +572,7 @@ public:
     AnyCompletionExecutor executor() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(std::string action) const;
+    AccessActionInfo info(String topic = {}) const;
 
     /** @name Publisher Identification
         See [Publisher Identification in the WAMP Specification]
@@ -811,7 +811,7 @@ public:
     RequestId requestId() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(std::string action) const;
+    AccessActionInfo info(bool isServer) const;
 
     /** @name Progressive Call Results
         See [Progressive Call Results in the WAMP Specification]

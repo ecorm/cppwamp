@@ -40,26 +40,68 @@ struct CPPWAMP_API AccessSessionInfo
 };
 
 //------------------------------------------------------------------------------
+enum class AccessAction
+{
+    clientConnect,
+    clientDisconnect,
+    clientHello,
+    clientAbort,
+    clientAuthenticate,
+    clientGoodbye,
+    clientError,
+    clientPublish,
+    clientSubscribe,
+    clientUnsubscribe,
+    clientCall,
+    clientCancel,
+    clientRegister,
+    clientUnregister,
+    clientYield,
+    serverConnect,
+    serverDisconnect,
+    serverWelcome,
+    serverAbort,
+    serverTerminate,
+    serverChallenge,
+    serverGoodbye,
+    serverError,
+    serverPublished,
+    serverSubscribed,
+    serverUnsubscribed,
+    serverEvent,
+    serverResult,
+    serverRegistered,
+    serverUnregistered,
+    serverInvocation,
+    serverInterrupt
+};
+
+//------------------------------------------------------------------------------
+std::string accessActionLabel(AccessAction action);
+
+//------------------------------------------------------------------------------
 struct CPPWAMP_API AccessActionInfo
 {
+    using Action = AccessAction;
+
     AccessActionInfo();
 
-    AccessActionInfo(std::string action, std::string target = {},
+    AccessActionInfo(Action action, std::string target = {},
                      Object options = {}, std::string errorUri = {});
 
-    AccessActionInfo(std::string action, std::string target,
-                     Object options, std::error_code ec);
+    AccessActionInfo(Action action, std::string target, Object options,
+                     std::error_code ec);
 
-    AccessActionInfo(std::string action, std::string target,
-                     Object options, SessionErrc errc);
+    AccessActionInfo(Action action, std::string target, Object options,
+                     SessionErrc errc);
 
-    AccessActionInfo(RequestId r, std::string action, std::string target = {},
+    AccessActionInfo(Action action, RequestId r, std::string target = {},
                      Object options = {}, std::string errorUri = {});
 
-    AccessActionInfo(RequestId r, std::string action, std::string target,
+    AccessActionInfo(Action action, RequestId r, std::string target,
                      Object options, std::error_code ec);
 
-    AccessActionInfo(RequestId r, std::string action, std::string target,
+    AccessActionInfo(Action action, RequestId r, std::string target,
                      Object options, SessionErrc errc);
 
     template <typename T>
@@ -83,11 +125,11 @@ struct CPPWAMP_API AccessActionInfo
         return *this;
     }
 
-    std::string name;
     std::string target;
     std::string errorUri;
     Object options;
     RequestId requestId = nullId();
+    Action action;
 
 private:
     static std::string toErrorUri(std::error_code ec);

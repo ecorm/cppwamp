@@ -66,7 +66,7 @@ public:
     void sendTo(RouterSession& session) const
     {
         if (!publisherExcluded_ || (session.wampId() != publisherId_))
-            session.sendEvent(Event{event_});
+            session.sendEvent(Event{event_}, topicUri_);
     }
 
     const String& topicUri() const {return topicUri_;}

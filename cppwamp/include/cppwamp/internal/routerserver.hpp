@@ -102,7 +102,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                me.report(e.info("server-error"));
+                me.report(e.info(true));
                 me.send(std::move(e));
             }
         };
@@ -121,7 +121,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                me.report({r, "server-subscribed"});
+                me.report({AccessAction::serverSubscribed, r});
                 me.sendMessage<SubscribedMessage>(r, s);
             }
         };
@@ -129,22 +129,23 @@ public:
         safelyDispatch<Dispatched>(r);
     }
 
-    void sendUnsubscribed(RequestId r) override
+    void sendUnsubscribed(RequestId r, String topic) override
     {
         struct Dispatched
         {
             Ptr self;
             RequestId r;
+            String t;
 
             void operator()()
             {
                 auto& me = *self;
-                me.report({r, "server-unsubscribed"});
+                me.report({AccessAction::serverUnsubscribed, r, std::move(t)});
                 me.sendMessage<UnsubscribedMessage>(r);
             }
         };
 
-        safelyDispatch<Dispatched>(r);
+        safelyDispatch<Dispatched>(r, std::move(topic));
     }
 
     void sendPublished(RequestId r, PublicationId p) override
@@ -158,7 +159,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                me.report({r, "server-published"});
+                me.report({AccessAction::serverPublished, r});
                 me.sendMessage<PublishedMessage>(r, p);
             }
         };
@@ -166,22 +167,23 @@ public:
         safelyDispatch<Dispatched>(r, p);
     }
 
-    void sendEvent(Event&& ev) override
+    void sendEvent(Event&& ev, String topic) override
     {
         struct Dispatched
         {
             Ptr self;
             Event e;
+            String t;
 
             void operator()()
             {
                 auto& me = *self;
-                me.report(e.info("server-published"));
+                me.report(e.info(std::move(t)));
                 me.send(std::move(e));
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(ev));
+        safelyDispatch<Dispatched>(std::move(ev), std::move(topic));
     }
 
     void sendRegistered(RequestId reqId, RegistrationId regId) override
@@ -195,7 +197,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                me.report({reqId, "server-registered"});
+                me.report({AccessAction::serverRegistered, reqId});
                 me.sendMessage<RegisteredMessage>(reqId, regId);
             }
         };
@@ -203,22 +205,23 @@ public:
         safelyDispatch<Dispatched>(reqId, regId);
     }
 
-    void sendUnregistered(RequestId r) override
+    void sendUnregistered(RequestId r, String procedure) override
     {
         struct Dispatched
         {
             Ptr self;
             RequestId r;
+            String p;
 
             void operator()()
             {
                 auto& me = *self;
-                me.report({r, "server-unregistered"});
+                me.report({AccessAction::serverUnregistered, r, std::move(p)});
                 me.sendMessage<UnregisteredMessage>(r);
             }
         };
 
-        safelyDispatch<Dispatched>(r);
+        safelyDispatch<Dispatched>(r, std::move(procedure));
     }
 
     void onSendInvocation(Invocation&& inv) override
@@ -249,7 +252,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                me.report(r.info("server-result"));
+                me.report(r.info(true));
                 me.send(std::move(r));
             }
         };
@@ -357,11 +360,12 @@ private:
         if (readyToAbort)
         {
             auto done = peer_.abort(a);
-            report(a.info("server-abort").withResult(done));
+            report(a.info(true).withResult(done));
         }
         else
         {
-            report(a.info("server-terminate"));
+            report({AccessAction::serverTerminate, {}, a.options(),
+                    a.reason()});
             peer_.terminate();
         }
 
@@ -398,7 +402,7 @@ private:
         if (state() != State::established)
             return terminate(std::move(reason));
 
-        report(reason.info("server-goodbye"));
+        report(reason.info(true));
         shuttingDown_ = true;
         leaveRealm(false);
 
@@ -411,7 +415,7 @@ private:
                 {
                     auto& goodBye = messageCast<GoodbyeMessage>(*reply);
                     Reason peerReason({}, std::move(goodBye));
-                    report(peerReason.info("client-goodbye"));
+                    report(peerReason.info(false));
                 }
                 else
                 {
@@ -419,7 +423,8 @@ private:
                          "Server-initiated GOODBYE failed", reply.error()});
                 }
                 clearWampSessionInfo();
-                report({"server-disconnect", reason.uri(), reason.options()});
+                report({AccessAction::serverDisconnect, reason.uri(),
+                        reason.options()});
                 peer_.terminate();
             });
     }
@@ -427,7 +432,7 @@ private:
     void terminate(Reason reason)
     {
         shuttingDown_ = true;
-        report({"server-terminate", reason.uri(), reason.options()});
+        report({AccessAction::serverTerminate, reason.uri(), reason.options()});
         leaveRealm();
         peer_.terminate();
     }
@@ -446,11 +451,11 @@ private:
         switch (s)
         {
         case State::connecting:
-            report({"client-connect"});
+            report({AccessAction::clientConnect});
             break;
 
         case State::disconnected:
-            report({"client-disconnect", {}, {}, ec});
+            report({AccessAction::clientDisconnect, {}, {}, ec});
             retire();
             break;
 
@@ -461,7 +466,7 @@ private:
             break;
 
         case State::failed:
-            report({"client-disconnect", {}, {}, ec});
+            report({AccessAction::clientDisconnect, {}, {}, ec});
             retire();
             break;
 
@@ -546,8 +551,8 @@ private:
     {
         auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
         Reason reason{{}, std::move(goodbyeMsg)};
-        report(reason.info("client-goodbye"));
-        report({"server-goodbye", "wamp.error.goodbye_and_out"});
+        report(reason.info(false));
+        report({AccessAction::serverGoodbye, "wamp.error.goodbye_and_out"});
         // peer_ already took care of sending the reply, cancelling pending
         // requests, and will close the session state.
     }
@@ -556,7 +561,7 @@ private:
     {
         auto& msg = messageCast<ErrorMessage>(m);
         Error error{{}, std::move(msg)};
-        report(error.info("client-error"));
+        report(error.info(false));
         realm_.yieldError(shared_from_this(), std::move(error));
     }
 
@@ -591,7 +596,7 @@ private:
         if (!checkSequentialRequestId(reqId))
             return;
 
-        report({reqId, "client-unsubscribe", {}, {}});
+        report({AccessAction::clientUnsubscribe, reqId});
         realm_.unsubscribe(shared_from_this(), msg.subscriptionId());
     }
 
@@ -641,7 +646,7 @@ private:
         if (!checkSequentialRequestId(reqId))
             return;
 
-        report({"client-unregister"});
+        report({AccessAction::clientUnregister, reqId});
         realm_.unsubscribe(shared_from_this(), msg.registrationId());
     }
 
@@ -649,7 +654,7 @@ private:
     {
         auto& msg = messageCast<YieldMessage>(m);
         Result result{{}, std::move(msg)};
-        report(result.info("client-yield"));
+        report(result.info(false));
         realm_.yieldResult(shared_from_this(), std::move(result));
     }
 
@@ -736,9 +741,7 @@ private:
         sessionInfo_.realmUri = realm.uri();
         sessionInfo_.wampSessionId = wampId();
         authExchange_.reset();
-        auto sanitizedDetails = details;
-        sanitizedDetails.erase("authextra");
-        report({"server-welcome", realm.uri(), std::move(sanitizedDetails)});
+        report({AccessAction::serverWelcome, realm.uri(), realm.options()});
         peer_.welcome(wampId(), std::move(details));
     }
 

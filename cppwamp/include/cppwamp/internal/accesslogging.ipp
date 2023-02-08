@@ -49,7 +49,7 @@ CPPWAMP_INLINE void outputAccessLogEntry(
     else
         out << " | " << a.requestId;
 
-    PutField{out} << a.name << a.target;
+    PutField{out} << accessActionLabel(a.action) << a.target;
 
     out << " | ";
     if (a.errorUri.empty())
@@ -64,6 +64,55 @@ CPPWAMP_INLINE void outputAccessLogEntry(
 
 } // namespace internal
 
+
+//******************************************************************************
+// AccessAction
+//******************************************************************************
+
+CPPWAMP_INLINE std::string accessActionLabel(AccessAction action)
+{
+    static const std::string labels[] =
+    {
+         "client-connect",
+         "client-disconnect",
+         "client-hello",
+         "client-abort",
+         "client-authenticate",
+         "client-goodbye",
+         "client-error",
+         "client-publish",
+         "client-subscribe",
+         "client-unsubscribe",
+         "client-call",
+         "client-cancel",
+         "client-register",
+         "client-unregister",
+         "client-yield",
+         "server-connect",
+         "server-disconnect",
+         "server-welcome",
+         "server-abort",
+         "server-terminate",
+         "server-challenge",
+         "server-goodbye",
+         "server-error",
+         "server-published",
+         "server-subscribed",
+         "server-unsubscribed",
+         "server-event",
+         "server-result",
+         "server-registered",
+         "server-unregistered",
+         "server-invocation",
+         "server-interrupt"
+    };
+
+    auto n = static_cast<std::underlying_type<AccessAction>::type>(action);
+    assert(n >= 0 && n <= std::extent<decltype(labels)>::value);
+    return labels[n];
+}
+
+
 //******************************************************************************
 // AccessActionInfo
 //******************************************************************************
@@ -73,51 +122,50 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo() {}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
-    std::string action, std::string target, Object options,
-    std::string errorUri)
-    : AccessActionInfo(nullId(), std::move(action), std::move(target),
+    Action action, std::string target, Object options, std::string errorUri)
+    : AccessActionInfo(action, nullId(), std::move(target),
                        std::move(options), std::move(errorUri))
 {}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
-    std::string action, std::string target, Object options, std::error_code ec)
-    : AccessActionInfo(nullId(), std::move(action), std::move(target),
-                       std::move(options), ec)
+    Action action, std::string target, Object options, std::error_code ec)
+    : AccessActionInfo(action, nullId(), std::move(target), std::move(options),
+                       ec)
 {}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
-    std::string action, std::string target, Object options, SessionErrc errc)
-    : AccessActionInfo(nullId(), std::move(action), std::move(target),
-                       std::move(options), errc)
+    Action action, std::string target, Object options, SessionErrc errc)
+    : AccessActionInfo(action, nullId(), std::move(target), std::move(options),
+                       errc)
 {}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
-    RequestId r, std::string action, std::string target, Object options,
+    Action action, RequestId r, std::string target, Object options,
     std::string errorUri)
-    : name(std::move(action)),
-      target(std::move(target)),
+    : target(std::move(target)),
       errorUri(std::move(errorUri)),
       options(std::move(options)),
-      requestId(r)
+      requestId(r),
+      action(action)
 {}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
-    RequestId r, std::string action, std::string target, Object options,
+    Action action, RequestId r, std::string target, Object options,
     std::error_code ec)
-    : AccessActionInfo(r, std::move(action), std::move(target),
-                       std::move(options), toErrorUri(ec))
+    : AccessActionInfo(action, r, std::move(target), std::move(options),
+                       toErrorUri(ec))
 {}
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
-    RequestId r, std::string action, std::string target, Object options,
+    Action action, RequestId r, std::string target, Object options,
     SessionErrc errc)
-    : AccessActionInfo(r, std::move(action), std::move(target),
-                       std::move(options), make_error_code(errc))
+    : AccessActionInfo(action, r, std::move(target), std::move(options),
+                       make_error_code(errc))
 {}
 
 //------------------------------------------------------------------------------
@@ -273,8 +321,9 @@ CPPWAMP_INLINE const std::set<String>& DefaultAccessLogFilter::bannedOptions()
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE bool DefaultAccessLogFilter::operator()(AccessLogEntry& e) const
 {
+    using AA = AccessAction;
     auto& a = e.action;
-    if (a.name == "client-authenticate" || a.name == "server-challenge")
+    if (a.action == AA::clientAuthenticate || a.action == AA::serverChallenge)
     {
         a.options.clear();
     }

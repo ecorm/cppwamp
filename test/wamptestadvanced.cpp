@@ -1126,7 +1126,7 @@ GIVEN( "a Session with a registered challenge handler" )
             CHECK( f.challengeState == SessionState::authenticating );
             CHECK( f.challenge.method() == "ticket" );
             CHECK_FALSE( f.info.has_value() );
-            CHECK( f.abort.uri() == "wamp.error.not_authorized" );
+            CHECK( f.abort.reason() == "wamp.error.not_authorized" );
         }
     }
 }}

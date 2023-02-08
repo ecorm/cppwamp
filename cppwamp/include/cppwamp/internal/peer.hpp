@@ -267,7 +267,7 @@ public:
         }
 
         SessionErrc errc;
-        errorUriToCode(a.uri(), SessionErrc::sessionAborted, errc);
+        errorUriToCode(a.reason(), SessionErrc::sessionAborted, errc);
         setState(State::failed, make_error_code(errc));
         traceTx(msg);
         transport_->sendNowAndClose(std::move(buffer));

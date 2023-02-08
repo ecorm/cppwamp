@@ -595,15 +595,15 @@ public:
 
     void sendSubscribed(RequestId, SubscriptionId) override {}
 
-    void sendUnsubscribed(RequestId) override {}
+    void sendUnsubscribed(RequestId, String topic) override {}
 
     void sendPublished(RequestId r, PublicationId p) override {}
 
-    void sendEvent(Event&&) override {}
+    void sendEvent(Event&&, String topic) override {}
 
     void sendRegistered(RequestId, RegistrationId) override {}
 
-    void sendUnregistered(RequestId r) override {}
+    void sendUnregistered(RequestId r, String procedure) override {}
 
     void onSendInvocation(Invocation&&) override {}
 

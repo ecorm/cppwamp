@@ -109,7 +109,7 @@ CPPWAMP_INLINE Abort& Abort::withHint(String text)
     return *this;
 }
 
-CPPWAMP_INLINE const String& Abort::uri() const
+CPPWAMP_INLINE const String& Abort::reason() const
 {
     return message().reasonUri();
 }
@@ -119,9 +119,11 @@ CPPWAMP_INLINE ErrorOr<String> Abort::hint() const
     return optionAs<String>("message");
 }
 
-CPPWAMP_INLINE AccessActionInfo Abort::info(std::string action) const
+CPPWAMP_INLINE AccessActionInfo Abort::info(bool isServer) const
 {
-    return {std::move(action), uri(), options()};
+    auto action = isServer ? AccessAction::serverAbort
+                           : AccessAction::clientAbort;
+    return {action, {}, options(), reason()};
 }
 
 CPPWAMP_INLINE String Abort::errcToUri(SessionErrc errc)
@@ -170,7 +172,7 @@ CPPWAMP_INLINE ErrorOr<Object> Realm::roles() const
 
 CPPWAMP_INLINE AccessActionInfo Realm::info() const
 {
-    return {"client-hello", uri(), options()};
+    return {AccessAction::clientHello, uri(), options()};
 }
 
 CPPWAMP_INLINE Realm& Realm::withAuthMethods(std::vector<String> methods)
@@ -218,7 +220,7 @@ CPPWAMP_INLINE const String& SessionInfo::realm() const
 
 CPPWAMP_INLINE AccessActionInfo SessionInfo::info() const
 {
-    return {"server-welcome", realm(), options()};
+    return {AccessAction::serverWelcome, realm(), options()};
 }
 
 /** @returns The value of the `HELLO.Details.agent|string`
@@ -384,9 +386,11 @@ CPPWAMP_INLINE ErrorOr<String> Reason::hint() const
     return optionAs<String>("message");
 }
 
-CPPWAMP_INLINE AccessActionInfo Reason::info(std::string action) const
+CPPWAMP_INLINE AccessActionInfo Reason::info(bool isServer) const
 {
-    return {std::move(action), uri(), options()};
+    auto action = isServer ? AccessAction::serverGoodbye
+                           : AccessAction::clientGoodbye;
+    return {action, uri(), options()};
 }
 
 CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::GoodbyeMessage&& msg)
@@ -430,7 +434,7 @@ Authentication::withChannelBinding(std::string type, std::string data)
 
 CPPWAMP_INLINE AccessActionInfo Authentication::info() const
 {
-    return {"client-authenticate", "", options()};
+    return {AccessAction::clientAuthenticate, "", options()};
 }
 
 CPPWAMP_INLINE Authentication::Authentication(
@@ -556,7 +560,7 @@ Challenge::authenticate(ThreadSafe, Authentication auth)
 
 CPPWAMP_INLINE AccessActionInfo Challenge::info() const
 {
-    return {"server-challenge", method(), options()};
+    return {AccessAction::serverChallenge, method(), options()};
 }
 
 CPPWAMP_INLINE Challenge::Challenge(internal::PassKey, ChallengeePtr challengee,
@@ -596,9 +600,11 @@ CPPWAMP_INLINE const String& Error::reason() const
     return message().reasonUri();
 }
 
-CPPWAMP_INLINE AccessActionInfo Error::info(std::string action) const
+CPPWAMP_INLINE AccessActionInfo Error::info(bool isServer) const
 {
-    return {requestId(), std::move(action), {}, options(), reason()};
+    auto action = isServer ? AccessAction::serverError
+                           : AccessAction::clientError;
+    return {action, requestId(), {}, options(), reason()};
 }
 
 CPPWAMP_INLINE String Error::toUri(std::error_code ec)
@@ -640,7 +646,8 @@ CPPWAMP_INLINE const String& Topic::uri() const {return message().topicUri();}
 
 CPPWAMP_INLINE AccessActionInfo Topic::info() const
 {
-    return {message().requestId(), "client-subscribe", uri(), options()};
+    return {AccessAction::clientSubscribe, message().requestId(), uri(),
+            options()};
 }
 
 /** @details
@@ -675,7 +682,8 @@ CPPWAMP_INLINE const String& Pub::topic() const {return message().topicUri();}
 
 CPPWAMP_INLINE AccessActionInfo Pub::info() const
 {
-    return {message().requestId(), "client-publish", topic(), options()};
+    return {AccessAction::clientPublish, message().requestId(), topic(),
+            options()};
 }
 
 /** @details
@@ -786,9 +794,9 @@ CPPWAMP_INLINE AnyCompletionExecutor Event::executor() const
     return executor_;
 }
 
-CPPWAMP_INLINE AccessActionInfo Event::info(std::string action) const
+CPPWAMP_INLINE AccessActionInfo Event::info(String topic) const
 {
-    return {std::move(action), {}, options()};
+    return {AccessAction::serverEvent, std::move(topic), options()};
 }
 
 /** @details
@@ -848,7 +856,8 @@ CPPWAMP_INLINE String&& Procedure::uri() &&
 /** Obtains information for the access log. */
 CPPWAMP_INLINE AccessActionInfo Procedure::info() const
 {
-    return {message().requestId(), "client-register", uri(), options()};
+    return {AccessAction::clientRegister, message().requestId(), uri(),
+            options()};
 }
 
 /** @details
@@ -889,7 +898,8 @@ CPPWAMP_INLINE Rpc& Rpc::captureError(Error& error)
 
 CPPWAMP_INLINE AccessActionInfo Rpc::info() const
 {
-    return {message().requestId(), "client-call", procedure(), options()};
+    return {AccessAction::clientCall, message().requestId(), procedure(),
+            options()};
 }
 
 /** @details
@@ -988,9 +998,11 @@ CPPWAMP_INLINE RequestId Result::requestId() const
     return message().requestId();
 }
 
-CPPWAMP_INLINE AccessActionInfo Result::info(std::string action) const
+CPPWAMP_INLINE AccessActionInfo Result::info(bool isServer) const
 {
-    return {requestId(), std::move(action), {}, options()};
+    auto action = isServer ? AccessAction::serverResult
+                           : AccessAction::clientYield;
+    return {action, requestId(), {}, options()};
 }
 
 /** @details
@@ -1292,7 +1304,7 @@ Invocation::yield(ThreadSafe, Error error) const
 
 CPPWAMP_INLINE AccessActionInfo Invocation::info() const
 {
-    return {requestId(), "server-invocation", {}, options()};
+    return {AccessAction::serverInvocation, requestId(), {}, options()};
 }
 
 /** @details
@@ -1372,7 +1384,7 @@ CPPWAMP_INLINE CallCancelMode CallCancellation::mode() const {return mode_;}
 
 CPPWAMP_INLINE AccessActionInfo CallCancellation::info() const
 {
-    return {message().requestId(), "client-cancel", {}, options()};
+    return {AccessAction::clientCancel, message().requestId(), {}, options()};
 }
 
 CPPWAMP_INLINE CallCancellation::CallCancellation(internal::PassKey,
@@ -1463,7 +1475,7 @@ Interruption::yield(ThreadSafe, Error error) const
 
 CPPWAMP_INLINE AccessActionInfo Interruption::info() const
 {
-    return {requestId(), "server-interrupt", {}, options()};
+    return {AccessAction::serverInterrupt, requestId(), {}, options()};
 }
 
 CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,
