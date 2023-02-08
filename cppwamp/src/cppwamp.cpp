@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -11,6 +11,7 @@
 #include <cppwamp/config.hpp>
 
 #include <cppwamp/internal/accesslogging.ipp>
+#include <cppwamp/internal/anonymousauthenticator.ipp>
 #include <cppwamp/internal/authinfo.ipp>
 #include <cppwamp/internal/blob.ipp>
 #include <cppwamp/internal/cbor.ipp>

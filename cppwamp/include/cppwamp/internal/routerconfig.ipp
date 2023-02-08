@@ -73,7 +73,7 @@ CPPWAMP_INLINE bool RealmConfig::authorizationCacheEnabled() const
 //******************************************************************************
 
 CPPWAMP_INLINE ServerConfig&
-ServerConfig::withAuthenticator(AuthExchangeHandler f)
+ServerConfig::withAuthenticator(Authenticator f)
 {
     authenticator_ = std::move(f);
     return *this;
@@ -81,7 +81,7 @@ ServerConfig::withAuthenticator(AuthExchangeHandler f)
 
 CPPWAMP_INLINE const String& ServerConfig::name() const {return name_;}
 
-CPPWAMP_INLINE const ServerConfig::AuthExchangeHandler&
+CPPWAMP_INLINE const ServerConfig::Authenticator&
 ServerConfig::authenticator() const
 {
     return authenticator_;

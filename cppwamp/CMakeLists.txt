@@ -54,8 +54,10 @@ set(HEADERS
     include/cppwamp/version.hpp
     include/cppwamp/visitor.hpp
     include/cppwamp/wampdefs.hpp
+    include/cppwamp/authenticators/anonymousauthenticator.hpp
     include/cppwamp/bundled/tessil_htrie/htrie_map.h
     include/cppwamp/bundled/sevmeyer_prng.hpp
+    include/cppwamp/internal/anonymousauthenticator.ipp
     include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/callee.hpp
     include/cppwamp/internal/caller.hpp
@@ -71,6 +73,7 @@ set(HEADERS
     include/cppwamp/internal/messagetraits.hpp
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/peer.hpp
+    include/cppwamp/internal/random.hpp
     include/cppwamp/internal/rawsockconnector.hpp
     include/cppwamp/internal/rawsockhandshake.hpp
     include/cppwamp/internal/rawsockheader.hpp

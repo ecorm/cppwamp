@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2022.
+    Copyright Butterfly Energy Systems 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -65,37 +65,13 @@ private:
 namespace internal { class Challenger; } // Forward declaration
 
 //------------------------------------------------------------------------------
-class CPPWAMP_API AnonymousAuthenticator
-{
-public:
-    AnonymousAuthenticator()
-        : authId_("anonymous"),
-          authRole_("public")
-    {}
-
-    AnonymousAuthenticator(String authId, String authRole)
-        : authId_(std::move(authId)),
-          authRole_(std::move(authRole))
-    {}
-
-    void operator()(AuthExchange::Ptr ex)
-    {
-        ex->welcome({authId_, authRole_, "anonymous", "static"});
-    }
-
-private:
-    String authId_;
-    String authRole_;
-};
-
-//------------------------------------------------------------------------------
 class CPPWAMP_API ServerConfig
 {
 public:
     // TODO: IP filter
     // TODO: Authentication cooldown
     using Ptr = std::shared_ptr<ServerConfig>;
-    using AuthExchangeHandler = AnyReusableHandler<void (AuthExchange::Ptr)>;
+    using Authenticator = AnyReusableHandler<void (AuthExchange::Ptr)>;
 
     template <typename S, typename F, typename... Fs>
     explicit ServerConfig(String name, S&& transportSettings, F format,
@@ -104,11 +80,11 @@ public:
     template <typename... TFormats>
     ServerConfig& withFormats(TFormats... formats);
 
-    ServerConfig& withAuthenticator(AuthExchangeHandler f);
+    ServerConfig& withAuthenticator(Authenticator f);
 
     const String& name() const;
 
-    const AuthExchangeHandler& authenticator() const;
+    const Authenticator& authenticator() const;
 
 private:
     Listening::Ptr makeListener(IoStrand s) const;
@@ -118,7 +94,7 @@ private:
     String name_;
     ListenerBuilder listenerBuilder_;
     std::vector<BufferCodecBuilder> codecBuilders_;
-    AuthExchangeHandler authenticator_;
+    Authenticator authenticator_;
 
     friend class internal::RouterServer;
 };
@@ -127,8 +103,7 @@ template <typename S, typename F, typename... Fs>
 ServerConfig::ServerConfig(String name, S&& transportSettings, F format,
                            Fs... extraFormats)
     : name_(std::move(name)),
-      listenerBuilder_(std::forward<S>(transportSettings)),
-      authenticator_(AnonymousAuthenticator{})
+      listenerBuilder_(std::forward<S>(transportSettings))
 {
     codecBuilders_ = {BufferCodecBuilder{format},
                       BufferCodecBuilder{extraFormats}...};

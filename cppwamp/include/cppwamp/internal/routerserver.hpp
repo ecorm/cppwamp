@@ -17,6 +17,7 @@
 #include "peer.hpp"
 #include "routercontext.hpp"
 #include "routersession.hpp"
+#include "../authenticators/anonymousauthenticator.hpp"
 
 // TODO: Dynamic authorizer
 
@@ -846,7 +847,10 @@ private:
           router_(std::move(r)),
           config_(std::make_shared<ServerConfig>(std::move(c))),
           logger_(router_.logger())
-    {}
+    {
+        if (!config_->authenticator())
+            config_->withAuthenticator(AnonymousAuthenticator{});
+    }
 
     void doStart()
     {
