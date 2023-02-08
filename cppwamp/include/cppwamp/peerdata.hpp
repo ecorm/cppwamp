@@ -15,17 +15,18 @@
 #include <set>
 #include <string>
 #include <vector>
+#include "accesslogging.hpp"
 #include "api.hpp"
 #include "anyhandler.hpp"
 #include "config.hpp"
 #include "erroror.hpp"
-#include "logging.hpp"
 #include "options.hpp"
 #include "payload.hpp"
 #include "tagtypes.hpp"
 #include "variant.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
+#include "./internal/wampmessage.hpp"
 
 //------------------------------------------------------------------------------
 /** @file

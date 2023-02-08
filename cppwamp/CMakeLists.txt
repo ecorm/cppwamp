@@ -5,6 +5,7 @@
 #-------------------------------------------------------------------------------
 
 set(HEADERS
+    include/cppwamp/accesslogging.hpp
     include/cppwamp/any.hpp
     include/cppwamp/anyhandler.hpp
     include/cppwamp/api.hpp
@@ -87,6 +88,7 @@ set(HEADERS
     include/cppwamp/internal/surrogateany.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
+    include/cppwamp/internal/timeformatting.hpp
     include/cppwamp/internal/tokentriemapimpl.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp
@@ -112,6 +114,7 @@ set(HEADERS
 )
 
 set(INLINES
+    include/cppwamp/internal/accesslogging.ipp
     include/cppwamp/internal/authinfo.ipp
     include/cppwamp/internal/blob.ipp
     include/cppwamp/internal/cbor.ipp
