@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_REALMDEALER_HPP
-#define CPPWAMP_INTERNAL_REALMDEALER_HPP
+#ifndef CPPWAMP_INTERNAL_DEALER_HPP
+#define CPPWAMP_INTERNAL_DEALER_HPP
 
 #include <cassert>
 #include <chrono>
@@ -358,10 +358,10 @@ private:
 };
 
 //------------------------------------------------------------------------------
-class RealmDealer
+class Dealer
 {
 public:
-    RealmDealer(IoStrand strand) : jobs_(std::move(strand)) {}
+    Dealer(IoStrand strand) : jobs_(std::move(strand)) {}
 
     ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p)
     {
@@ -458,4 +458,4 @@ private:
 
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_REALMDEALER_HPP
+#endif // CPPWAMP_INTERNAL_DEALER_HPP

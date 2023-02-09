@@ -12,9 +12,9 @@
 #include <string>
 #include <utility>
 #include "../routerconfig.hpp"
+#include "broker.hpp"
+#include "dealer.hpp"
 #include "random.hpp"
-#include "realmbroker.hpp"
-#include "realmdealer.hpp"
 #include "routercontext.hpp"
 #include "routersession.hpp"
 
@@ -290,8 +290,8 @@ private:
     RealmConfig config_;
     RouterContext router_;
     std::map<SessionId, RouterSession::Ptr> sessions_;
-    RealmBroker broker_;
-    RealmDealer dealer_;
+    Broker broker_;
+    Dealer dealer_;
     std::string logSuffix_;
     RouterLogger::Ptr logger_;
 

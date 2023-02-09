@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_REALMBROKER_HPP
-#define CPPWAMP_INTERNAL_REALMBROKER_HPP
+#ifndef CPPWAMP_INTERNAL_BROKER_HPP
+#define CPPWAMP_INTERNAL_BROKER_HPP
 
 #include <cassert>
 #include <map>
@@ -338,12 +338,10 @@ public:
 };
 
 //------------------------------------------------------------------------------
-class RealmBroker
+class Broker
 {
 public:
-    explicit RealmBroker(RandomNumberGenerator64 prng)
-        : pubIdGenerator_(prng)
-    {}
+    explicit Broker(RandomNumberGenerator64 prng) : pubIdGenerator_(prng) {}
 
     ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t)
     {
@@ -440,4 +438,4 @@ private:
 
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_REALMBROKER_HPP
+#endif // CPPWAMP_INTERNAL_BROKER_HPP

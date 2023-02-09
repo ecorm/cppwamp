@@ -59,12 +59,14 @@ set(HEADERS
     include/cppwamp/bundled/sevmeyer_prng.hpp
     include/cppwamp/internal/anonymousauthenticator.ipp
     include/cppwamp/internal/base64.hpp
+    include/cppwamp/internal/broker.hpp
     include/cppwamp/internal/callee.hpp
     include/cppwamp/internal/caller.hpp
     include/cppwamp/internal/callertimeout.hpp
     include/cppwamp/internal/challengee.hpp
     include/cppwamp/internal/challenger.hpp
     include/cppwamp/internal/client.hpp
+    include/cppwamp/internal/dealer.hpp
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/integersequence.hpp
     include/cppwamp/internal/jsonencoding.hpp
@@ -78,8 +80,6 @@ set(HEADERS
     include/cppwamp/internal/rawsockheader.hpp
     include/cppwamp/internal/rawsocklistener.hpp
     include/cppwamp/internal/rawsocktransport.hpp
-    include/cppwamp/internal/realmbroker.hpp
-    include/cppwamp/internal/realmdealer.hpp
     include/cppwamp/internal/routercontext.hpp
     include/cppwamp/internal/routerimpl.hpp
     include/cppwamp/internal/routerrealm.hpp
