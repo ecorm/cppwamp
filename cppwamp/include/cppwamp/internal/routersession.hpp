@@ -127,18 +127,26 @@ public:
 
     virtual void close(bool terminate, Reason) = 0;
 
-    virtual void sendError(Error&&) = 0;
+    virtual void sendError(Error&&, bool logOnly = false) = 0;
 
-    void sendError(WampMsgType reqType, RequestId rid, std::error_code ec)
+    void sendError(WampMsgType reqType, RequestId rid, std::error_code ec,
+                   bool logOnly = false)
     {
-        sendError(Error{{}, reqType, rid, ec});
+        sendError(Error{{}, reqType, rid, ec}, logOnly);
+    }
+
+    void sendError(WampMsgType reqType, RequestId rid, SessionErrc errc,
+                   bool logOnly = false)
+    {
+        sendError(reqType, rid, make_error_code(errc), logOnly);
     }
 
     template <typename T>
-    void sendError(WampMsgType reqType, RequestId rid, const ErrorOr<T>& x)
+    void sendError(WampMsgType reqType, RequestId rid, const ErrorOr<T>& x,
+                   bool logOnly = false)
     {
         assert(!x.has_value());
-        sendError(reqType, rid, x.error());
+        sendError(reqType, rid, x.error(), logOnly);
     }
 
     virtual void sendSubscribed(RequestId, SubscriptionId) = 0;

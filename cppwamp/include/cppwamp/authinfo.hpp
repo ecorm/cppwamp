@@ -12,9 +12,12 @@
     @brief Contains the API used by a _router_ peer in WAMP applications. */
 //------------------------------------------------------------------------------
 
+#include <cassert>
 #include <memory>
 #include "any.hpp"
+#include "anyhandler.hpp"
 #include "api.hpp"
+#include "asiodefs.hpp"
 #include "peerdata.hpp"
 #include "variant.hpp"
 #include "wampdefs.hpp"
@@ -85,7 +88,9 @@ enum class OriginatorDisclosure
 //------------------------------------------------------------------------------
 struct CPPWAMP_API Authorization
 {
-    Authorization(bool allowed) : allowed_(allowed) {}
+    Authorization(bool allowed = true) : allowed_(allowed) {}
+
+    Authorization(std::error_code ec) : error_(ec) {}
 
     Authorization& withTrustLevel(TrustLevel tl)
     {
@@ -99,6 +104,8 @@ struct CPPWAMP_API Authorization
         return *this;
     }
 
+    std::error_code error() const {return error_;}
+
     bool allowed() const {return allowed_;}
 
     bool hasTrustLevel() const {return trustLevel_ >= 0;}
@@ -108,9 +115,23 @@ struct CPPWAMP_API Authorization
     OriginatorDisclosure disclosure() const {return disclosure_;}
 
 private:
+    any data_;
     TrustLevel trustLevel_ = -1;
     OriginatorDisclosure disclosure_ = OriginatorDisclosure::preset;
+    std::error_code error_;
     bool allowed_ = false;
+
+public:
+    // Internal use only
+    void setData(internal::PassKey, any&& data) {data_ = std::move(data);}
+
+    template <typename T>
+    T& dataAs(internal::PassKey)
+    {
+        auto ptr = any_cast<T>(&data_);
+        assert(ptr != nullptr);
+        return *ptr;
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -123,14 +144,65 @@ enum class AuthorizationAction
 };
 
 //------------------------------------------------------------------------------
-struct CPPWAMP_API AuthorizationRequest
+class CPPWAMP_API AuthorizationRequest
 {
+public:
     using Action = AuthorizationAction;
+    using Handler = AnyCompletionHandler<void (Authorization)>;
 
-    AuthInfo::Ptr authInfo;
-    Object options;
-    String uri;
-    Action action;
+    Action action() const {return action_;}
+
+    template <typename TPeerData>
+    const TPeerData& dataAs()
+    {
+        auto ptr = any_cast<TPeerData>(&peerData_);
+        CPPWAMP_LOGIC_CHECK(ptr != nullptr,
+                            "Bad wamp::AuthorizationRequest::dataAs() type");
+        return *ptr;
+    }
+
+    const AuthInfo& authInfo() const {return *authInfo_;}
+
+    void authorize(Authorization a)
+    {
+        // TODO: Store weak pointer to RouterRealm instead and
+        // call virtual handler function.
+        a.setData({}, std::move(peerData_));
+        postAny(strand_, std::move(handler_), std::move(a));
+    }
+
+    void allow() {authorize(true);}
+
+    void deny() {authorize(false);}
+
+    void fail(std::error_code ec) {authorize(Authorization{ec});}
+
+private:
+    any peerData_;
+    IoStrand strand_;
+    AnyCompletionHandler<void (Authorization)> handler_;
+    AuthInfo::Ptr authInfo_;
+    Action action_;
+
+public:
+    // Internal use only
+    template <typename TPeerData>
+    AuthorizationRequest(internal::PassKey, Action a, TPeerData&& d,
+                         AuthInfo::Ptr i, IoStrand s, Handler h)
+        : peerData_(std::forward<TPeerData>(d)),
+          strand_(std::move(s)),
+          handler_(std::move(h)),
+          authInfo_(std::move(i)),
+          action_(a)
+    {}
+
+    template <typename TPeerData>
+    TPeerData& dataAs(internal::PassKey)
+    {
+        auto ptr = any_cast<TPeerData>(&peerData_);
+        assert(ptr != nullptr);
+        return *ptr;
+    }
 };
 
 //------------------------------------------------------------------------------

@@ -109,10 +109,7 @@ CPPWAMP_INLINE Abort& Abort::withHint(String text)
     return *this;
 }
 
-CPPWAMP_INLINE const String& Abort::reason() const
-{
-    return message().reasonUri();
-}
+CPPWAMP_INLINE const String& Abort::uri() const {return message().uri();}
 
 CPPWAMP_INLINE ErrorOr<String> Abort::hint() const
 {
@@ -123,7 +120,7 @@ CPPWAMP_INLINE AccessActionInfo Abort::info(bool isServer) const
 {
     auto action = isServer ? AccessAction::serverAbort
                            : AccessAction::clientAbort;
-    return {action, {}, options(), reason()};
+    return {action, {}, options(), uri()};
 }
 
 CPPWAMP_INLINE String Abort::errcToUri(SessionErrc errc)
@@ -157,7 +154,7 @@ CPPWAMP_INLINE Realm& Realm::captureAbort(Abort& abort)
 
 CPPWAMP_INLINE const String& Realm::uri() const
 {
-    return message().realmUri();
+    return message().uri();
 }
 
 CPPWAMP_INLINE ErrorOr<String> Realm::agent() const
@@ -208,15 +205,9 @@ CPPWAMP_INLINE Abort* Realm::abort(internal::PassKey) {return abort_;}
 
 CPPWAMP_INLINE SessionInfo::SessionInfo() {}
 
-CPPWAMP_INLINE SessionId SessionInfo::id() const
-{
-    return message().sessionId();
-}
+CPPWAMP_INLINE SessionId SessionInfo::id() const {return message().sessionId();}
 
-CPPWAMP_INLINE const String& SessionInfo::realm() const
-{
-    return realm_;
-}
+CPPWAMP_INLINE const String& SessionInfo::realm() const {return realm_;}
 
 CPPWAMP_INLINE AccessActionInfo SessionInfo::info() const
 {
@@ -376,10 +367,7 @@ CPPWAMP_INLINE Reason& Reason::withHint(String text)
     return *this;
 }
 
-CPPWAMP_INLINE const String& Reason::uri() const
-{
-    return message().reasonUri();
-}
+CPPWAMP_INLINE const String& Reason::uri() const {return message().uri();}
 
 CPPWAMP_INLINE ErrorOr<String> Reason::hint() const
 {
@@ -588,18 +576,15 @@ CPPWAMP_INLINE Error::Error(const error::BadType& e)
 
 CPPWAMP_INLINE Error::~Error() {}
 
-CPPWAMP_INLINE Error::operator bool() const {return !reason().empty();}
+CPPWAMP_INLINE Error::operator bool() const {return !uri().empty();}
 
-CPPWAMP_INLINE const String& Error::reason() const
-{
-    return message().reasonUri();
-}
+CPPWAMP_INLINE const String& Error::uri() const {return message().uri();}
 
 CPPWAMP_INLINE AccessActionInfo Error::info(bool isServer) const
 {
     auto action = isServer ? AccessAction::serverError
                            : AccessAction::clientError;
-    return {action, message().requestId(), {}, options(), reason()};
+    return {action, message().requestId(), {}, options(), uri()};
 }
 
 CPPWAMP_INLINE String Error::toUri(std::error_code ec)
@@ -647,7 +632,7 @@ Error::errorMessage(internal::PassKey, internal::WampMsgType reqType,
 
 CPPWAMP_INLINE Topic::Topic(String uri) : Base(std::move(uri)) {}
 
-CPPWAMP_INLINE const String& Topic::uri() const {return message().topicUri();}
+CPPWAMP_INLINE const String& Topic::uri() const {return message().uri();}
 
 CPPWAMP_INLINE AccessActionInfo Topic::info() const
 {
@@ -688,11 +673,11 @@ CPPWAMP_INLINE String&& Topic::uri(internal::PassKey) &&
 
 CPPWAMP_INLINE Pub::Pub(String topic) : Base(std::move(topic)) {}
 
-CPPWAMP_INLINE const String& Pub::topic() const {return message().topicUri();}
+CPPWAMP_INLINE const String& Pub::uri() const {return message().uri();}
 
 CPPWAMP_INLINE AccessActionInfo Pub::info() const
 {
-    return {AccessAction::clientPublish, message().requestId(), topic(),
+    return {AccessAction::clientPublish, message().requestId(), uri(),
             options()};
 }
 
@@ -858,15 +843,9 @@ CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
 
 CPPWAMP_INLINE Procedure::Procedure(String uri) : Base(std::move(uri)) {}
 
-CPPWAMP_INLINE const String& Procedure::uri() const &
-{
-    return message().procedureUri();
-}
+CPPWAMP_INLINE const String& Procedure::uri() const & {return message().uri();}
 
-CPPWAMP_INLINE String&& Procedure::uri() &&
-{
-    return std::move(message()).procedureUri();
-}
+CPPWAMP_INLINE String&& Procedure::uri() && {return std::move(message()).uri();}
 
 /** Obtains information for the access log. */
 CPPWAMP_INLINE AccessActionInfo Procedure::info() const
@@ -906,10 +885,7 @@ CPPWAMP_INLINE RequestId Procedure::requestId(internal::PassKey) const
 
 CPPWAMP_INLINE Rpc::Rpc(String uri) : Base(std::move(uri)) {}
 
-CPPWAMP_INLINE const String& Rpc::procedure() const
-{
-    return message().procedureUri();
-}
+CPPWAMP_INLINE const String& Rpc::uri() const {return message().uri();}
 
 CPPWAMP_INLINE Rpc& Rpc::captureError(Error& error)
 {
@@ -919,8 +895,7 @@ CPPWAMP_INLINE Rpc& Rpc::captureError(Error& error)
 
 CPPWAMP_INLINE AccessActionInfo Rpc::info() const
 {
-    return {AccessAction::clientCall, message().requestId(), procedure(),
-            options()};
+    return {AccessAction::clientCall, message().requestId(), uri(), options()};
 }
 
 /** @details
@@ -1044,7 +1019,6 @@ CPPWAMP_INLINE Result::Result(internal::PassKey, internal::YieldMessage&& msg)
 
 CPPWAMP_INLINE RequestId Result::requestId(internal::PassKey) const
 {
-    // TODO: Get directly from message field. Same for others.
     return message().requestId();
 }
 

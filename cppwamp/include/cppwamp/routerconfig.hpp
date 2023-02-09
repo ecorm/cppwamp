@@ -31,14 +31,19 @@ namespace internal { class RouterServer; } // Forward declaration
 class CPPWAMP_API RealmConfig
 {
 public:
-    using AuthorizedOp = AnyCompletionHandler<void (Authorization)>;
-
-    using Authorizer =
-        AnyReusableHandler<void (AuthorizationRequest, AuthorizedOp)>;
+    using Authorizer = AnyReusableHandler<void (AuthorizationRequest)>;
 
     RealmConfig(String uri);
 
     RealmConfig& withAuthorizer(Authorizer f);
+
+    template <typename F, typename E>
+    RealmConfig& withAuthorizer(F&& authorizer, E&& executor)
+    {
+        return withAuthorizer(
+            boost::asio::bind_executor(std::forward<F>(authorizer),
+                                       std::forward<E>(executor)));
+    }
 
     RealmConfig& withAuthorizationCacheEnabled(bool enabled = true);
 
@@ -53,8 +58,6 @@ public:
     bool authorizationCacheEnabled() const;
 
 private:
-    struct DefaultAuthorizer;
-
     Authorizer authorizer_;
     String uri_;
     OriginatorDisclosure publisherDisclosure_;
@@ -81,6 +84,13 @@ public:
     ServerConfig& withFormats(TFormats... formats);
 
     ServerConfig& withAuthenticator(Authenticator f);
+
+    template <typename F, typename E>
+    ServerConfig& withAuthenticator(F&& authenticator, E&& executor)
+    {
+        return withAuthenticator(std::forward<F>(authenticator),
+                                 std::forward<E>(executor));
+    }
 
     const String& name() const;
 

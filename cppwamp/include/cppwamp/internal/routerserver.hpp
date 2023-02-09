@@ -93,22 +93,24 @@ public:
         safelyDispatch<Dispatched>(std::move(r), terminate);
     }
 
-    void sendError(Error&& e) override
+    void sendError(Error&& e, bool logOnly) override
     {
         struct Dispatched
         {
             Ptr self;
             Error e;
+            bool logOnly;
 
             void operator()()
             {
                 auto& me = *self;
                 me.report(e.info(true));
-                me.send(std::move(e));
+                if (!logOnly)
+                    me.send(std::move(e));
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(e));
+        safelyDispatch<Dispatched>(std::move(e), logOnly);
     }
 
     void sendSubscribed(RequestId r, SubscriptionId s) override
@@ -366,7 +368,7 @@ private:
         else
         {
             report({AccessAction::serverTerminate, {}, a.options(),
-                    a.reason()});
+                    a.uri()});
             peer_.terminate();
         }
 

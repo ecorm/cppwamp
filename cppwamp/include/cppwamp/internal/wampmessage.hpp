@@ -270,9 +270,9 @@ struct HelloMessage : public MessageWithOptions<WampMsgType::hello, 2>
         : Base({0, std::move(realmUri), Object{}})
     {}
 
-    const String& realmUri() const & {return fields_.at(1).as<String>();}
+    const String& uri() const & {return fields_.at(1).as<String>();}
 
-    String&& realmUri() && {return std::move(fields_.at(1).as<String>());}
+    String&& uri() && {return std::move(fields_.at(1).as<String>());}
 
 private:
     using Base = MessageWithOptions<WampMsgType::hello, 2>;
@@ -324,7 +324,7 @@ struct AbortMessage : public MessageWithOptions<WampMsgType::abort, 1>
     explicit AbortMessage(String reason = "", Object opts = {})
         : Base({0, std::move(opts), std::move(reason)}) {}
 
-    const String& reasonUri() const {return fields_.at(2).as<String>();}
+    const String& uri() const {return fields_.at(2).as<String>();}
 
 private:
     using Base = MessageWithOptions<WampMsgType::abort, 1>;
@@ -336,11 +336,11 @@ struct GoodbyeMessage : public MessageWithOptions<WampMsgType::goodbye, 1>
     explicit GoodbyeMessage(String reason = "", Object opts = {})
         : Base({0, std::move(opts), std::move(reason)})
     {
-        if (reasonUri().empty())
+        if (uri().empty())
             fields_[2] = String("wamp.error.close_realm");
     }
 
-    const String& reasonUri() const {return fields_.at(2).as<String>();}
+    const String& uri() const {return fields_.at(2).as<String>();}
 
 private:
     using Base = MessageWithOptions<WampMsgType::goodbye, 1>;
@@ -373,7 +373,7 @@ struct ErrorMessage : public MessageWithPayload<WampMsgType::error, 3, 5>
 
     RequestId requestId() const {return fields_.at(2).to<RequestId>();}
 
-    const String& reasonUri() const {return fields_.at(4).as<String>();}
+    const String& uri() const {return fields_.at(4).as<String>();}
 
 private:
     using Base = MessageWithPayload<WampMsgType::error, 3, 5>;
@@ -388,7 +388,7 @@ struct PublishMessage : public MessageWithPayload<WampMsgType::publish, 2, 4>
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
-    const String& topicUri() const {return fields_.at(3).as<String>();}
+    const String& uri() const {return fields_.at(3).as<String>();}
 
 private:
     using Base = MessageWithPayload<WampMsgType::publish, 2, 4>;
@@ -422,7 +422,7 @@ struct SubscribeMessage : public MessageWithOptions<WampMsgType::subscribe, 2>
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
-    const String& topicUri() const & {return fields_.at(3).as<String>();}
+    const String& uri() const & {return fields_.at(3).as<String>();}
 
     String&& topicUri() && {return std::move(fields_.at(3).as<String>());}
 
@@ -522,7 +522,7 @@ struct CallMessage : public MessageWithPayload<WampMsgType::call, 2, 4>
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
-    const String& procedureUri() const {return fields_.at(3).as<String>();}
+    const String& uri() const {return fields_.at(3).as<String>();}
 
 private:
     using Base = MessageWithPayload<WampMsgType::call, 2, 4>;
@@ -537,9 +537,9 @@ struct RegisterMessage : public MessageWithOptions<WampMsgType::enroll, 2>
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
-    const String& procedureUri() const & {return fields_.at(3).as<String>();}
+    const String& uri() const & {return fields_.at(3).as<String>();}
 
-    String&& procedureUri() && {return std::move(fields_.at(3).as<String>());}
+    String&& uri() && {return std::move(fields_.at(3).as<String>());}
 
 private:
     using Base = MessageWithOptions<WampMsgType::enroll, 2>;

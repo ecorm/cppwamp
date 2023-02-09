@@ -591,7 +591,7 @@ public:
     }
 
     // Make these post to strand_ to avoid recursion with RouterRealm
-    void sendError(Error&&) override {}
+    void sendError(Error&&, bool logOnly) override {}
 
     void sendSubscribed(RequestId, SubscriptionId) override {}
 
@@ -885,7 +885,7 @@ private:
             {
                 ok = false;
                 auto& errMsg = messageCast<ErrorMessage>(*reply);
-                const auto& uri = errMsg.reasonUri();
+                const auto& uri = errMsg.uri();
                 SessionErrc errc;
                 bool found = errorUriToCode(uri, defaultErrc, errc);
                 bool hasArgs = !errMsg.args().empty() ||
@@ -934,7 +934,7 @@ private:
             if (logLevel() >= LogLevel::warning)
             {
                 auto& msg = messageCast<ErrorMessage>(*reply);
-                const auto& uri = msg.reasonUri();
+                const auto& uri = msg.uri();
                 std::ostringstream oss;
                 oss << "Expected reply for " << msgTypeName
                     << " message but got ERROR with URI=" << uri;

@@ -107,8 +107,9 @@ CPPWAMP_INLINE std::string accessActionLabel(AccessAction action)
          "server-interrupt"
     };
 
-    auto n = static_cast<std::underlying_type<AccessAction>::type>(action);
-    assert(n >= 0 && n <= std::extent<decltype(labels)>::value);
+    using T = std::underlying_type<AccessAction>::type;
+    auto n = static_cast<T>(action);
+    assert(n >= 0 && n <= T(std::extent<decltype(labels)>::value));
     return labels[n];
 }
 

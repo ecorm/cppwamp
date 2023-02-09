@@ -239,7 +239,7 @@ public:
                 std::ostringstream oss;
                 oss << "Stripped args of outbound ERROR message due to "
                        "transport payload limits, with error URI "
-                    << error.reason() << " and request ID " << reqId;
+                    << error.uri() << " and request ID " << reqId;
                 log(LogLevel::warning, oss.str());
             }
         }
@@ -263,11 +263,11 @@ public:
             codec_.encode(msg.fields(), buffer);
             log(LogLevel::warning,
                 "Stripped options of outbound ABORT message with reason URI " +
-                    msg.reasonUri() + ", due to transport payload limits");
+                    msg.uri() + ", due to transport payload limits");
         }
 
         SessionErrc errc;
-        errorUriToCode(a.reason(), SessionErrc::sessionAborted, errc);
+        errorUriToCode(a.uri(), SessionErrc::sessionAborted, errc);
         setState(State::failed, make_error_code(errc));
         traceTx(msg);
         transport_->sendNowAndClose(std::move(buffer));
@@ -583,14 +583,14 @@ private:
         {
             const auto& abortMsg = messageCast<AbortMessage>(msg);
             SessionErrc errc = {};
-            errorUriToCode(abortMsg.reasonUri(),
-                           SessionErrc::sessionAbortedByPeer, errc);
+            errorUriToCode(abortMsg.uri(), SessionErrc::sessionAbortedByPeer,
+                           errc);
 
             if (logLevel() <= LogLevel::error)
             {
                 std::ostringstream oss;
                 oss << "Session aborted by peer with reason URI "
-                    << abortMsg.reasonUri();
+                    << abortMsg.uri();
                 if (!abortMsg.options().empty())
                     oss << " and details " << abortMsg.options();
                 fail(errc, oss.str());
@@ -620,8 +620,7 @@ private:
         {
             const auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
             SessionErrc errc;
-            errorUriToCode(goodbyeMsg.reasonUri(), SessionErrc::closeRealm,
-                           errc);
+            errorUriToCode(goodbyeMsg.uri(), SessionErrc::closeRealm, errc);
 
             if (isRouter_)
             {
@@ -631,7 +630,7 @@ private:
             {
                 std::ostringstream oss;
                 oss << "Session ended by peer with reason URI "
-                    << goodbyeMsg.reasonUri();
+                    << goodbyeMsg.uri();
                 if (!goodbyeMsg.options().empty())
                     oss << " and details " << goodbyeMsg.options();
                 log(LogLevel::warning, oss.str());

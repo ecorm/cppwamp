@@ -9,6 +9,7 @@
 
 #include <map>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 #include "../routerconfig.hpp"
@@ -91,6 +92,29 @@ public:
     }
 
 private:
+    static bool checkAuthorization(const Authorization& auth, RouterSession& s,
+                                   WampMsgType reqType, RequestId rid,
+                                   bool logOnly = false)
+    {
+        if (auth.error())
+        {
+            auto ec = make_error_code(SessionErrc::authorizationFailed);
+            std::ostringstream oss;
+            oss << ec << " (" << ec.message() << ')';
+            Error error{{}, reqType, rid, ec, {{"message", oss.str()}}};
+            s.sendError(std::move(error), logOnly);
+            return false;
+        }
+
+        if (!auth.allowed())
+        {
+            s.sendError(reqType, rid, SessionErrc::notAuthorized, logOnly);
+            return false;
+        }
+
+        return true;
+    }
+
     RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
                 RouterContext&& rctx)
         : strand_(boost::asio::make_strand(e)),
@@ -115,6 +139,43 @@ private:
             strand(), F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
+    template <typename TOperation, typename TPeerData>
+    void dispatchAuthorized(AuthorizationAction a, RouterSession::Ptr s,
+                            TPeerData&& d)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RealmConfig::Authorizer authorizer;
+            AuthorizationRequest request;
+
+            void operator()()
+            {
+                authorizer(std::move(request));
+            }
+        };
+
+        if (config_.authorizer())
+        {
+            const auto& authorizer = config_.authorizer();
+            AuthorizationRequest req{{}, a, std::forward<TPeerData>(d),
+                                     s->sharedAuthInfo(), strand_,
+                                     TOperation{shared_from_this(), s}};
+            auto exec = boost::asio::get_associated_executor(authorizer,
+                                                             strand_);
+            Dispatched dispatched{shared_from_this(), config_.authorizer(),
+                                  std::move(req)};
+            dispatchAny(strand_,
+                        boost::asio::bind_executor(exec,
+                                                   std::move(dispatched)));
+        }
+        else
+        {
+            dispatchAny(strand_, TOperation{shared_from_this(), s},
+                        std::forward<TPeerData>(d));
+        }
+    }
+
     RouterLogger::Ptr logger() const {return logger_;}
 
     void leave(SessionId sid)
@@ -133,18 +194,26 @@ private:
         safelyDispatch<Dispatched>(sid);
     }
 
-    void subscribe(RouterSession::Ptr s, Topic&& t)
+    void subscribe(RouterSession::Ptr s, Topic&& topic)
     {
-        struct Dispatched
+        struct Op
         {
             Ptr self;
             RouterSession::Ptr s;
-            Topic t;
 
-            void operator()()
+            void operator()(Authorization a)
             {
-                auto reqId = t.requestId({});
-                auto result = self->broker_.subscribe(s, std::move(t));
+                auto& topic = a.dataAs<Topic>({});
+                auto reqId = topic.requestId({});
+                if (!checkAuthorization(a, *s, WampMsgType::subscribe, reqId))
+                    return;
+                (*this)(std::move(topic));
+            }
+
+            void operator()(Topic topic)
+            {
+                auto reqId = topic.requestId({});
+                auto result = self->broker_.subscribe(s, std::move(topic));
                 if (result)
                     s->sendSubscribed(reqId, *result);
                 else
@@ -152,7 +221,8 @@ private:
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(s), std::move(t));
+        dispatchAuthorized<Op>(AuthorizationAction::subscribe, std::move(s),
+                               std::move(topic));
     }
 
     void unsubscribe(RouterSession::Ptr s, SubscriptionId subId, RequestId rid)
@@ -177,41 +247,67 @@ private:
         safelyDispatch<Dispatched>(std::move(s), subId, rid);
     }
 
-    void publish(RouterSession::Ptr s, Pub&& p)
+    void publish(RouterSession::Ptr s, Pub&& pub)
     {
-        struct Dispatched
+        struct Op
         {
             Ptr self;
             RouterSession::Ptr s;
-            Pub p;
 
-            void operator()()
+            void operator()(Authorization a)
             {
-                bool needsAck = p.optionOr<bool>("acknowledge", false);
-                auto rid = p.requestId({});
-                auto result = self->broker_.publish(s, std::move(p));
-                if (!result)
-                    s->sendError(WampMsgType::publish, rid, result);
-                else if (needsAck)
-                    s->sendPublished(rid, *result);
+                auto& pub = a.dataAs<Pub>({});
+                auto rid = pub.requestId({});
+                bool ack = pub.optionOr<bool>("acknowledge", false);
+                if (!checkAuthorization(a, *s, WampMsgType::publish, rid, !ack))
+                    return;
+                publish(std::move(pub), rid, ack);
+            }
+
+            void operator()(Pub pub)
+            {
+                auto rid = pub.requestId({});
+                bool ack = pub.optionOr<bool>("acknowledge", false);
+                publish(std::move(pub), rid, ack);
+            }
+
+            void publish(Pub&& pub, RequestId rid, bool ack)
+            {
+                auto result = self->broker_.publish(s, std::move(pub));
+                if (ack)
+                {
+                    if (result)
+                        s->sendPublished(rid, *result);
+                    else
+                        s->sendError(WampMsgType::publish, rid, result);
+                }
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(s), std::move(p));
+        dispatchAuthorized<Op>(AuthorizationAction::publish, std::move(s),
+                               std::move(pub));
     }
 
-    void enroll(RouterSession::Ptr s, Procedure&& p)
+    void enroll(RouterSession::Ptr s, Procedure&& proc)
     {
-        struct Dispatched
+        struct Op
         {
             Ptr self;
             RouterSession::Ptr s;
-            Procedure p;
 
-            void operator()()
+            void operator()(Authorization a)
             {
-                auto rid = p.requestId({});
-                auto result = self->dealer_.enroll(s, std::move(p));
+                auto& proc = a.dataAs<Procedure>({});
+                auto rid = proc.requestId({});
+                if (!checkAuthorization(a, *s, WampMsgType::enroll, rid))
+                    return;
+                (*this)(std::move(proc));
+            }
+
+            void operator()(Procedure proc)
+            {
+                auto rid = proc.requestId({});
+                auto result = self->dealer_.enroll(s, std::move(proc));
                 if (result)
                     s->sendRegistered(rid, *result);
                 else
@@ -219,7 +315,8 @@ private:
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(s), std::move(p));
+        dispatchAuthorized<Op>(AuthorizationAction::enroll, std::move(s),
+                               std::move(proc));
     }
 
     void unregister(RouterSession::Ptr s, RegistrationId regId, RequestId reqId)
@@ -246,13 +343,21 @@ private:
 
     void call(RouterSession::Ptr s, Rpc&& rpc)
     {
-        struct Dispatched
+        struct Op
         {
             Ptr self;
             RouterSession::Ptr s;
-            Rpc rpc;
 
-            void operator()()
+            void operator()(Authorization a)
+            {
+                auto& rpc = a.dataAs<Rpc>({});
+                auto rid = rpc.requestId({});
+                if (!checkAuthorization(a, *s, WampMsgType::call, rid))
+                    return;
+                (*this)(std::move(rpc));
+            }
+
+            void operator()(Rpc rpc)
             {
                 auto rid = rpc.requestId({});
                 auto result = self->dealer_.call(s, std::move(rpc));
@@ -261,7 +366,8 @@ private:
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(s), std::move(rpc));
+        dispatchAuthorized<Op>(AuthorizationAction::enroll, std::move(s),
+                               std::move(rpc));
     }
 
     void cancelCall(RouterSession::Ptr s, CallCancellation&& c)

@@ -33,7 +33,7 @@ class BrokerPublication
 public:
     BrokerPublication(Pub&& pub, PublicationId pid,
                       RouterSession::Ptr publisher)
-        : topicUri_(pub.topic()),
+        : topicUri_(pub.uri()),
           publisherId_(publisher->wampId()),
           publicationId_(pid),
           publisherExcluded_(pub.excludeMe())

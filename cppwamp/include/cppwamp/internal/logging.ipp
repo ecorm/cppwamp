@@ -35,8 +35,9 @@ CPPWAMP_INLINE const std::string& logLevelLabel(LogLevel lv)
         "off"
     };
 
-    auto n = static_cast<std::underlying_type<LogLevel>::type>(lv);
-    assert(n >= 0 && n <= std::extent<decltype(labels)>::value);
+    using T = std::underlying_type<LogLevel>::type;
+    auto n = static_cast<T>(lv);
+    assert(n >= 0 && n <= T(std::extent<decltype(labels)>::value));
     return labels[n];
 }
 

@@ -10,6 +10,7 @@
 namespace wamp
 {
 
+class AuthorizationRequest;
 class Event;
 class Invocation;
 
@@ -20,6 +21,7 @@ namespace internal
         PassKey() {}
 
         // TODO: Verify these are all needed before next release
+        friend class wamp::AuthorizationRequest;
         friend class wamp::Event;
         friend class wamp::Invocation;
         friend class BrokerPublication;

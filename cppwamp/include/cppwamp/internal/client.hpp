@@ -1190,7 +1190,7 @@ private:
         using std::move;
 
         auto& abortMsg = messageCast<AbortMessage>(reply);
-        const auto& uri = abortMsg.reasonUri();
+        const auto& uri = abortMsg.uri();
         SessionErrc errc;
         bool found = errorUriToCode(uri, SessionErrc::joinError, errc);
         const auto& details = reply.as<Object>(1);
@@ -1438,7 +1438,7 @@ private:
             {
                 ok = false;
                 auto& errMsg = messageCast<ErrorMessage>(*reply);
-                const auto& uri = errMsg.reasonUri();
+                const auto& uri = errMsg.uri();
                 SessionErrc errc;
                 bool found = errorUriToCode(uri, defaultErrc, errc);
                 bool hasArgs = !errMsg.args().empty() ||
@@ -1487,7 +1487,7 @@ private:
             if (logLevel() >= LogLevel::warning)
             {
                 auto& msg = messageCast<ErrorMessage>(*reply);
-                const auto& uri = msg.reasonUri();
+                const auto& uri = msg.uri();
                 std::ostringstream oss;
                 oss << "Expected reply for " << msgTypeName
                     << " message but got ERROR with URI=" << uri;

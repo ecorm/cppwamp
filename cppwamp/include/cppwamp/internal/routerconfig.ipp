@@ -14,17 +14,8 @@ namespace wamp
 // RealmConfig
 //******************************************************************************
 
-struct RealmConfig::DefaultAuthorizer
-{
-    void operator()(AuthorizationRequest, AuthorizedOp op) const
-    {
-        op(Authorization{true});
-    }
-};
-
 CPPWAMP_INLINE RealmConfig::RealmConfig(String uri)
-    : authorizer_(DefaultAuthorizer{}),
-      uri_(std::move(uri))
+    : uri_(std::move(uri))
 {}
 
 CPPWAMP_INLINE RealmConfig&

@@ -65,7 +65,7 @@ public:
     Abort& withHint(String message);
 
     /** Obtains the reason URI. */
-    const String& reason() const;
+    const String& uri() const;
 
     /** Obtains the `message` member of the details dictionary. */
     ErrorOr<String> hint() const;
@@ -401,7 +401,7 @@ public:
     explicit operator bool() const;
 
     /** Obtains the reason URI. */
-    const String& reason() const;
+    const String& uri() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info(bool isServer) const;
@@ -478,7 +478,7 @@ public:
     Pub(String topic);
 
     /** Obtains the topic URI. */
-    const String& topic() const;
+    const String& uri() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
@@ -634,7 +634,7 @@ public:
     const String& uri() const &;
 
     /** Moves the procedure URI. */
-    String&& uri() &&;
+    String&& uri() &&; // TODO: PassKey
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
@@ -681,7 +681,7 @@ public:
     Rpc(String uri);
 
     /** Obtains the procedure URI. */
-    const String& procedure() const;
+    const String& uri() const;
 
     /** Specifies the Error object in which to store call errors returned
         by the callee. */

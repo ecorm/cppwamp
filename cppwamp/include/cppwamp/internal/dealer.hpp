@@ -389,7 +389,7 @@ public:
     {
         // TODO: Cancel calls of caller leaving realm
         // TODO: Cancel calls of callee leaving realm
-        auto reg = registry_.find(rpc.procedure());
+        auto reg = registry_.find(rpc.uri());
         if (reg == nullptr)
             return makeUnexpectedError(SessionErrc::noSuchProcedure);
         auto callee = reg->callee().lock();

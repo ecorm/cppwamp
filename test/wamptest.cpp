@@ -1193,7 +1193,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                                          .captureError(error), yield);
             REQUIRE_FALSE(!result);
             CHECK( !error );
-            CHECK( error.reason().empty() );
+            CHECK( error.uri().empty() );
             CHECK( f.dynamicCount == 1 );
             CHECK(( result.value().args() == Array{"one", 1} ));
             result = f.caller.call(Rpc("dynamic").withArgs("two", 2),
@@ -1915,8 +1915,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                 CHECK( result == makeUnexpected(SessionErrc::notAuthorized) );
                 CHECK_THROWS_AS( result.value(), error::Failure );
                 CHECK_FALSE( !error );
-                CHECK_THAT( error.reason(),
-                            Equals("wamp.error.not_authorized") );
+                CHECK_THAT( error.uri(), Equals("wamp.error.not_authorized") );
                 CHECK( error.args() == Array{123} );
                 CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
             }
@@ -1953,8 +1952,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                                              yield);
                 CHECK( result == makeUnexpected(SessionErrc::notAuthorized) );
                 CHECK_FALSE( !error );
-                CHECK_THAT( error.reason(),
-                            Equals("wamp.error.not_authorized") );
+                CHECK_THAT( error.uri(), Equals("wamp.error.not_authorized") );
                 CHECK( error.args() == Array{123} );
                 CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
             }
