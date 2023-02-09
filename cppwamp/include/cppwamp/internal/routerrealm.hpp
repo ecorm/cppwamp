@@ -12,7 +12,7 @@
 #include <string>
 #include <utility>
 #include "../routerconfig.hpp"
-#include "idgen.hpp"
+#include "random.hpp"
 #include "realmbroker.hpp"
 #include "realmdealer.hpp"
 #include "routercontext.hpp"
@@ -32,9 +32,11 @@ public:
     using Ptr = std::shared_ptr<RouterRealm>;
     using Executor = AnyIoExecutor;
 
-    static Ptr create(Executor e, RealmConfig c, RouterContext r)
+    static Ptr create(Executor e, RealmConfig c, const RouterConfig& rcfg,
+                      RouterContext rctx)
     {
-        return Ptr(new RouterRealm(std::move(e), std::move(c), std::move(r)));
+        return Ptr(new RouterRealm(std::move(e), std::move(c), rcfg,
+                                   std::move(rctx)));
     }
 
     const IoStrand& strand() const {return strand_;}
@@ -89,10 +91,12 @@ public:
     }
 
 private:
-    RouterRealm(Executor&& e, RealmConfig&& c, RouterContext&& r)
+    RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
+                RouterContext&& rctx)
         : strand_(boost::asio::make_strand(e)),
           config_(std::move(c)),
-          router_(std::move(r)),
+          router_(std::move(rctx)),
+          broker_(rcfg.publicationRNG()),
           dealer_(strand_),
           logSuffix_(" (Realm " + config_.uri() + ")"),
           logger_(router_.logger())

@@ -109,7 +109,8 @@ ServerConfig::ServerConfig(String name, S&& transportSettings, F format,
                       BufferCodecBuilder{extraFormats}...};
 }
 
-// TODO: User-provided PRNG
+//------------------------------------------------------------------------------
+using RandomNumberGenerator64 = std::function<uint64_t ()>;
 
 //------------------------------------------------------------------------------
 class CPPWAMP_API RouterConfig
@@ -126,7 +127,11 @@ public:
 
     RouterConfig& withAccessLogFilter(AccessLogFilter f);
 
-    RouterConfig& withSessionIdSeed(EphemeralId seed);
+    RouterConfig& withSessionRNG(RandomNumberGenerator64 f);
+
+    // This RNG needs to be distinct from session RNG because they
+    // can be invoked from different threads.
+    RouterConfig& withPublicationRNG(RandomNumberGenerator64 f);
 
     const LogHandler& logHandler() const;
 
@@ -136,14 +141,17 @@ public:
 
     const AccessLogFilter& accessLogFilter() const;
 
-    EphemeralId sessionIdSeed() const;
+    const RandomNumberGenerator64& sessionRNG() const;
+
+    const RandomNumberGenerator64& publicationRNG() const;
 
 private:
     LogHandler logHandler_;
     AccessLogHandler accessLogHandler_;
     AccessLogFilter accessLogFilter_;
+    RandomNumberGenerator64 sessionRng_;
+    RandomNumberGenerator64 publicationRng_;
     LogLevel logLevel_ = LogLevel::warning;
-    EphemeralId sessionIdSeed_ = nullId();
 };
 
 } // namespace wamp

@@ -134,11 +134,17 @@ RouterConfig& RouterConfig::withAccessLogFilter(AccessLogFilter f)
     return *this;
 }
 
-// With seed == nullid(), the random generator state is initialized
-// with system entropy.
-CPPWAMP_INLINE RouterConfig& RouterConfig::withSessionIdSeed(EphemeralId seed)
+CPPWAMP_INLINE RouterConfig&
+RouterConfig::withSessionRNG(RandomNumberGenerator64 f)
 {
-    sessionIdSeed_ = seed;
+    sessionRng_ = std::move(f);
+    return *this;
+}
+
+CPPWAMP_INLINE RouterConfig&
+RouterConfig::withPublicationRNG(RandomNumberGenerator64 f)
+{
+    publicationRng_ = std::move(f);
     return *this;
 }
 
@@ -160,9 +166,15 @@ CPPWAMP_INLINE const AccessLogFilter& RouterConfig::accessLogFilter() const
     return accessLogFilter_;
 }
 
-CPPWAMP_INLINE EphemeralId RouterConfig::sessionIdSeed() const
+CPPWAMP_INLINE const RandomNumberGenerator64& RouterConfig::sessionRNG() const
 {
-    return sessionIdSeed_;
+    return sessionRng_;
+}
+
+CPPWAMP_INLINE const RandomNumberGenerator64&
+RouterConfig::publicationRNG() const
+{
+    return publicationRng_;
 }
 
 } // namespace wamp

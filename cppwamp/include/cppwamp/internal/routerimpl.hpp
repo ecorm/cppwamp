@@ -14,8 +14,8 @@
 #include <utility>
 #include "../erroror.hpp"
 #include "../routerconfig.hpp"
-#include "idgen.hpp"
 #include "localsessionimpl.hpp"
+#include "random.hpp"
 #include "routercontext.hpp"
 #include "routerrealm.hpp"
 #include "routerserver.hpp"
@@ -57,6 +57,7 @@ public:
                 auto r = RouterRealm::create(
                     boost::asio::make_strand(executor_),
                     std::move(c),
+                    config_,
                     {shared_from_this()});
                 realms_.emplace(std::move(uri), std::move(r));
             }
@@ -212,11 +213,21 @@ private:
         : config_(std::move(c)),
           executor_(std::move(e)),
           strand_(boost::asio::make_strand(executor_)),
-          sessionIdPool_(RandomIdPool::create(config_.sessionIdSeed())),
           logger_(RouterLogger::create(
             strand_, config_.logHandler(), config_.logLevel(),
             config_.accessLogHandler(), config_.accessLogFilter()))
-    {}
+    {
+        if (!config_.sessionRNG())
+            config_.withSessionRNG(internal::DefaultPRNG64{});
+
+        if (!config_.publicationRNG())
+            config_.withPublicationRNG(internal::DefaultPRNG64{});
+
+        if (!config_.accessLogFilter() && config_.accessLogHandler())
+            config_.withAccessLogFilter(DefaultAccessLogFilter{});
+
+        sessionIdPool_ = RandomIdPool::create(config_.sessionRNG());
+    }
 
     template <typename F>
     void dispatch(F&& f)

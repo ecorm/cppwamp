@@ -14,7 +14,8 @@
 #include "../asiodefs.hpp"
 #include "../logging.hpp"
 #include "../peerdata.hpp"
-#include "idgen.hpp"
+#include "../routerconfig.hpp"
+#include "random.hpp"
 
 namespace wamp
 {
@@ -69,10 +70,7 @@ private:
           accessLogHandler_(std::move(alh)),
           accessLogFilter_(std::move(alf)),
           logLevel_(lv)
-    {
-        if ((accessLogHandler_ != nullptr) && (accessLogFilter_ == nullptr))
-            accessLogFilter_ = DefaultAccessLogFilter{};
-    }
+    {}
 
     void setLevel(LogLevel level) {logLevel_.store(level);}
 

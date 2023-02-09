@@ -13,7 +13,7 @@
 #include "../authinfo.hpp"
 #include "../logging.hpp"
 #include "../peerdata.hpp"
-#include "idgen.hpp"
+#include "random.hpp"
 
 namespace wamp
 {

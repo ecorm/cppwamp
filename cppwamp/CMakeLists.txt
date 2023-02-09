@@ -66,7 +66,6 @@ set(HEADERS
     include/cppwamp/internal/challenger.hpp
     include/cppwamp/internal/client.hpp
     include/cppwamp/internal/endian.hpp
-    include/cppwamp/internal/idgen.hpp
     include/cppwamp/internal/integersequence.hpp
     include/cppwamp/internal/jsonencoding.hpp
     include/cppwamp/internal/localsessionimpl.hpp

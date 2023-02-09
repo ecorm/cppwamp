@@ -11,9 +11,10 @@
 #include <map>
 #include <utility>
 #include "../erroror.hpp"
+#include "../routerconfig.hpp"
 #include "../utils/triemap.hpp"
 #include "../utils/wildcarduri.hpp"
-#include "idgen.hpp"
+#include "random.hpp"
 #include "routersession.hpp"
 
 // TODO: Publisher Identification override
@@ -340,6 +341,10 @@ public:
 class RealmBroker
 {
 public:
+    explicit RealmBroker(RandomNumberGenerator64 prng)
+        : pubIdGenerator_(prng)
+    {}
+
     ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t)
     {
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
@@ -428,7 +433,7 @@ private:
     BrokerPrefixTopicMap byPrefix_;
     BrokerWildcardTopicMap byWildcard_;
     BrokerSubscriptionIdGenerator subIdGenerator_;
-    RandomIdGenerator pubIdGenerator_;
+    RandomEphemeralIdGenerator pubIdGenerator_;
 };
 
 } // namespace internal
