@@ -129,6 +129,18 @@ public:
 
     virtual void sendError(Error&&) = 0;
 
+    void sendError(WampMsgType reqType, RequestId rid, std::error_code ec)
+    {
+        sendError(Error{{}, reqType, rid, ec});
+    }
+
+    template <typename T>
+    void sendError(WampMsgType reqType, RequestId rid, const ErrorOr<T>& x)
+    {
+        assert(!x.has_value());
+        sendError(reqType, rid, x.error());
+    }
+
     virtual void sendSubscribed(RequestId, SubscriptionId) = 0;
 
     virtual void sendUnsubscribed(RequestId, String topic) = 0;

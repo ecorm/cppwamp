@@ -374,7 +374,8 @@ public:
         return 0;
     }
 
-    ErrorOrDone unsubscribe(RouterSession::Ptr subscriber, SubscriptionId subId)
+    ErrorOr<String> unsubscribe(RouterSession::Ptr subscriber,
+                                SubscriptionId subId)
     {
         // TODO: Unsubscribe all from subscriber leaving realm
 
@@ -410,7 +411,7 @@ public:
 
         if (!erased)
             return makeUnexpectedError(SessionErrc::noSuchSubscription);
-        return erased;
+        return record.topic().uri();
     }
 
     ErrorOr<PublicationId> publish(RouterSession::Ptr publisher, Pub&& pub)

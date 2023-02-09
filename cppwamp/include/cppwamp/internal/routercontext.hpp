@@ -109,13 +109,13 @@ public:
 
     void subscribe(RouterSessionPtr s, Topic t);
 
-    void unsubscribe(RouterSessionPtr s, SubscriptionId subId);
+    void unsubscribe(RouterSessionPtr s, SubscriptionId subId, RequestId rid);
 
     void publish(RouterSessionPtr s, Pub pub);
 
     void enroll(RouterSessionPtr s, Procedure proc);
 
-    void unregister(RouterSessionPtr s, RegistrationId rid);
+    void unregister(RouterSessionPtr s, RegistrationId regId, RequestId reqId);
 
     void call(RouterSessionPtr s, Rpc rpc);
 

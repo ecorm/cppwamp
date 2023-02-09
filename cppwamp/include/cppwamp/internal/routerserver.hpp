@@ -598,7 +598,8 @@ private:
             return;
 
         report({AccessAction::clientUnsubscribe, reqId});
-        realm_.unsubscribe(shared_from_this(), msg.subscriptionId());
+        realm_.unsubscribe(shared_from_this(), msg.subscriptionId(),
+                           msg.requestId());
     }
 
     void onCall(WampMessage& m)
@@ -648,7 +649,8 @@ private:
             return;
 
         report({AccessAction::clientUnregister, reqId});
-        realm_.unsubscribe(shared_from_this(), msg.registrationId());
+        realm_.unsubscribe(shared_from_this(), msg.registrationId(),
+                           msg.requestId());
     }
 
     void onYield(WampMessage& m)

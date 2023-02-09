@@ -90,16 +90,16 @@ public:
         byUri_.emplace(std::move(uri), ptr);
     }
 
-    bool erase(const Key& key)
+    ErrorOr<String> erase(const Key& key)
     {
         auto found = byKey_.find(key);
         if (found == byKey_.end())
-            return false;
-        const auto& uri = found->second.procedureUri();
+            return makeUnexpectedError(SessionErrc::noSuchRegistration);
+        auto uri = found->second.procedureUri();
         auto erased = byUri_.erase(uri);
         assert(erased == 1);
         byKey_.erase(found);
-        return true;
+        return uri;
     }
 
     DealerRegistration* find(const String& procedureUri)
@@ -160,7 +160,7 @@ public:
     {
         auto callee = this->callee_.lock();
         if (!callee)
-            return makeUnexpectedError(SessionErrc::noSuchProcedure);
+            return false;
 
         mode = callee->features().calleeCancelling ? mode
                                                    : CallCancelMode::skip;
@@ -375,16 +375,14 @@ public:
         return key.second;
     }
 
-    ErrorOrDone unregister(RouterSession::Ptr callee, RegistrationId rid)
+    ErrorOr<String> unregister(RouterSession::Ptr callee, RegistrationId rid)
     {
         // TODO: Unregister all from callee leaving realm
 
         // Consensus on what to do with pending invocations upon unregister
         // appears to be to allow them to continue.
         // https://github.com/wamp-proto/wamp-proto/issues/283#issuecomment-429542748
-        if (!registry_.erase({callee->wampId(), rid}))
-            return makeUnexpectedError(SessionErrc::noSuchRegistration);
-        return true;
+        return registry_.erase({callee->wampId(), rid});
     }
 
     ErrorOrDone call(RouterSession::Ptr caller, Rpc&& rpc)
@@ -426,7 +424,7 @@ public:
 
     void yieldResult(RouterSession::Ptr callee, Result&& result)
     {
-        DealerJobKey calleeKey{callee->wampId(), result.requestId()};
+        DealerJobKey calleeKey{callee->wampId(), result.requestId({})};
         auto iter = jobs_.byCalleeFind(calleeKey);
         if (iter == jobs_.byCalleeEnd())
             return;
@@ -437,7 +435,7 @@ public:
 
     void yieldError(RouterSession::Ptr callee, Error&& error)
     {
-        DealerJobKey calleeKey{callee->wampId(), error.requestId()};
+        DealerJobKey calleeKey{callee->wampId(), error.requestId({})};
         auto iter = jobs_.byCalleeFind(calleeKey);
         if (iter == jobs_.byCalleeEnd())
             return;

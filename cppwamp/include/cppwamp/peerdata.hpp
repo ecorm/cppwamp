@@ -400,9 +400,6 @@ public:
     /** Conversion to bool operator, returning false if the error is empty. */
     explicit operator bool() const;
 
-    /** Obtains the ID of the WAMP request associated with this error. */
-    RequestId requestId() const;
-
     /** Obtains the reason URI. */
     const String& reason() const;
 
@@ -417,6 +414,11 @@ private:
 public:
     // Internal use only
     Error(internal::PassKey, internal::ErrorMessage&& msg);
+
+    Error(internal::PassKey, internal::WampMsgType reqType,
+          RequestId rid, std::error_code ec, Object opts = {});
+
+    RequestId requestId(internal::PassKey) const;
 
     void setRequestId(internal::PassKey, RequestId rid);
 
@@ -460,6 +462,7 @@ private:
 public:
     // Internal use only
     Topic(internal::PassKey, internal::SubscribeMessage&& msg);
+    RequestId requestId(internal::PassKey) const;
     String&& uri(internal::PassKey) &&;
 };
 
@@ -539,6 +542,7 @@ private:
 public:
     // Internal use only
     Pub(internal::PassKey, internal::PublishMessage&& msg);
+    RequestId requestId(internal::PassKey) const;
 };
 
 
@@ -653,6 +657,7 @@ private:
 public:
     // Internal use only
     Procedure(internal::PassKey, internal::RegisterMessage&& msg);
+    RequestId requestId(internal::PassKey) const;
 };
 
 
@@ -807,9 +812,6 @@ public:
         positional arguments. */
     Result(std::initializer_list<Variant> list);
 
-    /** Obtains the request ID associated with the call. */
-    RequestId requestId() const;
-
     /** Obtains information for the access log. */
     AccessActionInfo info(bool isServer) const;
 
@@ -832,11 +834,9 @@ private:
 public:
     // Internal use only
     Result(internal::PassKey, internal::ResultMessage&& msg);
-
     Result(internal::PassKey, internal::YieldMessage&& msg);
-
+    RequestId requestId(internal::PassKey) const;
     void setRequestId(internal::PassKey, RequestId rid);
-
     internal::YieldMessage& yieldMessage(internal::PassKey, RequestId reqId);
 };
 

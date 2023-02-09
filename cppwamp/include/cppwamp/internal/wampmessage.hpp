@@ -353,6 +353,11 @@ struct ErrorMessage : public MessageWithPayload<WampMsgType::error, 3, 5>
         : Base({0, 0, 0, std::move(opts), std::move(reason)})
     {}
 
+    explicit ErrorMessage(WampMsgType reqType, RequestId reqId, String reason,
+                          Object opts = {})
+        : Base({0, Int(reqType), reqId, std::move(opts), std::move(reason)})
+    {}
+
     void setRequestInfo(WampMsgType reqType, RequestId reqId) const
     {
         fields_.at(1) = Int(reqType);

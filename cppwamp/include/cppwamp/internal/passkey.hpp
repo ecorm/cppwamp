@@ -19,18 +19,19 @@ namespace internal
     {
         PassKey() {}
 
+        // TODO: Verify these are all needed before next release
         friend class wamp::Event;
         friend class wamp::Invocation;
         friend class BrokerPublication;
         friend class BrokerUriAndPolicy;
         friend class Client;
+        friend class Dealer;
         friend class DealerInvocation;
         friend class DealerJob;
         friend class Invocation;
         friend class LocalSessionImpl;
         friend class Peer;
         friend class ServerSession;
-        friend class RealmDealer;
         friend class RouterImpl;
         friend class RouterRealm;
         friend class RouterServer;

@@ -590,11 +590,6 @@ CPPWAMP_INLINE Error::~Error() {}
 
 CPPWAMP_INLINE Error::operator bool() const {return !reason().empty();}
 
-CPPWAMP_INLINE RequestId Error::requestId() const
-{
-    return message().requestId();
-}
-
 CPPWAMP_INLINE const String& Error::reason() const
 {
     return message().reasonUri();
@@ -604,7 +599,7 @@ CPPWAMP_INLINE AccessActionInfo Error::info(bool isServer) const
 {
     auto action = isServer ? AccessAction::serverError
                            : AccessAction::clientError;
-    return {action, requestId(), {}, options(), reason()};
+    return {action, message().requestId(), {}, options(), reason()};
 }
 
 CPPWAMP_INLINE String Error::toUri(std::error_code ec)
@@ -620,6 +615,16 @@ CPPWAMP_INLINE String Error::toUri(std::error_code ec)
 CPPWAMP_INLINE Error::Error(internal::PassKey, internal::ErrorMessage&& msg)
     : Base(std::move(msg))
 {}
+
+CPPWAMP_INLINE Error::Error(internal::PassKey, internal::WampMsgType reqType,
+                            RequestId rid, std::error_code ec, Object opts)
+    : Base(reqType, rid, toUri(ec), std::move(opts))
+{}
+
+CPPWAMP_INLINE RequestId Error::requestId(internal::PassKey) const
+{
+    return message().requestId();
+}
 
 CPPWAMP_INLINE void Error::setRequestId(internal::PassKey, RequestId rid)
 {
@@ -666,6 +671,11 @@ CPPWAMP_INLINE MatchPolicy Topic::matchPolicy() const
 CPPWAMP_INLINE Topic::Topic(internal::PassKey, internal::SubscribeMessage&& msg)
     : Base(std::move(msg))
 {}
+
+CPPWAMP_INLINE RequestId Topic::requestId(internal::PassKey) const
+{
+    return message().requestId();
+}
 
 CPPWAMP_INLINE String&& Topic::uri(internal::PassKey) &&
 {
@@ -755,6 +765,11 @@ CPPWAMP_INLINE bool Pub::discloseMe() const
 CPPWAMP_INLINE Pub::Pub(internal::PassKey, internal::PublishMessage&& msg)
     : Base(std::move(msg))
 {}
+
+CPPWAMP_INLINE RequestId Pub::requestId(internal::PassKey) const
+{
+    return message().requestId();
+}
 
 
 //******************************************************************************
@@ -879,6 +894,12 @@ CPPWAMP_INLINE Procedure::Procedure(internal::PassKey,
     : Base(std::move(msg))
 {}
 
+CPPWAMP_INLINE RequestId Procedure::requestId(internal::PassKey) const
+{
+    return message().requestId();
+}
+
+
 //******************************************************************************
 // Rpc
 //******************************************************************************
@@ -992,17 +1013,11 @@ CPPWAMP_INLINE Result::Result(std::initializer_list<Variant> list)
     withArgList(Array(list));
 }
 
-CPPWAMP_INLINE RequestId Result::requestId() const
-{
-    // TODO: Get directly from message field. Same for others.
-    return message().requestId();
-}
-
 CPPWAMP_INLINE AccessActionInfo Result::info(bool isServer) const
 {
     auto action = isServer ? AccessAction::serverResult
                            : AccessAction::clientYield;
-    return {action, requestId(), {}, options()};
+    return {action, message().requestId(), {}, options()};
 }
 
 /** @details
@@ -1025,6 +1040,12 @@ CPPWAMP_INLINE Result::Result(internal::PassKey, internal::YieldMessage&& msg)
 {
     withArgs(std::move(msg).args());
     withKwargs(std::move(msg).kwargs());
+}
+
+CPPWAMP_INLINE RequestId Result::requestId(internal::PassKey) const
+{
+    // TODO: Get directly from message field. Same for others.
+    return message().requestId();
 }
 
 CPPWAMP_INLINE void Result::setRequestId(internal::PassKey, RequestId rid)

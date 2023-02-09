@@ -143,79 +143,105 @@ private:
 
             void operator()()
             {
-                self->broker_.subscribe(std::move(s), std::move(t));
+                auto reqId = t.requestId({});
+                auto result = self->broker_.subscribe(s, std::move(t));
+                if (result)
+                    s->sendSubscribed(reqId, *result);
+                else
+                    s->sendError(WampMsgType::subscribe, reqId, result);
             }
         };
 
         safelyDispatch<Dispatched>(std::move(s), std::move(t));
     }
 
-    void unsubscribe(RouterSession::Ptr s, SubscriptionId subId)
+    void unsubscribe(RouterSession::Ptr s, SubscriptionId subId, RequestId rid)
     {
         struct Dispatched
         {
             Ptr self;
             RouterSession::Ptr s;
             SubscriptionId subId;
+            RequestId rid;
 
             void operator()()
             {
-                self->unsubscribe(std::move(s), subId);
+                auto result = self->broker_.unsubscribe(s, subId);
+                if (result)
+                    s->sendUnsubscribed(rid, *result);
+                else
+                    s->sendError(WampMsgType::unsubscribe, rid, result);
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(s), subId);
+        safelyDispatch<Dispatched>(std::move(s), subId, rid);
     }
 
-    void publish(RouterSession::Ptr s, Pub&& pub)
+    void publish(RouterSession::Ptr s, Pub&& p)
     {
         struct Dispatched
         {
             Ptr self;
             RouterSession::Ptr s;
-            Pub pub;
+            Pub p;
 
             void operator()()
             {
-                self->broker_.publish(std::move(s), std::move(pub));
+                bool needsAck = p.optionOr<bool>("acknowledge", false);
+                auto rid = p.requestId({});
+                auto result = self->broker_.publish(s, std::move(p));
+                if (!result)
+                    s->sendError(WampMsgType::publish, rid, result);
+                else if (needsAck)
+                    s->sendPublished(rid, *result);
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(s), std::move(pub));
+        safelyDispatch<Dispatched>(std::move(s), std::move(p));
     }
 
-    void enroll(RouterSession::Ptr s, Procedure&& proc)
+    void enroll(RouterSession::Ptr s, Procedure&& p)
     {
         struct Dispatched
         {
             Ptr self;
             RouterSession::Ptr s;
-            Procedure proc;
+            Procedure p;
 
             void operator()()
             {
-                self->dealer_.enroll(std::move(s), std::move(proc));
+                auto rid = p.requestId({});
+                auto result = self->dealer_.enroll(s, std::move(p));
+                if (result)
+                    s->sendRegistered(rid, *result);
+                else
+                    s->sendError(WampMsgType::enroll, rid, result);
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(s), std::move(proc));
+        safelyDispatch<Dispatched>(std::move(s), std::move(p));
     }
 
-    void unregister(RouterSession::Ptr s, RegistrationId rid)
+    void unregister(RouterSession::Ptr s, RegistrationId regId, RequestId reqId)
     {
         struct Dispatched
         {
             Ptr self;
             RouterSession::Ptr s;
-            RegistrationId rid;
+            RegistrationId regId;
+            RequestId reqId;
 
             void operator()()
             {
-                self->dealer_.unregister(std::move(s), rid);
+                auto result = self->dealer_.unregister(s, regId);
+                if (result)
+                    s->sendUnregistered(reqId, *result);
+                else
+                    s->sendError(WampMsgType::unregister, reqId, result);
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(s), rid);
+        safelyDispatch<Dispatched>(std::move(s), regId, reqId);
     }
 
     void call(RouterSession::Ptr s, Rpc&& rpc)
@@ -228,7 +254,10 @@ private:
 
             void operator()()
             {
-                self->dealer_.call(std::move(s), std::move(rpc));
+                auto rid = rpc.requestId({});
+                auto result = self->dealer_.call(s, std::move(rpc));
+                if (!result)
+                    s->sendError(WampMsgType::call, rid, result);
             }
         };
 
@@ -245,7 +274,10 @@ private:
 
             void operator()()
             {
-                self->dealer_.cancelCall(std::move(s), std::move(c));
+                auto rid = c.requestId();
+                auto result = self->dealer_.cancelCall(s, std::move(c));
+                if (!result)
+                    s->sendError(WampMsgType::call, rid, result);
             }
         };
 
@@ -356,11 +388,12 @@ inline void RealmContext::subscribe(RouterSessionPtr s, Topic t)
 
 }
 
-inline void RealmContext::unsubscribe(RouterSessionPtr s, SubscriptionId subId)
+inline void RealmContext::unsubscribe(RouterSessionPtr s, SubscriptionId subId,
+                                      RequestId rid)
 {
     auto r = realm_.lock();
     if (r)
-        r->unsubscribe(std::move(s), subId);
+        r->unsubscribe(std::move(s), subId, rid);
 }
 
 inline void RealmContext::publish(RouterSessionPtr s, Pub pub)
@@ -377,11 +410,12 @@ inline void RealmContext::enroll(RouterSessionPtr s, Procedure proc)
         r->enroll(std::move(s), std::move(proc));
 }
 
-inline void RealmContext::unregister(RouterSessionPtr s, RegistrationId rid)
+inline void RealmContext::unregister(RouterSessionPtr s, RegistrationId regId,
+                                     RequestId reqId)
 {
     auto r = realm_.lock();
     if (r)
-        r->unregister(std::move(s), rid);
+        r->unregister(std::move(s), regId, reqId);
 }
 
 inline void RealmContext::call(RouterSessionPtr s, Rpc rpc)
