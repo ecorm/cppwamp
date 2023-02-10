@@ -539,10 +539,19 @@ public:
 private:
     using Base = Payload<Pub, internal::PublishMessage>;
 
+    TrustLevel trustLevel_ = 0;
+    bool hasTrustLevel_ = false;
+    bool disclosed_ = false;
+
 public:
     // Internal use only
     Pub(internal::PassKey, internal::PublishMessage&& msg);
+    void setDisclosed(internal::PassKey, bool disclosed);
+    void setTrustLevel(internal::PassKey, TrustLevel trustLevel);
     RequestId requestId(internal::PassKey) const;
+    bool disclosed(internal::PassKey) const;
+    bool hasTrustLevel(internal::PassKey) const;
+    TrustLevel trustLevel(internal::PassKey) const;
 };
 
 
@@ -584,7 +593,7 @@ public:
         @{ */
 
     /** Obtains the publisher ID integer. */
-    ErrorOr<UInt> publisher() const;
+    ErrorOr<SessionId> publisher() const;
     /// @}
 
     /** @name Publication Trust Levels
@@ -593,7 +602,7 @@ public:
         @{ */
 
     /** Obtains the trust level integer. */
-    ErrorOr<UInt> trustLevel() const;
+    ErrorOr<TrustLevel> trustLevel() const;
     /// @}
 
     /** @name Pattern-based Subscription
@@ -787,14 +796,22 @@ private:
 
     Error* error_ = nullptr;
     TimeoutDuration callerTimeout_ = {};
+    TrustLevel trustLevel_ = 0;
     CallCancelMode cancelMode_ = defaultCancelMode();
     bool progressiveResultsEnabled_ = false;
+    bool hasTrustLevel_ = false;
+    bool disclosed_ = false;
 
 public:
     // Internal use only
     Rpc(internal::PassKey, internal::CallMessage&& msg);
+    void setDisclosed(internal::PassKey, bool disclosed);
+    void setTrustLevel(internal::PassKey, TrustLevel trustLevel);
     Error* error(internal::PassKey);
     RequestId requestId(internal::PassKey) const;
+    bool disclosed(internal::PassKey) const;
+    bool hasTrustLevel(internal::PassKey) const;
+    TrustLevel trustLevel(internal::PassKey) const;
 };
 
 
@@ -998,7 +1015,7 @@ public:
         @{ */
 
     /** Obtains the session ID integer of the caller. */
-    ErrorOr<UInt> caller() const;
+    ErrorOr<SessionId> caller() const;
     /// @}
 
     /** @name Call Trust Levels
@@ -1007,7 +1024,7 @@ public:
         @{ */
 
     /** Obtains the trust level integer. */
-    ErrorOr<UInt> trustLevel() const;
+    ErrorOr<TrustLevel> trustLevel() const;
     /// @}
 
     /** @name Pattern-based Registrations

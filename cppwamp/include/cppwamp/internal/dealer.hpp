@@ -17,8 +17,6 @@
 #include "../erroror.hpp"
 #include "routersession.hpp"
 
-// TODO: Caller Identification override
-// TODO: Call Trust Levels
 // TODO: Progressive Calls
 // TODO: Progressive Call Results
 // TODO: Pending call limits

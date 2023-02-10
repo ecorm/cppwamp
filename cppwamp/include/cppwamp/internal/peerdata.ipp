@@ -751,9 +751,32 @@ CPPWAMP_INLINE Pub::Pub(internal::PassKey, internal::PublishMessage&& msg)
     : Base(std::move(msg))
 {}
 
+CPPWAMP_INLINE void Pub::setDisclosed(internal::PassKey, bool disclosed)
+{
+    disclosed_ = disclosed;
+}
+
+CPPWAMP_INLINE void Pub::setTrustLevel(internal::PassKey, TrustLevel trustLevel)
+{
+    trustLevel_ = trustLevel;
+    hasTrustLevel_ = true;
+}
+
 CPPWAMP_INLINE RequestId Pub::requestId(internal::PassKey) const
 {
     return message().requestId();
+}
+
+CPPWAMP_INLINE bool Pub::disclosed(internal::PassKey) const {return disclosed_;}
+
+CPPWAMP_INLINE bool Pub::hasTrustLevel(internal::PassKey) const
+{
+    return hasTrustLevel_;
+}
+
+CPPWAMP_INLINE TrustLevel Pub::trustLevel(internal::PassKey) const
+{
+    return trustLevel_;
 }
 
 
@@ -803,7 +826,7 @@ CPPWAMP_INLINE AccessActionInfo Event::info(String topic) const
     This function returns the value of the `EVENT.Details.publisher|integer`
     detail.
     @returns The publisher ID, if available, or an error code. */
-CPPWAMP_INLINE ErrorOr<UInt> Event::publisher() const
+CPPWAMP_INLINE ErrorOr<SessionId> Event::publisher() const
 {
     return toUnsignedInteger("publisher");
 }
@@ -812,7 +835,7 @@ CPPWAMP_INLINE ErrorOr<UInt> Event::publisher() const
     This function returns the value of the `EVENT.Details.trustlevel|integer`
     detail.
     @returns The trust level, if available, or an error code. */
-CPPWAMP_INLINE ErrorOr<UInt> Event::trustLevel() const
+CPPWAMP_INLINE ErrorOr<TrustLevel> Event::trustLevel() const
 {
     return toUnsignedInteger("trustlevel");
 }
@@ -834,7 +857,11 @@ CPPWAMP_INLINE Event::Event(internal::PassKey, AnyCompletionExecutor executor,
 CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
                             PublicationId pid)
     : Base(std::move(pub.message({})).fields(), sid, pid)
-{}
+{
+    withOptions({});
+    if (pub.hasTrustLevel({}))
+        withOption("trustlevel", pub.trustLevel({}));
+}
 
 
 //******************************************************************************
@@ -969,11 +996,35 @@ CPPWAMP_INLINE Rpc::Rpc(internal::PassKey, internal::CallMessage&& msg)
     : Base(std::move(msg))
 {}
 
+CPPWAMP_INLINE void Rpc::setDisclosed(internal::PassKey, bool disclosed)
+{
+    disclosed_ = disclosed;
+}
+
+CPPWAMP_INLINE void Rpc::setTrustLevel(internal::PassKey,
+                                       TrustLevel trustLevel)
+{
+    trustLevel_ = trustLevel;
+    hasTrustLevel_ = true;
+}
+
 CPPWAMP_INLINE Error* Rpc::error(internal::PassKey) {return error_;}
 
 CPPWAMP_INLINE RequestId Rpc::requestId(internal::PassKey) const
 {
     return message().fields().at(1).to<RequestId>();
+}
+
+CPPWAMP_INLINE bool Rpc::disclosed(internal::PassKey) const {return disclosed_;}
+
+CPPWAMP_INLINE bool Rpc::hasTrustLevel(internal::PassKey) const
+{
+    return hasTrustLevel_;
+}
+
+CPPWAMP_INLINE TrustLevel Rpc::trustLevel(internal::PassKey) const
+{
+    return trustLevel_;
 }
 
 
@@ -1314,7 +1365,7 @@ CPPWAMP_INLINE bool Invocation::isProgressive() const
     This function returns the value of the `INVOCATION.Details.caller|integer`
     detail.
     @returns The caller ID, if available, or an error code. */
-CPPWAMP_INLINE ErrorOr<UInt> Invocation::caller() const
+CPPWAMP_INLINE ErrorOr<SessionId> Invocation::caller() const
 {
     return toUnsignedInteger("caller");
 }
@@ -1324,7 +1375,7 @@ CPPWAMP_INLINE ErrorOr<UInt> Invocation::caller() const
     detail.
     @returns An integer variant if the trust level is available. Otherwise,
              a null variant is returned. */
-CPPWAMP_INLINE ErrorOr<UInt> Invocation::trustLevel() const
+CPPWAMP_INLINE ErrorOr<TrustLevel> Invocation::trustLevel() const
 {
     return toUnsignedInteger("trustlevel");
 }
@@ -1352,6 +1403,8 @@ CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
     : Base(std::move(rpc.message({})).fields(), regId)
 {
     withOptions({});
+    if (rpc.hasTrustLevel({}))
+        withOption("trustlevel", rpc.trustLevel({}));
 }
 
 CPPWAMP_INLINE void Invocation::setRequestId(internal::PassKey, RequestId rid)

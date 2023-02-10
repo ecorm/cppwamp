@@ -45,7 +45,7 @@ public:
                                        std::forward<E>(executor)));
     }
 
-    RealmConfig& withAuthorizationCacheEnabled(bool enabled = true);
+    // RealmConfig& withAuthorizationCacheEnabled(bool enabled = true);
 
     RealmConfig& withPublisherDisclosure(DisclosureRule d);
 
@@ -55,14 +55,17 @@ public:
 
     const Authorizer& authorizer() const;
 
-    bool authorizationCacheEnabled() const;
+    // bool authorizationCacheEnabled() const;
+
+    DisclosureRule publisherDisclosure() const;
+    DisclosureRule callerDisclosure() const;
 
 private:
     Authorizer authorizer_;
     String uri_;
     DisclosureRule publisherDisclosure_;
     DisclosureRule callerDisclosure_;
-    bool authorizationCacheEnabled_ = false;
+    // bool authorizationCacheEnabled_ = false;
 };
 
 namespace internal { class Challenger; } // Forward declaration

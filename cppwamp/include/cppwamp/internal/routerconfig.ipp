@@ -25,24 +25,28 @@ RealmConfig::withAuthorizer(Authorizer f)
     return *this;
 }
 
-CPPWAMP_INLINE RealmConfig&
-RealmConfig::withAuthorizationCacheEnabled(bool enabled)
-{
-    authorizationCacheEnabled_ = enabled;
-    return *this;
-}
+//CPPWAMP_INLINE RealmConfig&
+//RealmConfig::withAuthorizationCacheEnabled(bool enabled)
+//{
+//    authorizationCacheEnabled_ = enabled;
+//    return *this;
+//}
 
+/** @note DisclosureRule::preset is treated as DisclosureRule::originator. */
 CPPWAMP_INLINE RealmConfig&
 RealmConfig::withPublisherDisclosure(DisclosureRule d)
 {
-    publisherDisclosure_ = d;
+    publisherDisclosure_ =
+        (d == DisclosureRule::preset) ? DisclosureRule::originator : d;
     return *this;
 }
 
+/** @note DisclosureRule::preset is treated as DisclosureRule::originator. */
 CPPWAMP_INLINE RealmConfig&
 RealmConfig::withCallerDisclosure(DisclosureRule d)
 {
-    callerDisclosure_ = d;
+    callerDisclosure_ =
+        (d == DisclosureRule::preset) ? DisclosureRule::originator : d;
     return *this;
 }
 
@@ -53,9 +57,19 @@ CPPWAMP_INLINE const Authorizer& RealmConfig::authorizer() const
     return authorizer_;
 }
 
-CPPWAMP_INLINE bool RealmConfig::authorizationCacheEnabled() const
+//CPPWAMP_INLINE bool RealmConfig::authorizationCacheEnabled() const
+//{
+//    return authorizationCacheEnabled_;
+//}
+
+CPPWAMP_INLINE DisclosureRule RealmConfig::publisherDisclosure() const
 {
-    return authorizationCacheEnabled_;
+    return publisherDisclosure_;
+}
+
+CPPWAMP_INLINE DisclosureRule RealmConfig::callerDisclosure() const
+{
+    return publisherDisclosure_;
 }
 
 

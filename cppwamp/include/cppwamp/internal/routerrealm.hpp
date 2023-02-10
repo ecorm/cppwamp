@@ -152,6 +152,26 @@ private:
         return true;
     }
 
+    template <typename TData>
+    static void setDisclosed(TData& data, DisclosureRule realmRule,
+                             const Authorization& authentication)
+    {
+        auto rule = authentication.disclosure();
+        rule = (rule == DisclosureRule::preset) ? realmRule : rule;
+        setDisclosed(data, rule);
+    }
+
+    template <typename TData>
+    static void setDisclosed(TData& data, DisclosureRule rule)
+    {
+        bool disclosed = data.discloseMe();
+        if (rule == DisclosureRule::off)
+            disclosed = false;
+        if (rule == DisclosureRule::on)
+            disclosed = true;
+        data.setDisclosed({}, disclosed);
+    }
+
     RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
                 RouterContext&& rctx)
         : strand_(boost::asio::make_strand(e)),
@@ -312,6 +332,7 @@ private:
             {
                 auto rid = p.requestId({});
                 bool ack = p.optionOr<bool>("acknowledge", false);
+                setDisclosed(p, self->config_.publisherDisclosure());
                 auto result = self->broker_.publish(s, std::move(p));
                 if (ack)
                 {
@@ -332,6 +353,9 @@ private:
                 bool ack = p.optionOr<bool>("acknowledge", false);
                 if (!checkAuthorization(a, *s, WampMsgType::publish, rid, !ack))
                     return;
+                if (a.hasTrustLevel())
+                    p.setTrustLevel({}, a.trustLevel());
+                setDisclosed(p, self->config_.publisherDisclosure(), a);
                 auto result = self->broker_.publish(s, std::move(p));
                 if (ack)
                 {
@@ -368,8 +392,6 @@ private:
 
         struct Authorized
         {
-            RouterSession::WeakPtr s;
-
             void operator()(Ptr self, RouterSession::Ptr s,
                             const Authorization& a, Procedure&& p)
             {
@@ -421,6 +443,7 @@ private:
             void operator()()
             {
                 auto rid = r.requestId({});
+                setDisclosed(r, self->config_.callerDisclosure());
                 auto result = self->dealer_.call(s, std::move(r));
                 if (!result)
                     s->sendError(WampMsgType::call, rid, result);
@@ -429,14 +452,15 @@ private:
 
         struct Authorized
         {
-            RouterSession::WeakPtr s;
-
             void operator()(Ptr self, RouterSession::Ptr s,
                             const Authorization& a, Rpc&& r)
             {
                 auto rid = r.requestId({});
                 if (!checkAuthorization(a, *s, WampMsgType::call, rid))
                     return;
+                if (a.hasTrustLevel())
+                    r.setTrustLevel({}, a.trustLevel());
+                setDisclosed(r, self->config_.callerDisclosure(), a);
                 auto result = self->dealer_.call(s, std::move(r));
                 if (!result)
                     s->sendError(WampMsgType::call, rid, result);

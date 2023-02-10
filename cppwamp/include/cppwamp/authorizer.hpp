@@ -12,6 +12,8 @@
     @brief Contains facilities for dynamic authorization. */
 //------------------------------------------------------------------------------
 
+// TODO: Authorization cache
+
 #include <cassert>
 #include <functional>
 #include <utility>
@@ -49,7 +51,8 @@ struct CPPWAMP_API Authorization
         operation itself has failed. */
     Authorization(std::error_code ec);
 
-    /** Sets the trust level for this operation. */
+    /** Sets the trust level for a publish or call operation, to be propagated
+        to the corresponding events or invocation. */
     Authorization& withTrustLevel(TrustLevel tl);
 
     /** Sets the rule that governs how the caller/publisher is disclosed. */
@@ -68,14 +71,15 @@ struct CPPWAMP_API Authorization
     /** Obtains the operation's trust level. */
     TrustLevel trustLevel() const;
 
-    /** Obtains the caller/publsher disclosure rule. */
+    /** Obtains the caller/publisher disclosure rule. */
     DisclosureRule disclosure() const;
 
 private:
     std::error_code error_;
-    TrustLevel trustLevel_ = -1;
+    TrustLevel trustLevel_ = 0;
     DisclosureRule disclosure_ = DisclosureRule::preset;
     bool allowed_ = false;
+    bool hasTrustLevel_ = false;
 };
 
 //------------------------------------------------------------------------------

@@ -18,6 +18,7 @@ CPPWAMP_INLINE Authorization::Authorization(std::error_code ec) : error_(ec) {}
 CPPWAMP_INLINE Authorization& Authorization::withTrustLevel(TrustLevel tl)
 {
     trustLevel_ = tl;
+    hasTrustLevel_ = true;
     return *this;
 }
 
@@ -34,7 +35,7 @@ CPPWAMP_INLINE bool Authorization::allowed() const {return allowed_;}
 
 CPPWAMP_INLINE bool Authorization::hasTrustLevel() const
 {
-    return trustLevel_ >= 0;
+    return hasTrustLevel_;
 }
 
 CPPWAMP_INLINE TrustLevel Authorization::trustLevel() const
@@ -46,7 +47,6 @@ CPPWAMP_INLINE DisclosureRule Authorization::disclosure() const
 {
     return disclosure_;
 }
-
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AuthorizationAction AuthorizationRequest::action() const

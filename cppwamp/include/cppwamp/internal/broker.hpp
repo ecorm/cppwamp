@@ -17,9 +17,7 @@
 #include "random.hpp"
 #include "routersession.hpp"
 
-// TODO: Publisher Identification override
 // TODO: Subscriber include/exclude lists
-// TODO: Publication Trust Levels
 
 namespace wamp
 {
