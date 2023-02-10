@@ -13,11 +13,11 @@
 //------------------------------------------------------------------------------
 
 #include <cassert>
+#include <functional>
 #include <memory>
 #include "any.hpp"
-#include "anyhandler.hpp"
 #include "api.hpp"
-#include "asiodefs.hpp"
+#include "error.hpp"
 #include "peerdata.hpp"
 #include "variant.hpp"
 #include "wampdefs.hpp"
@@ -115,23 +115,10 @@ struct CPPWAMP_API Authorization
     OriginatorDisclosure disclosure() const {return disclosure_;}
 
 private:
-    any data_;
+    std::error_code error_;
     TrustLevel trustLevel_ = -1;
     OriginatorDisclosure disclosure_ = OriginatorDisclosure::preset;
-    std::error_code error_;
     bool allowed_ = false;
-
-public:
-    // Internal use only
-    void setData(internal::PassKey, any&& data) {data_ = std::move(data);}
-
-    template <typename T>
-    T& dataAs(internal::PassKey)
-    {
-        auto ptr = any_cast<T>(&data_);
-        assert(ptr != nullptr);
-        return *ptr;
-    }
 };
 
 //------------------------------------------------------------------------------
@@ -148,27 +135,51 @@ class CPPWAMP_API AuthorizationRequest
 {
 public:
     using Action = AuthorizationAction;
-    using Handler = AnyCompletionHandler<void (Authorization)>;
+    using Handler = std::function<void (Authorization, any)>;
 
     Action action() const {return action_;}
 
-    template <typename TPeerData>
-    const TPeerData& dataAs()
+    const AuthInfo& authInfo() const {return *authInfo_;}
+
+    const Pub& pub() const {return dataAs<Pub>();}
+
+    const Topic& topic() const {return dataAs<Topic>();}
+
+    const Procedure& procedure() const {return dataAs<Procedure>();}
+
+    const Rpc& rpc() const {return dataAs<Rpc>();}
+
+    template <typename T>
+    const T& dataAs() const
     {
-        auto ptr = any_cast<TPeerData>(&peerData_);
-        CPPWAMP_LOGIC_CHECK(ptr != nullptr,
-                            "Bad wamp::AuthorizationRequest::dataAs() type");
-        return *ptr;
+        auto data = any_cast<T>(&data_);
+        CPPWAMP_LOGIC_CHECK(data != nullptr,
+                            "wamp::AuthorizationRequest does not hold a T");
+        return *data;
     }
 
-    const AuthInfo& authInfo() const {return *authInfo_;}
+    template <typename TVisitor>
+    void apply(TVisitor&& v)
+    {
+        using V = TVisitor;
+        using AA = AuthorizationAction;
+        switch (action_)
+        {
+        case AA::publish:   std::forward<V>(v)(*this, pub());       break;
+        case AA::subscribe: std::forward<V>(v)(*this, topic());     break;
+        case AA::enroll:    std::forward<V>(v)(*this, procedure()); break;
+        case AA::call:      std::forward<V>(v)(*this, rpc());       break;
+        default: assert(false && "Unexpected AuthorizationAction enumerator");
+        }
+    }
 
     void authorize(Authorization a)
     {
-        // TODO: Store weak pointer to RouterRealm instead and
-        // call virtual handler function.
-        a.setData({}, std::move(peerData_));
-        postAny(strand_, std::move(handler_), std::move(a));
+        CPPWAMP_LOGIC_CHECK(
+            !authorized_,
+            "wamp::AuthorizationRequest::authorize already called");
+        handler_(std::move(a), std::move(data_));
+        authorized_ = true;
     }
 
     void allow() {authorize(true);}
@@ -178,31 +189,22 @@ public:
     void fail(std::error_code ec) {authorize(Authorization{ec});}
 
 private:
-    any peerData_;
-    IoStrand strand_;
-    AnyCompletionHandler<void (Authorization)> handler_;
+    any data_;
+    Handler handler_;
     AuthInfo::Ptr authInfo_;
     Action action_;
+    bool authorized_ = false;
 
 public:
     // Internal use only
     template <typename TPeerData>
     AuthorizationRequest(internal::PassKey, Action a, TPeerData&& d,
-                         AuthInfo::Ptr i, IoStrand s, Handler h)
-        : peerData_(std::forward<TPeerData>(d)),
-          strand_(std::move(s)),
+                         AuthInfo::Ptr i, Handler h)
+        : data_(std::forward<TPeerData>(d)),
           handler_(std::move(h)),
           authInfo_(std::move(i)),
           action_(a)
     {}
-
-    template <typename TPeerData>
-    TPeerData& dataAs(internal::PassKey)
-    {
-        auto ptr = any_cast<TPeerData>(&peerData_);
-        assert(ptr != nullptr);
-        return *ptr;
-    }
 };
 
 //------------------------------------------------------------------------------

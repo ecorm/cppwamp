@@ -31,6 +31,7 @@ class RouterRealm : public std::enable_shared_from_this<RouterRealm>
 {
 public:
     using Ptr = std::shared_ptr<RouterRealm>;
+    using WeakPtr = std::weak_ptr<RouterRealm>;
     using Executor = AnyIoExecutor;
 
     static Ptr create(Executor e, RealmConfig c, const RouterConfig& rcfg,
@@ -92,6 +93,43 @@ public:
     }
 
 private:
+    template <typename TOperation, typename TData>
+    struct AuthorizationHandler
+    {
+        WeakPtr self;
+        RouterSession::WeakPtr s;
+        TOperation op;
+
+        void operator()(Authorization a, any anyData)
+        {
+            struct Dispatched
+            {
+                Ptr self;
+                Authorization authorization;
+                TData data;
+                RouterSession::Ptr originator;
+                TOperation op;
+
+                void operator()()
+                {
+                    op(std::move(self), std::move(originator),
+                       std::move(authorization), std::move(data));
+                }
+            };
+
+            auto me = self.lock();
+            if (!me)
+                return;
+            auto originator = s.lock();
+            if (!originator)
+                return;
+            auto& data = *any_cast<TData>(&anyData);
+            me->safelyDispatch<Dispatched>(std::move(a), std::move(data),
+                                           std::move(originator),
+                                           std::move(op));
+        }
+    };
+
     static bool checkAuthorization(const Authorization& auth, RouterSession& s,
                                    WampMsgType reqType, RequestId rid,
                                    bool logOnly = false)
@@ -139,41 +177,49 @@ private:
             strand(), F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
-    template <typename TOperation, typename TPeerData>
-    void dispatchAuthorized(AuthorizationAction a, RouterSession::Ptr s,
-                            TPeerData&& d)
+    template <typename TDirectOp, typename TAuthorizedOp, typename D>
+    void dispatchAuthorized(AuthorizationAction action,
+                            RouterSession::Ptr originator, D&& data)
+    {
+        if (config_.authorizer())
+        {
+            dispatchDynamicallyAuthorized<TAuthorizedOp>(
+                action, std::move(originator), std::move(data));
+        }
+        else
+        {
+            safelyDispatch<TDirectOp>(originator, std::forward<D>(data));
+        }
+    }
+
+    template <typename TOperation, typename D>
+    void dispatchDynamicallyAuthorized(AuthorizationAction action,
+                                       RouterSession::Ptr originator, D&& data)
     {
         struct Dispatched
         {
             Ptr self;
-            RealmConfig::Authorizer authorizer;
             AuthorizationRequest request;
-
-            void operator()()
-            {
-                authorizer(std::move(request));
-            }
+            void operator()() {self->config_.authorizer()(std::move(request));}
         };
 
-        if (config_.authorizer())
-        {
-            const auto& authorizer = config_.authorizer();
-            AuthorizationRequest req{{}, a, std::forward<TPeerData>(d),
-                                     s->sharedAuthInfo(), strand_,
-                                     TOperation{shared_from_this(), s}};
-            auto exec = boost::asio::get_associated_executor(authorizer,
-                                                             strand_);
-            Dispatched dispatched{shared_from_this(), config_.authorizer(),
-                                  std::move(req)};
-            dispatchAny(strand_,
-                        boost::asio::bind_executor(exec,
-                                                   std::move(dispatched)));
-        }
-        else
-        {
-            dispatchAny(strand_, TOperation{shared_from_this(), s},
-                        std::forward<TPeerData>(d));
-        }
+        auto self = shared_from_this();
+        const auto& authorizer = config_.authorizer();
+        AuthorizationHandler<TOperation, D> handler{self, originator,
+                                                    TOperation{}};
+
+        AuthorizationRequest req{{}, action, std::move(data),
+                                 originator->sharedAuthInfo(),
+                                 std::move(handler)};
+
+        auto exec =
+            boost::asio::get_associated_executor(authorizer, strand_);
+
+        Dispatched dispatched{std::move(self), std::move(req)};
+
+        dispatchAny(
+            strand_,
+            boost::asio::bind_executor(exec, std::move(dispatched)));
     }
 
     RouterLogger::Ptr logger() const {return logger_;}
@@ -196,33 +242,41 @@ private:
 
     void subscribe(RouterSession::Ptr s, Topic&& topic)
     {
-        struct Op
+        struct Direct
         {
             Ptr self;
             RouterSession::Ptr s;
+            Topic t;
 
-            void operator()(Authorization a)
+            void operator()()
             {
-                auto& topic = a.dataAs<Topic>({});
-                auto reqId = topic.requestId({});
-                if (!checkAuthorization(a, *s, WampMsgType::subscribe, reqId))
-                    return;
-                (*this)(std::move(topic));
-            }
-
-            void operator()(Topic topic)
-            {
-                auto reqId = topic.requestId({});
-                auto result = self->broker_.subscribe(s, std::move(topic));
+                auto rid = t.requestId({});
+                auto result = self->broker_.subscribe(s, std::move(t));
                 if (result)
-                    s->sendSubscribed(reqId, *result);
+                    s->sendSubscribed(rid, *result);
                 else
-                    s->sendError(WampMsgType::subscribe, reqId, result);
+                    s->sendError(WampMsgType::subscribe, rid, result);
             }
         };
 
-        dispatchAuthorized<Op>(AuthorizationAction::subscribe, std::move(s),
-                               std::move(topic));
+        struct Authorized
+        {
+            void operator()(Ptr self, RouterSession::Ptr s,
+                            const Authorization& a, Topic&& t)
+            {
+                auto rid = t.requestId({});
+                if (!checkAuthorization(a, *s, WampMsgType::subscribe, rid))
+                    return;
+                auto result = self->broker_.subscribe(s, std::move(t));
+                if (result)
+                    s->sendSubscribed(rid, *result);
+                else
+                    s->sendError(WampMsgType::subscribe, rid, result);
+            }
+        };
+
+        dispatchAuthorized<Direct, Authorized>(
+            AuthorizationAction::subscribe, std::move(s), std::move(topic));
     }
 
     void unsubscribe(RouterSession::Ptr s, SubscriptionId subId, RequestId rid)
@@ -249,31 +303,17 @@ private:
 
     void publish(RouterSession::Ptr s, Pub&& pub)
     {
-        struct Op
+        struct Direct
         {
             Ptr self;
             RouterSession::Ptr s;
+            Pub p;
 
-            void operator()(Authorization a)
+            void operator()()
             {
-                auto& pub = a.dataAs<Pub>({});
-                auto rid = pub.requestId({});
-                bool ack = pub.optionOr<bool>("acknowledge", false);
-                if (!checkAuthorization(a, *s, WampMsgType::publish, rid, !ack))
-                    return;
-                publish(std::move(pub), rid, ack);
-            }
-
-            void operator()(Pub pub)
-            {
-                auto rid = pub.requestId({});
-                bool ack = pub.optionOr<bool>("acknowledge", false);
-                publish(std::move(pub), rid, ack);
-            }
-
-            void publish(Pub&& pub, RequestId rid, bool ack)
-            {
-                auto result = self->broker_.publish(s, std::move(pub));
+                auto rid = p.requestId({});
+                bool ack = p.optionOr<bool>("acknowledge", false);
+                auto result = self->broker_.publish(s, std::move(p));
                 if (ack)
                 {
                     if (result)
@@ -284,30 +324,42 @@ private:
             }
         };
 
-        dispatchAuthorized<Op>(AuthorizationAction::publish, std::move(s),
-                               std::move(pub));
+        struct Authorized
+        {
+            void operator()(Ptr self, RouterSession::Ptr s,
+                            const Authorization& a, Pub&& p)
+            {
+                auto rid = p.requestId({});
+                bool ack = p.optionOr<bool>("acknowledge", false);
+                if (!checkAuthorization(a, *s, WampMsgType::publish, rid, !ack))
+                    return;
+                auto result = self->broker_.publish(s, std::move(p));
+                if (ack)
+                {
+                    if (result)
+                        s->sendPublished(rid, *result);
+                    else
+                        s->sendError(WampMsgType::publish, rid, result);
+                }
+            }
+        };
+
+        dispatchAuthorized<Direct, Authorized>(
+            AuthorizationAction::publish, std::move(s), std::move(pub));
     }
 
     void enroll(RouterSession::Ptr s, Procedure&& proc)
     {
-        struct Op
+        struct Direct
         {
             Ptr self;
             RouterSession::Ptr s;
+            Procedure p;
 
-            void operator()(Authorization a)
+            void operator()()
             {
-                auto& proc = a.dataAs<Procedure>({});
-                auto rid = proc.requestId({});
-                if (!checkAuthorization(a, *s, WampMsgType::enroll, rid))
-                    return;
-                (*this)(std::move(proc));
-            }
-
-            void operator()(Procedure proc)
-            {
-                auto rid = proc.requestId({});
-                auto result = self->dealer_.enroll(s, std::move(proc));
+                auto rid = p.requestId({});
+                auto result = self->dealer_.enroll(s, std::move(p));
                 if (result)
                     s->sendRegistered(rid, *result);
                 else
@@ -315,8 +367,26 @@ private:
             }
         };
 
-        dispatchAuthorized<Op>(AuthorizationAction::enroll, std::move(s),
-                               std::move(proc));
+        struct Authorized
+        {
+            RouterSession::WeakPtr s;
+
+            void operator()(Ptr self, RouterSession::Ptr s,
+                            const Authorization& a, Procedure&& p)
+            {
+                auto rid = p.requestId({});
+                if (!checkAuthorization(a, *s, WampMsgType::enroll, rid))
+                    return;
+                auto result = self->dealer_.enroll(s, std::move(p));
+                if (result)
+                    s->sendRegistered(rid, *result);
+                else
+                    s->sendError(WampMsgType::enroll, rid, result);
+            }
+        };
+
+        dispatchAuthorized<Direct, Authorized>(
+            AuthorizationAction::enroll, std::move(s), std::move(proc));
     }
 
     void unregister(RouterSession::Ptr s, RegistrationId regId, RequestId reqId)
@@ -343,31 +413,39 @@ private:
 
     void call(RouterSession::Ptr s, Rpc&& rpc)
     {
-        struct Op
+        struct Direct
         {
             Ptr self;
             RouterSession::Ptr s;
+            Rpc r;
 
-            void operator()(Authorization a)
+            void operator()()
             {
-                auto& rpc = a.dataAs<Rpc>({});
-                auto rid = rpc.requestId({});
-                if (!checkAuthorization(a, *s, WampMsgType::call, rid))
-                    return;
-                (*this)(std::move(rpc));
-            }
-
-            void operator()(Rpc rpc)
-            {
-                auto rid = rpc.requestId({});
-                auto result = self->dealer_.call(s, std::move(rpc));
+                auto rid = r.requestId({});
+                auto result = self->dealer_.call(s, std::move(r));
                 if (!result)
                     s->sendError(WampMsgType::call, rid, result);
             }
         };
 
-        dispatchAuthorized<Op>(AuthorizationAction::enroll, std::move(s),
-                               std::move(rpc));
+        struct Authorized
+        {
+            RouterSession::WeakPtr s;
+
+            void operator()(Ptr self, RouterSession::Ptr s,
+                            const Authorization& a, Rpc&& r)
+            {
+                auto rid = r.requestId({});
+                if (!checkAuthorization(a, *s, WampMsgType::call, rid))
+                    return;
+                auto result = self->dealer_.call(s, std::move(r));
+                if (!result)
+                    s->sendError(WampMsgType::call, rid, result);
+            }
+        };
+
+        dispatchAuthorized<Direct, Authorized>(
+            AuthorizationAction::enroll, std::move(s), std::move(rpc));
     }
 
     void cancelCall(RouterSession::Ptr s, CallCancellation&& c)
