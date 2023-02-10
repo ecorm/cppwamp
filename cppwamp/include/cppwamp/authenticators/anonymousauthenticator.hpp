@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <functional>
 #include "../api.hpp"
-#include "../authinfo.hpp"
+#include "../authenticator.hpp"
 
 namespace wamp
 {

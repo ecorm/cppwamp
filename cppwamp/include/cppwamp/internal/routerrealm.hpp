@@ -22,7 +22,6 @@
 namespace wamp
 {
 
-
 namespace internal
 {
 

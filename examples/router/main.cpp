@@ -32,8 +32,8 @@ int main()
         else if (ex->challengeCount() == 1)
         {
             logger({wamp::LogLevel::debug,
-                    "memento = " +
-                        wamp::any_cast<const std::string&>(ex->memento())});
+                    "note = " +
+                        wamp::any_cast<const std::string&>(ex->note())});
             if (ex->authentication().signature() == "grail")
                 ex->welcome({"authrole", "admin", "ticket", "static"});
             else

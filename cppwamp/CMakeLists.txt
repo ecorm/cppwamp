@@ -10,7 +10,8 @@ set(HEADERS
     include/cppwamp/anyhandler.hpp
     include/cppwamp/api.hpp
     include/cppwamp/asiodefs.hpp
-    include/cppwamp/authinfo.hpp
+    include/cppwamp/authorizer.hpp
+    include/cppwamp/authenticator.hpp
     include/cppwamp/blob.hpp
     include/cppwamp/cbor.hpp
     include/cppwamp/chits.hpp
@@ -117,6 +118,8 @@ set(HEADERS
 
 set(INLINES
     include/cppwamp/internal/accesslogging.ipp
+    include/cppwamp/internal/authenticator.ipp
+    include/cppwamp/internal/authorizer.ipp
     include/cppwamp/internal/authinfo.ipp
     include/cppwamp/internal/blob.ipp
     include/cppwamp/internal/cbor.ipp

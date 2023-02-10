@@ -33,14 +33,14 @@ RealmConfig::withAuthorizationCacheEnabled(bool enabled)
 }
 
 CPPWAMP_INLINE RealmConfig&
-RealmConfig::withPublisherDisclosure(OriginatorDisclosure d)
+RealmConfig::withPublisherDisclosure(DisclosureRule d)
 {
     publisherDisclosure_ = d;
     return *this;
 }
 
 CPPWAMP_INLINE RealmConfig&
-RealmConfig::withCallerDisclosure(OriginatorDisclosure d)
+RealmConfig::withCallerDisclosure(DisclosureRule d)
 {
     callerDisclosure_ = d;
     return *this;
@@ -48,7 +48,7 @@ RealmConfig::withCallerDisclosure(OriginatorDisclosure d)
 
 CPPWAMP_INLINE const String& RealmConfig::uri() const {return uri_;}
 
-CPPWAMP_INLINE const RealmConfig::Authorizer& RealmConfig::authorizer() const
+CPPWAMP_INLINE const Authorizer& RealmConfig::authorizer() const
 {
     return authorizer_;
 }
@@ -72,8 +72,7 @@ ServerConfig::withAuthenticator(Authenticator f)
 
 CPPWAMP_INLINE const String& ServerConfig::name() const {return name_;}
 
-CPPWAMP_INLINE const ServerConfig::Authenticator&
-ServerConfig::authenticator() const
+CPPWAMP_INLINE const Authenticator& ServerConfig::authenticator() const
 {
     return authenticator_;
 }

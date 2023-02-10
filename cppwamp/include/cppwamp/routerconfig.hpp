@@ -13,14 +13,16 @@
 //------------------------------------------------------------------------------
 
 #include <memory>
-#include <string>
+#include <functional>
+#include <utility>
+#include <vector>
 #include "anyhandler.hpp"
 #include "api.hpp"
-#include "authinfo.hpp"
+#include "authenticator.hpp"
+#include "authorizer.hpp"
 #include "codec.hpp"
 #include "listener.hpp"
 #include "logging.hpp"
-#include "wampdefs.hpp"
 
 namespace wamp
 {
@@ -31,8 +33,6 @@ namespace internal { class RouterServer; } // Forward declaration
 class CPPWAMP_API RealmConfig
 {
 public:
-    using Authorizer = AnyReusableHandler<void (AuthorizationRequest)>;
-
     RealmConfig(String uri);
 
     RealmConfig& withAuthorizer(Authorizer f);
@@ -47,9 +47,9 @@ public:
 
     RealmConfig& withAuthorizationCacheEnabled(bool enabled = true);
 
-    RealmConfig& withPublisherDisclosure(OriginatorDisclosure d);
+    RealmConfig& withPublisherDisclosure(DisclosureRule d);
 
-    RealmConfig& withCallerDisclosure(OriginatorDisclosure d);
+    RealmConfig& withCallerDisclosure(DisclosureRule d);
 
     const String& uri() const;
 
@@ -60,8 +60,8 @@ public:
 private:
     Authorizer authorizer_;
     String uri_;
-    OriginatorDisclosure publisherDisclosure_;
-    OriginatorDisclosure callerDisclosure_;
+    DisclosureRule publisherDisclosure_;
+    DisclosureRule callerDisclosure_;
     bool authorizationCacheEnabled_ = false;
 };
 
@@ -74,7 +74,6 @@ public:
     // TODO: IP filter
     // TODO: Authentication cooldown
     using Ptr = std::shared_ptr<ServerConfig>;
-    using Authenticator = AnyReusableHandler<void (AuthExchange::Ptr)>;
 
     template <typename S, typename F, typename... Fs>
     explicit ServerConfig(String name, S&& transportSettings, F format,

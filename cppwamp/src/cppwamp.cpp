@@ -12,6 +12,8 @@
 
 #include <cppwamp/internal/accesslogging.ipp>
 #include <cppwamp/internal/anonymousauthenticator.ipp>
+#include <cppwamp/internal/authorizer.ipp>
+#include <cppwamp/internal/authenticator.ipp>
 #include <cppwamp/internal/authinfo.ipp>
 #include <cppwamp/internal/blob.ipp>
 #include <cppwamp/internal/cbor.ipp>

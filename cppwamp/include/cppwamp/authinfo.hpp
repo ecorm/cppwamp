@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2022.
+    Copyright Butterfly Energy Systems 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -9,52 +9,71 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the API used by a _router_ peer in WAMP applications. */
+    @brief Contains facilities for authentication information. */
 //------------------------------------------------------------------------------
 
-#include <cassert>
-#include <functional>
 #include <memory>
 #include "any.hpp"
 #include "api.hpp"
-#include "error.hpp"
-#include "peerdata.hpp"
-#include "variant.hpp"
 #include "wampdefs.hpp"
-#include "internal/challenger.hpp"
+#include "variant.hpp"
 #include "internal/passkey.hpp"
+
+// TODO: Add 'transport' dictionary information
 
 namespace wamp
 {
 
 //------------------------------------------------------------------------------
+/** Contains authentication information associated with a
+    WAMP client session. */
+//------------------------------------------------------------------------------
 class CPPWAMP_API AuthInfo
 {
 public:
+    /// Shared pointer type.
     using Ptr = std::shared_ptr<AuthInfo>;
 
+    /** Default constructor. */
     AuthInfo();
 
+    /** Constructor taking essential information. */
     AuthInfo(String id, String role, String method, String provider);
 
+    /** Adds an `authextra` dictionary to the authentication information. */
     AuthInfo& withExtra(Object extra);
 
+    /** Adds an arbitrary note that can be later accessed by dynamic
+        authorizers. */
     AuthInfo& withNote(any note);
 
+    /** Obtains the session ID. */
     SessionId sessionId() const;
 
+    /** Obtains the realm URI. */
     const String& realmUri() const;
 
+    /** Obtains the `authid` string. */
     const String& id() const;
 
+    /** Obtains the `authrole` string. */
     const String& role() const;
 
+    /** Obtains the `authmethod` string. */
     const String& method() const;
 
+    /** Obtains the `authprovider` string. */
     const String& provider() const;
 
+    /** Obtains the `authextra` dictionary. */
+    const Object& extra() const;
+
+    /** Determines whether the client session is LocalSession or one that
+        connected via a server. */
     bool isLocal() const;
 
+    /** Accesses the note containing arbitrary information set by the
+        authenticator. */
     const any& note() const;
 
 private:
@@ -74,181 +93,6 @@ public:
               bool isLocal);
     Object join(internal::PassKey, String realmUri, SessionId sessionId,
                 Object routerRoles);
-};
-
-//------------------------------------------------------------------------------
-enum class OriginatorDisclosure
-{
-    preset,     ///< Disclose originator as per the realm configuration preset.
-    originator, ///< Disclose originator as per its `disclose_me` option.
-    off,        ///< Don't disclose originator.
-    on          ///< Disclose originator.
-};
-
-//------------------------------------------------------------------------------
-struct CPPWAMP_API Authorization
-{
-    Authorization(bool allowed = true) : allowed_(allowed) {}
-
-    Authorization(std::error_code ec) : error_(ec) {}
-
-    Authorization& withTrustLevel(TrustLevel tl)
-    {
-        trustLevel_ = tl;
-        return *this;
-    }
-
-    Authorization& withDisclosure(OriginatorDisclosure d)
-    {
-        disclosure_ = d;
-        return *this;
-    }
-
-    std::error_code error() const {return error_;}
-
-    bool allowed() const {return allowed_;}
-
-    bool hasTrustLevel() const {return trustLevel_ >= 0;}
-
-    TrustLevel trustLevel() const {return trustLevel_;}
-
-    OriginatorDisclosure disclosure() const {return disclosure_;}
-
-private:
-    std::error_code error_;
-    TrustLevel trustLevel_ = -1;
-    OriginatorDisclosure disclosure_ = OriginatorDisclosure::preset;
-    bool allowed_ = false;
-};
-
-//------------------------------------------------------------------------------
-enum class AuthorizationAction
-{
-    publish,
-    subscribe,
-    enroll,
-    call
-};
-
-//------------------------------------------------------------------------------
-class CPPWAMP_API AuthorizationRequest
-{
-public:
-    using Action = AuthorizationAction;
-    using Handler = std::function<void (Authorization, any)>;
-
-    Action action() const {return action_;}
-
-    const AuthInfo& authInfo() const {return *authInfo_;}
-
-    const Pub& pub() const {return dataAs<Pub>();}
-
-    const Topic& topic() const {return dataAs<Topic>();}
-
-    const Procedure& procedure() const {return dataAs<Procedure>();}
-
-    const Rpc& rpc() const {return dataAs<Rpc>();}
-
-    template <typename T>
-    const T& dataAs() const
-    {
-        auto data = any_cast<T>(&data_);
-        CPPWAMP_LOGIC_CHECK(data != nullptr,
-                            "wamp::AuthorizationRequest does not hold a T");
-        return *data;
-    }
-
-    template <typename TVisitor>
-    void apply(TVisitor&& v)
-    {
-        using V = TVisitor;
-        using AA = AuthorizationAction;
-        switch (action_)
-        {
-        case AA::publish:   std::forward<V>(v)(*this, pub());       break;
-        case AA::subscribe: std::forward<V>(v)(*this, topic());     break;
-        case AA::enroll:    std::forward<V>(v)(*this, procedure()); break;
-        case AA::call:      std::forward<V>(v)(*this, rpc());       break;
-        default: assert(false && "Unexpected AuthorizationAction enumerator");
-        }
-    }
-
-    void authorize(Authorization a)
-    {
-        CPPWAMP_LOGIC_CHECK(
-            !authorized_,
-            "wamp::AuthorizationRequest::authorize already called");
-        handler_(std::move(a), std::move(data_));
-        authorized_ = true;
-    }
-
-    void allow() {authorize(true);}
-
-    void deny() {authorize(false);}
-
-    void fail(std::error_code ec) {authorize(Authorization{ec});}
-
-private:
-    any data_;
-    Handler handler_;
-    AuthInfo::Ptr authInfo_;
-    Action action_;
-    bool authorized_ = false;
-
-public:
-    // Internal use only
-    template <typename TPeerData>
-    AuthorizationRequest(internal::PassKey, Action a, TPeerData&& d,
-                         AuthInfo::Ptr i, Handler h)
-        : data_(std::forward<TPeerData>(d)),
-          handler_(std::move(h)),
-          authInfo_(std::move(i)),
-          action_(a)
-    {}
-};
-
-//------------------------------------------------------------------------------
-/** Contains information on an authorization exchange with a router.  */
-//------------------------------------------------------------------------------
-class AuthExchange
-{
-public:
-    using Ptr = std::shared_ptr<AuthExchange>;
-
-    const Realm& realm() const;
-    const Challenge& challenge() const;
-    const Authentication& authentication() const;
-    unsigned challengeCount() const;
-    const any& memento() const &;
-    any&& memento() &&;
-
-    void challenge(Challenge challenge, any memento = {});
-
-    void challenge(ThreadSafe, Challenge challenge, any memento = {});
-
-    void welcome(AuthInfo info);
-
-    void welcome(ThreadSafe, AuthInfo info);
-
-    void reject(Abort a = {SessionErrc::cannotAuthenticate});
-
-    void reject(ThreadSafe, Abort a = {SessionErrc::cannotAuthenticate});
-
-public:
-    // Internal use only
-    using ChallengerPtr = std::weak_ptr<internal::Challenger>;
-    static Ptr create(internal::PassKey, Realm&& r, ChallengerPtr c);
-    void setAuthentication(internal::PassKey, Authentication&& a);
-
-private:
-    AuthExchange(Realm&& r, ChallengerPtr c);
-
-    Realm realm_;
-    ChallengerPtr challenger_;
-    Challenge challenge_;
-    Authentication authentication_;
-    any memento_; // Keeps the authorizer stateless
-    unsigned challengeCount_ = 0;
 };
 
 } // namespace wamp
