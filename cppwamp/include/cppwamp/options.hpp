@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -13,15 +13,20 @@
 #include "traits.hpp"
 #include "variant.hpp"
 #include "./internal/passkey.hpp"
-#include "./internal/wampmessage.hpp"
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the declaration of the Options class. */
+    @brief Contains facilities for accessing WAMP message options. */
 //------------------------------------------------------------------------------
 
 namespace wamp
 {
+
+//------------------------------------------------------------------------------
+/** Converts an option to an unsigned integer. */
+//------------------------------------------------------------------------------
+bool CPPWAMP_API optionToUnsignedInteger(const Variant& option, UInt& number);
+
 
 //------------------------------------------------------------------------------
 /** Wrapper around a WAMP message containing an options dictionary. */
@@ -166,39 +171,10 @@ ErrorOr<UInt> Options<D,M>::toUnsignedInteger(const String& key) const
     if (found == options().end())
         return makeUnexpectedError(SessionErrc::noSuchOption);
     const auto& v = found->second;
-
-    switch (v.typeId())
-    {
-    case TypeId::integer:
-    {
-        auto n = v.template as<Int>();
-        if (n < 0)
-            return makeUnexpectedError(SessionErrc::badOption);
-        return static_cast<UInt>(n);
-    }
-
-    case TypeId::uint:
-        return v.template as<UInt>();
-
-    case TypeId::real:
-    {
-        auto x = v.template as<Real>();
-        if (x < 0)
-            return makeUnexpectedError(SessionErrc::badOption);
-
-        auto n = static_cast<UInt>(x);
-        // Round-trip back to floating point and check that it's still
-        // equal to the original value.
-        if (static_cast<Real>(n) != x)
-            return makeUnexpectedError(SessionErrc::badOption);
-        return n;
-    }
-
-    default:
-        break;
-    }
-
-    return makeUnexpectedError(SessionErrc::badOption);
+    UInt n;
+    if (!optionToUnsignedInteger(v, n))
+        return makeUnexpectedError(SessionErrc::badOption);
+    return n;
 }
 
 //------------------------------------------------------------------------------
@@ -219,6 +195,49 @@ const M& Options<D,M>::message() const {return message_;}
 //------------------------------------------------------------------------------
 template <typename D, typename M>
 M& Options<D,M>::message(internal::PassKey) {return message_;}
+
+//------------------------------------------------------------------------------
+/** @returns false if the option cannot be converted losslessly to an
+             unsigned integer. */
+//------------------------------------------------------------------------------
+inline bool optionToUnsignedInteger(const Variant& option, UInt& number)
+{
+    switch (option.typeId())
+    {
+    case TypeId::integer:
+    {
+        auto n = option.as<Int>();
+        if (n < 0)
+            return false;
+        number = n;
+        break;
+    }
+
+    case TypeId::uint:
+        number = option.as<UInt>();
+        break;
+
+    case TypeId::real:
+    {
+        auto x = option.as<Real>();
+        if (x < 0)
+            return false;
+
+        auto n = static_cast<UInt>(x);
+        // Round-trip back to floating point and check that it's still
+        // equal to the original value.
+        if (static_cast<Real>(n) != x)
+            return false;
+        number = n;
+        break;
+    }
+
+    default:
+        return false;
+    }
+
+    return true;
+}
 
 } // namespace wamp
 

@@ -8,6 +8,7 @@
 #define CPPWAMP_INTERNAL_BROKER_HPP
 
 #include <cassert>
+#include <set>
 #include <map>
 #include <utility>
 #include "../erroror.hpp"
@@ -16,8 +17,6 @@
 #include "../utils/wildcarduri.hpp"
 #include "random.hpp"
 #include "routersession.hpp"
-
-// TODO: Subscriber include/exclude lists
 
 namespace wamp
 {
@@ -32,6 +31,12 @@ public:
     BrokerPublication(Pub&& pub, PublicationId pid,
                       RouterSession::Ptr publisher)
         : topicUri_(pub.uri()),
+          eligibleSessions_(setOfSessionIds(pub, "eligible")),
+          eligibleAuthIds_(setOfStrings(pub, "eligible_authid")),
+          eligibleRoles_(setOfStrings(pub, "eligible_authrole")),
+          excludedSessions_(setOfSessionIds(pub, "excluded")),
+          excludedAuthIds_(setOfStrings(pub, "excluded_authid")),
+          excludedRoles_(setOfStrings(pub, "excluded_authrole")),
           publisherId_(publisher->wampId()),
           publicationId_(pid),
           publisherExcluded_(pub.excludeMe())
@@ -50,6 +55,11 @@ public:
             if (!authInfo.role().empty())
                 event_.withOption("publisher_authrole", authInfo.role());
         }
+
+        hasEligibleOrExcludedList_ =
+            !eligibleSessions_.empty() || !eligibleAuthIds_.empty() ||
+            !eligibleRoles_.empty() || !excludedSessions_.empty() ||
+            !excludedAuthIds_.empty() || !excludedRoles_.empty();
     }
 
     void setSubscriptionId(SubscriptionId subId)
@@ -62,10 +72,10 @@ public:
         event_.withOption("topic", topicUri_);
     }
 
-    void sendTo(RouterSession& session) const
+    void sendTo(RouterSession& subscriber) const
     {
-        if (!publisherExcluded_ || (session.wampId() != publisherId_))
-            session.sendEvent(Event{event_}, topicUri_);
+        if (isEligible(subscriber))
+            subscriber.sendEvent(Event{event_}, topicUri_);
     }
 
     const String& topicUri() const {return topicUri_;}
@@ -73,11 +83,72 @@ public:
     PublicationId publicationId() const {return publicationId_;}
 
 private:
+    static std::set<SessionId> setOfSessionIds(const Pub& pub,
+                                               const String& key)
+    {
+        std::set<SessionId> set;
+        const auto& variant = pub.optionByKey(key);
+        if (variant.template is<Array>())
+        {
+            SessionId id;
+            for (const auto& element: variant.template as<Array>())
+                if (optionToUnsignedInteger(element, id))
+                    set.emplace(id);
+        }
+        return set;
+    }
+
+    static std::set<String> setOfStrings(const Pub& pub, const String& key)
+    {
+        std::set<String> set;
+        const auto& variant = pub.optionByKey(key);
+        if (variant.template is<Array>())
+            for (const auto& element: variant.template as<Array>())
+                if (element.is<String>())
+                    set.emplace(std::move(element.as<String>()));
+        return set;
+    }
+
+    bool isEligible(const RouterSession& subscriber) const
+    {
+        auto id = subscriber.wampId();
+        const auto& authId = subscriber.authInfo().id();
+        const auto& authRole = subscriber.authInfo().role();
+
+        if (publisherExcluded_ && id == publisherId_)
+            return false;
+        if (!hasEligibleOrExcludedList_)
+            return true;
+
+        if (excludedSessions_.count(id) != 0)
+            return false;
+        if (excludedAuthIds_.count(authId) != 0)
+            return false;
+        if (excludedRoles_.count(authRole) != 0)
+            return false;
+
+        if (!eligibleSessions_.empty() && eligibleSessions_.count(id) != 0)
+            return false;
+        if (!eligibleAuthIds_.empty() && eligibleAuthIds_.count(authId) != 0)
+            return false;
+        if (!eligibleRoles_.empty() && eligibleRoles_.count(authId) != 0)
+            return false;
+
+        return true;
+    }
+
     String topicUri_;
     Event event_;
-    SessionId publisherId_;
-    PublicationId publicationId_;
-    bool publisherExcluded_;
+    std::set<SessionId> eligibleSessions_;
+    std::set<String> eligibleAuthIds_;
+    std::set<String> eligibleRoles_;
+    std::set<SessionId> excludedSessions_;
+    std::set<String> excludedAuthIds_;
+    std::set<String> excludedRoles_;
+    SessionId publisherId_ = nullId();
+    PublicationId publicationId_ = nullId();
+    bool publisherExcluded_ = false;
+    bool hasEligibleOrExcludedList_ = false;
 };
 
 //------------------------------------------------------------------------------
