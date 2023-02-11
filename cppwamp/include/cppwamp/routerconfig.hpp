@@ -23,6 +23,10 @@
 #include "codec.hpp"
 #include "listener.hpp"
 #include "logging.hpp"
+#include "uri.hpp"
+#include "internal/passkey.hpp"
+
+// TODO: Provide router-wide default realm configuration.
 
 namespace wamp
 {
@@ -51,6 +55,10 @@ public:
 
     RealmConfig& withCallerDisclosure(DisclosureRule d);
 
+    RealmConfig& withTopicUriValidator(UriValidator v);
+
+    RealmConfig& withProcedureUriValidator(UriValidator v);
+
     const String& uri() const;
 
     const Authorizer& authorizer() const;
@@ -58,14 +66,25 @@ public:
     // bool authorizationCacheEnabled() const;
 
     DisclosureRule publisherDisclosure() const;
+
     DisclosureRule callerDisclosure() const;
 
+    const UriValidator& topicUriValidator() const;
+
+    const UriValidator& procedureUriValidator() const;
+
 private:
-    Authorizer authorizer_;
     String uri_;
+    Authorizer authorizer_;
+    UriValidator topicUriValidator_;
+    UriValidator procedureUriValidator_;
     DisclosureRule publisherDisclosure_;
     DisclosureRule callerDisclosure_;
     // bool authorizationCacheEnabled_ = false;
+
+public:
+    // Internal use only
+    void initialize(internal::PassKey);
 };
 
 namespace internal { class Challenger; } // Forward declaration

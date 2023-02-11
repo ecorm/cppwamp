@@ -36,6 +36,7 @@ public:
     static Ptr create(Executor e, RealmConfig c, const RouterConfig& rcfg,
                       RouterContext rctx)
     {
+        c.initialize({});
         return Ptr(new RouterRealm(std::move(e), std::move(c), rcfg,
                                    std::move(rctx)));
     }
@@ -177,8 +178,8 @@ private:
         : strand_(boost::asio::make_strand(e)),
           config_(std::move(c)),
           router_(std::move(rctx)),
-          broker_(rcfg.publicationRNG()),
-          dealer_(strand_),
+          broker_(rcfg.publicationRNG(), config_.topicUriValidator()),
+          dealer_(strand_, config_.procedureUriValidator()),
           logSuffix_(" (Realm " + config_.uri() + ")"),
           logger_(router_.logger())
     {}

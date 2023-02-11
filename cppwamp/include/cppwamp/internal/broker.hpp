@@ -172,9 +172,12 @@ public:
 
     Policy policy() const {return policy_;}
 
-    std::error_code check() const
+    std::error_code check(const UriValidator& uriValidator) const
     {
-        // TODO: Check valid URI
+        if (policy_ == Policy::unknown)
+            return make_error_code(SessionErrc::optionNotAllowed);
+        if (!uriValidator(uri_, policy_ != Policy::exact))
+            return make_error_code(SessionErrc::invalidUri);
         return {};
     }
 
@@ -270,9 +273,9 @@ public:
 
     MatchPolicy policy() const {return topic_.policy();}
 
-    std::error_code check() const
+    std::error_code check(const UriValidator& uriValidator) const
     {
-        return topic_.check();
+        return topic_.check(uriValidator);
     }
 
     BrokerSubscription* addNewSubscriptionRecord()
@@ -432,33 +435,25 @@ public:
 class Broker
 {
 public:
-    explicit Broker(RandomNumberGenerator64 prng) : pubIdGenerator_(prng) {}
+    explicit Broker(RandomNumberGenerator64 prng, UriValidator uriValidator)
+        : pubIdGenerator_(prng),
+          uriValidator_(uriValidator)
+    {}
 
     ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t)
     {
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
                                    subIdGenerator_};
-
-        auto ec = req.check();
+        auto ec = req.check(uriValidator_);
         if (ec)
             return makeUnexpected(ec);
 
         switch (req.policy())
         {
-        case Policy::unknown:
-            return makeUnexpectedError(SessionErrc::optionNotAllowed);
-
-        case Policy::exact:
-            return byExact_.subscribe(req);
-
-        case Policy::prefix:
-            return byPrefix_.subscribe(req);
-
-        case Policy::wildcard:
-            return byWildcard_.subscribe(req);
-
-        default:
-            break;
+        case Policy::exact:    return byExact_.subscribe(req);
+        case Policy::prefix:   return byPrefix_.subscribe(req);
+        case Policy::wildcard: return byWildcard_.subscribe(req);
+        default: break;
         }
 
         assert(false && "Unexpected MatchPolicy enumerator");
@@ -505,6 +500,8 @@ public:
 
     ErrorOr<PublicationId> publish(RouterSession::Ptr publisher, Pub&& pub)
     {
+        if (!uriValidator_(pub.uri(), false))
+            return makeUnexpectedError(SessionErrc::invalidUri);
         BrokerPublication info(std::move(pub), pubIdGenerator_(),
                                std::move(publisher));
         byExact_.publish(info);
@@ -538,8 +535,9 @@ private:
     BrokerExactTopicMap byExact_;
     BrokerPrefixTopicMap byPrefix_;
     BrokerWildcardTopicMap byWildcard_;
-    BrokerSubscriptionIdGenerator subIdGenerator_;
+    BrokerSubscriptionIdGenerator subIdGenerator_; // TODO: Just increment forever
     RandomEphemeralIdGenerator pubIdGenerator_;
+    UriValidator uriValidator_;
 };
 
 } // namespace internal

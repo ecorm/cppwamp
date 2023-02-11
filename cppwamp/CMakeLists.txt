@@ -50,6 +50,7 @@ set(HEADERS
     include/cppwamp/udspath.hpp
     include/cppwamp/udsprotocol.hpp
     include/cppwamp/unpacker.hpp
+    include/cppwamp/uri.hpp
     include/cppwamp/variant.hpp
     include/cppwamp/variantdefs.hpp
     include/cppwamp/version.hpp

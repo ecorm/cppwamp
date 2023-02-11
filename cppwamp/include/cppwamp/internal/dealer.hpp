@@ -15,6 +15,7 @@
 #include <boost/asio/steady_timer.hpp>
 #include "../asiodefs.hpp"
 #include "../erroror.hpp"
+#include "../uri.hpp"
 #include "routersession.hpp"
 
 // TODO: Progressive Calls
@@ -61,9 +62,8 @@ private:
           callee_(callee),
           calleeId_(callee->wampId())
     {
-        // TODO: Reject prefix/wildcard matching as unsupported
-        // TODO: Check URI validity
-        ec = {};
+        if (procedure.optionByKey("match") != null)
+            ec = make_error_code(SessionErrc::optionNotAllowed);
     }
 
     String procedureUri_;
@@ -449,10 +449,15 @@ private:
 class Dealer
 {
 public:
-    Dealer(IoStrand strand) : jobs_(std::move(strand)) {}
+    Dealer(IoStrand strand, UriValidator uriValidator)
+        : jobs_(std::move(strand)),
+          uriValidator_(uriValidator)
+    {}
 
     ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p)
     {
+        if (!uriValidator_(p.uri(), false))
+            return makeUnexpectedError(SessionErrc::invalidUri);
         if (registry_.contains(p.uri()))
             return makeUnexpectedError(SessionErrc::procedureAlreadyExists);
         auto reg = DealerRegistration::create(std::move(p), callee);
@@ -473,6 +478,9 @@ public:
 
     ErrorOrDone call(RouterSession::Ptr caller, Rpc&& rpc)
     {
+        if (!uriValidator_(rpc.uri(), false))
+            return makeUnexpectedError(SessionErrc::invalidUri);
+
         auto reg = registry_.find(rpc.uri());
         if (reg == nullptr)
             return makeUnexpectedError(SessionErrc::noSuchProcedure);
@@ -539,6 +547,7 @@ private:
 
     DealerRegistry registry_;
     DealerJobMap jobs_;
+    UriValidator uriValidator_;
     RegistrationId nextRegistrationId_ = nullId();
 };
 
