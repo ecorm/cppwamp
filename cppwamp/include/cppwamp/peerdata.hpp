@@ -397,6 +397,9 @@ public:
     /** Destructor. */
     virtual ~Error();
 
+    /** Sets the `message` option to the given string. */
+    Error& withHint(String hint);
+
     /** Conversion to bool operator, returning false if the error is empty. */
     explicit operator bool() const;
 

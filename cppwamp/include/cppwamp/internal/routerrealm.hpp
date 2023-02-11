@@ -252,7 +252,9 @@ private:
 
             void operator()()
             {
-                self->sessions_.erase(sid);
+                auto& me = *self;
+                me.sessions_.erase(sid);
+                me.broker_.removeSubscriber(sid);
             }
         };
 

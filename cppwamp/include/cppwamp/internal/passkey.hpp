@@ -30,6 +30,7 @@ namespace internal
         friend class Dealer;
         friend class DealerInvocation;
         friend class DealerJob;
+        friend class DealerJobMap;
         friend class Invocation;
         friend class LocalSessionImpl;
         friend class Peer;

@@ -33,7 +33,7 @@ class DealerRegistration
 {
 public:
     static ErrorOr<DealerRegistration> create(Procedure&& procedure,
-                                              RouterSession::WeakPtr callee)
+                                              RouterSession::Ptr callee)
     {
         std::error_code ec;
         DealerRegistration reg(std::move(procedure), callee, ec);
@@ -52,11 +52,14 @@ public:
 
     RouterSession::WeakPtr callee() const {return callee_;}
 
+    SessionId calleeId() const {return calleeId_;}
+
 private:
-    DealerRegistration(Procedure&& procedure, RouterSession::WeakPtr callee,
+    DealerRegistration(Procedure&& procedure, RouterSession::Ptr callee,
                        std::error_code& ec)
         : procedureUri_(std::move(procedure).uri()),
-          callee_(callee)
+          callee_(callee),
+          calleeId_(callee->wampId())
     {
         // TODO: Reject prefix/wildcard matching as unsupported
         // TODO: Check URI validity
@@ -65,6 +68,7 @@ private:
 
     String procedureUri_;
     RouterSession::WeakPtr callee_;
+    SessionId calleeId_;
     RegistrationId regId_ = nullId();
 };
 
@@ -106,6 +110,29 @@ public:
         if (found == byUri_.end())
             return nullptr;
         return found->second;
+    }
+
+    void removeCallee(SessionId sessionId)
+    {
+        auto iter1 = byUri_.begin();
+        auto end1 = byUri_.end();
+        while (iter1 != end1)
+        {
+            if (iter1->second->calleeId() == sessionId)
+                iter1 = byUri_.erase(iter1);
+            else
+                ++iter1;
+        }
+
+        auto iter2 = byKey_.begin();
+        auto end2 = byKey_.end();
+        while (iter2 != end2)
+        {
+            if (iter2->second.calleeId() == sessionId)
+                iter2 = byKey_.erase(iter2);
+            else
+                ++iter2;
+        }
     }
 
 private:
@@ -164,7 +191,10 @@ public:
                                                    : CallCancelMode::skip;
 
         if (mode != CallCancelMode::skip)
+        {
             callee->sendInterruption({{}, calleeKey_.second, mode});
+            interruptionSent_ = true;
+        }
 
         if (mode == CallCancelMode::killNoWait)
             eraseNow = true;
@@ -176,6 +206,34 @@ public:
         }
 
         return true;
+    }
+
+    void notifyAbandonedCaller()
+    {
+        if (discardResultOrError_)
+            return;
+        auto caller = caller_.lock();
+        if (!caller)
+            return;
+
+        auto reqId = callerKey_.second;
+        auto ec = make_error_code(SessionErrc::cancelled);
+        auto e = Error({}, WampMsgType::call, reqId, ec)
+                     .withHint("Callee left realm");
+        caller->sendError(std::move(e));
+    }
+
+    void notifyAbandonedCallee()
+    {
+        if (interruptionSent_)
+            return;
+        auto callee = callee_.lock();
+        if (!callee)
+            return;
+
+        auto reqId = calleeKey_.second;
+        if (callee->features().calleeCancelling)
+            callee->sendInterruption({{}, reqId, CallCancelMode::killNoWait});
     }
 
     void complete(Result&& result)
@@ -220,6 +278,7 @@ private:
     Deadline deadline_;
     bool hasDeadline_ = false;
     bool discardResultOrError_ = false;
+    bool interruptionSent_ = false;
 
     friend class DealerJobMap;
 };
@@ -273,6 +332,37 @@ public:
         byCallee_.erase(calleeKey);
         byCaller_.erase(iter);
         updateTimeoutForErased(calleeKey);
+    }
+
+    void removeSession(SessionId sessionId)
+    {
+        auto iter = byCallee_.begin();
+        auto end = byCallee_.end();
+        while (iter != end)
+        {
+            SessionId calleeSessionId = iter->first.first;
+            SessionId callerSessionId = iter->second->first.first;
+            bool calleeMatches = calleeSessionId == sessionId;
+            bool callerMatches = callerSessionId == sessionId;
+
+            if (calleeMatches || callerMatches)
+            {
+                auto& job = iter->second->second;
+
+                if (!callerMatches && calleeMatches)
+                    job.notifyAbandonedCaller();
+
+                if (callerMatches && !calleeMatches)
+                    job.notifyAbandonedCallee();
+
+                byCaller_.erase(iter->second);
+                iter = byCallee_.erase(iter);
+            }
+            else
+            {
+                ++iter;
+            }
+        }
     }
 
 private:
@@ -375,8 +465,6 @@ public:
 
     ErrorOr<String> unregister(RouterSession::Ptr callee, RegistrationId rid)
     {
-        // TODO: Unregister all from callee leaving realm
-
         // Consensus on what to do with pending invocations upon unregister
         // appears to be to allow them to continue.
         // https://github.com/wamp-proto/wamp-proto/issues/283#issuecomment-429542748
@@ -385,8 +473,6 @@ public:
 
     ErrorOrDone call(RouterSession::Ptr caller, Rpc&& rpc)
     {
-        // TODO: Cancel calls of caller leaving realm
-        // TODO: Cancel calls of callee leaving realm
         auto reg = registry_.find(rpc.uri());
         if (reg == nullptr)
             return makeUnexpectedError(SessionErrc::noSuchProcedure);
@@ -440,6 +526,12 @@ public:
         auto& job = iter->second->second;
         job.complete(std::move(error));
         jobs_.byCalleeErase(iter);
+    }
+
+    void removeCallee(SessionId sessionId)
+    {
+        registry_.removeCallee(sessionId);
+        jobs_.removeSession(sessionId);
     }
 
 private:

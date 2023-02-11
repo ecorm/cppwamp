@@ -316,9 +316,7 @@ public:
         }
         else
         {
-            // tsl::htrie_map iterators don't dereference to a key-value pair
-            // like util::TokenTrieMap does.
-            BrokerSubscription* record = TDerived::iteratorValue(found);
+            BrokerSubscription* record = iteratorValue(found);
             subId = record->subscriptionId();
             req.addSubscriberToExistingRecord(*record);
         }
@@ -327,7 +325,31 @@ public:
 
     void erase(const String& topicUri) {trie_.erase(topicUri);}
 
+
+    void removeSubscriber(SessionId sessionId)
+    {
+        auto iter = trie_.begin();
+        auto end = trie_.end();
+        while (iter != end)
+        {
+            BrokerSubscription* record = iteratorValue(iter);
+            record->removeSubscriber(sessionId);
+            if (record->empty())
+                iter = trie_.erase(iter);
+            else
+                ++iter;
+        }
+    }
+
 protected:
+    template <typename I>
+    static BrokerSubscription* iteratorValue(I iter)
+    {
+        // tsl::htrie_map iterators don't dereference to a key-value pair
+        // like util::TokenTrieMap does.
+        return TDerived::iteratorValue(iter);
+    }
+
     TTrie trie_;
 };
 
@@ -446,8 +468,6 @@ public:
     ErrorOr<String> unsubscribe(RouterSession::Ptr subscriber,
                                 SubscriptionId subId)
     {
-        // TODO: Unsubscribe all from subscriber leaving realm
-
         auto found = subscriptions_.find(subId);
         if (found == subscriptions_.end())
             return makeUnexpectedError(SessionErrc::noSuchSubscription);
@@ -491,6 +511,24 @@ public:
         byPrefix_.publish(info);
         byWildcard_.publish(info);
         return info.publicationId();
+    }
+
+    void removeSubscriber(SessionId sessionId)
+    {
+        byExact_.removeSubscriber(sessionId);
+        byPrefix_.removeSubscriber(sessionId);
+        byWildcard_.removeSubscriber(sessionId);
+
+        auto iter = subscriptions_.begin();
+        auto end = subscriptions_.end();
+        while (iter != end)
+        {
+            auto& sub = iter->second;
+            if (sub.empty())
+                iter = subscriptions_.erase(iter);
+            else
+                ++iter;
+        }
     }
 
 private:

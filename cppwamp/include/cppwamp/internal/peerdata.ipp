@@ -576,6 +576,11 @@ CPPWAMP_INLINE Error::Error(const error::BadType& e)
 
 CPPWAMP_INLINE Error::~Error() {}
 
+CPPWAMP_INLINE Error& Error::withHint(String hint)
+{
+    return withOption("message", std::move(hint));
+}
+
 CPPWAMP_INLINE Error::operator bool() const {return !uri().empty();}
 
 CPPWAMP_INLINE const String& Error::uri() const {return message().uri();}
