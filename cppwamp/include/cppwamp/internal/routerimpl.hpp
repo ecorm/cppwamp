@@ -200,7 +200,7 @@ public:
             realms_.clear();
         }
 
-        // TODO: Added overload with completion handler when all GOODBYEs
+        // TODO: Add overload with completion handler when all GOODBYEs
         // are acknowledged or timeout occurs
     }
 

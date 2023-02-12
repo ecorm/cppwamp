@@ -126,25 +126,27 @@ bool BasicUriValidator<V>::checkAsPattern(const Char* ptr,
 }
 
 template <typename V>
-bool BasicUriValidator<V>::checkAsRessource(const Char* ptr,
+bool BasicUriValidator<V>::checkAsRessource(const Char* begin,
                                             const Char* end) const
 {
-    if (ptr == end)
+    if (begin == end)
         return false;
-    const Char* tokenStart = ptr;
+    const Char* ptr = begin;
+    const Char* tokenStart = begin;
     while (ptr != end)
     {
         if (*ptr == '.')
         {
             if (!tokenIsValid(tokenStart, ptr))
                 return false;
-            tokenStart = ptr;
+            tokenStart = ++ptr;
         }
-        ++ptr;
+        else
+        {
+            ++ptr;
+        }
     }
-    if (tokenStart != end)
-        return tokenIsValid(tokenStart, end);
-    return true;
+    return tokenIsValid(tokenStart, end);
 }
 
 template <typename V>

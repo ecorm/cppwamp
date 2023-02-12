@@ -26,8 +26,6 @@
 #include "uri.hpp"
 #include "internal/passkey.hpp"
 
-// TODO: Provide router-wide default realm configuration.
-
 namespace wamp
 {
 
@@ -49,6 +47,7 @@ public:
                                        std::forward<E>(executor)));
     }
 
+    // TODO: Authorization cache
     // RealmConfig& withAuthorizationCacheEnabled(bool enabled = true);
 
     RealmConfig& withPublisherDisclosure(DisclosureRule d);

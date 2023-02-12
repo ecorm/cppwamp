@@ -4,6 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
+#include <cppwamp/uri.hpp>
 #include <cppwamp/utils/wildcarduri.hpp>
 #include <catch2/catch.hpp>
 #include <set>
@@ -360,6 +361,117 @@ bool checkUriTrieComparisons(const Trie& a, const Trie& b)
 
 
 //------------------------------------------------------------------------------
+TEST_CASE( "Relaxed URI Validation", "[Uri]" )
+{
+    struct Record
+    {
+        String uri;
+        bool expectedNonPatternValidity;
+        bool expectedPatternValidity;
+    };
+
+    RelaxedUriValidator validator;
+
+    std::vector<Record> inputs =
+    {
+        {"",      false,  true},
+        {"a",     true,   true},
+        {"_",     true,   true},
+        {"*",     true,   true},
+        {" ",     false,  false},
+        {" a",    false,  false},
+        {"a ",    false,  false},
+        {"#",     false,  false},
+        {"#a",    false,  false},
+        {"a#",    false,  false},
+        {".",     false,  true},
+        {"a.",    false,  true},
+        {".a",    false,  true},
+        {" .",    false,  false},
+        {". ",    false,  false},
+        {"#.",    false,  false},
+        {".#",    false,  false},
+        {"a.b",   true,   true},
+        {"a. ",   false,  false},
+        {" .a",   false,  false},
+        {"a.#",   false,  false},
+        {"#.a",   false,  false},
+        {"a.b.c", true,   true},
+        {"A.B.C", true,   true},
+        {"1.2.3", true,   true},
+        {"a.b.",  false,  true},
+        {"a..c",  false,  true},
+        {"a..",   false,  true},
+        {".b.c",  false,  true},
+        {".b.",   false,  true},
+        {"..c",   false,  true},
+        {"..",    false,  true},
+    };
+
+    for (const auto& rec: inputs)
+    {
+        INFO("For URI '" + rec.uri + "'");
+        CHECK(validator(rec.uri, false) == rec.expectedNonPatternValidity);
+        CHECK(validator(rec.uri, true) == rec.expectedPatternValidity);
+    }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Strict URI Validation", "[Uri]" )
+{
+    struct Record
+    {
+        String uri;
+        bool expectedNonPatternValidity;
+        bool expectedPatternValidity;
+    };
+
+    StrictUriValidator validator;
+
+    std::vector<Record> inputs =
+    {
+        {"",      false,  true},
+        {"a",     true,   true},
+        {"_",     true,   true},
+        {"A",     false,  false},
+        {"Aa",    false,  false},
+        {"a ",    false,  false},
+        {"#",     false,  false},
+        {"*",     false,  false},
+        {"?",     false,  false},
+        {"#a",    false,  false},
+        {"a#",    false,  false},
+        {".",     false,  true},
+        {"a.",    false,  true},
+        {"._",    false,  true},
+        {" .",    false,  false},
+        {". ",    false,  false},
+        {"!.",    false,  false},
+        {".Z",    false,  false},
+        {"a.b",   true,   true},
+        {"a. ",   false,  false},
+        {" .a",   false,  false},
+        {"a.#",   false,  false},
+        {"#.a",   false,  false},
+        {"a.b.c", true,   true},
+        {"a.b.",  false,  true},
+        {"a..c",  false,  true},
+        {"a..",   false,  true},
+        {".b.c",  false,  true},
+        {".b.",   false,  true},
+        {"..c",   false,  true},
+        {"..",    false,  true},
+    };
+
+    for (const auto& rec: inputs)
+    {
+        INFO("For URI '" + rec.uri + "'");
+        CHECK(validator(rec.uri, false) == rec.expectedNonPatternValidity);
+        CHECK(validator(rec.uri, true) == rec.expectedPatternValidity);
+    }
+}
+
+//------------------------------------------------------------------------------
 TEST_CASE( "URI Tokenization", "[Uri]" )
 {
     std::vector<std::pair<std::string, SplitUri::storage_type>> inputs =
@@ -384,7 +496,7 @@ TEST_CASE( "URI Tokenization", "[Uri]" )
     {
         const auto& uri = pair.first;
         const auto& labels = pair.second;
-        INFO("For URI '" + uri+ "'");
+        INFO("For URI '" + uri + "'");
         SplitUri s(labels);
         CHECK(s.labels() == labels);
         CHECK(s.flatten() == uri);

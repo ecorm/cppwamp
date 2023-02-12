@@ -19,11 +19,8 @@
 #include "routersession.hpp"
 #include "../authenticators/anonymousauthenticator.hpp"
 
-// TODO: Dynamic authorizer
-
 namespace wamp
 {
-
 
 namespace internal
 {

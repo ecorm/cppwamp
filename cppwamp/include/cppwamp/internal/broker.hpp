@@ -242,14 +242,7 @@ using BrokerSubscriptionMap = std::map<SubscriptionId, BrokerSubscription>;
 class BrokerSubscriptionIdGenerator
 {
 public:
-    SubscriptionId next(BrokerSubscriptionMap& subscriptions)
-    {
-        auto s = nextSubscriptionId_;
-        while ((s == nullId()) || (subscriptions.count(s) == 1))
-            ++s;
-        nextSubscriptionId_ = s + 1;
-        return s;
-    }
+    SubscriptionId operator()() {return ++nextSubscriptionId_;}
 
 private:
     EphemeralId nextSubscriptionId_ = nullId();
@@ -280,7 +273,7 @@ public:
 
     BrokerSubscription* addNewSubscriptionRecord()
     {
-        auto subId = subIdGen_.next(subscriptions_);
+        auto subId = subIdGen_();
         BrokerSubscription record{std::move(topic_), subId};
         record.addSubscriber(sessionId_, std::move(subscriber_));
         auto emplaced = subscriptions_.emplace(subId, std::move(record));
@@ -535,7 +528,7 @@ private:
     BrokerExactTopicMap byExact_;
     BrokerPrefixTopicMap byPrefix_;
     BrokerWildcardTopicMap byWildcard_;
-    BrokerSubscriptionIdGenerator subIdGenerator_; // TODO: Just increment forever
+    BrokerSubscriptionIdGenerator subIdGenerator_;
     RandomEphemeralIdGenerator pubIdGenerator_;
     UriValidator uriValidator_;
 };
