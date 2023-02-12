@@ -21,8 +21,8 @@
 #include "callee.hpp"
 #include "caller.hpp"
 #include "callertimeout.hpp"
+#include "realmsession.hpp"
 #include "routercontext.hpp"
-#include "routersession.hpp"
 #include "subscriber.hpp"
 
 namespace wamp
@@ -33,7 +33,7 @@ namespace internal
 
 //------------------------------------------------------------------------------
 class LocalSessionImpl : public std::enable_shared_from_this<LocalSessionImpl>,
-                         public RouterSession,
+                         public RealmSession,
                          public Callee, public Caller, public Subscriber
 {
 public:
@@ -625,7 +625,7 @@ public:
     }
 
 private:
-    using Base = RouterSession;
+    using Base = RealmSession;
     using ErrorOrDonePromise = std::promise<ErrorOrDone>;
 
     struct SubscriptionRecord

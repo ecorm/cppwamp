@@ -34,11 +34,11 @@ namespace internal
         friend class Invocation;
         friend class LocalSessionImpl;
         friend class Peer;
-        friend class ServerSession;
+        friend class RealmSession;
         friend class RouterImpl;
         friend class RouterRealm;
         friend class RouterServer;
-        friend class RouterSession;
+        friend class ServerSession;
     };
 }
 

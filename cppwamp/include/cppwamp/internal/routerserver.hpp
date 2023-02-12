@@ -15,8 +15,8 @@
 #include "../routerconfig.hpp"
 #include "challenger.hpp"
 #include "peer.hpp"
+#include "realmsession.hpp"
 #include "routercontext.hpp"
-#include "routersession.hpp"
 #include "../authenticators/anonymousauthenticator.hpp"
 
 namespace wamp
@@ -41,7 +41,7 @@ private:
 
 //------------------------------------------------------------------------------
 class ServerSession : public std::enable_shared_from_this<ServerSession>,
-                      public RouterSession,
+                      public RealmSession,
                       public Challenger
 {
 public:
@@ -290,7 +290,7 @@ public:
     }
 
 private:
-    using Base = RouterSession;
+    using Base = RealmSession;
 
     ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
                   ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)

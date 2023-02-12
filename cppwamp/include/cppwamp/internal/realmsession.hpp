@@ -106,16 +106,16 @@ private:
 };
 
 //------------------------------------------------------------------------------
-class RouterSession // TODO: Rename to RealmSession?
+class RealmSession
 {
 public:
-    using Ptr = std::shared_ptr<RouterSession>;
-    using WeakPtr = std::weak_ptr<RouterSession>;
+    using Ptr = std::shared_ptr<RealmSession>;
+    using WeakPtr = std::weak_ptr<RealmSession>;
 
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    virtual ~RouterSession() {}
+    virtual ~RealmSession() {}
 
     SessionId wampId() const {return wampId_.get();}
 
@@ -180,7 +180,7 @@ public:
     virtual void report(AccessActionInfo i) = 0;
 
 protected:
-    RouterSession()
+    RealmSession()
         : authInfo_(std::make_shared<AuthInfo>()),
           nextOutboundRequestId_(0)
     {}

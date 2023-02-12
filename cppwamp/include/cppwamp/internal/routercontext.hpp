@@ -24,7 +24,7 @@ namespace internal
 {
 
 class ServerSession;
-class RouterSession;
+class RealmSession;
 class RouterRealm;
 class RouterImpl;
 
@@ -87,7 +87,7 @@ private:
 class RealmContext
 {
 public:
-    using RouterSessionPtr = std::shared_ptr<RouterSession>;
+    using RealmSessionPtr = std::shared_ptr<RealmSession>;
 
     RealmContext() = default;
 
@@ -103,27 +103,27 @@ public:
 
     void reset();
 
-    void join(RouterSessionPtr s);
+    void join(RealmSessionPtr s);
 
     void leave(SessionId sid);
 
-    void subscribe(RouterSessionPtr s, Topic t);
+    void subscribe(RealmSessionPtr s, Topic t);
 
-    void unsubscribe(RouterSessionPtr s, SubscriptionId subId, RequestId rid);
+    void unsubscribe(RealmSessionPtr s, SubscriptionId subId, RequestId rid);
 
-    void publish(RouterSessionPtr s, Pub pub);
+    void publish(RealmSessionPtr s, Pub pub);
 
-    void enroll(RouterSessionPtr s, Procedure proc);
+    void enroll(RealmSessionPtr s, Procedure proc);
 
-    void unregister(RouterSessionPtr s, RegistrationId regId, RequestId reqId);
+    void unregister(RealmSessionPtr s, RegistrationId regId, RequestId reqId);
 
-    void call(RouterSessionPtr s, Rpc rpc);
+    void call(RealmSessionPtr s, Rpc rpc);
 
-    void cancelCall(RouterSessionPtr s, CallCancellation c);
+    void cancelCall(RealmSessionPtr s, CallCancellation c);
 
-    void yieldResult(RouterSessionPtr s, Result r);
+    void yieldResult(RealmSessionPtr s, Result r);
 
-    void yieldError(RouterSessionPtr s, Error e);
+    void yieldError(RealmSessionPtr s, Error e);
 
 private:
     std::weak_ptr<RouterRealm> realm_;

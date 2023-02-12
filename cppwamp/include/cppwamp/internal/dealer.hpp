@@ -16,7 +16,7 @@
 #include "../asiodefs.hpp"
 #include "../erroror.hpp"
 #include "../uri.hpp"
-#include "routersession.hpp"
+#include "realmsession.hpp"
 
 // TODO: Progressive Calls
 // TODO: Progressive Call Results
@@ -34,7 +34,7 @@ class DealerRegistration
 {
 public:
     static ErrorOr<DealerRegistration> create(Procedure&& procedure,
-                                              RouterSession::Ptr callee)
+                                              RealmSession::Ptr callee)
     {
         std::error_code ec;
         DealerRegistration reg(std::move(procedure), callee, ec);
@@ -51,12 +51,12 @@ public:
 
     RegistrationId registrationId() const {return regId_;}
 
-    RouterSession::WeakPtr callee() const {return callee_;}
+    RealmSession::WeakPtr callee() const {return callee_;}
 
     SessionId calleeId() const {return calleeId_;}
 
 private:
-    DealerRegistration(Procedure&& procedure, RouterSession::Ptr callee,
+    DealerRegistration(Procedure&& procedure, RealmSession::Ptr callee,
                        std::error_code& ec)
         : procedureUri_(std::move(procedure).uri()),
           callee_(callee),
@@ -67,7 +67,7 @@ private:
     }
 
     String procedureUri_;
-    RouterSession::WeakPtr callee_;
+    RealmSession::WeakPtr callee_;
     SessionId calleeId_;
     RegistrationId regId_ = nullId();
 };
@@ -150,7 +150,7 @@ public:
     using Deadline = std::chrono::steady_clock::time_point;
 
     static ErrorOr<DealerJob> create(
-        RouterSession::Ptr caller, RouterSession::Ptr callee, Rpc&& rpc,
+        RealmSession::Ptr caller, RealmSession::Ptr callee, Rpc&& rpc,
         const DealerRegistration& reg, Invocation& inv)
     {
         DealerJob job{caller, callee, rpc.requestId({})};
@@ -262,8 +262,7 @@ public:
     Deadline deadline() const {return deadline_;}
 
 private:
-    DealerJob(const RouterSession::Ptr& caller,
-              const RouterSession::Ptr& callee,
+    DealerJob(const RealmSession::Ptr& caller, const RealmSession::Ptr& callee,
               RequestId callerRequestId)
         : caller_(caller),
           callee_(callee),
@@ -271,8 +270,8 @@ private:
           calleeKey_(callee->wampId(), nullId())
     {}
 
-    RouterSession::WeakPtr caller_;
-    RouterSession::WeakPtr callee_;
+    RealmSession::WeakPtr caller_;
+    RealmSession::WeakPtr callee_;
     DealerJobKey callerKey_;
     DealerJobKey calleeKey_;
     Deadline deadline_;
@@ -454,7 +453,7 @@ public:
           uriValidator_(uriValidator)
     {}
 
-    ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p)
+    ErrorOr<RegistrationId> enroll(RealmSession::Ptr callee, Procedure&& p)
     {
         if (!uriValidator_(p.uri(), false))
             return makeUnexpectedError(SessionErrc::invalidUri);
@@ -468,7 +467,7 @@ public:
         return key.second;
     }
 
-    ErrorOr<String> unregister(RouterSession::Ptr callee, RegistrationId rid)
+    ErrorOr<String> unregister(RealmSession::Ptr callee, RegistrationId rid)
     {
         // Consensus on what to do with pending invocations upon unregister
         // appears to be to allow them to continue.
@@ -476,7 +475,7 @@ public:
         return registry_.erase({callee->wampId(), rid});
     }
 
-    ErrorOrDone call(RouterSession::Ptr caller, Rpc&& rpc)
+    ErrorOrDone call(RealmSession::Ptr caller, Rpc&& rpc)
     {
         if (!uriValidator_(rpc.uri(), false))
             return makeUnexpectedError(SessionErrc::invalidUri);
@@ -498,7 +497,7 @@ public:
         return true;
     }
 
-    ErrorOrDone cancelCall(RouterSession::Ptr caller, CallCancellation&& cncl)
+    ErrorOrDone cancelCall(RealmSession::Ptr caller, CallCancellation&& cncl)
     {
         DealerJobKey callerKey{caller->wampId(), cncl.requestId()};
         auto iter = jobs_.byCallerFind(callerKey);
@@ -514,7 +513,7 @@ public:
         return done;
     }
 
-    void yieldResult(RouterSession::Ptr callee, Result&& result)
+    void yieldResult(RealmSession::Ptr callee, Result&& result)
     {
         DealerJobKey calleeKey{callee->wampId(), result.requestId({})};
         auto iter = jobs_.byCalleeFind(calleeKey);
@@ -525,7 +524,7 @@ public:
         jobs_.byCalleeErase(iter);
     }
 
-    void yieldError(RouterSession::Ptr callee, Error&& error)
+    void yieldError(RealmSession::Ptr callee, Error&& error)
     {
         DealerJobKey calleeKey{callee->wampId(), error.requestId({})};
         auto iter = jobs_.byCalleeFind(calleeKey);

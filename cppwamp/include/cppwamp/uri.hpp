@@ -16,8 +16,6 @@
 #include <locale>
 #include "variant.hpp"
 
-// TODO: Unit test
-
 namespace wamp
 {
 
