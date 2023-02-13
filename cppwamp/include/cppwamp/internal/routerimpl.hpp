@@ -39,10 +39,7 @@ public:
         return Ptr(new RouterImpl(std::move(exec), std::move(config)));
     }
 
-    ~RouterImpl()
-    {
-        close(true, {"wamp.close.system_shutdown"});
-    }
+    ~RouterImpl() {close({"wamp.close.system_shutdown"});}
 
     bool addRealm(RealmConfig c)
     {
@@ -76,7 +73,7 @@ public:
         return !exists;
     }
 
-    bool closeRealm(const std::string& uri, bool terminate, Reason r)
+    bool closeRealm(const std::string& uri, Abort a)
     {
         RouterRealm::Ptr realm;
 
@@ -91,13 +88,9 @@ public:
         }
 
         if (realm)
-        {
-            realm->close(terminate, std::move(r));
-        }
+            realm->close(std::move(a));
         else
-        {
             warn("Attempting to close non-existent realm named '" + uri + "'");
-        }
 
         return realm != nullptr;
     }
@@ -130,7 +123,7 @@ public:
         return server != nullptr;
     }
 
-    bool closeServer(const std::string& name, bool terminate, Reason r)
+    bool closeServer(const std::string& name, Abort a)
     {
         RouterServer::Ptr server;
 
@@ -145,14 +138,9 @@ public:
         }
 
         if (server)
-        {
-            server->close(terminate, std::move(r));
-        }
+            server->close(std::move(a));
         else
-        {
-            warn("Attempting to close non-existent server named '" +
-                 name + "'");
-        }
+            warn("Attempting to close non-existent server named '" + name + "'");
 
         return server != nullptr;
     }
@@ -177,37 +165,40 @@ public:
         return session;
     }
 
-    void close(bool terminate, Reason r)
+    void close(Abort a)
     {
-        std::string msg = terminate ? "Shutting down router, with reason "
-                                    : "Terminating router, with reason ";
-        msg += r.uri();
-        if (!r.options().empty())
-            msg += " " + toString(r.options());
+        auto msg = std::string("Shutting down router, with reason ") + a.uri();
+        if (!a.options().empty())
+            msg += " " + toString(a.options());
         inform(std::move(msg));
 
+        ServerMap servers;
         {
             MutexGuard lock(serversMutex_);
-            for (auto& kv: servers_)
-                kv.second->close(terminate, r);
+            servers = std::move(servers_);
             servers_.clear();
         }
 
+        RealmMap realms;
         {
             MutexGuard lock(realmsMutex_);
-            for (auto& kv: realms_)
-                kv.second->close(terminate, r);
+            realms = std::move(realms_);
             realms_.clear();
         }
 
-        // TODO: Add overload with completion handler when all GOODBYEs
-        // are acknowledged or timeout occurs
+        for (auto& kv: servers_)
+            kv.second->close(a);
+
+        for (auto& kv: realms_)
+            kv.second->close(a);
     }
 
     const IoStrand& strand() const {return strand_;}
 
 private:
     using MutexGuard = std::lock_guard<std::mutex>;
+    using ServerMap = std::map<std::string, RouterServer::Ptr>;
+    using RealmMap = std::map<std::string, RouterRealm::Ptr>;
 
     RouterImpl(Executor e, RouterConfig c)
         : config_(std::move(c)),
@@ -269,8 +260,8 @@ private:
         return {found->second};
     }
 
-    std::map<std::string, RouterServer::Ptr> servers_;
-    std::map<std::string, RouterRealm::Ptr> realms_;
+    ServerMap servers_;
+    RealmMap realms_;
     RouterConfig config_;
     AnyIoExecutor executor_;
     IoStrand strand_;

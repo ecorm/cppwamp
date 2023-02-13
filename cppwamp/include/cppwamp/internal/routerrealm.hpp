@@ -65,31 +65,28 @@ public:
         safelyDispatch<Dispatched>(std::move(session));
     }
 
-    void close(bool terminate, Reason r)
+    void close(Abort a)
     {
         struct Dispatched
         {
             Ptr self;
-            bool terminate;
-            Reason r;
+            Abort a;
 
             void operator()()
             {
                 auto& me = *self;
-                std::string msg = terminate ? "Shutting down realm with reason "
-                                            : "Terminating realm with reason ";
-                msg += r.uri();
-                if (!r.options().empty())
-                    msg += " " + toString(r.options());
+                std::string msg = "Shutting down realm with reason " + a.uri();
+                if (!a.options().empty())
+                    msg += " " + toString(a.options());
                 me.log({LogLevel::info, std::move(msg)});
 
                 for (auto& kv: me.sessions_)
-                    kv.second->close(terminate, r);
+                    kv.second->abort(a);
                 me.sessions_.clear();
             }
         };
 
-        safelyDispatch<Dispatched>(terminate, std::move(r));
+        safelyDispatch<Dispatched>(std::move(a));
     }
 
 private:

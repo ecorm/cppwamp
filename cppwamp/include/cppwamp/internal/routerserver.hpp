@@ -65,7 +65,7 @@ public:
         completeNow([this, self]() {doStart();});
     }
 
-    void abort(Abort a)
+    void abort(Abort a) override
     {
         struct Dispatched
         {
@@ -75,19 +75,6 @@ public:
         };
 
         safelyDispatch<Dispatched>(std::move(a));
-    }
-
-    void close(bool terminate, Reason r) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Reason r;
-            bool terminate;
-            void operator()() {self->doClose(terminate, std::move(r));}
-        };
-
-        safelyDispatch<Dispatched>(std::move(r), terminate);
     }
 
     void sendError(Error&& e, bool logOnly) override
@@ -821,21 +808,20 @@ public:
     void start()
     {
         auto self = shared_from_this();
-        boost::asio::post(strand_, [this, self](){doStart();});
+        boost::asio::dispatch(strand_, [this, self](){doStart();});
     }
 
-    void close(bool terminate, Reason r)
+    void close(Abort a)
     {
         struct Posted
         {
             Ptr self;
-            Reason r;
-            bool terminate;
-            void operator()() {self->doClose(terminate, std::move(r));}
+            Abort a;
+            void operator()() {self->doClose(std::move(a));}
         };
 
-        boost::asio::post(strand_, Posted{shared_from_this(), std::move(r),
-                                          terminate});
+        boost::asio::dispatch(strand_, Posted{shared_from_this(),
+                                              std::move(a)});
     }
 
     ServerConfig::Ptr config() const {return config_;}
@@ -861,14 +847,12 @@ private:
         listen();
     }
 
-    void doClose(bool terminate, Reason r)
+    void doClose(Abort a)
     {
-        std::string msg = terminate ? "Shutting down server listening on "
-                                    : "Terminating server listening on ";
-
-        msg += listener_->where() + " with reason " + r.uri();
-        if (!r.options().empty())
-            msg += " " + toString(r.options());
+        std::string msg = "Shutting down server listening on " +
+                          listener_->where() + " with reason " + a.uri();
+        if (!a.options().empty())
+            msg += " " + toString(a.options());
         inform(std::move(msg));
 
         if (!listener_)
@@ -876,7 +860,7 @@ private:
         listener_->cancel();
         listener_.reset();
         for (auto& s: sessions_)
-            s->close(terminate, r);
+            s->abort(a);
     }
 
     void listen()

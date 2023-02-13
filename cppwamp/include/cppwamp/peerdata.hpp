@@ -230,7 +230,7 @@ public:
 //------------------------------------------------------------------------------
 /** Provides the _reason_ URI and other options contained within
     `GOODBYE` messages.*/
-// TODO: Consider renaming to Goodbye
+// TODO: Consolidate with Abort
 //------------------------------------------------------------------------------
 class CPPWAMP_API Reason : public Options<Reason, internal::GoodbyeMessage>
 {

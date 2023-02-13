@@ -16,12 +16,12 @@ namespace wamp
 // Router
 //******************************************************************************
 
-CPPWAMP_INLINE Reason Router::closeRealmReason()
+CPPWAMP_INLINE Abort Router::closeRealmReason()
 {
     return {"wamp.close.close_realm"};
 }
 
-CPPWAMP_INLINE Reason Router::shutdownReason()
+CPPWAMP_INLINE Abort Router::shutdownReason()
 {
     return {"wamp.close.system_shutdown"};
 }
@@ -37,10 +37,9 @@ CPPWAMP_INLINE bool Router::openRealm(RealmConfig config)
     return impl_->addRealm(std::move(config));
 }
 
-CPPWAMP_INLINE bool Router::closeRealm(const std::string& name,
-                                       bool terminate, Reason r)
+CPPWAMP_INLINE bool Router::closeRealm(const std::string& name, Abort a)
 {
-    return impl_->closeRealm(name, terminate, std::move(r));
+    return impl_->closeRealm(name, std::move(a));
 }
 
 CPPWAMP_INLINE bool Router::openServer(ServerConfig config)
@@ -48,10 +47,9 @@ CPPWAMP_INLINE bool Router::openServer(ServerConfig config)
     return impl_->openServer(std::move(config));
 }
 
-CPPWAMP_INLINE void Router::closeServer(const std::string& name, bool terminate,
-                                        Reason r)
+CPPWAMP_INLINE void Router::closeServer(const std::string& name, Abort a)
 {
-    impl_->closeServer(name, terminate, std::move(r));
+    impl_->closeServer(name, std::move(a));
 }
 
 CPPWAMP_INLINE LocalSession Router::join(String realmUri, AuthInfo authInfo)
@@ -71,10 +69,7 @@ CPPWAMP_INLINE LocalSession Router::join(String realmUri, AuthInfo authInfo,
     return LocalSession{std::move(s)};
 }
 
-CPPWAMP_INLINE void Router::close(bool terminate, Reason r)
-{
-    impl_->close(terminate, std::move(r));
-}
+CPPWAMP_INLINE void Router::close(Abort a) {impl_->close(std::move(a));}
 
 CPPWAMP_INLINE const Object& Router::roles()
 {
