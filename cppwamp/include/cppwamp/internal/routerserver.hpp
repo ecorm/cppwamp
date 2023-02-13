@@ -632,6 +632,17 @@ private:
 
     void challenge() override
     {
+        struct Dispatched
+        {
+            Ptr self;
+            void operator()() {self->doChallenge();}
+        };
+
+        safelyDispatch<Dispatched>();
+    }
+
+    void doChallenge()
+    {
         // TODO: Challenge timeout
         if (state() == State::authenticating &&
             authExchange_ != nullptr)
@@ -642,18 +653,19 @@ private:
         }
     }
 
-    void safeChallenge() override
+    void welcome(AuthInfo&& info) override
     {
         struct Dispatched
         {
             Ptr self;
-            void operator()() {self->challenge();}
+            AuthInfo info;
+            void operator()() {self->doWelcome(std::move(info));}
         };
 
-        safelyDispatch<Dispatched>();
+        safelyDispatch<Dispatched>(std::move(info));
     }
 
-    void welcome(AuthInfo&& info) override
+    void doWelcome(AuthInfo&& info)
     {
         auto s = state();
         bool readyToWelcome = authExchange_ != nullptr &&
@@ -680,19 +692,19 @@ private:
         peer_.welcome(wampId(), std::move(details));
     }
 
-    void safeWelcome(AuthInfo&& info) override
+    void reject(Reason&& r) override
     {
         struct Dispatched
         {
             Ptr self;
-            AuthInfo info;
-            void operator()() {self->welcome(std::move(info));}
+            Reason r;
+            void operator()() {self->doReject(std::move(r));}
         };
 
-        safelyDispatch<Dispatched>(std::move(info));
+        safelyDispatch<Dispatched>(std::move(r));
     }
 
-    void reject(Reason&& r) override
+    void doReject(Reason&& r)
     {
         auto s = state();
         bool readyToReject = s == State::establishing ||
@@ -703,18 +715,6 @@ private:
         authExchange_.reset();
         clearWampSessionInfo();
         peer_.abort(std::move(r));
-    }
-
-    void safeReject(Reason&& r) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Reason r;
-            void operator()() {self->reject(std::move(r));}
-        };
-
-        safelyDispatch<Dispatched>(std::move(r));
     }
 
     template <typename F, typename... Ts>

@@ -22,22 +22,14 @@ namespace internal
 class Challenger
 {
 public:
-    // TODO: Make them all thread-safe and remove safeFoo alternatives
-
     using WeakPtr = std::weak_ptr<Challenger>;
 
     virtual void challenge() = 0;
 
-    virtual void safeChallenge() = 0;
-
     // TODO: Pass Realm/Welcome object instead
     virtual void welcome(AuthInfo&&) = 0;
 
-    virtual void safeWelcome(AuthInfo&&) = 0;
-
     virtual void reject(Reason&&) = 0;
-
-    virtual void safeReject(Reason&&) = 0;
 };
 
 } // namespace internal

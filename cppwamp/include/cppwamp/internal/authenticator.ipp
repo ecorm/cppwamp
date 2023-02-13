@@ -41,19 +41,6 @@ CPPWAMP_INLINE void AuthExchange::challenge(Challenge challenge, any note)
     }
 }
 
-CPPWAMP_INLINE void AuthExchange::challenge(ThreadSafe, Challenge challenge,
-                                            any memento)
-{
-    challenge_ = std::move(challenge);
-    note_ = std::move(memento);
-    auto c = challenger_.lock();
-    if (c)
-    {
-        ++challengeCount_;
-        c->safeChallenge();
-    }
-}
-
 CPPWAMP_INLINE void AuthExchange::welcome(AuthInfo info)
 {
     auto c = challenger_.lock();
@@ -61,25 +48,11 @@ CPPWAMP_INLINE void AuthExchange::welcome(AuthInfo info)
         c->welcome(std::move(info));
 }
 
-CPPWAMP_INLINE void AuthExchange::welcome(ThreadSafe, AuthInfo info)
-{
-    auto c = challenger_.lock();
-    if (c)
-        c->safeWelcome(std::move(info));
-}
-
 CPPWAMP_INLINE void AuthExchange::reject(Reason r)
 {
     auto c = challenger_.lock();
     if (c)
         c->reject(std::move(r));
-}
-
-CPPWAMP_INLINE void AuthExchange::reject(ThreadSafe, Reason r)
-{
-    auto c = challenger_.lock();
-    if (c)
-        c->safeReject(std::move(r));
 }
 
 CPPWAMP_INLINE AuthExchange::Ptr
