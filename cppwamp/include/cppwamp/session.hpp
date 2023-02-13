@@ -242,23 +242,23 @@ public:
 
     /** Asynchronously attempts to join the given WAMP realm. */
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<SessionInfo>, C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
     join(Realm realm, C&& completion);
 
     /** Thread-safe join. */
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<SessionInfo>, C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
     join(ThreadSafe, Realm realm, C&& completion);
 
     /** Asynchronously attempts to join the given WAMP realm, using the given
         authentication challenge handler. */
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<SessionInfo>, C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
     join(Realm realm, ChallengeHandler handler, C&& completion);
 
     /** Thread-safe join with challenge handler. */
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<SessionInfo>, C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
     join(ThreadSafe, Realm realm, ChallengeHandler handler, C&& completion);
 
     /** Sends an `AUTHENTICATE` in response to a `CHALLENGE`. */
@@ -475,10 +475,9 @@ private:
 
     void doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
     void safeConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
-    void doJoin(Realm&& r, ChallengeHandler c,
-                CompletionHandler<SessionInfo>&& f);
+    void doJoin(Realm&& r, ChallengeHandler c, CompletionHandler<Welcome>&& f);
     void safeJoin(Realm&& r, ChallengeHandler c,
-                  CompletionHandler<SessionInfo>&& f);
+                  CompletionHandler<Welcome>&& f);
     void doLeave(Reason&& reason, CompletionHandler<Reason>&& f);
     void safeLeave(Reason&& r, CompletionHandler<Reason>&& f);
     void doSubscribe(Topic&& t, EventSlot&& s,
@@ -641,7 +640,7 @@ Session::connect(
 //------------------------------------------------------------------------------
 struct Session::JoinOp
 {
-    using ResultValue = SessionInfo;
+    using ResultValue = Welcome;
     Session* self;
     Realm r;
     ChallengeHandler c;
@@ -659,8 +658,8 @@ struct Session::JoinOp
 };
 
 //------------------------------------------------------------------------------
-/** @return A SessionInfo object with details on the newly established session.
-    @param completion A callable handler of type `void(ErrorOr<SessionInfo>)`,
+/** @return A Welcome object with details on the newly established session.
+    @param completion A callable handler of type `void(ErrorOr<Welcome>)`,
            or a compatible Boost.Asio completion token.
     @post `this->state() == SessionState::establishing` if successful
     @par Error Codes
@@ -678,13 +677,13 @@ struct Session::JoinOp
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<SessionInfo>, C>
+Deduced<ErrorOr<Welcome>, C>
 #else
-Session::template Deduced<ErrorOr<SessionInfo>, C>
+Session::template Deduced<ErrorOr<Welcome>, C>
 #endif
 Session::join(
     Realm realm,   /**< Details on the realm to join. */
-    C&& completion /**< Callable handler of type `void(ErrorOr<SessionInfo>)`,
+    C&& completion /**< Callable handler of type `void(ErrorOr<Welcome>)`,
                         or a compatible Boost.Asio completion token. */
     )
 {
@@ -697,14 +696,14 @@ Session::join(
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<SessionInfo>, C>
+Deduced<ErrorOr<Welcome>, C>
 #else
-Session::template Deduced<ErrorOr<SessionInfo>, C>
+Session::template Deduced<ErrorOr<Welcome>, C>
 #endif
 Session::join(
     ThreadSafe,
     Realm realm,   /**< Details on the realm to join. */
-    C&& completion /**< Callable handler of type `void(ErrorOr<SessionInfo>)`,
+    C&& completion /**< Callable handler of type `void(ErrorOr<Welcome>)`,
                         or a compatible Boost.Asio completion token. */
     )
 {
@@ -720,16 +719,16 @@ Session::join(
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<SessionInfo>, C>
+Deduced<ErrorOr<Welcome>, C>
 #else
-Session::template Deduced<ErrorOr<SessionInfo>, C>
+Session::template Deduced<ErrorOr<Welcome>, C>
 #endif
 Session::join(
     Realm realm,                  /**< Details on the realm to join. */
     ChallengeHandler onChallenge, /**< Callable handler of type
                                        `<void (Challenge)>`. */
     C&& completion                /**< Callable handler of type
-                                       `void(ErrorOr<SessionInfo>)`, or a
+                                       `void(ErrorOr<Welcome>)`, or a
                                        compatible Boost.Asio completion token. */
     )
 {
@@ -742,9 +741,9 @@ Session::join(
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<SessionInfo>, C>
+Deduced<ErrorOr<Welcome>, C>
 #else
-Session::template Deduced<ErrorOr<SessionInfo>, C>
+Session::template Deduced<ErrorOr<Welcome>, C>
 #endif
 Session::join(
     ThreadSafe,
@@ -752,7 +751,7 @@ Session::join(
     ChallengeHandler onChallenge, /**< Callable handler of type
                                        `<void (Challenge)>`. */
     C&& completion                /**< Callable handler of type
-                                       `void(ErrorOr<SessionInfo>)`, or a
+                                       `void(ErrorOr<Welcome>)`, or a
                                        compatible Boost.Asio completion token. */
     )
 {

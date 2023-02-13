@@ -56,7 +56,7 @@ void onTimeTick(std::tm time)
 using Aftermath = boost::variant2::variant<
     boost::variant2::monostate,
     wamp::ErrorOr<size_t>,
-    wamp::ErrorOr<wamp::SessionInfo>,
+    wamp::ErrorOr<wamp::Welcome>,
     wamp::ErrorOr<wamp::Result>,
     wamp::ErrorOr<wamp::Subscription>>;
 

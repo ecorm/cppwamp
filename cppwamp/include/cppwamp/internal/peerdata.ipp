@@ -209,30 +209,30 @@ CPPWAMP_INLINE Reason* Realm::abortReason(internal::PassKey)
 
 
 //******************************************************************************
-// SessionInfo
+// Welcome
 //******************************************************************************
 
-CPPWAMP_INLINE SessionInfo::SessionInfo() {}
+CPPWAMP_INLINE Welcome::Welcome() {}
 
-CPPWAMP_INLINE SessionId SessionInfo::id() const {return message().sessionId();}
+CPPWAMP_INLINE SessionId Welcome::id() const {return message().sessionId();}
 
-CPPWAMP_INLINE const String& SessionInfo::realm() const {return realm_;}
+CPPWAMP_INLINE const String& Welcome::realm() const {return realm_;}
 
-CPPWAMP_INLINE AccessActionInfo SessionInfo::info() const
+CPPWAMP_INLINE AccessActionInfo Welcome::info() const
 {
     return {AccessAction::serverWelcome, realm(), options()};
 }
 
 /** @returns The value of the `HELLO.Details.agent|string`
              detail, if available, or an error code. */
-CPPWAMP_INLINE ErrorOr<String> SessionInfo::agentString() const
+CPPWAMP_INLINE ErrorOr<String> Welcome::agentString() const
 {
     return optionAs<String>("agent");
 }
 
 /** @returns The value of the `HELLO.Details.roles|dict`
              detail, if available, or an error code. */
-CPPWAMP_INLINE ErrorOr<Object> SessionInfo::roles() const
+CPPWAMP_INLINE ErrorOr<Object> Welcome::roles() const
 {
     return optionAs<Object>("roles");
 }
@@ -247,7 +247,7 @@ Possible role strings include:
     bool supported = sessionInfo.supportsRoles({"broker", "dealer"});
 ```
         */
-CPPWAMP_INLINE bool SessionInfo::supportsRoles(const RoleSet& roles) const
+CPPWAMP_INLINE bool Welcome::supportsRoles(const RoleSet& roles) const
 {
     if (roles.empty())
         return true;
@@ -276,8 +276,7 @@ bool supported = sessionInfo.supportsFeatures(
 });
 ```
 */
-CPPWAMP_INLINE bool SessionInfo::supportsFeatures(
-    const FeatureMap& features) const
+CPPWAMP_INLINE bool Welcome::supportsFeatures(const FeatureMap& features) const
 {
     if (features.empty())
         return true;
@@ -319,7 +318,7 @@ CPPWAMP_INLINE bool SessionInfo::supportsFeatures(
 /** @details
     This function returns the value of the `HELLO.Details.authid|string`
     detail, or an empty string if not available. */
-CPPWAMP_INLINE ErrorOr<String> SessionInfo::authId() const
+CPPWAMP_INLINE ErrorOr<String> Welcome::authId() const
 {
     return optionAs<String>("authid");
 }
@@ -328,7 +327,7 @@ CPPWAMP_INLINE ErrorOr<String> SessionInfo::authId() const
     This function returns the value of the `HELLO.Details.authrole|string`
     detail, if available, or an error code. Not to be confused with
     the _dealer roles_. */
-CPPWAMP_INLINE ErrorOr<String> SessionInfo::authRole() const
+CPPWAMP_INLINE ErrorOr<String> Welcome::authRole() const
 {
     return optionAs<String>("authrole");
 }
@@ -336,7 +335,7 @@ CPPWAMP_INLINE ErrorOr<String> SessionInfo::authRole() const
 /** @details
     This function returns the value of the `HELLO.Details.authmethod|string`
     detail, if available, or an error code. */
-CPPWAMP_INLINE ErrorOr<String> SessionInfo::authMethod() const
+CPPWAMP_INLINE ErrorOr<String> Welcome::authMethod() const
 {
     return optionAs<String>("authmethod");
 }
@@ -344,7 +343,7 @@ CPPWAMP_INLINE ErrorOr<String> SessionInfo::authMethod() const
 /** @details
     This function returns the value of the `HELLO.Details.authprovider|string`
     detail, if available, or an error code. */
-CPPWAMP_INLINE ErrorOr<String> SessionInfo::authProvider() const
+CPPWAMP_INLINE ErrorOr<String> Welcome::authProvider() const
 {
     return optionAs<String>("authprovider");
 }
@@ -352,13 +351,13 @@ CPPWAMP_INLINE ErrorOr<String> SessionInfo::authProvider() const
 /** @details
     This function returns the value of the `HELLO.Details.authextra|object`
     detail, if available, or an error code. */
-CPPWAMP_INLINE ErrorOr<Object> SessionInfo::authExtra() const
+CPPWAMP_INLINE ErrorOr<Object> Welcome::authExtra() const
 {
     return optionAs<Object>("authextra");
 }
 
-CPPWAMP_INLINE SessionInfo::SessionInfo(internal::PassKey, String&& realm,
-                                        internal::WelcomeMessage&& msg)
+CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, String&& realm,
+                                internal::WelcomeMessage&& msg)
     : Base(std::move(msg)),
       realm_(std::move(realm))
 {}

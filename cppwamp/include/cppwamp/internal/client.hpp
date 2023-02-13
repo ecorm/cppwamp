@@ -187,12 +187,12 @@ public:
     }
 
     void join(Realm&& realm, ChallengeHandler onChallenge,
-              CompletionHandler<SessionInfo>&& handler)
+              CompletionHandler<Welcome>&& handler)
     {
         struct Requested
         {
             Ptr self;
-            CompletionHandler<SessionInfo> handler;
+            CompletionHandler<Welcome> handler;
             String realmUri;
             Reason* abortPtr;
 
@@ -229,15 +229,14 @@ public:
                                 realm.uri(), realm.abortReason({})});
     }
 
-    void safeJoin(Realm&& r, ChallengeHandler c,
-                  CompletionHandler<SessionInfo>&& f)
+    void safeJoin(Realm&& r, ChallengeHandler c, CompletionHandler<Welcome>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Realm r;
             ChallengeHandler c;
-            CompletionHandler<SessionInfo> f;
+            CompletionHandler<Welcome> f;
             void operator()() {self->join(std::move(r), std::move(c),
                                std::move(f));}
         };
@@ -1168,7 +1167,7 @@ private:
         }
     }
 
-    void onWelcome(CompletionHandler<SessionInfo>&& handler, Message&& reply,
+    void onWelcome(CompletionHandler<Welcome>&& handler, Message&& reply,
                    String&& realmUri)
     {
         std::weak_ptr<Client> self = shared_from_this();
@@ -1180,12 +1179,12 @@ private:
         });
 
         auto& welcomeMsg = messageCast<WelcomeMessage>(reply);
-        SessionInfo info{{}, std::move(realmUri), std::move(welcomeMsg)};
+        Welcome info{{}, std::move(realmUri), std::move(welcomeMsg)};
         completeNow(handler, std::move(info));
     }
 
-    void onJoinAborted(CompletionHandler<SessionInfo>&& handler,
-                       Message&& reply, Reason* abortPtr)
+    void onJoinAborted(CompletionHandler<Welcome>&& handler, Message&& reply,
+                       Reason* abortPtr)
     {
         using std::move;
 

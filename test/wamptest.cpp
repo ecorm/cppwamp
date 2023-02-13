@@ -479,7 +479,7 @@ GIVEN( "a Session and a ConnectionWish" )
 
             {
                 // Check joining.
-                SessionInfo info = s.join(Realm(testRealm), yield).value();
+                Welcome info = s.join(Realm(testRealm), yield).value();
                 CHECK( changes.check(s, {SS::connecting, SS::closed,
                                          SS::establishing, SS::established},
                                      yield) );
@@ -501,7 +501,7 @@ GIVEN( "a Session and a ConnectionWish" )
 
             {
                 // Check that the same client can rejoin and leave.
-                SessionInfo info = s.join(Realm(testRealm), yield).value();
+                Welcome info = s.join(Realm(testRealm), yield).value();
                 CHECK( changes.check(s, {SS::establishing, SS::established},
                                      yield) );
                 CHECK( s.state() == SessionState::established );
@@ -560,7 +560,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK( changes.check(s, {SS::connecting, SS::closed}, yield) );
 
                 // Join
-                SessionInfo info = s.join(Realm(testRealm), yield).value();
+                Welcome info = s.join(Realm(testRealm), yield).value();
                 CHECK( changes.check(s, {SS::establishing, SS::established},
                                      yield) );
                 CHECK ( info.id() <= 9007199254740992ll );
@@ -684,7 +684,7 @@ GIVEN( "a Session and a ConnectionWish" )
         bool handlerWasInvoked = false;
         s.connect(where, [&](ErrorOr<size_t>)
         {
-            s.join(Realm(testRealm), [&](ErrorOr<SessionInfo>)
+            s.join(Realm(testRealm), [&](ErrorOr<Welcome>)
             {
                 handlerWasInvoked = true;
             });
@@ -737,7 +737,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
 
             {
                 // Check joining.
-                SessionInfo info = s.join(Realm(testRealm), yield).value();
+                Welcome info = s.join(Realm(testRealm), yield).value();
                 CHECK( s.state() == SessionState::established );
                 CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
@@ -757,7 +757,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
 
             {
                 // Check that the same client can rejoin and leave.
-                SessionInfo info = s.join(Realm(testRealm), yield).value();
+                Welcome info = s.join(Realm(testRealm), yield).value();
                 CHECK( s.state() == SessionState::established );
                 CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
@@ -1838,7 +1838,7 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
                 CHECK( changes.check(s, {SS::connecting, SS::closed}, yield) );
 
                 // Join
-                SessionInfo info = s.join(Realm(testRealm), yield).value();
+                Welcome info = s.join(Realm(testRealm), yield).value();
                 CHECK( changes.check(s, {SS::establishing, SS::established},
                                      yield) );
                 CHECK ( info.id() <= 9007199254740992ll );
@@ -2330,7 +2330,7 @@ GIVEN( "an IO service and a TCP connector" )
 
         ioctx.run();
 
-        session.join(Realm(testRealm), [](ErrorOr<SessionInfo>){});
+        session.join(Realm(testRealm), [](ErrorOr<Welcome>){});
 
         IoContext ioctx2;
         spawn(ioctx2, [&](YieldContext yield)
@@ -2402,11 +2402,10 @@ GIVEN( "an IO service and a ConnectionWish" )
 
     WHEN( "disconnecting during async join" )
     {
-        checkDisconnect<SessionInfo>([](Session& session, YieldContext,
-                                        bool& completed,
-                                        ErrorOr<SessionInfo>& result)
+        checkDisconnect<Welcome>([](Session& session, YieldContext,
+                                    bool& completed, ErrorOr<Welcome>& result)
         {
-            session.join(Realm(testRealm), [&](ErrorOr<SessionInfo> info)
+            session.join(Realm(testRealm), [&](ErrorOr<Welcome> info)
             {
                 completed = true;
                 result = info;

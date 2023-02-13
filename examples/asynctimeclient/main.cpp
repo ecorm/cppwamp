@@ -75,7 +75,7 @@ private:
         auto self = shared_from_this();
         session_.join(
             wamp::Realm(realm),
-            [this, self](wamp::ErrorOr<wamp::SessionInfo> info)
+            [this, self](wamp::ErrorOr<wamp::Welcome> info)
             {
                 info.value(); // Throws if join failed
                 getTime();

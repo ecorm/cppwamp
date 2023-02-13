@@ -373,10 +373,10 @@ CPPWAMP_INLINE void Session::doConnect(ConnectionWishList&& w, CompletionHandler
 CPPWAMP_INLINE void Session::safeConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f)
     {impl_->safeConnect(std::move(w), std::move(f));}
 
-CPPWAMP_INLINE void Session::doJoin(Realm&& r, ChallengeHandler c, CompletionHandler<SessionInfo>&& f)
+CPPWAMP_INLINE void Session::doJoin(Realm&& r, ChallengeHandler c, CompletionHandler<Welcome>&& f)
     {impl_->join(std::move(r), std::move(c), std::move(f));}
 
-CPPWAMP_INLINE void Session::safeJoin(Realm&& r, ChallengeHandler c, CompletionHandler<SessionInfo>&& f)
+CPPWAMP_INLINE void Session::safeJoin(Realm&& r, ChallengeHandler c, CompletionHandler<Welcome>&& f)
     {impl_->safeJoin(std::move(r), std::move(c), std::move(f));}
 
 CPPWAMP_INLINE void Session::doLeave(Reason&& r, CompletionHandler<Reason>&& f)

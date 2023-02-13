@@ -52,7 +52,7 @@ namespace wamp
 using Aftermath = boost::variant2::variant<
     boost::variant2::monostate,
     wamp::ErrorOr<size_t>,
-    wamp::ErrorOr<wamp::SessionInfo>,
+    wamp::ErrorOr<wamp::Welcome>,
     wamp::ErrorOr<wamp::Registration>,
     boost::system::error_code,
     wamp::ErrorOr<wamp::PublicationId>>;

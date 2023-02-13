@@ -142,10 +142,8 @@ public:
 
 //------------------------------------------------------------------------------
 /** Session information contained within WAMP `WELCOME` messages. */
-// TODO: Rename to Welcome
 //------------------------------------------------------------------------------
-class CPPWAMP_API SessionInfo : public Options<SessionInfo,
-                                               internal::WelcomeMessage>
+class CPPWAMP_API Welcome : public Options<Welcome, internal::WelcomeMessage>
 {
 public:
     /** A set of role strings. */
@@ -158,7 +156,7 @@ public:
     using FeatureMap = std::map<String, FeatureSet>;
 
     /** Default constructor. */
-    SessionInfo();
+    Welcome();
 
     /** Obtains the WAMP session ID. */
     SessionId id() const;
@@ -216,14 +214,13 @@ public:
     /// @}
 
 private:
-    using Base = Options<SessionInfo, internal::WelcomeMessage>;
+    using Base = Options<Welcome, internal::WelcomeMessage>;
 
     String realm_;
 
 public:
     // Internal use only
-    SessionInfo(internal::PassKey, String&& realm,
-                internal::WelcomeMessage&& msg);
+    Welcome(internal::PassKey, String&& realm, internal::WelcomeMessage&& msg);
 };
 
 

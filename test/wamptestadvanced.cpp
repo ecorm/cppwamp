@@ -130,7 +130,7 @@ struct TicketAuthFixture
     SessionState challengeState = SessionState::closed;
     unsigned challengeCount = 0;
     Challenge challenge;
-    ErrorOr<SessionInfo> info;
+    ErrorOr<Welcome> info;
     Reason abortReason;
 };
 

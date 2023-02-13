@@ -160,7 +160,7 @@ complete), it yields control so that other asynchronous operations can be
 executed via the I/O context.
 
 Also note the `value()` method being invoked on `join`'s
-`ErrorOr<SessionInfo>` result to obtain the underlying wamp::SessionInfo.
+`ErrorOr<Welcome>` result to obtain the underlying wamp::Welcome.
 If there was an error during the join operation, `value()` would throw
 a wamp::error::Failure exception.
 

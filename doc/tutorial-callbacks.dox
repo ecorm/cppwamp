@@ -98,7 +98,7 @@ private:
     void join()
     {
         session_.join(Realm("somerealm"),
-            [this](wamp::ErrorOr<wamp::SessionInfo> info)
+            [this](wamp::ErrorOr<wamp::Welcome> info)
             {
                 sessionInfo_ = info.value(); // throws if join failed
                 // Continue with other asynchronous operations...
@@ -107,7 +107,7 @@ private:
     }
 
     wamp::Session session_;
-    wamp::SessionInfo sessionInfo_;
+    wamp::Welcome sessionInfo_;
 };
 
 int main()
