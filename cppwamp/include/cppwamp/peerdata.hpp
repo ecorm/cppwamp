@@ -427,6 +427,7 @@ public:
 
 private:
     using Base = Options<Topic, internal::SubscribeMessage>;
+    MatchPolicy matchPolicy_ = MatchPolicy::exact;
 
 public:
     // Internal use only

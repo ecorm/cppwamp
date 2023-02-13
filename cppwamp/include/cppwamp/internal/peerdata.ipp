@@ -627,17 +627,17 @@ CPPWAMP_INLINE AccessActionInfo Topic::info() const
 CPPWAMP_INLINE Topic& Topic::withMatchPolicy(MatchPolicy policy)
 {
     internal::setMatchPolicyOption(*this, policy);
+    matchPolicy_ = policy;
     return *this;
 }
 
-CPPWAMP_INLINE MatchPolicy Topic::matchPolicy() const
-{
-    return internal::getMatchPolicyOption(*this);
-}
+CPPWAMP_INLINE MatchPolicy Topic::matchPolicy() const {return matchPolicy_;}
 
 CPPWAMP_INLINE Topic::Topic(internal::PassKey, internal::SubscribeMessage&& msg)
     : Base(std::move(msg))
-{}
+{
+    matchPolicy_ = internal::getMatchPolicyOption(*this);
+}
 
 CPPWAMP_INLINE RequestId Topic::requestId(internal::PassKey) const
 {

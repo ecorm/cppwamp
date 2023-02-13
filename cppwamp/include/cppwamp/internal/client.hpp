@@ -288,9 +288,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                me.topics_.clear();
-                me.readership_.clear();
-                me.registry_.clear();
+                me.clear();
                 if (me.checkError(reply, handler))
                 {
                     auto& goodBye = messageCast<GoodbyeMessage>(*reply);
@@ -376,21 +374,30 @@ public:
                     auto subId = msg.subscriptionId();
                     auto slotId = me.nextSlotId();
                     Subscription sub(self, subId, slotId, {});
-                    me.topics_.emplace(rec.topicUri, subId);
+                    rec.topicMap->emplace(rec.topicUri, subId);
                     me.readership_[subId][slotId] = std::move(rec);
                     me.completeNow(handler, std::move(sub));
                 }
             }
         };
 
+        assert(topic.matchPolicy() != MatchPolicy::unknown);
         if (!checkState(State::established, handler))
             return;
 
         using std::move;
-        SubscriptionRecord rec = {topic.uri(), move(slot)};
+        SubscriptionRecord rec = {topic.uri(), move(slot), nullptr};
 
-        auto kv = topics_.find(rec.topicUri);
-        if (kv == topics_.end())
+        switch (topic.matchPolicy())
+        {
+        case MatchPolicy::exact:    rec.topicMap = &exactTopics_;    break;
+        case MatchPolicy::prefix:   rec.topicMap = &prefixTopics_;   break;
+        case MatchPolicy::wildcard: rec.topicMap = &wildcardTopics_; break;
+        default: assert(false && "Unexpected MatchPolicy enumerator");
+        }
+
+        auto kv = rec.topicMap->find(rec.topicUri);
+        if (kv == rec.topicMap->end())
         {
             peer_.request(
                 topic.message({}),
@@ -434,8 +441,9 @@ public:
                 auto subKv = localSubs.find(sub.slotId({}));
                 if (subKv != localSubs.end())
                 {
+                    auto& localSub = subKv->second;
                     if (localSubs.size() == 1u)
-                        topics_.erase(subKv->second.topicUri);
+                        localSub.topicMap->erase(localSub.topicUri);
 
                     localSubs.erase(subKv);
                     if (localSubs.empty())
@@ -471,8 +479,9 @@ public:
                 auto subKv = localSubs.find(sub.slotId({}));
                 if (subKv != localSubs.end())
                 {
+                    auto& localSub = subKv->second;
                     if (localSubs.size() == 1u)
-                        topics_.erase(subKv->second.topicUri);
+                        localSub.topicMap->erase(localSub.topicUri);
 
                     localSubs.erase(subKv);
                     if (localSubs.empty())
@@ -962,11 +971,13 @@ public:
 
 private:
     using ErrorOrDonePromise = std::promise<ErrorOrDone>;
+    using TopicMap = std::map<std::string, SubscriptionId>;
 
     struct SubscriptionRecord
     {
         String topicUri;
         EventSlot slot;
+        TopicMap* topicMap;
     };
 
     struct RegistrationRecord
@@ -979,7 +990,6 @@ private:
     using SlotId         = uint64_t;
     using LocalSubs      = std::map<SlotId, SubscriptionRecord>;
     using Readership     = std::map<SubscriptionId, LocalSubs>;
-    using TopicMap       = std::map<std::string, SubscriptionId>;
     using Registry       = std::map<RegistrationId, RegistrationRecord>;
     using InvocationMap  = std::map<RequestId, RegistrationId>;
     using CallerTimeoutDuration = typename Rpc::TimeoutDuration;
@@ -1087,7 +1097,9 @@ private:
 
     void clear()
     {
-        topics_.clear();
+        exactTopics_.clear();
+        prefixTopics_.clear();
+        wildcardTopics_.clear();
         readership_.clear();
         registry_.clear();
         pendingInvocations_.clear();
@@ -1550,7 +1562,9 @@ private:
 
     Peer peer_;
     Connecting::Ptr currentConnector_;
-    TopicMap topics_; // TODO: Separate by match policy
+    TopicMap exactTopics_;
+    TopicMap prefixTopics_;
+    TopicMap wildcardTopics_;
     Readership readership_;
     Registry registry_;
     InvocationMap pendingInvocations_;

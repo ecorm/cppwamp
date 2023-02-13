@@ -26,7 +26,6 @@ public:
 
     virtual void challenge() = 0;
 
-    // TODO: Pass Realm/Welcome object instead
     virtual void welcome(AuthInfo&&) = 0;
 
     virtual void reject(Reason&&) = 0;

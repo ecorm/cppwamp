@@ -924,6 +924,8 @@ Session::subscribe(
                               Boost.Asio completion token. */
     )
 {
+    CPPWAMP_LOGIC_CHECK(topic.matchPolicy() != MatchPolicy::unknown,
+                        "Unsupported match policy for subscribe operation");
     return initiate<SubscribeOp>(std::forward<C>(completion), std::move(topic),
                                  std::move(eventSlot));
 }
@@ -947,6 +949,8 @@ Session::subscribe(
                               Boost.Asio completion token. */
     )
 {
+    CPPWAMP_LOGIC_CHECK(topic.matchPolicy() != MatchPolicy::unknown,
+                        "Unsupported match policy for subscribe operation");
     return safelyInitiate<SubscribeOp>(std::forward<C>(completion),
                                        std::move(topic), std::move(eventSlot));
 }

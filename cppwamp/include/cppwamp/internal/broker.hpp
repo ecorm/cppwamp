@@ -28,7 +28,7 @@ namespace internal
 class BrokerPublication
 {
 public:
-    BrokerPublication(Pub&& pub, PublicationId pid,RealmSession::Ptr publisher)
+    BrokerPublication(Pub&& pub, PublicationId pid, RealmSession::Ptr publisher)
         : topicUri_(pub.uri()),
           eligibleSessions_(setOfSessionIds(pub, "eligible")),
           eligibleAuthIds_(setOfStrings(pub, "eligible_authid")),
