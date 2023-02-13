@@ -246,12 +246,15 @@ public:
         return done;
     }
 
-    ErrorOrDone abort(Abort a)
+    ErrorOrDone abort(Reason r)
     {
+        // TODO: Just disconnect if no session is established, and
+        //       adjust ServerSession::doAbort accordingly
+
         if (!transport_ || !transport_->isStarted())
             return makeUnexpectedError(SessionErrc::invalidState);
 
-        auto& msg = a.message({});
+        auto& msg = r.abortMessage({});
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
 
@@ -267,7 +270,7 @@ public:
         }
 
         SessionErrc errc;
-        errorUriToCode(a.uri(), SessionErrc::sessionAborted, errc);
+        errorUriToCode(r.uri(), SessionErrc::sessionAborted, errc);
         setState(State::failed, make_error_code(errc));
         traceTx(msg);
         transport_->sendNowAndClose(std::move(buffer));

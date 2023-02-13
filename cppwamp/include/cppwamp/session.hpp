@@ -13,6 +13,8 @@
            WAMP applications. */
 //------------------------------------------------------------------------------
 
+// TODO: Client-side abort
+
 #include <future>
 #include <memory>
 #include <string>

@@ -57,11 +57,8 @@ enum class AccessAction
     clientRegister,
     clientUnregister,
     clientYield,
-    serverConnect,
-    serverDisconnect,
     serverWelcome,
     serverAbort,
-    serverTerminate,
     serverChallenge,
     serverGoodbye,
     serverError,
@@ -77,7 +74,7 @@ enum class AccessAction
 };
 
 //------------------------------------------------------------------------------
-std::string accessActionLabel(AccessAction action);
+const std::string& accessActionLabel(AccessAction action);
 
 //------------------------------------------------------------------------------
 struct CPPWAMP_API AccessActionInfo

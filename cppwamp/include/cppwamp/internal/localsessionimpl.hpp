@@ -585,7 +585,7 @@ public:
         return fut;
     }
 
-    void abort(Abort r) override
+    void abort(Reason r) override
     {
         // TODO
     }

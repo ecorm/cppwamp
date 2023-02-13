@@ -65,16 +65,16 @@ public:
         completeNow([this, self]() {doStart();});
     }
 
-    void abort(Abort a) override
+    void abort(Reason r) override
     {
         struct Dispatched
         {
             Ptr self;
-            Abort a;
-            void operator()() {self->doAbort(std::move(a));}
+            Reason r;
+            void operator()() {self->doAbort(std::move(r));}
         };
 
-        safelyDispatch<Dispatched>(std::move(a));
+        safelyDispatch<Dispatched>(std::move(r));
     }
 
     void sendError(Error&& e, bool logOnly) override
@@ -335,7 +335,7 @@ private:
         peer_.connect(std::move(transport_), std::move(codec_));
     }
 
-    void doAbort(Abort a)
+    void doAbort(Reason r)
     {
         shuttingDown_ = true;
         leaveRealm(false);
@@ -344,27 +344,13 @@ private:
         bool readyToAbort = s == State::establishing ||
                             s == State::authenticating ||
                             s == State::established;
+        report({AccessAction::serverAbort, {}, r.options(), r.uri()});
         if (readyToAbort)
-        {
-            auto done = peer_.abort(a);
-            report(a.info(true).withResult(done));
-        }
+            peer_.abort(r);
         else
-        {
-            report({AccessAction::serverTerminate, {}, a.options(),
-                    a.uri()});
             peer_.terminate();
-        }
 
         clearWampSessionInfo();
-    }
-
-    void doClose(bool terminate, Reason r)
-    {
-        if (terminate)
-            this->terminate(std::move(r));
-        else
-            shutDown(std::move(r));
     }
 
     template <typename T>
@@ -382,46 +368,6 @@ private:
             return;
         TMessage msg{std::forward<TArgs>(args)...};
         peer_.send(msg);
-    }
-
-    void shutDown(Reason reason)
-    {
-        if (state() != State::established)
-            return terminate(std::move(reason));
-
-        report(reason.info(true));
-        shuttingDown_ = true;
-        leaveRealm(false);
-
-        auto self = shared_from_this();
-        peer_.closeSession(
-            reason,
-            [this, self, reason](ErrorOr<WampMessage> reply)
-            {
-                if (reply.has_value())
-                {
-                    auto& goodBye = messageCast<GoodbyeMessage>(*reply);
-                    Reason peerReason({}, std::move(goodBye));
-                    report(peerReason.info(false));
-                }
-                else
-                {
-                    log({LogLevel::warning,
-                         "Server-initiated GOODBYE failed", reply.error()});
-                }
-                clearWampSessionInfo();
-                report({AccessAction::serverDisconnect, reason.uri(),
-                        reason.options()});
-                peer_.terminate();
-            });
-    }
-
-    void terminate(Reason reason)
-    {
-        shuttingDown_ = true;
-        report({AccessAction::serverTerminate, reason.uri(), reason.options()});
-        leaveRealm();
-        peer_.terminate();
     }
 
     void clearWampSessionInfo()
@@ -525,7 +471,7 @@ private:
         {
             auto errc = SessionErrc::protocolViolation;
             report(authentication.info().withError(errc));
-            doAbort(Abort(errc).withHint("Unexpected AUTHENTICATE message"));
+            doAbort(Reason(errc).withHint("Unexpected AUTHENTICATE message"));
             return;
         }
 
@@ -606,7 +552,7 @@ private:
         auto reqId = msg.requestId();
         if (reqId >= expectedRequestId_)
         {
-            return doAbort(Abort(SessionErrc::protocolViolation)
+            return doAbort(Reason(SessionErrc::protocolViolation)
                                .withHint("Cannot cancel future request ID"));
         }
 
@@ -676,7 +622,7 @@ private:
     {
         if (rid != expectedRequestId_)
         {
-            doAbort(Abort(SessionErrc::protocolViolation)
+            doAbort(Reason(SessionErrc::protocolViolation)
                         .withHint("Non-sequential request ID"));
             return false;
         }
@@ -746,7 +692,7 @@ private:
         safelyDispatch<Dispatched>(std::move(info));
     }
 
-    void reject(Abort&& a) override
+    void reject(Reason&& r) override
     {
         auto s = state();
         bool readyToReject = s == State::establishing ||
@@ -756,19 +702,19 @@ private:
 
         authExchange_.reset();
         clearWampSessionInfo();
-        peer_.abort(std::move(a));
+        peer_.abort(std::move(r));
     }
 
-    void safeReject(Abort&& a) override
+    void safeReject(Reason&& r) override
     {
         struct Dispatched
         {
             Ptr self;
-            Abort a;
-            void operator()() {self->reject(std::move(a));}
+            Reason r;
+            void operator()() {self->reject(std::move(r));}
         };
 
-        safelyDispatch<Dispatched>(std::move(a));
+        safelyDispatch<Dispatched>(std::move(r));
     }
 
     template <typename F, typename... Ts>
@@ -811,17 +757,17 @@ public:
         boost::asio::dispatch(strand_, [this, self](){doStart();});
     }
 
-    void close(Abort a)
+    void close(Reason r)
     {
         struct Posted
         {
             Ptr self;
-            Abort a;
-            void operator()() {self->doClose(std::move(a));}
+            Reason r;
+            void operator()() {self->doClose(std::move(r));}
         };
 
         boost::asio::dispatch(strand_, Posted{shared_from_this(),
-                                              std::move(a)});
+                                              std::move(r)});
     }
 
     ServerConfig::Ptr config() const {return config_;}
@@ -847,12 +793,12 @@ private:
         listen();
     }
 
-    void doClose(Abort a)
+    void doClose(Reason r)
     {
         std::string msg = "Shutting down server listening on " +
-                          listener_->where() + " with reason " + a.uri();
-        if (!a.options().empty())
-            msg += " " + toString(a.options());
+                          listener_->where() + " with reason " + r.uri();
+        if (!r.options().empty())
+            msg += " " + toString(r.options());
         inform(std::move(msg));
 
         if (!listener_)
@@ -860,7 +806,7 @@ private:
         listener_->cancel();
         listener_.reset();
         for (auto& s: sessions_)
-            s->abort(a);
+            s->abort(r);
     }
 
     void listen()

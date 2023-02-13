@@ -340,7 +340,18 @@ struct GoodbyeMessage : public MessageWithOptions<WampMsgType::goodbye, 1>
             fields_[2] = String("wamp.error.close_realm");
     }
 
+    explicit GoodbyeMessage(AbortMessage&& msg)
+        : Base(std::move(msg).fields())
+    {}
+
     const String& uri() const {return fields_.at(2).as<String>();}
+
+    AbortMessage& transformToAbort()
+    {
+        setType(WampMsgType::abort);
+        auto& base = static_cast<WampMessage&>(*this);
+        return static_cast<AbortMessage&>(base);
+    }
 
 private:
     using Base = MessageWithOptions<WampMsgType::goodbye, 1>;
@@ -633,6 +644,10 @@ private:
 struct ResultMessage : public MessageWithPayload<WampMsgType::result, 2, 3>
 {
     explicit ResultMessage(Object opts = {}) : Base({0, 0, std::move(opts)}) {}
+
+    explicit ResultMessage(YieldMessage&& msg)
+        : Base(std::move(msg).fields())
+    {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 

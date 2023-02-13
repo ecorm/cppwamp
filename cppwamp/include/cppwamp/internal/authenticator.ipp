@@ -68,18 +68,18 @@ CPPWAMP_INLINE void AuthExchange::welcome(ThreadSafe, AuthInfo info)
         c->safeWelcome(std::move(info));
 }
 
-CPPWAMP_INLINE void AuthExchange::reject(Abort a)
+CPPWAMP_INLINE void AuthExchange::reject(Reason r)
 {
     auto c = challenger_.lock();
     if (c)
-        c->reject(std::move(a));
+        c->reject(std::move(r));
 }
 
-CPPWAMP_INLINE void AuthExchange::reject(ThreadSafe, Abort a)
+CPPWAMP_INLINE void AuthExchange::reject(ThreadSafe, Reason r)
 {
     auto c = challenger_.lock();
     if (c)
-        c->safeReject(std::move(a));
+        c->safeReject(std::move(r));
 }
 
 CPPWAMP_INLINE AuthExchange::Ptr

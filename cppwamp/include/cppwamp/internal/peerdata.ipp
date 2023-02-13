@@ -95,48 +95,54 @@ CPPWAMP_INLINE CallCancelMode parseCallCancelModeFromOptions(const Object& opts)
 
 } // namespace internal
 
+
 //******************************************************************************
-// Abort
+// Reason
 //******************************************************************************
 
-CPPWAMP_INLINE Abort::Abort(String uri) : Base(std::move(uri)) {}
+CPPWAMP_INLINE Reason::Reason(String uri) : Base(std::move(uri)) {}
 
-CPPWAMP_INLINE Abort::Abort(SessionErrc errc) : Base(errcToUri(errc)) {}
+CPPWAMP_INLINE Reason::Reason(SessionErrc errc) : Base(errcToUri(errc)) {}
 
-CPPWAMP_INLINE Abort& Abort::withHint(String text)
+CPPWAMP_INLINE Reason& Reason::withHint(String text)
 {
     withOption("message", std::move(text));
     return *this;
 }
 
-CPPWAMP_INLINE const String& Abort::uri() const {return message().uri();}
+CPPWAMP_INLINE const String& Reason::uri() const {return message().uri();}
 
-CPPWAMP_INLINE ErrorOr<String> Abort::hint() const
+CPPWAMP_INLINE ErrorOr<String> Reason::hint() const
 {
     return optionAs<String>("message");
 }
 
-CPPWAMP_INLINE AccessActionInfo Abort::info(bool isServer) const
+CPPWAMP_INLINE AccessActionInfo Reason::info(bool isServer) const
 {
-    auto action = isServer ? AccessAction::serverAbort
-                           : AccessAction::clientAbort;
-    return {action, {}, options(), uri()};
+    auto action = isServer ? AccessAction::serverGoodbye
+                           : AccessAction::clientGoodbye;
+    return {action, uri(), options()};
 }
 
-CPPWAMP_INLINE String Abort::errcToUri(SessionErrc errc)
+CPPWAMP_INLINE String Reason::errcToUri(SessionErrc errc)
 {
     auto uri = errorCodeToUri(errc);
-    assert(!uri.empty() && "Error code must map to URI");
+    CPPWAMP_LOGIC_CHECK(!uri.empty(),
+                        "wamp::Reason constructor error code must map to URI");
     return uri;
 }
 
-CPPWAMP_INLINE Abort::Abort(internal::PassKey, internal::AbortMessage&& msg)
+CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::GoodbyeMessage&& msg)
     : Base(std::move(msg))
 {}
 
-CPPWAMP_INLINE internal::AbortMessage& Abort::abortMessage(internal::PassKey)
+CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::AbortMessage&& msg)
+    : Base(std::move(msg))
+{}
+
+CPPWAMP_INLINE internal::AbortMessage& Reason::abortMessage(internal::PassKey)
 {
-    return message();
+    return message().transformToAbort();
 }
 
 
@@ -146,9 +152,9 @@ CPPWAMP_INLINE internal::AbortMessage& Abort::abortMessage(internal::PassKey)
 
 CPPWAMP_INLINE Realm::Realm(String uri) : Base(std::move(uri)) {}
 
-CPPWAMP_INLINE Realm& Realm::captureAbort(Abort& abort)
+CPPWAMP_INLINE Realm& Realm::captureAbort(Reason& reason)
 {
-    abort_ = &abort;
+    abortReason_ = &reason;
     return *this;
 }
 
@@ -196,7 +202,10 @@ CPPWAMP_INLINE Realm::Realm(internal::PassKey, internal::HelloMessage&& msg)
     : Base(std::move(msg))
 {}
 
-CPPWAMP_INLINE Abort* Realm::abort(internal::PassKey) {return abort_;}
+CPPWAMP_INLINE Reason* Realm::abortReason(internal::PassKey)
+{
+    return abortReason_;
+}
 
 
 //******************************************************************************
@@ -352,37 +361,6 @@ CPPWAMP_INLINE SessionInfo::SessionInfo(internal::PassKey, String&& realm,
                                         internal::WelcomeMessage&& msg)
     : Base(std::move(msg)),
       realm_(std::move(realm))
-{}
-
-
-//******************************************************************************
-// Reason
-//******************************************************************************
-
-CPPWAMP_INLINE Reason::Reason(String uri) : Base(std::move(uri)) {}
-
-CPPWAMP_INLINE Reason& Reason::withHint(String text)
-{
-    withOption("message", std::move(text));
-    return *this;
-}
-
-CPPWAMP_INLINE const String& Reason::uri() const {return message().uri();}
-
-CPPWAMP_INLINE ErrorOr<String> Reason::hint() const
-{
-    return optionAs<String>("message");
-}
-
-CPPWAMP_INLINE AccessActionInfo Reason::info(bool isServer) const
-{
-    auto action = isServer ? AccessAction::serverGoodbye
-                           : AccessAction::clientGoodbye;
-    return {action, uri(), options()};
-}
-
-CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::GoodbyeMessage&& msg)
-    : Base(std::move(msg))
 {}
 
 
@@ -1068,10 +1046,8 @@ CPPWAMP_INLINE Result::Result(internal::PassKey, internal::ResultMessage&& msg)
 {}
 
 CPPWAMP_INLINE Result::Result(internal::PassKey, internal::YieldMessage&& msg)
-{
-    withArgs(std::move(msg).args());
-    withKwargs(std::move(msg).kwargs());
-}
+    : Base(std::move(msg))
+{}
 
 CPPWAMP_INLINE RequestId Result::requestId(internal::PassKey) const
 {

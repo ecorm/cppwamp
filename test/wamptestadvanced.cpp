@@ -111,7 +111,7 @@ struct TicketAuthFixture
         session.connect(where, yield).value();
         info = session.join(Realm(authTestRealm).withAuthMethods({"ticket"})
                                                 .withAuthId(std::move(authId))
-                                                .captureAbort(abort),
+                                                .captureAbort(abortReason),
                             [this](Challenge c) {onChallenge(std::move(c));},
                             yield);
     }
@@ -131,7 +131,7 @@ struct TicketAuthFixture
     unsigned challengeCount = 0;
     Challenge challenge;
     ErrorOr<SessionInfo> info;
-    Abort abort;
+    Reason abortReason;
 };
 
 } // anonymous namespace
@@ -1126,7 +1126,7 @@ GIVEN( "a Session with a registered challenge handler" )
             CHECK( f.challengeState == SessionState::authenticating );
             CHECK( f.challenge.method() == "ticket" );
             CHECK_FALSE( f.info.has_value() );
-            CHECK( f.abort.uri() == "wamp.error.not_authorized" );
+            CHECK( f.abortReason.uri() == "wamp.error.not_authorized" );
         }
     }
 }}

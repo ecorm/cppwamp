@@ -50,19 +50,19 @@ enum class MatchPolicy
 
 //------------------------------------------------------------------------------
 /** Provides the _reason_ URI and other options contained within
-    `ABORT` messages. */
+    `GOODBYE` and `ABORT` messages.*/
 //------------------------------------------------------------------------------
-class CPPWAMP_API Abort : public Options<Abort, internal::AbortMessage>
+class CPPWAMP_API Reason : public Options<Reason, internal::GoodbyeMessage>
 {
 public:
     /** Converting constructor taking an optional reason URI. */
-    Abort(String uri = "");
+    Reason(String uri = "");
 
     /** Converting constructor taking an error code. */
-    Abort(SessionErrc errc);
+    Reason(SessionErrc errc);
 
     /** Sets the `message` member of the details dictionary. */
-    Abort& withHint(String message);
+    Reason& withHint(String message);
 
     /** Obtains the reason URI. */
     const String& uri() const;
@@ -74,14 +74,14 @@ public:
     AccessActionInfo info(bool isServer) const;
 
 private:
-    using Base = Options<Abort, internal::AbortMessage>;
+    using Base = Options<Reason, internal::GoodbyeMessage>;
 
     static String errcToUri(SessionErrc errc);
 
 public:
     // Internal use only
-    Abort(internal::PassKey, internal::AbortMessage&& msg);
-
+    Reason(internal::PassKey, internal::GoodbyeMessage&& msg);
+    Reason(internal::PassKey, internal::AbortMessage&& msg);
     internal::AbortMessage& abortMessage(internal::PassKey);
 };
 
@@ -94,9 +94,9 @@ public:
     /** Converting constructor taking a realm URI. */
     Realm(String uri);
 
-    /** Specifies the Abort object in which to store abort details returned
+    /** Specifies the Reason object in which to store abort details returned
         by the router. */
-    Realm& captureAbort(Abort& abort);
+    Realm& captureAbort(Reason& reason);
 
     /** Obtains the realm URI. */
     const String& uri() const;
@@ -131,12 +131,12 @@ public:
 private:
     using Base = Options<Realm, internal::HelloMessage>;
 
-    Abort* abort_ = nullptr;
+    Reason* abortReason_ = nullptr;
 
 public:
     // Internal use only
     Realm(internal::PassKey, internal::HelloMessage&& msg);
-    Abort* abort(internal::PassKey);
+    Reason* abortReason(internal::PassKey);
 };
 
 
@@ -226,37 +226,6 @@ public:
                 internal::WelcomeMessage&& msg);
 };
 
-
-//------------------------------------------------------------------------------
-/** Provides the _reason_ URI and other options contained within
-    `GOODBYE` messages.*/
-// TODO: Consolidate with Abort
-//------------------------------------------------------------------------------
-class CPPWAMP_API Reason : public Options<Reason, internal::GoodbyeMessage>
-{
-public:
-    /** Converting constructor taking an optional reason URI. */
-    Reason(String uri = "");
-
-    /** Sets the `message` member of the details dictionary. */
-    Reason& withHint(String message);
-
-    /** Obtains the reason URI. */
-    const String& uri() const;
-
-    /** Obtains the `message` member of the details dictionary. */
-    ErrorOr<String> hint() const;
-
-    /** Obtains information for the access log. */
-    AccessActionInfo info(bool isServer) const;
-
-private:
-    using Base = Options<Reason, internal::GoodbyeMessage>;
-
-public:
-    // Internal use only
-    Reason(internal::PassKey, internal::GoodbyeMessage&& msg);
-};
 
 //------------------------------------------------------------------------------
 /** Provides the _Signature_ and _Extra_ dictionary contained within

@@ -194,7 +194,7 @@ public:
             Ptr self;
             CompletionHandler<SessionInfo> handler;
             String realmUri;
-            Abort* abortPtr;
+            Reason* abortPtr;
 
             void operator()(ErrorOr<Message> reply)
             {
@@ -226,7 +226,7 @@ public:
         peer_.establishSession();
         peer_.request(realm.message({}),
                       Requested{shared_from_this(), std::move(handler),
-                                realm.uri(), realm.abort({})});
+                                realm.uri(), realm.abortReason({})});
     }
 
     void safeJoin(Realm&& r, ChallengeHandler c,
@@ -1185,7 +1185,7 @@ private:
     }
 
     void onJoinAborted(CompletionHandler<SessionInfo>&& handler,
-                       Message&& reply, Abort* abortPtr)
+                       Message&& reply, Reason* abortPtr)
     {
         using std::move;
 
@@ -1197,7 +1197,7 @@ private:
 
         if (abortPtr != nullptr)
         {
-            *abortPtr = Abort({}, move(abortMsg));
+            *abortPtr = Reason({}, move(abortMsg));
         }
         else if ((logLevel() <= LogLevel::error) &&
                  (!found || !details.empty()))

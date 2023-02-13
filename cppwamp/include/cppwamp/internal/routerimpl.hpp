@@ -73,7 +73,7 @@ public:
         return !exists;
     }
 
-    bool closeRealm(const std::string& uri, Abort a)
+    bool closeRealm(const std::string& uri, Reason r)
     {
         RouterRealm::Ptr realm;
 
@@ -88,7 +88,7 @@ public:
         }
 
         if (realm)
-            realm->close(std::move(a));
+            realm->close(std::move(r));
         else
             warn("Attempting to close non-existent realm named '" + uri + "'");
 
@@ -123,7 +123,7 @@ public:
         return server != nullptr;
     }
 
-    bool closeServer(const std::string& name, Abort a)
+    bool closeServer(const std::string& name, Reason r)
     {
         RouterServer::Ptr server;
 
@@ -138,7 +138,7 @@ public:
         }
 
         if (server)
-            server->close(std::move(a));
+            server->close(std::move(r));
         else
             warn("Attempting to close non-existent server named '" + name + "'");
 
@@ -165,11 +165,11 @@ public:
         return session;
     }
 
-    void close(Abort a)
+    void close(Reason r)
     {
-        auto msg = std::string("Shutting down router, with reason ") + a.uri();
-        if (!a.options().empty())
-            msg += " " + toString(a.options());
+        auto msg = std::string("Shutting down router, with reason ") + r.uri();
+        if (!r.options().empty())
+            msg += " " + toString(r.options());
         inform(std::move(msg));
 
         ServerMap servers;
@@ -187,10 +187,10 @@ public:
         }
 
         for (auto& kv: servers_)
-            kv.second->close(a);
+            kv.second->close(r);
 
         for (auto& kv: realms_)
-            kv.second->close(a);
+            kv.second->close(r);
     }
 
     const IoStrand& strand() const {return strand_;}

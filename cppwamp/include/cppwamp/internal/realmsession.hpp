@@ -125,7 +125,7 @@ public:
 
     ClientFeatures features() const {return features_;}
 
-    virtual void abort(Abort) = 0;
+    virtual void abort(Reason) = 0;
 
     virtual void sendError(Error&&, bool logOnly = false) = 0;
 

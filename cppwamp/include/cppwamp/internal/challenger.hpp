@@ -12,7 +12,7 @@
 namespace wamp
 {
 
-class Abort;
+class Reason;
 class AuthInfo;
 
 namespace internal
@@ -35,9 +35,9 @@ public:
 
     virtual void safeWelcome(AuthInfo&&) = 0;
 
-    virtual void reject(Abort&&) = 0;
+    virtual void reject(Reason&&) = 0;
 
-    virtual void safeReject(Abort&&) = 0;
+    virtual void safeReject(Reason&&) = 0;
 };
 
 } // namespace internal

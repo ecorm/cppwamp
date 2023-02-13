@@ -70,11 +70,11 @@ public:
 
     /** Rejects the authentication request by sending an ABORT message to
         the client. */
-    void reject(Abort a = {SessionErrc::cannotAuthenticate});
+    void reject(Reason r = {SessionErrc::cannotAuthenticate});
 
     /** Thread-safe abort to use when the authenticator does not run on
         the same thread as the server. */
-    void reject(ThreadSafe, Abort a = {SessionErrc::cannotAuthenticate});
+    void reject(ThreadSafe, Reason r = {SessionErrc::cannotAuthenticate});
 
 public:
     // Internal use only
