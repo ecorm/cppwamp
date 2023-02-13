@@ -1087,6 +1087,9 @@ public:
     /** Obtains the cancellation mode, if available. */
     CallCancelMode cancelMode() const;
 
+    /** Obtains the cancellation reason, if available. */
+    ErrorOr<String> reason() const;
+
     /** Obtains the executor used to execute user-provided handlers. */
     AnyCompletionExecutor executor() const;
 
@@ -1113,10 +1116,13 @@ public:
                  AnyCompletionExecutor executor,
                  internal::InterruptMessage&& msg);
 
-    Interruption(internal::PassKey, RequestId reqId, CallCancelMode mode);
+    Interruption(internal::PassKey, RequestId reqId, CallCancelMode mode,
+                 SessionErrc reason);
 
 private:
     using Base = Options<Interruption, internal::InterruptMessage>;
+
+    static Object makeOptions(CallCancelMode mode, SessionErrc reason);
 
     CalleePtr callee_;
     AnyCompletionExecutor executor_ = nullptr;

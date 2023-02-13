@@ -21,7 +21,6 @@
 // TODO: Progressive Calls
 // TODO: Progressive Call Results
 // TODO: Pending call limits
-// TODO: Interrupt reason: https://github.com/wamp-proto/wamp-proto/issues/156
 
 namespace wamp
 {
@@ -181,7 +180,8 @@ public:
 
     void setCalleeRequestId(RequestId id) {callerKey_.second = id;}
 
-    ErrorOrDone cancel(CallCancelMode mode, bool& eraseNow)
+    ErrorOrDone cancel(CallCancelMode mode, SessionErrc reason,
+                       bool& eraseNow)
     {
         auto callee = this->callee_.lock();
         if (!callee)
@@ -192,7 +192,7 @@ public:
 
         if (mode != CallCancelMode::skip)
         {
-            callee->sendInterruption({{}, calleeKey_.second, mode});
+            callee->sendInterruption({{}, calleeKey_.second, mode, reason});
             interruptionSent_ = true;
         }
 
@@ -233,7 +233,10 @@ public:
 
         auto reqId = calleeKey_.second;
         if (callee->features().calleeCancelling)
-            callee->sendInterruption({{}, reqId, CallCancelMode::killNoWait});
+        {
+            callee->sendInterruption({{}, reqId, CallCancelMode::killNoWait,
+                                      SessionErrc::cancelled});
+        }
     }
 
     void complete(Result&& result)
@@ -408,7 +411,8 @@ private:
         {
             auto& job = iter->second->second;
             bool eraseNow = false;
-            job.cancel(CallCancelMode::killNoWait, eraseNow);
+            job.cancel(CallCancelMode::killNoWait, SessionErrc::timeout,
+                       eraseNow);
             if (eraseNow)
                 byCalleeErase(iter);
         }
@@ -507,7 +511,7 @@ public:
         auto mode = (cncl.mode() == CM::unknown) ? CM::killNoWait : cncl.mode();
         auto& job = iter->second;
         bool eraseNow = false;
-        auto done = job.cancel(mode, eraseNow);
+        auto done = job.cancel(mode, SessionErrc::cancelled, eraseNow);
         if (eraseNow)
             jobs_.byCallerErase(iter);
         return done;

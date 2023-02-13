@@ -175,7 +175,8 @@ enum class SessionErrc
     // Errors mapped to predefined URIs not currently in the WAMP spec
     noEligibleCallee,       ///< Call options lead to the exclusion of all callees providing the procedure
     payloadSizeExceeded,    ///< Serialized payload exceeds transport limits
-    cannotAuthenticate      ///< Authentication failed
+    cannotAuthenticate,     ///< Authentication failed
+    timeout                 ///< Operation timed out
 };
 
 //------------------------------------------------------------------------------
@@ -231,7 +232,7 @@ CPPWAMP_API bool errorUriToCode(const std::string& uri,
     to SessionCategory.
     @relates SessionCategory */
 //-----------------------------------------------------------------------------
-CPPWAMP_API std::string errorCodeToUri(SessionErrc errc);
+CPPWAMP_API const std::string& errorCodeToUri(SessionErrc errc);
 
 
 //******************************************************************************

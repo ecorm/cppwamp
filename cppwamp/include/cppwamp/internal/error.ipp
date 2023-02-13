@@ -166,7 +166,8 @@ CPPWAMP_INLINE std::string SessionCategory::message(int ev) const
 /* featureNotSupported    */ "Advanced feature is not supported",
 /* noEligibleCallee       */ "Call options lead to the exclusion of all callees providing the procedure",
 /* payloadSizeExceeded    */ "Serialized payload exceeds transport limits",
-/* cannotAuthenticate     */ "Authentication failed"
+/* cannotAuthenticate     */ "Authentication failed",
+/* timeout                */ "Operation timed out"
     };
 
     if (ev >= 0 && ev < (int)std::extent<decltype(msg)>::value)
@@ -280,6 +281,7 @@ CPPWAMP_INLINE bool errorUriToCode(
         {"wamp.error.procedure_already_exists",      SE::procedureAlreadyExists},
         {"wamp.error.protocol_violation",            SE::protocolViolation},
         {"wamp.error.system_shutdown",               SE::systemShutdown},
+        {"wamp.error.timeout",                       SE::timeout},
         {"wamp.error.unavailable",                   SE::unavailable}
     };
 
@@ -294,9 +296,9 @@ CPPWAMP_INLINE bool errorUriToCode(
 //------------------------------------------------------------------------------
 /** @return The corresponding error URI, or an empty string if not found. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE std::string errorCodeToUri(SessionErrc errc)
+CPPWAMP_INLINE const std::string& errorCodeToUri(SessionErrc errc)
 {
-    static const char* sortedByErrc[] =
+    static const std::string sortedByErrc[] =
     {
         "wamp.error.invalid_uri",
         "wamp.error.no_such_procedure",
@@ -321,17 +323,19 @@ CPPWAMP_INLINE std::string errorCodeToUri(SessionErrc errc)
         "wamp.error.feature_not_supported",
         "wamp.error.no_eligible_callee",
         "wamp.error.payload_size_exceeded",
-        "wamp.error.cannot_authenticate"
+        "wamp.error.cannot_authenticate",
+        "wamp.error.timeout"
     };
 
     static constexpr int extent = std::extent<decltype(sortedByErrc)>::value;
     static constexpr auto firstValue = static_cast<int>(SessionErrc::invalidUri);
     static constexpr auto lastValue = firstValue + extent - 1;
+    static const std::string empty;
 
     auto n = static_cast<int>(errc);
     bool found = (n >= firstValue) && (n <= lastValue);
     auto index = n - firstValue;
-    return found ? sortedByErrc[index] : "";
+    return found ? sortedByErrc[index] : empty;
 }
 
 

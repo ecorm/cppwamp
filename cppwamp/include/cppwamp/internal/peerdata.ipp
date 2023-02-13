@@ -1447,6 +1447,11 @@ CPPWAMP_INLINE CallCancelMode Interruption::cancelMode() const
     return cancelMode_;
 }
 
+CPPWAMP_INLINE ErrorOr<String> Interruption::reason() const
+{
+    return optionAs<String>("reason");
+}
+
 /** @returns the same object as Session::fallbackExecutor().
     @pre `this->empty() == false` */
 CPPWAMP_INLINE AnyCompletionExecutor Interruption::executor() const
@@ -1506,6 +1511,15 @@ CPPWAMP_INLINE AccessActionInfo Interruption::info() const
     return {AccessAction::serverInterrupt, requestId(), {}, options()};
 }
 
+CPPWAMP_INLINE Object Interruption::makeOptions(CallCancelMode mode,
+                                                SessionErrc reason)
+{
+    // Interrupt reason: proposed in
+    // https://github.com/wamp-proto/wamp-proto/issues/156
+    return Object{{"mode", internal::callCancelModeToString(mode)},
+                  {"reason", errorCodeToUri(reason)}};
+}
+
 CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,
                                           AnyCompletionExecutor executor,
                                           internal::InterruptMessage&& msg)
@@ -1516,9 +1530,9 @@ CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,
     cancelMode_ = internal::parseCallCancelModeFromOptions(options());
 }
 
-CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, RequestId reqId,
-                                          CallCancelMode mode)
-    : Base(reqId, Object{{"mode", internal::callCancelModeToString(mode)}}),
+CPPWAMP_INLINE Interruption::Interruption(
+    internal::PassKey, RequestId reqId, CallCancelMode mode, SessionErrc reason)
+    : Base(reqId, makeOptions(mode, reason)),
       cancelMode_(mode)
 {}
 
