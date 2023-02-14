@@ -255,7 +255,7 @@ namespace internal
 //------------------------------------------------------------------------------
 struct UnpackError : public Error
 {
-    UnpackError() : Error(SessionErrc::invalidArgument) {}
+    UnpackError() : Error(WampErrc::invalidArgument) {}
 };
 
 } // namespace internal

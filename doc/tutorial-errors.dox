@@ -96,7 +96,7 @@ int main()
 
             // Obtain the std::error_code associated with the exception
             auto ec = e.code();
-            if (ec == SessionErrc::noSuchRealm)
+            if (ec == WampErrc::noSuchRealm)
                 std::cerr << "The realm doesn't exist\n";
             else
                 std::cerr << "Unexpected error: " << ec << "\n";
@@ -116,7 +116,8 @@ or to one of the error categories defined by the library in `<cppwamp/error.hpp>
 
 Error category            | Values                | Used for reporting
 ------------------------- | --------------------- | ------------------
-`wamp::SessionCategory`   | `wamp::SessionErrc`   | WAMP session/protocol errors
+`wamp::GenericCategory`   | `wamp::Errc`          | general errors
+`wamp::WampCategory`      | `wamp::WampErrc`      | WAMP protocol errors that map to error URIs
 `wamp::DecodingCategory`  | `wamp::DecodingErrc`  | general deserialization errors
 `wamp::TransportCategory` | `wamp::TransportErrc` | general transport layer errors
 `wamp::RawsockCategory`   | `wamp::RawsockErrc`   | raw socket transport errors

@@ -445,7 +445,7 @@ private:
         realm_ = server_.realmAt(realm.uri());
         if (!realm_)
         {
-            auto errc = SessionErrc::noSuchRealm;
+            auto errc = WampErrc::noSuchRealm;
             report(realm.info().withError(errc));
             doAbort({errc});
             return;
@@ -469,7 +469,7 @@ private:
                           state() == State::authenticating;
         if (!isExpected)
         {
-            auto errc = SessionErrc::protocolViolation;
+            auto errc = WampErrc::protocolViolation;
             report(authentication.info().withError(errc));
             doAbort(Reason(errc).withHint("Unexpected AUTHENTICATE message"));
             return;
@@ -553,7 +553,7 @@ private:
         auto reqId = msg.requestId();
         if (reqId >= expectedRequestId_)
         {
-            return doAbort(Reason(SessionErrc::protocolViolation)
+            return doAbort(Reason(WampErrc::protocolViolation)
                                .withHint("Cannot cancel future request ID"));
         }
 
@@ -624,7 +624,7 @@ private:
         // TODO: Move this logic to Peer so that client may also benefit
         if (rid != expectedRequestId_)
         {
-            doAbort(Reason(SessionErrc::protocolViolation)
+            doAbort(Reason(WampErrc::protocolViolation)
                         .withHint("Non-sequential request ID"));
             return false;
         }
@@ -679,7 +679,7 @@ private:
         const auto& realm = authExchange_->realm();
         if (!realm_)
         {
-            auto errc = SessionErrc::noSuchRealm;
+            auto errc = WampErrc::noSuchRealm;
             doAbort({errc});
             return;
         }

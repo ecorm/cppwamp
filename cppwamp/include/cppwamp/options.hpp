@@ -144,7 +144,7 @@ T Options<D,M>::optionOr(
 
 //------------------------------------------------------------------------------
 /** @returns The option value, or an error code of either
-             SessionErrc::no_such_option or SessionErrc::bad_option. */
+             WampErrc::no_such_option or WampErrc::bad_option. */
 //------------------------------------------------------------------------------
 template <typename D, typename M>
 template <typename T>
@@ -154,26 +154,26 @@ ErrorOr<T> Options<D,M>::optionAs(
 {
     auto iter = options().find(key);
     if (iter == options().end())
-        return makeUnexpectedError(SessionErrc::noSuchOption);
+        return makeUnexpectedError(WampErrc::noSuchOption);
     if (!iter->second.template is<T>())
-        return makeUnexpectedError(SessionErrc::badOption);
+        return makeUnexpectedError(WampErrc::badOption);
     return iter->second.template as<T>();
 }
 
 //------------------------------------------------------------------------------
 /** @returns The option value, or an error code of either
-    SessionErrc::no_such_option or SessionErrc::bad_option. */
+    WampErrc::no_such_option or WampErrc::bad_option. */
 //------------------------------------------------------------------------------
 template <typename D, typename M>
 ErrorOr<UInt> Options<D,M>::toUnsignedInteger(const String& key) const
 {
     auto found = options().find(key);
     if (found == options().end())
-        return makeUnexpectedError(SessionErrc::noSuchOption);
+        return makeUnexpectedError(WampErrc::noSuchOption);
     const auto& v = found->second;
     UInt n;
     if (!optionToUnsignedInteger(v, n))
-        return makeUnexpectedError(SessionErrc::badOption);
+        return makeUnexpectedError(WampErrc::badOption);
     return n;
 }
 

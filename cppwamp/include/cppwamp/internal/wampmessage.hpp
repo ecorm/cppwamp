@@ -33,7 +33,7 @@ struct WampMessage
     static ErrorOr<WampMessage> parse(Array&& fields)
     {
         WampMsgType type = parseMsgType(fields);
-        auto unex = makeUnexpectedError(SessionErrc::protocolViolation);
+        auto unex = makeUnexpectedError(WampErrc::protocolViolation);
         if (type == WampMsgType::none)
             return unex;
 

@@ -157,9 +157,9 @@ CPPWAMP_INLINE void Session::setStateChangeHandler(
 //------------------------------------------------------------------------------
 /** @returns `true` if the authentication was sent, a std::error_code otherwise.
     @par Error Codes
-        - SessionErrc::payloadSizeExceeded if the resulting AUTHENTICATE message
+        - WampErrc::payloadSizeExceeded if the resulting AUTHENTICATE message
           exceeds the transport's limits.
-        - SessionErrc::invalidState if the session was not authenticating
+        - WampErrc::invalidState if the session was not authenticating
           during the attempt to authenticate (can be safely discarded). */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOrDone Session::authenticate(
@@ -260,9 +260,9 @@ CPPWAMP_INLINE void Session::unsubscribe(
 //------------------------------------------------------------------------------
 /** @returns `true` if the authentication was sent, a std::error_code otherwise.
     @par Error Codes
-        - SessionErrc::payloadSizeExceeded if the resulting PUBLISH message exceeds
+        - WampErrc::payloadSizeExceeded if the resulting PUBLISH message exceeds
           the transport's limits.
-        - SessionErrc::invalidState if the session was not established
+        - WampErrc::invalidState if the session was not established
           during the attempt to publish (can be safely discarded). */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOrDone Session::publish(
@@ -320,7 +320,7 @@ CPPWAMP_INLINE void Session::unregister(
 /** @returns `true` or `false` depending if a pending call matching the given
               chit was found.
     @par Error Codes
-        - SessionErrc::invalidState if the session was not established
+        - WampErrc::invalidState if the session was not established
           during the attempt to cancel (can be safely discarded). */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOrDone Session::cancel(

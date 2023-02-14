@@ -222,7 +222,7 @@ void checkInvalidUri(TDelegate&& delegate, bool joined = true)
         REQUIRE( !result );
         CHECK( result.error() );
         if (session.state() == SessionState::established)
-            CHECK( result.error() == SessionErrc::invalidUri );
+            CHECK( result.error() == WampErrc::invalidUri );
         CHECK_THROWS_AS( result.value(), error::Failure );
         session.disconnect();
     });
@@ -248,7 +248,7 @@ void checkDisconnect(TDelegate&& delegate)
 
     ioctx.run();
     CHECK( completed );
-    CHECK( result == makeUnexpected(SessionErrc::sessionEnded) );
+    CHECK( result == makeUnexpected(WampErrc::sessionEnded) );
     CHECK_THROWS_AS( result.value(), error::Failure );
 }
 
@@ -256,14 +256,14 @@ void checkDisconnect(TDelegate&& delegate)
 void checkInvalidConnect(Session& session, YieldContext yield)
 {
     auto index = session.connect(withTcp, yield);
-    CHECK( index == makeUnexpected(SessionErrc::invalidState) );
+    CHECK( index == makeUnexpected(WampErrc::invalidState) );
     CHECK_THROWS_AS( index.value(), error::Failure );
 }
 
 void checkInvalidJoin(Session& session, YieldContext yield)
 {
     auto info = session.join(Realm(testRealm), yield);
-    CHECK( info == makeUnexpected(SessionErrc::invalidState) );
+    CHECK( info == makeUnexpected(WampErrc::invalidState) );
     CHECK_THROWS_AS( session.join(Realm(testRealm), yield).value(),
                      error::Failure );
 }
@@ -271,19 +271,19 @@ void checkInvalidJoin(Session& session, YieldContext yield)
 void checkInvalidAuthenticate(Session& session, YieldContext yield)
 {
     auto done = session.authenticate(Authentication("signature"));
-    CHECK( done == makeUnexpected(SessionErrc::invalidState) );
+    CHECK( done == makeUnexpected(WampErrc::invalidState) );
 }
 
 void checkInvalidLeave(Session& session, YieldContext yield)
 {
     auto reason = session.leave(yield);
-    CHECK( reason == makeUnexpected(SessionErrc::invalidState) );
+    CHECK( reason == makeUnexpected(WampErrc::invalidState) );
     CHECK_THROWS_AS( reason.value(), error::Failure );
 }
 
 void checkInvalidOps(Session& session, YieldContext yield)
 {
-    auto unex = makeUnexpected(SessionErrc::invalidState);
+    auto unex = makeUnexpected(WampErrc::invalidState);
 
     CHECK( session.authenticate(Authentication("signature")) == unex );
 
@@ -659,7 +659,7 @@ GIVEN( "a Session and a ConnectionWish" )
         ioctx.run();
         ioctx.restart();
         CHECK_FALSE( connected );
-        CHECK( ec == SessionErrc::sessionEnded );
+        CHECK( ec == WampErrc::sessionEnded );
         CHECK( changes.check(s, {SS::connecting, SS::closed,
                                  SS::establishing, SS::disconnected}, ioctx) );
     }
@@ -1208,8 +1208,8 @@ GIVEN( "an IO service and a ConnectionWish" )
             // The router should now report an error when attempting
             // to call the unregistered RPC.
             result = f.caller.call(Rpc("dynamic").withArgs("three", 3), yield);
-            CHECK( result == makeUnexpected(SessionErrc::callError) );
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::callError) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK_THROWS_AS( result.value(), error::Failure);
 
             // Calling should work after re-registering the slot.
@@ -1255,8 +1255,8 @@ GIVEN( "an IO service and a ConnectionWish" )
             // The router should now report an error when attempting
             // to call the unregistered RPC.
             result = f.caller.call(Rpc("static").withArgs("three", 3), yield);
-            CHECK( result == makeUnexpected(SessionErrc::callError) );
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::callError) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK_THROWS_AS( result.value(), error::Failure );
 
             // Calling should work after re-registering the slot.
@@ -1310,8 +1310,8 @@ GIVEN( "an IO service and a ConnectionWish" )
             // The router should now report an error when attempting
             // to call the unregistered RPC.
             result = f.caller.call(Rpc("static").withArgs("three", 3), yield);
-            CHECK( result == makeUnexpected(SessionErrc::callError) );
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::callError) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK_THROWS_AS( result.value(), error::Failure );
 
             // Calling should work after re-registering the slot.
@@ -1365,11 +1365,11 @@ GIVEN( "an IO service and a ConnectionWish" )
             // to call the unregistered RPCs.
             auto result = f.caller.call(Rpc("dynamic").withArgs("one", 1),
                                          yield);
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK_THROWS_AS( result.value(), error::Failure );
 
             result = f.caller.call(Rpc("dynamic").withArgs("two", 2), yield);
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK_THROWS_AS( result.value(), error::Failure );
         });
         ioctx.run();
@@ -1399,11 +1399,11 @@ GIVEN( "an IO service and a ConnectionWish" )
             // to call the unregistered RPCs.
             auto result = f.caller.call(Rpc("dynamic").withArgs("one", 1),
                                          yield);
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK_THROWS_AS( result.value(), error::Failure );
 
             result = f.caller.call(Rpc("dynamic").withArgs("two", 2), yield);
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK_THROWS_AS( result.value(), error::Failure );
         });
         ioctx.run();
@@ -1433,11 +1433,11 @@ GIVEN( "an IO service and a ConnectionWish" )
             // to call the unregistered RPCs.
             auto result = f.caller.call(Rpc("dynamic").withArgs("one", 1),
                                          yield);
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK_THROWS_AS( result.value(), error::Failure );
 
             result = f.caller.call(Rpc("dynamic").withArgs("two", 2), yield);
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK_THROWS_AS( result.value(), error::Failure );
         });
         ioctx.run();
@@ -1463,11 +1463,11 @@ GIVEN( "an IO service and a ConnectionWish" )
             // to call the unregistered RPCs.
             auto result = f.caller.call(Rpc("dynamic").withArgs("one", 1),
                                          yield);
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK_THROWS_AS( result.value(), error::Failure );
 
             result = f.caller.call(Rpc("dynamic").withArgs("two", 2), yield);
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK_THROWS_AS( result.value(), error::Failure );
         });
         ioctx.run();
@@ -1492,7 +1492,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             }
             // 'reg' goes out of scope here.
             auto result = f.caller.call(Rpc("dynamic"), yield);
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK( f.dynamicCount == 1 );
 
             // Check move assignment.
@@ -1508,7 +1508,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             }
             // 'reg' goes out of scope here.
             result = f.caller.call(Rpc("static").withArgs("", 0), yield);
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
             CHECK( f.staticCount == 1 );
         });
         ioctx.run();
@@ -1687,7 +1687,7 @@ GIVEN( "these test fixture objects" )
             CHECK( callCount == 1 );
 
             auto result = caller.call(Rpc("oneShot"), yield);
-            CHECK( result == makeUnexpected(SessionErrc::noSuchProcedure) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchProcedure) );
 
             callee.disconnect();
             caller.disconnect();
@@ -1881,8 +1881,8 @@ GIVEN( "an IO service and a ConnectionWish" )
             auto handler = [](Invocation) -> Outcome {return {};};
 
             auto reg = f.callee.enroll(Procedure("dynamic"), handler, yield);
-            CHECK( reg == makeUnexpected(SessionErrc::registerError) );
-            CHECK( reg == makeUnexpected(SessionErrc::procedureAlreadyExists) );
+            CHECK( reg == makeUnexpected(WampErrc::registerError) );
+            CHECK( reg == makeUnexpected(WampErrc::procedureAlreadyExists) );
             CHECK_THROWS_AS( reg.value(), error::Failure );
         });
         ioctx.run();
@@ -1902,7 +1902,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                 [&callCount](Invocation) -> Outcome
                 {
                     ++callCount;
-                    return Error(SessionErrc::notAuthorized)
+                    return Error(WampErrc::notAuthorized)
                            .withArgs(123)
                            .withKwargs(Object{{{"foo"},{"bar"}}});
                 },
@@ -1912,12 +1912,12 @@ GIVEN( "an IO service and a ConnectionWish" )
                 Error error;
                 auto result = f.caller.call(Rpc("rpc").captureError(error),
                                              yield);
-                CHECK( result == makeUnexpected(SessionErrc::notAuthorized) );
+                CHECK( result == makeUnexpected(WampErrc::notAuthorized) );
                 CHECK_THROWS_AS( result.value(), error::Failure );
                 CHECK_FALSE( !error );
                 CHECK_THAT( error.uri(), Equals("wamp.error.not_authorized") );
                 CHECK( error.errorCode() ==
-                       make_error_code(SessionErrc::notAuthorized) );
+                       make_error_code(WampErrc::notAuthorized) );
                 CHECK( error.args() == Array{123} );
                 CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
             }
@@ -1941,7 +1941,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                 [&callCount](Invocation) -> Outcome
                 {
                     ++callCount;
-                    throw Error(SessionErrc::notAuthorized)
+                    throw Error(WampErrc::notAuthorized)
                           .withArgs(123)
                           .withKwargs(Object{{{"foo"},{"bar"}}});;
                     return {};
@@ -1952,10 +1952,10 @@ GIVEN( "an IO service and a ConnectionWish" )
                 Error error;
                 auto result = f.caller.call(Rpc("rpc").captureError(error),
                                              yield);
-                CHECK( result == makeUnexpected(SessionErrc::notAuthorized) );
+                CHECK( result == makeUnexpected(WampErrc::notAuthorized) );
                 CHECK_FALSE( !error );
                 CHECK_THAT( error.uri(), Equals("wamp.error.not_authorized") );
-                CHECK( error.errorCode() == SessionErrc::notAuthorized );
+                CHECK( error.errorCode() == WampErrc::notAuthorized );
                 CHECK( error.args() == Array{123} );
                 CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
             }
@@ -1976,15 +1976,15 @@ GIVEN( "an IO service and a ConnectionWish" )
             // Check type mismatch
             auto result = f.caller.call(Rpc("static").withArgs(42, 42), yield);
             REQUIRE( !result );
-            CHECK( result == makeUnexpected(SessionErrc::callError) );
-            CHECK( result == makeUnexpected(SessionErrc::invalidArgument) );
+            CHECK( result == makeUnexpected(WampErrc::callError) );
+            CHECK( result == makeUnexpected(WampErrc::invalidArgument) );
             CHECK_THROWS_AS( result.value(), error::Failure );
             CHECK( f.staticCount == 0 );
 
             // Check insufficient arguments
             result = f.caller.call(Rpc("static").withArgs(42), yield);
-            CHECK( result == makeUnexpected(SessionErrc::callError) );
-            CHECK( result == makeUnexpected(SessionErrc::invalidArgument) );
+            CHECK( result == makeUnexpected(WampErrc::callError) );
+            CHECK( result == makeUnexpected(WampErrc::invalidArgument) );
             CHECK_THROWS_AS( result.value(), error::Failure );
             CHECK( f.staticCount == 0 );
         });
@@ -2065,26 +2065,26 @@ GIVEN( "an IO service and a ConnectionWish" )
             // Check bad conversion
             auto result = f.caller.call(Rpc("bad_conversion").withArgs(42),
                                          yield);
-            CHECK( result == makeUnexpected(SessionErrc::callError) );
-            CHECK( result == makeUnexpected(SessionErrc::invalidArgument) );
+            CHECK( result == makeUnexpected(WampErrc::callError) );
+            CHECK( result == makeUnexpected(WampErrc::invalidArgument) );
             CHECK_THROWS_AS( result.value(), error::Failure );
 
             // Check bad conversion in coroutine handler
             result = f.caller.call(Rpc("bad_conv_coro").withArgs(42), yield);
-            CHECK( result == makeUnexpected(SessionErrc::callError) );
-            CHECK( result == makeUnexpected(SessionErrc::invalidArgument) );
+            CHECK( result == makeUnexpected(WampErrc::callError) );
+            CHECK( result == makeUnexpected(WampErrc::invalidArgument) );
             CHECK_THROWS_AS( result.value(), error::Failure );
 
             // Check bad access
             result = f.caller.call(Rpc("bad_access").withArgs(42), yield);
-            CHECK( result == makeUnexpected(SessionErrc::callError) );
-            CHECK( result == makeUnexpected(SessionErrc::invalidArgument) );
+            CHECK( result == makeUnexpected(WampErrc::callError) );
+            CHECK( result == makeUnexpected(WampErrc::invalidArgument) );
             CHECK_THROWS_AS( result.value(), error::Failure );
 
             // Check bad access in couroutine handler
             result = f.caller.call(Rpc("bad_access_coro").withArgs(42), yield);
-            CHECK( result == makeUnexpected(SessionErrc::callError) );
-            CHECK( result == makeUnexpected(SessionErrc::invalidArgument) );
+            CHECK( result == makeUnexpected(WampErrc::callError) );
+            CHECK( result == makeUnexpected(WampErrc::invalidArgument) );
             CHECK_THROWS_AS( result.value(), error::Failure );
         });
         ioctx.run();
@@ -2238,8 +2238,8 @@ GIVEN( "an IO service and a ConnectionWish" )
             Session session(ioctx);
             session.connect(where, yield).value();
             auto result = session.join(Realm("nonexistent"), yield);
-            CHECK( result == makeUnexpected(SessionErrc::joinError) );
-            CHECK( result == makeUnexpected(SessionErrc::noSuchRealm) );
+            CHECK( result == makeUnexpected(WampErrc::joinError) );
+            CHECK( result == makeUnexpected(WampErrc::noSuchRealm) );
             CHECK_THROWS_AS( result.value(), error::Failure );
         });
 
@@ -2693,7 +2693,7 @@ GIVEN( "these test fixture objects" )
                           yield).value();
 
             auto result = caller.call(Rpc("echo").withArgs(largeString), yield);
-            CHECK( result == makeUnexpectedError(SessionErrc::payloadSizeExceeded) );
+            CHECK( result == makeUnexpectedError(WampErrc::payloadSizeExceeded) );
             CHECK( echoedString.empty() );
 
             callee.disconnect();

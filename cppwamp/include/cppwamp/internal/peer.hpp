@@ -189,7 +189,7 @@ public:
                 if (reply)
                 {
                     self->setState(State::closed);
-                    self->abortPending(SessionErrc::sessionEnded);
+                    self->abortPending(WampErrc::sessionEnded);
                 }
                 handler(std::move(reply));
             }
@@ -203,7 +203,7 @@ public:
     void disconnect()
     {
         setState(State::disconnected);
-        abortPending(SessionErrc::sessionEnded);
+        abortPending(WampErrc::sessionEnded);
         if (transport_)
         {
             transport_->close();
@@ -228,7 +228,7 @@ public:
     ErrorOrDone sendError(WampMsgType reqType, RequestId reqId, Error&& error)
     {
         auto done = send(error.errorMessage({}, reqType, reqId));
-        if (done == makeUnexpectedError(SessionErrc::payloadSizeExceeded))
+        if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             error.withArgs(std::string("(Details removed due "
                                        "to transport limits)"));
@@ -252,7 +252,7 @@ public:
         //       adjust ServerSession::doAbort accordingly
 
         if (!transport_ || !transport_->isStarted())
-            return makeUnexpectedError(SessionErrc::invalidState);
+            return makeUnexpectedError(WampErrc::invalidState);
 
         auto& msg = r.abortMessage({});
         MessageBuffer buffer;
@@ -269,13 +269,13 @@ public:
                     msg.uri() + ", due to transport payload limits");
         }
 
-        SessionErrc errc;
-        errorUriToCode(r.uri(), SessionErrc::sessionAborted, errc);
+        WampErrc errc;
+        errorUriToCode(r.uri(), WampErrc::sessionAborted, errc);
         setState(State::failed, make_error_code(errc));
         traceTx(msg);
         transport_->sendNowAndClose(std::move(buffer));
         if (!fits)
-            return makeUnexpectedError(SessionErrc::payloadSizeExceeded);
+            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
         return true;
     }
 
@@ -294,11 +294,11 @@ public:
     {
         // If the cancel mode is not 'kill', don't wait for the router's
         // ERROR message and post the request handler immediately
-        // with a SessionErrc::cancelled error code.
+        // with a WampErrc::cancelled error code.
 
         bool found = false;
         RequestKey key{WampMsgType::call, cancellation.requestId()};
-        auto unex = makeUnexpectedError(SessionErrc::cancelled);
+        auto unex = makeUnexpectedError(WampErrc::cancelled);
 
         auto kv = oneShotRequestMap_.find(key);
         if (kv != oneShotRequestMap_.end())
@@ -368,7 +368,7 @@ private:
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
         if (buffer.size() > maxTxLength_)
-            return makeUnexpectedError(SessionErrc::payloadSizeExceeded);
+            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
 
         traceTx(msg);
         assert(transport_ != nullptr);
@@ -389,7 +389,7 @@ private:
         if (buffer.size() > maxTxLength_)
         {
             complete(handler,
-                     makeUnexpectedError(SessionErrc::payloadSizeExceeded));
+                     makeUnexpectedError(WampErrc::payloadSizeExceeded));
             return requestId;
         }
 
@@ -400,8 +400,7 @@ private:
         auto found = requests.find(key);
         if (found != requests.end())
         {
-            complete(found->second,
-                     makeUnexpectedError(SessionErrc::cancelled));
+            complete(found->second, makeUnexpectedError(WampErrc::cancelled));
             requests.erase(found);
         }
 
@@ -438,7 +437,7 @@ private:
 
     void onTransportRx(MessageBuffer buffer)
     {
-        static constexpr auto errc = SessionErrc::protocolViolation;
+        static constexpr auto errc = WampErrc::protocolViolation;
 
         auto s = state();
         bool readyToReceive =
@@ -585,8 +584,8 @@ private:
         else
         {
             const auto& abortMsg = messageCast<AbortMessage>(msg);
-            SessionErrc errc = {};
-            errorUriToCode(abortMsg.uri(), SessionErrc::sessionAbortedByPeer,
+            WampErrc errc = {};
+            errorUriToCode(abortMsg.uri(), WampErrc::sessionAbortedByPeer,
                            errc);
 
             if (logLevel() <= LogLevel::error)
@@ -622,8 +621,8 @@ private:
         else
         {
             const auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
-            SessionErrc errc;
-            errorUriToCode(goodbyeMsg.uri(), SessionErrc::closeRealm, errc);
+            WampErrc errc;
+            errorUriToCode(goodbyeMsg.uri(), WampErrc::closeRealm, errc);
 
             if (isRouter_)
             {

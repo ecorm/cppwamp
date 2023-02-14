@@ -133,7 +133,7 @@ private:
     {
         if (auth.error())
         {
-            auto ec = make_error_code(SessionErrc::authorizationFailed);
+            auto ec = make_error_code(WampErrc::authorizationFailed);
             std::ostringstream oss;
             oss << ec << " (" << ec.message() << ')';
             Error error{{}, reqType, rid, ec, {{"message", oss.str()}}};
@@ -143,7 +143,7 @@ private:
 
         if (!auth.allowed())
         {
-            s.sendError(reqType, rid, SessionErrc::notAuthorized, logOnly);
+            s.sendError(reqType, rid, WampErrc::notAuthorized, logOnly);
             return false;
         }
 

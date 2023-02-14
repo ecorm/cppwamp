@@ -90,7 +90,7 @@ struct CPPWAMP_API AccessActionInfo
                      std::error_code ec);
 
     AccessActionInfo(Action action, std::string target, Object options,
-                     SessionErrc errc);
+                     WampErrc errc);
 
     AccessActionInfo(Action action, RequestId r, std::string target = {},
                      Object options = {}, std::string errorUri = {});
@@ -99,7 +99,7 @@ struct CPPWAMP_API AccessActionInfo
                      Object options, std::error_code ec);
 
     AccessActionInfo(Action action, RequestId r, std::string target,
-                     Object options, SessionErrc errc);
+                     Object options, WampErrc errc);
 
     template <typename T>
     AccessActionInfo(std::string action, std::string target,
@@ -112,7 +112,7 @@ struct CPPWAMP_API AccessActionInfo
 
     AccessActionInfo& withError(std::error_code ec);
 
-    AccessActionInfo& withError(SessionErrc errc);
+    AccessActionInfo& withError(WampErrc errc);
 
     template <typename T>
     AccessActionInfo& withResult(const ErrorOr<T>& x)
@@ -122,6 +122,7 @@ struct CPPWAMP_API AccessActionInfo
         return *this;
     }
 
+    // TODO: Getters
     std::string target;
     std::string errorUri;
     Object options;

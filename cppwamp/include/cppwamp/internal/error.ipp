@@ -114,15 +114,15 @@ CPPWAMP_INLINE Conversion::Conversion(const std::string& what)
 
 
 //------------------------------------------------------------------------------
-// WAMP Error Codes
+// WAMP Protocol Error Codes
 //------------------------------------------------------------------------------
 
-CPPWAMP_INLINE const char* SessionCategory::name() const noexcept
+CPPWAMP_INLINE const char* WampCategory::name() const noexcept
 {
-    return "wamp::SessionCategory";
+    return "wamp::WampCategory";
 }
 
-CPPWAMP_INLINE std::string SessionCategory::message(int ev) const
+CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 {
     static const std::string msg[] =
     {
@@ -176,7 +176,7 @@ CPPWAMP_INLINE std::string SessionCategory::message(int ev) const
         return "Unknown error";
 }
 
-CPPWAMP_INLINE bool SessionCategory::equivalent(const std::error_code& code,
+CPPWAMP_INLINE bool WampCategory::equivalent(const std::error_code& code,
                                                 int condition) const noexcept
 {
     if (code.category() == wampCategory())
@@ -185,107 +185,108 @@ CPPWAMP_INLINE bool SessionCategory::equivalent(const std::error_code& code,
             return true;
         else
         {
-            auto value = static_cast<SessionErrc>(code.value());
-            switch (static_cast<SessionErrc>(condition))
+            auto value = static_cast<WampErrc>(code.value());
+            switch (static_cast<WampErrc>(condition))
             {
-            case SessionErrc::joinError:
-                return value == SessionErrc::noSuchRealm ||
-                       value == SessionErrc::noSuchRole;
+            case WampErrc::joinError:
+                return value == WampErrc::noSuchRealm ||
+                       value == WampErrc::noSuchRole;
 
-            case SessionErrc::sessionEndedByPeer:
-                return value == SessionErrc::systemShutdown ||
-                       value == SessionErrc::closeRealm;
+            case WampErrc::sessionEndedByPeer:
+                return value == WampErrc::systemShutdown ||
+                       value == WampErrc::closeRealm;
 
-            case SessionErrc::unsubscribeError:
-                return value == SessionErrc::noSuchSubscription;
+            case WampErrc::unsubscribeError:
+                return value == WampErrc::noSuchSubscription;
 
-            case SessionErrc::registerError:
-                return value == SessionErrc::procedureAlreadyExists;
+            case WampErrc::registerError:
+                return value == WampErrc::procedureAlreadyExists;
 
-            case SessionErrc::unregisterError:
-                return value == SessionErrc::noSuchRegistration;
+            case WampErrc::unregisterError:
+                return value == WampErrc::noSuchRegistration;
 
-            case SessionErrc::callError:
-                return value == SessionErrc::noSuchProcedure ||
-                       value == SessionErrc::invalidArgument;
+            case WampErrc::callError:
+                return value == WampErrc::noSuchProcedure ||
+                       value == WampErrc::invalidArgument;
 
-            case SessionErrc::optionNotAllowed:
-                return value == SessionErrc::discloseMeDisallowed;
+            case WampErrc::optionNotAllowed:
+                return value == WampErrc::discloseMeDisallowed;
 
             default: return false;
             }
         }
     }
-    else if (condition == (int)SessionErrc::success)
+    else if (condition == (int)WampErrc::success)
         return !code;
     else
         return false;
 }
 
-CPPWAMP_INLINE SessionCategory::SessionCategory() {}
+CPPWAMP_INLINE WampCategory::WampCategory() {}
 
-CPPWAMP_INLINE SessionCategory& wampCategory()
+CPPWAMP_INLINE WampCategory& wampCategory()
 {
-    static SessionCategory instance;
+    static WampCategory instance;
     return instance;
 }
 
-CPPWAMP_INLINE std::error_code make_error_code(SessionErrc errc)
+CPPWAMP_INLINE std::error_code make_error_code(WampErrc errc)
 {
     return std::error_code(static_cast<int>(errc), wampCategory());
 }
 
-CPPWAMP_INLINE std::error_condition make_error_condition(SessionErrc errc)
+CPPWAMP_INLINE std::error_condition make_error_condition(WampErrc errc)
 {
     return std::error_condition(static_cast<int>(errc), wampCategory());
 }
 
 //------------------------------------------------------------------------------
 /** @return 'true' if the corresponding error code was found. */
+// TODO: Return ErrorOr<WampErrc>
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE bool errorUriToCode(
     const std::string& uri, ///< The URI to search under.
-    SessionErrc fallback,   ///< Default value to used if the URI was not found.
-    SessionErrc& result     /**< [out] The error code corresponding to the given
+    WampErrc fallback,      ///< Default value to use if the URI was not found.
+    WampErrc& result        /**< [out] The error code corresponding to the given
                                  URI, or the given fallback value if not found */
 )
 {
     struct Record
     {
         const char* uri;
-        SessionErrc errc;
+        WampErrc errc;
 
         bool operator<(const std::string& key) const {return uri < key;}
     };
 
-    using SE = SessionErrc;
+    using WE = WampErrc;
     static const Record sortedByUri[] =
     {
-        {"wamp.error.authorization_failed",          SE::authorizationFailed},
-        {"wamp.error.canceled",                      SE::cancelled},
-        {"wamp.error.cannot_authenticate",           SE::cannotAuthenticate},
-        {"wamp.error.close_realm",                   SE::closeRealm},
-        {"wamp.error.feature_not_supported",         SE::featureNotSupported},
-        {"wamp.error.goodbye_and_out",               SE::goodbyeAndOut},
-        {"wamp.error.invalid_argument",              SE::invalidArgument},
-        {"wamp.error.invalid_uri",                   SE::invalidUri},
-        {"wamp.error.network_failure",               SE::networkFailure},
-        {"wamp.error.no_available_callee",           SE::noAvailableCallee},
-        {"wamp.error.no_eligible_callee",            SE::noEligibleCallee},
-        {"wamp.error.no_such_procedure",             SE::noSuchProcedure},
-        {"wamp.error.no_such_realm",                 SE::noSuchRealm},
-        {"wamp.error.no_such_registration",          SE::noSuchRegistration},
-        {"wamp.error.no_such_role",                  SE::noSuchRole},
-        {"wamp.error.no_such_subscription",          SE::noSuchSubscription},
-        {"wamp.error.not_authorized",                SE::notAuthorized},
-        {"wamp.error.option_disallowed.disclose_me", SE::discloseMeDisallowed},
-        {"wamp.error.option_not_allowed",            SE::optionNotAllowed},
-        {"wamp.error.payload_size_exceeded",         SE::payloadSizeExceeded},
-        {"wamp.error.procedure_already_exists",      SE::procedureAlreadyExists},
-        {"wamp.error.protocol_violation",            SE::protocolViolation},
-        {"wamp.error.system_shutdown",               SE::systemShutdown},
-        {"wamp.error.timeout",                       SE::timeout},
-        {"wamp.error.unavailable",                   SE::unavailable}
+        {"wamp.error.authorization_failed",          WE::authorizationFailed},
+        {"wamp.error.canceled",                      WE::cancelled},
+        {"wamp.error.cannot_authenticate",           WE::cannotAuthenticate},
+        {"wamp.error.close_realm",                   WE::closeRealm},
+        {"wamp.error.feature_not_supported",         WE::featureNotSupported},
+        {"wamp.error.goodbye_and_out",               WE::goodbyeAndOut},
+        {"wamp.error.invalid_argument",              WE::invalidArgument},
+        {"wamp.error.invalid_uri",                   WE::invalidUri},
+        {"wamp.error.network_failure",               WE::networkFailure},
+        {"wamp.error.no_available_callee",           WE::noAvailableCallee},
+        {"wamp.error.no_eligible_callee",            WE::noEligibleCallee},
+        {"wamp.error.no_such_procedure",             WE::noSuchProcedure},
+        {"wamp.error.no_such_realm",                 WE::noSuchRealm},
+        {"wamp.error.no_such_registration",          WE::noSuchRegistration},
+        {"wamp.error.no_such_role",                  WE::noSuchRole},
+        {"wamp.error.no_such_subscription",          WE::noSuchSubscription},
+        {"wamp.error.not_authorized",                WE::notAuthorized},
+        {"wamp.error.option_disallowed.disclose_me", WE::discloseMeDisallowed},
+        {"wamp.error.option_not_allowed",            WE::optionNotAllowed},
+        {"wamp.error.payload_size_exceeded",         WE::payloadSizeExceeded},
+        {"wamp.error.procedure_already_exists",      WE::procedureAlreadyExists},
+        {"wamp.error.protocol_violation",            WE::protocolViolation},
+        {"wamp.error.system_shutdown",               WE::systemShutdown},
+        {"wamp.error.timeout",                       WE::timeout},
+        {"wamp.error.unavailable",                   WE::unavailable}
     };
 
     auto end = std::end(sortedByUri);
@@ -299,7 +300,7 @@ CPPWAMP_INLINE bool errorUriToCode(
 //------------------------------------------------------------------------------
 /** @return The corresponding error URI, or an empty string if not found. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE const std::string& errorCodeToUri(SessionErrc errc)
+CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
 {
     static const std::string sortedByErrc[] =
     {
@@ -331,7 +332,7 @@ CPPWAMP_INLINE const std::string& errorCodeToUri(SessionErrc errc)
     };
 
     static constexpr int extent = std::extent<decltype(sortedByErrc)>::value;
-    static constexpr auto firstValue = static_cast<int>(SessionErrc::invalidUri);
+    static constexpr auto firstValue = static_cast<int>(WampErrc::invalidUri);
     static constexpr auto lastValue = firstValue + extent - 1;
     static const std::string empty;
 

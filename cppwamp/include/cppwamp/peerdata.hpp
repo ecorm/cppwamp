@@ -62,9 +62,9 @@ public:
         it to a URI. */
     Reason(std::error_code ec);
 
-    /** Converting constructor taking a SessionErrc, attempting to convert
+    /** Converting constructor taking a WampErrc, attempting to convert
         it to a reason URI.. */
-    Reason(SessionErrc errc);
+    Reason(WampErrc errc);
 
     /** Sets the `message` member of the details dictionary. */
     Reason& withHint(String message);
@@ -82,7 +82,7 @@ private:
     using Base = Options<Reason, internal::GoodbyeMessage>;
 
     static String toUri(std::error_code ec);
-    static String toUri(SessionErrc errc);
+    static String toUri(WampErrc errc);
 
 public:
     // Internal use only
@@ -359,9 +359,9 @@ public:
         it to a reason URI. */
     Error(std::error_code ec);
 
-    /** Converting constructor taking a SessionErrc, attempting to convert
+    /** Converting constructor taking a WampErrc, attempting to convert
         it to a reason URI. */
-    Error(SessionErrc errc);
+    Error(WampErrc errc);
 
     /** Constructor taking an error::BadType exception and
         interpreting it as a `wamp.error.invalid_argument` reason URI. */
@@ -390,7 +390,7 @@ private:
 
     static String toUri(std::error_code ec);
 
-    static String toUri(SessionErrc errc);
+    static String toUri(WampErrc errc);
 
 public:
     // Internal use only
@@ -1129,12 +1129,12 @@ public:
                  internal::InterruptMessage&& msg);
 
     Interruption(internal::PassKey, RequestId reqId, CallCancelMode mode,
-                 SessionErrc reason);
+                 WampErrc reason);
 
 private:
     using Base = Options<Interruption, internal::InterruptMessage>;
 
-    static Object makeOptions(CallCancelMode mode, SessionErrc reason);
+    static Object makeOptions(CallCancelMode mode, WampErrc reason);
 
     CalleePtr callee_;
     AnyCompletionExecutor executor_ = nullptr;

@@ -654,7 +654,7 @@ The `withCallerTimeout` option only requires that the router support call
 cancellation.
 
 With both methods, if timeout occurs, the callee will receive an `INTERRUPT`
-message and the call handler will be passed the wamp::SessionErrc::cancelled
+message and the call handler will be passed the wamp::WampErrc::cancelled
 error code.
 
 

@@ -535,9 +535,9 @@ struct Session::ConnectOp
     @post `this->state() == SessionState::connecting` if successful
     @par Error Codes
         - TransportErrc::aborted if the connection attempt was aborted.
-        - SessionErrc::allTransportsFailed if more than one transport was
+        - WampErrc::allTransportsFailed if more than one transport was
           specified and they all failed to connect.
-        - SessionErrc::invalidState if the session was not disconnected
+        - WampErrc::invalidState if the session was not disconnected
           during attempt to connect.
         - Some other platform or transport-dependent `std::error_code` if
           only one transport was specified and it failed to connect. */
@@ -590,9 +590,9 @@ Session::connect(
     @throws error::Logic if the given wish list is empty
     @par Error Codes
         - TransportErrc::aborted if the connection attempt was aborted.
-        - SessionErrc::allTransportsFailed if more than one transport was
+        - WampErrc::allTransportsFailed if more than one transport was
           specified and they all failed to connect.
-        - SessionErrc::invalidState if the session was not disconnected
+        - WampErrc::invalidState if the session was not disconnected
           during the attempt to connect.
         - Some other platform or transport-dependent `std::error_code` if
           only one transport was specified and it failed to connect. */
@@ -664,16 +664,16 @@ struct Session::JoinOp
            or a compatible Boost.Asio completion token.
     @post `this->state() == SessionState::establishing` if successful
     @par Error Codes
-        - SessionErrc::payloadSizeExceeded if the resulting JOIN message exceeds
+        - WampErrc::payloadSizeExceeded if the resulting JOIN message exceeds
           the transport's limits.
-        - SessionErrc::invalidState if the session was not closed
+        - WampErrc::invalidState if the session was not closed
           during the attempt to join.
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
-        - SessionErrc::noSuchRealm if the realm does not exist.
-        - SessionErrc::noSuchRole if one of the client roles is not supported on
+        - WampErrc::sessionEnded if the operation was aborted.
+        - WampErrc::sessionEndedByPeer if the session was ended by the peer.
+        - WampErrc::noSuchRealm if the realm does not exist.
+        - WampErrc::noSuchRole if one of the client roles is not supported on
           the router.
-        - SessionErrc::joinError for other errors reported by the router.
+        - WampErrc::joinError for other errors reported by the router.
         - Some other `std::error_code` for protocol and transport errors. */
 //------------------------------------------------------------------------------
 template <typename C>
@@ -785,12 +785,12 @@ struct Session::LeaveOp
             by the router.
     @post `this->state() == SessionState::shuttingDown` if successful
     @par Error Codes
-        - SessionErrc::payloadSizeExceeded if the resulting GOODBYE message exceeds
+        - WampErrc::payloadSizeExceeded if the resulting GOODBYE message exceeds
           the transport's limits.
-        - SessionErrc::invalidState if the session was not established
+        - WampErrc::invalidState if the session was not established
           while attempting to leave.
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer
+        - WampErrc::sessionEnded if the operation was aborted.
+        - WampErrc::sessionEndedByPeer if the session was ended by the peer
           before a `GOODBYE` response was received.
         - Some other `std::error_code` for protocol and transport errors. */
 //------------------------------------------------------------------------------
@@ -833,12 +833,12 @@ Session::leave(
             by the router.
     @post `this->state() == SessionState::shuttingDown` if successful
     @par Error Codes
-        - SessionErrc::payloadSizeExceeded if the resulting GOODBYE message exceeds
+        - WampErrc::payloadSizeExceeded if the resulting GOODBYE message exceeds
           the transport's limits.
-        - SessionErrc::invalidState if the session was not established
+        - WampErrc::invalidState if the session was not established
           during the attempt to leave.
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer
+        - WampErrc::sessionEnded if the operation was aborted.
+        - WampErrc::sessionEndedByPeer if the session was ended by the peer
           before a `GOODBYE` response was received.
         - Some other `std::error_code` for protocol and transport errors. */
 //------------------------------------------------------------------------------
@@ -902,11 +902,11 @@ struct Session::SubscribeOp
     @return A Subscription object, therafter used to manage the subscription's
             lifetime.
     @par Error Codes
-        - SessionErrc::payloadSizeExceeded if the resulting SUBSCRIBE message exceeds
+        - WampErrc::payloadSizeExceeded if the resulting SUBSCRIBE message exceeds
           the transport's limits.
-        - SessionErrc::invalidState if the session was not established
+        - WampErrc::invalidState if the session was not established
           while attempting to subscribe.
-        - SessionErrc::subscribeError if the router replied with an `ERROR`
+        - WampErrc::subscribeError if the router replied with an `ERROR`
           response.
         - Some other `std::error_code` for protocol and transport errors. */
 //------------------------------------------------------------------------------
@@ -988,13 +988,13 @@ struct Session::UnsubscribeOp
           are safely ignored.
     @pre `!!sub == true`
     @par Error Codes
-        - SessionErrc::invalidState if the session was not established
+        - WampErrc::invalidState if the session was not established
           while attempting to subsubscribe.
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
-        - SessionErrc::noSuchSubscription if the router reports that there was
+        - WampErrc::sessionEnded if the operation was aborted.
+        - WampErrc::sessionEndedByPeer if the session was ended by the peer.
+        - WampErrc::noSuchSubscription if the router reports that there was
           no such subscription.
-        - SessionErrc::unsubscribeError if the router reports some other
+        - WampErrc::unsubscribeError if the router reports some other
           error.
         - Some other `std::error_code` for protocol and transport errors.
     @throws error::Logic if the given subscription is empty */
@@ -1056,13 +1056,13 @@ struct Session::PublishOp
 //------------------------------------------------------------------------------
 /** @return The publication ID for this event.
     @par Error Codes
-        - SessionErrc::payloadSizeExceeded if the resulting PUBLISH message exceeds
+        - WampErrc::payloadSizeExceeded if the resulting PUBLISH message exceeds
           the transport's limits.
-        - SessionErrc::invalidState if the session was not established
+        - WampErrc::invalidState if the session was not established
           during the attempt to publish.
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
-        - SessionErrc::publishError if the router replies with an ERROR
+        - WampErrc::sessionEnded if the operation was aborted.
+        - WampErrc::sessionEndedByPeer if the session was ended by the peer.
+        - WampErrc::publishError if the router replies with an ERROR
           response.
         - Some other `std::error_code` for protocol and transport errors. */
 //------------------------------------------------------------------------------
@@ -1129,13 +1129,13 @@ struct Session::EnrollOp
     @note This function was named `enroll` because `register` is a reserved
           C++ keyword.
     @par Error Codes
-        - SessionErrc::payloadSizeExceeded if the resulting REGISTER message exceeds
+        - WampErrc::payloadSizeExceeded if the resulting REGISTER message exceeds
           the transport's limits.
-        - SessionErrc::invalidState if the session was not established
+        - WampErrc::invalidState if the session was not established
           during the attempt to enroll.
-        - SessionErrc::procedureAlreadyExists if the router reports that the
+        - WampErrc::procedureAlreadyExists if the router reports that the
           procedure has already been registered for this realm.
-        - SessionErrc::registerError if the router reports some other error.
+        - WampErrc::registerError if the router reports some other error.
         - Some other `std::error_code` for protocol and transport errors.
 */
 //------------------------------------------------------------------------------
@@ -1211,13 +1211,13 @@ struct Session::EnrollIntrOp
     @note This function was named `enroll` because `register` is a reserved
           C++ keyword.
     @par Error Codes
-        - SessionErrc::payloadSizeExceeded if the resulting REGISTER message exceeds
+        - WampErrc::payloadSizeExceeded if the resulting REGISTER message exceeds
           the transport's limits.
-        - SessionErrc::invalidState if the session was not established
+        - WampErrc::invalidState if the session was not established
           during the attempt to enroll.
-        - SessionErrc::procedureAlreadyExists if the router reports that the
+        - WampErrc::procedureAlreadyExists if the router reports that the
           procedure has already been registered for this realm.
-        - SessionErrc::registerError if the router reports some other error.
+        - WampErrc::registerError if the router reports some other error.
         - Some other `std::error_code` for protocol and transport errors. */
 //------------------------------------------------------------------------------
 template <typename C>
@@ -1299,13 +1299,13 @@ struct Session::UnregisterOp
           are safely ignored.
     @pre `!!reg == true`
     @par Error Codes
-        - SessionErrc::invalidState if the session was not established
+        - WampErrc::invalidState if the session was not established
           while attempting to unregister.
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
-        - SessionErrc::noSuchRegistration if the router reports that there is
+        - WampErrc::sessionEnded if the operation was aborted.
+        - WampErrc::sessionEndedByPeer if the session was ended by the peer.
+        - WampErrc::noSuchRegistration if the router reports that there is
           no such procedure registered by that name.
-        - SessionErrc::unregisterError if the router reports some other
+        - WampErrc::unregisterError if the router reports some other
           error.
         - Some other `std::error_code` for protocol and transport errors.
     @throws error::Logic if the given registration is empty */
@@ -1368,17 +1368,17 @@ struct Session::CallOp
 //------------------------------------------------------------------------------
 /** @return The remote procedure result.
     @par Error Codes
-        - SessionErrc::payloadSizeExceeded if the resulting CALL message exceeds
+        - WampErrc::payloadSizeExceeded if the resulting CALL message exceeds
           the transport's limits.
-        - SessionErrc::invalidState if the session was not established
+        - WampErrc::invalidState if the session was not established
           during the attempt to call.
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
-        - SessionErrc::noSuchProcedure if the router reports that there is
+        - WampErrc::sessionEnded if the operation was aborted.
+        - WampErrc::sessionEndedByPeer if the session was ended by the peer.
+        - WampErrc::noSuchProcedure if the router reports that there is
           no such procedure registered by that name.
-        - SessionErrc::invalidArgument if the callee reports that there are one
+        - WampErrc::invalidArgument if the callee reports that there are one
           or more invalid arguments.
-        - SessionErrc::callError if the router reports some other error.
+        - WampErrc::callError if the router reports some other error.
         - Some other `std::error_code` for protocol and transport errors.
     @note Use Session::ongoingCall if progressive results are desired.
     @pre `rpc.withProgressiveResults() == false`
@@ -1490,17 +1490,17 @@ struct Session::OngoingCallOp
 //------------------------------------------------------------------------------
 /** @return The remote procedure result.
     @par Error Codes
-        - SessionErrc::payloadSizeExceeded if the resulting CALL message exceeds
+        - WampErrc::payloadSizeExceeded if the resulting CALL message exceeds
           the transport's limits.
-        - SessionErrc::invalidState if the session was not established
+        - WampErrc::invalidState if the session was not established
           during the attempt to call.
-        - SessionErrc::sessionEnded if the operation was aborted.
-        - SessionErrc::sessionEndedByPeer if the session was ended by the peer.
-        - SessionErrc::noSuchProcedure if the router reports that there is
+        - WampErrc::sessionEnded if the operation was aborted.
+        - WampErrc::sessionEndedByPeer if the session was ended by the peer.
+        - WampErrc::noSuchProcedure if the router reports that there is
           no such procedure registered by that name.
-        - SessionErrc::invalidArgument if the callee reports that there are one
+        - WampErrc::invalidArgument if the callee reports that there are one
           or more invalid arguments.
-        - SessionErrc::callError if the router reports some other error.
+        - WampErrc::callError if the router reports some other error.
         - Some other `std::error_code` for protocol and transport errors.
     @note `withProgessiveResults(true)` is automatically performed on the
            given `rpc` argument.

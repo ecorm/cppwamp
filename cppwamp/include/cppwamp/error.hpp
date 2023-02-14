@@ -111,11 +111,11 @@ struct CPPWAMP_API Conversion : public BadType
 
 
 //******************************************************************************
-// Session Error Codes
+// WAMP Protocol Error Codes
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** %Error code values used with the SessionCategory error category.
+/** %Error code values used with the WampCategory error category.
     The equivalencies between these codes are as follows:
 
     std::error_code                         | Equivalent condition value
@@ -129,7 +129,7 @@ struct CPPWAMP_API Conversion : public BadType
     make_error_code(noSuchProcedure)        | callError
     make_error_code(invalidArgument)        | callError */
 //------------------------------------------------------------------------------
-enum class SessionErrc
+enum class WampErrc
 {
     // Generic errors
     success = 0,            ///< Operation successful
@@ -181,10 +181,9 @@ enum class SessionErrc
 
 //------------------------------------------------------------------------------
 /** std::error_category used for reporting errors at the WAMP session layer.
-    @see SessionErrc */
-// TODO: Rename to WampCategory as these are also used by router API.
+    @see WampErrc */
 //------------------------------------------------------------------------------
-class CPPWAMP_API SessionCategory : public std::error_category
+class CPPWAMP_API WampCategory : public std::error_category
 {
 public:
     /** Obtains the name of the category. */
@@ -198,42 +197,42 @@ public:
                             int condition) const noexcept override;
 
 private:
-    CPPWAMP_HIDDEN SessionCategory();
+    CPPWAMP_HIDDEN WampCategory();
 
-    friend SessionCategory& wampCategory();
+    friend WampCategory& wampCategory();
 };
 
 //------------------------------------------------------------------------------
 /** Obtains a reference to the static error category object for Wamp errors.
-    @relates SessionCategory */
+    @relates WampCategory */
 //------------------------------------------------------------------------------
-CPPWAMP_API SessionCategory& wampCategory();
+CPPWAMP_API WampCategory& wampCategory();
 
 //------------------------------------------------------------------------------
-/** Creates an error code value from an SessionErrc enumerator.
-    @relates SessionCategory */
+/** Creates an error code value from an WampErrc enumerator.
+    @relates WampCategory */
 //-----------------------------------------------------------------------------
-CPPWAMP_API std::error_code make_error_code(SessionErrc errc);
+CPPWAMP_API std::error_code make_error_code(WampErrc errc);
 
 //------------------------------------------------------------------------------
-/** Creates an error condition value from an SessionErrc enumerator.
-    @relates SessionCategory */
+/** Creates an error condition value from an WampErrc enumerator.
+    @relates WampCategory */
 //-----------------------------------------------------------------------------
-CPPWAMP_API std::error_condition make_error_condition(SessionErrc errc);
+CPPWAMP_API std::error_condition make_error_condition(WampErrc errc);
 
 //------------------------------------------------------------------------------
-/** Looks up the SessionErrc enumerator that corresponds to the given error URI.
-    @relates SessionCategory */
+/** Looks up the WampErrc enumerator that corresponds to the given error URI.
+    @relates WampCategory */
 //-----------------------------------------------------------------------------
-CPPWAMP_API bool errorUriToCode(const std::string& uri,
-                                SessionErrc fallback, SessionErrc& result);
+CPPWAMP_API bool errorUriToCode(const std::string& uri, WampErrc fallback,
+                                WampErrc& result);
 
 //------------------------------------------------------------------------------
 /** Looks up the error URI that corresponds to the given error code belonging
-    to SessionCategory.
-    @relates SessionCategory */
+    to WampCategory.
+    @relates WampCategory */
 //-----------------------------------------------------------------------------
-CPPWAMP_API const std::string& errorCodeToUri(SessionErrc errc);
+CPPWAMP_API const std::string& errorCodeToUri(WampErrc errc);
 
 
 //******************************************************************************
@@ -435,7 +434,7 @@ namespace std
 {
 
 template <>
-struct CPPWAMP_API is_error_condition_enum<wamp::SessionErrc>
+struct CPPWAMP_API is_error_condition_enum<wamp::WampErrc>
     : public true_type
 {};
 

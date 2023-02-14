@@ -62,7 +62,7 @@ private:
           calleeId_(callee->wampId())
     {
         if (procedure.optionByKey("match") != null)
-            ec = make_error_code(SessionErrc::optionNotAllowed);
+            ec = make_error_code(WampErrc::optionNotAllowed);
     }
 
     String procedureUri_;
@@ -95,7 +95,7 @@ public:
     {
         auto found = byKey_.find(key);
         if (found == byKey_.end())
-            return makeUnexpectedError(SessionErrc::noSuchRegistration);
+            return makeUnexpectedError(WampErrc::noSuchRegistration);
         auto uri = found->second.procedureUri();
         auto erased = byUri_.erase(uri);
         assert(erased == 1);
@@ -180,8 +180,7 @@ public:
 
     void setCalleeRequestId(RequestId id) {callerKey_.second = id;}
 
-    ErrorOrDone cancel(CallCancelMode mode, SessionErrc reason,
-                       bool& eraseNow)
+    ErrorOrDone cancel(CallCancelMode mode, WampErrc reason, bool& eraseNow)
     {
         // TODO: Reject duplicate cancellations, except for killnowait that
         // supercedes kill interruption in progress.
@@ -205,7 +204,7 @@ public:
         if (mode != CallCancelMode::kill)
         {
             discardResultOrError_ = true;
-            return makeUnexpectedError(SessionErrc::cancelled);
+            return makeUnexpectedError(WampErrc::cancelled);
         }
 
         return true;
@@ -220,7 +219,7 @@ public:
             return;
 
         auto reqId = callerKey_.second;
-        auto ec = make_error_code(SessionErrc::cancelled);
+        auto ec = make_error_code(WampErrc::cancelled);
         auto e = Error({}, WampMsgType::call, reqId, ec)
                      .withHint("Callee left realm");
         caller->sendError(std::move(e));
@@ -238,7 +237,7 @@ public:
         if (callee->features().calleeCancelling)
         {
             callee->sendInterruption({{}, reqId, CallCancelMode::killNoWait,
-                                      SessionErrc::cancelled});
+                                      WampErrc::cancelled});
         }
     }
 
@@ -414,7 +413,7 @@ private:
         {
             auto& job = iter->second->second;
             bool eraseNow = false;
-            job.cancel(CallCancelMode::killNoWait, SessionErrc::timeout,
+            job.cancel(CallCancelMode::killNoWait, WampErrc::timeout,
                        eraseNow);
             if (eraseNow)
                 byCalleeErase(iter);
@@ -463,9 +462,9 @@ public:
     ErrorOr<RegistrationId> enroll(RealmSession::Ptr callee, Procedure&& p)
     {
         if (!uriValidator_(p.uri(), false))
-            return makeUnexpectedError(SessionErrc::invalidUri);
+            return makeUnexpectedError(WampErrc::invalidUri);
         if (registry_.contains(p.uri()))
-            return makeUnexpectedError(SessionErrc::procedureAlreadyExists);
+            return makeUnexpectedError(WampErrc::procedureAlreadyExists);
         auto reg = DealerRegistration::create(std::move(p), callee);
         if (!reg)
             return makeUnexpected(reg.error());
@@ -485,14 +484,14 @@ public:
     ErrorOrDone call(RealmSession::Ptr caller, Rpc&& rpc)
     {
         if (!uriValidator_(rpc.uri(), false))
-            return makeUnexpectedError(SessionErrc::invalidUri);
+            return makeUnexpectedError(WampErrc::invalidUri);
 
         auto reg = registry_.find(rpc.uri());
         if (reg == nullptr)
-            return makeUnexpectedError(SessionErrc::noSuchProcedure);
+            return makeUnexpectedError(WampErrc::noSuchProcedure);
         auto callee = reg->callee().lock();
         if (!callee)
-            return makeUnexpectedError(SessionErrc::noSuchProcedure);
+            return makeUnexpectedError(WampErrc::noSuchProcedure);
 
         Invocation inv;
         auto job = DealerJob::create(caller, callee, std::move(rpc), *reg, inv);
@@ -514,7 +513,7 @@ public:
         auto mode = (cncl.mode() == CM::unknown) ? CM::killNoWait : cncl.mode();
         auto& job = iter->second;
         bool eraseNow = false;
-        auto done = job.cancel(mode, SessionErrc::cancelled, eraseNow);
+        auto done = job.cancel(mode, WampErrc::cancelled, eraseNow);
         if (eraseNow)
             jobs_.byCallerErase(iter);
         return done;

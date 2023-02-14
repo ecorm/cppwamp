@@ -277,7 +277,7 @@ namespace internal
 //------------------------------------------------------------------------------
 struct UnpackCoroError : public Error
 {
-    UnpackCoroError() : Error(SessionErrc::invalidArgument) {}
+    UnpackCoroError() : Error(WampErrc::invalidArgument) {}
 };
 
 //------------------------------------------------------------------------------

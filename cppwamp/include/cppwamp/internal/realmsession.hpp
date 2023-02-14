@@ -135,7 +135,7 @@ public:
         sendError(Error{{}, reqType, rid, ec}, logOnly);
     }
 
-    void sendError(WampMsgType reqType, RequestId rid, SessionErrc errc,
+    void sendError(WampMsgType reqType, RequestId rid, WampErrc errc,
                    bool logOnly = false)
     {
         sendError(reqType, rid, make_error_code(errc), logOnly);

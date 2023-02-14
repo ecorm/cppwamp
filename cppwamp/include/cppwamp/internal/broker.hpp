@@ -174,9 +174,9 @@ public:
     std::error_code check(const UriValidator& uriValidator) const
     {
         if (policy_ == Policy::unknown)
-            return make_error_code(SessionErrc::optionNotAllowed);
+            return make_error_code(WampErrc::optionNotAllowed);
         if (!uriValidator(uri_, policy_ != Policy::exact))
-            return make_error_code(SessionErrc::invalidUri);
+            return make_error_code(WampErrc::invalidUri);
         return {};
     }
 
@@ -457,7 +457,7 @@ public:
     {
         auto found = subscriptions_.find(subId);
         if (found == subscriptions_.end())
-            return makeUnexpectedError(SessionErrc::noSuchSubscription);
+            return makeUnexpectedError(WampErrc::noSuchSubscription);
         BrokerSubscription& record = found->second;
         bool erased = record.removeSubscriber(subscriber->wampId());
 
@@ -486,14 +486,14 @@ public:
         }
 
         if (!erased)
-            return makeUnexpectedError(SessionErrc::noSuchSubscription);
+            return makeUnexpectedError(WampErrc::noSuchSubscription);
         return record.topic().uri();
     }
 
     ErrorOr<PublicationId> publish(RealmSession::Ptr publisher, Pub&& pub)
     {
         if (!uriValidator_(pub.uri(), false))
-            return makeUnexpectedError(SessionErrc::invalidUri);
+            return makeUnexpectedError(WampErrc::invalidUri);
         BrokerPublication info(std::move(pub), pubIdGenerator_(),
                                std::move(publisher));
         byExact_.publish(info);

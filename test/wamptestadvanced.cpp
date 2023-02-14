@@ -338,7 +338,7 @@ GIVEN( "a caller and a callee" )
                     {
                         if (output.size() == input.size())
                         {
-                            CHECK(r == makeUnexpected(SessionErrc::callError));
+                            CHECK(r == makeUnexpected(WampErrc::callError));
                             receivedError = true;
                             return;
                         }
@@ -397,7 +397,7 @@ GIVEN( "a caller and a callee" )
                 [&interrupted](Interruption intr) -> Outcome
                 {
                     interrupted = true;
-                    return wamp::Error{SessionErrc::cancelled};
+                    return wamp::Error{WampErrc::cancelled};
                 },
                 yield).value();
 
@@ -405,7 +405,7 @@ GIVEN( "a caller and a callee" )
                 Rpc("com.myapp.foo"),
                 [&output](ErrorOr<Result> r)
                 {
-                    if (r == makeUnexpected(SessionErrc::sessionEnded))
+                    if (r == makeUnexpected(WampErrc::sessionEnded))
                         return;
                     const auto& result = r.value();
                     auto n = result.args().at(0).to<int>();
@@ -458,7 +458,7 @@ GIVEN( "a caller and a callee" )
                 [&interruptionRequestId](Interruption intr) -> Outcome
                 {
                     interruptionRequestId = intr.requestId();
-                    return Error{SessionErrc::cancelled};
+                    return Error{WampErrc::cancelled};
                 },
                 yield).value();
 
@@ -484,7 +484,7 @@ GIVEN( "a caller and a callee" )
                 suspendCoro(yield);
 
             CHECK( interruptionRequestId == invocationRequestId );
-            CHECK( response == makeUnexpected(SessionErrc::cancelled) );
+            CHECK( response == makeUnexpected(WampErrc::cancelled) );
 
             f.disconnect();
         });
@@ -514,7 +514,7 @@ GIVEN( "a caller and a callee" )
                 [&interruptionRequestId](Interruption intr) -> Outcome
                 {
                     interruptionRequestId = intr.requestId();
-                    return Error{SessionErrc::cancelled};
+                    return Error{WampErrc::cancelled};
                 },
                 yield).value();
 
@@ -540,7 +540,7 @@ GIVEN( "a caller and a callee" )
                 suspendCoro(yield);
 
             CHECK( interruptionRequestId == invocationRequestId );
-            CHECK( response == makeUnexpected(SessionErrc::cancelled) );
+            CHECK( response == makeUnexpected(WampErrc::cancelled) );
 
             f.disconnect();
         });
@@ -570,7 +570,7 @@ GIVEN( "a caller and a callee" )
                 [&interruptionRequestId](Interruption intr) -> Outcome
                 {
                     interruptionRequestId = intr.requestId();
-                    return Error{SessionErrc::cancelled};
+                    return Error{WampErrc::cancelled};
                 },
                 yield).value();
 
@@ -595,7 +595,7 @@ GIVEN( "a caller and a callee" )
                 suspendCoro(yield);
 
             CHECK( interruptionRequestId == invocationRequestId );
-            CHECK( response == makeUnexpected(SessionErrc::cancelled) );
+            CHECK( response == makeUnexpected(WampErrc::cancelled) );
 
             f.disconnect();
         });
@@ -624,7 +624,7 @@ GIVEN( "a caller and a callee" )
                 [&interruptionRequestId](Interruption intr) -> Outcome
                 {
                     interruptionRequestId = intr.requestId();
-                    return Error{SessionErrc::cancelled};
+                    return Error{WampErrc::cancelled};
                 },
                 yield).value();
 
@@ -641,7 +641,7 @@ GIVEN( "a caller and a callee" )
                 boost::asio::bind_cancellation_slot(cancelSignal.slot(),
                                                     yield));
 
-            CHECK( result == makeUnexpectedError(SessionErrc::cancelled) );
+            CHECK( result == makeUnexpectedError(WampErrc::cancelled) );
             CHECK( interruptionRequestId == invocationRequestId );
 
             f.disconnect();
@@ -673,7 +673,7 @@ GIVEN( "a caller and a callee" )
                 [&interruptionRequestId](Interruption intr) -> Outcome
                 {
                     interruptionRequestId = intr.requestId();
-                    return Error{SessionErrc::cancelled};
+                    return Error{WampErrc::cancelled};
                 },
                 yield).value();
 
@@ -699,7 +699,7 @@ GIVEN( "a caller and a callee" )
                 suspendCoro(yield);
 
             CHECK( interruptionRequestId == invocationRequestId );
-            CHECK( response == makeUnexpected(SessionErrc::cancelled) );
+            CHECK( response == makeUnexpected(WampErrc::cancelled) );
 
             f.disconnect();
         });
@@ -759,7 +759,7 @@ GIVEN( "a caller and a callee" )
             invocation.yield(); // Will be discarded by router
 
             CHECK_FALSE( interruptionReceived );
-            CHECK( response == makeUnexpected(SessionErrc::cancelled) );
+            CHECK( response == makeUnexpected(WampErrc::cancelled) );
 
             f.disconnect();
         });
@@ -789,7 +789,7 @@ GIVEN( "a caller and a callee" )
                 [&interruptionRequestId](Interruption intr) -> Outcome
                 {
                     interruptionRequestId = intr.requestId();
-                    return Error{SessionErrc::cancelled};
+                    return Error{WampErrc::cancelled};
                 },
                 yield).value();
 
@@ -858,7 +858,7 @@ GIVEN( "a caller and a callee" )
                                        interruptions.end(),
                                        inv.requestId()) != 0;
                         if (interrupted)
-                            inv.yield(Error{SessionErrc::cancelled});
+                            inv.yield(Error{WampErrc::cancelled});
                         else
                             inv.yield({arg});
                     });
@@ -897,8 +897,8 @@ GIVEN( "a caller and a callee" )
                     suspendCoro(yield);
 
                 REQUIRE( results.size() == 3 );
-                CHECK( results[0] == makeUnexpected(SessionErrc::cancelled) );
-                CHECK( results[1] == makeUnexpected(SessionErrc::cancelled) );
+                CHECK( results[0] == makeUnexpected(WampErrc::cancelled) );
+                CHECK( results[1] == makeUnexpected(WampErrc::cancelled) );
                 CHECK( results[2].value().args().at(0).to<int>() == 3 );
                 REQUIRE( interruptions.size() == 2 );
                 CHECK( valuesByRequestId[interruptions[0]] == 2 );

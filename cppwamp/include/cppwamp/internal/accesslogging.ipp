@@ -134,7 +134,7 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
-    Action action, std::string target, Object options, SessionErrc errc)
+    Action action, std::string target, Object options, WampErrc errc)
     : AccessActionInfo(action, nullId(), std::move(target), std::move(options),
                        errc)
 {}
@@ -161,7 +161,7 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
     Action action, RequestId r, std::string target, Object options,
-    SessionErrc errc)
+    WampErrc errc)
     : AccessActionInfo(action, r, std::move(target), std::move(options),
                        make_error_code(errc))
 {}
@@ -181,7 +181,7 @@ CPPWAMP_INLINE AccessActionInfo& AccessActionInfo::withError(std::error_code ec)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AccessActionInfo& AccessActionInfo::withError(SessionErrc errc)
+CPPWAMP_INLINE AccessActionInfo& AccessActionInfo::withError(WampErrc errc)
 {
     return withError(make_error_code(errc));
 }

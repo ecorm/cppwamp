@@ -91,7 +91,7 @@ public:
 //            {
 //                auto& me = *self;
 //                if (me.checkReply(reply, WampMsgType::subscribed,
-//                                  SessionErrc::subscribeError, handler))
+//                                  WampErrc::subscribeError, handler))
 //                {
 //                    const auto& msg = messageCast<SubscribedMessage>(*reply);
 //                    auto subId = msg.subscriptionId();
@@ -196,7 +196,7 @@ public:
     {
         // TODO
 //        if (state() != State::established)
-//            return makeUnexpectedError(SessionErrc::invalidState);
+//            return makeUnexpectedError(WampErrc::invalidState);
 //        return peer_.send(pub.message({}));
         return true;
     }
@@ -242,7 +242,7 @@ public:
 //            {
 //                auto& me = *self;
 //                if (me.checkReply(reply, WampMsgType::registered,
-//                                  SessionErrc::registerError, handler))
+//                                  WampErrc::registerError, handler))
 //                {
 //                    const auto& msg = messageCast<RegisteredMessage>(*reply);
 //                    auto regId = msg.registrationId();
@@ -348,7 +348,7 @@ public:
 //            {
 //                auto& me = *self;
 //                if (me.checkReply(reply, WampMsgType::result,
-//                                  SessionErrc::callError, handler, errorPtr))
+//                                  WampErrc::callError, handler, errorPtr))
 //                {
 //                    auto& msg = messageCast<ResultMessage>(*reply);
 //                    me.completeNow(handler, Result({}, std::move(msg)));
@@ -411,7 +411,7 @@ public:
 //            {
 //                auto& me = *self;
 //                if (me.checkReply(reply, WampMsgType::result,
-//                                  SessionErrc::callError, handler, errorPtr))
+//                                  WampErrc::callError, handler, errorPtr))
 //                {
 //                    auto& resultMsg = messageCast<ResultMessage>(*reply);
 //                    me.dispatchHandler(handler,
@@ -468,7 +468,7 @@ public:
     {
         // TODO
 //        if (state() != State::established)
-//            return makeUnexpectedError(SessionErrc::invalidState);
+//            return makeUnexpectedError(WampErrc::invalidState);
 //        return peer_.cancelCall(CallCancellation{reqId, mode});
         return true;
     }
@@ -506,12 +506,12 @@ public:
     {
         // TODO
 //        if (state() != State::established)
-//            return makeUnexpectedError(SessionErrc::invalidState);
+//            return makeUnexpectedError(WampErrc::invalidState);
 
 //        if (!result.isProgressive())
 //            pendingInvocations_.erase(reqId);
 //        auto done = peer_.send(result.yieldMessage({}, reqId));
-//        if (done == makeUnexpectedError(SessionErrc::payloadSizeExceeded))
+//        if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
 //            yield(reqId, Error("wamp.error.payload_size_exceeded"));
 //        return done;
         return true;
@@ -549,7 +549,7 @@ public:
     {
         // TODO
 //        if (state() != State::established)
-//            return makeUnexpectedError(SessionErrc::invalidState);
+//            return makeUnexpectedError(WampErrc::invalidState);
 
 //        pendingInvocations_.erase(reqId);
 //        return peer_.sendError(WampMsgType::invocation, reqId,
@@ -875,7 +875,7 @@ private:
 
     template <typename THandler>
     bool checkReply(ErrorOr<Message>& reply, WampMsgType type,
-                    SessionErrc defaultErrc, THandler& handler,
+                    WampErrc defaultErrc, THandler& handler,
                     Error* errorPtr = nullptr)
     {
         bool ok = checkError(reply, handler);
@@ -886,7 +886,7 @@ private:
                 ok = false;
                 auto& errMsg = messageCast<ErrorMessage>(*reply);
                 const auto& uri = errMsg.uri();
-                SessionErrc errc;
+                WampErrc errc;
                 bool found = errorUriToCode(uri, defaultErrc, errc);
                 bool hasArgs = !errMsg.args().empty() ||
                                !errMsg.kwargs().empty();
