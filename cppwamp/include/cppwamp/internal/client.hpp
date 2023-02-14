@@ -909,7 +909,7 @@ public:
 
         auto done = peer_.send(result.yieldMessage({}, reqId));
         if (done == makeUnexpectedError(SessionErrc::payloadSizeExceeded))
-            yield(reqId, Error("wamp.error.payload_size_exceeded"));
+            yield(reqId, Error{SessionErrc::payloadSizeExceeded});
         return done;
     }
 

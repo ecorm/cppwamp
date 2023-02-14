@@ -102,7 +102,9 @@ CPPWAMP_INLINE CallCancelMode parseCallCancelModeFromOptions(const Object& opts)
 
 CPPWAMP_INLINE Reason::Reason(String uri) : Base(std::move(uri)) {}
 
-CPPWAMP_INLINE Reason::Reason(SessionErrc errc) : Base(errcToUri(errc)) {}
+CPPWAMP_INLINE Reason::Reason(std::error_code ec) : Base(toUri(ec)) {}
+
+CPPWAMP_INLINE Reason::Reason(SessionErrc errc) : Base(toUri(errc)) {}
 
 CPPWAMP_INLINE Reason& Reason::withHint(String text)
 {
@@ -124,11 +126,24 @@ CPPWAMP_INLINE AccessActionInfo Reason::info(bool isServer) const
     return {action, uri(), options()};
 }
 
-CPPWAMP_INLINE String Reason::errcToUri(SessionErrc errc)
+CPPWAMP_INLINE String Reason::toUri(std::error_code ec)
 {
-    auto uri = errorCodeToUri(errc);
-    CPPWAMP_LOGIC_CHECK(!uri.empty(),
-                        "wamp::Reason constructor error code must map to URI");
+    String uri;
+    if (ec.category() == wampCategory())
+        uri = errorCodeToUri(static_cast<SessionErrc>(ec.value()));
+    if (uri.empty())
+        uri = "cppwamp.error." + ec.message();
+    return uri;
+}
+
+CPPWAMP_INLINE String Reason::toUri(SessionErrc errc)
+{
+    String uri = errorCodeToUri(errc);
+    if (uri.empty())
+    {
+        auto ec = make_error_code(errc);
+        uri = "cppwamp.error." + ec.message();
+    }
     return uri;
 }
 
@@ -539,18 +554,16 @@ CPPWAMP_INLINE Challenge::Challenge(internal::PassKey, ChallengeePtr challengee,
 // Error
 //******************************************************************************
 
-CPPWAMP_INLINE Error::Error() {}
-
-CPPWAMP_INLINE Error::Error(String reason) : Base(std::move(reason)) {}
+CPPWAMP_INLINE Error::Error(String uri) : Base(std::move(uri)) {}
 
 CPPWAMP_INLINE Error::Error(std::error_code ec) : Base(toUri(ec)) {}
 
 CPPWAMP_INLINE Error::Error(SessionErrc errc) : Base(toUri(errc)) {}
 
 CPPWAMP_INLINE Error::Error(const error::BadType& e)
-    : Base("wamp.error.invalid_argument")
+    : Error(SessionErrc::invalidArgument)
 {
-    withArgs(String{e.what()});
+    withHint(String{e.what()});
 }
 
 CPPWAMP_INLINE Error::~Error() {}
@@ -563,6 +576,15 @@ CPPWAMP_INLINE Error& Error::withHint(String hint)
 CPPWAMP_INLINE Error::operator bool() const {return !uri().empty();}
 
 CPPWAMP_INLINE const String& Error::uri() const {return message().uri();}
+
+CPPWAMP_INLINE ErrorOr<std::error_code> Error::errorCode() const
+{
+    SessionErrc errc;
+    bool ok = errorUriToCode(uri(), SessionErrc::success, errc);
+    if (!ok)
+        return makeUnexpectedError(std::errc::result_out_of_range);
+    return make_error_code(errc);
+}
 
 CPPWAMP_INLINE AccessActionInfo Error::info(bool isServer) const
 {

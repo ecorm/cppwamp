@@ -30,6 +30,7 @@ namespace wamp
 
 //------------------------------------------------------------------------------
 /** Determines how callers and publishers are disclosed. */
+// TODO: deny -> wamp.error.option_disallowed.disclose_me
 //------------------------------------------------------------------------------
 enum class DisclosureRule
 {

@@ -277,7 +277,7 @@ namespace internal
 //------------------------------------------------------------------------------
 struct UnpackCoroError : public Error
 {
-    UnpackCoroError() : Error("wamp.error.invalid_argument") {}
+    UnpackCoroError() : Error(SessionErrc::invalidArgument) {}
 };
 
 //------------------------------------------------------------------------------

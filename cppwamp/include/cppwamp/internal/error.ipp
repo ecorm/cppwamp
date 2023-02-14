@@ -209,6 +209,9 @@ CPPWAMP_INLINE bool SessionCategory::equivalent(const std::error_code& code,
                 return value == SessionErrc::noSuchProcedure ||
                        value == SessionErrc::invalidArgument;
 
+            case SessionErrc::optionNotAllowed:
+                return value == SessionErrc::discloseMeDisallowed;
+
             default: return false;
             }
         }

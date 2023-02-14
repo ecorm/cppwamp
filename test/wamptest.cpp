@@ -1902,7 +1902,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                 [&callCount](Invocation) -> Outcome
                 {
                     ++callCount;
-                    return Error("wamp.error.not_authorized")
+                    return Error(SessionErrc::notAuthorized)
                            .withArgs(123)
                            .withKwargs(Object{{{"foo"},{"bar"}}});
                 },
@@ -1916,6 +1916,8 @@ GIVEN( "an IO service and a ConnectionWish" )
                 CHECK_THROWS_AS( result.value(), error::Failure );
                 CHECK_FALSE( !error );
                 CHECK_THAT( error.uri(), Equals("wamp.error.not_authorized") );
+                CHECK( error.errorCode() ==
+                       make_error_code(SessionErrc::notAuthorized) );
                 CHECK( error.args() == Array{123} );
                 CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
             }
@@ -1939,7 +1941,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                 [&callCount](Invocation) -> Outcome
                 {
                     ++callCount;
-                    throw Error("wamp.error.not_authorized")
+                    throw Error(SessionErrc::notAuthorized)
                           .withArgs(123)
                           .withKwargs(Object{{{"foo"},{"bar"}}});;
                     return {};
@@ -1953,6 +1955,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                 CHECK( result == makeUnexpected(SessionErrc::notAuthorized) );
                 CHECK_FALSE( !error );
                 CHECK_THAT( error.uri(), Equals("wamp.error.not_authorized") );
+                CHECK( error.errorCode() == SessionErrc::notAuthorized );
                 CHECK( error.args() == Array{123} );
                 CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
             }

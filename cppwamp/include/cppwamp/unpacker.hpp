@@ -255,7 +255,7 @@ namespace internal
 //------------------------------------------------------------------------------
 struct UnpackError : public Error
 {
-    UnpackError() : Error("wamp.error.invalid_argument") {}
+    UnpackError() : Error(SessionErrc::invalidArgument) {}
 };
 
 } // namespace internal

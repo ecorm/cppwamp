@@ -182,6 +182,7 @@ enum class SessionErrc
 //------------------------------------------------------------------------------
 /** std::error_category used for reporting errors at the WAMP session layer.
     @see SessionErrc */
+// TODO: Rename to WampCategory as these are also used by router API.
 //------------------------------------------------------------------------------
 class CPPWAMP_API SessionCategory : public std::error_category
 {

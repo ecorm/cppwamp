@@ -56,9 +56,14 @@ class CPPWAMP_API Reason : public Options<Reason, internal::GoodbyeMessage>
 {
 public:
     /** Converting constructor taking an optional reason URI. */
-    Reason(String uri = "");
+    Reason(String uri = {});
 
-    /** Converting constructor taking an error code. */
+    /** Converting constructor taking an error code, attempting to convert
+        it to a URI. */
+    Reason(std::error_code ec);
+
+    /** Converting constructor taking a SessionErrc, attempting to convert
+        it to a reason URI.. */
     Reason(SessionErrc errc);
 
     /** Sets the `message` member of the details dictionary. */
@@ -76,7 +81,8 @@ public:
 private:
     using Base = Options<Reason, internal::GoodbyeMessage>;
 
-    static String errcToUri(SessionErrc errc);
+    static String toUri(std::error_code ec);
+    static String toUri(SessionErrc errc);
 
 public:
     // Internal use only
@@ -346,11 +352,8 @@ private:
 class CPPWAMP_API Error : public Payload<Error, internal::ErrorMessage>
 {
 public:
-    /** Constructs an empty error. */
-    Error();
-
     /** Converting constructor taking a reason URI. */
-    Error(String reason);
+    Error(String uri = {});
 
     /** Converting constructor taking an error code, attempting to convert
         it to a reason URI. */
@@ -375,6 +378,9 @@ public:
 
     /** Obtains the reason URI. */
     const String& uri() const;
+
+    /** Attempts to convert the reason URI to a known error code. */
+    ErrorOr<std::error_code> errorCode() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info(bool isServer) const;

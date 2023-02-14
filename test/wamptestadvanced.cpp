@@ -397,7 +397,7 @@ GIVEN( "a caller and a callee" )
                 [&interrupted](Interruption intr) -> Outcome
                 {
                     interrupted = true;
-                    return wamp::Error("wamp.error.canceled");
+                    return wamp::Error{SessionErrc::cancelled};
                 },
                 yield).value();
 
@@ -458,7 +458,7 @@ GIVEN( "a caller and a callee" )
                 [&interruptionRequestId](Interruption intr) -> Outcome
                 {
                     interruptionRequestId = intr.requestId();
-                    return Error("wamp.error.canceled");
+                    return Error{SessionErrc::cancelled};
                 },
                 yield).value();
 
@@ -514,7 +514,7 @@ GIVEN( "a caller and a callee" )
                 [&interruptionRequestId](Interruption intr) -> Outcome
                 {
                     interruptionRequestId = intr.requestId();
-                    return Error("wamp.error.canceled");
+                    return Error{SessionErrc::cancelled};
                 },
                 yield).value();
 
@@ -570,7 +570,7 @@ GIVEN( "a caller and a callee" )
                 [&interruptionRequestId](Interruption intr) -> Outcome
                 {
                     interruptionRequestId = intr.requestId();
-                    return Error("wamp.error.canceled");
+                    return Error{SessionErrc::cancelled};
                 },
                 yield).value();
 
@@ -624,7 +624,7 @@ GIVEN( "a caller and a callee" )
                 [&interruptionRequestId](Interruption intr) -> Outcome
                 {
                     interruptionRequestId = intr.requestId();
-                    return Error("wamp.error.canceled");
+                    return Error{SessionErrc::cancelled};
                 },
                 yield).value();
 
@@ -673,7 +673,7 @@ GIVEN( "a caller and a callee" )
                 [&interruptionRequestId](Interruption intr) -> Outcome
                 {
                     interruptionRequestId = intr.requestId();
-                    return Error("wamp.error.canceled");
+                    return Error{SessionErrc::cancelled};
                 },
                 yield).value();
 
@@ -789,7 +789,7 @@ GIVEN( "a caller and a callee" )
                 [&interruptionRequestId](Interruption intr) -> Outcome
                 {
                     interruptionRequestId = intr.requestId();
-                    return Error("wamp.error.canceled");
+                    return Error{SessionErrc::cancelled};
                 },
                 yield).value();
 
@@ -858,7 +858,7 @@ GIVEN( "a caller and a callee" )
                                        interruptions.end(),
                                        inv.requestId()) != 0;
                         if (interrupted)
-                            inv.yield(Error("wamp.error.canceled"));
+                            inv.yield(Error{SessionErrc::cancelled});
                         else
                             inv.yield({arg});
                     });
