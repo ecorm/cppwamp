@@ -356,6 +356,10 @@ public:
         it to a reason URI. */
     Error(std::error_code ec);
 
+    /** Converting constructor taking a SessionErrc, attempting to convert
+        it to a reason URI. */
+    Error(SessionErrc errc);
+
     /** Constructor taking an error::BadType exception and
         interpreting it as a `wamp.error.invalid_argument` reason URI. */
     explicit Error(const error::BadType& e);
@@ -379,6 +383,8 @@ private:
     using Base = Payload<Error, internal::ErrorMessage>;
 
     static String toUri(std::error_code ec);
+
+    static String toUri(SessionErrc errc);
 
 public:
     // Internal use only
@@ -976,7 +982,7 @@ public:
         @{ */
 
     /** Checks if the caller requested progressive results. */
-    bool isProgressive() const;
+    bool resultsAreProgressive() const;
     /// @}
 
     /** @name Caller Identification

@@ -895,8 +895,18 @@ public:
         if (state() != State::established)
             return makeUnexpectedError(SessionErrc::invalidState);
 
-        if (!result.isProgressive())
-            pendingInvocations_.erase(reqId);
+        auto found = pendingInvocations_.find(reqId);
+        if (found == pendingInvocations_.end())
+            return false;
+
+        // Error may have already been returned due to interruption being
+        // handled by Client::onInterrupt.
+        bool expired = found->second.expired;
+        if (!result.isProgressive() || expired)
+            pendingInvocations_.erase(found);
+        if (expired)
+            return false;
+
         auto done = peer_.send(result.yieldMessage({}, reqId));
         if (done == makeUnexpectedError(SessionErrc::payloadSizeExceeded))
             yield(reqId, Error("wamp.error.payload_size_exceeded"));
@@ -936,7 +946,17 @@ public:
         if (state() != State::established)
             return makeUnexpectedError(SessionErrc::invalidState);
 
-        pendingInvocations_.erase(reqId);
+        auto found = pendingInvocations_.find(reqId);
+        if (found == pendingInvocations_.end())
+            return false;
+
+        // Error may have already been returned due to interruption being
+        // handled by Client::onInterrupt.
+        bool expired = found->second.expired;
+        pendingInvocations_.erase(found);
+        if (expired)
+            return false;
+
         return peer_.sendError(WampMsgType::invocation, reqId,
                                std::move(error));
     }
@@ -986,12 +1006,21 @@ private:
         InterruptSlot interruptSlot;
     };
 
+    struct InvocationRecord
+    {
+        InvocationRecord(RegistrationId regId) : registrationId(regId) {}
+
+        RegistrationId registrationId;
+        bool interrupted = false;
+        bool expired = false;
+    };
+
     using Message        = WampMessage;
     using SlotId         = uint64_t;
     using LocalSubs      = std::map<SlotId, SubscriptionRecord>;
     using Readership     = std::map<SubscriptionId, LocalSubs>;
     using Registry       = std::map<RegistrationId, RegistrationRecord>;
-    using InvocationMap  = std::map<RequestId, RegistrationId>;
+    using InvocationMap  = std::map<RequestId, InvocationRecord>;
     using CallerTimeoutDuration = typename Rpc::TimeoutDuration;
 
     Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
@@ -1332,42 +1361,64 @@ private:
         auto regId = invMsg.registrationId();
 
         auto kv = registry_.find(regId);
-        if (kv != registry_.end())
-        {
-            const RegistrationRecord& rec = kv->second;
-            Invocation inv({}, shared_from_this(), userExecutor(),
-                           std::move(invMsg));
-            pendingInvocations_[requestId] = regId;
-            postRpcRequest(rec.callSlot, std::move(inv));
-        }
-        else
+        if (kv == registry_.end())
         {
             peer_.sendError(WampMsgType::invocation, requestId,
-                            Error("wamp.error.no_such_procedure"));
+                            {SessionErrc::noSuchProcedure});
             log(LogLevel::warning,
                 "No matching procedure for INVOCATION with registration ID "
-                 + std::to_string(regId));
+                    + std::to_string(regId));
+            return;
         }
+
+        Invocation inv({}, shared_from_this(), userExecutor(),
+                       std::move(invMsg));
+
+        auto found = pendingInvocations_.find(requestId);
+        if (found != pendingInvocations_.end())
+        {
+            auto err = Error(SessionErrc::protocolViolation)
+                           .withHint("Request ID already in use");
+            peer_.sendError(WampMsgType::invocation, requestId, std::move(err));
+            log(LogLevel::warning,
+                "Rejected INVOCATION with request ID "
+                    + std::to_string(requestId) + " already in use");
+            return;
+        }
+
+        const RegistrationRecord& rec = kv->second;
+        pendingInvocations_.emplace(requestId, InvocationRecord{regId});
+        postRpcRequest(rec.callSlot, std::move(inv));
     }
 
     void onInterrupt(Message&& msg)
     {
         auto& interruptMsg = messageCast<InterruptMessage>(msg);
         auto found = pendingInvocations_.find(interruptMsg.requestId());
-        if (found != pendingInvocations_.end())
+        if (found == pendingInvocations_.end())
+            return;
+
+        InvocationRecord& rec = found->second;
+        if (rec.interrupted)
+            return;
+        rec.interrupted = true;
+
+        Interruption intr({}, shared_from_this(), userExecutor(),
+                          std::move(interruptMsg));
+        auto kv = registry_.find(rec.registrationId);
+        if (kv != registry_.end() && kv->second.interruptSlot != nullptr)
         {
-            auto registrationId = found->second;
-            pendingInvocations_.erase(found);
-            auto kv = registry_.find(registrationId);
-            if ((kv != registry_.end()) &&
-                (kv->second.interruptSlot != nullptr))
-            {
-                const RegistrationRecord& rec = kv->second;
-                using std::move;
-                Interruption intr({}, shared_from_this(), userExecutor(),
-                                  move(interruptMsg));
-                postRpcRequest(rec.interruptSlot, move(intr));
-            }
+            const RegistrationRecord& rec = kv->second;
+            postRpcRequest(rec.interruptSlot, std::move(intr));
+        }
+        else if (intr.cancelMode() == CallCancelMode::kill)
+        {
+            // Respond immediately when cancel mode is 'kill' and no interrupt
+            // slot is provided.
+            rec.expired = true;
+            Error error{intr.reason().value_or("wamp.error.canceled")};
+            peer_.sendError(WampMsgType::invocation, intr.requestId(),
+                            std::move(error));
         }
     }
 

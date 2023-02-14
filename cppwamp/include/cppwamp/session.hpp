@@ -14,6 +14,7 @@
 //------------------------------------------------------------------------------
 
 // TODO: Client-side abort
+// TODO: Progressive calls
 
 #include <future>
 #include <memory>

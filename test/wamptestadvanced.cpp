@@ -236,7 +236,7 @@ GIVEN( "a caller and a callee" )
                 Procedure("com.myapp.foo"),
                 [&ioctx, &input](Invocation inv) -> Outcome
                 {
-                    CHECK( inv.isProgressive() );
+                    CHECK( inv.resultsAreProgressive() );
 
                     spawn(
                         ioctx,
@@ -299,7 +299,7 @@ GIVEN( "a caller and a callee" )
                 Procedure("com.myapp.foo"),
                 [&ioctx, &input](Invocation inv) -> Outcome
                 {
-                    CHECK( inv.isProgressive() );
+                    CHECK( inv.resultsAreProgressive() );
 
                     spawn(
                         ioctx,
@@ -375,7 +375,7 @@ GIVEN( "a caller and a callee" )
                 Procedure("com.myapp.foo"),
                 [&](Invocation inv) -> Outcome
                 {
-                    CHECK( inv.isProgressive() );
+                    CHECK( inv.resultsAreProgressive() );
                     spawn(ioctx, [&, inv](YieldContext yield)
                     {
                         boost::asio::steady_timer timer(ioctx);
@@ -648,6 +648,8 @@ GIVEN( "a caller and a callee" )
         });
         ioctx.run();
     }
+
+    // TODO: Cancelling an RPC in kill mode with no callee interruption handler.
 
     WHEN( "cancelling an RPC in killnowait mode before it returns" )
     {

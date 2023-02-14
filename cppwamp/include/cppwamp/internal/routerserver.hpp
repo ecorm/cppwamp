@@ -538,6 +538,7 @@ private:
     {
         auto& msg = messageCast<CallMessage>(m);
         auto reqId = msg.requestId();
+        // TODO: Allow prior request IDs for progressive calls
         if (!checkSequentialRequestId(reqId))
             return;
 
@@ -620,6 +621,7 @@ private:
 
     bool checkSequentialRequestId(RequestId rid)
     {
+        // TODO: Move this logic to Peer so that client may also benefit
         if (rid != expectedRequestId_)
         {
             doAbort(Reason(SessionErrc::protocolViolation)

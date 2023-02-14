@@ -183,6 +183,9 @@ public:
     ErrorOrDone cancel(CallCancelMode mode, SessionErrc reason,
                        bool& eraseNow)
     {
+        // TODO: Reject duplicate cancellations, except for killnowait that
+        // supercedes kill interruption in progress.
+
         auto callee = this->callee_.lock();
         if (!callee)
             return false;

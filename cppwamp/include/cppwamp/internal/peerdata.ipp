@@ -545,6 +545,8 @@ CPPWAMP_INLINE Error::Error(String reason) : Base(std::move(reason)) {}
 
 CPPWAMP_INLINE Error::Error(std::error_code ec) : Base(toUri(ec)) {}
 
+CPPWAMP_INLINE Error::Error(SessionErrc errc) : Base(toUri(errc)) {}
+
 CPPWAMP_INLINE Error::Error(const error::BadType& e)
     : Base("wamp.error.invalid_argument")
 {
@@ -576,6 +578,17 @@ CPPWAMP_INLINE String Error::toUri(std::error_code ec)
         uri = errorCodeToUri(static_cast<SessionErrc>(ec.value()));
     if (uri.empty())
         uri = "cppwamp.error." + ec.message();
+    return uri;
+}
+
+CPPWAMP_INLINE String Error::toUri(SessionErrc errc)
+{
+    String uri = errorCodeToUri(errc);
+    if (uri.empty())
+    {
+        auto ec = make_error_code(errc);
+        uri = "cppwamp.error." + ec.message();
+    }
     return uri;
 }
 
@@ -1336,7 +1349,7 @@ CPPWAMP_INLINE AccessActionInfo Invocation::info() const
 /** @details
     This function checks if the `INVOCATION.Details.receive_progress|bool`
     detail is `true`. */
-CPPWAMP_INLINE bool Invocation::isProgressive() const
+CPPWAMP_INLINE bool Invocation::resultsAreProgressive() const
 {
     return optionOr<bool>("receive_progress", false);
 }

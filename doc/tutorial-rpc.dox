@@ -658,10 +658,10 @@ message and the call handler will be passed the wamp::SessionErrc::cancelled
 error code.
 
 
-Progressive Calls Results
--------------------------
+Progressive Call Results
+------------------------
 
-[Progressive calls results]
+[Progressive call results]
 (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
 is a WAMP feature that allows a sequence of partial results to be returned from
 the same remote procedure call.
