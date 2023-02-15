@@ -104,7 +104,6 @@ public:
 //            }
 //        };
 
-//        using std::move;
 //        SubscriptionRecord rec = {topic.uri(), move(slot)};
 
 //        auto kv = topics_.find(rec.topicUri);
@@ -256,7 +255,6 @@ public:
 //        if (!checkState(State::established, handler))
 //            return;
 
-//        using std::move;
 //        RegistrationRecord rec{ move(callSlot), move(interruptSlot) };
 //        peer_.request(procedure.message({}),
 //                      Requested{shared_from_this(), move(rec), move(handler)});
@@ -266,8 +264,6 @@ public:
     std::future<Registration> safeEnroll(Procedure&& proc, CallSlot&& c,
                                          InterruptSlot&& i)
     {
-        using std::move;
-
         struct Dispatched
         {
             Ptr self;
@@ -280,7 +276,8 @@ public:
             {
                 try
                 {
-                    p.set_value(self->enroll(move(proc), move(c), move(i)));
+                    p.set_value(self->enroll(std::move(proc), std::move(c),
+                                             std::move(i)));
                 }
                 catch (...)
                 {
@@ -291,7 +288,8 @@ public:
 
         std::promise<Registration> p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(move(p), move(proc), move(c), move(i));
+        safelyDispatch<Dispatched>(std::move(p), std::move(proc), std::move(c),
+                                   std::move(i));
         return fut;
     }
 
@@ -384,18 +382,20 @@ public:
 
     void safeOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
     {
-        using std::move;
-
         struct Dispatched
         {
             Ptr self;
             Rpc r;
             CallChit* c;
             CompletionHandler<Result> f;
-            void operator()() {self->oneShotCall(move(r), c, move(f));}
+
+            void operator()()
+            {
+                self->oneShotCall(std::move(r), c, std::move(f));
+            }
         };
 
-        safelyDispatch<Dispatched>(move(r), c, move(f));
+        safelyDispatch<Dispatched>(std::move(r), c, std::move(f));
     }
 
     void ongoingCall(Rpc&& rpc, CallChit* chitPtr, OngoingCallHandler&& handler)
@@ -450,18 +450,20 @@ public:
 
     void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f)
     {
-        using std::move;
-
         struct Dispatched
         {
             Ptr self;
             Rpc r;
             CallChit* c;
             OngoingCallHandler f;
-            void operator()() {self->ongoingCall(move(r), c, move(f));}
+
+            void operator()()
+            {
+                self->ongoingCall(std::move(r), c, std::move(f));
+            }
         };
 
-        safelyDispatch<Dispatched>(move(r), c, move(f));
+        safelyDispatch<Dispatched>(std::move(r), c, std::move(f));
     }
 
     ErrorOrDone cancelCall(RequestId reqId, CallCancelMode mode) override
@@ -799,10 +801,9 @@ private:
                 (kv->second.interruptSlot != nullptr))
             {
                 const RegistrationRecord& rec = kv->second;
-                using std::move;
                 Interruption intr({}, shared_from_this(), userExecutor(),
-                                  move(interruptMsg));
-                postRpcRequest(rec.interruptSlot, move(intr));
+                                  std::move(interruptMsg));
+                postRpcRequest(rec.interruptSlot, std::move(intr));
             }
         }
     }
@@ -810,8 +811,6 @@ private:
     template <typename TSlot, typename TInvocationOrInterruption>
     void postRpcRequest(TSlot slot, TInvocationOrInterruption&& request)
     {
-        using std::move;
-
         struct Posted
         {
             Ptr self;
@@ -827,7 +826,7 @@ private:
 
                 try
                 {
-                    Outcome outcome(slot(move(request)));
+                    Outcome outcome(slot(std::move(request)));
                     switch (outcome.type())
                     {
                     case Outcome::Type::deferred:
@@ -835,11 +834,11 @@ private:
                         break;
 
                     case Outcome::Type::result:
-                        me.safeYield(requestId, move(outcome).asResult());
+                        me.safeYield(requestId, std::move(outcome).asResult());
                         break;
 
                     case Outcome::Type::error:
-                        me.safeYield(requestId, move(outcome).asError());
+                        me.safeYield(requestId, std::move(outcome).asError());
                         break;
 
                     default:
@@ -848,7 +847,7 @@ private:
                 }
                 catch (Error& error)
                 {
-                    me.yield(requestId, move(error));
+                    me.yield(requestId, std::move(error));
                 }
                 catch (const error::BadType& e)
                 {
@@ -859,7 +858,7 @@ private:
         };
 
         auto exec = boost::asio::get_associated_executor(slot, userExecutor());
-        Posted posted{shared_from_this(), move(slot), move(request)};
+        Posted posted{shared_from_this(), std::move(slot), std::move(request)};
         boost::asio::post(strand(),
                           boost::asio::bind_executor( exec, std::move(posted)));
     }

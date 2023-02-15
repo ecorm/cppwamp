@@ -85,19 +85,18 @@ CPPWAMP_API ResultTypeOf<V> applyWithOperand(V&& visitor, T&& variant,
 template <typename V, typename T>
 ResultTypeOf<V> apply(V&& visitor, T&& variant)
 {
-    using std::forward;
     using I = decltype(variant.typeId());
     switch (variant.typeId())
     {
-    case I::null:    return forward<V>(visitor)(variant.template as<I::null>());
-    case I::boolean: return forward<V>(visitor)(variant.template as<I::boolean>());
-    case I::integer: return forward<V>(visitor)(variant.template as<I::integer>());
-    case I::uint:    return forward<V>(visitor)(variant.template as<I::uint>());
-    case I::real:    return forward<V>(visitor)(variant.template as<I::real>());
-    case I::string:  return forward<V>(visitor)(variant.template as<I::string>());
-    case I::blob:    return forward<V>(visitor)(variant.template as<I::blob>());
-    case I::array:   return forward<V>(visitor)(variant.template as<I::array>());
-    case I::object:  return forward<V>(visitor)(variant.template as<I::object>());
+    case I::null:    return std::forward<V>(visitor)(variant.template as<I::null>());
+    case I::boolean: return std::forward<V>(visitor)(variant.template as<I::boolean>());
+    case I::integer: return std::forward<V>(visitor)(variant.template as<I::integer>());
+    case I::uint:    return std::forward<V>(visitor)(variant.template as<I::uint>());
+    case I::real:    return std::forward<V>(visitor)(variant.template as<I::real>());
+    case I::string:  return std::forward<V>(visitor)(variant.template as<I::string>());
+    case I::blob:    return std::forward<V>(visitor)(variant.template as<I::blob>());
+    case I::array:   return std::forward<V>(visitor)(variant.template as<I::array>());
+    case I::object:  return std::forward<V>(visitor)(variant.template as<I::object>());
     default:         assert(false);
     }
 
@@ -109,25 +108,24 @@ ResultTypeOf<V> apply(V&& visitor, T&& variant)
 template <typename V, typename L, typename R>
 ResultTypeOf<V> apply(V&& v, L&& l, R&& r)
 {
-    using std::forward;
     using I = decltype(l.typeId());
 
     switch(r.typeId())
     {
-    case I::null:    return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::null>());
-    case I::boolean: return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::boolean>());
-    case I::integer: return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::integer>());
-    case I::uint:    return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::uint>());
-    case I::real:    return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::real>());
-    case I::string:  return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::string>());
-    case I::blob:    return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::blob>());
-    case I::array:   return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::array>());
-    case I::object:  return applyWithOperand(forward<V>(v), forward<L>(l), r.template as<I::object>());
+    case I::null:    return applyWithOperand(std::forward<V>(v), std::forward<L>(l), r.template as<I::null>());
+    case I::boolean: return applyWithOperand(std::forward<V>(v), std::forward<L>(l), r.template as<I::boolean>());
+    case I::integer: return applyWithOperand(std::forward<V>(v), std::forward<L>(l), r.template as<I::integer>());
+    case I::uint:    return applyWithOperand(std::forward<V>(v), std::forward<L>(l), r.template as<I::uint>());
+    case I::real:    return applyWithOperand(std::forward<V>(v), std::forward<L>(l), r.template as<I::real>());
+    case I::string:  return applyWithOperand(std::forward<V>(v), std::forward<L>(l), r.template as<I::string>());
+    case I::blob:    return applyWithOperand(std::forward<V>(v), std::forward<L>(l), r.template as<I::blob>());
+    case I::array:   return applyWithOperand(std::forward<V>(v), std::forward<L>(l), r.template as<I::array>());
+    case I::object:  return applyWithOperand(std::forward<V>(v), std::forward<L>(l), r.template as<I::object>());
     default:         assert(false);
     }
 
     // Unreachable. Return null case to silence warning.
-    return applyWithOperand(forward<V>(v), forward<L>(l),
+    return applyWithOperand(std::forward<V>(v), std::forward<L>(l),
                             r.template as<I::null>());
 }
 
@@ -135,25 +133,24 @@ ResultTypeOf<V> apply(V&& v, L&& l, R&& r)
 template <typename V, typename T, typename O>
 ResultTypeOf<V> applyWithOperand(V&& v, T&& l, O&& o)
 {
-    using std::forward;
     using I = decltype(l.typeId());
 
     switch(l.typeId())
     {
-    case I::null:    return forward<V>(v)(l.template as<I::null>(),    forward<O>(o));
-    case I::boolean: return forward<V>(v)(l.template as<I::boolean>(), forward<O>(o));
-    case I::integer: return forward<V>(v)(l.template as<I::integer>(), forward<O>(o));
-    case I::uint:    return forward<V>(v)(l.template as<I::uint>(),    forward<O>(o));
-    case I::real:    return forward<V>(v)(l.template as<I::real>(),    forward<O>(o));
-    case I::string:  return forward<V>(v)(l.template as<I::string>(),  forward<O>(o));
-    case I::blob:    return forward<V>(v)(l.template as<I::blob>(),    forward<O>(o));
-    case I::array:   return forward<V>(v)(l.template as<I::array>(),   forward<O>(o));
-    case I::object:  return forward<V>(v)(l.template as<I::object>(),  forward<O>(o));
+    case I::null:    return std::forward<V>(v)(l.template as<I::null>(),    std::forward<O>(o));
+    case I::boolean: return std::forward<V>(v)(l.template as<I::boolean>(), std::forward<O>(o));
+    case I::integer: return std::forward<V>(v)(l.template as<I::integer>(), std::forward<O>(o));
+    case I::uint:    return std::forward<V>(v)(l.template as<I::uint>(),    std::forward<O>(o));
+    case I::real:    return std::forward<V>(v)(l.template as<I::real>(),    std::forward<O>(o));
+    case I::string:  return std::forward<V>(v)(l.template as<I::string>(),  std::forward<O>(o));
+    case I::blob:    return std::forward<V>(v)(l.template as<I::blob>(),    std::forward<O>(o));
+    case I::array:   return std::forward<V>(v)(l.template as<I::array>(),   std::forward<O>(o));
+    case I::object:  return std::forward<V>(v)(l.template as<I::object>(),  std::forward<O>(o));
     default:         assert(false);
     }
 
     // Unreachable. Return null case to silence warning.
-    return forward<V>(v)(l.template as<I::null>(), forward<O>(o));
+    return std::forward<V>(v)(l.template as<I::null>(), std::forward<O>(o));
 }
 
 } // namespace wamp

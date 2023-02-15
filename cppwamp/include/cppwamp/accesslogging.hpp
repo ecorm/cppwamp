@@ -122,7 +122,6 @@ struct CPPWAMP_API AccessActionInfo
         return *this;
     }
 
-    // TODO: Getters
     std::string target;
     std::string errorUri;
     Object options;

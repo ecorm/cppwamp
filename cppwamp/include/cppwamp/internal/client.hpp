@@ -384,8 +384,7 @@ public:
         if (!checkState(State::established, handler))
             return;
 
-        using std::move;
-        SubscriptionRecord rec = {topic.uri(), move(slot), nullptr};
+        SubscriptionRecord rec = {topic.uri(), std::move(slot), nullptr};
 
         switch (topic.matchPolicy())
         {
@@ -400,33 +399,36 @@ public:
         {
             peer_.request(
                 topic.message({}),
-                Requested{shared_from_this(), move(rec), move(handler)});
+                Requested{shared_from_this(), std::move(rec),
+                          std::move(handler)});
         }
         else
         {
             auto subId = kv->second;
             auto slotId = nextSlotId();
             Subscription sub{shared_from_this(), subId, slotId, {}};
-            readership_[subId][slotId] = move(rec);
-            complete(handler, move(sub));
+            readership_[subId][slotId] = std::move(rec);
+            complete(handler, std::move(sub));
         }
     }
 
     void safeSubscribe(Topic&& t, EventSlot&& s,
                        CompletionHandler<Subscription>&& f)
     {
-        using std::move;
-
         struct Dispatched
         {
             Ptr self;
             Topic t;
             EventSlot s;
             CompletionHandler<Subscription> f;
-            void operator()() {self->subscribe(move(t), move(s), move(f));}
+
+            void operator()()
+            {
+                self->subscribe(std::move(t), std::move(s), std::move(f));
+            }
         };
 
-        safelyDispatch<Dispatched>(move(t), move(s), move(f));
+        safelyDispatch<Dispatched>(std::move(t), std::move(s), std::move(f));
     }
 
     void unsubscribe(const Subscription& sub) override
@@ -610,17 +612,15 @@ public:
         if (!checkState(State::established, handler))
             return;
 
-        using std::move;
-        RegistrationRecord rec{ move(callSlot), move(interruptSlot) };
+        RegistrationRecord rec{std::move(callSlot), std::move(interruptSlot)};
         peer_.request(procedure.message({}),
-                      Requested{shared_from_this(), move(rec), move(handler)});
+                      Requested{shared_from_this(), std::move(rec),
+                                std::move(handler)});
     }
 
     void safeEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
                     CompletionHandler<Registration>&& f)
     {
-        using std::move;
-
         struct Dispatched
         {
             Ptr self;
@@ -631,11 +631,13 @@ public:
 
             void operator()()
             {
-                self->enroll(move(p), move(c), move(i), move(f));
+                self->enroll(std::move(p), std::move(c), std::move(i),
+                             std::move(f));
             }
         };
 
-        safelyDispatch<Dispatched>(move(p), move(c), move(i), move(f));
+        safelyDispatch<Dispatched>(std::move(p), std::move(c), std::move(i),
+                                   std::move(f));
     }
 
     void unregister(const Registration& reg) override
@@ -772,18 +774,20 @@ public:
 
     void safeOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
     {
-        using std::move;
-
         struct Dispatched
         {
             Ptr self;
             Rpc r;
             CallChit* c;
             CompletionHandler<Result> f;
-            void operator()() {self->oneShotCall(move(r), c, move(f));}
+
+            void operator()()
+            {
+                self->oneShotCall(std::move(r), c, std::move(f));
+            }
         };
 
-        safelyDispatch<Dispatched>(move(r), c, move(f));
+        safelyDispatch<Dispatched>(std::move(r), c, std::move(f));
     }
 
     void ongoingCall(Rpc&& rpc, CallChit* chitPtr, OngoingCallHandler&& handler)
@@ -837,18 +841,20 @@ public:
 
     void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f)
     {
-        using std::move;
-
         struct Dispatched
         {
             Ptr self;
             Rpc r;
             CallChit* c;
             OngoingCallHandler f;
-            void operator()() {self->ongoingCall(move(r), c, move(f));}
+
+            void operator()()
+            {
+                self->ongoingCall(std::move(r), c, std::move(f));
+            }
         };
 
-        safelyDispatch<Dispatched>(move(r), c, move(f));
+        safelyDispatch<Dispatched>(std::move(r), c, std::move(f));
     }
 
     ErrorOrDone cancelCall(RequestId reqId, CallCancelMode mode) override
@@ -1059,7 +1065,6 @@ private:
     void doConnect(ConnectionWishList&& wishes, size_t index,
                    std::shared_ptr<CompletionHandler<size_t>> handler)
     {
-        using std::move;
         struct Established
         {
             std::weak_ptr<Client> self;
@@ -1079,8 +1084,8 @@ private:
 
                 if (!transport)
                 {
-                    me.onConnectFailure(move(wishes), index, transport.error(),
-                                        move(handler));
+                    me.onConnectFailure(std::move(wishes), index,
+                                        transport.error(), std::move(handler));
                 }
                 else if (me.state() == State::connecting)
                 {
@@ -1098,7 +1103,8 @@ private:
 
         currentConnector_ = wishes.at(index).makeConnector(strand());
         currentConnector_->establish(
-            Established{shared_from_this(), move(wishes), index, move(handler)});
+            Established{shared_from_this(), std::move(wishes), index,
+                        std::move(handler)});
     }
 
     void onConnectFailure(ConnectionWishList&& wishes, size_t index,
@@ -1228,8 +1234,6 @@ private:
     void onJoinAborted(CompletionHandler<Welcome>&& handler, Message&& reply,
                        Reason* abortPtr)
     {
-        using std::move;
-
         auto& abortMsg = messageCast<AbortMessage>(reply);
         const auto& uri = abortMsg.uri();
         WampErrc errc = errorUriToCode(uri);
@@ -1237,7 +1241,7 @@ private:
 
         if (abortPtr != nullptr)
         {
-            *abortPtr = Reason({}, move(abortMsg));
+            *abortPtr = Reason({}, std::move(abortMsg));
         }
         else if ((logLevel() <= LogLevel::error) &&
                  (errc == WampErrc::unknown || !details.empty()))
@@ -1425,8 +1429,6 @@ private:
     template <typename TSlot, typename TInvocationOrInterruption>
     void postRpcRequest(TSlot slot, TInvocationOrInterruption&& request)
     {
-        using std::move;
-
         struct Posted
         {
             Ptr self;
@@ -1442,7 +1444,7 @@ private:
 
                 try
                 {
-                    Outcome outcome(slot(move(request)));
+                    Outcome outcome(slot(std::move(request)));
                     switch (outcome.type())
                     {
                     case Outcome::Type::deferred:
@@ -1450,11 +1452,11 @@ private:
                         break;
 
                     case Outcome::Type::result:
-                        me.safeYield(requestId, move(outcome).asResult());
+                        me.safeYield(requestId, std::move(outcome).asResult());
                         break;
 
                     case Outcome::Type::error:
-                        me.safeYield(requestId, move(outcome).asError());
+                        me.safeYield(requestId, std::move(outcome).asError());
                         break;
 
                     default:
@@ -1463,7 +1465,7 @@ private:
                 }
                 catch (Error& error)
                 {
-                    me.yield(requestId, move(error));
+                    me.yield(requestId, std::move(error));
                 }
                 catch (const error::BadType& e)
                 {
@@ -1474,9 +1476,9 @@ private:
         };
 
         auto exec = boost::asio::get_associated_executor(slot, userExecutor());
-        Posted posted{shared_from_this(), move(slot), move(request)};
+        Posted posted{shared_from_this(), std::move(slot), std::move(request)};
         boost::asio::post(executor(),
-                          boost::asio::bind_executor( exec, std::move(posted)));
+                          boost::asio::bind_executor(exec, std::move(posted)));
     }
 
     template <typename THandler>

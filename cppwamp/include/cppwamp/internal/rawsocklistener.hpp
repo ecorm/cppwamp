@@ -53,8 +53,8 @@ public:
 
     static Ptr create(IoStrand i, Settings s, CodecIds codecIds)
     {
-        using std::move;
-        return Ptr(new RawsockListener(move(i), move(s), move(codecIds)));
+        return Ptr(new RawsockListener(std::move(i), std::move(s),
+                                       std::move(codecIds)));
     }
 
     void establish(Handler&& handler)

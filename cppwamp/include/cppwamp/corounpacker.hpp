@@ -707,9 +707,9 @@ template <int... Seq>
 void SimpleCoroInvocationUnpacker<S,R,A...>::invoke(
     FalseType, Invocation&& inv, internal::IntegerSequence<Seq...>) const
 {
-    using std::move;
     auto ex = boost::asio::get_associated_executor(slot_, inv.executor());
-    internal::unpackedSpawn(ex, SpawnedWithResult<Seq...>{slot_, move(inv)});
+    internal::unpackedSpawn(ex, SpawnedWithResult<Seq...>{slot_,
+                                                          std::move(inv)});
 }
 
 //------------------------------------------------------------------------------
