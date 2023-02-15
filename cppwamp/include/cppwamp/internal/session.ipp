@@ -155,12 +155,8 @@ CPPWAMP_INLINE void Session::setStateChangeHandler(
 }
 
 //------------------------------------------------------------------------------
-/** @returns `true` if the authentication was sent, a std::error_code otherwise.
-    @par Error Codes
-        - WampErrc::payloadSizeExceeded if the resulting AUTHENTICATE message
-          exceeds the transport's limits.
-        - Errc::invalidState if the session was not authenticating
-          during the attempt to authenticate (can be safely discarded). */
+/** @returns `true` if the authentication was sent, a std::error_code
+    otherwise. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOrDone Session::authenticate(
     Authentication auth /**< Contains the authentication signature
@@ -209,7 +205,7 @@ CPPWAMP_INLINE void Session::disconnect(ThreadSafe)
     invoke their handlers. This is useful when a client application needs
     to shutdown abruptly and cannot enforce the lifetime of objects
     accessed within the asynchronous operation handlers.
-    @note The warning, trace, challenge, and state change handlers will *not*
+    @note The log, challenge, and state change handlers will *not*
           be fired again until the commencement of the next connect operation.
     @post `this->state() == SessionState::disconnected` */
 //------------------------------------------------------------------------------
@@ -258,12 +254,8 @@ CPPWAMP_INLINE void Session::unsubscribe(
 }
 
 //------------------------------------------------------------------------------
-/** @returns `true` if the authentication was sent, a std::error_code otherwise.
-    @par Error Codes
-        - WampErrc::payloadSizeExceeded if the resulting PUBLISH message exceeds
-          the transport's limits.
-        - Errc::invalidState if the session was not established
-          during the attempt to publish (can be safely discarded). */
+/** @returns `true` if the authentication was sent, a std::error_code
+    otherwise. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOrDone Session::publish(
     Pub pub /**< The publication to publish. */
@@ -318,10 +310,7 @@ CPPWAMP_INLINE void Session::unregister(
 
 //------------------------------------------------------------------------------
 /** @returns `true` or `false` depending if a pending call matching the given
-              chit was found.
-    @par Error Codes
-        - Errc::invalidState if the session was not established
-          during the attempt to cancel (can be safely discarded). */
+              chit was found. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOrDone Session::cancel(
     CallChit chit /**< Contains the request ID of the call to cancel. */

@@ -358,12 +358,12 @@ void checkUnsupportedSerializer(TFixture& f)
 {
     f.lstn->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
-        CHECK( transport == makeUnexpectedError(RawsockErrc::badSerializer) );
+        CHECK( transport == makeUnexpectedError(TransportErrc::badSerializer) );
     });
 
     f.cnct->establish([&](ErrorOr<Transporting::Ptr> transport)
     {
-        CHECK( transport == makeUnexpectedError(RawsockErrc::badSerializer) );
+        CHECK( transport == makeUnexpectedError(TransportErrc::badSerializer) );
     });
 
     CHECK_NOTHROW( f.run() );
@@ -397,7 +397,7 @@ void checkCannedServerHandshake(uint32_t cannedHandshake,
 
 //------------------------------------------------------------------------------
 void checkCannedServerHandshake(uint32_t cannedHandshake,
-                                       RawsockErrc expectedErrorCode)
+                                TransportErrc expectedErrorCode)
 {
     return checkCannedServerHandshake(cannedHandshake,
                                       make_error_code(expectedErrorCode));
@@ -406,7 +406,7 @@ void checkCannedServerHandshake(uint32_t cannedHandshake,
 //------------------------------------------------------------------------------
 template <typename TErrorCode>
 void checkCannedClientHandshake(uint32_t cannedHandshake,
-                                RawsockErrc expectedServerCode,
+                                TransportErrc expectedServerCode,
                                 TErrorCode expectedClientCode)
 {
     IoContext ioctx;
@@ -907,20 +907,19 @@ SCENARIO( "Connection denied by server", "[Transport]" )
 {
 GIVEN( "max length is unacceptable" )
 {
-    checkCannedServerHandshake(0x7f200000, RawsockErrc::badMaxLength);
+    checkCannedServerHandshake(0x7f200000, TransportErrc::badLengthLimit);
 }
 GIVEN( "use of reserved bits" )
 {
-    checkCannedServerHandshake(0x7f300000, RawsockErrc::reservedBitsUsed);
+    checkCannedServerHandshake(0x7f300000, TransportErrc::badFeature);
 }
 GIVEN( "maximum connections reached" )
 {
-    checkCannedServerHandshake(0x7f400000, RawsockErrc::maxConnectionsReached);
+    checkCannedServerHandshake(0x7f400000, TransportErrc::saturated);
 }
 GIVEN( "future error code" )
 {
-    checkCannedServerHandshake(0x7f500000,
-                               std::error_code(5, rawsockCategory()));
+    checkCannedServerHandshake(0x7f500000, TransportErrc::failed);
 }
 }
 
@@ -929,23 +928,23 @@ SCENARIO( "Invalid server handshake", "[Transport]" )
 {
 GIVEN( "a server that uses an invalid magic octet" )
 {
-    checkCannedServerHandshake(0xff710000, RawsockErrc::badHandshake);
+    checkCannedServerHandshake(0xff710000, TransportErrc::badHandshake);
 }
 GIVEN( "a server that uses a zeroed magic octet" )
 {
-    checkCannedServerHandshake(0x00710000, RawsockErrc::badHandshake);
+    checkCannedServerHandshake(0x00710000, TransportErrc::badHandshake);
 }
 GIVEN( "a server that uses an unspecified serializer" )
 {
-    checkCannedServerHandshake(0x7f720000, RawsockErrc::badHandshake);
+    checkCannedServerHandshake(0x7f720000, TransportErrc::badHandshake);
 }
 GIVEN( "a server that uses an unknown serializer" )
 {
-    checkCannedServerHandshake(0x7f730000, RawsockErrc::badHandshake);
+    checkCannedServerHandshake(0x7f730000, TransportErrc::badHandshake);
 }
 GIVEN( "a server that uses reserved bits" )
 {
-    checkCannedServerHandshake(0x7f710001, RawsockErrc::reservedBitsUsed);
+    checkCannedServerHandshake(0x7f710001, TransportErrc::badFeature);
 }
 }
 
@@ -954,18 +953,18 @@ SCENARIO( "Invalid client handshake", "[Transport]" )
 {
 GIVEN( "a client that uses invalid magic octet" )
 {
-    checkCannedClientHandshake(0xff710000, RawsockErrc::badHandshake,
+    checkCannedClientHandshake(0xff710000, TransportErrc::badHandshake,
                                TransportErrc::failed);
 }
 GIVEN( "a client that uses a zeroed magic octet" )
 {
-    checkCannedClientHandshake(0x00710000, RawsockErrc::badHandshake,
+    checkCannedClientHandshake(0x00710000, TransportErrc::badHandshake,
                                TransportErrc::failed);
 }
 GIVEN( "a client that uses reserved bits" )
 {
-    checkCannedClientHandshake(0x7f710001, RawsockErrc::reservedBitsUsed,
-                               RawsockErrc::reservedBitsUsed);
+    checkCannedClientHandshake(0x7f710001, TransportErrc::badFeature,
+                               TransportErrc::badFeature);
 }
 }
 
@@ -1077,7 +1076,7 @@ GIVEN ( "a mock client under-reporting its maximum receive length" )
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
-                CHECK( message.error() == TransportErrc::badRxLength );
+                CHECK( message.error() == TransportErrc::tooLong );
                 clientFailed = true;
             });
 
@@ -1148,7 +1147,7 @@ GIVEN ( "A mock client that sends an invalid message type" )
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
-                CHECK( message.error() == RawsockErrc::badMessageType );
+                CHECK( message.error() == TransportErrc::badCommand );
                 serverFailed = true;
             });
 
@@ -1206,7 +1205,7 @@ GIVEN ( "A mock server that sends an invalid message type" )
             [&](ErrorOr<MessageBuffer> message)
             {
                 REQUIRE( !message );
-                CHECK( message.error() == RawsockErrc::badMessageType );
+                CHECK( message.error() == TransportErrc::badCommand );
                 clientFailed = true;
             });
 

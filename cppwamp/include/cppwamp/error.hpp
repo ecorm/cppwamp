@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -126,13 +126,12 @@ struct CPPWAMP_API Conversion : public BadType
 //------------------------------------------------------------------------------
 enum class Errc
 {
-    // Generic errors
-    success = 0,   ///< Operation successful
-    sessionClosed, ///< Operation aborted; session ended by this peer
-    sessionKilled, ///< Session ended by other peer
-    invalidState,  ///< Invalid state for this operation
-    notFound,      ///< Item not found
-    badType        ///< Invalid or unexpected type
+    success      = 0, ///< Operation successful
+    abandoned    = 1, ///< Operation abandoned by this peer
+    invalidState = 2, ///< Invalid state for this operation
+    absent       = 3, ///< Item is absent
+    badType      = 4, ///< Invalid or unexpected type
+    count
 };
 
 //------------------------------------------------------------------------------
@@ -201,6 +200,8 @@ CPPWAMP_API const std::string& errorCodeToUri(Errc errc);
 
     std::error_code                                 | Equivalent condition value
     ----------------------------------------------- | --------------------------
+    make_error_code(WampErrc::systemShutdown)       | sessionKilled
+    make_error_code(WampErrc::closeRealm)           | sessionKilled
     make_error_code(WampErrc::timeout)              | cancelled
     make_error_code(WampErrc::discloseMeDisallowed) | optionNotAllowed */
 //------------------------------------------------------------------------------
@@ -209,35 +210,41 @@ enum class WampErrc
     success = 0,            ///< Operation successful
     unknown,                ///< Unknown error URI
 
-    // Errors mapped to predefined URIs
+    // Session close reasons
+    sessionKilled,          ///< Session was killed by the other peer
+    systemShutdown,         ///< The other peer is shutting down
+    closeRealm,             ///< The other peer is leaving the realm
+    goodbyeAndOut,          ///< Session ended successfully
+
+    // Basic profile errors
     invalidUri,             ///< An invalid WAMP URI was provided
     noSuchProcedure,        ///< No procedure was registered under the given URI
     procedureAlreadyExists, ///< A procedure with the given URI is already registered
     noSuchRegistration,     ///< Could not unregister; the given registration is not active
     noSuchSubscription,     ///< Could not unsubscribe; the given subscription is not active
     invalidArgument,        ///< The given argument types/values are not acceptable to the called procedure
-    systemShutdown,         ///< The other peer is shutting down
-    closeRealm,             ///< The other peer is leaving the realm
-    goodbyeAndOut,          ///< Session ended successfully
-    sessionKilled,          ///< Session was killed
     protocolViolation,      ///< Invalid, unexpected, or malformed WAMP message.
     notAuthorized,          ///< This peer is not authorized to perform the operation
     authorizationFailed,    ///< The authorization operation failed
     noSuchRealm,            ///< Attempt to join non-existent realm
     noSuchRole,             ///< Attempt to authenticate under unsupported role
-    cancelled,              ///< A previously issued call was cancelled
+
+    // Advanced profile errors
+    cancelled,              ///< The previously issued call was cancelled
     optionNotAllowed,       ///< Option is disallowed by the router
     discloseMeDisallowed,   ///< Router rejected client request to disclose its identity
     networkFailure,         ///< Router encountered a network failure
-    unavailable,            ///< Callee is unable to handle an invocation
-    noAvailableCallee,      ///< All registered callees are unable to handle an invocation
+    unavailable,            ///< Callee is unable to handle the invocation
+    noAvailableCallee,      ///< All registered callees are unable to handle the invocation
     featureNotSupported,    ///< Advanced feature is not supported
 
-    // Errors mapped to predefined URIs not currently in the WAMP spec
+    // Errors used in routers but not currently in the WAMP spec
     noEligibleCallee,       ///< Call options lead to the exclusion of all callees providing the procedure
     payloadSizeExceeded,    ///< Serialized payload exceeds transport limits
     cannotAuthenticate,     ///< Authentication failed
-    timeout                 ///< Operation timed out
+    timeout,                ///< Operation timed out
+
+    count
 };
 
 //------------------------------------------------------------------------------
@@ -322,7 +329,8 @@ enum class DecodingErrc
     expectedStringKey = 3, ///< Expected a string key
     badBase64Length   = 4, ///< Invalid Base64 string length
     badBase64Padding  = 5, ///< Invalid Base64 padding
-    badBase64Char     = 6  ///< Invalid Base64 character
+    badBase64Char     = 6, ///< Invalid Base64 character
+    count
 };
 
 //------------------------------------------------------------------------------
@@ -380,8 +388,7 @@ CPPWAMP_API std::error_condition make_error_condition(DecodingErrc errc);
     - `boost::asio::error::operation_aborted`
 
     Codes equivalent to the TransportErrc::failed condition are
-    - `TransportErrc::exhausted`
-    - `TransportErrc::badRxLength`
+    - Any `TransportErrc` code greater than `failed`
     - any non-zero code of the `std::generic_catetory`
     - any non-zero code of the `std::system_catetory`
     - any non-zero code of the `boost::system::generic_catetory`
@@ -397,12 +404,19 @@ CPPWAMP_API std::error_condition make_error_condition(DecodingErrc errc);
 //------------------------------------------------------------------------------
 enum class TransportErrc
 {
-    success      = 0, ///< Transport operation successful
-    aborted      = 1, ///< Transport operation aborted
-    failed       = 2, ///< Transport operation failed
-    disconnected = 3, ///< Transport disconnected by other peer
-    exhausted    = 4, ///< All transports failed during connection
-    badRxLength  = 5  ///< Incoming message exceeds transport's maximum length
+    success        = 0,  ///< Transport operation successful
+    aborted        = 1,  ///< Transport operation aborted
+    disconnected   = 2,  ///< Transport disconnected by other peer
+    failed         = 3,  ///< Transport operation failed
+    exhausted      = 4,  ///< All transports failed during connection
+    tooLong        = 5,  ///< Incoming message exceeds transport's length limit
+    badHandshake   = 6,  ///< Received invalid handshake
+    badCommand     = 7,  ///< Received invalid transport command
+    badSerializer  = 8,  ///< Unsupported serialization format
+    badLengthLimit = 9,  ///< Unacceptable maximum message length
+    badFeature     = 10, ///< Unsupported transport feature
+    saturated      = 11, ///< Connection limit reached
+    count
 };
 
 //------------------------------------------------------------------------------
@@ -447,70 +461,6 @@ CPPWAMP_API std::error_code make_error_code(TransportErrc errc);
 //-----------------------------------------------------------------------------
 CPPWAMP_API std::error_condition make_error_condition(TransportErrc errc);
 
-
-//******************************************************************************
-// Raw Socket Error Codes
-//******************************************************************************
-
-//------------------------------------------------------------------------------
-/** %Error code values used with the RawsockCategory error category. */
-//------------------------------------------------------------------------------
-enum class RawsockErrc
-{
-    success                 = 0, ///< Operation succesful
-    badSerializer           = 1, ///< Serializer unsupported
-    badMaxLength            = 2, ///< Maximum message length unacceptable
-    reservedBitsUsed        = 3, ///< Use of reserved bits (unsupported feature)
-    maxConnectionsReached   = 4, ///< Maximum connection count reached
-    // 5-15 reserved for future WAMP raw socket error responses
-
-    badHandshake            = 16, ///< Invalid handshake format from peer
-    badMessageType          = 17  ///< Invalid message type
-};
-
-//------------------------------------------------------------------------------
-/** std::error_category used for reporting errors specific to raw socket
-    transports.
-    @see RawsockErrc */
-//------------------------------------------------------------------------------
-class CPPWAMP_API RawsockCategory : public std::error_category
-{
-public:
-    /** Obtains the name of the category. */
-    virtual const char* name() const noexcept override;
-
-    /** Obtains the explanatory string. */
-    virtual std::string message(int ev) const override;
-
-    /** Compares `error_code` and and error condition for equivalence. */
-    virtual bool equivalent(const std::error_code& code,
-                            int condition) const noexcept override;
-
-private:
-    CPPWAMP_HIDDEN RawsockCategory();
-
-    friend RawsockCategory& rawsockCategory();
-};
-
-//------------------------------------------------------------------------------
-/** Obtains a reference to the static error category object for raw socket
-    errors.
-    @relates RawsockCategory */
-//------------------------------------------------------------------------------
-CPPWAMP_API RawsockCategory& rawsockCategory();
-
-//------------------------------------------------------------------------------
-/** Creates an error code value from a RawsockErrc enumerator.
-    @relates RawsockCategory */
-//-----------------------------------------------------------------------------
-CPPWAMP_API std::error_code make_error_code(RawsockErrc errc);
-
-//------------------------------------------------------------------------------
-/** Creates an error condition value from a RawsockErrc enumerator.
-    @relates RawsockCategory */
-//-----------------------------------------------------------------------------
-CPPWAMP_API std::error_condition make_error_condition(RawsockErrc errc);
-
 } // namespace wamp
 
 
@@ -534,11 +484,6 @@ struct CPPWAMP_API is_error_condition_enum<wamp::DecodingErrc>
 
 template <>
 struct CPPWAMP_API is_error_condition_enum<wamp::TransportErrc>
-    : public true_type
-{};
-
-template <>
-struct CPPWAMP_API is_error_condition_enum<wamp::RawsockErrc>
     : public true_type
 {};
 

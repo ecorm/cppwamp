@@ -129,15 +129,15 @@ private:
     void onHandshakeReceived(Handshake hs)
     {
         if (!hs.hasMagicOctet())
-            fail(RawsockErrc::badHandshake);
+            fail(TransportErrc::badHandshake);
         else if (hs.reserved() != 0)
-            fail(RawsockErrc::reservedBitsUsed);
+            fail(TransportErrc::badFeature);
         else if (hs.codecId() == codecId_)
             complete(hs);
         else if (hs.hasError())
             fail(hs.errorCode());
         else
-            fail(RawsockErrc::badHandshake);
+            fail(TransportErrc::badHandshake);
     }
 
     bool check(boost::system::error_code asioEc)
@@ -163,7 +163,7 @@ private:
         dispatchHandler(std::move(transport));
     }
 
-    void fail(RawsockErrc errc)
+    void fail(TransportErrc errc)
     {
         socket_.reset();
         dispatchHandler(makeUnexpectedError(errc));

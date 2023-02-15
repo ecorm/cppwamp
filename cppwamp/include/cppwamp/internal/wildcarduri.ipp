@@ -18,7 +18,7 @@ namespace utils
 CPPWAMP_INLINE ErrorOr<SplitUri::uri_type> SplitUri::flatten() const
 {
     if (labels_.empty())
-        return makeUnexpectedError(std::errc::result_out_of_range);
+        return makeUnexpectedError(Errc::absent);
 
     std::string uri;
     bool first = true;

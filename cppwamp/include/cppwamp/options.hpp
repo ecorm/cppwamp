@@ -144,7 +144,7 @@ T Options<D,M>::optionOr(
 
 //------------------------------------------------------------------------------
 /** @returns The option value, or an error code of either
-             WampErrc::no_such_option or WampErrc::bad_option. */
+             Errc::absent or Errc::badType. */
 //------------------------------------------------------------------------------
 template <typename D, typename M>
 template <typename T>
@@ -154,7 +154,7 @@ ErrorOr<T> Options<D,M>::optionAs(
 {
     auto iter = options().find(key);
     if (iter == options().end())
-        return makeUnexpectedError(Errc::notFound);
+        return makeUnexpectedError(Errc::absent);
     if (!iter->second.template is<T>())
         return makeUnexpectedError(Errc::badType);
     return iter->second.template as<T>();
@@ -169,7 +169,7 @@ ErrorOr<UInt> Options<D,M>::toUnsignedInteger(const String& key) const
 {
     auto found = options().find(key);
     if (found == options().end())
-        return makeUnexpectedError(Errc::notFound);
+        return makeUnexpectedError(Errc::absent);
     const auto& v = found->second;
     UInt n;
     if (!optionToUnsignedInteger(v, n))

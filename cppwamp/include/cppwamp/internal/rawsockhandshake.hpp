@@ -58,9 +58,18 @@ public:
 
     bool hasError() const {return get<>(codecMask_) == 0;}
 
-    RawsockErrc errorCode() const
+    TransportErrc errorCode() const
     {
-        return get<RawsockErrc>(errorMask_, errorPos_);
+        using TE = TransportErrc;
+        static const TransportErrc table[] =
+        {
+            TE::success, TE::badSerializer, TE::badLengthLimit, TE::badFeature,
+            TE::saturated, TE::failed, TE::failed, TE::failed,
+            TE::failed, TE::failed, TE::failed, TE::failed,
+            TE::failed, TE::failed, TE::failed, TE::failed
+        };
+        auto code = get<>(errorMask_, errorPos_);
+        return table[code];
     }
 
     bool hasMagicOctet() const {return get<>(magicMask_) == magicOctet_;}

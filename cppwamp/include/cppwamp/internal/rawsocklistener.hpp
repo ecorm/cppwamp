@@ -118,7 +118,7 @@ private:
         auto peerCodec = hs.codecId();
 
         if (!hs.hasMagicOctet())
-            fail(RawsockErrc::badHandshake);
+            fail(TransportErrc::badHandshake);
         else if (hs.reserved() != 0)
             sendHandshake(Handshake::eReservedBitsUsed());
         else if (codecIds_.count(peerCodec))
@@ -174,7 +174,7 @@ private:
         dispatchHandler(std::move(transport));
     }
 
-    void fail(RawsockErrc errc)
+    void fail(TransportErrc errc)
     {
         socket_.reset();
         dispatchHandler(makeUnexpectedError(errc));

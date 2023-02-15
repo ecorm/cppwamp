@@ -405,7 +405,7 @@ GIVEN( "a caller and a callee" )
                 Rpc("com.myapp.foo"),
                 [&output](ErrorOr<Result> r)
                 {
-                    if (r == makeUnexpected(Errc::sessionClosed))
+                    if (r == makeUnexpected(Errc::abandoned))
                         return;
                     const auto& result = r.value();
                     auto n = result.args().at(0).to<int>();

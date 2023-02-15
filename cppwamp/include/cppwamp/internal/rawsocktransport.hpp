@@ -296,8 +296,8 @@ private:
     {
         auto hdr = rxFrame_.header();
         auto len  = hdr.length();
-        bool ok = check(len <= info_.maxRxLength, TransportErrc::badRxLength)
-               && check(hdr.msgTypeIsValid(), RawsockErrc::badMessageType);
+        bool ok = check(len <= info_.maxRxLength, TransportErrc::tooLong)
+               && check(hdr.msgTypeIsValid(), TransportErrc::badCommand);
         if (ok)
             receivePayload(hdr.msgType(), len);
     }

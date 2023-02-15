@@ -189,7 +189,7 @@ public:
                 if (reply)
                 {
                     self->setState(State::closed);
-                    self->abortPending(Errc::sessionClosed);
+                    self->abortPending(Errc::abandoned);
                 }
                 handler(std::move(reply));
             }
@@ -203,7 +203,7 @@ public:
     void disconnect()
     {
         setState(State::disconnected);
-        abortPending(Errc::sessionClosed);
+        abortPending(Errc::abandoned);
         if (transport_)
         {
             transport_->close();

@@ -248,7 +248,7 @@ void checkDisconnect(TDelegate&& delegate)
 
     ioctx.run();
     CHECK( completed );
-    CHECK( result == makeUnexpected(Errc::sessionClosed) );
+    CHECK( result == makeUnexpected(Errc::abandoned) );
     CHECK_THROWS_AS( result.value(), error::Failure );
 }
 
@@ -659,7 +659,7 @@ GIVEN( "a Session and a ConnectionWish" )
         ioctx.run();
         ioctx.restart();
         CHECK_FALSE( connected );
-        CHECK( ec == Errc::sessionClosed );
+        CHECK( ec == Errc::abandoned );
         CHECK( changes.check(s, {SS::connecting, SS::closed,
                                  SS::establishing, SS::disconnected}, ioctx) );
     }
