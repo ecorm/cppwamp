@@ -75,14 +75,14 @@ public:
     /** Obtains the `message` member of the details dictionary. */
     ErrorOr<String> hint() const;
 
+    /** Attempts to convert the reason URI to a known error code. */
+    WampErrc errorCode() const;
+
     /** Obtains information for the access log. */
     AccessActionInfo info(bool isServer) const;
 
 private:
     using Base = Options<Reason, internal::GoodbyeMessage>;
-
-    static String toUri(std::error_code ec);
-    static String toUri(WampErrc errc);
 
 public:
     // Internal use only
@@ -370,9 +370,6 @@ public:
     /** Destructor. */
     virtual ~Error();
 
-    /** Sets the `message` option to the given string. */
-    Error& withHint(String hint);
-
     /** Conversion to bool operator, returning false if the error is empty. */
     explicit operator bool() const;
 
@@ -380,17 +377,13 @@ public:
     const String& uri() const;
 
     /** Attempts to convert the reason URI to a known error code. */
-    ErrorOr<std::error_code> errorCode() const;
+    WampErrc errorCode() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info(bool isServer) const;
 
 private:
     using Base = Payload<Error, internal::ErrorMessage>;
-
-    static String toUri(std::error_code ec);
-
-    static String toUri(WampErrc errc);
 
 public:
     // Internal use only

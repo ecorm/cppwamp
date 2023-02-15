@@ -247,7 +247,7 @@ public:
     ErrorOrDone authenticate(Authentication&& auth) override
     {
         if (state() != State::authenticating)
-            return makeUnexpectedError(WampErrc::invalidState);
+            return makeUnexpectedError(Errc::invalidState);
         return peer_.send(auth.message({}));
     }
 
@@ -367,8 +367,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::subscribed,
-                                  WampErrc::subscribeError, handler))
+                if (me.checkReply(reply, WampMsgType::subscribed, handler))
                 {
                     const auto& msg = messageCast<SubscribedMessage>(*reply);
                     auto subId = msg.subscriptionId();
@@ -514,7 +513,7 @@ public:
     ErrorOrDone publish(Pub&& pub)
     {
         if (state() != State::established)
-            return makeUnexpectedError(WampErrc::invalidState);
+            return makeUnexpectedError(Errc::invalidState);
         return peer_.send(pub.message({}));
     }
 
@@ -555,8 +554,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::published,
-                                  WampErrc::publishError, handler))
+                if (me.checkReply(reply, WampMsgType::published, handler))
                 {
                     const auto& pubMsg = messageCast<PublishedMessage>(*reply);
                     me.completeNow(handler, pubMsg.publicationId());
@@ -598,8 +596,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::registered,
-                                  WampErrc::registerError, handler))
+                if (me.checkReply(reply, WampMsgType::registered, handler))
                 {
                     const auto& msg = messageCast<RegisteredMessage>(*reply);
                     auto regId = msg.registrationId();
@@ -689,8 +686,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::unregistered,
-                                  WampErrc::unregisterError, handler))
+                if (me.checkReply(reply, WampMsgType::unregistered, handler))
                 {
                     me.completeNow(handler, true);
                 }
@@ -739,8 +735,8 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::result,
-                                  WampErrc::callError, handler, errorPtr))
+                if (me.checkReply(reply, WampMsgType::result, handler,
+                                  errorPtr))
                 {
                     auto& msg = messageCast<ResultMessage>(*reply);
                     me.completeNow(handler, Result({}, std::move(msg)));
@@ -801,8 +797,8 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::result,
-                                  WampErrc::callError, handler, errorPtr))
+                if (me.checkReply(reply, WampMsgType::result, handler,
+                                  errorPtr))
                 {
                     auto& resultMsg = messageCast<ResultMessage>(*reply);
                     me.dispatchHandler(handler,
@@ -858,7 +854,7 @@ public:
     ErrorOrDone cancelCall(RequestId reqId, CallCancelMode mode) override
     {
         if (state() != State::established)
-            return makeUnexpectedError(WampErrc::invalidState);
+            return makeUnexpectedError(Errc::invalidState);
         return peer_.cancelCall(CallCancellation{reqId, mode});
     }
 
@@ -893,7 +889,7 @@ public:
     ErrorOrDone yield(RequestId reqId, Result&& result) override
     {
         if (state() != State::established)
-            return makeUnexpectedError(WampErrc::invalidState);
+            return makeUnexpectedError(Errc::invalidState);
 
         auto found = pendingInvocations_.find(reqId);
         if (found == pendingInvocations_.end())
@@ -902,14 +898,20 @@ public:
         // Error may have already been returned due to interruption being
         // handled by Client::onInterrupt.
         bool expired = found->second.expired;
-        if (!result.isProgressive() || expired)
+        bool erased = !result.isProgressive() || expired;
+        if (erased)
             pendingInvocations_.erase(found);
         if (expired)
             return false;
 
         auto done = peer_.send(result.yieldMessage({}, reqId));
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
-            yield(reqId, Error{WampErrc::payloadSizeExceeded});
+        {
+            if (!erased)
+                pendingInvocations_.erase(found);
+            peer_.sendError(WampMsgType::invocation, reqId,
+                            Error{WampErrc::payloadSizeExceeded});
+        }
         return done;
     }
 
@@ -944,7 +946,7 @@ public:
     ErrorOrDone yield(RequestId reqId, Error&& error) override
     {
         if (state() != State::established)
-            return makeUnexpectedError(WampErrc::invalidState);
+            return makeUnexpectedError(Errc::invalidState);
 
         auto found = pendingInvocations_.find(reqId);
         if (found == pendingInvocations_.end())
@@ -1044,7 +1046,7 @@ private:
         bool valid = state() == expectedState;
         if (!valid)
         {
-            auto unex = makeUnexpectedError(WampErrc::invalidState);
+            auto unex = makeUnexpectedError(Errc::invalidState);
             if (!peer_.isTerminating())
             {
                 postVia(executor(), userExecutor(), std::move(handler),
@@ -1117,7 +1119,7 @@ private:
             else
             {
                 if (wishes.size() > 1)
-                    ec = make_error_code(WampErrc::allTransportsFailed);
+                    ec = make_error_code(TransportErrc::exhausted);
                 peer_.failConnecting(ec);
                 completeNow(*handler, UnexpectedError(ec));
             }
@@ -1167,8 +1169,7 @@ private:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::unsubscribed,
-                                  WampErrc::unsubscribeError, handler))
+                if (me.checkReply(reply, WampMsgType::unsubscribed, handler))
                 {
                     me.completeNow(handler, true);
                 }
@@ -1231,8 +1232,7 @@ private:
 
         auto& abortMsg = messageCast<AbortMessage>(reply);
         const auto& uri = abortMsg.uri();
-        WampErrc errc;
-        bool found = errorUriToCode(uri, WampErrc::joinError, errc);
+        WampErrc errc = errorUriToCode(uri);
         const auto& details = reply.as<Object>(1);
 
         if (abortPtr != nullptr)
@@ -1240,7 +1240,7 @@ private:
             *abortPtr = Reason({}, move(abortMsg));
         }
         else if ((logLevel() <= LogLevel::error) &&
-                 (!found || !details.empty()))
+                 (errc == WampErrc::unknown || !details.empty()))
         {
             std::ostringstream oss;
             oss << "JOIN request aborted by peer with error URI=" << uri;
@@ -1378,7 +1378,7 @@ private:
         if (found != pendingInvocations_.end())
         {
             auto err = Error(WampErrc::protocolViolation)
-                           .withHint("Request ID already in use");
+                           .withArgs("Request ID already in use");
             peer_.sendError(WampMsgType::invocation, requestId, std::move(err));
             log(LogLevel::warning,
                 "Rejected INVOCATION with request ID "
@@ -1490,8 +1490,7 @@ private:
 
     template <typename THandler>
     bool checkReply(ErrorOr<Message>& reply, WampMsgType type,
-                    WampErrc defaultErrc, THandler& handler,
-                    Error* errorPtr = nullptr)
+                    THandler& handler, Error* errorPtr = nullptr)
     {
         bool ok = checkError(reply, handler);
         if (ok)
@@ -1501,15 +1500,15 @@ private:
                 ok = false;
                 auto& errMsg = messageCast<ErrorMessage>(*reply);
                 const auto& uri = errMsg.uri();
-                WampErrc errc;
-                bool found = errorUriToCode(uri, defaultErrc, errc);
+                WampErrc errc = errorUriToCode(uri);
                 bool hasArgs = !errMsg.args().empty() ||
                                !errMsg.kwargs().empty();
                 if (errorPtr != nullptr)
                 {
                     *errorPtr = Error({}, std::move(errMsg));
                 }
-                else if ((logLevel() <= LogLevel::error) && (!found || hasArgs))
+                else if ((logLevel() <= LogLevel::error) &&
+                         (errc == WampErrc::unknown || hasArgs))
                 {
                     std::ostringstream oss;
                     oss << "Expected " << MessageTraits::lookup(type).name

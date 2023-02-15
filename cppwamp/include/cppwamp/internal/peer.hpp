@@ -189,7 +189,7 @@ public:
                 if (reply)
                 {
                     self->setState(State::closed);
-                    self->abortPending(WampErrc::sessionEnded);
+                    self->abortPending(Errc::sessionClosed);
                 }
                 handler(std::move(reply));
             }
@@ -203,7 +203,7 @@ public:
     void disconnect()
     {
         setState(State::disconnected);
-        abortPending(WampErrc::sessionEnded);
+        abortPending(Errc::sessionClosed);
         if (transport_)
         {
             transport_->close();
@@ -252,7 +252,7 @@ public:
         //       adjust ServerSession::doAbort accordingly
 
         if (!transport_ || !transport_->isStarted())
-            return makeUnexpectedError(WampErrc::invalidState);
+            return makeUnexpectedError(Errc::invalidState);
 
         auto& msg = r.abortMessage({});
         MessageBuffer buffer;
@@ -269,9 +269,7 @@ public:
                     msg.uri() + ", due to transport payload limits");
         }
 
-        WampErrc errc;
-        errorUriToCode(r.uri(), WampErrc::sessionAborted, errc);
-        setState(State::failed, make_error_code(errc));
+        setState(State::failed, r.errorCode());
         traceTx(msg);
         transport_->sendNowAndClose(std::move(buffer));
         if (!fits)
@@ -357,6 +355,11 @@ private:
         if (old != s && stateChangeHandler_ && !isTerminating_)
             postVia(executor_, userExecutor_, stateChangeHandler_, s, ec);
         return old;
+    }
+
+    State setState(State s, WampErrc errc)
+    {
+        return setState(s, make_error_code(errc));
     }
 
     ErrorOr<RequestId> sendMessage(Message& msg)
@@ -475,16 +478,14 @@ private:
 
     void processMessage(Message&& msg)
     {
-        using std::move;
-
         switch (msg.type())
         {
-            case WampMsgType::hello:     return processHello(move(msg));
-            case WampMsgType::welcome:   return processWelcome(move(msg));
-            case WampMsgType::abort:     return processAbort(move(msg));
-            case WampMsgType::challenge: return processChallenge(move(msg));
-            case WampMsgType::goodbye:   return processGoodbye(move(msg));
-            case WampMsgType::error:     return processWampReply(move(msg));
+            case WampMsgType::hello:     return processHello(std::move(msg));
+            case WampMsgType::welcome:   return processWelcome(std::move(msg));
+            case WampMsgType::abort:     return processAbort(std::move(msg));
+            case WampMsgType::challenge: return processChallenge(std::move(msg));
+            case WampMsgType::goodbye:   return processGoodbye(std::move(msg));
+            case WampMsgType::error:     return processWampReply(std::move(msg));
 
             default:
                 if (msg.repliesTo() == WampMsgType::none)
@@ -499,12 +500,12 @@ private:
                     }
                     else
                     {
-                        inboundMessageHandler_(move(msg));
+                        inboundMessageHandler_(std::move(msg));
                     }
                 }
                 else
                 {
-                    processWampReply(move(msg));
+                    processWampReply(std::move(msg));
                 }
                 break;
         }
@@ -584,9 +585,7 @@ private:
         else
         {
             const auto& abortMsg = messageCast<AbortMessage>(msg);
-            WampErrc errc = {};
-            errorUriToCode(abortMsg.uri(), WampErrc::sessionAbortedByPeer,
-                           errc);
+            WampErrc errc = errorUriToCode(abortMsg.uri());
 
             if (logLevel() <= LogLevel::error)
             {
@@ -621,8 +620,7 @@ private:
         else
         {
             const auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
-            WampErrc errc;
-            errorUriToCode(goodbyeMsg.uri(), WampErrc::closeRealm, errc);
+            WampErrc errc = errorUriToCode(goodbyeMsg.uri());
 
             if (isRouter_)
             {

@@ -221,7 +221,7 @@ public:
         auto reqId = callerKey_.second;
         auto ec = make_error_code(WampErrc::cancelled);
         auto e = Error({}, WampMsgType::call, reqId, ec)
-                     .withHint("Callee left realm");
+                     .withArgs("Callee left realm");
         caller->sendError(std::move(e));
     }
 

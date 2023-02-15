@@ -159,7 +159,7 @@ CPPWAMP_INLINE void Session::setStateChangeHandler(
     @par Error Codes
         - WampErrc::payloadSizeExceeded if the resulting AUTHENTICATE message
           exceeds the transport's limits.
-        - WampErrc::invalidState if the session was not authenticating
+        - Errc::invalidState if the session was not authenticating
           during the attempt to authenticate (can be safely discarded). */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOrDone Session::authenticate(
@@ -262,7 +262,7 @@ CPPWAMP_INLINE void Session::unsubscribe(
     @par Error Codes
         - WampErrc::payloadSizeExceeded if the resulting PUBLISH message exceeds
           the transport's limits.
-        - WampErrc::invalidState if the session was not established
+        - Errc::invalidState if the session was not established
           during the attempt to publish (can be safely discarded). */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOrDone Session::publish(
@@ -320,7 +320,7 @@ CPPWAMP_INLINE void Session::unregister(
 /** @returns `true` or `false` depending if a pending call matching the given
               chit was found.
     @par Error Codes
-        - WampErrc::invalidState if the session was not established
+        - Errc::invalidState if the session was not established
           during the attempt to cancel (can be safely discarded). */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOrDone Session::cancel(

@@ -114,6 +114,79 @@ CPPWAMP_INLINE Conversion::Conversion(const std::string& what)
 
 
 //------------------------------------------------------------------------------
+// Generic Error Codes
+//------------------------------------------------------------------------------
+
+CPPWAMP_INLINE const char* GenericCategory::name() const noexcept
+{
+    return "wamp::GenericCategory";
+}
+
+CPPWAMP_INLINE std::string GenericCategory::message(int ev) const
+{
+    static const std::string msg[] =
+        {
+            /* success              */ "Operation successful",
+            /* sessionClosed        */ "Operation aborted; session ended by this peer",
+            /* sessionKilled        */ "Session ended by other peer",
+            /* invalidState         */ "Invalid state for this operation",
+            /* notFound             */ "Item not found",
+            /* badType,             */ "Invalid or unexpected type"
+        };
+
+    if (ev >= 0 && ev < (int)std::extent<decltype(msg)>::value)
+        return msg[ev];
+    else
+        return "Unknown error";
+}
+
+CPPWAMP_INLINE bool GenericCategory::equivalent(const std::error_code& code,
+                                                int condition) const noexcept
+{
+    if (code.category() == wampCategory())
+    {
+        if (code.value() == condition)
+        {
+            return true;
+        }
+        else if (static_cast<Errc>(condition) == Errc::sessionKilled)
+        {
+            auto value = static_cast<WampErrc>(code.value());
+            return value == WampErrc::systemShutdown ||
+                   value == WampErrc::closeRealm ||
+                   value == WampErrc::sessionKilled;
+        }
+        else
+        {
+           return false;
+        }
+    }
+    else if (condition == (int)Errc::success)
+        return !code;
+    else
+        return false;
+}
+
+CPPWAMP_INLINE GenericCategory::GenericCategory() {}
+
+CPPWAMP_INLINE GenericCategory& genericCategory()
+{
+    static GenericCategory instance;
+    return instance;
+}
+
+CPPWAMP_INLINE std::error_code make_error_code(Errc errc)
+{
+    return std::error_code(static_cast<int>(errc), wampCategory());
+}
+
+CPPWAMP_INLINE std::error_condition make_error_condition(Errc errc)
+{
+    return std::error_condition(static_cast<int>(errc), wampCategory());
+}
+
+
+//------------------------------------------------------------------------------
 // WAMP Protocol Error Codes
 //------------------------------------------------------------------------------
 
@@ -127,21 +200,7 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
     static const std::string msg[] =
     {
 /* success                */ "Operation successful",
-/* sessionEnded           */ "Operation aborted; session ended by this peer",
-/* sessionEndedByPeer     */ "Session ended by other peer",
-/* sessionAborted         */ "Session aborted by this peer",
-/* sessionAbortedByPeer   */ "Session aborted by other peer",
-/* allTransportsFailed    */ "All transports failed during connection",
-/* joinError              */ "Join error reported by router",
-/* publishError           */ "Publish error reported by broker",
-/* subscribeError         */ "Subscribe error reported by broker",
-/* unsubscribeError       */ "Unsubscribe error reported by broker",
-/* registerError          */ "Register error reported by dealer",
-/* unregisterError        */ "Unregister error reported by dealer",
-/* callError              */ "Call error reported by callee or dealer",
-/* invalidState           */ "Invalid state for this operation",
-/* noSuchOption           */ "Missing WAMP message option",
-/* badOption,             */ "Invalid WAMP message option",
+/* unknown                */ "Unkown error URI",
 
 /* invalidUri             */ "An invalid WAMP URI was provided",
 /* noSuchProcedure        */ "No procedure was registered under the given URI",
@@ -152,6 +211,7 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* systemShutdown         */ "The other peer is shutting down",
 /* closeRealm             */ "The other peer is leaving the realm",
 /* goodbyeAndOut          */ "Session ended successfully",
+/* sessionKilled          */ "Session was killed",
 /* protocolViolation      */ "Invalid, unexpected, or malformed WAMP message",
 /* notAuthorized          */ "This peer is not authorized to perform the operation",
 /* authorizationFailed    */ "The authorization operation failed",
@@ -164,6 +224,7 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* unavailable            */ "Callee is unable to handle an invocation",
 /* noAvailableCallee      */ "All registered callees are unable to handle an invocation",
 /* featureNotSupported    */ "Advanced feature is not supported",
+
 /* noEligibleCallee       */ "Call options lead to the exclusion of all callees providing the procedure",
 /* payloadSizeExceeded    */ "Serialized payload exceeds transport limits",
 /* cannotAuthenticate     */ "Authentication failed",
@@ -173,7 +234,7 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
     if (ev >= 0 && ev < (int)std::extent<decltype(msg)>::value)
         return msg[ev];
     else
-        return "Unknown error";
+        return "";
 }
 
 CPPWAMP_INLINE bool WampCategory::equivalent(const std::error_code& code,
@@ -182,32 +243,16 @@ CPPWAMP_INLINE bool WampCategory::equivalent(const std::error_code& code,
     if (code.category() == wampCategory())
     {
         if (code.value() == condition)
+        {
             return true;
+        }
         else
         {
             auto value = static_cast<WampErrc>(code.value());
             switch (static_cast<WampErrc>(condition))
             {
-            case WampErrc::joinError:
-                return value == WampErrc::noSuchRealm ||
-                       value == WampErrc::noSuchRole;
-
-            case WampErrc::sessionEndedByPeer:
-                return value == WampErrc::systemShutdown ||
-                       value == WampErrc::closeRealm;
-
-            case WampErrc::unsubscribeError:
-                return value == WampErrc::noSuchSubscription;
-
-            case WampErrc::registerError:
-                return value == WampErrc::procedureAlreadyExists;
-
-            case WampErrc::unregisterError:
-                return value == WampErrc::noSuchRegistration;
-
-            case WampErrc::callError:
-                return value == WampErrc::noSuchProcedure ||
-                       value == WampErrc::invalidArgument;
+            case WampErrc::cancelled:
+                return value == WampErrc::timeout;
 
             case WampErrc::optionNotAllowed:
                 return value == WampErrc::discloseMeDisallowed;
@@ -241,15 +286,9 @@ CPPWAMP_INLINE std::error_condition make_error_condition(WampErrc errc)
 }
 
 //------------------------------------------------------------------------------
-/** @return 'true' if the corresponding error code was found. */
-// TODO: Return ErrorOr<WampErrc>
+/** @return WampErrc::unknown if the error code was not found. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE bool errorUriToCode(
-    const std::string& uri, ///< The URI to search under.
-    WampErrc fallback,      ///< Default value to use if the URI was not found.
-    WampErrc& result        /**< [out] The error code corresponding to the given
-                                 URI, or the given fallback value if not found */
-)
+CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
 {
     struct Record
     {
@@ -262,6 +301,12 @@ CPPWAMP_INLINE bool errorUriToCode(
     using WE = WampErrc;
     static const Record sortedByUri[] =
     {
+        {"cppwamp.error.success",                    WE::success},
+        {"cppwamp.error.unknown",                    WE::unknown},
+        {"wamp.close.close_realm",                   WE::closeRealm},
+        {"wamp.close.goodbye_and_out",               WE::goodbyeAndOut},
+        {"wamp.close.normal",                        WE::sessionKilled},
+        {"wamp.close.system_shutdown",               WE::systemShutdown},
         {"wamp.error.authorization_failed",          WE::authorizationFailed},
         {"wamp.error.canceled",                      WE::cancelled},
         {"wamp.error.cannot_authenticate",           WE::cannotAuthenticate},
@@ -292,27 +337,29 @@ CPPWAMP_INLINE bool errorUriToCode(
     auto end = std::end(sortedByUri);
     auto iter = std::lower_bound(std::begin(sortedByUri), end, uri);
     bool found = (iter != end) && (iter->uri == uri);
-    result = found ? iter->errc : fallback;
-    return found;
+    return found ? iter->errc : WampErrc::unknown;
 }
 
 
 //------------------------------------------------------------------------------
-/** @return The corresponding error URI, or an empty string if not found. */
+/** @throws error::Logic if the given code is not a valid enumerator value. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
 {
     static const std::string sortedByErrc[] =
     {
+        "cppwamp.error.success",
+        "cppwamp.error.unknown",
         "wamp.error.invalid_uri",
         "wamp.error.no_such_procedure",
         "wamp.error.procedure_already_exists",
         "wamp.error.no_such_registration",
         "wamp.error.no_such_subscription",
         "wamp.error.invalid_argument",
-        "wamp.error.system_shutdown",
-        "wamp.error.close_realm",
-        "wamp.error.goodbye_and_out",
+        "wamp.close.system_shutdown",
+        "wamp.close.close_realm",
+        "wamp.close.goodbye_and_out",
+        "wamp.close.normal",
         "wamp.error.protocol_violation",
         "wamp.error.not_authorized",
         "wamp.error.authorization_failed",
@@ -331,15 +378,25 @@ CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
         "wamp.error.timeout"
     };
 
-    static constexpr int extent = std::extent<decltype(sortedByErrc)>::value;
-    static constexpr auto firstValue = static_cast<int>(WampErrc::invalidUri);
-    static constexpr auto lastValue = firstValue + extent - 1;
-    static const std::string empty;
+    using T = std::underlying_type<WampErrc>::type;
+    static constexpr T extent = std::extent<decltype(sortedByErrc)>::value;
+    auto n = static_cast<T>(errc);
+    CPPWAMP_LOGIC_CHECK((n >= 0) && (n < extent),
+                        "wamp::errorCodeToUri code is not a valid enumerator");
+    return sortedByErrc[n];
+}
 
-    auto n = static_cast<int>(errc);
-    bool found = (n >= firstValue) && (n <= lastValue);
-    auto index = n - firstValue;
-    return found ? sortedByErrc[index] : empty;
+//------------------------------------------------------------------------------
+/** If the error code's category is wampCategory(), returns the same result
+    as errorCodeToUri(WampErrc). Otherwise, the format is
+    `cppwamp.error.<category name>.<code value>`. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE std::string errorCodeToUri(std::error_code ec)
+{
+    if (ec.category() == wampCategory())
+        return errorCodeToUri(static_cast<WampErrc>(ec.value()));
+    return std::string("cppwamp.error.") + ec.category().name() +
+           std::to_string(ec.value());
 }
 
 
@@ -368,7 +425,7 @@ CPPWAMP_INLINE std::string DecodingCategory::message(int ev) const
     if (ev >= 0 && ev < (int)std::extent<decltype(msg)>::value)
         return msg[ev];
     else
-        return "Unknown error";
+        return "";
 }
 
 CPPWAMP_INLINE bool DecodingCategory::equivalent(const std::error_code& code,
@@ -430,14 +487,14 @@ CPPWAMP_INLINE std::string TransportCategory::message(int ev) const
         /* aborted */      "Transport operation aborted",
         /* failed */       "Transport operation failed",
         /* disconnected */ "Transport disconnected by other peer",
-        /* badTxLength */  "Outgoing message exceeds transport's maximum length",
+        /* exhausted */    "All transports failed during connection",
         /* badRxLength */  "Incoming message exceeds transport's maximum length"
     };
 
     if (ev >= 0 && ev < (int)std::extent<decltype(msg)>::value)
         return msg[ev];
     else
-        return "Unknown error";
+        return "";
 }
 
 CPPWAMP_INLINE bool TransportCategory::equivalent(const std::error_code& code,
@@ -448,7 +505,7 @@ CPPWAMP_INLINE bool TransportCategory::equivalent(const std::error_code& code,
         if (code.value() == condition)
             return true;
         else if (condition == (int)TransportErrc::failed)
-            return code.value() == (int)TransportErrc::badTxLength ||
+            return code.value() == (int)TransportErrc::exhausted ||
                    code.value() == (int)TransportErrc::badRxLength;
         else
             return false;
@@ -537,7 +594,7 @@ CPPWAMP_INLINE std::string RawsockCategory::message(int ev) const
     else if (ev >= 16 && ev < (16 + (int)std::extent<decltype(msg)>::value))
         return extra[ev - 16];
     else
-        return "Unknown error";
+        return "";
 }
 
 CPPWAMP_INLINE bool RawsockCategory::equivalent(const std::error_code& code,

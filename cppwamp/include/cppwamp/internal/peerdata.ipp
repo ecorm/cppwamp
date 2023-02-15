@@ -102,9 +102,9 @@ CPPWAMP_INLINE CallCancelMode parseCallCancelModeFromOptions(const Object& opts)
 
 CPPWAMP_INLINE Reason::Reason(String uri) : Base(std::move(uri)) {}
 
-CPPWAMP_INLINE Reason::Reason(std::error_code ec) : Base(toUri(ec)) {}
+CPPWAMP_INLINE Reason::Reason(std::error_code ec) : Base(errorCodeToUri(ec)) {}
 
-CPPWAMP_INLINE Reason::Reason(WampErrc errc) : Base(toUri(errc)) {}
+CPPWAMP_INLINE Reason::Reason(WampErrc errc) : Base(errorCodeToUri(errc)) {}
 
 CPPWAMP_INLINE Reason& Reason::withHint(String text)
 {
@@ -119,32 +119,17 @@ CPPWAMP_INLINE ErrorOr<String> Reason::hint() const
     return optionAs<String>("message");
 }
 
+/** @return WampErrc::unknown if the URI is unknown. */
+CPPWAMP_INLINE WampErrc Reason::errorCode() const
+{
+    return errorUriToCode(uri());
+}
+
 CPPWAMP_INLINE AccessActionInfo Reason::info(bool isServer) const
 {
     auto action = isServer ? AccessAction::serverGoodbye
                            : AccessAction::clientGoodbye;
     return {action, uri(), options()};
-}
-
-CPPWAMP_INLINE String Reason::toUri(std::error_code ec)
-{
-    String uri;
-    if (ec.category() == wampCategory())
-        uri = errorCodeToUri(static_cast<WampErrc>(ec.value()));
-    if (uri.empty())
-        uri = "cppwamp.error." + ec.message();
-    return uri;
-}
-
-CPPWAMP_INLINE String Reason::toUri(WampErrc errc)
-{
-    String uri = errorCodeToUri(errc);
-    if (uri.empty())
-    {
-        auto ec = make_error_code(errc);
-        uri = "cppwamp.error." + ec.message();
-    }
-    return uri;
 }
 
 CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::GoodbyeMessage&& msg)
@@ -556,35 +541,24 @@ CPPWAMP_INLINE Challenge::Challenge(internal::PassKey, ChallengeePtr challengee,
 
 CPPWAMP_INLINE Error::Error(String uri) : Base(std::move(uri)) {}
 
-CPPWAMP_INLINE Error::Error(std::error_code ec) : Base(toUri(ec)) {}
+CPPWAMP_INLINE Error::Error(std::error_code ec) : Base(errorCodeToUri(ec)) {}
 
-CPPWAMP_INLINE Error::Error(WampErrc errc) : Base(toUri(errc)) {}
+CPPWAMP_INLINE Error::Error(WampErrc errc) : Base(errorCodeToUri(errc)) {}
 
 CPPWAMP_INLINE Error::Error(const error::BadType& e)
     : Error(WampErrc::invalidArgument)
 {
-    withHint(String{e.what()});
+    withArgs(String{e.what()});
 }
 
 CPPWAMP_INLINE Error::~Error() {}
-
-CPPWAMP_INLINE Error& Error::withHint(String hint)
-{
-    return withOption("message", std::move(hint));
-}
 
 CPPWAMP_INLINE Error::operator bool() const {return !uri().empty();}
 
 CPPWAMP_INLINE const String& Error::uri() const {return message().uri();}
 
-CPPWAMP_INLINE ErrorOr<std::error_code> Error::errorCode() const
-{
-    WampErrc errc;
-    bool ok = errorUriToCode(uri(), WampErrc::success, errc);
-    if (!ok)
-        return makeUnexpectedError(std::errc::result_out_of_range);
-    return make_error_code(errc);
-}
+/** @return WampErrc::unknown if the URI is unknown. */
+CPPWAMP_INLINE WampErrc Error::errorCode() const {return errorUriToCode(uri());}
 
 CPPWAMP_INLINE AccessActionInfo Error::info(bool isServer) const
 {
@@ -593,34 +567,13 @@ CPPWAMP_INLINE AccessActionInfo Error::info(bool isServer) const
     return {action, message().requestId(), {}, options(), uri()};
 }
 
-CPPWAMP_INLINE String Error::toUri(std::error_code ec)
-{
-    String uri;
-    if (ec.category() == wampCategory())
-        uri = errorCodeToUri(static_cast<WampErrc>(ec.value()));
-    if (uri.empty())
-        uri = "cppwamp.error." + ec.message();
-    return uri;
-}
-
-CPPWAMP_INLINE String Error::toUri(WampErrc errc)
-{
-    String uri = errorCodeToUri(errc);
-    if (uri.empty())
-    {
-        auto ec = make_error_code(errc);
-        uri = "cppwamp.error." + ec.message();
-    }
-    return uri;
-}
-
 CPPWAMP_INLINE Error::Error(internal::PassKey, internal::ErrorMessage&& msg)
     : Base(std::move(msg))
 {}
 
 CPPWAMP_INLINE Error::Error(internal::PassKey, internal::WampMsgType reqType,
                             RequestId rid, std::error_code ec, Object opts)
-    : Base(reqType, rid, toUri(ec), std::move(opts))
+    : Base(reqType, rid, errorCodeToUri(ec), std::move(opts))
 {}
 
 CPPWAMP_INLINE RequestId Error::requestId(internal::PassKey) const

@@ -91,7 +91,7 @@ public:
 //            {
 //                auto& me = *self;
 //                if (me.checkReply(reply, WampMsgType::subscribed,
-//                                  WampErrc::subscribeError, handler))
+//                                  Errc::subscribeError, handler))
 //                {
 //                    const auto& msg = messageCast<SubscribedMessage>(*reply);
 //                    auto subId = msg.subscriptionId();
@@ -196,7 +196,7 @@ public:
     {
         // TODO
 //        if (state() != State::established)
-//            return makeUnexpectedError(WampErrc::invalidState);
+//            return makeUnexpectedError(Errc::invalidState);
 //        return peer_.send(pub.message({}));
         return true;
     }
@@ -242,7 +242,7 @@ public:
 //            {
 //                auto& me = *self;
 //                if (me.checkReply(reply, WampMsgType::registered,
-//                                  WampErrc::registerError, handler))
+//                                  Errc::registerError, handler))
 //                {
 //                    const auto& msg = messageCast<RegisteredMessage>(*reply);
 //                    auto regId = msg.registrationId();
@@ -348,7 +348,7 @@ public:
 //            {
 //                auto& me = *self;
 //                if (me.checkReply(reply, WampMsgType::result,
-//                                  WampErrc::callError, handler, errorPtr))
+//                                  Errc::callError, handler, errorPtr))
 //                {
 //                    auto& msg = messageCast<ResultMessage>(*reply);
 //                    me.completeNow(handler, Result({}, std::move(msg)));
@@ -411,7 +411,7 @@ public:
 //            {
 //                auto& me = *self;
 //                if (me.checkReply(reply, WampMsgType::result,
-//                                  WampErrc::callError, handler, errorPtr))
+//                                  Errc::callError, handler, errorPtr))
 //                {
 //                    auto& resultMsg = messageCast<ResultMessage>(*reply);
 //                    me.dispatchHandler(handler,
@@ -468,7 +468,7 @@ public:
     {
         // TODO
 //        if (state() != State::established)
-//            return makeUnexpectedError(WampErrc::invalidState);
+//            return makeUnexpectedError(Errc::invalidState);
 //        return peer_.cancelCall(CallCancellation{reqId, mode});
         return true;
     }
@@ -506,7 +506,7 @@ public:
     {
         // TODO
 //        if (state() != State::established)
-//            return makeUnexpectedError(WampErrc::invalidState);
+//            return makeUnexpectedError(Errc::invalidState);
 
 //        if (!result.isProgressive())
 //            pendingInvocations_.erase(reqId);
@@ -549,7 +549,7 @@ public:
     {
         // TODO
 //        if (state() != State::established)
-//            return makeUnexpectedError(WampErrc::invalidState);
+//            return makeUnexpectedError(Errc::invalidState);
 
 //        pendingInvocations_.erase(reqId);
 //        return peer_.sendError(WampMsgType::invocation, reqId,
@@ -886,15 +886,15 @@ private:
                 ok = false;
                 auto& errMsg = messageCast<ErrorMessage>(*reply);
                 const auto& uri = errMsg.uri();
-                WampErrc errc;
-                bool found = errorUriToCode(uri, defaultErrc, errc);
+                WampErrc errc = errorUriToCode(uri);
                 bool hasArgs = !errMsg.args().empty() ||
                                !errMsg.kwargs().empty();
                 if (errorPtr != nullptr)
                 {
                     *errorPtr = Error({}, std::move(errMsg));
                 }
-                else if ((logLevel() <= LogLevel::error) && (!found || hasArgs))
+                else if ((logLevel() <= LogLevel::error) &&
+                         (errc == WampErrc::unknown || hasArgs))
                 {
                     std::ostringstream oss;
                     oss << "Expected " << MessageTraits::lookup(type).name

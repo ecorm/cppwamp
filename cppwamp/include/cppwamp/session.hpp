@@ -535,9 +535,9 @@ struct Session::ConnectOp
     @post `this->state() == SessionState::connecting` if successful
     @par Error Codes
         - TransportErrc::aborted if the connection attempt was aborted.
-        - WampErrc::allTransportsFailed if more than one transport was
+        - TransportErrc::exhausted if more than one transport was
           specified and they all failed to connect.
-        - WampErrc::invalidState if the session was not disconnected
+        - Errc::invalidState if the session was not disconnected
           during attempt to connect.
         - Some other platform or transport-dependent `std::error_code` if
           only one transport was specified and it failed to connect. */
@@ -590,9 +590,9 @@ Session::connect(
     @throws error::Logic if the given wish list is empty
     @par Error Codes
         - TransportErrc::aborted if the connection attempt was aborted.
-        - WampErrc::allTransportsFailed if more than one transport was
+        - TransportErrc::exhausted if more than one transport was
           specified and they all failed to connect.
-        - WampErrc::invalidState if the session was not disconnected
+        - Errc::invalidState if the session was not disconnected
           during the attempt to connect.
         - Some other platform or transport-dependent `std::error_code` if
           only one transport was specified and it failed to connect. */
@@ -663,18 +663,16 @@ struct Session::JoinOp
     @param completion A callable handler of type `void(ErrorOr<Welcome>)`,
            or a compatible Boost.Asio completion token.
     @post `this->state() == SessionState::establishing` if successful
-    @par Error Codes
+    @par Possible Error Codes
         - WampErrc::payloadSizeExceeded if the resulting JOIN message exceeds
           the transport's limits.
-        - WampErrc::invalidState if the session was not closed
+        - Errc::invalidState if the session was not closed
           during the attempt to join.
-        - WampErrc::sessionEnded if the operation was aborted.
-        - WampErrc::sessionEndedByPeer if the session was ended by the peer.
+        - Errc::sessionClosed if the operation was aborted by closing the session.
+        - Errc::sessionKilled if the session was ended by the peer.
         - WampErrc::noSuchRealm if the realm does not exist.
         - WampErrc::noSuchRole if one of the client roles is not supported on
-          the router.
-        - WampErrc::joinError for other errors reported by the router.
-        - Some other `std::error_code` for protocol and transport errors. */
+          the router. */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
@@ -787,10 +785,10 @@ struct Session::LeaveOp
     @par Error Codes
         - WampErrc::payloadSizeExceeded if the resulting GOODBYE message exceeds
           the transport's limits.
-        - WampErrc::invalidState if the session was not established
+        - Errc::invalidState if the session was not established
           while attempting to leave.
-        - WampErrc::sessionEnded if the operation was aborted.
-        - WampErrc::sessionEndedByPeer if the session was ended by the peer
+        - Errc::sessionClosed if the operation was aborted by closing the session.
+        - Errc::sessionKilled if the session was ended by the peer.
           before a `GOODBYE` response was received.
         - Some other `std::error_code` for protocol and transport errors. */
 //------------------------------------------------------------------------------
@@ -835,10 +833,10 @@ Session::leave(
     @par Error Codes
         - WampErrc::payloadSizeExceeded if the resulting GOODBYE message exceeds
           the transport's limits.
-        - WampErrc::invalidState if the session was not established
+        - Errc::invalidState if the session was not established
           during the attempt to leave.
-        - WampErrc::sessionEnded if the operation was aborted.
-        - WampErrc::sessionEndedByPeer if the session was ended by the peer
+        - Errc::sessionClosed if the operation was aborted by closing the session.
+        - Errc::sessionKilled if the session was ended by the peer
           before a `GOODBYE` response was received.
         - Some other `std::error_code` for protocol and transport errors. */
 //------------------------------------------------------------------------------
@@ -901,14 +899,13 @@ struct Session::SubscribeOp
 
     @return A Subscription object, therafter used to manage the subscription's
             lifetime.
-    @par Error Codes
-        - WampErrc::payloadSizeExceeded if the resulting SUBSCRIBE message exceeds
-          the transport's limits.
-        - WampErrc::invalidState if the session was not established
+    @par Possible Error Codes
+        - Errc::invalidState if the session was not established
           while attempting to subscribe.
-        - WampErrc::subscribeError if the router replied with an `ERROR`
-          response.
-        - Some other `std::error_code` for protocol and transport errors. */
+        - Errc::sessionClosed if the operation was aborted by closing the session.
+        - Errc::sessionKilled if the session was ended by the peer.
+        - WampErrc::payloadSizeExceeded if the resulting SUBSCRIBE message
+          exceeds the transport's limits. */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
@@ -987,16 +984,13 @@ struct Session::UnsubscribeOp
     @note Duplicate unsubscribes using the same Subscription handle
           are safely ignored.
     @pre `!!sub == true`
-    @par Error Codes
-        - WampErrc::invalidState if the session was not established
+    @par Possible Error Codes
+        - Errc::invalidState if the session was not established
           while attempting to subsubscribe.
-        - WampErrc::sessionEnded if the operation was aborted.
-        - WampErrc::sessionEndedByPeer if the session was ended by the peer.
+        - Errc::sessionClosed if the operation was aborted by closing the session.
+        - Errc::sessionKilled if the session was ended by the peer.
         - WampErrc::noSuchSubscription if the router reports that there was
           no such subscription.
-        - WampErrc::unsubscribeError if the router reports some other
-          error.
-        - Some other `std::error_code` for protocol and transport errors.
     @throws error::Logic if the given subscription is empty */
 //------------------------------------------------------------------------------
 template <typename C>
@@ -1055,16 +1049,13 @@ struct Session::PublishOp
 
 //------------------------------------------------------------------------------
 /** @return The publication ID for this event.
-    @par Error Codes
+    @par Possible Error Codes
         - WampErrc::payloadSizeExceeded if the resulting PUBLISH message exceeds
           the transport's limits.
-        - WampErrc::invalidState if the session was not established
+        - Errc::invalidState if the session was not established
           during the attempt to publish.
-        - WampErrc::sessionEnded if the operation was aborted.
-        - WampErrc::sessionEndedByPeer if the session was ended by the peer.
-        - WampErrc::publishError if the router replies with an ERROR
-          response.
-        - Some other `std::error_code` for protocol and transport errors. */
+        - Errc::sessionClosed if the operation was aborted by closing the session.
+        - Errc::sessionKilled if the session was ended by the peer. */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
@@ -1128,16 +1119,14 @@ struct Session::EnrollOp
             lifetime.
     @note This function was named `enroll` because `register` is a reserved
           C++ keyword.
-    @par Error Codes
+    @par Possible Error Codes
         - WampErrc::payloadSizeExceeded if the resulting REGISTER message exceeds
           the transport's limits.
-        - WampErrc::invalidState if the session was not established
+        - Errc::invalidState if the session was not established
           during the attempt to enroll.
         - WampErrc::procedureAlreadyExists if the router reports that the
           procedure has already been registered for this realm.
-        - WampErrc::registerError if the router reports some other error.
-        - Some other `std::error_code` for protocol and transport errors.
-*/
+        - Some other `std::error_code` for protocol and transport errors. */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
@@ -1210,15 +1199,13 @@ struct Session::EnrollIntrOp
             lifetime.
     @note This function was named `enroll` because `register` is a reserved
           C++ keyword.
-    @par Error Codes
+    @par Possible Error Codes
+        - Errc::invalidState if the session was not established
+          during the attempt to enroll.
         - WampErrc::payloadSizeExceeded if the resulting REGISTER message exceeds
           the transport's limits.
-        - WampErrc::invalidState if the session was not established
-          during the attempt to enroll.
         - WampErrc::procedureAlreadyExists if the router reports that the
-          procedure has already been registered for this realm.
-        - WampErrc::registerError if the router reports some other error.
-        - Some other `std::error_code` for protocol and transport errors. */
+          procedure has already been registered for this realm. */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
@@ -1298,17 +1285,13 @@ struct Session::UnregisterOp
     @note Duplicate unregistrations using the same Registration handle
           are safely ignored.
     @pre `!!reg == true`
-    @par Error Codes
-        - WampErrc::invalidState if the session was not established
+    @par Possible Error Codes
+        - Errc::invalidState if the session was not established
           while attempting to unregister.
-        - WampErrc::sessionEnded if the operation was aborted.
-        - WampErrc::sessionEndedByPeer if the session was ended by the peer.
+        - Errc::sessionClosed if the operation was aborted by closing the session.
+        - Errc::sessionKilled if the session was ended by the peer.
         - WampErrc::noSuchRegistration if the router reports that there is
-          no such procedure registered by that name.
-        - WampErrc::unregisterError if the router reports some other
-          error.
-        - Some other `std::error_code` for protocol and transport errors.
-    @throws error::Logic if the given registration is empty */
+          no such procedure registered by that name. */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
@@ -1367,19 +1350,17 @@ struct Session::CallOp
 
 //------------------------------------------------------------------------------
 /** @return The remote procedure result.
-    @par Error Codes
+    @par Possible Error Codes
         - WampErrc::payloadSizeExceeded if the resulting CALL message exceeds
           the transport's limits.
-        - WampErrc::invalidState if the session was not established
+        - Errc::invalidState if the session was not established
           during the attempt to call.
-        - WampErrc::sessionEnded if the operation was aborted.
-        - WampErrc::sessionEndedByPeer if the session was ended by the peer.
+        - Errc::sessionClosed if the operation was aborted by closing the session.
+        - Errc::sessionKilled if the session was ended by the peer.
         - WampErrc::noSuchProcedure if the router reports that there is
           no such procedure registered by that name.
         - WampErrc::invalidArgument if the callee reports that there are one
           or more invalid arguments.
-        - WampErrc::callError if the router reports some other error.
-        - Some other `std::error_code` for protocol and transport errors.
     @note Use Session::ongoingCall if progressive results are desired.
     @pre `rpc.withProgressiveResults() == false`
     @throws error::Logic if `rpc.progressiveResultsAreEnabled() == true`. */
@@ -1489,19 +1470,17 @@ struct Session::OngoingCallOp
 
 //------------------------------------------------------------------------------
 /** @return The remote procedure result.
-    @par Error Codes
+    @par Possible Error Codes
         - WampErrc::payloadSizeExceeded if the resulting CALL message exceeds
           the transport's limits.
-        - WampErrc::invalidState if the session was not established
+        - Errc::invalidState if the session was not established
           during the attempt to call.
-        - WampErrc::sessionEnded if the operation was aborted.
-        - WampErrc::sessionEndedByPeer if the session was ended by the peer.
+        - Errc::sessionClosed if the operation was aborted by closing the session.
+        - Errc::sessionKilled if the session was ended by the peer.
         - WampErrc::noSuchProcedure if the router reports that there is
           no such procedure registered by that name.
         - WampErrc::invalidArgument if the callee reports that there are one
           or more invalid arguments.
-        - WampErrc::callError if the router reports some other error.
-        - Some other `std::error_code` for protocol and transport errors.
     @note `withProgessiveResults(true)` is automatically performed on the
            given `rpc` argument.
     @note The given completion handler must allow multi-shot invocation. */

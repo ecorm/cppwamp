@@ -338,7 +338,7 @@ GIVEN( "a caller and a callee" )
                     {
                         if (output.size() == input.size())
                         {
-                            CHECK(r == makeUnexpected(WampErrc::callError));
+                            CHECK(r == makeUnexpected(WampErrc::unknown));
                             receivedError = true;
                             return;
                         }
@@ -405,7 +405,7 @@ GIVEN( "a caller and a callee" )
                 Rpc("com.myapp.foo"),
                 [&output](ErrorOr<Result> r)
                 {
-                    if (r == makeUnexpected(WampErrc::sessionEnded))
+                    if (r == makeUnexpected(Errc::sessionClosed))
                         return;
                     const auto& result = r.value();
                     auto n = result.args().at(0).to<int>();

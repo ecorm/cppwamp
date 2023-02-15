@@ -154,9 +154,9 @@ ErrorOr<T> Options<D,M>::optionAs(
 {
     auto iter = options().find(key);
     if (iter == options().end())
-        return makeUnexpectedError(WampErrc::noSuchOption);
+        return makeUnexpectedError(Errc::notFound);
     if (!iter->second.template is<T>())
-        return makeUnexpectedError(WampErrc::badOption);
+        return makeUnexpectedError(Errc::badType);
     return iter->second.template as<T>();
 }
 
@@ -169,11 +169,11 @@ ErrorOr<UInt> Options<D,M>::toUnsignedInteger(const String& key) const
 {
     auto found = options().find(key);
     if (found == options().end())
-        return makeUnexpectedError(WampErrc::noSuchOption);
+        return makeUnexpectedError(Errc::notFound);
     const auto& v = found->second;
     UInt n;
     if (!optionToUnsignedInteger(v, n))
-        return makeUnexpectedError(WampErrc::badOption);
+        return makeUnexpectedError(Errc::badType);
     return n;
 }
 

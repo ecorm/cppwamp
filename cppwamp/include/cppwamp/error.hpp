@@ -111,43 +111,103 @@ struct CPPWAMP_API Conversion : public BadType
 
 
 //******************************************************************************
+// Generic Error Codes
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+/** %Error code values used with the GenericCategory error category.
+    The equivalencies to these codes are as follows:
+
+    std::error_code                           | Equivalent condition value
+    ----------------------------------------- | --------------------------
+    make_error_code(WampErrc::systemShutdown) | sessionKilled
+    make_error_code(WampErrc::closeRealm)     | sessionKilled
+    make_error_code(WampErrc::sessionKilled)  | sessionKilled */
+//------------------------------------------------------------------------------
+enum class Errc
+{
+    // Generic errors
+    success = 0,   ///< Operation successful
+    sessionClosed, ///< Operation aborted; session ended by this peer
+    sessionKilled, ///< Session ended by other peer
+    invalidState,  ///< Invalid state for this operation
+    notFound,      ///< Item not found
+    badType        ///< Invalid or unexpected type
+};
+
+//------------------------------------------------------------------------------
+/** std::error_category used for reporting errors at the WAMP session layer.
+    @see Errc */
+//------------------------------------------------------------------------------
+class CPPWAMP_API GenericCategory : public std::error_category
+{
+public:
+    /** Obtains the name of the category. */
+    virtual const char* name() const noexcept override;
+
+    /** Obtains the explanatory string. */
+    virtual std::string message(int ev) const override;
+
+    /** Compares `error_code` and and error condition for equivalence. */
+    virtual bool equivalent(const std::error_code& code,
+                            int condition) const noexcept override;
+
+private:
+    CPPWAMP_HIDDEN GenericCategory();
+
+    friend GenericCategory& genericCategory();
+};
+
+//------------------------------------------------------------------------------
+/** Obtains a reference to the static error category object for Generic errors.
+    @relates GenericCategory */
+//------------------------------------------------------------------------------
+CPPWAMP_API GenericCategory& genericCategory();
+
+//------------------------------------------------------------------------------
+/** Creates an error code value from an Errc enumerator.
+    @relates GenericCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::error_code make_error_code(Errc errc);
+
+//------------------------------------------------------------------------------
+/** Creates an error condition value from an Errc enumerator.
+    @relates GenericCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::error_condition make_error_condition(Errc errc);
+
+//------------------------------------------------------------------------------
+/** Looks up the Errc enumerator that corresponds to the given error URI.
+    @relates GenericCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API bool errorUriToCode(const std::string& uri, Errc fallback,
+                                Errc& result);
+
+//------------------------------------------------------------------------------
+/** Looks up the error URI that corresponds to the given error code belonging
+    to GenericCategory.
+    @relates GenericCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API const std::string& errorCodeToUri(Errc errc);
+
+
+//******************************************************************************
 // WAMP Protocol Error Codes
 //******************************************************************************
 
 //------------------------------------------------------------------------------
 /** %Error code values used with the WampCategory error category.
-    The equivalencies between these codes are as follows:
+    The equivalencies to these codes are as follows:
 
-    std::error_code                         | Equivalent condition value
-    --------------------------------------- | --------------------------
-    make_error_code(noSuchRealm)            | joinError
-    make_error_code(noSuchRole)             | joinError
-    make_error_code(systemShutdown)         | sessionEndedByPeer
-    make_error_code(closeRealm)             | sessionEndedByPeer
-    make_error_code(noSuchSubscription)     | unsubscribeError
-    make_error_code(procedureAlreadyExists) | registerError
-    make_error_code(noSuchProcedure)        | callError
-    make_error_code(invalidArgument)        | callError */
+    std::error_code                                 | Equivalent condition value
+    ----------------------------------------------- | --------------------------
+    make_error_code(WampErrc::timeout)              | cancelled
+    make_error_code(WampErrc::discloseMeDisallowed) | optionNotAllowed */
 //------------------------------------------------------------------------------
 enum class WampErrc
 {
-    // Generic errors
     success = 0,            ///< Operation successful
-    sessionEnded,           ///< Operation aborted; session ended by this peer
-    sessionEndedByPeer,     ///< Session ended by other peer
-    sessionAborted,         ///< Session aborted by this peer
-    sessionAbortedByPeer,   ///< Session aborted by other peer
-    allTransportsFailed,    ///< All transports failed during connection
-    joinError,              ///< Join error reported by router
-    publishError,           ///< Publish error reported by broker
-    subscribeError,         ///< Subscribe error reported by broker
-    unsubscribeError,       ///< Unsubscribe error reported by broker
-    registerError,          ///< Register error reported by dealer
-    unregisterError,        ///< Unregister error reported by dealer
-    callError,              ///< Call error reported by callee or dealer
-    invalidState,           ///< Invalid state for this operation
-    noSuchOption,           ///< Missing WAMP message option
-    badOption,              ///< Invalid WAMP message option
+    unknown,                ///< Unknown error URI
 
     // Errors mapped to predefined URIs
     invalidUri,             ///< An invalid WAMP URI was provided
@@ -159,6 +219,7 @@ enum class WampErrc
     systemShutdown,         ///< The other peer is shutting down
     closeRealm,             ///< The other peer is leaving the realm
     goodbyeAndOut,          ///< Session ended successfully
+    sessionKilled,          ///< Session was killed
     protocolViolation,      ///< Invalid, unexpected, or malformed WAMP message.
     notAuthorized,          ///< This peer is not authorized to perform the operation
     authorizationFailed,    ///< The authorization operation failed
@@ -224,15 +285,20 @@ CPPWAMP_API std::error_condition make_error_condition(WampErrc errc);
 /** Looks up the WampErrc enumerator that corresponds to the given error URI.
     @relates WampCategory */
 //-----------------------------------------------------------------------------
-CPPWAMP_API bool errorUriToCode(const std::string& uri, WampErrc fallback,
-                                WampErrc& result);
+CPPWAMP_API WampErrc errorUriToCode(const std::string& uri);
 
 //------------------------------------------------------------------------------
-/** Looks up the error URI that corresponds to the given error code belonging
+/** Obtains the error URI corresponding to the given error code belonging
     to WampCategory.
     @relates WampCategory */
 //-----------------------------------------------------------------------------
 CPPWAMP_API const std::string& errorCodeToUri(WampErrc errc);
+
+//------------------------------------------------------------------------------
+/** Generates an error URI corresponding to the given error code.
+    @relates WampCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::string errorCodeToUri(std::error_code ec);
 
 
 //******************************************************************************
@@ -243,7 +309,7 @@ CPPWAMP_API const std::string& errorCodeToUri(WampErrc errc);
 /** %Error code values used with the DecodingCategory error category.
     All of the following non-zero codes are equivalent to the
     DecodingErrc::failure condition:
-    - wamp::DecodingErrc
+    - Non-zero wamp::DecodingErrc
     - `jsoncons::json_errc`
     - `jsoncons::cbor::cbor_errc`
     - `jsoncons::msgpack::msgpack_errc` */
@@ -307,7 +373,27 @@ CPPWAMP_API std::error_condition make_error_condition(DecodingErrc errc);
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** %Error code values used with the TransportCategory error category. */
+/** %Error code values used with the TransportCategory error category.
+
+    Codes equivalent to the TransportErrc::aborted condition are
+    - `std::errc::operation_cancelled`
+    - `boost::asio::error::operation_aborted`
+
+    Codes equivalent to the TransportErrc::failed condition are
+    - `TransportErrc::exhausted`
+    - `TransportErrc::badRxLength`
+    - any non-zero code of the `std::generic_catetory`
+    - any non-zero code of the `std::system_catetory`
+    - any non-zero code of the `boost::system::generic_catetory`
+    - any non-zero code of the `boost::system::system_catetory`
+    - any non-zero code of the `boost::asio::error::get_addrinfo_category`
+    - any non-zero code of the `boost::asio::error::get_misc_category`
+    - any non-zero code of the `boost::asio::error::get_netdb_category`
+
+    Codes equivalent to the TransportErrc::disconnected are
+    - `std::errc::connection_reset`
+    - `boost::asio::error::connection_reset`
+    - `boost::asio::error::eof` */
 //------------------------------------------------------------------------------
 enum class TransportErrc
 {
@@ -315,7 +401,7 @@ enum class TransportErrc
     aborted      = 1, ///< Transport operation aborted
     failed       = 2, ///< Transport operation failed
     disconnected = 3, ///< Transport disconnected by other peer
-    badTxLength  = 4, ///< Outgoing message exceeds transport's maximum length
+    exhausted    = 4, ///< All transports failed during connection
     badRxLength  = 5  ///< Incoming message exceeds transport's maximum length
 };
 
@@ -434,8 +520,11 @@ namespace std
 {
 
 template <>
-struct CPPWAMP_API is_error_condition_enum<wamp::WampErrc>
-    : public true_type
+struct CPPWAMP_API is_error_condition_enum<wamp::Errc> : public true_type
+{};
+
+template <>
+struct CPPWAMP_API is_error_condition_enum<wamp::WampErrc> : public true_type
 {};
 
 template <>
