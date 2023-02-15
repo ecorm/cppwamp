@@ -16,10 +16,10 @@
 #include <cassert>
 #include <initializer_list>
 #include <map>
-#include <type_traits>
 #include <utility>
 
 #include "../tagtypes.hpp"
+#include "../traits.hpp"
 #include "treeview.hpp"
 
 namespace wamp
@@ -399,14 +399,14 @@ public:
     TokenTrieMapCursor() = default;
 
     /** Conversion from mutable cursor to const cursor. */
-    template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
+    template <bool RM, CPPWAMP_NEEDS(!IsMutable && RM) = 0>
     TokenTrieMapCursor(const TokenTrieMapCursor<N, RM>& rhs)
         : parent_(rhs.parent_),
           target_(rhs.target_)
     {}
 
     /** Assignment from mutable cursor to const cursor. */
-    template <bool RM, typename std::enable_if<!IsMutable && RM, int>::type = 0>
+    template <bool RM, CPPWAMP_NEEDS(!IsMutable && RM) = 0>
     TokenTrieMapCursor& operator=(const TokenTrieMapCursor<N, RM>& rhs)
     {
         parent_ = rhs.parent_;

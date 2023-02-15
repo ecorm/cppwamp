@@ -104,19 +104,19 @@ public:
         : box_(other.move(buffer_))
     {}
 
-    template <typename T, EnableIf<Reqs::constructible<T>()> = 0>
+    template <typename T, Needs<Reqs::constructible<T>()> = 0>
     SurrogateAny(T&& value)
         : box_(construct<Decayed<T>>(std::forward<T>(value)))
     {}
 
     template <typename T, typename... As,
-             EnableIf<Reqs::emplaceable<T, As...>()> = 0>
+              Needs<Reqs::emplaceable<T, As...>()> = 0>
     explicit SurrogateAny(in_place_type_t<T>, As&&... args)
         : box_(construct<Decayed<T>>(std::forward<As>(args)...))
     {}
 
     template<typename T, typename U, typename... As,
-             EnableIf<Reqs::listEmplaceable<T, U, As...>()> = 0>
+             Needs<Reqs::listEmplaceable<T, U, As...>()> = 0>
     explicit SurrogateAny(in_place_type_t<T>, std::initializer_list<U> list,
                  As&&... args )
         : box_(construct<Decayed<T>>(list, std::forward<As>(args)...))
@@ -138,7 +138,7 @@ public:
         return *this;
     }
 
-    template <typename T, EnableIf<Reqs::assignable<T>()> = 0>
+    template <typename T, Needs<Reqs::assignable<T>()> = 0>
     SurrogateAny& operator=(T&& rhs)
     {
         SurrogateAny temp(std::forward<T>(rhs));
@@ -151,7 +151,7 @@ public:
     }
 
     template <typename T, typename... As,
-              EnableIf<Reqs::emplaceable<T, As...>()> = 0>
+              Needs<Reqs::emplaceable<T, As...>()> = 0>
     typename std::decay<T>::type& emplace(As&&... args)
     {
         reset();
@@ -161,7 +161,7 @@ public:
     }
 
     template <typename T, class U, class... As,
-              EnableIf<Reqs::listEmplaceable<T, U, As...>()> = 0>
+              Needs<Reqs::listEmplaceable<T, U, As...>()> = 0>
     typename std::decay<T>::type& emplace(std::initializer_list<U> list,
                                           As&&... args)
     {

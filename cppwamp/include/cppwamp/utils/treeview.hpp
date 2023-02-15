@@ -12,8 +12,8 @@
     @brief Contains the TreeView wrapper class. */
 //------------------------------------------------------------------------------
 
-#include <type_traits>
 #include <utility>
+#include "../traits.hpp"
 
 namespace wamp
 {
@@ -109,8 +109,7 @@ public:
     TreeView(tree_pointer tree) : tree_(tree) {}
 
     /** Converts from mutable to immutable tree view. */
-    template <bool M,
-              typename std::enable_if<!IsMutable && M>::type = 0>
+    template <bool M, CPPWAMP_NEEDS(!IsMutable && M) = 0>
     TreeView(TreeView<TTree, M> rhs) : tree_(rhs.tree_) {}
 
     /** Obtains the tree's allocator. */

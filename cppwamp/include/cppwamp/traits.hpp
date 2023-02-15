@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -7,24 +7,24 @@
 #ifndef CPPWAMP_TRAITS_HPP
 #define CPPWAMP_TRAITS_HPP
 
+#include <cstddef>
 #include <tuple>
 #include <type_traits>
 #include <vector>
-#include "api.hpp"
 
 //------------------------------------------------------------------------------
 /** @file
     @brief Contains general-purpose type traits. */
 //------------------------------------------------------------------------------
 
-/* Hides EnableIf decorations in order to keep the generated Doxygen
+/* Hides Needs decorations in order to keep the generated Doxygen
    documentation clean. */
 #ifdef CPPWAMP_FOR_DOXYGEN
-#define CPPWAMP_ENABLE_IF(cond)
+#define CPPWAMP_NEEDS(cond)
 #define CPPWAMP_ENABLED_TYPE(type, cond) type
 #else
-#define CPPWAMP_ENABLE_IF(cond) EnableIf<(cond)>
-#define CPPWAMP_ENABLED_TYPE(type, cond) EnableIf<(cond), type>
+#define CPPWAMP_NEEDS(cond) Needs<(cond)>
+#define CPPWAMP_ENABLED_TYPE(type, cond) Needs<(cond), type>
 #endif
 
 namespace wamp
@@ -32,17 +32,9 @@ namespace wamp
 
 //------------------------------------------------------------------------------
 /** Metafunction used to enable overloads based on a boolean condition. */
-// TODO: Rename to shorter Needs
 //------------------------------------------------------------------------------
 template<bool B, typename T = int>
-using EnableIf = typename std::enable_if<B,T>::type;
-
-//------------------------------------------------------------------------------
-/** Metafunction used to disable overloads based on a boolean condition. */
-// TODO: Use Needs<!cond> instead
-//------------------------------------------------------------------------------
-template<bool B, typename T = int>
-using DisableIf = typename std::enable_if<!B,T>::type;
+using Needs = typename std::enable_if<B,T>::type;
 
 //------------------------------------------------------------------------------
 /** Metafunction used to obtain the plain value type of a parameter
@@ -56,16 +48,14 @@ using ValueTypeOf =
 /** Determines if a type is the same as another. */
 //------------------------------------------------------------------------------
 template<typename T, typename U>
-CPPWAMP_API constexpr bool isSameType() {return std::is_same<T, U>::value;}
+constexpr bool isSameType() {return std::is_same<T, U>::value;}
 
 //------------------------------------------------------------------------------
 /** Determines if the given type is considered a boolean. */
-// TODO: Remove if unused
 //------------------------------------------------------------------------------
 template <typename T>
-CPPWAMP_API constexpr bool isBool()
+constexpr bool isBoolLike()
 {
-    // std::vector<bool>::const_reference is not just bool in clang/libc++.
     return isSameType<T, bool>() ||
            isSameType<T, std::vector<bool>::reference>() ||
            isSameType<T, std::vector<bool>::const_reference>();
@@ -77,7 +67,7 @@ CPPWAMP_API constexpr bool isBool()
     considered a number, */
 //------------------------------------------------------------------------------
 template <typename T>
-CPPWAMP_API constexpr bool isNumber()
+constexpr bool isNumber()
 {
     return std::is_arithmetic<T>::value && !isSameType<T, bool>();
 }
@@ -86,7 +76,7 @@ CPPWAMP_API constexpr bool isNumber()
 /** Determines if the given type is a signed integer. */
 //------------------------------------------------------------------------------
 template <typename T>
-CPPWAMP_API constexpr bool isSignedInteger()
+constexpr bool isSignedInteger()
 {
     return std::is_integral<T>::value && std::is_signed<T>::value &&
            !isSameType<T, bool>();
@@ -96,7 +86,7 @@ CPPWAMP_API constexpr bool isSignedInteger()
 /** Determines if the given type is an unsigned integer. */
 //------------------------------------------------------------------------------
 template <typename T>
-CPPWAMP_API constexpr bool isUnsignedInteger()
+constexpr bool isUnsignedInteger()
 {
     return std::is_integral<T>::value && !std::is_signed<T>::value &&
            !isSameType<T, bool>();
@@ -115,12 +105,12 @@ template <bool B>
 using MetaBool = std::integral_constant<bool, B>;
 
 //------------------------------------------------------------------------------
-/** Equivalent to std::true_type provided in C++17. */
+/** Equivalent to std::true_type. */
 //------------------------------------------------------------------------------
 using TrueType = MetaBool<true>;
 
 //------------------------------------------------------------------------------
-/** Equivalent to std::false_type provided in C++17. */
+/** Equivalent to std::false_type. */
 //------------------------------------------------------------------------------
 using FalseType = MetaBool<false>;
 
@@ -229,6 +219,38 @@ constexpr bool isNothrowSwappable() noexcept
 {
     return IsNothrowSwappable<T, U>::value;
 }
+
+//------------------------------------------------------------------------------
+/** Pre-C++14 substitute for std::index_sequence. */
+//------------------------------------------------------------------------------
+template <std::size_t ...> struct IndexSequence { };
+
+
+namespace internal
+{
+// https://stackoverflow.com/a/7858971/245265
+template <std::size_t N, std::size_t ...S>
+struct GenIndexSequence : GenIndexSequence<N-1, N-1, S...> { };
+
+template <std::size_t ...S>
+struct GenIndexSequence<0, S...>
+{
+    using type = IndexSequence<S...>;
+};
+} // namespace internal
+
+
+//------------------------------------------------------------------------------
+/** Pre-C++14 substitute for std::make_index_sequence. */
+//------------------------------------------------------------------------------
+template <std::size_t N>
+using MakeIndexSequence = typename internal::GenIndexSequence<N>::type;
+
+//------------------------------------------------------------------------------
+/** Pre-C++14 substitute for std::index_sequence_for. */
+//------------------------------------------------------------------------------
+template <typename... Ts>
+using IndexSequenceFor = MakeIndexSequence<sizeof...(Ts)>;
 
 } // namespace wamp
 

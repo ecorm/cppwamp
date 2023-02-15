@@ -22,34 +22,20 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// The !isSameType is required because std::vector<bool>::const_reference may
-// or may not just be bool.
-template <typename T>
-using EnableIfBoolRef = EnableIf<isBool<T>() && !isSameType<T, bool>()>;
-
-template <typename T, typename U>
-constexpr bool bothAreNumbers() {return isNumber<T>() && isNumber<U>();}
-
-template <typename T, typename U>
-using EnableIfBothAreNumbers = EnableIf<bothAreNumbers<T, U>()>;
-
-template <typename T, typename U>
-using DisableIfBothAreNumbers = DisableIf<bothAreNumbers<T, U>()>;
-
-template <typename T>
-using DisableIfVariant = DisableIf<isSameType<T, Variant>()>;
-
-template <typename TFrom, typename TTo>
-using EnableIfConvertible = EnableIf<std::is_convertible<TFrom,TTo>::value>;
-
-template <typename TFrom, typename TTo>
-using DisableIfConvertible = DisableIf<std::is_convertible<TFrom,TTo>::value>;
-
-
-//------------------------------------------------------------------------------
 template <typename TVariant>
 class VariantEquivalentTo : public Visitor<bool>
 {
+private:
+    template <typename T>
+    static constexpr bool isBoolProxy()
+    {
+        // The !isSameType is required because std::vector<bool>::const_reference
+        // may or may not just be bool.
+        return !isSameType<T, bool>() &&
+               (isSameType<T, std::vector<bool>::reference>() ||
+                isSameType<T, std::vector<bool>::const_reference>());
+    }
+
 public:
     using ArrayType = typename TVariant::Array;
     using ObjectType = typename TVariant::Object;
@@ -60,27 +46,20 @@ public:
         return lhs == rhs;
     }
 
-    template <typename TArg, EnableIfBoolRef<TArg> = 0>
+    template <typename TArg, Needs<isBoolProxy<TArg>()> = 0>
     bool operator()(const bool lhs, const TArg rhs) const
     {
         return lhs == bool(rhs);
     }
 
-    template <typename TField, typename TArg,
-              DisableIfBothAreNumbers<TField,TArg> = 0>
-    bool operator()(const TField&, const TArg&) const {return false;}
-
-    template <typename TField, typename TArg,
-              EnableIfBothAreNumbers<TField,TArg> = 0>
-    bool operator()(const TField lhs, const TArg rhs) const
+    template <typename TField, typename TArg>
+    bool operator()(const TField& lhs, const TArg& rhs) const
     {
-        // Avoid directly comparing mixed signed/unsigned numbers
-        using LhsIsSigned = typename std::is_signed<TField>;
-        using RhsIsSigned = typename std::is_signed<TArg>;
-        return compareNumbers(LhsIsSigned(), RhsIsSigned(), lhs, rhs);
+        using BothAreNumbers = MetaBool<isNumber<TField>() && isNumber<TArg>()>;
+        return compare(BothAreNumbers{}, lhs, rhs);
     }
 
-    template <typename TElem, DisableIfVariant<TElem> = 0>
+    template <typename TElem, Needs<!isSameType<TElem, Variant>()> = 0>
     bool operator()(const ArrayType& lhs, const std::vector<TElem>& rhs) const
     {
         using VecConstRef = typename std::vector<TElem>::const_reference;
@@ -93,7 +72,7 @@ public:
                               {return lElem == rElem;});
     }
 
-    template <typename TValue, DisableIfVariant<TValue> = 0>
+    template <typename TValue, Needs<!isSameType<TValue, Variant>()> = 0>
     bool operator()(const ObjectType& lhs,
                     const std::map<String, TValue>& rhs) const
     {
@@ -110,6 +89,21 @@ public:
     }
 
 private:
+    template <typename TField, typename TArg>
+    static bool compare(FalseType, const TField&, const TArg&)
+    {
+        return false;
+    }
+
+    template <typename TField, typename TArg>
+    static bool compare(TrueType, const TField& lhs, const TArg& rhs)
+    {
+        // Avoid directly comparing mixed signed/unsigned numbers
+        using LhsIsSigned = typename std::is_signed<TField>;
+        using RhsIsSigned = typename std::is_signed<TArg>;
+        return compareNumbers(LhsIsSigned(), RhsIsSigned(), lhs, rhs);
+    }
+
     template <typename TField, typename TArg>
     static bool compareNumbers(FalseType, FalseType,
                                const TField lhs, const TArg rhs)
@@ -149,6 +143,17 @@ private:
 template <typename TVariant>
 class VariantNotEquivalentTo : public Visitor<bool>
 {
+private:
+    template <typename T>
+    static constexpr bool isBoolProxy()
+    {
+        // The !isSameType is required because std::vector<bool>::const_reference
+        // may or may not just be bool.
+        return !isSameType<T, bool>() &&
+               (isSameType<T, std::vector<bool>::reference>() ||
+                isSameType<T, std::vector<bool>::const_reference>());
+    }
+
 public:
     using ArrayType = typename TVariant::Array;
     using ObjectType = typename TVariant::Object;
@@ -157,25 +162,18 @@ public:
     bool operator()(const TField& lhs, const TField& rhs) const
     {return lhs != rhs;}
 
-    template <typename TArg, EnableIfBoolRef<TArg> = 0>
+    template <typename TArg, Needs<isBoolProxy<TArg>()> = 0>
     bool operator()(const bool lhs, const TArg rhs) const
     {return lhs != rhs;}
 
-    template <typename TField, typename TArg,
-             DisableIfBothAreNumbers<TField,TArg> = 0>
-    bool operator()(const TField&, const TArg&) const {return true;}
-
-    template <typename TField, typename TArg,
-             EnableIfBothAreNumbers<TField,TArg> = 0>
-    bool operator()(TField lhs, TArg rhs) const
+    template <typename TField, typename TArg>
+    bool operator()(const TField& lhs, const TArg& rhs) const
     {
-        // Avoid directly comparing mixed signed/unsigned numbers
-        using LhsIsSigned = typename std::is_signed<TField>;
-        using RhsIsSigned = typename std::is_signed<TArg>;
-        return compareNumbers(LhsIsSigned(), RhsIsSigned(), lhs, rhs);
+        using BothAreNumbers = MetaBool<isNumber<TField>() && isNumber<TArg>()>;
+        return compare(BothAreNumbers{}, lhs, rhs);
     }
 
-    template <typename TElem, DisableIfVariant<TElem> = 0>
+    template <typename TElem, Needs<!isSameType<TElem, Variant>()> = 0>
     bool operator()(const ArrayType& lhs, const std::vector<TElem>& rhs) const
     {
         using VecConstRef = typename std::vector<TElem>::const_reference;
@@ -188,7 +186,7 @@ public:
                                  {return lElem == rElem;}).first != lhs.cend();
     }
 
-    template <typename TValue, DisableIfVariant<TValue> = 0>
+    template <typename TValue, Needs<!isSameType<TValue, Variant>()> = 0>
     bool operator()(const ObjectType& lhs,
                     const std::map<String, TValue>& rhs) const
     {
@@ -208,6 +206,21 @@ public:
     }
 
 private:
+    template <typename TField, typename TArg>
+    static bool compare(FalseType, const TField&, const TArg&)
+    {
+        return true;
+    }
+
+    template <typename TField, typename TArg>
+    static bool compare(TrueType, const TField& lhs, const TArg& rhs)
+    {
+        // Avoid directly comparing mixed signed/unsigned numbers
+        using LhsIsSigned = typename std::is_signed<TField>;
+        using RhsIsSigned = typename std::is_signed<TArg>;
+        return compareNumbers(LhsIsSigned(), RhsIsSigned(), lhs, rhs);
+    }
+
     template <typename TField, typename TArg>
     static bool compareNumbers(FalseType, FalseType,
                                const TField lhs, const TArg rhs)
@@ -258,18 +271,14 @@ public:
     template <typename TField>
     bool operator()(const TField&, Tag<TField>) const {return true;}
 
-    // Implicit conversions
-    template <typename TField, typename TResult,
-             internal::EnableIfConvertible<TField,TResult> = 0>
-    bool operator()(const TField&, Tag<TResult>) const {return true;}
-
-    // Invalid conversions
-    template <typename TField, typename TResult,
-             internal::DisableIfConvertible<TField,TResult> = 0>
-    bool operator()(const TField&, Tag<TResult>) const {return false;}
+    template <typename TField, typename TResult>
+    bool operator()(const TField&, Tag<TResult>) const
+    {
+        return std::is_convertible<TField, TResult>::value;
+    }
 
     // Vector conversions
-    template <typename TElem, internal::DisableIfVariant<TElem> = 0>
+    template <typename TElem, Needs<!isSameType<TElem, Variant>()> = 0>
     bool operator()(const ArrayType& from, Tag<std::vector<TElem>>) const
     {
         if (from.empty())
@@ -284,7 +293,7 @@ public:
     }
 
     // Map conversions
-    template <typename TValue, internal::DisableIfVariant<TValue> = 0>
+    template <typename TValue, Needs<!isSameType<TValue, Variant>()> = 0>
     bool operator()(const ObjectType& from, Tag<std::map<String, TValue>>) const
     {
         if (from.empty())
@@ -311,27 +320,14 @@ public:
     template <typename TField>
     void operator()(const TField& from, TField& to) const {to = from;}
 
-    // Implicit conversions
-    template <typename TField, typename TResult,
-             internal::EnableIfConvertible<TField,TResult> = 0>
+    template <typename TField, typename TResult>
     void operator()(const TField& from, TResult& to) const
     {
-        to = static_cast<TResult>(from);
-    }
-
-    // Invalid conversions
-    template <typename TField, typename TResult,
-             internal::DisableIfConvertible<TField,TResult> = 0>
-    void operator()(const TField&, TResult&) const
-    {
-        throw error::Conversion(
-            "wamp::error::Conversion: Invalid conversion "
-            "from " + FieldTraits<TField>::typeName() +
-            " to " + ArgTraits<TResult>::typeName());
+        convert(std::is_convertible<TField, TResult>{}, from, to);
     }
 
     // Vector conversions
-    template <typename TElem, internal::DisableIfVariant<TElem> = 0>
+    template <typename TElem, Needs<!isSameType<TElem, Variant>()> = 0>
     void operator()(const ArrayType& from, std::vector<TElem>& to) const
     {
         TElem toElem;
@@ -352,7 +348,7 @@ public:
     }
 
     // Map conversions
-    template <typename TValue, internal::DisableIfVariant<TValue> = 0>
+    template <typename TValue, Needs<!isSameType<TValue, Variant>()> = 0>
     void operator()(const ObjectType& from, std::map<String, TValue>& to) const
     {
         TValue toValue;
@@ -371,6 +367,22 @@ public:
             }
             to.emplace(fromKv.first, std::move(toValue));
         }
+    }
+
+private:
+    template <typename TField, typename TResult>
+    static void convert(TrueType, const TField& from, TResult& to)
+    {
+        to = static_cast<TResult>(from);
+    }
+
+    template <typename TField, typename TResult>
+    static void convert(FalseType, const TField& from, TResult& to)
+    {
+        throw error::Conversion(
+            "wamp::error::Conversion: Invalid conversion "
+            "from " + FieldTraits<TField>::typeName() +
+            " to " + ArgTraits<TResult>::typeName());
     }
 };
 

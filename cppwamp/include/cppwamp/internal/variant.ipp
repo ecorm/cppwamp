@@ -144,16 +144,26 @@ public:
         return leftField < rightField;
     }
 
-    template <typename TLeft, typename TRight,
-             internal::DisableIfBothAreNumbers<TLeft,TRight> = 0>
-    bool operator()(const TLeft&, const TRight&) const
+    template <typename TLeft, typename TRight>
+    bool operator()(TLeft lhs, TRight rhs) const
+    {
+        using BothAreNumbers = MetaBool<isNumber<TLeft>() &&
+                                        isNumber<TRight>()>;
+        return compare(BothAreNumbers{}, lhs, rhs);
+    }
+
+    // TODO: Lexicographic compare with std::vector<T>
+    // TODO: Lexicographic compare with std::map<K,T>
+
+private:
+    template <typename TLeft, typename TRight>
+    static bool compare(FalseType, const TLeft&, const TRight&)
     {
         return FieldTraits<TLeft>::typeId < FieldTraits<TRight>::typeId;
     }
 
-    template <typename TLeft, typename TRight,
-             internal::EnableIfBothAreNumbers<TLeft,TRight> = 0>
-    bool operator()(TLeft lhs, TRight rhs) const
+    template <typename TLeft, typename TRight>
+    static bool compare(TrueType, const TLeft& lhs, const TRight& rhs)
     {
         // Avoid directly comparing mixed signed/unsigned numbers
         using LhsIsSigned = typename std::is_signed<TLeft>;
@@ -161,7 +171,6 @@ public:
         return compareNumbers(LhsIsSigned(), RhsIsSigned(), lhs, rhs);
     }
 
-private:
     template <typename TLeft, typename TRight>
     static bool compareNumbers(FalseType, FalseType,
                                const TLeft lhs, const TRight rhs)

@@ -116,7 +116,7 @@ template <>
 struct OutputTraits<MessageBuffer> { using Sink = BufferSink; };
 
 template <typename S>
-struct OutputTraits<S, EnableIf<std::is_base_of<std::ostream, S>::value, void>>
+struct OutputTraits<S, Needs<std::is_base_of<std::ostream, S>::value, void>>
 {
     using Sink = StreamSink;
 };
@@ -238,7 +238,7 @@ template <>
 struct InputTraits<MessageBuffer> { using Source = BufferSource; };
 
 template <typename S>
-struct InputTraits<S, EnableIf<std::is_base_of<std::istream, S>::value, void>>
+struct InputTraits<S, Needs<std::is_base_of<std::istream, S>::value, void>>
 {
     using Source = StreamSource;
 };

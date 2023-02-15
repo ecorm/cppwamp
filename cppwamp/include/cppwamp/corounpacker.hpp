@@ -16,6 +16,7 @@
 #include <exception>
 #include <boost/version.hpp>
 #include "spawn.hpp"
+#include "traits.hpp"
 #include "unpacker.hpp"
 #include "internal/callee.hpp"
 
@@ -53,10 +54,10 @@ public:
     void operator()(Event event) const;
 
 private:
-    template <int... Seq> struct Spawned;
+    template <std::size_t... Seq> struct Spawned;
 
-    template <int... S>
-    void invoke(Event&& event, internal::IntegerSequence<S...>) const;
+    template <std::size_t... S>
+    void invoke(Event&& event, IndexSequence<S...>) const;
 
     Slot slot_;
 };
@@ -111,10 +112,10 @@ public:
     void operator()(Event event) const;
 
 private:
-    template <int... Seq> struct Spawned;
+    template <std::size_t... Seq> struct Spawned;
 
-    template <int... S>
-    void invoke(Event&& event, internal::IntegerSequence<S...>) const;
+    template <std::size_t... S>
+    void invoke(Event&& event, IndexSequence<S...>) const;
 
     Slot slot_;
 };
@@ -168,10 +169,10 @@ public:
     Outcome operator()(Invocation inv) const;
 
 private:
-    template <int... Seq> class Spawned;
+    template <std::size_t... Seq> class Spawned;
 
-    template <int... S>
-    void invoke(Invocation&& inv, internal::IntegerSequence<S...>) const;
+    template <std::size_t... S>
+    void invoke(Invocation&& inv, IndexSequence<S...>) const;
 
     Slot slot_;
 };
@@ -231,16 +232,14 @@ public:
     Outcome operator()(Invocation inv) const;
 
 private:
-    template <int... Seq> struct SpawnedWithVoid;
-    template <int... Seq> struct SpawnedWithResult;
+    template <std::size_t... Seq> struct SpawnedWithVoid;
+    template <std::size_t... Seq> struct SpawnedWithResult;
 
-    template <int... S>
-    void invoke(TrueType, Invocation&& inv,
-                internal::IntegerSequence<S...>) const;
+    template <std::size_t... S>
+    void invoke(TrueType, Invocation&& inv, IndexSequence<S...>) const;
 
-    template <int... S>
-    void invoke(FalseType, Invocation&& inv,
-                internal::IntegerSequence<S...>) const;
+    template <std::size_t... S>
+    void invoke(FalseType, Invocation&& inv, IndexSequence<S...>) const;
 
     Slot slot_;
 };
@@ -336,15 +335,13 @@ void CoroEventUnpacker<S,A...>::operator()(Event event) const
         throw internal::UnpackCoroError().withArgs(oss.str());
     }
 
-    // Use the integer parameter pack technique shown in
-    // http://stackoverflow.com/a/7858971/245265
-    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
+    using Seq = IndexSequenceFor<A...>;
     invoke(std::move(event), Seq());
 }
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-template <int... Seq>
+template <std::size_t... Seq>
 struct CoroEventUnpacker<S,A...>::Spawned
 {
     Slot slot;
@@ -371,9 +368,9 @@ struct CoroEventUnpacker<S,A...>::Spawned
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-template <int... Seq>
+template <std::size_t... Seq>
 void CoroEventUnpacker<S,A...>::invoke(Event&& event,
-                                       internal::IntegerSequence<Seq...>) const
+                                       IndexSequence<Seq...>) const
 {
     auto ex = boost::asio::get_associated_executor(slot_, event.executor());
     internal::unpackedSpawn(ex, Spawned<Seq...>{slot_, std::move(event)});
@@ -410,15 +407,12 @@ void SimpleCoroEventUnpacker<S,A...>::operator()(Event event) const
         throw internal::UnpackCoroError().withArgs(oss.str());
     }
 
-    // Use the integer parameter pack technique shown in
-    // http://stackoverflow.com/a/7858971/245265
-    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
-    invoke(std::move(event), Seq());
+    invoke(std::move(event), IndexSequenceFor<A...>{});
 }
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-template <int... Seq>
+template <std::size_t... Seq>
 struct SimpleCoroEventUnpacker<S,A...>::Spawned
 {
     Slot slot;
@@ -444,10 +438,9 @@ struct SimpleCoroEventUnpacker<S,A...>::Spawned
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-template <int... Seq>
-void
-SimpleCoroEventUnpacker<S,A...>::invoke(Event&& event,
-                                       internal::IntegerSequence<Seq...>) const
+template <std::size_t... Seq>
+void SimpleCoroEventUnpacker<S,A...>::invoke(Event&& event,
+                                             IndexSequence<Seq...>) const
 {
     auto ex = boost::asio::get_associated_executor(slot_, event.executor());
     internal::unpackedSpawn(ex, Spawned<Seq...>{slot_, std::move(event)});
@@ -494,17 +487,14 @@ Outcome CoroInvocationUnpacker<S,A...>::operator()(Invocation inv) const
         throw internal::UnpackCoroError().withArgs(oss.str());
     }
 
-    // Use the integer parameter pack technique shown in
-    // http://stackoverflow.com/a/7858971/245265
-    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
-    invoke(std::move(inv), Seq());
+    invoke(std::move(inv), IndexSequenceFor<A...>{});
 
     return deferment;
 }
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-template <int... Seq>
+template <std::size_t... Seq>
 class CoroInvocationUnpacker<S,A...>::Spawned
 {
 public:
@@ -580,10 +570,9 @@ private:
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-template <int... Seq>
-void
-CoroInvocationUnpacker<S,A...>::invoke(Invocation&& inv,
-                                       internal::IntegerSequence<Seq...>) const
+template <std::size_t... Seq>
+void CoroInvocationUnpacker<S,A...>::invoke(Invocation&& inv,
+                                             IndexSequence<Seq...>) const
 {
     auto ex = boost::asio::get_associated_executor(slot_, inv.executor());
     internal::unpackedSpawn(ex, Spawned<Seq...>{slot_, std::move(inv)});
@@ -621,18 +610,15 @@ SimpleCoroInvocationUnpacker<S,R,A...>::operator()(Invocation inv) const
         throw internal::UnpackCoroError().withArgs(oss.str());
     }
 
-    // Use the integer parameter pack technique shown in
-    // http://stackoverflow.com/a/7858971/245265
-    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
-    using IsVoidResult = MetaBool<std::is_same<ResultType, void>::value>;
-    invoke(IsVoidResult{}, std::move(inv), Seq());
+    invoke(std::is_void<ResultType>{}, std::move(inv),
+           IndexSequenceFor<A...>{});
 
     return deferment;
 }
 
 //------------------------------------------------------------------------------
 template <typename S, typename R, typename... A>
-template <int... Seq>
+template <std::size_t... Seq>
 struct SimpleCoroInvocationUnpacker<S,R,A...>::SpawnedWithVoid
 {
     Slot slot;
@@ -662,7 +648,7 @@ struct SimpleCoroInvocationUnpacker<S,R,A...>::SpawnedWithVoid
 
 //------------------------------------------------------------------------------
 template <typename S, typename R, typename... A>
-template <int... Seq>
+template <std::size_t... Seq>
 struct SimpleCoroInvocationUnpacker<S,R,A...>::SpawnedWithResult
 {
     Slot slot;
@@ -693,9 +679,9 @@ struct SimpleCoroInvocationUnpacker<S,R,A...>::SpawnedWithResult
 
 //------------------------------------------------------------------------------
 template <typename S, typename R, typename... A>
-template <int... Seq>
+template <std::size_t... Seq>
 void SimpleCoroInvocationUnpacker<S,R,A...>::invoke(
-    TrueType, Invocation&& inv, internal::IntegerSequence<Seq...>) const
+    TrueType, Invocation&& inv, IndexSequence<Seq...>) const
 {
     auto ex = boost::asio::get_associated_executor(slot_, inv.executor());
     internal::unpackedSpawn(ex, SpawnedWithVoid<Seq...>{slot_, std::move(inv)});
@@ -703,9 +689,9 @@ void SimpleCoroInvocationUnpacker<S,R,A...>::invoke(
 
 //------------------------------------------------------------------------------
 template <typename S, typename R, typename... A>
-template <int... Seq>
+template <std::size_t... Seq>
 void SimpleCoroInvocationUnpacker<S,R,A...>::invoke(
-    FalseType, Invocation&& inv, internal::IntegerSequence<Seq...>) const
+    FalseType, Invocation&& inv, IndexSequence<Seq...>) const
 {
     auto ex = boost::asio::get_associated_executor(slot_, inv.executor());
     internal::unpackedSpawn(ex, SpawnedWithResult<Seq...>{slot_,

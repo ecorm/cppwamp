@@ -14,10 +14,9 @@
 //------------------------------------------------------------------------------
 
 #include <sstream>
-#include <type_traits>
 #include "../api.hpp"
 #include "../variant.hpp"
-#include "../internal/integersequence.hpp"
+#include "../traits.hpp"
 
 namespace wamp
 {
@@ -141,9 +140,9 @@ int fromTupleElement(Array& array, const std::tuple<Ts...>& tuple)
     return 0;
 }
 
-template <typename... Ts, int ...Seq>
+template <typename... Ts, std::size_t... Seq>
 void convertToTuple(const Array& array, std::tuple<Ts...>& tuple,
-                    internal::IntegerSequence<Seq...>)
+                    IndexSequence<Seq...>)
 {
     if (array.size() != sizeof...(Ts))
         throw error::Conversion("Cannot convert variant array to tuple; "
@@ -152,9 +151,9 @@ void convertToTuple(const Array& array, std::tuple<Ts...>& tuple,
     (void)swallow{0, toTupleElement<Seq>(array, tuple)...};
 }
 
-template <typename... Ts, int ...Seq>
+template <typename... Ts, std::size_t... Seq>
 void convertFromTuple(Array& array, const std::tuple<Ts...>& tuple,
-                      internal::IntegerSequence<Seq...>)
+                      IndexSequence<Seq...>)
 {
     array.reserve(sizeof...(Ts));
     using swallow = int[]; // Guarantees left-to-right evaluation
@@ -163,18 +162,18 @@ void convertFromTuple(Array& array, const std::tuple<Ts...>& tuple,
 
 //------------------------------------------------------------------------------
 template <std::size_t N, typename... Ts>
-using EnableIfTupleElement = EnableIf<N != sizeof...(Ts)>;
+using NeedsTupleElement = Needs<N != sizeof...(Ts)>;
 
 template <std::size_t N, typename... Ts>
-using EnableIfTupleEnd = EnableIf<N == sizeof...(Ts)>;
+using NeedsTupleEnd = Needs<N == sizeof...(Ts)>;
 
-template <std::size_t N = 0, typename... Ts, EnableIfTupleEnd<N, Ts...> = 0>
+template <std::size_t N = 0, typename... Ts, NeedsTupleEnd<N, Ts...> = 0>
 bool equalsTuple(const Array&, const std::tuple<Ts...>&)
 {
     return true;
 }
 
-template <std::size_t N = 0, typename... Ts, EnableIfTupleElement<N, Ts...> = 0>
+template <std::size_t N = 0, typename... Ts, NeedsTupleElement<N, Ts...> = 0>
 bool equalsTuple(const Array& array, const std::tuple<Ts...>& tuple)
 {
     const auto& arrayElem = array.at(N);
@@ -184,13 +183,13 @@ bool equalsTuple(const Array& array, const std::tuple<Ts...>& tuple)
 }
 
 //------------------------------------------------------------------------------
-template <std::size_t N = 0, typename... Ts, EnableIfTupleEnd<N, Ts...> = 0>
+template <std::size_t N = 0, typename... Ts, NeedsTupleEnd<N, Ts...> = 0>
 bool notEqualsTuple(const Array&, const std::tuple<Ts...>&)
 {
     return false;
 }
 
-template <std::size_t N = 0, typename... Ts, EnableIfTupleElement<N, Ts...> = 0>
+template <std::size_t N = 0, typename... Ts, NeedsTupleElement<N, Ts...> = 0>
 bool notEqualsTuple(const Array& array, const std::tuple<Ts...>& tuple)
 {
     const auto& arrayElem = array.at(N);
@@ -210,17 +209,15 @@ bool notEqualsTuple(const Array& array, const std::tuple<Ts...>& tuple)
 template <typename... Ts>
 void toTuple(const wamp::Variant::Array& array, std::tuple<Ts...>& tuple)
 {
-    using Seq = typename internal::GenIntegerSequence<sizeof...(Ts)>::type;
-    convertToTuple(array, tuple, Seq());
+    internal::convertToTuple(array, tuple, IndexSequenceFor<Ts...>{});
 }
 
 //------------------------------------------------------------------------------
 template <typename... Ts>
 wamp::Variant::Array toArray(const std::tuple<Ts...>& tuple)
 {
-    using Seq = typename internal::GenIntegerSequence<sizeof...(Ts)>::type;
     Array array;
-    convertFromTuple(array, tuple, Seq());
+    internal::convertFromTuple(array, tuple, IndexSequenceFor<Ts...>{});
     return array;
 }
 

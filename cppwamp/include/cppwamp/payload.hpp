@@ -20,7 +20,7 @@
 #include <utility>
 #include "api.hpp"
 #include "options.hpp"
-#include "internal/integersequence.hpp"
+#include "traits.hpp"
 
 namespace wamp
 {
@@ -99,9 +99,9 @@ private:
     template <typename T, typename... Ts>
     CPPWAMP_HIDDEN static void bundle(Array& array, T&& head, Ts&&... tail);
 
-    template <typename TTuple, int... Seq>
+    template <typename TTuple, std::size_t... Seq>
     CPPWAMP_HIDDEN static Array
-    bundleFromTuple(TTuple&& tuple, internal::IntegerSequence<Seq...>);
+    bundleFromTuple(TTuple&& tuple, IndexSequence<Seq...>);
 
     CPPWAMP_HIDDEN static void unbundleTo(const Array&, size_t&);
 
@@ -160,8 +160,7 @@ template <typename D, typename M>
 template <typename... Ts>
 D& Payload<D,M>::withArgsTuple(const std::tuple<Ts...>& tuple)
 {
-    using Seq = typename internal::GenIntegerSequence<sizeof...(Ts)>::type;
-    return withArgList(bundleFromTuple(tuple, Seq{}));
+    return withArgList(bundleFromTuple(tuple, IndexSequenceFor<Ts...>{}));
 }
 
 //------------------------------------------------------------------------------
@@ -356,9 +355,8 @@ void Payload<D,M>::bundle(Array& array, T&& head, Ts&&... tail)
 
 //------------------------------------------------------------------------------
 template <typename D, typename M>
-template <typename TTuple, int... Seq>
-Array Payload<D,M>::bundleFromTuple(TTuple&& tuple,
-                                    internal::IntegerSequence<Seq...>)
+template <typename TTuple, std::size_t... Seq>
+Array Payload<D,M>::bundleFromTuple(TTuple&& tuple, IndexSequence<Seq...>)
 {
     return Array{Variant::from(std::get<Seq>(std::forward<TTuple>(tuple)))...};
 }

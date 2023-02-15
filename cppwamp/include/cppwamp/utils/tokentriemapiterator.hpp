@@ -16,9 +16,9 @@
 #include <functional>
 #include <iterator>
 #include <tuple>
-#include <type_traits>
 #include <utility>
 #include "tokentriemapnode.hpp"
+#include "../traits.hpp"
 
 namespace wamp
 {
@@ -79,12 +79,12 @@ public:
     TokenTrieMapIterator() {}
 
     /** Conversion from mutable iterator to const iterator. */
-    template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
+    template <bool M, CPPWAMP_NEEDS(!IsMutable && M) = 0>
     TokenTrieMapIterator(const TokenTrieMapIterator<N, M>& rhs)
         : cursor_(rhs.cursor()) {}
 
     /** Assignment from mutable iterator to const iterator. */
-    template <bool M, typename std::enable_if<!IsMutable && M, int>::type = 0>
+    template <bool M, CPPWAMP_NEEDS(!IsMutable && M) = 0>
     TokenTrieMapIterator& operator=(const TokenTrieMapIterator<N, M>& rhs)
         {cursor_ = rhs.cursor_; return *this;}
 

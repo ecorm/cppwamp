@@ -18,7 +18,6 @@
 #include "api.hpp"
 #include "peerdata.hpp"
 #include "traits.hpp"
-#include "./internal/integersequence.hpp"
 
 namespace wamp
 {
@@ -57,8 +56,8 @@ public:
     void operator()(Event event) const;
 
 private:
-    template <int ...S>
-    void invoke(Event&& event, internal::IntegerSequence<S...>) const;
+    template <std::size_t... S>
+    void invoke(Event&& event, IndexSequence<S...>) const;
 
     Slot slot_;
 };
@@ -107,9 +106,8 @@ public:
     void operator()(Event event) const;
 
 private:
-    template <int ...S>
-    CPPWAMP_HIDDEN void invoke(Event&& event,
-                               internal::IntegerSequence<S...>) const;
+    template <std::size_t... S>
+    CPPWAMP_HIDDEN void invoke(Event&& event, IndexSequence<S...>) const;
 
     Slot slot_;
 };
@@ -157,9 +155,8 @@ public:
     Outcome operator()(Invocation inv) const;
 
 private:
-    template <int ...S>
-    CPPWAMP_HIDDEN Outcome invoke(Invocation&& inv,
-                                  internal::IntegerSequence<S...>) const;
+    template <std::size_t... S>
+    CPPWAMP_HIDDEN Outcome invoke(Invocation&& inv, IndexSequence<S...>) const;
 
     Slot slot_;
 };
@@ -213,13 +210,11 @@ public:
     Outcome operator()(Invocation inv) const;
 
 private:
-    template <int ...S>
-    Outcome invoke(TrueType, Invocation&& inv,
-                   internal::IntegerSequence<S...>) const;
+    template <std::size_t... S>
+    Outcome invoke(TrueType, Invocation&& inv, IndexSequence<S...>) const;
 
-    template <int ...S>
-    Outcome invoke(FalseType, Invocation&& inv,
-                   internal::IntegerSequence<S...>) const;
+    template <std::size_t... S>
+    Outcome invoke(FalseType, Invocation&& inv, IndexSequence<S...>) const;
 
     Slot slot_;
 };
@@ -285,15 +280,13 @@ void EventUnpacker<S,A...>::operator()(Event event) const
 
     // Use the integer parameter pack technique shown in
     // http://stackoverflow.com/a/7858971/245265
-    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
-    invoke(std::move(event), Seq());
+    invoke(std::move(event), IndexSequenceFor<A...>{});
 }
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-template <int ...Seq>
-void EventUnpacker<S,A...>::invoke(Event&& event,
-                                   internal::IntegerSequence<Seq...>) const
+template <std::size_t... Seq>
+void EventUnpacker<S,A...>::invoke(Event&& event, IndexSequence<Seq...>) const
 {
     std::tuple<ValueTypeOf<A>...> args;
 
@@ -342,15 +335,14 @@ void SimpleEventUnpacker<S,A...>::operator()(Event event) const
 
     // Use the integer parameter pack technique shown in
     // http://stackoverflow.com/a/7858971/245265
-    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
-    invoke(std::move(event), Seq());
+    invoke(std::move(event), IndexSequenceFor<A...>{});
 }
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-template <int ...Seq>
+template <std::size_t... Seq>
 void SimpleEventUnpacker<S,A...>::invoke(Event&& event,
-                                         internal::IntegerSequence<Seq...>) const
+                                          IndexSequence<Seq...>) const
 {
     std::tuple<ValueTypeOf<A>...> args;
 
@@ -407,16 +399,15 @@ Outcome InvocationUnpacker<S,A...>::operator()(Invocation inv) const
 
     // Use the integer parameter pack technique shown in
     // http://stackoverflow.com/a/7858971/245265
-    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
-    return invoke(std::move(inv), Seq());
+    return invoke(std::move(inv), IndexSequenceFor<A...>{});
 }
 
 //------------------------------------------------------------------------------
 template <typename S, typename... A>
-template <int ...Seq>
+template <std::size_t... Seq>
 Outcome
 InvocationUnpacker<S,A...>::invoke(Invocation&& inv,
-                                   internal::IntegerSequence<Seq...>) const
+                                   IndexSequence<Seq...>) const
 {
     std::tuple<ValueTypeOf<A>...> args;
 
@@ -463,18 +454,15 @@ Outcome SimpleInvocationUnpacker<S,R,A...>::operator()(Invocation inv) const
         throw internal::UnpackError().withArgs(oss.str());
     }
 
-    // Use the integer parameter pack technique shown in
-    // http://stackoverflow.com/a/7858971/245265
-    using Seq = typename internal::GenIntegerSequence<sizeof...(A)>::type;
-    using IsVoidResult = MetaBool<std::is_same<ResultType, void>::value>;
-    return invoke(IsVoidResult{}, std::move(inv), Seq());
+    return invoke(std::is_void<ResultType>{}, std::move(inv),
+                  IndexSequenceFor<A...>{});
 }
 
 //------------------------------------------------------------------------------
 template <typename S, typename R, typename... A>
-template <int ...Seq>
+template <std::size_t... Seq>
 Outcome SimpleInvocationUnpacker<S,R,A...>::invoke(
-    TrueType, Invocation&& inv, internal::IntegerSequence<Seq...>) const
+    TrueType, Invocation&& inv, IndexSequence<Seq...>) const
 {
     std::tuple<ValueTypeOf<A>...> args;
 
@@ -493,9 +481,9 @@ Outcome SimpleInvocationUnpacker<S,R,A...>::invoke(
 
 //------------------------------------------------------------------------------
 template <typename S, typename R, typename... A>
-template <int ...Seq>
+template <std::size_t... Seq>
 Outcome SimpleInvocationUnpacker<S,R,A...>::invoke(
-    FalseType, Invocation&& inv, internal::IntegerSequence<Seq...>) const
+    FalseType, Invocation&& inv, IndexSequence<Seq...>) const
 {
     std::tuple<ValueTypeOf<A>...> args;
 

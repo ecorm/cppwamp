@@ -18,7 +18,6 @@
 #include <functional>
 #include <utility>
 #include <tuple>
-#include <type_traits>
 #include <boost/asio/any_completion_executor.hpp>
 #include <boost/asio/any_completion_handler.hpp>
 #include <boost/asio/associated_allocator.hpp>
@@ -29,6 +28,7 @@
 #include <boost/asio/defer.hpp>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/post.hpp>
+#include "traits.hpp"
 
 namespace wamp
 {
@@ -70,8 +70,8 @@ private:
     static constexpr bool fnConstructible() noexcept
     {
         using Decayed = typename std::decay<F>::type;
-        return !std::is_same<Decayed, AnyReusableHandler>::value &&
-               !std::is_same<Decayed, std::nullptr_t>::value &&
+        return !isSameType<Decayed, AnyReusableHandler>() &&
+               !isSameType<Decayed, std::nullptr_t>() &&
                std::is_constructible<Function, F>::value;
     }
 
@@ -108,8 +108,7 @@ public:
         Participates in overload resolution when
         `std::is_constructible_v<std::function<TSignature>, std::function<S>>`
         is true. */
-    template <typename S,
-              typename std::enable_if<otherConstructible<S>(), int>::type = 0>
+    template <typename S, CPPWAMP_NEEDS(otherConstructible<S>()) = 0>
     AnyReusableHandler(const AnyReusableHandler<S>& rhs)
         : executor_(rhs.executor_),
           handler_(rhs.handler_)
@@ -120,8 +119,7 @@ public:
         Participates in overload resolution when
         `std::is_constructible_v<std::function<TSignature>, std::function<S>>`
         is true. */
-    template <typename S,
-              typename std::enable_if<otherConstructible<S>(), int>::type = 0>
+    template <typename S, CPPWAMP_NEEDS(otherConstructible<S>()) = 0>
     AnyReusableHandler(AnyReusableHandler<S>&& rhs) noexcept
         : executor_(std::move(rhs.executor_)),
           handler_(std::move(rhs.handler_))
@@ -133,8 +131,7 @@ public:
            false, and,
         - `std::is_same_v<std::decay_t<F>, std::nullptr_t` is false, and,
         - `std::is_constructible_v<std::function<TSignature>, F>` is true. */
-    template <typename F,
-              typename std::enable_if<fnConstructible<F>(), int>::type = 0>
+    template <typename F, CPPWAMP_NEEDS(fnConstructible<F>()) = 0>
     AnyReusableHandler(F&& handler)
         : executor_(boost::asio::get_associated_executor(
                         handler, AnyCompletionExecutor{})),

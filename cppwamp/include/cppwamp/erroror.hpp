@@ -56,7 +56,7 @@ public:
     const error_type&& value() const&& noexcept { return std::move(error_); }
 
     /** Swaps contents with another UnexpectedError. */
-    void swap(Unexpected& other) noexcept(std::is_nothrow_swappable<E>::value)
+    void swap(Unexpected& other) noexcept(isNothrowSwappable<E>())
     {
         using std::swap;
         swap(error_, other.error_);
@@ -189,8 +189,7 @@ public:
     }
 
     /** Swap contents with another instance. */
-    void swap(ErrorOr& rhs)
-        noexcept(std::is_nothrow_swappable<value_type>::value)
+    void swap(ErrorOr& rhs) noexcept(isNothrowSwappable<value_type>())
     {
         using std::swap;
         swap(value_, rhs.value_);

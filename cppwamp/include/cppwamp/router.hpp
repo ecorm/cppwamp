@@ -56,7 +56,7 @@ public:
     explicit Router(Executor exec, RouterConfig config = {});
 
     /** Constructor taking an execution context. */
-    template <typename E, EnableIf<isExecutionContext<E>()> = 0>
+    template <typename E, CPPWAMP_NEEDS(isExecutionContext<E>()) = 0>
     explicit Router(E& context, RouterConfig config = {})
         : Router(context.get_executor(), std::move(config))
     {}

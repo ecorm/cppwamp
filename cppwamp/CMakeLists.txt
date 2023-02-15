@@ -70,7 +70,6 @@ set(HEADERS
     include/cppwamp/internal/client.hpp
     include/cppwamp/internal/dealer.hpp
     include/cppwamp/internal/endian.hpp
-    include/cppwamp/internal/integersequence.hpp
     include/cppwamp/internal/jsonencoding.hpp
     include/cppwamp/internal/localsessionimpl.hpp
     include/cppwamp/internal/messagetraits.hpp

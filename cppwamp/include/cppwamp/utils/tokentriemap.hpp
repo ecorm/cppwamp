@@ -84,12 +84,6 @@ private:
     using Impl = internal::TokenTrieMapImpl<K, T, C, A>;
     using Node = typename Impl::Node;
 
-    template <typename KV>
-    static constexpr bool isInsertable()
-    {
-        return std::is_constructible<value_type, KV&&>::value;
-    }
-
 public:
     /// Split token container type used as the key.
     using key_type = K;
@@ -335,8 +329,9 @@ public:
     /** Inserts an element.
         Only participates in overload resolution if
         `std::is_constructible_v<value_type, P&&> == true` */
-    template <typename KV,
-              typename std::enable_if<isInsertable<KV>(), int>::type = 0>
+    template <
+        typename KV,
+        CPPWAMP_NEEDS((std::is_constructible<value_type, KV&&>::value)) = 0>
     insert_result insert(KV&& kv)
     {
         value_type pair(std::forward<KV>(kv));

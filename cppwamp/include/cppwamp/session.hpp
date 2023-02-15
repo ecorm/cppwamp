@@ -175,13 +175,14 @@ public:
     Session(const Executor& exec, FallbackExecutor fallbackExec);
 
     /** Constructor taking an execution context. */
-    template <typename E, EnableIf<isExecutionContext<E>()> = 0>
+    template <typename E, CPPWAMP_NEEDS(isExecutionContext<E>()) = 0>
     explicit Session(E& context) : Session(context.get_executor()) {}
 
     /** Constructor taking an I/O execution context and another as fallback
         for user-provided handlers. */
     template <typename E1, typename E2,
-             EnableIf<isExecutionContext<E1>() && isExecutionContext<E2>()> = 0>
+              CPPWAMP_NEEDS(isExecutionContext<E1>() &&
+                            isExecutionContext<E2>()) = 0>
     explicit Session(E1& executionContext, E2& fallbackExecutionContext)
         : Session(executionContext.get_executor(),
                   fallbackExecutionContext.get_executor())

@@ -206,7 +206,7 @@ public:
     Variant(Variant&& other) noexcept;
 
     /** Converting constructor taking an initial value. */
-    template <typename T, CPPWAMP_ENABLE_IF(Variant::isValidArg<T>()) = 0>
+    template <typename T, CPPWAMP_NEEDS(Variant::isValidArg<T>()) = 0>
     Variant(T value);
 
     /** Converting constructor taking an initial Array value. */
@@ -371,34 +371,34 @@ private:
     // Can't be hidden; invoked from inline operator=(T)
     void destruct();
 
-    template <typename T, EnableIf<Variant::isValidArg<T>()> = 0>
+    template <typename T, Needs<Variant::isValidArg<T>()> = 0>
     CPPWAMP_HIDDEN static Variant convertFrom(T&& value);
 
-    template <typename T, EnableIf<Variant::isInvalidArg<T>()> = 0>
+    template <typename T, Needs<Variant::isInvalidArg<T>()> = 0>
     CPPWAMP_HIDDEN static Variant convertFrom(const T& value);
 
-    template <typename T, EnableIf<Variant::isVariantArg<T>()> = 0>
+    template <typename T, Needs<Variant::isVariantArg<T>()> = 0>
     CPPWAMP_HIDDEN static Variant convertFrom(const T& variant);
 
-    template <typename T, EnableIf<Variant::isInvalidArg<T>()> = 0>
+    template <typename T, Needs<Variant::isInvalidArg<T>()> = 0>
     CPPWAMP_HIDDEN static Variant convertFrom(const std::vector<T>& vec);
 
-    template <typename T, EnableIf<Variant::isInvalidArg<T>()> = 0>
+    template <typename T, Needs<Variant::isInvalidArg<T>()> = 0>
     CPPWAMP_HIDDEN static Variant convertFrom(const std::map<String, T>& map);
 
-    template <typename T, EnableIf<Variant::isValidArg<T>()> = 0>
+    template <typename T, Needs<Variant::isValidArg<T>()> = 0>
     CPPWAMP_HIDDEN void convertTo(T& value) const;
 
-    template <typename T, EnableIf<Variant::isInvalidArg<T>()> = 0>
+    template <typename T, Needs<Variant::isInvalidArg<T>()> = 0>
     CPPWAMP_HIDDEN void convertTo(T& value) const;
 
-    template <typename T, EnableIf<Variant::isVariantArg<T>()> = 0>
+    template <typename T, Needs<Variant::isVariantArg<T>()> = 0>
     CPPWAMP_HIDDEN void convertTo(T& variant) const;
 
-    template <typename T, EnableIf<Variant::isInvalidArg<T>()> = 0>
+    template <typename T, Needs<Variant::isInvalidArg<T>()> = 0>
     CPPWAMP_HIDDEN void convertTo(std::vector<T>& vec) const;
 
-    template <typename T, EnableIf<Variant::isInvalidArg<T>()> = 0>
+    template <typename T, Needs<Variant::isInvalidArg<T>()> = 0>
     CPPWAMP_HIDDEN void convertTo(std::map<String, T>& map) const;
 
     template <typename TField, typename V>
@@ -705,7 +705,7 @@ private:
       and `convertFrom` member functions. */
 //------------------------------------------------------------------------------
 template <typename TConverter, typename TValue,
-         DisableIf<std::is_enum<TValue>::value> = 0>
+          Needs<!std::is_enum<TValue>::value> = 0>
 CPPWAMP_API inline void convert(TConverter& c, TValue& val)
 {
     // Fall back to intrusive conversion if 'convert' was not specialized
@@ -716,7 +716,7 @@ CPPWAMP_API inline void convert(TConverter& c, TValue& val)
 //------------------------------------------------------------------------------
 /** Converts an integer variant to an enumerator. */
 //------------------------------------------------------------------------------
-template <typename TEnum, EnableIf<std::is_enum<TEnum>::value> = 0>
+template <typename TEnum, Needs<std::is_enum<TEnum>::value> = 0>
 CPPWAMP_API inline void convert(const FromVariantConverter& c, TEnum& e)
 {
     using U = typename std::underlying_type<TEnum>::type;
@@ -727,7 +727,7 @@ CPPWAMP_API inline void convert(const FromVariantConverter& c, TEnum& e)
 //------------------------------------------------------------------------------
 /** Converts an enumerator to an integer variant. */
 //------------------------------------------------------------------------------
-template <typename TEnum, EnableIf<std::is_enum<TEnum>::value> = 0>
+template <typename TEnum, Needs<std::is_enum<TEnum>::value> = 0>
 CPPWAMP_API inline void convert(ToVariantConverter& c, const TEnum& e)
 {
     using U = typename std::underlying_type<TEnum>::type;
@@ -754,7 +754,7 @@ Variant Variant::from(TValue&& value)
     @tparam T (Deduced) Value type which must be convertible to a bound type.
     @post `*this == value` */
 //------------------------------------------------------------------------------
-template <typename T, CPPWAMP_ENABLE_IF(Variant::isValidArg<T>())>
+template <typename T, CPPWAMP_NEEDS(Variant::isValidArg<T>())>
 Variant::Variant(T value)
 {
     static_assert(ArgTraits<T>::isValid, "Invalid argument type");
@@ -983,14 +983,14 @@ template <typename TField> void Variant::destructAs()
 }
 
 //------------------------------------------------------------------------------
-template <typename T, EnableIf<Variant::isValidArg<T>()>>
+template <typename T, Needs<Variant::isValidArg<T>()>>
 Variant Variant::convertFrom(T&& value)
 {
     return Variant(std::forward<T>(value));
 }
 
 //------------------------------------------------------------------------------
-template <typename T, EnableIf<Variant::isInvalidArg<T>()>>
+template <typename T, Needs<Variant::isInvalidArg<T>()>>
 Variant Variant::convertFrom(const T& value)
 {
     Variant v;
@@ -1000,14 +1000,14 @@ Variant Variant::convertFrom(const T& value)
 }
 
 //------------------------------------------------------------------------------
-template <typename T, EnableIf<Variant::isVariantArg<T>()>>
+template <typename T, Needs<Variant::isVariantArg<T>()>>
 Variant Variant::convertFrom(const T& variant)
 {
     return variant;
 }
 
 //------------------------------------------------------------------------------
-template <typename T, EnableIf<Variant::isInvalidArg<T>()>>
+template <typename T, Needs<Variant::isInvalidArg<T>()>>
 Variant Variant::convertFrom(const std::vector<T>& vec)
 {
     Variant::Array array;
@@ -1017,7 +1017,7 @@ Variant Variant::convertFrom(const std::vector<T>& vec)
 }
 
 //------------------------------------------------------------------------------
-template <typename T, EnableIf<Variant::isInvalidArg<T>()>>
+template <typename T, Needs<Variant::isInvalidArg<T>()>>
 Variant Variant::convertFrom(const std::map<String, T>& map)
 {
     Variant::Object object;
@@ -1027,14 +1027,14 @@ Variant Variant::convertFrom(const std::map<String, T>& map)
 }
 
 //------------------------------------------------------------------------------
-template <typename T, EnableIf<Variant::isValidArg<T>()>>
+template <typename T, Needs<Variant::isValidArg<T>()>>
 void Variant::convertTo(T& value) const
 {
     applyWithOperand(internal::VariantConvertTo<Variant>(), *this, value);
 }
 
 //------------------------------------------------------------------------------
-template <typename T, EnableIf<Variant::isInvalidArg<T>()>>
+template <typename T, Needs<Variant::isInvalidArg<T>()>>
 void Variant::convertTo(T& value) const
 {
     FromVariantConverter conv(*this);
@@ -1042,14 +1042,14 @@ void Variant::convertTo(T& value) const
 }
 
 //------------------------------------------------------------------------------
-template <typename T, EnableIf<Variant::isVariantArg<T>()>>
+template <typename T, Needs<Variant::isVariantArg<T>()>>
 void Variant::convertTo(T& variant) const
 {
     variant = *this;
 }
 
 //------------------------------------------------------------------------------
-template <typename T, EnableIf<Variant::isInvalidArg<T>()>>
+template <typename T, Needs<Variant::isInvalidArg<T>()>>
 void Variant::convertTo(std::vector<T>& vec) const
 {
     const auto& array = this->as<Array>();
@@ -1062,7 +1062,7 @@ void Variant::convertTo(std::vector<T>& vec) const
 }
 
 //------------------------------------------------------------------------------
-template <typename T, EnableIf<Variant::isInvalidArg<T>()>>
+template <typename T, Needs<Variant::isInvalidArg<T>()>>
 void Variant::convertTo(std::map<String, T>& map) const
 {
     const auto& object = this->as<Object>();

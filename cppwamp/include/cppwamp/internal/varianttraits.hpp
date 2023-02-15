@@ -129,7 +129,7 @@ template <> struct ArgTraits<Null>
 };
 
 template <typename TField>
-struct ArgTraits<TField, EnableIf<isBool<TField>()>>
+struct ArgTraits<TField, Needs<isBoolLike<TField>()>>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "Bool";}
@@ -137,7 +137,7 @@ struct ArgTraits<TField, EnableIf<isBool<TField>()>>
 };
 
 template <typename TField>
-struct ArgTraits<TField, EnableIf<isSignedInteger<TField>()>>
+struct ArgTraits<TField, Needs<isSignedInteger<TField>()>>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "[signed integer]";}
@@ -145,7 +145,7 @@ struct ArgTraits<TField, EnableIf<isSignedInteger<TField>()>>
 };
 
 template <typename TField>
-struct ArgTraits<TField, EnableIf<isUnsignedInteger<TField>()>>
+struct ArgTraits<TField, Needs<isUnsignedInteger<TField>()>>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "[unsigned integer]";}
@@ -153,7 +153,7 @@ struct ArgTraits<TField, EnableIf<isUnsignedInteger<TField>()>>
 };
 
 template <typename TField>
-struct ArgTraits<TField, EnableIf<std::is_floating_point<TField>::value>>
+struct ArgTraits<TField, Needs<std::is_floating_point<TField>::value>>
 {
     static constexpr bool isValid   = true;
     static String typeName()        {return "[floating point]";}
@@ -211,7 +211,7 @@ template <> struct ArgTraits<Array>
 };
 
 template <typename TElem>
-struct ArgTraits<std::vector<TElem>, DisableIf<isSameType<TElem,Variant>()>>
+struct ArgTraits<std::vector<TElem>, Needs<!isSameType<TElem,Variant>()>>
 {
     static constexpr bool isValid   = ArgTraits<TElem>::isValid;
     static String typeName()        {return "std::vector<" +
@@ -228,7 +228,7 @@ template <> struct ArgTraits<Object>
 
 template <typename TValue>
 struct ArgTraits<std::map<String, TValue>,
-                 DisableIf<isSameType<TValue, Variant>()>>
+                 Needs<!isSameType<TValue, Variant>()>>
 {
     static constexpr bool isValid   = ArgTraits<TValue>::isValid;
     static String typeName()        {return "std::map<String, "
