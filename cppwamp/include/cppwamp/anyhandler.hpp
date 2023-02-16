@@ -288,18 +288,18 @@ struct BindFallbackExecutorResult
     using AE = typename boost::asio::associated_executor<HT, None>::type;
     using Missing = std::is_same<AE, None>;
     using FB = boost::asio::executor_binder<HT, F>;
-    using Type = typename std::conditional<Missing::value, FB, H&&>::type;
+    using Type = Conditional<Missing::value, FB, H&&>;
 };
 
 template <typename H, typename F>
 typename BindFallbackExecutorResult<H, F>::FB
-doBindFallbackExecutor(std::true_type, H&& handler, const F& fallbackExec)
+doBindFallbackExecutor(TrueType, H&& handler, const F& fallbackExec)
 {
     return boost::asio::bind_executor(std::forward<H>(handler), fallbackExec);
 }
 
 template <typename H, typename F>
-H&& doBindFallbackExecutor(std::false_type, H&& handler, const F&)
+H&& doBindFallbackExecutor(FalseType, H&& handler, const F&)
 {
     return std::forward<H>(handler);
 }

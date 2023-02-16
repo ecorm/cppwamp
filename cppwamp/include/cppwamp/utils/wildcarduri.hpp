@@ -207,8 +207,7 @@ public:
     using Value = typename C::mapped_type;
 
     /// Reference to the mapped value type being visited.
-    using Reference = typename std::conditional<C::is_mutable(), Value&,
-                                                const Value&>::type;
+    using Reference = Conditional<C::is_mutable(), Value&, const Value&>;
 
     /** Default constructor. */
     WildcardMatcher(Key key, Cursor root, Cursor sentinel);

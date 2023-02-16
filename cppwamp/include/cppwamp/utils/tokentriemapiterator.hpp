@@ -50,24 +50,21 @@ public:
     using mapped_type = typename N::mapped_type;
 
     /// Reference type to the value being iterated over.
-    using mapped_reference =
-        typename std::conditional<IsMutable, mapped_type&,
-                                  const mapped_type&>::type;
+    using mapped_reference = Conditional<IsMutable, mapped_type&,
+                                         const mapped_type&>;
 
     /** Key-value pair type. */
     using value_type = std::pair<const key_type, mapped_type>;
 
     /// Pointer type to the key-value pair being iterated over.
-    using pointer =
-        typename std::conditional<IsMutable, typename N::element_pointer,
-                                  typename N::const_element_pointer>::type;
+    using pointer = Conditional<IsMutable, typename N::element_pointer,
+                                typename N::const_element_pointer>;
 
     /// Pointer type to the immutable key-value pair being iterated over.
     using const_pointer = typename N::const_element_pointer;
 
     /// Reference type to the key-value pair being iterated over.
-    using reference = typename std::conditional<IsMutable, value_type&,
-                                                const value_type&>::type;
+    using reference = Conditional<IsMutable, value_type&, const value_type&>;
 
     /// Reference type to the immutable key-value pair being iterated over.
     using const_reference = const value_type&;

@@ -322,21 +322,21 @@ private:
     using PassKey = typename Node::PassKey;
 
     template <typename TSelf>
-    void copyAssign(std::true_type, const TSelf& rhs)
+    void copyAssign(TrueType, const TSelf& rhs)
     {
         TokenTrieMapImpl temp(rhs, rhs.alloc_);
-        moveAssign(std::true_type{}, temp);
+        moveAssign(TrueType{}, temp);
     }
 
     template <typename TSelf>
-    void copyAssign(std::false_type, const TSelf& rhs)
+    void copyAssign(FalseType, const TSelf& rhs)
     {
         TokenTrieMapImpl temp(rhs, alloc_);
-        moveAssign(std::false_type{}, temp);
+        moveAssign(FalseType{}, temp);
     }
 
     template <typename TSelf>
-    void moveAssign(std::true_type, TSelf& rhs)
+    void moveAssign(TrueType, TSelf& rhs)
     {
         size_ = rhs.size_;
         comp_ = std::move(rhs.comp_);
@@ -345,7 +345,7 @@ private:
     }
 
     template <typename TSelf>
-    void moveAssign(std::false_type, TSelf& rhs)
+    void moveAssign(FalseType, TSelf& rhs)
     {
         comp_ = std::move(rhs.comp_);
         if (alloc_ == rhs.alloc_)
@@ -379,7 +379,7 @@ private:
     }
 
     template <typename TSelf>
-    void doSwap(std::true_type, TSelf& other)
+    void doSwap(TrueType, TSelf& other)
     {
         using std::swap;
         swap(alloc_, other.alloc_);
@@ -393,7 +393,7 @@ private:
     }
 
     template <typename TSelf>
-    void doSwap(std::false_type, TSelf& other)
+    void doSwap(FalseType, TSelf& other)
     {
         if (alloc_ == other.alloc_)
         {
@@ -416,8 +416,8 @@ private:
         {
             TokenTrieMapImpl thisTemp(*this, other.alloc_);
             TokenTrieMapImpl otherTemp(other, alloc_);
-            moveAssign(std::true_type{}, otherTemp);
-            other.moveAssign(std::true_type{}, thisTemp);
+            moveAssign(TrueType{}, otherTemp);
+            other.moveAssign(TrueType{}, thisTemp);
         }
     }
 

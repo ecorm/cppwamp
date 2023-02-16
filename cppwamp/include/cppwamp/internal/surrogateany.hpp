@@ -36,16 +36,16 @@ class SurrogateAny;
 struct AnyReqs
 {
     template <typename T, template <typename...> class Template>
-    struct isSpecialization : std::false_type {};
+    struct isSpecialization : FalseType {};
 
     template <template <typename...> class Template, typename... Args>
-    struct isSpecialization<Template<Args...>, Template> : std::true_type {};
+    struct isSpecialization<Template<Args...>, Template> : TrueType {};
 
     template <typename T>
-    struct IsInPlaceType : std::false_type {};
+    struct IsInPlaceType : FalseType {};
 
     template <typename T>
-    struct IsInPlaceType<in_place_type_t<T>> : std::true_type {};
+    struct IsInPlaceType<in_place_type_t<T>> : TrueType {};
 
     template <typename T>
     static constexpr bool in_place_type() {return IsInPlaceType<T>::value;}

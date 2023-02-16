@@ -11,8 +11,7 @@
 #include <vector>
 #include <jsoncons/json_encoder.hpp>
 #include <jsoncons/json_parser.hpp>
-#include "../api.hpp"
-#include "base64.hpp"
+#include "../traits.hpp"
 #include "jsonencoding.hpp"
 #include "variantdecoding.hpp"
 #include "variantencoding.hpp"
@@ -104,10 +103,9 @@ public:
 
 private:
     using Output = typename TSink::Output;
-    using ImplSink = typename std::conditional<
-            isSameType<TSink, StreamSink>(),
-            jsoncons::stream_sink<char>,
-            jsoncons::string_sink<Output>>::type;
+    using ImplSink = Conditional<isSameType<TSink, StreamSink>(),
+                                 jsoncons::stream_sink<char>,
+                                 jsoncons::string_sink<Output>>;
 
     internal::JsonEncoderImpl<ImplSink> encoderImpl_;
 };

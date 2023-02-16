@@ -93,12 +93,6 @@ constexpr bool isUnsignedInteger()
 }
 
 //------------------------------------------------------------------------------
-/** Metafunction that obtains the Nth type of a parameter pack. */
-//------------------------------------------------------------------------------
-template<int N, typename... Ts> using NthTypeOf =
-    typename std::tuple_element<N, std::tuple<Ts...>>::type;
-
-//------------------------------------------------------------------------------
 /** Equivalent to std::bool_constant provided in C++17. */
 //------------------------------------------------------------------------------
 template <bool B>
@@ -107,12 +101,19 @@ using MetaBool = std::integral_constant<bool, B>;
 //------------------------------------------------------------------------------
 /** Equivalent to std::true_type. */
 //------------------------------------------------------------------------------
-using TrueType = MetaBool<true>;
+using TrueType = std::true_type;
 
 //------------------------------------------------------------------------------
 /** Equivalent to std::false_type. */
 //------------------------------------------------------------------------------
-using FalseType = MetaBool<false>;
+using FalseType = std::false_type;
+
+
+//------------------------------------------------------------------------------
+/** Pre C++14 substitute for std::conditional_t. */
+//------------------------------------------------------------------------------
+template <bool B, typename T, typename F>
+using Conditional = typename std::conditional<B, T, F>::type;
 
 
 namespace internal

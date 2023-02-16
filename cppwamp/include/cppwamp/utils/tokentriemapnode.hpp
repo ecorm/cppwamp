@@ -370,13 +370,11 @@ public:
     using const_tree_view_type = TreeView<typename N::tree_type, false>;
 
     /** Reference to a mapped value. */
-    using reference = typename std::conditional<IsMutable, mapped_type&,
-                                                const mapped_type&>::type;
+    using reference = Conditional<IsMutable, mapped_type&, const mapped_type&>;
 
     /** Reference to a key-value pair. */
-    using element_reference =
-        typename std::conditional<IsMutable, element_type&,
-                                  const element_type&>::type;
+    using element_reference = Conditional<IsMutable, element_type&,
+                                          const element_type&>;
 
     /** Iterator type which advances through a tree's child nodes in a
         breath-first manner (non-recursive). */
@@ -384,13 +382,10 @@ public:
 
     /** Iterator type which advances through a tree's child nodes in a
         breath-first manner (non-recursive). */
-    using iterator =
-        typename std::conditional<
-            IsMutable,
-            typename node_type::tree_type::iterator,
-            const_iterator>::type;
-    using node_pointer = typename std::conditional<IsMutable, node_type*,
-                                                   const node_type*>::type;
+    using iterator = Conditional<IsMutable,
+                                 typename node_type::tree_type::iterator,
+                                 const_iterator>;
+    using node_pointer = Conditional<IsMutable, node_type*, const node_type*>;
 
     /** True if this cursor allows mapped values to be modified. */
     static constexpr bool is_mutable() {return IsMutable;}
@@ -603,8 +598,7 @@ public:
     }
 
 private:
-    using NodeRef = typename std::conditional<IsMutable, node_type&,
-                                              const node_type&>::type;
+    using NodeRef = Conditional<IsMutable, node_type&, const node_type&>;
     using KeyComp = typename node_type::key_compare;
 
     static TokenTrieMapCursor begin(NodeRef rootNode)

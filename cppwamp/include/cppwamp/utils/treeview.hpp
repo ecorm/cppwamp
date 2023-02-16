@@ -48,8 +48,8 @@ public:
     using tree_type = TTree;
 
     /// Pointer to a tree to be wrapped.
-    using tree_pointer = typename std::conditional<IsMutable, tree_type*,
-                                                   const tree_type*>::type;
+    using tree_pointer = Conditional<IsMutable, tree_type*, const tree_type*>;
+
     /// Type used as a key within the tree.
     using key_type = typename tree_type::key_type;
 
@@ -69,26 +69,21 @@ public:
     using key_compare = typename tree_type::key_compare;
 
     /// Reference to a key-value pair.
-    using reference = typename std::conditional<IsMutable, value_type&,
-                                                const value_type&>::type;
+    using reference = Conditional<IsMutable, value_type&, const value_type&>;
 
     /// Reference to an immutable key-value pair.
     using const_reference = const value_type&;
 
     /// Pointer to key-value pair
-    using pointer = typename std::conditional<
-        IsMutable,
-        typename tree_type::pointer,
-        typename tree_type::const_pointer>;
+    using pointer = Conditional<IsMutable, typename tree_type::pointer,
+                                typename tree_type::const_pointer>;
 
     /// Pointer to an immutable key-value pair
     using const_pointer = typename tree_type::const_pointer;
 
     /** Tree iterator type. */
-    using iterator = typename std::conditional<
-        IsMutable,
-        typename tree_type::iterator,
-        typename tree_type::const_iterator>::type;
+    using iterator = Conditional<IsMutable, typename tree_type::iterator,
+                                 typename tree_type::const_iterator>;
 
     /** Immutable tree iterator type. */
     using const_iterator = typename tree_type::const_iterator;
@@ -268,8 +263,7 @@ public:
     friend void swap(TreeView& a, TreeView& b) noexcept {a.swap(b);}
 
 private:
-    using TreeRef = typename std::conditional<IsMutable, tree_type&,
-                                              const tree_type&>::type;
+    using TreeRef = Conditional<IsMutable, tree_type&, const tree_type&>;
 
     TreeRef tree() {assert(tree_ != nullptr); return *tree_;}
 

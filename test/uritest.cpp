@@ -39,7 +39,7 @@ private:
 public:
     using value_type = T;
     using pointer = typename AllocTraits::pointer;
-    using is_always_equal = std::false_type;
+    using is_always_equal = FalseType;
     using propagate_on_container_copy_assignment =
         typename AllocTraits::propagate_on_container_copy_assignment;
     using propagate_on_container_move_assignment =

@@ -111,11 +111,11 @@ private:
 
     template <size_t I, typename... Ts>
     CPPWAMP_HIDDEN static size_t unbundleToTuple(
-        const Array&, std::tuple<Ts...>& tuple, std::true_type);
+        const Array&, std::tuple<Ts...>& tuple, TrueType);
 
     template <size_t I, typename... Ts>
     CPPWAMP_HIDDEN static size_t unbundleToTuple(
-        const Array&, std::tuple<Ts...>& tuple, std::false_type);
+        const Array&, std::tuple<Ts...>& tuple, FalseType);
 
     CPPWAMP_HIDDEN static void unbundleAs(Array&, size_t&);
 
@@ -125,11 +125,11 @@ private:
 
     template <size_t I, typename... Ts>
     CPPWAMP_HIDDEN static size_t unbundleAsTuple(
-        const Array&, std::tuple<Ts...>& tuple, std::true_type);
+        const Array&, std::tuple<Ts...>& tuple, TrueType);
 
     template <size_t I, typename... Ts>
     CPPWAMP_HIDDEN static size_t unbundleAsTuple(
-        const Array&, std::tuple<Ts...>& tuple, std::false_type);
+        const Array&, std::tuple<Ts...>& tuple, FalseType);
 };
 
 
@@ -392,11 +392,11 @@ void Payload<D,M>::unbundleTo(const Array& array, size_t& index, T& head,
 template <typename D, typename M>
 template <size_t I, typename... Ts>
 size_t Payload<D,M>::unbundleToTuple(
-    const Array& array, std::tuple<Ts...>& tuple, std::true_type)
+    const Array& array, std::tuple<Ts...>& tuple, TrueType)
 {
     if (I < array.size())
     {
-        using T = NthTypeOf<I, Ts...>;
+        using T = typename std::tuple_element<I, std::tuple<Ts...>>::type;
         try
         {
             std::get<I>(tuple) = array[I].to<T>();
@@ -418,7 +418,7 @@ size_t Payload<D,M>::unbundleToTuple(
 template <typename D, typename M>
 template <size_t I, typename... Ts>
 size_t Payload<D,M>::unbundleToTuple(
-    const Array& array, std::tuple<Ts...>& tuple, std::false_type)
+    const Array& array, std::tuple<Ts...>& tuple, FalseType)
 {
     return I;
 }
@@ -451,11 +451,11 @@ void Payload<D,M>::unbundleAs(Array& array, size_t& index, T& head, Ts&... tail)
 template <typename D, typename M>
 template <size_t I, typename... Ts>
 size_t Payload<D,M>::unbundleAsTuple(
-    const Array& array, std::tuple<Ts...>& tuple, std::true_type)
+    const Array& array, std::tuple<Ts...>& tuple, TrueType)
 {
     if (I < array.size())
     {
-        using T = NthTypeOf<I, Ts...>;
+        using T = typename std::tuple_element<I, std::tuple<Ts...>>::type;
         auto& arg = array[I];
         if (!arg.template is<T>())
         {
@@ -475,7 +475,7 @@ size_t Payload<D,M>::unbundleAsTuple(
 template <typename D, typename M>
 template <size_t I, typename... Ts>
 size_t Payload<D,M>::unbundleAsTuple(
-    const Array& array, std::tuple<Ts...>& tuple, std::false_type)
+    const Array& array, std::tuple<Ts...>& tuple, FalseType)
 {
     return I;
 }

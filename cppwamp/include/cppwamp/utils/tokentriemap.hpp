@@ -31,7 +31,7 @@ namespace utils
 //------------------------------------------------------------------------------
 struct TokenTrieMapDefaultOrdering
 {
-    using is_transparent = std::true_type;
+    using is_transparent = TrueType;
 
     template <typename L, typename R>
     bool operator()(const L& lhs, const R& rhs) const {return lhs < rhs;}
