@@ -405,6 +405,22 @@ CPPWAMP_INLINE std::string errorCodeToUri(std::error_code ec)
            std::to_string(ec.value());
 }
 
+//------------------------------------------------------------------------------
+/** The format is `<category>:<value>`. */
+//-----------------------------------------------------------------------------
+CPPWAMP_INLINE std::string briefErrorCodeString(std::error_code ec)
+{
+    return std::string{ec.category().name()} + ':' + std::to_string(ec.value());
+}
+
+//------------------------------------------------------------------------------
+/** The format is `<category>:<value> (<message>)`. */
+//-----------------------------------------------------------------------------
+CPPWAMP_INLINE std::string detailedErrorCodeString(std::error_code ec)
+{
+    return std::string{ec.category().name()} + ':' +
+           std::to_string(ec.value()) + " (" + ec.message() + ')';
+}
 
 //------------------------------------------------------------------------------
 // Deserialization Error Codes

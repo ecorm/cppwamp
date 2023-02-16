@@ -713,6 +713,7 @@ private:
 
     void trace(WampMsgType type, const Array& fields, const char* label)
     {
+        // TODO: Make entire string JSON and keep original message intact
         if (isTerminating_ || (logLevel() > LogLevel::trace))
             return;
 

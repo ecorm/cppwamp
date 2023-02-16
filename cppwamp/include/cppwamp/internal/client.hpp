@@ -1248,8 +1248,8 @@ private:
         {
             std::ostringstream oss;
             oss << "JOIN request aborted by peer with error URI=" << uri;
-            if (!reply.as<Object>(1).empty())
-                oss << ", Details=" << reply.at(1);
+            if (!abortMsg.options().empty())
+                oss << ", Details=" << abortMsg.options();
             log(LogLevel::error, oss.str());
         }
 
@@ -1350,10 +1350,12 @@ private:
         if (logLevel() <= LogLevel::error)
         {
             std::ostringstream oss;
-            oss << "EVENT handler reported an error: "
-                << e.args()
-                << " (with subId=" << subId
-                << " pubId=" << pubId << ")";
+            oss << "EVENT handler reported an error with URI=" << e.uri();
+            if (!e.args().empty())
+                oss << ", with Args=" << e.args();
+            if (!e.kwargs().empty())
+                oss << ", with ArgsKv=" << e.kwargs();
+            oss << " (with subId=" << subId << ", pubId=" << pubId << ")";
             log(LogLevel::error, oss.str());
         }
     }

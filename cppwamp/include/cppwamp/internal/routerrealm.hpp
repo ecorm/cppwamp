@@ -133,15 +133,24 @@ private:
     {
         if (auth.error())
         {
-            auto ec = make_error_code(WampErrc::authorizationFailed);
-            std::ostringstream oss;
-            oss << ec << " (" << ec.message() << ')';
-            Error error{{}, reqType, rid, ec, {{"message", oss.str()}}};
-            s.sendError(std::move(error), logOnly);
+            if (auth.error() == WampErrc::notAuthorized ||
+                auth.error() == WampErrc::authorizationFailed ||
+                auth.error() == WampErrc::discloseMeDisallowed)
+            {
+                Error error{{}, reqType, rid, auth.error()};
+                s.sendError(std::move(error), logOnly);
+            }
+            else
+            {
+                auto ec = make_error_code(WampErrc::authorizationFailed);
+                auto error = Error({}, reqType, rid, ec)
+                                 .withArgs(briefErrorCodeString(auth.error()),
+                                           auth.error().message());
+                s.sendError(std::move(error), logOnly);
+            }
             return false;
         }
-
-        if (!auth.allowed())
+        else if (!auth.allowed())
         {
             s.sendError(reqType, rid, WampErrc::notAuthorized, logOnly);
             return false;
@@ -151,23 +160,30 @@ private:
     }
 
     template <typename TData>
-    static void setDisclosed(TData& data, DisclosureRule realmRule,
-                             const Authorization& authentication)
+    static std::error_code setDisclosed(TData& data, DisclosureRule realmRule,
+                                        const Authorization& authentication)
     {
         auto rule = authentication.disclosure();
         rule = (rule == DisclosureRule::preset) ? realmRule : rule;
-        setDisclosed(data, rule);
+        return setDisclosed(data, rule);
     }
 
     template <typename TData>
-    static void setDisclosed(TData& data, DisclosureRule rule)
+    static std::error_code setDisclosed(TData& data, DisclosureRule rule)
     {
+        using DR = DisclosureRule;
         bool disclosed = data.discloseMe();
-        if (rule == DisclosureRule::off)
+
+        bool isStrict = rule == DR::strictConceal || rule == DR::strictReveal;
+        if (disclosed && isStrict)
+            return make_error_code(WampErrc::discloseMeDisallowed);
+
+        if (rule == DR::conceal || rule == DR::strictConceal)
             disclosed = false;
-        if (rule == DisclosureRule::on)
+        if (rule == DR::reveal || rule == DR::strictReveal)
             disclosed = true;
         data.setDisclosed({}, disclosed);
+        return {};
     }
 
     RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
@@ -332,14 +348,19 @@ private:
             {
                 auto rid = p.requestId({});
                 bool ack = p.optionOr<bool>("acknowledge", false);
-                setDisclosed(p, self->config_.publisherDisclosure());
+                auto ec = setDisclosed(p, self->config_.publisherDisclosure());
+                if (ec)
+                    return s->sendError(WampMsgType::publish, rid, ec, !ack);
+
                 auto result = self->broker_.publish(s, std::move(p));
-                if (ack)
+                if (result)
                 {
-                    if (result)
+                    if (ack)
                         s->sendPublished(rid, *result);
-                    else
-                        s->sendError(WampMsgType::publish, rid, result);
+                }
+                else
+                {
+                    s->sendError(WampMsgType::publish, rid, result, !ack);
                 }
             }
         };
@@ -355,14 +376,20 @@ private:
                     return;
                 if (a.hasTrustLevel())
                     p.setTrustLevel({}, a.trustLevel());
-                setDisclosed(p, self->config_.publisherDisclosure(), a);
+                auto rule = self->config_.publisherDisclosure();
+                auto ec = setDisclosed(p, rule, a);
+                if (ec)
+                    return s->sendError(WampMsgType::publish, rid, ec, !ack);
+
                 auto result = self->broker_.publish(s, std::move(p));
-                if (ack)
+                if (result)
                 {
-                    if (result)
+                    if (ack)
                         s->sendPublished(rid, *result);
-                    else
-                        s->sendError(WampMsgType::publish, rid, result);
+                }
+                else
+                {
+                    s->sendError(WampMsgType::publish, rid, result, !ack);
                 }
             }
         };
@@ -443,7 +470,9 @@ private:
             void operator()()
             {
                 auto rid = r.requestId({});
-                setDisclosed(r, self->config_.callerDisclosure());
+                auto ec = setDisclosed(r, self->config_.callerDisclosure());
+                if (ec)
+                    s->sendError(WampMsgType::call, rid, ec);
                 auto result = self->dealer_.call(s, std::move(r));
                 if (!result)
                     s->sendError(WampMsgType::call, rid, result);
@@ -460,7 +489,9 @@ private:
                     return;
                 if (a.hasTrustLevel())
                     r.setTrustLevel({}, a.trustLevel());
-                setDisclosed(r, self->config_.callerDisclosure(), a);
+                auto ec = setDisclosed(r, self->config_.callerDisclosure(), a);
+                if (ec)
+                    s->sendError(WampMsgType::call, rid, ec);
                 auto result = self->dealer_.call(s, std::move(r));
                 if (!result)
                     s->sendError(WampMsgType::call, rid, result);

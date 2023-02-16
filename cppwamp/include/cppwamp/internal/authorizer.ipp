@@ -13,6 +13,13 @@ namespace wamp
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Authorization::Authorization(bool allowed) : allowed_(allowed) {}
 
+/** If WampErrc::notAuthorized, WampErrc::authorizationFailed, or
+    WampErrc::discloseMeDisallowed is passed, their corresponding URI shall be
+    used in the ERROR message returned to the client. Otherwise, the error
+    URI shall be `wamp.error.authorization_failed` and the ERROR message will
+    contain two positional arguments:
+    - A string formatted as `<ec.category().name()>:<ec.value()`
+    - A string containing `ec.message()` */
 CPPWAMP_INLINE Authorization::Authorization(std::error_code ec) : error_(ec) {}
 
 CPPWAMP_INLINE Authorization& Authorization::withTrustLevel(TrustLevel tl)

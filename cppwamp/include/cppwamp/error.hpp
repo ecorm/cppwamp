@@ -189,6 +189,17 @@ CPPWAMP_API bool errorUriToCode(const std::string& uri, Errc fallback,
 //-----------------------------------------------------------------------------
 CPPWAMP_API const std::string& errorCodeToUri(Errc errc);
 
+//------------------------------------------------------------------------------
+/** Converts an error code to a string containing the category and number. */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::string briefErrorCodeString(std::error_code ec);
+
+//------------------------------------------------------------------------------
+/** Converts an error to a string containing the category, number, and
+    associated message. */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::string detailedErrorCodeString(std::error_code ec);
+
 
 //******************************************************************************
 // WAMP Protocol Error Codes

@@ -155,7 +155,7 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
     Action action, RequestId r, std::string target, Object options,
     std::error_code ec)
     : AccessActionInfo(action, r, std::move(target), std::move(options),
-                       toErrorUri(ec))
+                       errorCodeToUri(ec))
 {}
 
 //------------------------------------------------------------------------------
@@ -177,22 +177,13 @@ AccessActionInfo::withErrorUri(std::string uri)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo& AccessActionInfo::withError(std::error_code ec)
 {
-    return withErrorUri(toErrorUri(ec));
+    return withErrorUri(errorCodeToUri(ec));
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE AccessActionInfo& AccessActionInfo::withError(WampErrc errc)
 {
     return withError(make_error_code(errc));
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE std::string AccessActionInfo::toErrorUri(std::error_code ec)
-{
-    std::ostringstream oss;
-    if (ec)
-        oss << ec << " (" << ec.message() << ")";
-    return oss.str();
 }
 
 

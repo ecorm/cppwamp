@@ -30,14 +30,15 @@ namespace wamp
 
 //------------------------------------------------------------------------------
 /** Determines how callers and publishers are disclosed. */
-// TODO: deny -> wamp.error.option_disallowed.disclose_me
 //------------------------------------------------------------------------------
 enum class DisclosureRule
 {
-    preset,     ///< Disclose originator as per the realm configuration preset.
-    originator, ///< Disclose originator as per its `disclose_me` option.
-    off,        ///< Don't disclose originator.
-    on          ///< Disclose originator.
+    preset,       ///< Reveal originator as per the realm configuration preset.
+    originator,   ///< Reveal originator as per its `disclose_me` option.
+    reveal,       ///< Reveal originator even if disclosure was not requested.
+    conceal,      ///< Conceal originator even if disclosure was requested.
+    strictReveal, ///< Reveal originator and disallow `disclose_me` option.
+    strictConceal ///< Conceal originator and disallow `disclose_me` option.
 };
 
 //------------------------------------------------------------------------------
