@@ -303,7 +303,7 @@ private:
 
     bool isLocal() const
     {
-        // https://stackoverflow.com/a/9657868/245265
+        // https://stackoverflow.com/a/9657868
         return reinterpret_cast<const char*>(box_) == buffer_.data();
     }
 

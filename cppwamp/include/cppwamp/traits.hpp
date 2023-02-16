@@ -229,7 +229,7 @@ template <std::size_t ...> struct IndexSequence { };
 
 namespace internal
 {
-// https://stackoverflow.com/a/7858971/245265
+// https://stackoverflow.com/a/7858971
 template <std::size_t N, std::size_t ...S>
 struct GenIndexSequence : GenIndexSequence<N-1, N-1, S...> { };
 

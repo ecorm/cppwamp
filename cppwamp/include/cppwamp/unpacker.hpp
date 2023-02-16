@@ -278,8 +278,6 @@ void EventUnpacker<S,A...>::operator()(Event event) const
         throw internal::UnpackError().withArgs(oss.str());
     }
 
-    // Use the integer parameter pack technique shown in
-    // http://stackoverflow.com/a/7858971/245265
     invoke(std::move(event), IndexSequenceFor<A...>{});
 }
 
@@ -333,8 +331,6 @@ void SimpleEventUnpacker<S,A...>::operator()(Event event) const
         throw internal::UnpackError().withArgs(oss.str());
     }
 
-    // Use the integer parameter pack technique shown in
-    // http://stackoverflow.com/a/7858971/245265
     invoke(std::move(event), IndexSequenceFor<A...>{});
 }
 
@@ -397,8 +393,6 @@ Outcome InvocationUnpacker<S,A...>::operator()(Invocation inv) const
         throw internal::UnpackError().withArgs(oss.str());
     }
 
-    // Use the integer parameter pack technique shown in
-    // http://stackoverflow.com/a/7858971/245265
     return invoke(std::move(inv), IndexSequenceFor<A...>{});
 }
 
