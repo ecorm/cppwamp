@@ -29,6 +29,7 @@ namespace internal
         friend class Client;
         friend class Dealer;
         friend class DealerInvocation;
+        friend class DealerRegistration;
         friend class DealerJob;
         friend class DealerJobMap;
         friend class Invocation;

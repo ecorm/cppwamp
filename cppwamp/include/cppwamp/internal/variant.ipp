@@ -152,9 +152,6 @@ public:
         return compare(BothAreNumbers{}, lhs, rhs);
     }
 
-    // TODO: Lexicographic compare with std::vector<T>
-    // TODO: Lexicographic compare with std::map<K,T>
-
 private:
     template <typename TLeft, typename TRight>
     static bool compare(FalseType, const TLeft&, const TRight&)
@@ -382,13 +379,13 @@ CPPWAMP_INLINE bool Variant::operator!=(const Variant& other) const
 
 | LHS, RHS-> | Null  | Bool  | Int   | UInt  | Real  | String | Array | Object |
 |------------|-------|-------|-------|-------|-------|--------|-------|--------|
-| Null       | false | false | false | false | false | false  | false | false  |
-| Bool       | false | L<R   | false | false | false | false  | false | false  |
-| Int        | false | false | L<R   | L<R   | L<R   | false  | false | false  |
-| UInt       | false | false | L<R   | L<R   | L<R   | false  | false | false  |
-| Real       | false | false | L<R   | L<R   | L<R   | false  | false | false  |
-| String     | false | false | false | false | false | L<R    | false | false  |
-| Array      | false | false | false | false | false | false  | L<R   | false  |
+| Null       | false | true  | true  | true  | true  | true   | true  | true   |
+| Bool       | false | L<R   | true  | true  | true  | true   | true  | true   |
+| Int        | false | false | L<R   | L<R   | L<R   | true   | true  | true   |
+| UInt       | false | false | L<R   | L<R   | L<R   | true   | true  | true   |
+| Real       | false | false | L<R   | L<R   | L<R   | true   | true  | true   |
+| String     | false | false | false | false | false | L<R    | true  | true   |
+| Array      | false | false | false | false | false | false  | L<R   | true   |
 | Object     | false | false | false | false | false | false  | false | L<R    | */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE bool Variant::operator<(const Variant &other) const

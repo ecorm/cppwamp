@@ -634,7 +634,7 @@ CPPWAMP_INLINE RequestId Topic::requestId(internal::PassKey) const
 
 CPPWAMP_INLINE String&& Topic::uri(internal::PassKey) &&
 {
-    return std::move(message()).topicUri();
+    return std::move(message()).uri();
 }
 
 //******************************************************************************
@@ -840,9 +840,7 @@ CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
 
 CPPWAMP_INLINE Procedure::Procedure(String uri) : Base(std::move(uri)) {}
 
-CPPWAMP_INLINE const String& Procedure::uri() const & {return message().uri();}
-
-CPPWAMP_INLINE String&& Procedure::uri() && {return std::move(message()).uri();}
+CPPWAMP_INLINE const String& Procedure::uri() const {return message().uri();}
 
 /** Obtains information for the access log. */
 CPPWAMP_INLINE AccessActionInfo Procedure::info() const
@@ -873,6 +871,11 @@ CPPWAMP_INLINE Procedure::Procedure(internal::PassKey,
 CPPWAMP_INLINE RequestId Procedure::requestId(internal::PassKey) const
 {
     return message().requestId();
+}
+
+CPPWAMP_INLINE String&& Procedure::uri(internal::PassKey)
+{
+    return std::move(message()).uri();
 }
 
 

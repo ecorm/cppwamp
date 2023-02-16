@@ -57,7 +57,7 @@ public:
 private:
     DealerRegistration(Procedure&& procedure, RealmSession::Ptr callee,
                        std::error_code& ec)
-        : procedureUri_(std::move(procedure).uri()),
+        : procedureUri_(std::move(procedure).uri({})),
           callee_(callee),
           calleeId_(callee->wampId())
     {
@@ -182,26 +182,36 @@ public:
 
     ErrorOrDone cancel(CallCancelMode mode, WampErrc reason, bool& eraseNow)
     {
-        // TODO: Reject duplicate cancellations, except for killnowait that
-        // supercedes kill interruption in progress.
+        using Mode = CallCancelMode;
+        assert(mode != Mode::unknown);
 
         auto callee = this->callee_.lock();
         if (!callee)
             return false;
 
-        mode = callee->features().calleeCancelling ? mode
-                                                   : CallCancelMode::skip;
+        mode = callee->features().calleeCancelling ? mode : Mode::skip;
 
-        if (mode != CallCancelMode::skip)
+        // Reject duplicate cancellations, except for killnowait that
+        // supercedes kill and skip cancellations in progress.
+        if (cancelMode_ != Mode::unknown)
         {
-            callee->sendInterruption({{}, calleeKey_.second, mode, reason});
+            if (mode != Mode::killNoWait || cancelMode_ == Mode::killNoWait)
+                return false;
+        }
+
+        cancelMode_ = mode;
+
+        if (mode != Mode::skip)
+        {
+            if (!interruptionSent_)
+                callee->sendInterruption({{}, calleeKey_.second, mode, reason});
             interruptionSent_ = true;
         }
 
-        if (mode == CallCancelMode::killNoWait)
+        if (mode == Mode::killNoWait)
             eraseNow = true;
 
-        if (mode != CallCancelMode::kill)
+        if (mode != Mode::kill)
         {
             discardResultOrError_ = true;
             return makeUnexpectedError(WampErrc::cancelled);
@@ -280,6 +290,7 @@ private:
     DealerJobKey callerKey_;
     DealerJobKey calleeKey_;
     Deadline deadline_;
+    CallCancelMode cancelMode_ = CallCancelMode::unknown;
     bool hasDeadline_ = false;
     bool discardResultOrError_ = false;
     bool interruptionSent_ = false;

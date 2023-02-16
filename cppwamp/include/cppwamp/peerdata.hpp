@@ -615,10 +615,7 @@ public:
     Procedure(String uri);
 
     /** Obtains the procedure URI. */
-    const String& uri() const &;
-
-    /** Moves the procedure URI. */
-    String&& uri() &&; // TODO: PassKey
+    const String& uri() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
@@ -642,6 +639,7 @@ public:
     // Internal use only
     Procedure(internal::PassKey, internal::RegisterMessage&& msg);
     RequestId requestId(internal::PassKey) const;
+    String&& uri(internal::PassKey);
 };
 
 
