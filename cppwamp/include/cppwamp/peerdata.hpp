@@ -88,6 +88,7 @@ public:
     // Internal use only
     Reason(internal::PassKey, internal::GoodbyeMessage&& msg);
     Reason(internal::PassKey, internal::AbortMessage&& msg);
+    void setUri(internal::PassKey, String uri);
     internal::AbortMessage& abortMessage(internal::PassKey);
 };
 

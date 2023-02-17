@@ -140,6 +140,11 @@ CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::AbortMessage&& msg)
     : Base(std::move(msg))
 {}
 
+CPPWAMP_INLINE void Reason::setUri(internal::PassKey, String uri)
+{
+    message().at(2) = std::move(uri);
+}
+
 CPPWAMP_INLINE internal::AbortMessage& Reason::abortMessage(internal::PassKey)
 {
     return message().transformToAbort();

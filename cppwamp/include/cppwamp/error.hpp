@@ -176,20 +176,6 @@ CPPWAMP_API std::error_code make_error_code(Errc errc);
 CPPWAMP_API std::error_condition make_error_condition(Errc errc);
 
 //------------------------------------------------------------------------------
-/** Looks up the Errc enumerator that corresponds to the given error URI.
-    @relates GenericCategory */
-//-----------------------------------------------------------------------------
-CPPWAMP_API bool errorUriToCode(const std::string& uri, Errc fallback,
-                                Errc& result);
-
-//------------------------------------------------------------------------------
-/** Looks up the error URI that corresponds to the given error code belonging
-    to GenericCategory.
-    @relates GenericCategory */
-//-----------------------------------------------------------------------------
-CPPWAMP_API const std::string& errorCodeToUri(Errc errc);
-
-//------------------------------------------------------------------------------
 /** Converts an error code to a string containing the category and number. */
 //-----------------------------------------------------------------------------
 CPPWAMP_API std::string briefErrorCodeString(std::error_code ec);
@@ -222,37 +208,37 @@ enum class WampErrc
     unknown,                ///< Unknown error URI
 
     // Session close reasons
-    sessionKilled,          ///< Session was killed by the other peer
-    systemShutdown,         ///< The other peer is shutting down
     closeRealm,             ///< The other peer is leaving the realm
     goodbyeAndOut,          ///< Session ended successfully
+    sessionKilled,          ///< Session was killed by the other peer
+    systemShutdown,         ///< The other peer is shutting down
 
     // Basic profile errors
+    authorizationFailed,    ///< The authorization operation itself failed
+    invalidArgument,        ///< The given argument types/values are not acceptable to the called procedure
     invalidUri,             ///< An invalid WAMP URI was provided
     noSuchProcedure,        ///< No procedure was registered under the given URI
-    procedureAlreadyExists, ///< A procedure with the given URI is already registered
-    noSuchRegistration,     ///< Could not unregister; the given registration is not active
-    noSuchSubscription,     ///< Could not unsubscribe; the given subscription is not active
-    invalidArgument,        ///< The given argument types/values are not acceptable to the called procedure
-    protocolViolation,      ///< Invalid, unexpected, or malformed WAMP message.
-    notAuthorized,          ///< This peer is not authorized to perform the operation
-    authorizationFailed,    ///< The authorization operation failed
     noSuchRealm,            ///< Attempt to join non-existent realm
+    noSuchRegistration,     ///< Could not unregister; the given registration is not active
     noSuchRole,             ///< Attempt to authenticate under unsupported role
+    noSuchSubscription,     ///< Could not unsubscribe; the given subscription is not active
+    notAuthorized,          ///< This peer is not authorized to perform the operation
+    procedureAlreadyExists, ///< A procedure with the given URI is already registered
+    protocolViolation,      ///< Invalid, unexpected, or malformed WAMP message.
 
     // Advanced profile errors
     cancelled,              ///< The previously issued call was cancelled
-    optionNotAllowed,       ///< Option is disallowed by the router
-    discloseMeDisallowed,   ///< Router rejected client request to disclose its identity
-    networkFailure,         ///< Router encountered a network failure
-    unavailable,            ///< Callee is unable to handle the invocation
-    noAvailableCallee,      ///< All registered callees are unable to handle the invocation
     featureNotSupported,    ///< Advanced feature is not supported
+    discloseMeDisallowed,   ///< Router rejected client request to disclose its identity
+    optionNotAllowed,       ///< Option is disallowed by the router
+    networkFailure,         ///< Router encountered a network failure
+    noAvailableCallee,      ///< All registered callees are unable to handle the invocation
+    unavailable,            ///< Callee is unable to handle the invocation
 
-    // Errors used in routers but not currently in the WAMP spec
-    noEligibleCallee,       ///< Call options lead to the exclusion of all callees providing the procedure
+    // Errors not currently in the WAMP spec, but used by CppWAMP and Crossbar
+    // https://github.com/crossbario/autobahn-python/blob/master/autobahn/wamp/exception.py
+    authenticationFailed,   ///< The authentication operation itself failed
     payloadSizeExceeded,    ///< Serialized payload exceeds transport limits
-    cannotAuthenticate,     ///< Authentication failed
     timeout,                ///< Operation timed out
 
     count

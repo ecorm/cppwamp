@@ -200,34 +200,33 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* success                */ "Operation successful",
 /* unknown                */ "Unknown error URI",
 
-/* sessionKilled          */ "Session was killed by the other peer",
 /* systemShutdown         */ "The other peer is shutting down",
 /* closeRealm             */ "The other peer is leaving the realm",
+/* sessionKilled          */ "Session was killed by the other peer",
 /* goodbyeAndOut          */ "Session ended successfully",
 
+/* authorizationFailed    */ "The authorization operation itself failed",
+/* invalidArgument        */ "The given argument types/values are not acceptable to the callee",
 /* invalidUri             */ "An invalid WAMP URI was provided",
 /* noSuchProcedure        */ "No procedure was registered under the given URI",
-/* procedureAlreadyExists */ "A procedure with the given URI is already registered",
-/* noSuchRegistration     */ "Could not unregister; the given registration is not active",
-/* noSuchSubscription     */ "Could not unsubscribe; the given subscription is not active",
-/* invalidArgument        */ "The given argument types/values are not acceptable to the callee",
-/* protocolViolation      */ "Invalid, unexpected, or malformed WAMP message",
-/* notAuthorized          */ "This peer is not authorized to perform the operation",
-/* authorizationFailed    */ "The authorization operation failed",
 /* noSuchRealm            */ "Attempt to join non-existent realm",
+/* noSuchRegistration     */ "Could not unregister; the given registration is not active",
 /* noSuchRole             */ "Attempt to authenticate under unsupported role",
+/* noSuchSubscription     */ "Could not unsubscribe; the given subscription is not active",
+/* notAuthorized          */ "This peer is not authorized to perform the operation",
+/* procedureAlreadyExists */ "A procedure with the given URI is already registered",
+/* protocolViolation      */ "Invalid, unexpected, or malformed WAMP message",
 
 /* cancelled              */ "The previously issued call was cancelled",
-/* optionNotAllowed       */ "Option is disallowed by the router",
+/* featureNotSupported    */ "Advanced feature is not supported",
 /* discloseMeDisallowed   */ "Router rejected client request to disclose its identity",
+/* optionNotAllowed       */ "Option is disallowed by the router",
 /* networkFailure         */ "Router encountered a network failure",
-/* unavailable            */ "Callee is unable to handle the invocation",
 /* noAvailableCallee      */ "All registered callees are unable to handle the invocation",
-/* badFeature             */ "Advanced feature is not supported",
+/* unavailable            */ "Callee is unable to handle the invocation",
 
-/* noEligibleCallee       */ "Call options lead to the exclusion of all callees providing the procedure",
+/* authenticationFailed   */ "The authentication operation itself failed",
 /* payloadSizeExceeded    */ "Serialized payload exceeds transport limits",
-/* cannotAuthenticate     */ "Authentication failed",
 /* timeout                */ "Operation timed out"
     };
 
@@ -309,9 +308,9 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
         {"wamp.close.goodbye_and_out",               WE::goodbyeAndOut},
         {"wamp.close.normal",                        WE::sessionKilled},
         {"wamp.close.system_shutdown",               WE::systemShutdown},
+        {"wamp.error.authentication_failed",         WE::authenticationFailed},
         {"wamp.error.authorization_failed",          WE::authorizationFailed},
         {"wamp.error.canceled",                      WE::cancelled},
-        {"wamp.error.cannot_authenticate",           WE::cannotAuthenticate},
         {"wamp.error.close_realm",                   WE::closeRealm},
         {"wamp.error.feature_not_supported",         WE::featureNotSupported},
         {"wamp.error.goodbye_and_out",               WE::goodbyeAndOut},
@@ -319,7 +318,6 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
         {"wamp.error.invalid_uri",                   WE::invalidUri},
         {"wamp.error.network_failure",               WE::networkFailure},
         {"wamp.error.no_available_callee",           WE::noAvailableCallee},
-        {"wamp.error.no_eligible_callee",            WE::noEligibleCallee},
         {"wamp.error.no_such_procedure",             WE::noSuchProcedure},
         {"wamp.error.no_such_realm",                 WE::noSuchRealm},
         {"wamp.error.no_such_registration",          WE::noSuchRegistration},
@@ -335,6 +333,10 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
         {"wamp.error.timeout",                       WE::timeout},
         {"wamp.error.unavailable",                   WE::unavailable}
     };
+
+    static constexpr auto extent = std::extent<decltype(sortedByUri)>::value;
+    // Three extra for wamp.close.*, exluding wamp.close.normal
+    static_assert(extent == unsigned(WampErrc::count) + 3, "");
 
     auto end = std::end(sortedByUri);
     auto iter = std::lower_bound(std::begin(sortedByUri), end, uri);
@@ -353,39 +355,39 @@ CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
         "cppwamp.error.success",
         "cppwamp.error.unknown",
 
-        "wamp.close.normal",
-        "wamp.close.system_shutdown",
         "wamp.close.close_realm",
         "wamp.close.goodbye_and_out",
+        "wamp.close.normal",
+        "wamp.close.system_shutdown",
 
+        "wamp.error.authorization_failed",
+        "wamp.error.invalid_argument",
         "wamp.error.invalid_uri",
         "wamp.error.no_such_procedure",
-        "wamp.error.procedure_already_exists",
-        "wamp.error.no_such_registration",
-        "wamp.error.no_such_subscription",
-        "wamp.error.invalid_argument",
-        "wamp.error.protocol_violation",
-        "wamp.error.not_authorized",
-        "wamp.error.authorization_failed",
         "wamp.error.no_such_realm",
+        "wamp.error.no_such_registration",
         "wamp.error.no_such_role",
+        "wamp.error.no_such_subscription",
+        "wamp.error.not_authorized",
+        "wamp.error.procedure_already_exists",
+        "wamp.error.protocol_violation",
 
         "wamp.error.canceled",
-        "wamp.error.option_not_allowed",
-        "wamp.error.option_disallowed.disclose_me",
-        "wamp.error.network_failure",
-        "wamp.error.unavailable",
-        "wamp.error.no_available_callee",
         "wamp.error.feature_not_supported",
+        "wamp.error.option_disallowed.disclose_me",
+        "wamp.error.option_not_allowed",
+        "wamp.error.network_failure",
+        "wamp.error.no_available_callee",
+        "wamp.error.unavailable",
 
-        "wamp.error.no_eligible_callee",
+        "wamp.error.authentication_failed",
         "wamp.error.payload_size_exceeded",
-        "wamp.error.cannot_authenticate",
         "wamp.error.timeout"
     };
 
     using T = std::underlying_type<WampErrc>::type;
     static constexpr T extent = std::extent<decltype(sortedByErrc)>::value;
+    static_assert(extent == T(WampErrc::count), "");
     auto n = static_cast<T>(errc);
     CPPWAMP_LOGIC_CHECK((n >= 0) && (n < extent),
                         "wamp::errorCodeToUri code is not a valid enumerator");

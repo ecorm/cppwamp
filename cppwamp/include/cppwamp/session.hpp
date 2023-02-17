@@ -799,7 +799,7 @@ Session::leave(
     )
 {
     // TODO: Timeout
-    return leave(Reason("wamp.close.close_realm"), std::forward<C>(completion));
+    return leave(Reason{WampErrc::closeRealm}, std::forward<C>(completion));
 }
 
 //------------------------------------------------------------------------------

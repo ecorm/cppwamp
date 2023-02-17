@@ -485,7 +485,8 @@ private:
         auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
         Reason reason{{}, std::move(goodbyeMsg)};
         report(reason.info(false));
-        report({AccessAction::serverGoodbye, "wamp.error.goodbye_and_out"});
+        report({AccessAction::serverGoodbye,
+                errorCodeToUri(WampErrc::goodbyeAndOut)});
         // peer_ already took care of sending the reply, cancelling pending
         // requests, and will close the session state.
     }

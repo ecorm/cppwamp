@@ -335,10 +335,7 @@ struct GoodbyeMessage : public MessageWithOptions<WampMsgType::goodbye, 1>
 {
     explicit GoodbyeMessage(String reason = "", Object opts = {})
         : Base({0, std::move(opts), std::move(reason)})
-    {
-        if (uri().empty())
-            fields_[2] = String("wamp.error.close_realm");
-    }
+    {}
 
     explicit GoodbyeMessage(AbortMessage&& msg)
         : Base(std::move(msg).fields())

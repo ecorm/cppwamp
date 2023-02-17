@@ -299,6 +299,9 @@ public:
 
         if (!checkState(State::established, handler))
             return;
+        if (reason.uri().empty())
+            reason.setUri({}, errorCodeToUri(WampErrc::closeRealm));
+
         timeoutScheduler_->clear();
         peer_.closeSession(std::move(reason),
                            Adjourned{shared_from_this(), std::move(handler)});
@@ -1422,7 +1425,8 @@ private:
             // Respond immediately when cancel mode is 'kill' and no interrupt
             // slot is provided.
             rec.expired = true;
-            Error error{intr.reason().value_or("wamp.error.canceled")};
+            Error error{intr.reason().value_or(
+                errorCodeToUri(WampErrc::cancelled))};
             peer_.sendError(WampMsgType::invocation, intr.requestId(),
                             std::move(error));
         }

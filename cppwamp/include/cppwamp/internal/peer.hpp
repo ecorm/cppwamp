@@ -638,7 +638,8 @@ private:
 
             abortPending(errc);
             setState(State::closed);
-            GoodbyeMessage outgoingGoodbye("wamp.error.goodbye_and_out");
+            GoodbyeMessage outgoingGoodbye(
+                errorCodeToUri(WampErrc::goodbyeAndOut));
             send(outgoingGoodbye).value();
         }
     }
