@@ -338,19 +338,9 @@ private:
     void doAbort(Reason r)
     {
         shuttingDown_ = true;
-        leaveRealm(false);
-
-        auto s = state();
-        bool readyToAbort = s == State::establishing ||
-                            s == State::authenticating ||
-                            s == State::established;
         report({AccessAction::serverAbort, {}, r.options(), r.uri()});
-        if (readyToAbort)
-            peer_.abort(r);
-        else
-            peer_.terminate();
-
-        clearWampSessionInfo();
+        leaveRealm();
+        peer_.abort(r);
     }
 
     template <typename T>
@@ -595,11 +585,10 @@ private:
         realm_.yieldResult(shared_from_this(), std::move(result));
     }
 
-    void leaveRealm(bool clearSessionInfo = true)
+    void leaveRealm()
     {
         realm_.leave(wampId());
-        if (clearSessionInfo)
-            clearWampSessionInfo();
+        clearWampSessionInfo();
     }
 
     void retire()

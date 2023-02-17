@@ -248,11 +248,15 @@ public:
 
     ErrorOrDone abort(Reason r)
     {
-        // TODO: Just disconnect if no session is established, and
-        //       adjust ServerSession::doAbort accordingly
-
         if (!transport_ || !transport_->isStarted())
             return makeUnexpectedError(Errc::invalidState);
+
+        auto s = state();
+        bool readyToAbort = s == State::establishing ||
+                            s == State::authenticating ||
+                            s == State::established;
+        if (!readyToAbort)
+            disconnect();
 
         auto& msg = r.abortMessage({});
         MessageBuffer buffer;
@@ -270,6 +274,7 @@ public:
         }
 
         setState(State::failed, r.errorCode());
+        abortPending(Errc::abandoned);
         traceTx(msg);
         transport_->sendNowAndClose(std::move(buffer));
         if (!fits)
