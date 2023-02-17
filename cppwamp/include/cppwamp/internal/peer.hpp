@@ -704,31 +704,24 @@ private:
 
     void traceRx(const Array& fields)
     {
-        trace(Message::parseMsgType(fields), fields, "Rx message: ");
+        trace(Message::parseMsgType(fields), fields, "RX");
     }
 
     void traceTx(const Message& msg)
     {
-        trace(msg.type(), msg.fields(), "Tx message: ");
+        trace(msg.type(), msg.fields(), "TX");
     }
 
     void trace(WampMsgType type, const Array& fields, const char* label)
     {
-        // TODO: Make entire string JSON and keep original message intact
         if (isTerminating_ || (logLevel() > LogLevel::trace))
             return;
 
         std::ostringstream oss;
-        oss << label << "[";
+        oss << label << "[\"" << label << "\",\""
+            << MessageTraits::lookup(type).nameOr("INVALID") << "\"";
         if (!fields.empty())
-        {
-            // Print message type field as {"NAME":<Field>} pair
-            auto name = MessageTraits::lookup(type).nameOr("INVALID");
-            oss << "{\"" << name << "\":" << fields[0] << "}";
-
-            for (Array::size_type i=1; i<fields.size(); ++i)
-                oss << "," << fields[i];
-        }
+            oss << "," << fields;
         oss << ']';
 
         LogEntry entry{LogLevel::trace, oss.str()};
