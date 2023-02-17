@@ -12,7 +12,6 @@
 #include <thread>
 #include <string>
 #include <utility>
-#include "../erroror.hpp"
 #include "../routerconfig.hpp"
 #include "localsessionimpl.hpp"
 #include "random.hpp"
@@ -39,7 +38,7 @@ public:
         return Ptr(new RouterImpl(std::move(exec), std::move(config)));
     }
 
-    ~RouterImpl() {close({"wamp.close.system_shutdown"});}
+    ~RouterImpl() {close(WampErrc::systemShutdown);}
 
     bool addRealm(RealmConfig c)
     {
@@ -204,18 +203,15 @@ private:
         : config_(std::move(c)),
           executor_(std::move(e)),
           strand_(boost::asio::make_strand(executor_)),
-          logger_(RouterLogger::create(
-            strand_, config_.logHandler(), config_.logLevel(),
-            config_.accessLogHandler(), config_.accessLogFilter()))
+          logger_(RouterLogger::create(strand_, config_.logHandler(),
+                                       config_.logLevel(),
+                                       config_.accessLogHandler()))
     {
         if (!config_.sessionRNG())
             config_.withSessionRNG(internal::DefaultPRNG64{});
 
         if (!config_.publicationRNG())
             config_.withPublicationRNG(internal::DefaultPRNG64{});
-
-        if (!config_.accessLogFilter() && config_.accessLogHandler())
-            config_.withAccessLogFilter(DefaultAccessLogFilter{});
 
         sessionIdPool_ = RandomIdPool::create(config_.sessionRNG());
     }

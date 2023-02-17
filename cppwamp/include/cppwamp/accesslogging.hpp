@@ -192,32 +192,35 @@ std::ostream& operator<<(std::ostream& out, const AccessLogEntry& entry);
 
 
 //------------------------------------------------------------------------------
-/** Function type for filtering entries in the access log.
-    If the function returns false, the entry will not be logged.
-    The log entry is passed by reference so that the function may
-    sanitize any of the fields. */
-//------------------------------------------------------------------------------
-using AccessLogFilter = std::function<bool (AccessLogEntry&)>;
-
-//------------------------------------------------------------------------------
-/// Default access log filter function used by the router if none is specified.
-//------------------------------------------------------------------------------
-struct DefaultAccessLogFilter
+struct DefaultAccessLogFilterPolicy
 {
-    static const std::set<String>& bannedOptions();
-
-    bool operator()(AccessLogEntry& entry) const;
+    static bool check(AccessLogEntry& e);
 };
 
 //------------------------------------------------------------------------------
-/** Access log filter that allows everything and does not touch the entries.
-    May be used to allow the filtering logic to be performed by a custom
-    log handler. */
+/// Access log handler wrapper that filters entries containing banned options.
 //------------------------------------------------------------------------------
-struct AccessLogPassthruFilter
+template <typename TPolicy>
+class BasicAccessLogFilter
 {
-    bool operator()(AccessLogEntry&) const {return true;}
+public:
+    using Policy = TPolicy;
+
+    template <typename F>
+    BasicAccessLogFilter(F&& handler) : handler_(std::forward<F>(handler)) {}
+
+    void operator()(AccessLogEntry entry) const
+    {
+        if (Policy::check(entry))
+            handler_(std::move(entry));
+    }
+
+private:
+    std::function<void (AccessLogEntry)> handler_;
 };
+
+//------------------------------------------------------------------------------
+using AccessLogFilter = BasicAccessLogFilter<DefaultAccessLogFilterPolicy>;
 
 } // namespace wamp
 

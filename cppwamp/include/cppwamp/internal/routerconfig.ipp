@@ -164,12 +164,6 @@ RouterConfig::withAccessLogHandler(AccessLogHandler f)
     return *this;
 }
 
-RouterConfig& RouterConfig::withAccessLogFilter(AccessLogFilter f)
-{
-    accessLogFilter_ = std::move(f);
-    return *this;
-}
-
 CPPWAMP_INLINE RouterConfig&
 RouterConfig::withSessionRNG(RandomNumberGenerator64 f)
 {
@@ -195,11 +189,6 @@ CPPWAMP_INLINE const RouterConfig::AccessLogHandler&
 RouterConfig::accessLogHandler() const
 {
     return accessLogHandler_;
-}
-
-CPPWAMP_INLINE const AccessLogFilter& RouterConfig::accessLogFilter() const
-{
-    return accessLogFilter_;
 }
 
 CPPWAMP_INLINE const RandomNumberGenerator64& RouterConfig::sessionRNG() const

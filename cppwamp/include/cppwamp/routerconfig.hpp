@@ -146,7 +146,10 @@ using RandomNumberGenerator64 = std::function<uint64_t ()>;
 class CPPWAMP_API RouterConfig
 {
 public:
+    /// Type-erases a LogEntry handler and its associated executor.
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
+
+    /// Type-erases an AccessLogEntry handler and its associated executor.
     using AccessLogHandler = AnyReusableHandler<void (AccessLogEntry)>;
 
     RouterConfig& withLogHandler(LogHandler f);
@@ -154,8 +157,6 @@ public:
     RouterConfig& withLogLevel(LogLevel l);
 
     RouterConfig& withAccessLogHandler(AccessLogHandler f);
-
-    RouterConfig& withAccessLogFilter(AccessLogFilter f);
 
     RouterConfig& withSessionRNG(RandomNumberGenerator64 f);
 
@@ -169,8 +170,6 @@ public:
 
     const AccessLogHandler& accessLogHandler() const;
 
-    const AccessLogFilter& accessLogFilter() const;
-
     const RandomNumberGenerator64& sessionRNG() const;
 
     const RandomNumberGenerator64& publicationRNG() const;
@@ -178,7 +177,6 @@ public:
 private:
     LogHandler logHandler_;
     AccessLogHandler accessLogHandler_;
-    AccessLogFilter accessLogFilter_;
     RandomNumberGenerator64 sessionRng_;
     RandomNumberGenerator64 publicationRng_;
     LogLevel logLevel_ = LogLevel::warning;

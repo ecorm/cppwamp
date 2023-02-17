@@ -294,7 +294,7 @@ CPPWAMP_INLINE std::ostream& operator<<(std::ostream& out,
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE const std::set<String>& DefaultAccessLogFilter::bannedOptions()
+CPPWAMP_INLINE bool DefaultAccessLogFilterPolicy::check(AccessLogEntry& e)
 {
     // Allow authid option in client-hello and server-welcome for
     // auditing purposes.
@@ -304,12 +304,7 @@ CPPWAMP_INLINE const std::set<String>& DefaultAccessLogFilter::bannedOptions()
          "caller_id", "eligible", "eligible_authid", "eligible_authrole",
          "exclude", "exclude_authid", "exclude_authrole", "forward_for",
          "publisher_authid", "publisher_authrole", "publisher_id"});
-    return banned;
-}
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE bool DefaultAccessLogFilter::operator()(AccessLogEntry& e) const
-{
     using AA = AccessAction;
     auto& a = e.action;
     if (a.action == AA::clientAuthenticate || a.action == AA::serverChallenge)
@@ -319,7 +314,7 @@ CPPWAMP_INLINE bool DefaultAccessLogFilter::operator()(AccessLogEntry& e) const
     else
     {
         for (auto& kv: a.options)
-            if (bannedOptions().count(kv.first) != 0)
+            if (banned.count(kv.first) != 0)
                 kv.second = null;
     }
 

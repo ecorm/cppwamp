@@ -37,10 +37,10 @@ public:
     using AccessLogHandler = AnyReusableHandler<void (AccessLogEntry)>;
 
     static Ptr create(IoStrand s, LogHandler lh, LogLevel lv,
-                      AccessLogHandler alh, AccessLogFilter alf)
+                      AccessLogHandler alh)
     {
         return Ptr(new RouterLogger(std::move(s), std::move(lh), lv,
-                                    std::move(alh), std::move(alf)));
+                                    std::move(alh)));
     }
 
     LogLevel level() const {return logLevel_.load();}
@@ -54,21 +54,15 @@ public:
     void log(AccessLogEntry entry)
     {
         if (accessLogHandler_)
-        {
-            assert(accessLogFilter_ != nullptr);
-            bool allowed = accessLogFilter_(entry);
-            if (allowed)
-                postAny(strand_, accessLogHandler_, std::move(entry));
-        }
+            postAny(strand_, accessLogHandler_, std::move(entry));
     }
 
 private:
     RouterLogger(IoStrand&& s, LogHandler&& lh, LogLevel lv,
-                 AccessLogHandler&& alh, AccessLogFilter&& alf)
+                 AccessLogHandler&& alh)
         : strand_(std::move(s)),
           logHandler_(std::move(lh)),
           accessLogHandler_(std::move(alh)),
-          accessLogFilter_(std::move(alf)),
           logLevel_(lv)
     {}
 
@@ -77,7 +71,6 @@ private:
     IoStrand strand_;
     LogHandler logHandler_;
     AccessLogHandler accessLogHandler_;
-    AccessLogFilter accessLogFilter_;
     std::atomic<LogLevel> logLevel_;
 
     friend class RouterImpl;
