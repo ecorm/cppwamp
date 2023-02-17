@@ -14,6 +14,7 @@ set(SOURCES
     codectestcbor.cpp
     codectestjson.cpp
     codectestmsgpack.cpp
+    errortest.cpp
     payloadtest.cpp
     transporttest.cpp
     uritest.cpp

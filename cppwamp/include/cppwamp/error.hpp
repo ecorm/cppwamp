@@ -312,7 +312,7 @@ CPPWAMP_API std::string errorCodeToUri(std::error_code ec);
 //------------------------------------------------------------------------------
 /** %Error code values used with the DecodingCategory error category.
     All of the following non-zero codes are equivalent to the
-    DecodingErrc::failure condition:
+    DecodingErrc::failed condition:
     - Non-zero wamp::DecodingErrc
     - `jsoncons::json_errc`
     - `jsoncons::cbor::cbor_errc`
@@ -321,7 +321,7 @@ CPPWAMP_API std::string errorCodeToUri(std::error_code ec);
 enum class DecodingErrc
 {
     success           = 0, ///< Decoding succesful
-    failure           = 1, ///< Decoding failed
+    failed            = 1, ///< Decoding failed
     emptyInput        = 2, ///< Input is empty or has no tokens
     expectedStringKey = 3, ///< Expected a string key
     badBase64Length   = 4, ///< Invalid Base64 string length

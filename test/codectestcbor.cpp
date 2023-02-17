@@ -168,7 +168,7 @@ GIVEN( "an empty CBOR message" )
     CborBufferDecoder decoder;
     auto ec = decoder.decode(empty, v);
     CHECK_FALSE( !ec );
-    CHECK( ec == DecodingErrc::failure );
+    CHECK( ec == DecodingErrc::failed );
     CHECK( ec == jsoncons::cbor::cbor_errc::unexpected_eof );
 
     WHEN( "decoding a valid message after an error" )
@@ -186,7 +186,7 @@ GIVEN( "an invalid CBOR message" )
     Variant v;
     auto ec = decode<Cbor>(oss.str(), v);
     CHECK_FALSE( !ec );
-    CHECK( ec == DecodingErrc::failure );
+    CHECK( ec == DecodingErrc::failed );
     CHECK( ec == jsoncons::cbor::cbor_errc::unknown_type );
 }
 GIVEN( "a short CBOR message" )
@@ -196,7 +196,7 @@ GIVEN( "a short CBOR message" )
     CborBufferDecoder decoder;
     auto ec = decoder.decode(buffer, v);
     CHECK_FALSE( !ec );
-    CHECK( ec == DecodingErrc::failure );
+    CHECK( ec == DecodingErrc::failed );
     CHECK( ec == jsoncons::cbor::cbor_errc::unexpected_eof );
 
     WHEN( "decoding a valid message after an error" )
@@ -213,7 +213,7 @@ GIVEN( "a CBOR message with a non-string key" )
     Variant v;
     CborBufferDecoder decoder;
     auto ec = decoder.decode(buffer, v);
-    CHECK( ec == DecodingErrc::failure );
+    CHECK( ec == DecodingErrc::failed );
     CHECK( ec == DecodingErrc::expectedStringKey );
 
     WHEN( "decoding a valid message after an error" )

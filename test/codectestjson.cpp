@@ -118,7 +118,7 @@ void checkError(JsonStringDecoder& decoder, const std::string& json, TErrc errc)
         Variant v(originalValue);
         auto ec = decoder.decode(json, v);
         CHECK_FALSE( !ec );
-        CHECK( ec == DecodingErrc::failure );
+        CHECK( ec == DecodingErrc::failed );
         CHECK( ec == errc );
         CHECK( v == originalValue );
     }

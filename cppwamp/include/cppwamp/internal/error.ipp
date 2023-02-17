@@ -175,12 +175,12 @@ CPPWAMP_INLINE GenericCategory& genericCategory()
 
 CPPWAMP_INLINE std::error_code make_error_code(Errc errc)
 {
-    return std::error_code(static_cast<int>(errc), wampCategory());
+    return std::error_code(static_cast<int>(errc), genericCategory());
 }
 
 CPPWAMP_INLINE std::error_condition make_error_condition(Errc errc)
 {
-    return std::error_condition(static_cast<int>(errc), wampCategory());
+    return std::error_condition(static_cast<int>(errc), genericCategory());
 }
 
 
@@ -438,7 +438,7 @@ CPPWAMP_INLINE std::string DecodingCategory::message(int ev) const
     static const std::string msg[] =
     {
         /* success           */ "Decoding succesful",
-        /* failure           */ "Decoding failed",
+        /* failed            */ "Decoding failed",
         /* emptyInput        */ "Input is empty or has no tokens",
         /* expectedStringKey */ "Expected a string key",
         /* badBase64Length   */ "Invalid Base64 string length",
@@ -458,7 +458,7 @@ CPPWAMP_INLINE bool DecodingCategory::equivalent(const std::error_code& code,
     {
         return condition == (int)DecodingErrc::success;
     }
-    else if (condition == (int)DecodingErrc::failure)
+    else if (condition == (int)DecodingErrc::failed)
     {
         return cat == decodingCategory() ||
                cat == jsoncons::json_error_category() ||
