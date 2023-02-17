@@ -94,9 +94,9 @@ struct WampMessage
 
     void setRequestId(RequestId reqId)
     {
-        auto idPos = traits().idPosition;
-        if (idPos != 0)
-            fields_.at(idPos) = reqId;
+        auto idPos = traits().requestIdPosition;
+        assert(idPos != 0);
+        fields_.at(idPos) = reqId;
     }
 
     WampMsgType type() const {return type_;}
@@ -135,20 +135,14 @@ struct WampMessage
     template <typename T>
     T to(size_t index) const {return fields_.at(index).to<T>();}
 
-    bool hasRequestId() const {return traits().idPosition != 0;}
+    bool isRequest() const {return traits().isRequest;}
+
+    bool hasRequestId() const {return traits().requestIdPosition != 0;}
 
     RequestId requestId() const
     {
-        RequestId id = 0;
-        if (type_ != WampMsgType::error)
-        {
-            auto idPos = traits().idPosition;
-            if (idPos != 0)
-                id = fields_.at(idPos).to<RequestId>();
-        }
-        else
-            id = fields_.at(2).to<RequestId>();
-        return id;
+        auto idPos = traits().requestIdPosition;
+        return (idPos == 0) ? 0 : fields_.at(idPos).to<RequestId>();
     }
 
     RequestKey requestKey() const

@@ -163,7 +163,7 @@ public:
 
     RequestId sendInvocation(Invocation&& inv)
     {
-        // Will take 285 years to reach 2^53 at 1 million requests/sec
+        // Will take 285 years to overflow 2^53 at 1 million requests/sec
         auto id = ++nextOutboundRequestId_;
         assert(id <= 9007199254740992u);
         inv.setRequestId({}, id);

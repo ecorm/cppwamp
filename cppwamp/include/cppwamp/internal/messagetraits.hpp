@@ -62,15 +62,16 @@ struct CPPWAMP_API MessageTraits
     const char* nameOr(const char* fallback) const;
 
     const char* name;
-    WampMsgType repliesTo   : 8;
-    size_t idPosition       : 8;
-    size_t minSize          : 8;
-    size_t maxSize          : 8;
-    bool isClientRx         : 1;
-    bool isRouterRx         : 1;
-    bool forEstablishing    : 1;
-    bool forAuthenticating  : 1;
-    bool forEstablished     : 1;
+    WampMsgType repliesTo    : 8;
+    size_t requestIdPosition : 8;
+    size_t minSize           : 8;
+    size_t maxSize           : 8;
+    bool isClientRx          : 1;
+    bool isRouterRx          : 1;
+    bool forEstablishing     : 1;
+    bool forAuthenticating   : 1;
+    bool forEstablished      : 1;
+    bool isRequest           : 1;
     TypeId fieldTypes[7];
 };
 

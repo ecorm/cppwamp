@@ -174,11 +174,10 @@ public:
             if (!authInfo.id().empty())
                 inv.withOption("caller_authid", authInfo.id());
             if (!authInfo.role().empty())
-                inv.withOption("caller_authrole", authInfo.role());        }
+                inv.withOption("caller_authrole", authInfo.role());
+        }
         return job;
     }
-
-    void setCalleeRequestId(RequestId id) {callerKey_.second = id;}
 
     ErrorOrDone cancel(CallCancelMode mode, WampErrc reason, bool& eraseNow)
     {

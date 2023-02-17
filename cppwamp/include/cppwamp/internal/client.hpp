@@ -1331,11 +1331,11 @@ private:
                 }
                 catch (const Error& e)
                 {
-                    me.warnEventError(e, subId, pubId);
+                    me.logEventError(e, subId, pubId);
                 }
                 catch (const error::BadType& e)
                 {
-                    me.warnEventError(Error(e), subId, pubId);
+                    me.logEventError(Error(e), subId, pubId);
                 }
             }
         };
@@ -1347,8 +1347,8 @@ private:
                           boost::asio::bind_executor(exec, std::move(posted)));
     }
 
-    void warnEventError(const Error& e, SubscriptionId subId,
-                        PublicationId pubId)
+    void logEventError(const Error& e, SubscriptionId subId,
+                       PublicationId pubId)
     {
         if (logLevel() <= LogLevel::error)
         {
@@ -1369,12 +1369,25 @@ private:
         auto requestId = invMsg.requestId();
         auto regId = invMsg.registrationId();
 
+        if (requestId <= lastInvocationRequestId_)
+        {
+            auto err = Error(WampErrc::protocolViolation)
+                           .withArgs("Non-monotonic request ID");
+            peer_.sendError(WampMsgType::invocation, requestId, std::move(err));
+            log(LogLevel::error,
+                "Rejected INVOCATION with non-monotonic request ID "
+                    + std::to_string(requestId));
+            return;
+        }
+
+        lastInvocationRequestId_ = requestId;
+
         auto kv = registry_.find(regId);
         if (kv == registry_.end())
         {
             peer_.sendError(WampMsgType::invocation, requestId,
                             {WampErrc::noSuchProcedure});
-            log(LogLevel::warning,
+            log(LogLevel::error,
                 "No matching procedure for INVOCATION with registration ID "
                     + std::to_string(regId));
             return;
@@ -1383,20 +1396,10 @@ private:
         Invocation inv({}, shared_from_this(), userExecutor(),
                        std::move(invMsg));
 
-        auto found = pendingInvocations_.find(requestId);
-        if (found != pendingInvocations_.end())
-        {
-            auto err = Error(WampErrc::protocolViolation)
-                           .withArgs("Request ID already in use");
-            peer_.sendError(WampMsgType::invocation, requestId, std::move(err));
-            log(LogLevel::warning,
-                "Rejected INVOCATION with request ID "
-                    + std::to_string(requestId) + " already in use");
-            return;
-        }
-
         const RegistrationRecord& rec = kv->second;
-        pendingInvocations_.emplace(requestId, InvocationRecord{regId});
+        auto emplaced = pendingInvocations_.emplace(requestId,
+                                                    InvocationRecord{regId});
+        assert(emplaced.second);
         postRpcRequest(rec.callSlot, std::move(inv));
     }
 
@@ -1629,6 +1632,7 @@ private:
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
     ChallengeHandler challengeHandler_;
     SlotId nextSlotId_ = 0;
+    RequestId lastInvocationRequestId_ = 0;
 };
 
 } // namespace internal

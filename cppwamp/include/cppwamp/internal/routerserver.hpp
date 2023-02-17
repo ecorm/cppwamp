@@ -401,6 +401,9 @@ private:
 
     void onMessage(WampMessage&& m)
     {
+        if (!checkSequentialRequestId(m))
+            return;
+
         using M = WampMsgType;
         switch (m.type())
         {
@@ -492,10 +495,6 @@ private:
     void onPublish(WampMessage& m)
     {
         auto& msg = messageCast<PublishMessage>(m);
-        auto reqId = msg.requestId();
-        if (!checkSequentialRequestId(reqId))
-            return;
-
         Pub pub({}, std::move(msg));
         report(pub.info());
         realm_.publish(shared_from_this(), std::move(pub));
@@ -504,10 +503,6 @@ private:
     void onSubscribe(WampMessage& m)
     {
         auto& msg = messageCast<SubscribeMessage>(m);
-        auto reqId = msg.requestId();
-        if (!checkSequentialRequestId(reqId))
-            return;
-
         Topic topic{{}, std::move(msg)};
         report(topic.info());
         realm_.subscribe(shared_from_this(), std::move(topic));
@@ -517,9 +512,6 @@ private:
     {
         auto& msg = messageCast<UnsubscribeMessage>(m);
         auto reqId = msg.requestId();
-        if (!checkSequentialRequestId(reqId))
-            return;
-
         report({AccessAction::clientUnsubscribe, reqId});
         realm_.unsubscribe(shared_from_this(), msg.subscriptionId(),
                            msg.requestId());
@@ -528,11 +520,6 @@ private:
     void onCall(WampMessage& m)
     {
         auto& msg = messageCast<CallMessage>(m);
-        auto reqId = msg.requestId();
-        // TODO: Allow prior request IDs for progressive calls
-        if (!checkSequentialRequestId(reqId))
-            return;
-
         Rpc rpc{{}, std::move(msg)};
         report(rpc.info());
         realm_.call(shared_from_this(), std::move(rpc));
@@ -541,13 +528,6 @@ private:
     void onCancelCall(WampMessage& m)
     {
         auto& msg = messageCast<CancelMessage>(m);
-        auto reqId = msg.requestId();
-        if (reqId >= expectedRequestId_)
-        {
-            return doAbort(Reason(WampErrc::protocolViolation)
-                               .withHint("Cannot cancel future request ID"));
-        }
-
         CallCancellation cncl({}, std::move(msg));
         report(cncl.info());
         realm_.cancelCall(shared_from_this(), std::move(cncl));
@@ -556,10 +536,6 @@ private:
     void onRegister(WampMessage& m)
     {
         auto& msg = messageCast<RegisterMessage>(m);
-        auto reqId = msg.requestId();
-        if (!checkSequentialRequestId(reqId))
-            return;
-
         Procedure proc({}, std::move(msg));
         report(proc.info());
         realm_.enroll(shared_from_this(), std::move(proc));
@@ -569,9 +545,6 @@ private:
     {
         auto& msg = messageCast<UnregisterMessage>(m);
         auto reqId = msg.requestId();
-        if (!checkSequentialRequestId(reqId))
-            return;
-
         report({AccessAction::clientUnregister, reqId});
         realm_.unsubscribe(shared_from_this(), msg.registrationId(),
                            msg.requestId());
@@ -609,16 +582,28 @@ private:
         dispatchAny(strand_, std::move(handler), std::forward<Ts>(args)...);
     }
 
-    bool checkSequentialRequestId(RequestId rid)
+    bool checkSequentialRequestId(const WampMessage& m)
     {
-        // TODO: Move this logic to Peer so that client may also benefit
-        if (rid != expectedRequestId_)
+        // TODO: Allow prior request IDs for progressive calls
+        if (!m.hasRequestId())
+            return true;
+
+        if (m.isRequest())
+        {
+            if (m.requestId() != expectedRequestId_)
+            {
+                doAbort(Reason(WampErrc::protocolViolation)
+                            .withHint("Non-sequential request ID"));
+                return false;
+            }
+            ++expectedRequestId_;
+        }
+        else if (m.requestId() >= expectedRequestId_)
         {
             doAbort(Reason(WampErrc::protocolViolation)
-                        .withHint("Non-sequential request ID"));
+                        .withHint("Request references future request ID"));
             return false;
         }
-        ++expectedRequestId_;
         return true;
     }
 

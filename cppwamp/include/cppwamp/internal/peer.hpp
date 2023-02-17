@@ -423,7 +423,7 @@ private:
     {
         RequestId requestId = nullId();
 
-        if (msg.hasRequestId())
+        if (msg.isRequest())
         {
             requestId = nextRequestId();
             msg.setRequestId(requestId);
@@ -434,12 +434,9 @@ private:
 
     RequestId nextRequestId()
     {
-        // Apply bit mask to constrain the sequence to consecutive integers
-        // that can be represented by a double.
-        static constexpr auto digits = std::numeric_limits<Real>::digits;
-        static constexpr RequestId mask = (1ull << digits) - 1u;
-        RequestId n = nextRequestId_ + 1;
-        nextRequestId_ = n & mask;
+        // Will take 285 years to overflow 2^53 at 1 million requests/sec
+        ++nextRequestId_;
+        assert(nextRequestId_ <= 9007199254740992u);
         return nextRequestId_;
     }
 
@@ -477,6 +474,8 @@ private:
 
         if (!msg->traits().isValidRx(state(), isRouter_))
             return fail(errc, "Received invalid WAMP message for peer role");
+
+        // if (msg->traits().)
 
         processMessage(std::move(*msg));
     }
