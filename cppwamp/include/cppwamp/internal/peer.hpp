@@ -237,9 +237,9 @@ public:
             if (logLevel() <= LogLevel::warning)
             {
                 std::ostringstream oss;
-                oss << "Stripped args of outbound ERROR message due to "
-                       "transport payload limits, with error URI "
-                    << error.uri() << " and request ID " << reqId;
+                oss << "Stripped args of outbound ERROR message with error URI "
+                    << error.uri() << " and request ID " << reqId
+                    << " due to transport payload limits";
                 log(LogLevel::warning, oss.str());
             }
         }
@@ -576,15 +576,11 @@ private:
     void processAbort(Message&& msg)
     {
         auto s = state();
+
         if (s == State::establishing || s == State::authenticating)
         {
             setState(State::closed);
             processWampReply(std::move(msg));
-        }
-        else if (s == State::shuttingDown)
-        {
-            log(LogLevel::warning, "Discarding received ABORT message "
-                                   "while session is shutting down");
         }
         else
         {
@@ -633,7 +629,7 @@ private:
             else if (logLevel() <= LogLevel::warning)
             {
                 std::ostringstream oss;
-                oss << "Session ended by peer with reason URI "
+                oss << "Session killed by peer with reason URI "
                     << goodbyeMsg.uri();
                 if (!goodbyeMsg.options().empty())
                     oss << " and details " << goodbyeMsg.options();

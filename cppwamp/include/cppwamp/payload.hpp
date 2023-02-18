@@ -48,6 +48,9 @@ public:
     /** Sets the keyword arguments for this payload. */
     TDerived& withKwargs(Object kwargs);
 
+    /** Determines is there are any positional or keyward arguments. */
+    bool hasArgs() const;
+
     /** Accesses the constant list of positional arguments. */
     const Array& args() const &;
 
@@ -181,6 +184,13 @@ D& Payload<D,M>::withKwargs(Object map)
 {
     this->message().kwargs() = std::move(map);
     return static_cast<D&>(*this);
+}
+
+//------------------------------------------------------------------------------
+template <typename D, typename M>
+bool Payload<D,M>::hasArgs() const
+{
+    return !args().empty() || !kwargs().empty();
 }
 
 //------------------------------------------------------------------------------

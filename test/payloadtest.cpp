@@ -24,6 +24,15 @@ struct TestPayload : public Payload<TestPayload, internal::ResultMessage>
 } // anonymous namespace
 
 //------------------------------------------------------------------------------
+SCENARIO( "Empty Payload", "[Variant][Payload]" )
+{
+    TestPayload p;
+    CHECK( p.args().empty() );
+    CHECK( p.kwargs().empty() );
+    CHECK_FALSE( p.hasArgs() );
+}
+
+//------------------------------------------------------------------------------
 SCENARIO( "Initializing Payload", "[Variant][Payload]" )
 {
     WHEN( "initializing from a list" )
@@ -31,6 +40,7 @@ SCENARIO( "Initializing Payload", "[Variant][Payload]" )
         auto p = TestPayload().withArgList(testList);
         CHECK( p.args() == testList );
         CHECK( p.kwargs().empty() );
+        CHECK( p.hasArgs() );
     }
 
     WHEN( "initializing from a map" )
@@ -38,6 +48,7 @@ SCENARIO( "Initializing Payload", "[Variant][Payload]" )
         auto p = TestPayload().withKwargs(testMap);
         CHECK( p.args().empty() );
         CHECK( p.kwargs() == testMap );
+        CHECK( p.hasArgs() );
     }
 
     WHEN( "initializing from a list and a map" )
@@ -45,12 +56,14 @@ SCENARIO( "Initializing Payload", "[Variant][Payload]" )
         auto p = TestPayload().withArgList(testList).withKwargs(testMap);
         CHECK( p.args() == testList );
         CHECK( p.kwargs() == testMap );
+        CHECK( p.hasArgs() );
     }
 
     WHEN( "initializing from a parameter pack" )
     {
         auto p = TestPayload().withArgs(null, true, 42, "foo");
         CHECK( p.args() == testList );
+        CHECK( p.hasArgs() );
     }
 
     WHEN( "initializing from a tuple" )
@@ -58,6 +71,7 @@ SCENARIO( "Initializing Payload", "[Variant][Payload]" )
         std::tuple<Null, bool, int, std::string> tuple{null, true, 42, "foo"};
         auto p = TestPayload().withArgsTuple(tuple);
         CHECK( p.args() == testList );
+        CHECK( p.hasArgs() );
     }
 }
 

@@ -1034,6 +1034,15 @@ private:
     using InvocationMap  = std::map<RequestId, InvocationRecord>;
     using CallerTimeoutDuration = typename Rpc::TimeoutDuration;
 
+    static void outputErrorDetails(std::ostream& out, const Error& e)
+    {
+        out << "ERROR with URI=" << e.uri();
+        if (!e.args().empty())
+            out << ", with Args=" << e.args();
+        if (!e.kwargs().empty())
+            out << ", with ArgsKv=" << e.kwargs();
+    }
+
     Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
         : peer_(false, exec, std::move(userExec)),
           timeoutScheduler_(CallerTimeoutScheduler::create(strand()))
@@ -1273,9 +1282,8 @@ private:
             if (logLevel() <= LogLevel::error)
             {
                 std::ostringstream oss;
-                oss << "Received a CHALLENGE with no registered handler "
-                       "(with method=" << challenge.method() << " extra="
-                    << challenge.options() << ")";
+                oss << "Received a CHALLENGE with no registered handler, "
+                       "with method " << challenge.method();
                 log(LogLevel::error, oss.str());
             }
 
@@ -1299,7 +1307,7 @@ private:
         else if (logLevel() <= LogLevel::warning)
         {
             std::ostringstream oss;
-            oss << "Received an EVENT that is not subscribed to "
+            oss << "Discarding an EVENT that is not subscribed to "
                    "(with subId=" << eventMsg.subscriptionId()
                 << " pubId=" << eventMsg.publicationId() << ")";
             log(LogLevel::warning, oss.str());
@@ -1312,6 +1320,7 @@ private:
         {
             Ptr self;
             EventSlot slot;
+            String topicUri;
             Event event;
 
             void operator()()
@@ -1331,34 +1340,33 @@ private:
                 }
                 catch (const Error& e)
                 {
-                    me.logEventError(e, subId, pubId);
+                    me.logEventError(e, topicUri, subId, pubId);
                 }
                 catch (const error::BadType& e)
                 {
-                    me.logEventError(Error(e), subId, pubId);
+                    me.logEventError(Error(e), topicUri, subId, pubId);
                 }
             }
         };
 
         auto exec = boost::asio::get_associated_executor(sub.slot,
                                                          userExecutor());
-        Posted posted{shared_from_this(), sub.slot, event};
+        Posted posted{shared_from_this(), sub.slot, sub.topicUri, event};
         boost::asio::post(executor(),
                           boost::asio::bind_executor(exec, std::move(posted)));
     }
 
-    void logEventError(const Error& e, SubscriptionId subId,
-                       PublicationId pubId)
+    void logEventError(const Error& e, const String& topic,
+                       SubscriptionId subId, PublicationId pubId)
     {
         if (logLevel() <= LogLevel::error)
         {
             std::ostringstream oss;
-            oss << "EVENT handler reported an error with URI=" << e.uri();
-            if (!e.args().empty())
-                oss << ", with Args=" << e.args();
-            if (!e.kwargs().empty())
-                oss << ", with ArgsKv=" << e.kwargs();
-            oss << " (with subId=" << subId << ", pubId=" << pubId << ")";
+            oss << "EVENT handler reported an ";
+            outputErrorDetails(oss, e);
+            oss << ", for topic=" << topic
+                << ", subscriptionId=" << subId
+                << ", publicationId=" << pubId << ")";
             log(LogLevel::error, oss.str());
         }
     }
@@ -1510,24 +1518,21 @@ private:
             {
                 ok = false;
                 auto& errMsg = messageCast<ErrorMessage>(*reply);
-                const auto& uri = errMsg.uri();
-                WampErrc errc = errorUriToCode(uri);
-                bool hasArgs = !errMsg.args().empty() ||
-                               !errMsg.kwargs().empty();
+                Error error({}, std::move(errMsg));
+                WampErrc errc = errorUriToCode(error.uri());
                 if (errorPtr != nullptr)
                 {
-                    *errorPtr = Error({}, std::move(errMsg));
+                    *errorPtr = std::move(error);
                 }
                 else if ((logLevel() <= LogLevel::error) &&
-                         (errc == WampErrc::unknown || hasArgs))
+                         (errc == WampErrc::unknown || error.hasArgs()))
                 {
+                    // Only log if there is extra error information that cannot
+                    // passed to the handler via an error code.
                     std::ostringstream oss;
                     oss << "Expected " << MessageTraits::lookup(type).name
-                        << " reply but got ERROR with URI=" << uri;
-                    if (!errMsg.args().empty())
-                        oss << ", Args=" << errMsg.args();
-                    if (!errMsg.kwargs().empty())
-                        oss << ", ArgsKv=" << errMsg.kwargs();
+                        << " reply but got ";
+                    outputErrorDetails(oss, error);
                     log(LogLevel::error, oss.str());
                 }
 
@@ -1547,27 +1552,24 @@ private:
         std::string msgTypeName(MessageTraits::lookup(type).name);
         if (!reply.has_value())
         {
-            if (logLevel() >= LogLevel::warning)
+            if (logLevel() <= LogLevel::error)
             {
-                log(LogLevel::warning,
+                log(LogLevel::error,
                     "Failure receiving reply for " + msgTypeName + " message",
                     reply.error());
             }
         }
         else if (reply->type() == WampMsgType::error)
         {
-            if (logLevel() >= LogLevel::warning)
+            if (logLevel() <= LogLevel::error)
             {
                 auto& msg = messageCast<ErrorMessage>(*reply);
-                const auto& uri = msg.uri();
+                Error error({}, std::move(msg));
                 std::ostringstream oss;
                 oss << "Expected reply for " << msgTypeName
-                    << " message but got ERROR with URI=" << uri;
-                if (!msg.args().empty())
-                    oss << ", Args=" << msg.args();
-                if (!msg.kwargs().empty())
-                    oss << ", ArgsKv=" << msg.kwargs();
-                log(LogLevel::warning, oss.str());
+                    << " message but got ";
+                outputErrorDetails(oss, error);
+                log(LogLevel::error, oss.str());
             }
         }
         else

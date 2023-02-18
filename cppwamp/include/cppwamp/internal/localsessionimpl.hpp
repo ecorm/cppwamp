@@ -921,7 +921,7 @@ private:
         std::string msgTypeName(MessageTraits::lookup(type).name);
         if (!reply.has_value())
         {
-            if (logLevel() >= LogLevel::warning)
+            if (logLevel() <= LogLevel::warning)
             {
                 log(LogLevel::warning,
                     "Failure receiving reply for " + msgTypeName + " message",
@@ -930,7 +930,7 @@ private:
         }
         else if (reply->type() == WampMsgType::error)
         {
-            if (logLevel() >= LogLevel::warning)
+            if (logLevel() <= LogLevel::warning)
             {
                 auto& msg = messageCast<ErrorMessage>(*reply);
                 const auto& uri = msg.uri();
