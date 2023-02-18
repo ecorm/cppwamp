@@ -43,6 +43,170 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+class ClientRequestMap
+{
+public:
+    using Message          = WampMessage;
+    using OneShotHandler   = AnyCompletionHandler<void (ErrorOr<Message>)>;
+    using MultiShotHandler = std::function<void (ErrorOr<Message>)>;
+
+    ClientRequestMap(IoStrand strand)
+        : strand_(std::move(strand))
+    {}
+
+    ErrorOr<RequestId> request(Peer& peer, Message& msg,
+                               OneShotHandler&& handler)
+    {
+        return sendRequest(peer, msg, oneShotRequestMap_, std::move(handler));
+    }
+
+    ErrorOr<RequestId> ongoingRequest(Peer& peer, Message& msg,
+                                      MultiShotHandler&& handler)
+    {
+        return sendRequest(peer, msg, multiShotRequestMap_, std::move(handler));
+    }
+
+    bool reply(Message& msg)
+    {
+        assert(msg.isReply());
+        bool matchingRequestFound = false;
+        auto key = msg.requestKey();
+        auto kv = oneShotRequestMap_.find(key);
+        if (kv != oneShotRequestMap_.end())
+        {
+            matchingRequestFound = true;
+            auto handler = std::move(kv->second);
+            oneShotRequestMap_.erase(kv);
+            handler(std::move(msg));
+        }
+        else
+        {
+            auto kv = multiShotRequestMap_.find(key);
+            if (kv != multiShotRequestMap_.end())
+            {
+                matchingRequestFound = true;
+                if (msg.isProgressiveResponse())
+                {
+                    const auto& handler = kv->second;
+                    handler(std::move(msg));
+                }
+                else
+                {
+                    auto handler = std::move(kv->second);
+                    multiShotRequestMap_.erase(kv);
+                    handler(std::move(msg));
+                }
+            }
+        }
+
+        return matchingRequestFound;
+    }
+
+    bool cancelCall(const CallCancellation& cancellation)
+    {
+        // If the cancel mode is not 'kill', don't wait for the router's
+        // ERROR message and post the request handler immediately
+        // with a WampErrc::cancelled error code.
+
+        bool found = false;
+        RequestKey key{WampMsgType::call, cancellation.requestId()};
+        auto unex = makeUnexpectedError(WampErrc::cancelled);
+
+        auto kv = oneShotRequestMap_.find(key);
+        if (kv != oneShotRequestMap_.end())
+        {
+            found = true;
+            if (cancellation.mode() != CallCancelMode::kill)
+            {
+                auto handler = std::move(kv->second);
+                oneShotRequestMap_.erase(kv);
+                completeRequest(handler, unex);
+            }
+        }
+        else
+        {
+            auto kv = multiShotRequestMap_.find(key);
+            if (kv != multiShotRequestMap_.end())
+            {
+                found = true;
+                if (cancellation.mode() != CallCancelMode::kill)
+                {
+                    auto handler = std::move(kv->second);
+                    multiShotRequestMap_.erase(kv);
+                    completeRequest(handler, unex);
+                }
+            }
+        }
+
+        return found;
+    }
+
+    void abortAll(std::error_code ec)
+    {
+        UnexpectedError unex{ec};
+        for (auto& kv: oneShotRequestMap_)
+            completeRequest(kv.second, unex);
+        for (auto& kv: multiShotRequestMap_)
+            completeRequest(kv.second, unex);
+        clear();
+    }
+
+    void clear()
+    {
+        oneShotRequestMap_.clear();
+        multiShotRequestMap_.clear();
+    }
+
+private:
+    template <typename TRequestMap, typename THandler>
+    ErrorOr<RequestId> sendRequest(Peer& peer, Message& msg,
+                                   TRequestMap& requests, THandler&& handler)
+    {
+        assert(msg.type() != WampMsgType::none);
+        RequestId requestId = nullId();
+        if (msg.isRequest())
+        {
+            requestId = nextRequestId_ + 1;
+            // Will take 285 years to overflow 2^53 at 1 million requests/sec
+            assert(nextRequestId_ <= 9007199254740992u);
+            msg.setRequestId(requestId);
+        }
+
+        auto sent = peer.send(msg);
+        if (!sent)
+        {
+            auto unex = makeUnexpected(sent.error());
+            completeRequest(handler, unex);
+            return unex;
+        }
+
+        if (msg.isRequest())
+            ++nextRequestId_;
+
+        auto emplaced = requests.emplace(msg.requestKey(), std::move(handler));
+        assert(emplaced.second);
+        return requestId;
+    }
+
+    template <typename F, typename... Ts>
+    void completeRequest(F& handler, Ts&&... args)
+    {
+        boost::asio::post(
+            strand_,
+            std::bind(std::move(handler), std::forward<Ts>(args)...));
+    }
+
+    using RequestKey          = typename Message::RequestKey;
+    using OneShotRequestMap   = std::map<RequestKey, OneShotHandler>;
+    using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
+
+    IoStrand strand_;
+    OneShotRequestMap oneShotRequestMap_;
+    MultiShotRequestMap multiShotRequestMap_;
+    RequestId nextRequestId_ = nullId();
+};
+
+//------------------------------------------------------------------------------
 // Provides the WAMP client implementation.
 //------------------------------------------------------------------------------
 class Client : public std::enable_shared_from_this<Client>, public Callee,
@@ -651,7 +815,7 @@ public:
             {
                 // Don't propagate WAMP errors, as we prefer this
                 // to be a no-fail cleanup operation.
-                self->checkReply(reply, WampMsgType::unregistered);
+                self->checkReplyWithoutHandler(reply, WampMsgType::unregistered);
             }
         };
 
@@ -866,48 +1030,16 @@ public:
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
 
-        // If the cancel mode is not 'kill', don't wait for the router's
-        // ERROR message and post the request handler immediately
-        // with a WampErrc::cancelled error code.
-
-        bool found = false;
         CallCancellation cancellation{reqId, mode};
-        RequestKey key{WampMsgType::call, cancellation.requestId()};
-        auto unex = makeUnexpectedError(WampErrc::cancelled);
-
-        auto kv = oneShotRequestMap_.find(key);
-        if (kv != oneShotRequestMap_.end())
-        {
-            found = true;
-            if (cancellation.mode() != CallCancelMode::kill)
-            {
-                auto handler = std::move(kv->second);
-                oneShotRequestMap_.erase(kv);
-                complete(handler, unex);
-            }
-        }
-        else
-        {
-            auto kv = multiShotRequestMap_.find(key);
-            if (kv != multiShotRequestMap_.end())
-            {
-                found = true;
-                if (cancellation.mode() != CallCancelMode::kill)
-                {
-                    auto handler = std::move(kv->second);
-                    multiShotRequestMap_.erase(kv);
-                    completeRequest(handler, unex);
-                }
-            }
-        }
+        bool found = requestMap_.cancelCall(cancellation);
 
         // Always send the CANCEL message in all modes if a matching
         // call was found.
         if (found)
         {
-            auto reqId = peer_.send(cancellation.message({}));
-            if (!reqId)
-                return UnexpectedError(reqId.error());
+            auto sent = peer_.send(cancellation.message({}));
+            if (!sent)
+                return UnexpectedError(sent.error());
         }
         return found;
     }
@@ -1098,6 +1230,7 @@ private:
           executor_(std::move(exec)),
           userExecutor_(std::move(userExec)),
           strand_(boost::asio::make_strand(executor_)),
+          requestMap_(strand_),
           timeoutScheduler_(CallerTimeoutScheduler::create(strand_))
     {
         peer_.setInboundMessageHandler(
@@ -1147,107 +1280,24 @@ private:
 
     ErrorOr<RequestId> request(Message& msg, OneShotHandler&& handler)
     {
-        return sendRequest(msg, oneShotRequestMap_, std::move(handler));
+        return requestMap_.request(peer_, msg, std::move(handler));
     }
 
     ErrorOr<RequestId> ongoingRequest(Message& msg, MultiShotHandler&& handler)
     {
-        return sendRequest(msg, multiShotRequestMap_, std::move(handler));
-    }
-
-    template <typename TRequestMap, typename THandler>
-    ErrorOr<RequestId> sendRequest(Message& msg, TRequestMap& requests,
-                                   THandler&& handler)
-    {
-        assert(msg.type() != WampMsgType::none);
-        RequestId requestId = nullId();
-        if (msg.isRequest())
-        {
-            requestId = nextRequestId_ + 1;
-            // Will take 285 years to overflow 2^53 at 1 million requests/sec
-            assert(nextRequestId_ <= 9007199254740992u);
-            msg.setRequestId(requestId);
-        }
-
-        auto sent = peer_.send(msg);
-        if (!sent)
-        {
-            auto unex = makeUnexpected(sent.error());
-            completeRequest(handler, unex);
-            return unex;
-        }
-
-        if (msg.isRequest())
-            ++nextRequestId_;
-
-        auto emplaced = requests.emplace(msg.requestKey(), std::move(handler));
-        assert(emplaced.second);
-        return requestId;
+        return requestMap_.request(peer_, msg, std::move(handler));
     }
 
     void abortPending(std::error_code ec)
     {
-        UnexpectedError unex{ec};
-        if (!isTerminating_)
-        {
-            for (auto& kv: oneShotRequestMap_)
-                completeRequest(kv.second, unex);
-            for (auto& kv: multiShotRequestMap_)
-                completeRequest(kv.second, unex);
-        }
-        oneShotRequestMap_.clear();
-        multiShotRequestMap_.clear();
+        if (isTerminating_)
+            requestMap_.clear();
+        else
+            requestMap_.abortAll(ec);
     }
 
     template <typename TErrc>
     void abortPending(TErrc errc) {abortPending(make_error_code(errc));}
-
-    ErrorOrDone cancelCall(CallCancellation&& cancellation)
-    {
-        // If the cancel mode is not 'kill', don't wait for the router's
-        // ERROR message and post the request handler immediately
-        // with a WampErrc::cancelled error code.
-
-        bool found = false;
-        RequestKey key{WampMsgType::call, cancellation.requestId()};
-        auto unex = makeUnexpectedError(WampErrc::cancelled);
-
-        auto kv = oneShotRequestMap_.find(key);
-        if (kv != oneShotRequestMap_.end())
-        {
-            found = true;
-            if (cancellation.mode() != CallCancelMode::kill)
-            {
-                auto handler = std::move(kv->second);
-                oneShotRequestMap_.erase(kv);
-                complete(handler, unex);
-            }
-        }
-        else
-        {
-            auto kv = multiShotRequestMap_.find(key);
-            if (kv != multiShotRequestMap_.end())
-            {
-                found = true;
-                if (cancellation.mode() != CallCancelMode::kill)
-                {
-                    auto handler = std::move(kv->second);
-                    multiShotRequestMap_.erase(kv);
-                    completeRequest(handler, unex);
-                }
-            }
-        }
-
-        // Always send the CANCEL message in all modes if a matching
-        // call was found.
-        if (found)
-        {
-            auto sent = peer_.send(cancellation.message({}));
-            if (!sent)
-                return UnexpectedError(sent.error());
-        }
-        return found;
-    }
 
     void doConnect(ConnectionWishList&& wishes, size_t index,
                    std::shared_ptr<CompletionHandler<size_t>> handler)
@@ -1340,7 +1390,7 @@ private:
             {
                 // Don't propagate WAMP errors, as we prefer
                 // this to be a no-fail cleanup operation.
-                self->checkReply(reply, WampMsgType::unsubscribed);
+                self->checkReplyWithoutHandler(reply, WampMsgType::unsubscribed);
             }
         };
 
@@ -1380,12 +1430,13 @@ private:
                    String&& realmUri)
     {
         std::weak_ptr<Client> self = shared_from_this();
-        timeoutScheduler_->listen([self](RequestId reqId)
-                                  {
-                                      auto ptr = self.lock();
-                                      if (ptr)
-                                          ptr->cancelCall(reqId, CallCancelMode::killNoWait);
-                                  });
+        timeoutScheduler_->listen(
+            [self](RequestId reqId)
+            {
+                auto ptr = self.lock();
+                if (ptr)
+                    ptr->cancelCall(reqId, CallCancelMode::killNoWait);
+            });
 
         auto& welcomeMsg = messageCast<WelcomeMessage>(reply);
         Welcome info{{}, std::move(realmUri), std::move(welcomeMsg)};
@@ -1662,37 +1713,7 @@ private:
     void onWampReply(Message& msg)
     {
         assert(msg.isReply());
-        bool matchingRequestFound = false;
-        auto key = msg.requestKey();
-        auto kv = oneShotRequestMap_.find(key);
-        if (kv != oneShotRequestMap_.end())
-        {
-            matchingRequestFound = true;
-            auto handler = std::move(kv->second);
-            oneShotRequestMap_.erase(kv);
-            handler(std::move(msg));
-        }
-        else
-        {
-            auto kv = multiShotRequestMap_.find(key);
-            if (kv != multiShotRequestMap_.end())
-            {
-                matchingRequestFound = true;
-                if (msg.isProgressiveResponse())
-                {
-                    const auto& handler = kv->second;
-                    handler(std::move(msg));
-                }
-                else
-                {
-                    auto handler = std::move(kv->second);
-                    multiShotRequestMap_.erase(kv);
-                    handler(std::move(msg));
-                }
-            }
-        }
-
-        if (!matchingRequestFound)
+        if (!requestMap_.reply(msg))
         {
             log(LogLevel::warning,
                 "Discarding received " + std::string(msg.name()) +
@@ -1713,43 +1734,46 @@ private:
     bool checkReply(ErrorOr<Message>& reply, WampMsgType type,
                     THandler& handler, Error* errorPtr = nullptr)
     {
-        bool ok = checkError(reply, handler);
-        if (ok)
-        {
-            if (reply->type() == WampMsgType::error)
-            {
-                ok = false;
-                auto& errMsg = messageCast<ErrorMessage>(*reply);
-                Error error({}, std::move(errMsg));
-                WampErrc errc = errorUriToCode(error.uri());
-                if (errorPtr != nullptr)
-                {
-                    *errorPtr = std::move(error);
-                }
-                else if ((logLevel() <= LogLevel::error) &&
-                         (errc == WampErrc::unknown || error.hasArgs()))
-                {
-                    // Only log if there is extra error information that cannot
-                    // passed to the handler via an error code.
-                    std::ostringstream oss;
-                    oss << "Expected " << MessageTraits::lookup(type).name
-                        << " reply but got ";
-                    outputErrorDetails(oss, error);
-                    log(LogLevel::error, oss.str());
-                }
+        if (!checkError(reply, handler))
+            return false;
 
-                dispatchHandler(handler, makeUnexpectedError(errc));
-            }
-            else
-            {
-                assert((reply->type() == type) &&
-                       "Unexpected WAMP message type");
-            }
+        if (reply->type() != WampMsgType::error)
+        {
+            assert((reply->type() == type) &&
+                   "Unexpected WAMP message type");
+            return true;
         }
-        return ok;
+
+        auto& errMsg = messageCast<ErrorMessage>(*reply);
+        Error error({}, std::move(errMsg));
+        WampErrc errc = error.errorCode();
+
+        if (errorPtr != nullptr)
+            *errorPtr = std::move(error);
+        else
+            logErrorReplyIfNeeded(error, errc, type);
+
+        dispatchHandler(handler, makeUnexpectedError(errc));
+        return false;
     }
 
-    void checkReply(ErrorOr<Message>& reply, WampMsgType type)
+    void logErrorReplyIfNeeded(const Error& error, WampErrc errc,
+                               WampMsgType reqType)
+    {
+        // Only log if there is extra error information that cannot
+        // passed to the handler via an error code.
+        if (logLevel() > LogLevel::error)
+            return;
+        if ((errc != WampErrc::unknown) && !error.hasArgs())
+            return;
+        std::ostringstream oss;
+        oss << "Expected " << MessageTraits::lookup(reqType).name
+            << " reply but got ";
+        outputErrorDetails(oss, error);
+        log(LogLevel::error, oss.str());
+    }
+
+    void checkReplyWithoutHandler(ErrorOr<Message>& reply, WampMsgType type)
     {
         std::string msgTypeName(MessageTraits::lookup(type).name);
         if (!reply.has_value())
@@ -1847,15 +1871,13 @@ private:
     TopicMap wildcardTopics_;
     Readership readership_;
     Registry registry_;
-    OneShotRequestMap oneShotRequestMap_;
-    MultiShotRequestMap multiShotRequestMap_;
+    ClientRequestMap requestMap_;
     InvocationMap pendingInvocations_;
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
     LogHandler logHandler_;
     StateChangeHandler stateChangeHandler_;
     ChallengeHandler challengeHandler_;
     SlotId nextSlotId_ = 0;
-    RequestId nextRequestId_ = nullId();
     RequestId lastInvocationRequestId_ = nullId();
     bool isTerminating_ = false;
 };
