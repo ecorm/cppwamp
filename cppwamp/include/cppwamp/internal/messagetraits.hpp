@@ -57,7 +57,7 @@ struct CPPWAMP_API MessageTraits
 
     bool isValidType() const;
 
-    bool isValidRx(SessionState s, bool isRouter) const;
+    bool isValidForState(SessionState state) const;
 
     const char* nameOr(const char* fallback) const;
 

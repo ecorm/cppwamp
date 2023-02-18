@@ -150,12 +150,16 @@ struct WampMessage
         auto repliesToType = repliesTo();
         auto reqType = (repliesToType == WampMsgType::none) ? type_
                                                             : repliesToType;
-        if (type_ == WampMsgType::error)
-            reqType = static_cast<WampMsgType>(fields_.at(1).as<Int>());
         return std::make_pair(reqType, requestId());
     }
 
-    WampMsgType repliesTo() const {return traits().repliesTo;}
+    bool isReply() const {return traits().repliesTo != WampMsgType::none;}
+
+    WampMsgType repliesTo() const
+    {
+        return type_ == WampMsgType::error ? fields_.at(1).to<WampMsgType>()
+                                           : traits().repliesTo;
+    }
 
     bool isProgressiveResponse() const
     {

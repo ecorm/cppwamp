@@ -109,19 +109,13 @@ public:
 
     State state() const {return peer_.state();}
 
-    const AnyIoExecutor& executor() const {return peer_.executor();}
+    const AnyIoExecutor& executor() const {return executor_;}
 
-    const IoStrand& strand() const {return peer_.strand();}
+    const AnyCompletionExecutor& userExecutor() const {return userExecutor_;}
 
-    const AnyCompletionExecutor& userExecutor() const
-    {
-        return peer_.userExecutor();
-    }
+    const IoStrand& strand() const {return strand_;}
 
-    void setLogHandler(LogHandler handler)
-    {
-        peer_.setLogHandler(std::move(handler));
-    }
+    void setLogHandler(LogHandler handler) {logHandler_ = std::move(handler);}
 
     void setLogLevel(LogLevel level) {peer_.setLogLevel(level);}
 
@@ -139,7 +133,7 @@ public:
 
     void setStateChangeHandler(StateChangeHandler f)
     {
-        peer_.setStateChangeHandler(std::move(f));
+        stateChangeHandler_ = std::move(f);
     }
 
     void safeSetStateChangeHandler(StateChangeHandler f)
@@ -162,6 +156,7 @@ public:
         if (!checkState(State::disconnected, handler))
             return;
 
+        isTerminating_ = false;
         peer_.startConnecting();
         currentConnector_ = nullptr;
 
@@ -204,14 +199,13 @@ public:
                 {
                     if (reply->type() == WampMsgType::welcome)
                     {
-                        me.onWelcome(std::move(handler), std::move(*reply),
+                        me.onWelcome(std::move(handler), *reply,
                                      std::move(realmUri));
                     }
                     else
                     {
                         assert(reply->type() == WampMsgType::abort);
-                        me.onJoinAborted(std::move(handler), std::move(*reply),
-                                         abortPtr);
+                        me.onJoinAborted(std::move(handler), *reply, abortPtr);
                     }
                 }
             }
@@ -224,9 +218,9 @@ public:
              .withOption("roles", roles());
         challengeHandler_ = std::move(onChallenge);
         peer_.establishSession();
-        peer_.request(realm.message({}),
-                      Requested{shared_from_this(), std::move(handler),
-                                realm.uri(), realm.abortReason({})});
+        request(realm.message({}),
+                Requested{shared_from_this(), std::move(handler),
+                          realm.uri(), realm.abortReason({})});
     }
 
     void safeJoin(Realm&& r, ChallengeHandler c, CompletionHandler<Welcome>&& f)
@@ -291,6 +285,8 @@ public:
                 me.clear();
                 if (me.checkError(reply, handler))
                 {
+                    me.peer_.close();
+                    me.abortPending(Errc::abandoned);
                     auto& goodBye = messageCast<GoodbyeMessage>(*reply);
                     me.completeNow(handler, Reason({}, std::move(goodBye)));
                 }
@@ -303,8 +299,9 @@ public:
             reason.setUri({}, errorCodeToUri(WampErrc::closeRealm));
 
         timeoutScheduler_->clear();
-        peer_.closeSession(std::move(reason),
-                           Adjourned{shared_from_this(), std::move(handler)});
+        peer_.startShuttingDown();
+        request(reason.message({}),
+                Adjourned{shared_from_this(), std::move(handler)});
     }
 
     void safeLeave(Reason&& r, CompletionHandler<Reason>&& f)
@@ -324,6 +321,7 @@ public:
     {
         if (state() == State::connecting)
             currentConnector_->cancel();
+        abortPending(Errc::abandoned);
         clear();
         peer_.disconnect();
     }
@@ -341,10 +339,11 @@ public:
 
     void terminate()
     {
+        isTerminating_ = true;
         if (state() == State::connecting)
             currentConnector_->cancel();
         clear();
-        peer_.terminate();
+        peer_.disconnect();
     }
 
     void safeTerminate()
@@ -400,10 +399,9 @@ public:
         auto kv = rec.topicMap->find(rec.topicUri);
         if (kv == rec.topicMap->end())
         {
-            peer_.request(
-                topic.message({}),
-                Requested{shared_from_this(), std::move(rec),
-                          std::move(handler)});
+            request(topic.message({}),
+                    Requested{shared_from_this(), std::move(rec),
+                              std::move(handler)});
         }
         else
         {
@@ -571,8 +569,8 @@ public:
             return;
 
         pub.withOption("acknowledge", true);
-        peer_.request(pub.message({}),
-                      Requested{shared_from_this(), std::move(handler)});
+        request(pub.message({}),
+                Requested{shared_from_this(), std::move(handler)});
     }
 
     void safePublish(Pub&& p, CompletionHandler<PublicationId>&& f)
@@ -616,9 +614,9 @@ public:
             return;
 
         RegistrationRecord rec{std::move(callSlot), std::move(interruptSlot)};
-        peer_.request(procedure.message({}),
-                      Requested{shared_from_this(), std::move(rec),
-                                std::move(handler)});
+        request(procedure.message({}),
+                Requested{shared_from_this(), std::move(rec),
+                          std::move(handler)});
     }
 
     void safeEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
@@ -664,7 +662,7 @@ public:
             if (state() == State::established)
             {
                 UnregisterMessage msg(reg.id());
-                peer_.request(msg, Requested{shared_from_this()});
+                request(msg, Requested{shared_from_this()});
             }
         }
     }
@@ -704,10 +702,7 @@ public:
             registry_.erase(kv);
             UnregisterMessage msg(reg.id());
             if (checkState(State::established, handler))
-            {
-                peer_.request(msg, Requested{shared_from_this(),
-                                                 std::move(handler)});
-            }
+                request(msg, Requested{shared_from_this(), std::move(handler)});
         }
         else
         {
@@ -757,10 +752,13 @@ public:
 
         auto cancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
-        auto requestId = peer_.request(
+        auto requestId = request(
             rpc.message({}),
             Requested{shared_from_this(), rpc.error({}), std::move(handler)});
-        CallChit chit{shared_from_this(), requestId, rpc.cancelMode(), {}};
+        if (!requestId)
+            return;
+
+        CallChit chit{shared_from_this(), *requestId, rpc.cancelMode(), {}};
 
         if (cancelSlot.is_connected())
         {
@@ -769,7 +767,7 @@ public:
         }
 
         if (rpc.callerTimeout().count() != 0)
-            timeoutScheduler_->add(rpc.callerTimeout(), requestId);
+            timeoutScheduler_->add(rpc.callerTimeout(), *requestId);
 
         if (chitPtr)
             *chitPtr = chit;
@@ -809,7 +807,7 @@ public:
                 {
                     auto& resultMsg = messageCast<ResultMessage>(*reply);
                     me.dispatchHandler(handler,
-                                        Result({}, std::move(resultMsg)));
+                                       Result({}, std::move(resultMsg)));
                 }
             }
         };
@@ -824,10 +822,13 @@ public:
 
         auto cancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
-        auto requestId = peer_.ongoingRequest(
+        auto requestId = ongoingRequest(
             rpc.message({}),
             Requested{shared_from_this(), rpc.error({}), std::move(handler)});
-        CallChit chit{shared_from_this(), requestId, rpc.cancelMode(), {}};
+        if (!requestId)
+            return;
+
+        CallChit chit{shared_from_this(), *requestId, rpc.cancelMode(), {}};
 
         if (cancelSlot.is_connected())
         {
@@ -836,7 +837,7 @@ public:
         }
 
         if (rpc.callerTimeout().count() != 0)
-            timeoutScheduler_->add(rpc.callerTimeout(), requestId);
+            timeoutScheduler_->add(rpc.callerTimeout(), *requestId);
 
         if (chitPtr)
             *chitPtr = chit;
@@ -864,7 +865,51 @@ public:
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
-        return peer_.cancelCall(CallCancellation{reqId, mode});
+
+        // If the cancel mode is not 'kill', don't wait for the router's
+        // ERROR message and post the request handler immediately
+        // with a WampErrc::cancelled error code.
+
+        bool found = false;
+        CallCancellation cancellation{reqId, mode};
+        RequestKey key{WampMsgType::call, cancellation.requestId()};
+        auto unex = makeUnexpectedError(WampErrc::cancelled);
+
+        auto kv = oneShotRequestMap_.find(key);
+        if (kv != oneShotRequestMap_.end())
+        {
+            found = true;
+            if (cancellation.mode() != CallCancelMode::kill)
+            {
+                auto handler = std::move(kv->second);
+                oneShotRequestMap_.erase(kv);
+                complete(handler, unex);
+            }
+        }
+        else
+        {
+            auto kv = multiShotRequestMap_.find(key);
+            if (kv != multiShotRequestMap_.end())
+            {
+                found = true;
+                if (cancellation.mode() != CallCancelMode::kill)
+                {
+                    auto handler = std::move(kv->second);
+                    multiShotRequestMap_.erase(kv);
+                    completeRequest(handler, unex);
+                }
+            }
+        }
+
+        // Always send the CANCEL message in all modes if a matching
+        // call was found.
+        if (found)
+        {
+            auto reqId = peer_.send(cancellation.message({}));
+            if (!reqId)
+                return UnexpectedError(reqId.error());
+        }
+        return found;
     }
 
     FutureErrorOrDone safeCancelCall(RequestId r, CallCancelMode m) override
@@ -1001,8 +1046,8 @@ public:
     }
 
 private:
-    using ErrorOrDonePromise = std::promise<ErrorOrDone>;
-    using TopicMap = std::map<std::string, SubscriptionId>;
+    using ErrorOrDonePromise  = std::promise<ErrorOrDone>;
+    using TopicMap            = std::map<std::string, SubscriptionId>;
 
     struct SubscriptionRecord
     {
@@ -1026,13 +1071,18 @@ private:
         bool expired = false;
     };
 
-    using Message        = WampMessage;
-    using SlotId         = uint64_t;
-    using LocalSubs      = std::map<SlotId, SubscriptionRecord>;
-    using Readership     = std::map<SubscriptionId, LocalSubs>;
-    using Registry       = std::map<RegistrationId, RegistrationRecord>;
-    using InvocationMap  = std::map<RequestId, InvocationRecord>;
+    using SlotId                = uint64_t;
+    using LocalSubs             = std::map<SlotId, SubscriptionRecord>;
+    using Readership            = std::map<SubscriptionId, LocalSubs>;
+    using Registry              = std::map<RegistrationId, RegistrationRecord>;
+    using InvocationMap         = std::map<RequestId, InvocationRecord>;
     using CallerTimeoutDuration = typename Rpc::TimeoutDuration;
+    using Message               = WampMessage;
+    using RequestKey            = typename Message::RequestKey;
+    using OneShotHandler        = AnyCompletionHandler<void (ErrorOr<Message>)>;
+    using MultiShotHandler      = std::function<void (ErrorOr<Message>)>;
+    using OneShotRequestMap     = std::map<RequestKey, OneShotHandler>;
+    using MultiShotRequestMap   = std::map<RequestKey, MultiShotHandler>;
 
     static void outputErrorDetails(std::ostream& out, const Error& e)
     {
@@ -1044,18 +1094,25 @@ private:
     }
 
     Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
-        : peer_(false, exec, std::move(userExec)),
-          timeoutScheduler_(CallerTimeoutScheduler::create(strand()))
+        : peer_(false),
+          executor_(std::move(exec)),
+          userExecutor_(std::move(userExec)),
+          strand_(boost::asio::make_strand(executor_)),
+          timeoutScheduler_(CallerTimeoutScheduler::create(strand_))
     {
         peer_.setInboundMessageHandler(
             [this](Message msg) {onInbound(std::move(msg));} );
+        peer_.setLogHandler(
+            [this](LogEntry entry) {onLog(std::move(entry));} );
+        peer_.setStateChangeHandler(
+            [this](State s, std::error_code ec) {onStateChanged(s, ec);});
     }
 
     template <typename F, typename... Ts>
     void safelyDispatch(Ts&&... args)
     {
         boost::asio::dispatch(
-            strand(), F{shared_from_this(), std::forward<Ts>(args)...});
+            strand_, F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
     template <typename F>
@@ -1065,13 +1122,131 @@ private:
         if (!valid)
         {
             auto unex = makeUnexpectedError(Errc::invalidState);
-            if (!peer_.isTerminating())
+            if (!isTerminating_)
             {
-                postVia(executor(), userExecutor(), std::move(handler),
+                postVia(executor_, userExecutor_, std::move(handler),
                         std::move(unex));
             }
         }
         return valid;
+    }
+
+    void onLog(LogEntry&& entry)
+    {
+        if (logHandler_)
+            dispatchHandler(logHandler_, std::move(entry));
+    }
+
+    void onStateChanged(SessionState s, std::error_code ec)
+    {
+        if (ec)
+            abortPending(ec);
+        if (stateChangeHandler_)
+            postHandler(stateChangeHandler_, s, ec);
+    }
+
+    ErrorOr<RequestId> request(Message& msg, OneShotHandler&& handler)
+    {
+        return sendRequest(msg, oneShotRequestMap_, std::move(handler));
+    }
+
+    ErrorOr<RequestId> ongoingRequest(Message& msg, MultiShotHandler&& handler)
+    {
+        return sendRequest(msg, multiShotRequestMap_, std::move(handler));
+    }
+
+    template <typename TRequestMap, typename THandler>
+    ErrorOr<RequestId> sendRequest(Message& msg, TRequestMap& requests,
+                                   THandler&& handler)
+    {
+        assert(msg.type() != WampMsgType::none);
+        RequestId requestId = nullId();
+        if (msg.isRequest())
+        {
+            requestId = nextRequestId_ + 1;
+            // Will take 285 years to overflow 2^53 at 1 million requests/sec
+            assert(nextRequestId_ <= 9007199254740992u);
+            msg.setRequestId(requestId);
+        }
+
+        auto sent = peer_.send(msg);
+        if (!sent)
+        {
+            auto unex = makeUnexpected(sent.error());
+            completeRequest(handler, unex);
+            return unex;
+        }
+
+        if (msg.isRequest())
+            ++nextRequestId_;
+
+        auto emplaced = requests.emplace(msg.requestKey(), std::move(handler));
+        assert(emplaced.second);
+        return requestId;
+    }
+
+    void abortPending(std::error_code ec)
+    {
+        UnexpectedError unex{ec};
+        if (!isTerminating_)
+        {
+            for (auto& kv: oneShotRequestMap_)
+                completeRequest(kv.second, unex);
+            for (auto& kv: multiShotRequestMap_)
+                completeRequest(kv.second, unex);
+        }
+        oneShotRequestMap_.clear();
+        multiShotRequestMap_.clear();
+    }
+
+    template <typename TErrc>
+    void abortPending(TErrc errc) {abortPending(make_error_code(errc));}
+
+    ErrorOrDone cancelCall(CallCancellation&& cancellation)
+    {
+        // If the cancel mode is not 'kill', don't wait for the router's
+        // ERROR message and post the request handler immediately
+        // with a WampErrc::cancelled error code.
+
+        bool found = false;
+        RequestKey key{WampMsgType::call, cancellation.requestId()};
+        auto unex = makeUnexpectedError(WampErrc::cancelled);
+
+        auto kv = oneShotRequestMap_.find(key);
+        if (kv != oneShotRequestMap_.end())
+        {
+            found = true;
+            if (cancellation.mode() != CallCancelMode::kill)
+            {
+                auto handler = std::move(kv->second);
+                oneShotRequestMap_.erase(kv);
+                complete(handler, unex);
+            }
+        }
+        else
+        {
+            auto kv = multiShotRequestMap_.find(key);
+            if (kv != multiShotRequestMap_.end())
+            {
+                found = true;
+                if (cancellation.mode() != CallCancelMode::kill)
+                {
+                    auto handler = std::move(kv->second);
+                    multiShotRequestMap_.erase(kv);
+                    completeRequest(handler, unex);
+                }
+            }
+        }
+
+        // Always send the CANCEL message in all modes if a matching
+        // call was found.
+        if (found)
+        {
+            auto sent = peer_.send(cancellation.message({}));
+            if (!sent)
+                return UnexpectedError(sent.error());
+        }
+        return found;
     }
 
     void doConnect(ConnectionWishList&& wishes, size_t index,
@@ -1091,7 +1266,7 @@ private:
                     return;
 
                 auto& me = *locked;
-                if (me.peer_.isTerminating())
+                if (me.isTerminating_)
                     return;
 
                 if (!transport)
@@ -1113,7 +1288,7 @@ private:
             }
         };
 
-        currentConnector_ = wishes.at(index).makeConnector(strand());
+        currentConnector_ = wishes.at(index).makeConnector(strand_);
         currentConnector_->establish(
             Established{shared_from_this(), std::move(wishes), index,
                         std::move(handler)});
@@ -1172,7 +1347,7 @@ private:
         if (state() == State::established)
         {
             UnsubscribeMessage msg(subId);
-            peer_.request(msg, Requested{shared_from_this()});
+            request(msg, Requested{shared_from_this()});
         }
     }
 
@@ -1197,53 +1372,27 @@ private:
         if (checkState(State::established, handler))
         {
             UnsubscribeMessage msg(subId);
-            peer_.request(msg, Requested{shared_from_this(),
-                                         std::move(handler)});
+            request(msg, Requested{shared_from_this(), std::move(handler)});
         }
     }
 
-    void onInbound(Message msg)
-    {
-        switch (msg.type())
-        {
-        case WampMsgType::challenge:
-            onChallenge(std::move(msg));
-            break;
-
-        case WampMsgType::event:
-            onEvent(std::move(msg));
-            break;
-
-        case WampMsgType::invocation:
-            onInvocation(std::move(msg));
-            break;
-
-        case WampMsgType::interrupt:
-            onInterrupt(std::move(msg));
-            break;
-
-        default:
-            assert(false);
-        }
-    }
-
-    void onWelcome(CompletionHandler<Welcome>&& handler, Message&& reply,
+    void onWelcome(CompletionHandler<Welcome>&& handler, Message& reply,
                    String&& realmUri)
     {
         std::weak_ptr<Client> self = shared_from_this();
         timeoutScheduler_->listen([self](RequestId reqId)
-        {
-            auto ptr = self.lock();
-            if (ptr)
-                ptr->cancelCall(reqId, CallCancelMode::killNoWait);
-        });
+                                  {
+                                      auto ptr = self.lock();
+                                      if (ptr)
+                                          ptr->cancelCall(reqId, CallCancelMode::killNoWait);
+                                  });
 
         auto& welcomeMsg = messageCast<WelcomeMessage>(reply);
         Welcome info{{}, std::move(realmUri), std::move(welcomeMsg)};
         completeNow(handler, std::move(info));
     }
 
-    void onJoinAborted(CompletionHandler<Welcome>&& handler, Message&& reply,
+    void onJoinAborted(CompletionHandler<Welcome>&& handler, Message& reply,
                        Reason* abortPtr)
     {
         auto& abortMsg = messageCast<AbortMessage>(reply);
@@ -1268,7 +1417,19 @@ private:
         completeNow(handler, makeUnexpectedError(errc));
     }
 
-    void onChallenge(Message&& msg)
+    void onInbound(Message msg)
+    {
+        switch (msg.type())
+        {
+        case WampMsgType::challenge:  return onChallenge(msg);
+        case WampMsgType::event:      return onEvent(msg);
+        case WampMsgType::invocation: return onInvocation(msg);
+        case WampMsgType::interrupt:  return onInterrupt(msg);
+        default:                      return onWampReply(msg);
+        }
+    }
+
+    void onChallenge(Message& msg)
     {
         auto& challengeMsg = messageCast<ChallengeMessage>(msg);
         Challenge challenge({}, shared_from_this(), std::move(challengeMsg));
@@ -1292,7 +1453,7 @@ private:
         }
     }
 
-    void onEvent(Message&& msg)
+    void onEvent(Message& msg)
     {
         auto& eventMsg = messageCast<EventMessage>(msg);
         auto kv = readership_.find(eventMsg.subscriptionId());
@@ -1300,7 +1461,7 @@ private:
         {
             const auto& localSubs = kv->second;
             assert(!localSubs.empty());
-            Event event({}, userExecutor(), std::move(eventMsg));
+            Event event({}, userExecutor_, std::move(eventMsg));
             for (const auto& subKv: localSubs)
                 postEvent(subKv.second, event);
         }
@@ -1349,10 +1510,10 @@ private:
             }
         };
 
-        auto exec = boost::asio::get_associated_executor(sub.slot,
-                                                         userExecutor());
+        auto exec =
+            boost::asio::get_associated_executor(sub.slot, userExecutor_);
         Posted posted{shared_from_this(), sub.slot, sub.topicUri, event};
-        boost::asio::post(executor(),
+        boost::asio::post(executor_,
                           boost::asio::bind_executor(exec, std::move(posted)));
     }
 
@@ -1371,7 +1532,7 @@ private:
         }
     }
 
-    void onInvocation(Message&& msg)
+    void onInvocation(Message& msg)
     {
         auto& invMsg = messageCast<InvocationMessage>(msg);
         auto requestId = invMsg.requestId();
@@ -1401,7 +1562,7 @@ private:
             return;
         }
 
-        Invocation inv({}, shared_from_this(), userExecutor(),
+        Invocation inv({}, shared_from_this(), userExecutor_,
                        std::move(invMsg));
 
         const RegistrationRecord& rec = kv->second;
@@ -1411,7 +1572,7 @@ private:
         postRpcRequest(rec.callSlot, std::move(inv));
     }
 
-    void onInterrupt(Message&& msg)
+    void onInterrupt(Message& msg)
     {
         auto& interruptMsg = messageCast<InterruptMessage>(msg);
         auto found = pendingInvocations_.find(interruptMsg.requestId());
@@ -1423,7 +1584,7 @@ private:
             return;
         rec.interrupted = true;
 
-        Interruption intr({}, shared_from_this(), userExecutor(),
+        Interruption intr({}, shared_from_this(), userExecutor_,
                           std::move(interruptMsg));
         auto kv = registry_.find(rec.registrationId);
         if (kv != registry_.end() && kv->second.interruptSlot != nullptr)
@@ -1492,10 +1653,51 @@ private:
             }
         };
 
-        auto exec = boost::asio::get_associated_executor(slot, userExecutor());
+        auto exec = boost::asio::get_associated_executor(slot, userExecutor_);
         Posted posted{shared_from_this(), std::move(slot), std::move(request)};
-        boost::asio::post(executor(),
+        boost::asio::post(executor_,
                           boost::asio::bind_executor(exec, std::move(posted)));
+    }
+
+    void onWampReply(Message& msg)
+    {
+        assert(msg.isReply());
+        bool matchingRequestFound = false;
+        auto key = msg.requestKey();
+        auto kv = oneShotRequestMap_.find(key);
+        if (kv != oneShotRequestMap_.end())
+        {
+            matchingRequestFound = true;
+            auto handler = std::move(kv->second);
+            oneShotRequestMap_.erase(kv);
+            handler(std::move(msg));
+        }
+        else
+        {
+            auto kv = multiShotRequestMap_.find(key);
+            if (kv != multiShotRequestMap_.end())
+            {
+                matchingRequestFound = true;
+                if (msg.isProgressiveResponse())
+                {
+                    const auto& handler = kv->second;
+                    handler(std::move(msg));
+                }
+                else
+                {
+                    auto handler = std::move(kv->second);
+                    multiShotRequestMap_.erase(kv);
+                    handler(std::move(msg));
+                }
+            }
+        }
+
+        if (!matchingRequestFound)
+        {
+            log(LogLevel::warning,
+                "Discarding received " + std::string(msg.name()) +
+                    " message with no matching request");
+        }
     }
 
     template <typename THandler>
@@ -1586,33 +1788,45 @@ private:
     }
 
     template <typename S, typename... Ts>
-    void dispatchHandler(AnyCompletionHandler<S>& handler, Ts&&... args)
+    void dispatchHandler(AnyCompletionHandler<S>& f, Ts&&... args)
     {
-        if (!peer_.isTerminating())
-        {
-            dispatchVia(executor(), userExecutor(), std::move(handler),
-                        std::forward<Ts>(args)...);
-        }
-    }
-
-    template <typename S, typename... Ts>
-    void dispatchHandler(const AnyReusableHandler<S>& handler, Ts&&... args)
-    {
-        if (!peer_.isTerminating())
-        {
-            dispatchVia(executor(), userExecutor(), handler,
-                        std::forward<Ts>(args)...);
-        }
-    }
-
-    template <typename S, typename... Ts>
-    void complete(AnyCompletionHandler<S>& handler, Ts&&... args)
-    {
-        if (!peer_.isTerminating())
-        {
-            postVia(executor(), userExecutor(), std::move(handler),
+        if (isTerminating_)
+            return;
+        dispatchVia(executor_, userExecutor_, std::move(f),
                     std::forward<Ts>(args)...);
-        }
+    }
+
+    template <typename S, typename... Ts>
+    void dispatchHandler(const AnyReusableHandler<S>& f, Ts&&... args)
+    {
+        if (isTerminating_)
+            return;
+        dispatchVia(executor_, userExecutor_, f, std::forward<Ts>(args)...);
+    }
+
+    template <typename S, typename... Ts>
+    void postHandler(const AnyReusableHandler<S>& f, Ts&&... args)
+    {
+        if (isTerminating_)
+            return;
+        postVia(executor_, userExecutor_, f, std::forward<Ts>(args)...);
+    }
+
+    template <typename S, typename... Ts>
+    void complete(AnyCompletionHandler<S>& f, Ts&&... args)
+    {
+        if (isTerminating_)
+            return;
+        postVia(executor_, userExecutor_, std::move(f),
+                std::forward<Ts>(args)...);
+    }
+
+    template <typename F, typename... Ts>
+    void completeRequest(F& handler, Ts&&... args)
+    {
+        boost::asio::post(
+            strand_,
+            std::bind(std::move(handler), std::forward<Ts>(args)...));
     }
 
     template <typename S, typename... Ts>
@@ -1624,17 +1838,26 @@ private:
     SlotId nextSlotId() {return nextSlotId_++;}
 
     Peer peer_;
+    AnyIoExecutor executor_;
+    AnyCompletionExecutor userExecutor_;
+    IoStrand strand_;
     Connecting::Ptr currentConnector_;
     TopicMap exactTopics_;
     TopicMap prefixTopics_;
     TopicMap wildcardTopics_;
     Readership readership_;
     Registry registry_;
+    OneShotRequestMap oneShotRequestMap_;
+    MultiShotRequestMap multiShotRequestMap_;
     InvocationMap pendingInvocations_;
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
+    LogHandler logHandler_;
+    StateChangeHandler stateChangeHandler_;
     ChallengeHandler challengeHandler_;
     SlotId nextSlotId_ = 0;
-    RequestId lastInvocationRequestId_ = 0;
+    RequestId nextRequestId_ = nullId();
+    RequestId lastInvocationRequestId_ = nullId();
+    bool isTerminating_ = false;
 };
 
 } // namespace internal

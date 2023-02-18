@@ -15,8 +15,6 @@
 #include <sstream>
 #include <string>
 #include <utility>
-#include <boost/asio/strand.hpp>
-#include "../anyhandler.hpp"
 #include "../codec.hpp"
 #include "../erroror.hpp"
 #include "../logging.hpp"
@@ -41,20 +39,12 @@ public:
     using State                 = SessionState;
     using Message               = WampMessage;
     using InboundMessageHandler = std::function<void (Message)>;
-    using OneShotHandler        = AnyCompletionHandler<void (ErrorOr<Message>)>;
-    using MultiShotHandler      = std::function<void (ErrorOr<Message>)>;
-    using LogHandler            = AnyReusableHandler<void (LogEntry)>;
-    using StateChangeHandler    = AnyReusableHandler<void (State,
-                                                           std::error_code)>;
+    using LogHandler            = std::function<void (LogEntry)>;
+    using StateChangeHandler    = std::function<void (State, std::error_code)>;
 
-    explicit Peer(bool isRouter, AnyIoExecutor exec,
-                  AnyCompletionExecutor userExecutor)
-        : executor_(std::move(exec)),
-          strand_(boost::asio::make_strand(executor_)),
-          userExecutor_(std::move(userExecutor)),
-          state_(State::disconnected),
+    explicit Peer(bool isRouter)
+        : state_(State::disconnected),
           logLevel_(LogLevel::warning),
-          isTerminating_(false),
           isRouter_(isRouter)
     {}
 
@@ -68,14 +58,6 @@ public:
     }
 
     State state() const {return state_.load();}
-
-    bool isTerminating() const {return isTerminating_.load();}
-
-    const IoStrand& strand() const {return strand_;}
-
-    const AnyIoExecutor& executor() const {return executor_;}
-
-    const AnyCompletionExecutor& userExecutor() const {return userExecutor_;}
 
     void setInboundMessageHandler(InboundMessageHandler f)
     {
@@ -93,15 +75,8 @@ public:
 
     void log(LogLevel severity, std::string message, std::error_code ec = {})
     {
-        if (logHandler_ && (logLevel_.load() <= severity))
-        {
-            LogEntry entry{severity, std::move(message), ec};
-            if (!isTerminating_)
-            {
-                dispatchVia(executor_, userExecutor_, logHandler_,
-                            std::move(entry));
-            }
-        }
+        if (logLevel() <= severity)
+            logHandler_(LogEntry{severity, std::move(message), ec});
     }
 
     void setStateChangeHandler(StateChangeHandler handler)
@@ -109,11 +84,7 @@ public:
         stateChangeHandler_ = std::move(handler);
     }
 
-    void startConnecting()
-    {
-        isTerminating_.store(false);
-        setState(State::connecting);
-    }
+    void startConnecting() {setState(State::connecting);}
 
     void failConnecting(std::error_code ec) {setState(State::failed, ec);}
 
@@ -175,35 +146,19 @@ public:
         setState(State::established);
     }
 
-    void closeSession(Reason reason, OneShotHandler&& handler)
+    void startShuttingDown()
     {
-        // TODO: Reply timeout
-
-        struct Requested
-        {
-            Peer* self; // Client will keep Peer alive during request
-            OneShotHandler handler;
-
-            void operator()(ErrorOr<Message> reply)
-            {
-                if (reply)
-                {
-                    self->setState(State::closed);
-                    self->abortPending(Errc::abandoned);
-                }
-                handler(std::move(reply));
-            }
-        };
-
-        assert(state() == State::established);
         setState(State::shuttingDown);
-        request(reason.message({}), Requested{this, std::move(handler)});
+    }
+
+    void close()
+    {
+        setState(State::closed);
     }
 
     void disconnect()
     {
         setState(State::disconnected);
-        abortPending(Errc::abandoned);
         if (transport_)
         {
             transport_->close();
@@ -211,17 +166,18 @@ public:
         }
     }
 
-    void terminate()
-    {
-        isTerminating_.store(true);
-        disconnect();
-    }
-
     ErrorOrDone send(Message& msg)
     {
-        auto reqId = sendMessage(msg);
-        if (!reqId)
-            return UnexpectedError(reqId.error());
+        assert(msg.type() != WampMsgType::none);
+
+        MessageBuffer buffer;
+        codec_.encode(msg.fields(), buffer);
+        if (buffer.size() > maxTxLength_)
+            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
+
+        traceTx(msg);
+        assert(transport_ != nullptr);
+        transport_->send(std::move(buffer));
         return true;
     }
 
@@ -274,7 +230,6 @@ public:
         }
 
         setState(State::failed, r.errorCode());
-        abortPending(Errc::abandoned);
         traceTx(msg);
         transport_->sendNowAndClose(std::move(buffer));
         if (!fits)
@@ -282,166 +237,26 @@ public:
         return true;
     }
 
-    RequestId request(Message& msg, OneShotHandler&& handler)
-    {
-        // TODO: Move request logic to Client
-        return sendRequest(msg, oneShotRequestMap_, std::move(handler));
-    }
-
-    RequestId ongoingRequest(Message& msg, MultiShotHandler&& handler)
-    {
-        return sendRequest(msg, multiShotRequestMap_, std::move(handler));
-    }
-
-    ErrorOrDone cancelCall(CallCancellation&& cancellation)
-    {
-        // If the cancel mode is not 'kill', don't wait for the router's
-        // ERROR message and post the request handler immediately
-        // with a WampErrc::cancelled error code.
-
-        bool found = false;
-        RequestKey key{WampMsgType::call, cancellation.requestId()};
-        auto unex = makeUnexpectedError(WampErrc::cancelled);
-
-        auto kv = oneShotRequestMap_.find(key);
-        if (kv != oneShotRequestMap_.end())
-        {
-            found = true;
-            if (cancellation.mode() != CallCancelMode::kill)
-            {
-                auto handler = std::move(kv->second);
-                oneShotRequestMap_.erase(kv);
-                complete(handler, unex);
-            }
-        }
-        else
-        {
-            auto kv = multiShotRequestMap_.find(key);
-            if (kv != multiShotRequestMap_.end())
-            {
-                found = true;
-                if (cancellation.mode() != CallCancelMode::kill)
-                {
-                    auto handler = std::move(kv->second);
-                    multiShotRequestMap_.erase(kv);
-                    complete(handler, unex);
-                }
-            }
-        }
-
-        // Always send the CANCEL message in all modes if a matching
-        // call was found.
-        if (found)
-        {
-            auto reqId = sendMessage(cancellation.message({}));
-            if (!reqId)
-                return UnexpectedError(reqId.error());
-        }
-        return found;
-    }
-
 private:
     static constexpr unsigned progressiveResponseFlag_ = 0x01;
-
-    using RequestKey = typename Message::RequestKey;
-    using OneShotRequestMap = std::map<RequestKey, OneShotHandler>;
-    using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
-
-    template <typename F, typename... Ts>
-    void complete(F& handler, Ts&&... args)
-    {
-        boost::asio::post(strand_, std::bind(std::move(handler),
-                                             std::forward<Ts>(args)...));
-    }
 
     State setState(State s, std::error_code ec = {})
     {
         auto old = state_.exchange(s);
-        if (old != s && stateChangeHandler_ && !isTerminating_)
-            postVia(executor_, userExecutor_, stateChangeHandler_, s, ec);
+        if ((old != s) && stateChangeHandler_)
+            stateChangeHandler_(s, ec);
         return old;
     }
 
-    State setState(State s, WampErrc errc)
+    template <typename TErrc>
+    State setState(State s, TErrc errc)
     {
         return setState(s, make_error_code(errc));
     }
 
-    ErrorOr<RequestId> sendMessage(Message& msg)
-    {
-        assert(msg.type() != WampMsgType::none);
-
-        auto requestId = setMessageRequestId(msg);
-
-        MessageBuffer buffer;
-        codec_.encode(msg.fields(), buffer);
-        if (buffer.size() > maxTxLength_)
-            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
-
-        traceTx(msg);
-        assert(transport_ != nullptr);
-        transport_->send(std::move(buffer));
-        return requestId;
-    }
-
-    template <typename TRequestMap, typename THandler>
-    RequestId sendRequest(Message& msg, TRequestMap& requests,
-                          THandler&& handler)
-    {
-        assert(msg.type() != WampMsgType::none);
-
-        auto requestId = setMessageRequestId(msg);
-        MessageBuffer buffer;
-        codec_.encode(msg.fields(), buffer);
-
-        if (buffer.size() > maxTxLength_)
-        {
-            complete(handler,
-                     makeUnexpectedError(WampErrc::payloadSizeExceeded));
-            return requestId;
-        }
-
-        // In the unlikely (impossible?) event that there is an old pending
-        // request with the same request ID (that is, we used the entire
-        // 2^53 set of IDs), then cancel the old request.
-        auto key = msg.requestKey();
-        auto found = requests.find(key);
-        if (found != requests.end())
-        {
-            complete(found->second, makeUnexpectedError(WampErrc::cancelled));
-            requests.erase(found);
-        }
-
-        requests.emplace(msg.requestKey(), std::move(handler));
-        traceTx(msg);
-        assert(transport_ != nullptr);
-        transport_->send(std::move(buffer));
-        return requestId;
-    }
-
-    RequestId setMessageRequestId(Message& msg)
-    {
-        RequestId requestId = nullId();
-
-        if (msg.isRequest())
-        {
-            requestId = nextRequestId();
-            msg.setRequestId(requestId);
-        }
-
-        return requestId;
-    }
-
-    RequestId nextRequestId()
-    {
-        // Will take 285 years to overflow 2^53 at 1 million requests/sec
-        ++nextRequestId_;
-        assert(nextRequestId_ <= 9007199254740992u);
-        return nextRequestId_;
-    }
-
     void onTransportRx(MessageBuffer buffer)
     {
+        // TODO: Send abort on protocol violations if session established
         static constexpr auto errc = WampErrc::protocolViolation;
 
         auto s = state();
@@ -472,121 +287,76 @@ private:
                               "or field schema");
         }
 
-        if (!msg->traits().isValidRx(state(), isRouter_))
-            return fail(errc, "Received invalid WAMP message for peer role");
+        bool isValidForRole = isRouter_ ? msg->traits().isRouterRx
+                                        : msg->traits().isClientRx;
+        if (!isValidForRole)
+        {
+            return fail(errc, "Role does not support receiving " +
+                              std::string(msg->name()) + " messages");
+        }
 
-        // if (msg->traits().)
+        if (!msg->traits().isValidForState(state()))
+        {
+            return fail(errc,
+                        std::string(msg->name()) +
+                        " messages are invalid for current session state");
+        }
 
-        processMessage(std::move(*msg));
+        onMessage(std::move(*msg));
     }
 
-    void processMessage(Message&& msg)
+    void onMessage(Message&& msg)
     {
         switch (msg.type())
         {
-            case WampMsgType::hello:     return processHello(std::move(msg));
-            case WampMsgType::welcome:   return processWelcome(std::move(msg));
-            case WampMsgType::abort:     return processAbort(std::move(msg));
-            case WampMsgType::challenge: return processChallenge(std::move(msg));
-            case WampMsgType::goodbye:   return processGoodbye(std::move(msg));
-            case WampMsgType::error:     return processWampReply(std::move(msg));
-
-            default:
-                if (msg.repliesTo() == WampMsgType::none)
-                {
-                    // Role-specific non-reply messages. Ignore it if we're
-                    // shutting down.
-                    if (state() == State::shuttingDown)
-                    {
-                        log(LogLevel::warning,
-                            "Discarding received " + std::string(msg.name()) +
-                            " message while WAMP session is shutting down");
-                    }
-                    else
-                    {
-                        inboundMessageHandler_(std::move(msg));
-                    }
-                }
-                else
-                {
-                    processWampReply(std::move(msg));
-                }
-                break;
-        }
-    }
-
-    void processWampReply(Message&& msg)
-    {
-        if (isRouter_)
-            return inboundMessageHandler_(std::move(msg));
-
-        bool matchingRequestFound = false;
-        auto key = msg.requestKey();
-        auto kv = oneShotRequestMap_.find(key);
-        if (kv != oneShotRequestMap_.end())
-        {
-            matchingRequestFound = true;
-            auto handler = std::move(kv->second);
-            oneShotRequestMap_.erase(kv);
-            handler(std::move(msg));
-        }
-        else
-        {
-            auto kv = multiShotRequestMap_.find(key);
-            if (kv != multiShotRequestMap_.end())
-            {
-                matchingRequestFound = true;
-                if (msg.isProgressiveResponse())
-                {
-                    const auto& handler = kv->second;
-                    handler(std::move(msg));
-                }
-                else
-                {
-                    auto handler = std::move(kv->second);
-                    multiShotRequestMap_.erase(kv);
-                    handler(std::move(msg));
-                }
-            }
+        case WampMsgType::hello:     return onHello(std::move(msg));
+        case WampMsgType::welcome:   return onWelcome(std::move(msg));
+        case WampMsgType::abort:     return onAbort(std::move(msg));
+        case WampMsgType::challenge: return onChallenge(std::move(msg));
+        case WampMsgType::goodbye:   return onGoodbye(std::move(msg));
+        default: break;
         }
 
-        if (!matchingRequestFound)
+        // Discard new requests if we're shutting down.
+        if (state() == State::shuttingDown && !msg.isReply())
         {
             log(LogLevel::warning,
                 "Discarding received " + std::string(msg.name()) +
-                " message with no matching request");
+                    " message while WAMP session is shutting down");
+            return;
         }
+
+        inboundMessageHandler_(std::move(msg));
     }
 
-    void processHello(Message&& msg)
+    void onHello(Message&& msg)
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
         inboundMessageHandler_(std::move(msg));
     }
 
-    void processWelcome(Message&& msg)
+    void onWelcome(Message&& msg)
     {
         auto s = state();
         assert(s == State::establishing || s == State::authenticating);
         setState(State::established);
-        processWampReply(std::move(msg));
+        inboundMessageHandler_(std::move(msg));
     }
 
-    void processAbort(Message&& msg)
+    void onAbort(Message&& msg)
     {
         auto s = state();
+        const auto& abortMsg = messageCast<AbortMessage>(msg);
+        WampErrc errc = errorUriToCode(abortMsg.uri());
 
         if (s == State::establishing || s == State::authenticating)
         {
             setState(State::closed);
-            processWampReply(std::move(msg));
+            inboundMessageHandler_(std::move(msg));
         }
         else
         {
-            const auto& abortMsg = messageCast<AbortMessage>(msg);
-            WampErrc errc = errorUriToCode(abortMsg.uri());
-
             if (logLevel() <= LogLevel::error)
             {
                 std::ostringstream oss;
@@ -603,24 +373,25 @@ private:
         }
     }
 
-    void processChallenge(Message&& msg)
+    void onChallenge(Message&& msg)
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
         inboundMessageHandler_(std::move(msg));
     }
 
-    void processGoodbye(Message&& msg)
+    void onGoodbye(Message&& msg)
     {
         if (state() == State::shuttingDown)
         {
             setState(State::closed);
-            processWampReply(std::move(msg));
+            inboundMessageHandler_(std::move(msg));
         }
         else
         {
             const auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
             WampErrc errc = errorUriToCode(goodbyeMsg.uri());
+            errc = (errc == WampErrc::success) ? WampErrc::closeRealm : errc;
 
             if (isRouter_)
             {
@@ -636,8 +407,7 @@ private:
                 log(LogLevel::warning, oss.str());
             }
 
-            abortPending(errc);
-            setState(State::closed);
+            setState(State::closed, errc);
             GoodbyeMessage outgoingGoodbye(
                 errorCodeToUri(WampErrc::goodbyeAndOut));
             send(outgoingGoodbye).value();
@@ -650,8 +420,7 @@ private:
         if (s == State::disconnected || s == State::failed)
             return;
 
-        setState(State::disconnected);
-        abortPending(make_error_code(TransportErrc::disconnected));
+        setState(State::disconnected, TransportErrc::disconnected);
         if (transport_)
         {
             transport_->close();
@@ -667,7 +436,6 @@ private:
         auto oldState = setState(State::failed, ec);
         if (oldState != State::failed)
         {
-            abortPending(ec);
             if (transport_)
             {
                 transport_->close();
@@ -685,23 +453,6 @@ private:
         fail(make_error_code(errc), std::move(info));
     }
 
-    void abortPending(std::error_code ec)
-    {
-        UnexpectedError unex{ec};
-        if (!isTerminating_)
-        {
-            for (auto& kv: oneShotRequestMap_)
-                complete(kv.second, unex);
-            for (auto& kv: multiShotRequestMap_)
-                complete(kv.second, unex);
-        }
-        oneShotRequestMap_.clear();
-        multiShotRequestMap_.clear();
-    }
-
-    template <typename TErrc>
-    void abortPending(TErrc errc) {abortPending(make_error_code(errc));}
-
     void traceRx(const Array& fields)
     {
         trace(Message::parseMsgType(fields), fields, "RX");
@@ -714,7 +465,7 @@ private:
 
     void trace(WampMsgType type, const Array& fields, const char* label)
     {
-        if (isTerminating_ || (logLevel() > LogLevel::trace))
+        if (logLevel() > LogLevel::trace)
             return;
 
         std::ostringstream oss;
@@ -725,23 +476,16 @@ private:
         oss << ']';
 
         LogEntry entry{LogLevel::trace, oss.str()};
-        dispatchVia(strand_, userExecutor_, logHandler_, std::move(entry));
+        logHandler_(std::move(entry));
     }
 
-    AnyIoExecutor executor_;
-    IoStrand strand_;
-    AnyCompletionExecutor userExecutor_;
     AnyBufferCodec codec_;
     Transporting::Ptr transport_;
     InboundMessageHandler inboundMessageHandler_;
     LogHandler logHandler_;
     StateChangeHandler stateChangeHandler_;
-    OneShotRequestMap oneShotRequestMap_;
-    MultiShotRequestMap multiShotRequestMap_;
     std::atomic<State> state_;
     std::atomic<LogLevel> logLevel_;
-    std::atomic<bool> isTerminating_;
-    RequestId nextRequestId_ = nullId();
     std::size_t maxTxLength_ = 0;
     bool isRouter_ = false;
 };

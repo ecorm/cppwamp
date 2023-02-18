@@ -281,7 +281,7 @@ private:
 
     ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
                   ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)
-        : peer_(true, i, i),
+        : peer_(true),
           strand_(std::move(i)),
           transport_(t),
           codec_(std::move(c)),

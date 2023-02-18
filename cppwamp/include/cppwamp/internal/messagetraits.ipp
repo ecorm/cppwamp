@@ -43,9 +43,9 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
 /*  3 */ {"ABORT",        W::hello,       0,3,3,1,0,1,1,1,0, {i,o,s,n,n,n,n}},
 /*  4 */ {"CHALLENGE",    W::none,        0,3,3,1,0,1,1,0,0, {i,s,o,n,n,n,n}},
 /*  5 */ {"AUTHENTICATE", W::none,        0,3,3,0,1,0,1,0,0, {i,s,o,n,n,n,n}},
-/*  6 */ {"GOODBYE",      W::none,        0,3,3,1,1,0,0,1,0, {i,o,s,n,n,n,n}},
+/*  6 */ {"GOODBYE",      W::goodbye,     0,3,3,1,1,0,0,1,0, {i,o,s,n,n,n,n}},
 /*  7 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/*  8 */ {"ERROR",        W::none,        2,5,7,1,1,0,0,1,0, {i,i,i,o,s,a,o}},
+/*  8 */ {"ERROR",        W::error,       2,5,7,1,1,0,0,1,0, {i,i,i,o,s,a,o}},
 /*  9 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
 /* 10 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
 /* 11 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
@@ -135,35 +135,25 @@ CPPWAMP_INLINE bool MessageTraits::isValidType() const
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE bool MessageTraits::isValidRx(SessionState state,
-                                             bool isRouter) const
+CPPWAMP_INLINE bool MessageTraits::isValidForState(SessionState state) const
 {
-    bool valid = isRouter ? isRouterRx : isClientRx;
-
-    if (valid)
+    switch (state)
     {
-        switch (state)
-        {
-        case SessionState::establishing:
-            valid = forEstablishing;
-            break;
+    case SessionState::establishing:
+        return forEstablishing;
 
-        case SessionState::authenticating:
-            valid = forAuthenticating;
-            break;
+    case SessionState::authenticating:
+        return forAuthenticating;
 
-        case SessionState::established:
-        case SessionState::shuttingDown:
-            valid = forEstablished;
-            break;
+    case SessionState::established:
+    case SessionState::shuttingDown:
+        return forEstablished;
 
-        default:
-            valid = false;
-            break;
-        }
+    default:
+        break;
     }
 
-    return valid;
+    return false;
 }
 
 //------------------------------------------------------------------------------
