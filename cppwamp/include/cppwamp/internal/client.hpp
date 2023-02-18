@@ -1238,6 +1238,11 @@ private:
             [this](LogEntry entry) {onLog(std::move(entry));} );
         peer_.setStateChangeHandler(
             [this](State s, std::error_code ec) {onStateChanged(s, ec);});
+        timeoutScheduler_->listen(
+            [this](RequestId reqId)
+            {
+                cancelCall(reqId, CallCancelMode::killNoWait);
+            });
     }
 
     template <typename F, typename... Ts>
@@ -1428,15 +1433,6 @@ private:
     void onWelcome(CompletionHandler<Welcome>&& handler, Message& reply,
                    String&& realmUri)
     {
-        std::weak_ptr<Client> self = shared_from_this();
-        timeoutScheduler_->listen(
-            [self](RequestId reqId)
-            {
-                auto ptr = self.lock();
-                if (ptr)
-                    ptr->cancelCall(reqId, CallCancelMode::killNoWait);
-            });
-
         auto& welcomeMsg = messageCast<WelcomeMessage>(reply);
         Welcome info{{}, std::move(realmUri), std::move(welcomeMsg)};
         completeNow(handler, std::move(info));

@@ -37,7 +37,9 @@ struct TimeoutRecord
     TimeoutRecord(Duration timeout, Key key)
         : deadline(Clock::now() + timeout),
           key(std::move(key))
-    {}
+    {
+        // TODO: Prevent overflow
+    }
 
     bool operator<(const TimeoutRecord& rhs) const
     {
@@ -65,10 +67,18 @@ public:
         return Ptr(new TimeoutScheduler(std::move(strand)));
     }
 
+    ~TimeoutScheduler()
+    {
+        deadlines_.clear();
+        timeoutHandler_ = nullptr;
+    }
+
     void listen(TimeoutHandler handler)
     {
         timeoutHandler_ = std::move(handler);
     }
+
+    void unlisten() {timeoutHandler_ = nullptr;}
 
     void insert(Duration timeout, Key key)
     {
@@ -115,7 +125,6 @@ public:
 
     void clear()
     {
-        timeoutHandler_ = nullptr;
         deadlines_.clear();
         timer_.cancel();
     }

@@ -17,6 +17,7 @@
 #include "../erroror.hpp"
 #include "../uri.hpp"
 #include "realmsession.hpp"
+#include "timeoutscheduler.hpp"
 
 // TODO: Progressive Calls
 // TODO: Progressive Call Results
@@ -146,7 +147,7 @@ using DealerJobKey = std::pair<SessionId, RequestId>;
 class DealerJob
 {
 public:
-    using Deadline = std::chrono::steady_clock::time_point;
+    using Timeout = std::chrono::steady_clock::duration;
 
     static ErrorOr<DealerJob> create(
         RealmSession::Ptr caller, RealmSession::Ptr callee, Rpc&& rpc,
@@ -155,12 +156,9 @@ public:
         DealerJob job{caller, callee, rpc.requestId({})};
 
         auto timeout = rpc.dealerTimeout();
-        if (timeout && (*timeout != Deadline::duration{0}))
-        {
-            // TODO: Prevent overflow
-            job.deadline_ = std::chrono::steady_clock::now() + *timeout;
-            job.hasDeadline_ = true;
-        }
+        job.hasTimeout_ = timeout.has_value() && (*timeout != Timeout{0});
+        if (job.hasTimeout_)
+            job.timeout_ = *timeout;
 
         bool callerDisclosed = rpc.discloseMe();
 
@@ -271,10 +269,6 @@ public:
 
     DealerJobKey calleeKey() const {return calleeKey_;}
 
-    bool hasDeadline() const {return hasDeadline_;}
-
-    Deadline deadline() const {return deadline_;}
-
 private:
     DealerJob(const RealmSession::Ptr& caller, const RealmSession::Ptr& callee,
               RequestId callerRequestId)
@@ -288,9 +282,9 @@ private:
     RealmSession::WeakPtr callee_;
     DealerJobKey callerKey_;
     DealerJobKey calleeKey_;
-    Deadline deadline_;
+    Timeout timeout_;
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
-    bool hasDeadline_ = false;
+    bool hasTimeout_ = false;
     bool discardResultOrError_ = false;
     bool interruptionSent_ = false;
 
@@ -310,11 +304,17 @@ public:
     using ByCalleeIterator = ByCallee::iterator;
     using ByCallerIterator = ByCaller::iterator;
 
-    DealerJobMap(IoStrand strand) : timer_(strand) {}
+    DealerJobMap(IoStrand strand)
+        : timeoutScheduler_(TimeoutScheduler<Key>::create(std::move(strand)))
+    {
+        timeoutScheduler_->listen([this](Key k){onTimeout(k);});
+    }
 
     void insert(Job&& job)
     {
-        updateTimeoutForInserted(job);
+        if (job.hasTimeout_)
+            timeoutScheduler_->insert(job.timeout_, job.calleeKey_);
+
         auto callerKey = job.callerKey_;
         auto calleeKey = job.calleeKey_;
         auto emplaced1 = byCaller_.emplace(callerKey, std::move(job));
@@ -333,7 +333,7 @@ public:
         auto callerIter = iter->second;
         byCaller_.erase(callerIter);
         byCallee_.erase(iter);
-        updateTimeoutForErased(calleeKey);
+        timeoutScheduler_->erase(calleeKey);
     }
 
     ByCallerIterator byCallerFind(Key key) {return byCaller_.find(key);}
@@ -345,7 +345,7 @@ public:
         auto calleeKey = iter->second.calleeKey_;
         byCallee_.erase(calleeKey);
         byCaller_.erase(iter);
-        updateTimeoutForErased(calleeKey);
+        timeoutScheduler_->erase(calleeKey);
     }
 
     void removeSession(SessionId sessionId)
@@ -380,84 +380,22 @@ public:
     }
 
 private:
-    using Deadline = Job::Deadline;
-
-    void updateTimeoutForInserted(const Job& newJob)
-    {
-        if (newJob.hasDeadline() && newJob.deadline() < nextDeadline_)
-            startTimer(newJob.calleeKey(), newJob.deadline());
-    }
-
-    void updateTimeoutForErased(Key erasedCalleeKey)
-    {
-        if (timeoutCalleeKey_ == erasedCalleeKey)
-            if (!armNextTimeout())
-                timer_.cancel();
-    }
-
-    void startTimer(Key key, Deadline deadline)
-    {
-        timeoutCalleeKey_ = key;
-        nextDeadline_ = deadline;
-        std::weak_ptr<DealerJobMap> self{shared_from_this()};
-        timer_.expires_at(deadline);
-        timer_.async_wait(
-            [this, self, key](boost::system::error_code ec)
-            {
-                auto me = self.lock();
-                if (me)
-                {
-                    nextDeadline_ = Deadline::max();
-                    if (ec)
-                        onTimeout(key);
-                    else
-                        assert(ec == boost::asio::error::operation_aborted);
-                }
-            });
-    }
-
-    void onTimeout(DealerJobKey calleeKey)
+    void onTimeout(Key calleeKey)
     {
         auto iter = byCallee_.find(calleeKey);
         if (iter != byCallee_.end())
         {
             auto& job = iter->second->second;
             bool eraseNow = false;
-            job.cancel(CallCancelMode::killNoWait, WampErrc::timeout,
-                       eraseNow);
+            job.cancel(CallCancelMode::killNoWait, WampErrc::timeout, eraseNow);
             if (eraseNow)
                 byCalleeErase(iter);
         }
-        armNextTimeout();
     }
 
-    bool armNextTimeout()
-    {
-        Key earliest;
-        auto deadline = Deadline::max();
-        bool found = false;
-
-        for (const auto& kv: byCallee_)
-        {
-            const auto& job = kv.second->second;
-            if (job.hasDeadline() && job.deadline() < deadline)
-            {
-                earliest = kv.first;
-                deadline = job.deadline();
-                found = true;
-            }
-        }
-
-        if (found)
-            startTimer(earliest, deadline);
-        return found;
-    }
-
-    boost::asio::steady_timer timer_;
     ByCallee byCallee_;
     ByCaller byCaller_;
-    Key timeoutCalleeKey_;
-    Deadline nextDeadline_ = Deadline::max();
+    TimeoutScheduler<Key>::Ptr timeoutScheduler_;
 };
 
 //------------------------------------------------------------------------------
