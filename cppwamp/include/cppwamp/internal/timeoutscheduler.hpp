@@ -7,9 +7,11 @@
 #ifndef CPPWAMP_INTERNAL_TIMEOUT_SCHEDULER_HPP
 #define CPPWAMP_INTERNAL_TIMEOUT_SCHEDULER_HPP
 
+#include <cassert>
 #include <chrono>
 #include <memory>
 #include <set>
+#include <tuple>
 #include <utility>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
@@ -39,7 +41,7 @@ struct TimeoutRecord
 
     bool operator<(const TimeoutRecord& rhs) const
     {
-        return deadline < rhs.deadline;
+        return std::tie(deadline, key) < std::tie(rhs.deadline, rhs.key);
     }
 
     Timepoint deadline;
@@ -78,20 +80,21 @@ public:
         bool preemptsCurrentDeadline =
             !wasIdle && (rec < *deadlines_.begin());
 
-        deadlines_.insert(rec);
+        auto inserted = deadlines_.insert(rec);
+        assert(inserted.second);
         if (wasIdle)
             processNextDeadline();
         else if (preemptsCurrentDeadline)
             timer_.cancel();
     }
 
-    void erase(RequestId rid)
+    void erase(Key key)
     {
         if (deadlines_.empty())
             return;
 
         auto rec = deadlines_.begin();
-        if (rec->key == rid)
+        if (rec->key == key)
         {
             deadlines_.erase(rec);
             timer_.cancel();
@@ -102,7 +105,7 @@ public:
         auto end = deadlines_.end();
         for (; rec != end; ++rec)
         {
-            if (rec->key == rid)
+            if (rec->key == key)
             {
                 deadlines_.erase(rec);
                 return;
@@ -156,6 +159,8 @@ private:
         }
     }
 
+    // std::map<Timepoint, Key> cannot be used because deadlines are
+    // not guaranteed to be unique.
     std::set<Record> deadlines_;
     boost::asio::steady_timer timer_;
     TimeoutHandler timeoutHandler_;
