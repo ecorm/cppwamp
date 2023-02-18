@@ -20,10 +20,10 @@
 #include "../subscription.hpp"
 #include "callee.hpp"
 #include "caller.hpp"
-#include "callertimeout.hpp"
 #include "realmsession.hpp"
 #include "routercontext.hpp"
 #include "subscriber.hpp"
+#include "timeoutscheduler.hpp"
 
 namespace wamp
 {
@@ -642,14 +642,15 @@ private:
         InterruptSlot interruptSlot;
     };
 
-    using Message        = WampMessage;
-    using SlotId         = uint64_t;
-    using LocalSubs      = std::map<SlotId, SubscriptionRecord>;
-    using Readership     = std::map<SubscriptionId, LocalSubs>;
-    using TopicMap       = std::map<std::string, SubscriptionId>;
-    using Registry       = std::map<RegistrationId, RegistrationRecord>;
-    using InvocationMap  = std::map<RequestId, RegistrationId>;
+    using Message       = WampMessage;
+    using SlotId        = uint64_t;
+    using LocalSubs     = std::map<SlotId, SubscriptionRecord>;
+    using Readership    = std::map<SubscriptionId, LocalSubs>;
+    using TopicMap      = std::map<std::string, SubscriptionId>;
+    using Registry      = std::map<RegistrationId, RegistrationRecord>;
+    using InvocationMap = std::map<RequestId, RegistrationId>;
     using CallerTimeoutDuration = typename Rpc::TimeoutDuration;
+    using CallerTimeoutScheduler = TimeoutScheduler<RequestId>;
 
     LocalSessionImpl(IoStrand s, AnyCompletionExecutor e)
         : strand_(std::move(s)),

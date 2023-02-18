@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_CALLER_TIMEOUT_HPP
-#define CPPWAMP_INTERNAL_CALLER_TIMEOUT_HPP
+#ifndef CPPWAMP_INTERNAL_TIMEOUT_SCHEDULER_HPP
+#define CPPWAMP_INTERNAL_TIMEOUT_SCHEDULER_HPP
 
 #include <chrono>
 #include <memory>
@@ -14,7 +14,6 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
-#include "../peerdata.hpp"
 
 namespace wamp
 {
@@ -23,41 +22,45 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-struct CallerTimeoutRecord
+template <typename TKey>
+struct TimeoutRecord
 {
+    using Key = TKey;
     using Clock = std::chrono::steady_clock;
     using Duration = Clock::duration;
     using Timepoint = Clock::time_point;
 
-    CallerTimeoutRecord() = default;
+    TimeoutRecord() = default;
 
-    CallerTimeoutRecord(Duration timeout, RequestId rid)
+    TimeoutRecord(Duration timeout, Key key)
         : deadline(Clock::now() + timeout),
-        requestId(rid)
+          key(std::move(key))
     {}
 
-    bool operator<(const CallerTimeoutRecord& rhs) const
+    bool operator<(const TimeoutRecord& rhs) const
     {
         return deadline < rhs.deadline;
     }
 
     Timepoint deadline;
-    RequestId requestId = 0;
+    Key key = {};
 };
 
 //------------------------------------------------------------------------------
-class CallerTimeoutScheduler :
-    public std::enable_shared_from_this<CallerTimeoutScheduler>
+template <typename TKey>
+class TimeoutScheduler
+    : public std::enable_shared_from_this<TimeoutScheduler<TKey>>
 {
 public:
+    using Key = TKey;
     using Duration = std::chrono::steady_clock::duration;
-    using TimeoutHandler = std::function<void (RequestId)>;
+    using TimeoutHandler = std::function<void (Key)>;
 
-    using Ptr = std::shared_ptr<CallerTimeoutScheduler>;
+    using Ptr = std::shared_ptr<TimeoutScheduler>;
 
     static Ptr create(IoStrand strand)
     {
-        return Ptr(new CallerTimeoutScheduler(std::move(strand)));
+        return Ptr(new TimeoutScheduler(std::move(strand)));
     }
 
     void listen(TimeoutHandler handler)
@@ -65,12 +68,12 @@ public:
         timeoutHandler_ = std::move(handler);
     }
 
-    void add(Duration timeout, RequestId rid)
+    void insert(Duration timeout, Key key)
     {
-        // The first record represents a deadline being waited on
+        // The first record represents the deadline being waited on
         // by the timer.
 
-        CallerTimeoutRecord rec{timeout, rid};
+        Record rec{timeout, std::move(key)};
         bool wasIdle = deadlines_.empty();
         bool preemptsCurrentDeadline =
             !wasIdle && (rec < *deadlines_.begin());
@@ -82,13 +85,13 @@ public:
             timer_.cancel();
     }
 
-    void remove(RequestId rid)
+    void erase(RequestId rid)
     {
         if (deadlines_.empty())
             return;
 
         auto rec = deadlines_.begin();
-        if (rec->requestId == rid)
+        if (rec->key == rid)
         {
             deadlines_.erase(rec);
             timer_.cancel();
@@ -99,7 +102,7 @@ public:
         auto end = deadlines_.end();
         for (; rec != end; ++rec)
         {
-            if (rec->requestId == rid)
+            if (rec->key == rid)
             {
                 deadlines_.erase(rec);
                 return;
@@ -115,36 +118,37 @@ public:
     }
 
 private:
-    using WeakPtr = std::weak_ptr<CallerTimeoutScheduler>;
+    using WeakPtr = std::weak_ptr<TimeoutScheduler>;
+    using Record = TimeoutRecord<Key>;
 
-    explicit CallerTimeoutScheduler(IoStrand strand)
+    explicit TimeoutScheduler(IoStrand strand)
         : timer_(std::move(strand))
     {}
 
     void processNextDeadline()
     {
         auto deadline = deadlines_.begin()->deadline;
-        auto requestId = deadlines_.begin()->requestId;
+        auto key = deadlines_.begin()->key;
         timer_.expires_at(deadline);
-        WeakPtr self(shared_from_this());
-        timer_.async_wait([self, requestId](boost::system::error_code ec)
+        WeakPtr self(this->shared_from_this());
+        timer_.async_wait([self, key](boost::system::error_code ec)
         {
             auto ptr = self.lock();
             if (ptr)
-                ptr->onTimer(ec, requestId);
+                ptr->onTimer(ec, key);
         });
     }
 
-    void onTimer(boost::system::error_code ec, RequestId requestId)
+    void onTimer(boost::system::error_code ec, Key key)
     {
         if (!deadlines_.empty())
         {
             auto top = deadlines_.begin();
-            bool preempted = top->requestId != requestId;
+            bool preempted = top->key != key;
             if (!preempted)
             {
                 if (!ec && timeoutHandler_)
-                    timeoutHandler_(top->requestId);
+                    timeoutHandler_(top->key);
                 deadlines_.erase(top);
             }
             if (!deadlines_.empty())
@@ -152,7 +156,7 @@ private:
         }
     }
 
-    std::set<CallerTimeoutRecord> deadlines_;
+    std::set<Record> deadlines_;
     boost::asio::steady_timer timer_;
     TimeoutHandler timeoutHandler_;
 };
@@ -161,4 +165,4 @@ private:
 
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_CALLER_TIMEOUT_HPP
+#endif // CPPWAMP_INTERNAL_TIMEOUT_SCHEDULER_HPP

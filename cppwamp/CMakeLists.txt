@@ -64,7 +64,6 @@ set(HEADERS
     include/cppwamp/internal/broker.hpp
     include/cppwamp/internal/callee.hpp
     include/cppwamp/internal/caller.hpp
-    include/cppwamp/internal/callertimeout.hpp
     include/cppwamp/internal/challengee.hpp
     include/cppwamp/internal/challenger.hpp
     include/cppwamp/internal/client.hpp
@@ -92,6 +91,7 @@ set(HEADERS
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp
     include/cppwamp/internal/timeformatting.hpp
+    include/cppwamp/internal/timeoutscheduler.hpp
     include/cppwamp/internal/tokentriemapimpl.hpp
     include/cppwamp/internal/udsacceptor.hpp
     include/cppwamp/internal/udsopener.hpp

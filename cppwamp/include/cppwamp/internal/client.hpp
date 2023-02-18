@@ -31,10 +31,10 @@
 #include "../version.hpp"
 #include "callee.hpp"
 #include "caller.hpp"
-#include "callertimeout.hpp"
 #include "challengee.hpp"
 #include "subscriber.hpp"
 #include "peer.hpp"
+#include "timeoutscheduler.hpp"
 
 namespace wamp
 {
@@ -931,7 +931,7 @@ public:
         }
 
         if (rpc.callerTimeout().count() != 0)
-            timeoutScheduler_->add(rpc.callerTimeout(), *requestId);
+            timeoutScheduler_->insert(rpc.callerTimeout(), *requestId);
 
         if (chitPtr)
             *chitPtr = chit;
@@ -1001,7 +1001,7 @@ public:
         }
 
         if (rpc.callerTimeout().count() != 0)
-            timeoutScheduler_->add(rpc.callerTimeout(), *requestId);
+            timeoutScheduler_->insert(rpc.callerTimeout(), *requestId);
 
         if (chitPtr)
             *chitPtr = chit;
@@ -1203,18 +1203,17 @@ private:
         bool expired = false;
     };
 
-    using SlotId                = uint64_t;
-    using LocalSubs             = std::map<SlotId, SubscriptionRecord>;
-    using Readership            = std::map<SubscriptionId, LocalSubs>;
-    using Registry              = std::map<RegistrationId, RegistrationRecord>;
-    using InvocationMap         = std::map<RequestId, InvocationRecord>;
-    using CallerTimeoutDuration = typename Rpc::TimeoutDuration;
-    using Message               = WampMessage;
-    using RequestKey            = typename Message::RequestKey;
-    using OneShotHandler        = AnyCompletionHandler<void (ErrorOr<Message>)>;
-    using MultiShotHandler      = std::function<void (ErrorOr<Message>)>;
-    using OneShotRequestMap     = std::map<RequestKey, OneShotHandler>;
-    using MultiShotRequestMap   = std::map<RequestKey, MultiShotHandler>;
+    using SlotId                 = uint64_t;
+    using LocalSubs              = std::map<SlotId, SubscriptionRecord>;
+    using Readership             = std::map<SubscriptionId, LocalSubs>;
+    using Registry               = std::map<RegistrationId, RegistrationRecord>;
+    using InvocationMap          = std::map<RequestId, InvocationRecord>;
+    using CallerTimeoutDuration  = typename Rpc::TimeoutDuration;
+    using CallerTimeoutScheduler = TimeoutScheduler<RequestId>;
+    using Message                = WampMessage;
+    using RequestKey             = typename Message::RequestKey;
+    using OneShotHandler         = AnyCompletionHandler<void (ErrorOr<Message>)>;
+    using MultiShotHandler       = std::function<void (ErrorOr<Message>)>;
 
     static void outputErrorDetails(std::ostream& out, const Error& e)
     {
@@ -1285,7 +1284,7 @@ private:
 
     ErrorOr<RequestId> ongoingRequest(Message& msg, MultiShotHandler&& handler)
     {
-        return requestMap_.request(peer_, msg, std::move(handler));
+        return requestMap_.ongoingRequest(peer_, msg, std::move(handler));
     }
 
     void abortPending(std::error_code ec)
