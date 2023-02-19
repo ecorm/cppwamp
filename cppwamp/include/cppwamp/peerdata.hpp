@@ -654,6 +654,9 @@ public:
     /** The duration type used for caller-initiated timeouts. */
     using TimeoutDuration = std::chrono::steady_clock::duration;
 
+    /** The duration type used for dealer-initiated timeouts. */
+    using DealerTimeoutDuration = std::chrono::duration<UInt, std::milli>;
+
     /** The default cancel mode when none is specified. */
     static constexpr CallCancelMode defaultCancelMode() noexcept
     {
@@ -691,40 +694,20 @@ public:
         Setting a duration of zero deactivates the timeout.
         @{ */
 
-    /** Requests that the dealer cancel the call after the specified
-        timeout duration in milliseconds. */
-    Rpc& withDealerTimeout(UInt milliseconds);
-
-    /** Requests that the dealer cancel the call after the specified
-        timeout duration. */
-    template <typename R, typename P>
-    Rpc& withDealerTimeout(std::chrono::duration<R, P> timeout)
-    {
-        // TODO: Prevent overflow of TimeoutDuration
-        using namespace std::chrono;
-        auto ms = duration_cast<milliseconds>(timeout).count();
-        return withDealerTimeout(static_cast<Int>(ms));
-    }
-
     /** Requests that the caller cancel the call after the specified
-        timeout duration in milliseconds. */
-    Rpc& withCallerTimeout(UInt milliseconds);
-
-    /** Requests that the dealer cancel the call after the specified
-        timeout duration. */
-    template <typename R, typename P>
-    Rpc& withCallerTimeout(std::chrono::duration<R, P> timeout)
-    {
-        using namespace std::chrono;
-        setCallerTimeout(duration_cast<TimeoutDuration>(timeout));
-        return *this;
-    }
+        timeout duration.
+        If negative, the given timeout is clamped to zero. */
+    Rpc& withCallerTimeout(TimeoutDuration timeout);
 
     /** Obtains the caller timeout duration. */
     TimeoutDuration callerTimeout() const;
 
+    /** Requests that the dealer cancel the call after the specified
+        timeout duration. */
+    Rpc& withDealerTimeout(DealerTimeoutDuration timeout);
+
     /** Obtains the dealer timeout duration. */
-    ErrorOr<TimeoutDuration> dealerTimeout() const;
+    ErrorOr<DealerTimeoutDuration> dealerTimeout() const;
 
     /// @}
 
@@ -765,8 +748,6 @@ public:
 
 private:
     using Base = Payload<Rpc, internal::CallMessage>;
-
-    void setCallerTimeout(TimeoutDuration duration);
 
     Error* error_ = nullptr;
     TimeoutDuration callerTimeout_ = {};

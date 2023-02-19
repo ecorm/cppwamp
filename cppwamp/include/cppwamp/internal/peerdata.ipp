@@ -918,16 +918,13 @@ CPPWAMP_INLINE bool Rpc::progressiveResultsAreEnabled() const
 }
 
 /** @details
-    This sets the `CALL.Options.timeout|integer` option. */
-CPPWAMP_INLINE Rpc& Rpc::withDealerTimeout(UInt milliseconds)
+    If negative, the given timeout is clamped to zero. */
+CPPWAMP_INLINE Rpc& Rpc::withCallerTimeout(TimeoutDuration timeout)
 {
-    return withOption("timeout", milliseconds);
-}
-
-CPPWAMP_INLINE Rpc& Rpc::withCallerTimeout(UInt milliseconds)
-{
-    // TODO: Prevent overflow of TimeoutDuration
-    return withCallerTimeout(std::chrono::milliseconds(milliseconds));
+    if (timeout.count() < 0)
+        timeout = {};
+    callerTimeout_ = timeout;
+    return *this;
 }
 
 CPPWAMP_INLINE Rpc::TimeoutDuration Rpc::callerTimeout() const
@@ -935,19 +932,19 @@ CPPWAMP_INLINE Rpc::TimeoutDuration Rpc::callerTimeout() const
     return callerTimeout_;
 }
 
-CPPWAMP_INLINE ErrorOr<Rpc::TimeoutDuration> Rpc::dealerTimeout() const
+/** @details
+    This sets the `CALL.Options.timeout|integer` option. */
+CPPWAMP_INLINE Rpc& Rpc::withDealerTimeout(DealerTimeoutDuration timeout)
+{
+    return withOption("timeout", timeout.count());
+}
+
+CPPWAMP_INLINE ErrorOr<Rpc::DealerTimeoutDuration> Rpc::dealerTimeout() const
 {
     auto timeout = toUnsignedInteger("timeout");
     if (!timeout)
         return makeUnexpected(timeout.error());
-    return TimeoutDuration{std::chrono::milliseconds{*timeout}};
-}
-
-CPPWAMP_INLINE void Rpc::setCallerTimeout(TimeoutDuration duration)
-{
-    CPPWAMP_LOGIC_CHECK(duration.count() >= 0,
-                        "Timeout duration must be zero or positive");
-    callerTimeout_ = duration;
+    return DealerTimeoutDuration{*timeout};
 }
 
 /** @details

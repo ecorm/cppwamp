@@ -35,11 +35,9 @@ struct TimeoutRecord
     TimeoutRecord() = default;
 
     TimeoutRecord(Duration timeout, Key key)
-        : deadline(Clock::now() + timeout),
+        : deadline(clampedDeadline(timeout)),
           key(std::move(key))
-    {
-        // TODO: Prevent overflow
-    }
+    {}
 
     bool operator<(const TimeoutRecord& rhs) const
     {
@@ -48,6 +46,25 @@ struct TimeoutRecord
 
     Timepoint deadline;
     Key key = {};
+
+private:
+    static Timepoint clampedDeadline(Duration timeout)
+    {
+        using Limits = std::numeric_limits<typename Duration::rep>;
+        auto now = Clock::now().time_since_epoch().count();
+        auto ticks = timeout.count();
+        if (ticks > 0)
+        {
+            auto limit = Limits::max() - now;
+            if (ticks > limit)
+                ticks = limit;
+        }
+        else
+        {
+            ticks = 0;
+        }
+        return Timepoint{Duration{now + ticks}};
+    }
 };
 
 //------------------------------------------------------------------------------

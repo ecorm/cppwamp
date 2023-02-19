@@ -886,7 +886,9 @@ GIVEN( "a caller and a callee" )
                     callHandler);
 
                 f.caller.call(
-                    Rpc("com.myapp.foo").withArgs(2).withCallerTimeout(50),
+                    Rpc("com.myapp.foo")
+                        .withArgs(2)
+                        .withCallerTimeout(std::chrono::milliseconds(50)),
                     callHandler);
 
                 f.caller.call(
