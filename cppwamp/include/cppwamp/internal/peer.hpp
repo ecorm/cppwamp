@@ -207,12 +207,11 @@ public:
         if (!transport_ || !transport_->isStarted())
             return makeUnexpectedError(Errc::invalidState);
 
-        auto s = state();
-        bool readyToAbort = s == State::establishing ||
-                            s == State::authenticating ||
-                            s == State::established;
-        if (!readyToAbort)
+        if (!readyToAbort())
+        {
             disconnect();
+            return makeUnexpectedError(Errc::invalidState);
+        }
 
         auto& msg = r.abortMessage({});
         MessageBuffer buffer;
@@ -256,26 +255,24 @@ private:
 
     void onTransportRx(MessageBuffer buffer)
     {
-        // TODO: Send abort on protocol violations if session established
-        static constexpr auto errc = WampErrc::protocolViolation;
-
         auto s = state();
         bool readyToReceive =
                s == State::establishing || s == State::authenticating ||
                s == State::established  || s == State::shuttingDown;
         if (!readyToReceive)
         {
-            return fail(errc, "Received WAMP message while session "
-                              "unready to receive");
+            return failProtocol("Received WAMP message while session "
+                                "unready to receive");
         }
 
         Variant v;
         auto ec = codec_.decode(buffer, v);
         if (ec)
-            return fail(ec, "Error deserializing received WAMP message");
+            return failProtocol("Error deserializing received WAMP message: " +
+                                detailedErrorCodeString(ec));
 
         if (!v.is<Array>())
-            return fail(errc, "Received WAMP message is not an array");
+            return failProtocol("Received WAMP message is not an array");
 
         auto& fields = v.as<Array>();
         traceRx(fields);
@@ -283,23 +280,23 @@ private:
         auto msg = Message::parse(std::move(fields));
         if (!msg)
         {
-            return fail(errc, "Received WAMP message has invalid type number "
-                              "or field schema");
+            return failProtocol("Received WAMP message has invalid type number "
+                                "or field schema");
         }
 
         bool isValidForRole = isRouter_ ? msg->traits().isRouterRx
                                         : msg->traits().isClientRx;
         if (!isValidForRole)
         {
-            return fail(errc, "Role does not support receiving " +
-                              std::string(msg->name()) + " messages");
+            return failProtocol("Role does not support receiving " +
+                                std::string(msg->name()) + " messages");
         }
 
         if (!msg->traits().isValidForState(state()))
         {
-            return fail(errc,
-                        std::string(msg->name()) +
-                        " messages are invalid for current session state");
+            return failProtocol(
+                std::string(msg->name()) +
+                " messages are invalid for current session state");
         }
 
         onMessage(std::move(*msg));
@@ -451,6 +448,23 @@ private:
     void fail(TErrc errc, std::string info = {})
     {
         fail(make_error_code(errc), std::move(info));
+    }
+
+    void failProtocol(std::string info)
+    {
+        auto errc = WampErrc::protocolViolation;
+        if (readyToAbort())
+            abort(Reason(errc).withHint(std::move(info)));
+        else
+            fail(errc, std::move(info));
+    }
+
+    bool readyToAbort() const
+    {
+        auto s = state();
+        return s == State::establishing ||
+               s == State::authenticating ||
+               s == State::established;
     }
 
     void traceRx(const Array& fields)

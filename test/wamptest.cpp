@@ -4,6 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
+// TODO: Mock router for testing protocol violations
+
 #if defined(CPPWAMP_TEST_HAS_CORO)
 
 #include <algorithm>
