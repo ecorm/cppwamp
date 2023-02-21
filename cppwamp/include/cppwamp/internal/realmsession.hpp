@@ -27,12 +27,13 @@ struct ClientFeatures
     static ClientFeatures local()
     {
         ClientFeatures f;
-        f.callee           = true;
-        f.calleeCancelling = true;
-        f.callee           = true;
-        f.callerCancelling = true;
-        f.publisher        = true;
-        f.subscriber       = true;
+        f.callee                   = true;
+        f.calleeCancelling         = true;
+        f.calleeProgressiveResults = true;
+        f.caller                   = true;
+        f.callerCancelling         = true;
+        f.publisher                = true;
+        f.subscriber               = true;
         return f;
     }
 
@@ -49,12 +50,13 @@ struct ClientFeatures
         parseSubscriberFeatures(dict);
     }
 
-    bool callee           : 1;
-    bool calleeCancelling : 1;
-    bool caller           : 1;
-    bool callerCancelling : 1;
-    bool publisher        : 1;
-    bool subscriber       : 1;
+    bool callee                   : 1;
+    bool calleeCancelling         : 1;
+    bool calleeProgressiveResults : 1;
+    bool caller                   : 1;
+    bool callerCancelling         : 1;
+    bool publisher                : 1;
+    bool subscriber               : 1;
 
 private:
     static bool has(const Object* roleDict, const char* featureName)

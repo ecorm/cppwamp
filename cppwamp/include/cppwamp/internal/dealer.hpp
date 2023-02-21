@@ -20,7 +20,6 @@
 #include "timeoutscheduler.hpp"
 
 // TODO: Progressive Calls
-// TODO: Progressive Call Results
 // TODO: Pending call limits
 
 namespace wamp
@@ -160,6 +159,13 @@ public:
         if (job.hasTimeout_)
             job.timeout_ = *timeout;
 
+        if (rpc.progressiveResultsAreEnabled() &&
+            callee->features().calleeCancelling &&
+            callee->features().calleeProgressiveResults)
+        {
+            job.hasProgressiveResults_ = true;
+        }
+
         bool callerDisclosed = rpc.discloseMe();
 
         inv = Invocation({}, std::move(rpc), reg.registrationId());
@@ -174,6 +180,10 @@ public:
             if (!authInfo.role().empty())
                 inv.withOption("caller_authrole", authInfo.role());
         }
+
+        if (job.hasProgressiveResults_)
+            inv.withOption("receive_progress", true);
+
         return job;
     }
 
@@ -248,17 +258,20 @@ public:
         }
     }
 
-    void complete(Result&& result)
+    bool yield(Result&& result)
     {
         auto caller = this->caller_.lock();
         if (!caller || discardResultOrError_)
-            return;
+            return true;
         result.setRequestId({}, callerKey_.second);
+        bool isProgressive = result.isProgressive();
         result.withOptions({});
+        result.withProgress(isProgressive);
         caller->sendResult(std::move(result));
+        return !hasProgressiveResults_ || !isProgressive;
     }
 
-    void complete(Error&& error)
+    void yield(Error&& error)
     {
         auto caller = this->caller_.lock();
         if (!caller || discardResultOrError_)
@@ -285,6 +298,7 @@ private:
     Timeout timeout_;
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
     bool hasTimeout_ = false;
+    bool hasProgressiveResults_ = false;
     bool discardResultOrError_ = false;
     bool interruptionSent_ = false;
 
@@ -474,8 +488,8 @@ public:
         if (iter == jobs_.byCalleeEnd())
             return;
         auto& job = iter->second->second;
-        job.complete(std::move(result));
-        jobs_.byCalleeErase(iter);
+        if (job.yield(std::move(result)))
+            jobs_.byCalleeErase(iter);
     }
 
     void yieldError(RealmSession::Ptr callee, Error&& error)
@@ -485,7 +499,7 @@ public:
         if (iter == jobs_.byCalleeEnd())
             return;
         auto& job = iter->second->second;
-        job.complete(std::move(error));
+        job.yield(std::move(error));
         jobs_.byCalleeErase(iter);
     }
 
