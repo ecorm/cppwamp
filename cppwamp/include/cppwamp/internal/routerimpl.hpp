@@ -281,9 +281,11 @@ inline const Object& RouterContext::roles()
         {"dealer", Object{{"features", Object{{
             {"call_canceling", true},
             {"call_timeouts", true},
+            {"call_trustlevels", true},
             {"caller_identification", true}
         }}}}},
         {"broker", Object{{"features", Object{{
+            {"pattern_based_subscription", true},
             {"publisher_exclusion", true},
             {"publisher_identification", true}
         }}}}}

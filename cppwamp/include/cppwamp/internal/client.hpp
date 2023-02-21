@@ -380,6 +380,216 @@ private:
 
 
 //------------------------------------------------------------------------------
+class ProcedureRegistry
+{
+public:
+    using CalleePtr     = std::shared_ptr<Callee>;
+    using CallSlot      = AnyReusableHandler<Outcome (Invocation)>;
+    using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
+
+    Registration enroll(CallSlot&& callSlot, InterruptSlot&& interruptSlot,
+                        CalleePtr callee, const RegisteredMessage& msg)
+    {
+        RegistrationRecord rec{std::move(callSlot), std::move(interruptSlot)};
+        auto regId = msg.registrationId();
+        registry_[regId] = std::move(rec);
+        return Registration{{}, callee, regId};
+    }
+
+    bool unregister(const Registration& reg)
+    {
+        return registry_.erase(reg.id()) != 0;
+    }
+
+    ErrorOrDone yield(Peer& peer, RequestId reqId, Result&& result)
+    {
+        auto found = pendingInvocations_.find(reqId);
+        if (found == pendingInvocations_.end())
+            return false;
+
+        // Error may have already been returned due to interruption being
+        // handled by Client::onInterrupt.
+        bool expired = found->second.expired;
+        bool erased = !result.isProgressive() || expired;
+        if (erased)
+            pendingInvocations_.erase(found);
+        if (expired)
+            return false;
+
+        auto done = peer.send(result.yieldMessage({}, reqId));
+        if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
+        {
+            if (!erased)
+                pendingInvocations_.erase(found);
+            peer.sendError(WampMsgType::invocation, reqId,
+                           Error{WampErrc::payloadSizeExceeded});
+        }
+        return done;
+    }
+
+    ErrorOrDone yield(Peer& peer, RequestId reqId, Error&& error)
+    {
+        auto found = pendingInvocations_.find(reqId);
+        if (found == pendingInvocations_.end())
+            return false;
+
+        // Error may have already been returned due to interruption being
+        // handled by Client::onInterrupt.
+        bool expired = found->second.expired;
+        pendingInvocations_.erase(found);
+        if (expired)
+            return false;
+
+        return peer.sendError(WampMsgType::invocation, reqId,
+                              std::move(error));
+    }
+
+    bool onInvocation(InvocationMessage& msg, Peer& peer, CalleePtr callee,
+                      AnyIoExecutor& exec, AnyCompletionExecutor& userExec)
+    {
+        auto requestId = msg.requestId();
+        auto regId = msg.registrationId();
+
+        auto kv = registry_.find(regId);
+        if (kv == registry_.end())
+        {
+            peer.sendError(WampMsgType::invocation, requestId,
+                           {WampErrc::noSuchProcedure});
+            return false;
+        }
+
+        const RegistrationRecord& rec = kv->second;
+        auto emplaced = pendingInvocations_.emplace(requestId,
+                                                    InvocationRecord{regId});
+        assert(emplaced.second);
+
+        Invocation inv({}, callee, userExec, std::move(msg));
+        postRpcRequest(rec.callSlot, std::move(inv), callee, exec, userExec);
+        return true;
+    }
+
+    void onInterrupt(InterruptMessage& msg, Peer& peer, CalleePtr callee,
+                     AnyIoExecutor& exec, AnyCompletionExecutor& userExec)
+    {
+        auto found = pendingInvocations_.find(msg.requestId());
+        if (found == pendingInvocations_.end())
+            return;
+
+        InvocationRecord& rec = found->second;
+        if (rec.interrupted)
+            return;
+        rec.interrupted = true;
+
+        Interruption intr({}, callee, userExec, std::move(msg));
+        auto kv = registry_.find(rec.registrationId);
+        if (kv != registry_.end() && kv->second.interruptSlot != nullptr)
+        {
+            const RegistrationRecord& rec = kv->second;
+            postRpcRequest(rec.interruptSlot, std::move(intr), callee,
+                           exec, userExec);
+        }
+        else if (intr.cancelMode() == CallCancelMode::kill)
+        {
+            // Respond immediately when cancel mode is 'kill' and no interrupt
+            // slot is provided.
+            rec.expired = true;
+            Error error{intr.reason().value_or(
+                errorCodeToUri(WampErrc::cancelled))};
+            peer.sendError(WampMsgType::invocation, intr.requestId(),
+                           std::move(error));
+        }
+    }
+
+    void clear()
+    {
+        registry_.clear();
+        pendingInvocations_.clear();
+    }
+
+private:
+    struct RegistrationRecord
+    {
+        CallSlot callSlot;
+        InterruptSlot interruptSlot;
+    };
+
+    struct InvocationRecord
+    {
+        InvocationRecord(RegistrationId regId) : registrationId(regId) {}
+
+        RegistrationId registrationId;
+        bool interrupted = false;
+        bool expired = false;
+    };
+
+    using Registry      = std::map<RegistrationId, RegistrationRecord>;
+    using InvocationMap = std::map<RequestId, InvocationRecord>;
+
+    template <typename TSlot, typename TInvocationOrInterruption>
+    void postRpcRequest(TSlot slot, TInvocationOrInterruption&& request,
+                        CalleePtr callee, AnyIoExecutor& exec,
+                        AnyCompletionExecutor& userExec)
+    {
+        struct Posted
+        {
+            CalleePtr callee;
+            TSlot slot;
+            TInvocationOrInterruption request;
+
+            void operator()()
+            {
+                // Copy the request ID before the request object gets moved away.
+                auto requestId = request.requestId();
+
+                try
+                {
+                    Outcome outcome(slot(std::move(request)));
+                    switch (outcome.type())
+                    {
+                    case Outcome::Type::deferred:
+                        // Do nothing
+                        break;
+
+                    case Outcome::Type::result:
+                        callee->safeYield(requestId,
+                                          std::move(outcome).asResult());
+                        break;
+
+                    case Outcome::Type::error:
+                        callee->safeYield(requestId,
+                                          std::move(outcome).asError());
+                        break;
+
+                    default:
+                        assert(false && "unexpected Outcome::Type");
+                    }
+                }
+                catch (Error& error)
+                {
+                    callee->yield(requestId, std::move(error));
+                }
+                catch (const error::BadType& e)
+                {
+                    // Forward Variant conversion exceptions as ERROR messages.
+                    callee->yield(requestId, Error(e)).value();
+                }
+            }
+        };
+
+        auto associatedExec =
+            boost::asio::get_associated_executor(slot, userExec);
+        Posted posted{callee, std::move(slot), std::move(request)};
+        boost::asio::post(
+            exec,
+            boost::asio::bind_executor(associatedExec, std::move(posted)));
+    }
+
+    Registry registry_;
+    InvocationMap pendingInvocations_;
+};
+
+
+//------------------------------------------------------------------------------
 // Provides the WAMP client implementation.
 //------------------------------------------------------------------------------
 class Client : public std::enable_shared_from_this<Client>, public Callee,
@@ -879,37 +1089,33 @@ public:
         safelyDispatch<Dispatched>(std::move(p), std::move(f));
     }
 
-    void enroll(Procedure&& procedure, CallSlot&& callSlot,
-                InterruptSlot&& interruptSlot,
-                CompletionHandler<Registration>&& handler)
+    void enroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
+                CompletionHandler<Registration>&& f)
     {
         struct Requested
         {
             Ptr self;
-            RegistrationRecord rec;
-            CompletionHandler<Registration> handler;
+            CallSlot c;
+            InterruptSlot i;
+            CompletionHandler<Registration> f;
 
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::registered, handler))
-                {
-                    const auto& msg = messageCast<RegisteredMessage>(*reply);
-                    auto regId = msg.registrationId();
-                    Registration reg(self, regId, {});
-                    me.registry_[regId] = std::move(rec);
-                    me.completeNow(handler, std::move(reg));
-                }
+                if (!me.checkReply(reply, WampMsgType::registered, f))
+                    return;
+                auto& msg = messageCast<RegisteredMessage>(*reply);
+                auto reg = me.registry_.enroll(std::move(c), std::move(i),
+                                               self, msg);
+                me.completeNow(f, std::move(reg));
             }
         };
 
-        if (!checkState(State::established, handler))
+        if (!checkState(State::established, f))
             return;
 
-        RegistrationRecord rec{std::move(callSlot), std::move(interruptSlot)};
-        request(procedure.message({}),
-                Requested{shared_from_this(), std::move(rec),
-                          std::move(handler)});
+        request(p.message({}), Requested{shared_from_this(), std::move(c),
+                                         std::move(i), std::move(f)});
     }
 
     void safeEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
@@ -948,15 +1154,10 @@ public:
             }
         };
 
-        auto kv = registry_.find(reg.id());
-        if (kv != registry_.end())
+        if (registry_.unregister(reg) && state() == State::established)
         {
-            registry_.erase(kv);
-            if (state() == State::established)
-            {
-                UnregisterMessage msg(reg.id());
-                request(msg, Requested{shared_from_this()});
-            }
+            UnregisterMessage msg(reg.id());
+            request(msg, Requested{shared_from_this()});
         }
     }
 
@@ -983,16 +1184,12 @@ public:
             {
                 auto& me = *self;
                 if (me.checkReply(reply, WampMsgType::unregistered, handler))
-                {
                     me.completeNow(handler, true);
-                }
             }
         };
 
-        auto kv = registry_.find(reg.id());
-        if (kv != registry_.end())
+        if (registry_.unregister(reg))
         {
-            registry_.erase(kv);
             UnregisterMessage msg(reg.id());
             if (checkState(State::established, handler))
                 request(msg, Requested{shared_from_this(), std::move(handler)});
@@ -1205,29 +1402,7 @@ public:
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
-
-        auto found = pendingInvocations_.find(reqId);
-        if (found == pendingInvocations_.end())
-            return false;
-
-        // Error may have already been returned due to interruption being
-        // handled by Client::onInterrupt.
-        bool expired = found->second.expired;
-        bool erased = !result.isProgressive() || expired;
-        if (erased)
-            pendingInvocations_.erase(found);
-        if (expired)
-            return false;
-
-        auto done = peer_.send(result.yieldMessage({}, reqId));
-        if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
-        {
-            if (!erased)
-                pendingInvocations_.erase(found);
-            peer_.sendError(WampMsgType::invocation, reqId,
-                            Error{WampErrc::payloadSizeExceeded});
-        }
-        return done;
+        return registry_.yield(peer_, reqId, std::move(result));
     }
 
     FutureErrorOrDone safeYield(RequestId i, Result&& r) override
@@ -1262,20 +1437,7 @@ public:
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
-
-        auto found = pendingInvocations_.find(reqId);
-        if (found == pendingInvocations_.end())
-            return false;
-
-        // Error may have already been returned due to interruption being
-        // handled by Client::onInterrupt.
-        bool expired = found->second.expired;
-        pendingInvocations_.erase(found);
-        if (expired)
-            return false;
-
-        return peer_.sendError(WampMsgType::invocation, reqId,
-                               std::move(error));
+        return registry_.yield(peer_, reqId, std::move(error));
     }
 
     FutureErrorOrDone safeYield(RequestId r, Error&& e) override
@@ -1309,24 +1471,6 @@ public:
 private:
     using ErrorOrDonePromise  = std::promise<ErrorOrDone>;
 
-    struct RegistrationRecord
-    {
-        CallSlot callSlot;
-        InterruptSlot interruptSlot;
-    };
-
-    struct InvocationRecord
-    {
-        InvocationRecord(RegistrationId regId) : registrationId(regId) {}
-
-        RegistrationId registrationId;
-        bool interrupted = false;
-        bool expired = false;
-    };
-
-    using SlotId                 = uint64_t;
-    using Registry               = std::map<RegistrationId, RegistrationRecord>;
-    using InvocationMap          = std::map<RequestId, InvocationRecord>;
     using CallerTimeoutDuration  = typename Rpc::TimeoutDuration;
     using CallerTimeoutScheduler = TimeoutScheduler<RequestId>;
     using Message                = WampMessage;
@@ -1496,7 +1640,6 @@ private:
     {
         readership_.clear();
         registry_.clear();
-        pendingInvocations_.clear();
         timeoutScheduler_->clear();
     }
 
@@ -1649,112 +1792,20 @@ private:
 
         lastInvocationRequestId_ = requestId;
 
-        auto kv = registry_.find(regId);
-        if (kv == registry_.end())
+        if (!registry_.onInvocation(invMsg, peer_, shared_from_this(),
+                                    executor_, userExecutor_))
         {
-            peer_.sendError(WampMsgType::invocation, requestId,
-                            {WampErrc::noSuchProcedure});
             log(LogLevel::error,
                 "No matching procedure for INVOCATION with registration ID "
                     + std::to_string(regId));
-            return;
         }
-
-        Invocation inv({}, shared_from_this(), userExecutor_,
-                       std::move(invMsg));
-
-        const RegistrationRecord& rec = kv->second;
-        auto emplaced = pendingInvocations_.emplace(requestId,
-                                                    InvocationRecord{regId});
-        assert(emplaced.second);
-        postRpcRequest(rec.callSlot, std::move(inv));
     }
 
     void onInterrupt(Message& msg)
     {
-        auto& interruptMsg = messageCast<InterruptMessage>(msg);
-        auto found = pendingInvocations_.find(interruptMsg.requestId());
-        if (found == pendingInvocations_.end())
-            return;
-
-        InvocationRecord& rec = found->second;
-        if (rec.interrupted)
-            return;
-        rec.interrupted = true;
-
-        Interruption intr({}, shared_from_this(), userExecutor_,
-                          std::move(interruptMsg));
-        auto kv = registry_.find(rec.registrationId);
-        if (kv != registry_.end() && kv->second.interruptSlot != nullptr)
-        {
-            const RegistrationRecord& rec = kv->second;
-            postRpcRequest(rec.interruptSlot, std::move(intr));
-        }
-        else if (intr.cancelMode() == CallCancelMode::kill)
-        {
-            // Respond immediately when cancel mode is 'kill' and no interrupt
-            // slot is provided.
-            rec.expired = true;
-            Error error{intr.reason().value_or(
-                errorCodeToUri(WampErrc::cancelled))};
-            peer_.sendError(WampMsgType::invocation, intr.requestId(),
-                            std::move(error));
-        }
-    }
-
-    template <typename TSlot, typename TInvocationOrInterruption>
-    void postRpcRequest(TSlot slot, TInvocationOrInterruption&& request)
-    {
-        struct Posted
-        {
-            Ptr self;
-            TSlot slot;
-            TInvocationOrInterruption request;
-
-            void operator()()
-            {
-                auto& me = *self;
-
-                // Copy the request ID before the request object gets moved away.
-                auto requestId = request.requestId();
-
-                try
-                {
-                    Outcome outcome(slot(std::move(request)));
-                    switch (outcome.type())
-                    {
-                    case Outcome::Type::deferred:
-                        // Do nothing
-                        break;
-
-                    case Outcome::Type::result:
-                        me.safeYield(requestId, std::move(outcome).asResult());
-                        break;
-
-                    case Outcome::Type::error:
-                        me.safeYield(requestId, std::move(outcome).asError());
-                        break;
-
-                    default:
-                        assert(false && "unexpected Outcome::Type");
-                    }
-                }
-                catch (Error& error)
-                {
-                    me.yield(requestId, std::move(error));
-                }
-                catch (const error::BadType& e)
-                {
-                    // Forward Variant conversion exceptions as ERROR messages.
-                    me.yield(requestId, Error(e)).value();
-                }
-            }
-        };
-
-        auto exec = boost::asio::get_associated_executor(slot, userExecutor_);
-        Posted posted{shared_from_this(), std::move(slot), std::move(request)};
-        boost::asio::post(executor_,
-                          boost::asio::bind_executor(exec, std::move(posted)));
+        auto& intrMsg = messageCast<InterruptMessage>(msg);
+        registry_.onInterrupt(intrMsg, peer_, shared_from_this(), executor_,
+                              userExecutor_);
     }
 
     void onWampReply(Message& msg)
@@ -1906,22 +1957,18 @@ private:
         dispatchHandler(handler, std::forward<Ts>(args)...);
     }
 
-    SlotId nextSlotId() {return nextSlotId_++;}
-
     Peer peer_;
     AnyIoExecutor executor_;
     AnyCompletionExecutor userExecutor_;
     IoStrand strand_;
     Connecting::Ptr currentConnector_;
     Readership readership_;
-    Registry registry_;
+    ProcedureRegistry registry_;
     Requestor requestor_;
-    InvocationMap pendingInvocations_;
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
     LogHandler logHandler_;
     StateChangeHandler stateChangeHandler_;
     ChallengeHandler challengeHandler_;
-    SlotId nextSlotId_ = 0;
     RequestId lastInvocationRequestId_ = nullId();
     bool isTerminating_ = false;
 };

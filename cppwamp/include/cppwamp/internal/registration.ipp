@@ -69,8 +69,8 @@ CPPWAMP_INLINE void Registration::unregister(ThreadSafe) const
         callee->safeUnregister(*this);
 }
 
-CPPWAMP_INLINE Registration::Registration(CalleePtr callee, RegistrationId id,
-                                          internal::PassKey)
+CPPWAMP_INLINE Registration::Registration(
+    internal::PassKey, CalleePtr callee, RegistrationId id)
     : callee_(callee),
       id_(id)
 {}

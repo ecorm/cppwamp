@@ -77,7 +77,7 @@ private:
 
 public:
     // Internal use only
-    Registration(CalleePtr callee, RegistrationId id, internal::PassKey);
+    Registration(internal::PassKey, CalleePtr callee, RegistrationId id);
 
 };
 

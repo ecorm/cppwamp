@@ -35,6 +35,7 @@ namespace internal
         friend class LocalSessionImpl;
         friend class MatchUri;
         friend class Peer;
+        friend class ProcedureRegistry;
         friend class Readership;
         friend class RealmSession;
         friend class RouterImpl;
