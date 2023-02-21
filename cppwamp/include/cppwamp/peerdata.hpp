@@ -38,17 +38,6 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-/** URI matching policy used for subscriptions and registrations. */
-//------------------------------------------------------------------------------
-enum class MatchPolicy
-{
-    unknown,
-    exact,
-    prefix,
-    wildcard
-};
-
-//------------------------------------------------------------------------------
 /** Provides the _reason_ URI and other options contained within
     `GOODBYE` and `ABORT` messages.*/
 //------------------------------------------------------------------------------

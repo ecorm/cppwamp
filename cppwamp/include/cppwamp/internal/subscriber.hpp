@@ -8,11 +8,13 @@
 #define CPPWAMP_INTERNAL_SUBSCRIBER_HPP
 
 #include <memory>
+#include <string>
 #include "../subscription.hpp"
 
 namespace wamp
 {
 
+class Error;
 class Subscription;
 
 namespace internal
@@ -29,6 +31,9 @@ public:
     virtual void unsubscribe(const Subscription&) = 0;
 
     virtual void safeUnsubscribe(const Subscription&) = 0;
+
+    virtual void onEventError(const Error&, const std::string& topicUri,
+                              SubscriptionId, PublicationId) = 0;
 };
 
 } // namespace internal

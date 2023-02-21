@@ -25,7 +25,6 @@ namespace internal
         friend class wamp::Event;
         friend class wamp::Invocation;
         friend class BrokerPublication;
-        friend class BrokerUriAndPolicy;
         friend class Client;
         friend class Dealer;
         friend class DealerInvocation;
@@ -34,7 +33,9 @@ namespace internal
         friend class DealerJobMap;
         friend class Invocation;
         friend class LocalSessionImpl;
+        friend class MatchUri;
         friend class Peer;
+        friend class Readership;
         friend class RealmSession;
         friend class RouterImpl;
         friend class RouterRealm;

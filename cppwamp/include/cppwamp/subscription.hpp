@@ -80,8 +80,8 @@ private:
 
 public:
     // Internal use only
-    Subscription(SubscriberPtr subscriber, SubscriptionId subId, SlotId slotId,
-                 internal::PassKey);
+    Subscription(internal::PassKey, SubscriberPtr subscriber,
+                 SubscriptionId subId, SlotId slotId);
     SlotId slotId(internal::PassKey) const;
 };
 

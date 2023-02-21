@@ -78,8 +78,9 @@ CPPWAMP_INLINE void Subscription::unsubscribe(ThreadSafe) const
         subscriber->safeUnsubscribe(*this);
 }
 
-CPPWAMP_INLINE Subscription::Subscription(SubscriberPtr subscriber,
-        SubscriptionId subId, SlotId slotId, internal::PassKey)
+CPPWAMP_INLINE Subscription::Subscription(
+    internal::PassKey, SubscriberPtr subscriber, SubscriptionId subId,
+    SlotId slotId)
     : subscriber_(subscriber),
       subId_(subId),
       slotId_(slotId)

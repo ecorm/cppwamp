@@ -71,6 +71,7 @@ set(HEADERS
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/jsonencoding.hpp
     include/cppwamp/internal/localsessionimpl.hpp
+    include/cppwamp/internal/matchuri.hpp
     include/cppwamp/internal/messagetraits.hpp
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/peer.hpp

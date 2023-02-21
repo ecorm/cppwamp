@@ -32,6 +32,7 @@
 #include "callee.hpp"
 #include "caller.hpp"
 #include "challengee.hpp"
+#include "matchuri.hpp"
 #include "subscriber.hpp"
 #include "peer.hpp"
 #include "timeoutscheduler.hpp"
@@ -43,16 +44,14 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class ClientRequestMap
+class Requestor
 {
 public:
     using Message          = WampMessage;
     using OneShotHandler   = AnyCompletionHandler<void (ErrorOr<Message>)>;
     using MultiShotHandler = std::function<void (ErrorOr<Message>)>;
 
-    ClientRequestMap(IoStrand strand)
-        : strand_(std::move(strand))
-    {}
+    Requestor(IoStrand strand) : strand_(std::move(strand)) {}
 
     ErrorOr<RequestId> request(Peer& peer, Message& msg,
                                OneShotHandler&& handler)
@@ -66,7 +65,7 @@ public:
         return sendRequest(peer, msg, multiShotRequestMap_, std::move(handler));
     }
 
-    bool reply(Message& msg)
+    bool onReply(Message& msg)
     {
         assert(msg.isReply());
         bool matchingRequestFound = false;
@@ -205,6 +204,180 @@ private:
     MultiShotRequestMap multiShotRequestMap_;
     RequestId nextRequestId_ = nullId();
 };
+
+
+//------------------------------------------------------------------------------
+class Readership
+{
+public:
+    using SubscriberPtr = std::shared_ptr<Subscriber>;
+    using EventSlot = AnyReusableHandler<void (Event)>;
+
+    Subscription subscribe(MatchUri topic, EventSlot& slot,
+                           SubscriberPtr subscriber)
+    {
+        assert(topic.policy() != MatchPolicy::unknown);
+        auto kv = byTopic_.find(topic);
+        if (kv == byTopic_.end())
+            return {};
+
+        return addSlotToExisingSubscription(
+            kv->second, std::move(topic), std::move(slot),
+            std::move(subscriber));
+    }
+
+    Subscription onSubscribed(const SubscribedMessage& msg, MatchUri topic,
+                              EventSlot&& slot, SubscriberPtr subscriber)
+    {
+        // Check if the router treats the topic as belonging to an existing
+        // subcription.
+        auto subId = msg.subscriptionId();
+        auto kv = subscriptions_.find(subId);
+        if (kv != subscriptions_.end())
+        {
+            return addSlotToExisingSubscription(
+                       kv, std::move(topic), std::move(slot),
+                       std::move(subscriber));
+        }
+
+        auto slotId = nextSlotId();
+        auto emplaced =
+            subscriptions_.emplace(
+                std::piecewise_construct,
+                std::forward_as_tuple(subId),
+                std::forward_as_tuple(topic, slotId, std::move(slot)));
+        assert(emplaced.second);
+
+        auto emplaced2 = byTopic_.emplace(std::move(topic), emplaced.first);
+        assert(emplaced2.second);
+
+        return Subscription({}, subscriber, subId, slotId);
+    }
+
+    // Returns true if the last local slot was removed from a subscription
+    // and the client needs to send an UNSUBSCRIBE message.
+    bool unsubscribe(const Subscription& sub)
+    {
+        auto kv = subscriptions_.find(sub.id());
+        if (kv == subscriptions_.end())
+            return false;
+
+        auto& record = kv->second;
+        record.slots.erase(sub.slotId({}));
+        if (!record.slots.empty())
+            return false;
+
+        byTopic_.erase(record.topic);
+        subscriptions_.erase(kv);
+        return true;
+    }
+
+    // Returns true if there are any subscriptions matching the event
+    bool onEvent(EventMessage& eventMsg, SubscriberPtr subscriber,
+                 AnyIoExecutor& exec, AnyCompletionExecutor& userExec)
+    {
+        auto found = subscriptions_.find(eventMsg.subscriptionId());
+        if (found == subscriptions_.end())
+            return false;
+
+        const auto& record = found->second;
+        assert(!record.slots.empty());
+        Event event({}, userExec, std::move(eventMsg));
+        for (const auto& kv: record.slots)
+        {
+            const auto& slot = kv.second;
+            postEvent(slot, record.topic.uri(), event, subscriber, exec,
+                      userExec);
+        }
+        return true;
+    }
+
+    void clear()
+    {
+        byTopic_.clear();
+        subscriptions_.clear();
+    }
+
+private:
+    using SlotId = uint64_t;
+
+    struct Record
+    {
+        Record(MatchUri topic, SlotId slotId, EventSlot&& slot)
+            : topic(std::move(topic))
+        {
+            slots.emplace(slotId, std::move(slot));
+        }
+
+        std::map<SlotId, EventSlot> slots;
+        MatchUri topic;
+    };
+
+    using SubscriptionMap = std::map<SubscriptionId, Record>;
+    using ByTopic = std::map<MatchUri, SubscriptionMap::iterator>;
+
+    Subscription addSlotToExisingSubscription(
+        SubscriptionMap::iterator iter, MatchUri&& topic, EventSlot&& slot,
+        SubscriberPtr&& subscriber)
+    {
+        auto subId = iter->first;
+        auto& record = iter->second;
+        auto slotId = nextSlotId();
+        auto emplaced = record.slots.emplace(slotId, std::move(slot));
+        assert(emplaced.second);
+        return Subscription{{}, subscriber, subId, slotId};
+    }
+
+    void postEvent(const EventSlot& slot, const Uri& uri, const Event& event,
+                   SubscriberPtr subscriber, AnyIoExecutor& exec,
+                   AnyCompletionExecutor& userExec)
+    {
+        struct Posted
+        {
+            SubscriberPtr subscriber;
+            Event event;
+            Uri uri;
+            EventSlot slot;
+
+            void operator()()
+            {
+                // Copy the subscription and publication IDs before the Event
+                // object gets moved away.
+                auto subId = event.subId();
+                auto pubId = event.pubId();
+
+                // The catch clauses are to prevent the publisher crashing
+                // subscribers when it passes arguments having incorrect type.
+                try
+                {
+                    slot(std::move(event));
+                }
+                catch (const Error& e)
+                {
+                    subscriber->onEventError(e, uri, subId, pubId);
+                }
+                catch (const error::BadType& e)
+                {
+                    subscriber->onEventError(Error(e), uri, subId, pubId);
+                }
+            }
+        };
+
+        auto associatedExec =
+            boost::asio::get_associated_executor(slot, userExec);
+        Posted posted{subscriber, event, uri, slot};
+        boost::asio::post(
+            exec,
+            boost::asio::bind_executor(associatedExec, std::move(posted)));
+    }
+
+    SlotId nextSlotId() {return nextSlotId_++;}
+
+    SubscriptionMap subscriptions_;
+    ByTopic byTopic_;
+    SlotId nextSlotId_ = 0;
+};
+
 
 //------------------------------------------------------------------------------
 // Provides the WAMP client implementation.
@@ -527,54 +700,37 @@ public:
         struct Requested
         {
             Ptr self;
-            SubscriptionRecord rec;
+            MatchUri matchUri;
+            EventSlot slot;
             CompletionHandler<Subscription> handler;
+            MatchPolicy policy;
 
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::subscribed, handler))
-                {
-                    const auto& msg = messageCast<SubscribedMessage>(*reply);
-                    auto subId = msg.subscriptionId();
-                    auto slotId = me.nextSlotId();
-                    Subscription sub(self, subId, slotId, {});
-                    rec.topicMap->emplace(rec.topicUri, subId);
-                    me.readership_[subId][slotId] = std::move(rec);
-                    me.completeNow(handler, std::move(sub));
-                }
+                if (!me.checkReply(reply, WampMsgType::subscribed, handler))
+                    return;
+                const auto& msg = messageCast<SubscribedMessage>(*reply);
+                auto sub = me.readership_.onSubscribed(
+                    msg, std::move(matchUri), std::move(slot), self);
+                me.completeNow(handler, std::move(sub));
             }
         };
 
-        assert(topic.matchPolicy() != MatchPolicy::unknown);
         if (!checkState(State::established, handler))
             return;
 
-        SubscriptionRecord rec = {topic.uri(), std::move(slot), nullptr};
+        auto self = shared_from_this();
+        MatchUri matchUri{topic};
+        auto subscription = readership_.subscribe(matchUri, slot, self);
+        if (subscription)
+            return complete(handler, std::move(subscription));
 
-        switch (topic.matchPolicy())
-        {
-        case MatchPolicy::exact:    rec.topicMap = &exactTopics_;    break;
-        case MatchPolicy::prefix:   rec.topicMap = &prefixTopics_;   break;
-        case MatchPolicy::wildcard: rec.topicMap = &wildcardTopics_; break;
-        default: assert(false && "Unexpected MatchPolicy enumerator");
-        }
-
-        auto kv = rec.topicMap->find(rec.topicUri);
-        if (kv == rec.topicMap->end())
-        {
-            request(topic.message({}),
-                    Requested{shared_from_this(), std::move(rec),
-                              std::move(handler)});
-        }
-        else
-        {
-            auto subId = kv->second;
-            auto slotId = nextSlotId();
-            Subscription sub{shared_from_this(), subId, slotId, {}};
-            readership_[subId][slotId] = std::move(rec);
-            complete(handler, std::move(sub));
-        }
+        auto topicUri = topic.uri();
+        auto policy = topic.matchPolicy();
+        request(topic.message({}),
+                Requested{shared_from_this(), std::move(matchUri),
+                          std::move(slot), std::move(handler), policy});
     }
 
     void safeSubscribe(Topic&& t, EventSlot&& s,
@@ -598,28 +754,8 @@ public:
 
     void unsubscribe(const Subscription& sub) override
     {
-        auto kv = readership_.find(sub.id());
-        if (kv != readership_.end())
-        {
-            auto& localSubs = kv->second;
-            if (!localSubs.empty())
-            {
-                auto subKv = localSubs.find(sub.slotId({}));
-                if (subKv != localSubs.end())
-                {
-                    auto& localSub = subKv->second;
-                    if (localSubs.size() == 1u)
-                        localSub.topicMap->erase(localSub.topicUri);
-
-                    localSubs.erase(subKv);
-                    if (localSubs.empty())
-                    {
-                        readership_.erase(kv);
-                        sendUnsubscribe(sub.id());
-                    }
-                }
-            }
-        }
+        if (readership_.unsubscribe(sub))
+            sendUnsubscribe(sub.id());
     }
 
     void safeUnsubscribe(const Subscription& s) override
@@ -636,32 +772,10 @@ public:
 
     void unsubscribe(const Subscription& sub, CompletionHandler<bool>&& handler)
     {
-        auto kv = readership_.find(sub.id());
-        if (kv != readership_.end())
-        {
-            auto& localSubs = kv->second;
-            if (!localSubs.empty())
-            {
-                auto subKv = localSubs.find(sub.slotId({}));
-                if (subKv != localSubs.end())
-                {
-                    auto& localSub = subKv->second;
-                    if (localSubs.size() == 1u)
-                        localSub.topicMap->erase(localSub.topicUri);
-
-                    localSubs.erase(subKv);
-                    if (localSubs.empty())
-                    {
-                        readership_.erase(kv);
-                        sendUnsubscribe(sub.id(), std::move(handler));
-                    }
-                }
-            }
-        }
+        if (readership_.unsubscribe(sub))
+            sendUnsubscribe(sub.id(), std::move(handler));
         else
-        {
             complete(handler, false);
-        }
     }
 
     void safeUnsubscribe(const Subscription& s, CompletionHandler<bool>&& f)
@@ -675,6 +789,21 @@ public:
         };
 
         safelyDispatch<Dispatched>(s, std::move(f));
+    }
+
+    void onEventError(const Error& error, const std::string& topicUri,
+                      SubscriptionId subId, PublicationId pubId) override
+    {
+        if (logLevel() <= LogLevel::error)
+        {
+            std::ostringstream oss;
+            oss << "EVENT handler reported an ";
+            outputErrorDetails(oss, error);
+            oss << ", for topic=" << topicUri
+                << ", subscriptionId=" << subId
+                << ", publicationId=" << pubId << ")";
+            log(LogLevel::error, oss.str());
+        }
     }
 
     ErrorOrDone publish(Pub&& pub)
@@ -1031,7 +1160,7 @@ public:
             return makeUnexpectedError(Errc::invalidState);
 
         CallCancellation cancellation{reqId, mode};
-        bool found = requestMap_.cancelCall(cancellation);
+        bool found = requestor_.cancelCall(cancellation);
 
         // Always send the CANCEL message in all modes if a matching
         // call was found.
@@ -1179,14 +1308,6 @@ public:
 
 private:
     using ErrorOrDonePromise  = std::promise<ErrorOrDone>;
-    using TopicMap            = std::map<std::string, SubscriptionId>;
-
-    struct SubscriptionRecord
-    {
-        String topicUri;
-        EventSlot slot;
-        TopicMap* topicMap;
-    };
 
     struct RegistrationRecord
     {
@@ -1204,8 +1325,6 @@ private:
     };
 
     using SlotId                 = uint64_t;
-    using LocalSubs              = std::map<SlotId, SubscriptionRecord>;
-    using Readership             = std::map<SubscriptionId, LocalSubs>;
     using Registry               = std::map<RegistrationId, RegistrationRecord>;
     using InvocationMap          = std::map<RequestId, InvocationRecord>;
     using CallerTimeoutDuration  = typename Rpc::TimeoutDuration;
@@ -1229,7 +1348,7 @@ private:
           executor_(std::move(exec)),
           userExecutor_(std::move(userExec)),
           strand_(boost::asio::make_strand(executor_)),
-          requestMap_(strand_),
+          requestor_(strand_),
           timeoutScheduler_(CallerTimeoutScheduler::create(strand_))
     {
         peer_.setInboundMessageHandler(
@@ -1284,20 +1403,20 @@ private:
 
     ErrorOr<RequestId> request(Message& msg, OneShotHandler&& handler)
     {
-        return requestMap_.request(peer_, msg, std::move(handler));
+        return requestor_.request(peer_, msg, std::move(handler));
     }
 
     ErrorOr<RequestId> ongoingRequest(Message& msg, MultiShotHandler&& handler)
     {
-        return requestMap_.ongoingRequest(peer_, msg, std::move(handler));
+        return requestor_.ongoingRequest(peer_, msg, std::move(handler));
     }
 
     void abortPending(std::error_code ec)
     {
         if (isTerminating_)
-            requestMap_.clear();
+            requestor_.clear();
         else
-            requestMap_.abortAll(ec);
+            requestor_.abortAll(ec);
     }
 
     template <typename TErrc>
@@ -1375,9 +1494,6 @@ private:
 
     void clear()
     {
-        exactTopics_.clear();
-        prefixTopics_.clear();
-        wildcardTopics_.clear();
         readership_.clear();
         registry_.clear();
         pendingInvocations_.clear();
@@ -1502,79 +1618,15 @@ private:
     void onEvent(Message& msg)
     {
         auto& eventMsg = messageCast<EventMessage>(msg);
-        auto kv = readership_.find(eventMsg.subscriptionId());
-        if (kv != readership_.end())
-        {
-            const auto& localSubs = kv->second;
-            assert(!localSubs.empty());
-            Event event({}, userExecutor_, std::move(eventMsg));
-            for (const auto& subKv: localSubs)
-                postEvent(subKv.second, event);
-        }
-        else if (logLevel() <= LogLevel::warning)
+        bool ok = readership_.onEvent(eventMsg, shared_from_this(), executor_,
+                                      userExecutor_);
+        if (!ok && logLevel() <= LogLevel::warning)
         {
             std::ostringstream oss;
             oss << "Discarding an EVENT that is not subscribed to "
                    "(with subId=" << eventMsg.subscriptionId()
                 << " pubId=" << eventMsg.publicationId() << ")";
             log(LogLevel::warning, oss.str());
-        }
-    }
-
-    void postEvent(const SubscriptionRecord& sub, const Event& event)
-    {
-        struct Posted
-        {
-            Ptr self;
-            EventSlot slot;
-            String topicUri;
-            Event event;
-
-            void operator()()
-            {
-                auto& me = *self;
-
-                // Copy the subscription and publication IDs before the Event
-                // object gets moved away.
-                auto subId = event.subId();
-                auto pubId = event.pubId();
-
-                // The catch clauses are to prevent the publisher crashing
-                // subscribers when it passes arguments having incorrect type.
-                try
-                {
-                    slot(std::move(event));
-                }
-                catch (const Error& e)
-                {
-                    me.logEventError(e, topicUri, subId, pubId);
-                }
-                catch (const error::BadType& e)
-                {
-                    me.logEventError(Error(e), topicUri, subId, pubId);
-                }
-            }
-        };
-
-        auto exec =
-            boost::asio::get_associated_executor(sub.slot, userExecutor_);
-        Posted posted{shared_from_this(), sub.slot, sub.topicUri, event};
-        boost::asio::post(executor_,
-                          boost::asio::bind_executor(exec, std::move(posted)));
-    }
-
-    void logEventError(const Error& e, const String& topic,
-                       SubscriptionId subId, PublicationId pubId)
-    {
-        if (logLevel() <= LogLevel::error)
-        {
-            std::ostringstream oss;
-            oss << "EVENT handler reported an ";
-            outputErrorDetails(oss, e);
-            oss << ", for topic=" << topic
-                << ", subscriptionId=" << subId
-                << ", publicationId=" << pubId << ")";
-            log(LogLevel::error, oss.str());
         }
     }
 
@@ -1708,7 +1760,7 @@ private:
     void onWampReply(Message& msg)
     {
         assert(msg.isReply());
-        if (!requestMap_.reply(msg))
+        if (!requestor_.onReply(msg))
         {
             log(LogLevel::warning,
                 "Discarding received " + std::string(msg.name()) +
@@ -1861,12 +1913,9 @@ private:
     AnyCompletionExecutor userExecutor_;
     IoStrand strand_;
     Connecting::Ptr currentConnector_;
-    TopicMap exactTopics_;
-    TopicMap prefixTopics_;
-    TopicMap wildcardTopics_;
     Readership readership_;
     Registry registry_;
-    ClientRequestMap requestMap_;
+    Requestor requestor_;
     InvocationMap pendingInvocations_;
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
     LogHandler logHandler_;

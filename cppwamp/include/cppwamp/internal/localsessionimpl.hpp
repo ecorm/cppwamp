@@ -31,6 +31,8 @@ namespace wamp
 namespace internal
 {
 
+// TODO: Rewrite in terms of Session/Client using a Peer that talks directly
+//       to router realm.
 //------------------------------------------------------------------------------
 class LocalSessionImpl : public std::enable_shared_from_this<LocalSessionImpl>,
                          public RealmSession,
@@ -189,6 +191,12 @@ public:
         };
 
         safelyDispatch<Dispatched>(s);
+    }
+
+    void onEventError(const Error& error, const std::string& topicUri,
+                      SubscriptionId subId, PublicationId pubId) override
+    {
+        // TODO
     }
 
     PublicationId publish(Pub&& pub)

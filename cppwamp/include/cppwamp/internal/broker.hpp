@@ -15,6 +15,7 @@
 #include "../routerconfig.hpp"
 #include "../utils/triemap.hpp"
 #include "../utils/wildcarduri.hpp"
+#include "matchuri.hpp"
 #include "random.hpp"
 #include "realmsession.hpp"
 
@@ -151,41 +152,6 @@ private:
 };
 
 //------------------------------------------------------------------------------
-class BrokerUriAndPolicy
-{
-public:
-    using Policy = MatchPolicy;
-
-    BrokerUriAndPolicy() = default;
-
-    explicit BrokerUriAndPolicy(String uri, Policy p = Policy::unknown)
-        : uri_(std::move(uri)),
-          policy_(p)
-    {}
-
-    explicit BrokerUriAndPolicy(Topic&& t)
-        : BrokerUriAndPolicy(std::move(t).uri({}), t.matchPolicy())
-    {}
-
-    const String& uri() const {return uri_;}
-
-    Policy policy() const {return policy_;}
-
-    std::error_code check(const UriValidator& uriValidator) const
-    {
-        if (policy_ == Policy::unknown)
-            return make_error_code(WampErrc::optionNotAllowed);
-        if (!uriValidator(uri_, policy_ != Policy::exact))
-            return make_error_code(WampErrc::invalidUri);
-        return {};
-    }
-
-private:
-    String uri_;
-    Policy policy_;
-};
-
-//------------------------------------------------------------------------------
 struct BrokerSubscriberInfo
 {
     RealmSession::WeakPtr session;
@@ -197,13 +163,13 @@ class BrokerSubscription
 public:
     BrokerSubscription() = default;
 
-    BrokerSubscription(BrokerUriAndPolicy topic, SubscriptionId subId)
+    BrokerSubscription(MatchUri topic, SubscriptionId subId)
         : topic_(std::move(topic))
     {}
 
     bool empty() const {return sessions_.empty();}
 
-    BrokerUriAndPolicy topic() const {return topic_;}
+    MatchUri topic() const {return topic_;}
 
     SubscriptionId subscriptionId() const {return subId_;}
 
@@ -228,7 +194,7 @@ public:
 
 private:
     std::map<SessionId, BrokerSubscriberInfo> sessions_;
-    BrokerUriAndPolicy topic_;
+    MatchUri topic_;
     SubscriptionId subId_;
 };
 
@@ -267,7 +233,11 @@ public:
 
     std::error_code check(const UriValidator& uriValidator) const
     {
-        return topic_.check(uriValidator);
+        if (topic_.policy() == MatchPolicy::unknown)
+            return make_error_code(WampErrc::optionNotAllowed);
+        if (!uriValidator(topic_.uri(), topic_.policy() != MatchPolicy::exact))
+            return make_error_code(WampErrc::invalidUri);
+        return {};
     }
 
     BrokerSubscription* addNewSubscriptionRecord()
@@ -286,7 +256,7 @@ public:
     }
 
 private:
-    BrokerUriAndPolicy topic_;
+    MatchUri topic_;
     BrokerSubscriberInfo subscriber_;
     SessionId sessionId_;
     BrokerSubscriptionMap& subscriptions_;
@@ -463,7 +433,7 @@ public:
 
         if (record.empty())
         {
-            const BrokerUriAndPolicy& topic = record.topic();
+            const MatchUri& topic = record.topic();
             subscriptions_.erase(found);
             switch (topic.policy())
             {

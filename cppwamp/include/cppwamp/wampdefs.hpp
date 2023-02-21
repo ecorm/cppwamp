@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2018, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2018, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -13,6 +13,7 @@
 //------------------------------------------------------------------------------
 
 #include <cstdint>
+#include <string>
 
 namespace wamp
 {
@@ -23,7 +24,8 @@ using RequestId      = EphemeralId; ///< Ephemeral ID associated with a WAMP req
 using SubscriptionId = EphemeralId; ///< Ephemeral ID associated with an topic subscription
 using PublicationId  = EphemeralId; ///< Ephemeral ID associated with an event publication
 using RegistrationId = EphemeralId; ///< Ephemeral ID associated with an RPC registration
-using TrustLevel     = uint64_t;
+using TrustLevel     = uint64_t;    ///< Integer type used for trust levels
+using Uri            = std::string; ///< String type used for URIs
 
 ///< Obtains the value representing a blank ephemeral ID.
 constexpr EphemeralId nullId() {return 0;}
@@ -52,6 +54,17 @@ enum class CallCancelMode
     kill,       ///< INTERRUPT sent to callee; RESULT or ERROR returned, depending on callee
     killNoWait, ///< INTERRUPT sent to callee; router immediately returns ERROR
     skip        ///< No INTERRUPT sent to callee; router immediately returns ERROR
+};
+
+//------------------------------------------------------------------------------
+/** URI matching policy used for subscriptions and registrations. */
+//------------------------------------------------------------------------------
+enum class MatchPolicy
+{
+    unknown,
+    exact,
+    prefix,
+    wildcard
 };
 
 } // namespace wamp
