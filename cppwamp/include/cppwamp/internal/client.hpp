@@ -84,7 +84,7 @@ public:
             if (kv != multiShotRequestMap_.end())
             {
                 matchingRequestFound = true;
-                if (msg.isProgressiveResponse())
+                if (msg.isProgressive())
                 {
                     const auto& handler = kv->second;
                     handler(std::move(msg));
@@ -1216,6 +1216,8 @@ public:
     void oneShotCall(Rpc&& rpc, CallChit* chitPtr,
                      CompletionHandler<Result>&& handler)
     {
+        // TODO: Progressive calls
+
         struct Requested
         {
             Ptr self;
@@ -1257,7 +1259,7 @@ public:
         }
 
         if (rpc.callerTimeout().count() != 0)
-            timeoutScheduler_->insert(rpc.callerTimeout(), *requestId);
+            timeoutScheduler_->insert(*requestId, rpc.callerTimeout());
 
         if (chitPtr)
             *chitPtr = chit;
@@ -1283,6 +1285,8 @@ public:
 
     void ongoingCall(Rpc&& rpc, CallChit* chitPtr, OngoingCallHandler&& handler)
     {
+        // TODO: Progressive calls
+
         struct Requested
         {
             Ptr self;
@@ -1327,7 +1331,7 @@ public:
         }
 
         if (rpc.callerTimeout().count() != 0)
-            timeoutScheduler_->insert(rpc.callerTimeout(), *requestId);
+            timeoutScheduler_->insert(*requestId, rpc.callerTimeout());
 
         if (chitPtr)
             *chitPtr = chit;

@@ -149,26 +149,25 @@ public:
     using Timeout = std::chrono::steady_clock::duration;
 
     static ErrorOr<DealerJob> create(
-        RealmSession::Ptr caller, RealmSession::Ptr callee, Rpc&& rpc,
-        const DealerRegistration& reg, Invocation& inv)
+        RealmSession::Ptr caller, RealmSession::Ptr callee, const Rpc& rpc,
+        const DealerRegistration& reg)
     {
-        DealerJob job{caller, callee, rpc.requestId({})};
+        WampErrc errc = WampErrc::success;
+        DealerJob job{std::move(caller), std::move(callee), rpc, reg, errc};
+        if (errc != WampErrc::success)
+            return makeUnexpectedError(errc);
+        return job;
+    }
 
-        auto timeout = rpc.dealerTimeout();
-        job.hasTimeout_ = timeout.has_value() && (*timeout != Timeout{0});
-        if (job.hasTimeout_)
-            job.timeout_ = *timeout;
+    DealerJob() = default;
 
-        if (rpc.progressiveResultsAreEnabled() &&
-            callee->features().calleeCancelling &&
-            callee->features().calleeProgressiveResults)
-        {
-            job.hasProgressiveResults_ = true;
-        }
-
+    Invocation makeInvocation(RealmSession::Ptr caller, Rpc&& rpc) const
+    {
         bool callerDisclosed = rpc.discloseMe();
+        bool hasTrustLevel = rpc.hasTrustLevel({});
+        auto trustLevel = rpc.trustLevel({});
 
-        inv = Invocation({}, std::move(rpc), reg.registrationId());
+        Invocation inv{{}, std::move(rpc), registrationId_};
 
         if (callerDisclosed)
         {
@@ -181,10 +180,30 @@ public:
                 inv.withOption("caller_authrole", authInfo.role());
         }
 
-        if (job.hasProgressiveResults_)
+        if (progressiveResultsRequested_)
             inv.withOption("receive_progress", true);
 
-        return job;
+        if (hasTrustLevel)
+            inv.withOption("trust_level", trustLevel);
+
+        return inv;
+    }
+
+    ErrorOr<Invocation> makeProgressiveInvocation(Rpc&& rpc)
+    {
+        if (!isProgressiveCall_)
+            return makeUnexpectedError(WampErrc::invalidRequestId);
+        isProgressiveCall_ = rpc.isProgress();
+        Invocation inv{{}, std::move(rpc), registrationId_};
+
+        // Only propagate the `progress` option. The initial progressive
+        // call is what establishes other options for the duration of the
+        // progressive call transfer.
+        // https://github.com/wamp-proto/wamp-proto/issues/446#issue-1594260780
+        if (isProgressiveCall_)
+            inv.withOption("progress", true);
+
+        return inv;
     }
 
     ErrorOrDone cancel(CallCancelMode mode, WampErrc reason, bool& eraseNow)
@@ -258,6 +277,7 @@ public:
         }
     }
 
+    // Returns true if the job must be erased
     bool yield(Result&& result)
     {
         auto caller = this->caller_.lock();
@@ -268,7 +288,7 @@ public:
         result.withOptions({});
         result.withProgress(isProgressive);
         caller->sendResult(std::move(result));
-        return !hasProgressiveResults_ || !isProgressive;
+        return !progressiveResultsRequested_ || !isProgressive;
     }
 
     void yield(Error&& error)
@@ -280,29 +300,60 @@ public:
         caller->sendError(std::move(error));
     }
 
+    DealerJobKey callerKey() const {return callerKey_;}
+
     DealerJobKey calleeKey() const {return calleeKey_;}
 
+    bool hasTimeout() const {return hasTimeout_;}
+
+    Timeout timeout() const {return timeout_;}
+
+    bool isProgressiveCall() const {return isProgressiveCall_;}
+
 private:
-    DealerJob(const RealmSession::Ptr& caller, const RealmSession::Ptr& callee,
-              RequestId callerRequestId)
+    DealerJob(RealmSession::Ptr caller, RealmSession::Ptr callee,
+              const Rpc& rpc, const DealerRegistration& reg, WampErrc& errc)
         : caller_(caller),
           callee_(callee),
-          callerKey_(caller->wampId(), callerRequestId),
-          calleeKey_(callee->wampId(), nullId())
-    {}
+          callerKey_(caller->wampId(), rpc.requestId({})),
+          calleeKey_(callee->wampId(), nullId()),
+          registrationId_(reg.registrationId())
+    {
+        auto timeout = rpc.dealerTimeout();
+        hasTimeout_ = timeout.has_value() && (*timeout != Timeout{0});
+        if (hasTimeout_)
+            timeout_ = *timeout;
+
+        auto feats = callee->features();
+        if (rpc.progressiveResultsAreEnabled() && feats.calleeCancelling &&
+            feats.calleeProgressiveResults)
+        {
+            progressiveResultsRequested_ = true;
+        }
+
+        if (rpc.isProgress())
+        {
+            if (!feats.calleeCancelling || !feats.calleeProgressiveCalls)
+            {
+                errc = WampErrc::featureNotSupported;
+                return;
+            }
+            isProgressiveCall_ = true;
+        }
+    }
 
     RealmSession::WeakPtr caller_;
     RealmSession::WeakPtr callee_;
     DealerJobKey callerKey_;
     DealerJobKey calleeKey_;
-    Timeout timeout_;
+    Timeout timeout_ = {};
+    RegistrationId registrationId_ = nullId();
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
     bool hasTimeout_ = false;
-    bool hasProgressiveResults_ = false;
+    bool isProgressiveCall_ = false;
+    bool progressiveResultsRequested_ = false;
     bool discardResultOrError_ = false;
     bool interruptionSent_ = false;
-
-    friend class DealerJobMap;
 };
 
 //------------------------------------------------------------------------------
@@ -326,15 +377,16 @@ public:
 
     void insert(Job&& job)
     {
-        if (job.hasTimeout_)
-            timeoutScheduler_->insert(job.timeout_, job.calleeKey_);
+        if (job.hasTimeout())
+            timeoutScheduler_->insert(job.calleeKey(), job.timeout());
 
-        auto callerKey = job.callerKey_;
-        auto calleeKey = job.calleeKey_;
+        auto callerKey = job.callerKey();
+        auto calleeKey = job.calleeKey();
         auto emplaced1 = byCaller_.emplace(callerKey, std::move(job));
         assert(emplaced1.second);
         auto emplaced2 = byCallee_.emplace(calleeKey, emplaced1.first);
         assert(emplaced2.second);
+        lastInsertedCallerRequestId_ = callerKey.second;
     }
 
     ByCalleeIterator byCalleeFind(Key key) {return byCallee_.find(key);}
@@ -356,7 +408,7 @@ public:
 
     void byCallerErase(ByCallerIterator iter)
     {
-        auto calleeKey = iter->second.calleeKey_;
+        auto calleeKey = iter->second.calleeKey();
         byCallee_.erase(calleeKey);
         byCaller_.erase(iter);
         timeoutScheduler_->erase(calleeKey);
@@ -393,6 +445,16 @@ public:
         }
     }
 
+    void bumpProgressiveResultDeadline(const Job& job)
+    {
+        timeoutScheduler_->bump(job.calleeKey(), job.timeout());
+    }
+
+    RequestId lastInsertedCallerRequestId() const
+    {
+        return lastInsertedCallerRequestId_;
+    }
+
 private:
     void onTimeout(Key calleeKey)
     {
@@ -410,6 +472,7 @@ private:
     ByCallee byCallee_;
     ByCaller byCaller_;
     TimeoutScheduler<Key>::Ptr timeoutScheduler_;
+    RequestId lastInsertedCallerRequestId_ = nullId();
 };
 
 //------------------------------------------------------------------------------
@@ -451,17 +514,46 @@ public:
         auto reg = registry_.find(rpc.uri());
         if (reg == nullptr)
             return makeUnexpectedError(WampErrc::noSuchProcedure);
+
         auto callee = reg->callee().lock();
         if (!callee)
             return makeUnexpectedError(WampErrc::noSuchProcedure);
 
-        Invocation inv;
-        auto job = DealerJob::create(caller, callee, std::move(rpc), *reg, inv);
+        auto rpcReqId = rpc.requestId({});
+        bool isContinuation = rpcReqId <= jobs_.lastInsertedCallerRequestId();
+        if (isContinuation)
+        {
+            return continueCall(std::move(caller), std::move(callee),
+                                std::move(rpc), *reg);
+        }
+        return newCall(std::move(caller), std::move(callee),
+                       std::move(rpc), *reg);
+    }
+
+    ErrorOrDone newCall(RealmSession::Ptr caller, RealmSession::Ptr callee,
+                        Rpc&& rpc, const DealerRegistration& reg)
+    {
+        auto job = DealerJob::create(caller, callee, rpc, reg);
         if (!job)
             return makeUnexpected(job.error());
-
+        auto inv = job->makeInvocation(caller, std::move(rpc));
         jobs_.insert(std::move(*job));
         callee->sendInvocation(std::move(inv));
+        return true;
+    }
+
+    ErrorOrDone continueCall(RealmSession::Ptr caller,
+                             RealmSession::Ptr callee, Rpc&& rpc,
+                             const DealerRegistration& reg)
+    {
+        auto found = jobs_.byCallerFind({caller->wampId(), rpc.requestId({})});
+        if (found == jobs_.byCallerEnd())
+            return makeUnexpectedError(WampErrc::invalidRequestId);
+        auto& job = found->second;
+        auto inv = job.makeProgressiveInvocation(std::move(rpc));
+        if (!inv)
+            return UnexpectedError{inv.error()};
+        callee->sendInvocation(std::move(*inv));
         return true;
     }
 
@@ -490,6 +582,8 @@ public:
         auto& job = iter->second->second;
         if (job.yield(std::move(result)))
             jobs_.byCalleeErase(iter);
+        else if (job.hasTimeout())
+            jobs_.bumpProgressiveResultDeadline(job);
     }
 
     void yieldError(RealmSession::Ptr callee, Error&& error)
@@ -503,7 +597,7 @@ public:
         jobs_.byCalleeErase(iter);
     }
 
-    void removeCallee(SessionId sessionId)
+    void removeSession(SessionId sessionId)
     {
         registry_.removeCallee(sessionId);
         jobs_.removeSession(sessionId);

@@ -29,6 +29,7 @@ struct ClientFeatures
         ClientFeatures f;
         f.callee                   = true;
         f.calleeCancelling         = true;
+        f.calleeProgressiveCalls   = true;
         f.calleeProgressiveResults = true;
         f.caller                   = true;
         f.callerCancelling         = true;
@@ -52,6 +53,7 @@ struct ClientFeatures
 
     bool callee                   : 1;
     bool calleeCancelling         : 1;
+    bool calleeProgressiveCalls   : 1;
     bool calleeProgressiveResults : 1;
     bool caller                   : 1;
     bool callerCancelling         : 1;
@@ -71,6 +73,8 @@ private:
             return;
         callee = true;
         calleeCancelling = has(d, "call_cancelling");
+        calleeProgressiveCalls = has(d, "progressive_calls");
+        calleeProgressiveResults = has(d, "progressive_call_results");
     }
 
     void parseCallerFeatures(const Object& dict)

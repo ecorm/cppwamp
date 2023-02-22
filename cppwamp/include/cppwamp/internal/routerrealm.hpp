@@ -269,6 +269,7 @@ private:
                 auto& me = *self;
                 me.sessions_.erase(sid);
                 me.broker_.removeSubscriber(sid);
+                me.dealer_.removeSession(sid);
             }
         };
 

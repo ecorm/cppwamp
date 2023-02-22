@@ -677,6 +677,18 @@ public:
     bool progressiveResultsAreEnabled() const;
     /// @}
 
+    /** @name Progressive Calls
+        See [Progressive Calls in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-calls)
+        @{ */
+
+    /** Sets an indication that the call is progressive. */
+    Rpc& withProgress(bool enabled = true);
+
+    /** Indicates if the call is progressive. */
+    bool isProgress() const;
+    /// @}
+
     /** @name Call Timeouts
         See [Call Timeouts in the WAMP Specification]
         (https://wamp-proto.org/wamp_latest_ietf.html#name-call-timeouts).
@@ -743,6 +755,7 @@ private:
     TrustLevel trustLevel_ = 0;
     CallCancelMode cancelMode_ = defaultCancelMode();
     bool progressiveResultsEnabled_ = false;
+    bool isProgress_ = false;
     bool hasTrustLevel_ = false;
     bool disclosed_ = false;
 

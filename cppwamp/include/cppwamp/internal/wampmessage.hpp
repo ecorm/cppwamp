@@ -161,9 +161,12 @@ struct WampMessage
                                            : traits().repliesTo;
     }
 
-    bool isProgressiveResponse() const
+    bool isProgressive() const
     {
-        if (type_ != WampMsgType::result || fields_.size() < 3)
+        if (type_ != WampMsgType::call && type_ != WampMsgType::result)
+            return false;
+
+        if (fields_.size() < 3)
             return false;
 
         const auto& optionsField = fields_.at(2);

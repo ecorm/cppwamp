@@ -584,26 +584,41 @@ private:
 
     bool checkSequentialRequestId(const WampMessage& m)
     {
-        // TODO: Allow prior request IDs for progressive calls
         if (!m.hasRequestId())
             return true;
 
-        if (m.isRequest())
+        // Allow progressive calls to reference past request IDs
+        bool isCall = m.type() == WampMsgType::call;
+        bool needsSequential = !isCall && m.isRequest();
+        auto requestId = m.requestId();
+
+        if (needsSequential)
         {
-            if (m.requestId() != expectedRequestId_)
+            if (requestId != expectedRequestId_)
             {
+                auto msg = std::string("Received ") + m.name() +
+                           " message uses non-sequential request ID";
                 doAbort(Reason(WampErrc::protocolViolation)
-                            .withHint("Non-sequential request ID"));
+                            .withHint(std::move(msg)));
                 return false;
             }
             ++expectedRequestId_;
         }
-        else if (m.requestId() >= expectedRequestId_)
+        else
         {
-            doAbort(Reason(WampErrc::protocolViolation)
-                        .withHint("Request references future request ID"));
-            return false;
+            auto limit = expectedRequestId_ + (isCall ? 1 : 0);
+            if (requestId >= limit)
+            {
+                auto msg = std::string("Received ") + m.name() +
+                           " message uses future request ID";
+                doAbort(Reason(WampErrc::protocolViolation)
+                            .withHint(std::move(msg)));
+                return false;
+            }
+            if (isCall && (requestId == expectedRequestId_))
+                ++expectedRequestId_;
         }
+
         return true;
     }
 

@@ -918,6 +918,19 @@ CPPWAMP_INLINE bool Rpc::progressiveResultsAreEnabled() const
 }
 
 /** @details
+    This sets the `CALL.Options.progress|bool` option. */
+CPPWAMP_INLINE Rpc& Rpc::withProgress(bool enabled)
+{
+    isProgress_ = enabled;
+    return withOption("progress", enabled);
+}
+
+CPPWAMP_INLINE bool Rpc::isProgress() const
+{
+    return isProgress_;
+}
+
+/** @details
     If negative, the given timeout is clamped to zero. */
 CPPWAMP_INLINE Rpc& Rpc::withCallerTimeout(TimeoutDuration timeout)
 {
@@ -968,7 +981,9 @@ CPPWAMP_INLINE Rpc& Rpc::withCancelMode(CallCancelMode mode)
 CPPWAMP_INLINE CallCancelMode Rpc::cancelMode() const {return cancelMode_;}
 
 CPPWAMP_INLINE Rpc::Rpc(internal::PassKey, internal::CallMessage&& msg)
-    : Base(std::move(msg))
+    : Base(std::move(msg)),
+      progressiveResultsEnabled_(optionOr<bool>("receive_progress", false)),
+      isProgress_(optionOr<bool>("progress", false))
 {}
 
 CPPWAMP_INLINE void Rpc::setDisclosed(internal::PassKey, bool disclosed)
@@ -1374,17 +1389,12 @@ CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
                                       RegistrationId regId)
     : Base(std::move(rpc.message({})).fields(), regId)
-{
-    withOptions({});
-    if (rpc.hasTrustLevel({}))
-        withOption("trustlevel", rpc.trustLevel({}));
-}
+{}
 
 CPPWAMP_INLINE void Invocation::setRequestId(internal::PassKey, RequestId rid)
 {
     message().setRequestId(rid);
 }
-
 
 //******************************************************************************
 // CallCancellation

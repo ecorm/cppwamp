@@ -282,7 +282,9 @@ inline const Object& RouterContext::roles()
             {"call_canceling", true},
             {"call_timeouts", true},
             {"call_trustlevels", true},
-            {"caller_identification", true}
+            {"caller_identification", true},
+            {"progressive_calls", true},
+            {"progressive_call_results", true},
         }}}}},
         {"broker", Object{{"features", Object{{
             {"pattern_based_subscription", true},

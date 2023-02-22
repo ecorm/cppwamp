@@ -17,6 +17,8 @@
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
 
+// TODO: Unit test
+
 namespace wamp
 {
 
@@ -97,7 +99,7 @@ public:
 
     void unlisten() {timeoutHandler_ = nullptr;}
 
-    void insert(Duration timeout, Key key)
+    void insert(Key key, Duration timeout)
     {
         // The first record represents the deadline being waited on
         // by the timer.
@@ -128,7 +130,7 @@ public:
             return;
         }
 
-        // The set should be small, so just do a linear search.
+        // TODO: Consider replacing linear search with multi-index
         auto end = deadlines_.end();
         for (; rec != end; ++rec)
         {
@@ -138,6 +140,11 @@ public:
                 return;
             }
         }
+    }
+
+    void bump(Key key, Duration timeout)
+    {
+        // TODO
     }
 
     void clear()
