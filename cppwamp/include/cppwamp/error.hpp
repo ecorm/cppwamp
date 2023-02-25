@@ -191,6 +191,8 @@ CPPWAMP_API std::string detailedErrorCodeString(std::error_code ec);
 // WAMP Protocol Error Codes
 //******************************************************************************
 
+// TODO: https://github.com/wamp-proto/wamp-proto/pull/444
+
 //------------------------------------------------------------------------------
 /** %Error code values used with the WampCategory error category.
     The equivalencies to these codes are as follows:
@@ -236,11 +238,9 @@ enum class WampErrc
     timeout,                    ///< Operation timed out
     unavailable,                ///< Callee is unable to handle the invocation
 
-    // Errors not currently in the WAMP spec, but used by CppWAMP and/or Crossbar
+    // Errors not currently in the WAMP spec, but used by CppWAMP and Crossbar
     // https://github.com/crossbario/autobahn-python/blob/master/autobahn/wamp/exception.py
-    // https://github.com/wamp-proto/wamp-proto/pull/445#issuecomment-1439377238
     authenticationFailed,       ///< The authentication operation itself failed
-    invalidRequestId,           ///< The request ID does not reference a valid request
     payloadSizeExceeded,        ///< Serialized payload exceeds transport limits
     count
 };

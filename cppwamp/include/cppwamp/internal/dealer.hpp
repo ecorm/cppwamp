@@ -192,7 +192,7 @@ public:
     ErrorOr<Invocation> makeProgressiveInvocation(Rpc&& rpc)
     {
         if (!isProgressiveCall_)
-            return makeUnexpectedError(WampErrc::invalidRequestId);
+            return makeUnexpectedError(WampErrc::protocolViolation);
         isProgressiveCall_ = rpc.isProgress();
         Invocation inv{{}, std::move(rpc), registrationId_};
 
@@ -248,21 +248,6 @@ public:
 
     void notifyAbandonedCaller()
     {
-        if (discardResultOrError_)
-            return;
-        auto caller = caller_.lock();
-        if (!caller)
-            return;
-
-        auto reqId = callerKey_.second;
-        auto ec = make_error_code(WampErrc::cancelled);
-        auto e = Error({}, WampMsgType::call, reqId, ec)
-                     .withArgs("Callee left realm");
-        caller->sendError(std::move(e));
-    }
-
-    void notifyAbandonedCallee()
-    {
         if (interruptionSent_)
             return;
         auto callee = callee_.lock();
@@ -275,6 +260,21 @@ public:
             callee->sendInterruption({{}, reqId, CallCancelMode::killNoWait,
                                       WampErrc::cancelled});
         }
+    }
+
+    void notifyAbandonedCallee()
+    {
+        if (discardResultOrError_)
+            return;
+        auto caller = caller_.lock();
+        if (!caller)
+            return;
+
+        auto reqId = callerKey_.second;
+        auto ec = make_error_code(WampErrc::noAvailableCallee);
+        auto e = Error({}, WampMsgType::call, reqId, ec)
+                     .withArgs("Callee left realm");
+        caller->sendError(std::move(e));
     }
 
     // Returns true if the job must be erased
@@ -548,7 +548,7 @@ public:
     {
         auto found = jobs_.byCallerFind({caller->wampId(), rpc.requestId({})});
         if (found == jobs_.byCallerEnd())
-            return makeUnexpectedError(WampErrc::invalidRequestId);
+            return makeUnexpectedError(WampErrc::noSuchProcedure);
         auto& job = found->second;
         auto inv = job.makeProgressiveInvocation(std::move(rpc));
         if (!inv)

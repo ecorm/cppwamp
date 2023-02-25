@@ -475,8 +475,15 @@ private:
                 if (ec)
                     s->sendError(WampMsgType::call, rid, ec);
                 auto result = self->dealer_.call(s, std::move(r));
-                if (!result)
+                if (ec == WampErrc::protocolViolation)
+                {
+                    s->abort(Reason(ec).withHint(
+                        "Received CALL message uses non-sequential request ID"));
+                }
+                else if (!result)
+                {
                     s->sendError(WampMsgType::call, rid, result);
+                }
             }
         };
 

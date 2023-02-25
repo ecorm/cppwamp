@@ -226,7 +226,6 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* unavailable            */ "Callee is unable to handle the invocation",
 
 /* authenticationFailed   */ "The authentication operation itself failed",
-/* invalidRequestId       */ "The request ID does not reference a valid request",
 /* payloadSizeExceeded    */ "Serialized payload exceeds transport limits",
 /* timeout                */ "Operation timed out"
     };
@@ -316,7 +315,6 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
         {"wamp.error.feature_not_supported",         WE::featureNotSupported},
         {"wamp.error.goodbye_and_out",               WE::goodbyeAndOut},
         {"wamp.error.invalid_argument",              WE::invalidArgument},
-        {"wamp.error.invalid_request_id",            WE::invalidRequestId},
         {"wamp.error.invalid_uri",                   WE::invalidUri},
         {"wamp.error.network_failure",               WE::networkFailure},
         {"wamp.error.no_available_callee",           WE::noAvailableCallee},
@@ -384,7 +382,6 @@ CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
         "wamp.error.unavailable",
 
         "wamp.error.authentication_failed",
-        "wamp.error.invalid_request_id",
         "wamp.error.payload_size_exceeded"
     };
 
