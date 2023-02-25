@@ -14,7 +14,7 @@
 //------------------------------------------------------------------------------
 
 // TODO: Client-side abort
-// TODO: Progressive calls
+// TODO: Streaming API for progressive calls/results
 
 #include <future>
 #include <memory>

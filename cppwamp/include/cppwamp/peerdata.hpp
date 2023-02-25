@@ -773,6 +773,36 @@ public:
 
 
 //------------------------------------------------------------------------------
+/** Contains the payload arguments of a chunk to be streamed via a progressive
+    `CALL` message.
+    See [Progressive Calls in the WAMP Specification]
+    (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-calls) */
+//------------------------------------------------------------------------------
+class CPPWAMP_API OutputChunk : public Payload<OutputChunk,
+                                               internal::CallMessage>
+{
+public:
+    /** Marks the chunk as being the final one. */
+    OutputChunk& setFinal(bool final = true);
+
+    /** Indicates if the chunk is the final one. */
+    bool isFinal() const;
+
+private:
+    using Base = Payload<Rpc, internal::CallMessage>;
+
+    RequestId requestId_ = nullId();
+    bool isFinal_ = false;
+
+public:
+    // Internal use only
+    void setRequestId(internal::PassKey, RequestId reqId);
+    RequestId requestId(internal::PassKey) const;
+    internal::CallMessage& callMessage(internal::PassKey);
+};
+
+
+//------------------------------------------------------------------------------
 /** Contains the remote procedure result options/payload within WAMP
     `RESULT` and `YIELD` messages. */
 //------------------------------------------------------------------------------

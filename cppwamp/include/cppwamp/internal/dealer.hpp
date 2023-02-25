@@ -19,9 +19,6 @@
 #include "realmsession.hpp"
 #include "timeoutscheduler.hpp"
 
-// TODO: Progressive Calls
-// TODO: Pending call limits
-
 namespace wamp
 {
 
@@ -310,6 +307,11 @@ public:
 
     bool isProgressiveCall() const {return isProgressiveCall_;}
 
+    bool progressiveResultsRequested() const
+    {
+        return progressiveResultsRequested_;
+    }
+
 private:
     DealerJob(RealmSession::Ptr caller, RealmSession::Ptr callee,
               const Rpc& rpc, const DealerRegistration& reg, WampErrc& errc)
@@ -445,9 +447,10 @@ public:
         }
     }
 
-    void bumpProgressiveResultDeadline(const Job& job)
+    void updateProgressiveResultDeadline(const Job& job)
     {
-        timeoutScheduler_->bump(job.calleeKey(), job.timeout());
+        if (job.hasTimeout() && job.progressiveResultsRequested())
+            timeoutScheduler_->update(job.calleeKey(), job.timeout());
     }
 
     RequestId lastInsertedCallerRequestId() const
@@ -582,8 +585,8 @@ public:
         auto& job = iter->second->second;
         if (job.yield(std::move(result)))
             jobs_.byCalleeErase(iter);
-        else if (job.hasTimeout())
-            jobs_.bumpProgressiveResultDeadline(job);
+        else
+            jobs_.updateProgressiveResultDeadline(job);
     }
 
     void yieldError(RealmSession::Ptr callee, Error&& error)

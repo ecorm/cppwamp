@@ -23,6 +23,12 @@ CPPWAMP_INLINE RequestId CallChit::requestId() const {return reqId_;}
 CPPWAMP_INLINE CallCancelMode CallChit::cancelMode() const {return cancelMode_;}
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE bool CallChit::isProgressive() const {return isProgressive_;}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool CallChit::finalChunkSent() const {return finalChunkSent_;}
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE void CallChit::cancel() const
 {
     cancel(cancelMode_);
@@ -51,11 +57,57 @@ CPPWAMP_INLINE void CallChit::cancel(ThreadSafe, CallCancelMode mode) const
 }
 
 //------------------------------------------------------------------------------
+/** @pre this->isProgressive()
+    @pre !this->finalChunkSent()
+    @throws error::Logic if the precondition is not met. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE ErrorOrDone CallChit::send(OutputChunk chunk) const
+{
+    // TODO: Test CallChit::send
+    CPPWAMP_LOGIC_CHECK(
+        isProgressive_,
+        "wamp::CallChit::send: initial call was not progressive");
+    CPPWAMP_LOGIC_CHECK(
+        !finalChunkSent_,
+        "wamp::CallChit::send: final chunk was already sent");
+    chunk.setRequestId({}, reqId_);
+    auto caller = caller_.lock();
+    if (caller)
+        return caller->sendChunk(std::move(chunk));
+    return false;
+}
+
+//------------------------------------------------------------------------------
+/** @pre this->isProgressive()
+    @pre !this->finalChunkSent()
+    @throws error::Logic if the precondition is not met. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE std::future<ErrorOrDone>
+CallChit::send(ThreadSafe, OutputChunk chunk) const
+{
+    CPPWAMP_LOGIC_CHECK(
+        isProgressive_,
+        "wamp::CallChit::send: initial call was not progressive");
+    CPPWAMP_LOGIC_CHECK(
+        !finalChunkSent_,
+        "wamp::CallChit::send: final chunk was already sent");
+    chunk.setRequestId({}, reqId_);
+    auto caller = caller_.lock();
+    if (caller)
+        return caller->safeSendChunk(std::move(chunk));
+    std::promise<ErrorOrDone> p;
+    p.set_value(ErrorOrDone{false});
+    return p.get_future();
+}
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE CallChit::CallChit(CallerPtr caller, RequestId reqId,
-                                  CallCancelMode mode, internal::PassKey)
+                                  CallCancelMode mode, bool progressive,
+                                  internal::PassKey)
     : caller_(caller),
       reqId_(reqId),
-      cancelMode_(mode)
+      cancelMode_(mode),
+      isProgressive_(progressive)
 {}
 
 } // namespace wamp

@@ -1019,6 +1019,37 @@ CPPWAMP_INLINE TrustLevel Rpc::trustLevel(internal::PassKey) const
 
 
 //******************************************************************************
+// OutputChunk
+//******************************************************************************
+
+/** This sets the `CALL.Options.progress|bool` option accordingly. */
+CPPWAMP_INLINE OutputChunk& OutputChunk::setFinal(bool final)
+{
+    isFinal_ = final; return *this;
+}
+
+CPPWAMP_INLINE bool OutputChunk::isFinal() const {return isFinal_;}
+
+CPPWAMP_INLINE void OutputChunk::setRequestId(internal::PassKey,
+                                              RequestId reqId)
+{
+    requestId_ = reqId;
+}
+
+CPPWAMP_INLINE RequestId OutputChunk::requestId(internal::PassKey) const
+{
+    return requestId_;
+}
+
+CPPWAMP_INLINE internal::CallMessage&
+OutputChunk::callMessage(internal::PassKey)
+{
+    message().setRequestId(requestId_);
+    return message();
+}
+
+
+//******************************************************************************
 // Result
 //******************************************************************************
 

@@ -12,8 +12,10 @@
     @brief Contains lightweight tokens representing pending requests. */
 //------------------------------------------------------------------------------
 
+#include <future>
 #include <memory>
 #include "api.hpp"
+#include "peerdata.hpp"
 #include "tagtypes.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
@@ -42,6 +44,12 @@ public:
     /** Obtains the default cancel mode associated with the call. */
     CallCancelMode cancelMode() const;
 
+    /** Determines if the call is progressive. */
+    bool isProgressive() const;
+
+    /** Determines if a chunk marked as final was sent. */
+    bool finalChunkSent() const;
+
     /** Requests cancellation of the call using the cancel mode that
         was specified in the @ref wamp::Rpc "Rpc". */
     void cancel() const;
@@ -52,8 +60,14 @@ public:
     /** Requests cancellation of the call using the given mode. */
     void cancel(CallCancelMode mode) const;
 
-    /** Thread-safe cancel with mode */
+    /** Thread-safe cancel with mode. */
     void cancel(ThreadSafe, CallCancelMode mode) const;
+
+    /** Sends the given chunk via a progressive call. */
+    ErrorOrDone send(OutputChunk chunk) const;
+
+    /** Thread-safe send. */
+    std::future<ErrorOrDone> send(ThreadSafe, OutputChunk chunk) const;
 
 private:
     using CallerPtr = std::weak_ptr<internal::Caller>;
@@ -62,11 +76,13 @@ private:
     CallerPtr caller_;
     RequestId reqId_ = invalidId_;
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
+    bool isProgressive_ = false;
+    bool finalChunkSent_ = false;
 
 public:
     // Internal use only
     CallChit(CallerPtr caller, RequestId reqId, CallCancelMode mode,
-             internal::PassKey);
+             bool progressive, internal::PassKey);
 
 };
 

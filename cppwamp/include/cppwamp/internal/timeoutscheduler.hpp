@@ -9,6 +9,7 @@
 
 #include <cassert>
 #include <chrono>
+#include <map>
 #include <memory>
 #include <set>
 #include <tuple>
@@ -36,9 +37,9 @@ struct TimeoutRecord
 
     TimeoutRecord() = default;
 
-    TimeoutRecord(Duration timeout, Key key)
-        : deadline(clampedDeadline(timeout)),
-          key(std::move(key))
+    TimeoutRecord(Key key, Duration timeout)
+        : key(std::move(key)),
+          deadline(clampedDeadline(timeout))
     {}
 
     bool operator<(const TimeoutRecord& rhs) const
@@ -46,8 +47,8 @@ struct TimeoutRecord
         return std::tie(deadline, key) < std::tie(rhs.deadline, rhs.key);
     }
 
-    Timepoint deadline;
     Key key = {};
+    Timepoint deadline;
 
 private:
     static Timepoint clampedDeadline(Duration timeout)
@@ -101,50 +102,54 @@ public:
 
     void insert(Key key, Duration timeout)
     {
-        // The first record represents the deadline being waited on
+        // The first record contains the deadline being waited on
         // by the timer.
 
-        Record rec{timeout, std::move(key)};
+        Record rec{key, timeout};
         bool wasIdle = deadlines_.empty();
         bool preemptsCurrentDeadline =
             !wasIdle && (rec < *deadlines_.begin());
 
-        auto inserted = deadlines_.insert(rec);
+        auto inserted = deadlines_.insert(std::move(rec));
         assert(inserted.second);
+        auto emplaced = byKey_.emplace(std::move(key), inserted.first);
+        assert(emplaced.second);
         if (wasIdle)
             processNextDeadline();
         else if (preemptsCurrentDeadline)
             timer_.cancel();
     }
 
-    void erase(Key key)
+    void update(Key key, Duration timeout)
     {
-        if (deadlines_.empty())
+        auto found = byKey_.find(key);
+        if (found == byKey_.end())
             return;
+        auto iter = found->second;
+        bool timerNeedsCanceling = (iter == deadlines_.begin());
+        deadlines_.erase(iter);
 
-        auto rec = deadlines_.begin();
-        if (rec->key == key)
-        {
-            deadlines_.erase(rec);
+        Record rec{key, timeout};
+        timerNeedsCanceling = timerNeedsCanceling ||
+                              (rec < *deadlines_.begin());
+        auto inserted = deadlines_.insert(std::move(rec));
+        assert(inserted.second);
+        found->second = inserted.first;
+
+        if (timerNeedsCanceling)
             timer_.cancel();
-            return;
-        }
-
-        // TODO: Consider replacing linear search with multi-index
-        auto end = deadlines_.end();
-        for (; rec != end; ++rec)
-        {
-            if (rec->key == key)
-            {
-                deadlines_.erase(rec);
-                return;
-            }
-        }
     }
 
-    void bump(Key key, Duration timeout)
+    void erase(Key key)
     {
-        // TODO
+        auto found = byKey_.find(key);
+        if (found == byKey_.end())
+            return;
+        auto iter = found->second;
+        if (iter == deadlines_.begin())
+            timer_.cancel();
+        deadlines_.erase(iter);
+        byKey_.erase(found);
     }
 
     void clear()
@@ -156,6 +161,7 @@ public:
 private:
     using WeakPtr = std::weak_ptr<TimeoutScheduler>;
     using Record = TimeoutRecord<Key>;
+    using RecordSet = std::set<Record>;
 
     explicit TimeoutScheduler(IoStrand strand)
         : timer_(std::move(strand))
@@ -194,7 +200,8 @@ private:
 
     // std::map<Timepoint, Key> cannot be used because deadlines are
     // not guaranteed to be unique.
-    std::set<Record> deadlines_;
+    RecordSet deadlines_;
+    std::map<Key, typename RecordSet::iterator> byKey_;
     boost::asio::steady_timer timer_;
     TimeoutHandler timeoutHandler_;
 };

@@ -15,6 +15,8 @@
 namespace wamp
 {
 
+class OutputChunk;
+
 namespace internal
 {
 
@@ -30,6 +32,10 @@ public:
 
     virtual std::future<ErrorOrDone> safeCancelCall(RequestId,
                                                     CallCancelMode) = 0;
+
+    virtual ErrorOrDone sendChunk(OutputChunk) = 0;
+
+    virtual std::future<ErrorOrDone> safeSendChunk(OutputChunk) = 0;
 };
 
 } // namespace internal

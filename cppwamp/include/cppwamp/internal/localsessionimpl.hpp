@@ -512,6 +512,38 @@ public:
         return fut;
     }
 
+    ErrorOrDone sendChunk(OutputChunk chunk) override
+    {
+        return false;
+    }
+
+    FutureErrorOrDone safeSendChunk(OutputChunk c) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            OutputChunk c;
+            ErrorOrDonePromise p;
+
+            void operator()()
+            {
+                try
+                {
+                    p.set_value(self->sendChunk(std::move(c)));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
+            }
+        };
+
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(std::move(c), std::move(p));
+        return fut;
+    }
+
     ErrorOrDone yield(RequestId reqId, Result&& result) override
     {
         // TODO

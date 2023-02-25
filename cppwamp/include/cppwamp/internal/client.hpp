@@ -140,6 +140,13 @@ public:
         return found;
     }
 
+    bool callIsPending(RequestId reqId) const
+    {
+        RequestKey key{WampMsgType::call, reqId};
+        return oneShotRequestMap_.count(key) != 0 ||
+               multiShotRequestMap_.count(key) != 0;
+    }
+
     void abortAll(std::error_code ec)
     {
         UnexpectedError unex{ec};
@@ -632,13 +639,15 @@ public:
                 {"call_trustlevels", true},
                 {"caller_identification", true},
                 {"pattern_based_registration", true},
-                {"progressive_call_results", true}
+                {"progressive_call_results", true},
+                {"progressive_calls", true}
             }}}}},
             {"caller", Object{{"features", Object{{
                 {"call_canceling", true},
                 {"call_timeout", true},
                 {"caller_identification", true},
-                {"progressive_call_results", true}
+                {"progressive_call_results", true},
+                {"progressive_calls", true}
             }}}}},
             {"publisher", Object{{"features", Object{{
                 {"publisher_exclusion", true},
@@ -1216,8 +1225,6 @@ public:
     void oneShotCall(Rpc&& rpc, CallChit* chitPtr,
                      CompletionHandler<Result>&& handler)
     {
-        // TODO: Progressive calls
-
         struct Requested
         {
             Ptr self;
@@ -1250,7 +1257,8 @@ public:
         if (!requestId)
             return;
 
-        CallChit chit{shared_from_this(), *requestId, rpc.cancelMode(), {}};
+        CallChit chit{shared_from_this(), *requestId, rpc.cancelMode(),
+                      rpc.isProgress(), {}};
 
         if (cancelSlot.is_connected())
         {
@@ -1285,8 +1293,6 @@ public:
 
     void ongoingCall(Rpc&& rpc, CallChit* chitPtr, OngoingCallHandler&& handler)
     {
-        // TODO: Progressive calls
-
         struct Requested
         {
             Ptr self;
@@ -1322,7 +1328,8 @@ public:
         if (!requestId)
             return;
 
-        CallChit chit{shared_from_this(), *requestId, rpc.cancelMode(), {}};
+        CallChit chit{shared_from_this(), *requestId, rpc.cancelMode(),
+                      rpc.isProgress(), {}};
 
         if (cancelSlot.is_connected())
         {
@@ -1399,6 +1406,42 @@ public:
         ErrorOrDonePromise p;
         auto fut = p.get_future();
         safelyDispatch<Dispatched>(r, m, std::move(p));
+        return fut;
+    }
+
+    ErrorOrDone sendChunk(OutputChunk chunk) override
+    {
+        if (!requestor_.callIsPending(chunk.requestId({})))
+            return false;
+        if (!chunk.isFinal())
+            chunk.withOption("progress", true);
+        return peer_.send(chunk.callMessage({}));
+    }
+
+    FutureErrorOrDone safeSendChunk(OutputChunk c) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            OutputChunk c;
+            ErrorOrDonePromise p;
+
+            void operator()()
+            {
+                try
+                {
+                    p.set_value(self->sendChunk(std::move(c)));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
+            }
+        };
+
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(std::move(c), std::move(p));
         return fut;
     }
 

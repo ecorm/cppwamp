@@ -50,6 +50,9 @@ public:
     // TODO: Authorization cache
     // RealmConfig& withAuthorizationCacheEnabled(bool enabled = true);
 
+    // TODO: Concurrent progressive calls limit
+    // TODO: Pending call limits
+
     RealmConfig& withPublisherDisclosure(DisclosureRule d);
 
     RealmConfig& withCallerDisclosure(DisclosureRule d);
