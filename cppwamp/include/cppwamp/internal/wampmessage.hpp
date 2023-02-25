@@ -529,6 +529,8 @@ struct CallMessage : public MessageWithPayload<WampMsgType::call, 2, 4>
         : Base({0, 0, std::move(opts), std::move(uri)})
     {}
 
+    void setUri(String uri) {fields_.at(3) = std::move(uri);}
+
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
     const String& uri() const {return fields_.at(3).as<String>();}

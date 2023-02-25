@@ -782,21 +782,26 @@ class CPPWAMP_API OutputChunk : public Payload<OutputChunk,
                                                internal::CallMessage>
 {
 public:
-    /** Marks the chunk as being the final one. */
-    OutputChunk& setFinal(bool final = true);
+    explicit OutputChunk(bool isFinal = false);
 
     /** Indicates if the chunk is the final one. */
     bool isFinal() const;
 
 private:
-    using Base = Payload<Rpc, internal::CallMessage>;
+    using Base = Payload<OutputChunk, internal::CallMessage>;
+
+    /** Disallow the setting of options. */
+    using Base::withOption;
+
+    /** Disallow the setting of options. */
+    using Base::withOptions;
 
     RequestId requestId_ = nullId();
     bool isFinal_ = false;
 
 public:
     // Internal use only
-    void setRequestId(internal::PassKey, RequestId reqId);
+    void setCallInfo(internal::PassKey, RequestId reqId, String uri);
     RequestId requestId(internal::PassKey) const;
     internal::CallMessage& callMessage(internal::PassKey);
 };

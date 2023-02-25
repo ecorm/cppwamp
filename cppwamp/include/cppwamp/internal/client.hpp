@@ -1413,8 +1413,6 @@ public:
     {
         if (!requestor_.callIsPending(chunk.requestId({})))
             return false;
-        if (!chunk.isFinal())
-            chunk.withOption("progress", true);
         return peer_.send(chunk.callMessage({}));
     }
 
