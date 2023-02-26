@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -28,15 +28,14 @@ namespace internal { class Subscriber; }
 //------------------------------------------------------------------------------
 /** Represents a pub/sub event subscription.
 
-    A Subscription is a lightweight object returned by the `subscribe` member
-    functions of the _Session_ family of classes. This objects allows users to
-    unsubscribe the subscription.
+    A Subscription is a lightweight object returned by Session::subscribe.
+    This objects allows users to unsubscribe the subscription.
 
     It is always safe to unsubscribe via a Subscription object. If the Session
     or the subscription no longer exists, an unsubscribe operation effectively
     does nothing.
 
-    @see ScopedSubscription, Session::subscribe */
+    @see ScopedSubscription */
 //------------------------------------------------------------------------------
 class CPPWAMP_API Subscription
 {

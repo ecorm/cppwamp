@@ -30,10 +30,10 @@ CPPWAMP_INLINE Registration::Registration(Registration&& other) noexcept
       id_(other.id_)
 {
     other.callee_.reset();
-    other.id_ = invalidId_;
+    other.id_ = nullId();
 }
 
-CPPWAMP_INLINE Registration::operator bool() const {return id_ != invalidId_;}
+CPPWAMP_INLINE Registration::operator bool() const {return id_ != nullId();}
 
 CPPWAMP_INLINE RegistrationId Registration::id() const {return id_;}
 
@@ -51,7 +51,7 @@ Registration::operator=(Registration&& other) noexcept
     callee_ = other.callee_;
     id_ = other.id_;
     other.callee_.reset();
-    other.id_ = invalidId_;
+    other.id_ = nullId();
     return *this;
 }
 
@@ -112,10 +112,10 @@ ScopedRegistration::operator=(ScopedRegistration&& other) noexcept
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ScopedRegistration&
-ScopedRegistration::operator=(Registration subscription)
+ScopedRegistration::operator=(Registration registration)
 {
     unregister(threadSafe);
-    Base::operator=(std::move(subscription));
+    Base::operator=(std::move(registration));
     return *this;
 }
 

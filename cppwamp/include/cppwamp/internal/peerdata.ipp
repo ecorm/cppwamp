@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "../peerdata.hpp"
+#include <cassert>
 #include <utility>
 #include "../api.hpp"
 #include "callee.hpp"
@@ -1015,42 +1016,6 @@ CPPWAMP_INLINE bool Rpc::hasTrustLevel(internal::PassKey) const
 CPPWAMP_INLINE TrustLevel Rpc::trustLevel(internal::PassKey) const
 {
     return trustLevel_;
-}
-
-
-//******************************************************************************
-// OutputChunk
-//******************************************************************************
-
-/** This sets the `CALL.Options.progress|bool` option accordingly. */
-CPPWAMP_INLINE OutputChunk::OutputChunk(bool isFinal)
-    : Base(String{}),
-      isFinal_(isFinal)
-{
-    if (!isFinal_)
-        withOption("progress", true);
-}
-
-CPPWAMP_INLINE bool OutputChunk::isFinal() const {return isFinal_;}
-
-CPPWAMP_INLINE void OutputChunk::setCallInfo(
-    internal::PassKey, RequestId reqId, String uri)
-{
-    requestId_ = reqId;
-    message().setRequestId(reqId);
-    message().setUri(std::move(uri));
-}
-
-CPPWAMP_INLINE RequestId OutputChunk::requestId(internal::PassKey) const
-{
-    return requestId_;
-}
-
-CPPWAMP_INLINE internal::CallMessage&
-OutputChunk::callMessage(internal::PassKey)
-{
-    message().setRequestId(requestId_);
-    return message();
 }
 
 

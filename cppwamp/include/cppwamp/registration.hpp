@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -28,15 +28,14 @@ namespace internal { class Callee; }
 //------------------------------------------------------------------------------
 /** Represents a remote procedure registration.
 
-    A Registration is a lightweight object returned by the `enroll` member
-    functions of the _Session_ family of classes. This objects allows users to
-    unregister the RPC registration.
+    A Registration is a lightweight object returned by Session::enroll. This
+    objects allows users to unregister the RPC registration.
 
     It is always safe to unregister via a Registration object. If the Session
     or the registration no longer exists, an unregister operation effectively
     does nothing.
 
-    @see ScopedRegistration, Session::enroll */
+    @see ScopedRegistration */
 //------------------------------------------------------------------------------
 class CPPWAMP_API Registration
 {
@@ -71,9 +70,8 @@ public:
 private:
     using CalleePtr = std::weak_ptr<internal::Callee>;
 
-    static constexpr RegistrationId invalidId_ = 0;
     CalleePtr callee_;
-    RegistrationId id_ = invalidId_;
+    RegistrationId id_ = nullId();
 
 public:
     // Internal use only
@@ -109,7 +107,7 @@ public:
 
     /** Assigns another Regisration to manage.
         The old registration is automatically unregistered. */
-    ScopedRegistration& operator=(Registration subscription);
+    ScopedRegistration& operator=(Registration registration);
 
     /** Releases the registration so that it will no longer be automatically
         unregistered if the ScopedRegistration is destroyed or reassigned. */

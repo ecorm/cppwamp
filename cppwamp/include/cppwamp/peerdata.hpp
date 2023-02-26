@@ -7,7 +7,6 @@
 #ifndef CPPWAMP_PEERDATA_HPP
 #define CPPWAMP_PEERDATA_HPP
 
-#include <cassert>
 #include <chrono>
 #include <future>
 #include <initializer_list>
@@ -769,41 +768,6 @@ public:
     bool disclosed(internal::PassKey) const;
     bool hasTrustLevel(internal::PassKey) const;
     TrustLevel trustLevel(internal::PassKey) const;
-};
-
-
-//------------------------------------------------------------------------------
-/** Contains the payload arguments of a chunk to be streamed via a progressive
-    `CALL` message.
-    See [Progressive Calls in the WAMP Specification]
-    (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-calls) */
-//------------------------------------------------------------------------------
-class CPPWAMP_API OutputChunk : public Payload<OutputChunk,
-                                               internal::CallMessage>
-{
-public:
-    explicit OutputChunk(bool isFinal = false);
-
-    /** Indicates if the chunk is the final one. */
-    bool isFinal() const;
-
-private:
-    using Base = Payload<OutputChunk, internal::CallMessage>;
-
-    /** Disallow the setting of options. */
-    using Base::withOption;
-
-    /** Disallow the setting of options. */
-    using Base::withOptions;
-
-    RequestId requestId_ = nullId();
-    bool isFinal_ = false;
-
-public:
-    // Internal use only
-    void setCallInfo(internal::PassKey, RequestId reqId, String uri);
-    RequestId requestId(internal::PassKey) const;
-    internal::CallMessage& callMessage(internal::PassKey);
 };
 
 

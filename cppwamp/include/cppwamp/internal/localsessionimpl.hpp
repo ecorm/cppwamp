@@ -17,6 +17,7 @@
 #include "../chits.hpp"
 #include "../registration.hpp"
 #include "../routerconfig.hpp"
+#include "../streaming.hpp"
 #include "../subscription.hpp"
 #include "callee.hpp"
 #include "caller.hpp"

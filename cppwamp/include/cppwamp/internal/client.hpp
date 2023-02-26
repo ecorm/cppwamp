@@ -27,6 +27,7 @@
 #include "../peerdata.hpp"
 #include "../registration.hpp"
 #include "../subscription.hpp"
+#include "../streaming.hpp"
 #include "../transport.hpp"
 #include "../version.hpp"
 #include "callee.hpp"
