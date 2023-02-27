@@ -435,6 +435,32 @@ public:
         return done;
     }
 
+    ErrorOrDone yield(Peer& peer, RequestId reqId, CalleeChunk&& chunk)
+    {
+        auto found = pendingInvocations_.find(reqId);
+        if (found == pendingInvocations_.end())
+            return false;
+
+        // Error may have already been returned due to interruption being
+        // handled by Client::onInterrupt.
+        bool expired = found->second.expired;
+        bool erased = chunk.isFinal() || expired;
+        if (erased)
+            pendingInvocations_.erase(found);
+        if (expired)
+            return false;
+
+        auto done = peer.send(chunk.yieldMessage({}, reqId));
+        if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
+        {
+            if (!erased)
+                pendingInvocations_.erase(found);
+            peer.sendError(WampMsgType::invocation, reqId,
+                           Error{WampErrc::payloadSizeExceeded});
+        }
+        return done;
+    }
+
     ErrorOrDone yield(Peer& peer, RequestId reqId, Error&& error)
     {
         auto found = pendingInvocations_.find(reqId);
@@ -1410,26 +1436,27 @@ public:
         return fut;
     }
 
-    ErrorOrDone sendChunk(OutputChunk chunk) override
+    ErrorOrDone sendCallerChunk(RequestId reqId, CallerChunk chunk) override
     {
-        if (!requestor_.callIsPending(chunk.requestId({})))
+        if (!requestor_.callIsPending(reqId))
             return false;
-        return peer_.send(chunk.callMessage({}));
+        return peer_.send(chunk.callMessage({}, reqId));
     }
 
-    FutureErrorOrDone safeSendChunk(OutputChunk c) override
+    FutureErrorOrDone safeSendCallerChunk(RequestId r, CallerChunk c) override
     {
         struct Dispatched
         {
             Ptr self;
-            OutputChunk c;
+            RequestId r;
+            CallerChunk c;
             ErrorOrDonePromise p;
 
             void operator()()
             {
                 try
                 {
-                    p.set_value(self->sendChunk(std::move(c)));
+                    p.set_value(self->sendCallerChunk(r, std::move(c)));
                 }
                 catch (...)
                 {
@@ -1440,7 +1467,42 @@ public:
 
         ErrorOrDonePromise p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(c), std::move(p));
+        safelyDispatch<Dispatched>(r, std::move(c), std::move(p));
+        return fut;
+    }
+
+    ErrorOrDone sendCalleeChunk(RequestId reqId, CalleeChunk&& chunk) override
+    {
+        if (state() != State::established)
+            return makeUnexpectedError(Errc::invalidState);
+        return registry_.yield(peer_, reqId, std::move(chunk));
+    }
+
+    FutureErrorOrDone safeSendCalleeChunk(RequestId r, CalleeChunk&& c) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RequestId r;
+            CalleeChunk c;
+            ErrorOrDonePromise p;
+
+            void operator()()
+            {
+                try
+                {
+                    p.set_value(self->sendCalleeChunk(r, std::move(c)));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
+            }
+        };
+
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(r, std::move(c), std::move(p));
         return fut;
     }
 

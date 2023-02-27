@@ -739,10 +739,10 @@ public:
         (https://wamp-proto.org/wamp_latest_ietf.html#name-pattern-based-registrations)
         @{ */
 
-    /** Sets the matching policy to be used for this subscription. */
+    /** Sets the matching policy to be used for this call. */
     Rpc& withMatchPolicy(MatchPolicy);
 
-    /** Obtains the matching policy used for this subscription. */
+    /** Obtains the matching policy used for this call. */
     MatchPolicy matchPolicy() const;
     /// @}
 

@@ -11,7 +11,8 @@ namespace wamp
 {
 
 class AuthorizationRequest;
-class CallChit;
+class CalleeChannel;
+class CallerChannel;
 class Event;
 class Invocation;
 
@@ -23,7 +24,8 @@ namespace internal
 
         // TODO: Verify these are all needed before next release
         friend class wamp::AuthorizationRequest;
-        friend class wamp::CallChit;
+        friend class wamp::CalleeChannel;
+        friend class wamp::CallerChannel;
         friend class wamp::Event;
         friend class wamp::Invocation;
         friend class BrokerPublication;

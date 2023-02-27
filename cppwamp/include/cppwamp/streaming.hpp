@@ -12,27 +12,32 @@
     @brief Contains facilities for steaming chunks to/from peers. */
 //------------------------------------------------------------------------------
 
+#include <atomic>
+#include <future>
 #include <memory>
+#include "anyhandler.hpp"
 #include "api.hpp"
-#include "payload.hpp"
+#include "peerdata.hpp"
 #include "tagtypes.hpp"
-#include "variant.hpp"
-#include "wampdefs.hpp"
+#include "internal/callee.hpp"
+#include "internal/caller.hpp"
 #include "internal/passkey.hpp"
 #include "internal/wampmessage.hpp"
 
 namespace wamp
 {
 
-// Forward declaration
-namespace internal { class Caller; }
+//------------------------------------------------------------------------------
+/// Ephemeral ID associated with a streaming channel
+//------------------------------------------------------------------------------
+using ChannelId = RequestId;
 
 //------------------------------------------------------------------------------
 enum class Direction
 {
-    in,
-    out,
-    bidi
+    calleeToCaller,
+    callerToCallee,
+    bidirectional
 };
 
 //------------------------------------------------------------------------------
@@ -43,7 +48,7 @@ enum class Direction
     [1]: (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-calls)
     [2]: (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results) */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Invitation : public Payload<Invitation, internal::CallMessage>
+class CPPWAMP_API Invitation : public Rpc
 {
 public:
     /** Constructor. */
@@ -51,30 +56,25 @@ public:
         String uri, ///< The URI with which to associate this invitation.
         Direction streamDir ///< The desired stream direction(s)
         )
-        : Base(std::move(uri), makeOptions(streamDir)),
-        direction_(streamDir)
-    {}
+        : Base(std::move(uri)),
+          direction_(streamDir)
+    {
+        using D = Direction;
+        if (streamDir == D::calleeToCaller || streamDir == D::bidirectional)
+            withProgressiveResults();
+        if (streamDir == D::callerToCallee || streamDir == D::bidirectional)
+            withProgress();
+    }
 
     Direction streamDirection() const {return direction_;}
 
 private:
-    using Base = Payload<Invitation, internal::CallMessage>;
+    using Base = Rpc;
 
-    static Object makeOptions(Direction dir)
-    {
-        static const Object in{{"progressive_call_results", true}};
-        static const Object out{{"progress", true}};
-        static const Object bidi{{"progress", true},
-                                 {"progressive_call_results", true}};
-        switch (dir)
-        {
-        case Direction::in:   return in;
-        case Direction::out:  return out;
-        case Direction::bidi: return bidi;
-        default: assert(false && "Unexpected Direction enumerator");
-        }
-        return {};
-    }
+    using Base::withProgressiveResults;
+    using Base::progressiveResultsAreEnabled;
+    using Base::withProgress;
+    using Base::isProgress;
 
     Direction direction_;
 
@@ -85,125 +85,298 @@ public:
 
 
 //------------------------------------------------------------------------------
-/** Contains the payload arguments of a chunk to be streamed via a progressive
+/** Contains the payload arguments of a chunk streamed via a progressive
     `CALL` message.
     See [Progressive Calls in the WAMP Specification]
     (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-calls) */
 //------------------------------------------------------------------------------
-class CPPWAMP_API OutputChunk : public Payload<OutputChunk,
+class CPPWAMP_API CallerChunk : public Payload<CallerChunk,
                                                internal::CallMessage>
 {
 public:
     /** Constructor. */
-    explicit OutputChunk(bool isFinal = false);
+    explicit CallerChunk(bool isFinal = false);
 
     /** Indicates if the chunk is the final one. */
     bool isFinal() const;
 
 private:
-    using Base = Payload<OutputChunk, internal::CallMessage>;
+    using Base = Payload<CallerChunk, internal::CallMessage>;
 
-    /** Disallow the setting of options. */
+    /** Disable the setting of options. */
     using Base::withOption;
 
-    /** Disallow the setting of options. */
+    /** Disable the setting of options. */
     using Base::withOptions;
 
-    RequestId requestId_ = nullId();
     bool isFinal_ = false;
 
 public:
     // Internal use only
-    void setCallInfo(internal::PassKey, RequestId reqId, String uri);
-    RequestId requestId(internal::PassKey) const;
-    internal::CallMessage& callMessage(internal::PassKey);
+    CallerChunk(internal::PassKey, internal::CallMessage&& msg);
+    void setCallInfo(internal::PassKey, String uri);
+    internal::CallMessage& callMessage(internal::PassKey, RequestId reqId);
 };
 
 
 //------------------------------------------------------------------------------
-/** Provides the interface for streaming chunks of data to another peer.
-    This is a lightweight object emitted by Session::invite. */
+/** Contains the payload arguments of a chunk streamed via a progressive
+    `RESULT` message.
+    See [Progressive Call Results in the WAMP Specification]
+    (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results) */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Channel
+class CPPWAMP_API CalleeChunk : public Payload<CalleeChunk,
+                                               internal::ResultMessage>
 {
 public:
-    /** Constructs an empty registration. */
-    Channel();
+    /** Constructor. */
+    explicit CalleeChunk(bool isFinal = false);
 
-    /** Copy constructor. */
-    Channel(const Channel& other);
+    /** Indicates if the chunk is the final one. */
+    bool isFinal() const;
 
-    /** Move constructor. */
-    Channel(Channel&& other) noexcept;
+private:
+    using Base = Payload<CalleeChunk, internal::ResultMessage>;
 
-    /** Returns false if the channel is closed. */
-    explicit operator bool() const;
+    /** Disable the setting of options. */
+    using Base::withOption;
 
-    /** Copy assignment. */
-    Channel& operator=(const Channel& other);
+    /** Disable the setting of options. */
+    using Base::withOptions;
 
-    /** Move assignment. */
-    Channel& operator=(Channel&& other) noexcept;
+    bool isFinal_ = false;
+
+public:
+    // Internal use only
+    CalleeChunk(internal::PassKey, internal::ResultMessage&& msg);
+    RequestId requestId(internal::PassKey) const;
+    internal::ResultMessage& resultMessage(internal::PassKey, RequestId reqId);
+    internal::YieldMessage& yieldMessage(internal::PassKey, RequestId reqId);
+};
+
+
+//------------------------------------------------------------------------------
+/** Provides the interface for a caller to stream chunks of data. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API CallerChannel
+    : public std::enable_shared_from_this<CallerChannel>
+{
+public:
+    using Ptr = std::shared_ptr<CallerChannel>;
+    using Chunk = CallerChunk;
+
+    ~CallerChannel() {close(threadSafe);}
+
+    /** Returns true if the channel is open. */
+    explicit operator bool() const {return isOpen();}
+
+    /** Determines if the channel is open.
+        This channel is open upon creation and closed upon sending
+        a final chunk. */
+    bool isOpen() const {return isOpen_.load();}
+
+    /** Obtains the ephemeral ID of this channel. */
+    ChannelId id() const {return id_;}
 
     /** Sends a chunk to the other peer. */
-    void send(OutputChunk chunk, bool final = false);
+    /** @returns
+            - false if the associated Session object is destroyed
+            - true if the chunk was accepted for processing
+            - an error code if there was a problem processing the chunk
+        @pre `this->isOpen() == true`
+        @post `this->isOpen() == !chunk.isFinal()`
+        @throws error::Logic if the preconditions were not met. */
+    ErrorOrDone send(Chunk chunk)
+    {
+        CPPWAMP_LOGIC_CHECK(isOpen(), "wamp::Channel::send: Channel is closed");
+        auto caller = caller_.lock();
+        if (chunk.isFinal())
+            isOpen_.store(false);
+        if (!caller)
+            return false;
+        chunk.setCallInfo({}, uri_);
+        return caller->sendCallerChunk(id_, std::move(chunk));
+    }
+
+    /** Thread-safe send. */
+    std::future<ErrorOrDone> send(ThreadSafe, Chunk chunk)
+    {
+        CPPWAMP_LOGIC_CHECK(isOpen(), "wamp::Channel::send: Channel is closed");
+        if (chunk.isFinal())
+            isOpen_.store(false);
+        auto caller = caller_.lock();
+        if (!caller)
+        {
+            std::promise<ErrorOrDone> p;
+            p.set_value(false);
+            return p.get_future();
+        }
+        chunk.setCallInfo({}, uri_);
+        return caller->safeSendCallerChunk(id_, std::move(chunk));
+    }
 
     /** Sends an empty chunk marked as final. */
-    void close() const;
+    void close()
+    {
+        if (isOpen())
+            send(CallerChunk{true});
+    }
 
     /** Thread-safe close. */
-    void close(ThreadSafe) const;
+    void close(ThreadSafe)
+    {
+        if (isOpen())
+            send(threadSafe, Chunk{true});
+    }
 
 private:
     using CallerPtr = std::weak_ptr<internal::Caller>;
 
+    Error error_;
+    Uri uri_;
+    AnyReusableHandler<void (ErrorOr<Chunk>)> chunkHandler_;
     CallerPtr caller_;
-    RequestId id_ = nullId();
+    ChannelId id_ = nullId();
+    std::atomic<bool> isOpen_;
 
 public:
     // Internal use only
-    Channel(internal::PassKey, CallerPtr caller);
+    CallerChannel(internal::PassKey, CallerPtr caller, Uri uri, RequestId id,
+                  AnyReusableHandler<void (ErrorOr<Chunk>)> chunkHandler)
+        : uri_(std::move(uri)),
+          chunkHandler_(std::move(chunkHandler)),
+          caller_(std::move(caller)),
+          id_(id),
+          isOpen_(true)
+    {}
+
+    void setError(internal::PassKey, Error error) {error_ = std::move(error);}
 };
 
-
 //------------------------------------------------------------------------------
-/** Limits a Channel's lifetime to a particular scope.
-    @see Channel */
+/** Provides the interface for a caller to stream chunks of data. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API ScopedChannel : public Channel
+class CPPWAMP_API CalleeChannel
+    : public std::enable_shared_from_this<CalleeChannel>
 {
 public:
-    /** Default constructs an empty ScopedRegistration. */
-    ScopedChannel();
+    using Ptr = std::shared_ptr<CalleeChannel>;
+    using Chunk = CalleeChunk;
 
-    /** Move constructor. */
-    ScopedChannel(ScopedChannel&& other) noexcept;
+    ~CalleeChannel() {close(threadSafe);}
 
-    /** Converting constructor taking a Channel object to manage. */
-    ScopedChannel(Channel channel);
+    /** Returns true if the channel is open. */
+    explicit operator bool() const {return isOpen();}
 
-    /** Destructor which automatically closes the channel. */
-    ~ScopedChannel();
+    /** Determines if the channel is open.
+        This channel is open upon creation and closed upon sending
+        an error or a final chunk. */
+    bool isOpen() const {return isOpen_.load();}
 
-    /** Move assignment. */
-    ScopedChannel& operator=(ScopedChannel&& other) noexcept;
+    /** Obtains the ephemeral ID of this channel. */
+    ChannelId id() const {return id_;}
 
-    /** Assigns another Channel to manage.
-        The old registration is automatically unregistered. */
-    ScopedChannel& operator=(Channel channel);
+    /** Sends a chunk to the other peer. */
+    /** @returns
+            - false if the associated Session object is destroyed
+            - true if the chunk was accepted for processing
+            - an error code if there was a problem processing the chunk
+        @pre `this->isClosed() == false`
+        @throws error::Logic if the preconditions were not met. */
+    ErrorOrDone send(Chunk chunk)
+    {
+        CPPWAMP_LOGIC_CHECK(isOpen(),
+                            "wamp::CallerChannel::send: Channel is closed");
+        if (chunk.isFinal())
+            isOpen_.store(false);
+        auto caller = callee_.lock();
+        if (!caller)
+            return false;
+        return caller->sendCalleeChunk(id_, std::move(chunk));
+    }
 
-    /** Releases the registration so that it will no longer be automatically
-        unregistered if the ScopedRegistration is destroyed or reassigned. */
-    void release();
+    /** Thread-safe send. */
+    std::future<ErrorOrDone> send(ThreadSafe, Chunk chunk)
+    {
+        CPPWAMP_LOGIC_CHECK(isOpen(),
+                            "wamp::CallerChannel::send: Channel is closed");
+        auto caller = callee_.lock();
+        if (!caller)
+        {
+            std::promise<ErrorOrDone> p;
+            p.set_value(false);
+            return p.get_future();
+        }
+        return caller->safeSendCalleeChunk(id_, std::move(chunk));
+    }
 
-    /** Non-copyable. */
-    ScopedChannel(const ScopedChannel&) = delete;
+    /** Sends an Error to the other peer and closes the stream. */
+    /** @returns
+            - false if the associated Session object is destroyed
+            - true if the error was accepted for processing
+            - an error code if there was a problem processing the error
+        @pre `this->isOpen() == true`
+        @post `this->isOpen() == !chunk.isFinal()`
+        @throws error::Logic if the preconditions were not met. */
+    ErrorOrDone send(Error error)
+    {
+        CPPWAMP_LOGIC_CHECK(isOpen(),
+                            "wamp::CalleeChannel::send: Channel is closed");
+        isOpen_.store(false);
+        auto caller = callee_.lock();
+        if (!caller)
+            return false;
+        return caller->yield(id_, std::move(error));
+    }
 
-    /** Non-copyable. */
-    ScopedChannel& operator=(const ScopedChannel&) = delete;
+    /** Thread-safe send error. */
+    std::future<ErrorOrDone> send(ThreadSafe, Error error)
+    {
+        CPPWAMP_LOGIC_CHECK(isOpen(),
+                            "wamp::CalleeChannel::send: Channel is closed");
+        auto caller = callee_.lock();
+        if (!caller)
+        {
+            std::promise<ErrorOrDone> p;
+            p.set_value(false);
+            return p.get_future();
+        }
+        return caller->safeYield(id_, std::move(error));
+    }
+
+    /** Sends an empty chunk marked as final. */
+    void close()
+    {
+        if (isOpen())
+            send(Chunk{true});
+    }
+
+    /** Thread-safe close. */
+    void close(ThreadSafe)
+    {
+        if (isOpen())
+            send(threadSafe, CalleeChunk{true});
+    }
 
 private:
-    using Base = Channel;
+    using CalleePtr = std::weak_ptr<internal::Callee>;
+
+    Uri uri_;
+    AnyReusableHandler<void (Chunk)> chunkHandler_;
+    CalleePtr callee_;
+    ChannelId id_ = nullId();
+    std::atomic<bool> isOpen_;
+
+public:
+    // Internal use only
+    CalleeChannel(internal::PassKey, CalleePtr callee, Uri uri, RequestId id,
+                  AnyReusableHandler<void (Chunk)> chunkHandler)
+        : uri_(std::move(uri)),
+          chunkHandler_(std::move(chunkHandler)),
+          callee_(std::move(callee)),
+          id_(id),
+          isOpen_(true)
+    {}
 };
 
 } // namespace wamp

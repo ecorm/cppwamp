@@ -124,4 +124,5 @@ CPPWAMP_INLINE void ScopedRegistration::release()
 {
     Base::operator=(Registration());
 }
+
 } // namespace wamp

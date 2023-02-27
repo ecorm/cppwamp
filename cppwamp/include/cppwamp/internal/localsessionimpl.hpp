@@ -16,7 +16,6 @@
 #include <utility>
 #include "../chits.hpp"
 #include "../registration.hpp"
-#include "../routerconfig.hpp"
 #include "../streaming.hpp"
 #include "../subscription.hpp"
 #include "callee.hpp"
@@ -513,24 +512,25 @@ public:
         return fut;
     }
 
-    ErrorOrDone sendChunk(OutputChunk chunk) override
+    ErrorOrDone sendCallerChunk(RequestId r, CallerChunk chunk) override
     {
         return false;
     }
 
-    FutureErrorOrDone safeSendChunk(OutputChunk c) override
+    FutureErrorOrDone safeSendCallerChunk(RequestId r, CallerChunk c) override
     {
         struct Dispatched
         {
             Ptr self;
-            OutputChunk c;
+            RequestId r;
+            CallerChunk c;
             ErrorOrDonePromise p;
 
             void operator()()
             {
                 try
                 {
-                    p.set_value(self->sendChunk(std::move(c)));
+                    p.set_value(self->sendCallerChunk(r, std::move(c)));
                 }
                 catch (...)
                 {
@@ -541,7 +541,40 @@ public:
 
         ErrorOrDonePromise p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(c), std::move(p));
+        safelyDispatch<Dispatched>(r, std::move(c), std::move(p));
+        return fut;
+    }
+
+    ErrorOrDone sendCalleeChunk(RequestId r, CalleeChunk&& chunk) override
+    {
+        return false;
+    }
+
+    FutureErrorOrDone safeSendCalleeChunk(RequestId r, CalleeChunk&& c) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RequestId r;
+            CalleeChunk c;
+            ErrorOrDonePromise p;
+
+            void operator()()
+            {
+                try
+                {
+                    p.set_value(self->sendCalleeChunk(r, std::move(c)));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
+            }
+        };
+
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(r, std::move(c), std::move(p));
         return fut;
     }
 

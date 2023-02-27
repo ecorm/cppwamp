@@ -17,6 +17,7 @@
 namespace wamp
 {
 
+class CalleeChunk;
 class Registration;
 
 namespace internal
@@ -34,13 +35,18 @@ public:
 
     virtual void safeUnregister(const Registration&) = 0;
 
-    virtual ErrorOrDone yield(RequestId, wamp::Result&&) = 0;
+    virtual ErrorOrDone yield(RequestId, Result&&) = 0;
 
-    virtual std::future<ErrorOrDone> safeYield(RequestId, wamp::Result&&) = 0;
+    virtual std::future<ErrorOrDone> safeYield(RequestId, Result&&) = 0;
 
-    virtual ErrorOrDone yield(RequestId, wamp::Error&&) = 0;
+    virtual ErrorOrDone yield(RequestId, Error&&) = 0;
 
-    virtual std::future<ErrorOrDone> safeYield(RequestId, wamp::Error&&) = 0;
+    virtual std::future<ErrorOrDone> safeYield(RequestId, Error&&) = 0;
+
+    virtual ErrorOrDone sendCalleeChunk(RequestId, CalleeChunk&&) = 0;
+
+    virtual std::future<ErrorOrDone> safeSendCalleeChunk(RequestId,
+                                                         CalleeChunk&&) = 0;
 };
 
 } // namespace internal
