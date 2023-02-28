@@ -15,6 +15,7 @@ class CalleeChannel;
 class CallerChannel;
 class Event;
 class Invocation;
+class Rsvp;
 
 namespace internal
 {
@@ -28,6 +29,7 @@ namespace internal
         friend class wamp::CallerChannel;
         friend class wamp::Event;
         friend class wamp::Invocation;
+        friend class wamp::Rsvp;
         friend class BrokerPublication;
         friend class Client;
         friend class Dealer;

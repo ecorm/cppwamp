@@ -578,6 +578,11 @@ public:
         return fut;
     }
 
+    FutureErrorOrDone safeCancelStream(RequestId r) override
+    {
+        return safeCancelCall(r, CallCancelMode::killNoWait);
+    }
+
     ErrorOrDone yield(RequestId reqId, Result&& result) override
     {
         // TODO

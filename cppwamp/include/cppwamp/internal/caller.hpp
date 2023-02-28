@@ -37,6 +37,8 @@ public:
 
     virtual std::future<ErrorOrDone> safeSendCallerChunk(RequestId,
                                                          CallerChunk) = 0;
+
+    virtual std::future<ErrorOrDone> safeCancelStream(RequestId) = 0;
 };
 
 } // namespace internal
