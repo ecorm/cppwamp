@@ -52,18 +52,19 @@ public:
     using OneShotHandler   = AnyCompletionHandler<void (ErrorOr<Message>)>;
     using MultiShotHandler = std::function<void (ErrorOr<Message>)>;
 
-    Requestor(IoStrand strand) : strand_(std::move(strand)) {}
+    Requestor(Peer& peer, IoStrand strand)
+        : strand_(std::move(strand)),
+          peer_(peer)
+    {}
 
-    ErrorOr<RequestId> request(Peer& peer, Message& msg,
-                               OneShotHandler&& handler)
+    ErrorOr<RequestId> request(Message& msg, OneShotHandler&& handler)
     {
-        return sendRequest(peer, msg, oneShotRequestMap_, std::move(handler));
+        return sendRequest(msg, oneShotRequestMap_, std::move(handler));
     }
 
-    ErrorOr<RequestId> ongoingRequest(Peer& peer, Message& msg,
-                                      MultiShotHandler&& handler)
+    ErrorOr<RequestId> ongoingRequest(Message& msg, MultiShotHandler&& handler)
     {
-        return sendRequest(peer, msg, multiShotRequestMap_, std::move(handler));
+        return sendRequest(msg, multiShotRequestMap_, std::move(handler));
     }
 
     bool onReply(Message& msg)
@@ -166,8 +167,8 @@ public:
 
 private:
     template <typename TRequestMap, typename THandler>
-    ErrorOr<RequestId> sendRequest(Peer& peer, Message& msg,
-                                   TRequestMap& requests, THandler&& handler)
+    ErrorOr<RequestId> sendRequest(Message& msg, TRequestMap& requests,
+                                   THandler&& handler)
     {
         assert(msg.type() != WampMsgType::none);
         RequestId requestId = nullId();
@@ -179,7 +180,7 @@ private:
             msg.setRequestId(requestId);
         }
 
-        auto sent = peer.send(msg);
+        auto sent = peer_.send(msg);
         if (!sent)
         {
             auto unex = makeUnexpected(sent.error());
@@ -211,6 +212,7 @@ private:
     OneShotRequestMap oneShotRequestMap_;
     MultiShotRequestMap multiShotRequestMap_;
     RequestId nextRequestId_ = nullId();
+    Peer& peer_;
 };
 
 
@@ -220,6 +222,11 @@ class Readership
 public:
     using SubscriberPtr = std::shared_ptr<Subscriber>;
     using EventSlot = AnyReusableHandler<void (Event)>;
+
+    Readership(AnyIoExecutor exec, AnyCompletionExecutor userExec)
+        : executor_(std::move(exec)),
+          userExecutor_(std::move(userExec))
+    {}
 
     Subscription subscribe(MatchUri topic, EventSlot& slot,
                            SubscriberPtr subscriber)
@@ -281,8 +288,7 @@ public:
     }
 
     // Returns true if there are any subscriptions matching the event
-    bool onEvent(EventMessage& eventMsg, SubscriberPtr subscriber,
-                 AnyIoExecutor& exec, AnyCompletionExecutor& userExec)
+    bool onEvent(EventMessage& eventMsg, SubscriberPtr subscriber)
     {
         auto found = subscriptions_.find(eventMsg.subscriptionId());
         if (found == subscriptions_.end())
@@ -290,12 +296,12 @@ public:
 
         const auto& record = found->second;
         assert(!record.slots.empty());
-        Event event({}, userExec, std::move(eventMsg));
+        Event event({}, userExecutor_, std::move(eventMsg));
         for (const auto& kv: record.slots)
         {
             const auto& slot = kv.second;
-            postEvent(slot, record.topic.uri(), event, subscriber, exec,
-                      userExec);
+            postEvent(slot, record.topic.uri(), event, subscriber, executor_,
+                      userExecutor_);
         }
         return true;
     }
@@ -383,6 +389,8 @@ private:
 
     SubscriptionMap subscriptions_;
     ByTopic byTopic_;
+    AnyIoExecutor executor_;
+    AnyCompletionExecutor userExecutor_;
     SlotId nextSlotId_ = 0;
 };
 
@@ -491,6 +499,13 @@ public:
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
     using StreamSlot    = AnyReusableHandler<void (CalleeChannel::Ptr)>;
 
+    ProcedureRegistry(Peer& peer, AnyIoExecutor exec,
+                      AnyCompletionExecutor userExec)
+        : executor_(std::move(exec)),
+          userExecutor_(std::move(userExec)),
+          peer_(peer)
+    {}
+
     Registration enroll(CallSlot&& callSlot, InterruptSlot&& interruptSlot,
                         CalleePtr callee, const RegisteredMessage& msg)
     {
@@ -514,7 +529,7 @@ public:
         return registry_.erase(reg.id()) != 0;
     }
 
-    ErrorOrDone yield(Peer& peer, RequestId reqId, Result&& result)
+    ErrorOrDone yield(RequestId reqId, Result&& result)
     {
         auto found = pendingInvocations_.find(reqId);
         if (found == pendingInvocations_.end())
@@ -529,18 +544,18 @@ public:
         if (moot)
             return false;
 
-        auto done = peer.send(result.yieldMessage({}, reqId));
+        auto done = peer_.send(result.yieldMessage({}, reqId));
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             if (!erased)
                 pendingInvocations_.erase(found);
-            peer.sendError(WampMsgType::invocation, reqId,
-                           Error{WampErrc::payloadSizeExceeded});
+            peer_.sendError(WampMsgType::invocation, reqId,
+                            Error{WampErrc::payloadSizeExceeded});
         }
         return done;
     }
 
-    ErrorOrDone yield(Peer& peer, RequestId reqId, CalleeOutputChunk&& chunk)
+    ErrorOrDone yield(RequestId reqId, CalleeOutputChunk&& chunk)
     {
         auto found = pendingInvocations_.find(reqId);
         if (found == pendingInvocations_.end())
@@ -555,18 +570,18 @@ public:
         if (moot)
             return false;
 
-        auto done = peer.send(chunk.yieldMessage({}, reqId));
+        auto done = peer_.send(chunk.yieldMessage({}, reqId));
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             if (!erased)
                 pendingInvocations_.erase(found);
-            peer.sendError(WampMsgType::invocation, reqId,
-                           Error{WampErrc::payloadSizeExceeded});
+            peer_.sendError(WampMsgType::invocation, reqId,
+                            Error{WampErrc::payloadSizeExceeded});
         }
         return done;
     }
 
-    ErrorOrDone yield(Peer& peer, RequestId reqId, Error&& error)
+    ErrorOrDone yield(RequestId reqId, Error&& error)
     {
         auto found = pendingInvocations_.find(reqId);
         if (found == pendingInvocations_.end())
@@ -579,12 +594,11 @@ public:
         if (moot)
             return false;
 
-        return peer.sendError(WampMsgType::invocation, reqId,
-                              std::move(error));
+        return peer_.sendError(WampMsgType::invocation, reqId,
+                               std::move(error));
     }
 
-    bool onInvocation(InvocationMessage& msg, Peer& peer, CalleePtr callee,
-                      AnyIoExecutor& exec, AnyCompletionExecutor& userExec)
+    bool onInvocation(InvocationMessage& msg, CalleePtr callee)
     {
         auto requestId = msg.requestId();
         auto regId = msg.registrationId();
@@ -592,7 +606,7 @@ public:
         auto kv = registry_.find(regId);
         if (kv == registry_.end())
         {
-            peer.sendError(WampMsgType::invocation, requestId,
+            peer_.sendError(WampMsgType::invocation, requestId,
                            {WampErrc::noSuchProcedure});
             return false;
         }
@@ -606,19 +620,17 @@ public:
         {
             auto& invocationRecord = emplaced.first->second;
             postStreamInvocation(rec.info.asStream, invocationRecord,
-                                 std::move(msg), callee, exec, userExec);
+                                 std::move(msg), callee);
         }
         else
         {
-            Invocation inv({}, callee, userExec, std::move(msg));
-            postRpcRequest(rec.info.asCall.callSlot, std::move(inv), callee,
-                           exec, userExec);
+            Invocation inv({}, callee, userExecutor_, std::move(msg));
+            postRpcRequest(rec.info.asCall.callSlot, std::move(inv), callee);
         }
         return true;
     }
 
-    void onInterrupt(InterruptMessage& msg, Peer& peer, CalleePtr callee,
-                     AnyIoExecutor& exec, AnyCompletionExecutor& userExec)
+    void onInterrupt(InterruptMessage& msg, CalleePtr callee)
     {
         auto found = pendingInvocations_.find(msg.requestId());
         if (found == pendingInvocations_.end())
@@ -647,9 +659,9 @@ public:
                 interruptHandled = slot != nullptr;
                 if (interruptHandled)
                 {
-                    Interruption intr({}, callee, userExec, std::move(msg));
-                    postRpcRequest(slot, std::move(intr), callee, exec,
-                                   userExec);
+                    Interruption intr({}, callee, userExecutor_,
+                                      std::move(msg));
+                    postRpcRequest(slot, std::move(intr), callee);
                 }
             }
         }
@@ -666,7 +678,7 @@ public:
                 rec.moot = true;
                 Error error{intr.reason().value_or(
                     errorCodeToUri(WampErrc::cancelled))};
-                peer.sendError(WampMsgType::invocation, intr.requestId(),
+                peer_.sendError(WampMsgType::invocation, intr.requestId(),
                                std::move(error));
             }
         }
@@ -696,8 +708,7 @@ private:
     void postStreamInvocation(const StreamRegistrationInfo& info,
                               InvocationRecord& rec,
                               InvocationMessage&& msg,
-                              CalleePtr callee, AnyIoExecutor& exec,
-                              AnyCompletionExecutor& userExec)
+                              CalleePtr callee)
     {
         if (rec.channel)
         {
@@ -707,16 +718,14 @@ private:
         {
             rec.channel = std::make_shared<CalleeChannel>(
                 PassKey{}, std::move(msg), info.invitationDisabled,
-                std::move(exec), std::move(userExec),
-                std::move(callee));
-            postVia(exec, userExec, info.streamSlot, rec.channel);
+                executor_, userExecutor_, std::move(callee));
+            postVia(executor_, userExecutor_, info.streamSlot, rec.channel);
         }
     }
 
     template <typename TSlot, typename TInvocationOrInterruption>
     void postRpcRequest(TSlot slot, TInvocationOrInterruption&& request,
-                        CalleePtr callee, AnyIoExecutor& exec,
-                        AnyCompletionExecutor& userExec)
+                        CalleePtr callee)
     {
         struct Posted
         {
@@ -765,15 +774,18 @@ private:
         };
 
         auto associatedExec =
-            boost::asio::get_associated_executor(slot, userExec);
+            boost::asio::get_associated_executor(slot, userExecutor_);
         Posted posted{callee, std::move(slot), std::move(request)};
         boost::asio::post(
-            exec,
+            executor_,
             boost::asio::bind_executor(associatedExec, std::move(posted)));
     }
 
     Registry registry_;
     InvocationMap pendingInvocations_;
+    AnyIoExecutor executor_;
+    AnyCompletionExecutor userExecutor_;
+    Peer& peer_;
 };
 
 
@@ -1521,6 +1533,7 @@ public:
         safelyDispatch<Dispatched>(std::move(r), c, std::move(f));
     }
 
+    // TODO: Remove this in favor of streaming API
     void ongoingCall(Rpc&& rpc, CallChit* chitPtr, OngoingCallHandler&& handler)
     {
         struct Requested
@@ -1818,7 +1831,7 @@ public:
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
-        return registry_.yield(peer_, reqId, std::move(chunk));
+        return registry_.yield(reqId, std::move(chunk));
     }
 
     FutureErrorOrDone safeSendCalleeChunk(RequestId r,
@@ -1854,7 +1867,7 @@ public:
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
-        return registry_.yield(peer_, reqId, std::move(result));
+        return registry_.yield(reqId, std::move(result));
     }
 
     FutureErrorOrDone safeYield(RequestId i, Result&& r) override
@@ -1889,7 +1902,7 @@ public:
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
-        return registry_.yield(peer_, reqId, std::move(error));
+        return registry_.yield(reqId, std::move(error));
     }
 
     FutureErrorOrDone safeYield(RequestId r, Error&& e) override
@@ -1944,7 +1957,9 @@ private:
           executor_(std::move(exec)),
           userExecutor_(std::move(userExec)),
           strand_(boost::asio::make_strand(executor_)),
-          requestor_(strand_),
+          readership_(executor_, userExecutor_),
+          registry_(peer_, executor_, userExecutor_),
+          requestor_(peer_, strand_),
           timeoutScheduler_(CallerTimeoutScheduler::create(strand_))
     {
         peer_.setInboundMessageHandler(
@@ -2000,12 +2015,12 @@ private:
 
     ErrorOr<RequestId> request(Message& msg, OneShotHandler&& handler)
     {
-        return requestor_.request(peer_, msg, std::move(handler));
+        return requestor_.request(msg, std::move(handler));
     }
 
     ErrorOr<RequestId> ongoingRequest(Message& msg, MultiShotHandler&& handler)
     {
-        return requestor_.ongoingRequest(peer_, msg, std::move(handler));
+        return requestor_.ongoingRequest(msg, std::move(handler));
     }
 
     void abortPending(std::error_code ec)
@@ -2214,8 +2229,7 @@ private:
     void onEvent(Message& msg)
     {
         auto& eventMsg = messageCast<EventMessage>(msg);
-        bool ok = readership_.onEvent(eventMsg, shared_from_this(), executor_,
-                                      userExecutor_);
+        bool ok = readership_.onEvent(eventMsg, shared_from_this());
         if (!ok && logLevel() <= LogLevel::warning)
         {
             std::ostringstream oss;
@@ -2245,8 +2259,7 @@ private:
 
         lastInvocationRequestId_ = requestId;
 
-        if (!registry_.onInvocation(invMsg, peer_, shared_from_this(),
-                                    executor_, userExecutor_))
+        if (!registry_.onInvocation(invMsg, shared_from_this()))
         {
             log(LogLevel::error,
                 "No matching procedure for INVOCATION with registration ID "
@@ -2257,8 +2270,7 @@ private:
     void onInterrupt(Message& msg)
     {
         auto& intrMsg = messageCast<InterruptMessage>(msg);
-        registry_.onInterrupt(intrMsg, peer_, shared_from_this(), executor_,
-                              userExecutor_);
+        registry_.onInterrupt(intrMsg, shared_from_this());
     }
 
     void onWampReply(Message& msg)
