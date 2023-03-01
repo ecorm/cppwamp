@@ -392,8 +392,20 @@ struct RegistrationRecord
 {
     using CallSlot         = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot    = AnyReusableHandler<Outcome (Interruption)>;
-    using StreamSlot       = AnyReusableHandler<Rsvp (CalleeChannel::Ptr)>;
+    using StreamSlot       = AnyReusableHandler<void (CalleeChannel::Ptr)>;
     using CalleeChannelPtr = CalleeChannel::Ptr;
+
+    struct CallInfo
+    {
+        CallSlot callSlot;
+        InterruptSlot interruptSlot;
+    };
+
+    struct StreamInfo
+    {
+        StreamSlot streamSlot;
+        bool invitationDisabled;
+    };
 
     RegistrationRecord() = default;
 
@@ -401,7 +413,9 @@ struct RegistrationRecord
         : info(std::move(c), std::move(i))
     {}
 
-    RegistrationRecord(StreamSlot&& s) : info(std::move(s)) {}
+    RegistrationRecord(StreamSlot&& s, bool expectsInvitation)
+        : info(std::move(s), expectsInvitation)
+    {}
 
     RegistrationRecord(const RegistrationRecord& rhs) {copy(rhs);}
 
@@ -429,7 +443,9 @@ struct RegistrationRecord
             : asCall({std::move(c), std::move(i)})
         {}
 
-        Fields(StreamSlot&& s) : asStream({std::move(s)}) {}
+        Fields(StreamSlot&& s, bool expectsInvitation)
+            : asStream({std::move(s), expectsInvitation})
+        {}
 
         ~Fields() {}
 
@@ -441,18 +457,11 @@ struct RegistrationRecord
                 asCall.~CallInfo();
         }
 
-        struct CallInfo
-        {
-            CallSlot callSlot;
-            InterruptSlot interruptSlot;
-        } asCall;
+        CallInfo asCall;
+        StreamInfo asStream;
+    };
 
-        struct StreamInfo
-        {
-            StreamSlot streamSlot;
-        } asStream;
-    } info;
-
+    Fields info;
     bool isForStream = false;
 
 private:
@@ -480,11 +489,7 @@ public:
     using CalleePtr     = std::shared_ptr<Callee>;
     using CallSlot      = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
-    using StreamSlot    = AnyReusableHandler<Rsvp (CalleeChannel::Ptr)>;
-    using ChunkSlot     = AnyReusableHandler<void (CalleeChannel::Ptr,
-                                                   CallerChunk)>;
-    using StreamInterruptSlot = AnyReusableHandler<void (CalleeChannel::Ptr,
-                                                         Interruption)>;
+    using StreamSlot    = AnyReusableHandler<void (CalleeChannel::Ptr)>;
 
     Registration enroll(CallSlot&& callSlot, InterruptSlot&& interruptSlot,
                         CalleePtr callee, const RegisteredMessage& msg)
@@ -495,10 +500,10 @@ public:
         return Registration{{}, callee, regId};
     }
 
-    Registration enroll(StreamSlot&& streamSlot, CalleePtr callee,
-                        const RegisteredMessage& msg)
+    Registration enroll(StreamSlot&& streamSlot, bool invitationDisabled,
+                        CalleePtr callee, const RegisteredMessage& msg)
     {
-        RegistrationRecord rec{std::move(streamSlot)};
+        RegistrationRecord rec{std::move(streamSlot), invitationDisabled};
         auto regId = msg.registrationId();
         registry_[regId] = std::move(rec);
         return Registration{{}, callee, regId};
@@ -517,11 +522,11 @@ public:
 
         // Error may have already been returned due to interruption being
         // handled by Client::onInterrupt.
-        bool expired = found->second.expired;
-        bool erased = !result.isProgressive() || expired;
+        bool moot = found->second.moot;
+        bool erased = !result.isProgressive() || moot;
         if (erased)
             pendingInvocations_.erase(found);
-        if (expired)
+        if (moot)
             return false;
 
         auto done = peer.send(result.yieldMessage({}, reqId));
@@ -535,7 +540,7 @@ public:
         return done;
     }
 
-    ErrorOrDone yield(Peer& peer, RequestId reqId, CalleeChunk&& chunk)
+    ErrorOrDone yield(Peer& peer, RequestId reqId, CalleeOutputChunk&& chunk)
     {
         auto found = pendingInvocations_.find(reqId);
         if (found == pendingInvocations_.end())
@@ -543,11 +548,11 @@ public:
 
         // Error may have already been returned due to interruption being
         // handled by Client::onInterrupt.
-        bool expired = found->second.expired;
-        bool erased = chunk.isFinal() || expired;
+        bool moot = found->second.moot;
+        bool erased = chunk.isFinal() || moot;
         if (erased)
             pendingInvocations_.erase(found);
-        if (expired)
+        if (moot)
             return false;
 
         auto done = peer.send(chunk.yieldMessage({}, reqId));
@@ -569,9 +574,9 @@ public:
 
         // Error may have already been returned due to interruption being
         // handled by Client::onInterrupt.
-        bool expired = found->second.expired;
+        bool moot = found->second.moot;
         pendingInvocations_.erase(found);
-        if (expired)
+        if (moot)
             return false;
 
         return peer.sendError(WampMsgType::invocation, reqId,
@@ -592,14 +597,23 @@ public:
             return false;
         }
 
-        const RegistrationRecord& rec = kv->second;
         auto emplaced = pendingInvocations_.emplace(requestId,
                                                     InvocationRecord{regId});
         assert(emplaced.second);
 
-        Invocation inv({}, callee, userExec, std::move(msg));
-        postRpcRequest(rec.info.asCall.callSlot, std::move(inv), callee, exec,
-                       userExec);
+        const RegistrationRecord& rec = kv->second;
+        if (rec.isForStream)
+        {
+            auto& invocationRecord = emplaced.first->second;
+            postStreamInvocation(rec.info.asStream, invocationRecord,
+                                 std::move(msg), callee, exec, userExec);
+        }
+        else
+        {
+            Invocation inv({}, callee, userExec, std::move(msg));
+            postRpcRequest(rec.info.asCall.callSlot, std::move(inv), callee,
+                           exec, userExec);
+        }
         return true;
     }
 
@@ -615,27 +629,46 @@ public:
             return;
         rec.interrupted = true;
 
-        Interruption intr({}, callee, userExec, std::move(msg));
-        bool hasInterruptSlot = false;
+        bool interruptHandled = false;
         auto kv = registry_.find(rec.registrationId);
         if (kv != registry_.end())
         {
             RegistrationRecord& reg = kv->second;
-            auto& slot = reg.info.asCall.interruptSlot;
-            hasInterruptSlot = slot != nullptr;
-            if (hasInterruptSlot)
-                postRpcRequest(slot, std::move(intr), callee, exec, userExec);
+            if (reg.isForStream)
+            {
+                interruptHandled = (rec.channel != nullptr) &&
+                                   rec.channel->hasInterruptHandler({});
+                if (interruptHandled)
+                    rec.channel->onInterrupt({}, std::move(msg));
+            }
+            else
+            {
+                auto& slot = reg.info.asCall.interruptSlot;
+                interruptHandled = slot != nullptr;
+                if (interruptHandled)
+                {
+                    Interruption intr({}, callee, userExec, std::move(msg));
+                    postRpcRequest(slot, std::move(intr), callee, exec,
+                                   userExec);
+                }
+            }
         }
 
         // Respond immediately when cancel mode is 'kill' and no interrupt
         // slot is provided.
-        if (!hasInterruptSlot && (intr.cancelMode() == CallCancelMode::kill))
+        // Dealer will have already responded in `killnowait` mode.
+        // Dealer does not emit an INTERRUPT in `skip` mode.
+        if (!interruptHandled)
         {
-            rec.expired = true;
-            Error error{intr.reason().value_or(
-                errorCodeToUri(WampErrc::cancelled))};
-            peer.sendError(WampMsgType::invocation, intr.requestId(),
-                           std::move(error));
+            Interruption intr({}, std::move(msg));
+            if (intr.cancelMode() == CallCancelMode::kill)
+            {
+                rec.moot = true;
+                Error error{intr.reason().value_or(
+                    errorCodeToUri(WampErrc::cancelled))};
+                peer.sendError(WampMsgType::invocation, intr.requestId(),
+                               std::move(error));
+            }
         }
     }
 
@@ -650,13 +683,35 @@ private:
     {
         InvocationRecord(RegistrationId regId) : registrationId(regId) {}
 
+        CalleeChannel::Ptr channel;
         RegistrationId registrationId;
         bool interrupted = false;
-        bool expired = false;
+        bool moot = false;
     };
 
     using Registry      = std::map<RegistrationId, RegistrationRecord>;
     using InvocationMap = std::map<RequestId, InvocationRecord>;
+    using StreamRegistrationInfo = RegistrationRecord::StreamInfo;
+
+    void postStreamInvocation(const StreamRegistrationInfo& info,
+                              InvocationRecord& rec,
+                              InvocationMessage&& msg,
+                              CalleePtr callee, AnyIoExecutor& exec,
+                              AnyCompletionExecutor& userExec)
+    {
+        if (rec.channel)
+        {
+            rec.channel->onInvocation({}, std::move(msg));
+        }
+        else
+        {
+            rec.channel = std::make_shared<CalleeChannel>(
+                PassKey{}, std::move(msg), info.invitationDisabled,
+                std::move(exec), std::move(userExec),
+                std::move(callee));
+            postVia(exec, userExec, info.streamSlot, rec.channel);
+        }
+    }
 
     template <typename TSlot, typename TInvocationOrInterruption>
     void postRpcRequest(TSlot slot, TInvocationOrInterruption&& request,
@@ -736,9 +791,7 @@ public:
     using EventSlot          = AnyReusableHandler<void (Event)>;
     using CallSlot           = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot      = AnyReusableHandler<Outcome (Interruption)>;
-    using StreamSlot         = AnyReusableHandler<Rsvp (CalleeChannel::Ptr)>;
-    using ChunkHandler       = AnyReusableHandler<void (CallerChannel::Ptr,
-                                                        ErrorOr<CalleeChunk>)>;
+    using StreamSlot         = AnyReusableHandler<void (CalleeChannel::Ptr)>;
     using LogHandler         = AnyReusableHandler<void(LogEntry)>;
     using StateChangeHandler = AnyReusableHandler<void(SessionState,
                                                        std::error_code)>;
@@ -1285,6 +1338,7 @@ public:
         {
             Ptr self;
             StreamSlot s;
+            bool invitationDisabled;
             CompletionHandler<Registration> f;
 
             void operator()(ErrorOr<Message> reply)
@@ -1293,7 +1347,8 @@ public:
                 if (!me.checkReply(reply, WampMsgType::registered, f))
                     return;
                 auto& msg = messageCast<RegisteredMessage>(*reply);
-                auto reg = me.registry_.enroll(std::move(s), self, msg);
+                auto reg = me.registry_.enroll(std::move(s), invitationDisabled,
+                                               self, msg);
                 me.completeNow(f, std::move(reg));
             }
         };
@@ -1302,7 +1357,7 @@ public:
             return;
 
         request(s.message({}), Requested{shared_from_this(), std::move(ss),
-                                         std::move(f)});
+                                         s.invitationDisabled(), std::move(f)});
     }
 
     void safeEnroll(Stream&& s, StreamSlot&& ss,
@@ -1584,7 +1639,7 @@ public:
         return fut;
     }
 
-    void invite(Invitation&& invitation, ChunkHandler&& onChunk,
+    void invite(Invitation&& invitation, CallerChannel::Ptr channel,
                 CompletionHandler<CallerChannel::Ptr>&& handler)
     {
         using Handler = CompletionHandler<CallerChannel::Ptr>;
@@ -1600,7 +1655,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (channel->wasRsvped({}))
+                if (channel->hasRsvp())
                 {
                     channel->onReply({}, std::move(reply));
                 }
@@ -1608,7 +1663,7 @@ public:
                                        error))
                 {
                     auto& resultMsg = messageCast<ResultMessage>(*reply);
-                    channel->onRsvp({}, Result{{}, std::move(resultMsg)});
+                    channel->onRsvp({}, std::move(resultMsg));
                     me.dispatchHandler(*handler, channel);
                 }
             }
@@ -1616,10 +1671,6 @@ public:
 
         if (!checkState(State::established, handler))
             return;
-
-        auto channel = std::make_shared<CallerChannel>(
-            PassKey{}, shared_from_this(), invitation, executor_, userExecutor_,
-            std::move(onChunk));
 
         // One-shot completion handler needs to be wrapped because it will
         // be stored in the Requested multi-shot handler.
@@ -1632,26 +1683,109 @@ public:
         if (!requestId)
             return;
 
-        channel->setChannelId({}, *requestId);
+        channel->init({}, *requestId, shared_from_this(), executor_,
+                      userExecutor_);
 
         if (invitation.callerTimeout().count() != 0)
             timeoutScheduler_->insert(*requestId, invitation.callerTimeout());
     }
 
-    ErrorOrDone sendCallerChunk(RequestId reqId, CallerChunk chunk) override
+    void safeInvite(Invitation&& i, CallerChannel::Ptr c,
+                    CompletionHandler<CallerChannel::Ptr>&& f)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Invitation i;
+            CallerChannel::Ptr c;
+            CompletionHandler<CallerChannel::Ptr> f;
+
+            void operator()()
+            {
+                self->invite(std::move(i), std::move(c), std::move(f));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(i), std::move(c), std::move(f));
+    }
+
+    ErrorOr<CallerChannel::Ptr> invite(Invitation&& invitation,
+                                       CallerChannel::Ptr channel)
+    {
+        struct Requested
+        {
+            Ptr self;
+            CallerChannel::Ptr channel;
+
+            void operator()(ErrorOr<Message> reply)
+            {
+                channel->onReply({}, std::move(reply));
+            }
+        };
+
+        if (state() != State::established)
+            return makeUnexpectedError(Errc::invalidState);
+
+        auto requestId = ongoingRequest(
+            invitation.message({}),
+            Requested{shared_from_this(), channel});
+        if (!requestId)
+            return UnexpectedError(requestId.error());
+
+        channel->init({}, *requestId, shared_from_this(), executor_,
+                      userExecutor_);
+
+        if (invitation.callerTimeout().count() != 0)
+            timeoutScheduler_->insert(*requestId, invitation.callerTimeout());
+
+        return channel;
+    }
+
+    std::future<ErrorOr<CallerChannel::Ptr>>
+    safeInvite(Invitation&& i, CallerChannel::Ptr c)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Invitation i;
+            CallerChannel::Ptr c;
+            std::promise<ErrorOr<CallerChannel::Ptr>> p;
+
+            void operator()()
+            {
+                try
+                {
+                    p.set_value(self->invite(std::move(i), std::move(c)));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
+            }
+        };
+
+        std::promise<ErrorOr<CallerChannel::Ptr>> p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(std::move(i), std::move(c), std::move(p));
+        return fut;
+    }
+
+    ErrorOrDone sendCallerChunk(RequestId reqId,
+                                CallerOutputChunk chunk) override
     {
         if (!requestor_.callIsPending(reqId))
             return false;
         return peer_.send(chunk.callMessage({}, reqId));
     }
 
-    FutureErrorOrDone safeSendCallerChunk(RequestId r, CallerChunk c) override
+    FutureErrorOrDone safeSendCallerChunk(RequestId r,
+                                          CallerOutputChunk c) override
     {
         struct Dispatched
         {
             Ptr self;
             RequestId r;
-            CallerChunk c;
+            CallerOutputChunk c;
             ErrorOrDonePromise p;
 
             void operator()()
@@ -1679,20 +1813,22 @@ public:
         return safeCancelCall(r, CallCancelMode::killNoWait);
     }
 
-    ErrorOrDone sendCalleeChunk(RequestId reqId, CalleeChunk&& chunk) override
+    ErrorOrDone sendCalleeChunk(RequestId reqId,
+                                CalleeOutputChunk&& chunk) override
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
         return registry_.yield(peer_, reqId, std::move(chunk));
     }
 
-    FutureErrorOrDone safeSendCalleeChunk(RequestId r, CalleeChunk&& c) override
+    FutureErrorOrDone safeSendCalleeChunk(RequestId r,
+                                          CalleeOutputChunk&& c) override
     {
         struct Dispatched
         {
             Ptr self;
             RequestId r;
-            CalleeChunk c;
+            CalleeOutputChunk c;
             ErrorOrDonePromise p;
 
             void operator()()

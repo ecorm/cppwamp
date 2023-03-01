@@ -512,18 +512,18 @@ public:
         return fut;
     }
 
-    ErrorOrDone sendCallerChunk(RequestId r, CallerChunk chunk) override
+    ErrorOrDone sendCallerChunk(RequestId r, CallerOutputChunk chunk) override
     {
         return false;
     }
 
-    FutureErrorOrDone safeSendCallerChunk(RequestId r, CallerChunk c) override
+    FutureErrorOrDone safeSendCallerChunk(RequestId r, CallerOutputChunk c) override
     {
         struct Dispatched
         {
             Ptr self;
             RequestId r;
-            CallerChunk c;
+            CallerOutputChunk c;
             ErrorOrDonePromise p;
 
             void operator()()
@@ -545,18 +545,19 @@ public:
         return fut;
     }
 
-    ErrorOrDone sendCalleeChunk(RequestId r, CalleeChunk&& chunk) override
+    ErrorOrDone sendCalleeChunk(RequestId r, CalleeOutputChunk&& chunk) override
     {
         return false;
     }
 
-    FutureErrorOrDone safeSendCalleeChunk(RequestId r, CalleeChunk&& c) override
+    FutureErrorOrDone safeSendCalleeChunk(RequestId r,
+                                          CalleeOutputChunk&& c) override
     {
         struct Dispatched
         {
             Ptr self;
             RequestId r;
-            CalleeChunk c;
+            CalleeOutputChunk c;
             ErrorOrDonePromise p;
 
             void operator()()

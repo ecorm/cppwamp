@@ -525,7 +525,7 @@ private:
 //------------------------------------------------------------------------------
 struct CallMessage : public MessageWithPayload<WampMsgType::call, 2, 4>
 {
-    explicit CallMessage(String uri, Object opts = {})
+    explicit CallMessage(String uri = {}, Object opts = {})
         : Base({0, 0, std::move(opts), std::move(uri)})
     {}
 
@@ -630,7 +630,7 @@ private:
 //------------------------------------------------------------------------------
 struct YieldMessage : public MessageWithPayload<WampMsgType::yield, 2, 3>
 {
-    explicit YieldMessage(RequestId reqId, Object opts = {})
+    explicit YieldMessage(RequestId reqId = nullId(), Object opts = {})
         : Base({0, reqId, std::move(opts)})
     {}
 

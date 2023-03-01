@@ -10,35 +10,36 @@ namespace wamp
 {
 
 //******************************************************************************
-// CallerChunk
+// CallerInputChunk
+//******************************************************************************
+
+CPPWAMP_INLINE CallerInputChunk::CallerInputChunk() {}
+
+CPPWAMP_INLINE CallerInputChunk::CallerInputChunk(internal::PassKey,
+                                                  internal::ResultMessage&& msg)
+    : Base(std::move(msg))
+{}
+
+
+//******************************************************************************
+// CallerOutputChunk
 //******************************************************************************
 
 /** This sets the `CALL.Options.progress|bool` option accordingly. */
-CPPWAMP_INLINE CallerChunk::CallerChunk(
+CPPWAMP_INLINE CallerOutputChunk::CallerOutputChunk(
     bool isFinal ///< Marks this chunk as the final one in the stream
 )
-    : Base(String{}),
-      isFinal_(isFinal)
-{
-    if (!isFinal_)
-        withOption("progress", true);
-}
-
-CPPWAMP_INLINE bool CallerChunk::isFinal() const {return isFinal_;}
-
-CPPWAMP_INLINE CallerChunk::CallerChunk(internal::PassKey,
-                                        internal::CallMessage&& msg)
-    : Base(std::move(msg)),
-      isFinal_(!optionOr<bool>("progress", false))
+    : Base(isFinal)
 {}
 
-CPPWAMP_INLINE void CallerChunk::setCallInfo(internal::PassKey, String uri)
+CPPWAMP_INLINE void CallerOutputChunk::setCallInfo(internal::PassKey,
+                                                   String uri)
 {
     message().setUri(std::move(uri));
 }
 
 CPPWAMP_INLINE internal::CallMessage&
-CallerChunk::callMessage(internal::PassKey, RequestId reqId)
+CallerOutputChunk::callMessage(internal::PassKey, RequestId reqId)
 {
     message().setRequestId(reqId);
     return message();
@@ -46,39 +47,33 @@ CallerChunk::callMessage(internal::PassKey, RequestId reqId)
 
 
 //******************************************************************************
-// CalleeChunk
+// CalleeInputChunk
+//******************************************************************************
+
+CPPWAMP_INLINE CalleeInputChunk::CalleeInputChunk() {}
+
+CPPWAMP_INLINE CalleeInputChunk::CalleeInputChunk(
+    internal::PassKey, internal::InvocationMessage&& msg)
+    : Base(std::move(msg))
+{}
+
+
+//******************************************************************************
+// CalleeOutputChunk
 //******************************************************************************
 
 /** This sets the `RESULT.Options.progress|bool` option accordingly. */
-CPPWAMP_INLINE CalleeChunk::CalleeChunk(
+CPPWAMP_INLINE CalleeOutputChunk::CalleeOutputChunk(
     bool isFinal ///< Marks this chunk as the final one in the stream
     )
-    : isFinal_(isFinal)
-{
-    if (!isFinal_)
-        withOption("progress", true);
-}
-
-CPPWAMP_INLINE bool CalleeChunk::isFinal() const {return isFinal_;}
-
-CPPWAMP_INLINE CalleeChunk::CalleeChunk(internal::PassKey,
-                                        internal::ResultMessage&& msg)
-    : Base(std::move(msg)),
-      isFinal_(!optionOr<bool>("progress", false))
+    : Base(isFinal)
 {}
 
-CPPWAMP_INLINE internal::ResultMessage&
-CalleeChunk::resultMessage(internal::PassKey, RequestId reqId)
+CPPWAMP_INLINE internal::YieldMessage&
+CalleeOutputChunk::yieldMessage(internal::PassKey, RequestId reqId)
 {
     message().setRequestId(reqId);
     return message();
-}
-
-CPPWAMP_INLINE internal::YieldMessage&
-CalleeChunk::yieldMessage(internal::PassKey, RequestId reqId)
-{
-    message().setRequestId(reqId);
-    return message().transformToYield();
 }
 
 } // namespace wamp

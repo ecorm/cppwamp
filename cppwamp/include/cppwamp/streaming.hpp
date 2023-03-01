@@ -41,73 +41,131 @@ enum class Direction
     bidirectional
 };
 
+
 //------------------------------------------------------------------------------
-/** Contains the payload arguments of a chunk streamed via a progressive
-    `CALL` message.
-    See [Progressive Calls in the WAMP Specification]
-    (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-calls) */
+/** Consolidates common properties of streaming chunks. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API CallerChunk : public Payload<CallerChunk,
-                                               internal::CallMessage>
+template <typename TDerived, typename TMessage>
+class CPPWAMP_API Chunk : public Payload<TDerived, TMessage>
+{
+public:
+    /** Indicates if the chunk is the final one. */
+    bool isFinal() const {return isFinal_;}
+
+private:
+    using Base = Payload<TDerived, TMessage>;
+
+    bool isFinal_ = false;
+
+protected:
+    Chunk() = default;
+
+    explicit Chunk(bool isFinal)
+        : isFinal_(isFinal)
+    {
+        if (!this->isFinal())
+            withOption("progress", true);
+    }
+
+    explicit Chunk(TMessage&& msg)
+        : Base(std::move(msg))
+    {
+        isFinal_ = !this->template optionOr<bool>("progress", false);
+    }
+
+    // Disable the user setting options.
+    using Base::withOption;
+    using Base::withOptions;
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains the payload of a chunk received via a progressive
+    `RESULT` message. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API CallerInputChunk : public Chunk<CallerInputChunk,
+                                                  internal::ResultMessage>
+{
+public:
+    /** Default constructor. */
+    CallerInputChunk();
+
+private:
+    using Base = Chunk<CallerInputChunk, internal::ResultMessage>;
+
+    bool isFinal_ = false;
+
+protected:
+
+public:
+    // Internal use only
+    CallerInputChunk(internal::PassKey, internal::ResultMessage&& msg);
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains the payload of a chunk to be sent via a progressive
+    `CALL` message. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API CallerOutputChunk : public Chunk<CallerOutputChunk,
+                                                   internal::CallMessage>
 {
 public:
     /** Constructor. */
-    explicit CallerChunk(bool isFinal = false);
-
-    /** Indicates if the chunk is the final one. */
-    bool isFinal() const;
+    explicit CallerOutputChunk(bool isFinal = false);
 
 private:
-    using Base = Payload<CallerChunk, internal::CallMessage>;
-
-    /** Disable the setting of options. */
-    using Base::withOption;
-
-    /** Disable the setting of options. */
-    using Base::withOptions;
+    using Base = Chunk<CallerOutputChunk, internal::CallMessage>;
 
     bool isFinal_ = false;
 
 public:
     // Internal use only
-    CallerChunk(internal::PassKey, internal::CallMessage&& msg);
     void setCallInfo(internal::PassKey, String uri);
     internal::CallMessage& callMessage(internal::PassKey, RequestId reqId);
 };
 
 
 //------------------------------------------------------------------------------
-/** Contains the payload arguments of a chunk streamed via a progressive
-    `RESULT` message.
-    See [Progressive Call Results in the WAMP Specification]
-    (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results) */
+/** Contains the payload of a chunk received via a progressive
+    `INVOCATION` message. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API CalleeChunk : public Payload<CalleeChunk,
-                                               internal::ResultMessage>
+class CPPWAMP_API CalleeInputChunk : public Chunk<CalleeInputChunk,
+                                                  internal::InvocationMessage>
 {
 public:
-    /** Constructor. */
-    explicit CalleeChunk(bool isFinal = false);
-
-    /** Indicates if the chunk is the final one. */
-    bool isFinal() const;
+    /** Default constructor. */
+    CalleeInputChunk();
 
 private:
-    using Base = Payload<CalleeChunk, internal::ResultMessage>;
-
-    /** Disable the setting of options. */
-    using Base::withOption;
-
-    /** Disable the setting of options. */
-    using Base::withOptions;
+    using Base = Chunk<CalleeInputChunk, internal::InvocationMessage>;
 
     bool isFinal_ = false;
 
 public:
     // Internal use only
-    CalleeChunk(internal::PassKey, internal::ResultMessage&& msg);
-    RequestId requestId(internal::PassKey) const;
-    internal::ResultMessage& resultMessage(internal::PassKey, RequestId reqId);
+    CalleeInputChunk(internal::PassKey, internal::InvocationMessage&& msg);
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains the payload of a chunk to be sent via a progressive
+    `YIELD` message. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API CalleeOutputChunk : public Chunk<CalleeOutputChunk,
+                                                   internal::YieldMessage>
+{
+public:
+    /** Constructor. */
+    explicit CalleeOutputChunk(bool isFinal = false);
+
+private:
+    using Base = Chunk<CalleeOutputChunk, internal::YieldMessage>;
+
+    bool isFinal_ = false;
+
+public:
+    // Internal use only
     internal::YieldMessage& yieldMessage(internal::PassKey, RequestId reqId);
 };
 
@@ -129,8 +187,18 @@ public:
         : Base(std::move(uri))
     {}
 
+    Stream& disableInvitation(bool disabled = true)
+    {
+        invitationDisabled_ = disabled;
+        return *this;
+    }
+
+    bool invitationDisabled() const {return invitationDisabled_;}
+
 private:
     using Base = Procedure;
+
+    bool invitationDisabled_ = false;
 
 public:
     // Internal use only
@@ -189,37 +257,6 @@ public:
 };
 
 //------------------------------------------------------------------------------
-/** Contains a response to a streaming invitation.
-    This object is used to generate an optional `RESULT` or `ERROR` message
-    upon receipt of the signalling `CALL`.
-    See [Progressive Calls][1] and/or [Progressive Call Results][2].
-    [1]: (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-calls)
-    [2]: (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results) */
-//------------------------------------------------------------------------------
-class CPPWAMP_API Rsvp
-{
-public:
-    Rsvp() : Rsvp(null) {}
-
-    Rsvp(Null) {}
-
-    Rsvp(CalleeChunk response)
-        : message_(std::move(response.resultMessage({}, nullId())))
-    {}
-
-    Rsvp(Error error)
-        : message_(std::move(error.errorMessage({}, internal::WampMsgType::call,
-                                                nullId())))
-    {}
-
-private:
-    internal::WampMessage message_;
-
-public:
-        // Internal use only
-};
-
-//------------------------------------------------------------------------------
 /** Provides the interface for a caller to stream chunks of data. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API CallerChannel
@@ -227,6 +264,8 @@ class CPPWAMP_API CallerChannel
 {
 public:
     using Ptr = std::shared_ptr<CallerChannel>;
+    using InputChunk = CallerInputChunk;
+    using OutputChunk = CallerOutputChunk;
 
     enum class State
     {
@@ -241,11 +280,14 @@ public:
             safeCancel();
     }
 
+    /** Determines if an RSVP is expected. */
+    bool hasRsvp() const {return hasRsvp_;}
+
     /** Obtains the RSVP information returned by the callee, if any. */
-    const Result& rsvp() const & {return rsvp_;}
+    const InputChunk& rsvp() const & {return rsvp_;}
 
     /** Moves the RSVP information returned by the callee. */
-    Result&& rsvp() && {return std::move(rsvp_);}
+    InputChunk&& rsvp() && {return std::move(rsvp_);}
 
     /** Obtains the channel's current state.
         This channel is open upon creation and closed upon sending
@@ -270,8 +312,9 @@ public:
             - an error code if there was a problem processing the chunk
         @pre `this->state() == State::open`
         @post `chunk.isFinal() ? State::closed : State::open` */
-    ErrorOrDone send(CallerChunk chunk)
+    ErrorOrDone send(OutputChunk chunk)
     {
+        // TODO: Enforce invitation direction
         State expectedState = State::open;
         auto newState = chunk.isFinal() ? State::closed : State::open;
         bool ok = state_.compare_exchange_strong(expectedState, newState);
@@ -286,7 +329,7 @@ public:
     }
 
     /** Thread-safe send. */
-    std::future<ErrorOrDone> send(ThreadSafe, CallerChunk chunk)
+    std::future<ErrorOrDone> send(ThreadSafe, OutputChunk chunk)
     {
         State expectedState = State::open;
         auto newState = chunk.isFinal() ? State::closed : State::open;
@@ -393,41 +436,42 @@ private:
                     shared_from_this(), std::forward<T>(arg));
     }
 
-    Result rsvp_;
+    InputChunk rsvp_;
     Error error_;
     Uri uri_;
-    AnyReusableHandler<void (Ptr, ErrorOr<CalleeChunk>)> chunkHandler_;
+    AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)> chunkHandler_;
     AnyIoExecutor executor_;
     AnyCompletionExecutor userExecutor_;
     CallerPtr caller_;
     ChannelId id_ = nullId();
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
     std::atomic<State> state_;
-    bool wasRsvped_ = false;
+    bool hasRsvp_ = false;
 
 public:
     // Internal use only
     CallerChannel(
-        internal::PassKey, CallerPtr caller, const Invitation& inv,
-        AnyIoExecutor exec, AnyCompletionExecutor userExec,
-        AnyReusableHandler<void (Ptr, ErrorOr<CalleeChunk>)> chunkHandler)
+        internal::PassKey, const Invitation& inv,
+        AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)> chunkHandler)
         : uri_(inv.uri()),
           chunkHandler_(std::move(chunkHandler)),
-          executor_(std::move(exec)),
-          userExecutor_(std::move(userExec)),
-          caller_(std::move(caller)),
           cancelMode_(inv.cancelMode()),
           state_(State::open)
     {}
 
-    bool wasRsvped(internal::PassKey) const {return wasRsvped_;}
-
-    void setChannelId(internal::PassKey, ChannelId id) {id_ = id;}
-
-    void onRsvp(internal::PassKey, Result&& result)
+    void init(internal::PassKey, ChannelId id, CallerPtr caller,
+              AnyIoExecutor exec, AnyCompletionExecutor userExec)
     {
-        rsvp_ = std::move(result);
-        wasRsvped_ = true;
+        id_ = id;
+        caller_ = std::move(caller);
+        executor_ = std::move(exec);
+        userExecutor_ = std::move(userExec);
+    }
+
+    void onRsvp(internal::PassKey, internal::ResultMessage&& msg)
+    {
+        rsvp_ = InputChunk{{}, std::move(msg)};
+        hasRsvp_ = true;
     }
 
     void onReply(internal::PassKey, ErrorOr<internal::WampMessage>&& reply)
@@ -449,7 +493,7 @@ public:
         else
         {
             auto& msg = internal::messageCast<internal::ResultMessage>(*reply);
-            CalleeChunk chunk{{}, std::move(msg)};
+            InputChunk chunk{{}, std::move(msg)};
             dispatchChunkHandler(std::move(chunk));
         }
     }
@@ -459,12 +503,14 @@ public:
 /** Provides the interface for a caller to stream chunks of data. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API CalleeChannel
+    : public std::enable_shared_from_this<CalleeChannel>
 {
 public:
     using Ptr = std::shared_ptr<CalleeChannel>;
-    using Chunk = CalleeChunk;
+    using InputChunk = CalleeInputChunk;
+    using OutputChunk = CalleeOutputChunk;
     using ChunkSlot = AnyReusableHandler<void (CalleeChannel::Ptr,
-                                               CallerChunk)>;
+                                               CalleeInputChunk)>;
     using InterruptSlot = AnyReusableHandler<void (CalleeChannel::Ptr,
                                                    Interruption)>;
 
@@ -479,7 +525,7 @@ public:
     {
         auto oldState = state_.exchange(State::closed);
         if (oldState != State::closed)
-            safeSendChunk(Chunk{true});
+            safeSendChunk(CalleeOutputChunk{true});
     }
 
     /** Obtains the current channel state.
@@ -489,6 +535,16 @@ public:
 
     /** Obtains the ephemeral ID of this channel. */
     ChannelId id() const {return id_;}
+
+    /** Determines if the ignore invitation option was set during stream
+        registrtion. */
+    bool invitationIgnored() const {return invitationDisabled_;}
+
+    /** Accesses the invitation. */
+    const InputChunk& invitation() const & {return invitation_;}
+
+    /** Moves the invitation. */
+    InputChunk&& invitation() && {return std::move(invitation_);}
 
     /** Accepts a streaming invitation from another peer and sends an
         initial response.
@@ -502,7 +558,7 @@ public:
         @pre `this->state() == State::inviting`
         @post `this->state() == response.isFinal() ? State::closed : State::open` */
     ErrorOrDone accept(
-        Chunk response,
+        OutputChunk response,
         ChunkSlot onChunk = {},
         InterruptSlot onInterrupt = {})
     {
@@ -517,6 +573,9 @@ public:
             chunkHandler_ = std::move(onChunk);
             interruptHandler_ = std::move(onInterrupt);
         }
+
+        postInvitationAsChunkIfIgnored();
+
         auto caller = callee_.lock();
         if (!caller)
             return false;
@@ -525,7 +584,7 @@ public:
 
     /** Thread-safe accept with response. */
     std::future<ErrorOrDone> accept(
-        ThreadSafe, Chunk response, ChunkSlot onChunk = {},
+        ThreadSafe, OutputChunk response, ChunkSlot onChunk = {},
         InterruptSlot onInterrupt = {})
     {
         State expectedState = State::inviting;
@@ -539,6 +598,9 @@ public:
             chunkHandler_ = std::move(onChunk);
             interruptHandler_ = std::move(onInterrupt);
         }
+
+        postInvitationAsChunkIfIgnored();
+
         auto caller = callee_.lock();
         if (!caller)
             return futureValue(false);
@@ -562,7 +624,8 @@ public:
 
         chunkHandler_ = std::move(onChunk);
         interruptHandler_ = std::move(onInterrupt);
-        state_.store(State::open);
+        postInvitationAsChunkIfIgnored();
+
         return true;
     }
 
@@ -574,7 +637,7 @@ public:
             - an error code if there was a problem processing the chunk
         @pre `this->state() == State::open`
         @post `this->state() == chunk.isFinal() ? State::closed : State::open` */
-    ErrorOrDone send(Chunk chunk)
+    ErrorOrDone send(OutputChunk chunk)
     {
         State expectedState = State::inviting;
         auto newState = chunk.isFinal() ? State::closed : State::open;
@@ -589,7 +652,7 @@ public:
     }
 
     /** Thread-safe send. */
-    std::future<ErrorOrDone> send(ThreadSafe, Chunk chunk)
+    std::future<ErrorOrDone> send(ThreadSafe, OutputChunk chunk)
     {
         State expectedState = State::inviting;
         auto newState = chunk.isFinal() ? State::closed : State::open;
@@ -647,15 +710,7 @@ private:
         return f;
     }
 
-    CalleeChannel(const CalleeChannel& rhs)
-        : chunkHandler_(rhs.chunkHandler_),
-          interruptHandler_(rhs.interruptHandler_),
-          callee_(rhs.callee_),
-          id_(rhs.id_),
-          state_(State::inviting)
-    {}
-
-    std::future<ErrorOrDone> safeSendChunk(Chunk&& chunk)
+    std::future<ErrorOrDone> safeSendChunk(OutputChunk&& chunk)
     {
         auto caller = callee_.lock();
         if (!caller)
@@ -663,18 +718,61 @@ private:
         return caller->safeSendCalleeChunk(id_, std::move(chunk));
     }
 
-    AnyReusableHandler<void (Ptr, CallerChunk)> chunkHandler_;
+    void postInvitationAsChunkIfIgnored()
+    {
+        if (chunkHandler_ && invitationDisabled_)
+        {
+            postVia(executor_, userExecutor_, chunkHandler_,
+                    shared_from_this(), std::move(invitation_));
+            invitation_ = InputChunk{};
+        }
+    }
+
+    InputChunk invitation_;
+    AnyReusableHandler<void (Ptr, InputChunk)> chunkHandler_;
     AnyReusableHandler<void (Ptr, Interruption)> interruptHandler_;
+    AnyIoExecutor executor_;
+    AnyCompletionExecutor userExecutor_;
     CalleePtr callee_;
     ChannelId id_ = nullId();
     std::atomic<State> state_;
+    bool invitationDisabled_ = false;
 
 public:
     // Internal use only
-    CalleeChannel(internal::PassKey, CalleePtr callee)
-        : callee_(std::move(callee)),
-          state_(State::inviting)
+    CalleeChannel(internal::PassKey, internal::InvocationMessage&& msg,
+                  bool invitationDisabled, AnyIoExecutor executor,
+                  AnyCompletionExecutor userExecutor, CalleePtr callee)
+        : invitation_({}, std::move(msg)),
+          executor_(std::move(executor)),
+          userExecutor_(std::move(userExecutor)),
+          callee_(std::move(callee)),
+          state_(State::inviting),
+          invitationDisabled_(invitationDisabled)
     {}
+
+    bool hasInterruptHandler(internal::PassKey) const
+    {
+        return interruptHandler_ != nullptr;
+    }
+
+    void onInvocation(internal::PassKey, internal::InvocationMessage&& msg)
+    {
+        if (!chunkHandler_)
+            return;
+        InputChunk chunk{{}, std::move(msg)};
+        postVia(executor_, userExecutor_, chunkHandler_, shared_from_this(),
+                std::move(chunk));
+    }
+
+    void onInterrupt(internal::PassKey, internal::InterruptMessage&& msg)
+    {
+        if (!interruptHandler_)
+            return;
+        Interruption intr{{}, std::move(msg)};
+        postVia(executor_, userExecutor_, interruptHandler_, shared_from_this(),
+                std::move(intr));
+    }
 };
 
 } // namespace wamp

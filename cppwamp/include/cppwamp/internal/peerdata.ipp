@@ -1540,4 +1540,11 @@ CPPWAMP_INLINE Interruption::Interruption(
       cancelMode_(mode)
 {}
 
+CPPWAMP_INLINE Interruption::Interruption(internal::PassKey,
+                                          internal::InterruptMessage&& msg)
+    : Base(std::move(msg))
+{
+    cancelMode_ = internal::parseCallCancelModeFromOptions(options());
+}
+
 } // namespace wamp

@@ -1105,6 +1105,8 @@ public:
     Interruption(internal::PassKey, RequestId reqId, CallCancelMode mode,
                  WampErrc reason);
 
+    Interruption(internal::PassKey, internal::InterruptMessage&& msg);
+
 private:
     using Base = Options<Interruption, internal::InterruptMessage>;
 
