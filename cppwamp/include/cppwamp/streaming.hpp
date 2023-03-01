@@ -34,8 +34,9 @@ namespace wamp
 using ChannelId = RequestId;
 
 //------------------------------------------------------------------------------
-enum class Direction
+enum class StreamMode
 {
+    simpleCall,
     calleeToCaller,
     callerToCallee,
     bidirectional
@@ -93,10 +94,6 @@ public:
 private:
     using Base = Chunk<CallerInputChunk, internal::ResultMessage>;
 
-    bool isFinal_ = false;
-
-protected:
-
 public:
     // Internal use only
     CallerInputChunk(internal::PassKey, internal::ResultMessage&& msg);
@@ -116,8 +113,6 @@ public:
 
 private:
     using Base = Chunk<CallerOutputChunk, internal::CallMessage>;
-
-    bool isFinal_ = false;
 
 public:
     // Internal use only
@@ -140,11 +135,10 @@ public:
 private:
     using Base = Chunk<CalleeInputChunk, internal::InvocationMessage>;
 
-    bool isFinal_ = false;
-
 public:
     // Internal use only
     CalleeInputChunk(internal::PassKey, internal::InvocationMessage&& msg);
+    StreamMode mode(internal::PassKey);
 };
 
 
@@ -161,8 +155,6 @@ public:
 
 private:
     using Base = Chunk<CalleeOutputChunk, internal::YieldMessage>;
-
-    bool isFinal_ = false;
 
 public:
     // Internal use only
@@ -223,19 +215,19 @@ public:
     /** Constructor. */
     explicit Invitation(
         String uri, ///< The URI with which to associate this invitation.
-        Direction streamDir ///< The desired stream direction(s)
+        StreamMode mode ///< The desired stream mode
         )
         : Base(std::move(uri)),
-          direction_(streamDir)
+          mode_(mode)
     {
-        using D = Direction;
-        if (streamDir == D::calleeToCaller || streamDir == D::bidirectional)
+        using D = StreamMode;
+        if (mode == D::calleeToCaller || mode == D::bidirectional)
             withProgressiveResults();
-        if (streamDir == D::callerToCallee || streamDir == D::bidirectional)
+        if (mode == D::callerToCallee || mode == D::bidirectional)
             withProgress();
     }
 
-    Direction streamDirection() const {return direction_;}
+    StreamMode mode() const {return mode_;}
 
 private:
     using Base = Rpc;
@@ -246,7 +238,7 @@ private:
     using Base::withProgress;
     using Base::isProgress;
 
-    Direction direction_;
+    StreamMode mode_;
 
 public:
     // Internal use only
@@ -280,7 +272,11 @@ public:
             safeCancel();
     }
 
-    /** Determines if an RSVP is expected. */
+    /** Obtains the stream mode specified in the invitation
+        associated with this channel. */
+    StreamMode mode() const {return mode_;}
+
+    /** Determines if an RSVP is available. */
     bool hasRsvp() const {return hasRsvp_;}
 
     /** Obtains the RSVP information returned by the callee, if any. */
@@ -311,10 +307,14 @@ public:
             - true if the chunk was accepted for processing
             - an error code if there was a problem processing the chunk
         @pre `this->state() == State::open`
-        @post `chunk.isFinal() ? State::closed : State::open` */
+        @pre `this->mode() == StreamMode::callerToCallee ||
+              this->mode() == StreamMode::bidirectional`
+        @post `chunk.isFinal() ? State::closed : State::open`
+        @throws error::Logic if the mode precondition is not met */
     ErrorOrDone send(OutputChunk chunk)
     {
-        // TODO: Enforce invitation direction
+        CPPWAMP_LOGIC_CHECK(isValidModeForSending(),
+                            "wamp::CallerChannel::send: invalid mode");
         State expectedState = State::open;
         auto newState = chunk.isFinal() ? State::closed : State::open;
         bool ok = state_.compare_exchange_strong(expectedState, newState);
@@ -329,8 +329,11 @@ public:
     }
 
     /** Thread-safe send. */
+    /** @copydetails send(OutputChunk) */
     std::future<ErrorOrDone> send(ThreadSafe, OutputChunk chunk)
     {
+        CPPWAMP_LOGIC_CHECK(isValidModeForSending(),
+                            "wamp::CallerChannel::send: invalid mode");
         State expectedState = State::open;
         auto newState = chunk.isFinal() ? State::closed : State::open;
         bool ok = state_.compare_exchange_strong(expectedState, newState);
@@ -446,6 +449,7 @@ private:
     ChannelId id_ = nullId();
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
     std::atomic<State> state_;
+    StreamMode mode_ = {};
     bool hasRsvp_ = false;
 
 public:
@@ -456,7 +460,8 @@ public:
         : uri_(inv.uri()),
           chunkHandler_(std::move(chunkHandler)),
           cancelMode_(inv.cancelMode()),
-          state_(State::open)
+          state_(State::open),
+          mode_(inv.mode())
     {}
 
     void init(internal::PassKey, ChannelId id, CallerPtr caller,
@@ -466,6 +471,12 @@ public:
         caller_ = std::move(caller);
         executor_ = std::move(exec);
         userExecutor_ = std::move(userExec);
+    }
+
+    bool isValidModeForSending() const
+    {
+        return mode_ == StreamMode::callerToCallee ||
+               mode_ == StreamMode::bidirectional;
     }
 
     void onRsvp(internal::PassKey, internal::ResultMessage&& msg)
@@ -528,6 +539,9 @@ public:
             safeSendChunk(CalleeOutputChunk{true});
     }
 
+    /** Obtains the stream mode that was established from the invitation. */
+    StreamMode mode() const {return mode_;}
+
     /** Obtains the current channel state.
         A channel is inviting upon creation, open upon acceptance, and closed
         upon sending an error or a final chunk. */
@@ -538,7 +552,7 @@ public:
 
     /** Determines if the ignore invitation option was set during stream
         registrtion. */
-    bool invitationIgnored() const {return invitationDisabled_;}
+    bool invitationDisabled() const {return invitationDisabled_;}
 
     /** Accesses the invitation. */
     const InputChunk& invitation() const & {return invitation_;}
@@ -547,7 +561,7 @@ public:
     InputChunk&& invitation() && {return std::move(invitation_);}
 
     /** Accepts a streaming invitation from another peer and sends an
-        initial response.
+        initial (or final) response.
         The channel is immediately closed if the given chunk is marked as
         final. */
     /** @returns
@@ -556,12 +570,17 @@ public:
             - true if the response was accepted for processing
             - an error code if there was a problem processing the response
         @pre `this->state() == State::inviting`
-        @post `this->state() == response.isFinal() ? State::closed : State::open` */
+        @pre `response.isFinal() || this->mode == StreamMode::calleeToCaller ||
+              this->mode == StreamMode::bidirectional`
+        @post `this->state() == response.isFinal() ? State::closed : State::open`
+        @throws error::Logic if the mode precondition is not met */
     ErrorOrDone accept(
         OutputChunk response,
         ChunkSlot onChunk = {},
         InterruptSlot onInterrupt = {})
     {
+        CPPWAMP_LOGIC_CHECK(isValidModeFor(response),
+                            "wamp::CalleeChannel::accept: invalid mode");
         State expectedState = State::inviting;
         auto newState = response.isFinal() ? State::closed : State::open;
         bool ok = state_.compare_exchange_strong(expectedState, newState);
@@ -583,6 +602,7 @@ public:
     }
 
     /** Thread-safe accept with response. */
+    /** @copydetails CalleeChannel::accept(OutputChunk, ChunkSlot, InterruptSlot) */
     std::future<ErrorOrDone> accept(
         ThreadSafe, OutputChunk response, ChunkSlot onChunk = {},
         InterruptSlot onInterrupt = {})
@@ -636,7 +656,10 @@ public:
             - true if the chunk was accepted for processing
             - an error code if there was a problem processing the chunk
         @pre `this->state() == State::open`
-        @post `this->state() == chunk.isFinal() ? State::closed : State::open` */
+        @pre `chunk.isFinal() || this->mode == StreamMode::calleeToCaller ||
+              this->mode == StreamMode::bidirectional`
+        @post `this->state() == chunk.isFinal() ? State::closed : State::open`
+        @throws error::Logic if the mode precondition is not met */
     ErrorOrDone send(OutputChunk chunk)
     {
         State expectedState = State::inviting;
@@ -652,6 +675,7 @@ public:
     }
 
     /** Thread-safe send. */
+    /** @copydetails CalleeChannel::send(OutputChunk) */
     std::future<ErrorOrDone> send(ThreadSafe, OutputChunk chunk)
     {
         State expectedState = State::inviting;
@@ -668,9 +692,7 @@ public:
                     channel state is already closed
             - true if the error was accepted for processing
             - an error code if there was a problem processing the error
-        @pre `this->isOpen() == true`
-        @post `this->state() == State::closed`
-        @throws error::Logic if the preconditions were not met. */
+        @post `this->state() == State::closed` */
     ErrorOrDone close(Error error)
     {
         auto oldState = state_.exchange(State::closed);
@@ -681,6 +703,7 @@ public:
     }
 
     /** Thread-safe close with error. */
+    /** @copydetails CalleeChannel::close(Error) */
     std::future<ErrorOrDone> close(ThreadSafe, Error error)
     {
         auto oldState = state_.exchange(State::closed);
@@ -710,6 +733,14 @@ private:
         return f;
     }
 
+    bool isValidModeFor(const OutputChunk& c) const
+    {
+        using M = StreamMode;
+        return c.isFinal() ||
+               (mode_ == M::calleeToCaller) ||
+               (mode_ == M::bidirectional);
+    }
+
     std::future<ErrorOrDone> safeSendChunk(OutputChunk&& chunk)
     {
         auto caller = callee_.lock();
@@ -736,6 +767,7 @@ private:
     CalleePtr callee_;
     ChannelId id_ = nullId();
     std::atomic<State> state_;
+    StreamMode mode_ = {};
     bool invitationDisabled_ = false;
 
 public:
@@ -748,6 +780,7 @@ public:
           userExecutor_(std::move(userExecutor)),
           callee_(std::move(callee)),
           state_(State::inviting),
+          mode_(invitation_.mode({})),
           invitationDisabled_(invitationDisabled)
     {}
 

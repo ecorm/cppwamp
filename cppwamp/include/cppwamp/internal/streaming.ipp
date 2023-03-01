@@ -53,9 +53,19 @@ CallerOutputChunk::callMessage(internal::PassKey, RequestId reqId)
 CPPWAMP_INLINE CalleeInputChunk::CalleeInputChunk() {}
 
 CPPWAMP_INLINE CalleeInputChunk::CalleeInputChunk(
-    internal::PassKey, internal::InvocationMessage&& msg)
+      internal::PassKey, internal::InvocationMessage&& msg)
     : Base(std::move(msg))
 {}
+
+CPPWAMP_INLINE StreamMode CalleeInputChunk::mode(internal::PassKey)
+{
+    bool wantsProgress = optionOr<bool>("receive_progress", false);
+
+    using M = StreamMode;
+    if (isFinal())
+        return wantsProgress ? M::calleeToCaller : M::simpleCall;
+    return wantsProgress ? M::bidirectional : M::callerToCallee;
+}
 
 
 //******************************************************************************
