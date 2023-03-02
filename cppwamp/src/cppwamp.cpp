@@ -16,6 +16,8 @@
 #include <cppwamp/internal/authenticator.ipp>
 #include <cppwamp/internal/authinfo.ipp>
 #include <cppwamp/internal/blob.ipp>
+#include <cppwamp/internal/calleestreaming.ipp>
+#include <cppwamp/internal/callerstreaming.ipp>
 #include <cppwamp/internal/cbor.ipp>
 #include <cppwamp/internal/chits.ipp>
 #include <cppwamp/internal/consolelogger.ipp>
@@ -30,7 +32,6 @@
 #include <cppwamp/internal/router.ipp>
 #include <cppwamp/internal/routerconfig.ipp>
 #include <cppwamp/internal/session.ipp>
-#include <cppwamp/internal/streaming.ipp>
 #include <cppwamp/internal/subscription.ipp>
 #include <cppwamp/internal/tcp.ipp>
 #include <cppwamp/internal/tcpendpoint.ipp>

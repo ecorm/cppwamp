@@ -13,6 +13,8 @@ set(HEADERS
     include/cppwamp/authorizer.hpp
     include/cppwamp/authenticator.hpp
     include/cppwamp/blob.hpp
+    include/cppwamp/calleestreaming.hpp
+    include/cppwamp/callerstreaming.hpp
     include/cppwamp/cbor.hpp
     include/cppwamp/chits.hpp
     include/cppwamp/codec.hpp
@@ -124,6 +126,8 @@ set(INLINES
     include/cppwamp/internal/authorizer.ipp
     include/cppwamp/internal/authinfo.ipp
     include/cppwamp/internal/blob.ipp
+    include/cppwamp/internal/calleestreaming.ipp
+    include/cppwamp/internal/callerstreaming.ipp
     include/cppwamp/internal/cbor.ipp
     include/cppwamp/internal/chits.ipp
     include/cppwamp/internal/consolelogger.ipp
@@ -138,7 +142,6 @@ set(INLINES
     include/cppwamp/internal/router.ipp
     include/cppwamp/internal/routerconfig.ipp
     include/cppwamp/internal/session.ipp
-    include/cppwamp/internal/streaming.ipp
     include/cppwamp/internal/subscription.ipp
     include/cppwamp/internal/tcp.ipp
     include/cppwamp/internal/tcpendpoint.ipp

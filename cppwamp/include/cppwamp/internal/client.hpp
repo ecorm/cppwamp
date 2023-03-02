@@ -20,6 +20,8 @@
 #include <utility>
 #include <boost/asio/post.hpp>
 #include "../anyhandler.hpp"
+#include "../calleestreaming.hpp"
+#include "../callerstreaming.hpp"
 #include "../codec.hpp"
 #include "../chits.hpp"
 #include "../connector.hpp"
@@ -27,7 +29,6 @@
 #include "../peerdata.hpp"
 #include "../registration.hpp"
 #include "../subscription.hpp"
-#include "../streaming.hpp"
 #include "../transport.hpp"
 #include "../version.hpp"
 #include "callee.hpp"
