@@ -18,51 +18,6 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename T>
-CPPWAMP_INLINE MatchPolicy getMatchPolicyOption(const T& messageData)
-{
-    const auto& opts = messageData.options();
-    auto found = opts.find("match");
-    if (found == opts.end())
-        return MatchPolicy::exact;
-    const auto& opt = found->second;
-    if (opt.template is<String>())
-    {
-        const auto& s = opt.template as<String>();
-        if (s == "prefix")
-            return MatchPolicy::prefix;
-        if (s == "wildcard")
-            return MatchPolicy::wildcard;
-    }
-    return MatchPolicy::unknown;
-}
-
-//------------------------------------------------------------------------------
-template <typename T>
-CPPWAMP_INLINE void setMatchPolicyOption(T& messageData, MatchPolicy policy)
-{
-    CPPWAMP_LOGIC_CHECK(policy != MatchPolicy::unknown,
-                        "Cannot specify unknown match policy");
-
-    switch (policy)
-    {
-    case MatchPolicy::exact:
-        break;
-
-    case MatchPolicy::prefix:
-        messageData.withOption("match", "prefix");
-        break;
-
-    case MatchPolicy::wildcard:
-        messageData.withOption("match", "wildcard");
-        break;
-
-    default:
-        assert(false && "Unexpected MatchPolicy enumerator");
-    }
-}
-
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE String callCancelModeToString(CallCancelMode mode)
 {
     CPPWAMP_LOGIC_CHECK(mode != CallCancelMode::unknown,
@@ -846,43 +801,10 @@ CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
 
 CPPWAMP_INLINE Procedure::Procedure(String uri) : Base(std::move(uri)) {}
 
-CPPWAMP_INLINE const String& Procedure::uri() const {return message().uri();}
-
-/** Obtains information for the access log. */
-CPPWAMP_INLINE AccessActionInfo Procedure::info() const
-{
-    return {AccessAction::clientRegister, message().requestId(), uri(),
-            options()};
-}
-
-/** @details
-    This sets the `SUBSCRIBE.Options.match|string` option. */
-CPPWAMP_INLINE Procedure& Procedure::withMatchPolicy(MatchPolicy policy)
-{
-    internal::setMatchPolicyOption(*this, policy);
-    return *this;
-}
-
-/** Obtains the matching policy used for this subscription. */
-CPPWAMP_INLINE MatchPolicy Procedure::matchPolicy() const
-{
-    return internal::getMatchPolicyOption(*this);
-}
-
 CPPWAMP_INLINE Procedure::Procedure(internal::PassKey,
                                     internal::RegisterMessage&& msg)
     : Base(std::move(msg))
 {}
-
-CPPWAMP_INLINE RequestId Procedure::requestId(internal::PassKey) const
-{
-    return message().requestId();
-}
-
-CPPWAMP_INLINE String&& Procedure::uri(internal::PassKey)
-{
-    return std::move(message()).uri();
-}
 
 
 //******************************************************************************
@@ -890,19 +812,6 @@ CPPWAMP_INLINE String&& Procedure::uri(internal::PassKey)
 //******************************************************************************
 
 CPPWAMP_INLINE Rpc::Rpc(String uri) : Base(std::move(uri)) {}
-
-CPPWAMP_INLINE const String& Rpc::uri() const {return message().uri();}
-
-CPPWAMP_INLINE Rpc& Rpc::captureError(Error& error)
-{
-    error_ = &error;
-    return *this;
-}
-
-CPPWAMP_INLINE AccessActionInfo Rpc::info() const
-{
-    return {AccessAction::clientCall, message().requestId(), uri(), options()};
-}
 
 /** @details
     This sets the `CALL.Options.receive_progress|bool` option.
@@ -931,92 +840,9 @@ CPPWAMP_INLINE bool Rpc::isProgress() const
     return isProgress_;
 }
 
-/** @details
-    If negative, the given timeout is clamped to zero. */
-CPPWAMP_INLINE Rpc& Rpc::withCallerTimeout(TimeoutDuration timeout)
-{
-    if (timeout.count() < 0)
-        timeout = {};
-    callerTimeout_ = timeout;
-    return *this;
-}
-
-CPPWAMP_INLINE Rpc::TimeoutDuration Rpc::callerTimeout() const
-{
-    return callerTimeout_;
-}
-
-/** @details
-    This sets the `CALL.Options.timeout|integer` option. */
-CPPWAMP_INLINE Rpc& Rpc::withDealerTimeout(DealerTimeoutDuration timeout)
-{
-    return withOption("timeout", timeout.count());
-}
-
-CPPWAMP_INLINE ErrorOr<Rpc::DealerTimeoutDuration> Rpc::dealerTimeout() const
-{
-    auto timeout = toUnsignedInteger("timeout");
-    if (!timeout)
-        return makeUnexpected(timeout.error());
-    return DealerTimeoutDuration{*timeout};
-}
-
-/** @details
-    This sets the `CALL.Options.disclose_me|bool` option. */
-CPPWAMP_INLINE Rpc& Rpc::withDiscloseMe(bool disclosed)
-{
-    return withOption("disclose_me", disclosed);
-}
-
-CPPWAMP_INLINE bool Rpc::discloseMe() const
-{
-    return optionOr<bool>("disclose_me", false);
-}
-
-CPPWAMP_INLINE Rpc& Rpc::withCancelMode(CallCancelMode mode)
-{
-    cancelMode_ = mode;
-    return *this;
-}
-
-CPPWAMP_INLINE CallCancelMode Rpc::cancelMode() const {return cancelMode_;}
-
 CPPWAMP_INLINE Rpc::Rpc(internal::PassKey, internal::CallMessage&& msg)
-    : Base(std::move(msg)),
-      progressiveResultsEnabled_(optionOr<bool>("receive_progress", false)),
-      isProgress_(optionOr<bool>("progress", false))
+    : Base(std::move(msg))
 {}
-
-CPPWAMP_INLINE void Rpc::setDisclosed(internal::PassKey, bool disclosed)
-{
-    disclosed_ = disclosed;
-}
-
-CPPWAMP_INLINE void Rpc::setTrustLevel(internal::PassKey,
-                                       TrustLevel trustLevel)
-{
-    trustLevel_ = trustLevel;
-    hasTrustLevel_ = true;
-}
-
-CPPWAMP_INLINE Error* Rpc::error(internal::PassKey) {return error_;}
-
-CPPWAMP_INLINE RequestId Rpc::requestId(internal::PassKey) const
-{
-    return message().fields().at(1).to<RequestId>();
-}
-
-CPPWAMP_INLINE bool Rpc::disclosed(internal::PassKey) const {return disclosed_;}
-
-CPPWAMP_INLINE bool Rpc::hasTrustLevel(internal::PassKey) const
-{
-    return hasTrustLevel_;
-}
-
-CPPWAMP_INLINE TrustLevel Rpc::trustLevel(internal::PassKey) const
-{
-    return trustLevel_;
-}
 
 
 //******************************************************************************

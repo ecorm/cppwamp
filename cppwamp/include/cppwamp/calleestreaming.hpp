@@ -74,7 +74,7 @@ public:
     This object is used to generate a `REGISTER` message intended for use
     with progressive call results/invocations. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Stream : public Procedure
+class CPPWAMP_API Stream : public ProcedureLike<Stream>
 {
 public:
     /** Constructor taking an URI with which to associate this
@@ -89,7 +89,7 @@ public:
     bool invitationDisabled() const;
 
 private:
-    using Base = Procedure;
+    using Base = ProcedureLike<Stream>;
 
     bool invitationDisabled_ = false;
 

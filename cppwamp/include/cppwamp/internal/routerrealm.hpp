@@ -133,8 +133,9 @@ private:
     {
         if (auth.error())
         {
-            if (auth.error() == WampErrc::notAuthorized ||
+            if (auth.error() == WampErrc::authorizationDenied ||
                 auth.error() == WampErrc::authorizationFailed ||
+                auth.error() == WampErrc::authorizationRequired ||
                 auth.error() == WampErrc::discloseMeDisallowed)
             {
                 Error error{{}, reqType, rid, auth.error()};
@@ -152,7 +153,7 @@ private:
         }
         else if (!auth.allowed())
         {
-            s.sendError(reqType, rid, WampErrc::notAuthorized, logOnly);
+            s.sendError(reqType, rid, WampErrc::authorizationDenied, logOnly);
             return false;
         }
 

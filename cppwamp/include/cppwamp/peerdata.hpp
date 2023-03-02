@@ -27,6 +27,9 @@
 #include "./internal/passkey.hpp"
 #include "./internal/wampmessage.hpp"
 
+// TODO: Split this into sessiondata.hpp, rpcdata.hpp, and pubsubdata.hpp
+// Try to find a better synonym to 'data'.
+
 //------------------------------------------------------------------------------
 /** @file
     @brief Contains declarations for data structures exchanged between
@@ -593,16 +596,12 @@ public:
 
 
 //------------------------------------------------------------------------------
-/** Contains the procedure URI and other options contained within
-    WAMP `REGISTER` messages. */
+/** Provide common properties of procedure-like objects. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Procedure : public Options<Procedure,
-                                             internal::RegisterMessage>
+template <typename TDerived>
+class ProcedureLike : public Options<TDerived, internal::RegisterMessage>
 {
 public:
-    /** Converting constructor taking a procedure URI. */
-    Procedure(String uri);
-
     /** Obtains the procedure URI. */
     const String& uri() const;
 
@@ -614,29 +613,53 @@ public:
         (https://wamp-proto.org/wamp_latest_ietf.html#name-pattern-based-registrations)
         @{ */
 
-    /** Sets the matching policy to be used for this subscription. */
-    Procedure& withMatchPolicy(MatchPolicy);
+    /** Sets the matching policy to be used for this registration. */
+    TDerived& withMatchPolicy(MatchPolicy);
 
-    /** Obtains the matching policy used for this subscription. */
+    /** Obtains the matching policy used for this registration. */
     MatchPolicy matchPolicy() const;
     /// @}
 
+protected:
+    template <typename... Ts>
+    ProcedureLike(Ts&&... args);
+
 private:
-    using Base = Options<Procedure, internal::RegisterMessage>;
+    using Base = Options<TDerived, internal::RegisterMessage>;
+
+    TDerived& derived() {return static_cast<TDerived&>(*this);}
 
 public:
     // Internal use only
-    Procedure(internal::PassKey, internal::RegisterMessage&& msg);
     RequestId requestId(internal::PassKey) const;
     String&& uri(internal::PassKey);
 };
 
 
 //------------------------------------------------------------------------------
-/** Contains the procedure URI, options, and payload contained within
-    WAMP `CALL` messages. */
+/** Contains the procedure URI and other options contained within
+    WAMP `REGISTER` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Rpc : public Payload<Rpc, internal::CallMessage>
+class CPPWAMP_API Procedure : public ProcedureLike<Procedure>
+{
+public:
+    /** Converting constructor taking a procedure URI. */
+    Procedure(String uri);
+
+private:
+    using Base = ProcedureLike<Procedure>;
+
+public:
+    // Internal use only
+    Procedure(internal::PassKey, internal::RegisterMessage&& msg);
+};
+
+
+//------------------------------------------------------------------------------
+/** Provides properties common to RPC-like objects. */
+//------------------------------------------------------------------------------
+template <typename TDerived>
+class CPPWAMP_API RpcLike : public Payload<TDerived, internal::CallMessage>
 {
 public:
     /** The duration type used for caller-initiated timeouts. */
@@ -651,18 +674,98 @@ public:
         return CallCancelMode::kill;
     }
 
-    /** Converting constructor taking a procedure URI. */
-    Rpc(String uri);
+    /** Specifies the Error object in which to store call errors returned
+        by the callee. */
+    TDerived& captureError(Error& error);
 
     /** Obtains the procedure URI. */
     const String& uri() const;
 
-    /** Specifies the Error object in which to store call errors returned
-        by the callee. */
-    Rpc& captureError(Error& error);
-
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
+
+    /** @name Call Timeouts
+        See [Call Timeouts in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-call-timeouts).
+        Setting a duration of zero deactivates the timeout.
+        @{ */
+
+    /** Requests that the caller cancel the call after the specified
+        timeout duration.
+        If negative, the given timeout is clamped to zero. */
+    TDerived& withCallerTimeout(TimeoutDuration timeout);
+
+    /** Obtains the caller timeout duration. */
+    TimeoutDuration callerTimeout() const;
+
+    /** Requests that the dealer cancel the call after the specified
+        timeout duration. */
+    TDerived& withDealerTimeout(DealerTimeoutDuration timeout);
+
+    /** Obtains the dealer timeout duration. */
+    ErrorOr<DealerTimeoutDuration> dealerTimeout() const;
+
+    /// @}
+
+    /** @name Caller Identification
+        See [Caller Identification in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-caller-identification)
+        @{ */
+
+    /** Requests that the identity of the caller be disclosed in the
+        call invocation. */
+    TDerived& withDiscloseMe(bool disclosed = true);
+
+    /** Determines if caller disclosure was requested. */
+    bool discloseMe() const;
+    /// @}
+
+    /** @name Call Cancellation
+        @{ */
+
+    /** Sets the default cancellation mode to use when none is specified. */
+    TDerived& withCancelMode(CallCancelMode mode);
+
+    /** Obtains the default cancellation mode associated with this RPC. */
+    CallCancelMode cancelMode() const;
+    /// @}
+
+protected:
+    template <typename... Ts>
+    RpcLike(Ts&&... args);
+
+private:
+    using Base = Payload<TDerived, internal::CallMessage>;
+
+    TDerived& derived() {return static_cast<TDerived&>(*this);}
+
+    Error* error_ = nullptr;
+    TimeoutDuration callerTimeout_ = {};
+    TrustLevel trustLevel_ = 0;
+    CallCancelMode cancelMode_ = defaultCancelMode();
+    bool hasTrustLevel_ = false;
+    bool disclosed_ = false;
+
+public:
+    // Internal use only
+    Error* error(internal::PassKey);
+    void setDisclosed(internal::PassKey, bool disclosed);
+    void setTrustLevel(internal::PassKey, TrustLevel trustLevel);
+    RequestId requestId(internal::PassKey) const;
+    bool disclosed(internal::PassKey) const;
+    bool hasTrustLevel(internal::PassKey) const;
+    TrustLevel trustLevel(internal::PassKey) const;
+};
+
+//------------------------------------------------------------------------------
+/** Contains the procedure URI, options, and payload contained within
+    WAMP `CALL` messages. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API Rpc : public RpcLike<Rpc>
+{
+public:
+    /** Converting constructor taking a procedure URI. */
+    Rpc(String uri);
 
     /** @name Progressive Call Results
         See [Progressive Call Results in the WAMP Specification]
@@ -688,86 +791,15 @@ public:
     bool isProgress() const;
     /// @}
 
-    /** @name Call Timeouts
-        See [Call Timeouts in the WAMP Specification]
-        (https://wamp-proto.org/wamp_latest_ietf.html#name-call-timeouts).
-        Setting a duration of zero deactivates the timeout.
-        @{ */
+ private:
+    using Base = RpcLike<Rpc>;
 
-    /** Requests that the caller cancel the call after the specified
-        timeout duration.
-        If negative, the given timeout is clamped to zero. */
-    Rpc& withCallerTimeout(TimeoutDuration timeout);
-
-    /** Obtains the caller timeout duration. */
-    TimeoutDuration callerTimeout() const;
-
-    /** Requests that the dealer cancel the call after the specified
-        timeout duration. */
-    Rpc& withDealerTimeout(DealerTimeoutDuration timeout);
-
-    /** Obtains the dealer timeout duration. */
-    ErrorOr<DealerTimeoutDuration> dealerTimeout() const;
-
-    /// @}
-
-    /** @name Caller Identification
-        See [Caller Identification in the WAMP Specification]
-        (https://wamp-proto.org/wamp_latest_ietf.html#name-caller-identification)
-        @{ */
-
-    /** Requests that the identity of the caller be disclosed in the
-        call invocation. */
-    Rpc& withDiscloseMe(bool disclosed = true);
-
-    /** Determines if caller disclosure was requested. */
-    bool discloseMe() const;
-    /// @}
-
-    /** @name Call Cancellation
-        @{ */
-
-    /** Sets the default cancellation mode to use when none is specified. */
-    Rpc& withCancelMode(CallCancelMode mode);
-
-    /** Obtains the default cancellation mode associated with this RPC. */
-    CallCancelMode cancelMode() const;
-    /// @}
-
-    /** @name Pattern-based Registrations
-        See [Pattern-based Registrations in the WAMP Specification]
-        (https://wamp-proto.org/wamp_latest_ietf.html#name-pattern-based-registrations)
-        @{ */
-
-    /** Sets the matching policy to be used for this call. */
-    Rpc& withMatchPolicy(MatchPolicy);
-
-    /** Obtains the matching policy used for this call. */
-    MatchPolicy matchPolicy() const;
-    /// @}
-
-private:
-    using Base = Payload<Rpc, internal::CallMessage>;
-
-    Error* error_ = nullptr;
-    TimeoutDuration callerTimeout_ = {};
-    TrustLevel trustLevel_ = 0;
-    CallCancelMode cancelMode_ = defaultCancelMode();
     bool progressiveResultsEnabled_ = false;
     bool isProgress_ = false;
-    bool hasTrustLevel_ = false;
-    bool disclosed_ = false;
 
 public:
     // Internal use only
     Rpc(internal::PassKey, internal::CallMessage&& msg);
-    void setDisclosed(internal::PassKey, bool disclosed);
-    void setTrustLevel(internal::PassKey, TrustLevel trustLevel);
-    Error* error(internal::PassKey);
-    RequestId requestId(internal::PassKey) const;
-    bool disclosed(internal::PassKey) const;
-    bool hasTrustLevel(internal::PassKey) const;
-    TrustLevel trustLevel(internal::PassKey) const;
 };
 
 
@@ -1116,6 +1148,230 @@ private:
     AnyCompletionExecutor executor_ = nullptr;
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
 };
+
+
+namespace internal
+{
+
+//------------------------------------------------------------------------------
+template <typename T>
+MatchPolicy getMatchPolicyOption(const T& messageData)
+{
+    const auto& opts = messageData.options();
+    auto found = opts.find("match");
+    if (found == opts.end())
+        return MatchPolicy::exact;
+    const auto& opt = found->second;
+    if (opt.template is<String>())
+    {
+        const auto& s = opt.template as<String>();
+        if (s == "prefix")
+            return MatchPolicy::prefix;
+        if (s == "wildcard")
+            return MatchPolicy::wildcard;
+    }
+    return MatchPolicy::unknown;
+}
+
+//------------------------------------------------------------------------------
+template <typename T>
+void setMatchPolicyOption(T& messageData, MatchPolicy policy)
+{
+    CPPWAMP_LOGIC_CHECK(policy != MatchPolicy::unknown,
+                        "Cannot specify unknown match policy");
+
+    switch (policy)
+    {
+    case MatchPolicy::exact:
+        break;
+
+    case MatchPolicy::prefix:
+        messageData.withOption("match", "prefix");
+        break;
+
+    case MatchPolicy::wildcard:
+        messageData.withOption("match", "wildcard");
+        break;
+
+    default:
+        assert(false && "Unexpected MatchPolicy enumerator");
+    }
+}
+
+} // namespace internal
+
+
+//******************************************************************************
+// ProcedureLike Member Function Definitions
+//******************************************************************************
+
+template <typename D>
+const String& ProcedureLike<D>::uri() const {return this->message().uri();}
+
+template <typename D>
+AccessActionInfo ProcedureLike<D>::info() const
+{
+    return {AccessAction::clientRegister, this->message().requestId(), uri(),
+            this->options()};
+}
+
+/** @details
+    This sets the `SUBSCRIBE.Options.match|string` option. */
+template <typename D>
+D& ProcedureLike<D>::withMatchPolicy(MatchPolicy policy)
+{
+    internal::setMatchPolicyOption(*this, policy);
+    return derived();
+}
+
+template <typename D>
+MatchPolicy ProcedureLike<D>::matchPolicy() const
+{
+    return internal::getMatchPolicyOption(*this);
+}
+
+template <typename D>
+template <typename... Ts>
+ProcedureLike<D>::ProcedureLike(Ts&&... args)
+    : Base(std::forward<Ts>(args)...)
+{}
+
+template <typename D>
+RequestId ProcedureLike<D>::requestId(internal::PassKey) const
+{
+    return this->message().requestId();
+}
+
+template <typename D>
+String&& ProcedureLike<D>::uri(internal::PassKey)
+{
+    return std::move(this->message()).uri();
+}
+
+
+//******************************************************************************
+// RpcLike Member Function Definitions
+//******************************************************************************
+
+template <typename D>
+D& RpcLike<D>::captureError(Error& error)
+{
+    error_ = &error;
+    return derived();
+}
+
+template <typename D>
+const String& RpcLike<D>::uri() const {return this->message().uri();}
+
+template <typename D>
+AccessActionInfo RpcLike<D>::info() const
+{
+    return {AccessAction::clientCall, this->message().requestId(), uri(),
+            this->options()};
+}
+
+/** @details
+    If negative, the given timeout is clamped to zero. */
+template <typename D>
+D& RpcLike<D>::withCallerTimeout(TimeoutDuration timeout)
+{
+    if (timeout.count() < 0)
+        timeout = {};
+    callerTimeout_ = timeout;
+    return derived();
+}
+
+template <typename D>
+typename RpcLike<D>::TimeoutDuration RpcLike<D>::callerTimeout() const
+{
+    return callerTimeout_;
+}
+
+/** @details
+    This sets the `CALL.Options.timeout|integer` option. */
+template <typename D>
+D& RpcLike<D>::withDealerTimeout(DealerTimeoutDuration timeout)
+{
+    return this->withOption("timeout", timeout.count());
+}
+
+template <typename D>
+ErrorOr<typename RpcLike<D>::DealerTimeoutDuration>
+RpcLike<D>::dealerTimeout() const
+{
+    auto timeout = this->toUnsignedInteger("timeout");
+    if (!timeout)
+        return makeUnexpected(timeout.error());
+    return DealerTimeoutDuration{*timeout};
+}
+
+/** @details
+    This sets the `CALL.Options.disclose_me|bool` option. */
+template <typename D>
+D& RpcLike<D>::withDiscloseMe(bool disclosed)
+{
+    return this->withOption("disclose_me", disclosed);
+}
+
+template <typename D>
+bool RpcLike<D>::discloseMe() const
+{
+    return this->template optionOr<bool>("disclose_me", false);
+}
+
+template <typename D>
+D& RpcLike<D>::withCancelMode(CallCancelMode mode)
+{
+    cancelMode_ = mode;
+    return derived();
+}
+
+template <typename D>
+CallCancelMode RpcLike<D>::cancelMode() const {return cancelMode_;}
+
+template <typename D>
+template <typename... Ts>
+RpcLike<D>::RpcLike(Ts&&... args)
+    : Base(std::forward<Ts>(args)...)
+{}
+
+template <typename D>
+Error* RpcLike<D>::error(internal::PassKey) {return error_;}
+
+template <typename D>
+void RpcLike<D>::setDisclosed(internal::PassKey, bool disclosed)
+{
+    disclosed_ = disclosed;
+}
+
+template <typename D>
+void RpcLike<D>::setTrustLevel(internal::PassKey,
+                                       TrustLevel trustLevel)
+{
+    trustLevel_ = trustLevel;
+    hasTrustLevel_ = true;
+}
+
+template <typename D>
+RequestId RpcLike<D>::requestId(internal::PassKey) const
+{
+    return this->message().fields().at(1).template to<RequestId>();
+}
+
+template <typename D>
+bool RpcLike<D>::disclosed(internal::PassKey) const {return disclosed_;}
+
+template <typename D>
+bool RpcLike<D>::hasTrustLevel(internal::PassKey) const
+{
+    return hasTrustLevel_;
+}
+
+template <typename D>
+TrustLevel RpcLike<D>::trustLevel(internal::PassKey) const
+{
+    return trustLevel_;
+}
 
 } // namespace wamp
 

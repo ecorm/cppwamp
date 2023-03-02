@@ -104,7 +104,7 @@ namespace internal { class Client; }
     - WampErrc::invalidUri if the router rejected a malformed URI
     - WampErrc::sessionKilled if an operation was aborted due the session
       being killed by the peer
-    - WampErrc::notAuthorized if the router rejected an unauthorized operation
+    - WampErrc::authorizationDenied if the router rejected an unauthorized operation
     - WampErrc::optionNotAllowed if the router does does support an option
     - WampErrc::featureNotSupported if the router rejected an attempt to use
       an unsupported WAMP feature
@@ -1660,7 +1660,7 @@ Session::enroll(
 //------------------------------------------------------------------------------
 struct Session::InviteOp
 {
-    using ResultValue = Result;
+    using ResultValue = CallerChannel::Ptr;
     Session* self;
     Invitation i;
     CallerChannel::Ptr c;
@@ -1705,7 +1705,7 @@ Session::invite(
 {
     auto channel = CallerChannel::create({}, invitation, std::move(onChunk));
     return initiate<InviteOp>(std::forward<C>(completion),
-                              std::move(invitation), std::move(onChunk));
+                              std::move(invitation), std::move(channel));
 }
 
 //------------------------------------------------------------------------------
@@ -1729,7 +1729,7 @@ Session::invite(
 {
     auto channel = CallerChannel::create({}, invitation, std::move(onChunk));
     return safelyInitiate<InviteOp>(std::forward<C>(completion),
-                                    std::move(invitation), std::move(onChunk));
+                                    std::move(invitation), std::move(channel));
 }
 
 } // namespace wamp

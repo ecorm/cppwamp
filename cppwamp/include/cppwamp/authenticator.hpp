@@ -70,11 +70,11 @@ public:
 
     /** Rejects the authentication request by sending an ABORT message to
         the client. */
-    void reject(Reason r = {WampErrc::notAuthorized});
+    void reject(Reason r = {WampErrc::authorizationDenied});
 
     /** Thread-safe abort to use when the authenticator does not run on
         the same thread as the server. */
-    void reject(ThreadSafe, Reason r = {WampErrc::notAuthorized});
+    void reject(ThreadSafe, Reason r = {WampErrc::authorizationDenied});
 
 public:
     // Internal use only

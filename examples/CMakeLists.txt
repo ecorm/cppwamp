@@ -25,12 +25,14 @@ if(CPPWAMP_OPT_WITH_CORO)
     add_subdirectory(timeservice)
     add_subdirectory(stacklesstimeclient)
     add_subdirectory(stacklesstimeservice)
+    add_subdirectory(streaming)
     add_dependencies(cppwamp_examples
                      cppwamp-example-chat
                      cppwamp-example-timeclient
                      cppwamp-example-timeservice
                      cppwamp-example-stacklesstimeclient
-                     cppwamp-example-stacklesstimeservice)
+                     cppwamp-example-stacklesstimeservice
+                     cppwamp-example-streaming)
 endif()
 
 if(CPPWAMP_OPT_WITH_CORO20)

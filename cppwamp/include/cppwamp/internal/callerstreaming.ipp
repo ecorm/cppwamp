@@ -57,9 +57,9 @@ CPPWAMP_INLINE Invitation::Invitation(String uri, StreamMode mode)
 {
     using D = StreamMode;
     if (mode == D::calleeToCaller || mode == D::bidirectional)
-        withProgressiveResults();
+        withOption("receive_progress", true);
     if (mode == D::callerToCallee || mode == D::bidirectional)
-        withProgress();
+        withOption("progress", true);
 }
 
 CPPWAMP_INLINE StreamMode Invitation::mode() const {return mode_;}

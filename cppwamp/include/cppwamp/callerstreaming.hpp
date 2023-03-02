@@ -75,7 +75,7 @@ public:
     This object is used to generate an initiating `CALL` message configured for
     progressive call results and/or invocations. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Invitation : public Rpc
+class CPPWAMP_API Invitation : public RpcLike<Invitation>
 {
 public:
     /** Constructor taking a stream URI and desired stream mode. */
@@ -85,13 +85,7 @@ public:
     StreamMode mode() const;
 
 private:
-    using Base = Rpc;
-
-    using Base::captureError;
-    using Base::withProgressiveResults;
-    using Base::progressiveResultsAreEnabled;
-    using Base::withProgress;
-    using Base::isProgress;
+    using Base = RpcLike<Invitation>;
 
     StreamMode mode_;
 
