@@ -717,7 +717,7 @@ private:
         }
         else
         {
-            rec.channel = std::make_shared<CalleeChannel>(
+            rec.channel = CalleeChannel::create(
                 PassKey{}, std::move(msg), info.invitationDisabled,
                 executor_, userExecutor_, std::move(callee));
             postVia(executor_, userExecutor_, info.streamSlot, rec.channel);

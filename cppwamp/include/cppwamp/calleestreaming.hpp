@@ -18,6 +18,7 @@
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "asiodefs.hpp"
+#include "peerdata.hpp"
 #include "streaming.hpp"
 #include "tagtypes.hpp"
 #include "internal/callee.hpp"
@@ -185,6 +186,10 @@ private:
         return f;
     }
 
+    CalleeChannel(internal::InvocationMessage&& msg, bool invitationDisabled,
+                  AnyIoExecutor executor, AnyCompletionExecutor userExecutor,
+                  CalleePtr callee);
+
     bool isValidModeFor(const OutputChunk& c) const;
 
     std::future<ErrorOrDone> safeSendChunk(OutputChunk&& chunk);
@@ -204,9 +209,9 @@ private:
 
 public:
     // Internal use only
-    CalleeChannel(internal::PassKey, internal::InvocationMessage&& msg,
-                  bool invitationDisabled, AnyIoExecutor executor,
-                  AnyCompletionExecutor userExecutor, CalleePtr callee);
+    static Ptr create(internal::PassKey, internal::InvocationMessage&& msg,
+                      bool invitationDisabled, AnyIoExecutor executor,
+                      AnyCompletionExecutor userExecutor, CalleePtr callee);
 
     bool hasInterruptHandler(internal::PassKey) const;
 

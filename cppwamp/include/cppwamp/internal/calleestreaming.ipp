@@ -268,6 +268,19 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::futureValue(bool x)
     return f;
 }
 
+CPPWAMP_INLINE CalleeChannel::CalleeChannel(
+    internal::InvocationMessage&& msg, bool invitationDisabled,
+    AnyIoExecutor executor, AnyCompletionExecutor userExecutor,
+    CalleePtr callee)
+    : invitation_({}, std::move(msg)),
+      executor_(std::move(executor)),
+      userExecutor_(std::move(userExecutor)),
+      callee_(std::move(callee)),
+      state_(State::inviting),
+      mode_(invitation_.mode({})),
+      invitationDisabled_(invitationDisabled)
+{}
+
 CPPWAMP_INLINE bool CalleeChannel::isValidModeFor(const OutputChunk& c) const
 {
     using M = StreamMode;
@@ -295,18 +308,15 @@ CPPWAMP_INLINE void CalleeChannel::postInvitationAsChunkIfIgnored()
     }
 }
 
-CPPWAMP_INLINE CalleeChannel::CalleeChannel(
-    internal::PassKey, internal::InvocationMessage&& msg,
-    bool invitationDisabled, AnyIoExecutor executor,
-    AnyCompletionExecutor userExecutor, CalleePtr callee)
-    : invitation_({}, std::move(msg)),
-      executor_(std::move(executor)),
-      userExecutor_(std::move(userExecutor)),
-      callee_(std::move(callee)),
-      state_(State::inviting),
-      mode_(invitation_.mode({})),
-      invitationDisabled_(invitationDisabled)
-{}
+CPPWAMP_INLINE CalleeChannel::Ptr
+CalleeChannel::create(internal::PassKey, internal::InvocationMessage&& msg,
+                      bool invitationDisabled, AnyIoExecutor executor,
+                      AnyCompletionExecutor userExecutor, CalleePtr callee)
+{
+    return Ptr{new CalleeChannel(std::move(msg), invitationDisabled,
+                                 std::move(executor), std::move(userExecutor),
+                                 std::move(callee))};
+}
 
 CPPWAMP_INLINE bool CalleeChannel::hasInterruptHandler(internal::PassKey) const
 {

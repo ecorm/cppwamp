@@ -169,6 +169,7 @@ public:
 
 private:
     using CallerPtr = std::weak_ptr<internal::Caller>;
+    using ChunkHandler = AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>;
 
     static std::future<ErrorOrDone> futureValue(bool x);
 
@@ -180,6 +181,8 @@ private:
         p.set_value(makeUnexpectedError(errc));
         return f;
     }
+
+    CallerChannel(const Invitation& inv, ChunkHandler&& chunkHandler);
 
     std::future<ErrorOrDone> safeCancel();
 
@@ -193,7 +196,7 @@ private:
     InputChunk rsvp_;
     Error error_;
     Uri uri_;
-    AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)> chunkHandler_;
+    ChunkHandler chunkHandler_;
     AnyIoExecutor executor_;
     AnyCompletionExecutor userExecutor_;
     CallerPtr caller_;
@@ -205,7 +208,7 @@ private:
 
 public:
     // Internal use only
-    CallerChannel(
+    static Ptr create(
         internal::PassKey, const Invitation& inv,
         AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)> chunkHandler);
 

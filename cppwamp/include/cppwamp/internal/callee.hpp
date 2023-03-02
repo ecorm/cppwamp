@@ -11,14 +11,15 @@
 #include <future>
 #include <memory>
 #include "../erroror.hpp"
-#include "../peerdata.hpp"
 #include "../wampdefs.hpp"
 
 namespace wamp
 {
 
 class CalleeOutputChunk;
+class Error;
 class Registration;
+class Result;
 
 namespace internal
 {

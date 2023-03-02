@@ -14,7 +14,6 @@
 //------------------------------------------------------------------------------
 
 // TODO: Client-side abort
-// TODO: Streaming API for progressive calls/results
 
 #include <future>
 #include <memory>
@@ -23,6 +22,8 @@
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "asiodefs.hpp"
+#include "calleestreaming.hpp"
+#include "callerstreaming.hpp"
 #include "chits.hpp"
 #include "config.hpp"
 #include "connector.hpp"
@@ -137,6 +138,13 @@ public:
 
     /** Type-erased wrapper around an RPC interruption handler. */
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
+
+    /** Type-erased wrapper around a stream invitation handler. */
+    using StreamSlot = AnyReusableHandler<void (CalleeChannel::Ptr)>;
+
+    /** Type-erased wrapper around a caller input chunk handler. */
+    using ChunkSlot = AnyReusableHandler<void (CallerChannel::Ptr,
+                                               ErrorOr<CallerInputChunk>)>;
 
     /** Type-erased wrapper around a log event handler. */
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
@@ -462,6 +470,38 @@ public:
                                     CallCancelMode mode);
     /// @}
 
+    /// @name Streaming
+    /// @{
+    /** Registers a streaming endpoint. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Registration>, C>
+    enroll(Stream stream, StreamSlot streamSlot, C&& completion);
+
+    /** Thread-safe enroll stream. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<Registration>, C>
+    enroll(ThreadSafe, Stream stream, StreamSlot streamSlot, C&& completion);
+
+    /** Sends an invitation to establish a stream and waits for an RSVP. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel::Ptr>, C>
+    invite(Invitation invitation, ChunkSlot onChunk, C&& completion);
+
+    /** Thread-safe invite with RSVP. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel::Ptr>, C>
+    invite(ThreadSafe, Invitation invitation, ChunkSlot onChunk,
+           C&& completion);
+
+    /** Sends an invitation to establish a stream with no RSVP expected. */
+    CPPWAMP_NODISCARD ErrorOr<CallerChannel::Ptr> invite(Invitation invitation,
+                                                         ChunkSlot onChunk);
+
+    /** Thread-safe invite without RSVP. */
+    CPPWAMP_NODISCARD std::future<ErrorOr<CallerChannel::Ptr>>
+    invite(ThreadSafe, Invitation invitation, ChunkSlot onChunk);
+    /// @}
+
 private:
     template <typename T>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<T>)>;
@@ -481,6 +521,8 @@ private:
     struct UnregisterOp;
     struct CallOp;
     struct OngoingCallOp;
+    struct EnrollStreamOp;
+    struct InviteOp;
 
     template <typename O, typename C, typename... As>
     Deduced<ErrorOr<typename O::ResultValue>, C>
@@ -515,6 +557,14 @@ private:
     void safeOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f);
     void doOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f);
     void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f);
+    void doEnroll(Stream&& s, StreamSlot&& ss,
+                  CompletionHandler<Registration>&& f);
+    void safeEnroll(Stream&& s, StreamSlot&& ss,
+                    CompletionHandler<Registration>&& f);
+    void doInvite(Invitation&& i, CallerChannel::Ptr&& c,
+                  CompletionHandler<CallerChannel::Ptr>&& f);
+    void safeInvite(Invitation&& i, CallerChannel::Ptr&& c,
+                    CompletionHandler<CallerChannel::Ptr>&& f);
 
     std::shared_ptr<internal::Client> impl_;
 };
@@ -1315,8 +1365,6 @@ struct Session::CallOp
         - WampErrc::timeout if the call timed out.
         - WampErrc::unavailable if the callee is unavailable.
         - WampErrc::noAvailableCallee if all registered callees are unavaible.
-        - WampErrc::noEligibleCallee if options lead to the exclusion of all
-          callees providing the procedure.
     @note Use Session::ongoingCall if progressive results are desired.
     @pre `rpc.withProgressiveResults() == false`
     @throws error::Logic if `rpc.progressiveResultsAreEnabled() == true`. */
@@ -1433,6 +1481,8 @@ struct Session::OngoingCallOp
           or more invalid arguments.
         - WampErrc::cancelled if the call was cancelled.
         - WampErrc::timeout if the call timed out.
+        - WampErrc::unavailable if the callee is unavailable.
+        - WampErrc::noAvailableCallee if all registered callees are unavaible.
     @note `withProgessiveResults(true)` is automatically performed on the
            given `rpc` argument.
     @note The given completion handler must allow multi-shot invocation. */
@@ -1516,11 +1566,7 @@ Session::ongoingCall(
 
 //------------------------------------------------------------------------------
 template <typename O, typename C, typename... As>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<typename O::ResultValue>, C>
-#else
 Session::template Deduced<ErrorOr<typename O::ResultValue>, C>
-#endif
 Session::initiate(C&& token, As&&... args)
 {
     return boost::asio::async_initiate<
@@ -1530,16 +1576,160 @@ Session::initiate(C&& token, As&&... args)
 
 //------------------------------------------------------------------------------
 template <typename O, typename C, typename... As>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<typename O::ResultValue>, C>
-#else
 Session::template Deduced<ErrorOr<typename O::ResultValue>, C>
-#endif
 Session::safelyInitiate(C&& token, As&&... args)
 {
     return boost::asio::async_initiate<
         C, void(ErrorOr<typename O::ResultValue>)>(
         O{this, std::forward<As>(args)...}, token, threadSafe);
+}
+
+//------------------------------------------------------------------------------
+struct Session::EnrollStreamOp
+{
+    using ResultValue = Registration;
+    Session* self;
+    Stream s;
+    StreamSlot ss;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doEnroll(std::move(s), std::move(ss), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->safeEnroll(std::move(s), std::move(ss), std::forward<F>(f));
+    }
+};
+
+//------------------------------------------------------------------------------
+/** @see @ref Streaming
+
+    @return A Registration object, therafter used to manage the registration's
+            lifetime.
+    @par Notable Error Codes
+        - WampErrc::procedureAlreadyExists if the router reports that a
+          stream/procedure with the same URI has already been registered for
+          this realm. */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Registration>, C>
+#else
+Session::template Deduced<ErrorOr<Registration>, C>
+#endif
+Session::enroll(
+    Stream stream,         /**< The stream to register. */
+    StreamSlot streamSlot, /**< Callable handler of type
+                                `void (CalleeChannel::Ptr)` to execute when
+                                the RPC is invoked. */
+    C&& completion         /**< Callable handler of type
+                               'void(ErrorOr<Registration>)', or a compatible
+                               Boost.Asio completion token. */
+    )
+{
+    return initiate<EnrollStreamOp>(
+        std::forward<C>(completion), std::move(stream), std::move(streamSlot));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::enroll(Procedure, CallSlot, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Registration>, C>
+#else
+Session::template Deduced<ErrorOr<Registration>, C>
+#endif
+Session::enroll(
+    ThreadSafe,
+    Stream stream,         /**< The stream to register. */
+    StreamSlot streamSlot, /**< Callable handler of type
+                                `void (CalleeChannel::Ptr)` to execute when
+                                the RPC is invoked. */
+    C&& completion         /**< Callable handler of type
+                               'void(ErrorOr<Registration>)', or a compatible
+                               Boost.Asio completion token. */
+    )
+{
+    return safelyInitiate<EnrollStreamOp>(
+        std::forward<C>(completion), std::move(stream), std::move(streamSlot));
+}
+
+//------------------------------------------------------------------------------
+struct Session::InviteOp
+{
+    using ResultValue = Result;
+    Session* self;
+    Invitation i;
+    CallerChannel::Ptr c;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doInvite(std::move(i), std::move(c), std::forward<F>(f));
+    }
+
+    template <typename F> void operator()(F&& f, ThreadSafe)
+    {
+        self->safeInvite(std::move(i), std::move(c), std::forward<F>(f));
+    }
+};
+
+//------------------------------------------------------------------------------
+/** @return A new CallerChannel shared pointer.
+    @par Notable Error Codes
+        - WampErrc::noSuchProcedure if the router reports that there is
+          no such procedure/stream registered by that name.
+        - WampErrc::invalidArgument if the callee reports that there are one
+          or more invalid arguments.
+        - WampErrc::cancelled if the stream was cancelled.
+        - WampErrc::timeout if the invitation timed out.
+        - WampErrc::unavailable if the callee is unavailable.
+        - WampErrc::noAvailableCallee if all registered callees are unavaible. */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<CallerChannel::Ptr>, C>
+#else
+Session::template Deduced<ErrorOr<CallerChannel::Ptr>, C>
+#endif
+Session::invite(
+    Invitation invitation, /**< Details about the stream. */
+    ChunkSlot onChunk,     /**< Caller input chunk handler with signature
+                                `void (CallerChannel::Ptr, CallerInputChunk)` */
+    C&& completion         /**< Callable handler of type
+                                `void(ErrorOr<CallerChannel::Ptr>)`,
+                                or a compatible Boost.Asio completion token. */
+    )
+{
+    auto channel = CallerChannel::create({}, invitation, std::move(onChunk));
+    return initiate<InviteOp>(std::forward<C>(completion),
+                              std::move(invitation), std::move(onChunk));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Session::invite(Invitation, ChunkSlot, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<Result>, C>
+#else
+Session::template Deduced<ErrorOr<CallerChannel::Ptr>, C>
+#endif
+Session::invite(
+    ThreadSafe,
+    Invitation invitation, /**< Details about the stream. */
+    ChunkSlot onChunk,     /**< Caller input chunk handler with signature
+                                `void (CallerChannel::Ptr, CallerInputChunk)` */
+    C&& completion         /**< Callable handler of type
+                                `void(ErrorOr<CallerChannel::Ptr>)`,
+                                or a compatible Boost.Asio completion token. */
+    )
+{
+    auto channel = CallerChannel::create({}, invitation, std::move(onChunk));
+    return safelyInitiate<InviteOp>(std::forward<C>(completion),
+                                    std::move(invitation), std::move(onChunk));
 }
 
 } // namespace wamp

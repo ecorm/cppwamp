@@ -211,6 +211,15 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::futureValue(bool x)
     return f;
 }
 
+CPPWAMP_INLINE CallerChannel::CallerChannel(const Invitation& inv,
+                                            ChunkHandler&& chunkHandler)
+    : uri_(inv.uri()),
+    chunkHandler_(std::move(chunkHandler)),
+    cancelMode_(inv.cancelMode()),
+    state_(State::open),
+    mode_(inv.mode())
+{}
+
 CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::safeCancel()
 {
     auto caller = caller_.lock();
@@ -223,15 +232,14 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::safeCancel()
     return caller->safeCancelStream(id_);
 }
 
-CPPWAMP_INLINE CallerChannel::CallerChannel(
-    internal::PassKey, const Invitation& inv,
+CPPWAMP_INLINE CallerChannel::Ptr
+CallerChannel::create(
+    internal::PassKey,
+    const Invitation& inv,
     AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)> chunkHandler)
-    : uri_(inv.uri()),
-    chunkHandler_(std::move(chunkHandler)),
-    cancelMode_(inv.cancelMode()),
-    state_(State::open),
-    mode_(inv.mode())
-{}
+{
+    return Ptr(new CallerChannel(inv, std::move(chunkHandler)));
+}
 
 CPPWAMP_INLINE void CallerChannel::init(internal::PassKey, ChannelId id,
                                         CallerPtr caller, AnyIoExecutor exec,
