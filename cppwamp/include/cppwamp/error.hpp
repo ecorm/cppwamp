@@ -224,6 +224,7 @@ enum class WampErrc
     noSuchRegistration,     ///< Could not unregister; the given registration is not active
     noSuchRole,             ///< Attempt to authenticate under unsupported role
     noSuchSubscription,     ///< Could not unsubscribe; the given subscription is not active
+    payloadSizeExceeded,    ///< Serialized payload exceeds transport size limits
     procedureAlreadyExists, ///< A procedure with the given URI is already registered
     protocolViolation,      ///< Invalid, unexpected, or malformed WAMP message
 
@@ -244,10 +245,6 @@ enum class WampErrc
     timeout,                ///< Operation timed out
     unavailable,            ///< Callee is unable to handle the invocation
 
-    // Errors not currently in the WAMP spec, but used by CppWAMP and Crossbar
-    // https://github.com/crossbario/autobahn-python/blob/master/autobahn/wamp/exception.py
-    // https://github.com/wamp-proto/wamp-proto/issues/422
-    payloadSizeExceeded,    ///< Serialized payload exceeds transport limits
     count
 };
 

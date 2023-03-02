@@ -213,6 +213,7 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* noSuchRegistration     */ "Could not unregister; the given registration is not active",
 /* noSuchRole             */ "Attempt to authenticate under unsupported role",
 /* noSuchSubscription     */ "Could not unsubscribe; the given subscription is not active",
+/* payloadSizeExceeded    */ "Serialized payload exceeds transport size limits",
 /* procedureAlreadyExists */ "A procedure with the given URI is already registered",
 /* protocolViolation      */ "Invalid, unexpected, or malformed WAMP message",
 
@@ -231,7 +232,6 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* noMatchingAuthMethod   */ "No matching authentication method was found",
 /* unavailable            */ "Callee is unable to handle the invocation",
 
-/* payloadSizeExceeded    */ "Serialized payload exceeds transport limits",
 /* timeout                */ "Operation timed out"
     };
 
@@ -380,6 +380,7 @@ CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
         "wamp.error.no_such_registration",
         "wamp.error.no_such_role",
         "wamp.error.no_such_subscription",
+        "wamp.error.payload_size_exceeded",
         "wamp.error.procedure_already_exists",
         "wamp.error.protocol_violation",
 
@@ -397,9 +398,7 @@ CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
         "wamp.error.no_available_callee",
         "wamp.error.no_matching_auth_method",
         "wamp.error.timeout",
-        "wamp.error.unavailable",
-
-        "wamp.error.payload_size_exceeded"
+        "wamp.error.unavailable"
     };
 
     using T = std::underlying_type<WampErrc>::type;
