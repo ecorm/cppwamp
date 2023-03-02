@@ -216,32 +216,38 @@ enum class WampErrc
     systemShutdown,         ///< The other peer is shutting down
 
     // Basic profile errors
-    authorizationFailed,        ///< The authorization operation itself failed
-    invalidArgument,            ///< The given argument types/values are not acceptable to the called procedure
-    invalidUri,                 ///< An invalid WAMP URI was provided
-    noSuchProcedure,            ///< No procedure was registered under the given URI
-    noSuchRealm,                ///< Attempt to join non-existent realm
-    noSuchRegistration,         ///< Could not unregister; the given registration is not active
-    noSuchRole,                 ///< Attempt to authenticate under unsupported role
-    noSuchSubscription,         ///< Could not unsubscribe; the given subscription is not active
-    notAuthorized,              ///< This peer is not authorized to perform the operation
-    procedureAlreadyExists,     ///< A procedure with the given URI is already registered
-    protocolViolation,          ///< Invalid, unexpected, or malformed WAMP message.
+    invalidArgument,        ///< The given argument types/values are not acceptable to the called procedure
+    invalidUri,             ///< An invalid WAMP URI was provided
+    noSuchPrincipal,        ///< Authentication attempted with a non-existent authid
+    noSuchProcedure,        ///< No procedure was registered under the given URI
+    noSuchRealm,            ///< Attempt to join non-existent realm
+    noSuchRegistration,     ///< Could not unregister; the given registration is not active
+    noSuchRole,             ///< Attempt to authenticate under unsupported role
+    noSuchSubscription,     ///< Could not unsubscribe; the given subscription is not active
+    procedureAlreadyExists, ///< A procedure with the given URI is already registered
+    protocolViolation,      ///< Invalid, unexpected, or malformed WAMP message
 
     // Advanced profile errors
-    cancelled,                  ///< The previously issued call was cancelled
-    featureNotSupported,        ///< Advanced feature is not supported
-    discloseMeDisallowed,       ///< Router rejected client request to disclose its identity
-    optionNotAllowed,           ///< Option is disallowed by the router
-    networkFailure,             ///< Router encountered a network failure
-    noAvailableCallee,          ///< All registered callees are unable to handle the invocation
-    timeout,                    ///< Operation timed out
-    unavailable,                ///< Callee is unable to handle the invocation
+    authenticationDenied,   ///< Authentication was denied
+    authenticationFailed,   ///< The authentication operation itself failed
+    authenticationRequired, ///< Anonymous authentication not permitted
+    authorizationDenied,    ///< Not authorized to perform the action
+    authorizationFailed,    ///< The authorization operation itself failed
+    authorizationRequired,  ///< Authorization information was missing
+    cancelled,              ///< The previously issued call was cancelled
+    featureNotSupported,    ///< Advanced feature is not supported
+    discloseMeDisallowed,   ///< Client request to disclose its identity was rejected
+    optionNotAllowed,       ///< Option is disallowed by the router
+    networkFailure,         ///< Router encountered a network failure
+    noAvailableCallee,      ///< All registered callees are unable to handle the invocation
+    noMatchingAuthMethod,   ///< No matching authentication method was found
+    timeout,                ///< Operation timed out
+    unavailable,            ///< Callee is unable to handle the invocation
 
     // Errors not currently in the WAMP spec, but used by CppWAMP and Crossbar
     // https://github.com/crossbario/autobahn-python/blob/master/autobahn/wamp/exception.py
-    authenticationFailed,       ///< The authentication operation itself failed
-    payloadSizeExceeded,        ///< Serialized payload exceeds transport limits
+    // https://github.com/wamp-proto/wamp-proto/issues/422
+    payloadSizeExceeded,    ///< Serialized payload exceeds transport limits
     count
 };
 

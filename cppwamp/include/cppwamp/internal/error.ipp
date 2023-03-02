@@ -205,27 +205,32 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* sessionKilled          */ "Session was killed by the other peer",
 /* goodbyeAndOut          */ "Session ended successfully",
 
-/* authorizationFailed    */ "The authorization operation itself failed",
 /* invalidArgument        */ "The given argument types/values are not acceptable to the callee",
 /* invalidUri             */ "An invalid WAMP URI was provided",
+/* noSuchPrincipal        */ "Authentication attempted with a non-existent authid",
 /* noSuchProcedure        */ "No procedure was registered under the given URI",
 /* noSuchRealm            */ "Attempt to join non-existent realm",
 /* noSuchRegistration     */ "Could not unregister; the given registration is not active",
 /* noSuchRole             */ "Attempt to authenticate under unsupported role",
 /* noSuchSubscription     */ "Could not unsubscribe; the given subscription is not active",
-/* notAuthorized          */ "This peer is not authorized to perform the operation",
 /* procedureAlreadyExists */ "A procedure with the given URI is already registered",
 /* protocolViolation      */ "Invalid, unexpected, or malformed WAMP message",
 
+/* authenticationDenied   */ "Authentication was denied",
+/* authenticationFailed   */ "The authentication operation itself failed",
+/* authenticationRequired */ "Anonymous authentication not permitted",
+/* authorizationDenied    */ "Not authorized to perform the action",
+/* authorizationFailed    */ "The authorization operation itself failed",
+/* authorizationRequired  */ "Authorization information was missing",
 /* cancelled              */ "The previously issued call was cancelled",
 /* featureNotSupported    */ "Advanced feature is not supported",
-/* discloseMeDisallowed   */ "Router rejected client request to disclose its identity",
+/* discloseMeDisallowed   */ "Client request to disclose its identity was rejected",
 /* optionNotAllowed       */ "Option is disallowed by the router",
 /* networkFailure         */ "Router encountered a network failure",
 /* noAvailableCallee      */ "All registered callees are unable to handle the invocation",
+/* noMatchingAuthMethod   */ "No matching authentication method was found",
 /* unavailable            */ "Callee is unable to handle the invocation",
 
-/* authenticationFailed   */ "The authentication operation itself failed",
 /* payloadSizeExceeded    */ "Serialized payload exceeds transport limits",
 /* timeout                */ "Operation timed out"
     };
@@ -308,35 +313,42 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
         {"wamp.close.goodbye_and_out",               WE::goodbyeAndOut},
         {"wamp.close.normal",                        WE::sessionKilled},
         {"wamp.close.system_shutdown",               WE::systemShutdown},
+        {"wamp.error.authentication_denied",         WE::authenticationDenied},
         {"wamp.error.authentication_failed",         WE::authenticationFailed},
+        {"wamp.error.authentication_required",       WE::authenticationRequired},
+        {"wamp.error.authorization_denied",          WE::authorizationDenied},
         {"wamp.error.authorization_failed",          WE::authorizationFailed},
+        {"wamp.error.authorization_required",        WE::authorizationRequired},
         {"wamp.error.canceled",                      WE::cancelled},
-        {"wamp.error.close_realm",                   WE::closeRealm},
+        {"wamp.error.close_realm",        /*Legacy*/ WE::closeRealm},
         {"wamp.error.feature_not_supported",         WE::featureNotSupported},
-        {"wamp.error.goodbye_and_out",               WE::goodbyeAndOut},
+        {"wamp.error.goodbye_and_out",    /*Legacy*/ WE::goodbyeAndOut},
         {"wamp.error.invalid_argument",              WE::invalidArgument},
         {"wamp.error.invalid_uri",                   WE::invalidUri},
         {"wamp.error.network_failure",               WE::networkFailure},
+        {"wamp.error.no_auth_method",     /*Legacy*/ WE::noMatchingAuthMethod},
         {"wamp.error.no_available_callee",           WE::noAvailableCallee},
+        {"wamp.error.no_matching_auth_method",       WE::noMatchingAuthMethod},
+        {"wamp.error.no_such_principal",             WE::noSuchPrincipal},
         {"wamp.error.no_such_procedure",             WE::noSuchProcedure},
         {"wamp.error.no_such_realm",                 WE::noSuchRealm},
         {"wamp.error.no_such_registration",          WE::noSuchRegistration},
         {"wamp.error.no_such_role",                  WE::noSuchRole},
         {"wamp.error.no_such_subscription",          WE::noSuchSubscription},
-        {"wamp.error.not_authorized",                WE::notAuthorized},
+        {"wamp.error.not_authorized",     /*Legacy*/ WE::authorizationDenied},
         {"wamp.error.option_disallowed.disclose_me", WE::discloseMeDisallowed},
         {"wamp.error.option_not_allowed",            WE::optionNotAllowed},
         {"wamp.error.payload_size_exceeded",         WE::payloadSizeExceeded},
         {"wamp.error.procedure_already_exists",      WE::procedureAlreadyExists},
         {"wamp.error.protocol_violation",            WE::protocolViolation},
-        {"wamp.error.system_shutdown",               WE::systemShutdown},
+        {"wamp.error.system_shutdown",    /*Legacy*/ WE::systemShutdown},
         {"wamp.error.timeout",                       WE::timeout},
         {"wamp.error.unavailable",                   WE::unavailable}
     };
 
     static constexpr auto extent = std::extent<decltype(sortedByUri)>::value;
-    // Three extra for wamp.close.*, exluding wamp.close.normal
-    static_assert(extent == unsigned(WampErrc::count) + 3, "");
+    static constexpr unsigned legacyUriCount = 5;
+    static_assert(extent == unsigned(WampErrc::count) + legacyUriCount, "");
 
     auto end = std::end(sortedByUri);
     auto iter = std::lower_bound(std::begin(sortedByUri), end, uri);
@@ -360,28 +372,33 @@ CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
         "wamp.close.normal",
         "wamp.close.system_shutdown",
 
-        "wamp.error.authorization_failed",
         "wamp.error.invalid_argument",
         "wamp.error.invalid_uri",
+        "wamp.error.no_such_principal",
         "wamp.error.no_such_procedure",
         "wamp.error.no_such_realm",
         "wamp.error.no_such_registration",
         "wamp.error.no_such_role",
         "wamp.error.no_such_subscription",
-        "wamp.error.not_authorized",
         "wamp.error.procedure_already_exists",
         "wamp.error.protocol_violation",
 
+        "wamp.error.authentication_denied",
+        "wamp.error.authentication_failed",
+        "wamp.error.authentication_required",
+        "wamp.error.authorization_denied",
+        "wamp.error.authorization_failed",
+        "wamp.error.authorization_required",
         "wamp.error.canceled",
         "wamp.error.feature_not_supported",
         "wamp.error.option_disallowed.disclose_me",
         "wamp.error.option_not_allowed",
         "wamp.error.network_failure",
         "wamp.error.no_available_callee",
+        "wamp.error.no_matching_auth_method",
         "wamp.error.timeout",
         "wamp.error.unavailable",
 
-        "wamp.error.authentication_failed",
         "wamp.error.payload_size_exceeded"
     };
 
