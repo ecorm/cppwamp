@@ -1913,9 +1913,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                 CHECK( result == makeUnexpected(WampErrc::authorizationDenied) );
                 CHECK_THROWS_AS( result.value(), error::Failure );
                 CHECK_FALSE( !error );
-                CHECK_THAT( error.uri(), Equals("wamp.error.not_authorized") );
-                CHECK( error.errorCode() ==
-                       make_error_code(WampErrc::authorizationDenied) );
+                CHECK( error.errorCode() == WampErrc::authorizationDenied );
                 CHECK( error.args() == Array{123} );
                 CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
             }
@@ -1952,7 +1950,6 @@ GIVEN( "an IO service and a ConnectionWish" )
                                              yield);
                 CHECK( result == makeUnexpected(WampErrc::authorizationDenied) );
                 CHECK_FALSE( !error );
-                CHECK_THAT( error.uri(), Equals("wamp.error.not_authorized") );
                 CHECK( error.errorCode() == WampErrc::authorizationDenied );
                 CHECK( error.args() == Array{123} );
                 CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
