@@ -29,6 +29,8 @@
 namespace wamp
 {
 
+namespace internal { struct StreamRegistration; }
+
 //------------------------------------------------------------------------------
 /** Contains the payload of a chunk received via a progressive
     `INVOCATION` message. */
@@ -83,16 +85,16 @@ public:
     explicit Stream(String uri);
 
     /** Treats the initial invocation as a chunk instead of an invitation. */
-    Stream& disableInvitation(bool disabled = true);
+    Stream& withInvitationTreatedAsChunk(bool disabled = true);
 
     /** Returns true if the initial invocation is to be treated as a chunk
         instead of an invitation. */
-    bool invitationDisabled() const;
+    bool invitationTreatedAsChunk() const;
 
 private:
     using Base = ProcedureLike<Stream>;
 
-    bool invitationDisabled_ = false;
+    bool invitationTreatedAsChunk_ = false;
 
 public:
     // Internal use only
@@ -133,9 +135,9 @@ public:
     /** Obtains the ephemeral ID of this channel. */
     ChannelId id() const;
 
-    /** Determines if the ignore invitation option was set during stream
-        registrtion. */
-    bool invitationDisabled() const;
+    /** Determines if the Stream::withInvitationTreatedAsChunk option was set
+        during stream registrtion. */
+    bool invitationTreatedAsChunk() const;
 
     /** Accesses the invitation. */
     const InputChunk& invitation() const &;
@@ -158,7 +160,7 @@ public:
     /** Accepts a streaming invitation from another peer, without sending an
         initial response. */
     CPPWAMP_NODISCARD ErrorOrDone accept(
-        ChunkSlot onChunk,
+        ChunkSlot onChunk = {},
         InterruptSlot onInterrupt = {});
 
     /** Sends a chunk to the other peer. */
@@ -169,10 +171,10 @@ public:
     send(ThreadSafe, OutputChunk chunk);
 
     /** Sends an Error to the other peer and closes the stream. */
-    ErrorOrDone close(Error error);
+    ErrorOrDone reject(Error error);
 
-    /** Thread-safe close with error. */
-    std::future<ErrorOrDone> close(ThreadSafe, Error error);
+    /** Thread-safe reject with error. */
+    std::future<ErrorOrDone> reject(ThreadSafe, Error error);
 
 private:
     using CalleePtr = std::weak_ptr<internal::Callee>;
@@ -188,7 +190,8 @@ private:
         return f;
     }
 
-    CalleeChannel(internal::InvocationMessage&& msg, bool invitationDisabled,
+    CalleeChannel(internal::InvocationMessage&& msg,
+                  const internal::StreamRegistration& reg,
                   AnyIoExecutor executor, AnyCompletionExecutor userExecutor,
                   CalleePtr callee);
 
@@ -207,13 +210,14 @@ private:
     ChannelId id_ = nullId();
     std::atomic<State> state_;
     StreamMode mode_ = {};
-    bool invitationDisabled_ = false;
+    bool invitationTreatedAsChunk_ = false;
 
 public:
     // Internal use only
-    static Ptr create(internal::PassKey, internal::InvocationMessage&& msg,
-                      bool invitationDisabled, AnyIoExecutor executor,
-                      AnyCompletionExecutor userExecutor, CalleePtr callee);
+    static Ptr create(
+        internal::PassKey, internal::InvocationMessage&& msg,
+        const internal::StreamRegistration& reg, AnyIoExecutor executor,
+        AnyCompletionExecutor userExecutor, CalleePtr callee);
 
     bool hasInterruptHandler(internal::PassKey) const;
 
@@ -221,6 +225,20 @@ public:
 
     void onInterrupt(internal::PassKey, internal::InterruptMessage&& msg);
 };
+
+namespace internal
+{
+
+//------------------------------------------------------------------------------
+struct StreamRegistration
+{
+    using StreamSlot = AnyReusableHandler<void (CalleeChannel::Ptr)>;
+
+    StreamSlot streamSlot;
+    bool treatInvitationAsChunk;
+};
+
+} // namespace internal
 
 } // namespace wamp
 

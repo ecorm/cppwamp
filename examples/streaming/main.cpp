@@ -91,12 +91,11 @@ public:
     void consumeFeed(wamp::YieldContext yield)
     {
         auto mode = wamp::StreamMode::calleeToCaller;
-        auto channelOrError = session_.invite(
+        auto channel = session_.invite(
             wamp::Invitation("feed", mode).withArgs("play"),
             [this](ChannelPtr channel, wamp::ErrorOr<Chunk> chunk)
                 {onChunk(channel, std::move(chunk));},
-            yield);
-        auto channel = channelOrError.value();
+            yield).value();
         std::cout << "Consumer got RSVP: " << channel->rsvp().args()
                   << " on channel " << channel->id() << std::endl;
 

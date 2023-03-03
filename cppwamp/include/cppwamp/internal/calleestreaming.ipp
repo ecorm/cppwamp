@@ -55,15 +55,15 @@ CalleeOutputChunk::yieldMessage(internal::PassKey, RequestId reqId)
 
 CPPWAMP_INLINE Stream::Stream(String uri): Base(std::move(uri)) {}
 
-CPPWAMP_INLINE Stream& Stream::disableInvitation(bool disabled)
+CPPWAMP_INLINE Stream& Stream::withInvitationTreatedAsChunk(bool disabled)
 {
-    invitationDisabled_ = disabled;
+    invitationTreatedAsChunk_ = disabled;
     return *this;
 }
 
-CPPWAMP_INLINE bool Stream::invitationDisabled() const
+CPPWAMP_INLINE bool Stream::invitationTreatedAsChunk() const
 {
-    return invitationDisabled_;
+    return invitationTreatedAsChunk_;
 }
 
 CPPWAMP_INLINE internal::RegisterMessage&
@@ -95,18 +95,24 @@ CPPWAMP_INLINE CalleeChannel::State CalleeChannel::state() const
 
 CPPWAMP_INLINE ChannelId CalleeChannel::id() const {return id_;}
 
-CPPWAMP_INLINE bool CalleeChannel::invitationDisabled() const
+CPPWAMP_INLINE bool CalleeChannel::invitationTreatedAsChunk() const
 {
-    return invitationDisabled_;
+    return invitationTreatedAsChunk_;
 }
 
 CPPWAMP_INLINE const CalleeInputChunk& CalleeChannel::invitation() const &
 {
-    return invitation_;
+    static const CalleeInputChunk empty;
+    return invitationTreatedAsChunk_ ? empty : invitation_;
 }
 
+/** @pre `this->invitationTreatedAsChunk() == false`
+    @throws error::Logic if the precondition is not met. */
 CPPWAMP_INLINE CalleeInputChunk&& CalleeChannel::invitation() &&
 {
+    CPPWAMP_LOGIC_CHECK(
+        !invitationTreatedAsChunk_,
+        "wamp::CalleeChannel::invitation: cannot move invitation when disabled");
     return std::move(invitation_);
 }
 
@@ -240,7 +246,7 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::send(ThreadSafe,
         - true if the error was accepted for processing
         - an error code if there was a problem processing the error
     @post `this->state() == State::closed` */
-CPPWAMP_INLINE ErrorOrDone CalleeChannel::close(Error error)
+CPPWAMP_INLINE ErrorOrDone CalleeChannel::reject(Error error)
 {
     auto oldState = state_.exchange(State::closed);
     auto caller = callee_.lock();
@@ -250,7 +256,7 @@ CPPWAMP_INLINE ErrorOrDone CalleeChannel::close(Error error)
 }
 
 /** @copydetails CalleeChannel::close(Error) */
-CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::close(ThreadSafe,
+CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::reject(ThreadSafe,
                                                              Error error)
 {
     auto oldState = state_.exchange(State::closed);
@@ -269,7 +275,7 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::futureValue(bool x)
 }
 
 CPPWAMP_INLINE CalleeChannel::CalleeChannel(
-    internal::InvocationMessage&& msg, bool invitationDisabled,
+    internal::InvocationMessage&& msg, const internal::StreamRegistration& reg,
     AnyIoExecutor executor, AnyCompletionExecutor userExecutor,
     CalleePtr callee)
     : invitation_({}, std::move(msg)),
@@ -279,7 +285,7 @@ CPPWAMP_INLINE CalleeChannel::CalleeChannel(
       id_(invitation_.channelId()),
       state_(State::inviting),
       mode_(invitation_.mode({})),
-      invitationDisabled_(invitationDisabled)
+      invitationTreatedAsChunk_(reg.treatInvitationAsChunk)
 {}
 
 CPPWAMP_INLINE bool CalleeChannel::isValidModeFor(const OutputChunk& c) const
@@ -301,7 +307,7 @@ CalleeChannel::safeSendChunk(OutputChunk&& chunk)
 
 CPPWAMP_INLINE void CalleeChannel::postInvitationAsChunkIfIgnored()
 {
-    if (chunkHandler_ && invitationDisabled_)
+    if (chunkHandler_ && invitationTreatedAsChunk_)
     {
         postVia(executor_, userExecutor_, chunkHandler_,
                 shared_from_this(), std::move(invitation_));
@@ -310,13 +316,13 @@ CPPWAMP_INLINE void CalleeChannel::postInvitationAsChunkIfIgnored()
 }
 
 CPPWAMP_INLINE CalleeChannel::Ptr
-CalleeChannel::create(internal::PassKey, internal::InvocationMessage&& msg,
-                      bool invitationDisabled, AnyIoExecutor executor,
-                      AnyCompletionExecutor userExecutor, CalleePtr callee)
+CalleeChannel::create(
+    internal::PassKey, internal::InvocationMessage&& msg,
+    const internal::StreamRegistration& reg, AnyIoExecutor executor,
+    AnyCompletionExecutor userExecutor, CalleePtr callee)
 {
-    return Ptr{new CalleeChannel(std::move(msg), invitationDisabled,
-                                 std::move(executor), std::move(userExecutor),
-                                 std::move(callee))};
+    return Ptr{new CalleeChannel(std::move(msg), reg, std::move(executor),
+                                 std::move(userExecutor), std::move(callee))};
 }
 
 CPPWAMP_INLINE bool CalleeChannel::hasInterruptHandler(internal::PassKey) const

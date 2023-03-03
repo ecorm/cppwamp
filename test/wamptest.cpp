@@ -2134,6 +2134,8 @@ GIVEN( "an IO service and a ConnectionWish" )
         });
         ioctx.run();
     }
+
+    // TODO: Callee leaving without responding
 }}
 
 //------------------------------------------------------------------------------

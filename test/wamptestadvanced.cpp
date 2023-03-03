@@ -429,6 +429,350 @@ GIVEN( "a caller and a callee" )
 }}
 
 //------------------------------------------------------------------------------
+SCENARIO( "WAMP callee-to-caller streaming with invitations",
+          "[WAMP][Advanced]" )
+{
+GIVEN( "a caller and a callee" )
+{
+    IoContext ioctx;
+    RpcFixture f(ioctx, withTcp);
+
+    std::vector<int> input{9, 3, 7, 5};
+    std::vector<int> output;
+    bool errorArmed = false;
+    bool leaveEarlyArmed = false;
+    bool rejectArmed = false;
+
+    auto onStream = [&](CalleeChannel::Ptr channel)
+    {
+        CHECK( channel->mode() == StreamMode::calleeToCaller );
+        CHECK_FALSE( channel->invitationTreatedAsChunk() );
+        CHECK( channel->invitation().args().front().as<String>() ==
+              "invitation" );
+
+        if (rejectArmed)
+        {
+            bool sent = channel->reject(WampErrc::invalidArgument).value();
+            CHECK(sent);
+            return;
+        }
+
+        auto rsvp = CalleeOutputChunk().withArgs("rsvp");
+        bool sent = channel->accept(rsvp).value();
+        CHECK(sent);
+
+        spawn(
+            ioctx,
+            [&, channel](YieldContext yield) mutable
+            {
+                boost::asio::steady_timer timer(ioctx);
+
+                for (unsigned i=0; i<input.size(); ++i)
+                {
+                    // Simulate a streaming app that throttles
+                    // the intermediary results at a fixed rate.
+                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.async_wait(yield);
+
+                    bool isFinal = (i == input.size() - 1);
+                    if (isFinal && errorArmed)
+                    {
+                        channel->reject(Error{WampErrc::invalidArgument});
+                    }
+                    else if (isFinal && leaveEarlyArmed)
+                    {
+                        f.callee.leave(yield).value();
+                    }
+                    else
+                    {
+                        channel->send(CalleeOutputChunk(isFinal)
+                                          .withArgs(input.at(i))).value();
+                    }
+                }
+            });
+    };
+
+    auto onChunk = [&](CallerChannel::Ptr channel,
+                       ErrorOr<CallerInputChunk> chunk)
+    {
+        INFO("for output.size()=" << output.size());
+        CHECK( channel->mode() == StreamMode::calleeToCaller );
+
+        bool isFinal = output.size() == input.size() - 1;
+        if (isFinal && errorArmed)
+        {
+            REQUIRE_FALSE( chunk.has_value() );
+            CHECK(chunk.error() == WampErrc::invalidArgument);
+            CHECK(channel->error().errorCode() == WampErrc::invalidArgument);
+            output.push_back(input.back());
+        }
+        else if (isFinal && leaveEarlyArmed)
+        {
+            REQUIRE_FALSE( chunk.has_value() );
+            CHECK(chunk.error() == WampErrc::cancelled);
+            CHECK(channel->error().errorCode() == WampErrc::cancelled);
+            output.push_back(input.back());
+        }
+        else
+        {
+            REQUIRE( chunk.has_value() );
+            auto n = chunk->args().at(0).to<int>();
+            output.push_back(n);
+            CHECK( chunk->isFinal() == isFinal );
+        }
+    };
+
+    auto runTest = [&]()
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            f.join(yield);
+            f.callee.enroll(Stream("com.myapp.foo"), onStream, yield).value();
+
+            for (unsigned i=0; i<2; ++i)
+            {
+                Error error;
+                Invitation inv{"com.myapp.foo", StreamMode::calleeToCaller};
+                inv.withArgs("invitation").captureError(error);
+                auto channelOrError = f.caller.invite(inv, onChunk, yield);
+
+                if (rejectArmed)
+                {
+                    CHECK(error.errorCode() == WampErrc::invalidArgument);
+                    REQUIRE_FALSE(channelOrError.has_value());
+                    CHECK(channelOrError.error() == WampErrc::invalidArgument);
+                    break;
+                }
+
+                REQUIRE(channelOrError.has_value());
+                auto channel = channelOrError.value();
+                CHECK(channel->mode() == StreamMode::calleeToCaller);
+                CHECK(channel->hasRsvp());
+                CHECK(channel->rsvp().args().at(0).as<String>() == "rsvp");
+
+                while (output.size() < input.size())
+                    suspendCoro(yield);
+                CHECK( input == output );
+                output.clear();
+
+                if (i == 0 && leaveEarlyArmed)
+                {
+                    f.callee.join(Realm(testRealm), yield).value();
+                    f.callee.enroll(Stream("com.myapp.foo"), onStream, yield)
+                        .value();
+                }
+            }
+
+            f.disconnect();
+        });
+        ioctx.run();
+    };
+
+    WHEN( "streaming result chunks" )
+    {
+        runTest();
+    }
+
+    WHEN( "returning an error instead of a chunk" )
+    {
+        errorArmed = true;
+        runTest();
+    }
+
+    WHEN( "rejecting an invitation with an error" )
+    {
+        rejectArmed = true;
+        runTest();
+    }
+
+    WHEN( "caller leaves without sending final chunk" )
+    {
+        leaveEarlyArmed = true;
+        runTest();
+    }
+}}
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP callee-to-caller streaming with no invitations/rsvps expected",
+          "[WAMP][Advanced]" )
+{
+GIVEN( "a caller and a callee" )
+{
+    IoContext ioctx;
+    RpcFixture f(ioctx, withTcp);
+
+    std::vector<int> input{9, 3, 7, 5};
+    std::vector<int> output;
+
+    auto onStream = [&](CalleeChannel::Ptr channel)
+    {
+        CHECK( channel->mode() == StreamMode::calleeToCaller );
+        CHECK( channel->invitationTreatedAsChunk() );
+        CHECK_FALSE( channel->invitation().hasArgs() );
+        channel->accept().value();
+
+        spawn(
+            ioctx,
+            [&, channel](YieldContext yield) mutable
+            {
+                boost::asio::steady_timer timer(ioctx);
+
+                for (unsigned i=0; i<input.size(); ++i)
+                {
+                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.async_wait(yield);
+
+                    bool isFinal = (i == input.size() - 1);
+                    channel->send(CalleeOutputChunk(isFinal)
+                                      .withArgs(input.at(i))).value();
+                }
+            });
+    };
+
+    auto onChunk = [&](CallerChannel::Ptr channel,
+                       ErrorOr<CallerInputChunk> chunk)
+    {
+        INFO("for output.size()=" << output.size());
+        CHECK( channel->mode() == StreamMode::calleeToCaller );
+
+        bool isFinal = output.size() == input.size() - 1;
+        REQUIRE( chunk.has_value() );
+        auto n = chunk->args().at(0).to<int>();
+        output.push_back(n);
+        CHECK( chunk->isFinal() == isFinal );
+    };
+
+    WHEN( "streaming result chunks" )
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            f.join(yield);
+            f.callee.enroll(
+                Stream("com.myapp.foo").withInvitationTreatedAsChunk(),
+                onStream,
+                yield).value();
+
+            for (unsigned i=0; i<2; ++i)
+            {
+                Invitation inv{"com.myapp.foo", StreamMode::calleeToCaller};
+                inv.withArgs("invitation");
+                auto channelOrError = f.caller.invite(inv, onChunk);
+                REQUIRE(channelOrError.has_value());
+                auto channel = channelOrError.value();
+                CHECK(channel->mode() == StreamMode::calleeToCaller);
+                CHECK_FALSE(channel->hasRsvp());
+
+                while (output.size() < input.size())
+                    suspendCoro(yield);
+                CHECK( input == output );
+                output.clear();
+            }
+
+            f.disconnect();
+        });
+        ioctx.run();
+    }
+}}
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP callee-to-caller streaming cancellation", "[WAMP][Advanced]" )
+{
+GIVEN( "a caller and a callee" )
+{
+    IoContext ioctx;
+    RpcFixture f(ioctx, withTcp);
+
+    std::vector<int> input{9, 3, 7, 5};
+    std::vector<int> output;
+    bool interruptReceived = false;
+
+    auto onInterrupt = [&](CalleeChannel::Ptr channel, Interruption intr)
+    {
+        CHECK(intr.cancelMode() == CallCancelMode::kill);
+        channel->reject(WampErrc::cancelled);
+        interruptReceived = true;
+    };
+
+    auto onStream = [&](CalleeChannel::Ptr channel)
+    {
+        CHECK( channel->mode() == StreamMode::calleeToCaller );
+        channel->accept(CalleeOutputChunk().withArgs("rsvp"),
+                        nullptr, onInterrupt).value();
+
+        spawn(
+            ioctx,
+            [&, channel](YieldContext yield) mutable
+            {
+                boost::asio::steady_timer timer(ioctx);
+
+                for (unsigned i=0; i<input.size(); ++i)
+                {
+                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.async_wait(yield);
+
+                    // Never send the final chunk
+                    bool isFinal = (i == input.size() - 1);
+                    if (!isFinal)
+                    {
+                        channel->send(CalleeOutputChunk(isFinal)
+                                          .withArgs(input.at(i))).value();
+                    }
+                }
+            });
+    };
+
+    auto onChunk = [&](CallerChannel::Ptr channel,
+                       ErrorOr<CallerInputChunk> chunk)
+    {
+        INFO("for output.size()=" << output.size());
+        bool isFinal = output.size() == input.size() - 1;
+        REQUIRE(chunk.has_value() != isFinal);
+        if (isFinal)
+        {
+            CHECK(interruptReceived);
+            output.push_back(input.back());
+        }
+        else
+        {
+            auto n = chunk->args().at(0).to<int>();
+            output.push_back(n);
+        }
+    };
+
+    WHEN( "streaming result chunks" )
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            f.join(yield);
+            f.callee.enroll(Stream("com.myapp.foo"), onStream, yield).value();
+
+            for (unsigned i=0; i<2; ++i)
+            {
+                Invitation inv{"com.myapp.foo", StreamMode::calleeToCaller};
+                inv.withArgs("invitation");
+                auto channelOrError = f.caller.invite(inv, onChunk, yield);
+                REQUIRE(channelOrError.has_value());
+                auto channel = channelOrError.value();
+
+                while (output.size() < input.size() - 1)
+                    suspendCoro(yield);
+                REQUIRE_FALSE(interruptReceived);
+                channel->cancel(CallCancelMode::kill);
+
+                while (output.size() < input.size())
+                    suspendCoro(yield);
+                CHECK( input == output );
+                output.clear();
+                interruptReceived = false;
+            }
+
+            f.disconnect();
+        });
+        ioctx.run();
+    }
+}}
+
+//------------------------------------------------------------------------------
 SCENARIO( "RPC Cancellation", "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )

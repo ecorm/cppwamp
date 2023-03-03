@@ -399,33 +399,27 @@ private:
 
 
 //------------------------------------------------------------------------------
+struct CallRegistration
+{
+    using CallSlot = AnyReusableHandler<Outcome (Invocation)>;
+    using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
+
+    CallSlot callSlot;
+    InterruptSlot interruptSlot;
+};
+
+
+//------------------------------------------------------------------------------
 struct RegistrationRecord
 {
-    using CallSlot         = AnyReusableHandler<Outcome (Invocation)>;
-    using InterruptSlot    = AnyReusableHandler<Outcome (Interruption)>;
-    using StreamSlot       = AnyReusableHandler<void (CalleeChannel::Ptr)>;
-    using CalleeChannelPtr = CalleeChannel::Ptr;
-
-    struct CallInfo
-    {
-        CallSlot callSlot;
-        InterruptSlot interruptSlot;
-    };
-
-    struct StreamInfo
-    {
-        StreamSlot streamSlot;
-        bool invitationDisabled;
-    };
-
     RegistrationRecord() = default;
 
-    RegistrationRecord(CallSlot&& c, InterruptSlot&& i)
-        : info(std::move(c), std::move(i))
+    RegistrationRecord(CallRegistration&& r)
+        : info(std::move(r))
     {}
 
-    RegistrationRecord(StreamSlot&& s, bool expectsInvitation)
-        : info(std::move(s), expectsInvitation),
+    RegistrationRecord(StreamRegistration&& r)
+        : info(std::move(r)),
           isForStream(true)
     {}
 
@@ -455,28 +449,21 @@ struct RegistrationRecord
 
     union Fields
     {
-        Fields() : asCall({nullptr, nullptr}) {}
-
-        Fields(CallSlot&& c, InterruptSlot&& i)
-            : asCall({std::move(c), std::move(i)})
-        {}
-
-        Fields(StreamSlot&& s, bool expectsInvitation)
-            : asStream({std::move(s), expectsInvitation})
-        {}
-
+        Fields() : asCall({}) {}
+        Fields(CallRegistration&& r) : asCall(std::move(r)) {}
+        Fields(StreamRegistration&& r) : asStream(std::move(r)) {}
         ~Fields() {}
 
         void destroy(bool isForStream)
         {
             if (isForStream)
-                asStream.~StreamInfo();
+                asStream.~StreamRegistration();
             else
-                asCall.~CallInfo();
+                asCall.~CallRegistration();
         }
 
-        CallInfo asCall;
-        StreamInfo asStream;
+        CallRegistration asCall;
+        StreamRegistration asStream;
     };
 
     Fields info;
@@ -531,11 +518,10 @@ public:
           peer_(peer)
     {}
 
-    ErrorOr<Registration> enroll(CallSlot&& callSlot,
-                                 InterruptSlot&& interruptSlot,
-                                 CalleePtr callee, const RegisteredMessage& msg)
+    ErrorOr<Registration> enroll(CallRegistration&& reg, CalleePtr callee,
+                                 const RegisteredMessage& msg)
     {
-        RegistrationRecord rec{std::move(callSlot), std::move(interruptSlot)};
+        RegistrationRecord rec{std::move(reg)};
         auto regId = msg.registrationId();
         auto emplaced = registry_.emplace(regId, std::move(rec));
         if (!emplaced.second)
@@ -543,11 +529,10 @@ public:
         return Registration{{}, callee, regId};
     }
 
-    ErrorOr<Registration> enroll(StreamSlot&& streamSlot,
-                                 bool invitationDisabled, CalleePtr callee,
+    ErrorOr<Registration> enroll(StreamRegistration&& reg, CalleePtr callee,
                                  const RegisteredMessage& msg)
     {
-        RegistrationRecord rec{std::move(streamSlot), invitationDisabled};
+        RegistrationRecord rec{std::move(reg)};
         auto regId = msg.registrationId();
         auto emplaced = registry_.emplace(regId, std::move(rec));
         if (!emplaced.second)
@@ -726,9 +711,8 @@ public:
 private:
     using Registry      = std::map<RegistrationId, RegistrationRecord>;
     using InvocationMap = std::map<RequestId, InvocationRecord>;
-    using StreamRegistrationInfo = RegistrationRecord::StreamInfo;
 
-    void postStreamInvocation(const StreamRegistrationInfo& info,
+    void postStreamInvocation(const StreamRegistration& reg,
                               InvocationRecord& rec,
                               InvocationMessage&& msg,
                               CalleePtr callee)
@@ -739,10 +723,10 @@ private:
         }
         else
         {
-            rec.channel = CalleeChannel::create(
-                PassKey{}, std::move(msg), info.invitationDisabled,
-                executor_, userExecutor_, std::move(callee));
-            postVia(executor_, userExecutor_, info.streamSlot, rec.channel);
+            rec.channel = CalleeChannel::create({}, std::move(msg), reg,
+                                                executor_, userExecutor_,
+                                                std::move(callee));
+            postVia(executor_, userExecutor_, reg.streamSlot, rec.channel);
         }
     }
 
@@ -1321,8 +1305,7 @@ public:
         struct Requested
         {
             Ptr self;
-            CallSlot c;
-            InterruptSlot i;
+            CallRegistration r;
             CompletionHandler<Registration> f;
 
             void operator()(ErrorOr<Message> reply)
@@ -1331,8 +1314,7 @@ public:
                 if (!me.checkReply(reply, WampMsgType::registered, f))
                     return;
                 auto& msg = messageCast<RegisteredMessage>(*reply);
-                auto reg = me.registry_.enroll(std::move(c), std::move(i),
-                                               self, msg);
+                auto reg = me.registry_.enroll(std::move(r), self, msg);
                 me.completeNow(f, std::move(reg));
             }
         };
@@ -1340,8 +1322,9 @@ public:
         if (!checkState(State::established, f))
             return;
 
-        request(p.message({}), Requested{shared_from_this(), std::move(c),
-                                         std::move(i), std::move(f)});
+        CallRegistration reg{std::move(c), std::move(i)};
+        request(p.message({}),
+                Requested{shared_from_this(), std::move(reg), std::move(f)});
     }
 
     void safeEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
@@ -1372,8 +1355,7 @@ public:
         struct Requested
         {
             Ptr self;
-            StreamSlot s;
-            bool invitationDisabled;
+            StreamRegistration r;
             CompletionHandler<Registration> f;
 
             void operator()(ErrorOr<Message> reply)
@@ -1382,8 +1364,7 @@ public:
                 if (!me.checkReply(reply, WampMsgType::registered, f))
                     return;
                 auto& msg = messageCast<RegisteredMessage>(*reply);
-                auto reg = me.registry_.enroll(std::move(s), invitationDisabled,
-                                               self, msg);
+                auto reg = me.registry_.enroll(std::move(r), self, msg);
                 me.completeNow(f, std::move(reg));
             }
         };
@@ -1391,8 +1372,9 @@ public:
         if (!checkState(State::established, f))
             return;
 
-        request(s.message({}), Requested{shared_from_this(), std::move(ss),
-                                         s.invitationDisabled(), std::move(f)});
+        StreamRegistration reg{std::move(ss), s.invitationTreatedAsChunk()};
+        request(s.message({}),
+                Requested{shared_from_this(), std::move(reg), std::move(f)});
     }
 
     void safeEnroll(Stream&& s, StreamSlot&& ss,
