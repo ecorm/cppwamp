@@ -31,11 +31,11 @@ namespace wamp
 enum class CPPWAMP_API LogLevel
 {
     trace,    ///< For sent/received WAMP message dumps
-    debug,    ///< Not yet used
-    info,     ///< Not yet used
+    debug,    ///< For debugging information intended for developers
+    info,     ///< For general events
     warning,  ///< For detected problems that don't affect normal operation
     error,    ///< For failures where operations cannot be completed
-    critical, ///< Not yet used
+    critical, ///< For failures that require shutdown of services
     off       ///< Used to disable all log events
 };
 

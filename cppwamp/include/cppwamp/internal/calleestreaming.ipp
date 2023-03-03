@@ -210,7 +210,7 @@ CPPWAMP_INLINE ErrorOrDone CalleeChannel::accept(
     @throws error::Logic if the mode precondition is not met */
 CPPWAMP_INLINE ErrorOrDone CalleeChannel::send(OutputChunk chunk)
 {
-    State expectedState = State::inviting;
+    State expectedState = State::open;
     auto newState = chunk.isFinal() ? State::closed : State::open;
     bool ok = state_.compare_exchange_strong(expectedState, newState);
     if (!ok)
@@ -226,7 +226,7 @@ CPPWAMP_INLINE ErrorOrDone CalleeChannel::send(OutputChunk chunk)
 CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::send(ThreadSafe,
                                                             OutputChunk chunk)
 {
-    State expectedState = State::inviting;
+    State expectedState = State::open;
     auto newState = chunk.isFinal() ? State::closed : State::open;
     bool ok = state_.compare_exchange_strong(expectedState, newState);
     if (!ok)
@@ -276,6 +276,7 @@ CPPWAMP_INLINE CalleeChannel::CalleeChannel(
       executor_(std::move(executor)),
       userExecutor_(std::move(userExecutor)),
       callee_(std::move(callee)),
+      id_(invitation_.channelId()),
       state_(State::inviting),
       mode_(invitation_.mode({})),
       invitationDisabled_(invitationDisabled)

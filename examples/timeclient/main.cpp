@@ -18,7 +18,7 @@
 #include <cppwamp/variant.hpp>
 #include <cppwamp/utils/consolelogger.hpp>
 
-const std::string realm = "cppwamp.demo.time";
+const std::string realm = "cppwamp.examples";
 const std::string address = "localhost";
 const short port = 12345u;
 

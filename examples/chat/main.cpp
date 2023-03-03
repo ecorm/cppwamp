@@ -11,7 +11,7 @@
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 
-const std::string realm = "cppwamp.demo.chat";
+const std::string realm = "cppwamp.examples";
 const std::string address = "localhost";
 const short port = 12345;
 

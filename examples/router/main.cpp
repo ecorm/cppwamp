@@ -48,7 +48,7 @@ int main()
         .withLogLevel(wamp::LogLevel::debug)
         .withAccessLogHandler(logger);
 
-    auto realmConfig = wamp::RealmConfig("cppwamp.demo.time");
+    auto realmConfig = wamp::RealmConfig("cppwamp.examples");
 
     auto serverConfig =
         wamp::ServerConfig("tcp12345", wamp::TcpEndpoint{12345}, wamp::json)

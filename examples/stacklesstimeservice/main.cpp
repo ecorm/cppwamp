@@ -20,7 +20,7 @@
 #include <cppwamp/variant.hpp>
 #include <boost/asio/yield.hpp>
 
-const std::string realm = "cppwamp.demo.time";
+const std::string realm = "cppwamp.examples";
 const std::string address = "localhost";
 const short port = 54321u;
 

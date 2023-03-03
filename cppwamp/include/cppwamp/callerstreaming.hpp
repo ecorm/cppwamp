@@ -142,10 +142,11 @@ public:
     Error&& error() &&;
 
     /** Sends a chunk to the other peer. */
-    ErrorOrDone send(OutputChunk chunk);
+    CPPWAMP_NODISCARD ErrorOrDone send(OutputChunk chunk);
 
     /** Thread-safe send. */
-    std::future<ErrorOrDone> send(ThreadSafe, OutputChunk chunk);
+    CPPWAMP_NODISCARD std::future<ErrorOrDone> send(ThreadSafe,
+                                                    OutputChunk chunk);
 
     /** Sends a cancellation request to the other peer and
         closes the channel. */

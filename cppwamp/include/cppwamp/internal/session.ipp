@@ -68,7 +68,14 @@ CPPWAMP_INLINE const IoStrand& Session::strand() const
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE Session::FallbackExecutor Session::fallbackExecutor() const
+CPPWAMP_INLINE const Session::Executor& Session::executor() const
+{
+    return impl_->executor();
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE const Session::FallbackExecutor&
+Session::fallbackExecutor() const
 {
     return impl_->userExecutor();
 }

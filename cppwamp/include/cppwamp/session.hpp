@@ -116,6 +116,8 @@ namespace internal { class Client; }
 class CPPWAMP_API Session
 {
     // TODO: Make all public operations thread-safe?
+    // Othewise, put thread-safe operations in a segregated interface
+    // e.g. session.threadSafe().call(...)
 
 private:
     struct GenericOp { template <typename F> void operator()(F&&) {} };
@@ -218,8 +220,11 @@ public:
     /** Obtains the execution context in which I/O operations are serialized. */
     const IoStrand& strand() const;
 
+    /** Obtains the executor that was passed during construction. */
+    const Executor& executor() const;
+
     /** Obtains the fallback executor used for user-provided handlers. */
-    FallbackExecutor fallbackExecutor() const;
+    const FallbackExecutor& fallbackExecutor() const;
 
     /** Returns the current state of the session. */
     SessionState state() const;

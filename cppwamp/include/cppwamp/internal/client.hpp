@@ -164,6 +164,7 @@ public:
     {
         oneShotRequestMap_.clear();
         multiShotRequestMap_.clear();
+        nextRequestId_ = nullId();
     }
 
 private:
@@ -311,6 +312,7 @@ public:
     {
         byTopic_.clear();
         subscriptions_.clear();
+        nextSlotId_ = nullId();
     }
 
 private:
@@ -423,26 +425,33 @@ struct RegistrationRecord
     {}
 
     RegistrationRecord(StreamSlot&& s, bool expectsInvitation)
-        : info(std::move(s), expectsInvitation)
+        : info(std::move(s), expectsInvitation),
+          isForStream(true)
     {}
 
-    RegistrationRecord(const RegistrationRecord& rhs) {copy(rhs);}
+    RegistrationRecord(const RegistrationRecord& rhs)
+    {
+        if (rhs.isForStream)
+            info.asStream = rhs.info.asStream;
+        else
+            info.asCall = rhs.info.asCall;
+        isForStream = rhs.isForStream;
+    }
 
-    RegistrationRecord(RegistrationRecord&& rhs) {move(std::move(rhs));}
+    RegistrationRecord(RegistrationRecord&& rhs)
+    {
+        if (rhs.isForStream)
+            info.asStream = std::move(rhs.info.asStream);
+        else
+            info.asCall = std::move(rhs.info.asCall);
+        isForStream = rhs.isForStream;
+    }
 
     ~RegistrationRecord() {info.destroy(isForStream);}
 
-    RegistrationRecord& operator=(const RegistrationRecord& rhs)
-    {
-        copy(rhs);
-        return *this;
-    }
+    RegistrationRecord& operator=(const RegistrationRecord& rhs) = delete;
 
-    RegistrationRecord& operator=(RegistrationRecord&& rhs)
-    {
-        move(std::move(rhs));
-        return *this;
-    }
+    RegistrationRecord& operator=(RegistrationRecord&& rhs) = delete;
 
     union Fields
     {
@@ -492,6 +501,21 @@ private:
 };
 
 //------------------------------------------------------------------------------
+struct InvocationRecord
+{
+    InvocationRecord(RegistrationId regId) : registrationId(regId) {}
+
+    CalleeChannel::Ptr channel;
+    RegistrationId registrationId;
+    bool interrupted = false; // Set when an interruption was received
+                              //     for this invocation.
+    bool moot = false;        // Set when auto-responding to an interruption
+                              //     with an error.
+    bool closed = false;      // Set when the initiating or subsequent
+                              //     invocation is not progressive
+};
+
+//------------------------------------------------------------------------------
 class ProcedureRegistry
 {
 public:
@@ -507,21 +531,27 @@ public:
           peer_(peer)
     {}
 
-    Registration enroll(CallSlot&& callSlot, InterruptSlot&& interruptSlot,
-                        CalleePtr callee, const RegisteredMessage& msg)
+    ErrorOr<Registration> enroll(CallSlot&& callSlot,
+                                 InterruptSlot&& interruptSlot,
+                                 CalleePtr callee, const RegisteredMessage& msg)
     {
         RegistrationRecord rec{std::move(callSlot), std::move(interruptSlot)};
         auto regId = msg.registrationId();
-        registry_[regId] = std::move(rec);
+        auto emplaced = registry_.emplace(regId, std::move(rec));
+        if (!emplaced.second)
+            return makeUnexpectedError(WampErrc::procedureAlreadyExists);
         return Registration{{}, callee, regId};
     }
 
-    Registration enroll(StreamSlot&& streamSlot, bool invitationDisabled,
-                        CalleePtr callee, const RegisteredMessage& msg)
+    ErrorOr<Registration> enroll(StreamSlot&& streamSlot,
+                                 bool invitationDisabled, CalleePtr callee,
+                                 const RegisteredMessage& msg)
     {
         RegistrationRecord rec{std::move(streamSlot), invitationDisabled};
         auto regId = msg.registrationId();
-        registry_[regId] = std::move(rec);
+        auto emplaced = registry_.emplace(regId, std::move(rec));
+        if (!emplaced.second)
+            return makeUnexpectedError(WampErrc::procedureAlreadyExists);
         return Registration{{}, callee, regId};
     }
 
@@ -599,7 +629,7 @@ public:
                                std::move(error));
     }
 
-    bool onInvocation(InvocationMessage& msg, CalleePtr callee)
+    WampErrc onInvocation(InvocationMessage& msg, CalleePtr callee)
     {
         auto requestId = msg.requestId();
         auto regId = msg.registrationId();
@@ -609,17 +639,19 @@ public:
         {
             peer_.sendError(WampMsgType::invocation, requestId,
                            {WampErrc::noSuchProcedure});
-            return false;
+            return WampErrc::noSuchProcedure;
         }
 
         auto emplaced = pendingInvocations_.emplace(requestId,
                                                     InvocationRecord{regId});
-        assert(emplaced.second);
+        auto& invocationRecord = emplaced.first->second;
+        if (invocationRecord.closed)
+            return WampErrc::protocolViolation;
+        invocationRecord.closed = !msg.isProgressive();
 
         const RegistrationRecord& rec = kv->second;
         if (rec.isForStream)
         {
-            auto& invocationRecord = emplaced.first->second;
             postStreamInvocation(rec.info.asStream, invocationRecord,
                                  std::move(msg), callee);
         }
@@ -628,7 +660,7 @@ public:
             Invocation inv({}, callee, userExecutor_, std::move(msg));
             postRpcRequest(rec.info.asCall.callSlot, std::move(inv), callee);
         }
-        return true;
+        return WampErrc::success;
     }
 
     void onInterrupt(InterruptMessage& msg, CalleePtr callee)
@@ -692,16 +724,6 @@ public:
     }
 
 private:
-    struct InvocationRecord
-    {
-        InvocationRecord(RegistrationId regId) : registrationId(regId) {}
-
-        CalleeChannel::Ptr channel;
-        RegistrationId registrationId;
-        bool interrupted = false;
-        bool moot = false;
-    };
-
     using Registry      = std::map<RegistrationId, RegistrationRecord>;
     using InvocationMap = std::map<RequestId, InvocationRecord>;
     using StreamRegistrationInfo = RegistrationRecord::StreamInfo;
@@ -2244,27 +2266,21 @@ private:
     void onInvocation(Message& msg)
     {
         auto& invMsg = messageCast<InvocationMessage>(msg);
-        auto requestId = invMsg.requestId();
         auto regId = invMsg.registrationId();
 
-        if (requestId <= lastInvocationRequestId_)
-        {
-            auto err = Error(WampErrc::protocolViolation)
-                           .withArgs("Non-monotonic request ID");
-            peer_.sendError(WampMsgType::invocation, requestId, std::move(err));
-            log(LogLevel::error,
-                "Rejected INVOCATION with non-monotonic request ID "
-                    + std::to_string(requestId));
-            return;
-        }
-
-        lastInvocationRequestId_ = requestId;
-
-        if (!registry_.onInvocation(invMsg, shared_from_this()))
+        auto errc = registry_.onInvocation(invMsg, shared_from_this());
+        if (errc == WampErrc::noSuchProcedure)
         {
             log(LogLevel::error,
                 "No matching procedure for INVOCATION with registration ID "
                     + std::to_string(regId));
+        }
+        if (errc == WampErrc::protocolViolation)
+        {
+            peer_.abort(
+                Reason(WampErrc::protocolViolation)
+                    .withHint("Router attempted to reinvoke a pending RPC "
+                              "that is closed to further progress"));
         }
     }
 
@@ -2436,7 +2452,6 @@ private:
     LogHandler logHandler_;
     StateChangeHandler stateChangeHandler_;
     ChallengeHandler challengeHandler_;
-    RequestId lastInvocationRequestId_ = nullId();
     bool isTerminating_ = false;
 };
 

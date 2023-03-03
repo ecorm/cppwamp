@@ -11,7 +11,7 @@
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 
-const std::string realm = "cppwamp.demo.streaming";
+const std::string realm = "cppwamp.examples";
 const std::string address = "localhost";
 const short port = 12345;
 
@@ -28,11 +28,11 @@ public:
         using namespace wamp;
         auto index = session_.connect(std::move(where), yield).value();
         std::cout << "Producer connected on transport #"
-                  << (index + 1) << "\n";
+                  << (index + 1) << std::endl;
 
         auto info = session_.join(Realm(realm), yield).value();
         std::cout << "Producer joined, session ID = "
-                  << info.id() << "\n";
+                  << info.id() << std::endl;
 
         using namespace std::placeholders;
 
@@ -54,12 +54,13 @@ private:
 
     void onStream(ChannelPtr channel)
     {
+        using Chunk = wamp::CalleeOutputChunk;
         std::cout << "Producer received invitation: "
-                  << channel->invitation().args() << "\n";
-        channel->accept(wamp::CalleeOutputChunk().withArgs("playing"));
-        channel->send(wamp::CalleeOutputChunk().withArgs("one"));
-        channel->send(wamp::CalleeOutputChunk().withArgs("two"));
-        channel->send(wamp::CalleeOutputChunk(true).withArgs("three"));
+                  << channel->invitation().args() << std::endl;
+        channel->accept(Chunk().withArgs("playing")).value();
+        channel->send(Chunk().withArgs("one")).value();
+        channel->send(Chunk().withArgs("two")).value();
+        channel->send(Chunk(true).withArgs("three")).value();
     }
 
     wamp::Session session_;
@@ -81,10 +82,10 @@ public:
 
         auto index = session_.connect(std::move(where), yield).value();
         std::cout << "Consumer connected on transport #"
-                  << (index + 1) << "\n";
+                  << (index + 1) << std::endl;
 
         auto info = session_.join(Realm(realm), yield).value();
-        std::cout << "Consumer joined, session ID = " << info.id() << "\n";
+        std::cout << "Consumer joined, session ID = " << info.id() << std::endl;
     }
 
     void consumeFeed(wamp::YieldContext yield)
@@ -92,12 +93,15 @@ public:
         auto mode = wamp::StreamMode::calleeToCaller;
         auto channelOrError = session_.invite(
             wamp::Invitation("feed", mode).withArgs("play"),
-            [this](ChannelPtr channel,
-                   wamp::ErrorOr<wamp::CallerInputChunk> chunk)
+            [this](ChannelPtr channel, wamp::ErrorOr<Chunk> chunk)
                 {onChunk(channel, std::move(chunk));},
             yield);
         auto channel = channelOrError.value();
-        std::cout << "Consumer got RSVP: " << channel->rsvp().args() << "\n";
+        std::cout << "Consumer got RSVP: " << channel->rsvp().args()
+                  << " on channel " << channel->id() << std::endl;
+
+        while (!done_)
+            boost::asio::post(session_.executor(), yield);
     }
 
     void leave(wamp::YieldContext yield)
@@ -108,13 +112,17 @@ public:
 
 private:
     using ChannelPtr = wamp::CallerChannel::Ptr;
+    using Chunk = wamp::CallerInputChunk;
 
-    void onChunk(ChannelPtr chanel, wamp::ErrorOr<wamp::CallerInputChunk> chunk)
+    void onChunk(ChannelPtr channel, wamp::ErrorOr<Chunk> chunk)
     {
-        std::cout << "Consumer got chunk: " << chunk.value().args() << "\n";
+        std::cout << "Consumer got chunk: " << chunk.value().args()
+                  << " on channel " << channel->id() << std::endl;
+        done_ = chunk->isFinal();
     }
 
     wamp::Session session_;
+    bool done_ = false;
 };
 
 

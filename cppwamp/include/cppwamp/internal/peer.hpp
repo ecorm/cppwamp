@@ -354,7 +354,7 @@ private:
         }
         else
         {
-            if (logLevel() <= LogLevel::error)
+            if (logLevel() <= LogLevel::critical)
             {
                 std::ostringstream oss;
                 oss << "Session aborted by peer with reason URI "
@@ -440,7 +440,7 @@ private:
             }
 
             if (!info.empty())
-                log(LogLevel::error, std::move(info), ec);
+                log(LogLevel::critical, std::move(info), ec);
         }
     }
 

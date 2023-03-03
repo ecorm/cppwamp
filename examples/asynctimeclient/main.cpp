@@ -16,7 +16,7 @@
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
 
-const std::string realm = "cppwamp.demo.time";
+const std::string realm = "cppwamp.examples";
 const std::string address = "localhost";
 const short port = 12345u;
 

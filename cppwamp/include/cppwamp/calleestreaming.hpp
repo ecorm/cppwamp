@@ -18,6 +18,7 @@
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "asiodefs.hpp"
+#include "config.hpp"
 #include "peerdata.hpp"
 #include "streaming.hpp"
 #include "tagtypes.hpp"
@@ -144,27 +145,28 @@ public:
 
     /** Accepts a streaming invitation from another peer and sends an
         initial (or final) response. */
-    ErrorOrDone accept(
+    CPPWAMP_NODISCARD ErrorOrDone accept(
         OutputChunk response,
         ChunkSlot onChunk = {},
         InterruptSlot onInterrupt = {});
 
     /** Thread-safe accept with response. */
-    std::future<ErrorOrDone> accept(
+    CPPWAMP_NODISCARD std::future<ErrorOrDone> accept(
         ThreadSafe, OutputChunk response, ChunkSlot onChunk = {},
         InterruptSlot onInterrupt = {});
 
     /** Accepts a streaming invitation from another peer, without sending an
         initial response. */
-    ErrorOrDone accept(
+    CPPWAMP_NODISCARD ErrorOrDone accept(
         ChunkSlot onChunk,
         InterruptSlot onInterrupt = {});
 
     /** Sends a chunk to the other peer. */
-    ErrorOrDone send(OutputChunk chunk);
+    CPPWAMP_NODISCARD ErrorOrDone send(OutputChunk chunk);
 
     /** Thread-safe send. */
-    std::future<ErrorOrDone> send(ThreadSafe, OutputChunk chunk);
+    CPPWAMP_NODISCARD std::future<ErrorOrDone>
+    send(ThreadSafe, OutputChunk chunk);
 
     /** Sends an Error to the other peer and closes the stream. */
     ErrorOrDone close(Error error);

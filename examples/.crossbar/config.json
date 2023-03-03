@@ -6,32 +6,7 @@
             "type": "router",
             "realms": [
                 {
-                    "name": "cppwamp.demo.chat",
-                    "roles": [
-                        {
-                            "name": "anonymous",
-                            "permissions": [
-                                {
-                                    "uri": "",
-                                    "match": "prefix",
-                                    "allow": {
-                                        "call": true,
-                                        "register": true,
-                                        "publish": true,
-                                        "subscribe": true
-                                    },
-                                    "disclose": {
-                                        "caller": false,
-                                        "publisher": false
-                                    },
-                                    "cache": true
-                                }
-                            ]
-                        }
-                    ]
-                },
-                {
-                    "name": "cppwamp.demo.time",
+                    "name": "cppwamp.examples",
                     "roles": [
                         {
                             "name": "anonymous",

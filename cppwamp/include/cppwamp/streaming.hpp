@@ -46,6 +46,9 @@ public:
     /** Indicates if the chunk is the final one. */
     bool isFinal() const {return isFinal_;}
 
+    /** Obtains the channel ID associated with the chunk. */
+    ChannelId channelId() const {return this->message().requestId();}
+
 private:
     using Base = Payload<TDerived, TMessage>;
 
