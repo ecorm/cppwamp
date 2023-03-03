@@ -101,11 +101,12 @@ class CPPWAMP_API CallerChannel
     : public std::enable_shared_from_this<CallerChannel>
 {
 public:
-    using Ptr = std::shared_ptr<CallerChannel>; ///< Shared pointer type
-    using InputChunk = CallerInputChunk;        ///< Input chunk type
-    using OutputChunk = CallerOutputChunk;      ///< Output chunk type
+    using Ptr = std::shared_ptr<CallerChannel>;   ///< Shared pointer type
+    using WeakPtr = std::weak_ptr<CallerChannel>; ///< Weak pointer type
+    using InputChunk = CallerInputChunk;          ///< Input chunk type
+    using OutputChunk = CallerOutputChunk;        ///< Output chunk type
 
-    /// Enumerates the channels possible states.
+    /// Enumerates the channel's possible states.
     enum class State
     {
         open,

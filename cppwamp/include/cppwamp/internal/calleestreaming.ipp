@@ -79,9 +79,7 @@ Stream::registerMessage(internal::PassKey)
 
 CPPWAMP_INLINE CalleeChannel::~CalleeChannel()
 {
-    auto oldState = state_.exchange(State::closed);
-    if (oldState != State::closed)
-        safeSendChunk(CalleeOutputChunk{true});
+    reject(threadSafe, Error{WampErrc::cancelled});
 }
 
 CPPWAMP_INLINE StreamMode CalleeChannel::mode() const {return mode_;}
@@ -237,7 +235,10 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::send(ThreadSafe,
     bool ok = state_.compare_exchange_strong(expectedState, newState);
     if (!ok)
         return futureError(Errc::invalidState);
-    return safeSendChunk(std::move(chunk));
+    auto callee = callee_.lock();
+    if (!callee)
+        return futureValue(false);
+    return callee->safeSendCalleeChunk(id_, std::move(chunk));
 }
 
 /** @returns
@@ -294,15 +295,6 @@ CPPWAMP_INLINE bool CalleeChannel::isValidModeFor(const OutputChunk& c) const
     return c.isFinal() ||
            (mode_ == M::calleeToCaller) ||
            (mode_ == M::bidirectional);
-}
-
-CPPWAMP_INLINE std::future<ErrorOrDone>
-CalleeChannel::safeSendChunk(OutputChunk&& chunk)
-{
-    auto caller = callee_.lock();
-    if (!caller)
-        return futureValue(false);
-    return caller->safeSendCalleeChunk(id_, std::move(chunk));
 }
 
 CPPWAMP_INLINE void CalleeChannel::postInvitationAsChunkIfIgnored()

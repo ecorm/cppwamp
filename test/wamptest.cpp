@@ -2135,7 +2135,32 @@ GIVEN( "an IO service and a ConnectionWish" )
         ioctx.run();
     }
 
-    // TODO: Callee leaving without responding
+    WHEN( "a callee leaves without returning" )
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            RpcFixture f(ioctx, where);
+            f.join(yield);
+            f.enroll(yield);
+
+            auto reg = f.callee.enroll(
+                Procedure("rpc"),
+                [&](Invocation) -> Outcome
+                {
+                    f.callee.leave([](ErrorOr<Reason>) {});
+                    return deferment;
+                },
+                yield).value();
+
+            Error error;
+            auto result = f.caller.call(Rpc("rpc").captureError(error),
+                                         yield);
+            CHECK( result == makeUnexpected(WampErrc::cancelled) );
+            CHECK_FALSE( !error );
+            CHECK( error.errorCode() == WampErrc::cancelled );
+        });
+        ioctx.run();
+    }
 }}
 
 //------------------------------------------------------------------------------

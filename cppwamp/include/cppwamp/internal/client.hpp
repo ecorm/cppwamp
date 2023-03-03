@@ -492,8 +492,9 @@ struct InvocationRecord
 {
     InvocationRecord(RegistrationId regId) : registrationId(regId) {}
 
-    CalleeChannel::Ptr channel;
+    CalleeChannel::WeakPtr channel; // TODO: shared_ptr?
     RegistrationId registrationId;
+    bool invoked = false;     // Set upon the first streaming invocation
     bool interrupted = false; // Set when an interruption was received
                               //     for this invocation.
     bool moot = false;        // Set when auto-responding to an interruption
@@ -666,10 +667,10 @@ public:
             RegistrationRecord& reg = kv->second;
             if (reg.isForStream)
             {
-                interruptHandled = (rec.channel != nullptr) &&
-                                   rec.channel->hasInterruptHandler({});
+                auto channel = rec.channel.lock();
+                interruptHandled = channel && channel->hasInterruptHandler({});
                 if (interruptHandled)
-                    rec.channel->onInterrupt({}, std::move(msg));
+                    channel->onInterrupt({}, std::move(msg));
             }
             else
             {
@@ -717,16 +718,21 @@ private:
                               InvocationMessage&& msg,
                               CalleePtr callee)
     {
-        if (rec.channel)
+        if (!rec.invoked)
         {
-            rec.channel->onInvocation({}, std::move(msg));
+            auto channel = CalleeChannel::create({}, std::move(msg), reg,
+                                                 executor_, userExecutor_,
+                                                 std::move(callee));
+            rec.channel = channel;
+            rec.invoked = true;
+            postVia(executor_, userExecutor_, reg.streamSlot,
+                    std::move(channel));
         }
         else
         {
-            rec.channel = CalleeChannel::create({}, std::move(msg), reg,
-                                                executor_, userExecutor_,
-                                                std::move(callee));
-            postVia(executor_, userExecutor_, reg.streamSlot, rec.channel);
+            auto channel = rec.channel.lock();
+            if (channel)
+                channel->onInvocation({}, std::move(msg));
         }
     }
 
@@ -1667,7 +1673,7 @@ public:
         {
             Ptr self;
             SharedHandler handler;
-            CallerChannel::Ptr channel;
+            CallerChannel::Ptr channel; // TODO: weak_ptr?
             Error* error;
 
             void operator()(ErrorOr<Message> reply)

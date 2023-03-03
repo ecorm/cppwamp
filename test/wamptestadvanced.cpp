@@ -585,7 +585,7 @@ GIVEN( "a caller and a callee" )
         runTest();
     }
 
-    WHEN( "caller leaves without sending final chunk" )
+    WHEN( "callee leaves without sending final chunk" )
     {
         leaveEarlyArmed = true;
         runTest();
@@ -764,6 +764,108 @@ GIVEN( "a caller and a callee" )
                 CHECK( input == output );
                 output.clear();
                 interruptReceived = false;
+            }
+
+            f.disconnect();
+        });
+        ioctx.run();
+    }
+}}
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP callee-to-caller streaming with caller leaving",
+          "[WAMP][Advanced]" )
+{
+GIVEN( "a caller and a callee" )
+{
+    IoContext ioctx;
+    RpcFixture f(ioctx, withTcp);
+    boost::asio::steady_timer timer(ioctx);
+
+    std::vector<int> input{9, 3, 7, 5};
+    std::vector<int> output;
+    bool interruptReceived = false;
+    bool errorReceived = true;
+
+    auto onInterrupt = [&](CalleeChannel::Ptr channel, Interruption intr)
+    {
+        CHECK(intr.cancelMode() == CallCancelMode::killNoWait);
+        interruptReceived = true;
+        timer.cancel();
+    };
+
+    auto onStream = [&](CalleeChannel::Ptr channel)
+    {
+        CHECK( channel->mode() == StreamMode::calleeToCaller );
+        channel->accept(CalleeOutputChunk().withArgs("rsvp"),
+                        nullptr, onInterrupt).value();
+
+        spawn(
+            ioctx,
+            [&, channel](YieldContext yield) mutable
+            {
+                // Don't mark the last chunk as final
+                for (unsigned i=0; i<input.size(); ++i)
+                {
+                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.async_wait(yield);
+                    channel->send(CalleeOutputChunk()
+                                      .withArgs(input.at(i))).value();
+                }
+
+                timer.expires_from_now(std::chrono::seconds(10));
+                boost::system::error_code ec;
+                timer.async_wait(yield[ec]);
+                CHECK( interruptReceived );
+                output.push_back(input.back());
+            });
+    };
+
+    auto onChunk = [&](CallerChannel::Ptr channel,
+                       ErrorOr<CallerInputChunk> chunk)
+    {
+        INFO("for output.size()=" << output.size());
+        bool isFinal = output.size() == (input.size() - 1);
+        if (!isFinal)
+        {
+            auto n = chunk->args().at(0).to<int>();
+            output.push_back(n);
+        }
+        else if (chunk.has_value())
+        {
+            f.caller.leave([](ErrorOr<Reason>) {});
+        }
+        else
+        {
+            CHECK(chunk.error() == Errc::abandoned);
+            CHECK(channel->error().errorCode() == WampErrc::unknown);
+            errorReceived = true;
+        }
+    };
+
+    WHEN( "streaming result chunks" )
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            f.join(yield);
+            f.callee.enroll(Stream("com.myapp.foo"), onStream, yield).value();
+
+            for (unsigned i=0; i<1; ++i)
+            {
+                Invitation inv{"com.myapp.foo", StreamMode::calleeToCaller};
+                inv.withArgs("invitation");
+                auto channelOrError = f.caller.invite(inv, onChunk, yield);
+                REQUIRE(channelOrError.has_value());
+                auto channel = channelOrError.value();
+
+                while (output.size() < input.size())
+                    suspendCoro(yield);
+                CHECK( input == output );
+                CHECK( interruptReceived );
+                CHECK( errorReceived );
+                output.clear();
+                interruptReceived = false;
+                errorReceived = false;
             }
 
             f.disconnect();

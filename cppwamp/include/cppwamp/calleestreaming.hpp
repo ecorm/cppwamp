@@ -109,14 +109,20 @@ class CPPWAMP_API CalleeChannel
     : public std::enable_shared_from_this<CalleeChannel>
 {
 public:
-    using Ptr = std::shared_ptr<CalleeChannel>;
-    using InputChunk = CalleeInputChunk;
-    using OutputChunk = CalleeOutputChunk;
+    using Ptr = std::shared_ptr<CalleeChannel>;   ///< Shared pointer type
+    using WeakPtr = std::weak_ptr<CalleeChannel>; ///< Weak pointer type
+    using InputChunk = CalleeInputChunk;          ///< Input chunk type
+    using OutputChunk = CalleeOutputChunk;        ///< Output chunk type
+
+    /// Type-erases the handler function for processing inbound chunks
     using ChunkSlot =
         AnyReusableHandler<void (CalleeChannel::Ptr, CalleeInputChunk)>;
+
+    /// Type-erases the handler function for processing interruptions
     using InterruptSlot =
         AnyReusableHandler<void (CalleeChannel::Ptr, Interruption)>;
 
+    /// Enumerates the channel's possible states.
     enum class State
     {
         inviting,
@@ -124,6 +130,8 @@ public:
         closed
     };
 
+    /** Destructor which automatically rejects the stream as cancelled if the
+        channel is not already closed. */
     ~CalleeChannel();
 
     /** Obtains the stream mode that was established from the invitation. */
@@ -196,8 +204,6 @@ private:
                   CalleePtr callee);
 
     bool isValidModeFor(const OutputChunk& c) const;
-
-    std::future<ErrorOrDone> safeSendChunk(OutputChunk&& chunk);
 
     void postInvitationAsChunkIfIgnored();
 
