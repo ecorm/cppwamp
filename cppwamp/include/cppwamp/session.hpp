@@ -215,6 +215,7 @@ public:
 
     /** Obtains a dictionary of roles and features supported on the client
         side. */
+    // TODO: Add method that returns ClientFeatures
     static const Object& roles();
 
     /** Obtains the execution context in which I/O operations are serialized. */

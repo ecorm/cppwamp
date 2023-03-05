@@ -399,7 +399,7 @@ private:
 
 
 //------------------------------------------------------------------------------
-struct CallRegistration
+struct ProcedureRegistration
 {
     using CallSlot = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
@@ -408,84 +408,6 @@ struct CallRegistration
     InterruptSlot interruptSlot;
 };
 
-
-//------------------------------------------------------------------------------
-struct RegistrationRecord
-{
-    RegistrationRecord() = default;
-
-    RegistrationRecord(CallRegistration&& r)
-        : info(std::move(r))
-    {}
-
-    RegistrationRecord(StreamRegistration&& r)
-        : info(std::move(r)),
-          isForStream(true)
-    {}
-
-    RegistrationRecord(const RegistrationRecord& rhs)
-    {
-        if (rhs.isForStream)
-            info.asStream = rhs.info.asStream;
-        else
-            info.asCall = rhs.info.asCall;
-        isForStream = rhs.isForStream;
-    }
-
-    RegistrationRecord(RegistrationRecord&& rhs)
-    {
-        if (rhs.isForStream)
-            info.asStream = std::move(rhs.info.asStream);
-        else
-            info.asCall = std::move(rhs.info.asCall);
-        isForStream = rhs.isForStream;
-    }
-
-    ~RegistrationRecord() {info.destroy(isForStream);}
-
-    RegistrationRecord& operator=(const RegistrationRecord& rhs) = delete;
-
-    RegistrationRecord& operator=(RegistrationRecord&& rhs) = delete;
-
-    union Fields
-    {
-        Fields() : asCall({}) {}
-        Fields(CallRegistration&& r) : asCall(std::move(r)) {}
-        Fields(StreamRegistration&& r) : asStream(std::move(r)) {}
-        ~Fields() {}
-
-        void destroy(bool isForStream)
-        {
-            if (isForStream)
-                asStream.~StreamRegistration();
-            else
-                asCall.~CallRegistration();
-        }
-
-        CallRegistration asCall;
-        StreamRegistration asStream;
-    };
-
-    Fields info;
-    bool isForStream = false;
-
-private:
-    void copy(const RegistrationRecord& rhs)
-    {
-        if (rhs.isForStream)
-            info.asStream = rhs.info.asStream;
-        else
-            info.asCall = rhs.info.asCall;
-    }
-
-    void move(RegistrationRecord&& rhs)
-    {
-        if (rhs.isForStream)
-            info.asStream = std::move(rhs.info.asStream);
-        else
-            info.asCall = std::move(rhs.info.asCall);
-    }
-};
 
 //------------------------------------------------------------------------------
 struct InvocationRecord
@@ -519,12 +441,11 @@ public:
           peer_(peer)
     {}
 
-    ErrorOr<Registration> enroll(CallRegistration&& reg, CalleePtr callee,
+    ErrorOr<Registration> enroll(ProcedureRegistration&& reg, CalleePtr callee,
                                  const RegisteredMessage& msg)
     {
-        RegistrationRecord rec{std::move(reg)};
         auto regId = msg.registrationId();
-        auto emplaced = registry_.emplace(regId, std::move(rec));
+        auto emplaced = procedures_.emplace(regId, std::move(reg));
         if (!emplaced.second)
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
         return Registration{{}, callee, regId};
@@ -533,9 +454,8 @@ public:
     ErrorOr<Registration> enroll(StreamRegistration&& reg, CalleePtr callee,
                                  const RegisteredMessage& msg)
     {
-        RegistrationRecord rec{std::move(reg)};
         auto regId = msg.registrationId();
-        auto emplaced = registry_.emplace(regId, std::move(rec));
+        auto emplaced = streams_.emplace(regId, std::move(reg));
         if (!emplaced.second)
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
         return Registration{{}, callee, regId};
@@ -543,13 +463,16 @@ public:
 
     bool unregister(const Registration& reg)
     {
-        return registry_.erase(reg.id()) != 0;
+        bool erased = procedures_.erase(reg.id()) != 0;
+        if (!erased)
+            erased = streams_.erase(reg.id()) != 0;
+        return erased;
     }
 
     ErrorOrDone yield(RequestId reqId, Result&& result)
     {
-        auto found = pendingInvocations_.find(reqId);
-        if (found == pendingInvocations_.end())
+        auto found = invocations_.find(reqId);
+        if (found == invocations_.end())
             return false;
 
         // Error may have already been returned due to interruption being
@@ -557,7 +480,7 @@ public:
         bool moot = found->second.moot;
         bool erased = !result.isProgressive() || moot;
         if (erased)
-            pendingInvocations_.erase(found);
+            invocations_.erase(found);
         if (moot)
             return false;
 
@@ -565,7 +488,7 @@ public:
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             if (!erased)
-                pendingInvocations_.erase(found);
+                invocations_.erase(found);
             peer_.sendError(WampMsgType::invocation, reqId,
                             Error{WampErrc::payloadSizeExceeded});
         }
@@ -574,8 +497,8 @@ public:
 
     ErrorOrDone yield(RequestId reqId, CalleeOutputChunk&& chunk)
     {
-        auto found = pendingInvocations_.find(reqId);
-        if (found == pendingInvocations_.end())
+        auto found = invocations_.find(reqId);
+        if (found == invocations_.end())
             return false;
 
         // Error may have already been returned due to interruption being
@@ -583,7 +506,7 @@ public:
         bool moot = found->second.moot;
         bool erased = chunk.isFinal() || moot;
         if (erased)
-            pendingInvocations_.erase(found);
+            invocations_.erase(found);
         if (moot)
             return false;
 
@@ -591,7 +514,7 @@ public:
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             if (!erased)
-                pendingInvocations_.erase(found);
+                invocations_.erase(found);
             peer_.sendError(WampMsgType::invocation, reqId,
                             Error{WampErrc::payloadSizeExceeded});
         }
@@ -600,14 +523,14 @@ public:
 
     ErrorOrDone yield(RequestId reqId, Error&& error)
     {
-        auto found = pendingInvocations_.find(reqId);
-        if (found == pendingInvocations_.end())
+        auto found = invocations_.find(reqId);
+        if (found == invocations_.end())
             return false;
 
         // Error may have already been returned due to interruption being
         // handled by Client::onInterrupt.
         bool moot = found->second.moot;
-        pendingInvocations_.erase(found);
+        invocations_.erase(found);
         if (moot)
             return false;
 
@@ -620,39 +543,33 @@ public:
         auto requestId = msg.requestId();
         auto regId = msg.registrationId();
 
-        auto kv = registry_.find(regId);
-        if (kv == registry_.end())
         {
-            peer_.sendError(WampMsgType::invocation, requestId,
-                           {WampErrc::noSuchProcedure});
-            return WampErrc::noSuchProcedure;
+            auto kv = procedures_.find(regId);
+            if (kv != procedures_.end())
+            {
+                return onProcedureInvocation(msg, std::move(callee),
+                                             regId, kv->second);
+            }
         }
 
-        auto emplaced = pendingInvocations_.emplace(requestId,
-                                                    InvocationRecord{regId});
-        auto& invocationRecord = emplaced.first->second;
-        if (invocationRecord.closed)
-            return WampErrc::protocolViolation;
-        invocationRecord.closed = !msg.isProgressive();
+        {
+            auto kv = streams_.find(regId);
+            if (kv != streams_.end())
+            {
+                return onStreamInvocation(msg, std::move(callee),
+                                          regId, kv->second);
+            }
+        }
 
-        const RegistrationRecord& rec = kv->second;
-        if (rec.isForStream)
-        {
-            postStreamInvocation(rec.info.asStream, invocationRecord,
-                                 std::move(msg), callee);
-        }
-        else
-        {
-            Invocation inv({}, callee, userExecutor_, std::move(msg));
-            postRpcRequest(rec.info.asCall.callSlot, std::move(inv), callee);
-        }
-        return WampErrc::success;
+        peer_.sendError(WampMsgType::invocation, requestId,
+                        {WampErrc::noSuchProcedure});
+        return WampErrc::noSuchProcedure;
     }
 
     void onInterrupt(InterruptMessage& msg, CalleePtr callee)
     {
-        auto found = pendingInvocations_.find(msg.requestId());
-        if (found == pendingInvocations_.end())
+        auto found = invocations_.find(msg.requestId());
+        if (found == invocations_.end())
             return;
 
         InvocationRecord& rec = found->second;
@@ -661,79 +578,65 @@ public:
         rec.interrupted = true;
 
         bool interruptHandled = false;
-        auto kv = registry_.find(rec.registrationId);
-        if (kv != registry_.end())
+
         {
-            RegistrationRecord& reg = kv->second;
-            if (reg.isForStream)
+            auto kv = procedures_.find(rec.registrationId);
+            if (kv != procedures_.end())
             {
-                auto channel = rec.channel.lock();
-                interruptHandled = channel && channel->hasInterruptHandler({});
-                if (interruptHandled)
-                    channel->onInterrupt({}, std::move(msg));
-            }
-            else
-            {
-                auto& slot = reg.info.asCall.interruptSlot;
-                interruptHandled = slot != nullptr;
-                if (interruptHandled)
-                {
-                    Interruption intr({}, callee, userExecutor_,
-                                      std::move(msg));
-                    postRpcRequest(slot, std::move(intr), callee);
-                }
+                interruptHandled =
+                    onProcedureInterruption(msg, std::move(callee), kv->second);
             }
         }
 
-        // Respond immediately when cancel mode is 'kill' and no interrupt
-        // slot is provided.
-        // Dealer will have already responded in `killnowait` mode.
-        // Dealer does not emit an INTERRUPT in `skip` mode.
-        if (!interruptHandled)
         {
-            Interruption intr({}, std::move(msg));
-            if (intr.cancelMode() == CallCancelMode::kill)
-            {
-                rec.moot = true;
-                Error error{intr.reason().value_or(
-                    errorCodeToUri(WampErrc::cancelled))};
-                peer_.sendError(WampMsgType::invocation, intr.requestId(),
-                               std::move(error));
-            }
+            auto kv = streams_.find(rec.registrationId);
+            if (kv != streams_.end())
+                interruptHandled = onStreamInterruption(msg, rec);
         }
+
+        if (!interruptHandled)
+            automaticallyRespondToInterruption(msg, rec);
     }
 
     void clear()
     {
-        registry_.clear();
-        pendingInvocations_.clear();
+        procedures_.clear();
+        invocations_.clear();
     }
 
 private:
-    using Registry      = std::map<RegistrationId, RegistrationRecord>;
     using InvocationMap = std::map<RequestId, InvocationRecord>;
+    using ProcedureMap = std::map<RegistrationId, ProcedureRegistration>;
+    using StreamMap = std::map<RegistrationId, StreamRegistration>;
 
-    void postStreamInvocation(const StreamRegistration& reg,
-                              InvocationRecord& rec,
-                              InvocationMessage&& msg,
-                              CalleePtr callee)
+    WampErrc onProcedureInvocation(InvocationMessage& msg, CalleePtr callee,
+                                   RegistrationId regId,
+                                   const ProcedureRegistration& reg)
     {
-        if (!rec.invoked)
-        {
-            auto channel = CalleeChannel::create({}, std::move(msg), reg,
-                                                 executor_, userExecutor_,
-                                                 std::move(callee));
-            rec.channel = channel;
-            rec.invoked = true;
-            postVia(executor_, userExecutor_, reg.streamSlot,
-                    std::move(channel));
-        }
-        else
-        {
-            auto channel = rec.channel.lock();
-            if (channel)
-                channel->onInvocation({}, std::move(msg));
-        }
+        auto requestId = msg.requestId();
+        auto emplaced = invocations_.emplace(requestId,
+                                             InvocationRecord{regId});
+
+        // Progressive calls not allowed on procedures not registered
+        // as streams.
+        if (!emplaced.second)
+            return WampErrc::optionNotAllowed;
+
+        auto& invocationRec = emplaced.first->second;
+        invocationRec.closed = true;
+        Invocation inv({}, callee, userExecutor_, std::move(msg));
+        postRpcRequest(reg.callSlot, std::move(inv), callee);
+        return WampErrc::success;
+    }
+
+    bool onProcedureInterruption(InterruptMessage& msg, CalleePtr callee,
+                                 const ProcedureRegistration& reg)
+    {
+        if (reg.interruptSlot == nullptr)
+            return false;
+        Interruption intr({}, callee, userExecutor_, std::move(msg));
+        postRpcRequest(reg.interruptSlot, std::move(intr), callee);
+        return true;
     }
 
     template <typename TSlot, typename TInvocationOrInterruption>
@@ -794,8 +697,75 @@ private:
             boost::asio::bind_executor(associatedExec, std::move(posted)));
     }
 
-    Registry registry_;
-    InvocationMap pendingInvocations_;
+    WampErrc onStreamInvocation(InvocationMessage& msg, CalleePtr callee,
+                                RegistrationId regId,
+                                const StreamRegistration& reg)
+    {
+        auto requestId = msg.requestId();
+        auto emplaced = invocations_.emplace(requestId,
+                                             InvocationRecord{regId});
+        auto& invocationRec = emplaced.first->second;
+        if (invocationRec.closed)
+            return WampErrc::protocolViolation;
+
+        invocationRec.closed = !msg.isProgressive();
+        postStreamInvocation(reg, invocationRec, std::move(msg), callee);
+        return WampErrc::success;
+    }
+
+    void postStreamInvocation(const StreamRegistration& reg,
+                              InvocationRecord& rec,
+                              InvocationMessage&& msg,
+                              CalleePtr callee)
+    {
+        if (!rec.invoked)
+        {
+            auto channel = CalleeChannel::create({}, std::move(msg), reg,
+                                                 executor_, userExecutor_,
+                                                 std::move(callee));
+            rec.channel = channel;
+            rec.invoked = true;
+            postVia(executor_, userExecutor_, reg.streamSlot,
+                    std::move(channel));
+        }
+        else
+        {
+            auto channel = rec.channel.lock();
+            if (channel)
+                channel->onInvocation({}, std::move(msg));
+        }
+    }
+
+    bool onStreamInterruption(InterruptMessage& msg, InvocationRecord& rec)
+    {
+        auto channel = rec.channel.lock();
+        if (!channel || !channel->hasInterruptHandler({}))
+            return false;
+        channel->onInterrupt({}, std::move(msg));
+        return true;
+    }
+
+    void automaticallyRespondToInterruption(InterruptMessage& msg,
+                                            InvocationRecord& rec)
+    {
+        // Respond immediately when cancel mode is 'kill' and no interrupt
+        // slot is provided.
+        // Dealer will have already responded in `killnowait` mode.
+        // Dealer does not emit an INTERRUPT in `skip` mode.
+        Interruption intr({}, std::move(msg));
+        if (intr.cancelMode() == CallCancelMode::kill)
+        {
+            rec.moot = true;
+            Error error{intr.reason().value_or(
+                errorCodeToUri(WampErrc::cancelled))};
+            peer_.sendError(WampMsgType::invocation, intr.requestId(),
+                            std::move(error));
+        }
+    }
+
+    ProcedureMap procedures_;
+    StreamMap streams_;
+    InvocationMap invocations_;
     AnyIoExecutor executor_;
     AnyCompletionExecutor userExecutor_;
     Peer& peer_;
@@ -1311,7 +1281,7 @@ public:
         struct Requested
         {
             Ptr self;
-            CallRegistration r;
+            ProcedureRegistration r;
             CompletionHandler<Registration> f;
 
             void operator()(ErrorOr<Message> reply)
@@ -1328,7 +1298,7 @@ public:
         if (!checkState(State::established, f))
             return;
 
-        CallRegistration reg{std::move(c), std::move(i)};
+        ProcedureRegistration reg{std::move(c), std::move(i)};
         request(p.message({}),
                 Requested{shared_from_this(), std::move(reg), std::move(f)});
     }
