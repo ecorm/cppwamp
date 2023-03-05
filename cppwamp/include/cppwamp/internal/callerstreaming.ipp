@@ -64,8 +64,21 @@ CPPWAMP_INLINE Invitation::Invitation(String uri, StreamMode mode)
 
 CPPWAMP_INLINE StreamMode Invitation::mode() const {return mode_;}
 
-CPPWAMP_INLINE internal::CallMessage& Invitation::callMessage(internal::PassKey)
+CPPWAMP_INLINE Invitation& Invitation::withRsvpTreatedAsChunk(bool enabled)
 {
+    rsvpTreatedAsChunk_ = enabled;
+    return *this;
+}
+
+CPPWAMP_INLINE bool Invitation::rsvpTreatedAsChunk() const
+{
+    return rsvpTreatedAsChunk_;
+}
+
+CPPWAMP_INLINE internal::CallMessage& Invitation::callMessage(internal::PassKey,
+                                                              RequestId reqId)
+{
+    message().setRequestId(reqId);
     return message();
 }
 
@@ -211,13 +224,18 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::futureValue(bool x)
     return f;
 }
 
-CPPWAMP_INLINE CallerChannel::CallerChannel(const Invitation& inv,
-                                            ChunkHandler&& chunkHandler)
+CPPWAMP_INLINE CallerChannel::CallerChannel(
+    ChannelId id, const Invitation& inv, CallerPtr caller,
+    AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>&& onChunk,
+    AnyIoExecutor exec, AnyCompletionExecutor userExec)
     : uri_(inv.uri()),
-    chunkHandler_(std::move(chunkHandler)),
-    cancelMode_(inv.cancelMode()),
-    state_(State::open),
-    mode_(inv.mode())
+      chunkSlot_(std::move(onChunk)),
+      executor_(exec),
+      userExecutor_(std::move(userExec)),
+      id_(id),
+      state_(State::open),
+      mode_(inv.mode()),
+      cancelMode_(inv.cancelMode())
 {}
 
 CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::safeCancel()
@@ -234,21 +252,12 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::safeCancel()
 
 CPPWAMP_INLINE CallerChannel::Ptr
 CallerChannel::create(
-    internal::PassKey,
-    const Invitation& inv,
-    AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)> chunkHandler)
+    internal::PassKey, ChannelId id, const Invitation& inv, CallerPtr caller,
+    AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>&& onChunk,
+    AnyIoExecutor exec, AnyCompletionExecutor userExec)
 {
-    return Ptr(new CallerChannel(inv, std::move(chunkHandler)));
-}
-
-CPPWAMP_INLINE void CallerChannel::init(internal::PassKey, ChannelId id,
-                                        CallerPtr caller, AnyIoExecutor exec,
-                                        AnyCompletionExecutor userExec)
-{
-    id_ = id;
-    caller_ = std::move(caller);
-    executor_ = std::move(exec);
-    userExecutor_ = std::move(userExec);
+    return Ptr(new CallerChannel(id, inv, std::move(caller), std::move(onChunk),
+                                 std::move(exec), std::move(userExec)));
 }
 
 CPPWAMP_INLINE bool CallerChannel::isValidModeForSending() const
@@ -257,36 +266,30 @@ CPPWAMP_INLINE bool CallerChannel::isValidModeForSending() const
            mode_ == StreamMode::bidirectional;
 }
 
-CPPWAMP_INLINE void CallerChannel::onRsvp(internal::PassKey,
+CPPWAMP_INLINE void CallerChannel::setRsvp(internal::PassKey,
                                           internal::ResultMessage&& msg)
 {
     rsvp_ = InputChunk{{}, std::move(msg)};
     hasRsvp_ = true;
 }
 
-CPPWAMP_INLINE void CallerChannel::onReply(
-    internal::PassKey, ErrorOr<internal::WampMessage>&& reply)
+CPPWAMP_INLINE void CallerChannel::postResult(internal::PassKey,
+                                              internal::ResultMessage&& msg)
 {
-    if (!chunkHandler_)
+    if (!chunkSlot_)
         return;
+    InputChunk chunk{{}, std::move(msg)};
+    postChunkHandler(std::move(chunk));
+}
 
-    if (!reply)
-    {
-        chunkHandler_(shared_from_this(), UnexpectedError{reply.error()});
-    }
-    else if (reply->type() == internal::WampMsgType::error)
-    {
-        auto& msg = internal::messageCast<internal::ErrorMessage>(*reply);
-        error_ = Error{{}, std::move(msg)};
-        auto errc = error_.errorCode();
-        dispatchChunkHandler(makeUnexpectedError(errc));
-    }
-    else
-    {
-        auto& msg = internal::messageCast<internal::ResultMessage>(*reply);
-        InputChunk chunk{{}, std::move(msg)};
-        dispatchChunkHandler(std::move(chunk));
-    }
+CPPWAMP_INLINE void CallerChannel::postError(internal::PassKey,
+                                             internal::ErrorMessage&& msg)
+{
+    if (!chunkSlot_)
+        return;
+    error_ = Error{{}, std::move(msg)};
+    auto errc = error_.errorCode();
+    postChunkHandler(makeUnexpectedError(errc));
 }
 
 } // namespace wamp

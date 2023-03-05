@@ -567,9 +567,9 @@ private:
                   CompletionHandler<Registration>&& f);
     void safeEnroll(Stream&& s, StreamSlot&& ss,
                     CompletionHandler<Registration>&& f);
-    void doInvite(Invitation&& i, CallerChannel::Ptr&& c,
+    void doInvite(Invitation&& i, ChunkSlot&& c,
                   CompletionHandler<CallerChannel::Ptr>&& f);
-    void safeInvite(Invitation&& i, CallerChannel::Ptr&& c,
+    void safeInvite(Invitation&& i, ChunkSlot&& c,
                     CompletionHandler<CallerChannel::Ptr>&& f);
 
     std::shared_ptr<internal::Client> impl_;
@@ -1669,7 +1669,7 @@ struct Session::InviteOp
     using ResultValue = CallerChannel::Ptr;
     Session* self;
     Invitation i;
-    CallerChannel::Ptr c;
+    ChunkSlot c;
 
     template <typename F> void operator()(F&& f)
     {
@@ -1709,9 +1709,8 @@ Session::invite(
                                 or a compatible Boost.Asio completion token. */
     )
 {
-    auto channel = CallerChannel::create({}, invitation, std::move(onChunk));
     return initiate<InviteOp>(std::forward<C>(completion),
-                              std::move(invitation), std::move(channel));
+                              std::move(invitation), std::move(onChunk));
 }
 
 //------------------------------------------------------------------------------
@@ -1733,9 +1732,8 @@ Session::invite(
                                 or a compatible Boost.Asio completion token. */
     )
 {
-    auto channel = CallerChannel::create({}, invitation, std::move(onChunk));
     return safelyInitiate<InviteOp>(std::forward<C>(completion),
-                                    std::move(invitation), std::move(channel));
+                                    std::move(invitation), std::move(onChunk));
 }
 
 } // namespace wamp

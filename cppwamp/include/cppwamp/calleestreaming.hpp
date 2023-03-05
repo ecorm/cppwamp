@@ -85,7 +85,7 @@ public:
     explicit Stream(String uri);
 
     /** Treats the initial invocation as a chunk instead of an invitation. */
-    Stream& withInvitationTreatedAsChunk(bool disabled = true);
+    Stream& withInvitationTreatedAsChunk(bool enabled = true);
 
     /** Returns true if the initial invocation is to be treated as a chunk
         instead of an invitation. */

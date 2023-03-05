@@ -84,14 +84,22 @@ public:
     /** Obtains the desired stream mode. */
     StreamMode mode() const;
 
+    /** Treats the initial result as a chunk instead of an RSVP. */
+    Invitation& withRsvpTreatedAsChunk(bool enabled = true);
+
+    /** Returns true if the initial result is to be treated as a chunk
+        instead of an RSVP. */
+    bool rsvpTreatedAsChunk() const;
+
 private:
     using Base = RpcLike<Invitation>;
 
     StreamMode mode_;
+    bool rsvpTreatedAsChunk_ = false;
 
 public:
     // Internal use only
-    internal::CallMessage& callMessage(internal::PassKey);
+    internal::CallMessage& callMessage(internal::PassKey, RequestId reqId);
 };
 
 //------------------------------------------------------------------------------
@@ -165,7 +173,7 @@ public:
 
 private:
     using CallerPtr = std::weak_ptr<internal::Caller>;
-    using ChunkHandler = AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>;
+    using ChunkSlot = AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>;
 
     static std::future<ErrorOrDone> futureValue(bool x);
 
@@ -178,44 +186,47 @@ private:
         return f;
     }
 
-    CallerChannel(const Invitation& inv, ChunkHandler&& chunkHandler);
+    CallerChannel(ChannelId id, const Invitation& inv, CallerPtr caller,
+                  AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>&& onChunk,
+                  AnyIoExecutor exec, AnyCompletionExecutor userExec);
 
     std::future<ErrorOrDone> safeCancel();
 
     template <typename T>
-    void dispatchChunkHandler(T&& arg)
+    void postChunkHandler(T&& arg)
     {
-        dispatchVia(executor_, userExecutor_, chunkHandler_,
-                    shared_from_this(), std::forward<T>(arg));
+        postVia(executor_, userExecutor_, chunkSlot_, shared_from_this(),
+                std::forward<T>(arg));
     }
+
+    bool isValidModeForSending() const;
 
     InputChunk rsvp_;
     Error error_;
     Uri uri_;
-    ChunkHandler chunkHandler_;
+    ChunkSlot chunkSlot_;
     AnyIoExecutor executor_;
     AnyCompletionExecutor userExecutor_;
     CallerPtr caller_;
     ChannelId id_ = nullId();
-    CallCancelMode cancelMode_ = CallCancelMode::unknown;
     std::atomic<State> state_;
     StreamMode mode_ = {};
+    CallCancelMode cancelMode_ = CallCancelMode::unknown;
     bool hasRsvp_ = false;
 
 public:
     // Internal use only
     static Ptr create(
-        internal::PassKey, const Invitation& inv,
-        AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)> chunkHandler);
+        internal::PassKey,
+        ChannelId id, const Invitation& inv, CallerPtr caller,
+        AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>&& onChunk,
+        AnyIoExecutor exec, AnyCompletionExecutor userExec);
 
-    void init(internal::PassKey, ChannelId id, CallerPtr caller,
-              AnyIoExecutor exec, AnyCompletionExecutor userExec);
+    void setRsvp(internal::PassKey, internal::ResultMessage&& msg);
 
-    bool isValidModeForSending() const;
+    void postResult(internal::PassKey, internal::ResultMessage&& msg);
 
-    void onRsvp(internal::PassKey, internal::ResultMessage&& msg);
-
-    void onReply(internal::PassKey, ErrorOr<internal::WampMessage>&& reply);
+    void postError(internal::PassKey, internal::ErrorMessage&& msg);
 };
 
 } // namespace wamp

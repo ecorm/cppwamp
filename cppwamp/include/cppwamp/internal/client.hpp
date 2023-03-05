@@ -46,139 +46,136 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class Requestor
+class StreamRequest
 {
 public:
-    using Message          = WampMessage;
-    using OneShotHandler   = AnyCompletionHandler<void (ErrorOr<Message>)>;
-    using MultiShotHandler = std::function<void (ErrorOr<Message>)>;
+    using InviteHandler =
+        AnyCompletionHandler<void (ErrorOr<CallerChannel::Ptr>)>;
 
-    Requestor(Peer& peer, IoStrand strand)
-        : strand_(std::move(strand)),
-          peer_(peer)
+    explicit StreamRequest(CallerChannel::Ptr c, Invitation& inv,
+                           InviteHandler&& f = {})
+        : handler_(std::move(f)),
+          channel_(std::move(c)),
+          weakChannel_(channel_),
+          errorPtr_(inv.error({})),
+          treatRsvpAsChunk_(inv.rsvpTreatedAsChunk())
     {}
 
-    ErrorOr<RequestId> request(Message& msg, OneShotHandler&& handler)
+    void onReply(WampMessage&& msg, AnyIoExecutor& exec,
+                 AnyCompletionExecutor& userExec)
     {
-        return sendRequest(msg, oneShotRequestMap_, std::move(handler));
-    }
-
-    ErrorOr<RequestId> ongoingRequest(Message& msg, MultiShotHandler&& handler)
-    {
-        return sendRequest(msg, multiShotRequestMap_, std::move(handler));
-    }
-
-    bool onReply(Message& msg)
-    {
-        assert(msg.isReply());
-        bool matchingRequestFound = false;
-        auto key = msg.requestKey();
-        auto kv = oneShotRequestMap_.find(key);
-        if (kv != oneShotRequestMap_.end())
-        {
-            matchingRequestFound = true;
-            auto handler = std::move(kv->second);
-            oneShotRequestMap_.erase(kv);
-            handler(std::move(msg));
-        }
+        if (msg.type() == WampMsgType::result)
+            onResult(messageCast<ResultMessage>(msg), exec, userExec);
         else
-        {
-            auto kv = multiShotRequestMap_.find(key);
-            if (kv != multiShotRequestMap_.end())
-            {
-                matchingRequestFound = true;
-                if (msg.isProgressive())
-                {
-                    const auto& handler = kv->second;
-                    handler(std::move(msg));
-                }
-                else
-                {
-                    auto handler = std::move(kv->second);
-                    multiShotRequestMap_.erase(kv);
-                    handler(std::move(msg));
-                }
-            }
-        }
-
-        return matchingRequestFound;
+            onError(messageCast<ErrorMessage>(msg), exec, userExec);
     }
 
-    bool cancelCall(const CallCancellation& cancellation)
+    void cancel(AnyIoExecutor& exec, AnyCompletionExecutor& userExec)
     {
-        // If the cancel mode is not 'kill', don't wait for the router's
-        // ERROR message and post the request handler immediately
-        // with a WampErrc::cancelled error code.
-
-        bool found = false;
-        RequestKey key{WampMsgType::call, cancellation.requestId()};
-        auto unex = makeUnexpectedError(WampErrc::cancelled);
-
-        auto kv = oneShotRequestMap_.find(key);
-        if (kv != oneShotRequestMap_.end())
-        {
-            found = true;
-            if (cancellation.mode() != CallCancelMode::kill)
-            {
-                auto handler = std::move(kv->second);
-                oneShotRequestMap_.erase(kv);
-                completeRequest(handler, unex);
-            }
-        }
-        else
-        {
-            auto kv = multiShotRequestMap_.find(key);
-            if (kv != multiShotRequestMap_.end())
-            {
-                found = true;
-                if (cancellation.mode() != CallCancelMode::kill)
-                {
-                    auto handler = std::move(kv->second);
-                    multiShotRequestMap_.erase(kv);
-                    completeRequest(handler, unex);
-                }
-            }
-        }
-
-        return found;
+        abandon(makeUnexpectedError(WampErrc::cancelled), exec, userExec);
     }
 
-    bool callIsPending(RequestId reqId) const
+    void abandon(UnexpectedError unex, AnyIoExecutor& exec,
+                 AnyCompletionExecutor& userExec)
     {
-        RequestKey key{WampMsgType::call, reqId};
-        return oneShotRequestMap_.count(key) != 0 ||
-               multiShotRequestMap_.count(key) != 0;
-    }
-
-    void abortAll(std::error_code ec)
-    {
-        UnexpectedError unex{ec};
-        for (auto& kv: oneShotRequestMap_)
-            completeRequest(kv.second, unex);
-        for (auto& kv: multiShotRequestMap_)
-            completeRequest(kv.second, unex);
-        clear();
-    }
-
-    void clear()
-    {
-        oneShotRequestMap_.clear();
-        multiShotRequestMap_.clear();
-        nextRequestId_ = nullId();
+        if (handler_)
+            postVia(exec, userExec, std::move(handler_), unex);
+        handler_ = nullptr;
+        channel_.reset();
+        weakChannel_.reset();
     }
 
 private:
-    template <typename TRequestMap, typename THandler>
-    ErrorOr<RequestId> sendRequest(Message& msg, TRequestMap& requests,
-                                   THandler&& handler)
+    void onResult(ResultMessage& msg, AnyIoExecutor& exec,
+                  AnyCompletionExecutor& userExec)
+    {
+        if (channel_)
+        {
+            if (!treatRsvpAsChunk_)
+                channel_->setRsvp({}, std::move(msg));
+
+            if (handler_)
+            {
+                dispatchVia(exec, userExec, std::move(handler_), channel_);
+                handler_ = nullptr;
+            }
+
+            if (treatRsvpAsChunk_)
+                channel_->postResult({}, std::move(msg));
+
+            channel_.reset();
+        }
+        else
+        {
+            auto channel = weakChannel_.lock();
+            if (channel)
+                channel->postResult({}, std::move(msg));
+        }
+    }
+
+    void onError(ErrorMessage& msg, AnyIoExecutor& exec,
+                 AnyCompletionExecutor& userExec)
+    {
+        if (channel_)
+        {
+            if (handler_)
+            {
+                Error error{{}, std::move(msg)};
+                auto unex = makeUnexpectedError(error.errorCode());
+                if (errorPtr_)
+                    *errorPtr_ = std::move(error);
+                dispatchVia(exec, userExec, std::move(handler_), unex);
+                handler_ = nullptr;
+            }
+            else
+            {
+                channel_->postError({}, std::move(msg));
+            }
+            channel_.reset();
+        }
+        else
+        {
+            auto channel = weakChannel_.lock();
+            if (channel)
+                channel->postError({}, std::move(msg));
+        }
+    }
+
+    InviteHandler handler_;
+    CallerChannel::Ptr channel_;
+    CallerChannel::WeakPtr weakChannel_;
+    Error* errorPtr_ = nullptr;
+    bool treatRsvpAsChunk_ = false;
+};
+
+//------------------------------------------------------------------------------
+class Requestor
+{
+public:
+    using Message = WampMessage;
+    using RequestHandler = AnyCompletionHandler<void (ErrorOr<Message>)>;
+    using InviteHandler =
+        AnyCompletionHandler<void (ErrorOr<CallerChannel::Ptr>)>;
+    using ChunkSlot = AnyReusableHandler<void (CallerChannel::Ptr,
+                                               ErrorOr<CallerInputChunk>)>;
+
+    Requestor(Peer& peer, IoStrand strand, AnyIoExecutor exec,
+              AnyCompletionExecutor userExec)
+        : strand_(std::move(strand)),
+          executor_(std::move(exec)),
+          userExecutor_(std::move(userExec)),
+          peer_(peer)
+    {}
+
+    ErrorOr<RequestId> request(Message& msg, RequestHandler&& handler)
     {
         assert(msg.type() != WampMsgType::none);
         RequestId requestId = nullId();
         if (msg.isRequest())
         {
-            requestId = nextRequestId_ + 1;
             // Will take 285 years to overflow 2^53 at 1 million requests/sec
-            assert(nextRequestId_ <= 9007199254740992u);
+            assert(nextRequestId_ < 9007199254740992u);
+            requestId = nextRequestId_ + 1;
             msg.setRequestId(requestId);
         }
 
@@ -193,10 +190,141 @@ private:
         if (msg.isRequest())
             ++nextRequestId_;
 
-        auto emplaced = requests.emplace(msg.requestKey(), std::move(handler));
+        auto emplaced = requests_.emplace(msg.requestKey(), std::move(handler));
         assert(emplaced.second);
         return requestId;
     }
+
+    ErrorOr<CallerChannel::Ptr> invite(Caller::WeakPtr caller, Invitation&& inv,
+                                       ChunkSlot&& onChunk,
+                                       InviteHandler&& handler = {})
+    {
+        // Will take 285 years to overflow 2^53 at 1 million requests/sec
+        assert(nextRequestId_ < 9007199254740992u);
+        ChannelId channelId = nextRequestId_ + 1;
+        auto& msg = inv.callMessage({}, channelId);
+
+        auto sent = peer_.send(msg);
+        if (!sent)
+        {
+            auto unex = makeUnexpected(sent.error());
+            completeRequest(handler, unex);
+            return unex;
+        }
+
+        ++nextRequestId_;
+
+        auto channel = CallerChannel::create(
+            {}, channelId, inv, std::move(caller), std::move(onChunk),
+            executor_, userExecutor_);
+        auto emplaced = channels_.emplace(
+            channelId, StreamRequest{channel, inv, std::move(handler)});
+        assert(emplaced.second);
+        return channel;
+    }
+
+    bool onReply(Message&& msg) // Returns true if request was found
+    {
+        assert(msg.isReply());
+
+        {
+            auto kv = requests_.find(msg.requestKey());
+            if (kv == requests_.end())
+                return false;
+            auto handler = std::move(kv->second);
+            requests_.erase(kv);
+            handler(std::move(msg));
+        }
+
+        {
+            if (msg.repliesTo() != WampMsgType::call)
+                return false;
+            auto kv = channels_.find(msg.requestId());
+            if (kv == channels_.end())
+                return false;
+
+            if (msg.isProgressive())
+            {
+                StreamRequest& req = kv->second;
+                req.onReply(std::move(msg), executor_, userExecutor_);
+            }
+            else
+            {
+                StreamRequest req{std::move(kv->second)};
+                channels_.erase(kv);
+                req.onReply(std::move(msg), executor_, userExecutor_);
+            }
+        }
+
+        return true;
+    }
+
+    // Returns true if request was found
+    bool cancelCall(const CallCancellation& cancellation)
+    {
+        // If the cancel mode is not 'kill', don't wait for the router's
+        // ERROR message and post the request handler immediately
+        // with a WampErrc::cancelled error code.
+
+        auto unex = makeUnexpectedError(WampErrc::cancelled);
+
+        {
+            RequestKey key{WampMsgType::call, cancellation.requestId()};
+            auto kv = requests_.find(key);
+            if (kv == requests_.end())
+                return false;
+
+            if (cancellation.mode() != CallCancelMode::kill)
+            {
+                auto handler = std::move(kv->second);
+                requests_.erase(kv);
+                completeRequest(handler, unex);
+            }
+        }
+
+        {
+            auto kv = channels_.find(cancellation.requestId());
+            if (kv == channels_.end())
+                return false;
+
+            if (cancellation.mode() != CallCancelMode::kill)
+            {
+                StreamRequest req{std::move(kv->second)};
+                channels_.erase(kv);
+                req.cancel(executor_, userExecutor_);
+            }
+        }
+
+        return true;
+    }
+
+    ErrorOrDone sendCallerChunk(RequestId reqId, CallerOutputChunk&& chunk)
+    {
+        RequestKey key{WampMsgType::call, reqId};
+        if (requests_.count(key) == 0 && channels_.count(reqId) == 0)
+            return false;
+        return peer_.send(chunk.callMessage({}, reqId));
+    }
+
+    void abandonAll(std::error_code ec)
+    {
+        UnexpectedError unex{ec};
+        for (auto& kv: requests_)
+            completeRequest(kv.second, unex);
+        for (auto& kv: channels_)
+            kv.second.abandon(unex, executor_, userExecutor_);
+        clear();
+    }
+
+    void clear()
+    {
+        requests_.clear();
+        channels_.clear();
+        nextRequestId_ = nullId();
+    }
+
+private:
+    using RequestKey = typename Message::RequestKey;
 
     template <typename F, typename... Ts>
     void completeRequest(F& handler, Ts&&... args)
@@ -206,15 +334,13 @@ private:
             std::bind(std::move(handler), std::forward<Ts>(args)...));
     }
 
-    using RequestKey          = typename Message::RequestKey;
-    using OneShotRequestMap   = std::map<RequestKey, OneShotHandler>;
-    using MultiShotRequestMap = std::map<RequestKey, MultiShotHandler>;
-
     IoStrand strand_;
-    OneShotRequestMap oneShotRequestMap_;
-    MultiShotRequestMap multiShotRequestMap_;
-    RequestId nextRequestId_ = nullId();
+    std::map<RequestKey, RequestHandler> requests_;
+    std::map<ChannelId, StreamRequest> channels_;
+    AnyIoExecutor executor_;
+    AnyCompletionExecutor userExecutor_;
     Peer& peer_;
+    RequestId nextRequestId_ = nullId();
 };
 
 
@@ -414,7 +540,7 @@ struct InvocationRecord
 {
     InvocationRecord(RegistrationId regId) : registrationId(regId) {}
 
-    CalleeChannel::WeakPtr channel; // TODO: shared_ptr?
+    CalleeChannel::WeakPtr channel;
     RegistrationId registrationId;
     bool invoked = false;     // Set upon the first streaming invocation
     bool interrupted = false; // Set when an interruption was received
@@ -787,11 +913,13 @@ public:
     using CallSlot           = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot      = AnyReusableHandler<Outcome (Interruption)>;
     using StreamSlot         = AnyReusableHandler<void (CalleeChannel::Ptr)>;
-    using LogHandler         = AnyReusableHandler<void(LogEntry)>;
-    using StateChangeHandler = AnyReusableHandler<void(SessionState,
-                                                       std::error_code)>;
-    using ChallengeHandler   = AnyReusableHandler<void(Challenge)>;
-    using OngoingCallHandler = AnyReusableHandler<void(ErrorOr<Result>)>;
+    using LogHandler         = AnyReusableHandler<void (LogEntry)>;
+    using StateChangeHandler = AnyReusableHandler<void (SessionState,
+                                                        std::error_code)>;
+    using ChallengeHandler   = AnyReusableHandler<void (Challenge)>;
+    using OngoingCallHandler = AnyReusableHandler<void (ErrorOr<Result>)>;
+    using ChunkSlot = AnyReusableHandler<void (CallerChannel::Ptr,
+                                               ErrorOr<CallerInputChunk>)>;
 
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
@@ -1445,6 +1573,7 @@ public:
         safelyDispatch<Dispatched>(r, std::move(f));
     }
 
+    // TODO: Rename to call
     void oneShotCall(Rpc&& rpc, CallChit* chitPtr,
                      CompletionHandler<Result>&& handler)
     {
@@ -1514,78 +1643,6 @@ public:
         safelyDispatch<Dispatched>(std::move(r), c, std::move(f));
     }
 
-    // TODO: Remove this in favor of streaming API
-    void ongoingCall(Rpc&& rpc, CallChit* chitPtr, OngoingCallHandler&& handler)
-    {
-        struct Requested
-        {
-            Ptr self;
-            Error* errorPtr;
-            OngoingCallHandler handler;
-
-            void operator()(ErrorOr<Message> reply)
-            {
-                auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::result, handler,
-                                  errorPtr))
-                {
-                    auto& resultMsg = messageCast<ResultMessage>(*reply);
-                    me.dispatchHandler(handler,
-                                       Result({}, std::move(resultMsg)));
-                }
-            }
-        };
-
-        if (chitPtr)
-            *chitPtr = CallChit{};
-
-        if (!checkState(State::established, handler))
-            return;
-
-        rpc.withProgressiveResults(true);
-
-        auto cancelSlot =
-            boost::asio::get_associated_cancellation_slot(handler);
-        auto requestId = ongoingRequest(
-            rpc.message({}),
-            Requested{shared_from_this(), rpc.error({}), std::move(handler)});
-        if (!requestId)
-            return;
-
-        CallChit chit{shared_from_this(), *requestId, rpc.cancelMode(),
-                      rpc.isProgress(), {}};
-
-        if (cancelSlot.is_connected())
-        {
-            cancelSlot.assign(
-                [chit](boost::asio::cancellation_type_t) {chit.cancel();});
-        }
-
-        if (rpc.callerTimeout().count() != 0)
-            timeoutScheduler_->insert(*requestId, rpc.callerTimeout());
-
-        if (chitPtr)
-            *chitPtr = chit;
-    }
-
-    void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Rpc r;
-            CallChit* c;
-            OngoingCallHandler f;
-
-            void operator()()
-            {
-                self->ongoingCall(std::move(r), c, std::move(f));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(r), c, std::move(f));
-    }
-
     ErrorOrDone cancelCall(RequestId reqId, CallCancelMode mode) override
     {
         if (state() != State::established)
@@ -1633,65 +1690,27 @@ public:
         return fut;
     }
 
-    void invite(Invitation&& invitation, CallerChannel::Ptr channel,
+    void invite(Invitation&& inv, ChunkSlot&& onChunk,
                 CompletionHandler<CallerChannel::Ptr>&& handler)
     {
-        using Handler = CompletionHandler<CallerChannel::Ptr>;
-        using SharedHandler = std::shared_ptr<Handler>;
-
-        struct Requested
-        {
-            Ptr self;
-            SharedHandler handler;
-            CallerChannel::Ptr channel; // TODO: weak_ptr?
-            Error* error;
-
-            void operator()(ErrorOr<Message> reply)
-            {
-                auto& me = *self;
-                if (channel->hasRsvp())
-                {
-                    channel->onReply({}, std::move(reply));
-                }
-                else if (me.checkReply(reply, WampMsgType::result, *handler,
-                                       error))
-                {
-                    auto& resultMsg = messageCast<ResultMessage>(*reply);
-                    channel->onRsvp({}, std::move(resultMsg));
-                    me.dispatchHandler(*handler, channel);
-                }
-            }
-        };
-
         if (!checkState(State::established, handler))
             return;
 
-        // One-shot completion handler needs to be wrapped because it will
-        // be stored in the Requested multi-shot handler.
-        auto sharedHandler = std::make_shared<Handler>(std::move(handler));
+        auto channel = requestor_.invite(shared_from_this(), std::move(inv),
+                                         std::move(onChunk), std::move(handler));
 
-        auto requestId = ongoingRequest(
-            invitation.message({}),
-            Requested{shared_from_this(), std::move(sharedHandler), channel,
-                      invitation.error({})});
-        if (!requestId)
-            return;
-
-        channel->init({}, *requestId, shared_from_this(), executor_,
-                      userExecutor_);
-
-        if (invitation.callerTimeout().count() != 0)
-            timeoutScheduler_->insert(*requestId, invitation.callerTimeout());
+        if (channel && inv.callerTimeout().count() != 0)
+            timeoutScheduler_->insert((*channel)->id(), inv.callerTimeout());
     }
 
-    void safeInvite(Invitation&& i, CallerChannel::Ptr c,
+    void safeInvite(Invitation&& i, ChunkSlot&& c,
                     CompletionHandler<CallerChannel::Ptr>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Invitation i;
-            CallerChannel::Ptr c;
+            ChunkSlot c;
             CompletionHandler<CallerChannel::Ptr> f;
 
             void operator()()
@@ -1703,46 +1722,28 @@ public:
         safelyDispatch<Dispatched>(std::move(i), std::move(c), std::move(f));
     }
 
-    ErrorOr<CallerChannel::Ptr> invite(Invitation&& invitation,
-                                       CallerChannel::Ptr channel)
+    ErrorOr<CallerChannel::Ptr> invite(Invitation&& inv, ChunkSlot&& onChunk)
     {
-        struct Requested
-        {
-            Ptr self;
-            CallerChannel::Ptr channel;
-
-            void operator()(ErrorOr<Message> reply)
-            {
-                channel->onReply({}, std::move(reply));
-            }
-        };
-
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
 
-        auto requestId = ongoingRequest(
-            invitation.message({}),
-            Requested{shared_from_this(), channel});
-        if (!requestId)
-            return UnexpectedError(requestId.error());
+        auto channel = requestor_.invite(shared_from_this(), std::move(inv),
+                                         std::move(onChunk));
 
-        channel->init({}, *requestId, shared_from_this(), executor_,
-                      userExecutor_);
-
-        if (invitation.callerTimeout().count() != 0)
-            timeoutScheduler_->insert(*requestId, invitation.callerTimeout());
+        if (channel && inv.callerTimeout().count() != 0)
+            timeoutScheduler_->insert((*channel)->id(), inv.callerTimeout());
 
         return channel;
     }
 
-    std::future<ErrorOr<CallerChannel::Ptr>>
-    safeInvite(Invitation&& i, CallerChannel::Ptr c)
+    std::future<ErrorOr<CallerChannel::Ptr>> safeInvite(Invitation&& i,
+                                                        ChunkSlot c)
     {
         struct Dispatched
         {
             Ptr self;
             Invitation i;
-            CallerChannel::Ptr c;
+            ChunkSlot c;
             std::promise<ErrorOr<CallerChannel::Ptr>> p;
 
             void operator()()
@@ -1767,9 +1768,7 @@ public:
     ErrorOrDone sendCallerChunk(RequestId reqId,
                                 CallerOutputChunk chunk) override
     {
-        if (!requestor_.callIsPending(reqId))
-            return false;
-        return peer_.send(chunk.callMessage({}, reqId));
+        return requestor_.sendCallerChunk(reqId, std::move(chunk));
     }
 
     FutureErrorOrDone safeSendCallerChunk(RequestId r,
@@ -1940,7 +1939,7 @@ private:
           strand_(boost::asio::make_strand(executor_)),
           readership_(executor_, userExecutor_),
           registry_(peer_, executor_, userExecutor_),
-          requestor_(peer_, strand_),
+          requestor_(peer_, strand_, executor_, userExecutor_),
           timeoutScheduler_(CallerTimeoutScheduler::create(strand_))
     {
         peer_.setInboundMessageHandler(
@@ -1999,17 +1998,12 @@ private:
         return requestor_.request(msg, std::move(handler));
     }
 
-    ErrorOr<RequestId> ongoingRequest(Message& msg, MultiShotHandler&& handler)
-    {
-        return requestor_.ongoingRequest(msg, std::move(handler));
-    }
-
     void abortPending(std::error_code ec)
     {
         if (isTerminating_)
             requestor_.clear();
         else
-            requestor_.abortAll(ec);
+            requestor_.abandonAll(ec);
     }
 
     template <typename TErrc>
@@ -2251,12 +2245,13 @@ private:
     void onWampReply(Message& msg)
     {
         // TODO: Bump timeout timer if progressive result
+        const char* msgName = msg.name();
         assert(msg.isReply());
-        if (!requestor_.onReply(msg))
+        if (!requestor_.onReply(std::move(msg)))
         {
             log(LogLevel::warning,
-                "Discarding received " + std::string(msg.name()) +
-                    " message with no matching request");
+                std::string("Discarding received ") + msgName +
+                " message with no matching request");
         }
     }
 

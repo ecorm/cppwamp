@@ -44,10 +44,12 @@ namespace internal
         friend class ProcedureRegistry;
         friend class Readership;
         friend class RealmSession;
+        friend class Requestor;
         friend class RouterImpl;
         friend class RouterRealm;
         friend class RouterServer;
         friend class ServerSession;
+        friend class StreamRequest;
     };
 }
 

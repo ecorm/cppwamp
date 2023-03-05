@@ -371,8 +371,7 @@ CPPWAMP_INLINE ErrorOr<CallerChannel::Ptr> Session::invite(
                                 `void (CallerChannel::Ptr, CallerInputChunk)` */
     )
 {
-    auto channel = CallerChannel::create({}, invitation, std::move(onChunk));
-    return impl_->invite(std::move(invitation), channel);
+    return impl_->invite(std::move(invitation), std::move(onChunk));
 }
 
 //------------------------------------------------------------------------------
@@ -385,8 +384,7 @@ CPPWAMP_INLINE std::future<ErrorOr<CallerChannel::Ptr>> Session::invite(
                                 `void (CallerChannel::Ptr, CallerInputChunk)` */
     )
 {
-    auto channel = CallerChannel::create({}, invitation, std::move(onChunk));
-    return impl_->safeInvite(std::move(invitation), channel);
+    return impl_->safeInvite(std::move(invitation), std::move(onChunk));
 }
 
 //------------------------------------------------------------------------------
@@ -458,10 +456,10 @@ CPPWAMP_INLINE void Session::doEnroll(Stream&& s, StreamSlot&& ss, CompletionHan
 CPPWAMP_INLINE void Session::safeEnroll(Stream&& s, StreamSlot&& ss, CompletionHandler<Registration>&& f)
     {impl_->safeEnroll(std::move(s), std::move(ss), std::move(f));}
 
-CPPWAMP_INLINE void Session::doInvite(Invitation&& i, CallerChannel::Ptr&& c, CompletionHandler<CallerChannel::Ptr>&& f)
+CPPWAMP_INLINE void Session::doInvite(Invitation&& i, ChunkSlot&& c, CompletionHandler<CallerChannel::Ptr>&& f)
     {impl_->invite(std::move(i), std::move(c), std::move(f));}
 
-CPPWAMP_INLINE void Session::safeInvite(Invitation&& i, CallerChannel::Ptr&& c, CompletionHandler<CallerChannel::Ptr>&& f)
+CPPWAMP_INLINE void Session::safeInvite(Invitation&& i, ChunkSlot&& c, CompletionHandler<CallerChannel::Ptr>&& f)
     {impl_->safeInvite(std::move(i), std::move(c), std::move(f));}
 
 } // namespace wamp

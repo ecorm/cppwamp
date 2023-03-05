@@ -55,9 +55,9 @@ CalleeOutputChunk::yieldMessage(internal::PassKey, RequestId reqId)
 
 CPPWAMP_INLINE Stream::Stream(String uri): Base(std::move(uri)) {}
 
-CPPWAMP_INLINE Stream& Stream::withInvitationTreatedAsChunk(bool disabled)
+CPPWAMP_INLINE Stream& Stream::withInvitationTreatedAsChunk(bool enabled)
 {
-    invitationTreatedAsChunk_ = disabled;
+    invitationTreatedAsChunk_ = enabled;
     return *this;
 }
 
