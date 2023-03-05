@@ -438,17 +438,11 @@ CPPWAMP_INLINE void Session::doUnregister(const Registration& r, CompletionHandl
 CPPWAMP_INLINE void Session::safeUnregister(const Registration& r, CompletionHandler<bool>&& f)
     {impl_->safeUnregister(r, std::move(f));}
 
-CPPWAMP_INLINE void Session::doOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
-    {impl_->oneShotCall(std::move(r), c, std::move(f));}
+CPPWAMP_INLINE void Session::doCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
+    {impl_->call(std::move(r), c, std::move(f));}
 
-CPPWAMP_INLINE void Session::safeOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
-    {impl_->safeOneShotCall(std::move(r), c, std::move(f));}
-
-CPPWAMP_INLINE void Session::doOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f)
-    {impl_->ongoingCall(std::move(r), c, std::move(f));}
-
-CPPWAMP_INLINE void Session::safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f)
-    {impl_->safeOngoingCall(std::move(r), c, std::move(f));}
+CPPWAMP_INLINE void Session::safeCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
+    {impl_->safeCall(std::move(r), c, std::move(f));}
 
 CPPWAMP_INLINE void Session::doEnroll(Stream&& s, StreamSlot&& ss, CompletionHandler<Registration>&& f)
     {impl_->enroll(std::move(s), std::move(ss), std::move(f));}

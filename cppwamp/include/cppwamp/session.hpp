@@ -440,27 +440,6 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
     call(ThreadSafe, Rpc rpc, CallChit& chit, C&& completion);
 
-    /** Calls a remote procedure with progressive results. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
-    ongoingCall(Rpc rpc, C&& completion);
-
-    /** Thread-safe call with progressive results. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
-    ongoingCall(ThreadSafe, Rpc rpc, C&& completion);
-
-    /** Calls a remote procedure with progressive results, obtaining a token
-        that can be used for cancellation. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
-    ongoingCall(Rpc rpc, CallChit& chit, C&& completion);
-
-    /** Thread-safe call with CallChit capture and progressive results. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
-    ongoingCall(ThreadSafe, Rpc rpc, CallChit& chit, C&& completion);
-
     /** Cancels a remote procedure using the cancel mode that was specified
         in the @ref wamp::Rpc "Rpc". */
     ErrorOrDone cancel(CallChit);
@@ -559,10 +538,8 @@ private:
                     CompletionHandler<Registration>&& f);
     void doUnregister(const Registration& r, CompletionHandler<bool>&& f);
     void safeUnregister(const Registration& r, CompletionHandler<bool>&& f);
-    void doOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f);
-    void safeOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f);
-    void doOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f);
-    void safeOngoingCall(Rpc&& r, CallChit* c, OngoingCallHandler&& f);
+    void doCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f);
+    void safeCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f);
     void doEnroll(Stream&& s, StreamSlot&& ss,
                   CompletionHandler<Registration>&& f);
     void safeEnroll(Stream&& s, StreamSlot&& ss,
@@ -1351,12 +1328,12 @@ struct Session::CallOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doOneShotCall(std::move(r), c, std::forward<F>(f));
+        self->doCall(std::move(r), c, std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->safeOneShotCall(std::move(r), c, std::forward<F>(f));
+        self->safeCall(std::move(r), c, std::forward<F>(f));
     }
 };
 
@@ -1387,6 +1364,9 @@ Session::call(
                         or a compatible Boost.Asio completion token. */
 )
 {
+    // TODO: API design change: Return a Call object immediately which allows
+    // awaiting the result and cancelling.
+
     CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
                         "Use Session::ongoingCall for progressive results");
     return initiate<CallOp>(std::forward<C>(completion), std::move(rpc),
@@ -1457,117 +1437,6 @@ Session::call(
                         "Use Session::ongoingCall for progressive results");
     return safelyInitiate<CallOp>(std::forward<C>(completion), std::move(rpc),
                                   &chit);
-}
-
-//------------------------------------------------------------------------------
-struct Session::OngoingCallOp
-{
-    using ResultValue = Result;
-    Session* self;
-    Rpc r;
-    CallChit* c;
-
-    template <typename F> void operator()(F&& f)
-    {
-        self->doOngoingCall(std::move(r), c, std::forward<F>(f));
-    }
-
-    template <typename F> void operator()(F&& f, ThreadSafe)
-    {
-        self->safeOngoingCall(std::move(r), c, std::forward<F>(f));
-    }
-};
-
-//------------------------------------------------------------------------------
-/** @return The remote procedure result.
-    @par Possible Error Codes
-        - WampErrc::noSuchProcedure if the router reports that there is
-          no such procedure registered by that name.
-        - WampErrc::invalidArgument if the callee reports that there are one
-          or more invalid arguments.
-        - WampErrc::cancelled if the call was cancelled.
-        - WampErrc::timeout if the call timed out.
-        - WampErrc::unavailable if the callee is unavailable.
-        - WampErrc::noAvailableCallee if all registered callees are unavaible.
-    @note `withProgessiveResults(true)` is automatically performed on the
-           given `rpc` argument.
-    @note The given completion handler must allow multi-shot invocation. */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Result>, C>
-#else
-Session::template Deduced<ErrorOr<Result>, C>
-#endif
-Session::ongoingCall(
-    Rpc rpc,       /**< Details about the RPC. */
-    C&& completion /**< Callable handler of type `void(ErrorOr<Result>)`,
-                        or a compatible Boost.Asio completion token. */
-    )
-{
-    return initiate<OngoingCallOp>(std::forward<C>(completion), std::move(rpc),
-                                   nullptr);
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::ongoingCall(Rpc, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Result>, C>
-#else
-Session::template Deduced<ErrorOr<Result>, C>
-#endif
-Session::ongoingCall(
-    ThreadSafe,
-    Rpc rpc,       /**< Details about the RPC. */
-    C&& completion /**< Callable handler of type `void(ErrorOr<Result>)`,
-                        or a compatible Boost.Asio completion token. */
-    )
-{
-    return safelyInitiate<OngoingCallOp>(std::forward<C>(completion),
-                                         std::move(rpc), nullptr);
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::ongoingCall(Rpc, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Result>, C>
-#else
-Session::template Deduced<ErrorOr<Result>, C>
-#endif
-Session::ongoingCall(
-    Rpc rpc,        /**< Details about the RPC. */
-    CallChit& chit, /**< [out] Token that can be used to cancel the RPC. */
-    C&& completion  /**< Callable handler of type `void(ErrorOr<Result>)`, or
-                         a compatible Boost.Asio completion token. */
-    )
-{
-    return initiate<OngoingCallOp>(std::forward<C>(completion), std::move(rpc),
-                                   &chit);
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::ongoingCall(Rpc, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Result>, C>
-#else
-Session::template Deduced<ErrorOr<Result>, C>
-#endif
-Session::ongoingCall(
-    ThreadSafe,
-    Rpc rpc,        /**< Details about the RPC. */
-    CallChit& chit, /**< [out] Token that can be used to cancel the RPC. */
-    C&& completion  /**< Callable handler of type `void(ErrorOr<Result>)`,
-                         or a compatible Boost.Asio completion token. */
-    )
-{
-    return safelyInitiate<OngoingCallOp>(std::forward<C>(completion),
-                                         std::move(rpc), &chit);
 }
 
 //------------------------------------------------------------------------------

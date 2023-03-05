@@ -661,6 +661,8 @@ error code.
 Progressive Call Results
 ------------------------
 
+TODO: Remove this section and write a streaming tutorial instead.
+
 [Progressive call results]
 (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
 is a WAMP feature that allows a sequence of partial results to be returned from

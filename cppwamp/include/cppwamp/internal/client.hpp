@@ -234,6 +234,7 @@ public:
             auto handler = std::move(kv->second);
             requests_.erase(kv);
             handler(std::move(msg));
+            return true;
         }
 
         {
@@ -280,6 +281,7 @@ public:
                 requests_.erase(kv);
                 completeRequest(handler, unex);
             }
+            return true;
         }
 
         {
@@ -1573,9 +1575,7 @@ public:
         safelyDispatch<Dispatched>(r, std::move(f));
     }
 
-    // TODO: Rename to call
-    void oneShotCall(Rpc&& rpc, CallChit* chitPtr,
-                     CompletionHandler<Result>&& handler)
+    void call(Rpc&& rpc, CallChit* chitPtr, CompletionHandler<Result>&& handler)
     {
         struct Requested
         {
@@ -1625,7 +1625,7 @@ public:
             *chitPtr = chit;
     }
 
-    void safeOneShotCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
+    void safeCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
     {
         struct Dispatched
         {
@@ -1636,7 +1636,7 @@ public:
 
             void operator()()
             {
-                self->oneShotCall(std::move(r), c, std::move(f));
+                self->call(std::move(r), c, std::move(f));
             }
         };
 
