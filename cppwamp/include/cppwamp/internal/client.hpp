@@ -229,12 +229,13 @@ public:
 
         {
             auto kv = requests_.find(msg.requestKey());
-            if (kv == requests_.end())
-                return false;
-            auto handler = std::move(kv->second);
-            requests_.erase(kv);
-            handler(std::move(msg));
-            return true;
+            if (kv != requests_.end())
+            {
+                auto handler = std::move(kv->second);
+                requests_.erase(kv);
+                handler(std::move(msg));
+                return true;
+            }
         }
 
         {
@@ -272,16 +273,16 @@ public:
         {
             RequestKey key{WampMsgType::call, cancellation.requestId()};
             auto kv = requests_.find(key);
-            if (kv == requests_.end())
-                return false;
-
-            if (cancellation.mode() != CallCancelMode::kill)
+            if (kv != requests_.end())
             {
-                auto handler = std::move(kv->second);
-                requests_.erase(kv);
-                completeRequest(handler, unex);
+                if (cancellation.mode() != CallCancelMode::kill)
+                {
+                    auto handler = std::move(kv->second);
+                    requests_.erase(kv);
+                    completeRequest(handler, unex);
+                }
+                return true;
             }
-            return true;
         }
 
         {

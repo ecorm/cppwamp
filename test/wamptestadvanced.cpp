@@ -442,7 +442,7 @@ GIVEN( "a caller and a callee" )
             for (unsigned i=0; i<2; ++i)
             {
                 Invitation inv{"com.myapp.foo", StreamMode::calleeToCaller};
-                inv.withArgs("invitation");
+                inv.withArgs("invitation").withRsvpTreatedAsChunk();
                 auto channelOrError = f.caller.invite(inv, onChunk);
                 REQUIRE(channelOrError.has_value());
                 auto channel = channelOrError.value();
@@ -468,6 +468,7 @@ GIVEN( "a caller and a callee" )
 {
     IoContext ioctx;
     RpcFixture f(ioctx, withTcp);
+    boost::asio::steady_timer timer(ioctx);
 
     std::vector<int> input{9, 3, 7, 5};
     std::vector<int> output;
@@ -478,6 +479,7 @@ GIVEN( "a caller and a callee" )
         CHECK(intr.cancelMode() == CallCancelMode::kill);
         channel->reject(WampErrc::cancelled);
         interruptReceived = true;
+        timer.cancel();
     };
 
     auto onStream = [&](CalleeChannel::Ptr channel)
@@ -490,21 +492,19 @@ GIVEN( "a caller and a callee" )
             ioctx,
             [&, channel](YieldContext yield) mutable
             {
-                boost::asio::steady_timer timer(ioctx);
-
-                for (unsigned i=0; i<input.size(); ++i)
+                // Never send the final chunk
+                for (unsigned i=0; i<input.size()-1; ++i)
                 {
                     timer.expires_from_now(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
-
-                    // Never send the final chunk
-                    bool isFinal = (i == input.size() - 1);
-                    if (!isFinal)
-                    {
-                        channel->send(CalleeOutputChunk(isFinal)
-                                          .withArgs(input.at(i))).value();
-                    }
+                    channel->send(CalleeOutputChunk(false)
+                                      .withArgs(input.at(i))).value();
                 }
+
+                boost::system::error_code ec;
+                timer.expires_from_now(std::chrono::seconds(3));
+                timer.async_wait(yield[ec]);
+                CHECK( interruptReceived );
             });
     };
 
@@ -533,7 +533,7 @@ GIVEN( "a caller and a callee" )
             f.join(yield);
             f.callee.enroll(Stream("com.myapp.foo"), onStream, yield).value();
 
-            for (unsigned i=0; i<2; ++i)
+            for (unsigned i=0; i<1; ++i)
             {
                 Invitation inv{"com.myapp.foo", StreamMode::calleeToCaller};
                 inv.withArgs("invitation");
@@ -600,7 +600,7 @@ GIVEN( "a caller and a callee" )
                                       .withArgs(input.at(i))).value();
                 }
 
-                timer.expires_from_now(std::chrono::seconds(10));
+                timer.expires_from_now(std::chrono::seconds(3));
                 boost::system::error_code ec;
                 timer.async_wait(yield[ec]);
                 CHECK( interruptReceived );

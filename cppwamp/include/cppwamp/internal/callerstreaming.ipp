@@ -232,6 +232,7 @@ CPPWAMP_INLINE CallerChannel::CallerChannel(
       chunkSlot_(std::move(onChunk)),
       executor_(exec),
       userExecutor_(std::move(userExec)),
+      caller_(std::move(caller)),
       id_(id),
       state_(State::open),
       mode_(inv.mode()),
