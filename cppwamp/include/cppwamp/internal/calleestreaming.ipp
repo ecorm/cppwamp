@@ -322,7 +322,7 @@ CPPWAMP_INLINE bool CalleeChannel::hasInterruptHandler(internal::PassKey) const
     return interruptHandler_ != nullptr;
 }
 
-CPPWAMP_INLINE void CalleeChannel::onInvocation(
+CPPWAMP_INLINE void CalleeChannel::postInvocation(
     internal::PassKey, internal::InvocationMessage&& msg)
 {
     if (!chunkHandler_)
@@ -332,8 +332,8 @@ CPPWAMP_INLINE void CalleeChannel::onInvocation(
             std::move(chunk));
 }
 
-CPPWAMP_INLINE void CalleeChannel::onInterrupt(internal::PassKey,
-                                               internal::InterruptMessage&& msg)
+CPPWAMP_INLINE void CalleeChannel::postInterrupt(
+    internal::PassKey, internal::InterruptMessage&& msg)
 {
     if (!interruptHandler_)
         return;

@@ -227,9 +227,9 @@ public:
 
     bool hasInterruptHandler(internal::PassKey) const;
 
-    void onInvocation(internal::PassKey, internal::InvocationMessage&& msg);
+    void postInvocation(internal::PassKey, internal::InvocationMessage&& msg);
 
-    void onInterrupt(internal::PassKey, internal::InterruptMessage&& msg);
+    void postInterrupt(internal::PassKey, internal::InterruptMessage&& msg);
 };
 
 namespace internal

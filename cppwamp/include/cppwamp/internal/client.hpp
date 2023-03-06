@@ -720,7 +720,7 @@ public:
         {
             auto kv = streams_.find(rec.registrationId);
             if (kv != streams_.end())
-                interruptHandled = onStreamInterruption(msg, rec);
+                interruptHandled = postStreamInterruption(msg, rec);
         }
 
         if (!interruptHandled)
@@ -861,16 +861,16 @@ private:
         {
             auto channel = rec.channel.lock();
             if (channel)
-                channel->onInvocation({}, std::move(msg));
+                channel->postInvocation({}, std::move(msg));
         }
     }
 
-    bool onStreamInterruption(InterruptMessage& msg, InvocationRecord& rec)
+    bool postStreamInterruption(InterruptMessage& msg, InvocationRecord& rec)
     {
         auto channel = rec.channel.lock();
         if (!channel || !channel->hasInterruptHandler({}))
             return false;
-        channel->onInterrupt({}, std::move(msg));
+        channel->postInterrupt({}, std::move(msg));
         return true;
     }
 

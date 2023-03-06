@@ -716,8 +716,9 @@ GIVEN( "a caller and a callee" )
     std::vector<int> input{9, 3, 7, 5};
     std::vector<int> output;
     bool errorArmed = false;
-    bool leaveEarlyArmed = false;
     bool rejectArmed = false;
+    bool leaveEarlyArmed = false;
+    bool destroyEarlyArmed = false;
 
     auto onStream = [&](CalleeChannel::Ptr channel)
     {
@@ -739,8 +740,9 @@ GIVEN( "a caller and a callee" )
 
         spawn(
             ioctx,
-            [&, channel](YieldContext yield) mutable
+            [&](YieldContext yield) mutable
             {
+                CalleeChannel::Ptr chan = std::move(channel);
                 boost::asio::steady_timer timer(ioctx);
 
                 for (unsigned i=0; i<input.size(); ++i)
@@ -753,16 +755,21 @@ GIVEN( "a caller and a callee" )
                     bool isFinal = (i == input.size() - 1);
                     if (isFinal && errorArmed)
                     {
-                        channel->reject(Error{WampErrc::invalidArgument});
+                        chan->reject(Error{WampErrc::invalidArgument});
                     }
                     else if (isFinal && leaveEarlyArmed)
                     {
                         f.callee.leave(yield).value();
                     }
+                    else if (isFinal && destroyEarlyArmed)
+                    {
+                        REQUIRE(chan.use_count() == 1);
+                        chan.reset();
+                    }
                     else
                     {
-                        channel->send(CalleeOutputChunk(isFinal)
-                                          .withArgs(input.at(i))).value();
+                        chan->send(CalleeOutputChunk(isFinal)
+                                       .withArgs(input.at(i))).value();
                     }
                 }
             });
@@ -782,7 +789,7 @@ GIVEN( "a caller and a callee" )
             CHECK(channel->error().errorCode() == WampErrc::invalidArgument);
             output.push_back(input.back());
         }
-        else if (isFinal && leaveEarlyArmed)
+        else if (isFinal && (leaveEarlyArmed || destroyEarlyArmed))
         {
             REQUIRE_FALSE( chunk.has_value() );
             CHECK(chunk.error() == WampErrc::cancelled);
@@ -864,6 +871,12 @@ GIVEN( "a caller and a callee" )
     WHEN( "callee leaves without sending final chunk" )
     {
         leaveEarlyArmed = true;
+        runTest();
+    }
+
+    WHEN( "callee destroys channel without sending final chunk" )
+    {
+        destroyEarlyArmed = true;
         runTest();
     }
 }}
@@ -965,7 +978,7 @@ GIVEN( "a caller and a callee" )
 
     auto onInterrupt = [&](CalleeChannel::Ptr channel, Interruption intr)
     {
-        CHECK(intr.cancelMode() == CallCancelMode::kill);
+        CHECK(intr.cancelMode() == CallCancelMode::killNoWait);
         channel->reject(WampErrc::cancelled);
         interruptReceived = true;
         timer.cancel();
@@ -994,6 +1007,7 @@ GIVEN( "a caller and a callee" )
                 timer.expires_from_now(std::chrono::seconds(3));
                 timer.async_wait(yield[ec]);
                 CHECK( interruptReceived );
+                output.push_back(input.back());
             });
     };
 
@@ -1002,20 +1016,12 @@ GIVEN( "a caller and a callee" )
     {
         INFO("for output.size()=" << output.size());
         bool isFinal = output.size() == input.size() - 1;
-        REQUIRE(chunk.has_value() != isFinal);
-        if (isFinal)
-        {
-            CHECK(interruptReceived);
-            output.push_back(input.back());
-        }
-        else
-        {
-            auto n = chunk->args().at(0).to<int>();
-            output.push_back(n);
-        }
+        REQUIRE(!isFinal);
+        auto n = chunk->args().at(0).to<int>();
+        output.push_back(n);
     };
 
-    WHEN( "streaming result chunks" )
+    auto runTest = [&](bool dropChannel)
     {
         spawn(ioctx, [&](YieldContext yield)
         {
@@ -1028,12 +1034,21 @@ GIVEN( "a caller and a callee" )
                 inv.withArgs("invitation");
                 auto channelOrError = f.caller.invite(inv, onChunk, yield);
                 REQUIRE(channelOrError.has_value());
-                auto channel = channelOrError.value();
+                auto channel = std::move(channelOrError).value();
 
                 while (output.size() < input.size() - 1)
                     suspendCoro(yield);
                 REQUIRE_FALSE(interruptReceived);
-                channel->cancel(CallCancelMode::kill);
+
+                if (dropChannel)
+                {
+                    REQUIRE(channel.use_count() == 1);
+                    channel.reset();
+                }
+                else
+                {
+                    channel->cancel(CallCancelMode::killNoWait);
+                }
 
                 while (output.size() < input.size())
                     suspendCoro(yield);
@@ -1045,6 +1060,16 @@ GIVEN( "a caller and a callee" )
             f.disconnect();
         });
         ioctx.run();
+    };
+
+    WHEN( "Cancelling via explicit cancel" )
+    {
+        runTest(false);
+    }
+
+    WHEN( "Cancelling by dropping the channel" )
+    {
+        runTest(true);
     }
 }}
 
@@ -1149,13 +1174,6 @@ GIVEN( "a caller and a callee" )
         ioctx.run();
     }
 }}
-
-//------------------------------------------------------------------------------
-SCENARIO( "WAMP callee-to-caller streaming with early channel destruction",
-          "[WAMP][Advanced]" )
-{
-    // TODO
-}
 
 //------------------------------------------------------------------------------
 SCENARIO( "WAMP pub/sub advanced features", "[WAMP][Advanced]" )
