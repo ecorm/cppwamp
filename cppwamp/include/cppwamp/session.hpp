@@ -467,7 +467,8 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<Registration>, C>
     enroll(ThreadSafe, Stream stream, StreamSlot streamSlot, C&& completion);
 
-    /** Sends an invitation to establish a stream and waits for an RSVP. */
+    /** Sends an invitation to open a stream and waits for an RSVP. */
+    // TODO: Add overloads with no chunk handler
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel::Ptr>, C>
     invite(Invitation invitation, ChunkSlot onChunk, C&& completion);
@@ -475,16 +476,15 @@ public:
     /** Thread-safe invite with RSVP. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel::Ptr>, C>
-    invite(ThreadSafe, Invitation invitation, ChunkSlot onChunk,
-           C&& completion);
+    invite(ThreadSafe, Invitation invitation, ChunkSlot onChunk, C&& completion);
 
-    /** Sends an invitation to establish a stream with no RSVP expected. */
-    CPPWAMP_NODISCARD ErrorOr<CallerChannel::Ptr> invite(Invitation invitation,
-                                                         ChunkSlot onChunk);
+    /** Opens a streamming channel. */
+    CPPWAMP_NODISCARD ErrorOr<CallerChannel::Ptr>
+    summon(Summons summons, ChunkSlot onChunk);
 
-    /** Thread-safe invite without RSVP. */
+    /** Thread-safe mummon. */
     CPPWAMP_NODISCARD std::future<ErrorOr<CallerChannel::Ptr>>
-    invite(ThreadSafe, Invitation invitation, ChunkSlot onChunk);
+    summon(ThreadSafe, Summons summons, ChunkSlot onChunk);
     /// @}
 
 private:
@@ -546,7 +546,7 @@ private:
                     CompletionHandler<Registration>&& f);
     void doInvite(Invitation&& i, ChunkSlot&& c,
                   CompletionHandler<CallerChannel::Ptr>&& f);
-    void safeInvite(Invitation&& i, ChunkSlot&& c,
+    void safeMeet(Invitation&& i, ChunkSlot&& c,
                     CompletionHandler<CallerChannel::Ptr>&& f);
 
     std::shared_ptr<internal::Client> impl_;
@@ -1479,7 +1479,7 @@ struct Session::EnrollStreamOp
 };
 
 //------------------------------------------------------------------------------
-/** @see @ref Streaming
+/** @see @ref Streams
 
     @return A Registration object, therafter used to manage the registration's
             lifetime.
@@ -1547,7 +1547,7 @@ struct Session::InviteOp
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->safeInvite(std::move(i), std::move(c), std::forward<F>(f));
+        self->safeMeet(std::move(i), std::move(c), std::forward<F>(f));
     }
 };
 

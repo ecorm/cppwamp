@@ -84,17 +84,17 @@ public:
         streaming endpoint. */
     explicit Stream(String uri);
 
-    /** Treats the initial invocation as a chunk instead of an invitation. */
-    Stream& withInvitationTreatedAsChunk(bool enabled = true);
+    /** Treats the initial invocation as an invitation instead of a chunk. */
+    Stream& withInvitationExpected(bool enabled = true);
 
-    /** Returns true if the initial invocation is to be treated as a chunk
-        instead of an invitation. */
-    bool invitationTreatedAsChunk() const;
+    /** Returns true if the initial invocation is to be treated as an invitation
+        instead of a chunk. */
+    bool invitationExpected() const;
 
 private:
     using Base = ProcedureLike<Stream>;
 
-    bool invitationTreatedAsChunk_ = false;
+    bool invitationExpected_ = false;
 
 public:
     // Internal use only
@@ -145,7 +145,7 @@ public:
 
     /** Determines if the Stream::withInvitationTreatedAsChunk option was set
         during stream registrtion. */
-    bool invitationTreatedAsChunk() const;
+    bool invitationExpected() const;
 
     /** Accesses the invitation. */
     const InputChunk& invitation() const &;
@@ -205,7 +205,7 @@ private:
 
     bool isValidModeFor(const OutputChunk& c) const;
 
-    void postInvitationAsChunkIfIgnored();
+    void postUnexpectedInvitationAsChunk();
 
     InputChunk invitation_;
     AnyReusableHandler<void (Ptr, InputChunk)> chunkHandler_;
@@ -216,7 +216,7 @@ private:
     ChannelId id_ = nullId();
     std::atomic<State> state_;
     StreamMode mode_ = {};
-    bool invitationTreatedAsChunk_ = false;
+    bool invitationExpected_ = false;
 
 public:
     // Internal use only
@@ -241,7 +241,7 @@ struct StreamRegistration
     using StreamSlot = AnyReusableHandler<void (CalleeChannel::Ptr)>;
 
     StreamSlot streamSlot;
-    bool treatInvitationAsChunk;
+    bool invitationExpected;
 };
 
 } // namespace internal

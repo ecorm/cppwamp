@@ -723,7 +723,7 @@ GIVEN( "a caller and a callee" )
     auto onStream = [&](CalleeChannel::Ptr channel)
     {
         CHECK( channel->mode() == StreamMode::calleeToCaller );
-        CHECK_FALSE( channel->invitationTreatedAsChunk() );
+        CHECK( channel->invitationExpected() );
         CHECK( channel->invitation().args().front().as<String>() ==
               "invitation" );
 
@@ -810,7 +810,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
-            f.callee.enroll(Stream("com.myapp.foo"), onStream, yield).value();
+            f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
+                            onStream, yield).value();
 
             for (unsigned i=0; i<2; ++i)
             {
@@ -841,8 +842,10 @@ GIVEN( "a caller and a callee" )
                 if (i == 0 && leaveEarlyArmed)
                 {
                     f.callee.join(Realm(testRealm), yield).value();
-                    f.callee.enroll(Stream("com.myapp.foo"), onStream, yield)
-                        .value();
+                    f.callee.enroll(
+                        Stream("com.myapp.foo").withInvitationExpected(),
+                        onStream,
+                        yield).value();
                 }
             }
 
@@ -882,8 +885,8 @@ GIVEN( "a caller and a callee" )
 }}
 
 //------------------------------------------------------------------------------
-SCENARIO( "WAMP callee-to-caller streaming with no invitations/rsvps expected",
-          "[WAMP][Advanced]" )
+SCENARIO( "WAMP callee-to-caller streaming with no negotiation",
+         "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
@@ -896,7 +899,7 @@ GIVEN( "a caller and a callee" )
     auto onStream = [&](CalleeChannel::Ptr channel)
     {
         CHECK( channel->mode() == StreamMode::calleeToCaller );
-        CHECK( channel->invitationTreatedAsChunk() );
+        CHECK_FALSE( channel->invitationExpected() );
         CHECK_FALSE( channel->invitation().hasArgs() );
         channel->accept().value();
 
@@ -936,16 +939,13 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
-            f.callee.enroll(
-                Stream("com.myapp.foo").withInvitationTreatedAsChunk(),
-                onStream,
-                yield).value();
+            f.callee.enroll(Stream("com.myapp.foo"), onStream, yield).value();
 
             for (unsigned i=0; i<2; ++i)
             {
-                Invitation inv{"com.myapp.foo", StreamMode::calleeToCaller};
-                inv.withArgs("invitation").withRsvpTreatedAsChunk();
-                auto channelOrError = f.caller.invite(inv, onChunk);
+                Summons summons{"com.myapp.foo", StreamMode::calleeToCaller};
+                summons.withArgs("invitation");
+                auto channelOrError = f.caller.summon(summons, onChunk);
                 REQUIRE(channelOrError.has_value());
                 auto channel = channelOrError.value();
                 CHECK(channel->mode() == StreamMode::calleeToCaller);
@@ -1026,7 +1026,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
-            f.callee.enroll(Stream("com.myapp.foo"), onStream, yield).value();
+            f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
+                            onStream, yield).value();
 
             for (unsigned i=0; i<1; ++i)
             {
@@ -1149,7 +1150,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
-            f.callee.enroll(Stream("com.myapp.foo"), onStream, yield).value();
+            f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
+                            onStream, yield).value();
 
             for (unsigned i=0; i<1; ++i)
             {

@@ -55,15 +55,15 @@ CalleeOutputChunk::yieldMessage(internal::PassKey, RequestId reqId)
 
 CPPWAMP_INLINE Stream::Stream(String uri): Base(std::move(uri)) {}
 
-CPPWAMP_INLINE Stream& Stream::withInvitationTreatedAsChunk(bool enabled)
+CPPWAMP_INLINE Stream& Stream::withInvitationExpected(bool enabled)
 {
-    invitationTreatedAsChunk_ = enabled;
+    invitationExpected_ = enabled;
     return *this;
 }
 
-CPPWAMP_INLINE bool Stream::invitationTreatedAsChunk() const
+CPPWAMP_INLINE bool Stream::invitationExpected() const
 {
-    return invitationTreatedAsChunk_;
+    return invitationExpected_;
 }
 
 CPPWAMP_INLINE internal::RegisterMessage&
@@ -93,15 +93,15 @@ CPPWAMP_INLINE CalleeChannel::State CalleeChannel::state() const
 
 CPPWAMP_INLINE ChannelId CalleeChannel::id() const {return id_;}
 
-CPPWAMP_INLINE bool CalleeChannel::invitationTreatedAsChunk() const
+CPPWAMP_INLINE bool CalleeChannel::invitationExpected() const
 {
-    return invitationTreatedAsChunk_;
+    return invitationExpected_;
 }
 
 CPPWAMP_INLINE const CalleeInputChunk& CalleeChannel::invitation() const &
 {
     static const CalleeInputChunk empty;
-    return invitationTreatedAsChunk_ ? empty : invitation_;
+    return invitationExpected_ ? invitation_ : empty;
 }
 
 /** @pre `this->invitationTreatedAsChunk() == false`
@@ -109,8 +109,8 @@ CPPWAMP_INLINE const CalleeInputChunk& CalleeChannel::invitation() const &
 CPPWAMP_INLINE CalleeInputChunk&& CalleeChannel::invitation() &&
 {
     CPPWAMP_LOGIC_CHECK(
-        !invitationTreatedAsChunk_,
-        "wamp::CalleeChannel::invitation: cannot move invitation when disabled");
+        invitationExpected_,
+        "wamp::CalleeChannel::invitation: cannot move unexpected invitation");
     return std::move(invitation_);
 }
 
@@ -145,7 +145,7 @@ CPPWAMP_INLINE ErrorOrDone CalleeChannel::accept(
         interruptHandler_ = std::move(onInterrupt);
     }
 
-    postInvitationAsChunkIfIgnored();
+    postUnexpectedInvitationAsChunk();
 
     auto caller = callee_.lock();
     if (!caller)
@@ -173,7 +173,7 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::accept(
         interruptHandler_ = std::move(onInterrupt);
     }
 
-    postInvitationAsChunkIfIgnored();
+    postUnexpectedInvitationAsChunk();
 
     auto caller = callee_.lock();
     if (!caller)
@@ -197,7 +197,7 @@ CPPWAMP_INLINE ErrorOrDone CalleeChannel::accept(
 
     chunkHandler_ = std::move(onChunk);
     interruptHandler_ = std::move(onInterrupt);
-    postInvitationAsChunkIfIgnored();
+    postUnexpectedInvitationAsChunk();
 
     return true;
 }
@@ -286,7 +286,7 @@ CPPWAMP_INLINE CalleeChannel::CalleeChannel(
       id_(invitation_.channelId()),
       state_(State::inviting),
       mode_(invitation_.mode({})),
-      invitationTreatedAsChunk_(reg.treatInvitationAsChunk)
+      invitationExpected_(reg.invitationExpected)
 {}
 
 CPPWAMP_INLINE bool CalleeChannel::isValidModeFor(const OutputChunk& c) const
@@ -297,9 +297,9 @@ CPPWAMP_INLINE bool CalleeChannel::isValidModeFor(const OutputChunk& c) const
            (mode_ == M::bidirectional);
 }
 
-CPPWAMP_INLINE void CalleeChannel::postInvitationAsChunkIfIgnored()
+CPPWAMP_INLINE void CalleeChannel::postUnexpectedInvitationAsChunk()
 {
-    if (chunkHandler_ && invitationTreatedAsChunk_)
+    if (chunkHandler_ && !invitationExpected_)
     {
         postVia(executor_, userExecutor_, chunkHandler_,
                 shared_from_this(), std::move(invitation_));

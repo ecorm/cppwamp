@@ -84,23 +84,42 @@ public:
     /** Obtains the desired stream mode. */
     StreamMode mode() const;
 
-    /** Treats the initial result as a chunk instead of an RSVP. */
-    Invitation& withRsvpTreatedAsChunk(bool enabled = true);
-
-    /** Returns true if the initial result is to be treated as a chunk
-        instead of an RSVP. */
-    bool rsvpTreatedAsChunk() const;
-
 private:
     using Base = RpcLike<Invitation>;
 
     StreamMode mode_;
-    bool rsvpTreatedAsChunk_ = false;
 
 public:
     // Internal use only
     internal::CallMessage& callMessage(internal::PassKey, RequestId reqId);
 };
+
+
+//------------------------------------------------------------------------------
+/** Contains the stream URI, mode, and options for opening a new streaming
+    channel without any negotiation on the part of the caller.
+    This object is used to generate an initiating `CALL` message configured for
+    progressive call results and/or invocations. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API Summons : public RpcLike<Summons>
+{
+public:
+    /** Constructor taking a stream URI and desired stream mode. */
+    explicit Summons(String uri, StreamMode mode);
+
+    /** Obtains the desired stream mode. */
+    StreamMode mode() const;
+
+private:
+    using Base = RpcLike<Summons>;
+
+    StreamMode mode_;
+
+public:
+    // Internal use only
+    internal::CallMessage& callMessage(internal::PassKey, RequestId reqId);
+};
+
 
 //------------------------------------------------------------------------------
 /** Provides the interface for a caller to stream chunks of data. */
@@ -186,7 +205,8 @@ private:
         return f;
     }
 
-    CallerChannel(ChannelId id, const Invitation& inv, CallerPtr caller,
+    CallerChannel(ChannelId id, String&& uri, StreamMode mode,
+                  CallCancelMode cancelMode, CallerPtr caller,
                   AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>&& onChunk,
                   AnyIoExecutor exec, AnyCompletionExecutor userExec);
 
@@ -218,7 +238,8 @@ public:
     // Internal use only
     static Ptr create(
         internal::PassKey,
-        ChannelId id, const Invitation& inv, CallerPtr caller,
+        ChannelId id, String&& uri, StreamMode mode,
+        CallCancelMode cancelMode, CallerPtr caller,
         AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>&& onChunk,
         AnyIoExecutor exec, AnyCompletionExecutor userExec);
 

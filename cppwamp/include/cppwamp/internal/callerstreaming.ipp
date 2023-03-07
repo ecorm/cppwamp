@@ -64,19 +64,34 @@ CPPWAMP_INLINE Invitation::Invitation(String uri, StreamMode mode)
 
 CPPWAMP_INLINE StreamMode Invitation::mode() const {return mode_;}
 
-CPPWAMP_INLINE Invitation& Invitation::withRsvpTreatedAsChunk(bool enabled)
-{
-    rsvpTreatedAsChunk_ = enabled;
-    return *this;
-}
-
-CPPWAMP_INLINE bool Invitation::rsvpTreatedAsChunk() const
-{
-    return rsvpTreatedAsChunk_;
-}
-
 CPPWAMP_INLINE internal::CallMessage& Invitation::callMessage(internal::PassKey,
                                                               RequestId reqId)
+{
+    message().setRequestId(reqId);
+    return message();
+}
+
+
+//******************************************************************************
+// Summons
+//******************************************************************************
+
+/** Constructor. */
+CPPWAMP_INLINE Summons::Summons(String uri, StreamMode mode)
+    : Base(std::move(uri)),
+      mode_(mode)
+{
+    using D = StreamMode;
+    if (mode == D::calleeToCaller || mode == D::bidirectional)
+        withOption("receive_progress", true);
+    if (mode == D::callerToCallee || mode == D::bidirectional)
+        withOption("progress", true);
+}
+
+CPPWAMP_INLINE StreamMode Summons::mode() const {return mode_;}
+
+CPPWAMP_INLINE internal::CallMessage& Summons::callMessage(internal::PassKey,
+                                                           RequestId reqId)
 {
     message().setRequestId(reqId);
     return message();
@@ -225,18 +240,19 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::futureValue(bool x)
 }
 
 CPPWAMP_INLINE CallerChannel::CallerChannel(
-    ChannelId id, const Invitation& inv, CallerPtr caller,
+    ChannelId id, String&& uri, StreamMode mode, CallCancelMode cancelMode,
+    CallerPtr caller,
     AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>&& onChunk,
     AnyIoExecutor exec, AnyCompletionExecutor userExec)
-    : uri_(inv.uri()),
+    : uri_(std::move(uri)),
       chunkSlot_(std::move(onChunk)),
       executor_(exec),
       userExecutor_(std::move(userExec)),
       caller_(std::move(caller)),
       id_(id),
       state_(State::open),
-      mode_(inv.mode()),
-      cancelMode_(inv.cancelMode())
+      mode_(mode),
+      cancelMode_(cancelMode)
 {}
 
 CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::safeCancel()
@@ -253,11 +269,13 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::safeCancel()
 
 CPPWAMP_INLINE CallerChannel::Ptr
 CallerChannel::create(
-    internal::PassKey, ChannelId id, const Invitation& inv, CallerPtr caller,
+    internal::PassKey, ChannelId id, String&& uri, StreamMode mode,
+    CallCancelMode cancelMode, CallerPtr caller,
     AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>&& onChunk,
     AnyIoExecutor exec, AnyCompletionExecutor userExec)
 {
-    return Ptr(new CallerChannel(id, inv, std::move(caller), std::move(onChunk),
+    return Ptr(new CallerChannel(id, std::move(uri), mode, cancelMode,
+                                 std::move(caller), std::move(onChunk),
                                  std::move(exec), std::move(userExec)));
 }
 

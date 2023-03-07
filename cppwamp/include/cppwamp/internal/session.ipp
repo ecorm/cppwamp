@@ -365,26 +365,26 @@ CPPWAMP_INLINE std::future<ErrorOrDone> Session::cancel(
 //------------------------------------------------------------------------------
 /** @return A new CallerChannel shared pointer. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE ErrorOr<CallerChannel::Ptr> Session::invite(
-    Invitation invitation, /**< Details about the stream. */
-    ChunkSlot onChunk      /**< Caller input chunk handler with signature
-                                `void (CallerChannel::Ptr, CallerInputChunk)` */
+CPPWAMP_INLINE ErrorOr<CallerChannel::Ptr> Session::summon(
+    Summons summons,  /**< Details about the stream. */
+    ChunkSlot onChunk /**< Caller input chunk handler with signature
+                           `void (CallerChannel::Ptr, CallerInputChunk)` */
     )
 {
-    return impl_->invite(std::move(invitation), std::move(onChunk));
+    return impl_->summon(std::move(summons), std::move(onChunk));
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::invite(Invitation, ChunkSlot) */
+/** @copydetails Session::summon(Summons, ChunkSlot) */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE std::future<ErrorOr<CallerChannel::Ptr>> Session::invite(
+CPPWAMP_INLINE std::future<ErrorOr<CallerChannel::Ptr>> Session::summon(
     ThreadSafe,
-    Invitation invitation, /**< Details about the stream. */
-    ChunkSlot onChunk      /**< Caller input chunk handler with signature
-                                `void (CallerChannel::Ptr, CallerInputChunk)` */
+    Summons summons,  /**< Details about the stream. */
+    ChunkSlot onChunk /**< Caller input chunk handler with signature
+                           `void (CallerChannel::Ptr, CallerInputChunk)` */
     )
 {
-    return impl_->safeInvite(std::move(invitation), std::move(onChunk));
+    return impl_->safeSummon(std::move(summons), std::move(onChunk));
 }
 
 //------------------------------------------------------------------------------
@@ -453,7 +453,7 @@ CPPWAMP_INLINE void Session::safeEnroll(Stream&& s, StreamSlot&& ss, CompletionH
 CPPWAMP_INLINE void Session::doInvite(Invitation&& i, ChunkSlot&& c, CompletionHandler<CallerChannel::Ptr>&& f)
     {impl_->invite(std::move(i), std::move(c), std::move(f));}
 
-CPPWAMP_INLINE void Session::safeInvite(Invitation&& i, ChunkSlot&& c, CompletionHandler<CallerChannel::Ptr>&& f)
-    {impl_->safeInvite(std::move(i), std::move(c), std::move(f));}
+CPPWAMP_INLINE void Session::safeMeet(Invitation&& i, ChunkSlot&& c, CompletionHandler<CallerChannel::Ptr>&& f)
+    {impl_->safeMeet(std::move(i), std::move(c), std::move(f));}
 
 } // namespace wamp
