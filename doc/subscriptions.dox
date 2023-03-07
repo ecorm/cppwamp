@@ -13,10 +13,10 @@
 
 @section EventSlots Event Slots
 
-A _slot_ is a _callable target_ that is called in response to a _signal_
-(the signal being the event topic in this case). The term _slot_, borrowed from
-[Qt's signals and slots][qt_sig], is used to distinguish a event handler
-from an asynchronous operation completion handler.
+A _slot_ is a _callable target_ that is invoked in response to a repeatable
+event. The term _slot_, borrowed from [Qt's signals and slots][qt_sig], is used
+to distinguish this sort of handler from an asynchronous operation completion
+handler that is invoked only once.
 
 A _callable target_ can be:
 - a free function,
@@ -24,7 +24,7 @@ A _callable target_ can be:
 - a function object,
 - a lambda function, etc.
 
-[qt_sig]: http://doc.qt.io/qt-5/signalsandslots.html
+[qt_sig]: https://doc.qt.io/qt-6/signalsandslots.html
 
 An _event slot_ represents an event handler that does not have any expectations
 on the event payload arguments. If necessary, the payload arguments must be
@@ -228,6 +228,24 @@ where
   `wamp::unpackedEvent`.
 - `wamp::YieldContext` is a completion token that can passed to
    asynchronous operations.
+
+
+@section EventSlotExecutorBinding Binding Executors to Event Slots
+
+An event slot can be bound to an
+[executor](https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/model/executors.html)
+which determines how the slot invocation is queued and ultimately run. This
+allows the slot to be executed in a different context than the one used by
+wamp::Session. For example, a slot could be bound to an executor associated
+with a boost::asio::thread_pool.
+
+[boost::asio::bind_executor](https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/bind_executor.html)
+is used to bind an executor to a call slot.
+
+If no executor is bound to an event slot, CppWAMP will automatically bind
+wamp::Session::userExecutor() to it. If no user executor was specified during
+wamp::Session construction, then it defaults to the primary executor passed
+during construction.
 
 
 @section ScopedSubscriptions Scoped Subscriptions

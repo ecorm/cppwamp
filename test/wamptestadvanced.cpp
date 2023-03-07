@@ -944,7 +944,7 @@ GIVEN( "a caller and a callee" )
             for (unsigned i=0; i<2; ++i)
             {
                 Summons summons{"com.myapp.foo", StreamMode::calleeToCaller};
-                summons.withArgs("invitation");
+                summons.withArgs("I summon you");
                 auto channelOrError = f.caller.summon(summons, onChunk);
                 REQUIRE(channelOrError.has_value());
                 auto channel = channelOrError.value();

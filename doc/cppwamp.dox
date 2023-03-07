@@ -80,9 +80,9 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 2. @subpage ConnectionsTutorial &ndash; How to specify the desired transport and serialization.
 3. @subpage SessionsTutorial &ndash; How to establish a WAMP session using stackful coroutines.
 4. @subpage ErrorsTutorial &ndash; How to handle runtime errors emitted by `Session`.
-5. @subpage RpcTutorial &ndash; How to register and invoke remote procedure calls.
-6. @subpage StreamingTutorial &ndash; How to register and initiate streams.
-7. @subpage PubSubTutorial &ndash; How to publish and subscribe to event topics.
+5. @subpage PubSubTutorial &ndash; How to publish and subscribe to event topics.
+6. @subpage RpcTutorial &ndash; How to register and invoke remote procedure calls.
+7. @subpage StreamingTutorial &ndash; How to register and initiate streams.
 8. @subpage AsyncCallbacksTutorial &ndash; How to use asynchronous callbacks with `Session`.
 9. @subpage ConversionsTutorial &ndash; How to convert `Variant` to/from custom types.
 */

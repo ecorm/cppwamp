@@ -1,0 +1,259 @@
+/*------------------------------------------------------------------------------
+    Copyright Butterfly Energy Systems 2023.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
+------------------------------------------------------------------------------*/
+
+
+/**
+@page Streams Streams
+
+@tableofcontents
+
+In CppWAMP, _streams_ are a facade over WAMP's
+[Progressive Call Results][1] and [Progressive Call Invocations][2] features.
+The streaming API does not provide another layer on top of WAMP, but rather,
+abstracts away some of the complexities of those advanced features. This API
+includes optional, rudimentary provisions for in-band signaling. An application
+can implement more sophisticated streaming by using this API as a building
+block.
+
+No provisions for throttling are made. Throttling must be performed at the
+application level, and the application is responsible for multiplexing
+its own stream control signals alongside application data payloads.
+
+Note that CppWAMP streams are not direct peer-to-peer, but pass through a
+router just like in regular WAMP remote procedure calls. If direct peer-to-peer
+streams are desired, then WAMP can be used to implement a signaling server
+that is used in conjuction with another protocol for the actual streaming,
+such as WebRTC.
+
+@section StreamEndpoints Stream Endpoints and URIs
+
+A _streaming endpoint_ is registered by a callee, and is identified by an URI
+that shares the same namespace as RPC procedures. This namespace sharing is due
+to streams being a facade over the WAMP Progressive Call Results/Invocations
+features.
+
+Streaming endpoints are registered via the wamp::Session::enroll overloads
+taking a wamp::Stream object.
+
+
+@section StreamingModes Streaming Modes
+
+When opening a stream channel, the caller must specify a _streaming mode_ which
+determines the number of `CALL` and `RESULT` messages that can be sent during
+the underlying call request.
+
+The stream mode determines the WAMP Progressive Call Results/Invocations
+options that will be set in the `CALL` messages sent by the caller.
+
+Streaming Mode | `progress` | `receive_progress` | `CALL` Count | `RESULT` Count
+-------------- | ---------- | ------------------ | ------------ | --------------
+simpleCall     | `false`    | `false`            | 1 only       | 1 only
+callerToCallee | `false`    | `true`             | 1 only       | 1 or more
+calleeToCaller | `true`     | `false`            | 1 or more    | 1 only
+bidirectional  | `true`     | `true`             | 1 or more    | 1 or more
+
+@note When both progressive results and invocations are disabled, this decays
+      into a "simple" remote procedure call with a single invocation and a
+      single result. It is therefore possible to use the streaming API to
+      perform a such a simple RPC, but it is recommended to use
+      wamp::Session::call instead. The rationale for including the `simpleCall`
+      mode is that a callee registering a stream cannot specify an expected
+      streaming mode, and that the stream URI namespace is shared with the
+      procedure URI namespace.
+
+
+@section StreamChannels Stream Channels
+
+A stream _channel_ is an ephemeral instantiation of a stream. It is destroyed
+when the callee closes it by returning a final chunk or an error.
+There can be multiple simultaneous channel instances for the same stream
+endpoint, just as there can be multiple simultaneous calls of the same
+remote procedure.
+
+A stream channel has an ephemeral integer id that shares the same number space
+as WAMP request IDs.
+
+wamp::CallerChannel and wamp::CalleeChannel are the interfaces over which a
+caller and a callee interact over a stream channel. These interactions include:
+
+- accessing the invitation information
+- sending an RSVP in response to an invitation
+- sending a chunk to the other peer
+- sending an error to the other peer
+- cancelling the stream
+- assigning a handler for receiving chunks
+- assigning a handler for receiving interruptions
+
+
+@section ChannelLifetimes Channel Lifetimes
+
+wamp::CallerChannel and wamp::CalleeChannel are created by wamp::Session
+and are passed as `std::shared_ptr`s to the user via handler functions. Once
+passed, the user is responsible for maintaining a non-zero reference count to
+these channel objects.
+
+When the reference count reaches zero, the channel objects will automatically
+perform the necessary cleanup operations so that ressources are not leaked,
+as well as automatically sending the necessary WAMP messages to terminate the
+stream request so that the other end is not stuck waiting forever for
+messages that will never arrive.
+
+
+@section StreamSlots Stream Slots
+
+A _slot_ is a _callable target_ that is invoked in response to a repeatable
+event. The term _slot_, borrowed from [Qt's signals and slots][3], is used to
+distinguish this sort of handler from an asynchronous operation completion
+handler that is invoked only once.
+
+A _callable target_ can be:
+- a free function,
+- a bound member function (using `std::bind`),
+- a function object,
+- a lambda function, etc.
+
+A _stream slot_ is a handler for the establishment a stream _channel_. It is
+registered via wamp::Session::enroll, which expects a stream slot with the
+following signature:
+
+```
+void function(wamp::CalleeChannel::Ptr)
+```
+where:
+- wamp::CalleeChannel::Ptr is a shared pointer to a channel object used
+  for further interaction with the stream
+
+
+@section Chunks Chunks
+
+The fragments of application-level information sent over a stream are called
+_chunks_. CppWAMP provides four chunk classes which are associated with
+different WAMP messages for their delivery:
+
+Class                     | Used By | WAMP Message
+------------------------- | ------- | ------------
+`wamp::CallerOutputChunk` | Callers | `CALL`
+`wamp::CallerInputChunk`  | Callers | `RESULT` or `CALL ERROR`
+`wamp::CalleeOutputChunk` | Callees | `YIELD` or `INVOCATION ERROR`
+`wamp::CalleeInputChunk`  | Callees | `INVOCATION`
+
+Chunks are not automatically numbered by CppWAMP, but they are delivered
+in the order they were sent.
+
+The input chunk classes have an `isFinal()` member that the application can
+use for special processing and cleanup. The output chunk classes take an
+`isFinal` argument in their constructors which sets the WAMP `progress`
+option accordingly.
+
+
+@section CallerChunkSlots Caller Chunk Slots
+
+_Caller chunk slots_ are handler functions provided by a caller to process
+stream chunks returned by a callee.
+
+The signature of caller chunk slots is expected to be of the form:
+
+```
+void function(wamp::CallerChannel::Ptr, wamp::ErrorOr<wamp::CallerInputChunk>)
+```
+where:
+- wamp::CallerChannel::Ptr is a shared pointer to a channel object used
+  for further interaction with the stream
+- wamp::CallerInputChunk contains the payload of a chunk returned by a callee
+
+
+@section CalleeChunkSlots Callee Chunk Slots
+
+_Callee chunk slots_ are handler functions provided by a callee to process
+stream chunks emitted by a caller.
+
+The signature of these slots is expected to be of the form:
+
+```
+void function(wamp::CalleeChannel::Ptr, wamp::ErrorOr<wamp::CalleeInputChunk>)
+```
+where:
+- wamp::CalleeChannel::Ptr is a shared pointer to a channel object used
+  for further interaction with the stream
+- wamp::CalleeInputChunk contains the payload of a chunk emitted by a caller,
+  or an error emitted by a caller or dealer.
+
+Callee chunk slots are assigned via wamp::CalleeChannel::accept .
+
+
+@section CalleeInterruptionSlots Callee Interruption Slots
+
+_Callee interruption slots_ are handler functions provided by a callee to
+process a stream being interrupted by a caller.
+
+The signature of these slots is expected to be of the form:
+
+```
+void function(wamp::CalleeChannel::Ptr, wamp::Interruption)
+```
+where:
+- wamp::CalleeChannel::Ptr is a shared pointer to a channel object used
+  for further interaction with the stream
+- wamp::Interruption contains information about the interruption, such as
+  the requested cancel mode.
+
+Callee interruption slots are assigned via wamp::CalleeChannel::accept .
+
+
+@section StreamingSlotExecutorBinding Binding Executors to Slots
+
+A slot can be bound to an
+[executor](https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/model/executors.html)
+which determines how the slot invocation is queued and ultimately run. This
+allows the slot to be executed in a different context than the one used by
+wamp::Session. For example, a slot could be bound to an executor associated
+with a boost::asio::thread_pool.
+
+[boost::asio::bind_executor](https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/bind_executor.html)
+is used to bind an executor to a slot.
+
+If no executor is bound to a slot, CppWAMP will automatically bind
+wamp::Session::fallbackExecutor() to it. If no fallback executor was specified
+during wamp::Session construction, then it defaults to wamp::Session::executor.
+
+
+@section OpeningNonNegotiatedStreams Opening Non-negotiated Streams
+
+wamp::Session::summon is used to open a new stream without any negotiation
+from the caller. It immediately returns a wamp::CallerChannel::Ptr and the
+first received `RESULT` message is considered the first chunk.
+
+By default, the first `INVOCATION` message received by the callee via a
+registered wamp::Stream is considered the first chunk.
+
+@section OpeningNegotiatedStreams Opening Negotiated Streams
+
+_Signaling_ is the discovery and negotiation process between two peers before
+a streaming connection is established between them. CppWAMP provides an
+optional, rudimentary form of in-band negotiation performed at the start of the
+same progressive call request that encompases the entire exchange of chunks.
+
+On the caller side, wamp::Session::invite is used to request the opening of a
+new stream, where the initial outgoing `CALL` is considered to contain
+negotiation metadata as payload. wamp::Session::invite waits for an initial
+`RESULT` or `ERROR` message, where the former is assumed to contain an
+acceptance RSVP from the callee, and the latter is assumed to contain a
+rejection reason. wamp::Session::invite then executes a completion handler that
+emits either a std::error_code, or a newly created wamp::CallerChannel::Ptr
+containing an RSVP.
+
+On the callee side, wamp::Stream::withInvitationExpected is used to specify
+that the callee expects the first `INVOCATION` message to contain an invitation.
+The invitation can be retrieved via wamp::CalleeChannel::invitation.
+The callee then either accepts the invitation via wamp::CalleeChannel::accept,
+or rejects the invitation via wamp::CalleeChannel::fail.
+
+[1]: https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results
+[2]: https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-calls
+[3]: https://doc.qt.io/qt-6/signalsandslots.html
+
+
+*/

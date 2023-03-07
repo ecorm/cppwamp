@@ -353,6 +353,6 @@ PublicationId pid = session.publish(Pub("topic").withArgs(12, "foo"),
 
 - - -
 
-Next: @ref AsyncCallbacksTutorial
+Next: @ref RpcTutorial
 
 */

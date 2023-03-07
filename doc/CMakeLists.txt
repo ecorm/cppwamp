@@ -7,15 +7,16 @@
 set(CPPWAMP_DOCUMENTS
     Doxyfile.in
     cppwamp.dox
-    registrations.dox
     subscriptions.dox
+    registrations.dox
+    streams.dox
     tutorial-variants.dox
     tutorial-connections.dox
     tutorial-sessions.dox
     tutorial-errors.dox
+    tutorial-pubsub.dox
     tutorial-rpc.dox
     tutorial-streaming.dox
-    tutorial-pubsub.dox
     tutorial-callbacks.dox
     tutorial-conversions.dox
     typerequirements.dox

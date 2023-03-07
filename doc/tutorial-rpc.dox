@@ -27,16 +27,10 @@ The signature of these slots is expected to be of the form:
 wamp::Outcome function(wamp::Invocation)
 ```
 where:
-- wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
-to the caller, and,
+- wamp::Outcome optionally contains a wamp::Result or a wamp::Error object to
+be sent back to the caller, and,
 - wamp::Invocation is an object containing information and payload arguments
 related to the RPC invocation.
-
-
-Binding Executors to Call Slots
--------------------------------
-
-TODO: Write me
 
 
 Registering Procedures
