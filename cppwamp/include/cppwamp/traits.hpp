@@ -227,6 +227,7 @@ constexpr bool isNothrowSwappable() noexcept
 template <std::size_t ...> struct IndexSequence { };
 
 
+#ifndef CPPWAMP_FOR_DOXYGEN
 namespace internal
 {
 // https://stackoverflow.com/a/7858971
@@ -239,6 +240,7 @@ struct GenIndexSequence<0, S...>
     using type = IndexSequence<S...>;
 };
 } // namespace internal
+#endif // CPPWAMP_FOR_DOXYGEN
 
 
 //------------------------------------------------------------------------------

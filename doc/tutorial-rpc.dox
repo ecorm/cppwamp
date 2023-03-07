@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -9,77 +9,34 @@
 
 @tableofcontents
 
-Calling RPCs
-------------
-
-The wamp::Session::call operation is used to call remote procedures. It takes
-a wamp::Rpc object as a parameter, which contains the following information
-related to the call:
-
-- the procedure URI to call,
-- positional wamp::Variant arguments, if applicable,
-- a wamp::Object containing keyword arguments, if applicable, and,
-- a wamp::Options dictionary for advanced WAMP features
-
-If successful, `call` emits a wamp::Result object via the completion handler.
-`Result` contains the result payload and other details returned by the callee.
-
-```
-#include <cppwamp/json.hpp>
-#include <cppwamp/session.hpp>
-#include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
-
-int main()
-{
-    using namespace wamp;
-    IoContext ioctx;
-    Session session(ioctx);
-
-    spawn(ioctx, [&](YieldContext yield)
-    {
-        auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
-        session.connect(std::move(tcp), yield).value();
-        session.join(Realm("somerealm"), yield).value();
-
-        // Call a remote procedure that takes no arguments
-        Result result = session.call(Rpc("getElapsed"), yield).value();
-        int elapsed = 0;
-        result.convertTo(elapsed); // Will throw error::Conversion
-                                   // if conversion fails
-        std::cout << "The elapsed number of seconds is " << elapsed << "\n";
-
-        // Call a remote procedure that takes two positional arguments
-        auto sum = session.call(Rpc("add").withArgs(12, 34), yield).value();
-        std::cout << "12 + 34 is " << sum[0] << "\n";
-
-        // Call a remote procedure that takes a single keyword argument and
-        // does not return any result. Also enable the 'disclose_me'
-        // advanced feature.
-        session.call( Rpc("setProperties").withKwargs({{"name", "John"}})
-                                          .withDiscloseMe(),
-                      yield ).value();
-    });
-
-    ioctx.run();
-    return 0;
-}
-```
-
 Call Slots
 ----------
 
-CppWamp allows you to register callback functions that will be executed whenever
-a procedure with a certain name is invoked remotely by a dealer. Such callback
+CppWamp allows you to register handler functions that will be executed whenever
+a procedure with a certain URI is invoked remotely by a dealer. Such callback
 functions are named _call slots_. Call slots can be any callable entity that can
-be stored into a [`std::function`][stdfunction]:
+be stored into a [`std::function`][1]:
 - free functions,
-- member functions (via [`std::bind`][stdbind]),
+- member functions (via [`std::bind`][2]),
 - function objects,
 - lambdas, etc.
 
-[stdfunction]: http://en.cppreference.com/w/cpp/utility/functional/function
-[stdbind]: http://en.cppreference.com/w/cpp/utility/functional/bind
+The signature of these slots is expected to be of the form:
+
+```
+wamp::Outcome function(wamp::Invocation)
+```
+where:
+- wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
+to the caller, and,
+- wamp::Invocation is an object containing information and payload arguments
+related to the RPC invocation.
+
+
+Binding Executors to Call Slots
+-------------------------------
+
+TODO: Write me
 
 
 Registering Procedures
@@ -97,16 +54,6 @@ later used to unregister the procedure,
 - @ref wamp::Procedure "Procedure" is an object containing the procedure URI,
 plus other optional information related to advanced WAMP features, and,
 - `slot` is the handler function to be invoked for the registered RPC.
-
-`enroll` expects a call slot with the following signature:
-```
-wamp::Outcome function(wamp::Invocation)
-```
-where:
-- wamp::Outcome contains a wamp::Result or a wamp::Error object to be sent back
-to the caller, and,
-- wamp::Invocation is an object containing information and payload arguments
-related to the RPC invocation.
 
 Example:
 ```
@@ -330,8 +277,8 @@ int main()
 @note This will spawn a new coroutine every time the RPC is invoked.
 
 
-Returning an ERROR Response to the Callee
------------------------------------------
+Returning an ERROR Response from the Callee
+-------------------------------------------
 
 A wamp::Error object can be returned from a call slot, which results in an
 `ERROR` message being sent back to the callee. This would be used, for example,
@@ -387,8 +334,88 @@ Outcome addToCart(Invocation inv)
 }
 ```
 
-Capturing an ERROR Response from the Caller
--------------------------------------------
+
+Scoped Registrations
+--------------------
+
+A wamp::ScopedRegistration object can be used to limit an RPC registration's
+lifetime to a particular scope. When a `ScopedRegistration` object is destroyed,
+it automatically unregisters the RPC. This helps in automating the
+lifetime management of RPC registrations using [RAII][3] techniques.
+
+```
+using namespace wamp;
+
+{
+    ScopedRegistration reg = session.enroll(Procedure("rpc"), &rpc, yield);
+}
+// "rpc" is automatically unregistered when the 'reg' scoped registration
+// goes out of scope here.
+```
+
+For a more practical example of using scoped registrations,
+see @ref ScopedRegistrations "Registrations/Scoped Registrations".
+
+
+Calling RPCs
+------------
+
+The wamp::Session::call operation is used to call remote procedures. It takes
+a wamp::Rpc object as a parameter, which contains the following information
+related to the call:
+
+- the procedure URI to call,
+- positional wamp::Variant arguments, if applicable,
+- a wamp::Object containing keyword arguments, if applicable, and,
+- a wamp::Options dictionary for advanced WAMP features
+
+If successful, `call` emits a wamp::Result object via the completion handler.
+`Result` contains the result payload and other details returned by the callee.
+
+```
+#include <cppwamp/json.hpp>
+#include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
+#include <cppwamp/tcp.hpp>
+
+int main()
+{
+    using namespace wamp;
+    IoContext ioctx;
+    Session session(ioctx);
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
+        session.connect(std::move(tcp), yield).value();
+        session.join(Realm("somerealm"), yield).value();
+
+        // Call a remote procedure that takes no arguments
+        Result result = session.call(Rpc("getElapsed"), yield).value();
+        int elapsed = 0;
+        result.convertTo(elapsed); // Will throw error::Conversion
+                                   // if conversion fails
+        std::cout << "The elapsed number of seconds is " << elapsed << "\n";
+
+        // Call a remote procedure that takes two positional arguments
+        auto sum = session.call(Rpc("add").withArgs(12, 34), yield).value();
+        std::cout << "12 + 34 is " << sum[0] << "\n";
+
+        // Call a remote procedure that takes a single keyword argument and
+        // does not return any result. Also enable the 'disclose_me'
+        // advanced feature.
+        session.call( Rpc("setProperties").withKwargs({{"name", "John"}})
+                                          .withDiscloseMe(),
+                      yield ).value();
+    });
+
+    ioctx.run();
+    return 0;
+}
+```
+
+Capturing an ERROR Response returned to the Caller
+--------------------------------------------------
 
 When calling an RPC, `ERROR` messages returned by the caller can be captured
 via the `wamp::Rpc::captureError` option:
@@ -432,41 +459,16 @@ int main()
       to the caller.
 
 
-Scoped Registrations
---------------------
-
-A wamp::ScopedRegistration object can be used to limit an RPC registration's
-lifetime to a particular scope. When a `ScopedRegistration` object is destroyed,
-it automatically unregisters the RPC. This helps in automating the
-lifetime management of RPC registrations using
-[RAII](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization)
-techniques.
-
-```
-using namespace wamp;
-
-{
-    ScopedRegistration reg = session.enroll(Procedure("rpc"), &rpc, yield);
-}
-// "rpc" is automatically unregistered when the 'reg' scoped registration
-// goes out of scope here.
-```
-
-For a more practical example of using scoped registrations,
-see @ref ScopedRegistrations "Registrations/Scoped Registrations".
-
-
 Cancelling RPCs
 ---------------
 If supported by the router, a caller may cancel an RPC in progress via any of
 the following methods:
 1. Use the @ref wamp::Session::call "Session::call" overloads taking a
-  wamp::CallChit out parameter, then call
-  @ref wamp::CallChit::cancel "CallChit::cancel".
+   wamp::CallChit out parameter, then call
+   @ref wamp::CallChit::cancel "CallChit::cancel".
 2. Use wamp::Session::cancel, passing a wamp::CallChit.
-3. Bind a Boost.Asio [cancellation slot]
-  (https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/core/cancellation.html)
-  to the completion token passed to @ref wamp::Session::call "Session::call".
+3. Bind a Boost.Asio [cancellation slot][4]
+   to the completion token passed to @ref wamp::Session::call "Session::call".
 
 A callee wanting to make an RPC interruptible may pass an additional
 `interruptSlot` argument to the `enroll`
@@ -584,8 +586,7 @@ int main()
 ```
 
 Example caller issuing a call cancellation via a
-[boost::asio::cancellation_signal]
-(https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/cancellation_signal.html)
+[boost::asio::cancellation_signal][5]
 ```
 #include <boost/asio/cancellation_signal.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -658,155 +659,14 @@ message and the call handler will be passed the wamp::WampErrc::cancelled
 error code.
 
 
-Progressive Call Results
-------------------------
-
-TODO: Remove this section and write a streaming tutorial instead.
-
-[Progressive call results]
-(https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
-is a WAMP feature that allows a sequence of partial results to be returned from
-the same remote procedure call.
-
-A callee wanting to provide progressive call results must:
-
-- Make the wamp::Invocation object available to the RPC handler so that it may
-  later be used to yield progressive results.
-- Return wamp::deferment in the RPC handler so that CppWAMP knows
-  results will be yielded later.
-- Set the "progress" option of the intermediate `RESULT` messages via
-  wamp::Result::withProgress.
-- Return intermediate results via wamp::Invocation::yield.
-- Return the final result via wamp::Invocation::yield *without* using
-  wamp::Result::withProgress.
-
-It may also be desirable to pass an interruption handler to the session
-@ref wamp::Session::enroll "enroll" method, so that the callee may stop
-yielding partial results in the event that the call is cancelled
-(see [Progressive Call Result Cancellation]
-(https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
-in the WAMP specification).
-
-The following example shows a callee registering an RPC that yields
-progressive results at fixed time intervals:
-
-```
-#include <boost/asio/steady_timer.hpp>
-#include <cppwamp/json.hpp>
-#include <cppwamp/session.hpp>
-#include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
-
-int main()
-{
-    IoContext ioctx;
-    Session session(ioctx);
-    std::set<RequestId> interruptions;
-
-    auto countdown = [&session, &interruptions](Invocation inv) -> Outcome
-    {
-        // The first positional argument contains the count.
-        unsigned count = 0;
-        inv.convertTo(count);
-
-        spawn(ioctx, [inv, &count, &ioctx](YieldContext yield)
-        {
-            boost::asio::steady_timer timer(ioctx);
-            auto deadline = std::chrono::steady_clock::now();
-
-            while (count > 0)
-            {
-                // Break out of the loop if this request was interrupted.
-                auto found = interruptions.find(inv.requestId());
-                if (found != interruptions.end())
-                {
-                    interruptions.erase(found);
-                    return;
-                }
-
-                // Delay for one second.
-                deadline += std::chrono::seconds(1);
-                timer.expires_at(deadline);
-                timer.async_wait(yield);
-
-                // Yield intermediate results with the "progess" option.
-                inv.yield(Result({count}).withProgress());
-
-                --count;
-            }
-
-            // Yield the final result without the "progess" option.
-            inv.yield(Result({count}));
-        });
-
-        return deferment;
-    }
-
-    auto interrupt = [&interruptions](Interruption intr) -> Outcome
-    {
-        // Make the coroutine in the countdown function break out of its loop.
-        interruptions.insert(intr.requestId());
-        return Error("wamp.error.canceled");
-    }
-
-    spawn(ioctx, [&session](YieldContext yield)
-    {
-        auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
-        session.connect(std::move(tcp), yield).value();
-        session.join(Realm("somerealm"), yield).value();
-        session.enroll(Procedure("countdown"), countdown, interrupt,
-                       yield).value();
-    });
-
-    ioctx.run();
-    return 0;
-}
-```
-A caller wanting to call an RPC with progressive call results must:
-
-- Use Session::ongoingCall instead of Session::call.
-- Pass a completion token that allows the resulting completion handler
-  to be copied and invoked multiple times.
-
-The following example shows a caller that calls the RPC from the previous
-example:
-
-```
-#include <cppwamp/json.hpp>
-#include <cppwamp/session.hpp>
-#include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
-
-int main()
-{
-    using namespace wamp;
-    IoContext ioctx;
-    Session session(ioctx);
-
-    spawn(ioctx, [&](YieldContext yield)
-    {
-        auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
-        session.connect(std::move(tcp), yield).value();
-        session.join(Realm("somerealm"), yield).value();
-
-        // The handler will remain in the Session's internal records
-        // until either a non-progressive RESULT or an ERROR is received.
-        session.ongoingCall(
-            Rpc("countdown"),
-            [](ErrorOr<Result> r)
-            {
-                unsigned n = 0;
-                r.value().convertTo(n);
-                std::cout << "Tick: " << n << "\n";
-            });
-    });
-    ioctx.run();
-    return 0;
-}
-```
-
 - - -
 
-Next: @ref PubSubTutorial
+Next: @ref StreamingTutorial
+
+[1]: http://en.cppreference.com/w/cpp/utility/functional/function
+[2]: http://en.cppreference.com/w/cpp/utility/functional/bind
+[3]: https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization
+[4]: https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/core/cancellation.html
+[5]: https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/cancellation_signal.html
 
 */

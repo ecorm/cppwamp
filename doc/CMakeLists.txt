@@ -14,6 +14,7 @@ set(CPPWAMP_DOCUMENTS
     tutorial-sessions.dox
     tutorial-errors.dox
     tutorial-rpc.dox
+    tutorial-streaming.dox
     tutorial-pubsub.dox
     tutorial-callbacks.dox
     tutorial-conversions.dox

@@ -42,6 +42,7 @@ For a **tutorial-style overview**, please consult the @ref Tutorial page.
 - @ref examples/chat/main.cpp
 - @ref examples/timeclient/main.cpp
 - @ref examples/timeservice/main.cpp
+- @ref examples/streaming/main.cpp
 
 ### Using C++20 Coroutines
 - @ref examples/coro20timeclient/main.cpp
@@ -80,9 +81,10 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 3. @subpage SessionsTutorial &ndash; How to establish a WAMP session using stackful coroutines.
 4. @subpage ErrorsTutorial &ndash; How to handle runtime errors emitted by `Session`.
 5. @subpage RpcTutorial &ndash; How to register and invoke remote procedure calls.
-6. @subpage PubSubTutorial &ndash; How to publish and subscribe to event topics.
-7. @subpage AsyncCallbacksTutorial &ndash; How to use asynchronous callbacks with `Session`.
-8. @subpage ConversionsTutorial &ndash; How to convert `Variant` to/from custom types.
+6. @subpage StreamingTutorial &ndash; How to register and initiate streams.
+7. @subpage PubSubTutorial &ndash; How to publish and subscribe to event topics.
+8. @subpage AsyncCallbacksTutorial &ndash; How to use asynchronous callbacks with `Session`.
+9. @subpage ConversionsTutorial &ndash; How to convert `Variant` to/from custom types.
 */
 
 /**
@@ -111,15 +113,16 @@ For a brief **architectural overview** of the library, see @ref Architecture.
 
 // Examples
 /**
-@example examples/chat/main.cpp
-@example examples/timeservice/main.cpp
-@example examples/timeclient/main.cpp
-@example examples/asynctimeservice/main.cpp
 @example examples/asynctimeclient/main.cpp
-@example examples/futuretimeservice/main.cpp
-@example examples/futuretimeclient/main.cpp
-@example examples/stacklesstimeservice/main.cpp
-@example examples/stacklesstimeclient/main.cpp
-@example examples/coro20timeservice/main.cpp
+@example examples/asynctimeservice/main.cpp
+@example examples/chat/main.cpp
 @example examples/coro20timeclient/main.cpp
+@example examples/coro20timeservice/main.cpp
+@example examples/futuretimeclient/main.cpp
+@example examples/futuretimeservice/main.cpp
+@example examples/stacklesstimeclient/main.cpp
+@example examples/stacklesstimeservice/main.cpp
+@example examples/streaming/main.cpp
+@example examples/timeclient/main.cpp
+@example examples/timeservice/main.cpp
 */

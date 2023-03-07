@@ -179,10 +179,10 @@ public:
     send(ThreadSafe, OutputChunk chunk);
 
     /** Sends an Error to the other peer and closes the stream. */
-    ErrorOrDone reject(Error error);
+    ErrorOrDone fail(Error error);
 
-    /** Thread-safe reject with error. */
-    std::future<ErrorOrDone> reject(ThreadSafe, Error error);
+    /** Thread-safe fail with error. */
+    std::future<ErrorOrDone> fail(ThreadSafe, Error error);
 
 private:
     using CalleePtr = std::weak_ptr<internal::Callee>;

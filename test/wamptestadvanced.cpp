@@ -729,7 +729,7 @@ GIVEN( "a caller and a callee" )
 
         if (rejectArmed)
         {
-            bool sent = channel->reject(WampErrc::invalidArgument).value();
+            bool sent = channel->fail(WampErrc::invalidArgument).value();
             CHECK(sent);
             return;
         }
@@ -755,7 +755,7 @@ GIVEN( "a caller and a callee" )
                     bool isFinal = (i == input.size() - 1);
                     if (isFinal && errorArmed)
                     {
-                        chan->reject(Error{WampErrc::invalidArgument});
+                        chan->fail(Error{WampErrc::invalidArgument});
                     }
                     else if (isFinal && leaveEarlyArmed)
                     {
@@ -979,7 +979,7 @@ GIVEN( "a caller and a callee" )
     auto onInterrupt = [&](CalleeChannel::Ptr channel, Interruption intr)
     {
         CHECK(intr.cancelMode() == CallCancelMode::killNoWait);
-        channel->reject(WampErrc::cancelled);
+        channel->fail(WampErrc::cancelled);
         interruptReceived = true;
         timer.cancel();
     };

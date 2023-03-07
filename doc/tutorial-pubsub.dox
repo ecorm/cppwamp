@@ -9,65 +9,6 @@
 
 @tableofcontents
 
-Publishing Events
------------------
-
-wamp::Session::publish operation is used to publish events related to a topic.
-It takes a wamp::Pub object as a parameter, which contains the following
-information related to the publication:
-
-- the topic URI to publish under,
-- positional wamp::Variant arguments, if applicable,
-- a wamp::Object containing keyword arguments, if applicable, and,
-- a wamp::Options dictionary for advanced WAMP features
-
-The follwing example uses a non-blocking publish, which enqueues the
-publication for transmission.
-
-```
-#include <cppwamp/json.hpp>
-#include <cppwamp/session.hpp>
-#include <cppwamp/spawn.hpp>
-#include <cppwamp/tcp.hpp>
-
-int main()
-{
-    using namespace wamp;
-    IoContext ioctx;
-    Session session(ioctx);
-
-    spawn(ioctx, [&](YieldContext yield)
-    {
-        auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
-        session.connect(std::move(tcp), yield).value();
-        session.join(ioctx, "somerealm", yield).value();
-
-        // Publish a publication with no arguments
-        session.publish(Pub("topic"));
-
-        // Publish a publication with two positional arguments
-        session.publish(Pub("topic").withArgs(12, "foo"));
-
-        // Publish a publication with a single keyword argument.
-        // Also enable the 'disclose_me' advanced feature.
-        session.publish( Pub("topic").withKwargs({{"name", "John"}})
-                                     .withDiscloseMe() );
-    });
-
-    ioctx.run();
-    return 0;
-}
-```
-
-If you need to obtain the publication ID of a published event,
-then you need to use the overload that takes a completion token:
-
-```
-using namespace wamp;
-PublicationId pid = session.publish(Pub("topic").withArgs(12, "foo"),
-                                    yield).value();
-```
-
 Event Slots
 -----------
 
@@ -349,6 +290,66 @@ using namespace wamp;
 
 For a more practical example of using scoped subscriptions,
 see @ref ScopedSubscriptions "Registrations/Scoped Subscriptions".
+
+
+Publishing Events
+-----------------
+
+wamp::Session::publish operation is used to publish events related to a topic.
+It takes a wamp::Pub object as a parameter, which contains the following
+information related to the publication:
+
+- the topic URI to publish under,
+- positional wamp::Variant arguments, if applicable,
+- a wamp::Object containing keyword arguments, if applicable, and,
+- a wamp::Options dictionary for advanced WAMP features
+
+The follwing example uses a non-blocking publish, which enqueues the
+publication for transmission.
+
+```
+#include <cppwamp/json.hpp>
+#include <cppwamp/session.hpp>
+#include <cppwamp/spawn.hpp>
+#include <cppwamp/tcp.hpp>
+
+int main()
+{
+    using namespace wamp;
+    IoContext ioctx;
+    Session session(ioctx);
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
+        session.connect(std::move(tcp), yield).value();
+        session.join(ioctx, "somerealm", yield).value();
+
+        // Publish a publication with no arguments
+        session.publish(Pub("topic"));
+
+        // Publish a publication with two positional arguments
+        session.publish(Pub("topic").withArgs(12, "foo"));
+
+        // Publish a publication with a single keyword argument.
+        // Also enable the 'disclose_me' advanced feature.
+        session.publish( Pub("topic").withKwargs({{"name", "John"}})
+                                     .withDiscloseMe() );
+    });
+
+    ioctx.run();
+    return 0;
+}
+```
+
+If you need to obtain the publication ID of a published event,
+then you need to use the overload that takes a completion token:
+
+```
+using namespace wamp;
+PublicationId pid = session.publish(Pub("topic").withArgs(12, "foo"),
+                                    yield).value();
+```
 
 - - -
 

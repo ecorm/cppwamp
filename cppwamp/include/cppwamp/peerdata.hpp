@@ -54,7 +54,7 @@ public:
     Reason(std::error_code ec);
 
     /** Converting constructor taking a WampErrc, attempting to convert
-        it to a reason URI.. */
+        it to a reason URI. */
     Reason(WampErrc errc);
 
     /** Sets the `message` member of the details dictionary. */

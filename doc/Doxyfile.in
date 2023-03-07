@@ -830,6 +830,7 @@ WARN_LOGFILE           =
 # Note: If this tag is empty the current directory is searched.
 
 INPUT                  = cppwamp/include/cppwamp \
+                         cppwamp/include/cppwamp/authenticators \
                          cppwamp/include/cppwamp/internal \
                          cppwamp/include/cppwamp/types \
                          cppwamp/include/cppwamp/utils \

@@ -79,7 +79,7 @@ Stream::registerMessage(internal::PassKey)
 
 CPPWAMP_INLINE CalleeChannel::~CalleeChannel()
 {
-    reject(threadSafe, Error{WampErrc::cancelled});
+    fail(threadSafe, Error{WampErrc::cancelled});
 }
 
 CPPWAMP_INLINE StreamMode CalleeChannel::mode() const {return mode_;}
@@ -247,7 +247,7 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::send(ThreadSafe,
         - true if the error was accepted for processing
         - an error code if there was a problem processing the error
     @post `this->state() == State::closed` */
-CPPWAMP_INLINE ErrorOrDone CalleeChannel::reject(Error error)
+CPPWAMP_INLINE ErrorOrDone CalleeChannel::fail(Error error)
 {
     auto oldState = state_.exchange(State::closed);
     auto caller = callee_.lock();
@@ -256,8 +256,8 @@ CPPWAMP_INLINE ErrorOrDone CalleeChannel::reject(Error error)
     return caller->yield(id_, std::move(error));
 }
 
-/** @copydetails CalleeChannel::close(Error) */
-CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::reject(ThreadSafe,
+/** @copydetails CalleeChannel::fail(Error) */
+CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::fail(ThreadSafe,
                                                              Error error)
 {
     auto oldState = state_.exchange(State::closed);
