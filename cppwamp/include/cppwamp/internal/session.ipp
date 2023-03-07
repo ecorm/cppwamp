@@ -367,7 +367,7 @@ CPPWAMP_INLINE std::future<ErrorOrDone> Session::cancel(
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOr<CallerChannel::Ptr> Session::summon(
     Summons summons,  /**< Details about the stream. */
-    ChunkSlot onChunk /**< Caller input chunk handler with signature
+    ChunkSlot onChunk /**< Optional caller input chunk handler with signature
                            `void (CallerChannel::Ptr, CallerInputChunk)` */
     )
 {
@@ -380,7 +380,7 @@ CPPWAMP_INLINE ErrorOr<CallerChannel::Ptr> Session::summon(
 CPPWAMP_INLINE std::future<ErrorOr<CallerChannel::Ptr>> Session::summon(
     ThreadSafe,
     Summons summons,  /**< Details about the stream. */
-    ChunkSlot onChunk /**< Caller input chunk handler with signature
+    ChunkSlot onChunk /**< Optional caller input chunk handler with signature
                            `void (CallerChannel::Ptr, CallerInputChunk)` */
     )
 {

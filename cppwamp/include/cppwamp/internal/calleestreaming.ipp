@@ -120,6 +120,9 @@ CPPWAMP_INLINE CalleeInputChunk&& CalleeChannel::invitation() &&
                 the streaming request no longer exists
         - true if the response was accepted for processing
         - an error code if there was a problem processing the response
+    @note In order to not lose any incoming chunks or interruptions, this
+          method should be called within the context of the StreamSlot
+          registered via Session::enroll.
     @pre `this->state() == State::inviting`
     @pre `response.isFinal() || this->mode == StreamMode::calleeToCaller ||
           this->mode == StreamMode::bidirectional`
@@ -127,8 +130,8 @@ CPPWAMP_INLINE CalleeInputChunk&& CalleeChannel::invitation() &&
     @throws error::Logic if the mode precondition is not met */
 CPPWAMP_INLINE ErrorOrDone CalleeChannel::accept(
     OutputChunk response,     ///< The RSVP to return back to the caller.
-    ChunkSlot onChunk,        ///< Handler to use for received chunks.
-    InterruptSlot onInterrupt ///< Handler to use for received interruptions.
+    ChunkSlot onChunk,        ///< Optional handler to use for received chunks.
+    InterruptSlot onInterrupt ///< Optional handler to use for interruptions.
     )
 {
     CPPWAMP_LOGIC_CHECK(isValidModeFor(response),
@@ -157,8 +160,8 @@ CPPWAMP_INLINE ErrorOrDone CalleeChannel::accept(
 CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::accept(
     ThreadSafe,
     OutputChunk response,     ///< The RSVP to return back to the caller.
-    ChunkSlot onChunk,        ///< Handler to use for received chunks.
-    InterruptSlot onInterrupt ///< Handler to use for received interruptions.
+    ChunkSlot onChunk,        ///< Optional handler to use for received chunks.
+    InterruptSlot onInterrupt ///< Optional handler to use for interruptions.
     )
 {
     State expectedState = State::inviting;
@@ -183,6 +186,9 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::accept(
 
 /** This function is thread-safe.
     @returns an error code if the channel was not in the inviting state
+    @note In order to not lose any incoming chunks or interruptions, this
+          method should be called within the context of the StreamSlot
+          registered via Session::enroll.
     @pre `this->state() == State::inviting`
     @post `this->state() == State::open` */
 CPPWAMP_INLINE ErrorOrDone CalleeChannel::accept(

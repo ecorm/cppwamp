@@ -429,13 +429,13 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
     call(ThreadSafe, Rpc rpc, C&& completion);
 
-    /** Calls a remote procedure, obtaining a token that can be used
+    /** Calls a remote procedure, assigning a token that can be used
         for cancellation. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
     call(Rpc rpc, CallChit& chit, C&& completion);
 
-    /** Thread-safe call with CallChit capture. */
+    /** Thread-safe call with CallChit assignment. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
     call(ThreadSafe, Rpc rpc, CallChit& chit, C&& completion);
@@ -468,23 +468,28 @@ public:
     enroll(ThreadSafe, Stream stream, StreamSlot streamSlot, C&& completion);
 
     /** Sends an invitation to open a stream and waits for an RSVP. */
-    // TODO: Add overloads with no chunk handler
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel::Ptr>, C>
     invite(Invitation invitation, ChunkSlot onChunk, C&& completion);
 
-    /** Thread-safe invite with RSVP. */
+    /** Sends an invitation to open a stream and waits for an RSVP. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel::Ptr>, C>
-    invite(ThreadSafe, Invitation invitation, ChunkSlot onChunk, C&& completion);
+    invite(Invitation invitation, C&& completion);
 
-    /** Opens a streamming channel. */
+    /** Thread-safe invite. */
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel::Ptr>, C>
+    invite(ThreadSafe, Invitation invitation, ChunkSlot onChunk,
+           C&& completion);
+
+    /** Opens a streamming channel without negotiation. */
     CPPWAMP_NODISCARD ErrorOr<CallerChannel::Ptr>
-    summon(Summons summons, ChunkSlot onChunk);
+    summon(Summons summons, ChunkSlot onChunk = {});
 
     /** Thread-safe mummon. */
     CPPWAMP_NODISCARD std::future<ErrorOr<CallerChannel::Ptr>>
-    summon(ThreadSafe, Summons summons, ChunkSlot onChunk);
+    summon(ThreadSafe, Summons summons, ChunkSlot onChunk = {});
     /// @}
 
 private:
@@ -1580,6 +1585,28 @@ Session::invite(
 {
     return initiate<InviteOp>(std::forward<C>(completion),
                               std::move(invitation), std::move(onChunk));
+}
+
+//------------------------------------------------------------------------------
+/** This overload without a ChunkSlot can be used with unidirectional
+    caller-to-callee streams.
+    @copydetails Session::invite(Invitation, ChunkSlot, C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+#ifdef CPPWAMP_FOR_DOXYGEN
+Deduced<ErrorOr<CallerChannel::Ptr>, C>
+#else
+Session::template Deduced<ErrorOr<CallerChannel::Ptr>, C>
+#endif
+Session::invite(
+    Invitation invitation, /**< Details about the stream. */
+    C&& completion         /**< Callable handler of type
+                                `void(ErrorOr<CallerChannel::Ptr>)`,
+                                or a compatible Boost.Asio completion token. */
+    )
+{
+    return initiate<InviteOp>(std::forward<C>(completion),
+                              std::move(invitation), nullptr);
 }
 
 //------------------------------------------------------------------------------
