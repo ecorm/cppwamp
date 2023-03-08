@@ -15,6 +15,7 @@
 #include <future>
 #include <memory>
 #include "api.hpp"
+#include "erroror.hpp"
 #include "tagtypes.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
@@ -45,19 +46,21 @@ public:
 
     /** Requests cancellation of the call using the cancel mode that
         was specified in the @ref wamp::Rpc "Rpc". */
-    void cancel() const;
+    ErrorOrDone cancel() const;
 
     /** Thread-safe cancel. */
-    void cancel(ThreadSafe) const;
+    std::future<ErrorOrDone> cancel(ThreadSafe) const;
 
     /** Requests cancellation of the call using the given mode. */
-    void cancel(CallCancelMode mode) const;
+    ErrorOrDone cancel(CallCancelMode mode) const;
 
     /** Thread-safe cancel with mode. */
-    void cancel(ThreadSafe, CallCancelMode mode) const;
+    std::future<ErrorOrDone> cancel(ThreadSafe, CallCancelMode mode) const;
 
 private:
     using CallerPtr = std::weak_ptr<internal::Caller>;
+
+    static std::future<ErrorOrDone> futureValue(bool value);
 
     static constexpr RequestId invalidId_ = 0;
     CallerPtr caller_;

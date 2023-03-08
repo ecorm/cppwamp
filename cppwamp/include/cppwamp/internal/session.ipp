@@ -307,53 +307,6 @@ CPPWAMP_INLINE void Session::unregister(
 }
 
 //------------------------------------------------------------------------------
-/** @returns `true` or `false` depending if a pending call matching the given
-              chit was found. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE ErrorOrDone Session::cancel(
-    CallChit chit /**< Contains the request ID of the call to cancel. */
-    )
-{
-    return cancel(chit, chit.cancelMode());
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::cancel(CallChit)
-    @note It is safe to call `get()` on the returned `std::future` within the
-          same thread as the one used by Session::strand. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE std::future<ErrorOrDone> Session::cancel(
-    ThreadSafe,
-    CallChit chit /**< Contains the request ID of the call to cancel. */
-    )
-{
-    return cancel(threadSafe, chit, chit.cancelMode());
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::cancel(CallChit) */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE ErrorOrDone Session::cancel(
-    CallChit chit,      ///< Contains the request ID of the call to cancel.
-    CallCancelMode mode ///< The mode with which to cancel the call.
-    )
-{
-    return impl_->cancelCall(chit.requestId(), mode);
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::cancel(ThreadSafe, CallChit) */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE std::future<ErrorOrDone> Session::cancel(
-    ThreadSafe,
-    CallChit chit,      ///< Contains the request ID of the call to cancel.
-    CallCancelMode mode ///< The mode with which to cancel the call.
-    )
-{
-    return impl_->safeCancelCall(chit.requestId(), mode);
-}
-
-//------------------------------------------------------------------------------
 /** @return A new CallerChannel shared pointer. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOr<CallerChannel::Ptr> Session::summon(

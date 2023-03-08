@@ -278,62 +278,6 @@ GIVEN( "a caller and a callee" )
         ioctx.run();
     }
 
-    WHEN( "cancelling an RPC in kill mode via Session::cancel "
-          "before it returns" )
-    {
-        spawn(ioctx, [&](YieldContext yield)
-        {
-            CallChit chit;
-            RequestId invocationRequestId = 0;
-            RequestId interruptionRequestId = 0;
-            bool responseReceived = false;
-            ErrorOr<Result> response;
-
-            f.join(yield);
-
-            f.callee.enroll(
-                Procedure("rpc"),
-                [&invocationRequestId](Invocation inv) -> Outcome
-                {
-                    invocationRequestId = inv.requestId();
-                    return deferment;
-                },
-                [&interruptionRequestId](Interruption intr) -> Outcome
-                {
-                    interruptionRequestId = intr.requestId();
-                    return Error{WampErrc::cancelled};
-                },
-                yield).value();
-
-             f.caller.call(
-                Rpc("rpc"),
-                chit,
-                [&response, &responseReceived](ErrorOr<Result> callResponse)
-                {
-                    responseReceived = true;
-                    response = std::move(callResponse);
-                });
-
-            REQUIRE( bool(chit) );
-
-            while (invocationRequestId == 0)
-                suspendCoro(yield);
-
-            REQUIRE( invocationRequestId != 0 );
-
-            CHECK( f.caller.cancel(chit, CallCancelMode::kill).value() );
-
-            while (!responseReceived)
-                suspendCoro(yield);
-
-            CHECK( interruptionRequestId == invocationRequestId );
-            CHECK( response == makeUnexpected(WampErrc::cancelled) );
-
-            f.disconnect();
-        });
-        ioctx.run();
-    }
-
     WHEN( "cancelling an RPC in kill mode via an Asio cancellation slot "
           "before it returns" )
     {

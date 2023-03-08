@@ -439,20 +439,6 @@ public:
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
     call(ThreadSafe, Rpc rpc, CallChit& chit, C&& completion);
-
-    /** Cancels a remote procedure using the cancel mode that was specified
-        in the @ref wamp::Rpc "Rpc". */
-    ErrorOrDone cancel(CallChit);
-
-    /** Thread-safe cancel. */
-    std::future<ErrorOrDone> cancel(ThreadSafe, CallChit chit);
-
-    /** Cancels a remote procedure using the given mode. */
-    ErrorOrDone cancel(CallChit chit, CallCancelMode mode);
-
-    /** Thread-safe cancel with a given mode. */
-    std::future<ErrorOrDone> cancel(ThreadSafe, CallChit chit,
-                                    CallCancelMode mode);
     /// @}
 
     /// @name Streaming

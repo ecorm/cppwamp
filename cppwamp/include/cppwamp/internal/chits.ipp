@@ -23,31 +23,43 @@ CPPWAMP_INLINE RequestId CallChit::requestId() const {return reqId_;}
 CPPWAMP_INLINE CallCancelMode CallChit::cancelMode() const {return cancelMode_;}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void CallChit::cancel() const
+CPPWAMP_INLINE ErrorOrDone CallChit::cancel() const
 {
-    cancel(cancelMode_);
+    return cancel(cancelMode_);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void CallChit::cancel(ThreadSafe) const
+CPPWAMP_INLINE std::future<ErrorOrDone> CallChit::cancel(ThreadSafe) const
 {
-    cancel(threadSafe, cancelMode_);
+    return cancel(threadSafe, cancelMode_);
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void CallChit::cancel(CallCancelMode mode) const
+CPPWAMP_INLINE ErrorOrDone CallChit::cancel(CallCancelMode mode) const
 {
     auto caller = caller_.lock();
     if (caller)
-        caller->cancelCall(reqId_, mode);
+        return caller->cancelCall(reqId_, mode);
+    return false;
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void CallChit::cancel(ThreadSafe, CallCancelMode mode) const
+CPPWAMP_INLINE std::future<ErrorOrDone>
+CallChit::cancel(ThreadSafe, CallCancelMode mode) const
 {
     auto caller = caller_.lock();
     if (caller)
-        caller->safeCancelCall(reqId_, mode);
+        return caller->safeCancelCall(reqId_, mode);
+    return futureValue(false);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE std::future<ErrorOrDone> CallChit::futureValue(bool value)
+{
+    std::promise<ErrorOrDone> p;
+    auto f = p.get_future();
+    p.set_value(value);
+    return f;
 }
 
 //------------------------------------------------------------------------------
