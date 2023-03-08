@@ -223,11 +223,11 @@ GIVEN( "a caller and a callee" )
     IoContext ioctx;
     RpcFixture f(ioctx, withTcp);
 
-    WHEN( "cancelling an RPC in kill mode via a CallChit before it returns" )
+    WHEN( "cancelling an RPC in kill mode before it returns" )
     {
         spawn(ioctx, [&](YieldContext yield)
         {
-            CallChit chit;
+            CallCancellationSignal sig;
             RequestId invocationRequestId = 0;
             RequestId interruptionRequestId = 0;
             bool responseReceived = false;
@@ -249,23 +249,25 @@ GIVEN( "a caller and a callee" )
                 },
                 yield).value();
 
+            auto slot = sig.slot();
+            CHECK(slot.is_connected());
+
             f.caller.call(
-                Rpc("rpc"),
-                chit,
+                Rpc("rpc").withCancellationSlot(slot),
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
                 {
                     responseReceived = true;
                     response = std::move(callResponse);
                 });
 
-            REQUIRE( bool(chit) );
+            CHECK( slot.has_handler() );
 
             while (invocationRequestId == 0)
                 suspendCoro(yield);
 
             REQUIRE( invocationRequestId != 0 );
 
-            chit.cancel(CallCancelMode::kill);
+            sig.emit(CallCancelMode::kill);
 
             while (!responseReceived)
                 suspendCoro(yield);
@@ -278,7 +280,7 @@ GIVEN( "a caller and a callee" )
         ioctx.run();
     }
 
-    WHEN( "cancelling an RPC in kill mode via an Asio cancellation slot "
+    WHEN( "cancelling an RPC in kill mode via a handler-bound slot "
           "before it returns" )
     {
         spawn(ioctx, [&](YieldContext yield)
@@ -333,7 +335,7 @@ GIVEN( "a caller and a callee" )
         ioctx.run();
     }
 
-    WHEN( "cancelling via an Asio cancellation slot when calling with a "
+    WHEN( "cancelling via an handler-bound slot when calling with a "
           "stackful coroutine completion token")
     {
         spawn(ioctx, [&](YieldContext yield)
@@ -386,7 +388,7 @@ GIVEN( "a caller and a callee" )
     {
         spawn(ioctx, [&](YieldContext yield)
         {
-            CallChit chit;
+            CallCancellationSignal sig;
             RequestId invocationRequestId = 0;
             RequestId interruptionRequestId = 0;
             bool responseReceived = false;
@@ -409,22 +411,19 @@ GIVEN( "a caller and a callee" )
                 yield).value();
 
             f.caller.call(
-                Rpc("rpc"),
-                chit,
+                Rpc("rpc").withCancellationSlot(sig.slot()),
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
                 {
                     responseReceived = true;
                     response = std::move(callResponse);
                 });
 
-            REQUIRE( bool(chit) );
-
             while (invocationRequestId == 0)
                 suspendCoro(yield);
 
             REQUIRE( invocationRequestId != 0 );
 
-            chit.cancel(CallCancelMode::killNoWait);
+            sig.emit(CallCancelMode::killNoWait);
 
             while (!responseReceived || interruptionRequestId == 0)
                 suspendCoro(yield);
@@ -444,7 +443,7 @@ GIVEN( "a caller and a callee" )
     {
         spawn(ioctx, [&](YieldContext yield)
         {
-            CallChit chit;
+            CallCancellationSignal sig;
             RequestId invocationRequestId = 0;
             bool responseReceived = false;
             bool interruptionReceived = false;
@@ -469,21 +468,18 @@ GIVEN( "a caller and a callee" )
                 yield).value();
 
             f.caller.call(
-                Rpc("rpc"),
-                chit,
+                Rpc("rpc").withCancellationSlot(sig.slot()),
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
                 {
                     responseReceived = true;
                     response = std::move(callResponse);
                 });
 
-            REQUIRE( bool(chit) );
-
             while (invocationRequestId == 0)
                 suspendCoro(yield);
             REQUIRE( invocationRequestId != 0 );
 
-            chit.cancel(CallCancelMode::skip);
+            sig.emit(CallCancelMode::skip);
 
             while (!responseReceived)
                 suspendCoro(yield);
@@ -502,7 +498,7 @@ GIVEN( "a caller and a callee" )
     {
         spawn(ioctx, [&](YieldContext yield)
         {
-            CallChit chit;
+            CallCancellationSignal sig;
             RequestId invocationRequestId = 0;
             RequestId interruptionRequestId = 0;
             bool responseReceived = false;
@@ -525,8 +521,7 @@ GIVEN( "a caller and a callee" )
                 yield).value();
 
             f.caller.call(
-                Rpc("rpc"),
-                chit,
+                Rpc("rpc").withCancellationSlot(sig.slot()),
                 [&response, &responseReceived](ErrorOr<Result> callResponse)
                 {
                     responseReceived = true;
@@ -538,7 +533,7 @@ GIVEN( "a caller and a callee" )
 
             REQUIRE( response.value().args() == Array{Variant{"completed"}} );
 
-            chit.cancel(CallCancelMode::kill);
+            sig.emit(CallCancelMode::kill);
 
             /* Router should not treat late CANCEL as a protocol error, and
                should allow clients to continue calling RPCs. */

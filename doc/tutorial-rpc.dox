@@ -455,14 +455,16 @@ int main()
 
 Cancelling RPCs
 ---------------
-If supported by the router, a caller may cancel an RPC in progress via any of
-the following methods:
-1. Use the @ref wamp::Session::call "Session::call" overloads taking a
-   wamp::CallChit out parameter, then call
-   @ref wamp::CallChit::cancel "CallChit::cancel".
-2. Use wamp::Session::cancel, passing a wamp::CallChit.
-3. Bind a Boost.Asio [cancellation slot][4]
-   to the completion token passed to @ref wamp::Session::call "Session::call".
+If supported by the router, a caller may cancel an RPC in progress via either
+of the following methods:
+1. Pass a wamp::CallCancellationSlot via wamp::Rpc::withCancellationSlot.
+2. Bind a Boost.Asio [cancellation slot][4]
+   to the completion token passed to wamp::Session::call.
+
+If both are specified, the wamp::CallCancellationSlot takes precedence.
+
+After calling wamp::Session::call, the `emit` method can be called on the
+associated signal object to request cancellation.
 
 A callee wanting to make an RPC interruptible may pass an additional
 `interruptSlot` argument to the `enroll`
@@ -534,7 +536,7 @@ int main()
 }
 ```
 
-Example caller issuing a call cancellation via wamp::CallChit:
+Example caller issuing a call cancellation via wamp::CallCancellationSlot:
 ```
 #include <boost/asio/steady_timer.hpp>
 #include <cppwamp/json.hpp>
@@ -556,10 +558,10 @@ int main()
 
         // Call a remote procedure that takes a while to respond.
         // Note that the overload taking a CallChit out parameter is used.
-        CallChit chit;
+        CallCancellationSignal cancelSignal;
         session.call(
-            Rpc("getElapsed").withArgs("hello", 10),
-            chit,
+            Rpc("getElapsed").withArgs("hello", 10)
+                             .withCancellationSlot(cancelSignal.slot()),
             [](ErrorOr<Result> result)
             {
                 if (result)
@@ -571,7 +573,7 @@ int main()
         // Cancel the RPC before it completes.
         boost::asio::steady_timer timer(ioctx, std::chrono::seconds(5));
         timer.async_wait(yield);
-        chit.cancel(CancelMode::kill);
+        cancelSignal.emit(CancelMode::kill);
     });
 
     ioctx.run();

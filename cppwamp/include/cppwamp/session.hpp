@@ -24,7 +24,6 @@
 #include "asiodefs.hpp"
 #include "calleestreaming.hpp"
 #include "callerstreaming.hpp"
-#include "chits.hpp"
 #include "config.hpp"
 #include "connector.hpp"
 #include "erroror.hpp"
@@ -428,17 +427,6 @@ public:
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
     call(ThreadSafe, Rpc rpc, C&& completion);
-
-    /** Calls a remote procedure, assigning a token that can be used
-        for cancellation. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
-    call(Rpc rpc, CallChit& chit, C&& completion);
-
-    /** Thread-safe call with CallChit assignment. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
-    call(ThreadSafe, Rpc rpc, CallChit& chit, C&& completion);
     /// @}
 
     /// @name Streaming
@@ -529,8 +517,8 @@ private:
                     CompletionHandler<Registration>&& f);
     void doUnregister(const Registration& r, CompletionHandler<bool>&& f);
     void safeUnregister(const Registration& r, CompletionHandler<bool>&& f);
-    void doCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f);
-    void safeCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f);
+    void doCall(Rpc&& r, CompletionHandler<Result>&& f);
+    void safeCall(Rpc&& r, CompletionHandler<Result>&& f);
     void doEnroll(Stream&& s, StreamSlot&& ss,
                   CompletionHandler<Registration>&& f);
     void safeEnroll(Stream&& s, StreamSlot&& ss,
@@ -1264,16 +1252,15 @@ struct Session::CallOp
     using ResultValue = Result;
     Session* self;
     Rpc r;
-    CallChit* c;
 
     template <typename F> void operator()(F&& f)
     {
-        self->doCall(std::move(r), c, std::forward<F>(f));
+        self->doCall(std::move(r), std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->safeCall(std::move(r), c, std::forward<F>(f));
+        self->safeCall(std::move(r), std::forward<F>(f));
     }
 };
 
@@ -1304,13 +1291,7 @@ Session::call(
     C&& completion ///< Completion handler or token.
 )
 {
-    // TODO: API design change: Return a Call object immediately which allows
-    // awaiting the result and cancelling.
-
-    CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
-                        "Use Session::ongoingCall for progressive results");
-    return initiate<CallOp>(std::forward<C>(completion), std::move(rpc),
-                            nullptr);
+    return initiate<CallOp>(std::forward<C>(completion), std::move(rpc));
 }
 
 //------------------------------------------------------------------------------
@@ -1328,52 +1309,7 @@ Session::call(
     C&& completion ///< Completion handler or token.
     )
 {
-    CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
-                        "Use Session::ongoingCall for progressive results");
-    return safelyInitiate<CallOp>(std::forward<C>(completion), std::move(rpc),
-                                  nullptr);
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::call(Rpc, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Result>, C>
-#else
-Session::template Deduced<ErrorOr<Result>, C>
-#endif
-Session::call(
-    Rpc rpc,        ///< Details about the RPC.
-    CallChit& chit, ///< [out] Token that can be used to cancel the RPC.
-    C&& completion  ///< Completion handler or token.
-    )
-{
-    CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
-                        "Use Session::ongoingCall for progressive results");
-    return initiate<CallOp>(std::forward<C>(completion), std::move(rpc), &chit);
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::call(Rpc, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Result>, C>
-#else
-Session::template Deduced<ErrorOr<Result>, C>
-#endif
-Session::call(
-    ThreadSafe,
-    Rpc rpc,        ///< Details about the RPC.
-    CallChit& chit, ///< [out] Token that can be used to cancel the RPC.
-    C&& completion  ///< Completion handler or token.
-    )
-{
-    CPPWAMP_LOGIC_CHECK(!rpc.progressiveResultsAreEnabled(),
-                        "Use Session::ongoingCall for progressive results");
-    return safelyInitiate<CallOp>(std::forward<C>(completion), std::move(rpc),
-                                  &chit);
+    return safelyInitiate<CallOp>(std::forward<C>(completion), std::move(rpc));
 }
 
 //------------------------------------------------------------------------------

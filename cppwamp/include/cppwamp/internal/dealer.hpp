@@ -190,7 +190,7 @@ public:
     {
         if (!isProgressiveCall_)
             return makeUnexpectedError(WampErrc::protocolViolation);
-        isProgressiveCall_ = rpc.isProgress();
+        isProgressiveCall_ = rpc.isProgress({});
         Invocation inv{{}, std::move(rpc), registrationId_};
 
         // Only propagate the `progress` option. The initial progressive
@@ -327,13 +327,13 @@ private:
             timeout_ = *timeout;
 
         auto feats = callee->features();
-        if (rpc.progressiveResultsAreEnabled() && feats.calleeCancelling &&
+        if (rpc.progressiveResultsAreEnabled({}) && feats.calleeCancelling &&
             feats.calleeProgressiveResults)
         {
             progressiveResultsRequested_ = true;
         }
 
-        if (rpc.isProgress())
+        if (rpc.isProgress({}))
         {
             if (!feats.calleeCancelling || !feats.calleeProgressiveCalls)
             {

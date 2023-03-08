@@ -17,6 +17,7 @@
 #include "accesslogging.hpp"
 #include "api.hpp"
 #include "anyhandler.hpp"
+#include "cancellation.hpp"
 #include "config.hpp"
 #include "erroror.hpp"
 #include "options.hpp"
@@ -668,12 +669,6 @@ public:
     /** The duration type used for dealer-initiated timeouts. */
     using DealerTimeoutDuration = std::chrono::duration<UInt, std::milli>;
 
-    /** The default cancel mode when none is specified. */
-    static constexpr CallCancelMode defaultCancelMode() noexcept
-    {
-        return CallCancelMode::kill;
-    }
-
     /** Specifies the Error object in which to store call errors returned
         by the callee. */
     TDerived& captureError(Error& error);
@@ -723,11 +718,21 @@ public:
     /** @name Call Cancellation
         @{ */
 
+    /** The default cancel mode when none is specified. */
+    static constexpr CallCancelMode defaultCancelMode() noexcept
+    {
+        return CallCancelMode::kill;
+    }
+
     /** Sets the default cancellation mode to use when none is specified. */
     TDerived& withCancelMode(CallCancelMode mode);
 
     /** Obtains the default cancellation mode associated with this RPC. */
     CallCancelMode cancelMode() const;
+
+    /** Assigns a cancellation slot that can be activated via its associated
+        signal. */
+    TDerived& withCancellationSlot(CallCancellationSlot slot);
     /// @}
 
 protected:
@@ -739,6 +744,7 @@ private:
 
     TDerived& derived() {return static_cast<TDerived&>(*this);}
 
+    CallCancellationSlot cancellationSlot_;
     Error* error_ = nullptr;
     TimeoutDuration callerTimeout_ = {};
     TrustLevel trustLevel_ = 0;
@@ -748,6 +754,7 @@ private:
 
 public:
     // Internal use only
+    CallCancellationSlot& cancellationSlot(internal::PassKey);
     Error* error(internal::PassKey);
     void setDisclosed(internal::PassKey, bool disclosed);
     void setTrustLevel(internal::PassKey, TrustLevel trustLevel);
@@ -767,30 +774,6 @@ public:
     /** Converting constructor taking a procedure URI. */
     Rpc(String uri);
 
-    /** @name Progressive Call Results
-        See [Progressive Call Results in the WAMP Specification]
-        (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
-        @{ */
-
-    /** Sets willingness to receive progressive results. */
-    Rpc& withProgressiveResults(bool enabled = true);
-
-    /** Indicates if progressive results were enabled. */
-    bool progressiveResultsAreEnabled() const;
-    /// @}
-
-    /** @name Progressive Calls
-        See [Progressive Calls in the WAMP Specification]
-        (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-calls)
-        @{ */
-
-    /** Sets an indication that the call is progressive. */
-    Rpc& withProgress(bool enabled = true);
-
-    /** Indicates if the call is progressive. */
-    bool isProgress() const;
-    /// @}
-
  private:
     using Base = RpcLike<Rpc>;
 
@@ -800,6 +783,8 @@ public:
 public:
     // Internal use only
     Rpc(internal::PassKey, internal::CallMessage&& msg);
+    bool progressiveResultsAreEnabled(internal::PassKey) const;
+    bool isProgress(internal::PassKey) const;
 };
 
 
@@ -1330,10 +1315,23 @@ template <typename D>
 CallCancelMode RpcLike<D>::cancelMode() const {return cancelMode_;}
 
 template <typename D>
+D& RpcLike<D>::withCancellationSlot(CallCancellationSlot slot)
+{
+    cancellationSlot_ = std::move(slot);
+    return derived();
+}
+
+template <typename D>
 template <typename... Ts>
 RpcLike<D>::RpcLike(Ts&&... args)
     : Base(std::forward<Ts>(args)...)
 {}
+
+template <typename D>
+CallCancellationSlot& RpcLike<D>::cancellationSlot(internal::PassKey)
+{
+    return cancellationSlot_;
+}
 
 template <typename D>
 Error* RpcLike<D>::error(internal::PassKey) {return error_;}

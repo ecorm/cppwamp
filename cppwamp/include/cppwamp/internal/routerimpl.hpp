@@ -160,7 +160,7 @@ public:
             return nullptr;
 
         auto session = LocalSessionImpl::create(strand_, std::move(e));
-        session->join({std::move(realm)}, std::move(realmUri), std::move(a));
+        // session->join({std::move(realm)}, std::move(realmUri), std::move(a));
         return session;
     }
 

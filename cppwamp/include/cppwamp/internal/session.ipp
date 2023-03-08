@@ -380,11 +380,11 @@ CPPWAMP_INLINE void Session::doUnregister(const Registration& r, CompletionHandl
 CPPWAMP_INLINE void Session::safeUnregister(const Registration& r, CompletionHandler<bool>&& f)
     {impl_->safeUnregister(r, std::move(f));}
 
-CPPWAMP_INLINE void Session::doCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
-    {impl_->call(std::move(r), c, std::move(f));}
+CPPWAMP_INLINE void Session::doCall(Rpc&& r, CompletionHandler<Result>&& f)
+    {impl_->call(std::move(r), std::move(f));}
 
-CPPWAMP_INLINE void Session::safeCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
-    {impl_->safeCall(std::move(r), c, std::move(f));}
+CPPWAMP_INLINE void Session::safeCall(Rpc&& r, CompletionHandler<Result>&& f)
+    {impl_->safeCall(std::move(r), std::move(f));}
 
 CPPWAMP_INLINE void Session::doEnroll(Stream&& s, StreamSlot&& ss, CompletionHandler<Registration>&& f)
     {impl_->enroll(std::move(s), std::move(ss), std::move(f));}

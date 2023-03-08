@@ -23,7 +23,7 @@
 #include "../calleestreaming.hpp"
 #include "../callerstreaming.hpp"
 #include "../codec.hpp"
-#include "../chits.hpp"
+#include "../cancellation.hpp"
 #include "../connector.hpp"
 #include "../logging.hpp"
 #include "../peerdata.hpp"
@@ -1592,7 +1592,7 @@ public:
         safelyDispatch<Dispatched>(r, std::move(f));
     }
 
-    void call(Rpc&& rpc, CallChit* chitPtr, CompletionHandler<Result>&& handler)
+    void call(Rpc&& rpc, CompletionHandler<Result>&& handler)
     {
         struct Requested
         {
@@ -1612,13 +1612,10 @@ public:
             }
         };
 
-        if (chitPtr)
-            *chitPtr = CallChit{};
-
         if (!checkState(State::established, handler))
             return;
 
-        auto cancelSlot =
+        auto boundCancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
         auto requestId = request(
             rpc.message({}),
@@ -1626,38 +1623,42 @@ public:
         if (!requestId)
             return;
 
-        CallChit chit{shared_from_this(), *requestId, rpc.cancelMode(),
-                      rpc.isProgress(), {}};
-
-        if (cancelSlot.is_connected())
+        auto& rpcCancelSlot = rpc.cancellationSlot({});
+        if (rpcCancelSlot.is_connected())
         {
-            cancelSlot.assign(
-                [chit](boost::asio::cancellation_type_t) {chit.cancel();});
+            rpcCancelSlot.emplace(shared_from_this(), *requestId);
+        }
+        else if (boundCancelSlot.is_connected())
+        {
+            auto self = shared_from_this();
+            auto reqId = *requestId;
+            auto mode = rpc.cancelMode();
+            boundCancelSlot.assign(
+                [this, self, reqId, mode](boost::asio::cancellation_type_t)
+                {
+                    safeCancelCall(reqId, mode);
+                });
         }
 
         if (rpc.callerTimeout().count() != 0)
             timeoutScheduler_->insert(*requestId, rpc.callerTimeout());
-
-        if (chitPtr)
-            *chitPtr = chit;
     }
 
-    void safeCall(Rpc&& r, CallChit* c, CompletionHandler<Result>&& f)
+    void safeCall(Rpc&& r, CompletionHandler<Result>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Rpc r;
-            CallChit* c;
             CompletionHandler<Result> f;
 
             void operator()()
             {
-                self->call(std::move(r), c, std::move(f));
+                self->call(std::move(r), std::move(f));
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(r), c, std::move(f));
+        safelyDispatch<Dispatched>(std::move(r), std::move(f));
     }
 
     ErrorOrDone cancelCall(RequestId reqId, CallCancelMode mode) override
@@ -1940,8 +1941,7 @@ private:
     using CallerTimeoutScheduler = TimeoutScheduler<RequestId>;
     using Message                = WampMessage;
     using RequestKey             = typename Message::RequestKey;
-    using OneShotHandler         = AnyCompletionHandler<void (ErrorOr<Message>)>;
-    using MultiShotHandler       = std::function<void (ErrorOr<Message>)>;
+    using RequestHandler         = AnyCompletionHandler<void (ErrorOr<Message>)>;
 
     static void outputErrorDetails(std::ostream& out, const Error& e)
     {
@@ -2013,7 +2013,7 @@ private:
             postHandler(stateChangeHandler_, s, ec);
     }
 
-    ErrorOr<RequestId> request(Message& msg, OneShotHandler&& handler)
+    ErrorOr<RequestId> request(Message& msg, RequestHandler&& handler)
     {
         return requestor_.request(msg, std::move(handler));
     }

@@ -811,39 +811,25 @@ CPPWAMP_INLINE Procedure::Procedure(internal::PassKey,
 // Rpc
 //******************************************************************************
 
-CPPWAMP_INLINE Rpc::Rpc(String uri) : Base(std::move(uri)) {}
-
-/** @details
-    This sets the `CALL.Options.receive_progress|bool` option.
-    @note this is automatically set by Session::ongoingCall. */
-CPPWAMP_INLINE Rpc& Rpc::withProgressiveResults(bool enabled)
-{
-    progressiveResultsEnabled_ = enabled;
-    return withOption("receive_progress", enabled);
-}
-
-CPPWAMP_INLINE bool Rpc::progressiveResultsAreEnabled() const
-{
-    return progressiveResultsEnabled_;
-}
-
-/** @details
-    This sets the `CALL.Options.progress|bool` option. */
-CPPWAMP_INLINE Rpc& Rpc::withProgress(bool enabled)
-{
-    isProgress_ = enabled;
-    return withOption("progress", enabled);
-}
-
-CPPWAMP_INLINE bool Rpc::isProgress() const
-{
-    return isProgress_;
-}
+CPPWAMP_INLINE Rpc::Rpc(String uri)
+    : Base(std::move(uri)),
+      progressiveResultsEnabled_(optionOr<bool>("receive_progress", false)),
+      isProgress_(optionOr<bool>("progress", false))
+{}
 
 CPPWAMP_INLINE Rpc::Rpc(internal::PassKey, internal::CallMessage&& msg)
     : Base(std::move(msg))
 {}
 
+CPPWAMP_INLINE bool Rpc::progressiveResultsAreEnabled(internal::PassKey) const
+{
+    return progressiveResultsEnabled_;
+}
+
+CPPWAMP_INLINE bool Rpc::isProgress(internal::PassKey) const
+{
+    return isProgress_;
+}
 
 //******************************************************************************
 // Result
