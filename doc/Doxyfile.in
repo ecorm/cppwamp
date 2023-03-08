@@ -2176,7 +2176,7 @@ PREDEFINED             = CPPWAMP_FOR_DOXYGEN \
 # This tag requires that the tag ENABLE_PREPROCESSING is set to YES.
 
 EXPAND_AS_DEFINED      = CPPWAMP_INLINE \
-                         CPPWAMP_ENABLE_IF \
+                         CPPWAMP_NEEDS \
                          CPPWAMP_ENABLED_TYPE
 
 # If the SKIP_FUNCTION_MACROS tag is set to YES then doxygen's preprocessor will

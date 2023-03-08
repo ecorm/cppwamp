@@ -1705,7 +1705,7 @@ public:
     }
 
     void invite(Invitation&& inv, ChunkSlot&& onChunk,
-              CompletionHandler<CallerChannel::Ptr>&& handler)
+                CompletionHandler<CallerChannel::Ptr>&& handler)
     {
         if (!checkState(State::established, handler))
             return;
@@ -1717,7 +1717,7 @@ public:
             timeoutScheduler_->insert((*channel)->id(), inv.callerTimeout());
     }
 
-    void safeMeet(Invitation&& i, ChunkSlot&& c,
+    void safeInvite(Invitation&& i, ChunkSlot&& c,
                     CompletionHandler<CallerChannel::Ptr>&& f)
     {
         struct Dispatched

@@ -105,9 +105,7 @@ CPPWAMP_INLINE SessionState Session::state() const
           terminating.
     @see Session::setLogLevel */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::setLogHandler(
-    LogHandler handler /**< Callable handler of type `<void (LogEntry)>`. */
-)
+CPPWAMP_INLINE void Session::setLogHandler(LogHandler handler)
 {
     impl_->setLogHandler(handler);
 }
@@ -115,10 +113,7 @@ CPPWAMP_INLINE void Session::setLogHandler(
 //------------------------------------------------------------------------------
 /** @copydetails Session::setLogHandler(LogHandler) */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::setLogHandler(
-    ThreadSafe,
-    LogHandler handler /**< Callable handler of type `<void (LogEntry)>`. */
-)
+CPPWAMP_INLINE void Session::setLogHandler(ThreadSafe, LogHandler handler)
 {
     impl_->safeSetLogHandler(handler);
 }
@@ -143,9 +138,7 @@ CPPWAMP_INLINE void Session::setLogLevel(LogLevel level)
     @note No state change events are fired when the session object is
           terminating. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::setStateChangeHandler(
-    StateChangeHandler handler /**< Callable handler of type `<void (SessionState)>`. */
-)
+CPPWAMP_INLINE void Session::setStateChangeHandler(StateChangeHandler handler)
 {
     impl_->setStateChangeHandler(handler);
 }
@@ -154,9 +147,7 @@ CPPWAMP_INLINE void Session::setStateChangeHandler(
 /** @copydetails Session::setStateChangeHandler(StateChangeHandler) */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setStateChangeHandler(
-    ThreadSafe,
-    StateChangeHandler handler /**< Callable handler of type `<void (SessionState)>`. */
-)
+    ThreadSafe, StateChangeHandler handler)
 {
     impl_->safeSetStateChangeHandler(handler);
 }
@@ -343,8 +334,8 @@ CPPWAMP_INLINE std::future<ErrorOrDone> Session::cancel(
 /** @copydetails Session::cancel(CallChit) */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOrDone Session::cancel(
-    CallChit chit,      /**< Contains the request ID of the call to cancel. */
-    CallCancelMode mode /**< The mode with which to cancel the call. */
+    CallChit chit,      ///< Contains the request ID of the call to cancel.
+    CallCancelMode mode ///< The mode with which to cancel the call.
     )
 {
     return impl_->cancelCall(chit.requestId(), mode);
@@ -355,8 +346,8 @@ CPPWAMP_INLINE ErrorOrDone Session::cancel(
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::future<ErrorOrDone> Session::cancel(
     ThreadSafe,
-    CallChit chit,      /**< Contains the request ID of the call to cancel. */
-    CallCancelMode mode /**< The mode with which to cancel the call. */
+    CallChit chit,      ///< Contains the request ID of the call to cancel.
+    CallCancelMode mode ///< The mode with which to cancel the call.
     )
 {
     return impl_->safeCancelCall(chit.requestId(), mode);
@@ -366,22 +357,20 @@ CPPWAMP_INLINE std::future<ErrorOrDone> Session::cancel(
 /** @return A new CallerChannel shared pointer. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOr<CallerChannel::Ptr> Session::summon(
-    Summons summons,  /**< Details about the stream. */
-    ChunkSlot onChunk /**< Optional caller input chunk handler with signature
-                           `void (CallerChannel::Ptr, CallerInputChunk)` */
+    Summons summons,        ///< Details about the stream.
+    CallerChunkSlot onChunk ///< Caller input chunk handler
     )
 {
     return impl_->summon(std::move(summons), std::move(onChunk));
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::summon(Summons, ChunkSlot) */
+/** @copydetails Session::summon(Summons, CallerChunkSlot) */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::future<ErrorOr<CallerChannel::Ptr>> Session::summon(
     ThreadSafe,
-    Summons summons,  /**< Details about the stream. */
-    ChunkSlot onChunk /**< Optional caller input chunk handler with signature
-                           `void (CallerChannel::Ptr, CallerInputChunk)` */
+    Summons summons,        ///< Details about the stream.
+    CallerChunkSlot onChunk ///< Caller input chunk handler
     )
 {
     return impl_->safeSummon(std::move(summons), std::move(onChunk));
@@ -450,10 +439,10 @@ CPPWAMP_INLINE void Session::doEnroll(Stream&& s, StreamSlot&& ss, CompletionHan
 CPPWAMP_INLINE void Session::safeEnroll(Stream&& s, StreamSlot&& ss, CompletionHandler<Registration>&& f)
     {impl_->safeEnroll(std::move(s), std::move(ss), std::move(f));}
 
-CPPWAMP_INLINE void Session::doInvite(Invitation&& i, ChunkSlot&& c, CompletionHandler<CallerChannel::Ptr>&& f)
+CPPWAMP_INLINE void Session::doInvite(Invitation&& i, CallerChunkSlot&& c, CompletionHandler<CallerChannel::Ptr>&& f)
     {impl_->invite(std::move(i), std::move(c), std::move(f));}
 
-CPPWAMP_INLINE void Session::safeMeet(Invitation&& i, ChunkSlot&& c, CompletionHandler<CallerChannel::Ptr>&& f)
-    {impl_->safeMeet(std::move(i), std::move(c), std::move(f));}
+CPPWAMP_INLINE void Session::safeInvite(Invitation&& i, CallerChunkSlot&& c, CompletionHandler<CallerChannel::Ptr>&& f)
+    {impl_->safeInvite(std::move(i), std::move(c), std::move(f));}
 
 } // namespace wamp
