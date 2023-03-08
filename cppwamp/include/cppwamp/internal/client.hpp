@@ -851,11 +851,11 @@ private:
             return WampErrc::protocolViolation;
 
         invocationRec.closed = !msg.isProgressive();
-        postStreamInvocation(reg, invocationRec, std::move(msg), callee);
+        processStreamInvocation(reg, invocationRec, std::move(msg), callee);
         return WampErrc::success;
     }
 
-    void postStreamInvocation(const StreamRegistration& reg,
+    void processStreamInvocation(const StreamRegistration& reg,
                               InvocationRecord& rec,
                               InvocationMessage&& msg,
                               CalleePtr callee)
@@ -867,8 +867,11 @@ private:
                                                  std::move(callee));
             rec.channel = channel;
             rec.invoked = true;
-            postVia(executor_, userExecutor_, reg.streamSlot,
-                    std::move(channel));
+
+            // Execute the slot directly from this strand in order to avoid
+            // race condition between accept and postInvocation/postInterrupt
+            // on the CalleeChannel.
+            reg.streamSlot(std::move(channel));
         }
         else
         {

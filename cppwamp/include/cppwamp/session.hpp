@@ -1434,6 +1434,13 @@ struct Session::EnrollStreamOp
             compatible Boost.Asio completion token.
     @return A Registration object, therafter used to manage the registration's
             lifetime.
+    @note The StreamSlot will be executed within the Session::strand()
+          execution context and must not block. The StreamSlot is responsible
+          for dispatching/posting/deferring the work to another executor if
+          necessary.
+    @note CalleeChannel::accept should be called within the invocation context
+          of the StreamSlot in order to losing incoming chunks or interruptions
+          due to their respective slots not being registered in time.
     @par Notable Error Codes
         - WampErrc::procedureAlreadyExists if the router reports that a
           stream/procedure with the same URI has already been registered for

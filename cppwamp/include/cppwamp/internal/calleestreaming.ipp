@@ -120,9 +120,9 @@ CPPWAMP_INLINE CalleeInputChunk&& CalleeChannel::invitation() &&
                 the streaming request no longer exists
         - true if the response was accepted for processing
         - an error code if there was a problem processing the response
-    @note In order to not lose any incoming chunks or interruptions, this
-          method should be called within the context of the StreamSlot
-          registered via Session::enroll.
+    @note This method should be called within the invocation context of the
+          StreamSlot in order to losing incoming chunks or interruptions due
+          to the ChunkSlot or InterruptSlot not being registered in time.
     @pre `this->state() == State::inviting`
     @pre `response.isFinal() || this->mode == StreamMode::calleeToCaller ||
           this->mode == StreamMode::bidirectional`

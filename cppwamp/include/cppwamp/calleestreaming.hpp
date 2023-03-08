@@ -109,10 +109,12 @@ class CPPWAMP_API CalleeChannel
     : public std::enable_shared_from_this<CalleeChannel>
 {
 public:
-    using Ptr = std::shared_ptr<CalleeChannel>;   ///< Shared pointer type
-    using WeakPtr = std::weak_ptr<CalleeChannel>; ///< Weak pointer type
-    using InputChunk = CalleeInputChunk;          ///< Input chunk type
-    using OutputChunk = CalleeOutputChunk;        ///< Output chunk type
+    using Ptr = std::shared_ptr<CalleeChannel>;     ///< Shared pointer type
+    using WeakPtr = std::weak_ptr<CalleeChannel>;   ///< Weak pointer type
+    using InputChunk = CalleeInputChunk;            ///< Input chunk type
+    using OutputChunk = CalleeOutputChunk;          ///< Output chunk type
+    using Executor = AnyIoExecutor;                 ///< Executor type
+    using FallbackExecutor = AnyCompletionExecutor; ///< Fallback executor type
 
     /// Type-erases the handler function for processing inbound chunks
     using ChunkSlot =
@@ -152,6 +154,14 @@ public:
 
     /** Moves the invitation. */
     InputChunk&& invitation() &&;
+
+    /** Accesses the channel's executor used to post the ChunkSlot and
+        InterruptSlot. */
+    const Executor& executor() const;
+
+    /** Accesses the channel's fallback executor that is bound the ChunkSlot
+        or Interrupt slot of none were already bound. */
+    const FallbackExecutor& fallbackExecutor() const;
 
     /** Accepts a streaming invitation from another peer and sends an
         initial (or final) response. */

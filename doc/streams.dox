@@ -126,6 +126,14 @@ where:
 - wamp::CalleeChannel::Ptr is a shared pointer to a channel object used
   for further interaction with the stream
 
+The StreamSlot will be executed within the Session::strand() execution context
+and must not block. The StreamSlot is responsible for
+dispatching/posting/deferring the work to another executor if necessary.
+
+CalleeChannel::accept should be called within the invocation context of the
+StreamSlot in order to losing incoming chunks or interruptions due to their
+their respective slots not being registered in time.
+
 
 @section Chunks Chunks
 
@@ -203,21 +211,23 @@ where:
 Callee interruption slots are assigned via wamp::CalleeChannel::accept .
 
 
-@section StreamingSlotExecutorBinding Binding Executors to Slots
+@section StreamingSlotExecutorBinding
+Binding Executors to Chunk/Interruption Slots
 
-A slot can be bound to an
+A chunk or interruption slot can be bound to an
 [executor](https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/model/executors.html)
 which determines how the slot invocation is queued and ultimately run. This
 allows the slot to be executed in a different context than the one used by
-wamp::Session. For example, a slot could be bound to an executor associated
-with a boost::asio::thread_pool.
+wamp::Session. For example, a chunk slot could be bound to an executor
+associated with a boost::asio::thread_pool.
 
 [boost::asio::bind_executor](https://www.boost.org/doc/libs/release/doc/html/boost_asio/reference/bind_executor.html)
 is used to bind an executor to a slot.
 
-If no executor is bound to a slot, CppWAMP will automatically bind
-wamp::Session::fallbackExecutor() to it. If no fallback executor was specified
-during wamp::Session construction, then it defaults to wamp::Session::executor.
+If no executor is bound to a chunk/interruption slot, CppWAMP will automatically
+bind wamp::Session::fallbackExecutor() to it. If no fallback executor was
+specified during wamp::Session construction, then it defaults to
+wamp::Session::executor.
 
 
 @section OpeningNonNegotiatedStreams Opening Non-negotiated Streams
