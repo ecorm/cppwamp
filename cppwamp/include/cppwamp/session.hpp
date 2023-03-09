@@ -291,13 +291,6 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
     join(ThreadSafe, Realm realm, ChallengeHandler handler, C&& completion);
 
-    /** Sends an `AUTHENTICATE` in response to a `CHALLENGE`. */
-    CPPWAMP_NODISCARD ErrorOrDone authenticate(Authentication auth);
-
-    /** Thread-safe authenticate. */
-    CPPWAMP_NODISCARD std::future<ErrorOrDone>
-    authenticate(ThreadSafe, Authentication auth);
-
     /** Asynchronously leaves the WAMP session. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Reason>, C>

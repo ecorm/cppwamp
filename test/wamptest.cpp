@@ -270,12 +270,6 @@ void checkInvalidJoin(Session& session, YieldContext yield)
                      error::Failure );
 }
 
-void checkInvalidAuthenticate(Session& session, YieldContext yield)
-{
-    auto done = session.authenticate(Authentication("signature"));
-    CHECK( done == makeUnexpected(Errc::invalidState) );
-}
-
 void checkInvalidLeave(Session& session, YieldContext yield)
 {
     auto reason = session.leave(yield);
@@ -286,8 +280,6 @@ void checkInvalidLeave(Session& session, YieldContext yield)
 void checkInvalidOps(Session& session, YieldContext yield)
 {
     auto unex = makeUnexpected(Errc::invalidState);
-
-    CHECK( session.authenticate(Authentication("signature")) == unex );
 
     CHECK( session.publish(Pub("topic")) == unex );
     CHECK( session.publish(Pub("topic").withArgs(42)) == unex );
@@ -2278,7 +2270,6 @@ GIVEN( "an IO service and a TCP connector" )
             Session session(ioctx);
             REQUIRE( session.state() == SessionState::disconnected );
             checkInvalidJoin(session, yield);
-            checkInvalidAuthenticate(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });
@@ -2298,7 +2289,6 @@ GIVEN( "an IO service and a TCP connector" )
             REQUIRE( session.state() == SessionState::connecting );
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
-            checkInvalidAuthenticate(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });
@@ -2314,7 +2304,6 @@ GIVEN( "an IO service and a TCP connector" )
             CHECK_THROWS( session.connect(invalidTcp, yield).value() );
             REQUIRE( session.state() == SessionState::failed );
             checkInvalidJoin(session, yield);
-            checkInvalidAuthenticate(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });
@@ -2330,7 +2319,6 @@ GIVEN( "an IO service and a TCP connector" )
             session.connect(where, yield).value();
             REQUIRE( session.state() == SessionState::closed );
             checkInvalidConnect(session, yield);
-            checkInvalidAuthenticate(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });
@@ -2356,7 +2344,6 @@ GIVEN( "an IO service and a TCP connector" )
             REQUIRE( session.state() == SessionState::establishing );
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
-            checkInvalidAuthenticate(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });
@@ -2374,7 +2361,6 @@ GIVEN( "an IO service and a TCP connector" )
             REQUIRE( session.state() == SessionState::established );
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
-            checkInvalidAuthenticate(session, yield);
         });
 
         ioctx.run();
@@ -2400,7 +2386,6 @@ GIVEN( "an IO service and a TCP connector" )
             REQUIRE( session.state() == SessionState::shuttingDown );
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
-            checkInvalidAuthenticate(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
         });

@@ -153,32 +153,6 @@ CPPWAMP_INLINE void Session::setStateChangeHandler(
 }
 
 //------------------------------------------------------------------------------
-/** @returns `true` if the authentication was sent, a std::error_code
-    otherwise. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE ErrorOrDone Session::authenticate(
-    Authentication auth /**< Contains the authentication signature
-                             and other options. */
-)
-{
-    return impl_->authenticate(std::move(auth));
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::authenticate(Authentication)
-    @note It is safe to call `get()` on the returned `std::future` within the
-          same thread as the one used by Session::strand. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE std::future<ErrorOrDone> Session::authenticate(
-    ThreadSafe,
-    Authentication auth /**< Contains the authentication signature
-                             and other options. */
-)
-{
-    return impl_->safeAuthenticate(std::move(auth));
-}
-
-//------------------------------------------------------------------------------
 /** @details
     Aborts all pending asynchronous operations, invoking their handlers
     with error codes indicating that cancellation has occured.
