@@ -32,6 +32,8 @@ if(DOXYGEN_FOUND AND NOT CPPWAMP_OPT_HEADERS_ONLY)
         ${CMAKE_CURRENT_SOURCE_DIR}/index.html
         ${CppWAMP_BINARY_DIR}/doc/index.html
         COPYONLY)
+    file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/theme
+              DESTINATION ${CppWAMP_BINARY_DIR}/doc/theme)
     add_custom_target(cppwamp-doc
         COMMAND ${DOXYGEN_EXECUTABLE} ${CppWAMP_BINARY_DIR}/Doxyfile
         WORKING_DIRECTORY ${CppWAMP_SOURCE_DIR}

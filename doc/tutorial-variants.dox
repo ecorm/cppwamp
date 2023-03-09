@@ -128,8 +128,7 @@ Accessing Elements and Members
 ------------------------------
 
 For convenience, elements can be accessed directly from array variants, using
-the @ref wamp::Variant::operator[](SizeType) "[] operator" taking an integer
-index:
+the array subscript operator taking an integer index:
 ```
 using namespace wamp;
 Variant v;
@@ -144,8 +143,7 @@ std::cout << v[3] << "\n";     // throws std::out_of_range
 ```
 
 For convenience, members can be accessed directly from object variants,
-using the @ref wamp::Variant::operator[](const String&) "[] operator" taking
-a string key:
+using the array subscript operator taking a string key:
 ```
 using namespace wamp;
 Variant v;

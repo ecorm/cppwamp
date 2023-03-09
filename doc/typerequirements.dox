@@ -65,7 +65,7 @@ where `left` and `right` are references to _any_ of `Variant`'s bound types
 @section OperandVisitor OperandVisitor
 `OperandVisitor` is the C++ concept for a function object having `operator()`
 overloads that take two arguments.
-This concept is required for the @ref applyWithOperand function. The
+This concept is required for the wamp::applyWithOperand function. The
 operator() overloads must handle _any_ of wamp::Variant's bound types as their
 first argument. They must also handle a value or reference of type `O` for
 their second argument, where `O` is the type of the `operand` argument passed

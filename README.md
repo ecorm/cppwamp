@@ -532,6 +532,10 @@ This library bundles [Tessil/hat-trie](https://github.com/Tessil/hat-trie)
 written by Thibaut Goetghebuer-Planchon, Copyright (c) 2017, under the terms
 of the MIT Licence.
 
+This library bundles parts of
+[jothepro/doxygen-awesome-css](https://github.com/jothepro/doxygen-awesome-css),
+Copyright (c) 2021-2023, under the terms of the MIT License.
+
 
 License for Non-Bundled Software
 --------------------------------
