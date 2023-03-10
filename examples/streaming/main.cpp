@@ -37,8 +37,8 @@ public:
         using namespace std::placeholders;
 
         registration_ = session_.enroll(
-            Stream("feed"),
-            [this](ChannelPtr channel) {onStream(channel);},
+            Stream("feed").withInvitationExpected(),
+            [this](Channel channel) {onStream(std::move(channel));},
             yield).value();
     }
 
@@ -50,17 +50,17 @@ public:
     }
 
 private:
-    using ChannelPtr = wamp::CalleeChannel::Ptr;
+    using Channel = wamp::CalleeChannel;
 
-    void onStream(ChannelPtr channel)
+    void onStream(Channel channel)
     {
         using Chunk = wamp::CalleeOutputChunk;
         std::cout << "Producer received invitation: "
-                  << channel->invitation().args() << std::endl;
-        channel->accept(Chunk().withArgs("playing")).value();
-        channel->send(Chunk().withArgs("one")).value();
-        channel->send(Chunk().withArgs("two")).value();
-        channel->send(Chunk(true).withArgs("three")).value();
+                  << channel.invitation().args() << std::endl;
+        channel.accept(Chunk().withArgs("playing")).value();
+        channel.send(Chunk().withArgs("one")).value();
+        channel.send(Chunk().withArgs("two")).value();
+        channel.send(Chunk(true).withArgs("three")).value();
     }
 
     wamp::Session session_;
@@ -93,11 +93,11 @@ public:
         auto mode = wamp::StreamMode::calleeToCaller;
         auto channel = session_.invite(
             wamp::Invitation("feed", mode).withArgs("play"),
-            [this](ChannelPtr channel, wamp::ErrorOr<Chunk> chunk)
-                {onChunk(channel, std::move(chunk));},
+            [this](Channel chan, wamp::ErrorOr<Chunk> chunk)
+                {onChunk(std::move(chan), std::move(chunk));},
             yield).value();
-        std::cout << "Consumer got RSVP: " << channel->rsvp().args()
-                  << " on channel " << channel->id() << std::endl;
+        std::cout << "Consumer got RSVP: " << channel.rsvp().args()
+                  << " on channel " << channel.id() << std::endl;
 
         while (!done_)
             boost::asio::post(session_.executor(), yield);
@@ -110,13 +110,13 @@ public:
     }
 
 private:
-    using ChannelPtr = wamp::CallerChannel::Ptr;
+    using Channel = wamp::CallerChannel;
     using Chunk = wamp::CallerInputChunk;
 
-    void onChunk(ChannelPtr channel, wamp::ErrorOr<Chunk> chunk)
+    void onChunk(Channel channel, wamp::ErrorOr<Chunk> chunk)
     {
         std::cout << "Consumer got chunk: " << chunk.value().args()
-                  << " on channel " << channel->id() << std::endl;
+                  << " on channel " << channel.id() << std::endl;
         done_ = chunk->isFinal();
     }
 

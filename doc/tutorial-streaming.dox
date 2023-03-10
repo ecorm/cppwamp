@@ -30,11 +30,11 @@ can be stored into a [`std::function`][3]:
 The signature of these slots is expected to be of the form:
 
 ```
-void function(wamp::CalleeChannel::Ptr)
+void function(wamp::CalleeChannel)
 ```
 where:
-- wamp::CalleeChannel::Ptr is a shared pointer to a channel object used
-  for further interaction with the stream
+- wamp::CalleeChannel is a lightweight reference-counted proxy to a channel
+  object used for further interaction with the stream
 
 
 Registering a Stream
@@ -67,27 +67,27 @@ int main()
     std::set<RequestId> interruptions;
 
     auto onInterrupt =
-        [&interruptions](CalleeChannel::Ptr channel, Interruption intr)
+        [&interruptions](CalleeChannel channel, Interruption intr)
     {
         // Make the coroutine in the countdown function break out of its loop.
         interruptions.insert(intr.requestId());
-        channel->fail("wamp.error.canceled");
+        channel.fail("wamp.error.canceled");
     }
 
-    auto countdownStream = [](CalleeChannel::Ptr channel)
+    auto countdownStream = [](CalleeChannel channel)
     {
         spawn(ioctx, [channel, &ioctx](YieldContext yield)
         {
             // Accept the invitation and return an RSVP, while providing
             // an interruption handler.
-            channel->accept(CalleeOutputChunk().withArgs("ok"),
-                            {}, // No chunks from caller expected
-                            onInterrupt);
+            channel.accept(CalleeOutputChunk().withArgs("ok"),
+                           {}, // No chunks from caller expected
+                           onInterrupt);
 
             // Obtain the count from a positional argument contained in the
             // invitation that was sent by the caller.
             unsigned count = 0;
-            channel->invitation().convertTo(count);
+            channel.invitation().convertTo(count);
 
             boost::asio::steady_timer timer(ioctx);
             auto deadline = std::chrono::steady_clock::now();
@@ -95,7 +95,7 @@ int main()
             while (count > 0)
             {
                 // Break out of the loop if this stream was interrupted.
-                if (interruptions.erase(channel->id()) != 0)
+                if (interruptions.erase(channel.id()) != 0)
                     return;
 
                 // Delay for one second.
@@ -103,13 +103,13 @@ int main()
                 timer.async_wait(yield);
 
                 // Return intermediate result chunks
-                channel->send(CalleeOutputChunk().withArgs(count));
+                channel.send(CalleeOutputChunk().withArgs(count));
 
                 --count;
             }
 
             // Return the final result chunk, which closes the channel
-            channel->send(CalleeOutputChunk(true).withArgs(count));
+            channel.send(CalleeOutputChunk(true).withArgs(count));
         });
     }
 
@@ -135,11 +135,11 @@ chunks returned by a callee.
 The signature of chunk slots is expected to be of the form:
 
 ```
-void function(wamp::CallerChannel::Ptr, wamp::ErrorOr<wamp::CallerInputChunk>)
+void function(wamp::CallerChannel, wamp::ErrorOr<wamp::CallerInputChunk>)
 ```
 where:
-- wamp::CallerChannel::Ptr is a shared pointer to a channel object used
-  for further interaction with the stream
+- wamp::CallerChannel is a lightweight reference-counted proxy to a channel
+  object used for further interaction with the stream
 - wamp::CallerInputChunk contains the payload of a chunk returned by a callee
 
 
@@ -174,7 +174,7 @@ int main()
     Session session(ioctx);
     bool done = false;
 
-    auto onChunk = [&done](CallerChannel::Ptr, ErrorOr<CallerInputChunk> chunk)
+    auto onChunk = [&done](CallerChannel, ErrorOr<CallerInputChunk> chunk)
     {
         unsigned n = 0;
         chunk.value().convertTo(n);
@@ -193,7 +193,7 @@ int main()
             Invitation("countdown").withArgs(countDownFrom),
             yield);
 
-        std::cout << "RSVP: " << channel->rsvp().args() << "\n";
+        std::cout << "RSVP: " << channel.rsvp().args() << "\n";
 
         while (!done)
             boost::asio::post(ioctx, yield);

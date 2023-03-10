@@ -90,6 +90,7 @@ set(HEADERS
     include/cppwamp/internal/routerrealm.hpp
     include/cppwamp/internal/routerserver.hpp
     include/cppwamp/internal/socketoptions.hpp
+    include/cppwamp/internal/streamchannel.hpp
     include/cppwamp/internal/subscriber.hpp
     include/cppwamp/internal/surrogateany.hpp
     include/cppwamp/internal/tcpacceptor.hpp
@@ -142,6 +143,7 @@ set(INLINES
     include/cppwamp/internal/router.ipp
     include/cppwamp/internal/routerconfig.ipp
     include/cppwamp/internal/session.ipp
+    include/cppwamp/internal/streaming.ipp
     include/cppwamp/internal/subscription.ipp
     include/cppwamp/internal/tcp.ipp
     include/cppwamp/internal/tcpendpoint.ipp

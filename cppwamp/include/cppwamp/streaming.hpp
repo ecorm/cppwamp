@@ -14,6 +14,7 @@
 
 #include "payload.hpp"
 #include "wampdefs.hpp"
+#include "internal/wampmessage.hpp"
 
 namespace wamp
 {
@@ -29,12 +30,33 @@ using ChannelId = RequestId;
 //------------------------------------------------------------------------------
 enum class StreamMode
 {
+    unknown,        ///< Stream mode unknown due to detached channel.
     simpleCall,     ///< No progressive calls results or invocations.
     calleeToCaller, ///< Progressive call results only.
     callerToCallee, ///< Progressive call invocations only.
     bidirectional   ///< Both progressive calls results and invocations
 };
 
+//------------------------------------------------------------------------------
+/// Enumerates the possible caller channel states.
+//------------------------------------------------------------------------------
+enum class CallerChannelState
+{
+    detached, // Not connected to an underlying shared channel
+    open,     // Ready to send chunks
+    closed    // Final chunk sent
+};
+
+//------------------------------------------------------------------------------
+/// Enumerates the possible callee channel states.
+//------------------------------------------------------------------------------
+enum class CalleeChannelState
+{
+    detached, // Not connected to an underlying shared channel
+    inviting, // Awaiting an initial or final response
+    open,     // Ready to send chunks
+    closed    // Final chunk sent
+};
 
 //------------------------------------------------------------------------------
 /** Consolidates common properties of streaming chunks. */
@@ -75,6 +97,91 @@ protected:
     using Base::withOptions;
 };
 
+//------------------------------------------------------------------------------
+/** Contains the payload of a chunk received via a progressive
+    `RESULT` message. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API CallerInputChunk : public Chunk<CallerInputChunk,
+                                                  internal::ResultMessage>
+{
+public:
+    /** Default constructor. */
+    CallerInputChunk();
+
+private:
+    using Base = Chunk<CallerInputChunk, internal::ResultMessage>;
+
+public:
+    // Internal use only
+    CallerInputChunk(internal::PassKey, internal::ResultMessage&& msg);
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains the payload of a chunk to be sent via a progressive
+    `CALL` message. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API CallerOutputChunk : public Chunk<CallerOutputChunk,
+                                                   internal::CallMessage>
+{
+public:
+    /** Constructor. */
+    explicit CallerOutputChunk(bool isFinal = false);
+
+private:
+    using Base = Chunk<CallerOutputChunk, internal::CallMessage>;
+
+public:
+    // Internal use only
+    void setCallInfo(internal::PassKey, String uri);
+    internal::CallMessage& callMessage(internal::PassKey, RequestId reqId);
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains the payload of a chunk received via a progressive
+    `INVOCATION` message. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API CalleeInputChunk : public Chunk<CalleeInputChunk,
+                                                  internal::InvocationMessage>
+{
+public:
+    /** Default constructor. */
+    CalleeInputChunk();
+
+private:
+    using Base = Chunk<CalleeInputChunk, internal::InvocationMessage>;
+
+public:
+    // Internal use only
+    CalleeInputChunk(internal::PassKey, internal::InvocationMessage&& msg);
+    StreamMode mode(internal::PassKey);
+};
+
+
+//------------------------------------------------------------------------------
+/** Contains the payload of a chunk to be sent via a progressive
+    `YIELD` message. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API CalleeOutputChunk : public Chunk<CalleeOutputChunk,
+                                                   internal::YieldMessage>
+{
+public:
+    /** Constructor. */
+    explicit CalleeOutputChunk(bool isFinal = false);
+
+private:
+    using Base = Chunk<CalleeOutputChunk, internal::YieldMessage>;
+
+public:
+    // Internal use only
+    internal::YieldMessage& yieldMessage(internal::PassKey, RequestId reqId);
+};
+
 } // namespace wamp
+
+#ifndef CPPWAMP_COMPILED_LIB
+#include "internal/streaming.ipp"
+#endif
 
 #endif // CPPWAMP_STREAMING_HPP

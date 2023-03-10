@@ -141,11 +141,11 @@ public:
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
 
     /** Type-erased wrapper around a stream invitation handler. */
-    using StreamSlot = AnyReusableHandler<void (CalleeChannel::Ptr)>;
+    using StreamSlot = AnyReusableHandler<void (CalleeChannel)>;
 
     /** Type-erased wrapper around a caller input chunk handler. */
     using CallerChunkSlot =
-        AnyReusableHandler<void (CallerChannel::Ptr, ErrorOr<CallerInputChunk>)>;
+        AnyReusableHandler<void (CallerChannel, ErrorOr<CallerInputChunk>)>;
 
     /** Type-erased wrapper around a log event handler. */
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
@@ -436,26 +436,26 @@ public:
 
     /** Sends an invitation to open a stream and waits for an RSVP. */
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel::Ptr>, C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
     invite(Invitation invitation, CallerChunkSlot onChunk, C&& completion);
 
     /** Sends an invitation to open a stream and waits for an RSVP. */
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel::Ptr>, C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
     invite(Invitation invitation, C&& completion);
 
     /** Thread-safe invite. */
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel::Ptr>, C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
     invite(ThreadSafe, Invitation invitation, CallerChunkSlot onChunk,
            C&& completion);
 
     /** Opens a streamming channel without negotiation. */
-    CPPWAMP_NODISCARD ErrorOr<CallerChannel::Ptr>
+    CPPWAMP_NODISCARD ErrorOr<CallerChannel>
     summon(Summons summons, CallerChunkSlot onChunk = {});
 
     /** Thread-safe mummon. */
-    CPPWAMP_NODISCARD std::future<ErrorOr<CallerChannel::Ptr>>
+    CPPWAMP_NODISCARD std::future<ErrorOr<CallerChannel>>
     summon(ThreadSafe, Summons summons, CallerChunkSlot onChunk = {});
     /// @}
 
@@ -517,9 +517,9 @@ private:
     void safeEnroll(Stream&& s, StreamSlot&& ss,
                     CompletionHandler<Registration>&& f);
     void doInvite(Invitation&& i, CallerChunkSlot&& c,
-                  CompletionHandler<CallerChannel::Ptr>&& f);
+                  CompletionHandler<CallerChannel>&& f);
     void safeInvite(Invitation&& i, CallerChunkSlot&& c,
-                    CompletionHandler<CallerChannel::Ptr>&& f);
+                    CompletionHandler<CallerChannel>&& f);
 
     std::shared_ptr<internal::Client> impl_;
 };
@@ -1401,7 +1401,7 @@ Session::enroll(
 //------------------------------------------------------------------------------
 struct Session::InviteOp
 {
-    using ResultValue = CallerChannel::Ptr;
+    using ResultValue = CallerChannel;
     Session* self;
     Invitation i;
     CallerChunkSlot c;
@@ -1420,7 +1420,7 @@ struct Session::InviteOp
 //------------------------------------------------------------------------------
 /** @tparam C Callable handler of type `void(ErrorOr<CallerChannel::Ptr>)`,
             or a compatible Boost.Asio completion token.
-    @return A new CallerChannel shared pointer.
+    @return A new CallerChannel.
     @par Notable Error Codes
         - WampErrc::noSuchProcedure if the router reports that there is
           no such procedure/stream registered by that name.
@@ -1433,9 +1433,9 @@ struct Session::InviteOp
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<CallerChannel::Ptr>, C>
+Deduced<ErrorOr<CallerChannel>, C>
 #else
-Session::template Deduced<ErrorOr<CallerChannel::Ptr>, C>
+Session::template Deduced<ErrorOr<CallerChannel>, C>
 #endif
 Session::invite(
     Invitation invitation,   ///< Details about the stream.
@@ -1454,9 +1454,9 @@ Session::invite(
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<CallerChannel::Ptr>, C>
+Deduced<ErrorOr<CallerChannel>, C>
 #else
-Session::template Deduced<ErrorOr<CallerChannel::Ptr>, C>
+Session::template Deduced<ErrorOr<CallerChannel>, C>
 #endif
 Session::invite(
     Invitation invitation, ///< Details about the stream.
@@ -1474,7 +1474,7 @@ template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
 Deduced<ErrorOr<Result>, C>
 #else
-Session::template Deduced<ErrorOr<CallerChannel::Ptr>, C>
+Session::template Deduced<ErrorOr<CallerChannel>, C>
 #endif
 Session::invite(
     ThreadSafe,

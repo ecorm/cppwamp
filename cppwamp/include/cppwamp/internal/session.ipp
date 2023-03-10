@@ -281,9 +281,9 @@ CPPWAMP_INLINE void Session::unregister(
 }
 
 //------------------------------------------------------------------------------
-/** @return A new CallerChannel shared pointer. */
+/** @return A new CallerChannel. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE ErrorOr<CallerChannel::Ptr> Session::summon(
+CPPWAMP_INLINE ErrorOr<CallerChannel> Session::summon(
     Summons summons,        ///< Details about the stream.
     CallerChunkSlot onChunk ///< Caller input chunk handler
     )
@@ -294,7 +294,7 @@ CPPWAMP_INLINE ErrorOr<CallerChannel::Ptr> Session::summon(
 //------------------------------------------------------------------------------
 /** @copydetails Session::summon(Summons, CallerChunkSlot) */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE std::future<ErrorOr<CallerChannel::Ptr>> Session::summon(
+CPPWAMP_INLINE std::future<ErrorOr<CallerChannel>> Session::summon(
     ThreadSafe,
     Summons summons,        ///< Details about the stream.
     CallerChunkSlot onChunk ///< Caller input chunk handler
@@ -366,10 +366,10 @@ CPPWAMP_INLINE void Session::doEnroll(Stream&& s, StreamSlot&& ss, CompletionHan
 CPPWAMP_INLINE void Session::safeEnroll(Stream&& s, StreamSlot&& ss, CompletionHandler<Registration>&& f)
     {impl_->safeEnroll(std::move(s), std::move(ss), std::move(f));}
 
-CPPWAMP_INLINE void Session::doInvite(Invitation&& i, CallerChunkSlot&& c, CompletionHandler<CallerChannel::Ptr>&& f)
+CPPWAMP_INLINE void Session::doInvite(Invitation&& i, CallerChunkSlot&& c, CompletionHandler<CallerChannel>&& f)
     {impl_->invite(std::move(i), std::move(c), std::move(f));}
 
-CPPWAMP_INLINE void Session::safeInvite(Invitation&& i, CallerChunkSlot&& c, CompletionHandler<CallerChannel::Ptr>&& f)
+CPPWAMP_INLINE void Session::safeInvite(Invitation&& i, CallerChunkSlot&& c, CompletionHandler<CallerChannel>&& f)
     {impl_->safeInvite(std::move(i), std::move(c), std::move(f));}
 
 } // namespace wamp

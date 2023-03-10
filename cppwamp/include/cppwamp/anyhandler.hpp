@@ -187,6 +187,8 @@ private:
     Executor executor_;
     CancellationSlot cancelSlot_;
     Function handler_;
+
+    template <typename> friend class AnyReusableHandler;
 };
 
 /** Non-member swap. @relates AnyReusableHandler */

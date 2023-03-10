@@ -15,58 +15,22 @@
 #include <atomic>
 #include <future>
 #include <memory>
-#include "anyhandler.hpp"
 #include "api.hpp"
-#include "asiodefs.hpp"
 #include "peerdata.hpp"
 #include "streaming.hpp"
 #include "tagtypes.hpp"
-#include "internal/caller.hpp"
 #include "internal/passkey.hpp"
 #include "internal/wampmessage.hpp"
 
 namespace wamp
 {
 
-//------------------------------------------------------------------------------
-/** Contains the payload of a chunk received via a progressive
-    `RESULT` message. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API CallerInputChunk : public Chunk<CallerInputChunk,
-                                                  internal::ResultMessage>
+namespace internal
 {
-public:
-    /** Default constructor. */
-    CallerInputChunk();
 
-private:
-    using Base = Chunk<CallerInputChunk, internal::ResultMessage>;
+template <typename> class BasicCallerChannelImpl;
 
-public:
-    // Internal use only
-    CallerInputChunk(internal::PassKey, internal::ResultMessage&& msg);
-};
-
-
-//------------------------------------------------------------------------------
-/** Contains the payload of a chunk to be sent via a progressive
-    `CALL` message. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API CallerOutputChunk : public Chunk<CallerOutputChunk,
-                                                   internal::CallMessage>
-{
-public:
-    /** Constructor. */
-    explicit CallerOutputChunk(bool isFinal = false);
-
-private:
-    using Base = Chunk<CallerOutputChunk, internal::CallMessage>;
-
-public:
-    // Internal use only
-    void setCallInfo(internal::PassKey, String uri);
-    internal::CallMessage& callMessage(internal::PassKey, RequestId reqId);
-};
+} // namespace internal
 
 
 //------------------------------------------------------------------------------
@@ -122,27 +86,20 @@ public:
 
 
 //------------------------------------------------------------------------------
-/** Provides the interface for a caller to stream chunks of data. */
+/** Provides the interface for a caller to stream chunks of data.
+    This is a lightweight object serving as a reference-counted proxy to the
+    actual channel. When the reference count reaches zero, the streaming request
+    is automatically cancelled if the channel is not closed. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API CallerChannel
-    : public std::enable_shared_from_this<CallerChannel>
 {
 public:
-    using Ptr = std::shared_ptr<CallerChannel>;   ///< Shared pointer type
-    using WeakPtr = std::weak_ptr<CallerChannel>; ///< Weak pointer type
-    using InputChunk = CallerInputChunk;          ///< Input chunk type
-    using OutputChunk = CallerOutputChunk;        ///< Output chunk type
+    using InputChunk = CallerInputChunk;   ///< Input chunk type
+    using OutputChunk = CallerOutputChunk; ///< Output chunk type
+    using State = CallerChannelState;      ///< Channel state type
 
-    /// Enumerates the channel's possible states.
-    enum class State
-    {
-        open,
-        closed
-    };
-
-    /** Destructor which automatically cancels the stream if the
-        channel is not already closed. */
-    ~CallerChannel();
+    /** Constructs a detached channel. */
+    CallerChannel();
 
     /** Obtains the stream mode specified in the invitation
         associated with this channel. */
@@ -169,6 +126,14 @@ public:
     /** Moves the error reported back by the callee. */
     Error&& error() &&;
 
+    /** Determines if this instance has shared ownership of the underlying
+        channel. */
+    bool attached() const;
+
+    /** Returns true if this instance has shared ownership of the underlying
+        channel. */
+    explicit operator bool() const;
+
     /** Sends a chunk to the other peer. */
     CPPWAMP_NODISCARD ErrorOrDone send(OutputChunk chunk);
 
@@ -190,65 +155,26 @@ public:
     /** Thread-safe cancel. */
     std::future<ErrorOrDone> cancel(ThreadSafe);
 
+    /** Releases shared ownership of the underlying channel. */
+    void detach();
+
 private:
-    using CallerPtr = std::weak_ptr<internal::Caller>;
-    using ChunkSlot = AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>;
+    using Impl = internal::BasicCallerChannelImpl<CallerChannel>;
 
-    static std::future<ErrorOrDone> futureValue(bool x);
-
-    template <typename TErrc>
-    static std::future<ErrorOrDone> futureError(TErrc errc)
-    {
-        std::promise<ErrorOrDone> p;
-        auto f = p.get_future();
-        p.set_value(makeUnexpectedError(errc));
-        return f;
-    }
-
-    CallerChannel(ChannelId id, String&& uri, StreamMode mode,
-                  CallCancelMode cancelMode, CallerPtr caller,
-                  AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>&& onChunk,
-                  AnyIoExecutor exec, AnyCompletionExecutor userExec);
-
-    std::future<ErrorOrDone> safeCancel();
-
-    template <typename T>
-    void postChunkHandler(T&& arg)
-    {
-        postVia(executor_, userExecutor_, chunkSlot_, shared_from_this(),
-                std::forward<T>(arg));
-    }
-
-    bool isValidModeForSending() const;
-
-    InputChunk rsvp_;
-    Error error_;
-    Uri uri_;
-    ChunkSlot chunkSlot_;
-    AnyIoExecutor executor_;
-    AnyCompletionExecutor userExecutor_;
-    CallerPtr caller_;
-    ChannelId id_ = nullId();
-    std::atomic<State> state_;
-    StreamMode mode_ = {};
-    CallCancelMode cancelMode_ = CallCancelMode::unknown;
-    bool hasRsvp_ = false;
+    std::shared_ptr<Impl> impl_;
 
 public:
     // Internal use only
-    static Ptr create(
-        internal::PassKey,
-        ChannelId id, String&& uri, StreamMode mode,
-        CallCancelMode cancelMode, CallerPtr caller,
-        AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>&& onChunk,
-        AnyIoExecutor exec, AnyCompletionExecutor userExec);
-
-    void setRsvp(internal::PassKey, internal::ResultMessage&& msg);
-
-    void postResult(internal::PassKey, internal::ResultMessage&& msg);
-
-    void postError(internal::PassKey, internal::ErrorMessage&& msg);
+    CallerChannel(internal::PassKey, std::shared_ptr<Impl> impl);
 };
+
+
+namespace internal
+{
+
+using CallerChannelImpl = internal::BasicCallerChannelImpl<CallerChannel>;
+
+} // namespace internal
 
 } // namespace wamp
 

@@ -5,60 +5,28 @@
 ------------------------------------------------------------------------------*/
 
 #include "../callerstreaming.hpp"
+#include "streamchannel.hpp"
 
 namespace wamp
 {
 
 //******************************************************************************
-// CallerInputChunk
-//******************************************************************************
-
-CPPWAMP_INLINE CallerInputChunk::CallerInputChunk() {}
-
-CPPWAMP_INLINE CallerInputChunk::CallerInputChunk(internal::PassKey,
-                                                  internal::ResultMessage&& msg)
-    : Base(std::move(msg))
-{}
-
-
-//******************************************************************************
-// CallerOutputChunk
-//******************************************************************************
-
-/** This sets the `CALL.Options.progress|bool` option accordingly. */
-CPPWAMP_INLINE CallerOutputChunk::CallerOutputChunk(
-    bool isFinal ///< Marks this chunk as the final one in the stream
-)
-    : Base(isFinal)
-{}
-
-CPPWAMP_INLINE void CallerOutputChunk::setCallInfo(internal::PassKey,
-                                                   String uri)
-{
-    message().setUri(std::move(uri));
-}
-
-CPPWAMP_INLINE internal::CallMessage&
-CallerOutputChunk::callMessage(internal::PassKey, RequestId reqId)
-{
-    message().setRequestId(reqId);
-    return message();
-}
-
-
-//******************************************************************************
 // Invitation
 //******************************************************************************
 
-/** Constructor. */
+/** Constructor.
+    @pre mode != StreamMode::unknown
+    @throws error::Logic if the preconditions are unmet */
 CPPWAMP_INLINE Invitation::Invitation(String uri, StreamMode mode)
     : Base(std::move(uri)),
       mode_(mode)
 {
-    using D = StreamMode;
-    if (mode == D::calleeToCaller || mode == D::bidirectional)
+    using M = StreamMode;
+    CPPWAMP_LOGIC_CHECK(mode != M::unknown, "wamp::Invitation::Invitation: "
+                                            "Cannot specify unknown mode");
+    if (mode == M::calleeToCaller || mode == M::bidirectional)
         withOption("receive_progress", true);
-    if (mode == D::callerToCallee || mode == D::bidirectional)
+    if (mode == M::callerToCallee || mode == M::bidirectional)
         withOption("progress", true);
 }
 
@@ -81,10 +49,12 @@ CPPWAMP_INLINE Summons::Summons(String uri, StreamMode mode)
     : Base(std::move(uri)),
       mode_(mode)
 {
-    using D = StreamMode;
-    if (mode == D::calleeToCaller || mode == D::bidirectional)
+    using M = StreamMode;
+    CPPWAMP_LOGIC_CHECK(mode != M::unknown, "wamp::Summons::Summons: "
+                                            "Cannot specify unknown mode");
+    if (mode == M::calleeToCaller || mode == M::bidirectional)
         withOption("receive_progress", true);
-    if (mode == D::callerToCallee || mode == D::bidirectional)
+    if (mode == M::callerToCallee || mode == M::bidirectional)
         withOption("progress", true);
 }
 
@@ -102,39 +72,64 @@ CPPWAMP_INLINE internal::CallMessage& Summons::callMessage(internal::PassKey,
 // CallerChannel
 //******************************************************************************
 
-CPPWAMP_INLINE CallerChannel::~CallerChannel()
+/** @post this->state() == State::detached */
+CPPWAMP_INLINE CallerChannel::CallerChannel() {}
+
+CPPWAMP_INLINE StreamMode CallerChannel::mode() const
 {
-    auto oldState = state_.exchange(State::closed);
-    if (oldState != State::closed)
-        safeCancel();
+    return impl_ ? impl_->mode() : StreamMode::unknown;
 }
 
-CPPWAMP_INLINE StreamMode CallerChannel::mode() const {return mode_;}
-
-CPPWAMP_INLINE bool CallerChannel::hasRsvp() const {return hasRsvp_;}
+CPPWAMP_INLINE bool CallerChannel::hasRsvp() const
+{
+    return impl_ && impl_->hasRsvp();
+}
 
 CPPWAMP_INLINE const CallerInputChunk& CallerChannel::rsvp() const &
 {
-    return rsvp_;
+    static const CallerInputChunk empty;
+    return impl_ ? impl_->rsvp() : empty;
 }
 
+/** @pre `this->attached()`
+    @throws error::Logic if the precondition is not met. */
 CPPWAMP_INLINE CallerInputChunk&& CallerChannel::rsvp() &&
 {
-    return std::move(rsvp_);
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::rsvp: "
+                                    "Cannot move from detached channel");
+    return std::move(*impl_).rsvp();
 }
 
-/** A CallerChannel is `open` upon creation and `closed` upon sending
+/** A CallerChannel is `open` upon establishment and `closed` upon sending
     a final chunk or cancellation. */
 CPPWAMP_INLINE CallerChannel::State CallerChannel::state() const
 {
-    return state_.load();
+    return impl_ ? impl_->state() : State::detached;
 }
 
-CPPWAMP_INLINE ChannelId CallerChannel::id() const {return id_;}
+CPPWAMP_INLINE ChannelId CallerChannel::id() const
+{
+    return impl_ ? impl_->id() : nullId();
+}
 
-CPPWAMP_INLINE const Error& CallerChannel::error() const & {return error_;}
+CPPWAMP_INLINE const Error& CallerChannel::error() const &
+{
+    static const Error empty;
+    return impl_ ? impl_->error() : empty;
+}
 
-CPPWAMP_INLINE Error&& CallerChannel::error() && {return std::move(error_);}
+/** @pre `this->attached()`
+    @throws error::Logic if the precondition is not met. */
+CPPWAMP_INLINE Error&& CallerChannel::error() &&
+{
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::error: "
+                                    "Cannot move from detached channel");
+    return std::move(*impl_).error();
+}
+
+CPPWAMP_INLINE bool CallerChannel::attached() const {return bool(impl_);}
+
+CPPWAMP_INLINE CallerChannel::operator bool() const {return attached();}
 
 /** The channel is closed if the given chunk is marked as final.
     @returns
@@ -149,38 +144,18 @@ CPPWAMP_INLINE Error&& CallerChannel::error() && {return std::move(error_);}
     @throws error::Logic if the mode precondition is not met */
 CPPWAMP_INLINE ErrorOrDone CallerChannel::send(OutputChunk chunk)
 {
-    CPPWAMP_LOGIC_CHECK(isValidModeForSending(),
-                        "wamp::CallerChannel::send: invalid mode");
-    State expectedState = State::open;
-    auto newState = chunk.isFinal() ? State::closed : State::open;
-    bool ok = state_.compare_exchange_strong(expectedState, newState);
-    if (!ok)
-        return makeUnexpectedError(Errc::invalidState);
-
-    auto caller = caller_.lock();
-    if (!caller)
-        return false;
-    chunk.setCallInfo({}, uri_);
-    return caller->sendCallerChunk(id_, std::move(chunk));
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::send: "
+                                    "Channel is detached");
+    return impl_->send(std::move(chunk));
 }
 
 /** @copydetails send(OutputChunk) */
 CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::send(ThreadSafe,
                                                             OutputChunk chunk)
 {
-    CPPWAMP_LOGIC_CHECK(isValidModeForSending(),
-                        "wamp::CallerChannel::send: invalid mode");
-    State expectedState = State::open;
-    auto newState = chunk.isFinal() ? State::closed : State::open;
-    bool ok = state_.compare_exchange_strong(expectedState, newState);
-    if (!ok)
-        return futureError(Errc::invalidState);
-
-    auto caller = caller_.lock();
-    if (!caller)
-        return futureValue(false);
-    chunk.setCallInfo({}, uri_);
-    return caller->safeSendCallerChunk(id_, std::move(chunk));
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::send: "
+                                    "Channel is detached");
+    return impl_->send(threadSafe, std::move(chunk));
 }
 
 /** @returns
@@ -192,123 +167,42 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::send(ThreadSafe,
     @post `this->state() == State::closed` */
 CPPWAMP_INLINE ErrorOrDone CallerChannel::cancel(CallCancelMode mode)
 {
-    State expectedState = State::open;
-    bool ok = state_.compare_exchange_strong(expectedState, State::closed);
-    if (!ok)
-        return makeUnexpectedError(Errc::invalidState);
-
-    auto caller = caller_.lock();
-    if (!caller)
-        return false;
-    return caller->cancelCall(id_, mode);
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::cancel: "
+                                    "Channel is detached");
+    return impl_->cancel(mode);
 }
 
 /** @copydetails cancel(CallCancelMode) */
 CPPWAMP_INLINE std::future<ErrorOrDone>
 CallerChannel::cancel(ThreadSafe, CallCancelMode mode)
 {
-    State expectedState = State::open;
-    bool ok = state_.compare_exchange_strong(expectedState, State::closed);
-    if (!ok)
-        return futureError(Errc::invalidState);
-
-    auto caller = caller_.lock();
-    if (!caller)
-    {
-        std::promise<ErrorOrDone> p;
-        p.set_value(false);
-        return p.get_future();
-    }
-    return caller->safeCancelCall(id_, mode);
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::cancel: "
+                                    "Channel is detached");
+    return impl_->cancel(threadSafe, mode);
 }
 
 /** @copydetails cancel(CallCancelMode) */
-CPPWAMP_INLINE ErrorOrDone CallerChannel::cancel() {return cancel(cancelMode_);}
+CPPWAMP_INLINE ErrorOrDone CallerChannel::cancel()
+{
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::cancel: "
+                                    "Channel is detached");
+    return impl_->cancel();
+}
 
 /** @copydetails cancel(CallCancelMode) */
 CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::cancel(ThreadSafe)
 {
-    return cancel(threadSafe, cancelMode_);
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::cancel: "
+                                    "Channel is detached");
+    return impl_->cancel(threadSafe);
 }
 
-CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::futureValue(bool x)
-{
-    std::promise<ErrorOrDone> p;
-    auto f = p.get_future();
-    p.set_value(x);
-    return f;
-}
+/** @post this->state() == State::detached */
+CPPWAMP_INLINE void CallerChannel::detach() {impl_.reset();}
 
-CPPWAMP_INLINE CallerChannel::CallerChannel(
-    ChannelId id, String&& uri, StreamMode mode, CallCancelMode cancelMode,
-    CallerPtr caller,
-    AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>&& onChunk,
-    AnyIoExecutor exec, AnyCompletionExecutor userExec)
-    : uri_(std::move(uri)),
-      chunkSlot_(std::move(onChunk)),
-      executor_(exec),
-      userExecutor_(std::move(userExec)),
-      caller_(std::move(caller)),
-      id_(id),
-      state_(State::open),
-      mode_(mode),
-      cancelMode_(cancelMode)
+CPPWAMP_INLINE CallerChannel::CallerChannel(internal::PassKey,
+                                            std::shared_ptr<Impl> impl)
+    : impl_(std::move(impl))
 {}
-
-CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::safeCancel()
-{
-    auto caller = caller_.lock();
-    if (!caller)
-    {
-        std::promise<ErrorOrDone> p;
-        p.set_value(false);
-        return p.get_future();
-    }
-    return caller->safeCancelStream(id_);
-}
-
-CPPWAMP_INLINE CallerChannel::Ptr
-CallerChannel::create(
-    internal::PassKey, ChannelId id, String&& uri, StreamMode mode,
-    CallCancelMode cancelMode, CallerPtr caller,
-    AnyReusableHandler<void (Ptr, ErrorOr<InputChunk>)>&& onChunk,
-    AnyIoExecutor exec, AnyCompletionExecutor userExec)
-{
-    return Ptr(new CallerChannel(id, std::move(uri), mode, cancelMode,
-                                 std::move(caller), std::move(onChunk),
-                                 std::move(exec), std::move(userExec)));
-}
-
-CPPWAMP_INLINE bool CallerChannel::isValidModeForSending() const
-{
-    return mode_ == StreamMode::callerToCallee ||
-           mode_ == StreamMode::bidirectional;
-}
-
-CPPWAMP_INLINE void CallerChannel::setRsvp(internal::PassKey,
-                                          internal::ResultMessage&& msg)
-{
-    rsvp_ = InputChunk{{}, std::move(msg)};
-    hasRsvp_ = true;
-}
-
-CPPWAMP_INLINE void CallerChannel::postResult(internal::PassKey,
-                                              internal::ResultMessage&& msg)
-{
-    if (!chunkSlot_)
-        return;
-    InputChunk chunk{{}, std::move(msg)};
-    postChunkHandler(std::move(chunk));
-}
-
-CPPWAMP_INLINE void CallerChannel::postError(internal::PassKey,
-                                             internal::ErrorMessage&& msg)
-{
-    if (!chunkSlot_)
-        return;
-    error_ = Error{{}, std::move(msg)};
-    auto errc = error_.errorCode();
-    postChunkHandler(makeUnexpectedError(errc));
-}
 
 } // namespace wamp

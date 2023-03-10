@@ -22,54 +22,18 @@
 #include "peerdata.hpp"
 #include "streaming.hpp"
 #include "tagtypes.hpp"
-#include "internal/callee.hpp"
 #include "internal/passkey.hpp"
 #include "internal/wampmessage.hpp"
 
 namespace wamp
 {
 
-namespace internal { struct StreamRegistration; }
-
-//------------------------------------------------------------------------------
-/** Contains the payload of a chunk received via a progressive
-    `INVOCATION` message. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API CalleeInputChunk : public Chunk<CalleeInputChunk,
-                                                  internal::InvocationMessage>
+namespace internal
 {
-public:
-    /** Default constructor. */
-    CalleeInputChunk();
 
-private:
-    using Base = Chunk<CalleeInputChunk, internal::InvocationMessage>;
+template <typename> class BasicCalleeChannelImpl;
 
-public:
-    // Internal use only
-    CalleeInputChunk(internal::PassKey, internal::InvocationMessage&& msg);
-    StreamMode mode(internal::PassKey);
-};
-
-
-//------------------------------------------------------------------------------
-/** Contains the payload of a chunk to be sent via a progressive
-    `YIELD` message. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API CalleeOutputChunk : public Chunk<CalleeOutputChunk,
-                                                   internal::YieldMessage>
-{
-public:
-    /** Constructor. */
-    explicit CalleeOutputChunk(bool isFinal = false);
-
-private:
-    using Base = Chunk<CalleeOutputChunk, internal::YieldMessage>;
-
-public:
-    // Internal use only
-    internal::YieldMessage& yieldMessage(internal::PassKey, RequestId reqId);
-};
+} // namespace internal
 
 
 //------------------------------------------------------------------------------
@@ -103,40 +67,31 @@ public:
 
 
 //------------------------------------------------------------------------------
-/** Provides the interface for a caller to stream chunks of data. */
+/** Provides the interface for a callee to stream chunks of data.
+    This is a lightweight object serving as a reference-counted proxy to the
+    actual channel. When the reference count reaches zero, the streaming request
+    is automatically terminated if the channel is not closed. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API CalleeChannel
-    : public std::enable_shared_from_this<CalleeChannel>
 {
 public:
-    using Ptr = std::shared_ptr<CalleeChannel>;     ///< Shared pointer type
-    using WeakPtr = std::weak_ptr<CalleeChannel>;   ///< Weak pointer type
     using InputChunk = CalleeInputChunk;            ///< Input chunk type
     using OutputChunk = CalleeOutputChunk;          ///< Output chunk type
     using Executor = AnyIoExecutor;                 ///< Executor type
     using FallbackExecutor = AnyCompletionExecutor; ///< Fallback executor type
+    using State = CalleeChannelState;               ///< Channel state type
 
     /// Type-erases the handler function for processing inbound chunks
-    using ChunkSlot =
-        AnyReusableHandler<void (CalleeChannel::Ptr, CalleeInputChunk)>;
+    using ChunkSlot = AnyReusableHandler<void (CalleeChannel, InputChunk)>;
 
     /// Type-erases the handler function for processing interruptions
     using InterruptSlot =
-        AnyReusableHandler<void (CalleeChannel::Ptr, Interruption)>;
+        AnyReusableHandler<void (CalleeChannel, Interruption)>;
 
-    /// Enumerates the channel's possible states.
-    enum class State
-    {
-        inviting,
-        open,
-        closed
-    };
+    /** Constructs a detached channel. */
+    CalleeChannel();
 
-    /** Destructor which automatically rejects the stream as cancelled if the
-        channel is not already closed. */
-    ~CalleeChannel();
-
-    /** Obtains the stream mode that was established from the invitation. */
+    /** Obtains the stream mode that was established in the initial request. */
     StreamMode mode() const;
 
     /** Obtains the current channel state. */
@@ -159,11 +114,19 @@ public:
         InterruptSlot. */
     const Executor& executor() const;
 
-    /** Accesses the channel's fallback executor that is bound the ChunkSlot
-        or Interrupt slot of none were already bound. */
+    /** Accesses the channel's fallback executor that is bound to the ChunkSlot
+        or Interrupt slot if none were already bound. */
     const FallbackExecutor& fallbackExecutor() const;
 
-    /** Accepts a streaming invitation from another peer and sends an
+    /** Determines if this instance has shared ownership of the underlying
+        channel. */
+    bool attached() const;
+
+    /** Returns true if this instance has shared ownership of the underlying
+        channel. */
+    explicit operator bool() const;
+
+    /** Accepts a streaming request from another peer and sends an
         initial (or final) response. */
     CPPWAMP_NODISCARD ErrorOrDone accept(
         OutputChunk response,
@@ -175,7 +138,7 @@ public:
         ThreadSafe, OutputChunk response, ChunkSlot onChunk = {},
         InterruptSlot onInterrupt = {});
 
-    /** Accepts a streaming invitation from another peer, without sending an
+    /** Accepts a streaming request from another peer, without sending an
         initial response. */
     CPPWAMP_NODISCARD ErrorOrDone accept(
         ChunkSlot onChunk = {},
@@ -194,65 +157,24 @@ public:
     /** Thread-safe fail with error. */
     std::future<ErrorOrDone> fail(ThreadSafe, Error error);
 
+    /** Releases shared ownership of the underlying channel. */
+    void detach();
+
 private:
-    using CalleePtr = std::weak_ptr<internal::Callee>;
+    using Impl = internal::BasicCalleeChannelImpl<CalleeChannel>;
 
-    static std::future<ErrorOrDone> futureValue(bool x);
-
-    template <typename TErrc>
-    static std::future<ErrorOrDone> futureError(TErrc errc)
-    {
-        std::promise<ErrorOrDone> p;
-        auto f = p.get_future();
-        p.set_value(makeUnexpectedError(errc));
-        return f;
-    }
-
-    CalleeChannel(internal::InvocationMessage&& msg,
-                  const internal::StreamRegistration& reg,
-                  AnyIoExecutor executor, AnyCompletionExecutor userExecutor,
-                  CalleePtr callee);
-
-    bool isValidModeFor(const OutputChunk& c) const;
-
-    void postUnexpectedInvitationAsChunk();
-
-    InputChunk invitation_;
-    AnyReusableHandler<void (Ptr, InputChunk)> chunkHandler_;
-    AnyReusableHandler<void (Ptr, Interruption)> interruptHandler_;
-    AnyIoExecutor executor_;
-    AnyCompletionExecutor userExecutor_;
-    CalleePtr callee_;
-    ChannelId id_ = nullId();
-    std::atomic<State> state_;
-    StreamMode mode_ = {};
-    bool invitationExpected_ = false;
+    std::shared_ptr<Impl> impl_;
 
 public:
     // Internal use only
-    static Ptr create(
-        internal::PassKey, internal::InvocationMessage&& msg,
-        const internal::StreamRegistration& reg, AnyIoExecutor executor,
-        AnyCompletionExecutor userExecutor, CalleePtr callee);
-
-    bool hasInterruptHandler(internal::PassKey) const;
-
-    void postInvocation(internal::PassKey, internal::InvocationMessage&& msg);
-
-    void postInterrupt(internal::PassKey, internal::InterruptMessage&& msg);
+    CalleeChannel(internal::PassKey, std::shared_ptr<Impl> impl);
 };
+
 
 namespace internal
 {
 
-//------------------------------------------------------------------------------
-struct StreamRegistration
-{
-    using StreamSlot = AnyReusableHandler<void (CalleeChannel::Ptr)>;
-
-    StreamSlot streamSlot;
-    bool invitationExpected;
-};
+using CalleeChannelImpl = internal::BasicCalleeChannelImpl<CalleeChannel>;
 
 } // namespace internal
 

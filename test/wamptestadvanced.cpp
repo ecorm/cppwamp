@@ -659,29 +659,29 @@ GIVEN( "a caller and a callee" )
     bool leaveEarlyArmed = false;
     bool destroyEarlyArmed = false;
 
-    auto onStream = [&](CalleeChannel::Ptr channel)
+    auto onStream = [&](CalleeChannel channel)
     {
-        CHECK( channel->mode() == StreamMode::calleeToCaller );
-        CHECK( channel->invitationExpected() );
-        CHECK( channel->invitation().args().front().as<String>() ==
+        CHECK( channel.mode() == StreamMode::calleeToCaller );
+        CHECK( channel.invitationExpected() );
+        CHECK( channel.invitation().args().front().as<String>() ==
               "invitation" );
 
         if (rejectArmed)
         {
-            bool sent = channel->fail(WampErrc::invalidArgument).value();
+            bool sent = channel.fail(WampErrc::invalidArgument).value();
             CHECK(sent);
             return;
         }
 
         auto rsvp = CalleeOutputChunk().withArgs("rsvp");
-        bool sent = channel->accept(rsvp).value();
+        bool sent = channel.accept(rsvp).value();
         CHECK(sent);
 
         spawn(
             ioctx,
             [&](YieldContext yield) mutable
             {
-                CalleeChannel::Ptr chan = std::move(channel);
+                CalleeChannel chan = std::move(channel);
                 boost::asio::steady_timer timer(ioctx);
 
                 for (unsigned i=0; i<input.size(); ++i)
@@ -694,7 +694,7 @@ GIVEN( "a caller and a callee" )
                     bool isFinal = (i == input.size() - 1);
                     if (isFinal && errorArmed)
                     {
-                        chan->fail(Error{WampErrc::invalidArgument});
+                        chan.fail(Error{WampErrc::invalidArgument});
                     }
                     else if (isFinal && leaveEarlyArmed)
                     {
@@ -702,37 +702,35 @@ GIVEN( "a caller and a callee" )
                     }
                     else if (isFinal && destroyEarlyArmed)
                     {
-                        REQUIRE(chan.use_count() == 1);
-                        chan.reset();
+                        chan.detach();
                     }
                     else
                     {
-                        chan->send(CalleeOutputChunk(isFinal)
+                        chan.send(CalleeOutputChunk(isFinal)
                                        .withArgs(input.at(i))).value();
                     }
                 }
             });
     };
 
-    auto onChunk = [&](CallerChannel::Ptr channel,
-                       ErrorOr<CallerInputChunk> chunk)
+    auto onChunk = [&](CallerChannel channel, ErrorOr<CallerInputChunk> chunk)
     {
         INFO("for output.size()=" << output.size());
-        CHECK( channel->mode() == StreamMode::calleeToCaller );
+        CHECK( channel.mode() == StreamMode::calleeToCaller );
 
         bool isFinal = output.size() == input.size() - 1;
         if (isFinal && errorArmed)
         {
             REQUIRE_FALSE( chunk.has_value() );
             CHECK(chunk.error() == WampErrc::invalidArgument);
-            CHECK(channel->error().errorCode() == WampErrc::invalidArgument);
+            CHECK(channel.error().errorCode() == WampErrc::invalidArgument);
             output.push_back(input.back());
         }
         else if (isFinal && (leaveEarlyArmed || destroyEarlyArmed))
         {
             REQUIRE_FALSE( chunk.has_value() );
             CHECK(chunk.error() == WampErrc::cancelled);
-            CHECK(channel->error().errorCode() == WampErrc::cancelled);
+            CHECK(channel.error().errorCode() == WampErrc::cancelled);
             output.push_back(input.back());
         }
         else
@@ -769,9 +767,9 @@ GIVEN( "a caller and a callee" )
 
                 REQUIRE(channelOrError.has_value());
                 auto channel = channelOrError.value();
-                CHECK(channel->mode() == StreamMode::calleeToCaller);
-                CHECK(channel->hasRsvp());
-                CHECK(channel->rsvp().args().at(0).as<String>() == "rsvp");
+                CHECK(channel.mode() == StreamMode::calleeToCaller);
+                CHECK(channel.hasRsvp());
+                CHECK(channel.rsvp().args().at(0).as<String>() == "rsvp");
 
                 while (output.size() < input.size())
                     suspendCoro(yield);
@@ -835,12 +833,12 @@ GIVEN( "a caller and a callee" )
     std::vector<int> input{9, 3, 7, 5};
     std::vector<int> output;
 
-    auto onStream = [&](CalleeChannel::Ptr channel)
+    auto onStream = [&](CalleeChannel channel)
     {
-        CHECK( channel->mode() == StreamMode::calleeToCaller );
-        CHECK_FALSE( channel->invitationExpected() );
-        CHECK_FALSE( channel->invitation().hasArgs() );
-        channel->accept().value();
+        CHECK( channel.mode() == StreamMode::calleeToCaller );
+        CHECK_FALSE( channel.invitationExpected() );
+        CHECK_FALSE( channel.invitation().hasArgs() );
+        channel.accept().value();
 
         spawn(
             ioctx,
@@ -854,17 +852,16 @@ GIVEN( "a caller and a callee" )
                     timer.async_wait(yield);
 
                     bool isFinal = (i == input.size() - 1);
-                    channel->send(CalleeOutputChunk(isFinal)
+                    channel.send(CalleeOutputChunk(isFinal)
                                       .withArgs(input.at(i))).value();
                 }
             });
     };
 
-    auto onChunk = [&](CallerChannel::Ptr channel,
-                       ErrorOr<CallerInputChunk> chunk)
+    auto onChunk = [&](CallerChannel channel, ErrorOr<CallerInputChunk> chunk)
     {
         INFO("for output.size()=" << output.size());
-        CHECK( channel->mode() == StreamMode::calleeToCaller );
+        CHECK( channel.mode() == StreamMode::calleeToCaller );
 
         bool isFinal = output.size() == input.size() - 1;
         REQUIRE( chunk.has_value() );
@@ -887,8 +884,8 @@ GIVEN( "a caller and a callee" )
                 auto channelOrError = f.caller.summon(summons, onChunk);
                 REQUIRE(channelOrError.has_value());
                 auto channel = channelOrError.value();
-                CHECK(channel->mode() == StreamMode::calleeToCaller);
-                CHECK_FALSE(channel->hasRsvp());
+                CHECK(channel.mode() == StreamMode::calleeToCaller);
+                CHECK_FALSE(channel.hasRsvp());
 
                 while (output.size() < input.size())
                     suspendCoro(yield);
@@ -915,18 +912,18 @@ GIVEN( "a caller and a callee" )
     std::vector<int> output;
     bool interruptReceived = false;
 
-    auto onInterrupt = [&](CalleeChannel::Ptr channel, Interruption intr)
+    auto onInterrupt = [&](CalleeChannel channel, Interruption intr)
     {
         CHECK(intr.cancelMode() == CallCancelMode::killNoWait);
-        channel->fail(WampErrc::cancelled);
+        channel.fail(WampErrc::cancelled);
         interruptReceived = true;
         timer.cancel();
     };
 
-    auto onStream = [&](CalleeChannel::Ptr channel)
+    auto onStream = [&](CalleeChannel channel)
     {
-        CHECK( channel->mode() == StreamMode::calleeToCaller );
-        channel->accept(CalleeOutputChunk().withArgs("rsvp"),
+        CHECK( channel.mode() == StreamMode::calleeToCaller );
+        channel.accept(CalleeOutputChunk().withArgs("rsvp"),
                         nullptr, onInterrupt).value();
 
         spawn(
@@ -938,7 +935,7 @@ GIVEN( "a caller and a callee" )
                 {
                     timer.expires_from_now(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
-                    channel->send(CalleeOutputChunk(false)
+                    channel.send(CalleeOutputChunk(false)
                                       .withArgs(input.at(i))).value();
                 }
 
@@ -950,8 +947,7 @@ GIVEN( "a caller and a callee" )
             });
     };
 
-    auto onChunk = [&](CallerChannel::Ptr channel,
-                       ErrorOr<CallerInputChunk> chunk)
+    auto onChunk = [&](CallerChannel channel, ErrorOr<CallerInputChunk> chunk)
     {
         INFO("for output.size()=" << output.size());
         bool isFinal = output.size() == input.size() - 1;
@@ -981,14 +977,9 @@ GIVEN( "a caller and a callee" )
                 REQUIRE_FALSE(interruptReceived);
 
                 if (dropChannel)
-                {
-                    REQUIRE(channel.use_count() == 1);
-                    channel.reset();
-                }
+                    channel.detach();
                 else
-                {
-                    channel->cancel(CallCancelMode::killNoWait);
-                }
+                    channel.cancel(CallCancelMode::killNoWait);
 
                 while (output.size() < input.size())
                     suspendCoro(yield);
@@ -1028,18 +1019,18 @@ GIVEN( "a caller and a callee" )
     bool interruptReceived = false;
     bool errorReceived = true;
 
-    auto onInterrupt = [&](CalleeChannel::Ptr channel, Interruption intr)
+    auto onInterrupt = [&](CalleeChannel, Interruption intr)
     {
         CHECK(intr.cancelMode() == CallCancelMode::killNoWait);
         interruptReceived = true;
         timer.cancel();
     };
 
-    auto onStream = [&](CalleeChannel::Ptr channel)
+    auto onStream = [&](CalleeChannel channel)
     {
-        CHECK( channel->mode() == StreamMode::calleeToCaller );
-        channel->accept(CalleeOutputChunk().withArgs("rsvp"),
-                        nullptr, onInterrupt).value();
+        CHECK( channel.mode() == StreamMode::calleeToCaller );
+        channel.accept(CalleeOutputChunk().withArgs("rsvp"), nullptr,
+                       onInterrupt).value();
 
         spawn(
             ioctx,
@@ -1050,8 +1041,8 @@ GIVEN( "a caller and a callee" )
                 {
                     timer.expires_from_now(std::chrono::milliseconds(25));
                     timer.async_wait(yield);
-                    channel->send(CalleeOutputChunk()
-                                      .withArgs(input.at(i))).value();
+                    channel.send(CalleeOutputChunk()
+                                     .withArgs(input.at(i))).value();
                 }
 
                 timer.expires_from_now(std::chrono::seconds(3));
@@ -1062,8 +1053,7 @@ GIVEN( "a caller and a callee" )
             });
     };
 
-    auto onChunk = [&](CallerChannel::Ptr channel,
-                       ErrorOr<CallerInputChunk> chunk)
+    auto onChunk = [&](CallerChannel channel, ErrorOr<CallerInputChunk> chunk)
     {
         INFO("for output.size()=" << output.size());
         bool isFinal = output.size() == (input.size() - 1);
@@ -1079,7 +1069,7 @@ GIVEN( "a caller and a callee" )
         else
         {
             CHECK(chunk.error() == Errc::abandoned);
-            CHECK(channel->error().errorCode() == WampErrc::unknown);
+            CHECK(channel.error().errorCode() == WampErrc::unknown);
             errorReceived = true;
         }
     };

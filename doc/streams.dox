@@ -87,6 +87,10 @@ caller and a callee interact over a stream channel. These interactions include:
 - assigning a handler for receiving chunks
 - assigning a handler for receiving interruptions
 
+wamp::CallerChannel and wamp::CalleeChannel are lightweight reference-counted
+proxies to the actual underlying channels. When their reference count drops
+to zero, they automatically terminate the stream request if not already done.
+
 
 @section ChannelLifetimes Channel Lifetimes
 
@@ -120,11 +124,10 @@ registered via wamp::Session::enroll, which expects a stream slot with the
 following signature:
 
 ```
-void function(wamp::CalleeChannel::Ptr)
+void function(wamp::CalleeChannel)
 ```
 where:
-- wamp::CalleeChannel::Ptr is a shared pointer to a channel object used
-  for further interaction with the stream
+- wamp::CalleeChannel is used for further interaction with the stream
 
 The StreamSlot will be executed within the Session::strand() execution context
 and must not block. The StreamSlot is responsible for
@@ -165,11 +168,10 @@ stream chunks returned by a callee.
 The signature of caller chunk slots is expected to be of the form:
 
 ```
-void function(wamp::CallerChannel::Ptr, wamp::ErrorOr<wamp::CallerInputChunk>)
+void function(wamp::CallerChannel, wamp::ErrorOr<wamp::CallerInputChunk>)
 ```
 where:
-- wamp::CallerChannel::Ptr is a shared pointer to a channel object used
-  for further interaction with the stream
+- wamp::CallerChannel is used for further interaction with the stream
 - wamp::CallerInputChunk contains the payload of a chunk returned by a callee
 
 
@@ -181,13 +183,11 @@ stream chunks emitted by a caller.
 The signature of these slots is expected to be of the form:
 
 ```
-void function(wamp::CalleeChannel::Ptr, wamp::ErrorOr<wamp::CalleeInputChunk>)
+void function(wamp::CalleeChannel, wamp::CalleeInputChunk)
 ```
 where:
-- wamp::CalleeChannel::Ptr is a shared pointer to a channel object used
-  for further interaction with the stream
-- wamp::CalleeInputChunk contains the payload of a chunk emitted by a caller,
-  or an error emitted by a caller or dealer.
+- wamp::CalleeChannel is used for further interaction with the stream
+- wamp::CalleeInputChunk contains the payload of a chunk emitted by a caller.
 
 Callee chunk slots are assigned via wamp::CalleeChannel::accept .
 
@@ -200,11 +200,10 @@ process a stream being interrupted by a caller.
 The signature of these slots is expected to be of the form:
 
 ```
-void function(wamp::CalleeChannel::Ptr, wamp::Interruption)
+void function(wamp::CalleeChannel, wamp::Interruption)
 ```
 where:
-- wamp::CalleeChannel::Ptr is a shared pointer to a channel object used
-  for further interaction with the stream
+- wamp::CalleeChannel used for further interaction with the stream
 - wamp::Interruption contains information about the interruption, such as
   the requested cancel mode.
 
@@ -233,7 +232,7 @@ wamp::Session::executor.
 @section OpeningNonNegotiatedStreams Opening Non-negotiated Streams
 
 wamp::Session::summon is used to open a new stream without any negotiation
-from the caller. It immediately returns a wamp::CallerChannel::Ptr and the
+from the caller. It immediately returns a wamp::CallerChannel and the
 first received `RESULT` message is considered the first chunk.
 
 By default, the first `INVOCATION` message received by the callee via a
@@ -252,7 +251,7 @@ negotiation metadata as payload. wamp::Session::invite waits for an initial
 `RESULT` or `ERROR` message, where the former is assumed to contain an
 acceptance RSVP from the callee, and the latter is assumed to contain a
 rejection reason. wamp::Session::invite then executes a completion handler that
-emits either a std::error_code, or a newly created wamp::CallerChannel::Ptr
+emits either a std::error_code, or a newly created wamp::CallerChannel
 containing an RSVP.
 
 On the callee side, wamp::Stream::withInvitationExpected is used to specify
@@ -264,6 +263,5 @@ or rejects the invitation via wamp::CalleeChannel::fail.
 [1]: https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results
 [2]: https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-calls
 [3]: https://doc.qt.io/qt-6/signalsandslots.html
-
 
 */

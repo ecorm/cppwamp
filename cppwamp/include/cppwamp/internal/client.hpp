@@ -35,6 +35,7 @@
 #include "caller.hpp"
 #include "challengee.hpp"
 #include "matchuri.hpp"
+#include "streamchannel.hpp"
 #include "subscriber.hpp"
 #include "peer.hpp"
 #include "timeoutscheduler.hpp"
@@ -46,18 +47,25 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+struct StreamRegistration
+{
+    AnyReusableHandler<void (CalleeChannel)> streamSlot;
+    bool invitationExpected;
+};
+
+//------------------------------------------------------------------------------
 class StreamRequest
 {
 public:
     using CompletionHandler =
-        AnyCompletionHandler<void (ErrorOr<CallerChannel::Ptr>)>;
+        AnyCompletionHandler<void (ErrorOr<CallerChannel>)>;
 
-    explicit StreamRequest(CallerChannel::Ptr c, Invitation& i,
+    explicit StreamRequest(CallerChannelImpl::Ptr c, Invitation& i,
                            CompletionHandler&& f = {})
         : StreamRequest(std::move(c), i.error({}), true, std::move(f))
     {}
 
-    explicit StreamRequest(CallerChannel::Ptr c, Summons& s,
+    explicit StreamRequest(CallerChannelImpl::Ptr c, Summons& s,
                            CompletionHandler&& f = {})
         : StreamRequest(std::move(c), s.error({}), false, std::move(f))
     {}
@@ -87,7 +95,7 @@ public:
     }
 
 private:
-    explicit StreamRequest(CallerChannel::Ptr c, Error* e, bool expectsRsvp,
+    explicit StreamRequest(CallerChannelImpl::Ptr c, Error* e, bool expectsRsvp,
                            CompletionHandler&& f)
         : handler_(std::move(f)),
           channel_(std::move(c)),
@@ -102,16 +110,17 @@ private:
         if (channel_)
         {
             if (expectsRsvp_)
-                channel_->setRsvp({}, std::move(msg));
+                channel_->setRsvp(std::move(msg));
 
             if (handler_)
             {
-                dispatchVia(exec, userExec, std::move(handler_), channel_);
+                dispatchVia(exec, userExec, std::move(handler_),
+                            CallerChannel{{}, channel_});
                 handler_ = nullptr;
             }
 
             if (!expectsRsvp_)
-                channel_->postResult({}, std::move(msg));
+                channel_->postResult(std::move(msg));
 
             channel_.reset();
         }
@@ -119,7 +128,7 @@ private:
         {
             auto channel = weakChannel_.lock();
             if (channel)
-                channel->postResult({}, std::move(msg));
+                channel->postResult(std::move(msg));
         }
     }
 
@@ -139,7 +148,7 @@ private:
             }
             else
             {
-                channel_->postError({}, std::move(msg));
+                channel_->postError(std::move(msg));
             }
             channel_.reset();
         }
@@ -147,13 +156,13 @@ private:
         {
             auto channel = weakChannel_.lock();
             if (channel)
-                channel->postError({}, std::move(msg));
+                channel->postError(std::move(msg));
         }
     }
 
     CompletionHandler handler_;
-    CallerChannel::Ptr channel_;
-    CallerChannel::WeakPtr weakChannel_;
+    CallerChannelImpl::Ptr channel_;
+    CallerChannelImpl::WeakPtr weakChannel_;
     Error* errorPtr_ = nullptr;
     bool expectsRsvp_ = false;
 };
@@ -164,8 +173,8 @@ class Requestor
 public:
     using Message = WampMessage;
     using RequestHandler = AnyCompletionHandler<void (ErrorOr<Message>)>;
-    using MeetHandler = AnyCompletionHandler<void (ErrorOr<CallerChannel::Ptr>)>;
-    using ChunkSlot = AnyReusableHandler<void (CallerChannel::Ptr,
+    using MeetHandler = AnyCompletionHandler<void (ErrorOr<CallerChannel>)>;
+    using ChunkSlot = AnyReusableHandler<void (CallerChannel,
                                                ErrorOr<CallerInputChunk>)>;
 
     Requestor(Peer& peer, IoStrand strand, AnyIoExecutor exec,
@@ -205,7 +214,7 @@ public:
     }
 
     template <typename TRpcLike>
-    ErrorOr<CallerChannel::Ptr> meet(
+    ErrorOr<CallerChannel> meet(
         Caller::WeakPtr caller, TRpcLike&& rpc, ChunkSlot&& onChunk,
         MeetHandler&& handler = {})
     {
@@ -225,13 +234,13 @@ public:
 
         ++nextRequestId_;
 
-        auto channel = CallerChannel::create(
-            {}, channelId, std::move(uri), rpc.mode(), rpc.cancelMode(),
+        auto channel = std::make_shared<CallerChannelImpl>(
+            channelId, std::move(uri), rpc.mode(), rpc.cancelMode(),
             std::move(caller), std::move(onChunk), executor_, userExecutor_);
         auto emplaced = channels_.emplace(
             channelId, StreamRequest{channel, rpc, std::move(handler)});
         assert(emplaced.second);
-        return channel;
+        return CallerChannel{{}, std::move(channel)};
     }
 
     bool onReply(Message&& msg) // Returns true if request was found
@@ -556,7 +565,7 @@ struct InvocationRecord
 {
     InvocationRecord(RegistrationId regId) : registrationId(regId) {}
 
-    CalleeChannel::WeakPtr channel;
+    CalleeChannelImpl::WeakPtr channel;
     RegistrationId registrationId;
     bool invoked = false;     // Set upon the first streaming invocation
     bool interrupted = false; // Set when an interruption was received
@@ -574,7 +583,7 @@ public:
     using CalleePtr     = std::shared_ptr<Callee>;
     using CallSlot      = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
-    using StreamSlot    = AnyReusableHandler<void (CalleeChannel::Ptr)>;
+    using StreamSlot    = AnyReusableHandler<void (CalleeChannel)>;
 
     ProcedureRegistry(Peer& peer, AnyIoExecutor exec,
                       AnyCompletionExecutor userExec)
@@ -862,32 +871,33 @@ private:
     {
         if (!rec.invoked)
         {
-            auto channel = CalleeChannel::create({}, std::move(msg), reg,
-                                                 executor_, userExecutor_,
-                                                 std::move(callee));
+            auto channel = std::make_shared<CalleeChannelImpl>(
+                std::move(msg), reg.invitationExpected, executor_,
+                userExecutor_, std::move(callee));
             rec.channel = channel;
             rec.invoked = true;
 
             // Execute the slot directly from this strand in order to avoid
             // race condition between accept and postInvocation/postInterrupt
             // on the CalleeChannel.
-            reg.streamSlot(std::move(channel));
+            CalleeChannel proxy{{}, std::move(channel)};
+            reg.streamSlot(std::move(proxy));
         }
         else
         {
             auto channel = rec.channel.lock();
             if (channel)
-                channel->postInvocation({}, std::move(msg));
+            {
+                channel->postInvocation(std::move(msg));
+            }
         }
     }
 
     bool postStreamInterruption(InterruptMessage& msg, InvocationRecord& rec)
     {
         auto channel = rec.channel.lock();
-        if (!channel || !channel->hasInterruptHandler({}))
-            return false;
-        channel->postInterrupt({}, std::move(msg));
-        return true;
+        return bool(channel) &&
+               channel->postInterrupt(std::move(msg));
     }
 
     void automaticallyRespondToInterruption(InterruptMessage& msg,
@@ -931,13 +941,13 @@ public:
     using EventSlot          = AnyReusableHandler<void (Event)>;
     using CallSlot           = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot      = AnyReusableHandler<Outcome (Interruption)>;
-    using StreamSlot         = AnyReusableHandler<void (CalleeChannel::Ptr)>;
+    using StreamSlot         = AnyReusableHandler<void (CalleeChannel)>;
     using LogHandler         = AnyReusableHandler<void (LogEntry)>;
     using StateChangeHandler = AnyReusableHandler<void (SessionState,
                                                         std::error_code)>;
     using ChallengeHandler   = AnyReusableHandler<void (Challenge)>;
     using OngoingCallHandler = AnyReusableHandler<void (ErrorOr<Result>)>;
-    using ChunkSlot = AnyReusableHandler<void (CallerChannel::Ptr,
+    using ChunkSlot = AnyReusableHandler<void (CallerChannel,
                                                ErrorOr<CallerInputChunk>)>;
 
     template <typename TValue>
@@ -1709,7 +1719,7 @@ public:
     }
 
     void invite(Invitation&& inv, ChunkSlot&& onChunk,
-                CompletionHandler<CallerChannel::Ptr>&& handler)
+                CompletionHandler<CallerChannel>&& handler)
     {
         if (!checkState(State::established, handler))
             return;
@@ -1718,18 +1728,18 @@ public:
                                        std::move(onChunk), std::move(handler));
 
         if (channel && inv.callerTimeout().count() != 0)
-            timeoutScheduler_->insert((*channel)->id(), inv.callerTimeout());
+            timeoutScheduler_->insert(channel->id(), inv.callerTimeout());
     }
 
     void safeInvite(Invitation&& i, ChunkSlot&& c,
-                    CompletionHandler<CallerChannel::Ptr>&& f)
+                    CompletionHandler<CallerChannel>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Invitation i;
             ChunkSlot c;
-            CompletionHandler<CallerChannel::Ptr> f;
+            CompletionHandler<CallerChannel> f;
 
             void operator()()
             {
@@ -1740,7 +1750,7 @@ public:
         safelyDispatch<Dispatched>(std::move(i), std::move(c), std::move(f));
     }
 
-    ErrorOr<CallerChannel::Ptr> summon(Summons&& summons, ChunkSlot&& onChunk)
+    ErrorOr<CallerChannel> summon(Summons&& summons, ChunkSlot&& onChunk)
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
@@ -1749,23 +1759,19 @@ public:
                                        std::move(onChunk));
 
         if (channel && summons.callerTimeout().count() != 0)
-        {
-            timeoutScheduler_->insert((*channel)->id(),
-                                      summons.callerTimeout());
-        }
+            timeoutScheduler_->insert(channel->id(), summons.callerTimeout());
 
         return channel;
     }
 
-    std::future<ErrorOr<CallerChannel::Ptr>>
-    safeSummon(Summons&& s, ChunkSlot c)
+    std::future<ErrorOr<CallerChannel>> safeSummon(Summons&& s, ChunkSlot c)
     {
         struct Dispatched
         {
             Ptr self;
             Summons s;
             ChunkSlot c;
-            std::promise<ErrorOr<CallerChannel::Ptr>> p;
+            std::promise<ErrorOr<CallerChannel>> p;
 
             void operator()()
             {
@@ -1780,7 +1786,7 @@ public:
             }
         };
 
-        std::promise<ErrorOr<CallerChannel::Ptr>> p;
+        std::promise<ErrorOr<CallerChannel>> p;
         auto fut = p.get_future();
         safelyDispatch<Dispatched>(std::move(s), std::move(c), std::move(p));
         return fut;
