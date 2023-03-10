@@ -755,7 +755,8 @@ GIVEN( "a caller and a callee" )
                 Error error;
                 StreamRequest req{"com.myapp.foo", StreamMode::calleeToCaller};
                 req.withArgs("invitation").captureError(error);
-                auto channelOrError = f.caller.invite(req, onChunk, yield);
+                auto channelOrError = f.caller.requestStream(req, onChunk,
+                                                             yield);
 
                 if (rejectArmed)
                 {
@@ -796,34 +797,34 @@ GIVEN( "a caller and a callee" )
         runTest();
     }
 
-//    WHEN( "returning an error instead of a chunk" )
-//    {
-//        errorArmed = true;
-//        runTest();
-//    }
+    WHEN( "returning an error instead of a chunk" )
+    {
+        errorArmed = true;
+        runTest();
+    }
 
-//    WHEN( "rejecting an invitation with an error" )
-//    {
-//        rejectArmed = true;
-//        runTest();
-//    }
+    WHEN( "rejecting an invitation with an error" )
+    {
+        rejectArmed = true;
+        runTest();
+    }
 
-//    WHEN( "callee leaves without sending final chunk" )
-//    {
-//        leaveEarlyArmed = true;
-//        runTest();
-//    }
+    WHEN( "callee leaves without sending final chunk" )
+    {
+        leaveEarlyArmed = true;
+        runTest();
+    }
 
-//    WHEN( "callee destroys channel without sending final chunk" )
-//    {
-//        destroyEarlyArmed = true;
-//        runTest();
-//    }
+    WHEN( "callee destroys channel without sending final chunk" )
+    {
+        destroyEarlyArmed = true;
+        runTest();
+    }
 }}
 
 //------------------------------------------------------------------------------
 SCENARIO( "WAMP callee-to-caller streaming with no negotiation",
-         "[WAMP][Advanced]" )
+          "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
@@ -880,8 +881,8 @@ GIVEN( "a caller and a callee" )
             for (unsigned i=0; i<2; ++i)
             {
                 StreamRequest req{"com.myapp.foo", StreamMode::calleeToCaller};
-                req.withArgs("I summon you");
-                auto channelOrError = f.caller.summon(req, onChunk);
+                req.withArgs("first");
+                auto channelOrError = f.caller.openStream(req, onChunk);
                 REQUIRE(channelOrError.has_value());
                 auto channel = channelOrError.value();
                 CHECK(channel.mode() == StreamMode::calleeToCaller);
@@ -968,7 +969,8 @@ GIVEN( "a caller and a callee" )
             {
                 StreamRequest req{"com.myapp.foo", StreamMode::calleeToCaller};
                 req.withArgs("invitation");
-                auto channelOrError = f.caller.invite(req, onChunk, yield);
+                auto channelOrError = f.caller.requestStream(req, onChunk,
+                                                             yield);
                 REQUIRE(channelOrError.has_value());
                 auto channel = std::move(channelOrError).value();
 
@@ -1086,7 +1088,8 @@ GIVEN( "a caller and a callee" )
             {
                 StreamRequest req{"com.myapp.foo", StreamMode::calleeToCaller};
                 req.withArgs("invitation");
-                auto channelOrError = f.caller.invite(req, onChunk, yield);
+                auto channelOrError = f.caller.requestStream(req, onChunk,
+                                                             yield);
                 REQUIRE(channelOrError.has_value());
                 auto channel = channelOrError.value();
 

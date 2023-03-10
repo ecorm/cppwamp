@@ -75,8 +75,8 @@ public:
     /** Constructs a detached channel. */
     CallerChannel();
 
-    /** Obtains the stream mode specified in the invitation
-        associated with this channel. */
+    /** Obtains the stream mode specified in the StreamRequest associated with
+        this channel. */
     StreamMode mode() const;
 
     /** Determines if an RSVP is available. */
@@ -123,7 +123,7 @@ public:
     std::future<ErrorOrDone> cancel(ThreadSafe, CallCancelMode mode);
 
     /** Sends a cancellation request to the other peer using the mode specified
-        in the Invitation, and closes the channel. */
+        in the StreamRequest, and closes the channel. */
     ErrorOrDone cancel();
 
     /** Thread-safe cancel. */

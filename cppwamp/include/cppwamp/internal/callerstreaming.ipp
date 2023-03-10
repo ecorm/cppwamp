@@ -20,8 +20,9 @@ CPPWAMP_INLINE StreamRequest::StreamRequest(String uri, StreamMode mode)
       mode_(mode)
 {
     using M = StreamMode;
-    CPPWAMP_LOGIC_CHECK(mode != M::unknown, "wamp::Summons::Summons: "
-                                            "Cannot specify unknown mode");
+    CPPWAMP_LOGIC_CHECK(
+        mode != M::unknown,
+        "wamp::StreamRequest::StreamRequest: Cannot specify unknown mode");
     if (mode == M::calleeToCaller || mode == M::bidirectional)
         withOption("receive_progress", true);
     if (mode == M::callerToCallee || mode == M::bidirectional)

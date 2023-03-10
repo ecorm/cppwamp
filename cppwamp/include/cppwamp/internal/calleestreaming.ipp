@@ -46,7 +46,7 @@ CPPWAMP_INLINE StreamMode CalleeChannel::mode() const
     return impl_ ? impl_->mode() : StreamMode::unknown;
 }
 
-/** A CalleeChannel is `inviting` upon establishment, `open` upon acceptance,
+/** A CalleeChannel is `awaiting` upon establishment, `open` upon acceptance,
     and `closed` upon sending an error or a final chunk. */
 CPPWAMP_INLINE CalleeChannel::State CalleeChannel::state() const
 {
@@ -91,7 +91,7 @@ CPPWAMP_INLINE CalleeChannel::operator bool() const {return attached();}
     @note This method should be called within the invocation context of the
           StreamSlot in order to losing incoming chunks or interruptions due
           to the ChunkSlot or InterruptSlot not being registered in time.
-    @pre `this->state() == State::inviting`
+    @pre `this->state() == State::awaiting`
     @pre `response.isFinal() || this->mode == StreamMode::calleeToCaller ||
           this->mode == StreamMode::bidirectional`
     @post `this->state() == response.isFinal() ? State::closed : State::open`
@@ -123,11 +123,11 @@ CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::accept(
 }
 
 /** This function is thread-safe.
-    @returns an error code if the channel was not in the inviting state
+    @returns an error code if the channel was not in the awaiting state
     @note In order to not lose any incoming chunks or interruptions, this
           method should be called within the context of the StreamSlot
           registered via Session::enroll.
-    @pre `this->state() == State::inviting`
+    @pre `this->state() == State::awaiting`
     @post `this->state() == State::open` */
 CPPWAMP_INLINE ErrorOrDone CalleeChannel::accept(
     ChunkSlot onChunk,        ///< Handler to use for received chunks.

@@ -1712,8 +1712,8 @@ public:
         return fut;
     }
 
-    void invite(StreamRequest&& inv, ChunkSlot&& onChunk,
-                CompletionHandler<CallerChannel>&& handler)
+    void requestStream(StreamRequest&& inv, ChunkSlot&& onChunk,
+                       CompletionHandler<CallerChannel>&& handler)
     {
         if (!checkState(State::established, handler))
             return;
@@ -1726,8 +1726,8 @@ public:
             timeoutScheduler_->insert(channel->id(), inv.callerTimeout());
     }
 
-    void safeInvite(StreamRequest&& i, ChunkSlot&& c,
-                    CompletionHandler<CallerChannel>&& f)
+    void safeRequestStream(StreamRequest&& i, ChunkSlot&& c,
+                           CompletionHandler<CallerChannel>&& f)
     {
         struct Dispatched
         {
@@ -1738,34 +1738,34 @@ public:
 
             void operator()()
             {
-                self->invite(std::move(i), std::move(c), std::move(f));
+                self->requestStream(std::move(i), std::move(c), std::move(f));
             }
         };
 
         safelyDispatch<Dispatched>(std::move(i), std::move(c), std::move(f));
     }
 
-    ErrorOr<CallerChannel> summon(StreamRequest&& summons, ChunkSlot&& onChunk)
+    ErrorOr<CallerChannel> openStream(StreamRequest&& req, ChunkSlot&& onChunk)
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
 
         auto channel = requestor_.requestStream(
-            false, shared_from_this(), std::move(summons), std::move(onChunk));
+            false, shared_from_this(), std::move(req), std::move(onChunk));
 
-        if (channel && summons.callerTimeout().count() != 0)
-            timeoutScheduler_->insert(channel->id(), summons.callerTimeout());
+        if (channel && req.callerTimeout().count() != 0)
+            timeoutScheduler_->insert(channel->id(), req.callerTimeout());
 
         return channel;
     }
 
-    std::future<ErrorOr<CallerChannel>> safeSummon(StreamRequest&& s,
-                                                   ChunkSlot c)
+    std::future<ErrorOr<CallerChannel>> safeOpenStream(StreamRequest&& r,
+                                                       ChunkSlot c)
     {
         struct Dispatched
         {
             Ptr self;
-            StreamRequest s;
+            StreamRequest r;
             ChunkSlot c;
             std::promise<ErrorOr<CallerChannel>> p;
 
@@ -1773,7 +1773,7 @@ public:
             {
                 try
                 {
-                    p.set_value(self->summon(std::move(s), std::move(c)));
+                    p.set_value(self->openStream(std::move(r), std::move(c)));
                 }
                 catch (...)
                 {
@@ -1784,7 +1784,7 @@ public:
 
         std::promise<ErrorOr<CallerChannel>> p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(s), std::move(c), std::move(p));
+        safelyDispatch<Dispatched>(std::move(r), std::move(c), std::move(p));
         return fut;
     }
 

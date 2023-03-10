@@ -231,7 +231,7 @@ wamp::Session::executor.
 
 @section OpeningNonNegotiatedStreams Opening Non-negotiated Streams
 
-wamp::Session::summon is used to open a new stream without any negotiation
+wamp::Session::openStream is used to open a new stream without any negotiation
 from the caller. It immediately returns a wamp::CallerChannel and the
 first received `RESULT` message is considered the first chunk.
 
@@ -245,14 +245,14 @@ a streaming connection is established between them. CppWAMP provides an
 optional, rudimentary form of in-band negotiation performed at the start of the
 same progressive call request that encompases the entire exchange of chunks.
 
-On the caller side, wamp::Session::invite is used to request the opening of a
-new stream, where the initial outgoing `CALL` is considered to contain
-negotiation metadata as payload. wamp::Session::invite waits for an initial
-`RESULT` or `ERROR` message, where the former is assumed to contain an
+On the caller side, wamp::Session::requestStream is used to request the opening
+of a new stream, where the initial outgoing `CALL` is considered to contain
+negotiation metadata as payload. wamp::Session::requestStream waits for an
+initial `RESULT` or `ERROR` message, where the former is assumed to contain an
 acceptance RSVP from the callee, and the latter is assumed to contain a
-rejection reason. wamp::Session::invite then executes a completion handler that
-emits either a std::error_code, or a newly created wamp::CallerChannel
-containing an RSVP.
+rejection reason. wamp::Session::requestStream then executes a completion
+handler that emits either a std::error_code, or a newly created
+wamp::CallerChannel containing an RSVP.
 
 On the callee side, wamp::Stream::withInvitationExpected is used to specify
 that the callee expects the first `INVOCATION` message to contain an invitation.

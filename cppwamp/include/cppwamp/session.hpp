@@ -140,7 +140,7 @@ public:
     /** Type-erased wrapper around an RPC interruption handler. */
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
 
-    /** Type-erased wrapper around a stream invitation handler. */
+    /** Type-erased wrapper around a stream invocation handler. */
     using StreamSlot = AnyReusableHandler<void (CalleeChannel)>;
 
     /** Type-erased wrapper around a caller input chunk handler. */
@@ -434,29 +434,29 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<Registration>, C>
     enroll(ThreadSafe, Stream stream, StreamSlot onStream, C&& completion);
 
-    /** Sends an invitation to open a stream and waits for an RSVP. */
+    /** Sends a request to open a stream and waits for an initial response. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
-    invite(StreamRequest req, CallerChunkSlot onChunk, C&& completion);
+    requestStream(StreamRequest req, CallerChunkSlot onChunk, C&& completion);
 
-    /** Sends an invitation to open a stream and waits for an RSVP. */
+    /** Sends a request to open a stream and waits for an initial response. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
-    invite(StreamRequest req, C&& completion);
+    requestStream(StreamRequest req, C&& completion);
 
-    /** Thread-safe invite. */
+    /** Thread-safe requestStream. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
-    invite(ThreadSafe, StreamRequest req, CallerChunkSlot onChunk,
-           C&& completion);
+    requestStream(ThreadSafe, StreamRequest req, CallerChunkSlot onChunk,
+                  C&& completion);
 
     /** Opens a streamming channel without negotiation. */
     CPPWAMP_NODISCARD ErrorOr<CallerChannel>
-    summon(StreamRequest req, CallerChunkSlot onChunk = {});
+    openStream(StreamRequest req, CallerChunkSlot onChunk = {});
 
     /** Thread-safe mummon. */
     CPPWAMP_NODISCARD std::future<ErrorOr<CallerChannel>>
-    summon(ThreadSafe, StreamRequest req, CallerChunkSlot onChunk = {});
+    openStream(ThreadSafe, StreamRequest req, CallerChunkSlot onChunk = {});
     /// @}
 
 private:
@@ -479,7 +479,7 @@ private:
     struct CallOp;
     struct OngoingCallOp;
     struct EnrollStreamOp;
-    struct InviteOp;
+    struct RequestStreamOp;
 
     template <typename O, typename C, typename... As>
     Deduced<ErrorOr<typename O::ResultValue>, C>
@@ -516,10 +516,10 @@ private:
                   CompletionHandler<Registration>&& f);
     void safeEnroll(Stream&& s, StreamSlot&& ss,
                     CompletionHandler<Registration>&& f);
-    void doInvite(StreamRequest&& r, CallerChunkSlot&& c,
-                  CompletionHandler<CallerChannel>&& f);
-    void safeInvite(StreamRequest&& r, CallerChunkSlot&& c,
-                    CompletionHandler<CallerChannel>&& f);
+    void doRequestStream(StreamRequest&& r, CallerChunkSlot&& c,
+                         CompletionHandler<CallerChannel>&& f);
+    void safeRequestStream(StreamRequest&& r, CallerChunkSlot&& c,
+                           CompletionHandler<CallerChannel>&& f);
 
     std::shared_ptr<internal::Client> impl_;
 };
@@ -1270,7 +1270,7 @@ struct Session::CallOp
         - WampErrc::timeout if the call timed out.
         - WampErrc::unavailable if the callee is unavailable.
         - WampErrc::noAvailableCallee if all registered callees are unavaible.
-    @note Use Session::invite or Session::summon if progressive
+    @note Use Session::requestStream or Session::openStream if progressive
           results/invocations are desired. */
 //------------------------------------------------------------------------------
 template <typename C>
@@ -1399,7 +1399,7 @@ Session::enroll(
 }
 
 //------------------------------------------------------------------------------
-struct Session::InviteOp
+struct Session::RequestStreamOp
 {
     using ResultValue = CallerChannel;
     Session* self;
@@ -1408,12 +1408,12 @@ struct Session::InviteOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doInvite(std::move(r), std::move(c), std::forward<F>(f));
+        self->doRequestStream(std::move(r), std::move(c), std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->safeInvite(std::move(r), std::move(c), std::forward<F>(f));
+        self->safeRequestStream(std::move(r), std::move(c), std::forward<F>(f));
     }
 };
 
@@ -1427,7 +1427,7 @@ struct Session::InviteOp
         - WampErrc::invalidArgument if the callee reports that there are one
           or more invalid arguments.
         - WampErrc::cancelled if the stream was cancelled.
-        - WampErrc::timeout if the invitation timed out.
+        - WampErrc::timeout if waiting for a response timed out.
         - WampErrc::unavailable if the callee is unavailable.
         - WampErrc::noAvailableCallee if all registered callees are unavaible. */
 //------------------------------------------------------------------------------
@@ -1437,20 +1437,20 @@ Deduced<ErrorOr<CallerChannel>, C>
 #else
 Session::template Deduced<ErrorOr<CallerChannel>, C>
 #endif
-Session::invite(
+Session::requestStream(
     StreamRequest req,       ///< Details about the stream.
     CallerChunkSlot onChunk, ///< Caller input chunk handler.
     C&& completion           ///< Completion handler or token.
     )
 {
-    return initiate<InviteOp>(std::forward<C>(completion),
-                              std::move(req), std::move(onChunk));
+    return initiate<RequestStreamOp>(std::forward<C>(completion),
+                                     std::move(req), std::move(onChunk));
 }
 
 //------------------------------------------------------------------------------
 /** This overload without a ChunkSlot can be used with unidirectional
     caller-to-callee streams.
-    @copydetails Session::invite(Invitation, CallerChunkSlot, C&&) */
+    @copydetails Session::requestStream(StreamRequest, CallerChunkSlot, C&&) */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
@@ -1458,17 +1458,17 @@ Deduced<ErrorOr<CallerChannel>, C>
 #else
 Session::template Deduced<ErrorOr<CallerChannel>, C>
 #endif
-Session::invite(
+Session::requestStream(
     StreamRequest req, ///< Details about the stream.
     C&& completion     ///< Completion handler or token.
     )
 {
-    return initiate<InviteOp>(std::forward<C>(completion), std::move(req),
-                              nullptr);
+    return initiate<RequestStreamOp>(std::forward<C>(completion),
+                                     std::move(req), nullptr);
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::invite(Invitation, CallerChunkSlot, C&&) */
+/** @copydetails Session::requestStream(StreamRequest, CallerChunkSlot, C&&) */
 //------------------------------------------------------------------------------
 template <typename C>
 #ifdef CPPWAMP_FOR_DOXYGEN
@@ -1476,15 +1476,15 @@ Deduced<ErrorOr<Result>, C>
 #else
 Session::template Deduced<ErrorOr<CallerChannel>, C>
 #endif
-Session::invite(
+Session::requestStream(
     ThreadSafe,
     StreamRequest req,       ///< Details about the stream.
     CallerChunkSlot onChunk, ///< Caller input chunk handler.
     C&& completion           ///< Completion handler or token.
     )
 {
-    return safelyInitiate<InviteOp>(std::forward<C>(completion), std::move(req),
-                                    std::move(onChunk));
+    return safelyInitiate<RequestStreamOp>(std::forward<C>(completion),
+                                           std::move(req), std::move(onChunk));
 }
 
 } // namespace wamp

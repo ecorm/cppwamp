@@ -91,7 +91,7 @@ public:
     void consumeFeed(wamp::YieldContext yield)
     {
         auto mode = wamp::StreamMode::calleeToCaller;
-        auto channel = session_.invite(
+        auto channel = session_.requestStream(
             wamp::StreamRequest("feed", mode).withArgs("play"),
             [this](Channel chan, wamp::ErrorOr<Chunk> chunk)
                 {onChunk(std::move(chan), std::move(chunk));},

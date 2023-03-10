@@ -146,12 +146,12 @@ where:
 Opening a Stream Channel
 ------------------------
 
-A caller opens a new stream channel by calling the wamp::Session::invite
-overload that takes a wamp::Invitation and a chunk slot. The `Invitation`
+A caller opens a new stream channel by calling the wamp::Session::requestStream
+overload that takes a wamp::StreamRequest and a chunk slot. The `StreamRequest`
 object contains the stream URI, the *stream mode*, as well as the invitation
 payload arguments.
 
-wamp::Session::invite will emit a wamp::CallerChannel shared pointer that
+wamp::Session::requestStream will emit a wamp::CallerChannel shared pointer that
 can be used for further interaction with the stream. Such interaction includes:
 
 - accessing the RSVP the callee returned in response to the invitation
@@ -189,8 +189,8 @@ int main()
         session.join(Realm("somerealm"), yield).value();
         unsigned countDownFrom = 5;
 
-        auto channel = session.invite(
-            Invitation("countdown").withArgs(countDownFrom),
+        auto channel = session.requestStream(
+            StreamRequest("countdown").withArgs(countDownFrom),
             yield);
 
         std::cout << "RSVP: " << channel.rsvp().args() << "\n";
