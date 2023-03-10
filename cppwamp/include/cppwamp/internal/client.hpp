@@ -858,10 +858,9 @@ private:
         return WampErrc::success;
     }
 
-    void processStreamInvocation(const StreamRegistration& reg,
-                              InvocationRecord& rec,
-                              InvocationMessage&& msg,
-                              CalleePtr callee)
+    void processStreamInvocation(
+        const StreamRegistration& reg, InvocationRecord& rec,
+        InvocationMessage&& msg, CalleePtr callee)
     {
         if (!rec.invoked)
         {
@@ -871,7 +870,7 @@ private:
             rec.channel = channel;
             rec.invoked = true;
 
-            // Execute the slot directly from this strand in order to avoid
+            // Execute the slot directly from this strand in order to avoid a
             // race condition between accept and postInvocation/postInterrupt
             // on the CalleeChannel.
             CalleeChannel proxy{{}, std::move(channel)};

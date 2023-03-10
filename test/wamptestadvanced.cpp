@@ -833,13 +833,23 @@ GIVEN( "a caller and a callee" )
 
     std::vector<int> input{9, 3, 7, 5};
     std::vector<int> output;
+    unsigned calleeChunkCount = 0;
+
+    auto onCalleeChunk = [&](CalleeChannel channel, CalleeInputChunk chunk)
+    {
+        CHECK( channel.mode() == StreamMode::calleeToCaller );
+        CHECK_FALSE( channel.invitationExpected() );
+        auto s = chunk.args().at(0).as<String>();
+        CHECK(s == "hello");
+        ++calleeChunkCount;
+    };
 
     auto onStream = [&](CalleeChannel channel)
     {
         CHECK( channel.mode() == StreamMode::calleeToCaller );
         CHECK_FALSE( channel.invitationExpected() );
         CHECK_FALSE( channel.invitation().hasArgs() );
-        channel.accept().value();
+        channel.accept(onCalleeChunk).value();
 
         spawn(
             ioctx,
@@ -859,13 +869,15 @@ GIVEN( "a caller and a callee" )
             });
     };
 
-    auto onChunk = [&](CallerChannel channel, ErrorOr<CallerInputChunk> chunk)
+    auto onCallerChunk = [&](CallerChannel channel,
+                             ErrorOr<CallerInputChunk> chunk)
     {
         INFO("for output.size()=" << output.size());
         CHECK( channel.mode() == StreamMode::calleeToCaller );
+        CHECK_FALSE( channel.hasRsvp() );
+        REQUIRE( chunk.has_value() );
 
         bool isFinal = output.size() == input.size() - 1;
-        REQUIRE( chunk.has_value() );
         auto n = chunk->args().at(0).to<int>();
         output.push_back(n);
         CHECK( chunk->isFinal() == isFinal );
@@ -881,8 +893,8 @@ GIVEN( "a caller and a callee" )
             for (unsigned i=0; i<2; ++i)
             {
                 StreamRequest req{"com.myapp.foo", StreamMode::calleeToCaller};
-                req.withArgs("first");
-                auto channelOrError = f.caller.openStream(req, onChunk);
+                req.withArgs("hello");
+                auto channelOrError = f.caller.openStream(req, onCallerChunk);
                 REQUIRE(channelOrError.has_value());
                 auto channel = channelOrError.value();
                 CHECK(channel.mode() == StreamMode::calleeToCaller);
@@ -891,7 +903,9 @@ GIVEN( "a caller and a callee" )
                 while (output.size() < input.size())
                     suspendCoro(yield);
                 CHECK( input == output );
+                CHECK( calleeChunkCount == 1 );
                 output.clear();
+                calleeChunkCount = 0;
             }
 
             f.disconnect();
