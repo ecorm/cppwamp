@@ -335,7 +335,7 @@ GIVEN( "a caller and a callee" )
         ioctx.run();
     }
 
-    WHEN( "cancelling via an handler-bound slot when calling with a "
+    WHEN( "cancelling via a handler-bound slot when calling with a "
           "stackful coroutine completion token")
     {
         spawn(ioctx, [&](YieldContext yield)
@@ -382,7 +382,50 @@ GIVEN( "a caller and a callee" )
         ioctx.run();
     }
 
-    // TODO: Cancelling an RPC in kill mode with no callee interruption handler.
+    WHEN( "cancelling an RPC in kill mode with no interruption handler" )
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            CallCancellationSignal sig;
+            RequestId invocationRequestId = 0;
+            bool responseReceived = false;
+            ErrorOr<Result> response;
+
+            f.join(yield);
+
+            f.callee.enroll(
+                Procedure("rpc"),
+                [&invocationRequestId](Invocation inv) -> Outcome
+                {
+                    invocationRequestId = inv.requestId();
+                    return deferment;
+                },
+                yield).value();
+
+            f.caller.call(
+                Rpc("rpc").withCancellationSlot(sig.slot()),
+                [&response, &responseReceived](ErrorOr<Result> callResponse)
+                {
+                    responseReceived = true;
+                    response = std::move(callResponse);
+                });
+
+            while (invocationRequestId == 0)
+                suspendCoro(yield);
+
+            REQUIRE( invocationRequestId != 0 );
+
+            sig.emit(CallCancelMode::kill);
+
+            while (!responseReceived)
+                suspendCoro(yield);
+
+            CHECK( response == makeUnexpected(WampErrc::cancelled) );
+
+            f.disconnect();
+        });
+        ioctx.run();
+    }
 
     WHEN( "cancelling an RPC in killnowait mode before it returns" )
     {
