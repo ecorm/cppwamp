@@ -54,20 +54,15 @@ struct StreamRegistration
 };
 
 //------------------------------------------------------------------------------
-class StreamRequest
+class StreamRecord
 {
 public:
     using CompletionHandler =
         AnyCompletionHandler<void (ErrorOr<CallerChannel>)>;
 
-    explicit StreamRequest(CallerChannelImpl::Ptr c, Invitation& i,
-                           CompletionHandler&& f = {})
-        : StreamRequest(std::move(c), i.error({}), true, std::move(f))
-    {}
-
-    explicit StreamRequest(CallerChannelImpl::Ptr c, Summons& s,
-                           CompletionHandler&& f = {})
-        : StreamRequest(std::move(c), s.error({}), false, std::move(f))
+    explicit StreamRecord(CallerChannelImpl::Ptr c, StreamRequest& i,
+                          CompletionHandler&& f = {})
+        : StreamRecord(std::move(c), i.error({}), std::move(f))
     {}
 
     void onReply(WampMessage&& msg, AnyIoExecutor& exec,
@@ -95,13 +90,12 @@ public:
     }
 
 private:
-    explicit StreamRequest(CallerChannelImpl::Ptr c, Error* e, bool expectsRsvp,
-                           CompletionHandler&& f)
+    explicit StreamRecord(CallerChannelImpl::Ptr c, Error* e,
+                          CompletionHandler&& f)
         : handler_(std::move(f)),
           channel_(std::move(c)),
           weakChannel_(channel_),
-          errorPtr_(e),
-          expectsRsvp_(expectsRsvp)
+          errorPtr_(e)
     {}
 
     void onResult(ResultMessage& msg, AnyIoExecutor& exec,
@@ -109,7 +103,7 @@ private:
     {
         if (channel_)
         {
-            if (expectsRsvp_)
+            if (channel_->expectsRsvp())
                 channel_->setRsvp(std::move(msg));
 
             if (handler_)
@@ -119,7 +113,7 @@ private:
                 handler_ = nullptr;
             }
 
-            if (!expectsRsvp_)
+            if (!channel_->expectsRsvp())
                 channel_->postResult(std::move(msg));
 
             channel_.reset();
@@ -164,7 +158,6 @@ private:
     CallerChannelImpl::Ptr channel_;
     CallerChannelImpl::WeakPtr weakChannel_;
     Error* errorPtr_ = nullptr;
-    bool expectsRsvp_ = false;
 };
 
 //------------------------------------------------------------------------------
@@ -173,7 +166,8 @@ class Requestor
 public:
     using Message = WampMessage;
     using RequestHandler = AnyCompletionHandler<void (ErrorOr<Message>)>;
-    using MeetHandler = AnyCompletionHandler<void (ErrorOr<CallerChannel>)>;
+    using StreamRequestHandler =
+        AnyCompletionHandler<void (ErrorOr<CallerChannel>)>;
     using ChunkSlot = AnyReusableHandler<void (CallerChannel,
                                                ErrorOr<CallerInputChunk>)>;
 
@@ -213,16 +207,15 @@ public:
         return requestId;
     }
 
-    template <typename TRpcLike>
-    ErrorOr<CallerChannel> meet(
-        Caller::WeakPtr caller, TRpcLike&& rpc, ChunkSlot&& onChunk,
-        MeetHandler&& handler = {})
+    ErrorOr<CallerChannel> requestStream(
+        bool rsvpExpected, Caller::WeakPtr caller, StreamRequest&& req,
+        ChunkSlot&& onChunk, StreamRequestHandler&& handler = {})
     {
         // Will take 285 years to overflow 2^53 at 1 million requests/sec
         assert(nextRequestId_ < 9007199254740992u);
         ChannelId channelId = nextRequestId_ + 1;
-        auto uri = rpc.uri();
-        auto& msg = rpc.callMessage({}, channelId);
+        auto uri = req.uri();
+        auto& msg = req.callMessage({}, channelId);
 
         auto sent = peer_.send(msg);
         if (!sent)
@@ -235,10 +228,11 @@ public:
         ++nextRequestId_;
 
         auto channel = std::make_shared<CallerChannelImpl>(
-            channelId, std::move(uri), rpc.mode(), rpc.cancelMode(),
-            std::move(caller), std::move(onChunk), executor_, userExecutor_);
+            channelId, std::move(uri), req.mode(), req.cancelMode(),
+            rsvpExpected, std::move(caller), std::move(onChunk), executor_,
+            userExecutor_);
         auto emplaced = channels_.emplace(
-            channelId, StreamRequest{channel, rpc, std::move(handler)});
+            channelId, StreamRecord{channel, req, std::move(handler)});
         assert(emplaced.second);
         return CallerChannel{{}, std::move(channel)};
     }
@@ -267,12 +261,12 @@ public:
 
             if (msg.isProgressive())
             {
-                StreamRequest& req = kv->second;
+                StreamRecord& req = kv->second;
                 req.onReply(std::move(msg), executor_, userExecutor_);
             }
             else
             {
-                StreamRequest req{std::move(kv->second)};
+                StreamRecord req{std::move(kv->second)};
                 channels_.erase(kv);
                 req.onReply(std::move(msg), executor_, userExecutor_);
             }
@@ -312,7 +306,7 @@ public:
 
             if (cancellation.mode() != CallCancelMode::kill)
             {
-                StreamRequest req{std::move(kv->second)};
+                StreamRecord req{std::move(kv->second)};
                 channels_.erase(kv);
                 req.cancel(executor_, userExecutor_);
             }
@@ -359,7 +353,7 @@ private:
 
     IoStrand strand_;
     std::map<RequestKey, RequestHandler> requests_;
-    std::map<ChannelId, StreamRequest> channels_;
+    std::map<ChannelId, StreamRecord> channels_;
     AnyIoExecutor executor_;
     AnyCompletionExecutor userExecutor_;
     Peer& peer_;
@@ -1718,26 +1712,27 @@ public:
         return fut;
     }
 
-    void invite(Invitation&& inv, ChunkSlot&& onChunk,
+    void invite(StreamRequest&& inv, ChunkSlot&& onChunk,
                 CompletionHandler<CallerChannel>&& handler)
     {
         if (!checkState(State::established, handler))
             return;
 
-        auto channel = requestor_.meet(shared_from_this(), std::move(inv),
-                                       std::move(onChunk), std::move(handler));
+        auto channel = requestor_.requestStream(
+            true, shared_from_this(), std::move(inv), std::move(onChunk),
+            std::move(handler));
 
         if (channel && inv.callerTimeout().count() != 0)
             timeoutScheduler_->insert(channel->id(), inv.callerTimeout());
     }
 
-    void safeInvite(Invitation&& i, ChunkSlot&& c,
+    void safeInvite(StreamRequest&& i, ChunkSlot&& c,
                     CompletionHandler<CallerChannel>&& f)
     {
         struct Dispatched
         {
             Ptr self;
-            Invitation i;
+            StreamRequest i;
             ChunkSlot c;
             CompletionHandler<CallerChannel> f;
 
@@ -1750,13 +1745,13 @@ public:
         safelyDispatch<Dispatched>(std::move(i), std::move(c), std::move(f));
     }
 
-    ErrorOr<CallerChannel> summon(Summons&& summons, ChunkSlot&& onChunk)
+    ErrorOr<CallerChannel> summon(StreamRequest&& summons, ChunkSlot&& onChunk)
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
 
-        auto channel = requestor_.meet(shared_from_this(), std::move(summons),
-                                       std::move(onChunk));
+        auto channel = requestor_.requestStream(
+            false, shared_from_this(), std::move(summons), std::move(onChunk));
 
         if (channel && summons.callerTimeout().count() != 0)
             timeoutScheduler_->insert(channel->id(), summons.callerTimeout());
@@ -1764,12 +1759,13 @@ public:
         return channel;
     }
 
-    std::future<ErrorOr<CallerChannel>> safeSummon(Summons&& s, ChunkSlot c)
+    std::future<ErrorOr<CallerChannel>> safeSummon(StreamRequest&& s,
+                                                   ChunkSlot c)
     {
         struct Dispatched
         {
             Ptr self;
-            Summons s;
+            StreamRequest s;
             ChunkSlot c;
             std::promise<ErrorOr<CallerChannel>> p;
 

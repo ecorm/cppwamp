@@ -284,23 +284,22 @@ CPPWAMP_INLINE void Session::unregister(
 /** @return A new CallerChannel. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ErrorOr<CallerChannel> Session::summon(
-    Summons summons,        ///< Details about the stream.
+    StreamRequest req,      ///< Details about the stream.
     CallerChunkSlot onChunk ///< Caller input chunk handler
     )
 {
-    return impl_->summon(std::move(summons), std::move(onChunk));
+    return impl_->summon(std::move(req), std::move(onChunk));
 }
 
 //------------------------------------------------------------------------------
 /** @copydetails Session::summon(Summons, CallerChunkSlot) */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE std::future<ErrorOr<CallerChannel>> Session::summon(
-    ThreadSafe,
-    Summons summons,        ///< Details about the stream.
+CPPWAMP_INLINE std::future<ErrorOr<CallerChannel>> Session::summon(ThreadSafe,
+    StreamRequest req,      ///< Details about the stream.
     CallerChunkSlot onChunk ///< Caller input chunk handler
     )
 {
-    return impl_->safeSummon(std::move(summons), std::move(onChunk));
+    return impl_->safeSummon(std::move(req), std::move(onChunk));
 }
 
 //------------------------------------------------------------------------------
@@ -366,10 +365,10 @@ CPPWAMP_INLINE void Session::doEnroll(Stream&& s, StreamSlot&& ss, CompletionHan
 CPPWAMP_INLINE void Session::safeEnroll(Stream&& s, StreamSlot&& ss, CompletionHandler<Registration>&& f)
     {impl_->safeEnroll(std::move(s), std::move(ss), std::move(f));}
 
-CPPWAMP_INLINE void Session::doInvite(Invitation&& i, CallerChunkSlot&& c, CompletionHandler<CallerChannel>&& f)
-    {impl_->invite(std::move(i), std::move(c), std::move(f));}
+CPPWAMP_INLINE void Session::doInvite(StreamRequest&& r, CallerChunkSlot&& c, CompletionHandler<CallerChannel>&& f)
+    {impl_->invite(std::move(r), std::move(c), std::move(f));}
 
-CPPWAMP_INLINE void Session::safeInvite(Invitation&& i, CallerChunkSlot&& c, CompletionHandler<CallerChannel>&& f)
-    {impl_->safeInvite(std::move(i), std::move(c), std::move(f));}
+CPPWAMP_INLINE void Session::safeInvite(StreamRequest&& r, CallerChunkSlot&& c, CompletionHandler<CallerChannel>&& f)
+    {impl_->safeInvite(std::move(r), std::move(c), std::move(f));}
 
 } // namespace wamp

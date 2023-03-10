@@ -34,48 +34,22 @@ template <typename> class BasicCallerChannelImpl;
 
 
 //------------------------------------------------------------------------------
-/** Contains signalling information used to establish a channel for streaming
-    with a remote peer.
+/** Contains the stream URI, mode, options, and initial payload for opening a
+    new streaming channel.
     This object is used to generate an initiating `CALL` message configured for
     progressive call results and/or invocations. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Invitation : public RpcLike<Invitation>
+class CPPWAMP_API StreamRequest : public RpcLike<StreamRequest>
 {
 public:
     /** Constructor taking a stream URI and desired stream mode. */
-    explicit Invitation(String uri, StreamMode mode);
+    explicit StreamRequest(String uri, StreamMode mode);
 
     /** Obtains the desired stream mode. */
     StreamMode mode() const;
 
 private:
-    using Base = RpcLike<Invitation>;
-
-    StreamMode mode_;
-
-public:
-    // Internal use only
-    internal::CallMessage& callMessage(internal::PassKey, RequestId reqId);
-};
-
-
-//------------------------------------------------------------------------------
-/** Contains the stream URI, mode, and options for opening a new streaming
-    channel without any negotiation on the part of the caller.
-    This object is used to generate an initiating `CALL` message configured for
-    progressive call results and/or invocations. */
-//------------------------------------------------------------------------------
-class CPPWAMP_API Summons : public RpcLike<Summons>
-{
-public:
-    /** Constructor taking a stream URI and desired stream mode. */
-    explicit Summons(String uri, StreamMode mode);
-
-    /** Obtains the desired stream mode. */
-    StreamMode mode() const;
-
-private:
-    using Base = RpcLike<Summons>;
+    using Base = RpcLike<StreamRequest>;
 
     StreamMode mode_;
 
@@ -96,7 +70,7 @@ class CPPWAMP_API CallerChannel
 public:
     using InputChunk = CallerInputChunk;   ///< Input chunk type
     using OutputChunk = CallerOutputChunk; ///< Output chunk type
-    using State = CallerChannelState;      ///< Channel state type
+    using State = ChannelState;            ///< Channel state type
 
     /** Constructs a detached channel. */
     CallerChannel();

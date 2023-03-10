@@ -42,12 +42,11 @@ public:
     using InputChunk = CallerInputChunk;
     using OutputChunk = CallerOutputChunk;
     using ChunkSlot = AnyReusableHandler<void (TContext, ErrorOr<InputChunk>)>;
-
-    using State = CallerChannelState;
+    using State = ChannelState;
 
     BasicCallerChannelImpl(
-        ChannelId id, String&& uri, StreamMode mode,
-        CallCancelMode cancelMode, Caller::WeakPtr caller, ChunkSlot&& onChunk,
+        ChannelId id, String&& uri, StreamMode mode, CallCancelMode cancelMode,
+        bool expectsRsvp, Caller::WeakPtr caller, ChunkSlot&& onChunk,
         AnyIoExecutor exec, AnyCompletionExecutor userExec)
         : uri_(std::move(uri)),
           chunkSlot_(std::move(onChunk)),
@@ -57,7 +56,8 @@ public:
           id_(id),
           state_(State::open),
           mode_(mode),
-          cancelMode_(cancelMode)
+          cancelMode_(cancelMode),
+          expectsRsvp_(expectsRsvp)
     {}
 
     ~BasicCallerChannelImpl()
@@ -158,6 +158,8 @@ public:
         return cancel(threadSafe, cancelMode_);
     }
 
+    bool expectsRsvp() const {return expectsRsvp_;}
+
     void setRsvp(ResultMessage&& msg)
     {
         rsvp_ = InputChunk{{}, std::move(msg)};
@@ -235,6 +237,7 @@ private:
     std::atomic<State> state_;
     StreamMode mode_ = {};
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
+    bool expectsRsvp_ = false;
     bool hasRsvp_ = false;
 };
 
@@ -253,7 +256,7 @@ public:
     using FallbackExecutor = AnyCompletionExecutor;
     using ChunkSlot = AnyReusableHandler<void (TContext, InputChunk)>;
     using InterruptSlot = AnyReusableHandler<void (TContext, Interruption)>;
-    using State = CalleeChannelState;
+    using State = ChannelState;
 
     BasicCalleeChannelImpl(
         internal::InvocationMessage&& msg, bool invitationExpected,
@@ -264,7 +267,7 @@ public:
           userExecutor_(std::move(userExecutor)),
           callee_(std::move(callee)),
           id_(invitation_.channelId()),
-          state_(State::closed),
+          state_(State::awaiting),
           mode_(invitation_.mode({})),
           invitationExpected_(invitationExpected)
     {}
@@ -305,7 +308,7 @@ public:
     {
         CPPWAMP_LOGIC_CHECK(isValidModeFor(response),
                             "wamp::CalleeChannel::accept: invalid mode");
-        State expectedState = State::inviting;
+        State expectedState = State::awaiting;
         auto newState = response.isFinal() ? State::closed : State::open;
         bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
@@ -329,7 +332,7 @@ public:
         ThreadSafe, OutputChunk response, ChunkSlot onChunk = {},
         InterruptSlot onInterrupt = {})
     {
-        State expectedState = State::inviting;
+        State expectedState = State::awaiting;
         auto newState = response.isFinal() ? State::closed : State::open;
         bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
@@ -352,7 +355,7 @@ public:
     CPPWAMP_NODISCARD ErrorOrDone accept(ChunkSlot onChunk = {},
                                          InterruptSlot onInterrupt = {})
     {
-        State expectedState = State::inviting;
+        State expectedState = State::awaiting;
         bool ok = state_.compare_exchange_strong(expectedState, State::open);
         if (!ok)
             return makeUnexpectedError(Errc::invalidState);

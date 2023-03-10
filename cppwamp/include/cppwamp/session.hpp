@@ -437,26 +437,26 @@ public:
     /** Sends an invitation to open a stream and waits for an RSVP. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
-    invite(Invitation invitation, CallerChunkSlot onChunk, C&& completion);
+    invite(StreamRequest req, CallerChunkSlot onChunk, C&& completion);
 
     /** Sends an invitation to open a stream and waits for an RSVP. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
-    invite(Invitation invitation, C&& completion);
+    invite(StreamRequest req, C&& completion);
 
     /** Thread-safe invite. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
-    invite(ThreadSafe, Invitation invitation, CallerChunkSlot onChunk,
+    invite(ThreadSafe, StreamRequest req, CallerChunkSlot onChunk,
            C&& completion);
 
     /** Opens a streamming channel without negotiation. */
     CPPWAMP_NODISCARD ErrorOr<CallerChannel>
-    summon(Summons summons, CallerChunkSlot onChunk = {});
+    summon(StreamRequest req, CallerChunkSlot onChunk = {});
 
     /** Thread-safe mummon. */
     CPPWAMP_NODISCARD std::future<ErrorOr<CallerChannel>>
-    summon(ThreadSafe, Summons summons, CallerChunkSlot onChunk = {});
+    summon(ThreadSafe, StreamRequest req, CallerChunkSlot onChunk = {});
     /// @}
 
 private:
@@ -516,9 +516,9 @@ private:
                   CompletionHandler<Registration>&& f);
     void safeEnroll(Stream&& s, StreamSlot&& ss,
                     CompletionHandler<Registration>&& f);
-    void doInvite(Invitation&& i, CallerChunkSlot&& c,
+    void doInvite(StreamRequest&& r, CallerChunkSlot&& c,
                   CompletionHandler<CallerChannel>&& f);
-    void safeInvite(Invitation&& i, CallerChunkSlot&& c,
+    void safeInvite(StreamRequest&& r, CallerChunkSlot&& c,
                     CompletionHandler<CallerChannel>&& f);
 
     std::shared_ptr<internal::Client> impl_;
@@ -1403,17 +1403,17 @@ struct Session::InviteOp
 {
     using ResultValue = CallerChannel;
     Session* self;
-    Invitation i;
+    StreamRequest r;
     CallerChunkSlot c;
 
     template <typename F> void operator()(F&& f)
     {
-        self->doInvite(std::move(i), std::move(c), std::forward<F>(f));
+        self->doInvite(std::move(r), std::move(c), std::forward<F>(f));
     }
 
     template <typename F> void operator()(F&& f, ThreadSafe)
     {
-        self->safeInvite(std::move(i), std::move(c), std::forward<F>(f));
+        self->safeInvite(std::move(r), std::move(c), std::forward<F>(f));
     }
 };
 
@@ -1438,13 +1438,13 @@ Deduced<ErrorOr<CallerChannel>, C>
 Session::template Deduced<ErrorOr<CallerChannel>, C>
 #endif
 Session::invite(
-    Invitation invitation,   ///< Details about the stream.
+    StreamRequest req,       ///< Details about the stream.
     CallerChunkSlot onChunk, ///< Caller input chunk handler.
     C&& completion           ///< Completion handler or token.
     )
 {
     return initiate<InviteOp>(std::forward<C>(completion),
-                              std::move(invitation), std::move(onChunk));
+                              std::move(req), std::move(onChunk));
 }
 
 //------------------------------------------------------------------------------
@@ -1459,12 +1459,12 @@ Deduced<ErrorOr<CallerChannel>, C>
 Session::template Deduced<ErrorOr<CallerChannel>, C>
 #endif
 Session::invite(
-    Invitation invitation, ///< Details about the stream.
-    C&& completion         ///< Completion handler or token.
+    StreamRequest req, ///< Details about the stream.
+    C&& completion     ///< Completion handler or token.
     )
 {
-    return initiate<InviteOp>(std::forward<C>(completion),
-                              std::move(invitation), nullptr);
+    return initiate<InviteOp>(std::forward<C>(completion), std::move(req),
+                              nullptr);
 }
 
 //------------------------------------------------------------------------------
@@ -1478,13 +1478,13 @@ Session::template Deduced<ErrorOr<CallerChannel>, C>
 #endif
 Session::invite(
     ThreadSafe,
-    Invitation invitation,   ///< Details about the stream.
+    StreamRequest req,       ///< Details about the stream.
     CallerChunkSlot onChunk, ///< Caller input chunk handler.
     C&& completion           ///< Completion handler or token.
     )
 {
-    return safelyInitiate<InviteOp>(std::forward<C>(completion),
-                                    std::move(invitation), std::move(onChunk));
+    return safelyInitiate<InviteOp>(std::forward<C>(completion), std::move(req),
+                                    std::move(onChunk));
 }
 
 } // namespace wamp

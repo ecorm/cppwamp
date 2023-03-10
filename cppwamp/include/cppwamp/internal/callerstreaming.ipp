@@ -11,41 +11,11 @@ namespace wamp
 {
 
 //******************************************************************************
-// Invitation
-//******************************************************************************
-
-/** Constructor.
-    @pre mode != StreamMode::unknown
-    @throws error::Logic if the preconditions are unmet */
-CPPWAMP_INLINE Invitation::Invitation(String uri, StreamMode mode)
-    : Base(std::move(uri)),
-      mode_(mode)
-{
-    using M = StreamMode;
-    CPPWAMP_LOGIC_CHECK(mode != M::unknown, "wamp::Invitation::Invitation: "
-                                            "Cannot specify unknown mode");
-    if (mode == M::calleeToCaller || mode == M::bidirectional)
-        withOption("receive_progress", true);
-    if (mode == M::callerToCallee || mode == M::bidirectional)
-        withOption("progress", true);
-}
-
-CPPWAMP_INLINE StreamMode Invitation::mode() const {return mode_;}
-
-CPPWAMP_INLINE internal::CallMessage& Invitation::callMessage(internal::PassKey,
-                                                              RequestId reqId)
-{
-    message().setRequestId(reqId);
-    return message();
-}
-
-
-//******************************************************************************
-// Summons
+// StreamRequest
 //******************************************************************************
 
 /** Constructor. */
-CPPWAMP_INLINE Summons::Summons(String uri, StreamMode mode)
+CPPWAMP_INLINE StreamRequest::StreamRequest(String uri, StreamMode mode)
     : Base(std::move(uri)),
       mode_(mode)
 {
@@ -58,10 +28,10 @@ CPPWAMP_INLINE Summons::Summons(String uri, StreamMode mode)
         withOption("progress", true);
 }
 
-CPPWAMP_INLINE StreamMode Summons::mode() const {return mode_;}
+CPPWAMP_INLINE StreamMode StreamRequest::mode() const {return mode_;}
 
-CPPWAMP_INLINE internal::CallMessage& Summons::callMessage(internal::PassKey,
-                                                           RequestId reqId)
+CPPWAMP_INLINE internal::CallMessage&
+StreamRequest::callMessage(internal::PassKey, RequestId reqId)
 {
     message().setRequestId(reqId);
     return message();

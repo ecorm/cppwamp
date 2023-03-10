@@ -92,7 +92,7 @@ public:
     {
         auto mode = wamp::StreamMode::calleeToCaller;
         auto channel = session_.invite(
-            wamp::Invitation("feed", mode).withArgs("play"),
+            wamp::StreamRequest("feed", mode).withArgs("play"),
             [this](Channel chan, wamp::ErrorOr<Chunk> chunk)
                 {onChunk(std::move(chan), std::move(chunk));},
             yield).value();

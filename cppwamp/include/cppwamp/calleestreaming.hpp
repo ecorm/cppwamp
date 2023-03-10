@@ -79,7 +79,7 @@ public:
     using OutputChunk = CalleeOutputChunk;          ///< Output chunk type
     using Executor = AnyIoExecutor;                 ///< Executor type
     using FallbackExecutor = AnyCompletionExecutor; ///< Fallback executor type
-    using State = CalleeChannelState;               ///< Channel state type
+    using State = ChannelState;                     ///< Channel state type
 
     /// Type-erases the handler function for processing inbound chunks
     using ChunkSlot = AnyReusableHandler<void (CalleeChannel, InputChunk)>;

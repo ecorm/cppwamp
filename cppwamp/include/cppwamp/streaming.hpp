@@ -40,20 +40,10 @@ enum class StreamMode
 //------------------------------------------------------------------------------
 /// Enumerates the possible caller channel states.
 //------------------------------------------------------------------------------
-enum class CallerChannelState
+enum class ChannelState
 {
     detached, // Not connected to an underlying shared channel
-    open,     // Ready to send chunks
-    closed    // Final chunk sent
-};
-
-//------------------------------------------------------------------------------
-/// Enumerates the possible callee channel states.
-//------------------------------------------------------------------------------
-enum class CalleeChannelState
-{
-    detached, // Not connected to an underlying shared channel
-    inviting, // Awaiting an initial or final response
+    awaiting, // Awaiting a response
     open,     // Ready to send chunks
     closed    // Final chunk sent
 };

@@ -47,7 +47,7 @@ namespace internal
         friend class RouterRealm;
         friend class RouterServer;
         friend class ServerSession;
-        friend class StreamRequest;
+        friend class StreamRecord;
     };
 }
 
