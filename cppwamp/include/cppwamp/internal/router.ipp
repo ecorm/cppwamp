@@ -71,11 +71,6 @@ CPPWAMP_INLINE LocalSession Router::join(String realmUri, AuthInfo authInfo,
 
 CPPWAMP_INLINE void Router::close(Reason r) {impl_->close(std::move(r));}
 
-CPPWAMP_INLINE const Object& Router::roles()
-{
-    return internal::RouterContext::roles();
-}
-
 CPPWAMP_INLINE const IoStrand& Router::strand() const {return impl_->strand();}
 
 } // namespace wamp

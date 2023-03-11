@@ -20,6 +20,7 @@
 #include "cancellation.hpp"
 #include "config.hpp"
 #include "erroror.hpp"
+#include "features.hpp"
 #include "options.hpp"
 #include "payload.hpp"
 #include "tagtypes.hpp"
@@ -182,6 +183,9 @@ public:
 
     /** Obtains the `WELCOME.Details.roles` dictionary for the router. */
     ErrorOr<Object> roles() const;
+
+    /** Obtains a parsed set of features supported by the router. */
+    ErrorOr<RouterFeatures> features() const;
 
     /** Checks that the router supports the given set of roles. */
     bool supportsRoles(const RoleSet& roles) const;

@@ -212,7 +212,7 @@ public:
         if (!callee)
             return false;
 
-        mode = callee->features().calleeCancelling ? mode : Mode::skip;
+        mode = callee->features().callee().callCanceling ? mode : Mode::skip;
 
         // Reject duplicate cancellations, except for killnowait that
         // supercedes kill and skip cancellations in progress.
@@ -252,7 +252,7 @@ public:
             return;
 
         auto reqId = calleeKey_.second;
-        if (callee->features().calleeCancelling)
+        if (callee->features().callee().callCanceling)
         {
             callee->sendInterruption({{}, reqId, CallCancelMode::killNoWait,
                                       WampErrc::cancelled});
@@ -326,16 +326,20 @@ private:
         if (hasTimeout_)
             timeout_ = *timeout;
 
-        auto feats = callee->features();
-        if (rpc.progressiveResultsAreEnabled({}) && feats.calleeCancelling &&
-            feats.calleeProgressiveResults)
+        auto feats = callee->features().callee();
+
+        // Not clear what the behavior should be when progressive results are
+        // requested, but not supported by the callee.
+        // https://github.com/wamp-proto/wamp-proto/issues/467
+        if (rpc.progressiveResultsAreEnabled({}) && feats.callCanceling &&
+            feats.progressiveCallResults)
         {
             progressiveResultsRequested_ = true;
         }
 
         if (rpc.isProgress({}))
         {
-            if (!feats.calleeCancelling || !feats.calleeProgressiveCalls)
+            if (!feats.callCanceling || !feats.progressiveCallInvocations)
             {
                 errc = WampErrc::featureNotSupported;
                 return;

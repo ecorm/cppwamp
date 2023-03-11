@@ -50,18 +50,6 @@ CPPWAMP_INLINE Session::~Session()
 }
 
 //------------------------------------------------------------------------------
-/** @details
-    The dictionary is structured as per `HELLO.Details.roles`, as desribed in
-    the ["HELLO"][1] subsection of the WAMP specification.
-
-    [1]: https://wamp-proto.org/wamp_latest_ietf.html#name-hello-2 */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE const Object& Session::roles()
-{
-    return internal::Client::roles();
-}
-
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE const IoStrand& Session::strand() const
 {
     return impl_->strand();

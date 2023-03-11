@@ -11,6 +11,7 @@
 #include <cstring>
 #include <memory>
 #include "../authinfo.hpp"
+#include "../features.hpp"
 #include "../logging.hpp"
 #include "../peerdata.hpp"
 #include "random.hpp"
@@ -20,96 +21,6 @@ namespace wamp
 
 namespace internal
 {
-
-//------------------------------------------------------------------------------
-struct ClientFeatures
-{
-    static ClientFeatures local()
-    {
-        ClientFeatures f;
-        f.callee                   = true;
-        f.calleeCancelling         = true;
-        f.calleeProgressiveCalls   = true;
-        f.calleeProgressiveResults = true;
-        f.caller                   = true;
-        f.callerCancelling         = true;
-        f.publisher                = true;
-        f.subscriber               = true;
-        return f;
-    }
-
-    ClientFeatures()
-    {
-        std::memset(this, 0, sizeof(ClientFeatures));
-    }
-
-    ClientFeatures(const Object& dict)
-    {
-        parseCalleeFeatures(dict);
-        parseCallerFeatures(dict);
-        parsePublisherFeatures(dict);
-        parseSubscriberFeatures(dict);
-    }
-
-    bool callee                   : 1;
-    bool calleeCancelling         : 1;
-    bool calleeProgressiveCalls   : 1;
-    bool calleeProgressiveResults : 1;
-    bool caller                   : 1;
-    bool callerCancelling         : 1;
-    bool publisher                : 1;
-    bool subscriber               : 1;
-
-private:
-    static bool has(const Object* roleDict, const char* featureName)
-    {
-        return roleDict->count(featureName) != 0;
-    }
-
-    void parseCalleeFeatures(const Object& dict)
-    {
-        auto d = getRoleDict(dict, "callee");
-        if (!d)
-            return;
-        callee = true;
-        calleeCancelling = has(d, "call_cancelling");
-        calleeProgressiveCalls = has(d, "progressive_calls");
-        calleeProgressiveResults = has(d, "progressive_call_results");
-    }
-
-    void parseCallerFeatures(const Object& dict)
-    {
-        auto d = getRoleDict(dict, "caller");
-        if (!d)
-            return;
-        caller = true;
-        callerCancelling = has(d, "call_cancelling");
-    }
-
-    void parsePublisherFeatures(const Object& dict)
-    {
-        auto d = getRoleDict(dict, "publisher");
-        if (!d)
-            return;
-        publisher = true;
-    }
-
-    void parseSubscriberFeatures(const Object& dict)
-    {
-        auto d = getRoleDict(dict, "subscriber");
-        if (!d)
-            return;
-        subscriber = true;
-    }
-
-    const Object* getRoleDict(const Object& dict, const char* roleName)
-    {
-        auto found = dict.find(roleName);
-        if (found == dict.end() || !found->second.is<Object>())
-            return nullptr;
-        return &(found->second.as<Object>());
-    }
-};
 
 //------------------------------------------------------------------------------
 class RealmSession

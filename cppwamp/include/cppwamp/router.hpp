@@ -93,9 +93,6 @@ public:
 
     /// @name Observers
     /// @{
-    /** Obtains a dictionary of roles and features supported by the router. */
-    static const Object& roles();
-
     /** Obtains the execution context in which I/O operations are serialized. */
     const IoStrand& strand() const;
     /// @}

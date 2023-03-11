@@ -1166,6 +1166,8 @@ GIVEN( "a caller and a callee" )
     }
 }}
 
+// TODO: Streaming timeouts
+
 //------------------------------------------------------------------------------
 SCENARIO( "WAMP pub/sub advanced features", "[WAMP][Advanced]" )
 {

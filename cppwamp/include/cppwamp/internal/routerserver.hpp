@@ -14,6 +14,7 @@
 #include <utility>
 #include "../routerconfig.hpp"
 #include "challenger.hpp"
+#include "features.h"
 #include "peer.hpp"
 #include "realmsession.hpp"
 #include "routercontext.hpp"
@@ -675,7 +676,8 @@ private:
         }
 
         realm_.join(shared_from_this());
-        auto details = info.join({}, realm.uri(), wampId(), server_.roles());
+        auto details = info.join({}, realm.uri(), wampId(),
+                                 RouterFeatures::providedRoles());
         setAuthInfo(std::move(info));
         sessionInfo_.realmUri = realm.uri();
         sessionInfo_.wampSessionId = wampId();

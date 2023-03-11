@@ -27,6 +27,7 @@
 #include "config.hpp"
 #include "connector.hpp"
 #include "erroror.hpp"
+#include "features.hpp"
 #include "logging.hpp"
 #include "peerdata.hpp"
 #include "registration.hpp"
@@ -211,11 +212,6 @@ public:
 
     /// @name Observers
     /// @{
-
-    /** Obtains a dictionary of roles and features supported on the client
-        side. */
-    // TODO: Add method that returns ClientFeatures
-    static const Object& roles();
 
     /** Obtains the execution context in which I/O operations are serialized. */
     const IoStrand& strand() const;

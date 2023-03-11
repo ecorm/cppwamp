@@ -198,6 +198,17 @@ CPPWAMP_INLINE ErrorOr<Object> Welcome::roles() const
     return optionAs<Object>("roles");
 }
 
+CPPWAMP_INLINE ErrorOr<RouterFeatures> Welcome::features() const
+{
+    auto found = options().find("roles");
+    if (found == options().end())
+        return makeUnexpectedError(Errc::absent);
+    const auto& roles = found->second;
+    if (!roles.is<Object>())
+        return makeUnexpectedError(Errc::badType);
+    return RouterFeatures{roles.as<Object>()};
+}
+
 /** @details
 Possible role strings include:
 - `broker`

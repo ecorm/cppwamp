@@ -274,27 +274,6 @@ private:
 // RouterContext
 //******************************************************************************
 
-inline const Object& RouterContext::roles()
-{
-    static const Object routerRoles =
-    {
-        {"dealer", Object{{"features", Object{{
-            {"call_canceling", true},
-            {"call_timeouts", true},
-            {"call_trustlevels", true},
-            {"caller_identification", true},
-            {"progressive_calls", true},
-            {"progressive_call_results", true},
-        }}}}},
-        {"broker", Object{{"features", Object{{
-            {"pattern_based_subscription", true},
-            {"publisher_exclusion", true},
-            {"publisher_identification", true}
-        }}}}}
-    };
-    return routerRoles;
-}
-
 inline RouterContext::RouterContext(std::shared_ptr<RouterImpl> r)
     : router_(r),
       sessionIdPool_(r->sessionIdPool_)

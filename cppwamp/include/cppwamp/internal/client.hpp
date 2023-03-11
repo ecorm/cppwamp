@@ -25,6 +25,7 @@
 #include "../codec.hpp"
 #include "../cancellation.hpp"
 #include "../connector.hpp"
+#include "../features.hpp"
 #include "../logging.hpp"
 #include "../peerdata.hpp"
 #include "../registration.hpp"
@@ -958,11 +959,13 @@ public:
 
     static const Object& roles()
     {
+        // TODO: progressive_call_invocations
+        // https://github.com/wamp-proto/wamp-proto/pull/453
+
         static const Object rolesDict =
         {
             {"callee", Object{{"features", Object{{
                 {"call_canceling", true},
-                {"call_timeout", true},
                 {"call_trustlevels", true},
                 {"caller_identification", true},
                 {"pattern_based_registration", true},
@@ -1098,7 +1101,7 @@ public:
             return;
 
         realm.withOption("agent", Version::agentString())
-             .withOption("roles", roles());
+             .withOption("roles", ClientFeatures::providedRoles());
         challengeHandler_ = std::move(onChallenge);
         peer_.establishSession();
         request(realm.message({}),
@@ -2238,6 +2241,8 @@ private:
 
     void onInvocation(Message& msg)
     {
+        // TODO: Callee-initiated timeouts
+
         auto& invMsg = messageCast<InvocationMessage>(msg);
         auto regId = invMsg.registrationId();
 

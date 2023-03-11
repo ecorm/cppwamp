@@ -126,8 +126,6 @@ private:
 class RouterContext
 {
 public:
-    static const Object& roles();
-
     RouterContext(std::shared_ptr<RouterImpl> r);
 
     RouterLogger::Ptr logger() const;
