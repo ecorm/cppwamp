@@ -85,14 +85,8 @@ public:
     /** Polymorphic wrapper around the executor associated with this handler. */
     using Executor = AnyCompletionExecutor;
 
-    /** Cancellation slot type used by this handler. */
-    using CancellationSlot = boost::asio::cancellation_slot;
-
     /** Asio-conformant type alias. */
     using executor_type = Executor;
-
-    /** Asio-conformant type alias. */
-    using cancellation_slot_type = CancellationSlot;
 
     /** Default constructor. */
     AnyReusableHandler() = default;
@@ -135,7 +129,6 @@ public:
     AnyReusableHandler(F&& handler)
         : executor_(boost::asio::get_associated_executor(
                         handler, AnyCompletionExecutor{})),
-          cancelSlot_(boost::asio::get_associated_cancellation_slot(handler)),
           handler_(std::forward<F>(handler))
     {}
 
@@ -172,9 +165,6 @@ public:
     /** Obtains the executor associated with this handler. */
     const Executor& get_executor() const {return executor_;}
 
-    /** Obtains the cancellation slot associated with this handler. */
-    const CancellationSlot& get_cancellation_slot() const {return cancelSlot_;}
-
     /** Invokes the handler with the given arguments. */
     template <typename... Ts>
     auto operator()(Ts&&... args) const
@@ -185,7 +175,6 @@ public:
 
 private:
     Executor executor_;
-    CancellationSlot cancelSlot_;
     Function handler_;
 
     template <typename> friend class AnyReusableHandler;
@@ -243,18 +232,6 @@ struct associated_executor<wamp::AnyReusableHandler<S>, E>
     static type get(const wamp::AnyReusableHandler<S>& f, const E& e = E{})
     {
         return f.get_executor() ? f.get_executor() : e;
-    }
-};
-
-// Enable boost::asio::get_associated_cancellation_slot for AnyReusableHandler.
-template <typename S, typename C>
-struct associated_cancellation_slot<wamp::AnyReusableHandler<S>, C>
-{
-    using type = typename wamp::AnyReusableHandler<S>::CancellationSlot;
-
-    static type get(const wamp::AnyReusableHandler<S>& f, const C& = C{})
-    {
-        return f.get_cancellation_slot();
     }
 };
 
