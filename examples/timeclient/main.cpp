@@ -54,7 +54,7 @@ int main()
     wamp::IoContext ioctx;
     auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
     wamp::Session session(ioctx);
-    session.setLogHandler(logger);
+    session.listenLogged(logger);
     session.setLogLevel(wamp::LogLevel::trace);
 
     auto onChallenge = [](wamp::Challenge c)

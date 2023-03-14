@@ -96,7 +96,7 @@ Whenever a wamp::Session dispatches an event to the above slots, it
 automatically unpacks the event payload positional arguments, and passes
 them to the slot's argument list. If `Session` cannot convert the event payload
 arguments to their target types, it emits an an error log entry that can be
-captured via wamp::Session::setLogHandler.
+captured via wamp::Session::listenLogged.
 
 
 @section SimpleCoroutineEventSlots Simple Coroutine Event Slots
@@ -150,7 +150,7 @@ spawns a new coroutine to be executed on wamp::Session::userIosvc(). It then
 automatically unpacks the event payload positional arguments, and passes
 them to the slot's argument list. If `Session` cannot convert the event payload
 arguments to their target types, it emits an an error log entry that can be
-captured via wamp::Session::setLogHandler.
+captured via wamp::Session::listenLogged.
 
 
 @section UnpackedEventSlots Unpacked Event Slots
@@ -205,7 +205,7 @@ Whenever a wamp::Session dispatches an event to the above slots, it
 automatically unpacks the event payload positional arguments, and passes
 them to the slot's argument list. If `Session` cannot convert the event payload
 arguments to their target types, it emits an an error log entry that can be
-captured via wamp::Session::setLogHandler.
+captured via wamp::Session::listenLogged.
 
 
 @section UnpackedCoroutineEventSlots Unpacked Coroutine Event Slots

@@ -421,7 +421,7 @@ GIVEN( "a Session and a ConnectionWish" )
     Session s(ioctx);
     const auto where = withTcp;
     StateChangeListener changes;
-    s.setStateChangeHandler(changes);
+    s.listenStateChanged(changes);
 
     WHEN( "connecting and disconnecting" )
     {
@@ -430,7 +430,7 @@ GIVEN( "a Session and a ConnectionWish" )
             {
                 // Connect and disconnect a session
                 Session s2(ioctx);
-                s2.setStateChangeHandler(changes);
+                s2.listenStateChanged(changes);
                 CHECK( s2.state() == SS::disconnected );
                 CHECK( changes.empty() );
                 CHECK( s2.connect(where, yield).value() == 0 );
@@ -697,7 +697,7 @@ GIVEN( "a Session and a ConnectionWish" )
 
         {
             Session client(ioctx);
-            client.setStateChangeHandler(changes);
+            client.listenStateChanged(changes);
             client.connect(where, [&handlerWasInvoked](ErrorOr<size_t>)
             {
                 handlerWasInvoked = true;
@@ -1798,7 +1798,7 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
     IoContext ioctx;
     Session s(ioctx);
     StateChangeListener changes;
-    s.setStateChangeHandler(changes);
+    s.listenStateChanged(changes);
     const auto where = withTcp;
     const auto badWhere = invalidTcp;
 
@@ -2077,7 +2077,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         {
             unsigned errorLogCount = 0;
             PubSubFixture f(ioctx, where);
-            f.subscriber.setLogHandler(
+            f.subscriber.listenLogged(
                 [&errorLogCount](LogEntry entry)
                 {
                     if (entry.severity() == LogLevel::error)

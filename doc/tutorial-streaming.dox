@@ -80,9 +80,9 @@ int main()
         {
             // Accept the invitation and return an RSVP, while providing
             // an interruption handler.
-            channel.accept(CalleeOutputChunk().withArgs("ok"),
-                           {}, // No chunks from caller expected
-                           onInterrupt);
+            channel.respond(CalleeOutputChunk().withArgs("ok"),
+                            {}, // No chunks from caller expected
+                            onInterrupt);
 
             // Obtain the count from a positional argument contained in the
             // invitation that was sent by the caller.

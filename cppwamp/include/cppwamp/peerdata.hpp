@@ -554,7 +554,7 @@ public:
     PublicationId pubId() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
-    AnyCompletionExecutor executor() const;
+    const AnyCompletionExecutor& executor() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info(String topic = {}) const;

@@ -717,7 +717,7 @@ GIVEN( "a caller and a callee" )
         }
 
         auto rsvp = CalleeOutputChunk().withArgs("rsvp");
-        bool sent = channel.accept(rsvp).value();
+        bool sent = channel.respond(rsvp).value();
         CHECK(sent);
 
         spawn(
@@ -981,7 +981,7 @@ GIVEN( "a caller and a callee" )
     auto onStream = [&](CalleeChannel channel)
     {
         CHECK( channel.mode() == StreamMode::calleeToCaller );
-        channel.accept(CalleeOutputChunk().withArgs("rsvp"),
+        channel.respond(CalleeOutputChunk().withArgs("rsvp"),
                         nullptr, onInterrupt).value();
 
         spawn(
@@ -1088,8 +1088,8 @@ GIVEN( "a caller and a callee" )
     auto onStream = [&](CalleeChannel channel)
     {
         CHECK( channel.mode() == StreamMode::calleeToCaller );
-        channel.accept(CalleeOutputChunk().withArgs("rsvp"), nullptr,
-                       onInterrupt).value();
+        channel.respond(CalleeOutputChunk().withArgs("rsvp"), nullptr,
+                        onInterrupt).value();
 
         spawn(
             ioctx,

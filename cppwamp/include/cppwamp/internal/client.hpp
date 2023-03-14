@@ -66,13 +66,12 @@ public:
         : StreamRecord(std::move(c), i.error({}), std::move(f))
     {}
 
-    void onReply(WampMessage&& msg, AnyIoExecutor& exec,
-                 AnyCompletionExecutor& userExec)
+    void onReply(WampMessage&& msg, AnyIoExecutor& exec)
     {
         if (msg.type() == WampMsgType::result)
-            onResult(messageCast<ResultMessage>(msg), exec, userExec);
+            onResult(messageCast<ResultMessage>(msg), exec);
         else
-            onError(messageCast<ErrorMessage>(msg), exec, userExec);
+            onError(messageCast<ErrorMessage>(msg), exec);
     }
 
     void cancel(AnyIoExecutor& exec, AnyCompletionExecutor& userExec)
@@ -84,7 +83,7 @@ public:
                  AnyCompletionExecutor& userExec)
     {
         if (handler_)
-            postVia(exec, userExec, std::move(handler_), unex);
+            postAny(exec, std::move(handler_), unex);
         handler_ = nullptr;
         channel_.reset();
         weakChannel_.reset();
@@ -99,8 +98,7 @@ private:
           errorPtr_(e)
     {}
 
-    void onResult(ResultMessage& msg, AnyIoExecutor& exec,
-                  AnyCompletionExecutor& userExec)
+    void onResult(ResultMessage& msg, AnyIoExecutor& exec)
     {
         if (channel_)
         {
@@ -109,7 +107,7 @@ private:
 
             if (handler_)
             {
-                dispatchVia(exec, userExec, std::move(handler_),
+                dispatchAny(exec, std::move(handler_),
                             CallerChannel{{}, channel_});
                 handler_ = nullptr;
             }
@@ -127,8 +125,7 @@ private:
         }
     }
 
-    void onError(ErrorMessage& msg, AnyIoExecutor& exec,
-                 AnyCompletionExecutor& userExec)
+    void onError(ErrorMessage& msg, AnyIoExecutor& exec)
     {
         if (channel_)
         {
@@ -138,7 +135,7 @@ private:
                 auto unex = makeUnexpectedError(error.errorCode());
                 if (errorPtr_)
                     *errorPtr_ = std::move(error);
-                dispatchVia(exec, userExec, std::move(handler_), unex);
+                dispatchAny(exec, std::move(handler_), unex);
                 handler_ = nullptr;
             }
             else
@@ -263,13 +260,13 @@ public:
             if (msg.isProgressive())
             {
                 StreamRecord& req = kv->second;
-                req.onReply(std::move(msg), executor_, userExecutor_);
+                req.onReply(std::move(msg), executor_);
             }
             else
             {
                 StreamRecord req{std::move(kv->second)};
                 channels_.erase(kv);
-                req.onReply(std::move(msg), executor_, userExecutor_);
+                req.onReply(std::move(msg), executor_);
             }
         }
 
@@ -875,15 +872,14 @@ private:
             // race condition between accept and postInvocation/postInterrupt
             // on the CalleeChannel.
             CalleeChannel proxy{{}, std::move(channel)};
+            // TODO: Catch same exceptions as for RPC handler?
             reg.streamSlot(std::move(proxy));
         }
         else
         {
             auto channel = rec.channel.lock();
             if (channel)
-            {
                 channel->postInvocation(std::move(msg));
-            }
         }
     }
 
@@ -1001,34 +997,34 @@ public:
 
     const IoStrand& strand() const {return strand_;}
 
-    void setLogHandler(LogHandler handler) {logHandler_ = std::move(handler);}
+    void listenLogged(LogHandler handler) {logHandler_ = std::move(handler);}
 
     void setLogLevel(LogLevel level) {peer_.setLogLevel(level);}
 
-    void safeSetLogHandler(LogHandler f)
+    void safeListenLogged(LogHandler f)
     {
         struct Dispatched
         {
             Ptr self;
             LogHandler f;
-            void operator()() {self->setLogHandler(std::move(f));}
+            void operator()() {self->listenLogged(std::move(f));}
         };
 
         safelyDispatch<Dispatched>(std::move(f));
     }
 
-    void setStateChangeHandler(StateChangeHandler f)
+    void listenStateChanged(StateChangeHandler f)
     {
         stateChangeHandler_ = std::move(f);
     }
 
-    void safeSetStateChangeHandler(StateChangeHandler f)
+    void safeListenStateChanged(StateChangeHandler f)
     {
         struct Dispatched
         {
             Ptr self;
             StateChangeHandler f;
-            void operator()() {self->setStateChangeHandler(std::move(f));}
+            void operator()() {self->listenStateChanged(std::move(f));}
         };
 
         safelyDispatch<Dispatched>(std::move(f));
@@ -1762,7 +1758,7 @@ public:
     }
 
     std::future<ErrorOr<CallerChannel>> safeOpenStream(StreamRequest&& r,
-                                                       ChunkSlot c)
+                                                       ChunkSlot&& c)
     {
         struct Dispatched
         {
@@ -1968,9 +1964,9 @@ private:
     {
         peer_.setInboundMessageHandler(
             [this](Message msg) {onInbound(std::move(msg));} );
-        peer_.setLogHandler(
+        peer_.listenLogged(
             [this](LogEntry entry) {onLog(std::move(entry));} );
-        peer_.setStateChangeHandler(
+        peer_.listenStateChanged(
             [this](State s, std::error_code ec) {onStateChanged(s, ec);});
         timeoutScheduler_->listen(
             [this](RequestId reqId)
@@ -1995,10 +1991,7 @@ private:
         {
             auto unex = makeUnexpectedError(Errc::invalidState);
             if (!isTerminating_)
-            {
-                postVia(executor_, userExecutor_, std::move(handler),
-                        std::move(unex));
-            }
+                postAny(executor_, std::move(handler), std::move(unex));
         }
         return valid;
     }
@@ -2376,8 +2369,7 @@ private:
     {
         if (isTerminating_)
             return;
-        dispatchVia(executor_, userExecutor_, std::move(f),
-                    std::forward<Ts>(args)...);
+        dispatchAny(executor_, std::move(f), std::forward<Ts>(args)...);
     }
 
     template <typename S, typename... Ts>
@@ -2385,7 +2377,7 @@ private:
     {
         if (isTerminating_)
             return;
-        dispatchVia(executor_, userExecutor_, f, std::forward<Ts>(args)...);
+        dispatchAny(executor_, f, std::forward<Ts>(args)...);
     }
 
     template <typename S, typename... Ts>
@@ -2393,7 +2385,7 @@ private:
     {
         if (isTerminating_)
             return;
-        postVia(executor_, userExecutor_, f, std::forward<Ts>(args)...);
+        postAny(executor_, f, std::forward<Ts>(args)...);
     }
 
     template <typename S, typename... Ts>
@@ -2401,8 +2393,7 @@ private:
     {
         if (isTerminating_)
             return;
-        postVia(executor_, userExecutor_, std::move(f),
-                std::forward<Ts>(args)...);
+        postAny(executor_, std::move(f), std::forward<Ts>(args)...);
     }
 
     template <typename F, typename... Ts>

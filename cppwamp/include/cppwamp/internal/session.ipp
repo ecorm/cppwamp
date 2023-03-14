@@ -22,7 +22,8 @@ CPPWAMP_INLINE Session::Session(
     Executor exec /**< Executor for internal I/O operations, as well as
                        fallback for user-provided handlers. */
 )
-    : impl_(internal::Client::create(std::move(exec)))
+    : fallbackExecutor_(exec),
+      impl_(internal::Client::create(std::move(exec)))
 {}
 
 //------------------------------------------------------------------------------
@@ -35,7 +36,8 @@ CPPWAMP_INLINE Session::Session(
     FallbackExecutor fallbackExec /**< Fallback executor to use for
                                        user-provided handlers. */
 )
-    : impl_(internal::Client::create(exec, std::move(fallbackExec)))
+    : fallbackExecutor_(fallbackExec),
+      impl_(internal::Client::create(exec, std::move(fallbackExec)))
 {}
 
 //------------------------------------------------------------------------------
@@ -76,68 +78,13 @@ CPPWAMP_INLINE SessionState Session::state() const
 
 //------------------------------------------------------------------------------
 /** @details
-    Log events are emitted in the following situations:
-    - Errors: Protocol violations, message deserialization errors, unsupported
-              features, invalid states, inability to perform operations,
-              conversion errors, or transport payload overflows.
-    - Warnings: Problems that do not prevent operations from proceeding.
-    - Traces: Transmitted and received WAMP messages presented in JSON format.
-
-    Log events are discarded when there is no log handler set.
-
-    Copies of the handler are made when they are dispatched. If the handler
-    needs to be stateful, or is non-copyable, then pass a stateless copyable
-    proxy instead.
-
-    @note No state change events are fired when the session object is
-          terminating.
-    @see Session::setLogLevel */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::setLogHandler(LogHandler handler)
-{
-    impl_->setLogHandler(handler);
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::setLogHandler(LogHandler) */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::setLogHandler(ThreadSafe, LogHandler handler)
-{
-    impl_->safeSetLogHandler(handler);
-}
-
-//------------------------------------------------------------------------------
-/** @details
     The default log level is LogLevel::warning if never set.
     @note This method is thread-safe.
-    @see Session::setLogHandler */
+    @see Session::listenLogged */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setLogLevel(LogLevel level)
 {
     impl_->setLogLevel(level);
-}
-
-//------------------------------------------------------------------------------
-/** @details
-    Copies of the handler are made when they are dispatched. If the handler
-    needs to be stateful, or is non-copyable, then pass a stateless copyable
-    proxy instead.
-
-    @note No state change events are fired when the session object is
-          terminating. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::setStateChangeHandler(StateChangeHandler handler)
-{
-    impl_->setStateChangeHandler(handler);
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::setStateChangeHandler(StateChangeHandler) */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::setStateChangeHandler(
-    ThreadSafe, StateChangeHandler handler)
-{
-    impl_->safeSetStateChangeHandler(handler);
 }
 
 //------------------------------------------------------------------------------
@@ -269,39 +216,28 @@ CPPWAMP_INLINE void Session::unregister(
 }
 
 //------------------------------------------------------------------------------
-/** @return A new CallerChannel. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE ErrorOr<CallerChannel> Session::openStream(
-    StreamRequest req,      ///< Details about the stream.
-    CallerChunkSlot onChunk ///< Caller input chunk handler
-    )
-{
-    return impl_->openStream(std::move(req), std::move(onChunk));
-}
+CPPWAMP_INLINE void Session::doSetLogHandler(LogSlot&& s)
+    {impl_->listenLogged(std::move(s));}
 
-//------------------------------------------------------------------------------
-/** @copydetails Session::openStream(StreamRequest, CallerChunkSlot) */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE std::future<ErrorOr<CallerChannel>> Session::openStream(
-    ThreadSafe,
-    StreamRequest req,      ///< Details about the stream.
-    CallerChunkSlot onChunk ///< Caller input chunk handler
-    )
-{
-    return impl_->safeOpenStream(std::move(req), std::move(onChunk));
-}
+CPPWAMP_INLINE void Session::safeListenLogged(LogSlot&& s)
+    {impl_->safeListenLogged(std::move(s));}
 
-//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::doSetStateChangeHandler(StateSlot&& s)
+    {impl_->listenStateChanged(std::move(s));}
+
+CPPWAMP_INLINE void Session::safeListenStateChanged(ThreadSafe, StateSlot&& s)
+    {impl_->listenStateChanged(std::move(s));}
+
 CPPWAMP_INLINE void Session::doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f)
     {impl_->connect(std::move(w), std::move(f));}
 
 CPPWAMP_INLINE void Session::safeConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f)
     {impl_->safeConnect(std::move(w), std::move(f));}
 
-CPPWAMP_INLINE void Session::doJoin(Realm&& r, ChallengeHandler c, CompletionHandler<Welcome>&& f)
+CPPWAMP_INLINE void Session::doJoin(Realm&& r, ChallengeSlot&& c, CompletionHandler<Welcome>&& f)
     {impl_->join(std::move(r), std::move(c), std::move(f));}
 
-CPPWAMP_INLINE void Session::safeJoin(Realm&& r, ChallengeHandler c, CompletionHandler<Welcome>&& f)
+CPPWAMP_INLINE void Session::safeJoin(Realm&& r, ChallengeSlot&& c, CompletionHandler<Welcome>&& f)
     {impl_->safeJoin(std::move(r), std::move(c), std::move(f));}
 
 CPPWAMP_INLINE void Session::doLeave(Reason&& r, CompletionHandler<Reason>&& f)
@@ -359,5 +295,11 @@ CPPWAMP_INLINE void Session::doRequestStream(StreamRequest&& r, CallerChunkSlot&
 
 CPPWAMP_INLINE void Session::safeRequestStream(StreamRequest&& r, CallerChunkSlot&& c, CompletionHandler<CallerChannel>&& f)
     {impl_->safeRequestStream(std::move(r), std::move(c), std::move(f));}
+
+CPPWAMP_INLINE ErrorOr<CallerChannel> Session::doOpenStream(StreamRequest&& r, CallerChunkSlot&& s)
+    {return impl_->openStream(std::move(r), std::move(s));}
+
+CPPWAMP_INLINE std::future<ErrorOr<CallerChannel>> Session::safeOpenStream(StreamRequest&& r, CallerChunkSlot&& s)
+    {return impl_->safeOpenStream(std::move(r), std::move(s));}
 
 } // namespace wamp

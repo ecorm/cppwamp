@@ -22,6 +22,7 @@
 #include "peerdata.hpp"
 #include "streaming.hpp"
 #include "tagtypes.hpp"
+#include "traits.hpp"
 #include "internal/passkey.hpp"
 #include "internal/wampmessage.hpp"
 
@@ -81,13 +82,6 @@ public:
     using FallbackExecutor = AnyCompletionExecutor; ///< Fallback executor type
     using State = ChannelState;                     ///< Channel state type
 
-    /// Type-erases the handler function for processing inbound chunks
-    using ChunkSlot = AnyReusableHandler<void (CalleeChannel, InputChunk)>;
-
-    /// Type-erases the handler function for processing interruptions
-    using InterruptSlot =
-        AnyReusableHandler<void (CalleeChannel, Interruption)>;
-
     /** Constructs a detached channel. */
     CalleeChannel();
 
@@ -110,13 +104,8 @@ public:
     /** Moves the invitation. */
     InputChunk&& invitation() &&;
 
-    /** Accesses the channel's executor used to post the ChunkSlot and
-        InterruptSlot. */
-    const Executor& executor() const;
-
-    /** Accesses the channel's fallback executor that is bound to the ChunkSlot
-        or Interrupt slot if none were already bound. */
-    const FallbackExecutor& fallbackExecutor() const;
+    /** Obtains the executor used to execute user-provided handlers. */
+    const AnyCompletionExecutor& executor() const;
 
     /** Determines if this instance has shared ownership of the underlying
         channel. */
@@ -128,21 +117,22 @@ public:
 
     /** Accepts a streaming request from another peer and sends an
         initial (or final) response. */
-    CPPWAMP_NODISCARD ErrorOrDone accept(
-        OutputChunk response,
-        ChunkSlot onChunk = {},
-        InterruptSlot onInterrupt = {});
+    template <typename S = std::nullptr_t, typename I = std::nullptr_t>
+    CPPWAMP_NODISCARD ErrorOrDone
+    respond(OutputChunk response, S&& chunkSlot = nullptr,
+            I&& interruptSlot = nullptr);
 
     /** Thread-safe accept with response. */
-    CPPWAMP_NODISCARD std::future<ErrorOrDone> accept(
-        ThreadSafe, OutputChunk response, ChunkSlot onChunk = {},
-        InterruptSlot onInterrupt = {});
+    template <typename S = std::nullptr_t, typename I = std::nullptr_t>
+    CPPWAMP_NODISCARD std::future<ErrorOrDone> respond(
+        ThreadSafe, OutputChunk response, S&& chunkSlot = nullptr,
+        I&& interruptSlot = nullptr);
 
     /** Accepts a streaming request from another peer, without sending an
         initial response. */
-    CPPWAMP_NODISCARD ErrorOrDone accept(
-        ChunkSlot onChunk = {},
-        InterruptSlot onInterrupt = {});
+    template <typename S = std::nullptr_t, typename I = std::nullptr_t>
+    CPPWAMP_NODISCARD ErrorOrDone accept(S&& chunkSlot = nullptr,
+                                         I&& interruptSlot = nullptr);
 
     /** Sends a chunk to the other peer. */
     CPPWAMP_NODISCARD ErrorOrDone send(OutputChunk chunk);
@@ -161,8 +151,26 @@ public:
     void detach();
 
 private:
+    using ChunkSlot = AnyReusableHandler<void (CalleeChannel, InputChunk)>;
+
+    using InterruptSlot =
+        AnyReusableHandler<void (CalleeChannel, Interruption)>;
+
     using Impl = internal::BasicCalleeChannelImpl<CalleeChannel>;
 
+    template <typename S, typename F>
+    struct FallbackExecutorBinder;
+
+    ErrorOrDone doRespond(OutputChunk&& response, ChunkSlot&& onChunk,
+                          InterruptSlot&& onInterrupt);
+
+    std::future<ErrorOrDone> safeRespond(OutputChunk&& response,
+                                         ChunkSlot&& onChunk,
+                                         InterruptSlot&& onInterrupt);
+
+    ErrorOrDone doAccept(ChunkSlot&& onChunk, InterruptSlot&& onInterrupt);
+
+    AnyCompletionExecutor fallbackExecutor_;
     std::shared_ptr<Impl> impl_;
 
 public:
@@ -170,6 +178,98 @@ public:
     CalleeChannel(internal::PassKey, std::shared_ptr<Impl> impl);
 };
 
+
+//******************************************************************************
+// CalleeChannel member definitions
+//******************************************************************************
+
+template <typename TSlot, typename THandler>
+struct CalleeChannel::FallbackExecutorBinder
+{
+    using Slot = TSlot;
+    using Handler = typename std::decay<THandler>::type;
+    using IsNullPtr = std::is_same<Handler, std::nullptr_t>;
+    using BindResult =
+        typename internal::BindFallbackExecutorResult<THandler>::Type;
+    using Result = Conditional<IsNullPtr::value, Slot, BindResult>;
+
+    template <typename F>
+    static Result bind(F&& handler, const FallbackExecutor& exec)
+    {
+        return doBind(IsNullPtr{}, std::forward<F>(handler), exec);
+    }
+
+    template <typename F>
+    static Slot doBind(TrueType, F&&, const FallbackExecutor&) {return Slot{};}
+
+    template <typename F>
+    static BindResult doBind(FalseType, F&& handler,
+                             const FallbackExecutor& exec)
+    {
+        return internal::bindFallbackExecutor(std::forward<F>(handler), exec);
+    }
+};
+
+/** @tparam S Callable handler with signature
+              `void (CalleeChannel, InputChunk)`
+    @tparam I Callable handler with signature
+              `void (CalleeChannel, Interruption)`
+    The channel is immediately closed if the given chunk is marked as final.
+    @returns
+        - false if the associated Session object is destroyed or
+                the streaming request no longer exists
+        - true if the response was accepted for processing
+        - an error code if there was a problem processing the response
+    @note This method should be called within the invocation context of the
+          StreamSlot in order to losing incoming chunks or interruptions due
+          to the ChunkSlot or InterruptSlot not being registered in time.
+    @pre `this->state() == State::awaiting`
+    @pre `response.isFinal() || this->mode == StreamMode::calleeToCaller ||
+          this->mode == StreamMode::bidirectional`
+    @post `this->state() == response.isFinal() ? State::closed : State::open`
+    @throws error::Logic if the mode precondition is not met */
+template <typename S, typename I>
+ErrorOrDone CalleeChannel::respond(OutputChunk response, S&& chunkSlot,
+                                   I&& interruptSlot)
+{
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::accept: "
+                                    "Channel is detached");
+    using CB = FallbackExecutorBinder<ChunkSlot, S>;
+    using IB = FallbackExecutorBinder<InterruptSlot, I>;
+    return doRespond(
+        std::move(response),
+        CB::bind(std::forward<S>(chunkSlot), fallbackExecutor_),
+        IB::bind(std::forward<I>(interruptSlot), fallbackExecutor_));
+}
+
+/** @copydetails CalleeChannel::respond(OutputChunk, S&&, I&&) */
+template <typename S, typename I>
+std::future<ErrorOrDone>
+CalleeChannel::respond(ThreadSafe, OutputChunk response, S&& chunkSlot,
+                       I&& interruptSlot)
+{
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::accept: "
+                                    "Channel is detached");
+    using CB = FallbackExecutorBinder<ChunkSlot, S>;
+    using IB = FallbackExecutorBinder<InterruptSlot, I>;
+    return safeRespond(
+        std::move(response),
+        CB::bind(std::forward<S>(chunkSlot), fallbackExecutor_),
+        IB::bind(std::forward<I>(interruptSlot), fallbackExecutor_));
+}
+
+/** @copydetails CalleeChannel::respond(OutputChunk, S&&, I&&) */
+template <typename S, typename I>
+ErrorOrDone CalleeChannel::accept(S&& chunkSlot, I&& interruptSlot)
+{
+    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::accept: "
+                                    "Channel is detached");
+    using CB = FallbackExecutorBinder<ChunkSlot, S>;
+    using IB = FallbackExecutorBinder<InterruptSlot, I>;
+    return doAccept(
+        CB::bind(std::forward<S>(chunkSlot), fallbackExecutor_),
+        IB::bind(std::forward<I>(interruptSlot), fallbackExecutor_));
+}
 
 namespace internal
 {

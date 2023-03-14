@@ -286,7 +286,7 @@ struct UnpackedSpawner
     template <typename F>
     static void spawn(E& executor, F&& function)
     {
-        spawn(executor, std::forward<F>(function));
+        wamp::spawn(executor, std::forward<F>(function));
     }
 };
 
@@ -296,7 +296,7 @@ struct UnpackedSpawner<AnyCompletionExecutor>
     template <typename F>
     static void spawn(AnyCompletionExecutor& executor, F&& function)
     {
-        spawnCompletionHandler(executor, std::forward<F>(function));
+        wamp::spawnCompletionHandler(executor, std::forward<F>(function));
     }
 };
 
@@ -572,7 +572,7 @@ private:
 template <typename S, typename... A>
 template <std::size_t... Seq>
 void CoroInvocationUnpacker<S,A...>::invoke(Invocation&& inv,
-                                             IndexSequence<Seq...>) const
+                                            IndexSequence<Seq...>) const
 {
     auto ex = boost::asio::get_associated_executor(slot_, inv.executor());
     internal::unpackedSpawn(ex, Spawned<Seq...>{slot_, std::move(inv)});

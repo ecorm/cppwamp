@@ -309,7 +309,7 @@ private:
 
         peer_.setLogLevel(logger_->level());
 
-        peer_.setLogHandler(
+        peer_.listenLogged(
             [this, self](LogEntry entry)
             {
                 auto me = self.lock();
@@ -325,7 +325,7 @@ private:
                     onMessage(std::move(msg));
             });
 
-        peer_.setStateChangeHandler(
+        peer_.listenStateChanged(
             [this, self](State st, std::error_code ec)
             {
                 auto me = self.lock();

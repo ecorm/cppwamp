@@ -100,6 +100,9 @@ public:
     /** Moves the error reported back by the callee. */
     Error&& error() &&;
 
+    /** Obtains the executor used to execute user-provided handlers. */
+    const AnyCompletionExecutor& executor() const;
+
     /** Determines if this instance has shared ownership of the underlying
         channel. */
     bool attached() const;
@@ -135,6 +138,7 @@ public:
 private:
     using Impl = internal::BasicCallerChannelImpl<CallerChannel>;
 
+    AnyCompletionExecutor fallbackExecutor_;
     std::shared_ptr<Impl> impl_;
 
 public:

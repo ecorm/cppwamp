@@ -57,7 +57,7 @@ private:
         using Chunk = wamp::CalleeOutputChunk;
         std::cout << "Producer received invitation: "
                   << channel.invitation().args() << std::endl;
-        channel.accept(Chunk().withArgs("playing")).value();
+        channel.respond(Chunk().withArgs("playing")).value();
         channel.send(Chunk().withArgs("one")).value();
         channel.send(Chunk().withArgs("two")).value();
         channel.send(Chunk(true).withArgs("three")).value();

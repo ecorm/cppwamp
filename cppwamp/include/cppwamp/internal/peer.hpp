@@ -64,7 +64,7 @@ public:
         inboundMessageHandler_ = std::move(f);
     }
 
-    void setLogHandler(LogHandler handler) {logHandler_ = std::move(handler);}
+    void listenLogged(LogHandler handler) {logHandler_ = std::move(handler);}
 
     void setLogLevel(LogLevel level) {logLevel_ = level;}
 
@@ -79,7 +79,7 @@ public:
             logHandler_(LogEntry{severity, std::move(message), ec});
     }
 
-    void setStateChangeHandler(StateChangeHandler handler)
+    void listenStateChanged(StateChangeHandler handler)
     {
         stateChangeHandler_ = std::move(handler);
     }

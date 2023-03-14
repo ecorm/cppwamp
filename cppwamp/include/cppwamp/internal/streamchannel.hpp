@@ -42,15 +42,17 @@ public:
     using InputChunk = CallerInputChunk;
     using OutputChunk = CallerOutputChunk;
     using ChunkSlot = AnyReusableHandler<void (TContext, ErrorOr<InputChunk>)>;
+    using Executor = AnyIoExecutor;
+    using FallbackExecutor = AnyCompletionExecutor;
     using State = ChannelState;
 
     BasicCallerChannelImpl(
         ChannelId id, String&& uri, StreamMode mode, CallCancelMode cancelMode,
         bool expectsRsvp, Caller::WeakPtr caller, ChunkSlot&& onChunk,
-        AnyIoExecutor exec, AnyCompletionExecutor userExec)
+        AnyIoExecutor exec, FallbackExecutor userExec)
         : uri_(std::move(uri)),
           chunkSlot_(std::move(onChunk)),
-          executor_(exec),
+          executor_(std::move(exec)),
           userExecutor_(std::move(userExec)),
           caller_(std::move(caller)),
           id_(id),
@@ -82,6 +84,10 @@ public:
     const Error& error() const & {return error_;}
 
     Error&& error() && {return std::move(error_);}
+
+    const Executor& executor() const {return executor_;}
+
+    const FallbackExecutor& userExecutor() const {return userExecutor_;}
 
     CPPWAMP_NODISCARD ErrorOrDone send(OutputChunk chunk)
     {
@@ -148,10 +154,7 @@ public:
         return caller->safeCancelCall(id_, mode);
     }
 
-    ErrorOrDone cancel()
-    {
-        return cancel(cancelMode_);
-    }
+    ErrorOrDone cancel() {return cancel(cancelMode_);}
 
     std::future<ErrorOrDone> cancel(ThreadSafe)
     {
@@ -216,7 +219,8 @@ private:
     template <typename T>
     void postChunkHandler(T&& arg)
     {
-        postVia(executor_, userExecutor_, chunkSlot_,
+        // TODO: Catch same exceptions as for RPC handler?
+        postAny(executor_, chunkSlot_,
                 TContext{{}, this->shared_from_this()}, std::forward<T>(arg));
     }
 
@@ -230,8 +234,8 @@ private:
     Error error_;
     Uri uri_;
     ChunkSlot chunkSlot_;
-    AnyIoExecutor executor_;
-    AnyCompletionExecutor userExecutor_;
+    Executor executor_;
+    FallbackExecutor userExecutor_;
     Caller::WeakPtr caller_;
     ChannelId id_ = nullId();
     std::atomic<State> state_;
@@ -260,7 +264,7 @@ public:
 
     BasicCalleeChannelImpl(
         internal::InvocationMessage&& msg, bool invitationExpected,
-        AnyIoExecutor executor, AnyCompletionExecutor userExecutor,
+        Executor executor, FallbackExecutor userExecutor,
         Callee::WeakPtr callee)
         : invitation_({}, std::move(msg)),
           executor_(std::move(executor)),
@@ -301,10 +305,10 @@ public:
 
     const Executor& executor() const {return executor_;}
 
-    const FallbackExecutor& fallbackExecutor() const {return userExecutor_;}
+    const FallbackExecutor& userExecutor() const {return userExecutor_;}
 
-    ErrorOrDone accept(OutputChunk response, ChunkSlot onChunk = {},
-                       InterruptSlot onInterrupt = {})
+    ErrorOrDone respond(OutputChunk response, ChunkSlot onChunk = {},
+                        InterruptSlot onInterrupt = {})
     {
         CPPWAMP_LOGIC_CHECK(isValidModeFor(response),
                             "wamp::CalleeChannel::accept: invalid mode");
@@ -328,7 +332,7 @@ public:
         return caller->sendCalleeChunk(id_, std::move(response));
     }
 
-    std::future<ErrorOrDone> accept(
+    std::future<ErrorOrDone> respond(
         ThreadSafe, OutputChunk response, ChunkSlot onChunk = {},
         InterruptSlot onInterrupt = {})
     {
@@ -420,19 +424,21 @@ public:
 
     void postInvocation(InvocationMessage&& msg)
     {
+        // TODO: Catch same exceptions as for RPC handler?
         if (!chunkSlot_)
             return;
         InputChunk chunk{{}, std::move(msg)};
-        postVia(executor_, userExecutor_, chunkSlot_,
+        postAny(executor_, chunkSlot_,
                 TContext{{}, this->shared_from_this()}, std::move(chunk));
     }
 
     bool postInterrupt(InterruptMessage&& msg)
     {
+        // TODO: Catch same exceptions as for RPC handler?
         if (!interruptSlot_)
             return false;
         Interruption intr{{}, std::move(msg)};
-        postVia(executor_, userExecutor_, interruptSlot_,
+        postAny(executor_, interruptSlot_,
                 TContext{{}, this->shared_from_this()}, std::move(intr));
         return true;
     }
@@ -467,7 +473,7 @@ private:
     {
         if (chunkSlot_ && !invitationExpected_)
         {
-            postVia(executor_, userExecutor_, chunkSlot_,
+            postAny(executor_, chunkSlot_,
                     TContext{{}, this->shared_from_this()},
                     std::move(invitation_));
             invitation_ = InputChunk{};

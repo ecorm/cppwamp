@@ -753,7 +753,7 @@ CPPWAMP_INLINE PublicationId Event::pubId() const
 
 /** @returns the same object as Session::fallbackExecutor().
     @pre `this->empty() == false` */
-CPPWAMP_INLINE AnyCompletionExecutor Event::executor() const
+CPPWAMP_INLINE const AnyCompletionExecutor& Event::executor() const
 {
     CPPWAMP_LOGIC_CHECK(!empty(), "Event is empty");
     return executor_;
