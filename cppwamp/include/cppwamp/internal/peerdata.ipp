@@ -495,6 +495,27 @@ Challenge::authenticate(ThreadSafe, Authentication auth)
     return f;
 }
 
+CPPWAMP_INLINE ErrorOrDone Challenge::fail(Reason reason)
+{
+    auto challengee = challengee_.lock();
+    if (challengee)
+        return challengee->failAuthentication(std::move(reason));
+    return false;
+}
+
+CPPWAMP_INLINE std::future<ErrorOrDone> Challenge::fail(ThreadSafe,
+                                                        Reason reason)
+{
+    auto challengee = challengee_.lock();
+    if (challengee)
+        return challengee->safeFailAuthentication(std::move(reason));
+
+    std::promise<ErrorOrDone> p;
+    auto f = p.get_future();
+    p.set_value(false);
+    return f;
+}
+
 CPPWAMP_INLINE AccessActionInfo Challenge::info() const
 {
     return {AccessAction::serverChallenge, method(), options()};

@@ -109,11 +109,12 @@ struct TicketAuthFixture
     {
         this->signature = std::move(signature);
         session.connect(where, yield).value();
-        info = session.join(Realm(authTestRealm).withAuthMethods({"ticket"})
-                                                .withAuthId(std::move(authId))
-                                                .captureAbort(abortReason),
-                            [this](Challenge c) {onChallenge(std::move(c));},
-                            yield);
+        welcome =
+            session.join(Realm(authTestRealm).withAuthMethods({"ticket"})
+                                             .withAuthId(std::move(authId))
+                                             .captureAbort(abortReason),
+                         [this](Challenge c) {onChallenge(std::move(c));},
+                         yield);
     }
 
     void onChallenge(Challenge authChallenge)
@@ -121,7 +122,12 @@ struct TicketAuthFixture
         ++challengeCount;
         challenge = authChallenge;
         challengeState = session.state();
-        authChallenge.authenticate(Authentication(signature));
+        if (failAuthenticationArmed)
+            authChallenge.fail(Reason{"because"});
+        else if (throwArmed)
+            throw Reason{"because"};
+        else
+            authChallenge.authenticate(Authentication(signature));
     }
 
     ConnectionWish where;
@@ -130,8 +136,10 @@ struct TicketAuthFixture
     SessionState challengeState = SessionState::closed;
     unsigned challengeCount = 0;
     Challenge challenge;
-    ErrorOr<Welcome> info;
+    ErrorOr<Welcome> welcome;
     Reason abortReason;
+    bool failAuthenticationArmed = false;
+    bool throwArmed = false;
 };
 
 } // anonymous namespace
@@ -685,6 +693,8 @@ GIVEN( "a caller and a callee" )
         ioctx.run();
     }
 }}
+
+// TODO: Test throwing from chunk/interruption handlers
 
 //------------------------------------------------------------------------------
 SCENARIO( "WAMP callee-to-caller streaming with invitations",
@@ -1360,9 +1370,9 @@ GIVEN( "a Session with a registered challenge handler" )
             REQUIRE( f.challengeCount == 1 );
             CHECK( f.challengeState == SessionState::authenticating );
             CHECK( f.challenge.method() == "ticket" );
-            REQUIRE( f.info.has_value() );
-            CHECK( f.info->optionByKey("authmethod") == "ticket" );
-            CHECK( f.info->optionByKey("authrole") == "ticketrole" );
+            REQUIRE( f.welcome.has_value() );
+            CHECK( f.welcome->optionByKey("authmethod") == "ticket" );
+            CHECK( f.welcome->optionByKey("authrole") == "ticketrole" );
         }
     }
 
@@ -1380,8 +1390,54 @@ GIVEN( "a Session with a registered challenge handler" )
             REQUIRE( f.challengeCount == 1 );
             CHECK( f.challengeState == SessionState::authenticating );
             CHECK( f.challenge.method() == "ticket" );
-            CHECK_FALSE( f.info.has_value() );
+            CHECK_FALSE( f.welcome.has_value() );
             CHECK( f.abortReason.errorCode() == WampErrc::authorizationDenied );
+        }
+    }
+
+    WHEN( "failing the authentication" )
+    {
+        f.failAuthenticationArmed = true;
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            f.join("alice", "password123", yield);
+            CHECK(f.session.state() == SessionState::failed);
+            f.session.disconnect();
+        });
+        ioctx.run();
+
+        THEN( "the session was aborted" )
+        {
+            REQUIRE( f.challengeCount == 1 );
+            CHECK( f.challengeState == SessionState::authenticating );
+            CHECK( f.challenge.method() == "ticket" );
+            REQUIRE_FALSE( f.welcome.has_value() );
+            CHECK( f.welcome.error() == Errc::abandoned );
+            CHECK( f.abortReason.uri().empty() );
+        }
+    }
+
+    WHEN( "throwing within the challenge handler" )
+    {
+        f.throwArmed = true;
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            f.join("alice", "password123", yield);
+            CHECK(f.session.state() == SessionState::failed);
+            f.session.disconnect();
+        });
+        ioctx.run();
+
+        THEN( "the session was aborted" )
+        {
+            REQUIRE( f.challengeCount == 1 );
+            CHECK( f.challengeState == SessionState::authenticating );
+            CHECK( f.challenge.method() == "ticket" );
+            REQUIRE_FALSE( f.welcome.has_value() );
+            CHECK( f.welcome.error() == Errc::abandoned );
+            CHECK( f.abortReason.uri().empty() );
         }
     }
 }}

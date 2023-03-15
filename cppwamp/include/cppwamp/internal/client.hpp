@@ -822,12 +822,12 @@ private:
                 }
                 catch (Error& error)
                 {
-                    callee->yield(requestId, std::move(error));
+                    callee->safeYield(requestId, std::move(error));
                 }
                 catch (const error::BadType& e)
                 {
                     // Forward Variant conversion exceptions as ERROR messages.
-                    callee->yield(requestId, Error(e)).value();
+                    callee->safeYield(requestId, Error(e));
                 }
             }
         };
@@ -868,12 +868,25 @@ private:
             rec.channel = channel;
             rec.invoked = true;
 
-            // Execute the slot directly from this strand in order to avoid a
-            // race condition between accept and postInvocation/postInterrupt
-            // on the CalleeChannel.
+            auto requestId = channel->id();
             CalleeChannel proxy{{}, std::move(channel)};
-            // TODO: Catch same exceptions as for RPC handler?
-            reg.streamSlot(std::move(proxy));
+
+            try
+            {
+                // Execute the slot directly from this strand in order to avoid
+                // a race condition between accept and
+                // postInvocation/postInterrupt on the CalleeChannel.
+                reg.streamSlot(std::move(proxy));
+            }
+            catch (Error& error)
+            {
+                callee->yield(requestId, std::move(error));
+            }
+            catch (const error::BadType& e)
+            {
+                // Forward Variant conversion exceptions as ERROR messages.
+                callee->yield(requestId, Error(e));
+            }
         }
         else
         {
@@ -886,8 +899,7 @@ private:
     bool postStreamInterruption(InterruptMessage& msg, InvocationRecord& rec)
     {
         auto channel = rec.channel.lock();
-        return bool(channel) &&
-               channel->postInterrupt(std::move(msg));
+        return bool(channel) && channel->postInterrupt(std::move(msg));
     }
 
     void automaticallyRespondToInterruption(InterruptMessage& msg,
@@ -924,19 +936,18 @@ class Client : public std::enable_shared_from_this<Client>, public Callee,
                public Caller, public Subscriber, public Challengee
 {
 public:
-    using Ptr                = std::shared_ptr<Client>;
-    using TransportPtr       = Transporting::Ptr;
-    using State              = SessionState;
-    using FutureErrorOrDone  = std::future<ErrorOrDone>;
-    using EventSlot          = AnyReusableHandler<void (Event)>;
-    using CallSlot           = AnyReusableHandler<Outcome (Invocation)>;
-    using InterruptSlot      = AnyReusableHandler<Outcome (Interruption)>;
-    using StreamSlot         = AnyReusableHandler<void (CalleeChannel)>;
-    using LogHandler         = AnyReusableHandler<void (LogEntry)>;
-    using StateChangeHandler = AnyReusableHandler<void (SessionState,
-                                                        std::error_code)>;
-    using ChallengeHandler   = AnyReusableHandler<void (Challenge)>;
-    using OngoingCallHandler = AnyReusableHandler<void (ErrorOr<Result>)>;
+    using Ptr               = std::shared_ptr<Client>;
+    using TransportPtr      = Transporting::Ptr;
+    using State             = SessionState;
+    using FutureErrorOrDone = std::future<ErrorOrDone>;
+    using EventSlot         = AnyReusableHandler<void (Event)>;
+    using CallSlot          = AnyReusableHandler<Outcome (Invocation)>;
+    using InterruptSlot     = AnyReusableHandler<Outcome (Interruption)>;
+    using StreamSlot        = AnyReusableHandler<void (CalleeChannel)>;
+    using LogSlot           = AnyReusableHandler<void (LogEntry)>;
+    using StateSlot         = AnyReusableHandler<void (SessionState,
+                                                       std::error_code)>;
+    using ChallengeSlot     = AnyReusableHandler<void (Challenge)>;
     using ChunkSlot = AnyReusableHandler<void (CallerChannel,
                                                ErrorOr<CallerInputChunk>)>;
 
@@ -997,33 +1008,33 @@ public:
 
     const IoStrand& strand() const {return strand_;}
 
-    void listenLogged(LogHandler handler) {logHandler_ = std::move(handler);}
+    void listenLogged(LogSlot handler) {logSlot_ = std::move(handler);}
 
     void setLogLevel(LogLevel level) {peer_.setLogLevel(level);}
 
-    void safeListenLogged(LogHandler f)
+    void safeListenLogged(LogSlot f)
     {
         struct Dispatched
         {
             Ptr self;
-            LogHandler f;
+            LogSlot f;
             void operator()() {self->listenLogged(std::move(f));}
         };
 
         safelyDispatch<Dispatched>(std::move(f));
     }
 
-    void listenStateChanged(StateChangeHandler f)
+    void listenStateChanged(StateSlot f)
     {
-        stateChangeHandler_ = std::move(f);
+        stateSlot_ = std::move(f);
     }
 
-    void safeListenStateChanged(StateChangeHandler f)
+    void safeListenStateChanged(StateSlot f)
     {
         struct Dispatched
         {
             Ptr self;
-            StateChangeHandler f;
+            StateSlot f;
             void operator()() {self->listenStateChanged(std::move(f));}
         };
 
@@ -1063,7 +1074,7 @@ public:
         safelyDispatch<Dispatched>(std::move(w), std::move(f));
     }
 
-    void join(Realm&& realm, ChallengeHandler onChallenge,
+    void join(Realm&& realm, ChallengeSlot onChallenge,
               CompletionHandler<Welcome>&& handler)
     {
         struct Requested
@@ -1076,7 +1087,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                me.challengeHandler_ = nullptr;
+                me.challengeSlot_ = nullptr;
                 if (me.checkError(reply, handler))
                 {
                     if (reply->type() == WampMsgType::welcome)
@@ -1098,20 +1109,20 @@ public:
 
         realm.withOption("agent", Version::agentString())
              .withOption("roles", ClientFeatures::providedRoles());
-        challengeHandler_ = std::move(onChallenge);
+        challengeSlot_ = std::move(onChallenge);
         peer_.establishSession();
         request(realm.message({}),
                 Requested{shared_from_this(), std::move(handler),
                           realm.uri(), realm.abortReason({})});
     }
 
-    void safeJoin(Realm&& r, ChallengeHandler c, CompletionHandler<Welcome>&& f)
+    void safeJoin(Realm&& r, ChallengeSlot c, CompletionHandler<Welcome>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Realm r;
-            ChallengeHandler c;
+            ChallengeSlot c;
             CompletionHandler<Welcome> f;
             void operator()() {self->join(std::move(r), std::move(c),
                                std::move(f));}
@@ -1151,6 +1162,40 @@ public:
         ErrorOrDonePromise p;
         auto fut = p.get_future();
         safelyDispatch<Dispatched>(std::move(a), std::move(p));
+        return fut;
+    }
+
+    ErrorOrDone failAuthentication(Reason&& r) override
+    {
+        if (state() != State::authenticating)
+            return makeUnexpectedError(Errc::invalidState);
+        return peer_.abort(std::move(r));
+    }
+
+    FutureErrorOrDone safeFailAuthentication(Reason&& r) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Reason r;
+            ErrorOrDonePromise p;
+
+            void operator()()
+            {
+                try
+                {
+                    p.set_value(self->failAuthentication(std::move(r)));
+                }
+                catch (...)
+                {
+                    p.set_exception(std::current_exception());
+                }
+            }
+        };
+
+        ErrorOrDonePromise p;
+        auto fut = p.get_future();
+        safelyDispatch<Dispatched>(std::move(r), std::move(p));
         return fut;
     }
 
@@ -1339,16 +1384,24 @@ public:
     void onEventError(const Error& error, const std::string& topicUri,
                       SubscriptionId subId, PublicationId pubId) override
     {
-        if (logLevel() <= LogLevel::error)
+        struct Dispatched
         {
-            std::ostringstream oss;
-            oss << "EVENT handler reported an ";
-            outputErrorDetails(oss, error);
-            oss << ", for topic=" << topicUri
-                << ", subscriptionId=" << subId
-                << ", publicationId=" << pubId << ")";
-            log(LogLevel::error, oss.str());
-        }
+            Ptr self;
+            std::string msg;
+            void operator()() {self->log(LogLevel::error, std::move(msg));}
+        };
+
+        if (logLevel() > LogLevel::error)
+            return;
+
+        std::ostringstream oss;
+        oss << "EVENT handler reported an ";
+        outputErrorDetails(oss, error);
+        oss << ", for topic=" << topicUri
+            << ", subscriptionId=" << subId
+            << ", publicationId=" << pubId << ")";
+
+        safelyDispatch<Dispatched>(oss.str());
     }
 
     ErrorOrDone publish(Pub&& pub)
@@ -1998,16 +2051,16 @@ private:
 
     void onLog(LogEntry&& entry)
     {
-        if (logHandler_)
-            dispatchHandler(logHandler_, std::move(entry));
+        if (logSlot_)
+            dispatchHandler(logSlot_, std::move(entry));
     }
 
     void onStateChanged(SessionState s, std::error_code ec)
     {
         if (ec)
             abortPending(ec);
-        if (stateChangeHandler_)
-            postHandler(stateChangeHandler_, s, ec);
+        if (stateSlot_)
+            postHandler(stateSlot_, s, ec);
     }
 
     ErrorOr<RequestId> request(Message& msg, RequestHandler&& handler)
@@ -2199,23 +2252,59 @@ private:
         auto& challengeMsg = messageCast<ChallengeMessage>(msg);
         Challenge challenge({}, shared_from_this(), std::move(challengeMsg));
 
-        if (challengeHandler_)
+        if (challengeSlot_)
         {
-            dispatchHandler(challengeHandler_, std::move(challenge));
+            dispatchChallenge(std::move(challenge));
         }
         else
         {
             if (logLevel() <= LogLevel::error)
             {
                 std::ostringstream oss;
-                oss << "Received a CHALLENGE with no registered handler, "
-                       "with method " << challenge.method();
+                oss << "No registered challenge slot to process received "
+                       "CHALLENGE with method " << challenge.method();
                 log(LogLevel::error, oss.str());
             }
 
             // Send empty signature to avoid deadlock with other peer.
             authenticate(Authentication(""));
         }
+    }
+
+    void dispatchChallenge(Challenge&& challenge)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Challenge challenge;
+            ChallengeSlot slot;
+
+            void operator()()
+            {
+                try
+                {
+                    slot(std::move(challenge));
+                }
+                catch (Reason r)
+                {
+                    self->safeFailAuthentication(std::move(r));
+                }
+                catch (const error::BadType& e)
+                {
+                    auto r = Reason(WampErrc::invalidArgument)
+                                 .withHint(e.what());
+                    self->safeFailAuthentication(std::move(r));
+                }
+            }
+        };
+
+        auto associatedExec =
+            boost::asio::get_associated_executor(challengeSlot_, userExecutor_);
+        Dispatched dispatched{shared_from_this(), std::move(challenge),
+                              challengeSlot_};
+        boost::asio::dispatch(
+            executor_,
+            boost::asio::bind_executor(associatedExec, std::move(dispatched)));
     }
 
     void onEvent(Message& msg)
@@ -2419,9 +2508,9 @@ private:
     ProcedureRegistry registry_;
     Requestor requestor_;
     CallerTimeoutScheduler::Ptr timeoutScheduler_;
-    LogHandler logHandler_;
-    StateChangeHandler stateChangeHandler_;
-    ChallengeHandler challengeHandler_;
+    LogSlot logSlot_;
+    StateSlot stateSlot_;
+    ChallengeSlot challengeSlot_;
     bool isTerminating_ = false;
 };
 

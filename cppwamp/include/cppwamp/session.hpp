@@ -435,13 +435,13 @@ private:
     template <typename T>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<T>)>;
 
-    using LogSlot = AnyReusableHandler<void (LogEntry)>;
-    using StateSlot = AnyReusableHandler<void (State, std::error_code ec)>;
+    using LogSlot       = AnyReusableHandler<void (LogEntry)>;
+    using StateSlot     = AnyReusableHandler<void (State, std::error_code ec)>;
     using ChallengeSlot = AnyReusableHandler<void (Challenge)>;
-    using EventSlot = AnyReusableHandler<void (Event)>;
-    using CallSlot = AnyReusableHandler<Outcome (Invocation)>;
+    using EventSlot     = AnyReusableHandler<void (Event)>;
+    using CallSlot      = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
-    using StreamSlot = AnyReusableHandler<void (CalleeChannel)>;
+    using StreamSlot    = AnyReusableHandler<void (CalleeChannel)>;
     using CallerChunkSlot =
         AnyReusableHandler<void (CallerChannel, ErrorOr<CallerInputChunk>)>;
 
@@ -789,7 +789,7 @@ Session::join(
 {
     return initiate<JoinOp>(
         std::forward<C>(completion), std::move(realm),
-        bindFallbackExecutor(std::forward<S>(challengeSlot)));
+        std::forward<S>(challengeSlot));
 }
 
 //------------------------------------------------------------------------------
@@ -810,7 +810,7 @@ Session::join(
 {
     return safelyInitiate<JoinOp>(
         std::forward<C>(completion), std::move(realm),
-        bindFallbackExecutor(std::forward<S>(challengeSlot)));
+        std::forward<S>(challengeSlot));
 }
 
 //------------------------------------------------------------------------------
@@ -1414,7 +1414,7 @@ Session::enroll(
 {
     return initiate<EnrollStreamOp>(
         std::forward<C>(completion), std::move(stream),
-        bindFallbackExecutor(std::forward<S>(streamSlot)));
+        std::forward<S>(streamSlot));
 }
 
 //------------------------------------------------------------------------------
@@ -1486,7 +1486,7 @@ Session::requestStream(
 {
     return initiate<RequestStreamOp>(
         std::forward<C>(completion), std::move(req),
-        bindFallbackExecutor(std::forward<S>(chunkSlot)));
+        std::forward<S>(chunkSlot));
 }
 
 //------------------------------------------------------------------------------
@@ -1527,7 +1527,7 @@ Session::requestStream(
 {
     return safelyInitiate<RequestStreamOp>(
         std::forward<C>(completion), std::move(req),
-        bindFallbackExecutor(std::forward<S>(chunkSlot)));
+        std::forward<S>(chunkSlot));
 }
 
 //------------------------------------------------------------------------------
@@ -1541,8 +1541,7 @@ ErrorOr<CallerChannel> Session::openStream(
     S&& chunkSlot      ///< Caller input chunk handler
     )
 {
-    return doOpenStream(std::move(req),
-                        bindFallbackExecutor(std::forward<S>(chunkSlot)));
+    return doOpenStream(std::move(req), std::forward<S>(chunkSlot));
 }
 
 //------------------------------------------------------------------------------
@@ -1555,8 +1554,7 @@ CPPWAMP_INLINE std::future<ErrorOr<CallerChannel>> Session::openStream(
     S&& chunkSlot      ///< Caller input chunk handler
     )
 {
-    return safeOpenStream(std::move(req),
-                          bindFallbackExecutor(std::forward<S>(chunkSlot)));
+    return safeOpenStream(std::move(req), std::forward<S>(chunkSlot));
 }
 
 //------------------------------------------------------------------------------

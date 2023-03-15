@@ -100,7 +100,7 @@ CPPWAMP_INLINE Error&& CallerChannel::error() &&
 
 CPPWAMP_INLINE const AnyCompletionExecutor& CallerChannel::executor() const
 {
-    return fallbackExecutor_;
+    return impl_->userExecutor();
 }
 
 CPPWAMP_INLINE bool CallerChannel::attached() const {return bool(impl_);}
@@ -178,8 +178,7 @@ CPPWAMP_INLINE void CallerChannel::detach() {impl_.reset();}
 
 CPPWAMP_INLINE CallerChannel::CallerChannel(internal::PassKey,
                                             std::shared_ptr<Impl> impl)
-    : fallbackExecutor_(impl->userExecutor()),
-      impl_(std::move(impl))
+    : impl_(std::move(impl))
 {}
 
 } // namespace wamp

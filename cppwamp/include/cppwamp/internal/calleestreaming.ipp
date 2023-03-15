@@ -81,7 +81,7 @@ CPPWAMP_INLINE CalleeInputChunk&& CalleeChannel::invitation() &&
 /** Obtains the executor used to execute user-provided handlers. */
 CPPWAMP_INLINE const AnyCompletionExecutor& CalleeChannel::executor() const
 {
-    return fallbackExecutor_;
+    return impl_->userExecutor();
 }
 
 CPPWAMP_INLINE bool CalleeChannel::attached() const {return bool(impl_);}
@@ -170,10 +170,9 @@ CPPWAMP_INLINE ErrorOrDone CalleeChannel::doAccept(ChunkSlot&& onChunk,
      return impl_->accept(std::move(onChunk), std::move(onInterrupt));
 }
 
-CPPWAMP_INLINE CalleeChannel::CalleeChannel(
-    internal::PassKey, std::shared_ptr<Impl> impl)
-    : fallbackExecutor_(std::move(impl->userExecutor())),
-      impl_(std::move(impl))
+CPPWAMP_INLINE CalleeChannel::CalleeChannel(internal::PassKey,
+                                            std::shared_ptr<Impl> impl)
+    : impl_(std::move(impl))
 {}
 
 } // namespace wamp

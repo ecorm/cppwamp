@@ -15,6 +15,7 @@ namespace wamp
 {
 
 class Authentication;
+class Reason;
 
 namespace internal
 {
@@ -30,6 +31,10 @@ public:
     virtual ErrorOrDone authenticate(Authentication&&) = 0;
 
     virtual std::future<ErrorOrDone> safeAuthenticate(Authentication&&) = 0;
+
+    virtual ErrorOrDone failAuthentication(Reason&& r) = 0;
+
+    virtual std::future<ErrorOrDone> safeFailAuthentication(Reason&& r) = 0;
 };
 
 } // namespace internal

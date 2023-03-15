@@ -174,7 +174,7 @@ public:
         if (!chunkSlot_)
             return;
         InputChunk chunk{{}, std::move(msg)};
-        postChunkHandler(std::move(chunk));
+        postToChunkHandler(std::move(chunk));
     }
 
     void postError(ErrorMessage&& msg)
@@ -183,7 +183,7 @@ public:
             return;
         error_ = Error{{}, std::move(msg)};
         auto errc = error_.errorCode();
-        postChunkHandler(makeUnexpectedError(errc));
+        postToChunkHandler(makeUnexpectedError(errc));
     }
 
 private:
@@ -216,12 +216,41 @@ private:
         return caller->safeCancelStream(id_);
     }
 
-    template <typename T>
-    void postChunkHandler(T&& arg)
+    void postToChunkHandler(ErrorOr<InputChunk>&& errorOrChunk)
     {
-        // TODO: Catch same exceptions as for RPC handler?
-        postAny(executor_, chunkSlot_,
-                TContext{{}, this->shared_from_this()}, std::forward<T>(arg));
+        struct Posted
+        {
+            Ptr self;
+            ChunkSlot slot;
+            ErrorOr<InputChunk> errorOrChunk;
+
+            void operator()()
+            {
+                auto& me = *self;
+                try
+                {
+                    slot(TContext{{}, self}, std::move(errorOrChunk));
+                }
+                catch (Error& error)
+                {
+                    me.error_ = std::move(error);
+                    me.safeCancel();
+                }
+                catch (const error::BadType& e)
+                {
+                    me.error_ = Error{e};
+                    me.safeCancel();
+                }
+            }
+        };
+
+        auto associatedExec =
+            boost::asio::get_associated_executor(chunkSlot_, userExecutor_);
+        Posted posted{this->shared_from_this(), chunkSlot_,
+                      std::move(errorOrChunk)};
+        boost::asio::post(
+            executor_,
+            boost::asio::bind_executor(associatedExec, std::move(posted)));
     }
 
     bool isValidModeForSending() const
@@ -424,23 +453,14 @@ public:
 
     void postInvocation(InvocationMessage&& msg)
     {
-        // TODO: Catch same exceptions as for RPC handler?
-        if (!chunkSlot_)
-            return;
         InputChunk chunk{{}, std::move(msg)};
-        postAny(executor_, chunkSlot_,
-                TContext{{}, this->shared_from_this()}, std::move(chunk));
+        postToSlot(chunkSlot_, std::move(chunk));
     }
 
     bool postInterrupt(InterruptMessage&& msg)
     {
-        // TODO: Catch same exceptions as for RPC handler?
-        if (!interruptSlot_)
-            return false;
         Interruption intr{{}, std::move(msg)};
-        postAny(executor_, interruptSlot_,
-                TContext{{}, this->shared_from_this()}, std::move(intr));
-        return true;
+        return postToSlot(interruptSlot_, std::move(intr));
     }
 
 private:
@@ -478,6 +498,45 @@ private:
                     std::move(invitation_));
             invitation_ = InputChunk{};
         }
+    }
+
+    template <typename S, typename T>
+    bool postToSlot(const S& slot, T&& request)
+    {
+        struct Posted
+        {
+            Ptr self;
+            S slot;
+            ValueTypeOf<T> arg;
+
+            void operator()()
+            {
+                try
+                {
+                    slot(TContext{{}, self}, std::move(arg));
+                }
+                catch (Error& error)
+                {
+                    self->fail(threadSafe, std::move(error));
+                }
+                catch (const error::BadType& e)
+                {
+                    // Forward Variant conversion exceptions as ERROR messages.
+                    self->fail(threadSafe, Error(e));
+                }
+            }
+        };
+
+        if (!slot)
+            return false;
+
+        auto associatedExec =
+            boost::asio::get_associated_executor(chunkSlot_, userExecutor_);
+        Posted posted{this->shared_from_this(), slot, std::move(request)};
+        boost::asio::post(
+            executor_,
+            boost::asio::bind_executor(associatedExec, std::move(posted)));
+        return true;
     }
 
     InputChunk invitation_;

@@ -327,6 +327,12 @@ public:
     /** Thread-safe authenticate. */
     std::future<ErrorOrDone> authenticate(ThreadSafe, Authentication auth);
 
+    /** Sends an `ABORT` message back in response to an invalid challenge. */
+    ErrorOrDone fail(Reason reason);
+
+    /** Thread-safe fail. */
+    std::future<ErrorOrDone> fail(ThreadSafe, Reason reason);
+
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
 

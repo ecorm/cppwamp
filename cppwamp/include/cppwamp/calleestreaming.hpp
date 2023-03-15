@@ -158,9 +158,6 @@ private:
 
     using Impl = internal::BasicCalleeChannelImpl<CalleeChannel>;
 
-    template <typename S, typename F>
-    struct FallbackExecutorBinder;
-
     ErrorOrDone doRespond(OutputChunk&& response, ChunkSlot&& onChunk,
                           InterruptSlot&& onInterrupt);
 
@@ -170,7 +167,6 @@ private:
 
     ErrorOrDone doAccept(ChunkSlot&& onChunk, InterruptSlot&& onInterrupt);
 
-    AnyCompletionExecutor fallbackExecutor_;
     std::shared_ptr<Impl> impl_;
 
 public:
@@ -182,33 +178,6 @@ public:
 //******************************************************************************
 // CalleeChannel member definitions
 //******************************************************************************
-
-template <typename TSlot, typename THandler>
-struct CalleeChannel::FallbackExecutorBinder
-{
-    using Slot = TSlot;
-    using Handler = typename std::decay<THandler>::type;
-    using IsNullPtr = std::is_same<Handler, std::nullptr_t>;
-    using BindResult =
-        typename internal::BindFallbackExecutorResult<THandler>::Type;
-    using Result = Conditional<IsNullPtr::value, Slot, BindResult>;
-
-    template <typename F>
-    static Result bind(F&& handler, const FallbackExecutor& exec)
-    {
-        return doBind(IsNullPtr{}, std::forward<F>(handler), exec);
-    }
-
-    template <typename F>
-    static Slot doBind(TrueType, F&&, const FallbackExecutor&) {return Slot{};}
-
-    template <typename F>
-    static BindResult doBind(FalseType, F&& handler,
-                             const FallbackExecutor& exec)
-    {
-        return internal::bindFallbackExecutor(std::forward<F>(handler), exec);
-    }
-};
 
 /** @tparam S Callable handler with signature
               `void (CalleeChannel, InputChunk)`
@@ -234,12 +203,8 @@ ErrorOrDone CalleeChannel::respond(OutputChunk response, S&& chunkSlot,
 {
     CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::accept: "
                                     "Channel is detached");
-    using CB = FallbackExecutorBinder<ChunkSlot, S>;
-    using IB = FallbackExecutorBinder<InterruptSlot, I>;
-    return doRespond(
-        std::move(response),
-        CB::bind(std::forward<S>(chunkSlot), fallbackExecutor_),
-        IB::bind(std::forward<I>(interruptSlot), fallbackExecutor_));
+    return doRespond(std::move(response), std::move(chunkSlot),
+                     std::move(interruptSlot));
 }
 
 /** @copydetails CalleeChannel::respond(OutputChunk, S&&, I&&) */
@@ -250,12 +215,8 @@ CalleeChannel::respond(ThreadSafe, OutputChunk response, S&& chunkSlot,
 {
     CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::accept: "
                                     "Channel is detached");
-    using CB = FallbackExecutorBinder<ChunkSlot, S>;
-    using IB = FallbackExecutorBinder<InterruptSlot, I>;
-    return safeRespond(
-        std::move(response),
-        CB::bind(std::forward<S>(chunkSlot), fallbackExecutor_),
-        IB::bind(std::forward<I>(interruptSlot), fallbackExecutor_));
+    return safeRespond(std::move(response), std::move(chunkSlot),
+                       std::move(interruptSlot));
 }
 
 /** @copydetails CalleeChannel::respond(OutputChunk, S&&, I&&) */
@@ -264,11 +225,7 @@ ErrorOrDone CalleeChannel::accept(S&& chunkSlot, I&& interruptSlot)
 {
     CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::accept: "
                                     "Channel is detached");
-    using CB = FallbackExecutorBinder<ChunkSlot, S>;
-    using IB = FallbackExecutorBinder<InterruptSlot, I>;
-    return doAccept(
-        CB::bind(std::forward<S>(chunkSlot), fallbackExecutor_),
-        IB::bind(std::forward<I>(interruptSlot), fallbackExecutor_));
+    return doAccept(std::move(chunkSlot), std::move(interruptSlot));
 }
 
 namespace internal

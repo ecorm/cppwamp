@@ -138,7 +138,6 @@ public:
 private:
     using Impl = internal::BasicCallerChannelImpl<CallerChannel>;
 
-    AnyCompletionExecutor fallbackExecutor_;
     std::shared_ptr<Impl> impl_;
 
 public:
