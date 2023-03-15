@@ -163,6 +163,7 @@ class Requestor
 {
 public:
     using Message = WampMessage;
+    using TimeoutDuration = typename Rpc::TimeoutDuration;
     using RequestHandler = AnyCompletionHandler<void (ErrorOr<Message>)>;
     using StreamRequestHandler =
         AnyCompletionHandler<void (ErrorOr<CallerChannel>)>;
@@ -171,13 +172,26 @@ public:
 
     Requestor(Peer& peer, IoStrand strand, AnyIoExecutor exec,
               AnyCompletionExecutor userExec)
-        : strand_(std::move(strand)),
+        : timeoutScheduler_(CallerTimeoutScheduler::create(strand)),
+          strand_(std::move(strand)),
           executor_(std::move(exec)),
           userExecutor_(std::move(userExec)),
           peer_(peer)
-    {}
+    {
+        timeoutScheduler_->listen(
+            [this](RequestId reqId)
+            {
+                cancelCall(reqId, CallCancelMode::killNoWait);
+            });
+    }
 
     ErrorOr<RequestId> request(Message& msg, RequestHandler&& handler)
+    {
+        return request(msg, TimeoutDuration{0}, std::move(handler));
+    }
+
+    ErrorOr<RequestId> request(Message& msg, TimeoutDuration timeout,
+                               RequestHandler&& handler)
     {
         assert(msg.type() != WampMsgType::none);
         RequestId requestId = nullId();
@@ -202,6 +216,10 @@ public:
 
         auto emplaced = requests_.emplace(msg.requestKey(), std::move(handler));
         assert(emplaced.second);
+
+        if (timeout.count() != 0)
+            timeoutScheduler_->insert(requestId, timeout);
+
         return requestId;
     }
 
@@ -232,6 +250,10 @@ public:
         auto emplaced = channels_.emplace(
             channelId, StreamRecord{channel, req, std::move(handler)});
         assert(emplaced.second);
+
+        if (req.callerTimeout().count() != 0)
+            timeoutScheduler_->insert(channel->id(), req.callerTimeout());
+
         return CallerChannel{{}, std::move(channel)};
     }
 
@@ -274,7 +296,7 @@ public:
     }
 
     // Returns true if request was found
-    bool cancelCall(const CallCancellation& cancellation)
+    ErrorOrDone cancelCall(RequestId requestId, CallCancelMode mode)
     {
         // If the cancel mode is not 'kill', don't wait for the router's
         // ERROR message and post the request handler immediately
@@ -283,34 +305,37 @@ public:
         auto unex = makeUnexpectedError(WampErrc::cancelled);
 
         {
-            RequestKey key{WampMsgType::call, cancellation.requestId()};
+            RequestKey key{WampMsgType::call, requestId};
             auto kv = requests_.find(key);
             if (kv != requests_.end())
             {
-                if (cancellation.mode() != CallCancelMode::kill)
+                if (mode != CallCancelMode::kill)
                 {
                     auto handler = std::move(kv->second);
                     requests_.erase(kv);
                     completeRequest(handler, unex);
                 }
-                return true;
+                CallCancellation cancellation{requestId, mode};
+                return peer_.send(cancellation.message({}));
             }
         }
 
         {
-            auto kv = channels_.find(cancellation.requestId());
+            auto kv = channels_.find(requestId);
             if (kv == channels_.end())
                 return false;
 
-            if (cancellation.mode() != CallCancelMode::kill)
+            if (mode != CallCancelMode::kill)
             {
                 StreamRecord req{std::move(kv->second)};
                 channels_.erase(kv);
                 req.cancel(executor_, userExecutor_);
             }
+            CallCancellation cancellation{requestId, mode};
+            return peer_.send(cancellation.message({}));
         }
 
-        return true;
+        return false;
     }
 
     ErrorOrDone sendCallerChunk(RequestId reqId, CallerOutputChunk&& chunk)
@@ -333,6 +358,7 @@ public:
 
     void clear()
     {
+        timeoutScheduler_->clear();
         requests_.clear();
         channels_.clear();
         nextRequestId_ = nullId();
@@ -340,18 +366,22 @@ public:
 
 private:
     using RequestKey = typename Message::RequestKey;
+    using CallerTimeoutScheduler = TimeoutScheduler<RequestId>;
 
     template <typename F, typename... Ts>
     void completeRequest(F& handler, Ts&&... args)
     {
+        if (!handler)
+            return;
         boost::asio::post(
             strand_,
             std::bind(std::move(handler), std::forward<Ts>(args)...));
     }
 
-    IoStrand strand_;
     std::map<RequestKey, RequestHandler> requests_;
     std::map<ChannelId, StreamRecord> channels_;
+    CallerTimeoutScheduler::Ptr timeoutScheduler_;
+    IoStrand strand_;
     AnyIoExecutor executor_;
     AnyCompletionExecutor userExecutor_;
     Peer& peer_;
@@ -545,8 +575,6 @@ struct ProcedureRegistration
     using CallSlot = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
 
-    // TODO: Bind the userExecutor_ (if necessary) upon registration instead
-    // of upon invocation.
     CallSlot callSlot;
     InterruptSlot interruptSlot;
 };
@@ -1207,11 +1235,10 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                me.clear();
                 if (me.checkError(reply, handler))
                 {
+                    me.clear();
                     me.peer_.close();
-                    me.abortPending(Errc::abandoned);
                     auto& goodBye = messageCast<GoodbyeMessage>(*reply);
                     me.completeNow(handler, Reason({}, std::move(goodBye)));
                 }
@@ -1223,7 +1250,6 @@ public:
         if (reason.uri().empty())
             reason.setUri({}, errorCodeToUri(WampErrc::closeRealm));
 
-        timeoutScheduler_->clear();
         peer_.startShuttingDown();
         request(reason.message({}),
                 Adjourned{shared_from_this(), std::move(handler)});
@@ -1246,7 +1272,6 @@ public:
     {
         if (state() == State::connecting)
             currentConnector_->cancel();
-        abortPending(Errc::abandoned);
         clear();
         peer_.disconnect();
     }
@@ -1265,10 +1290,7 @@ public:
     void terminate()
     {
         isTerminating_ = true;
-        if (state() == State::connecting)
-            currentConnector_->cancel();
-        clear();
-        peer_.disconnect();
+        disconnect();
     }
 
     void safeTerminate()
@@ -1670,8 +1692,9 @@ public:
 
         auto boundCancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
-        auto requestId = request(
+        auto requestId = requestor_.request(
             rpc.message({}),
+            rpc.callerTimeout(),
             Requested{shared_from_this(), rpc.error({}), std::move(handler)});
         if (!requestId)
             return;
@@ -1692,9 +1715,6 @@ public:
                     safeCancelCall(reqId, mode);
                 });
         }
-
-        if (rpc.callerTimeout().count() != 0)
-            timeoutScheduler_->insert(*requestId, rpc.callerTimeout());
     }
 
     void safeCall(Rpc&& r, CompletionHandler<Result>&& f)
@@ -1719,18 +1739,7 @@ public:
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
 
-        CallCancellation cancellation{reqId, mode};
-        bool found = requestor_.cancelCall(cancellation);
-
-        // Always send the CANCEL message in all modes if a matching
-        // call was found.
-        if (found)
-        {
-            auto sent = peer_.send(cancellation.message({}));
-            if (!sent)
-                return UnexpectedError(sent.error());
-        }
-        return found;
+        return requestor_.cancelCall(reqId, mode);
     }
 
     FutureErrorOrDone safeCancelCall(RequestId r, CallCancelMode m) override
@@ -1767,12 +1776,8 @@ public:
         if (!checkState(State::established, handler))
             return;
 
-        auto channel = requestor_.requestStream(
-            true, shared_from_this(), std::move(inv), std::move(onChunk),
-            std::move(handler));
-
-        if (channel && inv.callerTimeout().count() != 0)
-            timeoutScheduler_->insert(channel->id(), inv.callerTimeout());
+        requestor_.requestStream(true, shared_from_this(), std::move(inv),
+                                 std::move(onChunk), std::move(handler));
     }
 
     void safeRequestStream(StreamRequest&& i, ChunkSlot&& c,
@@ -1799,13 +1804,8 @@ public:
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
 
-        auto channel = requestor_.requestStream(
-            false, shared_from_this(), std::move(req), std::move(onChunk));
-
-        if (channel && req.callerTimeout().count() != 0)
-            timeoutScheduler_->insert(channel->id(), req.callerTimeout());
-
-        return channel;
+        return requestor_.requestStream(false, shared_from_this(),
+                                        std::move(req), std::move(onChunk));
     }
 
     std::future<ErrorOr<CallerChannel>> safeOpenStream(StreamRequest&& r,
@@ -1874,7 +1874,8 @@ public:
 
     FutureErrorOrDone safeCancelStream(RequestId r) override
     {
-        // TODO: Check that router supports call cancellation
+        // As per the WAMP spec, a router supporting progressive
+        // calls/invocations must also support call cancellation.
         return safeCancelCall(r, CallCancelMode::killNoWait);
     }
 
@@ -1988,8 +1989,6 @@ public:
 private:
     using ErrorOrDonePromise  = std::promise<ErrorOrDone>;
 
-    using CallerTimeoutDuration  = typename Rpc::TimeoutDuration;
-    using CallerTimeoutScheduler = TimeoutScheduler<RequestId>;
     using Message                = WampMessage;
     using RequestKey             = typename Message::RequestKey;
     using RequestHandler         = AnyCompletionHandler<void (ErrorOr<Message>)>;
@@ -2010,8 +2009,7 @@ private:
           strand_(boost::asio::make_strand(executor_)),
           readership_(executor_, userExecutor_),
           registry_(peer_, executor_, userExecutor_),
-          requestor_(peer_, strand_, executor_, userExecutor_),
-          timeoutScheduler_(CallerTimeoutScheduler::create(strand_))
+          requestor_(peer_, strand_, executor_, userExecutor_)
     {
         peer_.setInboundMessageHandler(
             [this](Message msg) {onInbound(std::move(msg));} );
@@ -2019,11 +2017,6 @@ private:
             [this](LogEntry entry) {onLog(std::move(entry));} );
         peer_.listenStateChanged(
             [this](State s, std::error_code ec) {onStateChanged(s, ec);});
-        timeoutScheduler_->listen(
-            [this](RequestId reqId)
-            {
-                cancelCall(reqId, CallCancelMode::killNoWait);
-            });
     }
 
     template <typename F, typename... Ts>
@@ -2149,9 +2142,9 @@ private:
 
     void clear()
     {
+        abortPending(Errc::abandoned);
         readership_.clear();
         registry_.clear();
-        timeoutScheduler_->clear();
     }
 
     void sendUnsubscribe(SubscriptionId subId)
@@ -2505,7 +2498,6 @@ private:
     Readership readership_;
     ProcedureRegistry registry_;
     Requestor requestor_;
-    CallerTimeoutScheduler::Ptr timeoutScheduler_;
     LogSlot logSlot_;
     StateSlot stateSlot_;
     ChallengeSlot challengeSlot_;
