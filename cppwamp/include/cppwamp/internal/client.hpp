@@ -867,9 +867,7 @@ private:
                 userExecutor_, std::move(callee));
             rec.channel = channel;
             rec.invoked = true;
-
-            auto requestId = channel->id();
-            CalleeChannel proxy{{}, std::move(channel)};
+            CalleeChannel proxy{{}, channel};
 
             try
             {
@@ -880,12 +878,12 @@ private:
             }
             catch (Error& error)
             {
-                callee->yield(requestId, std::move(error));
+                channel->fail(std::move(error));
             }
             catch (const error::BadType& e)
             {
                 // Forward Variant conversion exceptions as ERROR messages.
-                callee->yield(requestId, Error(e));
+                channel->fail(Error(e));
             }
         }
         else

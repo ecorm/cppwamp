@@ -694,8 +694,6 @@ GIVEN( "a caller and a callee" )
     }
 }}
 
-// TODO: Test throwing from chunk/interruption handlers
-
 //------------------------------------------------------------------------------
 SCENARIO( "WAMP callee-to-caller streaming with invitations",
           "[WAMP][Advanced]" )
@@ -709,6 +707,7 @@ GIVEN( "a caller and a callee" )
     std::vector<int> output;
     bool errorArmed = false;
     bool rejectArmed = false;
+    bool throwErrorArmed = false;
     bool leaveEarlyArmed = false;
     bool destroyEarlyArmed = false;
 
@@ -724,6 +723,10 @@ GIVEN( "a caller and a callee" )
             bool sent = channel.fail(WampErrc::invalidArgument).value();
             CHECK(sent);
             return;
+        }
+        else if (throwErrorArmed)
+        {
+            throw Error{WampErrc::invalidArgument};
         }
 
         auto rsvp = CalleeOutputChunk().withArgs("rsvp");
@@ -811,7 +814,7 @@ GIVEN( "a caller and a callee" )
                 auto channelOrError = f.caller.requestStream(req, onChunk,
                                                              yield);
 
-                if (rejectArmed)
+                if (rejectArmed || throwErrorArmed)
                 {
                     CHECK(error.errorCode() == WampErrc::invalidArgument);
                     REQUIRE_FALSE(channelOrError.has_value());
@@ -859,6 +862,12 @@ GIVEN( "a caller and a callee" )
     WHEN( "rejecting an invitation with an error" )
     {
         rejectArmed = true;
+        runTest();
+    }
+
+    WHEN( "rejecting an invitation with an exception" )
+    {
+        throwErrorArmed = true;
         runTest();
     }
 
@@ -979,12 +988,21 @@ GIVEN( "a caller and a callee" )
     std::vector<int> input{9, 3, 7, 5};
     std::vector<int> output;
     bool interruptReceived = false;
+    bool cancelArmed = false;
+    bool dropChannelArmed = false;
+    bool callerThrowArmed = false;
+    bool calleeThrowArmed = false;
 
     auto onInterrupt = [&](CalleeChannel channel, Interruption intr)
     {
-        CHECK(intr.cancelMode() == CallCancelMode::killNoWait);
-        channel.fail(WampErrc::cancelled);
         interruptReceived = true;
+        CHECK(intr.cancelMode() == CallCancelMode::killNoWait);
+        if (calleeThrowArmed)
+        {
+            timer.cancel();
+            throw Error{WampErrc::invalidArgument};
+        }
+        channel.fail(WampErrc::cancelled);
         timer.cancel();
     };
 
@@ -1019,12 +1037,14 @@ GIVEN( "a caller and a callee" )
     {
         INFO("for output.size()=" << output.size());
         bool isFinal = output.size() == input.size() - 1;
+        if (isFinal && callerThrowArmed)
+            throw Reason{WampErrc::invalidArgument};
         REQUIRE(!isFinal);
         auto n = chunk->args().at(0).to<int>();
         output.push_back(n);
     };
 
-    auto runTest = [&](bool dropChannel)
+    auto runTest = [&]()
     {
         spawn(ioctx, [&](YieldContext yield)
         {
@@ -1045,10 +1065,10 @@ GIVEN( "a caller and a callee" )
                     suspendCoro(yield);
                 REQUIRE_FALSE(interruptReceived);
 
-                if (dropChannel)
-                    channel.detach();
-                else
+                if (cancelArmed)
                     channel.cancel(CallCancelMode::killNoWait);
+                else if (dropChannelArmed)
+                    channel.detach();
 
                 while (output.size() < input.size())
                     suspendCoro(yield);
@@ -1064,12 +1084,27 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "Cancelling via explicit cancel" )
     {
-        runTest(false);
+        cancelArmed = true;
+        runTest();
     }
 
     WHEN( "Cancelling by dropping the channel" )
     {
-        runTest(true);
+        dropChannelArmed = true;
+        runTest();
+    }
+
+    WHEN( "Cancelling by throwing within the chunk handler" )
+    {
+        dropChannelArmed = true;
+        runTest();
+    }
+
+    WHEN( "Throwing within the interrupt handler" )
+    {
+        cancelArmed = true;
+        calleeThrowArmed = true;
+        runTest();
     }
 }}
 
