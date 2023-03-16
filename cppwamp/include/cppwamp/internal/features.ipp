@@ -19,7 +19,7 @@ CPPWAMP_INLINE ClientFeatures::ForCallee ClientFeatures::ForCallee::provided()
     ForCallee f;
     f.supported                  = true;
     f.callCanceling              = true;
-    f.callTimeout                = false; // TODO
+    f.callTimeout                = false; // TODO: Callee-initiated timeouts
     f.callTrustLevels            = true;
     f.callerIdentification       = true;
     f.patternBasedRegistration   = true;

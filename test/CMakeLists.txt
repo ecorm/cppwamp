@@ -16,6 +16,7 @@ set(SOURCES
     codectestmsgpack.cpp
     errortest.cpp
     payloadtest.cpp
+    timeoutschedulertest.cpp
     transporttest.cpp
     uritest.cpp
     varianttestassign.cpp

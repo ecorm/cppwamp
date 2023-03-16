@@ -2367,7 +2367,6 @@ private:
 
     void onWampReply(Message& msg)
     {
-        // TODO: Bump timeout timer if progressive result
         const char* msgName = msg.name();
         assert(msg.isReply());
         if (!requestor_.onReply(std::move(msg)))
