@@ -1096,11 +1096,9 @@ public:
     {
         assert(!wishes.empty());
 
-        if (!checkState(State::disconnected, handler))
-            return;
-
+        if (!peer_.startConnecting())
+            return postErrorToHandler(Errc::invalidState, handler);
         isTerminating_ = false;
-        peer_.startConnecting();
         currentConnector_ = nullptr;
 
         // This makes it easier to transport the move-only completion handler
@@ -1154,13 +1152,12 @@ public:
             }
         };
 
-        if (!checkState(State::closed, handler))
-            return;
+        if (!peer_.establishSession())
+            return postErrorToHandler(Errc::invalidState, handler);
 
         realm.withOption("agent", Version::agentString())
              .withOption("roles", ClientFeatures::providedRoles());
         challengeSlot_ = std::move(onChallenge);
-        peer_.establishSession();
         request(realm.message({}),
                 Requested{shared_from_this(), std::move(handler),
                           realm.uri(), realm.abortReason({})});
@@ -1269,12 +1266,12 @@ public:
             }
         };
 
-        if (!checkState(State::established, handler))
-            return;
+        if (!peer_.startShuttingDown())
+            return postErrorToHandler(Errc::invalidState, handler);
+
         if (reason.uri().empty())
             reason.setUri({}, errorCodeToUri(WampErrc::closeRealm));
 
-        peer_.startShuttingDown();
         request(reason.message({}),
                 Adjourned{shared_from_this(), std::move(handler)});
     }
@@ -2053,15 +2050,18 @@ private:
     template <typename F>
     bool checkState(State expectedState, F& handler)
     {
-        // TODO: std::atomic::compare_exchange_strong
         bool valid = state() == expectedState;
         if (!valid)
-        {
-            auto unex = makeUnexpectedError(Errc::invalidState);
-            if (!isTerminating_)
-                postAny(executor_, std::move(handler), std::move(unex));
-        }
+            postErrorToHandler(Errc::invalidState, handler);
         return valid;
+    }
+
+    template <typename TErrc, typename THandler>
+    void postErrorToHandler(TErrc errc, THandler& f)
+    {
+        auto unex = makeUnexpectedError(errc);
+        if (!isTerminating_)
+            postAny(executor_, std::move(f), std::move(unex));
     }
 
     void onLog(LogEntry&& entry)

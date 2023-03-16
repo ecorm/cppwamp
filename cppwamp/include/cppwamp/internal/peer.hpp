@@ -85,7 +85,10 @@ public:
         stateChangeHandler_ = std::move(handler);
     }
 
-    void startConnecting() {setState(State::connecting);}
+    bool startConnecting()
+    {
+        return compareAndSetState(State::disconnected, State::connecting);
+    }
 
     void failConnecting(std::error_code ec) {setState(State::failed, ec);}
 
@@ -93,7 +96,7 @@ public:
     {
         auto s = state();
         if (s == State::disconnected || s == State::failed)
-            startConnecting();
+            setState(State::connecting);
         assert(state() == State::connecting);
         transport_ = std::move(transport);
         codec_ = std::move(codec);
@@ -101,12 +104,11 @@ public:
         maxTxLength_ = transport_->info().maxTxLength;
     }
 
-    void establishSession()
+    bool establishSession()
     {
-        assert(state() == State::closed || state() == State::disconnected);
+        if (!compareAndSetState(State::closed, State::establishing))
+            return false;
         assert(transport_ != nullptr);
-
-        setState(State::establishing);
 
         if (!transport_->isStarted())
         {
@@ -129,6 +131,8 @@ public:
                 }
             );
         }
+
+        return true;
     }
 
     void challenge(Challenge challenge)
@@ -147,9 +151,9 @@ public:
         setState(State::established);
     }
 
-    void startShuttingDown()
+    bool startShuttingDown()
     {
-        setState(State::shuttingDown);
+        return compareAndSetState(State::established, State::shuttingDown);
     }
 
     void close()
@@ -265,6 +269,15 @@ private:
     {
         return setState(s, make_error_code(errc));
     }
+
+    bool compareAndSetState(State expected, State desired)
+    {
+        bool ok = state_.compare_exchange_strong(expected, desired);
+        if (ok)
+            stateChangeHandler_(desired, std::error_code{});
+        return ok;
+    }
+
 
     void onTransportRx(MessageBuffer buffer)
     {
