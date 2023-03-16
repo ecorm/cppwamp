@@ -186,6 +186,12 @@ public:
         postToChunkHandler(makeUnexpectedError(errc));
     }
 
+    void postError(UnexpectedError unex)
+    {
+        error_ = Error{unex.value()};
+        postToChunkHandler(unex);
+    }
+
 private:
     static std::future<ErrorOrDone> futureValue(bool x)
     {
@@ -307,6 +313,8 @@ public:
 
     ~BasicCalleeChannelImpl()
     {
+        chunkSlot_ = nullptr;
+        interruptSlot_ = nullptr;
         fail(threadSafe, Error{WampErrc::cancelled});
     }
 

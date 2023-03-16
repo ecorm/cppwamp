@@ -14,6 +14,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include "../codec.hpp"
 #include "../erroror.hpp"
@@ -239,6 +240,18 @@ public:
 private:
     static constexpr unsigned progressiveResponseFlag_ = 0x01;
 
+    static const std::string& stateLabel(State state)
+    {
+        static const std::string labels[] = {
+            "DISCONNECTED", "CONNECTING", "CLOSED", "ESTABLISHING",
+            "AUTHENTICATING", "ESTABLISHED", "SHUTTING_DOWN", "FAILED"};
+
+        using Index = std::underlying_type<State>::type;
+        auto n = static_cast<Index>(state);
+        assert(n < Index(std::extent<decltype(labels)>::value));
+        return labels[n];
+    }
+
     State setState(State s, std::error_code ec = {})
     {
         auto old = state_.exchange(s);
@@ -255,16 +268,6 @@ private:
 
     void onTransportRx(MessageBuffer buffer)
     {
-        auto s = state();
-        bool readyToReceive =
-               s == State::establishing || s == State::authenticating ||
-               s == State::established  || s == State::shuttingDown;
-        if (!readyToReceive)
-        {
-            return failProtocol("Received WAMP message while session "
-                                "unready to receive");
-        }
-
         Variant v;
         auto ec = codec_.decode(buffer, v);
         if (ec)
@@ -292,11 +295,12 @@ private:
                                 std::string(msg->name()) + " messages");
         }
 
-        if (!msg->traits().isValidForState(state()))
+        auto s = state();
+        if (!msg->traits().isValidForState(s))
         {
             return failProtocol(
-                std::string(msg->name()) +
-                " messages are invalid for current session state");
+                std::string(msg->name()) + " messages are invalid during " +
+                stateLabel(s) + " session state");
         }
 
         onMessage(std::move(*msg));
@@ -483,7 +487,7 @@ private:
             return;
 
         std::ostringstream oss;
-        oss << label << "[\"" << label << "\",\""
+        oss << "[\"" << label << "\",\""
             << MessageTraits::lookup(type).nameOr("INVALID") << "\"";
         if (!fields.empty())
             oss << "," << fields;

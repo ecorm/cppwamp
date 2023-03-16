@@ -126,17 +126,17 @@ public:
         if (found == byKey_.end())
             return;
         auto iter = found->second;
-        bool timerNeedsCanceling = (iter == deadlines_.begin());
+        bool invalidatesCurrentDeadline = (iter == deadlines_.begin());
         deadlines_.erase(iter);
 
         Record rec{key, timeout};
-        timerNeedsCanceling = timerNeedsCanceling ||
-                              (rec < *deadlines_.begin());
+        invalidatesCurrentDeadline = invalidatesCurrentDeadline ||
+                                     (rec < *deadlines_.begin());
         auto inserted = deadlines_.insert(std::move(rec));
         assert(inserted.second);
         found->second = inserted.first;
 
-        if (timerNeedsCanceling)
+        if (invalidatesCurrentDeadline)
             timer_.cancel();
     }
 
@@ -186,10 +186,9 @@ private:
         if (!deadlines_.empty())
         {
             auto top = deadlines_.begin();
-            bool preempted = top->key != key;
-            if (!preempted)
+            if (!ec)
             {
-                if (!ec && timeoutHandler_)
+                if (timeoutHandler_)
                     timeoutHandler_(top->key);
                 deadlines_.erase(top);
             }

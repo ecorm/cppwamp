@@ -58,12 +58,18 @@ struct StreamRegistration
 class StreamRecord
 {
 public:
+    using TimeoutDuration = Rpc::TimeoutDuration;
+
     using CompletionHandler =
         AnyCompletionHandler<void (ErrorOr<CallerChannel>)>;
 
     explicit StreamRecord(CallerChannelImpl::Ptr c, StreamRequest& i,
                           CompletionHandler&& f = {})
-        : StreamRecord(std::move(c), i.error({}), std::move(f))
+        : handler_(std::move(f)),
+          channel_(std::move(c)),
+          weakChannel_(channel_),
+          errorPtr_(i.error({})),
+          timeout_(i.callerTimeout())
     {}
 
     void onReply(WampMessage&& msg, AnyIoExecutor& exec)
@@ -74,9 +80,10 @@ public:
             onError(messageCast<ErrorMessage>(msg), exec);
     }
 
-    void cancel(AnyIoExecutor& exec, AnyCompletionExecutor& userExec)
+    void cancel(AnyIoExecutor& exec, AnyCompletionExecutor& userExec,
+                WampErrc errc)
     {
-        abandon(makeUnexpectedError(WampErrc::cancelled), exec, userExec);
+        abandon(makeUnexpectedError(errc), exec, userExec);
     }
 
     void abandon(UnexpectedError unex, AnyIoExecutor& exec,
@@ -84,10 +91,19 @@ public:
     {
         if (handler_)
             postAny(exec, std::move(handler_), unex);
+        else if (channel_)
+            channel_->postError(unex);
+        else if (auto ch = weakChannel_.lock())
+            ch->postError(unex);
+
         handler_ = nullptr;
         channel_.reset();
         weakChannel_.reset();
     }
+
+    bool hasTimeout() const {return timeout_.count() != 0;}
+
+    TimeoutDuration timeout() const {return timeout_;}
 
 private:
     explicit StreamRecord(CallerChannelImpl::Ptr c, Error* e,
@@ -156,6 +172,7 @@ private:
     CallerChannelImpl::Ptr channel_;
     CallerChannelImpl::WeakPtr weakChannel_;
     Error* errorPtr_ = nullptr;
+    TimeoutDuration timeout_ = {};
 };
 
 //------------------------------------------------------------------------------
@@ -172,16 +189,17 @@ public:
 
     Requestor(Peer& peer, IoStrand strand, AnyIoExecutor exec,
               AnyCompletionExecutor userExec)
-        : timeoutScheduler_(CallerTimeoutScheduler::create(strand)),
+        : deadlines_(CallerTimeoutScheduler::create(strand)),
           strand_(std::move(strand)),
           executor_(std::move(exec)),
           userExecutor_(std::move(userExec)),
           peer_(peer)
     {
-        timeoutScheduler_->listen(
+        deadlines_->listen(
             [this](RequestId reqId)
             {
-                cancelCall(reqId, CallCancelMode::killNoWait);
+                cancelCall(reqId, CallCancelMode::killNoWait,
+                           WampErrc::timeout);
             });
     }
 
@@ -218,7 +236,7 @@ public:
         assert(emplaced.second);
 
         if (timeout.count() != 0)
-            timeoutScheduler_->insert(requestId, timeout);
+            deadlines_->insert(requestId, timeout);
 
         return requestId;
     }
@@ -252,7 +270,7 @@ public:
         assert(emplaced.second);
 
         if (req.callerTimeout().count() != 0)
-            timeoutScheduler_->insert(channel->id(), req.callerTimeout());
+            deadlines_->insert(channel->id(), req.callerTimeout());
 
         return CallerChannel{{}, std::move(channel)};
     }
@@ -260,35 +278,40 @@ public:
     bool onReply(Message&& msg) // Returns true if request was found
     {
         assert(msg.isReply());
+        auto key = msg.requestKey();
 
         {
-            auto kv = requests_.find(msg.requestKey());
+            auto kv = requests_.find(key);
             if (kv != requests_.end())
             {
                 auto handler = std::move(kv->second);
                 requests_.erase(kv);
+                if (key.first == WampMsgType::call)
+                    deadlines_->erase(key.second);
                 handler(std::move(msg));
                 return true;
             }
         }
 
         {
-            if (msg.repliesTo() != WampMsgType::call)
+            if (key.first != WampMsgType::call)
                 return false;
-            auto kv = channels_.find(msg.requestId());
+            auto kv = channels_.find(key.second);
             if (kv == channels_.end())
                 return false;
 
             if (msg.isProgressive())
             {
-                StreamRecord& req = kv->second;
-                req.onReply(std::move(msg), executor_);
+                StreamRecord& rec = kv->second;
+                rec.onReply(std::move(msg), executor_);
+                deadlines_->update(key.second, rec.timeout());
             }
             else
             {
-                StreamRecord req{std::move(kv->second)};
+                StreamRecord rec{std::move(kv->second)};
+                deadlines_->erase(key.second);
                 channels_.erase(kv);
-                req.onReply(std::move(msg), executor_);
+                rec.onReply(std::move(msg), executor_);
             }
         }
 
@@ -296,13 +319,14 @@ public:
     }
 
     // Returns true if request was found
-    ErrorOrDone cancelCall(RequestId requestId, CallCancelMode mode)
+    ErrorOrDone cancelCall(RequestId requestId, CallCancelMode mode,
+                           WampErrc errc = WampErrc::cancelled)
     {
         // If the cancel mode is not 'kill', don't wait for the router's
         // ERROR message and post the request handler immediately
         // with a WampErrc::cancelled error code.
 
-        auto unex = makeUnexpectedError(WampErrc::cancelled);
+        auto unex = makeUnexpectedError(errc);
 
         {
             RequestKey key{WampMsgType::call, requestId};
@@ -329,7 +353,7 @@ public:
             {
                 StreamRecord req{std::move(kv->second)};
                 channels_.erase(kv);
-                req.cancel(executor_, userExecutor_);
+                req.cancel(executor_, userExecutor_, errc);
             }
             CallCancellation cancellation{requestId, mode};
             return peer_.send(cancellation.message({}));
@@ -358,7 +382,7 @@ public:
 
     void clear()
     {
-        timeoutScheduler_->clear();
+        deadlines_->clear();
         requests_.clear();
         channels_.clear();
         nextRequestId_ = nullId();
@@ -380,7 +404,7 @@ private:
 
     std::map<RequestKey, RequestHandler> requests_;
     std::map<ChannelId, StreamRecord> channels_;
-    CallerTimeoutScheduler::Ptr timeoutScheduler_;
+    CallerTimeoutScheduler::Ptr deadlines_;
     IoStrand strand_;
     AnyIoExecutor executor_;
     AnyCompletionExecutor userExecutor_;
@@ -2022,8 +2046,8 @@ private:
     template <typename F, typename... Ts>
     void safelyDispatch(Ts&&... args)
     {
-        boost::asio::dispatch(
-            strand_, F{shared_from_this(), std::forward<Ts>(args)...});
+        F dispatched{shared_from_this(), std::forward<Ts>(args)...};
+        boost::asio::dispatch(strand_, std::move(dispatched));
     }
 
     template <typename F>
