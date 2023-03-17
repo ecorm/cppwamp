@@ -8,7 +8,7 @@
 #define CPPWAMP_INTERNAL_MATCH_URI_HPP
 
 #include <tuple>
-#include "../peerdata.hpp"
+#include "../pubsubinfo.hpp"
 
 namespace wamp
 {

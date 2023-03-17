@@ -13,8 +13,8 @@
 #include "../anyhandler.hpp"
 #include "../asiodefs.hpp"
 #include "../logging.hpp"
-#include "../peerdata.hpp"
-#include "../routerconfig.hpp"
+#include "../pubsubinfo.hpp"
+#include "../rpcinfo.hpp"
 #include "random.hpp"
 
 namespace wamp

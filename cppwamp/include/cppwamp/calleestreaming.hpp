@@ -19,10 +19,9 @@
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "config.hpp"
-#include "peerdata.hpp"
+#include "rpcinfo.hpp"
 #include "streaming.hpp"
 #include "tagtypes.hpp"
-#include "traits.hpp"
 #include "internal/passkey.hpp"
 #include "internal/wampmessage.hpp"
 

@@ -16,7 +16,8 @@
 #include <functional>
 #include <tuple>
 #include "api.hpp"
-#include "peerdata.hpp"
+#include "pubsubinfo.hpp"
+#include "rpcinfo.hpp"
 #include "traits.hpp"
 
 namespace wamp

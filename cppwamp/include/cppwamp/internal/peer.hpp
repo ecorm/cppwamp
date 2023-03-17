@@ -19,7 +19,7 @@
 #include "../codec.hpp"
 #include "../erroror.hpp"
 #include "../logging.hpp"
-#include "../peerdata.hpp"
+#include "../sessioninfo.hpp"
 #include "../transport.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"

@@ -22,7 +22,8 @@
 #include "api.hpp"
 #include "authinfo.hpp"
 #include "error.hpp"
-#include "peerdata.hpp"
+#include "pubsubinfo.hpp"
+#include "rpcinfo.hpp"
 #include "internal/passkey.hpp"
 
 namespace wamp

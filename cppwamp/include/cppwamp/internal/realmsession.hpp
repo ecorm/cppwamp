@@ -13,7 +13,9 @@
 #include "../authinfo.hpp"
 #include "../features.hpp"
 #include "../logging.hpp"
-#include "../peerdata.hpp"
+#include "../pubsubinfo.hpp"
+#include "../rpcinfo.hpp"
+#include "../sessioninfo.hpp"
 #include "random.hpp"
 
 namespace wamp

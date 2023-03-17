@@ -28,11 +28,13 @@
 #include <cppwamp/internal/logging.ipp>
 #include <cppwamp/internal/messagetraits.ipp>
 #include <cppwamp/internal/msgpack.ipp>
-#include <cppwamp/internal/peerdata.ipp>
+#include <cppwamp/internal/pubsubinfo.ipp>
 #include <cppwamp/internal/registration.ipp>
 #include <cppwamp/internal/router.ipp>
 #include <cppwamp/internal/routerconfig.ipp>
+#include <cppwamp/internal/rpcinfo.ipp>
 #include <cppwamp/internal/session.ipp>
+#include <cppwamp/internal/sessioninfo.ipp>
 #include <cppwamp/internal/streaming.ipp>
 #include <cppwamp/internal/subscription.ipp>
 #include <cppwamp/internal/tcp.ipp>

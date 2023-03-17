@@ -13,7 +13,8 @@
            WAMP applications. */
 //------------------------------------------------------------------------------
 
-// TODO: Client-side abort
+// TODO: Expose abort API to client apps?
+// https://github.com/wamp-proto/wamp-proto/discussions/470
 
 #include <future>
 #include <memory>
@@ -28,8 +29,10 @@
 #include "connector.hpp"
 #include "erroror.hpp"
 #include "logging.hpp"
-#include "peerdata.hpp"
+#include "pubsubinfo.hpp"
 #include "registration.hpp"
+#include "rpcinfo.hpp"
+#include "sessioninfo.hpp"
 #include "subscription.hpp"
 #include "tagtypes.hpp"
 #include "wampdefs.hpp"

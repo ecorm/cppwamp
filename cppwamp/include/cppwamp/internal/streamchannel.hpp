@@ -17,7 +17,7 @@
 #include <memory>
 #include "../anyhandler.hpp"
 #include "../asiodefs.hpp"
-#include "../peerdata.hpp"
+#include "../rpcinfo.hpp"
 #include "../streaming.hpp"
 #include "../tagtypes.hpp"
 #include "callee.hpp"

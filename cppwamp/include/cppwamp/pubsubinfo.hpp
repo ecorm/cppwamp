@@ -1,0 +1,236 @@
+/*------------------------------------------------------------------------------
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
+    Distributed under the Boost Software License, Version 1.0.
+    http://www.boost.org/LICENSE_1_0.txt
+------------------------------------------------------------------------------*/
+
+#ifndef CPPWAMP_PUBSUBINFO_HPP
+#define CPPWAMP_PUBSUBINFO_HPP
+
+#include "accesslogging.hpp"
+#include "api.hpp"
+#include "anyhandler.hpp"
+#include "erroror.hpp"
+#include "options.hpp"
+#include "payload.hpp"
+#include "variant.hpp"
+#include "wampdefs.hpp"
+#include "./internal/passkey.hpp"
+#include "./internal/wampmessage.hpp"
+
+//------------------------------------------------------------------------------
+/** @file
+    @brief Provides data structures for information exchanged via WAMP
+           pub-sub messages. */
+//------------------------------------------------------------------------------
+
+namespace wamp
+{
+
+//------------------------------------------------------------------------------
+/** Provides the topic URI and other options contained within WAMP
+    `SUBSCRIBE' messages. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API Topic : public Options<Topic, internal::SubscribeMessage>
+{
+public:
+    /** Converting constructor taking a topic URI. */
+    Topic(String uri);
+
+    /** Obtains the topic URI. */
+    const String& uri() const;
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
+
+    /** @name Pattern-based Subscription
+        See [Pattern-based Subscription in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-pattern-based-subscription)
+        @{ */
+
+    /** Sets the matching policy to be used for this subscription. */
+    Topic& withMatchPolicy(MatchPolicy);
+
+    /** Obtains the matching policy used for this subscription. */
+    MatchPolicy matchPolicy() const;
+    /// @}
+
+private:
+    using Base = Options<Topic, internal::SubscribeMessage>;
+    MatchPolicy matchPolicy_ = MatchPolicy::exact;
+
+public:
+    // Internal use only
+    Topic(internal::PassKey, internal::SubscribeMessage&& msg);
+    RequestId requestId(internal::PassKey) const;
+    String&& uri(internal::PassKey) &&;
+};
+
+
+//------------------------------------------------------------------------------
+/** Provides the topic URI, options, and payload contained within WAMP
+    `PUBLISH` messages. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API Pub : public Payload<Pub, internal::PublishMessage>
+{
+public:
+    /** Converting constructor taking a topic URI. */
+    Pub(String topic);
+
+    /** Obtains the topic URI. */
+    const String& uri() const;
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info() const;
+
+    /** @name Subscriber Allow/Deny Lists
+        See [Subscriber Black- and Whitelisting in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-subscriber-black-and-whitel)
+        @{ */
+
+    /** Specifies the list of (potential) _Subscriber_ session IDs that
+        won't receive the published event. */
+    Pub& withExcludedSessions(Array sessionIds);
+
+    /** Specifies a deny list of authid strings. */
+    Pub& withExcludedAuthIds(Array authIds);
+
+    /** Specifies a deny list of authrole strings. */
+    Pub& withExcludedAuthRoles(Array authRoles);
+
+    /** Specifies the list of (potential) _Subscriber_ session IDs that
+        are allowed to receive the published event. */
+    Pub& withEligibleSessions(Array sessionIds);
+
+    /** Specifies an allow list of authid strings. */
+    Pub& withEligibleAuthIds(Array authIds);
+
+    /** Specifies an allow list of authrole strings. */
+    Pub& withEligibleAuthRoles(Array authRoles);
+    /// @}
+
+    /** @name Publisher Exclusion
+        See [Publisher Exclusion in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-publisher-exclusion)
+        @{ */
+
+    /** Specifies if this session should be excluded from receiving the
+        event. */
+    Pub& withExcludeMe(bool excluded = true);
+
+    /** Determines if this session should be excluded from receiving the
+        event. */
+    bool excludeMe() const;
+    /// @}
+
+    /** @name Publisher Identification
+        See [Publisher Identification in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-publisher-identification)
+        @{ */
+
+    /** Requests that the identity of the publisher be disclosed
+        in the event. */
+    Pub& withDiscloseMe(bool disclosed = true);
+
+    /** Determines if publisher disclosure was requested. */
+    bool discloseMe() const;
+    /// @}
+
+private:
+    using Base = Payload<Pub, internal::PublishMessage>;
+
+    TrustLevel trustLevel_ = 0;
+    bool hasTrustLevel_ = false;
+    bool disclosed_ = false;
+
+public:
+    // Internal use only
+    Pub(internal::PassKey, internal::PublishMessage&& msg);
+    void setDisclosed(internal::PassKey, bool disclosed);
+    void setTrustLevel(internal::PassKey, TrustLevel trustLevel);
+    RequestId requestId(internal::PassKey) const;
+    bool disclosed(internal::PassKey) const;
+    bool hasTrustLevel(internal::PassKey) const;
+    TrustLevel trustLevel(internal::PassKey) const;
+};
+
+
+//------------------------------------------------------------------------------
+/** Provides the subscription/publication ids, options, and payload contained
+    within WAMP `EVENT` messages. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API Event : public Payload<Event, internal::EventMessage>
+{
+public:
+    /** Default constructor. */
+    Event();
+
+    /** Constructor taking details. */
+    explicit Event(PublicationId pubId, Object opts = {});
+
+    /** Sets the subscription ID field of the event. */
+    Event& withSubscriptionId(SubscriptionId subId);
+
+    /** Returns `false` if the Event has been initialized and is ready
+        for use. */
+    bool empty() const;
+
+    /** Obtains the subscription ID associated with this event. */
+    SubscriptionId subId() const;
+
+    /** Obtains the publication ID associated with this event. */
+    PublicationId pubId() const;
+
+    /** Obtains the executor used to execute user-provided handlers. */
+    const AnyCompletionExecutor& executor() const;
+
+    /** Obtains information for the access log. */
+    AccessActionInfo info(String topic = {}) const;
+
+    /** @name Publisher Identification
+        See [Publisher Identification in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-publisher-identification)
+        @{ */
+
+    /** Obtains the publisher ID integer. */
+    ErrorOr<SessionId> publisher() const;
+    /// @}
+
+    /** @name Publication Trust Levels
+        See [Publication Trust Levels in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-publication-trust-levels)
+        @{ */
+
+    /** Obtains the trust level integer. */
+    ErrorOr<TrustLevel> trustLevel() const;
+    /// @}
+
+    /** @name Pattern-based Subscription
+        See [Pattern-based Subscription in the WAMP Specification]
+        (https://wamp-proto.org/wamp_latest_ietf.html#name-pattern-based-subscription)
+        @{ */
+
+    /** Obtains the original topic URI string used to make the publication. */
+    ErrorOr<String> topic() const;
+    /// @}
+
+private:
+    using Base = Payload<Event, internal::EventMessage>;
+
+    AnyCompletionExecutor executor_;
+
+public:
+    // Internal use only
+    Event(internal::PassKey, AnyCompletionExecutor executor,
+          internal::EventMessage&& msg);
+
+    Event(internal::PassKey, Pub&& pub, SubscriptionId sid, PublicationId pid);
+};
+
+} // namespace wamp
+
+#ifndef CPPWAMP_COMPILED_LIB
+#include "./internal/pubsubinfo.ipp"
+#endif
+
+#endif // CPPWAMP_PUBSUBINFO_HPP

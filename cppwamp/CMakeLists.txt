@@ -34,12 +34,14 @@ set(HEADERS
     include/cppwamp/null.hpp
     include/cppwamp/options.hpp
     include/cppwamp/payload.hpp
-    include/cppwamp/peerdata.hpp
+    include/cppwamp/pubsubinfo.hpp
     include/cppwamp/rawsockoptions.hpp
     include/cppwamp/registration.hpp
     include/cppwamp/router.hpp
     include/cppwamp/routerconfig.hpp
+    include/cppwamp/rpcinfo.hpp
     include/cppwamp/session.hpp
+    include/cppwamp/sessioninfo.hpp
     include/cppwamp/spawn.hpp
     include/cppwamp/streaming.hpp
     include/cppwamp/subscription.hpp
@@ -76,6 +78,7 @@ set(HEADERS
     include/cppwamp/internal/jsonencoding.hpp
     include/cppwamp/internal/localsessionimpl.hpp
     include/cppwamp/internal/matchuri.hpp
+    include/cppwamp/internal/matchpolicyoption.hpp
     include/cppwamp/internal/messagetraits.hpp
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/peer.hpp
@@ -140,11 +143,13 @@ set(INLINES
     include/cppwamp/internal/logging.ipp
     include/cppwamp/internal/messagetraits.ipp
     include/cppwamp/internal/msgpack.ipp
-    include/cppwamp/internal/peerdata.ipp
+    include/cppwamp/internal/pubsubinfo.ipp
     include/cppwamp/internal/registration.ipp
     include/cppwamp/internal/router.ipp
     include/cppwamp/internal/routerconfig.ipp
+    include/cppwamp/internal/rpcinfo.ipp
     include/cppwamp/internal/session.ipp
+    include/cppwamp/internal/sessioninfo.ipp
     include/cppwamp/internal/streaming.ipp
     include/cppwamp/internal/subscription.ipp
     include/cppwamp/internal/tcp.ipp

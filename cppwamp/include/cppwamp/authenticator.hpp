@@ -17,8 +17,7 @@
 #include "anyhandler.hpp"
 #include "authinfo.hpp"
 #include "api.hpp"
-#include "error.hpp"
-#include "peerdata.hpp"
+#include "sessioninfo.hpp"
 #include "internal/passkey.hpp"
 #include "internal/challenger.hpp"
 

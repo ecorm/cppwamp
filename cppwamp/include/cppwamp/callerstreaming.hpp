@@ -16,7 +16,7 @@
 #include <future>
 #include <memory>
 #include "api.hpp"
-#include "peerdata.hpp"
+#include "rpcinfo.hpp"
 #include "streaming.hpp"
 #include "tagtypes.hpp"
 #include "internal/passkey.hpp"
