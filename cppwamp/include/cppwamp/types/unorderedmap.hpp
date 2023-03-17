@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <utility>
 #include "../api.hpp"
-#include "../error.hpp"
+#include "../exceptions.hpp"
 #include "../variant.hpp"
 
 namespace wamp

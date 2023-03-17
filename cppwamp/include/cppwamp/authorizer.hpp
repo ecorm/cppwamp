@@ -21,7 +21,7 @@
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "authinfo.hpp"
-#include "error.hpp"
+#include "exceptions.hpp"
 #include "pubsubinfo.hpp"
 #include "rpcinfo.hpp"
 #include "internal/passkey.hpp"

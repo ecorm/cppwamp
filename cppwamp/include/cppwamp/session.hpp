@@ -27,7 +27,7 @@
 #include "callerstreaming.hpp"
 #include "config.hpp"
 #include "connector.hpp"
-#include "error.hpp"
+#include "exceptions.hpp"
 #include "errorcodes.hpp"
 #include "erroror.hpp"
 #include "logging.hpp"

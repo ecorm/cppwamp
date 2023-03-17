@@ -14,7 +14,7 @@
 #include <jsoncons_ext/cbor/cbor_error.hpp>
 #include <jsoncons_ext/msgpack/msgpack_error.hpp>
 #include "../api.hpp"
-#include "../error.hpp"
+#include "../exceptions.hpp"
 
 namespace wamp
 {

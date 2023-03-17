@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_ERROR_HPP
-#define CPPWAMP_ERROR_HPP
+#ifndef CPPWAMP_EXCEPTIONS_HPP
+#define CPPWAMP_EXCEPTIONS_HPP
 
 //------------------------------------------------------------------------------
 /** @file
@@ -111,7 +111,7 @@ struct CPPWAMP_API Conversion : public BadType
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "internal/error.ipp"
+#include "internal/exceptions.ipp"
 #endif
 
-#endif // CPPWAMP_ERROR_HPP
+#endif // CPPWAMP_EXCEPTIONS_HPP

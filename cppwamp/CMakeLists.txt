@@ -22,9 +22,9 @@ set(HEADERS
     include/cppwamp/connector.hpp
     include/cppwamp/conversionaccess.hpp
     include/cppwamp/corounpacker.hpp
-    include/cppwamp/error.hpp
     include/cppwamp/errorcodes.hpp
     include/cppwamp/erroror.hpp
+    include/cppwamp/exceptions.hpp
     include/cppwamp/features.hpp
     include/cppwamp/json.hpp
     include/cppwamp/localsession.hpp
@@ -137,8 +137,8 @@ set(INLINES
     include/cppwamp/internal/cancellation.ipp
     include/cppwamp/internal/cbor.ipp
     include/cppwamp/internal/consolelogger.ipp
-    include/cppwamp/internal/error.ipp
     include/cppwamp/internal/errorcodes.ipp
+    include/cppwamp/internal/exceptions.ipp
     include/cppwamp/internal/features.ipp
     include/cppwamp/internal/json.ipp
     include/cppwamp/internal/localsession.ipp

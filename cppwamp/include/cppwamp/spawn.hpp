@@ -17,7 +17,7 @@
 #include "asiodefs.hpp"
 #include "anyhandler.hpp"
 #include "config.hpp"
-#include "error.hpp"
+#include "exceptions.hpp"
 
 namespace wamp
 {

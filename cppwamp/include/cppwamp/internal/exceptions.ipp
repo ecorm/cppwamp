@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "../error.hpp"
+#include "../exceptions.hpp"
 #include <sstream>
 #include "../api.hpp"
 

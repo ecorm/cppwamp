@@ -8,7 +8,7 @@
 #include <cassert>
 #include <utility>
 #include "../api.hpp"
-#include "../error.hpp"
+#include "../exceptions.hpp"
 #include "callee.hpp"
 
 namespace wamp

@@ -18,7 +18,7 @@
 #include <system_error>
 #include <utility>
 #include "api.hpp"
-#include "error.hpp"
+#include "exceptions.hpp"
 #include "traits.hpp"
 
 namespace wamp

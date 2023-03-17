@@ -8,7 +8,7 @@
 #define CPPWAMP_INTERNAL_VARIANT_VISITORS_HPP
 
 #include "../blob.hpp"
-#include "../error.hpp"
+#include "../exceptions.hpp"
 #include "../null.hpp"
 #include "../traits.hpp"
 #include "../variantdefs.hpp"

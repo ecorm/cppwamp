@@ -7,7 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_MATCHPOLICYOPTION_HPP
 #define CPPWAMP_INTERNAL_MATCHPOLICYOPTION_HPP
 
-#include "../error.hpp"
+#include "../exceptions.hpp"
 #include "../wampdefs.hpp"
 #include "../variant.hpp"
 

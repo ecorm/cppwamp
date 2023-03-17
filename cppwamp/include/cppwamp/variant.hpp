@@ -26,7 +26,7 @@
 #include "api.hpp"
 #include "blob.hpp"
 #include "conversionaccess.hpp"
-#include "error.hpp"
+#include "exceptions.hpp"
 #include "null.hpp"
 #include "traits.hpp"
 #include "variantdefs.hpp"

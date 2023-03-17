@@ -7,7 +7,7 @@
 #include "../pubsubinfo.hpp"
 #include <utility>
 #include "../api.hpp"
-#include "../error.hpp"
+#include "../exceptions.hpp"
 #include "matchpolicyoption.hpp"
 
 namespace wamp

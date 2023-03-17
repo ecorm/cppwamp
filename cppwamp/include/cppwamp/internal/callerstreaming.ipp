@@ -5,7 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "../callerstreaming.hpp"
-#include "../error.hpp"
+#include "../exceptions.hpp"
 #include "streamchannel.hpp"
 
 namespace wamp
