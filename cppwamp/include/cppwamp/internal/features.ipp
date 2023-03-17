@@ -15,61 +15,48 @@ namespace wamp
 // ClientFeatures
 //******************************************************************************
 
-CPPWAMP_INLINE ClientFeatures::ForCallee ClientFeatures::ForCallee::provided()
-{
-    ForCallee f;
-    f.supported                  = true;
-    f.callCanceling              = true;
-    f.callTimeout                = false; // TODO: Callee-initiated timeouts
-    f.callTrustLevels            = true;
-    f.callerIdentification       = true;
-    f.patternBasedRegistration   = true;
-    f.progressiveCallInvocations = true;
-    f.progressiveCallResults     = true;
-    return f;
-}
-
-CPPWAMP_INLINE ClientFeatures::ForCaller ClientFeatures::ForCaller::provided()
-{
-    ForCaller f;
-    f.supported                  = true;
-    f.callCanceling              = true;
-    f.callTimeout                = true;
-    f.callerIdentification       = true;
-    f.progressiveCallInvocations = true;
-    f.progressiveCallResults     = true;
-    return f;
-}
-
-CPPWAMP_INLINE ClientFeatures::ForPublisher
-ClientFeatures::ForPublisher::provided()
-{
-    ForPublisher f;
-    f.supported                   = true;
-    f.publisherExclusion          = true;
-    f.publisherIdentification     = true;
-    f.subscriberBlackWhiteListing = true;
-    return f;
-};
-
-CPPWAMP_INLINE ClientFeatures::ForSubscriber
-ClientFeatures::ForSubscriber::provided()
-{
-    ForSubscriber f;
-    f.supported                = true;
-    f.patternBasedSubscription = true;
-    f.publicationTrustLevels   = true;
-    f.publisherIdentification  = true;
-    return f;
-};
-
 CPPWAMP_INLINE ClientFeatures ClientFeatures::provided()
 {
     ClientFeatures f;
-    f.callee_ = ForCallee::provided();
-    f.caller_ = ForCaller::provided();
-    f.publisher_ = ForPublisher::provided();
-    f.subscriber_ = ForSubscriber::provided();
+
+    {
+        using F = CalleeFeatures;
+        f.callee_ = F::basic |
+                    F::callCanceling |
+                    /*F::callTimeout |*/ // TODO: Callee-initiated timeouts
+                    F::callTrustLevels |
+                    F::callerIdentification |
+                    F::patternBasedRegistration |
+                    F::progressiveCallInvocations |
+                    F::progressiveCallResults;
+    }
+
+    {
+        using F = CallerFeatures;
+        f.caller_ = F::basic |
+                    F::callCanceling |
+                    F::callTimeout |
+                    F::callerIdentification |
+                    F::progressiveCallInvocations |
+                    F::progressiveCallResults;
+    }
+
+    {
+        using F = PublisherFeatures;
+        f.publisher_ = F::basic |
+                       F::publisherExclusion |
+                       F::publisherIdentification |
+                       F::subscriberBlackWhiteListing;
+    }
+
+    {
+        using F = SubscriberFeatures;
+        f.subscriber_ = F::basic |
+                        F::patternBasedSubscription |
+                        F::publicationTrustLevels |
+                        F::publisherIdentification;
+    }
+
     return f;
 }
 
@@ -109,10 +96,16 @@ CPPWAMP_INLINE const Object& ClientFeatures::providedRoles()
     return roles;
 }
 
-CPPWAMP_INLINE ClientFeatures::ClientFeatures()
-{
-    std::memset(this, 0, sizeof(ClientFeatures));
-}
+CPPWAMP_INLINE ClientFeatures::ClientFeatures() {}
+
+CPPWAMP_INLINE ClientFeatures::ClientFeatures(
+    Flags<CalleeFeatures> callee, Flags<CallerFeatures> caller,
+    Flags<PublisherFeatures> publisher, Flags<SubscriberFeatures> subscriber)
+    : callee_(callee),
+      caller_(caller),
+      publisher_(publisher),
+      subscriber_(subscriber)
+{}
 
 CPPWAMP_INLINE ClientFeatures::ClientFeatures(const Object& dict)
 {
@@ -122,80 +115,85 @@ CPPWAMP_INLINE ClientFeatures::ClientFeatures(const Object& dict)
     parseSubscriberFeatures(dict);
 }
 
-CPPWAMP_INLINE ClientFeatures::ForCallee ClientFeatures::callee() const
+CPPWAMP_INLINE Flags<CalleeFeatures>
+ClientFeatures::callee() const {return callee_;}
+
+CPPWAMP_INLINE Flags<CallerFeatures>
+ClientFeatures::caller() const {return caller_;}
+
+CPPWAMP_INLINE Flags<PublisherFeatures>
+ClientFeatures::publisher() const {return publisher_;}
+
+CPPWAMP_INLINE Flags<SubscriberFeatures>
+ClientFeatures::subscriber() const {return subscriber_;}
+
+CPPWAMP_INLINE bool ClientFeatures::supports(ClientFeatures desired) const
 {
-    return callee_;
+    return ((callee_     & desired.callee_)     == desired.callee_) &&
+           ((caller_     & desired.caller_)     == desired.caller_) &&
+           ((publisher_  & desired.publisher_)  == desired.publisher_) &&
+           ((subscriber_ & desired.subscriber_) == desired.subscriber_);
 }
 
-CPPWAMP_INLINE ClientFeatures::ForCaller ClientFeatures::caller() const
+template <typename E>
+void ClientFeatures::parse(Flags<E>& flags, E pos, const Object* roleDict,
+                           const char* featureName)
 {
-    return caller_;
-}
-
-CPPWAMP_INLINE ClientFeatures::ForPublisher ClientFeatures::publisher() const
-{
-    return publisher_;
-}
-
-CPPWAMP_INLINE ClientFeatures::ForSubscriber ClientFeatures::subscriber() const
-{
-    return subscriber_;
-}
-
-CPPWAMP_INLINE bool ClientFeatures::has(const Object* roleDict,
-                                        const char* featureName)
-{
-    return roleDict->count(featureName) != 0;
+    flags.set(pos, roleDict->count(featureName) != 0);
 }
 
 CPPWAMP_INLINE void ClientFeatures::parseCalleeFeatures(const Object& dict)
 {
+    using F = CalleeFeatures;
     auto d = getRoleDict(dict, "callee");
     if (!d)
         return;
-    callee_.supported = true;
-    callee_.callCanceling              = has(d, "call_canceling");
-    callee_.callTimeout                = has(d, "call_timeout");
-    callee_.callTrustLevels            = has(d, "call_trustlevels");
-    callee_.callerIdentification       = has(d, "caller_identification");
-    callee_.patternBasedRegistration   = has(d, "pattern_based_registration");
-    callee_.progressiveCallInvocations = has(d, "progressive_calls");
-    callee_.progressiveCallResults     = has(d, "progressive_call_results");
+    callee_.set(F::basic, true);
+    parse(callee_, F::callCanceling,              d, "call_canceling");
+    parse(callee_, F::callTimeout,                d, "call_timeout");
+    parse(callee_, F::callTrustLevels,            d, "call_trustlevels");
+    parse(callee_, F::callerIdentification,       d, "caller_identification");
+    parse(callee_, F::patternBasedRegistration,   d, "pattern_based_registration");
+    parse(callee_, F::progressiveCallInvocations, d, "progressive_calls");
+    parse(callee_, F::progressiveCallResults,     d, "progressive_call_results");
 }
 
 CPPWAMP_INLINE void ClientFeatures::parseCallerFeatures(const Object& dict)
 {
+    using F = CallerFeatures;
     auto d = getRoleDict(dict, "caller");
     if (!d)
         return;
-    caller_.supported = true;
-    caller_.callCanceling              = has(d, "call_cancelling");
-    caller_.callTimeout                = has(d, "call_timeout");
-    caller_.callerIdentification       = has(d, "caller_identification");
-    caller_.progressiveCallInvocations = has(d, "progressive_calls");
-    caller_.progressiveCallResults     = has(d, "progressive_call_results");
+    caller_.set(F::basic, true);
+    parse(caller_, F::callCanceling,              d, "call_cancelling");
+    parse(caller_, F::callTimeout,                d, "call_timeout");
+    parse(caller_, F::callerIdentification,       d, "caller_identification");
+    parse(caller_, F::progressiveCallInvocations, d, "progressive_calls");
+    parse(caller_, F::progressiveCallResults,     d, "progressive_call_results");
 }
 
 CPPWAMP_INLINE void ClientFeatures::parsePublisherFeatures(const Object& dict)
 {
+    using F = PublisherFeatures;
     auto d = getRoleDict(dict, "publisher");
     if (!d)
         return;
-    publisher_.supported = true;
-    publisher_.publisherExclusion          = has(d, "publisher_exclusion");
-    publisher_.publisherIdentification     = has(d, "publisher_identification");
-    publisher_.subscriberBlackWhiteListing = has(d, "subscriber_blackwhite_listing");
+    publisher_.set(F::basic, true);
+    parse(publisher_, F::publisherExclusion,          d, "publisher_exclusion");
+    parse(publisher_, F::publisherIdentification,     d, "publisher_identification");
+    parse(publisher_, F::subscriberBlackWhiteListing, d, "subscriber_blackwhite_listing");
 }
 
 CPPWAMP_INLINE void ClientFeatures::parseSubscriberFeatures(const Object& dict)
 {
+    using F = SubscriberFeatures;
     auto d = getRoleDict(dict, "subscriber");
     if (!d)
         return;
-    subscriber_.supported = true;
-    subscriber_.patternBasedSubscription = has(d, "pattern_based_subscription");
-    subscriber_.publicationTrustLevels   = has(d, "publication_trustlevels");
-    subscriber_.publisherIdentification  = has(d, "publisher_identification");
+    subscriber_.set(F::basic, true);
+    parse(subscriber_, F::patternBasedSubscription, d, "pattern_based_subscription");
+    parse(subscriber_, F::publicationTrustLevels,   d, "publication_trustlevels");
+    parse(subscriber_, F::publisherIdentification,  d, "publisher_identification");
 }
 
 CPPWAMP_INLINE const Object* ClientFeatures::getRoleDict(const Object& dict,
@@ -212,38 +210,32 @@ CPPWAMP_INLINE const Object* ClientFeatures::getRoleDict(const Object& dict,
 // RouterFeatures
 //******************************************************************************
 
-CPPWAMP_INLINE RouterFeatures::ForBroker RouterFeatures::ForBroker::provided()
-{
-    ForBroker f;
-    f.supported                   = true;
-    f.patternBasedSubscription    = true;
-    f.publicationTrustLevels      = true;
-    f.publisherExclusion          = true;
-    f.publisherIdentification     = true;
-    f.subscriberBlackWhiteListing = true;
-    return f;
-};
-
-CPPWAMP_INLINE RouterFeatures::ForDealer RouterFeatures::ForDealer::provided()
-{
-    ForDealer f;
-    f.supported                  = true;
-    f.callCanceling              = true;
-    f.callTimeout                = true;
-    f.callTrustLevels            = true;
-    f.callerIdentification       = true;
-    f.patternBasedRegistration   = false;
-    f.progressiveCallInvocations = true;
-    f.progressiveCallResults     = true;
-    return f;
-}
-
-
 CPPWAMP_INLINE RouterFeatures RouterFeatures::provided()
 {
     RouterFeatures f;
-    f.broker_ = ForBroker::provided();
-    f.dealer_ = ForDealer::provided();
+
+    {
+        using F = BrokerFeatures;
+        f.broker_ = F::basic |
+                    F::patternBasedSubscription |
+                    F::publicationTrustLevels |
+                    F::publisherExclusion |
+                    F::publisherIdentification |
+                    F::subscriberBlackWhiteListing;
+    }
+
+    {
+        using F = DealerFeatures;
+        f.dealer_ = F::basic |
+                    F::callCanceling |
+                    F::callTimeout |
+                    F::callTrustLevels |
+                    F::callerIdentification |
+                    // Not supported: F::patternBasedRegistration |
+                    F::progressiveCallInvocations |
+                    F::progressiveCallResults;
+    }
+
     return f;
 }
 
@@ -272,10 +264,13 @@ CPPWAMP_INLINE const Object& RouterFeatures::providedRoles()
     return roles;
 }
 
-CPPWAMP_INLINE RouterFeatures::RouterFeatures()
-{
-    std::memset(this, 0, sizeof(RouterFeatures));
-}
+CPPWAMP_INLINE RouterFeatures::RouterFeatures() {}
+
+CPPWAMP_INLINE RouterFeatures::RouterFeatures(Flags<BrokerFeatures> broker,
+                                              Flags<DealerFeatures> dealer)
+    : broker_(broker),
+      dealer_(dealer)
+{}
 
 CPPWAMP_INLINE RouterFeatures::RouterFeatures(const Object& dict)
 {
@@ -283,48 +278,53 @@ CPPWAMP_INLINE RouterFeatures::RouterFeatures(const Object& dict)
     parseDealerFeatures(dict);
 }
 
-CPPWAMP_INLINE RouterFeatures::ForBroker RouterFeatures::broker() const
+CPPWAMP_INLINE Flags<BrokerFeatures>
+RouterFeatures::broker() const {return broker_;}
+
+CPPWAMP_INLINE Flags<DealerFeatures>
+RouterFeatures::dealer() const {return dealer_;}
+
+CPPWAMP_INLINE bool RouterFeatures::supports(RouterFeatures desired) const
 {
-    return broker_;
+    return ((broker_ & desired.broker_) == desired.broker_) &&
+           ((dealer_ & desired.dealer_) == desired.dealer_);
 }
 
-CPPWAMP_INLINE RouterFeatures::ForDealer RouterFeatures::dealer() const
+template <typename E>
+void RouterFeatures::parse(Flags<E>& flags, E pos, const Object* roleDict,
+                           const char* featureName)
 {
-    return dealer_;
-}
-
-CPPWAMP_INLINE bool RouterFeatures::has(const Object* roleDict,
-                                        const char* featureName)
-{
-    return roleDict->count(featureName) != 0;
+    flags.set(pos, roleDict->count(featureName) != 0);
 }
 
 CPPWAMP_INLINE void RouterFeatures::parseBrokerFeatures(const Object& dict)
 {
+    using F = BrokerFeatures;
     auto d = getRoleDict(dict, "broker");
     if (!d)
         return;
-    broker_.supported = true;
-    broker_.patternBasedSubscription    = has(d, "pattern_based_subscription");
-    broker_.publicationTrustLevels      = has(d, "publication_trustlevels");
-    broker_.publisherExclusion          = has(d, "publisher_exclusion");
-    broker_.publisherIdentification     = has(d, "publisher_identification");
-    broker_.subscriberBlackWhiteListing = has(d, "subscriber_blackwhite_listing");
+    broker_.set(F::basic, true);
+    parse(broker_, F::patternBasedSubscription,    d, "pattern_based_subscription");
+    parse(broker_, F::publicationTrustLevels,      d, "publication_trustlevels");
+    parse(broker_, F::publisherExclusion,          d, "publisher_exclusion");
+    parse(broker_, F::publisherIdentification,     d, "publisher_identification");
+    parse(broker_, F::subscriberBlackWhiteListing, d, "subscriber_blackwhite_listing");
 }
 
 CPPWAMP_INLINE void RouterFeatures::parseDealerFeatures(const Object& dict)
 {
+    using F = DealerFeatures;
     auto d = getRoleDict(dict, "dealer");
     if (!d)
         return;
-    dealer_.supported = true;
-    dealer_.callCanceling              = has(d, "call_canceling");
-    dealer_.callTimeout                = has(d, "call_timeout");
-    dealer_.callTrustLevels            = has(d, "call_trustlevels");
-    dealer_.callerIdentification       = has(d, "caller_identification");
-    dealer_.patternBasedRegistration   = has(d, "pattern_based_registration");
-    dealer_.progressiveCallInvocations = has(d, "progressive_calls");
-    dealer_.progressiveCallResults     = has(d, "progressive_call_results");
+    dealer_.set(F::basic, true);
+    parse(dealer_, F::callCanceling,              d, "call_canceling");
+    parse(dealer_, F::callTimeout,                d, "call_timeout");
+    parse(dealer_, F::callTrustLevels,            d, "call_trustlevels");
+    parse(dealer_, F::callerIdentification,       d, "caller_identification");
+    parse(dealer_, F::patternBasedRegistration,   d, "pattern_based_registration");
+    parse(dealer_, F::progressiveCallInvocations, d, "progressive_calls");
+    parse(dealer_, F::progressiveCallResults,     d, "progressive_call_results");
 }
 
 CPPWAMP_INLINE const Object* RouterFeatures::getRoleDict(const Object& dict,

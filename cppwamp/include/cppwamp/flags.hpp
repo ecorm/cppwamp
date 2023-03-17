@@ -15,6 +15,8 @@
 #include "traits.hpp"
 #include <initializer_list>
 
+// TODO: Constexpr
+
 namespace wamp
 {
 
@@ -91,9 +93,6 @@ public:
     /** Returns true iff all flags are reset. */
     bool none() const {return n_ == 0;}
 
-    /** Resets all flags. */
-    Flags& clear() {n_ = 0; return *this;}
-
     /** Sets the given flags. */
     Flags& set(Flags flags) {n_ |= flags.n_; return *this;}
 
@@ -103,6 +102,9 @@ public:
         n_ = value ? (n_ | flags.n_) : (n_ & ~flags.n_);
         return *this;
     }
+
+    /** Resets all flags. */
+    Flags& reset() {n_ = 0; return *this;}
 
     /** Resets the given flags. */
     Flags& reset(Flags flags) {n_ &= ~flags.n_; return *this;}

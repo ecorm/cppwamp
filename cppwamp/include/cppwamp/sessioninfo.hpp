@@ -137,15 +137,6 @@ public:
 class CPPWAMP_API Welcome : public Options<Welcome, internal::WelcomeMessage>
 {
 public:
-    /** A set of role strings. */
-    using RoleSet = std::set<String>;
-
-    /** A set of feature strings. */
-    using FeatureSet = std::set<String>;
-
-    /** A dictionary of feature sets to be supported by each role. */
-    using FeatureMap = std::map<String, FeatureSet>;
-
     /** Default constructor. */
     Welcome();
 
@@ -177,12 +168,6 @@ public:
 
     /** Obtains a parsed set of features supported by the router. */
     ErrorOr<RouterFeatures> features() const;
-
-    /** Checks that the router supports the given set of roles. */
-    bool supportsRoles(const RoleSet& roles) const;
-
-    /** Checks that the router supports the given map of features. */
-    bool supportsFeatures(const FeatureMap& features) const;
     /// @}
 
     /** @name Authentication

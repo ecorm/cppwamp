@@ -330,7 +330,7 @@ GIVEN( "a non-empty Flags instance" )
     Flags<TestEnum> f(TestEnum::one);
     WHEN( "the Flags are all cleared" )
     {
-        f.clear();
+        f.reset();
         THEN( "none of the flags are set" )
         {
             CHECK      ( f == TestEnum::zero );
@@ -349,7 +349,7 @@ GIVEN( "an empty Flags instance" )
     Flags<TestEnum> f;
     WHEN( "the Flags are cleared" )
     {
-        f.clear();
+        f.reset();
         THEN( "none of the flags are set" )
         {
             CHECK      ( f == TestEnum::zero );

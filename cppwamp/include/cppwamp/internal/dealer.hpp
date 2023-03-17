@@ -215,7 +215,9 @@ public:
         if (!callee)
             return false;
 
-        mode = callee->features().callee().callCanceling ? mode : Mode::skip;
+        bool calleeHasCallCanceling =
+            callee->features().callee().test(CalleeFeatures::callCanceling);
+        mode = calleeHasCallCanceling ? mode : Mode::skip;
 
         // Reject duplicate cancellations, except for killnowait that
         // supercedes kill and skip cancellations in progress.
@@ -255,7 +257,7 @@ public:
             return;
 
         auto reqId = calleeKey_.second;
-        if (callee->features().callee().callCanceling)
+        if (callee->features().callee().test(CalleeFeatures::callCanceling))
         {
             callee->sendInterruption({{}, reqId, CallCancelMode::killNoWait,
                                       WampErrc::cancelled});
@@ -329,24 +331,33 @@ private:
         if (hasTimeout_)
             timeout_ = *timeout;
 
-        auto feats = callee->features().callee();
+        auto calleeFeatures = callee->features().callee();
+        bool calleeHasCallCancelling =
+            calleeFeatures.test(CalleeFeatures::callCanceling);
 
         // Not clear what the behavior should be when progressive results are
         // requested, but not supported by the callee.
         // https://github.com/wamp-proto/wamp-proto/issues/467
-        if (rpc.progressiveResultsAreEnabled({}) && feats.callCanceling &&
-            feats.progressiveCallResults)
+        if (rpc.progressiveResultsAreEnabled({}))
         {
-            progressiveResultsRequested_ = true;
+            bool calleeHasProgressiveCallResults =
+                calleeHasCallCancelling &&
+                calleeFeatures.test(CalleeFeatures::progressiveCallResults);
+            progressiveResultsRequested_ = calleeHasProgressiveCallResults;
         }
 
         if (rpc.isProgress({}))
         {
-            if (!feats.callCanceling || !feats.progressiveCallInvocations)
+            bool calleeHasProgressiveCallInvocations =
+                calleeHasCallCancelling &&
+                calleeFeatures.test(CalleeFeatures::progressiveCallInvocations);
+
+            if (!calleeHasProgressiveCallInvocations)
             {
                 errc = WampErrc::featureNotSupported;
                 return;
             }
+
             isProgressiveCall_ = true;
         }
     }

@@ -485,7 +485,8 @@ GIVEN( "a Session and a ConnectionWish" )
                 Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.supportsRoles({"broker", "dealer"}) );
+                CHECK( info.features()->broker().test(BrokerFeatures::basic) );
+                CHECK( info.features()->dealer().test(DealerFeatures::basic) );
 
                 // Check leaving.
                 Reason reason = s.leave(yield).value();
@@ -507,7 +508,8 @@ GIVEN( "a Session and a ConnectionWish" )
                 Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.supportsRoles({"broker", "dealer"}) );
+                CHECK( info.features()->broker().test(BrokerFeatures::basic) );
+                CHECK( info.features()->dealer().test(DealerFeatures::basic) );
 
                 // Try leaving with a reason URI this time.
                 Reason reason = s.leave(Reason("wamp.error.system_shutdown"),
@@ -565,7 +567,8 @@ GIVEN( "a Session and a ConnectionWish" )
                 Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.supportsRoles({"broker", "dealer"}) );
+                CHECK( info.features()->broker().test(BrokerFeatures::basic) );
+                CHECK( info.features()->dealer().test(DealerFeatures::basic) );
 
                 // Leave
                 Reason reason = s.leave(yield).value();
@@ -741,7 +744,8 @@ GIVEN( "a Session and an alternate ConnectionWish" )
                 Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.supportsRoles({"broker", "dealer"}) );
+                CHECK( info.features()->broker().test(BrokerFeatures::basic) );
+                CHECK( info.features()->dealer().test(DealerFeatures::basic) );
 
                 // Check leaving.
                 Reason reason = s.leave(yield).value();
@@ -761,7 +765,8 @@ GIVEN( "a Session and an alternate ConnectionWish" )
                 Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.supportsRoles({"broker", "dealer"}) );
+                CHECK( info.features()->broker().test(BrokerFeatures::basic) );
+                CHECK( info.features()->dealer().test(DealerFeatures::basic) );
 
                 // Try leaving with a reason URI this time.
                 Reason reason = s.leave(Reason("wamp.error.system_shutdown"),
@@ -1840,7 +1845,8 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
                 Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.supportsRoles({"broker", "dealer"}) );
+                CHECK( info.features()->broker().test(BrokerFeatures::basic) );
+                CHECK( info.features()->dealer().test(DealerFeatures::basic) );
 
                 // Disconnect
                 CHECK_NOTHROW( s.disconnect() );
