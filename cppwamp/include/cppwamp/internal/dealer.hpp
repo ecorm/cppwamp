@@ -46,7 +46,7 @@ public:
 
     void setRegistrationId(RegistrationId rid) {regId_ = rid;}
 
-    const String& procedureUri() const {return procedureUri_;}
+    const Uri& procedureUri() const {return procedureUri_;}
 
     RegistrationId registrationId() const {return regId_;}
 
@@ -65,7 +65,7 @@ private:
             ec = make_error_code(WampErrc::optionNotAllowed);
     }
 
-    String procedureUri_;
+    Uri procedureUri_;
     RealmSession::WeakPtr callee_;
     SessionId calleeId_;
     RegistrationId regId_ = nullId();
@@ -79,7 +79,7 @@ public:
 
     bool contains(Key key) {return byKey_.count(key) != 0;}
 
-    bool contains(const String& uri) {return byUri_.count(uri) != 0;}
+    bool contains(const Uri& uri) {return byUri_.count(uri) != 0;}
 
     void insert(Key key, DealerRegistration&& reg)
     {
@@ -91,7 +91,7 @@ public:
         byUri_.emplace(std::move(uri), ptr);
     }
 
-    ErrorOr<String> erase(const Key& key)
+    ErrorOr<Uri> erase(const Key& key)
     {
         auto found = byKey_.find(key);
         if (found == byKey_.end())
@@ -103,9 +103,9 @@ public:
         return uri;
     }
 
-    DealerRegistration* find(const String& procedureUri)
+    DealerRegistration* find(const Uri& procedure)
     {
-        auto found = byUri_.find(procedureUri);
+        auto found = byUri_.find(procedure);
         if (found == byUri_.end())
             return nullptr;
         return found->second;
@@ -136,7 +136,7 @@ public:
 
 private:
     std::map<Key, DealerRegistration> byKey_;
-    std::map<String, DealerRegistration*> byUri_;
+    std::map<Uri, DealerRegistration*> byUri_;
 };
 
 //------------------------------------------------------------------------------
@@ -508,7 +508,7 @@ public:
         return key.second;
     }
 
-    ErrorOr<String> unregister(RealmSession::Ptr callee, RegistrationId rid)
+    ErrorOr<Uri> unregister(RealmSession::Ptr callee, RegistrationId rid)
     {
         // Consensus on what to do with pending invocations upon unregister
         // appears to be to allow them to continue.

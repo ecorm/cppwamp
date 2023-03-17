@@ -51,7 +51,7 @@ public:
     SessionId sessionId() const;
 
     /** Obtains the realm URI. */
-    const String& realmUri() const;
+    const Uri& realmUri() const;
 
     /** Obtains the `authid` string. */
     const String& id() const;
@@ -89,9 +89,8 @@ private:
 
 public:
     // Internal use only
-    void join(internal::PassKey, String realmUri, SessionId sessionId,
-              bool isLocal);
-    Object join(internal::PassKey, String realmUri, SessionId sessionId,
+    void join(internal::PassKey, Uri realm, SessionId sessionId, bool isLocal);
+    Object join(internal::PassKey, Uri uri, SessionId sessionId,
                 Object routerRoles);
 };
 

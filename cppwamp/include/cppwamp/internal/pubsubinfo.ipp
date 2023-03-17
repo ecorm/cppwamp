@@ -8,6 +8,7 @@
 #include <utility>
 #include "../api.hpp"
 #include "../exceptions.hpp"
+#include "../variantdefs.hpp"
 #include "matchpolicyoption.hpp"
 
 namespace wamp
@@ -17,9 +18,9 @@ namespace wamp
 // Topic
 //******************************************************************************
 
-CPPWAMP_INLINE Topic::Topic(String uri) : Base(std::move(uri)) {}
+CPPWAMP_INLINE Topic::Topic(Uri uri) : Base(std::move(uri)) {}
 
-CPPWAMP_INLINE const String& Topic::uri() const {return message().uri();}
+CPPWAMP_INLINE const Uri& Topic::uri() const {return message().uri();}
 
 CPPWAMP_INLINE AccessActionInfo Topic::info() const
 {
@@ -49,7 +50,7 @@ CPPWAMP_INLINE RequestId Topic::requestId(internal::PassKey) const
     return message().requestId();
 }
 
-CPPWAMP_INLINE String&& Topic::uri(internal::PassKey) &&
+CPPWAMP_INLINE Uri&& Topic::uri(internal::PassKey) &&
 {
     return std::move(message()).uri();
 }
@@ -58,9 +59,9 @@ CPPWAMP_INLINE String&& Topic::uri(internal::PassKey) &&
 // Pub
 //******************************************************************************
 
-CPPWAMP_INLINE Pub::Pub(String topic) : Base(std::move(topic)) {}
+CPPWAMP_INLINE Pub::Pub(Uri topic) : Base(std::move(topic)) {}
 
-CPPWAMP_INLINE const String& Pub::uri() const {return message().uri();}
+CPPWAMP_INLINE const Uri& Pub::uri() const {return message().uri();}
 
 CPPWAMP_INLINE AccessActionInfo Pub::info() const
 {
@@ -204,7 +205,7 @@ CPPWAMP_INLINE const AnyCompletionExecutor& Event::executor() const
     return executor_;
 }
 
-CPPWAMP_INLINE AccessActionInfo Event::info(String topic) const
+CPPWAMP_INLINE AccessActionInfo Event::info(Uri topic) const
 {
     return {AccessAction::serverEvent, std::move(topic), options()};
 }
@@ -230,9 +231,9 @@ CPPWAMP_INLINE ErrorOr<TrustLevel> Event::trustLevel() const
 /** @details
     This function checks the value of the `EVENT.Details.topic|uri` detail.
     @returns The topic URI, if available, or an error code. */
-CPPWAMP_INLINE ErrorOr<String> Event::topic() const
+CPPWAMP_INLINE ErrorOr<Uri> Event::topic() const
 {
-    return optionAs<String>("topic");
+    return optionAs<Uri>("topic");
 }
 
 CPPWAMP_INLINE Event::Event(internal::PassKey, AnyCompletionExecutor executor,

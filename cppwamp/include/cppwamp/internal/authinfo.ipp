@@ -35,7 +35,7 @@ CPPWAMP_INLINE AuthInfo& AuthInfo::withNote(any note)
 
 CPPWAMP_INLINE SessionId AuthInfo::sessionId() const {return sessionId_;}
 
-CPPWAMP_INLINE const String& AuthInfo::realmUri() const {return realmUri_;}
+CPPWAMP_INLINE const Uri& AuthInfo::realmUri() const {return realmUri_;}
 
 CPPWAMP_INLINE const String& AuthInfo::id() const {return id_;}
 
@@ -49,19 +49,19 @@ CPPWAMP_INLINE const Object& AuthInfo::extra() const {return extra_;}
 
 CPPWAMP_INLINE const any& AuthInfo::note() const {return note_;}
 
-CPPWAMP_INLINE void AuthInfo::join(internal::PassKey, String realmUri,
+CPPWAMP_INLINE void AuthInfo::join(internal::PassKey, Uri realm,
                                    SessionId sessionId, bool isLocal)
 {
-    realmUri_ = std::move(realmUri);
+    realmUri_ = std::move(realm);
     sessionId_ = sessionId;
     isLocal_ = isLocal;
 }
 
 CPPWAMP_INLINE Object
-AuthInfo::join(internal::PassKey, String realmUri, SessionId sessionId,
+AuthInfo::join(internal::PassKey, Uri uri, SessionId sessionId,
                Object routerRoles)
 {
-    realmUri_ = std::move(realmUri);
+    realmUri_ = std::move(uri);
     sessionId_ = sessionId;
 
     Object details;

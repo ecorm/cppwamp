@@ -13,7 +13,7 @@
 #include "erroror.hpp"
 #include "options.hpp"
 #include "payload.hpp"
-#include "variant.hpp"
+#include "variantdefs.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
 #include "./internal/wampmessage.hpp"
@@ -35,10 +35,10 @@ class CPPWAMP_API Topic : public Options<Topic, internal::SubscribeMessage>
 {
 public:
     /** Converting constructor taking a topic URI. */
-    Topic(String uri);
+    Topic(Uri uri);
 
     /** Obtains the topic URI. */
-    const String& uri() const;
+    const Uri& uri() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
@@ -63,7 +63,7 @@ public:
     // Internal use only
     Topic(internal::PassKey, internal::SubscribeMessage&& msg);
     RequestId requestId(internal::PassKey) const;
-    String&& uri(internal::PassKey) &&;
+    Uri&& uri(internal::PassKey) &&;
 };
 
 
@@ -75,10 +75,10 @@ class CPPWAMP_API Pub : public Payload<Pub, internal::PublishMessage>
 {
 public:
     /** Converting constructor taking a topic URI. */
-    Pub(String topic);
+    Pub(Uri topic);
 
     /** Obtains the topic URI. */
-    const String& uri() const;
+    const Uri& uri() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
@@ -185,7 +185,7 @@ public:
     const AnyCompletionExecutor& executor() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(String topic = {}) const;
+    AccessActionInfo info(Uri topic = {}) const;
 
     /** @name Publisher Identification
         See [Publisher Identification in the WAMP Specification]
@@ -211,7 +211,7 @@ public:
         @{ */
 
     /** Obtains the original topic URI string used to make the publication. */
-    ErrorOr<String> topic() const;
+    ErrorOr<Uri> topic() const;
     /// @}
 
 private:

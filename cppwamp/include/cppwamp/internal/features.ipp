@@ -6,6 +6,7 @@
 
 #include "../features.hpp"
 #include "../api.hpp"
+#include "../variant.hpp"
 
 namespace wamp
 {

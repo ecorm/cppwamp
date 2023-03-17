@@ -15,7 +15,7 @@
 #include "api.hpp"
 #include "errorcodes.hpp"
 #include "payload.hpp"
-#include "variant.hpp"
+#include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
 #include "./internal/wampmessage.hpp"
 
@@ -36,7 +36,7 @@ class CPPWAMP_API Error : public Payload<Error, internal::ErrorMessage>
 {
 public:
     /** Converting constructor taking a reason URI. */
-    Error(String uri = {});
+    Error(Uri uri = {});
 
     /** Converting constructor taking an error code, attempting to convert
         it to a reason URI. */
@@ -57,7 +57,7 @@ public:
     explicit operator bool() const;
 
     /** Obtains the reason URI. */
-    const String& uri() const;
+    const Uri& uri() const;
 
     /** Attempts to convert the reason URI to a known error code. */
     WampErrc errorCode() const;

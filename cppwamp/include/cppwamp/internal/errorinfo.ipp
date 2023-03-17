@@ -11,7 +11,7 @@
 namespace wamp
 {
 
-CPPWAMP_INLINE Error::Error(String uri) : Base(std::move(uri)) {}
+CPPWAMP_INLINE Error::Error(Uri uri) : Base(std::move(uri)) {}
 
 CPPWAMP_INLINE Error::Error(std::error_code ec) : Base(errorCodeToUri(ec)) {}
 
@@ -27,7 +27,7 @@ CPPWAMP_INLINE Error::~Error() {}
 
 CPPWAMP_INLINE Error::operator bool() const {return !uri().empty();}
 
-CPPWAMP_INLINE const String& Error::uri() const {return message().uri();}
+CPPWAMP_INLINE const Uri& Error::uri() const {return message().uri();}
 
 /** @return WampErrc::unknown if the URI is unknown. */
 CPPWAMP_INLINE WampErrc Error::errorCode() const {return errorUriToCode(uri());}

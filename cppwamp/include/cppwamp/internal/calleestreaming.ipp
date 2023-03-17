@@ -14,7 +14,7 @@ namespace wamp
 // Stream
 //******************************************************************************
 
-CPPWAMP_INLINE Stream::Stream(String uri): Base(std::move(uri)) {}
+CPPWAMP_INLINE Stream::Stream(Uri uri): Base(std::move(uri)) {}
 
 CPPWAMP_INLINE Stream& Stream::withInvitationExpected(bool enabled)
 {

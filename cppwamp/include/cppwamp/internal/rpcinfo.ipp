@@ -9,6 +9,7 @@
 #include <utility>
 #include "../api.hpp"
 #include "../exceptions.hpp"
+#include "../variant.hpp"
 #include "callee.hpp"
 
 namespace wamp
@@ -56,7 +57,7 @@ CPPWAMP_INLINE CallCancelMode parseCallCancelModeFromOptions(const Object& opts)
 // Procedure
 //******************************************************************************
 
-CPPWAMP_INLINE Procedure::Procedure(String uri) : Base(std::move(uri)) {}
+CPPWAMP_INLINE Procedure::Procedure(Uri uri) : Base(std::move(uri)) {}
 
 CPPWAMP_INLINE Procedure::Procedure(internal::PassKey,
                                     internal::RegisterMessage&& msg)
@@ -68,7 +69,7 @@ CPPWAMP_INLINE Procedure::Procedure(internal::PassKey,
 // Rpc
 //******************************************************************************
 
-CPPWAMP_INLINE Rpc::Rpc(String uri)
+CPPWAMP_INLINE Rpc::Rpc(Uri uri)
     : Base(std::move(uri)),
       progressiveResultsEnabled_(optionOr<bool>("receive_progress", false)),
       isProgress_(optionOr<bool>("progress", false))
@@ -443,7 +444,7 @@ CPPWAMP_INLINE ErrorOr<TrustLevel> Invocation::trustLevel() const
     detail.
     @returns A string variant if the procedure URI is available. Otherwise,
              a null variant is returned. */
-CPPWAMP_INLINE ErrorOr<String> Invocation::procedure() const
+CPPWAMP_INLINE ErrorOr<Uri> Invocation::procedure() const
 {
     return optionAs<String>("procedure");
 }
@@ -520,7 +521,7 @@ CPPWAMP_INLINE CallCancelMode Interruption::cancelMode() const
     return cancelMode_;
 }
 
-CPPWAMP_INLINE ErrorOr<String> Interruption::reason() const
+CPPWAMP_INLINE ErrorOr<Uri> Interruption::reason() const
 {
     return optionAs<String>("reason");
 }

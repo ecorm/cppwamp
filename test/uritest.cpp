@@ -365,7 +365,7 @@ TEST_CASE( "Relaxed URI Validation", "[Uri]" )
 {
     struct Record
     {
-        String uri;
+        Uri uri;
         bool expectedNonPatternValidity;
         bool expectedPatternValidity;
     };
@@ -421,7 +421,7 @@ TEST_CASE( "Strict URI Validation", "[Uri]" )
 {
     struct Record
     {
-        String uri;
+        Uri uri;
         bool expectedNonPatternValidity;
         bool expectedPatternValidity;
     };

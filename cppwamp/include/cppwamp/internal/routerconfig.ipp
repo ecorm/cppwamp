@@ -14,7 +14,7 @@ namespace wamp
 // RealmConfig
 //******************************************************************************
 
-CPPWAMP_INLINE RealmConfig::RealmConfig(String uri)
+CPPWAMP_INLINE RealmConfig::RealmConfig(Uri uri)
     : uri_(std::move(uri))
 {}
 
@@ -64,7 +64,7 @@ RealmConfig::withProcedureUriValidator(UriValidator v)
 }
 
 
-CPPWAMP_INLINE const String& RealmConfig::uri() const {return uri_;}
+CPPWAMP_INLINE const Uri& RealmConfig::uri() const {return uri_;}
 
 CPPWAMP_INLINE const Authorizer& RealmConfig::authorizer() const
 {

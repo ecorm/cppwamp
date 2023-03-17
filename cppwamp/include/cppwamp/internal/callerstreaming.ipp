@@ -16,7 +16,7 @@ namespace wamp
 //******************************************************************************
 
 /** Constructor. */
-CPPWAMP_INLINE StreamRequest::StreamRequest(String uri, StreamMode mode)
+CPPWAMP_INLINE StreamRequest::StreamRequest(Uri uri, StreamMode mode)
     : Base(std::move(uri)),
       mode_(mode)
 {

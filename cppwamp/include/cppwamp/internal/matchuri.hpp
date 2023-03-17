@@ -35,7 +35,7 @@ public:
         : MatchUri(std::move(t).uri({}), t.matchPolicy())
     {}
 
-    const String& uri() const {return uri_;}
+    const Uri& uri() const {return uri_;}
 
     Policy policy() const {return policy_;}
 

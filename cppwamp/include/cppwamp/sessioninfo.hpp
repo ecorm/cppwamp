@@ -17,9 +17,8 @@
 #include "erroror.hpp"
 #include "features.hpp"
 #include "options.hpp"
-#include "payload.hpp"
 #include "tagtypes.hpp"
-#include "variant.hpp"
+#include "variantdefs.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
 #include "./internal/wampmessage.hpp"
@@ -41,7 +40,7 @@ class CPPWAMP_API Reason : public Options<Reason, internal::GoodbyeMessage>
 {
 public:
     /** Converting constructor taking an optional reason URI. */
-    Reason(String uri = {});
+    Reason(Uri uri = {});
 
     /** Converting constructor taking an error code, attempting to convert
         it to a URI. */
@@ -55,7 +54,7 @@ public:
     Reason& withHint(String message);
 
     /** Obtains the reason URI. */
-    const String& uri() const;
+    const Uri& uri() const;
 
     /** Obtains the `message` member of the details dictionary. */
     ErrorOr<String> hint() const;
@@ -73,7 +72,7 @@ public:
     // Internal use only
     Reason(internal::PassKey, internal::GoodbyeMessage&& msg);
     Reason(internal::PassKey, internal::AbortMessage&& msg);
-    void setUri(internal::PassKey, String uri);
+    void setUri(internal::PassKey, Uri uri);
     internal::AbortMessage& abortMessage(internal::PassKey);
 };
 
@@ -84,14 +83,14 @@ class CPPWAMP_API Realm : public Options<Realm, internal::HelloMessage>
 {
 public:
     /** Converting constructor taking a realm URI. */
-    Realm(String uri);
+    Realm(Uri uri);
 
     /** Specifies the Reason object in which to store abort details returned
         by the router. */
     Realm& captureAbort(Reason& reason);
 
     /** Obtains the realm URI. */
-    const String& uri() const;
+    const Uri& uri() const;
 
     /** Obtains the agent string. */
     ErrorOr<String> agent() const;
@@ -154,7 +153,7 @@ public:
     SessionId id() const;
 
     /** Obtains realm URI. */
-    const String& realm() const;
+    const Uri& realm() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
@@ -211,11 +210,11 @@ public:
 private:
     using Base = Options<Welcome, internal::WelcomeMessage>;
 
-    String realm_;
+    Uri realm_;
 
 public:
     // Internal use only
-    Welcome(internal::PassKey, String&& realm, internal::WelcomeMessage&& msg);
+    Welcome(internal::PassKey, Uri&& realm, internal::WelcomeMessage&& msg);
 };
 
 

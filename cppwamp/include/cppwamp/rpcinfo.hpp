@@ -22,7 +22,7 @@
 #include "options.hpp"
 #include "payload.hpp"
 #include "tagtypes.hpp"
-#include "variant.hpp"
+#include "variantdefs.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
 #include "./internal/matchpolicyoption.hpp"
@@ -45,7 +45,7 @@ class ProcedureLike : public Options<TDerived, internal::RegisterMessage>
 {
 public:
     /** Obtains the procedure URI. */
-    const String& uri() const;
+    const Uri& uri() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
@@ -74,7 +74,7 @@ private:
 public:
     // Internal use only
     RequestId requestId(internal::PassKey) const;
-    String&& uri(internal::PassKey);
+    Uri&& uri(internal::PassKey);
 };
 
 
@@ -86,7 +86,7 @@ class CPPWAMP_API Procedure : public ProcedureLike<Procedure>
 {
 public:
     /** Converting constructor taking a procedure URI. */
-    Procedure(String uri);
+    Procedure(Uri uri);
 
 private:
     using Base = ProcedureLike<Procedure>;
@@ -115,7 +115,7 @@ public:
     TDerived& captureError(Error& error);
 
     /** Obtains the procedure URI. */
-    const String& uri() const;
+    const Uri& uri() const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
@@ -213,7 +213,7 @@ class CPPWAMP_API Rpc : public RpcLike<Rpc>
 {
 public:
     /** Converting constructor taking a procedure URI. */
-    Rpc(String uri);
+    Rpc(Uri uri);
 
  private:
     using Base = RpcLike<Rpc>;
@@ -447,7 +447,7 @@ public:
         @{ */
 
     /** Obtains the original procedure URI string used to make this call. */
-    ErrorOr<String> procedure() const;
+    ErrorOr<Uri> procedure() const;
     /// @}
 
 public:
@@ -532,7 +532,7 @@ public:
     CallCancelMode cancelMode() const;
 
     /** Obtains the cancellation reason, if available. */
-    ErrorOr<String> reason() const;
+    ErrorOr<Uri> reason() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
     AnyCompletionExecutor executor() const;
@@ -581,7 +581,7 @@ private:
 //******************************************************************************
 
 template <typename D>
-const String& ProcedureLike<D>::uri() const {return this->message().uri();}
+const Uri& ProcedureLike<D>::uri() const {return this->message().uri();}
 
 template <typename D>
 AccessActionInfo ProcedureLike<D>::info() const
@@ -618,7 +618,7 @@ RequestId ProcedureLike<D>::requestId(internal::PassKey) const
 }
 
 template <typename D>
-String&& ProcedureLike<D>::uri(internal::PassKey)
+Uri&& ProcedureLike<D>::uri(internal::PassKey)
 {
     return std::move(this->message()).uri();
 }
@@ -636,7 +636,7 @@ D& RpcLike<D>::captureError(Error& error)
 }
 
 template <typename D>
-const String& RpcLike<D>::uri() const {return this->message().uri();}
+const Uri& RpcLike<D>::uri() const {return this->message().uri();}
 
 template <typename D>
 AccessActionInfo RpcLike<D>::info() const

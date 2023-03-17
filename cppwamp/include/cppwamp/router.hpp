@@ -84,9 +84,9 @@ public:
 
     void closeServer(const std::string& name, Reason r = shutdownReason());
 
-    ErrorOr<LocalSession> join(String realmUri, AuthInfo authInfo);
+    ErrorOr<LocalSession> join(Uri realm, AuthInfo authInfo);
 
-    ErrorOr<LocalSession> join(String realmUri, AuthInfo authInfo,
+    ErrorOr<LocalSession> join(Uri realm, AuthInfo authInfo,
                                AnyCompletionExecutor fallbackExecutor);
 
     void close(Reason r = shutdownReason());

@@ -7,6 +7,7 @@
 #include "../sessioninfo.hpp"
 #include <utility>
 #include "../api.hpp"
+#include "../variant.hpp"
 #include "challengee.hpp"
 
 namespace wamp
@@ -16,7 +17,7 @@ namespace wamp
 // Reason
 //******************************************************************************
 
-CPPWAMP_INLINE Reason::Reason(String uri) : Base(std::move(uri)) {}
+CPPWAMP_INLINE Reason::Reason(Uri uri) : Base(std::move(uri)) {}
 
 CPPWAMP_INLINE Reason::Reason(std::error_code ec) : Base(errorCodeToUri(ec)) {}
 
@@ -28,7 +29,7 @@ CPPWAMP_INLINE Reason& Reason::withHint(String text)
     return *this;
 }
 
-CPPWAMP_INLINE const String& Reason::uri() const {return message().uri();}
+CPPWAMP_INLINE const Uri& Reason::uri() const {return message().uri();}
 
 CPPWAMP_INLINE ErrorOr<String> Reason::hint() const
 {
@@ -56,7 +57,7 @@ CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::AbortMessage&& msg)
     : Base(std::move(msg))
 {}
 
-CPPWAMP_INLINE void Reason::setUri(internal::PassKey, String uri)
+CPPWAMP_INLINE void Reason::setUri(internal::PassKey, Uri uri)
 {
     message().at(2) = std::move(uri);
 }
@@ -71,7 +72,7 @@ CPPWAMP_INLINE internal::AbortMessage& Reason::abortMessage(internal::PassKey)
 // Realm
 //******************************************************************************
 
-CPPWAMP_INLINE Realm::Realm(String uri) : Base(std::move(uri)) {}
+CPPWAMP_INLINE Realm::Realm(Uri uri) : Base(std::move(uri)) {}
 
 CPPWAMP_INLINE Realm& Realm::captureAbort(Reason& reason)
 {
@@ -79,10 +80,7 @@ CPPWAMP_INLINE Realm& Realm::captureAbort(Reason& reason)
     return *this;
 }
 
-CPPWAMP_INLINE const String& Realm::uri() const
-{
-    return message().uri();
-}
+CPPWAMP_INLINE const Uri& Realm::uri() const {return message().uri();}
 
 CPPWAMP_INLINE ErrorOr<String> Realm::agent() const
 {
@@ -137,7 +135,7 @@ CPPWAMP_INLINE Welcome::Welcome() {}
 
 CPPWAMP_INLINE SessionId Welcome::id() const {return message().sessionId();}
 
-CPPWAMP_INLINE const String& Welcome::realm() const {return realm_;}
+CPPWAMP_INLINE const Uri& Welcome::realm() const {return realm_;}
 
 CPPWAMP_INLINE AccessActionInfo Welcome::info() const
 {
@@ -289,7 +287,7 @@ CPPWAMP_INLINE ErrorOr<Object> Welcome::authExtra() const
     return optionAs<Object>("authextra");
 }
 
-CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, String&& realm,
+CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, Uri&& realm,
                                 internal::WelcomeMessage&& msg)
     : Base(std::move(msg)),
       realm_(std::move(realm))

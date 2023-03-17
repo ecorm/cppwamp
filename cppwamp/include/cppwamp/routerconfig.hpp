@@ -35,7 +35,7 @@ namespace internal { class RouterServer; } // Forward declaration
 class CPPWAMP_API RealmConfig
 {
 public:
-    RealmConfig(String uri);
+    RealmConfig(Uri uri);
 
     RealmConfig& withAuthorizer(Authorizer f);
 
@@ -61,7 +61,7 @@ public:
 
     RealmConfig& withProcedureUriValidator(UriValidator v);
 
-    const String& uri() const;
+    const Uri& uri() const;
 
     const Authorizer& authorizer() const;
 
@@ -76,7 +76,7 @@ public:
     const UriValidator& procedureUriValidator() const;
 
 private:
-    String uri_;
+    Uri uri_;
     Authorizer authorizer_;
     UriValidator topicUriValidator_;
     UriValidator procedureUriValidator_;

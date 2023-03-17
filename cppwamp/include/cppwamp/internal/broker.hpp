@@ -79,7 +79,7 @@ public:
             subscriber.sendEvent(Event{event_}, topicUri_);
     }
 
-    const String& topicUri() const {return topicUri_;}
+    const Uri& topicUri() const {return topicUri_;}
 
     PublicationId publicationId() const {return publicationId_;}
 
@@ -138,7 +138,7 @@ private:
         return true;
     }
 
-    String topicUri_;
+    Uri topicUri_;
     Event event_;
     std::set<SessionId> eligibleSessions_;
     std::set<String> eligibleAuthIds_;
@@ -228,7 +228,7 @@ public:
           subIdGen_(gen)
     {}
 
-    const String& topicUri() const {return topic_.uri();}
+    const Uri& topicUri() const {return topic_.uri();}
 
     MatchPolicy policy() const {return topic_.policy();}
 
@@ -289,7 +289,7 @@ public:
         return subId;
     }
 
-    void erase(const String& topicUri) {trie_.erase(topicUri);}
+    void erase(const Uri& topicUri) {trie_.erase(topicUri);}
 
 
     void removeSubscriber(SessionId sessionId)
@@ -423,8 +423,7 @@ public:
         return 0;
     }
 
-    ErrorOr<String> unsubscribe(RealmSession::Ptr subscriber,
-                                SubscriptionId subId)
+    ErrorOr<Uri> unsubscribe(RealmSession::Ptr subscriber, SubscriptionId subId)
     {
         auto found = subscriptions_.find(subId);
         if (found == subscriptions_.end())

@@ -43,7 +43,7 @@ class CPPWAMP_API StreamRequest : public RpcLike<StreamRequest>
 {
 public:
     /** Constructor taking a stream URI and desired stream mode. */
-    explicit StreamRequest(String uri, StreamMode mode);
+    explicit StreamRequest(Uri uri, StreamMode mode);
 
     /** Obtains the desired stream mode. */
     StreamMode mode() const;

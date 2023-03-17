@@ -14,7 +14,7 @@
 
 #include <functional>
 #include <locale>
-#include "variant.hpp"
+#include "wampdefs.hpp"
 
 namespace wamp
 {
@@ -37,13 +37,13 @@ public:
 
     /** Determines if the given URI is valid. */
     bool operator()(
-        const String& uri, /**< The URI to validate */
-        bool isPattern     /**< True if the URI to validate is used for
-                                pattern-based subscriptions/registrations. */
+        const Uri& uri, /**< The URI to validate */
+        bool isPattern  /**< True if the URI to validate is used for
+                             pattern-based subscriptions/registrations. */
         ) const;
 
 private:
-    using Char = String::value_type;
+    using Char = Uri::value_type;
     bool checkAsPattern(const Char* ptr, const Char* end) const;
     bool checkAsRessource(const Char* ptr, const Char* end) const;
     bool tokenIsValid(const Char* first, const Char* last) const;
@@ -55,7 +55,7 @@ private:
 //------------------------------------------------------------------------------
 struct RelaxedUriCharValidator
 {
-    using Char = String::value_type;
+    using Char = Uri::value_type;
 
     static bool isValid(Char c, const std::locale& loc)
     {
@@ -69,7 +69,7 @@ struct RelaxedUriCharValidator
 //------------------------------------------------------------------------------
 struct StrictUriCharValidator
 {
-    using Char = String::value_type;
+    using Char = Uri::value_type;
 
     static bool isValid(Char c, const std::locale& loc)
     {
@@ -92,7 +92,7 @@ using StrictUriValidator = BasicUriValidator<StrictUriCharValidator>;
 //------------------------------------------------------------------------------
 /** Handler type for URI validation. */
 //------------------------------------------------------------------------------
-using UriValidator = std::function<bool (const String&, bool isPattern)>;
+using UriValidator = std::function<bool (const Uri&, bool isPattern)>;
 
 
 //******************************************************************************
@@ -103,7 +103,7 @@ template <typename V>
 BasicUriValidator<V>::BasicUriValidator() : locale_("C") {}
 
 template <typename V>
-bool BasicUriValidator<V>::operator()(const String& uri, bool isPattern) const
+bool BasicUriValidator<V>::operator()(const Uri& uri, bool isPattern) const
 {
     const Char* c = uri.data();
     const Char* end = c + uri.size();

@@ -123,7 +123,7 @@ private:
 
 public:
     // Internal use only
-    void setCallInfo(internal::PassKey, String uri);
+    void setCallInfo(internal::PassKey, Uri uri);
     internal::CallMessage& callMessage(internal::PassKey, RequestId reqId);
 };
 

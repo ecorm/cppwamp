@@ -47,7 +47,7 @@ class CPPWAMP_API Stream : public ProcedureLike<Stream>
 public:
     /** Constructor taking an URI with which to associate this
         streaming endpoint. */
-    explicit Stream(String uri);
+    explicit Stream(Uri uri);
 
     /** Treats the initial invocation as an invitation instead of a chunk. */
     Stream& withInvitationExpected(bool enabled = true);

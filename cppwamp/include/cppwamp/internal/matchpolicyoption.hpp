@@ -7,9 +7,9 @@
 #ifndef CPPWAMP_INTERNAL_MATCHPOLICYOPTION_HPP
 #define CPPWAMP_INTERNAL_MATCHPOLICYOPTION_HPP
 
+#include <cassert>
 #include "../exceptions.hpp"
 #include "../wampdefs.hpp"
-#include "../variant.hpp"
 
 namespace wamp
 {
@@ -26,9 +26,9 @@ MatchPolicy getMatchPolicyOption(const T& messageData)
     if (found == opts.end())
         return MatchPolicy::exact;
     const auto& opt = found->second;
-    if (opt.template is<String>())
+    if (opt.template is<Uri>())
     {
-        const auto& s = opt.template as<String>();
+        const auto& s = opt.template as<Uri>();
         if (s == "prefix")
             return MatchPolicy::prefix;
         if (s == "wildcard")

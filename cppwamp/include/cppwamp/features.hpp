@@ -9,7 +9,7 @@
 
 #include <cstring>
 #include "api.hpp"
-#include "variant.hpp"
+#include "variantdefs.hpp"
 
 namespace wamp
 {

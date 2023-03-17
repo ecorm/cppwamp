@@ -1132,7 +1132,7 @@ public:
         {
             Ptr self;
             CompletionHandler<Welcome> handler;
-            String realmUri;
+            Uri realm;
             Reason* abortPtr;
 
             void operator()(ErrorOr<Message> reply)
@@ -1144,7 +1144,7 @@ public:
                     if (reply->type() == WampMsgType::welcome)
                     {
                         me.onWelcome(std::move(handler), *reply,
-                                     std::move(realmUri));
+                                     std::move(realm));
                     }
                     else
                     {
@@ -1162,8 +1162,8 @@ public:
              .withOption("roles", ClientFeatures::providedRoles());
         challengeSlot_ = std::move(onChallenge);
         request(realm.message({}),
-                Requested{shared_from_this(), std::move(handler),
-                          realm.uri(), realm.abortReason({})});
+                Requested{shared_from_this(), std::move(handler), realm.uri(),
+                          realm.abortReason({})});
     }
 
     void safeJoin(Realm&& r, ChallengeSlot c, CompletionHandler<Welcome>&& f)
@@ -2221,10 +2221,10 @@ private:
     }
 
     void onWelcome(CompletionHandler<Welcome>&& handler, Message& reply,
-                   String&& realmUri)
+                   Uri&& realm)
     {
         auto& welcomeMsg = messageCast<WelcomeMessage>(reply);
-        Welcome info{{}, std::move(realmUri), std::move(welcomeMsg)};
+        Welcome info{{}, std::move(realm), std::move(welcomeMsg)};
         completeNow(handler, std::move(info));
     }
 
