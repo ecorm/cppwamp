@@ -15,6 +15,7 @@ set(SOURCES
     codectestjson.cpp
     codectestmsgpack.cpp
     errortest.cpp
+    flagstest.cpp
     payloadtest.cpp
     timeoutschedulertest.cpp
     transporttest.cpp

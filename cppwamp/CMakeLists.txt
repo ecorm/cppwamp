@@ -27,6 +27,7 @@ set(HEADERS
     include/cppwamp/errorinfo.hpp
     include/cppwamp/exceptions.hpp
     include/cppwamp/features.hpp
+    include/cppwamp/flags.hpp
     include/cppwamp/json.hpp
     include/cppwamp/localsession.hpp
     include/cppwamp/listener.hpp
