@@ -79,6 +79,9 @@ public:
     /** Equality comparison. */
     bool operator==(Flags rhs) const {return n_ == rhs.n_;}
 
+    /** Inequality comparison. */
+    bool operator!=(Flags rhs) const {return n_ != rhs.n_;}
+
     /** Returns true if all of the given flags are currently set. */
     bool test(Flags flags) const {return (n_ & flags.n_) == flags.n_;}
 
@@ -167,34 +170,74 @@ private:
 template <typename E, typename Enabled = void>
 struct IsFlag : FalseType {};
 
+//------------------------------------------------------------------------------
+/** Metafunction that determines if the given enumeration type is a flag. */
+template <typename E>
+static constexpr bool isFlag() {return IsFlag<E>::value;}
+
 
 //------------------------------------------------------------------------------
 /** Bitwise AND of two flag enumerators.
     @relates Flags */
 //------------------------------------------------------------------------------
-template <typename E, CPPWAMP_NEEDS(IsFlag<E>::value) = 0>
+template <typename E, CPPWAMP_NEEDS(isFlag<E>()) = 0>
 Flags<E> operator&(E lhs, E rhs) {return Flags<E>(lhs) & rhs;}
+
+//------------------------------------------------------------------------------
+/** Bitwise AND of an enumerator and some flags.
+    @relates Flags */
+//------------------------------------------------------------------------------
+template <typename E>
+Flags<E> operator&(E lhs, Flags<E> rhs) {return Flags<E>(lhs) & rhs;}
 
 //------------------------------------------------------------------------------
 /** Bitwise OR of two flag enumerators.
     @relates Flags */
 //------------------------------------------------------------------------------
-template <typename E, CPPWAMP_NEEDS(IsFlag<E>::value) = 0>
+template <typename E, CPPWAMP_NEEDS(isFlag<E>()) = 0>
 Flags<E> operator|(E lhs, E rhs) {return Flags<E>(lhs) | rhs;}
+
+//------------------------------------------------------------------------------
+/** Bitwise OR of an enumerator and some flags.
+    @relates Flags */
+//------------------------------------------------------------------------------
+template <typename E>
+Flags<E> operator|(E lhs, Flags<E> rhs) {return Flags<E>(lhs) | rhs;}
 
 //------------------------------------------------------------------------------
 /** Bitwise XOR of two flag enumerators.
     @relates Flags */
 //------------------------------------------------------------------------------
-template <typename E, CPPWAMP_NEEDS(IsFlag<E>::value) = 0>
+template <typename E, CPPWAMP_NEEDS(isFlag<E>()) = 0>
 Flags<E> operator^(E lhs, E rhs) {return Flags<E>(lhs) ^ rhs;}
+
+//------------------------------------------------------------------------------
+/** Bitwise XOR of an enumerator and some flags.
+    @relates Flags */
+//------------------------------------------------------------------------------
+template <typename E>
+Flags<E> operator^(E lhs, Flags<E> rhs) {return Flags<E>(lhs) ^ rhs;}
 
 //------------------------------------------------------------------------------
 /** Bitwise inversion of a flag enumerator.
     @relates Flags */
 //------------------------------------------------------------------------------
-template <typename E, CPPWAMP_NEEDS(IsFlag<E>::value) = 0>
+template <typename E, CPPWAMP_NEEDS(isFlag<E>()) = 0>
 Flags<E> operator~(E enumerator) {return ~Flags<E>(enumerator);}
+
+//------------------------------------------------------------------------------
+/** Equality comparison of an enumerator and some flags.
+    @relates Flags */
+//------------------------------------------------------------------------------
+template <typename E>
+bool operator==(E lhs, Flags<E> rhs) {return Flags<E>(lhs) == rhs;}
+
+//------------------------------------------------------------------------------
+/** Inequality comparison of an enumerator and some flags.
+    @relates Flags */
+//------------------------------------------------------------------------------
+template <typename E>
+bool operator!=(E lhs, Flags<E> rhs) {return Flags<E>(lhs) != rhs;}
 
 } // namespace wamp
 

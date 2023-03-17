@@ -192,9 +192,13 @@ GIVEN( "an empty Flags instance" )
         THEN( "that flag tests true" )
         {
             CHECK_FALSE( f == TestEnum::zero );
+            CHECK      ( f != TestEnum::zero );
             CHECK      ( f == TestEnum::one );
+            CHECK_FALSE( f != TestEnum::one );
             CHECK_FALSE( f == TestEnum::two );
+            CHECK      ( f != TestEnum::two );
             CHECK_FALSE( f == TestEnum::oneAndTwo );
+            CHECK      ( f != TestEnum::oneAndTwo );
             CHECK      ( (bool)f );
             CHECK_FALSE( f.none() );
             CHECK      ( f.test(TestEnum::one ));
@@ -206,9 +210,13 @@ GIVEN( "an empty Flags instance" )
             THEN( "both flags test true" )
             {
                 CHECK_FALSE( f == TestEnum::zero );
+                CHECK      ( f != TestEnum::zero );
                 CHECK_FALSE( f == TestEnum::one );
+                CHECK      ( f != TestEnum::one );
                 CHECK_FALSE( f == TestEnum::two );
+                CHECK      ( f != TestEnum::two );
                 CHECK      ( f == TestEnum::oneAndTwo );
+                CHECK_FALSE( f != TestEnum::oneAndTwo );
                 CHECK      ( (bool)f );
                 CHECK_FALSE( f.none() );
                 CHECK      ( f.test(TestEnum::one ));
@@ -221,9 +229,13 @@ GIVEN( "an empty Flags instance" )
             THEN( "nothing changes" )
             {
                 CHECK_FALSE( f == TestEnum::zero );
+                CHECK      ( f != TestEnum::zero );
                 CHECK      ( f == TestEnum::one );
+                CHECK_FALSE( f != TestEnum::one );
                 CHECK_FALSE( f == TestEnum::two );
+                CHECK      ( f != TestEnum::two );
                 CHECK_FALSE( f == TestEnum::oneAndTwo );
+                CHECK      ( f != TestEnum::oneAndTwo );
                 CHECK      ( (bool)f );
                 CHECK_FALSE( f.none() );
                 CHECK      ( f.test(TestEnum::one ));
@@ -236,9 +248,13 @@ GIVEN( "an empty Flags instance" )
             THEN( "nothing changes" )
             {
                 CHECK_FALSE( f == TestEnum::zero );
+                CHECK      ( f != TestEnum::zero );
                 CHECK      ( f == TestEnum::one );
+                CHECK_FALSE( f != TestEnum::one );
                 CHECK_FALSE( f == TestEnum::two );
+                CHECK      ( f != TestEnum::two );
                 CHECK_FALSE( f == TestEnum::oneAndTwo );
+                CHECK      ( f != TestEnum::oneAndTwo );
                 CHECK      ( (bool)f );
                 CHECK_FALSE( f.none() );
                 CHECK      ( f.test(TestEnum::one ));
@@ -252,9 +268,13 @@ GIVEN( "an empty Flags instance" )
         THEN( "that flag tests true" )
         {
             CHECK_FALSE( f == TestEnum::zero );
+            CHECK      ( f != TestEnum::zero );
             CHECK_FALSE( f == TestEnum::one );
+            CHECK      ( f != TestEnum::one );
             CHECK      ( f == TestEnum::two );
+            CHECK_FALSE( f != TestEnum::two );
             CHECK_FALSE( f == TestEnum::oneAndTwo );
+            CHECK      ( f != TestEnum::oneAndTwo );
             CHECK      ( (bool)f );
             CHECK_FALSE( f.none() );
             CHECK_FALSE( f.test(TestEnum::one ));
@@ -267,9 +287,13 @@ GIVEN( "an empty Flags instance" )
         THEN( "nothing changes" )
         {
             CHECK      ( f == TestEnum::zero );
+            CHECK_FALSE( f != TestEnum::zero );
             CHECK_FALSE( f == TestEnum::one );
+            CHECK      ( f != TestEnum::one );
             CHECK_FALSE( f == TestEnum::two );
+            CHECK      ( f != TestEnum::two );
             CHECK_FALSE( f == TestEnum::oneAndTwo );
+            CHECK      ( f != TestEnum::oneAndTwo );
             CHECK_FALSE( (bool)f );
             CHECK      ( f.none() );
             CHECK_FALSE( f.test(TestEnum::one ));
@@ -282,9 +306,13 @@ GIVEN( "an empty Flags instance" )
         THEN( "both flags are set" )
         {
             CHECK_FALSE( f == TestEnum::zero );
+            CHECK      ( f != TestEnum::zero );
             CHECK_FALSE( f == TestEnum::one );
+            CHECK      ( f != TestEnum::one );
             CHECK_FALSE( f == TestEnum::two );
+            CHECK      ( f != TestEnum::two );
             CHECK      ( f == TestEnum::oneAndTwo );
+            CHECK_FALSE( f != TestEnum::oneAndTwo );
             CHECK      ( (bool)f );
             CHECK_FALSE( f.none() );
             CHECK      ( f.test(TestEnum::one ));
@@ -691,38 +719,64 @@ GIVEN( "a non-empty Flags instance" )
 }
 
 //------------------------------------------------------------------------------
-SCENARIO( "Bitwise operators on enumerators", "[Flags]" )
+SCENARIO( "Bitwise operators with enumerators on the left-hand side",
+          "[Flags]" )
 {
 auto a = TestEnum::one;
 auto b = TestEnum::two;
+Flags<TestEnum> g = b;
 
-WHEN( "ANDing two enumerators" )
+WHEN( "ANDing" )
 {
-    auto h = a & b;
-    CHECK(typeid(decltype(h)) == typeid(Flags<TestEnum>));
-    CHECK(h == TestEnum::zero);
+    auto f = a & b;
+    CHECK(typeid(decltype(f)) == typeid(Flags<TestEnum>));
+    CHECK(f == TestEnum::zero);
+    f = a & g;
+    CHECK(f == TestEnum::zero);
 }
 
-WHEN( "ORing two enumerators" )
+WHEN( "ORing" )
 {
-    auto h = a | b;
-    CHECK(typeid(decltype(h)) == typeid(Flags<TestEnum>));
-    CHECK(h == TestEnum::oneAndTwo);
+    auto f = a | b;
+    CHECK(typeid(decltype(f)) == typeid(Flags<TestEnum>));
+    CHECK(f == TestEnum::oneAndTwo);
+    f = a | g;
+    CHECK(f == TestEnum::oneAndTwo);
 }
 
-WHEN( "XORing two enumerators" )
+WHEN( "XORing" )
 {
-    auto h = a ^ b;
-    CHECK(typeid(decltype(h)) == typeid(Flags<TestEnum>));
-    CHECK(h == TestEnum::oneAndTwo);
-    h = a ^ TestEnum::oneAndTwo;
-    CHECK(h == TestEnum::two);
+    auto f = a ^ b;
+    CHECK(typeid(decltype(f)) == typeid(Flags<TestEnum>));
+    CHECK(f == TestEnum::oneAndTwo);
+    f = a ^ TestEnum::oneAndTwo;
+    CHECK(f == TestEnum::two);
+    f = a ^ g;
+    CHECK(f == TestEnum::oneAndTwo);
+    f = a ^ Flags<TestEnum>(TestEnum::oneAndTwo);
+    CHECK(f == TestEnum::two);
 }
 
-WHEN( "Inverting an enumerator" )
+WHEN( "Inverting" )
 {
-    auto h = ~a;
-    CHECK(typeid(decltype(h)) == typeid(Flags<TestEnum>));
-    CHECK(h.value() == ~(Flags<TestEnum>(a).value()));
+    auto f = ~a;
+    CHECK(typeid(decltype(f)) == typeid(Flags<TestEnum>));
+    CHECK(f.value() == ~(Flags<TestEnum>(a).value()));
+}
+}
+
+//------------------------------------------------------------------------------
+SCENARIO( "Comparisons with enumerators on the left-hand side", "[Flags]" )
+{
+auto a = TestEnum::one;
+Flags<TestEnum> f = TestEnum::one;
+Flags<TestEnum> g = TestEnum::two;
+
+WHEN( "comparing" )
+{
+    CHECK(a == f);
+    CHECK(a != g);
+    CHECK_FALSE(a != f);
+    CHECK_FALSE(a == g);
 }
 }
