@@ -12,6 +12,8 @@
     Provides facilities for using enumerators as bit flags. */
 //------------------------------------------------------------------------------
 
+#include "config.hpp"
+#include "tagtypes.hpp"
 #include "traits.hpp"
 #include <initializer_list>
 
@@ -55,86 +57,120 @@ public:
     /// The underlying integer type of the wrapped enum.
     using Integer = typename std::underlying_type<E>::type;
 
-    /** Constructs a Flags object from a raw integer. */
-    static Flags from(Integer n) {return Flags(static_cast<Enum>(n));}
-
     /** Default constructor which clears all flags. */
-    Flags() : n_(0) {}
+    constexpr Flags() noexcept : n_(0) {}
 
     /** Converting constructor taking a single enumerator. */
-    Flags(Enum e) : n_(static_cast<Integer>(e)) {}
+    constexpr Flags(Enum e) noexcept : n_(static_cast<Integer>(e)) {}
 
     /** Converting constructor taking an initializer list of enumerators. */
-    Flags(std::initializer_list<Enum> list)
+    CPPWAMP_CONSTEXPR14 Flags(std::initializer_list<Enum> list) noexcept
         : n_(0)
     {
         for (auto e: list)
             n_ |= static_cast<Integer>(e);
     }
 
+    /** Constructor taking a raw integer. */
+    constexpr Flags(in_place_t, Integer n) noexcept : n_(n) {}
+
     /** Obtains the integer value of the flags. */
-    Integer value() const {return n_;}
+    constexpr Integer value() const noexcept {return n_;}
 
     /** Bool conversion operator that returns false iff all flags are reset. */
-    explicit operator bool() const {return !none();}
+    constexpr explicit operator bool() const noexcept {return !none();}
 
     /** Equality comparison. */
-    bool operator==(Flags rhs) const {return n_ == rhs.n_;}
+    constexpr bool operator==(Flags rhs) const noexcept {return n_ == rhs.n_;}
 
     /** Inequality comparison. */
-    bool operator!=(Flags rhs) const {return n_ != rhs.n_;}
+    constexpr bool operator!=(Flags rhs) const noexcept {return n_ != rhs.n_;}
 
     /** Determines if all of the given flags are currently set. */
-    bool test(Flags flags) const {return (n_ & flags.n_) == flags.n_;}
+    constexpr bool test(Flags flags) const noexcept
+    {
+        return (n_ & flags.n_) == flags.n_;
+    }
 
     /** Determines if any of the given flags are currently set. */
-    bool any(Flags flags) const {return (n_ & flags.n_) != 0;}
+    constexpr bool any(Flags flags) const noexcept
+    {
+        return (n_ & flags.n_) != 0;
+    }
 
     /** Determines if all flags are reset. */
-    bool none() const {return n_ == 0;}
+    constexpr bool none() const noexcept {return n_ == 0;}
 
     /** Sets the given flags. */
-    Flags& set(Flags flags) {n_ |= flags.n_; return *this;}
+    CPPWAMP_CONSTEXPR14 Flags& set(Flags flags) noexcept
+    {
+        n_ |= flags.n_;
+        return *this;
+    }
 
     /** Sets the given flag bits to the given value. */
-    Flags& set(Flags flags, bool value)
+    CPPWAMP_CONSTEXPR14 Flags& set(Flags flags, bool value) noexcept
     {
         n_ = value ? (n_ | flags.n_) : (n_ & ~flags.n_);
         return *this;
     }
 
     /** Resets all flags. */
-    Flags& reset() {n_ = 0; return *this;}
+    CPPWAMP_CONSTEXPR14 Flags& reset() noexcept {n_ = 0; return *this;}
 
     /** Resets the given flags. */
-    Flags& reset(Flags flags) {n_ &= ~flags.n_; return *this;}
+    CPPWAMP_CONSTEXPR14 Flags& reset(Flags flags) noexcept
+    {
+        n_ &= ~flags.n_;
+        return *this;
+    }
 
     /** Toggles the given flags. */
-    Flags& flip(Flags flags) {n_ ^= flags.n_; return *this;}
+    CPPWAMP_CONSTEXPR14 Flags& flip(Flags flags) noexcept
+    {
+        n_ ^= flags.n_;
+        return *this;
+    }
 
     /** Performs a bitwise AND with the given flags and self-assigns
         the result. */
-    Flags& operator&=(Flags rhs) {n_ &= rhs.n_; return *this;}
+    CPPWAMP_CONSTEXPR14 Flags& operator&=(Flags rhs) noexcept
+    {
+        n_ &= rhs.n_;
+        return *this;
+    }
 
     /** Performs a bitwise AND with the given flags. */
-    Flags operator&(Flags rhs) const {return rhs &= *this;}
+    constexpr Flags operator&(Flags rhs) const noexcept
+    {
+        return Flags(in_place, n_ & rhs.n_);
+    }
 
     /** Performs a bitwise OR with the given flags and self-assigns
         the result. */
-    Flags& operator|=(Flags rhs) {return set(rhs);}
+    CPPWAMP_CONSTEXPR14 Flags& operator|=(Flags rhs) noexcept {return set(rhs);}
 
     /** Performs a bitwise OR with the given flags. */
-    Flags operator|(Flags rhs) const {return rhs.set(*this);}
+    constexpr Flags operator|(Flags rhs) const noexcept
+    {
+        return Flags(in_place, n_ | rhs.n_);
+    }
 
     /** Performs a bitwise XOR with the given flags and self-assigns
         the result. */
-    Flags& operator^=(Flags rhs) {return flip(rhs);}
+    CPPWAMP_CONSTEXPR14 Flags& operator^=(Flags rhs) noexcept
+    {
+        return flip(rhs);
+    }
 
     /** Performs a bitwise XOR with the given flags. */
-    Flags operator^(Flags rhs) {return rhs.flip(*this);}
+    constexpr Flags operator^(Flags rhs) const noexcept
+    {
+        return Flags(in_place, n_ ^ rhs.n_);
+    }
 
     /** Obtains the bitwise inversion of the current flags. */
-    Flags operator~() const {return Flags::from(~n_);}
+    constexpr Flags operator~() const noexcept {return Flags(in_place, ~n_);}
 
 private:
     // Store the flag bits in an integer to avoid having to perform
@@ -175,7 +211,7 @@ struct IsFlag : FalseType {};
 //------------------------------------------------------------------------------
 /** Metafunction that determines if the given enumeration type is a flag. */
 template <typename E>
-static constexpr bool isFlag() {return IsFlag<E>::value;}
+static constexpr bool isFlag() noexcept {return IsFlag<E>::value;}
 
 
 //------------------------------------------------------------------------------
@@ -183,63 +219,90 @@ static constexpr bool isFlag() {return IsFlag<E>::value;}
     @relates Flags */
 //------------------------------------------------------------------------------
 template <typename E, CPPWAMP_NEEDS(isFlag<E>()) = 0>
-Flags<E> operator&(E lhs, E rhs) {return Flags<E>(lhs) & rhs;}
+constexpr Flags<E> operator&(E lhs, E rhs) noexcept
+{
+    return Flags<E>(lhs) & rhs;
+}
 
 //------------------------------------------------------------------------------
 /** Bitwise AND of an enumerator and some flags.
     @relates Flags */
 //------------------------------------------------------------------------------
 template <typename E>
-Flags<E> operator&(E lhs, Flags<E> rhs) {return Flags<E>(lhs) & rhs;}
+constexpr Flags<E> operator&(E lhs, Flags<E> rhs) noexcept
+{
+    return Flags<E>(lhs) & rhs;
+}
 
 //------------------------------------------------------------------------------
 /** Bitwise OR of two flag enumerators.
     @relates Flags */
 //------------------------------------------------------------------------------
 template <typename E, CPPWAMP_NEEDS(isFlag<E>()) = 0>
-Flags<E> operator|(E lhs, E rhs) {return Flags<E>(lhs) | rhs;}
+constexpr Flags<E> operator|(E lhs, E rhs) noexcept
+{
+    return Flags<E>(lhs) | rhs;
+}
 
 //------------------------------------------------------------------------------
 /** Bitwise OR of an enumerator and some flags.
     @relates Flags */
 //------------------------------------------------------------------------------
 template <typename E>
-Flags<E> operator|(E lhs, Flags<E> rhs) {return Flags<E>(lhs) | rhs;}
+constexpr Flags<E> operator|(E lhs, Flags<E> rhs) noexcept
+{
+    return Flags<E>(lhs) | rhs;
+}
 
 //------------------------------------------------------------------------------
 /** Bitwise XOR of two flag enumerators.
     @relates Flags */
 //------------------------------------------------------------------------------
 template <typename E, CPPWAMP_NEEDS(isFlag<E>()) = 0>
-Flags<E> operator^(E lhs, E rhs) {return Flags<E>(lhs) ^ rhs;}
+constexpr Flags<E> operator^(E lhs, E rhs) noexcept
+{
+    return Flags<E>(lhs) ^ rhs;
+}
 
 //------------------------------------------------------------------------------
 /** Bitwise XOR of an enumerator and some flags.
     @relates Flags */
 //------------------------------------------------------------------------------
 template <typename E>
-Flags<E> operator^(E lhs, Flags<E> rhs) {return Flags<E>(lhs) ^ rhs;}
+constexpr Flags<E> operator^(E lhs, Flags<E> rhs) noexcept
+{
+    return Flags<E>(lhs) ^ rhs;
+}
 
 //------------------------------------------------------------------------------
 /** Bitwise inversion of a flag enumerator.
     @relates Flags */
 //------------------------------------------------------------------------------
 template <typename E, CPPWAMP_NEEDS(isFlag<E>()) = 0>
-Flags<E> operator~(E enumerator) {return ~Flags<E>(enumerator);}
+constexpr Flags<E> operator~(E enumerator) noexcept
+{
+    return ~Flags<E>(enumerator);
+}
 
 //------------------------------------------------------------------------------
 /** Equality comparison of an enumerator and some flags.
     @relates Flags */
 //------------------------------------------------------------------------------
 template <typename E>
-bool operator==(E lhs, Flags<E> rhs) {return Flags<E>(lhs) == rhs;}
+constexpr bool operator==(E lhs, Flags<E> rhs) noexcept
+{
+    return Flags<E>(lhs) == rhs;
+}
 
 //------------------------------------------------------------------------------
 /** Inequality comparison of an enumerator and some flags.
     @relates Flags */
 //------------------------------------------------------------------------------
 template <typename E>
-bool operator!=(E lhs, Flags<E> rhs) {return Flags<E>(lhs) != rhs;}
+constexpr bool operator!=(E lhs, Flags<E> rhs) noexcept
+{
+    return Flags<E>(lhs) != rhs;
+}
 
 } // namespace wamp
 

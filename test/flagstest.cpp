@@ -10,7 +10,7 @@
 
 using namespace wamp;
 
-enum class TestEnum
+enum class TestEnum : unsigned
 {
     zero      = 0,
     one       = 1 << 0,
@@ -129,6 +129,27 @@ GIVEN( "another Flags instance" )
             CHECK      ( lhs.test(TestEnum::one) );
             CHECK_FALSE( lhs.test(TestEnum::two) );
             CHECK_FALSE( lhs.none() );
+        }
+    }
+}
+GIVEN( "an integer" )
+{
+    auto e = TestEnum::oneAndTwo;
+    auto n = static_cast<std::underlying_type<TestEnum>::type>(e);
+    WHEN( "constructing with a raw integer" )
+    {
+        Flags<TestEnum> f(in_place, n);
+        THEN( "only the appropriate flags are set" )
+        {
+            CHECK      ( (bool)f );
+            CHECK_FALSE( f == TestEnum::zero );
+            CHECK_FALSE( f == TestEnum::one );
+            CHECK_FALSE( f == TestEnum::two );
+            CHECK      ( f == TestEnum::oneAndTwo );
+            CHECK      ( f.test(TestEnum::zero) );
+            CHECK      ( f.test(TestEnum::one) );
+            CHECK      ( f.test(TestEnum::two) );
+            CHECK_FALSE( f.none() );
         }
     }
 }
@@ -780,3 +801,54 @@ WHEN( "comparing" )
     CHECK_FALSE(a == g);
 }
 }
+
+//------------------------------------------------------------------------------
+SCENARIO( "constexpr Flags", "[Flags]" )
+{
+    using F = Flags<TestEnum>;
+    using E = TestEnum;
+    static_assert(F().none(), "");
+    static_assert(F(E::one).value() == unsigned(E::one), "");
+    static_assert(F(E::one).value() != unsigned(E::two), "");
+    static_assert(F(E::one) == F(E::one), "");
+    static_assert(F(E::one) != F(E::two), "");
+    static_assert(F(E::one).test(E::one), "");
+    static_assert(F(E::one).any(E::one), "");
+    static_assert((F(E::one) & F(E::oneAndTwo)) == F(E::one), "");
+    static_assert((F(E::one) | F(E::two)) == F(E::oneAndTwo), "");
+    static_assert((F(E::oneAndTwo) ^ F(E::two)) == F(E::one), "");
+    static_assert((~F(E::one)).value() == ~(unsigned(E::one)), "");
+    static_assert((E::oneAndTwo & E::one) == F(E::one), "");
+    static_assert((E::one | E::two) == F(E::oneAndTwo), "");
+    static_assert((E::oneAndTwo ^ E::one) == F(E::two), "");
+    static_assert(~E::one == F(in_place, ~(unsigned(E::one))), "");
+    static_assert(E::one == F(E::one), "");
+    static_assert(E::one != F(E::two), "");
+}
+
+//------------------------------------------------------------------------------
+#ifdef CPPWAMP_HAS_RELAXED_CONSTEXPR
+SCENARIO( "Relaxed constexpr Flags", "[Flags]" )
+{
+    using F = Flags<TestEnum>;
+    using E = TestEnum;
+
+    struct Checker
+    {
+        static constexpr bool check()
+        {
+            F f{E::one};
+            F g{E::two};
+            f.reset(E::one);
+            f.set(E::one);
+            f.flip(E::one);
+            f &= g;
+            f |= g;
+            f ^= g;
+            return true;
+        }
+    };
+
+    static_assert(Checker::check(), "");
+}
+#endif

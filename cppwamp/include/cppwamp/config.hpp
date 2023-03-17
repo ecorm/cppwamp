@@ -31,4 +31,12 @@
 #define CPPWAMP_DEPRECATED
 #endif
 
+#if (defined(__cpp_constexpr) && (__cpp_constexpr >= 201304)) \
+    || defined(CPPWAMP_FOR_DOXYGEN)
+#define CPPWAMP_HAS_RELAXED_CONSTEXPR 1
+#define CPPWAMP_CONSTEXPR14 constexpr
+#else
+#define CPPWAMP_CONSTEXPR14
+#endif
+
 #endif // CPPWAMP_CONFIG_HPP
