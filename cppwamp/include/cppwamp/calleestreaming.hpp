@@ -19,6 +19,7 @@
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "config.hpp"
+#include "error.hpp"
 #include "rpcinfo.hpp"
 #include "streaming.hpp"
 #include "tagtypes.hpp"

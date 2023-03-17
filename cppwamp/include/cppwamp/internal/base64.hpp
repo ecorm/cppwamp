@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <vector>
 #include "../config.hpp"
-#include "../error.hpp"
+#include "../errorcodes.hpp"
 
 namespace wamp
 {

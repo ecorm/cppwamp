@@ -13,7 +13,6 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
-#include "../erroror.hpp"
 #include "../tcpendpoint.hpp"
 
 namespace wamp

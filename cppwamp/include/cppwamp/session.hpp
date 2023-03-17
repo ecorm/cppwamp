@@ -27,6 +27,8 @@
 #include "callerstreaming.hpp"
 #include "config.hpp"
 #include "connector.hpp"
+#include "error.hpp"
+#include "errorcodes.hpp"
 #include "erroror.hpp"
 #include "logging.hpp"
 #include "pubsubinfo.hpp"
@@ -939,7 +941,7 @@ struct Session::SubscribeOp
     @tparam C Callable handler with signature `void (ErrorOr<Subscription>)`,
               or a compatible Boost.Asio completion token
     @pre topic.matchPolicy() != MatchPolicy::unknown
-    @throw error::Logic if the given topic contains an unknown match policy.
+    @throws error::Logic if the given topic contains an unknown match policy.
     @return A Subscription object, therafter used to manage the subscription's
             lifetime.
     @see @ref Subscriptions */

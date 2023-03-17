@@ -9,6 +9,7 @@
 
 #include <utility>
 #include "api.hpp"
+#include "errorcodes.hpp"
 #include "erroror.hpp"
 #include "traits.hpp"
 #include "variant.hpp"

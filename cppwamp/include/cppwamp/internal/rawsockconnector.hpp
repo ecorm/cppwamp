@@ -11,6 +11,7 @@
 #include <memory>
 #include <utility>
 #include "../asiodefs.hpp"
+#include "../errorcodes.hpp"
 #include "../erroror.hpp"
 #include "rawsockhandshake.hpp"
 #include "rawsocktransport.hpp"

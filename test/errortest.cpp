@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include <cppwamp/error.hpp>
+#include <cppwamp/errorcodes.hpp>
 #include <catch2/catch.hpp>
 #include <boost/asio/error.hpp>
 #include <jsoncons/json_error.hpp>

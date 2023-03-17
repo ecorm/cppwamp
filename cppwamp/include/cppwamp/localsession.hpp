@@ -27,6 +27,7 @@ namespace internal { class LocalSessionImpl; }
 class CPPWAMP_API LocalSession
 {
 public:
+    LocalSession() = default;
     LocalSession(std::shared_ptr<internal::LocalSessionImpl>) {}
 };
 

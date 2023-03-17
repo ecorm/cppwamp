@@ -7,12 +7,8 @@
 #ifndef CPPWAMP_CONVERSION_ACCESS_HPP
 #define CPPWAMP_CONVERSION_ACCESS_HPP
 
-#include <sstream>
-#include <string>
-#include <utility>
+#include <type_traits>
 #include "api.hpp"
-#include "error.hpp"
-#include "traits.hpp"
 
 //------------------------------------------------------------------------------
 /** @file

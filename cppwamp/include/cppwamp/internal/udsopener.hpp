@@ -13,7 +13,6 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/strand.hpp>
 #include "../asiodefs.hpp"
-#include "../erroror.hpp"
 #include "../udspath.hpp"
 
 namespace wamp

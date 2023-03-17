@@ -84,8 +84,8 @@ void spawnCompletionHandler(
         return;
     }
 
-    throw error::Logic("Session::fallbackExecutor() must originate from "
-                       "IoContext::executor_type or AnyIoExecutor");
+    CPPWAMP_LOGIC_ERROR("Session::fallbackExecutor() must originate from "
+                        "IoContext::executor_type or AnyIoExecutor");
 }
 #endif
 

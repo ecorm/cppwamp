@@ -18,6 +18,7 @@
 #include <set>
 #include <string>
 #include "api.hpp"
+#include "errorcodes.hpp"
 #include "erroror.hpp"
 #include "variant.hpp"
 #include "wampdefs.hpp"

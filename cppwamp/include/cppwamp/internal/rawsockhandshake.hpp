@@ -10,7 +10,7 @@
 #include <cassert>
 #include <cstdint>
 #include <string>
-#include "../error.hpp"
+#include "../errorcodes.hpp"
 #include "../rawsockoptions.hpp"
 #include "endian.hpp"
 

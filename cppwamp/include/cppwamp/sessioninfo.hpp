@@ -13,6 +13,7 @@
 #include <vector>
 #include "accesslogging.hpp"
 #include "api.hpp"
+#include "errorcodes.hpp"
 #include "erroror.hpp"
 #include "features.hpp"
 #include "options.hpp"

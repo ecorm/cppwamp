@@ -21,6 +21,7 @@
 #include "api.hpp"
 #include "anyhandler.hpp"
 #include "asiodefs.hpp"
+#include "erroror.hpp"
 #include "logging.hpp"
 #include "routerconfig.hpp"
 
@@ -83,10 +84,10 @@ public:
 
     void closeServer(const std::string& name, Reason r = shutdownReason());
 
-    LocalSession join(String realmUri, AuthInfo authInfo);
+    ErrorOr<LocalSession> join(String realmUri, AuthInfo authInfo);
 
-    LocalSession join(String realmUri, AuthInfo authInfo,
-                      AnyCompletionExecutor fallbackExecutor);
+    ErrorOr<LocalSession> join(String realmUri, AuthInfo authInfo,
+                               AnyCompletionExecutor fallbackExecutor);
 
     void close(Reason r = shutdownReason());
     /// @}

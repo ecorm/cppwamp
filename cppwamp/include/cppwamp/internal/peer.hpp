@@ -17,6 +17,7 @@
 #include <type_traits>
 #include <utility>
 #include "../codec.hpp"
+#include "../errorcodes.hpp"
 #include "../erroror.hpp"
 #include "../logging.hpp"
 #include "../sessioninfo.hpp"

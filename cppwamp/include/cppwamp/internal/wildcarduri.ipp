@@ -6,7 +6,7 @@
 
 #include "../utils/wildcarduri.hpp"
 #include "../api.hpp"
-#include "../error.hpp"
+#include "../errorcodes.hpp"
 
 namespace wamp
 {

@@ -25,7 +25,7 @@
 #include <boost/asio/write.hpp>
 #include <boost/system/error_code.hpp>
 #include "../asiodefs.hpp"
-#include "../error.hpp"
+#include "../errorcodes.hpp"
 #include "../messagebuffer.hpp"
 #include "../transport.hpp"
 #include "rawsockheader.hpp"

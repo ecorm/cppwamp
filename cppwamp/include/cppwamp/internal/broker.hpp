@@ -11,6 +11,7 @@
 #include <set>
 #include <map>
 #include <utility>
+#include "../errorcodes.hpp"
 #include "../erroror.hpp"
 #include "../routerconfig.hpp"
 #include "../utils/triemap.hpp"

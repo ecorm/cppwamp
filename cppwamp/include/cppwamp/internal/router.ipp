@@ -6,6 +6,7 @@
 
 #include "../router.hpp"
 #include "../api.hpp"
+#include "../errorcodes.hpp"
 #include "../localsession.hpp"
 #include "routerimpl.hpp"
 
@@ -52,20 +53,24 @@ CPPWAMP_INLINE void Router::closeServer(const std::string& name, Reason r)
     impl_->closeServer(name, std::move(r));
 }
 
-CPPWAMP_INLINE LocalSession Router::join(String realmUri, AuthInfo authInfo)
+CPPWAMP_INLINE ErrorOr<LocalSession> Router::join(String realmUri,
+                                                  AuthInfo authInfo)
 {
     auto s = impl_->localJoin(std::move(realmUri), std::move(authInfo),
                               strand());
-    CPPWAMP_LOGIC_CHECK(bool(s), "No such realm '" + realmUri + "'");
+    if (!s)
+        return makeUnexpectedError(WampErrc::noSuchRealm);
     return LocalSession{std::move(s)};
 }
 
-CPPWAMP_INLINE LocalSession Router::join(String realmUri, AuthInfo authInfo,
-                                         AnyCompletionExecutor fallbackExecutor)
+CPPWAMP_INLINE ErrorOr<LocalSession>
+Router::join(String realmUri, AuthInfo authInfo,
+             AnyCompletionExecutor fallbackExecutor)
 {
     auto s = impl_->localJoin(std::move(realmUri), std::move(authInfo),
                               std::move(fallbackExecutor));
-    CPPWAMP_LOGIC_CHECK(bool(s), "No such realm '" + realmUri + "'");
+    if (!s)
+        return makeUnexpectedError(WampErrc::noSuchRealm);
     return LocalSession{std::move(s)};
 }
 

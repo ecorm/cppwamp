@@ -16,6 +16,7 @@
 #include "anyhandler.hpp"
 #include "cancellation.hpp"
 #include "config.hpp"
+#include "errorcodes.hpp"
 #include "erroror.hpp"
 #include "options.hpp"
 #include "payload.hpp"

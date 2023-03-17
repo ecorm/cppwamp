@@ -14,6 +14,7 @@
 
 #include <cassert>
 #include <functional>
+#include <memory>
 #include <system_error>
 #include <utility>
 #include "api.hpp"

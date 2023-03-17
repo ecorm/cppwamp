@@ -11,6 +11,7 @@
 #include <limits>
 #include <type_traits>
 #include <utility>
+#include "../errorcodes.hpp"
 #include "../erroror.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"

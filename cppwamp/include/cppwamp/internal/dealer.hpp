@@ -14,6 +14,7 @@
 #include <utility>
 #include <boost/asio/steady_timer.hpp>
 #include "../asiodefs.hpp"
+#include "../errorcodes.hpp"
 #include "../erroror.hpp"
 #include "../uri.hpp"
 #include "realmsession.hpp"

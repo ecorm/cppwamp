@@ -10,7 +10,7 @@
 #include <catch2/catch.hpp>
 #include <cppwamp/asiodefs.hpp>
 #include <cppwamp/codec.hpp>
-#include <cppwamp/error.hpp>
+#include <cppwamp/errorcodes.hpp>
 #include <cppwamp/rawsockoptions.hpp>
 #include <cppwamp/transport.hpp>
 #include <cppwamp/internal/tcpopener.hpp>
