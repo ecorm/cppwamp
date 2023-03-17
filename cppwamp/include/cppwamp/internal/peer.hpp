@@ -19,6 +19,7 @@
 #include "../codec.hpp"
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
+#include "../errorinfo.hpp"
 #include "../logging.hpp"
 #include "../sessioninfo.hpp"
 #include "../transport.hpp"

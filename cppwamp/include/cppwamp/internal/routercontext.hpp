@@ -12,6 +12,7 @@
 #include <memory>
 #include "../anyhandler.hpp"
 #include "../asiodefs.hpp"
+#include "../errorinfo.hpp"
 #include "../logging.hpp"
 #include "../pubsubinfo.hpp"
 #include "../rpcinfo.hpp"

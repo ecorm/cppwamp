@@ -25,6 +25,7 @@
 #include "../codec.hpp"
 #include "../cancellation.hpp"
 #include "../connector.hpp"
+#include "../errorinfo.hpp"
 #include "../features.hpp"
 #include "../logging.hpp"
 #include "../pubsubinfo.hpp"

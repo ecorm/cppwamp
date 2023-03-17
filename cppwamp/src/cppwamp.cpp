@@ -22,6 +22,7 @@
 #include <cppwamp/internal/cbor.ipp>
 #include <cppwamp/internal/consolelogger.ipp>
 #include <cppwamp/internal/errorcodes.ipp>
+#include <cppwamp/internal/errorinfo.ipp>
 #include <cppwamp/internal/exceptions.ipp>
 #include <cppwamp/internal/features.ipp>
 #include <cppwamp/internal/json.ipp>

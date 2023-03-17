@@ -15,7 +15,9 @@
 #include <boost/asio/steady_timer.hpp>
 #include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
+#include "../errorinfo.hpp"
 #include "../erroror.hpp"
+#include "../rpcinfo.hpp"
 #include "../uri.hpp"
 #include "realmsession.hpp"
 #include "timeoutscheduler.hpp"

@@ -24,6 +24,7 @@ set(HEADERS
     include/cppwamp/corounpacker.hpp
     include/cppwamp/errorcodes.hpp
     include/cppwamp/erroror.hpp
+    include/cppwamp/errorinfo.hpp
     include/cppwamp/exceptions.hpp
     include/cppwamp/features.hpp
     include/cppwamp/json.hpp
@@ -138,6 +139,7 @@ set(INLINES
     include/cppwamp/internal/cbor.ipp
     include/cppwamp/internal/consolelogger.ipp
     include/cppwamp/internal/errorcodes.ipp
+    include/cppwamp/internal/errorinfo.ipp
     include/cppwamp/internal/exceptions.ipp
     include/cppwamp/internal/features.ipp
     include/cppwamp/internal/json.ipp

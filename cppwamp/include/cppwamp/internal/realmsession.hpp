@@ -13,6 +13,7 @@
 #include "../authinfo.hpp"
 #include "../features.hpp"
 #include "../logging.hpp"
+#include "../errorinfo.hpp"
 #include "../pubsubinfo.hpp"
 #include "../rpcinfo.hpp"
 #include "../sessioninfo.hpp"
