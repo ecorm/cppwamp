@@ -129,10 +129,10 @@ ClientFeatures::subscriber() const {return subscriber_;}
 
 CPPWAMP_INLINE bool ClientFeatures::supports(ClientFeatures desired) const
 {
-    return ((callee_     & desired.callee_)     == desired.callee_) &&
-           ((caller_     & desired.caller_)     == desired.caller_) &&
-           ((publisher_  & desired.publisher_)  == desired.publisher_) &&
-           ((subscriber_ & desired.subscriber_) == desired.subscriber_);
+    return callee_.test(desired.callee_) &&
+           caller_.test(desired.caller_) &&
+           publisher_.test(desired.publisher_) &&
+           subscriber_.test(desired.subscriber_);
 }
 
 template <typename E>
@@ -145,7 +145,7 @@ void ClientFeatures::parse(Flags<E>& flags, E pos, const Object* roleDict,
 CPPWAMP_INLINE void ClientFeatures::parseCalleeFeatures(const Object& dict)
 {
     using F = CalleeFeatures;
-    auto d = getRoleDict(dict, "callee");
+    auto d = findFeaturesDict(dict, "callee");
     if (!d)
         return;
     callee_.set(F::basic, true);
@@ -161,7 +161,7 @@ CPPWAMP_INLINE void ClientFeatures::parseCalleeFeatures(const Object& dict)
 CPPWAMP_INLINE void ClientFeatures::parseCallerFeatures(const Object& dict)
 {
     using F = CallerFeatures;
-    auto d = getRoleDict(dict, "caller");
+    auto d = findFeaturesDict(dict, "caller");
     if (!d)
         return;
     caller_.set(F::basic, true);
@@ -175,7 +175,7 @@ CPPWAMP_INLINE void ClientFeatures::parseCallerFeatures(const Object& dict)
 CPPWAMP_INLINE void ClientFeatures::parsePublisherFeatures(const Object& dict)
 {
     using F = PublisherFeatures;
-    auto d = getRoleDict(dict, "publisher");
+    auto d = findFeaturesDict(dict, "publisher");
     if (!d)
         return;
     publisher_.set(F::basic, true);
@@ -187,7 +187,7 @@ CPPWAMP_INLINE void ClientFeatures::parsePublisherFeatures(const Object& dict)
 CPPWAMP_INLINE void ClientFeatures::parseSubscriberFeatures(const Object& dict)
 {
     using F = SubscriberFeatures;
-    auto d = getRoleDict(dict, "subscriber");
+    auto d = findFeaturesDict(dict, "subscriber");
     if (!d)
         return;
     subscriber_.set(F::basic, true);
@@ -196,10 +196,15 @@ CPPWAMP_INLINE void ClientFeatures::parseSubscriberFeatures(const Object& dict)
     parse(subscriber_, F::publisherIdentification,  d, "publisher_identification");
 }
 
-CPPWAMP_INLINE const Object* ClientFeatures::getRoleDict(const Object& dict,
-                                                         const char* roleName)
+CPPWAMP_INLINE const Object*
+ClientFeatures::findFeaturesDict(const Object& dict, const char* roleName)
 {
     auto found = dict.find(roleName);
+    if (found == dict.end() || !found->second.is<Object>())
+        return nullptr;
+    const auto& roleDict = found->second.as<Object>();
+
+    found = roleDict.find("features");
     if (found == dict.end() || !found->second.is<Object>())
         return nullptr;
     return &(found->second.as<Object>());
@@ -286,8 +291,7 @@ RouterFeatures::dealer() const {return dealer_;}
 
 CPPWAMP_INLINE bool RouterFeatures::supports(RouterFeatures desired) const
 {
-    return ((broker_ & desired.broker_) == desired.broker_) &&
-           ((dealer_ & desired.dealer_) == desired.dealer_);
+    return broker_.test(desired.broker_) && dealer_.test(desired.dealer_);
 }
 
 template <typename E>
@@ -300,7 +304,7 @@ void RouterFeatures::parse(Flags<E>& flags, E pos, const Object* roleDict,
 CPPWAMP_INLINE void RouterFeatures::parseBrokerFeatures(const Object& dict)
 {
     using F = BrokerFeatures;
-    auto d = getRoleDict(dict, "broker");
+    auto d = findFeaturesDict(dict, "broker");
     if (!d)
         return;
     broker_.set(F::basic, true);
@@ -314,7 +318,7 @@ CPPWAMP_INLINE void RouterFeatures::parseBrokerFeatures(const Object& dict)
 CPPWAMP_INLINE void RouterFeatures::parseDealerFeatures(const Object& dict)
 {
     using F = DealerFeatures;
-    auto d = getRoleDict(dict, "dealer");
+    auto d = findFeaturesDict(dict, "dealer");
     if (!d)
         return;
     dealer_.set(F::basic, true);
@@ -327,11 +331,16 @@ CPPWAMP_INLINE void RouterFeatures::parseDealerFeatures(const Object& dict)
     parse(dealer_, F::progressiveCallResults,     d, "progressive_call_results");
 }
 
-CPPWAMP_INLINE const Object* RouterFeatures::getRoleDict(const Object& dict,
-                                                         const char* roleName)
+CPPWAMP_INLINE const Object*
+RouterFeatures::findFeaturesDict(const Object& dict, const char* roleName)
 {
     auto found = dict.find(roleName);
     if (found == dict.end() || !found->second.is<Object>())
+        return nullptr;
+    const auto& roleDict = found->second.as<Object>();
+
+    found = roleDict.find("features");
+    if (found == roleDict.end() || !found->second.is<Object>())
         return nullptr;
     return &(found->second.as<Object>());
 }

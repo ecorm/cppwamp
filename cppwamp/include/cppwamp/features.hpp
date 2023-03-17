@@ -123,7 +123,7 @@ private:
     void parseCallerFeatures(const Object& dict);
     void parsePublisherFeatures(const Object& dict);
     void parseSubscriberFeatures(const Object& dict);
-    const Object* getRoleDict(const Object& dict, const char* roleName);
+    const Object* findFeaturesDict(const Object& dict, const char* roleName);
 
     Flags<CalleeFeatures> callee_;
     Flags<CallerFeatures> caller_;
@@ -206,7 +206,7 @@ private:
 
     void parseBrokerFeatures(const Object& dict);
     void parseDealerFeatures(const Object& dict);
-    const Object* getRoleDict(const Object& dict, const char* roleName);
+    const Object* findFeaturesDict(const Object& dict, const char* roleName);
 
     Flags<BrokerFeatures> broker_;
     Flags<DealerFeatures> dealer_;

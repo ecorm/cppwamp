@@ -46,7 +46,8 @@ struct RpcFixture
     void join(YieldContext yield)
     {
         caller.connect(where, yield).value();
-        callerId = caller.join(Realm(testRealm), yield).value().id();
+        welcome = caller.join(Realm(testRealm), yield).value();
+        callerId = welcome.id();
         callee.connect(where, yield).value();
         callee.join(Realm(testRealm), yield).value();
     }
@@ -62,6 +63,7 @@ struct RpcFixture
     Session caller;
     Session callee;
 
+    Welcome welcome;
     SessionId callerId = -1;
 };
 
@@ -77,7 +79,8 @@ struct PubSubFixture
     void join(YieldContext yield)
     {
         publisher.connect(where, yield).value();
-        publisherId = publisher.join(Realm(testRealm), yield).value().id();
+        welcome = publisher.join(Realm(testRealm), yield).value();
+        publisherId = welcome.id();
         subscriber.connect(where, yield).value();
         subscriber.join(Realm(testRealm), yield).value();
     }
@@ -93,6 +96,7 @@ struct PubSubFixture
     Session publisher;
     Session subscriber;
 
+    Welcome welcome;
     SessionId publisherId = -1;
     SessionId subscriberId = -1;
 };
@@ -160,6 +164,8 @@ GIVEN( "a caller and a callee" )
             SessionId disclosedId = -1;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::callerIdentification));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -185,6 +191,8 @@ GIVEN( "a caller and a callee" )
             int wildcardMatchCount = 0;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::patternBasedRegistration));
 
             f.callee.enroll(
                 Procedure("com.myapp").withMatchPolicy(MatchPolicy::prefix),
@@ -242,6 +250,8 @@ GIVEN( "a caller and a callee" )
             ErrorOr<Result> response;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -300,6 +310,8 @@ GIVEN( "a caller and a callee" )
             ErrorOr<Result> response;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -354,6 +366,8 @@ GIVEN( "a caller and a callee" )
             ErrorOr<Result> response;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -400,6 +414,8 @@ GIVEN( "a caller and a callee" )
             ErrorOr<Result> response;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -446,6 +462,8 @@ GIVEN( "a caller and a callee" )
             ErrorOr<Result> response;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -502,6 +520,8 @@ GIVEN( "a caller and a callee" )
             Invocation invocation;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -556,6 +576,8 @@ GIVEN( "a caller and a callee" )
             ErrorOr<Result> response;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::callCanceling));
 
             f.callee.enroll(
                 Procedure("rpc"),
@@ -616,6 +638,8 @@ GIVEN( "a caller and a callee" )
             std::map<RequestId, int> valuesByRequestId;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::callCanceling));
 
             f.callee.enroll(
                 Procedure("com.myapp.foo"),
@@ -693,6 +717,8 @@ GIVEN( "a caller and a callee" )
         ioctx.run();
     }
 }}
+
+// TODO: Dealer-initiated timeouts
 
 //------------------------------------------------------------------------------
 SCENARIO( "WAMP callee-to-caller streaming with invitations",
@@ -803,6 +829,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::progressiveCallResults));
             f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
                             onStream, yield).value();
 
@@ -950,6 +978,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::progressiveCallResults));
             f.callee.enroll(Stream("com.myapp.foo"), onStream, yield).value();
 
             for (unsigned i=0; i<2; ++i)
@@ -1057,6 +1087,9 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::progressiveCallResults |
+                DealerFeatures::callCanceling));
             f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
                             onStream, yield).value();
 
@@ -1192,6 +1225,8 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::progressiveCallResults));
             f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
                             onStream, yield).value();
 
@@ -1305,6 +1340,9 @@ GIVEN( "a caller and a callee" )
         spawn(ioctx, [&](YieldContext yield)
         {
             f.join(yield);
+            REQUIRE(f.welcome.features().dealer().test(
+                DealerFeatures::progressiveCallResults |
+                DealerFeatures::callCanceling));
             f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
                             onStream, yield).value();
 
@@ -1350,6 +1388,8 @@ GIVEN( "a publisher and a subscriber" )
             int eventCount = 0;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().broker().test(
+                BrokerFeatures::publisherIdentification));
 
             f.subscriber.subscribe(
                 Topic("onEvent"),
@@ -1379,6 +1419,8 @@ GIVEN( "a publisher and a subscriber" )
             std::string wildcardTopic;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().broker().test(
+                BrokerFeatures::patternBasedSubscription));
 
             f.subscriber.subscribe(
                 Topic("com.myapp").withMatchPolicy(MatchPolicy::prefix),
@@ -1433,6 +1475,8 @@ GIVEN( "a publisher and a subscriber" )
             int publisherEventCount = 0;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().broker().test(
+                BrokerFeatures::publisherExclusion));
 
             f.subscriber.subscribe(
                 Topic("onEvent"),
@@ -1465,6 +1509,9 @@ GIVEN( "a publisher and a subscriber" )
             int eventCount2 = 0;
 
             f.join(yield);
+            REQUIRE(f.welcome.features().broker().test(
+                BrokerFeatures::subscriberBlackWhiteListing));
+
             subscriber2.connect(withTcp, yield).value();
             auto subscriber2Id =
                 subscriber2.join(Realm(testRealm), yield).value().id();

@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 // TODO: Mock router for testing protocol violations
+// TODO: Split into session, pub-sub, and RPC test source files
 
 #if defined(CPPWAMP_TEST_HAS_CORO)
 
@@ -422,6 +423,8 @@ GIVEN( "a Session and a ConnectionWish" )
     const auto where = withTcp;
     StateChangeListener changes;
     s.listenStateChanged(changes);
+    RouterFeatures requiredFeatures{BrokerFeatures::basic,
+                                    DealerFeatures::basic};
 
     WHEN( "connecting and disconnecting" )
     {
@@ -485,8 +488,9 @@ GIVEN( "a Session and a ConnectionWish" )
                 Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.features()->broker().test(BrokerFeatures::basic) );
-                CHECK( info.features()->dealer().test(DealerFeatures::basic) );
+                CHECK( info.features().supports(requiredFeatures) );
+                CHECK( info.features().broker().test(BrokerFeatures::basic) );
+                CHECK( info.features().dealer().test(DealerFeatures::basic) );
 
                 // Check leaving.
                 Reason reason = s.leave(yield).value();
@@ -508,8 +512,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.features()->broker().test(BrokerFeatures::basic) );
-                CHECK( info.features()->dealer().test(DealerFeatures::basic) );
+                CHECK( info.features().supports(requiredFeatures) );
 
                 // Try leaving with a reason URI this time.
                 Reason reason = s.leave(Reason("wamp.error.system_shutdown"),
@@ -567,8 +570,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.features()->broker().test(BrokerFeatures::basic) );
-                CHECK( info.features()->dealer().test(DealerFeatures::basic) );
+                CHECK( info.features().supports(requiredFeatures) );
 
                 // Leave
                 Reason reason = s.leave(yield).value();
@@ -724,6 +726,8 @@ GIVEN( "a Session and an alternate ConnectionWish" )
     IoContext ioctx;
     Session s(ioctx);
     const auto where = alternateTcp;
+    RouterFeatures requiredFeatures{BrokerFeatures::basic,
+                                    DealerFeatures::basic};
 
     WHEN( "joining and leaving" )
     {
@@ -744,8 +748,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
                 Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.features()->broker().test(BrokerFeatures::basic) );
-                CHECK( info.features()->dealer().test(DealerFeatures::basic) );
+                CHECK( info.features().supports(requiredFeatures) );
 
                 // Check leaving.
                 Reason reason = s.leave(yield).value();
@@ -765,8 +768,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
                 Object roles = info.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.features()->broker().test(BrokerFeatures::basic) );
-                CHECK( info.features()->dealer().test(DealerFeatures::basic) );
+                CHECK( info.features().supports(requiredFeatures) );
 
                 // Try leaving with a reason URI this time.
                 Reason reason = s.leave(Reason("wamp.error.system_shutdown"),
@@ -1843,10 +1845,6 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
                 REQUIRE( details.count("roles") );
                 REQUIRE( details["roles"].is<Object>() );
                 Object roles = info.optionByKey("roles").as<Object>();
-                CHECK( roles.count("broker") );
-                CHECK( roles.count("dealer") );
-                CHECK( info.features()->broker().test(BrokerFeatures::basic) );
-                CHECK( info.features()->dealer().test(DealerFeatures::basic) );
 
                 // Disconnect
                 CHECK_NOTHROW( s.disconnect() );

@@ -156,16 +156,7 @@ CPPWAMP_INLINE ErrorOr<Object> Welcome::roles() const
     return optionAs<Object>("roles");
 }
 
-CPPWAMP_INLINE ErrorOr<RouterFeatures> Welcome::features() const
-{
-    auto found = options().find("roles");
-    if (found == options().end())
-        return makeUnexpectedError(Errc::absent);
-    const auto& roles = found->second;
-    if (!roles.is<Object>())
-        return makeUnexpectedError(Errc::badType);
-    return RouterFeatures{roles.as<Object>()};
-}
+CPPWAMP_INLINE RouterFeatures Welcome::features() const {return features_;}
 
 /** @details
     This function returns the value of the `HELLO.Details.authid|string`
@@ -208,10 +199,24 @@ CPPWAMP_INLINE ErrorOr<Object> Welcome::authExtra() const
     return optionAs<Object>("authextra");
 }
 
+CPPWAMP_INLINE RouterFeatures Welcome::parseFeatures(const Object& opts)
+{
+    RouterFeatures features;
+    auto found = opts.find("roles");
+    if (found != opts.end())
+    {
+        const auto& roles = found->second;
+        if (roles.is<Object>())
+            features = RouterFeatures{roles.as<Object>()};
+    }
+    return features;
+}
+
 CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, Uri&& realm,
                                 internal::WelcomeMessage&& msg)
     : Base(std::move(msg)),
-      realm_(std::move(realm))
+      realm_(std::move(realm)),
+      features_(parseFeatures(options()))
 {}
 
 

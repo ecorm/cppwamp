@@ -167,7 +167,7 @@ public:
     ErrorOr<Object> roles() const;
 
     /** Obtains a parsed set of features supported by the router. */
-    ErrorOr<RouterFeatures> features() const;
+    RouterFeatures features() const;
     /// @}
 
     /** @name Authentication
@@ -195,7 +195,10 @@ public:
 private:
     using Base = Options<Welcome, internal::WelcomeMessage>;
 
+    static RouterFeatures parseFeatures(const Object& opts);
+
     Uri realm_;
+    RouterFeatures features_;
 
 public:
     // Internal use only

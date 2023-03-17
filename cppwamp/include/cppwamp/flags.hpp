@@ -84,13 +84,13 @@ public:
     /** Inequality comparison. */
     bool operator!=(Flags rhs) const {return n_ != rhs.n_;}
 
-    /** Returns true if all of the given flags are currently set. */
+    /** Determines if all of the given flags are currently set. */
     bool test(Flags flags) const {return (n_ & flags.n_) == flags.n_;}
 
-    /** Returns true if any of the given flags are currently set. */
+    /** Determines if any of the given flags are currently set. */
     bool any(Flags flags) const {return (n_ & flags.n_) != 0;}
 
-    /** Returns true iff all flags are reset. */
+    /** Determines if all flags are reset. */
     bool none() const {return n_ == 0;}
 
     /** Sets the given flags. */
