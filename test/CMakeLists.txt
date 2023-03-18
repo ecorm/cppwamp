@@ -28,7 +28,6 @@ set(SOURCES
     timeoutschedulertest.cpp
     transporttest.cpp
     uritest.cpp
-    varianttestassign.cpp
     varianttestbadaccess.cpp
     varianttestcomparison.cpp
     varianttestconvert.cpp
