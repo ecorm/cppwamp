@@ -28,18 +28,12 @@ set(SOURCES
     timeoutschedulertest.cpp
     transporttest.cpp
     uritest.cpp
-    varianttestbadaccess.cpp
-    varianttestcomparison.cpp
     varianttestconvert.cpp
     varianttestconverter.cpp
     varianttestconvertboost.cpp
-    varianttestconvertcontainers.cpp
-    varianttestconverttuple.cpp
-    varianttestinfo.cpp
+    varianttestcontainers.cpp
     varianttestinit.cpp
-    varianttestmap.cpp
-    varianttestoutput.cpp
-    varianttestvector.cpp
+    varianttestproperties.cpp
     varianttestvisitation.cpp
     main.cpp
 )

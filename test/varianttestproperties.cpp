@@ -1,19 +1,85 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
 #include <cstdlib>
 #include <limits>
+#include <sstream>
 #include <type_traits>
 #include <catch2/catch.hpp>
 #include <cppwamp/variant.hpp>
 
 using namespace wamp;
+namespace Matchers = Catch::Matchers;
 
 namespace
 {
+
+//------------------------------------------------------------------------------
+template <typename T>
+void checkOutput(const T& value, const std::string& expected)
+{
+    Variant v(value);
+    INFO( "For variant of type '" << typeNameOf(v) <<
+          "' and value '" << value << "'" );
+
+    std::ostringstream out;
+    out << v;
+    CHECK( out.str() == expected );
+
+    std::string str = toString(v);
+    CHECK( str == expected );
+}
+
+//------------------------------------------------------------------------------
+void checkArray(const Array& array, const std::string& expected)
+{
+    INFO( "For an Array" );
+
+    std::ostringstream out;
+    out << array;
+    CHECK( out.str() == expected );
+
+    std::string str = toString(array);
+    CHECK( str == expected );
+
+    checkOutput(Variant(array), expected);
+}
+
+//------------------------------------------------------------------------------
+void checkObject(const Object& object, const std::string& expected)
+{
+    INFO( "For an Object" );
+
+    std::ostringstream out;
+    out << object;
+    CHECK( out.str() == expected );
+
+    std::string str = toString(object);
+    CHECK( str == expected );
+
+    checkOutput(Variant(object), expected);
+}
+
+//------------------------------------------------------------------------------
+void checkRealOutput(const Real& value)
+{
+    Variant v(value);
+    INFO( "For variant of type '" << typeNameOf(v) <<
+          "' and value '" << value << "'" );
+
+    std::stringstream out;
+    out << v;
+    Real x;
+    out >> x;
+    CHECK( x == Approx(value) );
+
+    std::string str = toString(v);
+    x = std::stod(str);
+    CHECK( x == Approx(value) );
+}
 
 //------------------------------------------------------------------------------
 template <typename TLower, typename TGreater>
@@ -85,6 +151,234 @@ bool same(const TLeft& lhs, const TRight& rhs)
 }
 
 } // anonymous namespace
+
+//------------------------------------------------------------------------------
+SCENARIO( "Variant type information", "[Variant]" )
+{
+    using I = TypeId;
+    GIVEN( "a default-constructed Variant" )
+    {
+        Variant v;
+        THEN( "The type information is as expected" )
+        {
+            CHECK( (v.typeId() == I::null) );
+            CHECK_THAT( typeNameOf(v), Matchers::Equals("Null") );
+            CHECK( !v );
+            CHECK( v.is<Null>() );
+            CHECK( v.is<I::null>() );
+            CHECK( v.size() == 0 );
+            CHECK( !isNumber(v) );
+            CHECK( !isScalar(v) );
+        }
+    }
+    GIVEN( "a Null Variant" )
+    {
+        Variant v(null);
+        THEN( "The type information is as expected" )
+        {
+            CHECK( (v.typeId() == I::null) );
+            CHECK_THAT( typeNameOf(v), Matchers::Equals("Null") );
+            CHECK( !v );
+            CHECK( v.is<Null>() );
+            CHECK( v.is<I::null>() );
+            CHECK( v.size() == 0 );
+            CHECK( !isNumber(v) );
+            CHECK( !isScalar(v) );
+        }
+    }
+    GIVEN( "a Bool Variant" )
+    {
+        Variant v(true);
+        THEN( "The type information is as expected" )
+        {
+            CHECK( (v.typeId() == I::boolean) );
+            CHECK_THAT( typeNameOf(v), Matchers::Equals("Bool") );
+            CHECK( !!v );
+            CHECK( v.is<Bool>() );
+            CHECK( v.is<I::boolean>() );
+            CHECK( v.size() == 1 );
+            CHECK( !isNumber(v) );
+            CHECK( isScalar(v) );
+        }
+    }
+    GIVEN( "an Int Variant" )
+    {
+        Variant v(Int(-42));
+        THEN( "The type information is as expected" )
+        {
+            CHECK( (v.typeId() == I::integer) );
+            CHECK_THAT( typeNameOf(v), Matchers::Equals("Int") );
+            CHECK( !!v );
+            CHECK( v.is<Int>() );
+            CHECK( v.is<I::integer>() );
+            CHECK( v.size() == 1 );
+            CHECK( isNumber(v) );
+            CHECK( isScalar(v) );
+        }
+    }
+    GIVEN( "an UInt Variant" )
+    {
+        Variant v(UInt(42u));
+        THEN( "The type information is as expected" )
+        {
+            CHECK( (v.typeId() == I::uint) );
+            CHECK_THAT( typeNameOf(v), Matchers::Equals("UInt") );
+            CHECK( !!v );
+            CHECK( v.is<UInt>() );
+            CHECK( v.is<I::uint>() );
+            CHECK( v.size() == 1 );
+            CHECK( isNumber(v) );
+            CHECK( isScalar(v) );
+        }
+    }
+    GIVEN( "a Real Variant" )
+    {
+        Variant v(Real(42.0));
+        THEN( "The type information is as expected" )
+        {
+            CHECK( (v.typeId() == I::real) );
+            CHECK_THAT( typeNameOf(v), Matchers::Equals("Real") );
+            CHECK( !!v );
+            CHECK( v.is<Real>() );
+            CHECK( v.is<I::real>() );
+            CHECK( v.size() == 1 );
+            CHECK( isNumber(v) );
+            CHECK( isScalar(v) );
+        }
+    }
+    GIVEN( "a String Variant" )
+    {
+        Variant v(String("Hello"));
+        THEN( "The type information is as expected" )
+        {
+            CHECK( (v.typeId() == I::string) );
+            CHECK_THAT( typeNameOf(v), Matchers::Equals("String") );
+            CHECK( !!v );
+            CHECK( v.is<String>() );
+            CHECK( v.is<I::string>() );
+            CHECK( v.size() == 1 );
+            CHECK( !isNumber(v) );
+            CHECK( !isScalar(v) );
+        }
+    }
+    GIVEN( "a Blob Variant" )
+    {
+        Variant v(Blob{0x00, 0x01, 0x02});
+        THEN( "The type information is as expected" )
+        {
+            CHECK( (v.typeId() == I::blob) );
+            CHECK_THAT( typeNameOf(v), Matchers::Equals("Blob") );
+            CHECK( !!v );
+            CHECK( v.is<Blob>() );
+            CHECK( v.is<I::blob>() );
+            CHECK( v.size() == 1 );
+            CHECK( !isNumber(v) );
+            CHECK( !isScalar(v) );
+        }
+    }
+    GIVEN( "an Array Variant" )
+    {
+        Variant v(Array{42, "hello", false});
+        THEN( "The type information is as expected" )
+        {
+            CHECK( (v.typeId() == I::array) );
+            CHECK_THAT( typeNameOf(v), Matchers::Equals("Array") );
+            CHECK( !!v );
+            CHECK( v.is<Array>() );
+            CHECK( v.is<I::array>() );
+            CHECK( v.size() == 3 );
+            CHECK( !isNumber(v) );
+            CHECK( !isScalar(v) );
+        }
+    }
+    GIVEN( "an Object Variant" )
+    {
+        Variant v(Object{{"foo",42}, {"bar","hello"}});
+        THEN( "The type information is as expected" )
+        {
+            CHECK( (v.typeId() == I::object) );
+            CHECK_THAT( typeNameOf(v), Matchers::Equals("Object") );
+            CHECK( !!v );
+            CHECK( v.is<Object>() );
+            CHECK( v.is<I::object>() );
+            CHECK( v.size() == 2 );
+            CHECK( !isNumber(v) );
+            CHECK( !isScalar(v) );
+        }
+    }
+}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "Variant stream output", "[Variant]" )
+{
+auto intMin  = std::numeric_limits<Int>::min();
+auto intMax  = std::numeric_limits<Int>::max();
+auto uintMax = std::numeric_limits<UInt>::max();
+auto realMin = std::numeric_limits<Real>::lowest();
+auto realMax = std::numeric_limits<Real>::max();
+
+GIVEN( "an assortment of variants" )
+{
+    checkOutput(null, "null");
+    checkOutput(false, "false");
+    checkOutput(true, "true");
+    checkOutput(0, "0");
+    checkOutput(-1, "-1");
+    checkOutput(intMin, "-9223372036854775808");
+    checkOutput(intMax, "9223372036854775807");
+    checkOutput(0u, "0");
+    checkOutput(uintMax, "18446744073709551615");
+    checkRealOutput(0.0);
+    checkRealOutput(realMin);
+    checkRealOutput(realMax);
+    checkOutput("Hello", R"("Hello")");
+    checkOutput("",      R"("")");
+    checkOutput("null",  R"("null")");
+    checkOutput("false", R"("false")");
+    checkOutput("true",  R"("true")");
+    checkOutput("0",     R"("0")");
+    checkOutput("1",     R"("1")");
+    checkOutput(Blob{},                       R"("\u0000")");
+    checkOutput(Blob{0x00},                   R"("\u0000AA==")");
+    checkOutput(Blob{0x00, 0x01},             R"("\u0000AAE=")");
+    checkOutput(Blob{0x00, 0x01, 0x02},       R"("\u0000AAEC")");
+    checkOutput(Blob{0x00, 0x01, 0x02, 0x03}, R"("\u0000AAECAw==")");
+    checkArray(Array{},      "[]");
+    checkArray(Array{null},  "[null]");
+    checkArray(Array{false}, "[false]");
+    checkArray(Array{true},  "[true]");
+    checkArray(Array{0u},    "[0]");
+    checkArray(Array{-1},    "[-1]");
+    checkArray(Array{""},    R"([""])");
+
+    // Array{Array{}} is ambiguous with the move constructor and the
+    // constructor taking an initializer list
+    checkArray(Array{Variant{Array{}}},  "[[]]");
+    checkArray(Array{Object{}}, "[{}]");
+    checkArray(Array{null,false,true,42u,-42,"hello",Array{},Object{}},
+               R"([null,false,true,42,-42,"hello",[],{}])");
+    checkArray(Array{ Variant{Array{Variant{Array{"foo",42}}}},
+                      Array{ Object{{"foo",42}} } },
+               R"([[["foo",42]],[{"foo":42}]])");
+
+    checkObject(Object{},                   R"({})");
+    checkObject(Object{ {"",""} },          R"({"":""})");
+    checkObject(Object{ {"n",null} },       R"({"n":null})");
+    checkObject(Object{ {"b",false} },      R"({"b":false})");
+    checkObject(Object{ {"b",true} },       R"({"b":true})");
+    checkObject(Object{ {"n",0u} },         R"({"n":0})");
+    checkObject(Object{ {"n",-1} },         R"({"n":-1})");
+    checkObject(Object{ {"s","" } },        R"({"s":""})");
+    checkObject(Object{ {"a",Array{}} },    R"({"a":[]})");
+    checkObject(Object{ {"o",Object{}} },   R"({"o":{}})");
+    checkObject(Object{ {"",null}, {"f",false}, {"t",true}, {"u",0u}, {"n",-1},
+                        {"s","abc"}, {"a",Array{}}, {"o",Object{}} },
+                R"({"":null,"a":[],"f":false,"n":-1,"o":{},"s":"abc","t":true,"u":0})");
+    checkObject(Object{ {"a", Object{ {"b", Object{ {"c",42} }} } } },
+                R"({"a":{"b":{"c":42}}})");
+}
+}
 
 //------------------------------------------------------------------------------
 SCENARIO( "Variant comparisons", "[Variant]" )
