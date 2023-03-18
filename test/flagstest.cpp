@@ -4,6 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
+#include <unordered_map>
 #include <utility>
 #include <catch2/catch.hpp>
 #include <cppwamp/flags.hpp>
@@ -13,12 +14,115 @@ using namespace wamp;
 enum class TestEnum : unsigned
 {
     zero      = 0,
-    one       = 1 << 0,
-    two       = 1 << 1,
+    one       = 0_flag,
+    two       = 1_flag,
     oneAndTwo = one | two
 };
 
+using Bitset = Flags<TestEnum>::bitset_type;
+
 namespace wamp { template <> struct IsFlag<TestEnum> : TrueType {}; }
+
+namespace
+{
+
+void checkNoneAreSet(const Flags<TestEnum> f)
+{
+    CHECK      ( f == TestEnum::zero );
+    CHECK_FALSE( f == TestEnum::one );
+    CHECK_FALSE( f == TestEnum::two );
+    CHECK_FALSE( f == TestEnum::oneAndTwo );
+    CHECK      ( f.test(TestEnum::zero) );
+    CHECK_FALSE( f.test(TestEnum::one) );
+    CHECK_FALSE( f.test(TestEnum::two) );
+    CHECK_FALSE( f.test(TestEnum::oneAndTwo) );
+    CHECK      ( f.all_of(TestEnum::zero) );
+    CHECK_FALSE( f.all_of(TestEnum::one) );
+    CHECK_FALSE( f.all_of(TestEnum::two) );
+    CHECK_FALSE( f.all_of(TestEnum::oneAndTwo) );
+    CHECK_FALSE( f.any_of(TestEnum::zero) );
+    CHECK_FALSE( f.any_of(TestEnum::one) );
+    CHECK_FALSE( f.any_of(TestEnum::two) );
+    CHECK_FALSE( f.all_of(TestEnum::oneAndTwo) );
+    CHECK_FALSE( f.any() );
+    CHECK      ( f.none() );
+    CHECK      ( f.to_integer() == 0x00 );
+    CHECK      ( f.to_bitset() == Bitset(0x00) );
+};
+
+void checkOneIsSet(const Flags<TestEnum> f)
+{
+    CHECK_FALSE( f == TestEnum::zero );
+    CHECK      ( f == TestEnum::one );
+    CHECK_FALSE( f == TestEnum::two );
+    CHECK_FALSE( f == TestEnum::oneAndTwo );
+    CHECK      ( f.test(TestEnum::zero) );
+    CHECK      ( f.test(TestEnum::one) );
+    CHECK_FALSE( f.test(TestEnum::two) );
+    CHECK_FALSE( f.test(TestEnum::oneAndTwo) );
+    CHECK      ( f.all_of(TestEnum::zero) );
+    CHECK      ( f.all_of(TestEnum::one) );
+    CHECK_FALSE( f.all_of(TestEnum::two) );
+    CHECK_FALSE( f.all_of(TestEnum::oneAndTwo) );
+    CHECK_FALSE( f.any_of(TestEnum::zero) );
+    CHECK      ( f.any_of(TestEnum::one) );
+    CHECK_FALSE( f.any_of(TestEnum::two) );
+    CHECK      ( f.any_of(TestEnum::oneAndTwo) );
+    CHECK      ( f.any() );
+    CHECK_FALSE( f.none() );
+    CHECK      ( f.to_integer() == 0x01 );
+    CHECK      ( f.to_bitset() == Bitset(0x01) );
+};
+
+void checkTwoIsSet(const Flags<TestEnum> f)
+{
+    CHECK_FALSE( f == TestEnum::zero );
+    CHECK_FALSE( f == TestEnum::one );
+    CHECK      ( f == TestEnum::two );
+    CHECK_FALSE( f == TestEnum::oneAndTwo );
+    CHECK      ( f.test(TestEnum::zero) );
+    CHECK_FALSE( f.test(TestEnum::one) );
+    CHECK      ( f.test(TestEnum::two) );
+    CHECK_FALSE( f.test(TestEnum::oneAndTwo) );
+    CHECK      ( f.all_of(TestEnum::zero) );
+    CHECK_FALSE( f.all_of(TestEnum::one) );
+    CHECK      ( f.all_of(TestEnum::two) );
+    CHECK_FALSE( f.all_of(TestEnum::oneAndTwo) );
+    CHECK_FALSE( f.any_of(TestEnum::zero) );
+    CHECK_FALSE( f.any_of(TestEnum::one) );
+    CHECK      ( f.any_of(TestEnum::two) );
+    CHECK      ( f.any_of(TestEnum::oneAndTwo) );
+    CHECK      ( f.any() );
+    CHECK_FALSE( f.none() );
+    CHECK      ( f.to_integer() == 0x02 );
+    CHECK      ( f.to_bitset() == Bitset(0x02) );
+};
+
+void checkOneAndTwoAreSet(const Flags<TestEnum> f)
+{
+    CHECK_FALSE( f == TestEnum::zero );
+    CHECK_FALSE( f == TestEnum::one );
+    CHECK_FALSE( f == TestEnum::two );
+    CHECK      ( f == TestEnum::oneAndTwo );
+    CHECK      ( f.test(TestEnum::zero) );
+    CHECK      ( f.test(TestEnum::one) );
+    CHECK      ( f.test(TestEnum::two) );
+    CHECK      ( f.test(TestEnum::oneAndTwo) );
+    CHECK      ( f.all_of(TestEnum::zero) );
+    CHECK      ( f.all_of(TestEnum::one) );
+    CHECK      ( f.all_of(TestEnum::two) );
+    CHECK      ( f.all_of(TestEnum::oneAndTwo) );
+    CHECK_FALSE( f.any_of(TestEnum::zero) );
+    CHECK      ( f.any_of(TestEnum::one) );
+    CHECK      ( f.any_of(TestEnum::two) );
+    CHECK      ( f.any_of(TestEnum::oneAndTwo) );
+    CHECK      ( f.any() );
+    CHECK_FALSE( f.none() );
+    CHECK      ( f.to_integer() == 0x03 );
+    CHECK      ( f.to_bitset() == Bitset(0x03) );
+};
+
+} // anonymous namespace
 
 //------------------------------------------------------------------------------
 SCENARIO( "Constructing Flags", "[Flags]" )
@@ -28,15 +132,7 @@ GIVEN( "a default-constructed Flags instance" )
     Flags<TestEnum> f;
     THEN( "no flags are set" )
     {
-        CHECK_FALSE( (bool)f );
-        CHECK      ( f == TestEnum::zero );
-        CHECK_FALSE( f == TestEnum::one );
-        CHECK_FALSE( f == TestEnum::two );
-        CHECK_FALSE( f == TestEnum::oneAndTwo );
-        CHECK      ( f.test(TestEnum::zero) );
-        CHECK_FALSE( f.test(TestEnum::one) );
-        CHECK_FALSE( f.test(TestEnum::two) );
-        CHECK      ( f.none() );
+        checkNoneAreSet(f);
     }
 }
 GIVEN( "an enumerator" )
@@ -47,15 +143,7 @@ GIVEN( "an enumerator" )
         Flags<TestEnum> f(e);
         THEN( "only the flag for that enumerator is set" )
         {
-            CHECK      ( (bool)f );
-            CHECK_FALSE( f == TestEnum::zero );
-            CHECK_FALSE( f == TestEnum::one );
-            CHECK      ( f == TestEnum::two );
-            CHECK_FALSE( f == TestEnum::oneAndTwo );
-            CHECK      ( f.test(TestEnum::zero) );
-            CHECK_FALSE( f.test(TestEnum::one) );
-            CHECK      ( f.test(TestEnum::two) );
-            CHECK_FALSE( f.none() );
+            checkTwoIsSet(f);
         }
     }
 }
@@ -67,51 +155,28 @@ GIVEN( "a null enumerator" )
         Flags<TestEnum> f(e);
         THEN( "no flags are set" )
         {
-            CHECK_FALSE( (bool)f );
-            CHECK      ( f == TestEnum::zero );
-            CHECK_FALSE( f == TestEnum::one );
-            CHECK_FALSE( f == TestEnum::two );
-            CHECK_FALSE( f == TestEnum::oneAndTwo );
-            CHECK      ( f.test(TestEnum::zero) );
-            CHECK_FALSE( f.test(TestEnum::one) );
-            CHECK_FALSE( f.test(TestEnum::two) );
-            CHECK      ( f.none() );
+            checkNoneAreSet(f);
         }
     }
 }
 GIVEN( "another Flags instance" )
 {
-    TestEnum e = TestEnum::one;
-    Flags<TestEnum> rhs(e);
+    Flags<TestEnum> rhs(TestEnum::one);
     WHEN( "copy constructed" )
     {
         Flags<TestEnum> lhs(rhs);
         THEN( "only the appropriate flags are set" )
         {
-            CHECK      ( (bool)lhs );
-            CHECK_FALSE( lhs == TestEnum::zero );
-            CHECK      ( lhs == TestEnum::one );
-            CHECK_FALSE( lhs == TestEnum::two );
-            CHECK_FALSE( lhs == TestEnum::oneAndTwo );
-            CHECK      ( lhs.test(TestEnum::zero) );
-            CHECK      ( lhs.test(TestEnum::one) );
-            CHECK_FALSE( lhs.test(TestEnum::two) );
-            CHECK_FALSE( lhs.none() );
+            checkOneIsSet(lhs);
+            checkOneIsSet(rhs);
         }
         AND_WHEN( "the copy constructed instance is modified" )
         {
             lhs.set(TestEnum::two);
+            checkOneAndTwoAreSet(lhs);
             THEN( "the original instance remains enchanged" )
             {
-                CHECK      ( (bool)rhs );
-                CHECK_FALSE( rhs == TestEnum::zero );
-                CHECK      ( rhs == TestEnum::one );
-                CHECK_FALSE( rhs == TestEnum::two );
-                CHECK_FALSE( rhs == TestEnum::oneAndTwo );
-                CHECK      ( rhs.test(TestEnum::zero) );
-                CHECK      ( rhs.test(TestEnum::one) );
-                CHECK_FALSE( rhs.test(TestEnum::two) );
-                CHECK_FALSE( rhs.none() );
+                checkOneIsSet(rhs);
             }
         }
     }
@@ -120,15 +185,8 @@ GIVEN( "another Flags instance" )
         Flags<TestEnum> lhs(std::move(rhs));
         THEN( "only the appropriate flags are set" )
         {
-            CHECK      ( (bool)lhs );
-            CHECK_FALSE( lhs == TestEnum::zero );
-            CHECK      ( lhs == TestEnum::one );
-            CHECK_FALSE( lhs == TestEnum::two );
-            CHECK_FALSE( lhs == TestEnum::oneAndTwo );
-            CHECK      ( lhs.test(TestEnum::zero) );
-            CHECK      ( lhs.test(TestEnum::one) );
-            CHECK_FALSE( lhs.test(TestEnum::two) );
-            CHECK_FALSE( lhs.none() );
+            checkOneIsSet(lhs);
+            checkOneIsSet(rhs);
         }
     }
 }
@@ -141,15 +199,20 @@ GIVEN( "an integer" )
         Flags<TestEnum> f(in_place, n);
         THEN( "only the appropriate flags are set" )
         {
-            CHECK      ( (bool)f );
-            CHECK_FALSE( f == TestEnum::zero );
-            CHECK_FALSE( f == TestEnum::one );
-            CHECK_FALSE( f == TestEnum::two );
-            CHECK      ( f == TestEnum::oneAndTwo );
-            CHECK      ( f.test(TestEnum::zero) );
-            CHECK      ( f.test(TestEnum::one) );
-            CHECK      ( f.test(TestEnum::two) );
-            CHECK_FALSE( f.none() );
+            checkOneAndTwoAreSet(f);
+        }
+    }
+}
+GIVEN( "a bitset" )
+{
+    Bitset bits;
+    bits.set(0).set(1);
+    WHEN( "constructing with a bitset" )
+    {
+        Flags<TestEnum> f(bits);
+        THEN( "only the appropriate flags are set" )
+        {
+            checkOneAndTwoAreSet(f);
         }
     }
 }
@@ -167,12 +230,8 @@ GIVEN( "two Flags operands" )
         lhs = rhs;
         THEN( "the LHS has the same bitfield as the RHS" )
         {
-            CHECK( lhs == TestEnum::two );
+            checkTwoIsSet(lhs);
             CHECK( lhs == rhs );
-            CHECK      ( lhs == TestEnum::two );
-            CHECK_FALSE( lhs.test(TestEnum::one) );
-            CHECK      ( lhs.test(TestEnum::two) );
-            CHECK_FALSE( lhs.none() );
         }
         AND_WHEN( "the LHS is modified" )
         {
@@ -180,10 +239,8 @@ GIVEN( "two Flags operands" )
             lhs.reset(TestEnum::two);
             THEN( "the RHS remains unchanged" )
             {
-                CHECK      ( rhs == TestEnum::two );
-                CHECK_FALSE( rhs.test(TestEnum::one) );
-                CHECK      ( rhs.test(TestEnum::two) );
-                CHECK_FALSE( rhs.none() );
+                checkOneIsSet(lhs);
+                checkTwoIsSet(rhs);
             }
         }
     }
@@ -192,10 +249,8 @@ GIVEN( "two Flags operands" )
         lhs = std::move(rhs);
         THEN( "the LHS has the bitfield that RHS used to have" )
         {
-            CHECK      ( lhs == TestEnum::two );
-            CHECK_FALSE( lhs.test(TestEnum::one) );
-            CHECK      ( lhs.test(TestEnum::two) );
-            CHECK_FALSE( lhs.none() );
+            checkTwoIsSet(lhs);
+            checkTwoIsSet(rhs);
         }
     }
 }
@@ -212,36 +267,14 @@ GIVEN( "an empty Flags instance" )
         f.set(TestEnum::one);
         THEN( "that flag tests true" )
         {
-            CHECK_FALSE( f == TestEnum::zero );
-            CHECK      ( f != TestEnum::zero );
-            CHECK      ( f == TestEnum::one );
-            CHECK_FALSE( f != TestEnum::one );
-            CHECK_FALSE( f == TestEnum::two );
-            CHECK      ( f != TestEnum::two );
-            CHECK_FALSE( f == TestEnum::oneAndTwo );
-            CHECK      ( f != TestEnum::oneAndTwo );
-            CHECK      ( (bool)f );
-            CHECK_FALSE( f.none() );
-            CHECK      ( f.test(TestEnum::one ));
-            CHECK_FALSE( f.test(TestEnum::two ));
+            checkOneIsSet(f);
         }
         AND_WHEN( "another flag is set" )
         {
             f.set(TestEnum::two);
             THEN( "both flags test true" )
             {
-                CHECK_FALSE( f == TestEnum::zero );
-                CHECK      ( f != TestEnum::zero );
-                CHECK_FALSE( f == TestEnum::one );
-                CHECK      ( f != TestEnum::one );
-                CHECK_FALSE( f == TestEnum::two );
-                CHECK      ( f != TestEnum::two );
-                CHECK      ( f == TestEnum::oneAndTwo );
-                CHECK_FALSE( f != TestEnum::oneAndTwo );
-                CHECK      ( (bool)f );
-                CHECK_FALSE( f.none() );
-                CHECK      ( f.test(TestEnum::one ));
-                CHECK      ( f.test(TestEnum::two ));
+                checkOneAndTwoAreSet(f);
             }
         }
         AND_WHEN( "a null flag is set" )
@@ -249,18 +282,7 @@ GIVEN( "an empty Flags instance" )
             f.set(TestEnum::zero);
             THEN( "nothing changes" )
             {
-                CHECK_FALSE( f == TestEnum::zero );
-                CHECK      ( f != TestEnum::zero );
-                CHECK      ( f == TestEnum::one );
-                CHECK_FALSE( f != TestEnum::one );
-                CHECK_FALSE( f == TestEnum::two );
-                CHECK      ( f != TestEnum::two );
-                CHECK_FALSE( f == TestEnum::oneAndTwo );
-                CHECK      ( f != TestEnum::oneAndTwo );
-                CHECK      ( (bool)f );
-                CHECK_FALSE( f.none() );
-                CHECK      ( f.test(TestEnum::one ));
-                CHECK_FALSE( f.test(TestEnum::two ));
+                checkOneIsSet(f);
             }
         }
         AND_WHEN( "the same flag is set again" )
@@ -268,18 +290,7 @@ GIVEN( "an empty Flags instance" )
             f.set(TestEnum::one);
             THEN( "nothing changes" )
             {
-                CHECK_FALSE( f == TestEnum::zero );
-                CHECK      ( f != TestEnum::zero );
-                CHECK      ( f == TestEnum::one );
-                CHECK_FALSE( f != TestEnum::one );
-                CHECK_FALSE( f == TestEnum::two );
-                CHECK      ( f != TestEnum::two );
-                CHECK_FALSE( f == TestEnum::oneAndTwo );
-                CHECK      ( f != TestEnum::oneAndTwo );
-                CHECK      ( (bool)f );
-                CHECK_FALSE( f.none() );
-                CHECK      ( f.test(TestEnum::one ));
-                CHECK_FALSE( f.test(TestEnum::two ));
+                checkOneIsSet(f);
             }
         }
     }
@@ -288,18 +299,7 @@ GIVEN( "an empty Flags instance" )
         f.set(TestEnum::two);
         THEN( "that flag tests true" )
         {
-            CHECK_FALSE( f == TestEnum::zero );
-            CHECK      ( f != TestEnum::zero );
-            CHECK_FALSE( f == TestEnum::one );
-            CHECK      ( f != TestEnum::one );
-            CHECK      ( f == TestEnum::two );
-            CHECK_FALSE( f != TestEnum::two );
-            CHECK_FALSE( f == TestEnum::oneAndTwo );
-            CHECK      ( f != TestEnum::oneAndTwo );
-            CHECK      ( (bool)f );
-            CHECK_FALSE( f.none() );
-            CHECK_FALSE( f.test(TestEnum::one ));
-            CHECK      ( f.test(TestEnum::two ));
+            checkTwoIsSet(f);
         }
     }
     WHEN( "a null flag is set" )
@@ -307,18 +307,7 @@ GIVEN( "an empty Flags instance" )
         f.set(TestEnum::zero);
         THEN( "nothing changes" )
         {
-            CHECK      ( f == TestEnum::zero );
-            CHECK_FALSE( f != TestEnum::zero );
-            CHECK_FALSE( f == TestEnum::one );
-            CHECK      ( f != TestEnum::one );
-            CHECK_FALSE( f == TestEnum::two );
-            CHECK      ( f != TestEnum::two );
-            CHECK_FALSE( f == TestEnum::oneAndTwo );
-            CHECK      ( f != TestEnum::oneAndTwo );
-            CHECK_FALSE( (bool)f );
-            CHECK      ( f.none() );
-            CHECK_FALSE( f.test(TestEnum::one ));
-            CHECK_FALSE( f.test(TestEnum::two ));
+            checkNoneAreSet(f);
         }
     }
     WHEN( "two flags are simulateously set" )
@@ -326,18 +315,7 @@ GIVEN( "an empty Flags instance" )
         f.set(TestEnum::oneAndTwo);
         THEN( "both flags are set" )
         {
-            CHECK_FALSE( f == TestEnum::zero );
-            CHECK      ( f != TestEnum::zero );
-            CHECK_FALSE( f == TestEnum::one );
-            CHECK      ( f != TestEnum::one );
-            CHECK_FALSE( f == TestEnum::two );
-            CHECK      ( f != TestEnum::two );
-            CHECK      ( f == TestEnum::oneAndTwo );
-            CHECK_FALSE( f != TestEnum::oneAndTwo );
-            CHECK      ( (bool)f );
-            CHECK_FALSE( f.none() );
-            CHECK      ( f.test(TestEnum::one ));
-            CHECK      ( f.test(TestEnum::two ));
+            checkOneAndTwoAreSet(f);
         }
     }
 }
@@ -354,14 +332,7 @@ GIVEN( "a non-empty Flags instance" )
         f.reset();
         THEN( "none of the flags are set" )
         {
-            CHECK      ( f == TestEnum::zero );
-            CHECK_FALSE( f == TestEnum::one );
-            CHECK_FALSE( f == TestEnum::two );
-            CHECK_FALSE( f == TestEnum::oneAndTwo );
-            CHECK_FALSE( (bool)f );
-            CHECK      ( f.none() );
-            CHECK_FALSE( f.test(TestEnum::one ));
-            CHECK_FALSE( f.test(TestEnum::two ));
+            checkNoneAreSet(f);
         }
     }
 }
@@ -373,14 +344,7 @@ GIVEN( "an empty Flags instance" )
         f.reset();
         THEN( "none of the flags are set" )
         {
-            CHECK      ( f == TestEnum::zero );
-            CHECK_FALSE( f == TestEnum::one );
-            CHECK_FALSE( f == TestEnum::two );
-            CHECK_FALSE( f == TestEnum::oneAndTwo );
-            CHECK_FALSE( (bool)f );
-            CHECK      ( f.none() );
-            CHECK_FALSE( f.test(TestEnum::one ));
-            CHECK_FALSE( f.test(TestEnum::two ));
+            checkNoneAreSet(f);
         }
     }
 }
@@ -397,15 +361,14 @@ GIVEN( "an non-empty Flags instance" )
         f.reset(TestEnum::one);
         THEN( "that flag tests false" )
         {
-            CHECK_FALSE( f.test(TestEnum::one ));
-            CHECK      ( f == TestEnum::two );
+            checkTwoIsSet(f);
         }
         AND_WHEN( "another flag is reset" )
         {
             f.reset(TestEnum::two);
             THEN( "both flags test false" )
             {
-                CHECK( f.none() );
+                checkNoneAreSet(f);
             }
         }
         AND_WHEN( "a null flag is reset" )
@@ -413,7 +376,7 @@ GIVEN( "an non-empty Flags instance" )
             f.reset(TestEnum::zero);
             THEN( "nothing changes" )
             {
-                CHECK( f == TestEnum::two );
+                checkTwoIsSet(f);
             }
         }
         AND_WHEN( "the same flag is reset" )
@@ -421,7 +384,7 @@ GIVEN( "an non-empty Flags instance" )
             f.reset(TestEnum::one);
             THEN( "nothing changes" )
             {
-                CHECK( f == TestEnum::two );
+                checkTwoIsSet(f);
             }
         }
     }
@@ -430,7 +393,7 @@ GIVEN( "an non-empty Flags instance" )
         f.reset(TestEnum::zero);
         THEN( "nothing changes" )
         {
-            CHECK( f == TestEnum::oneAndTwo );
+            checkOneAndTwoAreSet(f);
         }
     }
     WHEN( "two flags are simulateously reset" )
@@ -438,7 +401,7 @@ GIVEN( "an non-empty Flags instance" )
         f.reset(TestEnum::oneAndTwo);
         THEN( "both flags are reset" )
         {
-            CHECK( f.none() );
+            checkNoneAreSet(f);
         }
     }
 }
@@ -453,22 +416,22 @@ GIVEN( "an empty Flags instance" )
     WHEN( "a flag is flipped" )
     {
         f.flip(TestEnum::one);
-        CHECK ( f == TestEnum::one );
+        checkOneIsSet(f);
         AND_WHEN( "more flipping is done" )
         {
             f.flip(TestEnum::two);
-            CHECK( f == TestEnum::oneAndTwo );
+            checkOneAndTwoAreSet(f);
             f.flip(TestEnum::one);
-            CHECK( f == TestEnum::two );
+            checkTwoIsSet(f);
             f.flip(TestEnum::two);
-            CHECK( f == TestEnum::zero );
+            checkNoneAreSet(f);
         }
         AND_WHEN( "a null flag is flipped" )
         {
             f.flip(TestEnum::zero);
             THEN( "nothing changes" )
             {
-                CHECK( f == TestEnum::one );
+                checkOneIsSet(f);
             }
         }
     }
@@ -477,7 +440,7 @@ GIVEN( "an empty Flags instance" )
         f.flip(TestEnum::zero);
         THEN( "nothing changes" )
         {
-            CHECK( f.none() );
+            checkNoneAreSet(f);
         }
     }
 }
@@ -489,7 +452,7 @@ GIVEN( "one flag set and another reset" )
         f.flip(TestEnum::oneAndTwo);
         THEN( "both flags are flipped" )
         {
-            CHECK( f == TestEnum::one );
+            checkOneIsSet(f);
         }
     }
     WHEN( "a null flag is flipped" )
@@ -497,7 +460,7 @@ GIVEN( "one flag set and another reset" )
         f.flip(TestEnum::zero);
         THEN( "nothing changes" )
         {
-            CHECK( f == TestEnum::two );
+            checkTwoIsSet(f);
         }
     }
 }
@@ -724,7 +687,7 @@ GIVEN( "an empty Flags instance" )
 
     WHEN( "inverting" )
     {
-        CHECK ( (~f).value() == ~(g.value()) );
+        CHECK ( (~f).to_integer() == ~(g.to_integer()) );
     }
 }
 GIVEN( "a non-empty Flags instance" )
@@ -734,7 +697,7 @@ GIVEN( "a non-empty Flags instance" )
 
     WHEN( "inverting" )
     {
-        CHECK ( (~f).value() == ~(g.value()) );
+        CHECK ( (~f).to_integer() == ~(g.to_integer()) );
     }
 }
 }
@@ -782,7 +745,7 @@ WHEN( "Inverting" )
 {
     auto f = ~a;
     CHECK(typeid(decltype(f)) == typeid(Flags<TestEnum>));
-    CHECK(f.value() == ~(Flags<TestEnum>(a).value()));
+    CHECK(f.to_integer() == ~(Flags<TestEnum>(a).to_integer()));
 }
 }
 
@@ -803,21 +766,39 @@ WHEN( "comparing" )
 }
 
 //------------------------------------------------------------------------------
+SCENARIO( "Hash support for flags", "[Flags]" )
+{
+Flags<TestEnum> f = TestEnum::one;
+Flags<TestEnum> g = TestEnum::oneAndTwo;
+std::unordered_map<Flags<TestEnum>, int> map;
+
+WHEN( "using flags as unordered map keys" )
+{
+    map.emplace(f, 24);
+    map.emplace(g, 42);
+    CHECK(map.at(f) == 24);
+    CHECK(map.at(g) == 42);
+}
+}
+
+//------------------------------------------------------------------------------
 SCENARIO( "constexpr Flags", "[Flags]" )
 {
     using F = Flags<TestEnum>;
     using E = TestEnum;
     static_assert(F().none(), "");
-    static_assert(F(E::one).value() == unsigned(E::one), "");
-    static_assert(F(E::one).value() != unsigned(E::two), "");
+    static_assert(F(E::one).to_integer() == unsigned(E::one), "");
+    static_assert(F(E::one).to_integer() != unsigned(E::two), "");
     static_assert(F(E::one) == F(E::one), "");
     static_assert(F(E::one) != F(E::two), "");
     static_assert(F(E::one).test(E::one), "");
-    static_assert(F(E::one).any(E::one), "");
+    static_assert(F(E::one).all_of(E::one), "");
+    static_assert(F(E::one).any_of(E::one), "");
+    static_assert(F(E::one).any(), "");
     static_assert((F(E::one) & F(E::oneAndTwo)) == F(E::one), "");
     static_assert((F(E::one) | F(E::two)) == F(E::oneAndTwo), "");
     static_assert((F(E::oneAndTwo) ^ F(E::two)) == F(E::one), "");
-    static_assert((~F(E::one)).value() == ~(unsigned(E::one)), "");
+    static_assert((~F(E::one)).to_integer() == ~(unsigned(E::one)), "");
     static_assert((E::oneAndTwo & E::one) == F(E::one), "");
     static_assert((E::one | E::two) == F(E::oneAndTwo), "");
     static_assert((E::oneAndTwo ^ E::one) == F(E::two), "");

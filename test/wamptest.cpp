@@ -489,8 +489,8 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
                 CHECK( info.features().supports(requiredFeatures) );
-                CHECK( info.features().broker().test(BrokerFeatures::basic) );
-                CHECK( info.features().dealer().test(DealerFeatures::basic) );
+                CHECK( info.features().broker().all_of(BrokerFeatures::basic) );
+                CHECK( info.features().dealer().all_of(DealerFeatures::basic) );
 
                 // Check leaving.
                 Reason reason = s.leave(yield).value();

@@ -216,7 +216,7 @@ public:
             return false;
 
         bool calleeHasCallCanceling =
-            callee->features().callee().test(CalleeFeatures::callCanceling);
+            callee->features().callee().all_of(CalleeFeatures::callCanceling);
         mode = calleeHasCallCanceling ? mode : Mode::skip;
 
         // Reject duplicate cancellations, except for killnowait that
@@ -257,7 +257,7 @@ public:
             return;
 
         auto reqId = calleeKey_.second;
-        if (callee->features().callee().test(CalleeFeatures::callCanceling))
+        if (callee->features().callee().all_of(CalleeFeatures::callCanceling))
         {
             callee->sendInterruption({{}, reqId, CallCancelMode::killNoWait,
                                       WampErrc::cancelled});
@@ -333,7 +333,7 @@ private:
 
         auto calleeFeatures = callee->features().callee();
         bool calleeHasCallCancelling =
-            calleeFeatures.test(CalleeFeatures::callCanceling);
+            calleeFeatures.all_of(CalleeFeatures::callCanceling);
 
         // Not clear what the behavior should be when progressive results are
         // requested, but not supported by the callee.
@@ -342,7 +342,7 @@ private:
         {
             bool calleeHasProgressiveCallResults =
                 calleeHasCallCancelling &&
-                calleeFeatures.test(CalleeFeatures::progressiveCallResults);
+                calleeFeatures.all_of(CalleeFeatures::progressiveCallResults);
             progressiveResultsRequested_ = calleeHasProgressiveCallResults;
         }
 
@@ -350,7 +350,7 @@ private:
         {
             bool calleeHasProgressiveCallInvocations =
                 calleeHasCallCancelling &&
-                calleeFeatures.test(CalleeFeatures::progressiveCallInvocations);
+                calleeFeatures.all_of(CalleeFeatures::progressiveCallInvocations);
 
             if (!calleeHasProgressiveCallInvocations)
             {

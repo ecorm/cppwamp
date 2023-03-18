@@ -129,10 +129,10 @@ ClientFeatures::subscriber() const {return subscriber_;}
 
 CPPWAMP_INLINE bool ClientFeatures::supports(ClientFeatures desired) const
 {
-    return callee_.test(desired.callee_) &&
-           caller_.test(desired.caller_) &&
-           publisher_.test(desired.publisher_) &&
-           subscriber_.test(desired.subscriber_);
+    return callee_.all_of(desired.callee_) &&
+           caller_.all_of(desired.caller_) &&
+           publisher_.all_of(desired.publisher_) &&
+           subscriber_.all_of(desired.subscriber_);
 }
 
 template <typename E>
@@ -291,7 +291,7 @@ RouterFeatures::dealer() const {return dealer_;}
 
 CPPWAMP_INLINE bool RouterFeatures::supports(RouterFeatures desired) const
 {
-    return broker_.test(desired.broker_) && dealer_.test(desired.dealer_);
+    return broker_.all_of(desired.broker_) && dealer_.all_of(desired.dealer_);
 }
 
 template <typename E>
