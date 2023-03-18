@@ -31,9 +31,9 @@ namespace wamp
     ```
     enum class Topping
     {
-        fudge     = 0x01, // 00000001 in binary
-        sprinkles = 0x02, // 00000010 in binary
-        peanuts   = 0x04  // 00000100 in binary
+        fudge     = 0_flag, // 00000001 in binary
+        sprinkles = 1_flag, // 00000010 in binary
+        peanuts   = 2_flag  // 00000100 in binary
     };
 
     namespace wamp
@@ -71,9 +71,9 @@ static constexpr bool isFlag() noexcept {return IsFlag<E>::value;}
     ```
     enum class Topping
     {
-        fudge     = 0x01, // 00000001 in binary
-        sprinkles = 0x02, // 00000010 in binary
-        peanuts   = 0x04  // 00000100 in binary
+        fudge     = 0_flag, // 00000001 in binary
+        sprinkles = 1_flag, // 00000010 in binary
+        peanuts   = 2_flag  // 00000100 in binary
     };
 
     Flags<Topping> tops;
@@ -88,6 +88,7 @@ static constexpr bool isFlag() noexcept {return IsFlag<E>::value;}
     std::cout << tops.test(Topping::fudge) << "\n";     // Prints 0
     ```
     @see IsFlag
+    @see literals::flag_literals
     @see std::hash<wamp::Flags<E>> */
 //------------------------------------------------------------------------------
 template <typename E>
@@ -373,6 +374,9 @@ inline namespace literals
 inline namespace flag_literals
 {
 
+/** User-defined literal used to conveniently represent a bit in a
+    flags enumeration.
+    @see Flags */
 constexpr unsigned long long operator""_flag(unsigned long long pos)
 {
     return 1u << pos;
