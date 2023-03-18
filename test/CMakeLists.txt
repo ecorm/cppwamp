@@ -12,9 +12,12 @@ set(HEADERS
 set(SOURCES
     anytest.cpp
     base64test.cpp
+    clientauthenticationtest.cpp
     clientmanagesessiontest.cpp
     clientpubsubtest.cpp
+    clientpubsubtestadvanced.cpp
     clientrpctest.cpp
+    clientrpctestadvanced.cpp
     clientunifiedtest.cpp
     codectestcbor.cpp
     codectestjson.cpp
@@ -39,7 +42,6 @@ set(SOURCES
     varianttestoutput.cpp
     varianttestvector.cpp
     varianttestvisitation.cpp
-    wamptestadvanced.cpp
     main.cpp
 )
 
