@@ -20,14 +20,14 @@ namespace wamp
 //------------------------------------------------------------------------------
 enum class CalleeFeatures : uint16_t
 {
-    basic                       = 1u << 0,
-    callCanceling               = 1u << 1,
-    callTimeout                 = 1u << 2,
-    callTrustLevels             = 1u << 3,
-    callerIdentification        = 1u << 4,
-    patternBasedRegistration    = 1u << 5,
-    progressiveCallInvocations  = 1u << 6,
-    progressiveCallResults      = 1u << 7
+    basic                       = flag_bit(0),
+    callCanceling               = flag_bit(1),
+    callTimeout                 = flag_bit(2),
+    callTrustLevels             = flag_bit(3),
+    callerIdentification        = flag_bit(4),
+    patternBasedRegistration    = flag_bit(5),
+    progressiveCallInvocations  = flag_bit(6),
+    progressiveCallResults      = flag_bit(7)
 };
 
 //------------------------------------------------------------------------------
@@ -35,12 +35,12 @@ enum class CalleeFeatures : uint16_t
 //------------------------------------------------------------------------------
 enum class CallerFeatures : uint16_t
 {
-    basic                       = 1u << 0,
-    callCanceling               = 1u << 1,
-    callTimeout                 = 1u << 2,
-    callerIdentification        = 1u << 3,
-    progressiveCallInvocations  = 1u << 4,
-    progressiveCallResults      = 1u << 5
+    basic                       = flag_bit(0),
+    callCanceling               = flag_bit(1),
+    callTimeout                 = flag_bit(2),
+    callerIdentification        = flag_bit(3),
+    progressiveCallInvocations  = flag_bit(4),
+    progressiveCallResults      = flag_bit(5)
 };
 
 //------------------------------------------------------------------------------
@@ -48,10 +48,10 @@ enum class CallerFeatures : uint16_t
 //------------------------------------------------------------------------------
 enum class PublisherFeatures : uint16_t
 {
-    basic                       = 1u << 0,
-    publisherExclusion          = 1u << 1,
-    publisherIdentification     = 1u << 2,
-    subscriberBlackWhiteListing = 1u << 3
+    basic                       = flag_bit(0),
+    publisherExclusion          = flag_bit(1),
+    publisherIdentification     = flag_bit(2),
+    subscriberBlackWhiteListing = flag_bit(3)
 };
 
 //------------------------------------------------------------------------------
@@ -59,16 +59,16 @@ enum class PublisherFeatures : uint16_t
 //------------------------------------------------------------------------------
 enum class SubscriberFeatures : uint16_t
 {
-    basic                    = 1u << 0,
-    patternBasedSubscription = 1u << 1,
-    publicationTrustLevels   = 1u << 2,
-    publisherIdentification  = 1u << 3
+    basic                    = flag_bit(0),
+    patternBasedSubscription = flag_bit(1),
+    publicationTrustLevels   = flag_bit(2),
+    publisherIdentification  = flag_bit(3)
 };
 
-template <> struct IsFlag<CalleeFeatures> : TrueType {};
-template <> struct IsFlag<CallerFeatures> : TrueType {};
-template <> struct IsFlag<PublisherFeatures> : TrueType {};
-template <> struct IsFlag<SubscriberFeatures> : TrueType {};
+template <> struct is_flag<CalleeFeatures> : TrueType {};
+template <> struct is_flag<CallerFeatures> : TrueType {};
+template <> struct is_flag<PublisherFeatures> : TrueType {};
+template <> struct is_flag<SubscriberFeatures> : TrueType {};
 
 //------------------------------------------------------------------------------
 /** Identifies the features supported by a WAMP client.
@@ -160,8 +160,8 @@ enum class DealerFeatures : uint16_t
     progressiveCallResults     = 1u << 7
 };
 
-template <> struct IsFlag<BrokerFeatures> : TrueType {};
-template <> struct IsFlag<DealerFeatures> : TrueType {};
+template <> struct is_flag<BrokerFeatures> : TrueType {};
+template <> struct is_flag<DealerFeatures> : TrueType {};
 
 
 //------------------------------------------------------------------------------

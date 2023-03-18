@@ -20,16 +20,6 @@ Namespace for utility classes and functions provided by the CppWAMP library.
 */
 
 /**
-@namespace wamp::literals
-Namespace for user-defined literals provided by the CppWAMP library.
-*/
-
-/**
-@namespace wamp::literals::flag_literals
-Namespace for user-defined literals for use within enumerations wrapped
-by wamp::Flags. */
-
-/**
 @mainpage
 This is the reference documentation for the CppWAMP library. CppWAMP is a C++11
 implementation of the [WAMP][wamp] protocol's client roles (caller, callee,

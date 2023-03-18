@@ -31,14 +31,14 @@ namespace wamp
     ```
     enum class Topping
     {
-        fudge     = 0_flag, // 00000001 in binary
-        sprinkles = 1_flag, // 00000010 in binary
-        peanuts   = 2_flag  // 00000100 in binary
+        fudge     = flag_bit(0), // 00000001 in binary
+        sprinkles = flag_bit(1), // 00000010 in binary
+        peanuts   = flag_bit(2)  // 00000100 in binary
     };
 
     namespace wamp
     {
-        struct IsFlag<Topping> : std::true_type {};
+        struct is_flag<Topping> : std::true_type {};
     }
 
     auto tops = Topping::fudge |
@@ -50,30 +50,30 @@ namespace wamp
     ``` */
 //------------------------------------------------------------------------------
 template <typename E, typename Enabled = void>
-struct IsFlag : FalseType {};
+struct is_flag : FalseType {};
 
 //------------------------------------------------------------------------------
 /** Metafunction that determines if the given enumeration type is a flag.
     @relates Flags */
 //------------------------------------------------------------------------------
 template <typename E>
-static constexpr bool isFlag() noexcept {return IsFlag<E>::value;}
+static constexpr bool isFlag() noexcept {return is_flag<E>::value;}
 
 
 //------------------------------------------------------------------------------
 /** Wrapper around an enumeration where its enumerators are intended to be
     ORed together as bit flags.
 
-    The IsFlag trait can be specialized for enumerations types to enable
+    The is_flag trait can be specialized for enumerations types to enable
     binary bitwise operators between them.
 
     @par Example Usage
     ```
     enum class Topping
     {
-        fudge     = 0_flag, // 00000001 in binary
-        sprinkles = 1_flag, // 00000010 in binary
-        peanuts   = 2_flag  // 00000100 in binary
+        fudge     = flag_bit(0), // 00000001 in binary
+        sprinkles = flag_bit(1), // 00000010 in binary
+        peanuts   = flag_bit(2)  // 00000100 in binary
     };
 
     Flags<Topping> tops;
@@ -87,8 +87,7 @@ static constexpr bool isFlag() noexcept {return IsFlag<E>::value;}
     tops.clear(Topping::fudge);
     std::cout << tops.test(Topping::fudge) << "\n";     // Prints 0
     ```
-    @see IsFlag
-    @see literals::flag_literals
+    @see is_flag
     @see std::hash<wamp::Flags<E>> */
 //------------------------------------------------------------------------------
 template <typename E>
@@ -368,23 +367,12 @@ constexpr Flags<E> operator~(E enumerator) noexcept
     return ~Flags<E>(enumerator);
 }
 
-inline namespace literals
+/** Convenience function for representing a bit in a flags enumeration.
+    @relates Flags */
+static constexpr unsigned long long flag_bit(unsigned pos)
 {
-
-inline namespace flag_literals
-{
-
-/** User-defined literal used to conveniently represent a bit in a
-    flags enumeration.
-    @see Flags */
-constexpr unsigned long long operator""_flag(unsigned long long pos)
-{
-    return 1u << pos;
+    return 1ull << pos;
 }
-
-} // inline namespace flag_literals
-
-} // inline namespace literals
 
 } // namespace wamp
 

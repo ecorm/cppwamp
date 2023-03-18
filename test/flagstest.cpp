@@ -14,14 +14,14 @@ using namespace wamp;
 enum class TestEnum : unsigned
 {
     zero      = 0,
-    one       = 0_flag,
-    two       = 1_flag,
+    one       = flag_bit(0),
+    two       = flag_bit(1),
     oneAndTwo = one | two
 };
 
 using Bitset = Flags<TestEnum>::bitset_type;
 
-namespace wamp { template <> struct IsFlag<TestEnum> : TrueType {}; }
+namespace wamp { template <> struct is_flag<TestEnum> : TrueType {}; }
 
 namespace
 {
