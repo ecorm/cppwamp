@@ -855,7 +855,7 @@ Session::leave(
     C&& completion ///< Completion handler or token.
     )
 {
-    // TODO: Timeout
+    // TODO: Leave timeout
     return leave(Reason{WampErrc::closeRealm}, std::forward<C>(completion));
 }
 

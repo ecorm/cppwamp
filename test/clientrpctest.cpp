@@ -1053,8 +1053,6 @@ GIVEN( "an IO service and a ConnectionWish" )
     IoContext ioctx;
     const auto where = withTcp;
 
-    // TODO: Check for Errc::abandonned
-
     WHEN( "disconnecting during async enroll" )
     {
         checkDisconnect<Registration>(

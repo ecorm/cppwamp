@@ -207,20 +207,24 @@ public:
 
     /** Converting constructor taking an initial value. */
     template <typename T, CPPWAMP_NEEDS(Variant::isValidArg<T>()) = 0>
-    Variant(T value);
+    Variant(T&& value);
 
     /** Converting constructor taking an initial Array value. */
     Variant(Array array);
 
     /** Converting constructor taking a `std::vector` of initial Array
         values. */
-    template <typename T> Variant(std::vector<T> vec);
+    template <typename T,
+             CPPWAMP_NEEDS(Variant::isValidArg<std::vector<T>>()) = 0>
+    Variant(std::vector<T> vec);
 
     /** Converting constructor taking an initial Object value. */
     Variant(Object object);
 
     /** Converting constructor taking a `std::map` of key-value pairs. */
-    template <typename T> Variant(std::map<String, T> map);
+    template <typename T,
+              CPPWAMP_NEEDS((Variant::isValidArg<std::map<String, T>>())) = 0>
+    Variant(std::map<String, T> map);
 
     /** Destructor. */
     ~Variant();
@@ -323,19 +327,24 @@ public:
     Variant& operator=(Variant&& other) noexcept;
 
     /** Assigns a value to a variant. */
-    template <typename T> Variant& operator=(T value);
+    template <typename T, CPPWAMP_NEEDS((Variant::isValidArg<T>())) = 0>
+    Variant& operator=(T&& value);
 
     /** Assigns an array variant to a variant. */
     Variant& operator=(Array array);
 
     /** Assigns a `std::vector` to a variant. */
-    template <typename T> Variant& operator=(std::vector<T> vec);
+    template <typename T,
+              CPPWAMP_NEEDS((Variant::isValidArg<std::vector<T>>())) = 0>
+    Variant& operator=(std::vector<T> vec);
 
     /** Assigns an object variant to a variant. */
     Variant& operator=(Object object);
 
     /** Assigns a `std::map` to a variant. */
-    template <typename T> Variant& operator=(std::map<String, T> map);
+    template <typename T,
+              CPPWAMP_NEEDS((Variant::isValidArg<std::map<String, T>>())) = 0>
+    Variant& operator=(std::map<String, T> map);
 
     /** Swaps two variants. */
     void swap(Variant& other) noexcept;
@@ -755,24 +764,25 @@ Variant Variant::from(TValue&& value)
     @post `*this == value` */
 //------------------------------------------------------------------------------
 template <typename T, CPPWAMP_NEEDS(Variant::isValidArg<T>())>
-Variant::Variant(T value)
+Variant::Variant(T&& value)
 {
-    static_assert(ArgTraits<T>::isValid, "Invalid argument type");
-    using FieldType = typename ArgTraits<T>::FieldType;
+    using FieldType = typename ArgTraits<ValueTypeOf<T>>::FieldType;
     typeId_ = FieldTraits<FieldType>::typeId;
-    constructAs<FieldType>(std::move(value));
+    constructAs<FieldType>(std::forward<T>(value));
 }
 
 //------------------------------------------------------------------------------
-/** @pre The vector elements must be convertible to a bound type
-         (checked at compile time).
+/** @details
+    Only participates in overload resolution when
+    `Variant::isValidArg<T>() == true`.
+    @tparam T (Deduced) Value type which must be convertible to a bound type.
     @post `this->is<Array>() == true`
     @post `*this == vec` */
 //------------------------------------------------------------------------------
-template <typename T> Variant::Variant(std::vector<T> vec)
+template <typename T, CPPWAMP_NEEDS(Variant::isValidArg<std::vector<T>>())>
+Variant::Variant(std::vector<T> vec)
     : typeId_(TypeId::array)
 {
-    static_assert(ArgTraits<T>::isValid, "Invalid vector element type");
     Array array;
     array.reserve(vec.size());
     std::move(vec.begin(), vec.end(), std::back_inserter(array));
@@ -780,15 +790,18 @@ template <typename T> Variant::Variant(std::vector<T> vec)
 }
 
 //------------------------------------------------------------------------------
-/** @post `this->is<Object>() == true`
-    @post `*this == map`
-    @pre The map values must be convertible to bound types
-         (checked at compile time). */
+/** @details
+    Only participates in overload resolution when
+    `Variant::isValidArg<T>() == true`.
+    @tparam T (Deduced) Value type which must be convertible to a bound type.
+    @post `this->is<Object>() == true`
+    @post `*this == map` */
 //------------------------------------------------------------------------------
-template <typename T> Variant::Variant(std::map<String, T> map)
+template <typename T,
+         CPPWAMP_NEEDS((Variant::isValidArg<std::map<String, T>>()))>
+Variant::Variant(std::map<String, T> map)
     : typeId_(TypeId::object)
 {
-    static_assert(ArgTraits<T>::isValid, "Invalid map value type");
     Object object;
     std::move(map.begin(), map.end(), std::inserter(object, object.begin()));
     constructAs<Object>(std::move(object));
@@ -918,37 +931,38 @@ const Variant::BoundTypeForId<id>& Variant::as() const
 /** @details
     The variant's dynamic type will change to accomodate the assigned
     value.
-    @pre The value must be convertible to a bound type
-         (checked at compile time).
+    Only participates in overload resolution when
+    `Variant::isValidArg<T>() == true`.
+    @tparam T (Deduced) Value type which must be convertible to a bound type.
     @post `*this == value` */
 //------------------------------------------------------------------------------
-template <typename T> Variant& Variant::operator=(T value)
+template <typename T, CPPWAMP_NEEDS((Variant::isValidArg<T>()))>
+Variant& Variant::operator=(T&& value)
 {
-    static_assert(ArgTraits<T>::isValid, "Invalid argument type");
-
-    using FieldType = typename ArgTraits<T>::FieldType;
+    using FieldType = typename ArgTraits<ValueTypeOf<T>>::FieldType;
     if (is<FieldType>())
-        as<FieldType>() = std::move(value);
+        as<FieldType>() = std::forward<T>(value);
     else
     {
         destruct();
-        constructAs<FieldType>(std::move(value));
+        constructAs<FieldType>(std::forward<T>(value));
         typeId_ = FieldTraits<FieldType>::typeId;
     }
     return *this;
 }
 
 //------------------------------------------------------------------------------
-/** @pre The vector elements must be convertible to a bound type
-         (checked at compile time).
+/** @details
+    Only participates in overload resolution when
+    `Variant::isValidArg<T>() == true`.
+    @tparam T (Deduced) Value type which must be convertible to a bound type.
     @post `this->typeId() == TypeId::array`
     @post `*this == vec` */
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename T,
+         CPPWAMP_NEEDS((Variant::isValidArg<std::vector<T>>()))>
 Variant& Variant::operator=(std::vector<T> vec)
 {
-    static_assert(ArgTraits<T>::isValid, "Invalid vector element type");
-
     Array array;
     array.reserve(vec.size());
     std::move(vec.begin(), vec.end(), std::back_inserter(array));
@@ -956,15 +970,17 @@ Variant& Variant::operator=(std::vector<T> vec)
 }
 
 //------------------------------------------------------------------------------
-/** @pre The map values must be convertible to a bound type
-         (checked at compile time).
+/** @details
+    Only participates in overload resolution when
+    `Variant::isValidArg<T>() == true`.
+    @tparam T (Deduced) Value type which must be convertible to a bound type.
     @post `this->typeId() == TypeId::object`
     @post `*this == map` */
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename T,
+         CPPWAMP_NEEDS((Variant::isValidArg<std::map<String, T>>()))>
 Variant& Variant::operator=(std::map<String,T> map)
 {
-    static_assert(ArgTraits<T>::isValid, "Invalid map value type");
     Object object(map.cbegin(), map.cend());
     return *this = std::move(object);
 }

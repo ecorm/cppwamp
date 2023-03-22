@@ -16,6 +16,10 @@ namespace
 {
 
 //------------------------------------------------------------------------------
+template <typename T>
+using VariantConstructionOp = decltype(Variant(std::declval<T>()));
+
+//------------------------------------------------------------------------------
 template <typename T, TypeId typeId, typename U>
 void checkInit(const U& initValue)
 {
@@ -373,14 +377,13 @@ GIVEN( "Variants initialized with object values" )
                        {"d", null}, {"e", 123.4} });
 }
 
-// TODO: Use SFINAE to test this
-// The following should generate a "no matching function" compiler error.
-//GIVEN( "Variants initialized with invalid value types" )
-//{
-//    struct Invalid {};
-//    Invalid invalid;
-//    Variant v(invalid); // Should generate compiler error
-//}
+GIVEN( "Variants initialized with invalid value types" )
+{
+    struct Invalid {};
+
+    CHECK(isDetected<VariantConstructionOp, int>());
+    CHECK_FALSE(isDetected<VariantConstructionOp, Invalid>());
+}
 }
 
 //------------------------------------------------------------------------------

@@ -19,6 +19,15 @@ using namespace wamp;
 namespace
 {
 
+//------------------------------------------------------------------------------
+template <typename T>
+using VariantConstructionOp = decltype(Variant(std::declval<T>()));
+
+//------------------------------------------------------------------------------
+template <typename T>
+using VariantAssignOp = decltype(std::declval<Variant>() = std::declval<T>());
+
+//------------------------------------------------------------------------------
 template <typename T>
 void checkVec(const std::vector<T>& vector, bool convertible = true)
 {
@@ -539,16 +548,18 @@ GIVEN( "an assortment of valid empty vectors" )
     checkVec<Object>({});
     checkVec<std::map<String, int>>({});
 }
-// The following should cause 4 static assertion failures:
-//GIVEN( "a vector with an invalid type" )
-//{
-//    struct Invalid {};
-//    std::vector<Invalid> vec{Invalid{}};
-//    Variant a(vec);
-//    Variant b(std::move(vec));
-//    Variant c; c = vec;
-//    Variant d; d = std::move(vec);
-//}
+GIVEN( "a vector with an invalid type" )
+{
+    struct Invalid {};
+    using InvalidVector = std::vector<Invalid>;
+    using ValidVector = std::vector<int>;
+
+    CHECK(isDetected<VariantConstructionOp, ValidVector>());
+    CHECK_FALSE(isDetected<VariantConstructionOp, InvalidVector>());
+
+    CHECK(isDetected<VariantAssignOp, ValidVector>());
+    CHECK_FALSE(isDetected<VariantAssignOp, InvalidVector>());
+}
 }
 
 //------------------------------------------------------------------------------
@@ -680,16 +691,21 @@ GIVEN( "an assortment of valid empty maps" )
     checkMap<Object>({});
     checkMap<std::map<String, int>>({});
 }
-// The following should cause 4 static assertion failures:
-//GIVEN( "a map with an invalid type" )
-//{
-//    struct Invalid {};
-//    std::map<String, Invalid> map{ {"key", Invalid{}} };
-//    Variant a(map);
-//    Variant b(std::move(map));
-//    Variant c; c = map;
-//    Variant d; d = std::move(map);
-//}
+GIVEN( "a map with an invalid type" )
+{
+    struct Invalid {};
+    using InvalidMap = std::map<String, Invalid>;
+    using InvalidKeyMap = std::map<int, int>;
+    using ValidMap = std::map<String, int>;
+
+    CHECK(isDetected<VariantConstructionOp, ValidMap>());
+    CHECK_FALSE(isDetected<VariantConstructionOp, InvalidMap>());
+    CHECK_FALSE(isDetected<VariantConstructionOp, InvalidKeyMap>());
+
+    CHECK(isDetected<VariantAssignOp, ValidMap>());
+    CHECK_FALSE(isDetected<VariantAssignOp, InvalidMap>());
+    CHECK_FALSE(isDetected<VariantAssignOp, InvalidKeyMap>());
+}
 }
 
 //------------------------------------------------------------------------------
@@ -817,15 +833,6 @@ GIVEN( "an empty tuple" )
         CHECK( v == expected );
     }
 }
-// The following should cause 2 static assertion failures:
-//GIVEN( "a tuple with an invalid type" )
-//{
-//    struct Invalid {};
-//    auto tuple = std::make_tuple(true, 42.0, Invalid());
-//    Array array;
-//    array = toArray(tuple);
-//    toTuple(array, tuple);
-//}
 }
 
 //------------------------------------------------------------------------------
