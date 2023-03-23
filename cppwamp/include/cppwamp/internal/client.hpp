@@ -2467,7 +2467,7 @@ private:
 
     void log(LogLevel severity, std::string message, std::error_code ec = {})
     {
-        peer_.log(severity, std::move(message), ec);
+        peer_.log({severity, std::move(message), ec});
     }
 
     template <typename S, typename... Ts>

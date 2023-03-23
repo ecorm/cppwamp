@@ -71,15 +71,15 @@ public:
 
     virtual void sendSubscribed(RequestId, SubscriptionId) = 0;
 
-    virtual void sendUnsubscribed(RequestId, String topic) = 0;
+    virtual void sendUnsubscribed(RequestId, Uri&& topic) = 0;
 
     virtual void sendPublished(RequestId, PublicationId) = 0;
 
-    virtual void sendEvent(Event&&, String topic) = 0;
+    virtual void sendEvent(Event&&, Uri topic) = 0;
 
     virtual void sendRegistered(RequestId, RegistrationId) = 0;
 
-    virtual void sendUnregistered(RequestId, String procedure) = 0;
+    virtual void sendUnregistered(RequestId, Uri&& procedure) = 0;
 
     RequestId sendInvocation(Invocation&& inv)
     {

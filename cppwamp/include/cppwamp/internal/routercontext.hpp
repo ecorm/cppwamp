@@ -89,35 +89,31 @@ public:
 
     bool expired() const;
 
-    explicit operator bool() const;
-
-    IoStrand strand() const;
-
     RouterLogger::Ptr logger() const;
 
     void reset();
 
-    void join(RealmSessionPtr s);
+    bool join(RealmSessionPtr s);
 
-    void leave(SessionId sid);
+    bool leave(SessionId sid);
 
-    void subscribe(RealmSessionPtr s, Topic t);
+    bool subscribe(RealmSessionPtr s, Topic t);
 
-    void unsubscribe(RealmSessionPtr s, SubscriptionId subId, RequestId rid);
+    bool unsubscribe(RealmSessionPtr s, SubscriptionId subId, RequestId rid);
 
-    void publish(RealmSessionPtr s, Pub pub);
+    bool publish(RealmSessionPtr s, Pub pub);
 
-    void enroll(RealmSessionPtr s, Procedure proc);
+    bool enroll(RealmSessionPtr s, Procedure proc);
 
-    void unregister(RealmSessionPtr s, RegistrationId regId, RequestId reqId);
+    bool unregister(RealmSessionPtr s, RegistrationId regId, RequestId reqId);
 
-    void call(RealmSessionPtr s, Rpc rpc);
+    bool call(RealmSessionPtr s, Rpc rpc);
 
-    void cancelCall(RealmSessionPtr s, CallCancellation c);
+    bool cancelCall(RealmSessionPtr s, CallCancellation c);
 
-    void yieldResult(RealmSessionPtr s, Result r);
+    bool yieldResult(RealmSessionPtr s, Result r);
 
-    void yieldError(RealmSessionPtr s, Error e);
+    bool yieldError(RealmSessionPtr s, Error e);
 
 private:
     std::weak_ptr<RouterRealm> realm_;
@@ -127,6 +123,8 @@ private:
 class RouterContext
 {
 public:
+    RouterContext();
+
     RouterContext(std::shared_ptr<RouterImpl> r);
 
     RouterLogger::Ptr logger() const;

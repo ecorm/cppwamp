@@ -329,7 +329,7 @@ private:
             {
                 auto result = self->broker_.unsubscribe(s, subId);
                 if (result)
-                    s->sendUnsubscribed(rid, *result);
+                    s->sendUnsubscribed(rid, std::move(*result));
                 else
                     s->sendError(WampMsgType::unsubscribe, rid, result);
             }
@@ -452,7 +452,7 @@ private:
             {
                 auto result = self->dealer_.unregister(s, regId);
                 if (result)
-                    s->sendUnregistered(reqId, *result);
+                    s->sendUnregistered(reqId, std::move(*result));
                 else
                     s->sendError(WampMsgType::unregister, reqId, result);
             }
@@ -574,6 +574,7 @@ private:
     std::string logSuffix_;
     RouterLogger::Ptr logger_;
 
+    friend class DirectPeer;
     friend class RealmContext;
 };
 
@@ -586,20 +587,7 @@ inline RealmContext::RealmContext(std::shared_ptr<RouterRealm> r)
     : realm_(std::move(r))
 {}
 
-inline bool RealmContext::expired() const
-{
-    return realm_.expired();
-}
-
-RealmContext::operator bool() const {return !realm_.expired();}
-
-inline IoStrand RealmContext::strand() const
-{
-    auto r = realm_.lock();
-    if (r)
-        return r->strand();
-    return {};
-}
+inline bool RealmContext::expired() const {return realm_.expired();}
 
 inline RouterLogger::Ptr RealmContext::logger() const
 {
@@ -611,86 +599,105 @@ inline RouterLogger::Ptr RealmContext::logger() const
 
 inline void RealmContext::reset() {realm_.reset();}
 
-inline void RealmContext::join(RealmSessionPtr s)
+inline bool RealmContext::join(RealmSessionPtr s)
 {
     auto r = realm_.lock();
-    if (r)
-        r->join(std::move(s));
-    realm_.reset();
+    if (!r)
+        return false;
+    r->join(std::move(s));
+    return true;
 }
 
-inline void RealmContext::leave(SessionId sid)
+inline bool RealmContext::leave(SessionId sid)
 {
     auto r = realm_.lock();
-    if (r)
-        r->leave(sid);
-    realm_.reset();
+    if (!r)
+        return false;
+    r->leave(sid);
+    return true;
 }
 
-inline void RealmContext::subscribe(RealmSessionPtr s, Topic t)
+inline bool RealmContext::subscribe(RealmSessionPtr s, Topic t)
 {
     auto r = realm_.lock();
-    if (r)
-        r->subscribe(std::move(s), std::move(t));
-
+    if (!r)
+        return false;
+    r->subscribe(std::move(s), std::move(t));
+    return true;
 }
 
-inline void RealmContext::unsubscribe(RealmSessionPtr s, SubscriptionId subId,
+inline bool RealmContext::unsubscribe(RealmSessionPtr s, SubscriptionId subId,
                                       RequestId rid)
 {
     auto r = realm_.lock();
-    if (r)
-        r->unsubscribe(std::move(s), subId, rid);
+    if (!r)
+        return false;
+    r->unsubscribe(std::move(s), subId, rid);
+    return true;
 }
 
-inline void RealmContext::publish(RealmSessionPtr s, Pub pub)
+inline bool RealmContext::publish(RealmSessionPtr s, Pub pub)
 {
     auto r = realm_.lock();
-    if (r)
-        r->publish(std::move(s), std::move(pub));
+    if (!r)
+        return false;
+    r->publish(std::move(s), std::move(pub));
+    return true;
 }
 
-inline void RealmContext::enroll(RealmSessionPtr s, Procedure proc)
+inline bool RealmContext::enroll(RealmSessionPtr s, Procedure proc)
 {
     auto r = realm_.lock();
-    if (r)
-        r->enroll(std::move(s), std::move(proc));
+    if (!r)
+        return false;
+    r->enroll(std::move(s), std::move(proc));
+    return true;
 }
 
-inline void RealmContext::unregister(RealmSessionPtr s, RegistrationId regId,
+inline bool RealmContext::unregister(RealmSessionPtr s, RegistrationId regId,
                                      RequestId reqId)
 {
     auto r = realm_.lock();
-    if (r)
-        r->unregister(std::move(s), regId, reqId);
+    if (!r)
+        return false;
+    r->unregister(std::move(s), regId, reqId);
+    return true;
 }
 
-inline void RealmContext::call(RealmSessionPtr s, Rpc rpc)
+inline bool RealmContext::call(RealmSessionPtr s, Rpc rpc)
 {
     auto r = realm_.lock();
-    if (r)
-        r->call(std::move(s), std::move(rpc));
+    if (!r)
+        return false;
+    r->call(std::move(s), std::move(rpc));
+    return true;
 }
 
-inline void RealmContext::cancelCall(RealmSessionPtr s, CallCancellation c)
+inline bool RealmContext::cancelCall(RealmSessionPtr s, CallCancellation c)
 {
     auto r = realm_.lock();
-    if (r)
-        r->cancelCall(std::move(s), std::move(c));
+    if (!r)
+        return false;
+    r->cancelCall(std::move(s), std::move(c));
+    return true;
 }
 
-inline void RealmContext::yieldResult(RealmSessionPtr s, Result result)
+inline bool RealmContext::yieldResult(RealmSessionPtr s, Result result)
 {
     auto r = realm_.lock();
-    if (r)
-        r->yieldResult(std::move(s), std::move(result));
+    if (!r)
+        return false;
+    r->yieldResult(std::move(s), std::move(result));
+    return true;
 }
 
-inline void RealmContext::yieldError(RealmSessionPtr s, Error e)
+inline bool RealmContext::yieldError(RealmSessionPtr s, Error e)
 {
     auto r = realm_.lock();
-    if (r)
-        r->yieldError(std::move(s), std::move(e));
+    if (!r)
+        return false;
+    r->yieldError(std::move(s), std::move(e));
+    return true;
 }
 
 } // namespace internal

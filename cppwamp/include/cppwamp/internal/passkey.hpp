@@ -35,6 +35,7 @@ namespace internal
         friend class DealerRegistration;
         friend class DealerJob;
         friend class DealerJobMap;
+        friend class DirectPeer;
         friend class Invocation;
         friend class LocalSessionImpl;
         friend class MatchUri;

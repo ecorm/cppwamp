@@ -14,7 +14,6 @@
 #include <utility>
 #include "../routerconfig.hpp"
 #include "challenger.hpp"
-#include "features.h"
 #include "peer.hpp"
 #include "realmsession.hpp"
 #include "routercontext.hpp"
@@ -117,13 +116,13 @@ public:
         safelyDispatch<Dispatched>(r);
     }
 
-    void sendUnsubscribed(RequestId r, String topic) override
+    void sendUnsubscribed(RequestId r, Uri&& topic) override
     {
         struct Dispatched
         {
             Ptr self;
             RequestId r;
-            String t;
+            Uri t;
 
             void operator()()
             {
@@ -155,13 +154,13 @@ public:
         safelyDispatch<Dispatched>(r, p);
     }
 
-    void sendEvent(Event&& ev, String topic) override
+    void sendEvent(Event&& ev, Uri topic) override
     {
         struct Dispatched
         {
             Ptr self;
             Event e;
-            String t;
+            Uri t;
 
             void operator()()
             {
@@ -193,13 +192,13 @@ public:
         safelyDispatch<Dispatched>(reqId, regId);
     }
 
-    void sendUnregistered(RequestId r, String procedure) override
+    void sendUnregistered(RequestId r, Uri&& procedure) override
     {
         struct Dispatched
         {
             Ptr self;
             RequestId r;
-            String p;
+            Uri p;
 
             void operator()()
             {
@@ -345,11 +344,11 @@ private:
     }
 
     template <typename T>
-    void send(T&& messageData)
+    void send(T&& messageInfo)
     {
         if (state() != State::established)
             return;
-        peer_.send(messageData.message({}));
+        peer_.send(messageInfo.message({}));
     }
 
     template <typename TMessage, typename... TArgs>
@@ -437,7 +436,7 @@ private:
         sessionInfo_.authId = realm.authId().value_or("");
 
         realm_ = server_.realmAt(realm.uri());
-        if (!realm_)
+        if (realm_.expired())
         {
             auto errc = WampErrc::noSuchRealm;
             report(realm.info().withError(errc));
@@ -668,14 +667,12 @@ private:
             return;
 
         const auto& realm = authExchange_->realm();
-        if (!realm_)
+        if (!realm_.join(shared_from_this()))
         {
-            auto errc = WampErrc::noSuchRealm;
-            doAbort({errc});
+            doAbort({WampErrc::noSuchRealm});
             return;
         }
 
-        realm_.join(shared_from_this());
         auto details = info.join({}, realm.uri(), wampId(),
                                  RouterFeatures::providedRoles());
         setAuthInfo(std::move(info));

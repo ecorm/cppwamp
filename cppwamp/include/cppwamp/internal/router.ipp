@@ -55,7 +55,7 @@ CPPWAMP_INLINE void Router::closeServer(const std::string& name, Reason r)
 
 CPPWAMP_INLINE ErrorOr<LocalSession> Router::join(Uri realm, AuthInfo authInfo)
 {
-    auto s = impl_->localJoin(std::move(realm), std::move(authInfo), strand());
+    auto s = impl_->directJoin(std::move(realm), std::move(authInfo), strand());
     if (!s)
         return makeUnexpectedError(WampErrc::noSuchRealm);
     return LocalSession{std::move(s)};
@@ -65,7 +65,7 @@ CPPWAMP_INLINE ErrorOr<LocalSession>
 Router::join(Uri realm, AuthInfo authInfo,
              AnyCompletionExecutor fallbackExecutor)
 {
-    auto s = impl_->localJoin(std::move(realm), std::move(authInfo),
+    auto s = impl_->directJoin(std::move(realm), std::move(authInfo),
                               std::move(fallbackExecutor));
     if (!s)
         return makeUnexpectedError(WampErrc::noSuchRealm);

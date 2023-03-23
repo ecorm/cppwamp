@@ -31,6 +31,7 @@ class RouterImpl : public std::enable_shared_from_this<RouterImpl>
 {
 public:
     using Ptr = std::shared_ptr<RouterImpl>;
+    using WeakPtr = std::shared_ptr<RouterImpl>;
     using Executor = AnyIoExecutor;
 
     static Ptr create(Executor exec, RouterConfig config)
@@ -144,8 +145,8 @@ public:
         return server != nullptr;
     }
 
-    LocalSessionImpl::Ptr localJoin(String realmUri, AuthInfo a,
-                                    AnyCompletionExecutor e)
+    LocalSessionImpl::Ptr directJoin(String realmUri, AuthInfo a,
+                                     AnyCompletionExecutor e)
     {
         RouterRealm::Ptr realm;
 
@@ -273,6 +274,8 @@ private:
 //******************************************************************************
 // RouterContext
 //******************************************************************************
+
+inline RouterContext::RouterContext() {}
 
 inline RouterContext::RouterContext(std::shared_ptr<RouterImpl> r)
     : router_(r),

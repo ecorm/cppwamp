@@ -1,11 +1,11 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022.
+    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_INTERNAL_DIALOGUE_HPP
-#define CPPWAMP_INTERNAL_DIALOGUE_HPP
+#ifndef CPPWAMP_INTERNAL_PEER_HPP
+#define CPPWAMP_INTERNAL_PEER_HPP
 
 #include <atomic>
 #include <cassert>
@@ -76,10 +76,10 @@ public:
         return logHandler_ ? logLevel_.load() : LogLevel::off;
     }
 
-    void log(LogLevel severity, std::string message, std::error_code ec = {})
+    void log(LogEntry entry)
     {
-        if (logLevel() <= severity)
-            logHandler_(LogEntry{severity, std::move(message), ec});
+        if (logLevel() <= entry.severity())
+            logHandler_(std::move(entry));
     }
 
     void listenStateChanged(StateChangeHandler handler)
@@ -173,6 +173,7 @@ public:
         }
     }
 
+    // TODO: Templatize to take info object and convert to message
     ErrorOrDone send(Message& msg)
     {
         assert(msg.type() != WampMsgType::none);
@@ -203,7 +204,7 @@ public:
                 oss << "Stripped args of outbound ERROR message with error URI "
                     << error.uri() << " and request ID " << reqId
                     << " due to transport payload limits";
-                log(LogLevel::warning, oss.str());
+                log({LogLevel::warning, oss.str()});
             }
         }
         return done;
@@ -230,9 +231,9 @@ public:
             msg.options().clear();
             buffer.clear();
             codec_.encode(msg.fields(), buffer);
-            log(LogLevel::warning,
-                "Stripped options of outbound ABORT message with reason URI " +
-                    msg.uri() + ", due to transport payload limits");
+            log({LogLevel::warning,
+                 "Stripped options of outbound ABORT message with reason URI " +
+                     msg.uri() + ", due to transport payload limits"});
         }
 
         setState(State::failed, r.errorCode());
@@ -244,8 +245,6 @@ public:
     }
 
 private:
-    static constexpr unsigned progressiveResponseFlag_ = 0x01;
-
     static const std::string& stateLabel(State state)
     {
         static const std::string labels[] = {
@@ -279,7 +278,6 @@ private:
             stateChangeHandler_(desired, std::error_code{});
         return ok;
     }
-
 
     void onTransportRx(MessageBuffer buffer)
     {
@@ -336,9 +334,9 @@ private:
         // Discard new requests if we're shutting down.
         if (state() == State::shuttingDown && !msg.isReply())
         {
-            log(LogLevel::warning,
-                "Discarding received " + std::string(msg.name()) +
-                    " message while WAMP session is shutting down");
+            log({LogLevel::warning,
+                 "Discarding received " + std::string(msg.name()) +
+                     " message while WAMP session is shutting down"});
             return;
         }
 
@@ -420,7 +418,7 @@ private:
                     << goodbyeMsg.uri();
                 if (!goodbyeMsg.options().empty())
                     oss << " and details " << goodbyeMsg.options();
-                log(LogLevel::warning, oss.str());
+                log({LogLevel::warning, oss.str()});
             }
 
             setState(State::closed, errc);
@@ -444,23 +442,19 @@ private:
         }
 
         if (!isRouter_)
-            log(LogLevel::warning, "Transport disconnected by remote peer");
+            log({LogLevel::warning, "Transport disconnected by remote peer"});
     }
 
     void fail(std::error_code ec, std::string info = {})
     {
-        auto oldState = setState(State::failed, ec);
-        if (oldState != State::failed)
+        setState(State::failed, ec);
+        if (transport_)
         {
-            if (transport_)
-            {
-                transport_->close();
-                transport_.reset();
-            }
-
-            if (!info.empty())
-                log(LogLevel::critical, std::move(info), ec);
+            transport_->close();
+            transport_.reset();
         }
+        if (!info.empty())
+            log({LogLevel::critical, std::move(info), ec});
     }
 
     template <typename TErrc>
@@ -512,11 +506,11 @@ private:
         logHandler_(std::move(entry));
     }
 
-    AnyBufferCodec codec_;
-    Transporting::Ptr transport_;
     InboundMessageHandler inboundMessageHandler_;
     LogHandler logHandler_;
     StateChangeHandler stateChangeHandler_;
+    AnyBufferCodec codec_;
+    Transporting::Ptr transport_;
     std::atomic<State> state_;
     std::atomic<LogLevel> logLevel_;
     std::size_t maxTxLength_ = 0;
@@ -527,4 +521,4 @@ private:
 
 } // namespace wamp
 
-#endif // CPPWAMP_INTERNAL_DIALOGUE_HPP
+#endif // CPPWAMP_INTERNAL_PEER_HPP
