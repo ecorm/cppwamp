@@ -262,6 +262,8 @@ protected:
     {}
 };
 
+// TODO
+#if 0
 //------------------------------------------------------------------------------
 struct HelloMessage : public MessageWithOptions<MessageKind::hello, 2>
 {
@@ -701,6 +703,7 @@ const TDerived& messageCast(const Message& msg)
     assert(msg.kind() == TDerived::kind);
     return static_cast<const TDerived&>(msg);
 }
+#endif
 
 } // namespace internal
 

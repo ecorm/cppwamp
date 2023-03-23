@@ -18,9 +18,14 @@ namespace wamp
 // Topic
 //******************************************************************************
 
-CPPWAMP_INLINE Topic::Topic(Uri uri) : Base(std::move(uri)) {}
+CPPWAMP_INLINE Topic::Topic(Uri uri)
+    : Base(internal::MessageKind::subscribe, {0, 0, Object{}, std::move(uri)})
+{}
 
-CPPWAMP_INLINE const Uri& Topic::uri() const {return message().uri();}
+CPPWAMP_INLINE const Uri& Topic::uri() const
+{
+    return message().at(3).as<String>();
+}
 
 CPPWAMP_INLINE AccessActionInfo Topic::info() const
 {
@@ -39,7 +44,7 @@ CPPWAMP_INLINE Topic& Topic::withMatchPolicy(MatchPolicy policy)
 
 CPPWAMP_INLINE MatchPolicy Topic::matchPolicy() const {return matchPolicy_;}
 
-CPPWAMP_INLINE Topic::Topic(internal::PassKey, internal::SubscribeMessage&& msg)
+CPPWAMP_INLINE Topic::Topic(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {
     matchPolicy_ = internal::getMatchPolicyOption(*this);
@@ -47,21 +52,26 @@ CPPWAMP_INLINE Topic::Topic(internal::PassKey, internal::SubscribeMessage&& msg)
 
 CPPWAMP_INLINE RequestId Topic::requestId(internal::PassKey) const
 {
-    return message().requestId();
+    return message().at(1).to<RequestId>();
 }
 
 CPPWAMP_INLINE Uri&& Topic::uri(internal::PassKey) &&
 {
-    return std::move(message()).uri();
+    return std::move(message().at(3).as<String>());
 }
 
 //******************************************************************************
 // Pub
 //******************************************************************************
 
-CPPWAMP_INLINE Pub::Pub(Uri topic) : Base(std::move(topic)) {}
+CPPWAMP_INLINE Pub::Pub(Uri topic)
+    : Base(internal::MessageKind::publish, {0, 0, Object{}, std::move(topic)})
+{}
 
-CPPWAMP_INLINE const Uri& Pub::uri() const {return message().uri();}
+CPPWAMP_INLINE const Uri& Pub::uri() const
+{
+    return message().at(3).as<String>();
+}
 
 CPPWAMP_INLINE AccessActionInfo Pub::info() const
 {
@@ -135,7 +145,7 @@ CPPWAMP_INLINE bool Pub::discloseMe() const
     return optionOr<bool>("disclose_me", false);
 }
 
-CPPWAMP_INLINE Pub::Pub(internal::PassKey, internal::PublishMessage&& msg)
+CPPWAMP_INLINE Pub::Pub(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
@@ -152,7 +162,7 @@ CPPWAMP_INLINE void Pub::setTrustLevel(internal::PassKey, TrustLevel trustLevel)
 
 CPPWAMP_INLINE RequestId Pub::requestId(internal::PassKey) const
 {
-    return message().requestId();
+    return message().at(1).to<RequestId>();
 }
 
 CPPWAMP_INLINE bool Pub::disclosed(internal::PassKey) const {return disclosed_;}
@@ -173,28 +183,30 @@ CPPWAMP_INLINE TrustLevel Pub::trustLevel(internal::PassKey) const
 //******************************************************************************
 
 /** @post `this->empty() == true` */
-CPPWAMP_INLINE Event::Event() {}
+CPPWAMP_INLINE Event::Event()
+    : Base(internal::MessageKind::event, {0, 0, 0, Object{}})
+{}
 
 CPPWAMP_INLINE Event::Event(PublicationId pubId, Object opts)
-    : Base(pubId, std::move(opts))
+    : Base(internal::MessageKind::event, {0, null, pubId, std::move(opts)})
 {}
 
 CPPWAMP_INLINE Event& Event::withSubscriptionId(SubscriptionId subId)
 {
-    Base::message().setSubscriptionId(subId);
+    message().at(0) = subId;
     return *this;
 }
 
 CPPWAMP_INLINE bool Event::empty() const {return executor_ == nullptr;}
 
-CPPWAMP_INLINE SubscriptionId Event::subId() const
+CPPWAMP_INLINE SubscriptionId Event::subscriptionId() const
 {
-    return message().subscriptionId();
+    return message().at(1).to<SubscriptionId>();
 }
 
-CPPWAMP_INLINE PublicationId Event::pubId() const
+CPPWAMP_INLINE PublicationId Event::publicationId() const
 {
-    return message().publicationId();
+    return message().at(2).to<PublicationId>();
 }
 
 /** @returns the same object as Session::fallbackExecutor().
@@ -237,16 +249,19 @@ CPPWAMP_INLINE ErrorOr<Uri> Event::topic() const
 }
 
 CPPWAMP_INLINE Event::Event(internal::PassKey, AnyCompletionExecutor executor,
-                            internal::EventMessage&& msg)
+                            internal::Message&& msg)
     : Base(std::move(msg)),
       executor_(executor)
 {}
 
 CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
                             PublicationId pid)
-    : Base(std::move(pub.message({})).fields(), sid, pid)
+    : Base(internal::MessageKind::event,
+           std::move(pub.message({})).fields())
 {
-    withOptions({});
+    message().at(1) = sid;
+    message().at(2) = pid;
+    message().at(3) = Object{};
     if (pub.hasTrustLevel({}))
         withOption("trustlevel", pub.trustLevel({}));
 }

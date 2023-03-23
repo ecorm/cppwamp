@@ -32,7 +32,7 @@ namespace wamp
 /** Provides the _reason_ URI, options, and payload arguments contained
     within WAMP `ERROR` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Error : public Payload<Error, internal::ErrorMessage>
+class CPPWAMP_API Error : public Payload<Error, 3, 5>
 {
 public:
     /** Converting constructor taking a reason URI. */
@@ -66,11 +66,11 @@ public:
     AccessActionInfo info(bool isServer) const;
 
 private:
-    using Base = Payload<Error, internal::ErrorMessage>;
+    using Base = Payload<Error, 3, 5>;
 
 public:
     // Internal use only
-    Error(internal::PassKey, internal::ErrorMessage&& msg);
+    Error(internal::PassKey, internal::Message&& msg);
 
     Error(internal::PassKey, internal::MessageKind reqKind,
           RequestId rid, std::error_code ec, Object opts = {});
@@ -79,9 +79,8 @@ public:
 
     void setRequestId(internal::PassKey, RequestId rid);
 
-    internal::ErrorMessage& errorMessage(internal::PassKey,
-                                         internal::MessageKind reqType,
-                                         RequestId reqId);
+    internal::Message& errorMessage(
+        internal::PassKey, internal::MessageKind reqType, RequestId reqId);
 };
 
 } // namespace wamp

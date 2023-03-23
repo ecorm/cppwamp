@@ -31,7 +31,7 @@ namespace wamp
 /** Provides the topic URI and other options contained within WAMP
     `SUBSCRIBE' messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Topic : public Options<Topic, internal::SubscribeMessage>
+class CPPWAMP_API Topic : public Options<Topic, 2>
 {
 public:
     /** Converting constructor taking a topic URI. */
@@ -56,12 +56,12 @@ public:
     /// @}
 
 private:
-    using Base = Options<Topic, internal::SubscribeMessage>;
+    using Base = Options<Topic, 2>;
     MatchPolicy matchPolicy_ = MatchPolicy::exact;
 
 public:
     // Internal use only
-    Topic(internal::PassKey, internal::SubscribeMessage&& msg);
+    Topic(internal::PassKey, internal::Message&& msg);
     RequestId requestId(internal::PassKey) const;
     Uri&& uri(internal::PassKey) &&;
 };
@@ -71,7 +71,7 @@ public:
 /** Provides the topic URI, options, and payload contained within WAMP
     `PUBLISH` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Pub : public Payload<Pub, internal::PublishMessage>
+class CPPWAMP_API Pub : public Payload<Pub, 2, 4>
 {
 public:
     /** Converting constructor taking a topic URI. */
@@ -137,7 +137,7 @@ public:
     /// @}
 
 private:
-    using Base = Payload<Pub, internal::PublishMessage>;
+    using Base = Payload<Pub, 2, 4>;
 
     TrustLevel trustLevel_ = 0;
     bool hasTrustLevel_ = false;
@@ -145,7 +145,7 @@ private:
 
 public:
     // Internal use only
-    Pub(internal::PassKey, internal::PublishMessage&& msg);
+    Pub(internal::PassKey, internal::Message&& msg);
     void setDisclosed(internal::PassKey, bool disclosed);
     void setTrustLevel(internal::PassKey, TrustLevel trustLevel);
     RequestId requestId(internal::PassKey) const;
@@ -159,7 +159,7 @@ public:
 /** Provides the subscription/publication ids, options, and payload contained
     within WAMP `EVENT` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Event : public Payload<Event, internal::EventMessage>
+class CPPWAMP_API Event : public Payload<Event, 3, 4>
 {
 public:
     /** Default constructor. */
@@ -176,10 +176,10 @@ public:
     bool empty() const;
 
     /** Obtains the subscription ID associated with this event. */
-    SubscriptionId subId() const;
+    SubscriptionId subscriptionId() const;
 
     /** Obtains the publication ID associated with this event. */
-    PublicationId pubId() const;
+    PublicationId publicationId() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
     const AnyCompletionExecutor& executor() const;
@@ -215,14 +215,14 @@ public:
     /// @}
 
 private:
-    using Base = Payload<Event, internal::EventMessage>;
+    using Base = Payload<Event, 3, 4>;
 
     AnyCompletionExecutor executor_;
 
 public:
     // Internal use only
     Event(internal::PassKey, AnyCompletionExecutor executor,
-          internal::EventMessage&& msg);
+          internal::Message&& msg);
 
     Event(internal::PassKey, Pub&& pub, SubscriptionId sid, PublicationId pid);
 };

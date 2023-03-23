@@ -20,7 +20,6 @@
 #include "tagtypes.hpp"
 #include "variantdefs.hpp"
 #include "wampdefs.hpp"
-#include "./internal/message.hpp"
 #include "./internal/passkey.hpp"
 
 //------------------------------------------------------------------------------
@@ -36,7 +35,7 @@ namespace wamp
 /** Provides the _reason_ URI and other options contained within
     `GOODBYE` and `ABORT` messages.*/
 //------------------------------------------------------------------------------
-class CPPWAMP_API Reason : public Options<Reason, internal::GoodbyeMessage>
+class CPPWAMP_API Reason : public Options<Reason, 1>
 {
 public:
     /** Converting constructor taking an optional reason URI. */
@@ -66,20 +65,20 @@ public:
     AccessActionInfo info(bool isServer) const;
 
 private:
-    using Base = Options<Reason, internal::GoodbyeMessage>;
+    using Base = Options<Reason, 1>;
 
 public:
     // Internal use only
-    Reason(internal::PassKey, internal::GoodbyeMessage&& msg);
-    Reason(internal::PassKey, internal::AbortMessage&& msg);
+    Reason(internal::PassKey, internal::Message&& msg);
     void setUri(internal::PassKey, Uri uri);
-    internal::AbortMessage& abortMessage(internal::PassKey);
+    void setKindToAbort(internal::PassKey);
 };
+
 
 //------------------------------------------------------------------------------
 /** %Realm URI and other options contained within WAMP `HELLO` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Realm : public Options<Realm, internal::HelloMessage>
+class CPPWAMP_API Realm : public Options<Realm, 2>
 {
 public:
     /** Converting constructor taking a realm URI. */
@@ -120,13 +119,13 @@ public:
     /// @}
 
 private:
-    using Base = Options<Realm, internal::HelloMessage>;
+    using Base = Options<Realm, 2>;
 
     Reason* abortReason_ = nullptr;
 
 public:
     // Internal use only
-    Realm(internal::PassKey, internal::HelloMessage&& msg);
+    Realm(internal::PassKey, internal::Message&& msg);
     Reason* abortReason(internal::PassKey);
 };
 
@@ -134,7 +133,7 @@ public:
 //------------------------------------------------------------------------------
 /** Session information contained within WAMP `WELCOME` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Welcome : public Options<Welcome, internal::WelcomeMessage>
+class CPPWAMP_API Welcome : public Options<Welcome, 2>
 {
 public:
     /** Default constructor. */
@@ -193,7 +192,7 @@ public:
     /// @}
 
 private:
-    using Base = Options<Welcome, internal::WelcomeMessage>;
+    using Base = Options<Welcome, 2>;
 
     static RouterFeatures parseFeatures(const Object& opts);
 
@@ -202,7 +201,7 @@ private:
 
 public:
     // Internal use only
-    Welcome(internal::PassKey, Uri&& realm, internal::WelcomeMessage&& msg);
+    Welcome(internal::PassKey, Uri&& realm, internal::Message&& msg);
 };
 
 
@@ -213,8 +212,7 @@ public:
     See [Authentication Methods in the WAMP specification]
     (https://wamp-proto.org/wamp_latest_ietf.html#name-authentication-methods) */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Authentication : public Options<Authentication,
-                                                  internal::AuthenticateMessage>
+class CPPWAMP_API Authentication : public Options<Authentication, 2>
 {
 public:
     /** Constructs an authentication with an empty signature. */
@@ -238,11 +236,11 @@ public:
     AccessActionInfo info() const;
 
 private:
-    using Base = Options<Authentication, internal::AuthenticateMessage>;
+    using Base = Options<Authentication, 2>;
 
 public:
     // Internal use only
-    Authentication(internal::PassKey, internal::AuthenticateMessage&& msg);
+    Authentication(internal::PassKey, internal::Message&& msg);
 };
 
 
@@ -256,8 +254,7 @@ namespace internal { class Challengee; } // Forward declaration
     See [Authentication Methods in the WAMP specification]
     (https://wamp-proto.org/wamp_latest_ietf.html#name-authentication-methods) */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Challenge : public Options<Challenge,
-                                             internal::ChallengeMessage>
+class CPPWAMP_API Challenge : public Options<Challenge, 2>
 {
 public:
     /** Constructs a challenge. */
@@ -319,10 +316,10 @@ public:
     // Internal use only
     using ChallengeePtr = std::weak_ptr<internal::Challengee>;
     Challenge(internal::PassKey, ChallengeePtr challengee,
-              internal::ChallengeMessage&& msg);
+              internal::Message&& msg);
 
 private:
-    using Base = Options<Challenge, internal::ChallengeMessage>;
+    using Base = Options<Challenge, 2>;
 
     ChallengeePtr challengee_;
 };

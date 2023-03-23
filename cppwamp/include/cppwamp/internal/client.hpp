@@ -557,8 +557,8 @@ private:
             {
                 // Copy the subscription and publication IDs before the Event
                 // object gets moved away.
-                auto subId = event.subId();
-                auto pubId = event.pubId();
+                auto subId = event.subscriptionId();
+                auto pubId = event.publicationId();
 
                 // The catch clauses are to prevent the publisher crashing
                 // subscribers when it passes arguments having incorrect type.

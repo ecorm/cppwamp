@@ -135,27 +135,27 @@ struct PubSubFixture
     void onDynamicEvent(Event event)
     {
         INFO( "in onDynamicEvent" );
-        CHECK( event.pubId() <= 9007199254740992ll );
+        CHECK( event.publicationId() <= 9007199254740992ll );
         CHECK( event.executor() == ioctx.get_executor() );
         dynamicArgs = event.args();
-        dynamicPubs.push_back(event.pubId());
+        dynamicPubs.push_back(event.publicationId());
     }
 
     void onStaticEvent(Event event, std::string str, int num)
     {
         INFO( "in onStaticEvent" );
-        CHECK( event.pubId() <= 9007199254740992ll );
+        CHECK( event.publicationId() <= 9007199254740992ll );
         CHECK( event.executor() == ioctx.get_executor() );
         staticArgs = Array{{str, num}};
-        staticPubs.push_back(event.pubId());
+        staticPubs.push_back(event.publicationId());
     }
 
     void onOtherEvent(Event event)
     {
         INFO( "in onOtherEvent" );
-        CHECK( event.pubId() <= 9007199254740992ll );
+        CHECK( event.publicationId() <= 9007199254740992ll );
         CHECK( event.executor() == ioctx.get_executor() );
-        otherPubs.push_back(event.pubId());
+        otherPubs.push_back(event.publicationId());
     }
 
     IoContext& ioctx;

@@ -57,10 +57,11 @@ CPPWAMP_INLINE CallCancelMode parseCallCancelModeFromOptions(const Object& opts)
 // Procedure
 //******************************************************************************
 
-CPPWAMP_INLINE Procedure::Procedure(Uri uri) : Base(std::move(uri)) {}
+CPPWAMP_INLINE Procedure::Procedure(Uri uri)
+    : Base(std::move(uri))
+{}
 
-CPPWAMP_INLINE Procedure::Procedure(internal::PassKey,
-                                    internal::RegisterMessage&& msg)
+CPPWAMP_INLINE Procedure::Procedure(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
@@ -75,7 +76,7 @@ CPPWAMP_INLINE Rpc::Rpc(Uri uri)
       isProgress_(optionOr<bool>("progress", false))
 {}
 
-CPPWAMP_INLINE Rpc::Rpc(internal::PassKey, internal::CallMessage&& msg)
+CPPWAMP_INLINE Rpc::Rpc(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
@@ -93,12 +94,13 @@ CPPWAMP_INLINE bool Rpc::isProgress(internal::PassKey) const
 // Result
 //******************************************************************************
 
-CPPWAMP_INLINE Result::Result() {}
+CPPWAMP_INLINE Result::Result()
+    : Base(internal::MessageKind::result, {0, 0, Object{}})
+{}
 
 CPPWAMP_INLINE Result::Result(std::initializer_list<Variant> list)
-{
-    withArgList(Array(list));
-}
+    : Base(internal::MessageKind::result, {0, 0, Object{}, Array{list}})
+{}
 
 CPPWAMP_INLINE AccessActionInfo Result::info(bool isServer) const
 {
@@ -107,41 +109,23 @@ CPPWAMP_INLINE AccessActionInfo Result::info(bool isServer) const
     return {action, message().requestId(), {}, options()};
 }
 
-/** @details
-    This sets the `YIELD.Options.progress|bool` option. */
-CPPWAMP_INLINE Result& Result::withProgress(bool progressive)
-{
-    return withOption("progress", progressive);
-}
-
-CPPWAMP_INLINE bool Result::isProgressive() const
-{
-    return optionOr<bool>("progress", false);
-}
-
-CPPWAMP_INLINE Result::Result(internal::PassKey, internal::ResultMessage&& msg)
-    : Base(std::move(msg))
-{}
-
-CPPWAMP_INLINE Result::Result(internal::PassKey, internal::YieldMessage&& msg)
+CPPWAMP_INLINE Result::Result(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
 CPPWAMP_INLINE RequestId Result::requestId(internal::PassKey) const
 {
-    return message().requestId();
+    return message().at(1).to<RequestId>();
 }
 
 CPPWAMP_INLINE void Result::setRequestId(internal::PassKey, RequestId rid)
 {
-    message().setRequestId(rid);
+    message().at(1) = rid;
 }
 
-CPPWAMP_INLINE internal::YieldMessage& Result::yieldMessage(internal::PassKey,
-                                                            RequestId reqId)
+CPPWAMP_INLINE void Result::setKindToYield(internal::PassKey)
 {
-    message().setRequestId(reqId);
-    return message().transformToYield();
+    message().setKind(internal::MessageKind::yield);
 }
 
 
@@ -339,7 +323,9 @@ CPPWAMP_INLINE void Outcome::destruct()
 //******************************************************************************
 
 /** @post `this->empty() == true` */
-CPPWAMP_INLINE Invocation::Invocation() {}
+CPPWAMP_INLINE Invocation::Invocation()
+    : Base(internal::MessageKind::invocation, {0, 0, 0, Object{}})
+{}
 
 CPPWAMP_INLINE bool Invocation::empty() const {return executor_ == nullptr;}
 
@@ -451,7 +437,7 @@ CPPWAMP_INLINE ErrorOr<Uri> Invocation::procedure() const
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,
                                       AnyCompletionExecutor executor,
-                                      internal::InvocationMessage&& msg)
+                                      internal::Message&& msg)
     : Base(std::move(msg)),
       callee_(callee),
       executor_(executor)
@@ -459,8 +445,12 @@ CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
                                       RegistrationId regId)
-    : Base(std::move(rpc.message({})).fields(), regId)
-{}
+    : Base(internal::MessageKind::invocation,
+           std::move(rpc.message({})).fields())
+{
+    message().at(2) = regId;
+    message().at(3) = Object{};
+}
 
 CPPWAMP_INLINE void Invocation::setRequestId(internal::PassKey, RequestId rid)
 {
@@ -473,7 +463,7 @@ CPPWAMP_INLINE void Invocation::setRequestId(internal::PassKey, RequestId rid)
 
 CPPWAMP_INLINE CallCancellation::CallCancellation(RequestId reqId,
                                                   CallCancelMode cancelMode)
-    : Base(reqId),
+    : Base(internal::MessageKind::cancel, {0, reqId, Object{}}),
       requestId_(reqId),
       mode_(cancelMode)
 {
@@ -490,7 +480,7 @@ CPPWAMP_INLINE AccessActionInfo CallCancellation::info() const
 }
 
 CPPWAMP_INLINE CallCancellation::CallCancellation(internal::PassKey,
-                                                  internal::CancelMessage&& msg)
+                                                  internal::Message&& msg)
     : Base(std::move(msg))
 {
     mode_ = internal::parseCallCancelModeFromOptions(options());
@@ -502,7 +492,9 @@ CPPWAMP_INLINE CallCancellation::CallCancellation(internal::PassKey,
 //******************************************************************************
 
 /** @post `this->empty() == true` */
-CPPWAMP_INLINE Interruption::Interruption() {}
+CPPWAMP_INLINE Interruption::Interruption()
+    : Base(internal::MessageKind::interrupt, {0, 0, Object{}})
+{}
 
 CPPWAMP_INLINE bool Interruption::empty() const {return executor_ == nullptr;}
 
@@ -596,7 +588,7 @@ CPPWAMP_INLINE Object Interruption::makeOptions(CallCancelMode mode,
 
 CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,
                                           AnyCompletionExecutor executor,
-                                          internal::InterruptMessage&& msg)
+                                          internal::Message&& msg)
     : Base(std::move(msg)),
       callee_(callee),
       executor_(executor)
@@ -611,7 +603,7 @@ CPPWAMP_INLINE Interruption::Interruption(
 {}
 
 CPPWAMP_INLINE Interruption::Interruption(internal::PassKey,
-                                          internal::InterruptMessage&& msg)
+                                          internal::Message&& msg)
     : Base(std::move(msg))
 {
     cancelMode_ = internal::parseCallCancelModeFromOptions(options());

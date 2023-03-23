@@ -13,11 +13,12 @@
 #include "erroror.hpp"
 #include "traits.hpp"
 #include "variant.hpp"
+#include "./internal/message.hpp"
 #include "./internal/passkey.hpp"
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains facilities for accessing WAMP message options. */
+    @brief Provides facilities for accessing WAMP message options. */
 //------------------------------------------------------------------------------
 
 namespace wamp
@@ -32,7 +33,7 @@ bool CPPWAMP_API optionToUnsignedInteger(const Variant& option, UInt& number);
 //------------------------------------------------------------------------------
 /** Wrapper around a WAMP message containing an options dictionary. */
 //------------------------------------------------------------------------------
-template <typename TDerived, typename TMessage>
+template <typename TDerived, unsigned O>
 class CPPWAMP_API Options
 {
 public:
@@ -64,54 +65,58 @@ public:
     ErrorOr<UInt> toUnsignedInteger(const String& key) const;
 
 protected:
-    using MessageType = TMessage;
+    static constexpr unsigned optionsPos = O;
 
-    /** Constructor taking message construction aruments. */
-    template <typename... TArgs>
-    explicit Options(TArgs&&... args);
+    Options(internal::MessageKind kind, Array&& fields);
 
-    /** Accesses the underlying message containing these options. */
-    MessageType& message();
+    explicit Options(internal::Message&& msg);
 
-    /** Accesses the underlying message containing these options. */
-    const MessageType& message() const;
+    internal::Message& message();
+
+    const internal::Message& message() const;
 
 private:
-    MessageType message_;
+    internal::Message message_;
 
 public:
     // Internal use only
-    MessageType& message(internal::PassKey);
+    internal::Message& message(internal::PassKey);
 };
 
 
 //------------------------------------------------------------------------------
-template <typename D, typename M>
-D& Options<D,M>::withOption(String key, Variant value)
+template <typename D, unsigned O>
+D& Options<D,O>::withOption(String key, Variant value)
 {
-    message_.options().emplace(std::move(key), std::move(value));
+    options().emplace(std::move(key), std::move(value));
     return static_cast<D&>(*this);
 }
 
 //------------------------------------------------------------------------------
-template <typename D, typename M>
-D& Options<D,M>::withOptions(Object opts)
+template <typename D, unsigned O>
+D& Options<D,O>::withOptions(Object opts)
 {
-    message_.options() = std::move(opts);
+    options() = std::move(opts);
     return static_cast<D&>(*this);
 }
 
 //------------------------------------------------------------------------------
-template <typename D, typename M>
-const Object& Options<D,M>::options() const & {return message_.options();}
+template <typename D, unsigned O>
+const Object& Options<D,O>::options() const &
+{
+    return message_.at(optionsPos).as<Object>();
+}
 
 //------------------------------------------------------------------------------
-template <typename D, typename M>
-Object&& Options<D,M>::options() && {return std::move(message_).options();}
+template <typename D, unsigned O>
+Object&& Options<D,O>::options() &&
+{
+    return std::move(message_.at(optionsPos).as<Object>());
+}
 
 //------------------------------------------------------------------------------
-template <typename D, typename M>
-const Variant& Options<D,M>::optionByKey(const String& key) const
+template <typename D, unsigned O>
+const Variant& Options<D,O>::optionByKey(const String& key) const
 {
     static const Variant nullVariant;
     auto iter = options().find(key);
@@ -121,9 +126,9 @@ const Variant& Options<D,M>::optionByKey(const String& key) const
 }
 
 //------------------------------------------------------------------------------
-template <typename D, typename M>
+template <typename D, unsigned O>
 template <typename T, typename U>
-T Options<D,M>::optionOr(
+T Options<D,O>::optionOr(
     const String& key, /**< The key to search under. */
     U&& fallback       /**< The fallback value to return if the key was
                                 not found or cannot be converted. */
@@ -147,9 +152,9 @@ T Options<D,M>::optionOr(
 /** @returns The option value, or an error code of either
              Errc::absent or Errc::badType. */
 //------------------------------------------------------------------------------
-template <typename D, typename M>
+template <typename D, unsigned O>
 template <typename T>
-ErrorOr<T> Options<D,M>::optionAs(
+ErrorOr<T> Options<D,O>::optionAs(
     const String& key /**< The key to search under. */
     ) const
 {
@@ -165,8 +170,8 @@ ErrorOr<T> Options<D,M>::optionAs(
 /** @returns The option value, or an error code of either
     WampErrc::no_such_option or WampErrc::bad_option. */
 //------------------------------------------------------------------------------
-template <typename D, typename M>
-ErrorOr<UInt> Options<D,M>::toUnsignedInteger(const String& key) const
+template <typename D, unsigned O>
+ErrorOr<UInt> Options<D,O>::toUnsignedInteger(const String& key) const
 {
     auto found = options().find(key);
     if (found == options().end())
@@ -179,23 +184,28 @@ ErrorOr<UInt> Options<D,M>::toUnsignedInteger(const String& key) const
 }
 
 //------------------------------------------------------------------------------
-template <typename D, typename M>
-template <typename... TArgs>
-Options<D,M>::Options(TArgs&&... args)
-    : message_(std::forward<TArgs>(args)...)
+template <typename D, unsigned O>
+Options<D,O>::Options(internal::MessageKind kind, Array&& fields)
+    : message_(kind, std::move(fields))
 {}
 
 //------------------------------------------------------------------------------
-template <typename D, typename M>
-M& Options<D,M>::message() {return message_;}
+template <typename D, unsigned O>
+Options<D,O>::Options(internal::Message&& msg)
+    : message_(std::move(msg))
+{}
 
 //------------------------------------------------------------------------------
-template <typename D, typename M>
-const M& Options<D,M>::message() const {return message_;}
+template <typename D, unsigned O>
+internal::Message& Options<D,O>::message() {return message_;}
 
 //------------------------------------------------------------------------------
-template <typename D, typename M>
-M& Options<D,M>::message(internal::PassKey) {return message_;}
+template <typename D, unsigned O>
+const internal::Message& Options<D,O>::message() const {return message_;}
+
+//------------------------------------------------------------------------------
+template <typename D, unsigned O>
+internal::Message& Options<D,O>::message(internal::PassKey) {return message_;}
 
 //------------------------------------------------------------------------------
 /** @returns false if the option cannot be converted losslessly to an

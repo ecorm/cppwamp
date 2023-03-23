@@ -17,11 +17,17 @@ namespace wamp
 // Reason
 //******************************************************************************
 
-CPPWAMP_INLINE Reason::Reason(Uri uri) : Base(std::move(uri)) {}
+CPPWAMP_INLINE Reason::Reason(Uri uri)
+    : Base(internal::MessageKind::goodbye, {0, std::move(uri), Object{}})
+{}
 
-CPPWAMP_INLINE Reason::Reason(std::error_code ec) : Base(errorCodeToUri(ec)) {}
+CPPWAMP_INLINE Reason::Reason(std::error_code ec)
+    : Reason(errorCodeToUri(ec))
+{}
 
-CPPWAMP_INLINE Reason::Reason(WampErrc errc) : Base(errorCodeToUri(errc)) {}
+CPPWAMP_INLINE Reason::Reason(WampErrc errc)
+    : Reason(errorCodeToUri(errc))
+{}
 
 CPPWAMP_INLINE Reason& Reason::withHint(String text)
 {
@@ -29,7 +35,10 @@ CPPWAMP_INLINE Reason& Reason::withHint(String text)
     return *this;
 }
 
-CPPWAMP_INLINE const Uri& Reason::uri() const {return message().uri();}
+CPPWAMP_INLINE const Uri& Reason::uri() const
+{
+    return message().at(2).as<String>();
+}
 
 CPPWAMP_INLINE ErrorOr<String> Reason::hint() const
 {
@@ -49,11 +58,7 @@ CPPWAMP_INLINE AccessActionInfo Reason::info(bool isServer) const
     return {action, uri(), options()};
 }
 
-CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::GoodbyeMessage&& msg)
-    : Base(std::move(msg))
-{}
-
-CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::AbortMessage&& msg)
+CPPWAMP_INLINE Reason::Reason(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
@@ -62,9 +67,9 @@ CPPWAMP_INLINE void Reason::setUri(internal::PassKey, Uri uri)
     message().at(2) = std::move(uri);
 }
 
-CPPWAMP_INLINE internal::AbortMessage& Reason::abortMessage(internal::PassKey)
+CPPWAMP_INLINE void Reason::setKindToAbort(internal::PassKey)
 {
-    return message().transformToAbort();
+    message().setKind(internal::MessageKind::abort);
 }
 
 
@@ -72,7 +77,9 @@ CPPWAMP_INLINE internal::AbortMessage& Reason::abortMessage(internal::PassKey)
 // Realm
 //******************************************************************************
 
-CPPWAMP_INLINE Realm::Realm(Uri uri) : Base(std::move(uri)) {}
+CPPWAMP_INLINE Realm::Realm(Uri uri)
+    : Base(internal::MessageKind::hello, {0, std::move(uri), Object{}})
+{}
 
 CPPWAMP_INLINE Realm& Realm::captureAbort(Reason& reason)
 {
@@ -80,7 +87,10 @@ CPPWAMP_INLINE Realm& Realm::captureAbort(Reason& reason)
     return *this;
 }
 
-CPPWAMP_INLINE const Uri& Realm::uri() const {return message().uri();}
+CPPWAMP_INLINE const Uri& Realm::uri() const
+{
+    return message().at(1).as<String>();
+}
 
 CPPWAMP_INLINE ErrorOr<String> Realm::agent() const
 {
@@ -117,7 +127,7 @@ CPPWAMP_INLINE ErrorOr<String> Realm::authId() const
     return this->optionAs<String>("authid");
 }
 
-CPPWAMP_INLINE Realm::Realm(internal::PassKey, internal::HelloMessage&& msg)
+CPPWAMP_INLINE Realm::Realm(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
@@ -131,9 +141,14 @@ CPPWAMP_INLINE Reason* Realm::abortReason(internal::PassKey)
 // Welcome
 //******************************************************************************
 
-CPPWAMP_INLINE Welcome::Welcome() {}
+CPPWAMP_INLINE Welcome::Welcome()
+    : Base(internal::MessageKind::welcome, {0, 0, Object{}})
+{}
 
-CPPWAMP_INLINE SessionId Welcome::id() const {return message().sessionId();}
+CPPWAMP_INLINE SessionId Welcome::id() const
+{
+    return message().at(1).to<SessionId>();
+}
 
 CPPWAMP_INLINE const Uri& Welcome::realm() const {return realm_;}
 
@@ -213,7 +228,7 @@ CPPWAMP_INLINE RouterFeatures Welcome::parseFeatures(const Object& opts)
 }
 
 CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, Uri&& realm,
-                                internal::WelcomeMessage&& msg)
+                                internal::Message&& msg)
     : Base(std::move(msg)),
       realm_(std::move(realm)),
       features_(parseFeatures(options()))
@@ -224,14 +239,16 @@ CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, Uri&& realm,
 // Authentication
 //******************************************************************************
 
-CPPWAMP_INLINE Authentication::Authentication() : Base(String{}) {}
+CPPWAMP_INLINE Authentication::Authentication() : Authentication(String{}) {}
 
 CPPWAMP_INLINE Authentication::Authentication(String signature)
-    : Base(std::move(signature)) {}
+    : Base(internal::MessageKind::authenticate,
+           {0, std::move(signature), Object{}})
+{}
 
 CPPWAMP_INLINE const String& Authentication::signature() const
 {
-    return message().signature();
+    return message().at(1).as<String>();
 }
 
 /** @details
@@ -259,8 +276,8 @@ CPPWAMP_INLINE AccessActionInfo Authentication::info() const
     return {AccessAction::clientAuthenticate, "", options()};
 }
 
-CPPWAMP_INLINE Authentication::Authentication(
-    internal::PassKey, internal::AuthenticateMessage&& msg)
+CPPWAMP_INLINE Authentication::Authentication(internal::PassKey,
+                                              internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
@@ -270,7 +287,8 @@ CPPWAMP_INLINE Authentication::Authentication(
 //******************************************************************************
 
 CPPWAMP_INLINE Challenge::Challenge(String authMethod)
-    : Base(std::move(authMethod))
+    : Base(internal::MessageKind::challenge,
+           {0, std::move(authMethod), Object{}})
 {}
 
 CPPWAMP_INLINE Challenge& Challenge::withChallenge(String challenge)
@@ -310,7 +328,7 @@ CPPWAMP_INLINE bool Challenge::challengeeHasExpired() const
 
 CPPWAMP_INLINE const String& Challenge::method() const
 {
-    return message().authMethod();
+    return message().at(1).as<String>();
 }
 
 /** @returns The value of the `CHALLENGE.Details.challenge|string` detail used
@@ -407,7 +425,7 @@ CPPWAMP_INLINE AccessActionInfo Challenge::info() const
 }
 
 CPPWAMP_INLINE Challenge::Challenge(internal::PassKey, ChallengeePtr challengee,
-                                    internal::ChallengeMessage&& msg)
+                                    internal::Message&& msg)
     : Base(std::move(msg)),
       challengee_(std::move(challengee))
 {}
