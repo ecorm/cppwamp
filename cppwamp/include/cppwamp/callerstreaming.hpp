@@ -19,8 +19,8 @@
 #include "rpcinfo.hpp"
 #include "streaming.hpp"
 #include "tagtypes.hpp"
+#include "internal/message.hpp"
 #include "internal/passkey.hpp"
-#include "internal/wampmessage.hpp"
 
 namespace wamp
 {

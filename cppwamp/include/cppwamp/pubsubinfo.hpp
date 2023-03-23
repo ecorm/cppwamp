@@ -15,8 +15,8 @@
 #include "payload.hpp"
 #include "variantdefs.hpp"
 #include "wampdefs.hpp"
+#include "./internal/message.hpp"
 #include "./internal/passkey.hpp"
-#include "./internal/wampmessage.hpp"
 
 //------------------------------------------------------------------------------
 /** @file

@@ -15,9 +15,9 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
+CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(MessageKind kind)
 {
-    using W = WampMsgType;
+    using K = MessageKind;
     constexpr TypeId n = TypeId::null;
     constexpr TypeId i = TypeId::integer;
     constexpr TypeId s = TypeId::string;
@@ -37,38 +37,38 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
 //                   requestIdPosition ---+ | | | | | | | |
 //                                        | | | | | | | | |
 // id     message         repliesTo       | | | | | | | | |
-/*  0 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/*  1 */ {"HELLO",        W::none,        0,3,3,0,1,1,0,0,0, {i,s,o,n,n,n,n}},
-/*  2 */ {"WELCOME",      W::hello,       0,3,3,1,0,1,1,0,0, {i,i,o,n,n,n,n}},
-/*  3 */ {"ABORT",        W::hello,       0,3,3,1,0,1,1,1,0, {i,o,s,n,n,n,n}},
-/*  4 */ {"CHALLENGE",    W::none,        0,3,3,1,0,1,1,0,0, {i,s,o,n,n,n,n}},
-/*  5 */ {"AUTHENTICATE", W::none,        0,3,3,0,1,0,1,0,0, {i,s,o,n,n,n,n}},
-/*  6 */ {"GOODBYE",      W::goodbye,     0,3,3,1,1,0,0,1,0, {i,o,s,n,n,n,n}},
-/*  7 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/*  8 */ {"ERROR",        W::error,       2,5,7,1,1,0,0,1,0, {i,i,i,o,s,a,o}},
-/*  9 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 10 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 11 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 12 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 13 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 14 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 15 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 16 */ {"PUBLISH",      W::none,        1,4,6,0,1,0,0,1,1, {i,i,o,s,a,o,n}},
-/* 17 */ {"PUBLISHED",    W::publish,     1,3,3,1,0,0,0,1,0, {i,i,i,n,n,n,n}},
-/* 18 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 19 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 20 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 21 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 22 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 23 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 24 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 25 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 26 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 27 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 28 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 29 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 30 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 31 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/*  0 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/*  1 */ {"HELLO",        K::none,        0,3,3,0,1,1,0,0,0, {i,s,o,n,n,n,n}},
+/*  2 */ {"WELCOME",      K::hello,       0,3,3,1,0,1,1,0,0, {i,i,o,n,n,n,n}},
+/*  3 */ {"ABORT",        K::hello,       0,3,3,1,0,1,1,1,0, {i,o,s,n,n,n,n}},
+/*  4 */ {"CHALLENGE",    K::none,        0,3,3,1,0,1,1,0,0, {i,s,o,n,n,n,n}},
+/*  5 */ {"AUTHENTICATE", K::none,        0,3,3,0,1,0,1,0,0, {i,s,o,n,n,n,n}},
+/*  6 */ {"GOODBYE",      K::goodbye,     0,3,3,1,1,0,0,1,0, {i,o,s,n,n,n,n}},
+/*  7 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/*  8 */ {"ERROR",        K::error,       2,5,7,1,1,0,0,1,0, {i,i,i,o,s,a,o}},
+/*  9 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 10 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 11 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 12 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 13 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 14 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 15 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 16 */ {"PUBLISH",      K::none,        1,4,6,0,1,0,0,1,1, {i,i,o,s,a,o,n}},
+/* 17 */ {"PUBLISHED",    K::publish,     1,3,3,1,0,0,0,1,0, {i,i,i,n,n,n,n}},
+/* 18 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 19 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 20 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 21 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 22 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 23 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 24 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 25 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 26 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 27 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 28 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 29 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 30 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 31 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
 
 //                           isRequest -------------------+
 //                      forEstablished -----------------+ |
@@ -81,55 +81,55 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(WampMsgType type)
 //                   requestIdPosition ---+ | | | | | | | |
 //                                        | | | | | | | | |
 // id     message         repliesTo       | | | | | | | | |
-/* 32 */ {"SUBSCRIBE",    W::none,        1,4,4,0,1,0,0,1,1, {i,i,o,s,n,n,n}},
-/* 33 */ {"SUBSCRIBED",   W::subscribe,   1,3,3,1,0,0,0,1,0, {i,i,i,n,n,n,n}},
-/* 34 */ {"UNSUBSCRIBE",  W::none,        1,3,3,0,1,0,0,1,1, {i,i,i,n,n,n,n}},
-/* 35 */ {"UNSUBSCRIBED", W::unsubscribe, 1,2,2,1,0,0,0,1,0, {i,i,n,n,n,n,n}},
-/* 36 */ {"EVENT",        W::none,        0,4,6,1,0,0,0,1,0, {i,i,i,o,a,o,n}},
-/* 37 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 38 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 39 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 40 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 41 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 42 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 43 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 44 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 45 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 46 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 47 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 48 */ {"CALL",         W::none,        1,4,6,0,1,0,0,1,1, {i,i,o,s,a,o,n}},
-/* 49 */ {"CANCEL",       W::none,        1,3,3,0,1,0,0,1,0, {i,i,o,n,n,n,n}},
-/* 50 */ {"RESULT",       W::call,        1,3,5,1,0,0,0,1,0, {i,i,o,a,o,n,n}},
-/* 51 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 52 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 53 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 54 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 55 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 56 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 57 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 58 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 59 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 60 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 61 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 62 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 63 */ {nullptr,        W::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
-/* 64 */ {"REGISTER",     W::none,        1,4,4,0,1,0,0,1,1, {i,i,o,s,n,n,n}},
-/* 65 */ {"REGISTERED",   W::enroll,      1,3,3,1,0,0,0,1,0, {i,i,i,n,n,n,n}},
-/* 66 */ {"UNREGISTER",   W::none,        1,3,3,0,1,0,0,1,1, {i,i,i,n,n,n,n}},
-/* 67 */ {"UNREGISTERED", W::unregister,  1,2,2,1,0,0,0,1,0, {i,i,n,n,n,n,n}},
-/* 68 */ {"INVOCATION",   W::none,        1,4,6,1,0,0,0,1,1, {i,i,i,o,a,o,n}},
-/* 69 */ {"INTERRUPT",    W::none,        1,3,3,1,0,0,0,1,0, {i,i,o,n,n,n,n}},
-/* 70 */ {"YIELD",        W::invocation,  1,3,5,0,1,0,0,1,0, {i,i,o,a,o,n,n}}
+/* 32 */ {"SUBSCRIBE",    K::none,        1,4,4,0,1,0,0,1,1, {i,i,o,s,n,n,n}},
+/* 33 */ {"SUBSCRIBED",   K::subscribe,   1,3,3,1,0,0,0,1,0, {i,i,i,n,n,n,n}},
+/* 34 */ {"UNSUBSCRIBE",  K::none,        1,3,3,0,1,0,0,1,1, {i,i,i,n,n,n,n}},
+/* 35 */ {"UNSUBSCRIBED", K::unsubscribe, 1,2,2,1,0,0,0,1,0, {i,i,n,n,n,n,n}},
+/* 36 */ {"EVENT",        K::none,        0,4,6,1,0,0,0,1,0, {i,i,i,o,a,o,n}},
+/* 37 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 38 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 39 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 40 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 41 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 42 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 43 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 44 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 45 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 46 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 47 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 48 */ {"CALL",         K::none,        1,4,6,0,1,0,0,1,1, {i,i,o,s,a,o,n}},
+/* 49 */ {"CANCEL",       K::none,        1,3,3,0,1,0,0,1,0, {i,i,o,n,n,n,n}},
+/* 50 */ {"RESULT",       K::call,        1,3,5,1,0,0,0,1,0, {i,i,o,a,o,n,n}},
+/* 51 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 52 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 53 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 54 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 55 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 56 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 57 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 58 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 59 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 60 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 61 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 62 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 63 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
+/* 64 */ {"REGISTER",     K::none,        1,4,4,0,1,0,0,1,1, {i,i,o,s,n,n,n}},
+/* 65 */ {"REGISTERED",   K::enroll,      1,3,3,1,0,0,0,1,0, {i,i,i,n,n,n,n}},
+/* 66 */ {"UNREGISTER",   K::none,        1,3,3,0,1,0,0,1,1, {i,i,i,n,n,n,n}},
+/* 67 */ {"UNREGISTERED", K::unregister,  1,2,2,1,0,0,0,1,0, {i,i,n,n,n,n,n}},
+/* 68 */ {"INVOCATION",   K::none,        1,4,6,1,0,0,0,1,1, {i,i,i,o,a,o,n}},
+/* 69 */ {"INTERRUPT",    K::none,        1,3,3,1,0,0,0,1,0, {i,i,o,n,n,n,n}},
+/* 70 */ {"YIELD",        K::invocation,  1,3,5,0,1,0,0,1,0, {i,i,o,a,o,n,n}}
     };
 
-    auto index = static_cast<size_t>(type);
+    auto index = static_cast<size_t>(kind);
     if (index >= std::extent<decltype(traits)>::value)
         index = 0;
     return traits[index];
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE bool MessageTraits::isValidType() const
+CPPWAMP_INLINE bool MessageTraits::isValidKind() const
 {
     return minSize != 0;
 }

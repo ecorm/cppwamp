@@ -25,7 +25,7 @@
 #include "../transport.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
-#include "wampmessage.hpp"
+#include "message.hpp"
 
 namespace wamp
 {
@@ -40,7 +40,6 @@ class Peer
 {
 public:
     using State                 = SessionState;
-    using Message               = WampMessage;
     using InboundMessageHandler = std::function<void (Message)>;
     using LogHandler            = std::function<void (LogEntry)>;
     using StateChangeHandler    = std::function<void (State, std::error_code)>;
@@ -176,7 +175,7 @@ public:
     // TODO: Templatize to take info object and convert to message
     ErrorOrDone send(Message& msg)
     {
-        assert(msg.type() != WampMsgType::none);
+        assert(msg.kind() != MessageKind::none);
 
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
@@ -189,15 +188,15 @@ public:
         return true;
     }
 
-    ErrorOrDone sendError(WampMsgType reqType, RequestId reqId, Error&& error)
+    ErrorOrDone sendError(MessageKind reqKind, RequestId reqId, Error&& error)
     {
-        auto done = send(error.errorMessage({}, reqType, reqId));
+        auto done = send(error.errorMessage({}, reqKind, reqId));
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             error.withArgs(std::string("(Details removed due "
                                        "to transport limits)"));
             error.withKwargs({});
-            (void)send(error.errorMessage({}, reqType, reqId));
+            (void)send(error.errorMessage({}, reqKind, reqId));
             if (logLevel() <= LogLevel::warning)
             {
                 std::ostringstream oss;
@@ -321,13 +320,13 @@ private:
 
     void onMessage(Message&& msg)
     {
-        switch (msg.type())
+        switch (msg.kind())
         {
-        case WampMsgType::hello:     return onHello(std::move(msg));
-        case WampMsgType::welcome:   return onWelcome(std::move(msg));
-        case WampMsgType::abort:     return onAbort(std::move(msg));
-        case WampMsgType::challenge: return onChallenge(std::move(msg));
-        case WampMsgType::goodbye:   return onGoodbye(std::move(msg));
+        case MessageKind::hello:     return onHello(std::move(msg));
+        case MessageKind::welcome:   return onWelcome(std::move(msg));
+        case MessageKind::abort:     return onAbort(std::move(msg));
+        case MessageKind::challenge: return onChallenge(std::move(msg));
+        case MessageKind::goodbye:   return onGoodbye(std::move(msg));
         default: break;
         }
 
@@ -487,17 +486,17 @@ private:
 
     void traceTx(const Message& msg)
     {
-        trace(msg.type(), msg.fields(), "TX");
+        trace(msg.kind(), msg.fields(), "TX");
     }
 
-    void trace(WampMsgType type, const Array& fields, const char* label)
+    void trace(MessageKind kind, const Array& fields, const char* label)
     {
         if (logLevel() > LogLevel::trace)
             return;
 
         std::ostringstream oss;
         oss << "[\"" << label << "\",\""
-            << MessageTraits::lookup(type).nameOr("INVALID") << "\"";
+            << MessageTraits::lookup(kind).nameOr("INVALID") << "\"";
         if (!fields.empty())
             oss << "," << fields;
         oss << ']';

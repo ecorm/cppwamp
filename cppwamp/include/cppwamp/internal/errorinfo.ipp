@@ -43,9 +43,9 @@ CPPWAMP_INLINE Error::Error(internal::PassKey, internal::ErrorMessage&& msg)
     : Base(std::move(msg))
 {}
 
-CPPWAMP_INLINE Error::Error(internal::PassKey, internal::WampMsgType reqType,
+CPPWAMP_INLINE Error::Error(internal::PassKey, internal::MessageKind reqKind,
                             RequestId rid, std::error_code ec, Object opts)
-    : Base(reqType, rid, errorCodeToUri(ec), std::move(opts))
+    : Base(reqKind, rid, errorCodeToUri(ec), std::move(opts))
 {}
 
 CPPWAMP_INLINE RequestId Error::requestId(internal::PassKey) const
@@ -59,11 +59,11 @@ CPPWAMP_INLINE void Error::setRequestId(internal::PassKey, RequestId rid)
 }
 
 CPPWAMP_INLINE internal::ErrorMessage&
-Error::errorMessage(internal::PassKey, internal::WampMsgType reqType,
+Error::errorMessage(internal::PassKey, internal::MessageKind reqKind,
                     RequestId reqId)
 {
     auto& msg = message();
-    msg.setRequestInfo(reqType, reqId);
+    msg.setRequestInfo(reqKind, reqId);
     return msg;
 }
 

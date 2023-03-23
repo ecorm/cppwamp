@@ -75,9 +75,9 @@ public:
           timeout_(i.callerTimeout())
     {}
 
-    void onReply(WampMessage&& msg, AnyIoExecutor& exec)
+    void onReply(Message&& msg, AnyIoExecutor& exec)
     {
-        if (msg.type() == WampMsgType::result)
+        if (msg.kind() == MessageKind::result)
             onResult(messageCast<ResultMessage>(msg), exec);
         else
             onError(messageCast<ErrorMessage>(msg), exec);
@@ -182,7 +182,6 @@ private:
 class Requestor
 {
 public:
-    using Message = WampMessage;
     using TimeoutDuration = typename Rpc::TimeoutDuration;
     using RequestHandler = AnyCompletionHandler<void (ErrorOr<Message>)>;
     using StreamRequestHandler =
@@ -214,7 +213,7 @@ public:
     ErrorOr<RequestId> request(Message& msg, TimeoutDuration timeout,
                                RequestHandler&& handler)
     {
-        assert(msg.type() != WampMsgType::none);
+        assert(msg.kind() != MessageKind::none);
         RequestId requestId = nullId();
         if (msg.isRequest())
         {
@@ -289,7 +288,7 @@ public:
             {
                 auto handler = std::move(kv->second);
                 requests_.erase(kv);
-                if (key.first == WampMsgType::call)
+                if (key.first == MessageKind::call)
                     deadlines_->erase(key.second);
                 handler(std::move(msg));
                 return true;
@@ -297,7 +296,7 @@ public:
         }
 
         {
-            if (key.first != WampMsgType::call)
+            if (key.first != MessageKind::call)
                 return false;
             auto kv = channels_.find(key.second);
             if (kv == channels_.end())
@@ -332,7 +331,7 @@ public:
         auto unex = makeUnexpectedError(errc);
 
         {
-            RequestKey key{WampMsgType::call, requestId};
+            RequestKey key{MessageKind::call, requestId};
             auto kv = requests_.find(key);
             if (kv != requests_.end())
             {
@@ -367,7 +366,7 @@ public:
 
     ErrorOrDone sendCallerChunk(RequestId reqId, CallerOutputChunk&& chunk)
     {
-        RequestKey key{WampMsgType::call, reqId};
+        RequestKey key{MessageKind::call, reqId};
         if (requests_.count(key) == 0 && channels_.count(reqId) == 0)
             return false;
         return peer_.send(chunk.callMessage({}, reqId));
@@ -687,7 +686,7 @@ public:
         {
             if (!erased)
                 invocations_.erase(found);
-            peer_.sendError(WampMsgType::invocation, reqId,
+            peer_.sendError(MessageKind::invocation, reqId,
                             Error{WampErrc::payloadSizeExceeded});
         }
         return done;
@@ -713,7 +712,7 @@ public:
         {
             if (!erased)
                 invocations_.erase(found);
-            peer_.sendError(WampMsgType::invocation, reqId,
+            peer_.sendError(MessageKind::invocation, reqId,
                             Error{WampErrc::payloadSizeExceeded});
         }
         return done;
@@ -732,7 +731,7 @@ public:
         if (moot)
             return false;
 
-        return peer_.sendError(WampMsgType::invocation, reqId,
+        return peer_.sendError(MessageKind::invocation, reqId,
                                std::move(error));
     }
 
@@ -759,7 +758,7 @@ public:
             }
         }
 
-        peer_.sendError(WampMsgType::invocation, requestId,
+        peer_.sendError(MessageKind::invocation, requestId,
                         {WampErrc::noSuchProcedure});
         return WampErrc::noSuchProcedure;
     }
@@ -968,7 +967,7 @@ private:
             rec.moot = true;
             Error error{intr.reason().value_or(
                 errorCodeToUri(WampErrc::cancelled))};
-            peer_.sendError(WampMsgType::invocation, intr.requestId(),
+            peer_.sendError(MessageKind::invocation, intr.requestId(),
                             std::move(error));
         }
     }
@@ -1141,14 +1140,14 @@ public:
                 me.challengeSlot_ = nullptr;
                 if (me.checkError(reply, handler))
                 {
-                    if (reply->type() == WampMsgType::welcome)
+                    if (reply->kind() == MessageKind::welcome)
                     {
                         me.onWelcome(std::move(handler), *reply,
                                      std::move(realm));
                     }
                     else
                     {
-                        assert(reply->type() == WampMsgType::abort);
+                        assert(reply->kind() == MessageKind::abort);
                         me.onJoinAborted(std::move(handler), *reply, abortPtr);
                     }
                 }
@@ -1342,7 +1341,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (!me.checkReply(reply, WampMsgType::subscribed, handler))
+                if (!me.checkReply(reply, MessageKind::subscribed, handler))
                     return;
                 const auto& msg = messageCast<SubscribedMessage>(*reply);
                 auto sub = me.readership_.onSubscribed(
@@ -1492,7 +1491,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::published, handler))
+                if (me.checkReply(reply, MessageKind::published, handler))
                 {
                     const auto& pubMsg = messageCast<PublishedMessage>(*reply);
                     me.completeNow(handler, pubMsg.publicationId());
@@ -1533,7 +1532,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (!me.checkReply(reply, WampMsgType::registered, f))
+                if (!me.checkReply(reply, MessageKind::registered, f))
                     return;
                 auto& msg = messageCast<RegisteredMessage>(*reply);
                 auto reg = me.registry_.enroll(std::move(r), self, msg);
@@ -1583,7 +1582,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (!me.checkReply(reply, WampMsgType::registered, f))
+                if (!me.checkReply(reply, MessageKind::registered, f))
                     return;
                 auto& msg = messageCast<RegisteredMessage>(*reply);
                 auto reg = me.registry_.enroll(std::move(r), self, msg);
@@ -1628,7 +1627,7 @@ public:
             {
                 // Don't propagate WAMP errors, as we prefer this
                 // to be a no-fail cleanup operation.
-                self->checkReplyWithoutHandler(reply, WampMsgType::unregistered);
+                self->checkReplyWithoutHandler(reply, MessageKind::unregistered);
             }
         };
 
@@ -1661,7 +1660,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::unregistered, handler))
+                if (me.checkReply(reply, MessageKind::unregistered, handler))
                     me.completeNow(handler, true);
             }
         };
@@ -1702,7 +1701,7 @@ public:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::result, handler,
+                if (me.checkReply(reply, MessageKind::result, handler,
                                   errorPtr))
                 {
                     auto& msg = messageCast<ResultMessage>(*reply);
@@ -2012,10 +2011,8 @@ public:
 
 private:
     using ErrorOrDonePromise  = std::promise<ErrorOrDone>;
-
-    using Message                = WampMessage;
-    using RequestKey             = typename Message::RequestKey;
-    using RequestHandler         = AnyCompletionHandler<void (ErrorOr<Message>)>;
+    using RequestKey          = typename Message::RequestKey;
+    using RequestHandler      = AnyCompletionHandler<void (ErrorOr<Message>)>;
 
     static void outputErrorDetails(std::ostream& out, const Error& e)
     {
@@ -2184,7 +2181,7 @@ private:
             {
                 // Don't propagate WAMP errors, as we prefer
                 // this to be a no-fail cleanup operation.
-                self->checkReplyWithoutHandler(reply, WampMsgType::unsubscribed);
+                self->checkReplyWithoutHandler(reply, MessageKind::unsubscribed);
             }
         };
 
@@ -2206,7 +2203,7 @@ private:
             void operator()(ErrorOr<Message> reply)
             {
                 auto& me = *self;
-                if (me.checkReply(reply, WampMsgType::unsubscribed, handler))
+                if (me.checkReply(reply, MessageKind::unsubscribed, handler))
                 {
                     me.completeNow(handler, true);
                 }
@@ -2255,12 +2252,12 @@ private:
 
     void onInbound(Message msg)
     {
-        switch (msg.type())
+        switch (msg.kind())
         {
-        case WampMsgType::challenge:  return onChallenge(msg);
-        case WampMsgType::event:      return onEvent(msg);
-        case WampMsgType::invocation: return onInvocation(msg);
-        case WampMsgType::interrupt:  return onInterrupt(msg);
+        case MessageKind::challenge:  return onChallenge(msg);
+        case MessageKind::event:      return onEvent(msg);
+        case MessageKind::invocation: return onInvocation(msg);
+        case MessageKind::interrupt:  return onInterrupt(msg);
         default:                      return onWampReply(msg);
         }
     }
@@ -2390,15 +2387,15 @@ private:
     }
 
     template <typename THandler>
-    bool checkReply(ErrorOr<Message>& reply, WampMsgType type,
+    bool checkReply(ErrorOr<Message>& reply, MessageKind kind,
                     THandler& handler, Error* errorPtr = nullptr)
     {
         if (!checkError(reply, handler))
             return false;
 
-        if (reply->type() != WampMsgType::error)
+        if (reply->kind() != MessageKind::error)
         {
-            assert((reply->type() == type) &&
+            assert((reply->kind() == kind) &&
                    "Unexpected WAMP message type");
             return true;
         }
@@ -2410,14 +2407,14 @@ private:
         if (errorPtr != nullptr)
             *errorPtr = std::move(error);
         else
-            logErrorReplyIfNeeded(error, errc, type);
+            logErrorReplyIfNeeded(error, errc, kind);
 
         dispatchHandler(handler, makeUnexpectedError(errc));
         return false;
     }
 
     void logErrorReplyIfNeeded(const Error& error, WampErrc errc,
-                               WampMsgType reqType)
+                               MessageKind reqKind)
     {
         // Only log if there is extra error information that cannot
         // passed to the handler via an error code.
@@ -2426,13 +2423,13 @@ private:
         if ((errc != WampErrc::unknown) && !error.hasArgs())
             return;
         std::ostringstream oss;
-        oss << "Expected " << MessageTraits::lookup(reqType).name
+        oss << "Expected " << MessageTraits::lookup(reqKind).name
             << " reply but got ";
         outputErrorDetails(oss, error);
         log(LogLevel::error, oss.str());
     }
 
-    void checkReplyWithoutHandler(ErrorOr<Message>& reply, WampMsgType type)
+    void checkReplyWithoutHandler(ErrorOr<Message>& reply, MessageKind type)
     {
         std::string msgTypeName(MessageTraits::lookup(type).name);
         if (!reply.has_value())
@@ -2444,7 +2441,7 @@ private:
                     reply.error());
             }
         }
-        else if (reply->type() == WampMsgType::error)
+        else if (reply->kind() == MessageKind::error)
         {
             if (logLevel() <= LogLevel::error)
             {
@@ -2459,7 +2456,7 @@ private:
         }
         else
         {
-            assert((reply->type() == type) && "Unexpected WAMP message type");
+            assert((reply->kind() == type) && "Unexpected WAMP message type");
         }
     }
 

@@ -274,7 +274,7 @@ public:
 
         auto reqId = callerKey_.second;
         auto ec = make_error_code(WampErrc::noAvailableCallee);
-        auto e = Error({}, WampMsgType::call, reqId, ec)
+        auto e = Error({}, MessageKind::call, reqId, ec)
                      .withArgs("Callee left realm");
         caller->sendError(std::move(e));
     }

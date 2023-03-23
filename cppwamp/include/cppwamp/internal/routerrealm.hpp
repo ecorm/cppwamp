@@ -128,7 +128,7 @@ private:
     };
 
     static bool checkAuthorization(const Authorization& auth, RealmSession& s,
-                                   WampMsgType reqType, RequestId rid,
+                                   MessageKind reqKind, RequestId rid,
                                    bool logOnly = false)
     {
         if (auth.error())
@@ -138,13 +138,13 @@ private:
                 auth.error() == WampErrc::authorizationRequired ||
                 auth.error() == WampErrc::discloseMeDisallowed)
             {
-                Error error{{}, reqType, rid, auth.error()};
+                Error error{{}, reqKind, rid, auth.error()};
                 s.sendError(std::move(error), logOnly);
             }
             else
             {
                 auto ec = make_error_code(WampErrc::authorizationFailed);
-                auto error = Error({}, reqType, rid, ec)
+                auto error = Error({}, reqKind, rid, ec)
                                  .withArgs(briefErrorCodeString(auth.error()),
                                            auth.error().message());
                 s.sendError(std::move(error), logOnly);
@@ -153,7 +153,7 @@ private:
         }
         else if (!auth.allowed())
         {
-            s.sendError(reqType, rid, WampErrc::authorizationDenied, logOnly);
+            s.sendError(reqKind, rid, WampErrc::authorizationDenied, logOnly);
             return false;
         }
 
@@ -292,7 +292,7 @@ private:
                 if (result)
                     s->sendSubscribed(rid, *result);
                 else
-                    s->sendError(WampMsgType::subscribe, rid, result);
+                    s->sendError(MessageKind::subscribe, rid, result);
             }
         };
 
@@ -302,13 +302,13 @@ private:
                             const Authorization& a, Topic&& t)
             {
                 auto rid = t.requestId({});
-                if (!checkAuthorization(a, *s, WampMsgType::subscribe, rid))
+                if (!checkAuthorization(a, *s, MessageKind::subscribe, rid))
                     return;
                 auto result = self->broker_.subscribe(s, std::move(t));
                 if (result)
                     s->sendSubscribed(rid, *result);
                 else
-                    s->sendError(WampMsgType::subscribe, rid, result);
+                    s->sendError(MessageKind::subscribe, rid, result);
             }
         };
 
@@ -331,7 +331,7 @@ private:
                 if (result)
                     s->sendUnsubscribed(rid, std::move(*result));
                 else
-                    s->sendError(WampMsgType::unsubscribe, rid, result);
+                    s->sendError(MessageKind::unsubscribe, rid, result);
             }
         };
 
@@ -352,7 +352,7 @@ private:
                 bool ack = p.optionOr<bool>("acknowledge", false);
                 auto ec = setDisclosed(p, self->config_.publisherDisclosure());
                 if (ec)
-                    return s->sendError(WampMsgType::publish, rid, ec, !ack);
+                    return s->sendError(MessageKind::publish, rid, ec, !ack);
 
                 auto result = self->broker_.publish(s, std::move(p));
                 if (result)
@@ -362,7 +362,7 @@ private:
                 }
                 else
                 {
-                    s->sendError(WampMsgType::publish, rid, result, !ack);
+                    s->sendError(MessageKind::publish, rid, result, !ack);
                 }
             }
         };
@@ -374,14 +374,14 @@ private:
             {
                 auto rid = p.requestId({});
                 bool ack = p.optionOr<bool>("acknowledge", false);
-                if (!checkAuthorization(a, *s, WampMsgType::publish, rid, !ack))
+                if (!checkAuthorization(a, *s, MessageKind::publish, rid, !ack))
                     return;
                 if (a.hasTrustLevel())
                     p.setTrustLevel({}, a.trustLevel());
                 auto rule = self->config_.publisherDisclosure();
                 auto ec = setDisclosed(p, rule, a);
                 if (ec)
-                    return s->sendError(WampMsgType::publish, rid, ec, !ack);
+                    return s->sendError(MessageKind::publish, rid, ec, !ack);
 
                 auto result = self->broker_.publish(s, std::move(p));
                 if (result)
@@ -391,7 +391,7 @@ private:
                 }
                 else
                 {
-                    s->sendError(WampMsgType::publish, rid, result, !ack);
+                    s->sendError(MessageKind::publish, rid, result, !ack);
                 }
             }
         };
@@ -415,7 +415,7 @@ private:
                 if (result)
                     s->sendRegistered(rid, *result);
                 else
-                    s->sendError(WampMsgType::enroll, rid, result);
+                    s->sendError(MessageKind::enroll, rid, result);
             }
         };
 
@@ -425,13 +425,13 @@ private:
                             const Authorization& a, Procedure&& p)
             {
                 auto rid = p.requestId({});
-                if (!checkAuthorization(a, *s, WampMsgType::enroll, rid))
+                if (!checkAuthorization(a, *s, MessageKind::enroll, rid))
                     return;
                 auto result = self->dealer_.enroll(s, std::move(p));
                 if (result)
                     s->sendRegistered(rid, *result);
                 else
-                    s->sendError(WampMsgType::enroll, rid, result);
+                    s->sendError(MessageKind::enroll, rid, result);
             }
         };
 
@@ -454,7 +454,7 @@ private:
                 if (result)
                     s->sendUnregistered(reqId, std::move(*result));
                 else
-                    s->sendError(WampMsgType::unregister, reqId, result);
+                    s->sendError(MessageKind::unregister, reqId, result);
             }
         };
 
@@ -474,7 +474,7 @@ private:
                 auto rid = r.requestId({});
                 auto ec = setDisclosed(r, self->config_.callerDisclosure());
                 if (ec)
-                    s->sendError(WampMsgType::call, rid, ec);
+                    s->sendError(MessageKind::call, rid, ec);
                 auto result = self->dealer_.call(s, std::move(r));
                 if (ec == WampErrc::protocolViolation)
                 {
@@ -483,7 +483,7 @@ private:
                 }
                 else if (!result)
                 {
-                    s->sendError(WampMsgType::call, rid, result);
+                    s->sendError(MessageKind::call, rid, result);
                 }
             }
         };
@@ -494,16 +494,16 @@ private:
                             const Authorization& a, Rpc&& r)
             {
                 auto rid = r.requestId({});
-                if (!checkAuthorization(a, *s, WampMsgType::call, rid))
+                if (!checkAuthorization(a, *s, MessageKind::call, rid))
                     return;
                 if (a.hasTrustLevel())
                     r.setTrustLevel({}, a.trustLevel());
                 auto ec = setDisclosed(r, self->config_.callerDisclosure(), a);
                 if (ec)
-                    s->sendError(WampMsgType::call, rid, ec);
+                    s->sendError(MessageKind::call, rid, ec);
                 auto result = self->dealer_.call(s, std::move(r));
                 if (!result)
-                    s->sendError(WampMsgType::call, rid, result);
+                    s->sendError(MessageKind::call, rid, result);
             }
         };
 
@@ -524,7 +524,7 @@ private:
                 auto rid = c.requestId();
                 auto result = self->dealer_.cancelCall(s, std::move(c));
                 if (!result)
-                    s->sendError(WampMsgType::call, rid, result);
+                    s->sendError(MessageKind::call, rid, result);
             }
         };
 

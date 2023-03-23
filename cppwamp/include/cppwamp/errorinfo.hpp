@@ -16,8 +16,8 @@
 #include "errorcodes.hpp"
 #include "payload.hpp"
 #include "wampdefs.hpp"
+#include "./internal/message.hpp"
 #include "./internal/passkey.hpp"
-#include "./internal/wampmessage.hpp"
 
 //------------------------------------------------------------------------------
 /** @file
@@ -72,7 +72,7 @@ public:
     // Internal use only
     Error(internal::PassKey, internal::ErrorMessage&& msg);
 
-    Error(internal::PassKey, internal::WampMsgType reqType,
+    Error(internal::PassKey, internal::MessageKind reqKind,
           RequestId rid, std::error_code ec, Object opts = {});
 
     RequestId requestId(internal::PassKey) const;
@@ -80,7 +80,7 @@ public:
     void setRequestId(internal::PassKey, RequestId rid);
 
     internal::ErrorMessage& errorMessage(internal::PassKey,
-                                         internal::WampMsgType reqType,
+                                         internal::MessageKind reqType,
                                          RequestId reqId);
 };
 

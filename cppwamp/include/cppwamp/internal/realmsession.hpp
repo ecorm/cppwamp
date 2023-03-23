@@ -49,24 +49,24 @@ public:
 
     virtual void sendError(Error&&, bool logOnly = false) = 0;
 
-    void sendError(WampMsgType reqType, RequestId rid, std::error_code ec,
+    void sendError(MessageKind reqKind, RequestId rid, std::error_code ec,
                    bool logOnly = false)
     {
-        sendError(Error{{}, reqType, rid, ec}, logOnly);
+        sendError(Error{{}, reqKind, rid, ec}, logOnly);
     }
 
-    void sendError(WampMsgType reqType, RequestId rid, WampErrc errc,
+    void sendError(MessageKind reqKind, RequestId rid, WampErrc errc,
                    bool logOnly = false)
     {
-        sendError(reqType, rid, make_error_code(errc), logOnly);
+        sendError(reqKind, rid, make_error_code(errc), logOnly);
     }
 
     template <typename T>
-    void sendError(WampMsgType reqType, RequestId rid, const ErrorOr<T>& x,
+    void sendError(MessageKind reqKind, RequestId rid, const ErrorOr<T>& x,
                    bool logOnly = false)
     {
         assert(!x.has_value());
-        sendError(reqType, rid, x.error(), logOnly);
+        sendError(reqKind, rid, x.error(), logOnly);
     }
 
     virtual void sendSubscribed(RequestId, SubscriptionId) = 0;

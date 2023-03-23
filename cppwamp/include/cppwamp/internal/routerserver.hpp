@@ -317,7 +317,7 @@ private:
             });
 
         peer_.setInboundMessageHandler(
-            [this, self](WampMessage msg)
+            [this, self](Message msg)
             {
                 auto me = self.lock();
                 if (me)
@@ -399,31 +399,31 @@ private:
         }
     }
 
-    void onMessage(WampMessage&& m)
+    void onMessage(Message&& m)
     {
         if (!checkSequentialRequestId(m))
             return;
 
-        using M = WampMsgType;
-        switch (m.type())
+        using K = MessageKind;
+        switch (m.kind())
         {
-        case M::hello:        return onHello(m);
-        case M::authenticate: return onAuthenticate(m);
-        case M::goodbye:      return onGoodbye(m);
-        case M::error:        return onError(m);
-        case M::publish:      return onPublish(m);
-        case M::subscribe:    return onSubscribe(m);
-        case M::unsubscribe:  return onUnsubscribe(m);
-        case M::call:         return onCall(m);
-        case M::cancel:       return onCancelCall(m);
-        case M::enroll:       return onRegister(m);
-        case M::unregister:   return onUnregister(m);
-        case M::yield:        return onYield(m);
+        case K::hello:        return onHello(m);
+        case K::authenticate: return onAuthenticate(m);
+        case K::goodbye:      return onGoodbye(m);
+        case K::error:        return onError(m);
+        case K::publish:      return onPublish(m);
+        case K::subscribe:    return onSubscribe(m);
+        case K::unsubscribe:  return onUnsubscribe(m);
+        case K::call:         return onCall(m);
+        case K::cancel:       return onCancelCall(m);
+        case K::enroll:       return onRegister(m);
+        case K::unregister:   return onUnregister(m);
+        case K::yield:        return onYield(m);
         default:              assert(false && "Unexpected message type"); break;
         }
     }
 
-    void onHello(WampMessage& msg)
+    void onHello(Message& msg)
     {
         auto& helloMsg = messageCast<HelloMessage>(msg);
         Realm realm{{}, std::move(helloMsg)};
@@ -451,7 +451,7 @@ private:
         completeNow(authenticator, authExchange_);
     }
 
-    void onAuthenticate(WampMessage& msg)
+    void onAuthenticate(Message& msg)
     {
         auto& authenticateMsg = messageCast<AuthenticateMessage>(msg);
         Authentication authentication{{}, std::move(authenticateMsg)};
@@ -473,7 +473,7 @@ private:
         completeNow(authenticator, authExchange_);
     }
 
-    void onGoodbye(WampMessage& msg)
+    void onGoodbye(Message& msg)
     {
         auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
         Reason reason{{}, std::move(goodbyeMsg)};
@@ -484,7 +484,7 @@ private:
         // requests, and will close the session state.
     }
 
-    void onError(WampMessage& m)
+    void onError(Message& m)
     {
         auto& msg = messageCast<ErrorMessage>(m);
         Error error{{}, std::move(msg)};
@@ -492,7 +492,7 @@ private:
         realm_.yieldError(shared_from_this(), std::move(error));
     }
 
-    void onPublish(WampMessage& m)
+    void onPublish(Message& m)
     {
         auto& msg = messageCast<PublishMessage>(m);
         Pub pub({}, std::move(msg));
@@ -500,7 +500,7 @@ private:
         realm_.publish(shared_from_this(), std::move(pub));
     }
 
-    void onSubscribe(WampMessage& m)
+    void onSubscribe(Message& m)
     {
         auto& msg = messageCast<SubscribeMessage>(m);
         Topic topic{{}, std::move(msg)};
@@ -508,7 +508,7 @@ private:
         realm_.subscribe(shared_from_this(), std::move(topic));
     }
 
-    void onUnsubscribe(WampMessage& m)
+    void onUnsubscribe(Message& m)
     {
         auto& msg = messageCast<UnsubscribeMessage>(m);
         auto reqId = msg.requestId();
@@ -517,7 +517,7 @@ private:
                            msg.requestId());
     }
 
-    void onCall(WampMessage& m)
+    void onCall(Message& m)
     {
         auto& msg = messageCast<CallMessage>(m);
         Rpc rpc{{}, std::move(msg)};
@@ -525,7 +525,7 @@ private:
         realm_.call(shared_from_this(), std::move(rpc));
     }
 
-    void onCancelCall(WampMessage& m)
+    void onCancelCall(Message& m)
     {
         auto& msg = messageCast<CancelMessage>(m);
         CallCancellation cncl({}, std::move(msg));
@@ -533,7 +533,7 @@ private:
         realm_.cancelCall(shared_from_this(), std::move(cncl));
     }
 
-    void onRegister(WampMessage& m)
+    void onRegister(Message& m)
     {
         auto& msg = messageCast<RegisterMessage>(m);
         Procedure proc({}, std::move(msg));
@@ -541,7 +541,7 @@ private:
         realm_.enroll(shared_from_this(), std::move(proc));
     }
 
-    void onUnregister(WampMessage& m)
+    void onUnregister(Message& m)
     {
         auto& msg = messageCast<UnregisterMessage>(m);
         auto reqId = msg.requestId();
@@ -550,7 +550,7 @@ private:
                            msg.requestId());
     }
 
-    void onYield(WampMessage& m)
+    void onYield(Message& m)
     {
         auto& msg = messageCast<YieldMessage>(m);
         Result result{{}, std::move(msg)};
@@ -582,13 +582,13 @@ private:
         dispatchAny(strand_, std::move(handler), std::forward<Ts>(args)...);
     }
 
-    bool checkSequentialRequestId(const WampMessage& m)
+    bool checkSequentialRequestId(const Message& m)
     {
         if (!m.hasRequestId())
             return true;
 
         // Allow progressive calls to reference past request IDs
-        bool isCall = m.type() == WampMsgType::call;
+        bool isCall = m.kind() == MessageKind::call;
         bool needsSequential = !isCall && m.isRequest();
         auto requestId = m.requestId();
 

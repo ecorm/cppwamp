@@ -26,7 +26,7 @@
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
 #include "./internal/matchpolicyoption.hpp"
-#include "./internal/wampmessage.hpp"
+#include "./internal/message.hpp"
 
 //------------------------------------------------------------------------------
 /** @file

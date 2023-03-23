@@ -14,7 +14,7 @@
 
 #include "payload.hpp"
 #include "wampdefs.hpp"
-#include "internal/wampmessage.hpp"
+#include "internal/message.hpp"
 
 namespace wamp
 {

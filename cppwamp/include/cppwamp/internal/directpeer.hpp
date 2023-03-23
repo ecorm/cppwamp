@@ -25,9 +25,9 @@
 #include "../transport.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
+#include "message.hpp"
 #include "realmsession.hpp"
 #include "routercontext.hpp"
-#include "wampmessage.hpp"
 
 namespace wamp
 {
@@ -175,7 +175,6 @@ class DirectPeer : public std::enable_shared_from_this<DirectPeer>
 {
 public:
     using State                 = SessionState;
-    using Message               = WampMessage;
     using InboundMessageHandler = std::function<void (Message)>;
     using LogHandler            = std::function<void (LogEntry)>;
     using StateChangeHandler    = std::function<void (State, std::error_code)>;
@@ -355,10 +354,10 @@ public:
         return true;
     }
 
-    ErrorOrDone sendError(WampMsgType reqType, RequestId reqId, Error&& error)
+    ErrorOrDone sendError(MessageKind reqKind, RequestId reqId, Error&& error)
     {
         // TODO: Avoid intermediate message object
-        auto& msg = error.errorMessage({}, reqType, reqId);
+        auto& msg = error.errorMessage({}, reqKind, reqId);
         if (!realm_.yieldError(session_, Error{{}, std::move(msg)}))
             return fail(WampErrc::noSuchRealm);
         traceTx(msg);
@@ -446,7 +445,7 @@ private:
             inboundMessageHandler_(TMessage{std::forward<TArgs>(args)...});
     }
 
-    void onMessage(WampMessage&& msg)
+    void onMessage(Message&& msg)
     {
         if (inboundMessageHandler_ && (state() == State::established))
             inboundMessageHandler_(std::move(msg));
@@ -492,10 +491,10 @@ private:
 
     void traceTx(const Message& msg)
     {
-        trace(msg.type(), msg.fields(), "TX");
+        trace(msg.kind(), msg.fields(), "TX");
     }
 
-    void trace(WampMsgType type, const Array& fields, const char* label)
+    void trace(MessageKind type, const Array& fields, const char* label)
     {
         if (logLevel() > LogLevel::trace)
             return;

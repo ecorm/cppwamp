@@ -24,21 +24,18 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// Derived types must not contain member variables due to intentional static
-// downcasting (to avoid slicing).
-//------------------------------------------------------------------------------
-struct WampMessage
+struct Message
 {
-    using RequestKey = std::pair<WampMsgType, RequestId>;
+    using RequestKey = std::pair<MessageKind, RequestId>;
 
-    static ErrorOr<WampMessage> parse(Array&& fields)
+    static ErrorOr<Message> parse(Array&& fields)
     {
-        WampMsgType type = parseMsgType(fields);
+        MessageKind kind = parseMsgType(fields);
         const auto unex = makeUnexpectedError(WampErrc::protocolViolation);
-        if (type == WampMsgType::none)
+        if (kind == MessageKind::none)
             return unex;
 
-        auto traits = MessageTraits::lookup(type);
+        auto traits = MessageTraits::lookup(kind);
         if ( fields.size() < traits.minSize || fields.size() > traits.maxSize )
             return unex;
 
@@ -50,46 +47,46 @@ struct WampMessage
                 return unex;
         }
 
-        return WampMessage(type, std::move(fields));
+        return Message(kind, std::move(fields));
     }
 
-    static WampMsgType parseMsgType(const Array& fields)
+    static MessageKind parseMsgType(const Array& fields)
     {
-        auto result = WampMsgType::none;
+        auto result = MessageKind::none;
 
         if (!fields.empty())
         {
             const auto& first = fields.front();
             if (first.is<Int>())
             {
-                using T = std::underlying_type<WampMsgType>::type;
+                using T = std::underlying_type<MessageKind>::type;
                 static constexpr auto max = std::numeric_limits<T>::max();
                 auto n = first.to<Int>();
                 if (n >= 0 && n <= max)
                 {
-                    result = static_cast<WampMsgType>(n);
-                    if (!MessageTraits::lookup(result).isValidType())
-                        result = WampMsgType::none;
+                    result = static_cast<MessageKind>(n);
+                    if (!MessageTraits::lookup(result).isValidKind())
+                        result = MessageKind::none;
                 }
             }
         }
         return result;
     }
 
-    WampMessage() : type_(WampMsgType::none) {}
+    Message() : kind_(MessageKind::none) {}
 
-    WampMessage(WampMsgType type, Array&& messageFields)
-        : type_(type), fields_(std::move(messageFields))
+    Message(MessageKind kind, Array&& messageFields)
+        : kind_(kind), fields_(std::move(messageFields))
     {
         if (fields_.empty())
-            fields_.push_back(static_cast<Int>(type));
+            fields_.push_back(static_cast<Int>(kind));
         else
-            fields_.at(0) = static_cast<Int>(type);
+            fields_.at(0) = static_cast<Int>(kind);
     }
 
-    void setType(WampMsgType t)
+    void setKind(MessageKind t)
     {
-        type_ = t;
+        kind_ = t;
         fields_.at(0) = Int(t);
     }
 
@@ -100,9 +97,9 @@ struct WampMessage
         fields_.at(idPos) = reqId;
     }
 
-    WampMsgType type() const {return type_;}
+    MessageKind kind() const {return kind_;}
 
-    const MessageTraits& traits() const {return MessageTraits::lookup(type_);}
+    const MessageTraits& traits() const {return MessageTraits::lookup(kind_);}
 
     const char* name() const
     {
@@ -149,22 +146,22 @@ struct WampMessage
     RequestKey requestKey() const
     {
         auto repliesToType = repliesTo();
-        auto reqType = (repliesToType == WampMsgType::none) ? type_
+        auto reqType = (repliesToType == MessageKind::none) ? kind_
                                                             : repliesToType;
         return std::make_pair(reqType, requestId());
     }
 
-    bool isReply() const {return traits().repliesTo != WampMsgType::none;}
+    bool isReply() const {return traits().repliesTo != MessageKind::none;}
 
-    WampMsgType repliesTo() const
+    MessageKind repliesTo() const
     {
-        return type_ == WampMsgType::error ? fields_.at(1).to<WampMsgType>()
+        return kind_ == MessageKind::error ? fields_.at(1).to<MessageKind>()
                                            : traits().repliesTo;
     }
 
     bool isProgressive() const
     {
-        if (type_ != WampMsgType::call && type_ != WampMsgType::result)
+        if (kind_ != MessageKind::call && kind_ != MessageKind::result)
             return false;
 
         if (fields_.size() < 3)
@@ -183,15 +180,15 @@ struct WampMessage
     }
 
 protected:
-    WampMsgType type_;
+    MessageKind kind_;
     mutable Array fields_; // Mutable for lazy-loaded empty payloads
 };
 
 //------------------------------------------------------------------------------
-template <WampMsgType Kind, unsigned I>
-struct MessageWithOptions : public WampMessage
+template <MessageKind Kind, unsigned I>
+struct MessageWithOptions : public Message
 {
-    static constexpr WampMsgType kind = Kind;
+    static constexpr MessageKind kind = Kind;
 
     static constexpr unsigned optionsPos = I;
 
@@ -212,12 +209,12 @@ struct MessageWithOptions : public WampMessage
 
 protected:
     explicit MessageWithOptions(Array&& fields)
-        : WampMessage(kind, std::move(fields))
+        : Message(kind, std::move(fields))
     {}
 };
 
 //------------------------------------------------------------------------------
-template <WampMsgType Kind, unsigned I, unsigned J>
+template <MessageKind Kind, unsigned I, unsigned J>
 struct MessageWithPayload : public MessageWithOptions<Kind, I>
 {
     static constexpr unsigned argsPos = J;
@@ -266,7 +263,7 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-struct HelloMessage : public MessageWithOptions<WampMsgType::hello, 2>
+struct HelloMessage : public MessageWithOptions<MessageKind::hello, 2>
 {
     explicit HelloMessage(String realmUri)
         : Base({0, std::move(realmUri), Object{}})
@@ -277,11 +274,11 @@ struct HelloMessage : public MessageWithOptions<WampMsgType::hello, 2>
     String&& uri() && {return std::move(fields_.at(1).as<String>());}
 
 private:
-    using Base = MessageWithOptions<WampMsgType::hello, 2>;
+    using Base = MessageWithOptions<MessageKind::hello, 2>;
 };
 
 //------------------------------------------------------------------------------
-struct ChallengeMessage : public MessageWithOptions<WampMsgType::challenge, 2>
+struct ChallengeMessage : public MessageWithOptions<MessageKind::challenge, 2>
 {
     ChallengeMessage(String authMethod = {}, Object opts = {})
         : Base({0, std::move(authMethod), std::move(opts)})
@@ -290,12 +287,12 @@ struct ChallengeMessage : public MessageWithOptions<WampMsgType::challenge, 2>
     const String& authMethod() const {return fields_.at(1).as<String>();}
 
 private:
-    using Base = MessageWithOptions<WampMsgType::challenge, 2>;
+    using Base = MessageWithOptions<MessageKind::challenge, 2>;
 };
 
 //------------------------------------------------------------------------------
 struct AuthenticateMessage
-    : public MessageWithOptions<WampMsgType::authenticate, 2>
+    : public MessageWithOptions<MessageKind::authenticate, 2>
 {
     explicit AuthenticateMessage(String sig, Object opts = {})
         : Base({0, std::move(sig), std::move(opts)})
@@ -304,11 +301,11 @@ struct AuthenticateMessage
     const String& signature() const {return fields_.at(1).as<String>();}
 
 private:
-    using Base = MessageWithOptions<WampMsgType::authenticate, 2>;
+    using Base = MessageWithOptions<MessageKind::authenticate, 2>;
 };
 
 //------------------------------------------------------------------------------
-struct WelcomeMessage : public MessageWithOptions<WampMsgType::welcome, 2>
+struct WelcomeMessage : public MessageWithOptions<MessageKind::welcome, 2>
 {
     explicit WelcomeMessage(SessionId sid = 0, Object opts = {})
         : Base({0, sid, std::move(opts)})
@@ -317,11 +314,11 @@ struct WelcomeMessage : public MessageWithOptions<WampMsgType::welcome, 2>
     SessionId sessionId() const {return fields_.at(1).to<SessionId>();}
 
 private:
-    using Base = MessageWithOptions<WampMsgType::welcome, 2>;
+    using Base = MessageWithOptions<MessageKind::welcome, 2>;
 };
 
 //------------------------------------------------------------------------------
-struct AbortMessage : public MessageWithOptions<WampMsgType::abort, 1>
+struct AbortMessage : public MessageWithOptions<MessageKind::abort, 1>
 {
     explicit AbortMessage(String reason = "", Object opts = {})
         : Base({0, std::move(opts), std::move(reason)}) {}
@@ -329,11 +326,11 @@ struct AbortMessage : public MessageWithOptions<WampMsgType::abort, 1>
     const String& uri() const {return fields_.at(2).as<String>();}
 
 private:
-    using Base = MessageWithOptions<WampMsgType::abort, 1>;
+    using Base = MessageWithOptions<MessageKind::abort, 1>;
 };
 
 //------------------------------------------------------------------------------
-struct GoodbyeMessage : public MessageWithOptions<WampMsgType::goodbye, 1>
+struct GoodbyeMessage : public MessageWithOptions<MessageKind::goodbye, 1>
 {
     explicit GoodbyeMessage(String reason = "", Object opts = {})
         : Base({0, std::move(opts), std::move(reason)})
@@ -347,38 +344,38 @@ struct GoodbyeMessage : public MessageWithOptions<WampMsgType::goodbye, 1>
 
     AbortMessage& transformToAbort()
     {
-        setType(WampMsgType::abort);
-        auto& base = static_cast<WampMessage&>(*this);
+        setKind(MessageKind::abort);
+        auto& base = static_cast<Message&>(*this);
         return static_cast<AbortMessage&>(base);
     }
 
 private:
-    using Base = MessageWithOptions<WampMsgType::goodbye, 1>;
+    using Base = MessageWithOptions<MessageKind::goodbye, 1>;
 };
 
 //------------------------------------------------------------------------------
-struct ErrorMessage : public MessageWithPayload<WampMsgType::error, 3, 5>
+struct ErrorMessage : public MessageWithPayload<MessageKind::error, 3, 5>
 {
     explicit ErrorMessage(String reason = "", Object opts = {})
         : Base({0, 0, 0, std::move(opts), std::move(reason)})
     {}
 
-    explicit ErrorMessage(WampMsgType reqType, RequestId reqId, String reason,
+    explicit ErrorMessage(MessageKind reqKind, RequestId reqId, String reason,
                           Object opts = {})
-        : Base({0, Int(reqType), reqId, std::move(opts), std::move(reason)})
+        : Base({0, Int(reqKind), reqId, std::move(opts), std::move(reason)})
     {}
 
-    void setRequestInfo(WampMsgType reqType, RequestId reqId) const
+    void setRequestInfo(MessageKind reqKind, RequestId reqId) const
     {
-        fields_.at(1) = Int(reqType);
+        fields_.at(1) = Int(reqKind);
         fields_.at(2) = reqId;
     }
 
-    WampMsgType requestType() const
+    MessageKind requestKind() const
     {
-        using N = std::underlying_type<WampMsgType>::type;
+        using N = std::underlying_type<MessageKind>::type;
         auto n = fields_.at(1).to<N>();
-        return static_cast<WampMsgType>(n);
+        return static_cast<MessageKind>(n);
     }
 
     RequestId requestId() const {return fields_.at(2).to<RequestId>();}
@@ -386,11 +383,11 @@ struct ErrorMessage : public MessageWithPayload<WampMsgType::error, 3, 5>
     const String& uri() const {return fields_.at(4).as<String>();}
 
 private:
-    using Base = MessageWithPayload<WampMsgType::error, 3, 5>;
+    using Base = MessageWithPayload<MessageKind::error, 3, 5>;
 };
 
 //------------------------------------------------------------------------------
-struct PublishMessage : public MessageWithPayload<WampMsgType::publish, 2, 4>
+struct PublishMessage : public MessageWithPayload<MessageKind::publish, 2, 4>
 {
     explicit PublishMessage(String topic, Object opts = {})
         : Base({0, 0, std::move(opts), std::move(topic)})
@@ -401,18 +398,18 @@ struct PublishMessage : public MessageWithPayload<WampMsgType::publish, 2, 4>
     const String& uri() const {return fields_.at(3).as<String>();}
 
 private:
-    using Base = MessageWithPayload<WampMsgType::publish, 2, 4>;
+    using Base = MessageWithPayload<MessageKind::publish, 2, 4>;
 };
 
 //------------------------------------------------------------------------------
-struct PublishedMessage : public WampMessage
+struct PublishedMessage : public Message
 {
-    static constexpr auto kind = WampMsgType::published;
+    static constexpr auto kind = MessageKind::published;
 
     PublishedMessage() : PublishedMessage(0, 0) {}
 
     PublishedMessage(RequestId r, PublicationId p)
-        : WampMessage(kind, {0, r, p})
+        : Message(kind, {0, r, p})
     {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
@@ -424,7 +421,7 @@ struct PublishedMessage : public WampMessage
 };
 
 //------------------------------------------------------------------------------
-struct SubscribeMessage : public MessageWithOptions<WampMsgType::subscribe, 2>
+struct SubscribeMessage : public MessageWithOptions<MessageKind::subscribe, 2>
 {
     explicit SubscribeMessage(String topic)
         : Base({0, 0, Object{}, std::move(topic)})
@@ -437,18 +434,18 @@ struct SubscribeMessage : public MessageWithOptions<WampMsgType::subscribe, 2>
     String&& uri() && {return std::move(fields_.at(3).as<String>());}
 
 private:
-    using Base = MessageWithOptions<WampMsgType::subscribe, 2>;
+    using Base = MessageWithOptions<MessageKind::subscribe, 2>;
 };
 
 //------------------------------------------------------------------------------
-struct SubscribedMessage : public WampMessage
+struct SubscribedMessage : public Message
 {
-    static constexpr auto kind = WampMsgType::subscribed;
+    static constexpr auto kind = MessageKind::subscribed;
 
     SubscribedMessage() : SubscribedMessage(0, 0) {}
 
     SubscribedMessage(RequestId rid, SubscriptionId sid)
-        : WampMessage(kind, {0, rid, sid}) {}
+        : Message(kind, {0, rid, sid}) {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
@@ -459,12 +456,12 @@ struct SubscribedMessage : public WampMessage
 };
 
 //------------------------------------------------------------------------------
-struct UnsubscribeMessage : public WampMessage
+struct UnsubscribeMessage : public Message
 {
-    static constexpr auto kind = WampMsgType::unsubscribe;
+    static constexpr auto kind = MessageKind::unsubscribe;
 
     explicit UnsubscribeMessage(SubscriptionId subId)
-        : WampMessage(kind, {0, 0, subId})
+        : Message(kind, {0, 0, subId})
     {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
@@ -476,18 +473,18 @@ struct UnsubscribeMessage : public WampMessage
 };
 
 //------------------------------------------------------------------------------
-struct UnsubscribedMessage : public WampMessage
+struct UnsubscribedMessage : public Message
 {
-    static constexpr auto kind = WampMsgType::unsubscribed;
+    static constexpr auto kind = MessageKind::unsubscribed;
 
     explicit UnsubscribedMessage(RequestId reqId = 0)
-        : WampMessage(kind, {0, reqId}) {}
+        : Message(kind, {0, reqId}) {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 };
 
 //------------------------------------------------------------------------------
-struct EventMessage : public MessageWithPayload<WampMsgType::event, 3, 4>
+struct EventMessage : public MessageWithPayload<MessageKind::event, 3, 4>
 {
     EventMessage() : Base({0, 0, 0, Object{}}) {}
 
@@ -520,11 +517,11 @@ struct EventMessage : public MessageWithPayload<WampMsgType::event, 3, 4>
     }
 
 private:
-    using Base = MessageWithPayload<WampMsgType::event, 3, 4>;
+    using Base = MessageWithPayload<MessageKind::event, 3, 4>;
 };
 
 //------------------------------------------------------------------------------
-struct CallMessage : public MessageWithPayload<WampMsgType::call, 2, 4>
+struct CallMessage : public MessageWithPayload<MessageKind::call, 2, 4>
 {
     explicit CallMessage(String uri = {}, Object opts = {})
         : Base({0, 0, std::move(opts), std::move(uri)})
@@ -537,11 +534,11 @@ struct CallMessage : public MessageWithPayload<WampMsgType::call, 2, 4>
     const String& uri() const {return fields_.at(3).as<String>();}
 
 private:
-    using Base = MessageWithPayload<WampMsgType::call, 2, 4>;
+    using Base = MessageWithPayload<MessageKind::call, 2, 4>;
 };
 
 //------------------------------------------------------------------------------
-struct RegisterMessage : public MessageWithOptions<WampMsgType::enroll, 2>
+struct RegisterMessage : public MessageWithOptions<MessageKind::enroll, 2>
 {
     explicit RegisterMessage(String uri, Object opts = {})
         : Base({0, 0, std::move(opts), std::move(uri)})
@@ -554,18 +551,18 @@ struct RegisterMessage : public MessageWithOptions<WampMsgType::enroll, 2>
     String&& uri() && {return std::move(fields_.at(3).as<String>());}
 
 private:
-    using Base = MessageWithOptions<WampMsgType::enroll, 2>;
+    using Base = MessageWithOptions<MessageKind::enroll, 2>;
 };
 
 //------------------------------------------------------------------------------
-struct RegisteredMessage : public WampMessage
+struct RegisteredMessage : public Message
 {
-    static constexpr auto kind = WampMsgType::registered;
+    static constexpr auto kind = MessageKind::registered;
 
     RegisteredMessage() : RegisteredMessage(0, 0) {}
 
     RegisteredMessage(RequestId reqId, RegistrationId regId)
-        : WampMessage(kind, {0, reqId, regId})
+        : Message(kind, {0, reqId, regId})
     {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
@@ -577,12 +574,12 @@ struct RegisteredMessage : public WampMessage
 };
 
 //------------------------------------------------------------------------------
-struct UnregisterMessage : public WampMessage
+struct UnregisterMessage : public Message
 {
-    static constexpr auto kind = WampMsgType::unregister;
+    static constexpr auto kind = MessageKind::unregister;
 
     explicit UnregisterMessage(RegistrationId regId)
-        : WampMessage(kind, {0, 0, regId})
+        : Message(kind, {0, 0, regId})
     {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
@@ -594,18 +591,18 @@ struct UnregisterMessage : public WampMessage
 };
 
 //------------------------------------------------------------------------------
-struct UnregisteredMessage : public WampMessage
+struct UnregisteredMessage : public Message
 {
-    static constexpr auto kind = WampMsgType::unregistered;
+    static constexpr auto kind = MessageKind::unregistered;
 
-    explicit UnregisteredMessage(RequestId r = 0) : WampMessage(kind, {0, r}) {}
+    explicit UnregisteredMessage(RequestId r = 0) : Message(kind, {0, r}) {}
 
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 };
 
 //------------------------------------------------------------------------------
 struct InvocationMessage :
-    public MessageWithPayload<WampMsgType::invocation, 3, 4>
+    public MessageWithPayload<MessageKind::invocation, 3, 4>
 {
     InvocationMessage() : Base({0, 0, 0, Object{}}) {}
 
@@ -625,11 +622,11 @@ struct InvocationMessage :
     }
 
 private:
-    using Base =  MessageWithPayload<WampMsgType::invocation, 3, 4>;
+    using Base =  MessageWithPayload<MessageKind::invocation, 3, 4>;
 };
 
 //------------------------------------------------------------------------------
-struct YieldMessage : public MessageWithPayload<WampMsgType::yield, 2, 3>
+struct YieldMessage : public MessageWithPayload<MessageKind::yield, 2, 3>
 {
     explicit YieldMessage(RequestId reqId = nullId(), Object opts = {})
         : Base({0, reqId, std::move(opts)})
@@ -638,11 +635,11 @@ struct YieldMessage : public MessageWithPayload<WampMsgType::yield, 2, 3>
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
 private:
-    using Base =  MessageWithPayload<WampMsgType::yield, 2, 3>;
+    using Base =  MessageWithPayload<MessageKind::yield, 2, 3>;
 };
 
 //------------------------------------------------------------------------------
-struct ResultMessage : public MessageWithPayload<WampMsgType::result, 2, 3>
+struct ResultMessage : public MessageWithPayload<MessageKind::result, 2, 3>
 {
     explicit ResultMessage(Object opts = {}) : Base({0, 0, std::move(opts)}) {}
 
@@ -654,17 +651,17 @@ struct ResultMessage : public MessageWithPayload<WampMsgType::result, 2, 3>
 
     YieldMessage& transformToYield()
     {
-        setType(WampMsgType::yield);
-        auto& base = static_cast<WampMessage&>(*this);
+        setKind(MessageKind::yield);
+        auto& base = static_cast<Message&>(*this);
         return static_cast<YieldMessage&>(base);
     }
 
 private:
-    using Base = MessageWithPayload<WampMsgType::result, 2, 3>;
+    using Base = MessageWithPayload<MessageKind::result, 2, 3>;
 };
 
 //------------------------------------------------------------------------------
-struct CancelMessage : public MessageWithOptions<WampMsgType::cancel, 2>
+struct CancelMessage : public MessageWithOptions<MessageKind::cancel, 2>
 {
     explicit CancelMessage(RequestId reqId, Object opts = {})
         : Base({0, reqId, std::move(opts)})
@@ -673,11 +670,11 @@ struct CancelMessage : public MessageWithOptions<WampMsgType::cancel, 2>
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
 private:
-    using Base = MessageWithOptions<WampMsgType::cancel, 2>;
+    using Base = MessageWithOptions<MessageKind::cancel, 2>;
 };
 
 //------------------------------------------------------------------------------
-struct InterruptMessage : public MessageWithOptions<WampMsgType::interrupt, 2>
+struct InterruptMessage : public MessageWithOptions<MessageKind::interrupt, 2>
 {
     explicit InterruptMessage(RequestId reqId = 0, Object opts = {})
         : Base({0, reqId, std::move(opts)})
@@ -686,22 +683,22 @@ struct InterruptMessage : public MessageWithOptions<WampMsgType::interrupt, 2>
     RequestId requestId() const {return fields_.at(1).to<RequestId>();}
 
 private:
-    using Base = MessageWithOptions<WampMsgType::interrupt, 2>;
+    using Base = MessageWithOptions<MessageKind::interrupt, 2>;
 };
 
 //------------------------------------------------------------------------------
 template <typename TDerived>
-TDerived& messageCast(WampMessage& msg)
+TDerived& messageCast(Message& msg)
 {
-    assert(msg.type() == TDerived::kind);
+    assert(msg.kind() == TDerived::kind);
     return static_cast<TDerived&>(msg);
 }
 
 //------------------------------------------------------------------------------
 template <typename TDerived>
-const TDerived& messageCast(const WampMessage& msg)
+const TDerived& messageCast(const Message& msg)
 {
-    assert(msg.type() == TDerived::kind);
+    assert(msg.kind() == TDerived::kind);
     return static_cast<const TDerived&>(msg);
 }
 

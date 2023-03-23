@@ -22,8 +22,8 @@
 #include "../tagtypes.hpp"
 #include "callee.hpp"
 #include "caller.hpp"
+#include "message.hpp"
 #include "passkey.hpp"
-#include "wampmessage.hpp"
 
 namespace wamp
 {

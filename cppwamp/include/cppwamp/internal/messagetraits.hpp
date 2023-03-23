@@ -19,7 +19,7 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-enum class WampMsgType : uint8_t
+enum class MessageKind : uint8_t
 {
     none         = 0,
     hello        = 1,
@@ -53,16 +53,16 @@ struct CPPWAMP_API MessageTraits
 {
     // CPPWAMP_API visibility required by codec component libraries
 
-    static const MessageTraits& lookup(WampMsgType type);
+    static const MessageTraits& lookup(MessageKind kind);
 
-    bool isValidType() const;
+    bool isValidKind() const;
 
     bool isValidForState(SessionState state) const;
 
     const char* nameOr(const char* fallback) const;
 
     const char* name;
-    WampMsgType repliesTo    : 8;
+    MessageKind repliesTo    : 8;
     size_t requestIdPosition : 8;
     size_t minSize           : 8;
     size_t maxSize           : 8;

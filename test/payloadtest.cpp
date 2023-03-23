@@ -8,7 +8,7 @@
 #include <utility>
 #include <catch2/catch.hpp>
 #include <cppwamp/payload.hpp>
-#include <cppwamp/internal/wampmessage.hpp>
+#include <cppwamp/internal/message.hpp>
 
 using namespace wamp;
 

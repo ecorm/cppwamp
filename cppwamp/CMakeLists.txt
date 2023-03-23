@@ -83,6 +83,7 @@ set(HEADERS
     include/cppwamp/internal/localsessionimpl.hpp
     include/cppwamp/internal/matchuri.hpp
     include/cppwamp/internal/matchpolicyoption.hpp
+    include/cppwamp/internal/message.hpp
     include/cppwamp/internal/messagetraits.hpp
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/peer.hpp
@@ -112,7 +113,6 @@ set(HEADERS
     include/cppwamp/internal/variantencoding.hpp
     include/cppwamp/internal/varianttraits.hpp
     include/cppwamp/internal/variantvisitors.hpp
-    include/cppwamp/internal/wampmessage.hpp
     include/cppwamp/types/array.hpp
     include/cppwamp/types/boostoptional.hpp
     include/cppwamp/types/optional.hpp
