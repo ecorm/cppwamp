@@ -76,6 +76,7 @@ set(HEADERS
     include/cppwamp/internal/challengee.hpp
     include/cppwamp/internal/challenger.hpp
     include/cppwamp/internal/client.hpp
+    include/cppwamp/internal/commandinfo.hpp
     include/cppwamp/internal/dealer.hpp
     include/cppwamp/internal/directpeer.hpp
     include/cppwamp/internal/endian.hpp

@@ -11,6 +11,7 @@ namespace wamp
 {
 
 class AuthorizationRequest;
+class CalleeInputChunk;
 class Event;
 class Invocation;
 class Session;
@@ -19,10 +20,11 @@ namespace internal
 {
     class PassKey
     {
-        PassKey() {}
+        constexpr PassKey() {}
 
         // TODO: Verify these are all needed before next release
         friend class wamp::AuthorizationRequest;
+        friend class wamp::CalleeInputChunk;
         friend class wamp::Event;
         friend class wamp::Invocation;
         friend class wamp::Session;

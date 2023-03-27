@@ -13,9 +13,11 @@
 #include <utility>
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
+#include "../traits.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
 #include "messagetraits.hpp"
+#include "passkey.hpp"
 
 namespace wamp
 {
@@ -75,14 +77,11 @@ struct Message
 
     Message() : kind_(MessageKind::none) {}
 
-    Message(MessageKind kind, Array&& messageFields)
-        : kind_(kind), fields_(std::move(messageFields))
-    {
-        if (fields_.empty())
-            fields_.push_back(static_cast<Int>(kind));
-        else
-            fields_.at(0) = static_cast<Int>(kind);
-    }
+    template <typename... Ts>
+    Message(MessageKind kind, Ts&&... fields)
+        : kind_(kind),
+          fields_({static_cast<Int>(kind), std::forward<Ts>(fields)...})
+    {}
 
     void setKind(MessageKind t)
     {
@@ -116,9 +115,9 @@ struct Message
 
     size_t size() const {return fields_.size();}
 
-    const Array& fields() const & {return fields_;}
+    const Array& fields() const {return fields_;}
 
-    Array&& fields() && {return std::move(fields_);}
+    Array& fields() {return fields_;}
 
     Variant& at(size_t index) {return fields_.at(index);}
 
@@ -184,6 +183,96 @@ protected:
     mutable Array fields_; // Mutable for lazy-loaded empty payloads
 };
 
+//------------------------------------------------------------------------------
+template <MessageKind K>
+class RequestCommand
+{
+public: // Internal use only
+    RequestId requestId(PassKey) const {return requestId();}
+
+    std::pair<MessageKind, RequestId> requestKey(PassKey) const
+    {
+        return {message_.kind(), requestId()};
+    }
+
+    void setRequestId(PassKey, RequestId rid)
+    {
+        message_.at(requestIdPos_) = rid;
+    }
+
+protected:
+    RequestCommand() {}
+
+    template <typename... Ts>
+    RequestCommand(MessageKind kind, Ts&&... fields)
+        : message_(kind, std::forward<Ts>(fields)...)
+    {}
+
+    RequestId requestId() const
+    {
+        return message_.template to<RequestId>(requestIdPos_);
+    }
+
+    Message message_;
+
+private:
+    static constexpr unsigned requestIdPos_ =
+        MessageKindTraits<K>::requestIdPos();
+};
+
+//------------------------------------------------------------------------------
+class NonRequestCommand
+{
+protected:
+    NonRequestCommand() {}
+
+    template <typename... Ts>
+    NonRequestCommand(MessageKind kind, Ts&&... fields)
+        : message_(kind, std::forward<Ts>(fields)...)
+    {}
+
+    Message message_;
+};
+
+template <MessageKind K>
+using CommandBase = Conditional<MessageKindTraits<K>::requestIdPos() != 0,
+                                RequestCommand<K>,
+                                NonRequestCommand>;
+
+//------------------------------------------------------------------------------
+template <MessageKind K>
+class Command : public CommandBase<K>
+{
+protected:
+    Command() {}
+
+    template <typename... Ts>
+    Command(Ts&&... fields) : Base(K, std::forward<Ts>(fields)...) {}
+
+    explicit Command(internal::Message&& msg);
+
+    const internal::Message& message() const {return message_;}
+
+    internal::Message& message() {return message_;}
+
+private:
+    using Base = CommandBase<K>;
+
+    internal::Message message_;
+
+public: // Internal use only
+    static constexpr bool isRequest(PassKey)
+    {
+        return MessageKindTraits<K>::isRequest();
+    }
+
+    internal::Message& message(PassKey) {return message_;}
+
+    const internal::Message& message(PassKey) const {return message_;}
+};
+
+// TODO
+#if 0
 //------------------------------------------------------------------------------
 template <MessageKind Kind, unsigned I>
 struct MessageWithOptions : public Message
@@ -262,8 +351,6 @@ protected:
     {}
 };
 
-// TODO
-#if 0
 //------------------------------------------------------------------------------
 struct HelloMessage : public MessageWithOptions<MessageKind::hello, 2>
 {

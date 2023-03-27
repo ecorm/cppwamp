@@ -163,13 +163,13 @@ public:
 
     bool expectsRsvp() const {return expectsRsvp_;}
 
-    void setRsvp(ResultMessage&& msg)
+    void setRsvp(Message&& msg)
     {
         rsvp_ = InputChunk{{}, std::move(msg)};
         hasRsvp_ = true;
     }
 
-    void postResult(ResultMessage&& msg)
+    void postResult(Message&& msg)
     {
         if (!chunkSlot_)
             return;
@@ -177,7 +177,7 @@ public:
         postToChunkHandler(std::move(chunk));
     }
 
-    void postError(ErrorMessage&& msg)
+    void postError(Message&& msg)
     {
         if (!chunkSlot_)
             return;
@@ -298,10 +298,9 @@ public:
     using State = ChannelState;
 
     BasicCalleeChannelImpl(
-        internal::InvocationMessage&& msg, bool invitationExpected,
-        Executor executor, FallbackExecutor userExecutor,
-        Callee::WeakPtr callee)
-        : invitation_({}, std::move(msg)),
+        Invocation&& inv, bool invitationExpected, Executor executor,
+        FallbackExecutor userExecutor, Callee::WeakPtr callee)
+        : invitation_({}, std::move(inv)),
           executor_(std::move(executor)),
           userExecutor_(std::move(userExecutor)),
           callee_(std::move(callee)),
@@ -459,15 +458,14 @@ public:
         return interruptSlot_ != nullptr;
     }
 
-    void postInvocation(InvocationMessage&& msg)
+    void postInvocation(Invocation&& inv)
     {
-        InputChunk chunk{{}, std::move(msg)};
+        InputChunk chunk{{}, std::move(inv)};
         postToSlot(chunkSlot_, std::move(chunk));
     }
 
-    bool postInterrupt(InterruptMessage&& msg)
+    bool postInterrupt(Interruption&& intr)
     {
-        Interruption intr{{}, std::move(msg)};
         return postToSlot(interruptSlot_, std::move(intr));
     }
 

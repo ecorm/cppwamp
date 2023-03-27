@@ -73,7 +73,7 @@ CPPWAMP_INLINE Procedure::Procedure(internal::PassKey, internal::Message&& msg)
 CPPWAMP_INLINE Rpc::Rpc(Uri uri)
     : Base(std::move(uri)),
       progressiveResultsEnabled_(optionOr<bool>("receive_progress", false)),
-      isProgress_(optionOr<bool>("progress", false))
+      isProgress_(this->optionOr<bool>("progress", false))
 {}
 
 CPPWAMP_INLINE Rpc::Rpc(internal::PassKey, internal::Message&& msg)
@@ -94,12 +94,10 @@ CPPWAMP_INLINE bool Rpc::isProgress(internal::PassKey) const
 // Result
 //******************************************************************************
 
-CPPWAMP_INLINE Result::Result()
-    : Base(internal::MessageKind::result, {0, 0, Object{}})
-{}
+CPPWAMP_INLINE Result::Result() : Base(0, Object{}) {}
 
 CPPWAMP_INLINE Result::Result(std::initializer_list<Variant> list)
-    : Base(internal::MessageKind::result, {0, 0, Object{}, Array{list}})
+    : Base(0, Object{}, Array{list})
 {}
 
 CPPWAMP_INLINE AccessActionInfo Result::info(bool isServer) const
@@ -113,17 +111,12 @@ CPPWAMP_INLINE Result::Result(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
-CPPWAMP_INLINE RequestId Result::requestId(internal::PassKey) const
+CPPWAMP_INLINE bool Result::isProgress(internal::PassKey) const
 {
-    return message().at(1).to<RequestId>();
+    return optionOr<bool>("progress", false);
 }
 
-CPPWAMP_INLINE void Result::setRequestId(internal::PassKey, RequestId rid)
-{
-    message().at(1) = rid;
-}
-
-CPPWAMP_INLINE void Result::setKindToYield(internal::PassKey)
+void Result::setKindToYield(internal::PassKey)
 {
     message().setKind(internal::MessageKind::yield);
 }
@@ -323,9 +316,7 @@ CPPWAMP_INLINE void Outcome::destruct()
 //******************************************************************************
 
 /** @post `this->empty() == true` */
-CPPWAMP_INLINE Invocation::Invocation()
-    : Base(internal::MessageKind::invocation, {0, 0, 0, Object{}})
-{}
+CPPWAMP_INLINE Invocation::Invocation() : Base(0, 0, Object{}) {}
 
 CPPWAMP_INLINE bool Invocation::empty() const {return executor_ == nullptr;}
 
@@ -334,9 +325,9 @@ CPPWAMP_INLINE bool Invocation::calleeHasExpired() const
     return callee_.expired();
 }
 
-CPPWAMP_INLINE RequestId Invocation::requestId() const
+CPPWAMP_INLINE RegistrationId Invocation::registrationId() const
 {
-    return message().requestId();
+    return message().to<RegistrationId>(registrationIdPos_);
 }
 
 /** @returns the same object as Session::fallbackExecutor().
@@ -399,14 +390,6 @@ CPPWAMP_INLINE AccessActionInfo Invocation::info() const
 }
 
 /** @details
-    This function checks if the `INVOCATION.Details.receive_progress|bool`
-    detail is `true`. */
-CPPWAMP_INLINE bool Invocation::resultsAreProgressive() const
-{
-    return optionOr<bool>("receive_progress", false);
-}
-
-/** @details
     This function returns the value of the `INVOCATION.Details.caller|integer`
     detail.
     @returns The caller ID, if available, or an error code. */
@@ -435,26 +418,35 @@ CPPWAMP_INLINE ErrorOr<Uri> Invocation::procedure() const
     return optionAs<String>("procedure");
 }
 
-CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, CalleePtr callee,
-                                      AnyCompletionExecutor executor,
+CPPWAMP_INLINE Invocation::Invocation(internal::PassKey,
                                       internal::Message&& msg)
-    : Base(std::move(msg)),
-      callee_(callee),
-      executor_(executor)
+    : Base(std::move(msg))
 {}
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
                                       RegistrationId regId)
     : Base(internal::MessageKind::invocation,
-           std::move(rpc.message({})).fields())
+           std::move(rpc.message({}).fields()))
 {
     message().at(2) = regId;
     message().at(3) = Object{};
 }
 
-CPPWAMP_INLINE void Invocation::setRequestId(internal::PassKey, RequestId rid)
+CPPWAMP_INLINE bool Invocation::isProgress(internal::PassKey) const
 {
-    message().setRequestId(rid);
+    return optionOr<bool>("progress", false);
+}
+
+CPPWAMP_INLINE bool Invocation::resultsAreProgressive(internal::PassKey) const
+{
+    return optionOr<bool>("receive_progress", false);
+}
+
+CPPWAMP_INLINE void Invocation::setContext(internal::PassKey, CalleePtr callee,
+                                           AnyCompletionExecutor executor)
+{
+    callee_ = std::move(callee);
+    executor_ = std::move(executor);
 }
 
 //******************************************************************************
@@ -463,28 +455,31 @@ CPPWAMP_INLINE void Invocation::setRequestId(internal::PassKey, RequestId rid)
 
 CPPWAMP_INLINE CallCancellation::CallCancellation(RequestId reqId,
                                                   CallCancelMode cancelMode)
-    : Base(internal::MessageKind::cancel, {0, reqId, Object{}}),
+    : Base(reqId, Object{}),
       requestId_(reqId),
       mode_(cancelMode)
 {
     withOption("mode", internal::callCancelModeToString(cancelMode));
 }
 
-CPPWAMP_INLINE RequestId CallCancellation::requestId() const {return requestId_;}
+CPPWAMP_INLINE RequestId CallCancellation::requestId() const
+{
+    return requestId_;
+}
 
 CPPWAMP_INLINE CallCancelMode CallCancellation::mode() const {return mode_;}
 
 CPPWAMP_INLINE AccessActionInfo CallCancellation::info() const
 {
-    return {AccessAction::clientCancel, message().requestId(), {}, options()};
+    return {AccessAction::clientCancel, requestId(), {}, options()};
 }
 
 CPPWAMP_INLINE CallCancellation::CallCancellation(internal::PassKey,
                                                   internal::Message&& msg)
-    : Base(std::move(msg))
-{
-    mode_ = internal::parseCallCancelModeFromOptions(options());
-}
+    : Base(std::move(msg)),
+      requestId_(Base::requestId()),
+      mode_(internal::parseCallCancelModeFromOptions(options()))
+{}
 
 
 //******************************************************************************
@@ -492,20 +487,13 @@ CPPWAMP_INLINE CallCancellation::CallCancellation(internal::PassKey,
 //******************************************************************************
 
 /** @post `this->empty() == true` */
-CPPWAMP_INLINE Interruption::Interruption()
-    : Base(internal::MessageKind::interrupt, {0, 0, Object{}})
-{}
+CPPWAMP_INLINE Interruption::Interruption() : Base(0, Object{}) {}
 
 CPPWAMP_INLINE bool Interruption::empty() const {return executor_ == nullptr;}
 
 CPPWAMP_INLINE bool Interruption::calleeHasExpired() const
 {
     return callee_.expired();
-}
-
-CPPWAMP_INLINE RequestId Interruption::requestId() const
-{
-    return message().requestId();
 }
 
 CPPWAMP_INLINE CallCancelMode Interruption::cancelMode() const
@@ -598,7 +586,7 @@ CPPWAMP_INLINE Interruption::Interruption(internal::PassKey, CalleePtr callee,
 
 CPPWAMP_INLINE Interruption::Interruption(
     internal::PassKey, RequestId reqId, CallCancelMode mode, WampErrc reason)
-    : Base(reqId, makeOptions(mode, reason)),
+    : Base(internal::MessageKind::interrupt, reqId, makeOptions(mode, reason)),
       cancelMode_(mode)
 {}
 
@@ -607,6 +595,13 @@ CPPWAMP_INLINE Interruption::Interruption(internal::PassKey,
     : Base(std::move(msg))
 {
     cancelMode_ = internal::parseCallCancelModeFromOptions(options());
+}
+
+CPPWAMP_INLINE void Interruption::setContext(
+    internal::PassKey, CalleePtr callee, AnyCompletionExecutor executor)
+{
+    callee_ = std::move(callee);
+    executor_ = std::move(executor);
 }
 
 } // namespace wamp

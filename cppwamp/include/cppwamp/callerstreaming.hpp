@@ -52,10 +52,6 @@ private:
     using Base = RpcLike<StreamRequest>;
 
     StreamMode mode_;
-
-public:
-    // Internal use only
-    internal::CallMessage& callMessage(internal::PassKey, RequestId reqId);
 };
 
 

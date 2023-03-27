@@ -41,7 +41,7 @@ namespace wamp
 /** Provide common properties of procedure-like objects. */
 //------------------------------------------------------------------------------
 template <typename TDerived>
-class ProcedureLike : public Options<TDerived, 2>
+class ProcedureLike : public Options<TDerived, internal::MessageKind::enroll>
 {
 public:
     /** Obtains the procedure URI. */
@@ -68,13 +68,14 @@ protected:
     ProcedureLike(internal::Message&& msg);
 
 private:
-    using Base = Options<TDerived, 2>;
+    static constexpr unsigned uriPos_ = 3;
+
+    using Base = Options<TDerived, internal::MessageKind::enroll>;
 
     TDerived& derived() {return static_cast<TDerived&>(*this);}
 
 public:
     // Internal use only
-    RequestId requestId(internal::PassKey) const;
     Uri&& uri(internal::PassKey);
 };
 
@@ -83,7 +84,7 @@ public:
 /** Contains the procedure URI and other options contained within
     WAMP `REGISTER` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Procedure : public ProcedureLike<Procedure>
+class CPPWAMP_API Procedure: public ProcedureLike<Procedure>
 {
 public:
     /** Converting constructor taking a procedure URI. */
@@ -102,7 +103,8 @@ public:
 /** Provides properties common to RPC-like objects. */
 //------------------------------------------------------------------------------
 template <typename TDerived>
-class CPPWAMP_API RpcLike : public Payload<TDerived, 2, 4>
+class CPPWAMP_API RpcLike
+    : public Payload<TDerived, internal::MessageKind::call>
 {
 public:
     /** The duration type used for caller-initiated timeouts. */
@@ -182,7 +184,10 @@ protected:
     RpcLike(internal::Message&& msg);
 
 private:
-    using Base = Payload<TDerived, 2, 4>;
+    static constexpr unsigned uriPos_  = 3;
+    static constexpr unsigned argsPos_ = 4;
+
+    using Base = Payload<TDerived, internal::MessageKind::call>;
 
     TDerived& derived() {return static_cast<TDerived&>(*this);}
 
@@ -200,7 +205,6 @@ public:
     Error* error(internal::PassKey);
     void setDisclosed(internal::PassKey, bool disclosed);
     void setTrustLevel(internal::PassKey, TrustLevel trustLevel);
-    RequestId requestId(internal::PassKey) const;
     bool disclosed(internal::PassKey) const;
     bool hasTrustLevel(internal::PassKey) const;
     TrustLevel trustLevel(internal::PassKey) const;
@@ -234,7 +238,7 @@ public:
 /** Contains the remote procedure result options/payload within WAMP
     `RESULT` and `YIELD` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Result : public Payload<Result, 2, 3>
+class CPPWAMP_API Result : public Payload<Result, internal::MessageKind::result>
 {
 public:
     /** Default constructor. */
@@ -248,14 +252,16 @@ public:
     AccessActionInfo info(bool isServer) const;
 
 private:
-    using Base = Payload<Result, 2, 3>;
+    static constexpr unsigned argsPos_ = 3;
+
+    using Base = Payload<Result, internal::MessageKind::result>;
+
     Result(RequestId reqId, Object&& details);
 
 public:
     // Internal use only
     Result(internal::PassKey, internal::Message&& msg);
-    RequestId requestId(internal::PassKey) const;
-    void setRequestId(internal::PassKey, RequestId rid);
+    bool isProgress(internal::PassKey) const;
     void setKindToYield(internal::PassKey);
 };
 
@@ -366,7 +372,8 @@ namespace internal { class Callee; } // Forward declaration
     This class also provides the means for manually sending a `YIELD` or
     `ERROR` result back to the RPC caller. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Invocation : public Payload<Invocation, 3, 4>
+class CPPWAMP_API Invocation
+    : public Payload<Invocation, internal::MessageKind::invocation>
 {
 public:
     /** Default constructor */
@@ -380,8 +387,11 @@ public:
         invocation still exists or has expired. */
     bool calleeHasExpired() const;
 
-    /** Returns the request ID associated with this RPC invocation. */
+    /** Obtains the request ID associated with this RPC invocation. */
     RequestId requestId() const;
+
+    /** Obtains the registration ID associated with this RPC invocation. */
+    RegistrationId registrationId() const;
 
     /** Obtains the executor used to execute user-provided handlers. */
     AnyCompletionExecutor executor() const;
@@ -400,15 +410,6 @@ public:
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
-
-    /** @name Progressive Call Results
-        See [Progressive Call Results in the WAMP Specification]
-        (https://wamp-proto.org/wamp_latest_ietf.html#name-progressive-call-results)
-        @{ */
-
-    /** Checks if the caller requested progressive results. */
-    bool resultsAreProgressive() const;
-    /// @}
 
     /** @name Caller Identification
         See [Caller Identification in the WAMP Specification]
@@ -439,17 +440,20 @@ public:
 
 public:
     // Internal use only
+    static constexpr bool isRequest(internal::PassKey) {return false;}
     using CalleePtr = std::weak_ptr<internal::Callee>;
-
-    Invocation(internal::PassKey, CalleePtr callee,
-               AnyCompletionExecutor executor, internal::Message&& msg);
-
+    Invocation(internal::PassKey, internal::Message&& msg);
     Invocation(internal::PassKey, Rpc&& rpc, RegistrationId regId);
-
+    bool isProgress(internal::PassKey) const;
+    bool resultsAreProgressive(internal::PassKey) const;
     void setRequestId(internal::PassKey, RequestId rid);
+    void setContext(internal::PassKey, CalleePtr callee,
+                    AnyCompletionExecutor executor);
 
 private:
-    using Base = Payload<Invocation, 3, 4>;
+    static constexpr unsigned registrationIdPos_ = 2;
+
+    using Base = Payload<Invocation, internal::MessageKind::invocation>;
 
     CalleePtr callee_;
     AnyCompletionExecutor executor_ = nullptr;
@@ -462,7 +466,8 @@ private:
 /** Contains the request ID and options contained within
     WAMP `CANCEL` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API CallCancellation : public Options<CallCancellation, 2>
+class CPPWAMP_API CallCancellation
+    : public Options<CallCancellation, internal::MessageKind::cancel>
 {
 public:
     /** Converting constructor. */
@@ -479,7 +484,7 @@ public:
     AccessActionInfo info() const;
 
 private:
-    using Base = Options<CallCancellation, 2>;
+    using Base = Options<CallCancellation, internal::MessageKind::cancel>;
 
     RequestId requestId_ = nullId();
     CallCancelMode mode_ = CallCancelMode::unknown;
@@ -495,7 +500,8 @@ public:
     This class also provides the means for manually sending a `YIELD` or
     `ERROR` result back to the RPC caller. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Interruption : public Options<Interruption, 2>
+class CPPWAMP_API Interruption
+    : public Options<Interruption, internal::MessageKind::interrupt>
 {
 public:
     /** Default constructor */
@@ -548,8 +554,11 @@ public:
 
     Interruption(internal::PassKey, internal::Message&& msg);
 
+    void setContext(internal::PassKey, CalleePtr callee,
+                    AnyCompletionExecutor executor);
+
 private:
-    using Base = Options<Interruption, 2>;
+    using Base = Options<Interruption, internal::MessageKind::interrupt>;
 
     static Object makeOptions(CallCancelMode mode, WampErrc reason);
 
@@ -566,13 +575,13 @@ private:
 template <typename D>
 const Uri& ProcedureLike<D>::uri() const
 {
-    return this->message().at(3).template as<String>();
+    return this->message().template as<String>(uriPos_);
 }
 
 template <typename D>
 AccessActionInfo ProcedureLike<D>::info() const
 {
-    return {AccessAction::clientRegister, this->message().requestId(), uri(),
+    return {AccessAction::clientRegister, this->requestId(), uri(),
             this->options()};
 }
 
@@ -593,7 +602,7 @@ MatchPolicy ProcedureLike<D>::matchPolicy() const
 
 template <typename D>
 ProcedureLike<D>::ProcedureLike(String&& uri)
-    : Base(internal::MessageKind::enroll, {0, 0, Object{}, std::move(uri)})
+    : Base(internal::MessageKind::enroll, 0, Object{}, std::move(uri))
 {}
 
 template <typename D>
@@ -602,15 +611,9 @@ ProcedureLike<D>::ProcedureLike(internal::Message&& msg)
 {}
 
 template <typename D>
-RequestId ProcedureLike<D>::requestId(internal::PassKey) const
-{
-    return this->message().at(1).template to<RequestId>();
-}
-
-template <typename D>
 Uri&& ProcedureLike<D>::uri(internal::PassKey)
 {
-    return std::move(this->message()).uri();
+    return std::move(this->message().template at<String>(uriPos_));
 }
 
 
@@ -626,7 +629,10 @@ D& RpcLike<D>::captureError(Error& error)
 }
 
 template <typename D>
-const Uri& RpcLike<D>::uri() const {return this->message().uri();}
+const Uri& RpcLike<D>::uri() const
+{
+    return this->message().template as<String>(uriPos_);
+}
 
 template <typename D>
 AccessActionInfo RpcLike<D>::info() const
@@ -702,9 +708,7 @@ D& RpcLike<D>::withCancellationSlot(CallCancellationSlot slot)
 }
 
 template <typename D>
-RpcLike<D>::RpcLike(Uri&& uri)
-    : Base(internal::MessageKind::call, {0, 0, Object{}, std::move(uri)})
-{}
+RpcLike<D>::RpcLike(Uri&& uri) : Base(0, Object{}, std::move(uri)) {}
 
 template <typename D>
 RpcLike<D>::RpcLike(internal::Message&& msg) : Base(std::move(msg)) {}
@@ -730,12 +734,6 @@ void RpcLike<D>::setTrustLevel(internal::PassKey,
 {
     trustLevel_ = trustLevel;
     hasTrustLevel_ = true;
-}
-
-template <typename D>
-RequestId RpcLike<D>::requestId(internal::PassKey) const
-{
-    return this->message().fields().at(1).template to<RequestId>();
 }
 
 template <typename D>

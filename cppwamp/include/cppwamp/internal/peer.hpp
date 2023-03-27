@@ -136,19 +136,11 @@ public:
         return true;
     }
 
-    void challenge(Challenge challenge)
-    {
-        assert(isRouter_);
-        assert(state() == State::authenticating);
-        send(challenge.message({}));
-    }
-
     void welcome(SessionId sid, Object opts = {})
     {
         assert(isRouter_);
         assert(state() == State::authenticating);
-        WelcomeMessage msg{sid, std::move(opts)};
-        send(msg);
+        send(Welcome{{}, sid, std::move(opts)});
         setState(State::established);
     }
 
@@ -172,9 +164,10 @@ public:
         }
     }
 
-    // TODO: Templatize to take info object and convert to message
-    ErrorOrDone send(Message& msg)
+    template <typename TInfo>
+    ErrorOrDone send(const TInfo& info)
     {
+        const auto& msg = info.message({});
         assert(msg.kind() != MessageKind::none);
 
         MessageBuffer buffer;
@@ -190,13 +183,15 @@ public:
 
     ErrorOrDone sendError(MessageKind reqKind, RequestId reqId, Error&& error)
     {
-        auto done = send(error.errorMessage({}, reqKind, reqId));
+        error.setRequestKind({}, reqKind);
+        error.setRequestId({}, reqId);
+        auto done = send(error);
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             error.withArgs(std::string("(Details removed due "
                                        "to transport limits)"));
             error.withKwargs({});
-            (void)send(error.errorMessage({}, reqKind, reqId));
+            (void)send(error);
             if (logLevel() <= LogLevel::warning)
             {
                 std::ostringstream oss;
@@ -220,19 +215,20 @@ public:
             return makeUnexpectedError(Errc::invalidState);
         }
 
-        auto& msg = r.abortMessage({});
+        r.setKindToAbort({});
+        const auto& msg = r.message({});
         MessageBuffer buffer;
         codec_.encode(msg.fields(), buffer);
 
         bool fits = buffer.size() <= maxTxLength_;
         if (!fits)
         {
-            msg.options().clear();
+            r.options().clear();
             buffer.clear();
             codec_.encode(msg.fields(), buffer);
             log({LogLevel::warning,
                  "Stripped options of outbound ABORT message with reason URI " +
-                     msg.uri() + ", due to transport payload limits"});
+                     r.uri() + ", due to transport payload limits"});
         }
 
         setState(State::failed, r.errorCode());
@@ -360,8 +356,8 @@ private:
     void onAbort(Message&& msg)
     {
         auto s = state();
-        const auto& abortMsg = messageCast<AbortMessage>(msg);
-        WampErrc errc = errorUriToCode(abortMsg.uri());
+        Reason reason{{}, std::move(msg)};
+        WampErrc errc = reason.errorCode();
 
         if (s == State::establishing || s == State::authenticating)
         {
@@ -374,9 +370,9 @@ private:
             {
                 std::ostringstream oss;
                 oss << "Session aborted by peer with reason URI "
-                    << abortMsg.uri();
-                if (!abortMsg.options().empty())
-                    oss << " and details " << abortMsg.options();
+                    << reason.uri();
+                if (!reason.options().empty())
+                    oss << " and details " << reason.options();
                 fail(errc, oss.str());
             }
             else
@@ -402,8 +398,8 @@ private:
         }
         else
         {
-            const auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
-            WampErrc errc = errorUriToCode(goodbyeMsg.uri());
+            Reason reason{{}, std::move(msg)};
+            WampErrc errc = reason.errorCode();
             errc = (errc == WampErrc::success) ? WampErrc::closeRealm : errc;
 
             if (isRouter_)
@@ -414,16 +410,15 @@ private:
             {
                 std::ostringstream oss;
                 oss << "Session killed by peer with reason URI "
-                    << goodbyeMsg.uri();
-                if (!goodbyeMsg.options().empty())
-                    oss << " and details " << goodbyeMsg.options();
+                    << reason.uri();
+                if (!reason.options().empty())
+                    oss << " and details " << reason.options();
                 log({LogLevel::warning, oss.str()});
             }
 
             setState(State::closed, errc);
-            GoodbyeMessage outgoingGoodbye(
-                errorCodeToUri(WampErrc::goodbyeAndOut));
-            send(outgoingGoodbye).value();
+            Reason goodbye{WampErrc::goodbyeAndOut};
+            send(goodbye);
         }
     }
 

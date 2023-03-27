@@ -32,13 +32,6 @@ CPPWAMP_INLINE StreamRequest::StreamRequest(Uri uri, StreamMode mode)
 
 CPPWAMP_INLINE StreamMode StreamRequest::mode() const {return mode_;}
 
-CPPWAMP_INLINE internal::CallMessage&
-StreamRequest::callMessage(internal::PassKey, RequestId reqId)
-{
-    message().setRequestId(reqId);
-    return message();
-}
-
 
 //******************************************************************************
 // CallerChannel

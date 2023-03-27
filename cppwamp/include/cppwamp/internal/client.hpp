@@ -33,11 +33,13 @@
 #include "../rpcinfo.hpp"
 #include "../sessioninfo.hpp"
 #include "../subscription.hpp"
+#include "../traits.hpp"
 #include "../transport.hpp"
 #include "../version.hpp"
 #include "callee.hpp"
 #include "caller.hpp"
 #include "challengee.hpp"
+#include "commandinfo.hpp"
 #include "matchuri.hpp"
 #include "streamchannel.hpp"
 #include "subscriber.hpp"
@@ -78,9 +80,9 @@ public:
     void onReply(Message&& msg, AnyIoExecutor& exec)
     {
         if (msg.kind() == MessageKind::result)
-            onResult(messageCast<ResultMessage>(msg), exec);
+            onResult(std::move(msg), exec);
         else
-            onError(messageCast<ErrorMessage>(msg), exec);
+            onError(std::move(msg), exec);
     }
 
     void cancel(AnyIoExecutor& exec, AnyCompletionExecutor& userExec,
@@ -117,7 +119,7 @@ private:
           errorPtr_(e)
     {}
 
-    void onResult(ResultMessage& msg, AnyIoExecutor& exec)
+    void onResult(Message&& msg, AnyIoExecutor& exec)
     {
         if (channel_)
         {
@@ -144,7 +146,7 @@ private:
         }
     }
 
-    void onError(ErrorMessage& msg, AnyIoExecutor& exec)
+    void onError(Message&& msg, AnyIoExecutor& exec)
     {
         if (channel_)
         {
@@ -205,25 +207,29 @@ public:
             });
     }
 
-    ErrorOr<RequestId> request(Message& msg, RequestHandler&& handler)
+    template <typename TInfo>
+    ErrorOr<RequestId> request(TInfo& info, RequestHandler&& handler)
     {
-        return request(msg, TimeoutDuration{0}, std::move(handler));
+        return request(std::move(info), TimeoutDuration{0}, std::move(handler));
     }
 
-    ErrorOr<RequestId> request(Message& msg, TimeoutDuration timeout,
+    template <typename TInfo>
+    ErrorOr<RequestId> request(TInfo& info, TimeoutDuration timeout,
                                RequestHandler&& handler)
     {
-        assert(msg.kind() != MessageKind::none);
-        RequestId requestId = nullId();
-        if (msg.isRequest())
-        {
-            // Will take 285 years to overflow 2^53 at 1 million requests/sec
-            assert(nextRequestId_ < 9007199254740992u);
-            requestId = nextRequestId_ + 1;
-            msg.setRequestId(requestId);
-        }
+        using IsRequest = MetaBool<info.isRequest({})>;
+        return doRequest(IsRequest{}, info, timeout, std::move(handler));
+    }
 
-        auto sent = peer_.send(msg);
+    template <typename TInfo>
+    ErrorOr<RequestId> doRequest(TrueType, TInfo& info,
+                                 TimeoutDuration timeout, RequestHandler&& handler)
+    {
+        // Will take 285 years to overflow 2^53 at 1 million requests/sec
+        assert(nextRequestId_ < 9007199254740992u);
+        RequestId requestId = nextRequestId_ + 1;
+
+        auto sent = peer_.send(info.message({}, requestId));
         if (!sent)
         {
             auto unex = makeUnexpected(sent.error());
@@ -231,10 +237,35 @@ public:
             return unex;
         }
 
-        if (msg.isRequest())
-            ++nextRequestId_;
+        ++nextRequestId_;
 
-        auto emplaced = requests_.emplace(msg.requestKey(), std::move(handler));
+        auto emplaced = requests_.emplace(info.requestKey(),
+                                          std::move(handler));
+        assert(emplaced.second);
+
+        if (timeout.count() != 0)
+            deadlines_->insert(requestId, timeout);
+
+        return requestId;
+    }
+
+    template <typename TInfo>
+    ErrorOr<RequestId> doRequest(FalseType, TInfo& info,
+                                 TimeoutDuration timeout,
+                                 RequestHandler&& handler)
+    {
+        RequestId requestId = nullId();
+
+        auto sent = peer_.send(info);
+        if (!sent)
+        {
+            auto unex = makeUnexpected(sent.error());
+            completeRequest(handler, unex);
+            return unex;
+        }
+
+        auto emplaced = requests_.emplace(info.requestKey(),
+                                          std::move(handler));
         assert(emplaced.second);
 
         if (timeout.count() != 0)
@@ -244,16 +275,16 @@ public:
     }
 
     ErrorOr<CallerChannel> requestStream(
-        bool rsvpExpected, Caller::WeakPtr caller, StreamRequest&& req,
+        bool rsvpExpected, Caller::WeakPtr caller, StreamRequest& req,
         ChunkSlot&& onChunk, StreamRequestHandler&& handler = {})
     {
         // Will take 285 years to overflow 2^53 at 1 million requests/sec
         assert(nextRequestId_ < 9007199254740992u);
         ChannelId channelId = nextRequestId_ + 1;
         auto uri = req.uri();
-        auto& msg = req.callMessage({}, channelId);
+        req.setRequestId({}, channelId);
 
-        auto sent = peer_.send(msg);
+        auto sent = peer_.send(req);
         if (!sent)
         {
             auto unex = makeUnexpected(sent.error());
@@ -440,12 +471,11 @@ public:
             std::move(subscriber));
     }
 
-    Subscription onSubscribed(const SubscribedMessage& msg, MatchUri topic,
+    Subscription onSubscribed(SubscriptionId subId, MatchUri topic,
                               EventSlot&& slot, SubscriberPtr subscriber)
     {
         // Check if the router treats the topic as belonging to an existing
         // subcription.
-        auto subId = msg.subscriptionId();
         auto kv = subscriptions_.find(subId);
         if (kv != subscriptions_.end())
         {
@@ -487,15 +517,14 @@ public:
     }
 
     // Returns true if there are any subscriptions matching the event
-    bool onEvent(EventMessage& eventMsg, SubscriberPtr subscriber)
+    bool onEvent(Event&& event, SubscriberPtr subscriber)
     {
-        auto found = subscriptions_.find(eventMsg.subscriptionId());
+        auto found = subscriptions_.find(event.subscriptionId());
         if (found == subscriptions_.end())
             return false;
 
         const auto& record = found->second;
         assert(!record.slots.empty());
-        Event event({}, userExecutor_, std::move(eventMsg));
         for (const auto& kv: record.slots)
         {
             const auto& slot = kv.second;
@@ -638,20 +667,18 @@ public:
           peer_(peer)
     {}
 
-    ErrorOr<Registration> enroll(ProcedureRegistration&& reg, CalleePtr callee,
-                                 const RegisteredMessage& msg)
+    ErrorOr<Registration> enroll(RegistrationId regId,
+                                 ProcedureRegistration&& reg, CalleePtr callee)
     {
-        auto regId = msg.registrationId();
         auto emplaced = procedures_.emplace(regId, std::move(reg));
         if (!emplaced.second)
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
         return Registration{{}, callee, regId};
     }
 
-    ErrorOr<Registration> enroll(StreamRegistration&& reg, CalleePtr callee,
-                                 const RegisteredMessage& msg)
+    ErrorOr<Registration> enroll(RegistrationId regId, StreamRegistration&& reg,
+                                 CalleePtr callee)
     {
-        auto regId = msg.registrationId();
         auto emplaced = streams_.emplace(regId, std::move(reg));
         if (!emplaced.second)
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
@@ -675,7 +702,7 @@ public:
         // Error may have already been returned due to interruption being
         // handled by Client::onInterrupt.
         bool moot = found->second.moot;
-        bool erased = !result.isProgressive() || moot;
+        bool erased = !result.isProgress({}) || moot;
         if (erased)
             invocations_.erase(found);
         if (moot)
@@ -735,16 +762,16 @@ public:
                                std::move(error));
     }
 
-    WampErrc onInvocation(InvocationMessage& msg, CalleePtr callee)
+    WampErrc onInvocation(Invocation&& inv, CalleePtr callee)
     {
-        auto requestId = msg.requestId();
-        auto regId = msg.registrationId();
+        auto requestId = inv.requestId();
+        auto regId = inv.registrationId();
 
         {
             auto kv = procedures_.find(regId);
             if (kv != procedures_.end())
             {
-                return onProcedureInvocation(msg, std::move(callee),
+                return onProcedureInvocation(inv, std::move(callee),
                                              regId, kv->second);
             }
         }
@@ -753,7 +780,7 @@ public:
             auto kv = streams_.find(regId);
             if (kv != streams_.end())
             {
-                return onStreamInvocation(msg, std::move(callee),
+                return onStreamInvocation(inv, std::move(callee),
                                           regId, kv->second);
             }
         }
@@ -763,9 +790,9 @@ public:
         return WampErrc::noSuchProcedure;
     }
 
-    void onInterrupt(InterruptMessage& msg, CalleePtr callee)
+    void onInterrupt(Interruption&& intr, CalleePtr callee)
     {
-        auto found = invocations_.find(msg.requestId());
+        auto found = invocations_.find(intr.requestId());
         if (found == invocations_.end())
             return;
 
@@ -781,18 +808,18 @@ public:
             if (kv != procedures_.end())
             {
                 interruptHandled =
-                    onProcedureInterruption(msg, std::move(callee), kv->second);
+                    onProcedureInterruption(intr, std::move(callee), kv->second);
             }
         }
 
         {
             auto kv = streams_.find(rec.registrationId);
             if (kv != streams_.end())
-                interruptHandled = postStreamInterruption(msg, rec);
+                interruptHandled = postStreamInterruption(intr, rec);
         }
 
         if (!interruptHandled)
-            automaticallyRespondToInterruption(msg, rec);
+            automaticallyRespondToInterruption(intr, rec);
     }
 
     void clear()
@@ -806,11 +833,11 @@ private:
     using ProcedureMap = std::map<RegistrationId, ProcedureRegistration>;
     using StreamMap = std::map<RegistrationId, StreamRegistration>;
 
-    WampErrc onProcedureInvocation(InvocationMessage& msg, CalleePtr callee,
+    WampErrc onProcedureInvocation(Invocation& inv, CalleePtr callee,
                                    RegistrationId regId,
                                    const ProcedureRegistration& reg)
     {
-        auto requestId = msg.requestId();
+        auto requestId = inv.requestId();
         auto emplaced = invocations_.emplace(requestId,
                                              InvocationRecord{regId});
 
@@ -821,23 +848,23 @@ private:
 
         auto& invocationRec = emplaced.first->second;
         invocationRec.closed = true;
-        Invocation inv({}, callee, userExecutor_, std::move(msg));
-        postRpcRequest(reg.callSlot, std::move(inv), callee);
+        inv.setContext({}, callee, userExecutor_);
+        postRpcRequest(reg.callSlot, inv, callee);
         return WampErrc::success;
     }
 
-    bool onProcedureInterruption(InterruptMessage& msg, CalleePtr callee,
+    bool onProcedureInterruption(Interruption& intr, CalleePtr callee,
                                  const ProcedureRegistration& reg)
     {
         if (reg.interruptSlot == nullptr)
             return false;
-        Interruption intr({}, callee, userExecutor_, std::move(msg));
-        postRpcRequest(reg.interruptSlot, std::move(intr), callee);
+        intr.setContext({}, callee, userExecutor_);
+        postRpcRequest(reg.interruptSlot, intr, callee);
         return true;
     }
 
     template <typename TSlot, typename TInvocationOrInterruption>
-    void postRpcRequest(TSlot slot, TInvocationOrInterruption&& request,
+    void postRpcRequest(TSlot slot, TInvocationOrInterruption& request,
                         CalleePtr callee)
     {
         struct Posted
@@ -894,30 +921,30 @@ private:
             boost::asio::bind_executor(associatedExec, std::move(posted)));
     }
 
-    WampErrc onStreamInvocation(InvocationMessage& msg, CalleePtr callee,
+    WampErrc onStreamInvocation(Invocation& inv, CalleePtr callee,
                                 RegistrationId regId,
                                 const StreamRegistration& reg)
     {
-        auto requestId = msg.requestId();
+        auto requestId = inv.requestId();
         auto emplaced = invocations_.emplace(requestId,
                                              InvocationRecord{regId});
         auto& invocationRec = emplaced.first->second;
         if (invocationRec.closed)
             return WampErrc::protocolViolation;
 
-        invocationRec.closed = !msg.isProgressive();
-        processStreamInvocation(reg, invocationRec, std::move(msg), callee);
+        invocationRec.closed = !inv.isProgress({});
+        processStreamInvocation(reg, invocationRec, inv, callee);
         return WampErrc::success;
     }
 
     void processStreamInvocation(
-        const StreamRegistration& reg, InvocationRecord& rec,
-        InvocationMessage&& msg, CalleePtr callee)
+        const StreamRegistration& reg, InvocationRecord& rec, Invocation& inv,
+        CalleePtr callee)
     {
         if (!rec.invoked)
         {
             auto channel = std::make_shared<CalleeChannelImpl>(
-                std::move(msg), reg.invitationExpected, executor_,
+                std::move(inv), reg.invitationExpected, executor_,
                 userExecutor_, std::move(callee));
             rec.channel = channel;
             rec.invoked = true;
@@ -944,24 +971,23 @@ private:
         {
             auto channel = rec.channel.lock();
             if (channel)
-                channel->postInvocation(std::move(msg));
+                channel->postInvocation(std::move(inv));
         }
     }
 
-    bool postStreamInterruption(InterruptMessage& msg, InvocationRecord& rec)
+    bool postStreamInterruption(Interruption& intr, InvocationRecord& rec)
     {
         auto channel = rec.channel.lock();
-        return bool(channel) && channel->postInterrupt(std::move(msg));
+        return bool(channel) && channel->postInterrupt(std::move(intr));
     }
 
-    void automaticallyRespondToInterruption(InterruptMessage& msg,
+    void automaticallyRespondToInterruption(Interruption& intr,
                                             InvocationRecord& rec)
     {
         // Respond immediately when cancel mode is 'kill' and no interrupt
         // slot is provided.
         // Dealer will have already responded in `killnowait` mode.
         // Dealer does not emit an INTERRUPT in `skip` mode.
-        Interruption intr({}, std::move(msg));
         if (intr.cancelMode() == CallCancelMode::kill)
         {
             rec.moot = true;
@@ -1262,8 +1288,7 @@ public:
                 {
                     me.clear();
                     me.peer_.close();
-                    auto& goodBye = messageCast<GoodbyeMessage>(*reply);
-                    me.completeNow(handler, Reason({}, std::move(goodBye)));
+                    me.completeNow(handler, Reason({}, std::move(*reply)));
                 }
             }
         };
@@ -1343,9 +1368,10 @@ public:
                 auto& me = *self;
                 if (!me.checkReply(reply, MessageKind::subscribed, handler))
                     return;
-                const auto& msg = messageCast<SubscribedMessage>(*reply);
+                Subscribed ack{std::move(*reply)};
                 auto sub = me.readership_.onSubscribed(
-                    msg, std::move(matchUri), std::move(slot), self);
+                    ack.subscriptionId(), std::move(matchUri), std::move(slot),
+                    self);
                 me.completeNow(handler, std::move(sub));
             }
         };
@@ -1493,8 +1519,8 @@ public:
                 auto& me = *self;
                 if (me.checkReply(reply, MessageKind::published, handler))
                 {
-                    const auto& pubMsg = messageCast<PublishedMessage>(*reply);
-                    me.completeNow(handler, pubMsg.publicationId());
+                    Published ack{std::move(*reply)};
+                    me.completeNow(handler, ack.publicationId());
                 }
             }
         };
@@ -1534,8 +1560,9 @@ public:
                 auto& me = *self;
                 if (!me.checkReply(reply, MessageKind::registered, f))
                     return;
-                auto& msg = messageCast<RegisteredMessage>(*reply);
-                auto reg = me.registry_.enroll(std::move(r), self, msg);
+                Registered ack{std::move(*reply)};
+                auto reg = me.registry_.enroll(ack.registrationId(),
+                                               std::move(r), self);
                 me.completeNow(f, std::move(reg));
             }
         };
@@ -1584,8 +1611,9 @@ public:
                 auto& me = *self;
                 if (!me.checkReply(reply, MessageKind::registered, f))
                     return;
-                auto& msg = messageCast<RegisteredMessage>(*reply);
-                auto reg = me.registry_.enroll(std::move(r), self, msg);
+                Registered ack{std::move(*reply)};
+                auto reg = me.registry_.enroll(ack.registrationId(),
+                                               std::move(r), self);
                 me.completeNow(f, std::move(reg));
             }
         };
@@ -1633,8 +1661,8 @@ public:
 
         if (registry_.unregister(reg) && state() == State::established)
         {
-            UnregisterMessage msg(reg.id());
-            request(msg, Requested{shared_from_this()});
+            Unregister unreg{reg.id()};
+            request(unreg, Requested{shared_from_this()});
         }
     }
 
@@ -2078,9 +2106,10 @@ private:
             postHandler(stateSlot_, s, ec);
     }
 
-    ErrorOr<RequestId> request(Message& msg, RequestHandler&& handler)
+    template <typename TInfo>
+    ErrorOr<RequestId> request(TInfo& info, RequestHandler&& handler)
     {
-        return requestor_.request(msg, std::move(handler));
+        return requestor_.request(info, std::move(handler));
     }
 
     void abortPending(std::error_code ec)

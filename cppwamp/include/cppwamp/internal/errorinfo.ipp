@@ -11,9 +11,7 @@
 namespace wamp
 {
 
-CPPWAMP_INLINE Error::Error(Uri uri)
-    : Base(internal::MessageKind::error, {0, 0, 0, Object{}, std::move(uri)})
-{}
+CPPWAMP_INLINE Error::Error(Uri uri) : Base(0, 0, Object{}, std::move(uri)) {}
 
 CPPWAMP_INLINE Error::Error(std::error_code ec) : Error(errorCodeToUri(ec)) {}
 
@@ -31,7 +29,7 @@ CPPWAMP_INLINE Error::operator bool() const {return !uri().empty();}
 
 CPPWAMP_INLINE const Uri& Error::uri() const
 {
-    return message().at(4).as<String>();
+    return message().as<String>(4);
 }
 
 /** @return WampErrc::unknown if the URI is unknown. */
@@ -50,27 +48,13 @@ CPPWAMP_INLINE Error::Error(internal::PassKey, internal::Message&& msg)
 
 CPPWAMP_INLINE Error::Error(internal::PassKey, internal::MessageKind reqKind,
                             RequestId rid, std::error_code ec, Object opts)
-    : Base(internal::MessageKind::error,
-           {0, Int(reqKind), rid, std::move(opts), errorCodeToUri(ec)})
+    : Base(Int(reqKind), rid, std::move(opts), errorCodeToUri(ec))
 {}
 
-CPPWAMP_INLINE RequestId Error::requestId(internal::PassKey) const
+CPPWAMP_INLINE void Error::setRequestKind(internal::PassKey,
+                                          internal::MessageKind reqKind)
 {
-    return message().requestId();
-}
-
-CPPWAMP_INLINE void Error::setRequestId(internal::PassKey, RequestId rid)
-{
-    message().setRequestId(rid);
-}
-
-CPPWAMP_INLINE internal::Message&
-Error::errorMessage(internal::PassKey, internal::MessageKind reqKind,
-                    RequestId reqId)
-{
-    message().at(1) = Int(reqKind);
-    message().at(2) = reqId;
-    return message();
+    message().at(requestKindPos_) = Int(reqKind);
 }
 
 } // namespace wamp

@@ -13,10 +13,12 @@ namespace wamp
 // CallerInputChunk
 //******************************************************************************
 
-CPPWAMP_INLINE CallerInputChunk::CallerInputChunk() {}
+CPPWAMP_INLINE CallerInputChunk::CallerInputChunk()
+    : Base(true, 0, Object{})
+{}
 
 CPPWAMP_INLINE CallerInputChunk::CallerInputChunk(internal::PassKey,
-                                                  internal::ResultMessage&& msg)
+                                                  internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
@@ -29,19 +31,12 @@ CPPWAMP_INLINE CallerInputChunk::CallerInputChunk(internal::PassKey,
 CPPWAMP_INLINE CallerOutputChunk::CallerOutputChunk(
     bool isFinal ///< Marks this chunk as the final one in the stream
 )
-    : Base(isFinal)
+    : Base(isFinal, 0, Object{}, String{})
 {}
 
 CPPWAMP_INLINE void CallerOutputChunk::setCallInfo(internal::PassKey, Uri uri)
 {
-    message().setUri(std::move(uri));
-}
-
-CPPWAMP_INLINE internal::CallMessage&
-CallerOutputChunk::callMessage(internal::PassKey, RequestId reqId)
-{
-    message().setRequestId(reqId);
-    return message();
+    message().at(uriPos_) = std::move(uri);
 }
 
 
@@ -49,11 +44,13 @@ CallerOutputChunk::callMessage(internal::PassKey, RequestId reqId)
 // CalleeInputChunk
 //******************************************************************************
 
-CPPWAMP_INLINE CalleeInputChunk::CalleeInputChunk() {}
+CPPWAMP_INLINE CalleeInputChunk::CalleeInputChunk()
+    : Base(true, 0, 0, Object{})
+{}
 
-CPPWAMP_INLINE CalleeInputChunk::CalleeInputChunk(
-    internal::PassKey, internal::InvocationMessage&& msg)
-    : Base(std::move(msg))
+CPPWAMP_INLINE CalleeInputChunk::CalleeInputChunk(internal::PassKey,
+                                                  Invocation&& inv)
+    : Base(std::move(inv.message({})))
 {}
 
 CPPWAMP_INLINE StreamMode CalleeInputChunk::mode(internal::PassKey)
@@ -74,14 +71,7 @@ CPPWAMP_INLINE StreamMode CalleeInputChunk::mode(internal::PassKey)
 CPPWAMP_INLINE CalleeOutputChunk::CalleeOutputChunk(
     bool isFinal ///< Marks this chunk as the final one in the stream
     )
-    : Base(isFinal)
+    : Base(isFinal, 0, Object{})
 {}
-
-CPPWAMP_INLINE internal::YieldMessage&
-CalleeOutputChunk::yieldMessage(internal::PassKey, RequestId reqId)
-{
-    message().setRequestId(reqId);
-    return message();
-}
 
 } // namespace wamp

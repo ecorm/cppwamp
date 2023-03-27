@@ -641,7 +641,7 @@ private:
         {
             auto c = authExchange_->challenge();
             report(c.info());
-            peer_.challenge(std::move(c));
+            peer_.send(std::move(c));
         }
     }
 

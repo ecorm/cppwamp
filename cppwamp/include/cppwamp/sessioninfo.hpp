@@ -35,7 +35,8 @@ namespace wamp
 /** Provides the _reason_ URI and other options contained within
     `GOODBYE` and `ABORT` messages.*/
 //------------------------------------------------------------------------------
-class CPPWAMP_API Reason : public Options<Reason, 1>
+class CPPWAMP_API Reason
+    : public Options<Reason, internal::MessageKind::goodbye>
 {
 public:
     /** Converting constructor taking an optional reason URI. */
@@ -65,7 +66,9 @@ public:
     AccessActionInfo info(bool isServer) const;
 
 private:
-    using Base = Options<Reason, 1>;
+    static constexpr unsigned uriPos_ = 2;
+
+    using Base = Options<Reason, internal::MessageKind::goodbye>;
 
 public:
     // Internal use only
@@ -78,7 +81,7 @@ public:
 //------------------------------------------------------------------------------
 /** %Realm URI and other options contained within WAMP `HELLO` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Realm : public Options<Realm, 2>
+class CPPWAMP_API Realm : public Options<Realm, internal::MessageKind::hello>
 {
 public:
     /** Converting constructor taking a realm URI. */
@@ -119,7 +122,9 @@ public:
     /// @}
 
 private:
-    using Base = Options<Realm, 2>;
+    static constexpr unsigned uriPos_     = 1;
+
+    using Base = Options<Realm, internal::MessageKind::hello>;
 
     Reason* abortReason_ = nullptr;
 
@@ -133,7 +138,8 @@ public:
 //------------------------------------------------------------------------------
 /** Session information contained within WAMP `WELCOME` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Welcome : public Options<Welcome, 2>
+class CPPWAMP_API Welcome
+    : public Options<Welcome, internal::MessageKind::welcome>
 {
 public:
     /** Default constructor. */
@@ -192,7 +198,9 @@ public:
     /// @}
 
 private:
-    using Base = Options<Welcome, 2>;
+    static constexpr unsigned sessionIdPos_ = 1;
+
+    using Base = Options<Welcome, internal::MessageKind::welcome>;
 
     static RouterFeatures parseFeatures(const Object& opts);
 
@@ -202,6 +210,7 @@ private:
 public:
     // Internal use only
     Welcome(internal::PassKey, Uri&& realm, internal::Message&& msg);
+    Welcome(internal::PassKey, SessionId sid, Object&& opts);
 };
 
 
@@ -212,7 +221,8 @@ public:
     See [Authentication Methods in the WAMP specification]
     (https://wamp-proto.org/wamp_latest_ietf.html#name-authentication-methods) */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Authentication : public Options<Authentication, 2>
+class CPPWAMP_API Authentication
+    : public Options<Authentication, internal::MessageKind::authenticate>
 {
 public:
     /** Constructs an authentication with an empty signature. */
@@ -236,7 +246,9 @@ public:
     AccessActionInfo info() const;
 
 private:
-    using Base = Options<Authentication, 2>;
+    static constexpr unsigned signaturePos_ = 1;
+
+    using Base = Options<Authentication, internal::MessageKind::authenticate>;
 
 public:
     // Internal use only
@@ -254,7 +266,8 @@ namespace internal { class Challengee; } // Forward declaration
     See [Authentication Methods in the WAMP specification]
     (https://wamp-proto.org/wamp_latest_ietf.html#name-authentication-methods) */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Challenge : public Options<Challenge, 2>
+class CPPWAMP_API Challenge
+    : public Options<Challenge, internal::MessageKind::challenge>
 {
 public:
     /** Constructs a challenge. */
@@ -319,7 +332,9 @@ public:
               internal::Message&& msg);
 
 private:
-    using Base = Options<Challenge, 2>;
+    static constexpr unsigned authMethodPos_ = 1;
+
+    using Base = Options<Challenge, internal::MessageKind::challenge>;
 
     ChallengeePtr challengee_;
 };

@@ -27,12 +27,6 @@ CPPWAMP_INLINE bool Stream::invitationExpected() const
     return invitationExpected_;
 }
 
-CPPWAMP_INLINE internal::RegisterMessage&
-Stream::registerMessage(internal::PassKey)
-{
-    return message();
-}
-
 
 //******************************************************************************
 // CalleeChannel

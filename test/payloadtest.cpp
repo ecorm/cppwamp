@@ -18,8 +18,14 @@ namespace
 const Array testList{null, true, 42, "foo"};
 Object testMap{{"a", null}, {"b", true}, {"c", 42}, {"d", "foo"}};
 
-struct TestPayload : public Payload<TestPayload, internal::ResultMessage>
-{};
+//------------------------------------------------------------------------------
+struct TestPayload : public Payload<TestPayload, internal::MessageKind::result>
+{
+    TestPayload() : Base(0, Object{}) {}
+
+private:
+    using Base = Payload<TestPayload, internal::MessageKind::result>;
+};
 
 } // anonymous namespace
 

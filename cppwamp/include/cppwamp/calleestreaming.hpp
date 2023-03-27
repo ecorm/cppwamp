@@ -60,10 +60,6 @@ private:
     using Base = ProcedureLike<Stream>;
 
     bool invitationExpected_ = false;
-
-public:
-    // Internal use only
-    internal::RegisterMessage& registerMessage(internal::PassKey);
 };
 
 
