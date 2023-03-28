@@ -41,7 +41,7 @@ CPPWAMP_INLINE AccessActionInfo Error::info(bool isServer) const
 {
     auto action = isServer ? AccessAction::serverError
                            : AccessAction::clientError;
-    return {action, message().requestId(), {}, options(), uri()};
+    return {action, requestId(), {}, options(), uri()};
 }
 
 CPPWAMP_INLINE Error::Error(internal::PassKey, internal::Message&& msg)

@@ -95,13 +95,6 @@ struct Message
         fields_.at(0) = Int(t);
     }
 
-    void setRequestId(RequestId reqId)
-    {
-        auto idPos = traits().requestIdPosition;
-        assert(idPos != 0);
-        fields_.at(idPos) = reqId;
-    }
-
     MessageKind kind() const {return kind_;}
 
     const MessageTraits& traits() const {return MessageTraits::lookup(kind_);}
@@ -118,8 +111,6 @@ struct Message
         auto n = name();
         return n == nullptr ? fallback : n;
     }
-
-    size_t size() const {return fields_.size();}
 
     const Array& fields() const {return fields_;}
 
@@ -164,7 +155,7 @@ struct Message
                                            : traits().repliesTo;
     }
 
-    bool isProgressive() const
+    bool isProgress() const
     {
         if (kind_ != MessageKind::call && kind_ != MessageKind::result)
             return false;

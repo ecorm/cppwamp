@@ -29,8 +29,7 @@ CPPWAMP_INLINE const Uri& Topic::uri() const
 
 CPPWAMP_INLINE AccessActionInfo Topic::info() const
 {
-    return {AccessAction::clientSubscribe, message().requestId(), uri(),
-            options()};
+    return {AccessAction::clientSubscribe, requestId(), uri(), options()};
 }
 
 /** @details
@@ -71,8 +70,7 @@ CPPWAMP_INLINE const Uri& Pub::uri() const
 
 CPPWAMP_INLINE AccessActionInfo Pub::info() const
 {
-    return {AccessAction::clientPublish, message().requestId(), uri(),
-            options()};
+    return {AccessAction::clientPublish, requestId(), uri(), options()};
 }
 
 /** @details

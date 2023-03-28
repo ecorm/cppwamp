@@ -104,7 +104,7 @@ CPPWAMP_INLINE AccessActionInfo Result::info(bool isServer) const
 {
     auto action = isServer ? AccessAction::serverResult
                            : AccessAction::clientYield;
-    return {action, message().requestId(), {}, options()};
+    return {action, requestId(), {}, options()};
 }
 
 CPPWAMP_INLINE Result::Result(internal::PassKey, internal::Message&& msg)

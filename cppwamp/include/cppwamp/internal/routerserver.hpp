@@ -526,7 +526,7 @@ private:
     void onUnregister(Message& msg)
     {
         Unregister cmd{std::move(msg)};
-        auto reqId = msg.requestId();
+        auto reqId = cmd.requestId({});
         report({AccessAction::clientUnregister, reqId});
         realm_.unsubscribe(shared_from_this(), cmd.registrationId(), reqId);
     }

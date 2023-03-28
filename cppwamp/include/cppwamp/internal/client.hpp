@@ -281,7 +281,7 @@ public:
             if (kv == channels_.end())
                 return false;
 
-            if (msg.isProgressive())
+            if (msg.isProgress())
             {
                 StreamRecord& rec = kv->second;
                 rec.onReply(std::move(msg), executor_);

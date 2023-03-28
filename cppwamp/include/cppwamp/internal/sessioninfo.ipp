@@ -37,7 +37,7 @@ CPPWAMP_INLINE Reason& Reason::withHint(String text)
 
 CPPWAMP_INLINE const Uri& Reason::uri() const
 {
-    return message().at(uriPos_).as<String>();
+    return message().as<String>(uriPos_);
 }
 
 CPPWAMP_INLINE ErrorOr<String> Reason::hint() const
