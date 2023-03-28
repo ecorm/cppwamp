@@ -107,7 +107,7 @@ struct MessageKindTraits<MessageKind::error>
     static constexpr bool isRequest()        {return false;}
     static constexpr unsigned requestIdPos() {return 2;}
     static constexpr unsigned optionsPos()   {return 3;}
-    static constexpr unsigned argsPos()      {return 4;}
+    static constexpr unsigned argsPos()      {return 5;}
 };
 
 template <>

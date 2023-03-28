@@ -709,6 +709,7 @@ public:
         if (moot)
             return false;
 
+        result.setKindToYield({});
         auto done = peer_.send(std::move(result));
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
