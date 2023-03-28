@@ -116,7 +116,7 @@ CPPWAMP_INLINE bool Result::isProgress(internal::PassKey) const
     return optionOr<bool>("progress", false);
 }
 
-void Result::setKindToYield(internal::PassKey)
+CPPWAMP_INLINE void Result::setKindToYield(internal::PassKey)
 {
     message().setKind(internal::MessageKind::yield);
 }
@@ -440,7 +440,7 @@ CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
     message().at(3) = Object{};
 }
 
-Invocation::CalleePtr Invocation::callee(internal::PassKey) const
+CPPWAMP_INLINE Invocation::CalleePtr Invocation::callee(internal::PassKey) const
 {
     return callee_;
 }

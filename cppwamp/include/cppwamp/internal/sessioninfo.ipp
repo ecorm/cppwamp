@@ -232,7 +232,7 @@ CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, Uri&& realm,
     features_(parseFeatures(options()))
 {}
 
-Welcome::Welcome(internal::PassKey, SessionId sid, Object&& opts)
+CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, SessionId sid, Object&& opts)
     : Base(in_place, sid, std::move(opts))
 {}
 

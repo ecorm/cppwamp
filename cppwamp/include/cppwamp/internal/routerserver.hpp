@@ -13,11 +13,12 @@
 #include <string>
 #include <utility>
 #include "../routerconfig.hpp"
+#include "../authenticators/anonymousauthenticator.hpp"
 #include "challenger.hpp"
+#include "commandinfo.hpp"
 #include "peer.hpp"
 #include "realmsession.hpp"
 #include "routercontext.hpp"
-#include "../authenticators/anonymousauthenticator.hpp"
 
 namespace wamp
 {
@@ -109,7 +110,7 @@ public:
             {
                 auto& me = *self;
                 me.report({AccessAction::serverSubscribed, r});
-                me.sendMessage<SubscribedMessage>(r, s);
+                me.send(Subscribed{r, s});
             }
         };
 
@@ -128,7 +129,7 @@ public:
             {
                 auto& me = *self;
                 me.report({AccessAction::serverUnsubscribed, r, std::move(t)});
-                me.sendMessage<UnsubscribedMessage>(r);
+                me.send(Unsubscribed{r});
             }
         };
 
@@ -147,7 +148,7 @@ public:
             {
                 auto& me = *self;
                 me.report({AccessAction::serverPublished, r});
-                me.sendMessage<PublishedMessage>(r, p);
+                me.send(Published{r, p});
             }
         };
 
@@ -185,7 +186,7 @@ public:
             {
                 auto& me = *self;
                 me.report({AccessAction::serverRegistered, reqId});
-                me.sendMessage<RegisteredMessage>(reqId, regId);
+                me.send(Registered{reqId, regId});
             }
         };
 
@@ -204,7 +205,7 @@ public:
             {
                 auto& me = *self;
                 me.report({AccessAction::serverUnregistered, r, std::move(p)});
-                me.sendMessage<UnregisteredMessage>(r);
+                me.send(Unregistered{r});
             }
         };
 
@@ -344,20 +345,11 @@ private:
     }
 
     template <typename T>
-    void send(T&& messageInfo)
+    void send(T&& command)
     {
         if (state() != State::established)
             return;
-        peer_.send(messageInfo.message({}));
-    }
-
-    template <typename TMessage, typename... TArgs>
-    void sendMessage(TArgs&&... args)
-    {
-        if (state() != State::established)
-            return;
-        TMessage msg{std::forward<TArgs>(args)...};
-        peer_.send(msg);
+        peer_.send(std::move(command));
     }
 
     void clearWampSessionInfo()
@@ -425,8 +417,7 @@ private:
 
     void onHello(Message& msg)
     {
-        auto& helloMsg = messageCast<HelloMessage>(msg);
-        Realm realm{{}, std::move(helloMsg)};
+        Realm realm{{}, std::move(msg)};
 
         auto roles = realm.roles();
         if (roles)
@@ -453,8 +444,7 @@ private:
 
     void onAuthenticate(Message& msg)
     {
-        auto& authenticateMsg = messageCast<AuthenticateMessage>(msg);
-        Authentication authentication{{}, std::move(authenticateMsg)};
+        Authentication authentication{{}, std::move(msg)};
 
         const auto& authenticator = serverConfig_->authenticator();
         assert(authenticator != nullptr);
@@ -475,8 +465,7 @@ private:
 
     void onGoodbye(Message& msg)
     {
-        auto& goodbyeMsg = messageCast<GoodbyeMessage>(msg);
-        Reason reason{{}, std::move(goodbyeMsg)};
+        Reason reason{{}, std::move(msg)};
         report(reason.info(false));
         report({AccessAction::serverGoodbye,
                 errorCodeToUri(WampErrc::goodbyeAndOut)});
@@ -484,75 +473,66 @@ private:
         // requests, and will close the session state.
     }
 
-    void onError(Message& m)
+    void onError(Message& msg)
     {
-        auto& msg = messageCast<ErrorMessage>(m);
         Error error{{}, std::move(msg)};
         report(error.info(false));
         realm_.yieldError(shared_from_this(), std::move(error));
     }
 
-    void onPublish(Message& m)
+    void onPublish(Message& msg)
     {
-        auto& msg = messageCast<PublishMessage>(m);
         Pub pub({}, std::move(msg));
         report(pub.info());
         realm_.publish(shared_from_this(), std::move(pub));
     }
 
-    void onSubscribe(Message& m)
+    void onSubscribe(Message& msg)
     {
-        auto& msg = messageCast<SubscribeMessage>(m);
         Topic topic{{}, std::move(msg)};
         report(topic.info());
         realm_.subscribe(shared_from_this(), std::move(topic));
     }
 
-    void onUnsubscribe(Message& m)
+    void onUnsubscribe(Message& msg)
     {
-        auto& msg = messageCast<UnsubscribeMessage>(m);
-        auto reqId = msg.requestId();
+        Unsubscribe cmd{std::move(msg)};
+        auto reqId = cmd.requestId({});
         report({AccessAction::clientUnsubscribe, reqId});
-        realm_.unsubscribe(shared_from_this(), msg.subscriptionId(),
-                           msg.requestId());
+        realm_.unsubscribe(shared_from_this(), cmd.subscriptionId(), reqId);
     }
 
-    void onCall(Message& m)
+    void onCall(Message& msg)
     {
-        auto& msg = messageCast<CallMessage>(m);
         Rpc rpc{{}, std::move(msg)};
         report(rpc.info());
         realm_.call(shared_from_this(), std::move(rpc));
     }
 
-    void onCancelCall(Message& m)
+    void onCancelCall(Message& msg)
     {
-        auto& msg = messageCast<CancelMessage>(m);
         CallCancellation cncl({}, std::move(msg));
         report(cncl.info());
         realm_.cancelCall(shared_from_this(), std::move(cncl));
     }
 
-    void onRegister(Message& m)
+    void onRegister(Message& msg)
     {
-        auto& msg = messageCast<RegisterMessage>(m);
         Procedure proc({}, std::move(msg));
         report(proc.info());
         realm_.enroll(shared_from_this(), std::move(proc));
     }
 
-    void onUnregister(Message& m)
+    void onUnregister(Message& msg)
     {
-        auto& msg = messageCast<UnregisterMessage>(m);
+        Unregister cmd{std::move(msg)};
         auto reqId = msg.requestId();
         report({AccessAction::clientUnregister, reqId});
-        realm_.unsubscribe(shared_from_this(), msg.registrationId(),
-                           msg.requestId());
+        realm_.unsubscribe(shared_from_this(), cmd.registrationId(), reqId);
     }
 
-    void onYield(Message& m)
+    void onYield(Message& msg)
     {
-        auto& msg = messageCast<YieldMessage>(m);
         Result result{{}, std::move(msg)};
         report(result.info(false));
         realm_.yieldResult(shared_from_this(), std::move(result));

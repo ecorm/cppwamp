@@ -613,7 +613,7 @@ ProcedureLike<D>::ProcedureLike(internal::Message&& msg)
 template <typename D>
 Uri&& ProcedureLike<D>::uri(internal::PassKey)
 {
-    return std::move(this->message().template at<String>(uriPos_));
+    return std::move(this->message().template as<String>(uriPos_));
 }
 
 

@@ -286,11 +286,12 @@ public:
         if (!caller || discardResultOrError_)
             return true;
         result.setRequestId({}, callerKey_.second);
-        bool isProgressive = result.isProgressive();
+        bool isProgress = result.optionOr<bool>("progress", false);
         result.withOptions({});
-        result.withProgress(isProgressive);
+        if (isProgress)
+            result.withOption("progress", true);
         caller->sendResult(std::move(result));
-        return !progressiveResultsRequested_ || !isProgressive;
+        return !progressiveResultsRequested_ || !isProgress;
     }
 
     void yield(Error&& error)
