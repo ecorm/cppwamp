@@ -60,7 +60,7 @@ CPPWAMP_INLINE Uri&& Topic::uri(internal::PassKey) &&
 //******************************************************************************
 
 CPPWAMP_INLINE Pub::Pub(Uri topic)
-    : Base(in_place, 0, Object{}, std::move(topic))
+    : Base(in_place, 0, Object{}, std::move(topic), Array{}, Object{})
 {}
 
 CPPWAMP_INLINE const Uri& Pub::uri() const
@@ -172,7 +172,9 @@ CPPWAMP_INLINE TrustLevel Pub::trustLevel(internal::PassKey) const
 //******************************************************************************
 
 /** @post `this->empty() == true` */
-CPPWAMP_INLINE Event::Event() : Base(in_place, 0, 0, Object{}) {}
+CPPWAMP_INLINE Event::Event()
+    : Base(in_place, 0, 0, Object{}, Array{}, Object{})
+{}
 
 CPPWAMP_INLINE bool Event::empty() const {return executor_ == nullptr;}
 

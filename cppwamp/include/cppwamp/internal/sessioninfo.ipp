@@ -18,7 +18,7 @@ namespace wamp
 //******************************************************************************
 
 CPPWAMP_INLINE Reason::Reason(Uri uri)
-    : Base(in_place, std::move(uri), Object{})
+    : Base(in_place, Object{}, std::move(uri))
 {}
 
 CPPWAMP_INLINE Reason::Reason(std::error_code ec)
@@ -229,7 +229,7 @@ CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, Uri&& realm,
                                 internal::Message&& msg)
     : Base(std::move(msg)),
       realm_(std::move(realm)),
-    features_(parseFeatures(options()))
+      features_(parseFeatures(options()))
 {}
 
 CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, SessionId sid, Object&& opts)

@@ -174,7 +174,7 @@ struct MessageKindTraits<MessageKind::call>
     static constexpr bool isRequest()        {return true;}
     static constexpr unsigned requestIdPos() {return 1;}
     static constexpr unsigned optionsPos()   {return 2;}
-    static constexpr unsigned argsPos()      {return 3;}
+    static constexpr unsigned argsPos()      {return 4;}
 };
 
 template <>

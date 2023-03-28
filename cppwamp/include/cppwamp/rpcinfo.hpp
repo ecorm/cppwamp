@@ -708,7 +708,8 @@ D& RpcLike<D>::withCancellationSlot(CallCancellationSlot slot)
 }
 
 template <typename D>
-RpcLike<D>::RpcLike(Uri&& uri) : Base(in_place, 0, Object{}, std::move(uri)) {}
+RpcLike<D>::RpcLike(Uri&& uri)
+    : Base(in_place, 0, Object{}, std::move(uri), Array{}, Object{}) {}
 
 template <typename D>
 RpcLike<D>::RpcLike(internal::Message&& msg) : Base(std::move(msg)) {}

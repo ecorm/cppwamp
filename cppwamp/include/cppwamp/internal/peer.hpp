@@ -315,18 +315,18 @@ private:
                 stateLabel(s) + " session state");
         }
 
-        onMessage(std::move(*msg));
+        onMessage(*msg);
     }
 
-    void onMessage(Message&& msg)
+    void onMessage(Message& msg)
     {
         switch (msg.kind())
         {
-        case MessageKind::hello:     return onHello(std::move(msg));
-        case MessageKind::welcome:   return onWelcome(std::move(msg));
-        case MessageKind::abort:     return onAbort(std::move(msg));
-        case MessageKind::challenge: return onChallenge(std::move(msg));
-        case MessageKind::goodbye:   return onGoodbye(std::move(msg));
+        case MessageKind::hello:     return onHello(msg);
+        case MessageKind::welcome:   return onWelcome(msg);
+        case MessageKind::abort:     return onAbort(msg);
+        case MessageKind::challenge: return onChallenge(msg);
+        case MessageKind::goodbye:   return onGoodbye(msg);
         default: break;
         }
 
@@ -342,14 +342,14 @@ private:
         inboundMessageHandler_(std::move(msg));
     }
 
-    void onHello(Message&& msg)
+    void onHello(Message& msg)
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
         inboundMessageHandler_(std::move(msg));
     }
 
-    void onWelcome(Message&& msg)
+    void onWelcome(Message& msg)
     {
         auto s = state();
         assert(s == State::establishing || s == State::authenticating);
@@ -357,11 +357,9 @@ private:
         inboundMessageHandler_(std::move(msg));
     }
 
-    void onAbort(Message&& msg)
+    void onAbort(Message& msg)
     {
         auto s = state();
-        Reason reason{{}, std::move(msg)};
-        WampErrc errc = reason.errorCode();
 
         if (s == State::establishing || s == State::authenticating)
         {
@@ -370,6 +368,8 @@ private:
         }
         else
         {
+            Reason reason{{}, std::move(msg)};
+            WampErrc errc = reason.errorCode();
             if (logLevel() <= LogLevel::critical)
             {
                 std::ostringstream oss;
@@ -386,14 +386,14 @@ private:
         }
     }
 
-    void onChallenge(Message&& msg)
+    void onChallenge(Message& msg)
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
         inboundMessageHandler_(std::move(msg));
     }
 
-    void onGoodbye(Message&& msg)
+    void onGoodbye(Message& msg)
     {
         if (state() == State::shuttingDown)
         {

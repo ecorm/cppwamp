@@ -2267,14 +2267,13 @@ private:
         Reason reason{{}, std::move(reply)};
         const auto& uri = reason.uri();
         WampErrc errc = errorUriToCode(uri);
-        const auto& details = reply.as<Object>(1);
 
         if (abortPtr != nullptr)
         {
             *abortPtr = std::move(reason);
         }
         else if ((logLevel() <= LogLevel::error) &&
-                 (errc == WampErrc::unknown || !details.empty()))
+                 (errc == WampErrc::unknown || !reason.options().empty()))
         {
             std::ostringstream oss;
             oss << "JOIN request aborted by peer with error URI=" << uri;

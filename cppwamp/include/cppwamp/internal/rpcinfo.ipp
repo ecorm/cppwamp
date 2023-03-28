@@ -94,10 +94,12 @@ CPPWAMP_INLINE bool Rpc::isProgress(internal::PassKey) const
 // Result
 //******************************************************************************
 
-CPPWAMP_INLINE Result::Result() : Base(in_place, 0, Object{}) {}
+CPPWAMP_INLINE Result::Result()
+    : Base(in_place, 0, Object{}, Array{}, Object{})
+{}
 
 CPPWAMP_INLINE Result::Result(std::initializer_list<Variant> list)
-    : Base(in_place, 0, Object{}, Array{list})
+    : Base(in_place, 0, Object{}, Array{list}, Object{})
 {}
 
 CPPWAMP_INLINE AccessActionInfo Result::info(bool isServer) const
@@ -316,7 +318,9 @@ CPPWAMP_INLINE void Outcome::destruct()
 //******************************************************************************
 
 /** @post `this->empty() == true` */
-CPPWAMP_INLINE Invocation::Invocation() : Base(in_place, 0, 0, Object{}) {}
+CPPWAMP_INLINE Invocation::Invocation()
+    : Base(in_place, 0, 0, Object{}, Array{}, Object{})
+{}
 
 CPPWAMP_INLINE bool Invocation::empty() const {return executor_ == nullptr;}
 

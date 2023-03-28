@@ -50,7 +50,9 @@ struct Message
                 return unex;
         }
 
-        return Message(kind, std::move(fields));
+        Message msg{std::move(fields)};
+        msg.setKind(kind);
+        return msg;
     }
 
     static MessageKind parseMsgType(const Array& fields)

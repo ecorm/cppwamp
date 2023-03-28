@@ -147,6 +147,8 @@ private:
     CPPWAMP_HIDDEN static size_t unbundleAsTuple(
         const Array&, std::tuple<Ts...>& tuple, FalseType);
 
+    CPPWAMP_HIDDEN void normalize();
+
 public:
     // Internal use only
     Array& args(internal::PassKey);
@@ -373,20 +375,26 @@ template <typename D, internal::MessageKind K>
 template <typename... Ts>
 Payload<D,K>::Payload(in_place_t, Ts&&... fields)
     : Base(in_place, std::forward<Ts>(fields)...)
-{}
+{
+    normalize();
+}
 
 //------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
 template <internal::MessageKind M>
 Payload<D,K>::Payload(internal::Command<M>&& command)
     : Base(std::move(command))
-{}
+{
+    normalize();
+}
 
 //------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
 Payload<D,K>::Payload(internal::Message&& msg)
     : Base(std::move(msg))
-{}
+{
+    normalize();
+}
 
 //------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
@@ -476,6 +484,19 @@ size_t Payload<D,K>::unbundleToTuple(
 template <typename D, internal::MessageKind K>
 void Payload<D,K>::unbundleAs(Array&, size_t&) {}
 
+//------------------------------------------------------------------------------
+template <typename D, internal::MessageKind K>
+void Payload<D,K>::normalize()
+{
+    auto& f = this->message().fields();
+    assert(f.size() >= argsPos_);
+    if (f.size() <= argsPos_)
+        f.emplace_back(Array{});
+    if (f.size() <= kwargsPos_)
+        f.emplace_back(Object{});
+}
+
+//------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
 template <typename T, typename... Ts>
 void Payload<D,K>::unbundleAs(Array& array, size_t& index, T& head, Ts&... tail)

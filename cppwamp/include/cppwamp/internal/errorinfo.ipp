@@ -12,7 +12,7 @@ namespace wamp
 {
 
 CPPWAMP_INLINE Error::Error(Uri uri)
-    : Base(in_place, 0, 0, Object{}, std::move(uri))
+    : Base(in_place, 0, 0, Object{}, std::move(uri), Array{}, Object{})
 {}
 
 CPPWAMP_INLINE Error::Error(std::error_code ec) : Error(errorCodeToUri(ec)) {}
