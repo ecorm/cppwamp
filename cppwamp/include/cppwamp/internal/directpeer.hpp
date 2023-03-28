@@ -25,6 +25,7 @@
 #include "../transport.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
+#include "commandinfo.hpp"
 #include "message.hpp"
 #include "realmsession.hpp"
 #include "routercontext.hpp"
@@ -63,42 +64,42 @@ private:
 
     void sendSubscribed(RequestId r, SubscriptionId s) override
     {
-        peer_.template onMessageInfo<SubscribedMessage>(r, s);
+        peer_.onCommand(Subscribed(r, s));
     }
 
     void sendUnsubscribed(RequestId r, Uri&& topic) override
     {
-        peer_.template onMessageInfo<UnsubscribedMessage>(r);
+        peer_.onCommand(Unsubscribed(r));
     }
 
     void sendPublished(RequestId r, PublicationId p) override
     {
-        peer_.template onMessageInfo<PublishedMessage>(r, p);
+        peer_.onCommand(Published(r, p));
     }
 
     void sendEvent(Event&& e, Uri topic) override
     {
-        peer_.onMessage(std::move(e));
+        peer_.onCommand(std::move(e));
     }
 
     void sendRegistered(RequestId reqId, RegistrationId regId) override
     {
-        peer_.template onMessageInfo<RegisteredMessage>(reqId, regId);
+        peer_.onCommand(Registered(reqId, regId));
     }
 
     void sendUnregistered(RequestId r, Uri&& procedure) override
     {
-        peer_.template onMessageInfo<UnregisteredMessage>(r);
+        peer_.onCommand(Unregistered(r));
     }
 
     void sendResult(Result&& r) override
     {
-        peer_.onMessage(std::move(r));
+        peer_.onCommand(std::move(r));
     }
 
     void sendInterruption(Interruption&& i) override
     {
-        peer_.onMessage(std::move(i));
+        peer_.onCommand(std::move(i));
     }
 
     void log(LogEntry e) override
@@ -113,7 +114,7 @@ private:
 
     void onSendInvocation(Invocation&& i) override
     {
-        peer_.onMessage(std::move(i));
+        peer_.onCommand(std::move(i));
     }
 
 private:
@@ -240,11 +241,6 @@ public:
         return compareAndSetState(State::closed, State::establishing);
     }
 
-    void challenge(Challenge challenge)
-    {
-        assert(false && "DirectPeer is for clients only");
-    }
-
     void welcome(SessionId sid, Object opts = {})
     {
         assert(false && "DirectPeer is for clients only");
@@ -267,11 +263,11 @@ public:
             realm_.leave(session_->wampId());
     }
 
-    ErrorOrDone send(HelloMessage& m)
+    ErrorOrDone send(Realm&& hello)
     {
         // TODO: Log
         assert(state() == State::establishing);
-        auto realm = router_.realmAt(m.uri());
+        auto realm = router_.realmAt(hello.uri());
         if (realm.expired())
             return fail(WampErrc::noSuchRealm);
         realm_ = std::move(realm);
@@ -280,7 +276,7 @@ public:
         return true;
     }
 
-    ErrorOrDone send(GoodbyeMessage&)
+    ErrorOrDone send(Reason&& goodbye)
     {
         // TODO: Log
         assert(state() == State::shuttingDown);
@@ -290,77 +286,81 @@ public:
         return true;
     }
 
-    ErrorOrDone send(SubscribeMessage& msg)
+    ErrorOrDone send(Topic&& topic)
     {
-        if (!realm_.subscribe(session_, Topic{{}, std::move(msg)}))
+        traceTx(topic.message({}));
+        if (!realm_.subscribe(session_, std::move(topic)))
             return fail(WampErrc::noSuchRealm);
-        traceTx(msg);
         return true;
     }
 
-    ErrorOrDone send(UnsubscribeMessage& m)
+    ErrorOrDone send(Unsubscribe&& cmd)
     {
-        if (!realm_.unsubscribe(session_, m.subscriptionId(), m.requestId()))
+        traceTx(cmd.message({}));
+        if (!realm_.unsubscribe(session_, cmd.subscriptionId(),
+                                cmd.requestId({})))
+        {
             return fail(WampErrc::noSuchRealm);
-        traceTx(m);
+        }
         return true;
     }
 
-    ErrorOrDone send(PublishMessage& m)
+    ErrorOrDone send(Pub&& pub)
     {
-        if (!realm_.publish(session_, Pub{{}, std::move(m)}))
+        traceTx(pub.message({}));
+        if (!realm_.publish(session_, std::move(pub)))
             return fail(WampErrc::noSuchRealm);
-        traceTx(m);
         return true;
     }
 
-    ErrorOrDone send(RegisterMessage& m)
+    ErrorOrDone send(Procedure&& enrollment)
     {
-        if (!realm_.enroll(session_, Procedure{{}, std::move(m)}))
+        traceTx(enrollment.message({}));
+        if (!realm_.enroll(session_, std::move(enrollment)))
             return fail(WampErrc::noSuchRealm);
-        traceTx(m);
         return true;
     }
 
-    ErrorOrDone send(UnregisterMessage& m)
+    ErrorOrDone send(Unregister&& cmd)
     {
-        if (!realm_.unregister(session_, m.registrationId(), m.requestId()))
+        traceTx(cmd.message({}));
+        if (!realm_.unregister(session_,
+                               cmd.registrationId(), cmd.requestId({})))
+        {
             return fail(WampErrc::noSuchRealm);
-        traceTx(m);
+        }
         return true;
     }
 
-    ErrorOrDone send(CallMessage& m)
+    ErrorOrDone send(Rpc&& rpc)
     {
-        if (!realm_.call(session_, Rpc{{}, std::move(m)}))
+        traceTx(rpc.message({}));
+        if (!realm_.call(session_, std::move(rpc)))
             return fail(WampErrc::noSuchRealm);
-        traceTx(m);
         return true;
     }
 
-    ErrorOrDone send(CancelMessage& m)
+    ErrorOrDone send(CallCancellation&& cncl)
     {
-        if (!realm_.cancelCall(session_, CallCancellation{{}, std::move(m)}))
+        traceTx(cncl.message({}));
+        if (!realm_.cancelCall(session_, std::move(cncl)))
             return fail(WampErrc::noSuchRealm);
-        traceTx(m);
         return true;
     }
 
-    ErrorOrDone send(YieldMessage& m)
+    ErrorOrDone send(Result&& result)
     {
-        if (!realm_.yieldResult(session_, Result{{}, std::move(m)}))
+        traceTx(result.message({}));
+        if (!realm_.yieldResult(session_, std::move(result)))
             return fail(WampErrc::noSuchRealm);
-        traceTx(m);
         return true;
     }
 
-    ErrorOrDone sendError(MessageKind reqKind, RequestId reqId, Error&& error)
+    ErrorOrDone sendError(Error&& error)
     {
-        // TODO: Avoid intermediate message object
-        auto& msg = error.errorMessage({}, reqKind, reqId);
-        if (!realm_.yieldError(session_, Error{{}, std::move(msg)}))
+        traceTx(error.message({}));
+        if (!realm_.yieldError(session_, std::move(error)))
             return fail(WampErrc::noSuchRealm);
-        traceTx(msg);
         return true;
     }
 
@@ -418,7 +418,7 @@ private:
         if (s == State::establishing || s == State::authenticating)
         {
             setState(State::closed);
-            inboundMessageHandler_(r.abortMessage({}));
+            inboundMessageHandler_(std::move(r.message({})));
         }
         else
         {
@@ -438,17 +438,11 @@ private:
         }
     };
 
-    template <typename TMessage, typename... TArgs>
-    void onMessageInfo(TArgs&&... args)
+    template <typename TCommand>
+    void onCommand(TCommand&& cmd)
     {
         if (inboundMessageHandler_ && (state() == State::established))
-            inboundMessageHandler_(TMessage{std::forward<TArgs>(args)...});
-    }
-
-    void onMessage(Message&& msg)
-    {
-        if (inboundMessageHandler_ && (state() == State::established))
-            inboundMessageHandler_(std::move(msg));
+            inboundMessageHandler_(std::move(cmd.message({})));
     }
 
     void onLog(LogEntry e)
