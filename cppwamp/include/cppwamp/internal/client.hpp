@@ -207,75 +207,23 @@ public:
             });
     }
 
-    template <typename TInfo>
-    ErrorOr<RequestId> request(TInfo& info, RequestHandler&& handler)
+    template <typename TCommand>
+    ErrorOr<RequestId> request(TCommand&& cmd, RequestHandler&& handler)
     {
-        return request(std::move(info), TimeoutDuration{0}, std::move(handler));
+        return request(std::move(cmd), TimeoutDuration{0}, std::move(handler));
     }
 
-    template <typename TInfo>
-    ErrorOr<RequestId> request(TInfo& info, TimeoutDuration timeout,
+    template <typename TCommand>
+    ErrorOr<RequestId> request(TCommand&& cmd, TimeoutDuration timeout,
                                RequestHandler&& handler)
     {
-        using IsRequest = MetaBool<info.isRequest({})>;
-        return doRequest(IsRequest{}, info, timeout, std::move(handler));
-    }
 
-    template <typename TInfo>
-    ErrorOr<RequestId> doRequest(TrueType, TInfo& info,
-                                 TimeoutDuration timeout, RequestHandler&& handler)
-    {
-        // Will take 285 years to overflow 2^53 at 1 million requests/sec
-        assert(nextRequestId_ < 9007199254740992u);
-        RequestId requestId = nextRequestId_ + 1;
-
-        auto sent = peer_.send(info.message({}, requestId));
-        if (!sent)
-        {
-            auto unex = makeUnexpected(sent.error());
-            completeRequest(handler, unex);
-            return unex;
-        }
-
-        ++nextRequestId_;
-
-        auto emplaced = requests_.emplace(info.requestKey(),
-                                          std::move(handler));
-        assert(emplaced.second);
-
-        if (timeout.count() != 0)
-            deadlines_->insert(requestId, timeout);
-
-        return requestId;
-    }
-
-    template <typename TInfo>
-    ErrorOr<RequestId> doRequest(FalseType, TInfo& info,
-                                 TimeoutDuration timeout,
-                                 RequestHandler&& handler)
-    {
-        RequestId requestId = nullId();
-
-        auto sent = peer_.send(info);
-        if (!sent)
-        {
-            auto unex = makeUnexpected(sent.error());
-            completeRequest(handler, unex);
-            return unex;
-        }
-
-        auto emplaced = requests_.emplace(info.requestKey(),
-                                          std::move(handler));
-        assert(emplaced.second);
-
-        if (timeout.count() != 0)
-            deadlines_->insert(requestId, timeout);
-
-        return requestId;
+        using HasRequestId = MetaBool<ValueTypeOf<TCommand>::hasRequestId({})>;
+        return doRequest(HasRequestId{}, cmd, timeout, std::move(handler));
     }
 
     ErrorOr<CallerChannel> requestStream(
-        bool rsvpExpected, Caller::WeakPtr caller, StreamRequest& req,
+        bool rsvpExpected, Caller::WeakPtr caller, StreamRequest&& req,
         ChunkSlot&& onChunk, StreamRequestHandler&& handler = {})
     {
         // Will take 285 years to overflow 2^53 at 1 million requests/sec
@@ -372,8 +320,7 @@ public:
                     requests_.erase(kv);
                     completeRequest(handler, unex);
                 }
-                CallCancellation cancellation{requestId, mode};
-                return peer_.send(cancellation.message({}));
+                return peer_.send(CallCancellation{requestId, mode});
             }
         }
 
@@ -388,19 +335,18 @@ public:
                 channels_.erase(kv);
                 req.cancel(executor_, userExecutor_, errc);
             }
-            CallCancellation cancellation{requestId, mode};
-            return peer_.send(cancellation.message({}));
+            return peer_.send(CallCancellation{requestId, mode});
         }
 
         return false;
     }
 
-    ErrorOrDone sendCallerChunk(RequestId reqId, CallerOutputChunk&& chunk)
+    ErrorOrDone sendCallerChunk(CallerOutputChunk&& chunk)
     {
-        RequestKey key{MessageKind::call, reqId};
-        if (requests_.count(key) == 0 && channels_.count(reqId) == 0)
+        auto key = chunk.requestKey({});
+        if (requests_.count(key) == 0 && channels_.count(key.second) == 0)
             return false;
-        return peer_.send(chunk.callMessage({}, reqId));
+        return peer_.send(std::move(chunk));
     }
 
     void abandonAll(std::error_code ec)
@@ -424,6 +370,60 @@ public:
 private:
     using RequestKey = typename Message::RequestKey;
     using CallerTimeoutScheduler = TimeoutScheduler<RequestId>;
+
+    template <typename TCommand>
+    ErrorOr<RequestId> doRequest(TrueType, TCommand& cmd,
+                                 TimeoutDuration timeout, RequestHandler&& handler)
+    {
+        // Will take 285 years to overflow 2^53 at 1 million requests/sec
+        assert(nextRequestId_ < 9007199254740992u);
+        RequestId requestId = nextRequestId_ + 1;
+        cmd.setRequestId({}, requestId);
+
+        auto sent = peer_.send(std::move(cmd));
+        if (!sent)
+        {
+            auto unex = makeUnexpected(sent.error());
+            completeRequest(handler, unex);
+            return unex;
+        }
+
+        ++nextRequestId_;
+
+        auto emplaced = requests_.emplace(cmd.requestKey({}),
+                                          std::move(handler));
+        assert(emplaced.second);
+
+        if (timeout.count() != 0)
+            deadlines_->insert(requestId, timeout);
+
+        return requestId;
+    }
+
+    template <typename TCommand>
+    ErrorOr<RequestId> doRequest(FalseType, TCommand& cmd,
+                                 TimeoutDuration timeout,
+                                 RequestHandler&& handler)
+    {
+        RequestId requestId = nullId();
+
+        auto sent = peer_.send(std::move(cmd));
+        if (!sent)
+        {
+            auto unex = makeUnexpected(sent.error());
+            completeRequest(handler, unex);
+            return unex;
+        }
+
+        auto emplaced = requests_.emplace(cmd.requestKey({}),
+                                          std::move(handler));
+        assert(emplaced.second);
+
+        if (timeout.count() != 0)
+            deadlines_->insert(requestId, timeout);
+
+        return requestId;
+    }
 
     template <typename F, typename... Ts>
     void completeRequest(F& handler, Ts&&... args)
@@ -517,7 +517,7 @@ public:
     }
 
     // Returns true if there are any subscriptions matching the event
-    bool onEvent(Event&& event, SubscriberPtr subscriber)
+    bool onEvent(const Event& event, SubscriberPtr subscriber)
     {
         auto found = subscriptions_.find(event.subscriptionId());
         if (found == subscriptions_.end())
@@ -693,8 +693,9 @@ public:
         return erased;
     }
 
-    ErrorOrDone yield(RequestId reqId, Result&& result)
+    ErrorOrDone yield(Result&& result)
     {
+        auto reqId = result.requestId({});
         auto found = invocations_.find(reqId);
         if (found == invocations_.end())
             return false;
@@ -708,19 +709,20 @@ public:
         if (moot)
             return false;
 
-        auto done = peer_.send(result.yieldMessage({}, reqId));
+        auto done = peer_.send(std::move(result));
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             if (!erased)
                 invocations_.erase(found);
-            peer_.sendError(MessageKind::invocation, reqId,
-                            Error{WampErrc::payloadSizeExceeded});
+            peer_.sendError({{}, MessageKind::invocation, reqId,
+                            WampErrc::payloadSizeExceeded});
         }
         return done;
     }
 
-    ErrorOrDone yield(RequestId reqId, CalleeOutputChunk&& chunk)
+    ErrorOrDone yield(CalleeOutputChunk&& chunk)
     {
+        auto reqId = chunk.requestId({});
         auto found = invocations_.find(reqId);
         if (found == invocations_.end())
             return false;
@@ -734,19 +736,20 @@ public:
         if (moot)
             return false;
 
-        auto done = peer_.send(chunk.yieldMessage({}, reqId));
+        auto done = peer_.send(std::move(chunk));
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             if (!erased)
                 invocations_.erase(found);
-            peer_.sendError(MessageKind::invocation, reqId,
-                            Error{WampErrc::payloadSizeExceeded});
+            peer_.sendError({{}, MessageKind::invocation, reqId,
+                             WampErrc::payloadSizeExceeded});
         }
         return done;
     }
 
-    ErrorOrDone yield(RequestId reqId, Error&& error)
+    ErrorOrDone yield(Error&& error)
     {
+        auto reqId = error.requestId({});
         auto found = invocations_.find(reqId);
         if (found == invocations_.end())
             return false;
@@ -758,11 +761,11 @@ public:
         if (moot)
             return false;
 
-        return peer_.sendError(MessageKind::invocation, reqId,
-                               std::move(error));
+        error.setRequestKind({}, MessageKind::invocation);
+        return peer_.sendError(std::move(error));
     }
 
-    WampErrc onInvocation(Invocation&& inv, CalleePtr callee)
+    WampErrc onInvocation(Invocation&& inv)
     {
         auto requestId = inv.requestId();
         auto regId = inv.registrationId();
@@ -771,8 +774,7 @@ public:
             auto kv = procedures_.find(regId);
             if (kv != procedures_.end())
             {
-                return onProcedureInvocation(inv, std::move(callee),
-                                             regId, kv->second);
+                return onProcedureInvocation(inv, kv->second);
             }
         }
 
@@ -780,17 +782,16 @@ public:
             auto kv = streams_.find(regId);
             if (kv != streams_.end())
             {
-                return onStreamInvocation(inv, std::move(callee),
-                                          regId, kv->second);
+                return onStreamInvocation(inv, kv->second);
             }
         }
 
-        peer_.sendError(MessageKind::invocation, requestId,
-                        {WampErrc::noSuchProcedure});
+        peer_.sendError({{}, MessageKind::invocation, requestId,
+                         WampErrc::noSuchProcedure});
         return WampErrc::noSuchProcedure;
     }
 
-    void onInterrupt(Interruption&& intr, CalleePtr callee)
+    void onInterrupt(Interruption&& intr)
     {
         auto found = invocations_.find(intr.requestId());
         if (found == invocations_.end())
@@ -806,10 +807,7 @@ public:
         {
             auto kv = procedures_.find(rec.registrationId);
             if (kv != procedures_.end())
-            {
-                interruptHandled =
-                    onProcedureInterruption(intr, std::move(callee), kv->second);
-            }
+                interruptHandled = onProcedureInterruption(intr, kv->second);
         }
 
         {
@@ -833,13 +831,13 @@ private:
     using ProcedureMap = std::map<RegistrationId, ProcedureRegistration>;
     using StreamMap = std::map<RegistrationId, StreamRegistration>;
 
-    WampErrc onProcedureInvocation(Invocation& inv, CalleePtr callee,
-                                   RegistrationId regId,
+    WampErrc onProcedureInvocation(Invocation& inv,
                                    const ProcedureRegistration& reg)
     {
         auto requestId = inv.requestId();
+        auto registrationId = inv.registrationId();
         auto emplaced = invocations_.emplace(requestId,
-                                             InvocationRecord{regId});
+                                             InvocationRecord{registrationId});
 
         // Progressive calls not allowed on procedures not registered
         // as streams.
@@ -848,28 +846,25 @@ private:
 
         auto& invocationRec = emplaced.first->second;
         invocationRec.closed = true;
-        inv.setContext({}, callee, userExecutor_);
-        postRpcRequest(reg.callSlot, inv, callee);
+        postRpcRequest(reg.callSlot, inv);
         return WampErrc::success;
     }
 
-    bool onProcedureInterruption(Interruption& intr, CalleePtr callee,
+    bool onProcedureInterruption(Interruption& intr,
                                  const ProcedureRegistration& reg)
     {
         if (reg.interruptSlot == nullptr)
             return false;
-        intr.setContext({}, callee, userExecutor_);
-        postRpcRequest(reg.interruptSlot, intr, callee);
+        postRpcRequest(reg.interruptSlot, intr);
         return true;
     }
 
     template <typename TSlot, typename TInvocationOrInterruption>
-    void postRpcRequest(TSlot slot, TInvocationOrInterruption& request,
-                        CalleePtr callee)
+    void postRpcRequest(TSlot slot, TInvocationOrInterruption& request)
     {
         struct Posted
         {
-            CalleePtr callee;
+            std::shared_ptr<Callee> callee;
             TSlot slot;
             TInvocationOrInterruption request;
 
@@ -888,14 +883,18 @@ private:
                         break;
 
                     case Outcome::Type::result:
-                        callee->safeYield(requestId,
-                                          std::move(outcome).asResult());
+                    {
+                        callee->safeYield(std::move(outcome).asResult(),
+                                          requestId);
                         break;
+                    }
 
                     case Outcome::Type::error:
-                        callee->safeYield(requestId,
-                                          std::move(outcome).asError());
+                    {
+                        callee->safeYield(std::move(outcome).asError(),
+                                          requestId);
                         break;
+                    }
 
                     default:
                         assert(false && "unexpected Outcome::Type");
@@ -903,49 +902,48 @@ private:
                 }
                 catch (Error& error)
                 {
-                    callee->safeYield(requestId, std::move(error));
+                    callee->safeYield(std::move(error), requestId);
                 }
                 catch (const error::BadType& e)
                 {
                     // Forward Variant conversion exceptions as ERROR messages.
-                    callee->safeYield(requestId, Error(e));
+                    callee->safeYield(Error{e}, requestId);
                 }
             }
         };
 
         auto associatedExec =
             boost::asio::get_associated_executor(slot, userExecutor_);
+        auto callee = request.callee({}).lock();
+        assert(callee != nullptr);
         Posted posted{callee, std::move(slot), std::move(request)};
         boost::asio::post(
             executor_,
             boost::asio::bind_executor(associatedExec, std::move(posted)));
     }
 
-    WampErrc onStreamInvocation(Invocation& inv, CalleePtr callee,
-                                RegistrationId regId,
-                                const StreamRegistration& reg)
+    WampErrc onStreamInvocation(Invocation& inv, const StreamRegistration& reg)
     {
         auto requestId = inv.requestId();
+        auto registrationId = inv.registrationId();
         auto emplaced = invocations_.emplace(requestId,
-                                             InvocationRecord{regId});
+                                             InvocationRecord{registrationId});
         auto& invocationRec = emplaced.first->second;
         if (invocationRec.closed)
             return WampErrc::protocolViolation;
 
         invocationRec.closed = !inv.isProgress({});
-        processStreamInvocation(reg, invocationRec, inv, callee);
+        processStreamInvocation(reg, invocationRec, inv);
         return WampErrc::success;
     }
 
     void processStreamInvocation(
-        const StreamRegistration& reg, InvocationRecord& rec, Invocation& inv,
-        CalleePtr callee)
+        const StreamRegistration& reg, InvocationRecord& rec, Invocation& inv)
     {
         if (!rec.invoked)
         {
             auto channel = std::make_shared<CalleeChannelImpl>(
-                std::move(inv), reg.invitationExpected, executor_,
-                userExecutor_, std::move(callee));
+                std::move(inv), reg.invitationExpected, executor_);
             rec.channel = channel;
             rec.invoked = true;
             CalleeChannel proxy{{}, channel};
@@ -993,8 +991,9 @@ private:
             rec.moot = true;
             Error error{intr.reason().value_or(
                 errorCodeToUri(WampErrc::cancelled))};
-            peer_.sendError(MessageKind::invocation, intr.requestId(),
-                            std::move(error));
+            error.setRequestId({}, intr.requestId());
+            error.setRequestKind({}, MessageKind::invocation);
+            peer_.sendError(std::move(error));
         }
     }
 
@@ -1186,9 +1185,9 @@ public:
         realm.withOption("agent", Version::agentString())
              .withOption("roles", ClientFeatures::providedRoles());
         challengeSlot_ = std::move(onChallenge);
-        request(realm.message({}),
-                Requested{shared_from_this(), std::move(handler), realm.uri(),
-                          realm.abortReason({})});
+        Requested requested{shared_from_this(), std::move(handler), realm.uri(),
+                            realm.abortReason({})};
+        request(std::move(realm), std::move(requested));
     }
 
     void safeJoin(Realm&& r, ChallengeSlot c, CompletionHandler<Welcome>&& f)
@@ -1210,7 +1209,7 @@ public:
     {
         if (state() != State::authenticating)
             return makeUnexpectedError(Errc::invalidState);
-        return peer_.send(auth.message({}));
+        return peer_.send(std::move(auth));
     }
 
     FutureErrorOrDone safeAuthenticate(Authentication&& a) override
@@ -1276,7 +1275,7 @@ public:
 
     void leave(Reason&& reason, CompletionHandler<Reason>&& handler)
     {
-        struct Adjourned
+        struct Requested
         {
             Ptr self;
             CompletionHandler<Reason> handler;
@@ -1299,8 +1298,8 @@ public:
         if (reason.uri().empty())
             reason.setUri({}, errorCodeToUri(WampErrc::closeRealm));
 
-        request(reason.message({}),
-                Adjourned{shared_from_this(), std::move(handler)});
+        request(std::move(reason),
+                Requested{shared_from_this(), std::move(handler)});
     }
 
     void safeLeave(Reason&& r, CompletionHandler<Reason>&& f)
@@ -1361,7 +1360,6 @@ public:
             MatchUri matchUri;
             EventSlot slot;
             CompletionHandler<Subscription> handler;
-            MatchPolicy policy;
 
             void operator()(ErrorOr<Message> reply)
             {
@@ -1385,11 +1383,9 @@ public:
         if (subscription)
             return complete(handler, std::move(subscription));
 
-        auto topicUri = topic.uri();
-        auto policy = topic.matchPolicy();
-        request(topic.message({}),
-                Requested{shared_from_this(), std::move(matchUri),
-                          std::move(slot), std::move(handler), policy});
+        Requested requested{shared_from_this(), std::move(matchUri),
+                            std::move(slot), std::move(handler)};
+        request(std::move(topic), std::move(requested));
     }
 
     void safeSubscribe(Topic&& t, EventSlot&& s,
@@ -1477,7 +1473,7 @@ public:
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
-        return peer_.send(pub.message({}));
+        return peer_.send(std::move(pub));
     }
 
     FutureErrorOrDone safePublish(Pub&& p)
@@ -1529,7 +1525,7 @@ public:
             return;
 
         pub.withOption("acknowledge", true);
-        request(pub.message({}),
+        request(std::move(pub),
                 Requested{shared_from_this(), std::move(handler)});
     }
 
@@ -1571,7 +1567,7 @@ public:
             return;
 
         ProcedureRegistration reg{std::move(c), std::move(i)};
-        request(p.message({}),
+        request(std::move(p),
                 Requested{shared_from_this(), std::move(reg), std::move(f)});
     }
 
@@ -1622,7 +1618,7 @@ public:
             return;
 
         StreamRegistration reg{std::move(ss), s.invitationExpected()};
-        request(s.message({}),
+        request(std::move(s),
                 Requested{shared_from_this(), std::move(reg), std::move(f)});
     }
 
@@ -1695,9 +1691,10 @@ public:
 
         if (registry_.unregister(reg))
         {
-            UnregisterMessage msg(reg.id());
+            Unregister cmd(reg.id());
             if (checkState(State::established, handler))
-                request(msg, Requested{shared_from_this(), std::move(handler)});
+                request(Unregister{reg.id()},
+                        Requested{shared_from_this(), std::move(handler)});
         }
         else
         {
@@ -1732,8 +1729,7 @@ public:
                 if (me.checkReply(reply, MessageKind::result, handler,
                                   errorPtr))
                 {
-                    auto& msg = messageCast<ResultMessage>(*reply);
-                    me.completeNow(handler, Result({}, std::move(msg)));
+                    me.completeNow(handler, Result({}, std::move(*reply)));
                 }
             }
         };
@@ -1744,7 +1740,7 @@ public:
         auto boundCancelSlot =
             boost::asio::get_associated_cancellation_slot(handler);
         auto requestId = requestor_.request(
-            rpc.message({}),
+            std::move(rpc),
             rpc.callerTimeout(),
             Requested{shared_from_this(), rpc.error({}), std::move(handler)});
         if (!requestId)
@@ -1888,19 +1884,16 @@ public:
         return fut;
     }
 
-    ErrorOrDone sendCallerChunk(RequestId reqId,
-                                CallerOutputChunk chunk) override
+    ErrorOrDone sendCallerChunk(CallerOutputChunk&& chunk) override
     {
-        return requestor_.sendCallerChunk(reqId, std::move(chunk));
+        return requestor_.sendCallerChunk(std::move(chunk));
     }
 
-    FutureErrorOrDone safeSendCallerChunk(RequestId r,
-                                          CallerOutputChunk c) override
+    FutureErrorOrDone safeSendCallerChunk(CallerOutputChunk&& c) override
     {
         struct Dispatched
         {
             Ptr self;
-            RequestId r;
             CallerOutputChunk c;
             ErrorOrDonePromise p;
 
@@ -1908,7 +1901,7 @@ public:
             {
                 try
                 {
-                    p.set_value(self->sendCallerChunk(r, std::move(c)));
+                    p.set_value(self->sendCallerChunk(std::move(c)));
                 }
                 catch (...)
                 {
@@ -1919,7 +1912,7 @@ public:
 
         ErrorOrDonePromise p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(r, std::move(c), std::move(p));
+        safelyDispatch<Dispatched>(std::move(c), std::move(p));
         return fut;
     }
 
@@ -1930,21 +1923,24 @@ public:
         return safeCancelCall(r, CallCancelMode::killNoWait);
     }
 
-    ErrorOrDone sendCalleeChunk(RequestId reqId,
-                                CalleeOutputChunk&& chunk) override
+    ErrorOrDone yieldChunk(CalleeOutputChunk&& chunk)
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
-        return registry_.yield(reqId, std::move(chunk));
+        return registry_.yield(std::move(chunk));
     }
 
-    FutureErrorOrDone safeSendCalleeChunk(RequestId r,
-                                          CalleeOutputChunk&& c) override
+    ErrorOrDone yield(CalleeOutputChunk&& chunk, RequestId reqId) override
+    {
+        chunk.setRequestId({}, reqId);
+        return yieldChunk(std::move(chunk));
+    }
+
+    FutureErrorOrDone safeYield(CalleeOutputChunk&& c, RequestId reqId) override
     {
         struct Dispatched
         {
             Ptr self;
-            RequestId r;
             CalleeOutputChunk c;
             ErrorOrDonePromise p;
 
@@ -1952,7 +1948,7 @@ public:
             {
                 try
                 {
-                    p.set_value(self->sendCalleeChunk(r, std::move(c)));
+                    p.set_value(self->yieldChunk(std::move(c)));
                 }
                 catch (...)
                 {
@@ -1961,25 +1957,31 @@ public:
             }
         };
 
+        c.setRequestId({}, reqId);
         ErrorOrDonePromise p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(r, std::move(c), std::move(p));
+        safelyDispatch<Dispatched>(std::move(c), std::move(p));
         return fut;
     }
 
-    ErrorOrDone yield(RequestId reqId, Result&& result) override
+    ErrorOrDone yieldResult(Result&& result)
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
-        return registry_.yield(reqId, std::move(result));
+        return registry_.yield(std::move(result));
     }
 
-    FutureErrorOrDone safeYield(RequestId i, Result&& r) override
+    ErrorOrDone yield(Result&& result, RequestId reqId) override
+    {
+        result.setRequestId({}, reqId);
+        return yieldResult(std::move(result));
+    }
+
+    FutureErrorOrDone safeYield(Result&& r, RequestId reqId) override
     {
         struct Dispatched
         {
             Ptr self;
-            RequestId i;
             Result r;
             ErrorOrDonePromise p;
 
@@ -1987,7 +1989,7 @@ public:
             {
                 try
                 {
-                    p.set_value(self->yield(i, std::move(r)));
+                    p.set_value(self->yieldResult(std::move(r)));
                 }
                 catch (...)
                 {
@@ -1996,25 +1998,31 @@ public:
             }
         };
 
+        r.setRequestId({}, reqId);
         ErrorOrDonePromise p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(i, std::move(r), std::move(p));
+        safelyDispatch<Dispatched>(std::move(r), std::move(p));
         return fut;
     }
 
-    ErrorOrDone yield(RequestId reqId, Error&& error) override
+    ErrorOrDone yieldError(Error&& error)
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
-        return registry_.yield(reqId, std::move(error));
+        return registry_.yield(std::move(error));
     }
 
-    FutureErrorOrDone safeYield(RequestId r, Error&& e) override
+    ErrorOrDone yield(Error&& error, RequestId reqId) override
+    {
+        error.setRequestId({}, reqId);
+        return yieldError(std::move(error));
+    }
+
+    FutureErrorOrDone safeYield(Error&& e, RequestId reqId) override
     {
         struct Dispatched
         {
             Ptr self;
-            RequestId r;
             Error e;
             ErrorOrDonePromise p;
 
@@ -2022,7 +2030,7 @@ public:
             {
                 try
                 {
-                    p.set_value(self->yield(r, std::move(e)));
+                    p.set_value(self->yieldError(std::move(e)));
                 }
                 catch (...)
                 {
@@ -2031,9 +2039,10 @@ public:
             }
         };
 
+        e.setRequestId({}, reqId);
         ErrorOrDonePromise p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(r, std::move(e), std::move(p));
+        safelyDispatch<Dispatched>(std::move(e), std::move(p));
         return fut;
     }
 
@@ -2107,9 +2116,9 @@ private:
     }
 
     template <typename TInfo>
-    ErrorOr<RequestId> request(TInfo& info, RequestHandler&& handler)
+    ErrorOr<RequestId> request(TInfo&& info, RequestHandler&& handler)
     {
-        return requestor_.request(info, std::move(handler));
+        return requestor_.request(std::move(info), std::move(handler));
     }
 
     void abortPending(std::error_code ec)
@@ -2216,8 +2225,7 @@ private:
 
         if (state() == State::established)
         {
-            UnsubscribeMessage msg(subId);
-            request(msg, Requested{shared_from_this()});
+            request(Unsubscribe{subId}, Requested{shared_from_this()});
         }
     }
 
@@ -2241,38 +2249,37 @@ private:
 
         if (checkState(State::established, handler))
         {
-            UnsubscribeMessage msg(subId);
-            request(msg, Requested{shared_from_this(), std::move(handler)});
+            request(Unsubscribe{subId},
+                    Requested{shared_from_this(), std::move(handler)});
         }
     }
 
     void onWelcome(CompletionHandler<Welcome>&& handler, Message& reply,
                    Uri&& realm)
     {
-        auto& welcomeMsg = messageCast<WelcomeMessage>(reply);
-        Welcome info{{}, std::move(realm), std::move(welcomeMsg)};
+        Welcome info{{}, std::move(realm), std::move(reply)};
         completeNow(handler, std::move(info));
     }
 
     void onJoinAborted(CompletionHandler<Welcome>&& handler, Message& reply,
                        Reason* abortPtr)
     {
-        auto& abortMsg = messageCast<AbortMessage>(reply);
-        const auto& uri = abortMsg.uri();
+        Reason reason{{}, std::move(reply)};
+        const auto& uri = reason.uri();
         WampErrc errc = errorUriToCode(uri);
         const auto& details = reply.as<Object>(1);
 
         if (abortPtr != nullptr)
         {
-            *abortPtr = Reason({}, std::move(abortMsg));
+            *abortPtr = std::move(reason);
         }
         else if ((logLevel() <= LogLevel::error) &&
                  (errc == WampErrc::unknown || !details.empty()))
         {
             std::ostringstream oss;
             oss << "JOIN request aborted by peer with error URI=" << uri;
-            if (!abortMsg.options().empty())
-                oss << ", Details=" << abortMsg.options();
+            if (!reason.options().empty())
+                oss << ", Details=" << reason.options();
             log(LogLevel::error, oss.str());
         }
 
@@ -2293,8 +2300,7 @@ private:
 
     void onChallenge(Message& msg)
     {
-        auto& challengeMsg = messageCast<ChallengeMessage>(msg);
-        Challenge challenge({}, shared_from_this(), std::move(challengeMsg));
+        Challenge challenge({}, shared_from_this(), std::move(msg));
 
         if (challengeSlot_)
         {
@@ -2353,14 +2359,14 @@ private:
 
     void onEvent(Message& msg)
     {
-        auto& eventMsg = messageCast<EventMessage>(msg);
-        bool ok = readership_.onEvent(eventMsg, shared_from_this());
+        Event event{{}, userExecutor_, std::move(msg)};
+        bool ok = readership_.onEvent(event, shared_from_this());
         if (!ok && logLevel() <= LogLevel::warning)
         {
             std::ostringstream oss;
             oss << "Discarding an EVENT that is not subscribed to "
-                   "(with subId=" << eventMsg.subscriptionId()
-                << " pubId=" << eventMsg.publicationId() << ")";
+                   "(with subId=" << event.subscriptionId()
+                << " pubId=" << event.publicationId() << ")";
             log(LogLevel::warning, oss.str());
         }
     }
@@ -2369,10 +2375,10 @@ private:
     {
         // TODO: Callee-initiated timeouts
 
-        auto& invMsg = messageCast<InvocationMessage>(msg);
-        auto regId = invMsg.registrationId();
+        Invocation inv{{}, std::move(msg), shared_from_this(), userExecutor_};
+        auto regId = inv.registrationId();
 
-        auto errc = registry_.onInvocation(invMsg, shared_from_this());
+        auto errc = registry_.onInvocation(std::move(inv));
         if (errc == WampErrc::noSuchProcedure)
         {
             log(LogLevel::error,
@@ -2390,8 +2396,9 @@ private:
 
     void onInterrupt(Message& msg)
     {
-        auto& intrMsg = messageCast<InterruptMessage>(msg);
-        registry_.onInterrupt(intrMsg, shared_from_this());
+        Interruption intr{{}, std::move(msg), shared_from_this(),
+                          userExecutor_};
+        registry_.onInterrupt(std::move(intr));
     }
 
     void onWampReply(Message& msg)
@@ -2429,8 +2436,7 @@ private:
             return true;
         }
 
-        auto& errMsg = messageCast<ErrorMessage>(*reply);
-        Error error({}, std::move(errMsg));
+        Error error({}, std::move(*reply));
         WampErrc errc = error.errorCode();
 
         if (errorPtr != nullptr)
@@ -2474,8 +2480,7 @@ private:
         {
             if (logLevel() <= LogLevel::error)
             {
-                auto& msg = messageCast<ErrorMessage>(*reply);
-                Error error({}, std::move(msg));
+                Error error({}, std::move(*reply));
                 std::ostringstream oss;
                 oss << "Expected reply for " << msgTypeName
                     << " message but got ";

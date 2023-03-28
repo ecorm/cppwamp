@@ -78,6 +78,9 @@ public:
     Error(internal::PassKey, internal::Message&& msg);
 
     Error(internal::PassKey, internal::MessageKind reqKind,
+          RequestId rid, WampErrc errc, Object opts = {});
+
+    Error(internal::PassKey, internal::MessageKind reqKind,
           RequestId rid, std::error_code ec, Object opts = {});
 
     void setRequestKind(internal::PassKey, internal::MessageKind reqKind);

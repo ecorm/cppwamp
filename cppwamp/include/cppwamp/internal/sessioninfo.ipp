@@ -17,7 +17,9 @@ namespace wamp
 // Reason
 //******************************************************************************
 
-CPPWAMP_INLINE Reason::Reason(Uri uri) : Base(std::move(uri), Object{}) {}
+CPPWAMP_INLINE Reason::Reason(Uri uri)
+    : Base(in_place, std::move(uri), Object{})
+{}
 
 CPPWAMP_INLINE Reason::Reason(std::error_code ec)
     : Reason(errorCodeToUri(ec))
@@ -75,7 +77,9 @@ CPPWAMP_INLINE void Reason::setKindToAbort(internal::PassKey)
 // Realm
 //******************************************************************************
 
-CPPWAMP_INLINE Realm::Realm(Uri uri) : Base(std::move(uri), Object{}) {}
+CPPWAMP_INLINE Realm::Realm(Uri uri)
+    : Base(in_place, std::move(uri), Object{})
+{}
 
 CPPWAMP_INLINE Realm& Realm::captureAbort(Reason& reason)
 {
@@ -137,7 +141,7 @@ CPPWAMP_INLINE Reason* Realm::abortReason(internal::PassKey)
 // Welcome
 //******************************************************************************
 
-CPPWAMP_INLINE Welcome::Welcome() : Base(0, Object{}) {}
+CPPWAMP_INLINE Welcome::Welcome() : Base(in_place, 0, Object{}) {}
 
 CPPWAMP_INLINE SessionId Welcome::id() const
 {
@@ -229,7 +233,7 @@ CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, Uri&& realm,
 {}
 
 Welcome::Welcome(internal::PassKey, SessionId sid, Object&& opts)
-    : Base(sid, std::move(opts))
+    : Base(in_place, sid, std::move(opts))
 {}
 
 
@@ -240,7 +244,7 @@ Welcome::Welcome(internal::PassKey, SessionId sid, Object&& opts)
 CPPWAMP_INLINE Authentication::Authentication() : Authentication(String{}) {}
 
 CPPWAMP_INLINE Authentication::Authentication(String signature)
-    : Base(std::move(signature), Object{})
+    : Base(in_place, std::move(signature), Object{})
 {}
 
 CPPWAMP_INLINE const String& Authentication::signature() const
@@ -284,7 +288,7 @@ CPPWAMP_INLINE Authentication::Authentication(internal::PassKey,
 //******************************************************************************
 
 CPPWAMP_INLINE Challenge::Challenge(String authMethod)
-    : Base(std::move(authMethod), Object{})
+    : Base(in_place, std::move(authMethod), Object{})
 {}
 
 CPPWAMP_INLINE Challenge& Challenge::withChallenge(String challenge)

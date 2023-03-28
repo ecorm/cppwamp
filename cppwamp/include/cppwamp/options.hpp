@@ -71,7 +71,10 @@ public:
 
 protected:
     template <typename... Ts>
-    Options(Ts&&... fields);
+    Options(in_place_t, Ts&&... fields);
+
+    template <internal::MessageKind M>
+    explicit Options(internal::Command<M>&& command);
 
     explicit Options(internal::Message&& msg);
 
@@ -205,8 +208,15 @@ ErrorOr<UInt> Options<D,K>::toUnsignedInteger(const String& key) const
 //------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
 template <typename... Ts>
-Options<D,K>::Options(Ts&&... fields)
-    : Base(std::forward<Ts>(fields)...)
+Options<D,K>::Options(in_place_t, Ts&&... fields)
+    : Base(in_place, std::forward<Ts>(fields)...)
+{}
+
+//------------------------------------------------------------------------------
+template <typename D, internal::MessageKind K>
+template <internal::MessageKind M>
+Options<D,K>::Options(internal::Command<M>&& command)
+    : Base(std::move(command))
 {}
 
 //------------------------------------------------------------------------------

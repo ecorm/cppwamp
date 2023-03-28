@@ -34,8 +34,10 @@ CPPWAMP_INLINE CallerOutputChunk::CallerOutputChunk(
     : Base(isFinal, 0, Object{}, String{})
 {}
 
-CPPWAMP_INLINE void CallerOutputChunk::setCallInfo(internal::PassKey, Uri uri)
+CPPWAMP_INLINE void CallerOutputChunk::setCallInfo(
+    internal::PassKey, ChannelId channelId, Uri uri)
 {
+    setRequestId(channelId);
     message().at(uriPos_) = std::move(uri);
 }
 

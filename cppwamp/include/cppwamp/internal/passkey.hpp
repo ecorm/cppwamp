@@ -13,6 +13,7 @@ namespace wamp
 class AuthorizationRequest;
 class CalleeInputChunk;
 class Event;
+class Interruption;
 class Invocation;
 class Session;
 
@@ -26,6 +27,7 @@ namespace internal
         friend class wamp::AuthorizationRequest;
         friend class wamp::CalleeInputChunk;
         friend class wamp::Event;
+        friend class wamp::Interruption;
         friend class wamp::Invocation;
         friend class wamp::Session;
         template <typename> friend class BasicCalleeChannelImpl;
@@ -38,7 +40,6 @@ namespace internal
         friend class DealerJob;
         friend class DealerJobMap;
         friend class DirectPeer;
-        friend class Invocation;
         friend class LocalSessionImpl;
         friend class MatchUri;
         friend class Peer;

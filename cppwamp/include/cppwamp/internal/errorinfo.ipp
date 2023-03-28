@@ -11,7 +11,9 @@
 namespace wamp
 {
 
-CPPWAMP_INLINE Error::Error(Uri uri) : Base(0, 0, Object{}, std::move(uri)) {}
+CPPWAMP_INLINE Error::Error(Uri uri)
+    : Base(in_place, 0, 0, Object{}, std::move(uri))
+{}
 
 CPPWAMP_INLINE Error::Error(std::error_code ec) : Error(errorCodeToUri(ec)) {}
 
@@ -47,8 +49,13 @@ CPPWAMP_INLINE Error::Error(internal::PassKey, internal::Message&& msg)
 {}
 
 CPPWAMP_INLINE Error::Error(internal::PassKey, internal::MessageKind reqKind,
+                            RequestId rid, WampErrc errc, Object opts)
+    : Base(in_place, Int(reqKind), rid, std::move(opts), errorCodeToUri(errc))
+{}
+
+CPPWAMP_INLINE Error::Error(internal::PassKey, internal::MessageKind reqKind,
                             RequestId rid, std::error_code ec, Object opts)
-    : Base(Int(reqKind), rid, std::move(opts), errorCodeToUri(ec))
+    : Base(in_place, Int(reqKind), rid, std::move(opts), errorCodeToUri(ec))
 {}
 
 CPPWAMP_INLINE void Error::setRequestKind(internal::PassKey,

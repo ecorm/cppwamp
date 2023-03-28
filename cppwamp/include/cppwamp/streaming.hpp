@@ -71,7 +71,7 @@ protected:
 
     template <typename... Ts>
     explicit Chunk(bool isFinal, Ts&&... fields)
-        : Base(std::forward<Ts>(fields)...),
+        : Base(in_place, std::forward<Ts>(fields)...),
           isFinal_(isFinal)
     {
         if (!this->isFinal())
@@ -127,7 +127,7 @@ private:
 
 public:
     // Internal use only
-    void setCallInfo(internal::PassKey, Uri uri);
+    void setCallInfo(internal::PassKey, ChannelId channelId, Uri uri);
 };
 
 

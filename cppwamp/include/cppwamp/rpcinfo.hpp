@@ -438,27 +438,28 @@ public:
     ErrorOr<Uri> procedure() const;
     /// @}
 
-public:
-    // Internal use only
-    static constexpr bool isRequest(internal::PassKey) {return false;}
-    using CalleePtr = std::weak_ptr<internal::Callee>;
-    Invocation(internal::PassKey, internal::Message&& msg);
-    Invocation(internal::PassKey, Rpc&& rpc, RegistrationId regId);
-    bool isProgress(internal::PassKey) const;
-    bool resultsAreProgressive(internal::PassKey) const;
-    void setRequestId(internal::PassKey, RequestId rid);
-    void setContext(internal::PassKey, CalleePtr callee,
-                    AnyCompletionExecutor executor);
-
 private:
-    static constexpr unsigned registrationIdPos_ = 2;
-
     using Base = Payload<Invocation, internal::MessageKind::invocation>;
+    using CalleePtr = std::weak_ptr<internal::Callee>;
 
+    static std::future<ErrorOrDone> futureValue(bool value);
+
+    static constexpr unsigned registrationIdPos_ = 2;
     CalleePtr callee_;
     AnyCompletionExecutor executor_ = nullptr;
+    RequestId requestId_ = nullId();
+    RegistrationId registrationId_ = nullId();
 
     template <typename, typename...> friend class CoroInvocationUnpacker;
+
+public:
+    // Internal use only
+    Invocation(internal::PassKey, internal::Message&& msg,
+               CalleePtr callee, AnyCompletionExecutor userExec);
+    Invocation(internal::PassKey, Rpc&& rpc, RegistrationId regId);
+    CalleePtr callee(internal::PassKey) const;
+    bool isProgress(internal::PassKey) const;
+    bool resultsAreProgressive(internal::PassKey) const;
 };
 
 
@@ -542,29 +543,28 @@ public:
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
 
-public:
-    // Internal use only
-    using CalleePtr = std::weak_ptr<internal::Callee>;
-
-    Interruption(internal::PassKey, CalleePtr callee,
-                 AnyCompletionExecutor executor, internal::Message&& msg);
-
-    Interruption(internal::PassKey, RequestId reqId, CallCancelMode mode,
-                 WampErrc reason);
-
-    Interruption(internal::PassKey, internal::Message&& msg);
-
-    void setContext(internal::PassKey, CalleePtr callee,
-                    AnyCompletionExecutor executor);
-
 private:
     using Base = Options<Interruption, internal::MessageKind::interrupt>;
+    using CalleePtr = std::weak_ptr<internal::Callee>;
+
+    static std::future<ErrorOrDone> futureValue(bool value);
 
     static Object makeOptions(CallCancelMode mode, WampErrc reason);
 
     CalleePtr callee_;
     AnyCompletionExecutor executor_ = nullptr;
+    RequestId requestId_ = nullId();
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
+
+public:
+    // Internal use only
+    Interruption(internal::PassKey, internal::Message&& msg, CalleePtr callee,
+                 AnyCompletionExecutor executor);
+
+    Interruption(internal::PassKey, RequestId reqId, CallCancelMode mode,
+                 WampErrc reason);
+
+    CalleePtr callee(internal::PassKey) const;
 };
 
 
@@ -602,7 +602,7 @@ MatchPolicy ProcedureLike<D>::matchPolicy() const
 
 template <typename D>
 ProcedureLike<D>::ProcedureLike(String&& uri)
-    : Base(internal::MessageKind::enroll, 0, Object{}, std::move(uri))
+    : Base(in_place, 0, Object{}, std::move(uri))
 {}
 
 template <typename D>
@@ -708,7 +708,7 @@ D& RpcLike<D>::withCancellationSlot(CallCancellationSlot slot)
 }
 
 template <typename D>
-RpcLike<D>::RpcLike(Uri&& uri) : Base(0, Object{}, std::move(uri)) {}
+RpcLike<D>::RpcLike(Uri&& uri) : Base(in_place, 0, Object{}, std::move(uri)) {}
 
 template <typename D>
 RpcLike<D>::RpcLike(internal::Message&& msg) : Base(std::move(msg)) {}
@@ -729,8 +729,7 @@ void RpcLike<D>::setDisclosed(internal::PassKey, bool disclosed)
 }
 
 template <typename D>
-void RpcLike<D>::setTrustLevel(internal::PassKey,
-                                       TrustLevel trustLevel)
+void RpcLike<D>::setTrustLevel(internal::PassKey, TrustLevel trustLevel)
 {
     trustLevel_ = trustLevel;
     hasTrustLevel_ = true;

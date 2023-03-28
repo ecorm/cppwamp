@@ -8,7 +8,6 @@
 #define CPPWAMP_INTERNAL_CONTROLINFO_HPP
 
 #include "message.hpp"
-#include "passkey.hpp"
 
 namespace wamp
 {
@@ -20,9 +19,9 @@ namespace internal
 class Subscribed : public Command<MessageKind::subscribed>
 {
 public:
-    Subscribed(RequestId rid, SubscriptionId sid) : Base(rid, sid) {}
+    Subscribed(RequestId rid, SubscriptionId sid) : Base(in_place, rid, sid) {}
 
-    Subscribed(Message&& msg) : Base(std::move(msg)) {}
+    explicit Subscribed(Message&& msg) : Base(std::move(msg)) {}
 
     SubscriptionId subscriptionId() const
     {
@@ -39,9 +38,9 @@ private:
 class Unsubscribe : public Command<MessageKind::unsubscribe>
 {
 public:
-    Unsubscribe(RequestId rid, SubscriptionId sid) : Base(rid, sid) {}
+    explicit Unsubscribe(SubscriptionId sid) : Base(in_place, 0, sid) {}
 
-    Unsubscribe(Message&& msg) : Base(std::move(msg)) {}
+    explicit Unsubscribe(Message&& msg) : Base(std::move(msg)) {}
 
     SubscriptionId subscriptionId() const
     {
@@ -58,9 +57,9 @@ private:
 class Unsubscribed : public Command<MessageKind::unsubscribed>
 {
 public:
-    Unsubscribed(RequestId rid) : Base(rid) {}
+    explicit Unsubscribed(RequestId rid) : Base(in_place, rid) {}
 
-    Unsubscribed(Message&& msg) : Base(std::move(msg)) {}
+    explicit Unsubscribed(Message&& msg) : Base(std::move(msg)) {}
 
 private:
     using Base = Command<MessageKind::unsubscribed>;
@@ -70,9 +69,9 @@ private:
 class Published : public Command<MessageKind::published>
 {
 public:
-    Published(RequestId rid, PublicationId pid) : Base(rid, pid) {}
+    Published(RequestId rid, PublicationId pid) : Base(in_place, rid, pid) {}
 
-    Published(Message&& msg) : Base(std::move(msg)) {}
+    explicit Published(Message&& msg) : Base(std::move(msg)) {}
 
     PublicationId publicationId() const
     {
@@ -89,9 +88,9 @@ private:
 class Registered : public Command<MessageKind::registered>
 {
 public:
-    Registered(RequestId rid, RegistrationId sid) : Base(rid, sid) {}
+    Registered(RequestId rid, RegistrationId sid) : Base(in_place, rid, sid) {}
 
-    Registered(Message&& msg) : Base(std::move(msg)) {}
+    explicit Registered(Message&& msg) : Base(std::move(msg)) {}
 
     RegistrationId registrationId() const
     {
@@ -108,9 +107,9 @@ private:
 class Unregister : public Command<MessageKind::unregister>
 {
 public:
-    Unregister(RegistrationId rid) : Base(0, rid) {}
+    explicit Unregister(RegistrationId rid) : Base(in_place, 0, rid) {}
 
-    Unregister(Message&& msg) : Base(std::move(msg)) {}
+    explicit Unregister(Message&& msg) : Base(std::move(msg)) {}
 
     RegistrationId registrationId() const
     {
@@ -127,17 +126,15 @@ private:
 class Unregistered : public Command<MessageKind::unregistered>
 {
 public:
-    Unregistered(RequestId rid) : Base(rid) {}
+    explicit Unregistered(RequestId rid) : Base(in_place, rid) {}
 
-    Unregistered(Message&& msg) : Base(std::move(msg)) {}
+    explicit Unregistered(Message&& msg) : Base(std::move(msg)) {}
 
 private:
     using Base = Command<MessageKind::unregistered>;
 };
 
 } // namespace internal
-
-//------------------------------------------------------------------------------
 
 } // namespace wamp
 

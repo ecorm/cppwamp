@@ -102,8 +102,8 @@ public:
         auto caller = caller_.lock();
         if (!caller)
             return false;
-        chunk.setCallInfo({}, uri_);
-        return caller->sendCallerChunk(id_, std::move(chunk));
+        chunk.setCallInfo({}, id_, uri_);
+        return caller->sendCallerChunk(std::move(chunk));
     }
 
     CPPWAMP_NODISCARD std::future<ErrorOrDone> send(ThreadSafe,
@@ -120,8 +120,8 @@ public:
         auto caller = caller_.lock();
         if (!caller)
             return futureValue(false);
-        chunk.setCallInfo({}, uri_);
-        return caller->safeSendCallerChunk(id_, std::move(chunk));
+        chunk.setCallInfo({}, id_, uri_);
+        return caller->safeSendCallerChunk(std::move(chunk));
     }
 
     ErrorOrDone cancel(CallCancelMode mode)
@@ -298,12 +298,11 @@ public:
     using State = ChannelState;
 
     BasicCalleeChannelImpl(
-        Invocation&& inv, bool invitationExpected, Executor executor,
-        FallbackExecutor userExecutor, Callee::WeakPtr callee)
+        Invocation&& inv, bool invitationExpected, Executor executor)
         : invitation_({}, std::move(inv)),
           executor_(std::move(executor)),
-          userExecutor_(std::move(userExecutor)),
-          callee_(std::move(callee)),
+          userExecutor_(inv.executor()),
+          callee_(inv.callee({})),
           id_(invitation_.channelId()),
           state_(State::awaiting),
           mode_(invitation_.mode({})),
@@ -365,7 +364,7 @@ public:
         auto caller = callee_.lock();
         if (!caller)
             return false;
-        return caller->sendCalleeChunk(id_, std::move(response));
+        return caller->yield(std::move(response), id_);
     }
 
     std::future<ErrorOrDone> respond(
@@ -389,7 +388,7 @@ public:
         auto caller = callee_.lock();
         if (!caller)
             return futureValue(false);
-        return caller->safeSendCalleeChunk(id_, std::move(response));
+        return caller->safeYield(std::move(response), id_);
     }
 
     CPPWAMP_NODISCARD ErrorOrDone accept(ChunkSlot onChunk = {},
@@ -418,7 +417,7 @@ public:
         auto caller = callee_.lock();
         if (!caller)
             return false;
-        return caller->sendCalleeChunk(id_, std::move(chunk));
+        return caller->yield(std::move(chunk), id_);
     }
 
     CPPWAMP_NODISCARD std::future<ErrorOrDone> send(ThreadSafe,
@@ -432,7 +431,7 @@ public:
         auto callee = callee_.lock();
         if (!callee)
             return futureValue(false);
-        return callee->safeSendCalleeChunk(id_, std::move(chunk));
+        return callee->safeYield(std::move(chunk), id_);
     }
 
     ErrorOrDone fail(Error error)
@@ -441,7 +440,7 @@ public:
         auto caller = callee_.lock();
         if (!caller || oldState == State::closed)
             return false;
-        return caller->yield(id_, std::move(error));
+        return caller->yield(std::move(error), id_);
     }
 
     std::future<ErrorOrDone> fail(ThreadSafe, Error error)
@@ -450,7 +449,7 @@ public:
         auto caller = callee_.lock();
         if (!caller || oldState == State::closed)
             return futureValue(false);
-        return caller->safeYield(id_, std::move(error));
+        return caller->safeYield(std::move(error), id_);
     }
 
     bool hasInterruptHandler() const

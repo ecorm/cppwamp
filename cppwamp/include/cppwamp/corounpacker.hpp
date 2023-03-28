@@ -550,15 +550,16 @@ private:
     void safeYield(Result&& result)
     {
         auto callee = calleePtr_.lock();
-        if (callee)
-            callee->safeYield(reqId_, std::move(result));
+        if (!callee)
+            return;
+        callee->safeYield(std::move(result), reqId_);
     }
 
     void safeYield(Error&& error)
     {
         auto callee = calleePtr_.lock();
         if (callee)
-            callee->safeYield(reqId_, std::move(error));
+            callee->safeYield(std::move(error), reqId_);
     }
 
     Slot slot_;

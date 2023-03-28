@@ -18,7 +18,9 @@ namespace wamp
 // Topic
 //******************************************************************************
 
-CPPWAMP_INLINE Topic::Topic(Uri uri) : Base(0, Object{}, std::move(uri)) {}
+CPPWAMP_INLINE Topic::Topic(Uri uri)
+    : Base(in_place, 0, Object{}, std::move(uri))
+{}
 
 CPPWAMP_INLINE const Uri& Topic::uri() const
 {
@@ -58,7 +60,9 @@ CPPWAMP_INLINE Uri&& Topic::uri(internal::PassKey) &&
 // Pub
 //******************************************************************************
 
-CPPWAMP_INLINE Pub::Pub(Uri topic) : Base(0, Object{}, std::move(topic)) {}
+CPPWAMP_INLINE Pub::Pub(Uri topic)
+    : Base(in_place, 0, Object{}, std::move(topic))
+{}
 
 CPPWAMP_INLINE const Uri& Pub::uri() const
 {
@@ -170,7 +174,7 @@ CPPWAMP_INLINE TrustLevel Pub::trustLevel(internal::PassKey) const
 //******************************************************************************
 
 /** @post `this->empty() == true` */
-CPPWAMP_INLINE Event::Event() : Base(0, 0, Object{}) {}
+CPPWAMP_INLINE Event::Event() : Base(in_place, 0, 0, Object{}) {}
 
 CPPWAMP_INLINE bool Event::empty() const {return executor_ == nullptr;}
 
@@ -231,8 +235,9 @@ CPPWAMP_INLINE Event::Event(internal::PassKey, AnyCompletionExecutor executor,
 
 CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
                             PublicationId pid)
-    : Base(std::move(pub.message({}).fields()))
+    : Base(std::move(pub))
 {
+    message().setKind(internal::MessageKind::event);
     message().at(subscriptionIdPos_) = sid;
     message().at(publicationIdPos_) = pid;
     message().at(optionsPos_) = Object{};

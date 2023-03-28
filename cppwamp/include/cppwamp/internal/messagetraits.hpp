@@ -56,7 +56,7 @@ struct MessageKindTraits
 template <>
 struct MessageKindTraits<MessageKind::hello>
 {
-    static constexpr bool isRequest()        {return false;}
+    static constexpr bool isRequest()        {return true;}
     static constexpr unsigned requestIdPos() {return 0;}
     static constexpr unsigned optionsPos()   {return 2;}
 };

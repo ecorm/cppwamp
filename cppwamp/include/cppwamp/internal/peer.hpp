@@ -164,39 +164,26 @@ public:
         }
     }
 
-    template <typename TInfo>
-    ErrorOrDone send(const TInfo& info)
+    template <typename TCommand>
+    ErrorOrDone send(TCommand&& cmd)
     {
-        const auto& msg = info.message({});
-        assert(msg.kind() != MessageKind::none);
-
-        MessageBuffer buffer;
-        codec_.encode(msg.fields(), buffer);
-        if (buffer.size() > maxTxLength_)
-            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
-
-        traceTx(msg);
-        assert(transport_ != nullptr);
-        transport_->send(std::move(buffer));
-        return true;
+        return doSend(cmd);
     }
 
-    ErrorOrDone sendError(MessageKind reqKind, RequestId reqId, Error&& error)
+    ErrorOrDone sendError(Error&& error)
     {
-        error.setRequestKind({}, reqKind);
-        error.setRequestId({}, reqId);
-        auto done = send(error);
+        auto done = doSend(error);
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             error.withArgs(std::string("(Details removed due "
                                        "to transport limits)"));
             error.withKwargs({});
-            (void)send(error);
+            doSend(error);
             if (logLevel() <= LogLevel::warning)
             {
                 std::ostringstream oss;
                 oss << "Stripped args of outbound ERROR message with error URI "
-                    << error.uri() << " and request ID " << reqId
+                    << error.uri() << " and request ID " << error.requestId({})
                     << " due to transport payload limits";
                 log({LogLevel::warning, oss.str()});
             }
@@ -272,6 +259,23 @@ private:
         if (ok)
             stateChangeHandler_(desired, std::error_code{});
         return ok;
+    }
+
+    template <typename TCommand>
+    ErrorOrDone doSend(const TCommand& cmd)
+    {
+        const auto& msg = cmd.message({});
+        assert(msg.kind() != MessageKind::none);
+
+        MessageBuffer buffer;
+        codec_.encode(msg.fields(), buffer);
+        if (buffer.size() > maxTxLength_)
+            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
+
+        traceTx(msg);
+        assert(transport_ != nullptr);
+        transport_->send(std::move(buffer));
+        return true;
     }
 
     void onTransportRx(MessageBuffer buffer)

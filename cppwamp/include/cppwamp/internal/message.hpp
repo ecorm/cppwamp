@@ -13,6 +13,7 @@
 #include <utility>
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
+#include "../tagtypes.hpp"
 #include "../traits.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
@@ -80,7 +81,12 @@ struct Message
     template <typename... Ts>
     Message(MessageKind kind, Ts&&... fields)
         : kind_(kind),
-          fields_({static_cast<Int>(kind), std::forward<Ts>(fields)...})
+          fields_(Array{static_cast<Int>(kind), std::forward<Ts>(fields)...})
+    {}
+
+    Message(Array&& array)
+        : kind_(MessageKind::none),
+          fields_(std::move(array))
     {}
 
     void setKind(MessageKind t)
@@ -187,19 +193,6 @@ protected:
 template <MessageKind K>
 class RequestCommand
 {
-public: // Internal use only
-    RequestId requestId(PassKey) const {return requestId();}
-
-    std::pair<MessageKind, RequestId> requestKey(PassKey) const
-    {
-        return {message_.kind(), requestId()};
-    }
-
-    void setRequestId(PassKey, RequestId rid)
-    {
-        message_.at(requestIdPos_) = rid;
-    }
-
 protected:
     RequestCommand() {}
 
@@ -208,16 +201,32 @@ protected:
         : message_(kind, std::forward<Ts>(fields)...)
     {}
 
+    RequestCommand(Message&& msg) : message_(std::move(msg)) {}
+
+    RequestCommand(Array&& array) : message_(std::move(array)) {}
+
     RequestId requestId() const
     {
         return message_.template to<RequestId>(requestIdPos_);
     }
+
+    void setRequestId(RequestId rid) {message_.at(requestIdPos_) = rid;}
 
     Message message_;
 
 private:
     static constexpr unsigned requestIdPos_ =
         MessageKindTraits<K>::requestIdPos();
+
+public: // Internal use only
+    RequestId requestId(PassKey) const {return requestId();}
+
+    std::pair<MessageKind, RequestId> requestKey(PassKey) const
+    {
+        return {message_.kind(), requestId()};
+    }
+
+    void setRequestId(PassKey, RequestId rid) {setRequestId(rid);}
 };
 
 //------------------------------------------------------------------------------
@@ -231,7 +240,17 @@ protected:
         : message_(kind, std::forward<Ts>(fields)...)
     {}
 
+    NonRequestCommand(Message&& msg) : message_(std::move(msg)) {}
+
+    NonRequestCommand(Array&& array) : message_(std::move(array)) {}
+
     Message message_;
+
+public: // Internal use only
+    std::pair<MessageKind, RequestId> requestKey(PassKey) const
+    {
+        return {message_.kind(), nullId()};
+    }
 };
 
 template <MessageKind K>
@@ -247,18 +266,25 @@ protected:
     Command() {}
 
     template <typename... Ts>
-    Command(Ts&&... fields) : Base(K, std::forward<Ts>(fields)...) {}
+    Command(in_place_t, Ts&&... fields)
+        : Base(K, std::forward<Ts>(fields)...)
+    {}
 
-    explicit Command(internal::Message&& msg);
+    explicit Command(internal::Message&& msg) : Base(std::move(msg)) {}
 
-    const internal::Message& message() const {return message_;}
+    template <MessageKind M>
+    explicit Command(Command<M>&& command)
+        : Base(std::move(command.message_.fields()))
+    {}
 
-    internal::Message& message() {return message_;}
+    const internal::Message& message() const {return this->message_;}
+
+    internal::Message& message() {return this->message_;}
 
 private:
     using Base = CommandBase<K>;
 
-    internal::Message message_;
+    template <MessageKind> friend class Command;
 
 public: // Internal use only
     static constexpr bool isRequest(PassKey)
@@ -266,9 +292,14 @@ public: // Internal use only
         return MessageKindTraits<K>::isRequest();
     }
 
-    internal::Message& message(PassKey) {return message_;}
+    static constexpr bool hasRequestId(PassKey)
+    {
+        return MessageKindTraits<K>::requestIdPos() != 0;
+    }
 
-    const internal::Message& message(PassKey) const {return message_;}
+    internal::Message& message(PassKey) {return this->message_;}
+
+    const internal::Message& message(PassKey) const {return this->message_;}
 };
 
 // TODO

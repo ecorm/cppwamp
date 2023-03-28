@@ -96,7 +96,10 @@ public:
 
 protected:
     template <typename... Ts>
-    Payload(Ts&&... fields);
+    Payload(in_place_t, Ts&&... fields);
+
+    template <internal::MessageKind M>
+    explicit Payload(internal::Command<M>&& command);
 
     explicit Payload(internal::Message&& msg);
 
@@ -368,8 +371,15 @@ size_t Payload<D,K>::moveToTuple(std::tuple<Ts...>& tuple)
 //------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
 template <typename... Ts>
-Payload<D,K>::Payload(Ts&&... fields)
-    : Base(std::forward<Ts>(fields)...)
+Payload<D,K>::Payload(in_place_t, Ts&&... fields)
+    : Base(in_place, std::forward<Ts>(fields)...)
+{}
+
+//------------------------------------------------------------------------------
+template <typename D, internal::MessageKind K>
+template <internal::MessageKind M>
+Payload<D,K>::Payload(internal::Command<M>&& command)
+    : Base(std::move(command))
 {}
 
 //------------------------------------------------------------------------------
