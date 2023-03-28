@@ -16,6 +16,7 @@
 #include "../logging.hpp"
 #include "../pubsubinfo.hpp"
 #include "../rpcinfo.hpp"
+#include "commandinfo.hpp"
 #include "random.hpp"
 
 namespace wamp
@@ -97,23 +98,8 @@ public:
 
     bool leave(SessionId sid);
 
-    bool subscribe(RealmSessionPtr s, Topic t);
-
-    bool unsubscribe(RealmSessionPtr s, SubscriptionId subId, RequestId rid);
-
-    bool publish(RealmSessionPtr s, Pub pub);
-
-    bool enroll(RealmSessionPtr s, Procedure proc);
-
-    bool unregister(RealmSessionPtr s, RegistrationId regId, RequestId reqId);
-
-    bool call(RealmSessionPtr s, Rpc rpc);
-
-    bool cancelCall(RealmSessionPtr s, CallCancellation c);
-
-    bool yieldResult(RealmSessionPtr s, Result r);
-
-    bool yieldError(RealmSessionPtr s, Error e);
+    template <typename TCommand>
+    bool send(RealmSessionPtr s, TCommand&& cmd);
 
 private:
     std::weak_ptr<RouterRealm> realm_;

@@ -286,80 +286,11 @@ public:
         return true;
     }
 
-    ErrorOrDone send(Topic&& topic)
-    {
-        traceTx(topic.message({}));
-        if (!realm_.subscribe(session_, std::move(topic)))
-            return fail(WampErrc::noSuchRealm);
-        return true;
-    }
-
-    ErrorOrDone send(Unsubscribe&& cmd)
+    template <typename TCommand>
+    ErrorOrDone send(TCommand&& cmd)
     {
         traceTx(cmd.message({}));
-        if (!realm_.unsubscribe(session_, cmd.subscriptionId(),
-                                cmd.requestId({})))
-        {
-            return fail(WampErrc::noSuchRealm);
-        }
-        return true;
-    }
-
-    ErrorOrDone send(Pub&& pub)
-    {
-        traceTx(pub.message({}));
-        if (!realm_.publish(session_, std::move(pub)))
-            return fail(WampErrc::noSuchRealm);
-        return true;
-    }
-
-    ErrorOrDone send(Procedure&& enrollment)
-    {
-        traceTx(enrollment.message({}));
-        if (!realm_.enroll(session_, std::move(enrollment)))
-            return fail(WampErrc::noSuchRealm);
-        return true;
-    }
-
-    ErrorOrDone send(Unregister&& cmd)
-    {
-        traceTx(cmd.message({}));
-        if (!realm_.unregister(session_,
-                               cmd.registrationId(), cmd.requestId({})))
-        {
-            return fail(WampErrc::noSuchRealm);
-        }
-        return true;
-    }
-
-    ErrorOrDone send(Rpc&& rpc)
-    {
-        traceTx(rpc.message({}));
-        if (!realm_.call(session_, std::move(rpc)))
-            return fail(WampErrc::noSuchRealm);
-        return true;
-    }
-
-    ErrorOrDone send(CallCancellation&& cncl)
-    {
-        traceTx(cncl.message({}));
-        if (!realm_.cancelCall(session_, std::move(cncl)))
-            return fail(WampErrc::noSuchRealm);
-        return true;
-    }
-
-    ErrorOrDone send(Result&& result)
-    {
-        traceTx(result.message({}));
-        if (!realm_.yieldResult(session_, std::move(result)))
-            return fail(WampErrc::noSuchRealm);
-        return true;
-    }
-
-    ErrorOrDone sendError(Error&& error)
-    {
-        traceTx(error.message({}));
-        if (!realm_.yieldError(session_, std::move(error)))
+        if (!realm_.send(session_, std::move(cmd)))
             return fail(WampErrc::noSuchRealm);
         return true;
     }

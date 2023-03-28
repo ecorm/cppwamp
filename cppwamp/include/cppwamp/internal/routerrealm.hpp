@@ -277,7 +277,7 @@ private:
         safelyDispatch<Dispatched>(sid);
     }
 
-    void subscribe(RealmSession::Ptr s, Topic&& topic)
+    void send(RealmSession::Ptr s, Topic&& topic)
     {
         struct Direct
         {
@@ -316,18 +316,18 @@ private:
             AuthorizationAction::subscribe, std::move(s), std::move(topic));
     }
 
-    void unsubscribe(RealmSession::Ptr s, SubscriptionId subId, RequestId rid)
+    void send(RealmSession::Ptr s, Unsubscribe&& cmd)
     {
         struct Dispatched
         {
             Ptr self;
             RealmSession::Ptr s;
-            SubscriptionId subId;
-            RequestId rid;
+            Unsubscribe u;
 
             void operator()()
             {
-                auto result = self->broker_.unsubscribe(s, subId);
+                auto rid = u.requestId({});
+                auto result = self->broker_.unsubscribe(s, u.subscriptionId());
                 if (result)
                     s->sendUnsubscribed(rid, std::move(*result));
                 else
@@ -335,10 +335,10 @@ private:
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(s), subId, rid);
+        safelyDispatch<Dispatched>(std::move(s), std::move(cmd));
     }
 
-    void publish(RealmSession::Ptr s, Pub&& pub)
+    void send(RealmSession::Ptr s, Pub&& pub)
     {
         struct Direct
         {
@@ -400,7 +400,7 @@ private:
             AuthorizationAction::publish, std::move(s), std::move(pub));
     }
 
-    void enroll(RealmSession::Ptr s, Procedure&& proc)
+    void send(RealmSession::Ptr s, Procedure&& proc)
     {
         struct Direct
         {
@@ -439,18 +439,18 @@ private:
             AuthorizationAction::enroll, std::move(s), std::move(proc));
     }
 
-    void unregister(RealmSession::Ptr s, RegistrationId regId, RequestId reqId)
+    void send(RealmSession::Ptr s, Unregister&& cmd)
     {
         struct Dispatched
         {
             Ptr self;
             RealmSession::Ptr s;
-            RegistrationId regId;
-            RequestId reqId;
+            Unregister u;
 
             void operator()()
             {
-                auto result = self->dealer_.unregister(s, regId);
+                auto reqId = u.requestId({});
+                auto result = self->dealer_.unregister(s, u.registrationId());
                 if (result)
                     s->sendUnregistered(reqId, std::move(*result));
                 else
@@ -458,10 +458,10 @@ private:
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(s), regId, reqId);
+        safelyDispatch<Dispatched>(std::move(s), cmd);
     }
 
-    void call(RealmSession::Ptr s, Rpc&& rpc)
+    void send(RealmSession::Ptr s, Rpc&& rpc)
     {
         struct Direct
         {
@@ -511,7 +511,7 @@ private:
             AuthorizationAction::enroll, std::move(s), std::move(rpc));
     }
 
-    void cancelCall(RealmSession::Ptr s, CallCancellation&& c)
+    void send(RealmSession::Ptr s, CallCancellation&& c)
     {
         struct Dispatched
         {
@@ -531,7 +531,7 @@ private:
         safelyDispatch<Dispatched>(std::move(s), std::move(c));
     }
 
-    void yieldResult(RealmSession::Ptr s, Result&& r)
+    void send(RealmSession::Ptr s, Result&& r)
     {
         struct Dispatched
         {
@@ -548,7 +548,7 @@ private:
         safelyDispatch<Dispatched>(std::move(s), std::move(r));
     }
 
-    void yieldError(RealmSession::Ptr s, Error&& e)
+    void send(RealmSession::Ptr s, Error&& e)
     {
         struct Dispatched
         {
@@ -617,86 +617,13 @@ inline bool RealmContext::leave(SessionId sid)
     return true;
 }
 
-inline bool RealmContext::subscribe(RealmSessionPtr s, Topic t)
+template <typename TCommand>
+bool RealmContext::send(RealmSessionPtr s, TCommand&& cmd)
 {
     auto r = realm_.lock();
     if (!r)
         return false;
-    r->subscribe(std::move(s), std::move(t));
-    return true;
-}
-
-inline bool RealmContext::unsubscribe(RealmSessionPtr s, SubscriptionId subId,
-                                      RequestId rid)
-{
-    auto r = realm_.lock();
-    if (!r)
-        return false;
-    r->unsubscribe(std::move(s), subId, rid);
-    return true;
-}
-
-inline bool RealmContext::publish(RealmSessionPtr s, Pub pub)
-{
-    auto r = realm_.lock();
-    if (!r)
-        return false;
-    r->publish(std::move(s), std::move(pub));
-    return true;
-}
-
-inline bool RealmContext::enroll(RealmSessionPtr s, Procedure proc)
-{
-    auto r = realm_.lock();
-    if (!r)
-        return false;
-    r->enroll(std::move(s), std::move(proc));
-    return true;
-}
-
-inline bool RealmContext::unregister(RealmSessionPtr s, RegistrationId regId,
-                                     RequestId reqId)
-{
-    auto r = realm_.lock();
-    if (!r)
-        return false;
-    r->unregister(std::move(s), regId, reqId);
-    return true;
-}
-
-inline bool RealmContext::call(RealmSessionPtr s, Rpc rpc)
-{
-    auto r = realm_.lock();
-    if (!r)
-        return false;
-    r->call(std::move(s), std::move(rpc));
-    return true;
-}
-
-inline bool RealmContext::cancelCall(RealmSessionPtr s, CallCancellation c)
-{
-    auto r = realm_.lock();
-    if (!r)
-        return false;
-    r->cancelCall(std::move(s), std::move(c));
-    return true;
-}
-
-inline bool RealmContext::yieldResult(RealmSessionPtr s, Result result)
-{
-    auto r = realm_.lock();
-    if (!r)
-        return false;
-    r->yieldResult(std::move(s), std::move(result));
-    return true;
-}
-
-inline bool RealmContext::yieldError(RealmSessionPtr s, Error e)
-{
-    auto r = realm_.lock();
-    if (!r)
-        return false;
-    r->yieldError(std::move(s), std::move(e));
+    r->send(std::move(s), std::forward<TCommand>(cmd));
     return true;
 }
 

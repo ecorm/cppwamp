@@ -477,21 +477,21 @@ private:
     {
         Error error{{}, std::move(msg)};
         report(error.info(false));
-        realm_.yieldError(shared_from_this(), std::move(error));
+        realm_.send(shared_from_this(), std::move(error));
     }
 
     void onPublish(Message& msg)
     {
         Pub pub({}, std::move(msg));
         report(pub.info());
-        realm_.publish(shared_from_this(), std::move(pub));
+        realm_.send(shared_from_this(), std::move(pub));
     }
 
     void onSubscribe(Message& msg)
     {
         Topic topic{{}, std::move(msg)};
         report(topic.info());
-        realm_.subscribe(shared_from_this(), std::move(topic));
+        realm_.send(shared_from_this(), std::move(topic));
     }
 
     void onUnsubscribe(Message& msg)
@@ -499,28 +499,28 @@ private:
         Unsubscribe cmd{std::move(msg)};
         auto reqId = cmd.requestId({});
         report({AccessAction::clientUnsubscribe, reqId});
-        realm_.unsubscribe(shared_from_this(), cmd.subscriptionId(), reqId);
+        realm_.send(shared_from_this(), std::move(cmd));
     }
 
     void onCall(Message& msg)
     {
         Rpc rpc{{}, std::move(msg)};
         report(rpc.info());
-        realm_.call(shared_from_this(), std::move(rpc));
+        realm_.send(shared_from_this(), std::move(rpc));
     }
 
     void onCancelCall(Message& msg)
     {
         CallCancellation cncl({}, std::move(msg));
         report(cncl.info());
-        realm_.cancelCall(shared_from_this(), std::move(cncl));
+        realm_.send(shared_from_this(), std::move(cncl));
     }
 
     void onRegister(Message& msg)
     {
         Procedure proc({}, std::move(msg));
         report(proc.info());
-        realm_.enroll(shared_from_this(), std::move(proc));
+        realm_.send(shared_from_this(), std::move(proc));
     }
 
     void onUnregister(Message& msg)
@@ -528,14 +528,14 @@ private:
         Unregister cmd{std::move(msg)};
         auto reqId = cmd.requestId({});
         report({AccessAction::clientUnregister, reqId});
-        realm_.unsubscribe(shared_from_this(), cmd.registrationId(), reqId);
+        realm_.send(shared_from_this(), std::move(cmd));
     }
 
     void onYield(Message& msg)
     {
         Result result{{}, std::move(msg)};
         report(result.info(false));
-        realm_.yieldResult(shared_from_this(), std::move(result));
+        realm_.send(shared_from_this(), std::move(result));
     }
 
     void leaveRealm()
