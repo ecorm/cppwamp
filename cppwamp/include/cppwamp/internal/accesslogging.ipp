@@ -19,8 +19,7 @@ namespace internal
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void outputAccessLogEntry(
-    std::ostream& out, const AccessLogEntry& entry, std::string origin,
-    bool colored)
+    std::ostream& out, const AccessLogEntry& entry, std::string, bool colored)
 {
     static constexpr const char* red = "\x1b[1;31m";
     static constexpr const char* plain = "\x1b[0m";

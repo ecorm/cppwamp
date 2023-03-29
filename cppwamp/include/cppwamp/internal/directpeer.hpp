@@ -24,6 +24,7 @@
 #include "../sessioninfo.hpp"
 #include "../transport.hpp"
 #include "../variant.hpp"
+#include "../version.hpp"
 #include "../wampdefs.hpp"
 #include "commandinfo.hpp"
 #include "message.hpp"
@@ -59,37 +60,37 @@ private:
 
     void sendError(Error&& e, bool logOnly) override
     {
-        peer_.onMessage(e);
+        peer_.onError(std::move(e), logOnly);
     }
 
-    void sendSubscribed(RequestId r, SubscriptionId s) override
+    void sendSubscribed(Subscribed&& s) override
     {
-        peer_.onCommand(Subscribed(r, s));
+        peer_.onCommand(std::move(s));
     }
 
-    void sendUnsubscribed(RequestId r, Uri&& topic) override
+    void sendUnsubscribed(Unsubscribed&& u, Uri&& topic) override
     {
-        peer_.onCommand(Unsubscribed(r));
+        peer_.onCommand(std::move(u), std::move(topic));
     }
 
-    void sendPublished(RequestId r, PublicationId p) override
+    void sendPublished(Published&& p) override
     {
-        peer_.onCommand(Published(r, p));
+        peer_.onCommand(std::move(p));
     }
 
     void sendEvent(Event&& e, Uri topic) override
     {
-        peer_.onCommand(std::move(e));
+        peer_.onCommand(std::move(e), std::move(topic));
     }
 
-    void sendRegistered(RequestId reqId, RegistrationId regId) override
+    void sendRegistered(Registered&& r) override
     {
-        peer_.onCommand(Registered(reqId, regId));
+        peer_.onCommand(std::move(r));
     }
 
-    void sendUnregistered(RequestId r, Uri&& procedure) override
+    void sendUnregistered(Unregistered&& u, Uri&& procedure) override
     {
-        peer_.onCommand(Unregistered(r));
+        peer_.onCommand(std::move(u), std::move(procedure));
     }
 
     void sendResult(Result&& r) override
@@ -100,16 +101,6 @@ private:
     void sendInterruption(Interruption&& i) override
     {
         peer_.onCommand(std::move(i));
-    }
-
-    void log(LogEntry e) override
-    {
-        peer_.onLog(std::move(e));
-    }
-
-    void report(AccessActionInfo i) override
-    {
-        peer_.onReport(std::move(i));
     }
 
     void onSendInvocation(Invocation&& i) override
@@ -184,7 +175,14 @@ public:
         : session_(std::make_shared<DirectSessionType>(*this)),
           state_(State::disconnected),
           logLevel_(LogLevel::warning)
-    {}
+    {
+        sessionInfo_.endpoint = "direct";
+        sessionInfo_.serverName = "direct";
+        sessionInfo_.agent = Version::agentString();
+        sessionInfo_.serverSessionIndex = 0;
+        sessionInfo_.wampSessionId = 0;
+        routerLogSuffix_ = " [Direct Session]";
+    }
 
     virtual ~DirectPeer()
     {
@@ -209,7 +207,9 @@ public:
 
     void log(LogEntry entry)
     {
-        if (logLevel() <= entry.severity())
+        if (!logHandler_)
+            routerLog(std::move(entry));
+        else if (logLevel() <= entry.severity())
             logHandler_(std::move(entry));
     }
 
@@ -231,9 +231,25 @@ public:
         if (s == State::disconnected || s == State::failed)
             setState(State::connecting);
         assert(state() == State::connecting);
+
         router_ =
             std::dynamic_pointer_cast<DirectTransport>(transport)->router();
+        if (router_.expired())
+        {
+            fail(TransportErrc::disconnected, "Router expired");
+            return;
+        }
+
+        routerLogger_ = router_.logger();
+        if (sessionInfo_.serverSessionIndex == 0)
+        {
+            auto n = router_.nextDirectSessionIndex();
+            sessionInfo_.serverSessionIndex = n;
+            routerLogSuffix_ = " [Session direct/ " + std::to_string(n) + ']';
+        }
+
         setState(State::closed);
+        report({AccessAction::clientConnect});
     }
 
     bool establishSession()
@@ -253,33 +269,41 @@ public:
 
     void close()
     {
+        clearSessionInfo();
         setState(State::closed);
     }
 
     void disconnect()
     {
+        clearSessionInfo();
         auto oldState = setState(State::disconnected);
         if (oldState == State::established || oldState == State::shuttingDown)
             realm_.leave(session_->wampId());
+        report({AccessAction::clientDisconnect});
+        router_.reset();
+        routerLogger_.reset();
     }
 
     ErrorOrDone send(Realm&& hello)
     {
-        // TODO: Log
         assert(state() == State::establishing);
+        report(hello.info());
         auto realm = router_.realmAt(hello.uri());
         if (realm.expired())
             return fail(WampErrc::noSuchRealm);
         realm_ = std::move(realm);
         if (!realm_.join(session_))
             return fail(WampErrc::noSuchRealm);
+        setSessionInfo(hello);
+        sessionInfo_.wampSessionId = session_->wampId();
+        setState(State::established);
         return true;
     }
 
     ErrorOrDone send(Reason&& goodbye)
     {
-        // TODO: Log
         assert(state() == State::shuttingDown);
+        report(goodbye.info(false));
         realm_.leave(session_->wampId());
         realm_.reset();
         setState(State::closed);
@@ -289,6 +313,7 @@ public:
     template <typename TCommand>
     ErrorOrDone send(TCommand&& cmd)
     {
+        report(cmd.info(false));
         traceTx(cmd.message({}));
         if (!realm_.send(session_, std::move(cmd)))
             return fail(WampErrc::noSuchRealm);
@@ -297,6 +322,8 @@ public:
 
     ErrorOrDone abort(Reason r)
     {
+        report({AccessAction::clientAbort, {}, std::move(r.options()),
+                r.uri()});
         bool ready = readyToAbort();
         disconnect();
         if (!ready)
@@ -341,10 +368,23 @@ private:
         return ok;
     }
 
+    void setSessionInfo(Realm& hello)
+    {
+        sessionInfo_.realmUri = std::move(hello.uri({}));
+        sessionInfo_.authId = hello.authId().value_or("");
+        sessionInfo_.wampSessionId = session_->wampId();
+    }
+
+    void clearSessionInfo()
+    {
+        sessionInfo_.realmUri.clear();
+        sessionInfo_.authId.clear();
+        sessionInfo_.wampSessionId = 0;
+    }
+
     void onAbort(Reason&& r)
     {
         auto s = state();
-        WampErrc errc = r.errorCode();
 
         if (s == State::establishing || s == State::authenticating)
         {
@@ -353,6 +393,7 @@ private:
         }
         else
         {
+            WampErrc errc = r.errorCode();
             if (logLevel() <= LogLevel::critical)
             {
                 std::ostringstream oss;
@@ -369,21 +410,41 @@ private:
         }
     };
 
+    void onError(Error&& error, bool logOnly)
+    {
+        report(error.info(true));
+        if (!logOnly)
+            notifyCommand(std::move(error));
+    }
+
+    template <typename TCommand, typename... Ts>
+    void onCommand(TCommand&& cmd, Ts&&... infoArgs)
+    {
+        report(cmd.info(true, std::forward<Ts>(infoArgs)...));
+        notifyCommand(std::move(cmd));
+    }
+
     template <typename TCommand>
-    void onCommand(TCommand&& cmd)
+    void notifyCommand(TCommand&& cmd)
     {
         if (inboundMessageHandler_ && (state() == State::established))
             inboundMessageHandler_(std::move(cmd.message({})));
     }
 
-    void onLog(LogEntry e)
+    void routerLog(LogEntry entry)
     {
-        // TODO
+        if (routerLogger_)
+        {
+            entry.append(routerLogSuffix_);
+            routerLogger_->log(std::move(entry));
+        }
     }
 
-    void onReport(AccessActionInfo i)
+    void report(AccessActionInfo i)
     {
-        // TODO
+        if (!routerLogger_)
+            return;
+        routerLogger_->log(AccessLogEntry{sessionInfo_, std::move(i)});
     }
 
     UnexpectedError fail(std::error_code ec, std::string info = {})
@@ -435,11 +496,14 @@ private:
         logHandler_(std::move(entry));
     }
 
+    AccessSessionInfo sessionInfo_;
+    std::string routerLogSuffix_;
     InboundMessageHandler inboundMessageHandler_;
     LogHandler logHandler_;
     StateChangeHandler stateChangeHandler_;
     DirectSessionType::Ptr session_;
     RouterContext router_;
+    RouterLogger::Ptr routerLogger_;
     RealmContext realm_;
     std::atomic<State> state_;
     std::atomic<LogLevel> logLevel_;

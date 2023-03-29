@@ -1086,7 +1086,12 @@ public:
 
     const IoStrand& strand() const {return strand_;}
 
-    void listenLogged(LogSlot handler) {logSlot_ = std::move(handler);}
+    void listenLogged(LogSlot handler)
+    {
+        logSlot_ = std::move(handler);
+        peer_.listenLogged(
+            [this](LogEntry entry) {onLog(std::move(entry));} );
+    }
 
     void setLogLevel(LogLevel level) {peer_.setLogLevel(level);}
 
@@ -2072,8 +2077,6 @@ private:
     {
         peer_.setInboundMessageHandler(
             [this](Message msg) {onInbound(std::move(msg));} );
-        peer_.listenLogged(
-            [this](LogEntry entry) {onLog(std::move(entry));} );
         peer_.listenStateChanged(
             [this](State s, std::error_code ec) {onStateChanged(s, ec);});
     }

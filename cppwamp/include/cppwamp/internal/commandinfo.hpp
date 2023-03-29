@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_CONTROLINFO_HPP
 #define CPPWAMP_INTERNAL_CONTROLINFO_HPP
 
+#include "../accesslogging.hpp"
 #include "message.hpp"
 
 namespace wamp
@@ -28,6 +29,11 @@ public:
         return message().to<SubscriptionId>(subscriptionIdPos_);
     }
 
+    AccessActionInfo info(bool = false) const
+    {
+        return {AccessAction::serverSubscribed, requestId()};
+    }
+
 private:
     using Base = Command<MessageKind::subscribed>;
 
@@ -47,6 +53,11 @@ public:
         return message().to<SubscriptionId>(subscriptionIdPos_);
     }
 
+    AccessActionInfo info(bool = false) const
+    {
+        return {AccessAction::clientUnsubscribe, requestId()};
+    }
+
 private:
     using Base = Command<MessageKind::unsubscribe>;
 
@@ -60,6 +71,12 @@ public:
     explicit Unsubscribed(RequestId rid) : Base(in_place, rid) {}
 
     explicit Unsubscribed(Message&& msg) : Base(std::move(msg)) {}
+
+    AccessActionInfo info(Uri topic) const
+    {
+        return {AccessAction::serverUnsubscribed, requestId(),
+                std::move(topic)};
+    }
 
 private:
     using Base = Command<MessageKind::unsubscribed>;
@@ -76,6 +93,11 @@ public:
     PublicationId publicationId() const
     {
         return message().to<PublicationId>(publicationIdPos_);
+    }
+
+    AccessActionInfo info(bool = false) const
+    {
+        return {AccessAction::serverPublished, requestId()};
     }
 
 private:
@@ -97,6 +119,11 @@ public:
         return message().to<RegistrationId>(registrationIdPos_);
     }
 
+    AccessActionInfo info(bool = false) const
+    {
+        return {AccessAction::serverRegistered, requestId()};
+    }
+
 private:
     using Base = Command<MessageKind::registered>;
 
@@ -116,6 +143,11 @@ public:
         return message().to<RegistrationId>(registrationIdPos_);
     }
 
+    AccessActionInfo info(bool = false) const
+    {
+        return {AccessAction::clientUnregister, requestId()};
+    }
+
 private:
     using Base = Command<MessageKind::unregister>;
 
@@ -129,6 +161,12 @@ public:
     explicit Unregistered(RequestId rid) : Base(in_place, rid) {}
 
     explicit Unregistered(Message&& msg) : Base(std::move(msg)) {}
+
+    AccessActionInfo info(Uri procedure) const
+    {
+        return {AccessAction::serverUnregistered, requestId(),
+                std::move(procedure)};
+    }
 
 private:
     using Base = Command<MessageKind::unregistered>;

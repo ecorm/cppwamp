@@ -12,11 +12,11 @@
 #include <memory>
 #include "../authinfo.hpp"
 #include "../features.hpp"
-#include "../logging.hpp"
 #include "../errorinfo.hpp"
 #include "../pubsubinfo.hpp"
 #include "../rpcinfo.hpp"
 #include "../sessioninfo.hpp"
+#include "commandinfo.hpp"
 #include "random.hpp"
 
 namespace wamp
@@ -24,6 +24,9 @@ namespace wamp
 
 namespace internal
 {
+
+// TODO: Move AccessSessionInfo to RealmSession and do access logging
+// directly from there.
 
 //------------------------------------------------------------------------------
 class RealmSession
@@ -69,17 +72,17 @@ public:
         sendError(reqKind, rid, x.error(), logOnly);
     }
 
-    virtual void sendSubscribed(RequestId, SubscriptionId) = 0;
+    virtual void sendSubscribed(Subscribed&&) = 0;
 
-    virtual void sendUnsubscribed(RequestId, Uri&& topic) = 0;
+    virtual void sendUnsubscribed(Unsubscribed&&, Uri&& topic) = 0;
 
-    virtual void sendPublished(RequestId, PublicationId) = 0;
+    virtual void sendPublished(Published&&) = 0;
 
     virtual void sendEvent(Event&&, Uri topic) = 0;
 
-    virtual void sendRegistered(RequestId, RegistrationId) = 0;
+    virtual void sendRegistered(Registered&&) = 0;
 
-    virtual void sendUnregistered(RequestId, Uri&& procedure) = 0;
+    virtual void sendUnregistered(Unregistered&&, Uri&& procedure) = 0;
 
     RequestId sendInvocation(Invocation&& inv)
     {
@@ -94,10 +97,6 @@ public:
     virtual void sendResult(Result&&) = 0;
 
     virtual void sendInterruption(Interruption&&) = 0;
-
-    virtual void log(LogEntry e) = 0;
-
-    virtual void report(AccessActionInfo i) = 0;
 
 protected:
     RealmSession()

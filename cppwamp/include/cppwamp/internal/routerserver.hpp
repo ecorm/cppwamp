@@ -98,61 +98,59 @@ public:
         safelyDispatch<Dispatched>(std::move(e), logOnly);
     }
 
-    void sendSubscribed(RequestId r, SubscriptionId s) override
+    void sendSubscribed(Subscribed&& s) override
     {
         struct Dispatched
         {
             Ptr self;
-            RequestId r;
-            SubscriptionId s;
+            Subscribed s;
 
             void operator()()
             {
                 auto& me = *self;
-                me.report({AccessAction::serverSubscribed, r});
-                me.send(Subscribed{r, s});
+                me.report(s.info());
+                me.send(std::move(s));
             }
         };
 
-        safelyDispatch<Dispatched>(r);
+        safelyDispatch<Dispatched>(std::move(s));
     }
 
-    void sendUnsubscribed(RequestId r, Uri&& topic) override
+    void sendUnsubscribed(Unsubscribed&& u, Uri&& topic) override
     {
         struct Dispatched
         {
             Ptr self;
-            RequestId r;
+            Unsubscribed u;
             Uri t;
 
             void operator()()
             {
                 auto& me = *self;
-                me.report({AccessAction::serverUnsubscribed, r, std::move(t)});
-                me.send(Unsubscribed{r});
+                me.report(u.info(std::move(t)));
+                me.send(std::move(u));
             }
         };
 
-        safelyDispatch<Dispatched>(r, std::move(topic));
+        safelyDispatch<Dispatched>(std::move(u), std::move(topic));
     }
 
-    void sendPublished(RequestId r, PublicationId p) override
+    void sendPublished(Published&& p) override
     {
         struct Dispatched
         {
             Ptr self;
-            RequestId r;
-            PublicationId p;
+            Published p;
 
             void operator()()
             {
                 auto& me = *self;
-                me.report({AccessAction::serverPublished, r});
-                me.send(Published{r, p});
+                me.report(p.info());
+                me.send(std::move(p));
             }
         };
 
-        safelyDispatch<Dispatched>(r, p);
+        safelyDispatch<Dispatched>(std::move(p));
     }
 
     void sendEvent(Event&& ev, Uri topic) override
@@ -174,42 +172,41 @@ public:
         safelyDispatch<Dispatched>(std::move(ev), std::move(topic));
     }
 
-    void sendRegistered(RequestId reqId, RegistrationId regId) override
+    void sendRegistered(Registered&& r) override
     {
         struct Dispatched
         {
             Ptr self;
-            RequestId reqId;
-            RegistrationId regId;
+            Registered&& r;
 
             void operator()()
             {
                 auto& me = *self;
-                me.report({AccessAction::serverRegistered, reqId});
-                me.send(Registered{reqId, regId});
+                me.report(r.info());
+                me.send(std::move(r));
             }
         };
 
-        safelyDispatch<Dispatched>(reqId, regId);
+        safelyDispatch<Dispatched>(std::move(r));
     }
 
-    void sendUnregistered(RequestId r, Uri&& procedure) override
+    void sendUnregistered(Unregistered&& u, Uri&& procedure) override
     {
         struct Dispatched
         {
             Ptr self;
-            RequestId r;
+            Unregistered u;
             Uri p;
 
             void operator()()
             {
                 auto& me = *self;
-                me.report({AccessAction::serverUnregistered, r, std::move(p)});
-                me.send(Unregistered{r});
+                me.report(u.info(std::move(p)));
+                me.send(std::move(u));
             }
         };
 
-        safelyDispatch<Dispatched>(r, std::move(procedure));
+        safelyDispatch<Dispatched>(std::move(u), std::move(procedure));
     }
 
     void onSendInvocation(Invocation&& inv) override
@@ -222,7 +219,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                me.report(i.info());
+                me.report(i.info()); // TODO: Also log procedure URI
                 me.send(std::move(i));
             }
         };
@@ -264,17 +261,6 @@ public:
         };
 
         safelyDispatch<Dispatched>(std::move(intr));
-    }
-
-    void log(LogEntry e) override
-    {
-        e.append(logSuffix_);
-        logger_->log(std::move(e));
-    }
-
-    void report(AccessActionInfo i) override
-    {
-        logger_->log(AccessLogEntry{sessionInfo_, std::move(i)});
     }
 
 private:
@@ -550,6 +536,17 @@ private:
         leaveRealm();
     }
 
+    void log(LogEntry e)
+    {
+        e.append(logSuffix_);
+        logger_->log(std::move(e));
+    }
+
+    void report(AccessActionInfo i)
+    {
+        logger_->log(AccessLogEntry{sessionInfo_, std::move(i)});
+    }
+
     template <typename F, typename... Ts>
     void complete(F&& handler, Ts&&... args)
     {
@@ -695,6 +692,8 @@ private:
     }
 
     Peer peer_;
+    AccessSessionInfo sessionInfo_;
+    std::string logSuffix_;
     IoStrand strand_;
     Transporting::Ptr transport_;
     AnyBufferCodec codec_;
@@ -702,9 +701,7 @@ private:
     RealmContext realm_;
     ServerConfig::Ptr serverConfig_;
     AuthExchange::Ptr authExchange_;
-    AccessSessionInfo sessionInfo_;
     RouterLogger::Ptr logger_;
-    std::string logSuffix_;
     RequestId expectedRequestId_ = 1;
     bool alreadyStarted_ = false;
     bool shuttingDown_ = false;

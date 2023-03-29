@@ -61,6 +61,8 @@ public:
 
     State state() const {return state_.load();}
 
+    // TODO: Use backpointer and virtual functions instead to avoid
+    // Message<-->Command conversions
     void setInboundMessageHandler(InboundMessageHandler f)
     {
         inboundMessageHandler_ = std::move(f);

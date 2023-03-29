@@ -102,7 +102,7 @@ CPPWAMP_INLINE ErrorOr<Object> Realm::roles() const
     return this->optionAs<Object>("roles");
 }
 
-CPPWAMP_INLINE AccessActionInfo Realm::info() const
+CPPWAMP_INLINE AccessActionInfo Realm::info(bool) const
 {
     return {AccessAction::clientHello, uri(), options()};
 }
@@ -136,6 +136,11 @@ CPPWAMP_INLINE Reason* Realm::abortReason(internal::PassKey)
     return abortReason_;
 }
 
+CPPWAMP_INLINE Uri& Realm::uri(internal::PassKey)
+{
+    return message().as<String>(uriPos_);
+}
+
 
 //******************************************************************************
 // Welcome
@@ -150,7 +155,7 @@ CPPWAMP_INLINE SessionId Welcome::id() const
 
 CPPWAMP_INLINE const Uri& Welcome::realm() const {return realm_;}
 
-CPPWAMP_INLINE AccessActionInfo Welcome::info() const
+CPPWAMP_INLINE AccessActionInfo Welcome::info(bool) const
 {
     return {AccessAction::serverWelcome, realm(), options()};
 }
@@ -272,7 +277,7 @@ Authentication::withChannelBinding(std::string type, std::string data)
     return withOption("cbind_data", std::move(data));
 }
 
-CPPWAMP_INLINE AccessActionInfo Authentication::info() const
+CPPWAMP_INLINE AccessActionInfo Authentication::info(bool) const
 {
     return {AccessAction::clientAuthenticate, "", options()};
 }
@@ -419,7 +424,7 @@ CPPWAMP_INLINE std::future<ErrorOrDone> Challenge::fail(ThreadSafe,
     return f;
 }
 
-CPPWAMP_INLINE AccessActionInfo Challenge::info() const
+CPPWAMP_INLINE AccessActionInfo Challenge::info(bool) const
 {
     return {AccessAction::serverChallenge, method(), options()};
 }

@@ -383,7 +383,7 @@ Invocation::yield(ThreadSafe, Error error) const
     return callee->safeYield(std::move(error), requestId_);
 }
 
-CPPWAMP_INLINE AccessActionInfo Invocation::info() const
+CPPWAMP_INLINE AccessActionInfo Invocation::info(bool) const
 {
     return {AccessAction::serverInvocation, requestId(), {}, options()};
 }
@@ -479,7 +479,7 @@ CPPWAMP_INLINE RequestId CallCancellation::requestId() const
 
 CPPWAMP_INLINE CallCancelMode CallCancellation::mode() const {return mode_;}
 
-CPPWAMP_INLINE AccessActionInfo CallCancellation::info() const
+CPPWAMP_INLINE AccessActionInfo CallCancellation::info(bool) const
 {
     return {AccessAction::clientCancel, requestId(), {}, options()};
 }
@@ -567,7 +567,7 @@ Interruption::yield(ThreadSafe, Error error) const
     return callee->safeYield(std::move(error), requestId_);
 }
 
-CPPWAMP_INLINE AccessActionInfo Interruption::info() const
+CPPWAMP_INLINE AccessActionInfo Interruption::info(bool) const
 {
     return {AccessAction::serverInterrupt, requestId(), {}, options()};
 }

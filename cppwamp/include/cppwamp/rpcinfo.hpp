@@ -48,7 +48,7 @@ public:
     const Uri& uri() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info() const;
+    AccessActionInfo info(bool = false) const;
 
     /** @name Pattern-based Registrations
         See [Pattern-based Registrations in the WAMP Specification]
@@ -121,7 +121,7 @@ public:
     const Uri& uri() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info() const;
+    AccessActionInfo info(bool = false) const;
 
     /** @name Call Timeouts
         See [Call Timeouts in the WAMP Specification]
@@ -409,7 +409,7 @@ public:
     std::future<ErrorOrDone> yield(ThreadSafe, Error error) const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info() const;
+    AccessActionInfo info(bool = false) const;
 
     /** @name Caller Identification
         See [Caller Identification in the WAMP Specification]
@@ -482,7 +482,7 @@ public:
     CallCancelMode mode() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info() const;
+    AccessActionInfo info(bool = false) const;
 
 private:
     using Base = Options<CallCancellation, internal::MessageKind::cancel>;
@@ -541,7 +541,7 @@ public:
     std::future<ErrorOrDone> yield(ThreadSafe, Error error) const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info() const;
+    AccessActionInfo info(bool = false) const;
 
 private:
     using Base = Options<Interruption, internal::MessageKind::interrupt>;
@@ -579,7 +579,7 @@ const Uri& ProcedureLike<D>::uri() const
 }
 
 template <typename D>
-AccessActionInfo ProcedureLike<D>::info() const
+AccessActionInfo ProcedureLike<D>::info(bool) const
 {
     return {AccessAction::clientRegister, this->requestId(), uri(),
             this->options()};
@@ -635,7 +635,7 @@ const Uri& RpcLike<D>::uri() const
 }
 
 template <typename D>
-AccessActionInfo RpcLike<D>::info() const
+AccessActionInfo RpcLike<D>::info(bool) const
 {
     return {AccessAction::clientCall, this->message().requestId(), uri(),
             this->options()};

@@ -206,7 +206,8 @@ private:
           strand_(boost::asio::make_strand(executor_)),
           logger_(RouterLogger::create(strand_, config_.logHandler(),
                                        config_.logLevel(),
-                                       config_.accessLogHandler()))
+                                       config_.accessLogHandler())),
+          nextDirectSessionIndex_(0)
     {
         if (!config_.sessionRNG())
             config_.withSessionRNG(internal::DefaultPRNG64{});
@@ -257,6 +258,8 @@ private:
         return {found->second};
     }
 
+    uint64_t nextDirectSessionIndex() {return ++nextDirectSessionIndex_;}
+
     ServerMap servers_;
     RealmMap realms_;
     RouterConfig config_;
@@ -266,6 +269,7 @@ private:
     std::mutex realmsMutex_;
     RandomIdPool::Ptr sessionIdPool_;
     RouterLogger::Ptr logger_;
+    std::atomic<uint64_t> nextDirectSessionIndex_;
 
     friend class RouterContext;
 };
@@ -282,6 +286,8 @@ inline RouterContext::RouterContext(std::shared_ptr<RouterImpl> r)
       sessionIdPool_(r->sessionIdPool_)
 {}
 
+inline bool RouterContext::expired() const {return router_.expired();}
+
 inline RouterLogger::Ptr RouterContext::logger() const
 {
     auto r = router_.lock();
@@ -289,6 +295,8 @@ inline RouterLogger::Ptr RouterContext::logger() const
         return r->logger();
     return nullptr;
 }
+
+inline void RouterContext::reset() {router_.reset();}
 
 inline ReservedId RouterContext::reserveSessionId()
 {
@@ -301,6 +309,14 @@ inline RealmContext RouterContext::realmAt(const String& uri) const
     if (!r)
         return {};
     return r->realmAt(uri);
+}
+
+inline uint64_t RouterContext::nextDirectSessionIndex()
+{
+    auto r = router_.lock();
+    if (!r)
+        return 0;
+    return r->nextDirectSessionIndex();
 }
 
 } // namespace internal

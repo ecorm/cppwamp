@@ -34,7 +34,6 @@ struct CPPWAMP_API AccessSessionInfo
     std::string serverName;
     std::string realmUri;
     std::string authId;
-    std::string scrambledWampSessionId;
     std::string agent;
     uint64_t serverSessionIndex;
     SessionId wampSessionId;

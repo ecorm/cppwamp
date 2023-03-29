@@ -10,13 +10,10 @@
 #include <atomic>
 #include <cassert>
 #include <memory>
+#include "../accesslogging.hpp"
 #include "../anyhandler.hpp"
 #include "../asiodefs.hpp"
-#include "../errorinfo.hpp"
 #include "../logging.hpp"
-#include "../pubsubinfo.hpp"
-#include "../rpcinfo.hpp"
-#include "commandinfo.hpp"
 #include "random.hpp"
 
 namespace wamp
@@ -113,11 +110,17 @@ public:
 
     RouterContext(std::shared_ptr<RouterImpl> r);
 
+    bool expired() const;
+
     RouterLogger::Ptr logger() const;
+
+    void reset();
 
     ReservedId reserveSessionId();
 
     RealmContext realmAt(const String& uri) const;
+
+    uint64_t nextDirectSessionIndex();
 
 private:
     std::weak_ptr<RouterImpl> router_;

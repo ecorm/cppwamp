@@ -290,7 +290,7 @@ private:
                 auto rid = t.requestId({});
                 auto result = self->broker_.subscribe(s, std::move(t));
                 if (result)
-                    s->sendSubscribed(rid, *result);
+                    s->sendSubscribed(Subscribed{rid, *result});
                 else
                     s->sendError(MessageKind::subscribe, rid, result);
             }
@@ -306,7 +306,7 @@ private:
                     return;
                 auto result = self->broker_.subscribe(s, std::move(t));
                 if (result)
-                    s->sendSubscribed(rid, *result);
+                    s->sendSubscribed(Subscribed{rid, *result});
                 else
                     s->sendError(MessageKind::subscribe, rid, result);
             }
@@ -329,7 +329,7 @@ private:
                 auto rid = u.requestId({});
                 auto result = self->broker_.unsubscribe(s, u.subscriptionId());
                 if (result)
-                    s->sendUnsubscribed(rid, std::move(*result));
+                    s->sendUnsubscribed(Unsubscribed{rid}, std::move(*result));
                 else
                     s->sendError(MessageKind::unsubscribe, rid, result);
             }
@@ -358,7 +358,7 @@ private:
                 if (result)
                 {
                     if (ack)
-                        s->sendPublished(rid, *result);
+                        s->sendPublished(Published{rid, *result});
                 }
                 else
                 {
@@ -387,7 +387,7 @@ private:
                 if (result)
                 {
                     if (ack)
-                        s->sendPublished(rid, *result);
+                        s->sendPublished(Published{rid, *result});
                 }
                 else
                 {
@@ -413,7 +413,7 @@ private:
                 auto rid = p.requestId({});
                 auto result = self->dealer_.enroll(s, std::move(p));
                 if (result)
-                    s->sendRegistered(rid, *result);
+                    s->sendRegistered(Registered{rid, *result});
                 else
                     s->sendError(MessageKind::enroll, rid, result);
             }
@@ -429,7 +429,7 @@ private:
                     return;
                 auto result = self->dealer_.enroll(s, std::move(p));
                 if (result)
-                    s->sendRegistered(rid, *result);
+                    s->sendRegistered(Registered{rid, *result});
                 else
                     s->sendError(MessageKind::enroll, rid, result);
             }
@@ -449,12 +449,12 @@ private:
 
             void operator()()
             {
-                auto reqId = u.requestId({});
+                auto rid = u.requestId({});
                 auto result = self->dealer_.unregister(s, u.registrationId());
                 if (result)
-                    s->sendUnregistered(reqId, std::move(*result));
+                    s->sendUnregistered(Unregistered{rid}, std::move(*result));
                 else
-                    s->sendError(MessageKind::unregister, reqId, result);
+                    s->sendError(MessageKind::unregister, rid, result);
             }
         };
 
