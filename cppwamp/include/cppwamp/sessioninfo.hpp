@@ -100,6 +100,9 @@ public:
     /** Obtains the roles dictionary. */
     ErrorOr<Object> roles() const;
 
+    /** Obtains the supported features. */
+    ClientFeatures features() const;
+
     /** Obtains information for the access log. */
     AccessActionInfo info(bool = false) const;
 

@@ -63,7 +63,7 @@ public:
     void start()
     {
         auto self = shared_from_this();
-        completeNow([this, self]() {doStart();});
+        completeNow([this, self]() {startSession();});
     }
 
     void abort(Reason r) override
@@ -72,7 +72,7 @@ public:
         {
             Ptr self;
             Reason r;
-            void operator()() {self->doAbort(std::move(r));}
+            void operator()() {self->abortSession(std::move(r));}
         };
 
         safelyDispatch<Dispatched>(std::move(r));
@@ -277,16 +277,15 @@ private:
           logger_(server_.logger())
     {
         assert(serverConfig_ != nullptr);
-        sessionInfo_.endpoint = t->remoteEndpointLabel();
-        sessionInfo_.serverName = serverConfig_->name();
-        sessionInfo_.serverSessionIndex = sessionIndex;
+        Base::setTransportInfo({t->remoteEndpointLabel(), serverConfig_->name(),
+                                sessionIndex});
         logSuffix_ = " [Session " + serverConfig_->name() + '/' +
-                     std::to_string(sessionInfo_.serverSessionIndex) + ']';
+                     std::to_string(sessionIndex) + ']';
     }
 
     State state() const {return peer_.state();}
 
-    void doStart()
+    void startSession()
     {
         assert(!alreadyStarted_);
         alreadyStarted_ = true;
@@ -322,7 +321,7 @@ private:
         peer_.connect(std::move(transport_), std::move(codec_));
     }
 
-    void doAbort(Reason r)
+    void abortSession(Reason r)
     {
         shuttingDown_ = true;
         report({AccessAction::serverAbort, {}, r.options(), r.uri()});
@@ -338,13 +337,10 @@ private:
         peer_.send(std::move(command));
     }
 
-    void clearWampSessionInfo()
+    void resetWampSessionInfo()
     {
-        Base::clearWampId();
+        Base::resetSessionInfo();
         realm_.reset();
-        sessionInfo_.realmUri.clear();
-        sessionInfo_.authId.clear();
-        sessionInfo_.agent.clear();
     }
 
     void onStateChanged(State s, std::error_code ec)
@@ -404,20 +400,13 @@ private:
     void onHello(Message& msg)
     {
         Realm realm{{}, std::move(msg)};
-
-        auto roles = realm.roles();
-        if (roles)
-            setFeatures(*roles);
-
-        sessionInfo_.agent = realm.agent().value_or("");
-        sessionInfo_.authId = realm.authId().value_or("");
-
+        Base::setHelloInfo(realm);
         realm_ = server_.realmAt(realm.uri());
         if (realm_.expired())
         {
             auto errc = WampErrc::noSuchRealm;
             report(realm.info().withError(errc));
-            doAbort({errc});
+            abortSession({errc});
             return;
         }
 
@@ -440,7 +429,7 @@ private:
         {
             auto errc = WampErrc::protocolViolation;
             report(authentication.info().withError(errc));
-            doAbort(Reason(errc).withHint("Unexpected AUTHENTICATE message"));
+            abortSession(Reason(errc).withHint("Unexpected AUTHENTICATE message"));
             return;
         }
 
@@ -527,7 +516,7 @@ private:
     void leaveRealm()
     {
         realm_.leave(wampId());
-        clearWampSessionInfo();
+        resetWampSessionInfo();
     }
 
     void retire()
@@ -542,10 +531,7 @@ private:
         logger_->log(std::move(e));
     }
 
-    void report(AccessActionInfo i)
-    {
-        logger_->log(AccessLogEntry{sessionInfo_, std::move(i)});
-    }
+    void report(AccessActionInfo i) {Base::report(std::move(i), *logger_);}
 
     template <typename F, typename... Ts>
     void complete(F&& handler, Ts&&... args)
@@ -575,7 +561,7 @@ private:
             {
                 auto msg = std::string("Received ") + m.name() +
                            " message uses non-sequential request ID";
-                doAbort(Reason(WampErrc::protocolViolation)
+                abortSession(Reason(WampErrc::protocolViolation)
                             .withHint(std::move(msg)));
                 return false;
             }
@@ -588,7 +574,7 @@ private:
             {
                 auto msg = std::string("Received ") + m.name() +
                            " message uses future request ID";
-                doAbort(Reason(WampErrc::protocolViolation)
+                abortSession(Reason(WampErrc::protocolViolation)
                             .withHint(std::move(msg)));
                 return false;
             }
@@ -604,13 +590,13 @@ private:
         struct Dispatched
         {
             Ptr self;
-            void operator()() {self->doChallenge();}
+            void operator()() {self->onChallenge();}
         };
 
         safelyDispatch<Dispatched>();
     }
 
-    void doChallenge()
+    void onChallenge()
     {
         // TODO: Challenge timeout
         if (state() == State::authenticating &&
@@ -628,13 +614,13 @@ private:
         {
             Ptr self;
             AuthInfo info;
-            void operator()() {self->doWelcome(std::move(info));}
+            void operator()() {self->onWelcome(std::move(info));}
         };
 
         safelyDispatch<Dispatched>(std::move(info));
     }
 
-    void doWelcome(AuthInfo&& info)
+    void onWelcome(AuthInfo&& info)
     {
         auto s = state();
         bool readyToWelcome = authExchange_ != nullptr &&
@@ -646,15 +632,13 @@ private:
         const auto& realm = authExchange_->realm();
         if (!realm_.join(shared_from_this()))
         {
-            doAbort({WampErrc::noSuchRealm});
+            abortSession({WampErrc::noSuchRealm});
             return;
         }
 
         auto details = info.join({}, realm.uri(), wampId(),
                                  RouterFeatures::providedRoles());
-        setAuthInfo(std::move(info));
-        sessionInfo_.realmUri = realm.uri();
-        sessionInfo_.wampSessionId = wampId();
+        Base::setWelcomeInfo(std::move(info));
         authExchange_.reset();
         report({AccessAction::serverWelcome, realm.uri(), realm.options()});
         peer_.welcome(wampId(), std::move(details));
@@ -666,13 +650,13 @@ private:
         {
             Ptr self;
             Reason r;
-            void operator()() {self->doReject(std::move(r));}
+            void operator()() {self->onReject(std::move(r));}
         };
 
         safelyDispatch<Dispatched>(std::move(r));
     }
 
-    void doReject(Reason&& r)
+    void onReject(Reason&& r)
     {
         auto s = state();
         bool readyToReject = s == State::establishing ||
@@ -681,7 +665,7 @@ private:
             return;
 
         authExchange_.reset();
-        clearWampSessionInfo();
+        resetWampSessionInfo();
         peer_.abort(std::move(r));
     }
 
@@ -692,7 +676,6 @@ private:
     }
 
     Peer peer_;
-    AccessSessionInfo sessionInfo_;
     std::string logSuffix_;
     IoStrand strand_;
     Transporting::Ptr transport_;
@@ -722,7 +705,7 @@ public:
     void start()
     {
         auto self = shared_from_this();
-        boost::asio::dispatch(strand_, [this, self](){doStart();});
+        boost::asio::dispatch(strand_, [this, self](){startListening();});
     }
 
     void close(Reason r)
@@ -731,7 +714,7 @@ public:
         {
             Ptr self;
             Reason r;
-            void operator()() {self->doClose(std::move(r));}
+            void operator()() {self->onClose(std::move(r));}
         };
 
         boost::asio::dispatch(strand_, Posted{shared_from_this(),
@@ -753,7 +736,7 @@ private:
             config_->withAuthenticator(AnonymousAuthenticator{});
     }
 
-    void doStart()
+    void startListening()
     {
         assert(!listener_);
         listener_ = config_->makeListener(strand_);
@@ -761,7 +744,7 @@ private:
         listen();
     }
 
-    void doClose(Reason r)
+    void onClose(Reason r)
     {
         std::string msg = "Shutting down server listening on " +
                           listener_->where() + " with reason " + r.uri();

@@ -28,15 +28,32 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-struct CPPWAMP_API AccessSessionInfo
+struct CPPWAMP_API AccessTransportInfo
 {
+    AccessTransportInfo();
+
+    AccessTransportInfo(String endpoint, String serverName,
+                        uint64_t serverSessionIndex);
+
     std::string endpoint;
     std::string serverName;
-    std::string realmUri;
-    std::string authId;
-    std::string agent;
-    uint64_t serverSessionIndex;
-    SessionId wampSessionId;
+    uint64_t serverSessionIndex = 0;
+};
+
+//------------------------------------------------------------------------------
+struct CPPWAMP_API AccessSessionInfo
+{
+    AccessSessionInfo();
+
+    AccessSessionInfo(String agent, String realmUri,
+                      String authId, SessionId id);
+
+    void reset();
+
+    String agent;
+    String realmUri;
+    String authId;
+    SessionId wampSessionId = nullId();
 };
 
 //------------------------------------------------------------------------------
@@ -148,7 +165,11 @@ struct CPPWAMP_API AccessLogEntry
     static std::ostream& outputTime(std::ostream& out, TimePoint when);
 
     /** Constructor. */
-    AccessLogEntry(AccessSessionInfo session, AccessActionInfo action);
+    AccessLogEntry(AccessTransportInfo transport, AccessSessionInfo session,
+                   AccessActionInfo action);
+
+    /** The transport information. */
+    AccessTransportInfo transport;
 
     /** The session information. */
     AccessSessionInfo session;

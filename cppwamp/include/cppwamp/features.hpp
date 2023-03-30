@@ -114,6 +114,9 @@ public:
     /** Checks if this instance contains all the given desired features. */
     bool supports(ClientFeatures desired) const;
 
+    /** Clears all feature bits, as if default-constructed. */
+    void reset();
+
 private:
     template <typename E>
     static void parse(Flags<E>& flags, E pos, const Object* roleDict,

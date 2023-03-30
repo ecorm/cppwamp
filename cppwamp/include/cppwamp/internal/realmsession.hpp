@@ -10,6 +10,7 @@
 #include <atomic>
 #include <cstring>
 #include <memory>
+#include "../accesslogging.hpp"
 #include "../authinfo.hpp"
 #include "../features.hpp"
 #include "../errorinfo.hpp"
@@ -24,9 +25,6 @@ namespace wamp
 
 namespace internal
 {
-
-// TODO: Move AccessSessionInfo to RealmSession and do access logging
-// directly from there.
 
 //------------------------------------------------------------------------------
 class RealmSession
@@ -47,6 +45,19 @@ public:
     AuthInfo::Ptr sharedAuthInfo() const {return authInfo_;}
 
     ClientFeatures features() const {return features_;}
+
+    void setWampId(ReservedId&& id)
+    {
+        wampId_ = std::move(id);
+        sessionInfo_.wampSessionId = wampId();
+    }
+
+    template <typename TLogger>
+    void report(AccessActionInfo&& action, TLogger& logger)
+    {
+        logger.log(AccessLogEntry{transportInfo_, sessionInfo_,
+                                  std::move(action)});
+    }
 
     virtual void abort(Reason) = 0;
 
@@ -106,27 +117,43 @@ protected:
 
     virtual void onSendInvocation(Invocation&&) = 0;
 
-    void clearWampId() {wampId_.reset();}
-
-    void setAuthInfo(AuthInfo&& info)
+    void setTransportInfo(AccessTransportInfo&& info)
     {
-        if (!authInfo_)
-            authInfo_ = std::make_shared<AuthInfo>(std::move(info));
-        else
-            *authInfo_ = std::move(info);
+        transportInfo_ = std::move(info);
     }
 
-    void setFeatures(ClientFeatures features) {features_ = features;}
+    void setHelloInfo(const Realm& hello)
+    {
+        sessionInfo_.agent = hello.agent().value_or("");
+        sessionInfo_.authId = hello.authId().value_or("");
+        features_ = hello.features();
+    }
+
+    void setWelcomeInfo(AuthInfo&& info)
+    {
+        // sessionInfo_.wampSessionId was already set
+        // via RealmSession::setWampId
+        sessionInfo_.realmUri = info.realmUri();
+        sessionInfo_.authId = info.id();
+        *authInfo_ = std::move(info);
+    }
+
+    void resetSessionInfo()
+    {
+        sessionInfo_.reset();
+        wampId_.reset();
+        authInfo_->clear();
+        features_.reset();
+        nextOutboundRequestId_.store(0);
+    }
 
 private:
+    AccessTransportInfo transportInfo_;
+    AccessSessionInfo sessionInfo_;
     ReservedId wampId_;
     AuthInfo::Ptr authInfo_;
     ClientFeatures features_;
     std::atomic<RequestId> nextOutboundRequestId_;
-
-public:
-    // Internal use only
-    void setWampId(PassKey, ReservedId&& id) {wampId_ = std::move(id);}
 };
 
 } // namespace internal

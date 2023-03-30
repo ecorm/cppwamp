@@ -135,6 +135,14 @@ CPPWAMP_INLINE bool ClientFeatures::supports(ClientFeatures desired) const
            subscriber_.all_of(desired.subscriber_);
 }
 
+CPPWAMP_INLINE void ClientFeatures::reset()
+{
+    callee_.reset();
+    caller_.reset();
+    publisher_.reset();
+    subscriber_.reset();
+}
+
 template <typename E>
 void ClientFeatures::parse(Flags<E>& flags, E pos, const Object* roleDict,
                            const char* featureName)

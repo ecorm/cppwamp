@@ -102,6 +102,14 @@ CPPWAMP_INLINE ErrorOr<Object> Realm::roles() const
     return this->optionAs<Object>("roles");
 }
 
+CPPWAMP_INLINE ClientFeatures Realm::features() const
+{
+    auto found = options().find("roles");
+    if (found == options().end())
+        return {};
+    return ClientFeatures{found->second.as<Object>()};
+}
+
 CPPWAMP_INLINE AccessActionInfo Realm::info(bool) const
 {
     return {AccessAction::clientHello, uri(), options()};

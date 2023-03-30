@@ -57,7 +57,7 @@ public:
                 auto& me = *self;
                 auto reservedId = me.router_.reserveSessionId();
                 auto id = reservedId.get();
-                session->setWampId({}, std::move(reservedId));
+                session->setWampId(std::move(reservedId));
                 me.sessions_.emplace(id, std::move(session));
             }
         };

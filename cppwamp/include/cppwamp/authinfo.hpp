@@ -68,13 +68,16 @@ public:
     /** Obtains the `authextra` dictionary. */
     const Object& extra() const;
 
-    /** Determines whether the client session is LocalSession or one that
+    /** Determines whether the client session is DirectSession or one that
         connected via a server. */
-    bool isLocal() const;
+    bool isDirect() const;
 
     /** Accesses the note containing arbitrary information set by the
         authenticator. */
     const any& note() const;
+
+    /** Resets the instance as if it were default-constructed. */
+    void clear();
 
 private:
     String realmUri_;
@@ -85,11 +88,11 @@ private:
     Object extra_;
     any note_;
     SessionId sessionId_ = nullId();
-    bool isLocal_ = false;
+    bool isDirect_ = false;
 
 public:
     // Internal use only
-    void join(internal::PassKey, Uri realm, SessionId sessionId, bool isLocal);
+    void join(internal::PassKey, Uri realm, SessionId sessionId, bool isDirect);
     Object join(internal::PassKey, Uri uri, SessionId sessionId,
                 Object routerRoles);
 };

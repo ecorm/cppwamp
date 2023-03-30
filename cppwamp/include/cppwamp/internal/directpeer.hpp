@@ -52,6 +52,11 @@ public:
 
     DirectRealmSession(TPeer& peer) : peer_(peer) {}
 
+    using RealmSession::setTransportInfo;
+    using RealmSession::setHelloInfo;
+    using RealmSession::setWelcomeInfo;
+    using RealmSession::resetSessionInfo;
+
 private:
     void abort(Reason r) override
     {
@@ -108,7 +113,6 @@ private:
         peer_.onCommand(std::move(i));
     }
 
-private:
     TPeer& peer_;
 };
 
@@ -172,17 +176,11 @@ public:
     using StateChangeHandler    = std::function<void (State, std::error_code)>;
 
     DirectPeer()
-        : session_(std::make_shared<DirectSessionType>(*this)),
+        : routerLogSuffix_(" [Direct Session]"),
+          session_(std::make_shared<DirectSessionType>(*this)),
           state_(State::disconnected),
           logLevel_(LogLevel::warning)
-    {
-        sessionInfo_.endpoint = "direct";
-        sessionInfo_.serverName = "direct";
-        sessionInfo_.agent = Version::agentString();
-        sessionInfo_.serverSessionIndex = 0;
-        sessionInfo_.wampSessionId = 0;
-        routerLogSuffix_ = " [Direct Session]";
-    }
+    {}
 
     virtual ~DirectPeer()
     {
@@ -241,12 +239,9 @@ public:
         }
 
         routerLogger_ = router_.logger();
-        if (sessionInfo_.serverSessionIndex == 0)
-        {
-            auto n = router_.nextDirectSessionIndex();
-            sessionInfo_.serverSessionIndex = n;
-            routerLogSuffix_ = " [Session direct/ " + std::to_string(n) + ']';
-        }
+        auto n = router_.nextDirectSessionIndex();
+        session_->setTransportInfo({"direct", "direct", n});
+        routerLogSuffix_ = " [Session direct/ " + std::to_string(n) + ']';
 
         setState(State::closed);
         report({AccessAction::clientConnect});
@@ -269,13 +264,13 @@ public:
 
     void close()
     {
-        clearSessionInfo();
+        session_->resetSessionInfo();
         setState(State::closed);
     }
 
     void disconnect()
     {
-        clearSessionInfo();
+        session_->resetSessionInfo();
         auto oldState = setState(State::disconnected);
         if (oldState == State::established || oldState == State::shuttingDown)
             realm_.leave(session_->wampId());
@@ -294,8 +289,17 @@ public:
         realm_ = std::move(realm);
         if (!realm_.join(session_))
             return fail(WampErrc::noSuchRealm);
-        setSessionInfo(hello);
-        sessionInfo_.wampSessionId = session_->wampId();
+        session_->setHelloInfo(hello);
+
+        AuthInfo authInfo
+        {
+            hello.authId().value_or(""),
+            hello.optionOr<String>("authrole", ""),
+            hello.optionOr<String>("authmethod", "x_cppwamp_direct"),
+            hello.optionOr<String>("authprovider", "direct")
+        };
+        session_->setWelcomeInfo(std::move(authInfo));
+
         setState(State::established);
         return true;
     }
@@ -306,7 +310,7 @@ public:
         report(goodbye.info(false));
         realm_.leave(session_->wampId());
         realm_.reset();
-        setState(State::closed);
+        close();
         return true;
     }
 
@@ -366,20 +370,6 @@ private:
         if (ok)
             stateChangeHandler_(desired, std::error_code{});
         return ok;
-    }
-
-    void setSessionInfo(Realm& hello)
-    {
-        sessionInfo_.realmUri = std::move(hello.uri({}));
-        sessionInfo_.authId = hello.authId().value_or("");
-        sessionInfo_.wampSessionId = session_->wampId();
-    }
-
-    void clearSessionInfo()
-    {
-        sessionInfo_.realmUri.clear();
-        sessionInfo_.authId.clear();
-        sessionInfo_.wampSessionId = 0;
     }
 
     void onAbort(Reason&& r)
@@ -444,7 +434,7 @@ private:
     {
         if (!routerLogger_)
             return;
-        routerLogger_->log(AccessLogEntry{sessionInfo_, std::move(i)});
+        session_->report(std::move(i), *routerLogger_);
     }
 
     UnexpectedError fail(std::error_code ec, std::string info = {})
@@ -496,7 +486,6 @@ private:
         logHandler_(std::move(entry));
     }
 
-    AccessSessionInfo sessionInfo_;
     std::string routerLogSuffix_;
     InboundMessageHandler inboundMessageHandler_;
     LogHandler logHandler_;
