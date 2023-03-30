@@ -280,6 +280,8 @@ private:
     template <MessageKind> friend class Command;
 
 public: // Internal use only
+    static constexpr MessageKind messageKind(PassKey) {return K;}
+
     static constexpr bool isRequest(PassKey)
     {
         return MessageKindTraits<K>::isRequest();

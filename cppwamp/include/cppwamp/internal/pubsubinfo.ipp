@@ -54,6 +54,11 @@ CPPWAMP_INLINE Uri&& Topic::uri(internal::PassKey) &&
     return std::move(message().as<String>(uriPos_));
 }
 
+CPPWAMP_INLINE void Topic::setTrustLevel(internal::PassKey, TrustLevel)
+{
+    // Not applicable; do nothing
+}
+
 
 //******************************************************************************
 // Pub

@@ -108,21 +108,21 @@ public:
     /** Accesses the authentication information of the originator. */
     const AuthInfo& authInfo() const;
 
-    /** Accesses the data associated with a publish operation. */
+    /** Accesses the publish command object. */
     const Pub& pub() const;
 
-    /** Accesses the data associated with a subscribe operation. */
+    /** Accesses the subscribe command object. */
     const Topic& topic() const;
 
-    /** Accesses the data associated with a enroll (register) operation. */
+    /** Accesses the enroll (register) command object. */
     const Procedure& procedure() const;
 
-    /** Accesses the data associated with an RPC call operation. */
+    /** Accesses the call command object. */
     const Rpc& rpc() const;
 
-    /** Accesses the data associated with the operation. */
+    /** Accesses the command associated with the operation. */
     template <typename T>
-    const T& dataAs() const;
+    const T& commandAs() const;
 
     /** Applies the given visitor according to the authorization action. */
     template <typename TVisitor>
@@ -143,7 +143,7 @@ public:
 private:
     using Handler = std::function<void (Authorization, any)>;
 
-    any data_;
+    any command_;
     Handler handler_;
     AuthInfo::Ptr authInfo_;
     AuthorizationAction action_;
@@ -151,9 +151,9 @@ private:
 
 public:
     // Internal use only
-    template <typename TPeerData>
+    template <typename TCommand>
     AuthorizationRequest(internal::PassKey, AuthorizationAction a,
-                         TPeerData&& d, AuthInfo::Ptr i, Handler h);
+                         TCommand&& c, AuthInfo::Ptr i, Handler h);
 };
 
 //------------------------------------------------------------------------------
@@ -166,12 +166,13 @@ using Authorizer = AnyReusableHandler<void (AuthorizationRequest)>;
 
 /** @tparam T Either Pub, Topic, Procedure, or Rpc. */
 template <typename T>
-const T& AuthorizationRequest::dataAs() const
+const T& AuthorizationRequest::commandAs() const
 {
-    auto data = any_cast<T>(&data_);
-    CPPWAMP_LOGIC_CHECK(data != nullptr,
-                        "wamp::AuthorizationRequest does not hold a T");
-    return *data;
+    auto cmd = any_cast<T>(&command_);
+    CPPWAMP_LOGIC_CHECK(
+        cmd != nullptr,
+        "wamp::AuthorizationRequest does not hold a command of type T");
+    return *cmd;
 }
 
 /** @tparam TVisitor A callable entity taking an AuthorizationRequest as its
@@ -192,11 +193,11 @@ void AuthorizationRequest::apply(TVisitor&& v) const
     }
 }
 
-template <typename TPeerData>
+template <typename TCommand>
 AuthorizationRequest::AuthorizationRequest(
-    internal::PassKey, AuthorizationAction a, TPeerData&& d, AuthInfo::Ptr i,
+    internal::PassKey, AuthorizationAction a, TCommand&& c, AuthInfo::Ptr i,
     Handler h)
-    : data_(std::forward<TPeerData>(d)),
+    : command_(std::forward<TCommand>(c)),
       handler_(std::move(h)),
       authInfo_(std::move(i)),
       action_(a)

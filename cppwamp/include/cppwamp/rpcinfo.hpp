@@ -77,6 +77,7 @@ private:
 public:
     // Internal use only
     Uri&& uri(internal::PassKey);
+    void setTrustLevel(internal::PassKey, TrustLevel);
 };
 
 
@@ -614,6 +615,12 @@ template <typename D>
 Uri&& ProcedureLike<D>::uri(internal::PassKey)
 {
     return std::move(this->message().template as<String>(uriPos_));
+}
+
+template <typename D>
+void ProcedureLike<D>::setTrustLevel(internal::PassKey, TrustLevel)
+{
+    // Not applicable; do nothing
 }
 
 

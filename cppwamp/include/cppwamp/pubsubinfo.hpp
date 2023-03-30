@@ -57,7 +57,7 @@ public:
     /// @}
 
 private:
-    static constexpr unsigned uriPos_       = 3;
+    static constexpr unsigned uriPos_ = 3;
 
     using Base = Options<Topic, internal::MessageKind::subscribe>;
 
@@ -67,6 +67,7 @@ public:
     // Internal use only
     Topic(internal::PassKey, internal::Message&& msg);
     Uri&& uri(internal::PassKey) &&;
+    void setTrustLevel(internal::PassKey, TrustLevel);
 };
 
 

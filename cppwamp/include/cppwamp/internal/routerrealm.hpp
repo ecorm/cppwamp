@@ -90,42 +90,55 @@ public:
     }
 
 private:
-    template <typename TOperation, typename TData>
+    template <typename TOperation, typename TCommand>
     struct AuthorizationHandler
     {
         WeakPtr self;
         RealmSession::WeakPtr s;
         TOperation op;
 
-        void operator()(Authorization a, any anyData)
+        void operator()(Authorization a, any anyCommand)
         {
-            struct Dispatched
-            {
-                Ptr self;
-                Authorization authorization;
-                TData data;
-                RealmSession::Ptr originator;
-                TOperation op;
-
-                void operator()()
-                {
-                    op(std::move(self), std::move(originator),
-                       std::move(authorization), std::move(data));
-                }
-            };
-
             auto me = self.lock();
             if (!me)
                 return;
             auto originator = s.lock();
             if (!originator)
                 return;
-            auto& data = *any_cast<TData>(&anyData);
-            me->safelyDispatch<Dispatched>(std::move(a), std::move(data),
-                                           std::move(originator),
-                                           std::move(op));
+            auto& command = *any_cast<TCommand>(&anyCommand);
+            me->onAuthorization(std::move(a), std::move(command),
+                                std::move(originator), std::move(op));
         }
     };
+
+    template <typename TOperation, typename TCommand>
+    void onAuthorization(Authorization&& a, TCommand&& c, RealmSession::Ptr s,
+                         TOperation&& op)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Authorization authorization;
+            TCommand command;
+            RealmSession::Ptr originator;
+            TOperation op;
+
+            void operator()()
+            {
+                auto rid = command.requestId({});
+                auto kind = TCommand::messageKind({});
+                if (!checkAuthorization(authorization, *originator, kind, rid))
+                    return;
+                if (authorization.hasTrustLevel())
+                    command.setTrustLevel({}, authorization.trustLevel());
+                op(std::move(self), std::move(originator),
+                   authorization.disclosure(), std::move(command));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(a), std::move(c), std::move(s),
+                                   std::move(op));
+    }
 
     static bool checkAuthorization(const Authorization& auth, RealmSession& s,
                                    MessageKind reqKind, RequestId rid,
@@ -160,19 +173,83 @@ private:
         return true;
     }
 
-    template <typename TData>
-    static std::error_code setDisclosed(TData& data, DisclosureRule realmRule,
-                                        const Authorization& authentication)
+    template <typename TOperation, typename TCommand>
+    void dispatchAuthorized(AuthorizationAction action,
+                            RealmSession::Ptr originator, TCommand&& command)
     {
-        auto rule = authentication.disclosure();
-        rule = (rule == DisclosureRule::preset) ? realmRule : rule;
-        return setDisclosed(data, rule);
+        if (config_.authorizer())
+        {
+            dispatchDynamicallyAuthorized<TOperation>(
+                action, std::move(originator), std::move(command));
+        }
+        else
+        {
+            dispatchDirectly<TOperation>(std::move(originator),
+                                         std::move(command));
+        }
+    }
+
+    template <typename TOperation, typename TCommand>
+    void dispatchDynamicallyAuthorized(AuthorizationAction action,
+                                       RealmSession::Ptr originator,
+                                       TCommand&& command)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            AuthorizationRequest request;
+            void operator()() {self->config_.authorizer()(std::move(request));}
+        };
+
+        auto self = shared_from_this();
+        const auto& authorizer = config_.authorizer();
+        AuthorizationHandler<TOperation, TCommand> handler{self, originator,
+                                                           TOperation{}};
+
+        AuthorizationRequest req{{}, action, std::move(command),
+                                 originator->sharedAuthInfo(),
+                                 std::move(handler)};
+
+        auto exec =
+            boost::asio::get_associated_executor(authorizer, strand_);
+
+        Dispatched dispatched{std::move(self), std::move(req)};
+
+        dispatchAny(
+            strand_,
+            boost::asio::bind_executor(exec, std::move(dispatched)));
+    }
+
+    template <typename TOperation, typename TCommand>
+    void dispatchDirectly(RealmSession::Ptr originator, TCommand&& command)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RealmSession::Ptr originator;
+            TCommand command;
+            TOperation op;
+
+            void operator()()
+            {
+                op(std::move(self), std::move(originator),
+                   DisclosureRule::preset, std::move(command));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(originator),
+                                   std::forward<TCommand>(command));
     }
 
     template <typename TData>
-    static std::error_code setDisclosed(TData& data, DisclosureRule rule)
+    static std::error_code setDisclosed(TData& data, DisclosureRule realmRule,
+                                        DisclosureRule authenticatorRule)
     {
         using DR = DisclosureRule;
+
+        auto rule = (authenticatorRule == DR::preset) ? realmRule
+                                                      : authenticatorRule;
+
         bool disclosed = data.discloseMe();
 
         bool isStrict = rule == DR::strictConceal || rule == DR::strictReveal;
@@ -204,56 +281,16 @@ private:
         logger_->log(std::move(e));
     }
 
+    void report(RealmSession& session, AccessActionInfo&& action)
+    {
+        session.report(std::move(action), *logger_);
+    }
+
     template <typename F, typename... Ts>
     void safelyDispatch(Ts&&... args)
     {
         boost::asio::dispatch(
             strand(), F{shared_from_this(), std::forward<Ts>(args)...});
-    }
-
-    template <typename TDirectOp, typename TAuthorizedOp, typename D>
-    void dispatchAuthorized(AuthorizationAction action,
-                            RealmSession::Ptr originator, D&& data)
-    {
-        if (config_.authorizer())
-        {
-            dispatchDynamicallyAuthorized<TAuthorizedOp>(
-                action, std::move(originator), std::move(data));
-        }
-        else
-        {
-            safelyDispatch<TDirectOp>(originator, std::forward<D>(data));
-        }
-    }
-
-    template <typename TOperation, typename D>
-    void dispatchDynamicallyAuthorized(AuthorizationAction action,
-                                       RealmSession::Ptr originator, D&& data)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            AuthorizationRequest request;
-            void operator()() {self->config_.authorizer()(std::move(request));}
-        };
-
-        auto self = shared_from_this();
-        const auto& authorizer = config_.authorizer();
-        AuthorizationHandler<TOperation, D> handler{self, originator,
-                                                    TOperation{}};
-
-        AuthorizationRequest req{{}, action, std::move(data),
-                                 originator->sharedAuthInfo(),
-                                 std::move(handler)};
-
-        auto exec =
-            boost::asio::get_associated_executor(authorizer, strand_);
-
-        Dispatched dispatched{std::move(self), std::move(req)};
-
-        dispatchAny(
-            strand_,
-            boost::asio::bind_executor(exec, std::move(dispatched)));
     }
 
     RouterLogger::Ptr logger() const {return logger_;}
@@ -279,13 +316,10 @@ private:
 
     void send(RealmSession::Ptr s, Topic&& topic)
     {
-        struct Direct
+        struct Dispatched
         {
-            Ptr self;
-            RealmSession::Ptr s;
-            Topic t;
-
-            void operator()()
+            void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule,
+                            Topic&& t)
             {
                 auto rid = t.requestId({});
                 auto result = self->broker_.subscribe(s, std::move(t));
@@ -296,24 +330,9 @@ private:
             }
         };
 
-        struct Authorized
-        {
-            void operator()(Ptr self, RealmSession::Ptr s,
-                            const Authorization& a, Topic&& t)
-            {
-                auto rid = t.requestId({});
-                if (!checkAuthorization(a, *s, MessageKind::subscribe, rid))
-                    return;
-                auto result = self->broker_.subscribe(s, std::move(t));
-                if (result)
-                    s->sendSubscribed(Subscribed{rid, *result});
-                else
-                    s->sendError(MessageKind::subscribe, rid, result);
-            }
-        };
-
-        dispatchAuthorized<Direct, Authorized>(
-            AuthorizationAction::subscribe, std::move(s), std::move(topic));
+        report(*s, topic.info());
+        dispatchAuthorized<Dispatched>(AuthorizationAction::subscribe,
+                                       std::move(s), std::move(topic));
     }
 
     void send(RealmSession::Ptr s, Unsubscribe&& cmd)
@@ -340,17 +359,15 @@ private:
 
     void send(RealmSession::Ptr s, Pub&& pub)
     {
-        struct Direct
+        struct Dispatched
         {
-            Ptr self;
-            RealmSession::Ptr s;
-            Pub p;
-
-            void operator()()
+            void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule rule,
+                            Pub&& p)
             {
                 auto rid = p.requestId({});
                 bool ack = p.optionOr<bool>("acknowledge", false);
-                auto ec = setDisclosed(p, self->config_.publisherDisclosure());
+                auto realmRule = self->config_.publisherDisclosure();
+                auto ec = setDisclosed(p, realmRule, rule);
                 if (ec)
                     return s->sendError(MessageKind::publish, rid, ec, !ack);
 
@@ -367,48 +384,16 @@ private:
             }
         };
 
-        struct Authorized
-        {
-            void operator()(Ptr self, RealmSession::Ptr s,
-                            const Authorization& a, Pub&& p)
-            {
-                auto rid = p.requestId({});
-                bool ack = p.optionOr<bool>("acknowledge", false);
-                if (!checkAuthorization(a, *s, MessageKind::publish, rid, !ack))
-                    return;
-                if (a.hasTrustLevel())
-                    p.setTrustLevel({}, a.trustLevel());
-                auto rule = self->config_.publisherDisclosure();
-                auto ec = setDisclosed(p, rule, a);
-                if (ec)
-                    return s->sendError(MessageKind::publish, rid, ec, !ack);
-
-                auto result = self->broker_.publish(s, std::move(p));
-                if (result)
-                {
-                    if (ack)
-                        s->sendPublished(Published{rid, *result});
-                }
-                else
-                {
-                    s->sendError(MessageKind::publish, rid, result, !ack);
-                }
-            }
-        };
-
-        dispatchAuthorized<Direct, Authorized>(
+        dispatchAuthorized<Dispatched>(
             AuthorizationAction::publish, std::move(s), std::move(pub));
     }
 
     void send(RealmSession::Ptr s, Procedure&& proc)
     {
-        struct Direct
+        struct Dispatched
         {
-            Ptr self;
-            RealmSession::Ptr s;
-            Procedure p;
-
-            void operator()()
+            void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule rule,
+                            Procedure&& p)
             {
                 auto rid = p.requestId({});
                 auto result = self->dealer_.enroll(s, std::move(p));
@@ -419,23 +404,7 @@ private:
             }
         };
 
-        struct Authorized
-        {
-            void operator()(Ptr self, RealmSession::Ptr s,
-                            const Authorization& a, Procedure&& p)
-            {
-                auto rid = p.requestId({});
-                if (!checkAuthorization(a, *s, MessageKind::enroll, rid))
-                    return;
-                auto result = self->dealer_.enroll(s, std::move(p));
-                if (result)
-                    s->sendRegistered(Registered{rid, *result});
-                else
-                    s->sendError(MessageKind::enroll, rid, result);
-            }
-        };
-
-        dispatchAuthorized<Direct, Authorized>(
+        dispatchAuthorized<Dispatched>(
             AuthorizationAction::enroll, std::move(s), std::move(proc));
     }
 
@@ -463,42 +432,14 @@ private:
 
     void send(RealmSession::Ptr s, Rpc&& rpc)
     {
-        struct Direct
+        struct Dispatched
         {
-            Ptr self;
-            RealmSession::Ptr s;
-            Rpc r;
-
-            void operator()()
+            void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule rule,
+                            Rpc&& r)
             {
                 auto rid = r.requestId({});
-                auto ec = setDisclosed(r, self->config_.callerDisclosure());
-                if (ec)
-                    s->sendError(MessageKind::call, rid, ec);
-                auto result = self->dealer_.call(s, std::move(r));
-                if (ec == WampErrc::protocolViolation)
-                {
-                    s->abort(Reason(ec).withHint(
-                        "Received CALL message uses non-sequential request ID"));
-                }
-                else if (!result)
-                {
-                    s->sendError(MessageKind::call, rid, result);
-                }
-            }
-        };
-
-        struct Authorized
-        {
-            void operator()(Ptr self, RealmSession::Ptr s,
-                            const Authorization& a, Rpc&& r)
-            {
-                auto rid = r.requestId({});
-                if (!checkAuthorization(a, *s, MessageKind::call, rid))
-                    return;
-                if (a.hasTrustLevel())
-                    r.setTrustLevel({}, a.trustLevel());
-                auto ec = setDisclosed(r, self->config_.callerDisclosure(), a);
+                auto realmRule = self->config_.callerDisclosure();
+                auto ec = setDisclosed(r, realmRule, rule);
                 if (ec)
                     s->sendError(MessageKind::call, rid, ec);
                 auto result = self->dealer_.call(s, std::move(r));
@@ -507,7 +448,7 @@ private:
             }
         };
 
-        dispatchAuthorized<Direct, Authorized>(
+        dispatchAuthorized<Dispatched>(
             AuthorizationAction::enroll, std::move(s), std::move(rpc));
     }
 

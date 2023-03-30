@@ -70,28 +70,28 @@ CPPWAMP_INLINE const AuthInfo& AuthorizationRequest::authInfo() const
     @throws bad_any_cast if the precondition is not met. */
 CPPWAMP_INLINE const Pub& AuthorizationRequest::pub() const
 {
-    return dataAs<Pub>();
+    return commandAs<Pub>();
 }
 
 /** @pre this->action == AuthorizationAction::subscribe.
     @throws bad_any_cast if the precondition is not met. */
 CPPWAMP_INLINE const Topic& AuthorizationRequest::topic() const
 {
-    return dataAs<Topic>();
+    return commandAs<Topic>();
 }
 
 /** @pre this->action == AuthorizationAction::enroll.
     @throws bad_any_cast if the precondition is not met. */
 CPPWAMP_INLINE const Procedure& AuthorizationRequest::procedure() const
 {
-    return dataAs<Procedure>();
+    return commandAs<Procedure>();
 }
 
 /** @pre this->action == AuthorizationAction::call.
     @throws bad_any_cast if the precondition is not met. */
 CPPWAMP_INLINE const Rpc& AuthorizationRequest::rpc() const
 {
-    return dataAs<Rpc>();
+    return commandAs<Rpc>();
 }
 
 /** @tparam T Either Pub, Topic, Procedure, or Rpc
@@ -100,7 +100,7 @@ CPPWAMP_INLINE void AuthorizationRequest::authorize(Authorization a)
 {
     CPPWAMP_LOGIC_CHECK(!completed_,
                         "wamp::AuthorizationRequest already completed");
-    handler_(std::move(a), std::move(data_));
+    handler_(std::move(a), std::move(command_));
     completed_ = true;
 }
 
