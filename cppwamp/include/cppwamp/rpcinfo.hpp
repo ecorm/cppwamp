@@ -48,7 +48,7 @@ public:
     const Uri& uri() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(bool = false) const;
+    AccessActionInfo info() const;
 
     /** @name Pattern-based Registrations
         See [Pattern-based Registrations in the WAMP Specification]
@@ -122,7 +122,7 @@ public:
     const Uri& uri() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(bool = false) const;
+    AccessActionInfo info() const;
 
     /** @name Call Timeouts
         See [Call Timeouts in the WAMP Specification]
@@ -410,7 +410,7 @@ public:
     std::future<ErrorOrDone> yield(ThreadSafe, Error error) const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(bool = false) const;
+    AccessActionInfo info(Uri topic) const;
 
     /** @name Caller Identification
         See [Caller Identification in the WAMP Specification]
@@ -476,19 +476,15 @@ public:
     CallCancellation(RequestId reqId,
                      CallCancelMode cancelMode = Rpc::defaultCancelMode());
 
-    /** Obtains the request ID of the call to cancel. */
-    RequestId requestId() const;
-
     /** Obtains the cancel mode. */
     CallCancelMode mode() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(bool = false) const;
+    AccessActionInfo info() const;
 
 private:
     using Base = Options<CallCancellation, internal::MessageKind::cancel>;
 
-    RequestId requestId_ = nullId();
     CallCancelMode mode_ = CallCancelMode::unknown;
 
 public:
@@ -542,7 +538,7 @@ public:
     std::future<ErrorOrDone> yield(ThreadSafe, Error error) const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(bool = false) const;
+    AccessActionInfo info() const;
 
 private:
     using Base = Options<Interruption, internal::MessageKind::interrupt>;
@@ -580,7 +576,7 @@ const Uri& ProcedureLike<D>::uri() const
 }
 
 template <typename D>
-AccessActionInfo ProcedureLike<D>::info(bool) const
+AccessActionInfo ProcedureLike<D>::info() const
 {
     return {AccessAction::clientRegister, this->requestId(), uri(),
             this->options()};
@@ -642,7 +638,7 @@ const Uri& RpcLike<D>::uri() const
 }
 
 template <typename D>
-AccessActionInfo RpcLike<D>::info(bool) const
+AccessActionInfo RpcLike<D>::info() const
 {
     return {AccessAction::clientCall, this->message().requestId(), uri(),
             this->options()};

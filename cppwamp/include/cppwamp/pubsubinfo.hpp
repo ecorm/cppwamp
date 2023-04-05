@@ -42,7 +42,7 @@ public:
     const Uri& uri() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(bool = false) const;
+    AccessActionInfo info() const;
 
     /** @name Pattern-based Subscription
         See [Pattern-based Subscription in the WAMP Specification]
@@ -85,7 +85,7 @@ public:
     const Uri& uri() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(bool = false) const;
+    AccessActionInfo info() const;
 
     /** @name Subscriber Allow/Deny Lists
         See [Subscriber Black- and Whitelisting in the WAMP Specification]

@@ -204,26 +204,6 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
                        make_error_code(errc))
 {}
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE AccessActionInfo&
-AccessActionInfo::withErrorUri(std::string uri)
-{
-    errorUri = std::move(uri);
-    return *this;
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE AccessActionInfo& AccessActionInfo::withError(std::error_code ec)
-{
-    return withErrorUri(errorCodeToUri(ec));
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE AccessActionInfo& AccessActionInfo::withError(WampErrc errc)
-{
-    return withError(make_error_code(errc));
-}
-
 
 //******************************************************************************
 // AccessLogEntry

@@ -61,6 +61,10 @@ struct CPPWAMP_API Authorization
     /** Sets the rule that governs how the caller/publisher is disclosed. */
     Authorization& withDisclosure(DisclosureRule d);
 
+    /** Returns true if the authorization succeeded and the operations
+        is allowed. */
+    explicit operator bool() const;
+
     /** Obtains the error code indicating if the authorization operation itself
         has failed. */
     std::error_code error() const;

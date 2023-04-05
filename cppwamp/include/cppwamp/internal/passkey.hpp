@@ -12,6 +12,7 @@ namespace wamp
 
 class AuthorizationRequest;
 class CalleeInputChunk;
+class Error;
 class Event;
 class Interruption;
 class Invocation;
@@ -26,6 +27,7 @@ namespace internal
         // TODO: Verify these are all needed before next release
         friend class wamp::AuthorizationRequest;
         friend class wamp::CalleeInputChunk;
+        friend class wamp::Error;
         friend class wamp::Event;
         friend class wamp::Interruption;
         friend class wamp::Invocation;

@@ -39,8 +39,17 @@ CPPWAMP_INLINE WampErrc Error::errorCode() const {return errorUriToCode(uri());}
 
 CPPWAMP_INLINE AccessActionInfo Error::info(bool isServer) const
 {
-    auto action = isServer ? AccessAction::serverError
-                           : AccessAction::clientError;
+    AccessAction action;
+    if (message().kind() == internal::MessageKind::error)
+    {
+        action = isServer ? AccessAction::serverError
+                          : AccessAction::clientError;
+    }
+    else
+    {
+        action = isServer ? AccessAction::serverAbort
+                          : AccessAction::clientAbort;
+    }
     return {action, requestId(), {}, options(), uri()};
 }
 

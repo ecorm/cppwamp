@@ -66,7 +66,7 @@ public:
         completeNow([this, self]() {startSession();});
     }
 
-    void abort(Reason r) override
+    void onRouterAbort(Reason&& r) override
     {
         struct Dispatched
         {
@@ -78,209 +78,33 @@ public:
         safelyDispatch<Dispatched>(std::move(r));
     }
 
-    void sendError(Error&& e, bool logOnly) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Error e;
-            bool logOnly;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.report(e.info(true));
-                if (!logOnly)
-                    me.send(std::move(e));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(e), logOnly);
-    }
-
-    void sendSubscribed(Subscribed&& s) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Subscribed s;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.report(s.info());
-                me.send(std::move(s));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(s));
-    }
-
-    void sendUnsubscribed(Unsubscribed&& u, Uri&& topic) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Unsubscribed u;
-            Uri t;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.report(u.info(std::move(t)));
-                me.send(std::move(u));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(u), std::move(topic));
-    }
-
-    void sendPublished(Published&& p) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Published p;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.report(p.info());
-                me.send(std::move(p));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(p));
-    }
-
-    void sendEvent(Event&& ev, Uri topic) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Event e;
-            Uri t;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.report(e.info(std::move(t)));
-                me.send(std::move(e));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(ev), std::move(topic));
-    }
-
-    void sendRegistered(Registered&& r) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Registered&& r;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.report(r.info());
-                me.send(std::move(r));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(r));
-    }
-
-    void sendUnregistered(Unregistered&& u, Uri&& procedure) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Unregistered u;
-            Uri p;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.report(u.info(std::move(p)));
-                me.send(std::move(u));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(u), std::move(procedure));
-    }
-
-    void onSendInvocation(Invocation&& inv) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Invocation i;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.report(i.info()); // TODO: Also log procedure URI
-                me.send(std::move(i));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(inv));
-    }
-
-    void sendResult(Result&& r) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Result r;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.report(r.info(true));
-                me.send(std::move(r));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(r));
-    }
-
-    void sendInterruption(Interruption&& intr) override
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Interruption i;
-
-            void operator()()
-            {
-                auto& me = *self;
-                me.report(i.info());
-                self->send(std::move(i));
-            }
-        };
-
-        safelyDispatch<Dispatched>(std::move(intr));
-    }
+    void onRouterCommand(Error&& e) override        {sendRouterCommand(std::move(e));}
+    void onRouterCommand(Subscribed&& s) override   {sendRouterCommand(std::move(s));}
+    void onRouterCommand(Unsubscribed&& u) override {sendRouterCommand(std::move(u));}
+    void onRouterCommand(Published&& p) override    {sendRouterCommand(std::move(p));}
+    void onRouterCommand(Event&& e) override        {sendRouterCommand(std::move(e));}
+    void onRouterCommand(Registered&& r) override   {sendRouterCommand(std::move(r));}
+    void onRouterCommand(Unregistered&& u) override {sendRouterCommand(std::move(u));}
+    void onRouterCommand(Invocation&& i) override   {sendRouterCommand(std::move(i));}
+    void onRouterCommand(Result&& r) override       {sendRouterCommand(std::move(r));}
+    void onRouterCommand(Interruption&& i) override {sendRouterCommand(std::move(i));}
 
 private:
     using Base = RealmSession;
 
     ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
                   ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)
-        : peer_(true),
+        : Base(s.logger()),
+          peer_(true),
           strand_(std::move(i)),
           transport_(t),
           codec_(std::move(c)),
           server_(std::move(s)),
-          serverConfig_(std::move(sc)),
-          logger_(server_.logger())
+          serverConfig_(std::move(sc))
     {
         assert(serverConfig_ != nullptr);
         Base::setTransportInfo({t->remoteEndpointLabel(), serverConfig_->name(),
                                 sessionIndex});
-        logSuffix_ = " [Session " + serverConfig_->name() + '/' +
-                     std::to_string(sessionIndex) + ']';
     }
 
     State state() const {return peer_.state();}
@@ -292,14 +116,14 @@ private:
 
         std::weak_ptr<ServerSession> self = shared_from_this();
 
-        peer_.setLogLevel(logger_->level());
+        peer_.setLogLevel(Base::routerLogLevel());
 
         peer_.listenLogged(
             [this, self](LogEntry entry)
             {
                 auto me = self.lock();
                 if (me)
-                    log(std::move(entry));
+                    Base::routerLog(std::move(entry));
             });
 
         peer_.setInboundMessageHandler(
@@ -329,12 +153,24 @@ private:
         peer_.abort(r);
     }
 
-    template <typename T>
-    void send(T&& command)
+    template <typename C>
+    void sendRouterCommand(C&& command)
     {
-        if (state() != State::established)
-            return;
-        peer_.send(std::move(command));
+        struct Dispatched
+        {
+            Ptr self;
+            C command;
+
+            void operator()()
+            {
+                auto& me = *self;
+                if (me.state() != State::established)
+                    return;
+                me.peer_.send(std::move(command));
+            }
+        };
+
+        completeNow(Dispatched{shared_from_this(), std::forward<C>(command)});
     }
 
     void resetWampSessionInfo()
@@ -378,21 +214,23 @@ private:
         if (!checkSequentialRequestId(m))
             return;
 
+        auto self = shared_from_this();
+
         using K = MessageKind;
         switch (m.kind())
         {
         case K::hello:        return onHello(m);
         case K::authenticate: return onAuthenticate(m);
         case K::goodbye:      return onGoodbye(m);
-        case K::error:        return onError(m);
-        case K::publish:      return onPublish(m);
-        case K::subscribe:    return onSubscribe(m);
-        case K::unsubscribe:  return onUnsubscribe(m);
-        case K::call:         return onCall(m);
-        case K::cancel:       return onCancelCall(m);
-        case K::enroll:       return onRegister(m);
-        case K::unregister:   return onUnregister(m);
-        case K::yield:        return onYield(m);
+        case K::error:        return sendToRealm<Error>(m);
+        case K::publish:      return sendToRealm<Pub>(m);
+        case K::subscribe:    return sendToRealm<Topic>(m);
+        case K::unsubscribe:  return sendToRealm<Unsubscribe>(m);
+        case K::call:         return sendToRealm<Rpc>(m);
+        case K::cancel:       return sendToRealm<CallCancellation>(m);
+        case K::enroll:       return sendToRealm<Procedure>(m);
+        case K::unregister:   return sendToRealm<Unregister>(m);
+        case K::yield:        return sendToRealm<Result>(m);
         default:              assert(false && "Unexpected message type"); break;
         }
     }
@@ -400,12 +238,13 @@ private:
     void onHello(Message& msg)
     {
         Realm realm{{}, std::move(msg)};
+        Base::report(realm.info());
         Base::setHelloInfo(realm);
+
         realm_ = server_.realmAt(realm.uri());
         if (realm_.expired())
         {
             auto errc = WampErrc::noSuchRealm;
-            report(realm.info().withError(errc));
             abortSession({errc});
             return;
         }
@@ -420,20 +259,20 @@ private:
     void onAuthenticate(Message& msg)
     {
         Authentication authentication{{}, std::move(msg)};
+        Base::report(authentication.info());
 
         const auto& authenticator = serverConfig_->authenticator();
         assert(authenticator != nullptr);
+
         bool isExpected = authExchange_ != nullptr &&
                           state() == State::authenticating;
         if (!isExpected)
         {
             auto errc = WampErrc::protocolViolation;
-            report(authentication.info().withError(errc));
             abortSession(Reason(errc).withHint("Unexpected AUTHENTICATE message"));
             return;
         }
 
-        report(authentication.info());
         authExchange_->setAuthentication({}, std::move(authentication));
         completeNow(authenticator, authExchange_);
     }
@@ -448,69 +287,10 @@ private:
         // requests, and will close the session state.
     }
 
-    void onError(Message& msg)
+    template <typename TCommand>
+    void sendToRealm(Message& msg)
     {
-        Error error{{}, std::move(msg)};
-        report(error.info(false));
-        realm_.send(shared_from_this(), std::move(error));
-    }
-
-    void onPublish(Message& msg)
-    {
-        Pub pub({}, std::move(msg));
-        report(pub.info());
-        realm_.send(shared_from_this(), std::move(pub));
-    }
-
-    void onSubscribe(Message& msg)
-    {
-        Topic topic{{}, std::move(msg)};
-        report(topic.info());
-        realm_.send(shared_from_this(), std::move(topic));
-    }
-
-    void onUnsubscribe(Message& msg)
-    {
-        Unsubscribe cmd{std::move(msg)};
-        auto reqId = cmd.requestId({});
-        report({AccessAction::clientUnsubscribe, reqId});
-        realm_.send(shared_from_this(), std::move(cmd));
-    }
-
-    void onCall(Message& msg)
-    {
-        Rpc rpc{{}, std::move(msg)};
-        report(rpc.info());
-        realm_.send(shared_from_this(), std::move(rpc));
-    }
-
-    void onCancelCall(Message& msg)
-    {
-        CallCancellation cncl({}, std::move(msg));
-        report(cncl.info());
-        realm_.send(shared_from_this(), std::move(cncl));
-    }
-
-    void onRegister(Message& msg)
-    {
-        Procedure proc({}, std::move(msg));
-        report(proc.info());
-        realm_.send(shared_from_this(), std::move(proc));
-    }
-
-    void onUnregister(Message& msg)
-    {
-        Unregister cmd{std::move(msg)};
-        auto reqId = cmd.requestId({});
-        report({AccessAction::clientUnregister, reqId});
-        realm_.send(shared_from_this(), std::move(cmd));
-    }
-
-    void onYield(Message& msg)
-    {
-        Result result{{}, std::move(msg)};
-        report(result.info(false));
-        realm_.send(shared_from_this(), std::move(result));
+        realm_.send(shared_from_this(), TCommand{{}, std::move(msg)});
     }
 
     void leaveRealm()
@@ -524,14 +304,6 @@ private:
         server_.removeSession(shared_from_this());
         leaveRealm();
     }
-
-    void log(LogEntry e)
-    {
-        e.append(logSuffix_);
-        logger_->log(std::move(e));
-    }
-
-    void report(AccessActionInfo i) {Base::report(std::move(i), *logger_);}
 
     template <typename F, typename... Ts>
     void complete(F&& handler, Ts&&... args)
@@ -676,7 +448,6 @@ private:
     }
 
     Peer peer_;
-    std::string logSuffix_;
     IoStrand strand_;
     Transporting::Ptr transport_;
     AnyBufferCodec codec_;
@@ -684,7 +455,6 @@ private:
     RealmContext realm_;
     ServerConfig::Ptr serverConfig_;
     AuthExchange::Ptr authExchange_;
-    RouterLogger::Ptr logger_;
     RequestId expectedRequestId_ = 1;
     bool alreadyStarted_ = false;
     bool shuttingDown_ = false;

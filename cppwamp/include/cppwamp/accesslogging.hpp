@@ -125,20 +125,6 @@ struct CPPWAMP_API AccessActionInfo
                            std::move(options), toErrorUri(x))
     {}
 
-    AccessActionInfo& withErrorUri(std::string uri);
-
-    AccessActionInfo& withError(std::error_code ec);
-
-    AccessActionInfo& withError(WampErrc errc);
-
-    template <typename T>
-    AccessActionInfo& withResult(const ErrorOr<T>& x)
-    {
-        if (!x)
-            withError(x.error());
-        return *this;
-    }
-
     std::string target;
     std::string errorUri;
     Object options;

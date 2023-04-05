@@ -104,7 +104,7 @@ public:
     ClientFeatures features() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(bool = false) const;
+    AccessActionInfo info() const;
 
     /** @name Authentication
         See [Authentication Methods in the WAMP Specification]
@@ -156,7 +156,7 @@ public:
     const Uri& realm() const;
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(bool = false) const;
+    AccessActionInfo info() const;
 
     /** @name Agent Identification
         See [Agent Identification in the WAMP Specification]
@@ -247,7 +247,7 @@ public:
     Authentication& withChannelBinding(std::string type, std::string data);
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(bool = false) const;
+    AccessActionInfo info() const;
 
 private:
     static constexpr unsigned signaturePos_ = 1;
@@ -327,7 +327,7 @@ public:
     std::future<ErrorOrDone> fail(ThreadSafe, Reason reason);
 
     /** Obtains information for the access log. */
-    AccessActionInfo info(bool = false) const;
+    AccessActionInfo info() const;
 
 public:
     // Internal use only

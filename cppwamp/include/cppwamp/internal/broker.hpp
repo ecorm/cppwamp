@@ -76,7 +76,7 @@ public:
     void sendTo(RealmSession& subscriber) const
     {
         if (isEligible(subscriber))
-            subscriber.sendEvent(Event{event_}, topicUri_);
+            subscriber.sendRouterCommand(Event{event_});
     }
 
     const Uri& topicUri() const {return topicUri_;}

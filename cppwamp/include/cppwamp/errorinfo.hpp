@@ -73,7 +73,12 @@ private:
 
 public:
     // Internal use only
-    static constexpr bool isRequest(internal::PassKey) {return false;}
+    template <typename C>
+    static Error fromRequest(internal::PassKey, const C& command,
+                             std::error_code ec)
+    {
+        return Error({}, C::messageKind({}), command.requestId({}), ec);
+    }
 
     Error(internal::PassKey, internal::Message&& msg);
 
@@ -82,6 +87,19 @@ public:
 
     Error(internal::PassKey, internal::MessageKind reqKind,
           RequestId rid, std::error_code ec, Object opts = {});
+
+    template <typename C>
+    AccessActionInfo info(internal::PassKey, const C& command)
+    {
+        auto actionInfo = info(true);
+        auto uriPos = internal::MessageKindTraits<C::messageKind({})>::uriPos();
+        if (uriPos != 0)
+        {
+            actionInfo.target =
+                command.message({}).template as<String>(uriPos);
+        }
+        return actionInfo;
+    }
 
     void setRequestKind(internal::PassKey, internal::MessageKind reqKind);
 };

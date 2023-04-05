@@ -19,6 +19,7 @@
 #include "../sessioninfo.hpp"
 #include "commandinfo.hpp"
 #include "random.hpp"
+#include "routercontext.hpp"
 
 namespace wamp
 {
@@ -52,73 +53,90 @@ public:
         sessionInfo_.wampSessionId = wampId();
     }
 
-    template <typename TLogger>
-    void report(AccessActionInfo&& action, TLogger& logger)
+    void report(AccessActionInfo&& action)
     {
-        logger.log(AccessLogEntry{transportInfo_, sessionInfo_,
-                                  std::move(action)});
+        if (!logger_)
+            return;
+        logger_->log(AccessLogEntry{transportInfo_, sessionInfo_,
+                                    std::move(action)});
     }
 
-    virtual void abort(Reason) = 0;
+    void abort(Reason r) {onRouterAbort(std::move(r));}
 
-    virtual void sendError(Error&&, bool logOnly = false) = 0;
-
-    void sendError(MessageKind reqKind, RequestId rid, std::error_code ec,
-                   bool logOnly = false)
+    template <typename C, typename... Ts>
+    void sendRouterCommand(C&& command, Ts&&... accessInfoArgs)
     {
-        sendError(Error{{}, reqKind, rid, ec}, logOnly);
+        if (logger_)
+        {
+            auto info = command.info(std::forward<Ts>(accessInfoArgs)...);
+            logger_->log(AccessLogEntry{transportInfo_, sessionInfo_,
+                                        std::move(info)});
+        }
+
+        onRouterCommand(std::forward<C>(command));
     }
 
-    void sendError(MessageKind reqKind, RequestId rid, WampErrc errc,
-                   bool logOnly = false)
-    {
-        sendError(reqKind, rid, make_error_code(errc), logOnly);
-    }
-
-    template <typename T>
-    void sendError(MessageKind reqKind, RequestId rid, const ErrorOr<T>& x,
-                   bool logOnly = false)
-    {
-        assert(!x.has_value());
-        sendError(reqKind, rid, x.error(), logOnly);
-    }
-
-    virtual void sendSubscribed(Subscribed&&) = 0;
-
-    virtual void sendUnsubscribed(Unsubscribed&&, Uri&& topic) = 0;
-
-    virtual void sendPublished(Published&&) = 0;
-
-    virtual void sendEvent(Event&&, Uri topic) = 0;
-
-    virtual void sendRegistered(Registered&&) = 0;
-
-    virtual void sendUnregistered(Unregistered&&, Uri&& procedure) = 0;
-
-    RequestId sendInvocation(Invocation&& inv)
+    RequestId sendInvocation(Invocation&& inv, Uri&& topic)
     {
         // Will take 285 years to overflow 2^53 at 1 million requests/sec
         auto id = ++nextOutboundRequestId_;
         assert(id <= 9007199254740992u);
         inv.setRequestId({}, id);
-        onSendInvocation(std::move(inv));
+        sendRouterCommand(std::move(inv), std::move(topic));
         return id;
     }
 
-    virtual void sendResult(Result&&) = 0;
-
-    virtual void sendInterruption(Interruption&&) = 0;
-
 protected:
-    RealmSession()
-        : authInfo_(std::make_shared<AuthInfo>()),
+    RealmSession(RouterLogger::Ptr logger = nullptr)
+        : logger_(std::move(logger)),
+          authInfo_(std::make_shared<AuthInfo>()),
           nextOutboundRequestId_(0)
     {}
 
-    virtual void onSendInvocation(Invocation&&) = 0;
+    virtual void onRouterAbort(Reason&&) = 0;
+
+    virtual void onRouterCommand(Error&&) = 0;
+
+    virtual void onRouterCommand(Subscribed&&) = 0;
+
+    virtual void onRouterCommand(Unsubscribed&&) = 0;
+
+    virtual void onRouterCommand(Published&&) = 0;
+
+    virtual void onRouterCommand(Event&&) = 0;
+
+    virtual void onRouterCommand(Registered&&) = 0;
+
+    virtual void onRouterCommand(Unregistered&&) = 0;
+
+    virtual void onRouterCommand(Invocation&&) = 0;
+
+    virtual void onRouterCommand(Result&&) = 0;
+
+    virtual void onRouterCommand(Interruption&&) = 0;
+
+    void setRouterLogger(RouterLogger::Ptr logger)
+    {
+        logger_ = std::move(logger);
+    }
+
+    LogLevel routerLogLevel() const
+    {
+        return logger_ ? logger_->level() : LogLevel::off;
+    }
+
+    void routerLog(LogEntry e)
+    {
+        if (!logger_)
+            return;
+        e.append(logSuffix_);
+        logger_->log(std::move(e));
+    }
 
     void setTransportInfo(AccessTransportInfo&& info)
     {
+        logSuffix_ = " [Session " + info.serverName + '/' +
+                     std::to_string(info.serverSessionIndex) + ']';
         transportInfo_ = std::move(info);
     }
 
@@ -150,7 +168,9 @@ protected:
 private:
     AccessTransportInfo transportInfo_;
     AccessSessionInfo sessionInfo_;
+    String logSuffix_;
     ReservedId wampId_;
+    RouterLogger::Ptr logger_;
     AuthInfo::Ptr authInfo_;
     ClientFeatures features_;
     std::atomic<RequestId> nextOutboundRequestId_;

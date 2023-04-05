@@ -119,20 +119,18 @@ private:
         {
             Ptr self;
             Authorization authorization;
-            TCommand command;
+            TCommand cmd;
             RealmSession::Ptr originator;
             TOperation op;
 
             void operator()()
             {
-                auto rid = command.requestId({});
-                auto kind = TCommand::messageKind({});
-                if (!checkAuthorization(authorization, *originator, kind, rid))
+                if (!self->checkAuthorization(authorization, *originator, cmd))
                     return;
                 if (authorization.hasTrustLevel())
-                    command.setTrustLevel({}, authorization.trustLevel());
+                    cmd.setTrustLevel({}, authorization.trustLevel());
                 op(std::move(self), std::move(originator),
-                   authorization.disclosure(), std::move(command));
+                   authorization.disclosure(), std::move(cmd));
             }
         };
 
@@ -140,37 +138,38 @@ private:
                                    std::move(op));
     }
 
-    static bool checkAuthorization(const Authorization& auth, RealmSession& s,
-                                   MessageKind reqKind, RequestId rid,
-                                   bool logOnly = false)
+    template <typename C>
+    bool checkAuthorization(const Authorization& auth, RealmSession& s,
+                            const C& command)
     {
+        if (auth)
+            return true;
+
+        auto ec = make_error_code(WampErrc::authorizationDenied);
+        bool isKnownAuthError = true;
+
         if (auth.error())
         {
-            if (auth.error() == WampErrc::authorizationDenied ||
+            bool isKnownAuthError =
+                auth.error() == WampErrc::authorizationDenied ||
                 auth.error() == WampErrc::authorizationFailed ||
                 auth.error() == WampErrc::authorizationRequired ||
-                auth.error() == WampErrc::discloseMeDisallowed)
-            {
-                Error error{{}, reqKind, rid, auth.error()};
-                s.sendError(std::move(error), logOnly);
-            }
-            else
-            {
-                auto ec = make_error_code(WampErrc::authorizationFailed);
-                auto error = Error({}, reqKind, rid, ec)
-                                 .withArgs(briefErrorCodeString(auth.error()),
-                                           auth.error().message());
-                s.sendError(std::move(error), logOnly);
-            }
-            return false;
-        }
-        else if (!auth.allowed())
-        {
-            s.sendError(reqKind, rid, WampErrc::authorizationDenied, logOnly);
-            return false;
+                auth.error() == WampErrc::discloseMeDisallowed;
+
+            ec = isKnownAuthError ?
+                     auth.error() :
+                     make_error_code(WampErrc::authorizationFailed);
         }
 
-        return true;
+        auto error = Error::fromRequest({}, command, ec);
+        if (!isKnownAuthError)
+        {
+            error.withArgs(briefErrorCodeString(auth.error()),
+                           auth.error().message());
+        }
+
+        s.sendRouterCommand(std::move(error), true);
+        return false;
     }
 
     template <typename TOperation, typename TCommand>
@@ -241,27 +240,32 @@ private:
                                    std::forward<TCommand>(command));
     }
 
-    template <typename TData>
-    static std::error_code setDisclosed(TData& data, DisclosureRule realmRule,
-                                        DisclosureRule authenticatorRule)
+    template <typename C>
+    bool setDisclosed(RealmSession& originator, C& command,
+                      DisclosureRule realmRule,
+                      DisclosureRule authenticatorRule)
     {
         using DR = DisclosureRule;
 
         auto rule = (authenticatorRule == DR::preset) ? realmRule
                                                       : authenticatorRule;
-
-        bool disclosed = data.discloseMe();
-
+        bool disclosed = command.discloseMe();
         bool isStrict = rule == DR::strictConceal || rule == DR::strictReveal;
+
         if (disclosed && isStrict)
-            return make_error_code(WampErrc::discloseMeDisallowed);
+        {
+            auto error = Error::fromRequest(
+                {}, command, make_error_code(WampErrc::discloseMeDisallowed));
+            originator.sendRouterCommand(std::move(error), true);
+            return false;
+        }
 
         if (rule == DR::conceal || rule == DR::strictConceal)
             disclosed = false;
         if (rule == DR::reveal || rule == DR::strictReveal)
             disclosed = true;
-        data.setDisclosed({}, disclosed);
-        return {};
+        command.setDisclosed({}, disclosed);
+        return true;
     }
 
     RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
@@ -279,11 +283,6 @@ private:
     {
         e.append(logSuffix_);
         logger_->log(std::move(e));
-    }
-
-    void report(RealmSession& session, AccessActionInfo&& action)
-    {
-        session.report(std::move(action), *logger_);
     }
 
     template <typename F, typename... Ts>
@@ -322,15 +321,17 @@ private:
                             Topic&& t)
             {
                 auto rid = t.requestId({});
-                auto result = self->broker_.subscribe(s, std::move(t));
-                if (result)
-                    s->sendSubscribed(Subscribed{rid, *result});
-                else
-                    s->sendError(MessageKind::subscribe, rid, result);
+                auto uri = t.uri();
+                auto subId = self->broker_.subscribe(s, std::move(t));
+                if (!self->checkResult(subId, *s, t))
+                    return;
+
+                Subscribed ack{rid, *subId};
+                s->sendRouterCommand(std::move(ack), std::move(uri));
             }
         };
 
-        report(*s, topic.info());
+        s->report(topic.info());
         dispatchAuthorized<Dispatched>(AuthorizationAction::subscribe,
                                        std::move(s), std::move(topic));
     }
@@ -346,14 +347,15 @@ private:
             void operator()()
             {
                 auto rid = u.requestId({});
-                auto result = self->broker_.unsubscribe(s, u.subscriptionId());
-                if (result)
-                    s->sendUnsubscribed(Unsubscribed{rid}, std::move(*result));
-                else
-                    s->sendError(MessageKind::unsubscribe, rid, result);
+                auto topic = self->broker_.unsubscribe(s, u.subscriptionId());
+                if (!self->checkResult(topic, *s, u))
+                    return;
+                Unsubscribed ack{rid};
+                s->sendRouterCommand(std::move(ack), std::move(*topic));
             }
         };
 
+        s->report(cmd.info());
         safelyDispatch<Dispatched>(std::move(s), std::move(cmd));
     }
 
@@ -364,26 +366,29 @@ private:
             void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule rule,
                             Pub&& p)
             {
+                Uri topic;
                 auto rid = p.requestId({});
-                bool ack = p.optionOr<bool>("acknowledge", false);
-                auto realmRule = self->config_.publisherDisclosure();
-                auto ec = setDisclosed(p, realmRule, rule);
-                if (ec)
-                    return s->sendError(MessageKind::publish, rid, ec, !ack);
+                bool wantsAck = p.optionOr<bool>("acknowledge", false);
+                if (wantsAck)
+                    topic = p.uri();
 
-                auto result = self->broker_.publish(s, std::move(p));
-                if (result)
-                {
-                    if (ack)
-                        s->sendPublished(Published{rid, *result});
-                }
-                else
-                {
-                    s->sendError(MessageKind::publish, rid, result, !ack);
-                }
+                auto realmRule = self->config_.publisherDisclosure();
+                if (!self->setDisclosed(*s, p, realmRule, rule))
+                    return;
+
+                auto pubId = self->broker_.publish(s, std::move(p));
+                if (!self->checkResult(pubId, *s, p, !wantsAck))
+                    return;
+
+                if (!wantsAck)
+                    return;
+
+                Published ack{rid, *pubId};
+                s->sendRouterCommand(std::move(ack), std::move(topic));
             }
         };
 
+        s->report(pub.info());
         dispatchAuthorized<Dispatched>(
             AuthorizationAction::publish, std::move(s), std::move(pub));
     }
@@ -392,18 +397,20 @@ private:
     {
         struct Dispatched
         {
-            void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule rule,
+            void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule,
                             Procedure&& p)
             {
                 auto rid = p.requestId({});
-                auto result = self->dealer_.enroll(s, std::move(p));
-                if (result)
-                    s->sendRegistered(Registered{rid, *result});
-                else
-                    s->sendError(MessageKind::enroll, rid, result);
+                auto uri = p.uri();
+                auto regId = self->dealer_.enroll(s, std::move(p));
+                if (!self->checkResult(regId, *s, p))
+                    return;
+                Registered ack{rid, *regId};
+                s->sendRouterCommand(std::move(ack), std::move(uri));
             }
         };
 
+        s->report(proc.info());
         dispatchAuthorized<Dispatched>(
             AuthorizationAction::enroll, std::move(s), std::move(proc));
     }
@@ -419,14 +426,15 @@ private:
             void operator()()
             {
                 auto rid = u.requestId({});
-                auto result = self->dealer_.unregister(s, u.registrationId());
-                if (result)
-                    s->sendUnregistered(Unregistered{rid}, std::move(*result));
-                else
-                    s->sendError(MessageKind::unregister, rid, result);
+                auto uri = self->dealer_.unregister(s, u.registrationId());
+                if (!self->checkResult(uri, *s, u))
+                    return;
+                Unregistered ack{rid};
+                s->sendRouterCommand(std::move(ack), std::move(*uri));
             }
         };
 
+        s->report(cmd.info());
         safelyDispatch<Dispatched>(std::move(s), cmd);
     }
 
@@ -437,17 +445,16 @@ private:
             void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule rule,
                             Rpc&& r)
             {
-                auto rid = r.requestId({});
                 auto realmRule = self->config_.callerDisclosure();
-                auto ec = setDisclosed(r, realmRule, rule);
-                if (ec)
-                    s->sendError(MessageKind::call, rid, ec);
-                auto result = self->dealer_.call(s, std::move(r));
-                if (!result)
-                    s->sendError(MessageKind::call, rid, result);
+                if (!self->setDisclosed(*s, r, realmRule, rule))
+                    return;
+
+                auto done = self->dealer_.call(s, std::move(r));
+                self->checkResult(done, *s, r);
             }
         };
 
+        s->report(rpc.info());
         dispatchAuthorized<Dispatched>(
             AuthorizationAction::enroll, std::move(s), std::move(rpc));
     }
@@ -462,13 +469,12 @@ private:
 
             void operator()()
             {
-                auto rid = c.requestId();
-                auto result = self->dealer_.cancelCall(s, std::move(c));
-                if (!result)
-                    s->sendError(MessageKind::call, rid, result);
+                auto done = self->dealer_.cancelCall(s, std::move(c));
+                self->checkResult(done, *s, c);
             }
         };
 
+        s->report(c.info());
         safelyDispatch<Dispatched>(std::move(s), std::move(c));
     }
 
@@ -486,6 +492,7 @@ private:
             }
         };
 
+        s->report(r.info(false));
         safelyDispatch<Dispatched>(std::move(s), std::move(r));
     }
 
@@ -503,7 +510,22 @@ private:
             }
         };
 
+        s->report(e.info(false));
         safelyDispatch<Dispatched>(std::move(s), std::move(e));
+    }
+
+    template <typename T, typename C>
+    bool checkResult(const ErrorOr<T>& result, RealmSession& originator,
+                     const C& command, bool logOnly = false)
+    {
+        if (result)
+            return true;
+        auto error = Error::fromRequest({}, command, result.error());
+        if (logOnly)
+            originator.report(error.info(true));
+        else
+            originator.sendRouterCommand(std::move(error), true);
+        return false;
     }
 
     IoStrand strand_;

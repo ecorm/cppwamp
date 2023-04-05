@@ -232,7 +232,10 @@ public:
         if (mode != Mode::skip)
         {
             if (!interruptionSent_)
-                callee->sendInterruption({{}, calleeKey_.second, mode, reason});
+            {
+                Interruption intr{{}, calleeKey_.second, mode, reason};
+                callee->sendRouterCommand(std::move(intr));
+            }
             interruptionSent_ = true;
         }
 
@@ -259,8 +262,9 @@ public:
         auto reqId = calleeKey_.second;
         if (callee->features().callee().all_of(CalleeFeatures::callCanceling))
         {
-            callee->sendInterruption({{}, reqId, CallCancelMode::killNoWait,
-                                      WampErrc::cancelled});
+            Interruption intr{{}, reqId, CallCancelMode::killNoWait,
+                              WampErrc::cancelled};
+            callee->sendRouterCommand(std::move(intr));
         }
     }
 
@@ -276,7 +280,7 @@ public:
         auto ec = make_error_code(WampErrc::noAvailableCallee);
         auto e = Error({}, MessageKind::call, reqId, ec)
                      .withArgs("Callee left realm");
-        caller->sendError(std::move(e));
+        caller->sendRouterCommand(std::move(e), true);
     }
 
     // Returns true if the job must be erased
@@ -290,7 +294,7 @@ public:
         result.withOptions({});
         if (isProgress)
             result.withOption("progress", true);
-        caller->sendResult(std::move(result));
+        caller->sendRouterCommand(std::move(result), true);
         return !progressiveResultsRequested_ || !isProgress;
     }
 
@@ -300,7 +304,7 @@ public:
         if (!caller || discardResultOrError_)
             return;
         error.setRequestId({}, callerKey_.second);
-        caller->sendError(std::move(error));
+        caller->sendRouterCommand(std::move(error), true);
     }
 
     DealerJobKey callerKey() const {return callerKey_;}
@@ -555,12 +559,13 @@ public:
     ErrorOrDone newCall(RealmSession::Ptr caller, RealmSession::Ptr callee,
                         Rpc&& rpc, const DealerRegistration& reg)
     {
+        auto uri = rpc.uri();
         auto job = DealerJob::create(caller, callee, rpc, reg);
         if (!job)
             return makeUnexpected(job.error());
         auto inv = job->makeInvocation(caller, std::move(rpc));
         jobs_.insert(std::move(*job));
-        callee->sendInvocation(std::move(inv));
+        callee->sendRouterCommand(std::move(inv), std::move(uri));
         return true;
     }
 
@@ -568,6 +573,7 @@ public:
                              RealmSession::Ptr callee, Rpc&& rpc,
                              const DealerRegistration& reg)
     {
+        auto uri = rpc.uri();
         auto found = jobs_.byCallerFind({caller->wampId(), rpc.requestId({})});
         if (found == jobs_.byCallerEnd())
             return makeUnexpectedError(WampErrc::noSuchProcedure);
@@ -575,13 +581,13 @@ public:
         auto inv = job.makeProgressiveInvocation(std::move(rpc));
         if (!inv)
             return UnexpectedError{inv.error()};
-        callee->sendInvocation(std::move(*inv));
+        callee->sendRouterCommand(std::move(*inv), std::move(uri));
         return true;
     }
 
     ErrorOrDone cancelCall(RealmSession::Ptr caller, CallCancellation&& cncl)
     {
-        DealerJobKey callerKey{caller->wampId(), cncl.requestId()};
+        DealerJobKey callerKey{caller->wampId(), cncl.requestId({})};
         auto iter = jobs_.byCallerFind(callerKey);
         if (iter == jobs_.byCallerEnd())
             return false;

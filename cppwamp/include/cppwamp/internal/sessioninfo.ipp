@@ -110,7 +110,7 @@ CPPWAMP_INLINE ClientFeatures Realm::features() const
     return ClientFeatures{found->second.as<Object>()};
 }
 
-CPPWAMP_INLINE AccessActionInfo Realm::info(bool) const
+CPPWAMP_INLINE AccessActionInfo Realm::info() const
 {
     return {AccessAction::clientHello, uri(), options()};
 }
@@ -163,7 +163,7 @@ CPPWAMP_INLINE SessionId Welcome::id() const
 
 CPPWAMP_INLINE const Uri& Welcome::realm() const {return realm_;}
 
-CPPWAMP_INLINE AccessActionInfo Welcome::info(bool) const
+CPPWAMP_INLINE AccessActionInfo Welcome::info() const
 {
     return {AccessAction::serverWelcome, realm(), options()};
 }
@@ -285,7 +285,7 @@ Authentication::withChannelBinding(std::string type, std::string data)
     return withOption("cbind_data", std::move(data));
 }
 
-CPPWAMP_INLINE AccessActionInfo Authentication::info(bool) const
+CPPWAMP_INLINE AccessActionInfo Authentication::info() const
 {
     return {AccessAction::clientAuthenticate, "", options()};
 }
@@ -432,7 +432,7 @@ CPPWAMP_INLINE std::future<ErrorOrDone> Challenge::fail(ThreadSafe,
     return f;
 }
 
-CPPWAMP_INLINE AccessActionInfo Challenge::info(bool) const
+CPPWAMP_INLINE AccessActionInfo Challenge::info() const
 {
     return {AccessAction::serverChallenge, method(), options()};
 }

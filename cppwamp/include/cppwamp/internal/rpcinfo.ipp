@@ -383,9 +383,10 @@ Invocation::yield(ThreadSafe, Error error) const
     return callee->safeYield(std::move(error), requestId_);
 }
 
-CPPWAMP_INLINE AccessActionInfo Invocation::info(bool) const
+CPPWAMP_INLINE AccessActionInfo Invocation::info(Uri topic) const
 {
-    return {AccessAction::serverInvocation, requestId(), {}, options()};
+    return {AccessAction::serverInvocation, requestId(), std::move(topic),
+            options()};
 }
 
 /** @details
@@ -466,20 +467,14 @@ CPPWAMP_INLINE bool Invocation::resultsAreProgressive(internal::PassKey) const
 CPPWAMP_INLINE CallCancellation::CallCancellation(RequestId reqId,
                                                   CallCancelMode cancelMode)
     : Base(in_place, reqId, Object{}),
-      requestId_(reqId),
       mode_(cancelMode)
 {
     withOption("mode", internal::callCancelModeToString(cancelMode));
 }
 
-CPPWAMP_INLINE RequestId CallCancellation::requestId() const
-{
-    return requestId_;
-}
-
 CPPWAMP_INLINE CallCancelMode CallCancellation::mode() const {return mode_;}
 
-CPPWAMP_INLINE AccessActionInfo CallCancellation::info(bool) const
+CPPWAMP_INLINE AccessActionInfo CallCancellation::info() const
 {
     return {AccessAction::clientCancel, requestId(), {}, options()};
 }
@@ -487,7 +482,6 @@ CPPWAMP_INLINE AccessActionInfo CallCancellation::info(bool) const
 CPPWAMP_INLINE CallCancellation::CallCancellation(internal::PassKey,
                                                   internal::Message&& msg)
     : Base(std::move(msg)),
-      requestId_(Base::requestId()),
       mode_(internal::parseCallCancelModeFromOptions(options()))
 {}
 
@@ -567,7 +561,7 @@ Interruption::yield(ThreadSafe, Error error) const
     return callee->safeYield(std::move(error), requestId_);
 }
 
-CPPWAMP_INLINE AccessActionInfo Interruption::info(bool) const
+CPPWAMP_INLINE AccessActionInfo Interruption::info() const
 {
     return {AccessAction::serverInterrupt, requestId(), {}, options()};
 }

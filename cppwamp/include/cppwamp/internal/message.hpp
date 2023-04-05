@@ -191,19 +191,30 @@ protected:
 
     template <typename... Ts>
     RequestCommand(MessageKind kind, Ts&&... fields)
-        : message_(kind, std::forward<Ts>(fields)...)
+        : message_(kind, std::forward<Ts>(fields)...),
+          requestId_(message_.template to<RequestId>(requestIdPos_))
     {}
 
-    RequestCommand(Message&& msg) : message_(std::move(msg)) {}
+    RequestCommand(Message&& msg)
+        : message_(std::move(msg)),
+          requestId_(message_.template to<RequestId>(requestIdPos_))
+    {}
 
-    RequestCommand(Array&& array) : message_(std::move(array)) {}
+    RequestCommand(Array&& array)
+        : message_(std::move(array)),
+          requestId_(message_.template to<RequestId>(requestIdPos_))
+    {}
 
     RequestId requestId() const
     {
-        return message_.template to<RequestId>(requestIdPos_);
+        return requestId_;
     }
 
-    void setRequestId(RequestId rid) {message_.at(requestIdPos_) = rid;}
+    void setRequestId(RequestId rid)
+    {
+        requestId_ = rid;
+        message_.at(requestIdPos_) = rid;
+    }
 
     Message message_;
 
@@ -211,8 +222,10 @@ private:
     static constexpr unsigned requestIdPos_ =
         MessageKindTraits<K>::requestIdPos();
 
+    RequestId requestId_ = nullId();
+
 public: // Internal use only
-    RequestId requestId(PassKey) const {return requestId();}
+    RequestId requestId(PassKey) const {return requestId_;}
 
     std::pair<MessageKind, RequestId> requestKey(PassKey) const
     {

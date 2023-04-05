@@ -9,6 +9,7 @@
 
 #include "../accesslogging.hpp"
 #include "message.hpp"
+#include "passkey.hpp"
 
 namespace wamp
 {
@@ -24,14 +25,17 @@ public:
 
     explicit Subscribed(Message&& msg) : Base(std::move(msg)) {}
 
+    // This overload needed for genericity
+    Subscribed(PassKey, Message&& msg) : Base(std::move(msg)) {}
+
     SubscriptionId subscriptionId() const
     {
         return message().to<SubscriptionId>(subscriptionIdPos_);
     }
 
-    AccessActionInfo info(bool = false) const
+    AccessActionInfo info(Uri topic) const
     {
-        return {AccessAction::serverSubscribed, requestId()};
+        return {AccessAction::serverSubscribed, requestId(), std::move(topic)};
     }
 
 private:
@@ -48,12 +52,15 @@ public:
 
     explicit Unsubscribe(Message&& msg) : Base(std::move(msg)) {}
 
+    // This overload needed for genericity
+    Unsubscribe(PassKey, Message&& msg) : Base(std::move(msg)) {}
+
     SubscriptionId subscriptionId() const
     {
         return message().to<SubscriptionId>(subscriptionIdPos_);
     }
 
-    AccessActionInfo info(bool = false) const
+    AccessActionInfo info() const
     {
         return {AccessAction::clientUnsubscribe, requestId()};
     }
@@ -71,6 +78,9 @@ public:
     explicit Unsubscribed(RequestId rid) : Base(in_place, rid) {}
 
     explicit Unsubscribed(Message&& msg) : Base(std::move(msg)) {}
+
+    // This overload needed for genericity
+    Unsubscribed(PassKey, Message&& msg) : Base(std::move(msg)) {}
 
     AccessActionInfo info(Uri topic) const
     {
@@ -90,14 +100,17 @@ public:
 
     explicit Published(Message&& msg) : Base(std::move(msg)) {}
 
+    // This overload needed for genericity
+    Published(PassKey, Message&& msg) : Base(std::move(msg)) {}
+
     PublicationId publicationId() const
     {
         return message().to<PublicationId>(publicationIdPos_);
     }
 
-    AccessActionInfo info(bool = false) const
+    AccessActionInfo info(Uri topic) const
     {
-        return {AccessAction::serverPublished, requestId()};
+        return {AccessAction::serverPublished, requestId(), std::move(topic)};
     }
 
 private:
@@ -114,14 +127,18 @@ public:
 
     explicit Registered(Message&& msg) : Base(std::move(msg)) {}
 
+    // This overload needed for genericity
+    Registered(PassKey, Message&& msg) : Base(std::move(msg)) {}
+
     RegistrationId registrationId() const
     {
         return message().to<RegistrationId>(registrationIdPos_);
     }
 
-    AccessActionInfo info(bool = false) const
+    AccessActionInfo info(Uri procedure) const
     {
-        return {AccessAction::serverRegistered, requestId()};
+        return {AccessAction::serverRegistered, requestId(),
+                std::move(procedure)};
     }
 
 private:
@@ -138,12 +155,15 @@ public:
 
     explicit Unregister(Message&& msg) : Base(std::move(msg)) {}
 
+    // This overload needed for genericity
+    Unregister(PassKey, Message&& msg) : Base(std::move(msg)) {}
+
     RegistrationId registrationId() const
     {
         return message().to<RegistrationId>(registrationIdPos_);
     }
 
-    AccessActionInfo info(bool = false) const
+    AccessActionInfo info() const
     {
         return {AccessAction::clientUnregister, requestId()};
     }
@@ -161,6 +181,9 @@ public:
     explicit Unregistered(RequestId rid) : Base(in_place, rid) {}
 
     explicit Unregistered(Message&& msg) : Base(std::move(msg)) {}
+
+    // This overload needed for genericity
+    Unregistered(PassKey, Message&& msg) : Base(std::move(msg)) {}
 
     AccessActionInfo info(Uri procedure) const
     {

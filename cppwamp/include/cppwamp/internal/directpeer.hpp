@@ -24,7 +24,6 @@
 #include "../sessioninfo.hpp"
 #include "../transport.hpp"
 #include "../variant.hpp"
-#include "../version.hpp"
 #include "../wampdefs.hpp"
 #include "commandinfo.hpp"
 #include "message.hpp"
@@ -52,66 +51,26 @@ public:
 
     DirectRealmSession(TPeer& peer) : peer_(peer) {}
 
+    using RealmSession::setRouterLogger;
+    using RealmSession::routerLogLevel;
+    using RealmSession::routerLog;
     using RealmSession::setTransportInfo;
     using RealmSession::setHelloInfo;
     using RealmSession::setWelcomeInfo;
     using RealmSession::resetSessionInfo;
 
 private:
-    void abort(Reason r) override
-    {
-        peer_.onAbort(std::move(r));
-    };
-
-    void sendError(Error&& e, bool logOnly) override
-    {
-        peer_.onError(std::move(e), logOnly);
-    }
-
-    void sendSubscribed(Subscribed&& s) override
-    {
-        peer_.onCommand(std::move(s));
-    }
-
-    void sendUnsubscribed(Unsubscribed&& u, Uri&& topic) override
-    {
-        peer_.onCommand(std::move(u), std::move(topic));
-    }
-
-    void sendPublished(Published&& p) override
-    {
-        peer_.onCommand(std::move(p));
-    }
-
-    void sendEvent(Event&& e, Uri topic) override
-    {
-        peer_.onCommand(std::move(e), std::move(topic));
-    }
-
-    void sendRegistered(Registered&& r) override
-    {
-        peer_.onCommand(std::move(r));
-    }
-
-    void sendUnregistered(Unregistered&& u, Uri&& procedure) override
-    {
-        peer_.onCommand(std::move(u), std::move(procedure));
-    }
-
-    void sendResult(Result&& r) override
-    {
-        peer_.onCommand(std::move(r));
-    }
-
-    void sendInterruption(Interruption&& i) override
-    {
-        peer_.onCommand(std::move(i));
-    }
-
-    void onSendInvocation(Invocation&& i) override
-    {
-        peer_.onCommand(std::move(i));
-    }
+    void onRouterAbort(Reason&& r) override         {peer_.onAbort(std::move(r));};
+    void onRouterCommand(Error&& e) override        {peer_.onCommand(std::move(e));}
+    void onRouterCommand(Subscribed&& s) override   {peer_.onCommand(std::move(s));}
+    void onRouterCommand(Unsubscribed&& u) override {peer_.onCommand(std::move(u));}
+    void onRouterCommand(Published&& p) override    {peer_.onCommand(std::move(p));}
+    void onRouterCommand(Event&& e) override        {peer_.onCommand(std::move(e));}
+    void onRouterCommand(Registered&& r) override   {peer_.onCommand(std::move(r));}
+    void onRouterCommand(Unregistered&& u) override {peer_.onCommand(std::move(u));}
+    void onRouterCommand(Result&& r) override       {peer_.onCommand(std::move(r));}
+    void onRouterCommand(Interruption&& i) override {peer_.onCommand(std::move(i));}
+    void onRouterCommand(Invocation&& i) override   {peer_.onCommand(std::move(i));}
 
     TPeer& peer_;
 };
@@ -176,8 +135,7 @@ public:
     using StateChangeHandler    = std::function<void (State, std::error_code)>;
 
     DirectPeer()
-        : routerLogSuffix_(" [Direct Session]"),
-          session_(std::make_shared<DirectSessionType>(*this)),
+        : session_(std::make_shared<DirectSessionType>(*this)),
           state_(State::disconnected),
           logLevel_(LogLevel::warning)
     {}
@@ -200,15 +158,18 @@ public:
 
     LogLevel logLevel() const
     {
-        return logHandler_ ? logLevel_.load() : LogLevel::off;
+        return logHandler_ ? logLevel_.load() : session_->routerLogLevel();
     }
 
     void log(LogEntry entry)
     {
-        if (!logHandler_)
-            routerLog(std::move(entry));
-        else if (logLevel() <= entry.severity())
+        if (logLevel() > entry.severity())
+            return;
+
+        if (logHandler_)
             logHandler_(std::move(entry));
+        else
+            session_->routerLog(std::move(entry));
     }
 
     void listenStateChanged(StateChangeHandler handler)
@@ -238,13 +199,12 @@ public:
             return;
         }
 
-        routerLogger_ = router_.logger();
+        session_->setRouterLogger(router_.logger());
         auto n = router_.nextDirectSessionIndex();
         session_->setTransportInfo({"direct", "direct", n});
-        routerLogSuffix_ = " [Session direct/ " + std::to_string(n) + ']';
 
         setState(State::closed);
-        report({AccessAction::clientConnect});
+        session_->report({AccessAction::clientConnect});
     }
 
     bool establishSession()
@@ -274,15 +234,15 @@ public:
         auto oldState = setState(State::disconnected);
         if (oldState == State::established || oldState == State::shuttingDown)
             realm_.leave(session_->wampId());
-        report({AccessAction::clientDisconnect});
+        session_->report({AccessAction::clientDisconnect});
         router_.reset();
-        routerLogger_.reset();
+        session_->setRouterLogger(nullptr);
     }
 
     ErrorOrDone send(Realm&& hello)
     {
         assert(state() == State::establishing);
-        report(hello.info());
+        session_->report(hello.info());
         auto realm = router_.realmAt(hello.uri());
         if (realm.expired())
             return fail(WampErrc::noSuchRealm);
@@ -307,7 +267,7 @@ public:
     ErrorOrDone send(Reason&& goodbye)
     {
         assert(state() == State::shuttingDown);
-        report(goodbye.info(false));
+        session_->report(goodbye.info(false));
         realm_.leave(session_->wampId());
         realm_.reset();
         close();
@@ -317,7 +277,7 @@ public:
     template <typename TCommand>
     ErrorOrDone send(TCommand&& cmd)
     {
-        report(cmd.info(false));
+        session_->report(cmd.info(false));
         traceTx(cmd.message({}));
         if (!realm_.send(session_, std::move(cmd)))
             return fail(WampErrc::noSuchRealm);
@@ -326,8 +286,7 @@ public:
 
     ErrorOrDone abort(Reason r)
     {
-        report({AccessAction::clientAbort, {}, std::move(r.options()),
-                r.uri()});
+        session_->report(r.info(false));
         bool ready = readyToAbort();
         disconnect();
         if (!ready)
@@ -400,41 +359,11 @@ private:
         }
     };
 
-    void onError(Error&& error, bool logOnly)
-    {
-        report(error.info(true));
-        if (!logOnly)
-            notifyCommand(std::move(error));
-    }
-
-    template <typename TCommand, typename... Ts>
-    void onCommand(TCommand&& cmd, Ts&&... infoArgs)
-    {
-        report(cmd.info(true, std::forward<Ts>(infoArgs)...));
-        notifyCommand(std::move(cmd));
-    }
-
-    template <typename TCommand>
-    void notifyCommand(TCommand&& cmd)
+    template <typename C>
+    void onCommand(C&& command)
     {
         if (inboundMessageHandler_ && (state() == State::established))
-            inboundMessageHandler_(std::move(cmd.message({})));
-    }
-
-    void routerLog(LogEntry entry)
-    {
-        if (routerLogger_)
-        {
-            entry.append(routerLogSuffix_);
-            routerLogger_->log(std::move(entry));
-        }
-    }
-
-    void report(AccessActionInfo i)
-    {
-        if (!routerLogger_)
-            return;
-        session_->report(std::move(i), *routerLogger_);
+            inboundMessageHandler_(std::move(command.message({})));
     }
 
     UnexpectedError fail(std::error_code ec, std::string info = {})
@@ -486,13 +415,11 @@ private:
         logHandler_(std::move(entry));
     }
 
-    std::string routerLogSuffix_;
     InboundMessageHandler inboundMessageHandler_;
     LogHandler logHandler_;
     StateChangeHandler stateChangeHandler_;
     DirectSessionType::Ptr session_;
     RouterContext router_;
-    RouterLogger::Ptr routerLogger_;
     RealmContext realm_;
     std::atomic<State> state_;
     std::atomic<LogLevel> logLevel_;
