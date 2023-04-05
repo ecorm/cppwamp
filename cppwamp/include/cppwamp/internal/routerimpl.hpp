@@ -56,7 +56,7 @@ public:
                     std::move(c),
                     config_,
                     {shared_from_this()});
-                realms_.emplace(std::move(uri), std::move(r));
+                realms_.emplace(uri, std::move(r));
             }
         }
 
@@ -102,7 +102,7 @@ public:
 
         {
             MutexGuard lock(serversMutex_);
-            if (servers_.find(name) != servers_.end())
+            if (servers_.find(name) == servers_.end())
             {
                 server = RouterServer::create(executor_, std::move(c),
                                               {shared_from_this()});

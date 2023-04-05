@@ -199,7 +199,7 @@ private:
             break;
 
         case State::failed:
-            report({AccessAction::clientDisconnect, {}, {}, ec});
+            report({AccessAction::serverAbort, {}, {}, ec});
             retire();
             break;
 

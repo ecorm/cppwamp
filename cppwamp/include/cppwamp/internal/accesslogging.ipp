@@ -222,7 +222,8 @@ CPPWAMP_INLINE std::ostream& AccessLogEntry::outputTime(std::ostream& out,
 CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(AccessTransportInfo transport,
                                               AccessSessionInfo session,
                                               AccessActionInfo action)
-    : session(std::move(session)),
+    : transport(std::move(transport)),
+      session(std::move(session)),
       action(std::move(action)),
       when(std::chrono::system_clock::now())
 {}
@@ -234,7 +235,7 @@ CPPWAMP_INLINE AccessLogEntry::AccessLogEntry(AccessTransportInfo transport,
     ```
     YYYY-MM-DDTHH:MM:SS.sss | server name | server session index |
     transport endpoint | realm URI | authid | agent |
-    action | target URI | error URI | {action options}
+    request ID | action | target URI | error URI | {action options}
     ```
     @note This function uses `std::gmtime` on platforms where `gmtime_r` is not
           available, where the former may not be thread-safe. */

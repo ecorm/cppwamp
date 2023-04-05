@@ -46,7 +46,7 @@ int main()
     auto config = wamp::RouterConfig()
         .withLogHandler(logger)
         .withLogLevel(wamp::LogLevel::debug)
-        .withAccessLogHandler(logger);
+        .withAccessLogHandler(wamp::AccessLogFilter(logger));
 
     auto realmConfig = wamp::RealmConfig("cppwamp.examples");
 
