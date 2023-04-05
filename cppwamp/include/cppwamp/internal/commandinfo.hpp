@@ -108,9 +108,10 @@ public:
         return message().to<PublicationId>(publicationIdPos_);
     }
 
-    AccessActionInfo info(Uri topic) const
+    AccessActionInfo info(Uri topic, std::size_t publicationCount) const
     {
-        return {AccessAction::serverPublished, requestId(), std::move(topic)};
+        return {AccessAction::serverPublished, requestId(), std::move(topic),
+                Object{{"count", publicationCount}}};
     }
 
 private:

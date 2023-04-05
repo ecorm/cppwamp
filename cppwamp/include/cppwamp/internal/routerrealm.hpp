@@ -366,25 +366,28 @@ private:
             void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule rule,
                             Pub&& p)
             {
-                Uri topic;
+                auto uri = p.uri();
                 auto rid = p.requestId({});
                 bool wantsAck = p.optionOr<bool>("acknowledge", false);
-                if (wantsAck)
-                    topic = p.uri();
 
                 auto realmRule = self->config_.publisherDisclosure();
                 if (!self->setDisclosed(*s, p, realmRule, rule))
                     return;
 
-                auto pubId = self->broker_.publish(s, std::move(p));
-                if (!self->checkResult(pubId, *s, p, !wantsAck))
+                auto pubIdAndCount = self->broker_.publish(s, std::move(p));
+                if (!self->checkResult(pubIdAndCount, *s, p, !wantsAck))
                     return;
 
-                if (!wantsAck)
-                    return;
-
-                Published ack{rid, *pubId};
-                s->sendRouterCommand(std::move(ack), std::move(topic));
+                Published ack{rid, pubIdAndCount->first};
+                if (wantsAck)
+                {
+                    s->sendRouterCommand(std::move(ack), std::move(uri),
+                                         pubIdAndCount->second);
+                }
+                else
+                {
+                    s->report(ack.info(std::move(uri), pubIdAndCount->second));
+                }
             }
         };
 

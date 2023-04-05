@@ -182,15 +182,20 @@ public:
 
     bool removeSubscriber(SessionId sid) {return sessions_.erase(sid) != 0;}
 
-    void publish(BrokerPublication& info) const
+    std::size_t publish(BrokerPublication& info) const
     {
+        std::size_t count = 0;
         info.setSubscriptionId(subId_);
         for (auto& kv : sessions_)
         {
             auto subscriber = kv.second.session.lock();
             if (subscriber)
+            {
                 info.sendTo(*subscriber);
+                ++count;
+            }
         }
+        return count;
     }
 
 private:
@@ -328,14 +333,14 @@ public:
     template <typename I>
     static BrokerSubscription* iteratorValue(I iter) {return iter.value();}
 
-    void publish(BrokerPublication& info)
+    size_t publish(BrokerPublication& info)
     {
         auto found = trie_.find(info.topicUri());
-        if (found != trie_.end())
-        {
-            const BrokerSubscription* record = found.value();
-            record->publish(info);
-        }
+        if (found == trie_.end())
+            return 0;
+
+        const BrokerSubscription* record = found.value();
+        return record->publish(info);
     }
 };
 
@@ -351,18 +356,21 @@ public:
         return iter.value();
     }
 
-    void publish(BrokerPublication& info)
+    std::size_t publish(BrokerPublication& info)
     {
         auto range = trie_.equal_prefix_range(info.topicUri());
         if (range.first == range.second)
-            return;
+            return 0;
 
+        std::size_t count = 0;
         info.enableTopicDetail();
         for (; range.first != range.second; ++range.first)
         {
             const BrokerSubscription* record = range.first.value();
             record->publish(info);
+            ++count;
         }
+        return count;
     }
 };
 
@@ -378,19 +386,22 @@ public:
         return iter->second;
     }
 
-    void publish(BrokerPublication& info)
+    std::size_t publish(BrokerPublication& info)
     {
         auto matches = wildcardMatches(trie_, info.topicUri());
         if (matches.done())
-            return;
+            return 0;
 
+        std::size_t count = 0;
         info.enableTopicDetail();
         while (!matches.done())
         {
             const BrokerSubscription* record = matches.value();
             record->publish(info);
             matches.next();
+            ++count;
         }
+        return count;
     }
 };
 
@@ -460,16 +471,18 @@ public:
         return record.topic().uri();
     }
 
-    ErrorOr<PublicationId> publish(RealmSession::Ptr publisher, Pub&& pub)
+    ErrorOr<std::pair<PublicationId, std::size_t>>
+    publish(RealmSession::Ptr publisher, Pub&& pub)
     {
         if (!uriValidator_(pub.uri(), false))
             return makeUnexpectedError(WampErrc::invalidUri);
         BrokerPublication info(std::move(pub), pubIdGenerator_(),
                                std::move(publisher));
-        byExact_.publish(info);
-        byPrefix_.publish(info);
-        byWildcard_.publish(info);
-        return info.publicationId();
+        std::size_t count = 0;
+        count += byExact_.publish(info);
+        count += byPrefix_.publish(info);
+        count += byWildcard_.publish(info);
+        return std::make_pair(info.publicationId(), count);
     }
 
     void removeSubscriber(SessionId sessionId)
