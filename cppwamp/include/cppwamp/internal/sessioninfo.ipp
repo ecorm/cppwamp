@@ -238,16 +238,19 @@ CPPWAMP_INLINE RouterFeatures Welcome::parseFeatures(const Object& opts)
     return features;
 }
 
-CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, Uri&& realm,
-                                internal::Message&& msg)
+CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg)),
-      realm_(std::move(realm)),
       features_(parseFeatures(options()))
 {}
 
 CPPWAMP_INLINE Welcome::Welcome(internal::PassKey, SessionId sid, Object&& opts)
     : Base(in_place, sid, std::move(opts))
 {}
+
+CPPWAMP_INLINE void Welcome::setRealm(internal::PassKey, Uri&& realm)
+{
+    realm_ = std::move(realm);
+}
 
 
 //******************************************************************************
@@ -437,10 +440,15 @@ CPPWAMP_INLINE AccessActionInfo Challenge::info() const
     return {AccessAction::serverChallenge, method(), options()};
 }
 
-CPPWAMP_INLINE Challenge::Challenge(internal::PassKey, ChallengeePtr challengee,
+CPPWAMP_INLINE Challenge::Challenge(internal::PassKey,
                                     internal::Message&& msg)
-    : Base(std::move(msg)),
-      challengee_(std::move(challengee))
+    : Base(std::move(msg))
 {}
+
+CPPWAMP_INLINE void Challenge::setChallengee(internal::PassKey,
+                                             ChallengeePtr challengee)
+{
+    challengee_ = std::move(challengee);
+}
 
 } // namespace wamp

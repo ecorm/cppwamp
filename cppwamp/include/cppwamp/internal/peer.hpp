@@ -20,11 +20,13 @@
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
 #include "../errorinfo.hpp"
-#include "../logging.hpp"
+#include "../pubsubinfo.hpp"
+#include "../rpcinfo.hpp"
 #include "../sessioninfo.hpp"
 #include "../transport.hpp"
 #include "../variant.hpp"
 #include "../wampdefs.hpp"
+#include "commandinfo.hpp"
 #include "message.hpp"
 
 namespace wamp
@@ -34,19 +36,100 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
+class PeerListener
+{
+public:
+    virtual void onStateChanged(SessionState, std::error_code) = 0;
+
+    virtual void onFailure(std::string&& why, std::error_code ec,
+                           bool abortSent) = 0;
+
+    virtual void onTrace(std::string&& messageDump) = 0;
+
+    virtual void onPeerHello(Realm&&) {assert(false);}
+
+    virtual void onPeerWelcome(Welcome&& w)
+    {
+        onPeerMessage(std::move(w.message({})));
+    }
+
+    virtual void onPeerAbort(Reason&&, bool wasJoining) = 0;
+
+    virtual void onPeerChallenge(Challenge&& c) {assert(false);}
+
+    virtual void onPeerAuthenticate(Challenge&& c) {assert(false);}
+
+    virtual void onPeerGoodbye(Reason&&) = 0;
+
+    virtual void onPeerMessage(Message&& m)
+    {
+        using K = MessageKind;
+        switch (m.kind())
+        {
+        case K::error:          return onPeerCommand(Error{{},            std::move(m)});
+        case K::publish:        return onPeerCommand(Pub{{},              std::move(m)});
+        case K::published:      return onPeerCommand(Published{{},        std::move(m)});
+        case K::subscribe:      return onPeerCommand(Topic{{},            std::move(m)});
+        case K::subscribed:     return onPeerCommand(Subscribed{{},       std::move(m)});
+        case K::unsubscribe:    return onPeerCommand(Unsubscribe{{},      std::move(m)});
+        case K::unsubscribed:   return onPeerCommand(Unsubscribed{{},     std::move(m)});
+        case K::event:          return onPeerCommand(Event{{},            std::move(m)});
+        case K::call:           return onPeerCommand(Rpc{{},              std::move(m)});
+        case K::cancel:         return onPeerCommand(CallCancellation{{}, std::move(m)});
+        case K::result:         return onPeerCommand(Result{{},           std::move(m)});
+        case K::enroll:         return onPeerCommand(Procedure{{},        std::move(m)});
+        case K::registered:     return onPeerCommand(Registered{{},       std::move(m)});
+        case K::unregister:     return onPeerCommand(Unregister{{},       std::move(m)});
+        case K::unregistered:   return onPeerCommand(Unregistered{{},     std::move(m)});
+        case K::invocation:     return onPeerCommand(Invocation{{},       std::move(m)});
+        case K::interrupt:      return onPeerCommand(Interruption{{},     std::move(m)});
+        case K::yield:          return onPeerCommand(Result{{},           std::move(m)});
+        default: assert(false && "Unexpected MessageKind enumerator");
+        }
+    }
+
+    virtual void onPeerCommand(Authentication&& c)   {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Error&& c)            {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Pub&& c)              {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Published&& c)        {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Topic&& c)            {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Subscribed&& c)       {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Unsubscribe&& c)      {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Unsubscribed&& c)     {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Event&& c)            {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Rpc&& c)              {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(CallCancellation&& c) {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Result&& c)           {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Procedure&& c)        {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Registered&& c)       {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Unregister&& c)       {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Unregistered&& c)     {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Invocation&& c)       {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerCommand(Interruption&& c)     {onPeerMessage(std::move(c.message({})));}
+
+    void enableTrace(bool enabled = true) {traceEnabled_.store(enabled);}
+
+    bool traceEnabled() const {return traceEnabled_.load();}
+
+protected:
+    PeerListener() : traceEnabled_(false) {}
+
+private:
+    std::atomic<bool> traceEnabled_;
+};
+
+
+//------------------------------------------------------------------------------
 // Provides session functionality common to both clients and router peers.
 //------------------------------------------------------------------------------
 class Peer
 {
 public:
-    using State                 = SessionState;
-    using InboundMessageHandler = std::function<void (Message)>;
-    using LogHandler            = std::function<void (LogEntry)>;
-    using StateChangeHandler    = std::function<void (State, std::error_code)>;
+    using State = SessionState;
 
-    explicit Peer(bool isRouter)
-        : state_(State::disconnected),
-          logLevel_(LogLevel::warning),
+    explicit Peer(PeerListener* listener, bool isRouter)
+        : listener_(*listener),
+          state_(State::disconnected),
           isRouter_(isRouter)
     {}
 
@@ -60,33 +143,6 @@ public:
     }
 
     State state() const {return state_.load();}
-
-    // TODO: Use backpointer and virtual functions instead to avoid
-    // Message<-->Command conversions
-    void setInboundMessageHandler(InboundMessageHandler f)
-    {
-        inboundMessageHandler_ = std::move(f);
-    }
-
-    void listenLogged(LogHandler handler) {logHandler_ = std::move(handler);}
-
-    void setLogLevel(LogLevel level) {logLevel_ = level;}
-
-    LogLevel logLevel() const
-    {
-        return logHandler_ ? logLevel_.load() : LogLevel::off;
-    }
-
-    void log(LogEntry entry)
-    {
-        if (logLevel() <= entry.severity())
-            logHandler_(std::move(entry));
-    }
-
-    void listenStateChanged(StateChangeHandler handler)
-    {
-        stateChangeHandler_ = std::move(handler);
-    }
 
     bool startConnecting()
     {
@@ -124,13 +180,13 @@ public:
                     else if (buffer.error() == TransportErrc::disconnected)
                         onRemoteDisconnect();
                     else if (state() != State::disconnected)
-                        fail(buffer.error(), "Transport receive failure");
+                        fail("Transport receive failure", buffer.error());
                 },
                 [this](std::error_code ec)
                 {
                     // Ignore transport cancellation errors when disconnecting.
                     if (state() != State::disconnected)
-                        fail(ec, "Transport send failure");
+                        fail("Transport send failure", ec);
                 }
             );
         }
@@ -140,7 +196,6 @@ public:
 
     void welcome(SessionId sid, Object opts = {})
     {
-        assert(isRouter_);
         assert(state() == State::authenticating);
         send(Welcome{{}, sid, std::move(opts)});
         setState(State::established);
@@ -177,18 +232,9 @@ public:
         auto done = doSend(error);
         if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
-            error.withArgs(std::string("(Details removed due "
-                                       "to transport limits)"));
+            error.withArgs(std::string("(snipped)"));
             error.withKwargs({});
             doSend(error);
-            if (logLevel() <= LogLevel::warning)
-            {
-                std::ostringstream oss;
-                oss << "Stripped args of outbound ERROR message with error URI "
-                    << error.uri() << " and request ID " << error.requestId({})
-                    << " due to transport payload limits";
-                log({LogLevel::warning, oss.str()});
-            }
         }
         return done;
     }
@@ -213,11 +259,9 @@ public:
         if (!fits)
         {
             r.options().clear();
+            r.withHint("(snipped)");
             buffer.clear();
             codec_.encode(msg.fields(), buffer);
-            log({LogLevel::warning,
-                 "Stripped options of outbound ABORT message with reason URI " +
-                     r.uri() + ", due to transport payload limits"});
         }
 
         setState(State::failed, r.errorCode());
@@ -244,8 +288,8 @@ private:
     State setState(State s, std::error_code ec = {})
     {
         auto old = state_.exchange(s);
-        if ((old != s) && stateChangeHandler_)
-            stateChangeHandler_(s, ec);
+        if (old != s)
+            listener_.onStateChanged(s, ec);
         return old;
     }
 
@@ -259,7 +303,7 @@ private:
     {
         bool ok = state_.compare_exchange_strong(expected, desired);
         if (ok)
-            stateChangeHandler_(desired, std::error_code{});
+            listener_.onStateChanged(desired, std::error_code{});
         return ok;
     }
 
@@ -334,21 +378,16 @@ private:
 
         // Discard new requests if we're shutting down.
         if (state() == State::shuttingDown && !msg.isReply())
-        {
-            log({LogLevel::warning,
-                 "Discarding received " + std::string(msg.name()) +
-                     " message while WAMP session is shutting down"});
             return;
-        }
 
-        inboundMessageHandler_(std::move(msg));
+        notifyMessage(msg);
     }
 
     void onHello(Message& msg)
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
-        inboundMessageHandler_(std::move(msg));
+        notifyMessage(msg);
     }
 
     void onWelcome(Message& msg)
@@ -356,76 +395,51 @@ private:
         auto s = state();
         assert(s == State::establishing || s == State::authenticating);
         setState(State::established);
-        inboundMessageHandler_(std::move(msg));
+        notifyMessage(msg);
     }
 
     void onAbort(Message& msg)
     {
         auto s = state();
-
-        if (s == State::establishing || s == State::authenticating)
-        {
+        bool wasJoining = s == State::establishing ||
+                          s == State::authenticating;
+        Reason r{{}, std::move(msg)};
+        if (wasJoining)
             setState(State::closed);
-            inboundMessageHandler_(std::move(msg));
-        }
         else
-        {
-            Reason reason{{}, std::move(msg)};
-            WampErrc errc = reason.errorCode();
-            if (logLevel() <= LogLevel::critical)
-            {
-                std::ostringstream oss;
-                oss << "Session aborted by peer with reason URI "
-                    << reason.uri();
-                if (!reason.options().empty())
-                    oss << " and details " << reason.options();
-                fail(errc, oss.str());
-            }
-            else
-            {
-                fail(errc);
-            }
-        }
+            setState(State::failed, r.errorCode());
+        listener_.onPeerAbort(std::move(r), wasJoining);
     }
 
     void onChallenge(Message& msg)
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
-        inboundMessageHandler_(std::move(msg));
+        notifyMessage(msg);
     }
 
     void onGoodbye(Message& msg)
     {
+        Reason reason{{}, std::move(msg)};
         if (state() == State::shuttingDown)
         {
             setState(State::closed);
-            inboundMessageHandler_(std::move(msg));
+            listener_.onPeerGoodbye(std::move(reason));
         }
         else
         {
-            Reason reason{{}, std::move(msg)};
             WampErrc errc = reason.errorCode();
             errc = (errc == WampErrc::success) ? WampErrc::closeRealm : errc;
-
-            if (isRouter_)
-            {
-                inboundMessageHandler_(std::move(msg));
-            }
-            else if (logLevel() <= LogLevel::warning)
-            {
-                std::ostringstream oss;
-                oss << "Session killed by peer with reason URI "
-                    << reason.uri();
-                if (!reason.options().empty())
-                    oss << " and details " << reason.options();
-                log({LogLevel::warning, oss.str()});
-            }
-
+            listener_.onPeerGoodbye(std::move(reason));
             setState(State::closed, errc);
             Reason goodbye{WampErrc::goodbyeAndOut};
             send(goodbye);
         }
+    }
+
+    void notifyMessage(Message& msg)
+    {
+        listener_.onPeerMessage(std::move(msg));
     }
 
     void onRemoteDisconnect()
@@ -440,12 +454,9 @@ private:
             transport_->close();
             transport_.reset();
         }
-
-        if (!isRouter_)
-            log({LogLevel::warning, "Transport disconnected by remote peer"});
     }
 
-    void fail(std::error_code ec, std::string info = {})
+    void fail(std::string why, std::error_code ec)
     {
         setState(State::failed, ec);
         if (transport_)
@@ -453,23 +464,21 @@ private:
             transport_->close();
             transport_.reset();
         }
-        if (!info.empty())
-            log({LogLevel::critical, std::move(info), ec});
+        listener_.onFailure(std::move(why), ec, false);
     }
 
-    template <typename TErrc>
-    void fail(TErrc errc, std::string info = {})
+    void failProtocol(std::string why)
     {
-        fail(make_error_code(errc), std::move(info));
-    }
-
-    void failProtocol(std::string info)
-    {
-        auto errc = WampErrc::protocolViolation;
+        auto ec = make_error_code(WampErrc::protocolViolation);
         if (readyToAbort())
-            abort(Reason(errc).withHint(std::move(info)));
+        {
+            abort(Reason(ec).withHint(why));
+            listener_.onFailure(std::move(why), ec, true);
+        }
         else
-            fail(errc, std::move(info));
+        {
+            fail(std::move(why), ec);
+        }
     }
 
     bool readyToAbort() const
@@ -492,7 +501,7 @@ private:
 
     void trace(MessageKind kind, const Array& fields, const char* label)
     {
-        if (logLevel() > LogLevel::trace)
+        if (!listener_.traceEnabled())
             return;
 
         std::ostringstream oss;
@@ -502,17 +511,13 @@ private:
             oss << "," << fields;
         oss << ']';
 
-        LogEntry entry{LogLevel::trace, oss.str()};
-        logHandler_(std::move(entry));
+        listener_.onTrace(oss.str());
     }
 
-    InboundMessageHandler inboundMessageHandler_;
-    LogHandler logHandler_;
-    StateChangeHandler stateChangeHandler_;
     AnyBufferCodec codec_;
     Transporting::Ptr transport_;
+    PeerListener& listener_;
     std::atomic<State> state_;
-    std::atomic<LogLevel> logLevel_;
     std::size_t maxTxLength_ = 0;
     bool isRouter_ = false;
 };

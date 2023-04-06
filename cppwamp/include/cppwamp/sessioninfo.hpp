@@ -213,8 +213,9 @@ private:
 
 public:
     // Internal use only
-    Welcome(internal::PassKey, Uri&& realm, internal::Message&& msg);
+    Welcome(internal::PassKey, internal::Message&& msg);
     Welcome(internal::PassKey, SessionId sid, Object&& opts);
+    void setRealm(internal::PassKey, Uri&& realm);
 };
 
 
@@ -329,18 +330,18 @@ public:
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
 
-public:
-    // Internal use only
-    using ChallengeePtr = std::weak_ptr<internal::Challengee>;
-    Challenge(internal::PassKey, ChallengeePtr challengee,
-              internal::Message&& msg);
-
 private:
+    using Base = Options<Challenge, internal::MessageKind::challenge>;
+    using ChallengeePtr = std::weak_ptr<internal::Challengee>;
+
     static constexpr unsigned authMethodPos_ = 1;
 
-    using Base = Options<Challenge, internal::MessageKind::challenge>;
-
     ChallengeePtr challengee_;
+
+public:
+    // Internal use only
+    Challenge(internal::PassKey, internal::Message&& msg);
+    void setChallengee(internal::PassKey, ChallengeePtr challengee);
 };
 
 } // namespace wamp

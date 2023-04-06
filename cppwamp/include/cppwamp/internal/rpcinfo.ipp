@@ -426,12 +426,8 @@ CPPWAMP_INLINE std::future<ErrorOrDone> Invocation::futureValue(bool value)
     return f;
 }
 
-CPPWAMP_INLINE Invocation::Invocation(
-    internal::PassKey, internal::Message&& msg, CalleePtr callee,
-    AnyCompletionExecutor userExec)
+CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg)),
-      callee_(std::move(callee)),
-      executor_(std::move(userExec)),
       requestId_(Base::requestId()),
       registrationId_(message().to<RegistrationId>(registrationIdPos_))
 {}
@@ -443,6 +439,13 @@ CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
     message().setKind(internal::MessageKind::invocation);
     message().at(2) = regId;
     message().at(3) = Object{};
+}
+
+CPPWAMP_INLINE void Invocation::setCallee(internal::PassKey, CalleePtr callee,
+                                          AnyCompletionExecutor userExec)
+{
+    callee_ = std::move(callee);
+    executor_ = std::move(userExec);
 }
 
 CPPWAMP_INLINE Invocation::CalleePtr Invocation::callee(internal::PassKey) const
@@ -583,12 +586,9 @@ CPPWAMP_INLINE Object Interruption::makeOptions(CallCancelMode mode,
                   {"reason", errorCodeToUri(reason)}};
 }
 
-CPPWAMP_INLINE Interruption::Interruption(
-    internal::PassKey, internal::Message&& msg, CalleePtr callee,
-    AnyCompletionExecutor executor)
+CPPWAMP_INLINE Interruption::Interruption(internal::PassKey,
+                                          internal::Message&& msg)
     : Base(std::move(msg)),
-      callee_(callee),
-      executor_(executor),
       requestId_(Base::requestId()),
       cancelMode_(internal::parseCallCancelModeFromOptions(options()))
 {}
@@ -597,8 +597,15 @@ CPPWAMP_INLINE Interruption::Interruption(
     internal::PassKey, RequestId reqId, CallCancelMode mode, WampErrc reason)
     : Base(in_place, reqId, makeOptions(mode, reason)),
       requestId_(reqId),
-      cancelMode_(mode)
+    cancelMode_(mode)
 {}
+
+CPPWAMP_INLINE void Interruption::setCallee(internal::PassKey, CalleePtr callee,
+                                            AnyCompletionExecutor executor)
+{
+    callee_ = std::move(callee);
+    executor_ = std::move(executor);
+}
 
 CPPWAMP_INLINE Interruption::CalleePtr
 Interruption::callee(internal::PassKey) const

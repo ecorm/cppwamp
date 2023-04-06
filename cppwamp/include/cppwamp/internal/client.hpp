@@ -1010,8 +1010,9 @@ private:
 //------------------------------------------------------------------------------
 // Provides the WAMP client implementation.
 //------------------------------------------------------------------------------
-class Client : public std::enable_shared_from_this<Client>, public Callee,
-               public Caller, public Subscriber, public Challengee
+class Client : public std::enable_shared_from_this<Client>,
+               private PeerListener, public Callee, public Caller,
+               public Subscriber, public Challengee
 {
 public:
     using Ptr               = std::shared_ptr<Client>;
@@ -1086,14 +1087,13 @@ public:
 
     const IoStrand& strand() const {return strand_;}
 
-    void listenLogged(LogSlot handler)
-    {
-        logSlot_ = std::move(handler);
-        peer_.listenLogged(
-            [this](LogEntry entry) {onLog(std::move(entry));} );
-    }
+    void listenLogged(LogSlot handler) {logSlot_ = std::move(handler);}
 
-    void setLogLevel(LogLevel level) {peer_.setLogLevel(level);}
+    void setLogLevel(LogLevel level)
+    {
+        logLevel_.store(level);
+        enableTrace(level == LogLevel::trace);
+    }
 
     void safeListenLogged(LogSlot f)
     {
@@ -1249,7 +1249,7 @@ public:
     {
         if (state() != State::authenticating)
             return makeUnexpectedError(Errc::invalidState);
-        return peer_.abort(std::move(r));
+        return abort(std::move(r));
     }
 
     FutureErrorOrDone safeFailAuthentication(Reason&& r) override
@@ -1357,6 +1357,18 @@ public:
         safelyDispatch<Dispatched>();
     }
 
+    ErrorOrDone abort(Reason r)
+    {
+        auto done = peer_.abort(std::move(r));
+        if (done == WampErrc::payloadSizeExceeded)
+        {
+            log({LogLevel::warning,
+                 "Snipped options of outbound ABORT message due to "
+                 "transport payload limits"});
+        }
+        return done;
+    }
+
     void subscribe(Topic&& topic, EventSlot&& slot,
                    CompletionHandler<Subscription>&& handler)
     {
@@ -1459,7 +1471,7 @@ public:
         {
             Ptr self;
             std::string msg;
-            void operator()() {self->log(LogLevel::error, std::move(msg));}
+            void operator()() {self->log({LogLevel::error, std::move(msg)});}
         };
 
         if (logLevel() > LogLevel::error)
@@ -2015,7 +2027,19 @@ public:
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
-        return registry_.yield(std::move(error));
+        auto done = registry_.yield(std::move(error));
+        if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
+        {
+            if (logLevel() <= LogLevel::warning)
+            {
+                std::ostringstream oss;
+                oss << "Snipped args of outbound INVOCATION ERROR message with "
+                       "request ID " << error.requestId({})
+                    << " due to transport payload limits";
+                log({LogLevel::warning, oss.str()});
+            }
+        }
+        return done;
     }
 
     ErrorOrDone yield(Error&& error, RequestId reqId) override
@@ -2067,18 +2091,222 @@ private:
     }
 
     Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
-        : peer_(false),
+        : peer_(this, false),
           executor_(std::move(exec)),
           userExecutor_(std::move(userExec)),
           strand_(boost::asio::make_strand(executor_)),
           readership_(executor_, userExecutor_),
           registry_(peer_, executor_, userExecutor_),
           requestor_(peer_, strand_, executor_, userExecutor_)
+    {}
+
+    void onStateChanged(SessionState s, std::error_code ec) override
     {
-        peer_.setInboundMessageHandler(
-            [this](Message msg) {onInbound(std::move(msg));} );
-        peer_.listenStateChanged(
-            [this](State s, std::error_code ec) {onStateChanged(s, ec);});
+        if (ec)
+            abortPending(ec);
+        if (stateSlot_)
+            postHandler(stateSlot_, s, ec);
+        if (s == State::disconnected && ec == TransportErrc::disconnected)
+            log({LogLevel::warning, "Transport disconnected by remote peer"});
+    }
+
+    void onFailure(std::string&& why, std::error_code ec, bool) override
+    {
+        log({LogLevel::critical, std::move(why), ec});
+    }
+
+    void onTrace(std::string&& messageDump) override
+    {
+        log({LogLevel::trace, std::move(messageDump)});
+    }
+
+    void onPeerAbort(Reason&& reason, bool wasJoining) override
+    {
+        if (wasJoining)
+            return onWampReply(reason.message({}));
+
+        if (logLevel() <= LogLevel::critical)
+        {
+            std::ostringstream oss;
+            oss << "Session aborted by peer with reason URI "
+                << reason.uri();
+            if (!reason.options().empty())
+                oss << " and details " << reason.options();
+            log({LogLevel::critical, oss.str()});
+        }
+    }
+
+    void onPeerChallenge(Challenge&& challenge) override
+    {
+        challenge.setChallengee({}, shared_from_this());
+
+        if (challengeSlot_)
+        {
+            dispatchChallenge(std::move(challenge));
+        }
+        else
+        {
+            if (logLevel() <= LogLevel::error)
+            {
+                std::ostringstream oss;
+                oss << "No registered challenge slot to process received "
+                       "CHALLENGE with method " << challenge.method();
+                log({LogLevel::error, oss.str()});
+            }
+
+            // Send empty signature to avoid deadlock with other peer.
+            authenticate(Authentication(""));
+        }
+    }
+
+    void dispatchChallenge(Challenge&& challenge)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Challenge challenge;
+            ChallengeSlot slot;
+
+            void operator()()
+            {
+                try
+                {
+                    slot(std::move(challenge));
+                }
+                catch (Reason r)
+                {
+                    self->safeFailAuthentication(std::move(r));
+                }
+                catch (const error::BadType& e)
+                {
+                    auto r = Reason(WampErrc::invalidArgument)
+                                 .withHint(e.what());
+                    self->safeFailAuthentication(std::move(r));
+                }
+            }
+        };
+
+        auto associatedExec =
+            boost::asio::get_associated_executor(challengeSlot_, userExecutor_);
+        Dispatched dispatched{shared_from_this(), std::move(challenge),
+                              challengeSlot_};
+        boost::asio::dispatch(
+            executor_,
+            boost::asio::bind_executor(associatedExec, std::move(dispatched)));
+    }
+
+    void onPeerGoodbye(Reason&& reason) override
+    {
+        if (logLevel() > LogLevel::warning)
+            return;
+
+        std::ostringstream oss;
+        oss << "Session killed by peer with reason URI "
+            << reason.uri();
+        if (!reason.options().empty())
+            oss << " and details " << reason.options();
+        log({LogLevel::warning, oss.str()});
+    }
+
+    void onPeerMessage(Message&& msg) override
+    {
+        switch (msg.kind())
+        {
+        case MessageKind::event:      return onEvent(msg);
+        case MessageKind::invocation: return onInvocation(msg);
+        case MessageKind::interrupt:  return onInterrupt(msg);
+        default:                      return onWampReply(msg);
+        }
+    }
+
+    void onEvent(Message& msg)
+    {
+        Event event{{}, std::move(msg)};
+        event.setExecutor({}, userExecutor_);
+        bool ok = readership_.onEvent(event, shared_from_this());
+        if (!ok && logLevel() <= LogLevel::warning)
+        {
+            std::ostringstream oss;
+            oss << "Discarding an EVENT that is not subscribed to "
+                   "(with subId=" << event.subscriptionId()
+                << " pubId=" << event.publicationId() << ")";
+            log({LogLevel::warning, oss.str()});
+        }
+    }
+
+    void onInvocation(Message& msg)
+    {
+        // TODO: Callee-initiated timeouts
+
+        Invocation inv{{}, std::move(msg)};
+        inv.setCallee({}, shared_from_this(), userExecutor_);
+        auto regId = inv.registrationId();
+
+        auto errc = registry_.onInvocation(std::move(inv));
+        if (errc == WampErrc::noSuchProcedure)
+        {
+            log({LogLevel::error,
+                 "No matching procedure for INVOCATION with registration ID "
+                     + std::to_string(regId)});
+        }
+        if (errc == WampErrc::protocolViolation)
+        {
+            peer_.abort(
+                Reason(WampErrc::protocolViolation)
+                    .withHint("Router attempted to reinvoke a pending RPC "
+                              "that is closed to further progress"));
+        }
+    }
+
+    void onInterrupt(Message& msg)
+    {
+        Interruption intr{{}, std::move(msg)};
+        intr.setCallee({}, shared_from_this(), userExecutor_);
+        registry_.onInterrupt(std::move(intr));
+    }
+
+    void onWampReply(Message& msg)
+    {
+        const char* msgName = msg.name();
+        assert(msg.isReply());
+        if (!requestor_.onReply(std::move(msg)))
+        {
+            log({LogLevel::warning,
+                 std::string("Discarding received ") + msgName +
+                     " message with no matching request"});
+        }
+    }
+
+    void onWelcome(CompletionHandler<Welcome>&& handler, Message& reply,
+                   Uri&& realm)
+    {
+        Welcome info{{}, std::move(reply)};
+        info.setRealm({}, std::move(realm));
+        completeNow(handler, std::move(info));
+    }
+
+    void onJoinAborted(CompletionHandler<Welcome>&& handler, Message& reply,
+                       Reason* abortPtr)
+    {
+        Reason reason{{}, std::move(reply)};
+        const auto& uri = reason.uri();
+        WampErrc errc = errorUriToCode(uri);
+
+        if (abortPtr != nullptr)
+        {
+            *abortPtr = std::move(reason);
+        }
+        else if ((logLevel() <= LogLevel::error) &&
+                 (errc == WampErrc::unknown || !reason.options().empty()))
+        {
+            std::ostringstream oss;
+            oss << "JOIN request aborted by peer with error URI=" << uri;
+            if (!reason.options().empty())
+                oss << ", Details=" << reason.options();
+            log({LogLevel::error, oss.str()});
+        }
+
+        completeNow(handler, makeUnexpectedError(errc));
     }
 
     template <typename F, typename... Ts>
@@ -2103,20 +2331,6 @@ private:
         auto unex = makeUnexpectedError(errc);
         if (!isTerminating_)
             postAny(executor_, std::move(f), std::move(unex));
-    }
-
-    void onLog(LogEntry&& entry)
-    {
-        if (logSlot_)
-            dispatchHandler(logSlot_, std::move(entry));
-    }
-
-    void onStateChanged(SessionState s, std::error_code ec)
-    {
-        if (ec)
-            abortPending(ec);
-        if (stateSlot_)
-            postHandler(stateSlot_, s, ec);
     }
 
     template <typename TInfo>
@@ -2258,164 +2472,6 @@ private:
         }
     }
 
-    void onWelcome(CompletionHandler<Welcome>&& handler, Message& reply,
-                   Uri&& realm)
-    {
-        Welcome info{{}, std::move(realm), std::move(reply)};
-        completeNow(handler, std::move(info));
-    }
-
-    void onJoinAborted(CompletionHandler<Welcome>&& handler, Message& reply,
-                       Reason* abortPtr)
-    {
-        Reason reason{{}, std::move(reply)};
-        const auto& uri = reason.uri();
-        WampErrc errc = errorUriToCode(uri);
-
-        if (abortPtr != nullptr)
-        {
-            *abortPtr = std::move(reason);
-        }
-        else if ((logLevel() <= LogLevel::error) &&
-                 (errc == WampErrc::unknown || !reason.options().empty()))
-        {
-            std::ostringstream oss;
-            oss << "JOIN request aborted by peer with error URI=" << uri;
-            if (!reason.options().empty())
-                oss << ", Details=" << reason.options();
-            log(LogLevel::error, oss.str());
-        }
-
-        completeNow(handler, makeUnexpectedError(errc));
-    }
-
-    void onInbound(Message msg)
-    {
-        switch (msg.kind())
-        {
-        case MessageKind::challenge:  return onChallenge(msg);
-        case MessageKind::event:      return onEvent(msg);
-        case MessageKind::invocation: return onInvocation(msg);
-        case MessageKind::interrupt:  return onInterrupt(msg);
-        default:                      return onWampReply(msg);
-        }
-    }
-
-    void onChallenge(Message& msg)
-    {
-        Challenge challenge({}, shared_from_this(), std::move(msg));
-
-        if (challengeSlot_)
-        {
-            dispatchChallenge(std::move(challenge));
-        }
-        else
-        {
-            if (logLevel() <= LogLevel::error)
-            {
-                std::ostringstream oss;
-                oss << "No registered challenge slot to process received "
-                       "CHALLENGE with method " << challenge.method();
-                log(LogLevel::error, oss.str());
-            }
-
-            // Send empty signature to avoid deadlock with other peer.
-            authenticate(Authentication(""));
-        }
-    }
-
-    void dispatchChallenge(Challenge&& challenge)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Challenge challenge;
-            ChallengeSlot slot;
-
-            void operator()()
-            {
-                try
-                {
-                    slot(std::move(challenge));
-                }
-                catch (Reason r)
-                {
-                    self->safeFailAuthentication(std::move(r));
-                }
-                catch (const error::BadType& e)
-                {
-                    auto r = Reason(WampErrc::invalidArgument)
-                                 .withHint(e.what());
-                    self->safeFailAuthentication(std::move(r));
-                }
-            }
-        };
-
-        auto associatedExec =
-            boost::asio::get_associated_executor(challengeSlot_, userExecutor_);
-        Dispatched dispatched{shared_from_this(), std::move(challenge),
-                              challengeSlot_};
-        boost::asio::dispatch(
-            executor_,
-            boost::asio::bind_executor(associatedExec, std::move(dispatched)));
-    }
-
-    void onEvent(Message& msg)
-    {
-        Event event{{}, userExecutor_, std::move(msg)};
-        bool ok = readership_.onEvent(event, shared_from_this());
-        if (!ok && logLevel() <= LogLevel::warning)
-        {
-            std::ostringstream oss;
-            oss << "Discarding an EVENT that is not subscribed to "
-                   "(with subId=" << event.subscriptionId()
-                << " pubId=" << event.publicationId() << ")";
-            log(LogLevel::warning, oss.str());
-        }
-    }
-
-    void onInvocation(Message& msg)
-    {
-        // TODO: Callee-initiated timeouts
-
-        Invocation inv{{}, std::move(msg), shared_from_this(), userExecutor_};
-        auto regId = inv.registrationId();
-
-        auto errc = registry_.onInvocation(std::move(inv));
-        if (errc == WampErrc::noSuchProcedure)
-        {
-            log(LogLevel::error,
-                "No matching procedure for INVOCATION with registration ID "
-                    + std::to_string(regId));
-        }
-        if (errc == WampErrc::protocolViolation)
-        {
-            peer_.abort(
-                Reason(WampErrc::protocolViolation)
-                    .withHint("Router attempted to reinvoke a pending RPC "
-                              "that is closed to further progress"));
-        }
-    }
-
-    void onInterrupt(Message& msg)
-    {
-        Interruption intr{{}, std::move(msg), shared_from_this(),
-                          userExecutor_};
-        registry_.onInterrupt(std::move(intr));
-    }
-
-    void onWampReply(Message& msg)
-    {
-        const char* msgName = msg.name();
-        assert(msg.isReply());
-        if (!requestor_.onReply(std::move(msg)))
-        {
-            log(LogLevel::warning,
-                std::string("Discarding received ") + msgName +
-                " message with no matching request");
-        }
-    }
-
     template <typename THandler>
     bool checkError(const ErrorOr<Message>& msg, THandler& handler)
     {
@@ -2464,7 +2520,7 @@ private:
         oss << "Expected " << MessageTraits::lookup(reqKind).name
             << " reply but got ";
         outputErrorDetails(oss, error);
-        log(LogLevel::error, oss.str());
+        log({LogLevel::error, oss.str()});
     }
 
     void checkReplyWithoutHandler(ErrorOr<Message>& reply, MessageKind type)
@@ -2474,9 +2530,9 @@ private:
         {
             if (logLevel() <= LogLevel::error)
             {
-                log(LogLevel::error,
-                    "Failure receiving reply for " + msgTypeName + " message",
-                    reply.error());
+                log({LogLevel::error,
+                     "Failure receiving reply for " + msgTypeName + " message",
+                     reply.error()});
             }
         }
         else if (reply->kind() == MessageKind::error)
@@ -2488,7 +2544,7 @@ private:
                 oss << "Expected reply for " << msgTypeName
                     << " message but got ";
                 outputErrorDetails(oss, error);
-                log(LogLevel::error, oss.str());
+                log({LogLevel::error, oss.str()});
             }
         }
         else
@@ -2497,11 +2553,15 @@ private:
         }
     }
 
-    LogLevel logLevel() const {return peer_.logLevel();}
-
-    void log(LogLevel severity, std::string message, std::error_code ec = {})
+    LogLevel logLevel() const
     {
-        peer_.log({severity, std::move(message), ec});
+        return logSlot_ ? logLevel_.load() : LogLevel::off;
+    }
+
+    void log(LogEntry&& entry)
+    {
+        if (logSlot_)
+            dispatchHandler(logSlot_, std::move(entry));
     }
 
     template <typename S, typename... Ts>
@@ -2561,6 +2621,7 @@ private:
     LogSlot logSlot_;
     StateSlot stateSlot_;
     ChallengeSlot challengeSlot_;
+    std::atomic<LogLevel> logLevel_;
     bool isTerminating_ = false;
 };
 

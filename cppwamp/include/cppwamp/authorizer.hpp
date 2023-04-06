@@ -147,7 +147,7 @@ public:
 private:
     using Handler = std::function<void (Authorization, any)>;
 
-    any command_;
+    any command_; // TODO: Use Message for type-erasure
     Handler handler_;
     AuthInfo::Ptr authInfo_;
     AuthorizationAction action_;

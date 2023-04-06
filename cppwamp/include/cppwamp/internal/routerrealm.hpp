@@ -176,6 +176,7 @@ private:
     void dispatchAuthorized(AuthorizationAction action,
                             RealmSession::Ptr originator, TCommand&& command)
     {
+        // TODO: Route message via authorizer and treat as new inbound command
         if (config_.authorizer())
         {
             dispatchDynamicallyAuthorized<TOperation>(

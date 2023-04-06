@@ -225,12 +225,13 @@ private:
 
 public:
     // Internal use only
-    Event(internal::PassKey, AnyCompletionExecutor executor,
-          internal::Message&& msg);
+    Event(internal::PassKey, internal::Message&& msg);
 
     Event(internal::PassKey, Pub&& pub, SubscriptionId sid, PublicationId pid);
 
-    void setSubscriptionId(SubscriptionId subId);
+    void setExecutor(internal::PassKey, AnyCompletionExecutor exec);
+
+    void setSubscriptionId(internal::PassKey, SubscriptionId subId);
 };
 
 } // namespace wamp

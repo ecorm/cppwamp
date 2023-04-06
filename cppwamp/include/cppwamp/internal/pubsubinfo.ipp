@@ -232,10 +232,8 @@ CPPWAMP_INLINE ErrorOr<Uri> Event::topic() const
     return optionAs<Uri>("topic");
 }
 
-CPPWAMP_INLINE Event::Event(internal::PassKey, AnyCompletionExecutor executor,
-                            internal::Message&& msg)
-    : Base(std::move(msg)),
-      executor_(executor)
+CPPWAMP_INLINE Event::Event(internal::PassKey, internal::Message&& msg)
+    : Base(std::move(msg))
 {}
 
 CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
@@ -250,7 +248,14 @@ CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
         withOption("trustlevel", pub.trustLevel({}));
 }
 
-CPPWAMP_INLINE void Event::setSubscriptionId(SubscriptionId subId)
+CPPWAMP_INLINE void Event::setExecutor(internal::PassKey,
+                                       AnyCompletionExecutor exec)
+{
+    executor_ = std::move(exec);
+}
+
+CPPWAMP_INLINE void Event::setSubscriptionId(internal::PassKey,
+                                             SubscriptionId subId)
 {
     message().at(subscriptionIdPos_) = subId;
 }
