@@ -1360,7 +1360,7 @@ public:
     ErrorOrDone abort(Reason r)
     {
         auto done = peer_.abort(std::move(r));
-        if (done == WampErrc::payloadSizeExceeded)
+        if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
         {
             log({LogLevel::warning,
                  "Snipped options of outbound ABORT message due to "
@@ -2097,7 +2097,8 @@ private:
           strand_(boost::asio::make_strand(executor_)),
           readership_(executor_, userExecutor_),
           registry_(peer_, executor_, userExecutor_),
-          requestor_(peer_, strand_, executor_, userExecutor_)
+          requestor_(peer_, strand_, executor_, userExecutor_),
+          logLevel_(LogLevel::warning)
     {}
 
     void onStateChanged(SessionState s, std::error_code ec) override
@@ -2195,17 +2196,24 @@ private:
             boost::asio::bind_executor(associatedExec, std::move(dispatched)));
     }
 
-    void onPeerGoodbye(Reason&& reason) override
+    void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
     {
-        if (logLevel() > LogLevel::warning)
-            return;
+        // Client::onStateChanged will take care of abandoning pending
+        // requests.
 
-        std::ostringstream oss;
-        oss << "Session killed by peer with reason URI "
-            << reason.uri();
-        if (!reason.options().empty())
-            oss << " and details " << reason.options();
-        log({LogLevel::warning, oss.str()});
+        if (wasShuttingDown)
+        {
+            onWampReply(reason.message({}));
+        }
+        else if (logLevel() <= LogLevel::warning)
+        {
+            std::ostringstream oss;
+            oss << "Session killed by peer with reason URI "
+                << reason.uri();
+            if (!reason.options().empty())
+                oss << " and details " << reason.options();
+            log({LogLevel::warning, oss.str()});
+        }
     }
 
     void onPeerMessage(Message&& msg) override
@@ -2560,7 +2568,7 @@ private:
 
     void log(LogEntry&& entry)
     {
-        if (logSlot_)
+        if (entry.severity() >= logLevel())
             dispatchHandler(logSlot_, std::move(entry));
     }
 

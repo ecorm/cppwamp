@@ -57,9 +57,9 @@ public:
 
     virtual void onPeerChallenge(Challenge&& c) {assert(false);}
 
-    virtual void onPeerAuthenticate(Challenge&& c) {assert(false);}
+    virtual void onPeerAuthenticate(Authentication&& c) {assert(false);}
 
-    virtual void onPeerGoodbye(Reason&&) = 0;
+    virtual void onPeerGoodbye(Reason&&, bool wasShuttingDown) = 0;
 
     virtual void onPeerMessage(Message&& m)
     {
@@ -88,7 +88,6 @@ public:
         }
     }
 
-    virtual void onPeerCommand(Authentication&& c)   {onPeerMessage(std::move(c.message({})));}
     virtual void onPeerCommand(Error&& c)            {onPeerMessage(std::move(c.message({})));}
     virtual void onPeerCommand(Pub&& c)              {onPeerMessage(std::move(c.message({})));}
     virtual void onPeerCommand(Published&& c)        {onPeerMessage(std::move(c.message({})));}
@@ -415,23 +414,25 @@ private:
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
-        notifyMessage(msg);
+        listener_.onPeerChallenge(Challenge{{}, std::move(msg)});
     }
 
     void onGoodbye(Message& msg)
     {
         Reason reason{{}, std::move(msg)};
-        if (state() == State::shuttingDown)
+        bool isShuttingDown = state() == State::shuttingDown;
+        if (isShuttingDown)
         {
-            setState(State::closed);
-            listener_.onPeerGoodbye(std::move(reason));
+            listener_.onPeerGoodbye(std::move(reason), isShuttingDown);
+            // Client::leave::Requested will call Peer::close which
+            // will set the state to closed.
         }
         else
         {
             WampErrc errc = reason.errorCode();
             errc = (errc == WampErrc::success) ? WampErrc::closeRealm : errc;
-            listener_.onPeerGoodbye(std::move(reason));
             setState(State::closed, errc);
+            listener_.onPeerGoodbye(std::move(reason), isShuttingDown);
             Reason goodbye{WampErrc::goodbyeAndOut};
             send(goodbye);
         }

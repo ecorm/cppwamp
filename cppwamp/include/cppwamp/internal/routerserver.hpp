@@ -41,9 +41,62 @@ private:
 };
 
 //------------------------------------------------------------------------------
+class RequestIdChecker
+{
+public:
+    void reset() {watermark_ = 1;}
+
+    template <typename C>
+    bool check(const C& command)
+    {
+        using HasRequestId = MetaBool<C::hasRequestId({})>;
+        return check1(HasRequestId{}, command);
+    }
+
+private:
+    template <typename C>
+    bool check1(TrueType /*HasRequestId*/, const C& command)
+    {
+        using IsRequest = MetaBool<C::isRequest({})>;
+        return check2(IsRequest{}, command);
+    }
+
+    template <typename C>
+    bool check1(FalseType /*HasRequestId*/, const C&)
+    {
+        return true;
+    }
+
+    template <typename C>
+    bool check2(TrueType /*IsRequest*/, const C& command)
+    {
+        if (command.requestId({}) != watermark_)
+            return false;
+        ++watermark_;
+        return true;
+    }
+
+    bool check2(TrueType /*IsRequest*/, const Rpc& command)
+    {
+        if (command.requestId({}) > watermark_)
+            return false;
+        ++watermark_;
+        return true;
+    }
+
+    template <typename C>
+    bool check2(FalseType /*IsRequest*/, const C& command)
+    {
+        return (command.requestId({}) < watermark_);
+    }
+
+    RequestId watermark_ = 1;
+};
+
+//------------------------------------------------------------------------------
 class ServerSession : public std::enable_shared_from_this<ServerSession>,
-                      public RealmSession,
-                      public Challenger
+                      public RealmSession, public Challenger,
+                      private PeerListener
 {
 public:
     using Ptr = std::shared_ptr<ServerSession>;
@@ -64,6 +117,24 @@ public:
     {
         auto self = shared_from_this();
         completeNow([this, self]() {startSession();});
+    }
+
+private:
+    using Base = RealmSession;
+
+    ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
+                  ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)
+        : Base(s.logger()),
+          peer_(this, true),
+          strand_(std::move(i)),
+          transport_(t),
+          codec_(std::move(c)),
+          server_(std::move(s)),
+          serverConfig_(std::move(sc))
+    {
+        assert(serverConfig_ != nullptr);
+        Base::setTransportInfo({t->remoteEndpointLabel(), serverConfig_->name(),
+                                sessionIndex});
     }
 
     void onRouterAbort(Reason&& r) override
@@ -89,23 +160,115 @@ public:
     void onRouterCommand(Result&& r) override       {sendRouterCommand(std::move(r));}
     void onRouterCommand(Interruption&& i) override {sendRouterCommand(std::move(i));}
 
-private:
-    using Base = RealmSession;
-
-    ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
-                  ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)
-        : Base(s.logger()),
-          peer_(true),
-          strand_(std::move(i)),
-          transport_(t),
-          codec_(std::move(c)),
-          server_(std::move(s)),
-          serverConfig_(std::move(sc))
+    void onStateChanged(SessionState s, std::error_code ec) override
     {
-        assert(serverConfig_ != nullptr);
-        Base::setTransportInfo({t->remoteEndpointLabel(), serverConfig_->name(),
-                                sessionIndex});
+        switch (s)
+        {
+        case State::connecting:
+            report({AccessAction::clientConnect});
+            break;
+
+        case State::disconnected:
+            report({AccessAction::clientDisconnect, {}, {}, ec});
+            retire();
+            break;
+
+        case State::closed:
+            leaveRealm();
+            if (!shuttingDown_)
+                peer_.establishSession();
+            break;
+
+        case State::failed:
+            retire();
+            break;
+
+        default:
+            // Do nothing
+            break;
+        }
     }
+
+    void onFailure(std::string&& why, std::error_code ec,
+                   bool abortSent) override
+    {
+        auto action = abortSent ? AccessAction::serverAbort
+                                : AccessAction::serverDisconnect;
+        report({action, {}, {}, ec});
+    }
+
+    void onTrace(std::string&& messageDump) override
+    {
+        Base::routerLog({LogLevel::trace, std::move(messageDump)});
+    }
+
+    void onPeerHello(Realm&& realm) override
+    {
+        Base::report(realm.info());
+        Base::setHelloInfo(realm);
+
+        realm_ = server_.realmAt(realm.uri());
+        if (realm_.expired())
+        {
+            auto errc = WampErrc::noSuchRealm;
+            abortSession({errc});
+            return;
+        }
+
+        const auto& authenticator = serverConfig_->authenticator();
+        assert(authenticator != nullptr);
+        authExchange_ = AuthExchange::create({}, std::move(realm),
+                                             shared_from_this());
+        completeNow(authenticator, authExchange_);
+    }
+
+    void onPeerAbort(Reason&& r, bool wasJoining) override
+    {
+        report(r.info(false));
+        // ServerSession::onStateChanged will perform the retire() operation.
+    }
+
+    void onPeerAuthenticate(Authentication&& authentication) override
+    {
+        Base::report(authentication.info());
+
+        const auto& authenticator = serverConfig_->authenticator();
+        assert(authenticator != nullptr);
+
+        bool isExpected = authExchange_ != nullptr &&
+                          state() == State::authenticating;
+        if (!isExpected)
+        {
+            auto errc = WampErrc::protocolViolation;
+            abortSession(Reason(errc).withHint("Unexpected AUTHENTICATE message"));
+            return;
+        }
+
+        authExchange_->setAuthentication({}, std::move(authentication));
+        completeNow(authenticator, authExchange_);
+    }
+
+    void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
+    {
+        report(reason.info(false));
+        if (!wasShuttingDown)
+        {
+            report({AccessAction::serverGoodbye,
+                    errorCodeToUri(WampErrc::goodbyeAndOut)});
+        }
+        // peer_ already took care of sending the reply and will close the
+        // session state.
+    }
+
+    void onPeerCommand(Error&& c) override            {sendToRealm(c);}
+    void onPeerCommand(Pub&& c) override              {sendToRealm(c);}
+    void onPeerCommand(Topic&& c) override            {sendToRealm(c);}
+    void onPeerCommand(Unsubscribe&& c) override      {sendToRealm(c);}
+    void onPeerCommand(Rpc&& c) override              {sendToRealm(c);}
+    void onPeerCommand(CallCancellation&& c) override {sendToRealm(c);}
+    void onPeerCommand(Procedure&& c) override        {sendToRealm(c);}
+    void onPeerCommand(Unregister&& c) override       {sendToRealm(c);}
+    void onPeerCommand(Result&& c) override           {sendToRealm(c);}
 
     State state() const {return peer_.state();}
 
@@ -116,31 +279,8 @@ private:
 
         std::weak_ptr<ServerSession> self = shared_from_this();
 
-        peer_.setLogLevel(Base::routerLogLevel());
-
-        peer_.listenLogged(
-            [this, self](LogEntry entry)
-            {
-                auto me = self.lock();
-                if (me)
-                    Base::routerLog(std::move(entry));
-            });
-
-        peer_.setInboundMessageHandler(
-            [this, self](Message msg)
-            {
-                auto me = self.lock();
-                if (me)
-                    onMessage(std::move(msg));
-            });
-
-        peer_.listenStateChanged(
-            [this, self](State st, std::error_code ec)
-            {
-                auto me = self.lock();
-                if (me)
-                    onStateChanged(st, ec);
-            });
+        if (routerLogLevel() == LogLevel::trace)
+            enableTrace();
 
         peer_.connect(std::move(transport_), std::move(codec_));
     }
@@ -177,120 +317,22 @@ private:
     {
         Base::resetSessionInfo();
         realm_.reset();
+        requestIdChecker_.reset();
     }
 
-    void onStateChanged(State s, std::error_code ec)
+    template <typename C>
+    void sendToRealm(C& command)
     {
-        switch (s)
+        if (!requestIdChecker_.check(command))
         {
-        case State::connecting:
-            report({AccessAction::clientConnect});
-            break;
-
-        case State::disconnected:
-            report({AccessAction::clientDisconnect, {}, {}, ec});
-            retire();
-            break;
-
-        case State::closed:
-            leaveRealm();
-            if (!shuttingDown_)
-                peer_.establishSession();
-            break;
-
-        case State::failed:
-            report({AccessAction::serverAbort, {}, {}, ec});
-            retire();
-            break;
-
-        default:
-            // Do nothing
-            break;
-        }
-    }
-
-    void onMessage(Message&& m)
-    {
-        if (!checkSequentialRequestId(m))
-            return;
-
-        auto self = shared_from_this();
-
-        using K = MessageKind;
-        switch (m.kind())
-        {
-        case K::hello:        return onHello(m);
-        case K::authenticate: return onAuthenticate(m);
-        case K::goodbye:      return onGoodbye(m);
-        case K::error:        return sendToRealm<Error>(m);
-        case K::publish:      return sendToRealm<Pub>(m);
-        case K::subscribe:    return sendToRealm<Topic>(m);
-        case K::unsubscribe:  return sendToRealm<Unsubscribe>(m);
-        case K::call:         return sendToRealm<Rpc>(m);
-        case K::cancel:       return sendToRealm<CallCancellation>(m);
-        case K::enroll:       return sendToRealm<Procedure>(m);
-        case K::unregister:   return sendToRealm<Unregister>(m);
-        case K::yield:        return sendToRealm<Result>(m);
-        default:              assert(false && "Unexpected message type"); break;
-        }
-    }
-
-    void onHello(Message& msg)
-    {
-        Realm realm{{}, std::move(msg)};
-        Base::report(realm.info());
-        Base::setHelloInfo(realm);
-
-        realm_ = server_.realmAt(realm.uri());
-        if (realm_.expired())
-        {
-            auto errc = WampErrc::noSuchRealm;
-            abortSession({errc});
+            auto msg = std::string("Received ") + command.message({}).name() +
+                       " message uses non-sequential request ID";
+            abortSession(Reason(WampErrc::protocolViolation)
+                             .withHint(std::move(msg)));
             return;
         }
 
-        const auto& authenticator = serverConfig_->authenticator();
-        assert(authenticator != nullptr);
-        authExchange_ = AuthExchange::create({}, std::move(realm),
-                                             shared_from_this());
-        completeNow(authenticator, authExchange_);
-    }
-
-    void onAuthenticate(Message& msg)
-    {
-        Authentication authentication{{}, std::move(msg)};
-        Base::report(authentication.info());
-
-        const auto& authenticator = serverConfig_->authenticator();
-        assert(authenticator != nullptr);
-
-        bool isExpected = authExchange_ != nullptr &&
-                          state() == State::authenticating;
-        if (!isExpected)
-        {
-            auto errc = WampErrc::protocolViolation;
-            abortSession(Reason(errc).withHint("Unexpected AUTHENTICATE message"));
-            return;
-        }
-
-        authExchange_->setAuthentication({}, std::move(authentication));
-        completeNow(authenticator, authExchange_);
-    }
-
-    void onGoodbye(Message& msg)
-    {
-        Reason reason{{}, std::move(msg)};
-        report(reason.info(false));
-        report({AccessAction::serverGoodbye,
-                errorCodeToUri(WampErrc::goodbyeAndOut)});
-        // peer_ already took care of sending the reply, cancelling pending
-        // requests, and will close the session state.
-    }
-
-    template <typename TCommand>
-    void sendToRealm(Message& msg)
-    {
-        realm_.send(shared_from_this(), TCommand{{}, std::move(msg)});
+        realm_.send(shared_from_this(), std::move(command));
     }
 
     void leaveRealm()
@@ -315,46 +357,6 @@ private:
     void completeNow(F&& handler, Ts&&... args)
     {
         dispatchAny(strand_, std::move(handler), std::forward<Ts>(args)...);
-    }
-
-    bool checkSequentialRequestId(const Message& m)
-    {
-        if (!m.hasRequestId())
-            return true;
-
-        // Allow progressive calls to reference past request IDs
-        bool isCall = m.kind() == MessageKind::call;
-        bool needsSequential = !isCall && m.isRequest();
-        auto requestId = m.requestId();
-
-        if (needsSequential)
-        {
-            if (requestId != expectedRequestId_)
-            {
-                auto msg = std::string("Received ") + m.name() +
-                           " message uses non-sequential request ID";
-                abortSession(Reason(WampErrc::protocolViolation)
-                            .withHint(std::move(msg)));
-                return false;
-            }
-            ++expectedRequestId_;
-        }
-        else
-        {
-            auto limit = expectedRequestId_ + (isCall ? 1 : 0);
-            if (requestId >= limit)
-            {
-                auto msg = std::string("Received ") + m.name() +
-                           " message uses future request ID";
-                abortSession(Reason(WampErrc::protocolViolation)
-                            .withHint(std::move(msg)));
-                return false;
-            }
-            if (isCall && (requestId == expectedRequestId_))
-                ++expectedRequestId_;
-        }
-
-        return true;
     }
 
     void challenge() override
@@ -455,7 +457,7 @@ private:
     RealmContext realm_;
     ServerConfig::Ptr serverConfig_;
     AuthExchange::Ptr authExchange_;
-    RequestId expectedRequestId_ = 1;
+    RequestIdChecker requestIdChecker_;
     bool alreadyStarted_ = false;
     bool shuttingDown_ = false;
 };

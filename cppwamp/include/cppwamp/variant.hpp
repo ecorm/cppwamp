@@ -529,13 +529,13 @@ CPPWAMP_API std::string toString(const Variant& v);
 | Object                | false | false | false | false | false | false  | false | false | L==R   |
 | std::map<String,T>    | false | false | false | false | false | false  | false | false | L==R   |
     @relates Variant */
-template <typename T>
+template <typename T, CPPWAMP_NEEDS(internal::ArgTraits<T>::isValid) = 0>
 CPPWAMP_API bool operator==(const Variant& variant, const T& value);
 
 /** Compares a non-variant value with a variant for equality.
     @see bool operator==(const Variant& variant, const T& value)
     @relates Variant */
-template <typename T>
+template <typename T, CPPWAMP_NEEDS(internal::ArgTraits<T>::isValid) = 0>
 CPPWAMP_API bool operator==(const T& value, const Variant& variant);
 
 /** Compares a variant with a null-terminated constant character array
@@ -567,13 +567,13 @@ CPPWAMP_API bool operator==(Variant::CharType* str, const Variant& variant);
 /** Compares a variant with a non-variant value for inequality.
     @see bool operator==(const Variant& variant, const T& value)
     @relates Variant */
-template <typename T>
+template <typename T, CPPWAMP_NEEDS(internal::ArgTraits<T>::isValid) = 0>
 bool operator!=(const Variant& variant, const T& value);
 
 /** Compares a non-variant value with a variant for inequality.
     @see bool operator==(const Variant& variant, const T& value)
     @relates Variant */
-template <typename T>
+template <typename T, CPPWAMP_NEEDS(internal::ArgTraits<T>::isValid) = 0>
 CPPWAMP_API bool operator!=(const T& value, const Variant& variant);
 
 /** Compares a variant with a null-terminated constant character array
@@ -1109,34 +1109,30 @@ Variant::String typeNameOf()
 }
 
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename T, CPPWAMP_NEEDS(internal::ArgTraits<T>::isValid)>
 bool operator==(const Variant& variant, const T& value)
 {
-    static_assert(internal::ArgTraits<T>::isValid,
-                  "Invalid value type");
     return applyWithOperand(internal::VariantEquivalentTo<Variant>(), variant,
                             value);
 }
 
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename T, CPPWAMP_NEEDS(internal::ArgTraits<T>::isValid)>
 bool operator==(const T& value, const Variant& variant)
 {
     return variant == value;
 }
 
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename T, CPPWAMP_NEEDS(internal::ArgTraits<T>::isValid)>
 bool operator!=(const Variant& variant, const T& value)
 {
-    static_assert(internal::ArgTraits<T>::isValid,
-                  "Invalid value type");
     return applyWithOperand(internal::VariantNotEquivalentTo<Variant>(),
                             variant, value);
 }
 
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename T, CPPWAMP_NEEDS(internal::ArgTraits<T>::isValid)>
 bool operator!=(const T& value, const Variant& variant)
 {
     return variant != value;

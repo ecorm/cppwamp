@@ -65,7 +65,7 @@ public:
 
     void setSubscriptionId(SubscriptionId subId)
     {
-        event_.setSubscriptionId(subId);
+        event_.setSubscriptionId({}, subId);
     }
 
     void enableTopicDetail()

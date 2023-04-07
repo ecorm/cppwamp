@@ -74,6 +74,7 @@ enum class AccessAction
     clientRegister,
     clientUnregister,
     clientYield,
+    serverDisconnect,
     serverWelcome,
     serverAbort,
     serverChallenge,

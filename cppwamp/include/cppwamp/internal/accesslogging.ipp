@@ -126,6 +126,7 @@ CPPWAMP_INLINE const std::string& accessActionLabel(AccessAction action)
          "client-register",
          "client-unregister",
          "client-yield",
+         "server-disconnect",
          "server-welcome",
          "server-abort",
          "server-challenge",

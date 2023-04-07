@@ -49,6 +49,7 @@ namespace internal
         friend class ProcedureRegistry;
         friend class Readership;
         friend class RealmSession;
+        friend class RequestIdChecker;
         friend class Requestor;
         friend class RouterImpl;
         friend class RouterRealm;
