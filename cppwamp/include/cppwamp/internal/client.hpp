@@ -207,19 +207,20 @@ public:
             });
     }
 
-    template <typename TCommand>
-    ErrorOr<RequestId> request(TCommand&& cmd, RequestHandler&& handler)
+    template <typename C>
+    ErrorOr<RequestId> request(C&& command, RequestHandler&& handler)
     {
-        return request(std::move(cmd), TimeoutDuration{0}, std::move(handler));
+        return request(std::move(command), TimeoutDuration{0},
+                       std::move(handler));
     }
 
-    template <typename TCommand>
-    ErrorOr<RequestId> request(TCommand&& cmd, TimeoutDuration timeout,
+    template <typename C>
+    ErrorOr<RequestId> request(C&& command, TimeoutDuration timeout,
                                RequestHandler&& handler)
     {
 
-        using HasRequestId = MetaBool<ValueTypeOf<TCommand>::hasRequestId({})>;
-        return doRequest(HasRequestId{}, cmd, timeout, std::move(handler));
+        using HasRequestId = MetaBool<ValueTypeOf<C>::hasRequestId({})>;
+        return doRequest(HasRequestId{}, command, timeout, std::move(handler));
     }
 
     ErrorOr<CallerChannel> requestStream(
@@ -371,16 +372,16 @@ private:
     using RequestKey = typename Message::RequestKey;
     using CallerTimeoutScheduler = TimeoutScheduler<RequestId>;
 
-    template <typename TCommand>
-    ErrorOr<RequestId> doRequest(TrueType, TCommand& cmd,
-                                 TimeoutDuration timeout, RequestHandler&& handler)
+    template <typename C>
+    ErrorOr<RequestId> doRequest(TrueType, C& command, TimeoutDuration timeout,
+                                 RequestHandler&& handler)
     {
         // Will take 285 years to overflow 2^53 at 1 million requests/sec
         assert(nextRequestId_ < 9007199254740992u);
         RequestId requestId = nextRequestId_ + 1;
-        cmd.setRequestId({}, requestId);
+        command.setRequestId({}, requestId);
 
-        auto sent = peer_.send(std::move(cmd));
+        auto sent = peer_.send(std::move(command));
         if (!sent)
         {
             auto unex = makeUnexpected(sent.error());
@@ -390,7 +391,7 @@ private:
 
         ++nextRequestId_;
 
-        auto emplaced = requests_.emplace(cmd.requestKey({}),
+        auto emplaced = requests_.emplace(command.requestKey({}),
                                           std::move(handler));
         assert(emplaced.second);
 
@@ -400,14 +401,13 @@ private:
         return requestId;
     }
 
-    template <typename TCommand>
-    ErrorOr<RequestId> doRequest(FalseType, TCommand& cmd,
-                                 TimeoutDuration timeout,
+    template <typename C>
+    ErrorOr<RequestId> doRequest(FalseType, C& command, TimeoutDuration timeout,
                                  RequestHandler&& handler)
     {
         RequestId requestId = nullId();
 
-        auto sent = peer_.send(std::move(cmd));
+        auto sent = peer_.send(std::move(command));
         if (!sent)
         {
             auto unex = makeUnexpected(sent.error());
@@ -415,7 +415,7 @@ private:
             return unex;
         }
 
-        auto emplaced = requests_.emplace(cmd.requestKey({}),
+        auto emplaced = requests_.emplace(command.requestKey({}),
                                           std::move(handler));
         assert(emplaced.second);
 

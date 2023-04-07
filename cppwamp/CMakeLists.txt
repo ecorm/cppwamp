@@ -88,6 +88,7 @@ set(HEADERS
     include/cppwamp/internal/messagetraits.hpp
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/peer.hpp
+    include/cppwamp/internal/peerlistener.hpp
     include/cppwamp/internal/random.hpp
     include/cppwamp/internal/rawsockconnector.hpp
     include/cppwamp/internal/rawsockhandshake.hpp

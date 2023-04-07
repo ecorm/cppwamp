@@ -27,6 +27,7 @@
 #include "../wampdefs.hpp"
 #include "commandinfo.hpp"
 #include "message.hpp"
+#include "peerlistener.hpp"
 #include "realmsession.hpp"
 #include "routercontext.hpp"
 
@@ -129,15 +130,12 @@ private:
 class DirectPeer : public std::enable_shared_from_this<DirectPeer>
 {
 public:
-    using State                 = SessionState;
-    using InboundMessageHandler = std::function<void (Message)>;
-    using LogHandler            = std::function<void (LogEntry)>;
-    using StateChangeHandler    = std::function<void (State, std::error_code)>;
+    using State = SessionState;
 
-    DirectPeer()
+    explicit DirectPeer(PeerListener* listener)
         : session_(std::make_shared<DirectSessionType>(*this)),
-          state_(State::disconnected),
-          logLevel_(LogLevel::warning)
+          listener_(*listener),
+          state_(State::disconnected)
     {}
 
     virtual ~DirectPeer()
@@ -146,36 +144,6 @@ public:
     }
 
     State state() const {return state_.load();}
-
-    void setInboundMessageHandler(InboundMessageHandler f)
-    {
-        inboundMessageHandler_ = std::move(f);
-    }
-
-    void listenLogged(LogHandler handler) {logHandler_ = std::move(handler);}
-
-    void setLogLevel(LogLevel level) {logLevel_ = level;}
-
-    LogLevel logLevel() const
-    {
-        return logHandler_ ? logLevel_.load() : session_->routerLogLevel();
-    }
-
-    void log(LogEntry entry)
-    {
-        if (logLevel() > entry.severity())
-            return;
-
-        if (logHandler_)
-            logHandler_(std::move(entry));
-        else
-            session_->routerLog(std::move(entry));
-    }
-
-    void listenStateChanged(StateChangeHandler handler)
-    {
-        stateChangeHandler_ = std::move(handler);
-    }
 
     bool startConnecting()
     {
@@ -195,7 +163,7 @@ public:
             std::dynamic_pointer_cast<DirectTransport>(transport)->router();
         if (router_.expired())
         {
-            fail(TransportErrc::disconnected, "Router expired");
+            fail("Router expired", TransportErrc::disconnected);
             return;
         }
 
@@ -242,14 +210,21 @@ public:
     ErrorOrDone send(Realm&& hello)
     {
         assert(state() == State::establishing);
+        traceTx(hello);
         session_->report(hello.info());
+
         auto realm = router_.realmAt(hello.uri());
-        if (realm.expired())
-            return fail(WampErrc::noSuchRealm);
-        realm_ = std::move(realm);
-        if (!realm_.join(session_))
-            return fail(WampErrc::noSuchRealm);
-        session_->setHelloInfo(hello);
+        bool found = false;
+        if (!realm.expired())
+        {
+            realm_ = std::move(realm);
+            found = realm_.join(session_);
+        }
+        if (!found)
+        {
+            return fail("Realm '" + hello.uri() + "' not found",
+                        WampErrc::noSuchRealm);
+        }
 
         AuthInfo authInfo
         {
@@ -258,6 +233,7 @@ public:
             hello.optionOr<String>("authmethod", "x_cppwamp_direct"),
             hello.optionOr<String>("authprovider", "direct")
         };
+        session_->setHelloInfo(hello);
         session_->setWelcomeInfo(std::move(authInfo));
 
         setState(State::established);
@@ -267,6 +243,7 @@ public:
     ErrorOrDone send(Reason&& goodbye)
     {
         assert(state() == State::shuttingDown);
+        traceTx(goodbye);
         session_->report(goodbye.info(false));
         realm_.leave(session_->wampId());
         realm_.reset();
@@ -274,19 +251,20 @@ public:
         return true;
     }
 
-    template <typename TCommand>
-    ErrorOrDone send(TCommand&& cmd)
+    template <typename C>
+    ErrorOrDone send(C&& command)
     {
-        session_->report(cmd.info(false));
-        traceTx(cmd.message({}));
-        if (!realm_.send(session_, std::move(cmd)))
-            return fail(WampErrc::noSuchRealm);
+        traceTx(command);
+        session_->report(command.info(false));
+        if (!realm_.send(session_, std::move(command)))
+            return fail("Realm expired", WampErrc::noSuchRealm);
         return true;
     }
 
-    ErrorOrDone abort(Reason r)
+    ErrorOrDone abort(Reason reason)
     {
-        session_->report(r.info(false));
+        traceTx(reason);
+        session_->report(reason.info(false));
         bool ready = readyToAbort();
         disconnect();
         if (!ready)
@@ -312,8 +290,8 @@ private:
     State setState(State s, std::error_code ec = {})
     {
         auto old = state_.exchange(s);
-        if ((old != s) && stateChangeHandler_)
-            stateChangeHandler_(s, ec);
+        if (old != s)
+            listener_.onStateChanged(s, ec);
         return old;
     }
 
@@ -327,58 +305,36 @@ private:
     {
         bool ok = state_.compare_exchange_strong(expected, desired);
         if (ok)
-            stateChangeHandler_(desired, std::error_code{});
+            listener_.onStateChanged(desired, std::error_code{});
         return ok;
     }
 
-    void onAbort(Reason&& r)
+    void onAbort(Reason&& reason)
     {
-        auto s = state();
-
-        if (s == State::establishing || s == State::authenticating)
-        {
-            setState(State::closed);
-            inboundMessageHandler_(std::move(r.message({})));
-        }
-        else
-        {
-            WampErrc errc = r.errorCode();
-            if (logLevel() <= LogLevel::critical)
-            {
-                std::ostringstream oss;
-                oss << "Session aborted by peer with reason URI "
-                    << r.uri();
-                if (!r.options().empty())
-                    oss << " and details " << r.options();
-                fail(errc, oss.str());
-            }
-            else
-            {
-                fail(errc);
-            }
-        }
+        traceRx(reason);
+        setState(State::failed, reason.errorCode());
+        listener_.onPeerAbort(std::move(reason), false);
     };
 
     template <typename C>
     void onCommand(C&& command)
     {
-        if (inboundMessageHandler_ && (state() == State::established))
-            inboundMessageHandler_(std::move(command.message({})));
+        traceRx(command);
+        listener_.onPeerCommand(std::move(command));
     }
 
-    UnexpectedError fail(std::error_code ec, std::string info = {})
+    UnexpectedError fail(std::string why, std::error_code ec)
     {
         setState(State::failed, ec);
         realm_.leave(session_->wampId());
-        if (!info.empty())
-            log({LogLevel::critical, std::move(info), ec});
+        listener_.onFailure(std::move(why), ec, false);
         return UnexpectedError(ec);
     }
 
     template <typename TErrc>
-    UnexpectedError fail(TErrc errc, std::string info = {})
+    UnexpectedError fail(std::string why, TErrc errc)
     {
-        return fail(make_error_code(errc), std::move(info));
+        return fail(std::move(why), make_error_code(errc));
     }
 
     bool readyToAbort() const
@@ -389,40 +345,38 @@ private:
                s == State::established;
     }
 
-    void traceRx(const Array& fields)
+    template <typename C>
+    void traceRx(const C& command)
     {
-        trace(Message::parseMsgType(fields), fields, "RX");
+        trace(command.message({}), "RX");
     }
 
-    void traceTx(const Message& msg)
+    template <typename C>
+    void traceTx(const C& command)
     {
-        trace(msg.kind(), msg.fields(), "TX");
+        trace(command.message({}), "TX");
     }
 
-    void trace(MessageKind type, const Array& fields, const char* label)
+    void trace(const Message& message, const char* label)
     {
-        if (logLevel() > LogLevel::trace)
+        if (!listener_.traceEnabled())
             return;
 
         std::ostringstream oss;
-        oss << "[\"" << label << "\",\""
-            << MessageTraits::lookup(type).nameOr("INVALID") << "\"";
+        oss << "[\"" << label << "\",\"" << message.name() << "\"";
+        const auto& fields = message.fields();
         if (!fields.empty())
             oss << "," << fields;
         oss << ']';
 
-        LogEntry entry{LogLevel::trace, oss.str()};
-        logHandler_(std::move(entry));
+        listener_.onTrace(oss.str());
     }
 
-    InboundMessageHandler inboundMessageHandler_;
-    LogHandler logHandler_;
-    StateChangeHandler stateChangeHandler_;
     DirectSessionType::Ptr session_;
     RouterContext router_;
     RealmContext realm_;
+    PeerListener& listener_;
     std::atomic<State> state_;
-    std::atomic<LogLevel> logLevel_;
 };
 
 } // namespace internal

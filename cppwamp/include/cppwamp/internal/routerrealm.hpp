@@ -584,13 +584,13 @@ inline bool RealmContext::leave(SessionId sid)
     return true;
 }
 
-template <typename TCommand>
-bool RealmContext::send(RealmSessionPtr s, TCommand&& cmd)
+template <typename C>
+bool RealmContext::send(RealmSessionPtr s, C&& command)
 {
     auto r = realm_.lock();
     if (!r)
         return false;
-    r->send(std::move(s), std::forward<TCommand>(cmd));
+    r->send(std::move(s), std::forward<C>(command));
     return true;
 }
 

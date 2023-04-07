@@ -95,8 +95,8 @@ public:
 
     bool leave(SessionId sid);
 
-    template <typename TCommand>
-    bool send(RealmSessionPtr s, TCommand&& cmd);
+    template <typename C>
+    bool send(RealmSessionPtr s, C&& command);
 
 private:
     std::weak_ptr<RouterRealm> realm_;
