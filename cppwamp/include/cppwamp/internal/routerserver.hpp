@@ -17,8 +17,8 @@
 #include "challenger.hpp"
 #include "commandinfo.hpp"
 #include "peer.hpp"
-#include "realmsession.hpp"
 #include "routercontext.hpp"
+#include "routersession.hpp"
 
 namespace wamp
 {
@@ -95,7 +95,7 @@ private:
 
 //------------------------------------------------------------------------------
 class ServerSession : public std::enable_shared_from_this<ServerSession>,
-                      public RealmSession, public Challenger,
+                      public RouterSession, public Challenger,
                       private PeerListener
 {
 public:
@@ -120,7 +120,7 @@ public:
     }
 
 private:
-    using Base = RealmSession;
+    using Base = RouterSession;
 
     ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
                   ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)

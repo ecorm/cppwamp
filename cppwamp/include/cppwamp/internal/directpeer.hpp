@@ -9,8 +9,6 @@
 
 #include <atomic>
 #include <cassert>
-#include <functional>
-#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -19,17 +17,11 @@
 #include "../codec.hpp"
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
-#include "../errorinfo.hpp"
-#include "../logging.hpp"
-#include "../sessioninfo.hpp"
 #include "../transport.hpp"
-#include "../variant.hpp"
-#include "../wampdefs.hpp"
-#include "commandinfo.hpp"
 #include "message.hpp"
 #include "peerlistener.hpp"
-#include "realmsession.hpp"
 #include "routercontext.hpp"
+#include "routersession.hpp"
 
 namespace wamp
 {
@@ -41,24 +33,24 @@ class DirectPeer;
 
 //------------------------------------------------------------------------------
 template <typename TPeer>
-class DirectRealmSession : public RealmSession
+class DirectRouterSession : public RouterSession
 {
 public:
-    using Ptr = std::shared_ptr<DirectRealmSession>;
-    using WeakPtr = std::weak_ptr<DirectRealmSession>;
+    using Ptr = std::shared_ptr<DirectRouterSession>;
+    using WeakPtr = std::weak_ptr<DirectRouterSession>;
 
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    DirectRealmSession(TPeer& peer) : peer_(peer) {}
+    DirectRouterSession(TPeer& peer) : peer_(peer) {}
 
-    using RealmSession::setRouterLogger;
-    using RealmSession::routerLogLevel;
-    using RealmSession::routerLog;
-    using RealmSession::setTransportInfo;
-    using RealmSession::setHelloInfo;
-    using RealmSession::setWelcomeInfo;
-    using RealmSession::resetSessionInfo;
+    using RouterSession::setRouterLogger;
+    using RouterSession::routerLogLevel;
+    using RouterSession::routerLog;
+    using RouterSession::setTransportInfo;
+    using RouterSession::setHelloInfo;
+    using RouterSession::setWelcomeInfo;
+    using RouterSession::resetSessionInfo;
 
 private:
     void onRouterAbort(Reason&& r) override         {peer_.onAbort(std::move(r));};
@@ -273,7 +265,7 @@ public:
     }
 
 private:
-    using DirectSessionType = DirectRealmSession<DirectPeer>;
+    using DirectSessionType = DirectRouterSession<DirectPeer>;
 
     static const std::string& stateLabel(State state)
     {

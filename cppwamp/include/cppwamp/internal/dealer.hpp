@@ -19,7 +19,7 @@
 #include "../erroror.hpp"
 #include "../rpcinfo.hpp"
 #include "../uri.hpp"
-#include "realmsession.hpp"
+#include "routersession.hpp"
 #include "timeoutscheduler.hpp"
 
 namespace wamp
@@ -33,7 +33,7 @@ class DealerRegistration
 {
 public:
     static ErrorOr<DealerRegistration> create(Procedure&& procedure,
-                                              RealmSession::Ptr callee)
+                                              RouterSession::Ptr callee)
     {
         std::error_code ec;
         DealerRegistration reg(std::move(procedure), callee, ec);
@@ -50,12 +50,12 @@ public:
 
     RegistrationId registrationId() const {return regId_;}
 
-    RealmSession::WeakPtr callee() const {return callee_;}
+    RouterSession::WeakPtr callee() const {return callee_;}
 
     SessionId calleeId() const {return calleeId_;}
 
 private:
-    DealerRegistration(Procedure&& procedure, RealmSession::Ptr callee,
+    DealerRegistration(Procedure&& procedure, RouterSession::Ptr callee,
                        std::error_code& ec)
         : procedureUri_(std::move(procedure).uri({})),
           callee_(callee),
@@ -66,7 +66,7 @@ private:
     }
 
     Uri procedureUri_;
-    RealmSession::WeakPtr callee_;
+    RouterSession::WeakPtr callee_;
     SessionId calleeId_;
     RegistrationId regId_ = nullId();
 };
@@ -149,7 +149,7 @@ public:
     using Timeout = std::chrono::steady_clock::duration;
 
     static ErrorOr<DealerJob> create(
-        RealmSession::Ptr caller, RealmSession::Ptr callee, const Rpc& rpc,
+        RouterSession::Ptr caller, RouterSession::Ptr callee, const Rpc& rpc,
         const DealerRegistration& reg)
     {
         WampErrc errc = WampErrc::success;
@@ -161,7 +161,7 @@ public:
 
     DealerJob() = default;
 
-    Invocation makeInvocation(RealmSession::Ptr caller, Rpc&& rpc) const
+    Invocation makeInvocation(RouterSession::Ptr caller, Rpc&& rpc) const
     {
         bool callerDisclosed = rpc.discloseMe();
         bool hasTrustLevel = rpc.hasTrustLevel({});
@@ -323,7 +323,7 @@ public:
     }
 
 private:
-    DealerJob(RealmSession::Ptr caller, RealmSession::Ptr callee,
+    DealerJob(RouterSession::Ptr caller, RouterSession::Ptr callee,
               const Rpc& rpc, const DealerRegistration& reg, WampErrc& errc)
         : caller_(caller),
           callee_(callee),
@@ -367,8 +367,8 @@ private:
         }
     }
 
-    RealmSession::WeakPtr caller_;
-    RealmSession::WeakPtr callee_;
+    RouterSession::WeakPtr caller_;
+    RouterSession::WeakPtr callee_;
     DealerJobKey callerKey_;
     DealerJobKey calleeKey_;
     Timeout timeout_ = {};
@@ -510,7 +510,7 @@ public:
           uriValidator_(uriValidator)
     {}
 
-    ErrorOr<RegistrationId> enroll(RealmSession::Ptr callee, Procedure&& p)
+    ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p)
     {
         if (!uriValidator_(p.uri(), false))
             return makeUnexpectedError(WampErrc::invalidUri);
@@ -524,7 +524,7 @@ public:
         return key.second;
     }
 
-    ErrorOr<Uri> unregister(RealmSession::Ptr callee, RegistrationId rid)
+    ErrorOr<Uri> unregister(RouterSession::Ptr callee, RegistrationId rid)
     {
         // Consensus on what to do with pending invocations upon unregister
         // appears to be to allow them to continue.
@@ -532,7 +532,7 @@ public:
         return registry_.erase({callee->wampId(), rid});
     }
 
-    ErrorOrDone call(RealmSession::Ptr caller, Rpc&& rpc)
+    ErrorOrDone call(RouterSession::Ptr caller, Rpc&& rpc)
     {
         if (!uriValidator_(rpc.uri(), false))
             return makeUnexpectedError(WampErrc::invalidUri);
@@ -556,7 +556,7 @@ public:
                        std::move(rpc), *reg);
     }
 
-    ErrorOrDone newCall(RealmSession::Ptr caller, RealmSession::Ptr callee,
+    ErrorOrDone newCall(RouterSession::Ptr caller, RouterSession::Ptr callee,
                         Rpc&& rpc, const DealerRegistration& reg)
     {
         auto uri = rpc.uri();
@@ -569,8 +569,8 @@ public:
         return true;
     }
 
-    ErrorOrDone continueCall(RealmSession::Ptr caller,
-                             RealmSession::Ptr callee, Rpc&& rpc,
+    ErrorOrDone continueCall(RouterSession::Ptr caller,
+                             RouterSession::Ptr callee, Rpc&& rpc,
                              const DealerRegistration& reg)
     {
         auto uri = rpc.uri();
@@ -585,7 +585,7 @@ public:
         return true;
     }
 
-    ErrorOrDone cancelCall(RealmSession::Ptr caller, CallCancellation&& cncl)
+    ErrorOrDone cancelCall(RouterSession::Ptr caller, CallCancellation&& cncl)
     {
         DealerJobKey callerKey{caller->wampId(), cncl.requestId({})};
         auto iter = jobs_.byCallerFind(callerKey);
@@ -601,7 +601,7 @@ public:
         return done;
     }
 
-    void yieldResult(RealmSession::Ptr callee, Result&& result)
+    void yieldResult(RouterSession::Ptr callee, Result&& result)
     {
         DealerJobKey calleeKey{callee->wampId(), result.requestId({})};
         auto iter = jobs_.byCalleeFind(calleeKey);
@@ -614,7 +614,7 @@ public:
             jobs_.updateProgressiveResultDeadline(job);
     }
 
-    void yieldError(RealmSession::Ptr callee, Error&& error)
+    void yieldError(RouterSession::Ptr callee, Error&& error)
     {
         DealerJobKey calleeKey{callee->wampId(), error.requestId({})};
         auto iter = jobs_.byCalleeFind(calleeKey);

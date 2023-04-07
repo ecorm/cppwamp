@@ -16,11 +16,7 @@
 #include "../codec.hpp"
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
-#include "../errorinfo.hpp"
-#include "../sessioninfo.hpp"
 #include "../transport.hpp"
-#include "../variant.hpp"
-#include "../wampdefs.hpp"
 #include "message.hpp"
 #include "peerlistener.hpp"
 

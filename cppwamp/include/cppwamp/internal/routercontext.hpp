@@ -23,8 +23,8 @@ namespace internal
 {
 
 class ServerSession;
-class RealmSession;
 class RouterRealm;
+class RouterSession;
 class RouterImpl;
 
 //------------------------------------------------------------------------------
@@ -79,7 +79,7 @@ private:
 class RealmContext
 {
 public:
-    using RealmSessionPtr = std::shared_ptr<RealmSession>;
+    using RouterSessionPtr = std::shared_ptr<RouterSession>;
 
     RealmContext() = default;
 
@@ -91,12 +91,12 @@ public:
 
     void reset();
 
-    bool join(RealmSessionPtr s);
+    bool join(RouterSessionPtr s);
 
     bool leave(SessionId sid);
 
     template <typename C>
-    bool send(RealmSessionPtr s, C&& command);
+    bool send(RouterSessionPtr s, C&& command);
 
 private:
     std::weak_ptr<RouterRealm> realm_;

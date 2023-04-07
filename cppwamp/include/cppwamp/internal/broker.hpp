@@ -18,7 +18,7 @@
 #include "../utils/wildcarduri.hpp"
 #include "matchuri.hpp"
 #include "random.hpp"
-#include "realmsession.hpp"
+#include "routersession.hpp"
 
 namespace wamp
 {
@@ -30,7 +30,8 @@ namespace internal
 class BrokerPublication
 {
 public:
-    BrokerPublication(Pub&& pub, PublicationId pid, RealmSession::Ptr publisher)
+    BrokerPublication(Pub&& pub, PublicationId pid,
+                      RouterSession::Ptr publisher)
         : topicUri_(pub.uri()),
           eligibleSessions_(setOfSessionIds(pub, "eligible")),
           eligibleAuthIds_(setOfStrings(pub, "eligible_authid")),
@@ -73,7 +74,7 @@ public:
         event_.withOption("topic", topicUri_);
     }
 
-    void sendTo(RealmSession& subscriber) const
+    void sendTo(RouterSession& subscriber) const
     {
         if (isEligible(subscriber))
             subscriber.sendRouterCommand(Event{event_});
@@ -110,7 +111,7 @@ private:
         return set;
     }
 
-    bool isEligible(const RealmSession& subscriber) const
+    bool isEligible(const RouterSession& subscriber) const
     {
         auto id = subscriber.wampId();
         const auto& authId = subscriber.authInfo().id();
@@ -155,7 +156,7 @@ private:
 //------------------------------------------------------------------------------
 struct BrokerSubscriberInfo
 {
-    RealmSession::WeakPtr session;
+    RouterSession::WeakPtr session;
 };
 
 //------------------------------------------------------------------------------
@@ -223,7 +224,7 @@ private:
 class BrokerSubscribeRequest
 {
 public:
-    BrokerSubscribeRequest(Topic&& t, RealmSession::Ptr s,
+    BrokerSubscribeRequest(Topic&& t, RouterSession::Ptr s,
                            BrokerSubscriptionMap& subs,
                            BrokerSubscriptionIdGenerator& gen)
         : topic_(std::move(t)),
@@ -414,7 +415,7 @@ public:
           uriValidator_(uriValidator)
     {}
 
-    ErrorOr<SubscriptionId> subscribe(RealmSession::Ptr subscriber, Topic&& t)
+    ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t)
     {
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
                                    subIdGenerator_};
@@ -434,7 +435,7 @@ public:
         return 0;
     }
 
-    ErrorOr<Uri> unsubscribe(RealmSession::Ptr subscriber, SubscriptionId subId)
+    ErrorOr<Uri> unsubscribe(RouterSession::Ptr subscriber, SubscriptionId subId)
     {
         auto found = subscriptions_.find(subId);
         if (found == subscriptions_.end())
@@ -472,7 +473,7 @@ public:
     }
 
     ErrorOr<std::pair<PublicationId, std::size_t>>
-    publish(RealmSession::Ptr publisher, Pub&& pub)
+    publish(RouterSession::Ptr publisher, Pub&& pub)
     {
         if (!uriValidator_(pub.uri(), false))
             return makeUnexpectedError(WampErrc::invalidUri);

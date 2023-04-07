@@ -28,16 +28,16 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class RealmSession
+class RouterSession
 {
 public:
-    using Ptr = std::shared_ptr<RealmSession>;
-    using WeakPtr = std::weak_ptr<RealmSession>;
+    using Ptr = std::shared_ptr<RouterSession>;
+    using WeakPtr = std::weak_ptr<RouterSession>;
 
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    virtual ~RealmSession() {}
+    virtual ~RouterSession() {}
 
     SessionId wampId() const {return wampId_.get();}
 
@@ -87,7 +87,7 @@ public:
     }
 
 protected:
-    RealmSession(RouterLogger::Ptr logger = nullptr)
+    RouterSession(RouterLogger::Ptr logger = nullptr)
         : logger_(std::move(logger)),
           authInfo_(std::make_shared<AuthInfo>()),
           nextOutboundRequestId_(0)
@@ -150,7 +150,7 @@ protected:
     void setWelcomeInfo(AuthInfo&& info)
     {
         // sessionInfo_.wampSessionId was already set
-        // via RealmSession::setWampId
+        // via RouterSession::setWampId
         sessionInfo_.realmUri = info.realmUri();
         sessionInfo_.authId = info.id();
         *authInfo_ = std::move(info);

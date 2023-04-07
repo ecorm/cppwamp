@@ -16,8 +16,8 @@
 #include "broker.hpp"
 #include "dealer.hpp"
 #include "random.hpp"
-#include "realmsession.hpp"
 #include "routercontext.hpp"
+#include "routersession.hpp"
 
 namespace wamp
 {
@@ -45,12 +45,12 @@ public:
 
     const std::string& uri() const {return config_.uri();}
 
-    void join(RealmSession::Ptr session)
+    void join(RouterSession::Ptr session)
     {
         struct Dispatched
         {
             Ptr self;
-            RealmSession::Ptr session;
+            RouterSession::Ptr session;
 
             void operator()()
             {
@@ -94,7 +94,7 @@ private:
     struct AuthorizationHandler
     {
         WeakPtr self;
-        RealmSession::WeakPtr s;
+        RouterSession::WeakPtr s;
         TOperation op;
 
         void operator()(Authorization a, any anyCommand)
@@ -112,7 +112,7 @@ private:
     };
 
     template <typename TOperation, typename TCommand>
-    void onAuthorization(Authorization&& a, TCommand&& c, RealmSession::Ptr s,
+    void onAuthorization(Authorization&& a, TCommand&& c, RouterSession::Ptr s,
                          TOperation&& op)
     {
         struct Dispatched
@@ -120,7 +120,7 @@ private:
             Ptr self;
             Authorization authorization;
             TCommand cmd;
-            RealmSession::Ptr originator;
+            RouterSession::Ptr originator;
             TOperation op;
 
             void operator()()
@@ -139,7 +139,7 @@ private:
     }
 
     template <typename C>
-    bool checkAuthorization(const Authorization& auth, RealmSession& s,
+    bool checkAuthorization(const Authorization& auth, RouterSession& s,
                             const C& command)
     {
         if (auth)
@@ -174,7 +174,7 @@ private:
 
     template <typename TOperation, typename TCommand>
     void dispatchAuthorized(AuthorizationAction action,
-                            RealmSession::Ptr originator, TCommand&& command)
+                            RouterSession::Ptr originator, TCommand&& command)
     {
         // TODO: Route message via authorizer and treat as new inbound command
         if (config_.authorizer())
@@ -191,7 +191,7 @@ private:
 
     template <typename TOperation, typename TCommand>
     void dispatchDynamicallyAuthorized(AuthorizationAction action,
-                                       RealmSession::Ptr originator,
+                                       RouterSession::Ptr originator,
                                        TCommand&& command)
     {
         struct Dispatched
@@ -221,12 +221,12 @@ private:
     }
 
     template <typename TOperation, typename TCommand>
-    void dispatchDirectly(RealmSession::Ptr originator, TCommand&& command)
+    void dispatchDirectly(RouterSession::Ptr originator, TCommand&& command)
     {
         struct Dispatched
         {
             Ptr self;
-            RealmSession::Ptr originator;
+            RouterSession::Ptr originator;
             TCommand command;
             TOperation op;
 
@@ -242,7 +242,7 @@ private:
     }
 
     template <typename C>
-    bool setDisclosed(RealmSession& originator, C& command,
+    bool setDisclosed(RouterSession& originator, C& command,
                       DisclosureRule realmRule,
                       DisclosureRule authenticatorRule)
     {
@@ -314,11 +314,11 @@ private:
         safelyDispatch<Dispatched>(sid);
     }
 
-    void send(RealmSession::Ptr s, Topic&& topic)
+    void send(RouterSession::Ptr s, Topic&& topic)
     {
         struct Dispatched
         {
-            void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule,
+            void operator()(Ptr self, RouterSession::Ptr s, DisclosureRule,
                             Topic&& t)
             {
                 auto rid = t.requestId({});
@@ -337,12 +337,12 @@ private:
                                        std::move(s), std::move(topic));
     }
 
-    void send(RealmSession::Ptr s, Unsubscribe&& cmd)
+    void send(RouterSession::Ptr s, Unsubscribe&& cmd)
     {
         struct Dispatched
         {
             Ptr self;
-            RealmSession::Ptr s;
+            RouterSession::Ptr s;
             Unsubscribe u;
 
             void operator()()
@@ -360,11 +360,11 @@ private:
         safelyDispatch<Dispatched>(std::move(s), std::move(cmd));
     }
 
-    void send(RealmSession::Ptr s, Pub&& pub)
+    void send(RouterSession::Ptr s, Pub&& pub)
     {
         struct Dispatched
         {
-            void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule rule,
+            void operator()(Ptr self, RouterSession::Ptr s, DisclosureRule rule,
                             Pub&& p)
             {
                 auto uri = p.uri();
@@ -397,11 +397,11 @@ private:
             AuthorizationAction::publish, std::move(s), std::move(pub));
     }
 
-    void send(RealmSession::Ptr s, Procedure&& proc)
+    void send(RouterSession::Ptr s, Procedure&& proc)
     {
         struct Dispatched
         {
-            void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule,
+            void operator()(Ptr self, RouterSession::Ptr s, DisclosureRule,
                             Procedure&& p)
             {
                 auto rid = p.requestId({});
@@ -419,12 +419,12 @@ private:
             AuthorizationAction::enroll, std::move(s), std::move(proc));
     }
 
-    void send(RealmSession::Ptr s, Unregister&& cmd)
+    void send(RouterSession::Ptr s, Unregister&& cmd)
     {
         struct Dispatched
         {
             Ptr self;
-            RealmSession::Ptr s;
+            RouterSession::Ptr s;
             Unregister u;
 
             void operator()()
@@ -442,11 +442,11 @@ private:
         safelyDispatch<Dispatched>(std::move(s), cmd);
     }
 
-    void send(RealmSession::Ptr s, Rpc&& rpc)
+    void send(RouterSession::Ptr s, Rpc&& rpc)
     {
         struct Dispatched
         {
-            void operator()(Ptr self, RealmSession::Ptr s, DisclosureRule rule,
+            void operator()(Ptr self, RouterSession::Ptr s, DisclosureRule rule,
                             Rpc&& r)
             {
                 auto realmRule = self->config_.callerDisclosure();
@@ -463,12 +463,12 @@ private:
             AuthorizationAction::enroll, std::move(s), std::move(rpc));
     }
 
-    void send(RealmSession::Ptr s, CallCancellation&& c)
+    void send(RouterSession::Ptr s, CallCancellation&& c)
     {
         struct Dispatched
         {
             Ptr self;
-            RealmSession::Ptr s;
+            RouterSession::Ptr s;
             CallCancellation c;
 
             void operator()()
@@ -482,12 +482,12 @@ private:
         safelyDispatch<Dispatched>(std::move(s), std::move(c));
     }
 
-    void send(RealmSession::Ptr s, Result&& r)
+    void send(RouterSession::Ptr s, Result&& r)
     {
         struct Dispatched
         {
             Ptr self;
-            RealmSession::Ptr s;
+            RouterSession::Ptr s;
             Result r;
 
             void operator()()
@@ -500,12 +500,12 @@ private:
         safelyDispatch<Dispatched>(std::move(s), std::move(r));
     }
 
-    void send(RealmSession::Ptr s, Error&& e)
+    void send(RouterSession::Ptr s, Error&& e)
     {
         struct Dispatched
         {
             Ptr self;
-            RealmSession::Ptr s;
+            RouterSession::Ptr s;
             Error e;
 
             void operator()()
@@ -519,7 +519,7 @@ private:
     }
 
     template <typename T, typename C>
-    bool checkResult(const ErrorOr<T>& result, RealmSession& originator,
+    bool checkResult(const ErrorOr<T>& result, RouterSession& originator,
                      const C& command, bool logOnly = false)
     {
         if (result)
@@ -535,7 +535,7 @@ private:
     IoStrand strand_;
     RealmConfig config_;
     RouterContext router_;
-    std::map<SessionId, RealmSession::Ptr> sessions_;
+    std::map<SessionId, RouterSession::Ptr> sessions_;
     Broker broker_;
     Dealer dealer_;
     std::string logSuffix_;
@@ -566,7 +566,7 @@ inline RouterLogger::Ptr RealmContext::logger() const
 
 inline void RealmContext::reset() {realm_.reset();}
 
-inline bool RealmContext::join(RealmSessionPtr s)
+inline bool RealmContext::join(RouterSessionPtr s)
 {
     auto r = realm_.lock();
     if (!r)
@@ -585,7 +585,7 @@ inline bool RealmContext::leave(SessionId sid)
 }
 
 template <typename C>
-bool RealmContext::send(RealmSessionPtr s, C&& command)
+bool RealmContext::send(RouterSessionPtr s, C&& command)
 {
     auto r = realm_.lock();
     if (!r)
