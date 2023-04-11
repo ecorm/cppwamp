@@ -6,9 +6,15 @@
 
 #include "../authorizer.hpp"
 #include "../api.hpp"
+#include "routercontext.hpp"
+#include "routersession.hpp"
 
 namespace wamp
 {
+
+//******************************************************************************
+// Authorization
+//******************************************************************************
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE Authorization::Authorization(bool allowed) : allowed_(allowed) {}
@@ -22,103 +28,152 @@ CPPWAMP_INLINE Authorization::Authorization(bool allowed) : allowed_(allowed) {}
     - A string containing `ec.message()` */
 CPPWAMP_INLINE Authorization::Authorization(std::error_code ec) : error_(ec) {}
 
-CPPWAMP_INLINE Authorization& Authorization::withTrustLevel(TrustLevel tl)
-{
-    trustLevel_ = tl;
-    hasTrustLevel_ = true;
-    return *this;
-}
-
-CPPWAMP_INLINE Authorization&
-Authorization::withDisclosure(DisclosureRule d)
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Authorization& Authorization::withDisclosure(DisclosureRule d)
 {
     disclosure_ = d;
     return *this;
 }
 
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Authorization::operator bool() const
 {
     return !error_ && allowed_;
 }
 
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE std::error_code Authorization::error() const {return error_;}
 
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE bool Authorization::allowed() const {return allowed_;}
 
-CPPWAMP_INLINE bool Authorization::hasTrustLevel() const
-{
-    return hasTrustLevel_;
-}
-
-CPPWAMP_INLINE TrustLevel Authorization::trustLevel() const
-{
-    return trustLevel_;
-}
-
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE DisclosureRule Authorization::disclosure() const
 {
     return disclosure_;
 }
 
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE AuthorizationAction AuthorizationRequest::action() const
-{
-    return action_;
-}
 
+//******************************************************************************
+// AuthorizationRequest
+//******************************************************************************
+
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE const AuthInfo& AuthorizationRequest::authInfo() const
 {
     return *authInfo_;
 }
 
-/** @pre this->action == AuthorizationAction::publish.
-    @throws bad_any_cast if the precondition is not met. */
-CPPWAMP_INLINE const Pub& AuthorizationRequest::pub() const
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void AuthorizationRequest::authorize(Topic t, Authorization a)
 {
-    return commandAs<Pub>();
+    send(std::move(t), a);
 }
 
-/** @pre this->action == AuthorizationAction::subscribe.
-    @throws bad_any_cast if the precondition is not met. */
-CPPWAMP_INLINE const Topic& AuthorizationRequest::topic() const
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void AuthorizationRequest::authorize(ThreadSafe, Topic t,
+                                                    Authorization a)
 {
-    return commandAs<Topic>();
+    send(threadSafe, std::move(t), a);
 }
 
-/** @pre this->action == AuthorizationAction::enroll.
-    @throws bad_any_cast if the precondition is not met. */
-CPPWAMP_INLINE const Procedure& AuthorizationRequest::procedure() const
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void AuthorizationRequest::authorize(Pub p, Authorization a)
 {
-    return commandAs<Procedure>();
+    send(std::move(p), a);
 }
 
-/** @pre this->action == AuthorizationAction::call.
-    @throws bad_any_cast if the precondition is not met. */
-CPPWAMP_INLINE const Rpc& AuthorizationRequest::rpc() const
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void AuthorizationRequest::authorize(ThreadSafe, Pub p,
+                                                    Authorization a)
 {
-    return commandAs<Rpc>();
+    send(threadSafe, std::move(p), a);
 }
 
-/** @tparam T Either Pub, Topic, Procedure, or Rpc
-    @throws bad_any_cast if T does not correspond to the operation data type. */
-CPPWAMP_INLINE void AuthorizationRequest::authorize(Authorization a)
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void AuthorizationRequest::authorize(Procedure p,
+                                                    Authorization a)
 {
-    CPPWAMP_LOGIC_CHECK(!completed_,
-                        "wamp::AuthorizationRequest already completed");
-    handler_(std::move(a), std::move(command_));
-    completed_ = true;
+    send(std::move(p), a);
 }
 
-CPPWAMP_INLINE void AuthorizationRequest::allow() {authorize(true);}
-
-CPPWAMP_INLINE void AuthorizationRequest::deny() {authorize(false);}
-
-CPPWAMP_INLINE void AuthorizationRequest::fail(std::error_code ec)
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void AuthorizationRequest::authorize(ThreadSafe, Procedure p,
+                                                    Authorization a)
 {
-    CPPWAMP_LOGIC_CHECK(!completed_,
-                        "wamp::AuthorizationRequest already completed");
-    authorize(Authorization{ec});
-    completed_ = true;
+    send(threadSafe, std::move(p), a);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void AuthorizationRequest::authorize(Rpc r, Authorization a)
+{
+    send(std::move(r), a);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void AuthorizationRequest::authorize(ThreadSafe, Rpc r,
+                                                    Authorization a)
+{
+    send(threadSafe, std::move(r), a);
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+void AuthorizationRequest::send(C&& command, Authorization a)
+{
+    auto originator = originator_.lock();
+    if (!originator)
+        return;
+    realm_.onAuthorized(std::move(originator), std::forward<C>(command), a);
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+void AuthorizationRequest::send(ThreadSafe, C&& command, Authorization a)
+{
+    auto originator = originator_.lock();
+    if (!originator)
+        return;
+    realm_.onAuthorized(threadSafe, std::move(originator),
+                          std::forward<C>(command), a);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE AuthorizationRequest::AuthorizationRequest(
+    internal::PassKey, internal::RealmContext r,
+    std::shared_ptr<internal::RouterSession> s)
+    : realm_(std::move(r)),
+      originator_(s),
+      authInfo_(s->sharedAuthInfo())
+{}
+
+
+//******************************************************************************
+// Authorizer
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::authorize(Topic t, AuthorizationRequest a)
+{
+    a.authorize(std::move(t), true);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::authorize(Pub p, AuthorizationRequest a)
+{
+    a.authorize(std::move(p), true);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::authorize(Procedure p, AuthorizationRequest a)
+{
+    a.authorize(std::move(p), true);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Authorizer::authorize(Rpc r, AuthorizationRequest a)
+{
+    a.authorize(std::move(r), true);
 }
 
 } // namespace wamp

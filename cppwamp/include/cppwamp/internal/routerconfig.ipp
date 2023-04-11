@@ -19,9 +19,9 @@ CPPWAMP_INLINE RealmConfig::RealmConfig(Uri uri)
 {}
 
 CPPWAMP_INLINE RealmConfig&
-RealmConfig::withAuthorizer(Authorizer f)
+RealmConfig::withAuthorizer(Authorizer::Ptr a)
 {
-    authorizer_ = std::move(f);
+    authorizer_ = std::move(a);
     return *this;
 }
 
@@ -66,7 +66,7 @@ RealmConfig::withProcedureUriValidator(UriValidator v)
 
 CPPWAMP_INLINE const Uri& RealmConfig::uri() const {return uri_;}
 
-CPPWAMP_INLINE const Authorizer& RealmConfig::authorizer() const
+CPPWAMP_INLINE Authorizer::Ptr RealmConfig::authorizer() const
 {
     return authorizer_;
 }

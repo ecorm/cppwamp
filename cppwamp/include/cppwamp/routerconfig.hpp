@@ -26,6 +26,9 @@
 #include "uri.hpp"
 #include "internal/passkey.hpp"
 
+// TODO: Take handlers via std::function and make users responsible
+// for dispatching/posting via an executor if necessary.
+
 namespace wamp
 {
 
@@ -37,7 +40,7 @@ class CPPWAMP_API RealmConfig
 public:
     RealmConfig(Uri uri);
 
-    RealmConfig& withAuthorizer(Authorizer f);
+    RealmConfig& withAuthorizer(Authorizer::Ptr a);
 
     template <typename F, typename E>
     RealmConfig& withAuthorizer(F&& authorizer, E&& executor)
@@ -63,7 +66,7 @@ public:
 
     const Uri& uri() const;
 
-    const Authorizer& authorizer() const;
+    Authorizer::Ptr authorizer() const;
 
     // bool authorizationCacheEnabled() const;
 
@@ -77,8 +80,8 @@ public:
 
 private:
     Uri uri_;
-    Authorizer authorizer_;
-    UriValidator topicUriValidator_;
+    Authorizer::Ptr authorizer_;
+    UriValidator topicUriValidator_; // TODO: polymorphic base class
     UriValidator procedureUriValidator_;
     DisclosureRule publisherDisclosure_;
     DisclosureRule callerDisclosure_;

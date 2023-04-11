@@ -16,18 +16,23 @@
 
 #include <cassert>
 #include <functional>
+#include <memory>
 #include <utility>
-#include "any.hpp"
-#include "anyhandler.hpp"
 #include "api.hpp"
 #include "authinfo.hpp"
-#include "exceptions.hpp"
 #include "pubsubinfo.hpp"
 #include "rpcinfo.hpp"
+#include "tagtypes.hpp"
 #include "internal/passkey.hpp"
+#include "internal/routercontext.hpp"
 
 namespace wamp
 {
+
+namespace internal
+{
+class RouterSession;
+}
 
 //------------------------------------------------------------------------------
 /** Determines how callers and publishers are disclosed. */
@@ -45,18 +50,15 @@ enum class DisclosureRule
 //------------------------------------------------------------------------------
 /** Contains authorization information on a operation. */
 //------------------------------------------------------------------------------
-struct CPPWAMP_API Authorization
+class CPPWAMP_API Authorization
 {
+public:
     /** Constructor taking a boolean indicating if the operation is allowed. */
     Authorization(bool allowed = true);
 
     /** Constructor taking an error code indicating that the authorization
         operation itself has failed. */
     Authorization(std::error_code ec);
-
-    /** Sets the trust level for a publish or call operation, to be propagated
-        to the corresponding events or invocation. */
-    Authorization& withTrustLevel(TrustLevel tl);
 
     /** Sets the rule that governs how the caller/publisher is disclosed. */
     Authorization& withDisclosure(DisclosureRule d);
@@ -72,32 +74,13 @@ struct CPPWAMP_API Authorization
     /** Determines if the operation is allowed. */
     bool allowed() const;
 
-    /** Determines if the operation has a trust level. */
-    bool hasTrustLevel() const;
-
-    /** Obtains the operation's trust level. */
-    TrustLevel trustLevel() const;
-
     /** Obtains the caller/publisher disclosure rule. */
     DisclosureRule disclosure() const;
 
 private:
     std::error_code error_;
-    TrustLevel trustLevel_ = 0;
     DisclosureRule disclosure_ = DisclosureRule::preset;
     bool allowed_ = false;
-    bool hasTrustLevel_ = false;
-};
-
-//------------------------------------------------------------------------------
-/** Indicates which operation is being authorized. */
-//------------------------------------------------------------------------------
-enum class AuthorizationAction
-{
-    publish,
-    subscribe,
-    enroll,
-    call
 };
 
 //------------------------------------------------------------------------------
@@ -106,106 +89,65 @@ enum class AuthorizationAction
 class CPPWAMP_API AuthorizationRequest
 {
 public:
-    /** Determines which opereration needs authorizing. */
-    AuthorizationAction action() const;
-
     /** Accesses the authentication information of the originator. */
     const AuthInfo& authInfo() const;
 
-    /** Accesses the publish command object. */
-    const Pub& pub() const;
+    /** Authorizes a subscribe operation. */
+    void authorize(Topic t, Authorization a);
 
-    /** Accesses the subscribe command object. */
-    const Topic& topic() const;
+    /** Thread-safe authorized subscribe. */
+    void authorize(ThreadSafe, Topic t, Authorization a);
 
-    /** Accesses the enroll (register) command object. */
-    const Procedure& procedure() const;
+    /** Authorizes a publish operation. */
+    void authorize(Pub p, Authorization a);
 
-    /** Accesses the call command object. */
-    const Rpc& rpc() const;
+    /** Thread-safe authorized publish. */
+    void authorize(ThreadSafe, Pub p, Authorization a);
 
-    /** Accesses the command associated with the operation. */
-    template <typename T>
-    const T& commandAs() const;
+    /** Authorizes a register operation. */
+    void authorize(Procedure p, Authorization a);
 
-    /** Applies the given visitor according to the authorization action. */
-    template <typename TVisitor>
-    void apply(TVisitor&& v) const;
+    /** Thread-safe authorized register. */
+    void authorize(ThreadSafe, Procedure p, Authorization a);
 
-    /** Authorizes the operation with the given authorization information. */
-    void authorize(Authorization a);
+    /** Authorizes a call operation. */
+    void authorize(Rpc r, Authorization a);
 
-    /** Allows the operation without proving any authorization information. */
-    void allow();
-
-    /** Denies the operation without proving any authorization information. */
-    void deny();
-
-    /** Marks the authorization operation itself as having failed. */
-    void fail(std::error_code ec);
+    /** Thread-safe authorized call operation. */
+    void authorize(ThreadSafe, Rpc r, Authorization a);
 
 private:
-    using Handler = std::function<void (Authorization, any)>;
+    template <typename C>
+    void send(C&& command, Authorization a);
 
-    any command_; // TODO: Use Message for type-erasure
-    Handler handler_;
+    template <typename C>
+    void send(ThreadSafe, C&& command, Authorization a);
+
+    internal::RealmContext realm_;
+    std::weak_ptr<internal::RouterSession> originator_;
     AuthInfo::Ptr authInfo_;
-    AuthorizationAction action_;
+    DisclosureRule presetDisclosure_;
     bool completed_ = false;
 
 public:
     // Internal use only
-    template <typename TCommand>
-    AuthorizationRequest(internal::PassKey, AuthorizationAction a,
-                         TCommand&& c, AuthInfo::Ptr i, Handler h);
+    AuthorizationRequest(internal::PassKey, internal::RealmContext r,
+                         std::shared_ptr<internal::RouterSession> s);
 };
 
 //------------------------------------------------------------------------------
-using Authorizer = AnyReusableHandler<void (AuthorizationRequest)>;
-
-
-//******************************************************************************
-// AuthorizationRequest template member definitions
-//******************************************************************************
-
-/** @tparam T Either Pub, Topic, Procedure, or Rpc. */
-template <typename T>
-const T& AuthorizationRequest::commandAs() const
+/** Base class for user-defined authorizers. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API Authorizer
 {
-    auto cmd = any_cast<T>(&command_);
-    CPPWAMP_LOGIC_CHECK(
-        cmd != nullptr,
-        "wamp::AuthorizationRequest does not hold a command of type T");
-    return *cmd;
-}
+public:
+    using Ptr = std::shared_ptr<Authorizer>;
 
-/** @tparam TVisitor A callable entity taking an AuthorizationRequest as its
-                     first parameter, and either Pub, Topic, Procedure, or Rpc
-                     its second parameter. */
-template <typename TVisitor>
-void AuthorizationRequest::apply(TVisitor&& v) const
-{
-    using V = TVisitor;
-    using AA = AuthorizationAction;
-    switch (action_)
-    {
-    case AA::publish:   std::forward<V>(v)(*this, pub());       break;
-    case AA::subscribe: std::forward<V>(v)(*this, topic());     break;
-    case AA::enroll:    std::forward<V>(v)(*this, procedure()); break;
-    case AA::call:      std::forward<V>(v)(*this, rpc());       break;
-    default: assert(false && "Unexpected AuthorizationAction enumerator");
-    }
-}
-
-template <typename TCommand>
-AuthorizationRequest::AuthorizationRequest(
-    internal::PassKey, AuthorizationAction a, TCommand&& c, AuthInfo::Ptr i,
-    Handler h)
-    : command_(std::forward<TCommand>(c)),
-      handler_(std::move(h)),
-      authInfo_(std::move(i)),
-      action_(a)
-{}
+    virtual void authorize(Topic t, AuthorizationRequest a);
+    virtual void authorize(Pub p, AuthorizationRequest a);
+    virtual void authorize(Procedure p, AuthorizationRequest a);
+    virtual void authorize(Rpc r, AuthorizationRequest a);
+};
 
 } // namespace wamp
 
