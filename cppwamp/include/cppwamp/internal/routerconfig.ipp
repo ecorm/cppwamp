@@ -50,19 +50,11 @@ RealmConfig::withCallerDisclosure(DisclosureRule d)
     return *this;
 }
 
-CPPWAMP_INLINE RealmConfig& RealmConfig::withTopicUriValidator(UriValidator v)
+CPPWAMP_INLINE RealmConfig& RealmConfig::withUriValidator(UriValidator::Ptr v)
 {
-    topicUriValidator_ = std::move(v);
+    uriValidator_ = std::move(v);
     return *this;
 }
-
-CPPWAMP_INLINE RealmConfig&
-RealmConfig::withProcedureUriValidator(UriValidator v)
-{
-    procedureUriValidator_ = std::move(v);
-    return *this;
-}
-
 
 CPPWAMP_INLINE const Uri& RealmConfig::uri() const {return uri_;}
 
@@ -86,22 +78,12 @@ CPPWAMP_INLINE DisclosureRule RealmConfig::callerDisclosure() const
     return publisherDisclosure_;
 }
 
-const UriValidator& RealmConfig::topicUriValidator() const
-{
-    return topicUriValidator_;
-}
-
-const UriValidator& RealmConfig::procedureUriValidator() const
-{
-    return procedureUriValidator_;
-}
+UriValidator::Ptr RealmConfig::uriValidator() const {return uriValidator_;}
 
 void RealmConfig::initialize(internal::PassKey)
 {
-    if (!topicUriValidator_)
-        topicUriValidator_ = RelaxedUriValidator{};
-    if (!procedureUriValidator_)
-        procedureUriValidator_ = RelaxedUriValidator{};
+    if (!uriValidator_)
+        uriValidator_ = RelaxedUriValidator::create();
 }
 
 

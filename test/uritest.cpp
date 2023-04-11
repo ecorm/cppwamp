@@ -370,7 +370,7 @@ TEST_CASE( "Relaxed URI Validation", "[Uri]" )
         bool expectedPatternValidity;
     };
 
-    RelaxedUriValidator validator;
+    auto validator = RelaxedUriValidator::create();
 
     std::vector<Record> inputs =
     {
@@ -411,8 +411,14 @@ TEST_CASE( "Relaxed URI Validation", "[Uri]" )
     for (const auto& rec: inputs)
     {
         INFO("For URI '" + rec.uri + "'");
-        CHECK(validator(rec.uri, false) == rec.expectedNonPatternValidity);
-        CHECK(validator(rec.uri, true) == rec.expectedPatternValidity);
+        CHECK(validator->checkTopic(rec.uri, false) ==
+              rec.expectedNonPatternValidity);
+        CHECK(validator->checkProcedure(rec.uri, false) ==
+              rec.expectedNonPatternValidity);
+        CHECK(validator->checkTopic(rec.uri, true) ==
+              rec.expectedPatternValidity);
+        CHECK(validator->checkProcedure(rec.uri, true) ==
+              rec.expectedPatternValidity);
     }
 }
 
@@ -426,7 +432,7 @@ TEST_CASE( "Strict URI Validation", "[Uri]" )
         bool expectedPatternValidity;
     };
 
-    StrictUriValidator validator;
+    auto validator = StrictUriValidator::create();
 
     std::vector<Record> inputs =
     {
@@ -466,8 +472,14 @@ TEST_CASE( "Strict URI Validation", "[Uri]" )
     for (const auto& rec: inputs)
     {
         INFO("For URI '" + rec.uri + "'");
-        CHECK(validator(rec.uri, false) == rec.expectedNonPatternValidity);
-        CHECK(validator(rec.uri, true) == rec.expectedPatternValidity);
+        CHECK(validator->checkTopic(rec.uri, false) ==
+              rec.expectedNonPatternValidity);
+        CHECK(validator->checkProcedure(rec.uri, false) ==
+              rec.expectedNonPatternValidity);
+        CHECK(validator->checkTopic(rec.uri, true) ==
+              rec.expectedPatternValidity);
+        CHECK(validator->checkProcedure(rec.uri, true) ==
+              rec.expectedPatternValidity);
     }
 }
 

@@ -242,7 +242,8 @@ public:
     {
         if (topic_.policy() == MatchPolicy::unknown)
             return make_error_code(WampErrc::optionNotAllowed);
-        if (!uriValidator(topic_.uri(), topic_.policy() != MatchPolicy::exact))
+        bool isPattern = topic_.policy() != MatchPolicy::exact;
+        if (!uriValidator.checkTopic(topic_.uri(), isPattern))
             return make_error_code(WampErrc::invalidUri);
         return {};
     }
@@ -410,16 +411,16 @@ public:
 class Broker
 {
 public:
-    explicit Broker(RandomNumberGenerator64 prng, UriValidator uriValidator)
+    Broker(RandomNumberGenerator64 prng, UriValidator::Ptr uriValidator)
         : pubIdGenerator_(prng),
-          uriValidator_(uriValidator)
+          uriValidator_(std::move(uriValidator))
     {}
 
     ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t)
     {
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
                                    subIdGenerator_};
-        auto ec = req.check(uriValidator_);
+        auto ec = req.check(*uriValidator_);
         if (ec)
             return makeUnexpected(ec);
 
@@ -475,7 +476,7 @@ public:
     ErrorOr<std::pair<PublicationId, std::size_t>>
     publish(RouterSession::Ptr publisher, Pub&& pub)
     {
-        if (!uriValidator_(pub.uri(), false))
+        if (!uriValidator_->checkTopic(pub.uri(), false))
             return makeUnexpectedError(WampErrc::invalidUri);
         BrokerPublication info(std::move(pub), pubIdGenerator_(),
                                std::move(publisher));
@@ -513,7 +514,7 @@ private:
     BrokerWildcardTopicMap byWildcard_;
     BrokerSubscriptionIdGenerator subIdGenerator_;
     RandomEphemeralIdGenerator pubIdGenerator_;
-    UriValidator uriValidator_;
+    UriValidator::Ptr uriValidator_;
 };
 
 } // namespace internal

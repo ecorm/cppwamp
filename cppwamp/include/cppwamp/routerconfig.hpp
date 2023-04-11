@@ -60,9 +60,7 @@ public:
 
     RealmConfig& withCallerDisclosure(DisclosureRule d);
 
-    RealmConfig& withTopicUriValidator(UriValidator v);
-
-    RealmConfig& withProcedureUriValidator(UriValidator v);
+    RealmConfig& withUriValidator(UriValidator::Ptr v);
 
     const Uri& uri() const;
 
@@ -74,15 +72,12 @@ public:
 
     DisclosureRule callerDisclosure() const;
 
-    const UriValidator& topicUriValidator() const;
-
-    const UriValidator& procedureUriValidator() const;
+    UriValidator::Ptr uriValidator() const;
 
 private:
     Uri uri_;
     Authorizer::Ptr authorizer_;
-    UriValidator topicUriValidator_; // TODO: polymorphic base class
-    UriValidator procedureUriValidator_;
+    UriValidator::Ptr uriValidator_;
     DisclosureRule publisherDisclosure_;
     DisclosureRule callerDisclosure_;
     // bool authorizationCacheEnabled_ = false;

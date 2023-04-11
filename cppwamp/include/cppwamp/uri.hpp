@@ -12,12 +12,44 @@
     @brief Contains facilities for validing URIs. */
 //------------------------------------------------------------------------------
 
-#include <functional>
 #include <locale>
+#include <memory>
 #include "wampdefs.hpp"
 
 namespace wamp
 {
+
+//------------------------------------------------------------------------------
+/** Abstract base class for user-defined URI validators. */
+//------------------------------------------------------------------------------
+class UriValidator
+{
+public:
+    using Ptr = std::shared_ptr<UriValidator>;
+
+    /** Destructor. */
+    virtual ~UriValidator();
+
+    /** Validates the given topic URI. */
+    bool checkTopic(const Uri& uri, bool isPattern) const;
+
+    /** Validates the given procedure URI. */
+    bool checkProcedure(const Uri& uri, bool isPattern) const;
+
+protected:
+    /** Must be overriden to check the given topic URI. */
+    virtual bool validateTopic(const Uri&) const = 0;
+
+    /** Must be overriden to check  the given topic pattern URI. */
+    virtual bool validateTopicPattern(const Uri&) const = 0;
+
+    /** Must be overriden to check the given procedure URI. */
+    virtual bool validateProcedure(const Uri&) const = 0;
+
+    /** Must be overriden to check the given procedure pattern URI. */
+    virtual bool validateProcedurePattern(const Uri&) const = 0;
+};
+
 
 //------------------------------------------------------------------------------
 /** URI validator that follows the rules in the [protocol specification][1].
@@ -26,26 +58,30 @@ namespace wamp
                            URI components are valid. */
 //------------------------------------------------------------------------------
 template <typename TCharValidator>
-class BasicUriValidator
+class BasicUriValidator : public UriValidator
 {
 public:
     /// Validator type for characters within URI components.
     using CharValidator = TCharValidator;
 
-    /** Default constructor. */
-    BasicUriValidator();
+    /** Creates an instance of the validator. */
+    static Ptr create();
 
-    /** Determines if the given URI is valid. */
-    bool operator()(
-        const Uri& uri, /**< The URI to validate */
-        bool isPattern  /**< True if the URI to validate is used for
-                             pattern-based subscriptions/registrations. */
-        ) const;
+protected:
+    bool validateTopic(const Uri& uri) const override;
+
+    bool validateTopicPattern(const Uri& uri) const override;
+
+    bool validateProcedure(const Uri& uri) const override;
+
+    bool validateProcedurePattern(const Uri& uri) const override;
 
 private:
+    BasicUriValidator();
+
     using Char = Uri::value_type;
-    bool checkAsPattern(const Char* ptr, const Char* end) const;
     bool checkAsRessource(const Char* ptr, const Char* end) const;
+    bool checkAsPattern(const Char* ptr, const Char* end) const;
     bool tokenIsValid(const Char* first, const Char* last) const;
     std::locale locale_;
 };
@@ -89,48 +125,79 @@ using RelaxedUriValidator = BasicUriValidator<RelaxedUriCharValidator>;
 //------------------------------------------------------------------------------
 using StrictUriValidator = BasicUriValidator<StrictUriCharValidator>;
 
-//------------------------------------------------------------------------------
-/** Handler type for URI validation. */
-//------------------------------------------------------------------------------
-using UriValidator = std::function<bool (const Uri&, bool isPattern)>;
+
+//******************************************************************************
+// UriValidator member function definitions
+//******************************************************************************
+
+inline UriValidator::~UriValidator() {}
+
+inline bool UriValidator::checkTopic(
+    const Uri& uri, /**< The URI to validate */
+    bool isPattern  /**< True if the URI to validate is used for
+                             pattern-based subscriptions/registrations. */
+    ) const
+{
+    return isPattern ? validateTopicPattern(uri)
+                     : validateTopic(uri);
+}
+
+inline bool UriValidator::checkProcedure(
+    const Uri& uri, /**< The URI to validate */
+    bool isPattern  /**< True if the URI to validate is used for
+                             pattern-based subscriptions/registrations. */
+    ) const
+{
+    return isPattern ? validateProcedurePattern(uri)
+                     : validateProcedure(uri);
+}
 
 
 //******************************************************************************
 // BasicUriValidator member function definitions
 //******************************************************************************
 
+template<typename TCharValidator>
+UriValidator::Ptr BasicUriValidator<TCharValidator>::create()
+{
+    return Ptr(new BasicUriValidator);
+}
+
+template <typename V>
+bool BasicUriValidator<V>::validateTopic(const Uri& uri) const
+{
+    return checkAsRessource(uri.data(), uri.data() + uri.size());
+}
+
+template <typename V>
+bool BasicUriValidator<V>::validateTopicPattern(const Uri& uri) const
+{
+    return checkAsPattern(uri.data(), uri.data() + uri.size());
+}
+
+template <typename V>
+bool BasicUriValidator<V>::validateProcedure(const Uri& uri) const
+{
+    return checkAsRessource(uri.data(), uri.data() + uri.size());
+}
+
+template <typename V>
+bool BasicUriValidator<V>::validateProcedurePattern(const Uri& uri) const
+{
+    return checkAsPattern(uri.data(), uri.data() + uri.size());
+}
+
 template <typename V>
 BasicUriValidator<V>::BasicUriValidator() : locale_("C") {}
 
 template <typename V>
-bool BasicUriValidator<V>::operator()(const Uri& uri, bool isPattern) const
-{
-    const Char* c = uri.data();
-    const Char* end = c + uri.size();
-
-    if (isPattern)
-        return checkAsPattern(c, end);
-    return checkAsRessource(c, end);
-}
-
-template <typename V>
-bool BasicUriValidator<V>::checkAsPattern(const Char* ptr,
-                                          const Char* end) const
-{
-    for (; ptr != end; ++ptr)
-        if (*ptr != '.' && !CharValidator::isValid(*ptr, locale_))
-            return false;
-    return true;
-}
-
-template <typename V>
-bool BasicUriValidator<V>::checkAsRessource(const Char* begin,
+bool BasicUriValidator<V>::checkAsRessource(const Char* ptr,
                                             const Char* end) const
 {
-    if (begin == end)
+    if (ptr == end)
         return false;
-    const Char* ptr = begin;
-    const Char* tokenStart = begin;
+
+    const Char* tokenStart = ptr;
     while (ptr != end)
     {
         if (*ptr == '.')
@@ -145,6 +212,16 @@ bool BasicUriValidator<V>::checkAsRessource(const Char* begin,
         }
     }
     return tokenIsValid(tokenStart, end);
+}
+
+template <typename V>
+bool BasicUriValidator<V>::checkAsPattern(const Char* ptr,
+                                          const Char* end) const
+{
+    for (; ptr != end; ++ptr)
+        if (*ptr != '.' && !CharValidator::isValid(*ptr, locale_))
+            return false;
+    return true;
 }
 
 template <typename V>

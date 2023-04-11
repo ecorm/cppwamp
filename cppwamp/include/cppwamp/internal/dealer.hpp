@@ -505,14 +505,14 @@ private:
 class Dealer
 {
 public:
-    Dealer(IoStrand strand, UriValidator uriValidator)
+    Dealer(IoStrand strand, UriValidator::Ptr uriValidator)
         : jobs_(std::move(strand)),
-          uriValidator_(uriValidator)
+          uriValidator_(std::move(uriValidator))
     {}
 
     ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p)
     {
-        if (!uriValidator_(p.uri(), false))
+        if (!uriValidator_->checkProcedure(p.uri(), false))
             return makeUnexpectedError(WampErrc::invalidUri);
         if (registry_.contains(p.uri()))
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
@@ -534,7 +534,7 @@ public:
 
     ErrorOrDone call(RouterSession::Ptr caller, Rpc&& rpc)
     {
-        if (!uriValidator_(rpc.uri(), false))
+        if (!uriValidator_->checkProcedure(rpc.uri(), false))
             return makeUnexpectedError(WampErrc::invalidUri);
 
         auto reg = registry_.find(rpc.uri());
@@ -636,7 +636,7 @@ private:
 
     DealerRegistry registry_;
     DealerJobMap jobs_;
-    UriValidator uriValidator_;
+    UriValidator::Ptr uriValidator_;
     RegistrationId nextRegistrationId_ = nullId();
 };
 

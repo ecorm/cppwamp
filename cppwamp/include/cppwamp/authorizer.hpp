@@ -136,16 +136,26 @@ public:
 };
 
 //------------------------------------------------------------------------------
-/** Base class for user-defined authorizers. */
+/** Interface for user-defined authorizers. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API Authorizer
 {
 public:
     using Ptr = std::shared_ptr<Authorizer>;
 
+    /** Destructor. */
+    virtual ~Authorizer();
+
+    /** Authorizes a subscribe request. */
     virtual void authorize(Topic t, AuthorizationRequest a);
+
+    /** Authorizes a publish request. */
     virtual void authorize(Pub p, AuthorizationRequest a);
+
+    /** Authorizes a registration request. */
     virtual void authorize(Procedure p, AuthorizationRequest a);
+
+    /** Authorizes a call request. */
     virtual void authorize(Rpc r, AuthorizationRequest a);
 };
 

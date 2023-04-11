@@ -96,8 +96,8 @@ private:
         : strand_(boost::asio::make_strand(e)),
           config_(std::move(c)),
           router_(std::move(rctx)),
-          broker_(rcfg.publicationRNG(), config_.topicUriValidator()),
-          dealer_(strand_, config_.procedureUriValidator()),
+          broker_(rcfg.publicationRNG(), config_.uriValidator()),
+          dealer_(strand_, config_.uriValidator()),
           logSuffix_(" (Realm " + config_.uri() + ")"),
           logger_(router_.logger())
     {}
