@@ -215,11 +215,9 @@ private:
             return;
         }
 
-        const auto& authenticator = serverConfig_->authenticator();
-        assert(authenticator != nullptr);
         authExchange_ = AuthExchange::create({}, std::move(realm),
                                              shared_from_this());
-        completeNow(authenticator, authExchange_);
+        serverConfig_->authenticator()->authenticate(authExchange_);
     }
 
     void onPeerAbort(Reason&& r, bool wasJoining) override
@@ -232,9 +230,6 @@ private:
     {
         Base::report(authentication.info());
 
-        const auto& authenticator = serverConfig_->authenticator();
-        assert(authenticator != nullptr);
-
         bool isExpected = authExchange_ != nullptr &&
                           state() == State::authenticating;
         if (!isExpected)
@@ -245,7 +240,7 @@ private:
         }
 
         authExchange_->setAuthentication({}, std::move(authentication));
-        completeNow(authenticator, authExchange_);
+        serverConfig_->authenticator()->authenticate(authExchange_);
     }
 
     void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
@@ -361,17 +356,6 @@ private:
 
     void challenge() override
     {
-        struct Dispatched
-        {
-            Ptr self;
-            void operator()() {self->onChallenge();}
-        };
-
-        safelyDispatch<Dispatched>();
-    }
-
-    void onChallenge()
-    {
         // TODO: Challenge timeout
         if (state() == State::authenticating &&
             authExchange_ != nullptr)
@@ -382,19 +366,18 @@ private:
         }
     }
 
-    void welcome(AuthInfo&& info) override
+    void safeChallenge() override
     {
         struct Dispatched
         {
             Ptr self;
-            AuthInfo info;
-            void operator()() {self->onWelcome(std::move(info));}
+            void operator()() {self->challenge();}
         };
 
-        safelyDispatch<Dispatched>(std::move(info));
+        safelyDispatch<Dispatched>();
     }
 
-    void onWelcome(AuthInfo&& info)
+    void welcome(AuthInfo&& info) override
     {
         auto s = state();
         bool readyToWelcome = authExchange_ != nullptr &&
@@ -418,19 +401,19 @@ private:
         peer_.welcome(wampId(), std::move(details));
     }
 
-    void reject(Reason&& r) override
+    void safeWelcome(AuthInfo&& info) override
     {
         struct Dispatched
         {
             Ptr self;
-            Reason r;
-            void operator()() {self->onReject(std::move(r));}
+            AuthInfo info;
+            void operator()() {self->welcome(std::move(info));}
         };
 
-        safelyDispatch<Dispatched>(std::move(r));
+        safelyDispatch<Dispatched>(std::move(info));
     }
 
-    void onReject(Reason&& r)
+    void reject(Reason&& r) override
     {
         auto s = state();
         bool readyToReject = s == State::establishing ||
@@ -441,6 +424,18 @@ private:
         authExchange_.reset();
         resetWampSessionInfo();
         peer_.abort(std::move(r));
+    }
+
+    void safeReject(Reason&& r) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Reason r;
+            void operator()() {self->reject(std::move(r));}
+        };
+
+        safelyDispatch<Dispatched>(std::move(r));
     }
 
     template <typename F, typename... Ts>
@@ -505,7 +500,7 @@ private:
           logger_(router_.logger())
     {
         if (!config_->authenticator())
-            config_->withAuthenticator(AnonymousAuthenticator{});
+            config_->withAuthenticator(AnonymousAuthenticator::create());
     }
 
     void startListening()

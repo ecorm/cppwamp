@@ -14,7 +14,6 @@
 
 #include <memory>
 #include "any.hpp"
-#include "anyhandler.hpp"
 #include "authinfo.hpp"
 #include "api.hpp"
 #include "sessioninfo.hpp"
@@ -92,8 +91,17 @@ private:
     unsigned challengeCount_ = 0;
 };
 
+
 //------------------------------------------------------------------------------
-using Authenticator = AnyReusableHandler<void (AuthExchange::Ptr)>;
+/** Abstract base class for user-defined authenticators. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API Authenticator
+{
+public:
+    using Ptr = std::shared_ptr<Authenticator>;
+
+    virtual void authenticate(AuthExchange::Ptr) = 0;
+};
 
 } // namespace wamp
 

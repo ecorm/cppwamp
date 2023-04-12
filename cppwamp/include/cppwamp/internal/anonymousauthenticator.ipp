@@ -13,35 +13,52 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AnonymousAuthenticator::AnonymousAuthenticator()
-    : AnonymousAuthenticator("anonymous")
-{}
+CPPWAMP_INLINE Authenticator::Ptr AnonymousAuthenticator::create()
+{
+    return Ptr(new AnonymousAuthenticator);
+}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AnonymousAuthenticator::AnonymousAuthenticator(String authRole)
-    : authRole_(std::move(authRole)), rng_(internal::DefaultPRNG64{})
-{}
+CPPWAMP_INLINE void AnonymousAuthenticator::setAuthRole(String authRole)
+{
+    authRole_ = std::move(authRole);
+}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AnonymousAuthenticator::AnonymousAuthenticator(
-    String authRole, uint64_t rngSeed)
-    : authRole_(std::move(authRole)), rng_(internal::DefaultPRNG64{rngSeed})
-{}
+/** @details
+    The resulting `authid` is the Base64-encoded string of the randomly
+    generated ID. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void
+AnonymousAuthenticator::setRandomIdGenerator(RandomNumberGenerator rng)
+{
+    rng_ = std::move(rng);
+}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE AnonymousAuthenticator::AnonymousAuthenticator(
-    String authRole, RandomNumberGenerator rng)
-    : authRole_(std::move(authRole)), rng_(std::move(rng))
-{}
+/** @details
+    This resets the default generator state with the given seed. */
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void AnonymousAuthenticator::setRandomIdGenerator(uint64_t seed)
+{
+    rng_ = internal::DefaultPRNG64{seed};
+}
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void AnonymousAuthenticator::operator()(AuthExchange::Ptr ex)
+CPPWAMP_INLINE void AnonymousAuthenticator::authenticate(AuthExchange::Ptr ex)
 {
     auto n = rng_();
     String authId;
     auto ptr = reinterpret_cast<const char*>(&n);
     internal::Base64::encode(ptr, sizeof(n), authId);
-    ex->welcome({std::move(authId), authRole_, "anonymous", "static"});
+    ex->welcome(threadSafe,
+                {std::move(authId), authRole_, "anonymous", "static"});
 }
+
+//------------------------------------------------------------------------------
+AnonymousAuthenticator::AnonymousAuthenticator()
+    : authRole_(defaultAuthRole()),
+      rng_(internal::DefaultPRNG64{})
+{}
 
 } // namespace wamp

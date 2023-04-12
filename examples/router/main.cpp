@@ -14,16 +14,20 @@
 #include <cppwamp/utils/consolelogger.hpp>
 
 //------------------------------------------------------------------------------
-int main()
+class TicketAuthenticator : public wamp::Authenticator
 {
-    wamp::utils::ColorConsoleLogger logger{"router"};
+public:
+    TicketAuthenticator(wamp::utils::ColorConsoleLogger& logger)
+        : logger_(logger)
+    {}
 
-    auto onAuthenticate = [&logger](wamp::AuthExchange::Ptr ex)
+protected:
+    void authenticate(wamp::AuthExchange::Ptr ex) override
     {
-        logger({
-            wamp::LogLevel::debug,
-            "main onAuthenticate: authid=" +
-                ex->realm().authId().value_or("anonymous")});
+        logger_({
+                wamp::LogLevel::debug,
+                "main onAuthenticate: authid=" +
+                    ex->realm().authId().value_or("anonymous")});
         if (ex->challengeCount() == 0)
         {
             ex->challenge(wamp::Challenge("ticket").withChallenge("quest"),
@@ -31,7 +35,7 @@ int main()
         }
         else if (ex->challengeCount() == 1)
         {
-            logger({wamp::LogLevel::debug,
+            logger_({wamp::LogLevel::debug,
                     "note = " +
                         wamp::any_cast<const std::string&>(ex->note())});
             if (ex->authentication().signature() == "grail")
@@ -41,7 +45,19 @@ int main()
         }
         else
             ex->reject();
-    };
+    }
+
+private:
+    wamp::utils::ColorConsoleLogger& logger_;
+};
+
+
+//------------------------------------------------------------------------------
+int main()
+{
+    wamp::utils::ColorConsoleLogger logger{"router"};
+
+    auto authenticator = std::make_shared<TicketAuthenticator>(logger);
 
     auto config = wamp::RouterConfig()
         .withLogHandler(logger)
@@ -52,7 +68,7 @@ int main()
 
     auto serverConfig =
         wamp::ServerConfig("tcp12345", wamp::TcpEndpoint{12345}, wamp::json)
-            .withAuthenticator(onAuthenticate);
+            .withAuthenticator(authenticator);
 
     logger({wamp::LogLevel::info, "CppWAMP Example Router launched"});
     wamp::IoContext ioctx;

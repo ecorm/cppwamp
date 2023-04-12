@@ -92,15 +92,15 @@ void RealmConfig::initialize(internal::PassKey)
 //******************************************************************************
 
 CPPWAMP_INLINE ServerConfig&
-ServerConfig::withAuthenticator(Authenticator f)
+ServerConfig::withAuthenticator(Authenticator::Ptr a)
 {
-    authenticator_ = std::move(f);
+    authenticator_ = std::move(a);
     return *this;
 }
 
 CPPWAMP_INLINE const String& ServerConfig::name() const {return name_;}
 
-CPPWAMP_INLINE const Authenticator& ServerConfig::authenticator() const
+CPPWAMP_INLINE Authenticator::Ptr ServerConfig::authenticator() const
 {
     return authenticator_;
 }

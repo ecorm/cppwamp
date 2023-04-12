@@ -26,9 +26,6 @@
 #include "uri.hpp"
 #include "internal/passkey.hpp"
 
-// TODO: Take handlers via std::function and make users responsible
-// for dispatching/posting via an executor if necessary.
-
 namespace wamp
 {
 
@@ -104,7 +101,7 @@ public:
     template <typename... TFormats>
     ServerConfig& withFormats(TFormats... formats);
 
-    ServerConfig& withAuthenticator(Authenticator f);
+    ServerConfig& withAuthenticator(Authenticator::Ptr a);
 
     template <typename F, typename E>
     ServerConfig& withAuthenticator(F&& authenticator, E&& executor)
@@ -115,7 +112,7 @@ public:
 
     const String& name() const;
 
-    const Authenticator& authenticator() const;
+    Authenticator::Ptr authenticator() const;
 
 private:
     Listening::Ptr makeListener(IoStrand s) const;
@@ -125,7 +122,7 @@ private:
     String name_;
     ListenerBuilder listenerBuilder_;
     std::vector<BufferCodecBuilder> codecBuilders_;
-    Authenticator authenticator_;
+    Authenticator::Ptr authenticator_;
 
     friend class internal::RouterServer;
 };

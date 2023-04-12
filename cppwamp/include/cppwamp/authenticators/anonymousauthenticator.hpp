@@ -21,22 +21,31 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
-class CPPWAMP_API AnonymousAuthenticator
+class CPPWAMP_API AnonymousAuthenticator : public Authenticator
 {
 public:
     using RandomNumberGenerator = std::function<uint64_t ()>;
 
-    AnonymousAuthenticator();
+    static constexpr const char* defaultAuthRole() {return "anonymous";}
 
-    explicit AnonymousAuthenticator(String authRole);
+    /** Instantiates an anomymous authenticator. */
+    static Ptr create();
 
-    AnonymousAuthenticator(String authRole, uint64_t rngSeed);
+    /** Sets the `authrole` property to be assigned to users. */
+    void setAuthRole(String authRole);
 
-    AnonymousAuthenticator(String authRole, RandomNumberGenerator rng);
+    /** Sets the random number generator used to produce the `authid` property
+        to be assigned to authenticated users. */
+    void setRandomIdGenerator(RandomNumberGenerator rng);
 
-    void operator()(AuthExchange::Ptr ex);
+    /** Sets the seed to use with the default random `authid` generator. */
+    void setRandomIdGenerator(uint64_t seed);
+
+    void authenticate(AuthExchange::Ptr ex) override;
 
 private:
+    AnonymousAuthenticator();
+
     String authRole_;
     RandomNumberGenerator rng_;
 };
