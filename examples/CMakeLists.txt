@@ -21,6 +21,7 @@ add_dependencies(cppwamp_examples
 
 if(CPPWAMP_OPT_WITH_CORO)
     add_subdirectory(chat)
+    add_subdirectory(routerclient)
     add_subdirectory(timeclient)
     add_subdirectory(timeservice)
     add_subdirectory(stacklesstimeclient)
@@ -28,6 +29,7 @@ if(CPPWAMP_OPT_WITH_CORO)
     add_subdirectory(streaming)
     add_dependencies(cppwamp_examples
                      cppwamp-example-chat
+                     cppwamp-example-routerclient
                      cppwamp-example-timeclient
                      cppwamp-example-timeservice
                      cppwamp-example-stacklesstimeclient
