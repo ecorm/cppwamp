@@ -272,11 +272,12 @@ private:
     {
         switch (msg.kind())
         {
-        case MessageKind::hello:     return onHello(msg);
-        case MessageKind::welcome:   return onWelcome(msg);
-        case MessageKind::abort:     return onAbort(msg);
-        case MessageKind::challenge: return onChallenge(msg);
-        case MessageKind::goodbye:   return onGoodbye(msg);
+        case MessageKind::hello:        return onHello(msg);
+        case MessageKind::welcome:      return onWelcome(msg);
+        case MessageKind::abort:        return onAbort(msg);
+        case MessageKind::challenge:    return onChallenge(msg);
+        case MessageKind::authenticate: return onAuthenticate(msg);
+        case MessageKind::goodbye:      return onGoodbye(msg);
         default: break;
         }
 
@@ -291,7 +292,7 @@ private:
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
-        notifyMessage(msg);
+        listener_.onPeerHello(Realm{{}, std::move(msg)});
     }
 
     void onWelcome(Message& msg)
@@ -320,6 +321,12 @@ private:
         assert(state() == State::establishing);
         setState(State::authenticating);
         listener_.onPeerChallenge(Challenge{{}, std::move(msg)});
+    }
+
+    void onAuthenticate(Message& msg)
+    {
+        assert(state() == State::authenticating);
+        listener_.onPeerAuthenticate(Authentication{{}, std::move(msg)});
     }
 
     void onGoodbye(Message& msg)

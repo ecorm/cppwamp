@@ -115,7 +115,7 @@ private:
 };
 
 //------------------------------------------------------------------------------
-class RandomIdPool : std::enable_shared_from_this<RandomIdPool>
+class RandomIdPool : public std::enable_shared_from_this<RandomIdPool>
 {
 public:
     using Gen64 = std::function<uint64_t ()>;

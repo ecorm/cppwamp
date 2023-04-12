@@ -60,7 +60,7 @@ int main()
     auto onChallenge = [](wamp::Challenge c)
     {
         std::cout << "challenge=" << c.challenge().value_or("none") << std::endl;
-        c.authenticate({"blue_no_red"});
+        c.authenticate({"grail"});
     };
 
     wamp::spawn(ioctx, [tcp, &session, onChallenge](wamp::YieldContext yield)

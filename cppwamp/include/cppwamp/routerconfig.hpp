@@ -13,7 +13,6 @@
 //------------------------------------------------------------------------------
 
 #include <memory>
-#include <functional>
 #include <utility>
 #include <vector>
 #include "anyhandler.hpp"
@@ -38,14 +37,6 @@ public:
     RealmConfig(Uri uri);
 
     RealmConfig& withAuthorizer(Authorizer::Ptr a);
-
-    template <typename F, typename E>
-    RealmConfig& withAuthorizer(F&& authorizer, E&& executor)
-    {
-        return withAuthorizer(
-            boost::asio::bind_executor(std::forward<F>(authorizer),
-                                       std::forward<E>(executor)));
-    }
 
     // TODO: Authorization cache
     // RealmConfig& withAuthorizationCacheEnabled(bool enabled = true);
