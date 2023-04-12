@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
-    Copyright Butterfly Energy Systems 2014-2015, 2022-2023.
+    Copyright Butterfly Energy Systems 2014-2015, 2022.
     Distributed under the Boost Software License, Version 1.0.
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
@@ -16,7 +16,6 @@
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/unpacker.hpp>
 #include <cppwamp/variant.hpp>
-#include <cppwamp/utils/consolelogger.hpp>
 
 const std::string realm = "cppwamp.examples";
 const std::string address = "localhost";
@@ -50,39 +49,21 @@ void onTimeTick(std::tm time)
 //------------------------------------------------------------------------------
 int main()
 {
-    wamp::utils::ConsoleLogger logger;
     wamp::IoContext ioctx;
     auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
     wamp::Session session(ioctx);
-    session.listenLogged(logger);
-    session.setLogLevel(wamp::LogLevel::trace);
 
-    auto onChallenge = [](wamp::Challenge c)
-    {
-        std::cout << "challenge=" << c.challenge().value_or("none") << std::endl;
-        c.authenticate({"grail"});
-    };
-
-    wamp::spawn(ioctx, [tcp, &session, onChallenge](wamp::YieldContext yield)
+    wamp::spawn(ioctx, [tcp, &session](wamp::YieldContext yield)
     {
         session.connect(tcp, yield).value();
-        auto info = session.join(
-            wamp::Realm(realm)
-                .withAuthId("alice")
-                .withAuthMethods({"ticket"}),
-            onChallenge,
-            yield).value();
-//        auto result = session.call(wamp::Rpc("get_time"), yield).value();
-//        auto time = result[0].to<std::tm>();
-//        std::cout << "The current time is: " << std::asctime(&time) << "\n";
+        session.join(wamp::Realm(realm), yield).value();
+        auto result = session.call(wamp::Rpc("get_time"), yield).value();
+        auto time = result[0].to<std::tm>();
+        std::cout << "The current time is: " << std::asctime(&time) << "\n";
 
-//        session.subscribe(wamp::Topic("time_tick"),
-//                          wamp::simpleEvent<std::tm>(&onTimeTick),
-//                          yield).value();
-        std::cout << info.authId().value_or("unknown") << std::endl;
-        auto r = session.leave({"because.i.feel.like.it"}, yield);
-        std::cout << r.value().uri() << std::endl;
-        session.disconnect();
+        session.subscribe(wamp::Topic("time_tick"),
+                          wamp::simpleEvent<std::tm>(&onTimeTick),
+                          yield).value();
     });
 
     ioctx.run();
