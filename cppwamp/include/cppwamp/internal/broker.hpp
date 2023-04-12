@@ -74,10 +74,12 @@ public:
         event_.withOption("topic", topicUri_);
     }
 
-    void sendTo(RouterSession& subscriber) const
+    bool sendTo(RouterSession& subscriber) const
     {
-        if (isEligible(subscriber))
-            subscriber.sendRouterCommand(Event{event_});
+        bool eligible = isEligible(subscriber);
+        if (eligible)
+            subscriber.sendEvent(event_);
+        return eligible;
     }
 
     const Uri& topicUri() const {return topicUri_;}
@@ -191,10 +193,7 @@ public:
         {
             auto subscriber = kv.second.session.lock();
             if (subscriber)
-            {
-                info.sendTo(*subscriber);
-                ++count;
-            }
+                count += info.sendTo(*subscriber);
         }
         return count;
     }
@@ -390,6 +389,9 @@ public:
 
     std::size_t publish(BrokerPublication& info)
     {
+        if (trie_.empty())
+            return 0;
+
         auto matches = wildcardMatches(trie_, info.topicUri());
         if (matches.done())
             return 0;

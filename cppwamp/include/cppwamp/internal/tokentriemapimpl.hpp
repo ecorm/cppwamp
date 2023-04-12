@@ -142,13 +142,15 @@ public:
 
     Cursor rootCursor()
     {
-        assert(!!root_);
+        if (empty())
+            return sentinelCursor();
         return Cursor::begin(*root_);
     }
 
     ConstCursor rootCursor() const
     {
-        assert(!!root_);
+        if (empty())
+            return sentinelCursor();
         return ConstCursor::begin(*root_);
     }
 

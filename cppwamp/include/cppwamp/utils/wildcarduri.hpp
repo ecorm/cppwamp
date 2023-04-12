@@ -209,7 +209,7 @@ public:
     /// Reference to the mapped value type being visited.
     using Reference = Conditional<C::is_mutable(), Value&, const Value&>;
 
-    /** Default constructor. */
+    /** Constructor. */
     WildcardMatcher(Key key, Cursor root, Cursor sentinel);
 
     /** Accesses the split token key container associated with the
@@ -302,7 +302,7 @@ struct WildcardMatcher<C>::Less
 template <typename C>
 WildcardMatcher<C>::WildcardMatcher(Key key, Cursor root, Cursor sentinel)
     : key_(std::move(key)),
-    cursor_(root)
+      cursor_(root)
 {
     if (key_.empty())
         cursor_ = sentinel;

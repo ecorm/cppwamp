@@ -1147,6 +1147,7 @@ TEST_CASE( "UriTrie Pattern Matching", "[Uri]" )
         std::set<std::string> hits;
         for (unsigned i = 0; i != expectedHits.size(); ++i)
         {
+            REQUIRE(bool(matches));
             REQUIRE_FALSE(matches.done());
             auto matchKey = matches.key();
             auto matchUri = matchKey.flatten().value();
@@ -1158,6 +1159,15 @@ TEST_CASE( "UriTrie Pattern Matching", "[Uri]" )
         CHECK(matches.done());
         CHECK(hits == expectedHits);
     }
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Pattern Matching an empty UriTrie", "[Uri]" )
+{
+    Trie trie;
+    auto matches = wildcardMatches(trie, "foo");
+    CHECK(!matches);
+    CHECK(matches.done());
 }
 
 //------------------------------------------------------------------------------

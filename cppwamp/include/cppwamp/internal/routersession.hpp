@@ -76,6 +76,14 @@ public:
         onRouterCommand(std::forward<C>(command));
     }
 
+    void sendEvent(const Event& e)
+    {
+        // server-event actions are not logged due to the potential large
+        // number of observers. Instead, a recipient count is added to the
+        // server-published action log.
+        onRouterCommand(Event{e});
+    }
+
     RequestId sendInvocation(Invocation&& inv, Uri&& topic)
     {
         // Will take 285 years to overflow 2^53 at 1 million requests/sec

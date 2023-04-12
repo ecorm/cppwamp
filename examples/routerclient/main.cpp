@@ -31,25 +31,37 @@ int main()
     wamp::Session session(ioctx);
     session.listenLogged(logger);
     session.setLogLevel(wamp::LogLevel::trace);
+    int eventCount = 0;
 
     auto onChallenge = [](wamp::Challenge c)
     {
-        std::cout << "challenge=" << c.challenge().value_or("none") << std::endl;
         c.authenticate({"grail"});
     };
 
-    wamp::spawn(ioctx, [tcp, &session, onChallenge](wamp::YieldContext yield)
+    auto onEvent = [&logger, &eventCount](wamp::Event ev)
+    {
+        logger({wamp::LogLevel::debug,
+                "Event - " + ev.args().at(0).as<wamp::String>()});
+        ++eventCount;
+    };
+
+    wamp::spawn(ioctx, [&](wamp::YieldContext yield)
     {
         session.connect(tcp, yield).value();
-        auto info = session.join(
+        session.join(
             wamp::Realm(realm)
                 .withAuthId("alice")
                 .withAuthMethods({"ticket"}),
             onChallenge,
             yield).value();
-        std::cout << info.authId().value_or("unknown") << std::endl;
-        auto r = session.leave({"because.i.feel.like.it"}, yield);
-        std::cout << r.value().uri() << std::endl;
+        session.subscribe(wamp::Topic{"foo"}, onEvent, yield).value();
+        session.publish(wamp::Pub{"foo"}.withArgs("bar").withExcludeMe(false),
+                        yield).value();
+
+        while (eventCount == 0)
+            boost::asio::post(ioctx, yield);
+
+        session.leave(yield).value();
         session.disconnect();
     });
 

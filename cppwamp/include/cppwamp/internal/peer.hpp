@@ -343,8 +343,8 @@ private:
         {
             WampErrc errc = reason.errorCode();
             errc = (errc == WampErrc::success) ? WampErrc::closeRealm : errc;
-            setState(State::closed, errc);
             listener_.onPeerGoodbye(std::move(reason), isShuttingDown);
+            setState(State::closed, errc);
             Reason goodbye{WampErrc::goodbyeAndOut};
             send(goodbye);
         }

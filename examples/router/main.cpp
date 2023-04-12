@@ -39,7 +39,7 @@ protected:
                     "note = " +
                         wamp::any_cast<const std::string&>(ex->note())});
             if (ex->authentication().signature() == "grail")
-                ex->welcome({"authrole", "admin", "ticket", "static"});
+                ex->welcome({"admin", "authrole", "ticket", "static"});
             else
                 ex->reject();
         }

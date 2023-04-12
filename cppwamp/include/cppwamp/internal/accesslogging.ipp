@@ -60,7 +60,10 @@ CPPWAMP_INLINE void outputAccessLogEntry(
     else
         out << a.errorUri;
 
-    out << " | " << a.options;
+    if (a.options.empty())
+        out << " | -";
+    else
+        out << " | " << a.options;
 }
 
 } // namespace internal

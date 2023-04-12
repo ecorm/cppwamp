@@ -169,7 +169,7 @@ private:
             break;
 
         case State::disconnected:
-            report({AccessAction::clientDisconnect, {}, {}, ec});
+            report({AccessAction::clientDisconnect});
             retire();
             break;
 
