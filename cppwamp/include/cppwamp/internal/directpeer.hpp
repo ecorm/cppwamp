@@ -32,7 +32,6 @@ namespace internal
 class DirectPeer;
 
 //------------------------------------------------------------------------------
-template <typename TPeer>
 class DirectRouterSession : public RouterSession
 {
 public:
@@ -42,7 +41,7 @@ public:
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    DirectRouterSession(TPeer& peer) : peer_(peer) {}
+    DirectRouterSession(DirectPeer& peer);
 
     using RouterSession::setRouterLogger;
     using RouterSession::routerLogLevel;
@@ -53,19 +52,19 @@ public:
     using RouterSession::resetSessionInfo;
 
 private:
-    void onRouterAbort(Reason&& r) override         {peer_.onAbort(std::move(r));};
-    void onRouterCommand(Error&& e) override        {peer_.onCommand(std::move(e));}
-    void onRouterCommand(Subscribed&& s) override   {peer_.onCommand(std::move(s));}
-    void onRouterCommand(Unsubscribed&& u) override {peer_.onCommand(std::move(u));}
-    void onRouterCommand(Published&& p) override    {peer_.onCommand(std::move(p));}
-    void onRouterCommand(Event&& e) override        {peer_.onCommand(std::move(e));}
-    void onRouterCommand(Registered&& r) override   {peer_.onCommand(std::move(r));}
-    void onRouterCommand(Unregistered&& u) override {peer_.onCommand(std::move(u));}
-    void onRouterCommand(Result&& r) override       {peer_.onCommand(std::move(r));}
-    void onRouterCommand(Interruption&& i) override {peer_.onCommand(std::move(i));}
-    void onRouterCommand(Invocation&& i) override   {peer_.onCommand(std::move(i));}
+    void onRouterAbort(Reason&& r) override;
+    void onRouterCommand(Error&& e) override;
+    void onRouterCommand(Subscribed&& s) override;
+    void onRouterCommand(Unsubscribed&& u) override;
+    void onRouterCommand(Published&& p) override;
+    void onRouterCommand(Event&& e) override;
+    void onRouterCommand(Registered&& r) override;
+    void onRouterCommand(Unregistered&& u) override;
+    void onRouterCommand(Result&& r) override;
+    void onRouterCommand(Interruption&& i) override;
+    void onRouterCommand(Invocation&& i) override;
 
-    TPeer& peer_;
+    DirectPeer& peer_;
 };
 
 
@@ -125,7 +124,7 @@ public:
     using State = SessionState;
 
     explicit DirectPeer(PeerListener* listener)
-        : session_(std::make_shared<DirectSessionType>(*this)),
+        : session_(std::make_shared<DirectRouterSession>(*this)),
           listener_(*listener),
           state_(State::disconnected)
     {}
@@ -265,8 +264,6 @@ public:
     }
 
 private:
-    using DirectSessionType = DirectRouterSession<DirectPeer>;
-
     static const std::string& stateLabel(State state)
     {
         static const std::string labels[] = {
@@ -364,12 +361,32 @@ private:
         listener_.onTrace(oss.str());
     }
 
-    DirectSessionType::Ptr session_;
+    DirectRouterSession::Ptr session_;
     RouterContext router_;
     RealmContext realm_;
     PeerListener& listener_;
     std::atomic<State> state_;
+
+    friend class DirectRouterSession;
 };
+
+
+//******************************************************************************
+/** DirectRouterSession member function definitions. */
+//******************************************************************************
+
+inline DirectRouterSession::DirectRouterSession(DirectPeer& peer) : peer_(peer) {}
+inline void DirectRouterSession::onRouterAbort(Reason&& r)         {peer_.onAbort(std::move(r));};
+inline void DirectRouterSession::onRouterCommand(Error&& e)        {peer_.onCommand(std::move(e));}
+inline void DirectRouterSession::onRouterCommand(Subscribed&& s)   {peer_.onCommand(std::move(s));}
+inline void DirectRouterSession::onRouterCommand(Unsubscribed&& u) {peer_.onCommand(std::move(u));}
+inline void DirectRouterSession::onRouterCommand(Published&& p)    {peer_.onCommand(std::move(p));}
+inline void DirectRouterSession::onRouterCommand(Event&& e)        {peer_.onCommand(std::move(e));}
+inline void DirectRouterSession::onRouterCommand(Registered&& r)   {peer_.onCommand(std::move(r));}
+inline void DirectRouterSession::onRouterCommand(Unregistered&& u) {peer_.onCommand(std::move(u));}
+inline void DirectRouterSession::onRouterCommand(Result&& r)       {peer_.onCommand(std::move(r));}
+inline void DirectRouterSession::onRouterCommand(Interruption&& i) {peer_.onCommand(std::move(i));}
+inline void DirectRouterSession::onRouterCommand(Invocation&& i)   {peer_.onCommand(std::move(i));}
 
 } // namespace internal
 

@@ -149,7 +149,8 @@ public:
     /** Converting constructor taking an Unexpected. */
     template <typename G>
     ErrorOr(Unexpected<G> unex)
-        : error_(std::move(unex).value()),
+        : value_(),
+          error_(std::move(unex).value()),
           hasError_(true)
     {}
 

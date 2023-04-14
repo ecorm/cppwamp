@@ -20,7 +20,7 @@
 #include "api.hpp"
 #include "errorcodes.hpp"
 #include "erroror.hpp"
-#include "variantdefs.hpp"
+#include "variant.hpp"
 #include "wampdefs.hpp"
 
 

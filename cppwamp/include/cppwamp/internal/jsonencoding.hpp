@@ -11,6 +11,7 @@
 #include "../blob.hpp"
 #include "../null.hpp"
 #include "../variantdefs.hpp"
+#include "../visitor.hpp"
 #include "base64.hpp"
 
 namespace wamp

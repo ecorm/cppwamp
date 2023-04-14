@@ -98,7 +98,7 @@ CPPWAMP_INLINE void AuthExchange::setAuthentication(internal::PassKey,
 
 CPPWAMP_INLINE AuthExchange::AuthExchange(Realm&& r, ChallengerPtr c)
     : realm_(std::move(r)),
-    challenger_(c)
+      challenger_(c)
 {}
 
 } // namespace wamp

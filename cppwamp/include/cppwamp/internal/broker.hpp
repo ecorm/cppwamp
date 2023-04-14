@@ -247,7 +247,7 @@ public:
         return {};
     }
 
-    BrokerSubscription* addNewSubscriptionRecord()
+    BrokerSubscription* addNewSubscriptionRecord() &&
     {
         auto subId = subIdGen_();
         BrokerSubscription record{std::move(topic_), subId};
@@ -257,7 +257,7 @@ public:
         return &(emplaced.first->second);
     }
 
-    void addSubscriberToExistingRecord(BrokerSubscription& record)
+    void addSubscriberToExistingRecord(BrokerSubscription& record) &&
     {
         record.addSubscriber(sessionId_, std::move(subscriber_));
     }
@@ -282,7 +282,8 @@ public:
         auto found = trie_.find(key);
         if (found == trie_.end())
         {
-            BrokerSubscription* record = req.addNewSubscriptionRecord();
+            BrokerSubscription* record =
+                std::move(req).addNewSubscriptionRecord();
             subId = record->subscriptionId();
             trie_.emplace(std::move(key), record);
         }
@@ -290,7 +291,7 @@ public:
         {
             BrokerSubscription* record = iteratorValue(found);
             subId = record->subscriptionId();
-            req.addSubscriberToExistingRecord(*record);
+            std::move(req).addSubscriberToExistingRecord(*record);
         }
         return subId;
     }

@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_RAWSOCKHEADER_HPP
 #define CPPWAMP_INTERNAL_RAWSOCKHEADER_HPP
 
+#include <cstddef>
 #include <cstdint>
 #include "endian.hpp"
 
@@ -48,7 +49,7 @@ public:
         return get<RawsockMsgType>(msgTypeMask_, msgTypePos_);
     }
 
-    size_t length() const {return get<size_t>(lengthMask_);}
+    std::size_t length() const {return get<std::size_t>(lengthMask_);}
 
     uint32_t toBigEndian() const {return endian::nativeToBig32(hdr_);}
 
@@ -57,7 +58,7 @@ public:
     RawsockHeader& setMsgType(RawsockMsgType msgType)
         {return put(msgType, msgTypePos_);}
 
-    RawsockHeader& setLength(size_t length)
+    RawsockHeader& setLength(std::size_t length)
         {return put(length, lengthPos_);}
 
 private:

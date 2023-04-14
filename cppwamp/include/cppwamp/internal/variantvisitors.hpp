@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_VARIANT_VISITORS_HPP
 #define CPPWAMP_INTERNAL_VARIANT_VISITORS_HPP
 
+#include <sstream>
 #include "../blob.hpp"
 #include "../exceptions.hpp"
 #include "../null.hpp"

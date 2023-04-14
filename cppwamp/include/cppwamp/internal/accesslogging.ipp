@@ -8,7 +8,6 @@
 #include <sstream>
 #include <utility>
 #include "../api.hpp"
-#include "../variant.hpp"
 #include "timeformatting.hpp"
 
 namespace wamp

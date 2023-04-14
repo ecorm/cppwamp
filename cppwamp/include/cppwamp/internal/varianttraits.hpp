@@ -23,12 +23,6 @@ namespace wamp
 namespace internal
 {
 
-template <typename T> struct FieldTraits;
-
-template <typename T, typename Enable = int> struct ArgTraits;
-
-template <typename T> struct Access;
-
 //------------------------------------------------------------------------------
 template <TypeId typeId> struct FieldTypeForId {};
 template <> struct FieldTypeForId<TypeId::null>    {using Type = Null;};
@@ -114,7 +108,7 @@ template <> struct FieldTraits<Object>
 };
 
 //------------------------------------------------------------------------------
-template <typename TField, typename Enable>
+template <typename TField, typename Enable = int>
 struct ArgTraits
 {
     static constexpr bool isValid   = false;
@@ -234,107 +228,6 @@ struct ArgTraits<std::map<String, TValue>,
     static String typeName()        {return "std::map<String, "
                                      + ArgTraits<TValue>::typeName() + '>';}
     using FieldType                 = Object;
-};
-
-
-//------------------------------------------------------------------------------
-template <typename TField> struct Access
-{
-    template <typename U> static void construct(U&& value, void* field)
-        {get(field) = value;}
-
-    static void destruct(void*) {}
-
-    static TField& get(void* field)
-        {return *static_cast<TField*>(field);}
-
-    static const TField& get(const void* field)
-        {return *static_cast<const TField*>(field);}
-};
-
-template <> struct Access<String>
-{
-    template <typename U> static void construct(U&& value, void* field)
-        {new (field) String(std::forward<U>(value));}
-
-    static void destruct(void* field) {get(field).~String();}
-
-    static String& get(void* field)
-        {return *static_cast<String*>(field);}
-
-    static const String& get(const void* field)
-        {return *static_cast<const String*>(field);}
-};
-
-template <> struct Access<Blob>
-{
-    template <typename U> static void construct(U&& value, void* field)
-        {ptr(field) = new Blob(std::forward<U>(value));}
-
-    static void destruct(void* field)
-    {
-        Blob*& b = ptr(field);
-        delete b;
-        b = nullptr;
-    }
-
-    static Blob& get(void* field) {return *ptr(field);}
-
-    static const Blob& get(const void* field)
-    {
-        const Blob* b = Access<const Blob*>::get(field);
-        return *b;
-    }
-
-    static Blob*& ptr(void* field) {return Access<Blob*>::get(field);}
-};
-
-template <> struct Access<Array>
-{
-    template <typename U> static void construct(U&& value, void* field)
-        {ptr(field) = new Array(std::forward<U>(value));}
-
-    static void destruct(void* field)
-    {
-        Array*& a = ptr(field);
-        delete a;
-        a = nullptr;
-    }
-
-    static Array& get(void* field) {return *ptr(field);}
-
-    static const Array& get(const void* field)
-    {
-        const Array* a = Access<const Array*>::get(field);
-        return *a;
-    }
-
-    static Array*& ptr(void* field) {return Access<Array*>::get(field);}
-};
-
-template <> struct Access<Object>
-{
-    template <typename U> static void construct(U&& value, void* field)
-    {
-        ptr(field) = new Object(std::forward<U>(value));
-    }
-
-    static void destruct(void* field)
-    {
-        Object*& o = ptr(field);
-        delete o;
-        o = nullptr;
-    }
-
-    static Object& get(void* field) {return *ptr(field);}
-
-    static const Object& get(const void* field)
-    {
-        const Object* o = Access<const Object*>::get(field);
-        return *o;
-    }
-
-    static Object*& ptr(void* field) {return Access<Object*>::get(field);}
 };
 
 } // namespace internal

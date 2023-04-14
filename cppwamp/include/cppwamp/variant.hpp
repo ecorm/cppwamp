@@ -364,8 +364,11 @@ private:
     template <typename TField>
     using FieldTraits = internal::FieldTraits<TField>;
 
+    template <typename, typename>
+    struct FieldAccess;
+
     template <typename TField>
-    using Access = internal::Access<TField>;
+    using Access = FieldAccess<TField, int>;
 
     template <typename... TFields> struct CPPWAMP_HIDDEN TypeMask;
 
@@ -745,8 +748,110 @@ CPPWAMP_API inline void convert(ToVariantConverter& c, const TEnum& e)
 
 
 //******************************************************************************
-// Variant template member function implementations
+// Variant template member implementations
 //******************************************************************************
+
+//------------------------------------------------------------------------------
+template <typename TField, typename TDummy>
+struct Variant::FieldAccess
+{
+    template <typename U> static void construct(U&& value, void* field)
+        {get(field) = value;}
+
+    static void destruct(void*) {}
+
+    static TField& get(void* field)
+        {return *static_cast<TField*>(field);}
+
+    static const TField& get(const void* field)
+        {return *static_cast<const TField*>(field);}
+};
+
+template <typename D> struct Variant::FieldAccess<String, D>
+{
+    template <typename U> static void construct(U&& value, void* field)
+        {new (field) String(std::forward<U>(value));}
+
+    static void destruct(void* field) {get(field).~String();}
+
+    static String& get(void* field)
+        {return *static_cast<String*>(field);}
+
+    static const String& get(const void* field)
+        {return *static_cast<const String*>(field);}
+};
+
+template <typename D> struct Variant::FieldAccess<Blob, D>
+{
+    template <typename U> static void construct(U&& value, void* field)
+        {ptr(field) = new Blob(std::forward<U>(value));}
+
+    static void destruct(void* field)
+    {
+        Blob*& b = ptr(field);
+        delete b;
+        b = nullptr;
+    }
+
+    static Blob& get(void* field) {return *ptr(field);}
+
+    static const Blob& get(const void* field)
+    {
+        const Blob* b = Access<const Blob*>::get(field);
+        return *b;
+    }
+
+    static Blob*& ptr(void* field) {return Access<Blob*>::get(field);}
+};
+
+template <typename D> struct Variant::FieldAccess<Array, D>
+{
+    template <typename U> static void construct(U&& value, void* field)
+        {ptr(field) = new Array(std::forward<U>(value));}
+
+    static void destruct(void* field)
+    {
+        Array*& a = ptr(field);
+        delete a;
+        a = nullptr;
+    }
+
+    static Array& get(void* field) {return *ptr(field);}
+
+    static const Array& get(const void* field)
+    {
+        const Array* a = Access<const Array*>::get(field);
+        return *a;
+    }
+
+    static Array*& ptr(void* field) {return Access<Array*>::get(field);}
+};
+
+template <typename D> struct Variant::FieldAccess<Object, D>
+{
+    template <typename U> static void construct(U&& value, void* field)
+    {
+        ptr(field) = new Object(std::forward<U>(value));
+    }
+
+    static void destruct(void* field)
+    {
+        Object*& o = ptr(field);
+        delete o;
+        o = nullptr;
+    }
+
+    static Object& get(void* field) {return *ptr(field);}
+
+    static const Object& get(const void* field)
+    {
+        const Object* o = Access<const Object*>::get(field);
+        return *o;
+    }
+
+    static Object*& ptr(void* field) {return Access<Object*>::get(field);}
+};
+
 
 //------------------------------------------------------------------------------
 template <typename TValue>

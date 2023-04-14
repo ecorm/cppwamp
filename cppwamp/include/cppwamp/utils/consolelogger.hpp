@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include "../api.hpp"
+#include "../accesslogging.hpp"
 #include "../logging.hpp"
 
 namespace wamp
