@@ -338,8 +338,11 @@ private:
 
     void retire()
     {
-        server_.removeSession(shared_from_this());
         leaveRealm();
+
+        // This must be done last to prevent reference count to this object
+        // dropping to zero before cleanup.
+        server_.removeSession(shared_from_this());
     }
 
     template <typename F, typename... Ts>
@@ -357,8 +360,7 @@ private:
     void challenge() override
     {
         // TODO: Challenge timeout
-        if (state() == State::authenticating &&
-            authExchange_ != nullptr)
+        if ((state() == State::authenticating) && (authExchange_ != nullptr))
         {
             auto c = authExchange_->challenge();
             report(c.info());

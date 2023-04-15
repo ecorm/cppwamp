@@ -8,6 +8,7 @@
 // Example WAMP router.
 //******************************************************************************
 
+#include <boost/asio/executor_work_guard.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/router.hpp>
@@ -30,6 +31,7 @@ protected:
                     ex->realm().authId().value_or("anonymous")});
         if (ex->challengeCount() == 0)
         {
+            logger_({wamp::LogLevel::debug, "ex->challenge()"});
             ex->challenge(wamp::Challenge("ticket").withChallenge("quest"),
                           std::string("memento"));
         }
@@ -44,7 +46,10 @@ protected:
                 ex->reject();
         }
         else
+        {
+            logger_({wamp::LogLevel::debug, "ex->reject()"});
             ex->reject();
+        }
     }
 
 private:
@@ -72,6 +77,7 @@ int main()
 
     logger({wamp::LogLevel::info, "CppWAMP Example Router launched"});
     wamp::IoContext ioctx;
+    auto work = boost::asio::make_work_guard(ioctx);
     wamp::Router router{ioctx, config};
     router.openRealm(realmConfig);
     router.openServer(serverConfig);
