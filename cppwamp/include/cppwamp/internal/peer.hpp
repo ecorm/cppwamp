@@ -309,11 +309,22 @@ private:
         bool wasJoining = s == State::establishing ||
                           s == State::authenticating;
         Reason r{{}, std::move(msg)};
-        listener_.onPeerAbort(std::move(r), wasJoining);
+
+
+        // ServerSession deletes itself upon State::failed, so the onPeerAbort
+        // must be called beforehand.
+        if (isRouter_)
+            listener_.onPeerAbort(std::move(r), wasJoining);
+
         if (wasJoining)
             setState(State::closed);
         else
             setState(State::failed, r.errorCode());
+
+        // Client may delete itself upon onPeerAbort, so call it after
+        // notifying the state change.
+        if (!isRouter_)
+            listener_.onPeerAbort(std::move(r), wasJoining);
     }
 
     void onChallenge(Message& msg)
@@ -430,7 +441,7 @@ private:
     AnyBufferCodec codec_;
     Transporting::Ptr transport_;
     PeerListener& listener_;
-    std::atomic<State> state_;
+    std::atomic<State> state_; // TODO: Move this to Client & ServerSession
     std::size_t maxTxLength_ = 0;
     bool isRouter_ = false;
 };
