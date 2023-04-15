@@ -168,7 +168,8 @@ public:
     BrokerSubscription() = default;
 
     BrokerSubscription(MatchUri topic, SubscriptionId subId)
-        : topic_(std::move(topic))
+        : topic_(std::move(topic)),
+          subId_(subId)
     {}
 
     bool empty() const {return sessions_.empty();}
@@ -201,7 +202,7 @@ public:
 private:
     std::map<SessionId, BrokerSubscriberInfo> sessions_;
     MatchUri topic_;
-    SubscriptionId subId_;
+    SubscriptionId subId_ = nullId();
 };
 
 //------------------------------------------------------------------------------
