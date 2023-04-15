@@ -120,12 +120,12 @@ public:
 
     void disconnect()
     {
-        setState(State::disconnected);
         if (transport_)
         {
             transport_->close();
             transport_.reset();
         }
+        setState(State::disconnected);
     }
 
     template <typename C>
@@ -168,9 +168,9 @@ public:
             codec_.encode(msg.fields(), buffer);
         }
 
-        setState(State::failed, r.errorCode());
         traceTx(msg);
         transport_->sendNowAndClose(std::move(buffer));
+        setState(State::failed, r.errorCode());
         if (!fits)
             return makeUnexpectedError(WampErrc::payloadSizeExceeded);
         return true;
@@ -309,11 +309,11 @@ private:
         bool wasJoining = s == State::establishing ||
                           s == State::authenticating;
         Reason r{{}, std::move(msg)};
+        listener_.onPeerAbort(std::move(r), wasJoining);
         if (wasJoining)
             setState(State::closed);
         else
             setState(State::failed, r.errorCode());
-        listener_.onPeerAbort(std::move(r), wasJoining);
     }
 
     void onChallenge(Message& msg)
@@ -361,23 +361,23 @@ private:
         if (s == State::disconnected || s == State::failed)
             return;
 
-        setState(State::disconnected, TransportErrc::disconnected);
         if (transport_)
         {
             transport_->close();
             transport_.reset();
         }
+        setState(State::disconnected, TransportErrc::disconnected);
     }
 
     void fail(std::string why, std::error_code ec)
     {
-        setState(State::failed, ec);
         if (transport_)
         {
             transport_->close();
             transport_.reset();
         }
         listener_.onFailure(std::move(why), ec, false);
+        setState(State::failed, ec);
     }
 
     void failProtocol(std::string why)
