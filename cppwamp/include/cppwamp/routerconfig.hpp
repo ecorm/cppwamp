@@ -66,8 +66,8 @@ private:
     Uri uri_;
     Authorizer::Ptr authorizer_;
     UriValidator::Ptr uriValidator_;
-    DisclosureRule publisherDisclosure_;
-    DisclosureRule callerDisclosure_;
+    DisclosureRule publisherDisclosure_ = DisclosureRule::originator;
+    DisclosureRule callerDisclosure_ = DisclosureRule::originator;
     // bool authorizationCacheEnabled_ = false;
 
 public:
