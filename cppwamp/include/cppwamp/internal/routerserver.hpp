@@ -116,7 +116,7 @@ public:
     void start()
     {
         auto self = shared_from_this();
-        completeNow([this, self]() {startSession();});
+        dispatch([this, self]() {startSession();});
     }
 
 private:
@@ -308,7 +308,7 @@ private:
             }
         };
 
-        completeNow(Dispatched{shared_from_this(), std::forward<C>(command)});
+        dispatch(Dispatched{shared_from_this(), std::forward<C>(command)});
     }
 
     void resetWampSessionInfo()
@@ -343,19 +343,20 @@ private:
     {
         leaveRealm();
 
-        // This must be done last to prevent reference count to this object
-        // dropping to zero before cleanup.
-        server_.removeSession(shared_from_this());
+        // Removing session from server must be done after all cleanup
+        // operations to avoid reference count prematurely reaching zero.
+        auto self = shared_from_this();
+        post([self]() {self->server_.removeSession(self);});
     }
 
     template <typename F, typename... Ts>
-    void complete(F&& handler, Ts&&... args)
+    void post(F&& handler, Ts&&... args)
     {
         postAny(strand_, std::move(handler), std::forward<Ts>(args)...);
     }
 
     template <typename F, typename... Ts>
-    void completeNow(F&& handler, Ts&&... args)
+    void dispatch(F&& handler, Ts&&... args)
     {
         dispatchAny(strand_, std::move(handler), std::forward<Ts>(args)...);
     }
@@ -446,7 +447,7 @@ private:
     template <typename F, typename... Ts>
     void safelyDispatch(Ts&&... args)
     {
-        completeNow(F{shared_from_this(), std::forward<Ts>(args)...});
+        dispatch(F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
     Peer peer_;
