@@ -46,7 +46,9 @@ public:
 
     void setRegistrationId(RegistrationId rid) {regId_ = rid;}
 
-    const Uri& procedureUri() const {return procedureUri_;}
+    const Uri& procedureUri() const & {return procedureUri_;}
+
+    Uri&& procedureUri() && {return std::move(procedureUri_);}
 
     RegistrationId registrationId() const {return regId_;}
 
@@ -75,7 +77,7 @@ private:
 class DealerRegistry
 {
 public:
-    using Key = std::pair<SessionId, RegistrationId>;
+    using Key = RegistrationId;
 
     bool contains(Key key) {return byKey_.count(key) != 0;}
 
@@ -83,7 +85,7 @@ public:
 
     void insert(Key key, DealerRegistration&& reg)
     {
-        reg.setRegistrationId(key.second);
+        reg.setRegistrationId(key);
         auto uri = reg.procedureUri();
         auto emplaced = byKey_.emplace(key, std::move(reg));
         assert(emplaced.second);
@@ -91,12 +93,15 @@ public:
         byUri_.emplace(std::move(uri), ptr);
     }
 
-    ErrorOr<Uri> erase(const Key& key)
+    ErrorOr<Uri> erase(SessionId calleeId, Key key)
     {
         auto found = byKey_.find(key);
         if (found == byKey_.end())
             return makeUnexpectedError(WampErrc::noSuchRegistration);
-        auto uri = found->second.procedureUri();
+        auto& registration = found->second;
+        if (registration.calleeId() != calleeId)
+            return makeUnexpectedError(WampErrc::noSuchRegistration);
+        Uri uri{std::move(registration).procedureUri()};
         auto erased = byUri_.erase(uri);
         assert(erased == 1);
         byKey_.erase(found);
@@ -206,6 +211,11 @@ public:
         return inv;
     }
 
+    void setRequestId(RequestId reqId)
+    {
+        calleeKey_.second = reqId;
+    }
+
     ErrorOrDone cancel(CallCancelMode mode, WampErrc reason, bool& eraseNow)
     {
         using Mode = CallCancelMode;
@@ -289,6 +299,7 @@ public:
         auto caller = this->caller_.lock();
         if (!caller || discardResultOrError_)
             return true;
+        result.setKindToResult({});
         result.setRequestId({}, callerKey_.second);
         bool isProgress = result.optionOr<bool>("progress", false);
         result.withOptions({});
@@ -400,8 +411,10 @@ public:
         timeoutScheduler_->listen([this](Key k){onTimeout(k);});
     }
 
-    void insert(Job&& job)
+    void insert(Job&& job, RequestId reqId)
     {
+        job.setRequestId(reqId);
+
         if (job.hasTimeout())
             timeoutScheduler_->insert(job.calleeKey(), job.timeout());
 
@@ -411,7 +424,6 @@ public:
         assert(emplaced1.second);
         auto emplaced2 = byCallee_.emplace(calleeKey, emplaced1.first);
         assert(emplaced2.second);
-        lastInsertedCallerRequestId_ = callerKey.second;
     }
 
     ByCalleeIterator byCalleeFind(Key key) {return byCallee_.find(key);}
@@ -476,11 +488,6 @@ public:
             timeoutScheduler_->update(job.calleeKey(), job.timeout());
     }
 
-    RequestId lastInsertedCallerRequestId() const
-    {
-        return lastInsertedCallerRequestId_;
-    }
-
 private:
     void onTimeout(Key calleeKey)
     {
@@ -498,7 +505,6 @@ private:
     ByCallee byCallee_;
     ByCaller byCaller_;
     TimeoutScheduler<Key>::Ptr timeoutScheduler_;
-    RequestId lastInsertedCallerRequestId_ = nullId();
 };
 
 //------------------------------------------------------------------------------
@@ -519,9 +525,9 @@ public:
         auto reg = DealerRegistration::create(std::move(p), callee);
         if (!reg)
             return makeUnexpected(reg.error());
-        DealerRegistry::Key key{callee->wampId(), nextRegistrationId()};
+        auto key = nextRegistrationId();
         registry_.insert(key, std::move(*reg));
-        return key.second;
+        return key;
     }
 
     ErrorOr<Uri> unregister(RouterSession::Ptr callee, RegistrationId rid)
@@ -529,7 +535,7 @@ public:
         // Consensus on what to do with pending invocations upon unregister
         // appears to be to allow them to continue.
         // https://github.com/wamp-proto/wamp-proto/issues/283#issuecomment-429542748
-        return registry_.erase({callee->wampId(), rid});
+        return registry_.erase(callee->wampId(), rid);
     }
 
     ErrorOrDone call(RouterSession::Ptr caller, Rpc&& rpc)
@@ -546,7 +552,7 @@ public:
             return makeUnexpectedError(WampErrc::noSuchProcedure);
 
         auto rpcReqId = rpc.requestId({});
-        bool isContinuation = rpcReqId <= jobs_.lastInsertedCallerRequestId();
+        bool isContinuation = rpcReqId <= caller->lastInsertedCallRequestId();
         if (isContinuation)
         {
             return continueCall(std::move(caller), std::move(callee),
@@ -563,9 +569,10 @@ public:
         auto job = DealerJob::create(caller, callee, rpc, reg);
         if (!job)
             return makeUnexpected(job.error());
+        caller->setLastInsertedCallRequestId(rpc.requestId({}));
         auto inv = job->makeInvocation(caller, std::move(rpc));
-        jobs_.insert(std::move(*job));
-        callee->sendRouterCommand(std::move(inv), std::move(uri));
+        auto reqId = callee->sendInvocation(std::move(inv), std::move(uri));
+        jobs_.insert(std::move(*job), reqId);
         return true;
     }
 

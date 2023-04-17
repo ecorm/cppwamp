@@ -194,7 +194,10 @@ private:
     {
         auto action = abortSent ? AccessAction::serverAbort
                                 : AccessAction::serverDisconnect;
-        report({action, {}, {}, ec});
+        Object opts;
+        if (!why.empty())
+            opts.emplace("message", std::move(why));
+        report({action, {}, std::move(opts), ec});
     }
 
     void onTrace(std::string&& messageDump) override

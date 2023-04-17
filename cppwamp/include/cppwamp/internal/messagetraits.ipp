@@ -40,7 +40,7 @@ CPPWAMP_INLINE const MessageTraits& MessageTraits::lookup(MessageKind kind)
 /*  0 */ {nullptr,        K::none,        0,0,0,0,0,0,0,0,0, {i,n,n,n,n,n,n}},
 /*  1 */ {"HELLO",        K::none,        0,3,3,0,1,1,0,0,0, {i,s,o,n,n,n,n}},
 /*  2 */ {"WELCOME",      K::hello,       0,3,3,1,0,1,1,0,0, {i,i,o,n,n,n,n}},
-/*  3 */ {"ABORT",        K::hello,       0,3,3,1,0,1,1,1,0, {i,o,s,n,n,n,n}},
+/*  3 */ {"ABORT",        K::hello,       0,3,3,1,1,1,1,1,0, {i,o,s,n,n,n,n}},
 /*  4 */ {"CHALLENGE",    K::none,        0,3,3,1,0,1,1,0,0, {i,s,o,n,n,n,n}},
 /*  5 */ {"AUTHENTICATE", K::none,        0,3,3,0,1,0,1,0,0, {i,s,o,n,n,n,n}},
 /*  6 */ {"GOODBYE",      K::goodbye,     0,3,3,1,1,0,0,1,0, {i,o,s,n,n,n,n}},

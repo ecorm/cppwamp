@@ -123,6 +123,11 @@ CPPWAMP_INLINE void Result::setKindToYield(internal::PassKey)
     message().setKind(internal::MessageKind::yield);
 }
 
+CPPWAMP_INLINE void Result::setKindToResult(internal::PassKey)
+{
+    message().setKind(internal::MessageKind::result);
+}
+
 
 //******************************************************************************
 // Outcome

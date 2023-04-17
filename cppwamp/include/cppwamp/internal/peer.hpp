@@ -396,8 +396,9 @@ private:
         auto ec = make_error_code(WampErrc::protocolViolation);
         if (readyToAbort())
         {
-            abort(Reason(ec).withHint(why));
+            auto reason = Reason(ec).withHint(why);
             listener_.onFailure(std::move(why), ec, true);
+            abort(std::move(reason));
         }
         else
         {

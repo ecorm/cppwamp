@@ -94,11 +94,22 @@ public:
         return id;
     }
 
+    RequestId lastInsertedCallRequestId() const
+    {
+        return lastInsertedCallRequestId_.load();
+    }
+
+    void setLastInsertedCallRequestId(RequestId rid)
+    {
+        lastInsertedCallRequestId_.store(rid);
+    }
+
 protected:
     RouterSession(RouterLogger::Ptr logger = nullptr)
         : logger_(std::move(logger)),
           authInfo_(std::make_shared<AuthInfo>()),
-          nextOutboundRequestId_(0)
+          nextOutboundRequestId_(0),
+          lastInsertedCallRequestId_(0)
     {}
 
     virtual void onRouterAbort(Reason&&) = 0;
@@ -182,6 +193,7 @@ private:
     AuthInfo::Ptr authInfo_;
     ClientFeatures features_;
     std::atomic<RequestId> nextOutboundRequestId_;
+    std::atomic<RequestId> lastInsertedCallRequestId_;
 };
 
 } // namespace internal

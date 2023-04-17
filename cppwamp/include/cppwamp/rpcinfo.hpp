@@ -264,6 +264,7 @@ public:
     Result(internal::PassKey, internal::Message&& msg);
     bool isProgress(internal::PassKey) const;
     void setKindToYield(internal::PassKey);
+    void setKindToResult(internal::PassKey);
 };
 
 

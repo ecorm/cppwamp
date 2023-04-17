@@ -45,6 +45,11 @@ int main()
         ++eventCount;
     };
 
+    auto echo = [](wamp::Invocation inv) -> wamp::Outcome
+    {
+        return wamp::Result{inv.args().at(0).as<wamp::String>()};
+    };
+
     wamp::spawn(ioctx, [&](wamp::YieldContext yield)
     {
         session.connect(tcp, yield).value();
@@ -54,7 +59,11 @@ int main()
                 .withAuthMethods({"ticket"}),
             onChallenge,
             yield).value();
+        session.enroll(wamp::Procedure{"echo"}, echo, yield).value();
         session.subscribe(wamp::Topic{"foo"}, onEvent, yield).value();
+        auto echoed = session.call(wamp::Rpc{"echo"}.withArgs("hello"), yield);
+        logger({wamp::LogLevel::debug,
+                "echoed=" + wamp::toString(echoed.value().args())});
         session.publish(wamp::Pub{"foo"}.withArgs("bar").withExcludeMe(false),
                         yield).value();
 

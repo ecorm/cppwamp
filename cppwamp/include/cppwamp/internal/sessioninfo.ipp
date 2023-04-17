@@ -53,8 +53,18 @@ CPPWAMP_INLINE WampErrc Reason::errorCode() const
 
 CPPWAMP_INLINE AccessActionInfo Reason::info(bool isServer) const
 {
-    auto action = isServer ? AccessAction::serverGoodbye
-                           : AccessAction::clientGoodbye;
+    AccessAction action;
+    if (message().kind() == internal::MessageKind::abort)
+    {
+        action = isServer ? AccessAction::serverAbort
+                          : AccessAction::clientAbort;
+    }
+    else
+    {
+        action = isServer ? AccessAction::serverGoodbye
+                          : AccessAction::clientGoodbye;
+    }
+
     return {action, uri(), options()};
 }
 
