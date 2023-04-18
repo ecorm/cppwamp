@@ -57,7 +57,10 @@ public:
     explicit operator bool() const;
 
     /** Obtains the reason URI. */
-    const Uri& uri() const;
+    const Uri& uri() const &;
+
+    /** Moves the reason URI. */
+    Uri&& uri() &&;
 
     /** Attempts to convert the reason URI to a known error code. */
     WampErrc errorCode() const;

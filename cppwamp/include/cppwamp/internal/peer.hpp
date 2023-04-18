@@ -56,7 +56,11 @@ public:
         return compareAndSetState(State::disconnected, State::connecting);
     }
 
-    void failConnecting(std::error_code ec) {setState(State::failed, ec);}
+    void failConnecting(std::error_code ec)
+    {
+        setState(State::failed);
+        listener_.onPeerFailure(ec, false);
+    }
 
     void connect(Transporting::Ptr transport, AnyBufferCodec codec)
     {
@@ -113,10 +117,7 @@ public:
         return compareAndSetState(State::established, State::shuttingDown);
     }
 
-    void close()
-    {
-        setState(State::closed);
-    }
+    void close() {setState(State::closed);}
 
     void disconnect()
     {
@@ -170,7 +171,7 @@ public:
 
         traceTx(msg);
         transport_->sendNowAndClose(std::move(buffer));
-        setState(State::failed, r.errorCode());
+        setState(State::failed);
         if (!fits)
             return makeUnexpectedError(WampErrc::payloadSizeExceeded);
         return true;
@@ -189,26 +190,11 @@ private:
         return labels[n];
     }
 
-    State setState(State s, std::error_code ec = {})
-    {
-        auto old = state_.exchange(s);
-        if (old != s)
-            listener_.onStateChanged(s, ec);
-        return old;
-    }
-
-    template <typename TErrc>
-    State setState(State s, TErrc errc)
-    {
-        return setState(s, make_error_code(errc));
-    }
+    State setState(State s) {return state_.exchange(s);}
 
     bool compareAndSetState(State expected, State desired)
     {
-        bool ok = state_.compare_exchange_strong(expected, desired);
-        if (ok)
-            listener_.onStateChanged(desired, std::error_code{});
-        return ok;
+        return state_.compare_exchange_strong(expected, desired);
     }
 
     template <typename C>
@@ -309,12 +295,7 @@ private:
         bool wasJoining = s == State::establishing ||
                           s == State::authenticating;
         Reason r{{}, std::move(msg)};
-
-        if (wasJoining)
-            setState(State::closed);
-        else
-            setState(State::failed, r.errorCode());
-
+        setState(wasJoining ? State::closed : State::failed);
         listener_.onPeerAbort(std::move(r), wasJoining);
     }
 
@@ -343,12 +324,10 @@ private:
         }
         else
         {
-            WampErrc errc = reason.errorCode();
-            errc = (errc == WampErrc::success) ? WampErrc::closeRealm : errc;
-            listener_.onPeerGoodbye(std::move(reason), isShuttingDown);
-            setState(State::closed, errc);
+            setState(State::closed);
             Reason goodbye{WampErrc::goodbyeAndOut};
             send(goodbye);
+            listener_.onPeerGoodbye(std::move(reason), isShuttingDown);
         }
     }
 
@@ -368,7 +347,8 @@ private:
             transport_->close();
             transport_.reset();
         }
-        setState(State::disconnected, TransportErrc::disconnected);
+        setState(State::disconnected);
+        listener_.onPeerDisconnect();
     }
 
     void fail(std::string why, std::error_code ec)
@@ -378,8 +358,8 @@ private:
             transport_->close();
             transport_.reset();
         }
-        listener_.onFailure(std::move(why), ec, false);
-        setState(State::failed, ec);
+        setState(State::failed);
+        listener_.onPeerFailure(ec, false, std::move(why));
     }
 
     void failProtocol(std::string why)
@@ -388,7 +368,7 @@ private:
         if (readyToAbort())
         {
             auto reason = Reason(ec).withHint(why);
-            listener_.onFailure(std::move(why), ec, true);
+            listener_.onPeerFailure(ec, true, std::move(why));
             abort(std::move(reason));
         }
         else
@@ -427,7 +407,7 @@ private:
             oss << "," << fields;
         oss << ']';
 
-        listener_.onTrace(oss.str());
+        listener_.onPeerTrace(oss.str());
     }
 
     AnyBufferCodec codec_;

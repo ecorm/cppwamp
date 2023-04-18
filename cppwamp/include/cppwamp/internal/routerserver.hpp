@@ -160,37 +160,14 @@ private:
     void onRouterCommand(Result&& r) override       {sendRouterCommand(std::move(r));}
     void onRouterCommand(Interruption&& i) override {sendRouterCommand(std::move(i));}
 
-    void onStateChanged(SessionState s, std::error_code ec) override
+    void onPeerDisconnect() override
     {
-        switch (s)
-        {
-        case State::connecting:
-            report({AccessAction::clientConnect});
-            break;
-
-        case State::disconnected:
-            report({AccessAction::clientDisconnect});
-            retire();
-            break;
-
-        case State::closed:
-            leaveRealm();
-            if (!shuttingDown_)
-                peer_.establishSession();
-            break;
-
-        case State::failed:
-            retire();
-            break;
-
-        default:
-            // Do nothing
-            break;
-        }
+        report({AccessAction::clientDisconnect});
+        retire();
     }
 
-    void onFailure(std::string&& why, std::error_code ec,
-                   bool abortSent) override
+    void onPeerFailure(std::error_code ec, bool abortSent,
+                       std::string why) override
     {
         auto action = abortSent ? AccessAction::serverAbort
                                 : AccessAction::serverDisconnect;
@@ -198,9 +175,10 @@ private:
         if (!why.empty())
             opts.emplace("message", std::move(why));
         report({action, {}, std::move(opts), ec});
+        retire();
     }
 
-    void onTrace(std::string&& messageDump) override
+    void onPeerTrace(std::string&& messageDump) override
     {
         Base::routerLog({LogLevel::trace, std::move(messageDump)});
     }
@@ -248,14 +226,17 @@ private:
 
     void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
     {
+        leaveRealm();
         report(reason.info(false));
         if (!wasShuttingDown)
         {
             report({AccessAction::serverGoodbye,
                     errorCodeToUri(WampErrc::goodbyeAndOut)});
+            peer_.establishSession();
         }
-        // peer_ already took care of sending the reply and will close the
-        // session state.
+
+        // peer_ already took care of sending the GOODBYE reply if we were not
+        // shutting down.
     }
 
     void onPeerCommand(Error&& c) override            {sendToRealm(c);}
@@ -278,9 +259,10 @@ private:
         std::weak_ptr<ServerSession> self = shared_from_this();
 
         if (routerLogLevel() == LogLevel::trace)
-            enableTrace();
+            enableTracing();
 
         peer_.connect(std::move(transport_), std::move(codec_));
+        report({AccessAction::clientConnect});
     }
 
     void abortSession(Reason r)

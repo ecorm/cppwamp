@@ -141,7 +141,11 @@ public:
         return compareAndSetState(State::disconnected, State::connecting);
     }
 
-    void failConnecting(std::error_code ec) {setState(State::failed, ec);}
+    void failConnecting(std::error_code ec)
+    {
+        setState(State::failed);
+        listener_.onPeerFailure(ec, false);
+    }
 
     void connect(Transporting::Ptr transport, AnyBufferCodec)
     {
@@ -276,32 +280,20 @@ private:
         return labels[n];
     }
 
-    State setState(State s, std::error_code ec = {})
+    State setState(State s)
     {
-        auto old = state_.exchange(s);
-        if (old != s)
-            listener_.onStateChanged(s, ec);
-        return old;
-    }
-
-    template <typename TErrc>
-    State setState(State s, TErrc errc)
-    {
-        return setState(s, make_error_code(errc));
+        return state_.exchange(s);
     }
 
     bool compareAndSetState(State expected, State desired)
     {
-        bool ok = state_.compare_exchange_strong(expected, desired);
-        if (ok)
-            listener_.onStateChanged(desired, std::error_code{});
-        return ok;
+        return state_.compare_exchange_strong(expected, desired);
     }
 
     void onAbort(Reason&& reason)
     {
         traceRx(reason);
-        setState(State::failed, reason.errorCode());
+        setState(State::failed);
         listener_.onPeerAbort(std::move(reason), false);
     };
 
@@ -314,9 +306,9 @@ private:
 
     UnexpectedError fail(std::string why, std::error_code ec)
     {
-        setState(State::failed, ec);
+        setState(State::failed);
         realm_.leave(session_->wampId());
-        listener_.onFailure(std::move(why), ec, false);
+        listener_.onPeerFailure(ec, false, std::move(why));
         return UnexpectedError(ec);
     }
 
@@ -358,7 +350,7 @@ private:
             oss << "," << fields;
         oss << ']';
 
-        listener_.onTrace(oss.str());
+        listener_.onPeerTrace(oss.str());
     }
 
     DirectRouterSession::Ptr session_;

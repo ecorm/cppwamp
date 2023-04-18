@@ -29,9 +29,14 @@ CPPWAMP_INLINE Error::~Error() {}
 
 CPPWAMP_INLINE Error::operator bool() const {return !uri().empty();}
 
-CPPWAMP_INLINE const Uri& Error::uri() const
+CPPWAMP_INLINE const Uri& Error::uri() const &
 {
-    return message().as<String>(4);
+    return message().as<String>(uriPos_);
+}
+
+CPPWAMP_INLINE Uri&& Error::uri() &&
+{
+    return std::move(message().as<String>(uriPos_));
 }
 
 /** @return WampErrc::unknown if the URI is unknown. */

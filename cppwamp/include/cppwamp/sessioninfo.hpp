@@ -4,8 +4,8 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#ifndef CPPWAMP_PEERDATA_HPP
-#define CPPWAMP_PEERDATA_HPP
+#ifndef CPPWAMP_SESSIONINFO_HPP
+#define CPPWAMP_SESSIONINFO_HPP
 
 #include <future>
 #include <memory>
@@ -14,7 +14,9 @@
 #include "accesslogging.hpp"
 #include "api.hpp"
 #include "errorcodes.hpp"
+#include "errorinfo.hpp"
 #include "erroror.hpp"
+#include "exceptions.hpp"
 #include "features.hpp"
 #include "options.hpp"
 #include "tagtypes.hpp"
@@ -50,14 +52,23 @@ public:
         it to a reason URI. */
     Reason(WampErrc errc);
 
+    /** Constructor taking an error::BadType exception. */
+    explicit Reason(const error::BadType& e);
+
     /** Sets the `message` member of the details dictionary. */
     Reason& withHint(String message);
 
     /** Obtains the reason URI. */
-    const Uri& uri() const;
+    const Uri& uri() const &;
+
+    /** Moves the reason URI. */
+    Uri&& uri() &&;
 
     /** Obtains the `message` member of the details dictionary. */
-    ErrorOr<String> hint() const;
+    ErrorOr<String> hint() const &;
+
+    /** Moves the `message` member of the details dictionary. */
+    ErrorOr<String> hint() &&;
 
     /** Attempts to convert the reason URI to a known error code. */
     WampErrc errorCode() const;
@@ -344,10 +355,65 @@ public:
     void setChallengee(internal::PassKey, ChallengeePtr challengee);
 };
 
+//------------------------------------------------------------------------------
+/** Enumerates spontaneous Session event types.
+
+    One of the following error codes is emitted alongside IncidentKind::trouble:
+
+    Error Code                    | Cause
+    ----------------------------- | -----
+    WampErrc::payloadSizeExceeded | Outbound RESULT/ERROR exceeded transport limits
+    WampErrc::noSuchProcedure     | No registration matched URI of received INVOCATION
+    Errc::noSuchTopic             | No subscription matched URI of received EVENT
+
+    @note `transportDropped` may follow `closedByPeer` or `abortedByPeer`
+          depending on the behavior of the router. */
+//------------------------------------------------------------------------------
+enum class IncidentKind
+{
+    transportDropped,     /**< Transport connection dropped by peer or network. */
+    closedByPeer,         /**< WAMP session killed by the remote peer. */
+    abortedByPeer,        /**< WAMP session aborted by the remote peer. */
+    trace,                /**< A WAMP message was sent or received. */
+    commFailure,          /**< A fatal transport or protocol error occurred. */
+    challengeError,       /**< A challenge handler reported an error. */
+    eventError,           /**< A pub-sub event handler reported an error. */
+    trouble               /**< A non-fatal problem occurred. */
+};
+
+//------------------------------------------------------------------------------
+/** Contains information on a spontanous Session event. */
+//------------------------------------------------------------------------------
+class CPPWAMP_API Incident
+{
+public:
+    Incident(IncidentKind kind, std::string msg = {});
+
+    Incident(IncidentKind kind, std::error_code ec, std::string msg = {});
+
+    Incident(IncidentKind kind, const Reason& r);
+
+    Incident(IncidentKind kind, const Error& e);
+
+    /** Obtains the type of incident. */
+    IncidentKind kind() const;
+
+    /** Optional error code associated with the incident. */
+    std::error_code error() const;
+
+    /** Obtains optional additional information. */
+    std::string message() const;
+
+private:
+    std::string message_;   ///< Provides optional additional information.
+    std::error_code error_; ///< Error code associated with the incident.
+    IncidentKind kind_;     ///< The type of incident.
+};
+
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
 #include "./internal/sessioninfo.ipp"
 #endif
 
-#endif // CPPWAMP_PEERDATA_HPP
+#endif // CPPWAMP_SESSIONINFO_HPP

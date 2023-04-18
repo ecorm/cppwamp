@@ -274,46 +274,26 @@ there is currently no way to abort a single coroutine operation without
 dropping the connection or leaving the realm.
 
 
-Logging
--------
+Incidents
+---------
 
-`wamp::Session` can generate log events at runtime, for warnings, error
-conditions and for inbound/outbound WAMP messages. CppWAMP is not opinionated
-about where the log events should go, so it provides the
-@ref wamp::Session::listenLogged "listenLogged" method that
-allows you to register a handler for these log events, as well as
-the @ref wamp::Session::setLogLevel "setLogLevel" method that allows you to
-filter log events based on severity.
+A `wamp::Incident` is a spontaneous event that occurs within a `wamp::Session`
+and that cannot be captured by a completion handler. An example of an incident
+is a remote peer disconnecting. These are not the same as WAMP pub-sub events.
 
-Warning-level log entries are generated when there are problems detected that
-don't prevent a session from continuing its operations.
+A handler for incidents may be registered via `wamp::Session::observeIncidents`.
+Such a handler may, for example, log the incident, or attempt to reestablish
+the session upon failure.
 
-Error-level log enties are generated when there is error information that
-can't be reported back via completion handlers.
-
-Traces contain a stringified version of the WAMP protocol messages.
-They can be useful for troubleshooting protocol logic without having to set up
-a network analyzer.
-
-The log handler must be callable entities with the
+The incident handler must be callable entities with the
 signature:
 ```
-void handler(wamp::LogEntry)
+void handler(wamp::Incident)
 ```
 
 Unless it already has a bound executor, the log handler is dispatched via
 `Session::fallbackExecutor()`.
 
-CppWAMP provides wamp::utils::ConsoleLogger and wamp::utils::ColorConsoleLogger
-that output log entries to the console. You can pass instances of them directly
-to Session::listenLogged.
-
-```
-wamp::IoContext ioctx;
-wamp::Session session(ioctx);
-
-session.listenLogged(wamp::utils::ColorConsoleLogger{});
-```
 
 Authentication
 --------------

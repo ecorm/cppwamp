@@ -32,8 +32,7 @@ public:
 
     virtual void safeUnsubscribe(const Subscription&) = 0;
 
-    virtual void onEventError(const Error&, const std::string& topicUri,
-                              SubscriptionId, PublicationId) = 0;
+    virtual void onEventError(const Error&) = 0;
 };
 
 } // namespace internal

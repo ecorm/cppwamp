@@ -29,20 +29,36 @@ CPPWAMP_INLINE Reason::Reason(WampErrc errc)
     : Reason(errorCodeToUri(errc))
 {}
 
+CPPWAMP_INLINE Reason::Reason(const error::BadType& e)
+    : Reason(WampErrc::invalidArgument)
+{
+    withHint(e.what());
+}
+
 CPPWAMP_INLINE Reason& Reason::withHint(String text)
 {
     withOption("message", std::move(text));
     return *this;
 }
 
-CPPWAMP_INLINE const Uri& Reason::uri() const
+CPPWAMP_INLINE const Uri& Reason::uri() const &
 {
     return message().as<String>(uriPos_);
 }
 
-CPPWAMP_INLINE ErrorOr<String> Reason::hint() const
+CPPWAMP_INLINE Uri&& Reason::uri() &&
+{
+    return std::move(message().as<String>(uriPos_));
+}
+
+CPPWAMP_INLINE ErrorOr<String> Reason::hint() const &
 {
     return optionAs<String>("message");
+}
+
+CPPWAMP_INLINE ErrorOr<String> Reason::hint() &&
+{
+    return std::move(*this).optionAs<String>("message");
 }
 
 /** @return WampErrc::unknown if the URI is unknown. */
@@ -460,5 +476,48 @@ CPPWAMP_INLINE void Challenge::setChallengee(internal::PassKey,
 {
     challengee_ = std::move(challengee);
 }
+
+
+//******************************************************************************
+// Incident
+//******************************************************************************
+
+CPPWAMP_INLINE Incident::Incident(IncidentKind kind, std::string msg)
+    : message_(std::move(msg)),
+    kind_(kind)
+{}
+
+CPPWAMP_INLINE Incident::Incident(IncidentKind kind, std::error_code ec,
+                                  std::string msg)
+    : message_(std::move(msg)),
+      error_(ec),
+      kind_(kind)
+{}
+
+CPPWAMP_INLINE Incident::Incident(IncidentKind kind, const Reason& r)
+    : error_(make_error_code(r.errorCode())),
+      kind_(kind)
+{
+    message_ = "With reason URI " + r.uri();
+    if (!r.options().empty())
+        message_ += " and details " + toString(r.options());
+}
+
+CPPWAMP_INLINE Incident::Incident(IncidentKind kind, const Error& e)
+    : error_(make_error_code(e.errorCode())),
+      kind_(kind)
+{
+    message_ = "With error URI=" + e.uri();
+    if (!e.args().empty())
+        message_ += ", with args=" + toString(e.args());
+    if (!e.kwargs().empty())
+        message_ += ", with kwargs=" + toString(e.kwargs());
+}
+
+CPPWAMP_INLINE IncidentKind Incident::kind() const {return kind_;}
+
+CPPWAMP_INLINE std::error_code Incident::error() const {return error_;}
+
+CPPWAMP_INLINE std::string Incident::message() const {return message_;}
 
 } // namespace wamp

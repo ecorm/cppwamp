@@ -28,12 +28,12 @@ namespace internal
 class PeerListener
 {
 public:
-    virtual void onStateChanged(SessionState, std::error_code) = 0;
+    virtual void onPeerDisconnect() = 0;
 
-    virtual void onFailure(std::string&& why, std::error_code ec,
-                           bool abortSent) = 0;
+    virtual void onPeerFailure(std::error_code ec, bool abortSent,
+                               std::string why = {}) = 0;
 
-    virtual void onTrace(std::string&& messageDump) = 0;
+    virtual void onPeerTrace(std::string&& messageDump) = 0;
 
     virtual void onPeerHello(Realm&&) {assert(false);}
 
@@ -95,7 +95,7 @@ public:
     virtual void onPeerCommand(Invocation&& c)       {onPeerMessage(std::move(c.message({})));}
     virtual void onPeerCommand(Interruption&& c)     {onPeerMessage(std::move(c.message({})));}
 
-    void enableTrace(bool enabled = true) {traceEnabled_.store(enabled);}
+    void enableTracing(bool enabled = true) {traceEnabled_.store(enabled);}
 
     bool traceEnabled() const {return traceEnabled_.load();}
 

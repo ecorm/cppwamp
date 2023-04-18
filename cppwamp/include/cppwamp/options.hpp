@@ -64,7 +64,11 @@ public:
 
     /** Obtains an option by key having the given type. */
     template <typename T>
-    ErrorOr<T> optionAs(const String& key) const;
+    ErrorOr<T> optionAs(const String& key) const &;
+
+    /** Moves an option by key having the given type. */
+    template <typename T>
+    ErrorOr<T> optionAs(const String& key) &&;
 
     /** Obtains an option by key, converted to an unsigned integer. */
     ErrorOr<UInt> toUnsignedInteger(const String& key) const;
@@ -178,7 +182,7 @@ template <typename D, internal::MessageKind K>
 template <typename T>
 ErrorOr<T> Options<D,K>::optionAs(
     const String& key /**< The key to search under. */
-    ) const
+    ) const &
 {
     auto iter = options().find(key);
     if (iter == options().end())
@@ -186,6 +190,24 @@ ErrorOr<T> Options<D,K>::optionAs(
     if (!iter->second.template is<T>())
         return makeUnexpectedError(Errc::badType);
     return iter->second.template as<T>();
+}
+
+//------------------------------------------------------------------------------
+/** @returns The option value, or an error code of either
+             Errc::absent or Errc::badType. */
+//------------------------------------------------------------------------------
+template <typename D, internal::MessageKind K>
+template <typename T>
+ErrorOr<T> Options<D,K>::optionAs(
+    const String& key /**< The key to search under. */
+    ) &&
+{
+    auto iter = options().find(key);
+    if (iter == options().end())
+        return makeUnexpectedError(Errc::absent);
+    if (!iter->second.template is<T>())
+        return makeUnexpectedError(Errc::badType);
+    return std::move(iter->second.template as<T>());
 }
 
 //------------------------------------------------------------------------------

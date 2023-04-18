@@ -78,13 +78,13 @@ CPPWAMP_INLINE SessionState Session::state() const
 
 //------------------------------------------------------------------------------
 /** @details
-    The default log level is LogLevel::warning if never set.
+    Message tracing is disabled by default.
     @note This method is thread-safe.
-    @see Session::listenLogged */
+    @see Session::observeIncidents */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::setLogLevel(LogLevel level)
+CPPWAMP_INLINE void Session::enableTracing(bool enabled)
 {
-    impl_->setLogLevel(level);
+    impl_->enableTracing(enabled);
 }
 
 //------------------------------------------------------------------------------
@@ -216,17 +216,11 @@ CPPWAMP_INLINE void Session::unregister(
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void Session::doSetLogHandler(LogSlot&& s)
-    {impl_->listenLogged(std::move(s));}
+CPPWAMP_INLINE void Session::setIncidentHandler(IncidentSlot&& s)
+    {impl_->observeIncidents(std::move(s));}
 
-CPPWAMP_INLINE void Session::safeListenLogged(LogSlot&& s)
-    {impl_->safeListenLogged(std::move(s));}
-
-CPPWAMP_INLINE void Session::doSetStateChangeHandler(StateSlot&& s)
-    {impl_->listenStateChanged(std::move(s));}
-
-CPPWAMP_INLINE void Session::safeListenStateChanged(ThreadSafe, StateSlot&& s)
-    {impl_->listenStateChanged(std::move(s));}
+CPPWAMP_INLINE void Session::safeSetIncidentHandler(IncidentSlot&& s)
+    {impl_->safeObserveIncidents(std::move(s));}
 
 CPPWAMP_INLINE void Session::doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f)
     {impl_->connect(std::move(w), std::move(f));}

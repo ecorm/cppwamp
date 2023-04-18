@@ -30,7 +30,6 @@
 #include "exceptions.hpp"
 #include "errorcodes.hpp"
 #include "erroror.hpp"
-#include "logging.hpp"
 #include "pubsubinfo.hpp"
 #include "registration.hpp"
 #include "rpcinfo.hpp"
@@ -204,24 +203,16 @@ public:
 
     /// @name Modifiers
     /// @{
-    /** Sets the handler that is dispatched for logging events. */
+    /** Sets the handler that is dispatched for session incidents. */
     template <typename S>
-    void listenLogged(S&& logSlot);
+    void observeIncidents(S&& incidentSlot);
 
-    /** Thread-safe setting of log handler. */
+    /** Thread-safe setting of incident handler. */
     template <typename S>
-    void listenLogged(ThreadSafe, S&& logSlot);
+    void observeIncidents(ThreadSafe, S&& incidentSlot);
 
-    /** Sets the maximum level of log events that will be emitted. */
-    void setLogLevel(LogLevel level);
-
-    /** Sets the handler that is posted for session state changes. */
-    template <typename S>
-    void listenStateChanged(S&& stateSlot);
-
-    /** Thread-safe setting of state change handler. */
-    template <typename S>
-    void listenStateChanged(ThreadSafe, S&& stateSlot);
+    /** Enables message tracing incidents. */
+    void enableTracing(bool enabled = true);
     /// @}
 
     /// @name Session Management
@@ -440,8 +431,7 @@ private:
     template <typename T>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<T>)>;
 
-    using LogSlot       = AnyReusableHandler<void (LogEntry)>;
-    using StateSlot     = AnyReusableHandler<void (State, std::error_code ec)>;
+    using IncidentSlot  = AnyReusableHandler<void (Incident)>;
     using ChallengeSlot = AnyReusableHandler<void (Challenge)>;
     using EventSlot     = AnyReusableHandler<void (Event)>;
     using CallSlot      = AnyReusableHandler<Outcome (Invocation)>;
@@ -478,10 +468,8 @@ private:
     Deduced<ErrorOr<typename O::ResultValue>, C>
     safelyInitiate(C&& token, As&&... args);
 
-    void doSetLogHandler(LogSlot&& s);
-    void safeListenLogged(LogSlot&& s);
-    void doSetStateChangeHandler(StateSlot&& s);
-    void safeListenStateChanged(ThreadSafe, StateSlot&& s);
+    void setIncidentHandler(IncidentSlot&& s);
+    void safeSetIncidentHandler(IncidentSlot&& s);
     void doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
     void safeConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
     void doJoin(Realm&& r, ChallengeSlot&& s, CompletionHandler<Welcome>&& f);
@@ -527,62 +515,27 @@ private:
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** @tparam S Callable handler with signature `void (LogEntry)`
+/** @tparam S Callable handler with signature `void (Incident)`
     @details
-    Log events are emitted in the following situations:
-    - Errors: Protocol violations, message deserialization errors, unsupported
-              features, invalid states, inability to perform operations,
-              conversion errors, or transport payload overflows.
-    - Warnings: Problems that do not prevent operations from proceeding.
-    - Traces: Transmitted and received WAMP messages presented in JSON format.
-
-    Log events are discarded when there is no log handler set.
-
     Copies of the handler are made when they are dispatched. If the handler
     needs to be stateful, or is non-copyable, then pass a stateless copyable
     proxy instead.
-
-    @note No state change events are fired when the session object is
-          terminating.
-    @see Session::setLogLevel */
+    @note No incident events are fired when the session object is terminating.
+    @see Session::enableTracing */
 //------------------------------------------------------------------------------
 template <typename S>
-void Session::listenLogged(S&& logSlot)
+void Session::observeIncidents(S&& incidentSlot)
 {
-    doSetLogHandler(bindFallbackExecutor(std::forward<S>(logSlot)));
+    setIncidentHandler(bindFallbackExecutor(std::forward<S>(incidentSlot)));
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::listenLogged(S&&) */
+/** @copydetails Session::observeIncidents(S&&) */
 //------------------------------------------------------------------------------
 template <typename S>
-void Session::listenLogged(ThreadSafe, S&& logSlot)
+void Session::observeIncidents(ThreadSafe, S&& incidentSlot)
 {
-    safeListenLogged(bindFallbackExecutor(std::forward<S>(logSlot)));
-}
-
-//------------------------------------------------------------------------------
-/** @details
-    Copies of the handler are made when they are dispatched. If the handler
-    needs to be stateful, or is non-copyable, then pass a stateless copyable
-    proxy instead.
-
-    @note No state change events are fired when the session object is
-          terminating. */
-//------------------------------------------------------------------------------
-template <typename S>
-CPPWAMP_INLINE void Session::listenStateChanged(S&& stateSlot)
-{
-    doSetStateChangeHandler(std::move(stateSlot));
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::listenStateChanged(S&&) */
-//------------------------------------------------------------------------------
-template <typename S>
-CPPWAMP_INLINE void Session::listenStateChanged(ThreadSafe, S&& stateSlot)
-{
-    safeListenStateChanged(std::move(stateSlot));
+    safeListenLogged(bindFallbackExecutor(std::forward<S>(incidentSlot)));
 }
 
 //------------------------------------------------------------------------------

@@ -24,27 +24,22 @@ namespace wamp
 //******************************************************************************
 
 //------------------------------------------------------------------------------
-/** %Error code values used with the GenericCategory error category.
-    The equivalencies to these codes are as follows:
-
-    std::error_code                           | Equivalent condition value
-    ----------------------------------------- | --------------------------
-    make_error_code(WampErrc::systemShutdown) | sessionKilled
-    make_error_code(WampErrc::closeRealm)     | sessionKilled
-    make_error_code(WampErrc::sessionKilled)  | sessionKilled */
+/** %Error code values used with the GenericCategory error category. */
 //------------------------------------------------------------------------------
-enum class Errc
+enum class Errc // TODO: Rename to MiscErrc
 {
     success      = 0, ///< Operation successful
     abandoned    = 1, ///< Operation abandoned by this peer
     invalidState = 2, ///< Invalid state for this operation
     absent       = 3, ///< Item is absent
     badType      = 4, ///< Invalid or unexpected type
+    noSuchTopic  = 5, ///< No subscription under the given topic URI
     count
 };
 
 //------------------------------------------------------------------------------
-/** std::error_category used for reporting errors at the WAMP session layer.
+/** std::error_category used for reporting miscellanous errors not belonging
+    to another category.
     @see Errc */
 //------------------------------------------------------------------------------
 class CPPWAMP_API GenericCategory : public std::error_category
