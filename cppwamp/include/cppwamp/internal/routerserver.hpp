@@ -125,8 +125,8 @@ private:
     ServerSession(const IoStrand& i, Transporting::Ptr&& t, AnyBufferCodec&& c,
                   ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)
         : Base(s.logger()),
-          peer_(this, true),
           strand_(std::move(i)),
+          peer_(new Peer(this, true)),
           transport_(t),
           codec_(std::move(c)),
           server_(std::move(s)),
@@ -232,7 +232,7 @@ private:
         {
             report({AccessAction::serverGoodbye,
                     errorCodeToUri(WampErrc::goodbyeAndOut)});
-            peer_.establishSession();
+            peer_->establishSession();
         }
 
         // peer_ already took care of sending the GOODBYE reply if we were not
@@ -249,7 +249,7 @@ private:
     void onPeerCommand(Unregister&& c) override       {sendToRealm(c);}
     void onPeerCommand(Result&& c) override           {sendToRealm(c);}
 
-    State state() const {return peer_.state();}
+    State state() const {return peer_->state();}
 
     void startSession()
     {
@@ -261,7 +261,7 @@ private:
         if (routerLogLevel() == LogLevel::trace)
             enableTracing();
 
-        peer_.connect(std::move(transport_), std::move(codec_));
+        peer_->connect(std::move(transport_), std::move(codec_));
         report({AccessAction::clientConnect});
     }
 
@@ -270,7 +270,7 @@ private:
         shuttingDown_ = true;
         report({AccessAction::serverAbort, {}, r.options(), r.uri()});
         leaveRealm();
-        peer_.abort(r);
+        peer_->abort(r);
     }
 
     template <typename C>
@@ -286,7 +286,7 @@ private:
                 auto& me = *self;
                 if (me.state() != State::established)
                     return;
-                me.peer_.send(std::move(command));
+                me.peer_->send(std::move(command));
             }
         };
 
@@ -350,7 +350,7 @@ private:
         {
             auto c = authExchange_->challenge();
             report(c.info());
-            peer_.send(std::move(c));
+            peer_->send(std::move(c));
         }
     }
 
@@ -386,7 +386,7 @@ private:
         Base::setWelcomeInfo(std::move(info));
         authExchange_.reset();
         report({AccessAction::serverWelcome, realm.uri(), realm.options()});
-        peer_.welcome(wampId(), std::move(details));
+        peer_->welcome(wampId(), std::move(details));
     }
 
     void safeWelcome(AuthInfo&& info) override
@@ -411,7 +411,7 @@ private:
 
         authExchange_.reset();
         resetWampSessionInfo();
-        peer_.abort(std::move(r));
+        peer_->abort(std::move(r));
     }
 
     void safeReject(Reason&& r) override
@@ -432,8 +432,8 @@ private:
         dispatch(F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
-    Peer peer_;
     IoStrand strand_;
+    Peer::Ptr peer_;
     Transporting::Ptr transport_;
     AnyBufferCodec codec_;
     ServerContext server_;

@@ -269,7 +269,7 @@ public:
                 requests_.erase(kv);
                 if (key.first == MessageKind::call)
                     deadlines_->erase(key.second);
-                handler(std::move(msg));
+                completeRequest(handler, std::move(msg));
                 return true;
             }
         }
@@ -1083,7 +1083,7 @@ public:
         return rolesDict;
     }
 
-    State state() const {return peer_.state();}
+    State state() const {return peer_->state();}
 
     const AnyIoExecutor& executor() const {return executor_;}
 
@@ -1115,7 +1115,7 @@ public:
     {
         assert(!wishes.empty());
 
-        if (!peer_.startConnecting())
+        if (!peer_->startConnecting())
             return postErrorToHandler(Errc::invalidState, handler);
         isTerminating_ = false;
         currentConnector_ = nullptr;
@@ -1171,7 +1171,7 @@ public:
             }
         };
 
-        if (!peer_.establishSession())
+        if (!peer_->establishSession())
             return postErrorToHandler(Errc::invalidState, handler);
 
         realm.withOption("agent", Version::agentString())
@@ -1201,7 +1201,7 @@ public:
     {
         if (state() != State::authenticating)
             return makeUnexpectedError(Errc::invalidState);
-        return peer_.send(std::move(auth));
+        return peer_->send(std::move(auth));
     }
 
     FutureErrorOrDone safeAuthenticate(Authentication&& a) override
@@ -1239,7 +1239,8 @@ public:
         if (incidentSlot_)
             report({IncidentKind::challengeFailure, r});
 
-        return abort(std::move(r));
+        abandonPending(r.errorCode());
+        return peer_->abort(std::move(r));
     }
 
     FutureErrorOrDone safeFailAuthentication(Reason&& r) override
@@ -1282,13 +1283,13 @@ public:
                 if (me.checkError(reply, handler))
                 {
                     me.clear();
-                    me.peer_.close();
+                    me.peer_->close();
                     me.completeNow(handler, Reason({}, std::move(*reply)));
                 }
             }
         };
 
-        if (!peer_.startShuttingDown())
+        if (!peer_->startShuttingDown())
             return postErrorToHandler(Errc::invalidState, handler);
 
         if (reason.uri().empty())
@@ -1316,7 +1317,7 @@ public:
         if (state() == State::connecting)
             currentConnector_->cancel();
         clear();
-        peer_.disconnect();
+        peer_->disconnect();
     }
 
     void safeDisconnect()
@@ -1345,11 +1346,6 @@ public:
         };
 
         safelyDispatch<Dispatched>();
-    }
-
-    ErrorOrDone abort(Reason r)
-    {
-        return peer_.abort(std::move(r));
     }
 
     void subscribe(Topic&& topic, EventSlot&& slot,
@@ -1465,7 +1461,7 @@ public:
     {
         if (state() != State::established)
             return makeUnexpectedError(Errc::invalidState);
-        return peer_.send(std::move(pub));
+        return peer_->send(std::move(pub));
     }
 
     FutureErrorOrDone safePublish(Pub&& p)
@@ -2057,13 +2053,13 @@ private:
     using RequestHandler      = AnyCompletionHandler<void (ErrorOr<Message>)>;
 
     Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
-        : peer_(this, false),
-          executor_(std::move(exec)),
+        : executor_(std::move(exec)),
           userExecutor_(std::move(userExec)),
           strand_(boost::asio::make_strand(executor_)),
+          peer_(new Peer(this, false)),
           readership_(executor_, userExecutor_),
-          registry_(peer_, executor_, userExecutor_),
-          requestor_(peer_, strand_, executor_, userExecutor_)
+          registry_(*peer_, executor_, userExecutor_),
+          requestor_(*peer_, strand_, executor_, userExecutor_)
     {}
 
     void onPeerDisconnect() override
@@ -2074,7 +2070,7 @@ private:
     void onPeerFailure(std::error_code ec, bool, std::string why) override
     {
         report({IncidentKind::commFailure, ec, std::move(why)});
-        abortPending(ec);
+        abandonPending(ec);
     }
 
     void onPeerTrace(std::string&& messageDump) override
@@ -2091,7 +2087,7 @@ private:
         if (incidentSlot_)
             report({IncidentKind::abortedByPeer, reason});
 
-        abortPending(reason.errorCode());
+        abandonPending(reason.errorCode());
     }
 
     void onPeerChallenge(Challenge&& challenge) override
@@ -2145,11 +2141,12 @@ private:
 
     void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
     {
+        auto errc = reason.errorCode();
         if (wasShuttingDown)
             onWampReply(reason.message({}));
         else if (incidentSlot_)
             report({IncidentKind::closedByPeer, reason});
-        abortPending(reason.errorCode());
+        abandonPending(errc);
     }
 
     void onPeerMessage(Message&& msg) override
@@ -2194,7 +2191,7 @@ private:
         }
         if (errc == WampErrc::protocolViolation)
         {
-            peer_.abort(
+            peer_->abort(
                 Reason(WampErrc::protocolViolation)
                     .withHint("Router attempted to reinvoke an RPC "
                               "that is closed to further progress"));
@@ -2214,7 +2211,7 @@ private:
         assert(msg.isReply());
         if (!requestor_.onReply(std::move(msg)))
         {
-            peer_.abort(
+            peer_->abort(
                 Reason(WampErrc::protocolViolation)
                     .withHint(std::string("Received ") + msgName +
                               " message with no matching request"));
@@ -2272,7 +2269,7 @@ private:
         return requestor_.request(std::move(info), std::move(handler));
     }
 
-    void abortPending(std::error_code ec)
+    void abandonPending(std::error_code ec)
     {
         if (isTerminating_)
             requestor_.clear();
@@ -2281,7 +2278,7 @@ private:
     }
 
     template <typename TErrc>
-    void abortPending(TErrc errc) {abortPending(make_error_code(errc));}
+    void abandonPending(TErrc errc) {abandonPending(make_error_code(errc));}
 
     void doConnect(ConnectionWishList&& wishes, size_t index,
                    std::shared_ptr<CompletionHandler<size_t>> handler)
@@ -2311,7 +2308,7 @@ private:
                 else if (me.state() == State::connecting)
                 {
                     auto codec = wishes.at(index).makeCodec();
-                    me.peer_.connect(std::move(*transport), std::move(codec));
+                    me.peer_->connect(std::move(*transport), std::move(codec));
                     me.completeNow(*handler, index);
                 }
                 else
@@ -2347,7 +2344,7 @@ private:
             {
                 if (wishes.size() > 1)
                     ec = make_error_code(TransportErrc::exhausted);
-                peer_.failConnecting(ec);
+                peer_->failConnecting(ec);
                 completeNow(*handler, UnexpectedError(ec));
             }
         }
@@ -2355,7 +2352,7 @@ private:
 
     void clear()
     {
-        abortPending(Errc::abandoned);
+        abandonPending(Errc::abandoned);
         readership_.clear();
         registry_.clear();
     }
@@ -2485,16 +2482,16 @@ private:
         dispatchHandler(handler, std::forward<Ts>(args)...);
     }
 
-    Peer peer_;
     AnyIoExecutor executor_;
     AnyCompletionExecutor userExecutor_;
     IoStrand strand_;
-    Connecting::Ptr currentConnector_;
+    Peer::Ptr peer_;
     Readership readership_;
     ProcedureRegistry registry_;
     Requestor requestor_;
     IncidentSlot incidentSlot_;
     ChallengeSlot challengeSlot_;
+    Connecting::Ptr currentConnector_;
     bool isTerminating_ = false;
 };
 

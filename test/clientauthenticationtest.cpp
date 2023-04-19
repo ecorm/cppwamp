@@ -54,9 +54,9 @@ struct TicketAuthFixture
         challenge = authChallenge;
         challengeState = session.state();
         if (failAuthenticationArmed)
-            authChallenge.fail(Reason{"because"});
+            authChallenge.fail(Reason{WampErrc::authenticationFailed});
         else if (throwArmed)
-            throw Reason{"because"};
+            throw Reason{WampErrc::authenticationFailed};
         else
             authChallenge.authenticate(Authentication(signature));
     }
@@ -141,7 +141,7 @@ GIVEN( "a Session with a registered challenge handler" )
             CHECK( f.challengeState == SessionState::authenticating );
             CHECK( f.challenge.method() == "ticket" );
             REQUIRE_FALSE( f.welcome.has_value() );
-            CHECK( f.welcome.error() == Errc::abandoned );
+            CHECK( f.welcome.error() == WampErrc::authenticationFailed );
             CHECK( f.abortReason.uri().empty() );
         }
     }
@@ -164,10 +164,12 @@ GIVEN( "a Session with a registered challenge handler" )
             CHECK( f.challengeState == SessionState::authenticating );
             CHECK( f.challenge.method() == "ticket" );
             REQUIRE_FALSE( f.welcome.has_value() );
-            CHECK( f.welcome.error() == Errc::abandoned );
+            CHECK( f.welcome.error() == WampErrc::authenticationFailed );
             CHECK( f.abortReason.uri().empty() );
         }
     }
+
+    // TODO: Missing challenge handler
 }}
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)

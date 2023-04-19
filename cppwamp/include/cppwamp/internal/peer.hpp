@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -29,9 +30,10 @@ namespace internal
 //------------------------------------------------------------------------------
 // Provides session functionality common to both clients and router peers.
 //------------------------------------------------------------------------------
-class Peer
+class Peer : public std::enable_shared_from_this<Peer>
 {
 public:
+    using Ptr = std::shared_ptr<Peer>;
     using State = SessionState;
 
     explicit Peer(PeerListener* listener, bool isRouter)
@@ -59,7 +61,6 @@ public:
     void failConnecting(std::error_code ec)
     {
         setState(State::failed);
-        listener_.onPeerFailure(ec, false);
     }
 
     void connect(Transporting::Ptr transport, AnyBufferCodec codec)
@@ -82,22 +83,19 @@ public:
 
         if (!transport_->isStarted())
         {
+            std::weak_ptr<Peer> weakSelf = shared_from_this();
             transport_->start(
-                [this](ErrorOr<MessageBuffer> buffer)
+                [weakSelf](ErrorOr<MessageBuffer> buffer)
                 {
-                    // Ignore transport cancellation errors when disconnecting.
-                    if (buffer.has_value())
-                        onTransportRx(std::move(*buffer));
-                    else if (buffer.error() == TransportErrc::disconnected)
-                        onRemoteDisconnect();
-                    else if (state() != State::disconnected)
-                        fail("Transport receive failure", buffer.error());
+                    auto self = weakSelf.lock();
+                    if (self)
+                        self->onTransportRx(buffer);
                 },
-                [this](std::error_code ec)
+                [weakSelf](std::error_code ec)
                 {
-                    // Ignore transport cancellation errors when disconnecting.
-                    if (state() != State::disconnected)
-                        fail("Transport send failure", ec);
+                    auto self = weakSelf.lock();
+                    if (self)
+                        self->onTransportTxError(ec);
                 }
             );
         }
@@ -121,12 +119,12 @@ public:
 
     void disconnect()
     {
+        setState(State::disconnected);
         if (transport_)
         {
             transport_->close();
             transport_.reset();
         }
-        setState(State::disconnected);
     }
 
     template <typename C>
@@ -188,6 +186,24 @@ private:
         auto n = static_cast<Index>(state);
         assert(n < Index(std::extent<decltype(labels)>::value));
         return labels[n];
+    }
+
+    void onTransportRx(ErrorOr<MessageBuffer>& buffer)
+    {
+        // Ignore transport cancellation errors when disconnecting.
+        if (buffer.has_value())
+            onTransportRx(std::move(*buffer));
+        else if (buffer.error() == TransportErrc::disconnected)
+            onRemoteDisconnect();
+        else if (state() != State::disconnected)
+            fail("Transport receive failure", buffer.error());
+    }
+
+    void onTransportTxError(std::error_code ec)
+    {
+        // Ignore transport cancellation errors when disconnecting.
+        if (state() != State::disconnected)
+            fail("Transport send failure", ec);
     }
 
     State setState(State s) {return state_.exchange(s);}

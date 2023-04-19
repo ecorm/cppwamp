@@ -376,7 +376,7 @@ enum class IncidentKind
     closedByPeer,         /**< WAMP session killed by the remote peer. */
     abortedByPeer,        /**< WAMP session aborted by the remote peer. */
     commFailure,          /**< A fatal transport or protocol error occurred. */
-    challengeFailure,       /**< A challenge handler reported an error. */
+    challengeFailure,     /**< The challenge handler reported an error. */
     eventError,           /**< A pub-sub event handler reported an error. */
     trouble,              /**< A non-fatal problem occurred. */
     trace,                /**< A WAMP message was sent or received. */

@@ -127,7 +127,6 @@ SCENARIO( "WAMP session management", "[WAMP][Basic]" )
 GIVEN( "a Session and a ConnectionWish" )
 {
     using SS = SessionState;
-    using IK = IncidentKind;
     IoContext ioctx;
     Session s(ioctx);
     const auto where = withTcp;
@@ -159,7 +158,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 CHECK( incidents.empty() );
 
                 CHECK_NOTHROW( s2.disconnect() );
-                CHECK( incidents.are({IK::transportDropped}) );
+                CHECK( incidents.empty() );
                 CHECK( s2.state() == SS::disconnected );
 
                 // Disconnecting again should be harmless
@@ -174,7 +173,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 // Disconnect by letting session instance go out of scope.
             }
 
-            CHECK( incidents.are({IK::transportDropped}) );
+            CHECK( incidents.empty() );
             CHECK( s.state() == SS::disconnected );
 
             // Check that another client can connect and disconnect.
@@ -207,14 +206,14 @@ GIVEN( "a Session and a ConnectionWish" )
             CHECK( s.state() == SessionState::closed );
 
             {
-                Welcome welcome;
                 // Check joining.
+                Welcome welcome;
                 s.join(
                     Realm(testRealm),
                     [&welcome](ErrorOr<Welcome> w) {welcome = w.value();});
                 CHECK(s.state() == SS::establishing);
 
-                while (s.state() == SS::establishing)
+                while (welcome.id() == 0)
                     suspendCoro(yield);
                 CHECK( s.state() == SS::established );
                 CHECK( incidents.empty() );
@@ -236,11 +235,10 @@ GIVEN( "a Session and a ConnectionWish" )
                 s.leave([&reason](ErrorOr<Reason> r) {reason = r.value();});
                 CHECK(s.state() == SS::shuttingDown);
 
-                while (s.state() == SS::shuttingDown)
+                while (reason.uri().empty())
                     suspendCoro(yield);
                 CHECK( s.state() == SS::closed );
                 CHECK( incidents.empty() );
-                CHECK_FALSE( reason.uri().empty() );
             }
 
             {
@@ -248,6 +246,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 Welcome welcome = s.join(Realm(testRealm), yield).value();
                 CHECK( incidents.empty() );
                 CHECK( s.state() == SessionState::established );
+                CHECK ( welcome.id() != 0 );
                 CHECK ( welcome.id() <= 9007199254740992ll );
                 CHECK( welcome.realm()  == testRealm );
                 Object details = welcome.options();
@@ -361,8 +360,6 @@ GIVEN( "a Session and a ConnectionWish" )
 
             // Check that we can reconnect.
             s.disconnect();
-            ioctx.run();
-            ioctx.restart();
 
             ec.clear();
             bool connected = false;
@@ -374,9 +371,9 @@ GIVEN( "a Session and a ConnectionWish" )
                 s.disconnect();
             });
 
+            ioctx.run();
             CHECK( ec == TransportErrc::success );
             CHECK( connected );
-            ioctx.run();
             CHECK( s.state() == SS::disconnected );
             CHECK( incidents.empty() );
         }

@@ -970,12 +970,13 @@ GIVEN( "an IO service and a ConnectionWish" )
                 suspendCoro(yield);
 
             // The coroutine event handlers will not trigger
-            // warning logs because the error::BadType exeception cannot
+            // incidents because the error::BadType exeception cannot
             // be propagated to Client by time it's thrown from within
             // the coroutine.
             CHECK( incidentCount == 2 );
         });
         ioctx.run();
+        int n = 0;
     }
 
     WHEN( "a callee leaves without returning" )
