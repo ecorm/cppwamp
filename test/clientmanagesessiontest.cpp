@@ -23,29 +23,29 @@ const auto alternateTcp = TcpHost("localhost", validPort).withFormat(msgpack);
 #endif
 
 //------------------------------------------------------------------------------
-struct StateChangeListener
+struct IncidentListener
 {
-    static std::vector<SessionState>& changes()
+    static std::vector<IncidentKind>& incidents()
     {
-        static std::vector<SessionState> theChanges;
-        return theChanges;
+        static std::vector<IncidentKind> theIncidents;
+        return theIncidents;
     }
 
-    void operator()(SessionState s, std::error_code)
+    void operator()(Incident i)
     {
-        changes().push_back(s);
+        incidents().push_back(i.kind());
     }
 
-    void clear() {changes().clear();}
+    void clear() {incidents().clear();}
 
-    bool empty() const {return changes().empty();}
+    bool empty() const {return incidents().empty();}
 
-    bool check(const std::vector<SessionState>& expected, YieldContext yield)
+    bool check(const std::vector<IncidentKind>& expected, YieldContext yield)
     {
         int triesLeft = 1000;
         while (triesLeft > 0)
         {
-            if (changes().size() >= expected.size())
+            if (incidents().size() >= expected.size())
                 break;
             suspendCoro(yield);
             --triesLeft;
@@ -54,67 +54,67 @@ struct StateChangeListener
         return are(expected);
     };
 
-    bool check(const Session& session,
-               const std::vector<SessionState>& expected, YieldContext yield)
-    {
-        int triesLeft = 1000;
-        while (triesLeft > 0)
-        {
-            if (changes().size() >= expected.size())
-                break;
-            suspendCoro(yield);
-            --triesLeft;
-        }
-        CHECK( triesLeft > 0 );
+//    bool check(const Session& session,
+//               const std::vector<IncidentKind>& expected, YieldContext yield)
+//    {
+//        int triesLeft = 1000;
+//        while (triesLeft > 0)
+//        {
+//            if (incidents().size() >= expected.size())
+//                break;
+//            suspendCoro(yield);
+//            --triesLeft;
+//        }
+//        CHECK( triesLeft > 0 );
 
-        return checkNow(session, expected);
-    };
+//        return checkNow(session, expected);
+//    };
 
-    bool check(const Session& session,
-               const std::vector<SessionState>& expected,
-               IoContext& ioctx)
-    {
-        int triesLeft = 1000;
-        while (triesLeft > 0)
-        {
-            if (changes().size() >= expected.size())
-                break;
-            ioctx.poll();
-            --triesLeft;
-        }
-        ioctx.restart();
-        CHECK( triesLeft > 0 );
+//    bool check(const Session& session,
+//               const std::vector<IncidentKind>& expected,
+//               IoContext& ioctx)
+//    {
+//        int triesLeft = 1000;
+//        while (triesLeft > 0)
+//        {
+//            if (incidents().size() >= expected.size())
+//                break;
+//            ioctx.poll();
+//            --triesLeft;
+//        }
+//        ioctx.restart();
+//        CHECK( triesLeft > 0 );
 
-        return checkNow(session, expected);
-    };
+//        return checkNow(session, expected);
+//    };
 
-    bool checkNow(const Session& session,
-                  const std::vector<SessionState>& expected)
-    {
-        bool isEmpty = expected.empty();
-        SessionState last = {};
-        if (!isEmpty)
-            last = expected.back();
+//    bool checkNow(const Session& session,
+//                  const std::vector<IncidentKind>& expected)
+//    {
+//        bool isEmpty = expected.empty();
+//        IncidentKind last = {};
+//        if (!isEmpty)
+//            last = expected.back();
 
-        bool ok = are(expected);
+//        bool ok = are(expected);
 
-        if (!isEmpty)
-            CHECK(session.state() == last);
-        ok = ok && (session.state() == last);
-        return ok;
-    };
+//        if (!isEmpty)
+//            CHECK(session.state() == last);
+//        ok = ok && (session.state() == last);
+//        return ok;
+//    };
 
-    bool are(const std::vector<SessionState>& expected)
+    bool are(const std::vector<IncidentKind>& expected)
     {
         // Workaround for Catch2 not being able to compare vectors of enums
         std::vector<int> changedInts;
-        for (auto s: changes())
+        for (auto s: incidents())
             changedInts.push_back(static_cast<int>(s));
         std::vector<int> expectedInts;
         for (auto s: expected)
             expectedInts.push_back(static_cast<int>(s));
         CHECK_THAT(changedInts, Catch::Matchers::Equals(expectedInts));
-        changes().clear();
+        incidents().clear();
         return changedInts == expectedInts;
     }
 };
@@ -127,11 +127,12 @@ SCENARIO( "WAMP session management", "[WAMP][Basic]" )
 GIVEN( "a Session and a ConnectionWish" )
 {
     using SS = SessionState;
+    using IK = IncidentKind;
     IoContext ioctx;
     Session s(ioctx);
     const auto where = withTcp;
-    StateChangeListener changes;
-    s.listenStateChanged(changes);
+    IncidentListener incidents;
+    s.observeIncidents(incidents);
     RouterFeatures requiredFeatures{BrokerFeatures::basic,
                                     DealerFeatures::basic};
 
@@ -142,35 +143,57 @@ GIVEN( "a Session and a ConnectionWish" )
             {
                 // Connect and disconnect a session
                 Session s2(ioctx);
-                s2.listenStateChanged(changes);
+                s2.observeIncidents(incidents);
                 CHECK( s2.state() == SS::disconnected );
-                CHECK( changes.empty() );
-                CHECK( s2.connect(where, yield).value() == 0 );
-                CHECK( changes.check(s2, {SS::connecting, SS::closed}, yield) );
+                s2.connect(
+                    where,
+                    [](ErrorOr<std::size_t> index)
+                    {
+                        CHECK(index == 0);
+                    });
+                CHECK( s2.state() == SS::connecting );
+
+                while (s2.state() == SS::connecting)
+                    suspendCoro(yield);
+                CHECK( s2.state() == SS::closed );
+                CHECK( incidents.empty() );
+
                 CHECK_NOTHROW( s2.disconnect() );
-                CHECK( changes.check(s2, {SS::disconnected}, yield) );
+                CHECK( incidents.are({IK::transportDropped}) );
+                CHECK( s2.state() == SS::disconnected );
 
                 // Disconnecting again should be harmless
                 CHECK_NOTHROW( s2.disconnect() );
                 CHECK( s2.state() == SS::disconnected );
-                CHECK( changes.empty() );
+                CHECK( incidents.empty() );
 
                 // Check that we can reconnect.
                 CHECK( s2.connect(where, yield).value() == 0 );
-                CHECK( changes.check(s2, {SS::connecting, SS::closed}, yield) );
+                CHECK( incidents.empty() );
 
                 // Disconnect by letting session instance go out of scope.
             }
 
-            CHECK( changes.check({SS::disconnected}, yield) );
+            CHECK( incidents.are({IK::transportDropped}) );
+            CHECK( s.state() == SS::disconnected );
 
             // Check that another client can connect and disconnect.
-            CHECK( s.state() == SS::disconnected );
-            CHECK( changes.empty() );
-            CHECK( s.connect(where, yield).value() == 0 );
-            CHECK( changes.check(s, {SS::connecting, SS::closed}, yield) );
+            s.connect(
+                where,
+                [](ErrorOr<std::size_t> index)
+                {
+                    CHECK(index == 0);
+                });
+            CHECK( s.state() == SS::connecting );
+
+            while (s.state() == SS::connecting)
+                suspendCoro(yield);
+            CHECK( s.state() == SS::closed );
+            CHECK( incidents.empty() );
+
             CHECK_NOTHROW( s.disconnect() );
-            CHECK( changes.check(s, {SS::disconnected}, yield) );
+            CHECK( incidents.empty() );
+            CHECK( s.state() == SS::disconnected );
         });
 
         ioctx.run();
@@ -184,54 +207,67 @@ GIVEN( "a Session and a ConnectionWish" )
             CHECK( s.state() == SessionState::closed );
 
             {
+                Welcome welcome;
                 // Check joining.
-                Welcome info = s.join(Realm(testRealm), yield).value();
-                CHECK( changes.check(s, {SS::connecting, SS::closed,
-                                         SS::establishing, SS::established},
-                                     yield) );
-                CHECK ( info.id() <= 9007199254740992ll );
-                CHECK( info.realm()  == testRealm );
-                Object details = info.options();
+                s.join(
+                    Realm(testRealm),
+                    [&welcome](ErrorOr<Welcome> w) {welcome = w.value();});
+                CHECK(s.state() == SS::establishing);
+
+                while (s.state() == SS::establishing)
+                    suspendCoro(yield);
+                CHECK( s.state() == SS::established );
+                CHECK( incidents.empty() );
+
+                CHECK ( welcome.id() <= 9007199254740992ll );
+                CHECK( welcome.realm()  == testRealm );
+                Object details = welcome.options();
                 REQUIRE( details.count("roles") );
                 REQUIRE( details["roles"].is<Object>() );
-                Object roles = info.optionByKey("roles").as<Object>();
+                Object roles = welcome.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.features().supports(requiredFeatures) );
-                CHECK( info.features().broker().all_of(BrokerFeatures::basic) );
-                CHECK( info.features().dealer().all_of(DealerFeatures::basic) );
+                CHECK( welcome.features().supports(requiredFeatures) );
+                CHECK( welcome.features().broker().all_of(BrokerFeatures::basic) );
+                CHECK( welcome.features().dealer().all_of(DealerFeatures::basic) );
 
                 // Check leaving.
-                Reason reason = s.leave(yield).value();
+                Reason reason;
+                s.leave([&reason](ErrorOr<Reason> r) {reason = r.value();});
+                CHECK(s.state() == SS::shuttingDown);
+
+                while (s.state() == SS::shuttingDown)
+                    suspendCoro(yield);
+                CHECK( s.state() == SS::closed );
+                CHECK( incidents.empty() );
                 CHECK_FALSE( reason.uri().empty() );
-                CHECK( changes.check(s, {SS::shuttingDown, SS::closed}, yield) );
             }
 
             {
                 // Check that the same client can rejoin and leave.
-                Welcome info = s.join(Realm(testRealm), yield).value();
-                CHECK( changes.check(s, {SS::establishing, SS::established},
-                                     yield) );
+                Welcome welcome = s.join(Realm(testRealm), yield).value();
+                CHECK( incidents.empty() );
                 CHECK( s.state() == SessionState::established );
-                CHECK ( info.id() <= 9007199254740992ll );
-                CHECK( info.realm()  == testRealm );
-                Object details = info.options();
+                CHECK ( welcome.id() <= 9007199254740992ll );
+                CHECK( welcome.realm()  == testRealm );
+                Object details = welcome.options();
                 REQUIRE( details.count("roles") );
                 REQUIRE( details["roles"].is<Object>() );
-                Object roles = info.optionByKey("roles").as<Object>();
+                Object roles = welcome.optionByKey("roles").as<Object>();
                 CHECK( roles.count("broker") );
                 CHECK( roles.count("dealer") );
-                CHECK( info.features().supports(requiredFeatures) );
+                CHECK( welcome.features().supports(requiredFeatures) );
 
                 // Try leaving with a reason URI this time.
                 Reason reason = s.leave(Reason("wamp.error.system_shutdown"),
                                          yield).value();
                 CHECK_FALSE( reason.uri().empty() );
-                CHECK( changes.check(s, {SS::shuttingDown, SS::closed}, yield) );
+                CHECK( incidents.empty() );
             }
 
             CHECK_NOTHROW( s.disconnect() );
-            CHECK( changes.check(s, {SS::disconnected}, yield) );
+            CHECK( incidents.empty() );
+            CHECK( s.state() == SessionState::disconnected );
         });
 
         ioctx.run();
@@ -245,32 +281,31 @@ GIVEN( "a Session and a ConnectionWish" )
                 // Connect
                 CHECK( s.state() == SessionState::disconnected );
                 CHECK( s.connect(where, yield).value() == 0 );
-                CHECK( changes.check(s, {SS::connecting, SS::closed}, yield) );
+                CHECK( s.state() == SS::closed );
 
                 // Join
                 s.join(Realm(testRealm), yield).value();
-                CHECK( changes.check(s, {SS::establishing, SS::established},
-                                     yield) );
+                CHECK( s.state() == SS::established );
 
                 // Leave
                 Reason reason = s.leave(yield).value();
                 CHECK_FALSE( reason.uri().empty() );
-                CHECK( changes.check(s, {SS::shuttingDown, SS::closed}, yield) );
+                CHECK( s.state() == SS::closed );
 
                 // Disconnect
                 CHECK_NOTHROW( s.disconnect() );
-                CHECK( changes.check(s, {SS::disconnected}, yield) );
+                CHECK( s.state() == SessionState::disconnected );
+                CHECK( incidents.empty() );
             }
 
             {
                 // Connect
                 CHECK( s.connect(where, yield).value() == 0 );
-                CHECK( changes.check(s, {SS::connecting, SS::closed}, yield) );
+                CHECK( s.state() == SS::closed );
 
                 // Join
                 Welcome info = s.join(Realm(testRealm), yield).value();
-                CHECK( changes.check(s, {SS::establishing, SS::established},
-                                     yield) );
+                CHECK( s.state() == SS::established );
                 CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
@@ -284,11 +319,12 @@ GIVEN( "a Session and a ConnectionWish" )
                 // Leave
                 Reason reason = s.leave(yield).value();
                 CHECK_FALSE( reason.uri().empty() );
-                CHECK( changes.check(s, {SS::shuttingDown, SS::closed}, yield) );
+                CHECK( s.state() == SS::closed );
 
                 // Disconnect
                 CHECK_NOTHROW( s.disconnect() );
-                CHECK( changes.check(s, {SS::disconnected}, yield) );
+                CHECK( s.state() == SessionState::disconnected );
+                CHECK( incidents.empty() );
             }
         });
 
@@ -307,12 +343,14 @@ GIVEN( "a Session and a ConnectionWish" )
                 if (!result)
                     ec = result.error();
             });
+        CHECK( s.state() == SS::connecting );
         s.disconnect();
 
         ioctx.run();
         ioctx.restart();
         CHECK( connectHandlerInvoked );
-        CHECK( changes.check(s, {SS::connecting, SS::disconnected}, ioctx) );
+        CHECK( s.state() == SS::disconnected );
+        CHECK( incidents.empty() );
 
         // Depending on how Asio schedules things, the connect operation
         // sometimes completes successfully before the cancellation request
@@ -323,6 +361,9 @@ GIVEN( "a Session and a ConnectionWish" )
 
             // Check that we can reconnect.
             s.disconnect();
+            ioctx.run();
+            ioctx.restart();
+
             ec.clear();
             bool connected = false;
             s.connect(where, [&](ErrorOr<size_t> result)
@@ -330,26 +371,28 @@ GIVEN( "a Session and a ConnectionWish" )
                 if (!result)
                     ec = result.error();
                 connected = !ec;
+                s.disconnect();
             });
 
-            ioctx.run();
             CHECK( ec == TransportErrc::success );
             CHECK( connected );
-            CHECK( changes.check(s, {SS::connecting, SS::closed}, ioctx) );
+            ioctx.run();
+            CHECK( s.state() == SS::disconnected );
+            CHECK( incidents.empty() );
         }
     }
 
     WHEN( "disconnecting during session establishment" )
     {
         std::error_code ec;
-        bool connected = false;
+        bool joined = false;
         spawn(ioctx, [&](YieldContext yield)
         {
             try
             {
                 s.connect(where, yield).value();
                 s.join(Realm(testRealm), yield).value();
-                connected = true;
+                joined = true;
             }
             catch (const error::Failure& e)
             {
@@ -366,10 +409,10 @@ GIVEN( "a Session and a ConnectionWish" )
 
         ioctx.run();
         ioctx.restart();
-        CHECK_FALSE( connected );
+        CHECK_FALSE( joined );
         CHECK( ec == Errc::abandoned );
-        CHECK( changes.check(s, {SS::connecting, SS::closed,
-                                 SS::establishing, SS::disconnected}, ioctx) );
+        CHECK( s.state() == SS::disconnected );
+        CHECK( incidents.empty() );
     }
 
     WHEN( "terminating during connect" )
@@ -383,7 +426,7 @@ GIVEN( "a Session and a ConnectionWish" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( changes.are({SS::connecting}) );
+        CHECK( incidents.empty() );
         CHECK( s.state() == SS::disconnected );
     }
 
@@ -401,7 +444,7 @@ GIVEN( "a Session and a ConnectionWish" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( changes.are({SS::connecting, SS::closed, SS::establishing}) );
+        CHECK( incidents.empty() );
         CHECK( s.state() == SS::disconnected );
     }
 
@@ -411,7 +454,7 @@ GIVEN( "a Session and a ConnectionWish" )
 
         {
             Session client(ioctx);
-            client.listenStateChanged(changes);
+            client.observeIncidents(incidents);
             client.connect(where, [&handlerWasInvoked](ErrorOr<size_t>)
             {
                 handlerWasInvoked = true;
@@ -422,7 +465,8 @@ GIVEN( "a Session and a ConnectionWish" )
         ioctx.run();
 
         CHECK_FALSE( handlerWasInvoked );
-        CHECK( changes.are({SS::connecting, SS::disconnected}) );
+        CHECK( incidents.empty() );
+        CHECK( s.state() == SS::disconnected );
     }
 }}
 
@@ -503,8 +547,8 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
     using SS = SessionState;
     IoContext ioctx;
     Session s(ioctx);
-    StateChangeListener changes;
-    s.listenStateChanged(changes);
+    IncidentListener incidents;
+    s.observeIncidents(incidents);
     const auto where = withTcp;
     const auto badWhere = invalidTcp;
 
@@ -514,11 +558,12 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
         {
             auto index = s.connect(badWhere, yield);
             CHECK( index == makeUnexpected(TransportErrc::failed) );
-            CHECK( changes.check(s, {SS::connecting, SS::failed}, yield) );
+            CHECK( incidents.empty() );
+            CHECK( s.state() == SS::failed );
         });
 
         ioctx.run();
-        CHECK( changes.empty() );
+        CHECK( incidents.empty() );
     }
 
     WHEN( "connecting with multiple transports" )
@@ -532,12 +577,13 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
                 // Connect
                 CHECK( s.state() == SessionState::disconnected );
                 CHECK( s.connect(wishList, yield).value() == 1 );
-                CHECK( changes.check(s, {SS::connecting, SS::closed}, yield) );
+                CHECK( incidents.empty() );
+                CHECK( s.state() == SS::closed );
 
                 // Join
                 Welcome info = s.join(Realm(testRealm), yield).value();
-                CHECK( changes.check(s, {SS::establishing, SS::established},
-                                     yield) );
+                CHECK( incidents.empty() );
+                CHECK( s.state() == SS::established );
                 CHECK ( info.id() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
@@ -547,7 +593,8 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
 
                 // Disconnect
                 CHECK_NOTHROW( s.disconnect() );
-                CHECK( changes.check(s, {SS::disconnected}, yield) );
+                CHECK( incidents.empty() );
+                CHECK( s.state() == SS::disconnected );
             }
         });
 

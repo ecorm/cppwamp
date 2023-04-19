@@ -1237,7 +1237,7 @@ public:
             return makeUnexpectedError(Errc::invalidState);
 
         if (incidentSlot_)
-            report({IncidentKind::challengeError, r});
+            report({IncidentKind::challengeFailure, r});
 
         return abort(std::move(r));
     }

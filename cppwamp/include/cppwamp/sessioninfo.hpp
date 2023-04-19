@@ -18,6 +18,7 @@
 #include "erroror.hpp"
 #include "exceptions.hpp"
 #include "features.hpp"
+#include "logging.hpp"
 #include "options.hpp"
 #include "tagtypes.hpp"
 #include "variantdefs.hpp"
@@ -374,12 +375,17 @@ enum class IncidentKind
     transportDropped,     /**< Transport connection dropped by peer or network. */
     closedByPeer,         /**< WAMP session killed by the remote peer. */
     abortedByPeer,        /**< WAMP session aborted by the remote peer. */
-    trace,                /**< A WAMP message was sent or received. */
     commFailure,          /**< A fatal transport or protocol error occurred. */
-    challengeError,       /**< A challenge handler reported an error. */
+    challengeFailure,       /**< A challenge handler reported an error. */
     eventError,           /**< A pub-sub event handler reported an error. */
-    trouble               /**< A non-fatal problem occurred. */
+    trouble,              /**< A non-fatal problem occurred. */
+    trace,                /**< A WAMP message was sent or received. */
 };
+
+//------------------------------------------------------------------------------
+/** Obtains a human-readable string for the given IncidentKind. */
+//------------------------------------------------------------------------------
+CPPWAMP_API const std::string& incidentKindLabel(IncidentKind k);
 
 //------------------------------------------------------------------------------
 /** Contains information on a spontanous Session event. */
@@ -403,6 +409,9 @@ public:
 
     /** Obtains optional additional information. */
     std::string message() const;
+
+    /** Generates a LogEntry for the incident. */
+    LogEntry toLogEntry() const;
 
 private:
     std::string message_;   ///< Provides optional additional information.

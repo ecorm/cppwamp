@@ -5,6 +5,7 @@
 ------------------------------------------------------------------------------*/
 
 #include "../sessioninfo.hpp"
+#include <type_traits>
 #include <utility>
 #include "../api.hpp"
 #include "../variant.hpp"
@@ -477,6 +478,27 @@ CPPWAMP_INLINE void Challenge::setChallengee(internal::PassKey,
     challengee_ = std::move(challengee);
 }
 
+CPPWAMP_INLINE const std::string& incidentKindLabel(IncidentKind k)
+{
+    static const std::string labels[] =
+    {
+        "Transport connection dropped",
+        "Session killed by remote peer",
+        "Session aborted by remote peer",
+        "Message trace",
+        "Transport failure or protocol error",
+        "Authentication challenge failed",
+        "Error reported by EVENT handler",
+        "A non-fatal problem occurred"
+    };
+
+    using T = std::underlying_type<IncidentKind>::type;
+    static constexpr T extent = std::extent<decltype(labels)>::value;
+    auto n = static_cast<T>(k);
+    assert(n >=0 && n < extent);
+    return labels[n];
+}
+
 
 //******************************************************************************
 // Incident
@@ -519,5 +541,35 @@ CPPWAMP_INLINE IncidentKind Incident::kind() const {return kind_;}
 CPPWAMP_INLINE std::error_code Incident::error() const {return error_;}
 
 CPPWAMP_INLINE std::string Incident::message() const {return message_;}
+
+CPPWAMP_INLINE LogEntry Incident::toLogEntry() const
+{
+    std::string message = incidentKindLabel(kind_);
+    if (!message_.empty())
+        message += ": " + message_;
+
+    LogLevel level;
+    switch (kind_)
+    {
+    case IncidentKind::eventError:
+        level = LogLevel::error;
+        break;
+
+    case IncidentKind::trouble:
+        level = (error_ == WampErrc::payloadSizeExceeded) ? LogLevel::error
+                                                          : LogLevel::warning;
+        break;
+
+    case IncidentKind::trace:
+        level = LogLevel::trace;
+        break;
+
+    default:
+        level = LogLevel::critical;
+        break;
+    }
+
+    return {level, std::move(message), error_};
+}
 
 } // namespace wamp

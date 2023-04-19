@@ -29,8 +29,9 @@ int main()
     wamp::IoContext ioctx;
     auto tcp = wamp::TcpHost(address, port).withFormat(wamp::json);
     wamp::Session session(ioctx);
-    session.listenLogged(logger);
-    session.setLogLevel(wamp::LogLevel::trace);
+    session.observeIncidents(
+        [&logger](wamp::Incident i) {logger(i.toLogEntry());});
+    session.enableTracing();
     int eventCount = 0;
 
     auto onChallenge = [](wamp::Challenge c)
