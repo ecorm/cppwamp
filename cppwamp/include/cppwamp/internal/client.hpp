@@ -303,19 +303,40 @@ public:
     ErrorOrDone cancelCall(RequestId requestId, CallCancelMode mode,
                            WampErrc errc = WampErrc::cancelled)
     {
-        // TODO: Timeout for receiving the ERROR response
+        // If the cancel mode is not 'kill', don't wait for the router's
+        // ERROR message and post the request handler immediately
+        // with a WampErrc::cancelled error code.
+
+        auto unex = makeUnexpectedError(errc);
 
         {
             RequestKey key{MessageKind::call, requestId};
             auto kv = requests_.find(key);
             if (kv != requests_.end())
+            {
+                deadlines_->erase(requestId);
+                if (mode != CallCancelMode::kill)
+                {
+                    auto handler = std::move(kv->second);
+                    requests_.erase(kv);
+                    completeRequest(handler, unex);
+                }
                 return peer_.send(CallCancellation{requestId, mode});
+            }
         }
 
         {
             auto kv = channels_.find(requestId);
             if (kv == channels_.end())
                 return false;
+
+            deadlines_->erase(requestId);
+            if (mode != CallCancelMode::kill)
+            {
+                StreamRecord req{std::move(kv->second)};
+                channels_.erase(kv);
+                req.cancel(executor_, userExecutor_, errc);
+            }
             return peer_.send(CallCancellation{requestId, mode});
         }
 
@@ -2194,16 +2215,10 @@ private:
         assert(msg.isReply());
         if (!requestor_.onReply(std::move(msg)))
         {
-            if (msg.kind() == MessageKind::error)
-            {
-                // Crossbar is known to send spurious ERROR messages
-                // https://github.com/crossbario/crossbar/issues/2068
-                // https://github.com/crossbario/crossbar/issues/2074
-                auto ec = make_error_code(Errc::spuriousResponse);
-                report({IncidentKind::trouble, ec,
-                        "Received spurious ERROR response"});
-            }
-            else
+            // Ignore spurious RESULT and ERROR responses that can occur
+            // due to race conditions.
+            using K = MessageKind;
+            if ((msg.kind() != K::result) && (msg.kind() != K::error))
             {
                 failProtocol(std::string("Received ") + msgName +
                              " response with no matching request");

@@ -167,28 +167,28 @@ private:
     void processNextDeadline()
     {
         auto deadline = deadlines_.begin()->deadline;
-        auto key = deadlines_.begin()->key;
         timer_.expires_at(deadline);
         WeakPtr self(this->shared_from_this());
-        timer_.async_wait([self, key](boost::system::error_code ec)
+        timer_.async_wait([self](boost::system::error_code ec)
         {
             auto ptr = self.lock();
             if (ptr)
-                ptr->onTimer(ec, key);
+                ptr->onTimer(ec);
         });
     }
 
-    void onTimer(boost::system::error_code ec, Key key)
+    void onTimer(boost::system::error_code ec)
     {
         if (!deadlines_.empty())
         {
             auto top = deadlines_.begin();
             if (!ec)
             {
-                if (timeoutHandler_)
-                    timeoutHandler_(top->key);
+                auto key = top->key;
                 deadlines_.erase(top);
                 byKey_.erase(key);
+                if (timeoutHandler_)
+                    timeoutHandler_(key);
             }
             if (!deadlines_.empty())
                 processNextDeadline();

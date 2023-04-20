@@ -55,8 +55,7 @@ CPPWAMP_INLINE std::string GenericCategory::message(int ev) const
         /* invalidState     */ "Invalid state for this operation",
         /* absent           */ "Item is absent",
         /* badType,         */ "Invalid or unexpected type",
-        /* noSuchTopic      */ "No subscription under the given topic URI",
-        /* spuriousResponse */ "Received response with no matching request"
+        /* noSuchTopic      */ "No subscription under the given topic URI"
     };
 
     return internal::lookupErrorMessage<Errc>("wamp::GenericCategory", ev, msg);

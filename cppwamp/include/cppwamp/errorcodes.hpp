@@ -28,13 +28,12 @@ namespace wamp
 //------------------------------------------------------------------------------
 enum class Errc // TODO: Rename to MiscErrc
 {
-    success          = 0, ///< Operation successful
-    abandoned        = 1, ///< Operation abandoned by this peer
-    invalidState     = 2, ///< Invalid state for this operation
-    absent           = 3, ///< Item is absent
-    badType          = 4, ///< Invalid or unexpected type
-    noSuchTopic      = 5, ///< No subscription under the given topic URI
-    spuriousResponse = 6, ///< Received response with no matching request
+    success      = 0, ///< Operation successful
+    abandoned    = 1, ///< Operation abandoned by this peer
+    invalidState = 2, ///< Invalid state for this operation
+    absent       = 3, ///< Item is absent
+    badType      = 4, ///< Invalid or unexpected type
+    noSuchTopic  = 5, ///< No subscription under the given topic URI
     count
 };
 
