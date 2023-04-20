@@ -303,38 +303,19 @@ public:
     ErrorOrDone cancelCall(RequestId requestId, CallCancelMode mode,
                            WampErrc errc = WampErrc::cancelled)
     {
-        // If the cancel mode is not 'kill', don't wait for the router's
-        // ERROR message and post the request handler immediately
-        // with a WampErrc::cancelled error code.
-
-        auto unex = makeUnexpectedError(errc);
+        // TODO: Timeout for receiving the ERROR response
 
         {
             RequestKey key{MessageKind::call, requestId};
             auto kv = requests_.find(key);
             if (kv != requests_.end())
-            {
-                if (mode != CallCancelMode::kill)
-                {
-                    auto handler = std::move(kv->second);
-                    requests_.erase(kv);
-                    completeRequest(handler, unex);
-                }
                 return peer_.send(CallCancellation{requestId, mode});
-            }
         }
 
         {
             auto kv = channels_.find(requestId);
             if (kv == channels_.end())
                 return false;
-
-            if (mode != CallCancelMode::kill)
-            {
-                StreamRecord req{std::move(kv->second)};
-                channels_.erase(kv);
-                req.cancel(executor_, userExecutor_, errc);
-            }
             return peer_.send(CallCancellation{requestId, mode});
         }
 
@@ -2191,10 +2172,8 @@ private:
         }
         if (errc == WampErrc::protocolViolation)
         {
-            peer_->abort(
-                Reason(WampErrc::protocolViolation)
-                    .withHint("Router attempted to reinvoke an RPC "
-                              "that is closed to further progress"));
+            failProtocol("Router attempted to reinvoke an RPC that is closed "
+                         "to further progress");
         }
     }
 
@@ -2211,10 +2190,8 @@ private:
         assert(msg.isReply());
         if (!requestor_.onReply(std::move(msg)))
         {
-            peer_->abort(
-                Reason(WampErrc::protocolViolation)
-                    .withHint(std::string("Received ") + msgName +
-                              " message with no matching request"));
+            failProtocol(std::string("Received ") + msgName +
+                         " response with no matching request");
         }
     }
 
@@ -2434,6 +2411,13 @@ private:
     {
         if (incidentSlot_)
             dispatchHandler(incidentSlot_, std::move(incident));
+    }
+
+    void failProtocol(std::string why)
+    {
+        peer_->abort(Reason(WampErrc::protocolViolation).withHint(why));
+        auto ec = make_error_code(WampErrc::protocolViolation);
+        report({IncidentKind::commFailure, ec, std::move(why)});
     }
 
     template <typename S, typename... Ts>

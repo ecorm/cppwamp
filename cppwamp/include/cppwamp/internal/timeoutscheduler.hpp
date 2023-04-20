@@ -188,6 +188,7 @@ private:
                 if (timeoutHandler_)
                     timeoutHandler_(top->key);
                 deadlines_.erase(top);
+                byKey_.erase(key);
             }
             if (!deadlines_.empty())
                 processNextDeadline();

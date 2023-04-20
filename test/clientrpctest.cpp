@@ -976,7 +976,6 @@ GIVEN( "an IO service and a ConnectionWish" )
             CHECK( incidentCount == 2 );
         });
         ioctx.run();
-        int n = 0;
     }
 
     WHEN( "a callee leaves without returning" )
