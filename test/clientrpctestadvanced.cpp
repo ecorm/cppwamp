@@ -1167,16 +1167,6 @@ GIVEN( "a caller and a callee" )
                 interruptReceived = false;
                 errorReceived = false;
 
-                // Crossbar sends ERROR after GOODBYE, which puts the Session
-                // in a failed state. We must therefore wait until this
-                // errant ERROR is sent, and disconnect to clear the failed
-                // state.
-                // https://github.com/crossbario/crossbar/issues/2068
-                boost::asio::steady_timer cooldownTimer(ioctx);
-                cooldownTimer.expires_from_now(std::chrono::milliseconds(25));
-                cooldownTimer.async_wait(yield);
-                f.caller.disconnect();
-                f.caller.connect(f.where, yield).value();
                 f.caller.join(Realm(testRealm), yield).value();
             }
 

@@ -2122,12 +2122,16 @@ private:
 
     void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
     {
-        auto errc = reason.errorCode();
         if (wasShuttingDown)
+        {
             onWampReply(reason.message({}));
+            abandonPending(Errc::abandoned);
+        }
         else if (incidentSlot_)
+        {
             report({IncidentKind::closedByPeer, reason});
-        abandonPending(errc);
+            abandonPending(reason.errorCode());
+        }
     }
 
     void onPeerMessage(Message&& msg) override

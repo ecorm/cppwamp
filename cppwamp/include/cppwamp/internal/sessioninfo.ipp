@@ -485,11 +485,11 @@ CPPWAMP_INLINE const std::string& incidentKindLabel(IncidentKind k)
         "Transport connection dropped",
         "Session killed by remote peer",
         "Session aborted by remote peer",
-        "Message trace",
         "Transport failure or protocol error",
-        "Authentication challenge failed",
+        "Error reported by CHALLENGE handler",
         "Error reported by EVENT handler",
-        "A non-fatal problem occurred"
+        "A non-fatal problem occurred",
+        "Message trace"
     };
 
     using T = std::underlying_type<IncidentKind>::type;

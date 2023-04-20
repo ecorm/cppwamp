@@ -262,9 +262,16 @@ private:
         auto s = state();
         if (!msg->traits().isValidForState(s))
         {
-            return failProtocol(
-                std::string(msg->name()) + " messages are invalid during " +
-                stateLabel(s) + " session state");
+            // Crossbar can spuriously send ERROR messages between a session
+            // closing and reopening. Allow ERROR messages while not
+            // established so that an Incident may be emitted.
+            // https://github.com/crossbario/crossbar/issues/2068
+            if (msg->kind() != MessageKind::error)
+            {
+                return failProtocol(
+                    std::string(msg->name()) + " messages are invalid during " +
+                    stateLabel(s) + " session state");
+            }
         }
 
         onMessage(*msg);
