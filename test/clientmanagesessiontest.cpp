@@ -25,99 +25,21 @@ const auto alternateTcp = TcpHost("localhost", validPort).withFormat(msgpack);
 //------------------------------------------------------------------------------
 struct IncidentListener
 {
-    static std::vector<IncidentKind>& incidents()
+    void operator()(Incident i) {list.push_back(i);}
+
+    bool empty()
     {
-        static std::vector<IncidentKind> theIncidents;
-        return theIncidents;
+        bool isEmpty = list.empty();
+        list.clear();
+        return isEmpty;
     }
 
-    void operator()(Incident i)
-    {
-        incidents().push_back(i.kind());
-    }
-
-    void clear() {incidents().clear();}
-
-    bool empty() const {return incidents().empty();}
-
-    bool check(const std::vector<IncidentKind>& expected, YieldContext yield)
-    {
-        int triesLeft = 1000;
-        while (triesLeft > 0)
-        {
-            if (incidents().size() >= expected.size())
-                break;
-            suspendCoro(yield);
-            --triesLeft;
-        }
-        CHECK( triesLeft > 0 );
-        return are(expected);
-    };
-
-//    bool check(const Session& session,
-//               const std::vector<IncidentKind>& expected, YieldContext yield)
-//    {
-//        int triesLeft = 1000;
-//        while (triesLeft > 0)
-//        {
-//            if (incidents().size() >= expected.size())
-//                break;
-//            suspendCoro(yield);
-//            --triesLeft;
-//        }
-//        CHECK( triesLeft > 0 );
-
-//        return checkNow(session, expected);
-//    };
-
-//    bool check(const Session& session,
-//               const std::vector<IncidentKind>& expected,
-//               IoContext& ioctx)
-//    {
-//        int triesLeft = 1000;
-//        while (triesLeft > 0)
-//        {
-//            if (incidents().size() >= expected.size())
-//                break;
-//            ioctx.poll();
-//            --triesLeft;
-//        }
-//        ioctx.restart();
-//        CHECK( triesLeft > 0 );
-
-//        return checkNow(session, expected);
-//    };
-
-//    bool checkNow(const Session& session,
-//                  const std::vector<IncidentKind>& expected)
-//    {
-//        bool isEmpty = expected.empty();
-//        IncidentKind last = {};
-//        if (!isEmpty)
-//            last = expected.back();
-
-//        bool ok = are(expected);
-
-//        if (!isEmpty)
-//            CHECK(session.state() == last);
-//        ok = ok && (session.state() == last);
-//        return ok;
-//    };
-
-    bool are(const std::vector<IncidentKind>& expected)
-    {
-        // Workaround for Catch2 not being able to compare vectors of enums
-        std::vector<int> changedInts;
-        for (auto s: incidents())
-            changedInts.push_back(static_cast<int>(s));
-        std::vector<int> expectedInts;
-        for (auto s: expected)
-            expectedInts.push_back(static_cast<int>(s));
-        CHECK_THAT(changedInts, Catch::Matchers::Equals(expectedInts));
-        incidents().clear();
-        return changedInts == expectedInts;
-    }
+    // Needs to be static due to the functor being stateful and
+    // being copied around.
+    static std::vector<Incident> list;
 };
+
+std::vector<Incident> IncidentListener::list;
 
 } // anonymous namespace
 

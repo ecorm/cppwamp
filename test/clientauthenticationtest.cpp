@@ -83,6 +83,9 @@ GIVEN( "a Session with a registered challenge handler" )
 {
     IoContext ioctx;
     TicketAuthFixture f(ioctx, authTcp);
+    std::vector<Incident> incidents;
+    f.session.observeIncidents(
+        [&incidents](Incident i) {incidents.push_back(i);});
 
     WHEN( "joining with ticket authentication requested" )
     {
@@ -101,6 +104,7 @@ GIVEN( "a Session with a registered challenge handler" )
             REQUIRE( f.welcome.has_value() );
             CHECK( f.welcome->optionByKey("authmethod") == "ticket" );
             CHECK( f.welcome->optionByKey("authrole") == "ticketrole" );
+            CHECK( incidents.empty() );
         }
     }
 
@@ -120,6 +124,7 @@ GIVEN( "a Session with a registered challenge handler" )
             CHECK( f.challenge.method() == "ticket" );
             CHECK_FALSE( f.welcome.has_value() );
             CHECK( f.abortReason.errorCode() == WampErrc::authorizationDenied );
+            CHECK( incidents.empty() );
         }
     }
 
@@ -135,7 +140,7 @@ GIVEN( "a Session with a registered challenge handler" )
         });
         ioctx.run();
 
-        THEN( "the session was aborted" )
+        THEN( "the session was aborted by the client" )
         {
             REQUIRE( f.challengeCount == 1 );
             CHECK( f.challengeState == SessionState::authenticating );
@@ -143,6 +148,9 @@ GIVEN( "a Session with a registered challenge handler" )
             REQUIRE_FALSE( f.welcome.has_value() );
             CHECK( f.welcome.error() == WampErrc::authenticationFailed );
             CHECK( f.abortReason.uri().empty() );
+            REQUIRE( incidents.size() == 1 );
+            CHECK( incidents.at(0).kind() == IncidentKind::challengeFailure );
+            CHECK( incidents.at(0).error() == WampErrc::authenticationFailed );
         }
     }
 
@@ -158,7 +166,7 @@ GIVEN( "a Session with a registered challenge handler" )
         });
         ioctx.run();
 
-        THEN( "the session was aborted" )
+        THEN( "the session was aborted by the client" )
         {
             REQUIRE( f.challengeCount == 1 );
             CHECK( f.challengeState == SessionState::authenticating );
@@ -166,6 +174,9 @@ GIVEN( "a Session with a registered challenge handler" )
             REQUIRE_FALSE( f.welcome.has_value() );
             CHECK( f.welcome.error() == WampErrc::authenticationFailed );
             CHECK( f.abortReason.uri().empty() );
+            REQUIRE( incidents.size() == 1 );
+            CHECK( incidents.at(0).kind() == IncidentKind::challengeFailure );
+            CHECK( incidents.at(0).error() == WampErrc::authenticationFailed );
         }
     }
 

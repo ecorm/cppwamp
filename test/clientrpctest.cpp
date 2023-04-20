@@ -926,14 +926,10 @@ GIVEN( "an IO service and a ConnectionWish" )
     {
         spawn(ioctx, [&](YieldContext yield)
         {
-            unsigned incidentCount = 0;
+            std::vector<Incident> incidents;
             PubSubFixture f(ioctx, where);
             f.subscriber.observeIncidents(
-                [&incidentCount](Incident incident)
-                {
-                    if (incident.kind() == IncidentKind::eventError)
-                        ++incidentCount;
-                });
+                [&incidents](Incident i) {incidents.push_back(i);});
 
             f.join(yield);
             f.subscribe(yield);
@@ -966,14 +962,18 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.publisher.publish(Pub("bad_access_coro").withArgs(42)).value();
             f.publisher.publish(Pub("other")).value();
 
-            while (f.otherPubs.empty() || incidentCount < 2)
+            while (f.otherPubs.empty() || incidents.size() < 2)
                 suspendCoro(yield);
 
             // The coroutine event handlers will not trigger
             // incidents because the error::BadType exeception cannot
             // be propagated to Client by time it's thrown from within
             // the coroutine.
-            CHECK( incidentCount == 2 );
+            REQUIRE( incidents.size() == 2 );
+            CHECK( incidents.at(0).kind() == IncidentKind::eventError );
+            CHECK( incidents.at(0).error() == WampErrc::invalidArgument );
+            CHECK( incidents.at(1).kind() == IncidentKind::eventError );
+            CHECK( incidents.at(1).error() == WampErrc::invalidArgument );
         });
         ioctx.run();
     }
