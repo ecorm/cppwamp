@@ -100,9 +100,9 @@ namespace internal { class Client; }
     via a Session's strand so that they become sequential.
 
     @par Notable Error Codes
-    - Errc::invalidState if the session was not in the appropriate state
+    - MiscErrc::invalidState if the session was not in the appropriate state
       for a given operation
-    - Errc::abandoned if an operation was aborted by the user closing
+    - MiscErrc::abandoned if an operation was aborted by the user closing
       the session
     - WampErrc::invalidUri if the router rejected a malformed URI
     - WampErrc::sessionKilled if an operation was aborted due the session

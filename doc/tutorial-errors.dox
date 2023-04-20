@@ -115,10 +115,10 @@ An error code can belong to any of the following categories:
 
 Error category            | Values                | Used for reporting
 ------------------------- | --------------------- | ------------------
-`wamp::GenericCategory`   | `wamp::Errc`          | general errors
 `wamp::WampCategory`      | `wamp::WampErrc`      | WAMP protocol errors that map to error URIs
 `wamp::DecodingCategory`  | `wamp::DecodingErrc`  | general deserialization errors
 `wamp::TransportCategory` | `wamp::TransportErrc` | general transport layer errors
+`wamp::MiscCategory`      | `wamp::MiscErrc`      | miscellaneous errors
 [`std::generic_category`][generic_category] | [`std::errc`][std_errc]           | OS-level socket errors
 `jsoncons::json_error_category`             | `jsoncons::json_errc`             | JSON deserialzation errors
 `jsoncons::cbor::cbor_error_category`       | `jsoncons::cbor::cbor_errc`       | CBOR deserialzation errors

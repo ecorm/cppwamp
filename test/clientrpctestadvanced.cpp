@@ -1132,7 +1132,7 @@ GIVEN( "a caller and a callee" )
         }
         else
         {
-            CHECK(chunk.error() == Errc::abandoned);
+            CHECK(chunk.error() == MiscErrc::abandoned);
             CHECK(channel.error().errorCode() == WampErrc::unknown);
             errorReceived = true;
         }

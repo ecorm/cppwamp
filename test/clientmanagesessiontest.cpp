@@ -407,7 +407,7 @@ GIVEN( "a Session and a ConnectionWish" )
         ioctx.run();
         ioctx.restart();
         CHECK_FALSE( joined );
-        CHECK( ec == Errc::abandoned );
+        CHECK( ec == MiscErrc::abandoned );
         CHECK( s.state() == SS::disconnected );
         CHECK( incidents.empty() );
     }

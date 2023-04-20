@@ -365,7 +365,7 @@ public:
     ----------------------------- | -----
     WampErrc::payloadSizeExceeded | Outbound RESULT/ERROR exceeded transport limits
     WampErrc::noSuchProcedure     | No registration matched URI of received INVOCATION
-    Errc::noSuchTopic             | No subscription matched URI of received EVENT
+    MiscErrc::noSuchTopic         | No subscription matched URI of received EVENT
 
     @note `transportDropped` may follow `closedByPeer` or `abortedByPeer`
           depending on the behavior of the router. */

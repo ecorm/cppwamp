@@ -41,12 +41,12 @@ std::string lookupErrorMessage(const char* categoryName, int errorCodeValue,
 // Generic Error Codes
 //------------------------------------------------------------------------------
 
-CPPWAMP_INLINE const char* GenericCategory::name() const noexcept
+CPPWAMP_INLINE const char* MiscCategory::name() const noexcept
 {
-    return "wamp::GenericCategory";
+    return "wamp::MiscCategory";
 }
 
-CPPWAMP_INLINE std::string GenericCategory::message(int ev) const
+CPPWAMP_INLINE std::string MiscCategory::message(int ev) const
 {
     static const std::string msg[] =
     {
@@ -58,34 +58,35 @@ CPPWAMP_INLINE std::string GenericCategory::message(int ev) const
         /* noSuchTopic      */ "No subscription under the given topic URI"
     };
 
-    return internal::lookupErrorMessage<Errc>("wamp::GenericCategory", ev, msg);
+    return internal::lookupErrorMessage<MiscErrc>("wamp::MiscCategory",
+                                                  ev, msg);
 }
 
-CPPWAMP_INLINE bool GenericCategory::equivalent(const std::error_code& code,
+CPPWAMP_INLINE bool MiscCategory::equivalent(const std::error_code& code,
                                                 int condition) const noexcept
 {
     if (code.category() == wampCategory())
         return code.value() == condition;
-    else if (condition == (int)Errc::success)
+    else if (condition == (int)MiscErrc::success)
         return !code;
     else
         return false;
 }
 
-CPPWAMP_INLINE GenericCategory::GenericCategory() {}
+CPPWAMP_INLINE MiscCategory::MiscCategory() {}
 
-CPPWAMP_INLINE GenericCategory& genericCategory()
+CPPWAMP_INLINE MiscCategory& genericCategory()
 {
-    static GenericCategory instance;
+    static MiscCategory instance;
     return instance;
 }
 
-CPPWAMP_INLINE std::error_code make_error_code(Errc errc)
+CPPWAMP_INLINE std::error_code make_error_code(MiscErrc errc)
 {
     return std::error_code(static_cast<int>(errc), genericCategory());
 }
 
-CPPWAMP_INLINE std::error_condition make_error_condition(Errc errc)
+CPPWAMP_INLINE std::error_condition make_error_condition(MiscErrc errc)
 {
     return std::error_condition(static_cast<int>(errc), genericCategory());
 }

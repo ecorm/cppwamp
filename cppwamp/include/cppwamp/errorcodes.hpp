@@ -19,66 +19,6 @@
 namespace wamp
 {
 
-//******************************************************************************
-// Generic Error Codes
-//******************************************************************************
-
-//------------------------------------------------------------------------------
-/** %Error code values used with the GenericCategory error category. */
-//------------------------------------------------------------------------------
-enum class Errc // TODO: Rename to MiscErrc
-{
-    success      = 0, ///< Operation successful
-    abandoned    = 1, ///< Operation abandoned by this peer
-    invalidState = 2, ///< Invalid state for this operation
-    absent       = 3, ///< Item is absent
-    badType      = 4, ///< Invalid or unexpected type
-    noSuchTopic  = 5, ///< No subscription under the given topic URI
-    count
-};
-
-//------------------------------------------------------------------------------
-/** std::error_category used for reporting miscellanous errors not belonging
-    to another category.
-    @see Errc */
-//------------------------------------------------------------------------------
-class CPPWAMP_API GenericCategory : public std::error_category
-{
-public:
-    /** Obtains the name of the category. */
-    virtual const char* name() const noexcept override;
-
-    /** Obtains the explanatory string. */
-    virtual std::string message(int ev) const override;
-
-    /** Compares `error_code` and and error condition for equivalence. */
-    virtual bool equivalent(const std::error_code& code,
-                            int condition) const noexcept override;
-
-private:
-    CPPWAMP_HIDDEN GenericCategory();
-
-    friend GenericCategory& genericCategory();
-};
-
-//------------------------------------------------------------------------------
-/** Obtains a reference to the static error category object for Generic errors.
-    @relates GenericCategory */
-//------------------------------------------------------------------------------
-CPPWAMP_API GenericCategory& genericCategory();
-
-//------------------------------------------------------------------------------
-/** Creates an error code value from an Errc enumerator.
-    @relates GenericCategory */
-//-----------------------------------------------------------------------------
-CPPWAMP_API std::error_code make_error_code(Errc errc);
-
-//------------------------------------------------------------------------------
-/** Creates an error condition value from an Errc enumerator.
-    @relates GenericCategory */
-//-----------------------------------------------------------------------------
-CPPWAMP_API std::error_condition make_error_condition(Errc errc);
-
 //------------------------------------------------------------------------------
 /** Converts an error code to a string containing the category and number. */
 //-----------------------------------------------------------------------------
@@ -366,6 +306,67 @@ CPPWAMP_API std::error_code make_error_code(TransportErrc errc);
 //-----------------------------------------------------------------------------
 CPPWAMP_API std::error_condition make_error_condition(TransportErrc errc);
 
+
+//******************************************************************************
+// Miscellaneous Error Codes
+//******************************************************************************
+
+//------------------------------------------------------------------------------
+/** %Error code values used with the MiscCategory error category. */
+//------------------------------------------------------------------------------
+enum class MiscErrc
+{
+    success      = 0, ///< Operation successful
+    abandoned    = 1, ///< Operation abandoned by this peer
+    invalidState = 2, ///< Invalid state for this operation
+    absent       = 3, ///< Item is absent
+    badType      = 4, ///< Invalid or unexpected type
+    noSuchTopic  = 5, ///< No subscription under the given topic URI
+    count
+};
+
+//------------------------------------------------------------------------------
+/** std::error_category used for reporting miscellanous errors not belonging
+    to another category.
+    @see MiscErrc */
+//------------------------------------------------------------------------------
+class CPPWAMP_API MiscCategory : public std::error_category
+{
+public:
+    /** Obtains the name of the category. */
+    virtual const char* name() const noexcept override;
+
+    /** Obtains the explanatory string. */
+    virtual std::string message(int ev) const override;
+
+    /** Compares `error_code` and and error condition for equivalence. */
+    virtual bool equivalent(const std::error_code& code,
+                            int condition) const noexcept override;
+
+private:
+    CPPWAMP_HIDDEN MiscCategory();
+
+    friend MiscCategory& genericCategory();
+};
+
+//------------------------------------------------------------------------------
+/** Obtains a reference to the static error category object for Generic errors.
+    @relates MiscCategory */
+//------------------------------------------------------------------------------
+CPPWAMP_API MiscCategory& genericCategory();
+
+//------------------------------------------------------------------------------
+/** Creates an error code value from an MiscErrc enumerator.
+    @relates MiscCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::error_code make_error_code(MiscErrc errc);
+
+//------------------------------------------------------------------------------
+/** Creates an error condition value from an MiscErrc enumerator.
+    @relates MiscCategory */
+//-----------------------------------------------------------------------------
+CPPWAMP_API std::error_condition make_error_condition(MiscErrc errc);
+
 } // namespace wamp
 
 
@@ -375,11 +376,8 @@ namespace std
 {
 
 template <>
-struct CPPWAMP_API is_error_condition_enum<wamp::Errc> : public true_type
-{};
-
-template <>
-struct CPPWAMP_API is_error_condition_enum<wamp::WampErrc> : public true_type
+struct CPPWAMP_API is_error_condition_enum<wamp::WampErrc>
+    : public true_type
 {};
 
 template <>
@@ -389,6 +387,11 @@ struct CPPWAMP_API is_error_condition_enum<wamp::DecodingErrc>
 
 template <>
 struct CPPWAMP_API is_error_condition_enum<wamp::TransportErrc>
+    : public true_type
+{};
+
+template <>
+struct CPPWAMP_API is_error_condition_enum<wamp::MiscErrc>
     : public true_type
 {};
 

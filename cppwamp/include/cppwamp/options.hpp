@@ -176,7 +176,7 @@ T Options<D,K>::optionOr(
 
 //------------------------------------------------------------------------------
 /** @returns The option value, or an error code of either
-             Errc::absent or Errc::badType. */
+             MiscErrc::absent or MiscErrc::badType. */
 //------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
 template <typename T>
@@ -186,15 +186,15 @@ ErrorOr<T> Options<D,K>::optionAs(
 {
     auto iter = options().find(key);
     if (iter == options().end())
-        return makeUnexpectedError(Errc::absent);
+        return makeUnexpectedError(MiscErrc::absent);
     if (!iter->second.template is<T>())
-        return makeUnexpectedError(Errc::badType);
+        return makeUnexpectedError(MiscErrc::badType);
     return iter->second.template as<T>();
 }
 
 //------------------------------------------------------------------------------
 /** @returns The option value, or an error code of either
-             Errc::absent or Errc::badType. */
+             MiscErrc::absent or MiscErrc::badType. */
 //------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
 template <typename T>
@@ -204,26 +204,26 @@ ErrorOr<T> Options<D,K>::optionAs(
 {
     auto iter = options().find(key);
     if (iter == options().end())
-        return makeUnexpectedError(Errc::absent);
+        return makeUnexpectedError(MiscErrc::absent);
     if (!iter->second.template is<T>())
-        return makeUnexpectedError(Errc::badType);
+        return makeUnexpectedError(MiscErrc::badType);
     return std::move(iter->second.template as<T>());
 }
 
 //------------------------------------------------------------------------------
 /** @returns The option value, or an error code of either
-             Errc::absent or Errc::badType. */
+             MiscErrc::absent or MiscErrc::badType. */
 //------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
 ErrorOr<UInt> Options<D,K>::toUnsignedInteger(const String& key) const
 {
     auto found = options().find(key);
     if (found == options().end())
-        return makeUnexpectedError(Errc::absent);
+        return makeUnexpectedError(MiscErrc::absent);
     const auto& v = found->second;
     UInt n;
     if (!optionToUnsignedInteger(v, n))
-        return makeUnexpectedError(Errc::badType);
+        return makeUnexpectedError(MiscErrc::badType);
     return n;
 }
 

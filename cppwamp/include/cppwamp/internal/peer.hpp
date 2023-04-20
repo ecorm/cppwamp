@@ -145,12 +145,12 @@ public:
     ErrorOrDone abort(Reason r)
     {
         if (!transport_ || !transport_->isStarted())
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
 
         if (!readyToAbort())
         {
             disconnect();
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
         }
 
         r.setKindToAbort({});

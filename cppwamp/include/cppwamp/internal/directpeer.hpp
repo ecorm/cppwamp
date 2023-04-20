@@ -263,7 +263,7 @@ public:
         bool ready = readyToAbort();
         disconnect();
         if (!ready)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
         return true;
     }
 

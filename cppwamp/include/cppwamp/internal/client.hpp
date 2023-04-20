@@ -1118,7 +1118,7 @@ public:
         assert(!wishes.empty());
 
         if (!peer_->startConnecting())
-            return postErrorToHandler(Errc::invalidState, handler);
+            return postErrorToHandler(MiscErrc::invalidState, handler);
         isTerminating_ = false;
         currentConnector_ = nullptr;
 
@@ -1174,7 +1174,7 @@ public:
         };
 
         if (!peer_->establishSession())
-            return postErrorToHandler(Errc::invalidState, handler);
+            return postErrorToHandler(MiscErrc::invalidState, handler);
 
         realm.withOption("agent", Version::agentString())
              .withOption("roles", ClientFeatures::providedRoles());
@@ -1202,7 +1202,7 @@ public:
     ErrorOrDone authenticate(Authentication&& auth) override
     {
         if (state() != State::authenticating)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
         return peer_->send(std::move(auth));
     }
 
@@ -1236,7 +1236,7 @@ public:
     ErrorOrDone failAuthentication(Reason&& r) override
     {
         if (state() != State::authenticating)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
 
         if (incidentSlot_)
             report({IncidentKind::challengeFailure, r});
@@ -1292,7 +1292,7 @@ public:
         };
 
         if (!peer_->startShuttingDown())
-            return postErrorToHandler(Errc::invalidState, handler);
+            return postErrorToHandler(MiscErrc::invalidState, handler);
 
         if (reason.uri().empty())
             reason.setUri({}, errorCodeToUri(WampErrc::closeRealm));
@@ -1462,7 +1462,7 @@ public:
     ErrorOrDone publish(Pub&& pub)
     {
         if (state() != State::established)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
         return peer_->send(std::move(pub));
     }
 
@@ -1771,7 +1771,7 @@ public:
     ErrorOrDone cancelCall(RequestId reqId, CallCancelMode mode) override
     {
         if (state() != State::established)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
 
         return requestor_.cancelCall(reqId, mode);
     }
@@ -1836,7 +1836,7 @@ public:
     ErrorOr<CallerChannel> openStream(StreamRequest&& req, ChunkSlot&& onChunk)
     {
         if (state() != State::established)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
 
         return requestor_.requestStream(false, shared_from_this(),
                                         std::move(req), std::move(onChunk));
@@ -1913,7 +1913,7 @@ public:
     ErrorOrDone yieldChunk(CalleeOutputChunk&& chunk)
     {
         if (state() != State::established)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
         return registry_.yield(std::move(chunk));
     }
 
@@ -1954,7 +1954,7 @@ public:
     ErrorOrDone yieldResult(Result&& result)
     {
         if (state() != State::established)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
         auto done = registry_.yield(std::move(result));
         auto unex = makeUnexpectedError(WampErrc::payloadSizeExceeded);
         if (incidentSlot_ && (done == unex))
@@ -2003,7 +2003,7 @@ public:
     ErrorOrDone yieldError(Error&& error)
     {
         if (state() != State::established)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
         auto done = registry_.yield(std::move(error));
         auto unex = makeUnexpectedError(WampErrc::payloadSizeExceeded);
         if (incidentSlot_ && (done == unex))
@@ -2146,7 +2146,7 @@ private:
         if (wasShuttingDown)
         {
             onWampReply(reason.message({}));
-            abandonPending(Errc::abandoned);
+            abandonPending(MiscErrc::abandoned);
         }
         else if (incidentSlot_)
         {
@@ -2259,7 +2259,7 @@ private:
     {
         bool valid = state() == expectedState;
         if (!valid)
-            postErrorToHandler(Errc::invalidState, handler);
+            postErrorToHandler(MiscErrc::invalidState, handler);
         return valid;
     }
 
@@ -2360,7 +2360,7 @@ private:
 
     void clear()
     {
-        abandonPending(Errc::abandoned);
+        abandonPending(MiscErrc::abandoned);
         readership_.clear();
         registry_.clear();
     }

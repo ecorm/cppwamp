@@ -18,7 +18,7 @@ namespace
 void checkInvalidConnect(Session& session, YieldContext yield)
 {
     auto index = session.connect(withTcp, yield);
-    CHECK( index == makeUnexpected(Errc::invalidState) );
+    CHECK( index == makeUnexpected(MiscErrc::invalidState) );
     CHECK_THROWS_AS( index.value(), error::Failure );
 }
 
@@ -26,7 +26,7 @@ void checkInvalidConnect(Session& session, YieldContext yield)
 void checkInvalidJoin(Session& session, YieldContext yield)
 {
     auto info = session.join(Realm(testRealm), yield);
-    CHECK( info == makeUnexpected(Errc::invalidState) );
+    CHECK( info == makeUnexpected(MiscErrc::invalidState) );
     CHECK_THROWS_AS( session.join(Realm(testRealm), yield).value(),
                     error::Failure );
 }
@@ -35,14 +35,14 @@ void checkInvalidJoin(Session& session, YieldContext yield)
 void checkInvalidLeave(Session& session, YieldContext yield)
 {
     auto reason = session.leave(yield);
-    CHECK( reason == makeUnexpected(Errc::invalidState) );
+    CHECK( reason == makeUnexpected(MiscErrc::invalidState) );
     CHECK_THROWS_AS( reason.value(), error::Failure );
 }
 
 //------------------------------------------------------------------------------
 inline void checkInvalidOps(Session& session, YieldContext yield)
 {
-    auto unex = makeUnexpected(Errc::invalidState);
+    auto unex = makeUnexpected(MiscErrc::invalidState);
 
     CHECK( session.publish(Pub("topic")) == unex );
     CHECK( session.publish(Pub("topic").withArgs(42)) == unex );

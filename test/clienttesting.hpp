@@ -84,7 +84,7 @@ void checkDisconnect(TDelegate&& delegate)
 
     ioctx.run();
     CHECK( completed );
-    CHECK( result == makeUnexpected(Errc::abandoned) );
+    CHECK( result == makeUnexpected(MiscErrc::abandoned) );
     CHECK_THROWS_AS( result.value(), error::Failure );
 }
 

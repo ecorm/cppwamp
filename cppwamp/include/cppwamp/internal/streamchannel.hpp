@@ -97,7 +97,7 @@ public:
         auto newState = chunk.isFinal() ? State::closed : State::open;
         bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
 
         auto caller = caller_.lock();
         if (!caller)
@@ -115,7 +115,7 @@ public:
         auto newState = chunk.isFinal() ? State::closed : State::open;
         bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
-            return futureError(Errc::invalidState);
+            return futureError(MiscErrc::invalidState);
 
         auto caller = caller_.lock();
         if (!caller)
@@ -129,7 +129,7 @@ public:
         State expectedState = State::open;
         bool ok = state_.compare_exchange_strong(expectedState, State::closed);
         if (!ok)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
 
         auto caller = caller_.lock();
         if (!caller)
@@ -142,7 +142,7 @@ public:
         State expectedState = State::open;
         bool ok = state_.compare_exchange_strong(expectedState, State::closed);
         if (!ok)
-            return futureError(Errc::invalidState);
+            return futureError(MiscErrc::invalidState);
 
         auto caller = caller_.lock();
         if (!caller)
@@ -351,7 +351,7 @@ public:
         auto newState = response.isFinal() ? State::closed : State::open;
         bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
 
         if (!response.isFinal())
         {
@@ -375,7 +375,7 @@ public:
         auto newState = response.isFinal() ? State::closed : State::open;
         bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
-            return futureError(Errc::invalidState);
+            return futureError(MiscErrc::invalidState);
 
         if (!response.isFinal())
         {
@@ -397,7 +397,7 @@ public:
         State expectedState = State::awaiting;
         bool ok = state_.compare_exchange_strong(expectedState, State::open);
         if (!ok)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
 
         chunkSlot_ = std::move(onChunk);
         interruptSlot_ = std::move(onInterrupt);
@@ -412,7 +412,7 @@ public:
         auto newState = chunk.isFinal() ? State::closed : State::open;
         bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
-            return makeUnexpectedError(Errc::invalidState);
+            return makeUnexpectedError(MiscErrc::invalidState);
 
         auto caller = callee_.lock();
         if (!caller)
@@ -427,7 +427,7 @@ public:
         auto newState = chunk.isFinal() ? State::closed : State::open;
         bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
-            return futureError(Errc::invalidState);
+            return futureError(MiscErrc::invalidState);
         auto callee = callee_.lock();
         if (!callee)
             return futureValue(false);

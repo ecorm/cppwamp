@@ -14,19 +14,19 @@
 using namespace wamp;
 
 //------------------------------------------------------------------------------
-SCENARIO( "Errc error codes", "[Error]" )
+SCENARIO( "MiscErrc error codes", "[Error]" )
 {
     SECTION("Properties")
     {
-        using T = std::underlying_type<Errc>::type;
-        for (T i=0; i<T(Errc::count); ++i)
+        using T = std::underlying_type<MiscErrc>::type;
+        for (T i=0; i<T(MiscErrc::count); ++i)
         {
-            auto errc = Errc(i);
+            auto errc = MiscErrc(i);
             auto ec = make_error_code(errc);
             INFO("For error code " << ec);
             CHECK(ec.category() == genericCategory());
             CHECK_THAT(ec.category().name(),
-                       Catch::Matchers::Equals("wamp::GenericCategory"));
+                       Catch::Matchers::Equals("wamp::MiscCategory"));
             CHECK(!ec.message().empty());
             CHECK(ec == errc);
             CHECK(ec == make_error_condition(errc));
@@ -35,9 +35,10 @@ SCENARIO( "Errc error codes", "[Error]" )
 
     SECTION("Equivalencies")
     {
-        CHECK(make_error_code(Errc::abandoned) != Errc::success);
-        CHECK(std::error_code{0, std::generic_category()} == Errc::success);
-        CHECK(make_error_code(std::errc::result_out_of_range) != Errc::success);
+        CHECK(make_error_code(MiscErrc::abandoned) != MiscErrc::success);
+        CHECK(std::error_code{0, std::generic_category()} == MiscErrc::success);
+        CHECK(make_error_code(std::errc::result_out_of_range) !=
+              MiscErrc::success);
     }
 }
 
@@ -69,10 +70,10 @@ SCENARIO( "WampErrc error codes", "[Error]" )
     SECTION("Equivalences")
     {
         CHECK(make_error_code(WampErrc::unknown) != WampErrc::success);
-        CHECK(make_error_code(WampErrc::success) == Errc::success);
-        CHECK(make_error_code(Errc::success) == WampErrc::success);
+        CHECK(make_error_code(WampErrc::success) == MiscErrc::success);
+        CHECK(make_error_code(MiscErrc::success) == WampErrc::success);
         CHECK(std::error_code{0, std::generic_category()} == WampErrc::success);
-        CHECK(make_error_code(Errc::abandoned) != WampErrc::success);
+        CHECK(make_error_code(MiscErrc::abandoned) != WampErrc::success);
 
         CHECK(make_error_code(WampErrc::systemShutdown) == WampErrc::sessionKilled);
         CHECK(make_error_code(WampErrc::closeRealm) == WampErrc::sessionKilled);
@@ -116,8 +117,8 @@ SCENARIO( "DecodingErrc error codes", "[Error]" )
     SECTION("Equivalencies")
     {
         CHECK(make_error_code(DecodingErrc::failed) != DecodingErrc::success);
-        CHECK(make_error_code(Errc::success) == DecodingErrc::success);
-        CHECK(make_error_code(Errc::abandoned) != DecodingErrc::success);
+        CHECK(make_error_code(MiscErrc::success) == DecodingErrc::success);
+        CHECK(make_error_code(MiscErrc::abandoned) != DecodingErrc::success);
         CHECK(make_error_code(jsoncons::json_errc::source_error) ==
               DecodingErrc::failed);
         CHECK(make_error_code(jsoncons::cbor::cbor_errc::source_error) ==
@@ -155,8 +156,8 @@ SCENARIO( "TransportErrc error codes", "[Error]" )
         auto success = TransportErrc::success;
         auto failed = TransportErrc::failed;
         CHECK(make_error_code(TransportErrc::failed) != TransportErrc::success);
-        CHECK(make_error_code(Errc::success) == success);
-        CHECK(make_error_code(Errc::abandoned) != success);
+        CHECK(make_error_code(MiscErrc::success) == success);
+        CHECK(make_error_code(MiscErrc::abandoned) != success);
         CHECK(std::error_code{0, std::generic_category()} == success);
         CHECK(std::error_code{1, std::generic_category()} == failed);
         CHECK(std::error_code{0, std::system_category()} == success);
