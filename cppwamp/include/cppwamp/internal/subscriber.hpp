@@ -32,7 +32,7 @@ public:
 
     virtual void safeUnsubscribe(const Subscription&) = 0;
 
-    virtual void onEventError(const Error&) = 0;
+    virtual void onEventError(Error&&, SubscriptionId) = 0;
 };
 
 } // namespace internal

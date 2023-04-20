@@ -531,10 +531,18 @@ public:
         for (const auto& kv: record.slots)
         {
             const auto& slot = kv.second;
-            postEvent(slot, record.topic.uri(), event, subscriber, executor_,
-                      userExecutor_);
+            postEvent(slot, event, subscriber, executor_, userExecutor_);
         }
         return true;
+    }
+
+    const Uri& lookupTopicUri(SubscriptionId subId)
+    {
+        static const Uri empty;
+        auto found = subscriptions_.find(subId);
+        if (found == subscriptions_.end())
+            return empty;
+        return found->second.topic.uri();
     }
 
     void clear()
@@ -574,7 +582,7 @@ private:
         return Subscription{{}, subscriber, subId, slotId};
     }
 
-    void postEvent(const EventSlot& slot, const Uri& uri, const Event& event,
+    void postEvent(const EventSlot& slot, const Event& event,
                    SubscriberPtr subscriber, AnyIoExecutor& exec,
                    AnyCompletionExecutor& userExec)
     {
@@ -582,7 +590,6 @@ private:
         {
             SubscriberPtr subscriber;
             Event event;
-            Uri uri;
             EventSlot slot;
 
             void operator()()
@@ -600,25 +607,23 @@ private:
                 }
                 catch (Error& error)
                 {
-                    error["topic"] = std::move(uri);
                     error["subscriptionId"] = subId;
                     error["publicationId"] = pubId;
-                    subscriber->onEventError(error);
+                    subscriber->onEventError(std::move(error), subId);
                 }
                 catch (const error::BadType& e)
                 {
                     Error error(e);
-                    error["topic"] = std::move(uri);
                     error["subscriptionId"] = subId;
                     error["publicationId"] = pubId;
-                    subscriber->onEventError(error);
+                    subscriber->onEventError(std::move(error), subId);
                 }
             }
         };
 
         auto associatedExec =
             boost::asio::get_associated_executor(slot, userExec);
-        Posted posted{subscriber, event, uri, slot};
+        Posted posted{subscriber, event, slot};
         boost::asio::post(
             exec,
             boost::asio::bind_executor(associatedExec, std::move(posted)));
@@ -834,19 +839,21 @@ public:
             automaticallyRespondToInterruption(intr, rec);
     }
 
-    Uri lookupProcedureUri(RegistrationId regId) const
+    const Uri& lookupProcedureUri(RegistrationId regId) const
     {
+        static const Uri empty;
         auto found = procedures_.find(regId);
         if (found == procedures_.end())
-            return {};
+            return empty;
         return found->second.uri;
     }
 
-    Uri lookupStreamUri(RegistrationId regId) const
+    const Uri& lookupStreamUri(RegistrationId regId) const
     {
+        static const Uri empty;
         auto found = streams_.find(regId);
         if (found == streams_.end())
-            return {};
+            return empty;
         return found->second.uri;
     }
 
@@ -1468,18 +1475,27 @@ public:
         safelyDispatch<Dispatched>(s, std::move(f));
     }
 
-    void onEventError(const Error& error) override
+    void onEventError(Error&& error, SubscriptionId subId) override
     {
         struct Dispatched
         {
             Ptr self;
-            Incident i;
-            void operator()() {self->report(std::move(i));}
+            Error e;
+            SubscriptionId s;
+            void operator()() {self->reportEventError(e, s);}
         };
 
         // This can be called from a foreign thread, so we must dispatch
         // to avoid race when accessing incidentSlot_ member.
-        safelyDispatch<Dispatched>(Incident{IncidentKind::eventError, error});
+        safelyDispatch<Dispatched>(std::move(error), subId);
+    }
+
+    void reportEventError(Error& error, SubscriptionId subId)
+    {
+        const auto& uri = readership_.lookupTopicUri(subId);
+        if (!uri.empty())
+            error["uri"] = uri;
+        report({IncidentKind::eventError, error});
     }
 
     ErrorOrDone publish(Pub&& pub)
@@ -1945,7 +1961,7 @@ public:
             std::ostringstream oss;
             oss << "Stream RESULT with requestId=" << chunk.requestId({})
                 << ", for registrationId=" << regId;
-            auto uri = registry_.lookupProcedureUri(regId);
+            const auto& uri = registry_.lookupStreamUri(regId);
             if (!uri.empty())
                 oss << " and uri=" << uri;
             report({IncidentKind::trouble, unex.value(), oss.str()});
@@ -2001,7 +2017,7 @@ public:
             std::ostringstream oss;
             oss << "RPC RESULT with requestId=" << result.requestId({})
                 << ", for registrationId=" << regId;
-            auto uri = registry_.lookupProcedureUri(regId);
+            const auto& uri = registry_.lookupProcedureUri(regId);
             if (!uri.empty())
                 oss << " and uri=" << uri;
             report({IncidentKind::trouble, unex.value(), oss.str()});
