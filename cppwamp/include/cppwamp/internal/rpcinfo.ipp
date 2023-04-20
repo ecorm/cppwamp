@@ -355,7 +355,7 @@ CPPWAMP_INLINE ErrorOrDone Invocation::yield(Result result) const
     auto callee = callee_.lock();
     if (!callee)
         return false;
-    return callee->yield(std::move(result), requestId_);
+    return callee->yield(std::move(result), requestId_, registrationId_);
 }
 
 CPPWAMP_INLINE std::future<ErrorOrDone>
@@ -366,7 +366,7 @@ Invocation::yield(ThreadSafe, Result result) const
     if (!callee)
         return futureValue(false);
 
-    return callee->safeYield(std::move(result), requestId_);
+    return callee->safeYield(std::move(result), requestId_, registrationId_);
 }
 
 CPPWAMP_INLINE ErrorOrDone Invocation::yield(Error error) const
@@ -375,7 +375,7 @@ CPPWAMP_INLINE ErrorOrDone Invocation::yield(Error error) const
     auto callee = callee_.lock();
     if (!callee)
         return false;
-    return callee->yield(std::move(error), requestId_);
+    return callee->yield(std::move(error), requestId_, registrationId_);
 }
 
 CPPWAMP_INLINE std::future<ErrorOrDone>
@@ -385,7 +385,7 @@ Invocation::yield(ThreadSafe, Error error) const
     auto callee = callee_.lock();
     if (!callee)
         return futureValue(false);
-    return callee->safeYield(std::move(error), requestId_);
+    return callee->safeYield(std::move(error), requestId_, registrationId_);
 }
 
 CPPWAMP_INLINE AccessActionInfo Invocation::info(Uri topic) const
@@ -534,7 +534,7 @@ CPPWAMP_INLINE ErrorOrDone Interruption::yield(Result result) const
     auto callee = callee_.lock();
     if (!callee)
         return false;
-    return callee->yield(std::move(result), requestId_);
+    return callee->yield(std::move(result), requestId_, registrationId_);
 }
 
 CPPWAMP_INLINE std::future<ErrorOrDone>
@@ -545,7 +545,7 @@ Interruption::yield(ThreadSafe, Result result) const
     if (!callee)
         return futureValue(false);
 
-    return callee->safeYield(std::move(result), requestId_);
+    return callee->safeYield(std::move(result), requestId_, registrationId_);
 }
 
 CPPWAMP_INLINE ErrorOrDone Interruption::yield(Error error) const
@@ -555,7 +555,7 @@ CPPWAMP_INLINE ErrorOrDone Interruption::yield(Error error) const
     if (!callee)
         return false;
 
-    return callee->yield(std::move(error), requestId_);
+    return callee->yield(std::move(error), requestId_, registrationId_);
 }
 
 CPPWAMP_INLINE std::future<ErrorOrDone>
@@ -566,7 +566,7 @@ Interruption::yield(ThreadSafe, Error error) const
     if (!callee)
         return futureValue(false);
 
-    return callee->safeYield(std::move(error), requestId_);
+    return callee->safeYield(std::move(error), requestId_, registrationId_);
 }
 
 CPPWAMP_INLINE AccessActionInfo Interruption::info() const
@@ -610,6 +610,12 @@ CPPWAMP_INLINE void Interruption::setCallee(internal::PassKey, CalleePtr callee,
 {
     callee_ = std::move(callee);
     executor_ = std::move(executor);
+}
+
+CPPWAMP_INLINE void Interruption::setRegistrationId(internal::PassKey,
+                                                    RegistrationId regId)
+{
+    registrationId_ = regId;
 }
 
 CPPWAMP_INLINE Interruption::CalleePtr

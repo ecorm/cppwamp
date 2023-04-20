@@ -553,6 +553,7 @@ private:
     CalleePtr callee_;
     AnyCompletionExecutor executor_ = nullptr;
     RequestId requestId_ = nullId();
+    RegistrationId registrationId_ = nullId();
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
 
 public:
@@ -564,6 +565,8 @@ public:
 
     void setCallee(internal::PassKey, CalleePtr callee,
                    AnyCompletionExecutor executor);
+
+    void setRegistrationId(internal::PassKey, RegistrationId regId);
 
     CalleePtr callee(internal::PassKey) const;
 };

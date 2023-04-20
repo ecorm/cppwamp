@@ -36,18 +36,21 @@ public:
 
     virtual void safeUnregister(const Registration&) = 0;
 
-    virtual ErrorOrDone yield(Result&&, RequestId) = 0;
+    virtual ErrorOrDone yield(Result&&, RequestId, RegistrationId) = 0;
 
-    virtual std::future<ErrorOrDone> safeYield(Result&&, RequestId) = 0;
+    virtual std::future<ErrorOrDone> safeYield(Result&&, RequestId,
+                                               RegistrationId) = 0;
 
-    virtual ErrorOrDone yield(Error&&, RequestId) = 0;
+    virtual ErrorOrDone yield(Error&&, RequestId, RegistrationId) = 0;
 
-    virtual std::future<ErrorOrDone> safeYield(Error&&, RequestId) = 0;
+    virtual std::future<ErrorOrDone> safeYield(Error&&, RequestId,
+                                               RegistrationId) = 0;
 
-    virtual ErrorOrDone yield(CalleeOutputChunk&&, RequestId) = 0;
+    virtual ErrorOrDone yield(CalleeOutputChunk&&, RequestId,
+                              RegistrationId) = 0;
 
     virtual std::future<ErrorOrDone> safeYield(CalleeOutputChunk&&,
-                                               RequestId) = 0;
+                                               RequestId, RegistrationId) = 0;
 };
 
 } // namespace internal

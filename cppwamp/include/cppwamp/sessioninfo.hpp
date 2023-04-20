@@ -372,14 +372,14 @@ public:
 //------------------------------------------------------------------------------
 enum class IncidentKind
 {
-    transportDropped,     /**< Transport connection dropped by peer or network. */
-    closedByPeer,         /**< WAMP session killed by the remote peer. */
-    abortedByPeer,        /**< WAMP session aborted by the remote peer. */
-    commFailure,          /**< A fatal transport or protocol error occurred. */
-    challengeFailure,     /**< The challenge handler reported an error. */
-    eventError,           /**< A pub-sub event handler reported an error. */
-    trouble,              /**< A non-fatal problem occurred. */
-    trace,                /**< A WAMP message was sent or received. */
+    transportDropped, ///< Transport connection dropped by peer or network.
+    closedByPeer,     ///< WAMP session killed by the remote peer.
+    abortedByPeer,    ///< WAMP session aborted by the remote peer.
+    commFailure,      ///< A fatal transport or protocol error occurred.
+    challengeFailure, ///< The challenge handler reported an error.
+    eventError,       ///< A pub-sub event handler reported an error.
+    trouble,          ///< A non-fatal problem occurred.
+    trace,            ///< A WAMP message was sent or received.
 };
 
 //------------------------------------------------------------------------------

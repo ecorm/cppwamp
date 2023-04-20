@@ -299,7 +299,8 @@ public:
 
     BasicCalleeChannelImpl(
         Invocation&& inv, bool invitationExpected, Executor executor)
-        : invitation_({}, std::move(inv)),
+        : registrationId_(inv.registrationId()),
+          invitation_({}, std::move(inv)),
           executor_(std::move(executor)),
           userExecutor_(inv.executor()),
           callee_(inv.callee({})),
@@ -364,7 +365,7 @@ public:
         auto caller = callee_.lock();
         if (!caller)
             return false;
-        return caller->yield(std::move(response), id_);
+        return caller->yield(std::move(response), id_, registrationId_);
     }
 
     std::future<ErrorOrDone> respond(
@@ -388,7 +389,7 @@ public:
         auto caller = callee_.lock();
         if (!caller)
             return futureValue(false);
-        return caller->safeYield(std::move(response), id_);
+        return caller->safeYield(std::move(response), id_, registrationId_);
     }
 
     CPPWAMP_NODISCARD ErrorOrDone accept(ChunkSlot onChunk = {},
@@ -417,7 +418,7 @@ public:
         auto caller = callee_.lock();
         if (!caller)
             return false;
-        return caller->yield(std::move(chunk), id_);
+        return caller->yield(std::move(chunk), id_, registrationId_);
     }
 
     CPPWAMP_NODISCARD std::future<ErrorOrDone> send(ThreadSafe,
@@ -431,7 +432,7 @@ public:
         auto callee = callee_.lock();
         if (!callee)
             return futureValue(false);
-        return callee->safeYield(std::move(chunk), id_);
+        return callee->safeYield(std::move(chunk), id_, registrationId_);
     }
 
     ErrorOrDone fail(Error error)
@@ -440,7 +441,7 @@ public:
         auto caller = callee_.lock();
         if (!caller || oldState == State::closed)
             return false;
-        return caller->yield(std::move(error), id_);
+        return caller->yield(std::move(error), id_, registrationId_);
     }
 
     std::future<ErrorOrDone> fail(ThreadSafe, Error error)
@@ -449,7 +450,7 @@ public:
         auto caller = callee_.lock();
         if (!caller || oldState == State::closed)
             return futureValue(false);
-        return caller->safeYield(std::move(error), id_);
+        return caller->safeYield(std::move(error), id_, registrationId_);
     }
 
     bool hasInterruptHandler() const
@@ -544,6 +545,7 @@ private:
         return true;
     }
 
+    RegistrationId registrationId_;
     InputChunk invitation_;
     ChunkSlot chunkSlot_;
     InterruptSlot interruptSlot_;

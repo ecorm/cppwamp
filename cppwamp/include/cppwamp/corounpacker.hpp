@@ -501,7 +501,8 @@ public:
     Spawned(const Slot& slot, Invocation&& inv)
         : slot_(slot),
         calleePtr_(inv.callee_),
-        reqId_(inv.requestId()),
+        requestId_(inv.requestId()),
+        registrationId_(inv.registrationId()),
         inv_(std::move(inv))
     {}
 
@@ -552,19 +553,20 @@ private:
         auto callee = calleePtr_.lock();
         if (!callee)
             return;
-        callee->safeYield(std::move(result), reqId_);
+        callee->safeYield(std::move(result), requestId_, registrationId_);
     }
 
     void safeYield(Error&& error)
     {
         auto callee = calleePtr_.lock();
         if (callee)
-            callee->safeYield(std::move(error), reqId_);
+            callee->safeYield(std::move(error), requestId_, registrationId_);
     }
 
     Slot slot_;
     std::weak_ptr<internal::Callee> calleePtr_;
-    RequestId reqId_;
+    RequestId requestId_;
+    RegistrationId registrationId_;
     Invocation inv_;
 };
 

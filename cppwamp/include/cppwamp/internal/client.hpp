@@ -55,6 +55,8 @@ namespace internal
 struct StreamRegistration
 {
     AnyReusableHandler<void (CalleeChannel)> streamSlot;
+    Uri uri;
+    RegistrationId registrationId;
     bool invitationExpected;
 };
 
@@ -640,6 +642,8 @@ struct ProcedureRegistration
 
     CallSlot callSlot;
     InterruptSlot interruptSlot;
+    Uri uri;
+    RegistrationId registrationId;
 };
 
 
@@ -675,18 +679,18 @@ public:
           peer_(peer)
     {}
 
-    ErrorOr<Registration> enroll(RegistrationId regId,
-                                 ProcedureRegistration&& reg, CalleePtr callee)
+    ErrorOr<Registration> enroll(ProcedureRegistration&& reg, CalleePtr callee)
     {
+        auto regId = reg.registrationId;
         auto emplaced = procedures_.emplace(regId, std::move(reg));
         if (!emplaced.second)
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
         return Registration{{}, callee, regId};
     }
 
-    ErrorOr<Registration> enroll(RegistrationId regId, StreamRegistration&& reg,
-                                 CalleePtr callee)
+    ErrorOr<Registration> enroll(StreamRegistration&& reg, CalleePtr callee)
     {
+        auto regId = reg.registrationId;
         auto emplaced = streams_.emplace(regId, std::move(reg));
         if (!emplaced.second)
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
@@ -810,6 +814,7 @@ public:
         if (rec.interrupted)
             return;
         rec.interrupted = true;
+        intr.setRegistrationId({}, rec.registrationId);
 
         bool interruptHandled = false;
 
@@ -827,6 +832,22 @@ public:
 
         if (!interruptHandled)
             automaticallyRespondToInterruption(intr, rec);
+    }
+
+    Uri lookupProcedureUri(RegistrationId regId) const
+    {
+        auto found = procedures_.find(regId);
+        if (found == procedures_.end())
+            return {};
+        return found->second.uri;
+    }
+
+    Uri lookupStreamUri(RegistrationId regId) const
+    {
+        auto found = streams_.find(regId);
+        if (found == streams_.end())
+            return {};
+        return found->second.uri;
     }
 
     void clear()
@@ -855,7 +876,7 @@ private:
 
         auto& invocationRec = emplaced.first->second;
         invocationRec.closed = true;
-        postRpcRequest(reg.callSlot, inv);
+        postRpcRequest(reg.callSlot, inv, reg.registrationId);
         return WampErrc::success;
     }
 
@@ -864,18 +885,20 @@ private:
     {
         if (reg.interruptSlot == nullptr)
             return false;
-        postRpcRequest(reg.interruptSlot, intr);
+        postRpcRequest(reg.interruptSlot, intr, reg.registrationId);
         return true;
     }
 
     template <typename TSlot, typename TInvocationOrInterruption>
-    void postRpcRequest(TSlot slot, TInvocationOrInterruption& request)
+    void postRpcRequest(TSlot slot, TInvocationOrInterruption& request,
+                        RegistrationId regId)
     {
         struct Posted
         {
             std::shared_ptr<Callee> callee;
             TSlot slot;
             TInvocationOrInterruption request;
+            RegistrationId regId;
 
             void operator()()
             {
@@ -894,14 +917,14 @@ private:
                     case Outcome::Type::result:
                     {
                         callee->safeYield(std::move(outcome).asResult(),
-                                          requestId);
+                                          requestId, regId);
                         break;
                     }
 
                     case Outcome::Type::error:
                     {
                         callee->safeYield(std::move(outcome).asError(),
-                                          requestId);
+                                          requestId, regId);
                         break;
                     }
 
@@ -911,12 +934,12 @@ private:
                 }
                 catch (Error& error)
                 {
-                    callee->safeYield(std::move(error), requestId);
+                    callee->safeYield(std::move(error), requestId, regId);
                 }
                 catch (const error::BadType& e)
                 {
                     // Forward Variant conversion exceptions as ERROR messages.
-                    callee->safeYield(Error{e}, requestId);
+                    callee->safeYield(Error{e}, requestId, regId);
                 }
             }
         };
@@ -925,7 +948,7 @@ private:
             boost::asio::get_associated_executor(slot, userExecutor_);
         auto callee = request.callee({}).lock();
         assert(callee != nullptr);
-        Posted posted{callee, std::move(slot), std::move(request)};
+        Posted posted{callee, std::move(slot), std::move(request), regId};
         boost::asio::post(
             executor_,
             boost::asio::bind_executor(associatedExec, std::move(posted)));
@@ -1547,8 +1570,8 @@ public:
                 if (!me.checkReply(reply, MessageKind::registered, f))
                     return;
                 Registered ack{std::move(*reply)};
-                auto reg = me.registry_.enroll(ack.registrationId(),
-                                               std::move(r), self);
+                r.registrationId = ack.registrationId();
+                auto reg = me.registry_.enroll(std::move(r), self);
                 me.completeNow(f, std::move(reg));
             }
         };
@@ -1556,7 +1579,7 @@ public:
         if (!checkState(State::established, f))
             return;
 
-        ProcedureRegistration reg{std::move(c), std::move(i)};
+        ProcedureRegistration reg{std::move(c), std::move(i), p.uri(), 0};
         request(std::move(p),
                 Requested{shared_from_this(), std::move(reg), std::move(f)});
     }
@@ -1598,8 +1621,8 @@ public:
                 if (!me.checkReply(reply, MessageKind::registered, f))
                     return;
                 Registered ack{std::move(*reply)};
-                auto reg = me.registry_.enroll(ack.registrationId(),
-                                               std::move(r), self);
+                r.registrationId = ack.registrationId();
+                auto reg = me.registry_.enroll(std::move(r), self);
                 me.completeNow(f, std::move(reg));
             }
         };
@@ -1607,7 +1630,8 @@ public:
         if (!checkState(State::established, f))
             return;
 
-        StreamRegistration reg{std::move(ss), s.invitationExpected()};
+        StreamRegistration reg{std::move(ss), s.uri(), 0,
+                               s.invitationExpected()};
         request(std::move(s),
                 Requested{shared_from_this(), std::move(reg), std::move(f)});
     }
@@ -1910,32 +1934,47 @@ public:
         return safeCancelCall(r, CallCancelMode::killNoWait);
     }
 
-    ErrorOrDone yieldChunk(CalleeOutputChunk&& chunk)
+    ErrorOrDone yieldChunk(CalleeOutputChunk&& chunk, RegistrationId regId)
     {
         if (state() != State::established)
             return makeUnexpectedError(MiscErrc::invalidState);
-        return registry_.yield(std::move(chunk));
+        auto done = registry_.yield(std::move(chunk));
+        auto unex = makeUnexpectedError(WampErrc::payloadSizeExceeded);
+        if (incidentSlot_ && (done == unex))
+        {
+            std::ostringstream oss;
+            oss << "Stream RESULT with requestId=" << chunk.requestId({})
+                << ", for registrationId=" << regId;
+            auto uri = registry_.lookupProcedureUri(regId);
+            if (!uri.empty())
+                oss << " and uri=" << uri;
+            report({IncidentKind::trouble, unex.value(), oss.str()});
+        }
+        return done;
     }
 
-    ErrorOrDone yield(CalleeOutputChunk&& chunk, RequestId reqId) override
+    ErrorOrDone yield(CalleeOutputChunk&& chunk, RequestId reqId,
+                      RegistrationId regId) override
     {
         chunk.setRequestId({}, reqId);
-        return yieldChunk(std::move(chunk));
+        return yieldChunk(std::move(chunk), regId);
     }
 
-    FutureErrorOrDone safeYield(CalleeOutputChunk&& c, RequestId reqId) override
+    FutureErrorOrDone safeYield(CalleeOutputChunk&& c, RequestId reqId,
+                                RegistrationId regId) override
     {
         struct Dispatched
         {
             Ptr self;
             CalleeOutputChunk c;
+            RegistrationId r;
             ErrorOrDonePromise p;
 
             void operator()()
             {
                 try
                 {
-                    p.set_value(self->yieldChunk(std::move(c)));
+                    p.set_value(self->yieldChunk(std::move(c), r));
                 }
                 catch (...)
                 {
@@ -1947,11 +1986,11 @@ public:
         c.setRequestId({}, reqId);
         ErrorOrDonePromise p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(c), std::move(p));
+        safelyDispatch<Dispatched>(std::move(c), regId, std::move(p));
         return fut;
     }
 
-    ErrorOrDone yieldResult(Result&& result)
+    ErrorOrDone yieldResult(Result&& result, RegistrationId regId)
     {
         if (state() != State::established)
             return makeUnexpectedError(MiscErrc::invalidState);
@@ -1960,31 +1999,38 @@ public:
         if (incidentSlot_ && (done == unex))
         {
             std::ostringstream oss;
-            oss << "RESULT with requestId=" << result.requestId({});
+            oss << "RPC RESULT with requestId=" << result.requestId({})
+                << ", for registrationId=" << regId;
+            auto uri = registry_.lookupProcedureUri(regId);
+            if (!uri.empty())
+                oss << " and uri=" << uri;
             report({IncidentKind::trouble, unex.value(), oss.str()});
         }
         return done;
     }
 
-    ErrorOrDone yield(Result&& result, RequestId reqId) override
+    ErrorOrDone yield(Result&& result, RequestId reqId,
+                      RegistrationId regId) override
     {
         result.setRequestId({}, reqId);
-        return yieldResult(std::move(result));
+        return yieldResult(std::move(result), regId);
     }
 
-    FutureErrorOrDone safeYield(Result&& r, RequestId reqId) override
+    FutureErrorOrDone safeYield(Result&& r, RequestId reqId,
+                                RegistrationId regId) override
     {
         struct Dispatched
         {
             Ptr self;
             Result r;
+            RegistrationId i;
             ErrorOrDonePromise p;
 
             void operator()()
             {
                 try
                 {
-                    p.set_value(self->yieldResult(std::move(r)));
+                    p.set_value(self->yieldResult(std::move(r), i));
                 }
                 catch (...)
                 {
@@ -1996,11 +2042,11 @@ public:
         r.setRequestId({}, reqId);
         ErrorOrDonePromise p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(r), std::move(p));
+        safelyDispatch<Dispatched>(std::move(r), regId, std::move(p));
         return fut;
     }
 
-    ErrorOrDone yieldError(Error&& error)
+    ErrorOrDone yieldError(Error&& error, RegistrationId regId)
     {
         if (state() != State::established)
             return makeUnexpectedError(MiscErrc::invalidState);
@@ -2009,31 +2055,37 @@ public:
         if (incidentSlot_ && (done == unex))
         {
             std::ostringstream oss;
-            oss << "INVOCATION ERROR with requestId=" << error.requestId({});
+            oss << "INVOCATION ERROR with requestId=" << error.requestId({})
+                << ", for registrationId=" << regId;
+            auto uri = registry_.lookupProcedureUri(regId);
+            if (!uri.empty())
+                oss << " and uri=" << uri;
             report({IncidentKind::trouble, unex.value(), oss.str()});
         }
         return done;
     }
 
-    ErrorOrDone yield(Error&& error, RequestId reqId) override
+    ErrorOrDone yield(Error&& error, RequestId reqId, RegistrationId regId) override
     {
         error.setRequestId({}, reqId);
-        return yieldError(std::move(error));
+        return yieldError(std::move(error), regId);
     }
 
-    FutureErrorOrDone safeYield(Error&& e, RequestId reqId) override
+    FutureErrorOrDone safeYield(Error&& e, RequestId reqId,
+                                RegistrationId regId) override
     {
         struct Dispatched
         {
             Ptr self;
             Error e;
+            RegistrationId r;
             ErrorOrDonePromise p;
 
             void operator()()
             {
                 try
                 {
-                    p.set_value(self->yieldError(std::move(e)));
+                    p.set_value(self->yieldError(std::move(e), r));
                 }
                 catch (...)
                 {
@@ -2045,7 +2097,7 @@ public:
         e.setRequestId({}, reqId);
         ErrorOrDonePromise p;
         auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(e), std::move(p));
+        safelyDispatch<Dispatched>(std::move(e), regId, std::move(p));
         return fut;
     }
 
