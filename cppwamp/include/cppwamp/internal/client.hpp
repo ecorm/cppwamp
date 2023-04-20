@@ -2190,8 +2190,20 @@ private:
         assert(msg.isReply());
         if (!requestor_.onReply(std::move(msg)))
         {
-            failProtocol(std::string("Received ") + msgName +
-                         " response with no matching request");
+            if (msg.kind() == MessageKind::error)
+            {
+                // Crossbar is known to send spurious ERROR messages
+                // https://github.com/crossbario/crossbar/issues/2068
+                // https://github.com/crossbario/crossbar/issues/2074
+                auto ec = make_error_code(Errc::spuriousResponse);
+                report({IncidentKind::trouble, ec,
+                        "Received spurious ERROR response"});
+            }
+            else
+            {
+                failProtocol(std::string("Received ") + msgName +
+                             " response with no matching request");
+            }
         }
     }
 

@@ -50,12 +50,13 @@ CPPWAMP_INLINE std::string GenericCategory::message(int ev) const
 {
     static const std::string msg[] =
     {
-        /* success       */ "Operation successful",
-        /* abandoned     */ "Operation abandoned by this peer",
-        /* invalidState  */ "Invalid state for this operation",
-        /* absent        */ "Item is absent",
-        /* badType,      */ "Invalid or unexpected type",
-        /* noSuchTopic   */ "No subscription under the given topic URI"
+        /* success          */ "Operation successful",
+        /* abandoned        */ "Operation abandoned by this peer",
+        /* invalidState     */ "Invalid state for this operation",
+        /* absent           */ "Item is absent",
+        /* badType,         */ "Invalid or unexpected type",
+        /* noSuchTopic      */ "No subscription under the given topic URI",
+        /* spuriousResponse */ "Received response with no matching request"
     };
 
     return internal::lookupErrorMessage<Errc>("wamp::GenericCategory", ev, msg);
