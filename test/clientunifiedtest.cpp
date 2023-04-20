@@ -227,13 +227,25 @@ GIVEN( "these test fixture objects" )
     Session caller(ioctx);
     Session callee(ioctx);
 
-    // Simple RPC that returns the string argument back to the caller.
+    // RPC that returns the string argument back to the caller.
     std::string echoedString;
     auto echo =
         [&echoedString](Invocation, std::string str) -> Outcome
     {
         echoedString = str;
         return Result({str});
+    };
+
+    // RPC that returns a result payload larger than transport limits.
+    auto excessive = [](Invocation) -> Outcome
+    {
+        return Result({std::string(17*1024*1024, ' ')});
+    };
+
+    // RPC that returns an error payload larger than transport limits.
+    auto excessiveError = [](Invocation) -> Outcome
+    {
+        return Error("bad").withArgs(std::string(17*1024*1024, ' '));
     };
 
     WHEN( "an RPC is invoked while a large event payload is being transmitted" )
@@ -315,6 +327,66 @@ GIVEN( "these test fixture objects" )
             auto result = caller.call(Rpc("echo").withArgs(largeString), yield);
             CHECK( result == makeUnexpectedError(WampErrc::payloadSizeExceeded) );
             CHECK( echoedString.empty() );
+
+            callee.disconnect();
+            caller.disconnect();
+        });
+
+        ioctx.run();
+    }
+
+    WHEN( "returning a result exceeding the router's transport limit" )
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            caller.connect(where, yield).value();
+            caller.join(Realm(testRealm), yield).value();
+
+            std::vector<Incident> incidents;
+            callee.observeIncidents(
+                [&incidents](Incident i) {incidents.push_back(i);});
+            callee.connect(where, yield).value();
+            callee.join(Realm(testRealm), yield).value();
+            callee.enroll(Procedure("excessive"), excessive, yield).value();
+
+            auto result = caller.call(Rpc("excessive"), yield);
+            CHECK( result == makeUnexpectedError(WampErrc::payloadSizeExceeded) );
+            REQUIRE(incidents.size() == 1);
+            auto incident = incidents.front();
+            CHECK(incident.kind() == IncidentKind::trouble);
+            CHECK(incident.error() == WampErrc::payloadSizeExceeded );
+
+            callee.disconnect();
+            caller.disconnect();
+        });
+
+        ioctx.run();
+    }
+
+    WHEN( "returning an error exceeding the router's transport limit" )
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            caller.connect(where, yield).value();
+            caller.join(Realm(testRealm), yield).value();
+
+            std::vector<Incident> incidents;
+            callee.observeIncidents(
+                [&incidents](Incident i) {incidents.push_back(i);});
+            callee.connect(where, yield).value();
+            callee.join(Realm(testRealm), yield).value();
+            callee.enroll(Procedure("excessive"), excessiveError,
+                          yield).value();
+
+            Error error;
+            auto result = caller.call(Rpc("excessive").captureError(error),
+                                      yield);
+            CHECK( result == makeUnexpectedError(WampErrc::unknown) );
+            CHECK( error.uri() == "bad" );
+            REQUIRE(incidents.size() == 1);
+            auto incident = incidents.front();
+            CHECK(incident.kind() == IncidentKind::trouble);
+            CHECK(incident.error() == WampErrc::payloadSizeExceeded );
 
             callee.disconnect();
             caller.disconnect();
