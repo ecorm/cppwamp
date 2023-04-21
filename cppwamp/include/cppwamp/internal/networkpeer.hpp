@@ -114,6 +114,7 @@ private:
     {
         transport_ = std::move(t);
         codec_ = std::move(c);
+        maxTxLength_ = transport_->info().maxTxLength;
     }
 
     void onEstablish() override
