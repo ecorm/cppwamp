@@ -234,7 +234,7 @@ public:
         auto uri = req.uri();
         req.setRequestId({}, channelId);
 
-        auto sent = peer_.send(req);
+        auto sent = peer_.send(std::move(req));
         if (!sent)
         {
             auto unex = makeUnexpected(sent.error());
@@ -732,8 +732,8 @@ public:
         {
             if (!erased)
                 invocations_.erase(found);
-            peer_.sendError({{}, MessageKind::invocation, reqId,
-                            WampErrc::payloadSizeExceeded});
+            peer_.send(Error{{}, MessageKind::invocation, reqId,
+                             WampErrc::payloadSizeExceeded});
         }
         return done;
     }
@@ -759,7 +759,7 @@ public:
         {
             if (!erased)
                 invocations_.erase(found);
-            peer_.sendError({{}, MessageKind::invocation, reqId,
+            peer_.send(Error{{}, MessageKind::invocation, reqId,
                              WampErrc::payloadSizeExceeded});
         }
         return done;
@@ -780,7 +780,7 @@ public:
             return false;
 
         error.setRequestKind({}, MessageKind::invocation);
-        return peer_.sendError(std::move(error));
+        return peer_.send(std::move(error));
     }
 
     WampErrc onInvocation(Invocation&& inv)
@@ -804,7 +804,7 @@ public:
             }
         }
 
-        peer_.sendError({{}, MessageKind::invocation, requestId,
+        peer_.send(Error{{}, MessageKind::invocation, requestId,
                          WampErrc::noSuchProcedure});
         return WampErrc::noSuchProcedure;
     }
@@ -1032,7 +1032,7 @@ private:
                 errorCodeToUri(WampErrc::cancelled))};
             error.setRequestId({}, intr.requestId());
             error.setRequestKind({}, MessageKind::invocation);
-            peer_.sendError(std::move(error));
+            peer_.send(std::move(error));
         }
     }
 
@@ -1069,14 +1069,16 @@ public:
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
 
-    static Ptr create(AnyIoExecutor exec)
+    static Ptr create(Peer::Ptr peer, AnyIoExecutor exec)
     {
-        return Ptr(new Client(exec, exec));
+        return Ptr(new Client(std::move(peer), exec, exec));
     }
 
-    static Ptr create(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
+    static Ptr create(Peer::Ptr peer, AnyIoExecutor exec,
+                      AnyCompletionExecutor userExec)
     {
-        return Ptr(new Client(exec, std::move(userExec)));
+        return Ptr(new Client(std::move(peer), std::move(exec),
+                              std::move(userExec)));
     }
 
     State state() const {return peer_->state();}
@@ -2087,15 +2089,17 @@ private:
     using RequestKey          = typename Message::RequestKey;
     using RequestHandler      = AnyCompletionHandler<void (ErrorOr<Message>)>;
 
-    Client(const AnyIoExecutor& exec, AnyCompletionExecutor userExec)
+    Client(Peer::Ptr peer, AnyIoExecutor exec, AnyCompletionExecutor userExec)
         : executor_(std::move(exec)),
           userExecutor_(std::move(userExec)),
           strand_(boost::asio::make_strand(executor_)),
-          peer_(new Peer(this, false)),
+          peer_(std::move(peer)),
           readership_(executor_, userExecutor_),
           registry_(*peer_, executor_, userExecutor_),
           requestor_(*peer_, strand_, executor_, userExecutor_)
-    {}
+    {
+        peer_->listen(this);
+    }
 
     void onPeerDisconnect() override
     {

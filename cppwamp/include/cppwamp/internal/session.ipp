@@ -7,6 +7,7 @@
 #include "../session.hpp"
 #include "../api.hpp"
 #include "client.hpp"
+#include "networkpeer.hpp"
 
 namespace wamp
 {
@@ -23,7 +24,9 @@ CPPWAMP_INLINE Session::Session(
                        fallback for user-provided handlers. */
 )
     : fallbackExecutor_(exec),
-      impl_(internal::Client::create(std::move(exec)))
+    impl_(internal::Client::create(
+        std::make_shared<internal::NetworkPeer>(false),
+        std::move(exec)))
 {}
 
 //------------------------------------------------------------------------------
@@ -37,7 +40,10 @@ CPPWAMP_INLINE Session::Session(
                                        user-provided handlers. */
 )
     : fallbackExecutor_(fallbackExec),
-      impl_(internal::Client::create(exec, std::move(fallbackExec)))
+      impl_(internal::Client::create(
+        std::make_shared<internal::NetworkPeer>(false),
+        exec,
+        std::move(fallbackExec)))
 {}
 
 //------------------------------------------------------------------------------

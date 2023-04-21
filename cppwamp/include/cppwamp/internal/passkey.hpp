@@ -44,6 +44,7 @@ namespace internal
         friend class DirectPeer;
         friend class LocalSessionImpl;
         friend class MatchUri;
+        friend class NetworkPeer;
         friend class Peer;
         friend class PeerListener;
         friend class ProcedureRegistry;

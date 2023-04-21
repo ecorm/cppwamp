@@ -16,7 +16,8 @@
 #include "../authenticators/anonymousauthenticator.hpp"
 #include "challenger.hpp"
 #include "commandinfo.hpp"
-#include "peer.hpp"
+#include "cppwamp/internal/networkpeer.hpp"
+#include "networkpeer.hpp"
 #include "routercontext.hpp"
 #include "routersession.hpp"
 
@@ -126,7 +127,7 @@ private:
                   ServerContext&& s, ServerConfig::Ptr sc, Index sessionIndex)
         : Base(s.logger()),
           strand_(std::move(i)),
-          peer_(new Peer(this, true)),
+          peer_(std::make_shared<NetworkPeer>(true)),
           transport_(t),
           codec_(std::move(c)),
           server_(std::move(s)),
@@ -135,6 +136,7 @@ private:
         assert(serverConfig_ != nullptr);
         Base::setTransportInfo({t->remoteEndpointLabel(), serverConfig_->name(),
                                 sessionIndex});
+        peer_->listen(this);
     }
 
     void onRouterAbort(Reason&& r) override

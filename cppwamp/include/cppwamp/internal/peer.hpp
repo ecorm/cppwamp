@@ -10,15 +10,12 @@
 #include <atomic>
 #include <cassert>
 #include <memory>
-#include <sstream>
-#include <string>
-#include <type_traits>
 #include <utility>
+#include "../calleestreaming.hpp"
+#include "../callerstreaming.hpp"
 #include "../codec.hpp"
-#include "../errorcodes.hpp"
 #include "../erroror.hpp"
 #include "../transport.hpp"
-#include "message.hpp"
 #include "peerlistener.hpp"
 
 namespace wamp
@@ -28,19 +25,13 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-// Provides session functionality common to both clients and router peers.
+// Abstract base class for communicating with a WAMP peer
 //------------------------------------------------------------------------------
 class Peer : public std::enable_shared_from_this<Peer>
 {
 public:
     using Ptr = std::shared_ptr<Peer>;
     using State = SessionState;
-
-    explicit Peer(PeerListener* listener, bool isRouter)
-        : listener_(*listener),
-          state_(State::disconnected),
-          isRouter_(isRouter)
-    {}
 
     virtual ~Peer()
     {
@@ -52,6 +43,8 @@ public:
     }
 
     State state() const {return state_.load();}
+
+    void listen(PeerListener* listener) {listener_ = listener;}
 
     bool startConnecting()
     {
@@ -72,7 +65,7 @@ public:
         transport_ = std::move(transport);
         codec_ = std::move(codec);
         setState(State::closed);
-        maxTxLength_ = transport_->info().maxTxLength;
+        onConnect();
     }
 
     bool establishSession()
@@ -80,26 +73,7 @@ public:
         if (!compareAndSetState(State::closed, State::establishing))
             return false;
         assert(transport_ != nullptr);
-
-        if (!transport_->isStarted())
-        {
-            std::weak_ptr<Peer> weakSelf = shared_from_this();
-            transport_->start(
-                [weakSelf](ErrorOr<MessageBuffer> buffer)
-                {
-                    auto self = weakSelf.lock();
-                    if (self)
-                        self->onTransportRx(buffer);
-                },
-                [weakSelf](std::error_code ec)
-                {
-                    auto self = weakSelf.lock();
-                    if (self)
-                        self->onTransportTxError(ec);
-                }
-            );
-        }
-
+        onEstablish();
         return true;
     }
 
@@ -127,84 +101,58 @@ public:
         }
     }
 
-    template <typename C>
-    ErrorOrDone send(C&& command) {return sendCommand(command);}
-
-    ErrorOrDone sendError(Error&& error)
+    void fail()
     {
-        auto done = sendCommand(error);
-        if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
-        {
-            error.withArgs(String{"(snipped)"});
-            error.withKwargs({});
-            sendCommand(error);
-        }
-        return done;
-    }
-
-    ErrorOrDone abort(Reason r)
-    {
-        if (!transport_ || !transport_->isStarted())
-            return makeUnexpectedError(MiscErrc::invalidState);
-
-        if (!readyToAbort())
-        {
-            disconnect();
-            return makeUnexpectedError(MiscErrc::invalidState);
-        }
-
-        r.setKindToAbort({});
-        const auto& msg = r.message({});
-        MessageBuffer buffer;
-        codec_.encode(msg.fields(), buffer);
-
-        bool fits = buffer.size() <= maxTxLength_;
-        if (!fits)
-        {
-            r.options().clear();
-            r.withHint("(snipped)");
-            buffer.clear();
-            codec_.encode(msg.fields(), buffer);
-        }
-
-        traceTx(msg);
-        transport_->sendNowAndClose(std::move(buffer));
         setState(State::failed);
-        if (!fits)
-            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
-        return true;
+        if (transport_)
+        {
+            transport_->close();
+            transport_.reset();
+        }
     }
 
-private:
-    static const std::string& stateLabel(State state)
-    {
-        static const std::string labels[] = {
-            "DISCONNECTED", "CONNECTING", "CLOSED", "ESTABLISHING",
-            "AUTHENTICATING", "ESTABLISHED", "SHUTTING_DOWN", "FAILED"};
+    virtual ErrorOrDone send(Error&&) = 0;
 
-        using Index = std::underlying_type<State>::type;
-        auto n = static_cast<Index>(state);
-        assert(n < Index(std::extent<decltype(labels)>::value));
-        return labels[n];
-    }
+    virtual ErrorOrDone send(Reason&&) = 0;
+    virtual ErrorOrDone send(Realm&&) = 0;
+    virtual ErrorOrDone send(Welcome&&) = 0;
+    virtual ErrorOrDone send(Authentication&&) = 0;
+    virtual ErrorOrDone send(Challenge&&) = 0;
 
-    void onTransportRx(ErrorOr<MessageBuffer>& buffer)
-    {
-        // Ignore transport cancellation errors when disconnecting.
-        if (buffer.has_value())
-            onTransportRx(std::move(*buffer));
-        else if (buffer.error() == TransportErrc::disconnected)
-            onRemoteDisconnect();
-        else if (state() != State::disconnected)
-            fail("Transport receive failure", buffer.error());
-    }
+    virtual ErrorOrDone send(Topic&&) = 0;
+    virtual ErrorOrDone send(Pub&&) = 0;
+    virtual ErrorOrDone send(Event&&) = 0;
+    virtual ErrorOrDone send(Subscribed&&) = 0;
+    virtual ErrorOrDone send(Unsubscribe&&) = 0;
+    virtual ErrorOrDone send(Unsubscribed&&) = 0;
+    virtual ErrorOrDone send(Published&&) = 0;
 
-    void onTransportTxError(std::error_code ec)
-    {
-        // Ignore transport cancellation errors when disconnecting.
-        if (state() != State::disconnected)
-            fail("Transport send failure", ec);
-    }
+    virtual ErrorOrDone send(Procedure&&) = 0;
+    virtual ErrorOrDone send(Rpc&&) = 0;
+    virtual ErrorOrDone send(Result&&) = 0;
+    virtual ErrorOrDone send(Invocation&&) = 0;
+    virtual ErrorOrDone send(CallCancellation&&) = 0;
+    virtual ErrorOrDone send(Interruption&&) = 0;
+    virtual ErrorOrDone send(Registered&&) = 0;
+    virtual ErrorOrDone send(Unregister&&) = 0;
+    virtual ErrorOrDone send(Unregistered&&) = 0;
+
+    virtual ErrorOrDone send(Stream&&) = 0;
+    virtual ErrorOrDone send(StreamRequest&&) = 0;
+    virtual ErrorOrDone send(CalleeOutputChunk&&) = 0;
+    virtual ErrorOrDone send(CallerOutputChunk&&) = 0;
+
+    virtual ErrorOrDone abort(Reason r) = 0;
+
+protected:
+    explicit Peer(bool isRouter)
+        : state_(State::disconnected),
+          isRouter_(isRouter)
+    {}
+
+    virtual void onConnect() {}
+
+    virtual void onEstablish() {}
 
     State setState(State s) {return state_.exchange(s);}
 
@@ -213,231 +161,27 @@ private:
         return state_.compare_exchange_strong(expected, desired);
     }
 
-    template <typename C>
-    ErrorOrDone sendCommand(const C& command)
+    void encode(const Variant& variant, BufferSink sink)
     {
-        const auto& msg = command.message({});
-        assert(msg.kind() != MessageKind::none);
-
-        MessageBuffer buffer;
-        codec_.encode(msg.fields(), buffer);
-        if (buffer.size() > maxTxLength_)
-            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
-
-        traceTx(msg);
-        assert(transport_ != nullptr);
-        transport_->send(std::move(buffer));
-        return true;
+        return codec_.encode(variant, sink);
     }
 
-    void onTransportRx(MessageBuffer buffer)
+    std::error_code decode(BufferSource source, Variant& variant)
     {
-        Variant v;
-        auto ec = codec_.decode(buffer, v);
-        if (ec)
-            return failProtocol("Error deserializing received WAMP message: " +
-                                detailedErrorCodeString(ec));
-
-        if (!v.is<Array>())
-            return failProtocol("Received WAMP message is not an array");
-
-        auto& fields = v.as<Array>();
-        traceRx(fields);
-
-        auto msg = Message::parse(std::move(fields));
-        if (!msg)
-        {
-            return failProtocol("Received WAMP message has invalid type number "
-                                "or field schema");
-        }
-
-        bool isValidForRole = isRouter_ ? msg->traits().isRouterRx
-                                        : msg->traits().isClientRx;
-        if (!isValidForRole)
-        {
-            return failProtocol("Role does not support receiving " +
-                                std::string(msg->name()) + " messages");
-        }
-
-        auto s = state();
-        if (!msg->traits().isValidForState(s))
-        {
-            // Crossbar can spuriously send ERROR messages between a session
-            // closing and reopening. Allow ERROR messages while not
-            // established so that an Incident may be emitted.
-            // https://github.com/crossbario/crossbar/issues/2068
-            if (msg->kind() != MessageKind::error)
-            {
-                return failProtocol(
-                    std::string(msg->name()) + " messages are invalid during " +
-                    stateLabel(s) + " session state");
-            }
-        }
-
-        onMessage(*msg);
+        return codec_.decode(source, variant);
     }
 
-    void onMessage(Message& msg)
-    {
-        switch (msg.kind())
-        {
-        case MessageKind::hello:        return onHello(msg);
-        case MessageKind::welcome:      return onWelcome(msg);
-        case MessageKind::abort:        return onAbort(msg);
-        case MessageKind::challenge:    return onChallenge(msg);
-        case MessageKind::authenticate: return onAuthenticate(msg);
-        case MessageKind::goodbye:      return onGoodbye(msg);
-        default: break;
-        }
+    Transporting& transport() {return *transport_;}
 
-        // Discard new requests if we're shutting down.
-        if (state() == State::shuttingDown && !msg.isReply())
-            return;
+    PeerListener& listener() {return *listener_;}
 
-        notifyMessage(msg);
-    }
+    bool isRouter() const {return isRouter_;}
 
-    void onHello(Message& msg)
-    {
-        assert(state() == State::establishing);
-        setState(State::authenticating);
-        listener_.onPeerHello(Realm{{}, std::move(msg)});
-    }
-
-    void onWelcome(Message& msg)
-    {
-        auto s = state();
-        assert(s == State::establishing || s == State::authenticating);
-        setState(State::established);
-        notifyMessage(msg);
-    }
-
-    void onAbort(Message& msg)
-    {
-        auto s = state();
-        bool wasJoining = s == State::establishing ||
-                          s == State::authenticating;
-        Reason r{{}, std::move(msg)};
-        setState(wasJoining ? State::closed : State::failed);
-        listener_.onPeerAbort(std::move(r), wasJoining);
-    }
-
-    void onChallenge(Message& msg)
-    {
-        assert(state() == State::establishing);
-        setState(State::authenticating);
-        listener_.onPeerChallenge(Challenge{{}, std::move(msg)});
-    }
-
-    void onAuthenticate(Message& msg)
-    {
-        assert(state() == State::authenticating);
-        listener_.onPeerAuthenticate(Authentication{{}, std::move(msg)});
-    }
-
-    void onGoodbye(Message& msg)
-    {
-        Reason reason{{}, std::move(msg)};
-        bool isShuttingDown = state() == State::shuttingDown;
-        if (isShuttingDown)
-        {
-            listener_.onPeerGoodbye(std::move(reason), isShuttingDown);
-            // Client::leave::Requested will call Peer::close which
-            // will set the state to closed.
-        }
-        else
-        {
-            setState(State::closed);
-            Reason goodbye{WampErrc::goodbyeAndOut};
-            send(goodbye);
-            listener_.onPeerGoodbye(std::move(reason), isShuttingDown);
-        }
-    }
-
-    void notifyMessage(Message& msg)
-    {
-        listener_.onPeerMessage(std::move(msg));
-    }
-
-    void onRemoteDisconnect()
-    {
-        auto s = state();
-        if (s == State::disconnected || s == State::failed)
-            return;
-
-        if (transport_)
-        {
-            transport_->close();
-            transport_.reset();
-        }
-        setState(State::disconnected);
-        listener_.onPeerDisconnect();
-    }
-
-    void fail(std::string why, std::error_code ec)
-    {
-        if (transport_)
-        {
-            transport_->close();
-            transport_.reset();
-        }
-        setState(State::failed);
-        listener_.onPeerFailure(ec, false, std::move(why));
-    }
-
-    void failProtocol(std::string why)
-    {
-        auto ec = make_error_code(WampErrc::protocolViolation);
-        if (readyToAbort())
-        {
-            auto reason = Reason(ec).withHint(why);
-            listener_.onPeerFailure(ec, true, std::move(why));
-            abort(std::move(reason));
-        }
-        else
-        {
-            fail(std::move(why), ec);
-        }
-    }
-
-    bool readyToAbort() const
-    {
-        auto s = state();
-        return s == State::establishing ||
-               s == State::authenticating ||
-               s == State::established;
-    }
-
-    void traceRx(const Array& fields)
-    {
-        trace(Message::parseMsgType(fields), fields, "RX");
-    }
-
-    void traceTx(const Message& msg)
-    {
-        trace(msg.kind(), msg.fields(), "TX");
-    }
-
-    void trace(MessageKind kind, const Array& fields, const char* label)
-    {
-        if (!listener_.traceEnabled())
-            return;
-
-        std::ostringstream oss;
-        oss << "[\"" << label << "\",\""
-            << MessageTraits::lookup(kind).nameOr("INVALID") << "\"";
-        if (!fields.empty())
-            oss << "," << fields;
-        oss << ']';
-
-        listener_.onPeerTrace(oss.str());
-    }
-
+private:
     AnyBufferCodec codec_;
     Transporting::Ptr transport_;
-    PeerListener& listener_;
+    PeerListener* listener_ = nullptr;
     std::atomic<State> state_;
-    std::size_t maxTxLength_ = 0;
     bool isRouter_ = false;
 };
 
