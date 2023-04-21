@@ -35,7 +35,8 @@ CPPWAMP_API std::string detailedErrorCodeString(std::error_code ec);
 // WAMP Protocol Error Codes
 //******************************************************************************
 
-// TODO: https://github.com/wamp-proto/wamp-proto/issues/462
+// TODO: wamp.close.killed instead of wamp.close.normal
+// https://github.com/wamp-proto/wamp-proto/issues/462
 
 //------------------------------------------------------------------------------
 /** %Error code values used with the WampCategory error category.

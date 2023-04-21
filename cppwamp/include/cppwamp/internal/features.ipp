@@ -62,9 +62,6 @@ CPPWAMP_INLINE ClientFeatures ClientFeatures::provided()
 
 CPPWAMP_INLINE const Object& ClientFeatures::providedRoles()
 {
-    // TODO: progressive_call_invocations
-    // https://github.com/wamp-proto/wamp-proto/pull/453
-
     static const Object roles =
     {
         {"callee", Object{{"features", Object{{
@@ -73,14 +70,14 @@ CPPWAMP_INLINE const Object& ClientFeatures::providedRoles()
             {"caller_identification",         true},
             {"pattern_based_registration",    true},
             {"progressive_call_results",      true},
-            {"progressive_calls",             true}
+            {"progressive_call_invocations",  true}
         }}}}},
         {"caller", Object{{"features", Object{{
             {"call_canceling",                true},
             {"call_timeout",                  true},
             {"caller_identification",         true},
             {"progressive_call_results",      true},
-            {"progressive_calls",             true}
+            {"progressive_call_invocations",  true}
         }}}}},
         {"publisher", Object{{"features", Object{{
             {"publisher_exclusion",           true},
@@ -147,7 +144,8 @@ template <typename E>
 void ClientFeatures::parse(Flags<E>& flags, E pos, const Object* roleDict,
                            const char* featureName)
 {
-    flags.set(pos, roleDict->count(featureName) != 0);
+    if (roleDict->count(featureName) != 0)
+        flags.set(pos, true);
 }
 
 CPPWAMP_INLINE void ClientFeatures::parseCalleeFeatures(const Object& dict)
@@ -162,8 +160,11 @@ CPPWAMP_INLINE void ClientFeatures::parseCalleeFeatures(const Object& dict)
     parse(callee_, F::callTrustLevels,            d, "call_trustlevels");
     parse(callee_, F::callerIdentification,       d, "caller_identification");
     parse(callee_, F::patternBasedRegistration,   d, "pattern_based_registration");
-    parse(callee_, F::progressiveCallInvocations, d, "progressive_calls");
+    parse(callee_, F::progressiveCallInvocations, d, "progressive_call_invocations");
     parse(callee_, F::progressiveCallResults,     d, "progressive_call_results");
+
+    // Legacy feature keys
+    parse(callee_, F::progressiveCallInvocations, d, "progressive_calls");
 }
 
 CPPWAMP_INLINE void ClientFeatures::parseCallerFeatures(const Object& dict)
@@ -176,8 +177,11 @@ CPPWAMP_INLINE void ClientFeatures::parseCallerFeatures(const Object& dict)
     parse(caller_, F::callCanceling,              d, "call_cancelling");
     parse(caller_, F::callTimeout,                d, "call_timeout");
     parse(caller_, F::callerIdentification,       d, "caller_identification");
-    parse(caller_, F::progressiveCallInvocations, d, "progressive_calls");
+    parse(caller_, F::progressiveCallInvocations, d, "progressive_call_invocations");
     parse(caller_, F::progressiveCallResults,     d, "progressive_call_results");
+
+    // Legacy feature keys
+    parse(caller_, F::progressiveCallInvocations, d, "progressive_calls");
 }
 
 CPPWAMP_INLINE void ClientFeatures::parsePublisherFeatures(const Object& dict)
@@ -254,9 +258,6 @@ CPPWAMP_INLINE RouterFeatures RouterFeatures::provided()
 
 CPPWAMP_INLINE const Object& RouterFeatures::providedRoles()
 {
-    // TODO: progressive_call_invocations
-    // https://github.com/wamp-proto/wamp-proto/pull/453
-
     static const Object roles =
     {
         {"dealer", Object{{"features", Object{{
@@ -264,7 +265,7 @@ CPPWAMP_INLINE const Object& RouterFeatures::providedRoles()
             {"call_timeout",                  true},
             {"call_trustlevels",              true},
             {"caller_identification",         true},
-            {"progressive_calls",             true},
+            {"progressive_call_invocations",  true},
             {"progressive_call_results",      true},
         }}}}},
         {"broker", Object{{"features", Object{{
@@ -306,7 +307,8 @@ template <typename E>
 void RouterFeatures::parse(Flags<E>& flags, E pos, const Object* roleDict,
                            const char* featureName)
 {
-    flags.set(pos, roleDict->count(featureName) != 0);
+    if (roleDict->count(featureName) != 0)
+        flags.set(pos, true);
 }
 
 CPPWAMP_INLINE void RouterFeatures::parseBrokerFeatures(const Object& dict)
@@ -335,8 +337,11 @@ CPPWAMP_INLINE void RouterFeatures::parseDealerFeatures(const Object& dict)
     parse(dealer_, F::callTrustLevels,            d, "call_trustlevels");
     parse(dealer_, F::callerIdentification,       d, "caller_identification");
     parse(dealer_, F::patternBasedRegistration,   d, "pattern_based_registration");
-    parse(dealer_, F::progressiveCallInvocations, d, "progressive_calls");
+    parse(dealer_, F::progressiveCallInvocations, d, "progressive_call_invocations");
     parse(dealer_, F::progressiveCallResults,     d, "progressive_call_results");
+
+    // Legacy feature keys
+    parse(dealer_, F::progressiveCallInvocations, d, "progressive_calls");
 }
 
 CPPWAMP_INLINE const Object*

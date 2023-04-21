@@ -1079,42 +1079,6 @@ public:
         return Ptr(new Client(exec, std::move(userExec)));
     }
 
-    static const Object& roles()
-    {
-        // TODO: progressive_call_invocations
-        // https://github.com/wamp-proto/wamp-proto/pull/453
-
-        static const Object rolesDict =
-        {
-            {"callee", Object{{"features", Object{{
-                {"call_canceling", true},
-                {"call_trustlevels", true},
-                {"caller_identification", true},
-                {"pattern_based_registration", true},
-                {"progressive_call_results", true},
-                {"progressive_calls", true}
-            }}}}},
-            {"caller", Object{{"features", Object{{
-                {"call_canceling", true},
-                {"call_timeout", true},
-                {"caller_identification", true},
-                {"progressive_call_results", true},
-                {"progressive_calls", true}
-            }}}}},
-            {"publisher", Object{{"features", Object{{
-                {"publisher_exclusion", true},
-                {"publisher_identification", true},
-                {"subscriber_blackwhite_listing", true}
-            }}}}},
-            {"subscriber", Object{{"features", Object{{
-                {"pattern_based_subscription", true},
-                {"publication_trustlevels", true},
-                {"publisher_identification", true},
-            }}}}}
-        };
-        return rolesDict;
-    }
-
     State state() const {return peer_->state();}
 
     const AnyIoExecutor& executor() const {return executor_;}
@@ -2081,7 +2045,8 @@ public:
         return done;
     }
 
-    ErrorOrDone yield(Error&& error, RequestId reqId, RegistrationId regId) override
+    ErrorOrDone yield(Error&& error, RequestId reqId,
+                      RegistrationId regId) override
     {
         error.setRequestId({}, reqId);
         return yieldError(std::move(error), regId);
