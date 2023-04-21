@@ -40,12 +40,23 @@ struct TicketAuthFixture
     {
         this->signature = std::move(signature);
         session.connect(where, yield).value();
-        welcome =
-            session.join(Realm(authTestRealm).withAuthMethods({"ticket"})
-                                             .withAuthId(std::move(authId))
-                                             .captureAbort(abortReason),
-                         [this](Challenge c) {onChallenge(std::move(c));},
-                         yield);
+        if (noChallengeHandlerArmed)
+        {
+            welcome =
+                session.join(Realm(authTestRealm).withAuthMethods({"ticket"})
+                                                 .withAuthId(std::move(authId))
+                                                 .captureAbort(abortReason),
+                    yield);
+        }
+        else
+        {
+            welcome =
+                session.join(Realm(authTestRealm).withAuthMethods({"ticket"})
+                                                 .withAuthId(std::move(authId))
+                                                 .captureAbort(abortReason),
+                             [this](Challenge c) {onChallenge(std::move(c));},
+                             yield);
+        }
     }
 
     void onChallenge(Challenge authChallenge)
@@ -71,6 +82,7 @@ struct TicketAuthFixture
     Reason abortReason;
     bool failAuthenticationArmed = false;
     bool throwArmed = false;
+    bool noChallengeHandlerArmed = false;
 };
 
 } // anonymous namespace
@@ -180,7 +192,29 @@ GIVEN( "a Session with a registered challenge handler" )
         }
     }
 
-    // TODO: Missing challenge handler
+    WHEN( "missing challenge handler" )
+    {
+        f.noChallengeHandlerArmed = true;
+
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            f.join("alice", "password123", yield);
+            CHECK(f.session.state() == SessionState::failed);
+            f.session.disconnect();
+        });
+        ioctx.run();
+
+        THEN( "the session was aborted by the client" )
+        {
+            REQUIRE_FALSE( f.welcome.has_value() );
+            CHECK( f.welcome.error() == WampErrc::authenticationFailed );
+            CHECK( f.abortReason.uri().empty() );
+            REQUIRE( incidents.size() == 1 );
+            CHECK( incidents.at(0).kind() == IncidentKind::challengeFailure );
+            CHECK( incidents.at(0).error() == WampErrc::authenticationFailed );
+        }
+    }
+
 }}
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)

@@ -2134,7 +2134,7 @@ private:
         }
         else
         {
-            auto r = Reason{WampErrc::authorizationFailed}
+            auto r = Reason{WampErrc::authenticationFailed}
                          .withHint("No challenge handler");
             failAuthentication(std::move(r));
         }
