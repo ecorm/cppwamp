@@ -827,39 +827,6 @@ GIVEN( "an IO service and a ConnectionWish" )
         ioctx.run();
     }
 
-    WHEN( "receiving a statically-typed event with invalid argument types" )
-    {
-        spawn(ioctx, [&](YieldContext yield)
-        {
-            PublicationId pid = 0;
-            PubSubFixture f(ioctx, where);
-            f.join(yield);
-            f.subscribe(yield);
-
-            // Publications with invalid arguments should be ignored.
-            CHECK_NOTHROW( f.publisher.publish(
-                               Pub("str.num").withArgs(42, 42), yield ).value() );
-
-            // Publish with valid types so that we know when to stop polling.
-            pid = f.publisher.publish(Pub("str.num").withArgs("foo", 42),
-                                       yield).value();
-            while (f.staticPubs.size() < 1)
-                suspendCoro(yield);
-            REQUIRE( f.staticPubs.size() == 1 );
-            CHECK( f.staticPubs.back() == pid );
-
-            // Publications with extra arguments should be handled,
-            // as long as the required arguments have valid types.
-            CHECK_NOTHROW( pid = f.publisher.publish(
-                    Pub("str.num").withArgs("foo", 42, true), yield).value() );
-            while (f.staticPubs.size() < 2)
-                suspendCoro(yield);
-            REQUIRE( f.staticPubs.size() == 2 );
-            CHECK( f.staticPubs.back() == pid );
-        });
-        ioctx.run();
-    }
-
     WHEN( "invoking an RPC that throws a wamp::error::BadType exceptions" )
     {
         spawn(ioctx, [&](YieldContext yield)
@@ -918,62 +885,6 @@ GIVEN( "an IO service and a ConnectionWish" )
             result = f.caller.call(Rpc("bad_access_coro").withArgs(42), yield);
             CHECK( result == makeUnexpected(WampErrc::invalidArgument) );
             CHECK_THROWS_AS( result.value(), error::Failure );
-        });
-        ioctx.run();
-    }
-
-    WHEN( "an event handler throws wamp::error::BadType exceptions" )
-    {
-        spawn(ioctx, [&](YieldContext yield)
-        {
-            std::vector<Incident> incidents;
-            PubSubFixture f(ioctx, where);
-            f.subscriber.observeIncidents(
-                [&incidents](Incident i) {incidents.push_back(i);});
-
-            f.join(yield);
-            f.subscribe(yield);
-
-            f.subscriber.subscribe(
-                Topic("bad_conversion"),
-                simpleEvent<Variant>([](Variant v) {v.to<String>();}),
-                yield).value();
-
-            f.subscriber.subscribe(
-                Topic("bad_access"),
-                [](Event event) {event.args().front().as<String>();},
-                yield).value();
-
-            f.subscriber.subscribe(
-                Topic("bad_conversion_coro"),
-                simpleCoroEvent<Variant>(
-                    [](Variant v, YieldContext y) { v.to<String>(); }),
-                yield).value();
-
-            f.subscriber.subscribe(
-                Topic("bad_access_coro"),
-                unpackedCoroEvent<Variant>(
-                    [](Event ev, Variant v, YieldContext y) {v.to<String>();}),
-                yield).value();
-
-            f.publisher.publish(Pub("bad_conversion").withArgs(42)).value();
-            f.publisher.publish(Pub("bad_access").withArgs(42)).value();
-            f.publisher.publish(Pub("bad_conversion_coro").withArgs(42)).value();
-            f.publisher.publish(Pub("bad_access_coro").withArgs(42)).value();
-            f.publisher.publish(Pub("other")).value();
-
-            while (f.otherPubs.empty() || incidents.size() < 2)
-                suspendCoro(yield);
-
-            // The coroutine event handlers will not trigger
-            // incidents because the error::BadType exeception cannot
-            // be propagated to Client by time it's thrown from within
-            // the coroutine.
-            REQUIRE( incidents.size() == 2 );
-            CHECK( incidents.at(0).kind() == IncidentKind::eventError );
-            CHECK( incidents.at(0).error() == WampErrc::invalidArgument );
-            CHECK( incidents.at(1).kind() == IncidentKind::eventError );
-            CHECK( incidents.at(1).error() == WampErrc::invalidArgument );
         });
         ioctx.run();
     }

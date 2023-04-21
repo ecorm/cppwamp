@@ -218,7 +218,7 @@ GIVEN( "an IO service and a TCP connector" )
 
 
 //------------------------------------------------------------------------------
-SCENARIO( "Outbound Messages are Properly Enqueued", "[WAMP][Basic]" )
+SCENARIO( "Large WAMP Payloads", "[WAMP][Basic]" )
 {
 GIVEN( "these test fixture objects" )
 {
