@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <utility>
 #include <boost/asio/post.hpp>
+#include "../any.hpp"
 #include "../anyhandler.hpp"
 #include "../calleestreaming.hpp"
 #include "../callerstreaming.hpp"
@@ -1137,6 +1138,12 @@ public:
         };
 
         safelyDispatch<Dispatched>(std::move(w), std::move(f));
+    }
+
+    void directConnect(any link)
+    {
+        assert(state() == State::disconnected);
+        peer_->connect(std::move(link));
     }
 
     void join(Realm&& realm, ChallengeSlot onChallenge,

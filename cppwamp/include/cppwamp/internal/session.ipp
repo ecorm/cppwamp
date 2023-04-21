@@ -23,10 +23,7 @@ CPPWAMP_INLINE Session::Session(
     Executor exec /**< Executor for internal I/O operations, as well as
                        fallback for user-provided handlers. */
 )
-    : fallbackExecutor_(exec),
-    impl_(internal::Client::create(
-        std::make_shared<internal::NetworkPeer>(false),
-        std::move(exec)))
+    : Session(std::make_shared<internal::NetworkPeer>(false), std::move(exec))
 {}
 
 //------------------------------------------------------------------------------
@@ -39,11 +36,8 @@ CPPWAMP_INLINE Session::Session(
     FallbackExecutor fallbackExec /**< Fallback executor to use for
                                        user-provided handlers. */
 )
-    : fallbackExecutor_(fallbackExec),
-      impl_(internal::Client::create(
-        std::make_shared<internal::NetworkPeer>(false),
-        exec,
-        std::move(fallbackExec)))
+    : Session(std::make_shared<internal::NetworkPeer>(false), std::move(exec),
+              std::move(fallbackExec))
 {}
 
 //------------------------------------------------------------------------------
@@ -219,6 +213,27 @@ CPPWAMP_INLINE void Session::unregister(
 {
     CPPWAMP_LOGIC_CHECK(bool(reg), "The registration is empty");
     impl_->safeUnregister(reg);
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE Session::Session(std::shared_ptr<internal::Peer> peer,
+                                Executor exec)
+    : fallbackExecutor_(exec),
+      impl_(internal::Client::create(std::move(peer), std::move(exec)))
+{}
+
+CPPWAMP_INLINE Session::Session(std::shared_ptr<internal::Peer> peer,
+                                const Executor& exec,
+                                FallbackExecutor fallbackExec)
+    : fallbackExecutor_(fallbackExec),
+      impl_(internal::Client::create(std::move(peer), exec,
+                                   std::move(fallbackExec)))
+{}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void Session::directConnect(any link)
+{
+    impl_->directConnect(std::move(link));
 }
 
 //------------------------------------------------------------------------------

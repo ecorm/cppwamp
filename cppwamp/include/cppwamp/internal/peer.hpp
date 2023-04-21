@@ -10,7 +10,10 @@
 #include <atomic>
 #include <cassert>
 #include <memory>
+#include <string>
+#include <type_traits>
 #include <utility>
+#include "../any.hpp"
 #include "../calleestreaming.hpp"
 #include "../callerstreaming.hpp"
 #include "../codec.hpp"
@@ -33,14 +36,7 @@ public:
     using Ptr = std::shared_ptr<Peer>;
     using State = SessionState;
 
-    virtual ~Peer()
-    {
-        if (transport_)
-        {
-            transport_->close();
-            transport_.reset();
-        }
-    }
+    virtual ~Peer() {}
 
     State state() const {return state_.load();}
 
@@ -62,23 +58,28 @@ public:
         if (s == State::disconnected || s == State::failed)
             setState(State::connecting);
         assert(state() == State::connecting);
-        transport_ = std::move(transport);
-        codec_ = std::move(codec);
         setState(State::closed);
-        onConnect();
+        onConnect(std::move(transport), std::move(codec));
+    }
+
+    void connect(any link)
+    {
+        assert(state() == State::disconnected);
+        setState(State::closed);
+        onDirectConnect(std::move(link));
     }
 
     bool establishSession()
     {
         if (!compareAndSetState(State::closed, State::establishing))
             return false;
-        assert(transport_ != nullptr);
         onEstablish();
         return true;
     }
 
     void welcome(SessionId sid, Object opts = {})
     {
+        assert(isRouter_);
         assert(state() == State::authenticating);
         send(Welcome{{}, sid, std::move(opts)});
         setState(State::established);
@@ -89,26 +90,22 @@ public:
         return compareAndSetState(State::established, State::shuttingDown);
     }
 
-    void close() {setState(State::closed);}
+    void close()
+    {
+        setState(State::closed);
+        onClose();
+    }
 
     void disconnect()
     {
-        setState(State::disconnected);
-        if (transport_)
-        {
-            transport_->close();
-            transport_.reset();
-        }
+        auto oldState = setState(State::disconnected);
+        onDisconnect(oldState);
     }
 
     void fail()
     {
-        setState(State::failed);
-        if (transport_)
-        {
-            transport_->close();
-            transport_.reset();
-        }
+        auto oldState = setState(State::failed);
+        onDisconnect(oldState);
     }
 
     virtual ErrorOrDone send(Error&&) = 0;
@@ -145,14 +142,32 @@ public:
     virtual ErrorOrDone abort(Reason r) = 0;
 
 protected:
+    static const std::string& stateLabel(State state)
+    {
+        static const std::string labels[] = {
+            "DISCONNECTED", "CONNECTING", "CLOSED", "ESTABLISHING",
+            "AUTHENTICATING", "ESTABLISHED", "SHUTTING_DOWN", "FAILED"};
+
+        using Index = std::underlying_type<State>::type;
+        auto n = static_cast<Index>(state);
+        assert(n < Index(std::extent<decltype(labels)>::value));
+        return labels[n];
+    }
+
     explicit Peer(bool isRouter)
         : state_(State::disconnected),
           isRouter_(isRouter)
     {}
 
-    virtual void onConnect() {}
+    virtual void onConnect(Transporting::Ptr, AnyBufferCodec) {}
+
+    virtual void onDirectConnect(any) {}
 
     virtual void onEstablish() {}
+
+    virtual void onClose() {}
+
+    virtual void onDisconnect(State previousState) {}
 
     State setState(State s) {return state_.exchange(s);}
 
@@ -161,25 +176,41 @@ protected:
         return state_.compare_exchange_strong(expected, desired);
     }
 
-    void encode(const Variant& variant, BufferSink sink)
-    {
-        return codec_.encode(variant, sink);
-    }
-
-    std::error_code decode(BufferSource source, Variant& variant)
-    {
-        return codec_.decode(source, variant);
-    }
-
-    Transporting& transport() {return *transport_;}
-
     PeerListener& listener() {return *listener_;}
+
+    void traceRx(const Message& msg)
+    {
+        trace(msg.kind(), msg.fields(), "RX");
+    }
+
+    void traceRx(const Array& fields)
+    {
+        trace(Message::parseMsgType(fields), fields, "RX");
+    }
+
+    void traceTx(const Message& msg)
+    {
+        trace(msg.kind(), msg.fields(), "TX");
+    }
 
     bool isRouter() const {return isRouter_;}
 
 private:
-    AnyBufferCodec codec_;
-    Transporting::Ptr transport_;
+    void trace(MessageKind kind, const Array& fields, const char* label)
+    {
+        if (!listener_->traceEnabled())
+            return;
+
+        std::ostringstream oss;
+        auto name = MessageTraits::lookup(kind).name;
+        oss << "[\"" << label << "\",\"" << name << "\"";
+        if (!fields.empty())
+            oss << "," << fields;
+        oss << ']';
+
+        listener_->onPeerTrace(oss.str());
+    }
+
     PeerListener* listener_ = nullptr;
     std::atomic<State> state_;
     bool isRouter_ = false;

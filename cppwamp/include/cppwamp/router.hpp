@@ -21,15 +21,15 @@
 #include "api.hpp"
 #include "anyhandler.hpp"
 #include "asiodefs.hpp"
-#include "erroror.hpp"
 #include "logging.hpp"
 #include "routerconfig.hpp"
+#include "internal/passkey.hpp"
 
 namespace wamp
 {
 
 // Forward declarations
-class LocalSession;
+class DirectSession;
 namespace internal { class RouterImpl; }
 
 
@@ -84,11 +84,6 @@ public:
 
     void closeServer(const std::string& name, Reason r = shutdownReason());
 
-    ErrorOr<LocalSession> join(Uri realm, AuthInfo authInfo);
-
-    ErrorOr<LocalSession> join(Uri realm, AuthInfo authInfo,
-                               AnyCompletionExecutor fallbackExecutor);
-
     void close(Reason r = shutdownReason());
     /// @}
 
@@ -100,6 +95,9 @@ public:
 
 private:
     std::shared_ptr<internal::RouterImpl> impl_;
+
+public: // Internal use only
+    std::shared_ptr<internal::RouterImpl> impl(internal::PassKey);
 };
 
 } // namespace wamp

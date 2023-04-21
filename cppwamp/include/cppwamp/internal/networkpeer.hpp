@@ -29,34 +29,14 @@ class NetworkPeer : public Peer
 public:
     explicit NetworkPeer(bool isRouter) : Base(isRouter) {}
 
-private:
-    void onConnect() override
+    ~NetworkPeer() override
     {
-        maxTxLength_ = transport().info().maxTxLength;
+        if (transport_)
+            transport_->close();
     }
 
-    void onEstablish() override
-    {
-        if (!transport().isStarted())
-        {
-            std::weak_ptr<NetworkPeer> weakSelf =
-                std::static_pointer_cast<NetworkPeer>(shared_from_this());
-            transport().start(
-                [weakSelf](ErrorOr<MessageBuffer> buffer)
-                {
-                    auto self = weakSelf.lock();
-                    if (self)
-                        self->onTransportRx(buffer);
-                },
-                [weakSelf](std::error_code ec)
-                {
-                    auto self = weakSelf.lock();
-                    if (self)
-                        self->onTransportTxError(ec);
-                }
-            );
-        }
-    }
+private:
+    using Base = Peer;
 
     ErrorOrDone send(Error&& error) override
     {
@@ -111,7 +91,7 @@ private:
         r.setKindToAbort({});
         const auto& msg = r.message({});
         MessageBuffer buffer;
-        encode(msg.fields(), buffer);
+        codec_.encode(msg.fields(), buffer);
 
         bool fits = buffer.size() <= maxTxLength_;
         if (!fits)
@@ -119,30 +99,53 @@ private:
             r.options().clear();
             r.withHint("(snipped)");
             buffer.clear();
-            encode(msg.fields(), buffer);
+            codec_.encode(msg.fields(), buffer);
         }
 
         traceTx(msg);
-        transport().sendNowAndClose(std::move(buffer));
+        transport_->sendNowAndClose(std::move(buffer));
         setState(State::failed);
         if (!fits)
             return makeUnexpectedError(WampErrc::payloadSizeExceeded);
         return true;
     }
-
-private:
-    using Base = Peer;
-
-    static const std::string& stateLabel(State state)
+    
+    void onConnect(Transporting::Ptr t, AnyBufferCodec c) override
     {
-        static const std::string labels[] = {
-            "DISCONNECTED", "CONNECTING", "CLOSED", "ESTABLISHING",
-            "AUTHENTICATING", "ESTABLISHED", "SHUTTING_DOWN", "FAILED"};
+        transport_ = std::move(t);
+        codec_ = std::move(c);
+    }
 
-        using Index = std::underlying_type<State>::type;
-        auto n = static_cast<Index>(state);
-        assert(n < Index(std::extent<decltype(labels)>::value));
-        return labels[n];
+    void onEstablish() override
+    {
+        if (!transport_->isStarted())
+        {
+            std::weak_ptr<NetworkPeer> weakSelf =
+                std::static_pointer_cast<NetworkPeer>(shared_from_this());
+            transport_->start(
+                [weakSelf](ErrorOr<MessageBuffer> buffer)
+                {
+                    auto self = weakSelf.lock();
+                    if (self)
+                        self->onTransportRx(buffer);
+                },
+                [weakSelf](std::error_code ec)
+                {
+                    auto self = weakSelf.lock();
+                    if (self)
+                        self->onTransportTxError(ec);
+                }
+                );
+        }
+    }
+
+    void onDisconnect(State) override
+    {
+        if (transport_)
+        {
+            transport_->close();
+            transport_.reset();
+        }
     }
 
     void onTransportRx(ErrorOr<MessageBuffer>& buffer)
@@ -170,19 +173,19 @@ private:
         assert(msg.kind() != MessageKind::none);
 
         MessageBuffer buffer;
-        encode(msg.fields(), buffer);
+        codec_.encode(msg.fields(), buffer);
         if (buffer.size() > maxTxLength_)
             return makeUnexpectedError(WampErrc::payloadSizeExceeded);
 
         traceTx(msg);
-        transport().send(std::move(buffer));
+        transport_->send(std::move(buffer));
         return true;
     }
 
     void onTransportRx(MessageBuffer buffer)
     {
         Variant v;
-        auto ec = decode(buffer, v);
+        auto ec = codec_.decode(buffer, v);
         if (ec)
             return failProtocol("Error deserializing received WAMP message: " +
                                 detailedErrorCodeString(ec));
@@ -347,31 +350,8 @@ private:
                s == State::established;
     }
 
-    void traceRx(const Array& fields)
-    {
-        trace(Message::parseMsgType(fields), fields, "RX");
-    }
-
-    void traceTx(const Message& msg)
-    {
-        trace(msg.kind(), msg.fields(), "TX");
-    }
-
-    void trace(MessageKind kind, const Array& fields, const char* label)
-    {
-        if (!listener().traceEnabled())
-            return;
-
-        std::ostringstream oss;
-        oss << "[\"" << label << "\",\""
-            << MessageTraits::lookup(kind).nameOr("INVALID") << "\"";
-        if (!fields.empty())
-            oss << "," << fields;
-        oss << ']';
-
-        listener().onPeerTrace(oss.str());
-    }
-
+    Transporting::Ptr transport_;
+    AnyBufferCodec codec_;
     std::size_t maxTxLength_ = 0;
 };
 

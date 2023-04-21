@@ -21,12 +21,12 @@
 #include <cppwamp/internal/cancellation.ipp>
 #include <cppwamp/internal/cbor.ipp>
 #include <cppwamp/internal/consolelogger.ipp>
+#include <cppwamp/internal/directsession.ipp>
 #include <cppwamp/internal/errorcodes.ipp>
 #include <cppwamp/internal/errorinfo.ipp>
 #include <cppwamp/internal/exceptions.ipp>
 #include <cppwamp/internal/features.ipp>
 #include <cppwamp/internal/json.ipp>
-#include <cppwamp/internal/localsession.ipp>
 #include <cppwamp/internal/logging.ipp>
 #include <cppwamp/internal/messagetraits.ipp>
 #include <cppwamp/internal/msgpack.ipp>

@@ -13,7 +13,6 @@
 #include <string>
 #include <utility>
 #include "../routerconfig.hpp"
-#include "localsessionimpl.hpp"
 #include "random.hpp"
 #include "routercontext.hpp"
 #include "routerrealm.hpp"
@@ -143,26 +142,6 @@ public:
             warn("Attempting to close non-existent server named '" + name + "'");
 
         return server != nullptr;
-    }
-
-    LocalSessionImpl::Ptr directJoin(String realmUri, AuthInfo a,
-                                     AnyCompletionExecutor e)
-    {
-        RouterRealm::Ptr realm;
-
-        {
-            MutexGuard lock(realmsMutex_);
-            auto kv = realms_.find(realmUri);
-            if (kv != realms_.end())
-                realm = kv->second;
-        }
-
-        if (!realm)
-            return nullptr;
-
-        auto session = LocalSessionImpl::create(strand_, std::move(e));
-        // session->join({std::move(realm)}, std::move(realmUri), std::move(a));
-        return session;
     }
 
     void close(Reason r)

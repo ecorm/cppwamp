@@ -7,7 +7,6 @@
 #include "../router.hpp"
 #include "../api.hpp"
 #include "../errorcodes.hpp"
-#include "../localsession.hpp"
 #include "routerimpl.hpp"
 
 namespace wamp
@@ -53,27 +52,14 @@ CPPWAMP_INLINE void Router::closeServer(const std::string& name, Reason r)
     impl_->closeServer(name, std::move(r));
 }
 
-CPPWAMP_INLINE ErrorOr<LocalSession> Router::join(Uri realm, AuthInfo authInfo)
-{
-    auto s = impl_->directJoin(std::move(realm), std::move(authInfo), strand());
-    if (!s)
-        return makeUnexpectedError(WampErrc::noSuchRealm);
-    return LocalSession{std::move(s)};
-}
-
-CPPWAMP_INLINE ErrorOr<LocalSession>
-Router::join(Uri realm, AuthInfo authInfo,
-             AnyCompletionExecutor fallbackExecutor)
-{
-    auto s = impl_->directJoin(std::move(realm), std::move(authInfo),
-                              std::move(fallbackExecutor));
-    if (!s)
-        return makeUnexpectedError(WampErrc::noSuchRealm);
-    return LocalSession{std::move(s)};
-}
-
 CPPWAMP_INLINE void Router::close(Reason r) {impl_->close(std::move(r));}
 
 CPPWAMP_INLINE const IoStrand& Router::strand() const {return impl_->strand();}
+
+CPPWAMP_INLINE std::shared_ptr<internal::RouterImpl>
+Router::impl(internal::PassKey)
+{
+    return impl_;
+}
 
 } // namespace wamp

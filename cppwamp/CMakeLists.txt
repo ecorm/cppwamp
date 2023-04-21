@@ -22,6 +22,7 @@ set(HEADERS
     include/cppwamp/connector.hpp
     include/cppwamp/conversionaccess.hpp
     include/cppwamp/corounpacker.hpp
+    include/cppwamp/directsession.hpp
     include/cppwamp/errorcodes.hpp
     include/cppwamp/erroror.hpp
     include/cppwamp/errorinfo.hpp
@@ -29,7 +30,6 @@ set(HEADERS
     include/cppwamp/features.hpp
     include/cppwamp/flags.hpp
     include/cppwamp/json.hpp
-    include/cppwamp/localsession.hpp
     include/cppwamp/listener.hpp
     include/cppwamp/logging.hpp
     include/cppwamp/messagebuffer.hpp
@@ -81,7 +81,6 @@ set(HEADERS
     include/cppwamp/internal/directpeer.hpp
     include/cppwamp/internal/endian.hpp
     include/cppwamp/internal/jsonencoding.hpp
-    include/cppwamp/internal/localsessionimpl.hpp
     include/cppwamp/internal/matchuri.hpp
     include/cppwamp/internal/matchpolicyoption.hpp
     include/cppwamp/internal/message.hpp
@@ -143,12 +142,12 @@ set(INLINES
     include/cppwamp/internal/cancellation.ipp
     include/cppwamp/internal/cbor.ipp
     include/cppwamp/internal/consolelogger.ipp
+    include/cppwamp/internal/directsession.ipp
     include/cppwamp/internal/errorcodes.ipp
     include/cppwamp/internal/errorinfo.ipp
     include/cppwamp/internal/exceptions.ipp
     include/cppwamp/internal/features.ipp
     include/cppwamp/internal/json.ipp
-    include/cppwamp/internal/localsession.ipp
     include/cppwamp/internal/logging.ipp
     include/cppwamp/internal/messagetraits.ipp
     include/cppwamp/internal/msgpack.ipp

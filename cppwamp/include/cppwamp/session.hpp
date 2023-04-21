@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include "any.hpp"
 #include "anyhandler.hpp"
 #include "api.hpp"
 #include "asiodefs.hpp"
@@ -41,8 +42,12 @@
 namespace wamp
 {
 
-// Forward declaration
-namespace internal { class Client; }
+// Forward declarations
+namespace internal
+{
+class Client;
+class Peer;
+}
 
 //------------------------------------------------------------------------------
 /** %Session API used by a _client_ peer in WAMP applications.
@@ -174,7 +179,7 @@ public:
     {}
 
     /** Destructor. */
-    ~Session();
+    virtual ~Session();
     /// @}
 
     /// @name Move-only
@@ -426,6 +431,14 @@ public:
     CPPWAMP_NODISCARD std::future<ErrorOr<CallerChannel>>
     openStream(ThreadSafe, StreamRequest req, S&& onChunk = {});
     /// @}
+
+protected:
+    Session(std::shared_ptr<internal::Peer> peer, Executor exec);
+
+    Session(std::shared_ptr<internal::Peer> peer, const Executor& exec,
+            FallbackExecutor fallbackExec);
+
+    void directConnect(any link);
 
 private:
     template <typename T>
