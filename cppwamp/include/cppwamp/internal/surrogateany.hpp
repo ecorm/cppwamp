@@ -42,14 +42,13 @@ struct AnyReqs
     struct IsInPlaceType<in_place_type_t<T>> : TrueType {};
 
     template <typename T>
-    static constexpr bool in_place_type() {return IsInPlaceType<T>::value;}
+    static constexpr bool isInPlaceType() {return IsInPlaceType<T>::value;}
 
     template <typename T>
     static constexpr bool constructible()
     {
         using D = typename std::decay<T>::type;
-        return !isSameType<D, SurrogateAny>() && !in_place_type<D>() &&
-               std::is_copy_constructible<D>::value;
+        return isConstructible<T>(std::is_same<D, SurrogateAny>{});
     }
 
     template <typename T, typename... As>
@@ -73,8 +72,34 @@ struct AnyReqs
     static constexpr bool assignable()
     {
         using D = typename std::decay<T>::type;
-        return !isSameType<D, SurrogateAny>() &&
-               std::is_copy_constructible<D>::value;
+        return isAssignable<T>(std::is_same<D, SurrogateAny>{});
+    }
+
+private:
+    template <typename T>
+    static constexpr bool isConstructible(TrueType)
+    {
+        return false;
+    }
+
+    template <typename T>
+    static constexpr bool isConstructible(FalseType)
+    {
+        using D = typename std::decay<T>::type;
+        return !isInPlaceType<D>() && std::is_copy_constructible<D>::value;
+    }
+
+    template <typename T>
+    static constexpr bool isAssignable(TrueType)
+    {
+        return false;
+    }
+
+    template <typename T>
+    static constexpr bool isAssignable(FalseType)
+    {
+        using D = typename std::decay<T>::type;
+        return std::is_copy_constructible<D>::value;
     }
 };
 
