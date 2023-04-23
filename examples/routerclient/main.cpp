@@ -62,7 +62,8 @@ int main()
             yield).value();
         session.enroll(wamp::Procedure{"echo"}, echo, yield).value();
         session.subscribe(wamp::Topic{"foo"}, onEvent, yield).value();
-        auto echoed = session.call(wamp::Rpc{"echo"}.withArgs("hello"), yield);
+        auto echoed = session.call(wamp::Rpc{"local_echo"}.withArgs("hello"),
+                                   yield);
         logger({wamp::LogLevel::debug,
                 "echoed=" + wamp::toString(echoed.value().args())});
         session.publish(wamp::Pub{"foo"}.withArgs("bar").withExcludeMe(false),

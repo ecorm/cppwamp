@@ -47,8 +47,6 @@ CPPWAMP_INLINE const String& AuthInfo::provider() const {return provider_;}
 
 CPPWAMP_INLINE const Object& AuthInfo::extra() const {return extra_;}
 
-CPPWAMP_INLINE bool AuthInfo::isDirect() const {return isDirect_;}
-
 CPPWAMP_INLINE const any& AuthInfo::note() const {return note_;}
 
 CPPWAMP_INLINE void AuthInfo::clear()
@@ -61,15 +59,6 @@ CPPWAMP_INLINE void AuthInfo::clear()
     extra_.clear();
     note_.reset();
     sessionId_ = nullId();
-    isDirect_ = false;
-}
-
-CPPWAMP_INLINE void AuthInfo::join(internal::PassKey, Uri realm,
-                                   SessionId sessionId, bool isDirect)
-{
-    realmUri_ = std::move(realm);
-    sessionId_ = sessionId;
-    isDirect_ = isDirect;
 }
 
 CPPWAMP_INLINE Object

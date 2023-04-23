@@ -24,22 +24,11 @@ CPPWAMP_INLINE DirectSession::DirectSession(const Executor& exec,
 
 /** @pre `this->state() == SessionState::disconnected`
     @throws error::Logic if the precondition is not met. */
-CPPWAMP_INLINE void DirectSession::connect(Router& router)
-{
-    connect(router, "direct");
-}
-
-/** @pre `this->state() == SessionState::disconnected`
-    @throws error::Logic if the precondition is not met. */
-CPPWAMP_INLINE void DirectSession::connect(Router& router,
-                                           std::string endpointLabel)
+CPPWAMP_INLINE void DirectSession::connect(DirectRouterLink router)
 {
     CPPWAMP_LOGIC_CHECK(state() == State::disconnected,
                         "wamp::DirectionSession::connect: Invalid state");
-    auto routerImpl = router.impl({});
-    Base::directConnect(routerImpl);
+    Base::directConnect(router);
 }
-
-
 
 } // namespace wamp

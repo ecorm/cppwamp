@@ -100,6 +100,29 @@ public: // Internal use only
     std::shared_ptr<internal::RouterImpl> impl(internal::PassKey);
 };
 
+//------------------------------------------------------------------------------
+class DirectRouterLink
+{
+public:
+    DirectRouterLink(Router& router);
+
+    DirectRouterLink& withAuthInfo(AuthInfo info);
+
+    DirectRouterLink& withEndpointLabel(std::string endpointLabel);
+
+private:
+    using RouterImplPtr = std::shared_ptr<internal::RouterImpl>;
+
+    AuthInfo authInfo_;
+    std::string endpointLabel_;
+    RouterImplPtr router_;
+
+public: // Internal use only
+    RouterImplPtr router(internal::PassKey);
+    AuthInfo& authInfo(internal::PassKey);
+    std::string& endpointLabel(internal::PassKey);
+};
+
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB

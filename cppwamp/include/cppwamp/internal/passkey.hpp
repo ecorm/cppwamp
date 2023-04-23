@@ -12,6 +12,7 @@ namespace wamp
 
 class AuthorizationRequest;
 class CalleeInputChunk;
+class DirectRouterLink;
 class DirectSession;
 class Error;
 class Event;
@@ -28,6 +29,7 @@ namespace internal
         // TODO: Verify these are all needed before next release
         friend class wamp::AuthorizationRequest;
         friend class wamp::CalleeInputChunk;
+        friend class wamp::DirectRouterLink;
         friend class wamp::DirectSession;
         friend class wamp::Error;
         friend class wamp::Event;
@@ -44,6 +46,7 @@ namespace internal
         friend class DealerJob;
         friend class DealerJobMap;
         friend class DirectPeer;
+        friend class DirectRouterSession;
         friend class MatchUri;
         friend class NetworkPeer;
         friend class Peer;

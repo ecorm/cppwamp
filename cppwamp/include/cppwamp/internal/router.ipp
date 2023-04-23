@@ -62,4 +62,37 @@ Router::impl(internal::PassKey)
     return impl_;
 }
 
+//******************************************************************************
+// DirectRouterLink
+//******************************************************************************
+
+DirectRouterLink::DirectRouterLink(Router& router)
+    : authInfo_({}, {}, "x_cppwamp_direct", "direct"),
+      router_(router.impl({}))
+{}
+
+DirectRouterLink& DirectRouterLink::withAuthInfo(AuthInfo info)
+{
+    authInfo_ = std::move(info);
+    return *this;
+}
+
+DirectRouterLink& DirectRouterLink::withEndpointLabel(std::string endpointLabel)
+{
+    endpointLabel_ = std::move(endpointLabel);
+    return *this;
+}
+
+DirectRouterLink::RouterImplPtr DirectRouterLink::router(internal::PassKey)
+{
+    return router_;
+}
+
+AuthInfo& DirectRouterLink::authInfo(internal::PassKey) {return authInfo_;}
+
+std::string& DirectRouterLink::endpointLabel(internal::PassKey)
+{
+    return endpointLabel_;
+}
+
 } // namespace wamp

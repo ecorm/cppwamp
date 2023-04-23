@@ -134,7 +134,7 @@ private:
           serverConfig_(std::move(sc))
     {
         assert(serverConfig_ != nullptr);
-        Base::setTransportInfo({t->remoteEndpointLabel(), serverConfig_->name(),
+        Base::connect({t->remoteEndpointLabel(), serverConfig_->name(),
                                 sessionIndex});
         peer_->listen(this);
     }
@@ -188,7 +188,7 @@ private:
     void onPeerHello(Realm&& realm) override
     {
         Base::report(realm.info());
-        Base::setHelloInfo(realm);
+        Base::open(realm);
 
         realm_ = server_.realmAt(realm.uri());
         if (realm_.expired())
@@ -264,6 +264,7 @@ private:
             enableTracing();
 
         peer_->connect(std::move(transport_), std::move(codec_));
+        peer_->establishSession();
         report({AccessAction::clientConnect});
     }
 
@@ -295,9 +296,9 @@ private:
         dispatch(Dispatched{shared_from_this(), std::forward<C>(command)});
     }
 
-    void resetWampSessionInfo()
+    void close()
     {
-        Base::resetSessionInfo();
+        Base::close();
         realm_.reset();
         requestIdChecker_.reset();
     }
@@ -320,7 +321,7 @@ private:
     void leaveRealm()
     {
         realm_.leave(wampId());
-        resetWampSessionInfo();
+        close();
     }
 
     void retire()
@@ -385,7 +386,7 @@ private:
 
         auto details = info.join({}, realm.uri(), wampId(),
                                  RouterFeatures::providedRoles());
-        Base::setWelcomeInfo(std::move(info));
+        Base::join(std::move(info));
         authExchange_.reset();
         report({AccessAction::serverWelcome, realm.uri(), realm.options()});
         peer_->welcome(wampId(), std::move(details));
@@ -412,7 +413,7 @@ private:
             return;
 
         authExchange_.reset();
-        resetWampSessionInfo();
+        close();
         peer_->abort(std::move(r));
     }
 

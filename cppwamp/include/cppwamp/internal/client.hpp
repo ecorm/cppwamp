@@ -1143,7 +1143,7 @@ public:
     void directConnect(any link)
     {
         assert(state() == State::disconnected);
-        peer_->connect(std::move(link));
+        peer_->connect(strand_, std::move(link));
     }
 
     void join(Realm&& realm, ChallengeSlot onChallenge,

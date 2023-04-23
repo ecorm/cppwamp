@@ -7,7 +7,10 @@
 #ifndef CPPWAMP_INTERNAL_DIRECTPEER_HPP
 #define CPPWAMP_INTERNAL_DIRECTPEER_HPP
 
+#include <memory>
+#include "../asiodefs.hpp"
 #include "../errorcodes.hpp"
+#include "../router.hpp"
 #include "message.hpp"
 #include "peer.hpp"
 #include "routercontext.hpp"
@@ -33,15 +36,17 @@ public:
 
     DirectRouterSession(DirectPeer& peer);
 
-    using RouterSession::setRouterLogger;
-    using RouterSession::routerLogLevel;
-    using RouterSession::routerLog;
-    using RouterSession::setTransportInfo;
-    using RouterSession::setHelloInfo;
-    using RouterSession::setWelcomeInfo;
-    using RouterSession::resetSessionInfo;
+    void connect(DirectRouterLink&& info);
+
+    Object open(const Realm& hello);
+
+    void close();
+
+    void disconnect();
 
 private:
+    using Base = RouterSession;
+
     void onRouterAbort(Reason&& r) override;
     void onRouterCommand(Error&& e) override;
     void onRouterCommand(Subscribed&& s) override;
@@ -54,6 +59,7 @@ private:
     void onRouterCommand(Interruption&& i) override;
     void onRouterCommand(Invocation&& i) override;
 
+    AuthInfo authInfo_;
     DirectPeer& peer_;
 };
 
@@ -78,40 +84,42 @@ public:
 private:
     using Base = Peer;
 
-    void onDirectConnect(any link) override
+    void onDirectConnect(IoStrand strand, any routerLink) override
     {
-        router_ = any_cast<RouterContext>(std::move(link));
-        assert(!router_.expired());
-
-        session_->setRouterLogger(router_.logger());
-        auto n = router_.nextDirectSessionIndex();
-        session_->setTransportInfo({"direct", "direct", n});
-
+        if (!strand_)
+            strand_.reset(new IoStrand(std::move(strand)));
+        auto link = any_cast<DirectRouterLink>(std::move(routerLink));
+        router_ = RouterContext{link.router({})};
+        session_->connect(std::move(link));
         setState(State::closed);
         session_->report({AccessAction::clientConnect});
     }
 
     void onClose() override
     {
-        session_->resetSessionInfo();
+        session_->close();
     }
 
     void onDisconnect(State previousState) override
     {
-        session_->resetSessionInfo();
+        session_->close();
         auto s = previousState;
         if (s == State::established || s == State::shuttingDown)
             realm_.leave(session_->wampId());
         session_->report({AccessAction::clientDisconnect});
         router_.reset();
-        session_->setRouterLogger(nullptr);
+        session_->disconnect();
     }
 
     ErrorOrDone send(Realm&& hello) override
     {
         assert(state() == State::establishing);
         traceTx(hello.message({}));
-        session_->report(hello.info());
+
+        // Trim verbose feature dictionaries before logging
+        auto helloActionInfo = hello.info();
+        helloActionInfo.options.erase("roles");
+        session_->report(std::move(helloActionInfo));
 
         auto realm = router_.realmAt(hello.uri());
         bool found = false;
@@ -126,17 +134,24 @@ private:
                         WampErrc::noSuchRealm);
         }
 
-        AuthInfo authInfo
-        {
-            hello.authId().value_or(""),
-            hello.optionOr<String>("authrole", ""),
-            hello.optionOr<String>("authmethod", "x_cppwamp_direct"),
-            hello.optionOr<String>("authprovider", "direct")
-        };
-        session_->setHelloInfo(hello);
-        session_->setWelcomeInfo(std::move(authInfo));
-
         setState(State::established);
+        auto details = session_->open(hello);
+        Welcome welcome{{}, session_->wampId(), std::move(details)};
+
+        struct Posted
+        {
+            Ptr self;
+            Welcome welcome;
+
+            void operator()()
+            {
+                auto& me = static_cast<DirectPeer&>(*self);
+                me.listener().onPeerMessage(std::move(welcome.message({})));
+            }
+        };
+
+        boost::asio::post(*strand_,
+                          Posted{shared_from_this(), std::move(welcome)});
         return true;
     }
 
@@ -148,6 +163,23 @@ private:
         realm_.leave(session_->wampId());
         realm_.reset();
         close();
+        Reason reason{errorCodeToUri(WampErrc::goodbyeAndOut)};
+        session_->report(reason.info(true));
+
+        struct Posted
+        {
+            Ptr self;
+            Reason reason;
+
+            void operator()()
+            {
+                auto& me = static_cast<DirectPeer&>(*self);
+                me.listener().onPeerGoodbye(std::move(reason), true);
+            }
+        };
+
+        boost::asio::post(*strand_,
+                          Posted{shared_from_this(), std::move(reason)});
         return true;
     }
 
@@ -220,23 +252,63 @@ private:
 
     void onAbort(Reason&& reason)
     {
-        traceRx(reason.message({}));
+        struct Posted
+        {
+            Ptr self;
+            Reason reason;
+
+            void operator()()
+            {
+                auto& me = static_cast<DirectPeer&>(*self);
+                me.traceRx(reason.message({}));
+                me.listener().onPeerAbort(std::move(reason), false);
+            }
+        };
+
         setState(State::failed);
-        listener().onPeerAbort(std::move(reason), false);
+        boost::asio::post(*strand_,
+                          Posted{shared_from_this(), std::move(reason)});
     };
 
     template <typename C>
     void onCommand(C&& command)
     {
-        traceRx(command.message({}));
-        listener().onPeerCommand(std::move(command));
+        struct Posted
+        {
+            Ptr self;
+            C command;
+
+            void operator()()
+            {
+                auto& me = static_cast<DirectPeer&>(*self);
+                me.traceRx(command.message({}));
+                me.listener().onPeerCommand(std::move(command));
+            }
+        };
+
+        boost::asio::post(*strand_,
+                          Posted{shared_from_this(), std::move(command)});
     }
 
     UnexpectedError fail(std::string why, std::error_code ec)
     {
+        struct Posted
+        {
+            Ptr self;
+            std::string why;
+            std::error_code ec;
+
+            void operator()()
+            {
+                auto& me = static_cast<DirectPeer&>(*self);
+                me.listener().onPeerFailure(ec, false, std::move(why));
+            }
+        };
+
         setState(State::failed);
         realm_.leave(session_->wampId());
-        listener().onPeerFailure(ec, false, std::move(why));
+        boost::asio::post(*strand_,
+                          Posted{shared_from_this(), std::move(why), ec});
         return UnexpectedError(ec);
     }
 
@@ -254,6 +326,7 @@ private:
                s == State::established;
     }
 
+    std::unique_ptr<IoStrand> strand_;
     DirectRouterSession::Ptr session_;
     RouterContext router_;
     RealmContext realm_;
@@ -266,7 +339,35 @@ private:
 /** DirectRouterSession member function definitions. */
 //******************************************************************************
 
-inline DirectRouterSession::DirectRouterSession(DirectPeer& peer) : peer_(peer) {}
+inline DirectRouterSession::DirectRouterSession(DirectPeer& p) : peer_(p) {}
+
+inline void DirectRouterSession::connect(DirectRouterLink&& info)
+{
+    authInfo_ = std::move(info.authInfo({}));
+
+    RouterContext router{info.router({})};
+    Base::setRouterLogger(router.logger());
+    auto n = router.nextDirectSessionIndex();
+    std::string endpointLabel;
+    if (info.endpointLabel({}).empty())
+        endpointLabel = "direct";
+    else
+        endpointLabel = std::move(info.endpointLabel({}));
+    Base::connect({std::move(endpointLabel), "direct", n});
+}
+
+inline Object DirectRouterSession::open(const Realm& hello)
+{
+    Base::open(hello);
+    auto welcomeDetails = authInfo_.join({}, hello.uri(), wampId());
+    Base::join(AuthInfo{authInfo_});
+    return welcomeDetails;
+}
+
+inline void DirectRouterSession::close() {Base::close();}
+
+inline void DirectRouterSession::disconnect() {Base::setRouterLogger(nullptr);}
+
 inline void DirectRouterSession::onRouterAbort(Reason&& r)         {peer_.onAbort(std::move(r));};
 inline void DirectRouterSession::onRouterCommand(Error&& e)        {peer_.onCommand(std::move(e));}
 inline void DirectRouterSession::onRouterCommand(Subscribed&& s)   {peer_.onCommand(std::move(s));}

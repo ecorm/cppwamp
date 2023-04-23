@@ -9,9 +9,10 @@
 
 //------------------------------------------------------------------------------
 /** @file
-    @brief Contains the LocalSession class. */
+    @brief Contains the DirectSession class. */
 //------------------------------------------------------------------------------
 
+#include "router.hpp"
 #include "session.hpp"
 
 namespace wamp
@@ -32,7 +33,9 @@ public:
 
     /** Constructor taking an execution context. */
     template <typename E, CPPWAMP_NEEDS(isExecutionContext<E>()) = 0>
-    explicit DirectSession(E& context) : Session(context.get_executor()) {}
+    explicit DirectSession(E& context)
+        : DirectSession(context.get_executor())
+    {}
 
     /** Constructor taking an I/O execution context and another as fallback
         for user-provided handlers. */
@@ -45,11 +48,7 @@ public:
     {}
 
     /** Connects directly to a router. */
-    void connect(Router& router);
-
-    /** Connects directly to a router, specifing the endpoint label to use
-        in access logs. */
-    void connect(Router& router, std::string endpointLabel);
+    void connect(DirectRouterLink router);
 
 private:
     using Base = Session;

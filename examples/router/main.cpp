@@ -8,10 +8,11 @@
 // Example WAMP router.
 //******************************************************************************
 
-#include <boost/asio/executor_work_guard.hpp>
+#include <cppwamp/directsession.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/router.hpp>
+#include <cppwamp/spawn.hpp>
 #include <cppwamp/utils/consolelogger.hpp>
 
 //------------------------------------------------------------------------------
@@ -66,7 +67,7 @@ int main()
 
     auto config = wamp::RouterConfig()
         .withLogHandler(logger)
-        .withLogLevel(wamp::LogLevel::debug)
+        .withLogLevel(wamp::LogLevel::trace)
         .withAccessLogHandler(wamp::AccessLogFilter(logger));
 
     auto realmConfig = wamp::RealmConfig("cppwamp.examples");
@@ -75,12 +76,26 @@ int main()
         wamp::ServerConfig("tcp12345", wamp::TcpEndpoint{12345}, wamp::json)
             .withAuthenticator(authenticator);
 
+    auto echo = [](wamp::Invocation inv) -> wamp::Outcome
+    {
+        return wamp::Result{inv.args().at(0).as<wamp::String>()};
+    };
+
     logger({wamp::LogLevel::info, "CppWAMP Example Router launched"});
     wamp::IoContext ioctx;
-    auto work = boost::asio::make_work_guard(ioctx);
+
     wamp::Router router{ioctx, config};
     router.openRealm(realmConfig);
     router.openServer(serverConfig);
+
+    wamp::DirectSession session{ioctx};
+    wamp::spawn(ioctx, [&](wamp::YieldContext yield)
+    {
+        session.connect(router);
+        session.join(wamp::Realm{"cppwamp.examples"}, yield).value();
+        session.enroll(wamp::Procedure("local_echo"), echo, yield).value();
+    });
+
     ioctx.run();
     logger({wamp::LogLevel::info, "CppWAMP Example Router exit"});
     return 0;

@@ -135,8 +135,7 @@ private:
                     auto self = weakSelf.lock();
                     if (self)
                         self->onTransportTxError(ec);
-                }
-                );
+                });
         }
     }
 

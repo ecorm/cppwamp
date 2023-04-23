@@ -68,10 +68,6 @@ public:
     /** Obtains the `authextra` dictionary. */
     const Object& extra() const;
 
-    /** Determines whether the client session is DirectSession or one that
-        connected via a server. */
-    bool isDirect() const;
-
     /** Accesses the note containing arbitrary information set by the
         authenticator. */
     const any& note() const;
@@ -92,9 +88,8 @@ private:
 
 public:
     // Internal use only
-    void join(internal::PassKey, Uri realm, SessionId sessionId, bool isDirect);
     Object join(internal::PassKey, Uri uri, SessionId sessionId,
-                Object routerRoles);
+                Object routerRoles = {});
 };
 
 } // namespace wamp

@@ -152,21 +152,21 @@ protected:
         logger_->log(std::move(e));
     }
 
-    void setTransportInfo(AccessTransportInfo&& info)
+    void connect(AccessTransportInfo&& info)
     {
         logSuffix_ = " [Session " + info.serverName + '/' +
                      std::to_string(info.serverSessionIndex) + ']';
         transportInfo_ = std::move(info);
     }
 
-    void setHelloInfo(const Realm& hello)
+    void open(const Realm& hello)
     {
         sessionInfo_.agent = hello.agent().value_or("");
         sessionInfo_.authId = hello.authId().value_or("");
         features_ = hello.features();
     }
 
-    void setWelcomeInfo(AuthInfo&& info)
+    void join(AuthInfo&& info)
     {
         // sessionInfo_.wampSessionId was already set
         // via RouterSession::setWampId
@@ -175,7 +175,7 @@ protected:
         *authInfo_ = std::move(info);
     }
 
-    void resetSessionInfo()
+    void close()
     {
         sessionInfo_.reset();
         wampId_.reset();

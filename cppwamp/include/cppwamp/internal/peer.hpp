@@ -62,11 +62,11 @@ public:
         onConnect(std::move(transport), std::move(codec));
     }
 
-    void connect(any link)
+    void connect(IoStrand strand, any link)
     {
         assert(state() == State::disconnected);
         setState(State::closed);
-        onDirectConnect(std::move(link));
+        onDirectConnect(std::move(strand), std::move(link));
     }
 
     bool establishSession()
@@ -161,7 +161,7 @@ protected:
 
     virtual void onConnect(Transporting::Ptr, AnyBufferCodec) {}
 
-    virtual void onDirectConnect(any) {}
+    virtual void onDirectConnect(IoStrand, any) {}
 
     virtual void onEstablish() {}
 
