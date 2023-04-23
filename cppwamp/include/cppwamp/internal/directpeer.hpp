@@ -48,16 +48,7 @@ private:
     using Base = RouterSession;
 
     void onRouterAbort(Reason&& r) override;
-    void onRouterCommand(Error&& e) override;
-    void onRouterCommand(Subscribed&& s) override;
-    void onRouterCommand(Unsubscribed&& u) override;
-    void onRouterCommand(Published&& p) override;
-    void onRouterCommand(Event&& e) override;
-    void onRouterCommand(Registered&& r) override;
-    void onRouterCommand(Unregistered&& u) override;
-    void onRouterCommand(Result&& r) override;
-    void onRouterCommand(Interruption&& i) override;
-    void onRouterCommand(Invocation&& i) override;
+    void onRouterMessage(Message&& msg) override;
 
     AuthInfo authInfo_;
     DirectPeer& peer_;
@@ -270,24 +261,23 @@ private:
                           Posted{shared_from_this(), std::move(reason)});
     };
 
-    template <typename C>
-    void onCommand(C&& command)
+    void onMessage(Message&& msg)
     {
         struct Posted
         {
             Ptr self;
-            C command;
+            Message m;
 
             void operator()()
             {
                 auto& me = static_cast<DirectPeer&>(*self);
-                me.traceRx(command.message({}));
-                me.listener().onPeerCommand(std::move(command));
+                me.traceRx(m);
+                me.listener().onPeerMessage(std::move(m));
             }
         };
 
         boost::asio::post(*strand_,
-                          Posted{shared_from_this(), std::move(command)});
+                          Posted{shared_from_this(), std::move(msg)});
     }
 
     UnexpectedError fail(std::string why, std::error_code ec)
@@ -369,16 +359,11 @@ inline void DirectRouterSession::close() {Base::close();}
 inline void DirectRouterSession::disconnect() {Base::setRouterLogger(nullptr);}
 
 inline void DirectRouterSession::onRouterAbort(Reason&& r)         {peer_.onAbort(std::move(r));};
-inline void DirectRouterSession::onRouterCommand(Error&& e)        {peer_.onCommand(std::move(e));}
-inline void DirectRouterSession::onRouterCommand(Subscribed&& s)   {peer_.onCommand(std::move(s));}
-inline void DirectRouterSession::onRouterCommand(Unsubscribed&& u) {peer_.onCommand(std::move(u));}
-inline void DirectRouterSession::onRouterCommand(Published&& p)    {peer_.onCommand(std::move(p));}
-inline void DirectRouterSession::onRouterCommand(Event&& e)        {peer_.onCommand(std::move(e));}
-inline void DirectRouterSession::onRouterCommand(Registered&& r)   {peer_.onCommand(std::move(r));}
-inline void DirectRouterSession::onRouterCommand(Unregistered&& u) {peer_.onCommand(std::move(u));}
-inline void DirectRouterSession::onRouterCommand(Result&& r)       {peer_.onCommand(std::move(r));}
-inline void DirectRouterSession::onRouterCommand(Interruption&& i) {peer_.onCommand(std::move(i));}
-inline void DirectRouterSession::onRouterCommand(Invocation&& i)   {peer_.onCommand(std::move(i));}
+
+void DirectRouterSession::onRouterMessage(Message&& msg)
+{
+    peer_.onMessage(std::move(msg));
+}
 
 } // namespace internal
 

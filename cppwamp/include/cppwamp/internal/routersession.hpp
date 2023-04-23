@@ -73,7 +73,7 @@ public:
                                         std::move(info)});
         }
 
-        onRouterCommand(std::forward<C>(command));
+        onRouterMessage(std::move(command.message({})));
     }
 
     void sendEvent(const Event& e)
@@ -81,7 +81,7 @@ public:
         // server-event actions are not logged due to the potential large
         // number of observers. Instead, a recipient count is added to the
         // server-published action log.
-        onRouterCommand(Event{e});
+        onRouterMessage(Message{e.message({})});
     }
 
     RequestId sendInvocation(Invocation&& inv, Uri&& topic)
@@ -114,25 +114,7 @@ protected:
 
     virtual void onRouterAbort(Reason&&) = 0;
 
-    virtual void onRouterCommand(Error&&) = 0;
-
-    virtual void onRouterCommand(Subscribed&&) = 0;
-
-    virtual void onRouterCommand(Unsubscribed&&) = 0;
-
-    virtual void onRouterCommand(Published&&) = 0;
-
-    virtual void onRouterCommand(Event&&) = 0;
-
-    virtual void onRouterCommand(Registered&&) = 0;
-
-    virtual void onRouterCommand(Unregistered&&) = 0;
-
-    virtual void onRouterCommand(Invocation&&) = 0;
-
-    virtual void onRouterCommand(Result&&) = 0;
-
-    virtual void onRouterCommand(Interruption&&) = 0;
+    virtual void onRouterMessage(Message&&) = 0;
 
     void setRouterLogger(RouterLogger::Ptr logger)
     {

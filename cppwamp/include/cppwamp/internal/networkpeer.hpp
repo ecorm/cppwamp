@@ -35,21 +35,20 @@ public:
             transport_->close();
     }
 
-private:
-    using Base = Peer;
-
-    ErrorOrDone send(Error&& error) override
+    ErrorOrDone sendMessage(const Message& msg)
     {
-        auto done = sendCommand(error);
-        if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
-        {
-            error.withArgs(String{"(snipped)"});
-            error.withKwargs({});
-            sendCommand(error);
-        }
-        return done;
+        assert(msg.kind() != MessageKind::none);
+
+        MessageBuffer buffer;
+        codec_.encode(msg.fields(), buffer);
+        if (buffer.size() > maxTxLength_)
+            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
+
+        traceTx(msg);
+        transport_->send(std::move(buffer));
+        return true;
     }
-    
+
     ErrorOrDone send(Reason&& c) override            {return sendCommand(c);}
     ErrorOrDone send(Realm&& c) override             {return sendCommand(c);}
     ErrorOrDone send(Welcome&& c) override           {return sendCommand(c);}
@@ -108,6 +107,22 @@ private:
         if (!fits)
             return makeUnexpectedError(WampErrc::payloadSizeExceeded);
         return true;
+    }
+
+
+private:
+    using Base = Peer;
+
+    ErrorOrDone send(Error&& error) override
+    {
+        auto done = sendCommand(error);
+        if (done == makeUnexpectedError(WampErrc::payloadSizeExceeded))
+        {
+            error.withArgs(String{"(snipped)"});
+            error.withKwargs({});
+            sendCommand(error);
+        }
+        return done;
     }
     
     void onConnect(Transporting::Ptr t, AnyBufferCodec c) override
@@ -169,17 +184,7 @@ private:
     template <typename C>
     ErrorOrDone sendCommand(const C& command)
     {
-        const auto& msg = command.message({});
-        assert(msg.kind() != MessageKind::none);
-
-        MessageBuffer buffer;
-        codec_.encode(msg.fields(), buffer);
-        if (buffer.size() > maxTxLength_)
-            return makeUnexpectedError(WampErrc::payloadSizeExceeded);
-
-        traceTx(msg);
-        transport_->send(std::move(buffer));
-        return true;
+        return sendMessage(command.message({}));
     }
 
     void onTransportRx(MessageBuffer buffer)

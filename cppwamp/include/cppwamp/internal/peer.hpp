@@ -18,7 +18,11 @@
 #include "../callerstreaming.hpp"
 #include "../codec.hpp"
 #include "../erroror.hpp"
+#include "../pubsubinfo.hpp"
+#include "../rpcinfo.hpp"
+#include "../sessioninfo.hpp"
 #include "../transport.hpp"
+#include "commandinfo.hpp"
 #include "peerlistener.hpp"
 
 namespace wamp

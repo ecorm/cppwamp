@@ -151,16 +151,24 @@ private:
         safelyDispatch<Dispatched>(std::move(r));
     }
 
-    void onRouterCommand(Error&& e) override        {sendRouterCommand(std::move(e));}
-    void onRouterCommand(Subscribed&& s) override   {sendRouterCommand(std::move(s));}
-    void onRouterCommand(Unsubscribed&& u) override {sendRouterCommand(std::move(u));}
-    void onRouterCommand(Published&& p) override    {sendRouterCommand(std::move(p));}
-    void onRouterCommand(Event&& e) override        {sendRouterCommand(std::move(e));}
-    void onRouterCommand(Registered&& r) override   {sendRouterCommand(std::move(r));}
-    void onRouterCommand(Unregistered&& u) override {sendRouterCommand(std::move(u));}
-    void onRouterCommand(Invocation&& i) override   {sendRouterCommand(std::move(i));}
-    void onRouterCommand(Result&& r) override       {sendRouterCommand(std::move(r));}
-    void onRouterCommand(Interruption&& i) override {sendRouterCommand(std::move(i));}
+    void onRouterMessage(Message&& msg) override
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Message m;
+
+            void operator()()
+            {
+                auto& me = *self;
+                if (me.state() != State::established)
+                    return;
+                me.peer_->sendMessage(m);
+            }
+        };
+
+        dispatch(Dispatched{shared_from_this(), std::move(msg)});
+    }
 
     void onPeerDisconnect() override
     {
@@ -241,15 +249,23 @@ private:
         // shutting down.
     }
 
-    void onPeerCommand(Error&& c) override            {sendToRealm(c);}
-    void onPeerCommand(Pub&& c) override              {sendToRealm(c);}
-    void onPeerCommand(Topic&& c) override            {sendToRealm(c);}
-    void onPeerCommand(Unsubscribe&& c) override      {sendToRealm(c);}
-    void onPeerCommand(Rpc&& c) override              {sendToRealm(c);}
-    void onPeerCommand(CallCancellation&& c) override {sendToRealm(c);}
-    void onPeerCommand(Procedure&& c) override        {sendToRealm(c);}
-    void onPeerCommand(Unregister&& c) override       {sendToRealm(c);}
-    void onPeerCommand(Result&& c) override           {sendToRealm(c);}
+    void onPeerMessage(Message&& m) override
+    {
+        using K = MessageKind;
+        switch (m.kind())
+        {
+        case K::error:          return sendToRealm(Error{{},            std::move(m)});
+        case K::publish:        return sendToRealm(Pub{{},              std::move(m)});
+        case K::subscribe:      return sendToRealm(Topic{{},            std::move(m)});
+        case K::unsubscribe:    return sendToRealm(Unsubscribe{{},      std::move(m)});
+        case K::call:           return sendToRealm(Rpc{{},              std::move(m)});
+        case K::cancel:         return sendToRealm(CallCancellation{{}, std::move(m)});
+        case K::enroll:         return sendToRealm(Procedure{{},        std::move(m)});
+        case K::unregister:     return sendToRealm(Unregister{{},       std::move(m)});
+        case K::yield:          return sendToRealm(Result{{},           std::move(m)});
+        default: assert(false && "Unexpected MessageKind enumerator");
+        }
+    }
 
     State state() const {return peer_->state();}
 
@@ -304,7 +320,7 @@ private:
     }
 
     template <typename C>
-    void sendToRealm(C& command)
+    void sendToRealm(C&& command)
     {
         if (!requestIdChecker_.check(command))
         {
@@ -436,7 +452,7 @@ private:
     }
 
     IoStrand strand_;
-    Peer::Ptr peer_;
+    std::shared_ptr<NetworkPeer> peer_;
     Transporting::Ptr transport_;
     AnyBufferCodec codec_;
     ServerContext server_;

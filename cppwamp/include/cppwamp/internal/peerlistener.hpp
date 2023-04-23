@@ -11,11 +11,7 @@
 #include <cassert>
 #include <string>
 #include <utility>
-#include "../errorinfo.hpp"
-#include "../pubsubinfo.hpp"
-#include "../rpcinfo.hpp"
 #include "../sessioninfo.hpp"
-#include "commandinfo.hpp"
 #include "message.hpp"
 
 namespace wamp
@@ -50,50 +46,7 @@ public:
 
     virtual void onPeerGoodbye(Reason&&, bool wasShuttingDown) = 0;
 
-    virtual void onPeerMessage(Message&& m)
-    {
-        using K = MessageKind;
-        switch (m.kind())
-        {
-        case K::error:          return onPeerCommand(Error{{},            std::move(m)});
-        case K::publish:        return onPeerCommand(Pub{{},              std::move(m)});
-        case K::published:      return onPeerCommand(Published{{},        std::move(m)});
-        case K::subscribe:      return onPeerCommand(Topic{{},            std::move(m)});
-        case K::subscribed:     return onPeerCommand(Subscribed{{},       std::move(m)});
-        case K::unsubscribe:    return onPeerCommand(Unsubscribe{{},      std::move(m)});
-        case K::unsubscribed:   return onPeerCommand(Unsubscribed{{},     std::move(m)});
-        case K::event:          return onPeerCommand(Event{{},            std::move(m)});
-        case K::call:           return onPeerCommand(Rpc{{},              std::move(m)});
-        case K::cancel:         return onPeerCommand(CallCancellation{{}, std::move(m)});
-        case K::result:         return onPeerCommand(Result{{},           std::move(m)});
-        case K::enroll:         return onPeerCommand(Procedure{{},        std::move(m)});
-        case K::registered:     return onPeerCommand(Registered{{},       std::move(m)});
-        case K::unregister:     return onPeerCommand(Unregister{{},       std::move(m)});
-        case K::unregistered:   return onPeerCommand(Unregistered{{},     std::move(m)});
-        case K::invocation:     return onPeerCommand(Invocation{{},       std::move(m)});
-        case K::interrupt:      return onPeerCommand(Interruption{{},     std::move(m)});
-        case K::yield:          return onPeerCommand(Result{{},           std::move(m)});
-        default: assert(false && "Unexpected MessageKind enumerator");
-        }
-    }
-
-    virtual void onPeerCommand(Error&& c)            {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Pub&& c)              {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Published&& c)        {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Topic&& c)            {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Subscribed&& c)       {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Unsubscribe&& c)      {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Unsubscribed&& c)     {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Event&& c)            {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Rpc&& c)              {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(CallCancellation&& c) {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Result&& c)           {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Procedure&& c)        {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Registered&& c)       {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Unregister&& c)       {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Unregistered&& c)     {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Invocation&& c)       {onPeerMessage(std::move(c.message({})));}
-    virtual void onPeerCommand(Interruption&& c)     {onPeerMessage(std::move(c.message({})));}
+    virtual void onPeerMessage(Message&& m) = 0;
 
     void enableTracing(bool enabled = true) {traceEnabled_.store(enabled);}
 

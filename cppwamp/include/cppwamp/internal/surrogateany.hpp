@@ -35,12 +35,6 @@ class SurrogateAny;
 //------------------------------------------------------------------------------
 struct AnyReqs
 {
-    template <typename T, template <typename...> class Template>
-    struct isSpecialization : FalseType {};
-
-    template <template <typename...> class Template, typename... Args>
-    struct isSpecialization<Template<Args...>, Template> : TrueType {};
-
     template <typename T>
     struct IsInPlaceType : FalseType {};
 
