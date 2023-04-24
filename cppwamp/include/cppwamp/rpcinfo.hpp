@@ -449,7 +449,6 @@ private:
     static constexpr unsigned registrationIdPos_ = 2;
     CalleePtr callee_;
     AnyCompletionExecutor executor_ = nullptr;
-    RequestId requestId_ = nullId();
     RegistrationId registrationId_ = nullId();
 
     template <typename, typename...> friend class CoroInvocationUnpacker;
@@ -552,7 +551,6 @@ private:
 
     CalleePtr callee_;
     AnyCompletionExecutor executor_ = nullptr;
-    RequestId requestId_ = nullId();
     RegistrationId registrationId_ = nullId();
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
 

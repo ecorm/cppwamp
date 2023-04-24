@@ -2125,6 +2125,8 @@ private:
             report({IncidentKind::trace, std::move(messageDump)});
     }
 
+    void onPeerHello(Realm&&) override {assert(false);}
+
     void onPeerAbort(Reason&& reason, bool wasJoining) override
     {
         if (wasJoining)
@@ -2149,6 +2151,11 @@ private:
                          .withHint("No challenge handler");
             failAuthentication(std::move(r));
         }
+    }
+
+    void onPeerAuthenticate(Authentication&& authentication) override
+    {
+        assert(false);
     }
 
     void dispatchChallenge(Challenge&& challenge)

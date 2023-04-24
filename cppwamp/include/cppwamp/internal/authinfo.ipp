@@ -61,6 +61,11 @@ CPPWAMP_INLINE void AuthInfo::clear()
     sessionId_ = nullId();
 }
 
+CPPWAMP_INLINE void AuthInfo::setId(internal::PassKey, String id)
+{
+    id_ = std::move(id);
+}
+
 CPPWAMP_INLINE Object
 AuthInfo::join(internal::PassKey, Uri uri, SessionId sessionId,
                Object routerRoles)
@@ -79,7 +84,8 @@ AuthInfo::join(internal::PassKey, Uri uri, SessionId sessionId,
         details.emplace("authprovider", provider_);
     if (!extra_.empty())
         details.emplace("authextra", std::move(extra_));
-    details.emplace("roles", std::move(routerRoles));
+    if (!routerRoles.empty())
+        details.emplace("roles", std::move(routerRoles));
     extra_.clear();
     return details;
 }

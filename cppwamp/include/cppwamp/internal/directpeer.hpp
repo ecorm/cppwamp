@@ -38,7 +38,7 @@ public:
 
     void connect(DirectRouterLink&& info);
 
-    Object open(const Realm& hello);
+    Object open(Realm&& hello);
 
     void close();
 
@@ -86,10 +86,15 @@ private:
         session_->report({AccessAction::clientConnect});
     }
 
-    void onClose() override
+    void onConnect(Transporting::Ptr t, AnyBufferCodec c) override
     {
-        session_->close();
+        CPPWAMP_LOGIC_ERROR("Cannot connect a wamp::DirectionSession via "
+                            " a wamp::Session base class reference/pointer");
     }
+
+    void onEstablish() override {/* Nothing to do*/}
+
+    void onClose() override {session_->close();}
 
     void onDisconnect(State previousState) override
     {
@@ -126,7 +131,7 @@ private:
         }
 
         setState(State::established);
-        auto details = session_->open(hello);
+        auto details = session_->open(std::move(hello));
         Welcome welcome{{}, session_->wampId(), std::move(details)};
 
         struct Posted
@@ -137,6 +142,8 @@ private:
             void operator()()
             {
                 auto& me = static_cast<DirectPeer&>(*self);
+                me.traceRx(welcome.message({}));
+                me.session_->report(welcome.info());
                 me.listener().onPeerMessage(std::move(welcome.message({})));
             }
         };
@@ -346,8 +353,13 @@ inline void DirectRouterSession::connect(DirectRouterLink&& info)
     Base::connect({std::move(endpointLabel), "direct", n});
 }
 
-inline Object DirectRouterSession::open(const Realm& hello)
+inline Object DirectRouterSession::open(Realm&& hello)
 {
+    if (!hello.hasOption("authid"))
+        hello.withAuthId(authInfo_.id());
+    else if (authInfo_.id().empty())
+        authInfo_.setId({}, hello.authId().value_or(""));
+
     Base::open(hello);
     auto welcomeDetails = authInfo_.join({}, hello.uri(), wampId());
     Base::join(AuthInfo{authInfo_});

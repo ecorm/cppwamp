@@ -163,15 +163,15 @@ protected:
           isRouter_(isRouter)
     {}
 
-    virtual void onConnect(Transporting::Ptr, AnyBufferCodec) {}
+    virtual void onConnect(Transporting::Ptr, AnyBufferCodec) = 0;
 
-    virtual void onDirectConnect(IoStrand, any) {}
+    virtual void onDirectConnect(IoStrand, any) = 0;
 
-    virtual void onEstablish() {}
+    virtual void onEstablish() = 0;
 
-    virtual void onClose() {}
+    virtual void onClose() = 0;
 
-    virtual void onDisconnect(State previousState) {}
+    virtual void onDisconnect(State previousState) = 0;
 
     State setState(State s) {return state_.exchange(s);}
 

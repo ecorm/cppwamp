@@ -67,7 +67,7 @@ int main()
 
     auto config = wamp::RouterConfig()
         .withLogHandler(logger)
-        .withLogLevel(wamp::LogLevel::trace)
+        .withLogLevel(wamp::LogLevel::debug)
         .withAccessLogHandler(wamp::AccessLogFilter(logger));
 
     auto realmConfig = wamp::RealmConfig("cppwamp.examples");
@@ -92,7 +92,8 @@ int main()
     wamp::spawn(ioctx, [&](wamp::YieldContext yield)
     {
         session.connect(router);
-        session.join(wamp::Realm{"cppwamp.examples"}, yield).value();
+        session.join(wamp::Realm{"cppwamp.examples"}.withAuthId("insider"),
+                     yield).value();
         session.enroll(wamp::Procedure("local_echo"), echo, yield).value();
     });
 

@@ -31,18 +31,13 @@ public:
 
     virtual void onPeerTrace(std::string&& messageDump) = 0;
 
-    virtual void onPeerHello(Realm&&) {assert(false);}
-
-    virtual void onPeerWelcome(Welcome&& w)
-    {
-        onPeerMessage(std::move(w.message({})));
-    }
+    virtual void onPeerHello(Realm&&) = 0;
 
     virtual void onPeerAbort(Reason&&, bool wasJoining) = 0;
 
-    virtual void onPeerChallenge(Challenge&& c) {assert(false);}
+    virtual void onPeerChallenge(Challenge&& c) = 0;
 
-    virtual void onPeerAuthenticate(Authentication&& c) {assert(false);}
+    virtual void onPeerAuthenticate(Authentication&& c) = 0;
 
     virtual void onPeerGoodbye(Reason&&, bool wasShuttingDown) = 0;
 

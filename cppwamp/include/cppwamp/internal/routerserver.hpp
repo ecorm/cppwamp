@@ -211,11 +211,13 @@ private:
         serverConfig_->authenticator()->authenticate(authExchange_);
     }
 
-    void onPeerAbort(Reason&& r, bool wasJoining) override
+    void onPeerAbort(Reason&& r, bool) override
     {
         report(r.info(false));
         // ServerSession::onStateChanged will perform the retire() operation.
     }
+
+    void onPeerChallenge(Challenge&& challenge) override {assert(false);}
 
     void onPeerAuthenticate(Authentication&& authentication) override
     {
@@ -236,17 +238,18 @@ private:
 
     void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
     {
-        leaveRealm();
         report(reason.info(false));
         if (!wasShuttingDown)
         {
+            // peer_ already took care of sending the GOODBYE reply if we were
+            // not shutting down.
             report({AccessAction::serverGoodbye,
                     errorCodeToUri(WampErrc::goodbyeAndOut)});
-            peer_->establishSession();
         }
 
-        // peer_ already took care of sending the GOODBYE reply if we were not
-        // shutting down.
+        leaveRealm();
+        if (!wasShuttingDown)
+            peer_->establishSession();
     }
 
     void onPeerMessage(Message&& m) override

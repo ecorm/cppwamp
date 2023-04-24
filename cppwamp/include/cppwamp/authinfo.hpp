@@ -86,8 +86,9 @@ private:
     SessionId sessionId_ = nullId();
     bool isDirect_ = false;
 
-public:
-    // Internal use only
+public: // Internal use only
+    void setId(internal::PassKey, String id);
+
     Object join(internal::PassKey, Uri uri, SessionId sessionId,
                 Object routerRoles = {});
 };

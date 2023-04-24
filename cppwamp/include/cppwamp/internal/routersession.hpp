@@ -13,11 +13,9 @@
 #include "../accesslogging.hpp"
 #include "../authinfo.hpp"
 #include "../features.hpp"
-#include "../errorinfo.hpp"
 #include "../pubsubinfo.hpp"
 #include "../rpcinfo.hpp"
 #include "../sessioninfo.hpp"
-#include "commandinfo.hpp"
 #include "random.hpp"
 #include "routercontext.hpp"
 

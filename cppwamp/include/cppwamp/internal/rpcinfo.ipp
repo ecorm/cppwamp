@@ -334,7 +334,10 @@ CPPWAMP_INLINE bool Invocation::calleeHasExpired() const
     return callee_.expired();
 }
 
-CPPWAMP_INLINE RequestId Invocation::requestId() const {return requestId_;}
+CPPWAMP_INLINE RequestId Invocation::requestId() const
+{
+    return Base::requestId();
+}
 
 CPPWAMP_INLINE RegistrationId Invocation::registrationId() const
 {
@@ -355,7 +358,7 @@ CPPWAMP_INLINE ErrorOrDone Invocation::yield(Result result) const
     auto callee = callee_.lock();
     if (!callee)
         return false;
-    return callee->yield(std::move(result), requestId_, registrationId_);
+    return callee->yield(std::move(result), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE std::future<ErrorOrDone>
@@ -366,7 +369,7 @@ Invocation::yield(ThreadSafe, Result result) const
     if (!callee)
         return futureValue(false);
 
-    return callee->safeYield(std::move(result), requestId_, registrationId_);
+    return callee->safeYield(std::move(result), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE ErrorOrDone Invocation::yield(Error error) const
@@ -375,7 +378,7 @@ CPPWAMP_INLINE ErrorOrDone Invocation::yield(Error error) const
     auto callee = callee_.lock();
     if (!callee)
         return false;
-    return callee->yield(std::move(error), requestId_, registrationId_);
+    return callee->yield(std::move(error), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE std::future<ErrorOrDone>
@@ -385,7 +388,7 @@ Invocation::yield(ThreadSafe, Error error) const
     auto callee = callee_.lock();
     if (!callee)
         return futureValue(false);
-    return callee->safeYield(std::move(error), requestId_, registrationId_);
+    return callee->safeYield(std::move(error), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE AccessActionInfo Invocation::info(Uri topic) const
@@ -433,7 +436,6 @@ CPPWAMP_INLINE std::future<ErrorOrDone> Invocation::futureValue(bool value)
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg)),
-      requestId_(Base::requestId()),
       registrationId_(message().to<RegistrationId>(registrationIdPos_))
 {}
 
@@ -508,7 +510,10 @@ CPPWAMP_INLINE bool Interruption::calleeHasExpired() const
     return callee_.expired();
 }
 
-CPPWAMP_INLINE RequestId Interruption::requestId() const {return requestId_;}
+CPPWAMP_INLINE RequestId Interruption::requestId() const
+{
+    return Base::requestId();
+}
 
 CPPWAMP_INLINE CallCancelMode Interruption::cancelMode() const
 {
@@ -534,7 +539,7 @@ CPPWAMP_INLINE ErrorOrDone Interruption::yield(Result result) const
     auto callee = callee_.lock();
     if (!callee)
         return false;
-    return callee->yield(std::move(result), requestId_, registrationId_);
+    return callee->yield(std::move(result), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE std::future<ErrorOrDone>
@@ -545,7 +550,7 @@ Interruption::yield(ThreadSafe, Result result) const
     if (!callee)
         return futureValue(false);
 
-    return callee->safeYield(std::move(result), requestId_, registrationId_);
+    return callee->safeYield(std::move(result), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE ErrorOrDone Interruption::yield(Error error) const
@@ -555,7 +560,7 @@ CPPWAMP_INLINE ErrorOrDone Interruption::yield(Error error) const
     if (!callee)
         return false;
 
-    return callee->yield(std::move(error), requestId_, registrationId_);
+    return callee->yield(std::move(error), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE std::future<ErrorOrDone>
@@ -566,7 +571,7 @@ Interruption::yield(ThreadSafe, Error error) const
     if (!callee)
         return futureValue(false);
 
-    return callee->safeYield(std::move(error), requestId_, registrationId_);
+    return callee->safeYield(std::move(error), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE AccessActionInfo Interruption::info() const
@@ -594,15 +599,13 @@ CPPWAMP_INLINE Object Interruption::makeOptions(CallCancelMode mode,
 CPPWAMP_INLINE Interruption::Interruption(internal::PassKey,
                                           internal::Message&& msg)
     : Base(std::move(msg)),
-      requestId_(Base::requestId()),
       cancelMode_(internal::parseCallCancelModeFromOptions(options()))
 {}
 
 CPPWAMP_INLINE Interruption::Interruption(
     internal::PassKey, RequestId reqId, CallCancelMode mode, WampErrc reason)
     : Base(in_place, reqId, makeOptions(mode, reason)),
-      requestId_(reqId),
-    cancelMode_(mode)
+      cancelMode_(mode)
 {}
 
 CPPWAMP_INLINE void Interruption::setCallee(internal::PassKey, CalleePtr callee,

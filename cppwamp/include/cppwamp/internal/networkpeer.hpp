@@ -125,6 +125,11 @@ private:
         return done;
     }
     
+    void onDirectConnect(IoStrand strand, any routerLink) override
+    {
+        assert(false);
+    }
+
     void onConnect(Transporting::Ptr t, AnyBufferCodec c) override
     {
         transport_ = std::move(t);
@@ -153,6 +158,8 @@ private:
                 });
         }
     }
+
+    void onClose() override {/* Nothing to do*/}
 
     void onDisconnect(State) override
     {
