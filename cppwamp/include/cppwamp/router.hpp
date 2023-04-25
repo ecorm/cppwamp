@@ -39,8 +39,6 @@ namespace internal { class RouterImpl; }
 class CPPWAMP_API Router
 {
 public:
-    // TODO: Thread-safe operations
-
     /** Executor type used for I/O operations. */
     using Executor = AnyIoExecutor;
 
@@ -61,9 +59,6 @@ public:
     explicit Router(E& context, RouterConfig config = {})
         : Router(context.get_executor(), std::move(config))
     {}
-
-    /** Destructor. */
-    ~Router();
     /// @}
 
     /// @name Move-only
@@ -85,12 +80,6 @@ public:
     void closeServer(const std::string& name, Reason r = shutdownReason());
 
     void close(Reason r = shutdownReason());
-    /// @}
-
-    /// @name Observers
-    /// @{
-    /** Obtains the execution context in which I/O operations are serialized. */
-    const IoStrand& strand() const;
     /// @}
 
 private:

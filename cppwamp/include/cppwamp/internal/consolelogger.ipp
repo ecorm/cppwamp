@@ -14,48 +14,86 @@ namespace utils
 {
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE ConsoleLogger::ConsoleLogger()
-    : origin_("cppwamp")
+struct ConsoleLogger::Impl
+{
+    Impl(std::string origin) : origin(std::move(origin)) {}
+
+    std::string origin;
+    bool flushOnWrite = false;
+};
+
+CPPWAMP_INLINE ConsoleLogger::ConsoleLogger(bool flushOnWrite)
+    : ConsoleLogger("cppwamp", flushOnWrite)
 {}
 
-CPPWAMP_INLINE ConsoleLogger::ConsoleLogger(std::string originLabel)
-    : origin_(std::move(originLabel))
+CPPWAMP_INLINE ConsoleLogger::ConsoleLogger(std::string originLabel,
+                                            bool flushOnWrite)
+    : impl_(std::make_shared<Impl>(std::move(originLabel)))
 {}
 
 CPPWAMP_INLINE void ConsoleLogger::operator()(const LogEntry& entry) const
 {
+    auto& impl = *impl_;
     if (entry.severity() < LogLevel::warning)
-        toStream(std::clog, entry, origin_) << "\n";
+    {
+        toStream(std::clog, entry, impl.origin) << "\n";
+        if (impl.flushOnWrite)
+            std::clog << std::flush;
+    }
     else
-        toStream(std::cerr, entry, origin_) << std::endl;
+    {
+        toStream(std::cerr, entry, impl.origin) << std::endl;
+    }
 }
 
 CPPWAMP_INLINE void ConsoleLogger::operator()(const AccessLogEntry& entry) const
 {
-    toStream(std::clog, entry, origin_) << "\n";
+    auto& impl = *impl_;
+    toStream(std::clog, entry, impl.origin) << "\n";
+    if (impl.flushOnWrite)
+        std::clog << std::flush;
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE ColorConsoleLogger::ColorConsoleLogger()
-    : origin_("cppwamp")
+struct ColorConsoleLogger::Impl
+{
+    Impl(std::string origin) : origin(std::move(origin)) {}
+
+    std::string origin;
+    bool flushOnWrite = false;
+};
+
+CPPWAMP_INLINE ColorConsoleLogger::ColorConsoleLogger(bool flushOnWrite)
+    : ColorConsoleLogger("cppwamp", flushOnWrite)
 {}
 
-CPPWAMP_INLINE ColorConsoleLogger::ColorConsoleLogger(std::string originLabel)
-    : origin_(std::move(originLabel))
+CPPWAMP_INLINE ColorConsoleLogger::ColorConsoleLogger(std::string originLabel,
+                                                      bool flushOnWrite)
+    : impl_(std::make_shared<Impl>(std::move(originLabel)))
 {}
 
 CPPWAMP_INLINE void ColorConsoleLogger::operator()(const LogEntry& entry) const
 {
+    auto& impl = *impl_;
     if (entry.severity() < LogLevel::warning)
-        toColorStream(std::clog, entry, origin_) << "\n";
+    {
+        toColorStream(std::clog, entry, impl.origin) << "\n";
+        if (impl.flushOnWrite)
+            std::clog << std::flush;
+    }
     else
-        toColorStream(std::cerr, entry, origin_) << std::endl;
+    {
+        toColorStream(std::cerr, entry, impl.origin) << std::endl;
+    }
 }
 
 CPPWAMP_INLINE void
 ColorConsoleLogger::operator()(const AccessLogEntry& entry) const
 {
-    toColorStream(std::clog, entry, origin_) << "\n";
+    auto& impl = *impl_;
+    toColorStream(std::clog, entry, impl.origin) << "\n";
+    if (impl.flushOnWrite)
+        std::clog << std::flush;
 }
 
 } // namespace utils

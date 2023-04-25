@@ -123,6 +123,10 @@ set(HEADERS
     include/cppwamp/types/unorderedmap.hpp
     include/cppwamp/types/unorderedset.hpp
     include/cppwamp/utils/consolelogger.hpp
+    include/cppwamp/utils/filelogger.hpp
+    include/cppwamp/utils/logsequencer.hpp
+    include/cppwamp/utils/logtee.hpp
+    include/cppwamp/utils/streamlogger.hpp
     include/cppwamp/utils/tokentriemap.hpp
     include/cppwamp/utils/tokentriemapiterator.hpp
     include/cppwamp/utils/tokentriemapnode.hpp
@@ -147,6 +151,7 @@ set(INLINES
     include/cppwamp/internal/errorinfo.ipp
     include/cppwamp/internal/exceptions.ipp
     include/cppwamp/internal/features.ipp
+    include/cppwamp/internal/filelogger.ipp
     include/cppwamp/internal/json.ipp
     include/cppwamp/internal/logging.ipp
     include/cppwamp/internal/messagetraits.ipp
@@ -159,6 +164,7 @@ set(INLINES
     include/cppwamp/internal/session.ipp
     include/cppwamp/internal/sessioninfo.ipp
     include/cppwamp/internal/streaming.ipp
+    include/cppwamp/internal/streamlogger.ipp
     include/cppwamp/internal/subscription.ipp
     include/cppwamp/internal/tcp.ipp
     include/cppwamp/internal/tcpendpoint.ipp

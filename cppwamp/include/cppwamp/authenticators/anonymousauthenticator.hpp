@@ -53,7 +53,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "../../internal/anonymousauthenticator.ipp"
+#include "../internal/anonymousauthenticator.ipp"
 #endif
 
 #endif // CPPWAMP_AUTHENTICATORS_ANONYMOUSAUTHENTICATOR_HPP

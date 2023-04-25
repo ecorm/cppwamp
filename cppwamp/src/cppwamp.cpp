@@ -38,6 +38,7 @@
 #include <cppwamp/internal/session.ipp>
 #include <cppwamp/internal/sessioninfo.ipp>
 #include <cppwamp/internal/streaming.ipp>
+#include <cppwamp/internal/streamlogger.ipp>
 #include <cppwamp/internal/subscription.ipp>
 #include <cppwamp/internal/tcp.ipp>
 #include <cppwamp/internal/tcpendpoint.ipp>

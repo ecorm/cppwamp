@@ -6,6 +6,7 @@
 
 set(HEADERS
     clienttesting.hpp
+    testrouter.hpp
     valuemodels.hpp
 )
 
@@ -25,6 +26,7 @@ set(SOURCES
     errortest.cpp
     flagstest.cpp
     payloadtest.cpp
+    testrouter.cpp
     timeoutschedulertest.cpp
     transporttest.cpp
     uritest.cpp

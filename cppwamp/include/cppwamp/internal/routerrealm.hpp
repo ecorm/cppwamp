@@ -15,6 +15,7 @@
 #include "../authorizer.hpp"
 #include "../routerconfig.hpp"
 #include "broker.hpp"
+#include "commandinfo.hpp"
 #include "dealer.hpp"
 #include "random.hpp"
 #include "routercontext.hpp"

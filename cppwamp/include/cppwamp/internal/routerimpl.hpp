@@ -146,11 +146,6 @@ public:
 
     void close(Reason r)
     {
-        auto msg = std::string("Shutting down router, with reason ") + r.uri();
-        if (!r.options().empty())
-            msg += " " + toString(r.options());
-        inform(std::move(msg));
-
         ServerMap servers;
         {
             MutexGuard lock(serversMutex_);
@@ -165,14 +160,21 @@ public:
             realms_.clear();
         }
 
-        for (auto& kv: servers_)
+        if (!servers.empty() && !realms.empty())
+        {
+            auto msg = std::string("Shutting down router, with reason ") +
+                       r.uri();
+            if (!r.options().empty())
+                msg += " " + toString(r.options());
+            inform(std::move(msg));
+        }
+
+        for (auto& kv: servers)
             kv.second->close(r);
 
-        for (auto& kv: realms_)
+        for (auto& kv: realms)
             kv.second->close(r);
     }
-
-    const IoStrand& strand() const {return strand_;}
 
 private:
     using MutexGuard = std::lock_guard<std::mutex>;
@@ -182,8 +184,7 @@ private:
     RouterImpl(Executor e, RouterConfig c)
         : config_(std::move(c)),
           executor_(std::move(e)),
-          strand_(boost::asio::make_strand(executor_)),
-          logger_(RouterLogger::create(strand_, config_.logHandler(),
+          logger_(RouterLogger::create(config_.logHandler(),
                                        config_.logLevel(),
                                        config_.accessLogHandler())),
           nextDirectSessionIndex_(0)
@@ -195,12 +196,6 @@ private:
             config_.withPublicationRNG(internal::DefaultPRNG64{});
 
         sessionIdPool_ = RandomIdPool::create(config_.sessionRNG());
-    }
-
-    template <typename F>
-    void dispatch(F&& f)
-    {
-        boost::asio::dispatch(strand_, std::forward<F>(f));
     }
 
     void inform(String msg)
@@ -243,7 +238,6 @@ private:
     RealmMap realms_;
     RouterConfig config_;
     AnyIoExecutor executor_;
-    IoStrand strand_;
     std::mutex serversMutex_;
     std::mutex realmsMutex_;
     RandomIdPool::Ptr sessionIdPool_;

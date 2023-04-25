@@ -13,8 +13,9 @@
 //------------------------------------------------------------------------------
 
 #include <iostream>
-#include "../api.hpp"
+#include <memory>
 #include "../accesslogging.hpp"
+#include "../api.hpp"
 #include "../logging.hpp"
 
 namespace wamp
@@ -33,10 +34,10 @@ class CPPWAMP_API ConsoleLogger
 {
 public:
     /** Default constructor. */
-    ConsoleLogger();
+    ConsoleLogger(bool flushOnWrite = false);
 
     /** Constructor taking a custom origin label. */
-    explicit ConsoleLogger(std::string originLabel);
+    explicit ConsoleLogger(std::string originLabel, bool flushOnWrite = false);
 
     /** Outputs the given log entry to the console. */
     void operator()(const LogEntry& entry) const;
@@ -45,7 +46,8 @@ public:
     void operator()(const AccessLogEntry& entry) const;
 
 private:
-    std::string origin_;
+    struct Impl;
+    std::shared_ptr<Impl> impl_; // Cheap to copy
 };
 
 //------------------------------------------------------------------------------
@@ -59,10 +61,11 @@ class CPPWAMP_API ColorConsoleLogger
 {
 public:
     /** Default constructor. */
-    ColorConsoleLogger();
+    explicit ColorConsoleLogger(bool flushOnWrite = false);
 
     /** Constructor taking a custom origin label. */
-    explicit ColorConsoleLogger(std::string originLabel);
+    explicit ColorConsoleLogger(std::string originLabel,
+                                bool flushOnWrite = false);
 
     /** Outputs the given log entry to the console. */
     void operator()(const LogEntry& entry) const;
@@ -71,7 +74,8 @@ public:
     void operator()(const AccessLogEntry& entry) const;
 
 private:
-    std::string origin_;
+    struct Impl;
+    std::shared_ptr<Impl> impl_; // Cheap to copy
 };
 
 } // namespace utils

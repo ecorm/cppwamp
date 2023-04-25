@@ -161,4 +161,8 @@ public:
 
 } // namespace wamp
 
+#ifndef CPPWAMP_COMPILED_LIB
+#include "internal/authorizer.ipp"
+#endif
+
 #endif // CPPWAMP_AUTHORIZER_HPP

@@ -30,8 +30,6 @@ CPPWAMP_INLINE Router::Router(Executor exec, RouterConfig config)
     : impl_(internal::RouterImpl::create(std::move(exec), std::move(config)))
 {}
 
-CPPWAMP_INLINE Router::~Router() {}
-
 CPPWAMP_INLINE bool Router::openRealm(RealmConfig config)
 {
     return impl_->addRealm(std::move(config));
@@ -53,8 +51,6 @@ CPPWAMP_INLINE void Router::closeServer(const std::string& name, Reason r)
 }
 
 CPPWAMP_INLINE void Router::close(Reason r) {impl_->close(std::move(r));}
-
-CPPWAMP_INLINE const IoStrand& Router::strand() const {return impl_->strand();}
 
 CPPWAMP_INLINE std::shared_ptr<internal::RouterImpl>
 Router::impl(internal::PassKey)

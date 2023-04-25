@@ -13,6 +13,7 @@
     @see <cppwamp/spawn.hpp> */
 //------------------------------------------------------------------------------
 
+#include <type_traits>
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
@@ -36,7 +37,8 @@ using IoStrand = boost::asio::strand<AnyIoExecutor>;
 template <typename T>
 static constexpr bool isExecutionContext()
 {
-    return std::is_base_of<boost::asio::execution_context, T>::value;
+    return std::is_base_of<boost::asio::execution_context,
+                           typename std::decay<T>::type>::value;
 }
 
 /** Completion token used to indicate that there is no completion handler

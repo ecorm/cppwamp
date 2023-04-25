@@ -10,37 +10,27 @@
 
 #include <cppwamp/directsession.hpp>
 #include <cppwamp/json.hpp>
-#include <cppwamp/tcp.hpp>
 #include <cppwamp/router.hpp>
 #include <cppwamp/spawn.hpp>
+#include <cppwamp/tcp.hpp>
 #include <cppwamp/utils/consolelogger.hpp>
 
 //------------------------------------------------------------------------------
 class TicketAuthenticator : public wamp::Authenticator
 {
 public:
-    TicketAuthenticator(wamp::utils::ColorConsoleLogger& logger)
-        : logger_(logger)
-    {}
+    TicketAuthenticator() = default;
 
 protected:
     void authenticate(wamp::AuthExchange::Ptr ex) override
     {
-        logger_({
-                wamp::LogLevel::debug,
-                "main onAuthenticate: authid=" +
-                    ex->realm().authId().value_or("anonymous")});
         if (ex->challengeCount() == 0)
         {
-            logger_({wamp::LogLevel::debug, "ex->challenge()"});
             ex->challenge(wamp::Challenge("ticket").withChallenge("quest"),
                           std::string("memento"));
         }
         else if (ex->challengeCount() == 1)
         {
-            logger_({wamp::LogLevel::debug,
-                    "note = " +
-                        wamp::any_cast<const std::string&>(ex->note())});
             if (ex->authentication().signature() == "grail")
                 ex->welcome({"admin", "authrole", "ticket", "static"});
             else
@@ -48,13 +38,9 @@ protected:
         }
         else
         {
-            logger_({wamp::LogLevel::debug, "ex->reject()"});
             ex->reject();
         }
     }
-
-private:
-    wamp::utils::ColorConsoleLogger& logger_;
 };
 
 
@@ -63,7 +49,7 @@ int main()
 {
     wamp::utils::ColorConsoleLogger logger{"router"};
 
-    auto authenticator = std::make_shared<TicketAuthenticator>(logger);
+    auto authenticator = std::make_shared<TicketAuthenticator>();
 
     auto config = wamp::RouterConfig()
         .withLogHandler(logger)

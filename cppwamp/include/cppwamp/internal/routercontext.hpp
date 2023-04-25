@@ -12,7 +12,6 @@
 #include <memory>
 #include "../accesslogging.hpp"
 #include "../anyhandler.hpp"
-#include "../asiodefs.hpp"
 #include "../logging.hpp"
 #include "../tagtypes.hpp"
 #include "random.hpp"
@@ -38,11 +37,9 @@ public:
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
     using AccessLogHandler = AnyReusableHandler<void (AccessLogEntry)>;
 
-    static Ptr create(IoStrand s, LogHandler lh, LogLevel lv,
-                      AccessLogHandler alh)
+    static Ptr create(LogHandler lh, LogLevel lv, AccessLogHandler alh)
     {
-        return Ptr(new RouterLogger(std::move(s), std::move(lh), lv,
-                                    std::move(alh)));
+        return Ptr(new RouterLogger(std::move(lh), lv, std::move(alh)));
     }
 
     LogLevel level() const {return logLevel_.load();}
@@ -50,27 +47,24 @@ public:
     void log(LogEntry entry)
     {
         if (logHandler_ && entry.severity() >= level())
-            postAny(strand_, logHandler_, std::move(entry));
+            logHandler_(std::move(entry));
     }
 
     void log(AccessLogEntry entry)
     {
         if (accessLogHandler_)
-            postAny(strand_, accessLogHandler_, std::move(entry));
+            accessLogHandler_(std::move(entry));
     }
 
 private:
-    RouterLogger(IoStrand&& s, LogHandler&& lh, LogLevel lv,
-                 AccessLogHandler&& alh)
-        : strand_(std::move(s)),
-          logHandler_(std::move(lh)),
+    RouterLogger(LogHandler&& lh, LogLevel lv, AccessLogHandler&& alh)
+        : logHandler_(std::move(lh)),
           accessLogHandler_(std::move(alh)),
           logLevel_(lv)
     {}
 
     void setLevel(LogLevel level) {logLevel_.store(level);}
 
-    IoStrand strand_;
     LogHandler logHandler_;
     AccessLogHandler accessLogHandler_;
     std::atomic<LogLevel> logLevel_;
