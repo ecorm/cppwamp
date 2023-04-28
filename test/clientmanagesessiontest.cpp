@@ -14,7 +14,7 @@ using namespace Catch::Matchers;
 namespace
 {
 
-const std::string testUdsPath = "./.crossbar/udstest";
+const std::string testUdsPath = "./udstest";
 
 #ifdef CPPWAMP_HAS_UNIX_DOMAIN_SOCKETS
 const auto alternateTcp = UdsPath(testUdsPath).withFormat(msgpack);

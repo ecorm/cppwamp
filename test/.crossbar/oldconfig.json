@@ -48,7 +48,7 @@
                     "type": "rawsocket",
                     "endpoint": {
                         "type": "unix",
-                        "path": "./udstest"
+                        "path": "../udstest"
                     },
                     "max_message_size": 16777216,
                     "serializers": [

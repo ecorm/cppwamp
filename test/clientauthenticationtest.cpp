@@ -135,7 +135,9 @@ GIVEN( "a Session with a registered challenge handler" )
             CHECK( f.challengeState == SessionState::authenticating );
             CHECK( f.challenge.method() == "ticket" );
             CHECK_FALSE( f.welcome.has_value() );
-            CHECK( f.abortReason.errorCode() == WampErrc::authorizationDenied );
+            auto ec = f.abortReason.errorCode();
+            CHECK((ec == WampErrc::authenticationDenied ||
+                   ec == WampErrc::authorizationDenied)); // <- Crossbar
             CHECK( incidents.empty() );
         }
     }
