@@ -96,7 +96,9 @@ public:
 
     void close()
     {
-        setState(State::closed);
+        auto oldState = setState(State::closed);
+        if (oldState == State::established)
+            send(Reason{WampErrc::goodbyeAndOut});
         onClose();
     }
 

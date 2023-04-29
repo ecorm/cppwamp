@@ -14,6 +14,7 @@
 #include "../anyhandler.hpp"
 #include "../logging.hpp"
 #include "../tagtypes.hpp"
+#include "../uri.hpp"
 #include "random.hpp"
 
 namespace wamp
@@ -118,6 +119,8 @@ public:
     bool expired() const;
 
     RouterLogger::Ptr logger() const;
+
+    UriValidator::Ptr uriValidator() const;
 
     void reset();
 

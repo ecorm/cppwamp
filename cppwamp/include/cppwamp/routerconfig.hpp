@@ -48,8 +48,6 @@ public:
 
     RealmConfig& withCallerDisclosure(DisclosureRule d);
 
-    RealmConfig& withUriValidator(UriValidator::Ptr v);
-
     const Uri& uri() const;
 
     Authorizer::Ptr authorizer() const;
@@ -60,19 +58,12 @@ public:
 
     DisclosureRule callerDisclosure() const;
 
-    UriValidator::Ptr uriValidator() const;
-
 private:
     Uri uri_;
     Authorizer::Ptr authorizer_;
-    UriValidator::Ptr uriValidator_;
     DisclosureRule publisherDisclosure_ = DisclosureRule::originator;
     DisclosureRule callerDisclosure_ = DisclosureRule::originator;
     // bool authorizationCacheEnabled_ = false;
-
-public:
-    // Internal use only
-    void initialize(internal::PassKey);
 };
 
 namespace internal { class Challenger; } // Forward declaration
@@ -147,6 +138,8 @@ public:
 
     RouterConfig& withAccessLogHandler(AccessLogHandler f);
 
+    RouterConfig& withUriValidator(UriValidator::Ptr v);
+
     RouterConfig& withSessionRNG(RandomNumberGenerator64 f);
 
     // This RNG needs to be distinct from session RNG because they
@@ -159,6 +152,8 @@ public:
 
     const AccessLogHandler& accessLogHandler() const;
 
+    UriValidator::Ptr uriValidator() const;
+
     const RandomNumberGenerator64& sessionRNG() const;
 
     const RandomNumberGenerator64& publicationRNG() const;
@@ -166,9 +161,14 @@ public:
 private:
     LogHandler logHandler_;
     AccessLogHandler accessLogHandler_;
+    UriValidator::Ptr uriValidator_;
     RandomNumberGenerator64 sessionRng_;
     RandomNumberGenerator64 publicationRng_;
     LogLevel logLevel_ = LogLevel::warning;
+
+public:
+    // Internal use only
+    void initialize(internal::PassKey);
 };
 
 } // namespace wamp

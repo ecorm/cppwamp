@@ -131,7 +131,8 @@ private:
           transport_(t),
           codec_(std::move(c)),
           server_(std::move(s)),
-          serverConfig_(std::move(sc))
+          serverConfig_(std::move(sc)),
+          uriValidator_(server_.uriValidator())
     {
         assert(serverConfig_ != nullptr);
         Base::connect({t->remoteEndpointLabel(), serverConfig_->name(),
@@ -227,9 +228,8 @@ private:
                           state() == State::authenticating;
         if (!isExpected)
         {
-            auto errc = WampErrc::protocolViolation;
-            abortSession(Reason(errc).withHint("Unexpected AUTHENTICATE message"));
-            return;
+            return abortSession(Reason(WampErrc::protocolViolation).
+                                withHint("Unexpected AUTHENTICATE message"));
         }
 
         authExchange_->setAuthentication({}, std::move(authentication));
@@ -239,12 +239,15 @@ private:
     void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
     {
         report(reason.info(false));
+
+        if (!uriValidator_->checkError(reason.uri()))
+            return abortSession(Reason(WampErrc::invalidUri));
+
         if (!wasShuttingDown)
         {
-            // peer_ already took care of sending the GOODBYE reply if we were
-            // not shutting down.
             report({AccessAction::serverGoodbye,
                     errorCodeToUri(WampErrc::goodbyeAndOut)});
+            peer_->close();
         }
 
         leaveRealm();
@@ -463,6 +466,7 @@ private:
     ServerConfig::Ptr serverConfig_;
     AuthExchange::Ptr authExchange_;
     RequestIdChecker requestIdChecker_;
+    UriValidator::Ptr uriValidator_;
     bool alreadyStarted_ = false;
     bool shuttingDown_ = false;
 };

@@ -50,12 +50,6 @@ RealmConfig::withCallerDisclosure(DisclosureRule d)
     return *this;
 }
 
-CPPWAMP_INLINE RealmConfig& RealmConfig::withUriValidator(UriValidator::Ptr v)
-{
-    uriValidator_ = std::move(v);
-    return *this;
-}
-
 CPPWAMP_INLINE const Uri& RealmConfig::uri() const {return uri_;}
 
 CPPWAMP_INLINE Authorizer::Ptr RealmConfig::authorizer() const
@@ -76,14 +70,6 @@ CPPWAMP_INLINE DisclosureRule RealmConfig::publisherDisclosure() const
 CPPWAMP_INLINE DisclosureRule RealmConfig::callerDisclosure() const
 {
     return publisherDisclosure_;
-}
-
-UriValidator::Ptr RealmConfig::uriValidator() const {return uriValidator_;}
-
-void RealmConfig::initialize(internal::PassKey)
-{
-    if (!uriValidator_)
-        uriValidator_ = RelaxedUriValidator::create();
 }
 
 
@@ -146,6 +132,12 @@ RouterConfig::withAccessLogHandler(AccessLogHandler f)
     return *this;
 }
 
+CPPWAMP_INLINE RouterConfig& RouterConfig::withUriValidator(UriValidator::Ptr v)
+{
+    uriValidator_ = std::move(v);
+    return *this;
+}
+
 CPPWAMP_INLINE RouterConfig&
 RouterConfig::withSessionRNG(RandomNumberGenerator64 f)
 {
@@ -173,6 +165,11 @@ RouterConfig::accessLogHandler() const
     return accessLogHandler_;
 }
 
+CPPWAMP_INLINE UriValidator::Ptr RouterConfig::uriValidator() const
+{
+    return uriValidator_;
+}
+
 CPPWAMP_INLINE const RandomNumberGenerator64& RouterConfig::sessionRNG() const
 {
     return sessionRng_;
@@ -182,6 +179,12 @@ CPPWAMP_INLINE const RandomNumberGenerator64&
 RouterConfig::publicationRNG() const
 {
     return publicationRng_;
+}
+
+void RouterConfig::initialize(internal::PassKey)
+{
+    if (!uriValidator_)
+        uriValidator_ = RelaxedUriValidator::create();
 }
 
 } // namespace wamp

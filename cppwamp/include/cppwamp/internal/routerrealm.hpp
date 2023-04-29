@@ -38,7 +38,6 @@ public:
     static Ptr create(Executor e, RealmConfig c, const RouterConfig& rcfg,
                       RouterContext rctx)
     {
-        c.initialize({});
         return Ptr(new RouterRealm(std::move(e), std::move(c), rcfg,
                                    std::move(rctx)));
     }
@@ -97,10 +96,11 @@ private:
         : strand_(boost::asio::make_strand(e)),
           config_(std::move(c)),
           router_(std::move(rctx)),
-          broker_(rcfg.publicationRNG(), config_.uriValidator()),
-          dealer_(strand_, config_.uriValidator()),
+          broker_(rcfg.publicationRNG()),
+          dealer_(strand_),
           logSuffix_(" (Realm " + config_.uri() + ")"),
-          logger_(router_.logger())
+          logger_(router_.logger()),
+          uriValidator_(rcfg.uriValidator())
     {}
 
     RouterLogger::Ptr logger() const {return logger_;}
@@ -148,6 +148,20 @@ private:
 
     void send(RouterSession::Ptr originator, Topic&& topic)
     {
+        originator->report(topic.info());
+
+        if (topic.matchPolicy() == MatchPolicy::unknown)
+        {
+            auto error =
+                Error::fromRequest({}, topic, WampErrc::optionNotAllowed)
+                    .withArgs("unknown match option");
+            return originator->sendRouterCommand(std::move(error), true);
+        }
+
+        bool isPattern = topic.matchPolicy() != MatchPolicy::exact;
+        if (!uriValidator_->checkTopic(topic.uri(), isPattern))
+            return originator->abort({WampErrc::invalidUri});
+
         authorize(std::move(originator), std::move(topic));
     }
 
@@ -193,6 +207,11 @@ private:
 
     void send(RouterSession::Ptr originator, Pub&& pub)
     {
+        originator->report(pub.info());
+
+        if (!uriValidator_->checkTopic(pub.uri(), false))
+            return originator->abort({WampErrc::invalidUri});
+
         authorize(std::move(originator), std::move(pub));
     }
 
@@ -210,23 +229,34 @@ private:
             return;
 
         auto pubIdAndCount = broker_.publish(originator, std::move(pub));
-        if (!checkResult(pubIdAndCount, *originator, pub, !wantsAck))
-            return;
 
-        Published ack{rid, pubIdAndCount->first};
+        Published ack{rid, pubIdAndCount.first};
         if (wantsAck)
         {
             originator->sendRouterCommand(std::move(ack), std::move(uri),
-                                          pubIdAndCount->second);
+                                          pubIdAndCount.second);
         }
         else
         {
-            originator->report(ack.info(std::move(uri), pubIdAndCount->second));
+            originator->report(ack.info(std::move(uri), pubIdAndCount.second));
         }
     }
 
     void send(RouterSession::Ptr originator, Procedure&& proc)
     {
+        originator->report(proc.info());
+
+        if (proc.matchPolicy() != MatchPolicy::exact)
+        {
+            auto error =
+                Error::fromRequest({}, proc, WampErrc::optionNotAllowed)
+                    .withArgs("pattern-based registrations not supported");
+            return originator->sendRouterCommand(std::move(error), true);
+        }
+
+        if (!uriValidator_->checkTopic(proc.uri(), false))
+            return originator->abort({WampErrc::invalidUri});
+
         authorize(std::move(originator), std::move(proc));
     }
 
@@ -270,6 +300,11 @@ private:
 
     void send(RouterSession::Ptr originator, Rpc&& rpc)
     {
+        originator->report(rpc.info());
+
+        if (!uriValidator_->checkProcedure(rpc.uri(), false))
+            return originator->abort({WampErrc::invalidUri});
+
         authorize(std::move(originator), std::move(rpc));
     }
 
@@ -336,14 +371,16 @@ private:
         };
 
         originator->report(error.info(false));
+
+        if (!uriValidator_->checkError(error.uri()))
+            return originator->abort({WampErrc::invalidUri});
+
         safelyDispatch<Dispatched>(std::move(originator), std::move(error));
     }
 
     template <typename C>
     void authorize(RouterSession::Ptr s, C&& command)
     {
-        s->report(command.info());
-
         const auto& authorizer = config_.authorizer();
         if (!authorizer)
         {
@@ -453,6 +490,7 @@ private:
     Dealer dealer_;
     std::string logSuffix_;
     RouterLogger::Ptr logger_;
+    UriValidator::Ptr uriValidator_;
 
     friend class DirectPeer;
     friend class RealmContext;

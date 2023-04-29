@@ -83,6 +83,13 @@ public:
         return Error({}, C::messageKind({}), command.requestId({}), ec);
     }
 
+    template <typename C>
+    static Error fromRequest(internal::PassKey, const C& command,
+                             WampErrc errc)
+    {
+        return Error({}, C::messageKind({}), command.requestId({}), errc);
+    }
+
     Error(internal::PassKey, internal::Message&& msg);
 
     Error(internal::PassKey, internal::MessageKind reqKind,

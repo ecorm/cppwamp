@@ -59,7 +59,13 @@ public:
                                     std::move(action)});
     }
 
-    void abort(Reason r) {onRouterAbort(std::move(r));}
+    void abort(Reason r)
+    {
+        r.setKindToAbort({});
+        if (logger_)
+            report(r.info(true));
+        onRouterAbort(std::move(r));
+    }
 
     template <typename C, typename... Ts>
     void sendRouterCommand(C&& command, Ts&&... accessInfoArgs)

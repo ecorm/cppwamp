@@ -61,6 +61,7 @@ namespace internal
         friend class RouterSession;
         friend class ServerSession;
         friend class StreamRecord;
+        friend class UriChecker;
     };
 }
 

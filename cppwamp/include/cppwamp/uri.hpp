@@ -36,6 +36,9 @@ public:
     /** Validates the given procedure URI. */
     bool checkProcedure(const Uri& uri, bool isPattern) const;
 
+    /** Validates the given error URI. */
+    bool checkError(const Uri& uri) const;
+
 protected:
     /** Must be overriden to check the given topic URI. */
     virtual bool validateTopic(const Uri&) const = 0;
@@ -48,6 +51,9 @@ protected:
 
     /** Must be overriden to check the given procedure pattern URI. */
     virtual bool validateProcedurePattern(const Uri&) const = 0;
+
+    /** Must be overriden to check the given error URI. */
+    virtual bool validateError(const Uri&) const = 0;
 };
 
 
@@ -75,6 +81,8 @@ protected:
     bool validateProcedure(const Uri& uri) const override;
 
     bool validateProcedurePattern(const Uri& uri) const override;
+
+    bool validateError(const Uri& uri) const override;
 
 private:
     BasicUriValidator();
@@ -152,6 +160,11 @@ inline bool UriValidator::checkProcedure(
                      : validateProcedure(uri);
 }
 
+inline bool UriValidator::checkError(const Uri& uri) const
+{
+    return validateError(uri);
+}
+
 
 //******************************************************************************
 // BasicUriValidator member function definitions
@@ -185,6 +198,12 @@ template <typename V>
 bool BasicUriValidator<V>::validateProcedurePattern(const Uri& uri) const
 {
     return checkAsPattern(uri.data(), uri.data() + uri.size());
+}
+
+template <typename V>
+bool BasicUriValidator<V>::validateError(const Uri& uri) const
+{
+    return checkAsRessource(uri.data(), uri.data() + uri.size());
 }
 
 template <typename V>

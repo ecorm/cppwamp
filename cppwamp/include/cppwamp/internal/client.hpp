@@ -2203,6 +2203,7 @@ private:
         {
             report({IncidentKind::closedByPeer, reason});
             abandonPending(reason.errorCode());
+            peer_->close();
         }
     }
 

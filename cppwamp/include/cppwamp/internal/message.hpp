@@ -305,6 +305,11 @@ public: // Internal use only
         return MessageKindTraits<K>::requestIdPos() != 0;
     }
 
+    static constexpr bool hasUri(PassKey)
+    {
+        return MessageKindTraits<K>::uriPos() != 0;
+    }
+
     internal::Message& message(PassKey) {return this->message_;}
 
     const internal::Message& message(PassKey) const {return this->message_;}

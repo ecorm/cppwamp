@@ -303,19 +303,7 @@ private:
     {
         Reason reason{{}, std::move(msg)};
         bool isShuttingDown = state() == State::shuttingDown;
-        if (isShuttingDown)
-        {
-            listener().onPeerGoodbye(std::move(reason), isShuttingDown);
-            // Client::leave::Requested will call Peer::close which
-            // will set the state to closed.
-        }
-        else
-        {
-            setState(State::closed);
-            Reason goodbye{WampErrc::goodbyeAndOut};
-            sendCommand(goodbye);
-            listener().onPeerGoodbye(std::move(reason), isShuttingDown);
-        }
+        listener().onPeerGoodbye(std::move(reason), isShuttingDown);
     }
 
     void notifyMessage(Message& msg)

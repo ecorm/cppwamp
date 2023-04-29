@@ -35,6 +35,7 @@ public:
 
     static Ptr create(Executor exec, RouterConfig config)
     {
+        config.initialize({});
         return Ptr(new RouterImpl(std::move(exec), std::move(config)));
     }
 
@@ -217,6 +218,8 @@ private:
 
     RouterLogger::Ptr logger() const {return logger_;}
 
+    UriValidator::Ptr uriValidator() const {return config_.uriValidator();}
+
     ReservedId reserveSessionId()
     {
         return sessionIdPool_->reserve();
@@ -266,6 +269,14 @@ inline RouterLogger::Ptr RouterContext::logger() const
     auto r = router_.lock();
     if (r)
         return r->logger();
+    return nullptr;
+}
+
+inline UriValidator::Ptr RouterContext::uriValidator() const
+{
+    auto r = router_.lock();
+    if (r)
+        return r->uriValidator();
     return nullptr;
 }
 

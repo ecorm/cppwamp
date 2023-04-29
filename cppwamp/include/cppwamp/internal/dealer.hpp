@@ -18,7 +18,6 @@
 #include "../errorinfo.hpp"
 #include "../erroror.hpp"
 #include "../rpcinfo.hpp"
-#include "../uri.hpp"
 #include "routersession.hpp"
 #include "timeoutscheduler.hpp"
 
@@ -32,15 +31,11 @@ namespace internal
 class DealerRegistration
 {
 public:
-    static ErrorOr<DealerRegistration> create(Procedure&& procedure,
-                                              RouterSession::Ptr callee)
-    {
-        std::error_code ec;
-        DealerRegistration reg(std::move(procedure), callee, ec);
-        if (ec)
-            return makeUnexpected(ec);
-        return reg;
-    }
+    DealerRegistration(Procedure&& procedure, RouterSession::Ptr callee)
+        : procedureUri_(std::move(procedure).uri({})),
+          callee_(callee),
+          calleeId_(callee->wampId())
+    {}
 
     DealerRegistration() = default;
 
@@ -57,16 +52,6 @@ public:
     SessionId calleeId() const {return calleeId_;}
 
 private:
-    DealerRegistration(Procedure&& procedure, RouterSession::Ptr callee,
-                       std::error_code& ec)
-        : procedureUri_(std::move(procedure).uri({})),
-          callee_(callee),
-          calleeId_(callee->wampId())
-    {
-        if (procedure.optionByKey("match") != null)
-            ec = make_error_code(WampErrc::optionNotAllowed);
-    }
-
     Uri procedureUri_;
     RouterSession::WeakPtr callee_;
     SessionId calleeId_;
@@ -511,22 +496,15 @@ private:
 class Dealer
 {
 public:
-    Dealer(IoStrand strand, UriValidator::Ptr uriValidator)
-        : jobs_(std::move(strand)),
-          uriValidator_(std::move(uriValidator))
-    {}
+    Dealer(IoStrand strand) : jobs_(std::move(strand)) {}
 
     ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p)
     {
-        if (!uriValidator_->checkProcedure(p.uri(), false))
-            return makeUnexpectedError(WampErrc::invalidUri);
         if (registry_.contains(p.uri()))
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
-        auto reg = DealerRegistration::create(std::move(p), callee);
-        if (!reg)
-            return makeUnexpected(reg.error());
+        DealerRegistration reg{std::move(p), callee};
         auto key = nextRegistrationId();
-        registry_.insert(key, std::move(*reg));
+        registry_.insert(key, std::move(reg));
         return key;
     }
 
@@ -540,9 +518,6 @@ public:
 
     ErrorOrDone call(RouterSession::Ptr caller, Rpc&& rpc)
     {
-        if (!uriValidator_->checkProcedure(rpc.uri(), false))
-            return makeUnexpectedError(WampErrc::invalidUri);
-
         auto reg = registry_.find(rpc.uri());
         if (reg == nullptr)
             return makeUnexpectedError(WampErrc::noSuchProcedure);
@@ -643,7 +618,6 @@ private:
 
     DealerRegistry registry_;
     DealerJobMap jobs_;
-    UriValidator::Ptr uriValidator_;
     RegistrationId nextRegistrationId_ = nullId();
 };
 
