@@ -394,6 +394,8 @@ private:
         }
 
         ++nextRequestId_;
+        if (!handler)
+            return requestId;
 
         auto emplaced = requests_.emplace(command.requestKey({}),
                                           std::move(handler));
@@ -418,6 +420,9 @@ private:
             completeRequest(handler, unex);
             return unex;
         }
+
+        if (!handler)
+            return requestId;
 
         auto emplaced = requests_.emplace(command.requestKey({}),
                                           std::move(handler));
@@ -1475,7 +1480,10 @@ public:
     {
         if (state() != State::established)
             return makeUnexpectedError(MiscErrc::invalidState);
-        return peer_->send(std::move(pub));
+        auto reqId = requestor_.request(std::move(pub), nullptr);
+        if (!reqId)
+            return makeUnexpected(reqId.error());
+        return true;
     }
 
     FutureErrorOrDone safePublish(Pub&& p)
