@@ -36,7 +36,7 @@ public:
           eligibleSessions_(setOfSessionIds(pub, "eligible")),
           eligibleAuthIds_(setOfStrings(pub, "eligible_authid")),
           eligibleRoles_(setOfStrings(pub, "eligible_authrole")),
-          excludedSessions_(setOfSessionIds(pub, "excluded")),
+          excludedSessions_(setOfSessionIds(pub, "exclude")),
           excludedAuthIds_(setOfStrings(pub, "excluded_authid")),
           excludedRoles_(setOfStrings(pub, "excluded_authrole")),
           publisherId_(publisher->wampId()),
@@ -58,10 +58,13 @@ public:
                 event_.withOption("publisher_authrole", authInfo.role());
         }
 
-        hasEligibleOrExcludedList_ =
+        hasEligibleList_ =
             !eligibleSessions_.empty() || !eligibleAuthIds_.empty() ||
-            !eligibleRoles_.empty() || !excludedSessions_.empty() ||
-            !excludedAuthIds_.empty() || !excludedRoles_.empty();
+            !eligibleRoles_.empty();
+
+        hasExcludedList_ =
+            !excludedSessions_.empty() || !excludedAuthIds_.empty() ||
+            !excludedRoles_.empty();
     }
 
     void setSubscriptionId(SubscriptionId subId)
@@ -121,24 +124,26 @@ private:
 
         if (publisherExcluded_ && id == publisherId_)
             return false;
-        if (!hasEligibleOrExcludedList_)
+
+        if (hasExcludedList_)
+        {
+            if (excludedSessions_.count(id) != 0 ||
+                excludedAuthIds_.count(authId) != 0 ||
+                excludedRoles_.count(authRole) != 0)
+            {
+                return false;
+            }
+        }
+
+        if (!hasEligibleList_)
             return true;
-
-        if (excludedSessions_.count(id) != 0)
-            return false;
-        if (excludedAuthIds_.count(authId) != 0)
-            return false;
-        if (excludedRoles_.count(authRole) != 0)
-            return false;
-
         if (!eligibleSessions_.empty() && eligibleSessions_.count(id) != 0)
-            return false;
+            return true;
         if (!eligibleAuthIds_.empty() && eligibleAuthIds_.count(authId) != 0)
-            return false;
+            return true;
         if (!eligibleRoles_.empty() && eligibleRoles_.count(authId) != 0)
-            return false;
-
-        return true;
+            return true;
+        return false;
     }
 
     Uri topicUri_;
@@ -152,7 +157,8 @@ private:
     SessionId publisherId_ = nullId();
     PublicationId publicationId_ = nullId();
     bool publisherExcluded_ = false;
-    bool hasEligibleOrExcludedList_ = false;
+    bool hasEligibleList_ = false;
+    bool hasExcludedList_ = false;
 };
 
 //------------------------------------------------------------------------------
@@ -351,6 +357,7 @@ public:
 
     std::size_t publish(BrokerPublication& info)
     {
+        // TODO: `equal_prefix_range` is the wrong algorithm
         auto range = trie_.equal_prefix_range(info.topicUri());
         if (range.first == range.second)
             return 0;

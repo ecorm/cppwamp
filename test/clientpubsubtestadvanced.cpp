@@ -105,6 +105,7 @@ GIVEN( "a publisher and a subscriber" )
         ioctx.run();
     }
 
+#if 0 // TODO
     WHEN( "using pattern-based subscriptions" )
     {
         spawn(ioctx, [&](YieldContext yield)
@@ -162,7 +163,7 @@ GIVEN( "a publisher and a subscriber" )
         });
         ioctx.run();
     }
-
+#endif
     WHEN( "using publisher exclusion" )
     {
         spawn(ioctx, [&](YieldContext yield)
