@@ -272,7 +272,7 @@ public:
             return;
 
         auto reqId = callerKey_.second;
-        auto ec = make_error_code(WampErrc::noAvailableCallee);
+        auto ec = make_error_code(WampErrc::cancelled);
         auto e = Error({}, MessageKind::call, reqId, ec)
                      .withArgs("Callee left realm");
         caller->sendRouterCommand(std::move(e), true);
@@ -300,6 +300,7 @@ public:
         if (!caller || discardResultOrError_)
             return;
         error.setRequestId({}, callerKey_.second);
+        error.setRequestKindToCall({});
         caller->sendRouterCommand(std::move(error), true);
     }
 
@@ -452,10 +453,10 @@ public:
                 auto& job = iter->second->second;
 
                 if (!callerMatches && calleeMatches)
-                    job.notifyAbandonedCaller();
+                    job.notifyAbandonedCallee();
 
                 if (callerMatches && !calleeMatches)
-                    job.notifyAbandonedCallee();
+                    job.notifyAbandonedCaller();
 
                 byCaller_.erase(iter->second);
                 iter = byCallee_.erase(iter);

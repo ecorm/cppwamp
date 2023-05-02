@@ -196,6 +196,12 @@ private:
 
     void onTransportRx(MessageBuffer buffer)
     {
+        // Ignore messages that may have been already posted by the transport
+        // when disconnection occurred.
+        auto s = state();
+        if (s == State::disconnected || s == State::failed)
+            return;
+
         Variant v;
         auto ec = codec_.decode(buffer, v);
         if (ec)
@@ -223,7 +229,6 @@ private:
                                 std::string(msg->name()) + " messages");
         }
 
-        auto s = state();
         if (!msg->traits().isValidForState(s))
         {
             // Crossbar can spuriously send ERROR messages between a session

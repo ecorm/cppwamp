@@ -88,7 +88,7 @@ private:
     template <typename C>
     bool check2(FalseType /*IsRequest*/, const C& command)
     {
-        return (command.requestId({}) < watermark_);
+        return (command.requestId({}) <= watermark_);
     }
 
     RequestId watermark_ = 1;
@@ -294,8 +294,8 @@ private:
     {
         shuttingDown_ = true;
         report({AccessAction::serverAbort, {}, r.options(), r.uri()});
-        leaveRealm();
         peer_->abort(r);
+        leaveRealm();
     }
 
     template <typename C>

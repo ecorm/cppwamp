@@ -222,6 +222,8 @@ private:
     static constexpr unsigned requestIdPos_ =
         MessageKindTraits<K>::requestIdPos();
 
+    static constexpr unsigned requestKindPos_ = 1;
+
     RequestId requestId_ = nullId();
 
 public: // Internal use only
@@ -233,6 +235,11 @@ public: // Internal use only
     }
 
     void setRequestId(PassKey, RequestId rid) {setRequestId(rid);}
+
+    void setRequestKindToCall(PassKey)
+    {
+        message_.at(requestKindPos_) = static_cast<unsigned>(MessageKind::call);
+    }
 };
 
 //------------------------------------------------------------------------------

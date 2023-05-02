@@ -606,16 +606,19 @@ GIVEN( "these test fixture objects" )
     WHEN( "publishing within an event" )
     {
         std::string upperized;
+        bool published = false;
 
-        auto onTalk = [&session1](std::string str, YieldContext yield)
-        {
-            // We need a separate yield context here for a blocking
-            // publish.
-            std::string upper = str;
-            std::transform(upper.begin(), upper.end(),
-                           upper.begin(), ::toupper);
-            session1.publish(Pub("onShout").withArgs(upper), yield).value();
-        };
+        auto onTalk =
+            [&session1, &published](std::string str, YieldContext yield)
+            {
+                // We need a separate yield context here for a blocking
+                // publish.
+                std::string upper = str;
+                std::transform(upper.begin(), upper.end(),
+                               upper.begin(), ::toupper);
+                session1.publish(Pub("onShout").withArgs(upper), yield).value();
+                published = true;
+            };
 
         auto onShout = [&upperized](Event, std::string str)
         {
@@ -637,7 +640,7 @@ GIVEN( "these test fixture objects" )
                         unpackedEvent<std::string>(onShout), yield).value();
 
             session2.publish(Pub("onTalk").withArgs("hello"), yield).value();
-            while (upperized.empty())
+            while (upperized.empty() || !published)
                 suspendCoro(yield);
             CHECK_THAT( upperized, Equals("HELLO") );
             session1.disconnect();
@@ -749,18 +752,15 @@ GIVEN( "an IO service and a ConnectionWish" )
                 },
                 yield).value();
 
-            {
-                Error error;
-                auto result = f.caller.call(Rpc("rpc").captureError(error),
-                                             yield);
-                CHECK( result == makeUnexpected(WampErrc::authorizationDenied) );
-                CHECK_THROWS_AS( result.value(), error::Failure );
-                CHECK_FALSE( !error );
-                CHECK( error.errorCode() == WampErrc::authorizationDenied );
-                CHECK( error.args() == Array{123} );
-                CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
-            }
-
+            Error error;
+            auto result = f.caller.call(Rpc("rpc").captureError(error),
+                                         yield);
+            CHECK( result == makeUnexpected(WampErrc::authorizationDenied) );
+            CHECK_THROWS_AS( result.value(), error::Failure );
+            CHECK_FALSE( !error );
+            CHECK( error.errorCode() == WampErrc::authorizationDenied );
+            CHECK( error.args() == Array{123} );
+            CHECK( error.kwargs() == (Object{{{"foo"},{"bar"}}}) );
             CHECK( callCount == 1 );
         });
         ioctx.run();
