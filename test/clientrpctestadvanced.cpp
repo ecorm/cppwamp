@@ -109,8 +109,12 @@ GIVEN( "a caller and a callee" )
             int wildcardMatchCount = 0;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::patternBasedRegistration));
+            if (!f.welcome.features().dealer().all_of(
+                    DealerFeatures::patternBasedRegistration))
+            {
+                f.disconnect();
+                return;
+            }
 
             f.callee.enroll(
                 Procedure("com.myapp").withMatchPolicy(MatchPolicy::prefix),

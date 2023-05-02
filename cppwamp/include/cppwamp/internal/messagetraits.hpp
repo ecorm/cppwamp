@@ -195,7 +195,7 @@ struct MessageKindTraits<MessageKind::call>
 template <>
 struct MessageKindTraits<MessageKind::cancel>
 {
-    static constexpr bool isRequest()        {return true;}
+    static constexpr bool isRequest()        {return false;}
     static constexpr unsigned requestIdPos() {return 1;}
     static constexpr unsigned optionsPos()   {return 2;}
     static constexpr unsigned uriPos()       {return 0;}
