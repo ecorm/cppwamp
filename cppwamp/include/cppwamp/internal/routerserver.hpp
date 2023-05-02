@@ -45,53 +45,78 @@ private:
 class RequestIdChecker
 {
 public:
-    void reset() {watermark_ = 1;}
+    void reset() {inboundWatermark_ = 1;}
 
     template <typename C>
-    bool check(const C& command)
+    bool checkInbound(const C& command)
     {
-        using HasRequestId = MetaBool<C::hasRequestId({})>;
-        return check1(HasRequestId{}, command);
+        using K = MessageKind;
+        auto r = requestId(command);
+
+        switch (C::messageKind({}))
+        {
+        case K::error: case K::result: case K::yield:
+            return r <= outboundWatermark_;
+
+        case K::publish: case K::subscribe: case K::unsubscribe:
+        case K::enroll: case K::unregister:
+            if (r == inboundWatermark_)
+            {
+                ++inboundWatermark_;
+                return true;
+            }
+            return false;
+
+        case K::cancel:
+            return r <= inboundWatermark_;
+
+        case K::call:
+            if (r < inboundWatermark_)
+            {
+                return true;
+            }
+            else if (r == inboundWatermark_)
+            {
+                ++inboundWatermark_;
+                return true;
+            }
+            return false;
+
+        default: break;
+        }
+
+        return true;
+    }
+
+    void onOutbound(const Message& msg)
+    {
+        auto r = msg.requestId();
+        if (r > outboundWatermark_)
+            outboundWatermark_ = r;
     }
 
 private:
     template <typename C>
-    bool check1(TrueType /*HasRequestId*/, const C& command)
+    RequestId requestId(const C& command)
     {
-        using IsRequest = MetaBool<C::isRequest({})>;
-        return check2(IsRequest{}, command);
+        using HasRequestId = MetaBool<C::hasRequestId({})>;
+        return getRequestId(HasRequestId{}, command);
     }
 
     template <typename C>
-    bool check1(FalseType /*HasRequestId*/, const C&)
+    RequestId getRequestId(TrueType, const C& command)
     {
-        return true;
+        return command.requestId({});
     }
 
     template <typename C>
-    bool check2(TrueType /*IsRequest*/, const C& command)
+    RequestId getRequestId(FalseType, const C&)
     {
-        if (command.requestId({}) != watermark_)
-            return false;
-        ++watermark_;
-        return true;
+        return 0;
     }
 
-    bool check2(TrueType /*IsRequest*/, const Rpc& command)
-    {
-        if (command.requestId({}) > watermark_)
-            return false;
-        ++watermark_;
-        return true;
-    }
-
-    template <typename C>
-    bool check2(FalseType /*IsRequest*/, const C& command)
-    {
-        return (command.requestId({}) <= watermark_);
-    }
-
-    RequestId watermark_ = 1;
+    RequestId inboundWatermark_ = 1;
+    RequestId outboundWatermark_ = 1;
 };
 
 //------------------------------------------------------------------------------
@@ -164,6 +189,7 @@ private:
                 auto& me = *self;
                 if (me.state() != State::established)
                     return;
+                me.requestIdChecker_.onOutbound(m);
                 me.peer_->sendMessage(m);
             }
         };
@@ -298,26 +324,6 @@ private:
         leaveRealm();
     }
 
-    template <typename C>
-    void sendRouterCommand(C&& command)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            C command;
-
-            void operator()()
-            {
-                auto& me = *self;
-                if (me.state() != State::established)
-                    return;
-                me.peer_->send(std::move(command));
-            }
-        };
-
-        dispatch(Dispatched{shared_from_this(), std::forward<C>(command)});
-    }
-
     void close()
     {
         Base::close();
@@ -328,7 +334,7 @@ private:
     template <typename C>
     void sendToRealm(C&& command)
     {
-        if (!requestIdChecker_.check(command))
+        if (!requestIdChecker_.checkInbound(command))
         {
             auto msg = std::string("Received ") + command.message({}).name() +
                        " message uses non-sequential request ID";
