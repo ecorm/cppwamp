@@ -447,6 +447,8 @@ private:
     static std::future<ErrorOrDone> futureValue(bool value);
 
     static constexpr unsigned registrationIdPos_ = 2;
+    static constexpr unsigned optionsPos_ = 3;
+
     CalleePtr callee_;
     AnyCompletionExecutor executor_ = nullptr;
     RegistrationId registrationId_ = nullId();

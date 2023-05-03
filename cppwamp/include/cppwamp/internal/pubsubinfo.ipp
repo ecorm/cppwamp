@@ -244,6 +244,7 @@ CPPWAMP_INLINE Event::Event(internal::PassKey, Pub&& pub, SubscriptionId sid,
     message().at(subscriptionIdPos_) = sid;
     message().at(publicationIdPos_) = pid;
     message().at(optionsPos_) = Object{};
+
     if (pub.hasTrustLevel({}))
         withOption("trustlevel", pub.trustLevel({}));
 }

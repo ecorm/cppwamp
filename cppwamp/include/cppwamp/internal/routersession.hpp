@@ -168,6 +168,7 @@ protected:
         authInfo_->clear();
         features_.reset();
         nextOutboundRequestId_.store(0);
+        lastInsertedCallRequestId_.store(0);
     }
 
 private:

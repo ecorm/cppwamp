@@ -43,7 +43,14 @@ public:
           publicationId_(pid),
           publisherExcluded_(pub.excludeMe())
     {
+        Object customOptions;
         bool publisherDisclosed = pub.discloseMe();
+
+        // TODO: Propagate x_foo custom options?
+        // https://github.com/wamp-proto/wamp-proto/issues/345
+        auto found = pub.options().find("custom");
+        if (found != pub.options().end() && found->second.is<Object>())
+            customOptions = std::move(found->second.as<Object>());
 
         event_ = Event({}, std::move(pub), nullId(), pid);
 
@@ -57,6 +64,9 @@ public:
             if (!authInfo.role().empty())
                 event_.withOption("publisher_authrole", authInfo.role());
         }
+
+        if (!customOptions.empty())
+            event_.withOption("custom", std::move(customOptions));
 
         hasEligibleList_ =
             !eligibleSessions_.empty() || !eligibleAuthIds_.empty() ||

@@ -6,6 +6,7 @@
 
 #include "testrouter.hpp"
 #include <fstream>
+#include <iostream>
 #include <thread>
 #include <cppwamp/json.hpp>
 #include <cppwamp/msgpack.hpp>
@@ -94,12 +95,25 @@ private:
 
     void run()
     {
-        router_.openRealm(wamp::RealmConfig{"cppwamp.test"});
-        router_.openRealm(wamp::RealmConfig{"cppwamp.authtest"});
-        router_.openServer(tcpConfig());
-        router_.openServer(tcpTicketConfig());
-        router_.openServer(udsConfig());
-        ioctx_.run();
+        try
+        {
+            router_.openRealm(wamp::RealmConfig{"cppwamp.test"});
+            router_.openRealm(wamp::RealmConfig{"cppwamp.authtest"});
+            router_.openServer(tcpConfig());
+            router_.openServer(tcpTicketConfig());
+            router_.openServer(udsConfig());
+            ioctx_.run();
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "Test router exception: " << e.what() << std::endl;
+            throw;
+        }
+        catch (...)
+        {
+            std::cerr << "Unknown test router exception" << std::endl;
+            throw;
+        }
     }
 
     wamp::IoContext ioctx_;

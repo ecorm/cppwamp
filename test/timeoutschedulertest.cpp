@@ -13,7 +13,7 @@ namespace Matchers = Catch::Matchers;
 using KeyList = std::vector<int>;
 
 //------------------------------------------------------------------------------
-TEST_CASE("Timeout Schduler", "[TimeoutScheduler]")
+TEST_CASE("Timeout Scheduler", "[TimeoutScheduler]")
 {
     struct Listener
     {

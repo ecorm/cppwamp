@@ -71,13 +71,13 @@ CPPWAMP_INLINE Procedure::Procedure(internal::PassKey, internal::Message&& msg)
 //******************************************************************************
 
 CPPWAMP_INLINE Rpc::Rpc(Uri uri)
-    : Base(std::move(uri)),
-      progressiveResultsEnabled_(optionOr<bool>("receive_progress", false)),
-      isProgress_(this->optionOr<bool>("progress", false))
+    : Base(std::move(uri))
 {}
 
 CPPWAMP_INLINE Rpc::Rpc(internal::PassKey, internal::Message&& msg)
-    : Base(std::move(msg))
+    : Base(std::move(msg)),
+      progressiveResultsEnabled_(optionOr<bool>("receive_progress", false)),
+      isProgress_(this->optionOr<bool>("progress", false))
 {}
 
 CPPWAMP_INLINE bool Rpc::progressiveResultsAreEnabled(internal::PassKey) const
@@ -444,8 +444,8 @@ CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
     : Base(std::move(rpc))
 {
     message().setKind(internal::MessageKind::invocation);
-    message().at(2) = regId;
-    message().at(3) = Object{};
+    message().at(registrationIdPos_) = regId;
+    message().at(optionsPos_) = Object{};
 }
 
 CPPWAMP_INLINE void Invocation::setCallee(internal::PassKey, CalleePtr callee,

@@ -153,9 +153,17 @@ public:
 
     Invocation makeInvocation(RouterSession::Ptr caller, Rpc&& rpc) const
     {
+        // TODO: Propagate x_foo custom options?
+        // https://github.com/wamp-proto/wamp-proto/issues/345
+
+        Object customOptions;
+        auto trustLevel = rpc.trustLevel({});
         bool callerDisclosed = rpc.discloseMe();
         bool hasTrustLevel = rpc.hasTrustLevel({});
-        auto trustLevel = rpc.trustLevel({});
+
+        auto found = rpc.options().find("custom");
+        if (found != rpc.options().end() && found->second.is<Object>())
+            customOptions = std::move(found->second.as<Object>());
 
         Invocation inv{{}, std::move(rpc), registrationId_};
 
@@ -170,17 +178,26 @@ public:
                 inv.withOption("caller_authrole", authInfo.role());
         }
 
+        if (isProgressiveCall_)
+            inv.withOption("progress", true);
+
         if (progressiveResultsRequested_)
             inv.withOption("receive_progress", true);
 
         if (hasTrustLevel)
             inv.withOption("trust_level", trustLevel);
 
+        if (!customOptions.empty())
+            inv.withOption("custom", std::move(customOptions));
+
         return inv;
     }
 
     ErrorOr<Invocation> makeProgressiveInvocation(Rpc&& rpc)
     {
+        // TODO: Repeat caller ID information?
+        // https://github.com/wamp-proto/wamp-proto/issues/479
+
         if (!isProgressiveCall_)
             return makeUnexpectedError(WampErrc::protocolViolation);
         isProgressiveCall_ = rpc.isProgress({});
@@ -189,7 +206,6 @@ public:
         // Only propagate the `progress` option. The initial progressive
         // call is what establishes other options for the duration of the
         // progressive call transfer.
-        // https://github.com/wamp-proto/wamp-proto/issues/446#issue-1594260780
         if (isProgressiveCall_)
             inv.withOption("progress", true);
 
