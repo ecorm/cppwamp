@@ -528,9 +528,9 @@ from the [sevmeyer/prng](https://github.com/sevmeyer/prng) project, written by
 Severin Meyer, Copyright (c) 2019, under the terms of the Boost Software
 License, Version 1.0 (http://www.boost.org/LICENSE_1_0.txt).
 
-This library bundles [Tessil/hat-trie](https://github.com/Tessil/hat-trie)
-written by Thibaut Goetghebuer-Planchon, Copyright (c) 2017, under the terms
-of the MIT Licence.
+This library bundles a modified version of
+[Tessil/hat-trie](https://github.com/Tessil/hat-trie) written by Thibaut
+Goetghebuer-Planchon, Copyright (c) 2017, under the terms of the MIT Licence.
 
 This library bundles parts of
 [jothepro/doxygen-awesome-css](https://github.com/jothepro/doxygen-awesome-css),
