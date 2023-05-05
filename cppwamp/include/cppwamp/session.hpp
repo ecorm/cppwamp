@@ -123,9 +123,10 @@ class Peer;
 //------------------------------------------------------------------------------
 class CPPWAMP_API Session
 {
-    // TODO: Make all public operations thread-safe?
-    // Othewise, put thread-safe operations in a segregated interface
-    // e.g. session.threadSafe().call(...)
+    // TODO: Make all public operations thread-safe
+    // Tests show same-thread asio::dispatch overhead to be on the
+    // order of 20ns, which is neglible compared to the work performed
+    // by the operations.
 
 private:
     struct GenericOp { template <typename F> void operator()(F&&) {} };
