@@ -1077,17 +1077,21 @@ TEST_CASE( "UriTrie Lower/Upper Bound and Equal Range", "[Uri]" )
 //------------------------------------------------------------------------------
 TEST_CASE( "UriTrie Pattern Matching", "[Uri]" )
 {
-    // Same test vectors as used by Crossbar
     std::vector<std::string> patterns =
     {
+        // Same test patterns as used by Crossbar
         "", ".", "a..c", "a.b.", "a..", ".b.", "..", "x..", ".x.", "..x",
-        "x..x", "x.x.", ".x.x", "x.x.x"
+        "x..x", "x.x.", ".x.x", "x.x.x",
+
+        // Additional patterns to test
+        "a", "x", "a.b", ".b", "a."
     };
 
     std::vector<std::pair<std::string, std::set<std::string>>> inputs =
     {
+        // Same test URIs as used by Crossbar
         {"abc",     {""}},
-        {"a.b",     {"."}},
+        {"a.b",     {".", "a.b", "a.", ".b"}},
         {"a.b.c",   {"a..c", "a.b.", "a..", ".b.", ".."}},
         {"a.x.c",   {"a..c", "a..", "..", ".x."}},
         {"a.b.x",   {"a.b.", "a..", ".b.", "..", "..x"}},
@@ -1095,11 +1099,15 @@ TEST_CASE( "UriTrie Pattern Matching", "[Uri]" )
         {"x.y.z",   {"..", "x.."}},
         {"a.b.c.d", {}},
 
-        // Additional corner cases where looked-up URIs have empty labels
+        // Additional corner cases matching the empty pattern URI
         {"",        {""}},
+        {"a",       {"", "a"}},
+        {"x",       {"", "x"}},
+
+        // Additional corner cases where looked-up URIs have empty labels
         {".",       {"."}},
-        {".b",      {"."}},
-        {"a.",      {"."}},
+        {".b",      {".", ".b"}},
+        {"a.",      {".", "a."}},
         {"..c",     {".."}},
         {".b.",     {".b.", ".."}},
         {".b.c",    {".b.", ".."}},
@@ -1132,32 +1140,78 @@ TEST_CASE( "UriTrie Pattern Matching", "[Uri]" )
         {".b.c.d",  {}},
     };
 
-    UriTrieMap<std::string> trie;
-    for (const auto& pattern: patterns)
-        trie.insert_or_assign(pattern, pattern);
-
-    for (unsigned i=0; i<inputs.size(); ++i)
+    SECTION("All patterns inserted into the trie")
     {
-        INFO( "for input[" << i << "]" );
-        auto uri = inputs[i].first;
-        auto key = SplitUri(uri);
-        auto expectedHits = inputs[i].second;
+        UriTrieMap<std::string> trie;
+        for (const auto& pattern: patterns)
+            trie.insert_or_assign(pattern, pattern);
 
-        auto matches = wildcardMatches(trie, key);
-        std::set<std::string> hits;
-        for (unsigned i = 0; i != expectedHits.size(); ++i)
+        for (const auto& input: inputs)
         {
-            REQUIRE(bool(matches));
-            REQUIRE_FALSE(matches.done());
-            auto matchKey = matches.key();
-            auto matchUri = matchKey.flatten().value();
-            CHECK( matchKey == matchUri );
-            CHECK( matches.value() == matchUri );
-            REQUIRE( hits.emplace(matchUri).second );
-            matches.next();
+            auto uri = input.first;
+            INFO( "for uri '" << uri << "'");
+
+            auto key = SplitUri(uri);
+            const auto& expectedHits = input.second;
+
+            auto matches = wildcardMatches(trie, key);
+            std::set<std::string> hits;
+            for (unsigned i = 0; i != expectedHits.size(); ++i)
+            {
+                INFO( "for i=" << i );
+                REQUIRE(bool(matches));
+                REQUIRE_FALSE(matches.done());
+                auto matchKey = matches.key();
+                auto matchUri = matchKey.flatten().value();
+                CHECK( matchKey == matchUri );
+                CHECK( matches.value() == matchUri );
+                REQUIRE( hits.emplace(matchUri).second );
+                matches.next();
+            }
+            CHECK(matches.done());
+            CHECK(hits == expectedHits);
         }
-        CHECK(matches.done());
-        CHECK(hits == expectedHits);
+    }
+
+    SECTION("Single pattern inserted into the trie")
+    {
+        for (const auto& pattern: patterns)
+        {
+            INFO( "for pattern '" << pattern << "'" );
+            UriTrieMap<std::string> trie({{pattern, pattern}});
+
+            for (const auto& input: inputs)
+            {
+                auto uri = input.first;
+                INFO( "for uri '" << uri << "'");
+
+                auto key = SplitUri(uri);
+                const auto& expectedHits = input.second;
+
+                auto matches = wildcardMatches(trie, key);
+                std::vector<std::string> hits;
+                unsigned count = 0;
+                while (!matches.done())
+                {
+                    ++count;
+                    REQUIRE(count < 100);
+                    REQUIRE(bool(matches));
+                    REQUIRE_FALSE(matches.done());
+                    auto matchKey = matches.key();
+                    auto matchUri = matchKey.flatten().value();
+                    CHECK( matchKey == matchUri );
+                    CHECK( matches.value() == matchUri );
+                    hits.push_back(matchUri);
+                    matches.next();
+                }
+                CHECK(matches.done());
+                if (expectedHits.count(pattern) != 0)
+                {
+                    REQUIRE(hits.size() == 1);
+                    CHECK(hits.front() == pattern);
+                }
+            }
+        }
     }
 }
 

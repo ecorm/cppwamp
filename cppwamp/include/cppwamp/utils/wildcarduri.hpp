@@ -247,10 +247,12 @@ private:
     bool tokenMatches(const Token& expectedToken) const;
     void findNextMatchCandidate();
     void findTokenInLevel(const Token& token);
+    bool canSearchThisLevel(const Token& token) const;
 
     Key key_;
     Cursor cursor_;
     Level level_ = 0;
+    bool advanceArmed_ = false;
 };
 
 //------------------------------------------------------------------------------
@@ -314,7 +316,8 @@ WildcardMatcher<C>::WildcardMatcher(Key key, Cursor root, Cursor sentinel)
 template <typename C>
 WildcardMatcher<C>& WildcardMatcher<C>::next()
 {
-    assert(!done());
+    CPPWAMP_LOGIC_CHECK(!done(), "WildcardMatcher::next: no more matches");
+    advanceArmed_ = true;
     matchNext();
     return *this;
 }
@@ -372,21 +375,36 @@ void WildcardMatcher<C>::findNextMatchCandidate()
     const Level maxLevel = key_.size() - 1;
     if (!cursor_.at_end_of_level())
     {
-        assert(level_ <=  maxLevel);
+        // If we're not at the target level (the number of URI tokens),
+        // descend to the current node's first child if the current node
+        // matches the token for this level. We descend to the first child
+        // because the wildcard (empty string) will always be the first child
+        // if present.
+        assert(level_ <= maxLevel);
         const auto& expectedToken = key_[level_];
         bool canDescend = !cursor_.target()->is_leaf() &&
                           (level_ < maxLevel) &&
                           tokenMatches(expectedToken);
         if (canDescend)
+        {
             level_ = cursor_.descend(level_);
+            advanceArmed_ = false;
+        }
         else
+        {
+            if (advanceArmed_)
+                cursor_.advance_to_next_node_in_level();
             findTokenInLevel(expectedToken);
+            advanceArmed_ = true;
+        }
     }
     else if (!cursor_.at_end())
     {
+        // Finished searching the parent of this level. Advance to the
+        // parent's next sibling and search it the next time around.
         level_ = cursor_.ascend(level_);
-        if (!cursor_.at_end_of_level())
-            findTokenInLevel(key_[level_]);
+        cursor_.advance_to_next_node_in_level();
+        advanceArmed_ = false;
     }
 }
 
@@ -396,24 +414,43 @@ void WildcardMatcher<C>::findTokenInLevel(const Token& token)
 {
     auto iter = cursor_.iter();
     auto end = cursor_.children().end();
-    if (iter == cursor_.children().begin())
+    if (canSearchThisLevel(token))
     {
-        if (token.empty())
-        {
+        iter = cursor_.children().lower_bound(token);
+        if (iter != end && iter->first != token)
             iter = end;
-        }
-        else
-        {
-            iter = cursor_.children().lower_bound(token);
-            if (iter != end && iter->first != token)
-                iter = end;
-        }
     }
     else
     {
         iter = end;
     }
     cursor_.skip_to(iter);
+}
+
+//------------------------------------------------------------------------------
+template <typename C>
+bool WildcardMatcher<C>::canSearchThisLevel(const Token& token) const
+{
+    auto iter = cursor_.iter();
+    const auto& children = cursor_.children();
+    if (iter == children.end())
+        return false;
+
+    assert(!children.empty());
+
+    bool firstTimeSearchingThisLevel = iter == children.begin();
+    if (firstTimeSearchingThisLevel)
+        return true;
+
+    // Can search a second time if there is a wildcard in this level and
+    // the search token is not empty.
+    if (token.empty())
+        return false;
+    bool thisLevelHasWildcard = children.begin()->first.empty();
+    if (!thisLevelHasWildcard)
+        return false;
+    bool secondTimeSearchingThisLevel = iter == ++children.begin();
+    return secondTimeSearchingThisLevel;
 }
 
 } // namespace utils
