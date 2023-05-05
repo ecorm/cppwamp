@@ -360,7 +360,7 @@ public:
 
 //------------------------------------------------------------------------------
 class BrokerPrefixTopicMap
-    : public BrokerTopicMapBase<utils::BasicTrieMap<char, BrokerSubscription*>,
+    : public BrokerTopicMapBase<utils::TrieMap<BrokerSubscription*>,
                                 BrokerPrefixTopicMap>
 {
 public:
@@ -375,8 +375,7 @@ public:
         if (trie_.empty())
             return 0;
 
-        using Iter =
-            utils::BasicTrieMap<char, BrokerSubscription*>::const_iterator;
+        using Iter = utils::TrieMap<BrokerSubscription*>::const_iterator;
         std::size_t count = 0;
         info.enableTopicDetail();
         trie_.for_each_prefix_of(
@@ -431,8 +430,6 @@ public:
 
     ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t)
     {
-        // TODO: hat-trie has a default key size limit of 65535 bytes.
-
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
                                    subIdGenerator_};
 

@@ -26,7 +26,7 @@ using BasicTrieMap = tsl::htrie_map<CharT, T, Hash, KeySizeT>;
 
 //------------------------------------------------------------------------------
 template <typename T>
-using TrieMap = BasicTrieMap<char, T>;
+using TrieMap = BasicTrieMap<char, T, tsl::ah::str_hash<char>, std::uint32_t>;
 
 } // namespace utils
 
