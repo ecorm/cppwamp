@@ -84,7 +84,11 @@ public:
 
     void enableTopicDetail()
     {
-        event_.withOption("topic", topicUri_);
+        if (!topicDetailEnabled_)
+        {
+            event_.withOption("topic", topicUri_);
+            topicDetailEnabled_ = true;
+        }
     }
 
     bool sendTo(RouterSession& subscriber) const
@@ -169,6 +173,7 @@ private:
     bool publisherExcluded_ = false;
     bool hasEligibleList_ = false;
     bool hasExcludedList_ = false;
+    bool topicDetailEnabled_ = false;
 };
 
 //------------------------------------------------------------------------------
@@ -367,19 +372,20 @@ public:
 
     std::size_t publish(BrokerPublication& info)
     {
-        // TODO: `equal_prefix_range` is the wrong algorithm
-        auto range = trie_.equal_prefix_range(info.topicUri());
-        if (range.first == range.second)
+        if (trie_.empty())
             return 0;
 
+        using Iter =
+            utils::BasicTrieMap<char, BrokerSubscription*>::const_iterator;
         std::size_t count = 0;
         info.enableTopicDetail();
-        for (; range.first != range.second; ++range.first)
-        {
-            const BrokerSubscription* record = range.first.value();
-            record->publish(info);
-            ++count;
-        }
+        trie_.for_each_prefix_of(
+            info.topicUri(),
+            [&count, &info] (Iter iter)
+            {
+                const BrokerSubscription* record = iter.value();
+                count += record->publish(info);
+            });
         return count;
     }
 };
@@ -410,9 +416,8 @@ public:
         while (!matches.done())
         {
             const BrokerSubscription* record = matches.value();
-            record->publish(info);
+            count += record->publish(info);
             matches.next();
-            ++count;
         }
         return count;
     }
@@ -426,6 +431,8 @@ public:
 
     ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t)
     {
+        // TODO: hat-trie has a default key size limit of 65535 bytes.
+
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
                                    subIdGenerator_};
 
