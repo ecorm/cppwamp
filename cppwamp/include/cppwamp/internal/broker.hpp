@@ -327,6 +327,11 @@ public:
     }
 
 protected:
+    template <typename... Ts>
+    BrokerTopicMapBase(Ts&&... trieArgs)
+        : trie_(std::forward<Ts>(trieArgs)...)
+    {}
+
     template <typename I>
     static BrokerSubscription* iteratorValue(I iter)
     {
@@ -364,6 +369,8 @@ class BrokerPrefixTopicMap
                                 BrokerPrefixTopicMap>
 {
 public:
+    BrokerPrefixTopicMap() : Base(+burstThreshold_) {}
+
     template <typename I>
     static BrokerSubscription* iteratorValue(I iter)
     {
@@ -387,6 +394,12 @@ public:
             });
         return count;
     }
+
+private:
+    using Base = BrokerTopicMapBase<utils::TrieMap<BrokerSubscription*>,
+                                    BrokerPrefixTopicMap>;
+
+    static constexpr std::size_t burstThreshold_ = 1024;
 };
 
 //------------------------------------------------------------------------------
