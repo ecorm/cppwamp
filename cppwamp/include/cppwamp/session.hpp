@@ -16,7 +16,6 @@
 // TODO: Expose abort API to client apps?
 // https://github.com/wamp-proto/wamp-proto/discussions/470
 
-#include <future>
 #include <memory>
 #include <string>
 #include <utility>
@@ -36,7 +35,6 @@
 #include "rpcinfo.hpp"
 #include "sessioninfo.hpp"
 #include "subscription.hpp"
-#include "tagtypes.hpp"
 #include "wampdefs.hpp"
 
 namespace wamp
@@ -213,10 +211,6 @@ public:
     template <typename S>
     void observeIncidents(S&& incidentSlot);
 
-    /** Thread-safe setting of incident handler. */
-    template <typename S>
-    void observeIncidents(ThreadSafe, S&& incidentSlot);
-
     /** Enables message tracing incidents. */
     void enableTracing(bool enabled = true);
     /// @}
@@ -228,30 +222,15 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
     connect(ConnectionWish wish, C&& completion);
 
-    /** Thread-safe connect. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
-    connect(ThreadSafe, ConnectionWish wish, C&& completion);
-
     /** Asynchronously attempts to connect to a router. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
     connect(ConnectionWishList wishes, C&& completion);
 
-    /** Thread-safe connect. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<std::size_t>, C>
-    connect(ThreadSafe, ConnectionWishList wishes, C&& completion);
-
     /** Asynchronously attempts to join the given WAMP realm. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
     join(Realm realm, C&& completion);
-
-    /** Thread-safe join. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
-    join(ThreadSafe, Realm realm, C&& completion);
 
     /** Asynchronously attempts to join the given WAMP realm, using the given
         authentication challenge handler. */
@@ -259,42 +238,21 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
     join(Realm realm, S&& challengeSlot, C&& completion);
 
-    /** Thread-safe join with challenge handler. */
-    template <typename S, typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
-    join(ThreadSafe, Realm realm, S&& challengeSlot, C&& completion);
-
     /** Asynchronously leaves the WAMP session. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Reason>, C>
     leave(C&& completion);
-
-    /** Thread-safe leave. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Reason>, C>
-    leave(ThreadSafe, C&& completion);
 
     /** Asynchronously leaves the WAMP session with the given reason. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Reason>, C>
     leave(Reason reason, C&& completion);
 
-    /** Thread-safe leave with reason. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Reason>, C>
-    leave(ThreadSafe, Reason reason, C&& completion);
-
     /** Disconnects the transport between the client and router. */
     void disconnect();
 
-    /** Thread-safe disconnect. */
-    void disconnect(ThreadSafe);
-
     /** Terminates the transport connection between the client and router. */
     void terminate();
-
-    /** Thread-safe reset. */
-    void terminate(ThreadSafe);
     /// @}
 
     /// @name Pub/Sub
@@ -304,16 +262,8 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<Subscription>, C>
     subscribe(Topic topic, S&& eventSlot, C&& completion);
 
-    /** Thread-safe subscribe. */
-    template <typename S, typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Subscription>, C>
-    subscribe(ThreadSafe, Topic topic, S&& eventSlot, C&& completion);
-
     /** Unsubscribes a subscription to a topic. */
     void unsubscribe(Subscription sub);
-
-    /** Thread-safe unsubscribe. */
-    void unsubscribe(ThreadSafe, Subscription sub);
 
     /** Unsubscribes a subscription to a topic and waits for router
         acknowledgement, if necessary. */
@@ -321,26 +271,13 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<bool>, C>
     unsubscribe(Subscription sub, C&& completion);
 
-    /** Thread-safe acknowledged unsubscribe. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<bool>, C>
-    unsubscribe(ThreadSafe, Subscription sub, C&& completion);
-
     /** Publishes an event. */
     CPPWAMP_NODISCARD ErrorOrDone publish(Pub pub);
-
-    /** Thread-safe publish. */
-    CPPWAMP_NODISCARD std::future<ErrorOrDone> publish(ThreadSafe, Pub pub);
 
     /** Publishes an event and waits for an acknowledgement from the router. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<PublicationId>, C>
     publish(Pub pub, C&& completion);
-
-    /** Thread-safe acknowledged publish. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<PublicationId>, C>
-    publish(ThreadSafe, Pub pub, C&& completion);
     /// @}
 
     /// @name Remote Procedures
@@ -350,28 +287,14 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<Registration>, C>
     enroll(Procedure procedure, S&& callSlot, C&& completion);
 
-    /** Thread-safe enroll. */
-    template <typename S, typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Registration>, C>
-    enroll(ThreadSafe, Procedure procedure, S&& callSlot, C&& completion);
-
     /** Registers a WAMP remote procedure call with an interruption handler. */
     template <typename S, typename I, typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Registration>, C>
     enroll(Procedure procedure, S&& callSlot, I&& interruptSlot,
            C&& completion);
 
-    /** Thread-safe enroll interruptible. */
-    template <typename S, typename I, typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Registration>, C>
-    enroll(ThreadSafe, Procedure procedure, S&& callSlot, I&& interruptSlot,
-           C&& completion);
-
     /** Unregisters a remote procedure call. */
     void unregister(Registration reg);
-
-    /** Thread-safe unregister. */
-    void unregister(ThreadSafe, Registration reg);
 
     /** Unregisters a remote procedure call and waits for router
         acknowledgement. */
@@ -379,20 +302,10 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<bool>, C>
     unregister(Registration reg, C&& completion);
 
-    /** Thread-safe acknowledged unregister. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<bool>, C>
-    unregister(ThreadSafe, Registration reg, C&& completion);
-
     /** Calls a remote procedure. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
     call(Rpc rpc, C&& completion);
-
-    /** Thread-safe call. */
-    template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Result>, C>
-    call(ThreadSafe, Rpc rpc, C&& completion);
     /// @}
 
     /// @name Streaming
@@ -401,11 +314,6 @@ public:
     template <typename S, typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Registration>, C>
     enroll(Stream stream, S&& streamSlot, C&& completion);
-
-    /** Thread-safe enroll stream. */
-    template <typename S, typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<Registration>, C>
-    enroll(ThreadSafe, Stream stream, S&& streamSlot, C&& completion);
 
     /** Sends a request to open a stream and waits for an initial response. */
     template <typename S, typename C>
@@ -417,20 +325,10 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
     requestStream(StreamRequest req, C&& completion);
 
-    /** Thread-safe requestStream. */
-    template <typename S, typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
-    requestStream(ThreadSafe, StreamRequest req, S&& chunkSlot, C&& completion);
-
     /** Opens a streamming channel without negotiation. */
     template <typename S>
     CPPWAMP_NODISCARD ErrorOr<CallerChannel>
-    openStream(StreamRequest req, S&& chunkSlot = {});
-
-    /** Thread-safe openStream. */
-    template <typename S>
-    CPPWAMP_NODISCARD std::future<ErrorOr<CallerChannel>>
-    openStream(ThreadSafe, StreamRequest req, S&& onChunk = {});
+    openStream(StreamRequest req, S&& onChunk = {});
     /// @}
 
 protected:
@@ -478,46 +376,24 @@ private:
     Deduced<ErrorOr<typename O::ResultValue>, C>
     initiate(C&& token, As&&... args);
 
-    template <typename O, typename C, typename... As>
-    Deduced<ErrorOr<typename O::ResultValue>, C>
-    safelyInitiate(C&& token, As&&... args);
-
     void setIncidentHandler(IncidentSlot&& s);
-    void safeSetIncidentHandler(IncidentSlot&& s);
     void doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
-    void safeConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
     void doJoin(Realm&& r, ChallengeSlot&& s, CompletionHandler<Welcome>&& f);
-    void safeJoin(Realm&& r, ChallengeSlot&& c,
-                  CompletionHandler<Welcome>&& f);
     void doLeave(Reason&& reason, CompletionHandler<Reason>&& f);
-    void safeLeave(Reason&& r, CompletionHandler<Reason>&& f);
     void doSubscribe(Topic&& t, EventSlot&& s,
                      CompletionHandler<Subscription>&& f);
-    void safeSubscribe(Topic&& t, EventSlot&& s,
-                       CompletionHandler<Subscription>&& f);
     void doUnsubscribe(const Subscription& s, CompletionHandler<bool>&& f);
-    void safeUnsubscribe(const Subscription& s, CompletionHandler<bool>&& f);
     void doPublish(Pub&& p, CompletionHandler<PublicationId>&& f);
-    void safePublish(Pub&& p, CompletionHandler<PublicationId>&& f);
     void doEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
                   CompletionHandler<Registration>&& f);
-    void safeEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
-                    CompletionHandler<Registration>&& f);
     void doUnregister(const Registration& r, CompletionHandler<bool>&& f);
-    void safeUnregister(const Registration& r, CompletionHandler<bool>&& f);
     void doCall(Rpc&& r, CompletionHandler<Result>&& f);
-    void safeCall(Rpc&& r, CompletionHandler<Result>&& f);
     void doEnroll(Stream&& s, StreamSlot&& ss,
                   CompletionHandler<Registration>&& f);
-    void safeEnroll(Stream&& s, StreamSlot&& ss,
-                    CompletionHandler<Registration>&& f);
     void doRequestStream(StreamRequest&& r, CallerChunkSlot&& c,
                          CompletionHandler<CallerChannel>&& f);
-    void safeRequestStream(StreamRequest&& r, CallerChunkSlot&& c,
-                           CompletionHandler<CallerChannel>&& f);
-    ErrorOr<CallerChannel> doOpenStream(StreamRequest&& r, CallerChunkSlot&& s);
-    std::future<ErrorOr<CallerChannel> > safeOpenStream(StreamRequest&& r,
-                                                        CallerChunkSlot&& s);
+    std::future<ErrorOr<CallerChannel> > doOpenStream(StreamRequest&& r,
+                                                      CallerChunkSlot&& s);
 
     FallbackExecutor fallbackExecutor_;
     std::shared_ptr<internal::Client> impl_;
@@ -544,15 +420,6 @@ void Session::observeIncidents(S&& incidentSlot)
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::observeIncidents(S&&) */
-//------------------------------------------------------------------------------
-template <typename S>
-void Session::observeIncidents(ThreadSafe, S&& incidentSlot)
-{
-    safeListenLogged(bindFallbackExecutor(std::forward<S>(incidentSlot)));
-}
-
-//------------------------------------------------------------------------------
 struct Session::ConnectOp
 {
     using ResultValue = size_t;
@@ -562,11 +429,6 @@ struct Session::ConnectOp
     template <typename F> void operator()(F&& f)
     {
         self->doConnect(std::move(w), std::forward<F>(f));
-    }
-
-    template <typename F> void operator()(F&& f, ThreadSafe)
-    {
-        self->safeConnect(std::move(w), std::forward<F>(f));
     }
 };
 
@@ -597,26 +459,6 @@ Session::connect(
     )
 {
     return connect(ConnectionWishList{std::move(wish)},
-                   std::forward<C>(completion));
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::connect(ConnectionWishList, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<std::size_t>, C>
-#else
-Session::template Deduced<ErrorOr<std::size_t>, C>
-#endif
-Session::connect(
-    ThreadSafe,
-    ConnectionWish wish, /**< Transport/codec combination to use for
-                              attempting connection. */
-    C&& completion       /**< Completion handler or token. */
-    )
-{
-    return connect(threadSafe, ConnectionWishList{std::move(wish)},
                    std::forward<C>(completion));
 }
 
@@ -653,28 +495,6 @@ Session::connect(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::connect(ConnectionWishList, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<std::size_t>, C>
-#else
-Session::template Deduced<ErrorOr<std::size_t>, C>
-#endif
-Session::connect(
-    ThreadSafe,
-    ConnectionWishList wishes, /**< List of transport addresses/options/codecs
-                                    to use for attempting connection. */
-    C&& completion             /**< Completion handler or token. */
-    )
-{
-    CPPWAMP_LOGIC_CHECK(!wishes.empty(),
-                        "Session::connect ConnectionWishList cannot be empty");
-    return safelyInitiate<ConnectOp>(std::forward<C>(completion),
-                                     std::move(wishes));
-}
-
-//------------------------------------------------------------------------------
 struct Session::JoinOp
 {
     using ResultValue = Welcome;
@@ -685,12 +505,6 @@ struct Session::JoinOp
     template <typename F> void operator()(F&& f)
     {
         self->doJoin(std::move(r), std::move(s), std::forward<F>(f));
-    }
-
-    template <typename F> void operator()(F&& f, ThreadSafe)
-    {
-        self->safeJoin(threadSafe, std::move(r), std::move(s),
-                       std::forward<F>(f));
     }
 };
 
@@ -722,25 +536,6 @@ Session::join(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::join(Realm, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Welcome>, C>
-#else
-Session::template Deduced<ErrorOr<Welcome>, C>
-#endif
-Session::join(
-    ThreadSafe,
-    Realm realm,   ///< Details on the realm to join.
-    C&& completion ///< Completion handler or token.
-    )
-{
-    return safelyInitiate<JoinOp>(std::forward<C>(completion),
-                                  std::move(realm), nullptr);
-}
-
-//------------------------------------------------------------------------------
 /** @tparam S Callable handler with signature `void (Challenge)`
     @copydetails Session::join(Realm, C&&)
     @note A copy of the challenge handler is made when it is dispatched. If the
@@ -765,27 +560,6 @@ Session::join(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::join(Realm, S&&, C&&) */
-//------------------------------------------------------------------------------
-template <typename S, typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Welcome>, C>
-#else
-Session::template Deduced<ErrorOr<Welcome>, C>
-#endif
-Session::join(
-    ThreadSafe,
-    Realm realm,       /**< Details on the realm to join. */
-    S&& challengeSlot, /**< Handles authentication challenges. */
-    C&& completion     /**< Completion handler or token. */
-    )
-{
-    return safelyInitiate<JoinOp>(
-        std::forward<C>(completion), std::move(realm),
-        std::forward<S>(challengeSlot));
-}
-
-//------------------------------------------------------------------------------
 struct Session::LeaveOp
 {
     using ResultValue = Reason;
@@ -795,11 +569,6 @@ struct Session::LeaveOp
     template <typename F> void operator()(F&& f)
     {
         self->doLeave(std::move(r), std::forward<F>(f));
-    }
-
-    template <typename F> void operator()(F&& f, ThreadSafe)
-    {
-        self->safeLeave(std::move(r), std::forward<F>(f));
     }
 };
 
@@ -827,24 +596,6 @@ Session::leave(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::leave(C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Reason>, C>
-#else
-Session::template Deduced<ErrorOr<Reason>, C>
-#endif
-Session::leave(
-    ThreadSafe,
-    C&& completion ///< Completion handler or token.
-    )
-{
-    return leave(threadSafe, Reason("wamp.close.close_realm"),
-                 std::forward<C>(completion));
-}
-
-//------------------------------------------------------------------------------
 /** @tparam C Callable handler with signature `void (ErrorOr<Reason>)`, or a
               compatible Boost.Asio completion token.
     @return The _Reason_ URI and details from the `GOODBYE` response returned
@@ -866,25 +617,6 @@ Session::leave(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::leave(Reason, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Reason>, C>
-#else
-Session::template Deduced<ErrorOr<Reason>, C>
-#endif
-Session::leave(
-    ThreadSafe,
-    Reason reason, ///< %Reason URI and other options
-    C&& completion ///< Completion handler.
-    )
-{
-    return safelyInitiate<LeaveOp>(std::forward<C>(completion),
-                                   std::move(reason));
-}
-
-//------------------------------------------------------------------------------
 struct Session::SubscribeOp
 {
     using ResultValue = Subscription;
@@ -895,11 +627,6 @@ struct Session::SubscribeOp
     template <typename F> void operator()(F&& f)
     {
         self->doSubscribe(std::move(t), std::move(s), std::forward<F>(f));
-    }
-
-    template <typename F> void operator()(F&& f, ThreadSafe)
-    {
-        self->safeSubscribe(std::move(t), std::move(s), std::forward<F>(f));
     }
 };
 
@@ -933,29 +660,6 @@ Session::subscribe(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::subscribe(Topic, S&&, C&&) */
-//------------------------------------------------------------------------------
-template <typename S, typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Subscription>, C>
-#else
-Session::template Deduced<ErrorOr<Subscription>, C>
-#endif
-Session::subscribe(
-    ThreadSafe,
-    Topic topic,   ///< The topic to subscribe to.
-    S&& eventSlot, ///< Event handler.
-    C&& completion ///< Completion handler or token.
-    )
-{
-    CPPWAMP_LOGIC_CHECK(topic.matchPolicy() != MatchPolicy::unknown,
-                        "Unsupported match policy for subscribe operation");
-    return safelyInitiate<SubscribeOp>(
-        std::forward<C>(completion), std::move(topic),
-        std::forward<S>(eventSlot));
-}
-
-//------------------------------------------------------------------------------
 struct Session::UnsubscribeOp
 {
     using ResultValue = bool;
@@ -965,11 +669,6 @@ struct Session::UnsubscribeOp
     template <typename F> void operator()(F&& f)
     {
         self->doUnsubscribe(std::move(s), std::forward<F>(f));
-    }
-
-    template <typename F> void operator()(F&& f, ThreadSafe)
-    {
-        self->safeUnsubscribe(std::move(s), std::forward<F>(f));
     }
 };
 
@@ -1009,25 +708,6 @@ Session::unsubscribe(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::unsubscribe(Subscription, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<bool>, C>
-#else
-Session::template Deduced<ErrorOr<bool>, C>
-#endif
-Session::unsubscribe(
-    ThreadSafe,
-    Subscription sub, ///< The subscription to unsubscribe from.
-    C&& completion    ///< Completion handler or token.
-    )
-{
-    CPPWAMP_LOGIC_CHECK(bool(sub), "The subscription is empty");
-    return safelyInitiate<UnsubscribeOp>(std::forward<C>(completion), sub);
-}
-
-//------------------------------------------------------------------------------
 struct Session::PublishOp
 {
     using ResultValue = PublicationId;
@@ -1037,11 +717,6 @@ struct Session::PublishOp
     template <typename F> void operator()(F&& f)
     {
         self->doPublish(std::move(p), std::move(std::forward<F>(f)));
-    }
-
-    template <typename F> void operator()(F&& f, ThreadSafe)
-    {
-        self->safePublish(std::move(p), std::move(std::forward<F>(f)));
     }
 };
 
@@ -1065,25 +740,6 @@ Session::publish(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::publish(Pub, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<PublicationId>, C>
-#else
-Session::template Deduced<ErrorOr<PublicationId>, C>
-#endif
-Session::publish(
-    ThreadSafe,
-    Pub pub,       ///< The publication to publish.
-    C&& completion ///< Completion handler or token.
-    )
-{
-    return safelyInitiate<PublishOp>(std::forward<C>(completion),
-                                     std::move(pub));
-}
-
-//------------------------------------------------------------------------------
 struct Session::EnrollOp
 {
     using ResultValue = Registration;
@@ -1096,12 +752,6 @@ struct Session::EnrollOp
     {
         self->doEnroll(std::move(p), std::move(s), std::move(i),
                        std::forward<F>(f));
-    }
-
-    template <typename F> void operator()(F&& f, ThreadSafe)
-    {
-        self->safeEnroll(std::move(p), std::move(s), std::move(i),
-                         std::forward<F>(f));
     }
 };
 
@@ -1136,27 +786,6 @@ Session::enroll(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::enroll(Procedure, S&&, C&&) */
-//------------------------------------------------------------------------------
-template <typename S, typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Registration>, C>
-#else
-Session::template Deduced<ErrorOr<Registration>, C>
-#endif
-Session::enroll(
-    ThreadSafe,
-    Procedure procedure, ///< The procedure to register.
-    S&& callSlot,        ///< Call invocation handler.
-    C&& completion       ///< Completion handler or token.
-    )
-{
-    return safelyInitiate<EnrollOp>(
-        std::forward<C>(completion), std::move(procedure),
-        std::forward<S>(callSlot), nullptr);
-}
-
-//------------------------------------------------------------------------------
 /** @tparam I Call slot with signature `Outcome (Interruption)`
     @copydetails Session::enroll(Procedure, S&&, C&&) */
 //------------------------------------------------------------------------------
@@ -1179,28 +808,6 @@ Session::enroll(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::enroll(Procedure, S&&, I&&, C&&) */
-//------------------------------------------------------------------------------
-template <typename S, typename I, typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Registration>, C>
-#else
-Session::template Deduced<ErrorOr<Registration>, C>
-#endif
-Session::enroll(
-    ThreadSafe,
-    Procedure procedure, ///< The procedure to register.
-    S&& callSlot,        ///< Call invocation handler.
-    I&& interruptSlot,   ///< Interruption handler.
-    C&& completion       ///< Completion handler or token.
-    )
-{
-    return safelyInitiate<EnrollOp>(
-        std::forward<C>(completion), std::move(procedure),
-        std::forward<S>(callSlot), std::forward<S>(interruptSlot));
-}
-
-//------------------------------------------------------------------------------
 struct Session::UnregisterOp
 {
     using ResultValue = bool;
@@ -1210,11 +817,6 @@ struct Session::UnregisterOp
     template <typename F> void operator()(F&& f)
     {
         self->doUnregister(std::move(r), std::forward<F>(f));
-    }
-
-    template <typename F> void operator()(F&& f, ThreadSafe)
-    {
-        self->safeUnregister(std::move(r), std::forward<F>(f));
     }
 };
 
@@ -1250,25 +852,6 @@ Session::unregister(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::unregister(Registration, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<bool>, C>
-#else
-Session::template Deduced<ErrorOr<bool>, C>
-#endif
-Session::unregister(
-    ThreadSafe,
-    Registration reg, ///< The RPC registration to unregister.
-    C&& completion    ///< Completion handler or token.
-    )
-{
-    CPPWAMP_LOGIC_CHECK(bool(reg), "The registration is empty");
-    return safelyInitiate<UnregisterOp>(std::forward<C>(completion), reg);
-}
-
-//------------------------------------------------------------------------------
 struct Session::CallOp
 {
     using ResultValue = Result;
@@ -1278,11 +861,6 @@ struct Session::CallOp
     template <typename F> void operator()(F&& f)
     {
         self->doCall(std::move(r), std::forward<F>(f));
-    }
-
-    template <typename F> void operator()(F&& f, ThreadSafe)
-    {
-        self->safeCall(std::move(r), std::forward<F>(f));
     }
 };
 
@@ -1317,24 +895,6 @@ Session::call(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::call(Rpc, C&&) */
-//------------------------------------------------------------------------------
-template <typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Result>, C>
-#else
-Session::template Deduced<ErrorOr<Result>, C>
-#endif
-Session::call(
-    ThreadSafe,
-    Rpc rpc,       ///< Details about the RPC.
-    C&& completion ///< Completion handler or token.
-    )
-{
-    return safelyInitiate<CallOp>(std::forward<C>(completion), std::move(rpc));
-}
-
-//------------------------------------------------------------------------------
 struct Session::EnrollStreamOp
 {
     using ResultValue = Registration;
@@ -1345,11 +905,6 @@ struct Session::EnrollStreamOp
     template <typename F> void operator()(F&& f)
     {
         self->doEnroll(std::move(s), std::move(ss), std::forward<F>(f));
-    }
-
-    template <typename F> void operator()(F&& f, ThreadSafe)
-    {
-        self->safeEnroll(std::move(s), std::move(ss), std::forward<F>(f));
     }
 };
 
@@ -1390,26 +945,6 @@ Session::enroll(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::enroll(Stream, S&&, C&&) */
-//------------------------------------------------------------------------------
-template <typename S, typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Registration>, C>
-#else
-Session::template Deduced<ErrorOr<Registration>, C>
-#endif
-Session::enroll(
-    ThreadSafe,
-    Stream stream,  ///< The stream to register.
-    S&& streamSlot, ///< Stream opening handler.
-    C&& completion  ///< Completion handler or token.
-    )
-{
-    return safelyInitiate<EnrollStreamOp>(
-        std::forward<C>(completion), std::move(stream), std::move(streamSlot));
-}
-
-//------------------------------------------------------------------------------
 struct Session::RequestStreamOp
 {
     using ResultValue = CallerChannel;
@@ -1420,11 +955,6 @@ struct Session::RequestStreamOp
     template <typename F> void operator()(F&& f)
     {
         self->doRequestStream(std::move(r), std::move(c), std::forward<F>(f));
-    }
-
-    template <typename F> void operator()(F&& f, ThreadSafe)
-    {
-        self->safeRequestStream(std::move(r), std::move(c), std::forward<F>(f));
     }
 };
 
@@ -1482,27 +1012,6 @@ Session::requestStream(
 }
 
 //------------------------------------------------------------------------------
-/** @copydetails Session::requestStream(StreamRequest, S&&, C&&) */
-//------------------------------------------------------------------------------
-template <typename S, typename C>
-#ifdef CPPWAMP_FOR_DOXYGEN
-Deduced<ErrorOr<Result>, C>
-#else
-Session::template Deduced<ErrorOr<CallerChannel>, C>
-#endif
-Session::requestStream(
-    ThreadSafe,
-    StreamRequest req, ///< Details about the stream.
-    S&& chunkSlot,     ///< Caller input chunk handler.
-    C&& completion     ///< Completion handler or token.
-    )
-{
-    return safelyInitiate<RequestStreamOp>(
-        std::forward<C>(completion), std::move(req),
-        std::forward<S>(chunkSlot));
-}
-
-//------------------------------------------------------------------------------
 /** @tparam S Callable handler with signature
               `void (CallerChannel, ErrorOr<CallerInputChunk>)`.
     @return A new CallerChannel. */
@@ -1513,20 +1022,7 @@ ErrorOr<CallerChannel> Session::openStream(
     S&& chunkSlot      ///< Caller input chunk handler
     )
 {
-    return doOpenStream(std::move(req), std::forward<S>(chunkSlot));
-}
-
-//------------------------------------------------------------------------------
-/** @copydetails Session::openStream(StreamRequest, S&&) */
-//------------------------------------------------------------------------------
-template <typename S>
-CPPWAMP_INLINE std::future<ErrorOr<CallerChannel>> Session::openStream(
-    ThreadSafe,
-    StreamRequest req, ///< Details about the stream.
-    S&& chunkSlot      ///< Caller input chunk handler
-    )
-{
-    return safeOpenStream(std::move(req), std::forward<S>(chunkSlot));
+    return doOpenStream(std::move(req), std::forward<S>(chunkSlot)).get();
 }
 
 //------------------------------------------------------------------------------
@@ -1546,16 +1042,6 @@ Session::initiate(C&& token, As&&... args)
     return boost::asio::async_initiate<
         C, void(ErrorOr<typename O::ResultValue>)>(
         O{this, std::forward<As>(args)...}, token);
-}
-
-//------------------------------------------------------------------------------
-template <typename O, typename C, typename... As>
-Session::template Deduced<ErrorOr<typename O::ResultValue>, C>
-Session::safelyInitiate(C&& token, As&&... args)
-{
-    return boost::asio::async_initiate<
-        C, void(ErrorOr<typename O::ResultValue>)>(
-        O{this, std::forward<As>(args)...}, token, threadSafe);
 }
 
 } // namespace wamp

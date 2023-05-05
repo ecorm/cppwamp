@@ -154,23 +154,17 @@ GIVEN( "an IO service and a TCP connector" )
         spawn(ioctx, [&](YieldContext yield)
         {
             session.connect(where, yield).value();
-        });
-
-        ioctx.run();
-
-        session.join(Realm(testRealm), [](ErrorOr<Welcome>){});
-
-        IoContext ioctx2;
-        spawn(ioctx2, [&](YieldContext yield)
-        {
-            REQUIRE( session.state() == SessionState::establishing );
+            session.join(Realm(testRealm), [](ErrorOr<Welcome>){});
+            while (session.state() != SessionState::establishing)
+                suspendCoro(yield);
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
+            session.disconnect();
         });
 
-        CHECK_NOTHROW( ioctx2.run() );
+        ioctx.run();
     }
 
     WHEN( "using invalid operations while established" )
@@ -195,24 +189,16 @@ GIVEN( "an IO service and a TCP connector" )
         {
             session.connect(where, yield).value();
             session.join(Realm(testRealm), yield).value();
-            ioctx.stop();
-        });
-        ioctx.run();
-        ioctx.restart();
-
-        session.leave([](ErrorOr<Reason>){});
-
-        IoContext ioctx2;
-        spawn(ioctx2, [&](YieldContext yield)
-        {
-            REQUIRE( session.state() == SessionState::shuttingDown );
+            session.leave([](ErrorOr<Reason>){});
+            while (session.state() != SessionState::shuttingDown)
+                suspendCoro(yield);
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
             checkInvalidLeave(session, yield);
             checkInvalidOps(session, yield);
+            session.disconnect();
         });
-        CHECK_NOTHROW( ioctx2.run() );
-        session.terminate();
+        ioctx.run();
     }
 }}
 
@@ -437,15 +423,13 @@ GIVEN( "a thread pool execution context" )
         if (n % 2 == 0)
         {
             session.publish(
-                threadSafe,
                 Pub("topic").withExcludeMe(false).withArgs(n),
                 [](ErrorOr<PublicationId> pubId) {pubId.value();});
         }
         else
         {
             session.publish(
-                threadSafe,
-                Pub("topic").withExcludeMe(false).withArgs(n)).get().value();
+                Pub("topic").withExcludeMe(false).withArgs(n)).value();
         }
 
         {

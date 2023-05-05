@@ -264,7 +264,13 @@ GIVEN( "a Session and a ConnectionWish" )
                 if (!result)
                     ec = result.error();
             });
-        CHECK( s.state() == SS::connecting );
+
+        while (s.state() != SS::connecting)
+        {
+            ioctx.poll();
+            ioctx.restart();
+        }
+
         s.disconnect();
 
         ioctx.run();
@@ -341,6 +347,11 @@ GIVEN( "a Session and a ConnectionWish" )
         {
             handlerWasInvoked = true;
         });
+        while (s.state() != SS::connecting)
+        {
+            ioctx.poll();
+            ioctx.restart();
+        }
         s.terminate();
         ioctx.run();
 
