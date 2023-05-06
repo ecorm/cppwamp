@@ -64,9 +64,6 @@ public:
     /** Unregisters the RPC. */
     void unregister() const;
 
-    /** Thread-safe unregister. */
-    void unregister(ThreadSafe) const;
-
 private:
     using CalleePtr = std::weak_ptr<internal::Callee>;
 

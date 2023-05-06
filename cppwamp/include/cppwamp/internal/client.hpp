@@ -1414,7 +1414,7 @@ public:
         safelyDispatch<Dispatched>(std::move(t), std::move(s), std::move(f));
     }
 
-    void unsubscribe(const Subscription& sub) override
+    void unsubscribe(const Subscription& sub)
     {
         if (readership_.unsubscribe(sub))
             sendUnsubscribe(sub.id());
@@ -1652,7 +1652,7 @@ public:
         safelyDispatch<Dispatched>(std::move(s), std::move(ss), std::move(f));
     }
 
-    void unregister(const Registration& reg) override
+    void unregister(const Registration& reg)
     {
         struct Requested
         {

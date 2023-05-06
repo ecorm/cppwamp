@@ -59,13 +59,6 @@ CPPWAMP_INLINE void Registration::unregister() const
 {
     auto callee = callee_.lock();
     if (callee)
-        callee->unregister(*this);
-}
-
-CPPWAMP_INLINE void Registration::unregister(ThreadSafe) const
-{
-    auto callee = callee_.lock();
-    if (callee)
         callee->safeUnregister(*this);
 }
 
@@ -98,14 +91,14 @@ ScopedRegistration::ScopedRegistration(Registration registration)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ScopedRegistration::~ScopedRegistration()
 {
-    unregister(threadSafe);
+    unregister();
 }
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE ScopedRegistration&
 ScopedRegistration::operator=(ScopedRegistration&& other) noexcept
 {
-    unregister(threadSafe);
+    unregister();
     Base::operator=(std::move(other));
     return *this;
 }
@@ -114,7 +107,7 @@ ScopedRegistration::operator=(ScopedRegistration&& other) noexcept
 CPPWAMP_INLINE ScopedRegistration&
 ScopedRegistration::operator=(Registration registration)
 {
-    unregister(threadSafe);
+    unregister();
     Base::operator=(std::move(registration));
     return *this;
 }

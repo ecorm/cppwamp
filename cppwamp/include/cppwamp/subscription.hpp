@@ -64,9 +64,6 @@ public:
     /** Unsubscribes from the topic. */
     void unsubscribe() const;
 
-    /** Thread-safe unsubscribe. */
-    void unsubscribe(ThreadSafe) const;
-
 private:
     using SubscriberPtr = std::weak_ptr<internal::Subscriber>;
     using SlotId = uint64_t;

@@ -28,8 +28,6 @@ public:
 
     virtual ~Subscriber() {}
 
-    virtual void unsubscribe(const Subscription&) = 0;
-
     virtual void safeUnsubscribe(const Subscription&) = 0;
 
     virtual void onEventError(Error&&, SubscriptionId) = 0;

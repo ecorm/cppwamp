@@ -32,8 +32,6 @@ public:
 
     virtual ~Callee() {}
 
-    virtual void unregister(const Registration&) = 0;
-
     virtual void safeUnregister(const Registration&) = 0;
 
     virtual ErrorOrDone yield(Result&&, RequestId, RegistrationId) = 0;
