@@ -99,15 +99,6 @@ CPPWAMP_INLINE ErrorOrDone CalleeChannel::send(OutputChunk chunk)
     return impl_->send(std::move(chunk));
 }
 
-/** @copydetails CalleeChannel::send(OutputChunk) */
-CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::send(ThreadSafe,
-                                                            OutputChunk chunk)
-{
-    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::send: "
-                                    "Channel is detached");
-    return impl_->send(threadSafe, std::move(chunk));
-}
-
 /** @returns
         - false if the associated Session object is destroyed or the
                 channel state is already detached or closed
@@ -119,24 +110,9 @@ CPPWAMP_INLINE ErrorOrDone CalleeChannel::fail(Error error)
 {
     CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::fail: "
                                     "Channel is detached");
-    return impl_->fail(std::move(error));
-}
-
-/** @copydetails CalleeChannel::fail(Error) */
-CPPWAMP_INLINE std::future<ErrorOrDone> CalleeChannel::fail(ThreadSafe,
-                                                            Error error)
-{
-    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::fail: "
-                                    "Channel is detached");
     if (!impl_)
-    {
-        std::promise<ErrorOrDone> p;
-        auto f = p.get_future();
-        p.set_value(false);
-        return f;
-    }
-
-    return impl_->fail(threadSafe, std::move(error));
+        return false;
+    return impl_->fail(std::move(error));
 }
 
 /** @post this->state() == State::detached */
@@ -147,14 +123,6 @@ CalleeChannel::doRespond(OutputChunk&& response, ChunkSlot&& onChunk,
                          InterruptSlot&& onInterrupt)
 {
      return impl_->respond(std::move(response), std::move(onChunk),
-                           std::move(onInterrupt));
-}
-
-CPPWAMP_INLINE std::future<ErrorOrDone>
-CalleeChannel::safeRespond(OutputChunk&& response, ChunkSlot&& onChunk,
-                           InterruptSlot&& onInterrupt)
-{
-     return impl_->respond(threadSafe, std::move(response), std::move(onChunk),
                            std::move(onInterrupt));
 }
 

@@ -13,13 +13,11 @@
 //------------------------------------------------------------------------------
 
 #include <atomic>
-#include <future>
 #include <memory>
 #include "../anyhandler.hpp"
 #include "../asiodefs.hpp"
 #include "../rpcinfo.hpp"
 #include "../streaming.hpp"
-#include "../tagtypes.hpp"
 #include "callee.hpp"
 #include "caller.hpp"
 #include "message.hpp"
@@ -103,25 +101,7 @@ public:
         if (!caller)
             return false;
         chunk.setCallInfo({}, id_, uri_);
-        return caller->sendCallerChunk(std::move(chunk));
-    }
-
-    CPPWAMP_NODISCARD std::future<ErrorOrDone> send(ThreadSafe,
-                                                    OutputChunk chunk)
-    {
-        CPPWAMP_LOGIC_CHECK(isValidModeForSending(),
-                            "wamp::CallerChannel::send: invalid mode");
-        State expectedState = State::open;
-        auto newState = chunk.isFinal() ? State::closed : State::open;
-        bool ok = state_.compare_exchange_strong(expectedState, newState);
-        if (!ok)
-            return futureError(MiscErrc::invalidState);
-
-        auto caller = caller_.lock();
-        if (!caller)
-            return futureValue(false);
-        chunk.setCallInfo({}, id_, uri_);
-        return caller->safeSendCallerChunk(std::move(chunk));
+        return caller->safeSendCallerChunk(std::move(chunk)).get();
     }
 
     ErrorOrDone cancel(CallCancelMode mode)
@@ -134,32 +114,10 @@ public:
         auto caller = caller_.lock();
         if (!caller)
             return false;
-        return caller->cancelCall(id_, mode);
-    }
-
-    std::future<ErrorOrDone> cancel(ThreadSafe, CallCancelMode mode)
-    {
-        State expectedState = State::open;
-        bool ok = state_.compare_exchange_strong(expectedState, State::closed);
-        if (!ok)
-            return futureError(MiscErrc::invalidState);
-
-        auto caller = caller_.lock();
-        if (!caller)
-        {
-            std::promise<ErrorOrDone> p;
-            p.set_value(false);
-            return p.get_future();
-        }
-        return caller->safeCancelCall(id_, mode);
+        return caller->safeCancelCall(id_, mode).get();
     }
 
     ErrorOrDone cancel() {return cancel(cancelMode_);}
-
-    std::future<ErrorOrDone> cancel(ThreadSafe)
-    {
-        return cancel(threadSafe, cancelMode_);
-    }
 
     bool expectsRsvp() const {return expectsRsvp_;}
 
@@ -193,33 +151,11 @@ public:
     }
 
 private:
-    static std::future<ErrorOrDone> futureValue(bool x)
-    {
-        std::promise<ErrorOrDone> p;
-        auto f = p.get_future();
-        p.set_value(x);
-        return f;
-    }
-
-    template <typename TErrc>
-    static std::future<ErrorOrDone> futureError(TErrc errc)
-    {
-        std::promise<ErrorOrDone> p;
-        auto f = p.get_future();
-        p.set_value(makeUnexpectedError(errc));
-        return f;
-    }
-
-    std::future<ErrorOrDone> safeCancel()
+    void safeCancel()
     {
         auto caller = caller_.lock();
-        if (!caller)
-        {
-            std::promise<ErrorOrDone> p;
-            p.set_value(false);
-            return p.get_future();
-        }
-        return caller->safeCancelStream(id_);
+        if (caller)
+            caller->safeCancelStream(id_);
     }
 
     void postToChunkHandler(ErrorOr<InputChunk>&& errorOrChunk)
@@ -314,7 +250,7 @@ public:
     {
         chunkSlot_ = nullptr;
         interruptSlot_ = nullptr;
-        fail(threadSafe, Error{WampErrc::cancelled});
+        fail(Error{WampErrc::cancelled});
     }
 
     StreamMode mode() const {return mode_;}
@@ -365,31 +301,8 @@ public:
         auto caller = callee_.lock();
         if (!caller)
             return false;
-        return caller->yield(std::move(response), id_, registrationId_);
-    }
-
-    std::future<ErrorOrDone> respond(
-        ThreadSafe, OutputChunk response, ChunkSlot onChunk = {},
-        InterruptSlot onInterrupt = {})
-    {
-        State expectedState = State::awaiting;
-        auto newState = response.isFinal() ? State::closed : State::open;
-        bool ok = state_.compare_exchange_strong(expectedState, newState);
-        if (!ok)
-            return futureError(MiscErrc::invalidState);
-
-        if (!response.isFinal())
-        {
-            chunkSlot_ = std::move(onChunk);
-            interruptSlot_ = std::move(onInterrupt);
-        }
-
-        postUnexpectedInvitationAsChunk();
-
-        auto caller = callee_.lock();
-        if (!caller)
-            return futureValue(false);
-        return caller->safeYield(std::move(response), id_, registrationId_);
+        return caller->safeYield(std::move(response), id_,
+                                 registrationId_).get();
     }
 
     CPPWAMP_NODISCARD ErrorOrDone accept(ChunkSlot onChunk = {},
@@ -414,25 +327,10 @@ public:
         bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
             return makeUnexpectedError(MiscErrc::invalidState);
-
-        auto caller = callee_.lock();
-        if (!caller)
-            return false;
-        return caller->yield(std::move(chunk), id_, registrationId_);
-    }
-
-    CPPWAMP_NODISCARD std::future<ErrorOrDone> send(ThreadSafe,
-                                                    OutputChunk chunk)
-    {
-        State expectedState = State::open;
-        auto newState = chunk.isFinal() ? State::closed : State::open;
-        bool ok = state_.compare_exchange_strong(expectedState, newState);
-        if (!ok)
-            return futureError(MiscErrc::invalidState);
         auto callee = callee_.lock();
         if (!callee)
-            return futureValue(false);
-        return callee->safeYield(std::move(chunk), id_, registrationId_);
+            return false;
+        return callee->safeYield(std::move(chunk), id_, registrationId_).get();
     }
 
     ErrorOrDone fail(Error error)
@@ -441,16 +339,7 @@ public:
         auto caller = callee_.lock();
         if (!caller || oldState == State::closed)
             return false;
-        return caller->yield(std::move(error), id_, registrationId_);
-    }
-
-    std::future<ErrorOrDone> fail(ThreadSafe, Error error)
-    {
-        auto oldState = state_.exchange(State::closed);
-        auto caller = callee_.lock();
-        if (!caller || oldState == State::closed)
-            return futureValue(false);
-        return caller->safeYield(std::move(error), id_, registrationId_);
+        return caller->safeYield(std::move(error), id_, registrationId_).get();
     }
 
     bool hasInterruptHandler() const
@@ -523,12 +412,12 @@ private:
                 }
                 catch (Error& error)
                 {
-                    self->fail(threadSafe, std::move(error));
+                    self->fail(std::move(error));
                 }
                 catch (const error::BadType& e)
                 {
                     // Forward Variant conversion exceptions as ERROR messages.
-                    self->fail(threadSafe, Error(e));
+                    self->fail(Error(e));
                 }
             }
         };

@@ -8,7 +8,6 @@
 #define CPPWAMP_RPCINFO_HPP
 
 #include <chrono>
-#include <future>
 #include <initializer_list>
 #include <memory>
 #include "accesslogging.hpp"
@@ -401,14 +400,8 @@ public:
     /** Manually sends a `YIELD` result back to the callee. */
     ErrorOrDone yield(Result result = Result()) const;
 
-    /** Thread-safe yield result. */
-    std::future<ErrorOrDone> yield(ThreadSafe, Result result = Result()) const;
-
     /** Manually sends an `ERROR` result back to the callee. */
     ErrorOrDone yield(Error error) const;
-
-    /** Thread-safe yield error. */
-    std::future<ErrorOrDone> yield(ThreadSafe, Error error) const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info(Uri topic) const;
@@ -531,14 +524,8 @@ public:
     /** Manually sends a `YIELD` result back to the callee. */
     ErrorOrDone yield(Result result = Result()) const;
 
-    /** Thread-safe yield result. */
-    std::future<ErrorOrDone> yield(ThreadSafe, Result result = Result()) const;
-
     /** Manually sends an `ERROR` result back to the callee. */
     ErrorOrDone yield(Error error) const;
-
-    /** Thread-safe yield error. */
-    std::future<ErrorOrDone> yield(ThreadSafe, Error error) const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;

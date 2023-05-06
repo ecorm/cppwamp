@@ -22,8 +22,6 @@
 #include "exceptions.hpp"
 #include "rpcinfo.hpp"
 #include "streaming.hpp"
-#include "tagtypes.hpp"
-#include "internal/message.hpp"
 #include "internal/passkey.hpp"
 
 namespace wamp
@@ -118,12 +116,6 @@ public:
     respond(OutputChunk response, S&& chunkSlot = nullptr,
             I&& interruptSlot = nullptr);
 
-    /** Thread-safe accept with response. */
-    template <typename S = std::nullptr_t, typename I = std::nullptr_t>
-    CPPWAMP_NODISCARD std::future<ErrorOrDone> respond(
-        ThreadSafe, OutputChunk response, S&& chunkSlot = nullptr,
-        I&& interruptSlot = nullptr);
-
     /** Accepts a streaming request from another peer, without sending an
         initial response. */
     template <typename S = std::nullptr_t, typename I = std::nullptr_t>
@@ -133,15 +125,8 @@ public:
     /** Sends a chunk to the other peer. */
     CPPWAMP_NODISCARD ErrorOrDone send(OutputChunk chunk);
 
-    /** Thread-safe send. */
-    CPPWAMP_NODISCARD std::future<ErrorOrDone>
-    send(ThreadSafe, OutputChunk chunk);
-
     /** Sends an Error to the other peer and closes the stream. */
     ErrorOrDone fail(Error error);
-
-    /** Thread-safe fail with error. */
-    std::future<ErrorOrDone> fail(ThreadSafe, Error error);
 
     /** Releases shared ownership of the underlying channel. */
     void detach();
@@ -156,10 +141,6 @@ private:
 
     ErrorOrDone doRespond(OutputChunk&& response, ChunkSlot&& onChunk,
                           InterruptSlot&& onInterrupt);
-
-    std::future<ErrorOrDone> safeRespond(OutputChunk&& response,
-                                         ChunkSlot&& onChunk,
-                                         InterruptSlot&& onInterrupt);
 
     ErrorOrDone doAccept(ChunkSlot&& onChunk, InterruptSlot&& onInterrupt);
 
@@ -201,18 +182,6 @@ ErrorOrDone CalleeChannel::respond(OutputChunk response, S&& chunkSlot,
                                     "Channel is detached");
     return doRespond(std::move(response), std::move(chunkSlot),
                      std::move(interruptSlot));
-}
-
-/** @copydetails CalleeChannel::respond(OutputChunk, S&&, I&&) */
-template <typename S, typename I>
-std::future<ErrorOrDone>
-CalleeChannel::respond(ThreadSafe, OutputChunk response, S&& chunkSlot,
-                       I&& interruptSlot)
-{
-    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::accept: "
-                                    "Channel is detached");
-    return safeRespond(std::move(response), std::move(chunkSlot),
-                       std::move(interruptSlot));
 }
 
 /** @copydetails CalleeChannel::respond(OutputChunk, S&&, I&&) */

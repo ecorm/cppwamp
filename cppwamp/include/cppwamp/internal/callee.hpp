@@ -34,18 +34,11 @@ public:
 
     virtual void safeUnregister(const Registration&) = 0;
 
-    virtual ErrorOrDone yield(Result&&, RequestId, RegistrationId) = 0;
-
     virtual std::future<ErrorOrDone> safeYield(Result&&, RequestId,
                                                RegistrationId) = 0;
 
-    virtual ErrorOrDone yield(Error&&, RequestId, RegistrationId) = 0;
-
     virtual std::future<ErrorOrDone> safeYield(Error&&, RequestId,
                                                RegistrationId) = 0;
-
-    virtual ErrorOrDone yield(CalleeOutputChunk&&, RequestId,
-                              RegistrationId) = 0;
 
     virtual std::future<ErrorOrDone> safeYield(CalleeOutputChunk&&,
                                                RequestId, RegistrationId) = 0;

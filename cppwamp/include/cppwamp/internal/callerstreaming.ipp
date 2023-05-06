@@ -119,15 +119,6 @@ CPPWAMP_INLINE ErrorOrDone CallerChannel::send(OutputChunk chunk)
     return impl_->send(std::move(chunk));
 }
 
-/** @copydetails send(OutputChunk) */
-CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::send(ThreadSafe,
-                                                            OutputChunk chunk)
-{
-    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::send: "
-                                    "Channel is detached");
-    return impl_->send(threadSafe, std::move(chunk));
-}
-
 /** @returns
         - false if the associated Session object is destroyed or
                 the streaming request no longer exists
@@ -143,28 +134,11 @@ CPPWAMP_INLINE ErrorOrDone CallerChannel::cancel(CallCancelMode mode)
 }
 
 /** @copydetails cancel(CallCancelMode) */
-CPPWAMP_INLINE std::future<ErrorOrDone>
-CallerChannel::cancel(ThreadSafe, CallCancelMode mode)
-{
-    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::cancel: "
-                                    "Channel is detached");
-    return impl_->cancel(threadSafe, mode);
-}
-
-/** @copydetails cancel(CallCancelMode) */
 CPPWAMP_INLINE ErrorOrDone CallerChannel::cancel()
 {
     CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::cancel: "
                                     "Channel is detached");
     return impl_->cancel();
-}
-
-/** @copydetails cancel(CallCancelMode) */
-CPPWAMP_INLINE std::future<ErrorOrDone> CallerChannel::cancel(ThreadSafe)
-{
-    CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::cancel: "
-                                    "Channel is detached");
-    return impl_->cancel(threadSafe);
 }
 
 /** @post this->state() == State::detached */

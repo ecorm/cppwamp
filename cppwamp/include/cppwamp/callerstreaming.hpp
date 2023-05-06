@@ -13,13 +13,10 @@
 //------------------------------------------------------------------------------
 
 #include <atomic>
-#include <future>
 #include <memory>
 #include "api.hpp"
 #include "rpcinfo.hpp"
 #include "streaming.hpp"
-#include "tagtypes.hpp"
-#include "internal/message.hpp"
 #include "internal/passkey.hpp"
 
 namespace wamp
@@ -110,23 +107,13 @@ public:
     /** Sends a chunk to the other peer. */
     CPPWAMP_NODISCARD ErrorOrDone send(OutputChunk chunk);
 
-    /** Thread-safe send. */
-    CPPWAMP_NODISCARD std::future<ErrorOrDone> send(ThreadSafe,
-                                                    OutputChunk chunk);
-
     /** Sends a cancellation request to the other peer and
         closes the channel. */
     ErrorOrDone cancel(CallCancelMode mode);
 
-    /** Thread-safe cancel with mode. */
-    std::future<ErrorOrDone> cancel(ThreadSafe, CallCancelMode mode);
-
     /** Sends a cancellation request to the other peer using the mode specified
         in the StreamRequest, and closes the channel. */
     ErrorOrDone cancel();
-
-    /** Thread-safe cancel. */
-    std::future<ErrorOrDone> cancel(ThreadSafe);
 
     /** Releases shared ownership of the underlying channel. */
     void detach();

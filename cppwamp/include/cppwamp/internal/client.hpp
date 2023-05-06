@@ -1951,7 +1951,7 @@ public:
     }
 
     ErrorOrDone yield(CalleeOutputChunk&& chunk, RequestId reqId,
-                      RegistrationId regId) override
+                      RegistrationId regId)
     {
         chunk.setRequestId({}, reqId);
         return yieldChunk(std::move(chunk), regId);
@@ -2006,8 +2006,7 @@ public:
         return done;
     }
 
-    ErrorOrDone yield(Result&& result, RequestId reqId,
-                      RegistrationId regId) override
+    ErrorOrDone yield(Result&& result, RequestId reqId, RegistrationId regId)
     {
         result.setRequestId({}, reqId);
         return yieldResult(std::move(result), regId);
@@ -2062,8 +2061,7 @@ public:
         return done;
     }
 
-    ErrorOrDone yield(Error&& error, RequestId reqId,
-                      RegistrationId regId) override
+    ErrorOrDone yield(Error&& error, RequestId reqId, RegistrationId regId)
     {
         error.setRequestId({}, reqId);
         return yieldError(std::move(error), regId);

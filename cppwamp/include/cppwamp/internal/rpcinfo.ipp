@@ -358,18 +358,8 @@ CPPWAMP_INLINE ErrorOrDone Invocation::yield(Result result) const
     auto callee = callee_.lock();
     if (!callee)
         return false;
-    return callee->yield(std::move(result), requestId(), registrationId_);
-}
-
-CPPWAMP_INLINE std::future<ErrorOrDone>
-Invocation::yield(ThreadSafe, Result result) const
-{
-    // Discard the result if client no longer exists
-    auto callee = callee_.lock();
-    if (!callee)
-        return futureValue(false);
-
-    return callee->safeYield(std::move(result), requestId(), registrationId_);
+    return callee->safeYield(std::move(result), requestId(),
+                             registrationId_).get();
 }
 
 CPPWAMP_INLINE ErrorOrDone Invocation::yield(Error error) const
@@ -378,17 +368,8 @@ CPPWAMP_INLINE ErrorOrDone Invocation::yield(Error error) const
     auto callee = callee_.lock();
     if (!callee)
         return false;
-    return callee->yield(std::move(error), requestId(), registrationId_);
-}
-
-CPPWAMP_INLINE std::future<ErrorOrDone>
-Invocation::yield(ThreadSafe, Error error) const
-{
-    // Discard the error if client no longer exists
-    auto callee = callee_.lock();
-    if (!callee)
-        return futureValue(false);
-    return callee->safeYield(std::move(error), requestId(), registrationId_);
+    return callee->safeYield(std::move(error), requestId(),
+                             registrationId_).get();
 }
 
 CPPWAMP_INLINE AccessActionInfo Invocation::info(Uri topic) const
@@ -539,18 +520,8 @@ CPPWAMP_INLINE ErrorOrDone Interruption::yield(Result result) const
     auto callee = callee_.lock();
     if (!callee)
         return false;
-    return callee->yield(std::move(result), requestId(), registrationId_);
-}
-
-CPPWAMP_INLINE std::future<ErrorOrDone>
-Interruption::yield(ThreadSafe, Result result) const
-{
-    // Discard the result if client no longer exists
-    auto callee = callee_.lock();
-    if (!callee)
-        return futureValue(false);
-
-    return callee->safeYield(std::move(result), requestId(), registrationId_);
+    return callee->safeYield(std::move(result), requestId(),
+                             registrationId_).get();
 }
 
 CPPWAMP_INLINE ErrorOrDone Interruption::yield(Error error) const
@@ -560,18 +531,8 @@ CPPWAMP_INLINE ErrorOrDone Interruption::yield(Error error) const
     if (!callee)
         return false;
 
-    return callee->yield(std::move(error), requestId(), registrationId_);
-}
-
-CPPWAMP_INLINE std::future<ErrorOrDone>
-Interruption::yield(ThreadSafe, Error error) const
-{
-    // Discard the error if client no longer exists
-    auto callee = callee_.lock();
-    if (!callee)
-        return futureValue(false);
-
-    return callee->safeYield(std::move(error), requestId(), registrationId_);
+    return callee->safeYield(std::move(error), requestId(),
+                             registrationId_).get();
 }
 
 CPPWAMP_INLINE AccessActionInfo Interruption::info() const
