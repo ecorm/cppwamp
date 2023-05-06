@@ -54,25 +54,13 @@ public:
         future reference. */
     void challenge(Challenge challenge, any note = {});
 
-    /** Thread-safe challenge to use when the authenticator does not run on
-        the same thread as the server. */
-    void challenge(ThreadSafe, Challenge challenge, any note = {});
-
     /** Sends a WELCOME message to the client with the given authentication
         information. */
     void welcome(AuthInfo info);
 
-    /** Thread-safe welcome to use when the authenticator does not run on
-        the same thread as the server. */
-    void welcome(ThreadSafe, AuthInfo info);
-
     /** Rejects the authentication request by sending an ABORT message to
         the client. */
     void reject(Reason r = {WampErrc::authenticationDenied});
-
-    /** Thread-safe abort to use when the authenticator does not run on
-        the same thread as the server. */
-    void reject(ThreadSafe, Reason r = {WampErrc::authenticationDenied});
 
 public:
     // Internal use only

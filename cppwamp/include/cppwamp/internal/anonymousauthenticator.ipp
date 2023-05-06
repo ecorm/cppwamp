@@ -51,8 +51,7 @@ CPPWAMP_INLINE void AnonymousAuthenticator::authenticate(AuthExchange::Ptr ex)
     String authId;
     auto ptr = reinterpret_cast<const char*>(&n);
     internal::Base64::encode(ptr, sizeof(n), authId);
-    ex->welcome(threadSafe,
-                {std::move(authId), authRole_, "anonymous", "static"});
+    ex->welcome({std::move(authId), authRole_, "anonymous", "static"});
 }
 
 //------------------------------------------------------------------------------

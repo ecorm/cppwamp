@@ -95,33 +95,18 @@ public:
     /** Authorizes a subscribe operation. */
     void authorize(Topic t, Authorization a);
 
-    /** Thread-safe authorized subscribe. */
-    void authorize(ThreadSafe, Topic t, Authorization a);
-
     /** Authorizes a publish operation. */
     void authorize(Pub p, Authorization a);
-
-    /** Thread-safe authorized publish. */
-    void authorize(ThreadSafe, Pub p, Authorization a);
 
     /** Authorizes a register operation. */
     void authorize(Procedure p, Authorization a);
 
-    /** Thread-safe authorized register. */
-    void authorize(ThreadSafe, Procedure p, Authorization a);
-
     /** Authorizes a call operation. */
     void authorize(Rpc r, Authorization a);
-
-    /** Thread-safe authorized call operation. */
-    void authorize(ThreadSafe, Rpc r, Authorization a);
 
 private:
     template <typename C>
     void send(C&& command, Authorization a);
-
-    template <typename C>
-    void send(ThreadSafe, C&& command, Authorization a);
 
     internal::RealmContext realm_;
     std::weak_ptr<internal::RouterSession> originator_;

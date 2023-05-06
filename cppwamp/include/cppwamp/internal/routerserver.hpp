@@ -374,7 +374,7 @@ private:
         dispatchAny(strand_, std::move(handler), std::forward<Ts>(args)...);
     }
 
-    void challenge() override
+    void challenge()
     {
         // TODO: Challenge timeout
         if ((state() == State::authenticating) && (authExchange_ != nullptr))
@@ -396,7 +396,7 @@ private:
         safelyDispatch<Dispatched>();
     }
 
-    void welcome(AuthInfo&& info) override
+    void welcome(AuthInfo&& info)
     {
         auto s = state();
         bool readyToWelcome = authExchange_ != nullptr &&
@@ -432,7 +432,7 @@ private:
         safelyDispatch<Dispatched>(std::move(info));
     }
 
-    void reject(Reason&& r) override
+    void reject(Reason&& r)
     {
         auto s = state();
         bool readyToReject = s == State::establishing ||

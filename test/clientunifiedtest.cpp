@@ -160,10 +160,17 @@ GIVEN( "an IO service and a TCP connector" )
             checkInvalidConnect(session, yield);
             checkInvalidJoin(session, yield);
             checkInvalidLeave(session, yield);
+            session.disconnect();
+
+            // Start over again for checkInvalidOps. Otherwise, the the session
+            // has time to establish itself.
+            session.connect(where, yield).value();
+            session.join(Realm(testRealm), [](ErrorOr<Welcome>){});
+            while (session.state() != SessionState::establishing)
+                suspendCoro(yield);
             checkInvalidOps(session, yield);
             session.disconnect();
         });
-
         ioctx.run();
     }
 

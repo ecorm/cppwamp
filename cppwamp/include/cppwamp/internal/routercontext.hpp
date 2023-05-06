@@ -97,12 +97,8 @@ public:
     bool send(RouterSessionPtr originator, C&& command);
 
     template <typename C>
-    bool onAuthorized(RouterSessionPtr originator, C&& command,
-                      Authorization auth);
-
-    template <typename C>
-    bool onAuthorized(ThreadSafe, RouterSessionPtr originator, C&& command,
-                      Authorization auth);
+    bool processAuthorization(RouterSessionPtr originator, C&& command,
+                              Authorization auth);
 
 private:
     std::weak_ptr<RouterRealm> realm_;

@@ -125,8 +125,8 @@ private:
     }
 
     template <typename C>
-    void onAuthorized(ThreadSafe, RouterSession::Ptr originator, C&& command,
-                      Authorization auth)
+    void processAuthorization(RouterSession::Ptr originator, C&& command,
+                              Authorization auth)
     {
         struct Dispatched
         {
@@ -384,8 +384,7 @@ private:
         const auto& authorizer = config_.authorizer();
         if (!authorizer)
         {
-            return onAuthorized(threadSafe, std::move(s),
-                                std::forward<C>(command), true);
+            return onAuthorized(std::move(s), std::forward<C>(command), true);
         }
 
         AuthorizationRequest r{{}, shared_from_this(), s};
@@ -546,24 +545,14 @@ bool RealmContext::send(RouterSessionPtr originator, C&& command)
 }
 
 template <typename C>
-bool RealmContext::onAuthorized(RouterSessionPtr originator, C&& command,
-                                Authorization auth)
+bool RealmContext::processAuthorization(RouterSessionPtr originator,
+                                        C&& command, Authorization auth)
 {
     auto r = realm_.lock();
     if (!r)
         return false;
-    r->onAuthorized(std::move(originator), std::forward<C>(command), auth);
-    return true;
-}
-
-template <typename C>
-bool RealmContext::onAuthorized(ThreadSafe, RouterSessionPtr s, C&& command,
-                                Authorization auth)
-{
-    auto r = realm_.lock();
-    if (!r)
-        return false;
-    r->onAuthorized(threadSafe, std::move(s), std::forward<C>(command), auth);
+    r->processAuthorization(std::move(originator), std::forward<C>(command),
+                            auth);
     return true;
 }
 

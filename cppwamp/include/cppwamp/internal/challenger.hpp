@@ -24,15 +24,9 @@ class Challenger
 public:
     using WeakPtr = std::weak_ptr<Challenger>;
 
-    virtual void challenge() = 0;
-
     virtual void safeChallenge() = 0;
 
-    virtual void welcome(AuthInfo&&) = 0;
-
     virtual void safeWelcome(AuthInfo&&) = 0;
-
-    virtual void reject(Reason&&) = 0;
 
     virtual void safeReject(Reason&&) = 0;
 };

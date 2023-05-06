@@ -71,23 +71,9 @@ CPPWAMP_INLINE void AuthorizationRequest::authorize(Topic t, Authorization a)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void AuthorizationRequest::authorize(ThreadSafe, Topic t,
-                                                    Authorization a)
-{
-    send(threadSafe, std::move(t), a);
-}
-
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE void AuthorizationRequest::authorize(Pub p, Authorization a)
 {
     send(std::move(p), a);
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void AuthorizationRequest::authorize(ThreadSafe, Pub p,
-                                                    Authorization a)
-{
-    send(threadSafe, std::move(p), a);
 }
 
 //------------------------------------------------------------------------------
@@ -98,23 +84,9 @@ CPPWAMP_INLINE void AuthorizationRequest::authorize(Procedure p,
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void AuthorizationRequest::authorize(ThreadSafe, Procedure p,
-                                                    Authorization a)
-{
-    send(threadSafe, std::move(p), a);
-}
-
-//------------------------------------------------------------------------------
 CPPWAMP_INLINE void AuthorizationRequest::authorize(Rpc r, Authorization a)
 {
     send(std::move(r), a);
-}
-
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE void AuthorizationRequest::authorize(ThreadSafe, Rpc r,
-                                                    Authorization a)
-{
-    send(threadSafe, std::move(r), a);
 }
 
 //------------------------------------------------------------------------------
@@ -124,18 +96,8 @@ void AuthorizationRequest::send(C&& command, Authorization a)
     auto originator = originator_.lock();
     if (!originator)
         return;
-    realm_.onAuthorized(std::move(originator), std::forward<C>(command), a);
-}
-
-//------------------------------------------------------------------------------
-template <typename C>
-void AuthorizationRequest::send(ThreadSafe, C&& command, Authorization a)
-{
-    auto originator = originator_.lock();
-    if (!originator)
-        return;
-    realm_.onAuthorized(threadSafe, std::move(originator),
-                          std::forward<C>(command), a);
+    realm_.processAuthorization(std::move(originator),
+                                std::forward<C>(command), a);
 }
 
 //------------------------------------------------------------------------------

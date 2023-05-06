@@ -92,15 +92,9 @@ class Peer;
     objects accessed within the asynchronous operation handlers.
 
     @par Thread-safety
-    Undecorated methods must be called within the Session's execution
+    All operations are made sequential via the Session's execution
     [strand](https://www.boost.org/doc/libs/release/doc/html/boost_asio/overview/core/strands.html).
-    If the same `io_context` is used by a single-threaded app and a Session,
-    calls to undecorated methods will implicitly be within the Session's strand.
-    If invoked from other threads, calls to undecorated methods must be executed
-    via `boost::asio::dispatch(session.stand(), operation)`. Session methods
-    decorated with the ThreadSafe tag type may be safely used concurrently by
-    multiple threads. These decorated methods take care of executing operations
-    via a Session's strand so that they become sequential.
+    This makes all of Session's methods thread-safe.
 
     @par Notable Error Codes
     - MiscErrc::invalidState if the session was not in the appropriate state
