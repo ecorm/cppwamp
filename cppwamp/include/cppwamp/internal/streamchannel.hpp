@@ -101,23 +101,23 @@ public:
         if (!caller)
             return false;
         chunk.setCallInfo({}, id_, uri_);
-        return caller->safeSendCallerChunk(std::move(chunk)).get();
+        return caller->safeSendCallerChunk(std::move(chunk));
     }
 
-    ErrorOrDone cancel(CallCancelMode mode)
+    void cancel(CallCancelMode mode)
     {
         State expectedState = State::open;
         bool ok = state_.compare_exchange_strong(expectedState, State::closed);
         if (!ok)
-            return makeUnexpectedError(MiscErrc::invalidState);
+            return;
 
         auto caller = caller_.lock();
         if (!caller)
-            return false;
-        return caller->safeCancelCall(id_, mode).get();
+            return;
+        caller->safeCancelCall(id_, mode);
     }
 
-    ErrorOrDone cancel() {return cancel(cancelMode_);}
+    void cancel() {cancel(cancelMode_);}
 
     bool expectsRsvp() const {return expectsRsvp_;}
 
@@ -301,8 +301,7 @@ public:
         auto caller = callee_.lock();
         if (!caller)
             return false;
-        return caller->safeYield(std::move(response), id_,
-                                 registrationId_).get();
+        return caller->safeYield(std::move(response), id_, registrationId_);
     }
 
     CPPWAMP_NODISCARD ErrorOrDone accept(ChunkSlot onChunk = {},
@@ -330,16 +329,16 @@ public:
         auto callee = callee_.lock();
         if (!callee)
             return false;
-        return callee->safeYield(std::move(chunk), id_, registrationId_).get();
+        return callee->safeYield(std::move(chunk), id_, registrationId_);
     }
 
-    ErrorOrDone fail(Error error)
+    void fail(Error error)
     {
         auto oldState = state_.exchange(State::closed);
         auto caller = callee_.lock();
         if (!caller || oldState == State::closed)
-            return false;
-        return caller->safeYield(std::move(error), id_, registrationId_).get();
+            return;
+        caller->safeYield(std::move(error), id_, registrationId_);
     }
 
     bool hasInterruptHandler() const

@@ -7,7 +7,6 @@
 #ifndef CPPWAMP_INTERNAL_CALLER_HPP
 #define CPPWAMP_INTERNAL_CALLER_HPP
 
-#include <future>
 #include <memory>
 #include "../erroror.hpp"
 #include "../wampdefs.hpp"
@@ -28,17 +27,11 @@ public:
 
     virtual ~Caller() {}
 
-    virtual ErrorOrDone cancelCall(RequestId, CallCancelMode) = 0;
+    virtual void safeCancelCall(RequestId, CallCancelMode) = 0;
 
-    virtual std::future<ErrorOrDone> safeCancelCall(RequestId,
-                                                    CallCancelMode) = 0;
+    virtual ErrorOrDone safeSendCallerChunk(CallerOutputChunk&&) = 0;
 
-    virtual ErrorOrDone sendCallerChunk(CallerOutputChunk&&) = 0;
-
-    virtual std::future<ErrorOrDone>
-    safeSendCallerChunk(CallerOutputChunk&&) = 0;
-
-    virtual std::future<ErrorOrDone> safeCancelStream(RequestId) = 0;
+    virtual void safeCancelStream(RequestId) = 0;
 };
 
 } // namespace internal

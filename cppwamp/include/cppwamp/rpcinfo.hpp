@@ -398,10 +398,10 @@ public:
     AnyCompletionExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
-    ErrorOrDone yield(Result result = Result()) const;
+    void yield(Result result = Result()) const;
 
     /** Manually sends an `ERROR` result back to the callee. */
-    ErrorOrDone yield(Error error) const;
+    void yield(Error error) const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info(Uri topic) const;
@@ -522,10 +522,10 @@ public:
     AnyCompletionExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
-    ErrorOrDone yield(Result result = Result()) const;
+    void yield(Result result = Result()) const;
 
     /** Manually sends an `ERROR` result back to the callee. */
-    ErrorOrDone yield(Error error) const;
+    void yield(Error error) const;
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;

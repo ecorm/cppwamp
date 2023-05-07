@@ -352,24 +352,20 @@ CPPWAMP_INLINE AnyCompletionExecutor Invocation::executor() const
     return executor_;
 }
 
-CPPWAMP_INLINE ErrorOrDone Invocation::yield(Result result) const
+CPPWAMP_INLINE void Invocation::yield(Result result) const
 {
     // Discard the result if client no longer exists
     auto callee = callee_.lock();
-    if (!callee)
-        return false;
-    return callee->safeYield(std::move(result), requestId(),
-                             registrationId_).get();
+    if (callee)
+        callee->safeYield(std::move(result), requestId(), registrationId_);
 }
 
-CPPWAMP_INLINE ErrorOrDone Invocation::yield(Error error) const
+CPPWAMP_INLINE void Invocation::yield(Error error) const
 {
     // Discard the error if client no longer exists
     auto callee = callee_.lock();
-    if (!callee)
-        return false;
-    return callee->safeYield(std::move(error), requestId(),
-                             registrationId_).get();
+    if (callee)
+        callee->safeYield(std::move(error), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE AccessActionInfo Invocation::info(Uri topic) const
@@ -405,14 +401,6 @@ CPPWAMP_INLINE ErrorOr<TrustLevel> Invocation::trustLevel() const
 CPPWAMP_INLINE ErrorOr<Uri> Invocation::procedure() const
 {
     return optionAs<String>("procedure");
-}
-
-CPPWAMP_INLINE std::future<ErrorOrDone> Invocation::futureValue(bool value)
-{
-    std::promise<ErrorOrDone> p;
-    auto f = p.get_future();
-    p.set_value(value);
-    return f;
 }
 
 CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, internal::Message&& msg)
@@ -514,25 +502,20 @@ CPPWAMP_INLINE AnyCompletionExecutor Interruption::executor() const
     return executor_;
 }
 
-CPPWAMP_INLINE ErrorOrDone Interruption::yield(Result result) const
+CPPWAMP_INLINE void Interruption::yield(Result result) const
 {
     // Discard the result if client no longer exists
     auto callee = callee_.lock();
-    if (!callee)
-        return false;
-    return callee->safeYield(std::move(result), requestId(),
-                             registrationId_).get();
+    if (callee)
+        callee->safeYield(std::move(result), requestId(), registrationId_);
 }
 
-CPPWAMP_INLINE ErrorOrDone Interruption::yield(Error error) const
+CPPWAMP_INLINE void Interruption::yield(Error error) const
 {
     // Discard the error if client no longer exists
     auto callee = callee_.lock();
-    if (!callee)
-        return false;
-
-    return callee->safeYield(std::move(error), requestId(),
-                             registrationId_).get();
+    if (callee)
+        callee->safeYield(std::move(error), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE AccessActionInfo Interruption::info() const

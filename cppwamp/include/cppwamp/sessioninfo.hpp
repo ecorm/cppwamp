@@ -328,16 +328,10 @@ public:
     ErrorOr<UInt> memory() const;
 
     /** Sends an `AUTHENTICATE` message back in response to the challenge. */
-    ErrorOrDone authenticate(Authentication auth);
-
-    /** Thread-safe authenticate. */
-    std::future<ErrorOrDone> authenticate(ThreadSafe, Authentication auth);
+    void authenticate(Authentication auth);
 
     /** Sends an `ABORT` message back in response to an invalid challenge. */
-    ErrorOrDone fail(Reason reason);
-
-    /** Thread-safe fail. */
-    std::future<ErrorOrDone> fail(ThreadSafe, Reason reason);
+    void fail(Reason reason);
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;

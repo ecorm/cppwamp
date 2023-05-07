@@ -119,26 +119,24 @@ CPPWAMP_INLINE ErrorOrDone CallerChannel::send(OutputChunk chunk)
     return impl_->send(std::move(chunk));
 }
 
-/** @returns
-        - false if the associated Session object is destroyed or
-                the streaming request no longer exists
-        - true if the cancellation was accepted for processing
-        - an error code if there was a problem processing the cancellation
-    @pre `this->state() == State::open`
+/** @details
+    Does nothing if the associated Session object is destroyed, the channel
+    state is already closed, or the streaming request no longer exists.
+    @pre `this->attached() == true`
     @post `this->state() == State::closed` */
-CPPWAMP_INLINE ErrorOrDone CallerChannel::cancel(CallCancelMode mode)
+CPPWAMP_INLINE void CallerChannel::cancel(CallCancelMode mode)
 {
     CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::cancel: "
                                     "Channel is detached");
-    return impl_->cancel(mode);
+    impl_->cancel(mode);
 }
 
 /** @copydetails cancel(CallCancelMode) */
-CPPWAMP_INLINE ErrorOrDone CallerChannel::cancel()
+CPPWAMP_INLINE void CallerChannel::cancel()
 {
     CPPWAMP_LOGIC_CHECK(attached(), "wamp::CallerChannel::cancel: "
                                     "Channel is detached");
-    return impl_->cancel();
+    impl_->cancel();
 }
 
 /** @post this->state() == State::detached */

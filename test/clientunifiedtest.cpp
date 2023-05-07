@@ -44,8 +44,8 @@ inline void checkInvalidOps(Session& session, YieldContext yield)
 {
     auto unex = makeUnexpected(MiscErrc::invalidState);
 
-    CHECK( session.publish(Pub("topic")) == unex );
-    CHECK( session.publish(Pub("topic").withArgs(42)) == unex );
+    CHECK_NOTHROW( session.publish(Pub("topic")) );
+    CHECK_NOTHROW( session.publish(Pub("topic").withArgs(42)) );
     auto pub = session.publish(Pub("topic"), yield);
     CHECK( pub == unex );
     CHECK_THROWS_AS( pub.value(), error::Failure );
@@ -259,7 +259,7 @@ GIVEN( "these test fixture objects" )
         auto trigger =
             [&callee, &largeString] (Invocation) -> Outcome
             {
-                callee.publish(Pub("grapevine").withArgs(largeString)).value();
+                callee.publish(Pub("grapevine").withArgs(largeString));
                 return Result();
             };
 
@@ -425,18 +425,19 @@ GIVEN( "a thread pool execution context" )
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         auto n = inv.args().at(0).to<int>();
 
-        // Alternate between publish taking a completion token, and
-        // publish returning a std::future
+        // Alternate between publish with and without a completion token
         if (n % 2 == 0)
         {
             session.publish(
                 Pub("topic").withExcludeMe(false).withArgs(n),
-                [](ErrorOr<PublicationId> pubId) {pubId.value();});
+                [](ErrorOr<PublicationId> pubId)
+                {
+                    pubId.value();
+                });
         }
         else
         {
-            session.publish(
-                Pub("topic").withExcludeMe(false).withArgs(n)).value();
+            session.publish(Pub("topic").withExcludeMe(false).withArgs(n));
         }
 
         {
@@ -445,12 +446,13 @@ GIVEN( "a thread pool execution context" )
             --callParallelism;
         }
 
-        inv.yield(threadSafe, Result{n});
+        inv.yield(Result{n});
         return deferment;
     };
 
     auto onEvent = [&](Event ev)
     {
+
         unsigned c = 0;
         {
             std::lock_guard<std::mutex> lock(eventMutex);

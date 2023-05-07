@@ -10,7 +10,6 @@
 #include <atomic>
 #include <cassert>
 #include <exception>
-#include <future>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -348,6 +347,7 @@ public:
 
     ErrorOrDone sendCallerChunk(CallerOutputChunk&& chunk)
     {
+        // TODO: Check state
         auto key = chunk.requestKey({});
         if (requests_.count(key) == 0 && channels_.count(key.second) == 0)
             return false;
@@ -1057,20 +1057,20 @@ private:
 class Client : public std::enable_shared_from_this<Client>,
                private PeerListener, public Callee, public Caller,
                public Subscriber, public Challengee
+// TODO: ClientContext instead of interface classes
 {
 public:
-    using Ptr               = std::shared_ptr<Client>;
-    using TransportPtr      = Transporting::Ptr;
-    using State             = SessionState;
-    using FutureErrorOrDone = std::future<ErrorOrDone>;
-    using EventSlot         = AnyReusableHandler<void (Event)>;
-    using CallSlot          = AnyReusableHandler<Outcome (Invocation)>;
-    using InterruptSlot     = AnyReusableHandler<Outcome (Interruption)>;
-    using StreamSlot        = AnyReusableHandler<void (CalleeChannel)>;
-    using IncidentSlot      = AnyReusableHandler<void (Incident)>;
-    using ChallengeSlot     = AnyReusableHandler<void (Challenge)>;
-    using ChunkSlot = AnyReusableHandler<void (CallerChannel,
-                                               ErrorOr<CallerInputChunk>)>;
+    using Ptr           = std::shared_ptr<Client>;
+    using TransportPtr  = Transporting::Ptr;
+    using State         = SessionState;
+    using EventSlot     = AnyReusableHandler<void (Event)>;
+    using CallSlot      = AnyReusableHandler<Outcome (Invocation)>;
+    using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
+    using StreamSlot    = AnyReusableHandler<void (CalleeChannel)>;
+    using IncidentSlot  = AnyReusableHandler<void (Incident)>;
+    using ChallengeSlot = AnyReusableHandler<void (Challenge)>;
+    using ChunkSlot     = AnyReusableHandler<void (CallerChannel,
+                                                   ErrorOr<CallerInputChunk>)>;
 
     template <typename TValue>
     using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
@@ -1207,77 +1207,57 @@ public:
         safelyDispatch<Dispatched>(std::move(r), std::move(c), std::move(f));
     }
 
-    ErrorOrDone authenticate(Authentication&& auth) override
+    void authenticate(Authentication&& auth)
     {
         if (state() != State::authenticating)
-            return makeUnexpectedError(MiscErrc::invalidState);
-        return peer_->send(std::move(auth));
+            return;
+        auto done = peer_->send(std::move(auth));
+        if (!done && incidentSlot_)
+            report({IncidentKind::trouble, done.error(),
+                    "While sending AUTHENTICATE message"});
     }
 
-    FutureErrorOrDone safeAuthenticate(Authentication&& a) override
+    void safeAuthenticate(Authentication&& a) override
     {
         struct Dispatched
         {
             Ptr self;
             Authentication a;
-            ErrorOrDonePromise p;
-
-            void operator()()
-            {
-                try
-                {
-                    p.set_value(self->authenticate(std::move(a)));
-                }
-                catch (...)
-                {
-                    p.set_exception(std::current_exception());
-                }
-            }
+            void operator()() {self->authenticate(std::move(a));}
         };
 
-        ErrorOrDonePromise p;
-        auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(a), std::move(p));
-        return fut;
+        safelyDispatch<Dispatched>(std::move(a));
     }
 
-    ErrorOrDone failAuthentication(Reason&& r) override
+    void failAuthentication(Reason&& r)
     {
         if (state() != State::authenticating)
-            return makeUnexpectedError(MiscErrc::invalidState);
+            return;
 
         if (incidentSlot_)
             report({IncidentKind::challengeFailure, r});
 
         abandonPending(r.errorCode());
-        return peer_->abort(std::move(r));
+        auto done = peer_->abort(std::move(r));
+        auto unex = makeUnexpectedError(WampErrc::payloadSizeExceeded);
+        if (incidentSlot_ && (done == unex))
+        {
+            report({IncidentKind::trouble, unex.value(),
+                    "While sending ABORT due to authentication failure"});
+        }
+
     }
 
-    FutureErrorOrDone safeFailAuthentication(Reason&& r) override
+    void safeFailAuthentication(Reason&& r) override
     {
         struct Dispatched
         {
             Ptr self;
             Reason r;
-            ErrorOrDonePromise p;
-
-            void operator()()
-            {
-                try
-                {
-                    p.set_value(self->failAuthentication(std::move(r)));
-                }
-                catch (...)
-                {
-                    p.set_exception(std::current_exception());
-                }
-            }
+            void operator()() {self->failAuthentication(std::move(r));}
         };
 
-        ErrorOrDonePromise p;
-        auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(r), std::move(p));
-        return fut;
+        safelyDispatch<Dispatched>(std::move(r));
     }
 
     void leave(Reason&& reason, CompletionHandler<Reason>&& handler)
@@ -1476,41 +1456,30 @@ public:
         report({IncidentKind::eventError, error});
     }
 
-    ErrorOrDone publish(Pub&& pub)
+    void publish(Pub&& pub)
     {
         if (state() != State::established)
-            return makeUnexpectedError(MiscErrc::invalidState);
+            return;
+        auto uri = pub.uri();
         auto reqId = requestor_.request(std::move(pub), nullptr);
-        if (!reqId)
-            return makeUnexpected(reqId.error());
-        return true;
+        if (incidentSlot_ && !reqId)
+        {
+            report({IncidentKind::trouble, reqId.error(),
+                    "While sending unacknowledged PUBLISH message with "
+                    "URI '" + uri + "'"});
+        }
     }
 
-    FutureErrorOrDone safePublish(Pub&& p)
+    void safePublish(Pub&& p)
     {
         struct Dispatched
         {
             Ptr self;
             Pub p;
-            ErrorOrDonePromise prom;
-
-            void operator()()
-            {
-                try
-                {
-                    prom.set_value(self->publish(std::move(p)));
-                }
-                catch (...)
-                {
-                    prom.set_exception(std::current_exception());
-                }
-            }
+            void operator()() {self->publish(std::move(p));}
         };
 
-        ErrorOrDonePromise prom;
-        auto fut = prom.get_future();
-        safelyDispatch<Dispatched>(std::move(p), std::move(prom));
-        return fut;
+        safelyDispatch<Dispatched>(std::move(p));
     }
 
     void publish(Pub&& pub, CompletionHandler<PublicationId>&& handler)
@@ -1789,40 +1758,23 @@ public:
         safelyDispatch<Dispatched>(std::move(r), std::move(f));
     }
 
-    ErrorOrDone cancelCall(RequestId reqId, CallCancelMode mode) override
+    void cancelCall(RequestId reqId, CallCancelMode mode)
     {
-        if (state() != State::established)
-            return makeUnexpectedError(MiscErrc::invalidState);
-
-        return requestor_.cancelCall(reqId, mode);
+        if (state() == State::established)
+            requestor_.cancelCall(reqId, mode);
     }
 
-    FutureErrorOrDone safeCancelCall(RequestId r, CallCancelMode m) override
+    void safeCancelCall(RequestId r, CallCancelMode m) override
     {
         struct Dispatched
         {
             Ptr self;
             RequestId r;
             CallCancelMode m;
-            ErrorOrDonePromise p;
-
-            void operator()()
-            {
-                try
-                {
-                    p.set_value(self->cancelCall(r, m));
-                }
-                catch (...)
-                {
-                    p.set_exception(std::current_exception());
-                }
-            }
+            void operator()() {self->cancelCall(r, m);}
         };
 
-        ErrorOrDonePromise p;
-        auto fut = p.get_future();
-        safelyDispatch<Dispatched>(r, m, std::move(p));
-        return fut;
+        safelyDispatch<Dispatched>(r, m);
     }
 
     void requestStream(StreamRequest&& inv, ChunkSlot&& onChunk,
@@ -1892,52 +1844,44 @@ public:
         return fut;
     }
 
-    ErrorOrDone sendCallerChunk(CallerOutputChunk&& chunk) override
+    void sendCallerChunk(CallerOutputChunk&& chunk)
     {
-        return requestor_.sendCallerChunk(std::move(chunk));
+        auto done = requestor_.sendCallerChunk(std::move(chunk));
+        if (incidentSlot_ && !done)
+        {
+            report({IncidentKind::trouble, done.error(),
+                    "While sending streaming CALL message"});
+        }
     }
 
-    FutureErrorOrDone safeSendCallerChunk(CallerOutputChunk&& c) override
+    ErrorOrDone safeSendCallerChunk(CallerOutputChunk&& c) override
     {
         struct Dispatched
         {
             Ptr self;
             CallerOutputChunk c;
-            ErrorOrDonePromise p;
-
-            void operator()()
-            {
-                try
-                {
-                    p.set_value(self->sendCallerChunk(std::move(c)));
-                }
-                catch (...)
-                {
-                    p.set_exception(std::current_exception());
-                }
-            }
+            void operator()() {self->sendCallerChunk(std::move(c));}
         };
 
-        ErrorOrDonePromise p;
-        auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(c), std::move(p));
-        return fut;
+        if (state() != State::established)
+            return makeUnexpectedError(MiscErrc::invalidState);
+        safelyDispatch<Dispatched>(std::move(c));
+        return true;
     }
 
-    FutureErrorOrDone safeCancelStream(RequestId r) override
+    void safeCancelStream(RequestId r) override
     {
         // As per the WAMP spec, a router supporting progressive
         // calls/invocations must also support call cancellation.
-        return safeCancelCall(r, CallCancelMode::killNoWait);
+        safeCancelCall(r, CallCancelMode::killNoWait);
     }
 
-    ErrorOrDone yieldChunk(CalleeOutputChunk&& chunk, RegistrationId regId)
+    void yieldChunk(CalleeOutputChunk&& chunk, RegistrationId regId)
     {
         if (state() != State::established)
-            return makeUnexpectedError(MiscErrc::invalidState);
+            return;
         auto done = registry_.yield(std::move(chunk));
-        auto unex = makeUnexpectedError(WampErrc::payloadSizeExceeded);
-        if (incidentSlot_ && (done == unex))
+        if (incidentSlot_ && !done)
         {
             std::ostringstream oss;
             oss << "Stream RESULT with requestId=" << chunk.requestId({})
@@ -1945,55 +1889,34 @@ public:
             const auto& uri = registry_.lookupStreamUri(regId);
             if (!uri.empty())
                 oss << " and uri=" << uri;
-            report({IncidentKind::trouble, unex.value(), oss.str()});
+            report({IncidentKind::trouble, done.error(), oss.str()});
         }
-        return done;
     }
 
-    ErrorOrDone yield(CalleeOutputChunk&& chunk, RequestId reqId,
-                      RegistrationId regId)
-    {
-        chunk.setRequestId({}, reqId);
-        return yieldChunk(std::move(chunk), regId);
-    }
-
-    FutureErrorOrDone safeYield(CalleeOutputChunk&& c, RequestId reqId,
-                                RegistrationId regId) override
+    ErrorOrDone safeYield(CalleeOutputChunk&& c, RequestId reqId,
+                          RegistrationId regId) override
     {
         struct Dispatched
         {
             Ptr self;
             CalleeOutputChunk c;
             RegistrationId r;
-            ErrorOrDonePromise p;
-
-            void operator()()
-            {
-                try
-                {
-                    p.set_value(self->yieldChunk(std::move(c), r));
-                }
-                catch (...)
-                {
-                    p.set_exception(std::current_exception());
-                }
-            }
+            void operator()() {self->yieldChunk(std::move(c), r);}
         };
 
-        c.setRequestId({}, reqId);
-        ErrorOrDonePromise p;
-        auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(c), regId, std::move(p));
-        return fut;
-    }
-
-    ErrorOrDone yieldResult(Result&& result, RegistrationId regId)
-    {
         if (state() != State::established)
             return makeUnexpectedError(MiscErrc::invalidState);
+        c.setRequestId({}, reqId);
+        safelyDispatch<Dispatched>(std::move(c), regId);
+        return true;
+    }
+
+    void yieldResult(Result&& result, RegistrationId regId)
+    {
+        if (state() != State::established)
+            return;
         auto done = registry_.yield(std::move(result));
-        auto unex = makeUnexpectedError(WampErrc::payloadSizeExceeded);
-        if (incidentSlot_ && (done == unex))
+        if (incidentSlot_ && !done)
         {
             std::ostringstream oss;
             oss << "RPC RESULT with requestId=" << result.requestId({})
@@ -2001,54 +1924,30 @@ public:
             const auto& uri = registry_.lookupProcedureUri(regId);
             if (!uri.empty())
                 oss << " and uri=" << uri;
-            report({IncidentKind::trouble, unex.value(), oss.str()});
+            report({IncidentKind::trouble, done.error(), oss.str()});
         }
-        return done;
     }
 
-    ErrorOrDone yield(Result&& result, RequestId reqId, RegistrationId regId)
-    {
-        result.setRequestId({}, reqId);
-        return yieldResult(std::move(result), regId);
-    }
-
-    FutureErrorOrDone safeYield(Result&& r, RequestId reqId,
-                                RegistrationId regId) override
+    void safeYield(Result&& r, RequestId reqId, RegistrationId regId) override
     {
         struct Dispatched
         {
             Ptr self;
             Result r;
             RegistrationId i;
-            ErrorOrDonePromise p;
-
-            void operator()()
-            {
-                try
-                {
-                    p.set_value(self->yieldResult(std::move(r), i));
-                }
-                catch (...)
-                {
-                    p.set_exception(std::current_exception());
-                }
-            }
+            void operator()() {self->yieldResult(std::move(r), i);}
         };
 
         r.setRequestId({}, reqId);
-        ErrorOrDonePromise p;
-        auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(r), regId, std::move(p));
-        return fut;
+        safelyDispatch<Dispatched>(std::move(r), regId);
     }
 
-    ErrorOrDone yieldError(Error&& error, RegistrationId regId)
+    void yieldError(Error&& error, RegistrationId regId)
     {
         if (state() != State::established)
-            return makeUnexpectedError(MiscErrc::invalidState);
+            return;
         auto done = registry_.yield(std::move(error));
-        auto unex = makeUnexpectedError(WampErrc::payloadSizeExceeded);
-        if (incidentSlot_ && (done == unex))
+        if (incidentSlot_ && !done)
         {
             std::ostringstream oss;
             oss << "INVOCATION ERROR with requestId=" << error.requestId({})
@@ -2056,49 +1955,25 @@ public:
             auto uri = registry_.lookupProcedureUri(regId);
             if (!uri.empty())
                 oss << " and uri=" << uri;
-            report({IncidentKind::trouble, unex.value(), oss.str()});
+            report({IncidentKind::trouble, done.error(), oss.str()});
         }
-        return done;
     }
 
-    ErrorOrDone yield(Error&& error, RequestId reqId, RegistrationId regId)
-    {
-        error.setRequestId({}, reqId);
-        return yieldError(std::move(error), regId);
-    }
-
-    FutureErrorOrDone safeYield(Error&& e, RequestId reqId,
-                                RegistrationId regId) override
+    void safeYield(Error&& e, RequestId reqId, RegistrationId regId) override
     {
         struct Dispatched
         {
             Ptr self;
             Error e;
             RegistrationId r;
-            ErrorOrDonePromise p;
-
-            void operator()()
-            {
-                try
-                {
-                    p.set_value(self->yieldError(std::move(e), r));
-                }
-                catch (...)
-                {
-                    p.set_exception(std::current_exception());
-                }
-            }
+            void operator()() {self->yieldError(std::move(e), r);}
         };
 
         e.setRequestId({}, reqId);
-        ErrorOrDonePromise p;
-        auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(e), regId, std::move(p));
-        return fut;
+        safelyDispatch<Dispatched>(std::move(e), regId);
     }
 
 private:
-    using ErrorOrDonePromise  = std::promise<ErrorOrDone>;
     using RequestKey          = typename Message::RequestKey;
     using RequestHandler      = AnyCompletionHandler<void (ErrorOr<Message>)>;
 

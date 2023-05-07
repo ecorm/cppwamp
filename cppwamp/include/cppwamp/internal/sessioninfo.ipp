@@ -418,48 +418,19 @@ CPPWAMP_INLINE ErrorOr<UInt> Challenge::memory() const
     return toUnsignedInteger("memory");
 }
 
-CPPWAMP_INLINE ErrorOrDone Challenge::authenticate(Authentication auth)
+CPPWAMP_INLINE void Challenge::authenticate(Authentication auth)
 {
     // Discard the authentication if client no longer exists
     auto challengee = challengee_.lock();
     if (challengee)
-        return challengee->authenticate(std::move(auth));
-    return false;
+        challengee->safeAuthenticate(std::move(auth));
 }
 
-CPPWAMP_INLINE std::future<ErrorOrDone>
-Challenge::authenticate(ThreadSafe, Authentication auth)
-{
-    // Discard the authentication if client no longer exists
-    auto challengee = challengee_.lock();
-    if (challengee)
-        return challengee->safeAuthenticate(std::move(auth));
-
-    std::promise<ErrorOrDone> p;
-    auto f = p.get_future();
-    p.set_value(false);
-    return f;
-}
-
-CPPWAMP_INLINE ErrorOrDone Challenge::fail(Reason reason)
+CPPWAMP_INLINE void Challenge::fail(Reason reason)
 {
     auto challengee = challengee_.lock();
     if (challengee)
-        return challengee->failAuthentication(std::move(reason));
-    return false;
-}
-
-CPPWAMP_INLINE std::future<ErrorOrDone> Challenge::fail(ThreadSafe,
-                                                        Reason reason)
-{
-    auto challengee = challengee_.lock();
-    if (challengee)
-        return challengee->safeFailAuthentication(std::move(reason));
-
-    std::promise<ErrorOrDone> p;
-    auto f = p.get_future();
-    p.set_value(false);
-    return f;
+        challengee->safeFailAuthentication(std::move(reason));
 }
 
 CPPWAMP_INLINE AccessActionInfo Challenge::info() const

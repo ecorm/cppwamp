@@ -115,11 +115,6 @@ class Peer;
 //------------------------------------------------------------------------------
 class CPPWAMP_API Session
 {
-    // TODO: Make all public operations thread-safe
-    // Tests show same-thread asio::dispatch overhead to be on the
-    // order of 20ns, which is neglible compared to the work performed
-    // by the operations.
-
 private:
     struct GenericOp { template <typename F> void operator()(F&&) {} };
 
@@ -266,7 +261,7 @@ public:
     unsubscribe(Subscription sub, C&& completion);
 
     /** Publishes an event. */
-    CPPWAMP_NODISCARD ErrorOrDone publish(Pub pub);
+    void publish(Pub pub);
 
     /** Publishes an event and waits for an acknowledgement from the router. */
     template <typename C>

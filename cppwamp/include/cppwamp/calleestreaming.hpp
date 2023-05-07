@@ -126,7 +126,7 @@ public:
     CPPWAMP_NODISCARD ErrorOrDone send(OutputChunk chunk);
 
     /** Sends an Error to the other peer and closes the stream. */
-    ErrorOrDone fail(Error error);
+    void fail(Error error);
 
     /** Releases shared ownership of the underlying channel. */
     void detach();

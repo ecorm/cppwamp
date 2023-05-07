@@ -109,11 +109,11 @@ public:
 
     /** Sends a cancellation request to the other peer and
         closes the channel. */
-    ErrorOrDone cancel(CallCancelMode mode);
+    void cancel(CallCancelMode mode);
 
     /** Sends a cancellation request to the other peer using the mode specified
         in the StreamRequest, and closes the channel. */
-    ErrorOrDone cancel();
+    void cancel();
 
     /** Releases shared ownership of the underlying channel. */
     void detach();

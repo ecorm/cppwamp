@@ -29,8 +29,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             f.subscribe(yield);
 
             // Check dynamic and static subscriptions.
-            CHECK( f.publisher.publish(Pub("str.num")
-                                           .withArgs("one", 1)).value() );
+            f.publisher.publish(Pub("str.num").withArgs("one", 1));
             pid = f.publisher.publish(Pub("str.num").withArgs("two", 2),
                                        yield).value();
             while (f.dynamicPubs.size() < 2 || f.staticPubs.size() < 2)
@@ -45,7 +44,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             CHECK( f.otherPubs.empty() );
 
             // Check subscription from another client.
-            CHECK( f.publisher.publish(Pub("other")).value() );
+            f.publisher.publish(Pub("other"));
             pid = f.publisher.publish(Pub("other"), yield).value();
             while (f.otherPubs.size() < 2)
                 suspendCoro(yield);
@@ -124,8 +123,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                 }),
                 yield).value();
 
-            CHECK( f.publisher.publish(Pub("str.num")
-                                          .withArgs("one", 1)).value() );
+            f.publisher.publish(Pub("str.num").withArgs("one", 1));
 
             while (f.staticArgs.size() < 2)
                 suspendCoro(yield);
@@ -472,11 +470,11 @@ GIVEN( "an IO service and a ConnectionWish" )
                     [](Event ev, Variant v, YieldContext y) {v.to<String>();}),
                 yield).value();
 
-            f.publisher.publish(Pub("bad_conversion").withArgs(42)).value();
-            f.publisher.publish(Pub("bad_access").withArgs(42)).value();
-            f.publisher.publish(Pub("bad_conversion_coro").withArgs(42)).value();
-            f.publisher.publish(Pub("bad_access_coro").withArgs(42)).value();
-            f.publisher.publish(Pub("other")).value();
+            f.publisher.publish(Pub("bad_conversion").withArgs(42));
+            f.publisher.publish(Pub("bad_access").withArgs(42));
+            f.publisher.publish(Pub("bad_conversion_coro").withArgs(42));
+            f.publisher.publish(Pub("bad_access_coro").withArgs(42));
+            f.publisher.publish(Pub("other"));
 
             while (f.otherPubs.empty() || incidents.size() < 2)
                 suspendCoro(yield);

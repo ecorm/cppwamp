@@ -45,14 +45,6 @@ CallCancellationSlot::Handler::operator()(CallCancelMode cancelMode)
 {
     auto c = caller_.lock();
     if (c)
-        c->cancelCall(requestId_, cancelMode);
-}
-
-CPPWAMP_INLINE void
-CallCancellationSlot::Handler::operator()(ThreadSafe, CallCancelMode cancelMode)
-{
-    auto c = caller_.lock();
-    if (c)
         c->safeCancelCall(requestId_, cancelMode);
 }
 
@@ -113,12 +105,6 @@ CPPWAMP_INLINE CallCancellationSignal::CallCancellationSignal()
 CPPWAMP_INLINE void CallCancellationSignal::emit(CallCancelMode cancelMode)
 {
     slotImpl_->handler(cancelMode);
-}
-
-CPPWAMP_INLINE void CallCancellationSignal::emit(ThreadSafe,
-                                                 CallCancelMode cancelMode)
-{
-    slotImpl_->handler(threadSafe, cancelMode);
 }
 
 CPPWAMP_INLINE CallCancellationSlot CallCancellationSignal::slot() const

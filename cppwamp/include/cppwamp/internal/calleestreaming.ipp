@@ -87,7 +87,7 @@ CPPWAMP_INLINE CalleeChannel::operator bool() const {return attached();}
         - false if the associated Session object is destroyed
         - true if the chunk was accepted for processing
         - an error code if there was a problem processing the chunk
-    @pre `this->state() == State::open`
+    @pre `this->attached() == true`
     @pre `chunk.isFinal() || this->mode == StreamMode::calleeToCaller ||
           this->mode == StreamMode::bidirectional`
     @post `this->state() == chunk.isFinal() ? State::closed : State::open`
@@ -99,20 +99,17 @@ CPPWAMP_INLINE ErrorOrDone CalleeChannel::send(OutputChunk chunk)
     return impl_->send(std::move(chunk));
 }
 
-/** @returns
-        - false if the associated Session object is destroyed or the
-                channel state is already detached or closed
-        - true if the error was accepted for processing
-        - an error code if there was a problem processing the error
+/** @details
+    Does nothing if the associated Session object is destroyed or the channel
+    state is already closed.
     @pre `this->attached() == true`
     @post `this->state() == State::closed` */
-CPPWAMP_INLINE ErrorOrDone CalleeChannel::fail(Error error)
+CPPWAMP_INLINE void CalleeChannel::fail(Error error)
 {
     CPPWAMP_LOGIC_CHECK(attached(), "wamp::CalleeChannel::fail: "
                                     "Channel is detached");
-    if (!impl_)
-        return false;
-    return impl_->fail(std::move(error));
+    if (impl_)
+        impl_->fail(std::move(error));
 }
 
 /** @post this->state() == State::detached */

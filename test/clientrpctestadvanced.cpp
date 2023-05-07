@@ -668,8 +668,7 @@ GIVEN( "a caller and a callee" )
 
         if (rejectArmed)
         {
-            bool sent = channel.fail(WampErrc::invalidArgument).value();
-            CHECK(sent);
+            channel.fail(WampErrc::invalidArgument);
             return;
         }
         else if (throwErrorArmed)

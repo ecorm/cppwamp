@@ -7,9 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_CHALLENGEE_HPP
 #define CPPWAMP_INTERNAL_CHALLENGEE_HPP
 
-#include <future>
 #include <memory>
-#include "../erroror.hpp"
 
 namespace wamp
 {
@@ -28,13 +26,9 @@ public:
 
     virtual ~Challengee() {}
 
-    virtual ErrorOrDone authenticate(Authentication&&) = 0;
+    virtual void safeAuthenticate(Authentication&&) = 0;
 
-    virtual std::future<ErrorOrDone> safeAuthenticate(Authentication&&) = 0;
-
-    virtual ErrorOrDone failAuthentication(Reason&& r) = 0;
-
-    virtual std::future<ErrorOrDone> safeFailAuthentication(Reason&& r) = 0;
+    virtual void safeFailAuthentication(Reason&& r) = 0;
 };
 
 } // namespace internal

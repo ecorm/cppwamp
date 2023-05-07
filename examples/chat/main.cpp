@@ -53,7 +53,7 @@ private:
     void say(std::string user, std::string message)
     {
         // Rebroadcast message to all subscribers
-        session_.publish( wamp::Pub("said").withArgs(user, message) ).value();
+        session_.publish( wamp::Pub("said").withArgs(user, message) );
     }
 
     wamp::Session session_;

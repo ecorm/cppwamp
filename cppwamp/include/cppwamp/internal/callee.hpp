@@ -8,7 +8,6 @@
 #define CPPWAMP_INTERNAL_CALLEE_HPP
 
 #include <cstdint>
-#include <future>
 #include <memory>
 #include "../erroror.hpp"
 #include "../wampdefs.hpp"
@@ -34,14 +33,12 @@ public:
 
     virtual void safeUnregister(const Registration&) = 0;
 
-    virtual std::future<ErrorOrDone> safeYield(Result&&, RequestId,
-                                               RegistrationId) = 0;
+    virtual void safeYield(Result&&, RequestId, RegistrationId) = 0;
 
-    virtual std::future<ErrorOrDone> safeYield(Error&&, RequestId,
-                                               RegistrationId) = 0;
+    virtual void safeYield(Error&&, RequestId, RegistrationId) = 0;
 
-    virtual std::future<ErrorOrDone> safeYield(CalleeOutputChunk&&,
-                                               RequestId, RegistrationId) = 0;
+    virtual ErrorOrDone safeYield(CalleeOutputChunk&&, RequestId,
+                                  RegistrationId) = 0;
 };
 
 } // namespace internal

@@ -14,7 +14,6 @@
 
 #include <memory>
 #include "api.hpp"
-#include "tagtypes.hpp"
 #include "wampdefs.hpp"
 #include "internal/caller.hpp"
 
@@ -39,7 +38,6 @@ public:
         Handler(internal::Caller::WeakPtr caller, RequestId requestId);
         explicit operator bool();
         void operator()(CallCancelMode cancelMode);
-        void operator()(ThreadSafe, CallCancelMode cancelMode);
 
     private:
         internal::Caller::WeakPtr caller_;
@@ -94,9 +92,6 @@ public:
 
     /** Executes the handler assigned to the connected slot. */
     void emit(CallCancelMode cancelMode);
-
-    /** Thread-safe emit. */
-    void emit(ThreadSafe, CallCancelMode cancelMode);
 
     /** Obtains the slot that is connected to this signal. */
     CallCancellationSlot slot() const;

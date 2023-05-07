@@ -30,23 +30,6 @@
 namespace wamp
 {
 
-//------------------------------------------------------------------------------
-/** Tag type used to specify than an operation is to be dispatched via the
-    called objects's execution strand.
-    Use the wamp::threadSafe constant to conveniently pass this tag
-    to functions. */
-//------------------------------------------------------------------------------
-struct CPPWAMP_API ThreadSafe
-{
-    constexpr ThreadSafe() = default;
-};
-
-//------------------------------------------------------------------------------
-/** Constant ThreadSafe object instance that can be passed to functions. */
-//------------------------------------------------------------------------------
-CPPWAMP_INLINE_VARIABLE constexpr ThreadSafe threadSafe;
-
-
 #if defined(__cpp_lib_any) || defined(__cpp_lib_optional) || \
     defined(__cpp_lib_variant) || defined(CPPWAMP_FOR_DOXYGEN)
 
@@ -63,7 +46,7 @@ using in_place_type_t = std::in_place_type_t<T>;
 
 #else
 
-struct in_place_t { constexpr explicit in_place_t() = default; };
+struct CPPWAMP_API in_place_t { constexpr explicit in_place_t() = default; };
 
 template <typename T>
 struct in_place_type_t {constexpr explicit in_place_type_t() = default;};
@@ -73,7 +56,7 @@ struct in_place_type_t {constexpr explicit in_place_type_t() = default;};
 //------------------------------------------------------------------------------
 /** Alias to std::in_place if available, otherwise emulates it. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE_VARIABLE constexpr in_place_t in_place{};
+CPPWAMP_API CPPWAMP_INLINE_VARIABLE constexpr in_place_t in_place{};
 
 
 #if defined(__cpp_variable_templates) || defined(CPPWAMP_FOR_DOXYGEN)

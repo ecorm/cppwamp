@@ -79,7 +79,6 @@ CPPWAMP_INLINE SessionState Session::state() const
 //------------------------------------------------------------------------------
 /** @details
     Message tracing is disabled by default.
-    @note This method is thread-safe.
     @see Session::observeIncidents */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::enableTracing(bool enabled)
@@ -133,14 +132,13 @@ CPPWAMP_INLINE void Session::unsubscribe(
 }
 
 //------------------------------------------------------------------------------
-/** @returns `true` if the authentication was sent, a std::error_code
-    otherwise. */
+/** @details Does nothing if the session is not established. */
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE ErrorOrDone Session::publish(
+CPPWAMP_INLINE void Session::publish(
     Pub pub /**< The publication to publish. */
 )
 {
-    return impl_->safePublish(std::move(pub)).get();
+    impl_->safePublish(std::move(pub));
 }
 
 //------------------------------------------------------------------------------
