@@ -320,7 +320,7 @@ public:
     openStream(StreamRequest req, S&& chunkSlot, C&& completion);
 
     /** Opens a streaming channel without negotiation. */
-    template <typename S, typename C>
+    template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
     openStream(StreamRequest req, C&& completion);
     /// @}
@@ -1044,7 +1044,7 @@ Session::Deduced<ErrorOr<CallerChannel>, C> Session::openStream(
               or a compatible Boost.Asio completion token.
     @return A new CallerChannel. */
 //------------------------------------------------------------------------------
-template <typename S, typename C>
+template <typename C>
 Session::Deduced<ErrorOr<CallerChannel>, C> Session::openStream(
     StreamRequest req, ///< Details about the stream.
     C&& completion     ///< Completion handler or token.

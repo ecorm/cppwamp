@@ -132,6 +132,8 @@ public:
         if (!chunkSlot_)
             return;
         InputChunk chunk{{}, std::move(msg)};
+        if (chunk.isFinal())
+            finalChunkReceived_ = true;
         postToChunkHandler(std::move(chunk));
     }
 
@@ -144,8 +146,10 @@ public:
         postToChunkHandler(makeUnexpectedError(errc));
     }
 
-    void postError(UnexpectedError unex)
+    void abandon(UnexpectedError unex)
     {
+        if (!chunkSlot_ || finalChunkReceived_)
+            return;
         error_ = Error{unex.value()};
         postToChunkHandler(unex);
     }
@@ -214,6 +218,7 @@ private:
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
     bool expectsRsvp_ = false;
     bool hasRsvp_ = false;
+    bool finalChunkReceived_ = false;
 };
 
 

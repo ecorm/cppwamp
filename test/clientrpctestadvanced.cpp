@@ -1284,4 +1284,114 @@ GIVEN( "a caller and a callee" )
     }
 }}
 
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP caller-to-callee streaming with invitations",
+          "[WAMP][Advanced]" )
+{
+GIVEN( "a caller and a callee" )
+{
+    IoContext ioctx;
+    RpcFixture f(ioctx, withTcp);
+
+    std::vector<int> input{9, 3, 7, 5};
+    std::vector<int> output;
+
+    CalleeChannel calleeChannel;
+    bool callerFinalChunkReceived = false;
+
+    auto onCalleeChunkReceived =
+        [&](CalleeChannel channel, CalleeInputChunk chunk)
+        {
+            output.push_back(chunk.args().at(0).to<int>());
+            if (output.size() == input.size())
+            {
+                CHECK( chunk.isFinal() );
+                auto sent = calleeChannel.send(
+                    CalleeOutputChunk(true).withArgs(output.size()));
+                CHECK(sent);
+                CHECK(channel.state() == ChannelState::closed);
+                calleeChannel.detach();
+            }
+        };
+
+    auto onStream = [&](CalleeChannel channel)
+    {
+        CHECK( channel.mode() == StreamMode::callerToCallee );
+        CHECK( channel.invitationExpected() );
+        CHECK( channel.invitation().args().front().as<String>() ==
+              "invitation" );
+
+        bool done = channel.accept(onCalleeChunkReceived).value();
+        CHECK(done);
+        calleeChannel = std::move(channel);
+    };
+
+    auto onCallerChunkReceived =
+        [&](CallerChannel channel, ErrorOr<CallerInputChunk> chunk)
+        {
+            REQUIRE(chunk.has_value());
+            CHECK(chunk->isFinal());
+            CHECK(chunk->args().at(0).to<unsigned>() == input.size());
+            CHECK(output.size() == input.size());
+            callerFinalChunkReceived = true;
+        };
+
+    auto runTest = [&]()
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            f.join(yield);
+            if (!f.welcome.features().dealer().all_of(
+                DealerFeatures::progressiveCallInvocations))
+            {
+                return;
+            }
+
+            f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
+                            onStream, yield).value();
+
+            for (unsigned i=0; i<2; ++i)
+            {
+                Error error;
+                StreamRequest req{"com.myapp.foo", StreamMode::callerToCallee};
+                req.withArgs("invitation").captureError(error);
+                auto channelOrError = f.caller.openStream(req, onCallerChunkReceived,
+                                                          yield);
+                REQUIRE(channelOrError.has_value());
+                auto channel = channelOrError.value();
+                CHECK(channel.mode() == StreamMode::callerToCallee);
+                CHECK_FALSE(channel.hasRsvp());
+                CHECK(channel.rsvp().args().empty());
+
+                boost::asio::steady_timer timer(ioctx);
+                for (unsigned i=0; i<input.size(); ++i)
+                {
+                    // Simulate a streaming app that throttles
+                    // the intermediary results at a fixed rate.
+                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.async_wait(yield);
+
+                    bool isFinal = (i == input.size() - 1);
+                    channel.send(CallerOutputChunk(isFinal)
+                                  .withArgs(input.at(i))).value();
+                }
+
+                while (!callerFinalChunkReceived)
+                    suspendCoro(yield);
+                CHECK( input == output );
+                output.clear();
+                callerFinalChunkReceived = false;
+            }
+
+            f.disconnect();
+        });
+        ioctx.run();
+    };
+
+    WHEN( "streaming call chunks" )
+    {
+        runTest();
+    }
+}}
+
 #endif // defined(CPPWAMP_TEST_HAS_CORO)

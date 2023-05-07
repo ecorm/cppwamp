@@ -98,9 +98,9 @@ public:
         if (handler_)
             postAny(exec, std::move(handler_), unex);
         else if (channel_)
-            channel_->postError(unex);
+            channel_->abandon(unex);
         else if (auto ch = weakChannel_.lock())
-            ch->postError(unex);
+            ch->abandon(unex);
 
         handler_ = nullptr;
         channel_.reset();
