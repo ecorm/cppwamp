@@ -219,7 +219,7 @@ CPPWAMP_INLINE void Session::doEnroll(Stream&& s, StreamSlot&& ss, CompletionHan
 CPPWAMP_INLINE void Session::doRequestStream(StreamRequest&& r, CallerChunkSlot&& c, CompletionHandler<CallerChannel>&& f)
     {impl_->safeRequestStream(std::move(r), std::move(c), std::move(f));}
 
-CPPWAMP_INLINE std::future<ErrorOr<CallerChannel>> Session::doOpenStream(StreamRequest&& r, CallerChunkSlot&& s)
-    {return impl_->safeOpenStream(std::move(r), std::move(s));}
+CPPWAMP_INLINE void Session::doOpenStream(StreamRequest&& r, CallerChunkSlot&& s, CompletionHandler<CallerChannel>&& f)
+    {impl_->safeOpenStream(std::move(r), std::move(s), std::move(f));}
 
 } // namespace wamp

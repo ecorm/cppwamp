@@ -1777,71 +1777,63 @@ public:
         safelyDispatch<Dispatched>(r, m);
     }
 
-    void requestStream(StreamRequest&& inv, ChunkSlot&& onChunk,
+    void requestStream(StreamRequest&& req, ChunkSlot&& onChunk,
                        CompletionHandler<CallerChannel>&& handler)
     {
         if (!checkState(State::established, handler))
             return;
 
-        requestor_.requestStream(true, shared_from_this(), std::move(inv),
+        requestor_.requestStream(true, shared_from_this(), std::move(req),
                                  std::move(onChunk), std::move(handler));
     }
 
-    void safeRequestStream(StreamRequest&& i, ChunkSlot&& c,
+    void safeRequestStream(StreamRequest&& s, ChunkSlot&& c,
                            CompletionHandler<CallerChannel>&& f)
     {
         struct Dispatched
         {
             Ptr self;
-            StreamRequest i;
+            StreamRequest s;
             ChunkSlot c;
             CompletionHandler<CallerChannel> f;
 
             void operator()()
             {
-                self->requestStream(std::move(i), std::move(c), std::move(f));
+                self->requestStream(std::move(s), std::move(c), std::move(f));
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(i), std::move(c), std::move(f));
+        safelyDispatch<Dispatched>(std::move(s), std::move(c), std::move(f));
     }
 
-    ErrorOr<CallerChannel> openStream(StreamRequest&& req, ChunkSlot&& onChunk)
+    void openStream(StreamRequest&& req, ChunkSlot&& onChunk,
+                    CompletionHandler<CallerChannel>&& handler)
     {
-        if (state() != State::established)
-            return makeUnexpectedError(MiscErrc::invalidState);
+        if (!checkState(State::established, handler))
+            return;
 
-        return requestor_.requestStream(false, shared_from_this(),
-                                        std::move(req), std::move(onChunk));
+        auto channel = requestor_.requestStream(
+            false, shared_from_this(), std::move(req), std::move(onChunk));
+        return completeRequest(handler, std::move(channel));
     }
 
-    std::future<ErrorOr<CallerChannel>> safeOpenStream(StreamRequest&& r,
-                                                       ChunkSlot&& c)
+    void safeOpenStream(StreamRequest&& r, ChunkSlot&& c,
+                        CompletionHandler<CallerChannel>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             StreamRequest r;
             ChunkSlot c;
-            std::promise<ErrorOr<CallerChannel>> p;
+            CompletionHandler<CallerChannel> f;
 
             void operator()()
             {
-                try
-                {
-                    p.set_value(self->openStream(std::move(r), std::move(c)));
-                }
-                catch (...)
-                {
-                    p.set_exception(std::current_exception());
-                }
+                self->openStream(std::move(r), std::move(c), std::move(f));
             }
         };
 
-        std::promise<ErrorOr<CallerChannel>> p;
-        auto fut = p.get_future();
-        safelyDispatch<Dispatched>(std::move(r), std::move(c), std::move(p));
-        return fut;
+        safelyDispatch<Dispatched>(std::move(r), std::move(c), std::move(f));
     }
 
     void sendCallerChunk(CallerOutputChunk&& chunk)

@@ -7,7 +7,6 @@
 #ifndef CPPWAMP_ERRORINFO_HPP
 #define CPPWAMP_ERRORINFO_HPP
 
-#include <future>
 #include <memory>
 #include <string>
 #include <vector>

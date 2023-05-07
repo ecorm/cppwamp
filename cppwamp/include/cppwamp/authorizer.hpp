@@ -22,7 +22,6 @@
 #include "authinfo.hpp"
 #include "pubsubinfo.hpp"
 #include "rpcinfo.hpp"
-#include "tagtypes.hpp"
 #include "internal/passkey.hpp"
 #include "internal/routercontext.hpp"
 

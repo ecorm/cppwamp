@@ -523,14 +523,6 @@ CPPWAMP_INLINE AccessActionInfo Interruption::info() const
     return {AccessAction::serverInterrupt, requestId(), {}, options()};
 }
 
-CPPWAMP_INLINE std::future<ErrorOrDone> Interruption::futureValue(bool value)
-{
-    std::promise<ErrorOrDone> p;
-    auto f = p.get_future();
-    p.set_value(value);
-    return f;
-}
-
 CPPWAMP_INLINE Object Interruption::makeOptions(CallCancelMode mode,
                                                 WampErrc reason)
 {

@@ -437,8 +437,6 @@ private:
     using Base = Payload<Invocation, internal::MessageKind::invocation>;
     using CalleePtr = std::weak_ptr<internal::Callee>;
 
-    static std::future<ErrorOrDone> futureValue(bool value);
-
     static constexpr unsigned registrationIdPos_ = 2;
     static constexpr unsigned optionsPos_ = 3;
 
@@ -533,8 +531,6 @@ public:
 private:
     using Base = Options<Interruption, internal::MessageKind::interrupt>;
     using CalleePtr = std::weak_ptr<internal::Callee>;
-
-    static std::future<ErrorOrDone> futureValue(bool value);
 
     static Object makeOptions(CallCancelMode mode, WampErrc reason);
 

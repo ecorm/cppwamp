@@ -358,23 +358,6 @@ public:
     }
 
 private:
-    static std::future<ErrorOrDone> futureValue(bool x)
-    {
-        std::promise<ErrorOrDone> p;
-        auto f = p.get_future();
-        p.set_value(x);
-        return f;
-    }
-
-    template <typename TErrc>
-    static std::future<ErrorOrDone> futureError(TErrc errc)
-    {
-        std::promise<ErrorOrDone> p;
-        auto f = p.get_future();
-        p.set_value(makeUnexpectedError(errc));
-        return f;
-    }
-
     bool isValidModeFor(const OutputChunk& c) const
     {
         using M = StreamMode;

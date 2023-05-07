@@ -314,10 +314,15 @@ public:
     CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
     requestStream(StreamRequest req, C&& completion);
 
-    /** Opens a streamming channel without negotiation. */
-    template <typename S>
-    CPPWAMP_NODISCARD ErrorOr<CallerChannel>
-    openStream(StreamRequest req, S&& onChunk = {});
+    /** Opens a streaming channel without negotiation. */
+    template <typename S, typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
+    openStream(StreamRequest req, S&& chunkSlot, C&& completion);
+
+    /** Opens a streaming channel without negotiation. */
+    template <typename S, typename C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<CallerChannel>, C>
+    openStream(StreamRequest req, C&& completion);
     /// @}
 
 protected:
@@ -356,6 +361,7 @@ private:
     struct OngoingCallOp;
     struct EnrollStreamOp;
     struct RequestStreamOp;
+    struct OpenStreamOp;
 
     template <typename S>
     typename internal::BindFallbackExecutorResult<S>::Type
@@ -381,8 +387,8 @@ private:
                   CompletionHandler<Registration>&& f);
     void doRequestStream(StreamRequest&& r, CallerChunkSlot&& c,
                          CompletionHandler<CallerChannel>&& f);
-    std::future<ErrorOr<CallerChannel> > doOpenStream(StreamRequest&& r,
-                                                      CallerChunkSlot&& s);
+    void doOpenStream(StreamRequest&& r, CallerChunkSlot&& s,
+                      CompletionHandler<CallerChannel>&& f);
 
     FallbackExecutor fallbackExecutor_;
     std::shared_ptr<internal::Client> impl_;
@@ -1001,17 +1007,51 @@ Session::requestStream(
 }
 
 //------------------------------------------------------------------------------
+struct Session::OpenStreamOp
+{
+    using ResultValue = CallerChannel;
+    Session* self;
+    StreamRequest r;
+    CallerChunkSlot c;
+
+    template <typename F> void operator()(F&& f)
+    {
+        self->doOpenStream(std::move(r), std::move(c), std::forward<F>(f));
+    }
+};
+
+//------------------------------------------------------------------------------
 /** @tparam S Callable handler with signature
               `void (CallerChannel, ErrorOr<CallerInputChunk>)`.
+    @tparam C Callable handler with signature `void (ErrorOr<CallerChannel::Ptr>)`,
+              or a compatible Boost.Asio completion token.
     @return A new CallerChannel. */
 //------------------------------------------------------------------------------
-template <typename S>
-ErrorOr<CallerChannel> Session::openStream(
+template <typename S, typename C>
+Session::Deduced<ErrorOr<CallerChannel>, C> Session::openStream(
     StreamRequest req, ///< Details about the stream.
-    S&& chunkSlot      ///< Caller input chunk handler
+    S&& chunkSlot,     ///< Caller input chunk handler
+    C&& completion     ///< Completion handler or token.
     )
 {
-    return doOpenStream(std::move(req), std::forward<S>(chunkSlot)).get();
+    return initiate<OpenStreamOp>(
+        std::forward<C>(completion), std::move(req),
+        std::forward<S>(chunkSlot));
+}
+
+//------------------------------------------------------------------------------
+/** @tparam C Callable handler with signature `void (ErrorOr<CallerChannel::Ptr>)`,
+              or a compatible Boost.Asio completion token.
+    @return A new CallerChannel. */
+//------------------------------------------------------------------------------
+template <typename S, typename C>
+Session::Deduced<ErrorOr<CallerChannel>, C> Session::openStream(
+    StreamRequest req, ///< Details about the stream.
+    C&& completion     ///< Completion handler or token.
+    )
+{
+    return initiate<OpenStreamOp>(std::forward<C>(completion),
+                                  std::move(req), nullptr);
 }
 
 //------------------------------------------------------------------------------

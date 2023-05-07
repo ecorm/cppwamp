@@ -907,7 +907,8 @@ GIVEN( "a caller and a callee" )
             {
                 StreamRequest req{"com.myapp.foo", StreamMode::calleeToCaller};
                 req.withArgs("hello");
-                auto channelOrError = f.caller.openStream(req, onCallerChunk);
+                auto channelOrError = f.caller.openStream(req, onCallerChunk,
+                                                          yield);
                 REQUIRE(channelOrError.has_value());
                 auto channel = channelOrError.value();
                 CHECK(channel.mode() == StreamMode::calleeToCaller);

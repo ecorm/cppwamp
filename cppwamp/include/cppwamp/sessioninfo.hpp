@@ -7,7 +7,6 @@
 #ifndef CPPWAMP_SESSIONINFO_HPP
 #define CPPWAMP_SESSIONINFO_HPP
 
-#include <future>
 #include <memory>
 #include <string>
 #include <vector>
@@ -20,7 +19,6 @@
 #include "features.hpp"
 #include "logging.hpp"
 #include "options.hpp"
-#include "tagtypes.hpp"
 #include "variantdefs.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"

@@ -13,7 +13,6 @@
 //------------------------------------------------------------------------------
 
 #include <atomic>
-#include <future>
 #include <memory>
 #include "anyhandler.hpp"
 #include "api.hpp"

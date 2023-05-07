@@ -13,7 +13,6 @@
 #include "../accesslogging.hpp"
 #include "../anyhandler.hpp"
 #include "../logging.hpp"
-#include "../tagtypes.hpp"
 #include "../uri.hpp"
 #include "random.hpp"
 

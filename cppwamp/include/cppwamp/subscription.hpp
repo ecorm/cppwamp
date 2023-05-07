@@ -15,7 +15,6 @@
 #include <memory>
 #include <string>
 #include "api.hpp"
-#include "tagtypes.hpp"
 #include "wampdefs.hpp"
 #include "./internal/passkey.hpp"
 
