@@ -131,7 +131,8 @@ public:
     void detach();
 
 private:
-    using ChunkSlot = AnyReusableHandler<void (CalleeChannel, InputChunk)>;
+    using ChunkSlot = AnyReusableHandler<void (CalleeChannel,
+                                               ErrorOr<InputChunk>)>;
 
     using InterruptSlot =
         AnyReusableHandler<void (CalleeChannel, Interruption)>;

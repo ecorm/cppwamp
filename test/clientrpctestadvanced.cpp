@@ -846,11 +846,13 @@ GIVEN( "a caller and a callee" )
     std::vector<int> output;
     unsigned calleeChunkCount = 0;
 
-    auto onCalleeChunk = [&](CalleeChannel channel, CalleeInputChunk chunk)
+    auto onCalleeChunk = [&](CalleeChannel channel,
+                             ErrorOr<CalleeInputChunk> chunk)
     {
+        REQUIRE(chunk.has_value());
         CHECK( channel.mode() == StreamMode::calleeToCaller );
         CHECK_FALSE( channel.invitationExpected() );
-        auto s = chunk.args().at(0).as<String>();
+        auto s = chunk->args().at(0).as<String>();
         CHECK(s == "hello");
         ++calleeChunkCount;
     };
@@ -1300,9 +1302,17 @@ GIVEN( "a caller and a callee" )
     bool leaveEarlyArmed = false;
 
     auto onCalleeChunkReceived =
-        [&](CalleeChannel channel, CalleeInputChunk chunk)
+        [&](CalleeChannel channel, ErrorOr<CalleeInputChunk> chunk)
         {
-            output.push_back(chunk.args().at(0).to<int>());
+            if (!chunk.has_value())
+            {
+                CHECK(chunk.error() == MiscErrc::abandoned);
+                CHECK(output.size() == input.size());
+                calleeChannel.detach();
+                return;
+            }
+
+            output.push_back(chunk->args().at(0).to<int>());
             if (output.size() == input.size())
             {
                 if (leaveEarlyArmed)
@@ -1311,12 +1321,11 @@ GIVEN( "a caller and a callee" )
                     return;
                 }
 
-                CHECK( chunk.isFinal() );
+                CHECK( chunk->isFinal() );
                 auto sent = calleeChannel.send(
                     CalleeOutputChunk(true).withArgs(output.size()));
                 CHECK(sent);
                 CHECK(channel.state() == ChannelState::closed);
-                calleeChannel.detach();
             }
         };
 

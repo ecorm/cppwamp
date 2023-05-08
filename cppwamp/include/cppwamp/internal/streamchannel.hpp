@@ -234,7 +234,7 @@ public:
     using OutputChunk = CalleeOutputChunk;
     using Executor = AnyIoExecutor;
     using FallbackExecutor = AnyCompletionExecutor;
-    using ChunkSlot = AnyReusableHandler<void (TContext, InputChunk)>;
+    using ChunkSlot = AnyReusableHandler<void (TContext, ErrorOr<InputChunk>)>;
     using InterruptSlot = AnyReusableHandler<void (TContext, Interruption)>;
     using State = ChannelState;
 
@@ -340,19 +340,17 @@ public:
     void fail(Error error)
     {
         auto oldState = state_.exchange(State::closed);
-        auto caller = callee_.lock();
-        if (!caller || oldState == State::closed)
+        auto callee = callee_.lock();
+        if (!callee || oldState == State::closed)
             return;
-        caller->safeYield(std::move(error), id_, registrationId_);
+        callee->safeYield(std::move(error), id_, registrationId_);
     }
 
-    void abandon(Error)
+    void abandon(std::error_code ec)
     {
         auto oldState = state_.exchange(State::closed);
-        auto caller = callee_.lock();
-        if (!caller || oldState == State::closed)
-            return;
-        // TODO: Notify via chunk or interruption slot?
+        if (oldState != State::closed && chunkSlot_)
+            postToSlot(chunkSlot_, UnexpectedError{ec});
     }
 
     bool hasInterruptHandler() const
