@@ -1299,7 +1299,8 @@ GIVEN( "a caller and a callee" )
     std::vector<int> output;
     CalleeChannel calleeChannel;
     bool callerFinalChunkReceived = false;
-    bool leaveEarlyArmed = false;
+    bool calleeLeaveArmed = false;
+    bool destroyEarlyArmed = false;
 
     auto onCalleeChunkReceived =
         [&](CalleeChannel channel, ErrorOr<CalleeInputChunk> chunk)
@@ -1315,17 +1316,22 @@ GIVEN( "a caller and a callee" )
             output.push_back(chunk->args().at(0).to<int>());
             if (output.size() == input.size())
             {
-                if (leaveEarlyArmed)
+                if (calleeLeaveArmed)
                 {
                     f.callee.leave(detached);
-                    return;
                 }
-
-                CHECK( chunk->isFinal() );
-                auto sent = calleeChannel.send(
-                    CalleeOutputChunk(true).withArgs(output.size()));
-                CHECK(sent);
-                CHECK(channel.state() == ChannelState::closed);
+                else if (destroyEarlyArmed)
+                {
+                    calleeChannel.detach();
+                }
+                else
+                {
+                    CHECK( chunk->isFinal() );
+                    auto sent = calleeChannel.send(
+                        CalleeOutputChunk(true).withArgs(output.size()));
+                    CHECK(sent);
+                    CHECK(channel.state() == ChannelState::closed);
+                }
             }
         };
 
@@ -1344,7 +1350,7 @@ GIVEN( "a caller and a callee" )
     auto onCallerChunkReceived =
         [&](CallerChannel channel, ErrorOr<CallerInputChunk> chunk)
         {
-            if (leaveEarlyArmed)
+            if (calleeLeaveArmed || destroyEarlyArmed)
             {
                 REQUIRE_FALSE(chunk.has_value());
                 CHECK(chunk.error() == WampErrc::cancelled);
@@ -1405,7 +1411,7 @@ GIVEN( "a caller and a callee" )
                 output.clear();
                 callerFinalChunkReceived = false;
 
-                if (leaveEarlyArmed)
+                if (calleeLeaveArmed)
                 {
                     while (f.callee.state() != SessionState::closed)
                         suspendCoro(yield);
@@ -1429,7 +1435,13 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "callee leaves before receiving final chunk" )
     {
-        leaveEarlyArmed = true;
+        calleeLeaveArmed = true;
+        runTest();
+    }
+
+    WHEN( "callee destroys channel before receiving final chunk" )
+    {
+        destroyEarlyArmed = true;
         runTest();
     }
 }}
