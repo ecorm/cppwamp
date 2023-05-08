@@ -863,9 +863,21 @@ public:
         return found->second.uri;
     }
 
+    void abandonAllStreams(std::error_code ec)
+    {
+        for (auto& kv: invocations_)
+        {
+            InvocationRecord& rec = kv.second;
+            auto ch = rec.channel.lock();
+            if (ch)
+                ch->fail(ec);
+        }
+    }
+
     void clear()
     {
         procedures_.clear();
+        streams_.clear();
         invocations_.clear();
     }
 
@@ -2205,9 +2217,14 @@ private:
     void abandonPending(std::error_code ec)
     {
         if (isTerminating_)
+        {
             requestor_.clear();
+        }
         else
+        {
             requestor_.abandonAll(ec);
+            registry_.abandonAllStreams(ec);
+        }
     }
 
     template <typename TErrc>

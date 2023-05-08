@@ -346,6 +346,15 @@ public:
         caller->safeYield(std::move(error), id_, registrationId_);
     }
 
+    void abandon(Error)
+    {
+        auto oldState = state_.exchange(State::closed);
+        auto caller = callee_.lock();
+        if (!caller || oldState == State::closed)
+            return;
+        // TODO: Notify via chunk or interruption slot?
+    }
+
     bool hasInterruptHandler() const
     {
         return interruptSlot_ != nullptr;

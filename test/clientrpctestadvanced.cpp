@@ -1295,9 +1295,9 @@ GIVEN( "a caller and a callee" )
 
     std::vector<int> input{9, 3, 7, 5};
     std::vector<int> output;
-
     CalleeChannel calleeChannel;
     bool callerFinalChunkReceived = false;
+    bool leaveEarlyArmed = false;
 
     auto onCalleeChunkReceived =
         [&](CalleeChannel channel, CalleeInputChunk chunk)
@@ -1305,6 +1305,12 @@ GIVEN( "a caller and a callee" )
             output.push_back(chunk.args().at(0).to<int>());
             if (output.size() == input.size())
             {
+                if (leaveEarlyArmed)
+                {
+                    f.callee.leave(detached);
+                    return;
+                }
+
                 CHECK( chunk.isFinal() );
                 auto sent = calleeChannel.send(
                     CalleeOutputChunk(true).withArgs(output.size()));
@@ -1329,10 +1335,18 @@ GIVEN( "a caller and a callee" )
     auto onCallerChunkReceived =
         [&](CallerChannel channel, ErrorOr<CallerInputChunk> chunk)
         {
-            REQUIRE(chunk.has_value());
-            CHECK(chunk->isFinal());
-            CHECK(chunk->args().at(0).to<unsigned>() == input.size());
-            CHECK(output.size() == input.size());
+            if (leaveEarlyArmed)
+            {
+                REQUIRE_FALSE(chunk.has_value());
+                CHECK(chunk.error() == WampErrc::cancelled);
+            }
+            else
+            {
+                REQUIRE(chunk.has_value());
+                CHECK(chunk->isFinal());
+                CHECK(chunk->args().at(0).to<unsigned>() == input.size());
+                CHECK(output.size() == input.size());
+            }
             callerFinalChunkReceived = true;
         };
 
@@ -1381,6 +1395,17 @@ GIVEN( "a caller and a callee" )
                 CHECK( input == output );
                 output.clear();
                 callerFinalChunkReceived = false;
+
+                if (leaveEarlyArmed)
+                {
+                    while (f.callee.state() != SessionState::closed)
+                        suspendCoro(yield);
+                    f.callee.join(Realm(testRealm), yield).value();
+                    f.callee.enroll(
+                                Stream("com.myapp.foo").withInvitationExpected(),
+                                onStream,
+                                yield).value();
+                }
             }
 
             f.disconnect();
@@ -1390,6 +1415,12 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "streaming call chunks" )
     {
+        runTest();
+    }
+
+    WHEN( "callee leaves before receiving final chunk" )
+    {
+        leaveEarlyArmed = true;
         runTest();
     }
 }}

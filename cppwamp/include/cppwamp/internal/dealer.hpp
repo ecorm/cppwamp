@@ -202,6 +202,7 @@ public:
             return makeUnexpectedError(WampErrc::protocolViolation);
         isProgressiveCall_ = rpc.isProgress({});
         Invocation inv{{}, std::move(rpc), registrationId_};
+        inv.setRequestId({}, calleeKey_.second);
 
         // Only propagate the `progress` option. The initial progressive
         // call is what establishes other options for the duration of the
