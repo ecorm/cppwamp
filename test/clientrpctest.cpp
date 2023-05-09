@@ -1032,7 +1032,46 @@ GIVEN( "an IO service and a ConnectionWish" )
         });
     }
 
-    // TODO: Other async RPC ops
+    WHEN( "asynchronous enroll just before leaving" )
+    {
+        ErrorOr<Registration> reg;
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            Session s(ioctx);
+            s.connect(where, yield).value();
+            s.join(Realm(testRealm), yield).value();
+            s.enroll(Procedure("procedure"),
+                     [&](Invocation) -> Outcome {return {};},
+                     [&](ErrorOr<Registration> r) {reg = r;});
+            s.leave(yield).value();
+            CHECK( s.state() == SessionState::closed );
+        });
+
+        ioctx.run();
+        CHECK( reg.has_value() );
+    }
+
+    WHEN( "asynchronous unregister just before leaving" )
+    {
+        ErrorOr<bool> done;
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            Session s(ioctx);
+            s.connect(where, yield).value();
+            s.join(Realm(testRealm), yield).value();
+            auto reg = s.enroll(Procedure("procedure"),
+                                [&](Invocation) -> Outcome {return {};},
+                                yield).value();
+            s.unregister(reg, [&](ErrorOr<bool> ok) {done = ok;});
+            s.leave(yield).value();
+            CHECK( s.state() == SessionState::closed );
+        });
+
+        ioctx.run();
+        REQUIRE( done.has_value() );
+        CHECK( done.value() == true );
+    }
+
     WHEN( "asynchronous call just before leaving" )
     {
         ErrorOr<Result> result;

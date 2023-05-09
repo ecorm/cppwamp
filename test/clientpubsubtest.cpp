@@ -618,7 +618,44 @@ GIVEN( "an IO service and a ConnectionWish" )
         });
     }
 
-    // TODO: Other async pub-sub ops
+    WHEN( "asynchronous subscribe just before leaving" )
+    {
+        ErrorOr<Subscription> sub;
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            Session s(ioctx);
+            s.connect(where, yield).value();
+            s.join(Realm(testRealm), yield).value();
+            s.subscribe(Topic("topic"),
+                        [](Event) {},
+                        [&](ErrorOr<Subscription> s) {sub = s;});
+            s.leave(yield).value();
+            CHECK( s.state() == SessionState::closed );
+        });
+
+        ioctx.run();
+        CHECK( sub.has_value() );
+    }
+
+    WHEN( "asynchronous unsubscribe just before leaving" )
+    {
+        ErrorOr<bool> done;
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            Session s(ioctx);
+            s.connect(where, yield).value();
+            s.join(Realm(testRealm), yield).value();
+            auto sub = s.subscribe(Topic("topic"), [](Event) {}, yield).value();
+            s.unsubscribe(sub, [&](ErrorOr<bool> ok) {done = ok;});
+            s.leave(yield).value();
+            CHECK( s.state() == SessionState::closed );
+        });
+
+        ioctx.run();
+        REQUIRE( done.has_value() );
+        CHECK( done.value() == true );
+    }
+
     WHEN( "asynchronous publish just before leaving" )
     {
         ErrorOr<PublicationId> result;
