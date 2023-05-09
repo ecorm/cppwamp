@@ -225,7 +225,7 @@ public:
 
         auto callee = this->callee_.lock();
         if (!callee)
-            return false;
+            return false; // notifyAbandonedCallee has already sent ERROR
 
         bool calleeHasCallCanceling =
             callee->features().callee().all_of(CalleeFeatures::callCanceling);
@@ -320,6 +320,8 @@ public:
         error.setRequestKindToCall({});
         caller->sendRouterCommand(std::move(error), true);
     }
+
+    RouterSession::WeakPtr caller() const {return caller_;}
 
     DealerJobKey callerKey() const {return callerKey_;}
 
@@ -499,9 +501,17 @@ private:
         {
             auto& job = iter->second->second;
             bool eraseNow = false;
-            job.cancel(CallCancelMode::killNoWait, WampErrc::timeout, eraseNow);
+            auto done = job.cancel(CallCancelMode::killNoWait,
+                                   WampErrc::timeout, eraseNow);
+            auto caller = job.caller().lock();
             if (eraseNow)
                 byCalleeErase(iter);
+            if (caller && !done)
+            {
+                Error e{{}, MessageKind::call, job.callerKey().second,
+                        done.error()};
+                caller->sendRouterCommand(std::move(e), true);
+            }
         }
     }
 

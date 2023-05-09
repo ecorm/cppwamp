@@ -544,14 +544,14 @@ GIVEN( "a caller and a callee" )
 }}
 
 //------------------------------------------------------------------------------
-SCENARIO( "Caller-initiated timeouts", "[WAMP][Advanced]" )
+SCENARIO( "Call timeouts", "[WAMP][Advanced]" )
 {
 GIVEN( "a caller and a callee" )
 {
     IoContext ioctx;
     RpcFixture f(ioctx, withTcp);
 
-    WHEN( "the caller initiates timeouts" )
+    auto runTest = [&](bool callerInitiated)
     {
         spawn(ioctx, [&](YieldContext yield)
         {
@@ -560,8 +560,16 @@ GIVEN( "a caller and a callee" )
             std::map<RequestId, int> valuesByRequestId;
 
             f.join(yield);
-            REQUIRE(f.welcome.features().dealer().all_of(
-                DealerFeatures::callCanceling));
+            if (callerInitiated)
+            {
+                REQUIRE(f.welcome.features().dealer().all_of(
+                    DealerFeatures::callCanceling));
+            }
+            else if (!f.welcome.features().dealer().all_of(
+                        DealerFeatures::callTimeout))
+            {
+                return;
+            }
 
             f.callee.enroll(
                 Procedure("com.myapp.foo"),
@@ -602,21 +610,23 @@ GIVEN( "a caller and a callee" )
 
             for (int i=0; i<2; ++i)
             {
-                f.caller.call(
-                    Rpc("com.myapp.foo")
-                        .withArgs(1)
-                        .withCallerTimeout(std::chrono::milliseconds(100)),
-                    callHandler);
+                auto rpc1 = Rpc("com.myapp.foo").withArgs(1);
+                auto rpc2 = Rpc("com.myapp.foo").withArgs(2);
 
-                f.caller.call(
-                    Rpc("com.myapp.foo")
-                        .withArgs(2)
-                        .withCallerTimeout(std::chrono::milliseconds(50)),
-                    callHandler);
+                if (callerInitiated)
+                {
+                    rpc1.withCallerTimeout(std::chrono::milliseconds(100));
+                    rpc2.withCallerTimeout(std::chrono::milliseconds(50));
+                }
+                else
+                {
+                    rpc1.withDealerTimeout(std::chrono::milliseconds(100));
+                    rpc2.withDealerTimeout(std::chrono::milliseconds(50));
+                }
 
-                f.caller.call(
-                    Rpc("com.myapp.foo").withArgs(3),
-                    callHandler);
+                f.caller.call(rpc1, callHandler);
+                f.caller.call(rpc2, callHandler);
+                f.caller.call(Rpc("com.myapp.foo").withArgs(3), callHandler);
 
                 while (results.size() < 3)
                     suspendCoro(yield);
@@ -637,10 +647,19 @@ GIVEN( "a caller and a callee" )
             f.disconnect();
         });
         ioctx.run();
+    };
+
+    WHEN( "the caller initiates timeouts" )
+    {
+        runTest(true);
+    }
+
+    WHEN( "the dealer initiates timeouts" )
+    {
+        runTest(false);
     }
 }}
 
-// TODO: Dealer-initiated timeouts
 
 //------------------------------------------------------------------------------
 SCENARIO( "WAMP callee-to-caller streaming with invitations",
