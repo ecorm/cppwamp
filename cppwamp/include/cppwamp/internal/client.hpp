@@ -72,11 +72,13 @@ public:
     explicit StreamRecord(CallerChannelImpl::Ptr c, StreamRequest& i,
                           CompletionHandler&& f = {})
         : handler_(std::move(f)),
-          channel_(std::move(c)),
-          weakChannel_(channel_),
+          weakChannel_(c),
           errorPtr_(i.error({})),
           timeout_(i.callerTimeout())
-    {}
+    {
+        if (handler_)
+            channel_ = std::move(c);
+    }
 
     void onReply(Message&& msg, AnyIoExecutor& exec)
     {

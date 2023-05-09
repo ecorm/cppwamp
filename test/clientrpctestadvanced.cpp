@@ -982,7 +982,8 @@ GIVEN( "a caller and a callee" )
                 boost::system::error_code ec;
                 timer.expires_from_now(std::chrono::seconds(3));
                 timer.async_wait(yield[ec]);
-                CHECK( interruptReceived );
+                if (!callerThrowArmed)
+                    CHECK( interruptReceived );
                 output.push_back(input.back());
             });
     };
@@ -1061,7 +1062,7 @@ GIVEN( "a caller and a callee" )
 
     WHEN( "Cancelling by throwing within the chunk handler" )
     {
-        dropChannelArmed = true;
+        callerThrowArmed = true;
         runTest();
     }
 
@@ -1301,8 +1302,9 @@ GIVEN( "a caller and a callee" )
     bool callerFinalChunkReceived = false;
     bool calleeLeaveArmed = false;
     bool destroyEarlyArmed = false;
+    bool calleeThrowArmed = false;
 
-    auto onCalleeChunkReceived =
+    auto onChunkReceivedByCallee =
         [&](CalleeChannel channel, ErrorOr<CalleeInputChunk> chunk)
         {
             if (!chunk.has_value())
@@ -1324,6 +1326,10 @@ GIVEN( "a caller and a callee" )
                 {
                     calleeChannel.detach();
                 }
+                else if (calleeThrowArmed)
+                {
+                    throw error::BadType("bad");
+                }
                 else
                 {
                     CHECK( chunk->isFinal() );
@@ -1342,18 +1348,23 @@ GIVEN( "a caller and a callee" )
         CHECK( channel.invitation().args().front().as<String>() ==
               "invitation" );
 
-        bool done = channel.accept(onCalleeChunkReceived).value();
+        bool done = channel.accept(onChunkReceivedByCallee).value();
         CHECK(done);
         calleeChannel = std::move(channel);
     };
 
-    auto onCallerChunkReceived =
+    auto onChunkReceivedByCaller =
         [&](CallerChannel channel, ErrorOr<CallerInputChunk> chunk)
         {
             if (calleeLeaveArmed || destroyEarlyArmed)
             {
                 REQUIRE_FALSE(chunk.has_value());
                 CHECK(chunk.error() == WampErrc::cancelled);
+            }
+            else if (calleeThrowArmed)
+            {
+                REQUIRE_FALSE(chunk.has_value());
+                CHECK(chunk.error() == WampErrc::invalidArgument);
             }
             else
             {
@@ -1381,11 +1392,10 @@ GIVEN( "a caller and a callee" )
 
             for (unsigned i=0; i<2; ++i)
             {
-                Error error;
                 StreamRequest req{"com.myapp.foo", StreamMode::callerToCallee};
-                req.withArgs("invitation").captureError(error);
-                auto channelOrError = f.caller.openStream(req, onCallerChunkReceived,
-                                                          yield);
+                req.withArgs("invitation");
+                auto channelOrError =
+                    f.caller.openStream(req, onChunkReceivedByCaller, yield);
                 REQUIRE(channelOrError.has_value());
                 auto channel = channelOrError.value();
                 CHECK(channel.mode() == StreamMode::callerToCallee);
@@ -1442,6 +1452,269 @@ GIVEN( "a caller and a callee" )
     WHEN( "callee destroys channel before receiving final chunk" )
     {
         destroyEarlyArmed = true;
+        runTest();
+    }
+
+    WHEN( "callee throws before receiving final chunk" )
+    {
+        calleeThrowArmed = true;
+        runTest();
+    }
+}}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP caller-to-callee streaming with no negotiation",
+          "[WAMP][Advanced]" )
+{
+GIVEN( "a caller and a callee" )
+{
+    IoContext ioctx;
+    RpcFixture f(ioctx, withTcp);
+
+    std::vector<int> input{9, 3, 7, 5};
+    std::vector<int> output;
+    CalleeChannel calleeChannel;
+    bool callerFinalChunkReceived = false;
+
+    auto onChunkReceivedByCallee =
+        [&](CalleeChannel channel, ErrorOr<CalleeInputChunk> chunk)
+        {
+            REQUIRE(chunk.has_value());
+            output.push_back(chunk->args().at(0).to<int>());
+            if (output.size() == input.size())
+            {
+                CHECK( chunk->isFinal() );
+                auto sent = calleeChannel.send(
+                    CalleeOutputChunk(true).withArgs(output.size()));
+                CHECK(sent);
+                CHECK(channel.state() == ChannelState::closed);
+            }
+        };
+
+    auto onStream = [&](CalleeChannel channel)
+    {
+        CHECK( channel.mode() == StreamMode::callerToCallee );
+        CHECK_FALSE( channel.invitationExpected() );
+        CHECK( channel.invitation().args().empty() );
+
+        bool done = channel.accept(onChunkReceivedByCallee).value();
+        CHECK(done);
+        calleeChannel = std::move(channel);
+    };
+
+    auto onChunkReceivedByCaller =
+        [&](CallerChannel channel, ErrorOr<CallerInputChunk> chunk)
+        {
+            REQUIRE(chunk.has_value());
+            CHECK(chunk->isFinal());
+            CHECK(chunk->args().at(0).to<unsigned>() == input.size());
+            CHECK(output.size() == input.size());
+            callerFinalChunkReceived = true;
+        };
+
+    WHEN( "streaming call chunks" )
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            f.join(yield);
+            if (!f.welcome.features().dealer().all_of(
+                DealerFeatures::progressiveCallInvocations))
+            {
+                return;
+            }
+
+            f.callee.enroll(
+                Stream("com.myapp.foo").withInvitationExpected(false),
+                onStream, yield).value();
+
+            for (unsigned i=0; i<2; ++i)
+            {
+                StreamRequest req{"com.myapp.foo", StreamMode::callerToCallee};
+                req.withArgs(input.front());
+                auto channelOrError =
+                    f.caller.openStream(req, onChunkReceivedByCaller, yield);
+                REQUIRE(channelOrError.has_value());
+                auto channel = channelOrError.value();
+                CHECK(channel.mode() == StreamMode::callerToCallee);
+                CHECK_FALSE(channel.hasRsvp());
+                CHECK(channel.rsvp().args().empty());
+
+                boost::asio::steady_timer timer(ioctx);
+                for (unsigned i=1; i<input.size(); ++i)
+                {
+                    // Simulate a streaming app that throttles
+                    // the intermediary results at a fixed rate.
+                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.async_wait(yield);
+
+                    bool isFinal = (i == input.size() - 1);
+                    channel.send(CallerOutputChunk(isFinal)
+                                  .withArgs(input.at(i))).value();
+                }
+
+                while (!callerFinalChunkReceived)
+                    suspendCoro(yield);
+                CHECK( input == output );
+                output.clear();
+                callerFinalChunkReceived = false;
+            }
+
+            f.disconnect();
+        });
+        ioctx.run();
+    };
+}}
+
+
+//------------------------------------------------------------------------------
+SCENARIO( "WAMP caller-to-callee streaming cancellation",
+          "[WAMP][Advanced]" )
+{
+GIVEN( "a caller and a callee" )
+{
+    IoContext ioctx;
+    RpcFixture f(ioctx, withTcp);
+    boost::asio::steady_timer timer(ioctx);
+
+    std::vector<int> input{9, 3, 7, 5};
+    std::vector<int> output;
+    CalleeChannel calleeChannel;
+    bool interruptReceived = false;
+    bool callerErrorReceived = false;
+    bool cancelArmed = false;
+    bool dropChannelArmed = false;
+    bool calleeThrowArmed = false;
+
+    auto onChunkReceivedByCallee =
+        [&](CalleeChannel channel, ErrorOr<CalleeInputChunk> chunk)
+    {
+        if (chunk.has_value())
+        {
+            output.push_back(chunk->args().at(0).to<int>());
+        }
+        else
+        {
+            CHECK(chunk.error() == WampErrc::cancelled);
+            output.push_back(input.back());
+            calleeChannel.detach();
+            return;
+        }
+    };
+
+    auto onInterrupt = [&](CalleeChannel channel, Interruption intr)
+    {
+        interruptReceived = true;
+        if (dropChannelArmed)
+            CHECK(intr.cancelMode() == CallCancelMode::killNoWait);
+        else
+            CHECK(intr.cancelMode() == CallCancelMode::kill);
+        calleeChannel.detach();
+        output.push_back(input.back());
+        if (calleeThrowArmed)
+            throw Error{WampErrc::invalidArgument};
+        channel.fail(WampErrc::cancelled);
+    };
+
+    auto onStream = [&](CalleeChannel channel)
+    {
+        CHECK( channel.mode() == StreamMode::callerToCallee );
+        CHECK( channel.invitationExpected() );
+        CHECK( channel.invitation().args().front().as<String>() ==
+              "invitation" );
+
+        bool done = channel.accept(onChunkReceivedByCallee, onInterrupt).value();
+        CHECK(done);
+        calleeChannel = std::move(channel);
+    };
+
+    auto onChunkReceivedByCaller =
+        [&](CallerChannel channel, ErrorOr<CallerInputChunk> chunk)
+        {
+            REQUIRE_FALSE(chunk.has_value());
+            if (calleeThrowArmed)
+                CHECK(chunk.error() == WampErrc::invalidArgument);
+            else
+                CHECK(chunk.error() == WampErrc::cancelled);
+            callerErrorReceived = true;
+        };
+
+    auto runTest = [&]()
+    {
+        spawn(ioctx, [&](YieldContext yield)
+        {
+            f.join(yield);
+            if (!f.welcome.features().dealer().all_of(
+                DealerFeatures::progressiveCallInvocations))
+            {
+                return;
+            }
+
+            f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
+                            onStream, yield).value();
+
+            for (unsigned i=0; i<2; ++i)
+            {
+                StreamRequest req{"com.myapp.foo", StreamMode::callerToCallee};
+                req.withArgs("invitation");
+                auto channelOrError =
+                    f.caller.openStream(req, onChunkReceivedByCaller, yield);
+                REQUIRE(channelOrError.has_value());
+                auto channel = std::move(channelOrError).value();
+                CHECK(channel.mode() == StreamMode::callerToCallee);
+                CHECK_FALSE(channel.hasRsvp());
+                CHECK(channel.rsvp().args().empty());
+
+                boost::asio::steady_timer timer(ioctx);
+                for (unsigned i=0; i<input.size()-1; ++i)
+                {
+                    // Simulate a streaming app that throttles
+                    // the intermediary results at a fixed rate.
+                    timer.expires_from_now(std::chrono::milliseconds(25));
+                    timer.async_wait(yield);
+
+                    bool isFinal = (i == input.size() - 1);
+                    channel.send(CallerOutputChunk(isFinal)
+                                  .withArgs(input.at(i))).value();
+                }
+
+                if (cancelArmed)
+                    channel.cancel(CallCancelMode::kill);
+                else if (dropChannelArmed)
+                    channel.detach();
+
+                while ((output.size() != input.size()) ||
+                       (!dropChannelArmed && !callerErrorReceived))
+                {
+                    suspendCoro(yield);
+                }
+                CHECK( input == output );
+                CHECK( interruptReceived );
+                output.clear();
+                interruptReceived = false;
+                callerErrorReceived = false;
+            }
+            f.disconnect();
+        });
+        ioctx.run();
+    };
+
+    WHEN( "Cancelling via explicit cancel" )
+    {
+        cancelArmed = true;
+        runTest();
+    }
+
+    WHEN( "Cancelling by dropping the channel" )
+    {
+        dropChannelArmed = true;
+        runTest();
+    }
+
+    WHEN( "Throwing within the interrupt handler" )
+    {
+        cancelArmed = true;
+        calleeThrowArmed = true;
         runTest();
     }
 }}
