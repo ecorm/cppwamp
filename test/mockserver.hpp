@@ -39,7 +39,12 @@ public:
         alreadyStarted_ = true;
         std::weak_ptr<MockServerSession> self = shared_from_this();
         transport_->start(
-            [this, self](ErrorOr<MessageBuffer> b) {onMessage(std::move(b));},
+            [self](ErrorOr<MessageBuffer> b)
+            {
+                auto me = self.lock();
+                if (me)
+                    me->onMessage(std::move(b));
+            },
             [](std::error_code) {});
     }
 
@@ -99,20 +104,7 @@ public:
         responses_ = std::move(cannedResponses);
     }
 
-    void start()
-    {
-        std::weak_ptr<MockServer> self{shared_from_this()};
-        listener_.establish(
-            [this, self](ErrorOr<Transporting::Ptr> transport)
-            {
-                auto me = self.lock();
-                if (!me)
-                    return;
-
-                if (transport.has_value())
-                    onEstablished(*transport);
-            });
-    }
+    void start() {listen();}
 
     void stop()
     {
@@ -127,6 +119,12 @@ public:
         return session_ ? session_->messages() : empty;
     }
 
+    MessageKind lastMessageKind() const
+    {
+        const auto& m = messages();
+        return m.empty() ? MessageKind::none : m.back().kind();
+    }
+
     template <typename C>
     static C toCommand(Message&& m) {return C{{}, std::move(m)};}
 
@@ -136,12 +134,26 @@ private:
         : listener_(boost::asio::make_strand(exec), port, {Json::id()})
     {}
 
+    void listen()
+    {
+        std::weak_ptr<MockServer> self{shared_from_this()};
+        listener_.establish(
+            [self](ErrorOr<Transporting::Ptr> transport)
+            {
+                auto me = self.lock();
+                if (me && transport.has_value())
+                    me->onEstablished(*transport);
+            });
+    }
+
     void onEstablished(Transporting::Ptr transport)
     {
+        if (session_)
+            session_->close();
         session_ = MockServerSession::create(std::move(transport),
                                              std::move(responses_));
         session_->open();
-        // Only open one session; don't listen again.
+        listen();
     }
 
     StringList responses_;
