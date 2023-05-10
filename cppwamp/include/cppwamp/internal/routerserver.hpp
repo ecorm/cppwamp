@@ -129,9 +129,6 @@ public:
     using State = SessionState;
     using Index = uint64_t;
 
-    template <typename TValue>
-    using CompletionHandler = AnyCompletionHandler<void(ErrorOr<TValue>)>;
-
     static Ptr create(const IoStrand& i, Transporting::Ptr t, AnyBufferCodec c,
                       ServerContext s, ServerConfig::Ptr sc, Index sessionIndex)
     {
@@ -484,7 +481,7 @@ public:
     using Ptr = std::shared_ptr<RouterServer>;
     using Executor = AnyIoExecutor;
 
-    static Ptr create(AnyIoExecutor e, ServerConfig c, RouterContext r)
+    static Ptr create(Executor e, ServerConfig c, RouterContext r)
     {
         return Ptr(new RouterServer(std::move(e), std::move(c), std::move(r)));
     }

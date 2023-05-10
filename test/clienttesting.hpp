@@ -4,7 +4,6 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-// TODO: Mock router for testing protocol violations
 #include <algorithm>
 #include <atomic>
 #include <cctype>

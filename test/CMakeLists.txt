@@ -6,6 +6,7 @@
 
 set(HEADERS
     clienttesting.hpp
+    mockserver.hpp
     testrouter.hpp
     valuemodels.hpp
 )
@@ -15,6 +16,7 @@ set(SOURCES
     base64test.cpp
     clientauthenticationtest.cpp
     clientmanagesessiontest.cpp
+    clientprotocolerrors.cpp
     clientpubsubtest.cpp
     clientpubsubtestadvanced.cpp
     clientrpctest.cpp
