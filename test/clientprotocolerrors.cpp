@@ -42,15 +42,19 @@ C toCommand(wamp::internal::Message&& m)
 void checkProtocolViolation(const Session& session, MockServer& server,
                             const std::string& hintKeyword, YieldContext yield)
 {
-    CHECK(session.state() == SessionState::failed);
     while (server.lastMessageKind() != MessageKind::abort)
         suspendCoro(yield);
+
+    CHECK(session.state() == SessionState::failed);
+
     const auto& messages = server.messages();
     REQUIRE(!messages.empty());
     auto last = messages.back();
     REQUIRE(last.kind() == MessageKind::abort);
+
     auto reason = toCommand<Reason>(std::move(last));
     CHECK(reason.errorCode() == WampErrc::protocolViolation);
+
     REQUIRE(reason.hint().has_value());
     bool hintFound =
         reason.hint().value().find(hintKeyword) != std::string::npos;
@@ -61,7 +65,7 @@ void checkProtocolViolation(const Session& session, MockServer& server,
 void testMalformed(IoContext& ioctx, Session& session, MockServer::Ptr server,
                    std::string badWelcome, const std::string& hintKeyword)
 {
-    server->load({std::move(badWelcome)});
+    server->load({{std::move(badWelcome)}});
     spawn([&ioctx, &session, server, hintKeyword](YieldContext yield)
     {
         session.connect(withTcp, yield).value();
@@ -83,13 +87,13 @@ void testMalformed(IoContext& ioctx, Session& session, MockServer::Ptr server,
 //------------------------------------------------------------------------------
 TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Basic]" )
 {
-    IoContext io;
-    Session session{io};
-    auto server = internal::MockServer::create(io, testPort);
+    IoContext ioctx;
+    Session session{ioctx};
+    auto server = internal::MockServer::create(ioctx, testPort);
     server->start();
 
     {
-        INFO("Protocol violations from bad messages");
+        INFO("Bad messages");
 
         struct TestVector
         {
@@ -100,21 +104,113 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Basic]" )
 
         std::vector<TestVector> testVectors =
         {
-{"",                        "deserializing",        "Empty message"},
-{"[2b,1,{}]",               "deserializing",        "Invalid JSON"},
-{"\"2b,1,{}\"",             "not an array",         "Non-array message"},
-{"[0,1,{}]",                "invalid type number",  "Bad message type number"},
-{"[\"WELCOME\",1,{}]",      "field schema",         "Non-integral message type field"},
-{"[2]",                     "field schema",         "Missing message fields"},
-{"[1,\"cppwamp.test\",{}]", "Role",                 "Bad message type for role"},
-{"[36,1,1,{}]",             "session state",        "Bad message type for state"}
+{"",                        "deserializing",       "Empty message"},
+{"[2b,1,{}]",               "deserializing",       "Invalid JSON"},
+{"\"2b,1,{}\"",             "not an array",        "Non-array message"},
+{"[0,1,{}]",                "invalid type number", "Bad message type number"},
+{"[\"WELCOME\",1,{}]",      "field schema",        "Non-integral message type field"},
+{"[2]",                     "field schema",        "Missing message fields"},
+{"[1,\"cppwamp.test\",{}]", "Role",                "Bad message type for role"},
+{"[36,1,1,{}]",             "session state",       "Bad message type for state"}
         };
 
         for (const auto& vec: testVectors)
         {
             INFO(vec.info);
-            testMalformed(io, session, server, vec.badMessage, vec.hintKeyword);
+            testMalformed(ioctx, session, server, vec.badMessage, vec.hintKeyword);
         }
+    }
+
+    {
+        INFO("Response with no matching request");
+
+        server->load(
+        {{
+            {"[2,1,{}]"}, // WELCOME
+            {"[65,1,1]"}  // REGISTERED
+        }});
+
+        spawn([&](YieldContext yield)
+        {
+            session.connect(withTcp, yield).value();
+            session.join(testRealm, yield).value();
+
+            checkProtocolViolation(session, *server, "matching request", yield);
+            session.disconnect();
+            ioctx.stop();
+        });
+
+        ioctx.run();
+        ioctx.restart();
+    }
+
+    {
+        INFO("Reinvoking non-completed RPC");
+
+        server->load(
+        {
+            {{"[2,1,{}]"}}, // WELCOME
+            {
+                {"[65,1,1]"}, // REGISTERED
+                {"[68,1,1,{},[1]]"}, // INVOCATION
+                {"[68,1,1,{},[1]]"}
+            }
+        });
+
+        CalleeChannel channel;
+        auto onStream = [&channel](CalleeChannel ch)
+        {
+            channel = std::move(ch);
+        };
+
+        spawn([&](YieldContext yield)
+        {
+            session.connect(withTcp, yield).value();
+            session.join(testRealm, yield).value();
+            session.enroll(Stream{"stream"}, onStream, yield).value();
+
+            checkProtocolViolation(session, *server, "reinvoke", yield);
+            session.disconnect();
+            ioctx.stop();
+        });
+
+        ioctx.run();
+        ioctx.restart();
+    }
+
+    {
+        INFO("Reinvoking a closed stream");
+
+        server->load(
+        {
+            {{"[2,1,{}]"}}, // WELCOME
+            {
+                {"[65,1,1]"}, // REGISTERED
+                {"[68,1,1,{\"progress\":true},[1]]"}, // INVOCATION
+                {"[68,1,1,{\"progress\":false},[1]]"},
+                {"[68,1,1,{\"progress\":true},[1]]"},
+            }
+        });
+
+        CalleeChannel channel;
+        auto onStream = [&channel](CalleeChannel ch)
+        {
+            channel = std::move(ch);
+        };
+
+        spawn([&](YieldContext yield)
+        {
+            session.connect(withTcp, yield).value();
+            session.join(testRealm, yield).value();
+            session.enroll(Stream{"stream"}, onStream, yield).value();
+
+            checkProtocolViolation(session, *server, "reinvoke", yield);
+            session.disconnect();
+            ioctx.stop();
+        });
+
+        ioctx.run();
+        ioctx.restart();
     }
 
     server->stop();

@@ -9,6 +9,7 @@
 
 #include <cassert>
 #include <deque>
+#include <vector>
 #include <cppwamp/json.hpp>
 #include <cppwamp/tcp.hpp>
 #include <cppwamp/internal/message.hpp>
@@ -24,10 +25,11 @@ class MockServerSession : public std::enable_shared_from_this<MockServerSession>
 {
 public:
     using Ptr = std::shared_ptr<MockServerSession>;
-    using StringList = std::deque<std::string>;
+    using StringList = std::vector<std::string>;
+    using Responses = std::deque<StringList>;
     using MessageList = std::vector<Message>;
 
-    static Ptr create(Transporting::Ptr t, StringList cannedResponses)
+    static Ptr create(Transporting::Ptr t, Responses cannedResponses)
     {
         return Ptr(new MockServerSession(std::move(t),
                                          std::move(cannedResponses)));
@@ -53,7 +55,7 @@ public:
     const MessageList& messages() const {return messages_;}
 
 private:
-    MockServerSession(Transporting::Ptr&& t, StringList cannedResponses)
+    MockServerSession(Transporting::Ptr&& t, Responses cannedResponses)
         : responses_(std::move(cannedResponses)),
           transport_(std::move(t))
     {}
@@ -71,13 +73,16 @@ private:
         if (responses_.empty())
             return;
         const auto& next = responses_.front();
-        auto ptr = reinterpret_cast<const uint8_t*>(next.data());
-        MessageBuffer response(ptr, ptr + next.size());
+        for (const auto& json: next)
+        {
+            auto ptr = reinterpret_cast<const uint8_t*>(json.data());
+            MessageBuffer buffer(ptr, ptr + json.size());
+            transport_->send(std::move(buffer));
+        }
         responses_.pop_front();
-        transport_->send(std::move(response));
     }
 
-    StringList responses_;
+    Responses responses_;
     std::vector<Message> messages_;
     JsonBufferDecoder decoder_;
     Transporting::Ptr transport_;
@@ -90,7 +95,7 @@ class MockServer : public std::enable_shared_from_this<MockServer>
 {
 public:
     using Ptr = std::shared_ptr<MockServer>;
-    using StringList = std::deque<std::string>;
+    using Responses = MockServerSession::Responses;
     using MessageList = std::vector<Message>;
 
     template <typename E>
@@ -99,7 +104,7 @@ public:
         return Ptr(new MockServer(std::forward<E>(exec), port));
     }
 
-    void load(StringList cannedResponses)
+    void load(Responses cannedResponses)
     {
         responses_ = std::move(cannedResponses);
     }
@@ -156,7 +161,7 @@ private:
         listen();
     }
 
-    StringList responses_;
+    Responses responses_;
     AnyIoExecutor executor_;
     MockServerSession::Ptr session_;
     Listener<Tcp> listener_;
