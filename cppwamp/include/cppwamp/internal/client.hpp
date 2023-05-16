@@ -2129,11 +2129,15 @@ private:
         auto reqId = inv.requestId();
         auto regId = inv.registrationId();
 
-        if (reqId > (inboundRequestIdWatermark_ + 1))
+        auto maxRequestId = inboundRequestIdWatermark_ + 1u;
+        if (reqId > maxRequestId)
         {
             return failProtocol("Router used non-sequential request ID "
                                 "in INVOCATION message");
         }
+
+        if (reqId == maxRequestId)
+            ++inboundRequestIdWatermark_;
 
         switch (registry_.onInvocation(std::move(inv)))
         {
