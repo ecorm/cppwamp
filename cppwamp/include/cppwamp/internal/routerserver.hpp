@@ -55,7 +55,7 @@ public:
 
         switch (C::messageKind({}))
         {
-        case K::error: case K::result: case K::yield:
+        case K::error: case K::result:
             return r <= outboundWatermark_;
 
         case K::publish: case K::subscribe: case K::unsubscribe:

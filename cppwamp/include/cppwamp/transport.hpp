@@ -11,7 +11,6 @@
 #include <memory>
 #include <system_error>
 #include <vector>
-#include "asiodefs.hpp"
 #include "erroror.hpp"
 #include "messagebuffer.hpp"
 

@@ -793,7 +793,6 @@ public:
 
     WampErrc onInvocation(Invocation&& inv)
     {
-        auto requestId = inv.requestId();
         auto regId = inv.registrationId();
 
         {
@@ -812,8 +811,6 @@ public:
             }
         }
 
-        peer_.send(Error{{}, MessageKind::invocation, requestId,
-                         WampErrc::noSuchProcedure});
         return WampErrc::noSuchProcedure;
     }
 
@@ -896,9 +893,13 @@ private:
         auto emplaced = invocations_.emplace(requestId,
                                              InvocationRecord{registrationId});
 
+        // Detect attempt to reinvoke same pending call
+        if (!emplaced.second)
+            return WampErrc::protocolViolation;
+
         // Progressive calls not allowed on procedures not registered
         // as streams.
-        if (!emplaced.second)
+        if (inv.isProgress({}) || inv.resultsAreProgressive({}))
             return WampErrc::optionNotAllowed;
 
         auto& invocationRec = emplaced.first->second;
@@ -2125,20 +2126,54 @@ private:
 
         Invocation inv{{}, std::move(msg)};
         inv.setCallee({}, shared_from_this(), userExecutor_);
+        auto reqId = inv.requestId();
         auto regId = inv.registrationId();
 
-        auto errc = registry_.onInvocation(std::move(inv));
-        if (errc == WampErrc::noSuchProcedure)
+        if (reqId > (inboundRequestIdWatermark_ + 1))
         {
-            auto ec = make_error_code(errc);
-            report({IncidentKind::trouble, ec,
-                    "With registration ID " + std::to_string(regId)});
+            return failProtocol("Router used non-sequential request ID "
+                                "in INVOCATION message");
         }
-        if (errc == WampErrc::protocolViolation)
+
+        switch (registry_.onInvocation(std::move(inv)))
         {
-            failProtocol("Router attempted to reinvoke an RPC that is closed "
-                         "to further progress");
+        case WampErrc::success:
+            break;
+
+        case WampErrc::noSuchProcedure:
+            return onInvocationProcedureNotFound(reqId, regId);
+
+        case WampErrc::optionNotAllowed:
+            return onInvocationProgressNotAllowed(reqId, regId);
+
+        case WampErrc::protocolViolation:
+            return failProtocol("Router attempted to reinvoke an RPC that is "
+                                "closed to further progress");
+
+        default:
+            assert(false && "Unexpected WampErrc enumerator");
+            break;
         }
+    }
+
+    void onInvocationProcedureNotFound(RequestId reqId, RegistrationId regId)
+    {
+        auto ec = make_error_code(WampErrc::noSuchProcedure);
+        report({IncidentKind::trouble, ec,
+                "With registration ID " + std::to_string(regId)});
+        peer_->send(Error{{}, MessageKind::invocation, reqId, ec});
+    }
+
+    void onInvocationProgressNotAllowed(RequestId reqId, RegistrationId regId)
+    {
+        std::string why{"Router requested progress on an RPC endpoint not "
+                        "registered as a stream"};
+        auto ec = make_error_code(WampErrc::optionNotAllowed);
+        report({IncidentKind::trouble, ec,
+                why + ", with registration ID " + std::to_string(regId)});
+        Error error({}, MessageKind::invocation, reqId, ec);
+        error.withArgs(std::move(why));
+        peer_->send(std::move(error));
     }
 
     void onInterrupt(Message& msg)
@@ -2307,6 +2342,7 @@ private:
         abandonPending(MiscErrc::abandoned);
         readership_.clear();
         registry_.clear();
+        inboundRequestIdWatermark_ = 0;
     }
 
     void sendUnsubscribe(SubscriptionId subId)
@@ -2451,6 +2487,7 @@ private:
     IncidentSlot incidentSlot_;
     ChallengeSlot challengeSlot_;
     Connecting::Ptr currentConnector_;
+    RequestId inboundRequestIdWatermark_ = 0;
     bool isTerminating_ = false;
 };
 

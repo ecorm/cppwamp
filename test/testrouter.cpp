@@ -52,9 +52,11 @@ protected:
 //------------------------------------------------------------------------------
 struct Router::Impl
 {
+    using AccessLogHandler = std::function<void (wamp::AccessLogEntry)>;
+
     Impl()
         : logger_(ioctx_, wamp::utils::ColorConsoleLogger{true}),
-          router_(ioctx_, routerConfig(logger_)),
+          router_(ioctx_, routerConfig(*this)),
           thread_([this](){run();})
     {}
 
@@ -64,14 +66,30 @@ struct Router::Impl
         thread_.join();
     }
 
+    AccessLogGuard attachToAccessLog(AccessLogHandler handler)
+    {
+        accessLogHandler_ = std::move(handler);
+        return AccessLogGuard{};
+    }
+
+    void detachFromAccessLog()
+    {
+        accessLogHandler_ = nullptr;
+    }
+
 private:
     using Logger = wamp::utils::LogSequencer;
 
-    static wamp::RouterConfig routerConfig(const Logger& logger)
+    static wamp::RouterConfig routerConfig(Impl& self)
     {
         return wamp::RouterConfig()
-            .withLogHandler(logger)
-            .withLogLevel(wamp::LogLevel::info);
+            .withLogHandler(self.logger_)
+            .withLogLevel(wamp::LogLevel::info)
+            .withAccessLogHandler(
+                [&self](wamp::AccessLogEntry a)
+                {
+                    self.onAccessLogEntry(std::move(a));
+                });
     }
 
     static wamp::ServerConfig tcpConfig()
@@ -116,11 +134,25 @@ private:
         }
     }
 
+    void onAccessLogEntry(wamp::AccessLogEntry a)
+    {
+        if (accessLogHandler_)
+            accessLogHandler_(std::move(a));
+    }
+
     wamp::IoContext ioctx_;
     Logger logger_;
     wamp::Router router_;
     std::thread thread_;
+    AccessLogHandler accessLogHandler_;
 };
+
+//------------------------------------------------------------------------------
+Router& Router::instance()
+{
+    static Router theRouter;
+    return theRouter;
+}
 
 //------------------------------------------------------------------------------
 void Router::start()
@@ -138,5 +170,17 @@ void Router::stop()
     impl_.reset();
     std::cout << "Router stopped" << std::endl;
 }
+
+//------------------------------------------------------------------------------
+Router::AccessLogGuard Router::attachToAccessLog(AccessLogHandler handler)
+{
+    return impl_->attachToAccessLog(std::move(handler));
+}
+
+//------------------------------------------------------------------------------
+void Router::detachFromAccessLog() {impl_->detachFromAccessLog();}
+
+//------------------------------------------------------------------------------
+Router::Router() {}
 
 } // namespace test

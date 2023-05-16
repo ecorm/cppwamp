@@ -193,13 +193,12 @@ public:
         return inv;
     }
 
-    ErrorOr<Invocation> makeProgressiveInvocation(Rpc&& rpc)
+    Invocation makeProgressiveInvocation(Rpc&& rpc)
     {
         // TODO: Repeat caller ID information?
         // https://github.com/wamp-proto/wamp-proto/issues/479
 
-        if (!isProgressiveCall_)
-            return makeUnexpectedError(WampErrc::protocolViolation);
+        assert(isProgressiveCall_);
         isProgressiveCall_ = rpc.isProgress({});
         Invocation inv{{}, std::move(rpc), registrationId_};
         inv.setRequestId({}, calleeKey_.second);
@@ -588,10 +587,15 @@ public:
         if (found == jobs_.byCallerEnd())
             return makeUnexpectedError(WampErrc::noSuchProcedure);
         auto& job = found->second;
+        if (!job.isProgressiveCall())
+        {
+            auto unex = makeUnexpectedError(WampErrc::protocolViolation);
+            caller->abort(Reason{unex.value()}.withHint(
+                "Cannot reinvoke an RPC that is closed to further progress"));
+            return unex;
+        }
         auto inv = job.makeProgressiveInvocation(std::move(rpc));
-        if (!inv)
-            return UnexpectedError{inv.error()};
-        callee->sendRouterCommand(std::move(*inv), std::move(uri));
+        callee->sendRouterCommand(std::move(inv), std::move(uri));
         return true;
     }
 

@@ -25,8 +25,8 @@ class MockServerSession : public std::enable_shared_from_this<MockServerSession>
 {
 public:
     using Ptr = std::shared_ptr<MockServerSession>;
-    using StringList = std::vector<std::string>;
-    using Responses = std::deque<StringList>;
+    using ResponseBatch = std::vector<std::string>;
+    using Responses = std::deque<ResponseBatch>;
     using MessageList = std::vector<Message>;
 
     static Ptr create(Transporting::Ptr t, Responses cannedResponses)
@@ -72,8 +72,8 @@ private:
 
         if (responses_.empty())
             return;
-        const auto& next = responses_.front();
-        for (const auto& json: next)
+        const auto& batch = responses_.front();
+        for (const auto& json: batch)
         {
             auto ptr = reinterpret_cast<const uint8_t*>(json.data());
             MessageBuffer buffer(ptr, ptr + json.size());
@@ -83,7 +83,7 @@ private:
     }
 
     Responses responses_;
-    std::vector<Message> messages_;
+    MessageList messages_;
     JsonBufferDecoder decoder_;
     Transporting::Ptr transport_;
     bool alreadyStarted_ = false;

@@ -8,6 +8,7 @@
 #define CPPWAMP_TEST_TESTROUTER_HPP
 
 #include <memory>
+#include <cppwamp/accesslogging.hpp>
 
 namespace test
 {
@@ -16,10 +17,27 @@ namespace test
 class Router
 {
 public:
+    using AccessLogHandler = std::function<void (wamp::AccessLogEntry)>;
+
+    struct AccessLogGuard
+    {
+        AccessLogGuard() :
+            guard_(nullptr, [](int*){Router::instance().detachFromAccessLog();})
+        {}
+
+    private:
+        std::shared_ptr<int> guard_;
+    };
+
+    static Router& instance();
     void start();
     void stop();
+    AccessLogGuard attachToAccessLog(AccessLogHandler handler);
+    void detachFromAccessLog();
 
 private:
+    Router();
+
     struct Impl;
     std::shared_ptr<Impl> impl_;
 };

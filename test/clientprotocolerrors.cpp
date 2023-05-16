@@ -62,6 +62,30 @@ void checkProtocolViolation(const Session& session, MockServer& server,
 }
 
 //------------------------------------------------------------------------------
+void checkInvocationError(const Session& session, MockServer& server,
+                          const std::string& hintKeyword, YieldContext yield)
+{
+    while (server.lastMessageKind() != MessageKind::error)
+        suspendCoro(yield);
+
+    CHECK(session.state() == SessionState::established);
+
+    const auto& messages = server.messages();
+    REQUIRE(!messages.empty());
+    auto last = messages.back();
+    REQUIRE(last.kind() == MessageKind::error);
+
+    auto error = toCommand<Error>(std::move(last));
+    CHECK(error.errorCode() == WampErrc::optionNotAllowed);
+
+    REQUIRE(!error.args().empty());
+    REQUIRE(error.args().front().is<String>());
+    const auto& hint = error.args().front().as<String>();
+    bool hintFound = hint.find(hintKeyword) != std::string::npos;
+    CHECK(hintFound);
+}
+
+//------------------------------------------------------------------------------
 void testMalformed(IoContext& ioctx, Session& session, MockServer::Ptr server,
                    std::string badWelcome, const std::string& hintKeyword)
 {
@@ -85,7 +109,7 @@ void testMalformed(IoContext& ioctx, Session& session, MockServer::Ptr server,
 
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Basic]" )
+TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
 {
     IoContext ioctx;
     Session session{ioctx};
@@ -102,22 +126,23 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Basic]" )
             std::string info;
         };
 
-        std::vector<TestVector> testVectors =
+        const std::vector<TestVector> testVectors =
         {
-{"",                        "deserializing",       "Empty message"},
-{"[2b,1,{}]",               "deserializing",       "Invalid JSON"},
-{"\"2b,1,{}\"",             "not an array",        "Non-array message"},
-{"[0,1,{}]",                "invalid type number", "Bad message type number"},
-{"[\"WELCOME\",1,{}]",      "field schema",        "Non-integral message type field"},
-{"[2]",                     "field schema",        "Missing message fields"},
-{"[1,\"cppwamp.test\",{}]", "Role",                "Bad message type for role"},
-{"[36,1,1,{}]",             "session state",       "Bad message type for state"}
+            {"",                        "deserializing", "Empty message"},
+            {"[2b,1,{}]",               "deserializing", "Invalid JSON"},
+            {"\"2,1,{}\"",              "not an array",  "Non-array message"},
+            {"[0,1,{}]",                "type number",   "Bad message type number"},
+            {"[\"WELCOME\",1,{}]",      "field schema",  "Non-integral message type field"},
+            {"[2]",                     "field schema",  "Missing message fields"},
+            {"[1,\"cppwamp.test\",{}]", "Role",          "Bad message type for role"},
+            {"[36,1,1,{}]",             "session state", "Bad message type for state"}
         };
 
         for (const auto& vec: testVectors)
         {
             INFO(vec.info);
-            testMalformed(ioctx, session, server, vec.badMessage, vec.hintKeyword);
+            testMalformed(ioctx, session, server, vec.badMessage,
+                          vec.hintKeyword);
         }
     }
 
@@ -145,6 +170,66 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Basic]" )
     }
 
     {
+        INFO("Non-sequential INVOCATION request ID");
+
+        server->load(
+        {
+            {{"[2,1,{}]"}}, // WELCOME
+            {
+                {"[65,1,1]"}, // REGISTERED
+                {"[68,1,1,{},[1]]"}, // INVOCATION
+                {"[68,3,1,{},[1]]"}  // INVOCATION
+            }
+        });
+
+        auto onRpc = [](Invocation) -> Outcome {return deferment;};
+
+        spawn([&](YieldContext yield)
+        {
+            session.connect(withTcp, yield).value();
+            session.join(testRealm, yield).value();
+            session.enroll(Procedure{"rpc"}, onRpc, yield).value();
+
+            checkProtocolViolation(session, *server, "non-sequential", yield);
+            session.disconnect();
+            ioctx.stop();
+        });
+
+        ioctx.run();
+        ioctx.restart();
+    }
+
+    {
+        INFO("Progressive invocation on RPC not registered as stream");
+
+        server->load(
+        {
+            {{"[2,1,{}]"}}, // WELCOME
+            {
+                {"[65,1,1]"}, // REGISTERED
+                {"[68,1,1,{\"progress\":true},[1]]"} // INVOCATION
+            }
+        });
+
+        auto onRpc = [](Invocation) -> Outcome {return deferment;};
+
+        spawn([&](YieldContext yield)
+        {
+            session.connect(withTcp, yield).value();
+            session.join(testRealm, yield).value();
+            session.enroll(Procedure{"rpc"}, onRpc, yield).value();
+
+            checkInvocationError(session, *server, "registered as a stream",
+                                 yield);
+            session.disconnect();
+            ioctx.stop();
+        });
+
+        ioctx.run();
+        ioctx.restart();
+    }
+
+    {
         INFO("Reinvoking non-completed RPC");
 
         server->load(
@@ -157,17 +242,13 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Basic]" )
             }
         });
 
-        CalleeChannel channel;
-        auto onStream = [&channel](CalleeChannel ch)
-        {
-            channel = std::move(ch);
-        };
+        auto onRpc = [](Invocation) -> Outcome {return deferment;};
 
         spawn([&](YieldContext yield)
         {
             session.connect(withTcp, yield).value();
             session.join(testRealm, yield).value();
-            session.enroll(Stream{"stream"}, onStream, yield).value();
+            session.enroll(Procedure{"rpc"}, onRpc, yield).value();
 
             checkProtocolViolation(session, *server, "reinvoke", yield);
             session.disconnect();

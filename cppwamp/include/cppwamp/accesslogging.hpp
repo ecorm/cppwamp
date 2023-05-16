@@ -130,7 +130,7 @@ struct CPPWAMP_API AccessActionInfo
     std::string errorUri;
     Object options;
     RequestId requestId = nullId();
-    Action action;
+    Action action = {};
 
 private:
     template <typename T>

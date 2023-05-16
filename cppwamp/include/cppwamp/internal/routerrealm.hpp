@@ -460,6 +460,10 @@ private:
     {
         if (result)
             return true;
+
+        if (result == makeUnexpectedError(WampErrc::protocolViolation))
+            return false; // ABORT should already have been sent to originator
+
         auto error = Error::fromRequest({}, command, result.error());
         if (logOnly)
             originator.report(error.info(true));

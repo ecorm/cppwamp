@@ -48,6 +48,7 @@ namespace internal
         friend class DirectPeer;
         friend class DirectRouterSession;
         friend class MatchUri;
+        friend class MockClient;
         friend class MockServer;
         friend class NetworkPeer;
         friend class Peer;
