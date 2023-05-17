@@ -68,7 +68,7 @@ public:
             return false;
 
         case K::cancel:
-            return r <= inboundWatermark_;
+            return r < inboundWatermark_;
 
         case K::call:
             if (r < inboundWatermark_)

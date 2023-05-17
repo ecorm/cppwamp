@@ -584,8 +584,21 @@ public:
     {
         auto uri = rpc.uri();
         auto found = jobs_.byCallerFind({caller->wampId(), rpc.requestId({})});
+
+        /*  There is no error URI in the spec for the situation where a call
+            continuation is requested but the call has already ended. This can
+            happen in the following circumstances:
+            - The callee left prematurely
+            - The callee already returned an ERROR or final RESULT
+
+            wamp.error.no_such_procedure would be a "lie" because the procedure
+            could still be registered. That leaves wamp.error.canceled as the
+            only viable candidate for an existing URI
+
+            TODO: Raise this issue upstream. */
         if (found == jobs_.byCallerEnd())
-            return makeUnexpectedError(WampErrc::noSuchProcedure);
+            return makeUnexpectedError(WampErrc::cancelled);
+
         auto& job = found->second;
         if (!job.isProgressiveCall())
         {
