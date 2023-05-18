@@ -384,14 +384,17 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
         {
              {{"[1,\"cppwamp.test\",{}]"}}, // HELLO
              {{"[64,1,{},\"rpc\"]"}},       // REGISTER
-             {{"[48,2,{},\"rpc\",[2]]"}},   // CALL
-             {{"[48,1,{},\"rpc\",[1]]"}}    // CALL (rejected)
+             {
+                {"[48,2,{},\"rpc\",[2]]"},  // CALL
+                {"[48,1,{},\"rpc\",[1]]"}   // CALL (ignored)
+             },
+             {{"[32,3,{},\"topic\"]"}}      // SUBSCRIBE
         });
 
         spawn(ioctx, [&](YieldContext yield)
         {
             client->connect(yield);
-            checkErrorResponse(client, WampErrc::cancelled, yield);
+            checkNormalOperation(client, MessageKind::subscribed, yield);
             client->disconnect();
         });
 

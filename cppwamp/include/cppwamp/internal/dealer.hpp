@@ -585,16 +585,13 @@ public:
         auto uri = rpc.uri();
         auto found = jobs_.byCallerFind({caller->wampId(), rpc.requestId({})});
 
-        /*  There is no error URI in the spec for the situation where a call
-            continuation is requested but the call has already ended. This can
-            happen in the following circumstances:
-            - The callee left prematurely
-            - The callee already returned an ERROR or final RESULT
-
-            TODO: Follow up on this issue:
+        /*  Ignore requests for call continuations when the call has already
+            ended. Due to races, the caller may not be aware that the call is
+            ended when it sent the CALL, but the caller will eventually become
+            aware of the call having ended and can react accordingly.
             https://github.com/wamp-proto/wamp-proto/issues/482 */
         if (found == jobs_.byCallerEnd())
-            return makeUnexpectedError(WampErrc::cancelled);
+            return false;
 
         auto& job = found->second;
         if (!job.isProgressiveCall())
