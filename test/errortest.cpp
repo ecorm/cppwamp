@@ -75,8 +75,8 @@ SCENARIO( "WampErrc error codes", "[Error]" )
         CHECK(std::error_code{0, std::generic_category()} == WampErrc::success);
         CHECK(make_error_code(MiscErrc::abandoned) != WampErrc::success);
 
-        CHECK(make_error_code(WampErrc::systemShutdown) == WampErrc::sessionKilled);
-        CHECK(make_error_code(WampErrc::closeRealm) == WampErrc::sessionKilled);
+        CHECK(make_error_code(WampErrc::goodbyeAndOut) == WampErrc::closedNormally);
+        CHECK(make_error_code(WampErrc::closedNormally) == WampErrc::goodbyeAndOut);
         CHECK(make_error_code(WampErrc::timeout) == WampErrc::cancelled);
         CHECK(make_error_code(WampErrc::discloseMeDisallowed) ==
               WampErrc::optionNotAllowed);

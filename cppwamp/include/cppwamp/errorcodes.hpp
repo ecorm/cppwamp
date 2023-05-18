@@ -35,8 +35,8 @@ CPPWAMP_API std::string detailedErrorCodeString(std::error_code ec);
 // WAMP Protocol Error Codes
 //******************************************************************************
 
-// TODO: wamp.close.killed instead of wamp.close.normal
-// https://github.com/wamp-proto/wamp-proto/issues/462
+// TODO: Deprecate wamp.close.goodbye_and_out?
+// https://github.com/wamp-proto/wamp-proto/issues/484
 
 //------------------------------------------------------------------------------
 /** %Error code values used with the WampCategory error category.
@@ -55,40 +55,41 @@ enum class WampErrc
     unknown                =  1, ///< Unknown error URI
 
     // Session close reasons
-    closeRealm             =  2, ///< The other peer is leaving the realm
+    closeRealm             =  2, ///< The other peer wants to leave the realm
     goodbyeAndOut          =  3, ///< Session ended successfully
     sessionKilled          =  4, ///< Session was killed by the other peer
-    systemShutdown         =  5, ///< The other peer is shutting down
+    closedNormally         =  5, ///< Session ended successfully
+    systemShutdown         =  6, ///< The other peer is shutting down
 
     // Basic profile errors
-    invalidArgument        =  6, ///< The given argument types/values are not acceptable to the called procedure
-    invalidUri             =  7, ///< An invalid WAMP URI was provided
-    noSuchPrincipal        =  8, ///< Authentication attempted with a non-existent authid
-    noSuchProcedure        =  9, ///< No procedure was registered under the given URI
-    noSuchRealm            = 10, ///< Attempt to join non-existent realm
-    noSuchRegistration     = 11, ///< Could not unregister; the given registration is not active
-    noSuchRole             = 12, ///< Attempt to authenticate under unsupported role
-    noSuchSubscription     = 13, ///< Could not unsubscribe; the given subscription is not active
-    payloadSizeExceeded    = 14, ///< Serialized payload exceeds transport size limits
-    procedureAlreadyExists = 15, ///< A procedure with the given URI is already registered
-    protocolViolation      = 16, ///< Invalid, unexpected, or malformed WAMP message
+    invalidArgument        =  7, ///< The given argument types/values are not acceptable to the called procedure
+    invalidUri             =  8, ///< An invalid WAMP URI was provided
+    noSuchPrincipal        =  9, ///< Authentication attempted with a non-existent authid
+    noSuchProcedure        = 10, ///< No procedure was registered under the given URI
+    noSuchRealm            = 11, ///< Attempt to join non-existent realm
+    noSuchRegistration     = 12, ///< Could not unregister; the given registration is not active
+    noSuchRole             = 13, ///< Attempt to authenticate under unsupported role
+    noSuchSubscription     = 14, ///< Could not unsubscribe; the given subscription is not active
+    payloadSizeExceeded    = 15, ///< Serialized payload exceeds transport size limits
+    procedureAlreadyExists = 16, ///< A procedure with the given URI is already registered
+    protocolViolation      = 17, ///< Invalid, unexpected, or malformed WAMP message
 
     // Advanced profile errors
-    authenticationDenied   = 17, ///< Authentication was denied
-    authenticationFailed   = 18, ///< The authentication operation itself failed
-    authenticationRequired = 19, ///< Anonymous authentication not permitted
-    authorizationDenied    = 20, ///< Not authorized to perform the action
-    authorizationFailed    = 21, ///< The authorization operation itself failed
-    authorizationRequired  = 22, ///< Authorization information was missing
-    cancelled              = 23, ///< The previously issued call was cancelled
-    featureNotSupported    = 24, ///< Advanced feature is not supported
-    discloseMeDisallowed   = 25, ///< Client request to disclose its identity was rejected
-    optionNotAllowed       = 26, ///< Option is disallowed by the router
-    networkFailure         = 27, ///< Router encountered a network failure
-    noAvailableCallee      = 28, ///< All registered callees are unable to handle the invocation
-    noMatchingAuthMethod   = 29, ///< No matching authentication method was found
-    timeout                = 30, ///< Operation timed out
-    unavailable            = 31, ///< Callee is unable to handle the invocation
+    authenticationDenied   = 18, ///< Authentication was denied
+    authenticationFailed   = 19, ///< The authentication operation itself failed
+    authenticationRequired = 20, ///< Anonymous authentication not permitted
+    authorizationDenied    = 21, ///< Not authorized to perform the action
+    authorizationFailed    = 22, ///< The authorization operation itself failed
+    authorizationRequired  = 23, ///< Authorization information was missing
+    cancelled              = 24, ///< The previously issued call was cancelled
+    featureNotSupported    = 25, ///< Advanced feature is not supported
+    discloseMeDisallowed   = 26, ///< Client request to disclose its identity was rejected
+    optionNotAllowed       = 27, ///< Option is disallowed by the router
+    networkFailure         = 28, ///< Router encountered a network failure
+    noAvailableCallee      = 29, ///< All registered callees are unable to handle the invocation
+    noMatchingAuthMethod   = 30, ///< No matching authentication method was found
+    timeout                = 31, ///< Operation timed out
+    unavailable            = 32, ///< Callee is unable to handle the invocation
 
     count
 };

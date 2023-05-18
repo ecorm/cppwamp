@@ -32,6 +32,7 @@ namespace wamp
 class DirectSession;
 namespace internal { class RouterImpl; }
 
+// TODO: Add hooks for meta API
 
 //------------------------------------------------------------------------------
 /** %API for a _router peer in WAMP applications. */

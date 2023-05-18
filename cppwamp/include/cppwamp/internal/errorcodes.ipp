@@ -108,10 +108,11 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* success                */ "Operation successful",
 /* unknown                */ "Unknown error URI",
 
-/* systemShutdown         */ "The other peer is shutting down",
 /* closeRealm             */ "The other peer is leaving the realm",
-/* sessionKilled          */ "Session was killed by the other peer",
 /* goodbyeAndOut          */ "Session ended successfully",
+/* sessionKilled          */ "Session was killed by the other peer",
+/* closedNormally         */ "Session ended successfully",
+/* systemShutdown         */ "The other peer is shutting down",
 
 /* invalidArgument        */ "The given argument types/values are not acceptable to the callee",
 /* invalidUri             */ "An invalid WAMP URI was provided",
@@ -138,9 +139,8 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* networkFailure         */ "Router encountered a network failure",
 /* noAvailableCallee      */ "All registered callees are unable to handle the invocation",
 /* noMatchingAuthMethod   */ "No matching authentication method was found",
+/* timeout                */ "Operation timed out",
 /* unavailable            */ "Callee is unable to handle the invocation",
-
-/* timeout                */ "Operation timed out"
     };
 
     return internal::lookupErrorMessage<WampErrc>("wamp::WampCategory", ev,
@@ -161,9 +161,11 @@ CPPWAMP_INLINE bool WampCategory::equivalent(const std::error_code& code,
             auto value = static_cast<WampErrc>(code.value());
             switch (static_cast<WampErrc>(condition))
             {
-            case WampErrc::sessionKilled:
-                return value == WampErrc::systemShutdown ||
-                       value == WampErrc::closeRealm;
+            case WampErrc::goodbyeAndOut:
+                return value == WampErrc::closedNormally;
+
+            case WampErrc::closedNormally:
+                return value == WampErrc::goodbyeAndOut;
 
             case WampErrc::cancelled:
                 return value == WampErrc::timeout;
@@ -219,7 +221,8 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
         {"cppwamp.error.unknown",                    WE::unknown},
         {"wamp.close.close_realm",                   WE::closeRealm},
         {"wamp.close.goodbye_and_out",               WE::goodbyeAndOut},
-        {"wamp.close.normal",                        WE::sessionKilled},
+        {"wamp.close.killed",                        WE::sessionKilled},
+        {"wamp.close.normal",                        WE::closedNormally},
         {"wamp.close.system_shutdown",               WE::systemShutdown},
         {"wamp.error.authentication_denied",         WE::authenticationDenied},
         {"wamp.error.authentication_failed",         WE::authenticationFailed},
@@ -277,6 +280,7 @@ CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
 
         "wamp.close.close_realm",
         "wamp.close.goodbye_and_out",
+        "wamp.close.killed",
         "wamp.close.normal",
         "wamp.close.system_shutdown",
 
