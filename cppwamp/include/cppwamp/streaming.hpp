@@ -42,10 +42,11 @@ enum class StreamMode
 //------------------------------------------------------------------------------
 enum class ChannelState
 {
-    detached, // Not connected to an underlying shared channel
-    awaiting, // Awaiting a response
-    open,     // Ready to send chunks
-    closed    // Final chunk sent
+    detached, ///< Not connected to an underlying shared channel
+    awaiting, ///< Awaiting a response
+    open,     ///< Ready to send chunks
+    closed,   ///< Final chunk sent
+    abandoned ///< Associated Session was closed/disconnected
 };
 
 //------------------------------------------------------------------------------

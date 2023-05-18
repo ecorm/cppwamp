@@ -591,11 +591,8 @@ public:
             - The callee left prematurely
             - The callee already returned an ERROR or final RESULT
 
-            wamp.error.no_such_procedure would be a "lie" because the procedure
-            could still be registered. That leaves wamp.error.canceled as the
-            only viable candidate for an existing URI
-
-            TODO: Raise this issue upstream. */
+            TODO: Follow up on this issue:
+            https://github.com/wamp-proto/wamp-proto/issues/482 */
         if (found == jobs_.byCallerEnd())
             return makeUnexpectedError(WampErrc::cancelled);
 

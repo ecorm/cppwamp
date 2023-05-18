@@ -101,7 +101,8 @@ CPPWAMP_INLINE bool CallerChannel::attached() const {return bool(impl_);}
 
 CPPWAMP_INLINE CallerChannel::operator bool() const {return attached();}
 
-/** The channel is closed if the given chunk is marked as final.
+/** @details
+    The channel is closed if the given chunk is marked as final.
     @returns
         - false if the associated Session object is destroyed or
                 the streaming request no longer exists

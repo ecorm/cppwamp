@@ -688,6 +688,7 @@ GIVEN( "a caller and a callee" )
         if (rejectArmed)
         {
             channel.fail(WampErrc::invalidArgument);
+            CHECK(channel.state() == ChannelState::closed);
             return;
         }
         else if (throwErrorArmed)
@@ -717,19 +718,25 @@ GIVEN( "a caller and a callee" )
                     if (isFinal && errorArmed)
                     {
                         chan.fail(Error{WampErrc::invalidArgument});
+                        CHECK(chan.state() == ChannelState::closed);
                     }
                     else if (isFinal && leaveEarlyArmed)
                     {
                         f.callee.leave(yield).value();
+                        CHECK(chan.state() == ChannelState::abandoned);
                     }
                     else if (isFinal && destroyEarlyArmed)
                     {
                         chan.detach();
+                        CHECK(chan.state() == ChannelState::detached);
                     }
                     else
                     {
                         chan.send(CalleeOutputChunk(isFinal)
                                        .withArgs(input.at(i))).value();
+                        auto expectedState = isFinal ? ChannelState::closed
+                                                     : ChannelState::open;
+                        CHECK(chan.state() == expectedState);
                     }
                 }
             });
@@ -762,6 +769,8 @@ GIVEN( "a caller and a callee" )
             output.push_back(n);
             CHECK( chunk->isFinal() == isFinal );
         }
+
+        CHECK(channel.state() == ChannelState::open);
     };
 
     auto runTest = [&]()
@@ -1330,6 +1339,8 @@ GIVEN( "a caller and a callee" )
             {
                 CHECK(chunk.error() == MiscErrc::abandoned);
                 CHECK(output.size() == input.size());
+                if (calleeLeaveArmed)
+                    CHECK(channel.state() == ChannelState::abandoned);
                 calleeChannel.detach();
                 return;
             }
@@ -1378,11 +1389,13 @@ GIVEN( "a caller and a callee" )
             if (calleeLeaveArmed || destroyEarlyArmed)
             {
                 REQUIRE_FALSE(chunk.has_value());
+                CHECK(channel.state() == ChannelState::closed);
                 CHECK(chunk.error() == WampErrc::cancelled);
             }
             else if (calleeThrowArmed)
             {
                 REQUIRE_FALSE(chunk.has_value());
+                CHECK(channel.state() == ChannelState::closed);
                 CHECK(chunk.error() == WampErrc::invalidArgument);
             }
             else
@@ -1391,6 +1404,9 @@ GIVEN( "a caller and a callee" )
                 CHECK(chunk->isFinal());
                 CHECK(chunk->args().at(0).to<unsigned>() == input.size());
                 CHECK(output.size() == input.size());
+                auto expectedState = chunk->isFinal() ? ChannelState::closed
+                                                      : ChannelState::open;
+                CHECK(channel.state() == expectedState);
             }
             callerFinalChunkReceived = true;
         };

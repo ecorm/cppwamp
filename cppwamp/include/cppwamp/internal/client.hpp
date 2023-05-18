@@ -349,7 +349,6 @@ public:
 
     ErrorOrDone sendCallerChunk(CallerOutputChunk&& chunk)
     {
-        // TODO: Check state
         auto key = chunk.requestKey({});
         if (requests_.count(key) == 0 && channels_.count(key.second) == 0)
             return false;
@@ -869,7 +868,7 @@ public:
             InvocationRecord& rec = kv.second;
             auto ch = rec.channel.lock();
             if (ch)
-                ch->fail(ec);
+                ch->abandon(ec);
         }
     }
 
@@ -1853,6 +1852,9 @@ public:
 
     void sendCallerChunk(CallerOutputChunk&& chunk)
     {
+        if (state() != State::established)
+            return;
+
         auto done = requestor_.sendCallerChunk(std::move(chunk));
         if (incidentSlot_ && !done)
         {

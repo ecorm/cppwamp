@@ -148,6 +148,7 @@ public:
 
     void abandon(UnexpectedError unex)
     {
+        state_.store(State::abandoned);
         if (!chunkSlot_ || finalChunkReceived_)
             return;
         error_ = Error{unex.value()};
@@ -348,7 +349,7 @@ public:
 
     void abandon(std::error_code ec)
     {
-        auto oldState = state_.exchange(State::closed);
+        auto oldState = state_.exchange(State::abandoned);
         if (oldState != State::closed && chunkSlot_)
             postToSlot(chunkSlot_, UnexpectedError{ec});
     }
