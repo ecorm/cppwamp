@@ -108,11 +108,11 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* success                */ "Operation successful",
 /* unknown                */ "Unknown error URI",
 
-/* closeRealm             */ "The other peer is leaving the realm",
-/* goodbyeAndOut          */ "Session ended successfully",
-/* sessionKilled          */ "Session was killed by the other peer",
-/* closedNormally         */ "Session ended successfully",
-/* systemShutdown         */ "The other peer is shutting down",
+/* closeRealm             */ "Session close initiated",
+/* goodbyeAndOut          */ "Session closed normally",
+/* sessionKilled          */ "Session was killed by the router",
+/* closedNormally         */ "Session closed normally",
+/* systemShutdown         */ "Session closing due to imminent shutdown",
 
 /* invalidArgument        */ "The given argument types/values are not acceptable to the callee",
 /* invalidUri             */ "An invalid WAMP URI was provided",

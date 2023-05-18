@@ -55,11 +55,11 @@ enum class WampErrc
     unknown                =  1, ///< Unknown error URI
 
     // Session close reasons
-    closeRealm             =  2, ///< The other peer wants to leave the realm
-    goodbyeAndOut          =  3, ///< Session ended successfully
-    sessionKilled          =  4, ///< Session was killed by the other peer
-    closedNormally         =  5, ///< Session ended successfully
-    systemShutdown         =  6, ///< The other peer is shutting down
+    closeRealm             =  2, ///< Session close initiated
+    goodbyeAndOut          =  3, ///< Session closed normally
+    sessionKilled          =  4, ///< Session was killed by the router
+    closedNormally         =  5, ///< Session closed normally
+    systemShutdown         =  6, ///< Session closing due to imminent shutdown
 
     // Basic profile errors
     invalidArgument        =  7, ///< The given argument types/values are not acceptable to the called procedure
