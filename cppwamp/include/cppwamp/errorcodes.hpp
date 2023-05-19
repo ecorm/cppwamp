@@ -62,14 +62,14 @@ enum class WampErrc
     systemShutdown         =  6, ///< Session closing due to imminent shutdown
 
     // Basic profile errors
-    invalidArgument        =  7, ///< The given argument types/values are not acceptable to the called procedure
+    invalidArgument        =  7, ///< The procedure rejected the argument types/values
     invalidUri             =  8, ///< An invalid WAMP URI was provided
     noSuchPrincipal        =  9, ///< Authentication attempted with a non-existent authid
     noSuchProcedure        = 10, ///< No procedure was registered under the given URI
     noSuchRealm            = 11, ///< Attempt to join non-existent realm
-    noSuchRegistration     = 12, ///< Could not unregister; the given registration is not active
+    noSuchRegistration     = 12, ///< Cannot unregister an inactive registration
     noSuchRole             = 13, ///< Attempt to authenticate under unsupported role
-    noSuchSubscription     = 14, ///< Could not unsubscribe; the given subscription is not active
+    noSuchSubscription     = 14, ///< Cannot unsubscribe an inactive subscription
     payloadSizeExceeded    = 15, ///< Serialized payload exceeds transport size limits
     procedureAlreadyExists = 16, ///< A procedure with the given URI is already registered
     protocolViolation      = 17, ///< Invalid, unexpected, or malformed WAMP message
@@ -86,7 +86,7 @@ enum class WampErrc
     discloseMeDisallowed   = 26, ///< Client request to disclose its identity was rejected
     optionNotAllowed       = 27, ///< Option is disallowed by the router
     networkFailure         = 28, ///< Router encountered a network failure
-    noAvailableCallee      = 29, ///< All registered callees are unable to handle the invocation
+    noAvailableCallee      = 29, ///< No available registered callee to handle the invocation
     noMatchingAuthMethod   = 30, ///< No matching authentication method was found
     timeout                = 31, ///< Operation timed out
     unavailable            = 32, ///< Callee is unable to handle the invocation
