@@ -39,6 +39,7 @@ set(HEADERS
     include/cppwamp/payload.hpp
     include/cppwamp/pubsubinfo.hpp
     include/cppwamp/rawsockoptions.hpp
+    include/cppwamp/realm.hpp
     include/cppwamp/registration.hpp
     include/cppwamp/router.hpp
     include/cppwamp/routerconfig.hpp

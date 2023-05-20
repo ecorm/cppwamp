@@ -16,6 +16,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <boost/asio/async_result.hpp>
 #include "any.hpp"
 #include "anyhandler.hpp"
 #include "api.hpp"

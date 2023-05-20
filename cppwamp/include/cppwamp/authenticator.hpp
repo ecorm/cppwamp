@@ -81,7 +81,7 @@ private:
 
 
 //------------------------------------------------------------------------------
-/** Abstract base class for user-defined authenticators. */
+/** Interface for user-defined authenticators. */
 //------------------------------------------------------------------------------
 class CPPWAMP_API Authenticator
 {

@@ -8,6 +8,8 @@
 // Example WAMP router.
 //******************************************************************************
 
+// TODO: Standalone router to run examples
+
 #include <cppwamp/directsession.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/router.hpp>
