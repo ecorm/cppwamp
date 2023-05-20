@@ -71,11 +71,9 @@ set(HEADERS
     include/cppwamp/internal/anonymousauthenticator.ipp
     include/cppwamp/internal/base64.hpp
     include/cppwamp/internal/broker.hpp
-    include/cppwamp/internal/callee.hpp
-    include/cppwamp/internal/caller.hpp
-    include/cppwamp/internal/challengee.hpp
     include/cppwamp/internal/challenger.hpp
     include/cppwamp/internal/client.hpp
+    include/cppwamp/internal/clientcontext.hpp
     include/cppwamp/internal/commandinfo.hpp
     include/cppwamp/internal/dealer.hpp
     include/cppwamp/internal/directpeer.hpp
@@ -102,7 +100,6 @@ set(HEADERS
     include/cppwamp/internal/routersession.hpp
     include/cppwamp/internal/socketoptions.hpp
     include/cppwamp/internal/streamchannel.hpp
-    include/cppwamp/internal/subscriber.hpp
     include/cppwamp/internal/surrogateany.hpp
     include/cppwamp/internal/tcpacceptor.hpp
     include/cppwamp/internal/tcpopener.hpp

@@ -9,7 +9,6 @@
 #include <utility>
 #include "../api.hpp"
 #include "../variant.hpp"
-#include "challengee.hpp"
 
 namespace wamp
 {
@@ -420,17 +419,12 @@ CPPWAMP_INLINE ErrorOr<UInt> Challenge::memory() const
 
 CPPWAMP_INLINE void Challenge::authenticate(Authentication auth)
 {
-    // Discard the authentication if client no longer exists
-    auto challengee = challengee_.lock();
-    if (challengee)
-        challengee->safeAuthenticate(std::move(auth));
+    challengee_.safeAuthenticate(std::move(auth));
 }
 
 CPPWAMP_INLINE void Challenge::fail(Reason reason)
 {
-    auto challengee = challengee_.lock();
-    if (challengee)
-        challengee->safeFailAuthentication(std::move(reason));
+    challengee_.safeFailAuthentication(std::move(reason));
 }
 
 CPPWAMP_INLINE AccessActionInfo Challenge::info() const
@@ -444,7 +438,7 @@ CPPWAMP_INLINE Challenge::Challenge(internal::PassKey,
 {}
 
 CPPWAMP_INLINE void Challenge::setChallengee(internal::PassKey,
-                                             ChallengeePtr challengee)
+                                             Context challengee)
 {
     challengee_ = std::move(challengee);
 }

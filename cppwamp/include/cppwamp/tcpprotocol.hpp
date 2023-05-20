@@ -104,7 +104,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "./internal/tcpprotocol.ipp"
+#include "internal/tcpprotocol.ipp"
 #endif
 
 #endif // CPPWAMP_TCPPROTOCOL_HPP

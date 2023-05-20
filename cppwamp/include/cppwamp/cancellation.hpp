@@ -15,7 +15,7 @@
 #include <memory>
 #include "api.hpp"
 #include "wampdefs.hpp"
-#include "internal/caller.hpp"
+#include "internal/clientcontext.hpp"
 
 namespace wamp
 {
@@ -35,12 +35,12 @@ public:
     {
     public:
         Handler();
-        Handler(internal::Caller::WeakPtr caller, RequestId requestId);
+        Handler(internal::ClientContext caller, RequestId requestId);
         explicit operator bool();
         void operator()(CallCancelMode cancelMode);
 
     private:
-        internal::Caller::WeakPtr caller_;
+        internal::ClientContext caller_;
         RequestId requestId_ = nullId();
     };
 
@@ -51,7 +51,7 @@ public:
     Handler& assign(Handler f);
 
     /** Constructs the handler in-place with the given arguments. */
-    Handler& emplace(internal::Caller::WeakPtr caller, RequestId reqId);
+    Handler& emplace(internal::ClientContext caller, RequestId reqId);
 
     /** Clears the handler from the slot. */
     void clear();

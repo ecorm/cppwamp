@@ -7,7 +7,6 @@
 #include "../subscription.hpp"
 #include <utility>
 #include "../api.hpp"
-#include "subscriber.hpp"
 
 namespace wamp
 {
@@ -64,15 +63,13 @@ Subscription::operator=(Subscription&& other) noexcept
     return *this;
 }
 
-CPPWAMP_INLINE void Subscription::unsubscribe() const
+CPPWAMP_INLINE void Subscription::unsubscribe()
 {
-    auto subscriber = subscriber_.lock();
-    if (subscriber)
-        subscriber->safeUnsubscribe(*this);
+    subscriber_.safeUnsubscribe(*this);
 }
 
-CPPWAMP_INLINE Subscription::Subscription(
-    internal::PassKey, SubscriberPtr subscriber, SubscriptionId subId,
+CPPWAMP_INLINE Subscription::Subscription(internal::PassKey, Context subscriber,
+                                          SubscriptionId subId,
     SlotId slotId)
     : subscriber_(subscriber),
       subId_(subId),

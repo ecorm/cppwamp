@@ -68,7 +68,7 @@ struct CPPWAMP_API Version
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "./internal/version.ipp"
+#include "internal/version.ipp"
 #endif
 
 #endif // CPPWAMP_VERSION_HPP

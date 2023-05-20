@@ -82,7 +82,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "./internal/tcpendpoint.ipp"
+#include "internal/tcpendpoint.ipp"
 #endif
 
 #endif // CPPWAMP_TCPENDPOINT_HPP

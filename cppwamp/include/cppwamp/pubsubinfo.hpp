@@ -15,8 +15,8 @@
 #include "payload.hpp"
 #include "variantdefs.hpp"
 #include "wampdefs.hpp"
-#include "./internal/message.hpp"
-#include "./internal/passkey.hpp"
+#include "internal/message.hpp"
+#include "internal/passkey.hpp"
 
 //------------------------------------------------------------------------------
 /** @file
@@ -237,7 +237,7 @@ public:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "./internal/pubsubinfo.ipp"
+#include "internal/pubsubinfo.ipp"
 #endif
 
 #endif // CPPWAMP_PUBSUBINFO_HPP

@@ -13,7 +13,7 @@
 #include "erroror.hpp"
 #include "traits.hpp"
 #include "variant.hpp"
-#include "./internal/message.hpp"
+#include "internal/message.hpp"
 
 //------------------------------------------------------------------------------
 /** @file

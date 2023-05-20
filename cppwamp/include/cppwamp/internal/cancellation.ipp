@@ -6,6 +6,7 @@
 
 #include "../cancellation.hpp"
 #include "../api.hpp"
+#include "clientcontext.hpp"
 
 namespace wamp
 {
@@ -30,7 +31,7 @@ struct CallCancellationSlot::Impl
 CPPWAMP_INLINE CallCancellationSlot::Handler::Handler() {}
 
 CPPWAMP_INLINE CallCancellationSlot::Handler::Handler(
-    internal::Caller::WeakPtr caller, RequestId requestId)
+    internal::ClientContext caller, RequestId requestId)
     : caller_(std::move(caller)),
       requestId_(requestId)
 {}
@@ -43,9 +44,7 @@ CPPWAMP_INLINE CallCancellationSlot::Handler::operator bool()
 CPPWAMP_INLINE void
 CallCancellationSlot::Handler::operator()(CallCancelMode cancelMode)
 {
-    auto c = caller_.lock();
-    if (c)
-        c->safeCancelCall(requestId_, cancelMode);
+    caller_.safeCancelCall(requestId_, cancelMode);
 }
 
 
@@ -63,7 +62,7 @@ CallCancellationSlot::assign(Handler f)
 }
 
 CPPWAMP_INLINE CallCancellationSlot::Handler&
-CallCancellationSlot::emplace(internal::Caller::WeakPtr caller, RequestId reqId)
+CallCancellationSlot::emplace(internal::ClientContext caller, RequestId reqId)
 {
     impl_->handler = Handler{std::move(caller), reqId};
     return impl_->handler;

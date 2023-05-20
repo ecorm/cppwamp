@@ -13,8 +13,8 @@
 //------------------------------------------------------------------------------
 
 #include "payload.hpp"
-#include "wampdefs.hpp"
 #include "rpcinfo.hpp"
+#include "wampdefs.hpp"
 
 namespace wamp
 {

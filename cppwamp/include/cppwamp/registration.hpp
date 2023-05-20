@@ -16,13 +16,11 @@
 #include <string>
 #include "api.hpp"
 #include "wampdefs.hpp"
-#include "./internal/passkey.hpp"
+#include "internal/clientcontext.hpp"
+#include "internal/passkey.hpp"
 
 namespace wamp
 {
-
-// Forward declaration
-namespace internal { class Callee; }
 
 //------------------------------------------------------------------------------
 /** Represents a remote procedure registration.
@@ -61,18 +59,16 @@ public:
     Registration& operator=(Registration&& other) noexcept;
 
     /** Unregisters the RPC. */
-    void unregister() const;
+    void unregister();
 
 private:
-    using CalleePtr = std::weak_ptr<internal::Callee>;
-
-    CalleePtr callee_;
+    internal::ClientContext callee_;
     RegistrationId id_ = nullId();
 
 public:
     // Internal use only
-    Registration(internal::PassKey, CalleePtr callee, RegistrationId id);
-
+    Registration(internal::PassKey, internal::ClientContext callee,
+                 RegistrationId id);
 };
 
 

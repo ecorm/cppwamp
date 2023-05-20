@@ -6,7 +6,6 @@
 
 #include "../registration.hpp"
 #include <utility>
-#include "callee.hpp"
 #include "../api.hpp"
 
 namespace wamp
@@ -55,15 +54,9 @@ Registration::operator=(Registration&& other) noexcept
     return *this;
 }
 
-CPPWAMP_INLINE void Registration::unregister() const
-{
-    auto callee = callee_.lock();
-    if (callee)
-        callee->safeUnregister(*this);
-}
+CPPWAMP_INLINE void Registration::unregister() {callee_.safeUnregister(*this);}
 
-CPPWAMP_INLINE Registration::Registration(
-    internal::PassKey, CalleePtr callee, RegistrationId id)
+CPPWAMP_INLINE Registration::Registration(internal::PassKey, internal::ClientContext callee, RegistrationId id)
     : callee_(callee),
       id_(id)
 {}

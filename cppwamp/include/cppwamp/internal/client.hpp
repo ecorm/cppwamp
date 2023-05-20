@@ -35,13 +35,10 @@
 #include "../traits.hpp"
 #include "../transport.hpp"
 #include "../version.hpp"
-#include "callee.hpp"
-#include "caller.hpp"
-#include "challengee.hpp"
+#include "clientcontext.hpp"
 #include "commandinfo.hpp"
 #include "matchuri.hpp"
 #include "streamchannel.hpp"
-#include "subscriber.hpp"
 #include "peer.hpp"
 #include "timeoutscheduler.hpp"
 
@@ -227,7 +224,7 @@ public:
     }
 
     ErrorOr<CallerChannel> requestStream(
-        bool rsvpExpected, Caller::WeakPtr caller, StreamRequest&& req,
+        bool rsvpExpected, ClientContext caller, StreamRequest&& req,
         ChunkSlot&& onChunk, StreamRequestHandler&& handler = {})
     {
         // Will take 285 years to overflow 2^53 at 1 million requests/sec
@@ -460,7 +457,6 @@ private:
 class Readership
 {
 public:
-    using SubscriberPtr = std::shared_ptr<Subscriber>;
     using EventSlot = AnyReusableHandler<void (Event)>;
 
     Readership(AnyIoExecutor exec, AnyCompletionExecutor userExec)
@@ -469,29 +465,27 @@ public:
     {}
 
     Subscription subscribe(MatchUri topic, EventSlot& slot,
-                           SubscriberPtr subscriber)
+                           ClientContext subscriber)
     {
         assert(topic.policy() != MatchPolicy::unknown);
         auto kv = byTopic_.find(topic);
         if (kv == byTopic_.end())
             return {};
 
-        return addSlotToExisingSubscription(
-            kv->second, std::move(topic), std::move(slot),
-            std::move(subscriber));
+        return addSlotToExisingSubscription(kv->second, std::move(slot),
+                                            std::move(subscriber));
     }
 
     Subscription onSubscribed(SubscriptionId subId, MatchUri topic,
-                              EventSlot&& slot, SubscriberPtr subscriber)
+                              EventSlot&& slot, ClientContext subscriber)
     {
         // Check if the router treats the topic as belonging to an existing
         // subcription.
         auto kv = subscriptions_.find(subId);
         if (kv != subscriptions_.end())
         {
-            return addSlotToExisingSubscription(
-                       kv, std::move(topic), std::move(slot),
-                       std::move(subscriber));
+            return addSlotToExisingSubscription(kv, std::move(slot),
+                                                std::move(subscriber));
         }
 
         auto slotId = nextSlotId();
@@ -527,7 +521,7 @@ public:
     }
 
     // Returns true if there are any subscriptions matching the event
-    bool onEvent(const Event& event, SubscriberPtr subscriber)
+    bool onEvent(const Event& event, ClientContext subscriber)
     {
         auto found = subscriptions_.find(event.subscriptionId());
         if (found == subscriptions_.end())
@@ -577,25 +571,25 @@ private:
     using SubscriptionMap = std::map<SubscriptionId, Record>;
     using ByTopic = std::map<MatchUri, SubscriptionMap::iterator>;
 
-    Subscription addSlotToExisingSubscription(
-        SubscriptionMap::iterator iter, MatchUri&& topic, EventSlot&& slot,
-        SubscriberPtr&& subscriber)
+    Subscription addSlotToExisingSubscription(SubscriptionMap::iterator iter,
+                                              EventSlot&& slot,
+                                              ClientContext&& subscriber)
     {
         auto subId = iter->first;
         auto& record = iter->second;
         auto slotId = nextSlotId();
         auto emplaced = record.slots.emplace(slotId, std::move(slot));
         assert(emplaced.second);
-        return Subscription{{}, subscriber, subId, slotId};
+        return Subscription{{}, std::move(subscriber), subId, slotId};
     }
 
     void postEvent(const EventSlot& slot, const Event& event,
-                   SubscriberPtr subscriber, AnyIoExecutor& exec,
+                   ClientContext subscriber, AnyIoExecutor& exec,
                    AnyCompletionExecutor& userExec)
     {
         struct Posted
         {
-            SubscriberPtr subscriber;
+            ClientContext subscriber;
             Event event;
             EventSlot slot;
 
@@ -616,14 +610,14 @@ private:
                 {
                     error["subscriptionId"] = subId;
                     error["publicationId"] = pubId;
-                    subscriber->onEventError(std::move(error), subId);
+                    subscriber.onEventError(std::move(error), subId);
                 }
                 catch (const error::BadType& e)
                 {
                     Error error(e);
                     error["subscriptionId"] = subId;
                     error["publicationId"] = pubId;
-                    subscriber->onEventError(std::move(error), subId);
+                    subscriber.onEventError(std::move(error), subId);
                 }
             }
         };
@@ -679,7 +673,6 @@ struct InvocationRecord
 class ProcedureRegistry
 {
 public:
-    using CalleePtr     = std::shared_ptr<Callee>;
     using CallSlot      = AnyReusableHandler<Outcome (Invocation)>;
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
     using StreamSlot    = AnyReusableHandler<void (CalleeChannel)>;
@@ -691,7 +684,8 @@ public:
           peer_(peer)
     {}
 
-    ErrorOr<Registration> enroll(ProcedureRegistration&& reg, CalleePtr callee)
+    ErrorOr<Registration> enroll(ProcedureRegistration&& reg,
+                                 ClientContext callee)
     {
         auto regId = reg.registrationId;
         auto emplaced = procedures_.emplace(regId, std::move(reg));
@@ -700,7 +694,8 @@ public:
         return Registration{{}, callee, regId};
     }
 
-    ErrorOr<Registration> enroll(StreamRegistration&& reg, CalleePtr callee)
+    ErrorOr<Registration> enroll(StreamRegistration&& reg,
+                                 ClientContext callee)
     {
         auto regId = reg.registrationId;
         auto emplaced = streams_.emplace(regId, std::move(reg));
@@ -922,7 +917,7 @@ private:
     {
         struct Posted
         {
-            std::shared_ptr<Callee> callee;
+            ClientContext callee;
             TSlot slot;
             TInvocationOrInterruption request;
             RegistrationId regId;
@@ -943,15 +938,15 @@ private:
 
                     case Outcome::Type::result:
                     {
-                        callee->safeYield(std::move(outcome).asResult(),
-                                          requestId, regId);
+                        callee.safeYield(std::move(outcome).asResult(),
+                                         requestId, regId);
                         break;
                     }
 
                     case Outcome::Type::error:
                     {
-                        callee->safeYield(std::move(outcome).asError(),
-                                          requestId, regId);
+                        callee.safeYield(std::move(outcome).asError(),
+                                         requestId, regId);
                         break;
                     }
 
@@ -961,21 +956,22 @@ private:
                 }
                 catch (Error& error)
                 {
-                    callee->safeYield(std::move(error), requestId, regId);
+                    callee.safeYield(std::move(error), requestId, regId);
                 }
                 catch (const error::BadType& e)
                 {
                     // Forward Variant conversion exceptions as ERROR messages.
-                    callee->safeYield(Error{e}, requestId, regId);
+                    callee.safeYield(Error{e}, requestId, regId);
                 }
             }
         };
 
         auto associatedExec =
             boost::asio::get_associated_executor(slot, userExecutor_);
-        auto callee = request.callee({}).lock();
-        assert(callee != nullptr);
-        Posted posted{callee, std::move(slot), std::move(request), regId};
+        auto callee = request.callee({});
+        assert(!callee.expired());
+        Posted posted{std::move(callee), std::move(slot), std::move(request),
+                      regId};
         boost::asio::post(
             executor_,
             boost::asio::bind_executor(associatedExec, std::move(posted)));
@@ -1068,10 +1064,7 @@ private:
 //------------------------------------------------------------------------------
 // Provides the WAMP client implementation.
 //------------------------------------------------------------------------------
-class Client : public std::enable_shared_from_this<Client>,
-               private PeerListener, public Callee, public Caller,
-               public Subscriber, public Challengee
-// TODO: ClientContext instead of interface classes
+class Client : public std::enable_shared_from_this<Client>, private PeerListener
 {
 public:
     using Ptr           = std::shared_ptr<Client>;
@@ -1231,7 +1224,7 @@ public:
                     "While sending AUTHENTICATE message"});
     }
 
-    void safeAuthenticate(Authentication&& a) override
+    void safeAuthenticate(Authentication&& a)
     {
         struct Dispatched
         {
@@ -1262,7 +1255,7 @@ public:
 
     }
 
-    void safeFailAuthentication(Reason&& r) override
+    void safeFailAuthentication(Reason&& r)
     {
         struct Dispatched
         {
@@ -1414,7 +1407,7 @@ public:
             sendUnsubscribe(sub.id());
     }
 
-    void safeUnsubscribe(const Subscription& s) override
+    void safeUnsubscribe(const Subscription& s)
     {
         struct Dispatched
         {
@@ -1447,7 +1440,7 @@ public:
         safelyDispatch<Dispatched>(s, std::move(f));
     }
 
-    void onEventError(Error&& error, SubscriptionId subId) override
+    void onEventError(Error&& error, SubscriptionId subId)
     {
         struct Dispatched
         {
@@ -1653,7 +1646,7 @@ public:
         }
     }
 
-    void safeUnregister(const Registration& r) override
+    void safeUnregister(const Registration& r)
     {
         struct Dispatched
         {
@@ -1778,7 +1771,7 @@ public:
             requestor_.cancelCall(reqId, mode);
     }
 
-    void safeCancelCall(RequestId r, CallCancelMode m) override
+    void safeCancelCall(RequestId r, CallCancelMode m)
     {
         struct Dispatched
         {
@@ -1863,7 +1856,7 @@ public:
         }
     }
 
-    ErrorOrDone safeSendCallerChunk(CallerOutputChunk&& c) override
+    ErrorOrDone safeSendCallerChunk(CallerOutputChunk&& c)
     {
         struct Dispatched
         {
@@ -1878,7 +1871,7 @@ public:
         return true;
     }
 
-    void safeCancelStream(RequestId r) override
+    void safeCancelStream(RequestId r)
     {
         // As per the WAMP spec, a router supporting progressive
         // calls/invocations must also support call cancellation.
@@ -1903,7 +1896,7 @@ public:
     }
 
     ErrorOrDone safeYield(CalleeOutputChunk&& c, RequestId reqId,
-                          RegistrationId regId) override
+                          RegistrationId regId)
     {
         struct Dispatched
         {
@@ -1937,7 +1930,7 @@ public:
         }
     }
 
-    void safeYield(Result&& r, RequestId reqId, RegistrationId regId) override
+    void safeYield(Result&& r, RequestId reqId, RegistrationId regId)
     {
         struct Dispatched
         {
@@ -1968,7 +1961,7 @@ public:
         }
     }
 
-    void safeYield(Error&& e, RequestId reqId, RegistrationId regId) override
+    void safeYield(Error&& e, RequestId reqId, RegistrationId regId)
     {
         struct Dispatched
         {
@@ -1998,26 +1991,26 @@ private:
         peer_->listen(this);
     }
 
-    void onPeerDisconnect() override
+    void onPeerDisconnect()
     {
         report({IncidentKind::transportDropped});
     }
 
-    void onPeerFailure(std::error_code ec, bool, std::string why) override
+    void onPeerFailure(std::error_code ec, bool, std::string why)
     {
         report({IncidentKind::commFailure, ec, std::move(why)});
         abandonPending(ec);
     }
 
-    void onPeerTrace(std::string&& messageDump) override
+    void onPeerTrace(std::string&& messageDump)
     {
         if (incidentSlot_ && traceEnabled())
             report({IncidentKind::trace, std::move(messageDump)});
     }
 
-    void onPeerHello(Realm&&) override {assert(false);}
+    void onPeerHello(Realm&&) {assert(false);}
 
-    void onPeerAbort(Reason&& reason, bool wasJoining) override
+    void onPeerAbort(Reason&& reason, bool wasJoining)
     {
         if (wasJoining)
             return onWampReply(reason.message({}));
@@ -2028,7 +2021,7 @@ private:
         abandonPending(reason.errorCode());
     }
 
-    void onPeerChallenge(Challenge&& challenge) override
+    void onPeerChallenge(Challenge&& challenge)
     {
         if (challengeSlot_)
         {
@@ -2043,7 +2036,7 @@ private:
         }
     }
 
-    void onPeerAuthenticate(Authentication&& authentication) override
+    void onPeerAuthenticate(Authentication&& authentication)
     {
         assert(false);
     }
@@ -2082,7 +2075,7 @@ private:
             boost::asio::bind_executor(associatedExec, std::move(dispatched)));
     }
 
-    void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
+    void onPeerGoodbye(Reason&& reason, bool wasShuttingDown)
     {
         if (wasShuttingDown)
         {
@@ -2097,7 +2090,7 @@ private:
         }
     }
 
-    void onPeerMessage(Message&& msg) override
+    void onPeerMessage(Message&& msg)
     {
         switch (msg.kind())
         {
@@ -2495,7 +2488,107 @@ private:
     Connecting::Ptr currentConnector_;
     RequestId inboundRequestIdWatermark_ = 0;
     bool isTerminating_ = false;
+
+    friend class ClientContext;
 };
+
+
+//******************************************************************************
+// ClientContext member function definitions
+//******************************************************************************
+
+inline ClientContext::ClientContext() {}
+
+inline ClientContext::ClientContext(const std::shared_ptr<Client>& client)
+    : client_(std::move(client))
+{}
+
+inline bool ClientContext::expired() const {return client_.expired();}
+
+inline void ClientContext::reset() {client_ = {};}
+
+inline void ClientContext::safeUnsubscribe(const Subscription& s)
+{
+    auto c = client_.lock();
+    if (c)
+        c->safeUnsubscribe(s);
+}
+
+inline void ClientContext::onEventError(Error&& e, SubscriptionId s)
+{
+    auto c = client_.lock();
+    if (c)
+        c->onEventError(std::move(e), s);
+}
+
+inline void ClientContext::safeUnregister(const Registration& r)
+{
+    auto c = client_.lock();
+    if (c)
+        c->safeUnregister(r);
+}
+
+inline void ClientContext::safeYield(Result&& result, RequestId reqId,
+                                     RegistrationId regId)
+{
+    auto c = client_.lock();
+    if (c)
+        c->safeYield(std::move(result), reqId, regId);
+}
+
+inline void ClientContext::safeYield(Error&& error, RequestId reqId,
+                                     RegistrationId regId)
+{
+    auto c = client_.lock();
+    if (c)
+        c->safeYield(std::move(error), reqId, regId);
+}
+
+inline ErrorOrDone ClientContext::safeYield(CalleeOutputChunk&& chunk,
+                                            RequestId reqId,
+                                            RegistrationId regId)
+{
+    auto c = client_.lock();
+    if (!c)
+        return false;
+    return c->safeYield(std::move(chunk), reqId, regId);
+}
+
+inline void ClientContext::safeCancelCall(RequestId r, CallCancelMode m)
+{
+    auto c = client_.lock();
+    if (c)
+        c->safeCancelCall(r, m);
+}
+
+inline ErrorOrDone ClientContext::safeSendCallerChunk(CallerOutputChunk&& chunk)
+{
+    auto c = client_.lock();
+    if (!c)
+        return false;
+    return c->safeSendCallerChunk(std::move(chunk));
+}
+
+inline void ClientContext::safeCancelStream(RequestId r)
+{
+    auto c = client_.lock();
+    if (c)
+        c->safeCancelStream(r);
+}
+
+inline void ClientContext::safeAuthenticate(Authentication&& a)
+{
+    auto c = client_.lock();
+    if (c)
+        c->safeAuthenticate(std::move(a));
+}
+
+inline void ClientContext::safeFailAuthentication(Reason&& r)
+{
+    auto c = client_.lock();
+    if (c)
+        c->safeFailAuthentication(std::move(r));
+}
 
 } // namespace internal
 

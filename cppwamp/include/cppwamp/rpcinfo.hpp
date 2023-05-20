@@ -23,9 +23,10 @@
 #include "tagtypes.hpp"
 #include "variantdefs.hpp"
 #include "wampdefs.hpp"
-#include "./internal/passkey.hpp"
-#include "./internal/matchpolicyoption.hpp"
-#include "./internal/message.hpp"
+#include "internal/clientcontext.hpp"
+#include "internal/passkey.hpp"
+#include "internal/matchpolicyoption.hpp"
+#include "internal/message.hpp"
 
 //------------------------------------------------------------------------------
 /** @file
@@ -364,8 +365,6 @@ private:
 };
 
 
-namespace internal { class Callee; } // Forward declaration
-
 //------------------------------------------------------------------------------
 /** Contains payload arguments and other options within WAMP `INVOCATION`
     messages.
@@ -398,10 +397,10 @@ public:
     AnyCompletionExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
-    void yield(Result result = Result()) const;
+    void yield(Result result = Result());
 
     /** Manually sends an `ERROR` result back to the callee. */
-    void yield(Error error) const;
+    void yield(Error error);
 
     /** Obtains information for the access log. */
     AccessActionInfo info(Uri topic) const;
@@ -435,12 +434,12 @@ public:
 
 private:
     using Base = Payload<Invocation, internal::MessageKind::invocation>;
-    using CalleePtr = std::weak_ptr<internal::Callee>;
+    using Context = internal::ClientContext;
 
     static constexpr unsigned registrationIdPos_ = 2;
     static constexpr unsigned optionsPos_ = 3;
 
-    CalleePtr callee_;
+    Context callee_;
     AnyCompletionExecutor executor_ = nullptr;
     RegistrationId registrationId_ = nullId();
 
@@ -450,9 +449,9 @@ public:
     // Internal use only
     Invocation(internal::PassKey, internal::Message&& msg);
     Invocation(internal::PassKey, Rpc&& rpc, RegistrationId regId);
-    void setCallee(internal::PassKey, CalleePtr callee,
+    void setCallee(internal::PassKey, Context callee,
                    AnyCompletionExecutor userExec);
-    CalleePtr callee(internal::PassKey) const;
+    Context callee(internal::PassKey) const;
     bool isProgress(internal::PassKey) const;
     bool resultsAreProgressive(internal::PassKey) const;
 };
@@ -520,21 +519,21 @@ public:
     AnyCompletionExecutor executor() const;
 
     /** Manually sends a `YIELD` result back to the callee. */
-    void yield(Result result = Result()) const;
+    void yield(Result result = Result());
 
     /** Manually sends an `ERROR` result back to the callee. */
-    void yield(Error error) const;
+    void yield(Error error);
 
     /** Obtains information for the access log. */
     AccessActionInfo info() const;
 
 private:
     using Base = Options<Interruption, internal::MessageKind::interrupt>;
-    using CalleePtr = std::weak_ptr<internal::Callee>;
+    using Context = internal::ClientContext;
 
     static Object makeOptions(CallCancelMode mode, WampErrc reason);
 
-    CalleePtr callee_;
+    Context callee_;
     AnyCompletionExecutor executor_ = nullptr;
     RegistrationId registrationId_ = nullId();
     CallCancelMode cancelMode_ = CallCancelMode::unknown;
@@ -546,12 +545,12 @@ public:
     Interruption(internal::PassKey, RequestId reqId, CallCancelMode mode,
                  WampErrc reason);
 
-    void setCallee(internal::PassKey, CalleePtr callee,
+    void setCallee(internal::PassKey, Context callee,
                    AnyCompletionExecutor executor);
 
     void setRegistrationId(internal::PassKey, RegistrationId regId);
 
-    CalleePtr callee(internal::PassKey) const;
+    Context callee(internal::PassKey) const;
 };
 
 
@@ -747,7 +746,7 @@ TrustLevel RpcLike<D>::trustLevel(internal::PassKey) const
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "./internal/rpcinfo.ipp"
+#include "internal/rpcinfo.ipp"
 #endif
 
 #endif // CPPWAMP_RPCINFO_HPP

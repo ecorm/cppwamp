@@ -18,7 +18,7 @@
 #include "spawn.hpp"
 #include "traits.hpp"
 #include "unpacker.hpp"
-#include "internal/callee.hpp"
+#include "internal/clientcontext.hpp"
 
 namespace wamp
 {
@@ -500,10 +500,10 @@ class CoroInvocationUnpacker<S,A...>::Spawned
 public:
     Spawned(const Slot& slot, Invocation&& inv)
         : slot_(slot),
-        calleePtr_(inv.callee_),
-        requestId_(inv.requestId()),
-        registrationId_(inv.registrationId()),
-        inv_(std::move(inv))
+          callee_(inv.callee_),
+          requestId_(inv.requestId()),
+          registrationId_(inv.registrationId()),
+          inv_(std::move(inv))
     {}
 
     template <typename TYieldContext>
@@ -550,21 +550,16 @@ public:
 private:
     void safeYield(Result&& result)
     {
-        auto callee = calleePtr_.lock();
-        if (!callee)
-            return;
-        callee->safeYield(std::move(result), requestId_, registrationId_);
+        callee_.safeYield(std::move(result), requestId_, registrationId_);
     }
 
     void safeYield(Error&& error)
     {
-        auto callee = calleePtr_.lock();
-        if (callee)
-            callee->safeYield(std::move(error), requestId_, registrationId_);
+        callee_.safeYield(std::move(error), requestId_, registrationId_);
     }
 
     Slot slot_;
-    std::weak_ptr<internal::Callee> calleePtr_;
+    internal::ClientContext callee_;
     RequestId requestId_;
     RegistrationId registrationId_;
     Invocation inv_;

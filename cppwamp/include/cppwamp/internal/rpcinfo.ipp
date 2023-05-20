@@ -10,7 +10,7 @@
 #include "../api.hpp"
 #include "../exceptions.hpp"
 #include "../variant.hpp"
-#include "callee.hpp"
+#include "clientcontext.hpp"
 
 namespace wamp
 {
@@ -352,20 +352,14 @@ CPPWAMP_INLINE AnyCompletionExecutor Invocation::executor() const
     return executor_;
 }
 
-CPPWAMP_INLINE void Invocation::yield(Result result) const
+CPPWAMP_INLINE void Invocation::yield(Result result)
 {
-    // Discard the result if client no longer exists
-    auto callee = callee_.lock();
-    if (callee)
-        callee->safeYield(std::move(result), requestId(), registrationId_);
+    callee_.safeYield(std::move(result), requestId(), registrationId_);
 }
 
-CPPWAMP_INLINE void Invocation::yield(Error error) const
+CPPWAMP_INLINE void Invocation::yield(Error error)
 {
-    // Discard the error if client no longer exists
-    auto callee = callee_.lock();
-    if (callee)
-        callee->safeYield(std::move(error), requestId(), registrationId_);
+    callee_.safeYield(std::move(error), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE AccessActionInfo Invocation::info(Uri topic) const
@@ -417,14 +411,14 @@ CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
     message().at(optionsPos_) = Object{};
 }
 
-CPPWAMP_INLINE void Invocation::setCallee(internal::PassKey, CalleePtr callee,
+CPPWAMP_INLINE void Invocation::setCallee(internal::PassKey, Context callee,
                                           AnyCompletionExecutor userExec)
 {
     callee_ = std::move(callee);
     executor_ = std::move(userExec);
 }
 
-CPPWAMP_INLINE Invocation::CalleePtr Invocation::callee(internal::PassKey) const
+CPPWAMP_INLINE Invocation::Context Invocation::callee(internal::PassKey) const
 {
     return callee_;
 }
@@ -502,20 +496,14 @@ CPPWAMP_INLINE AnyCompletionExecutor Interruption::executor() const
     return executor_;
 }
 
-CPPWAMP_INLINE void Interruption::yield(Result result) const
+CPPWAMP_INLINE void Interruption::yield(Result result)
 {
-    // Discard the result if client no longer exists
-    auto callee = callee_.lock();
-    if (callee)
-        callee->safeYield(std::move(result), requestId(), registrationId_);
+    callee_.safeYield(std::move(result), requestId(), registrationId_);
 }
 
-CPPWAMP_INLINE void Interruption::yield(Error error) const
+CPPWAMP_INLINE void Interruption::yield(Error error)
 {
-    // Discard the error if client no longer exists
-    auto callee = callee_.lock();
-    if (callee)
-        callee->safeYield(std::move(error), requestId(), registrationId_);
+    callee_.safeYield(std::move(error), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE AccessActionInfo Interruption::info() const
@@ -544,7 +532,7 @@ CPPWAMP_INLINE Interruption::Interruption(
       cancelMode_(mode)
 {}
 
-CPPWAMP_INLINE void Interruption::setCallee(internal::PassKey, CalleePtr callee,
+CPPWAMP_INLINE void Interruption::setCallee(internal::PassKey, Context callee,
                                             AnyCompletionExecutor executor)
 {
     callee_ = std::move(callee);
@@ -557,7 +545,7 @@ CPPWAMP_INLINE void Interruption::setRegistrationId(internal::PassKey,
     registrationId_ = regId;
 }
 
-CPPWAMP_INLINE Interruption::CalleePtr
+CPPWAMP_INLINE Interruption::Context
 Interruption::callee(internal::PassKey) const
 {
     return callee_;

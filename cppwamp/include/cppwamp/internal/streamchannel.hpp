@@ -18,8 +18,7 @@
 #include "../asiodefs.hpp"
 #include "../rpcinfo.hpp"
 #include "../streaming.hpp"
-#include "callee.hpp"
-#include "caller.hpp"
+#include "clientcontext.hpp"
 #include "message.hpp"
 #include "passkey.hpp"
 
@@ -46,7 +45,7 @@ public:
 
     BasicCallerChannelImpl(
         ChannelId id, String&& uri, StreamMode mode, CallCancelMode cancelMode,
-        bool expectsRsvp, Caller::WeakPtr caller, ChunkSlot&& onChunk,
+        bool expectsRsvp, ClientContext caller, ChunkSlot&& onChunk,
         AnyIoExecutor exec, FallbackExecutor userExec)
         : uri_(std::move(uri)),
           chunkSlot_(std::move(onChunk)),
@@ -97,24 +96,16 @@ public:
         if (!ok)
             return makeUnexpectedError(MiscErrc::invalidState);
 
-        auto caller = caller_.lock();
-        if (!caller)
-            return false;
         chunk.setCallInfo({}, id_, uri_);
-        return caller->safeSendCallerChunk(std::move(chunk));
+        return caller_.safeSendCallerChunk(std::move(chunk));
     }
 
     void cancel(CallCancelMode mode)
     {
         State expectedState = State::open;
         bool ok = state_.compare_exchange_strong(expectedState, State::closed);
-        if (!ok)
-            return;
-
-        auto caller = caller_.lock();
-        if (!caller)
-            return;
-        caller->safeCancelCall(id_, mode);
+        if (ok)
+            caller_.safeCancelCall(id_, mode);
     }
 
     void cancel() {cancel(cancelMode_);}
@@ -156,12 +147,7 @@ public:
     }
 
 private:
-    void safeCancel()
-    {
-        auto caller = caller_.lock();
-        if (caller)
-            caller->safeCancelStream(id_);
-    }
+    void safeCancel() {caller_.safeCancelStream(id_);}
 
     void postToChunkHandler(ErrorOr<InputChunk>&& errorOrChunk)
     {
@@ -212,7 +198,7 @@ private:
     ChunkSlot chunkSlot_;
     Executor executor_;
     FallbackExecutor userExecutor_;
-    Caller::WeakPtr caller_;
+    ClientContext caller_;
     ChannelId id_ = nullId();
     std::atomic<State> state_;
     StreamMode mode_ = {};
@@ -304,10 +290,7 @@ public:
 
         postUnexpectedInvitationAsChunk();
 
-        auto caller = callee_.lock();
-        if (!caller)
-            return false;
-        return caller->safeYield(std::move(response), id_, registrationId_);
+        return callee_.safeYield(std::move(response), id_, registrationId_);
     }
 
     CPPWAMP_NODISCARD ErrorOrDone accept(ChunkSlot onChunk = {},
@@ -332,19 +315,15 @@ public:
         bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
             return makeUnexpectedError(MiscErrc::invalidState);
-        auto callee = callee_.lock();
-        if (!callee)
-            return false;
-        return callee->safeYield(std::move(chunk), id_, registrationId_);
+        return callee_.safeYield(std::move(chunk), id_, registrationId_);
     }
 
     void fail(Error error)
     {
         auto oldState = state_.exchange(State::closed);
-        auto callee = callee_.lock();
-        if (!callee || oldState == State::closed)
+        if (oldState == State::closed)
             return;
-        callee->safeYield(std::move(error), id_, registrationId_);
+        callee_.safeYield(std::move(error), id_, registrationId_);
     }
 
     void abandon(std::error_code ec)
@@ -435,7 +414,7 @@ private:
     InterruptSlot interruptSlot_;
     AnyIoExecutor executor_;
     AnyCompletionExecutor userExecutor_;
-    Callee::WeakPtr callee_;
+    ClientContext callee_;
     ChannelId id_ = nullId();
     std::atomic<State> state_;
     StreamMode mode_ = {};

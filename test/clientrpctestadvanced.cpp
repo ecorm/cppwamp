@@ -575,7 +575,7 @@ GIVEN( "a caller and a callee" )
                 Procedure("com.myapp.foo"),
                 [&](Invocation inv) -> Outcome
                 {
-                    spawn(ioctx, [&, inv](YieldContext yield)
+                    spawn(ioctx, [&, inv](YieldContext yield) mutable
                     {
                         int arg = 0;
                         inv.convertTo(arg);

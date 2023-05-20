@@ -21,7 +21,8 @@
 #include "options.hpp"
 #include "variantdefs.hpp"
 #include "wampdefs.hpp"
-#include "./internal/passkey.hpp"
+#include "internal/clientcontext.hpp"
+#include "internal/passkey.hpp"
 
 //------------------------------------------------------------------------------
 /** @file
@@ -271,9 +272,6 @@ public:
 };
 
 
-
-namespace internal { class Challengee; } // Forward declaration
-
 //------------------------------------------------------------------------------
 /** Provides the _AuthMethod_ and _Extra_ dictionary contained within
     WAMP `CHALLENGE` messages.
@@ -336,16 +334,16 @@ public:
 
 private:
     using Base = Options<Challenge, internal::MessageKind::challenge>;
-    using ChallengeePtr = std::weak_ptr<internal::Challengee>;
+    using Context = internal::ClientContext;
 
     static constexpr unsigned authMethodPos_ = 1;
 
-    ChallengeePtr challengee_;
+    internal::ClientContext challengee_;
 
 public:
     // Internal use only
     Challenge(internal::PassKey, internal::Message&& msg);
-    void setChallengee(internal::PassKey, ChallengeePtr challengee);
+    void setChallengee(internal::PassKey, Context challengee);
 };
 
 //------------------------------------------------------------------------------
@@ -414,7 +412,7 @@ private:
 } // namespace wamp
 
 #ifndef CPPWAMP_COMPILED_LIB
-#include "./internal/sessioninfo.ipp"
+#include "internal/sessioninfo.ipp"
 #endif
 
 #endif // CPPWAMP_SESSIONINFO_HPP

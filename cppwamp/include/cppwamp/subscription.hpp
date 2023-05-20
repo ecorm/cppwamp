@@ -16,13 +16,11 @@
 #include <string>
 #include "api.hpp"
 #include "wampdefs.hpp"
-#include "./internal/passkey.hpp"
+#include "internal/clientcontext.hpp"
+#include "internal/passkey.hpp"
 
 namespace wamp
 {
-
-// Forward declaration
-namespace internal { class Subscriber; }
 
 //------------------------------------------------------------------------------
 /** Represents a pub/sub event subscription.
@@ -61,21 +59,21 @@ public:
     Subscription& operator=(Subscription&& other) noexcept;
 
     /** Unsubscribes from the topic. */
-    void unsubscribe() const;
+    void unsubscribe();
 
 private:
-    using SubscriberPtr = std::weak_ptr<internal::Subscriber>;
+    using Context = internal::ClientContext;
     using SlotId = uint64_t;
 
     static constexpr SubscriptionId invalidId_ = 0;
 
-    SubscriberPtr subscriber_;
+    Context subscriber_;
     SubscriptionId subId_ = invalidId_;
     SlotId slotId_ = invalidId_;
 
 public:
     // Internal use only
-    Subscription(internal::PassKey, SubscriberPtr subscriber,
+    Subscription(internal::PassKey, Context subscriber,
                  SubscriptionId subId, SlotId slotId);
     SlotId slotId(internal::PassKey) const;
 };
