@@ -65,7 +65,7 @@ Subscription::operator=(Subscription&& other) noexcept
 
 CPPWAMP_INLINE void Subscription::unsubscribe()
 {
-    subscriber_.safeUnsubscribe(*this);
+    subscriber_.unsubscribe(*this);
 }
 
 CPPWAMP_INLINE Subscription::Subscription(internal::PassKey, Context subscriber,

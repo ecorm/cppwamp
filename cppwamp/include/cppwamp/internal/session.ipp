@@ -48,7 +48,7 @@ CPPWAMP_INLINE Session::Session(
 CPPWAMP_INLINE Session::~Session()
 {
     if (impl_)
-        impl_->safeDisconnect();
+        impl_->disconnect();
 }
 
 //------------------------------------------------------------------------------
@@ -138,7 +138,7 @@ CPPWAMP_INLINE void Session::publish(
     Pub pub /**< The publication to publish. */
 )
 {
-    impl_->safePublish(std::move(pub));
+    impl_->publish(std::move(pub));
 }
 
 //------------------------------------------------------------------------------
@@ -183,43 +183,81 @@ CPPWAMP_INLINE void Session::directConnect(any link)
 
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE void Session::setIncidentHandler(IncidentSlot&& s)
-    {impl_->safeObserveIncidents(std::move(s));}
+{
+    impl_->observeIncidents(std::move(s));
+}
 
-CPPWAMP_INLINE void Session::doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f)
-    {impl_->safeConnect(std::move(w), std::move(f));}
+CPPWAMP_INLINE void Session::doConnect(ConnectionWishList&& w,
+                                       CompletionHandler<size_t>&& f)
+{
+    impl_->connect(std::move(w), std::move(f));
+}
 
-CPPWAMP_INLINE void Session::doJoin(Realm&& r, ChallengeSlot&& c, CompletionHandler<Welcome>&& f)
-    {impl_->safeJoin(std::move(r), std::move(c), std::move(f));}
+CPPWAMP_INLINE void Session::doJoin(Realm&& r, ChallengeSlot&& c,
+                                    CompletionHandler<Welcome>&& f)
+{
+    impl_->join(std::move(r), std::move(c), std::move(f));
+}
 
 CPPWAMP_INLINE void Session::doLeave(Reason&& r, CompletionHandler<Reason>&& f)
-    {impl_->safeLeave(std::move(r), std::move(f));}
+{
+    impl_->leave(std::move(r), std::move(f));
+}
 
 CPPWAMP_INLINE void Session::doSubscribe(Topic&& t, EventSlot&& s,
-                          CompletionHandler<Subscription>&& f)
-    {impl_->safeSubscribe(std::move(t), std::move(s), std::move(f));}
+                                         CompletionHandler<Subscription>&& f)
+{
+    impl_->subscribe(std::move(t), std::move(s), std::move(f));
+}
 
-CPPWAMP_INLINE void Session::doUnsubscribe(const Subscription& s, CompletionHandler<bool>&& f)
-    {impl_->safeUnsubscribe(std::move(s), std::move(f));}
+CPPWAMP_INLINE void Session::doUnsubscribe(const Subscription& s,
+                                           CompletionHandler<bool>&& f)
+{
+    impl_->unsubscribe(std::move(s), std::move(f));
+}
 
-CPPWAMP_INLINE void Session::doPublish(Pub&& p, CompletionHandler<PublicationId>&& f)
-    {impl_->safePublish(std::move(p), std::move(f));}
+CPPWAMP_INLINE void Session::doPublish(
+    Pub&& p, CompletionHandler<PublicationId>&& f)
+{
+    impl_->publish(std::move(p), std::move(f));
+}
 
-CPPWAMP_INLINE void Session::doEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i, CompletionHandler<Registration>&& f)
-    {impl_->safeEnroll(std::move(p), std::move(c), std::move(i), std::move(f));}
+CPPWAMP_INLINE void Session::doEnroll(
+    Procedure&& p, CallSlot&& c, InterruptSlot&& i,
+    CompletionHandler<Registration>&& f)
+{
+    impl_->enroll(std::move(p), std::move(c), std::move(i), std::move(f));
+}
 
-CPPWAMP_INLINE void Session::doUnregister(const Registration& r, CompletionHandler<bool>&& f)
-    {impl_->safeUnregister(std::move(r), std::move(f));}
+CPPWAMP_INLINE void Session::doUnregister(const Registration& r,
+                                          CompletionHandler<bool>&& f)
+{
+    impl_->unregister(std::move(r), std::move(f));
+}
 
 CPPWAMP_INLINE void Session::doCall(Rpc&& r, CompletionHandler<Result>&& f)
-    {impl_->safeCall(std::move(r), std::move(f));}
+{
+    impl_->call(std::move(r), std::move(f));
+}
 
-CPPWAMP_INLINE void Session::doEnroll(Stream&& s, StreamSlot&& ss, CompletionHandler<Registration>&& f)
-    {impl_->safeEnroll(std::move(s), std::move(ss), std::move(f));}
+CPPWAMP_INLINE void Session::doEnroll(Stream&& s, StreamSlot&& ss,
+                                      CompletionHandler<Registration>&& f)
+{
+    impl_->enroll(std::move(s), std::move(ss), std::move(f));
+}
 
-CPPWAMP_INLINE void Session::doRequestStream(StreamRequest&& r, CallerChunkSlot&& c, CompletionHandler<CallerChannel>&& f)
-    {impl_->safeRequestStream(std::move(r), std::move(c), std::move(f));}
+CPPWAMP_INLINE void Session::doRequestStream(
+    StreamRequest&& r, CallerChunkSlot&& c,
+    CompletionHandler<CallerChannel>&& f)
+{
+    impl_->requestStream(std::move(r), std::move(c), std::move(f));
+}
 
-CPPWAMP_INLINE void Session::doOpenStream(StreamRequest&& r, CallerChunkSlot&& s, CompletionHandler<CallerChannel>&& f)
-    {impl_->safeOpenStream(std::move(r), std::move(s), std::move(f));}
+CPPWAMP_INLINE void Session::doOpenStream(
+    StreamRequest&& r, CallerChunkSlot&& s,
+    CompletionHandler<CallerChannel>&& f)
+{
+    impl_->openStream(std::move(r), std::move(s), std::move(f));
+}
 
 } // namespace wamp

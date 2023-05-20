@@ -938,15 +938,15 @@ private:
 
                     case Outcome::Type::result:
                     {
-                        callee.safeYield(std::move(outcome).asResult(),
-                                         requestId, regId);
+                        callee.yieldResult(std::move(outcome).asResult(),
+                                           requestId, regId);
                         break;
                     }
 
                     case Outcome::Type::error:
                     {
-                        callee.safeYield(std::move(outcome).asError(),
-                                         requestId, regId);
+                        callee.yieldError(std::move(outcome).asError(),
+                                          requestId, regId);
                         break;
                     }
 
@@ -956,12 +956,12 @@ private:
                 }
                 catch (Error& error)
                 {
-                    callee.safeYield(std::move(error), requestId, regId);
+                    callee.yieldError(std::move(error), requestId, regId);
                 }
                 catch (const error::BadType& e)
                 {
                     // Forward Variant conversion exceptions as ERROR messages.
-                    callee.safeYield(Error{e}, requestId, regId);
+                    callee.yieldError(Error{e}, requestId, regId);
                 }
             }
         };
@@ -1104,16 +1104,11 @@ public:
 
     void observeIncidents(IncidentSlot handler)
     {
-        incidentSlot_ = std::move(handler);
-    }
-
-    void safeObserveIncidents(IncidentSlot handler)
-    {
         struct Dispatched
         {
             Ptr self;
             IncidentSlot f;
-            void operator()() {self->observeIncidents(std::move(f));}
+            void operator()() {self->incidentSlot_ = std::move(f);}
         };
 
         safelyDispatch<Dispatched>(std::move(handler));
@@ -1121,32 +1116,14 @@ public:
 
     void enableTracing(bool enabled) {PeerListener::enableTracing(enabled);}
 
-    void connect(ConnectionWishList&& wishes,
-                 CompletionHandler<size_t>&& handler)
-    {
-        assert(!wishes.empty());
-
-        if (!peer_->startConnecting())
-            return postErrorToHandler(MiscErrc::invalidState, handler);
-        isTerminating_ = false;
-        currentConnector_ = nullptr;
-
-        // This makes it easier to transport the move-only completion handler
-        // through the gauntlet of intermediary handler functions.
-        auto sharedHandler =
-            std::make_shared<CompletionHandler<size_t>>(std::move(handler));
-
-        doConnect(std::move(wishes), 0, std::move(sharedHandler));
-    }
-
-    void safeConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f)
+    void connect(ConnectionWishList&& w, CompletionHandler<size_t>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             ConnectionWishList w;
             CompletionHandler<size_t> f;
-            void operator()() {self->connect(std::move(w), std::move(f));}
+            void operator()() {self->doConnect(std::move(w), std::move(f));}
         };
 
         safelyDispatch<Dispatched>(std::move(w), std::move(f));
@@ -1158,48 +1135,7 @@ public:
         peer_->connect(strand_, std::move(link));
     }
 
-    void join(Realm&& realm, ChallengeSlot onChallenge,
-              CompletionHandler<Welcome>&& handler)
-    {
-        struct Requested
-        {
-            Ptr self;
-            CompletionHandler<Welcome> handler;
-            Uri realm;
-            Reason* abortPtr;
-
-            void operator()(ErrorOr<Message> reply)
-            {
-                auto& me = *self;
-                me.challengeSlot_ = nullptr;
-                if (me.checkError(reply, handler))
-                {
-                    if (reply->kind() == MessageKind::welcome)
-                    {
-                        me.onWelcome(std::move(handler), *reply,
-                                     std::move(realm));
-                    }
-                    else
-                    {
-                        assert(reply->kind() == MessageKind::abort);
-                        me.onJoinAborted(std::move(handler), *reply, abortPtr);
-                    }
-                }
-            }
-        };
-
-        if (!peer_->establishSession())
-            return postErrorToHandler(MiscErrc::invalidState, handler);
-
-        realm.withOption("agent", Version::agentString())
-             .withOption("roles", ClientFeatures::providedRoles());
-        challengeSlot_ = std::move(onChallenge);
-        Requested requested{shared_from_this(), std::move(handler), realm.uri(),
-                            realm.abortReason({})};
-        request(std::move(realm), std::move(requested));
-    }
-
-    void safeJoin(Realm&& r, ChallengeSlot c, CompletionHandler<Welcome>&& f)
+    void join(Realm&& r, ChallengeSlot c, CompletionHandler<Welcome>&& f)
     {
         struct Dispatched
         {
@@ -1207,30 +1143,23 @@ public:
             Realm r;
             ChallengeSlot c;
             CompletionHandler<Welcome> f;
-            void operator()() {self->join(std::move(r), std::move(c),
-                               std::move(f));}
+
+            void operator()()
+            {
+                self->doJoin(std::move(r), std::move(c), std::move(f));
+            }
         };
 
         safelyDispatch<Dispatched>(std::move(r), std::move(c), std::move(f));
     }
 
-    void authenticate(Authentication&& auth)
-    {
-        if (state() != State::authenticating)
-            return;
-        auto done = peer_->send(std::move(auth));
-        if (!done && incidentSlot_)
-            report({IncidentKind::trouble, done.error(),
-                    "While sending AUTHENTICATE message"});
-    }
-
-    void safeAuthenticate(Authentication&& a)
+    void authenticate(Authentication&& a)
     {
         struct Dispatched
         {
             Ptr self;
             Authentication a;
-            void operator()() {self->authenticate(std::move(a));}
+            void operator()() {self->doAuthenticate(std::move(a));}
         };
 
         safelyDispatch<Dispatched>(std::move(a));
@@ -1238,72 +1167,24 @@ public:
 
     void failAuthentication(Reason&& r)
     {
-        if (state() != State::authenticating)
-            return;
-
-        if (incidentSlot_)
-            report({IncidentKind::challengeFailure, r});
-
-        abandonPending(r.errorCode());
-        auto done = peer_->abort(std::move(r));
-        auto unex = makeUnexpectedError(WampErrc::payloadSizeExceeded);
-        if (incidentSlot_ && (done == unex))
-        {
-            report({IncidentKind::trouble, unex.value(),
-                    "While sending ABORT due to authentication failure"});
-        }
-
-    }
-
-    void safeFailAuthentication(Reason&& r)
-    {
         struct Dispatched
         {
             Ptr self;
             Reason r;
-            void operator()() {self->failAuthentication(std::move(r));}
+            void operator()() {self->doFailAuthentication(std::move(r));}
         };
 
         safelyDispatch<Dispatched>(std::move(r));
     }
 
-    void leave(Reason&& reason, CompletionHandler<Reason>&& handler)
-    {
-        struct Requested
-        {
-            Ptr self;
-            CompletionHandler<Reason> handler;
-
-            void operator()(ErrorOr<Message> reply)
-            {
-                auto& me = *self;
-                if (me.checkError(reply, handler))
-                {
-                    me.clear();
-                    me.peer_->close();
-                    me.completeNow(handler, Reason({}, std::move(*reply)));
-                }
-            }
-        };
-
-        if (!peer_->startShuttingDown())
-            return postErrorToHandler(MiscErrc::invalidState, handler);
-
-        if (reason.uri().empty())
-            reason.setUri({}, errorCodeToUri(WampErrc::closeRealm));
-
-        request(std::move(reason),
-                Requested{shared_from_this(), std::move(handler)});
-    }
-
-    void safeLeave(Reason&& r, CompletionHandler<Reason>&& f)
+    void leave(Reason&& r, CompletionHandler<Reason>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Reason r;
             CompletionHandler<Reason> f;
-            void operator()() {self->leave(std::move(r), std::move(f));}
+            void operator()() {self->doLeave(std::move(r), std::move(f));}
         };
 
         safelyDispatch<Dispatched>(std::move(r), std::move(f));
@@ -1311,18 +1192,10 @@ public:
 
     void disconnect()
     {
-        if (state() == State::connecting)
-            currentConnector_->cancel();
-        clear();
-        peer_->disconnect();
-    }
-
-    void safeDisconnect()
-    {
         struct Dispatched
         {
             Ptr self;
-            void operator()() {self->disconnect();}
+            void operator()() {self->doDisconnect();}
         };
 
         safelyDispatch<Dispatched>();
@@ -1330,60 +1203,17 @@ public:
 
     void terminate()
     {
-        isTerminating_ = true;
-        disconnect();
-    }
-
-    void safeTerminate()
-    {
         struct Dispatched
         {
             Ptr self;
-            void operator()() {self->terminate();}
+            void operator()() {self->doTerminate();}
         };
 
         safelyDispatch<Dispatched>();
     }
 
-    void subscribe(Topic&& topic, EventSlot&& slot,
-                   CompletionHandler<Subscription>&& handler)
-    {
-        struct Requested
-        {
-            Ptr self;
-            MatchUri matchUri;
-            EventSlot slot;
-            CompletionHandler<Subscription> handler;
-
-            void operator()(ErrorOr<Message> reply)
-            {
-                auto& me = *self;
-                if (!me.checkReply(reply, MessageKind::subscribed, handler))
-                    return;
-                Subscribed ack{std::move(*reply)};
-                auto sub = me.readership_.onSubscribed(
-                    ack.subscriptionId(), std::move(matchUri), std::move(slot),
-                    self);
-                me.completeNow(handler, std::move(sub));
-            }
-        };
-
-        if (!checkState(State::established, handler))
-            return;
-
-        auto self = shared_from_this();
-        MatchUri matchUri{topic};
-        auto subscription = readership_.subscribe(matchUri, slot, self);
-        if (subscription)
-            return complete(handler, std::move(subscription));
-
-        Requested requested{shared_from_this(), std::move(matchUri),
-                            std::move(slot), std::move(handler)};
-        request(std::move(topic), std::move(requested));
-    }
-
-    void safeSubscribe(Topic&& t, EventSlot&& s,
-                       CompletionHandler<Subscription>&& f)
+    void subscribe(Topic&& t, EventSlot&& s,
+                   CompletionHandler<Subscription>&& f)
     {
         struct Dispatched
         {
@@ -1394,135 +1224,58 @@ public:
 
             void operator()()
             {
-                self->subscribe(std::move(t), std::move(s), std::move(f));
+                self->doSubscribe(std::move(t), std::move(s), std::move(f));
             }
         };
 
         safelyDispatch<Dispatched>(std::move(t), std::move(s), std::move(f));
     }
 
-    void unsubscribe(const Subscription& sub)
-    {
-        if (readership_.unsubscribe(sub))
-            sendUnsubscribe(sub.id());
-    }
-
-    void safeUnsubscribe(const Subscription& s)
+    void unsubscribe(const Subscription& s)
     {
         struct Dispatched
         {
             Ptr self;
             Subscription s;
-            void operator()() {self->unsubscribe(s);}
+            void operator()() {self->doUnsubscribe(s);}
         };
 
         safelyDispatch<Dispatched>(s);
     }
 
-    void unsubscribe(const Subscription& sub, CompletionHandler<bool>&& handler)
-    {
-        if (readership_.unsubscribe(sub))
-            sendUnsubscribe(sub.id(), std::move(handler));
-        else
-            complete(handler, false);
-    }
-
-    void safeUnsubscribe(const Subscription& s, CompletionHandler<bool>&& f)
+    void unsubscribe(const Subscription& s, CompletionHandler<bool>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Subscription s;
             CompletionHandler<bool> f;
-            void operator()() {self->unsubscribe(s, std::move(f));}
+            void operator()() {self->doUnsubscribe(s, std::move(f));}
         };
 
         safelyDispatch<Dispatched>(s, std::move(f));
     }
 
-    void onEventError(Error&& error, SubscriptionId subId)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Error e;
-            SubscriptionId s;
-            void operator()() {self->reportEventError(e, s);}
-        };
-
-        // This can be called from a foreign thread, so we must dispatch
-        // to avoid race when accessing incidentSlot_ member.
-        safelyDispatch<Dispatched>(std::move(error), subId);
-    }
-
-    void reportEventError(Error& error, SubscriptionId subId)
-    {
-        const auto& uri = readership_.lookupTopicUri(subId);
-        if (!uri.empty())
-            error["uri"] = uri;
-        report({IncidentKind::eventError, error});
-    }
-
-    void publish(Pub&& pub)
-    {
-        if (state() != State::established)
-            return;
-        auto uri = pub.uri();
-        auto reqId = requestor_.request(std::move(pub), nullptr);
-        if (incidentSlot_ && !reqId)
-        {
-            report({IncidentKind::trouble, reqId.error(),
-                    "While sending unacknowledged PUBLISH message with "
-                    "URI '" + uri + "'"});
-        }
-    }
-
-    void safePublish(Pub&& p)
+    void publish(Pub&& p)
     {
         struct Dispatched
         {
             Ptr self;
             Pub p;
-            void operator()() {self->publish(std::move(p));}
+            void operator()() {self->doPublish(std::move(p));}
         };
 
         safelyDispatch<Dispatched>(std::move(p));
     }
 
-    void publish(Pub&& pub, CompletionHandler<PublicationId>&& handler)
-    {
-        struct Requested
-        {
-            Ptr self;
-            CompletionHandler<PublicationId> handler;
-
-            void operator()(ErrorOr<Message> reply)
-            {
-                auto& me = *self;
-                if (me.checkReply(reply, MessageKind::published, handler))
-                {
-                    Published ack{std::move(*reply)};
-                    me.completeNow(handler, ack.publicationId());
-                }
-            }
-        };
-
-        if (!checkState(State::established, handler))
-            return;
-
-        pub.withOption("acknowledge", true);
-        request(std::move(pub),
-                Requested{shared_from_this(), std::move(handler)});
-    }
-
-    void safePublish(Pub&& p, CompletionHandler<PublicationId>&& f)
+    void publish(Pub&& p, CompletionHandler<PublicationId>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Pub p;
             CompletionHandler<PublicationId> f;
-            void operator()() {self->publish(std::move(p), std::move(f));}
+            void operator()() {self->doPublish(std::move(p), std::move(f));}
         };
 
         safelyDispatch<Dispatched>(std::move(p), std::move(f));
@@ -1530,35 +1283,6 @@ public:
 
     void enroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
                 CompletionHandler<Registration>&& f)
-    {
-        struct Requested
-        {
-            Ptr self;
-            ProcedureRegistration r;
-            CompletionHandler<Registration> f;
-
-            void operator()(ErrorOr<Message> reply)
-            {
-                auto& me = *self;
-                if (!me.checkReply(reply, MessageKind::registered, f))
-                    return;
-                Registered ack{std::move(*reply)};
-                r.registrationId = ack.registrationId();
-                auto reg = me.registry_.enroll(std::move(r), self);
-                me.completeNow(f, std::move(reg));
-            }
-        };
-
-        if (!checkState(State::established, f))
-            return;
-
-        ProcedureRegistration reg{std::move(c), std::move(i), p.uri(), 0};
-        request(std::move(p),
-                Requested{shared_from_this(), std::move(reg), std::move(f)});
-    }
-
-    void safeEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
-                    CompletionHandler<Registration>&& f)
     {
         struct Dispatched
         {
@@ -1570,7 +1294,7 @@ public:
 
             void operator()()
             {
-                self->enroll(std::move(p), std::move(c), std::move(i),
+                self->doEnroll(std::move(p), std::move(c), std::move(i),
                              std::move(f));
             }
         };
@@ -1582,36 +1306,6 @@ public:
     void enroll(Stream&& s, StreamSlot&& ss,
                 CompletionHandler<Registration>&& f)
     {
-        struct Requested
-        {
-            Ptr self;
-            StreamRegistration r;
-            CompletionHandler<Registration> f;
-
-            void operator()(ErrorOr<Message> reply)
-            {
-                auto& me = *self;
-                if (!me.checkReply(reply, MessageKind::registered, f))
-                    return;
-                Registered ack{std::move(*reply)};
-                r.registrationId = ack.registrationId();
-                auto reg = me.registry_.enroll(std::move(r), self);
-                me.completeNow(f, std::move(reg));
-            }
-        };
-
-        if (!checkState(State::established, f))
-            return;
-
-        StreamRegistration reg{std::move(ss), s.uri(), 0,
-                               s.invitationExpected()};
-        request(std::move(s),
-                Requested{shared_from_this(), std::move(reg), std::move(f)});
-    }
-
-    void safeEnroll(Stream&& s, StreamSlot&& ss,
-                    CompletionHandler<Registration>&& f)
-    {
         struct Dispatched
         {
             Ptr self;
@@ -1621,181 +1315,53 @@ public:
 
             void operator()()
             {
-                self->enroll(std::move(s), std::move(ss), std::move(f));
+                self->doEnroll(std::move(s), std::move(ss), std::move(f));
             }
         };
 
         safelyDispatch<Dispatched>(std::move(s), std::move(ss), std::move(f));
     }
 
-    void unregister(const Registration& reg)
-    {
-        struct Requested
-        {
-            void operator()(ErrorOr<Message>)
-            {
-                // Don't propagate WAMP errors, as we prefer this
-                // to be a no-fail cleanup operation.
-            }
-        };
-
-        if (registry_.unregister(reg) && state() == State::established)
-        {
-            Unregister unreg{reg.id()};
-            request(unreg, Requested{});
-        }
-    }
-
-    void safeUnregister(const Registration& r)
+    void unregister(const Registration& r)
     {
         struct Dispatched
         {
             Ptr self;
             Registration r;
-            void operator()() {self->unregister(r);}
+            void operator()() {self->doUnregister(r);}
         };
 
         safelyDispatch<Dispatched>(r);
     }
 
-    void unregister(const Registration& reg, CompletionHandler<bool>&& handler)
-    {
-        struct Requested
-        {
-            Ptr self;
-            CompletionHandler<bool> handler;
-
-            void operator()(ErrorOr<Message> reply)
-            {
-                auto& me = *self;
-                if (me.checkReply(reply, MessageKind::unregistered, handler))
-                    me.completeNow(handler, true);
-            }
-        };
-
-        if (registry_.unregister(reg))
-        {
-            Unregister cmd(reg.id());
-            if (checkState(State::established, handler))
-                request(Unregister{reg.id()},
-                        Requested{shared_from_this(), std::move(handler)});
-        }
-        else
-        {
-            complete(handler, false);
-        }
-    }
-
-    void safeUnregister(const Registration& r, CompletionHandler<bool>&& f)
+    void unregister(const Registration& r, CompletionHandler<bool>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Registration r;
             CompletionHandler<bool> f;
-            void operator()() {self->unregister(std::move(r), std::move(f));}
+            void operator()() {self->doUnregister(std::move(r), std::move(f));}
         };
 
         safelyDispatch<Dispatched>(r, std::move(f));
     }
 
-    void call(Rpc&& rpc, CompletionHandler<Result>&& handler)
-    {
-        struct Requested
-        {
-            Ptr self;
-            Error* errorPtr;
-            CompletionHandler<Result> handler;
-
-            void operator()(ErrorOr<Message> reply)
-            {
-                auto& me = *self;
-                if (me.checkReply(reply, MessageKind::result, handler,
-                                  errorPtr))
-                {
-                    me.completeNow(handler, Result({}, std::move(*reply)));
-                }
-            }
-        };
-
-        if (!checkState(State::established, handler))
-            return;
-
-        auto boundCancelSlot =
-            boost::asio::get_associated_cancellation_slot(handler);
-        auto requestId = requestor_.request(
-            std::move(rpc),
-            rpc.callerTimeout(),
-            Requested{shared_from_this(), rpc.error({}), std::move(handler)});
-        if (!requestId)
-            return;
-
-        auto& rpcCancelSlot = rpc.cancellationSlot({});
-        if (rpcCancelSlot.is_connected())
-        {
-            rpcCancelSlot.emplace(shared_from_this(), *requestId);
-        }
-        else if (boundCancelSlot.is_connected())
-        {
-            auto self = shared_from_this();
-            auto reqId = *requestId;
-            auto mode = rpc.cancelMode();
-            boundCancelSlot.assign(
-                [this, self, reqId, mode](boost::asio::cancellation_type_t)
-                {
-                    safeCancelCall(reqId, mode);
-                });
-        }
-    }
-
-    void safeCall(Rpc&& r, CompletionHandler<Result>&& f)
+    void call(Rpc&& r, CompletionHandler<Result>&& f)
     {
         struct Dispatched
         {
             Ptr self;
             Rpc r;
             CompletionHandler<Result> f;
-
-            void operator()()
-            {
-                self->call(std::move(r), std::move(f));
-            }
+            void operator()() {self->doCall(std::move(r), std::move(f));}
         };
 
         safelyDispatch<Dispatched>(std::move(r), std::move(f));
     }
 
-    void cancelCall(RequestId reqId, CallCancelMode mode)
-    {
-        if (state() == State::established)
-            requestor_.cancelCall(reqId, mode);
-    }
-
-    void safeCancelCall(RequestId r, CallCancelMode m)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            RequestId r;
-            CallCancelMode m;
-            void operator()() {self->cancelCall(r, m);}
-        };
-
-        safelyDispatch<Dispatched>(r, m);
-    }
-
-    void requestStream(StreamRequest&& req, ChunkSlot&& onChunk,
-                       CompletionHandler<CallerChannel>&& handler)
-    {
-        if (!checkState(State::established, handler))
-            return;
-
-        requestor_.requestStream(true, shared_from_this(), std::move(req),
-                                 std::move(onChunk), std::move(handler));
-    }
-
-    void safeRequestStream(StreamRequest&& s, ChunkSlot&& c,
-                           CompletionHandler<CallerChannel>&& f)
+    void requestStream(StreamRequest&& s, ChunkSlot&& c,
+                       CompletionHandler<CallerChannel>&& f)
     {
         struct Dispatched
         {
@@ -1806,26 +1372,15 @@ public:
 
             void operator()()
             {
-                self->requestStream(std::move(s), std::move(c), std::move(f));
+                self->doRequestStream(std::move(s), std::move(c), std::move(f));
             }
         };
 
         safelyDispatch<Dispatched>(std::move(s), std::move(c), std::move(f));
     }
 
-    void openStream(StreamRequest&& req, ChunkSlot&& onChunk,
-                    CompletionHandler<CallerChannel>&& handler)
-    {
-        if (!checkState(State::established, handler))
-            return;
-
-        auto channel = requestor_.requestStream(
-            false, shared_from_this(), std::move(req), std::move(onChunk));
-        return completeRequest(handler, std::move(channel));
-    }
-
-    void safeOpenStream(StreamRequest&& r, ChunkSlot&& c,
-                        CompletionHandler<CallerChannel>&& f)
+    void openStream(StreamRequest&& r, ChunkSlot&& c,
+                    CompletionHandler<CallerChannel>&& f)
     {
         struct Dispatched
         {
@@ -1836,143 +1391,11 @@ public:
 
             void operator()()
             {
-                self->openStream(std::move(r), std::move(c), std::move(f));
+                self->doOpenStream(std::move(r), std::move(c), std::move(f));
             }
         };
 
         safelyDispatch<Dispatched>(std::move(r), std::move(c), std::move(f));
-    }
-
-    void sendCallerChunk(CallerOutputChunk&& chunk)
-    {
-        if (state() != State::established)
-            return;
-
-        auto done = requestor_.sendCallerChunk(std::move(chunk));
-        if (incidentSlot_ && !done)
-        {
-            report({IncidentKind::trouble, done.error(),
-                    "While sending streaming CALL message"});
-        }
-    }
-
-    ErrorOrDone safeSendCallerChunk(CallerOutputChunk&& c)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            CallerOutputChunk c;
-            void operator()() {self->sendCallerChunk(std::move(c));}
-        };
-
-        if (state() != State::established)
-            return makeUnexpectedError(MiscErrc::invalidState);
-        safelyDispatch<Dispatched>(std::move(c));
-        return true;
-    }
-
-    void safeCancelStream(RequestId r)
-    {
-        // As per the WAMP spec, a router supporting progressive
-        // calls/invocations must also support call cancellation.
-        safeCancelCall(r, CallCancelMode::killNoWait);
-    }
-
-    void yieldChunk(CalleeOutputChunk&& chunk, RegistrationId regId)
-    {
-        if (state() != State::established)
-            return;
-        auto done = registry_.yield(std::move(chunk));
-        if (incidentSlot_ && !done)
-        {
-            std::ostringstream oss;
-            oss << "Stream RESULT with requestId=" << chunk.requestId({})
-                << ", for registrationId=" << regId;
-            const auto& uri = registry_.lookupStreamUri(regId);
-            if (!uri.empty())
-                oss << " and uri=" << uri;
-            report({IncidentKind::trouble, done.error(), oss.str()});
-        }
-    }
-
-    ErrorOrDone safeYield(CalleeOutputChunk&& c, RequestId reqId,
-                          RegistrationId regId)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            CalleeOutputChunk c;
-            RegistrationId r;
-            void operator()() {self->yieldChunk(std::move(c), r);}
-        };
-
-        if (state() != State::established)
-            return makeUnexpectedError(MiscErrc::invalidState);
-        c.setRequestId({}, reqId);
-        safelyDispatch<Dispatched>(std::move(c), regId);
-        return true;
-    }
-
-    void yieldResult(Result&& result, RegistrationId regId)
-    {
-        if (state() != State::established)
-            return;
-        auto done = registry_.yield(std::move(result));
-        if (incidentSlot_ && !done)
-        {
-            std::ostringstream oss;
-            oss << "RPC RESULT with requestId=" << result.requestId({})
-                << ", for registrationId=" << regId;
-            const auto& uri = registry_.lookupProcedureUri(regId);
-            if (!uri.empty())
-                oss << " and uri=" << uri;
-            report({IncidentKind::trouble, done.error(), oss.str()});
-        }
-    }
-
-    void safeYield(Result&& r, RequestId reqId, RegistrationId regId)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Result r;
-            RegistrationId i;
-            void operator()() {self->yieldResult(std::move(r), i);}
-        };
-
-        r.setRequestId({}, reqId);
-        safelyDispatch<Dispatched>(std::move(r), regId);
-    }
-
-    void yieldError(Error&& error, RegistrationId regId)
-    {
-        if (state() != State::established)
-            return;
-        auto done = registry_.yield(std::move(error));
-        if (incidentSlot_ && !done)
-        {
-            std::ostringstream oss;
-            oss << "INVOCATION ERROR with requestId=" << error.requestId({})
-                << ", for registrationId=" << regId;
-            auto uri = registry_.lookupProcedureUri(regId);
-            if (!uri.empty())
-                oss << " and uri=" << uri;
-            report({IncidentKind::trouble, done.error(), oss.str()});
-        }
-    }
-
-    void safeYield(Error&& e, RequestId reqId, RegistrationId regId)
-    {
-        struct Dispatched
-        {
-            Ptr self;
-            Error e;
-            RegistrationId r;
-            void operator()() {self->yieldError(std::move(e), r);}
-        };
-
-        e.setRequestId({}, reqId);
-        safelyDispatch<Dispatched>(std::move(e), regId);
     }
 
 private:
@@ -2032,7 +1455,7 @@ private:
         {
             auto r = Reason{WampErrc::authenticationFailed}
                          .withHint("No challenge handler");
-            failAuthentication(std::move(r));
+            doFailAuthentication(std::move(r));
         }
     }
 
@@ -2057,11 +1480,11 @@ private:
                 }
                 catch (Reason r)
                 {
-                    self->safeFailAuthentication(std::move(r));
+                    self->failAuthentication(std::move(r));
                 }
                 catch (const error::BadType& e)
                 {
-                    self->safeFailAuthentication(Reason{e});
+                    self->failAuthentication(Reason{e});
                 }
             }
         };
@@ -2220,54 +1643,26 @@ private:
         completeNow(handler, makeUnexpectedError(errc));
     }
 
-    template <typename F, typename... Ts>
-    void safelyDispatch(Ts&&... args)
+    void doConnect(ConnectionWishList&& wishes,
+                   CompletionHandler<size_t>&& handler)
     {
-        F dispatched{shared_from_this(), std::forward<Ts>(args)...};
-        boost::asio::dispatch(strand_, std::move(dispatched));
+        assert(!wishes.empty());
+
+        if (!peer_->startConnecting())
+            return postErrorToHandler(MiscErrc::invalidState, handler);
+        isTerminating_ = false;
+        currentConnector_ = nullptr;
+
+        // This makes it easier to transport the move-only completion handler
+        // through the gauntlet of intermediary handler functions.
+        auto sharedHandler =
+            std::make_shared<CompletionHandler<size_t>>(std::move(handler));
+
+        establishConnection(std::move(wishes), 0, std::move(sharedHandler));
     }
 
-    template <typename F>
-    bool checkState(State expectedState, F& handler)
-    {
-        bool valid = state() == expectedState;
-        if (!valid)
-            postErrorToHandler(MiscErrc::invalidState, handler);
-        return valid;
-    }
-
-    template <typename TErrc, typename THandler>
-    void postErrorToHandler(TErrc errc, THandler& f)
-    {
-        auto unex = makeUnexpectedError(errc);
-        if (!isTerminating_)
-            postAny(executor_, std::move(f), std::move(unex));
-    }
-
-    template <typename TInfo>
-    ErrorOr<RequestId> request(TInfo&& info, RequestHandler&& handler)
-    {
-        return requestor_.request(std::move(info), std::move(handler));
-    }
-
-    void abandonPending(std::error_code ec)
-    {
-        if (isTerminating_)
-        {
-            requestor_.clear();
-        }
-        else
-        {
-            requestor_.abandonAll(ec);
-            registry_.abandonAllStreams(ec);
-        }
-    }
-
-    template <typename TErrc>
-    void abandonPending(TErrc errc) {abandonPending(make_error_code(errc));}
-
-    void doConnect(ConnectionWishList&& wishes, size_t index,
-                   std::shared_ptr<CompletionHandler<size_t>> handler)
+    void establishConnection(ConnectionWishList&& wishes, size_t index,
+                             std::shared_ptr<CompletionHandler<size_t>> handler)
     {
         struct Established
         {
@@ -2324,7 +1719,8 @@ private:
             auto newIndex = index + 1;
             if (newIndex < wishes.size())
             {
-                doConnect(std::move(wishes), newIndex, std::move(handler));
+                establishConnection(std::move(wishes), newIndex,
+                                    std::move(handler));
             }
             else
             {
@@ -2335,6 +1731,606 @@ private:
             }
         }
     }
+
+    void doJoin(Realm&& realm, ChallengeSlot onChallenge,
+                CompletionHandler<Welcome>&& handler)
+    {
+        struct Requested
+        {
+            Ptr self;
+            CompletionHandler<Welcome> handler;
+            Uri realm;
+            Reason* abortPtr;
+
+            void operator()(ErrorOr<Message> reply)
+            {
+                auto& me = *self;
+                me.challengeSlot_ = nullptr;
+                if (me.checkError(reply, handler))
+                {
+                    if (reply->kind() == MessageKind::welcome)
+                    {
+                        me.onWelcome(std::move(handler), *reply,
+                                     std::move(realm));
+                    }
+                    else
+                    {
+                        assert(reply->kind() == MessageKind::abort);
+                        me.onJoinAborted(std::move(handler), *reply, abortPtr);
+                    }
+                }
+            }
+        };
+
+        if (!peer_->establishSession())
+            return postErrorToHandler(MiscErrc::invalidState, handler);
+
+        realm.withOption("agent", Version::agentString())
+            .withOption("roles", ClientFeatures::providedRoles());
+        challengeSlot_ = std::move(onChallenge);
+        Requested requested{shared_from_this(), std::move(handler), realm.uri(),
+                            realm.abortReason({})};
+        request(std::move(realm), std::move(requested));
+    }
+
+    void doAuthenticate(Authentication&& auth)
+    {
+        if (state() != State::authenticating)
+            return;
+        auto done = peer_->send(std::move(auth));
+        if (!done && incidentSlot_)
+            report({IncidentKind::trouble, done.error(),
+                    "While sending AUTHENTICATE message"});
+    }
+
+    void doFailAuthentication(Reason&& r)
+    {
+        if (state() != State::authenticating)
+            return;
+
+        if (incidentSlot_)
+            report({IncidentKind::challengeFailure, r});
+
+        abandonPending(r.errorCode());
+        auto done = peer_->abort(std::move(r));
+        auto unex = makeUnexpectedError(WampErrc::payloadSizeExceeded);
+        if (incidentSlot_ && (done == unex))
+        {
+            report({IncidentKind::trouble, unex.value(),
+                    "While sending ABORT due to authentication failure"});
+        }
+    }
+
+    void doLeave(Reason&& reason, CompletionHandler<Reason>&& handler)
+    {
+        struct Requested
+        {
+            Ptr self;
+            CompletionHandler<Reason> handler;
+
+            void operator()(ErrorOr<Message> reply)
+            {
+                auto& me = *self;
+                if (me.checkError(reply, handler))
+                {
+                    me.clear();
+                    me.peer_->close();
+                    me.completeNow(handler, Reason({}, std::move(*reply)));
+                }
+            }
+        };
+
+        if (!peer_->startShuttingDown())
+            return postErrorToHandler(MiscErrc::invalidState, handler);
+
+        if (reason.uri().empty())
+            reason.setUri({}, errorCodeToUri(WampErrc::closeRealm));
+
+        request(std::move(reason),
+                Requested{shared_from_this(), std::move(handler)});
+    }
+
+    void doDisconnect()
+    {
+        if (state() == State::connecting)
+            currentConnector_->cancel();
+        clear();
+        peer_->disconnect();
+    }
+
+    void doTerminate()
+    {
+        isTerminating_ = true;
+        doDisconnect();
+    }
+
+    void doSubscribe(Topic&& topic, EventSlot&& slot,
+                     CompletionHandler<Subscription>&& handler)
+    {
+        struct Requested
+        {
+            Ptr self;
+            MatchUri matchUri;
+            EventSlot slot;
+            CompletionHandler<Subscription> handler;
+
+            void operator()(ErrorOr<Message> reply)
+            {
+                auto& me = *self;
+                if (!me.checkReply(reply, MessageKind::subscribed, handler))
+                    return;
+                Subscribed ack{std::move(*reply)};
+                auto sub = me.readership_.onSubscribed(
+                    ack.subscriptionId(), std::move(matchUri), std::move(slot),
+                    self);
+                me.completeNow(handler, std::move(sub));
+            }
+        };
+
+        if (!checkState(State::established, handler))
+            return;
+
+        auto self = shared_from_this();
+        MatchUri matchUri{topic};
+        auto subscription = readership_.subscribe(matchUri, slot, self);
+        if (subscription)
+            return complete(handler, std::move(subscription));
+
+        Requested requested{shared_from_this(), std::move(matchUri),
+                            std::move(slot), std::move(handler)};
+        request(std::move(topic), std::move(requested));
+    }
+
+    void doUnsubscribe(const Subscription& sub)
+    {
+        if (readership_.unsubscribe(sub))
+            sendUnsubscribe(sub.id());
+    }
+
+    void doUnsubscribe(const Subscription& sub,
+                       CompletionHandler<bool>&& handler)
+    {
+        if (readership_.unsubscribe(sub))
+            sendUnsubscribe(sub.id(), std::move(handler));
+        else
+            complete(handler, false);
+    }
+
+    void onEventError(Error&& error, SubscriptionId subId)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Error e;
+            SubscriptionId s;
+            void operator()() {self->reportEventError(e, s);}
+        };
+
+        // This can be called from a foreign thread, so we must dispatch
+        // to avoid race when accessing incidentSlot_ member.
+        safelyDispatch<Dispatched>(std::move(error), subId);
+    }
+
+    void reportEventError(Error& error, SubscriptionId subId)
+    {
+        const auto& uri = readership_.lookupTopicUri(subId);
+        if (!uri.empty())
+            error["uri"] = uri;
+        report({IncidentKind::eventError, error});
+    }
+
+    void doPublish(Pub&& pub)
+    {
+        if (state() != State::established)
+            return;
+        auto uri = pub.uri();
+        auto reqId = requestor_.request(std::move(pub), nullptr);
+        if (incidentSlot_ && !reqId)
+        {
+            report({IncidentKind::trouble, reqId.error(),
+                    "While sending unacknowledged PUBLISH message with "
+                    "URI '" + uri + "'"});
+        }
+    }
+
+    void doPublish(Pub&& pub, CompletionHandler<PublicationId>&& handler)
+    {
+        struct Requested
+        {
+            Ptr self;
+            CompletionHandler<PublicationId> handler;
+
+            void operator()(ErrorOr<Message> reply)
+            {
+                auto& me = *self;
+                if (me.checkReply(reply, MessageKind::published, handler))
+                {
+                    Published ack{std::move(*reply)};
+                    me.completeNow(handler, ack.publicationId());
+                }
+            }
+        };
+
+        if (!checkState(State::established, handler))
+            return;
+
+        pub.withOption("acknowledge", true);
+        request(std::move(pub),
+                Requested{shared_from_this(), std::move(handler)});
+    }
+
+    void doEnroll(Procedure&& p, CallSlot&& c, InterruptSlot&& i,
+                  CompletionHandler<Registration>&& f)
+    {
+        struct Requested
+        {
+            Ptr self;
+            ProcedureRegistration r;
+            CompletionHandler<Registration> f;
+
+            void operator()(ErrorOr<Message> reply)
+            {
+                auto& me = *self;
+                if (!me.checkReply(reply, MessageKind::registered, f))
+                    return;
+                Registered ack{std::move(*reply)};
+                r.registrationId = ack.registrationId();
+                auto reg = me.registry_.enroll(std::move(r), self);
+                me.completeNow(f, std::move(reg));
+            }
+        };
+
+        if (!checkState(State::established, f))
+            return;
+
+        ProcedureRegistration reg{std::move(c), std::move(i), p.uri(), 0};
+        request(std::move(p),
+                Requested{shared_from_this(), std::move(reg), std::move(f)});
+    }
+
+    void doEnroll(Stream&& s, StreamSlot&& ss,
+                  CompletionHandler<Registration>&& f)
+    {
+        struct Requested
+        {
+            Ptr self;
+            StreamRegistration r;
+            CompletionHandler<Registration> f;
+
+            void operator()(ErrorOr<Message> reply)
+            {
+                auto& me = *self;
+                if (!me.checkReply(reply, MessageKind::registered, f))
+                    return;
+                Registered ack{std::move(*reply)};
+                r.registrationId = ack.registrationId();
+                auto reg = me.registry_.enroll(std::move(r), self);
+                me.completeNow(f, std::move(reg));
+            }
+        };
+
+        if (!checkState(State::established, f))
+            return;
+
+        StreamRegistration reg{std::move(ss), s.uri(), 0,
+                               s.invitationExpected()};
+        request(std::move(s),
+                Requested{shared_from_this(), std::move(reg), std::move(f)});
+    }
+
+    void doUnregister(const Registration& reg)
+    {
+        struct Requested
+        {
+            void operator()(ErrorOr<Message>)
+            {
+                // Don't propagate WAMP errors, as we prefer this
+                // to be a no-fail cleanup operation.
+            }
+        };
+
+        if (registry_.unregister(reg) && state() == State::established)
+        {
+            Unregister unreg{reg.id()};
+            request(unreg, Requested{});
+        }
+    }
+
+    void doUnregister(const Registration& reg,
+                      CompletionHandler<bool>&& handler)
+    {
+        struct Requested
+        {
+            Ptr self;
+            CompletionHandler<bool> handler;
+
+            void operator()(ErrorOr<Message> reply)
+            {
+                auto& me = *self;
+                if (me.checkReply(reply, MessageKind::unregistered, handler))
+                    me.completeNow(handler, true);
+            }
+        };
+
+        if (registry_.unregister(reg))
+        {
+            Unregister cmd(reg.id());
+            if (checkState(State::established, handler))
+                request(Unregister{reg.id()},
+                        Requested{shared_from_this(), std::move(handler)});
+        }
+        else
+        {
+            complete(handler, false);
+        }
+    }
+
+    void doCall(Rpc&& rpc, CompletionHandler<Result>&& handler)
+    {
+        struct Requested
+        {
+            Ptr self;
+            Error* errorPtr;
+            CompletionHandler<Result> handler;
+
+            void operator()(ErrorOr<Message> reply)
+            {
+                auto& me = *self;
+                if (me.checkReply(reply, MessageKind::result, handler,
+                                  errorPtr))
+                {
+                    me.completeNow(handler, Result({}, std::move(*reply)));
+                }
+            }
+        };
+
+        if (!checkState(State::established, handler))
+            return;
+
+        auto boundCancelSlot =
+            boost::asio::get_associated_cancellation_slot(handler);
+        auto requestId = requestor_.request(
+            std::move(rpc),
+            rpc.callerTimeout(),
+            Requested{shared_from_this(), rpc.error({}), std::move(handler)});
+        if (!requestId)
+            return;
+
+        auto& rpcCancelSlot = rpc.cancellationSlot({});
+        if (rpcCancelSlot.is_connected())
+        {
+            rpcCancelSlot.emplace(shared_from_this(), *requestId);
+        }
+        else if (boundCancelSlot.is_connected())
+        {
+            auto self = shared_from_this();
+            auto reqId = *requestId;
+            auto mode = rpc.cancelMode();
+            boundCancelSlot.assign(
+                [this, self, reqId, mode](boost::asio::cancellation_type_t)
+                {
+                    cancelCall(reqId, mode);
+                });
+        }
+    }
+
+    void cancelCall(RequestId r, CallCancelMode m)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RequestId r;
+            CallCancelMode m;
+            void operator()() {self->doCancelCall(r, m);}
+        };
+
+        safelyDispatch<Dispatched>(r, m);
+    }
+
+    void doCancelCall(RequestId reqId, CallCancelMode mode)
+    {
+        if (state() == State::established)
+            requestor_.cancelCall(reqId, mode);
+    }
+
+    void doRequestStream(StreamRequest&& req, ChunkSlot&& onChunk,
+                         CompletionHandler<CallerChannel>&& handler)
+    {
+        if (!checkState(State::established, handler))
+            return;
+
+        requestor_.requestStream(true, shared_from_this(), std::move(req),
+                                 std::move(onChunk), std::move(handler));
+    }
+
+    void doOpenStream(StreamRequest&& req, ChunkSlot&& onChunk,
+                      CompletionHandler<CallerChannel>&& handler)
+    {
+        if (!checkState(State::established, handler))
+            return;
+
+        auto channel = requestor_.requestStream(
+            false, shared_from_this(), std::move(req), std::move(onChunk));
+        return completeRequest(handler, std::move(channel));
+    }
+
+    ErrorOrDone sendCallerChunk(CallerOutputChunk&& c)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            CallerOutputChunk c;
+            void operator()() {self->doSendCallerChunk(std::move(c));}
+        };
+
+        if (state() != State::established)
+            return makeUnexpectedError(MiscErrc::invalidState);
+        safelyDispatch<Dispatched>(std::move(c));
+        return true;
+    }
+
+    void doSendCallerChunk(CallerOutputChunk&& chunk)
+    {
+        if (state() != State::established)
+            return;
+
+        auto done = requestor_.sendCallerChunk(std::move(chunk));
+        if (incidentSlot_ && !done)
+        {
+            report({IncidentKind::trouble, done.error(),
+                    "While sending streaming CALL message"});
+        }
+    }
+
+    void cancelStream(RequestId r)
+    {
+        // As per the WAMP spec, a router supporting progressive
+        // calls/invocations must also support call cancellation.
+        cancelCall(r, CallCancelMode::killNoWait);
+    }
+
+    ErrorOrDone yieldChunk(CalleeOutputChunk&& c, RequestId reqId,
+                           RegistrationId regId)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            CalleeOutputChunk c;
+            RegistrationId r;
+            void operator()() {self->doYieldChunk(std::move(c), r);}
+        };
+
+        if (state() != State::established)
+            return makeUnexpectedError(MiscErrc::invalidState);
+        c.setRequestId({}, reqId);
+        safelyDispatch<Dispatched>(std::move(c), regId);
+        return true;
+    }
+
+    void doYieldChunk(CalleeOutputChunk&& chunk, RegistrationId regId)
+    {
+        if (state() != State::established)
+            return;
+        auto done = registry_.yield(std::move(chunk));
+        if (incidentSlot_ && !done)
+        {
+            std::ostringstream oss;
+            oss << "Stream RESULT with requestId=" << chunk.requestId({})
+                << ", for registrationId=" << regId;
+            const auto& uri = registry_.lookupStreamUri(regId);
+            if (!uri.empty())
+                oss << " and uri=" << uri;
+            report({IncidentKind::trouble, done.error(), oss.str()});
+        }
+    }
+
+    void yieldResult(Result&& r, RequestId reqId, RegistrationId regId)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Result r;
+            RegistrationId i;
+            void operator()() {self->doYieldResult(std::move(r), i);}
+        };
+
+        r.setRequestId({}, reqId);
+        safelyDispatch<Dispatched>(std::move(r), regId);
+    }
+
+    void doYieldResult(Result&& result, RegistrationId regId)
+    {
+        if (state() != State::established)
+            return;
+        auto done = registry_.yield(std::move(result));
+        if (incidentSlot_ && !done)
+        {
+            std::ostringstream oss;
+            oss << "RPC RESULT with requestId=" << result.requestId({})
+                << ", for registrationId=" << regId;
+            const auto& uri = registry_.lookupProcedureUri(regId);
+            if (!uri.empty())
+                oss << " and uri=" << uri;
+            report({IncidentKind::trouble, done.error(), oss.str()});
+        }
+    }
+
+    void yieldError(Error&& e, RequestId reqId, RegistrationId regId)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Error e;
+            RegistrationId r;
+            void operator()() {self->doYieldError(std::move(e), r);}
+        };
+
+        e.setRequestId({}, reqId);
+        safelyDispatch<Dispatched>(std::move(e), regId);
+    }
+
+    void doYieldError(Error&& error, RegistrationId regId)
+    {
+        if (state() != State::established)
+            return;
+        auto done = registry_.yield(std::move(error));
+        if (incidentSlot_ && !done)
+        {
+            std::ostringstream oss;
+            oss << "INVOCATION ERROR with requestId=" << error.requestId({})
+                << ", for registrationId=" << regId;
+            auto uri = registry_.lookupProcedureUri(regId);
+            if (!uri.empty())
+                oss << " and uri=" << uri;
+            report({IncidentKind::trouble, done.error(), oss.str()});
+        }
+    }
+
+    template <typename F, typename... Ts>
+    void safelyDispatch(Ts&&... args)
+    {
+        F dispatched{shared_from_this(), std::forward<Ts>(args)...};
+        boost::asio::dispatch(strand_, std::move(dispatched));
+    }
+
+    template <typename F>
+    bool checkState(State expectedState, F& handler)
+    {
+        bool valid = state() == expectedState;
+        if (!valid)
+            postErrorToHandler(MiscErrc::invalidState, handler);
+        return valid;
+    }
+
+    template <typename TErrc, typename THandler>
+    void postErrorToHandler(TErrc errc, THandler& f)
+    {
+        auto unex = makeUnexpectedError(errc);
+        if (!isTerminating_)
+            postAny(executor_, std::move(f), std::move(unex));
+    }
+
+    template <typename TInfo>
+    ErrorOr<RequestId> request(TInfo&& info, RequestHandler&& handler)
+    {
+        return requestor_.request(std::move(info), std::move(handler));
+    }
+
+    void abandonPending(std::error_code ec)
+    {
+        if (isTerminating_)
+        {
+            requestor_.clear();
+        }
+        else
+        {
+            requestor_.abandonAll(ec);
+            registry_.abandonAllStreams(ec);
+        }
+    }
+
+    template <typename TErrc>
+    void abandonPending(TErrc errc) {abandonPending(make_error_code(errc));}
 
     void clear()
     {
@@ -2507,11 +2503,11 @@ inline bool ClientContext::expired() const {return client_.expired();}
 
 inline void ClientContext::reset() {client_ = {};}
 
-inline void ClientContext::safeUnsubscribe(const Subscription& s)
+inline void ClientContext::unsubscribe(const Subscription& s)
 {
     auto c = client_.lock();
     if (c)
-        c->safeUnsubscribe(s);
+        c->unsubscribe(s);
 }
 
 inline void ClientContext::onEventError(Error&& e, SubscriptionId s)
@@ -2521,73 +2517,72 @@ inline void ClientContext::onEventError(Error&& e, SubscriptionId s)
         c->onEventError(std::move(e), s);
 }
 
-inline void ClientContext::safeUnregister(const Registration& r)
+inline void ClientContext::unregister(const Registration& r)
 {
     auto c = client_.lock();
     if (c)
-        c->safeUnregister(r);
+        c->unregister(r);
 }
 
-inline void ClientContext::safeYield(Result&& result, RequestId reqId,
-                                     RegistrationId regId)
+inline void ClientContext::yieldResult(Result&& result, RequestId reqId,
+                                       RegistrationId regId)
 {
     auto c = client_.lock();
     if (c)
-        c->safeYield(std::move(result), reqId, regId);
+        c->yieldResult(std::move(result), reqId, regId);
 }
 
-inline void ClientContext::safeYield(Error&& error, RequestId reqId,
-                                     RegistrationId regId)
+inline void ClientContext::yieldError(Error&& error, RequestId reqId,
+                                      RegistrationId regId)
 {
     auto c = client_.lock();
     if (c)
-        c->safeYield(std::move(error), reqId, regId);
+        c->yieldError(std::move(error), reqId, regId);
 }
 
-inline ErrorOrDone ClientContext::safeYield(CalleeOutputChunk&& chunk,
-                                            RequestId reqId,
-                                            RegistrationId regId)
+inline ErrorOrDone ClientContext::yieldChunk(
+    CalleeOutputChunk&& chunk, RequestId reqId, RegistrationId regId)
 {
     auto c = client_.lock();
     if (!c)
         return false;
-    return c->safeYield(std::move(chunk), reqId, regId);
+    return c->yieldChunk(std::move(chunk), reqId, regId);
 }
 
-inline void ClientContext::safeCancelCall(RequestId r, CallCancelMode m)
+inline void ClientContext::cancelCall(RequestId r, CallCancelMode m)
 {
     auto c = client_.lock();
     if (c)
-        c->safeCancelCall(r, m);
+        c->cancelCall(r, m);
 }
 
-inline ErrorOrDone ClientContext::safeSendCallerChunk(CallerOutputChunk&& chunk)
+inline ErrorOrDone ClientContext::sendCallerChunk(CallerOutputChunk&& chunk)
 {
     auto c = client_.lock();
     if (!c)
         return false;
-    return c->safeSendCallerChunk(std::move(chunk));
+    return c->sendCallerChunk(std::move(chunk));
 }
 
-inline void ClientContext::safeCancelStream(RequestId r)
+inline void ClientContext::cancelStream(RequestId r)
 {
     auto c = client_.lock();
     if (c)
-        c->safeCancelStream(r);
+        c->cancelStream(r);
 }
 
-inline void ClientContext::safeAuthenticate(Authentication&& a)
+inline void ClientContext::authenticate(Authentication&& a)
 {
     auto c = client_.lock();
     if (c)
-        c->safeAuthenticate(std::move(a));
+        c->authenticate(std::move(a));
 }
 
-inline void ClientContext::safeFailAuthentication(Reason&& r)
+inline void ClientContext::failAuthentication(Reason&& r)
 {
     auto c = client_.lock();
     if (c)
-        c->safeFailAuthentication(std::move(r));
+        c->failAuthentication(std::move(r));
 }
 
 } // namespace internal

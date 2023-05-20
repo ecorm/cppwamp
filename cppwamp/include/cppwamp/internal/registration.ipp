@@ -54,9 +54,10 @@ Registration::operator=(Registration&& other) noexcept
     return *this;
 }
 
-CPPWAMP_INLINE void Registration::unregister() {callee_.safeUnregister(*this);}
+CPPWAMP_INLINE void Registration::unregister() {callee_.unregister(*this);}
 
-CPPWAMP_INLINE Registration::Registration(internal::PassKey, internal::ClientContext callee, RegistrationId id)
+CPPWAMP_INLINE Registration::Registration(
+    internal::PassKey, internal::ClientContext callee, RegistrationId id)
     : callee_(callee),
       id_(id)
 {}

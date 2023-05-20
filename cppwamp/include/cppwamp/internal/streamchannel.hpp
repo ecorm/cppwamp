@@ -97,7 +97,7 @@ public:
             return makeUnexpectedError(MiscErrc::invalidState);
 
         chunk.setCallInfo({}, id_, uri_);
-        return caller_.safeSendCallerChunk(std::move(chunk));
+        return caller_.sendCallerChunk(std::move(chunk));
     }
 
     void cancel(CallCancelMode mode)
@@ -105,7 +105,7 @@ public:
         State expectedState = State::open;
         bool ok = state_.compare_exchange_strong(expectedState, State::closed);
         if (ok)
-            caller_.safeCancelCall(id_, mode);
+            caller_.cancelCall(id_, mode);
     }
 
     void cancel() {cancel(cancelMode_);}
@@ -147,7 +147,7 @@ public:
     }
 
 private:
-    void safeCancel() {caller_.safeCancelStream(id_);}
+    void safeCancel() {caller_.cancelStream(id_);}
 
     void postToChunkHandler(ErrorOr<InputChunk>&& errorOrChunk)
     {
@@ -290,7 +290,7 @@ public:
 
         postUnexpectedInvitationAsChunk();
 
-        return callee_.safeYield(std::move(response), id_, registrationId_);
+        return callee_.yieldChunk(std::move(response), id_, registrationId_);
     }
 
     CPPWAMP_NODISCARD ErrorOrDone accept(ChunkSlot onChunk = {},
@@ -315,7 +315,7 @@ public:
         bool ok = state_.compare_exchange_strong(expectedState, newState);
         if (!ok)
             return makeUnexpectedError(MiscErrc::invalidState);
-        return callee_.safeYield(std::move(chunk), id_, registrationId_);
+        return callee_.yieldChunk(std::move(chunk), id_, registrationId_);
     }
 
     void fail(Error error)
@@ -323,7 +323,7 @@ public:
         auto oldState = state_.exchange(State::closed);
         if (oldState == State::closed)
             return;
-        callee_.safeYield(std::move(error), id_, registrationId_);
+        callee_.yieldError(std::move(error), id_, registrationId_);
     }
 
     void abandon(std::error_code ec)

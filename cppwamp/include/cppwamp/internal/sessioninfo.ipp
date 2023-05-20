@@ -419,12 +419,12 @@ CPPWAMP_INLINE ErrorOr<UInt> Challenge::memory() const
 
 CPPWAMP_INLINE void Challenge::authenticate(Authentication auth)
 {
-    challengee_.safeAuthenticate(std::move(auth));
+    challengee_.authenticate(std::move(auth));
 }
 
 CPPWAMP_INLINE void Challenge::fail(Reason reason)
 {
-    challengee_.safeFailAuthentication(std::move(reason));
+    challengee_.failAuthentication(std::move(reason));
 }
 
 CPPWAMP_INLINE AccessActionInfo Challenge::info() const

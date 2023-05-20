@@ -550,12 +550,12 @@ public:
 private:
     void safeYield(Result&& result)
     {
-        callee_.safeYield(std::move(result), requestId_, registrationId_);
+        callee_.yieldResult(std::move(result), requestId_, registrationId_);
     }
 
     void safeYield(Error&& error)
     {
-        callee_.safeYield(std::move(error), requestId_, registrationId_);
+        callee_.yieldError(std::move(error), requestId_, registrationId_);
     }
 
     Slot slot_;

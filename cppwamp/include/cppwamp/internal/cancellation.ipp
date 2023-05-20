@@ -44,7 +44,7 @@ CPPWAMP_INLINE CallCancellationSlot::Handler::operator bool()
 CPPWAMP_INLINE void
 CallCancellationSlot::Handler::operator()(CallCancelMode cancelMode)
 {
-    caller_.safeCancelCall(requestId_, cancelMode);
+    caller_.cancelCall(requestId_, cancelMode);
 }
 
 

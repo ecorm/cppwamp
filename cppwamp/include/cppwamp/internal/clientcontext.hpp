@@ -40,28 +40,28 @@ public:
 
     void reset();
 
-    void safeUnsubscribe(const Subscription& s);
+    void unsubscribe(const Subscription& s);
 
     void onEventError(Error&& e, SubscriptionId s);
 
-    void safeUnregister(const Registration& r);
+    void unregister(const Registration& r);
 
-    void safeYield(Result&& result, RequestId reqId, RegistrationId regId);
+    void yieldResult(Result&& result, RequestId reqId, RegistrationId regId);
 
-    void safeYield(Error&& error, RequestId reqId, RegistrationId regId);
+    void yieldError(Error&& error, RequestId reqId, RegistrationId regId);
 
-    ErrorOrDone safeYield(CalleeOutputChunk&& chunk, RequestId reqId,
-                          RegistrationId regId);
+    ErrorOrDone yieldChunk(CalleeOutputChunk&& chunk, RequestId reqId,
+                           RegistrationId regId);
 
-    void safeCancelCall(RequestId r, CallCancelMode m);
+    void cancelCall(RequestId r, CallCancelMode m);
 
-    ErrorOrDone safeSendCallerChunk(CallerOutputChunk&& chunk);
+    ErrorOrDone sendCallerChunk(CallerOutputChunk&& chunk);
 
-    void safeCancelStream(RequestId r);
+    void cancelStream(RequestId r);
 
-    void safeAuthenticate(Authentication&& a);
+    void authenticate(Authentication&& a);
 
-    void safeFailAuthentication(Reason&& r);
+    void failAuthentication(Reason&& r);
 
 private:
     std::weak_ptr<Client> client_;

@@ -354,12 +354,12 @@ CPPWAMP_INLINE AnyCompletionExecutor Invocation::executor() const
 
 CPPWAMP_INLINE void Invocation::yield(Result result)
 {
-    callee_.safeYield(std::move(result), requestId(), registrationId_);
+    callee_.yieldResult(std::move(result), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE void Invocation::yield(Error error)
 {
-    callee_.safeYield(std::move(error), requestId(), registrationId_);
+    callee_.yieldError(std::move(error), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE AccessActionInfo Invocation::info(Uri topic) const
@@ -498,12 +498,12 @@ CPPWAMP_INLINE AnyCompletionExecutor Interruption::executor() const
 
 CPPWAMP_INLINE void Interruption::yield(Result result)
 {
-    callee_.safeYield(std::move(result), requestId(), registrationId_);
+    callee_.yieldResult(std::move(result), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE void Interruption::yield(Error error)
 {
-    callee_.safeYield(std::move(error), requestId(), registrationId_);
+    callee_.yieldError(std::move(error), requestId(), registrationId_);
 }
 
 CPPWAMP_INLINE AccessActionInfo Interruption::info() const
