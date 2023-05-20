@@ -29,7 +29,6 @@ namespace wamp
 {
 
 // Forward declarations
-class DirectSession;
 namespace internal { class RouterImpl; }
 
 // TODO: Add hooks for meta API

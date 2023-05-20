@@ -43,19 +43,21 @@ struct TicketAuthFixture
         if (noChallengeHandlerArmed)
         {
             welcome =
-                session.join(Realm(authTestRealm).withAuthMethods({"ticket"})
-                                                 .withAuthId(std::move(authId))
-                                                 .captureAbort(abortReason),
+                session.join(
+                    Petition(authTestRealm).withAuthMethods({"ticket"})
+                                           .withAuthId(std::move(authId))
+                                           .captureAbort(abortReason),
                     yield);
         }
         else
         {
             welcome =
-                session.join(Realm(authTestRealm).withAuthMethods({"ticket"})
-                                                 .withAuthId(std::move(authId))
-                                                 .captureAbort(abortReason),
-                             [this](Challenge c) {onChallenge(std::move(c));},
-                             yield);
+                session.join(
+                    Petition(authTestRealm).withAuthMethods({"ticket"})
+                                           .withAuthId(std::move(authId))
+                                           .captureAbort(abortReason),
+                    [this](Challenge c) {onChallenge(std::move(c));},
+                    yield);
         }
     }
 

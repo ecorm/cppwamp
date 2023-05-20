@@ -52,7 +52,7 @@ void checkInvalidUri(TDelegate&& delegate, bool joined = true)
     {
         session.connect(withTcp, yield).value();
         if (joined)
-            session.join(Realm(testRealm), yield).value();
+            session.join(Petition(testRealm), yield).value();
         auto result = delegate(session, yield);
         REQUIRE( !result );
         CHECK( result.error() );
@@ -103,11 +103,11 @@ struct PubSubFixture
     void join(YieldContext yield)
     {
         publisher.connect(where, yield).value();
-        publisher.join(Realm(testRealm), yield).value();
+        publisher.join(Petition(testRealm), yield).value();
         subscriber.connect(where, yield).value();
-        subscriber.join(Realm(testRealm), yield).value();
+        subscriber.join(Petition(testRealm), yield).value();
         otherSubscriber.connect(where, yield).value();
-        otherSubscriber.join(Realm(testRealm), yield).value();
+        otherSubscriber.join(Petition(testRealm), yield).value();
     }
 
     void subscribe(YieldContext yield)

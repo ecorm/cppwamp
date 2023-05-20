@@ -217,12 +217,12 @@ private:
         Base::routerLog({LogLevel::trace, std::move(messageDump)});
     }
 
-    void onPeerHello(Realm&& realm) override
+    void onPeerHello(Petition&& hello) override
     {
-        Base::report(realm.info());
-        Base::open(realm);
+        Base::report(hello.info());
+        Base::open(hello);
 
-        realm_ = server_.realmAt(realm.uri());
+        realm_ = server_.realmAt(hello.uri());
         if (realm_.expired())
         {
             auto errc = WampErrc::noSuchRealm;
@@ -230,7 +230,7 @@ private:
             return;
         }
 
-        authExchange_ = AuthExchange::create({}, std::move(realm),
+        authExchange_ = AuthExchange::create({}, std::move(hello),
                                              shared_from_this());
         serverConfig_->authenticator()->authenticate(authExchange_);
     }
@@ -402,7 +402,7 @@ private:
         if (!readyToWelcome)
             return;
 
-        const auto& realm = authExchange_->realm();
+        const auto& realm = authExchange_->hello();
         if (!realm_.join(shared_from_this()))
         {
             abortSession({WampErrc::noSuchRealm});

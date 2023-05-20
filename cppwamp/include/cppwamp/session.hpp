@@ -13,9 +13,6 @@
            WAMP applications. */
 //------------------------------------------------------------------------------
 
-// TODO: Expose abort API to client apps?
-// https://github.com/wamp-proto/wamp-proto/discussions/470
-
 #include <memory>
 #include <string>
 #include <utility>
@@ -219,13 +216,13 @@ public:
     /** Asynchronously attempts to join the given WAMP realm. */
     template <typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
-    join(Realm realm, C&& completion);
+    join(Petition realm, C&& completion);
 
     /** Asynchronously attempts to join the given WAMP realm, using the given
         authentication challenge handler. */
     template <typename S, typename C>
     CPPWAMP_NODISCARD Deduced<ErrorOr<Welcome>, C>
-    join(Realm realm, S&& challengeSlot, C&& completion);
+    join(Petition realm, S&& challengeSlot, C&& completion);
 
     /** Asynchronously leaves the WAMP session. */
     template <typename C>
@@ -373,7 +370,8 @@ private:
 
     void setIncidentHandler(IncidentSlot&& s);
     void doConnect(ConnectionWishList&& w, CompletionHandler<size_t>&& f);
-    void doJoin(Realm&& r, ChallengeSlot&& s, CompletionHandler<Welcome>&& f);
+    void doJoin(Petition&& p, ChallengeSlot&& s,
+                CompletionHandler<Welcome>&& f);
     void doLeave(Reason&& reason, CompletionHandler<Reason>&& f);
     void doSubscribe(Topic&& t, EventSlot&& s,
                      CompletionHandler<Subscription>&& f);
@@ -494,12 +492,12 @@ struct Session::JoinOp
 {
     using ResultValue = Welcome;
     Session* self;
-    Realm r;
+    Petition p;
     ChallengeSlot s;
 
     template <typename F> void operator()(F&& f)
     {
-        self->doJoin(std::move(r), std::move(s), std::forward<F>(f));
+        self->doJoin(std::move(p), std::move(s), std::forward<F>(f));
     }
 };
 
@@ -522,8 +520,8 @@ Deduced<ErrorOr<Welcome>, C>
 Session::template Deduced<ErrorOr<Welcome>, C>
 #endif
 Session::join(
-    Realm realm,   ///< Details on the realm to join.
-    C&& completion ///< Completion handler or token.
+    Petition realm, ///< Details on the realm to join.
+    C&& completion  ///< Completion handler or token.
     )
 {
     return initiate<JoinOp>(std::forward<C>(completion), std::move(realm),
@@ -532,7 +530,7 @@ Session::join(
 
 //------------------------------------------------------------------------------
 /** @tparam S Callable handler with signature `void (Challenge)`
-    @copydetails Session::join(Realm, C&&)
+    @copydetails Session::join(Petition, C&&)
     @note A copy of the challenge handler is made when it is dispatched. If the
     handler needs to be stateful, or is non-copyable, then pass a stateless
     copyable proxy instead. */
@@ -544,7 +542,7 @@ Deduced<ErrorOr<Welcome>, C>
 Session::template Deduced<ErrorOr<Welcome>, C>
 #endif
 Session::join(
-    Realm realm,       /**< Details on the realm to join. */
+    Petition realm,    /**< Details on the realm to join. */
     S&& challengeSlot, /**< Handles authentication challenges. */
     C&& completion     /**< Completion handler or token. */
     )

@@ -118,7 +118,7 @@ public:
     virtual ErrorOrDone send(Error&&) = 0;
 
     virtual ErrorOrDone send(Reason&&) = 0;
-    virtual ErrorOrDone send(Realm&&) = 0;
+    virtual ErrorOrDone send(Petition&&) = 0;
     virtual ErrorOrDone send(Welcome&&) = 0;
     virtual ErrorOrDone send(Authentication&&) = 0;
     virtual ErrorOrDone send(Challenge&&) = 0;

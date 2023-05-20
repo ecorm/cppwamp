@@ -50,7 +50,7 @@ public:
     }
 
     ErrorOrDone send(Reason&& c) override            {return sendCommand(c);}
-    ErrorOrDone send(Realm&& c) override             {return sendCommand(c);}
+    ErrorOrDone send(Petition&& c) override          {return sendCommand(c);}
     ErrorOrDone send(Welcome&& c) override           {return sendCommand(c);}
     ErrorOrDone send(Authentication&& c) override    {return sendCommand(c);}
     ErrorOrDone send(Challenge&& c) override         {return sendCommand(c);}
@@ -270,7 +270,7 @@ private:
     {
         assert(state() == State::establishing);
         setState(State::authenticating);
-        listener().onPeerHello(Realm{{}, std::move(msg)});
+        listener().onPeerHello(Petition{{}, std::move(msg)});
     }
 
     void onWelcome(Message& msg)

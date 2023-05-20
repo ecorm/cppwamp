@@ -1135,22 +1135,22 @@ public:
         peer_->connect(strand_, std::move(link));
     }
 
-    void join(Realm&& r, ChallengeSlot c, CompletionHandler<Welcome>&& f)
+    void join(Petition&& p, ChallengeSlot c, CompletionHandler<Welcome>&& f)
     {
         struct Dispatched
         {
             Ptr self;
-            Realm r;
+            Petition p;
             ChallengeSlot c;
             CompletionHandler<Welcome> f;
 
             void operator()()
             {
-                self->doJoin(std::move(r), std::move(c), std::move(f));
+                self->doJoin(std::move(p), std::move(c), std::move(f));
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(r), std::move(c), std::move(f));
+        safelyDispatch<Dispatched>(std::move(p), std::move(c), std::move(f));
     }
 
     void authenticate(Authentication&& a)
@@ -1431,7 +1431,7 @@ private:
             report({IncidentKind::trace, std::move(messageDump)});
     }
 
-    void onPeerHello(Realm&&) {assert(false);}
+    void onPeerHello(Petition&&) {assert(false);}
 
     void onPeerAbort(Reason&& reason, bool wasJoining)
     {
@@ -1732,7 +1732,7 @@ private:
         }
     }
 
-    void doJoin(Realm&& realm, ChallengeSlot onChallenge,
+    void doJoin(Petition&& realm, ChallengeSlot onChallenge,
                 CompletionHandler<Welcome>&& handler)
     {
         struct Requested

@@ -30,7 +30,7 @@ protected:
     {
         if (ex->challengeCount() == 0)
         {
-            if (ex->realm().authId().value_or("") == "alice")
+            if (ex->hello().authId().value_or("") == "alice")
                 ex->challenge(wamp::Challenge("ticket"));
             else
                 ex->reject();

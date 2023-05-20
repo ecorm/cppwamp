@@ -11,7 +11,7 @@
 namespace wamp
 {
 
-CPPWAMP_INLINE const Realm& AuthExchange::realm() const {return realm_;}
+CPPWAMP_INLINE const Petition& AuthExchange::hello() const {return hello_;}
 
 CPPWAMP_INLINE const Challenge& AuthExchange::challenge() const
 {
@@ -59,9 +59,9 @@ CPPWAMP_INLINE void AuthExchange::reject(Reason r)
 }
 
 CPPWAMP_INLINE AuthExchange::Ptr
-AuthExchange::create(internal::PassKey, Realm&& r, ChallengerPtr c)
+AuthExchange::create(internal::PassKey, Petition&& p, ChallengerPtr c)
 {
-    return Ptr(new AuthExchange(std::move(r), std::move(c)));
+    return Ptr(new AuthExchange(std::move(p), std::move(c)));
 }
 
 CPPWAMP_INLINE void AuthExchange::setAuthentication(internal::PassKey,
@@ -70,8 +70,8 @@ CPPWAMP_INLINE void AuthExchange::setAuthentication(internal::PassKey,
     authentication_ = std::move(a);
 }
 
-CPPWAMP_INLINE AuthExchange::AuthExchange(Realm&& r, ChallengerPtr c)
-    : realm_(std::move(r)),
+CPPWAMP_INLINE AuthExchange::AuthExchange(Petition&& p, ChallengerPtr c)
+    : hello_(std::move(p)),
       challenger_(c)
 {}
 

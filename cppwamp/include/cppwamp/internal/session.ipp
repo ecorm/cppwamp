@@ -193,10 +193,10 @@ CPPWAMP_INLINE void Session::doConnect(ConnectionWishList&& w,
     impl_->connect(std::move(w), std::move(f));
 }
 
-CPPWAMP_INLINE void Session::doJoin(Realm&& r, ChallengeSlot&& c,
+CPPWAMP_INLINE void Session::doJoin(Petition&& p, ChallengeSlot&& c,
                                     CompletionHandler<Welcome>&& f)
 {
-    impl_->join(std::move(r), std::move(c), std::move(f));
+    impl_->join(std::move(p), std::move(c), std::move(f));
 }
 
 CPPWAMP_INLINE void Session::doLeave(Reason&& r, CompletionHandler<Reason>&& f)

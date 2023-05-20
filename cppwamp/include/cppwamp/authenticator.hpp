@@ -33,7 +33,7 @@ public:
     using Ptr = std::shared_ptr<AuthExchange>;
 
     /** Accesses the HELLO information provided by the client. */
-    const Realm& realm() const;
+    const Petition& hello() const;
 
     /** Accesses the CHALLENGE information sent by the router. */
     const Challenge& challenge() const;
@@ -65,13 +65,13 @@ public:
 public:
     // Internal use only
     using ChallengerPtr = std::weak_ptr<internal::Challenger>;
-    static Ptr create(internal::PassKey, Realm&& r, ChallengerPtr c);
+    static Ptr create(internal::PassKey, Petition&& p, ChallengerPtr c);
     void setAuthentication(internal::PassKey, Authentication&& a);
 
 private:
-    AuthExchange(Realm&& r, ChallengerPtr c);
+    AuthExchange(Petition&& p, ChallengerPtr c);
 
-    Realm realm_;
+    Petition hello_;
     ChallengerPtr challenger_;
     Challenge challenge_;
     Authentication authentication_;

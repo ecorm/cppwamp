@@ -100,35 +100,35 @@ CPPWAMP_INLINE void Reason::setKindToAbort(internal::PassKey)
 
 
 //******************************************************************************
-// Realm
+// Petition
 //******************************************************************************
 
-CPPWAMP_INLINE Realm::Realm(Uri uri)
-    : Base(in_place, std::move(uri), Object{})
+CPPWAMP_INLINE Petition::Petition(Uri realm)
+    : Base(in_place, std::move(realm), Object{})
 {}
 
-CPPWAMP_INLINE Realm& Realm::captureAbort(Reason& reason)
+CPPWAMP_INLINE Petition& Petition::captureAbort(Reason& reason)
 {
     abortReason_ = &reason;
     return *this;
 }
 
-CPPWAMP_INLINE const Uri& Realm::uri() const
+CPPWAMP_INLINE const Uri& Petition::uri() const
 {
     return message().as<String>(uriPos_);
 }
 
-CPPWAMP_INLINE ErrorOr<String> Realm::agent() const
+CPPWAMP_INLINE ErrorOr<String> Petition::agent() const
 {
     return this->optionAs<String>("agent");
 }
 
-CPPWAMP_INLINE ErrorOr<Object> Realm::roles() const
+CPPWAMP_INLINE ErrorOr<Object> Petition::roles() const
 {
     return this->optionAs<Object>("roles");
 }
 
-CPPWAMP_INLINE ClientFeatures Realm::features() const
+CPPWAMP_INLINE ClientFeatures Petition::features() const
 {
     auto found = options().find("roles");
     if (found == options().end())
@@ -136,41 +136,41 @@ CPPWAMP_INLINE ClientFeatures Realm::features() const
     return ClientFeatures{found->second.as<Object>()};
 }
 
-CPPWAMP_INLINE AccessActionInfo Realm::info() const
+CPPWAMP_INLINE AccessActionInfo Petition::info() const
 {
     return {AccessAction::clientHello, uri(), options()};
 }
 
-CPPWAMP_INLINE Realm& Realm::withAuthMethods(std::vector<String> methods)
+CPPWAMP_INLINE Petition& Petition::withAuthMethods(std::vector<String> methods)
 {
     return withOption("authmethods", std::move(methods));
 }
 
-CPPWAMP_INLINE Realm& Realm::withAuthId(String authId)
+CPPWAMP_INLINE Petition& Petition::withAuthId(String authId)
 {
     return withOption("authid", std::move(authId));
 }
 
-CPPWAMP_INLINE ErrorOr<Array> Realm::authMethods() const
+CPPWAMP_INLINE ErrorOr<Array> Petition::authMethods() const
 {
     return this->optionAs<Array>("authmethods");
 }
 
-CPPWAMP_INLINE ErrorOr<String> Realm::authId() const
+CPPWAMP_INLINE ErrorOr<String> Petition::authId() const
 {
     return this->optionAs<String>("authid");
 }
 
-CPPWAMP_INLINE Realm::Realm(internal::PassKey, internal::Message&& msg)
+CPPWAMP_INLINE Petition::Petition(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {}
 
-CPPWAMP_INLINE Reason* Realm::abortReason(internal::PassKey)
+CPPWAMP_INLINE Reason* Petition::abortReason(internal::PassKey)
 {
     return abortReason_;
 }
 
-CPPWAMP_INLINE Uri& Realm::uri(internal::PassKey)
+CPPWAMP_INLINE Uri& Petition::uri(internal::PassKey)
 {
     return message().as<String>(uriPos_);
 }

@@ -38,7 +38,7 @@ public:
 
     void connect(DirectRouterLink&& info);
 
-    Object open(Realm&& hello);
+    Object open(Petition&& hello);
 
     void close();
 
@@ -107,7 +107,7 @@ private:
         session_->disconnect();
     }
 
-    ErrorOrDone send(Realm&& hello) override
+    ErrorOrDone send(Petition&& hello) override
     {
         assert(state() == State::establishing);
         traceTx(hello.message({}));
@@ -353,7 +353,7 @@ inline void DirectRouterSession::connect(DirectRouterLink&& info)
     Base::connect({std::move(endpointLabel), "direct", n});
 }
 
-inline Object DirectRouterSession::open(Realm&& hello)
+inline Object DirectRouterSession::open(Petition&& hello)
 {
     if (!hello.hasOption("authid"))
         hello.withAuthId(authInfo_.id());

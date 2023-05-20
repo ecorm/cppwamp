@@ -145,7 +145,7 @@ protected:
         transportInfo_ = std::move(info);
     }
 
-    void open(const Realm& hello)
+    void open(const Petition& hello)
     {
         sessionInfo_.agent = hello.agent().value_or("");
         sessionInfo_.authId = hello.authId().value_or("");

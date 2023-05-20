@@ -94,7 +94,7 @@ public:
             yield session_->connect(where_, *this);
             std::cout << "Connected via "
                       << boost::variant2::get<1>(aftermath).value() << std::endl;
-            yield session_->join(wamp::Realm(realm), *this);
+            yield session_->join(wamp::Petition(realm), *this);
             std::cout << "Joined, SessionId="
                       << boost::variant2::get<2>(aftermath).value().id()
                       << std::endl;

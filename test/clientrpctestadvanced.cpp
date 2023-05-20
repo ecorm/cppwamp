@@ -43,10 +43,10 @@ struct RpcFixture
     void join(YieldContext yield)
     {
         caller.connect(where, yield).value();
-        welcome = caller.join(Realm(testRealm), yield).value();
+        welcome = caller.join(Petition(testRealm), yield).value();
         callerId = welcome.id();
         callee.connect(where, yield).value();
-        callee.join(Realm(testRealm), yield).value();
+        callee.join(Petition(testRealm), yield).value();
     }
 
     void disconnect()
@@ -812,7 +812,7 @@ GIVEN( "a caller and a callee" )
 
                 if (leaveEarlyArmed)
                 {
-                    f.callee.join(Realm(testRealm), yield).value();
+                    f.callee.join(Petition(testRealm), yield).value();
                     f.callee.enroll(
                         Stream("com.myapp.foo").withInvitationExpected(),
                         onStream,
@@ -1202,7 +1202,7 @@ GIVEN( "a caller and a callee" )
                 interruptReceived = false;
                 errorReceived = false;
 
-                f.caller.join(Realm(testRealm), yield).value();
+                f.caller.join(Petition(testRealm), yield).value();
             }
 
             f.disconnect();
@@ -1460,7 +1460,7 @@ GIVEN( "a caller and a callee" )
                 {
                     while (f.callee.state() != SessionState::closed)
                         suspendCoro(yield);
-                    f.callee.join(Realm(testRealm), yield).value();
+                    f.callee.join(Petition(testRealm), yield).value();
                     f.callee.enroll(
                                 Stream("com.myapp.foo").withInvitationExpected(),
                                 onStream,
@@ -1734,7 +1734,7 @@ GIVEN( "a caller and a callee" )
                 callerErrorReceived = false;
 
                 if (callerLeaveArmed)
-                    f.caller.join(Realm(testRealm), yield).value();
+                    f.caller.join(Petition(testRealm), yield).value();
             }
             f.disconnect();
         });

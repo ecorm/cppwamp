@@ -76,7 +76,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Realm("somerealm"), yield).value();
+        session.join(Petition("somerealm"), yield).value();
 
         // Subscribing to events
         auto sub = session.subscribe(
@@ -144,7 +144,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Realm("somerealm"), yield).value();
+        session.join(Petition("somerealm"), yield).value();
 
         // Subscribing to an event with static types.
         session.subscribe(Topic("sensorSampled"),
@@ -202,7 +202,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Realm("somerealm"), yield).value();
+        session.join(Petition("somerealm"), yield).value();
 
         // Subscribe with an event slot requiring the Event object.
         session.subscribe(Topic("sensorSampled"),
@@ -252,7 +252,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        session.join(Realm("somerealm"), yield).value();
+        session.join(Petition("somerealm"), yield).value();
 
         // Subscribe with a coroutine event handler.
         session.subscribe(Topic("sensor_sampled"),

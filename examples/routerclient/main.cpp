@@ -55,7 +55,7 @@ int main()
     {
         session.connect(tcp, yield).value();
         session.join(
-            wamp::Realm(realm)
+            wamp::Petition(realm)
                 .withAuthId("alice")
                 .withAuthMethods({"ticket"}),
             onChallenge,

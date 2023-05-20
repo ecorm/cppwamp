@@ -84,7 +84,7 @@ GIVEN( "an IO service and a ConnectionWish" )
 
             // Make the "other" subscriber leave and rejoin the realm.
             f.otherSubscriber.leave(yield).value();
-            f.otherSubscriber.join(Realm(testRealm), yield).value();
+            f.otherSubscriber.join(Petition(testRealm), yield).value();
 
             // Reestablish the dynamic subscription.
             using namespace std::placeholders;
@@ -545,7 +545,7 @@ GIVEN( "an IO service and a ConnectionWish" )
             [](Session& session, YieldContext yield, bool& completed,
                ErrorOr<Subscription>& result)
             {
-                session.join(Realm(testRealm), yield).value();
+                session.join(Petition(testRealm), yield).value();
                 session.subscribe(Topic("topic"), [] (Event) {},
                     [&](ErrorOr<Subscription> sub)
                     {
@@ -560,7 +560,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         checkDisconnect<bool>([](Session& session, YieldContext yield,
                                  bool& completed, ErrorOr<bool>& result)
         {
-            session.join(Realm(testRealm), yield).value();
+            session.join(Petition(testRealm), yield).value();
             auto sub = session.subscribe(Topic("topic"), [] (Event) {},
                                          yield).value();
             session.unsubscribe(sub, [&](ErrorOr<bool> unsubscribed)
@@ -576,7 +576,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         checkDisconnect<bool>([](Session& session, YieldContext yield,
                                  bool& completed, ErrorOr<bool>& result)
         {
-            session.join(Realm(testRealm), yield).value();
+            session.join(Petition(testRealm), yield).value();
             auto sub = session.subscribe(Topic("topic"), [](Event) {},
                                          yield).value();
             session.unsubscribe(sub, [&](ErrorOr<bool> unsubscribed)
@@ -593,7 +593,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                                           bool& completed,
                                           ErrorOr<PublicationId>& result)
         {
-            session.join(Realm(testRealm), yield).value();
+            session.join(Petition(testRealm), yield).value();
             session.publish(Pub("topic"), [&](ErrorOr<PublicationId> pid)
             {
                 completed = true;
@@ -608,7 +608,7 @@ GIVEN( "an IO service and a ConnectionWish" )
                                           bool& completed,
                                           ErrorOr<PublicationId>& result)
         {
-            session.join(Realm(testRealm), yield).value();
+            session.join(Petition(testRealm), yield).value();
             session.publish(Pub("topic").withArgs("foo"),
                 [&](ErrorOr<PublicationId> pid)
                 {
@@ -625,7 +625,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         {
             Session s(ioctx);
             s.connect(where, yield).value();
-            s.join(Realm(testRealm), yield).value();
+            s.join(Petition(testRealm), yield).value();
             s.subscribe(Topic("topic"),
                         [](Event) {},
                         [&](ErrorOr<Subscription> s) {sub = s;});
@@ -644,7 +644,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         {
             Session s(ioctx);
             s.connect(where, yield).value();
-            s.join(Realm(testRealm), yield).value();
+            s.join(Petition(testRealm), yield).value();
             auto sub = s.subscribe(Topic("topic"), [](Event) {}, yield).value();
             s.unsubscribe(sub, [&](ErrorOr<bool> ok) {done = ok;});
             s.leave(yield).value();
@@ -663,7 +663,7 @@ GIVEN( "an IO service and a ConnectionWish" )
         {
             Session s(ioctx);
             s.connect(where, yield).value();
-            s.join(Realm(testRealm), yield).value();
+            s.join(Petition(testRealm), yield).value();
             s.publish(Pub("topic"),
                       [&](ErrorOr<PublicationId> p) {result = p;});
             s.leave(yield).value();

@@ -31,7 +31,7 @@ public:
 
     virtual void onPeerTrace(std::string&& messageDump) = 0;
 
-    virtual void onPeerHello(Realm&&) = 0;
+    virtual void onPeerHello(Petition&&) = 0;
 
     virtual void onPeerAbort(Reason&&, bool wasJoining) = 0;
 

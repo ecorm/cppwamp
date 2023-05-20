@@ -78,7 +78,7 @@ int main()
     wamp::spawn(ioctx, [&](wamp::YieldContext yield)
     {
         session.connect(router);
-        session.join(wamp::Realm{"cppwamp.examples"}.withAuthId("insider"),
+        session.join(wamp::Petition{"cppwamp.examples"}.withAuthId("insider"),
                      yield).value();
         session.enroll(wamp::Procedure("local_echo"), echo, yield).value();
     });

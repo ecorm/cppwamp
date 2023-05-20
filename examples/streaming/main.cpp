@@ -30,7 +30,7 @@ public:
         std::cout << "Producer connected on transport #"
                   << (index + 1) << std::endl;
 
-        auto info = session_.join(Realm(realm), yield).value();
+        auto info = session_.join(Petition(realm), yield).value();
         std::cout << "Producer joined, session ID = "
                   << info.id() << std::endl;
 
@@ -84,7 +84,7 @@ public:
         std::cout << "Consumer connected on transport #"
                   << (index + 1) << std::endl;
 
-        auto info = session_.join(Realm(realm), yield).value();
+        auto info = session_.join(Petition(realm), yield).value();
         std::cout << "Consumer joined, session ID = " << info.id() << std::endl;
     }
 

@@ -92,15 +92,16 @@ public:
 //------------------------------------------------------------------------------
 /** %Realm URI and other options contained within WAMP `HELLO` messages. */
 //------------------------------------------------------------------------------
-class CPPWAMP_API Realm : public Options<Realm, internal::MessageKind::hello>
+class CPPWAMP_API Petition : public Options<Petition,
+                                            internal::MessageKind::hello>
 {
 public:
     /** Converting constructor taking a realm URI. */
-    Realm(Uri uri);
+    Petition(Uri realm);
 
     /** Specifies the Reason object in which to store abort details returned
         by the router. */
-    Realm& captureAbort(Reason& reason);
+    Petition& captureAbort(Reason& reason);
 
     /** Obtains the realm URI. */
     const Uri& uri() const;
@@ -123,10 +124,10 @@ public:
         @{ */
 
     /** Sets the `HELLO.Details.authmethods` option. */
-    Realm& withAuthMethods(std::vector<String> methods);
+    Petition& withAuthMethods(std::vector<String> methods);
 
     /** Sets the `HELLO.Details.authid` option. */
-    Realm& withAuthId(String authId);
+    Petition& withAuthId(String authId);
 
     /** Obtains the `authmethods` array. */
     ErrorOr<Array> authMethods() const;
@@ -138,13 +139,13 @@ public:
 private:
     static constexpr unsigned uriPos_     = 1;
 
-    using Base = Options<Realm, internal::MessageKind::hello>;
+    using Base = Options<Petition, internal::MessageKind::hello>;
 
     Reason* abortReason_ = nullptr;
 
 public:
     // Internal use only
-    Realm(internal::PassKey, internal::Message&& msg);
+    Petition(internal::PassKey, internal::Message&& msg);
     Reason* abortReason(internal::PassKey);
     Uri& uri(internal::PassKey);
 };

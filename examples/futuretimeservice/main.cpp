@@ -70,7 +70,7 @@ int main()
     auto index = session.connect(std::move(tcp), use_future).get().value();
     std::cout << "Connected via " << index << std::endl;
 
-    auto info = session.join(wamp::Realm(realm), use_future).get().value();
+    auto info = session.join(wamp::Petition(realm), use_future).get().value();
     std::cout << "Joined, SessionId=" << info.id() << std::endl;
 
     auto reg = session.enroll(wamp::Procedure("get_time"),
