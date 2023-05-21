@@ -107,6 +107,7 @@ GIVEN( "a publisher and a subscriber" )
 
     WHEN( "using pattern-based subscriptions" )
     {
+        // TODO: Unknown match policy
         spawn(ioctx, [&](YieldContext yield)
         {
             int prefixMatchCount = 0;

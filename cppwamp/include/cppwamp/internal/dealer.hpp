@@ -77,7 +77,7 @@ public:
 
     bool contains(const Uri& uri) {return byUri_.count(uri) != 0;}
 
-    void insert(Key key, DealerRegistration&& reg)
+    DealerRegistration& insert(Key key, DealerRegistration&& reg)
     {
         reg.setRegistrationId(key);
         auto uri = reg.procedureUri();
@@ -85,20 +85,30 @@ public:
         assert(emplaced.second);
         auto ptr = &(emplaced.first->second);
         byUri_.emplace(std::move(uri), ptr);
+        return emplaced.first->second;
     }
 
-    ErrorOr<Uri> erase(SessionId calleeId, Key key)
+    ErrorOr<Uri> erase(RouterSession::Ptr callee, Key key,
+                       RealmObserver::Ptr observer)
     {
         auto found = byKey_.find(key);
         if (found == byKey_.end())
             return makeUnexpectedError(WampErrc::noSuchRegistration);
-        auto& registration = found->second;
-        if (registration.calleeId() != calleeId)
+
+        // Move the registration before it is deleted from the map.
+        // We'll need it later to notify the observer.
+        DealerRegistration registration{std::move(found->second)};
+
+        if (registration.calleeId() != callee->wampId())
             return makeUnexpectedError(WampErrc::noSuchRegistration);
-        Uri uri{std::move(registration).procedureUri()};
+        Uri uri{registration.procedureUri()};
         auto erased = byUri_.erase(uri);
         assert(erased == 1);
         byKey_.erase(found);
+
+        if (observer)
+            observer->onUnregister(callee->details(), registration.details());
+
         return uri;
     }
 
@@ -566,22 +576,26 @@ class Dealer
 public:
     Dealer(IoStrand strand) : jobs_(std::move(strand)) {}
 
-    ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p)
+    ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p,
+                                   RealmObserver::Ptr observer)
     {
         if (registry_.contains(p.uri()))
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
         DealerRegistration reg{std::move(p), callee};
         auto key = nextRegistrationId();
-        registry_.insert(key, std::move(reg));
+        const auto& inserted = registry_.insert(key, std::move(reg));
+        if (observer)
+            observer->onRegister(callee->details(), inserted.details());
         return key;
     }
 
-    ErrorOr<Uri> unregister(RouterSession::Ptr callee, RegistrationId rid)
+    ErrorOr<Uri> unregister(RouterSession::Ptr callee, RegistrationId rid,
+                            RealmObserver::Ptr observer)
     {
         // Consensus on what to do with pending invocations upon unregister
         // appears to be to allow them to continue.
         // https://github.com/wamp-proto/wamp-proto/issues/283#issuecomment-429542748
-        return registry_.erase(callee->wampId(), rid);
+        return registry_.erase(std::move(callee), rid, std::move(observer));
     }
 
     ErrorOrDone call(RouterSession::Ptr caller, Rpc&& rpc)

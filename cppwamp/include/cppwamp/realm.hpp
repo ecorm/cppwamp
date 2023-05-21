@@ -65,11 +65,17 @@ public:
         boost::asio::async_initiate<C, void(T)>(std::declval<GenericOp&>(),
                                                 std::declval<C&>()));
 
+    Realm();
+
+    explicit operator bool() const;
+
     const Executor& executor() const;
 
     const IoStrand& strand() const;
 
     const Uri& uri() const;
+
+    bool isOpen() const;
 
     void observe(RealmObserver::Ptr o);
 

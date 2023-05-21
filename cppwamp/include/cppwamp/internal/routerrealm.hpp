@@ -73,7 +73,10 @@ public:
                 auto reservedId = me.router_.reserveSessionId();
                 auto id = reservedId.get();
                 session->setWampId(std::move(reservedId));
-                me.sessions_.emplace(id, std::move(session));
+                me.sessions_.emplace(id, session);
+                auto observer = me.observer_.lock();
+                if (observer)
+                    observer->onJoin(session->details());
             }
         };
 
@@ -99,6 +102,9 @@ public:
                     kv.second->abort(r);
                 me.sessions_.clear();
                 me.isOpen_.store(false);
+                auto observer = me.observer_.lock();
+                if (observer)
+                    observer->onRealmClosed();
             }
         };
 
@@ -495,9 +501,16 @@ private:
             void operator()()
             {
                 auto& me = *self;
-                me.sessions_.erase(sid);
+                auto found = me.sessions_.find(sid);
+                if (found == me.sessions_.end())
+                    return;
+                auto session = found->second;
+                me.sessions_.erase(found);
                 me.broker_.removeSubscriber(sid);
                 me.dealer_.removeSession(sid);
+                auto observer = me.observer_.lock();
+                if (observer)
+                    observer->onLeave(session->details());
             }
         };
 
@@ -554,8 +567,9 @@ private:
         auto rid = topic.requestId({});
         auto uri = topic.uri();
 
-        auto subId = broker_.subscribe(originator, std::move(topic));
-        if (!checkResult(subId, *originator, topic))
+        auto subId = broker_.subscribe(originator, std::move(topic),
+                                       observer_.lock());
+        if (!subId)
             return;
 
         Subscribed ack{rid, *subId};
@@ -572,9 +586,11 @@ private:
 
             void operator()()
             {
+                auto& me = *self;
                 auto rid = u.requestId({});
-                auto topic = self->broker_.unsubscribe(s, u.subscriptionId());
-                if (!self->checkResult(topic, *s, u))
+                auto topic = me.broker_.unsubscribe(s, u.subscriptionId(),
+                                                    self->observer_.lock());
+                if (!me.checkResult(topic, *s, u))
                     return;
                 Unsubscribed ack{rid};
                 s->sendRouterCommand(std::move(ack), std::move(*topic));
@@ -648,7 +664,8 @@ private:
 
         auto rid = proc.requestId({});
         auto uri = proc.uri();
-        auto regId = dealer_.enroll(originator, std::move(proc));
+        auto regId = dealer_.enroll(originator, std::move(proc),
+                                    observer_.lock());
         if (!checkResult(regId, *originator, proc))
             return;
         Registered ack{rid, *regId};
@@ -665,9 +682,11 @@ private:
 
             void operator()()
             {
+                auto& me = *self;
                 auto rid = u.requestId({});
-                auto uri = self->dealer_.unregister(s, u.registrationId());
-                if (!self->checkResult(uri, *s, u))
+                auto uri = me.dealer_.unregister(s, u.registrationId(),
+                                                 me.observer_.lock());
+                if (!me.checkResult(uri, *s, u))
                     return;
                 Unregistered ack{rid};
                 s->sendRouterCommand(std::move(ack), std::move(*uri));

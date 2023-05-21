@@ -38,6 +38,7 @@ namespace internal
         friend class wamp::Session;
         template <typename> friend class BasicCalleeChannelImpl;
         template <typename> friend class BasicCallerChannelImpl;
+        friend class Broker;
         friend class BrokerPublication;
         friend class Client;
         friend class Dealer;

@@ -10,6 +10,10 @@
 namespace wamp
 {
 
+CPPWAMP_INLINE Realm::Realm() {}
+
+CPPWAMP_INLINE Realm::operator bool() const {return bool(impl_);}
+
 CPPWAMP_INLINE const Realm::Executor& Realm::executor() const
 {
     return impl_->executor();

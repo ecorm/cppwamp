@@ -198,7 +198,7 @@ public:
 
     bool empty() const {return sessions_.empty();}
 
-    MatchUri topic() const {return topic_;}
+    const MatchUri& topic() const {return topic_;}
 
     SubscriptionId subscriptionId() const {return subId_;}
 
@@ -300,25 +300,22 @@ template <typename TTrie, typename TDerived>
 class BrokerTopicMapBase
 {
 public:
-    ErrorOr<SubscriptionId> subscribe(BrokerSubscribeRequest& req)
+    BrokerSubscription* subscribe(BrokerSubscribeRequest& req)
     {
         auto key = req.topicUri();
-        SubscriptionId subId = nullId();
+        BrokerSubscription* record = nullptr;
         auto found = trie_.find(key);
         if (found == trie_.end())
         {
-            BrokerSubscription* record =
-                std::move(req).addNewSubscriptionRecord();
-            subId = record->subscriptionId();
+            record = std::move(req).addNewSubscriptionRecord();
             trie_.emplace(std::move(key), record);
         }
         else
         {
-            BrokerSubscription* record = iteratorValue(found);
-            subId = record->subscriptionId();
+            record = iteratorValue(found);
             std::move(req).addSubscriberToExistingRecord(*record);
         }
-        return subId;
+        return record;
     }
 
     void erase(const Uri& topicUri) {trie_.erase(topicUri);}
@@ -532,34 +529,52 @@ class Broker
 public:
     Broker(RandomNumberGenerator64 prng) : pubIdGenerator_(prng) {}
 
-    ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t)
+    ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t,
+                                      RealmObserver::Ptr observer)
     {
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
                                    subIdGenerator_};
+        BrokerSubscription* sub = nullptr;
 
         switch (req.policy())
         {
-        case Policy::exact:    return byExact_.subscribe(req);
-        case Policy::prefix:   return byPrefix_.subscribe(req);
-        case Policy::wildcard: return byWildcard_.subscribe(req);
-        default: break;
+        case Policy::exact:    sub = byExact_.subscribe(req);    break;
+        case Policy::prefix:   sub = byPrefix_.subscribe(req);   break;
+        case Policy::wildcard: sub = byWildcard_.subscribe(req); break;
+
+        default:
+        {
+            auto unex = makeUnexpectedError(WampErrc::optionNotAllowed);
+            auto error = Error::fromRequest({}, t, unex.value())
+                             .withArgs("Unknown match policy");
+            subscriber->sendRouterCommand(std::move(error), true);
+            return unex;
+        }
         }
 
-        assert(false && "Unexpected MatchPolicy enumerator");
-        return 0;
+        if (observer)
+            observer->onSubscribe(subscriber->details(), sub->details());
+
+        return sub->subscriptionId();
     }
 
-    ErrorOr<Uri> unsubscribe(RouterSession::Ptr subscriber, SubscriptionId subId)
+    ErrorOr<Uri> unsubscribe(RouterSession::Ptr subscriber,
+                             SubscriptionId subId, RealmObserver::Ptr observer)
     {
         auto found = subscriptions_.find(subId);
         if (found == subscriptions_.end())
             return makeUnexpectedError(WampErrc::noSuchSubscription);
-        BrokerSubscription& record = found->second;
-        bool erased = record.removeSubscriber(subscriber->wampId());
+        BrokerSubscription* record = &(found->second);
+        bool subscriberRemoved = record->removeSubscriber(subscriber->wampId());
 
-        if (record.empty())
+        if (record->empty())
         {
-            const MatchUri& topic = record.topic();
+            // Move subscription record before it is erased from the map.
+            // We'll need it later to notify the observer.
+            BrokerSubscription sub{std::move(*record)};
+            record = &sub;
+
+            const MatchUri& topic = sub.topic();
             subscriptions_.erase(found);
             switch (topic.policy())
             {
@@ -581,9 +596,13 @@ public:
             }
         }
 
-        if (!erased)
+        if (!subscriberRemoved)
             return makeUnexpectedError(WampErrc::noSuchSubscription);
-        return record.topic().uri();
+
+        if (observer)
+            observer->onUnsubscribe(subscriber->details(), record->details());
+
+        return record->topic().uri();
     }
 
     std::pair<PublicationId, std::size_t>

@@ -48,7 +48,7 @@ public:
 
         {
             MutexGuard lock(realmsMutex_);
-            if (realms_.find(uri) != realms_.end())
+            if (realms_.find(uri) == realms_.end())
             {
                 realm = RouterRealm::create(
                     boost::asio::make_strand(executor_),

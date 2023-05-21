@@ -24,9 +24,15 @@ namespace wamp
 //------------------------------------------------------------------------------
 struct CPPWAMP_API SessionDetails
 {
+    SessionDetails() = default;
+
+    SessionDetails(ClientFeatures f, AuthInfo::Ptr a, SessionId i)
+        : features(f), authInfo(std::move(a)), id(i)
+    {}
+
     ClientFeatures features;
     AuthInfo::Ptr authInfo;
-    SessionId id;
+    SessionId id = 0;
 };
 
 //------------------------------------------------------------------------------
@@ -69,26 +75,30 @@ struct CPPWAMP_API SubscriptionLists
 class CPPWAMP_API RealmObserver
 {
 public:
+    // TODO: Bit mask for events of interest
+
     using Ptr = std::shared_ptr<RealmObserver>;
     using WeakPtr = std::weak_ptr<RealmObserver>;
 
     virtual ~RealmObserver() {}
 
+    virtual void onRealmClosed() {}
+
     virtual void onJoin(const SessionDetails&) {}
 
     virtual void onLeave(const SessionDetails&) {}
 
-    virtual void onRegister(const SessionDetails&, const RegistrationDetails&,
-                            std::size_t count) {}
+    virtual void onRegister(const SessionDetails&,
+                            const RegistrationDetails&) {}
 
-    virtual void onUnregister(const SessionDetails&, const RegistrationDetails&,
-                              std::size_t count) {}
+    virtual void onUnregister(const SessionDetails&,
+                              const RegistrationDetails&) {}
 
-    virtual void onSubscribe(const SessionDetails&, const SubscriptionDetails&,
-                             std::size_t count) {}
+    virtual void onSubscribe(const SessionDetails&,
+                             const SubscriptionDetails&) {}
 
     virtual void onUnsubscribe(const SessionDetails&,
-                               const SubscriptionDetails&, std::size_t count) {}
+                               const SubscriptionDetails&) {}
 };
 
 } // namespace wamp
