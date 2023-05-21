@@ -12,7 +12,9 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include "../anyhandler.hpp"
 #include "../authorizer.hpp"
+#include "../realmobserver.hpp"
 #include "../routerconfig.hpp"
 #include "broker.hpp"
 #include "commandinfo.hpp"
@@ -31,9 +33,16 @@ namespace internal
 class RouterRealm : public std::enable_shared_from_this<RouterRealm>
 {
 public:
-    using Ptr = std::shared_ptr<RouterRealm>;
-    using WeakPtr = std::weak_ptr<RouterRealm>;
-    using Executor = AnyIoExecutor;
+    using Ptr                 = std::shared_ptr<RouterRealm>;
+    using WeakPtr             = std::weak_ptr<RouterRealm>;
+    using Executor            = AnyIoExecutor;
+    using SessionHandler      = std::function<void (SessionDetails)>;
+    using SessionFilter       = std::function<bool (SessionDetails)>;
+    using RegistrationHandler = std::function<void (RegistrationDetails)>;
+    using SubscriptionHandler = std::function<void (SubscriptionDetails)>;
+
+    template <typename T>
+    using CompletionHandler = AnyCompletionHandler<void (T)>;
 
     static Ptr create(Executor e, RealmConfig c, const RouterConfig& rcfg,
                       RouterContext rctx)
@@ -41,6 +50,8 @@ public:
         return Ptr(new RouterRealm(std::move(e), std::move(c), rcfg,
                                    std::move(rctx)));
     }
+
+    const Executor& executor() const {return executor_;}
 
     const IoStrand& strand() const {return strand_;}
 
@@ -90,10 +101,374 @@ public:
         safelyDispatch<Dispatched>(std::move(r));
     }
 
+    void observe(RealmObserver::Ptr o)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RealmObserver::Ptr o;
+            void operator()() {self->observer_ = std::move(o);}
+        };
+
+        safelyDispatch<Dispatched>(std::move(o));
+    }
+
+    void unobserve()
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            void operator()() {self->observer_ = {};}
+        };
+
+        safelyDispatch<Dispatched>();
+    }
+
+    void countSessions(CompletionHandler<std::size_t> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            CompletionHandler<std::size_t> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                me.complete(h, me.sessions_.size());
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(h));
+    }
+
+    void listSessions(CompletionHandler<std::vector<SessionId>> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            CompletionHandler<std::vector<SessionId>> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                std::vector<SessionId> idList;
+                for (const auto& kv: me.sessions_)
+                    idList.push_back(kv.first);
+                me.complete(h, std::move(idList));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(h));
+    }
+
+    void forEachSession(SessionHandler f, CompletionHandler<std::size_t> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            SessionHandler f;
+            CompletionHandler<std::size_t> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                for (const auto& kv: me.sessions_)
+                    f(kv.second->details());
+                me.complete(h, me.sessions_.size());
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(f), std::move(h));
+    }
+
+    void lookupSession(SessionId sid,
+                       CompletionHandler<ErrorOr<SessionDetails>> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            SessionId sid;
+            CompletionHandler<ErrorOr<SessionDetails>> h;
+
+            void operator()()
+            {
+                static constexpr auto errc = WampErrc::noSuchSession;
+                auto& me = *self;
+                auto found = me.sessions_.find(sid);
+                if (found == me.sessions_.end())
+                    me.complete(h, makeUnexpectedError(errc));
+                else
+                    me.complete(h, found->second->details());
+            }
+        };
+
+        safelyDispatch<Dispatched>(sid, std::move(h));
+    }
+
+    void killSession(SessionId sid, CompletionHandler<bool> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            SessionId sid;
+            CompletionHandler<std::size_t> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                auto iter = me.sessions_.find(sid);
+                bool found = iter != me.sessions_.end();
+                if (found)
+                {
+                    iter->second->abort(Reason{WampErrc::sessionKilled});
+                    me.sessions_.erase(iter);
+                }
+                me.complete(h, found);
+            }
+        };
+
+        safelyDispatch<Dispatched>(sid, std::move(h));
+    }
+
+    void killSessions(SessionFilter f, CompletionHandler<std::size_t> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            SessionFilter f;
+            CompletionHandler<std::size_t> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                std::size_t count = 0;
+                auto iter = me.sessions_.begin();
+                auto end = me.sessions_.end();
+                while (iter != end)
+                {
+                    if (f(iter->second->details()))
+                    {
+                        ++count;
+                        iter->second->abort(Reason{WampErrc::sessionKilled});
+                        iter = me.sessions_.erase(iter);
+                    }
+                    else
+                    {
+                        ++iter;
+                    }
+                }
+                me.complete(h, count);
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(f), std::move(h));
+    }
+
+    void listRegistrations(CompletionHandler<RegistrationLists> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            CompletionHandler<RegistrationLists> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                auto lists = me.dealer_.listRegistrations();
+                me.complete(h, std::move(lists));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(h));
+    }
+
+    void forEachRegistration(MatchPolicy p, RegistrationHandler f,
+                             CompletionHandler<std::size_t> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            MatchPolicy p;
+            RegistrationHandler f;
+            CompletionHandler<std::size_t> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                auto count = me.dealer_.forEachRegistration(p, f);
+                me.complete(h, count);
+            }
+        };
+
+        safelyDispatch<Dispatched>(p, std::move(f), std::move(h));
+    }
+
+    void lookupRegistration(Uri uri, MatchPolicy p,
+                            CompletionHandler<ErrorOr<RegistrationDetails>> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Uri uri;
+            MatchPolicy p;
+            CompletionHandler<ErrorOr<RegistrationDetails>> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                auto details = me.dealer_.lookupRegistration(uri, p);
+                me.complete(h, std::move(details));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(uri), p, std::move(h));
+    }
+
+    void matchRegistration(Uri uri,
+                           CompletionHandler<ErrorOr<RegistrationDetails>> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Uri uri;
+            CompletionHandler<ErrorOr<RegistrationDetails>> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                auto details = me.dealer_.matchRegistration(uri);
+                me.complete(h, std::move(details));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(uri), std::move(h));
+    }
+
+    void getRegistration(RegistrationId rid,
+                         CompletionHandler<ErrorOr<RegistrationDetails>> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            RegistrationId rid;
+            CompletionHandler<ErrorOr<RegistrationDetails>> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                auto details = me.dealer_.getRegistration(rid);
+                me.complete(h, std::move(details));
+            }
+        };
+
+        safelyDispatch<Dispatched>(rid, std::move(h));
+    }
+
+    void listSubscriptions(CompletionHandler<SubscriptionLists> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            CompletionHandler<SubscriptionLists> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                auto lists = me.broker_.listSubscriptions();
+                me.complete(h, std::move(lists));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(h));
+    }
+
+    void forEachSubscription(MatchPolicy p, SubscriptionHandler f,
+                             CompletionHandler<std::size_t> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            MatchPolicy p;
+            SubscriptionHandler f;
+            CompletionHandler<std::size_t> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                auto count = me.broker_.forEachSubscription(p, f);
+                me.complete(h, count);
+            }
+        };
+
+        safelyDispatch<Dispatched>(p, std::move(f), std::move(h));
+    }
+
+    void lookupSubscription(Uri uri, MatchPolicy p,
+                            CompletionHandler<ErrorOr<SubscriptionDetails>> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Uri uri;
+            MatchPolicy p;
+            CompletionHandler<ErrorOr<SubscriptionDetails>> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                auto details = me.broker_.lookupSubscription(uri, p);
+                me.complete(h, std::move(details));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(uri), p, std::move(h));
+    }
+
+    void matchSubscriptions(Uri uri,
+                            CompletionHandler<std::vector<SubscriptionId>> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            Uri uri;
+            CompletionHandler<std::vector<SubscriptionId>> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                auto details = me.broker_.matchSubscriptions(uri);
+                me.complete(h, std::move(details));
+            }
+        };
+
+        safelyDispatch<Dispatched>(std::move(uri), std::move(h));
+    }
+
+    void getSubscription(SubscriptionId sid,
+                         CompletionHandler<ErrorOr<SubscriptionDetails>> h)
+    {
+        struct Dispatched
+        {
+            Ptr self;
+            SubscriptionId sid;
+            CompletionHandler<ErrorOr<SubscriptionDetails>> h;
+
+            void operator()()
+            {
+                auto& me = *self;
+                auto details = me.broker_.getSubscription(sid);
+                me.complete(h, std::move(details));
+            }
+        };
+
+        safelyDispatch<Dispatched>(sid, std::move(h));
+    }
+
 private:
     RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
                 RouterContext&& rctx)
-        : strand_(boost::asio::make_strand(e)),
+        : executor_(std::move(e)),
+          strand_(boost::asio::make_strand(executor_)),
           config_(std::move(c)),
           router_(std::move(rctx)),
           broker_(rcfg.publicationRNG()),
@@ -485,6 +860,13 @@ private:
             strand(), F{shared_from_this(), std::forward<Ts>(args)...});
     }
 
+    template <typename S, typename... Ts>
+    void complete(AnyCompletionHandler<S>& f, Ts&&... args)
+    {
+        postAny(executor_, std::move(f), std::forward<Ts>(args)...);
+    }
+
+    AnyIoExecutor executor_;
     IoStrand strand_;
     RealmConfig config_;
     RouterContext router_;
@@ -494,6 +876,7 @@ private:
     std::string logSuffix_;
     RouterLogger::Ptr logger_;
     UriValidator::Ptr uriValidator_;
+    RealmObserver::WeakPtr observer_;
 
     friend class DirectPeer;
     friend class RealmContext;

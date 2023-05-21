@@ -18,6 +18,7 @@
 #include "../errorinfo.hpp"
 #include "../erroror.hpp"
 #include "../rpcinfo.hpp"
+#include "../realmobserver.hpp"
 #include "routersession.hpp"
 #include "timeoutscheduler.hpp"
 
@@ -34,7 +35,8 @@ public:
     DealerRegistration(Procedure&& procedure, RouterSession::Ptr callee)
         : procedureUri_(std::move(procedure).uri({})),
           callee_(callee),
-          calleeId_(callee->wampId())
+          calleeId_(callee->wampId()),
+          created_(std::chrono::system_clock::now())
     {}
 
     DealerRegistration() = default;
@@ -51,11 +53,18 @@ public:
 
     SessionId calleeId() const {return calleeId_;}
 
+    RegistrationDetails details() const
+    {
+        return {{calleeId_}, procedureUri_, created_, regId_,
+                MatchPolicy::exact};
+    }
+
 private:
     Uri procedureUri_;
     RouterSession::WeakPtr callee_;
     SessionId calleeId_;
     RegistrationId regId_ = nullId();
+    std::chrono::system_clock::time_point created_;
 };
 
 //------------------------------------------------------------------------------
@@ -122,6 +131,38 @@ public:
             else
                 ++iter2;
         }
+    }
+
+    std::vector<RegistrationId> listRegistrations() const
+    {
+        std::vector<RegistrationId> list;
+        for (const auto& kv: byKey_)
+            list.push_back(kv.first);
+        return list;
+    }
+
+    template <typename F>
+    std::size_t forEachRegistration(F&& functor) const
+    {
+        for (const auto& kv: byKey_)
+            functor(kv.second.details());
+        return byKey_.size();
+    }
+
+    ErrorOr<RegistrationDetails> lookup(const Uri& uri) const
+    {
+        auto found = byUri_.find(uri);
+        if (found == byUri_.end())
+            return makeUnexpectedError(WampErrc::noSuchRegistration);
+        return found->second->details();
+    }
+
+    ErrorOr<RegistrationDetails> at(RegistrationId rid) const
+    {
+        auto found = byKey_.find(rid);
+        if (found == byKey_.end())
+            return makeUnexpectedError(WampErrc::noSuchRegistration);
+        return found->second.details();
     }
 
 private:
@@ -650,6 +691,39 @@ public:
     {
         registry_.removeCallee(sessionId);
         jobs_.removeSession(sessionId);
+    }
+
+    RegistrationLists listRegistrations() const
+    {
+        RegistrationLists lists;
+        lists.exact = registry_.listRegistrations();
+        return lists;
+    }
+
+    template <typename F>
+    std::size_t forEachRegistration(MatchPolicy p, F&& functor) const
+    {
+        if (p != MatchPolicy::exact)
+            return 0;
+        return registry_.forEachRegistration(std::forward<F>(functor));
+    }
+
+    ErrorOr<RegistrationDetails> lookupRegistration(const Uri& uri,
+                                                    MatchPolicy p) const
+    {
+        if (p != MatchPolicy::exact)
+            return makeUnexpectedError(WampErrc::noSuchRegistration);
+        return registry_.lookup(uri);
+    }
+
+    ErrorOr<RegistrationDetails> matchRegistration(const Uri& uri) const
+    {
+        return registry_.lookup(uri);
+    }
+
+    ErrorOr<RegistrationDetails> getRegistration(RegistrationId rid) const
+    {
+        return registry_.at(rid);
     }
 
 private:

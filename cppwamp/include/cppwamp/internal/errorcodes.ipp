@@ -118,10 +118,10 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* invalidUri             */ "An invalid WAMP URI was provided",
 /* noSuchPrincipal        */ "Authentication attempted with a non-existent authid",
 /* noSuchProcedure        */ "No procedure was registered under the given URI",
-/* noSuchRealm            */ "Attempt to join non-existent realm",
-/* noSuchRegistration     */ "Cannot unregister an inactive registration",
+/* noSuchRealm            */ "No realm exists with the given URI",
+/* noSuchRegistration     */ "No registration exists with the given ID",
 /* noSuchRole             */ "Attempt to authenticate under unsupported role",
-/* noSuchSubscription     */ "Cannot unsubscribe an inactive subscription",
+/* noSuchSubscription     */ "No subscription exists with the given ID",
 /* payloadSizeExceeded    */ "Serialized payload exceeds transport size limits",
 /* procedureAlreadyExists */ "A procedure with the given URI is already registered",
 /* protocolViolation      */ "Invalid, unexpected, or malformed WAMP message",
@@ -139,6 +139,7 @@ CPPWAMP_INLINE std::string WampCategory::message(int ev) const
 /* networkFailure         */ "Router encountered a network failure",
 /* noAvailableCallee      */ "No available registered callee to handle the invocation",
 /* noMatchingAuthMethod   */ "No matching authentication method was found",
+/* noSuchSession          */ "No session exists with the given ID",
 /* timeout                */ "Operation timed out",
 /* unavailable            */ "Callee is unable to handle the invocation",
     };
@@ -245,6 +246,7 @@ CPPWAMP_INLINE WampErrc errorUriToCode(const std::string& uri)
         {"wamp.error.no_such_realm",                 WE::noSuchRealm},
         {"wamp.error.no_such_registration",          WE::noSuchRegistration},
         {"wamp.error.no_such_role",                  WE::noSuchRole},
+        {"wamp.error.no_such_session",               WE::noSuchSession},
         {"wamp.error.no_such_subscription",          WE::noSuchSubscription},
         {"wamp.error.not_authorized",     /*Legacy*/ WE::authorizationDenied},
         {"wamp.error.option_disallowed.disclose_me", WE::discloseMeDisallowed},
@@ -309,6 +311,7 @@ CPPWAMP_INLINE const std::string& errorCodeToUri(WampErrc errc)
         "wamp.error.network_failure",
         "wamp.error.no_available_callee",
         "wamp.error.no_matching_auth_method",
+        "wamp.error.no_such_session",
         "wamp.error.timeout",
         "wamp.error.unavailable"
     };

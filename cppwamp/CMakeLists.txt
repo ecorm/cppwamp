@@ -40,6 +40,7 @@ set(HEADERS
     include/cppwamp/pubsubinfo.hpp
     include/cppwamp/rawsockoptions.hpp
     include/cppwamp/realm.hpp
+    include/cppwamp/realmobserver.hpp
     include/cppwamp/registration.hpp
     include/cppwamp/router.hpp
     include/cppwamp/routerconfig.hpp
@@ -155,6 +156,7 @@ set(INLINES
     include/cppwamp/internal/messagetraits.ipp
     include/cppwamp/internal/msgpack.ipp
     include/cppwamp/internal/pubsubinfo.ipp
+    include/cppwamp/internal/realm.ipp
     include/cppwamp/internal/registration.ipp
     include/cppwamp/internal/router.ipp
     include/cppwamp/internal/routerconfig.ipp

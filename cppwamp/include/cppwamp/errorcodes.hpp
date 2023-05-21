@@ -66,10 +66,10 @@ enum class WampErrc
     invalidUri             =  8, ///< An invalid WAMP URI was provided
     noSuchPrincipal        =  9, ///< Authentication attempted with a non-existent authid
     noSuchProcedure        = 10, ///< No procedure was registered under the given URI
-    noSuchRealm            = 11, ///< Attempt to join non-existent realm
-    noSuchRegistration     = 12, ///< Cannot unregister an inactive registration
+    noSuchRealm            = 11, ///< No realm exists with the given URI
+    noSuchRegistration     = 12, ///< No registration exists with the given ID
     noSuchRole             = 13, ///< Attempt to authenticate under unsupported role
-    noSuchSubscription     = 14, ///< Cannot unsubscribe an inactive subscription
+    noSuchSubscription     = 14, ///< No subscription exists with the given ID
     payloadSizeExceeded    = 15, ///< Serialized payload exceeds transport size limits
     procedureAlreadyExists = 16, ///< A procedure with the given URI is already registered
     protocolViolation      = 17, ///< Invalid, unexpected, or malformed WAMP message
@@ -88,8 +88,9 @@ enum class WampErrc
     networkFailure         = 28, ///< Router encountered a network failure
     noAvailableCallee      = 29, ///< No available registered callee to handle the invocation
     noMatchingAuthMethod   = 30, ///< No matching authentication method was found
-    timeout                = 31, ///< Operation timed out
-    unavailable            = 32, ///< Callee is unable to handle the invocation
+    noSuchSession          = 31, ///< No session exists with the given ID
+    timeout                = 32, ///< Operation timed out
+    unavailable            = 33, ///< Callee is unable to handle the invocation
 
     count
 };

@@ -14,6 +14,7 @@
 #include "../authinfo.hpp"
 #include "../features.hpp"
 #include "../pubsubinfo.hpp"
+#include "../realmobserver.hpp"
 #include "../rpcinfo.hpp"
 #include "../sessioninfo.hpp"
 #include "random.hpp"
@@ -44,6 +45,8 @@ public:
     AuthInfo::Ptr sharedAuthInfo() const {return authInfo_;}
 
     ClientFeatures features() const {return features_;}
+
+    SessionDetails details() const {return {features_, authInfo_, wampId_};}
 
     void setWampId(ReservedId&& id)
     {

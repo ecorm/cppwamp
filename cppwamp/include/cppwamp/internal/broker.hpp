@@ -8,11 +8,13 @@
 #define CPPWAMP_INTERNAL_BROKER_HPP
 
 #include <cassert>
+#include <chrono>
 #include <set>
 #include <map>
 #include <utility>
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
+#include "../realmobserver.hpp"
 #include "../routerconfig.hpp"
 #include "../utils/triemap.hpp"
 #include "../utils/wildcarduri.hpp"
@@ -190,7 +192,8 @@ public:
 
     BrokerSubscription(MatchUri topic, SubscriptionId subId)
         : topic_(std::move(topic)),
-          subId_(subId)
+          subId_(subId),
+          created_(std::chrono::system_clock::now())
     {}
 
     bool empty() const {return sessions_.empty();}
@@ -198,6 +201,15 @@ public:
     MatchUri topic() const {return topic_;}
 
     SubscriptionId subscriptionId() const {return subId_;}
+
+    SubscriptionDetails details() const
+    {
+        std::vector<SessionId> subscribers;
+        for (const auto& kv: sessions_)
+            subscribers.push_back(kv.first);
+        return {std::move(subscribers), topic_.uri(), created_, subId_,
+                topic_.policy()};
+    }
 
     void addSubscriber(SessionId sid, BrokerSubscriberInfo info)
     {
@@ -224,6 +236,7 @@ private:
     std::map<SessionId, BrokerSubscriberInfo> sessions_;
     MatchUri topic_;
     SubscriptionId subId_ = nullId();
+    std::chrono::system_clock::time_point created_;
 };
 
 //------------------------------------------------------------------------------
@@ -310,7 +323,6 @@ public:
 
     void erase(const Uri& topicUri) {trie_.erase(topicUri);}
 
-
     void removeSubscriber(SessionId sessionId)
     {
         auto iter = trie_.begin();
@@ -324,6 +336,41 @@ public:
             else
                 ++iter;
         }
+    }
+
+    std::vector<SubscriptionId> listSubscriptions() const
+    {
+        std::vector<SubscriptionId> subIds;
+        auto iter = trie_.begin();
+        auto end = trie_.end();
+        while (iter != end)
+        {
+            BrokerSubscription* record = iteratorValue(iter);
+            subIds.push_back(record->subscriptionId());
+        }
+        return subIds;
+    }
+
+    template <typename F>
+    std::size_t forEachSubscription(F&& functor) const
+    {
+        auto iter = trie_.begin();
+        auto end = trie_.end();
+        while (iter != end)
+        {
+            BrokerSubscription* record = iteratorValue(iter);
+            functor(record->details());
+        }
+        return trie_.size();
+    }
+
+    ErrorOr<SubscriptionDetails> lookupSubscription(const Uri& uri) const
+    {
+        auto found = trie_.find(uri);
+        if (found == trie_.end())
+            return makeUnexpectedError(WampErrc::noSuchSubscription);
+        BrokerSubscription* record = iteratorValue(found);
+        return record->details();
     }
 
 protected:
@@ -361,6 +408,16 @@ public:
         const BrokerSubscription* record = found.value();
         return record->publish(info);
     }
+
+    void collectMatches(const Uri& uri,
+                        std::vector<SubscriptionId>& subIds) const
+    {
+        auto found = trie_.find(uri);
+        if (found == trie_.end())
+            return;
+        BrokerSubscription* record = iteratorValue(found);
+        subIds.push_back(record->subscriptionId());
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -393,6 +450,22 @@ public:
                 count += record->publish(info);
             });
         return count;
+    }
+
+    void collectMatches(const Uri& uri,
+                        std::vector<SubscriptionId>& subIds) const
+    {
+        if (trie_.empty())
+            return;
+
+        using Iter = utils::TrieMap<BrokerSubscription*>::const_iterator;
+        trie_.for_each_prefix_of(
+            uri,
+            [&subIds] (Iter iter)
+            {
+                const BrokerSubscription* record = iter.value();
+                subIds.push_back(record->subscriptionId());
+            });
     }
 
 private:
@@ -432,6 +505,24 @@ public:
             matches.next();
         }
         return count;
+    }
+
+    void collectMatches(const Uri& uri,
+                        std::vector<SubscriptionId>& subIds) const
+    {
+        if (trie_.empty())
+            return;
+
+        auto matches = wildcardMatches(trie_, uri);
+        if (matches.done())
+            return;
+
+        while (!matches.done())
+        {
+            const BrokerSubscription* record = matches.value();
+            subIds.push_back(record->subscriptionId());
+            matches.next();
+        }
     }
 };
 
@@ -523,6 +614,80 @@ public:
             else
                 ++iter;
         }
+    }
+
+    SubscriptionLists listSubscriptions() const
+    {
+        SubscriptionLists lists;
+        lists.exact = byExact_.listSubscriptions();
+        lists.prefix = byPrefix_.listSubscriptions();
+        lists.wildcard = byWildcard_.listSubscriptions();
+        return lists;
+    }
+
+    template <typename F>
+    std::size_t forEachSubscription(MatchPolicy p, F&& functor) const
+    {
+        switch (p)
+        {
+        case MatchPolicy::unknown:
+            break;
+
+        case MatchPolicy::exact:
+            return byExact_.forEachSubscription(std::forward<F>(functor));
+
+        case MatchPolicy::prefix:
+            return byPrefix_.forEachSubscription(std::forward<F>(functor));
+
+        case MatchPolicy::wildcard:
+            return byWildcard_.forEachSubscription(std::forward<F>(functor));
+
+        default:
+            assert(false && "Unexpected MatchPolicy enumerator");
+        }
+
+        return 0;
+    }
+
+    ErrorOr<SubscriptionDetails> lookupSubscription(const Uri& uri,
+                                                    MatchPolicy p) const
+    {
+        switch (p)
+        {
+        case MatchPolicy::unknown:
+            break;
+
+        case MatchPolicy::exact:
+            return byExact_.lookupSubscription(uri);
+
+        case MatchPolicy::prefix:
+            return byPrefix_.lookupSubscription(uri);
+
+        case MatchPolicy::wildcard:
+            return byWildcard_.lookupSubscription(uri);
+
+        default:
+            assert(false && "Unexpected MatchPolicy enumerator");
+        }
+
+        return makeUnexpectedError(WampErrc::noSuchSubscription);
+    }
+
+    std::vector<SubscriptionId> matchSubscriptions(const Uri& uri)
+    {
+        std::vector<SubscriptionId> subIds;
+        byExact_.collectMatches(uri, subIds);
+        byPrefix_.collectMatches(uri, subIds);
+        byWildcard_.collectMatches(uri, subIds);
+        return subIds;
+    }
+
+    ErrorOr<SubscriptionDetails> getSubscription(SubscriptionId sid)
+    {
+        auto found = subscriptions_.find(sid);
+        if (found == subscriptions_.end())
+            return makeUnexpectedError(WampErrc::noSuchSubscription);
+        return found->second.details();
     }
 
 private:

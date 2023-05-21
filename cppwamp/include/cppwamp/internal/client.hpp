@@ -2151,7 +2151,7 @@ private:
 
         auto channel = requestor_.requestStream(
             false, shared_from_this(), std::move(req), std::move(onChunk));
-        return completeRequest(handler, std::move(channel));
+        complete(handler, std::move(channel));
     }
 
     ErrorOrDone sendCallerChunk(CallerOutputChunk&& c)
@@ -2456,14 +2456,6 @@ private:
         if (isTerminating_)
             return;
         postAny(executor_, std::move(f), std::forward<Ts>(args)...);
-    }
-
-    template <typename F, typename... Ts>
-    void completeRequest(F& handler, Ts&&... args)
-    {
-        boost::asio::post(
-            strand_,
-            std::bind(std::move(handler), std::forward<Ts>(args)...));
     }
 
     template <typename S, typename... Ts>
