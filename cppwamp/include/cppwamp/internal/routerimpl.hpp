@@ -41,26 +41,25 @@ public:
 
     ~RouterImpl() {close(WampErrc::systemShutdown);}
 
-    bool addRealm(RealmConfig c)
+    RouterRealm::Ptr addRealm(RealmConfig c)
     {
         auto uri = c.uri();
-        bool exists = false;
+        RouterRealm::Ptr realm;
 
         {
             MutexGuard lock(realmsMutex_);
-            exists = realms_.find(uri) != realms_.end();
-            if (!exists)
+            if (realms_.find(uri) != realms_.end())
             {
-                auto r = RouterRealm::create(
+                realm = RouterRealm::create(
                     boost::asio::make_strand(executor_),
                     std::move(c),
                     config_,
                     {shared_from_this()});
-                realms_.emplace(uri, std::move(r));
+                realms_.emplace(uri, realm);
             }
         }
 
-        if (exists)
+        if (!realm)
         {
             alert("Rejected attempt to add realm "
                   "with duplicate URI '" + uri + "'");
@@ -70,10 +69,10 @@ public:
             inform("Adding realm '" + uri + "'");
         }
 
-        return !exists;
+        return realm;
     }
 
-    bool closeRealm(const std::string& uri, Reason r)
+    bool closeRealm(const Uri& uri, Reason r)
     {
         RouterRealm::Ptr realm;
 
@@ -93,6 +92,16 @@ public:
             warn("Attempting to close non-existent realm named '" + uri + "'");
 
         return realm != nullptr;
+    }
+
+    RouterRealm::Ptr realmAt(const String& uri) const
+    {
+        MutexGuard lock(const_cast<std::mutex&>(realmsMutex_));
+
+        auto found = realms_.find(uri);
+        if (found == realms_.end())
+            return nullptr;
+        return found->second;
     }
 
     bool openServer(ServerConfig c)
@@ -180,7 +189,7 @@ public:
 private:
     using MutexGuard = std::lock_guard<std::mutex>;
     using ServerMap = std::map<std::string, RouterServer::Ptr>;
-    using RealmMap = std::map<std::string, RouterRealm::Ptr>;
+    using RealmMap = std::map<Uri, RouterRealm::Ptr>;
 
     RouterImpl(Executor e, RouterConfig c)
         : config_(std::move(c)),
@@ -225,7 +234,7 @@ private:
         return sessionIdPool_->reserve();
     }
 
-    RealmContext realmAt(const String& uri) const
+    RealmContext realmContextAt(const String& uri) const
     {
         MutexGuard lock(const_cast<std::mutex&>(realmsMutex_));
 
@@ -292,7 +301,7 @@ inline RealmContext RouterContext::realmAt(const String& uri) const
     auto r = router_.lock();
     if (!r)
         return {};
-    return r->realmAt(uri);
+    return r->realmContextAt(uri);
 }
 
 inline uint64_t RouterContext::nextDirectSessionIndex()

@@ -7,6 +7,7 @@
 #ifndef CPPWAMP_INTERNAL_ROUTERREALM_HPP
 #define CPPWAMP_INTERNAL_ROUTERREALM_HPP
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -57,6 +58,8 @@ public:
 
     const std::string& uri() const {return config_.uri();}
 
+    bool isOpen() const {return isOpen_.load();}
+
     void join(RouterSession::Ptr session)
     {
         struct Dispatched
@@ -95,6 +98,7 @@ public:
                 for (auto& kv: me.sessions_)
                     kv.second->abort(r);
                 me.sessions_.clear();
+                me.isOpen_.store(false);
             }
         };
 
@@ -475,7 +479,8 @@ private:
           dealer_(strand_),
           logSuffix_(" (Realm " + config_.uri() + ")"),
           logger_(router_.logger()),
-          uriValidator_(rcfg.uriValidator())
+          uriValidator_(rcfg.uriValidator()),
+          isOpen_(true)
     {}
 
     RouterLogger::Ptr logger() const {return logger_;}
@@ -877,6 +882,7 @@ private:
     RouterLogger::Ptr logger_;
     UriValidator::Ptr uriValidator_;
     RealmObserver::WeakPtr observer_;
+    std::atomic<bool> isOpen_;
 
     friend class DirectPeer;
     friend class RealmContext;

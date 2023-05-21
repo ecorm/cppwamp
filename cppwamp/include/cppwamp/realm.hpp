@@ -27,6 +27,8 @@ namespace wamp
 {
 
 // Forward declarations
+class Router;
+
 namespace internal
 {
 class RouterRealm;
@@ -163,6 +165,8 @@ private:
     template <typename O, typename C, typename... As>
     Deduced<typename O::ResultValue, C> initiate(C&& token, As&&... args);
 
+    explicit Realm(std::shared_ptr<internal::RouterRealm> impl);
+
     void doCountSessions(CompletionHandler<std::size_t> h);
     void doListSessions(CompletionHandler<std::vector<SessionId>> h);
     void doForEachSession(SessionHandler f, CompletionHandler<std::size_t> h);
@@ -190,6 +194,8 @@ private:
                            CompletionHandler<ErrorOr<SubscriptionDetails>> h);
 
     std::shared_ptr<internal::RouterRealm> impl_;
+
+    friend class Router;
 };
 
 

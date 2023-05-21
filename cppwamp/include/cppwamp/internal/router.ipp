@@ -30,14 +30,25 @@ CPPWAMP_INLINE Router::Router(Executor exec, RouterConfig config)
     : impl_(internal::RouterImpl::create(std::move(exec), std::move(config)))
 {}
 
-CPPWAMP_INLINE bool Router::openRealm(RealmConfig config)
+CPPWAMP_INLINE ErrorOr<Realm> Router::openRealm(RealmConfig config)
 {
-    return impl_->addRealm(std::move(config));
+    auto impl = impl_->addRealm(std::move(config));
+    if (!impl)
+        return makeUnexpectedError(MiscErrc::alreadyExists);
+    return Realm{std::move(impl)};
 }
 
-CPPWAMP_INLINE bool Router::closeRealm(const std::string& name, Reason r)
+CPPWAMP_INLINE bool Router::closeRealm(const Uri uri, Reason r)
 {
-    return impl_->closeRealm(name, std::move(r));
+    return impl_->closeRealm(uri, std::move(r));
+}
+
+ErrorOr<Realm> Router::realmAt(const Uri& uri) const
+{
+    auto realmImpl = impl_->realmAt(uri);
+    if (!realmImpl)
+        return makeUnexpectedError(MiscErrc::alreadyExists);
+    return Realm{std::move(realmImpl)};
 }
 
 CPPWAMP_INLINE bool Router::openServer(ServerConfig config)

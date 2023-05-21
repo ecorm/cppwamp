@@ -319,12 +319,13 @@ CPPWAMP_API std::error_condition make_error_condition(TransportErrc errc);
 //------------------------------------------------------------------------------
 enum class MiscErrc
 {
-    success      = 0, ///< Operation successful
-    abandoned    = 1, ///< Operation abandoned by this peer
-    invalidState = 2, ///< Invalid state for this operation
-    absent       = 3, ///< Item is absent
-    badType      = 4, ///< Invalid or unexpected type
-    noSuchTopic  = 5, ///< No subscription under the given topic URI
+    success       = 0, ///< Operation successful
+    abandoned     = 1, ///< Operation abandoned by this peer
+    invalidState  = 2, ///< Invalid state for this operation
+    absent        = 3, ///< Item is absent
+    alreadyExists = 4, ///< Item already exists
+    badType       = 5, ///< Invalid or unexpected type
+    noSuchTopic   = 6, ///< No subscription under the given topic URI
     count
 };
 

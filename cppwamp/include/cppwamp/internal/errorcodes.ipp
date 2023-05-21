@@ -54,6 +54,7 @@ CPPWAMP_INLINE std::string MiscCategory::message(int ev) const
         /* abandoned        */ "Operation abandoned by this peer",
         /* invalidState     */ "Invalid state for this operation",
         /* absent           */ "Item is absent",
+        /* alreadyExists    */ "Item already exists",
         /* badType,         */ "Invalid or unexpected type",
         /* noSuchTopic      */ "No subscription under the given topic URI"
     };

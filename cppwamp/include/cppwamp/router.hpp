@@ -21,7 +21,9 @@
 #include "api.hpp"
 #include "anyhandler.hpp"
 #include "asiodefs.hpp"
+#include "erroror.hpp"
 #include "logging.hpp"
+#include "realm.hpp"
 #include "routerconfig.hpp"
 #include "internal/passkey.hpp"
 
@@ -71,9 +73,11 @@ public:
 
     /// @name Operations
     /// @{
-    bool openRealm(RealmConfig config);
+    ErrorOr<Realm> openRealm(RealmConfig config);
 
-    bool closeRealm(const std::string& name, Reason r = closeRealmReason());
+    bool closeRealm(const Uri uri, Reason r = closeRealmReason());
+
+    ErrorOr<Realm> realmAt(const Uri& uri) const;
 
     bool openServer(ServerConfig config);
 
