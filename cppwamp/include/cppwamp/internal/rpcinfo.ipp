@@ -150,6 +150,7 @@ CPPWAMP_INLINE Outcome::Outcome(std::initializer_list<Variant> args)
 /** @post `this->type() == Type::error` */
 CPPWAMP_INLINE Outcome::Outcome(Error error) : type_(Type::error)
 {
+    error.setRequestKind({}, internal::MessageKind::call);
     new (&value_.error) Error(std::move(error));
 }
 

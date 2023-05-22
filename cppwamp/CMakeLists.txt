@@ -85,6 +85,7 @@ set(HEADERS
     include/cppwamp/internal/matchpolicyoption.hpp
     include/cppwamp/internal/message.hpp
     include/cppwamp/internal/messagetraits.hpp
+    include/cppwamp/internal/metaapi.hpp
     include/cppwamp/internal/networkpeer.hpp
     include/cppwamp/internal/passkey.hpp
     include/cppwamp/internal/peer.hpp

@@ -83,11 +83,11 @@ public:
 
     template <typename C>
     CPPWAMP_NODISCARD Deduced<std::size_t, C>
-    countSessions(C&& completion);
+    countSessions(SessionFilter f, C&& completion);
 
     template <typename C>
     CPPWAMP_NODISCARD Deduced<std::vector<SessionId>, C>
-    listSessions(C&& completion);
+    listSessions(SessionFilter f, C&& completion);
 
     template <typename C>
     CPPWAMP_NODISCARD Deduced<std::size_t, C>
@@ -173,8 +173,9 @@ private:
 
     explicit Realm(std::shared_ptr<internal::RouterRealm> impl);
 
-    void doCountSessions(CompletionHandler<std::size_t> h);
-    void doListSessions(CompletionHandler<std::vector<SessionId>> h);
+    void doCountSessions(SessionFilter f, CompletionHandler<std::size_t> h);
+    void doListSessions(SessionFilter f,
+                        CompletionHandler<std::vector<SessionId>> h);
     void doForEachSession(SessionHandler f, CompletionHandler<std::size_t> h);
     void doLookupSession(SessionId sid,
                          CompletionHandler<ErrorOr<SessionDetails>> h);
@@ -214,24 +215,27 @@ struct Realm::CountSessionsOp
 {
     using ResultValue = std::size_t;
     Realm* self;
+    SessionFilter filter;
 
     template <typename F> void operator()(F&& f)
     {
-        self->doCountSessions(std::forward<F>(f));
+        self->doCountSessions(std::move(filter), std::forward<F>(f));
     }
 };
 
 //------------------------------------------------------------------------------
 /** @tparam C Callable handler with signature `void (std::size_t)`,
               or a compatible Boost.Asio completion token.
-    @return The number of active sessions. */
+    @return The number of active sessions meeting the filter criteria. */
 //------------------------------------------------------------------------------
 template <typename C>
 Realm::Deduced<std::size_t, C> Realm::countSessions(
-    C&& completion     ///< Completion handler or token.
+    SessionFilter f, /**< Predicate function used to filter eligible sessions
+                          (no filtering if nullptr) */
+    C&& completion   /**< Completion handler or token. */
     )
 {
-    return initiate<CountSessionsOp>(std::forward<C>(completion));
+    return initiate<CountSessionsOp>(std::forward<C>(completion), std::move(f));
 }
 
 //------------------------------------------------------------------------------
@@ -239,18 +243,19 @@ struct Realm::ListSessionsOp
 {
     using ResultValue = std::vector<SessionId>;
     Realm* self;
+    SessionFilter filter;
 
     template <typename F> void operator()(F&& f)
     {
-        self->doListSessions(std::forward<F>(f));
+        self->doListSessions(std::move(filter), std::forward<F>(f));
     }
 };
 
 template <typename C>
 Realm::Deduced<std::vector<SessionId>, C>
-Realm::listSessions(C&& completion)
+Realm::listSessions(SessionFilter f, C&& completion)
 {
-    return initiate<ListSessionsOp>(std::forward<C>(completion));
+    return initiate<ListSessionsOp>(std::forward<C>(completion), std::move(f));
 }
 
 //------------------------------------------------------------------------------

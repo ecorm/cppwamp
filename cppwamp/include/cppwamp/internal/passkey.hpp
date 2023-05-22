@@ -18,6 +18,7 @@ class Error;
 class Event;
 class Interruption;
 class Invocation;
+class Outcome;
 class Session;
 
 namespace internal
@@ -35,6 +36,7 @@ namespace internal
         friend class wamp::Event;
         friend class wamp::Interruption;
         friend class wamp::Invocation;
+        friend class wamp::Outcome;
         friend class wamp::Session;
         template <typename> friend class BasicCalleeChannelImpl;
         template <typename> friend class BasicCallerChannelImpl;
@@ -49,6 +51,7 @@ namespace internal
         friend class DirectPeer;
         friend class DirectRouterSession;
         friend class MatchUri;
+        template <typename> friend class MetaApiProvider;
         friend class MockClient;
         friend class MockServer;
         friend class NetworkPeer;

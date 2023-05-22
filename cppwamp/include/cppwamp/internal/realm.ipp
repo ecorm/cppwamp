@@ -36,15 +36,16 @@ CPPWAMP_INLINE Realm::Realm(std::shared_ptr<internal::RouterRealm> impl)
     : impl_(std::move(impl))
 {}
 
-CPPWAMP_INLINE void Realm::doCountSessions(CompletionHandler<std::size_t> h)
+CPPWAMP_INLINE void Realm::doCountSessions(SessionFilter f,
+                                           CompletionHandler<std::size_t> h)
 {
-    impl_->countSessions(std::move(h));
+    impl_->countSessions(std::move(f), std::move(h));
 }
 
 CPPWAMP_INLINE void Realm::doListSessions(
-    CompletionHandler<std::vector<SessionId>> h)
+    SessionFilter f, CompletionHandler<std::vector<SessionId>> h)
 {
-    impl_->listSessions(std::move(h));
+    impl_->listSessions(std::move(f), std::move(h));
 }
 
 CPPWAMP_INLINE void Realm::doForEachSession(SessionHandler f,

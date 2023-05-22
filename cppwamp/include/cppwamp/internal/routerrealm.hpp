@@ -134,41 +134,41 @@ public:
         safelyDispatch<Dispatched>();
     }
 
-    void countSessions(CompletionHandler<std::size_t> h)
+    void countSessions(SessionFilter f, CompletionHandler<std::size_t> h)
     {
         struct Dispatched
         {
             Ptr self;
+            SessionFilter f;
             CompletionHandler<std::size_t> h;
 
             void operator()()
             {
                 auto& me = *self;
-                me.complete(h, me.sessions_.size());
+                me.complete(h, me.sessionCount(f));
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(h));
+        safelyDispatch<Dispatched>(std::move(f), std::move(h));
     }
 
-    void listSessions(CompletionHandler<std::vector<SessionId>> h)
+    void listSessions(SessionFilter f,
+                      CompletionHandler<std::vector<SessionId>> h)
     {
         struct Dispatched
         {
             Ptr self;
+            SessionFilter f;
             CompletionHandler<std::vector<SessionId>> h;
 
             void operator()()
             {
                 auto& me = *self;
-                std::vector<SessionId> idList;
-                for (const auto& kv: me.sessions_)
-                    idList.push_back(kv.first);
-                me.complete(h, std::move(idList));
+                me.complete(h, me.sessionList(f));
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(h));
+        safelyDispatch<Dispatched>(std::move(f), std::move(h));
     }
 
     void forEachSession(SessionHandler f, CompletionHandler<std::size_t> h)
@@ -202,13 +202,8 @@ public:
 
             void operator()()
             {
-                static constexpr auto errc = WampErrc::noSuchSession;
                 auto& me = *self;
-                auto found = me.sessions_.find(sid);
-                if (found == me.sessions_.end())
-                    me.complete(h, makeUnexpectedError(errc));
-                else
-                    me.complete(h, found->second->details());
+                me.complete(h, me.sessionDetails(sid));
             }
         };
 
@@ -226,14 +221,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                auto iter = me.sessions_.find(sid);
-                bool found = iter != me.sessions_.end();
-                if (found)
-                {
-                    iter->second->abort(Reason{WampErrc::sessionKilled});
-                    me.sessions_.erase(iter);
-                }
-                me.complete(h, found);
+                me.complete(h, me.doKillSession(sid));
             }
         };
 
@@ -251,23 +239,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                std::size_t count = 0;
-                auto iter = me.sessions_.begin();
-                auto end = me.sessions_.end();
-                while (iter != end)
-                {
-                    if (f(iter->second->details()))
-                    {
-                        ++count;
-                        iter->second->abort(Reason{WampErrc::sessionKilled});
-                        iter = me.sessions_.erase(iter);
-                    }
-                    else
-                    {
-                        ++iter;
-                    }
-                }
-                me.complete(h, count);
+                me.complete(h, me.doKillSessions(std::move(f)));
             }
         };
 
@@ -284,8 +256,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                auto lists = me.dealer_.listRegistrations();
-                me.complete(h, std::move(lists));
+                me.complete(h, me.registrationLists());
             }
         };
 
@@ -326,8 +297,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                auto details = me.dealer_.lookupRegistration(uri, p);
-                me.complete(h, std::move(details));
+                me.complete(h, me.registrationDetailsByUri(uri, p));
             }
         };
 
@@ -346,8 +316,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                auto details = me.dealer_.matchRegistration(uri);
-                me.complete(h, std::move(details));
+                me.complete(h, me.bestRegistrationMatch(uri));
             }
         };
 
@@ -366,8 +335,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                auto details = me.dealer_.getRegistration(rid);
-                me.complete(h, std::move(details));
+                me.complete(h, me.registrationDetailsById(rid));
             }
         };
 
@@ -426,8 +394,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                auto details = me.broker_.lookupSubscription(uri, p);
-                me.complete(h, std::move(details));
+                me.complete(h, me.subscriptionDetailsByUri(uri, p));
             }
         };
 
@@ -446,8 +413,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                auto details = me.broker_.matchSubscriptions(uri);
-                me.complete(h, std::move(details));
+                me.complete(h, me.subscriptionMatches(uri));
             }
         };
 
@@ -466,8 +432,7 @@ public:
             void operator()()
             {
                 auto& me = *self;
-                auto details = me.broker_.getSubscription(sid);
-                me.complete(h, std::move(details));
+                me.complete(h, me.subscriptionDetailsById(sid));
             }
         };
 
@@ -490,6 +455,114 @@ private:
     {}
 
     RouterLogger::Ptr logger() const {return logger_;}
+
+    std::size_t sessionCount(const SessionFilter& f) const
+    {
+        if (!f)
+            return sessions_.size();
+
+        std::size_t count = 0;
+        for (const auto& kv: sessions_)
+            count += f(kv.second->details()) ? 1 : 0;
+        return count;
+    }
+
+    std::vector<SessionId> sessionList(const SessionFilter& f) const
+    {
+        std::vector<SessionId> idList;
+        for (const auto& kv: sessions_)
+        {
+            if ((f == nullptr) || f(kv.second->details()))
+                idList.push_back(kv.first);
+        }
+        return idList;
+    }
+
+    ErrorOr<SessionDetails> sessionDetails(SessionId sid) const
+    {
+        static constexpr auto errc = WampErrc::noSuchSession;
+        auto found = sessions_.find(sid);
+        if (found == sessions_.end())
+            return makeUnexpectedError(errc);
+        else
+            return found->second->details();
+    }
+
+    bool doKillSession(SessionId sid)
+    {
+        auto iter = sessions_.find(sid);
+        bool found = iter != sessions_.end();
+        if (found)
+        {
+            iter->second->abort(Reason{WampErrc::sessionKilled});
+            sessions_.erase(iter);
+        }
+        return found;
+    }
+
+    std::size_t doKillSessions(const SessionFilter& f)
+    {
+        std::size_t count = 0;
+        auto iter = sessions_.begin();
+        auto end = sessions_.end();
+        while (iter != end)
+        {
+            if (f(iter->second->details()))
+            {
+                ++count;
+                iter->second->abort(Reason{WampErrc::sessionKilled});
+                iter = sessions_.erase(iter);
+            }
+            else
+            {
+                ++iter;
+            }
+        }
+        return count;
+    }
+
+    RegistrationLists registrationLists() const
+    {
+        return dealer_.listRegistrations();
+    }
+
+    ErrorOr<RegistrationDetails> registrationDetailsByUri(const Uri& uri,
+                                                          MatchPolicy p) const
+    {
+        return dealer_.lookupRegistration(uri, p);
+    }
+
+    ErrorOr<RegistrationDetails> bestRegistrationMatch(const Uri& uri) const
+    {
+        return dealer_.matchRegistration(uri);
+    }
+
+    ErrorOr<RegistrationDetails>
+    registrationDetailsById(RegistrationId rid) const
+    {
+        return dealer_.getRegistration(rid);
+    }
+
+    SubscriptionLists subscriptionLists() const
+    {
+        return broker_.listSubscriptions();
+    }
+
+    ErrorOr<SubscriptionDetails> subscriptionDetailsByUri(const Uri& uri,
+                                                          MatchPolicy p) const
+    {
+        return broker_.lookupSubscription(uri, p);
+    }
+
+    std::vector<SubscriptionId> subscriptionMatches(const Uri& uri)
+    {
+        return broker_.matchSubscriptions(uri);
+    }
+
+    ErrorOr<SubscriptionDetails> subscriptionDetailsById(SubscriptionId sid)
+    {
+        return broker_.getSubscription(sid);
+    }
 
     void leave(SessionId sid)
     {
