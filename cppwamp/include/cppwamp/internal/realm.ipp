@@ -42,8 +42,8 @@ CPPWAMP_INLINE void Realm::doCountSessions(SessionFilter f,
     impl_->countSessions(std::move(f), std::move(h));
 }
 
-CPPWAMP_INLINE void Realm::doListSessions(
-    SessionFilter f, CompletionHandler<std::vector<SessionId>> h)
+CPPWAMP_INLINE void Realm::doListSessions(SessionFilter f,
+                                          CompletionHandler<SessionIdList> h)
 {
     impl_->listSessions(std::move(f), std::move(h));
 }
@@ -60,16 +60,16 @@ CPPWAMP_INLINE void Realm::doLookupSession(
     impl_->lookupSession(sid, std::move(h));
 }
 
-CPPWAMP_INLINE void Realm::doKillSession(SessionId sid,
+CPPWAMP_INLINE void Realm::doKillSession(SessionId sid, Reason r,
                                          CompletionHandler<bool> h)
 {
-    impl_->killSession(sid, std::move(h));
+    impl_->killSession(sid, std::move(r), std::move(h));
 }
 
-CPPWAMP_INLINE void Realm::doKillSessions(SessionFilter f,
-                                          CompletionHandler<std::size_t> h)
+CPPWAMP_INLINE void Realm::doKillSessions(SessionFilter f, Reason r,
+                                          CompletionHandler<SessionIdList> h)
 {
-    impl_->killSessions(std::move(f), std::move(h));
+    impl_->killSessions(std::move(f), std::move(r), std::move(h));
 }
 
 CPPWAMP_INLINE void Realm::doListRegistrations(
@@ -121,7 +121,7 @@ CPPWAMP_INLINE void Realm::doLookupSubscription(
 }
 
 CPPWAMP_INLINE void Realm::doMatchSubscriptions(
-    Uri uri, CompletionHandler<std::vector<SubscriptionId>> h)
+    Uri uri, CompletionHandler<SubscriptionIdList> h)
 {
     impl_->matchSubscriptions(std::move(uri), std::move(h));
 }

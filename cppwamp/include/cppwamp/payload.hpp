@@ -77,6 +77,25 @@ public:
     /** Accesses a keyword argument by key. */
     Variant& operator[](const String& keyword);
 
+    /** Determines if a keyword argument exists. */
+    bool hasKwarg(const String& key) const;
+
+    /** Obtains a keyword argument by key, or a null variant if absent. */
+    const Variant& kwargByKey(const String& key) const;
+
+    /** Obtains a keyword argument by key, converted to the given type, or a
+        fallback value. */
+    template <typename T, typename U>
+    T kwargOr(const String& key, U&& fallback) const;
+
+    /** Obtains a keyword argument by key having the given type. */
+    template <typename T>
+    ErrorOr<T> kwargAs(const String& key) const &;
+
+    /** Moves a keyword argument by key having the given type. */
+    template <typename T>
+    ErrorOr<T> kwargAs(const String& key) &&;
+
     /** Converts the payload's positional arguments to the given value types. */
     template <typename... Ts>
     size_t convertTo(Ts&... values) const;
@@ -300,6 +319,76 @@ template <typename D, internal::MessageKind K>
 Variant& Payload<D,K>::operator[](const std::string& keyword)
 {
     return kwargs()[keyword];
+}
+
+//------------------------------------------------------------------------------
+template <typename D, internal::MessageKind K>
+const Variant& Payload<D,K>::kwargByKey(const String& key) const
+{
+    static const Variant nullVariant;
+    auto iter = kwargs().find(key);
+    if (iter != kwargs().end())
+        return iter->second;
+    return nullVariant;
+}
+
+//------------------------------------------------------------------------------
+template <typename D, internal::MessageKind K>
+template <typename T, typename U>
+T Payload<D,K>::kwargOr(
+    const String& key, /**< The key to search under. */
+    U&& fallback       /**< The fallback value to return if the key was
+                                not found or cannot be converted. */
+    ) const
+{
+    auto iter = kwargs().find(key);
+    if (iter == kwargs().end())
+        return std::forward<U>(fallback);
+
+    try
+    {
+        return iter->second.template to<ValueTypeOf<T>>();
+    }
+    catch (const error::Conversion&)
+    {
+        return std::forward<U>(fallback);
+    }
+}
+
+//------------------------------------------------------------------------------
+/** @returns The option value, or an error code of either
+             MiscErrc::absent or MiscErrc::badType. */
+//------------------------------------------------------------------------------
+template <typename D, internal::MessageKind K>
+template <typename T>
+ErrorOr<T> Payload<D,K>::kwargAs(
+    const String& key /**< The key to search under. */
+    ) const &
+{
+    auto iter = kwargs().find(key);
+    if (iter == kwargs().end())
+        return makeUnexpectedError(MiscErrc::absent);
+    if (!iter->second.template is<T>())
+        return makeUnexpectedError(MiscErrc::badType);
+    return iter->second.template as<T>();
+}
+
+//------------------------------------------------------------------------------
+/** @returns The option value, or an error code of either
+             MiscErrc::absent or MiscErrc::badType. */
+//------------------------------------------------------------------------------
+template <typename D, internal::MessageKind K>
+template <typename T>
+ErrorOr<T> Payload<D,K>::kwargAs(
+    const String& key /**< The key to search under. */
+    ) &&
+{
+    auto iter = kwargs().find(key);
+    if (iter == kwargs().end())
+        return makeUnexpectedError(MiscErrc::absent);
+    if (!iter->second.template is<T>())
+        return makeUnexpectedError(MiscErrc::badType);
+    return std::move(iter->second.template as<T>());
 }
 
 //------------------------------------------------------------------------------

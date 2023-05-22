@@ -15,11 +15,13 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <vector>
 #include <boost/asio/async_result.hpp>
 #include "api.hpp"
 #include "asiodefs.hpp"
 #include "anyhandler.hpp"
 #include "config.hpp"
+#include "cppwamp/sessioninfo.hpp"
 #include "erroror.hpp"
 #include "realmobserver.hpp"
 
@@ -45,6 +47,8 @@ private:
 
 public:
     using Executor            = AnyIoExecutor;
+    using SessionIdList       = std::vector<SessionId>;
+    using SubscriptionIdList  = std::vector<SubscriptionId>;
     using SessionHandler      = std::function<void (SessionDetails)>;
     using SessionFilter       = std::function<bool (SessionDetails)>;
     using RegistrationHandler = std::function<void (RegistrationDetails)>;
@@ -86,7 +90,7 @@ public:
     countSessions(SessionFilter f, C&& completion);
 
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<std::vector<SessionId>, C>
+    CPPWAMP_NODISCARD Deduced<SessionIdList, C>
     listSessions(SessionFilter f, C&& completion);
 
     template <typename C>
@@ -102,8 +106,16 @@ public:
     killSession(SessionId sid, C&& completion);
 
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<std::size_t, C>
+    CPPWAMP_NODISCARD Deduced<bool, C>
+    killSession(SessionId sid, Reason r, C&& completion);
+
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<SessionIdList, C>
     killSessions(SessionFilter f, C&& completion);
+
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<SessionIdList, C>
+    killSessions(SessionFilter f, Reason r, C&& completion);
 
     template <typename C>
     CPPWAMP_NODISCARD Deduced<RegistrationLists, C>
@@ -138,7 +150,7 @@ public:
     lookupSubscription(Uri uri, MatchPolicy p, C&& completion);
 
     template <typename C>
-    CPPWAMP_NODISCARD Deduced<ErrorOr<SubscriptionDetails>, C>
+    CPPWAMP_NODISCARD Deduced<ErrorOr<SubscriptionIdList>, C>
     matchSubscriptions(Uri uri, C&& completion);
 
     template <typename C>
@@ -174,13 +186,13 @@ private:
     explicit Realm(std::shared_ptr<internal::RouterRealm> impl);
 
     void doCountSessions(SessionFilter f, CompletionHandler<std::size_t> h);
-    void doListSessions(SessionFilter f,
-                        CompletionHandler<std::vector<SessionId>> h);
+    void doListSessions(SessionFilter f, CompletionHandler<SessionIdList> h);
     void doForEachSession(SessionHandler f, CompletionHandler<std::size_t> h);
     void doLookupSession(SessionId sid,
                          CompletionHandler<ErrorOr<SessionDetails>> h);
-    void doKillSession(SessionId sid, CompletionHandler<bool> h);
-    void doKillSessions(SessionFilter f, CompletionHandler<std::size_t> h);
+    void doKillSession(SessionId sid, Reason r, CompletionHandler<bool> h);
+    void doKillSessions(SessionFilter f, Reason r,
+                        CompletionHandler<SessionIdList> h);
     void doListRegistrations(CompletionHandler<RegistrationLists> h);
     void doForEachRegistration(MatchPolicy p, RegistrationHandler f,
                                CompletionHandler<std::size_t> h);
@@ -195,8 +207,7 @@ private:
                                CompletionHandler<std::size_t> h);
     void doLookupSubscription(Uri uri, MatchPolicy p,
                               CompletionHandler<ErrorOr<SubscriptionDetails>> h);
-    void doMatchSubscriptions(Uri uri,
-                              CompletionHandler<std::vector<SubscriptionId>> h);
+    void doMatchSubscriptions(Uri uri, CompletionHandler<SubscriptionIdList> h);
     void doGetSubscription(SubscriptionId sid,
                            CompletionHandler<ErrorOr<SubscriptionDetails>> h);
 
@@ -241,7 +252,7 @@ Realm::Deduced<std::size_t, C> Realm::countSessions(
 //------------------------------------------------------------------------------
 struct Realm::ListSessionsOp
 {
-    using ResultValue = std::vector<SessionId>;
+    using ResultValue = Realm::SessionIdList;
     Realm* self;
     SessionFilter filter;
 
@@ -252,7 +263,7 @@ struct Realm::ListSessionsOp
 };
 
 template <typename C>
-Realm::Deduced<std::vector<SessionId>, C>
+Realm::Deduced<Realm::SessionIdList, C>
 Realm::listSessions(SessionFilter f, C&& completion)
 {
     return initiate<ListSessionsOp>(std::forward<C>(completion), std::move(f));
@@ -310,10 +321,11 @@ struct Realm::KillSessionOp
     using ResultValue = std::size_t;
     Realm* self;
     SessionId sid;
+    Reason r;
 
     template <typename F> void operator()(F&& f)
     {
-        self->doKillSession(sid, std::forward<F>(f));
+        self->doKillSession(sid, std::move(r), std::forward<F>(f));
     }
 };
 
@@ -321,27 +333,46 @@ template <typename C>
 Realm::Deduced<bool, C>
 Realm::killSession(SessionId sid, C&& completion)
 {
-    return initiate<KillSessionOp>(std::forward<C>(completion), sid);
+    return killSession(sid, Reason{WampErrc::sessionKilled});
+}
+
+template <typename C>
+Realm::Deduced<bool, C>
+Realm::killSession(SessionId sid, Reason r, C&& completion)
+{
+    return initiate<KillSessionOp>(std::forward<C>(completion), sid,
+                                   std::move(r));
 }
 
 //------------------------------------------------------------------------------
 struct Realm::KillSessionsOp
 {
-    using ResultValue = std::size_t;
+    using ResultValue = Realm::SessionIdList;
     Realm* self;
     SessionFilter filter;
+    Reason r;
 
     template <typename F> void operator()(F&& f)
     {
-        self->doKillSessions(std::move(filter), std::forward<F>(f));
+        self->doKillSessions(std::move(filter), std::move(r),
+                             std::forward<F>(f));
     }
 };
 
 template <typename C>
-Realm::Deduced<std::size_t, C>
+Realm::Deduced<Realm::SessionIdList, C>
 Realm::killSessions(SessionFilter f, C&& completion)
 {
-    return initiate<KillSessionOp>(std::forward<C>(completion), std::move(f));
+    return killSession(std::move(f), Reason{WampErrc::sessionKilled},
+                       std::move(completion));
+}
+
+template <typename C>
+Realm::Deduced<Realm::SessionIdList, C>
+Realm::killSessions(SessionFilter f, Reason r, C&& completion)
+{
+    return initiate<KillSessionOp>(std::forward<C>(completion), std::move(f),
+                                   std::move(r));
 }
 
 //------------------------------------------------------------------------------
@@ -516,7 +547,7 @@ Realm::lookupSubscription(Uri uri, MatchPolicy p, C&& completion)
 //------------------------------------------------------------------------------
 struct Realm::MatchSubscriptionsOp
 {
-    using ResultValue = std::vector<SubscriptionId>;
+    using ResultValue = Realm::SubscriptionIdList;
     Realm* self;
     Uri uri;
 
@@ -527,7 +558,7 @@ struct Realm::MatchSubscriptionsOp
 };
 
 template <typename C>
-Realm::Deduced<ErrorOr<SubscriptionDetails>, C>
+Realm::Deduced<ErrorOr<Realm::SubscriptionIdList>, C>
 Realm::matchSubscriptions(Uri uri, C&& completion)
 {
     return initiate<MatchSubscriptionsOp>(std::forward<C>(completion),

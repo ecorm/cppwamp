@@ -10,6 +10,9 @@
 #include <cppwamp/payload.hpp>
 #include <cppwamp/internal/message.hpp>
 
+// TODO: Test Options
+// TODO: Test hasKwarg, kwargByKey, kwargOr, kwargAs
+
 using namespace wamp;
 
 namespace

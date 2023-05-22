@@ -13,6 +13,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 #include "../anyhandler.hpp"
 #include "../authorizer.hpp"
 #include "../realmobserver.hpp"
@@ -210,40 +211,43 @@ public:
         safelyDispatch<Dispatched>(sid, std::move(h));
     }
 
-    void killSession(SessionId sid, CompletionHandler<bool> h)
+    void killSession(SessionId sid, Reason r, CompletionHandler<bool> h)
     {
         struct Dispatched
         {
             Ptr self;
             SessionId sid;
+            Reason r;
             CompletionHandler<std::size_t> h;
 
             void operator()()
             {
                 auto& me = *self;
-                me.complete(h, me.doKillSession(sid));
+                me.complete(h, me.doKillSession(sid, std::move(r)));
             }
         };
 
-        safelyDispatch<Dispatched>(sid, std::move(h));
+        safelyDispatch<Dispatched>(sid, std::move(r), std::move(h));
     }
 
-    void killSessions(SessionFilter f, CompletionHandler<std::size_t> h)
+    void killSessions(SessionFilter f, Reason r,
+                      CompletionHandler<std::vector<SessionId>> h)
     {
         struct Dispatched
         {
             Ptr self;
             SessionFilter f;
-            CompletionHandler<std::size_t> h;
+            Reason r;
+            CompletionHandler<std::vector<SessionId>> h;
 
             void operator()()
             {
                 auto& me = *self;
-                me.complete(h, me.doKillSessions(std::move(f)));
+                me.complete(h, me.doKillSessions(std::move(f), r));
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(f), std::move(h));
+        safelyDispatch<Dispatched>(std::move(f), std::move(r), std::move(h));
     }
 
     void listRegistrations(CompletionHandler<RegistrationLists> h)
@@ -456,23 +460,23 @@ private:
 
     RouterLogger::Ptr logger() const {return logger_;}
 
-    std::size_t sessionCount(const SessionFilter& f) const
+    std::size_t sessionCount(const SessionFilter& filter) const
     {
-        if (!f)
+        if (!filter)
             return sessions_.size();
 
         std::size_t count = 0;
         for (const auto& kv: sessions_)
-            count += f(kv.second->details()) ? 1 : 0;
+            count += filter(kv.second->details()) ? 1 : 0;
         return count;
     }
 
-    std::vector<SessionId> sessionList(const SessionFilter& f) const
+    std::vector<SessionId> sessionList(const SessionFilter& filter) const
     {
         std::vector<SessionId> idList;
         for (const auto& kv: sessions_)
         {
-            if ((f == nullptr) || f(kv.second->details()))
+            if ((filter == nullptr) || filter(kv.second->details()))
                 idList.push_back(kv.first);
         }
         return idList;
@@ -488,29 +492,30 @@ private:
             return found->second->details();
     }
 
-    bool doKillSession(SessionId sid)
+    bool doKillSession(SessionId sid, Reason reason)
     {
         auto iter = sessions_.find(sid);
         bool found = iter != sessions_.end();
         if (found)
         {
-            iter->second->abort(Reason{WampErrc::sessionKilled});
+            iter->second->abort(std::move(reason));
             sessions_.erase(iter);
         }
         return found;
     }
 
-    std::size_t doKillSessions(const SessionFilter& f)
+    std::vector<SessionId> doKillSessions(const SessionFilter& filter,
+                                          const Reason& reason)
     {
-        std::size_t count = 0;
+        std::vector<SessionId> killed;
         auto iter = sessions_.begin();
         auto end = sessions_.end();
         while (iter != end)
         {
-            if (f(iter->second->details()))
+            if (filter(iter->second->details()))
             {
-                ++count;
-                iter->second->abort(Reason{WampErrc::sessionKilled});
+                killed.push_back(iter->first);
+                iter->second->abort(reason);
                 iter = sessions_.erase(iter);
             }
             else
@@ -518,7 +523,7 @@ private:
                 ++iter;
             }
         }
-        return count;
+        return killed;
     }
 
     RegistrationLists registrationLists() const
