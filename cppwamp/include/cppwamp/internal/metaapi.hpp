@@ -163,7 +163,7 @@ private:
     Outcome sessionList(RouterSession&, Rpc& rpc)
     {
         if (rpc.args().empty())
-            return Result{context_.sessionCount(nullptr)};
+            return Result{context_.sessionList(nullptr)};
 
         auto authRoles = parseAuthRoles(rpc);
         auto filter =
