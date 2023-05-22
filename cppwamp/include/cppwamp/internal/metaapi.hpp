@@ -10,10 +10,12 @@
 #include <algorithm>
 #include <array>
 #include <set>
+#include <sstream>
 #include <utility>
 #include "../realmobserver.hpp"
 #include "../rpcinfo.hpp"
 #include "routersession.hpp"
+#include "timeformatting.hpp"
 
 namespace wamp
 {
@@ -31,13 +33,25 @@ public:
     MetaApiProvider(Context* realm) :
         handlers_(
         {
-            {"wamp.session.count",            &Self::sessionCount},
-            {"wamp.session.get",              &Self::sessionDetails},
-            {"wamp.session.kill",             &Self::killSession},
-            {"wamp.session.kill_all",         &Self::killAllSessions},
-            {"wamp.session.kill_by_authid",   &Self::killSessionsByAuthId},
-            {"wamp.session.kill_by_authrole", &Self::killSessionsByAuthRole},
-            {"wamp.session.list",             &Self::sessionList},
+            {"wamp.registration.count_callees",     &Self::countRegistrationCallees},
+            {"wamp.registration.get",               &Self::registrationDetails},
+            {"wamp.registration.list",              &Self::listRegistrations},
+            {"wamp.registration.list_callees",      &Self::listRegistrationCallees},
+            {"wamp.registration.lookup",            &Self::lookupRegistration},
+            {"wamp.registration.match",             &Self::matchRegistration},
+            {"wamp.session.count",                  &Self::sessionCount},
+            {"wamp.session.get",                    &Self::sessionDetails},
+            {"wamp.session.kill",                   &Self::killSession},
+            {"wamp.session.kill_all",               &Self::killAllSessions},
+            {"wamp.session.kill_by_authid",         &Self::killSessionsByAuthId},
+            {"wamp.session.kill_by_authrole",       &Self::killSessionsByAuthRole},
+            {"wamp.session.list",                   &Self::sessionList},
+            {"wamp.subscription.count_subscribers", &Self::countSubscribers},
+            {"wamp.subscription.get",               &Self::subscriptionDetails},
+            {"wamp.subscription.list",              &Self::listSubscriptions},
+            {"wamp.subscription.list_subscribers",  &Self::listSubscribers},
+            {"wamp.subscription.lookup",            &Self::lookupSubscription},
+            {"wamp.subscription.match",             &Self::matchSubscriptions},
         }),
         context_(*realm)
     {}
@@ -131,6 +145,27 @@ private:
         return reason;
     }
 
+    static String toRfc3339Timestamp(std::chrono::system_clock::time_point when)
+    {
+        std::ostringstream oss;
+        toRfc3339TimestampInMilliseconds(oss, when);
+        return oss.str();
+    }
+
+    static String toString(MatchPolicy p)
+    {
+        switch (p)
+        {
+        case MatchPolicy::exact:    return "exact";
+        case MatchPolicy::prefix:   return "prefix";
+        case MatchPolicy::wildcard: return "wildcard";
+        default: break;
+        }
+
+        assert(false && "Unexpected MatchPolicy enumerator");
+        return {};
+    }
+
     static Object toObject(const SessionDetails& details)
     {
         const auto& authInfo = *(details.authInfo);
@@ -142,6 +177,49 @@ private:
             {"authrole",     authInfo.role()},
             {"session",      details.id}
             // TODO: transport
+        };
+    }
+
+    static Object toObject(const RegistrationLists& lists)
+    {
+        return Object
+        {
+            {"exact", lists.exact},
+            {"prefix", lists.prefix},
+            {"wildcard", lists.exact},
+        };
+    }
+
+    static Object toObject(RegistrationDetails& details)
+    {
+        return Object
+        {
+            {"created", toRfc3339Timestamp(details.created)},
+            {"id",      details.id},
+            {"invoke",  "single"}, // TODO: Shared registrations
+            {"match",   "exact"},  // TODO: Pattern-based registrations
+            {"uri",     std::move(details.uri)},
+        };
+    }
+
+    static Object toObject(const SubscriptionLists& lists)
+    {
+        return Object
+        {
+            {"exact", lists.exact},
+            {"prefix", lists.prefix},
+            {"wildcard", lists.exact},
+        };
+    }
+
+    static Object toObject(SubscriptionDetails& details)
+    {
+        return Object
+        {
+            {"created", toRfc3339Timestamp(details.created)},
+            {"id",      details.id},
+            {"match",   toString(details.matchPolicy)},
+            {"uri",     std::move(details.uri)},
         };
     }
 
@@ -237,6 +315,105 @@ private:
             rpc,
             [ownId](SessionDetails s) -> bool {return s.id != ownId;});
         return Result{killed.size()};
+    }
+
+    Outcome listRegistrations(RouterSession&, Rpc& rpc)
+    {
+        auto lists = context_.registrationLists();
+        return Result{toObject(context_.registrationLists())};
+    }
+
+    Outcome lookupRegistration(RouterSession&, Rpc& rpc)
+    {
+        Uri uri;
+        rpc.convertTo(uri);
+        auto details = context_.registrationDetailsByUri(uri);
+        return details ? Result{details->id} : Result{null};
+    }
+
+    Outcome matchRegistration(RouterSession&, Rpc& rpc)
+    {
+        Uri uri;
+        rpc.convertTo(uri);
+        auto match = context_.bestRegistrationMatch(uri);
+        return match ? Result{match->id} : Result{null};
+    }
+
+    Outcome registrationDetails(RouterSession&, Rpc& rpc)
+    {
+        RegistrationId rid;
+        rpc.convertTo(rid);
+        auto details = context_.registrationDetailsById(rid);
+        return details ? Result{toObject(*details)} : Result{null};
+    }
+
+    Outcome listRegistrationCallees(RouterSession&, Rpc& rpc)
+    {
+        RegistrationId rid;
+        rpc.convertTo(rid);
+        auto details = context_.registrationDetailsById(rid);
+        if (!details)
+            return Error{WampErrc::noSuchRegistration};
+        return Result{details->callees};
+    }
+
+    Outcome countRegistrationCallees(RouterSession&, Rpc& rpc)
+    {
+        RegistrationId rid;
+        rpc.convertTo(rid);
+        auto details = context_.registrationDetailsById(rid);
+        if (!details)
+            return Error{WampErrc::noSuchRegistration};
+        return Result{details->callees.size()};
+    }
+
+    Outcome listSubscriptions(RouterSession&, Rpc& rpc)
+    {
+        auto lists = context_.subscriptionLists();
+        return Result{toObject(context_.subscriptionLists())};
+    }
+
+    Outcome lookupSubscription(RouterSession&, Rpc& rpc)
+    {
+        Uri uri;
+        rpc.convertTo(uri);
+        auto details = context_.subscriptionDetailsByUri(uri);
+        return details ? Result{details->id} : Result{null};
+    }
+
+    Outcome matchSubscriptions(RouterSession&, Rpc& rpc)
+    {
+        Uri uri;
+        rpc.convertTo(uri);
+        Result{context_.subscriptionMatches(uri)};
+    }
+
+    Outcome subscriptionDetails(RouterSession&, Rpc& rpc)
+    {
+        SubscriptionId rid;
+        rpc.convertTo(rid);
+        auto details = context_.subscriptionDetailsById(rid);
+        return details ? Result{toObject(*details)} : Result{null};
+    }
+
+    Outcome listSubscribers(RouterSession&, Rpc& rpc)
+    {
+        SubscriptionId rid;
+        rpc.convertTo(rid);
+        auto details = context_.subscriptionDetailsById(rid);
+        if (!details)
+            return Error{WampErrc::noSuchSubscription};
+        return Result{details->subscribers};
+    }
+
+    Outcome countSubscribers(RouterSession&, Rpc& rpc)
+    {
+        SubscriptionId rid;
+        rpc.convertTo(rid);
+        auto details = context_.subscriptionDetailsById(rid);
+        if (!details)
+            return Error{WampErrc::noSuchSubscription};
+        return Result{details->subscribers.size()};
     }
 
     std::array<std::pair<Uri, Handler>, 10> handlers_;
