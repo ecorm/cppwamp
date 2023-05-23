@@ -32,7 +32,7 @@ public:
 
     MetaApiProvider(Context* realm) :
         handlers_(
-        {
+        {{
             {"wamp.registration.count_callees",     &Self::countRegistrationCallees},
             {"wamp.registration.get",               &Self::registrationDetails},
             {"wamp.registration.list",              &Self::listRegistrations},
@@ -51,25 +51,25 @@ public:
             {"wamp.subscription.list",              &Self::listSubscriptions},
             {"wamp.subscription.list_subscribers",  &Self::listSubscribers},
             {"wamp.subscription.lookup",            &Self::lookupSubscription},
-            {"wamp.subscription.match",             &Self::matchSubscriptions},
-        }),
+            {"wamp.subscription.match",             &Self::matchSubscriptions}
+        }}),
         context_(*realm)
     {}
 
-    bool call(RouterSession::Ptr caller, Rpc&& rpc)
+    bool call(RouterSession& caller, Rpc&& rpc)
     {
-        auto iter = std::lower_bound(handlers_.begin, handlers_.end(),
+        auto iter = std::lower_bound(handlers_.cbegin(), handlers_.cend(),
                                      rpc.uri());
-        if (iter == handlers_.end() || (iter->first != rpc.uri()))
+        if (iter == handlers_.cend() || (iter->uri != rpc.uri()))
             return false;
 
         auto requestId = rpc.requestId({});
-        auto handler = iter->second;
+        auto handler = iter->handler;
 
         Outcome outcome;
         try
         {
-            outcome = (this->*(handler))(*caller, rpc);
+            outcome = (this->*(handler))(caller, rpc);
         }
         catch (Error& e)
         {
@@ -84,14 +84,14 @@ public:
         {
             Result result{std::move(outcome).asResult()};
             result.setRequestId({}, requestId);
-            caller->sendRouterCommand(std::move(result), true);
+            caller.sendRouterCommand(std::move(result), true);
         }
         else
         {
             assert(outcome.type() == Outcome::Type::error);
             Error error{std::move(outcome).asError()};
             error.setRequestId({}, rpc.requestId({}));
-            caller->sendRouterCommand(std::move(error), true);
+            caller.sendRouterCommand(std::move(error), true);
         }
 
         return true;
@@ -100,6 +100,14 @@ public:
 private:
     using Self = MetaApiProvider;
     typedef Outcome (MetaApiProvider::*Handler)(RouterSession&, Rpc&);
+
+    struct Entry
+    {
+        const char* uri;
+        Handler handler;
+    };
+    friend bool operator<(const Entry& e, const Uri& uri) {return e.uri < uri;}
+    friend bool operator<(const Uri& uri, const Entry& e) {return uri < e.uri;}
 
     static std::set<std::string> parseAuthRoles(const Rpc& rpc)
     {
@@ -143,6 +151,38 @@ private:
             reason.withHint(std::move(*messageArg));
 
         return reason;
+    }
+
+    static MatchPolicy parseMatchPolicy(const Rpc& rpc)
+    {
+        if (rpc.args().size() < 2)
+            return MatchPolicy::exact;
+        const auto& optionsArg = rpc.args()[1];
+        if (!optionsArg.is<Object>())
+        {
+            throw Error{WampErrc::invalidArgument}
+                .withArgs("second argument must be an object");
+        }
+
+        const auto& dict = optionsArg.as<Object>();
+        auto found = dict.find("match");
+        if (found == dict.end())
+            return MatchPolicy::exact;
+        const auto& matchOption = found->second;
+        if (!matchOption.is<String>())
+        {
+            throw Error{WampErrc::invalidArgument}
+                .withArgs("match option must be a string");
+        }
+
+        const auto& matchStr = matchOption.as<String>();
+        if (matchStr == "exact")
+            return MatchPolicy::exact;
+        if (matchStr == "prefix")
+            return MatchPolicy::prefix;
+        if (matchStr == "wildcard")
+            return MatchPolicy::wildcard;
+        return MatchPolicy::unknown;
     }
 
     static String toRfc3339Timestamp(std::chrono::system_clock::time_point when)
@@ -275,6 +315,7 @@ private:
         bool killed = context_.doKillSession(sid, std::move(reason));
         if (!killed)
             return Error{WampErrc::noSuchSession};
+        return Result{};
     }
 
     template <typename TFilter>
@@ -327,7 +368,12 @@ private:
     {
         Uri uri;
         rpc.convertTo(uri);
-        auto details = context_.registrationDetailsByUri(uri);
+
+        auto policy = parseMatchPolicy(rpc);
+        if (policy == MatchPolicy::unknown)
+            return Result{null};
+
+        auto details = context_.registrationDetailsByUri(uri, policy);
         return details ? Result{details->id} : Result{null};
     }
 
@@ -377,7 +423,12 @@ private:
     {
         Uri uri;
         rpc.convertTo(uri);
-        auto details = context_.subscriptionDetailsByUri(uri);
+
+        auto policy = parseMatchPolicy(rpc);
+        if (policy == MatchPolicy::unknown)
+            return Result{null};
+
+        auto details = context_.subscriptionDetailsByUri(uri, policy);
         return details ? Result{details->id} : Result{null};
     }
 
@@ -385,7 +436,7 @@ private:
     {
         Uri uri;
         rpc.convertTo(uri);
-        Result{context_.subscriptionMatches(uri)};
+        return Result{context_.subscriptionMatches(uri)};
     }
 
     Outcome subscriptionDetails(RouterSession&, Rpc& rpc)
@@ -416,7 +467,7 @@ private:
         return Result{details->subscribers.size()};
     }
 
-    std::array<std::pair<Uri, Handler>, 10> handlers_;
+    std::array<Entry, 19> handlers_;
     Context& context_;
 };
 

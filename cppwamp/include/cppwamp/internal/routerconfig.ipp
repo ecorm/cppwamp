@@ -50,6 +50,17 @@ RealmConfig::withCallerDisclosure(DisclosureRule d)
     return *this;
 }
 
+CPPWAMP_INLINE RealmConfig& RealmConfig::withMetaApiEnabled(bool enabled)
+{
+    metaApiEnabled_ = enabled;
+    return *this;
+}
+
+CPPWAMP_INLINE RealmConfig& RealmConfig::withMetaApiDisabled()
+{
+    return withMetaApiEnabled(false);
+}
+
 CPPWAMP_INLINE const Uri& RealmConfig::uri() const {return uri_;}
 
 CPPWAMP_INLINE Authorizer::Ptr RealmConfig::authorizer() const
@@ -70,6 +81,11 @@ CPPWAMP_INLINE DisclosureRule RealmConfig::publisherDisclosure() const
 CPPWAMP_INLINE DisclosureRule RealmConfig::callerDisclosure() const
 {
     return publisherDisclosure_;
+}
+
+CPPWAMP_INLINE bool RealmConfig::metaApiEnabled() const
+{
+    return metaApiEnabled_;
 }
 
 

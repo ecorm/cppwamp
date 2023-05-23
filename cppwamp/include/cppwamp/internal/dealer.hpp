@@ -598,7 +598,7 @@ public:
         return registry_.erase(std::move(callee), rid, std::move(observer));
     }
 
-    ErrorOrDone call(RouterSession::Ptr caller, Rpc&& rpc)
+    ErrorOrDone call(RouterSession::Ptr caller, Rpc& rpc)
     {
         auto reg = registry_.find(rpc.uri());
         if (reg == nullptr)

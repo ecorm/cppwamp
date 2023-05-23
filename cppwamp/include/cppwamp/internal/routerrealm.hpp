@@ -20,6 +20,7 @@
 #include "../routerconfig.hpp"
 #include "broker.hpp"
 #include "commandinfo.hpp"
+#include "metaapi.hpp"
 #include "dealer.hpp"
 #include "random.hpp"
 #include "routercontext.hpp"
@@ -444,6 +445,8 @@ public:
     }
 
 private:
+    using MetaApi = MetaApiProvider<RouterRealm>;
+
     RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
                 RouterContext&& rctx)
         : executor_(std::move(e)),
@@ -456,7 +459,10 @@ private:
           logger_(router_.logger()),
           uriValidator_(rcfg.uriValidator()),
           isOpen_(true)
-    {}
+    {
+        if (config_.metaApiEnabled())
+            metaApi_.reset(new MetaApi(this));
+    }
 
     RouterLogger::Ptr logger() const {return logger_;}
 
@@ -792,8 +798,17 @@ private:
             return;
         if (!setDisclosed(*originator, rpc, auth, config_.callerDisclosure()))
             return;
-        auto done = dealer_.call(originator, std::move(rpc));
-        checkResult(done, *originator, rpc);
+        auto done = dealer_.call(originator, rpc);
+
+        bool isMetaProcedure = false;
+        auto unex = makeUnexpectedError(WampErrc::noSuchProcedure);
+        if (metaApi_ && (done == unex))
+            isMetaProcedure = metaApi_->call(*originator, std::move(rpc));
+
+        // A result or error would have already been sent to the caller
+        // if it was a valid meta-procedure.
+        if (!isMetaProcedure)
+            checkResult(done, *originator, rpc);
     }
 
     void send(RouterSession::Ptr originator, CallCancellation&& cancel)
@@ -979,10 +994,12 @@ private:
     RouterLogger::Ptr logger_;
     UriValidator::Ptr uriValidator_;
     RealmObserver::WeakPtr observer_;
+    std::unique_ptr<MetaApi> metaApi_;
     std::atomic<bool> isOpen_;
 
     friend class DirectPeer;
     friend class RealmContext;
+    template <typename> friend class MetaApiProvider;
 };
 
 

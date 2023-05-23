@@ -48,6 +48,10 @@ public:
 
     RealmConfig& withCallerDisclosure(DisclosureRule d);
 
+    RealmConfig& withMetaApiEnabled(bool enabled = true);
+
+    RealmConfig& withMetaApiDisabled();
+
     const Uri& uri() const;
 
     Authorizer::Ptr authorizer() const;
@@ -58,11 +62,14 @@ public:
 
     DisclosureRule callerDisclosure() const;
 
+    bool metaApiEnabled() const;
+
 private:
     Uri uri_;
     Authorizer::Ptr authorizer_;
     DisclosureRule publisherDisclosure_ = DisclosureRule::originator;
     DisclosureRule callerDisclosure_ = DisclosureRule::originator;
+    bool metaApiEnabled_ = true;
     // bool authorizationCacheEnabled_ = false;
 };
 
