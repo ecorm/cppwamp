@@ -36,7 +36,7 @@ CPPWAMP_INLINE AccessActionInfo Topic::info() const
     This sets the `SUBSCRIBE.Options.match|string` option. */
 CPPWAMP_INLINE Topic& Topic::withMatchPolicy(MatchPolicy policy)
 {
-    internal::setMatchPolicyOption(*this, policy);
+    internal::setMatchPolicyOption(options(), policy);
     matchPolicy_ = policy;
     return *this;
 }
@@ -46,7 +46,7 @@ CPPWAMP_INLINE MatchPolicy Topic::matchPolicy() const {return matchPolicy_;}
 CPPWAMP_INLINE Topic::Topic(internal::PassKey, internal::Message&& msg)
     : Base(std::move(msg))
 {
-    matchPolicy_ = internal::getMatchPolicyOption(*this);
+    matchPolicy_ = internal::getMatchPolicyOption(options());
 }
 
 CPPWAMP_INLINE Uri&& Topic::uri(internal::PassKey) &&

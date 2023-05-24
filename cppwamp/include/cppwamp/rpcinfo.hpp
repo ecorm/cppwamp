@@ -576,14 +576,14 @@ AccessActionInfo ProcedureLike<D>::info() const
 template <typename D>
 D& ProcedureLike<D>::withMatchPolicy(MatchPolicy policy)
 {
-    internal::setMatchPolicyOption(*this, policy);
+    internal::setMatchPolicyOption(this->options(), policy);
     return derived();
 }
 
 template <typename D>
 MatchPolicy ProcedureLike<D>::matchPolicy() const
 {
-    return internal::getMatchPolicyOption(*this);
+    return internal::getMatchPolicyOption(this->options());
 }
 
 template <typename D>

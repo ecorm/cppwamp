@@ -14,8 +14,8 @@
 #include <utility>
 #include "../realmobserver.hpp"
 #include "../rpcinfo.hpp"
+#include "matchpolicyoption.hpp"
 #include "routersession.hpp"
-#include "timeformatting.hpp"
 
 namespace wamp
 {
@@ -25,12 +25,12 @@ namespace internal
 
 //------------------------------------------------------------------------------
 template <typename TContext>
-class MetaApiProvider
+class MetaProcedures
 {
 public:
     using Context = TContext;
 
-    MetaApiProvider(Context* realm) :
+    MetaProcedures(Context* realm) :
         handlers_(
         {{
             {"wamp.registration.count_callees",     &Self::countRegistrationCallees},
@@ -98,8 +98,8 @@ public:
     }
 
 private:
-    using Self = MetaApiProvider;
-    typedef Outcome (MetaApiProvider::*Handler)(RouterSession&, Rpc&);
+    using Self = MetaProcedures;
+    typedef Outcome (MetaProcedures::*Handler)(RouterSession&, Rpc&);
 
     struct Entry
     {
@@ -165,102 +165,7 @@ private:
         }
 
         const auto& dict = optionsArg.as<Object>();
-        auto found = dict.find("match");
-        if (found == dict.end())
-            return MatchPolicy::exact;
-        const auto& matchOption = found->second;
-        if (!matchOption.is<String>())
-        {
-            throw Error{WampErrc::invalidArgument}
-                .withArgs("match option must be a string");
-        }
-
-        const auto& matchStr = matchOption.as<String>();
-        if (matchStr == "exact")
-            return MatchPolicy::exact;
-        if (matchStr == "prefix")
-            return MatchPolicy::prefix;
-        if (matchStr == "wildcard")
-            return MatchPolicy::wildcard;
-        return MatchPolicy::unknown;
-    }
-
-    static String toRfc3339Timestamp(std::chrono::system_clock::time_point when)
-    {
-        std::ostringstream oss;
-        toRfc3339TimestampInMilliseconds(oss, when);
-        return oss.str();
-    }
-
-    static String toString(MatchPolicy p)
-    {
-        switch (p)
-        {
-        case MatchPolicy::exact:    return "exact";
-        case MatchPolicy::prefix:   return "prefix";
-        case MatchPolicy::wildcard: return "wildcard";
-        default: break;
-        }
-
-        assert(false && "Unexpected MatchPolicy enumerator");
-        return {};
-    }
-
-    static Object toObject(const SessionDetails& details)
-    {
-        const auto& authInfo = *(details.authInfo);
-        return Object
-        {
-            {"authid",       authInfo.id()},
-            {"authmethod",   authInfo.method()},
-            {"authprovider", authInfo.provider()},
-            {"authrole",     authInfo.role()},
-            {"session",      details.id}
-            // TODO: transport
-        };
-    }
-
-    static Object toObject(const RegistrationLists& lists)
-    {
-        return Object
-        {
-            {"exact", lists.exact},
-            {"prefix", lists.prefix},
-            {"wildcard", lists.exact},
-        };
-    }
-
-    static Object toObject(RegistrationDetails& details)
-    {
-        return Object
-        {
-            {"created", toRfc3339Timestamp(details.created)},
-            {"id",      details.id},
-            {"invoke",  "single"}, // TODO: Shared registrations
-            {"match",   "exact"},  // TODO: Pattern-based registrations
-            {"uri",     std::move(details.uri)},
-        };
-    }
-
-    static Object toObject(const SubscriptionLists& lists)
-    {
-        return Object
-        {
-            {"exact", lists.exact},
-            {"prefix", lists.prefix},
-            {"wildcard", lists.exact},
-        };
-    }
-
-    static Object toObject(SubscriptionDetails& details)
-    {
-        return Object
-        {
-            {"created", toRfc3339Timestamp(details.created)},
-            {"id",      details.id},
-            {"match",   toString(details.matchPolicy)},
-            {"uri",     std::move(details.uri)},
-        };
+        return getMatchPolicyOption(dict);
     }
 
     Outcome sessionCount(RouterSession&, Rpc& rpc)
@@ -468,6 +373,112 @@ private:
     }
 
     std::array<Entry, 19> handlers_;
+    Context& context_;
+};
+
+//------------------------------------------------------------------------------
+template <typename TContext>
+class MetaTopics : public RealmObserver
+{
+public:
+    using Context = TContext;
+
+    MetaTopics(Context* realm) : context_(*realm) {}
+
+    void setObserver(RealmObserver::Ptr o) {observer_ = std::move(o);}
+
+    virtual void onRealmClosed(const Uri& uri)
+    {
+        if (observer_)
+            observer_->onRealmClosed(uri);
+    }
+
+    virtual void onJoin(const SessionDetails& s)
+    {
+        publish(Pub{"wamp.session.on_join"}.withArgs(toObject(s)));
+
+        if (observer_)
+            observer_->onJoin(s);
+    }
+
+    virtual void onLeave(const SessionDetails& s)
+    {
+        Object details
+        {
+            {"authid", s.authInfo->id()},
+            {"authrole", s.authInfo->role()},
+            {"session", s.id}
+        };
+        publish(Pub{"wamp.session.on_leave"}.withArgs(std::move(details)));
+
+        if (observer_)
+            observer_->onLeave(s);
+    }
+
+    virtual void onRegister(const SessionDetails& s,
+                            const RegistrationDetails& r)
+    {
+        if (r.callees.size() == 1)
+        {
+            publish(Pub{"wamp.registration.on_create"}
+                        .withArgs(s.id, toObject(r)));
+        }
+
+        publish(Pub{"wamp.registration.on_register"}
+                    .withArgs(s.id, toObject(r)));
+
+        if (observer_)
+            observer_->onRegister(s, r);
+    }
+
+    virtual void onUnregister(const SessionDetails& s,
+                              const RegistrationDetails& r)
+    {
+        publish(Pub{"wamp.registration.on_unregister"}.withArgs(s.id, r.id));
+
+        if (r.callees.empty())
+            publish(Pub{"wamp.registration.on_delete"}.withArgs(s.id, r.id));
+
+        if (observer_)
+            observer_->onUnregister(s, r);
+    }
+
+    virtual void onSubscribe(const SessionDetails& s,
+                             const SubscriptionDetails& sub)
+    {
+        if (sub.subscribers.size() == 1)
+        {
+            publish(Pub{"wamp.subscription.on_create"}
+                        .withArgs(s.id, toObject(sub)));
+        }
+
+        publish(Pub{"wamp.subscription.on_subscribe"}
+                    .withArgs(s.id, toObject(sub)));
+
+        if (observer_)
+            observer_->onSubscribe(s, sub);
+    }
+
+    virtual void onUnsubscribe(const SessionDetails& s,
+                               const SubscriptionDetails& sub)
+    {
+        publish(Pub{"wamp.subscription.on_unsubscribe"}
+                    .withArgs(s.id, sub.id));
+
+        if (sub.subscribers.empty())
+        {
+            publish(Pub{"wamp.subscription.on_delete"}
+                        .withArgs(s.id, sub.id));
+        }
+
+        if (observer_)
+            observer_->onUnsubscribe(s, sub);
+    }
+
+private:
+    void publish(Pub& pub) {context_.publishMetaEvent(std::move(pub));}
+
+    RealmObserver::Ptr observer_;
     Context& context_;
 };
 

@@ -218,7 +218,7 @@ CPPWAMP_INLINE AccessActionInfo::AccessActionInfo(
 CPPWAMP_INLINE std::ostream& AccessLogEntry::outputTime(std::ostream& out,
                                                         TimePoint when)
 {
-    return internal::toRfc3339TimestampInMilliseconds(out, when);
+    return internal::outputRfc3339TimestampInMilliseconds(out, when);
 }
 
 //------------------------------------------------------------------------------

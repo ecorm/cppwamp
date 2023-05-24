@@ -43,6 +43,12 @@ public:
 
     void setRegistrationId(RegistrationId rid) {regId_ = rid;}
 
+    void resetCallee()
+    {
+        callee_ = {};
+        calleeId_ = nullId();
+    }
+
     const Uri& procedureUri() const & {return procedureUri_;}
 
     Uri&& procedureUri() && {return std::move(procedureUri_);}
@@ -55,7 +61,10 @@ public:
 
     RegistrationDetails details() const
     {
-        return {{calleeId_}, procedureUri_, created_, regId_,
+        std::vector<SessionId> calleeIdList;
+        if (calleeId_ != 0)
+            calleeIdList.push_back(calleeId_);
+        return {std::move(calleeIdList), procedureUri_, created_, regId_,
                 MatchPolicy::exact};
     }
 
@@ -98,6 +107,7 @@ public:
         // Move the registration before it is deleted from the map.
         // We'll need it later to notify the observer.
         DealerRegistration registration{std::move(found->second)};
+        registration.resetCallee();
 
         if (registration.calleeId() != callee->wampId())
             return makeUnexpectedError(WampErrc::noSuchRegistration);

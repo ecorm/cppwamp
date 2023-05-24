@@ -11,6 +11,7 @@
 #include <ctime>
 #include <iomanip>
 #include <ostream>
+#include <sstream>
 
 namespace wamp
 {
@@ -19,7 +20,7 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-inline std::ostream& toRfc3339TimestampInMilliseconds(
+inline std::ostream& outputRfc3339TimestampInMilliseconds(
     std::ostream& out, std::chrono::system_clock::time_point when)
 {
     namespace chrono = std::chrono;
@@ -43,6 +44,15 @@ inline std::ostream& toRfc3339TimestampInMilliseconds(
         << std::setfill('0') << std::setw(2) << secs.count()
         << '.' << std::setw(3) << ms.count() << 'Z';
     return out;
+}
+
+//------------------------------------------------------------------------------
+inline std::string toRfc3339TimestampInMilliseconds(
+    std::chrono::system_clock::time_point when)
+{
+    std::ostringstream oss;
+    outputRfc3339TimestampInMilliseconds(oss, when);
+    return oss.str();
 }
 
 } // namespace internal

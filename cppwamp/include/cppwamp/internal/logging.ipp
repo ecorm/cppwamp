@@ -58,7 +58,7 @@ CPPWAMP_INLINE const std::string& logLevelLabel(LogLevel lv)
 CPPWAMP_INLINE std::ostream& LogEntry::outputTime(std::ostream& out,
                                                   TimePoint when)
 {
-    return internal::toRfc3339TimestampInMilliseconds(out, when);
+    return internal::outputRfc3339TimestampInMilliseconds(out, when);
 }
 
 //------------------------------------------------------------------------------

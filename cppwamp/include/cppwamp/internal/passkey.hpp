@@ -51,7 +51,7 @@ namespace internal
         friend class DirectPeer;
         friend class DirectRouterSession;
         friend class MatchUri;
-        template <typename> friend class MetaApiProvider;
+        template <typename> friend class MetaProcedures;
         friend class MockClient;
         friend class MockServer;
         friend class NetworkPeer;

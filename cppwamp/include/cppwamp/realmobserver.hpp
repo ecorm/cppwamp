@@ -16,7 +16,6 @@
 #include "api.hpp"
 #include "authinfo.hpp"
 #include "features.hpp"
-#include "wampdefs.hpp"
 
 namespace wamp
 {
@@ -24,16 +23,16 @@ namespace wamp
 //------------------------------------------------------------------------------
 struct CPPWAMP_API SessionDetails
 {
-    SessionDetails() = default;
+    SessionDetails();
 
-    SessionDetails(ClientFeatures f, AuthInfo::Ptr a, SessionId i)
-        : features(f), authInfo(std::move(a)), id(i)
-    {}
+    SessionDetails(ClientFeatures f, AuthInfo::Ptr a, SessionId i);
 
     ClientFeatures features;
     AuthInfo::Ptr authInfo;
     SessionId id = 0;
 };
+
+CPPWAMP_API Object toObject(const SessionDetails& details);
 
 //------------------------------------------------------------------------------
 struct CPPWAMP_API RegistrationDetails
@@ -45,6 +44,8 @@ struct CPPWAMP_API RegistrationDetails
     MatchPolicy matchPolicy;
 };
 
+CPPWAMP_API Object toObject(const RegistrationDetails& r);
+
 //------------------------------------------------------------------------------
 struct CPPWAMP_API RegistrationLists
 {
@@ -52,6 +53,8 @@ struct CPPWAMP_API RegistrationLists
     std::vector<RegistrationId> prefix;
     std::vector<RegistrationId> wildcard;
 };
+
+CPPWAMP_API Object toObject(const RegistrationLists& lists);
 
 //------------------------------------------------------------------------------
 struct CPPWAMP_API SubscriptionDetails
@@ -63,6 +66,8 @@ struct CPPWAMP_API SubscriptionDetails
     MatchPolicy matchPolicy;
 };
 
+CPPWAMP_API Object toObject(const SubscriptionDetails& s);
+
 //------------------------------------------------------------------------------
 struct CPPWAMP_API SubscriptionLists
 {
@@ -70,6 +75,8 @@ struct CPPWAMP_API SubscriptionLists
     std::vector<SubscriptionId> prefix;
     std::vector<SubscriptionId> wildcard;
 };
+
+CPPWAMP_API Object toObject(const SubscriptionLists& lists);
 
 //------------------------------------------------------------------------------
 class CPPWAMP_API RealmObserver
@@ -80,27 +87,31 @@ public:
     using Ptr = std::shared_ptr<RealmObserver>;
     using WeakPtr = std::weak_ptr<RealmObserver>;
 
-    virtual ~RealmObserver() {}
+    virtual ~RealmObserver();
 
-    virtual void onRealmClosed() {}
+    virtual void onRealmClosed(const Uri&);
 
-    virtual void onJoin(const SessionDetails&) {}
+    virtual void onJoin(const SessionDetails&);
 
-    virtual void onLeave(const SessionDetails&) {}
+    virtual void onLeave(const SessionDetails&);
 
     virtual void onRegister(const SessionDetails&,
-                            const RegistrationDetails&) {}
+                            const RegistrationDetails&);
 
     virtual void onUnregister(const SessionDetails&,
-                              const RegistrationDetails&) {}
+                              const RegistrationDetails&);
 
     virtual void onSubscribe(const SessionDetails&,
-                             const SubscriptionDetails&) {}
+                             const SubscriptionDetails&);
 
     virtual void onUnsubscribe(const SessionDetails&,
-                               const SubscriptionDetails&) {}
+                               const SubscriptionDetails&);
 };
 
 } // namespace wamp
+
+#ifndef CPPWAMP_COMPILED_LIB
+#include "internal/realmobserver.ipp"
+#endif
 
 #endif // CPPWAMP_REALMOBSERVER_HPP

@@ -79,6 +79,13 @@ public:
             !excludedRoles_.empty();
     }
 
+    // This overload is for meta-events
+    BrokerPublication(Pub&& pub, PublicationId pid)
+        : topicUri_(pub.uri()),
+          event_(Event({}, std::move(pub), nullId(), pid)),
+          publicationId_(pid)
+    {}
+
     void setSubscriptionId(SubscriptionId subId)
     {
         event_.setSubscriptionId({}, subId);
@@ -196,7 +203,7 @@ public:
           created_(std::chrono::system_clock::now())
     {}
 
-    bool empty() const {return sessions_.empty();}
+    bool empty() const {return subscribers_.empty();}
 
     const MatchUri& topic() const {return topic_;}
 
@@ -205,7 +212,7 @@ public:
     SubscriptionDetails details() const
     {
         std::vector<SessionId> subscribers;
-        for (const auto& kv: sessions_)
+        for (const auto& kv: subscribers_)
             subscribers.push_back(kv.first);
         return {std::move(subscribers), topic_.uri(), created_, subId_,
                 topic_.policy()};
@@ -214,16 +221,16 @@ public:
     void addSubscriber(SessionId sid, BrokerSubscriberInfo info)
     {
         // Does not clobber subscriber info if already subscribed.
-        sessions_.emplace(sid, std::move(info));
+        subscribers_.emplace(sid, std::move(info));
     }
 
-    bool removeSubscriber(SessionId sid) {return sessions_.erase(sid) != 0;}
+    bool removeSubscriber(SessionId sid) {return subscribers_.erase(sid) != 0;}
 
     std::size_t publish(BrokerPublication& info) const
     {
         std::size_t count = 0;
         info.setSubscriptionId(subId_);
-        for (auto& kv : sessions_)
+        for (auto& kv : subscribers_)
         {
             auto subscriber = kv.second.session.lock();
             if (subscriber)
@@ -233,7 +240,7 @@ public:
     }
 
 private:
-    std::map<SessionId, BrokerSubscriberInfo> sessions_;
+    std::map<SessionId, BrokerSubscriberInfo> subscribers_;
     MatchUri topic_;
     SubscriptionId subId_ = nullId();
     std::chrono::system_clock::time_point created_;
@@ -615,6 +622,14 @@ public:
         count += byPrefix_.publish(info);
         count += byWildcard_.publish(info);
         return std::make_pair(info.publicationId(), count);
+    }
+
+    void publishMetaEvent(Pub&& pub)
+    {
+        BrokerPublication info(std::move(pub), pubIdGenerator_());
+        byExact_.publish(info);
+        byPrefix_.publish(info);
+        byWildcard_.publish(info);
     }
 
     void removeSubscriber(SessionId sessionId)

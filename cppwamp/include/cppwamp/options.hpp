@@ -91,15 +91,10 @@ private:
 
 
 //------------------------------------------------------------------------------
-/** @pre `this->hasOption(key) == false`
-    @throws error::Logic if the precondition is not met. */
-//------------------------------------------------------------------------------
 template <typename D, internal::MessageKind K>
 D& Options<D,K>::withOption(String key, Variant value)
 {
-    auto emplaced = options().emplace(std::move(key), value);
-    CPPWAMP_LOGIC_CHECK(emplaced.second,
-                        "wamp::Options::withOption: Option already exists");
+    options()[std::move(key)] = std::move(value);
     return static_cast<D&>(*this);
 }
 

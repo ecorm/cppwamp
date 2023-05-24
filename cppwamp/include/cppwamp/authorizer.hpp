@@ -14,6 +14,9 @@
 
 // TODO: Authorization cache
 
+// TODO: Provide authorizer which blocks WAMP meta API
+// https://github.com/wamp-proto/wamp-proto/discussions/489
+
 #include <cassert>
 #include <functional>
 #include <memory>

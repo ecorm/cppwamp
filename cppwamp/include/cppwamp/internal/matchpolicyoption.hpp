@@ -9,6 +9,7 @@
 
 #include <cassert>
 #include "../exceptions.hpp"
+#include "../variant.hpp"
 #include "../wampdefs.hpp"
 
 namespace wamp
@@ -18,48 +19,55 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-template <typename T>
-MatchPolicy getMatchPolicyOption(const T& messageData)
+inline MatchPolicy parseMatchPolicy(const Variant& option)
 {
-    const auto& opts = messageData.options();
-    auto found = opts.find("match");
-    if (found == opts.end())
+    if (!option.is<String>())
+        return MatchPolicy::unknown;
+
+    const auto& matchStr = option.as<String>();
+    if (matchStr == "exact")
         return MatchPolicy::exact;
-    const auto& opt = found->second;
-    if (opt.template is<Uri>())
-    {
-        const auto& s = opt.template as<Uri>();
-        if (s == "prefix")
-            return MatchPolicy::prefix;
-        if (s == "wildcard")
-            return MatchPolicy::wildcard;
-    }
+    if (matchStr == "prefix")
+        return MatchPolicy::prefix;
+    if (matchStr == "wildcard")
+        return MatchPolicy::wildcard;
     return MatchPolicy::unknown;
 }
 
 //------------------------------------------------------------------------------
-template <typename T>
-void setMatchPolicyOption(T& messageData, MatchPolicy policy)
+inline MatchPolicy getMatchPolicyOption(const Object& options)
+{
+    auto found = options.find("match");
+    if (found == options.end())
+        return MatchPolicy::exact;
+    return parseMatchPolicy(found->second);
+}
+
+//------------------------------------------------------------------------------
+inline String toString(const MatchPolicy& p)
+{
+    switch (p)
+    {
+    case MatchPolicy::exact:    return "exact";
+    case MatchPolicy::prefix:   return "prefix";
+    case MatchPolicy::wildcard: return "wildcard";
+    default: break;
+    }
+
+    assert(false && "Unexpected MatchPolicy enumerator");
+    return {};
+}
+
+//------------------------------------------------------------------------------
+inline void setMatchPolicyOption(Object& options, MatchPolicy policy)
 {
     CPPWAMP_LOGIC_CHECK(policy != MatchPolicy::unknown,
                         "Cannot specify unknown match policy");
 
-    switch (policy)
-    {
-    case MatchPolicy::exact:
-        break;
-
-    case MatchPolicy::prefix:
-        messageData.withOption("match", "prefix");
-        break;
-
-    case MatchPolicy::wildcard:
-        messageData.withOption("match", "wildcard");
-        break;
-
-    default:
-        assert(false && "Unexpected MatchPolicy enumerator");
-    }
+    if (policy == MatchPolicy::exact)
+        options.erase("match");
+    else
+        options[std::move("match")] = toString(policy);
 }
 
 } // namespace internal

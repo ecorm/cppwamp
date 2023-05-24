@@ -106,7 +106,7 @@ public:
                 me.isOpen_.store(false);
                 auto observer = me.observer_.lock();
                 if (observer)
-                    observer->onRealmClosed();
+                    observer->onRealmClosed(me.config_.uri());
             }
         };
 
@@ -119,7 +119,14 @@ public:
         {
             Ptr self;
             RealmObserver::Ptr o;
-            void operator()() {self->observer_ = std::move(o);}
+            void operator()()
+            {
+                auto& me = *self;
+                if (me.config_.metaApiEnabled())
+                    me.metaTopics_->setObserver(std::move(o));
+                else
+                    me.observer_ = std::move(o);
+            }
         };
 
         safelyDispatch<Dispatched>(std::move(o));
@@ -130,7 +137,14 @@ public:
         struct Dispatched
         {
             Ptr self;
-            void operator()() {self->observer_ = {};}
+            void operator()()
+            {
+                auto& me = *self;
+                if (me.config_.metaApiEnabled())
+                    me.metaTopics_->setObserver(nullptr);
+                else
+                    me.observer_ = {};
+            }
         };
 
         safelyDispatch<Dispatched>();
@@ -445,7 +459,8 @@ public:
     }
 
 private:
-    using MetaApi = MetaApiProvider<RouterRealm>;
+    using RealmProcedures = MetaProcedures<RouterRealm>;
+    using RealmTopics = MetaTopics<RouterRealm>;
 
     RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
                 RouterContext&& rctx)
@@ -461,7 +476,11 @@ private:
           isOpen_(true)
     {
         if (config_.metaApiEnabled())
-            metaApi_.reset(new MetaApi(this));
+        {
+            metaProcedures_.reset(new RealmProcedures(this));
+            metaTopics_ = std::make_shared<RealmTopics>(this);
+            observer_ = metaTopics_;
+        }
     }
 
     RouterLogger::Ptr logger() const {return logger_;}
@@ -802,8 +821,8 @@ private:
 
         bool isMetaProcedure = false;
         auto unex = makeUnexpectedError(WampErrc::noSuchProcedure);
-        if (metaApi_ && (done == unex))
-            isMetaProcedure = metaApi_->call(*originator, std::move(rpc));
+        if (metaProcedures_ && (done == unex))
+            isMetaProcedure = metaProcedures_->call(*originator, std::move(rpc));
 
         // A result or error would have already been sent to the caller
         // if it was a valid meta-procedure.
@@ -983,6 +1002,8 @@ private:
         postAny(executor_, std::move(f), std::forward<Ts>(args)...);
     }
 
+    void publishMetaEvent(Pub&& pub) {broker_.publishMetaEvent(std::move(pub));}
+
     AnyIoExecutor executor_;
     IoStrand strand_;
     RealmConfig config_;
@@ -994,12 +1015,14 @@ private:
     RouterLogger::Ptr logger_;
     UriValidator::Ptr uriValidator_;
     RealmObserver::WeakPtr observer_;
-    std::unique_ptr<MetaApi> metaApi_;
+    std::unique_ptr<RealmProcedures> metaProcedures_;
+    std::shared_ptr<RealmTopics> metaTopics_;
     std::atomic<bool> isOpen_;
 
     friend class DirectPeer;
     friend class RealmContext;
-    template <typename> friend class MetaApiProvider;
+    template <typename> friend class MetaProcedures;
+    template <typename> friend class MetaTopics;
 };
 
 

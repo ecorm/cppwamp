@@ -158,6 +158,7 @@ set(INLINES
     include/cppwamp/internal/msgpack.ipp
     include/cppwamp/internal/pubsubinfo.ipp
     include/cppwamp/internal/realm.ipp
+    include/cppwamp/internal/realmobserver.ipp
     include/cppwamp/internal/registration.ipp
     include/cppwamp/internal/router.ipp
     include/cppwamp/internal/routerconfig.ipp
