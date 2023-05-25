@@ -56,11 +56,6 @@ CPPWAMP_INLINE RealmConfig& RealmConfig::withMetaApiEnabled(bool enabled)
     return *this;
 }
 
-CPPWAMP_INLINE RealmConfig& RealmConfig::withMetaApiDisabled()
-{
-    return withMetaApiEnabled(false);
-}
-
 CPPWAMP_INLINE const Uri& RealmConfig::uri() const {return uri_;}
 
 CPPWAMP_INLINE Authorizer::Ptr RealmConfig::authorizer() const

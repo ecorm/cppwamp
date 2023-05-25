@@ -115,7 +115,8 @@ private:
     {
         try
         {
-            router_.openRealm(wamp::RealmConfig{"cppwamp.test"});
+            router_.openRealm(wamp::RealmConfig{"cppwamp.test"}
+                                  .withMetaApiEnabled());
             router_.openRealm(wamp::RealmConfig{"cppwamp.authtest"});
             router_.openServer(tcpConfig());
             router_.openServer(tcpTicketConfig());

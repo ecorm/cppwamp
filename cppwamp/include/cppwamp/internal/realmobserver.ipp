@@ -167,24 +167,24 @@ CPPWAMP_INLINE Object toObject(const SubscriptionLists& lists)
 }
 
 //------------------------------------------------------------------------------
-RealmObserver::~RealmObserver() {}
+CPPWAMP_INLINE RealmObserver::~RealmObserver() {}
 
-void RealmObserver::onRealmClosed(const Uri&) {}
+CPPWAMP_INLINE void RealmObserver::onRealmClosed(const Uri&) {}
 
-void RealmObserver::onJoin(const SessionDetails&) {}
+CPPWAMP_INLINE void RealmObserver::onJoin(const SessionDetails&) {}
 
-void RealmObserver::onLeave(const SessionDetails&) {}
+CPPWAMP_INLINE void RealmObserver::onLeave(const SessionDetails&) {}
 
-void RealmObserver::onRegister(const SessionDetails&,
-                               const RegistrationDetails&) {}
+CPPWAMP_INLINE void RealmObserver::onRegister(const SessionDetails&,
+                                              const RegistrationDetails&) {}
 
-void RealmObserver::onUnregister(const SessionDetails&,
-                                 const RegistrationDetails&) {}
+CPPWAMP_INLINE void RealmObserver::onUnregister(const SessionDetails&,
+                                                const RegistrationDetails&) {}
 
-void RealmObserver::onSubscribe(const SessionDetails&,
-                                const SubscriptionDetails&) {}
+CPPWAMP_INLINE void RealmObserver::onSubscribe(const SessionDetails&,
+                                               const SubscriptionDetails&) {}
 
-void RealmObserver::onUnsubscribe(const SessionDetails&,
-                                  const SubscriptionDetails&) {}
+CPPWAMP_INLINE void RealmObserver::onUnsubscribe(const SessionDetails&,
+                                                 const SubscriptionDetails&) {}
 
 } // namespace wamp
