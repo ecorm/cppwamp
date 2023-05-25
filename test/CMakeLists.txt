@@ -29,6 +29,7 @@ set(SOURCES
     errortest.cpp
     flagstest.cpp
     payloadtest.cpp
+    routermetaapitest.cpp
     routerprotocolerrors.cpp
     testrouter.cpp
     timeoutschedulertest.cpp
