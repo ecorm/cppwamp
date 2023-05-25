@@ -14,6 +14,9 @@
 #include "mockclient.hpp"
 #include "testrouter.hpp"
 
+// TODO: Unregister a registration for another callee
+// TODO: Unsubscribe a subscription for another subscriber
+
 using namespace wamp;
 using internal::MockClient;
 using internal::MessageKind;

@@ -214,8 +214,8 @@ public:
         std::vector<SessionId> subscribers;
         for (const auto& kv: subscribers_)
             subscribers.push_back(kv.first);
-        return {std::move(subscribers), topic_.uri(), created_, subId_,
-                topic_.policy()};
+        return {std::move(subscribers),
+                {topic_.uri(), created_, subId_, topic_.policy()}};
     }
 
     void addSubscriber(SessionId sid, BrokerSubscriberInfo info)
@@ -571,45 +571,40 @@ public:
         auto found = subscriptions_.find(subId);
         if (found == subscriptions_.end())
             return makeUnexpectedError(WampErrc::noSuchSubscription);
-        BrokerSubscription* record = &(found->second);
-        bool subscriberRemoved = record->removeSubscriber(subscriber->wampId());
-
-        if (record->empty())
-        {
-            // Move subscription record before it is erased from the map.
-            // We'll need it later to notify the observer.
-            BrokerSubscription sub{std::move(*record)};
-            record = &sub;
-
-            const MatchUri& topic = sub.topic();
-            subscriptions_.erase(found);
-            switch (topic.policy())
-            {
-            case Policy::exact:
-                byExact_.erase(topic.uri());
-                break;
-
-            case Policy::prefix:
-                byPrefix_.erase(topic.uri());
-                break;
-
-            case Policy::wildcard:
-                byWildcard_.erase(topic.uri());
-                break;
-
-            default:
-                assert(false && "Unexpected MatchPolicy enumerator");
-                break;
-            }
-        }
+        BrokerSubscription& record = found->second;
+        auto uri = record.topic().uri();
+        bool subscriberRemoved = record.removeSubscriber(subscriber->wampId());
 
         if (!subscriberRemoved)
+        {
+            if (record.empty())
+                eraseTopic(record.topic(), found);
             return makeUnexpectedError(WampErrc::noSuchSubscription);
+        }
 
         if (observer)
-            observer->onUnsubscribe(subscriber->details(), record->details());
+        {
+            if (record.empty())
+            {
+                // Grab needed details before the subscription record is
+                // erased from the map.
+                auto details = record.details();
+                eraseTopic(record.topic(), found);
+                observer->onUnsubscribe(subscriber->details(),
+                                        std::move(details));
+            }
+            else
+            {
+                observer->onUnsubscribe(subscriber->details(),
+                                        record.details());
+            }
+        }
+        else if (record.empty())
+        {
+            eraseTopic(record.topic(), found);
+        }
 
-        return record->topic().uri();
+        return uri;
     }
 
     std::pair<PublicationId, std::size_t>
@@ -726,6 +721,29 @@ public:
 
 private:
     using Policy = MatchPolicy;
+
+    void eraseTopic(const MatchUri& topic, BrokerSubscriptionMap::iterator iter)
+    {
+        subscriptions_.erase(iter);
+        switch (topic.policy())
+        {
+        case Policy::exact:
+            byExact_.erase(topic.uri());
+            break;
+
+        case Policy::prefix:
+            byPrefix_.erase(topic.uri());
+            break;
+
+        case Policy::wildcard:
+            byWildcard_.erase(topic.uri());
+            break;
+
+        default:
+            assert(false && "Unexpected MatchPolicy enumerator");
+            break;
+        }
+    }
 
     BrokerSubscriptionMap subscriptions_;
     BrokerExactTopicMap byExact_;
