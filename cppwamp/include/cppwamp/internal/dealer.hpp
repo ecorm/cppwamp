@@ -64,8 +64,8 @@ public:
         std::vector<SessionId> calleeIdList;
         if (calleeId_ != 0)
             calleeIdList.push_back(calleeId_);
-        return {std::move(calleeIdList), procedureUri_, created_, regId_,
-                MatchPolicy::exact};
+        return {std::move(calleeIdList),
+                {procedureUri_, created_, regId_, MatchPolicy::exact}};
     }
 
 private:
@@ -104,20 +104,29 @@ public:
         if (found == byKey_.end())
             return makeUnexpectedError(WampErrc::noSuchRegistration);
 
-        // Move the registration before it is deleted from the map.
-        // We'll need it later to notify the observer.
-        DealerRegistration registration{std::move(found->second)};
-        registration.resetCallee();
-
+        auto& registration = found->second;
         if (registration.calleeId() != callee->wampId())
             return makeUnexpectedError(WampErrc::noSuchRegistration);
+
         Uri uri{registration.procedureUri()};
-        auto erased = byUri_.erase(uri);
-        assert(erased == 1);
-        byKey_.erase(found);
 
         if (observer)
-            observer->onUnregister(callee->details(), registration.details());
+        {
+            // Grab needed details from the registration before it is
+            // deleted from the map.
+            registration.resetCallee();
+            auto details = registration.details();
+            auto erased = byUri_.erase(uri);
+            assert(erased == 1);
+            byKey_.erase(found);
+            observer->onUnregister(callee->details(), std::move(details));
+        }
+        else
+        {
+            auto erased = byUri_.erase(uri);
+            assert(erased == 1);
+            byKey_.erase(found);
+        }
 
         return uri;
     }
