@@ -67,6 +67,19 @@ enum class MatchPolicy
     wildcard
 };
 
+//------------------------------------------------------------------------------
+/** Invocation policy used for shared registrations. */
+//------------------------------------------------------------------------------
+enum class InvocationPolicy
+{
+    unknown,
+    single,
+    roundRobin,
+    random,
+    first,
+    last
+};
+
 } // namespace wamp
 
 #endif // CPPWAMP_WAMPDEFS_HPP

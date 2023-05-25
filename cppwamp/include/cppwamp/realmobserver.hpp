@@ -23,60 +23,109 @@ namespace wamp
 //------------------------------------------------------------------------------
 struct CPPWAMP_API SessionDetails
 {
-    SessionDetails();
-
-    SessionDetails(ClientFeatures f, AuthInfo::Ptr a, SessionId i);
-
     ClientFeatures features;
     AuthInfo::Ptr authInfo;
-    SessionId id = 0;
 };
 
 CPPWAMP_API Object toObject(const SessionDetails& details);
+
+
+//------------------------------------------------------------------------------
+struct CPPWAMP_API SessionJoinInfo
+{
+    Object transport; // TODO
+    String authid;
+    String authmethod;
+    String authprovider;
+    String authrole;
+    SessionId sessionId;
+};
+
+CPPWAMP_API void convert(FromVariantConverter& conv, SessionJoinInfo& s);
+
+
+//------------------------------------------------------------------------------
+struct CPPWAMP_API SessionLeftInfo
+{
+    String authid;
+    String authrole;
+    SessionId sessionId;
+};
+
+CPPWAMP_API void convert(FromVariantConverter& conv, SessionLeftInfo& s);
+
+
+//------------------------------------------------------------------------------
+struct CPPWAMP_API RegistrationInfo
+{
+    Uri uri;
+    std::chrono::system_clock::time_point created;
+    RegistrationId id;
+    MatchPolicy matchPolicy;
+    InvocationPolicy invocationPolicy;
+};
+
+CPPWAMP_API void convert(FromVariantConverter& conv, RegistrationInfo& r);
+
 
 //------------------------------------------------------------------------------
 struct CPPWAMP_API RegistrationDetails
 {
     std::vector<SessionId> callees;
+    RegistrationInfo info;
+};
+
+CPPWAMP_API Object toObject(const RegistrationDetails& r);
+
+
+//------------------------------------------------------------------------------
+struct CPPWAMP_API RegistrationLists
+{
+    using List = std::vector<RegistrationId>;
+
+    List exact;
+    List prefix;
+    List wildcard;
+};
+
+CPPWAMP_API Object toObject(const RegistrationLists& lists);
+
+CPPWAMP_API void convert(FromVariantConverter& conv, RegistrationLists& r);
+
+
+//------------------------------------------------------------------------------
+struct CPPWAMP_API SubscriptionInfo
+{
     Uri uri;
     std::chrono::system_clock::time_point created;
     RegistrationId id;
     MatchPolicy matchPolicy;
 };
 
-CPPWAMP_API Object toObject(const RegistrationDetails& r);
-
-//------------------------------------------------------------------------------
-struct CPPWAMP_API RegistrationLists
-{
-    std::vector<RegistrationId> exact;
-    std::vector<RegistrationId> prefix;
-    std::vector<RegistrationId> wildcard;
-};
-
-CPPWAMP_API Object toObject(const RegistrationLists& lists);
+CPPWAMP_API void convert(FromVariantConverter& conv, SubscriptionInfo& s);
 
 //------------------------------------------------------------------------------
 struct CPPWAMP_API SubscriptionDetails
 {
     std::vector<SessionId> subscribers;
-    Uri uri;
-    std::chrono::system_clock::time_point created;
-    RegistrationId id;
-    MatchPolicy matchPolicy;
+    SubscriptionInfo info;
 };
 
 CPPWAMP_API Object toObject(const SubscriptionDetails& s);
 
+
 //------------------------------------------------------------------------------
 struct CPPWAMP_API SubscriptionLists
 {
-    std::vector<SubscriptionId> exact;
-    std::vector<SubscriptionId> prefix;
-    std::vector<SubscriptionId> wildcard;
+    using List = std::vector<SubscriptionId>;
+
+    List exact;
+    List prefix;
+    List wildcard;
 };
 
 CPPWAMP_API Object toObject(const SubscriptionLists& lists);
+
 
 //------------------------------------------------------------------------------
 class CPPWAMP_API RealmObserver

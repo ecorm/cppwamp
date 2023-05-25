@@ -20,7 +20,8 @@ wamp::Variant has built-in support for conversions to/from the following types:
 - `std::map`
 
 You may register your own custom types for conversion to/from `Variant`. This
-is done by overloading the @ref wamp::convert "convert" function:
+is done by overloading the `convert` function within the namespace of the
+custom type:
 
 ```
 #include <cppwamp/variant.hpp>

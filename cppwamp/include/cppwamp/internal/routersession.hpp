@@ -46,7 +46,7 @@ public:
 
     ClientFeatures features() const {return features_;}
 
-    SessionDetails details() const {return {features_, authInfo_, wampId_};}
+    SessionDetails details() const {return {features_, authInfo_};}
 
     void setWampId(ReservedId&& id)
     {

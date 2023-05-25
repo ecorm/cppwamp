@@ -52,13 +52,13 @@ CPPWAMP_INLINE const std::string& logLevelLabel(LogLevel lv)
     ```
     YYYY-MM-DDTHH:MM:SS.sss
     ```
-    @note This function uses std::gmtime which may or may not be thread-safe
-          on the target platform. */
+    @note If `gmtime_r` is not available, this function uses `std::gmtime`
+          which may or may not be thread-safe on the target platform. */
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE std::ostream& LogEntry::outputTime(std::ostream& out,
                                                   TimePoint when)
 {
-    return internal::outputRfc3339TimestampInMilliseconds(out, when);
+    return internal::outputRfc3339Timestamp<3>(out, when);
 }
 
 //------------------------------------------------------------------------------

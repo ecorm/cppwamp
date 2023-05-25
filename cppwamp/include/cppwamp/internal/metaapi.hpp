@@ -238,7 +238,10 @@ private:
         auto killed = killSessions(
             rpc,
             [&authId, ownId](SessionDetails s) -> bool
-                {return (s.id != ownId) && (s.authInfo->id() == authId);});
+            {
+                auto sid = s.authInfo->sessionId();
+                return (sid != ownId) && (s.authInfo->id() == authId);
+            });
         return Result{std::move(killed)};
     }
 
@@ -250,7 +253,10 @@ private:
         auto killed = killSessions(
             rpc,
             [&authRole, ownId](SessionDetails s) -> bool
-                {return (s.id != ownId) && (s.authInfo->role() == authRole);});
+            {
+                auto sid = s.authInfo->sessionId();
+                return (sid != ownId) && (s.authInfo->role() == authRole);
+            });
         return Result{killed.size()};
     }
 
@@ -259,7 +265,10 @@ private:
         auto ownId = caller.wampId();
         auto killed = killSessions(
             rpc,
-            [ownId](SessionDetails s) -> bool {return s.id != ownId;});
+            [ownId](SessionDetails s) -> bool
+            {
+                return s.authInfo->sessionId() != ownId;
+            });
         return Result{killed.size()};
     }
 
@@ -279,7 +288,7 @@ private:
             return Result{null};
 
         auto details = context_.registrationDetailsByUri(uri, policy);
-        return details ? Result{details->id} : Result{null};
+        return details ? Result{details->info.id} : Result{null};
     }
 
     Outcome matchRegistration(RouterSession&, Rpc& rpc)
@@ -287,7 +296,7 @@ private:
         Uri uri;
         rpc.convertTo(uri);
         auto match = context_.bestRegistrationMatch(uri);
-        return match ? Result{match->id} : Result{null};
+        return match ? Result{match->info.id} : Result{null};
     }
 
     Outcome registrationDetails(RouterSession&, Rpc& rpc)
@@ -334,7 +343,7 @@ private:
             return Result{null};
 
         auto details = context_.subscriptionDetailsByUri(uri, policy);
-        return details ? Result{details->id} : Result{null};
+        return details ? Result{details->info.id} : Result{null};
     }
 
     Outcome matchSubscriptions(RouterSession&, Rpc& rpc)
@@ -407,7 +416,7 @@ public:
         {
             {"authid", s.authInfo->id()},
             {"authrole", s.authInfo->role()},
-            {"session", s.id}
+            {"session", s.authInfo->sessionId()}
         };
         publish(Pub{"wamp.session.on_leave"}.withArgs(std::move(details)));
 
@@ -418,14 +427,16 @@ public:
     virtual void onRegister(const SessionDetails& s,
                             const RegistrationDetails& r)
     {
+        auto sid = s.authInfo->sessionId();
+
         if (r.callees.size() == 1)
         {
             publish(Pub{"wamp.registration.on_create"}
-                        .withArgs(s.id, toObject(r)));
+                        .withArgs(sid, toObject(r)));
         }
 
         publish(Pub{"wamp.registration.on_register"}
-                    .withArgs(s.id, toObject(r)));
+                    .withArgs(sid, toObject(r)));
 
         if (observer_)
             observer_->onRegister(s, r);
@@ -434,10 +445,15 @@ public:
     virtual void onUnregister(const SessionDetails& s,
                               const RegistrationDetails& r)
     {
-        publish(Pub{"wamp.registration.on_unregister"}.withArgs(s.id, r.id));
+        auto sid = s.authInfo->sessionId();
+        publish(Pub{"wamp.registration.on_unregister"}
+                    .withArgs(sid, r.info.id));
 
         if (r.callees.empty())
-            publish(Pub{"wamp.registration.on_delete"}.withArgs(s.id, r.id));
+        {
+            publish(Pub{"wamp.registration.on_delete"}
+                        .withArgs(sid, r.info.id));
+        }
 
         if (observer_)
             observer_->onUnregister(s, r);
@@ -446,14 +462,16 @@ public:
     virtual void onSubscribe(const SessionDetails& s,
                              const SubscriptionDetails& sub)
     {
+        auto sid = s.authInfo->sessionId();
+
         if (sub.subscribers.size() == 1)
         {
             publish(Pub{"wamp.subscription.on_create"}
-                        .withArgs(s.id, toObject(sub)));
+                        .withArgs(sid, toObject(sub)));
         }
 
         publish(Pub{"wamp.subscription.on_subscribe"}
-                    .withArgs(s.id, toObject(sub)));
+                    .withArgs(sid, toObject(sub)));
 
         if (observer_)
             observer_->onSubscribe(s, sub);
@@ -462,13 +480,14 @@ public:
     virtual void onUnsubscribe(const SessionDetails& s,
                                const SubscriptionDetails& sub)
     {
+        auto sid = s.authInfo->sessionId();
         publish(Pub{"wamp.subscription.on_unsubscribe"}
-                    .withArgs(s.id, sub.id));
+                    .withArgs(sid, sub.info.id));
 
         if (sub.subscribers.empty())
         {
             publish(Pub{"wamp.subscription.on_delete"}
-                        .withArgs(s.id, sub.id));
+                        .withArgs(sid, sub.info.id));
         }
 
         if (observer_)
