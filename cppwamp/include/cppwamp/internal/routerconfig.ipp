@@ -192,7 +192,7 @@ RouterConfig::publicationRNG() const
     return publicationRng_;
 }
 
-void RouterConfig::initialize(internal::PassKey)
+CPPWAMP_INLINE void RouterConfig::initialize(internal::PassKey)
 {
     if (!uriValidator_)
         uriValidator_ = RelaxedUriValidator::create();

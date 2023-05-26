@@ -43,7 +43,7 @@ CPPWAMP_INLINE bool Router::closeRealm(const Uri uri, Reason r)
     return impl_->closeRealm(uri, std::move(r));
 }
 
-ErrorOr<Realm> Router::realmAt(const Uri& uri) const
+CPPWAMP_INLINE ErrorOr<Realm> Router::realmAt(const Uri& uri) const
 {
     auto realmImpl = impl_->realmAt(uri);
     if (!realmImpl)
@@ -73,31 +73,36 @@ Router::impl(internal::PassKey)
 // DirectRouterLink
 //******************************************************************************
 
-DirectRouterLink::DirectRouterLink(Router& router)
+CPPWAMP_INLINE DirectRouterLink::DirectRouterLink(Router& router)
     : authInfo_({}, {}, "x_cppwamp_direct", "direct"),
       router_(router.impl({}))
 {}
 
-DirectRouterLink& DirectRouterLink::withAuthInfo(AuthInfo info)
+CPPWAMP_INLINE DirectRouterLink& DirectRouterLink::withAuthInfo(AuthInfo info)
 {
     authInfo_ = std::move(info);
     return *this;
 }
 
-DirectRouterLink& DirectRouterLink::withEndpointLabel(std::string endpointLabel)
+CPPWAMP_INLINE DirectRouterLink&
+DirectRouterLink::withEndpointLabel(std::string endpointLabel)
 {
     endpointLabel_ = std::move(endpointLabel);
     return *this;
 }
 
-DirectRouterLink::RouterImplPtr DirectRouterLink::router(internal::PassKey)
+CPPWAMP_INLINE DirectRouterLink::RouterImplPtr
+DirectRouterLink::router(internal::PassKey)
 {
     return router_;
 }
 
-AuthInfo& DirectRouterLink::authInfo(internal::PassKey) {return authInfo_;}
+CPPWAMP_INLINE AuthInfo& DirectRouterLink::authInfo(internal::PassKey)
+{
+    return authInfo_;
+}
 
-std::string& DirectRouterLink::endpointLabel(internal::PassKey)
+CPPWAMP_INLINE std::string& DirectRouterLink::endpointLabel(internal::PassKey)
 {
     return endpointLabel_;
 }

@@ -55,7 +55,7 @@ CPPWAMP_INLINE void AnonymousAuthenticator::authenticate(AuthExchange::Ptr ex)
 }
 
 //------------------------------------------------------------------------------
-AnonymousAuthenticator::AnonymousAuthenticator()
+CPPWAMP_INLINE AnonymousAuthenticator::AnonymousAuthenticator()
     : authRole_(defaultAuthRole()),
       rng_(internal::DefaultPRNG64{})
 {}

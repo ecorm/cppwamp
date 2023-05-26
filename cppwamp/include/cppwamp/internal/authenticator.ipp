@@ -32,7 +32,7 @@ CPPWAMP_INLINE const any& AuthExchange::note() const & {return note_;}
 
 CPPWAMP_INLINE any&& AuthExchange::note() && {return std::move(note_);}
 
-void AuthExchange::challenge(Challenge challenge, any note)
+CPPWAMP_INLINE void AuthExchange::challenge(Challenge challenge, any note)
 {
     challenge_ = std::move(challenge);
     note_ = std::move(note);
