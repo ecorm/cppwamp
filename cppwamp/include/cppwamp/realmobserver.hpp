@@ -24,6 +24,10 @@ namespace wamp
 //------------------------------------------------------------------------------
 struct CPPWAMP_API SessionDetails
 {
+    SessionDetails();
+
+    SessionDetails(ClientFeatures f, AuthInfo::Ptr a);
+
     ClientFeatures features;
     AuthInfo::Ptr authInfo;
 };
@@ -34,12 +38,14 @@ CPPWAMP_API Object toObject(const SessionDetails& details);
 //------------------------------------------------------------------------------
 struct CPPWAMP_API SessionJoinInfo
 {
+    SessionJoinInfo();
+
     Object transport; // TODO
     String authid;
     String authmethod;
     String authprovider;
     String authrole;
-    SessionId sessionId;
+    SessionId sessionId = 0;
 };
 
 CPPWAMP_API void convert(FromVariantConverter& conv, SessionJoinInfo& s);
@@ -48,9 +54,11 @@ CPPWAMP_API void convert(FromVariantConverter& conv, SessionJoinInfo& s);
 //------------------------------------------------------------------------------
 struct CPPWAMP_API SessionLeftInfo
 {
+    SessionLeftInfo();
+
     String authid;
     String authrole;
-    SessionId sessionId;
+    SessionId sessionId = 0;
 };
 
 CPPWAMP_API SessionLeftInfo parseSessionLeftInfo(const Event& event);
@@ -58,11 +66,19 @@ CPPWAMP_API SessionLeftInfo parseSessionLeftInfo(const Event& event);
 //------------------------------------------------------------------------------
 struct CPPWAMP_API RegistrationInfo
 {
+    using TimePoint = std::chrono::system_clock::time_point;
+
+    RegistrationInfo();
+
+    RegistrationInfo(Uri uri, TimePoint created, RegistrationId id,
+                     MatchPolicy mp = MatchPolicy::exact,
+                     InvocationPolicy ip = InvocationPolicy::single);
+
     Uri uri;
-    std::chrono::system_clock::time_point created;
-    RegistrationId id;
-    MatchPolicy matchPolicy;
-    InvocationPolicy invocationPolicy;
+    TimePoint created;
+    RegistrationId id = 0;
+    MatchPolicy matchPolicy = MatchPolicy::unknown;
+    InvocationPolicy invocationPolicy = InvocationPolicy::unknown;
 };
 
 CPPWAMP_API void convert(FromVariantConverter& conv, RegistrationInfo& r);
@@ -71,7 +87,13 @@ CPPWAMP_API void convert(FromVariantConverter& conv, RegistrationInfo& r);
 //------------------------------------------------------------------------------
 struct CPPWAMP_API RegistrationDetails
 {
-    std::vector<SessionId> callees;
+    using SessionIdList = std::vector<SessionId>;
+
+    RegistrationDetails();
+
+    RegistrationDetails(SessionIdList callees, RegistrationInfo info);
+
+    SessionIdList callees;
     RegistrationInfo info;
 };
 
@@ -82,6 +104,8 @@ CPPWAMP_API Object toObject(const RegistrationDetails& r);
 struct CPPWAMP_API RegistrationLists
 {
     using List = std::vector<RegistrationId>;
+
+    RegistrationLists();
 
     List exact;
     List prefix;
@@ -96,10 +120,17 @@ CPPWAMP_API void convert(FromVariantConverter& conv, RegistrationLists& r);
 //------------------------------------------------------------------------------
 struct CPPWAMP_API SubscriptionInfo
 {
+    using TimePoint = std::chrono::system_clock::time_point;
+
+    SubscriptionInfo();
+
+    SubscriptionInfo(Uri uri, TimePoint created, RegistrationId id,
+                     MatchPolicy p = MatchPolicy::exact);
+
     Uri uri;
-    std::chrono::system_clock::time_point created;
-    RegistrationId id;
-    MatchPolicy matchPolicy;
+    TimePoint created;
+    RegistrationId id = 0;
+    MatchPolicy matchPolicy = MatchPolicy::unknown;
 };
 
 CPPWAMP_API void convert(FromVariantConverter& conv, SubscriptionInfo& s);
@@ -107,7 +138,13 @@ CPPWAMP_API void convert(FromVariantConverter& conv, SubscriptionInfo& s);
 //------------------------------------------------------------------------------
 struct CPPWAMP_API SubscriptionDetails
 {
-    std::vector<SessionId> subscribers;
+    using SessionIdList = std::vector<SessionId>;
+
+    SubscriptionDetails();
+
+    SubscriptionDetails(SessionIdList s, SubscriptionInfo i);
+
+    SessionIdList subscribers;
     SubscriptionInfo info;
 };
 
@@ -118,6 +155,8 @@ CPPWAMP_API Object toObject(const SubscriptionDetails& s);
 struct CPPWAMP_API SubscriptionLists
 {
     using List = std::vector<SubscriptionId>;
+
+    SubscriptionLists();
 
     List exact;
     List prefix;

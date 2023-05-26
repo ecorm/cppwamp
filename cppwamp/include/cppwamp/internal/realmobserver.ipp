@@ -13,6 +13,13 @@ namespace wamp
 {
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE SessionDetails::SessionDetails() {}
+
+CPPWAMP_INLINE SessionDetails::SessionDetails(ClientFeatures f, AuthInfo::Ptr a)
+    : features(f),
+      authInfo(std::move(a))
+{}
+
 CPPWAMP_INLINE Object toObject(const SessionDetails& details)
 {
     const auto& authInfo = *(details.authInfo);
@@ -28,6 +35,8 @@ CPPWAMP_INLINE Object toObject(const SessionDetails& details)
 }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE SessionJoinInfo::SessionJoinInfo() {}
+
 CPPWAMP_INLINE void convert(FromVariantConverter& conv, SessionJoinInfo& s)
 {
     conv("authid",       s.authid,       "")
@@ -39,6 +48,8 @@ CPPWAMP_INLINE void convert(FromVariantConverter& conv, SessionJoinInfo& s)
 }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE SessionLeftInfo::SessionLeftInfo() {}
+
 CPPWAMP_INLINE SessionLeftInfo parseSessionLeftInfo(const Event& event)
 {
     SessionLeftInfo s;
@@ -48,6 +59,15 @@ CPPWAMP_INLINE SessionLeftInfo parseSessionLeftInfo(const Event& event)
 }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE RegistrationInfo::RegistrationInfo() {}
+
+CPPWAMP_INLINE RegistrationInfo::RegistrationInfo(
+    Uri uri, TimePoint created, RegistrationId id, MatchPolicy mp,
+    InvocationPolicy ip)
+    : uri(std::move(uri)), created(created), id(id), matchPolicy(mp),
+      invocationPolicy(ip)
+{}
+
 CPPWAMP_INLINE void convert(FromVariantConverter& conv,
                             RegistrationInfo& r)
     {
@@ -71,7 +91,7 @@ CPPWAMP_INLINE void convert(FromVariantConverter& conv,
             }
         }
 
-        if (invoke == "single")
+        if (invoke.empty() || invoke == "single")
             r.invocationPolicy = InvocationPolicy::single;
         else if (invoke == "roundrobin")
             r.invocationPolicy = InvocationPolicy::roundRobin;
@@ -88,6 +108,14 @@ CPPWAMP_INLINE void convert(FromVariantConverter& conv,
     }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE RegistrationDetails::RegistrationDetails() {}
+
+CPPWAMP_INLINE RegistrationDetails::RegistrationDetails(SessionIdList callees,
+                                                        RegistrationInfo info)
+    : callees(std::move(callees)),
+      info(std::move(info))
+{}
+
 CPPWAMP_INLINE Object toObject(const RegistrationDetails& r)
 {
     return Object
@@ -101,6 +129,8 @@ CPPWAMP_INLINE Object toObject(const RegistrationDetails& r)
 }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE RegistrationLists::RegistrationLists() {}
+
 CPPWAMP_INLINE Object toObject(const RegistrationLists& lists)
 {
     return Object
@@ -121,6 +151,13 @@ CPPWAMP_INLINE void convert(FromVariantConverter& conv, RegistrationLists& r)
 }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE SubscriptionInfo::SubscriptionInfo() {}
+
+CPPWAMP_INLINE SubscriptionInfo::SubscriptionInfo(
+    Uri uri, TimePoint created, RegistrationId id, MatchPolicy p)
+    : uri(std::move(uri)), created(created), id(id), matchPolicy(p)
+{}
+
 CPPWAMP_INLINE void convert(FromVariantConverter& conv, SubscriptionInfo& s)
 {
     String created;
@@ -145,6 +182,14 @@ CPPWAMP_INLINE void convert(FromVariantConverter& conv, SubscriptionInfo& s)
 }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE SubscriptionDetails::SubscriptionDetails() {}
+
+CPPWAMP_INLINE SubscriptionDetails::SubscriptionDetails(SessionIdList s,
+                                                        SubscriptionInfo i)
+    : subscribers(std::move(s)),
+      info(std::move(i))
+{}
+
 CPPWAMP_INLINE Object toObject(const SubscriptionDetails& s)
 {
     return Object
@@ -157,6 +202,8 @@ CPPWAMP_INLINE Object toObject(const SubscriptionDetails& s)
 }
 
 //------------------------------------------------------------------------------
+CPPWAMP_INLINE SubscriptionLists::SubscriptionLists() {}
+
 CPPWAMP_INLINE Object toObject(const SubscriptionLists& lists)
 {
     return Object

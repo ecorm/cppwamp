@@ -145,7 +145,7 @@ int main()
     {
         auto tcp = TcpHost{"localhost", 8001}.withFormat(json);
         session.connect(std::move(tcp), yield).value();
-        auto sessionInfo = session.join(Petition("somerealm"), yield).value();
+        auto welcome = session.join(Petition("somerealm"), yield).value();
         // etc.
     });
 

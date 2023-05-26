@@ -96,71 +96,157 @@ struct TestRealmObserver : public RealmObserver
 
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WAMP meta events", "[WAMP][Router][thisone]" )
+TEST_CASE( "WAMP session meta events", "[WAMP][Router][thisone]" )
 {
     IoContext ioctx;
     Session s1{ioctx};
     Session s2{ioctx};
 
-    s1.observeIncidents(
-        [](Incident i) {std::cout << i.toLogEntry() << std::endl;});
-    s1.enableTracing();
+    SessionJoinInfo joinedInfo;
+    SessionLeftInfo leftInfo;
 
-    SECTION("Session meta events")
+    auto onJoin = [&joinedInfo](Event event)
     {
-        SessionJoinInfo joinedInfo;
-        joinedInfo.sessionId = 0;
+        event.convertTo(joinedInfo);
+    };
 
-        SessionLeftInfo leftInfo;
-        leftInfo.sessionId = 0;
+    auto onLeave = [&leftInfo](Event event)
+    {
+        leftInfo = parseSessionLeftInfo(event);
+    };
 
-        auto onJoin = [&joinedInfo](Event event)
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        s1.connect(withTcp, yield).value();
+        s1.join(Petition(testRealm), yield).value();
+        s1.subscribe(Topic{"wamp.session.on_join"}, onJoin, yield).value();
+        s1.subscribe(Topic{"wamp.session.on_leave"}, onLeave, yield).value();
+
+        s2.connect(withTcp, yield).value();
+        auto welcome = s2.join(Petition(testRealm), yield).value();
+
+        while (joinedInfo.sessionId == 0)
+            suspendCoro(yield);
+        CHECK(joinedInfo.authid       == welcome.authId());
+        CHECK(joinedInfo.authmethod   == welcome.authMethod());
+        CHECK(joinedInfo.authprovider == welcome.authProvider());
+        CHECK(joinedInfo.authrole     == welcome.authRole());
+        CHECK(joinedInfo.sessionId    == welcome.sessionId());
+
+        s2.leave(yield).value();
+
+        while (leftInfo.sessionId == 0)
+            suspendCoro(yield);
+        CHECK(leftInfo.sessionId == welcome.sessionId());
+
+        // Crossbar only provides session ID
+        if (test::RouterFixture::enabled())
         {
-            event.convertTo(joinedInfo);
-        };
+            CHECK(leftInfo.authid == welcome.authId());
+            CHECK(leftInfo.authrole == welcome.authRole());
+        }
 
-        auto onLeave = [&leftInfo](Event event)
+        s2.disconnect();
+        s1.disconnect();
+    });
+
+    ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WAMP registration meta events", "[WAMP][Router][thisone]" )
+{
+    IoContext ioctx;
+    Session s1{ioctx};
+    Session s2{ioctx};
+
+    SessionId registrationCreatedSessionId = 0;
+    RegistrationInfo registrationInfo;
+    SessionId registeredSessionId = 0;
+    RegistrationId registrationId = 0;
+    SessionId unregisteredSessionId = 0;
+    RegistrationId unregisteredRegistrationId = 0;
+    SessionId registrationDeletedSessionId = 0;
+    RegistrationId registrationDeletatedRegistrationId = 0;
+
+    auto onRegistrationCreated = [&](Event event)
+    {
+        event.convertTo(registrationCreatedSessionId,
+                        registrationInfo);
+    };
+
+    auto onRegister = [&](Event event)
+    {
+        event.convertTo(registeredSessionId, registrationId);
+    };
+
+    auto onUnregister = [&](Event event)
+    {
+        event.convertTo(unregisteredSessionId, unregisteredRegistrationId);
+    };
+
+    auto onRegistrationDeleted = [&](Event event)
+    {
+        event.convertTo(registrationDeletedSessionId,
+                        registrationDeletatedRegistrationId);
+    };
+
+    auto rpc = [](Invocation) -> Outcome {return {};};
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        namespace chrono = std::chrono;
+        auto now = chrono::system_clock::now();
+        auto before = now - chrono::seconds(60);
+        auto after = now + chrono::seconds(60);
+
+        s1.connect(withTcp, yield).value();
+        s1.join(Petition(testRealm), yield).value();
+        s1.subscribe(Topic{"wamp.registration.on_create"},
+                     onRegistrationCreated, yield).value();
+        s1.subscribe(Topic{"wamp.registration.on_register"}, onRegister,
+                     yield).value();
+        s1.subscribe(Topic{"wamp.registration.on_unregister"}, onUnregister,
+                     yield).value();
+        s1.subscribe(Topic{"wamp.registration.on_delete"},
+                     onRegistrationDeleted, yield).value();
+
+        s2.connect(withTcp, yield).value();
+        auto welcome = s2.join(Petition(testRealm), yield).value();
+        auto reg = s2.enroll(Procedure{"rpc"}, rpc, yield).value();
+
+        while (registrationInfo.id == 0 || registrationId == 0)
+            suspendCoro(yield);
+
+        CHECK(registrationCreatedSessionId == welcome.sessionId());
+        CHECK(registrationInfo.uri == "rpc");
+        CHECK(registrationInfo.created > before);
+        CHECK(registrationInfo.created < after);
+        CHECK(registrationInfo.id == reg.id());
+        CHECK(registrationInfo.matchPolicy == MatchPolicy::exact);
+        CHECK(registrationInfo.invocationPolicy == InvocationPolicy::single);
+
+        CHECK(registeredSessionId == welcome.sessionId());
+        CHECK(registrationId == reg.id());
+
+        reg.unregister();
+
+        while (unregisteredRegistrationId == 0 ||
+               registrationDeletatedRegistrationId == 0)
         {
-            leftInfo = parseSessionLeftInfo(event);
-        };
+            suspendCoro(yield);
+        }
 
-        spawn(ioctx, [&](YieldContext yield)
-        {
-            s1.connect(withTcp, yield).value();
-            s1.join(Petition(testRealm), yield).value();
-            s1.subscribe(Topic{"wamp.session.on_join"}, onJoin, yield).value();
-            s1.subscribe(Topic{"wamp.session.on_leave"}, onLeave, yield).value();
+        CHECK(unregisteredSessionId == welcome.sessionId());
+        CHECK(unregisteredRegistrationId == reg.id());
+        CHECK(registrationDeletedSessionId == welcome.sessionId());
+        CHECK(registrationDeletatedRegistrationId == reg.id());
 
-            s2.connect(withTcp, yield).value();
-            auto welcome = s2.join(Petition(testRealm), yield).value();
+        s2.disconnect();
+        s1.disconnect();
+    });
 
-            while (joinedInfo.sessionId == 0)
-                suspendCoro(yield);
-            CHECK(joinedInfo.authid       == welcome.authId());
-            CHECK(joinedInfo.authmethod   == welcome.authMethod());
-            CHECK(joinedInfo.authprovider == welcome.authProvider());
-            CHECK(joinedInfo.authrole     == welcome.authRole());
-            CHECK(joinedInfo.sessionId    == welcome.id());
-
-            s2.leave(yield).value();
-
-            while (leftInfo.sessionId == 0)
-                suspendCoro(yield);
-            CHECK(leftInfo.sessionId == welcome.id());
-
-            // Crossbar only provides session ID
-            if (test::RouterFixture::enabled())
-            {
-                CHECK(leftInfo.authid == welcome.authId());
-                CHECK(leftInfo.authrole == welcome.authRole());
-            }
-
-            s2.disconnect();
-            s1.disconnect();
-        });
-
-        ioctx.run();
-    }
+    ioctx.run();
 }
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)

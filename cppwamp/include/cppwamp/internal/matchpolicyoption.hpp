@@ -25,7 +25,7 @@ inline MatchPolicy parseMatchPolicy(const Variant& option)
         return MatchPolicy::unknown;
 
     const auto& matchStr = option.as<String>();
-    if (matchStr == "exact")
+    if (matchStr.empty() || matchStr == "exact")
         return MatchPolicy::exact;
     if (matchStr == "prefix")
         return MatchPolicy::prefix;
