@@ -30,6 +30,67 @@ inline void suspendCoro(YieldContext& yield)
     boost::asio::post(exec, yield);
 }
 
+//------------------------------------------------------------------------------
+struct TestRealmObserver : public RealmObserver
+{
+    void onRealmClosed(const Uri& u) override
+    {
+        realmClosedEvents.push_back(u);
+    }
+
+    void onJoin(const SessionDetails& s) override
+    {
+        joinEvents.push_back(s);
+    }
+
+    void onLeave(const SessionDetails& s) override
+    {
+        leaveEvents.push_back(s);
+    }
+
+    void onRegister(const SessionDetails& s, const RegistrationDetails& r) override
+    {
+        registerEvents.push_back({s, r});
+    }
+
+    void onUnregister(const SessionDetails& s,
+                      const RegistrationDetails& r) override
+    {
+        unregisterEvents.push_back({s, r});
+    }
+
+    void onSubscribe(const SessionDetails& s,
+                     const SubscriptionDetails& d) override
+    {
+        subscribeEvents.push_back({s, d});
+    }
+
+    void onUnsubscribe(const SessionDetails& s,
+                       const SubscriptionDetails& d) override
+    {
+        unsubscribeEvents.push_back({s, d});
+    }
+
+    void clear()
+    {
+        realmClosedEvents.clear();
+        joinEvents.clear();
+        leaveEvents.clear();
+        registerEvents.clear();
+        unregisterEvents.clear();
+        subscribeEvents.clear();
+        unsubscribeEvents.clear();
+    }
+
+    std::vector<Uri> realmClosedEvents;
+    std::vector<SessionDetails> joinEvents;
+    std::vector<SessionDetails> leaveEvents;
+    std::vector<std::pair<SessionDetails, RegistrationDetails>> registerEvents;
+    std::vector<std::pair<SessionDetails, RegistrationDetails>> unregisterEvents;
+    std::vector<std::pair<SessionDetails, SubscriptionDetails>> subscribeEvents;
+    std::vector<std::pair<SessionDetails, SubscriptionDetails>> unsubscribeEvents;
+};
+
 } // anomymous namespace
 
 
@@ -46,12 +107,20 @@ TEST_CASE( "WAMP meta events", "[WAMP][Router][thisone]" )
 
     SECTION("Session meta events")
     {
-        SessionJoinInfo info;
-        info.sessionId = 0;
+        SessionJoinInfo joinedInfo;
+        joinedInfo.sessionId = 0;
 
-        auto onJoin = [&info](Event event)
+        SessionLeftInfo leftInfo;
+        leftInfo.sessionId = 0;
+
+        auto onJoin = [&joinedInfo](Event event)
         {
-            event.convertTo(info);
+            event.convertTo(joinedInfo);
+        };
+
+        auto onLeave = [&leftInfo](Event event)
+        {
+            event.convertTo(leftInfo);
         };
 
         spawn(ioctx, [&](YieldContext yield)
@@ -59,14 +128,27 @@ TEST_CASE( "WAMP meta events", "[WAMP][Router][thisone]" )
             s1.connect(withTcp, yield).value();
             s1.join(Petition(testRealm), yield).value();
             s1.subscribe(Topic{"wamp.session.on_join"}, onJoin, yield).value();
+            s1.subscribe(Topic{"wamp.session.on_leave"}, onLeave, yield).value();
 
             s2.connect(withTcp, yield).value();
             auto welcome = s2.join(Petition(testRealm), yield).value();
 
-            while (info.sessionId == 0)
+            while (joinedInfo.sessionId == 0)
                 suspendCoro(yield);
+            CHECK(joinedInfo.authid       == welcome.authId());
+            CHECK(joinedInfo.authmethod   == welcome.authMethod());
+            CHECK(joinedInfo.authprovider == welcome.authProvider());
+            CHECK(joinedInfo.authrole     == welcome.authRole());
+            CHECK(joinedInfo.sessionId    == welcome.id());
 
-            CHECK(info.sessionId == welcome.id());
+            s2.leave(yield).value();
+
+            while (leftInfo.sessionId == 0)
+                suspendCoro(yield);
+            CHECK(leftInfo.authid == welcome.authId());
+            CHECK(leftInfo.authrole == welcome.authRole());
+            CHECK(leftInfo.sessionId == welcome.id());
+
             s2.disconnect();
             s1.disconnect();
         });
