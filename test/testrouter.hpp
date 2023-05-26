@@ -9,12 +9,13 @@
 
 #include <memory>
 #include <cppwamp/accesslogging.hpp>
+#include <cppwamp/router.hpp>
 
 namespace test
 {
 
 //------------------------------------------------------------------------------
-class Router
+class TestRouter
 {
 public:
     using AccessLogHandler = std::function<void (wamp::AccessLogEntry)>;
@@ -22,23 +23,29 @@ public:
     struct AccessLogGuard
     {
         AccessLogGuard() :
-            guard_(nullptr, [](int*){Router::instance().detachFromAccessLog();})
+            guard_(nullptr,
+                   [](int*){TestRouter::instance().detachFromAccessLog();})
         {}
 
     private:
         std::shared_ptr<int> guard_;
     };
 
-    static Router& instance();
+    static TestRouter& instance();
+    static bool enabled();
+
     void start();
     void stop();
     AccessLogGuard attachToAccessLog(AccessLogHandler handler);
     void detachFromAccessLog();
+    wamp::Router& router();
 
 private:
-    Router();
-
     struct Impl;
+
+    TestRouter();
+
+    static bool enabled_;
     std::shared_ptr<Impl> impl_;
 };
 

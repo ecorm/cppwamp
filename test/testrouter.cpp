@@ -50,7 +50,10 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-struct Router::Impl
+bool TestRouter::enabled_ = false;
+
+//------------------------------------------------------------------------------
+struct TestRouter::Impl
 {
     using AccessLogHandler = std::function<void (wamp::AccessLogEntry)>;
 
@@ -72,10 +75,9 @@ struct Router::Impl
         return AccessLogGuard{};
     }
 
-    void detachFromAccessLog()
-    {
-        accessLogHandler_ = nullptr;
-    }
+    void detachFromAccessLog() {accessLogHandler_ = nullptr;}
+
+    wamp::Router& router() {return router_;}
 
 private:
     using Logger = wamp::utils::LogSequencer;
@@ -149,14 +151,18 @@ private:
 };
 
 //------------------------------------------------------------------------------
-Router& Router::instance()
+TestRouter& TestRouter::instance()
 {
-    static Router theRouter;
+    enabled_ = true;
+    static TestRouter theRouter;
     return theRouter;
 }
 
 //------------------------------------------------------------------------------
-void Router::start()
+bool TestRouter::enabled() {return enabled_;}
+
+//------------------------------------------------------------------------------
+void TestRouter::start()
 {
     std::cout << "Launching router..." << std::endl;
     impl_ = std::make_shared<Impl>();
@@ -165,7 +171,7 @@ void Router::start()
 }
 
 //------------------------------------------------------------------------------
-void Router::stop()
+void TestRouter::stop()
 {
     std::cout << "Shutting down router..." << std::endl;
     impl_.reset();
@@ -173,15 +179,18 @@ void Router::stop()
 }
 
 //------------------------------------------------------------------------------
-Router::AccessLogGuard Router::attachToAccessLog(AccessLogHandler handler)
+TestRouter::AccessLogGuard TestRouter::attachToAccessLog(AccessLogHandler handler)
 {
     return impl_->attachToAccessLog(std::move(handler));
 }
 
 //------------------------------------------------------------------------------
-void Router::detachFromAccessLog() {impl_->detachFromAccessLog();}
+void TestRouter::detachFromAccessLog() {impl_->detachFromAccessLog();}
 
 //------------------------------------------------------------------------------
-Router::Router() {}
+wamp::Router& TestRouter::router() {return impl_->router();}
+
+//------------------------------------------------------------------------------
+TestRouter::TestRouter() {}
 
 } // namespace test

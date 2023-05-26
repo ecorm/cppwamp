@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
     // Launch the router before running the tests, if enabled
     if (launchRouter)
     {
-        auto& router = test::Router::instance();
+        auto& router = test::TestRouter::instance();
         router.start();
         result = session.run();
         router.stop();
