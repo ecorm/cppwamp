@@ -48,7 +48,8 @@ struct TestRealmObserver : public RealmObserver
         leaveEvents.push_back(s);
     }
 
-    void onRegister(const SessionDetails& s, const RegistrationDetails& r) override
+    void onRegister(const SessionDetails& s,
+                    const RegistrationDetails& r) override
     {
         registerEvents.push_back({s, r});
     }
@@ -120,7 +121,7 @@ TEST_CASE( "WAMP meta events", "[WAMP][Router][thisone]" )
 
         auto onLeave = [&leftInfo](Event event)
         {
-            event.convertTo(leftInfo);
+            leftInfo = parseSessionLeftInfo(event);
         };
 
         spawn(ioctx, [&](YieldContext yield)
@@ -145,9 +146,14 @@ TEST_CASE( "WAMP meta events", "[WAMP][Router][thisone]" )
 
             while (leftInfo.sessionId == 0)
                 suspendCoro(yield);
-            CHECK(leftInfo.authid == welcome.authId());
-            CHECK(leftInfo.authrole == welcome.authRole());
             CHECK(leftInfo.sessionId == welcome.id());
+
+            // Crossbar only provides session ID
+            if (test::RouterFixture::enabled())
+            {
+                CHECK(leftInfo.authid == welcome.authId());
+                CHECK(leftInfo.authrole == welcome.authRole());
+            }
 
             s2.disconnect();
             s1.disconnect();

@@ -513,7 +513,7 @@ void Payload<D,K>::unbundleTo(const Array&, size_t&) {}
 template <typename D, internal::MessageKind K>
 template <typename T, typename... Ts>
 void Payload<D,K>::unbundleTo(const Array& array, size_t& index, T& head,
-                                  Ts&... tail)
+                              Ts&... tail)
 {
     if (index < array.size())
     {

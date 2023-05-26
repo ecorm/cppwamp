@@ -16,6 +16,7 @@
 #include "api.hpp"
 #include "authinfo.hpp"
 #include "features.hpp"
+#include "pubsubinfo.hpp"
 
 namespace wamp
 {
@@ -52,8 +53,7 @@ struct CPPWAMP_API SessionLeftInfo
     SessionId sessionId;
 };
 
-CPPWAMP_API void convert(FromVariantConverter& conv, SessionLeftInfo& s);
-
+CPPWAMP_API SessionLeftInfo parseSessionLeftInfo(const Event& event);
 
 //------------------------------------------------------------------------------
 struct CPPWAMP_API RegistrationInfo

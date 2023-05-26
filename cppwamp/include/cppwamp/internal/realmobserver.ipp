@@ -39,11 +39,12 @@ CPPWAMP_INLINE void convert(FromVariantConverter& conv, SessionJoinInfo& s)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE void convert(FromVariantConverter& conv, SessionLeftInfo& s)
+CPPWAMP_INLINE SessionLeftInfo parseSessionLeftInfo(const Event& event)
 {
-    conv("authid",   s.authid,    "")
-        ("authrole", s.authrole,  "")
-        ("session",  s.sessionId, 0);
+    SessionLeftInfo s;
+    s.sessionId = 0;
+    event.convertTo(s.sessionId, s.authid, s.authrole);
+    return s;
 }
 
 //------------------------------------------------------------------------------
