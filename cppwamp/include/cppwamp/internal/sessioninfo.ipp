@@ -182,7 +182,7 @@ CPPWAMP_INLINE Uri& Petition::uri(internal::PassKey)
 
 CPPWAMP_INLINE Welcome::Welcome() : Base(in_place, 0, Object{}) {}
 
-CPPWAMP_INLINE SessionId Welcome::id() const
+CPPWAMP_INLINE SessionId Welcome::sessionId() const
 {
     return message().to<SessionId>(sessionIdPos_);
 }

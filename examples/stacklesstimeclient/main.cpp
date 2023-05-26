@@ -96,7 +96,7 @@ public:
                       << boost::variant2::get<1>(aftermath).value() << std::endl;
             yield session_->join(wamp::Petition(realm), *this);
             std::cout << "Joined, SessionId="
-                      << boost::variant2::get<2>(aftermath).value().id()
+                      << boost::variant2::get<2>(aftermath).value().sessionId()
                       << std::endl;
 
             yield session_->call(wamp::Rpc("get_time"), *this);

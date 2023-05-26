@@ -32,7 +32,7 @@ public:
 
         auto info = session_.join(Petition(realm), yield).value();
         std::cout << "Producer joined, session ID = "
-                  << info.id() << std::endl;
+                  << info.sessionId() << std::endl;
 
         using namespace std::placeholders;
 
@@ -85,7 +85,8 @@ public:
                   << (index + 1) << std::endl;
 
         auto info = session_.join(Petition(realm), yield).value();
-        std::cout << "Consumer joined, session ID = " << info.id() << std::endl;
+        std::cout << "Consumer joined, session ID = "
+                  << info.sessionId() << std::endl;
     }
 
     void consumeFeed(wamp::YieldContext yield)

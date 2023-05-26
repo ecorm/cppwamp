@@ -134,13 +134,13 @@ GIVEN( "a Session and a ConnectionWish" )
                     Petition(testRealm),
                     [&welcome](ErrorOr<Welcome> w) {welcome = w.value();});
                 CHECK(s.state() == SS::establishing);
-
-                while (welcome.id() == 0)
+                
+                while (welcome.sessionId() == 0)
                     suspendCoro(yield);
                 CHECK( s.state() == SS::established );
                 CHECK( incidents.empty() );
-
-                CHECK ( welcome.id() <= 9007199254740992ll );
+                
+                CHECK ( welcome.sessionId() <= 9007199254740992ll );
                 CHECK( welcome.realm()  == testRealm );
                 Object details = welcome.options();
                 REQUIRE( details.count("roles") );
@@ -168,8 +168,8 @@ GIVEN( "a Session and a ConnectionWish" )
                 Welcome welcome = s.join(Petition(testRealm), yield).value();
                 CHECK( incidents.empty() );
                 CHECK( s.state() == SessionState::established );
-                CHECK ( welcome.id() != 0 );
-                CHECK ( welcome.id() <= 9007199254740992ll );
+                CHECK ( welcome.sessionId() != 0 );
+                CHECK ( welcome.sessionId() <= 9007199254740992ll );
                 CHECK( welcome.realm()  == testRealm );
                 Object details = welcome.options();
                 REQUIRE( details.count("roles") );
@@ -227,7 +227,7 @@ GIVEN( "a Session and a ConnectionWish" )
                 // Join
                 Welcome info = s.join(Petition(testRealm), yield).value();
                 CHECK( s.state() == SS::established );
-                CHECK ( info.id() <= 9007199254740992ll );
+                CHECK ( info.sessionId() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
                 REQUIRE( details.count("roles") );
@@ -423,7 +423,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
                 // Check joining.
                 Welcome info = s.join(Petition(testRealm), yield).value();
                 CHECK( s.state() == SessionState::established );
-                CHECK ( info.id() <= 9007199254740992ll );
+                CHECK ( info.sessionId() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
                 REQUIRE( details.count("roles") );
@@ -443,7 +443,7 @@ GIVEN( "a Session and an alternate ConnectionWish" )
                 // Check that the same client can rejoin and leave.
                 Welcome info = s.join(Petition(testRealm), yield).value();
                 CHECK( s.state() == SessionState::established );
-                CHECK ( info.id() <= 9007199254740992ll );
+                CHECK ( info.sessionId() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
                 REQUIRE( details.count("roles") );
@@ -514,7 +514,7 @@ GIVEN( "a Session, a valid ConnectionWish, and an invalid ConnectionWish" )
                 Welcome info = s.join(Petition(testRealm), yield).value();
                 CHECK( incidents.empty() );
                 CHECK( s.state() == SS::established );
-                CHECK ( info.id() <= 9007199254740992ll );
+                CHECK ( info.sessionId() <= 9007199254740992ll );
                 CHECK( info.realm()  == testRealm );
                 Object details = info.options();
                 REQUIRE( details.count("roles") );

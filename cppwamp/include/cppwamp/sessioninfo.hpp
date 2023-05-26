@@ -162,7 +162,7 @@ public:
     Welcome();
 
     /** Obtains the WAMP session ID. */
-    SessionId id() const;
+    SessionId sessionId() const;
 
     /** Obtains realm URI. */
     const Uri& realm() const;

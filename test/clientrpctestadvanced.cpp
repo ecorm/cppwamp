@@ -44,7 +44,7 @@ struct RpcFixture
     {
         caller.connect(where, yield).value();
         welcome = caller.join(Petition(testRealm), yield).value();
-        callerId = welcome.id();
+        callerId = welcome.sessionId();
         callee.connect(where, yield).value();
         callee.join(Petition(testRealm), yield).value();
     }
