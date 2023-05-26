@@ -7,13 +7,25 @@
 #ifndef CPPWAMP_INTERNAL_TIMEFORMATTING_HPP
 #define CPPWAMP_INTERNAL_TIMEFORMATTING_HPP
 
+// TODO: Test
+
 #include <chrono>
 #include <cstdint>
+#include <cstring>
 #include <ctime>
 #include <iomanip>
 #include <istream>
 #include <ostream>
 #include <sstream>
+
+#if _DEFAULT_SOURCE || _BSD_SOURCE || _SVID_SOURCE
+    #define CPPWAMP_HAS_TIMEGM
+#endif
+
+#if _POSIX_C_SOURCE >= 1 || _XOPEN_SOURCE || _BSD_SOURCE || _SVID_SOURCE || \
+    _POSIX_SOURCE
+    #define CPPWAMP_HAS_GMTIME_R
+#endif
 
 namespace wamp
 {
@@ -44,8 +56,7 @@ std::ostream& outputRfc3339Timestamp(
     using SubSeconds = typename Rfc3339Subseconds<Precision>::Type;
     auto time = chrono::system_clock::to_time_t(when);
 
-#if _POSIX_C_SOURCE >= 1 || _XOPEN_SOURCE || _BSD_SOURCE || _SVID_SOURCE || \
-    _POSIX_SOURCE
+#ifdef CPPWAMP_HAS_GMTIME_R
     std::tm tmbResult;
     std::tm* tmb = ::gmtime_r(&time, &tmbResult);
 #else
@@ -82,15 +93,45 @@ std::string toRfc3339Timestamp(std::chrono::system_clock::time_point when)
 inline std::istream& inputRfc3339Timestamp(
     std::istream& in, std::chrono::system_clock::time_point& when)
 {
-#ifndef CPPWAMP_ALLOW_32_BIT_TIME_T
+#ifdef CPPWAMP_HAS_TIMEGM
+    #ifndef CPPWAMP_ALLOW_32_BIT_TIME_T
     static_assert(sizeof(std::time_t) >= sizeof(int64_t),
                   "std::time_t is 32-bit and will overflow in 2038");
+    #endif
+    struct SplitTmToTime
+    {
+        using TickType = std::time_t;
+
+        static TickType toTime(std::tm& tmb)
+        {
+            return ::timegm(&tmb);
+        };
+    };
+#elif defined (_MSC_VER)
+    struct SplitTmToTime
+    {
+        using TickType = __time64_t;
+
+        static TickType toTime(std::tm& tmb)
+        {
+            return ::_mkgmtime64(&tmb)
+        };
+    };
+#else
+    #error No timegm() runtime function avaiable
 #endif
 
+    namespace chrono = std::chrono;
+    using Clock = chrono::system_clock;
+
     std::tm tmb;
+    std::memset(&tmb, 0, sizeof(tmb));
+    SplitTmToTime::TickType ticks;
+    chrono::duration<double, std::ratio<1>> fpSeconds;
+
     auto locale = in.getloc();
     in.imbue(std::locale::classic());
-    in >> std::get_time(&tmb, "%FT%H:%M:");
+    in >> std::get_time(&tmb, "%Y-%m-%dT%H:%M:");
     tmb.tm_isdst = false;
     double seconds = 0;
     in >> seconds;
@@ -100,24 +141,19 @@ inline std::istream& inputRfc3339Timestamp(
     if (!in)
         return in;
     if (zone != 'Z')
-    {
-        in.setstate(std::ios::failbit);
-        return in;
-    }
+        goto fail;
 
-#if _DEFAULT_SOURCE || _BSD_SOURCE || _SVID_SOURCE
-    auto t = ::timegm(&tmb);
-#elif defined (_MSC_VER)
-    auto t = ::_mkgmtime64(&tmb);
-#else
-    #error No timegm() runtime function avaiable
-#endif
+    ticks = SplitTmToTime::toTime(tmb);
+    if (ticks == decltype(ticks)(-1))
+        goto fail;
 
-    namespace chrono = std::chrono;
-    std::chrono::system_clock::time_point tp{chrono::seconds(t)};
-    chrono::duration<double, std::ratio<1>> fpSeconds{seconds};
-    tp += chrono::duration_cast<std::chrono::system_clock::duration>(fpSeconds);
-    when = tp;
+    when = Clock::time_point{chrono::seconds{ticks}};
+    fpSeconds = decltype(fpSeconds){seconds};
+    when += chrono::duration_cast<Clock::duration>(fpSeconds);
+    return in;
+
+fail:
+    in.setstate(std::ios::failbit);
     return in;
 }
 
@@ -133,5 +169,8 @@ inline bool parseRfc3339Timestamp(std::string s,
 } // namespace internal
 
 } // namespace wamp
+
+#undef CPPWAMP_HAS_TIMEGM
+#undef CPPWAMP_HAS_GMTIME_R
 
 #endif // CPPWAMP_INTERNAL_TIMEFORMATTING_HPP
