@@ -169,6 +169,7 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
         ioctx.restart();
     }
 
+#ifdef CPPWAMP_STRICT_INVOCATION_ID_CHECKS
     {
         INFO("Non-sequential INVOCATION request ID");
 
@@ -198,6 +199,7 @@ TEST_CASE( "WAMP protocol violation detection by client", "[WAMP][Advanced]" )
         ioctx.run();
         ioctx.restart();
     }
+#endif
 
     {
         INFO("Progressive invocation on RPC not registered as stream");

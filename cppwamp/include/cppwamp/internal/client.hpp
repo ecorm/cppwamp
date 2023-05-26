@@ -882,6 +882,11 @@ private:
     WampErrc onProcedureInvocation(Invocation& inv,
                                    const ProcedureRegistration& reg)
     {
+        // Progressive calls not allowed on procedures not registered
+        // as streams.
+        if (inv.isProgress({}) || inv.resultsAreProgressive({}))
+            return WampErrc::optionNotAllowed;
+
         auto requestId = inv.requestId();
         auto registrationId = inv.registrationId();
         auto emplaced = invocations_.emplace(requestId,
@@ -890,11 +895,6 @@ private:
         // Detect attempt to reinvoke same pending call
         if (!emplaced.second)
             return WampErrc::protocolViolation;
-
-        // Progressive calls not allowed on procedures not registered
-        // as streams.
-        if (inv.isProgress({}) || inv.resultsAreProgressive({}))
-            return WampErrc::optionNotAllowed;
 
         auto& invocationRec = emplaced.first->second;
         invocationRec.closed = true;
@@ -1547,15 +1547,19 @@ private:
         auto reqId = inv.requestId();
         auto regId = inv.registrationId();
 
+        // Crossbar uses the same INVOCATION request ID generator for
+        // all callee sessions.
+        // https://github.com/crossbario/crossbar/issues/2081
+#ifdef CPPWAMP_STRICT_INVOCATION_ID_CHECKS
         auto maxRequestId = inboundRequestIdWatermark_ + 1u;
         if (reqId > maxRequestId)
         {
             return failProtocol("Router used non-sequential request ID "
                                 "in INVOCATION message");
         }
-
         if (reqId == maxRequestId)
             ++inboundRequestIdWatermark_;
+#endif
 
         switch (registry_.onInvocation(std::move(inv)))
         {
@@ -2337,7 +2341,10 @@ private:
         abandonPending(MiscErrc::abandoned);
         readership_.clear();
         registry_.clear();
+
+#ifdef CPPWAMP_STRICT_INVOCATION_ID_CHECKS
         inboundRequestIdWatermark_ = 0;
+#endif
     }
 
     void sendUnsubscribe(SubscriptionId subId)
@@ -2474,7 +2481,9 @@ private:
     IncidentSlot incidentSlot_;
     ChallengeSlot challengeSlot_;
     Connecting::Ptr currentConnector_;
+#ifdef CPPWAMP_STRICT_INVOCATION_ID_CHECKS
     RequestId inboundRequestIdWatermark_ = 0;
+#endif
     bool isTerminating_ = false;
 
     friend class ClientContext;
