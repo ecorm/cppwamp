@@ -98,6 +98,9 @@ void checkErrorResponse(MockClient::Ptr client, TErrc expectedErrorCode,
 //------------------------------------------------------------------------------
 TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
 {
+    if (!test::RouterFixture::enabled())
+        return;
+
     IoContext ioctx;
     Session session{ioctx};
     auto client = internal::MockClient::create(ioctx, testPort);
