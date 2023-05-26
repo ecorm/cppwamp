@@ -361,7 +361,7 @@ inline Object DirectRouterSession::open(Petition&& hello)
         authInfo_.setId({}, hello.authId().value_or(""));
 
     Base::open(hello);
-    auto welcomeDetails = authInfo_.join({}, hello.uri(), wampId());
+    auto welcomeDetails = authInfo_.join({}, hello.uri());
     Base::join(AuthInfo{authInfo_});
     return welcomeDetails;
 }
@@ -370,7 +370,10 @@ inline void DirectRouterSession::close() {Base::close();}
 
 inline void DirectRouterSession::disconnect() {Base::setRouterLogger(nullptr);}
 
-inline void DirectRouterSession::onRouterAbort(Reason&& r)         {peer_.onAbort(std::move(r));};
+inline void DirectRouterSession::onRouterAbort(Reason&& r)
+{
+    peer_.onAbort(std::move(r));
+}
 
 void DirectRouterSession::onRouterMessage(Message&& msg)
 {

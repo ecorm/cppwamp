@@ -66,12 +66,15 @@ CPPWAMP_INLINE void AuthInfo::setId(internal::PassKey, String id)
     id_ = std::move(id);
 }
 
+CPPWAMP_INLINE void AuthInfo::setSessionId(internal::PassKey, SessionId sid)
+{
+    sessionId_ = sid;
+}
+
 CPPWAMP_INLINE Object
-AuthInfo::join(internal::PassKey, Uri uri, SessionId sessionId,
-               Object routerRoles)
+AuthInfo::join(internal::PassKey, Uri uri, Object routerRoles)
 {
     realmUri_ = std::move(uri);
-    sessionId_ = sessionId;
 
     Object details;
     if (!id_.empty())

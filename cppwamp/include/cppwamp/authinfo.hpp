@@ -88,9 +88,8 @@ private:
 
 public: // Internal use only
     void setId(internal::PassKey, String id);
-
-    Object join(internal::PassKey, Uri uri, SessionId sessionId,
-                Object routerRoles = {});
+    void setSessionId(internal::PassKey, SessionId sid);
+    Object join(internal::PassKey, Uri uri, Object routerRoles = {});
 };
 
 } // namespace wamp

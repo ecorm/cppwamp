@@ -34,11 +34,15 @@ inline void suspendCoro(YieldContext& yield)
 
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WAMP meta events", "[WAMP][Router]" )
+TEST_CASE( "WAMP meta events", "[WAMP][Router][thisone]" )
 {
     IoContext ioctx;
     Session s1{ioctx};
     Session s2{ioctx};
+
+    s1.observeIncidents(
+        [](Incident i) {std::cout << i.toLogEntry() << std::endl;});
+    s1.enableTracing();
 
     SECTION("Session meta events")
     {
@@ -63,6 +67,8 @@ TEST_CASE( "WAMP meta events", "[WAMP][Router]" )
                 suspendCoro(yield);
 
             CHECK(info.sessionId == welcome.id());
+            s2.disconnect();
+            s1.disconnect();
         });
 
         ioctx.run();

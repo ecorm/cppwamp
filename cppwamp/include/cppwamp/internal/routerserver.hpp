@@ -325,6 +325,7 @@ private:
     {
         Base::close();
         realm_.reset();
+        authExchange_.reset();
         requestIdChecker_.reset();
     }
 
@@ -400,21 +401,22 @@ private:
                               (s == State::establishing ||
                                s == State::authenticating);
         if (!readyToWelcome)
-            return;
-
-        const auto& realm = authExchange_->hello();
-        if (!realm_.join(shared_from_this()))
         {
-            abortSession({WampErrc::noSuchRealm});
+            authExchange_.reset();
             return;
         }
 
-        auto details = info.join({}, realm.uri(), wampId(),
+        const auto& petition = authExchange_->hello();
+        auto welcomeDetails = info.join({}, petition.uri(),
                                  RouterFeatures::providedRoles());
-        Base::join(std::move(info));
         authExchange_.reset();
-        report({AccessAction::serverWelcome, realm.uri(), realm.options()});
-        peer_->welcome(wampId(), std::move(details));
+        Base::join(std::move(info));
+
+        if (!realm_.join(shared_from_this()))
+            return abortSession({WampErrc::noSuchRealm});
+
+        report({AccessAction::serverWelcome, petition.uri(), welcomeDetails});
+        peer_->welcome(wampId(), std::move(welcomeDetails));
     }
 
     void safeWelcome(AuthInfo&& info) override
@@ -431,13 +433,13 @@ private:
 
     void reject(Reason&& r)
     {
+        authExchange_.reset();
         auto s = state();
         bool readyToReject = s == State::establishing ||
                              s == State::authenticating;
         if (!readyToReject)
             return;
 
-        authExchange_.reset();
         close();
         peer_->abort(std::move(r));
     }

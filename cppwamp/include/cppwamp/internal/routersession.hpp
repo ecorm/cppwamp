@@ -52,6 +52,7 @@ public:
     {
         wampId_ = std::move(id);
         sessionInfo_.wampSessionId = wampId();
+        authInfo_->setSessionId({}, wampId());
     }
 
     void report(AccessActionInfo&& action)
