@@ -12,7 +12,7 @@
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
 #include "mockclient.hpp"
-#include "testrouter.hpp"
+#include "routerfixture.hpp"
 
 // TODO: Unregister a registration for another callee
 // TODO: Unsubscribe a subscription for another subscriber
@@ -102,7 +102,7 @@ TEST_CASE( "WAMP protocol violation detection by router", "[WAMP][Router]" )
     Session session{ioctx};
     auto client = internal::MockClient::create(ioctx, testPort);
     AccessActionInfo lastAction;
-    auto guard = test::TestRouter::instance().attachToAccessLog(
+    auto guard = test::RouterFixture::instance().attachToAccessLog(
         [&lastAction](AccessLogEntry e) {lastAction = e.action;});
 
     auto checkLastAction = [&lastAction](const std::string& hintKeyword)

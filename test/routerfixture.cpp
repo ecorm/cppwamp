@@ -4,7 +4,7 @@
     http://www.boost.org/LICENSE_1_0.txt
 ------------------------------------------------------------------------------*/
 
-#include "testrouter.hpp"
+#include "routerfixture.hpp"
 #include <fstream>
 #include <iostream>
 #include <thread>
@@ -50,10 +50,10 @@ protected:
 };
 
 //------------------------------------------------------------------------------
-bool TestRouter::enabled_ = false;
+bool RouterFixture::enabled_ = false;
 
 //------------------------------------------------------------------------------
-struct TestRouter::Impl
+struct RouterFixture::Impl
 {
     using AccessLogHandler = std::function<void (wamp::AccessLogEntry)>;
 
@@ -151,18 +151,18 @@ private:
 };
 
 //------------------------------------------------------------------------------
-TestRouter& TestRouter::instance()
+RouterFixture& RouterFixture::instance()
 {
     enabled_ = true;
-    static TestRouter theRouter;
+    static RouterFixture theRouter;
     return theRouter;
 }
 
 //------------------------------------------------------------------------------
-bool TestRouter::enabled() {return enabled_;}
+bool RouterFixture::enabled() {return enabled_;}
 
 //------------------------------------------------------------------------------
-void TestRouter::start()
+void RouterFixture::start()
 {
     std::cout << "Launching router..." << std::endl;
     impl_ = std::make_shared<Impl>();
@@ -171,7 +171,7 @@ void TestRouter::start()
 }
 
 //------------------------------------------------------------------------------
-void TestRouter::stop()
+void RouterFixture::stop()
 {
     std::cout << "Shutting down router..." << std::endl;
     impl_.reset();
@@ -179,18 +179,18 @@ void TestRouter::stop()
 }
 
 //------------------------------------------------------------------------------
-TestRouter::AccessLogGuard TestRouter::attachToAccessLog(AccessLogHandler handler)
+RouterFixture::AccessLogGuard RouterFixture::attachToAccessLog(AccessLogHandler handler)
 {
     return impl_->attachToAccessLog(std::move(handler));
 }
 
 //------------------------------------------------------------------------------
-void TestRouter::detachFromAccessLog() {impl_->detachFromAccessLog();}
+void RouterFixture::detachFromAccessLog() {impl_->detachFromAccessLog();}
 
 //------------------------------------------------------------------------------
-wamp::Router& TestRouter::router() {return impl_->router();}
+wamp::Router& RouterFixture::router() {return impl_->router();}
 
 //------------------------------------------------------------------------------
-TestRouter::TestRouter() {}
+RouterFixture::RouterFixture() {}
 
 } // namespace test

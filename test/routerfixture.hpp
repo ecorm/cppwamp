@@ -15,7 +15,7 @@ namespace test
 {
 
 //------------------------------------------------------------------------------
-class TestRouter
+class RouterFixture
 {
 public:
     using AccessLogHandler = std::function<void (wamp::AccessLogEntry)>;
@@ -24,14 +24,14 @@ public:
     {
         AccessLogGuard() :
             guard_(nullptr,
-                   [](int*){TestRouter::instance().detachFromAccessLog();})
+                     [](int*){RouterFixture::instance().detachFromAccessLog();})
         {}
 
     private:
         std::shared_ptr<int> guard_;
     };
 
-    static TestRouter& instance();
+    static RouterFixture& instance();
     static bool enabled();
 
     void start();
@@ -43,7 +43,7 @@ public:
 private:
     struct Impl;
 
-    TestRouter();
+    RouterFixture();
 
     static bool enabled_;
     std::shared_ptr<Impl> impl_;

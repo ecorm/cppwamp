@@ -7,7 +7,7 @@
 #define CATCH_CONFIG_RUNNER
 #include <catch2/catch.hpp>
 
-#include "testrouter.hpp"
+#include "routerfixture.hpp"
 
 //------------------------------------------------------------------------------
 int main(int argc, char* argv[])
@@ -34,10 +34,10 @@ int main(int argc, char* argv[])
     // Launch the router before running the tests, if enabled
     if (launchRouter)
     {
-        auto& router = test::TestRouter::instance();
-        router.start();
+        auto& rf = test::RouterFixture::instance();
+        rf.start();
         result = session.run();
-        router.stop();
+        rf.stop();
     }
     else
     {

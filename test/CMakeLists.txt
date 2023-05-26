@@ -8,7 +8,7 @@ set(HEADERS
     clienttesting.hpp
     mockclient.hpp
     mockserver.hpp
-    testrouter.hpp
+    routerfixture.hpp
     valuemodels.hpp
 )
 
@@ -29,9 +29,9 @@ set(SOURCES
     errortest.cpp
     flagstest.cpp
     payloadtest.cpp
+    routerfixture.cpp
     routermetaapitest.cpp
     routerprotocolerrors.cpp
-    testrouter.cpp
     timeoutschedulertest.cpp
     transporttest.cpp
     uritest.cpp

@@ -12,7 +12,7 @@
 #include <cppwamp/session.hpp>
 #include <cppwamp/spawn.hpp>
 #include <cppwamp/tcp.hpp>
-#include "testrouter.hpp"
+#include "routerfixture.hpp"
 
 using namespace wamp;
 
