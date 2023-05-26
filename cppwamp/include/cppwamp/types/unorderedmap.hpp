@@ -47,7 +47,7 @@ void CPPWAMP_API convert(FromVariantConverter& conv,
         catch (const error::Conversion& e)
         {
             std::string msg = e.what();
-            msg += " (for variant member \"" + kv.first + "\")";
+            msg += " (for variant member '" + kv.first + "')";
             throw error::Conversion(msg);
         }
     }

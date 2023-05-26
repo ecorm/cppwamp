@@ -31,14 +31,14 @@ CPPWAMP_INLINE std::string Failure::makeMessage(std::error_code ec)
     std::ostringstream oss;
     oss << "error::Failure: \n"
            "    error code = " << ec << "\n"
-           "    message = \"" << ec.message() << "\"\n";
+           "    message = '" << ec.message() << "'\n";
     return oss.str();
 }
 
 CPPWAMP_INLINE std::string Failure::makeMessage(std::error_code ec,
                                                 const std::string& info)
 {
-    return makeMessage(ec) + "    info = \"" + info + "\"\n";
+    return makeMessage(ec) + "    info = '" + info + "'\n";
 }
 
 //------------------------------------------------------------------------------

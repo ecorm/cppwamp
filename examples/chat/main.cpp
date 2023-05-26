@@ -97,7 +97,7 @@ public:
 
     void say(const std::string& message, wamp::YieldContext yield)
     {
-        std::cout << user_ << " says \"" << message << "\"\n";
+        std::cout << user_ << " says '" << message << "'\n";
         session_.call(wamp::Rpc("say").withArgs(user_, message),
                        yield).value();
     }
@@ -105,8 +105,8 @@ public:
 private:
     void said(std::string from, std::string message)
     {
-        std::cout << user_ << " received message from " << from << ": \""
-                  << message << "\"\n";
+        std::cout << user_ << " received message from " << from << ": '"
+                  << message << "'\n";
     }
 
     wamp::Session session_;

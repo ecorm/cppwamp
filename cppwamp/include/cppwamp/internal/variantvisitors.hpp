@@ -362,8 +362,8 @@ public:
             catch (const error::Conversion& e)
             {
                 std::ostringstream oss;
-                oss << e.what() << " (for Object member \""
-                    << fromKv.first << "\")";
+                oss << e.what() << " (for Object member '"
+                    << fromKv.first << "')";
                 throw error::Conversion(oss.str());
             }
             to.emplace(fromKv.first, std::move(toValue));
@@ -381,8 +381,7 @@ private:
     static void convert(FalseType, const TField& from, TResult& to)
     {
         throw error::Conversion(
-            "wamp::error::Conversion: Invalid conversion "
-            "from " + FieldTraits<TField>::typeName() +
+            "Invalid conversion from " + FieldTraits<TField>::typeName() +
             " to " + ArgTraits<TResult>::typeName());
     }
 };

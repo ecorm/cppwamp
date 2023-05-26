@@ -1399,14 +1399,14 @@ FromVariantConverter& FromVariantConverter::operator[](T& value)
     catch (const error::Access&)
     {
         std::ostringstream oss;
-        oss << "wamp::error::Conversion: Attemping to access field type "
-            << typeNameOf(var_) << " as array";
+        oss << "Attemping to access field type " << typeNameOf(var_)
+            << " as array";
         throw error::Conversion(oss.str());
     }
     catch (const std::out_of_range&)
     {
         std::ostringstream oss;
-        oss << "wamp::error::Conversion: Cannot extract more than " << index_
+        oss << "Cannot extract more than " << index_
             << " elements from the array";
         throw error::Conversion(oss.str());
     }
@@ -1437,21 +1437,20 @@ FromVariantConverter& FromVariantConverter::operator()(const String& key,
     catch (const error::Conversion& e)
     {
         std::ostringstream oss;
-        oss << e.what() << ", for object member \"" << key << '"';
+        oss << e.what() << ", for object member '" << key << "'";
         throw error::Conversion(oss.str());
     }
     catch (const error::Access&)
     {
         std::ostringstream oss;
-        oss << "wamp::error::Conversion: Attemping to access field type "
-            << typeNameOf(var_) << " as object using key \"" << key << '"';
+        oss << "Attemping to access field type " << typeNameOf(var_)
+            << " as object using key '" << key << "'";
         throw error::Conversion(oss.str());
     }
     catch (const std::out_of_range&)
     {
         std::ostringstream oss;
-        oss << "wamp::error::Conversion: Key \"" << key
-            << "\" not found in object";
+        oss << "Key '" << key << "' not found in object";
         throw error::Conversion(oss.str());
     }
 
@@ -1483,14 +1482,14 @@ FromVariantConverter& FromVariantConverter::operator()(const String& key,
     catch (const error::Conversion& e)
     {
         std::ostringstream oss;
-        oss << e.what() << ", for object member \""  << key << '"';
+        oss << e.what() << ", for object member '"  << key << "'";
         throw error::Conversion(oss.str());
     }
     catch (const error::Access&)
     {
         std::ostringstream oss;
-        oss << "wamp::error::Conversion: Attemping to access field type "
-            << typeNameOf(var_) << " as object using key \"" << key << '"';
+        oss << "Attemping to access field type " << typeNameOf(var_)
+            << " as object using key '" << key << "'";
         throw error::Conversion(oss.str());
     }
 
