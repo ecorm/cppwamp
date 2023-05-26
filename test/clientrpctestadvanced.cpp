@@ -568,6 +568,7 @@ GIVEN( "a caller and a callee" )
             else if (!f.welcome.features().dealer().all_of(
                         DealerFeatures::callTimeout))
             {
+                f.disconnect();
                 return;
             }
 
@@ -1419,6 +1420,7 @@ GIVEN( "a caller and a callee" )
             if (!f.welcome.features().dealer().all_of(
                 DealerFeatures::progressiveCallInvocations))
             {
+                f.disconnect();
                 return;
             }
 
@@ -1556,6 +1558,7 @@ GIVEN( "a caller and a callee" )
             if (!f.welcome.features().dealer().all_of(
                 DealerFeatures::progressiveCallInvocations))
             {
+                f.disconnect();
                 return;
             }
 
@@ -1684,6 +1687,7 @@ GIVEN( "a caller and a callee" )
             if (!f.welcome.features().dealer().all_of(
                 DealerFeatures::progressiveCallInvocations))
             {
+                f.disconnect();
                 return;
             }
 
@@ -1821,6 +1825,7 @@ GIVEN( "a caller and a callee" )
             if (!f.welcome.features().dealer().all_of(
                     DealerFeatures::progressiveCallInvocations))
             {
+                f.disconnect();
                 return;
             }
             f.callee.enroll(Stream("com.myapp.foo").withInvitationExpected(),
