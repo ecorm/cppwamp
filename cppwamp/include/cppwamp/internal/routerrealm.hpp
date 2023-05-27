@@ -523,8 +523,10 @@ private:
         bool found = iter != sessions_.end();
         if (found)
         {
-            iter->second->abort(std::move(reason));
-            sessions_.erase(iter);
+            auto session = iter->second;
+            session->abort(std::move(reason));
+            // session->abort will call RouterRealm::leave,
+            // which will remove the session from the session_ map
         }
         return found;
     }
@@ -532,23 +534,24 @@ private:
     std::vector<SessionId> doKillSessions(const SessionFilter& filter,
                                           const Reason& reason)
     {
-        std::vector<SessionId> killed;
-        auto iter = sessions_.begin();
-        auto end = sessions_.end();
-        while (iter != end)
+        std::vector<RouterSession::Ptr> killed;
+        std::vector<SessionId> killedIds;
+
+        for (auto& kv: sessions_)
         {
-            if (filter(iter->second->details()))
+            if (filter(kv.second->details()))
             {
-                killed.push_back(iter->first);
-                iter->second->abort(reason);
-                iter = sessions_.erase(iter);
-            }
-            else
-            {
-                ++iter;
+                killed.push_back(kv.second);
+                killedIds.push_back(kv.first);
+                // Cannot abort the session now as it would remove itself
+                // from the sessions_ map and invalidate iterators.
             }
         }
-        return killed;
+
+        for (auto& session: killed)
+            session->abort(reason);
+
+        return killedIds;
     }
 
     RegistrationLists registrationLists() const

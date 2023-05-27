@@ -310,51 +310,45 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
             w2 = s2.join(Petition(testRealm), yield).value();
         }
 
+        // Crossbar does not exclude the caller, as the spec requires.
+        // It also returns an array instead of an integer.
+        // https://github.com/crossbario/crossbar/issues/2082
+        if (test::RouterFixture::enabled())
         {
             INFO("wamp.session.kill_by_authrole");
             Rpc rpc{"wamp.session.kill_by_authrole"};
-            SessionIdList list;
+            int count;
             auto errc = WampErrc::invalidArgument;
             auto reasonUri = errorCodeToUri(errc);
             incidents.clear();
 
             auto result = s1.call(rpc.withArgs("bogus"), yield).value();
-            result.convertTo(list);
-            CHECK(list.empty());
+            result.convertTo(count);
+            CHECK(count == 0);
 
-            // Crossbar does not exclude the caller, as the spec requires
-            // https://github.com/crossbario/crossbar/issues/2082
-            if (test::RouterFixture::enabled())
-            {
-                result = s1.call(rpc.withArgs(w2.authRole().value())
-                                    .withKwargs({{"reason", reasonUri},
-                                                 {"message", "because"}}),
-                                 yield).value();
-                result.convertTo(list);
-                CHECK_THAT(list,
-                           Matchers::Contains(SessionIdList{w2.sessionId()}));
+            result = s1.call(rpc.withArgs(w2.authRole().value())
+                                .withKwargs({{"reason", reasonUri},
+                                             {"message", "because"}}),
+                             yield).value();
+            result.convertTo(count);
+            CHECK(count == 1);
 
-                while (incidents.empty() ||
-                       s2.state() == SessionState::established)
-                {
-                    suspendCoro(yield);
-                }
+            while (incidents.empty() || s2.state() == SessionState::established)
+                suspendCoro(yield);
 
-                CHECK(s1.state() == SessionState::established);
-                CHECK((s2.state() == SessionState::closed ||
-                       s2.state() == SessionState::failed));
-                const auto& i = incidents.front();
-                CHECK((i.kind() == IncidentKind::closedByPeer ||
-                       i.kind() == IncidentKind::abortedByPeer));
-                CHECK(i.error() == errc );
-                bool messageFound = i.message().find("because") !=
-                                    std::string::npos;
-                CHECK(messageFound);
+            CHECK(s1.state() == SessionState::established);
+            CHECK((s2.state() == SessionState::closed ||
+                   s2.state() == SessionState::failed));
+            const auto& i = incidents.front();
+            CHECK((i.kind() == IncidentKind::closedByPeer ||
+                   i.kind() == IncidentKind::abortedByPeer));
+            CHECK(i.error() == errc );
+            bool messageFound = i.message().find("because") != std::string::npos;
+            CHECK(messageFound);
 
-                s2.disconnect();
-                s2.connect(withTcp, yield).value();
-                w2 = s2.join(Petition(testRealm), yield).value();
-            }
+            s2.disconnect();
+            s2.connect(withTcp, yield).value();
+            w2 = s2.join(Petition(testRealm), yield).value();
         }
 
         // Crossbar does not currently implement wamp.session.kill_all

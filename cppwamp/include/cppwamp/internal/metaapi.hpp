@@ -129,11 +129,6 @@ private:
             throw Error{WampErrc::invalidArgument}
                 .withArgs("'reason' argument must be a string");
         }
-        if (reasonArg->empty())
-        {
-            throw Error{WampErrc::invalidUri}
-                .withArgs("'reason' argument cannot be empty");
-        }
 
         auto messageArg = std::move(rpc).kwargAs<String>("message");
         if (messageArg == unex)
@@ -145,6 +140,11 @@ private:
         String reasonUri{errorCodeToUri(WampErrc::sessionKilled)};
         if (reasonArg)
             reasonUri = std::move(*reasonArg);
+        if (reasonUri.empty())
+        {
+            throw Error{WampErrc::invalidUri}
+                .withArgs("'reason' argument cannot be empty");
+        }
         Reason reason{std::move(reasonUri)};
 
         if (messageArg && !messageArg->empty())
