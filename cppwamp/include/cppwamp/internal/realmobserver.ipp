@@ -39,10 +39,10 @@ CPPWAMP_INLINE SessionJoinInfo::SessionJoinInfo() {}
 
 CPPWAMP_INLINE void convert(FromVariantConverter& conv, SessionJoinInfo& s)
 {
-    conv("authid",       s.authid,       "")
-        ("authmethod",   s.authmethod,   "")
-        ("authprovider", s.authprovider, "")
-        ("authrole",     s.authrole,     "")
+    conv("authid",       s.authId,       "")
+        ("authmethod",   s.authMethod,   "")
+        ("authprovider", s.authProvider, "")
+        ("authrole",     s.authRole,     "")
         ("session",      s.sessionId,    0)
         ("transport",    s.transport,    Object{});
 }

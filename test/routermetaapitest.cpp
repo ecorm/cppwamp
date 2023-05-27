@@ -16,6 +16,8 @@
 
 using namespace wamp;
 
+namespace Matchers = Catch::Matchers;
+
 namespace
 {
 
@@ -96,7 +98,7 @@ struct TestRealmObserver : public RealmObserver
 
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WAMP session meta events", "[WAMP][Router][thisone]" )
+TEST_CASE( "WAMP session meta events", "[WAMP][Router]" )
 {
     IoContext ioctx;
     Session s1{ioctx};
@@ -127,10 +129,10 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router][thisone]" )
 
         while (joinedInfo.sessionId == 0)
             suspendCoro(yield);
-        CHECK(joinedInfo.authid       == welcome.authId());
-        CHECK(joinedInfo.authmethod   == welcome.authMethod());
-        CHECK(joinedInfo.authprovider == welcome.authProvider());
-        CHECK(joinedInfo.authrole     == welcome.authRole());
+        CHECK(joinedInfo.authId       == welcome.authId());
+        CHECK(joinedInfo.authMethod   == welcome.authMethod());
+        CHECK(joinedInfo.authProvider == welcome.authProvider());
+        CHECK(joinedInfo.authRole     == welcome.authRole());
         CHECK(joinedInfo.sessionId    == welcome.sessionId());
 
         s2.leave(yield).value();
@@ -144,6 +146,247 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router][thisone]" )
         {
             CHECK(leftInfo.authid == welcome.authId());
             CHECK(leftInfo.authrole == welcome.authRole());
+        }
+
+        s2.disconnect();
+        s1.disconnect();
+    });
+
+    ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
+{
+    using SessionIdList = std::vector<SessionId>;
+
+    IoContext ioctx;
+    Session s1{ioctx};
+    Session s2{ioctx};
+
+    s1.observeIncidents(
+        [](Incident i) {std::cout << i.toLogEntry() << std::endl;});
+    s1.enableTracing();
+
+    std::vector<Incident> incidents;
+    s2.observeIncidents([&incidents](Incident i) {incidents.push_back(i);});
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        s1.connect(withTcp, yield).value();
+        auto w1 = s1.join(Petition(testRealm), yield).value();
+        s2.connect(withTcp, yield).value();
+        auto w2 = s2.join(Petition(testRealm), yield).value();
+        std::vector<String> inclusiveAuthRoleList{{"anonymous"}};
+        std::vector<String> exclusiveAuthRoleList{{"exclusive"}};
+
+        {
+            INFO("wamp.session.count");
+            Rpc rpc{"wamp.session.count"};
+
+            auto count = s1.call(rpc, yield).value();
+            REQUIRE(count.args().size() == 1);
+            CHECK(count.args().front().to<int>() == 2);
+
+            count = s1.call(rpc.withArgs(inclusiveAuthRoleList), yield).value();
+            REQUIRE(count.args().size() == 1);
+            CHECK(count.args().front().to<int>() == 2);
+
+            count = s1.call(rpc.withArgs(exclusiveAuthRoleList), yield).value();
+            REQUIRE(count.args().size() == 1);
+            CHECK(count.args().front().to<int>() == 0);
+        }
+
+        {
+            INFO("wamp.session.list");
+            Rpc rpc{"wamp.session.list"};
+            SessionIdList list;
+            SessionIdList allSessionIds{w1.sessionId(), w2.sessionId()};
+            SessionIdList noSessionIds{};
+
+            auto result = s1.call(rpc, yield).value();
+            REQUIRE(result.args().size() == 1);
+            result.convertTo(list);
+            CHECK_THAT(list, Matchers::Contains(allSessionIds));
+
+            result = s1.call(rpc.withArgs(inclusiveAuthRoleList), yield).value();
+            REQUIRE(result.args().size() == 1);
+            result.convertTo(list);
+            CHECK_THAT(list, Matchers::Contains(allSessionIds));
+
+            result = s1.call(rpc.withArgs(exclusiveAuthRoleList), yield).value();
+            REQUIRE(result.args().size() == 1);
+            result.convertTo(list);
+            CHECK_THAT(list, Matchers::Contains(noSessionIds));
+        }
+
+        {
+            INFO("wamp.session.get");
+            Rpc rpc{"wamp.session.get"};
+            SessionJoinInfo info;
+
+            auto result = s1.call(rpc.withArgs(w2.sessionId()), yield).value();
+            REQUIRE(result.args().size() == 1);
+            result.convertTo(info);
+            CHECK(info.authId == w2.authId());
+            CHECK(info.authMethod == w2.authMethod());
+            CHECK(info.authProvider == w2.authProvider());
+            CHECK(info.authRole == w2.authRole());
+            CHECK(info.sessionId == w2.sessionId());
+
+            auto resultOrError = s1.call(rpc.withArgs(0), yield);
+            REQUIRE_FALSE(resultOrError.has_value());
+            CHECK(resultOrError.error() == WampErrc::noSuchSession);
+        }
+
+        {
+            INFO("wamp.session.kill");
+            Rpc rpc{"wamp.session.kill"};
+            incidents.clear();
+
+            auto errc = WampErrc::invalidArgument;
+            auto reasonUri = errorCodeToUri(errc);
+            s1.call(rpc.withArgs(w2.sessionId())
+                        .withKwargs({{"reason", reasonUri},
+                                     {"message", "because"}}),
+                    yield).value();
+
+            while (incidents.empty() || s2.state() == SessionState::established)
+                suspendCoro(yield);
+
+            CHECK((s2.state() == SessionState::closed ||
+                   s2.state() == SessionState::failed));
+            const auto& i = incidents.front();
+            CHECK((i.kind() == IncidentKind::closedByPeer ||
+                   i.kind() == IncidentKind::abortedByPeer));
+            CHECK(i.error() == errc );
+            bool messageFound = i.message().find("because") !=
+                                std::string::npos;
+            CHECK(messageFound);
+
+            auto resultOrError = s1.call(rpc.withArgs(0), yield);
+            REQUIRE_FALSE(resultOrError.has_value());
+            CHECK(resultOrError.error() == WampErrc::noSuchSession);
+
+            s2.disconnect();
+            s2.connect(withTcp, yield).value();
+            w2 = s2.join(Petition(testRealm), yield).value();
+        }
+
+        {
+            INFO("wamp.session.kill_by_authid");
+            Rpc rpc{"wamp.session.kill_by_authid"};
+            SessionIdList list;
+            auto errc = WampErrc::invalidArgument;
+            auto reasonUri = errorCodeToUri(errc);
+            incidents.clear();
+
+            auto result = s1.call(rpc.withArgs("bogus"), yield).value();
+            result.convertTo(list);
+            CHECK(list.empty());
+
+            result = s1.call(rpc.withArgs(w2.authId().value())
+                                .withKwargs({{"reason", reasonUri},
+                                             {"message", "because"}}),
+                                  yield).value();
+            result.convertTo(list);
+            CHECK_THAT(list, Matchers::Contains(SessionIdList{w2.sessionId()}));
+
+            while (incidents.empty() || s2.state() == SessionState::established)
+                suspendCoro(yield);
+
+            CHECK((s2.state() == SessionState::closed ||
+                   s2.state() == SessionState::failed));
+            const auto& i = incidents.front();
+            CHECK((i.kind() == IncidentKind::closedByPeer ||
+                   i.kind() == IncidentKind::abortedByPeer));
+            CHECK(i.error() == errc );
+            bool messageFound = i.message().find("because") !=
+                                std::string::npos;
+            CHECK(messageFound);
+
+            s2.disconnect();
+            s2.connect(withTcp, yield).value();
+            w2 = s2.join(Petition(testRealm), yield).value();
+        }
+
+        {
+            INFO("wamp.session.kill_by_authrole");
+            Rpc rpc{"wamp.session.kill_by_authrole"};
+            SessionIdList list;
+            auto errc = WampErrc::invalidArgument;
+            auto reasonUri = errorCodeToUri(errc);
+            incidents.clear();
+
+            auto result = s1.call(rpc.withArgs("bogus"), yield).value();
+            result.convertTo(list);
+            CHECK(list.empty());
+
+            // Crossbar does not exclude the caller, as the spec requires
+            // https://github.com/crossbario/crossbar/issues/2082
+            if (test::RouterFixture::enabled())
+            {
+                result = s1.call(rpc.withArgs(w2.authRole().value())
+                                    .withKwargs({{"reason", reasonUri},
+                                                 {"message", "because"}}),
+                                 yield).value();
+                result.convertTo(list);
+                CHECK_THAT(list,
+                           Matchers::Contains(SessionIdList{w2.sessionId()}));
+
+                while (incidents.empty() ||
+                       s2.state() == SessionState::established)
+                {
+                    suspendCoro(yield);
+                }
+
+                CHECK(s1.state() == SessionState::established);
+                CHECK((s2.state() == SessionState::closed ||
+                       s2.state() == SessionState::failed));
+                const auto& i = incidents.front();
+                CHECK((i.kind() == IncidentKind::closedByPeer ||
+                       i.kind() == IncidentKind::abortedByPeer));
+                CHECK(i.error() == errc );
+                bool messageFound = i.message().find("because") !=
+                                    std::string::npos;
+                CHECK(messageFound);
+
+                s2.disconnect();
+                s2.connect(withTcp, yield).value();
+                w2 = s2.join(Petition(testRealm), yield).value();
+            }
+        }
+
+        // Crossbar does not currently implement wamp.session.kill_all
+        // https://github.com/crossbario/crossbar/issues/1602
+        if (test::RouterFixture::enabled())
+        {
+            INFO("wamp.session.kill_all");
+            Rpc rpc{"wamp.session.kill_all"};
+            int count = 0;
+            auto errc = WampErrc::invalidArgument;
+            auto reasonUri = errorCodeToUri(errc);
+            incidents.clear();
+
+            auto result = s1.call(rpc.withKwargs({{"reason", reasonUri},
+                                                  {"message", "because"}}),
+                                  yield).value();
+            result.convertTo(count);
+            CHECK(count == 1);
+
+            while (incidents.empty() || s2.state() == SessionState::established)
+                suspendCoro(yield);
+
+            CHECK(s1.state() == SessionState::established);
+            CHECK((s2.state() == SessionState::closed ||
+                   s2.state() == SessionState::failed));
+            const auto& i = incidents.front();
+            CHECK((i.kind() == IncidentKind::closedByPeer ||
+                   i.kind() == IncidentKind::abortedByPeer));
+            CHECK(i.error() == errc );
+            bool messageFound = i.message().find("because") !=
+                                std::string::npos;
+            CHECK(messageFound);
         }
 
         s2.disconnect();
@@ -240,7 +483,7 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WAMP subscription meta events", "[WAMP][Router][thisone]" )
+TEST_CASE( "WAMP subscription meta events", "[WAMP][Router]" )
 {
     IoContext ioctx;
     Session s1{ioctx};

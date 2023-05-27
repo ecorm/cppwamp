@@ -41,10 +41,10 @@ struct CPPWAMP_API SessionJoinInfo
     SessionJoinInfo();
 
     Object transport; // TODO
-    String authid;
-    String authmethod;
-    String authprovider;
-    String authrole;
+    String authId;
+    String authMethod;
+    String authProvider;
+    String authRole;
     SessionId sessionId = 0;
 };
 
