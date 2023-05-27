@@ -154,25 +154,24 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router][thisone]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "WAMP registration meta events", "[WAMP][Router][thisone]" )
+TEST_CASE( "WAMP registration meta events", "[WAMP][Router]" )
 {
     IoContext ioctx;
     Session s1{ioctx};
     Session s2{ioctx};
 
-    SessionId registrationCreatedSessionId = 0;
-    RegistrationInfo registrationInfo;
+    SessionId regCreatedSessionId = 0;
+    RegistrationInfo regInfo;
     SessionId registeredSessionId = 0;
     RegistrationId registrationId = 0;
     SessionId unregisteredSessionId = 0;
-    RegistrationId unregisteredRegistrationId = 0;
-    SessionId registrationDeletedSessionId = 0;
-    RegistrationId registrationDeletatedRegistrationId = 0;
+    RegistrationId unregisteredRegId = 0;
+    SessionId regDeletedSessionId = 0;
+    RegistrationId deletedRegistrationId = 0;
 
     auto onRegistrationCreated = [&](Event event)
     {
-        event.convertTo(registrationCreatedSessionId,
-                        registrationInfo);
+        event.convertTo(regCreatedSessionId, regInfo);
     };
 
     auto onRegister = [&](Event event)
@@ -182,13 +181,12 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router][thisone]" )
 
     auto onUnregister = [&](Event event)
     {
-        event.convertTo(unregisteredSessionId, unregisteredRegistrationId);
+        event.convertTo(unregisteredSessionId, unregisteredRegId);
     };
 
     auto onRegistrationDeleted = [&](Event event)
     {
-        event.convertTo(registrationDeletedSessionId,
-                        registrationDeletatedRegistrationId);
+        event.convertTo(regDeletedSessionId, deletedRegistrationId);
     };
 
     auto rpc = [](Invocation) -> Outcome {return {};};
@@ -214,34 +212,163 @@ TEST_CASE( "WAMP registration meta events", "[WAMP][Router][thisone]" )
         s2.connect(withTcp, yield).value();
         auto welcome = s2.join(Petition(testRealm), yield).value();
         auto reg = s2.enroll(Procedure{"rpc"}, rpc, yield).value();
-
-        while (registrationInfo.id == 0 || registrationId == 0)
+        while (regInfo.id == 0 || registrationId == 0)
             suspendCoro(yield);
-
-        CHECK(registrationCreatedSessionId == welcome.sessionId());
-        CHECK(registrationInfo.uri == "rpc");
-        CHECK(registrationInfo.created > before);
-        CHECK(registrationInfo.created < after);
-        CHECK(registrationInfo.id == reg.id());
-        CHECK(registrationInfo.matchPolicy == MatchPolicy::exact);
-        CHECK(registrationInfo.invocationPolicy == InvocationPolicy::single);
-
+        CHECK(regCreatedSessionId == welcome.sessionId());
+        CHECK(regInfo.uri == "rpc");
+        CHECK(regInfo.created > before);
+        CHECK(regInfo.created < after);
+        CHECK(regInfo.id == reg.id());
+        CHECK(regInfo.matchPolicy == MatchPolicy::exact);
+        CHECK(regInfo.invocationPolicy == InvocationPolicy::single);
         CHECK(registeredSessionId == welcome.sessionId());
         CHECK(registrationId == reg.id());
 
         reg.unregister();
-
-        while (unregisteredRegistrationId == 0 ||
-               registrationDeletatedRegistrationId == 0)
-        {
+        while (unregisteredRegId == 0 || deletedRegistrationId == 0)
             suspendCoro(yield);
-        }
-
         CHECK(unregisteredSessionId == welcome.sessionId());
-        CHECK(unregisteredRegistrationId == reg.id());
-        CHECK(registrationDeletedSessionId == welcome.sessionId());
-        CHECK(registrationDeletatedRegistrationId == reg.id());
+        CHECK(unregisteredRegId == reg.id());
+        CHECK(regDeletedSessionId == welcome.sessionId());
+        CHECK(deletedRegistrationId == reg.id());
 
+        s2.disconnect();
+        s1.disconnect();
+    });
+
+    ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "WAMP subscription meta events", "[WAMP][Router][thisone]" )
+{
+    IoContext ioctx;
+    Session s1{ioctx};
+    Session s2{ioctx};
+    Session s3{ioctx};
+    Session s4{ioctx};
+
+    SessionId subCreatedSessionId = 0;
+    SubscriptionInfo subInfo;
+    SessionId subscribedSessionId = 0;
+    RegistrationId subscriptionId = 0;
+    SessionId unsubscribedSessionId = 0;
+    RegistrationId unsubscribedSubId = 0;
+    SessionId deletedSessionId = 0;
+    RegistrationId deletedSubId = 0;
+
+    auto onSubscriptionCreated = [&](Event event)
+    {
+        event.convertTo(subCreatedSessionId, subInfo);
+    };
+
+    auto onSubscribe = [&](Event event)
+    {
+        event.convertTo(subscribedSessionId, subscriptionId);
+    };
+
+    auto onUnsubscribe = [&](Event event)
+    {
+        event.convertTo(unsubscribedSessionId, unsubscribedSubId);
+    };
+
+    auto onSubDeleted = [&](Event event)
+    {
+        event.convertTo(deletedSessionId, deletedSubId);
+    };
+
+    spawn(ioctx, [&](YieldContext yield)
+    {
+        namespace chrono = std::chrono;
+        auto now = chrono::system_clock::now();
+        auto before = now - chrono::seconds(60);
+        auto after = now + chrono::seconds(60);
+        s1.connect(withTcp, yield).value();
+        s1.join(Petition(testRealm), yield).value();
+        s1.subscribe(Topic{"wamp.subscription.on_create"},
+                     onSubscriptionCreated, yield).value();
+        s1.subscribe(Topic{"wamp.subscription.on_subscribe"}, onSubscribe,
+                     yield).value();
+        s1.subscribe(Topic{"wamp.subscription.on_unsubscribe"}, onUnsubscribe,
+                     yield).value();
+        s1.subscribe(Topic{"wamp.subscription.on_delete"},
+                     onSubDeleted, yield).value();
+
+        s2.connect(withTcp, yield).value();
+        auto welcome2 = s2.join(Petition(testRealm), yield).value();
+        auto sub2 = s2.subscribe(Topic{"exact"}, [](Event) {}, yield).value();
+
+        while (subInfo.id == 0 || subscriptionId == 0)
+            suspendCoro(yield);
+        CHECK(subCreatedSessionId == welcome2.sessionId());
+        CHECK(subInfo.uri == "exact");
+        CHECK(subInfo.created > before);
+        CHECK(subInfo.created < after);
+        CHECK(subInfo.id == sub2.id());
+        CHECK(subInfo.matchPolicy == MatchPolicy::exact);
+        CHECK(subscribedSessionId == welcome2.sessionId());
+        CHECK(subscriptionId == sub2.id());
+
+        subInfo.id = 0;
+        subscriptionId = 0;
+        s3.connect(withTcp, yield).value();
+        auto welcome3 = s3.join(Petition(testRealm), yield).value();
+        auto sub3 = s3.subscribe(
+            Topic{"prefix"}.withMatchPolicy(MatchPolicy::prefix),
+            [](Event) {},
+            yield).value();
+
+        while (subInfo.id == 0 || subscriptionId == 0)
+            suspendCoro(yield);
+        CHECK(subCreatedSessionId == welcome3.sessionId());
+        CHECK(subInfo.created > before);
+        CHECK(subInfo.created < after);
+        CHECK(subInfo.uri == "prefix");
+        CHECK(subInfo.id == sub3.id());
+        CHECK(subInfo.matchPolicy == MatchPolicy::prefix);
+        CHECK(subscribedSessionId == welcome3.sessionId());
+        CHECK(subscriptionId == sub3.id());
+
+        subscriptionId = 0;
+        s4.connect(withTcp, yield).value();
+        auto welcome4 = s4.join(Petition(testRealm), yield).value();
+        auto sub4 = s4.subscribe(
+            Topic{"prefix"}.withMatchPolicy(MatchPolicy::prefix),
+            [](Event) {},
+            yield).value();
+
+        while (subscriptionId == 0) suspendCoro(yield);
+        CHECK(subscribedSessionId == welcome4.sessionId());
+        CHECK(subscriptionId == sub4.id());
+
+        sub3.unsubscribe();
+        while (unsubscribedSubId == 0) {suspendCoro(yield);}
+        CHECK(unsubscribedSessionId == welcome3.sessionId());
+        CHECK(unsubscribedSubId == sub3.id());
+        CHECK(deletedSessionId == 0);
+        CHECK(deletedSubId == 0);
+
+        unsubscribedSubId = 0;
+        sub4.unsubscribe();
+        while (unsubscribedSubId == 0 || deletedSubId == 0)
+            suspendCoro(yield);
+        CHECK(unsubscribedSessionId == welcome4.sessionId());
+        CHECK(unsubscribedSubId == sub4.id());
+        CHECK(deletedSessionId == welcome4.sessionId());
+        CHECK(deletedSubId == sub4.id());
+
+        unsubscribedSubId = 0;
+        deletedSubId = 0;
+        sub2.unsubscribe();
+        while (unsubscribedSubId == 0 || deletedSubId == 0)
+            suspendCoro(yield);
+        CHECK(unsubscribedSessionId == welcome2.sessionId());
+        CHECK(unsubscribedSubId == sub2.id());
+        CHECK(deletedSessionId == welcome2.sessionId());
+        CHECK(deletedSubId == sub2.id());
+
+        s4.disconnect();
+        s3.disconnect();
         s2.disconnect();
         s1.disconnect();
     });
