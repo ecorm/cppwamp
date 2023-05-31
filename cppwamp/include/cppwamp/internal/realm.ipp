@@ -25,9 +25,9 @@ CPPWAMP_INLINE const Uri& Realm::uri() const {return impl_->uri();}
 
 CPPWAMP_INLINE bool Realm::isOpen() const {return impl_->isOpen();}
 
-CPPWAMP_INLINE void Realm::observe(RealmObserver::Ptr o)
+CPPWAMP_INLINE void Realm::observe(RealmObserver::Ptr o, ObserverExecutor e)
 {
-    impl_->observe(std::move(o));
+    impl_->observe(std::move(o), std::move(e));
 }
 
 CPPWAMP_INLINE void Realm::unobserve() {impl_->unobserve();}

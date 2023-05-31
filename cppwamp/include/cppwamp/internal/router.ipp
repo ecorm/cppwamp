@@ -16,14 +16,10 @@ namespace wamp
 // Router
 //******************************************************************************
 
-CPPWAMP_INLINE Reason Router::closeRealmReason()
+CPPWAMP_INLINE const Reason& Router::shutdownReason()
 {
-    return {"wamp.close.close_realm"};
-}
-
-CPPWAMP_INLINE Reason Router::shutdownReason()
-{
-    return {"wamp.close.system_shutdown"};
+    static const Reason reason{WampErrc::systemShutdown};
+    return reason;
 }
 
 CPPWAMP_INLINE Router::Router(Executor exec, RouterConfig config)
@@ -47,7 +43,7 @@ CPPWAMP_INLINE ErrorOr<Realm> Router::realmAt(const Uri& uri) const
 {
     auto realmImpl = impl_->realmAt(uri);
     if (!realmImpl)
-        return makeUnexpectedError(MiscErrc::alreadyExists);
+        return makeUnexpectedError(WampErrc::noSuchRealm);
     return Realm{std::move(realmImpl)};
 }
 
@@ -62,6 +58,18 @@ CPPWAMP_INLINE void Router::closeServer(const std::string& name, Reason r)
 }
 
 CPPWAMP_INLINE void Router::close(Reason r) {impl_->close(std::move(r));}
+
+CPPWAMP_INLINE LogLevel Router::logLevel() const {return impl_->logLevel();}
+
+CPPWAMP_INLINE void Router::setLogLevel(LogLevel level)
+{
+    impl_->setLogLevel(level);
+}
+
+CPPWAMP_INLINE const Router::Executor& Router::executor()
+{
+    return impl_->executor();
+}
 
 CPPWAMP_INLINE std::shared_ptr<internal::RouterImpl>
 Router::impl(internal::PassKey)

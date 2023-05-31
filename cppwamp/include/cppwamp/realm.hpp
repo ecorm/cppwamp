@@ -47,6 +47,7 @@ private:
 
 public:
     using Executor            = AnyIoExecutor;
+    using ObserverExecutor    = AnyCompletionExecutor;
     using SessionIdList       = std::vector<SessionId>;
     using SubscriptionIdList  = std::vector<SubscriptionId>;
     using SessionHandler      = std::function<void (SessionDetails)>;
@@ -81,7 +82,7 @@ public:
 
     bool isOpen() const;
 
-    void observe(RealmObserver::Ptr o);
+    void observe(RealmObserver::Ptr o, ObserverExecutor e = nullptr);
 
     void unobserve();
 

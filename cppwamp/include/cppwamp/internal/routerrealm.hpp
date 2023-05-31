@@ -39,6 +39,7 @@ public:
     using Ptr                 = std::shared_ptr<RouterRealm>;
     using WeakPtr             = std::weak_ptr<RouterRealm>;
     using Executor            = AnyIoExecutor;
+    using ObserverExecutor    = AnyCompletionExecutor;
     using SessionHandler      = std::function<void (SessionDetails)>;
     using SessionFilter       = std::function<bool (SessionDetails)>;
     using RegistrationHandler = std::function<void (RegistrationDetails)>;
@@ -113,23 +114,26 @@ public:
         safelyDispatch<Dispatched>(std::move(r));
     }
 
-    void observe(RealmObserver::Ptr o)
+    void observe(RealmObserver::Ptr o, ObserverExecutor e)
     {
         struct Dispatched
         {
             Ptr self;
             RealmObserver::Ptr o;
+            ObserverExecutor e;
             void operator()()
             {
                 auto& me = *self;
                 if (me.config_.metaApiEnabled())
-                    me.metaTopics_->setObserver(std::move(o));
+                    me.metaTopics_->setObserver(std::move(o), std::move(e));
                 else
                     me.observer_ = std::move(o);
             }
         };
 
-        safelyDispatch<Dispatched>(std::move(o));
+        if (e == nullptr)
+            e = executor_;
+        safelyDispatch<Dispatched>(std::move(o), std::move(e));
     }
 
     void unobserve()
@@ -141,7 +145,7 @@ public:
             {
                 auto& me = *self;
                 if (me.config_.metaApiEnabled())
-                    me.metaTopics_->setObserver(nullptr);
+                    me.metaTopics_->setObserver(nullptr, nullptr);
                 else
                     me.observer_ = {};
             }
@@ -478,7 +482,7 @@ private:
         if (config_.metaApiEnabled())
         {
             metaProcedures_.reset(new RealmProcedures(this));
-            metaTopics_ = std::make_shared<RealmTopics>(this);
+            metaTopics_ = std::make_shared<RealmTopics>(this, executor_);
             observer_ = metaTopics_;
         }
     }

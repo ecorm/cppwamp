@@ -45,12 +45,8 @@ public:
     /** Type-erased wrapper around a log event handler. */
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
 
-    static Reason closeRealmReason();
+    static const Reason& shutdownReason();
 
-    static Reason shutdownReason();
-
-    /// @name Construction
-    /// @{
     /** Constructor taking an executor. */
     explicit Router(Executor exec, RouterConfig config = {});
 
@@ -59,7 +55,6 @@ public:
     explicit Router(E& context, RouterConfig config = {})
         : Router(context.get_executor(), std::move(config))
     {}
-    /// @}
 
     /// @name Move-only
     /// @{
@@ -69,11 +64,9 @@ public:
     Router& operator=(Router&&) = default;
     /// @}
 
-    /// @name Operations
-    /// @{
     ErrorOr<Realm> openRealm(RealmConfig config);
 
-    bool closeRealm(const Uri uri, Reason r = closeRealmReason());
+    bool closeRealm(const Uri uri, Reason r = shutdownReason());
 
     ErrorOr<Realm> realmAt(const Uri& uri) const;
 
@@ -82,7 +75,12 @@ public:
     void closeServer(const std::string& name, Reason r = shutdownReason());
 
     void close(Reason r = shutdownReason());
-    /// @}
+
+    LogLevel logLevel() const;
+
+    void setLogLevel(LogLevel level);
+
+    const Executor& executor();
 
 private:
     std::shared_ptr<internal::RouterImpl> impl_;

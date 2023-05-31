@@ -15,21 +15,21 @@ namespace wamp
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE SessionDetails::SessionDetails() {}
 
-CPPWAMP_INLINE SessionDetails::SessionDetails(ClientFeatures f, AuthInfo::Ptr a)
+CPPWAMP_INLINE SessionDetails::SessionDetails(ClientFeatures f, AuthInfo a)
     : features(f),
       authInfo(std::move(a))
 {}
 
 CPPWAMP_INLINE Object toObject(const SessionDetails& details)
 {
-    const auto& authInfo = *(details.authInfo);
+    const auto& info = details.authInfo;
     return Object
     {
-        {"authid",       authInfo.id()},
-        {"authmethod",   authInfo.method()},
-        {"authprovider", authInfo.provider()},
-        {"authrole",     authInfo.role()},
-        {"session",      authInfo.sessionId()}
+        {"authid",       info.id()},
+        {"authmethod",   info.method()},
+        {"authprovider", info.provider()},
+        {"authrole",     info.role()},
+        {"session",      info.sessionId()}
         // TODO: transport
     };
 }
@@ -217,22 +217,22 @@ CPPWAMP_INLINE Object toObject(const SubscriptionLists& lists)
 //------------------------------------------------------------------------------
 CPPWAMP_INLINE RealmObserver::~RealmObserver() {}
 
-CPPWAMP_INLINE void RealmObserver::onRealmClosed(const Uri&) {}
+CPPWAMP_INLINE void RealmObserver::onRealmClosed(Uri) {}
 
-CPPWAMP_INLINE void RealmObserver::onJoin(const SessionDetails&) {}
+CPPWAMP_INLINE void RealmObserver::onJoin(SessionDetails) {}
 
-CPPWAMP_INLINE void RealmObserver::onLeave(const SessionDetails&) {}
+CPPWAMP_INLINE void RealmObserver::onLeave(SessionDetails) {}
 
-CPPWAMP_INLINE void RealmObserver::onRegister(const SessionDetails&,
-                                              const RegistrationDetails&) {}
+CPPWAMP_INLINE void RealmObserver::onRegister(SessionDetails,
+                                              RegistrationDetails) {}
 
-CPPWAMP_INLINE void RealmObserver::onUnregister(const SessionDetails&,
-                                                const RegistrationDetails&) {}
+CPPWAMP_INLINE void RealmObserver::onUnregister(SessionDetails,
+                                                RegistrationDetails) {}
 
-CPPWAMP_INLINE void RealmObserver::onSubscribe(const SessionDetails&,
-                                               const SubscriptionDetails&) {}
+CPPWAMP_INLINE void RealmObserver::onSubscribe(SessionDetails,
+                                               SubscriptionDetails) {}
 
-CPPWAMP_INLINE void RealmObserver::onUnsubscribe(const SessionDetails&,
-                                                 const SubscriptionDetails&) {}
+CPPWAMP_INLINE void RealmObserver::onUnsubscribe(SessionDetails,
+                                                 SubscriptionDetails) {}
 
 } // namespace wamp

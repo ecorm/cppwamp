@@ -26,10 +26,10 @@ struct CPPWAMP_API SessionDetails
 {
     SessionDetails();
 
-    SessionDetails(ClientFeatures f, AuthInfo::Ptr a);
+    SessionDetails(ClientFeatures f, AuthInfo a);
 
     ClientFeatures features;
-    AuthInfo::Ptr authInfo;
+    AuthInfo authInfo;
 };
 
 CPPWAMP_API Object toObject(const SessionDetails& details);
@@ -177,23 +177,19 @@ public:
 
     virtual ~RealmObserver();
 
-    virtual void onRealmClosed(const Uri&);
+    virtual void onRealmClosed(Uri);
 
-    virtual void onJoin(const SessionDetails&);
+    virtual void onJoin(SessionDetails);
 
-    virtual void onLeave(const SessionDetails&);
+    virtual void onLeave(SessionDetails);
 
-    virtual void onRegister(const SessionDetails&,
-                            const RegistrationDetails&);
+    virtual void onRegister(SessionDetails, RegistrationDetails);
 
-    virtual void onUnregister(const SessionDetails&,
-                              const RegistrationDetails&);
+    virtual void onUnregister(SessionDetails, RegistrationDetails);
 
-    virtual void onSubscribe(const SessionDetails&,
-                             const SubscriptionDetails&);
+    virtual void onSubscribe(SessionDetails, SubscriptionDetails);
 
-    virtual void onUnsubscribe(const SessionDetails&,
-                               const SubscriptionDetails&);
+    virtual void onUnsubscribe(SessionDetails, SubscriptionDetails);
 };
 
 } // namespace wamp

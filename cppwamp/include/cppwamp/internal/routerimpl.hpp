@@ -186,6 +186,12 @@ public:
             kv.second->close(r);
     }
 
+    LogLevel logLevel() const {return logger_->level();}
+
+    void setLogLevel(LogLevel level) {logger_->setLevel(level);}
+
+    const Executor& executor() const {return executor_;}
+
 private:
     using MutexGuard = std::lock_guard<std::mutex>;
     using ServerMap = std::map<std::string, RouterServer::Ptr>;

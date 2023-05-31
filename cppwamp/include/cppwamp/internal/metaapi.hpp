@@ -12,8 +12,10 @@
 #include <set>
 #include <sstream>
 #include <utility>
+#include "../anyhandler.hpp"
 #include "../realmobserver.hpp"
 #include "../rpcinfo.hpp"
+#include "cppwamp/asiodefs.hpp"
 #include "matchpolicyoption.hpp"
 #include "routersession.hpp"
 
@@ -177,7 +179,7 @@ private:
         auto filter =
             [&authRoles](SessionDetails session) -> bool
             {
-                const auto& role = session.authInfo->role();
+                const auto& role = session.authInfo.role();
                 return authRoles.count(role) != 0;
             };
         return Result{context_.sessionCount(filter)};
@@ -192,7 +194,7 @@ private:
         auto filter =
             [&authRoles](SessionDetails session) -> bool
             {
-                const auto& role = session.authInfo->role();
+                const auto& role = session.authInfo.role();
                 return authRoles.count(role) != 0;
             };
 
@@ -239,8 +241,8 @@ private:
             rpc,
             [&authId, ownId](SessionDetails s) -> bool
             {
-                auto sid = s.authInfo->sessionId();
-                return (sid != ownId) && (s.authInfo->id() == authId);
+                auto sid = s.authInfo.sessionId();
+                return (sid != ownId) && (s.authInfo.id() == authId);
             });
         return Result{std::move(killed)};
     }
@@ -254,8 +256,8 @@ private:
             rpc,
             [&authRole, ownId](SessionDetails s) -> bool
             {
-                auto sid = s.authInfo->sessionId();
-                return (sid != ownId) && (s.authInfo->role() == authRole);
+                auto sid = s.authInfo.sessionId();
+                return (sid != ownId) && (s.authInfo.role() == authRole);
             });
         return Result{killed.size()};
     }
@@ -267,7 +269,7 @@ private:
             rpc,
             [ownId](SessionDetails s) -> bool
             {
-                return s.authInfo->sessionId() != ownId;
+                return s.authInfo.sessionId() != ownId;
             });
         return Result{killed.size()};
     }
@@ -391,43 +393,79 @@ class MetaTopics : public RealmObserver
 {
 public:
     using Context = TContext;
+    using Executor = AnyIoExecutor;
+    using ObserverExecutor = AnyCompletionExecutor;
 
-    MetaTopics(Context* realm) : context_(*realm) {}
+    MetaTopics(Context* realm, Executor executor)
+        : executor_(executor),
+          context_(*realm) {}
 
-    void setObserver(RealmObserver::Ptr o) {observer_ = std::move(o);}
-
-    virtual void onRealmClosed(const Uri& uri)
+    void setObserver(RealmObserver::Ptr o, ObserverExecutor e)
     {
-        if (observer_)
-            observer_->onRealmClosed(uri);
+        observer_ = std::move(o);
+        observerExecutor_ = std::move(e);
     }
 
-    virtual void onJoin(const SessionDetails& s)
+    void onRealmClosed(Uri uri) override
     {
+        struct Posted
+        {
+            RealmObserver::Ptr o;
+            Uri uri;
+            void operator()() {o->onRealmClosed(uri);}
+        };
+
+        if (observer_)
+            postToObserver<Posted>(std::move(uri));
+    }
+
+    void onJoin(SessionDetails s) override
+    {
+        struct Posted
+        {
+            RealmObserver::Ptr o;
+            SessionDetails s;
+            void operator()() {o->onJoin(std::move(s));}
+        };
+
         publish(Pub{"wamp.session.on_join"}.withArgs(toObject(s)));
 
         if (observer_)
-            observer_->onJoin(s);
+            postToObserver<Posted>(std::move(s));
     }
 
-    virtual void onLeave(const SessionDetails& s)
+    void onLeave(SessionDetails s) override
     {
+        struct Posted
+        {
+            RealmObserver::Ptr o;
+            SessionDetails s;
+            void operator()() {o->onLeave(std::move(s));}
+        };
+
         Object details
         {
-            {"authid", s.authInfo->id()},
-            {"authrole", s.authInfo->role()},
-            {"session", s.authInfo->sessionId()}
+            {"authid", s.authInfo.id()},
+            {"authrole", s.authInfo.role()},
+            {"session", s.authInfo.sessionId()}
         };
         publish(Pub{"wamp.session.on_leave"}.withArgs(std::move(details)));
 
         if (observer_)
-            observer_->onLeave(s);
+            postToObserver<Posted>(std::move(s));
     }
 
-    virtual void onRegister(const SessionDetails& s,
-                            const RegistrationDetails& r)
+    void onRegister(SessionDetails s, RegistrationDetails r) override
     {
-        auto sid = s.authInfo->sessionId();
+        struct Posted
+        {
+            RealmObserver::Ptr o;
+            SessionDetails s;
+            RegistrationDetails r;
+            void operator()() {o->onRegister(std::move(s), std::move(r));}
+        };
+
+        auto sid = s.authInfo.sessionId();
 
         if (r.callees.size() == 1)
         {
@@ -439,13 +477,20 @@ public:
                     .withArgs(sid, toObject(r)));
 
         if (observer_)
-            observer_->onRegister(s, r);
+            postToObserver<Posted>(std::move(s), std::move(r));
     }
 
-    virtual void onUnregister(const SessionDetails& s,
-                              const RegistrationDetails& r)
+    void onUnregister(SessionDetails s, RegistrationDetails r) override
     {
-        auto sid = s.authInfo->sessionId();
+        struct Posted
+        {
+            RealmObserver::Ptr o;
+            SessionDetails s;
+            RegistrationDetails r;
+            void operator()() {o->onUnregister(std::move(s), std::move(r));}
+        };
+
+        auto sid = s.authInfo.sessionId();
         publish(Pub{"wamp.registration.on_unregister"}
                     .withArgs(sid, r.info.id));
 
@@ -456,13 +501,20 @@ public:
         }
 
         if (observer_)
-            observer_->onUnregister(s, r);
+            postToObserver<Posted>(std::move(s), std::move(r));
     }
 
-    virtual void onSubscribe(const SessionDetails& s,
-                             const SubscriptionDetails& sub)
+    void onSubscribe(SessionDetails s, SubscriptionDetails sub) override
     {
-        auto sid = s.authInfo->sessionId();
+        struct Posted
+        {
+            RealmObserver::Ptr o;
+            SessionDetails s;
+            SubscriptionDetails sub;
+            void operator()() {o->onSubscribe(std::move(s), std::move(sub));}
+        };
+
+        auto sid = s.authInfo.sessionId();
 
         if (sub.subscribers.size() == 1)
         {
@@ -474,13 +526,20 @@ public:
                     .withArgs(sid, toObject(sub)));
 
         if (observer_)
-            observer_->onSubscribe(s, sub);
+            postToObserver<Posted>(std::move(s), std::move(sub));
     }
 
-    virtual void onUnsubscribe(const SessionDetails& s,
-                               const SubscriptionDetails& sub)
+    void onUnsubscribe(SessionDetails s, SubscriptionDetails sub) override
     {
-        auto sid = s.authInfo->sessionId();
+        struct Posted
+        {
+            RealmObserver::Ptr o;
+            SessionDetails s;
+            SubscriptionDetails sub;
+            void operator()() {o->onUnsubscribe(std::move(s), std::move(sub));}
+        };
+
+        auto sid = s.authInfo.sessionId();
         publish(Pub{"wamp.subscription.on_unsubscribe"}
                     .withArgs(sid, sub.info.id));
 
@@ -491,12 +550,30 @@ public:
         }
 
         if (observer_)
-            observer_->onUnsubscribe(s, sub);
+            postToObserver<Posted>(std::move(s), std::move(sub));
     }
 
 private:
     void publish(Pub& pub) {context_.publishMetaEvent(std::move(pub));}
 
+    template <typename TPosted, typename... Ts>
+    void postToObserver(Ts&&... args)
+    {
+        TPosted posted{observer_, std::forward<Ts>(args)...};
+
+        if (observerExecutor_)
+        {
+            boost::asio::post(executor_, bind_executor(observerExecutor_,
+                                                       std::move(posted)));
+        }
+        else
+        {
+            boost::asio::post(executor_, std::move(posted));
+        }
+    }
+
+    Executor executor_;
+    ObserverExecutor observerExecutor_;
     RealmObserver::Ptr observer_;
     Context& context_;
 };
