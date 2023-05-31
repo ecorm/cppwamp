@@ -39,6 +39,9 @@ public:
     /** Constructor taking a custom origin label. */
     explicit ConsoleLogger(std::string originLabel, bool flushOnWrite = false);
 
+    /** Constructor taking a custom origin label. */
+    explicit ConsoleLogger(const char* originLabel, bool flushOnWrite = false);
+
     /** Outputs the given log entry to the console. */
     void operator()(const LogEntry& entry) const;
 
@@ -65,6 +68,10 @@ public:
 
     /** Constructor taking a custom origin label. */
     explicit ColorConsoleLogger(std::string originLabel,
+                                bool flushOnWrite = false);
+
+    /** Constructor taking a custom origin label. */
+    explicit ColorConsoleLogger(const char* originLabel,
                                 bool flushOnWrite = false);
 
     /** Outputs the given log entry to the console. */

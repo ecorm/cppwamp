@@ -23,12 +23,17 @@ struct ConsoleLogger::Impl
 };
 
 CPPWAMP_INLINE ConsoleLogger::ConsoleLogger(bool flushOnWrite)
-    : ConsoleLogger("cppwamp", flushOnWrite)
+    : ConsoleLogger(std::string{"cppwamp"}, flushOnWrite)
 {}
 
 CPPWAMP_INLINE ConsoleLogger::ConsoleLogger(std::string originLabel,
                                             bool flushOnWrite)
     : impl_(std::make_shared<Impl>(std::move(originLabel)))
+{}
+
+CPPWAMP_INLINE ConsoleLogger::ConsoleLogger(const char* originLabel,
+                                            bool flushOnWrite)
+    : ConsoleLogger(std::string{originLabel}, flushOnWrite)
 {}
 
 CPPWAMP_INLINE void ConsoleLogger::operator()(const LogEntry& entry) const
@@ -64,12 +69,17 @@ struct ColorConsoleLogger::Impl
 };
 
 CPPWAMP_INLINE ColorConsoleLogger::ColorConsoleLogger(bool flushOnWrite)
-    : ColorConsoleLogger("cppwamp", flushOnWrite)
+    : ColorConsoleLogger(std::string{"cppwamp"}, flushOnWrite)
 {}
 
 CPPWAMP_INLINE ColorConsoleLogger::ColorConsoleLogger(std::string originLabel,
                                                       bool flushOnWrite)
     : impl_(std::make_shared<Impl>(std::move(originLabel)))
+{}
+
+CPPWAMP_INLINE ColorConsoleLogger::ColorConsoleLogger(const char* originLabel,
+                                                      bool flushOnWrite)
+    : ColorConsoleLogger(std::string{originLabel}, flushOnWrite)
 {}
 
 CPPWAMP_INLINE void ColorConsoleLogger::operator()(const LogEntry& entry) const
