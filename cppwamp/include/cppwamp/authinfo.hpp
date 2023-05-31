@@ -65,6 +65,10 @@ public:
     /** Obtains the `authprovider` string. */
     const String& provider() const;
 
+    // TODO: Add agent string
+    // TODO: Add feature flags
+    // TODO: Add transport
+
     /** Obtains the `authextra` dictionary. */
     const Object& extra() const;
 
@@ -84,7 +88,6 @@ private:
     Object extra_;
     any note_;
     SessionId sessionId_ = nullId();
-    bool isDirect_ = false;
 
 public: // Internal use only
     void setId(internal::PassKey, String id);

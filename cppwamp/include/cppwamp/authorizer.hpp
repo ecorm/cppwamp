@@ -113,8 +113,6 @@ private:
     internal::RealmContext realm_;
     std::weak_ptr<internal::RouterSession> originator_;
     AuthInfo::Ptr authInfo_;
-    DisclosureRule presetDisclosure_;
-    bool completed_ = false;
 
 public:
     // Internal use only
