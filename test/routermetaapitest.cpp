@@ -32,68 +32,6 @@ inline void suspendCoro(YieldContext& yield)
     boost::asio::post(exec, yield);
 }
 
-//------------------------------------------------------------------------------
-struct TestRealmObserver : public RealmObserver
-{
-    void onRealmClosed(const Uri& u) override
-    {
-        realmClosedEvents.push_back(u);
-    }
-
-    void onJoin(const SessionDetails& s) override
-    {
-        joinEvents.push_back(s);
-    }
-
-    void onLeave(const SessionDetails& s) override
-    {
-        leaveEvents.push_back(s);
-    }
-
-    void onRegister(const SessionDetails& s,
-                    const RegistrationDetails& r) override
-    {
-        registerEvents.push_back({s, r});
-    }
-
-    void onUnregister(const SessionDetails& s,
-                      const RegistrationDetails& r) override
-    {
-        unregisterEvents.push_back({s, r});
-    }
-
-    void onSubscribe(const SessionDetails& s,
-                     const SubscriptionDetails& d) override
-    {
-        subscribeEvents.push_back({s, d});
-    }
-
-    void onUnsubscribe(const SessionDetails& s,
-                       const SubscriptionDetails& d) override
-    {
-        unsubscribeEvents.push_back({s, d});
-    }
-
-    void clear()
-    {
-        realmClosedEvents.clear();
-        joinEvents.clear();
-        leaveEvents.clear();
-        registerEvents.clear();
-        unregisterEvents.clear();
-        subscribeEvents.clear();
-        unsubscribeEvents.clear();
-    }
-
-    std::vector<Uri> realmClosedEvents;
-    std::vector<SessionDetails> joinEvents;
-    std::vector<SessionDetails> leaveEvents;
-    std::vector<std::pair<SessionDetails, RegistrationDetails>> registerEvents;
-    std::vector<std::pair<SessionDetails, RegistrationDetails>> unregisterEvents;
-    std::vector<std::pair<SessionDetails, SubscriptionDetails>> subscribeEvents;
-    std::vector<std::pair<SessionDetails, SubscriptionDetails>> unsubscribeEvents;
-};
-
 } // anomymous namespace
 
 
