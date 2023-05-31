@@ -145,7 +145,7 @@ void ClientFeatures::parse(Flags<E>& flags, E pos, const Object* roleDict,
                            const char* featureName)
 {
     if (roleDict->count(featureName) != 0)
-        flags.set(pos, true);
+        flags.set(pos);
 }
 
 CPPWAMP_INLINE void ClientFeatures::parseCalleeFeatures(const Object& dict)
@@ -174,7 +174,7 @@ CPPWAMP_INLINE void ClientFeatures::parseCallerFeatures(const Object& dict)
     if (!d)
         return;
     caller_.set(F::basic, true);
-    parse(caller_, F::callCanceling,              d, "call_cancelling");
+    parse(caller_, F::callCanceling,              d, "call_canceling");
     parse(caller_, F::callTimeout,                d, "call_timeout");
     parse(caller_, F::callerIdentification,       d, "caller_identification");
     parse(caller_, F::progressiveCallInvocations, d, "progressive_call_invocations");
@@ -182,6 +182,9 @@ CPPWAMP_INLINE void ClientFeatures::parseCallerFeatures(const Object& dict)
 
     // Legacy feature keys
     parse(caller_, F::progressiveCallInvocations, d, "progressive_calls");
+
+    // Alternate spelling for call_canceling
+    parse(caller_, F::callCanceling,              d, "call_cancelling");
 }
 
 CPPWAMP_INLINE void ClientFeatures::parsePublisherFeatures(const Object& dict)
