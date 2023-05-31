@@ -1064,7 +1064,8 @@ private:
 //------------------------------------------------------------------------------
 // Provides the WAMP client implementation.
 //------------------------------------------------------------------------------
-class Client : public std::enable_shared_from_this<Client>, private PeerListener
+class Client final : public std::enable_shared_from_this<Client>,
+                     public ClientLike, private PeerListener
 {
 public:
     using Ptr           = std::shared_ptr<Client>;
@@ -1153,7 +1154,7 @@ public:
         safelyDispatch<Dispatched>(std::move(p), std::move(c), std::move(f));
     }
 
-    void authenticate(Authentication&& a)
+    void authenticate(Authentication&& a) override
     {
         struct Dispatched
         {
@@ -1165,7 +1166,7 @@ public:
         safelyDispatch<Dispatched>(std::move(a));
     }
 
-    void failAuthentication(Reason&& r)
+    void failAuthentication(Reason&& r) override
     {
         struct Dispatched
         {
@@ -1231,7 +1232,7 @@ public:
         safelyDispatch<Dispatched>(std::move(t), std::move(s), std::move(f));
     }
 
-    void unsubscribe(const Subscription& s)
+    void unsubscribe(const Subscription& s) override
     {
         struct Dispatched
         {
@@ -1322,7 +1323,7 @@ public:
         safelyDispatch<Dispatched>(std::move(s), std::move(ss), std::move(f));
     }
 
-    void unregister(const Registration& r)
+    void unregister(const Registration& r) override
     {
         struct Dispatched
         {
@@ -1414,26 +1415,26 @@ private:
         peer_->listen(this);
     }
 
-    void onPeerDisconnect()
+    void onPeerDisconnect() override
     {
         report({IncidentKind::transportDropped});
     }
 
-    void onPeerFailure(std::error_code ec, bool, std::string why)
+    void onPeerFailure(std::error_code ec, bool, std::string why) override
     {
         report({IncidentKind::commFailure, ec, std::move(why)});
         abandonPending(ec);
     }
 
-    void onPeerTrace(std::string&& messageDump)
+    void onPeerTrace(std::string&& messageDump) override
     {
         if (incidentSlot_ && traceEnabled())
             report({IncidentKind::trace, std::move(messageDump)});
     }
 
-    void onPeerHello(Petition&&) {assert(false);}
+    void onPeerHello(Petition&&) override {assert(false);}
 
-    void onPeerAbort(Reason&& reason, bool wasJoining)
+    void onPeerAbort(Reason&& reason, bool wasJoining) override
     {
         if (wasJoining)
             return onWampReply(reason.message({}));
@@ -1444,11 +1445,11 @@ private:
         abandonPending(reason.errorCode());
     }
 
-    void onPeerChallenge(Challenge&& challenge)
+    void onPeerChallenge(Challenge&& challenge) override
     {
         if (challengeSlot_)
         {
-            challenge.setChallengee({}, shared_from_this());
+            challenge.setChallengee({}, makeContext());
             dispatchChallenge(std::move(challenge));
         }
         else
@@ -1459,7 +1460,7 @@ private:
         }
     }
 
-    void onPeerAuthenticate(Authentication&& authentication)
+    void onPeerAuthenticate(Authentication&& authentication) override
     {
         assert(false);
     }
@@ -1498,7 +1499,7 @@ private:
             boost::asio::bind_executor(associatedExec, std::move(dispatched)));
     }
 
-    void onPeerGoodbye(Reason&& reason, bool wasShuttingDown)
+    void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
     {
         if (wasShuttingDown)
         {
@@ -1513,7 +1514,7 @@ private:
         }
     }
 
-    void onPeerMessage(Message&& msg)
+    void onPeerMessage(Message&& msg) override
     {
         switch (msg.kind())
         {
@@ -1528,7 +1529,7 @@ private:
     {
         Event event{{}, std::move(msg)};
         event.setExecutor({}, userExecutor_);
-        bool ok = readership_.onEvent(event, shared_from_this());
+        bool ok = readership_.onEvent(event, makeContext());
         if (!ok && incidentSlot_)
         {
             std::ostringstream oss;
@@ -1543,7 +1544,7 @@ private:
         // TODO: Callee-initiated timeouts
 
         Invocation inv{{}, std::move(msg)};
-        inv.setCallee({}, shared_from_this(), userExecutor_);
+        inv.setCallee({}, makeContext(), userExecutor_);
         auto reqId = inv.requestId();
         auto regId = inv.registrationId();
 
@@ -1605,7 +1606,7 @@ private:
     void onInterrupt(Message& msg)
     {
         Interruption intr{{}, std::move(msg)};
-        intr.setCallee({}, shared_from_this(), userExecutor_);
+        intr.setCallee({}, makeContext(), userExecutor_);
         registry_.onInterrupt(std::move(intr));
     }
 
@@ -1866,7 +1867,7 @@ private:
                 Subscribed ack{std::move(*reply)};
                 auto sub = me.readership_.onSubscribed(
                     ack.subscriptionId(), std::move(matchUri), std::move(slot),
-                    self);
+                    me.makeContext());
                 me.completeNow(handler, std::move(sub));
             }
         };
@@ -1874,9 +1875,9 @@ private:
         if (!checkState(State::established, handler))
             return;
 
-        auto self = shared_from_this();
         MatchUri matchUri{topic};
-        auto subscription = readership_.subscribe(matchUri, slot, self);
+        auto subscription = readership_.subscribe(matchUri, slot,
+                                                  makeContext());
         if (subscription)
             return complete(handler, std::move(subscription));
 
@@ -1900,7 +1901,7 @@ private:
             complete(handler, false);
     }
 
-    void onEventError(Error&& error, SubscriptionId subId)
+    void onEventError(Error&& error, SubscriptionId subId) override
     {
         struct Dispatched
         {
@@ -1979,7 +1980,7 @@ private:
                     return;
                 Registered ack{std::move(*reply)};
                 r.registrationId = ack.registrationId();
-                auto reg = me.registry_.enroll(std::move(r), self);
+                auto reg = me.registry_.enroll(std::move(r), me.makeContext());
                 me.completeNow(f, std::move(reg));
             }
         };
@@ -2008,7 +2009,7 @@ private:
                     return;
                 Registered ack{std::move(*reply)};
                 r.registrationId = ack.registrationId();
-                auto reg = me.registry_.enroll(std::move(r), self);
+                auto reg = me.registry_.enroll(std::move(r), me.makeContext());
                 me.completeNow(f, std::move(reg));
             }
         };
@@ -2103,7 +2104,7 @@ private:
         auto& rpcCancelSlot = rpc.cancellationSlot({});
         if (rpcCancelSlot.is_connected())
         {
-            rpcCancelSlot.emplace(shared_from_this(), *requestId);
+            rpcCancelSlot.emplace(makeContext(), *requestId);
         }
         else if (boundCancelSlot.is_connected())
         {
@@ -2118,7 +2119,7 @@ private:
         }
     }
 
-    void cancelCall(RequestId r, CallCancelMode m)
+    void cancelCall(RequestId r, CallCancelMode m) override
     {
         struct Dispatched
         {
@@ -2143,7 +2144,7 @@ private:
         if (!checkState(State::established, handler))
             return;
 
-        requestor_.requestStream(true, shared_from_this(), std::move(req),
+        requestor_.requestStream(true, makeContext(), std::move(req),
                                  std::move(onChunk), std::move(handler));
     }
 
@@ -2154,11 +2155,11 @@ private:
             return;
 
         auto channel = requestor_.requestStream(
-            false, shared_from_this(), std::move(req), std::move(onChunk));
+            false, makeContext(), std::move(req), std::move(onChunk));
         complete(handler, std::move(channel));
     }
 
-    ErrorOrDone sendCallerChunk(CallerOutputChunk&& c)
+    ErrorOrDone sendCallerChunk(CallerOutputChunk&& c) override
     {
         struct Dispatched
         {
@@ -2186,7 +2187,7 @@ private:
         }
     }
 
-    void cancelStream(RequestId r)
+    void cancelStream(RequestId r) override
     {
         // As per the WAMP spec, a router supporting progressive
         // calls/invocations must also support call cancellation.
@@ -2194,7 +2195,7 @@ private:
     }
 
     ErrorOrDone yieldChunk(CalleeOutputChunk&& c, RequestId reqId,
-                           RegistrationId regId)
+                           RegistrationId regId) override
     {
         struct Dispatched
         {
@@ -2228,7 +2229,7 @@ private:
         }
     }
 
-    void yieldResult(Result&& r, RequestId reqId, RegistrationId regId)
+    void yieldResult(Result&& r, RequestId reqId, RegistrationId regId) override
     {
         struct Dispatched
         {
@@ -2259,7 +2260,7 @@ private:
         }
     }
 
-    void yieldError(Error&& e, RequestId reqId, RegistrationId regId)
+    void yieldError(Error&& e, RequestId reqId, RegistrationId regId) override
     {
         struct Dispatched
         {
@@ -2471,6 +2472,8 @@ private:
         dispatchHandler(handler, std::forward<Ts>(args)...);
     }
 
+    ClientContext makeContext() {return ClientContext{shared_from_this()};}
+
     AnyIoExecutor executor_;
     AnyCompletionExecutor userExecutor_;
     IoStrand strand_;
@@ -2488,103 +2491,6 @@ private:
 
     friend class ClientContext;
 };
-
-
-//******************************************************************************
-// ClientContext member function definitions
-//******************************************************************************
-
-inline ClientContext::ClientContext() {}
-
-inline ClientContext::ClientContext(const std::shared_ptr<Client>& client)
-    : client_(std::move(client))
-{}
-
-inline bool ClientContext::expired() const {return client_.expired();}
-
-inline void ClientContext::reset() {client_ = {};}
-
-inline void ClientContext::unsubscribe(const Subscription& s)
-{
-    auto c = client_.lock();
-    if (c)
-        c->unsubscribe(s);
-}
-
-inline void ClientContext::onEventError(Error&& e, SubscriptionId s)
-{
-    auto c = client_.lock();
-    if (c)
-        c->onEventError(std::move(e), s);
-}
-
-inline void ClientContext::unregister(const Registration& r)
-{
-    auto c = client_.lock();
-    if (c)
-        c->unregister(r);
-}
-
-inline void ClientContext::yieldResult(Result&& result, RequestId reqId,
-                                       RegistrationId regId)
-{
-    auto c = client_.lock();
-    if (c)
-        c->yieldResult(std::move(result), reqId, regId);
-}
-
-inline void ClientContext::yieldError(Error&& error, RequestId reqId,
-                                      RegistrationId regId)
-{
-    auto c = client_.lock();
-    if (c)
-        c->yieldError(std::move(error), reqId, regId);
-}
-
-inline ErrorOrDone ClientContext::yieldChunk(
-    CalleeOutputChunk&& chunk, RequestId reqId, RegistrationId regId)
-{
-    auto c = client_.lock();
-    if (!c)
-        return false;
-    return c->yieldChunk(std::move(chunk), reqId, regId);
-}
-
-inline void ClientContext::cancelCall(RequestId r, CallCancelMode m)
-{
-    auto c = client_.lock();
-    if (c)
-        c->cancelCall(r, m);
-}
-
-inline ErrorOrDone ClientContext::sendCallerChunk(CallerOutputChunk&& chunk)
-{
-    auto c = client_.lock();
-    if (!c)
-        return false;
-    return c->sendCallerChunk(std::move(chunk));
-}
-
-inline void ClientContext::cancelStream(RequestId r)
-{
-    auto c = client_.lock();
-    if (c)
-        c->cancelStream(r);
-}
-
-inline void ClientContext::authenticate(Authentication&& a)
-{
-    auto c = client_.lock();
-    if (c)
-        c->authenticate(std::move(a));
-}
-
-inline void ClientContext::failAuthentication(Reason&& r)
-{
-    auto c = client_.lock();
-    if (c)
-        c->failAuthentication(std::move(r));
-}
 
 } // namespace internal
 
