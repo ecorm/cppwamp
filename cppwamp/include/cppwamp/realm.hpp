@@ -15,6 +15,7 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <type_traits>
 #include <vector>
 #include <boost/asio/async_result.hpp>
 #include "api.hpp"
@@ -23,6 +24,7 @@
 #include "config.hpp"
 #include "cppwamp/sessioninfo.hpp"
 #include "erroror.hpp"
+#include "exceptions.hpp"
 #include "realmobserver.hpp"
 
 namespace wamp
@@ -42,9 +44,6 @@ class RouterSession;
 //------------------------------------------------------------------------------
 class CPPWAMP_API Realm
 {
-private:
-    struct GenericOp { template <typename F> void operator()(F&&) {} };
-
 public:
     using Executor            = AnyIoExecutor;
     using ObserverExecutor    = AnyCompletionExecutor;
@@ -66,9 +65,8 @@ public:
         `boost::asio::use_awaitable` | An awaitable yielding `ErrorOr<Value>`
         `boost::asio::use_future`    | `std::future<ErrorOr<Value>>` */
     template <typename T, typename C>
-    using Deduced = decltype(
-        boost::asio::async_initiate<C, void(T)>(std::declval<GenericOp&>(),
-                                                std::declval<C&>()));
+    using Deduced = typename boost::asio::async_result<
+        typename std::decay<C>::type, void(T)>::return_type;
 
     Realm();
 
@@ -80,6 +78,8 @@ public:
 
     const Uri& uri() const;
 
+    bool isAttached() const;
+
     bool isOpen() const;
 
     void observe(RealmObserver::Ptr o, ObserverExecutor e = nullptr);
@@ -88,7 +88,15 @@ public:
 
     template <typename C>
     CPPWAMP_NODISCARD Deduced<std::size_t, C>
+    countSessions(C&& completion);
+
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<std::size_t, C>
     countSessions(SessionFilter f, C&& completion);
+
+    template <typename C>
+    CPPWAMP_NODISCARD Deduced<SessionIdList, C>
+    listSessions(C&& completion);
 
     template <typename C>
     CPPWAMP_NODISCARD Deduced<SessionIdList, C>
@@ -242,11 +250,23 @@ struct Realm::CountSessionsOp
 //------------------------------------------------------------------------------
 template <typename C>
 Realm::Deduced<std::size_t, C> Realm::countSessions(
+    C&& completion   /**< Completion handler or token. */
+    )
+{
+    return countSessions(nullptr, std::forward<C>(completion));
+}
+
+//------------------------------------------------------------------------------
+/** @copydetails Realm::countSessions(C&&) */
+//------------------------------------------------------------------------------
+template <typename C>
+Realm::Deduced<std::size_t, C> Realm::countSessions(
     SessionFilter f, /**< Predicate function used to filter eligible sessions
                           (no filtering if nullptr) */
     C&& completion   /**< Completion handler or token. */
     )
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<CountSessionsOp>(std::forward<C>(completion), std::move(f));
 }
 
@@ -265,8 +285,16 @@ struct Realm::ListSessionsOp
 
 template <typename C>
 Realm::Deduced<Realm::SessionIdList, C>
+Realm::listSessions(C&& completion)
+{
+    return listSessions(nullptr, std::forward<C>(completion));
+}
+
+template <typename C>
+Realm::Deduced<Realm::SessionIdList, C>
 Realm::listSessions(SessionFilter f, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<ListSessionsOp>(std::forward<C>(completion), std::move(f));
 }
 
@@ -287,6 +315,7 @@ template <typename C>
 Realm::Deduced<std::size_t, C>
 Realm::forEachSession(SessionHandler f, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<ForEachSessionOp>(std::forward<C>(completion),
                                       std::move(f));
 }
@@ -313,6 +342,7 @@ template <typename C>
 Realm::Deduced<ErrorOr<SessionDetails>, C>
 Realm::lookupSession(SessionId sid, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<LookupSessionOp>(std::forward<C>(completion), sid);
 }
 
@@ -341,6 +371,7 @@ template <typename C>
 Realm::Deduced<bool, C>
 Realm::killSession(SessionId sid, Reason r, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<KillSessionOp>(std::forward<C>(completion), sid,
                                    std::move(r));
 }
@@ -372,6 +403,7 @@ template <typename C>
 Realm::Deduced<Realm::SessionIdList, C>
 Realm::killSessions(SessionFilter f, Reason r, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<KillSessionOp>(std::forward<C>(completion), std::move(f),
                                    std::move(r));
 }
@@ -392,6 +424,7 @@ template <typename C>
 Realm::Deduced<RegistrationLists, C>
 Realm::listRegistrations(C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<ListRegistrationsOp>(std::forward<C>(completion));
 }
 
@@ -414,6 +447,7 @@ template <typename C>
 Realm::Deduced<std::size_t, C>
 Realm::forEachRegistration(MatchPolicy p, RegistrationHandler f, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<ForEachRegistrationOp>(std::forward<C>(completion), p,
                                            std::move(f));
 }
@@ -436,6 +470,7 @@ template <typename C>
 Realm::Deduced<ErrorOr<RegistrationDetails>, C>
 Realm::lookupRegistration(Uri uri, MatchPolicy p, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<LookupRegistrationOp>(std::forward<C>(completion),
                                           std::move(uri), p);
 }
@@ -457,6 +492,7 @@ template <typename C>
 Realm::Deduced<ErrorOr<RegistrationDetails>, C>
 Realm::matchRegistration(Uri uri, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<MatchRegistrationOp>(std::forward<C>(completion),
                                          std::move(uri));
 }
@@ -478,6 +514,7 @@ template <typename C>
 Realm::Deduced<ErrorOr<RegistrationDetails>, C>
 Realm::getRegistration(RegistrationId rid, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<GetRegistrationOp>(std::forward<C>(completion), rid);
 }
 
@@ -497,6 +534,7 @@ template <typename C>
 Realm::Deduced<SubscriptionLists, C>
 Realm::listSubscriptions(C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<ListSubscriptionsOp>(std::forward<C>(completion));
 }
 
@@ -519,6 +557,7 @@ template <typename C>
 Realm::Deduced<std::size_t, C>
 Realm::forEachSubscription(MatchPolicy p, SubscriptionHandler f, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<ForEachSubscriptionOp>(std::forward<C>(completion), p,
                                            std::move(f));
 }
@@ -541,6 +580,7 @@ template <typename C>
 Realm::Deduced<ErrorOr<SubscriptionDetails>, C>
 Realm::lookupSubscription(Uri uri, MatchPolicy p, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<LookupSubscriptionOp>(std::forward<C>(completion),
                                           std::move(uri), p);
 }
@@ -562,6 +602,7 @@ template <typename C>
 Realm::Deduced<ErrorOr<Realm::SubscriptionIdList>, C>
 Realm::matchSubscriptions(Uri uri, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<MatchSubscriptionsOp>(std::forward<C>(completion),
                                           std::move(uri));
 }
@@ -583,6 +624,7 @@ template <typename C>
 Realm::Deduced<ErrorOr<SubscriptionDetails>, C>
 Realm::getSubscription(SubscriptionId sid, C&& completion)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return initiate<GetSubscriptionOp>(std::forward<C>(completion), sid);
 }
 

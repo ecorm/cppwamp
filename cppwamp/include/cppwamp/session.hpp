@@ -113,9 +113,6 @@ class Peer;
 //------------------------------------------------------------------------------
 class CPPWAMP_API Session
 {
-private:
-    struct GenericOp { template <typename F> void operator()(F&&) {} };
-
 public:
     /** Executor type used for I/O operations. */
     using Executor = AnyIoExecutor;
@@ -137,9 +134,8 @@ public:
         `boost::asio::use_awaitable` | An awaitable yielding `ErrorOr<Value>`
         `boost::asio::use_future`    | `std::future<ErrorOr<Value>>` */
     template <typename T, typename C>
-    using Deduced = decltype(
-        boost::asio::async_initiate<C, void(T)>(std::declval<GenericOp&>(),
-                                                std::declval<C&>()));
+    using Deduced = typename boost::asio::async_result<
+        typename std::decay<C>::type, void(T)>::return_type;
 
     /// @name Construction
     /// @{

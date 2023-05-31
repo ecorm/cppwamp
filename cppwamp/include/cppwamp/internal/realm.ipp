@@ -12,25 +12,44 @@ namespace wamp
 
 CPPWAMP_INLINE Realm::Realm() {}
 
-CPPWAMP_INLINE Realm::operator bool() const {return bool(impl_);}
+CPPWAMP_INLINE Realm::operator bool() const {return isAttached();}
 
 CPPWAMP_INLINE const Realm::Executor& Realm::executor() const
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     return impl_->executor();
 }
 
-CPPWAMP_INLINE const IoStrand& Realm::strand() const {return impl_->strand();}
+CPPWAMP_INLINE const IoStrand& Realm::strand() const
+{
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
+    return impl_->strand();
+}
 
-CPPWAMP_INLINE const Uri& Realm::uri() const {return impl_->uri();}
+CPPWAMP_INLINE const Uri& Realm::uri() const
+{
+    static const std::string empty;
+    return isAttached() ? impl_->uri() : empty;
+}
 
-CPPWAMP_INLINE bool Realm::isOpen() const {return impl_->isOpen();}
+CPPWAMP_INLINE bool Realm::isAttached() const {return bool(impl_);}
+
+CPPWAMP_INLINE bool Realm::isOpen() const
+{
+    return isAttached() && impl_->isOpen();
+}
 
 CPPWAMP_INLINE void Realm::observe(RealmObserver::Ptr o, ObserverExecutor e)
 {
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     impl_->observe(std::move(o), std::move(e));
 }
 
-CPPWAMP_INLINE void Realm::unobserve() {impl_->unobserve();}
+CPPWAMP_INLINE void Realm::unobserve()
+{
+    if (impl_)
+        impl_->unobserve();
+}
 
 CPPWAMP_INLINE Realm::Realm(std::shared_ptr<internal::RouterRealm> impl)
     : impl_(std::move(impl))
