@@ -140,22 +140,21 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
             Rpc rpc{"wamp.session.list"};
             SessionIdList list;
             SessionIdList allSessionIds{w1.sessionId(), w2.sessionId()};
-            SessionIdList noSessionIds{};
 
             auto result = s1.call(rpc, yield).value();
             REQUIRE(result.args().size() == 1);
             result.convertTo(list);
-            CHECK_THAT(list, Matchers::Contains(allSessionIds));
+            CHECK_THAT(list, Matchers::UnorderedEquals(allSessionIds));
 
             result = s1.call(rpc.withArgs(inclusiveAuthRoleList), yield).value();
             REQUIRE(result.args().size() == 1);
             result.convertTo(list);
-            CHECK_THAT(list, Matchers::Contains(allSessionIds));
+            CHECK_THAT(list, Matchers::UnorderedEquals(allSessionIds));
 
             result = s1.call(rpc.withArgs(exclusiveAuthRoleList), yield).value();
             REQUIRE(result.args().size() == 1);
             result.convertTo(list);
-            CHECK_THAT(list, Matchers::Contains(noSessionIds));
+            CHECK(list.empty());
         }
 
         {
@@ -228,7 +227,7 @@ TEST_CASE( "WAMP session meta procedures", "[WAMP][Router]" )
                                              {"message", "because"}}),
                                   yield).value();
             result.convertTo(list);
-            CHECK_THAT(list, Matchers::Contains(SessionIdList{w2.sessionId()}));
+            CHECK_THAT(list, Matchers::Equals(SessionIdList{w2.sessionId()}));
 
             while (incidents.empty() || s2.state() == SessionState::established)
                 suspendCoro(yield);

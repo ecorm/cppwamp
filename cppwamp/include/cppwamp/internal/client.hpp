@@ -85,14 +85,12 @@ public:
             onError(std::move(msg), exec);
     }
 
-    void cancel(AnyIoExecutor& exec, AnyCompletionExecutor& userExec,
-                WampErrc errc)
+    void cancel(AnyIoExecutor& exec, WampErrc errc)
     {
-        abandon(makeUnexpectedError(errc), exec, userExec);
+        abandon(makeUnexpectedError(errc), exec);
     }
 
-    void abandon(UnexpectedError unex, AnyIoExecutor& exec,
-                 AnyCompletionExecutor& userExec)
+    void abandon(UnexpectedError unex, AnyIoExecutor& exec)
     {
         if (handler_)
             postAny(exec, std::move(handler_), unex);
@@ -192,11 +190,11 @@ public:
                                                ErrorOr<CallerInputChunk>)>;
 
     Requestor(Peer& peer, IoStrand strand, AnyIoExecutor exec,
-              AnyCompletionExecutor userExec)
+              AnyCompletionExecutor fallbackExec)
         : deadlines_(CallerTimeoutScheduler::create(strand)),
           strand_(std::move(strand)),
           executor_(std::move(exec)),
-          userExecutor_(std::move(userExec)),
+          fallbackExecutor_(std::move(fallbackExec)),
           peer_(peer)
     {
         deadlines_->listen(
@@ -246,7 +244,7 @@ public:
         auto channel = std::make_shared<CallerChannelImpl>(
             channelId, std::move(uri), req.mode(), req.cancelMode(),
             rsvpExpected, std::move(caller), std::move(onChunk), executor_,
-            userExecutor_);
+            fallbackExecutor_);
         auto emplaced = channels_.emplace(
             channelId, StreamRecord{channel, req, std::move(handler)});
         assert(emplaced.second);
@@ -336,7 +334,7 @@ public:
             {
                 StreamRecord req{std::move(kv->second)};
                 channels_.erase(kv);
-                req.cancel(executor_, userExecutor_, errc);
+                req.cancel(executor_, errc);
             }
             return peer_.send(CallCancellation{requestId, mode});
         }
@@ -358,7 +356,7 @@ public:
         for (auto& kv: requests_)
             completeRequest(kv.second, unex);
         for (auto& kv: channels_)
-            kv.second.abandon(unex, executor_, userExecutor_);
+            kv.second.abandon(unex, executor_);
         clear();
     }
 
@@ -447,7 +445,7 @@ private:
     CallerTimeoutScheduler::Ptr deadlines_;
     IoStrand strand_;
     AnyIoExecutor executor_;
-    AnyCompletionExecutor userExecutor_;
+    AnyCompletionExecutor fallbackExecutor_;
     Peer& peer_;
     RequestId nextRequestId_ = nullId();
 };
@@ -459,10 +457,7 @@ class Readership
 public:
     using EventSlot = AnyReusableHandler<void (Event)>;
 
-    Readership(AnyIoExecutor exec, AnyCompletionExecutor userExec)
-        : executor_(std::move(exec)),
-          userExecutor_(std::move(userExec))
-    {}
+    Readership(AnyIoExecutor exec) : executor_(std::move(exec)) {}
 
     Subscription subscribe(MatchUri topic, EventSlot& slot,
                            ClientContext subscriber)
@@ -532,7 +527,7 @@ public:
         for (const auto& kv: record.slots)
         {
             const auto& slot = kv.second;
-            postEvent(slot, event, subscriber, executor_, userExecutor_);
+            postEvent(slot, event, subscriber, executor_);
         }
         return true;
     }
@@ -584,8 +579,7 @@ private:
     }
 
     void postEvent(const EventSlot& slot, const Event& event,
-                   ClientContext subscriber, AnyIoExecutor& exec,
-                   AnyCompletionExecutor& userExec)
+                   ClientContext subscriber, AnyIoExecutor& exec)
     {
         struct Posted
         {
@@ -595,6 +589,9 @@ private:
 
             void operator()()
             {
+                auto slotExec = boost::asio::get_associated_executor(slot);
+                event.setExecutor({}, std::move(slotExec));
+
                 // Copy the subscription and publication IDs before the Event
                 // object gets moved away.
                 auto subId = event.subscriptionId();
@@ -622,12 +619,11 @@ private:
             }
         };
 
-        auto associatedExec =
-            boost::asio::get_associated_executor(slot, userExec);
+        auto boundExec = boost::asio::get_associated_executor(slot);
         Posted posted{subscriber, event, slot};
         boost::asio::post(
             exec,
-            boost::asio::bind_executor(associatedExec, std::move(posted)));
+            boost::asio::bind_executor(boundExec, std::move(posted)));
     }
 
     SlotId nextSlotId() {return nextSlotId_++;}
@@ -635,7 +631,6 @@ private:
     SubscriptionMap subscriptions_;
     ByTopic byTopic_;
     AnyIoExecutor executor_;
-    AnyCompletionExecutor userExecutor_;
     SlotId nextSlotId_ = 0;
 };
 
@@ -677,10 +672,8 @@ public:
     using InterruptSlot = AnyReusableHandler<Outcome (Interruption)>;
     using StreamSlot    = AnyReusableHandler<void (CalleeChannel)>;
 
-    ProcedureRegistry(Peer& peer, AnyIoExecutor exec,
-                      AnyCompletionExecutor userExec)
+    ProcedureRegistry(Peer& peer, AnyIoExecutor exec)
         : executor_(std::move(exec)),
-          userExecutor_(std::move(userExec)),
           peer_(peer)
     {}
 
@@ -887,6 +880,9 @@ private:
         if (inv.isProgress({}) || inv.resultsAreProgressive({}))
             return WampErrc::optionNotAllowed;
 
+        auto exec = boost::asio::get_associated_executor(reg.callSlot);
+        inv.setExecutor({}, std::move(exec));
+
         auto requestId = inv.requestId();
         auto registrationId = inv.registrationId();
         auto emplaced = invocations_.emplace(requestId,
@@ -907,6 +903,8 @@ private:
     {
         if (reg.interruptSlot == nullptr)
             return false;
+        auto exec = boost::asio::get_associated_executor((reg.interruptSlot));
+        intr.setExecutor({}, std::move(exec));
         postRpcRequest(reg.interruptSlot, intr, reg.registrationId);
         return true;
     }
@@ -966,15 +964,14 @@ private:
             }
         };
 
-        auto associatedExec =
-            boost::asio::get_associated_executor(slot, userExecutor_);
+        auto boundExec = boost::asio::get_associated_executor(slot);
         auto callee = request.callee({});
         assert(!callee.expired());
         Posted posted{std::move(callee), std::move(slot), std::move(request),
                       regId};
         boost::asio::post(
             executor_,
-            boost::asio::bind_executor(associatedExec, std::move(posted)));
+            boost::asio::bind_executor(boundExec, std::move(posted)));
     }
 
     WampErrc onStreamInvocation(Invocation& inv, const StreamRegistration& reg)
@@ -1002,6 +999,8 @@ private:
             rec.channel = channel;
             rec.invoked = true;
             CalleeChannel proxy{{}, channel};
+            auto exec = boost::asio::get_associated_executor(reg.streamSlot);
+            inv.setExecutor({}, std::move(exec));
 
             try
             {
@@ -1056,7 +1055,6 @@ private:
     StreamMap streams_;
     InvocationMap invocations_;
     AnyIoExecutor executor_;
-    AnyCompletionExecutor userExecutor_;
     Peer& peer_;
 };
 
@@ -1408,8 +1406,8 @@ private:
           userExecutor_(std::move(userExec)),
           strand_(boost::asio::make_strand(executor_)),
           peer_(std::move(peer)),
-          readership_(executor_, userExecutor_),
-          registry_(*peer_, executor_, userExecutor_),
+          readership_(executor_),
+          registry_(*peer_, executor_),
           requestor_(*peer_, strand_, executor_, userExecutor_)
     {
         peer_->listen(this);
@@ -1490,13 +1488,12 @@ private:
             }
         };
 
-        auto associatedExec =
-            boost::asio::get_associated_executor(challengeSlot_, userExecutor_);
+        auto boundExec = boost::asio::get_associated_executor(challengeSlot_);
         Dispatched dispatched{shared_from_this(), std::move(challenge),
                               challengeSlot_};
         boost::asio::dispatch(
             executor_,
-            boost::asio::bind_executor(associatedExec, std::move(dispatched)));
+            boost::asio::bind_executor(boundExec, std::move(dispatched)));
     }
 
     void onPeerGoodbye(Reason&& reason, bool wasShuttingDown) override
@@ -1528,7 +1525,6 @@ private:
     void onEvent(Message& msg)
     {
         Event event{{}, std::move(msg)};
-        event.setExecutor({}, userExecutor_);
         bool ok = readership_.onEvent(event, makeContext());
         if (!ok && incidentSlot_)
         {
@@ -1544,7 +1540,7 @@ private:
         // TODO: Callee-initiated timeouts
 
         Invocation inv{{}, std::move(msg)};
-        inv.setCallee({}, makeContext(), userExecutor_);
+        inv.setCallee({}, makeContext());
         auto reqId = inv.requestId();
         auto regId = inv.registrationId();
 
@@ -1606,7 +1602,7 @@ private:
     void onInterrupt(Message& msg)
     {
         Interruption intr{{}, std::move(msg)};
-        intr.setCallee({}, makeContext(), userExecutor_);
+        intr.setCallee({}, makeContext());
         registry_.onInterrupt(std::move(intr));
     }
 

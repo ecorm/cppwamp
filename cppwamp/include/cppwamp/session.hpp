@@ -418,7 +418,8 @@ struct Session::ConnectOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doConnect(std::move(w), std::forward<F>(f));
+        self->doConnect(std::move(w),
+                        self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -494,7 +495,8 @@ struct Session::JoinOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doJoin(std::move(p), std::move(s), std::forward<F>(f));
+        self->doJoin(std::move(p), std::move(s),
+                     self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -545,7 +547,7 @@ Session::join(
     )
 {
     return initiate<JoinOp>(
-        std::forward<C>(completion), std::move(realm),
+        bindFallbackExecutor(std::forward<C>(completion)), std::move(realm),
         std::forward<S>(challengeSlot));
 }
 
@@ -558,7 +560,8 @@ struct Session::LeaveOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doLeave(std::move(r), std::forward<F>(f));
+        self->doLeave(std::move(r),
+                      self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -616,7 +619,8 @@ struct Session::SubscribeOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doSubscribe(std::move(t), std::move(s), std::forward<F>(f));
+        self->doSubscribe(std::move(t), std::move(s),
+                          self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -646,7 +650,7 @@ Session::subscribe(
                         "Unsupported match policy for subscribe operation");
     return initiate<SubscribeOp>(
         std::forward<C>(completion), std::move(topic),
-        std::forward<S>(eventSlot));
+        bindFallbackExecutor(std::forward<S>(eventSlot)));
 }
 
 //------------------------------------------------------------------------------
@@ -658,7 +662,8 @@ struct Session::UnsubscribeOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doUnsubscribe(std::move(s), std::forward<F>(f));
+        self->doUnsubscribe(std::move(s),
+                            self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -706,7 +711,8 @@ struct Session::PublishOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doPublish(std::move(p), std::move(std::forward<F>(f)));
+        self->doPublish(std::move(p),
+                        self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -741,7 +747,7 @@ struct Session::EnrollOp
     template <typename F> void operator()(F&& f)
     {
         self->doEnroll(std::move(p), std::move(s), std::move(i),
-                       std::forward<F>(f));
+                       self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -772,7 +778,7 @@ Session::enroll(
 {
     return initiate<EnrollOp>(
         std::forward<C>(completion), std::move(procedure),
-        std::forward<S>(callSlot), nullptr);
+        bindFallbackExecutor(std::forward<S>(callSlot)), nullptr);
 }
 
 //------------------------------------------------------------------------------
@@ -794,7 +800,8 @@ Session::enroll(
 {
     return initiate<EnrollOp>(
         std::forward<C>(completion), std::move(procedure),
-        std::forward<S>(callSlot), std::forward<I>(interruptSlot));
+        bindFallbackExecutor(std::forward<S>(callSlot)),
+        bindFallbackExecutor(std::forward<I>(interruptSlot)));
 }
 
 //------------------------------------------------------------------------------
@@ -806,7 +813,8 @@ struct Session::UnregisterOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doUnregister(std::move(r), std::forward<F>(f));
+        self->doUnregister(std::move(r),
+                           self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -850,7 +858,8 @@ struct Session::CallOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doCall(std::move(r), std::forward<F>(f));
+        self->doCall(std::move(r),
+                     self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -894,7 +903,8 @@ struct Session::EnrollStreamOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doEnroll(std::move(s), std::move(ss), std::forward<F>(f));
+        self->doEnroll(std::move(s), std::move(ss),
+                       self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -931,7 +941,7 @@ Session::enroll(
 {
     return initiate<EnrollStreamOp>(
         std::forward<C>(completion), std::move(stream),
-        std::forward<S>(streamSlot));
+        bindFallbackExecutor(std::forward<S>(streamSlot)));
 }
 
 //------------------------------------------------------------------------------
@@ -944,7 +954,8 @@ struct Session::RequestStreamOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doRequestStream(std::move(r), std::move(c), std::forward<F>(f));
+        self->doRequestStream(std::move(r), std::move(c),
+                              self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -978,7 +989,7 @@ Session::requestStream(
 {
     return initiate<RequestStreamOp>(
         std::forward<C>(completion), std::move(req),
-        std::forward<S>(chunkSlot));
+        bindFallbackExecutor(std::forward<S>(chunkSlot)));
 }
 
 //------------------------------------------------------------------------------
@@ -1011,7 +1022,8 @@ struct Session::OpenStreamOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doOpenStream(std::move(r), std::move(c), std::forward<F>(f));
+        self->doOpenStream(std::move(r), std::move(c),
+                           self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -1031,7 +1043,7 @@ Session::Deduced<ErrorOr<CallerChannel>, C> Session::openStream(
 {
     return initiate<OpenStreamOp>(
         std::forward<C>(completion), std::move(req),
-        std::forward<S>(chunkSlot));
+        bindFallbackExecutor(std::forward<S>(chunkSlot)));
 }
 
 //------------------------------------------------------------------------------

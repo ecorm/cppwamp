@@ -412,10 +412,14 @@ CPPWAMP_INLINE Invocation::Invocation(internal::PassKey, Rpc&& rpc,
     message().at(optionsPos_) = Object{};
 }
 
-CPPWAMP_INLINE void Invocation::setCallee(internal::PassKey, Context callee,
-                                          AnyCompletionExecutor userExec)
+CPPWAMP_INLINE void Invocation::setCallee(internal::PassKey, Context callee)
 {
     callee_ = std::move(callee);
+}
+
+CPPWAMP_INLINE void Invocation::setExecutor(internal::PassKey,
+                                            AnyCompletionExecutor userExec)
+{
     executor_ = std::move(userExec);
 }
 
@@ -533,10 +537,14 @@ CPPWAMP_INLINE Interruption::Interruption(
       cancelMode_(mode)
 {}
 
-CPPWAMP_INLINE void Interruption::setCallee(internal::PassKey, Context callee,
-                                            AnyCompletionExecutor executor)
+CPPWAMP_INLINE void Interruption::setCallee(internal::PassKey, Context callee)
 {
     callee_ = std::move(callee);
+}
+
+CPPWAMP_INLINE void Interruption::setExecutor(internal::PassKey,
+                                              AnyCompletionExecutor executor)
+{
     executor_ = std::move(executor);
 }
 

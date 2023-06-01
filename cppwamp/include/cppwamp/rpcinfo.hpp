@@ -449,8 +449,8 @@ public:
     // Internal use only
     Invocation(internal::PassKey, internal::Message&& msg);
     Invocation(internal::PassKey, Rpc&& rpc, RegistrationId regId);
-    void setCallee(internal::PassKey, Context callee,
-                   AnyCompletionExecutor userExec);
+    void setCallee(internal::PassKey, Context callee);
+    void setExecutor(internal::PassKey, AnyCompletionExecutor userExec);
     Context callee(internal::PassKey) const;
     bool isProgress(internal::PassKey) const;
     bool resultsAreProgressive(internal::PassKey) const;
@@ -545,8 +545,9 @@ public:
     Interruption(internal::PassKey, RequestId reqId, CallCancelMode mode,
                  WampErrc reason);
 
-    void setCallee(internal::PassKey, Context callee,
-                   AnyCompletionExecutor executor);
+    void setCallee(internal::PassKey, Context callee);
+
+    void setExecutor(internal::PassKey, AnyCompletionExecutor executor);
 
     void setRegistrationId(internal::PassKey, RegistrationId regId);
 

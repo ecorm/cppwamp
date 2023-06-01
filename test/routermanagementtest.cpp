@@ -152,6 +152,7 @@ TEST_CASE( "Router realm management", "[WAMP][Router]" )
 
             Realm realm;
             CHECK_FALSE(bool(realm));
+            CHECK_FALSE(realm.isAttached());
             realm = realmOrError.value();
             CHECK(bool(realm));
             CHECK(realm.isOpen());
@@ -175,6 +176,7 @@ TEST_CASE( "Router realm management", "[WAMP][Router]" )
 
             realm = {};
             CHECK_FALSE(bool(realm));
+            CHECK_FALSE(realm.isAttached());
 
             ioctx.stop();
         }
@@ -234,6 +236,94 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
         CHECK(left.features.supports(ClientFeatures::provided()));
 
         s.disconnect();
+    });
+
+    ioctx.run();
+}
+
+//------------------------------------------------------------------------------
+TEST_CASE( "Router realm session management", "[WAMP][Router]" )
+{
+    if (!test::RouterFixture::enabled())
+        return;
+
+    auto& theRouter = test::RouterFixture::instance().router();
+    RouterLogLevelGuard logLevelGuard{theRouter.logLevel()};
+    theRouter.setLogLevel(LogLevel::off);
+
+    using SessionIdList = std::vector<SessionId>;
+    IoContext ioctx;
+
+    spawn(ioctx, [&theRouter, &ioctx](YieldContext yield)
+    {
+        Session s1{ioctx};
+        Session s2{ioctx};
+        Welcome w1;
+        Welcome w2;
+
+        auto observer = TestRealmObserver::create();
+        auto realm = theRouter.realmAt(testRealm).value();
+
+        auto any = [](SessionDetails) {return true;};
+        auto none = [](SessionDetails) {return false;};
+
+        {
+            INFO("Counting and listing sessions");
+
+            auto count = realm.countSessions(yield);
+            CHECK(count == 0);
+            count = realm.countSessions(nullptr, yield);
+            CHECK(count == 0);
+            CHECK(realm.countSessions(any, yield) == 0);
+            CHECK(realm.countSessions(none, yield) == 0);
+
+            CHECK(realm.listSessions(yield).empty());
+            CHECK(realm.listSessions(nullptr, yield).empty());
+            CHECK(realm.listSessions(any, yield).empty());
+            CHECK(realm.listSessions(none, yield).empty());
+
+            s1.connect(withTcp, yield).value();
+            w1 = s1.join(Petition(testRealm), yield).value();
+            auto sid1 = w1.sessionId();
+
+            CHECK(realm.countSessions(yield) == 1);
+            CHECK(realm.countSessions(nullptr, yield) == 1);
+            CHECK(realm.countSessions(any, yield) == 1);
+            CHECK(realm.countSessions(none, yield) == 0);
+
+            CHECK_THAT(realm.listSessions(yield),
+                       Matchers::Equals(SessionIdList{sid1}));
+            CHECK_THAT(realm.listSessions(nullptr, yield),
+                       Matchers::Equals(SessionIdList{sid1}));
+            CHECK_THAT(realm.listSessions(any, yield),
+                       Matchers::Equals(SessionIdList{sid1}));
+            CHECK(realm.listSessions(none, yield).empty());
+
+            s2.connect(withTcp, yield).value();
+            w2 = s2.join(Petition(testRealm), yield).value();
+            auto sid2 = w2.sessionId();
+
+            CHECK(realm.countSessions(yield) == 2);
+            CHECK(realm.countSessions(nullptr, yield) == 2);
+            CHECK(realm.countSessions(any, yield) == 2);
+            CHECK(realm.countSessions(none, yield) == 0);
+
+            CHECK_THAT(realm.listSessions(yield),
+                       Matchers::UnorderedEquals(SessionIdList{sid1, sid2}));
+            CHECK_THAT(realm.listSessions(nullptr, yield),
+                       Matchers::UnorderedEquals(SessionIdList{sid1, sid2}));
+            CHECK_THAT(realm.listSessions(any, yield),
+                       Matchers::UnorderedEquals(SessionIdList{sid1, sid2}));
+            CHECK(realm.listSessions(none, yield).empty());
+        }
+
+//        realm.observe(observer, ioctx.get_executor());
+
+//        while (observer->leaveEvents.empty())
+//            suspendCoro(yield);
+
+        s2.disconnect();
+        s1.disconnect();
     });
 
     ioctx.run();

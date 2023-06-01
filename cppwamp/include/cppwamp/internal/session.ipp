@@ -67,7 +67,7 @@ CPPWAMP_INLINE const Session::Executor& Session::executor() const
 CPPWAMP_INLINE const Session::FallbackExecutor&
 Session::fallbackExecutor() const
 {
-    return impl_->userExecutor();
+    return fallbackExecutor_;
 }
 
 //------------------------------------------------------------------------------
@@ -167,12 +167,13 @@ CPPWAMP_INLINE Session::Session(std::shared_ptr<internal::Peer> peer,
       impl_(internal::Client::create(std::move(peer), std::move(exec)))
 {}
 
+//------------------------------------------------------------------------------
 CPPWAMP_INLINE Session::Session(std::shared_ptr<internal::Peer> peer,
                                 const Executor& exec,
                                 FallbackExecutor fallbackExec)
     : fallbackExecutor_(fallbackExec),
       impl_(internal::Client::create(std::move(peer), exec,
-                                   std::move(fallbackExec)))
+                                     std::move(fallbackExec)))
 {}
 
 //------------------------------------------------------------------------------

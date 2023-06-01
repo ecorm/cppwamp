@@ -23,6 +23,7 @@
 #include <boost/asio/associated_allocator.hpp>
 #include <boost/asio/associated_cancellation_slot.hpp>
 #include <boost/asio/associated_executor.hpp>
+#include <boost/asio/bind_allocator.hpp>
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/cancellation_signal.hpp>
 #include <boost/asio/defer.hpp>
@@ -297,39 +298,70 @@ bindFallbackExecutor(H&& handler, const E& fallbackExec)
                                   fallbackExec);
 }
 
+template <typename H, typename... Ts>
+struct BindHandlerResult
+{
+    using F = typename std::decay<H>::type;
+    using E = typename boost::asio::associated_executor<F>::type;
+    using A = typename boost::asio::associated_allocator<F>::type;
+    using B = decltype(std::bind(std::declval<H>(), std::declval<Ts>()...));
+    using AB = boost::asio::allocator_binder<B, A>;
+    using Type = boost::asio::executor_binder<AB, E>;
+};
+
 } // namespace internal
 
 //------------------------------------------------------------------------------
-/** Dispatches the given handler using its associated executor, passing the
-    given arguments. */
+// This is needed because std::bind erases away the bound executor and
+// allocator.
+// See http://vinniefalco.github.io/papers/p1133r0.html#Problem
+// TODO: Mimic boost::beast::bind_handler
+//------------------------------------------------------------------------------
+template <typename H, typename... Ts>
+auto bindHandler(H&& handler, Ts&&... args)
+    -> typename internal::BindHandlerResult<H, Ts...>::Type
+{
+    auto e = boost::asio::get_associated_executor(handler);
+    auto a = boost::asio::get_associated_allocator(handler);
+    return boost::asio::bind_executor(
+        std::move(e),
+        boost::asio::bind_allocator(
+            std::move(a),
+            std::bind(std::forward<H>(handler),
+                      std::forward<Ts>(args)...)));
+}
+
+//------------------------------------------------------------------------------
+/** Dispatches the given handler with the given arguments, while preserving
+    its associated executor. */
 //------------------------------------------------------------------------------
 template <typename E, typename H, typename... Ts>
 void dispatchAny(E& exec, H&& handler, Ts&&... args)
 {
-    boost::asio::dispatch(exec, std::bind(std::forward<H>(handler),
-                                          std::forward<Ts>(args)...));
+    boost::asio::dispatch(exec, bindHandler(std::forward<H>(handler),
+                                            std::forward<Ts>(args)...));
 }
 
 //------------------------------------------------------------------------------
-/** Posts the given handler using its associated executor, passing the
-    given arguments. */
+/** Posts the given handler with the given arguments, while preserving
+    its associated executor. */
 //------------------------------------------------------------------------------
-template<typename E, typename H, typename... Ts>
+template <typename E, typename H, typename... Ts>
 void postAny(E& exec, H&& handler, Ts&&... args)
 {
-    boost::asio::post(exec, std::bind(std::forward<H>(handler),
-                                      std::forward<Ts>(args)...));
+    boost::asio::post(exec, bindHandler(std::forward<H>(handler),
+                                        std::forward<Ts>(args)...));
 }
 
 //------------------------------------------------------------------------------
-/** Defers the given handler using its associated executor, passing the
-    given arguments. */
+/** Defers the given handler with the given arguments, while preserving
+    its associated executor. */
 //------------------------------------------------------------------------------
 template<typename E, typename H, typename... Ts>
 void deferAny(E& exec, H&& handler, Ts&&... args)
 {
-    boost::asio::defer(exec, std::bind(std::forward<H>(handler),
-                                       std::forward<Ts>(args)...));
+    boost::asio::defer(exec, bindHandler(std::forward<H>(handler),
+                                         std::forward<Ts>(args)...));
 }
 
 } // namespace wamp

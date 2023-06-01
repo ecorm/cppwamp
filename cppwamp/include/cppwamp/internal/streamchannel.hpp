@@ -50,7 +50,6 @@ public:
         : uri_(std::move(uri)),
           chunkSlot_(std::move(onChunk)),
           executor_(std::move(exec)),
-          userExecutor_(std::move(userExec)),
           caller_(std::move(caller)),
           id_(id),
           state_(State::open),
@@ -83,8 +82,6 @@ public:
     Error&& error() && {return std::move(error_);}
 
     const Executor& executor() const {return executor_;}
-
-    const FallbackExecutor& userExecutor() const {return userExecutor_;}
 
     CPPWAMP_NODISCARD ErrorOrDone send(OutputChunk chunk)
     {
@@ -177,13 +174,12 @@ private:
             }
         };
 
-        auto associatedExec =
-            boost::asio::get_associated_executor(chunkSlot_, userExecutor_);
+        auto chunkExec = boost::asio::get_associated_executor(chunkSlot_);
         Posted posted{this->shared_from_this(), chunkSlot_,
                       std::move(errorOrChunk)};
         boost::asio::post(
             executor_,
-            boost::asio::bind_executor(associatedExec, std::move(posted)));
+            boost::asio::bind_executor(chunkExec, std::move(posted)));
     }
 
     bool isValidModeForSending() const
@@ -197,7 +193,6 @@ private:
     Uri uri_;
     ChunkSlot chunkSlot_;
     Executor executor_;
-    FallbackExecutor userExecutor_;
     ClientContext caller_;
     ChannelId id_ = nullId();
     std::atomic<State> state_;
@@ -225,12 +220,12 @@ public:
     using InterruptSlot = AnyReusableHandler<void (TContext, Interruption)>;
     using State = ChannelState;
 
-    BasicCalleeChannelImpl(
-        Invocation&& inv, bool invitationExpected, Executor executor)
+    BasicCalleeChannelImpl(Invocation&& inv, bool invitationExpected,
+                           Executor e)
         : registrationId_(inv.registrationId()),
           invitation_({}, std::move(inv)),
-          executor_(std::move(executor)),
-          userExecutor_(inv.executor()),
+          executor_(std::move(e)),
+          fallbackExecutor_(inv.executor()),
           callee_(inv.callee({})),
           id_(invitation_.channelId()),
           state_(State::awaiting),
@@ -269,7 +264,7 @@ public:
 
     const Executor& executor() const {return executor_;}
 
-    const FallbackExecutor& userExecutor() const {return userExecutor_;}
+    const FallbackExecutor& fallbackExecutor() const {return fallbackExecutor_;}
 
     ErrorOrDone respond(OutputChunk response, ChunkSlot onChunk = {},
                         InterruptSlot onInterrupt = {})
@@ -284,8 +279,10 @@ public:
 
         if (!response.isFinal())
         {
-            chunkSlot_ = std::move(onChunk);
-            interruptSlot_ = std::move(onInterrupt);
+            chunkSlot_ = internal::bindFallbackExecutor(
+                std::move(onChunk), fallbackExecutor_);
+            interruptSlot_ = internal::bindFallbackExecutor(
+                std::move(onInterrupt), fallbackExecutor_);
         }
 
         postUnexpectedInvitationAsChunk();
@@ -301,8 +298,10 @@ public:
         if (!ok)
             return makeUnexpectedError(MiscErrc::invalidState);
 
-        chunkSlot_ = std::move(onChunk);
-        interruptSlot_ = std::move(onInterrupt);
+        chunkSlot_ = internal::bindFallbackExecutor(std::move(onChunk),
+                                                    fallbackExecutor_);
+        interruptSlot_ = internal::bindFallbackExecutor(std::move(onInterrupt),
+                                                        fallbackExecutor_);
         postUnexpectedInvitationAsChunk();
 
         return true;
@@ -340,12 +339,16 @@ public:
 
     void postInvocation(Invocation&& inv)
     {
+        auto exec = boost::asio::get_associated_executor(chunkSlot_);
+        inv.setExecutor({}, std::move(exec));
         InputChunk chunk{{}, std::move(inv)};
         postToSlot(chunkSlot_, std::move(chunk));
     }
 
     bool postInterrupt(Interruption&& intr)
     {
+        auto exec = boost::asio::get_associated_executor(interruptSlot_);
+        intr.setExecutor({}, std::move(exec));
         return postToSlot(interruptSlot_, std::move(intr));
     }
 
@@ -399,12 +402,12 @@ private:
         if (!slot)
             return false;
 
-        auto associatedExec =
-            boost::asio::get_associated_executor(chunkSlot_, userExecutor_);
+        auto chunkExec =
+            boost::asio::get_associated_executor(chunkSlot_, fallbackExecutor_);
         Posted posted{this->shared_from_this(), slot, std::move(request)};
         boost::asio::post(
             executor_,
-            boost::asio::bind_executor(associatedExec, std::move(posted)));
+            boost::asio::bind_executor(chunkExec, std::move(posted)));
         return true;
     }
 
@@ -413,7 +416,7 @@ private:
     ChunkSlot chunkSlot_;
     InterruptSlot interruptSlot_;
     AnyIoExecutor executor_;
-    AnyCompletionExecutor userExecutor_;
+    AnyCompletionExecutor fallbackExecutor_;
     ClientContext callee_;
     ChannelId id_ = nullId();
     std::atomic<State> state_;
