@@ -339,16 +339,12 @@ public:
 
     void postInvocation(Invocation&& inv)
     {
-        auto exec = boost::asio::get_associated_executor(chunkSlot_);
-        inv.setExecutor({}, std::move(exec));
         InputChunk chunk{{}, std::move(inv)};
         postToSlot(chunkSlot_, std::move(chunk));
     }
 
     bool postInterrupt(Interruption&& intr)
     {
-        auto exec = boost::asio::get_associated_executor(interruptSlot_);
-        intr.setExecutor({}, std::move(exec));
         return postToSlot(interruptSlot_, std::move(intr));
     }
 
@@ -402,12 +398,11 @@ private:
         if (!slot)
             return false;
 
-        auto chunkExec =
-            boost::asio::get_associated_executor(chunkSlot_, fallbackExecutor_);
+        auto exec = boost::asio::get_associated_executor(slot);
         Posted posted{this->shared_from_this(), slot, std::move(request)};
         boost::asio::post(
             executor_,
-            boost::asio::bind_executor(chunkExec, std::move(posted)));
+            boost::asio::bind_executor(exec, std::move(posted)));
         return true;
     }
 

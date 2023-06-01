@@ -181,7 +181,7 @@ CPPWAMP_INLINE Event::Event()
     : Base(in_place, 0, 0, Object{}, Array{}, Object{})
 {}
 
-CPPWAMP_INLINE bool Event::empty() const {return executor_ == nullptr;}
+CPPWAMP_INLINE bool Event::ready() const {return executor_ != nullptr;}
 
 CPPWAMP_INLINE SubscriptionId Event::subscriptionId() const
 {
@@ -197,7 +197,7 @@ CPPWAMP_INLINE PublicationId Event::publicationId() const
     @pre `this->empty() == false` */
 CPPWAMP_INLINE const AnyCompletionExecutor& Event::executor() const
 {
-    CPPWAMP_LOGIC_CHECK(!empty(), "Event is empty");
+    CPPWAMP_LOGIC_CHECK(ready(), "Event has not been initialized");
     return executor_;
 }
 

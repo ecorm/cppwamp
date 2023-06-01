@@ -188,21 +188,21 @@ void swap(AnyReusableHandler<S>& a, AnyReusableHandler<S>& b) noexcept
     return a.swap(b);
 }
 
-/** Returns true is the given handler is empty. @relates AnyReusableHandler */
+/** Returns true if the given handler is empty. @relates AnyReusableHandler */
 template <typename S>
 bool operator==(const AnyReusableHandler<S>& f, std::nullptr_t) noexcept
 {
     return !f;
 }
 
-/** Returns true is the given handler is empty. @relates AnyReusableHandler */
+/** Returns true if the given handler is empty. @relates AnyReusableHandler */
 template <typename S>
 bool operator==(std::nullptr_t, const AnyReusableHandler<S>& f) noexcept
 {
     return !f;
 }
 
-/** Returns false is the given handler is empty. @relates AnyReusableHandler */
+/** Returns false if the given handler is empty. @relates AnyReusableHandler */
 template <typename S>
 bool operator!=(const AnyReusableHandler<S>& f, std::nullptr_t) noexcept
 {

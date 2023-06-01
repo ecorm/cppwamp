@@ -73,7 +73,7 @@ CPPWAMP_INLINE CalleeInputChunk&& CalleeChannel::invitation() &&
 }
 
 /** Obtains the executor used to execute user-provided handlers. */
-CPPWAMP_INLINE const AnyCompletionExecutor& CalleeChannel::executor() const
+CPPWAMP_INLINE const AnyCompletionExecutor& CalleeChannel::fallbackExecutor() const
 {
     return impl_->fallbackExecutor();
 }

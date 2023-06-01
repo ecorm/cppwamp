@@ -328,7 +328,7 @@ CPPWAMP_INLINE Invocation::Invocation()
     : Base(in_place, 0, 0, Object{}, Array{}, Object{})
 {}
 
-CPPWAMP_INLINE bool Invocation::empty() const {return executor_ == nullptr;}
+CPPWAMP_INLINE bool Invocation::ready() const {return executor_ != nullptr;}
 
 CPPWAMP_INLINE bool Invocation::calleeHasExpired() const
 {
@@ -349,7 +349,7 @@ CPPWAMP_INLINE RegistrationId Invocation::registrationId() const
     @pre `this->empty() == false` */
 CPPWAMP_INLINE AnyCompletionExecutor Invocation::executor() const
 {
-    CPPWAMP_LOGIC_CHECK(!empty(), "Invocation is empty");
+    CPPWAMP_LOGIC_CHECK(ready(), "Invocation has not been initialized");
     return executor_;
 }
 

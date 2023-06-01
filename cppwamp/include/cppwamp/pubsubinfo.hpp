@@ -171,9 +171,8 @@ public:
     /** Default constructor. */
     Event();
 
-    /** Returns `false` if the Event has been initialized and is ready
-        for use. */
-    bool empty() const;
+    /** Determines if the Event has been initialized and is ready for use. */
+    bool ready() const;
 
     /** Obtains the subscription ID associated with this event. */
     SubscriptionId subscriptionId() const;

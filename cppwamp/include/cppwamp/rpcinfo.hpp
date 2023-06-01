@@ -379,9 +379,9 @@ public:
     /** Default constructor */
     Invocation();
 
-    /** Returns `false` if the Invocation has been initialized and is ready
+    /** Determines if the Invocation has been initialized and is ready
         for use. */
-    bool empty() const;
+    bool ready() const;
 
     /** Determines if the Session object that dispatched this
         invocation still exists or has expired. */

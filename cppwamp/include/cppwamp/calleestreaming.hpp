@@ -97,8 +97,8 @@ public:
     /** Moves the invitation. */
     InputChunk&& invitation() &&;
 
-    /** Obtains the executor used to execute user-provided handlers. */
-    const AnyCompletionExecutor& executor() const;
+    /** Obtains the fallback executor used for user-provided handlers. */
+    const AnyCompletionExecutor& fallbackExecutor() const;
 
     /** Determines if this instance has shared ownership of the underlying
         channel. */

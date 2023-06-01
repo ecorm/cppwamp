@@ -578,8 +578,8 @@ private:
         return Subscription{{}, std::move(subscriber), subId, slotId};
     }
 
-    void postEvent(const EventSlot& slot, const Event& event,
-                   ClientContext subscriber, AnyIoExecutor& exec)
+    void postEvent(const EventSlot& slot, Event event, ClientContext subscriber,
+                   AnyIoExecutor& exec)
     {
         struct Posted
         {
@@ -589,9 +589,6 @@ private:
 
             void operator()()
             {
-                auto slotExec = boost::asio::get_associated_executor(slot);
-                event.setExecutor({}, std::move(slotExec));
-
                 // Copy the subscription and publication IDs before the Event
                 // object gets moved away.
                 auto subId = event.subscriptionId();
@@ -601,6 +598,7 @@ private:
                 // subscribers when it passes arguments having incorrect type.
                 try
                 {
+                    assert(event.ready());
                     slot(std::move(event));
                 }
                 catch (Error& error)
@@ -619,11 +617,12 @@ private:
             }
         };
 
-        auto boundExec = boost::asio::get_associated_executor(slot);
-        Posted posted{subscriber, event, slot};
+        auto slotExec = boost::asio::get_associated_executor(slot);
+        event.setExecutor({}, slotExec);
+        Posted posted{subscriber, std::move(event), slot};
         boost::asio::post(
             exec,
-            boost::asio::bind_executor(boundExec, std::move(posted)));
+            boost::asio::bind_executor(slotExec, std::move(posted)));
     }
 
     SlotId nextSlotId() {return nextSlotId_++;}
@@ -880,9 +879,6 @@ private:
         if (inv.isProgress({}) || inv.resultsAreProgressive({}))
             return WampErrc::optionNotAllowed;
 
-        auto exec = boost::asio::get_associated_executor(reg.callSlot);
-        inv.setExecutor({}, std::move(exec));
-
         auto requestId = inv.requestId();
         auto registrationId = inv.registrationId();
         auto emplaced = invocations_.emplace(requestId,
@@ -903,8 +899,6 @@ private:
     {
         if (reg.interruptSlot == nullptr)
             return false;
-        auto exec = boost::asio::get_associated_executor((reg.interruptSlot));
-        intr.setExecutor({}, std::move(exec));
         postRpcRequest(reg.interruptSlot, intr, reg.registrationId);
         return true;
     }
@@ -964,14 +958,15 @@ private:
             }
         };
 
-        auto boundExec = boost::asio::get_associated_executor(slot);
+        auto slotExec = boost::asio::get_associated_executor(slot);
+        request.setExecutor({}, slotExec);
         auto callee = request.callee({});
         assert(!callee.expired());
         Posted posted{std::move(callee), std::move(slot), std::move(request),
                       regId};
         boost::asio::post(
             executor_,
-            boost::asio::bind_executor(boundExec, std::move(posted)));
+            boost::asio::bind_executor(slotExec, std::move(posted)));
     }
 
     WampErrc onStreamInvocation(Invocation& inv, const StreamRegistration& reg)
@@ -994,13 +989,13 @@ private:
     {
         if (!rec.invoked)
         {
+            auto exec = boost::asio::get_associated_executor(reg.streamSlot);
+            inv.setExecutor({}, std::move(exec));
             auto channel = std::make_shared<CalleeChannelImpl>(
                 std::move(inv), reg.invitationExpected, executor_);
             rec.channel = channel;
             rec.invoked = true;
             CalleeChannel proxy{{}, channel};
-            auto exec = boost::asio::get_associated_executor(reg.streamSlot);
-            inv.setExecutor({}, std::move(exec));
 
             try
             {
