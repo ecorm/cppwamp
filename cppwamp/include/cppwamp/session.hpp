@@ -70,10 +70,6 @@ class Peer;
     A *fallback executor* may optionally be passed to Session for use in
     executing user-provided handlers. If there is no executor bound to the
     handler, Session will use Session::fallbackExecutor() instead.
-    When using Boost versions prior to 1.80.0, if one of the unpackers in
-    cppwamp/corounpacker.hpp is used to register an event or RPC handler, then
-    the fallback executor must originate from wamp::IoExecutor or
-    wamp::AnyIoExecutor.
 
     @par Aborting Asynchronous Operations
     All pending asynchronous operations can be _aborted_ by dropping the client
@@ -357,9 +353,9 @@ private:
     struct RequestStreamOp;
     struct OpenStreamOp;
 
-    template <typename S>
-    typename internal::BindFallbackExecutorResult<S>::Type
-    bindFallbackExecutor(S&& slot) const;
+    template <typename F>
+    typename internal::BindFallbackExecutorResult<F>::Type
+    bindFallbackExecutor(F&& handler) const;
 
     template <typename O, typename C, typename... As>
     Deduced<ErrorOr<typename O::ResultValue>, C>
@@ -1062,11 +1058,11 @@ Session::Deduced<ErrorOr<CallerChannel>, C> Session::openStream(
 }
 
 //------------------------------------------------------------------------------
-template <typename S>
-typename internal::BindFallbackExecutorResult<S>::Type
-Session::bindFallbackExecutor(S&& slot) const
+template <typename F>
+typename internal::BindFallbackExecutorResult<F>::Type
+Session::bindFallbackExecutor(F&& handler) const
 {
-    return internal::bindFallbackExecutor(std::forward<S>(slot),
+    return internal::bindFallbackExecutor(std::forward<F>(handler),
                                           fallbackExecutor_);
 }
 

@@ -31,7 +31,16 @@ CPPWAMP_INLINE ErrorOr<Realm> Router::openRealm(RealmConfig config)
     auto impl = impl_->addRealm(std::move(config));
     if (!impl)
         return makeUnexpectedError(MiscErrc::alreadyExists);
-    return Realm{std::move(impl)};
+    return Realm{std::move(impl), impl_->executor()};
+}
+
+CPPWAMP_INLINE ErrorOr<Realm> Router::openRealm(RealmConfig config,
+                                                FallbackExecutor fe)
+{
+    auto impl = impl_->addRealm(std::move(config));
+    if (!impl)
+        return makeUnexpectedError(MiscErrc::alreadyExists);
+    return Realm{std::move(impl), std::move(fe)};
 }
 
 CPPWAMP_INLINE bool Router::closeRealm(const Uri uri, Reason r)
@@ -44,7 +53,16 @@ CPPWAMP_INLINE ErrorOr<Realm> Router::realmAt(const Uri& uri) const
     auto realmImpl = impl_->realmAt(uri);
     if (!realmImpl)
         return makeUnexpectedError(WampErrc::noSuchRealm);
-    return Realm{std::move(realmImpl)};
+    return Realm{std::move(realmImpl), impl_->executor()};
+}
+
+CPPWAMP_INLINE ErrorOr<Realm> Router::realmAt(const Uri& uri,
+                                              FallbackExecutor fe) const
+{
+    auto realmImpl = impl_->realmAt(uri);
+    if (!realmImpl)
+        return makeUnexpectedError(WampErrc::noSuchRealm);
+    return Realm{std::move(realmImpl), std::move(fe)};
 }
 
 CPPWAMP_INLINE bool Router::openServer(ServerConfig config)

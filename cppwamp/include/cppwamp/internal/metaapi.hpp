@@ -403,7 +403,10 @@ public:
     void setObserver(RealmObserver::Ptr o, ObserverExecutor e)
     {
         observer_ = std::move(o);
-        observerExecutor_ = std::move(e);
+        if (e == ObserverExecutor(executor_))
+            observerExecutor_ = nullptr;
+        else
+            observerExecutor_ = std::move(e);
     }
 
     void onRealmClosed(Uri uri) override
@@ -443,13 +446,9 @@ public:
             void operator()() {o->onLeave(std::move(s));}
         };
 
-        Object details
-        {
-            {"authid", s.authInfo.id()},
-            {"authrole", s.authInfo.role()},
-            {"session", s.authInfo.sessionId()}
-        };
-        publish(Pub{"wamp.session.on_leave"}.withArgs(std::move(details)));
+        publish(Pub{"wamp.session.on_leave"}.withArgs(s.authInfo.sessionId(),
+                                                      s.authInfo.id(),
+                                                      s.authInfo.role()));
 
         if (observer_)
             postToObserver<Posted>(std::move(s));

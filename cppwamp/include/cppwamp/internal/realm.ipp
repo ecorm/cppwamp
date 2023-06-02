@@ -20,6 +20,12 @@ CPPWAMP_INLINE const Realm::Executor& Realm::executor() const
     return impl_->executor();
 }
 
+CPPWAMP_INLINE const Realm::FallbackExecutor& Realm::fallbackExecutor() const
+{
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
+    return fallbackExecutor_;
+}
+
 CPPWAMP_INLINE const IoStrand& Realm::strand() const
 {
     CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
@@ -39,7 +45,14 @@ CPPWAMP_INLINE bool Realm::isOpen() const
     return isAttached() && impl_->isOpen();
 }
 
-CPPWAMP_INLINE void Realm::observe(RealmObserver::Ptr o, ObserverExecutor e)
+CPPWAMP_INLINE void Realm::observe(RealmObserver::Ptr o)
+{
+    CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
+    impl_->observe(std::move(o), fallbackExecutor_);
+}
+
+CPPWAMP_INLINE void Realm::observe(RealmObserver::Ptr o,
+                                   AnyCompletionExecutor e)
 {
     CPPWAMP_LOGIC_CHECK(isAttached(), "Realm instance is unattached");
     impl_->observe(std::move(o), std::move(e));
@@ -51,8 +64,10 @@ CPPWAMP_INLINE void Realm::unobserve()
         impl_->unobserve();
 }
 
-CPPWAMP_INLINE Realm::Realm(std::shared_ptr<internal::RouterRealm> impl)
-    : impl_(std::move(impl))
+CPPWAMP_INLINE Realm::Realm(std::shared_ptr<internal::RouterRealm> impl,
+                            FallbackExecutor fe)
+    : fallbackExecutor_(std::move(fe)),
+      impl_(std::move(impl))
 {}
 
 CPPWAMP_INLINE void Realm::doCountSessions(SessionFilter f,

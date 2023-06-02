@@ -42,6 +42,10 @@ public:
     /** Executor type used for I/O operations. */
     using Executor = AnyIoExecutor;
 
+    /** Fallback executor type for user-provided handlers passed via
+        the Realm interface. */
+    using FallbackExecutor = AnyCompletionExecutor;
+
     /** Type-erased wrapper around a log event handler. */
     using LogHandler = AnyReusableHandler<void (LogEntry)>;
 
@@ -66,9 +70,13 @@ public:
 
     ErrorOr<Realm> openRealm(RealmConfig config);
 
+    ErrorOr<Realm> openRealm(RealmConfig config, FallbackExecutor fe);
+
     bool closeRealm(const Uri uri, Reason r = shutdownReason());
 
     ErrorOr<Realm> realmAt(const Uri& uri) const;
+
+    ErrorOr<Realm> realmAt(const Uri& uri, FallbackExecutor fe) const;
 
     bool openServer(ServerConfig config);
 

@@ -131,9 +131,7 @@ public:
             }
         };
 
-        if (e == nullptr)
-            e = executor_;
-        safelyDispatch<Dispatched>(std::move(o), std::move(e));
+        safelyDispatch<Dispatched>(std::move(o));
     }
 
     void unobserve()

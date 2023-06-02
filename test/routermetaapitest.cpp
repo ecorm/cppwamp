@@ -41,7 +41,6 @@ TEST_CASE( "WAMP session meta events", "[WAMP][Router]" )
     IoContext ioctx;
     Session s1{ioctx};
     Session s2{ioctx};
-
     SessionJoinInfo joinedInfo;
     SessionLeftInfo leftInfo;
 

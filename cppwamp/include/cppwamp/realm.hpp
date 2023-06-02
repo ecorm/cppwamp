@@ -46,7 +46,7 @@ class CPPWAMP_API Realm
 {
 public:
     using Executor            = AnyIoExecutor;
-    using ObserverExecutor    = AnyCompletionExecutor;
+    using FallbackExecutor    = AnyCompletionExecutor;
     using SessionIdList       = std::vector<SessionId>;
     using SubscriptionIdList  = std::vector<SubscriptionId>;
     using SessionHandler      = std::function<void (SessionDetails)>;
@@ -74,6 +74,8 @@ public:
 
     const Executor& executor() const;
 
+    const FallbackExecutor& fallbackExecutor() const;
+
     const IoStrand& strand() const;
 
     const Uri& uri() const;
@@ -82,7 +84,9 @@ public:
 
     bool isOpen() const;
 
-    void observe(RealmObserver::Ptr o, ObserverExecutor e = nullptr);
+    void observe(RealmObserver::Ptr o);
+
+    void observe(RealmObserver::Ptr o, AnyCompletionExecutor e);
 
     void unobserve();
 
@@ -192,7 +196,12 @@ private:
     template <typename O, typename C, typename... As>
     Deduced<typename O::ResultValue, C> initiate(C&& token, As&&... args);
 
-    explicit Realm(std::shared_ptr<internal::RouterRealm> impl);
+    explicit Realm(std::shared_ptr<internal::RouterRealm> impl,
+                   FallbackExecutor fe);
+
+    template <typename F>
+    typename internal::BindFallbackExecutorResult<F>::Type
+    bindFallbackExecutor(F&& handler) const;
 
     void doCountSessions(SessionFilter f, CompletionHandler<std::size_t> h);
     void doListSessions(SessionFilter f, CompletionHandler<SessionIdList> h);
@@ -220,6 +229,7 @@ private:
     void doGetSubscription(SubscriptionId sid,
                            CompletionHandler<ErrorOr<SubscriptionDetails>> h);
 
+    FallbackExecutor fallbackExecutor_;
     std::shared_ptr<internal::RouterRealm> impl_;
 
     friend class Router;
@@ -231,6 +241,15 @@ private:
 //******************************************************************************
 
 //------------------------------------------------------------------------------
+template <typename F>
+typename internal::BindFallbackExecutorResult<F>::Type
+Realm::bindFallbackExecutor(F&& handler) const
+{
+    return internal::bindFallbackExecutor(std::forward<F>(handler),
+                                          fallbackExecutor_);
+}
+
+//------------------------------------------------------------------------------
 struct Realm::CountSessionsOp
 {
     using ResultValue = std::size_t;
@@ -239,7 +258,8 @@ struct Realm::CountSessionsOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doCountSessions(std::move(filter), std::forward<F>(f));
+        self->doCountSessions(std::move(filter),
+                              self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -279,7 +299,8 @@ struct Realm::ListSessionsOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doListSessions(std::move(filter), std::forward<F>(f));
+        self->doListSessions(std::move(filter),
+                             self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -307,7 +328,8 @@ struct Realm::ForEachSessionOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doForEachSession(std::move(onSession), std::forward<F>(f));
+        self->doForEachSession(std::move(onSession),
+                               self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -329,7 +351,8 @@ struct Realm::LookupSessionOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doLookupSession(sid, std::forward<F>(f));
+        self->doLookupSession(sid,
+                              self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -356,7 +379,8 @@ struct Realm::KillSessionOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doKillSession(sid, std::move(r), std::forward<F>(f));
+        self->doKillSession(sid, std::move(r),
+                            self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -387,7 +411,7 @@ struct Realm::KillSessionsOp
     template <typename F> void operator()(F&& f)
     {
         self->doKillSessions(std::move(filter), std::move(r),
-                             std::forward<F>(f));
+                             self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -416,7 +440,8 @@ struct Realm::ListRegistrationsOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doListRegistrations(std::forward<F>(f));
+        self->doListRegistrations(
+            self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -438,8 +463,9 @@ struct Realm::ForEachRegistrationOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doForEachRegistration(p, std::move(onRegistration),
-                                    std::forward<F>(f));
+        self->doForEachRegistration(
+            p, std::move(onRegistration),
+            self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -462,7 +488,8 @@ struct Realm::LookupRegistrationOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doLookupRegistration(std::move(uri), p, std::forward<F>(f));
+        self->doLookupRegistration(
+            std::move(uri), p, self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -484,7 +511,8 @@ struct Realm::MatchRegistrationOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doMatchRegistration(std::move(uri), std::forward<F>(f));
+        self->doMatchRegistration(
+            std::move(uri), self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -506,7 +534,8 @@ struct Realm::GetRegistrationOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doGetRegistration(rid, std::forward<F>(f));
+        self->doGetRegistration(rid,
+                                self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -526,7 +555,8 @@ struct Realm::ListSubscriptionsOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doListSubscriptions(std::forward<F>(f));
+        self->doListSubscriptions(
+            self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -548,8 +578,9 @@ struct Realm::ForEachSubscriptionOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doForEachSubscription(p, std::move(onSubscription),
-                                    std::forward<F>(f));
+        self->doForEachSubscription(
+            p, std::move(onSubscription),
+            self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -572,7 +603,8 @@ struct Realm::LookupSubscriptionOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doLookupSubscription(std::move(uri), p, std::forward<F>(f));
+        self->doLookupSubscription(
+            std::move(uri), p, self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -594,7 +626,8 @@ struct Realm::MatchSubscriptionsOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doMatchSubscriptions(std::move(uri), std::forward<F>(f));
+        self->doMatchSubscriptions(
+            std::move(uri), self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
@@ -616,7 +649,8 @@ struct Realm::GetSubscriptionOp
 
     template <typename F> void operator()(F&& f)
     {
-        self->doGetSubscription(sid, std::forward<F>(f));
+        self->doGetSubscription(sid,
+                                self->bindFallbackExecutor(std::forward<F>(f)));
     }
 };
 
