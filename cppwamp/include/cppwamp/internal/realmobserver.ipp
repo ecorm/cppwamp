@@ -215,7 +215,37 @@ CPPWAMP_INLINE Object toObject(const SubscriptionLists& lists)
 }
 
 //------------------------------------------------------------------------------
-CPPWAMP_INLINE RealmObserver::~RealmObserver() {}
+CPPWAMP_INLINE RealmObserver::~RealmObserver()
+{
+    if (detacher_)
+    {
+        detacher_();
+        detacher_ = nullptr;
+    }
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE bool RealmObserver::attached() const
+{
+    auto& mutex = const_cast<std::mutex&>(detacherMutex_);
+    std::lock_guard<std::mutex> guard(mutex);
+    return detacher_ != nullptr;
+}
+
+//------------------------------------------------------------------------------
+CPPWAMP_INLINE void RealmObserver::detach()
+{
+    Detacher detacher;
+
+    {
+        std::lock_guard<std::mutex> guard(detacherMutex_);
+        detacher = std::move(detacher_);
+        detacher_ = nullptr;
+    }
+
+    if (detacher)
+        detacher();
+}
 
 CPPWAMP_INLINE void RealmObserver::onRealmClosed(Uri) {}
 
@@ -234,5 +264,11 @@ CPPWAMP_INLINE void RealmObserver::onSubscribe(SessionDetails,
 
 CPPWAMP_INLINE void RealmObserver::onUnsubscribe(SessionDetails,
                                                  SubscriptionDetails) {}
+
+CPPWAMP_INLINE void RealmObserver::attach(internal::PassKey, Detacher f)
+{
+    std::lock_guard<std::mutex> guard(detacherMutex_);
+    detacher_ = std::move(f);
+}
 
 } // namespace wamp

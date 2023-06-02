@@ -18,7 +18,7 @@
 #include "../errorinfo.hpp"
 #include "../erroror.hpp"
 #include "../rpcinfo.hpp"
-#include "../realmobserver.hpp"
+#include "metaapi.hpp"
 #include "routersession.hpp"
 #include "timeoutscheduler.hpp"
 
@@ -98,7 +98,7 @@ public:
     }
 
     ErrorOr<Uri> erase(RouterSession::Ptr callee, Key key,
-                       RealmObserver::Ptr observer)
+                       MetaTopics& metaTopics)
     {
         auto found = byKey_.find(key);
         if (found == byKey_.end())
@@ -110,7 +110,7 @@ public:
 
         Uri uri{registration.procedureUri()};
 
-        if (observer)
+        if (metaTopics.enabled())
         {
             // Grab needed details from the registration before it is
             // deleted from the map.
@@ -119,7 +119,7 @@ public:
             auto erased = byUri_.erase(uri);
             assert(erased == 1);
             byKey_.erase(found);
-            observer->onUnregister(callee->details(), std::move(details));
+            metaTopics.onUnregister(callee->details(), std::move(details));
         }
         else
         {
@@ -593,28 +593,29 @@ private:
 class Dealer
 {
 public:
-    Dealer(IoStrand strand) : jobs_(std::move(strand)) {}
+    Dealer(IoStrand strand, MetaTopics::Ptr metaTopics)
+        : jobs_(std::move(strand)),
+          metaTopics_(std::move(metaTopics))
+    {}
 
-    ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p,
-                                   RealmObserver::Ptr observer)
+    ErrorOr<RegistrationId> enroll(RouterSession::Ptr callee, Procedure&& p)
     {
         if (registry_.contains(p.uri()))
             return makeUnexpectedError(WampErrc::procedureAlreadyExists);
         DealerRegistration reg{std::move(p), callee};
         auto key = nextRegistrationId();
         const auto& inserted = registry_.insert(key, std::move(reg));
-        if (observer)
-            observer->onRegister(callee->details(), inserted.details());
+        if (metaTopics_->enabled())
+            metaTopics_->onRegister(callee->details(), inserted.details());
         return key;
     }
 
-    ErrorOr<Uri> unregister(RouterSession::Ptr callee, RegistrationId rid,
-                            RealmObserver::Ptr observer)
+    ErrorOr<Uri> unregister(RouterSession::Ptr callee, RegistrationId rid)
     {
         // Consensus on what to do with pending invocations upon unregister
         // appears to be to allow them to continue.
         // https://github.com/wamp-proto/wamp-proto/issues/283#issuecomment-429542748
-        return registry_.erase(std::move(callee), rid, std::move(observer));
+        return registry_.erase(std::move(callee), rid, *metaTopics_);
     }
 
     ErrorOrDone call(RouterSession::Ptr caller, Rpc& rpc)
@@ -765,6 +766,7 @@ private:
     DealerRegistry registry_;
     DealerJobMap jobs_;
     RegistrationId nextRegistrationId_ = nullId();
+    MetaTopics::Ptr metaTopics_;
 };
 
 } // namespace internal

@@ -58,12 +58,6 @@ CPPWAMP_INLINE void Realm::observe(RealmObserver::Ptr o,
     impl_->observe(std::move(o), std::move(e));
 }
 
-CPPWAMP_INLINE void Realm::unobserve()
-{
-    if (impl_)
-        impl_->unobserve();
-}
-
 CPPWAMP_INLINE Realm::Realm(std::shared_ptr<internal::RouterRealm> impl,
                             FallbackExecutor fe)
     : fallbackExecutor_(std::move(fe)),

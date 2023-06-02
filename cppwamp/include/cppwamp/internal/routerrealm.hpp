@@ -8,6 +8,7 @@
 #define CPPWAMP_INTERNAL_ROUTERREALM_HPP
 
 #include <atomic>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -33,13 +34,15 @@ namespace internal
 {
 
 //------------------------------------------------------------------------------
-class RouterRealm : public std::enable_shared_from_this<RouterRealm>
+class RouterRealm : public std::enable_shared_from_this<RouterRealm>,
+                    public MetaPublisher
 {
 public:
     using Ptr                 = std::shared_ptr<RouterRealm>;
     using WeakPtr             = std::weak_ptr<RouterRealm>;
     using Executor            = AnyIoExecutor;
     using ObserverExecutor    = AnyCompletionExecutor;
+    using ObserverId          = MetaTopics::ObserverId;
     using SessionHandler      = std::function<void (SessionDetails)>;
     using SessionFilter       = std::function<bool (SessionDetails)>;
     using RegistrationHandler = std::function<void (RegistrationDetails)>;
@@ -77,9 +80,8 @@ public:
                 auto id = reservedId.get();
                 session->setWampId(std::move(reservedId));
                 me.sessions_.emplace(id, session);
-                auto observer = me.observer_.lock();
-                if (observer)
-                    observer->onJoin(session->details());
+                if (me.metaTopics_->enabled())
+                    me.metaTopics_->onJoin(session->details());
             }
         };
 
@@ -105,9 +107,8 @@ public:
                     kv.second->abort(r);
                 me.sessions_.clear();
                 me.isOpen_.store(false);
-                auto observer = me.observer_.lock();
-                if (observer)
-                    observer->onRealmClosed(me.config_.uri());
+                if (me.metaTopics_->enabled())
+                    me.metaTopics_->onRealmClosed(me.config_.uri());
             }
         };
 
@@ -121,35 +122,30 @@ public:
             Ptr self;
             RealmObserver::Ptr o;
             ObserverExecutor e;
+
             void operator()()
             {
-                auto& me = *self;
-                if (me.config_.metaApiEnabled())
-                    me.metaTopics_->setObserver(std::move(o), std::move(e));
-                else
-                    me.observer_ = std::move(o);
+                self->metaTopics_->addObserver(std::move(o), std::move(e));
             }
         };
 
         safelyDispatch<Dispatched>(std::move(o));
     }
 
-    void unobserve()
+    void unobserve(ObserverId observerId)
     {
         struct Dispatched
         {
             Ptr self;
+            ObserverId oid;
+
             void operator()()
             {
-                auto& me = *self;
-                if (me.config_.metaApiEnabled())
-                    me.metaTopics_->setObserver(nullptr, nullptr);
-                else
-                    me.observer_ = {};
+                self->metaTopics_->removeObserver(oid);
             }
         };
 
-        safelyDispatch<Dispatched>();
+        safelyDispatch<Dispatched>(observerId);
     }
 
     void countSessions(SessionFilter f, CompletionHandler<std::size_t> h)
@@ -462,7 +458,6 @@ public:
 
 private:
     using RealmProcedures = MetaProcedures<RouterRealm>;
-    using RealmTopics = MetaTopics<RouterRealm>;
 
     RouterRealm(Executor&& e, RealmConfig&& c, const RouterConfig& rcfg,
                 RouterContext&& rctx)
@@ -470,19 +465,17 @@ private:
           strand_(boost::asio::make_strand(executor_)),
           config_(std::move(c)),
           router_(std::move(rctx)),
-          broker_(rcfg.publicationRNG()),
-          dealer_(strand_),
+          metaTopics_(std::make_shared<MetaTopics>(this, executor_, strand_,
+                                                   config_.metaApiEnabled())),
+          broker_(rcfg.publicationRNG(), metaTopics_),
+          dealer_(strand_, metaTopics_),
           logSuffix_(" (Realm " + config_.uri() + ")"),
           logger_(router_.logger()),
           uriValidator_(rcfg.uriValidator()),
           isOpen_(true)
     {
         if (config_.metaApiEnabled())
-        {
             metaProcedures_.reset(new RealmProcedures(this));
-            metaTopics_ = std::make_shared<RealmTopics>(this, executor_);
-            observer_ = metaTopics_;
-        }
     }
 
     RouterLogger::Ptr logger() const {return logger_;}
@@ -616,9 +609,8 @@ private:
                 me.sessions_.erase(found);
                 me.broker_.removeSubscriber(sid);
                 me.dealer_.removeSession(sid);
-                auto observer = me.observer_.lock();
-                if (observer)
-                    observer->onLeave(session->details());
+                if (me.metaTopics_->enabled())
+                    me.metaTopics_->onLeave(session->details());
             }
         };
 
@@ -675,8 +667,7 @@ private:
         auto rid = topic.requestId({});
         auto uri = topic.uri();
 
-        auto subId = broker_.subscribe(originator, std::move(topic),
-                                       observer_.lock());
+        auto subId = broker_.subscribe(originator, std::move(topic));
         if (!subId)
             return;
 
@@ -696,8 +687,7 @@ private:
             {
                 auto& me = *self;
                 auto rid = u.requestId({});
-                auto topic = me.broker_.unsubscribe(s, u.subscriptionId(),
-                                                    self->observer_.lock());
+                auto topic = me.broker_.unsubscribe(s, u.subscriptionId());
                 if (!me.checkResult(topic, *s, u))
                     return;
                 Unsubscribed ack{rid};
@@ -772,8 +762,7 @@ private:
 
         auto rid = proc.requestId({});
         auto uri = proc.uri();
-        auto regId = dealer_.enroll(originator, std::move(proc),
-                                    observer_.lock());
+        auto regId = dealer_.enroll(originator, std::move(proc));
         if (!checkResult(regId, *originator, proc))
             return;
         Registered ack{rid, *regId};
@@ -792,8 +781,7 @@ private:
             {
                 auto& me = *self;
                 auto rid = u.requestId({});
-                auto uri = me.dealer_.unregister(s, u.registrationId(),
-                                                 me.observer_.lock());
+                auto uri = me.dealer_.unregister(s, u.registrationId());
                 if (!me.checkResult(uri, *s, u))
                     return;
                 Unregistered ack{rid};
@@ -1014,20 +1002,18 @@ private:
     RealmConfig config_;
     RouterContext router_;
     std::map<SessionId, RouterSession::Ptr> sessions_;
+    MetaTopics::Ptr metaTopics_;
     Broker broker_;
     Dealer dealer_;
     std::string logSuffix_;
     RouterLogger::Ptr logger_;
     UriValidator::Ptr uriValidator_;
-    RealmObserver::WeakPtr observer_;
     std::unique_ptr<RealmProcedures> metaProcedures_;
-    std::shared_ptr<RealmTopics> metaTopics_;
     std::atomic<bool> isOpen_;
 
     friend class DirectPeer;
     friend class RealmContext;
     template <typename> friend class MetaProcedures;
-    template <typename> friend class MetaTopics;
 };
 
 

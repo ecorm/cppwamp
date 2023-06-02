@@ -9,10 +9,12 @@
 
 #include <algorithm>
 #include <array>
+#include <map>
 #include <set>
 #include <sstream>
 #include <utility>
 #include "../anyhandler.hpp"
+#include "../pubsubinfo.hpp"
 #include "../realmobserver.hpp"
 #include "../rpcinfo.hpp"
 #include "cppwamp/asiodefs.hpp"
@@ -388,193 +390,298 @@ private:
 };
 
 //------------------------------------------------------------------------------
-template <typename TContext>
+class MetaPublisher
+{
+public:
+    virtual void publishMetaEvent(Pub&& pub) = 0;
+};
+
+//------------------------------------------------------------------------------
 class MetaTopics : public RealmObserver
 {
 public:
-    using Context = TContext;
+    using Ptr = std::shared_ptr<MetaTopics>;
+    using WeakPtr = std::weak_ptr<MetaTopics>;
     using Executor = AnyIoExecutor;
     using ObserverExecutor = AnyCompletionExecutor;
+    using ObserverId = uint64_t;
 
-    MetaTopics(Context* realm, Executor executor)
+    MetaTopics(MetaPublisher* realm, Executor executor, IoStrand strand,
+               bool metaApiEnabled)
         : executor_(executor),
-          context_(*realm) {}
+          strand_(std::move(strand)),
+          context_(*realm),
+          metaApiEnabled_(metaApiEnabled)
+    {}
 
-    void setObserver(RealmObserver::Ptr o, ObserverExecutor e)
+    bool enabled() const {return metaApiEnabled_ || !observers_.empty();}
+
+    void addObserver(RealmObserver::Ptr o, ObserverExecutor e)
     {
-        observer_ = std::move(o);
+        WeakPtr self = std::static_pointer_cast<MetaTopics>(shared_from_this());
+        auto id = ++nextObserverId_;
+        o->attach(
+            {},
+            [self, id]()
+            {
+                auto me = self.lock();
+                if (me)
+                    me->safelyRemoveObserver(id);
+            });
+
         if (e == ObserverExecutor(executor_))
-            observerExecutor_ = nullptr;
-        else
-            observerExecutor_ = std::move(e);
+            e = nullptr;
+
+        observers_.emplace(id, ObserverRecord{o, std::move(e)});
+    }
+
+    void removeObserver(ObserverId id)
+    {
+        observers_.erase(id);
     }
 
     void onRealmClosed(Uri uri) override
     {
         struct Posted
         {
-            RealmObserver::Ptr o;
+            RealmObserver::WeakPtr observer;
             Uri uri;
-            void operator()() {o->onRealmClosed(uri);}
+
+            void operator()()
+            {
+                auto o = observer.lock();
+                if (o)
+                    o->onRealmClosed(uri);
+            }
         };
 
-        if (observer_)
-            postToObserver<Posted>(std::move(uri));
+        if (!observers_.empty())
+            postToAllObservers<Posted>(std::move(uri));
     }
 
     void onJoin(SessionDetails s) override
     {
         struct Posted
         {
-            RealmObserver::Ptr o;
+            RealmObserver::WeakPtr observer;
             SessionDetails s;
-            void operator()() {o->onJoin(std::move(s));}
+
+            void operator()()
+            {
+                auto o = observer.lock();
+                if (o)
+                    o->onJoin(std::move(s));
+            }
         };
 
-        publish(Pub{"wamp.session.on_join"}.withArgs(toObject(s)));
+        if (metaApiEnabled_)
+            publish(Pub{"wamp.session.on_join"}.withArgs(toObject(s)));
 
-        if (observer_)
-            postToObserver<Posted>(std::move(s));
+        if (!observers_.empty())
+            postToAllObservers<Posted>(std::move(s));
     }
 
     void onLeave(SessionDetails s) override
     {
         struct Posted
         {
-            RealmObserver::Ptr o;
+            RealmObserver::WeakPtr observer;
             SessionDetails s;
-            void operator()() {o->onLeave(std::move(s));}
+
+            void operator()()
+            {
+                auto o = observer.lock();
+                if (o)
+                    o->onLeave(std::move(s));
+            }
         };
 
-        publish(Pub{"wamp.session.on_leave"}.withArgs(s.authInfo.sessionId(),
-                                                      s.authInfo.id(),
-                                                      s.authInfo.role()));
+        if (metaApiEnabled_)
+            publish(Pub{"wamp.session.on_leave"}
+                        .withArgs(s.authInfo.sessionId(),
+                                  s.authInfo.id(),
+                                  s.authInfo.role()));
 
-        if (observer_)
-            postToObserver<Posted>(std::move(s));
+        if (!observers_.empty())
+            postToAllObservers<Posted>(std::move(s));
     }
 
     void onRegister(SessionDetails s, RegistrationDetails r) override
     {
         struct Posted
         {
-            RealmObserver::Ptr o;
+            RealmObserver::WeakPtr observer;
             SessionDetails s;
             RegistrationDetails r;
-            void operator()() {o->onRegister(std::move(s), std::move(r));}
+
+            void operator()()
+            {
+                auto o = observer.lock();
+                if (o)
+                    o->onRegister(std::move(s), std::move(r));
+            }
         };
 
-        auto sid = s.authInfo.sessionId();
-
-        if (r.callees.size() == 1)
+        if (metaApiEnabled_)
         {
-            publish(Pub{"wamp.registration.on_create"}
+            auto sid = s.authInfo.sessionId();
+
+            if (r.callees.size() == 1)
+            {
+                publish(Pub{"wamp.registration.on_create"}
+                            .withArgs(sid, toObject(r)));
+            }
+
+            publish(Pub{"wamp.registration.on_register"}
                         .withArgs(sid, toObject(r)));
         }
 
-        publish(Pub{"wamp.registration.on_register"}
-                    .withArgs(sid, toObject(r)));
-
-        if (observer_)
-            postToObserver<Posted>(std::move(s), std::move(r));
+        if (!observers_.empty())
+            postToAllObservers<Posted>(std::move(s), std::move(r));
     }
 
     void onUnregister(SessionDetails s, RegistrationDetails r) override
     {
         struct Posted
         {
-            RealmObserver::Ptr o;
+            RealmObserver::WeakPtr observer;
             SessionDetails s;
             RegistrationDetails r;
-            void operator()() {o->onUnregister(std::move(s), std::move(r));}
+
+            void operator()()
+            {
+                auto o = observer.lock();
+                if (o)
+                    o->onUnregister(std::move(s), std::move(r));
+            }
         };
 
-        auto sid = s.authInfo.sessionId();
-        publish(Pub{"wamp.registration.on_unregister"}
-                    .withArgs(sid, r.info.id));
-
-        if (r.callees.empty())
+        if (metaApiEnabled_)
         {
-            publish(Pub{"wamp.registration.on_delete"}
+            auto sid = s.authInfo.sessionId();
+            publish(Pub{"wamp.registration.on_unregister"}
                         .withArgs(sid, r.info.id));
+
+            if (r.callees.empty())
+            {
+                publish(Pub{"wamp.registration.on_delete"}
+                            .withArgs(sid, r.info.id));
+            }
         }
 
-        if (observer_)
-            postToObserver<Posted>(std::move(s), std::move(r));
+        if (!observers_.empty())
+            postToAllObservers<Posted>(std::move(s), std::move(r));
     }
 
     void onSubscribe(SessionDetails s, SubscriptionDetails sub) override
     {
         struct Posted
         {
-            RealmObserver::Ptr o;
+            RealmObserver::WeakPtr observer;
             SessionDetails s;
             SubscriptionDetails sub;
-            void operator()() {o->onSubscribe(std::move(s), std::move(sub));}
+
+            void operator()()
+            {
+                auto o = observer.lock();
+                if (o)
+                    o->onSubscribe(std::move(s), std::move(sub));
+            }
         };
 
-        auto sid = s.authInfo.sessionId();
-
-        if (sub.subscribers.size() == 1)
+        if (metaApiEnabled_)
         {
-            publish(Pub{"wamp.subscription.on_create"}
+            auto sid = s.authInfo.sessionId();
+
+            if (sub.subscribers.size() == 1)
+            {
+                publish(Pub{"wamp.subscription.on_create"}
+                            .withArgs(sid, toObject(sub)));
+            }
+
+            publish(Pub{"wamp.subscription.on_subscribe"}
                         .withArgs(sid, toObject(sub)));
         }
 
-        publish(Pub{"wamp.subscription.on_subscribe"}
-                    .withArgs(sid, toObject(sub)));
-
-        if (observer_)
-            postToObserver<Posted>(std::move(s), std::move(sub));
+        if (!observers_.empty())
+            postToAllObservers<Posted>(std::move(s), std::move(sub));
     }
 
     void onUnsubscribe(SessionDetails s, SubscriptionDetails sub) override
     {
         struct Posted
         {
-            RealmObserver::Ptr o;
+            RealmObserver::WeakPtr observer;
             SessionDetails s;
             SubscriptionDetails sub;
-            void operator()() {o->onUnsubscribe(std::move(s), std::move(sub));}
+
+            void operator()()
+            {
+                auto o = observer.lock();
+                if (o)
+                    o->onUnsubscribe(std::move(s), std::move(sub));
+            }
         };
 
-        auto sid = s.authInfo.sessionId();
-        publish(Pub{"wamp.subscription.on_unsubscribe"}
-                    .withArgs(sid, sub.info.id));
-
-        if (sub.subscribers.empty())
+        if (metaApiEnabled_)
         {
-            publish(Pub{"wamp.subscription.on_delete"}
+            auto sid = s.authInfo.sessionId();
+            publish(Pub{"wamp.subscription.on_unsubscribe"}
                         .withArgs(sid, sub.info.id));
+
+            if (sub.subscribers.empty())
+            {
+                publish(Pub{"wamp.subscription.on_delete"}
+                            .withArgs(sid, sub.info.id));
+            }
         }
 
-        if (observer_)
-            postToObserver<Posted>(std::move(s), std::move(sub));
+        if (!observers_.empty())
+            postToAllObservers<Posted>(std::move(s), std::move(sub));
     }
 
 private:
+    struct ObserverRecord
+    {
+        RealmObserver::WeakPtr observer;
+        ObserverExecutor executor;
+    };
+
+    void safelyRemoveObserver(ObserverId id)
+    {
+        auto self = std::static_pointer_cast<MetaTopics>(shared_from_this());
+        boost::asio::dispatch(strand_,
+                              [id, self]() {self->observers_.erase(id);});
+    }
+
     void publish(Pub& pub) {context_.publishMetaEvent(std::move(pub));}
 
     template <typename TPosted, typename... Ts>
-    void postToObserver(Ts&&... args)
+    void postToAllObservers(Ts&&... args)
     {
-        TPosted posted{observer_, std::forward<Ts>(args)...};
-
-        if (observerExecutor_)
+        TPosted posted{{}, std::forward<Ts>(args)...};
+        for (auto& kv: observers_)
         {
-            boost::asio::post(executor_, bind_executor(observerExecutor_,
-                                                       std::move(posted)));
-        }
-        else
-        {
-            boost::asio::post(executor_, std::move(posted));
+            auto& record = kv.second;
+            posted.observer = record.observer;
+            if (record.executor)
+            {
+                boost::asio::post(executor_,
+                                  bind_executor(record.executor, posted));
+            }
+            else
+            {
+                boost::asio::post(executor_, posted);
+            }
         }
     }
 
     Executor executor_;
-    ObserverExecutor observerExecutor_;
-    RealmObserver::Ptr observer_;
-    Context& context_;
+    IoStrand strand_;
+    std::map<ObserverId, ObserverRecord> observers_;
+    MetaPublisher& context_;
+    ObserverId nextObserverId_ = 0;
+    bool metaApiEnabled_ = false;
 };
 
 } // namespace internal

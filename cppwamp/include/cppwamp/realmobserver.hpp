@@ -13,10 +13,14 @@
 //------------------------------------------------------------------------------
 
 #include <chrono>
+#include <functional>
+#include <memory>
+#include <mutex>
 #include "api.hpp"
 #include "authinfo.hpp"
 #include "features.hpp"
 #include "pubsubinfo.hpp"
+#include "internal/passkey.hpp"
 
 namespace wamp
 {
@@ -168,6 +172,7 @@ CPPWAMP_API Object toObject(const SubscriptionLists& lists);
 
 //------------------------------------------------------------------------------
 class CPPWAMP_API RealmObserver
+    : public std::enable_shared_from_this<RealmObserver>
 {
 public:
     // TODO: Bit mask for events of interest
@@ -176,6 +181,10 @@ public:
     using WeakPtr = std::weak_ptr<RealmObserver>;
 
     virtual ~RealmObserver();
+
+    bool attached() const;
+
+    void detach();
 
     virtual void onRealmClosed(Uri);
 
@@ -190,6 +199,15 @@ public:
     virtual void onSubscribe(SessionDetails, SubscriptionDetails);
 
     virtual void onUnsubscribe(SessionDetails, SubscriptionDetails);
+
+private:
+    using Detacher = std::function<void ()>;
+
+    std::function<void ()> detacher_;
+    std::mutex detacherMutex_;
+
+public: // Internal use only
+    void attach(internal::PassKey, Detacher f);
 };
 
 } // namespace wamp

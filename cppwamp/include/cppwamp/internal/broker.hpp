@@ -14,11 +14,11 @@
 #include <utility>
 #include "../errorcodes.hpp"
 #include "../erroror.hpp"
-#include "../realmobserver.hpp"
 #include "../routerconfig.hpp"
 #include "../utils/triemap.hpp"
 #include "../utils/wildcarduri.hpp"
 #include "matchuri.hpp"
+#include "metaapi.hpp"
 #include "random.hpp"
 #include "routersession.hpp"
 
@@ -534,10 +534,12 @@ public:
 class Broker
 {
 public:
-    Broker(RandomNumberGenerator64 prng) : pubIdGenerator_(prng) {}
+    Broker(RandomNumberGenerator64 prng, MetaTopics::Ptr metaTopics)
+        : pubIdGenerator_(prng),
+          metaTopics_(std::move(metaTopics))
+    {}
 
-    ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t,
-                                      RealmObserver::Ptr observer)
+    ErrorOr<SubscriptionId> subscribe(RouterSession::Ptr subscriber, Topic&& t)
     {
         BrokerSubscribeRequest req{std::move(t), subscriber, subscriptions_,
                                    subIdGenerator_};
@@ -559,14 +561,14 @@ public:
         }
         }
 
-        if (observer)
-            observer->onSubscribe(subscriber->details(), sub->details());
+        if (metaTopics_->enabled())
+            metaTopics_->onSubscribe(subscriber->details(), sub->details());
 
         return sub->subscriptionId();
     }
 
     ErrorOr<Uri> unsubscribe(RouterSession::Ptr subscriber,
-                             SubscriptionId subId, RealmObserver::Ptr observer)
+                             SubscriptionId subId)
     {
         auto found = subscriptions_.find(subId);
         if (found == subscriptions_.end())
@@ -582,7 +584,7 @@ public:
             return makeUnexpectedError(WampErrc::noSuchSubscription);
         }
 
-        if (observer)
+        if (metaTopics_->enabled())
         {
             if (record.empty())
             {
@@ -590,13 +592,13 @@ public:
                 // erased from the map.
                 auto details = record.details();
                 eraseTopic(record.topic(), found);
-                observer->onUnsubscribe(subscriber->details(),
-                                        std::move(details));
+                metaTopics_->onUnsubscribe(subscriber->details(),
+                                           std::move(details));
             }
             else
             {
-                observer->onUnsubscribe(subscriber->details(),
-                                        record.details());
+                metaTopics_->onUnsubscribe(subscriber->details(),
+                                           record.details());
             }
         }
         else if (record.empty())
@@ -751,6 +753,7 @@ private:
     BrokerWildcardTopicMap byWildcard_;
     BrokerSubscriptionIdGenerator subIdGenerator_;
     RandomEphemeralIdGenerator pubIdGenerator_;
+    MetaTopics::Ptr metaTopics_;
 };
 
 } // namespace internal

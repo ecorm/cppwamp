@@ -88,8 +88,6 @@ public:
 
     void observe(RealmObserver::Ptr o, AnyCompletionExecutor e);
 
-    void unobserve();
-
     template <typename C>
     CPPWAMP_NODISCARD Deduced<std::size_t, C>
     countSessions(C&& completion);
