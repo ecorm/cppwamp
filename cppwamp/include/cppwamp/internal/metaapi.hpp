@@ -429,9 +429,6 @@ public:
                     me->safelyRemoveObserver(id);
             });
 
-        if (e == ObserverExecutor(executor_))
-            e = nullptr;
-
         observers_.emplace(id, ObserverRecord{o, std::move(e)});
     }
 
@@ -664,15 +661,8 @@ private:
         {
             auto& record = kv.second;
             posted.observer = record.observer;
-            if (record.executor)
-            {
-                boost::asio::post(executor_,
-                                  bind_executor(record.executor, posted));
-            }
-            else
-            {
-                boost::asio::post(executor_, posted);
-            }
+            boost::asio::post(executor_,
+                              bind_executor(record.executor, posted));
         }
     }
 
