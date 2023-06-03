@@ -63,12 +63,6 @@ struct RouterFixture::Impl
           thread_([this](){run();})
     {}
 
-    ~Impl()
-    {
-        router_.close();
-        thread_.join();
-    }
-
     AccessLogGuard attachToAccessLog(AccessLogHandler handler)
     {
         accessLogHandler_ = std::move(handler);
@@ -78,6 +72,12 @@ struct RouterFixture::Impl
     void detachFromAccessLog() {accessLogHandler_ = nullptr;}
 
     wamp::Router& router() {return router_;}
+
+    void stop()
+    {
+        router_.close();
+        thread_.join();
+    }
 
 private:
     using Logger = wamp::utils::LogSequencer;
@@ -124,6 +124,7 @@ private:
             router_.openServer(tcpTicketConfig());
             router_.openServer(udsConfig());
             ioctx_.run();
+            while (false) {};
         }
         catch (const std::exception& e)
         {
@@ -174,7 +175,7 @@ void RouterFixture::start()
 void RouterFixture::stop()
 {
     std::cout << "Shutting down router..." << std::endl;
-    impl_.reset();
+    impl_->stop();
     std::cout << "Router stopped" << std::endl;
 }
 

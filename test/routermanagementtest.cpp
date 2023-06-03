@@ -7,6 +7,7 @@
 #if defined(CPPWAMP_TEST_HAS_CORO)
 
 #include <catch2/catch.hpp>
+#include <boost/asio/executor_work_guard.hpp>
 #include <cppwamp/asiodefs.hpp>
 #include <cppwamp/json.hpp>
 #include <cppwamp/session.hpp>
@@ -242,7 +243,7 @@ TEST_CASE( "Router realm session events", "[WAMP][Router]" )
 }
 
 //------------------------------------------------------------------------------
-TEST_CASE( "Router realm session management", "[WAMP][Router]" )
+TEST_CASE( "Router realm session management", "[WAMP][Router][thisone]" )
 {
     if (!test::RouterFixture::enabled())
         return;
@@ -253,11 +254,12 @@ TEST_CASE( "Router realm session management", "[WAMP][Router]" )
 
     using SessionIdList = std::vector<SessionId>;
     IoContext ioctx;
+    auto guard = make_work_guard(ioctx);
+    Session s1{ioctx};
+    Session s2{ioctx};
 
-    spawn(ioctx, [&theRouter, &ioctx](YieldContext yield)
+    spawn(ioctx, [&](YieldContext yield)
     {
-        Session s1{ioctx};
-        Session s2{ioctx};
         Welcome w1;
         Welcome w2;
 
@@ -324,9 +326,11 @@ TEST_CASE( "Router realm session management", "[WAMP][Router]" )
 
         s2.disconnect();
         s1.disconnect();
+        guard.reset();
     });
 
     ioctx.run();
+    std::cout << __FILE__ << ":" << __LINE__ << std::endl;
 }
 
 #endif // defined(CPPWAMP_TEST_HAS_CORO)
